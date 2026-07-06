@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "project": "tecmo-basketball-native-port",
+  "purpose": "Track small, testable native-port increments without committing ROMs, ASM, extracted assets, or generated proprietary data.",
+  "repo_policy": {
+    "commit_allowed": [
+      "portable C source",
+      "platform backends",
+      "build scripts",
+      "documentation",
+      "test manifests",
+      "debug tooling that reads local private data"
+    ],
+    "commit_forbidden": [
+      "ROM files",
+      "reverse-engineered ASM dumps",
+      "lifted decompilation chunks",
+      "extracted CHR or PRG bytes",
+      "generated roster data derived from the game",
+      "tile sheet PNGs derived from the game",
+      "audio or other extracted original assets",
+      "absolute private local paths"
+    ],
+    "local_data_boundary": "Use --root or TECMO_DECOMP_ROOT to point at a private local decompilation workspace. Keep that workspace outside this repository."
+  },
+  "current_runtime": {
+    "entry_command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --play",
+    "backend": "win32 software framebuffer",
+    "game_core": "portable C runtime state plus explicit memory arenas",
+    "asset_mode": "local development read-only scan/export tools; no committed proprietary data",
+    "known_status": "prototype launcher/menu, roster viewer, play setup, court placeholder"
+  },
+  "quick_launch_points": [
+    {
+      "id": "launcher_menu",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --play",
+      "description": "Starts at the native launcher main menu.",
+      "expected_screen": "Top-level menu with Play Game, Rosters, Quit."
+    },
+    {
+      "id": "render_menu",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode menu build\\menu_test.png",
+      "description": "Renders the launcher menu to a PNG for screenshot QA.",
+      "expected_artifact": "build/menu_test.png"
+    },
+    {
+      "id": "render_rosters",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode rosters build\\rosters_test.png",
+      "description": "Renders the roster browser to a PNG for screenshot QA.",
+      "expected_artifact": "build/rosters_test.png"
+    },
+    {
+      "id": "render_play_setup",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode play build\\play_setup_test.png",
+      "description": "Renders the play setup screen to a PNG for screenshot QA.",
+      "expected_artifact": "build/play_setup_test.png"
+    },
+    {
+      "id": "original_title_screen",
+      "status": "planned",
+      "command": "not implemented",
+      "description": "First real original-game screen target after CHR/layout mapping.",
+      "expected_screen": "Original title/menu presentation reconstructed from local data."
+    }
+  ],
+  "debug_overlay": {
+    "status": "planned",
+    "toggle_key": "F3",
+    "fields": [
+      "mode",
+      "frame_counter",
+      "selected_menu_item",
+      "selected_team",
+      "selected_player",
+      "permanent_arena_used",
+      "transient_arena_used",
+      "cpu_ram_watch_0000_000F",
+      "fps_estimate"
+    ],
+    "rules": [
+      "Overlay must be runtime-only and must not dump proprietary source data.",
+      "Overlay values should be derived from native runtime state and local debug counters.",
+      "Screenshot tests should include one overlay-on frame once implemented."
+    ]
+  },
+  "screenshot_tests": [
+    {
+      "id": "shot_menu_default",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode menu build\\menu_test.png",
+      "assertions": [
+        "PNG exists",
+        "PNG dimensions are 640x480",
+        "Play Game row is highlighted",
+        "No local decomp path appears on screen"
+      ]
+    },
+    {
+      "id": "shot_rosters_default",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode rosters build\\rosters_test.png",
+      "assertions": [
+        "PNG exists",
+        "PNG dimensions are 640x480",
+        "Rosters heading appears",
+        "A team roster list is visible"
+      ]
+    },
+    {
+      "id": "shot_play_setup_default",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode play build\\play_setup_test.png",
+      "assertions": [
+        "PNG exists",
+        "PNG dimensions are 640x480",
+        "Play Game Setup heading appears",
+        "Enter starts the court prototype"
+      ]
+    }
+  ],
+  "memory_budgets": {
+    "permanent_arena_bytes": 16777216,
+    "transient_arena_bytes": 16777216,
+    "software_framebuffer_bytes_640x480_rgba": 1228800,
+    "nes_cpu_ram_shape_bytes": 2048,
+    "nes_ppu_vram_shape_bytes": 2048,
+    "oam_shape_bytes": 256,
+    "palette_ram_shape_bytes": 32,
+    "rules": [
+      "No per-frame heap allocations in gameplay update/render paths.",
+      "Use transient arena for temporary frame work and reset it deliberately.",
+      "Report arena high-water marks once debug overlay is implemented."
+    ]
+  },
+  "incremental_milestones": [
+    {
+      "id": "M001",
+      "status": "complete",
+      "title": "Clean public tooling repo",
+      "done_when": "Repo builds and contains no ASM, ROM, extracted assets, or generated game data."
+    },
+    {
+      "id": "M002",
+      "status": "complete",
+      "title": "Prototype launcher and roster flow",
+      "done_when": "Native window launches, menu flows to Play Game and Rosters, screenshot tests render."
+    },
+    {
+      "id": "M003",
+      "status": "next",
+      "title": "Debug overlay and runtime counters",
+      "done_when": "F3 toggles overlay; overlay shows mode, frame, arena use, selected team/player, and watched RAM bytes."
+    },
+    {
+      "id": "M004",
+      "status": "planned",
+      "title": "Automated screenshot test runner",
+      "done_when": "A single command renders all declared screenshot tests and validates dimensions/files."
+    },
+    {
+      "id": "M005",
+      "status": "planned",
+      "title": "Original title/menu render investigation",
+      "done_when": "Local-only tooling identifies CHR/layout sources needed to render the first original menu screen."
+    },
+    {
+      "id": "M006",
+      "status": "planned",
+      "title": "First original-screen renderer",
+      "done_when": "A quick launch renders the first original-game title/menu screen from local private data."
+    }
+  ],
+  "next_engineering_step": {
+    "id": "M003",
+    "title": "Implement debug overlay and counters",
+    "notes": [
+      "Add F3 key handling to TecmoInput.",
+      "Track arena usage and frame count in TecmoRuntime.",
+      "Render overlay text in upper-left or lower-left without blocking menu navigation.",
+      "Add --render-test-mode menu-overlay once overlay is implemented."
+    ]
+  }
+}

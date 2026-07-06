@@ -123,3 +123,13 @@ The current runtime separates:
 - `win32_platform.c`: temporary Windows window/input/presentation layer
 
 That gives us a place to port mechanics without letting platform code leak into gameplay code.
+
+## Iteration Manifest
+
+Small native-port steps are tracked in:
+
+```text
+port_iteration.json
+```
+
+That file lists quick launch points, screenshot tests, planned debug overlay fields, memory budgets, and near-term milestones. It is intentionally safe to commit: it must not contain ROM paths, ASM, extracted bytes, generated roster data, or private local paths.
