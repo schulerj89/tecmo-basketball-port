@@ -54,6 +54,8 @@ $env:TECMO_DECOMP_ROOT='C:\Users\joshs\Projects\disassem\tecmo-basketball-decomp
 .\build\tecmo_port.exe --chunks
 .\build\tecmo_port.exe --roster CHICAGO
 .\build\tecmo_port.exe --assets
+.\build\tecmo_port.exe --play
+.\build\tecmo_port.exe --render-test build\play_test.png
 ```
 
 Local-only generated outputs:
@@ -72,5 +74,24 @@ Those generated outputs are ignored by Git and should stay local.
 - Count lifted chunks and labels
 - Parse local Bank 02 roster labels into C-friendly records
 - Export local CHR bytes and grayscale tile sheet PNGs for private inspection
+- Run a native Win32 playable prototype with explicit memory arenas and roster-driven team/player selection
 
-This is not a playable game port yet. The next clean step is to translate verified, non-asset logic into portable C modules while keeping all proprietary data outside the public repository.
+The current playable mode is a native prototype, not a full recreation of the original game. It establishes the frame loop, input path, memory model, and data-loading boundary that future translated gameplay systems can plug into.
+
+## Native Runtime Direction
+
+This project is not embedding a NES CPU emulator. The intended path is a native port:
+
+- translate verified routines into portable C modules
+- keep proprietary data outside the public repo
+- load private/local extracted data only at development time
+- replace NES hardware dependencies with explicit platform layers
+
+The current runtime separates:
+
+- `TecmoGameMemory`: permanent/transient arenas plus NES-shaped RAM buffers for ported systems that still need mirrored RAM semantics
+- `TecmoRuntime`: game state, roster selection, court prototype state, and deterministic frame update
+- `TecmoFramebuffer`: platform-neutral software framebuffer consumed by the Win32 backend
+- `win32_platform.c`: temporary Windows window/input/presentation layer
+
+That gives us a place to port mechanics without letting platform code leak into gameplay code.

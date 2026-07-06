@@ -23,7 +23,16 @@ if (!(Test-Path $VcVars)) {
 
 $ExePath = Join-Path $BuildDir "tecmo_port.exe"
 $ObjPrefix = $ObjDir.TrimEnd("\") + "\"
-$Command = "call `"$VcVars`" >nul && cd /d `"$Root`" && cl /nologo /std:c11 /W4 /I include /Fo:$ObjPrefix /Fe:`"$ExePath`" src\main.c src\asm_inventory.c src\png_writer.c"
+$Sources = @(
+    "src\main.c",
+    "src\asm_inventory.c",
+    "src\png_writer.c",
+    "src\tecmo_memory.c",
+    "src\tecmo_game.c",
+    "src\win32_platform.c"
+)
+$SourceArgs = $Sources -join " "
+$Command = "call `"$VcVars`" >nul && cd /d `"$Root`" && cl /nologo /std:c11 /W4 /I include /Fo:$ObjPrefix /Fe:`"$ExePath`" $SourceArgs user32.lib gdi32.lib"
 
 & cmd.exe /d /c $Command
 if ($LASTEXITCODE -ne 0) {

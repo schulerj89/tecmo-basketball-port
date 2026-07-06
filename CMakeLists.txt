@@ -6,7 +6,14 @@ add_executable(tecmo_port
     src/main.c
     src/asm_inventory.c
     src/png_writer.c
+    src/tecmo_game.c
+    src/tecmo_memory.c
 )
+
+if(WIN32)
+    target_sources(tecmo_port PRIVATE src/win32_platform.c)
+    target_link_libraries(tecmo_port PRIVATE user32 gdi32)
+endif()
 
 target_include_directories(tecmo_port PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include

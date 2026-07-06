@@ -1,4 +1,6 @@
 #include "asm_inventory.h"
+#include "png_writer.h"
+#include "tecmo_game.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,6 +17,8 @@ static void print_usage(const char *program)
     printf("  --chunks                Count lifted chunks by bank and show sample chunk summaries\n");
     printf("  --assets                Analyze raw CHR bytes in build\\baseline\\Tiles.asm\n");
     printf("  --roster [TEAM|--all]   Parse labeled Bank 02 roster records\n");
+    printf("  --play                  Launch native playable prototype window\n");
+    printf("  --render-test PATH      Render first playable frame to a PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -68,6 +72,77 @@ int main(int argc, char **argv)
         const char *team = index < argc ? argv[index] : "CHICAGO";
         tecmo_print_roster(root, team);
         return 0;
+    }
+
+    if (strcmp(command, "--play") == 0) {
+#ifdef _WIN32
+        return tecmo_run_win32_game(root);
+#else
+        printf("--play currently has a Win32 backend only. The game core is platform-neutral.\n");
+        return 1;
+#endif
+    }
+
+    if (strcmp(command, "--render-test") == 0) {
+        const int width = 640;
+        const int height = 480;
+        const size_t permanent_size = 16U * 1024U * 1024U;
+        const size_t transient_size = 16U * 1024U * 1024U;
+        const char *out_path = index < argc ? argv[index] : "build\\play_test.png";
+        TecmoGameMemory memory;
+        TecmoRuntime runtime;
+        TecmoFramebuffer framebuffer;
+        uint32_t *pixels;
+        uint8_t *rgba;
+        void *permanent_block;
+        void *transient_block;
+        int result = 1;
+
+        memset(&memory, 0, sizeof(memory));
+        permanent_block = malloc(permanent_size);
+        transient_block = malloc(transient_size);
+        pixels = (uint32_t *)malloc((size_t)width * (size_t)height * sizeof(uint32_t));
+        rgba = (uint8_t *)malloc((size_t)width * (size_t)height * 4U);
+        if (permanent_block == NULL || transient_block == NULL || pixels == NULL || rgba == NULL) {
+            printf("Failed to allocate render-test memory.\n");
+            free(permanent_block);
+            free(transient_block);
+            free(pixels);
+            free(rgba);
+            return 1;
+        }
+
+        tecmo_arena_init(&memory.permanent, permanent_block, permanent_size);
+        tecmo_arena_init(&memory.transient, transient_block, transient_size);
+        if (!tecmo_runtime_init(&runtime, &memory, root)) {
+            printf("Failed to initialize runtime from %s\n", root);
+        } else {
+            framebuffer.pixels = pixels;
+            framebuffer.width = width;
+            framebuffer.height = height;
+            framebuffer.pitch_pixels = width;
+            tecmo_runtime_render(&runtime, &framebuffer);
+            for (size_t i = 0; i < (size_t)width * (size_t)height; ++i) {
+                uint32_t pixel = pixels[i];
+                rgba[i * 4U + 0U] = (uint8_t)((pixel >> 16U) & 0xFFU);
+                rgba[i * 4U + 1U] = (uint8_t)((pixel >> 8U) & 0xFFU);
+                rgba[i * 4U + 2U] = (uint8_t)(pixel & 0xFFU);
+                rgba[i * 4U + 3U] = (uint8_t)((pixel >> 24U) & 0xFFU);
+            }
+            if (png_write_rgba8(out_path, rgba, width, height) == 0) {
+                printf("Rendered playable frame to %s\n", out_path);
+                result = 0;
+            } else {
+                printf("Failed to write %s\n", out_path);
+            }
+            tecmo_runtime_shutdown(&runtime);
+        }
+
+        free(permanent_block);
+        free(transient_block);
+        free(pixels);
+        free(rgba);
+        return result;
     }
 
     if (strcmp(command, "--generate-rosters") == 0) {
