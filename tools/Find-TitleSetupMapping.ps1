@@ -546,19 +546,75 @@ function New-PaletteProbeSummary {
     }
 }
 
+function New-FixedVectorSummary {
+    param([hashtable]$Map)
+
+    $KnownFixedTargets = @(0xC000, 0xC009, 0xC054, 0xC05A, 0xC06F)
+    $EntryCount = 0
+    $JmpEntryCount = 0
+    $ResolvedTargetCount = 0
+    $EntryPpuWriteCount = 0
+    $MinTarget = $null
+    $MaxTarget = $null
+
+    foreach ($Entry in $KnownFixedTargets) {
+        ++$EntryCount
+        $Opcode = Get-MapByte -Map $Map -Address $Entry
+        if ($Opcode -eq 0x4C) {
+            $Lo = Get-MapByte -Map $Map -Address ($Entry + 1)
+            $Hi = Get-MapByte -Map $Map -Address ($Entry + 2)
+            $Target = ($Hi -shl 8) -bor $Lo
+            ++$JmpEntryCount
+            ++$ResolvedTargetCount
+            if ($null -eq $MinTarget -or $Target -lt $MinTarget) {
+                $MinTarget = $Target
+            }
+            if ($null -eq $MaxTarget -or $Target -gt $MaxTarget) {
+                $MaxTarget = $Target
+            }
+        } elseif (($Opcode -eq 0x8C -or $Opcode -eq 0x8D -or $Opcode -eq 0x8E) -and
+            $Entry + 2 -le 0xFFFF) {
+            $Lo = Get-MapByte -Map $Map -Address ($Entry + 1)
+            $Hi = Get-MapByte -Map $Map -Address ($Entry + 2)
+            $Target = ($Hi -shl 8) -bor $Lo
+            if ($Target -eq 0x2006 -or $Target -eq 0x2007) {
+                ++$EntryPpuWriteCount
+            }
+        }
+    }
+
+    return [pscustomobject]@{
+        status = "fixed helper targets used by title setup resolve through fixed-bank jump entries; helper bodies remain a separate native-port task"
+        entry_count = $EntryCount
+        jmp_entry_count = $JmpEntryCount
+        resolved_target_count = $ResolvedTargetCount
+        entry_direct_ppu_write_count = $EntryPpuWriteCount
+        resolved_target_min = if ($null -ne $MinTarget) { Format-HexWord $MinTarget } else { $null }
+        resolved_target_max = if ($null -ne $MaxTarget) { Format-HexWord $MaxTarget } else { $null }
+        entry_code_bytes_included = $false
+        helper_body_bytes_included = $false
+        helper_body_decode_pending = $true
+    }
+}
+
 $LocalDecompRoot = Find-LocalDecompRoot
 if (!$LocalDecompRoot) {
     throw "Could not find a local decomp root. Pass -DecompRoot or set TECMO_DECOMP_ROOT."
 }
 
 $Bank04Path = Join-Path $LocalDecompRoot "build\baseline\Tecmo_04.asm"
-if (!(Test-Path $Bank04Path)) {
-    throw "Required local file not found: $Bank04Path"
+$Bank07Path = Join-Path $LocalDecompRoot "build\baseline\Tecmo_07.asm"
+foreach ($RequiredPath in @($Bank04Path, $Bank07Path)) {
+    if (!(Test-Path $RequiredPath)) {
+        throw "Required local file not found: $RequiredPath"
+    }
 }
 
 $Bank04 = Read-BankedByteMap -Path $Bank04Path -BankIndex 4 -CpuBase 0x8000
+$Bank07 = Read-BankedByteMap -Path $Bank07Path -BankIndex 7 -CpuBase 0xC000
 $FixedHelperSummary = New-FixedHelperEffectSummary -Map $Bank04
 $PaletteProbeSummary = New-PaletteProbeSummary -Map $Bank04 -FixedHelperCandidateCount $FixedHelperSummary.fixed_call_invocations
+$FixedVectorSummary = New-FixedVectorSummary -Map $Bank07
 $TableRefs = @(
     (New-TableRef -Name "selector_remap_ba88" -Start 0xBA88 -Count 13 -Role "selector remap used by adjacent setup driver"),
     (New-TableRef -Name "target_ptr_lo_b317" -Start 0xB317 -Count 5 -Role "low-byte pointer table selected through selector_remap_ba88"),
@@ -607,15 +663,16 @@ $Report = [pscustomobject]@{
     }
     stream_decode_summary = New-StreamDecodeSummary -Map $Bank04
     fixed_helper_effect_summary = $FixedHelperSummary
+    fixed_vector_summary = $FixedVectorSummary
     palette_probe_summary = $PaletteProbeSummary
     table_references = $TableRefs
     unresolved_gates = @(
-        'Expand fixed helper aggregate categories into explicit native pattern-table/VRAM staging operations where needed.',
+        'Decode resolved fixed helper bodies into explicit native pattern-table/VRAM staging operations where needed.',
         "Identify which adjacent stream/table path supplies title pattern-table or nametable data for the first visible title screen.",
-        "Decode the fixed-helper/queued PPU path that initializes palette RAM for the title path."
+        "Decode the resolved fixed-helper/queued PPU path that initializes palette RAM for the title path."
     )
     next_steps = @(
-        "Add native structs for fixed helper side effects.",
+        "Add native structs for resolved fixed helper side effects.",
         "Promote original-title-chr from raw CHR diagnostic once pattern/palette state is modeled."
     )
 }
@@ -635,9 +692,11 @@ $Report | ConvertTo-Json -Depth 8 | Set-Content -Path $ReportPath -Encoding ASCI
     staging_records = $Report.stream_decode_summary.native_staging_summary.record_count
     staging_bytes = $Report.stream_decode_summary.native_staging_summary.staged_bytes_written
     fixed_helper_calls = $Report.fixed_helper_effect_summary.fixed_call_invocations
+    fixed_vector_jmps = "$($Report.fixed_vector_summary.jmp_entry_count)/$($Report.fixed_vector_summary.entry_count)"
+    fixed_vector_span = "$($Report.fixed_vector_summary.resolved_target_min)-$($Report.fixed_vector_summary.resolved_target_max)"
     wait_request_total = $Report.fixed_helper_effect_summary.wait_request_total
     palette_direct_ppu_writes = $Report.palette_probe_summary.direct_ppu_addr_write_count + $Report.palette_probe_summary.direct_ppu_data_write_count
     palette_queue_pending = $Report.palette_probe_summary.queue_decode_pending
     table_refs = @($Report.table_references).Count
-    next_gate = "Decode fixed-helper palette/PPU queue"
+    next_gate = "Decode resolved helper palette/PPU queue"
 } | Format-List

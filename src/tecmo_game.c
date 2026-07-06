@@ -31,6 +31,9 @@ static const char *mode_name(TecmoPlayMode mode)
     if (mode == TECMO_MODE_MAIN_MENU) {
         return "MAIN MENU";
     }
+    if (mode == TECMO_MODE_TITLE_SCREEN) {
+        return "TITLE SCREEN";
+    }
     if (mode == TECMO_MODE_PLAY_SETUP) {
         return "PLAY SETUP";
     }
@@ -107,6 +110,15 @@ bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const ch
         add_team_if_missing(runtime, runtime->roster.records[i].team);
     }
 
+    if (tecmo_load_original_title_glyphs(project_root, &runtime->title_glyphs) == 0 &&
+        tecmo_load_chr_data(project_root, &runtime->title_chr_bytes, &runtime->title_chr_byte_count) == 0) {
+        runtime->title_probe_available = true;
+    } else {
+        tecmo_free_buffer(runtime->title_chr_bytes);
+        runtime->title_chr_bytes = NULL;
+        runtime->title_chr_byte_count = 0;
+    }
+
     runtime->mode = TECMO_MODE_MAIN_MENU;
     runtime->frame_seconds = 1.0f / 60.0f;
     runtime->player_x = 320.0f;
@@ -118,12 +130,15 @@ bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const ch
 
 void tecmo_runtime_shutdown(TecmoRuntime *runtime)
 {
+    tecmo_free_buffer(runtime->title_chr_bytes);
+    runtime->title_chr_bytes = NULL;
+    runtime->title_chr_byte_count = 0;
     roster_table_free(&runtime->roster);
 }
 
 static void update_main_menu(TecmoRuntime *runtime, const TecmoInput *input)
 {
-    const size_t menu_count = 3;
+    const size_t menu_count = 4;
 
     if (pressed(input->up, runtime->previous_input.up) && runtime->selected_menu_item > 0) {
         --runtime->selected_menu_item;
@@ -137,12 +152,22 @@ static void update_main_menu(TecmoRuntime *runtime, const TecmoInput *input)
     }
     if (pressed(input->confirm, runtime->previous_input.confirm)) {
         if (runtime->selected_menu_item == 0) {
-            runtime->mode = TECMO_MODE_PLAY_SETUP;
+            runtime->mode = TECMO_MODE_TITLE_SCREEN;
         } else if (runtime->selected_menu_item == 1) {
+            runtime->mode = TECMO_MODE_PLAY_SETUP;
+        } else if (runtime->selected_menu_item == 2) {
             runtime->mode = TECMO_MODE_ROSTERS;
         } else {
             runtime->quit_requested = true;
         }
+    }
+}
+
+static void update_title_screen(TecmoRuntime *runtime, const TecmoInput *input)
+{
+    if (pressed(input->cancel, runtime->previous_input.cancel) ||
+        pressed(input->confirm, runtime->previous_input.confirm)) {
+        runtime->mode = TECMO_MODE_MAIN_MENU;
     }
 }
 
@@ -265,6 +290,8 @@ void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input)
 
     if (runtime->mode == TECMO_MODE_MAIN_MENU) {
         update_main_menu(runtime, input);
+    } else if (runtime->mode == TECMO_MODE_TITLE_SCREEN) {
+        update_title_screen(runtime, input);
     } else if (runtime->mode == TECMO_MODE_PLAY_SETUP) {
         update_roster_selection(runtime, input, true);
     } else if (runtime->mode == TECMO_MODE_ROSTERS) {
@@ -407,12 +434,28 @@ static void render_main_menu(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
     draw_text(fb, 34, 24, "TECMO BASKETBALL NATIVE PORT", rgb(248, 248, 232), 2);
     draw_text(fb, 74, 102, "LOCAL HOBBY PORT PROTOTYPE", rgb(144, 176, 192), 1);
 
-    draw_button(fb, 160, 150, 320, 58, "PLAY GAME", runtime->selected_menu_item == 0);
-    draw_button(fb, 160, 222, 320, 58, "ROSTERS", runtime->selected_menu_item == 1);
-    draw_button(fb, 160, 294, 320, 58, "QUIT", runtime->selected_menu_item == 2);
+    draw_button(fb, 160, 126, 320, 52, "TITLE SCREEN", runtime->selected_menu_item == 0);
+    draw_button(fb, 160, 190, 320, 52, "PLAY PROTOTYPE", runtime->selected_menu_item == 1);
+    draw_button(fb, 160, 254, 320, 52, "ROSTERS", runtime->selected_menu_item == 2);
+    draw_button(fb, 160, 318, 320, 52, "QUIT", runtime->selected_menu_item == 3);
 
     draw_text(fb, 150, 396, "UP DOWN SELECT   ENTER CONFIRM   ESC QUIT", rgb(226, 228, 208), 1);
     draw_text(fb, 82, 426, "NO ROM ASM OR EXTRACTED ASSETS ARE LOADED FROM THIS REPO", rgb(124, 148, 160), 1);
+}
+
+static void render_title_screen_mode(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+{
+    if (runtime->title_probe_available) {
+        tecmo_render_original_title_chr_probe(fb,
+                                              &runtime->title_glyphs,
+                                              runtime->title_chr_bytes,
+                                              runtime->title_chr_byte_count,
+                                              31U);
+        draw_text(fb, 22, 22, "ENTER ESC MENU", rgb(230, 232, 214), 1);
+    } else {
+        tecmo_render_original_title_probe(fb, "TITLE DATA MISSING");
+        draw_centered_text(fb, 404, "LOCAL TITLE DATA UNAVAILABLE", rgb(230, 232, 214), 1);
+    }
 }
 
 static void render_roster_browser(const TecmoRuntime *runtime, TecmoFramebuffer *fb, bool play_setup)
@@ -423,7 +466,7 @@ static void render_roster_browser(const TecmoRuntime *runtime, TecmoFramebuffer 
 
     clear(fb, rgb(16, 20, 24));
     rect(fb, 0, 0, fb->width, 48, rgb(120, 16, 24));
-    draw_text(fb, 24, 16, play_setup ? "PLAY GAME SETUP" : "ROSTERS", rgb(248, 248, 232), 2);
+    draw_text(fb, 24, 16, play_setup ? "PLAY PROTOTYPE SETUP" : "ROSTERS", rgb(248, 248, 232), 2);
 
     (void)snprintf(line, sizeof(line), "TEAM %u OF %u: %s",
                    (unsigned)(runtime->selected_team + 1U),
@@ -431,7 +474,7 @@ static void render_roster_browser(const TecmoRuntime *runtime, TecmoFramebuffer 
                    team);
     draw_text(fb, 32, 72, line, rgb(238, 238, 214), 2);
     draw_text(fb, 32, 102,
-              play_setup ? "ARROWS SELECT   ENTER START GAME   ESC MENU" : "ARROWS BROWSE ROSTERS   ESC MENU",
+              play_setup ? "ARROWS SELECT   ENTER START PROTOTYPE   ESC MENU" : "ARROWS BROWSE ROSTERS   ESC MENU",
               rgb(144, 176, 192),
               1);
 
@@ -689,16 +732,30 @@ void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
         draw_centered_text(framebuffer, 356, line, rgb(142, 174, 190), 1);
 
         if (setup->fixed_helper_summary_loaded) {
-            (void)snprintf(line,
-                           sizeof(line),
-                           "FIXED %02u/%02u WAIT %02u=%03u SEED %02u FIN %02u/%02u",
-                           (unsigned)setup->fixed_helper_unique_count,
-                           (unsigned)setup->fixed_helper_call_invocations,
-                           (unsigned)setup->fixed_wait_call_count,
-                           (unsigned)setup->fixed_wait_request_total,
-                           (unsigned)setup->fixed_staging_seed_call_count,
-                           (unsigned)setup->fixed_setup_finalize_call_count,
-                           (unsigned)setup->fixed_stream_finalize_call_count);
+            if (setup->fixed_vector_summary_loaded) {
+                (void)snprintf(line,
+                               sizeof(line),
+                               "FIXED %02u-%02u VEC %02u-%02u WAIT %03u SEED %02u FIN %02u-%02u",
+                               (unsigned)setup->fixed_helper_unique_count,
+                               (unsigned)setup->fixed_helper_call_invocations,
+                               (unsigned)setup->fixed_vector_jmp_entry_count,
+                               (unsigned)setup->fixed_vector_entry_count,
+                               (unsigned)setup->fixed_wait_request_total,
+                               (unsigned)setup->fixed_staging_seed_call_count,
+                               (unsigned)setup->fixed_setup_finalize_call_count,
+                               (unsigned)setup->fixed_stream_finalize_call_count);
+            } else {
+                (void)snprintf(line,
+                               sizeof(line),
+                               "FIXED %02u-%02u WAIT %02u=%03u SEED %02u FIN %02u-%02u",
+                               (unsigned)setup->fixed_helper_unique_count,
+                               (unsigned)setup->fixed_helper_call_invocations,
+                               (unsigned)setup->fixed_wait_call_count,
+                               (unsigned)setup->fixed_wait_request_total,
+                               (unsigned)setup->fixed_staging_seed_call_count,
+                               (unsigned)setup->fixed_setup_finalize_call_count,
+                               (unsigned)setup->fixed_stream_finalize_call_count);
+            }
             draw_centered_text(framebuffer, 374, line, rgb(142, 174, 190), 1);
         }
 
@@ -759,11 +816,12 @@ void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
         const TecmoTitleSetupSummary *setup = &glyphs->setup_summary;
         (void)snprintf(line,
                        sizeof(line),
-                       "PAL DIRECT PPU %02u/%02u HIGH %02u FIXED %02u QUEUE %s",
+                       "PAL PPU %02u-%02u HIGH %02u VEC %02u-%02u QUEUE %s",
                        (unsigned)setup->palette_direct_ppu_addr_write_count,
                        (unsigned)setup->palette_direct_ppu_data_write_count,
                        (unsigned)setup->palette_direct_high_literal_count,
-                       (unsigned)setup->palette_fixed_helper_candidate_count,
+                       (unsigned)setup->fixed_vector_jmp_entry_count,
+                       (unsigned)setup->fixed_vector_entry_count,
                        setup->palette_queue_decode_pending ? "PENDING" : "CHECK");
         draw_centered_text(framebuffer, 464, line, rgb(230, 232, 214), 1);
     } else {
@@ -775,6 +833,8 @@ void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebu
 {
     if (runtime->mode == TECMO_MODE_MAIN_MENU) {
         render_main_menu(runtime, framebuffer);
+    } else if (runtime->mode == TECMO_MODE_TITLE_SCREEN) {
+        render_title_screen_mode(runtime, framebuffer);
     } else if (runtime->mode == TECMO_MODE_PLAY_SETUP) {
         render_roster_browser(runtime, framebuffer, true);
     } else if (runtime->mode == TECMO_MODE_ROSTERS) {

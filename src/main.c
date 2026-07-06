@@ -19,7 +19,7 @@ static void print_usage(const char *program)
     printf("  --roster [TEAM|--all]   Parse labeled Bank 02 roster records\n");
     printf("  --play                  Launch native playable prototype window\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render menu, menu-overlay, rosters, play setup, original-title, or original-title-chr to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render menu, menu-overlay, title-screen, rosters, play setup, original-title, or original-title-chr to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -167,9 +167,22 @@ int main(int argc, char **argv)
                 tecmo_runtime_update(&runtime, &input);
                 memset(&input, 0, sizeof(input));
                 tecmo_runtime_update(&runtime, &input);
+                input.down = true;
+                tecmo_runtime_update(&runtime, &input);
+                memset(&input, 0, sizeof(input));
+                tecmo_runtime_update(&runtime, &input);
                 input.confirm = true;
                 tecmo_runtime_update(&runtime, &input);
             } else if (strcmp(mode_name, "play") == 0) {
+                TecmoInput input;
+                memset(&input, 0, sizeof(input));
+                input.down = true;
+                tecmo_runtime_update(&runtime, &input);
+                memset(&input, 0, sizeof(input));
+                tecmo_runtime_update(&runtime, &input);
+                input.confirm = true;
+                tecmo_runtime_update(&runtime, &input);
+            } else if (strcmp(mode_name, "title-screen") == 0) {
                 TecmoInput input;
                 memset(&input, 0, sizeof(input));
                 input.confirm = true;

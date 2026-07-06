@@ -355,7 +355,7 @@ $Report = [pscustomobject]@{
         setup_selector_0352 = "0x1F"
         setup_helper = '04:$BA16'
         update_flags_or_05b6 = "0x01"
-        status = "exact BA16 update flag is modeled; adjacent pattern/VRAM setup and fixed-helper palette queue decode still need mapping before raw CHR bank rendering is pixel-accurate"
+        status = "exact BA16 update flag is modeled; adjacent pattern/VRAM setup and resolved fixed-helper palette queue decode still need mapping before raw CHR bank rendering is pixel-accurate"
     }
     title_text_length = $TitleText.Length
     characters = $Characters
@@ -368,11 +368,11 @@ $Report = [pscustomobject]@{
         "Direct title bytes are not direct CHR tile IDs.",
         'C711 dispatch for A=0x38 resolves to Bank 06 text setup at 06:$9E50.',
         'The title glyph path maps characters through 06:$A290, uses the baseline $A273,X lookup operand, and reads four tile IDs from the 06:$AF05 table.',
-        "Raw CHR-bank probing is still not pixel-accurate until adjacent Bank 04 pattern setup and queued palette effects are modeled."
+        "Raw CHR-bank probing is still not pixel-accurate until adjacent Bank 04 pattern setup and resolved fixed-helper queued palette effects are modeled."
     )
     next_steps = @(
-        "Map the adjacent Bank 04 pattern setup tables and fixed helper effects into explicit native pattern-table/VRAM state.",
-        "Decode fixed-helper/queued PPU palette initialization and any palette animation state.",
+        "Map the adjacent Bank 04 pattern setup tables and resolved fixed helper bodies into explicit native pattern-table/VRAM state.",
+        "Decode resolved fixed-helper/queued PPU palette initialization and any palette animation state.",
         "Promote the original-title quick launch from diagnostic CHR rendering after pattern and palette state are mapped."
     )
 }
@@ -388,5 +388,5 @@ $Report | ConvertTo-Json -Depth 8 | Set-Content -Path $ReportPath -Encoding ASCI
     dispatcher = ("{0} -> bank {1} {2}" -f (Format-HexByte $DispatcherIndex), (Format-HexByte $DispatchBank), (Format-HexWord $DispatchTarget))
     report = $ReportPath
     probe = if ($ProbeWritten) { $ProbePath } else { "<skipped>" }
-    next_gate = "Decode adjacent pattern setup and fixed-helper palette queue"
+    next_gate = "Decode adjacent pattern setup and resolved helper palette queue"
 } | Format-List

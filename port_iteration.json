@@ -30,7 +30,7 @@
     "backend": "win32 software framebuffer",
     "game_core": "portable C runtime state plus explicit memory arenas",
     "asset_mode": "local development read-only scan/export tools; no committed proprietary data",
-    "known_status": "prototype launcher/menu, roster viewer, play setup, court placeholder"
+    "known_status": "prototype launcher/menu, source-backed title screen mode, roster viewer, play setup, court placeholder"
   },
   "local_desktop_shortcut": {
     "status": "active",
@@ -49,7 +49,7 @@
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --play",
       "description": "Starts at the native launcher main menu.",
-      "expected_screen": "Top-level menu with Play Game, Rosters, Quit."
+      "expected_screen": "Top-level menu with Title Screen, Play Prototype, Rosters, Quit."
     },
     {
       "id": "render_menu",
@@ -64,6 +64,13 @@
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode menu-overlay docs\\screenshots\\menu_overlay.png",
       "description": "Renders the launcher menu with debug overlay enabled to a safe committed PNG.",
       "expected_artifact": "docs/screenshots/menu_overlay.png"
+    },
+    {
+      "id": "render_title_screen_runtime",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode title-screen build\\title_screen_runtime_test.png",
+      "description": "Renders the in-app Title Screen launcher mode that can return to the menu with Enter or Esc.",
+      "expected_artifact": "build/title_screen_runtime_test.png"
     },
     {
       "id": "run_screenshot_tests",
@@ -111,8 +118,8 @@
       "id": "original_title_chr_probe",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode original-title-chr build\\original_title_chr_test.png",
-      "description": "Renders a native CHR-backed diagnostic from local title glyph mapping, local CHR data, native adjacent setup staging counts, fixed-helper aggregate counts, palette/PPU probe counts, stream-format coverage, stream effect shape, and aggregate staging coverage; palette queue contents are not yet modeled.",
-      "expected_screen": "Ignored local-only CHR glyph probe with dispatcher, native setup staging diagnostics, fixed-helper summary, palette/PPU probe summary, stream-table coverage, stream effect shape, and aggregate staging coverage."
+      "description": "Renders a native CHR-backed diagnostic from local title glyph mapping, local CHR data, native adjacent setup staging counts, fixed-helper aggregate counts, fixed-bank vector counts, palette/PPU probe counts, stream-format coverage, stream effect shape, and aggregate staging coverage; helper bodies and palette queue contents are not yet modeled.",
+      "expected_screen": "Ignored local-only CHR glyph probe with dispatcher, native setup staging diagnostics, fixed-helper summary, fixed-bank vector summary, palette/PPU probe summary, stream-table coverage, stream effect shape, and aggregate staging coverage."
     }
   ],
   "debug_overlay": {
@@ -145,7 +152,7 @@
       "assertions": [
         "PNG exists",
         "PNG dimensions are 640x480",
-        "Play Game row is highlighted",
+        "Title Screen row is highlighted",
         "No local decomp path appears on screen"
       ]
     },
@@ -159,6 +166,19 @@
         "PNG dimensions are 640x480",
         "Debug overlay is visible",
         "No local decomp path, roster names, ROM data, ASM, or extracted assets appear on screen"
+      ]
+    },
+    {
+      "id": "shot_title_screen_runtime",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode title-screen build\\title_screen_runtime_test.png",
+      "commit_safe": false,
+      "assertions": [
+        "PNG exists",
+        "PNG dimensions are 640x480",
+        "Frame is rendered through the native launcher Title Screen mode",
+        "Enter or Esc returns from this mode to the main menu at runtime",
+        "PNG remains in ignored build output"
       ]
     },
     {
@@ -181,7 +201,7 @@
       "assertions": [
         "PNG exists",
         "PNG dimensions are 640x480",
-        "Play Game Setup heading appears",
+        "Play Prototype Setup heading appears",
         "Enter starts the court prototype"
       ]
     },
@@ -208,6 +228,7 @@
         "Frame is rendered by native CHR tile decoding from local-only glyph mapping",
         "Frame shows native adjacent setup staging counts",
         "Frame shows aggregate native fixed-helper side-effect counts",
+        "Frame shows aggregate native fixed-bank vector counts",
         "Frame shows aggregate native palette/PPU probe counts",
         "Frame shows native setup stream-table coverage",
         "Frame shows native setup stream effect shape",
@@ -247,6 +268,7 @@
       "ppu_chr_and_fixed_helpers"
     ],
     "current_findings": [
+      "The native launcher now exposes a Title Screen mode before the prototype play setup; Enter or Esc returns to the launcher.",
       "Bank 04 title loop dispatches A=0x38 through fixed helper C711.",
       "C711 entry 0x38 resolves locally to Bank 06 text setup at 06:$9E50.",
       "Title characters are mapped through the Bank 06 character-to-tile helper, the baseline $A273,X lookup operand, and the 2x2 glyph tile table at 06:$AF05.",
@@ -257,6 +279,7 @@
       "The aggregate native staging pass covers 15 selected streams, 415 records, and 1660 staged writes across local staging range $0200-$0287; payload bytes are not retained.",
       "The BAA4 helper range is corrected to 04:$BAA4-$BAF0 so its fixed finalize call is included in native diagnostics.",
       "Fixed helper calls are summarized as five known helper targets, six invocations, two frame-wait calls with aggregate wait request 20, two staging seed calls, one setup finalize call, and one stream finalize call.",
+      "The five fixed helper targets used by the title setup path are verified as five fixed-bank jump entries with five resolved targets spanning 0xC419-0xF2F6; helper body decoding remains pending.",
       "The title setup palette/PPU probe checks three Bank 04 title setup ranges and finds zero direct PPU address writes, zero direct PPU data writes, and zero direct palette-address high-byte literals, leaving the fixed-helper/queued PPU path as the next palette decode gate."
     ],
     "rules": [
@@ -276,7 +299,7 @@
       "id": "M002",
       "status": "complete",
       "title": "Prototype launcher and roster flow",
-      "done_when": "Native window launches, menu flows to Play Game and Rosters, screenshot tests render."
+      "done_when": "Native window launches, menu flows to Title Screen, Play Prototype, and Rosters, screenshot tests render."
     },
     {
       "id": "M003",
@@ -313,7 +336,7 @@
     "id": "M007",
     "title": "Pixel-accurate title CHR and palette pass",
     "notes": [
-      "Expand fixed helper aggregate categories into explicit native pattern-table/VRAM staging operations where needed.",
+      "Decode resolved fixed helper bodies into explicit native pattern-table/VRAM staging operations where needed.",
       "Decode the fixed-helper/queued PPU path that initializes palette RAM and any title palette animation state.",
       "Keep extracted/generated CHR, palette, or script caches local and ignored.",
       "Continue committing only safe project UI screenshots; original-title screenshots stay under ignored build output."

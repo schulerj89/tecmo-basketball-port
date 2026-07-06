@@ -58,6 +58,7 @@ $env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
 .\build\tecmo_port.exe --render-test build\play_test.png
 .\build\tecmo_port.exe --render-test-mode menu docs\screenshots\menu_default.png
 .\build\tecmo_port.exe --render-test-mode menu-overlay build\menu_overlay_test.png
+.\build\tecmo_port.exe --render-test-mode title-screen build\title_screen_runtime_test.png
 .\build\tecmo_port.exe --render-test-mode rosters build\rosters_test.png
 .\build\tecmo_port.exe --render-test-mode play build\play_setup_test.png
 .\build\tecmo_port.exe --render-test-mode original-title build\original_title_test.png
@@ -84,7 +85,7 @@ Resolve the local-only title text to glyph/tile mapping path and write an ignore
 .\tools\Find-TitleChrMapping.ps1
 ```
 
-Map the local-only title setup ranges, helper calls, fixed-helper aggregate counts, palette/PPU probe counts, write targets, stream format/effect summary, and adjacent table references:
+Map the local-only title setup ranges, helper calls, fixed-helper aggregate counts, fixed-bank vector counts, palette/PPU probe counts, write targets, stream format/effect summary, and adjacent table references:
 
 ```powershell
 .\tools\Find-TitleSetupMapping.ps1
@@ -94,12 +95,15 @@ Prototype controls:
 
 ```text
 Main menu:
-Up/Down = choose Play Game, Rosters, or Quit
+Up/Down = choose Title Screen, Play Prototype, Rosters, or Quit
 Enter = confirm
 Esc = quit
 F3 = debug overlay
 
-Play Game:
+Title Screen:
+Enter/Esc = main menu
+
+Play Prototype:
 Left/Right = team
 Up/Down = player
 Enter = start court prototype
@@ -142,9 +146,9 @@ The shortcut points at the latest `build\tecmo_port.exe`, regenerates an origina
 - Count lifted chunks and labels
 - Parse local Bank 02 roster labels into C-friendly records
 - Export local CHR bytes and grayscale tile sheet PNGs for private inspection
-- Run a native Win32 playable prototype with explicit memory arenas and roster-driven team/player selection
+- Run a native Win32 playable prototype with explicit memory arenas, a source-backed title screen mode, and roster-driven team/player selection
 
-The current playable mode is a native prototype, not a full recreation of the original game. It establishes the frame loop, input path, memory model, and data-loading boundary that future translated gameplay systems can plug into. The `original-title-chr` render test also loads a native title setup summary from the private local Bank 04 baseline so setup helper/write/table/stream/staging counts, fixed-helper aggregate categories, and palette/PPU probe counts can be verified without committing setup streams, palette values, or graphics.
+The current playable mode is a native prototype, not a full recreation of the original game. It establishes the frame loop, input path, memory model, and data-loading boundary that future translated gameplay systems can plug into. The `original-title-chr` render test also loads a native title setup summary from the private local Bank 04 and fixed-bank baselines so setup helper/write/table/stream/staging counts, fixed-helper aggregate categories, fixed-bank vector counts, and palette/PPU probe counts can be verified without committing setup streams, palette values, helper code, or graphics.
 
 ## Native Runtime Direction
 

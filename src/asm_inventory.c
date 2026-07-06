@@ -1347,6 +1347,67 @@ static int collect_palette_probe_summary(const uint8_t *bytes,
     return 0;
 }
 
+static int collect_fixed_vector_summary(const uint8_t *bank07,
+                                        const bool *bank07_present,
+                                        TecmoTitleSetupSummary *summary)
+{
+    static const uint16_t fixed_targets[] = {
+        0xC000U,
+        0xC009U,
+        0xC054U,
+        0xC05AU,
+        0xC06FU,
+    };
+
+    summary->fixed_vector_min_target = 0xFFFFU;
+    for (size_t i = 0; i < sizeof(fixed_targets) / sizeof(fixed_targets[0]); ++i) {
+        uint16_t entry = fixed_targets[i];
+        uint8_t opcode = 0;
+
+        ++summary->fixed_vector_entry_count;
+        if (read_mapped_byte(bank07, bank07_present, 0xC000U, entry, &opcode) != 0) {
+            return -1;
+        }
+        if (opcode == 0x4CU) {
+            uint8_t lo = 0;
+            uint8_t hi = 0;
+            uint16_t target;
+            ++summary->fixed_vector_jmp_entry_count;
+            if (read_mapped_byte(bank07, bank07_present, 0xC000U, entry + 1U, &lo) != 0 ||
+                read_mapped_byte(bank07, bank07_present, 0xC000U, entry + 2U, &hi) != 0) {
+                return -1;
+            }
+            target = (uint16_t)(((uint16_t)hi << 8U) | lo);
+            if (target < summary->fixed_vector_min_target) {
+                summary->fixed_vector_min_target = target;
+            }
+            if (target > summary->fixed_vector_max_target) {
+                summary->fixed_vector_max_target = target;
+            }
+            ++summary->fixed_vector_resolved_target_count;
+        } else if ((opcode == 0x8CU || opcode == 0x8DU || opcode == 0x8EU) &&
+                   entry + 2U <= 0xFFFFU) {
+            uint8_t lo = 0;
+            uint8_t hi = 0;
+            uint16_t target;
+            if (read_mapped_byte(bank07, bank07_present, 0xC000U, entry + 1U, &lo) != 0 ||
+                read_mapped_byte(bank07, bank07_present, 0xC000U, entry + 2U, &hi) != 0) {
+                return -1;
+            }
+            target = (uint16_t)(((uint16_t)hi << 8U) | lo);
+            if (target == 0x2006U || target == 0x2007U) {
+                ++summary->fixed_vector_entry_ppu_write_count;
+            }
+        }
+    }
+
+    if (summary->fixed_vector_resolved_target_count == 0U) {
+        summary->fixed_vector_min_target = 0U;
+    }
+    summary->fixed_vector_summary_loaded = true;
+    return 0;
+}
+
 static int collect_jsr_targets(const uint8_t *bytes,
                                const bool *present,
                                uint16_t start,
@@ -1647,6 +1708,8 @@ static int load_title_stream_format_summary(const uint8_t *bank04,
 
 static int load_title_setup_summary(const uint8_t *bank04,
                                     const bool *bank04_present,
+                                    const uint8_t *bank07,
+                                    const bool *bank07_present,
                                     TecmoTitleSetupSummary *summary)
 {
     static const struct {
@@ -1710,6 +1773,9 @@ static int load_title_setup_summary(const uint8_t *bank04,
         return -1;
     }
     if (collect_palette_probe_summary(bank04, bank04_present, summary) != 0) {
+        return -1;
+    }
+    if (collect_fixed_vector_summary(bank07, bank07_present, summary) != 0) {
         return -1;
     }
     if (load_title_stream_format_summary(bank04, bank04_present, summary) != 0) {
@@ -1801,7 +1867,7 @@ int tecmo_load_original_title_glyphs(const char *project_root, TecmoOriginalTitl
     glyphs->setup_selector_0352 = 0x1FU;
     glyphs->ba16_update_flags_or_05b6 = 0x01U;
     glyphs->ba16_update_flag_modeled = true;
-    if (load_title_setup_summary(bank04, bank04_present, &glyphs->setup_summary) != 0) {
+    if (load_title_setup_summary(bank04, bank04_present, bank07, bank07_present, &glyphs->setup_summary) != 0) {
         return -1;
     }
 
