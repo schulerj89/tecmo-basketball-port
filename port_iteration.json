@@ -111,8 +111,8 @@
       "id": "original_title_chr_probe",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode original-title-chr build\\original_title_chr_test.png",
-      "description": "Renders a native CHR-backed diagnostic from local title glyph mapping, local CHR data, native adjacent setup staging counts, stream-format coverage, and stream effect shape; fixed helper and palette effects are not yet modeled.",
-      "expected_screen": "Ignored local-only CHR glyph probe with dispatcher, native setup staging diagnostics, stream-table coverage, and stream effect shape."
+      "description": "Renders a native CHR-backed diagnostic from local title glyph mapping, local CHR data, native adjacent setup staging counts, stream-format coverage, stream effect shape, and aggregate staging coverage; fixed helper and palette effects are not yet modeled.",
+      "expected_screen": "Ignored local-only CHR glyph probe with dispatcher, native setup staging diagnostics, stream-table coverage, stream effect shape, and aggregate staging coverage."
     }
   ],
   "debug_overlay": {
@@ -209,6 +209,7 @@
         "Frame shows native adjacent setup staging counts",
         "Frame shows native setup stream-table coverage",
         "Frame shows native setup stream effect shape",
+        "Frame shows aggregate native setup staging coverage",
         "PNG remains in ignored build output"
       ]
     }
@@ -250,7 +251,8 @@
       "The exact Bank 04 BA16 entry sets the $05B6 update flag bit.",
       "Adjacent setup now has a local-only range/call/write/table report and a native setup summary rendered by original-title-chr.",
       "The setup stream format/effect summary verifies 15 stream table entries and five terminated selector rows without including payload bytes.",
-      "BAA4 stream records are modeled as one count byte, two base-offset bytes, and four private source fields per record that emit four staged bytes; fixed helper effects and palette setup still need mapping before raw CHR tile rendering is pixel-accurate."
+      "BAA4 stream records are modeled as one count byte, two base-offset bytes, and four private source fields per record that emit four staged bytes.",
+      "The aggregate native staging pass covers 15 selected streams, 415 records, and 1660 staged writes across local staging range $0200-$0287; fixed helper effects and palette setup still need mapping before raw CHR tile rendering is pixel-accurate."
     ],
     "rules": [
       "Generated source-map reports stay local and ignored under build.",

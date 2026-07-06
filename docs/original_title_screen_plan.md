@@ -58,7 +58,8 @@ Those reports/probes are intentionally ignored by Git. Public docs may keep chun
 - The adjacent Bank 04 setup driver, pointer seed helper, stream copy helper, fixed-helper calls, write targets, and table reference counts are mapped in a local-only report.
 - The local-only setup report now summarizes the BAA4 stream format/effect model, verifies all 15 stream table entries, verifies all five dynamic selector rows terminate, and records aggregate source/output counts without including payload bytes.
 - The BAA4 helper model is one count byte, two private base-offset bytes, and four private source fields per record; each record emits four staged bytes. The largest local stream currently consumes 139 private source bytes and emits 136 staged bytes.
-- The native `original-title-chr` path now loads a setup staging summary from local Bank 04 bytes and renders driver call/write counts, stream-copy write counts, verified table-reference counts, stream-table coverage, and stream effect shape without committing setup streams.
+- The native `original-title-chr` path now loads a setup staging summary from local Bank 04 bytes and renders driver call/write counts, stream-copy write counts, verified table-reference counts, stream-table coverage, stream effect shape, and aggregate native staging coverage without committing setup streams.
+- The aggregate native staging pass covers 15 selected streams, 415 records, and 1660 staged writes across local staging range `$0200-$0287`; payload bytes are not retained.
 - Fixed helper side effects and palette setup still need a native model before the CHR-backed quick launch can be called pixel-accurate.
 
 ## Next Native-Port Gates

@@ -1281,6 +1281,106 @@ static void add_selected_stream_index(bool *selected, uint8_t *selected_count, u
     ++(*selected_count);
 }
 
+static int apply_title_stream_to_staging_summary(const uint8_t *bank04,
+                                                 const bool *bank04_present,
+                                                 uint8_t stream_index,
+                                                 TecmoTitleSetupSummary *summary)
+{
+    const uint16_t staging_base = 0x01FDU;
+    uint8_t lo = 0;
+    uint8_t hi = 0;
+    uint8_t record_count = 0;
+    uint8_t base_x = 0;
+    uint8_t base_y = 0;
+    uint16_t pointer;
+    uint16_t bytes_consumed;
+
+    if (stream_index >= TECMO_TITLE_SETUP_STREAM_TABLE_ENTRIES ||
+        read_mapped_byte(bank04, bank04_present, 0x8000U, 0xB33FU + stream_index, &lo) != 0 ||
+        read_mapped_byte(bank04, bank04_present, 0x8000U, 0xB34EU + stream_index, &hi) != 0) {
+        return -1;
+    }
+
+    pointer = (uint16_t)(((uint16_t)hi << 8U) | lo);
+    if (read_mapped_byte(bank04, bank04_present, 0x8000U, pointer, &record_count) != 0 ||
+        read_mapped_byte(bank04, bank04_present, 0x8000U, pointer + 1U, &base_x) != 0 ||
+        read_mapped_byte(bank04, bank04_present, 0x8000U, pointer + 2U, &base_y) != 0) {
+        return -1;
+    }
+
+    bytes_consumed = (uint16_t)(1U + summary->stream_base_parameter_bytes +
+                                (uint16_t)record_count * summary->stream_source_fields_per_record);
+    if ((uint32_t)pointer + (uint32_t)bytes_consumed > 0xC000U ||
+        !mapped_range_present(bank04_present, 0x8000U, pointer, (uint16_t)(pointer + bytes_consumed))) {
+        return -1;
+    }
+
+    for (uint16_t record = 0; record < record_count; ++record) {
+        uint16_t source = (uint16_t)(pointer + 3U + (uint16_t)record * 4U);
+        uint8_t field0 = 0;
+        uint8_t field1 = 0;
+        uint8_t field2 = 0;
+        uint8_t field3 = 0;
+        uint8_t staged0;
+        uint8_t staged1;
+        uint8_t staged2;
+        uint8_t staged3;
+
+        if (read_mapped_byte(bank04, bank04_present, 0x8000U, source, &field0) != 0 ||
+            read_mapped_byte(bank04, bank04_present, 0x8000U, source + 1U, &field1) != 0 ||
+            read_mapped_byte(bank04, bank04_present, 0x8000U, source + 2U, &field2) != 0 ||
+            read_mapped_byte(bank04, bank04_present, 0x8000U, source + 3U, &field3) != 0) {
+            return -1;
+        }
+
+        staged0 = (uint8_t)(field0 + base_x);
+        staged1 = (uint8_t)(field1 + 0x3CU);
+        staged2 = field2;
+        staged3 = (uint8_t)(field3 + base_y);
+        (void)staged0;
+        (void)staged1;
+        (void)staged2;
+        (void)staged3;
+    }
+
+    if (record_count > 0U) {
+        uint16_t first_write = (uint16_t)(staging_base + 3U);
+        uint16_t last_write = (uint16_t)(staging_base + 2U + (uint16_t)record_count * 4U);
+        if (summary->stream_staging_record_count == 0U || first_write < summary->stream_staging_first_write) {
+            summary->stream_staging_first_write = first_write;
+        }
+        if (last_write > summary->stream_staging_last_write) {
+            summary->stream_staging_last_write = last_write;
+        }
+    }
+
+    summary->stream_staging_base_address = staging_base;
+    if (summary->stream_staging_stream_count < 0xFFU) {
+        ++summary->stream_staging_stream_count;
+    }
+    summary->stream_staging_record_count = (uint16_t)(summary->stream_staging_record_count + record_count);
+    summary->stream_staging_bytes_written =
+        (uint16_t)(summary->stream_staging_bytes_written +
+                   (uint16_t)record_count * summary->stream_staged_fields_per_record);
+    return 0;
+}
+
+static int apply_selected_title_streams_to_staging_summary(const uint8_t *bank04,
+                                                           const bool *bank04_present,
+                                                           const bool *selected_streams,
+                                                           TecmoTitleSetupSummary *summary)
+{
+    for (uint8_t index = 0; index < TECMO_TITLE_SETUP_STREAM_TABLE_ENTRIES; ++index) {
+        if (selected_streams[index] &&
+            apply_title_stream_to_staging_summary(bank04, bank04_present, index, summary) != 0) {
+            return -1;
+        }
+    }
+
+    summary->stream_staging_summary_loaded = true;
+    return 0;
+}
+
 static int load_title_stream_format_summary(const uint8_t *bank04,
                                             const bool *bank04_present,
                                             TecmoTitleSetupSummary *summary)
@@ -1362,6 +1462,9 @@ static int load_title_stream_format_summary(const uint8_t *bank04,
 
     summary->stream_format_summary_loaded = true;
     summary->stream_effect_summary_loaded = true;
+    if (apply_selected_title_streams_to_staging_summary(bank04, bank04_present, selected_streams, summary) != 0) {
+        return -1;
+    }
     return 0;
 }
 

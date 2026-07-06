@@ -283,7 +283,8 @@ function New-StreamTableEntry {
 function New-SelectorRow {
     param(
         [hashtable]$Map,
-        [int]$Row
+        [int]$Row,
+        [bool[]]$SelectedStreams
     )
 
     $Lo = Get-MapByte -Map $Map -Address (0xB317 + $Row)
@@ -298,6 +299,9 @@ function New-SelectorRow {
         if (($Value -band 0x80) -ne 0) {
             $TerminatorFound = $true
             break
+        }
+        if ($SelectedStreams -and $Value -ge 0 -and $Value -lt $SelectedStreams.Length) {
+            $SelectedStreams[$Value] = $true
         }
         ++$EntryCount
         if ($Value -gt $MaxStreamIndex) {
@@ -315,9 +319,51 @@ function New-SelectorRow {
     }
 }
 
+function New-StreamStagingSummary {
+    param(
+        [array]$Entries,
+        [bool[]]$SelectedStreams
+    )
+
+    $SelectedCount = 0
+    $RecordCount = 0
+    $BytesWritten = 0
+    $MaxStagedBytes = 0
+
+    for ($Index = 0; $Index -lt $SelectedStreams.Length; ++$Index) {
+        if (!$SelectedStreams[$Index]) {
+            continue
+        }
+        $Entry = $Entries[$Index]
+        ++$SelectedCount
+        $RecordCount += [int]$Entry.record_count
+        $BytesWritten += [int]$Entry.staged_bytes_emitted
+        if ([int]$Entry.staged_bytes_emitted -gt $MaxStagedBytes) {
+            $MaxStagedBytes = [int]$Entry.staged_bytes_emitted
+        }
+    }
+
+    $DestinationBase = 0x01FD
+    $FirstWrite = if ($MaxStagedBytes -gt 0) { $DestinationBase + 3 } else { $null }
+    $LastWrite = if ($MaxStagedBytes -gt 0) { $DestinationBase + 2 + $MaxStagedBytes } else { $null }
+
+    return [pscustomobject]@{
+        status = "selected streams applied to aggregate native staging summary without retaining payload bytes"
+        destination_base = Format-HexWord $DestinationBase
+        first_write = if ($null -ne $FirstWrite) { Format-HexWord $FirstWrite } else { $null }
+        last_write = if ($null -ne $LastWrite) { Format-HexWord $LastWrite } else { $null }
+        selected_stream_count = $SelectedCount
+        record_count = $RecordCount
+        staged_bytes_written = $BytesWritten
+        payload_bytes_retained = $false
+    }
+}
+
 function New-StreamDecodeSummary {
     param([hashtable]$Map)
 
+    $SelectedStreams = New-Object bool[] 15
+    $SelectedStreams[0] = $true
     $Entries = @(
         for ($Index = 0; $Index -lt 15; ++$Index) {
             New-StreamTableEntry -Map $Map -Index $Index
@@ -325,7 +371,7 @@ function New-StreamDecodeSummary {
     )
     $Rows = @(
         for ($Row = 0; $Row -lt 5; ++$Row) {
-            New-SelectorRow -Map $Map -Row $Row
+            New-SelectorRow -Map $Map -Row $Row -SelectedStreams $SelectedStreams
         }
     )
     $VerifiedEntries = @($Entries | Where-Object { $_.verified_range_present }).Count
@@ -346,6 +392,7 @@ function New-StreamDecodeSummary {
             staged_fields_per_record = 4
             payload_bytes_included = $false
         }
+        native_staging_summary = New-StreamStagingSummary -Entries $Entries -SelectedStreams $SelectedStreams
         stream_table_entries = $Entries
         selector_rows = $Rows
         aggregate = [pscustomobject]@{
@@ -425,13 +472,11 @@ $Report = [pscustomobject]@{
     stream_decode_summary = New-StreamDecodeSummary -Map $Bank04
     table_references = $TableRefs
     unresolved_gates = @(
-        "Apply the decoded setup stream effect model to an explicit native staging buffer without committing table bytes.",
         'Model fixed helper effects for $C05A, $C06F, $C009, $C054, and $C000 as explicit native staging operations.',
         "Identify which adjacent stream/table path supplies title pattern-table or nametable data for the first visible title screen.",
         "Identify palette RAM initialization and palette animation for the title path."
     )
     next_steps = @(
-        "Apply decoded stream record effects to native staging buffers.",
         "Add native structs for fixed helper side effects.",
         "Promote original-title-chr from raw CHR diagnostic once pattern/palette state is modeled."
     )
@@ -449,6 +494,8 @@ $Report | ConvertTo-Json -Depth 8 | Set-Content -Path $ReportPath -Encoding ASCI
     adjacent_driver_calls = @($Report.adjacent_setup_driver.helper_calls).Count
     stream_entries = $Report.stream_decode_summary.aggregate.stream_table_entry_count
     stream_entries_verified = $Report.stream_decode_summary.aggregate.verified_stream_table_entry_count
+    staging_records = $Report.stream_decode_summary.native_staging_summary.record_count
+    staging_bytes = $Report.stream_decode_summary.native_staging_summary.staged_bytes_written
     table_refs = @($Report.table_references).Count
-    next_gate = "Apply stream effects to native staging, then model fixed helper effects"
+    next_gate = "Model fixed helper effects and palette setup"
 } | Format-List

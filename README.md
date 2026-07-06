@@ -144,7 +144,7 @@ The shortcut points at the latest `build\tecmo_port.exe`, regenerates an origina
 - Export local CHR bytes and grayscale tile sheet PNGs for private inspection
 - Run a native Win32 playable prototype with explicit memory arenas and roster-driven team/player selection
 
-The current playable mode is a native prototype, not a full recreation of the original game. It establishes the frame loop, input path, memory model, and data-loading boundary that future translated gameplay systems can plug into. The `original-title-chr` render test also loads a native title setup summary from the private local Bank 04 baseline so setup helper/write/table/stream-format/effect counts can be verified without committing setup streams or graphics.
+The current playable mode is a native prototype, not a full recreation of the original game. It establishes the frame loop, input path, memory model, and data-loading boundary that future translated gameplay systems can plug into. The `original-title-chr` render test also loads a native title setup summary from the private local Bank 04 baseline so setup helper/write/table/stream/staging counts can be verified without committing setup streams or graphics.
 
 ## Native Runtime Direction
 

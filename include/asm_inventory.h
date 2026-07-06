@@ -85,6 +85,13 @@ typedef struct TecmoTitleSetupSummary {
     uint16_t max_stream_emitted_bytes;
     bool stream_format_summary_loaded;
     bool stream_effect_summary_loaded;
+    bool stream_staging_summary_loaded;
+    uint16_t stream_staging_base_address;
+    uint16_t stream_staging_first_write;
+    uint16_t stream_staging_last_write;
+    uint8_t stream_staging_stream_count;
+    uint16_t stream_staging_record_count;
+    uint16_t stream_staging_bytes_written;
     bool stream_decode_pending;
     bool fixed_helper_effects_pending;
     uint16_t first_unclassified_call;
