@@ -20,6 +20,7 @@ typedef struct TecmoInput {
     bool bank_next;
     bool table_toggle;
     bool save;
+    bool preset_rabbit;
     bool remove;
     bool debug_toggle;
 } TecmoInput;

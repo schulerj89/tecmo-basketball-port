@@ -40,6 +40,8 @@ $Draft = [ordered]@{
         open_render_test = ".\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-presents build\intro_presents_test.png"
         switch_bank = "Intro Lab: Q/E. CHR Playground: Left/Right or Tab."
         switch_table = "Intro Lab: T. CHR Playground: Up/Down."
+        rabbit_candidate = "Intro Lab: R records Bank 31 table 1 candidate tiles 125, 126, 127, 129, 12A, and 12B."
+        save_records = "Intro Lab: S writes build/intro_layout_picks.json."
     }
     selected_chr_bank = $Bank
     selected_chr_table = $Table

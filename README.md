@@ -62,6 +62,7 @@ $env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
 .\build\tecmo_port.exe --render-test-mode title-screen build\title_screen_runtime_test.png
 .\build\tecmo_port.exe --render-test-mode intro-presents build\intro_presents_test.png
 .\build\tecmo_port.exe --render-test-mode intro-builder-sample build\intro_builder_sample_test.png
+.\build\tecmo_port.exe --render-test-mode intro-rabbit-preset build\intro_rabbit_preset_test.png
 .\build\tecmo_port.exe --render-test-mode intro-presents-table1 build\intro_presents_table1_test.png
 .\build\tecmo_port.exe --render-test-mode chr-playground build\chr_playground_test.png
 .\build\tecmo_port.exe --render-test-mode chr-playground-table1 build\chr_playground_table1_test.png
@@ -132,6 +133,7 @@ T = switch CHR pattern table half
 Tab = switch focus between source sheet and canvas
 Arrows = move focused source tile or canvas cell
 Space = record selected tile at selected canvas cell
+R = record the Bank 31 table 1 rabbit-head candidate tiles 125, 126, 127, 129, 12A, 12B
 Backspace/Delete = remove last placement record
 S = save ignored local placement JSON
 Enter/Esc = launcher menu

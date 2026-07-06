@@ -99,6 +99,9 @@ static void win32_set_key(WPARAM key, bool down)
     case 'S':
         g_input.save = down;
         break;
+    case 'R':
+        g_input.preset_rabbit = down;
+        break;
     case VK_BACK:
     case VK_DELETE:
         g_input.remove = down;

@@ -19,10 +19,17 @@ Intro Lab builder controls:
 - `Tab`: switch focus between the source sheet and target canvas.
 - `Arrows`: move the focused source-tile cursor or canvas-cell cursor.
 - `Space`: record the selected tile at the selected canvas cell.
+- `R`: record the current Bank 31/table 1 rabbit-head candidate tiles `$125`, `$126`, `$127`, `$129`, `$12A`, and `$12B`.
 - `Backspace/Delete`: remove the last placement record.
 - `S`: write ignored `build/intro_layout_picks.json`.
 
 The on-screen record list shows the asset picked as bank, table, three-digit tile ID, and canvas cell. The saved JSON stores only those local placement facts, not CHR bytes, palette values, screenshots, copied script payloads, or ASM.
+
+Current rabbit-head trace:
+
+- User visual inspection points to Bank 31/table 1 tiles `$125-$127` for head parts, with `$129-$12B` adjacent candidate parts.
+- The local ASM scan found no full `$125-$12B` immediates in the checked Bank 00/04 chunks. It did find low-byte `$25-$2B` candidates in Bank 00 stream/data chunks, which matches the working model that the script emits low tile IDs while the active CHR table supplies the `$100` half.
+- Bank 04 intro helpers still route through the fixed `$C051` staging helper path for display construction. The native `R` preset is a temporary C-side construction aid until that stream-to-sprite helper is fully modeled.
 
 ## Current CHR Playground
 
@@ -37,6 +44,8 @@ The playground renders selected-bank/table tile IDs `$080-$0AF` or `$180-$1AF`, 
 ## How To Point Out Tiles
 
 Use the `Intro Lab` screen to identify the selected bank, table, and source tiles by three-digit tile ID. For example, Bank 12 table 1 row `B`, column `6` is tile `$1B6`. Use the target canvas grid on the right to describe placement by 16px offsets from the canvas top-left.
+
+For the current rabbit pass, press `R` in Intro Lab to place the Bank 31/table 1 candidate group onto the canvas, then adjust or remove records as needed before pressing `S`.
 
 Create an ignored local-only draft for your picks, or use the running Intro Lab and press `S`:
 
