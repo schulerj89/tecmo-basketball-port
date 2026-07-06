@@ -56,11 +56,19 @@ $env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
 .\build\tecmo_port.exe --assets
 .\build\tecmo_port.exe --play
 .\build\tecmo_port.exe --render-test build\play_test.png
-.\build\tecmo_port.exe --render-test-mode menu build\menu_test.png
+.\build\tecmo_port.exe --render-test-mode menu docs\screenshots\menu_default.png
 .\build\tecmo_port.exe --render-test-mode menu-overlay build\menu_overlay_test.png
 .\build\tecmo_port.exe --render-test-mode rosters build\rosters_test.png
 .\build\tecmo_port.exe --render-test-mode play build\play_setup_test.png
 ```
+
+Run every active screenshot test declared in `port_iteration.json`:
+
+```powershell
+.\tools\Run-ScreenshotTests.ps1 -Build
+```
+
+Pass `-DecompRoot <LOCAL_DECOMP_ROOT>` if the script cannot discover your private local decomp workspace.
 
 Prototype controls:
 
@@ -145,3 +153,5 @@ port_iteration.json
 ```
 
 That file lists quick launch points, screenshot tests, planned debug overlay fields, memory budgets, and near-term milestones. It is intentionally safe to commit: it must not contain ROM paths, ASM, extracted bytes, generated roster data, or private local paths.
+
+Screenshot tests are driven from this manifest through `tools\Run-ScreenshotTests.ps1`. The runner only accepts the known render-test command shape and only writes PNGs under ignored `build\` output or explicitly safe `docs\screenshots\` files.

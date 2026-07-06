@@ -53,9 +53,9 @@
     {
       "id": "render_menu",
       "status": "active",
-      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode menu build\\menu_test.png",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode menu docs\\screenshots\\menu_default.png",
       "description": "Renders the launcher menu to a PNG for screenshot QA.",
-      "expected_artifact": "build/menu_test.png"
+      "expected_artifact": "docs/screenshots/menu_default.png"
     },
     {
       "id": "render_menu_overlay",
@@ -63,6 +63,13 @@
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode menu-overlay docs\\screenshots\\menu_overlay.png",
       "description": "Renders the launcher menu with debug overlay enabled to a safe committed PNG.",
       "expected_artifact": "docs/screenshots/menu_overlay.png"
+    },
+    {
+      "id": "run_screenshot_tests",
+      "status": "active",
+      "command": ".\\tools\\Run-ScreenshotTests.ps1 -Build",
+      "description": "Builds the executable, renders every active screenshot test, and validates PNG dimensions.",
+      "expected_artifact": "build/screenshot_test_report.json"
     },
     {
       "id": "render_rosters",
@@ -111,7 +118,8 @@
     {
       "id": "shot_menu_default",
       "status": "active",
-      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode menu build\\menu_test.png",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode menu docs\\screenshots\\menu_default.png",
+      "commit_safe": true,
       "assertions": [
         "PNG exists",
         "PNG dimensions are 640x480",
@@ -123,6 +131,7 @@
       "id": "shot_menu_overlay",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode menu-overlay docs\\screenshots\\menu_overlay.png",
+      "commit_safe": true,
       "assertions": [
         "PNG exists",
         "PNG dimensions are 640x480",
@@ -134,6 +143,7 @@
       "id": "shot_rosters_default",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode rosters build\\rosters_test.png",
+      "commit_safe": false,
       "assertions": [
         "PNG exists",
         "PNG dimensions are 640x480",
@@ -145,6 +155,7 @@
       "id": "shot_play_setup_default",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode play build\\play_setup_test.png",
+      "commit_safe": false,
       "assertions": [
         "PNG exists",
         "PNG dimensions are 640x480",
@@ -188,7 +199,7 @@
     },
     {
       "id": "M004",
-      "status": "planned",
+      "status": "complete",
       "title": "Automated screenshot test runner",
       "done_when": "A single command renders all declared screenshot tests and validates dimensions/files."
     },
@@ -206,13 +217,12 @@
     }
   ],
   "next_engineering_step": {
-    "id": "M004",
-    "title": "Automated screenshot test runner",
+    "id": "M005",
+    "title": "Original title/menu render investigation",
     "notes": [
-      "Add one command that reads this manifest and renders every active screenshot test.",
-      "Validate each PNG exists and is 640x480.",
-      "Keep roster/player-name screenshots in ignored build output unless they are scrubbed.",
-      "Leave committed screenshots limited to safe project UI screens."
+      "Use local-only tooling to identify which CHR banks, nametable/layout data, palettes, and sprite/OAM tables are needed for the first original title or menu screen.",
+      "Document findings without committing ASM, ROM bytes, extracted graphics, or generated proprietary data.",
+      "Add a quick-launch target for the first original-screen renderer once the data dependencies are mapped."
     ]
   }
 }
