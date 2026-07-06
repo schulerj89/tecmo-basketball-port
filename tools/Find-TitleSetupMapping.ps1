@@ -381,8 +381,8 @@ function New-StreamDecodeSummary {
     $MaxEmittedBytes = ($Entries | Measure-Object -Property staged_bytes_emitted -Maximum).Maximum
 
     return [pscustomobject]@{
-        status = "stream format and record effects summarized without payload bytes; fixed helper effects still need native modeling"
-        helper_range = '04:$BAA4-$BAEF'
+        status = "stream format and record effects summarized without payload bytes; fixed helper effects are summarized separately as aggregate native metadata"
+        helper_range = '04:$BAA4-$BAF0'
         direct_bootstrap_stream_index = 0
         dynamic_selector_path = '$0742 -> selector remap at 04:$BA88 -> pointer rows at 04:$B317/04:$B31C -> BAA4 stream index'
         record_effect_model = [pscustomobject]@{
@@ -412,6 +412,82 @@ function New-StreamDecodeSummary {
     }
 }
 
+function New-FixedHelperEffectSummary {
+    param([hashtable]$Map)
+
+    $KnownFixedTargets = @("0xC000", "0xC009", "0xC054", "0xC05A", "0xC06F")
+    $Seen = @{}
+    $InvocationCount = 0
+    $WaitCallCount = 0
+    $WaitRequestTotal = 0
+    $SetupFinalizeCallCount = 0
+    $StagingSeedCallCount = 0
+    $StreamFinalizeCallCount = 0
+    $StreamFinalizeInsideHelper = $false
+    $Ranges = @(
+        [pscustomobject]@{ name = "adjacent_setup_driver"; start = 0xBA25; end = 0xBA84; display = '04:$BA25-$BA84' },
+        [pscustomobject]@{ name = "local_stream_copy_helper"; start = 0xBAA4; end = 0xBAF0; display = '04:$BAA4-$BAF0' }
+    )
+
+    foreach ($Range in $Ranges) {
+        for ($Address = $Range.start; $Address -le $Range.end - 2; ++$Address) {
+            if ((Get-MapByte -Map $Map -Address $Address) -ne 0x20) {
+                continue
+            }
+
+            $Lo = Get-MapByte -Map $Map -Address ($Address + 1)
+            $Hi = Get-MapByte -Map $Map -Address ($Address + 2)
+            $Target = Format-HexWord (($Hi -shl 8) -bor $Lo)
+            if ($KnownFixedTargets -notcontains $Target) {
+                continue
+            }
+
+            if (!$Seen.ContainsKey($Target)) {
+                $Seen[$Target] = $true
+            }
+            ++$InvocationCount
+
+            switch ($Target) {
+                "0xC000" {
+                    ++$WaitCallCount
+                    if ($Address -ge $Range.start + 2 -and
+                        (Get-MapByte -Map $Map -Address ($Address - 2)) -eq 0xA9) {
+                        $WaitRequestTotal += Get-MapByte -Map $Map -Address ($Address - 1)
+                    }
+                }
+                "0xC009" {
+                    ++$SetupFinalizeCallCount
+                }
+                "0xC054" {
+                    ++$StreamFinalizeCallCount
+                    if ($Range.name -eq "local_stream_copy_helper") {
+                        $StreamFinalizeInsideHelper = $true
+                    }
+                }
+                { $_ -eq "0xC05A" -or $_ -eq "0xC06F" } {
+                    ++$StagingSeedCallCount
+                }
+            }
+        }
+    }
+
+    return [pscustomobject]@{
+        status = "fixed helper calls summarized as explicit native side-effect categories without copying helper code"
+        helper_ranges = @($Ranges | ForEach-Object { $_.display })
+        known_fixed_targets = $KnownFixedTargets
+        unique_helper_count = $Seen.Count
+        fixed_call_invocations = $InvocationCount
+        wait_call_count = $WaitCallCount
+        wait_request_total = $WaitRequestTotal
+        setup_finalize_call_count = $SetupFinalizeCallCount
+        staging_seed_call_count = $StagingSeedCallCount
+        stream_finalize_call_count = $StreamFinalizeCallCount
+        stream_finalize_inside_baa4_helper = $StreamFinalizeInsideHelper
+        payload_bytes_included = $false
+        source_code_included = $false
+    }
+}
+
 $LocalDecompRoot = Find-LocalDecompRoot
 if (!$LocalDecompRoot) {
     throw "Could not find a local decomp root. Pass -DecompRoot or set TECMO_DECOMP_ROOT."
@@ -423,6 +499,7 @@ if (!(Test-Path $Bank04Path)) {
 }
 
 $Bank04 = Read-BankedByteMap -Path $Bank04Path -BankIndex 4 -CpuBase 0x8000
+$FixedHelperSummary = New-FixedHelperEffectSummary -Map $Bank04
 $TableRefs = @(
     (New-TableRef -Name "selector_remap_ba88" -Start 0xBA88 -Count 13 -Role "selector remap used by adjacent setup driver"),
     (New-TableRef -Name "target_ptr_lo_b317" -Start 0xB317 -Count 5 -Role "low-byte pointer table selected through selector_remap_ba88"),
@@ -455,7 +532,7 @@ $Report = [pscustomobject]@{
     }
     adjacent_setup_driver = [pscustomobject]@{
         range = '04:$BA25-$BA84'
-        status = "mapped as control flow and state targets; stream/table formats remain local-only and unresolved"
+        status = "mapped as control flow, state targets, and aggregate fixed-helper side-effect categories"
         helper_calls = @(Count-CallTargets -Map $Bank04 -Start 0xBA25 -End 0xBA84)
         write_targets = @(Count-WriteTargets -Map $Bank04 -Start 0xBA25 -End 0xBA84)
     }
@@ -465,14 +542,15 @@ $Report = [pscustomobject]@{
         write_targets = @(Count-WriteTargets -Map $Bank04 -Start 0xBA95 -End 0xBAA3)
     }
     local_stream_copy_helper = [pscustomobject]@{
-        range = '04:$BAA4-$BAEF'
-        helper_calls = @(Count-CallTargets -Map $Bank04 -Start 0xBAA4 -End 0xBAEF)
-        write_targets = @(Count-WriteTargets -Map $Bank04 -Start 0xBAA4 -End 0xBAEF)
+        range = '04:$BAA4-$BAF0'
+        helper_calls = @(Count-CallTargets -Map $Bank04 -Start 0xBAA4 -End 0xBAF0)
+        write_targets = @(Count-WriteTargets -Map $Bank04 -Start 0xBAA4 -End 0xBAF0)
     }
     stream_decode_summary = New-StreamDecodeSummary -Map $Bank04
+    fixed_helper_effect_summary = $FixedHelperSummary
     table_references = $TableRefs
     unresolved_gates = @(
-        'Model fixed helper effects for $C05A, $C06F, $C009, $C054, and $C000 as explicit native staging operations.',
+        'Expand fixed helper aggregate categories into explicit native pattern-table/VRAM staging operations where needed.',
         "Identify which adjacent stream/table path supplies title pattern-table or nametable data for the first visible title screen.",
         "Identify palette RAM initialization and palette animation for the title path."
     )
@@ -496,6 +574,8 @@ $Report | ConvertTo-Json -Depth 8 | Set-Content -Path $ReportPath -Encoding ASCI
     stream_entries_verified = $Report.stream_decode_summary.aggregate.verified_stream_table_entry_count
     staging_records = $Report.stream_decode_summary.native_staging_summary.record_count
     staging_bytes = $Report.stream_decode_summary.native_staging_summary.staged_bytes_written
+    fixed_helper_calls = $Report.fixed_helper_effect_summary.fixed_call_invocations
+    wait_request_total = $Report.fixed_helper_effect_summary.wait_request_total
     table_refs = @($Report.table_references).Count
-    next_gate = "Model fixed helper effects and palette setup"
+    next_gate = "Expand native helper side effects and palette setup"
 } | Format-List

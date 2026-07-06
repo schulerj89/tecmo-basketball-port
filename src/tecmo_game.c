@@ -686,7 +686,21 @@ void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
                        (unsigned)setup->driver_write_count,
                        (unsigned)setup->verified_table_reference_count,
                        (unsigned)setup->table_reference_count);
-        draw_centered_text(framebuffer, 360, line, rgb(142, 174, 190), 1);
+        draw_centered_text(framebuffer, 356, line, rgb(142, 174, 190), 1);
+
+        if (setup->fixed_helper_summary_loaded) {
+            (void)snprintf(line,
+                           sizeof(line),
+                           "FIXED %02u/%02u WAIT %02u=%03u SEED %02u FIN %02u/%02u",
+                           (unsigned)setup->fixed_helper_unique_count,
+                           (unsigned)setup->fixed_helper_call_invocations,
+                           (unsigned)setup->fixed_wait_call_count,
+                           (unsigned)setup->fixed_wait_request_total,
+                           (unsigned)setup->fixed_staging_seed_call_count,
+                           (unsigned)setup->fixed_setup_finalize_call_count,
+                           (unsigned)setup->fixed_stream_finalize_call_count);
+            draw_centered_text(framebuffer, 374, line, rgb(142, 174, 190), 1);
+        }
 
         if (setup->first_unclassified_call != 0U) {
             (void)snprintf(line,
@@ -700,7 +714,7 @@ void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
                            "STREAM BAA4 WRITES %02u  FIXED HELPERS PENDING",
                            (unsigned)setup->stream_write_count);
         }
-        draw_centered_text(framebuffer, 382, line, rgb(142, 174, 190), 1);
+        draw_centered_text(framebuffer, 392, line, rgb(142, 174, 190), 1);
 
         if (setup->stream_format_summary_loaded) {
             (void)snprintf(line,
@@ -712,7 +726,7 @@ void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
                            (unsigned)setup->terminated_selector_row_count,
                            (unsigned)setup->dynamic_selector_row_count,
                            (unsigned)setup->max_stream_record_count);
-            draw_centered_text(framebuffer, 404, line, rgb(142, 174, 190), 1);
+            draw_centered_text(framebuffer, 410, line, rgb(142, 174, 190), 1);
         }
 
         if (setup->stream_effect_summary_loaded) {
@@ -724,7 +738,7 @@ void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
                            (unsigned)setup->stream_staged_fields_per_record,
                            (unsigned)setup->max_stream_bytes_consumed,
                            (unsigned)setup->max_stream_emitted_bytes);
-            draw_centered_text(framebuffer, 424, line, rgb(142, 174, 190), 1);
+            draw_centered_text(framebuffer, 428, line, rgb(142, 174, 190), 1);
         }
 
         if (setup->stream_staging_summary_loaded) {
@@ -736,12 +750,12 @@ void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
                            (unsigned)setup->stream_staging_bytes_written,
                            (unsigned)setup->stream_staging_first_write,
                            (unsigned)setup->stream_staging_last_write);
-            draw_centered_text(framebuffer, 438, line, rgb(142, 174, 190), 1);
+            draw_centered_text(framebuffer, 442, line, rgb(142, 174, 190), 1);
         }
     }
 
     rect(framebuffer, 116, 452, 408, 2, rgb(236, 214, 112));
-    draw_centered_text(framebuffer, 464, "HELPER EFFECTS AND PALETTE DECODE NEXT", rgb(230, 232, 214), 1);
+    draw_centered_text(framebuffer, 464, "HELPER DETAILS AND PALETTE DECODE NEXT", rgb(230, 232, 214), 1);
 }
 
 void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer)

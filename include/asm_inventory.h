@@ -92,6 +92,14 @@ typedef struct TecmoTitleSetupSummary {
     uint8_t stream_staging_stream_count;
     uint16_t stream_staging_record_count;
     uint16_t stream_staging_bytes_written;
+    bool fixed_helper_summary_loaded;
+    uint8_t fixed_helper_unique_count;
+    uint8_t fixed_helper_call_invocations;
+    uint8_t fixed_wait_call_count;
+    uint16_t fixed_wait_request_total;
+    uint8_t fixed_setup_finalize_call_count;
+    uint8_t fixed_staging_seed_call_count;
+    uint8_t fixed_stream_finalize_call_count;
     bool stream_decode_pending;
     bool fixed_helper_effects_pending;
     uint16_t first_unclassified_call;

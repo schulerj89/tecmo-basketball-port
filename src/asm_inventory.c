@@ -1170,6 +1170,108 @@ static bool is_fixed_title_setup_call(uint16_t target)
            target == 0xC06FU;
 }
 
+static int fixed_title_setup_call_index(uint16_t target)
+{
+    switch (target) {
+    case 0xC000U:
+        return 0;
+    case 0xC009U:
+        return 1;
+    case 0xC054U:
+        return 2;
+    case 0xC05AU:
+        return 3;
+    case 0xC06FU:
+        return 4;
+    default:
+        return -1;
+    }
+}
+
+static int collect_fixed_helper_range(const uint8_t *bytes,
+                                      const bool *present,
+                                      uint16_t start,
+                                      uint16_t end,
+                                      bool *seen_helpers,
+                                      TecmoTitleSetupSummary *summary)
+{
+    for (uint32_t address = start; address + 2U <= end; ++address) {
+        uint8_t opcode = 0;
+        uint8_t lo = 0;
+        uint8_t hi = 0;
+        uint16_t target;
+        int helper_index;
+
+        if (read_mapped_byte(bytes, present, 0x8000U, address, &opcode) != 0) {
+            return -1;
+        }
+        if (opcode != 0x20U) {
+            continue;
+        }
+        if (read_mapped_byte(bytes, present, 0x8000U, address + 1U, &lo) != 0 ||
+            read_mapped_byte(bytes, present, 0x8000U, address + 2U, &hi) != 0) {
+            return -1;
+        }
+
+        target = (uint16_t)(((uint16_t)hi << 8U) | lo);
+        helper_index = fixed_title_setup_call_index(target);
+        if (helper_index < 0) {
+            continue;
+        }
+
+        if (!seen_helpers[helper_index]) {
+            seen_helpers[helper_index] = true;
+            ++summary->fixed_helper_unique_count;
+        }
+        ++summary->fixed_helper_call_invocations;
+
+        if (target == 0xC000U) {
+            uint8_t previous_opcode = 0;
+            uint8_t wait_value = 0;
+            ++summary->fixed_wait_call_count;
+            if (address >= (uint32_t)start + 2U &&
+                read_mapped_byte(bytes, present, 0x8000U, address - 2U, &previous_opcode) == 0 &&
+                read_mapped_byte(bytes, present, 0x8000U, address - 1U, &wait_value) == 0 &&
+                previous_opcode == 0xA9U) {
+                summary->fixed_wait_request_total = (uint16_t)(summary->fixed_wait_request_total + wait_value);
+            }
+        } else if (target == 0xC009U) {
+            ++summary->fixed_setup_finalize_call_count;
+        } else if (target == 0xC054U) {
+            ++summary->fixed_stream_finalize_call_count;
+        } else if (target == 0xC05AU || target == 0xC06FU) {
+            ++summary->fixed_staging_seed_call_count;
+        }
+    }
+
+    return 0;
+}
+
+static int collect_fixed_helper_summary(const uint8_t *bytes,
+                                        const bool *present,
+                                        TecmoTitleSetupSummary *summary)
+{
+    bool seen_helpers[5] = {false, false, false, false, false};
+
+    if (collect_fixed_helper_range(bytes,
+                                   present,
+                                   summary->adjacent_driver_start,
+                                   summary->adjacent_driver_end,
+                                   seen_helpers,
+                                   summary) != 0 ||
+        collect_fixed_helper_range(bytes,
+                                   present,
+                                   summary->stream_copy_start,
+                                   summary->stream_copy_end,
+                                   seen_helpers,
+                                   summary) != 0) {
+        return -1;
+    }
+
+    summary->fixed_helper_summary_loaded = true;
+    return 0;
+}
+
 static int collect_jsr_targets(const uint8_t *bytes,
                                const bool *present,
                                uint16_t start,
@@ -1490,7 +1592,7 @@ static int load_title_setup_summary(const uint8_t *bank04,
     summary->adjacent_driver_start = 0xBA25U;
     summary->adjacent_driver_end = 0xBA84U;
     summary->stream_copy_start = 0xBAA4U;
-    summary->stream_copy_end = 0xBAEFU;
+    summary->stream_copy_end = 0xBAF0U;
     summary->table_reference_count = TECMO_TITLE_SETUP_TABLE_REFS;
     summary->stream_decode_pending = true;
 
@@ -1527,6 +1629,9 @@ static int load_title_setup_summary(const uint8_t *bank04,
                             summary->stream_copy_end,
                             summary->stream_writes,
                             &summary->stream_write_count) != 0) {
+        return -1;
+    }
+    if (collect_fixed_helper_summary(bank04, bank04_present, summary) != 0) {
         return -1;
     }
     if (load_title_stream_format_summary(bank04, bank04_present, summary) != 0) {
