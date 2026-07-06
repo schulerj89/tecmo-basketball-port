@@ -47,6 +47,7 @@ typedef enum TecmoPlayMode {
 
 #define TECMO_MAX_INTRO_PLACEMENTS 32
 #define TECMO_MAX_INTRO_PLACEMENT_TILES 8
+#define TECMO_MAX_INTRO_TRACE_SPRITES 96
 
 typedef struct TecmoIntroPlacement {
     bool active;
@@ -82,6 +83,14 @@ typedef struct TecmoIntroStagedSprite {
     uint8_t x;
 } TecmoIntroStagedSprite;
 
+typedef struct TecmoIntroTraceSprite {
+    uint8_t group;
+    uint8_t tile_low;
+    uint8_t attributes;
+    int screen_x;
+    int screen_y;
+} TecmoIntroTraceSprite;
+
 typedef struct TecmoRuntime {
     TecmoGameMemory *memory;
     RosterTable roster;
@@ -105,6 +114,12 @@ typedef struct TecmoRuntime {
     bool intro_layout_dirty;
     bool intro_layout_saved;
     char intro_layout_status[96];
+    TecmoIntroTraceSprite intro_trace_sprites[TECMO_MAX_INTRO_TRACE_SPRITES];
+    size_t intro_trace_sprite_count;
+    uint32_t intro_trace_chr_bank;
+    bool intro_trace_available;
+    bool intro_trace_truncated;
+    char intro_trace_status[96];
     TecmoPlayMode mode;
     bool quit_requested;
     bool debug_overlay;

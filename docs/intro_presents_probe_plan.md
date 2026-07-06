@@ -28,6 +28,8 @@ Use `-Launch` on that script when you want to manually open the local ROM in the
 
 The current frame is asset-backed and bank/table-switchable. It defaults to Bank 31 table 0 because that is the verified title glyph path. Table 0 shows tile IDs `$000-$0FF`; table 1 shows `$100-$1FF`. The frame renders the selected local-only CHR sheet, lets the user place selected source tiles onto a target canvas, and shows the local placement records on screen. The first rabbit and `TECMO` pointer leads are now decoded into ignored local reports; the live CHR bank, exact palette, and runtime scroll/base state still need emulator/state validation before replacing the manual lab presets.
 
+The runtime `Title Screen` now uses that ignored local trace when available. It loads `build/intro_composite_trace.json`, stages the decoded `$A7DB` selector `$01` rabbit rows into a fixed native buffer, and renders the visible `TECMO` word from the Bank 31/table 1 `$180-$193` asset construction. This is intentionally a local diagnostic title splash, not the final pixel-accurate intro frame yet.
+
 Intro Lab builder controls:
 
 - `Q/E`: switch CHR bank.

@@ -83,7 +83,7 @@
       "id": "render_title_screen_runtime",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode title-screen build\\title_screen_runtime_test.png",
-      "description": "Renders the in-app Title Screen launcher mode; Enter opens the launcher and Esc quits at runtime.",
+      "description": "Renders the in-app Title Screen mode. When the ignored composite trace exists, it shows the local rabbit trace plus asset-backed TECMO splash; Enter opens the launcher and Esc quits at runtime.",
       "expected_artifact": "build/title_screen_runtime_test.png"
     },
     {
@@ -341,6 +341,7 @@
         "PNG exists",
         "PNG dimensions are 640x480",
         "Frame is rendered through the native launcher Title Screen mode",
+        "When build/intro_composite_trace.json exists, the frame shows the local rabbit trace plus asset-backed TECMO splash instead of the older title diagnostic",
         "Enter opens the launcher and Esc quits from this mode at runtime",
         "PNG remains in ignored build output"
       ]
@@ -557,7 +558,8 @@
       "ppu_chr_and_fixed_helpers"
     ],
     "current_findings": [
-      "The native runtime now boots into the current CHR-backed title diagnostic; Enter opens the launcher and Esc quits.",
+      "The native runtime now boots into the current local intro splash when build/intro_composite_trace.json exists; Enter opens the launcher and Esc quits.",
+      "The native launcher Title Screen now stages the decoded A7DB selector $01 rabbit rows in a fixed native buffer and renders a first local intro splash with the visual Bank 31/table 1 TECMO $180-$193 asset construction. Palette, live CHR bank, and exact PRESENTS placement remain pending.",
       "The native launcher exposes a Title Screen mode before the prototype play setup so the title remains reachable from the menu.",
       "The native launcher exposes an Intro Lab builder that renders the selected local-only CHR sheet, lets the user place selected tiles onto a target canvas, shows local placement records, and can save ignored placement JSON.",
       "The native launcher exposes a CHR Playground that renders selected-bank/table tile IDs $080-$0AF or $180-$1AF and assembled title glyphs for number/letter verification.",

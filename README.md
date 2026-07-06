@@ -159,6 +159,8 @@ Decode the local-only Bank 04 composite intro streams and render a private CHR p
 
 That writes ignored `build\intro_composite_trace.json` and `build\intro_composite_trace_preview.png`; do not commit those generated files.
 
+When that ignored trace JSON is present, the runtime Title Screen loads it locally and renders a first rabbit plus asset-backed `TECMO` splash. The visible `TECMO` word uses the Bank 31/table 1 `$180-$193` construction; the rabbit is drawn from the decoded `$A7DB` selector `$01` trace. Palette, live CHR bank, and exact scroll/base state are still under investigation.
+
 Prototype controls:
 
 ```text
