@@ -10,7 +10,19 @@ The launcher has an `Intro Lab` button and a matching ignored screenshot test:
 .\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-presents build\intro_presents_test.png
 ```
 
-The current frame is asset-backed and bank/table-switchable. It defaults to Bank 31 table 0 because that is the verified title glyph path, but Left/Right or Tab switches through local CHR banks and Up/Down toggles the 4KB pattern-table half inside the selected 8KB bank. Table 0 shows tile IDs `$000-$0FF`; table 1 shows `$100-$1FF`. The frame renders the selected local-only CHR sheet and assembles `TECMO PRESENTS` through the Bank 06 character-to-tile mapping against the selected bank/table. The exact intro bank/table, mascot/logo sprite layout, and palette path are not yet decoded from the original intro script streams.
+The current frame is asset-backed and bank/table-switchable. It defaults to Bank 31 table 0 because that is the verified title glyph path. Table 0 shows tile IDs `$000-$0FF`; table 1 shows `$100-$1FF`. The frame renders the selected local-only CHR sheet, lets the user place selected source tiles onto a target canvas, and shows the local placement records on screen. The exact intro bank/table, mascot/logo sprite layout, and palette path are not yet decoded from the original intro script streams.
+
+Intro Lab builder controls:
+
+- `Q/E`: switch CHR bank.
+- `T`: switch table 0/table 1.
+- `Tab`: switch focus between the source sheet and target canvas.
+- `Arrows`: move the focused source-tile cursor or canvas-cell cursor.
+- `Space`: record the selected tile at the selected canvas cell.
+- `Backspace/Delete`: remove the last placement record.
+- `S`: write ignored `build/intro_layout_picks.json`.
+
+The on-screen record list shows the asset picked as bank, table, three-digit tile ID, and canvas cell. The saved JSON stores only those local placement facts, not CHR bytes, palette values, screenshots, copied script payloads, or ASM.
 
 ## Current CHR Playground
 
@@ -26,7 +38,7 @@ The playground renders selected-bank/table tile IDs `$080-$0AF` or `$180-$1AF`, 
 
 Use the `Intro Lab` screen to identify the selected bank, table, and source tiles by three-digit tile ID. For example, Bank 12 table 1 row `B`, column `6` is tile `$1B6`. Use the target canvas grid on the right to describe placement by 16px offsets from the canvas top-left.
 
-Create an ignored local-only draft for your picks:
+Create an ignored local-only draft for your picks, or use the running Intro Lab and press `S`:
 
 ```powershell
 .\tools\New-IntroLayoutDraft.ps1 -Bank 12 -Table 1

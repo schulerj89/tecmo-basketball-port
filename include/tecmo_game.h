@@ -16,6 +16,11 @@ typedef struct TecmoInput {
     bool cancel;
     bool shoot;
     bool tab;
+    bool bank_prev;
+    bool bank_next;
+    bool table_toggle;
+    bool save;
+    bool remove;
     bool debug_toggle;
 } TecmoInput;
 
@@ -36,6 +41,23 @@ typedef enum TecmoPlayMode {
     TECMO_MODE_COURT
 } TecmoPlayMode;
 
+#define TECMO_MAX_INTRO_PLACEMENTS 32
+#define TECMO_MAX_INTRO_PLACEMENT_TILES 8
+
+typedef struct TecmoIntroPlacement {
+    bool active;
+    uint32_t chr_bank;
+    uint32_t chr_table;
+    uint16_t tile_ids[TECMO_MAX_INTRO_PLACEMENT_TILES];
+    size_t tile_count;
+    int canvas_cell_x;
+    int canvas_cell_y;
+    int pixel_x;
+    int pixel_y;
+    int scale;
+    char label[32];
+} TecmoIntroPlacement;
+
 typedef struct TecmoRuntime {
     TecmoGameMemory *memory;
     RosterTable roster;
@@ -50,6 +72,15 @@ typedef struct TecmoRuntime {
     size_t selected_menu_item;
     uint32_t selected_chr_bank;
     uint32_t selected_chr_table;
+    uint16_t intro_source_tile;
+    int intro_canvas_cell_x;
+    int intro_canvas_cell_y;
+    bool intro_canvas_focus;
+    TecmoIntroPlacement intro_placements[TECMO_MAX_INTRO_PLACEMENTS];
+    size_t intro_placement_count;
+    bool intro_layout_dirty;
+    bool intro_layout_saved;
+    char intro_layout_status[96];
     TecmoPlayMode mode;
     bool quit_requested;
     bool debug_overlay;

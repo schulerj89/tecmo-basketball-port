@@ -254,7 +254,7 @@ $Report = [ordered]@{
         }
     )
     next_decode_steps = @(
-        "Use the Intro Lab bank/tile picks to identify the visible CHR bank and candidate tile IDs.",
+        "Use the Intro Lab bank/table/tile picks to identify the visible CHR source and candidate tile IDs.",
         "Decode Bank 04 C-0124/C-0129 stream parameters into local-only neutral records.",
         "Model 0xC051/0xD861 as a native sprite staging helper against OAM-shaped memory.",
         "Only then replace the diagnostic TECMO PRESENTS placement with original script-driven placement."

@@ -61,6 +61,7 @@ $env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
 .\build\tecmo_port.exe --render-test-mode menu-overlay build\menu_overlay_test.png
 .\build\tecmo_port.exe --render-test-mode title-screen build\title_screen_runtime_test.png
 .\build\tecmo_port.exe --render-test-mode intro-presents build\intro_presents_test.png
+.\build\tecmo_port.exe --render-test-mode intro-builder-sample build\intro_builder_sample_test.png
 .\build\tecmo_port.exe --render-test-mode intro-presents-table1 build\intro_presents_table1_test.png
 .\build\tecmo_port.exe --render-test-mode chr-playground build\chr_playground_test.png
 .\build\tecmo_port.exe --render-test-mode chr-playground-table1 build\chr_playground_table1_test.png
@@ -96,7 +97,7 @@ Map the local-only title setup ranges, helper calls, fixed-helper aggregate coun
 .\tools\Find-TitleSetupMapping.ps1
 ```
 
-Create an ignored local-only draft file for Intro Lab bank/table/tile/canvas picks:
+Create an ignored local-only draft file for Intro Lab bank/table/tile/canvas picks. The running Intro Lab can also write this file with `S` after records are added:
 
 ```powershell
 .\tools\New-IntroLayoutDraft.ps1 -Bank 31 -Table 1
@@ -126,9 +127,13 @@ Enter = launcher menu
 Esc = quit
 
 Intro Lab:
-Left/Right = switch CHR bank
-Up/Down = switch CHR pattern table half
-Tab = next CHR bank
+Q/E = switch CHR bank
+T = switch CHR pattern table half
+Tab = switch focus between source sheet and canvas
+Arrows = move focused source tile or canvas cell
+Space = record selected tile at selected canvas cell
+Backspace/Delete = remove last placement record
+S = save ignored local placement JSON
 Enter/Esc = launcher menu
 
 CHR Playground:

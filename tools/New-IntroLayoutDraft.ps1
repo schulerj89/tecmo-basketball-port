@@ -30,6 +30,7 @@ $OutputPath = [System.IO.Path]::GetFullPath($OutputPath)
 
 $Draft = [ordered]@{
     schema_version = 1
+    capture_mode = "intro_lab"
     screen_id = "intro_tecmopresents"
     generated_at_utc = [DateTime]::UtcNow.ToString("o")
     generated_by = "tools/New-IntroLayoutDraft.ps1"
@@ -37,8 +38,8 @@ $Draft = [ordered]@{
     intro_lab_controls = [ordered]@{
         open_app = ".\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --play"
         open_render_test = ".\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-presents build\intro_presents_test.png"
-        switch_bank = "Intro Lab or CHR Playground: Left/Right or Tab"
-        switch_table = "Intro Lab or CHR Playground: Up/Down"
+        switch_bank = "Intro Lab: Q/E. CHR Playground: Left/Right or Tab."
+        switch_table = "Intro Lab: T. CHR Playground: Up/Down."
     }
     selected_chr_bank = $Bank
     selected_chr_table = $Table

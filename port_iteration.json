@@ -30,7 +30,7 @@
     "backend": "win32 software framebuffer",
     "game_core": "portable C runtime state plus explicit memory arenas",
     "asset_mode": "local development read-only scan/export tools; no committed proprietary data",
-    "known_status": "prototype launcher/menu, source-backed title screen mode, bank/table-switchable intro layout lab, CHR playground, roster viewer, play setup, court placeholder"
+    "known_status": "prototype launcher/menu, source-backed title screen mode, bank/table-switchable intro builder lab, CHR playground, roster viewer, play setup, court placeholder"
   },
   "local_desktop_shortcut": {
     "status": "active",
@@ -85,6 +85,13 @@
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-presents build\\intro_presents_test.png",
       "description": "Renders the default bank/table-switchable intro layout lab with the local CHR sheet and asset-backed TECMO PRESENTS glyph composition.",
       "expected_artifact": "build/intro_presents_test.png"
+    },
+    {
+      "id": "render_intro_builder_sample",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-builder-sample build\\intro_builder_sample_test.png",
+      "description": "Renders the Intro Lab with one seeded local placement record so the builder canvas and record list can be verified.",
+      "expected_artifact": "build/intro_builder_sample_test.png"
     },
     {
       "id": "render_intro_layout_lab_table1",
@@ -255,10 +262,23 @@
         "PNG exists",
         "PNG dimensions are 640x480",
         "Frame renders the selected local-only CHR sheet, defaulting to Bank 31 table 0",
-        "Frame assembles TECMO PRESENTS through Bank 06 glyph mapping and the selected CHR bank/table",
-        "Runtime controls can switch the selected CHR bank with Left/Right or Tab",
-        "Runtime controls can toggle CHR pattern table half with Up/Down",
-        "Frame provides tile IDs and target canvas grid coordinates for user placement feedback",
+        "Frame shows the source-tile cursor, canvas cursor, selected bank/table/tile, and placement-record instructions",
+        "Runtime controls can switch bank with Q/E and table with T",
+        "Runtime controls can move the focused source tile or canvas cell with arrows and switch focus with Tab",
+        "Runtime controls can record the selected tile with Space and save ignored local JSON with S",
+        "PNG remains in ignored build output"
+      ]
+    },
+    {
+      "id": "shot_intro_builder_sample",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-builder-sample build\\intro_builder_sample_test.png",
+      "commit_safe": false,
+      "assertions": [
+        "PNG exists",
+        "PNG dimensions are 640x480",
+        "Frame renders one seeded local placement on the target canvas",
+        "Frame shows the local placement record with bank, table, tile ID, and canvas cell",
         "PNG remains in ignored build output"
       ]
     },
@@ -390,9 +410,9 @@
     "current_findings": [
       "The native runtime now boots into the current CHR-backed title diagnostic; Enter opens the launcher and Esc quits.",
       "The native launcher exposes a Title Screen mode before the prototype play setup so the title remains reachable from the menu.",
-      "The native launcher exposes an Intro Lab that renders the selected local-only CHR sheet and assembles TECMO PRESENTS through the Bank 06 glyph map against the selected CHR bank/table for user placement feedback.",
+      "The native launcher exposes an Intro Lab builder that renders the selected local-only CHR sheet, lets the user place selected tiles onto a target canvas, shows local placement records, and can save ignored placement JSON.",
       "The native launcher exposes a CHR Playground that renders selected-bank/table tile IDs $080-$0AF or $180-$1AF and assembled title glyphs for number/letter verification.",
-      "Intro Lab and CHR Playground default to Bank 31 table 0 because that is the verified title glyph path, but runtime Left/Right and Tab input can switch banks and Up/Down can toggle the 4KB pattern-table half; Bank 31 table 0 is not asserted as the intro source.",
+      "Intro Lab and CHR Playground default to Bank 31 table 0 because that is the verified title glyph path. Intro Lab uses Q/E for bank, T for table, Tab for source/canvas focus, Space to record, and S to save ignored placement JSON. CHR Playground keeps Left/Right/Tab bank switching and Up/Down table switching.",
       "Each 8KB local CHR bank exposes 512 8x8 tiles: table 0 is tile IDs $000-$0FF and table 1 is tile IDs $100-$1FF.",
       "Bank 04 title loop dispatches A=0x38 through fixed helper C711.",
       "C711 entry 0x38 resolves locally to Bank 06 text setup at 06:$9E50.",

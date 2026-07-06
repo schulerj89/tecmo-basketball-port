@@ -19,7 +19,7 @@ static void print_usage(const char *program)
     printf("  --roster [TEAM|--all]   Parse labeled Bank 02 roster records\n");
     printf("  --play                  Launch native playable prototype window\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, intro-presents, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play setup, original-title, or original-title-chr to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, intro-presents, intro-builder-sample, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play setup, original-title, or original-title-chr to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -174,6 +174,37 @@ int main(int argc, char **argv)
                 /* Default runtime initialization already starts at the title screen. */
             } else if (strcmp(mode_name, "intro-presents") == 0) {
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_INTRO_PROBE);
+            } else if (strcmp(mode_name, "intro-builder-sample") == 0) {
+                TecmoIntroPlacement *placement;
+                tecmo_runtime_set_mode(&runtime, TECMO_MODE_INTRO_PROBE);
+                runtime.selected_chr_table = 1U;
+                runtime.intro_source_tile = 0xB6U;
+                runtime.intro_canvas_focus = true;
+                runtime.intro_canvas_cell_x = 5;
+                runtime.intro_canvas_cell_y = 5;
+                placement = &runtime.intro_placements[0];
+                memset(placement, 0, sizeof(*placement));
+                placement->active = true;
+                placement->chr_bank = runtime.selected_chr_bank;
+                placement->chr_table = runtime.selected_chr_table;
+                placement->tile_ids[0] = 0x1B6U;
+                placement->tile_count = 1;
+                placement->canvas_cell_x = runtime.intro_canvas_cell_x;
+                placement->canvas_cell_y = runtime.intro_canvas_cell_y;
+                placement->pixel_x = placement->canvas_cell_x * 16;
+                placement->pixel_y = placement->canvas_cell_y * 16;
+                placement->scale = 2;
+                (void)snprintf(placement->label, sizeof(placement->label), "B31 T1 1B6");
+                runtime.intro_placement_count = 1;
+                (void)snprintf(runtime.intro_layout_status,
+                               sizeof(runtime.intro_layout_status),
+                               "SAMPLE RECORD  SPACE ADDS  S SAVES");
+                {
+                    TecmoInput input;
+                    memset(&input, 0, sizeof(input));
+                    input.save = true;
+                    tecmo_runtime_update(&runtime, &input);
+                }
             } else if (strcmp(mode_name, "intro-presents-table1") == 0) {
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_INTRO_PROBE);
                 runtime.selected_chr_table = 1U;

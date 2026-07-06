@@ -87,6 +87,22 @@ static void win32_set_key(WPARAM key, bool down)
     case VK_TAB:
         g_input.tab = down;
         break;
+    case 'Q':
+        g_input.bank_prev = down;
+        break;
+    case 'E':
+        g_input.bank_next = down;
+        break;
+    case 'T':
+        g_input.table_toggle = down;
+        break;
+    case 'S':
+        g_input.save = down;
+        break;
+    case VK_BACK:
+    case VK_DELETE:
+        g_input.remove = down;
+        break;
     case VK_F3:
         g_input.debug_toggle = down;
         break;

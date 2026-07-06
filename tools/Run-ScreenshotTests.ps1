@@ -74,6 +74,9 @@ if (!$LocalDecompRoot) {
 
 if ($Build) {
     & (Join-Path $ProjectRoot "build.ps1")
+    if ($LASTEXITCODE -ne 0) {
+        throw "Build failed with exit code $LASTEXITCODE."
+    }
 }
 if (!(Test-Path $ExePath)) {
     throw "Executable not found at $ExePath. Run .\build.ps1 or pass -Build."
