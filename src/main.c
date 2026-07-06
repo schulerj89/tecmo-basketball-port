@@ -19,7 +19,7 @@ static void print_usage(const char *program)
     printf("  --roster [TEAM|--all]   Parse labeled Bank 02 roster records\n");
     printf("  --play                  Launch native playable prototype window\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render menu, rosters, or play setup to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render menu, menu-overlay, rosters, or play setup to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -125,7 +125,13 @@ int main(int argc, char **argv)
         if (!tecmo_runtime_init(&runtime, &memory, root)) {
             printf("Failed to initialize runtime from %s\n", root);
         } else {
-            if (strcmp(mode_name, "rosters") == 0) {
+            if (strcmp(mode_name, "menu-overlay") == 0) {
+                TecmoInput input;
+                memset(&input, 0, sizeof(input));
+                runtime.debug_overlay = true;
+                runtime.frame_seconds = 1.0f / 60.0f;
+                tecmo_runtime_update(&runtime, &input);
+            } else if (strcmp(mode_name, "rosters") == 0) {
                 TecmoInput input;
                 memset(&input, 0, sizeof(input));
                 input.down = true;

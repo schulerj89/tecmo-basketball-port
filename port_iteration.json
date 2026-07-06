@@ -9,7 +9,9 @@
       "build scripts",
       "documentation",
       "test manifests",
-      "debug tooling that reads local private data"
+      "debug tooling that reads local private data",
+      "local shortcut/icon generation scripts",
+      "safe screenshots that contain only original project UI"
     ],
     "commit_forbidden": [
       "ROM files",
@@ -30,6 +32,16 @@
     "asset_mode": "local development read-only scan/export tools; no committed proprietary data",
     "known_status": "prototype launcher/menu, roster viewer, play setup, court placeholder"
   },
+  "local_desktop_shortcut": {
+    "status": "active",
+    "shortcut_name": "Tecmo Basketball Native Port.lnk",
+    "generated_by": ".\\build.ps1",
+    "target": ".\\build\\tecmo_port.exe",
+    "arguments": "--play, with --root added automatically when a local decomp root is discoverable",
+    "icon": ".\\build\\tecmo_port.ico",
+    "icon_policy": "Generated original project icon only; do not use copied Tecmo, NBA, ROM, or extracted game artwork.",
+    "opt_out": "Set TECMO_SKIP_SHORTCUT=1 before running build.ps1."
+  },
   "quick_launch_points": [
     {
       "id": "launcher_menu",
@@ -44,6 +56,13 @@
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode menu build\\menu_test.png",
       "description": "Renders the launcher menu to a PNG for screenshot QA.",
       "expected_artifact": "build/menu_test.png"
+    },
+    {
+      "id": "render_menu_overlay",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode menu-overlay docs\\screenshots\\menu_overlay.png",
+      "description": "Renders the launcher menu with debug overlay enabled to a safe committed PNG.",
+      "expected_artifact": "docs/screenshots/menu_overlay.png"
     },
     {
       "id": "render_rosters",
@@ -68,7 +87,7 @@
     }
   ],
   "debug_overlay": {
-    "status": "planned",
+    "status": "active",
     "toggle_key": "F3",
     "fields": [
       "mode",
@@ -84,7 +103,8 @@
     "rules": [
       "Overlay must be runtime-only and must not dump proprietary source data.",
       "Overlay values should be derived from native runtime state and local debug counters.",
-      "Screenshot tests should include one overlay-on frame once implemented."
+      "Screenshot tests should include one overlay-on frame once implemented.",
+      "Overlay screenshots committed to this repo must avoid roster names and extracted game assets."
     ]
   },
   "screenshot_tests": [
@@ -97,6 +117,17 @@
         "PNG dimensions are 640x480",
         "Play Game row is highlighted",
         "No local decomp path appears on screen"
+      ]
+    },
+    {
+      "id": "shot_menu_overlay",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode menu-overlay docs\\screenshots\\menu_overlay.png",
+      "assertions": [
+        "PNG exists",
+        "PNG dimensions are 640x480",
+        "Debug overlay is visible",
+        "No local decomp path, roster names, ROM data, ASM, or extracted assets appear on screen"
       ]
     },
     {
@@ -151,7 +182,7 @@
     },
     {
       "id": "M003",
-      "status": "next",
+      "status": "complete",
       "title": "Debug overlay and runtime counters",
       "done_when": "F3 toggles overlay; overlay shows mode, frame, arena use, selected team/player, and watched RAM bytes."
     },
@@ -175,13 +206,13 @@
     }
   ],
   "next_engineering_step": {
-    "id": "M003",
-    "title": "Implement debug overlay and counters",
+    "id": "M004",
+    "title": "Automated screenshot test runner",
     "notes": [
-      "Add F3 key handling to TecmoInput.",
-      "Track arena usage and frame count in TecmoRuntime.",
-      "Render overlay text in upper-left or lower-left without blocking menu navigation.",
-      "Add --render-test-mode menu-overlay once overlay is implemented."
+      "Add one command that reads this manifest and renders every active screenshot test.",
+      "Validate each PNG exists and is 640x480.",
+      "Keep roster/player-name screenshots in ignored build output unless they are scrubbed.",
+      "Leave committed screenshots limited to safe project UI screens."
     ]
   }
 }

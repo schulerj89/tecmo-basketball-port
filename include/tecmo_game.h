@@ -16,6 +16,7 @@ typedef struct TecmoInput {
     bool cancel;
     bool shoot;
     bool tab;
+    bool debug_toggle;
 } TecmoInput;
 
 typedef struct TecmoFramebuffer {
@@ -42,6 +43,7 @@ typedef struct TecmoRuntime {
     size_t selected_menu_item;
     TecmoPlayMode mode;
     bool quit_requested;
+    bool debug_overlay;
     float player_x;
     float player_y;
     float ball_x;
@@ -51,6 +53,7 @@ typedef struct TecmoRuntime {
     bool ball_in_air;
     unsigned score;
     unsigned frame_counter;
+    float frame_seconds;
     TecmoInput previous_input;
 } TecmoRuntime;
 

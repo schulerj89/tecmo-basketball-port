@@ -40,3 +40,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "Built $ExePath"
+
+$ShortcutScript = Join-Path $Root "tools\Update-DesktopShortcut.ps1"
+if ((Test-Path $ShortcutScript) -and ($env:TECMO_SKIP_SHORTCUT -ne "1")) {
+    & $ShortcutScript -ExePath $ExePath -ProjectRoot $Root
+}

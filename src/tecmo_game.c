@@ -25,6 +25,23 @@ static uint32_t rgb(uint8_t r, uint8_t g, uint8_t b)
     return 0xFF000000U | ((uint32_t)r << 16U) | ((uint32_t)g << 8U) | (uint32_t)b;
 }
 
+static const char *mode_name(TecmoPlayMode mode)
+{
+    if (mode == TECMO_MODE_MAIN_MENU) {
+        return "MAIN MENU";
+    }
+    if (mode == TECMO_MODE_PLAY_SETUP) {
+        return "PLAY SETUP";
+    }
+    if (mode == TECMO_MODE_ROSTERS) {
+        return "ROSTERS";
+    }
+    if (mode == TECMO_MODE_COURT) {
+        return "COURT";
+    }
+    return "UNKNOWN";
+}
+
 static void add_team_if_missing(TecmoRuntime *runtime, const char *team)
 {
     for (size_t i = 0; i < runtime->team_count; ++i) {
@@ -90,6 +107,7 @@ bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const ch
     }
 
     runtime->mode = TECMO_MODE_MAIN_MENU;
+    runtime->frame_seconds = 1.0f / 60.0f;
     runtime->player_x = 320.0f;
     runtime->player_y = 260.0f;
     runtime->ball_x = runtime->player_x + 14.0f;
@@ -226,13 +244,23 @@ static void update_court(TecmoRuntime *runtime, const TecmoInput *input)
     }
 }
 
-void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input)
+static void write_runtime_watch_memory(TecmoRuntime *runtime)
 {
-    ++runtime->frame_counter;
     tecmo_cpu_ram_write(runtime->memory, 0x0000, (uint8_t)runtime->mode);
     tecmo_cpu_ram_write(runtime->memory, 0x0001, (uint8_t)runtime->selected_team);
     tecmo_cpu_ram_write(runtime->memory, 0x0002, (uint8_t)runtime->selected_player);
     tecmo_cpu_ram_write(runtime->memory, 0x0003, (uint8_t)runtime->selected_menu_item);
+    tecmo_cpu_ram_write(runtime->memory, 0x0004, (uint8_t)(runtime->frame_counter & 0xFFU));
+    tecmo_cpu_ram_write(runtime->memory, 0x0005, (uint8_t)((runtime->frame_counter >> 8U) & 0xFFU));
+}
+
+void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input)
+{
+    ++runtime->frame_counter;
+
+    if (pressed(input->debug_toggle, runtime->previous_input.debug_toggle)) {
+        runtime->debug_overlay = !runtime->debug_overlay;
+    }
 
     if (runtime->mode == TECMO_MODE_MAIN_MENU) {
         update_main_menu(runtime, input);
@@ -244,6 +272,7 @@ void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input)
         update_court(runtime, input);
     }
 
+    write_runtime_watch_memory(runtime);
     runtime->previous_input = *input;
 }
 
@@ -436,6 +465,70 @@ static void render_court(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
     draw_text(fb, 24, 452, "ARROWS MOVE   SPACE SHOOT   ESC TEAM SELECT", rgb(236, 232, 208), 1);
 }
 
+static void draw_debug_text(TecmoFramebuffer *fb, int x, int y, const char *text)
+{
+    draw_text(fb, x + 1, y + 1, text, rgb(0, 0, 0), 1);
+    draw_text(fb, x, y, text, rgb(214, 250, 210), 1);
+}
+
+static void render_debug_overlay(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+{
+    char line[256];
+    const TecmoGameMemory *memory = runtime->memory;
+    const float fps = runtime->frame_seconds > 0.00001f ? 1.0f / runtime->frame_seconds : 0.0f;
+    const int x = 10;
+    const int y = 314;
+
+    rect(fb, x - 6, y - 8, 412, 152, rgb(10, 14, 18));
+    rect(fb, x - 4, y - 6, 408, 148, rgb(28, 38, 42));
+
+    (void)snprintf(line, sizeof(line), "DBG MODE %s FRAME %u", mode_name(runtime->mode), runtime->frame_counter);
+    draw_debug_text(fb, x, y, line);
+
+    (void)snprintf(line, sizeof(line), "FPS %.1f MENU %u TEAM %u PLAYER %u",
+                   (double)fps,
+                   (unsigned)runtime->selected_menu_item,
+                   (unsigned)(runtime->selected_team + 1U),
+                   (unsigned)(runtime->selected_player + 1U));
+    draw_debug_text(fb, x, y + 20, line);
+
+    (void)snprintf(line, sizeof(line), "PERM %llu OF %llu HI %llu",
+                   (unsigned long long)memory->permanent.used,
+                   (unsigned long long)memory->permanent.capacity,
+                   (unsigned long long)memory->permanent.high_water);
+    draw_debug_text(fb, x, y + 40, line);
+
+    (void)snprintf(line, sizeof(line), "TRAN %llu OF %llu HI %llu",
+                   (unsigned long long)memory->transient.used,
+                   (unsigned long long)memory->transient.capacity,
+                   (unsigned long long)memory->transient.high_water);
+    draw_debug_text(fb, x, y + 60, line);
+
+    (void)snprintf(line, sizeof(line), "RAM 0000: %02X %02X %02X %02X %02X %02X %02X %02X",
+                   (unsigned)tecmo_cpu_ram_read(memory, 0x0000),
+                   (unsigned)tecmo_cpu_ram_read(memory, 0x0001),
+                   (unsigned)tecmo_cpu_ram_read(memory, 0x0002),
+                   (unsigned)tecmo_cpu_ram_read(memory, 0x0003),
+                   (unsigned)tecmo_cpu_ram_read(memory, 0x0004),
+                   (unsigned)tecmo_cpu_ram_read(memory, 0x0005),
+                   (unsigned)tecmo_cpu_ram_read(memory, 0x0006),
+                   (unsigned)tecmo_cpu_ram_read(memory, 0x0007));
+    draw_debug_text(fb, x, y + 80, line);
+
+    (void)snprintf(line, sizeof(line), "RAM 0008: %02X %02X %02X %02X %02X %02X %02X %02X",
+                   (unsigned)tecmo_cpu_ram_read(memory, 0x0008),
+                   (unsigned)tecmo_cpu_ram_read(memory, 0x0009),
+                   (unsigned)tecmo_cpu_ram_read(memory, 0x000A),
+                   (unsigned)tecmo_cpu_ram_read(memory, 0x000B),
+                   (unsigned)tecmo_cpu_ram_read(memory, 0x000C),
+                   (unsigned)tecmo_cpu_ram_read(memory, 0x000D),
+                   (unsigned)tecmo_cpu_ram_read(memory, 0x000E),
+                   (unsigned)tecmo_cpu_ram_read(memory, 0x000F));
+    draw_debug_text(fb, x, y + 100, line);
+
+    draw_debug_text(fb, x, y + 124, "F3 TOGGLE DEBUG OVERLAY");
+}
+
 void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer)
 {
     if (runtime->mode == TECMO_MODE_MAIN_MENU) {
@@ -446,5 +539,9 @@ void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebu
         render_roster_browser(runtime, framebuffer, false);
     } else if (runtime->mode == TECMO_MODE_COURT) {
         render_court(runtime, framebuffer);
+    }
+
+    if (runtime->debug_overlay) {
+        render_debug_overlay(runtime, framebuffer);
     }
 }

@@ -17,6 +17,7 @@ void tecmo_arena_init(TecmoMemoryArena *arena, void *base, size_t capacity)
     arena->base = (uint8_t *)base;
     arena->capacity = capacity;
     arena->used = 0;
+    arena->high_water = 0;
 }
 
 void *tecmo_arena_push_size(TecmoMemoryArena *arena, size_t size, size_t alignment)
@@ -28,6 +29,9 @@ void *tecmo_arena_push_size(TecmoMemoryArena *arena, size_t size, size_t alignme
 
     void *result = arena->base + aligned_used;
     arena->used = aligned_used + size;
+    if (arena->used > arena->high_water) {
+        arena->high_water = arena->used;
+    }
     memset(result, 0, size);
     return result;
 }

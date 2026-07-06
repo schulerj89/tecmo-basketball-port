@@ -36,13 +36,13 @@ build\tecmo_port.exe
 Pass the private decomp path explicitly:
 
 ```powershell
-.\build\tecmo_port.exe --root C:\Users\joshs\Projects\disassem\tecmo-basketball-decompilation --summary
+.\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --summary
 ```
 
 Or set an environment variable:
 
 ```powershell
-$env:TECMO_DECOMP_ROOT='C:\Users\joshs\Projects\disassem\tecmo-basketball-decompilation'
+$env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
 .\build\tecmo_port.exe --summary
 ```
 
@@ -57,6 +57,7 @@ $env:TECMO_DECOMP_ROOT='C:\Users\joshs\Projects\disassem\tecmo-basketball-decomp
 .\build\tecmo_port.exe --play
 .\build\tecmo_port.exe --render-test build\play_test.png
 .\build\tecmo_port.exe --render-test-mode menu build\menu_test.png
+.\build\tecmo_port.exe --render-test-mode menu-overlay build\menu_overlay_test.png
 .\build\tecmo_port.exe --render-test-mode rosters build\rosters_test.png
 .\build\tecmo_port.exe --render-test-mode play build\play_setup_test.png
 ```
@@ -68,6 +69,7 @@ Main menu:
 Up/Down = choose Play Game, Rosters, or Quit
 Enter = confirm
 Esc = quit
+F3 = debug overlay
 
 Play Game:
 Left/Right = team
@@ -95,6 +97,16 @@ Local-only generated outputs:
 ```
 
 Those generated outputs are ignored by Git and should stay local.
+
+## Desktop Shortcut
+
+Each successful build refreshes a local Desktop shortcut named:
+
+```text
+Tecmo Basketball Native Port.lnk
+```
+
+The shortcut points at the latest `build\tecmo_port.exe`, uses a generated original basketball icon from `build\tecmo_port.ico`, and launches `--play`. It will include `--root` automatically when `TECMO_DECOMP_ROOT` is set or the local decomp folder is found next to this repo. Set `TECMO_SKIP_SHORTCUT=1` before running `build.ps1` if you want to skip shortcut generation.
 
 ## Current Scope
 

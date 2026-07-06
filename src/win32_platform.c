@@ -87,6 +87,9 @@ static void win32_set_key(WPARAM key, bool down)
     case VK_TAB:
         g_input.tab = down;
         break;
+    case VK_F3:
+        g_input.debug_toggle = down;
+        break;
     default:
         break;
     }
@@ -214,6 +217,7 @@ int tecmo_run_win32_game(const char *project_root)
         }
         last_counter = now;
 
+        runtime.frame_seconds = (float)elapsed;
         tecmo_runtime_update(&runtime, &g_input);
         if (runtime.quit_requested) {
             g_running = false;

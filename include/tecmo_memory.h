@@ -9,6 +9,7 @@ typedef struct TecmoMemoryArena {
     uint8_t *base;
     size_t capacity;
     size_t used;
+    size_t high_water;
 } TecmoMemoryArena;
 
 typedef struct TecmoGameMemory {
