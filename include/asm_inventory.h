@@ -144,6 +144,7 @@ void roster_table_free(RosterTable *table);
 int tecmo_generate_roster_c(const char *project_root, const char *out_dir);
 int tecmo_load_original_title_text(const char *project_root, char *title, size_t title_size);
 int tecmo_load_original_title_glyphs(const char *project_root, TecmoOriginalTitleGlyphs *glyphs);
+int tecmo_load_title_glyphs_for_text(const char *project_root, const char *title_text, TecmoOriginalTitleGlyphs *glyphs);
 int tecmo_load_chr_data(const char *project_root, uint8_t **bytes_out, uint64_t *byte_count);
 void tecmo_free_buffer(void *buffer);
 int tecmo_export_chr(const char *project_root, const char *out_path, uint64_t *bytes_written);

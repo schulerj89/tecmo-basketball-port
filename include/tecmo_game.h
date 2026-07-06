@@ -29,6 +29,8 @@ typedef struct TecmoFramebuffer {
 typedef enum TecmoPlayMode {
     TECMO_MODE_MAIN_MENU,
     TECMO_MODE_TITLE_SCREEN,
+    TECMO_MODE_INTRO_PROBE,
+    TECMO_MODE_CHR_PLAYGROUND,
     TECMO_MODE_PLAY_SETUP,
     TECMO_MODE_ROSTERS,
     TECMO_MODE_COURT
@@ -38,6 +40,7 @@ typedef struct TecmoRuntime {
     TecmoGameMemory *memory;
     RosterTable roster;
     TecmoOriginalTitleGlyphs title_glyphs;
+    TecmoOriginalTitleGlyphs intro_glyphs;
     uint8_t *title_chr_bytes;
     uint64_t title_chr_byte_count;
     char teams[32][TECMO_MAX_NAME_TEXT];
@@ -45,6 +48,7 @@ typedef struct TecmoRuntime {
     size_t selected_team;
     size_t selected_player;
     size_t selected_menu_item;
+    uint32_t selected_chr_bank;
     TecmoPlayMode mode;
     bool quit_requested;
     bool debug_overlay;

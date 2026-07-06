@@ -30,7 +30,7 @@
     "backend": "win32 software framebuffer",
     "game_core": "portable C runtime state plus explicit memory arenas",
     "asset_mode": "local development read-only scan/export tools; no committed proprietary data",
-    "known_status": "prototype launcher/menu, source-backed title screen mode, roster viewer, play setup, court placeholder"
+    "known_status": "prototype launcher/menu, source-backed title screen mode, bank-switchable intro layout lab, CHR playground, roster viewer, play setup, court placeholder"
   },
   "local_desktop_shortcut": {
     "status": "active",
@@ -49,7 +49,7 @@
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --play",
       "description": "Starts at the native title screen, then Enter opens the launcher menu.",
-      "expected_screen": "Boot title first; Enter opens the launcher menu with Title Screen, Play Prototype, Rosters, Quit."
+      "expected_screen": "Boot title first; Enter opens the launcher menu with Title Screen, Intro Lab, CHR Playground, Play Prototype, Rosters, Quit."
     },
     {
       "id": "render_boot_title",
@@ -78,6 +78,20 @@
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode title-screen build\\title_screen_runtime_test.png",
       "description": "Renders the in-app Title Screen launcher mode; Enter opens the launcher and Esc quits at runtime.",
       "expected_artifact": "build/title_screen_runtime_test.png"
+    },
+    {
+      "id": "render_intro_layout_lab",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-presents build\\intro_presents_test.png",
+      "description": "Renders the default bank-switchable intro layout lab with the local CHR sheet and asset-backed TECMO PRESENTS glyph composition.",
+      "expected_artifact": "build/intro_presents_test.png"
+    },
+    {
+      "id": "render_chr_playground",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode chr-playground build\\chr_playground_test.png",
+      "description": "Renders the default bank-switchable CHR playground for tile ID and 2x2 title glyph verification.",
+      "expected_artifact": "build/chr_playground_test.png"
     },
     {
       "id": "run_screenshot_tests",
@@ -138,6 +152,7 @@
       "selected_menu_item",
       "selected_team",
       "selected_player",
+      "selected_chr_bank",
       "permanent_arena_used",
       "transient_arena_used",
       "cpu_ram_watch_0000_000F",
@@ -199,6 +214,35 @@
         "PNG dimensions are 640x480",
         "Frame is rendered through the native launcher Title Screen mode",
         "Enter opens the launcher and Esc quits from this mode at runtime",
+        "PNG remains in ignored build output"
+      ]
+    },
+    {
+      "id": "shot_intro_layout_lab",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-presents build\\intro_presents_test.png",
+      "commit_safe": false,
+      "assertions": [
+        "PNG exists",
+        "PNG dimensions are 640x480",
+        "Frame renders the selected local-only CHR sheet, defaulting to Bank 31",
+        "Frame assembles TECMO PRESENTS through Bank 06 glyph mapping and the selected CHR bank",
+        "Runtime controls can switch the selected CHR bank with Left/Right or Tab",
+        "Frame provides tile IDs and target canvas grid coordinates for user placement feedback",
+        "PNG remains in ignored build output"
+      ]
+    },
+    {
+      "id": "shot_chr_playground",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode chr-playground build\\chr_playground_test.png",
+      "commit_safe": false,
+      "assertions": [
+        "PNG exists",
+        "PNG dimensions are 640x480",
+        "Frame renders selected-bank tile IDs $80-$AF from local CHR data, defaulting to Bank 31",
+        "Frame shows assembled 2x2 title glyphs from the local glyph map using the selected CHR bank",
+        "Runtime controls can switch the selected CHR bank with Left/Right or Tab",
         "PNG remains in ignored build output"
       ]
     },
@@ -291,6 +335,9 @@
     "current_findings": [
       "The native runtime now boots into the current CHR-backed title diagnostic; Enter opens the launcher and Esc quits.",
       "The native launcher exposes a Title Screen mode before the prototype play setup so the title remains reachable from the menu.",
+      "The native launcher exposes an Intro Lab that renders the selected local-only CHR sheet and assembles TECMO PRESENTS through the Bank 06 glyph map against the selected CHR bank for user placement feedback.",
+      "The native launcher exposes a CHR Playground that renders selected-bank tile IDs $80-$AF and assembled title glyphs for number/letter verification.",
+      "Intro Lab and CHR Playground default to Bank 31 because that is the verified title glyph bank, but runtime Left/Right and Tab input can switch banks; Bank 31 is not asserted as the intro source.",
       "Bank 04 title loop dispatches A=0x38 through fixed helper C711.",
       "C711 entry 0x38 resolves locally to Bank 06 text setup at 06:$9E50.",
       "Title characters are mapped through the Bank 06 character-to-tile helper, the baseline $A273,X lookup operand, and the 2x2 glyph tile table at 06:$AF05.",
@@ -299,6 +346,8 @@
       "The setup stream format/effect summary verifies 15 stream table entries and five terminated selector rows without including payload bytes.",
       "BAA4 stream records are modeled as one count byte, two base-offset bytes, and four private source fields per record that emit four staged bytes.",
       "The aggregate native staging pass covers 15 selected streams, 415 records, and 1660 staged writes across local staging range $0200-$0287; payload bytes are not retained.",
+      "The current TECMO PRESENTS execution-procedure lead is Bank 04 sequence/dispatch setup feeding fixed helper $C051, which resolves locally to $D861 and appears to stage sprite/OAM-style records.",
+      "Bank 00 C-0191/C-0192 are the current text/layout data leads for PRESENTS and TECMO, while Bank 00 C-0195 is a likely mascot/composite tile-block lead.",
       "The BAA4 helper range is corrected to 04:$BAA4-$BAF0 so its fixed finalize call is included in native diagnostics.",
       "Fixed helper calls are summarized as five known helper targets, six invocations, two frame-wait calls with aggregate wait request 20, two staging seed calls, one setup finalize call, and one stream finalize call.",
       "The five fixed helper targets used by the title setup path are verified as five fixed-bank jump entries with five resolved targets spanning 0xC419-0xF2F6; helper body decoding remains pending.",

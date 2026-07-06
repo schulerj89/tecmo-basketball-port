@@ -1820,7 +1820,9 @@ static uint16_t title_ppu_address_for_index(size_t index, uint8_t *render_x_out)
     return (uint16_t)(((uint16_t)high << 8U) | ((uint16_t)column * 2U));
 }
 
-int tecmo_load_original_title_glyphs(const char *project_root, TecmoOriginalTitleGlyphs *glyphs)
+static int load_title_glyphs_for_text(const char *project_root,
+                                      const char *title_text,
+                                      TecmoOriginalTitleGlyphs *glyphs)
 {
     uint8_t bank04[0x4000];
     uint8_t bank06[0x4000];
@@ -1835,9 +1837,18 @@ int tecmo_load_original_title_glyphs(const char *project_root, TecmoOriginalTitl
     }
     memset(glyphs, 0, sizeof(*glyphs));
 
-    if (tecmo_load_original_title_text(project_root, glyphs->title_text, sizeof(glyphs->title_text)) != 0) {
+    if (title_text == NULL || title_text[0] == '\0') {
         return -1;
     }
+    for (size_t i = 0; title_text[i] != '\0'; ++i) {
+        unsigned char value = (unsigned char)title_text[i];
+        if (value < 0x20U || value > 0x7EU || i + 1U >= sizeof(glyphs->title_text)) {
+            return -1;
+        }
+        glyphs->title_text[i] = (char)value;
+        glyphs->title_text[i + 1U] = '\0';
+    }
+
     title_len = strlen(glyphs->title_text);
     if (title_len == 0 || title_len > TECMO_TITLE_MAX_CHARS) {
         return -1;
@@ -1893,6 +1904,23 @@ int tecmo_load_original_title_glyphs(const char *project_root, TecmoOriginalTitl
 
     glyphs->glyph_count = title_len;
     return 0;
+}
+
+int tecmo_load_original_title_glyphs(const char *project_root, TecmoOriginalTitleGlyphs *glyphs)
+{
+    char title_text[TECMO_MAX_NAME_TEXT];
+
+    if (tecmo_load_original_title_text(project_root, title_text, sizeof(title_text)) != 0) {
+        return -1;
+    }
+    return load_title_glyphs_for_text(project_root, title_text, glyphs);
+}
+
+int tecmo_load_title_glyphs_for_text(const char *project_root,
+                                     const char *title_text,
+                                     TecmoOriginalTitleGlyphs *glyphs)
+{
+    return load_title_glyphs_for_text(project_root, title_text, glyphs);
 }
 
 static int convert_tiles_file(const char *path, FILE *out, uint64_t *byte_count)

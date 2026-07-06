@@ -60,6 +60,8 @@ $env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
 .\build\tecmo_port.exe --render-test-mode menu docs\screenshots\menu_default.png
 .\build\tecmo_port.exe --render-test-mode menu-overlay build\menu_overlay_test.png
 .\build\tecmo_port.exe --render-test-mode title-screen build\title_screen_runtime_test.png
+.\build\tecmo_port.exe --render-test-mode intro-presents build\intro_presents_test.png
+.\build\tecmo_port.exe --render-test-mode chr-playground build\chr_playground_test.png
 .\build\tecmo_port.exe --render-test-mode rosters build\rosters_test.png
 .\build\tecmo_port.exe --render-test-mode play build\play_setup_test.png
 .\build\tecmo_port.exe --render-test-mode original-title build\original_title_test.png
@@ -100,7 +102,7 @@ Enter = launcher menu
 Esc = quit
 
 Main menu:
-Up/Down = choose Title Screen, Play Prototype, Rosters, or Quit
+Up/Down = choose Title Screen, Intro Lab, CHR Playground, Play Prototype, Rosters, or Quit
 Enter = confirm
 Esc = quit
 F3 = debug overlay
@@ -108,6 +110,16 @@ F3 = debug overlay
 Title Screen:
 Enter = launcher menu
 Esc = quit
+
+Intro Lab:
+Left/Right = switch CHR bank
+Tab = next CHR bank
+Enter/Esc = launcher menu
+
+CHR Playground:
+Left/Right = switch CHR bank
+Tab = next CHR bank
+Enter/Esc = launcher menu
 
 Play Prototype:
 Left/Right = team
@@ -152,7 +164,7 @@ The shortcut points at the latest `build\tecmo_port.exe`, regenerates an origina
 - Count lifted chunks and labels
 - Parse local Bank 02 roster labels into C-friendly records
 - Export local CHR bytes and grayscale tile sheet PNGs for private inspection
-- Run a native Win32 playable prototype with explicit memory arenas, a source-backed title screen mode, and roster-driven team/player selection
+- Run a native Win32 playable prototype with explicit memory arenas, source-backed title/CHR diagnostics, bank-switchable intro/CHR labs, and roster-driven team/player selection
 
 The current playable mode is a native prototype, not a full recreation of the original game. It establishes the frame loop, input path, memory model, and data-loading boundary that future translated gameplay systems can plug into. The `original-title-chr` render test also loads a native title setup summary from the private local Bank 04 and fixed-bank baselines so setup helper/write/table/stream/staging counts, fixed-helper aggregate categories, fixed-bank vector counts, and palette/PPU probe counts can be verified without committing setup streams, palette values, helper code, or graphics.
 

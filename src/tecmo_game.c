@@ -34,6 +34,12 @@ static const char *mode_name(TecmoPlayMode mode)
     if (mode == TECMO_MODE_TITLE_SCREEN) {
         return "TITLE SCREEN";
     }
+    if (mode == TECMO_MODE_INTRO_PROBE) {
+        return "INTRO LAB";
+    }
+    if (mode == TECMO_MODE_CHR_PLAYGROUND) {
+        return "CHR PLAYGROUND";
+    }
     if (mode == TECMO_MODE_PLAY_SETUP) {
         return "PLAY SETUP";
     }
@@ -97,10 +103,32 @@ static size_t selected_team_player_count(const TecmoRuntime *runtime)
     return count;
 }
 
+static uint32_t chr_bank_count(const TecmoRuntime *runtime)
+{
+    uint64_t count = runtime->title_chr_byte_count / TITLE_CHR_BANK_BYTES;
+    if (count == 0) {
+        return 1U;
+    }
+    if (count > 32U) {
+        count = 32U;
+    }
+    return (uint32_t)count;
+}
+
+static uint32_t selected_chr_bank(const TecmoRuntime *runtime)
+{
+    uint32_t count = chr_bank_count(runtime);
+    if (runtime->selected_chr_bank >= count) {
+        return count - 1U;
+    }
+    return runtime->selected_chr_bank;
+}
+
 bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const char *project_root)
 {
     memset(runtime, 0, sizeof(*runtime));
     runtime->memory = memory;
+    runtime->selected_chr_bank = 31U;
 
     if (tecmo_collect_rosters(project_root, &runtime->roster) != 0) {
         return false;
@@ -112,7 +140,11 @@ bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const ch
 
     if (tecmo_load_original_title_glyphs(project_root, &runtime->title_glyphs) == 0 &&
         tecmo_load_chr_data(project_root, &runtime->title_chr_bytes, &runtime->title_chr_byte_count) == 0) {
+        if (runtime->selected_chr_bank >= chr_bank_count(runtime)) {
+            runtime->selected_chr_bank = chr_bank_count(runtime) - 1U;
+        }
         runtime->title_probe_available = true;
+        (void)tecmo_load_title_glyphs_for_text(project_root, "TECMO PRESENTS", &runtime->intro_glyphs);
     } else {
         tecmo_free_buffer(runtime->title_chr_bytes);
         runtime->title_chr_bytes = NULL;
@@ -144,7 +176,7 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
 
 static void update_main_menu(TecmoRuntime *runtime, const TecmoInput *input)
 {
-    const size_t menu_count = 4;
+    const size_t menu_count = 6;
 
     if (pressed(input->up, runtime->previous_input.up) && runtime->selected_menu_item > 0) {
         --runtime->selected_menu_item;
@@ -160,8 +192,12 @@ static void update_main_menu(TecmoRuntime *runtime, const TecmoInput *input)
         if (runtime->selected_menu_item == 0) {
             runtime->mode = TECMO_MODE_TITLE_SCREEN;
         } else if (runtime->selected_menu_item == 1) {
-            runtime->mode = TECMO_MODE_PLAY_SETUP;
+            runtime->mode = TECMO_MODE_INTRO_PROBE;
         } else if (runtime->selected_menu_item == 2) {
+            runtime->mode = TECMO_MODE_CHR_PLAYGROUND;
+        } else if (runtime->selected_menu_item == 3) {
+            runtime->mode = TECMO_MODE_PLAY_SETUP;
+        } else if (runtime->selected_menu_item == 4) {
             runtime->mode = TECMO_MODE_ROSTERS;
         } else {
             runtime->quit_requested = true;
@@ -175,6 +211,28 @@ static void update_title_screen(TecmoRuntime *runtime, const TecmoInput *input)
         runtime->mode = TECMO_MODE_MAIN_MENU;
     } else if (pressed(input->cancel, runtime->previous_input.cancel)) {
         runtime->quit_requested = true;
+    }
+}
+
+static void update_probe_screen(TecmoRuntime *runtime, const TecmoInput *input)
+{
+    if (runtime->mode == TECMO_MODE_INTRO_PROBE || runtime->mode == TECMO_MODE_CHR_PLAYGROUND) {
+        uint32_t count = chr_bank_count(runtime);
+        if (pressed(input->left, runtime->previous_input.left) && runtime->selected_chr_bank > 0U) {
+            --runtime->selected_chr_bank;
+        }
+        if (pressed(input->right, runtime->previous_input.right) &&
+            runtime->selected_chr_bank + 1U < count) {
+            ++runtime->selected_chr_bank;
+        }
+        if (pressed(input->tab, runtime->previous_input.tab)) {
+            runtime->selected_chr_bank = (runtime->selected_chr_bank + 1U) % count;
+        }
+    }
+
+    if (pressed(input->confirm, runtime->previous_input.confirm) ||
+        pressed(input->cancel, runtime->previous_input.cancel)) {
+        runtime->mode = TECMO_MODE_MAIN_MENU;
     }
 }
 
@@ -285,6 +343,8 @@ static void write_runtime_watch_memory(TecmoRuntime *runtime)
     tecmo_cpu_ram_write(runtime->memory, 0x0003, (uint8_t)runtime->selected_menu_item);
     tecmo_cpu_ram_write(runtime->memory, 0x0004, (uint8_t)(runtime->frame_counter & 0xFFU));
     tecmo_cpu_ram_write(runtime->memory, 0x0005, (uint8_t)((runtime->frame_counter >> 8U) & 0xFFU));
+    tecmo_cpu_ram_write(runtime->memory, 0x0006, (uint8_t)selected_chr_bank(runtime));
+    tecmo_cpu_ram_write(runtime->memory, 0x0007, (uint8_t)chr_bank_count(runtime));
 }
 
 void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input)
@@ -299,6 +359,9 @@ void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input)
         update_main_menu(runtime, input);
     } else if (runtime->mode == TECMO_MODE_TITLE_SCREEN) {
         update_title_screen(runtime, input);
+    } else if (runtime->mode == TECMO_MODE_INTRO_PROBE ||
+               runtime->mode == TECMO_MODE_CHR_PLAYGROUND) {
+        update_probe_screen(runtime, input);
     } else if (runtime->mode == TECMO_MODE_PLAY_SETUP) {
         update_roster_selection(runtime, input, true);
     } else if (runtime->mode == TECMO_MODE_ROSTERS) {
@@ -439,15 +502,17 @@ static void render_main_menu(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
     clear(fb, rgb(14, 18, 22));
     rect(fb, 0, 0, fb->width, 70, rgb(120, 16, 24));
     draw_text(fb, 34, 24, "TECMO BASKETBALL NATIVE PORT", rgb(248, 248, 232), 2);
-    draw_text(fb, 74, 102, "LOCAL HOBBY PORT PROTOTYPE", rgb(144, 176, 192), 1);
+    draw_text(fb, 74, 96, "LOCAL HOBBY PORT PROTOTYPE", rgb(144, 176, 192), 1);
 
-    draw_button(fb, 160, 126, 320, 52, "TITLE SCREEN", runtime->selected_menu_item == 0);
-    draw_button(fb, 160, 190, 320, 52, "PLAY PROTOTYPE", runtime->selected_menu_item == 1);
-    draw_button(fb, 160, 254, 320, 52, "ROSTERS", runtime->selected_menu_item == 2);
-    draw_button(fb, 160, 318, 320, 52, "QUIT", runtime->selected_menu_item == 3);
+    draw_button(fb, 150, 116, 340, 42, "TITLE SCREEN", runtime->selected_menu_item == 0);
+    draw_button(fb, 150, 166, 340, 42, "INTRO LAB", runtime->selected_menu_item == 1);
+    draw_button(fb, 150, 216, 340, 42, "CHR PLAYGROUND", runtime->selected_menu_item == 2);
+    draw_button(fb, 150, 266, 340, 42, "PLAY PROTOTYPE", runtime->selected_menu_item == 3);
+    draw_button(fb, 150, 316, 340, 42, "ROSTERS", runtime->selected_menu_item == 4);
+    draw_button(fb, 150, 366, 340, 42, "QUIT", runtime->selected_menu_item == 5);
 
-    draw_text(fb, 150, 396, "UP DOWN SELECT   ENTER CONFIRM   ESC QUIT", rgb(226, 228, 208), 1);
-    draw_text(fb, 82, 426, "NO ROM ASM OR EXTRACTED ASSETS ARE LOADED FROM THIS REPO", rgb(124, 148, 160), 1);
+    draw_text(fb, 150, 424, "UP DOWN SELECT   ENTER CONFIRM   ESC QUIT", rgb(226, 228, 208), 1);
+    draw_text(fb, 82, 452, "NO ROM ASM OR EXTRACTED ASSETS ARE LOADED FROM THIS REPO", rgb(124, 148, 160), 1);
 }
 
 static void render_title_screen_mode(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
@@ -551,11 +616,13 @@ static void render_debug_overlay(const TecmoRuntime *runtime, TecmoFramebuffer *
     (void)snprintf(line, sizeof(line), "DBG MODE %s FRAME %u", mode_name(runtime->mode), runtime->frame_counter);
     draw_debug_text(fb, x, y, line);
 
-    (void)snprintf(line, sizeof(line), "FPS %.1f MENU %u TEAM %u PLAYER %u",
+    (void)snprintf(line, sizeof(line), "FPS %.1f MENU %u TEAM %u PLAYER %u CHR %02u/%02u",
                    (double)fps,
                    (unsigned)runtime->selected_menu_item,
                    (unsigned)(runtime->selected_team + 1U),
-                   (unsigned)(runtime->selected_player + 1U));
+                   (unsigned)(runtime->selected_player + 1U),
+                   (unsigned)selected_chr_bank(runtime),
+                   (unsigned)(chr_bank_count(runtime) - 1U));
     draw_debug_text(fb, x, y + 20, line);
 
     (void)snprintf(line, sizeof(line), "PERM %llu OF %llu HI %llu",
@@ -664,6 +731,237 @@ static void draw_title_glyph(TecmoFramebuffer *fb,
     draw_chr_tile(fb, chr_bytes, chr_byte_count, chr_bank, glyph->glyph_tiles[1], x + 8 * scale, y, scale);
     draw_chr_tile(fb, chr_bytes, chr_byte_count, chr_bank, glyph->glyph_tiles[2], x, y + 8 * scale, scale);
     draw_chr_tile(fb, chr_bytes, chr_byte_count, chr_bank, glyph->glyph_tiles[3], x + 8 * scale, y + 8 * scale, scale);
+}
+
+static void draw_title_glyph_range(TecmoFramebuffer *fb,
+                                   const uint8_t *chr_bytes,
+                                   uint64_t chr_byte_count,
+                                   uint32_t chr_bank,
+                                   const TecmoOriginalTitleGlyphs *glyphs,
+                                   size_t first,
+                                   size_t count,
+                                   int x,
+                                   int y,
+                                   int scale)
+{
+    int glyph_width = 16 * scale;
+    for (size_t i = 0; i < count && first + i < glyphs->glyph_count; ++i) {
+        const TecmoTitleGlyph *glyph = &glyphs->glyphs[first + i];
+        if (glyph->character != ' ') {
+            draw_title_glyph(fb,
+                             chr_bytes,
+                             chr_byte_count,
+                             chr_bank,
+                             glyph,
+                             x + (int)i * glyph_width,
+                             y,
+                             scale);
+        }
+    }
+}
+
+static void draw_chr_bank_sheet(TecmoFramebuffer *fb,
+                                const uint8_t *chr_bytes,
+                                uint64_t chr_byte_count,
+                                uint32_t chr_bank,
+                                int x,
+                                int y,
+                                int scale)
+{
+    for (uint16_t tile = 0; tile < 256U; ++tile) {
+        int tile_x = x + (int)(tile & 0x0FU) * 8 * scale;
+        int tile_y = y + (int)(tile >> 4U) * 8 * scale;
+        draw_chr_tile(fb, chr_bytes, chr_byte_count, chr_bank, (uint8_t)tile, tile_x, tile_y, scale);
+    }
+}
+
+static void render_chr_playground(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+{
+    const uint32_t chr_bank = selected_chr_bank(runtime);
+    const uint32_t bank_count = chr_bank_count(runtime);
+    const int tile_scale = 2;
+    const int cell_w = 34;
+    const int cell_h = 28;
+    const int grid_x = 28;
+    const int grid_y = 74;
+    char line[160];
+
+    clear(fb, rgb(8, 10, 16));
+    rect(fb, 0, 0, fb->width, 52, rgb(18, 18, 34));
+    (void)snprintf(line, sizeof(line), "CHR PLAYGROUND - BANK %02u OF %02u", (unsigned)chr_bank, (unsigned)(bank_count - 1U));
+    draw_text(fb, 24, 18, line, rgb(248, 248, 232), 2);
+    draw_text(fb, 394, 40, "LEFT RIGHT BANK TAB NEXT ENTER ESC MENU", rgb(142, 174, 190), 1);
+
+    if (!runtime->title_probe_available) {
+        draw_centered_text(fb, 212, "LOCAL CHR DATA UNAVAILABLE", rgb(252, 236, 170), 2);
+        return;
+    }
+
+    draw_text(fb, 28, 56, "TILE ID GRID 80-AF  NUMBERS LETTERS AND TITLE PARTS", rgb(142, 174, 190), 1);
+    for (uint8_t row = 0; row < 3; ++row) {
+        for (uint8_t col = 0; col < 16; ++col) {
+            uint8_t tile = (uint8_t)(0x80U + row * 16U + col);
+            int x = grid_x + (int)col * cell_w;
+            int y = grid_y + (int)row * cell_h;
+            (void)snprintf(line, sizeof(line), "%02X", (unsigned)tile);
+            draw_text(fb, x, y - 10, line, rgb(92, 116, 128), 1);
+            draw_chr_tile(fb,
+                          runtime->title_chr_bytes,
+                          runtime->title_chr_byte_count,
+                          chr_bank,
+                          tile,
+                          x + 5,
+                          y,
+                          tile_scale);
+        }
+    }
+
+    rect(fb, 26, 174, 588, 2, rgb(52, 60, 72));
+    (void)snprintf(line,
+                   sizeof(line),
+                   "ASSEMBLED 2X2 TITLE GLYPHS FROM BANK 06 MAP AND BANK %02u CHR",
+                   (unsigned)chr_bank);
+    draw_text(fb, 28, 190, line, rgb(142, 174, 190), 1);
+    {
+        int scale = 2;
+        int glyph_width = 16 * scale;
+        int title_width = (int)runtime->title_glyphs.glyph_count * glyph_width;
+        int start_x;
+        if (title_width > fb->width - 40) {
+            scale = 1;
+            glyph_width = 16;
+            title_width = (int)runtime->title_glyphs.glyph_count * glyph_width;
+        }
+        start_x = (fb->width - title_width) / 2;
+        for (size_t i = 0; i < runtime->title_glyphs.glyph_count; ++i) {
+            draw_title_glyph(fb,
+                             runtime->title_chr_bytes,
+                             runtime->title_chr_byte_count,
+                             chr_bank,
+                             &runtime->title_glyphs.glyphs[i],
+                             start_x + (int)i * glyph_width,
+                             218,
+                             scale);
+        }
+    }
+
+    draw_text(fb, 28, 286, "TITLE MAP SAMPLE", rgb(230, 232, 214), 1);
+    for (size_t row = 0; row < 4; ++row) {
+        char *out = line;
+        size_t remaining = sizeof(line);
+        size_t start = row * 3U;
+        int written;
+        line[0] = '\0';
+        for (size_t i = start; i < start + 3U && i < runtime->title_glyphs.glyph_count; ++i) {
+            const TecmoTitleGlyph *glyph = &runtime->title_glyphs.glyphs[i];
+            written = snprintf(out,
+                               remaining,
+                               "%c=%02X[%02X %02X %02X %02X]  ",
+                               glyph->character,
+                               (unsigned)glyph->tile_index,
+                               (unsigned)glyph->glyph_tiles[0],
+                               (unsigned)glyph->glyph_tiles[1],
+                               (unsigned)glyph->glyph_tiles[2],
+                               (unsigned)glyph->glyph_tiles[3]);
+            if (written < 0 || (size_t)written >= remaining) {
+                break;
+            }
+            out += written;
+            remaining -= (size_t)written;
+        }
+        draw_text(fb, 28, 308 + (int)row * 18, line, rgb(142, 174, 190), 1);
+    }
+
+    draw_text(fb, 28, 398, "SOURCE CANDIDATES: BANK04 C-0116..C-0140 DRIVER, BANK00 C-0191 C-0192 TEXT LAYOUT", rgb(142, 174, 190), 1);
+    draw_text(fb, 28, 420, "PLAYGROUND OUTPUT STAYS LOCAL UNDER BUILD WHEN RENDERED BY TESTS", rgb(230, 232, 214), 1);
+}
+
+static void render_intro_layout_lab(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+{
+    const uint32_t chr_bank = selected_chr_bank(runtime);
+    const uint32_t bank_count = chr_bank_count(runtime);
+    const int sheet_x = 30;
+    const int sheet_y = 76;
+    const int sheet_scale = 2;
+    const int canvas_x = 330;
+    const int canvas_y = 82;
+    const int canvas_w = 284;
+    const int canvas_h = 230;
+    char line[128];
+
+    clear(fb, rgb(6, 7, 10));
+    rect(fb, 0, 0, fb->width, 52, rgb(18, 18, 34));
+    (void)snprintf(line, sizeof(line), "INTRO LAB - BANK %02u OF %02u", (unsigned)chr_bank, (unsigned)(bank_count - 1U));
+    draw_text(fb, 22, 18, line, rgb(248, 248, 232), 2);
+    draw_text(fb, 394, 40, "LEFT RIGHT BANK TAB NEXT ENTER ESC MENU", rgb(142, 174, 190), 1);
+
+    if (!runtime->title_probe_available) {
+        draw_centered_text(fb, 212, "LOCAL CHR DATA UNAVAILABLE", rgb(252, 236, 170), 2);
+        return;
+    }
+
+    (void)snprintf(line, sizeof(line), "REAL CHR BANK %02u SHEET", (unsigned)chr_bank);
+    draw_text(fb, sheet_x, 58, line, rgb(142, 174, 190), 1);
+    for (uint8_t col = 0; col < 16U; ++col) {
+        (void)snprintf(line, sizeof(line), "%X", (unsigned)col);
+        draw_text(fb, sheet_x + (int)col * 16 + 5, sheet_y - 12, line, rgb(92, 116, 128), 1);
+    }
+    for (uint8_t row = 0; row < 16U; ++row) {
+        (void)snprintf(line, sizeof(line), "%X", (unsigned)row);
+        draw_text(fb, sheet_x - 12, sheet_y + (int)row * 16 + 5, line, rgb(92, 116, 128), 1);
+    }
+    draw_chr_bank_sheet(fb,
+                        runtime->title_chr_bytes,
+                        runtime->title_chr_byte_count,
+                        chr_bank,
+                        sheet_x,
+                        sheet_y,
+                        sheet_scale);
+
+    rect(fb, canvas_x - 2, canvas_y - 2, canvas_w + 4, canvas_h + 4, rgb(72, 86, 96));
+    rect(fb, canvas_x, canvas_y, canvas_w, canvas_h, rgb(0, 0, 0));
+    for (int x = 0; x <= canvas_w; x += 16) {
+        rect(fb, canvas_x + x, canvas_y, 1, canvas_h, rgb(22, 26, 32));
+    }
+    for (int y = 0; y <= canvas_h; y += 16) {
+        rect(fb, canvas_x, canvas_y + y, canvas_w, 1, rgb(22, 26, 32));
+    }
+    draw_text(fb, canvas_x, canvas_y - 20, "ASSET-BACKED TARGET CANVAS", rgb(142, 174, 190), 1);
+
+    if (runtime->intro_glyphs.glyph_count >= 14U) {
+        draw_title_glyph_range(fb,
+                               runtime->title_chr_bytes,
+                               runtime->title_chr_byte_count,
+                               chr_bank,
+                               &runtime->intro_glyphs,
+                               0,
+                               5,
+                               canvas_x + 62,
+                               canvas_y + 58,
+                               2);
+        draw_title_glyph_range(fb,
+                               runtime->title_chr_bytes,
+                               runtime->title_chr_byte_count,
+                               chr_bank,
+                               &runtime->intro_glyphs,
+                               6,
+                               8,
+                               canvas_x + 14,
+                               canvas_y + 138,
+                               2);
+    } else {
+        draw_text(fb, canvas_x + 24, canvas_y + 104, "INTRO GLYPH MAP MISSING", rgb(252, 236, 170), 1);
+    }
+
+    draw_text(fb, 30, 352, "POINT ME AT TILES BY HEX ID: ROW AND COL, FOR EXAMPLE B6 OR D2", rgb(230, 232, 214), 1);
+    draw_text(fb, 30, 374, "POINT ME AT CANVAS CELLS BY 16PX GRID OFFSET FROM THE CANVAS TOP LEFT", rgb(142, 174, 190), 1);
+    (void)snprintf(line,
+                   sizeof(line),
+                   "CURRENT RIGHT SIDE USES BANK06 CHARACTER MAP AND BANK %02u 2X2 GLYPH TILES",
+                   (unsigned)chr_bank);
+    draw_text(fb, 30, 396, line, rgb(142, 174, 190), 1);
+    draw_text(fb, 30, 418, "NEXT: TURN YOUR TILE PICKS INTO LOCAL-ONLY LAYOUT JSON AND THEN DECODE BANK04 SCRIPT PATH", rgb(142, 174, 190), 1);
+    draw_text(fb, 30, 446, "NO CHR BYTES OR GENERATED ORIGINAL-ASSET SCREENSHOTS ARE COMMITTED", rgb(92, 116, 128), 1);
 }
 
 void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
@@ -842,6 +1140,10 @@ void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebu
         render_main_menu(runtime, framebuffer);
     } else if (runtime->mode == TECMO_MODE_TITLE_SCREEN) {
         render_title_screen_mode(runtime, framebuffer);
+    } else if (runtime->mode == TECMO_MODE_INTRO_PROBE) {
+        render_intro_layout_lab(runtime, framebuffer);
+    } else if (runtime->mode == TECMO_MODE_CHR_PLAYGROUND) {
+        render_chr_playground(runtime, framebuffer);
     } else if (runtime->mode == TECMO_MODE_PLAY_SETUP) {
         render_roster_browser(runtime, framebuffer, true);
     } else if (runtime->mode == TECMO_MODE_ROSTERS) {
