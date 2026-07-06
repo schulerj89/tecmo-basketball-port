@@ -26,7 +26,7 @@ Resolve the title text render path through the fixed dispatcher, Bank 06 charact
 .\tools\Find-TitleChrMapping.ps1
 ```
 
-Map the exact title setup entry plus adjacent helper calls, fixed-helper aggregate counts, write targets, stream format/effect summary, and table references:
+Map the exact title setup entry plus adjacent helper calls, fixed-helper aggregate counts, palette/PPU probe counts, write targets, stream format/effect summary, and table references:
 
 ```powershell
 .\tools\Find-TitleSetupMapping.ps1
@@ -60,7 +60,8 @@ Those reports/probes are intentionally ignored by Git. Public docs may keep chun
 - The BAA4 helper model is one count byte, two private base-offset bytes, and four private source fields per record; each record emits four staged bytes. The largest local stream currently consumes 139 private source bytes and emits 136 staged bytes.
 - The BAA4 helper range is now tracked as `04:$BAA4-$BAF0`, which includes the stream finalize helper call at the end of the helper.
 - Fixed helper calls are summarized as five known helper targets, six invocations, two frame-wait calls with aggregate wait request 20, two staging seed calls, one setup finalize call, and one stream finalize call.
-- The native `original-title-chr` path now loads a setup staging summary from local Bank 04 bytes and renders driver call/write counts, fixed-helper aggregate counts, stream-copy write counts, verified table-reference counts, stream-table coverage, stream effect shape, and aggregate native staging coverage without committing setup streams.
+- The title setup palette/PPU probe checks three Bank 04 title setup ranges and finds zero direct PPU address writes, zero direct PPU data writes, and zero direct palette-address high-byte literals, so title palette state must be decoded through the fixed-helper/queued PPU path.
+- The native `original-title-chr` path now loads a setup staging summary from local Bank 04 bytes and renders driver call/write counts, fixed-helper aggregate counts, palette/PPU probe counts, stream-copy write counts, verified table-reference counts, stream-table coverage, stream effect shape, and aggregate native staging coverage without committing setup streams.
 - The aggregate native staging pass covers 15 selected streams, 415 records, and 1660 staged writes across local staging range `$0200-$0287`; payload bytes are not retained.
 - Detailed fixed helper side effects and palette setup still need a native model before the CHR-backed quick launch can be called pixel-accurate.
 
@@ -68,7 +69,7 @@ Those reports/probes are intentionally ignored by Git. Public docs may keep chun
 
 - Expand fixed helper aggregate categories into explicit native pattern-table/VRAM staging operations where needed.
 - Replace fixed-bank helper effects such as frame waits, render writes, and setup wrappers with explicit native C functions.
-- Resolve palette initialization for the title/menu path.
+- Decode the fixed-helper/queued PPU path that initializes title/menu palette RAM.
 - Map title/menu tile IDs to local CHR bank(s) while keeping extracted bytes local.
 - Convert the Bank 04 pattern/script records into safe native structs or a local-only generated cache.
 - Replace the probe font/colors with mapped title/menu CHR, palette, and layout data while keeping generated assets local.

@@ -755,7 +755,20 @@ void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
     }
 
     rect(framebuffer, 116, 452, 408, 2, rgb(236, 214, 112));
-    draw_centered_text(framebuffer, 464, "HELPER DETAILS AND PALETTE DECODE NEXT", rgb(230, 232, 214), 1);
+    if (glyphs->setup_summary.loaded && glyphs->setup_summary.palette_probe_summary_loaded) {
+        const TecmoTitleSetupSummary *setup = &glyphs->setup_summary;
+        (void)snprintf(line,
+                       sizeof(line),
+                       "PAL DIRECT PPU %02u/%02u HIGH %02u FIXED %02u QUEUE %s",
+                       (unsigned)setup->palette_direct_ppu_addr_write_count,
+                       (unsigned)setup->palette_direct_ppu_data_write_count,
+                       (unsigned)setup->palette_direct_high_literal_count,
+                       (unsigned)setup->palette_fixed_helper_candidate_count,
+                       setup->palette_queue_decode_pending ? "PENDING" : "CHECK");
+        draw_centered_text(framebuffer, 464, line, rgb(230, 232, 214), 1);
+    } else {
+        draw_centered_text(framebuffer, 464, "HELPER DETAILS AND PALETTE DECODE NEXT", rgb(230, 232, 214), 1);
+    }
 }
 
 void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer)

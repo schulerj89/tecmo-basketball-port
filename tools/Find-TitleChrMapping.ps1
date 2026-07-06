@@ -339,7 +339,7 @@ $Report = [pscustomobject]@{
         [pscustomobject]@{ chunk = "C-0052"; role = "Bank 06 text render setup"; range = '06:$9E50-$A02C'; note = 'Resolved fixed dispatcher entry 0x38 target.' },
         [pscustomobject]@{ chunk = "C-0060/C-0062/C-0063"; role = "character-to-tile mapping"; range = '06:$A250-$A2CE'; note = 'Maps ASCII-like character values through the baseline operand at $A273,X into tile indices.' },
         [pscustomobject]@{ chunk = "C-0066"; role = "2x2 glyph tile table"; range = '06:$A4CA-$B080'; note = 'Uses $AF05 + tile_index*4 for four tile IDs.' },
-        [pscustomobject]@{ chunk = "C-0115/C-0135"; role = "title setup and adjacent pattern tables"; range = '04:$8385-$83AA and 04:$9000-$BFFF'; note = 'C-0115 sets $0352=0x1F and $0100=0x06; the exact $BA16 entry sets the $05B6 update flag bit, while adjacent pattern/palette setup remains unresolved.' }
+        [pscustomobject]@{ chunk = "C-0115/C-0135"; role = "title setup and adjacent pattern tables"; range = '04:$8385-$83AA and 04:$9000-$BFFF'; note = 'C-0115 sets $0352=0x1F and $0100=0x06; the exact $BA16 entry sets the $05B6 update flag bit, while adjacent pattern setup and queued palette effects remain unresolved.' }
     )
     dispatcher = [pscustomobject]@{
         fixed_helper = '$C711'
@@ -355,7 +355,7 @@ $Report = [pscustomobject]@{
         setup_selector_0352 = "0x1F"
         setup_helper = '04:$BA16'
         update_flags_or_05b6 = "0x01"
-        status = "exact BA16 update flag is modeled; adjacent pattern/VRAM/palette setup still needs mapping before raw CHR bank rendering is pixel-accurate"
+        status = "exact BA16 update flag is modeled; adjacent pattern/VRAM setup and fixed-helper palette queue decode still need mapping before raw CHR bank rendering is pixel-accurate"
     }
     title_text_length = $TitleText.Length
     characters = $Characters
@@ -368,11 +368,11 @@ $Report = [pscustomobject]@{
         "Direct title bytes are not direct CHR tile IDs.",
         'C711 dispatch for A=0x38 resolves to Bank 06 text setup at 06:$9E50.',
         'The title glyph path maps characters through 06:$A290, uses the baseline $A273,X lookup operand, and reads four tile IDs from the 06:$AF05 table.',
-        "Raw CHR-bank probing is still not pixel-accurate until adjacent Bank 04 pattern and palette setup is modeled."
+        "Raw CHR-bank probing is still not pixel-accurate until adjacent Bank 04 pattern setup and queued palette effects are modeled."
     )
     next_steps = @(
         "Map the adjacent Bank 04 pattern setup tables and fixed helper effects into explicit native pattern-table/VRAM state.",
-        "Identify title palette initialization and palette animation state.",
+        "Decode fixed-helper/queued PPU palette initialization and any palette animation state.",
         "Promote the original-title quick launch from diagnostic CHR rendering after pattern and palette state are mapped."
     )
 }
@@ -388,5 +388,5 @@ $Report | ConvertTo-Json -Depth 8 | Set-Content -Path $ReportPath -Encoding ASCI
     dispatcher = ("{0} -> bank {1} {2}" -f (Format-HexByte $DispatcherIndex), (Format-HexByte $DispatchBank), (Format-HexWord $DispatchTarget))
     report = $ReportPath
     probe = if ($ProbeWritten) { $ProbePath } else { "<skipped>" }
-    next_gate = "Map adjacent pattern/palette setup"
+    next_gate = "Decode adjacent pattern setup and fixed-helper palette queue"
 } | Format-List

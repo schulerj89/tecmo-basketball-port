@@ -100,6 +100,13 @@ typedef struct TecmoTitleSetupSummary {
     uint8_t fixed_setup_finalize_call_count;
     uint8_t fixed_staging_seed_call_count;
     uint8_t fixed_stream_finalize_call_count;
+    bool palette_probe_summary_loaded;
+    uint8_t palette_probe_range_count;
+    uint8_t palette_direct_ppu_addr_write_count;
+    uint8_t palette_direct_ppu_data_write_count;
+    uint8_t palette_direct_high_literal_count;
+    uint8_t palette_fixed_helper_candidate_count;
+    bool palette_queue_decode_pending;
     bool stream_decode_pending;
     bool fixed_helper_effects_pending;
     uint16_t first_unclassified_call;

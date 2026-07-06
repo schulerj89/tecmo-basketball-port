@@ -1272,6 +1272,81 @@ static int collect_fixed_helper_summary(const uint8_t *bytes,
     return 0;
 }
 
+static int collect_palette_probe_range(const uint8_t *bytes,
+                                       const bool *present,
+                                       uint16_t start,
+                                       uint16_t end,
+                                       TecmoTitleSetupSummary *summary)
+{
+    for (uint32_t address = start; address <= end; ++address) {
+        uint8_t opcode = 0;
+        if (read_mapped_byte(bytes, present, 0x8000U, address, &opcode) != 0) {
+            return -1;
+        }
+
+        if (opcode == 0xA9U && address + 1U <= end) {
+            uint8_t immediate = 0;
+            if (read_mapped_byte(bytes, present, 0x8000U, address + 1U, &immediate) != 0) {
+                return -1;
+            }
+            if (immediate == 0x3FU) {
+                ++summary->palette_direct_high_literal_count;
+            }
+        }
+
+        if ((opcode == 0x8CU || opcode == 0x8DU || opcode == 0x8EU) && address + 2U <= end) {
+            uint8_t lo = 0;
+            uint8_t hi = 0;
+            uint16_t target;
+            if (read_mapped_byte(bytes, present, 0x8000U, address + 1U, &lo) != 0 ||
+                read_mapped_byte(bytes, present, 0x8000U, address + 2U, &hi) != 0) {
+                return -1;
+            }
+            target = (uint16_t)(((uint16_t)hi << 8U) | lo);
+            if (target == 0x2006U) {
+                ++summary->palette_direct_ppu_addr_write_count;
+            } else if (target == 0x2007U) {
+                ++summary->palette_direct_ppu_data_write_count;
+            }
+        }
+    }
+
+    ++summary->palette_probe_range_count;
+    return 0;
+}
+
+static int collect_palette_probe_summary(const uint8_t *bytes,
+                                         const bool *present,
+                                         TecmoTitleSetupSummary *summary)
+{
+    if (collect_palette_probe_range(bytes,
+                                    present,
+                                    summary->exact_entry_start,
+                                    summary->exact_entry_end,
+                                    summary) != 0 ||
+        collect_palette_probe_range(bytes,
+                                    present,
+                                    summary->adjacent_driver_start,
+                                    summary->adjacent_driver_end,
+                                    summary) != 0 ||
+        collect_palette_probe_range(bytes,
+                                    present,
+                                    summary->stream_copy_start,
+                                    summary->stream_copy_end,
+                                    summary) != 0) {
+        return -1;
+    }
+
+    summary->palette_fixed_helper_candidate_count = summary->fixed_helper_call_invocations;
+    summary->palette_queue_decode_pending =
+        summary->palette_fixed_helper_candidate_count > 0U &&
+        summary->palette_direct_ppu_addr_write_count == 0U &&
+        summary->palette_direct_ppu_data_write_count == 0U &&
+        summary->palette_direct_high_literal_count == 0U;
+    summary->palette_probe_summary_loaded = true;
+    return 0;
+}
+
 static int collect_jsr_targets(const uint8_t *bytes,
                                const bool *present,
                                uint16_t start,
@@ -1632,6 +1707,9 @@ static int load_title_setup_summary(const uint8_t *bank04,
         return -1;
     }
     if (collect_fixed_helper_summary(bank04, bank04_present, summary) != 0) {
+        return -1;
+    }
+    if (collect_palette_probe_summary(bank04, bank04_present, summary) != 0) {
         return -1;
     }
     if (load_title_stream_format_summary(bank04, bank04_present, summary) != 0) {

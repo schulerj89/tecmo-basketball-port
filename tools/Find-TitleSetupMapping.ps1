@@ -488,6 +488,64 @@ function New-FixedHelperEffectSummary {
     }
 }
 
+function New-PaletteProbeSummary {
+    param(
+        [hashtable]$Map,
+        [int]$FixedHelperCandidateCount
+    )
+
+    $Ranges = @(
+        [pscustomobject]@{ name = "exact_ba16_entry"; start = 0xBA16; end = 0xBA24; display = '04:$BA16-$BA24' },
+        [pscustomobject]@{ name = "adjacent_setup_driver"; start = 0xBA25; end = 0xBA84; display = '04:$BA25-$BA84' },
+        [pscustomobject]@{ name = "local_stream_copy_helper"; start = 0xBAA4; end = 0xBAF0; display = '04:$BAA4-$BAF0' }
+    )
+    $PpuAddrWrites = 0
+    $PpuDataWrites = 0
+    $PaletteHighLiterals = 0
+
+    foreach ($Range in $Ranges) {
+        for ($Address = $Range.start; $Address -le $Range.end; ++$Address) {
+            $Opcode = Get-MapByte -Map $Map -Address $Address
+            if ($Opcode -eq 0xA9 -and $Address + 1 -le $Range.end) {
+                $Immediate = Get-MapByte -Map $Map -Address ($Address + 1)
+                if ($Immediate -eq 0x3F) {
+                    ++$PaletteHighLiterals
+                }
+            }
+
+            if (($Opcode -eq 0x8C -or $Opcode -eq 0x8D -or $Opcode -eq 0x8E) -and
+                $Address + 2 -le $Range.end) {
+                $Lo = Get-MapByte -Map $Map -Address ($Address + 1)
+                $Hi = Get-MapByte -Map $Map -Address ($Address + 2)
+                $Target = ($Hi -shl 8) -bor $Lo
+                if ($Target -eq 0x2006) {
+                    ++$PpuAddrWrites
+                } elseif ($Target -eq 0x2007) {
+                    ++$PpuDataWrites
+                }
+            }
+        }
+    }
+
+    $QueuePending = $FixedHelperCandidateCount -gt 0 -and
+        $PpuAddrWrites -eq 0 -and
+        $PpuDataWrites -eq 0 -and
+        $PaletteHighLiterals -eq 0
+
+    return [pscustomobject]@{
+        status = "direct palette/PPU register writes are absent from the title setup ranges; palette state remains a fixed-helper/queued PPU decode task"
+        probe_ranges = @($Ranges | ForEach-Object { $_.display })
+        range_count = @($Ranges).Count
+        direct_ppu_addr_write_count = $PpuAddrWrites
+        direct_ppu_data_write_count = $PpuDataWrites
+        direct_palette_high_literal_count = $PaletteHighLiterals
+        fixed_helper_candidate_count = $FixedHelperCandidateCount
+        queue_decode_pending = $QueuePending
+        palette_values_included = $false
+        source_code_included = $false
+    }
+}
+
 $LocalDecompRoot = Find-LocalDecompRoot
 if (!$LocalDecompRoot) {
     throw "Could not find a local decomp root. Pass -DecompRoot or set TECMO_DECOMP_ROOT."
@@ -500,6 +558,7 @@ if (!(Test-Path $Bank04Path)) {
 
 $Bank04 = Read-BankedByteMap -Path $Bank04Path -BankIndex 4 -CpuBase 0x8000
 $FixedHelperSummary = New-FixedHelperEffectSummary -Map $Bank04
+$PaletteProbeSummary = New-PaletteProbeSummary -Map $Bank04 -FixedHelperCandidateCount $FixedHelperSummary.fixed_call_invocations
 $TableRefs = @(
     (New-TableRef -Name "selector_remap_ba88" -Start 0xBA88 -Count 13 -Role "selector remap used by adjacent setup driver"),
     (New-TableRef -Name "target_ptr_lo_b317" -Start 0xB317 -Count 5 -Role "low-byte pointer table selected through selector_remap_ba88"),
@@ -548,11 +607,12 @@ $Report = [pscustomobject]@{
     }
     stream_decode_summary = New-StreamDecodeSummary -Map $Bank04
     fixed_helper_effect_summary = $FixedHelperSummary
+    palette_probe_summary = $PaletteProbeSummary
     table_references = $TableRefs
     unresolved_gates = @(
         'Expand fixed helper aggregate categories into explicit native pattern-table/VRAM staging operations where needed.',
         "Identify which adjacent stream/table path supplies title pattern-table or nametable data for the first visible title screen.",
-        "Identify palette RAM initialization and palette animation for the title path."
+        "Decode the fixed-helper/queued PPU path that initializes palette RAM for the title path."
     )
     next_steps = @(
         "Add native structs for fixed helper side effects.",
@@ -576,6 +636,8 @@ $Report | ConvertTo-Json -Depth 8 | Set-Content -Path $ReportPath -Encoding ASCI
     staging_bytes = $Report.stream_decode_summary.native_staging_summary.staged_bytes_written
     fixed_helper_calls = $Report.fixed_helper_effect_summary.fixed_call_invocations
     wait_request_total = $Report.fixed_helper_effect_summary.wait_request_total
+    palette_direct_ppu_writes = $Report.palette_probe_summary.direct_ppu_addr_write_count + $Report.palette_probe_summary.direct_ppu_data_write_count
+    palette_queue_pending = $Report.palette_probe_summary.queue_decode_pending
     table_refs = @($Report.table_references).Count
-    next_gate = "Expand native helper side effects and palette setup"
+    next_gate = "Decode fixed-helper palette/PPU queue"
 } | Format-List
