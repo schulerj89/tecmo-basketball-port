@@ -22,6 +22,7 @@ typedef struct TecmoInput {
     bool save;
     bool preset_rabbit;
     bool preset_tecmo;
+    bool preset_composite;
     bool remove;
     bool debug_toggle;
 } TecmoInput;
@@ -106,6 +107,7 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode);
 void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input);
 void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 void tecmo_render_original_title_probe(TecmoFramebuffer *framebuffer, const char *title_text);
+void tecmo_render_intro_c051_d861_model(TecmoFramebuffer *framebuffer);
 void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
                                            const TecmoOriginalTitleGlyphs *glyphs,
                                            const uint8_t *chr_bytes,

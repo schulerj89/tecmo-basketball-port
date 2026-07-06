@@ -42,6 +42,7 @@ $Draft = [ordered]@{
         switch_table = "Intro Lab: T. CHR Playground: Up/Down."
         rabbit_candidate = "Intro Lab: R records Bank 31 table 1 lookup-derived 8x16 sprite pairs 124-12B."
         tecmo_candidate = "Intro Lab: M records the visual Bank 31 table 1 TECMO logo candidate tiles 180-193."
+        composite_candidate = "Intro Lab: C records the current rabbit plus TECMO composite candidate."
         save_records = "Intro Lab: S writes build/intro_layout_picks.json."
     }
     selected_chr_bank = $Bank

@@ -10,6 +10,12 @@ The launcher has an `Intro Lab` button and a matching ignored screenshot test:
 .\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-presents build\intro_presents_test.png
 ```
 
+There is also a read-only helper-model screenshot that explains the native `$C051 -> $D861` contract without using local payload bytes:
+
+```powershell
+.\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-c051-d861-model build\intro_c051_d861_model_test.png
+```
+
 The current frame is asset-backed and bank/table-switchable. It defaults to Bank 31 table 0 because that is the verified title glyph path. Table 0 shows tile IDs `$000-$0FF`; table 1 shows `$100-$1FF`. The frame renders the selected local-only CHR sheet, lets the user place selected source tiles onto a target canvas, and shows the local placement records on screen. The exact intro bank/table, mascot/logo sprite layout, and palette path are not yet decoded from the original intro script streams.
 
 Intro Lab builder controls:
@@ -21,6 +27,7 @@ Intro Lab builder controls:
 - `Space`: record the selected tile at the selected canvas cell.
 - `R`: record the Bank 31/table 1 rabbit lookup candidate as 8x16 sprite pairs `$124-$12B`.
 - `M`: record the visual Bank 31/table 1 `TECMO` logo candidate tiles `$180-$193`.
+- `C`: record the current composite candidate with the rabbit lookup group placed beside the `TECMO` visual group.
 - `Backspace/Delete`: remove the last placement record.
 - `S`: write ignored `build/intro_layout_picks.json`.
 
@@ -31,13 +38,17 @@ Current rabbit-head trace:
 - User visual inspection points to Bank 31/table 1 rabbit-head parts near `$125-$127`, with adjacent candidate parts near `$129-$12B`.
 - Bank 04 `L88E7` seeds the stream pass that reaches fixed helper `$C051`, which trampolines to `$D861`.
 - `$D861` stages 4-byte sprite records and adds the `$0D` tile offset. For the Bank 04 seeded pass, the current local lookup resolves OAM tile lows `$25`, `$27`, `$29`, and `$2B`.
-- In NES 8x16 sprite terms, those odd OAM tile IDs imply table-1 8x8 pairs `$124/$125`, `$126/$127`, `$128/$129`, and `$12A/$12B`. The native `R` preset lays those pairs out for inspection.
+- In NES 8x16 sprite terms, those odd OAM tile IDs imply table-1 8x8 pairs `$124/$125`, `$126/$127`, `$128/$129`, and `$12A/$12B`. The native `R` preset now runs through a small C-side OAM-tile-pair helper before placing those pairs for inspection.
 - `tools/Find-IntroRabbitLookup.ps1` writes the ignored local report `build/intro_rabbit_lookup.json` with the decoded selector and record summary.
+- `intro-c051-d861-model` renders the same helper contract as a synthetic, screenshot-tested schematic with no CHR or decoded stream payload.
 
 Current `TECMO` logo visual trace:
 
 - CHR Playground visual inspection points to Bank 31/table 1 tiles `$180-$193`.
-- That range is 20 tiles, matching five 2x2 letters for `TECMO`. The native `M` preset lays out that range as a visual candidate; the original script linkage still needs to be decoded.
+- Bank 04 `L8818` is now the stronger execution lead for that logo range. It reaches fixed helper `$C051/$D861` through the Bank 0 `$A90F` pointer table, selector `$00`.
+- The local lookup resolves ten OAM tile lows in `$80-$93`; interpreted as NES 8x16 sprites, those cover table-1 tile pairs `$180/$181` through `$192/$193`.
+- `tools/Find-IntroTecmoLogoLookup.ps1` writes the ignored local report `build/intro_tecmo_logo_lookup.json` and verifies that the rabbit `$A7DB` table has zero `$80-$93` hits for selectors `$00-$03`.
+- The native `M` preset lays out `$180-$193` as a visual candidate until that local decoder drives placement directly.
 
 ## Current CHR Playground
 
@@ -53,7 +64,7 @@ The playground renders selected-bank/table tile IDs `$080-$0AF` or `$180-$1AF`, 
 
 Use the `Intro Lab` screen to identify the selected bank, table, and source tiles by three-digit tile ID. For example, Bank 12 table 1 row `B`, column `6` is tile `$1B6`. Use the target canvas grid on the right to describe placement by 16px offsets from the canvas top-left.
 
-For the current rabbit pass, press `R` in Intro Lab to place the Bank 31/table 1 lookup-derived candidate group onto the canvas. For the `TECMO` letters, press `M` to place the visual `$180-$193` group. Adjust or remove records as needed before pressing `S`.
+For the current rabbit pass, press `R` in Intro Lab to place the Bank 31/table 1 lookup-derived candidate group onto the canvas. For the `TECMO` letters, press `M` to place the visual `$180-$193` group. Press `C` to place both groups together as the current intro composite candidate. Adjust or remove records as needed before pressing `S`.
 
 Create an ignored local-only draft for your picks, or use the running Intro Lab and press `S`:
 

@@ -19,7 +19,7 @@ static void print_usage(const char *program)
     printf("  --roster [TEAM|--all]   Parse labeled Bank 02 roster records\n");
     printf("  --play                  Launch native playable prototype window\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, intro-presents, intro-builder-sample, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play setup, original-title, or original-title-chr to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, intro-presents, intro-builder-sample, intro-rabbit-preset, intro-tecmo-preset, intro-composite-preset, intro-c051-d861-model, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play setup, original-title, or original-title-chr to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -151,6 +151,13 @@ int main(int argc, char **argv)
                 tecmo_render_original_title_probe(&framebuffer, title_text);
                 result = 0;
             }
+        } else if (strcmp(mode_name, "intro-c051-d861-model") == 0) {
+            framebuffer.pixels = pixels;
+            framebuffer.width = width;
+            framebuffer.height = height;
+            framebuffer.pitch_pixels = width;
+            tecmo_render_intro_c051_d861_model(&framebuffer);
+            result = 0;
         } else if (!tecmo_runtime_init(&runtime, &memory, root)) {
             printf("Failed to initialize runtime from %s\n", root);
         } else {
@@ -225,6 +232,20 @@ int main(int argc, char **argv)
                 runtime.intro_canvas_cell_y = 5;
                 memset(&input, 0, sizeof(input));
                 input.preset_tecmo = true;
+                tecmo_runtime_update(&runtime, &input);
+                {
+                    TecmoInput released_input;
+                    memset(&released_input, 0, sizeof(released_input));
+                    tecmo_runtime_update(&runtime, &released_input);
+                }
+            } else if (strcmp(mode_name, "intro-composite-preset") == 0) {
+                TecmoInput input;
+                tecmo_runtime_set_mode(&runtime, TECMO_MODE_INTRO_PROBE);
+                runtime.selected_chr_table = 1U;
+                runtime.intro_source_tile = 0x80U;
+                runtime.intro_canvas_focus = true;
+                memset(&input, 0, sizeof(input));
+                input.preset_composite = true;
                 tecmo_runtime_update(&runtime, &input);
                 {
                     TecmoInput released_input;

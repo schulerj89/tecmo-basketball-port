@@ -403,27 +403,22 @@ static void add_intro_placement(TecmoRuntime *runtime)
 
 static void add_intro_rabbit_head_candidate(TecmoRuntime *runtime)
 {
-    typedef struct RabbitTile {
-        uint16_t tile_id;
+    typedef struct RabbitSprite {
+        uint8_t oam_tile_low;
         int dx;
-        int dy;
         const char *label;
-    } RabbitTile;
+    } RabbitSprite;
 
     /*
      * Bank 04 L88E7 seeds the stream that fixed helper C051/D861 stages as
      * 8x16 sprite tile IDs 25, 27, 29, and 2B. In 8x16 mode those imply the
      * table-1 8x8 pairs below for Intro Lab inspection.
      */
-    static const RabbitTile rabbit_tiles[] = {
-        {0x124U, 0, 0, "RAB25 TOP"},
-        {0x125U, 0, 1, "RAB25 BOT"},
-        {0x126U, 1, 0, "RAB27 TOP"},
-        {0x127U, 1, 1, "RAB27 BOT"},
-        {0x128U, 2, 0, "RAB29 TOP"},
-        {0x129U, 2, 1, "RAB29 BOT"},
-        {0x12AU, 3, 0, "RAB2B TOP"},
-        {0x12BU, 3, 1, "RAB2B BOT"},
+    static const RabbitSprite rabbit_sprites[] = {
+        {0x25U, 0, "RAB25"},
+        {0x27U, 1, "RAB27"},
+        {0x29U, 2, "RAB29"},
+        {0x2BU, 3, "RAB2B"},
     };
     uint32_t chr_bank = 31U;
     const uint32_t chr_table = 1U;
@@ -454,15 +449,24 @@ static void add_intro_rabbit_head_candidate(TecmoRuntime *runtime)
     runtime->intro_canvas_cell_x = base_x;
     runtime->intro_canvas_cell_y = base_y;
 
-    for (size_t i = 0; i < sizeof(rabbit_tiles) / sizeof(rabbit_tiles[0]); ++i) {
-        const RabbitTile *tile = &rabbit_tiles[i];
+    for (size_t i = 0; i < sizeof(rabbit_sprites) / sizeof(rabbit_sprites[0]); ++i) {
+        const RabbitSprite *sprite = &rabbit_sprites[i];
+        uint16_t top_tile = (uint16_t)(0x100U + (sprite->oam_tile_low & 0xFEU));
+        uint16_t bottom_tile = (uint16_t)(0x100U + (sprite->oam_tile_low | 0x01U));
+        char label[32];
+        (void)snprintf(label, sizeof(label), "%s TOP", sprite->label);
+        if (append_intro_tile_placement(runtime, chr_bank, chr_table, top_tile, base_x + sprite->dx, base_y, label) !=
+            0) {
+            break;
+        }
+        (void)snprintf(label, sizeof(label), "%s BOT", sprite->label);
         if (append_intro_tile_placement(runtime,
                                         chr_bank,
                                         chr_table,
-                                        tile->tile_id,
-                                        base_x + tile->dx,
-                                        base_y + tile->dy,
-                                        tile->label) != 0) {
+                                        bottom_tile,
+                                        base_x + sprite->dx,
+                                        base_y + 1,
+                                        label) != 0) {
             break;
         }
     }
@@ -471,7 +475,7 @@ static void add_intro_rabbit_head_candidate(TecmoRuntime *runtime)
         set_runtime_status(runtime->intro_layout_status,
                            sizeof(runtime->intro_layout_status),
                            "PLACEMENT LIST FULL");
-    } else if (runtime->intro_placement_count - before < sizeof(rabbit_tiles) / sizeof(rabbit_tiles[0])) {
+    } else if (runtime->intro_placement_count - before < sizeof(rabbit_sprites) / sizeof(rabbit_sprites[0]) * 2U) {
         set_runtime_status(runtime->intro_layout_status,
                            sizeof(runtime->intro_layout_status),
                            "RABBIT PRESET PARTIAL  LIST FULL");
@@ -549,6 +553,31 @@ static void add_intro_tecmo_logo_candidate(TecmoRuntime *runtime)
         set_runtime_status(runtime->intro_layout_status,
                            sizeof(runtime->intro_layout_status),
                            "TECMO VISUAL CANDIDATE B31 T1 180-193 RECORDED");
+    }
+}
+
+static void add_intro_composite_candidate(TecmoRuntime *runtime)
+{
+    size_t before = runtime->intro_placement_count;
+
+    runtime->intro_canvas_cell_x = 7;
+    runtime->intro_canvas_cell_y = 5;
+    add_intro_tecmo_logo_candidate(runtime);
+
+    runtime->intro_canvas_cell_x = 4;
+    runtime->intro_canvas_cell_y = 4;
+    add_intro_rabbit_head_candidate(runtime);
+
+    if (runtime->intro_placement_count == before) {
+        set_runtime_status(runtime->intro_layout_status,
+                           sizeof(runtime->intro_layout_status),
+                           "PLACEMENT LIST FULL");
+    } else {
+        runtime->intro_canvas_cell_x = 4;
+        runtime->intro_canvas_cell_y = 4;
+        set_runtime_status(runtime->intro_layout_status,
+                           sizeof(runtime->intro_layout_status),
+                           "INTRO COMPOSITE CANDIDATE RABBIT PLUS TECMO RECORDED");
     }
 }
 
@@ -663,6 +692,9 @@ static void update_probe_screen(TecmoRuntime *runtime, const TecmoInput *input)
         }
         if (pressed(input->preset_tecmo, runtime->previous_input.preset_tecmo)) {
             add_intro_tecmo_logo_candidate(runtime);
+        }
+        if (pressed(input->preset_composite, runtime->previous_input.preset_composite)) {
+            add_intro_composite_candidate(runtime);
         }
         if (pressed(input->remove, runtime->previous_input.remove)) {
             remove_intro_placement(runtime);
@@ -1151,6 +1183,58 @@ void tecmo_render_original_title_probe(TecmoFramebuffer *framebuffer, const char
     draw_centered_text(framebuffer, 376, "CHR PALETTE AND LAYOUT MAPPING NEXT", rgb(230, 232, 214), 1);
 }
 
+void tecmo_render_intro_c051_d861_model(TecmoFramebuffer *framebuffer)
+{
+    const uint32_t panel = rgb(20, 24, 32);
+    const uint32_t panel_dark = rgb(9, 11, 16);
+    const uint32_t line = rgb(78, 98, 112);
+    const uint32_t text = rgb(230, 232, 214);
+    const uint32_t muted = rgb(142, 174, 190);
+    const uint32_t accent = rgb(252, 236, 118);
+
+    clear(framebuffer, rgb(6, 7, 10));
+    rect(framebuffer, 0, 0, framebuffer->width, 54, rgb(18, 18, 34));
+    draw_text(framebuffer, 24, 18, "C051 D861 INTRO SPRITE STAGING MODEL", text, 2);
+    draw_text(framebuffer, 30, 64, "READ ONLY DIAGNOSTIC  SYNTHETIC RECORDS ONLY", muted, 1);
+
+    rect(framebuffer, 30, 92, 260, 134, panel);
+    outline_rect(framebuffer, 30, 92, 260, 134, line);
+    draw_text(framebuffer, 48, 110, "INPUT STREAM", accent, 1);
+    draw_text(framebuffer, 48, 132, "COUNT BYTE SELECTS RECORD TOTAL", text, 1);
+    draw_text(framebuffer, 48, 154, "EACH RECORD IS FOUR FIELDS", text, 1);
+    draw_text(framebuffer, 70, 184, "Y    TILE    ATTR    X", muted, 1);
+    rect(framebuffer, 66, 202, 34, 14, rgb(54, 65, 72));
+    rect(framebuffer, 116, 202, 46, 14, rgb(54, 65, 72));
+    rect(framebuffer, 178, 202, 42, 14, rgb(54, 65, 72));
+    rect(framebuffer, 236, 202, 28, 14, rgb(54, 65, 72));
+
+    rect(framebuffer, 350, 92, 260, 134, panel);
+    outline_rect(framebuffer, 350, 92, 260, 134, line);
+    draw_text(framebuffer, 368, 110, "OAM SHAPED OUTPUT", accent, 1);
+    draw_text(framebuffer, 368, 132, "BASE IS 0200 PLUS N TIMES 4", text, 1);
+    draw_text(framebuffer, 368, 154, "COUNTER IS 058D", text, 1);
+    draw_text(framebuffer, 368, 184, "0200 YBASE PLUS Y", muted, 1);
+    draw_text(framebuffer, 368, 202, "0201 TILE PLUS 0D", muted, 1);
+    draw_text(framebuffer, 492, 184, "0202 ATTR", muted, 1);
+    draw_text(framebuffer, 492, 202, "0203 XBASE PLUS X", muted, 1);
+
+    rect(framebuffer, 292, 151, 54, 6, accent);
+    rect(framebuffer, 336, 146, 10, 16, accent);
+
+    rect(framebuffer, 42, 262, 556, 92, panel_dark);
+    outline_rect(framebuffer, 42, 262, 556, 92, line);
+    draw_text(framebuffer, 60, 280, "NATIVE MODEL STEPS", accent, 1);
+    draw_text(framebuffer, 60, 304, "1  BANK04 CHOOSES POINTER INDEX AND BASE OFFSETS", text, 1);
+    draw_text(framebuffer, 60, 324, "2  C051 ENTERS D861 AND STAGES FOUR BYTE RECORDS", text, 1);
+    draw_text(framebuffer, 60, 344, "3  INTRO LAB MAPS OAM TILE LOWS TO TABLE ONE 8X16 PAIRS", text, 1);
+
+    rect(framebuffer, 42, 382, 556, 56, panel_dark);
+    outline_rect(framebuffer, 42, 382, 556, 56, line);
+    draw_text(framebuffer, 60, 400, "CURRENT SAFE FACTS", accent, 1);
+    draw_text(framebuffer, 60, 420, "RABBIT LOWS 25 27 29 2B  TECMO VISUAL CANDIDATE 180 TO 193", text, 1);
+    draw_text(framebuffer, 60, 456, "NO ROM BYTES  NO ASM PAYLOADS  NO CHR DATA  NO LOCAL PATHS", muted, 1);
+}
+
 static void draw_chr_tile(TecmoFramebuffer *fb,
                           const uint8_t *chr_bytes,
                           uint64_t chr_byte_count,
@@ -1397,7 +1481,7 @@ static void render_intro_layout_lab(const TecmoRuntime *runtime, TecmoFramebuffe
                    (unsigned)(bank_count - 1U),
                    (unsigned)chr_table);
     draw_text(fb, 22, 18, line, rgb(248, 248, 232), 2);
-    draw_text(fb, 292, 40, "QE BANK T TABLE TAB FOCUS R RABBIT M TECMO", rgb(142, 174, 190), 1);
+    draw_text(fb, 282, 40, "QE BANK T TABLE TAB FOCUS R RAB M TECMO C COMP", rgb(142, 174, 190), 1);
 
     if (!runtime->title_probe_available) {
         draw_centered_text(fb, 212, "LOCAL CHR DATA UNAVAILABLE", rgb(252, 236, 170), 2);
