@@ -16,6 +16,16 @@ There is also a read-only helper-model screenshot that explains the native `$C05
 .\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-c051-d861-model build\intro_c051_d861_model_test.png
 ```
 
+That render mode first runs `tecmo_intro_stage_self_test`, which checks synthetic record staging, byte wraparound, capacity limits, null-input behavior, and table-selected 8x16 pair derivation before writing the PNG.
+
+To compare against the original intro locally, detect a rebuilt NES ROM and emulator candidate without committing private paths:
+
+```powershell
+.\tools\Find-NesReferenceIntro.ps1
+```
+
+Use `-Launch` on that script when you want to manually open the local ROM in the discovered emulator.
+
 The current frame is asset-backed and bank/table-switchable. It defaults to Bank 31 table 0 because that is the verified title glyph path. Table 0 shows tile IDs `$000-$0FF`; table 1 shows `$100-$1FF`. The frame renders the selected local-only CHR sheet, lets the user place selected source tiles onto a target canvas, and shows the local placement records on screen. The exact intro bank/table, mascot/logo sprite layout, and palette path are not yet decoded from the original intro script streams.
 
 Intro Lab builder controls:
@@ -40,7 +50,7 @@ Current rabbit-head trace:
 - `$D861` stages 4-byte sprite records and adds the `$0D` tile offset. For the Bank 04 seeded pass, the current local lookup resolves OAM tile lows `$25`, `$27`, `$29`, and `$2B`.
 - In NES 8x16 sprite terms, those odd OAM tile IDs imply table-1 8x8 pairs `$124/$125`, `$126/$127`, `$128/$129`, and `$12A/$12B`. The native `R` preset now runs through a small C-side OAM-tile-pair helper before placing those pairs for inspection.
 - `tools/Find-IntroRabbitLookup.ps1` writes the ignored local report `build/intro_rabbit_lookup.json` with the decoded selector and record summary.
-- `intro-c051-d861-model` renders the same helper contract as a synthetic, screenshot-tested schematic with no CHR or decoded stream payload.
+- `intro-c051-d861-model` runs the native synthetic helper self-test and renders the same helper contract as a screenshot-tested schematic with no CHR or decoded stream payload.
 
 Current `TECMO` logo visual trace:
 
@@ -85,3 +95,5 @@ Create an ignored local-only draft for your picks, or use the running Intro Lab 
 ## Next Decode Gate
 
 Resolve the Bank 04 sequence state that selects the "TECMO PRESENTS" frame, then model `$C051/$D861` as a native sprite/tile composition helper without committing extracted CHR, OAM, palettes, or nametable data.
+
+Use the local NES reference detector plus a manual emulator launch to compare timing and layout against the original while the native helper is expanded.

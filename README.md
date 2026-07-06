@@ -83,6 +83,16 @@ Run every active screenshot test declared in `port_iteration.json`:
 
 Pass `-DecompRoot <LOCAL_DECOMP_ROOT>` if the script cannot discover your private local decomp workspace.
 
+The `intro-c051-d861-model` render mode runs a synthetic C helper self-test before writing its PNG, then shows the staged byte rows without decoded payload data.
+
+Detect a local rebuilt NES ROM and emulator candidate for original intro comparison:
+
+```powershell
+.\tools\Find-NesReferenceIntro.ps1
+```
+
+That writes ignored `build\nes_reference_intro_check.json` with sanitized availability facts only. Add `-Launch` when you want to manually open the local ROM in the discovered emulator.
+
 Map the local-only source candidates for the first original title/menu screen:
 
 ```powershell
@@ -207,6 +217,8 @@ The shortcut points at the latest `build\tecmo_port.exe`, regenerates an origina
 - Run a native Win32 playable prototype with explicit memory arenas, source-backed title/CHR diagnostics, bank/table-switchable intro/CHR labs, and roster-driven team/player selection
 
 The current playable mode is a native prototype, not a full recreation of the original game. It establishes the frame loop, input path, memory model, and data-loading boundary that future translated gameplay systems can plug into. The `original-title-chr` render test also loads a native title setup summary from the private local Bank 04 and fixed-bank baselines so setup helper/write/table/stream/staging counts, fixed-helper aggregate categories, fixed-bank vector counts, and palette/PPU probe counts can be verified without committing setup streams, palette values, helper code, or graphics.
+
+For original intro comparison, `tools\Find-NesReferenceIntro.ps1` can find the local rebuilt `.nes` and an installed emulator such as Mesen or FCEUX, then write an ignored sanitized report. It does not make the runtime depend on an emulator.
 
 ## Native Runtime Direction
 

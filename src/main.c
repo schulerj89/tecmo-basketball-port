@@ -152,12 +152,17 @@ int main(int argc, char **argv)
                 result = 0;
             }
         } else if (strcmp(mode_name, "intro-c051-d861-model") == 0) {
+            char self_test_message[96];
             framebuffer.pixels = pixels;
             framebuffer.width = width;
             framebuffer.height = height;
             framebuffer.pitch_pixels = width;
-            tecmo_render_intro_c051_d861_model(&framebuffer);
-            result = 0;
+            if (!tecmo_intro_stage_self_test(self_test_message, sizeof(self_test_message))) {
+                printf("Intro C051/D861 helper self-test failed: %s\n", self_test_message);
+            } else {
+                tecmo_render_intro_c051_d861_model(&framebuffer);
+                result = 0;
+            }
         } else if (!tecmo_runtime_init(&runtime, &memory, root)) {
             printf("Failed to initialize runtime from %s\n", root);
         } else {

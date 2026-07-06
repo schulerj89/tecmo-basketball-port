@@ -137,6 +137,146 @@ static uint16_t selected_intro_tile_id(const TecmoRuntime *runtime)
     return (uint16_t)(selected_chr_table(runtime) * 0x100U + (runtime->intro_source_tile & 0xFFU));
 }
 
+size_t tecmo_intro_stage_sprite_records(const TecmoIntroSpriteRecord *records,
+                                        size_t record_count,
+                                        const TecmoIntroSpriteStageConfig *config,
+                                        TecmoIntroStagedSprite *entries,
+                                        size_t entry_capacity)
+{
+    size_t staged_count = 0;
+    if (records == NULL || config == NULL || entries == NULL || entry_capacity == 0) {
+        return 0;
+    }
+
+    for (size_t i = 0; i < record_count && staged_count < entry_capacity; ++i) {
+        const TecmoIntroSpriteRecord *record = &records[i];
+        TecmoIntroStagedSprite *entry = &entries[staged_count++];
+        entry->y = (uint8_t)(config->base_y + record->relative_y);
+        entry->tile = (uint8_t)(record->tile + config->tile_offset);
+        entry->attributes = record->attributes;
+        entry->x = (uint8_t)(config->base_x + record->relative_x);
+    }
+
+    return staged_count;
+}
+
+static void set_intro_stage_test_message(char *dest, size_t dest_size, const char *text)
+{
+    if (dest == NULL || dest_size == 0) {
+        return;
+    }
+    if (text == NULL) {
+        text = "";
+    }
+    (void)snprintf(dest, dest_size, "%s", text);
+}
+
+static bool check_intro_stage_entry(const TecmoIntroStagedSprite *entry,
+                                    uint8_t y,
+                                    uint8_t tile,
+                                    uint8_t attributes,
+                                    uint8_t x)
+{
+    return entry->y == y &&
+           entry->tile == tile &&
+           entry->attributes == attributes &&
+           entry->x == x;
+}
+
+bool tecmo_intro_stage_self_test(char *message, size_t message_size)
+{
+    const TecmoIntroSpriteRecord records[] = {
+        {2, 0x10U, 0x01U, 3},
+        {-30, 0x20U, 0x02U, 4},
+        {5, 0xF8U, 0x03U, 300},
+    };
+    const TecmoIntroSpriteStageConfig config = {10, 20, 0x0DU};
+    TecmoIntroStagedSprite entries[3];
+    uint16_t pair[2] = {0, 0};
+    size_t count;
+
+    if (message != NULL && message_size > 0) {
+        message[0] = '\0';
+    }
+
+    if (tecmo_intro_stage_sprite_records(NULL, 1, &config, entries, 3) != 0 ||
+        tecmo_intro_stage_sprite_records(records, 1, NULL, entries, 3) != 0 ||
+        tecmo_intro_stage_sprite_records(records, 1, &config, NULL, 3) != 0 ||
+        tecmo_intro_stage_sprite_records(records, 1, &config, entries, 0) != 0) {
+        set_intro_stage_test_message(message, message_size, "NULL OR ZERO INPUT CONTRACT FAILED");
+        return false;
+    }
+
+    memset(entries, 0, sizeof(entries));
+    count = tecmo_intro_stage_sprite_records(records, 3, &config, entries, 2);
+    if (count != 2) {
+        set_intro_stage_test_message(message, message_size, "CAPACITY TRUNCATION CONTRACT FAILED");
+        return false;
+    }
+    if (!check_intro_stage_entry(&entries[0], 0x16U, 0x1DU, 0x01U, 0x0DU)) {
+        set_intro_stage_test_message(message, message_size, "FIRST STAGED ENTRY CONTRACT FAILED");
+        return false;
+    }
+    if (!check_intro_stage_entry(&entries[1], 0xF6U, 0x2DU, 0x02U, 0x0EU)) {
+        set_intro_stage_test_message(message, message_size, "BYTE WRAP STAGED ENTRY CONTRACT FAILED");
+        return false;
+    }
+
+    memset(entries, 0, sizeof(entries));
+    count = tecmo_intro_stage_sprite_records(records, 3, &config, entries, 3);
+    if (count != 3) {
+        set_intro_stage_test_message(message, message_size, "FULL STAGED COUNT CONTRACT FAILED");
+        return false;
+    }
+    if (!check_intro_stage_entry(&entries[2], 0x19U, 0x05U, 0x03U, 0x36U)) {
+        set_intro_stage_test_message(message, message_size, "TILE AND X WRAP CONTRACT FAILED");
+        return false;
+    }
+
+    tecmo_intro_sprite_8x16_pair_for_table(0x25U, 1U, pair);
+    if (pair[0] != 0x124U || pair[1] != 0x125U) {
+        set_intro_stage_test_message(message, message_size, "RABBIT 8X16 TILE PAIR CONTRACT FAILED");
+        return false;
+    }
+    tecmo_intro_sprite_8x16_pair_for_table(0x80U, 1U, pair);
+    if (pair[0] != 0x180U || pair[1] != 0x181U) {
+        set_intro_stage_test_message(message, message_size, "TECMO 8X16 TILE PAIR CONTRACT FAILED");
+        return false;
+    }
+    tecmo_intro_sprite_8x16_pair_for_table(0x25U, 0U, pair);
+    if (pair[0] != 0x024U || pair[1] != 0x025U) {
+        set_intro_stage_test_message(message, message_size, "TABLE ZERO 8X16 TILE PAIR CONTRACT FAILED");
+        return false;
+    }
+
+    set_intro_stage_test_message(message, message_size, "INTRO SPRITE STAGING SELF TEST PASS");
+    return true;
+}
+
+void tecmo_intro_sprite_8x16_pair_for_table(uint8_t oam_tile_low, uint32_t chr_table, uint16_t out_tiles[2])
+{
+    if (out_tiles == NULL) {
+        return;
+    }
+
+    out_tiles[0] = (uint16_t)((chr_table & 1U) * 0x100U + (uint16_t)(oam_tile_low & 0xFEU));
+    out_tiles[1] = (uint16_t)(out_tiles[0] + 1U);
+}
+
+uint16_t tecmo_intro_oam_tile_pair_top(uint8_t oam_tile_low, uint32_t chr_table)
+{
+    uint16_t pair[2] = {0, 0};
+    tecmo_intro_sprite_8x16_pair_for_table(oam_tile_low, chr_table, pair);
+    return pair[0];
+}
+
+uint16_t tecmo_intro_oam_tile_pair_bottom(uint8_t oam_tile_low, uint32_t chr_table)
+{
+    uint16_t pair[2] = {0, 0};
+    tecmo_intro_sprite_8x16_pair_for_table(oam_tile_low, chr_table, pair);
+    return pair[1];
+}
+
 static void set_runtime_status(char *dest, size_t dest_size, const char *text)
 {
     if (dest_size == 0) {
@@ -404,7 +544,7 @@ static void add_intro_placement(TecmoRuntime *runtime)
 static void add_intro_rabbit_head_candidate(TecmoRuntime *runtime)
 {
     typedef struct RabbitSprite {
-        uint8_t oam_tile_low;
+        uint8_t raw_tile_low;
         int dx;
         const char *label;
     } RabbitSprite;
@@ -415,11 +555,14 @@ static void add_intro_rabbit_head_candidate(TecmoRuntime *runtime)
      * table-1 8x8 pairs below for Intro Lab inspection.
      */
     static const RabbitSprite rabbit_sprites[] = {
-        {0x25U, 0, "RAB25"},
-        {0x27U, 1, "RAB27"},
-        {0x29U, 2, "RAB29"},
-        {0x2BU, 3, "RAB2B"},
+        {0x24U, 0, "RAB25"},
+        {0x26U, 1, "RAB27"},
+        {0x28U, 2, "RAB29"},
+        {0x2AU, 3, "RAB2B"},
     };
+    TecmoIntroSpriteStageConfig stage_config = {0, 0, 1U};
+    TecmoIntroSpriteRecord records[sizeof(rabbit_sprites) / sizeof(rabbit_sprites[0])];
+    TecmoIntroStagedSprite entries[sizeof(rabbit_sprites) / sizeof(rabbit_sprites[0])];
     uint32_t chr_bank = 31U;
     const uint32_t chr_table = 1U;
     int base_x = runtime->intro_canvas_cell_x;
@@ -451,8 +594,22 @@ static void add_intro_rabbit_head_candidate(TecmoRuntime *runtime)
 
     for (size_t i = 0; i < sizeof(rabbit_sprites) / sizeof(rabbit_sprites[0]); ++i) {
         const RabbitSprite *sprite = &rabbit_sprites[i];
-        uint16_t top_tile = (uint16_t)(0x100U + (sprite->oam_tile_low & 0xFEU));
-        uint16_t bottom_tile = (uint16_t)(0x100U + (sprite->oam_tile_low | 0x01U));
+        records[i].relative_y = 0;
+        records[i].tile = sprite->raw_tile_low;
+        records[i].attributes = 0;
+        records[i].relative_x = sprite->dx * INTRO_CANVAS_CELL_SIZE;
+    }
+
+    (void)tecmo_intro_stage_sprite_records(records,
+                                           sizeof(records) / sizeof(records[0]),
+                                           &stage_config,
+                                           entries,
+                                           sizeof(entries) / sizeof(entries[0]));
+
+    for (size_t i = 0; i < sizeof(rabbit_sprites) / sizeof(rabbit_sprites[0]); ++i) {
+        const RabbitSprite *sprite = &rabbit_sprites[i];
+        uint16_t top_tile = tecmo_intro_oam_tile_pair_top(entries[i].tile, chr_table);
+        uint16_t bottom_tile = tecmo_intro_oam_tile_pair_bottom(entries[i].tile, chr_table);
         char label[32];
         (void)snprintf(label, sizeof(label), "%s TOP", sprite->label);
         if (append_intro_tile_placement(runtime, chr_bank, chr_table, top_tile, base_x + sprite->dx, base_y, label) !=
@@ -1185,17 +1342,35 @@ void tecmo_render_original_title_probe(TecmoFramebuffer *framebuffer, const char
 
 void tecmo_render_intro_c051_d861_model(TecmoFramebuffer *framebuffer)
 {
+    static const TecmoIntroSpriteRecord synthetic_records[] = {
+        {0, 0x24U, 0x02U, 0},
+        {8, 0x26U, 0x02U, 16},
+        {-24, 0xFDU, 0x00U, 32},
+    };
+    const TecmoIntroSpriteStageConfig synthetic_config = {48, 64, 1U};
+    TecmoIntroStagedSprite staged[sizeof(synthetic_records) / sizeof(synthetic_records[0])];
     const uint32_t panel = rgb(20, 24, 32);
     const uint32_t panel_dark = rgb(9, 11, 16);
     const uint32_t line = rgb(78, 98, 112);
     const uint32_t text = rgb(230, 232, 214);
     const uint32_t muted = rgb(142, 174, 190);
     const uint32_t accent = rgb(252, 236, 118);
+    size_t staged_count;
+    char row[128];
+    char self_test_message[96];
+    bool self_test_ok;
 
+    self_test_ok = tecmo_intro_stage_self_test(self_test_message, sizeof(self_test_message));
+    staged_count = tecmo_intro_stage_sprite_records(synthetic_records,
+                                                    sizeof(synthetic_records) / sizeof(synthetic_records[0]),
+                                                    &synthetic_config,
+                                                    staged,
+                                                    sizeof(staged) / sizeof(staged[0]));
     clear(framebuffer, rgb(6, 7, 10));
     rect(framebuffer, 0, 0, framebuffer->width, 54, rgb(18, 18, 34));
     draw_text(framebuffer, 24, 18, "C051 D861 INTRO SPRITE STAGING MODEL", text, 2);
     draw_text(framebuffer, 30, 64, "READ ONLY DIAGNOSTIC  SYNTHETIC RECORDS ONLY", muted, 1);
+    draw_text(framebuffer, 30, 76, self_test_message, self_test_ok ? accent : rgb(232, 92, 76), 1);
 
     rect(framebuffer, 30, 92, 260, 134, panel);
     outline_rect(framebuffer, 30, 92, 260, 134, line);
@@ -1233,6 +1408,18 @@ void tecmo_render_intro_c051_d861_model(TecmoFramebuffer *framebuffer)
     draw_text(framebuffer, 60, 400, "CURRENT SAFE FACTS", accent, 1);
     draw_text(framebuffer, 60, 420, "RABBIT LOWS 25 27 29 2B  TECMO VISUAL CANDIDATE 180 TO 193", text, 1);
     draw_text(framebuffer, 60, 456, "NO ROM BYTES  NO ASM PAYLOADS  NO CHR DATA  NO LOCAL PATHS", muted, 1);
+
+    for (size_t i = 0; i < staged_count; ++i) {
+        (void)snprintf(row,
+                       sizeof(row),
+                       "S%u Y%02X T%02X A%02X X%02X",
+                       (unsigned)i,
+                       (unsigned)staged[i].y,
+                       (unsigned)staged[i].tile,
+                       (unsigned)staged[i].attributes,
+                       (unsigned)staged[i].x);
+        draw_text(framebuffer, 368, 232 + (int)i * 10, row, muted, 1);
+    }
 }
 
 static void draw_chr_tile(TecmoFramebuffer *fb,

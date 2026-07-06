@@ -118,7 +118,7 @@
       "id": "render_intro_c051_d861_model",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-c051-d861-model build\\intro_c051_d861_model_test.png",
-      "description": "Renders a read-only synthetic schematic of the fixed C051/D861 sprite-staging helper contract without local payload bytes.",
+      "description": "Runs the native synthetic C051/D861 helper self-test, then renders a read-only schematic of the fixed sprite-staging helper contract without local payload bytes.",
       "expected_artifact": "build/intro_c051_d861_model_test.png"
     },
     {
@@ -148,6 +148,13 @@
       "command": ".\\tools\\Run-ScreenshotTests.ps1 -Build",
       "description": "Builds the executable, renders every active screenshot test, and validates PNG dimensions.",
       "expected_artifact": "build/screenshot_test_report.json"
+    },
+    {
+      "id": "detect_nes_intro_reference",
+      "status": "active",
+      "command": ".\\tools\\Find-NesReferenceIntro.ps1",
+      "description": "Finds a local rebuilt NES ROM and emulator candidate for original intro comparison, then writes a sanitized local-only availability report. Use -Launch manually to open the ROM.",
+      "expected_artifact": "build/nes_reference_intro_check.json"
     },
     {
       "id": "map_original_title_sources",
@@ -374,7 +381,9 @@
       "assertions": [
         "PNG exists",
         "PNG dimensions are 640x480",
-        "Frame is a read-only synthetic C051/D861 helper contract schematic",
+        "Render mode runs the synthetic C051/D861 helper self-test before writing PNG",
+        "Frame is a fixture-backed read-only synthetic C051/D861 helper contract schematic",
+        "Frame shows the native sprite-staging self-test pass message",
         "Frame does not render CHR tiles, decoded stream rows, palette values, or local paths",
         "PNG remains in ignored build output"
       ]
@@ -511,7 +520,8 @@
       "The native launcher exposes a CHR Playground that renders selected-bank/table tile IDs $080-$0AF or $180-$1AF and assembled title glyphs for number/letter verification.",
       "Intro Lab and CHR Playground default to Bank 31 table 0 because that is the verified title glyph path. Intro Lab uses Q/E for bank, T for table, Tab for source/canvas focus, Space to record, R to add the Bank 31/table 1 rabbit lookup candidate, M to add the visual TECMO 180-193 candidate, C to add the combined intro candidate, and S to save ignored placement JSON. CHR Playground keeps Left/Right/Tab bank switching and Up/Down table switching.",
       "The current rabbit-head lookup path is Bank 04 L88E7 -> L8988 -> fixed $C051/$D861. The local lookup resolves OAM tile lows $25, $27, $29, and $2B, which imply table-1 8x16 sprite pairs $124/$125, $126/$127, $128/$129, and $12A/$12B.",
-      "The intro-c051-d861-model screenshot renders a synthetic read-only schematic of the fixed helper contract so the native model can be reviewed without committing decoded payload rows.",
+      "The intro-c051-d861-model screenshot is gated by a native synthetic helper self-test and renders a read-only schematic of the fixed helper contract so the native model can be reviewed without committing decoded payload rows.",
+      "tools/Find-NesReferenceIntro.ps1 detects a local rebuilt NES ROM plus Mesen/FCEUX-style emulator candidates and writes only a sanitized ignored availability report for original intro comparison.",
       "CHR Playground visual inspection points to Bank 31/table 1 tiles $180-$193 for the TECMO logo candidate, matching five 2x2 letters.",
       "The stronger TECMO execution lead is Bank 04 L8818 -> fixed $C051/$D861 using Bank 0 pointer table $A90F selector $00. The local-only mapper verifies ten $80-$93 OAM tile-low hits that cover table-1 pairs $180/$181 through $192/$193, while the rabbit $A7DB selectors $00-$03 have zero hits in that range.",
       "Each 8KB local CHR bank exposes 512 8x8 tiles: table 0 is tile IDs $000-$0FF and table 1 is tile IDs $100-$1FF.",
