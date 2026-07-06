@@ -30,7 +30,7 @@
     "backend": "win32 software framebuffer",
     "game_core": "portable C runtime state plus explicit memory arenas",
     "asset_mode": "local development read-only scan/export tools; no committed proprietary data",
-    "known_status": "prototype launcher/menu, source-backed title screen mode, bank-switchable intro layout lab, CHR playground, roster viewer, play setup, court placeholder"
+    "known_status": "prototype launcher/menu, source-backed title screen mode, bank/table-switchable intro layout lab, CHR playground, roster viewer, play setup, court placeholder"
   },
   "local_desktop_shortcut": {
     "status": "active",
@@ -83,15 +83,29 @@
       "id": "render_intro_layout_lab",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-presents build\\intro_presents_test.png",
-      "description": "Renders the default bank-switchable intro layout lab with the local CHR sheet and asset-backed TECMO PRESENTS glyph composition.",
+      "description": "Renders the default bank/table-switchable intro layout lab with the local CHR sheet and asset-backed TECMO PRESENTS glyph composition.",
       "expected_artifact": "build/intro_presents_test.png"
+    },
+    {
+      "id": "render_intro_layout_lab_table1",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-presents-table1 build\\intro_presents_table1_test.png",
+      "description": "Renders the Intro Lab against pattern-table half 1 so tile IDs 100-1FF can be inspected.",
+      "expected_artifact": "build/intro_presents_table1_test.png"
     },
     {
       "id": "render_chr_playground",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode chr-playground build\\chr_playground_test.png",
-      "description": "Renders the default bank-switchable CHR playground for tile ID and 2x2 title glyph verification.",
+      "description": "Renders the default bank/table-switchable CHR playground for tile ID and 2x2 title glyph verification.",
       "expected_artifact": "build/chr_playground_test.png"
+    },
+    {
+      "id": "render_chr_playground_table1",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode chr-playground-table1 build\\chr_playground_table1_test.png",
+      "description": "Renders the CHR Playground against pattern-table half 1 so tile IDs 100-1FF can be inspected.",
+      "expected_artifact": "build/chr_playground_table1_test.png"
     },
     {
       "id": "run_screenshot_tests",
@@ -113,6 +127,20 @@
       "command": ".\\tools\\Find-TitleChrMapping.ps1",
       "description": "Resolves the Bank 04 title text path through C711, Bank 06 character mapping, and the four-tile glyph table; writes local-only JSON and a probe PNG.",
       "expected_artifact": "build/title_chr_mapping.json"
+    },
+    {
+      "id": "create_intro_layout_draft",
+      "status": "active",
+      "command": ".\\tools\\New-IntroLayoutDraft.ps1 -Bank 31 -Table 1",
+      "description": "Writes an ignored local-only JSON draft for user-provided Intro Lab bank/table/tile/canvas picks.",
+      "expected_artifact": "build/intro_layout_picks.json"
+    },
+    {
+      "id": "map_intro_procedure_path",
+      "status": "active",
+      "command": ".\\tools\\Find-IntroProcedureMapping.ps1",
+      "description": "Scans private decomp references for safe intro driver and fixed $C051 helper counts without committing source bytes.",
+      "expected_artifact": "build/intro_procedure_mapping.json"
     },
     {
       "id": "render_rosters",
@@ -153,6 +181,7 @@
       "selected_team",
       "selected_player",
       "selected_chr_bank",
+      "selected_chr_table",
       "permanent_arena_used",
       "transient_arena_used",
       "cpu_ram_watch_0000_000F",
@@ -225,11 +254,24 @@
       "assertions": [
         "PNG exists",
         "PNG dimensions are 640x480",
-        "Frame renders the selected local-only CHR sheet, defaulting to Bank 31",
-        "Frame assembles TECMO PRESENTS through Bank 06 glyph mapping and the selected CHR bank",
+        "Frame renders the selected local-only CHR sheet, defaulting to Bank 31 table 0",
+        "Frame assembles TECMO PRESENTS through Bank 06 glyph mapping and the selected CHR bank/table",
         "Runtime controls can switch the selected CHR bank with Left/Right or Tab",
+        "Runtime controls can toggle CHR pattern table half with Up/Down",
         "Frame provides tile IDs and target canvas grid coordinates for user placement feedback",
         "PNG remains in ignored build output"
+      ]
+    },
+    {
+      "id": "shot_intro_layout_lab_table1",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-presents-table1 build\\intro_presents_table1_test.png",
+      "commit_safe": false,
+      "assertions": [
+        "PNG exists",
+        "PNG dimensions are 640x480",
+        "Frame renders selected local-only CHR bank table 1, exposing tile IDs 100-1FF",
+        "Frame remains under ignored build output"
       ]
     },
     {
@@ -240,9 +282,22 @@
       "assertions": [
         "PNG exists",
         "PNG dimensions are 640x480",
-        "Frame renders selected-bank tile IDs $80-$AF from local CHR data, defaulting to Bank 31",
-        "Frame shows assembled 2x2 title glyphs from the local glyph map using the selected CHR bank",
+        "Frame renders selected-bank/table tile IDs $080-$0AF from local CHR data, defaulting to Bank 31 table 0",
+        "Frame shows assembled 2x2 title glyphs from the local glyph map using the selected CHR bank/table",
         "Runtime controls can switch the selected CHR bank with Left/Right or Tab",
+        "Runtime controls can toggle CHR pattern table half with Up/Down",
+        "PNG remains in ignored build output"
+      ]
+    },
+    {
+      "id": "shot_chr_playground_table1",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode chr-playground-table1 build\\chr_playground_table1_test.png",
+      "commit_safe": false,
+      "assertions": [
+        "PNG exists",
+        "PNG dimensions are 640x480",
+        "Frame renders selected-bank table 1 tile IDs $180-$1AF from local CHR data",
         "PNG remains in ignored build output"
       ]
     },
@@ -335,9 +390,10 @@
     "current_findings": [
       "The native runtime now boots into the current CHR-backed title diagnostic; Enter opens the launcher and Esc quits.",
       "The native launcher exposes a Title Screen mode before the prototype play setup so the title remains reachable from the menu.",
-      "The native launcher exposes an Intro Lab that renders the selected local-only CHR sheet and assembles TECMO PRESENTS through the Bank 06 glyph map against the selected CHR bank for user placement feedback.",
-      "The native launcher exposes a CHR Playground that renders selected-bank tile IDs $80-$AF and assembled title glyphs for number/letter verification.",
-      "Intro Lab and CHR Playground default to Bank 31 because that is the verified title glyph bank, but runtime Left/Right and Tab input can switch banks; Bank 31 is not asserted as the intro source.",
+      "The native launcher exposes an Intro Lab that renders the selected local-only CHR sheet and assembles TECMO PRESENTS through the Bank 06 glyph map against the selected CHR bank/table for user placement feedback.",
+      "The native launcher exposes a CHR Playground that renders selected-bank/table tile IDs $080-$0AF or $180-$1AF and assembled title glyphs for number/letter verification.",
+      "Intro Lab and CHR Playground default to Bank 31 table 0 because that is the verified title glyph path, but runtime Left/Right and Tab input can switch banks and Up/Down can toggle the 4KB pattern-table half; Bank 31 table 0 is not asserted as the intro source.",
+      "Each 8KB local CHR bank exposes 512 8x8 tiles: table 0 is tile IDs $000-$0FF and table 1 is tile IDs $100-$1FF.",
       "Bank 04 title loop dispatches A=0x38 through fixed helper C711.",
       "C711 entry 0x38 resolves locally to Bank 06 text setup at 06:$9E50.",
       "Title characters are mapped through the Bank 06 character-to-tile helper, the baseline $A273,X lookup operand, and the 2x2 glyph tile table at 06:$AF05.",

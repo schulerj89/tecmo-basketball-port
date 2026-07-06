@@ -49,6 +49,7 @@ typedef struct TecmoRuntime {
     size_t selected_player;
     size_t selected_menu_item;
     uint32_t selected_chr_bank;
+    uint32_t selected_chr_table;
     TecmoPlayMode mode;
     bool quit_requested;
     bool debug_overlay;

@@ -61,7 +61,9 @@ $env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
 .\build\tecmo_port.exe --render-test-mode menu-overlay build\menu_overlay_test.png
 .\build\tecmo_port.exe --render-test-mode title-screen build\title_screen_runtime_test.png
 .\build\tecmo_port.exe --render-test-mode intro-presents build\intro_presents_test.png
+.\build\tecmo_port.exe --render-test-mode intro-presents-table1 build\intro_presents_table1_test.png
 .\build\tecmo_port.exe --render-test-mode chr-playground build\chr_playground_test.png
+.\build\tecmo_port.exe --render-test-mode chr-playground-table1 build\chr_playground_table1_test.png
 .\build\tecmo_port.exe --render-test-mode rosters build\rosters_test.png
 .\build\tecmo_port.exe --render-test-mode play build\play_setup_test.png
 .\build\tecmo_port.exe --render-test-mode original-title build\original_title_test.png
@@ -94,6 +96,18 @@ Map the local-only title setup ranges, helper calls, fixed-helper aggregate coun
 .\tools\Find-TitleSetupMapping.ps1
 ```
 
+Create an ignored local-only draft file for Intro Lab bank/table/tile/canvas picks:
+
+```powershell
+.\tools\New-IntroLayoutDraft.ps1 -Bank 31 -Table 1
+```
+
+Scan the private decomp for safe intro procedure counts and `$C051` helper leads:
+
+```powershell
+.\tools\Find-IntroProcedureMapping.ps1
+```
+
 Prototype controls:
 
 ```text
@@ -113,11 +127,13 @@ Esc = quit
 
 Intro Lab:
 Left/Right = switch CHR bank
+Up/Down = switch CHR pattern table half
 Tab = next CHR bank
 Enter/Esc = launcher menu
 
 CHR Playground:
 Left/Right = switch CHR bank
+Up/Down = switch CHR pattern table half
 Tab = next CHR bank
 Enter/Esc = launcher menu
 
@@ -164,7 +180,7 @@ The shortcut points at the latest `build\tecmo_port.exe`, regenerates an origina
 - Count lifted chunks and labels
 - Parse local Bank 02 roster labels into C-friendly records
 - Export local CHR bytes and grayscale tile sheet PNGs for private inspection
-- Run a native Win32 playable prototype with explicit memory arenas, source-backed title/CHR diagnostics, bank-switchable intro/CHR labs, and roster-driven team/player selection
+- Run a native Win32 playable prototype with explicit memory arenas, source-backed title/CHR diagnostics, bank/table-switchable intro/CHR labs, and roster-driven team/player selection
 
 The current playable mode is a native prototype, not a full recreation of the original game. It establishes the frame loop, input path, memory model, and data-loading boundary that future translated gameplay systems can plug into. The `original-title-chr` render test also loads a native title setup summary from the private local Bank 04 and fixed-bank baselines so setup helper/write/table/stream/staging counts, fixed-helper aggregate categories, fixed-bank vector counts, and palette/PPU probe counts can be verified without committing setup streams, palette values, helper code, or graphics.
 

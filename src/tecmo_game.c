@@ -124,6 +124,11 @@ static uint32_t selected_chr_bank(const TecmoRuntime *runtime)
     return runtime->selected_chr_bank;
 }
 
+static uint32_t selected_chr_table(const TecmoRuntime *runtime)
+{
+    return runtime->selected_chr_table & 1U;
+}
+
 bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const char *project_root)
 {
     memset(runtime, 0, sizeof(*runtime));
@@ -227,6 +232,9 @@ static void update_probe_screen(TecmoRuntime *runtime, const TecmoInput *input)
         }
         if (pressed(input->tab, runtime->previous_input.tab)) {
             runtime->selected_chr_bank = (runtime->selected_chr_bank + 1U) % count;
+        }
+        if (pressed(input->up, runtime->previous_input.up) || pressed(input->down, runtime->previous_input.down)) {
+            runtime->selected_chr_table ^= 1U;
         }
     }
 
@@ -345,6 +353,7 @@ static void write_runtime_watch_memory(TecmoRuntime *runtime)
     tecmo_cpu_ram_write(runtime->memory, 0x0005, (uint8_t)((runtime->frame_counter >> 8U) & 0xFFU));
     tecmo_cpu_ram_write(runtime->memory, 0x0006, (uint8_t)selected_chr_bank(runtime));
     tecmo_cpu_ram_write(runtime->memory, 0x0007, (uint8_t)chr_bank_count(runtime));
+    tecmo_cpu_ram_write(runtime->memory, 0x0008, (uint8_t)selected_chr_table(runtime));
 }
 
 void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input)
@@ -616,13 +625,14 @@ static void render_debug_overlay(const TecmoRuntime *runtime, TecmoFramebuffer *
     (void)snprintf(line, sizeof(line), "DBG MODE %s FRAME %u", mode_name(runtime->mode), runtime->frame_counter);
     draw_debug_text(fb, x, y, line);
 
-    (void)snprintf(line, sizeof(line), "FPS %.1f MENU %u TEAM %u PLAYER %u CHR %02u/%02u",
+    (void)snprintf(line, sizeof(line), "FPS %.1f MENU %u TEAM %u PLAYER %u CHR %02u/%02u T%u",
                    (double)fps,
                    (unsigned)runtime->selected_menu_item,
                    (unsigned)(runtime->selected_team + 1U),
                    (unsigned)(runtime->selected_player + 1U),
                    (unsigned)selected_chr_bank(runtime),
-                   (unsigned)(chr_bank_count(runtime) - 1U));
+                   (unsigned)(chr_bank_count(runtime) - 1U),
+                   (unsigned)selected_chr_table(runtime));
     draw_debug_text(fb, x, y + 20, line);
 
     (void)snprintf(line, sizeof(line), "PERM %llu OF %llu HI %llu",
@@ -686,7 +696,7 @@ static void draw_chr_tile(TecmoFramebuffer *fb,
                           const uint8_t *chr_bytes,
                           uint64_t chr_byte_count,
                           uint32_t chr_bank,
-                          uint8_t tile,
+                          uint16_t tile,
                           int x,
                           int y,
                           int scale)
@@ -699,7 +709,7 @@ static void draw_chr_tile(TecmoFramebuffer *fb,
     };
     uint64_t tile_offset = (uint64_t)chr_bank * TITLE_CHR_BANK_BYTES + (uint64_t)tile * 16ULL;
 
-    if (tile == 0xFFU || tile_offset + 15ULL >= chr_byte_count) {
+    if (tile > 0x1FFU || tile_offset + 15ULL >= chr_byte_count) {
         return;
     }
 
@@ -722,21 +732,32 @@ static void draw_title_glyph(TecmoFramebuffer *fb,
                              const uint8_t *chr_bytes,
                              uint64_t chr_byte_count,
                              uint32_t chr_bank,
+                             uint32_t chr_table,
                              const TecmoTitleGlyph *glyph,
                              int x,
                              int y,
                              int scale)
 {
-    draw_chr_tile(fb, chr_bytes, chr_byte_count, chr_bank, glyph->glyph_tiles[0], x, y, scale);
-    draw_chr_tile(fb, chr_bytes, chr_byte_count, chr_bank, glyph->glyph_tiles[1], x + 8 * scale, y, scale);
-    draw_chr_tile(fb, chr_bytes, chr_byte_count, chr_bank, glyph->glyph_tiles[2], x, y + 8 * scale, scale);
-    draw_chr_tile(fb, chr_bytes, chr_byte_count, chr_bank, glyph->glyph_tiles[3], x + 8 * scale, y + 8 * scale, scale);
+    uint16_t base = (uint16_t)((chr_table & 1U) * 0x100U);
+    if (glyph->glyph_tiles[0] != 0xFFU) {
+        draw_chr_tile(fb, chr_bytes, chr_byte_count, chr_bank, (uint16_t)(base + glyph->glyph_tiles[0]), x, y, scale);
+    }
+    if (glyph->glyph_tiles[1] != 0xFFU) {
+        draw_chr_tile(fb, chr_bytes, chr_byte_count, chr_bank, (uint16_t)(base + glyph->glyph_tiles[1]), x + 8 * scale, y, scale);
+    }
+    if (glyph->glyph_tiles[2] != 0xFFU) {
+        draw_chr_tile(fb, chr_bytes, chr_byte_count, chr_bank, (uint16_t)(base + glyph->glyph_tiles[2]), x, y + 8 * scale, scale);
+    }
+    if (glyph->glyph_tiles[3] != 0xFFU) {
+        draw_chr_tile(fb, chr_bytes, chr_byte_count, chr_bank, (uint16_t)(base + glyph->glyph_tiles[3]), x + 8 * scale, y + 8 * scale, scale);
+    }
 }
 
 static void draw_title_glyph_range(TecmoFramebuffer *fb,
                                    const uint8_t *chr_bytes,
                                    uint64_t chr_byte_count,
                                    uint32_t chr_bank,
+                                   uint32_t chr_table,
                                    const TecmoOriginalTitleGlyphs *glyphs,
                                    size_t first,
                                    size_t count,
@@ -752,6 +773,7 @@ static void draw_title_glyph_range(TecmoFramebuffer *fb,
                              chr_bytes,
                              chr_byte_count,
                              chr_bank,
+                             chr_table,
                              glyph,
                              x + (int)i * glyph_width,
                              y,
@@ -764,14 +786,16 @@ static void draw_chr_bank_sheet(TecmoFramebuffer *fb,
                                 const uint8_t *chr_bytes,
                                 uint64_t chr_byte_count,
                                 uint32_t chr_bank,
+                                uint32_t chr_table,
                                 int x,
                                 int y,
                                 int scale)
 {
+    uint16_t tile_base = (uint16_t)((chr_table & 1U) * 0x100U);
     for (uint16_t tile = 0; tile < 256U; ++tile) {
         int tile_x = x + (int)(tile & 0x0FU) * 8 * scale;
         int tile_y = y + (int)(tile >> 4U) * 8 * scale;
-        draw_chr_tile(fb, chr_bytes, chr_byte_count, chr_bank, (uint8_t)tile, tile_x, tile_y, scale);
+        draw_chr_tile(fb, chr_bytes, chr_byte_count, chr_bank, (uint16_t)(tile_base + tile), tile_x, tile_y, scale);
     }
 }
 
@@ -779,6 +803,8 @@ static void render_chr_playground(const TecmoRuntime *runtime, TecmoFramebuffer 
 {
     const uint32_t chr_bank = selected_chr_bank(runtime);
     const uint32_t bank_count = chr_bank_count(runtime);
+    const uint32_t chr_table = selected_chr_table(runtime);
+    const uint16_t tile_base = (uint16_t)(chr_table * 0x100U);
     const int tile_scale = 2;
     const int cell_w = 34;
     const int cell_h = 28;
@@ -788,22 +814,32 @@ static void render_chr_playground(const TecmoRuntime *runtime, TecmoFramebuffer 
 
     clear(fb, rgb(8, 10, 16));
     rect(fb, 0, 0, fb->width, 52, rgb(18, 18, 34));
-    (void)snprintf(line, sizeof(line), "CHR PLAYGROUND - BANK %02u OF %02u", (unsigned)chr_bank, (unsigned)(bank_count - 1U));
+    (void)snprintf(line,
+                   sizeof(line),
+                   "CHR PLAYGROUND - BANK %02u OF %02u TABLE %u",
+                   (unsigned)chr_bank,
+                   (unsigned)(bank_count - 1U),
+                   (unsigned)chr_table);
     draw_text(fb, 24, 18, line, rgb(248, 248, 232), 2);
-    draw_text(fb, 394, 40, "LEFT RIGHT BANK TAB NEXT ENTER ESC MENU", rgb(142, 174, 190), 1);
+    draw_text(fb, 356, 40, "LR BANK UP DN TABLE TAB NEXT ENTER ESC", rgb(142, 174, 190), 1);
 
     if (!runtime->title_probe_available) {
         draw_centered_text(fb, 212, "LOCAL CHR DATA UNAVAILABLE", rgb(252, 236, 170), 2);
         return;
     }
 
-    draw_text(fb, 28, 56, "TILE ID GRID 80-AF  NUMBERS LETTERS AND TITLE PARTS", rgb(142, 174, 190), 1);
+    (void)snprintf(line,
+                   sizeof(line),
+                   "TILE ID GRID %03X-%03X  NUMBERS LETTERS AND TITLE PARTS",
+                   (unsigned)(tile_base + 0x80U),
+                   (unsigned)(tile_base + 0xAFU));
+    draw_text(fb, 28, 56, line, rgb(142, 174, 190), 1);
     for (uint8_t row = 0; row < 3; ++row) {
         for (uint8_t col = 0; col < 16; ++col) {
-            uint8_t tile = (uint8_t)(0x80U + row * 16U + col);
+            uint16_t tile = (uint16_t)(tile_base + 0x80U + row * 16U + col);
             int x = grid_x + (int)col * cell_w;
             int y = grid_y + (int)row * cell_h;
-            (void)snprintf(line, sizeof(line), "%02X", (unsigned)tile);
+            (void)snprintf(line, sizeof(line), "%03X", (unsigned)tile);
             draw_text(fb, x, y - 10, line, rgb(92, 116, 128), 1);
             draw_chr_tile(fb,
                           runtime->title_chr_bytes,
@@ -819,8 +855,9 @@ static void render_chr_playground(const TecmoRuntime *runtime, TecmoFramebuffer 
     rect(fb, 26, 174, 588, 2, rgb(52, 60, 72));
     (void)snprintf(line,
                    sizeof(line),
-                   "ASSEMBLED 2X2 TITLE GLYPHS FROM BANK 06 MAP AND BANK %02u CHR",
-                   (unsigned)chr_bank);
+                   "ASSEMBLED 2X2 TITLE GLYPHS FROM BANK 06 MAP AND BANK %02u TABLE %u",
+                   (unsigned)chr_bank,
+                   (unsigned)chr_table);
     draw_text(fb, 28, 190, line, rgb(142, 174, 190), 1);
     {
         int scale = 2;
@@ -838,6 +875,7 @@ static void render_chr_playground(const TecmoRuntime *runtime, TecmoFramebuffer 
                              runtime->title_chr_bytes,
                              runtime->title_chr_byte_count,
                              chr_bank,
+                             chr_table,
                              &runtime->title_glyphs.glyphs[i],
                              start_x + (int)i * glyph_width,
                              218,
@@ -880,6 +918,7 @@ static void render_intro_layout_lab(const TecmoRuntime *runtime, TecmoFramebuffe
 {
     const uint32_t chr_bank = selected_chr_bank(runtime);
     const uint32_t bank_count = chr_bank_count(runtime);
+    const uint32_t chr_table = selected_chr_table(runtime);
     const int sheet_x = 30;
     const int sheet_y = 76;
     const int sheet_scale = 2;
@@ -891,16 +930,21 @@ static void render_intro_layout_lab(const TecmoRuntime *runtime, TecmoFramebuffe
 
     clear(fb, rgb(6, 7, 10));
     rect(fb, 0, 0, fb->width, 52, rgb(18, 18, 34));
-    (void)snprintf(line, sizeof(line), "INTRO LAB - BANK %02u OF %02u", (unsigned)chr_bank, (unsigned)(bank_count - 1U));
+    (void)snprintf(line,
+                   sizeof(line),
+                   "INTRO LAB - BANK %02u OF %02u TABLE %u",
+                   (unsigned)chr_bank,
+                   (unsigned)(bank_count - 1U),
+                   (unsigned)chr_table);
     draw_text(fb, 22, 18, line, rgb(248, 248, 232), 2);
-    draw_text(fb, 394, 40, "LEFT RIGHT BANK TAB NEXT ENTER ESC MENU", rgb(142, 174, 190), 1);
+    draw_text(fb, 356, 40, "LR BANK UP DN TABLE TAB NEXT ENTER ESC", rgb(142, 174, 190), 1);
 
     if (!runtime->title_probe_available) {
         draw_centered_text(fb, 212, "LOCAL CHR DATA UNAVAILABLE", rgb(252, 236, 170), 2);
         return;
     }
 
-    (void)snprintf(line, sizeof(line), "REAL CHR BANK %02u SHEET", (unsigned)chr_bank);
+    (void)snprintf(line, sizeof(line), "REAL CHR BANK %02u TABLE %u SHEET", (unsigned)chr_bank, (unsigned)chr_table);
     draw_text(fb, sheet_x, 58, line, rgb(142, 174, 190), 1);
     for (uint8_t col = 0; col < 16U; ++col) {
         (void)snprintf(line, sizeof(line), "%X", (unsigned)col);
@@ -914,6 +958,7 @@ static void render_intro_layout_lab(const TecmoRuntime *runtime, TecmoFramebuffe
                         runtime->title_chr_bytes,
                         runtime->title_chr_byte_count,
                         chr_bank,
+                        chr_table,
                         sheet_x,
                         sheet_y,
                         sheet_scale);
@@ -933,6 +978,7 @@ static void render_intro_layout_lab(const TecmoRuntime *runtime, TecmoFramebuffe
                                runtime->title_chr_bytes,
                                runtime->title_chr_byte_count,
                                chr_bank,
+                               chr_table,
                                &runtime->intro_glyphs,
                                0,
                                5,
@@ -943,6 +989,7 @@ static void render_intro_layout_lab(const TecmoRuntime *runtime, TecmoFramebuffe
                                runtime->title_chr_bytes,
                                runtime->title_chr_byte_count,
                                chr_bank,
+                               chr_table,
                                &runtime->intro_glyphs,
                                6,
                                8,
@@ -953,12 +1000,13 @@ static void render_intro_layout_lab(const TecmoRuntime *runtime, TecmoFramebuffe
         draw_text(fb, canvas_x + 24, canvas_y + 104, "INTRO GLYPH MAP MISSING", rgb(252, 236, 170), 1);
     }
 
-    draw_text(fb, 30, 352, "POINT ME AT TILES BY HEX ID: ROW AND COL, FOR EXAMPLE B6 OR D2", rgb(230, 232, 214), 1);
+    draw_text(fb, 30, 352, "POINT ME AT TILES BY THREE-DIGIT HEX ID, FOR EXAMPLE 0B6 OR 1D2", rgb(230, 232, 214), 1);
     draw_text(fb, 30, 374, "POINT ME AT CANVAS CELLS BY 16PX GRID OFFSET FROM THE CANVAS TOP LEFT", rgb(142, 174, 190), 1);
     (void)snprintf(line,
                    sizeof(line),
-                   "CURRENT RIGHT SIDE USES BANK06 CHARACTER MAP AND BANK %02u 2X2 GLYPH TILES",
-                   (unsigned)chr_bank);
+                   "RIGHT SIDE USES BANK06 CHARACTER MAP AND BANK %02u TABLE %u GLYPH TILES",
+                   (unsigned)chr_bank,
+                   (unsigned)chr_table);
     draw_text(fb, 30, 396, line, rgb(142, 174, 190), 1);
     draw_text(fb, 30, 418, "NEXT: TURN YOUR TILE PICKS INTO LOCAL-ONLY LAYOUT JSON AND THEN DECODE BANK04 SCRIPT PATH", rgb(142, 174, 190), 1);
     draw_text(fb, 30, 446, "NO CHR BYTES OR GENERATED ORIGINAL-ASSET SCREENSHOTS ARE COMMITTED", rgb(92, 116, 128), 1);
@@ -1004,7 +1052,7 @@ void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
     start_x = (framebuffer->width - title_width) / 2;
 
     for (size_t i = 0; i < glyphs->glyph_count; ++i) {
-        draw_title_glyph(framebuffer, chr_bytes, chr_byte_count, chr_bank, &glyphs->glyphs[i], start_x + (int)i * glyph_width, y, scale);
+        draw_title_glyph(framebuffer, chr_bytes, chr_byte_count, chr_bank, 0U, &glyphs->glyphs[i], start_x + (int)i * glyph_width, y, scale);
     }
 
     draw_centered_text(framebuffer, 294, "NATIVE CHR TITLE GLYPH PROBE", rgb(142, 174, 190), 1);

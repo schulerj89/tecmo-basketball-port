@@ -10,7 +10,7 @@ The launcher has an `Intro Lab` button and a matching ignored screenshot test:
 .\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-presents build\intro_presents_test.png
 ```
 
-The current frame is asset-backed and bank-switchable. It defaults to Bank 31 because that is the verified title glyph bank, but Left/Right or Tab switches through the local CHR banks at runtime. The frame renders the selected local-only CHR sheet and assembles `TECMO PRESENTS` through the Bank 06 character-to-tile mapping against the selected bank. The exact intro bank, mascot/logo sprite layout, and palette path are not yet decoded from the original intro script streams.
+The current frame is asset-backed and bank/table-switchable. It defaults to Bank 31 table 0 because that is the verified title glyph path, but Left/Right or Tab switches through local CHR banks and Up/Down toggles the 4KB pattern-table half inside the selected 8KB bank. Table 0 shows tile IDs `$000-$0FF`; table 1 shows `$100-$1FF`. The frame renders the selected local-only CHR sheet and assembles `TECMO PRESENTS` through the Bank 06 character-to-tile mapping against the selected bank/table. The exact intro bank/table, mascot/logo sprite layout, and palette path are not yet decoded from the original intro script streams.
 
 ## Current CHR Playground
 
@@ -20,11 +20,17 @@ The launcher has a `CHR Playground` button and a matching ignored screenshot tes
 .\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode chr-playground build\chr_playground_test.png
 ```
 
-The playground renders selected-bank tile IDs `$80-$AF`, the assembled 2x2 title glyphs, and sample character-to-tile mappings so number/letter construction can be visually checked. Use Left/Right or Tab to switch banks in the running app.
+The playground renders selected-bank/table tile IDs `$080-$0AF` or `$180-$1AF`, the assembled 2x2 title glyphs, and sample character-to-tile mappings so number/letter construction can be visually checked. Use Left/Right or Tab to switch banks and Up/Down to toggle table 0/table 1 in the running app.
 
 ## How To Point Out Tiles
 
-Use the `Intro Lab` screen to identify the selected bank plus source tiles by row+column hex. For example, Bank 12 row `B`, column `6` is tile `$B6` in Bank 12. Use the target canvas grid on the right to describe placement by 16px offsets from the canvas top-left.
+Use the `Intro Lab` screen to identify the selected bank, table, and source tiles by three-digit tile ID. For example, Bank 12 table 1 row `B`, column `6` is tile `$1B6`. Use the target canvas grid on the right to describe placement by 16px offsets from the canvas top-left.
+
+Create an ignored local-only draft for your picks:
+
+```powershell
+.\tools\New-IntroLayoutDraft.ps1 -Bank 12 -Table 1
+```
 
 ## Source Candidates
 

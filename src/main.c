@@ -19,7 +19,7 @@ static void print_usage(const char *program)
     printf("  --roster [TEAM|--all]   Parse labeled Bank 02 roster records\n");
     printf("  --play                  Launch native playable prototype window\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, intro-presents, chr-playground, rosters, play setup, original-title, or original-title-chr to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, intro-presents, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play setup, original-title, or original-title-chr to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -174,8 +174,14 @@ int main(int argc, char **argv)
                 /* Default runtime initialization already starts at the title screen. */
             } else if (strcmp(mode_name, "intro-presents") == 0) {
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_INTRO_PROBE);
+            } else if (strcmp(mode_name, "intro-presents-table1") == 0) {
+                tecmo_runtime_set_mode(&runtime, TECMO_MODE_INTRO_PROBE);
+                runtime.selected_chr_table = 1U;
             } else if (strcmp(mode_name, "chr-playground") == 0) {
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_CHR_PLAYGROUND);
+            } else if (strcmp(mode_name, "chr-playground-table1") == 0) {
+                tecmo_runtime_set_mode(&runtime, TECMO_MODE_CHR_PLAYGROUND);
+                runtime.selected_chr_table = 1U;
             } else {
                 printf("Unsupported render-test mode: %s\n", mode_name);
                 render_runtime = false;
