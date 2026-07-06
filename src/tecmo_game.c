@@ -714,10 +714,22 @@ void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
                            (unsigned)setup->max_stream_record_count);
             draw_centered_text(framebuffer, 404, line, rgb(142, 174, 190), 1);
         }
+
+        if (setup->stream_effect_summary_loaded) {
+            (void)snprintf(line,
+                           sizeof(line),
+                           "STREAM EFFECT BASE %02u SRC %02u OUT %02u MAX %03u TO %03u",
+                           (unsigned)setup->stream_base_parameter_bytes,
+                           (unsigned)setup->stream_source_fields_per_record,
+                           (unsigned)setup->stream_staged_fields_per_record,
+                           (unsigned)setup->max_stream_bytes_consumed,
+                           (unsigned)setup->max_stream_emitted_bytes);
+            draw_centered_text(framebuffer, 424, line, rgb(142, 174, 190), 1);
+        }
     }
 
-    rect(framebuffer, 116, 430, 408, 2, rgb(236, 214, 112));
-    draw_centered_text(framebuffer, 450, "STREAM EFFECTS AND PALETTE DECODE NEXT", rgb(230, 232, 214), 1);
+    rect(framebuffer, 116, 444, 408, 2, rgb(236, 214, 112));
+    draw_centered_text(framebuffer, 460, "HELPER EFFECTS AND PALETTE DECODE NEXT", rgb(230, 232, 214), 1);
 }
 
 void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer)

@@ -111,8 +111,8 @@
       "id": "original_title_chr_probe",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode original-title-chr build\\original_title_chr_test.png",
-      "description": "Renders a native CHR-backed diagnostic from local title glyph mapping, local CHR data, native adjacent setup staging counts, and stream-format coverage; stream effects and palette effects are not yet decoded.",
-      "expected_screen": "Ignored local-only CHR glyph probe with dispatcher, native setup staging diagnostics, and stream-table coverage."
+      "description": "Renders a native CHR-backed diagnostic from local title glyph mapping, local CHR data, native adjacent setup staging counts, stream-format coverage, and stream effect shape; fixed helper and palette effects are not yet modeled.",
+      "expected_screen": "Ignored local-only CHR glyph probe with dispatcher, native setup staging diagnostics, stream-table coverage, and stream effect shape."
     }
   ],
   "debug_overlay": {
@@ -208,6 +208,7 @@
         "Frame is rendered by native CHR tile decoding from local-only glyph mapping",
         "Frame shows native adjacent setup staging counts",
         "Frame shows native setup stream-table coverage",
+        "Frame shows native setup stream effect shape",
         "PNG remains in ignored build output"
       ]
     }
@@ -248,7 +249,8 @@
       "Title characters are mapped through the Bank 06 character-to-tile helper, the baseline $A273,X lookup operand, and the 2x2 glyph tile table at 06:$AF05.",
       "The exact Bank 04 BA16 entry sets the $05B6 update flag bit.",
       "Adjacent setup now has a local-only range/call/write/table report and a native setup summary rendered by original-title-chr.",
-      "The setup stream format summary verifies 15 stream table entries and five terminated selector rows without including payload bytes; stream effects, fixed helper effects, and palette setup still need mapping before raw CHR tile rendering is pixel-accurate."
+      "The setup stream format/effect summary verifies 15 stream table entries and five terminated selector rows without including payload bytes.",
+      "BAA4 stream records are modeled as one count byte, two base-offset bytes, and four private source fields per record that emit four staged bytes; fixed helper effects and palette setup still need mapping before raw CHR tile rendering is pixel-accurate."
     ],
     "rules": [
       "Generated source-map reports stay local and ignored under build.",
@@ -304,7 +306,6 @@
     "id": "M007",
     "title": "Pixel-accurate title CHR and palette pass",
     "notes": [
-      "Map decoded adjacent Bank 04 setup stream record fields to semantic native staging operations rather than byte dumps.",
       "Model fixed helper side effects as explicit native pattern-table/VRAM staging operations.",
       "Map palette initialization and any title palette animation path.",
       "Keep extracted/generated CHR, palette, or script caches local and ignored.",

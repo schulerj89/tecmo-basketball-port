@@ -258,16 +258,23 @@ function New-StreamTableEntry {
     $Hi = Get-MapByte -Map $Map -Address (0xB34E + $Index)
     $Pointer = ($Hi -shl 8) -bor $Lo
     $RecordCount = Get-MapByte -Map $Map -Address $Pointer
-    $BytesConsumed = 1 + ($RecordCount * 5)
-    $EmittedBytes = $RecordCount * 4
+    $BaseParameterBytes = 2
+    $SourceFieldsPerRecord = 4
+    $StagedFieldsPerRecord = 4
+    $BytesConsumed = 1 + $BaseParameterBytes + ($RecordCount * $SourceFieldsPerRecord)
+    $EmittedBytes = $RecordCount * $StagedFieldsPerRecord
 
     return [pscustomobject]@{
         index = $Index
         pointer = Format-HexWord $Pointer
         record_count = $RecordCount
+        base_parameter_bytes = $BaseParameterBytes
+        source_fields_per_record = $SourceFieldsPerRecord
+        staged_fields_per_record = $StagedFieldsPerRecord
         source_bytes_consumed = $BytesConsumed
         staged_bytes_emitted = $EmittedBytes
-        record_shape = "one count byte followed by five private source bytes per record; helper emits four staged bytes per record"
+        record_shape = "one count byte, two private base-offset bytes, then four private source fields per record; helper emits four staged bytes per record"
+        semantic_effect = "field 0 is offset by the stream X base, field 1 is offset by the fixed tile stride, field 2 is copied, and field 3 is offset by the stream Y base"
         payload_bytes_included = $false
         verified_range_present = Test-RangePresent -Map $Map -Start $Pointer -EndExclusive ($Pointer + $BytesConsumed)
     }
@@ -328,10 +335,17 @@ function New-StreamDecodeSummary {
     $MaxEmittedBytes = ($Entries | Measure-Object -Property staged_bytes_emitted -Maximum).Maximum
 
     return [pscustomobject]@{
-        status = "stream format summarized without payload bytes; fixed helper effects still need native modeling"
+        status = "stream format and record effects summarized without payload bytes; fixed helper effects still need native modeling"
         helper_range = '04:$BAA4-$BAEF'
         direct_bootstrap_stream_index = 0
         dynamic_selector_path = '$0742 -> selector remap at 04:$BA88 -> pointer rows at 04:$B317/04:$B31C -> BAA4 stream index'
+        record_effect_model = [pscustomobject]@{
+            count_bytes = 1
+            base_parameter_bytes = 2
+            source_fields_per_record = 4
+            staged_fields_per_record = 4
+            payload_bytes_included = $false
+        }
         stream_table_entries = $Entries
         selector_rows = $Rows
         aggregate = [pscustomobject]@{
@@ -411,13 +425,13 @@ $Report = [pscustomobject]@{
     stream_decode_summary = New-StreamDecodeSummary -Map $Bank04
     table_references = $TableRefs
     unresolved_gates = @(
-        "Model the semantic effects of decoded setup stream records without committing table bytes.",
+        "Apply the decoded setup stream effect model to an explicit native staging buffer without committing table bytes.",
         'Model fixed helper effects for $C05A, $C06F, $C009, $C054, and $C000 as explicit native staging operations.',
         "Identify which adjacent stream/table path supplies title pattern-table or nametable data for the first visible title screen.",
         "Identify palette RAM initialization and palette animation for the title path."
     )
     next_steps = @(
-        "Map decoded stream record fields to explicit native staging operations.",
+        "Apply decoded stream record effects to native staging buffers.",
         "Add native structs for fixed helper side effects.",
         "Promote original-title-chr from raw CHR diagnostic once pattern/palette state is modeled."
     )
@@ -436,5 +450,5 @@ $Report | ConvertTo-Json -Depth 8 | Set-Content -Path $ReportPath -Encoding ASCI
     stream_entries = $Report.stream_decode_summary.aggregate.stream_table_entry_count
     stream_entries_verified = $Report.stream_decode_summary.aggregate.verified_stream_table_entry_count
     table_refs = @($Report.table_references).Count
-    next_gate = "Model decoded stream effects and fixed helper effects"
+    next_gate = "Apply stream effects to native staging, then model fixed helper effects"
 } | Format-List

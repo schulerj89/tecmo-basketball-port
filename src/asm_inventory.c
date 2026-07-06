@@ -1290,6 +1290,9 @@ static int load_title_stream_format_summary(const uint8_t *bank04,
 
     summary->stream_table_entry_count = TECMO_TITLE_SETUP_STREAM_TABLE_ENTRIES;
     summary->dynamic_selector_row_count = TECMO_TITLE_SETUP_SELECTOR_ROWS;
+    summary->stream_base_parameter_bytes = 2U;
+    summary->stream_source_fields_per_record = 4U;
+    summary->stream_staged_fields_per_record = 4U;
     add_selected_stream_index(selected_streams, &summary->selected_stream_count, 0U);
 
     for (uint8_t index = 0; index < TECMO_TITLE_SETUP_STREAM_TABLE_ENTRIES; ++index) {
@@ -1310,8 +1313,9 @@ static int load_title_stream_format_summary(const uint8_t *bank04,
             return -1;
         }
 
-        bytes_consumed = (uint16_t)(1U + (uint16_t)record_count * 5U);
-        emitted_bytes = (uint16_t)((uint16_t)record_count * 4U);
+        bytes_consumed = (uint16_t)(1U + summary->stream_base_parameter_bytes +
+                                    (uint16_t)record_count * summary->stream_source_fields_per_record);
+        emitted_bytes = (uint16_t)((uint16_t)record_count * summary->stream_staged_fields_per_record);
         if ((uint32_t)pointer + (uint32_t)bytes_consumed <= 0xC000U &&
             mapped_range_present(bank04_present, 0x8000U, pointer, (uint16_t)(pointer + bytes_consumed))) {
             ++summary->verified_stream_table_entry_count;
@@ -1357,6 +1361,7 @@ static int load_title_stream_format_summary(const uint8_t *bank04,
     }
 
     summary->stream_format_summary_loaded = true;
+    summary->stream_effect_summary_loaded = true;
     return 0;
 }
 

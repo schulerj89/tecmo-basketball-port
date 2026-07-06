@@ -77,10 +77,14 @@ typedef struct TecmoTitleSetupSummary {
     uint8_t selected_stream_count;
     uint8_t dynamic_selector_row_count;
     uint8_t terminated_selector_row_count;
+    uint8_t stream_base_parameter_bytes;
+    uint8_t stream_source_fields_per_record;
+    uint8_t stream_staged_fields_per_record;
     uint8_t max_stream_record_count;
     uint16_t max_stream_bytes_consumed;
     uint16_t max_stream_emitted_bytes;
     bool stream_format_summary_loaded;
+    bool stream_effect_summary_loaded;
     bool stream_decode_pending;
     bool fixed_helper_effects_pending;
     uint16_t first_unclassified_call;

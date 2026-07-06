@@ -26,7 +26,7 @@ Resolve the title text render path through the fixed dispatcher, Bank 06 charact
 .\tools\Find-TitleChrMapping.ps1
 ```
 
-Map the exact title setup entry plus adjacent helper calls, write targets, stream format summary, and table references:
+Map the exact title setup entry plus adjacent helper calls, write targets, stream format/effect summary, and table references:
 
 ```powershell
 .\tools\Find-TitleSetupMapping.ps1
@@ -56,13 +56,13 @@ Those reports/probes are intentionally ignored by Git. Public docs may keep chun
 - Bank 06 maps characters through the `06:$A290` helper, using the baseline `$A273,X` lookup operand for character IDs, and then reads four tile IDs per glyph from the `06:$AF05` table.
 - Bank 04 setup writes `$0352=0x1F` and `$0100=0x06` before entering `$BA16`; that exact entry sets the `$05B6` update flag bit.
 - The adjacent Bank 04 setup driver, pointer seed helper, stream copy helper, fixed-helper calls, write targets, and table reference counts are mapped in a local-only report.
-- The local-only setup report now summarizes the BAA4 stream format, verifies all 15 stream table entries, verifies all five dynamic selector rows terminate, and records aggregate record/output counts without including payload bytes.
-- The native `original-title-chr` path now loads a setup staging summary from local Bank 04 bytes and renders driver call/write counts, stream-copy write counts, verified table-reference counts, and stream-table coverage without committing setup streams.
-- Stream effects, fixed helper side effects, and palette setup still need a native model before the CHR-backed quick launch can be called pixel-accurate.
+- The local-only setup report now summarizes the BAA4 stream format/effect model, verifies all 15 stream table entries, verifies all five dynamic selector rows terminate, and records aggregate source/output counts without including payload bytes.
+- The BAA4 helper model is one count byte, two private base-offset bytes, and four private source fields per record; each record emits four staged bytes. The largest local stream currently consumes 139 private source bytes and emits 136 staged bytes.
+- The native `original-title-chr` path now loads a setup staging summary from local Bank 04 bytes and renders driver call/write counts, stream-copy write counts, verified table-reference counts, stream-table coverage, and stream effect shape without committing setup streams.
+- Fixed helper side effects and palette setup still need a native model before the CHR-backed quick launch can be called pixel-accurate.
 
 ## Next Native-Port Gates
 
-- Map decoded setup stream record fields to explicit native staging operations rather than byte dumps.
 - Convert fixed helper effects into explicit native pattern-table/VRAM staging operations.
 - Replace fixed-bank helper effects such as frame waits, render writes, and setup wrappers with explicit native C functions.
 - Resolve palette initialization for the title/menu path.
