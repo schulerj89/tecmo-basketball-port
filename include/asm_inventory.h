@@ -56,6 +56,8 @@ typedef struct TecmoOriginalTitleGlyphs {
     bool dispatcher_matches_expected;
     uint8_t chr_config_0100;
     uint8_t setup_selector_0352;
+    uint8_t ba16_update_flags_or_05b6;
+    bool ba16_update_flag_modeled;
 } TecmoOriginalTitleGlyphs;
 
 void asm_stats_add(AsmStats *dst, const AsmStats *src);

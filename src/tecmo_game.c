@@ -670,13 +670,14 @@ void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
     draw_centered_text(framebuffer, 316, line, rgb(142, 174, 190), 1);
     (void)snprintf(line,
                    sizeof(line),
-                   "TITLE SETUP 0100=%02X 0352=%02X  BA16/PAL NEXT",
+                   "SETUP 0100=%02X 0352=%02X  BA16 05B6|=%02X",
                    (unsigned)glyphs->chr_config_0100,
-                   (unsigned)glyphs->setup_selector_0352);
+                   (unsigned)glyphs->setup_selector_0352,
+                   (unsigned)glyphs->ba16_update_flags_or_05b6);
     draw_centered_text(framebuffer, 338, line, rgb(230, 232, 214), 1);
 
     rect(framebuffer, 116, 382, 408, 2, rgb(236, 214, 112));
-    draw_centered_text(framebuffer, 402, "RAW CHR DIAGNOSTIC  NOT PIXEL ACCURATE YET", rgb(230, 232, 214), 1);
+    draw_centered_text(framebuffer, 402, "ADJACENT PATTERN AND PALETTE SETUP NEXT", rgb(230, 232, 214), 1);
 }
 
 void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer)

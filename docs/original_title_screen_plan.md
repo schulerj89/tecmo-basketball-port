@@ -47,11 +47,11 @@ Those reports/probes are intentionally ignored by Git. Public docs may keep chun
 - Bank 04 title text does not map directly to CHR tile IDs.
 - The title loop dispatches `A=0x38` through fixed helper `$C711`; the local dispatcher tables resolve that to `06:$9E50`.
 - Bank 06 maps characters through the `06:$A290` helper, using the baseline `$A273,X` lookup operand for character IDs, and then reads four tile IDs per glyph from the `06:$AF05` table.
-- Bank 04 setup writes `$0352=0x1F` and `$0100=0x06` before entering the `$BA16` setup path; that pattern/VRAM setup still needs a native model before the CHR-backed quick launch can be called pixel-accurate.
+- Bank 04 setup writes `$0352=0x1F` and `$0100=0x06` before entering `$BA16`; that exact entry sets the `$05B6` update flag bit, while adjacent pattern/VRAM and palette setup still needs a native model before the CHR-backed quick launch can be called pixel-accurate.
 
 ## Next Native-Port Gates
 
-- Model the Bank 04 `$BA16` pattern setup path into explicit native pattern-table/VRAM state.
+- Map the adjacent Bank 04 pattern setup tables and fixed helper effects into explicit native pattern-table/VRAM state.
 - Replace fixed-bank helper effects such as frame waits, render writes, and setup wrappers with explicit native C functions.
 - Resolve palette initialization for the title/menu path.
 - Map title/menu tile IDs to local CHR bank(s) while keeping extracted bytes local.

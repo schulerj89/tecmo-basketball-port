@@ -1203,6 +1203,8 @@ int tecmo_load_original_title_glyphs(const char *project_root, TecmoOriginalTitl
     glyphs->dispatcher_matches_expected = glyphs->dispatcher_bank == 0x06U && glyphs->dispatcher_target == 0x9E50U;
     glyphs->chr_config_0100 = 0x06U;
     glyphs->setup_selector_0352 = 0x1FU;
+    glyphs->ba16_update_flags_or_05b6 = 0x01U;
+    glyphs->ba16_update_flag_modeled = true;
 
     for (size_t i = 0; i < title_len; ++i) {
         TecmoTitleGlyph *glyph = &glyphs->glyphs[i];
