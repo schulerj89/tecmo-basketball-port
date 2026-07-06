@@ -55,12 +55,14 @@ Those reports/probes are intentionally ignored by Git. Public docs may keep chun
 - The title loop dispatches `A=0x38` through fixed helper `$C711`; the local dispatcher tables resolve that to `06:$9E50`.
 - Bank 06 maps characters through the `06:$A290` helper, using the baseline `$A273,X` lookup operand for character IDs, and then reads four tile IDs per glyph from the `06:$AF05` table.
 - Bank 04 setup writes `$0352=0x1F` and `$0100=0x06` before entering `$BA16`; that exact entry sets the `$05B6` update flag bit.
-- The adjacent Bank 04 setup driver, pointer seed helper, stream copy helper, fixed-helper calls, write targets, and table reference counts are now mapped in a local-only report, but stream formats and palette setup still need a native model before the CHR-backed quick launch can be called pixel-accurate.
+- The adjacent Bank 04 setup driver, pointer seed helper, stream copy helper, fixed-helper calls, write targets, and table reference counts are mapped in a local-only report.
+- The native `original-title-chr` path now loads a setup staging summary from local Bank 04 bytes and renders driver call/write counts, stream-copy write counts, and verified table-reference counts without committing setup streams.
+- Stream formats, fixed helper side effects, and palette setup still need a native model before the CHR-backed quick launch can be called pixel-accurate.
 
 ## Next Native-Port Gates
 
-- Map the adjacent Bank 04 pattern setup tables and fixed helper effects into explicit native pattern-table/VRAM state.
-- Decode selected adjacent setup streams locally and convert fixed helper effects into explicit native staging operations.
+- Decode selected adjacent setup streams locally into semantic records rather than byte dumps.
+- Convert fixed helper effects into explicit native pattern-table/VRAM staging operations.
 - Replace fixed-bank helper effects such as frame waits, render writes, and setup wrappers with explicit native C functions.
 - Resolve palette initialization for the title/menu path.
 - Map title/menu tile IDs to local CHR bank(s) while keeping extracted bytes local.

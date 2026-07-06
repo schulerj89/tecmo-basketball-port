@@ -9,6 +9,8 @@
 #define TECMO_MAX_LABEL_TEXT 256
 #define TECMO_MAX_NAME_TEXT 128
 #define TECMO_TITLE_MAX_CHARS 64
+#define TECMO_TITLE_SETUP_MAX_TARGETS 16
+#define TECMO_TITLE_SETUP_TABLE_REFS 5
 
 typedef struct AsmStats {
     uint64_t files;
@@ -46,6 +48,33 @@ typedef struct TecmoTitleGlyph {
     uint8_t glyph_tiles[4];
 } TecmoTitleGlyph;
 
+typedef struct TecmoAddressCount {
+    uint16_t target;
+    uint8_t count;
+} TecmoAddressCount;
+
+typedef struct TecmoTitleSetupSummary {
+    bool loaded;
+    uint16_t exact_entry_start;
+    uint16_t exact_entry_end;
+    uint16_t adjacent_driver_start;
+    uint16_t adjacent_driver_end;
+    uint16_t stream_copy_start;
+    uint16_t stream_copy_end;
+    uint8_t driver_call_count;
+    uint8_t driver_call_invocations;
+    TecmoAddressCount driver_calls[TECMO_TITLE_SETUP_MAX_TARGETS];
+    uint8_t driver_write_count;
+    TecmoAddressCount driver_writes[TECMO_TITLE_SETUP_MAX_TARGETS];
+    uint8_t stream_write_count;
+    TecmoAddressCount stream_writes[TECMO_TITLE_SETUP_MAX_TARGETS];
+    uint8_t table_reference_count;
+    uint8_t verified_table_reference_count;
+    bool stream_decode_pending;
+    bool fixed_helper_effects_pending;
+    uint16_t first_unclassified_call;
+} TecmoTitleSetupSummary;
+
 typedef struct TecmoOriginalTitleGlyphs {
     char title_text[TECMO_MAX_NAME_TEXT];
     TecmoTitleGlyph glyphs[TECMO_TITLE_MAX_CHARS];
@@ -58,6 +87,7 @@ typedef struct TecmoOriginalTitleGlyphs {
     uint8_t setup_selector_0352;
     uint8_t ba16_update_flags_or_05b6;
     bool ba16_update_flag_modeled;
+    TecmoTitleSetupSummary setup_summary;
 } TecmoOriginalTitleGlyphs;
 
 void asm_stats_add(AsmStats *dst, const AsmStats *src);

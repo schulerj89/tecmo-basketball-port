@@ -111,8 +111,8 @@
       "id": "original_title_chr_probe",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode original-title-chr build\\original_title_chr_test.png",
-      "description": "Renders a native CHR-backed diagnostic from local title glyph mapping and local CHR data; exact BA16 update flag is modeled, adjacent pattern/palette setup is not.",
-      "expected_screen": "Ignored local-only CHR glyph probe with dispatcher and setup diagnostics."
+      "description": "Renders a native CHR-backed diagnostic from local title glyph mapping, local CHR data, and native adjacent setup staging counts; setup streams and palette effects are not yet decoded.",
+      "expected_screen": "Ignored local-only CHR glyph probe with dispatcher and native setup staging diagnostics."
     }
   ],
   "debug_overlay": {
@@ -206,6 +206,7 @@
         "PNG exists",
         "PNG dimensions are 640x480",
         "Frame is rendered by native CHR tile decoding from local-only glyph mapping",
+        "Frame shows native adjacent setup staging counts",
         "PNG remains in ignored build output"
       ]
     }
@@ -244,7 +245,8 @@
       "Bank 04 title loop dispatches A=0x38 through fixed helper C711.",
       "C711 entry 0x38 resolves locally to Bank 06 text setup at 06:$9E50.",
       "Title characters are mapped through the Bank 06 character-to-tile helper, the baseline $A273,X lookup operand, and the 2x2 glyph tile table at 06:$AF05.",
-      "The exact Bank 04 BA16 entry sets the $05B6 update flag bit; adjacent setup now has a local-only range/call/write/table report, but stream formats and palette setup still need mapping before raw CHR tile rendering is pixel-accurate."
+      "The exact Bank 04 BA16 entry sets the $05B6 update flag bit.",
+      "Adjacent setup now has a local-only range/call/write/table report and a native setup summary rendered by original-title-chr; stream formats, fixed helper effects, and palette setup still need mapping before raw CHR tile rendering is pixel-accurate."
     ],
     "rules": [
       "Generated source-map reports stay local and ignored under build.",
@@ -300,8 +302,8 @@
     "id": "M007",
     "title": "Pixel-accurate title CHR and palette pass",
     "notes": [
-      "Map the adjacent Bank 04 pattern setup tables and fixed helper effects that surround the exact BA16 update-flag entry.",
-      "Decode selected adjacent Bank 04 setup streams and model fixed helper side effects as native staging operations.",
+      "Decode selected adjacent Bank 04 setup streams into semantic records rather than byte dumps.",
+      "Model fixed helper side effects as explicit native pattern-table/VRAM staging operations.",
       "Map palette initialization and any title palette animation path.",
       "Keep extracted/generated CHR, palette, or script caches local and ignored.",
       "Continue committing only safe project UI screenshots; original-title screenshots stay under ignored build output."

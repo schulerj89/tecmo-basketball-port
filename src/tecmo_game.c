@@ -676,8 +676,35 @@ void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
                    (unsigned)glyphs->ba16_update_flags_or_05b6);
     draw_centered_text(framebuffer, 338, line, rgb(230, 232, 214), 1);
 
-    rect(framebuffer, 116, 382, 408, 2, rgb(236, 214, 112));
-    draw_centered_text(framebuffer, 402, "ADJACENT PATTERN AND PALETTE SETUP NEXT", rgb(230, 232, 214), 1);
+    if (glyphs->setup_summary.loaded) {
+        const TecmoTitleSetupSummary *setup = &glyphs->setup_summary;
+        (void)snprintf(line,
+                       sizeof(line),
+                       "STAGE BA25 CALLS %02u/%02u WRITES %02u TABLES %02u/%02u",
+                       (unsigned)setup->driver_call_count,
+                       (unsigned)setup->driver_call_invocations,
+                       (unsigned)setup->driver_write_count,
+                       (unsigned)setup->verified_table_reference_count,
+                       (unsigned)setup->table_reference_count);
+        draw_centered_text(framebuffer, 360, line, rgb(142, 174, 190), 1);
+
+        if (setup->first_unclassified_call != 0U) {
+            (void)snprintf(line,
+                           sizeof(line),
+                           "STREAM BAA4 WRITES %02u  UNCLASSIFIED CALL %04X",
+                           (unsigned)setup->stream_write_count,
+                           (unsigned)setup->first_unclassified_call);
+        } else {
+            (void)snprintf(line,
+                           sizeof(line),
+                           "STREAM BAA4 WRITES %02u  FIXED HELPERS PENDING",
+                           (unsigned)setup->stream_write_count);
+        }
+        draw_centered_text(framebuffer, 382, line, rgb(142, 174, 190), 1);
+    }
+
+    rect(framebuffer, 116, 410, 408, 2, rgb(236, 214, 112));
+    draw_centered_text(framebuffer, 430, "STREAM AND PALETTE DECODE NEXT", rgb(230, 232, 214), 1);
 }
 
 void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer)

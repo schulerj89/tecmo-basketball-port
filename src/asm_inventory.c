@@ -60,6 +60,7 @@ static const char *ROSTER_FILES[] = {
 
 static const char *ORIGINAL_TITLE_TEXT_FILE =
     "decomp\\lifted\\bank04\\C-0004_bank04_menu_title_text_836B_8384.asm";
+static const char *BASELINE_BANK04_FILE = "build\\baseline\\Tecmo_04.asm";
 static const char *BASELINE_BANK06_FILE = "build\\baseline\\Tecmo_06.asm";
 static const char *BASELINE_BANK07_FILE = "build\\baseline\\Tecmo_07.asm";
 
@@ -1128,6 +1129,216 @@ static int read_mapped_byte(const uint8_t *bytes,
     return 0;
 }
 
+static int add_address_count(TecmoAddressCount *targets, uint8_t *target_count, uint16_t target)
+{
+    for (uint8_t i = 0; i < *target_count; ++i) {
+        if (targets[i].target == target) {
+            if (targets[i].count < 0xFFU) {
+                ++targets[i].count;
+            }
+            return 0;
+        }
+    }
+
+    if (*target_count >= TECMO_TITLE_SETUP_MAX_TARGETS) {
+        return -1;
+    }
+
+    targets[*target_count].target = target;
+    targets[*target_count].count = 1;
+    ++(*target_count);
+    return 0;
+}
+
+static bool is_known_title_setup_call(uint16_t target)
+{
+    return target == 0xBA95U ||
+           target == 0xBAA4U ||
+           target == 0xC000U ||
+           target == 0xC009U ||
+           target == 0xC054U ||
+           target == 0xC05AU ||
+           target == 0xC06FU;
+}
+
+static bool is_fixed_title_setup_call(uint16_t target)
+{
+    return target == 0xC000U ||
+           target == 0xC009U ||
+           target == 0xC054U ||
+           target == 0xC05AU ||
+           target == 0xC06FU;
+}
+
+static int collect_jsr_targets(const uint8_t *bytes,
+                               const bool *present,
+                               uint16_t start,
+                               uint16_t end,
+                               TecmoAddressCount *targets,
+                               uint8_t *target_count,
+                               uint8_t *invocations,
+                               uint16_t *first_unclassified,
+                               bool *has_fixed_helper)
+{
+    *target_count = 0;
+    if (invocations != NULL) {
+        *invocations = 0;
+    }
+
+    for (uint32_t address = start; address + 2U <= end; ++address) {
+        uint8_t opcode = 0;
+        if (read_mapped_byte(bytes, present, 0x8000U, address, &opcode) != 0) {
+            return -1;
+        }
+        if (opcode == 0x20U) {
+            uint8_t lo = 0;
+            uint8_t hi = 0;
+            uint16_t target;
+            if (read_mapped_byte(bytes, present, 0x8000U, address + 1U, &lo) != 0 ||
+                read_mapped_byte(bytes, present, 0x8000U, address + 2U, &hi) != 0) {
+                return -1;
+            }
+            target = (uint16_t)(((uint16_t)hi << 8U) | lo);
+            if (add_address_count(targets, target_count, target) != 0) {
+                return -1;
+            }
+            if (invocations != NULL && *invocations < 0xFFU) {
+                ++(*invocations);
+            }
+            if (has_fixed_helper != NULL && is_fixed_title_setup_call(target)) {
+                *has_fixed_helper = true;
+            }
+            if (first_unclassified != NULL && *first_unclassified == 0U && !is_known_title_setup_call(target)) {
+                *first_unclassified = target;
+            }
+        }
+    }
+
+    return 0;
+}
+
+static int collect_sta_targets(const uint8_t *bytes,
+                               const bool *present,
+                               uint16_t start,
+                               uint16_t end,
+                               TecmoAddressCount *targets,
+                               uint8_t *target_count)
+{
+    *target_count = 0;
+
+    for (uint32_t address = start; address <= end; ++address) {
+        uint8_t opcode = 0;
+        uint16_t target = 0;
+        if (read_mapped_byte(bytes, present, 0x8000U, address, &opcode) != 0) {
+            return -1;
+        }
+
+        if (opcode == 0x85U) {
+            uint8_t zp = 0;
+            if (address + 1U > end ||
+                read_mapped_byte(bytes, present, 0x8000U, address + 1U, &zp) != 0) {
+                return -1;
+            }
+            target = zp;
+        } else if (opcode == 0x8DU) {
+            uint8_t lo = 0;
+            uint8_t hi = 0;
+            if (address + 2U > end ||
+                read_mapped_byte(bytes, present, 0x8000U, address + 1U, &lo) != 0 ||
+                read_mapped_byte(bytes, present, 0x8000U, address + 2U, &hi) != 0) {
+                return -1;
+            }
+            target = (uint16_t)(((uint16_t)hi << 8U) | lo);
+        } else {
+            continue;
+        }
+
+        if (add_address_count(targets, target_count, target) != 0) {
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+static bool mapped_range_present(const bool *present, uint32_t cpu_base, uint16_t start, uint16_t end_exclusive)
+{
+    for (uint32_t address = start; address < end_exclusive; ++address) {
+        uint32_t offset = address - cpu_base;
+        if (address < cpu_base || offset >= 0x4000U || !present[offset]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static int load_title_setup_summary(const uint8_t *bank04,
+                                    const bool *bank04_present,
+                                    TecmoTitleSetupSummary *summary)
+{
+    static const struct {
+        uint16_t start;
+        uint16_t end_exclusive;
+    } table_refs[TECMO_TITLE_SETUP_TABLE_REFS] = {
+        {0xBA88U, 0xBA95U},
+        {0xB317U, 0xB31CU},
+        {0xB31CU, 0xB321U},
+        {0xB33FU, 0xB34EU},
+        {0xB34EU, 0xB35DU},
+    };
+    bool has_fixed_helper = false;
+
+    memset(summary, 0, sizeof(*summary));
+    summary->exact_entry_start = 0xBA16U;
+    summary->exact_entry_end = 0xBA24U;
+    summary->adjacent_driver_start = 0xBA25U;
+    summary->adjacent_driver_end = 0xBA84U;
+    summary->stream_copy_start = 0xBAA4U;
+    summary->stream_copy_end = 0xBAEFU;
+    summary->table_reference_count = TECMO_TITLE_SETUP_TABLE_REFS;
+    summary->stream_decode_pending = true;
+
+    if (!mapped_range_present(bank04_present, 0x8000U, summary->exact_entry_start, (uint16_t)(summary->exact_entry_end + 1U)) ||
+        !mapped_range_present(bank04_present, 0x8000U, summary->adjacent_driver_start, (uint16_t)(summary->adjacent_driver_end + 1U)) ||
+        !mapped_range_present(bank04_present, 0x8000U, summary->stream_copy_start, (uint16_t)(summary->stream_copy_end + 1U))) {
+        return -1;
+    }
+
+    for (size_t i = 0; i < TECMO_TITLE_SETUP_TABLE_REFS; ++i) {
+        if (mapped_range_present(bank04_present, 0x8000U, table_refs[i].start, table_refs[i].end_exclusive)) {
+            ++summary->verified_table_reference_count;
+        }
+    }
+
+    if (collect_jsr_targets(bank04,
+                            bank04_present,
+                            summary->adjacent_driver_start,
+                            summary->adjacent_driver_end,
+                            summary->driver_calls,
+                            &summary->driver_call_count,
+                            &summary->driver_call_invocations,
+                            &summary->first_unclassified_call,
+                            &has_fixed_helper) != 0 ||
+        collect_sta_targets(bank04,
+                            bank04_present,
+                            summary->adjacent_driver_start,
+                            summary->adjacent_driver_end,
+                            summary->driver_writes,
+                            &summary->driver_write_count) != 0 ||
+        collect_sta_targets(bank04,
+                            bank04_present,
+                            summary->stream_copy_start,
+                            summary->stream_copy_end,
+                            summary->stream_writes,
+                            &summary->stream_write_count) != 0) {
+        return -1;
+    }
+
+    summary->fixed_helper_effects_pending = has_fixed_helper;
+    summary->loaded = true;
+    return 0;
+}
+
 static int title_char_to_tile(uint8_t code, const uint8_t *bank06, const bool *bank06_present, uint8_t *tile_out)
 {
     if (code == 0x2EU || code == 0x20U) {
@@ -1163,8 +1374,10 @@ static uint16_t title_ppu_address_for_index(size_t index, uint8_t *render_x_out)
 
 int tecmo_load_original_title_glyphs(const char *project_root, TecmoOriginalTitleGlyphs *glyphs)
 {
+    uint8_t bank04[0x4000];
     uint8_t bank06[0x4000];
     uint8_t bank07[0x4000];
+    bool bank04_present[0x4000];
     bool bank06_present[0x4000];
     bool bank07_present[0x4000];
     size_t title_len;
@@ -1182,7 +1395,8 @@ int tecmo_load_original_title_glyphs(const char *project_root, TecmoOriginalTitl
         return -1;
     }
 
-    if (load_baseline_byte_map(project_root, BASELINE_BANK06_FILE, 6U, 0x8000U, bank06, bank06_present) != 0 ||
+    if (load_baseline_byte_map(project_root, BASELINE_BANK04_FILE, 4U, 0x8000U, bank04, bank04_present) != 0 ||
+        load_baseline_byte_map(project_root, BASELINE_BANK06_FILE, 6U, 0x8000U, bank06, bank06_present) != 0 ||
         load_baseline_byte_map(project_root, BASELINE_BANK07_FILE, 7U, 0xC000U, bank07, bank07_present) != 0) {
         return -1;
     }
@@ -1205,6 +1419,9 @@ int tecmo_load_original_title_glyphs(const char *project_root, TecmoOriginalTitl
     glyphs->setup_selector_0352 = 0x1FU;
     glyphs->ba16_update_flags_or_05b6 = 0x01U;
     glyphs->ba16_update_flag_modeled = true;
+    if (load_title_setup_summary(bank04, bank04_present, &glyphs->setup_summary) != 0) {
+        return -1;
+    }
 
     for (size_t i = 0; i < title_len; ++i) {
         TecmoTitleGlyph *glyph = &glyphs->glyphs[i];
