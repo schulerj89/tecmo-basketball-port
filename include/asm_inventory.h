@@ -8,6 +8,7 @@
 #define TECMO_MAX_PATH_TEXT 1024
 #define TECMO_MAX_LABEL_TEXT 256
 #define TECMO_MAX_NAME_TEXT 128
+#define TECMO_TITLE_MAX_CHARS 64
 
 typedef struct AsmStats {
     uint64_t files;
@@ -37,6 +38,26 @@ typedef struct RosterTable {
     size_t capacity;
 } RosterTable;
 
+typedef struct TecmoTitleGlyph {
+    uint8_t character;
+    uint8_t render_x;
+    uint16_t ppu_address;
+    uint8_t tile_index;
+    uint8_t glyph_tiles[4];
+} TecmoTitleGlyph;
+
+typedef struct TecmoOriginalTitleGlyphs {
+    char title_text[TECMO_MAX_NAME_TEXT];
+    TecmoTitleGlyph glyphs[TECMO_TITLE_MAX_CHARS];
+    size_t glyph_count;
+    uint8_t dispatcher_call_index;
+    uint8_t dispatcher_bank;
+    uint16_t dispatcher_target;
+    bool dispatcher_matches_expected;
+    uint8_t chr_config_0100;
+    uint8_t setup_selector_0352;
+} TecmoOriginalTitleGlyphs;
+
 void asm_stats_add(AsmStats *dst, const AsmStats *src);
 int asm_scan_file(const char *path, AsmStats *stats);
 int asm_scan_tree(const char *root, const char *relative_dir, const char *extension, AsmStats *stats);
@@ -46,6 +67,9 @@ void roster_table_free(RosterTable *table);
 
 int tecmo_generate_roster_c(const char *project_root, const char *out_dir);
 int tecmo_load_original_title_text(const char *project_root, char *title, size_t title_size);
+int tecmo_load_original_title_glyphs(const char *project_root, TecmoOriginalTitleGlyphs *glyphs);
+int tecmo_load_chr_data(const char *project_root, uint8_t **bytes_out, uint64_t *byte_count);
+void tecmo_free_buffer(void *buffer);
 int tecmo_export_chr(const char *project_root, const char *out_path, uint64_t *bytes_written);
 int tecmo_export_chr_png_sheets(const char *project_root, const char *out_dir, uint64_t *sheets_written);
 int tecmo_analyze_chr(const char *project_root, uint64_t *byte_count);

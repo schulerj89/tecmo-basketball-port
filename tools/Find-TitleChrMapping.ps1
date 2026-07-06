@@ -139,7 +139,7 @@ function Get-TitleCharacterTile {
         }
     }
 
-    return (Get-MapByte -Map $Bank06 -Address (0xA2AC + $Code) -SourceName "bank06")
+    return (Get-MapByte -Map $Bank06 -Address (0xA273 + $Code) -SourceName "bank06")
 }
 
 function Get-GlyphTiles {
@@ -337,7 +337,7 @@ $Report = [pscustomobject]@{
     render_path = @(
         [pscustomobject]@{ chunk = "C-0114"; role = "Bank 04 title loop"; range = '04:$8303-$836A'; note = 'Loads title character, computes X position, dispatches A=0x38 through fixed $C711.' },
         [pscustomobject]@{ chunk = "C-0052"; role = "Bank 06 text render setup"; range = '06:$9E50-$A02C'; note = 'Resolved fixed dispatcher entry 0x38 target.' },
-        [pscustomobject]@{ chunk = "C-0062/C-0063"; role = "character-to-tile mapping"; range = '06:$A290-$A2CE'; note = 'Maps ASCII-like character values to tile indices.' },
+        [pscustomobject]@{ chunk = "C-0060/C-0062/C-0063"; role = "character-to-tile mapping"; range = '06:$A250-$A2CE'; note = 'Maps ASCII-like character values through the baseline operand at $A273,X into tile indices.' },
         [pscustomobject]@{ chunk = "C-0066"; role = "2x2 glyph tile table"; range = '06:$A4CA-$B080'; note = 'Uses $AF05 + tile_index*4 for four tile IDs.' },
         [pscustomobject]@{ chunk = "C-0115/C-0135"; role = "title pattern setup"; range = '04:$8385-$83AA and 04:$9000-$BFFF'; note = 'Sets $0352=0x1F, $0100=0x06, then enters the local $BA16 setup path.' }
     )
@@ -366,7 +366,7 @@ $Report = [pscustomobject]@{
     conclusions = @(
         "Direct title bytes are not direct CHR tile IDs.",
         'C711 dispatch for A=0x38 resolves to Bank 06 text setup at 06:$9E50.',
-        'The title glyph path maps characters through 06:$A290 and reads four tile IDs from the 06:$AF05 table.',
+        'The title glyph path maps characters through 06:$A290, uses the baseline $A273,X lookup operand, and reads four tile IDs from the 06:$AF05 table.',
         "Raw CHR-bank probing is still not pixel-accurate until the Bank 04 BA16 pattern setup path is modeled."
     )
     next_steps = @(

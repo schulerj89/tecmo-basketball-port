@@ -60,6 +60,8 @@ static const char *ROSTER_FILES[] = {
 
 static const char *ORIGINAL_TITLE_TEXT_FILE =
     "decomp\\lifted\\bank04\\C-0004_bank04_menu_title_text_836B_8384.asm";
+static const char *BASELINE_BANK06_FILE = "build\\baseline\\Tecmo_06.asm";
+static const char *BASELINE_BANK07_FILE = "build\\baseline\\Tecmo_07.asm";
 
 static const char *TEAM_CODES[] = {
     "GOLDEN_STATE",
@@ -419,6 +421,39 @@ static size_t parse_byte_values(const char *line, uint8_t *values, size_t capaci
     }
 
     return count;
+}
+
+static int parse_comment_address(const char *line, uint32_t *address_out)
+{
+    const char *comment = strchr(line, ';');
+    const char *p;
+    uint32_t value = 0;
+    int digits = 0;
+
+    if (comment == NULL) {
+        return -1;
+    }
+
+    p = strchr(comment, '$');
+    if (p == NULL) {
+        return -1;
+    }
+    ++p;
+
+    while (isxdigit((unsigned char)*p) && digits < 6) {
+        char c = (char)tolower((unsigned char)*p);
+        value *= 16U;
+        value += (uint32_t)(isdigit((unsigned char)c) ? c - '0' : c - 'a' + 10);
+        ++p;
+        ++digits;
+    }
+
+    if (digits < 4) {
+        return -1;
+    }
+
+    *address_out = value;
+    return 0;
 }
 
 static int parse_byte_values_strict(const char *line, uint8_t *values, size_t capacity, size_t *count_out)
@@ -1031,6 +1066,168 @@ int tecmo_load_original_title_text(const char *project_root, char *title, size_t
     return out_count > 0 ? 0 : -1;
 }
 
+static int load_baseline_byte_map(const char *project_root,
+                                  const char *relative_file,
+                                  uint32_t bank_index,
+                                  uint32_t cpu_base,
+                                  uint8_t *bytes,
+                                  bool *present)
+{
+    char path[TECMO_MAX_PATH_TEXT];
+    FILE *file;
+    char line[LINE_BUFFER_SIZE];
+    uint32_t rom_base = bank_index * 0x4000U;
+
+    memset(bytes, 0, 0x4000U);
+    memset(present, 0, 0x4000U * sizeof(present[0]));
+
+    append_path(path, sizeof(path), project_root, relative_file);
+    normalize_separators(path);
+
+    file = fopen(path, "rb");
+    if (file == NULL) {
+        return -1;
+    }
+
+    while (fgets(line, sizeof(line), file) != NULL) {
+        uint8_t values[128];
+        size_t count = parse_byte_values(line, values, sizeof(values));
+        uint32_t rom_address = 0;
+        if (count == 0 || parse_comment_address(line, &rom_address) != 0) {
+            continue;
+        }
+
+        for (size_t i = 0; i < count; ++i) {
+            uint32_t offset = rom_address + (uint32_t)i - rom_base;
+            if (offset < 0x4000U) {
+                uint32_t cpu_address = cpu_base + offset;
+                uint32_t cpu_offset = cpu_address - cpu_base;
+                if (cpu_offset < 0x4000U) {
+                    bytes[cpu_offset] = values[i];
+                    present[cpu_offset] = true;
+                }
+            }
+        }
+    }
+
+    fclose(file);
+    return 0;
+}
+
+static int read_mapped_byte(const uint8_t *bytes,
+                            const bool *present,
+                            uint32_t cpu_base,
+                            uint32_t cpu_address,
+                            uint8_t *value_out)
+{
+    uint32_t offset = cpu_address - cpu_base;
+    if (cpu_address < cpu_base || offset >= 0x4000U || !present[offset]) {
+        return -1;
+    }
+    *value_out = bytes[offset];
+    return 0;
+}
+
+static int title_char_to_tile(uint8_t code, const uint8_t *bank06, const bool *bank06_present, uint8_t *tile_out)
+{
+    if (code == 0x2EU || code == 0x20U) {
+        *tile_out = 0x18U;
+        return 0;
+    }
+    if (code == 0x2DU) {
+        *tile_out = 0x25U;
+        return 0;
+    }
+    if (code < 0x3AU && code >= 0x17U) {
+        *tile_out = (uint8_t)(code - 0x17U);
+        return 0;
+    }
+
+    return read_mapped_byte(bank06, bank06_present, 0x8000U, 0xA273U + code, tile_out);
+}
+
+static uint16_t title_ppu_address_for_index(size_t index, uint8_t *render_x_out)
+{
+    uint8_t render_x = (uint8_t)((index + 0x10U) & 0x1FU);
+    uint8_t high = 0x22U;
+    uint8_t column = render_x;
+
+    if (render_x >= 0x10U) {
+        high ^= 0x04U;
+        column = (uint8_t)(render_x - 0x10U);
+    }
+
+    *render_x_out = render_x;
+    return (uint16_t)(((uint16_t)high << 8U) | ((uint16_t)column * 2U));
+}
+
+int tecmo_load_original_title_glyphs(const char *project_root, TecmoOriginalTitleGlyphs *glyphs)
+{
+    uint8_t bank06[0x4000];
+    uint8_t bank07[0x4000];
+    bool bank06_present[0x4000];
+    bool bank07_present[0x4000];
+    size_t title_len;
+
+    if (glyphs == NULL) {
+        return -1;
+    }
+    memset(glyphs, 0, sizeof(*glyphs));
+
+    if (tecmo_load_original_title_text(project_root, glyphs->title_text, sizeof(glyphs->title_text)) != 0) {
+        return -1;
+    }
+    title_len = strlen(glyphs->title_text);
+    if (title_len == 0 || title_len > TECMO_TITLE_MAX_CHARS) {
+        return -1;
+    }
+
+    if (load_baseline_byte_map(project_root, BASELINE_BANK06_FILE, 6U, 0x8000U, bank06, bank06_present) != 0 ||
+        load_baseline_byte_map(project_root, BASELINE_BANK07_FILE, 7U, 0xC000U, bank07, bank07_present) != 0) {
+        return -1;
+    }
+
+    glyphs->dispatcher_call_index = 0x38U;
+    if (read_mapped_byte(bank07, bank07_present, 0xC000U, 0xCAF5U + glyphs->dispatcher_call_index, &glyphs->dispatcher_bank) != 0) {
+        return -1;
+    }
+    {
+        uint8_t lo = 0;
+        uint8_t hi = 0;
+        if (read_mapped_byte(bank07, bank07_present, 0xC000U, 0xCB33U + glyphs->dispatcher_call_index, &lo) != 0 ||
+            read_mapped_byte(bank07, bank07_present, 0xC000U, 0xCB71U + glyphs->dispatcher_call_index, &hi) != 0) {
+            return -1;
+        }
+        glyphs->dispatcher_target = (uint16_t)(((uint16_t)hi << 8U) | lo);
+    }
+    glyphs->dispatcher_matches_expected = glyphs->dispatcher_bank == 0x06U && glyphs->dispatcher_target == 0x9E50U;
+    glyphs->chr_config_0100 = 0x06U;
+    glyphs->setup_selector_0352 = 0x1FU;
+
+    for (size_t i = 0; i < title_len; ++i) {
+        TecmoTitleGlyph *glyph = &glyphs->glyphs[i];
+        uint8_t tile_index = 0;
+        uint32_t glyph_base;
+
+        glyph->character = (uint8_t)glyphs->title_text[i];
+        if (title_char_to_tile(glyph->character, bank06, bank06_present, &tile_index) != 0) {
+            return -1;
+        }
+        glyph->tile_index = tile_index;
+        glyph->ppu_address = title_ppu_address_for_index(i, &glyph->render_x);
+
+        glyph_base = 0xAF05U + (uint32_t)tile_index * 4U;
+        for (size_t tile = 0; tile < 4; ++tile) {
+            if (read_mapped_byte(bank06, bank06_present, 0x8000U, glyph_base + (uint32_t)tile, &glyph->glyph_tiles[tile]) != 0) {
+                return -1;
+            }
+        }
+    }
+
+    glyphs->glyph_count = title_len;
+    return 0;
+}
+
 static int convert_tiles_file(const char *path, FILE *out, uint64_t *byte_count)
 {
     FILE *file = fopen(path, "rb");
@@ -1095,6 +1292,16 @@ static int load_chr_padded(const char *project_root, uint8_t **bytes_out, uint64
     *bytes_out = bytes;
     *byte_count = TECMO_CHR_CONFIG_BYTES;
     return 0;
+}
+
+int tecmo_load_chr_data(const char *project_root, uint8_t **bytes_out, uint64_t *byte_count)
+{
+    return load_chr_padded(project_root, bytes_out, byte_count);
+}
+
+void tecmo_free_buffer(void *buffer)
+{
+    free(buffer);
 }
 
 int tecmo_analyze_chr(const char *project_root, uint64_t *byte_count)

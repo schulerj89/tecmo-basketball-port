@@ -9,6 +9,7 @@
 #define COURT_TOP 54
 #define COURT_RIGHT 592
 #define COURT_BOTTOM 424
+#define TITLE_CHR_BANK_BYTES 8192U
 
 static bool pressed(bool now, bool before)
 {
@@ -562,6 +563,120 @@ void tecmo_render_original_title_probe(TecmoFramebuffer *framebuffer, const char
 
     rect(framebuffer, 132, 356, 376, 2, rgb(236, 214, 112));
     draw_centered_text(framebuffer, 376, "CHR PALETTE AND LAYOUT MAPPING NEXT", rgb(230, 232, 214), 1);
+}
+
+static void draw_chr_tile(TecmoFramebuffer *fb,
+                          const uint8_t *chr_bytes,
+                          uint64_t chr_byte_count,
+                          uint32_t chr_bank,
+                          uint8_t tile,
+                          int x,
+                          int y,
+                          int scale)
+{
+    static const uint32_t palette[4] = {
+        0x00000000U,
+        0xFF614C5CU,
+        0xFFC9B45CU,
+        0xFFF8F0C8U,
+    };
+    uint64_t tile_offset = (uint64_t)chr_bank * TITLE_CHR_BANK_BYTES + (uint64_t)tile * 16ULL;
+
+    if (tile == 0xFFU || tile_offset + 15ULL >= chr_byte_count) {
+        return;
+    }
+
+    for (int row = 0; row < 8; ++row) {
+        uint8_t plane0 = chr_bytes[tile_offset + (uint64_t)row];
+        uint8_t plane1 = chr_bytes[tile_offset + (uint64_t)row + 8ULL];
+        for (int col = 0; col < 8; ++col) {
+            uint8_t bit = (uint8_t)(7 - col);
+            uint8_t value = (uint8_t)(((plane0 >> bit) & 1U) | (((plane1 >> bit) & 1U) << 1U));
+            uint32_t color = palette[value];
+            if (value == 0 || color == 0) {
+                continue;
+            }
+            rect(fb, x + col * scale, y + row * scale, scale, scale, color);
+        }
+    }
+}
+
+static void draw_title_glyph(TecmoFramebuffer *fb,
+                             const uint8_t *chr_bytes,
+                             uint64_t chr_byte_count,
+                             uint32_t chr_bank,
+                             const TecmoTitleGlyph *glyph,
+                             int x,
+                             int y,
+                             int scale)
+{
+    draw_chr_tile(fb, chr_bytes, chr_byte_count, chr_bank, glyph->glyph_tiles[0], x, y, scale);
+    draw_chr_tile(fb, chr_bytes, chr_byte_count, chr_bank, glyph->glyph_tiles[1], x + 8 * scale, y, scale);
+    draw_chr_tile(fb, chr_bytes, chr_byte_count, chr_bank, glyph->glyph_tiles[2], x, y + 8 * scale, scale);
+    draw_chr_tile(fb, chr_bytes, chr_byte_count, chr_bank, glyph->glyph_tiles[3], x + 8 * scale, y + 8 * scale, scale);
+}
+
+void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
+                                           const TecmoOriginalTitleGlyphs *glyphs,
+                                           const uint8_t *chr_bytes,
+                                           uint64_t chr_byte_count,
+                                           uint32_t chr_bank)
+{
+    char line[160];
+    int scale = 3;
+    int glyph_width = 16 * scale;
+    int title_width;
+    int start_x;
+    int y = 150;
+
+    clear(framebuffer, rgb(8, 10, 24));
+    rect(framebuffer, 0, 0, framebuffer->width, 48, rgb(18, 18, 34));
+    rect(framebuffer, 0, framebuffer->height - 58, framebuffer->width, 58, rgb(18, 18, 34));
+    rect(framebuffer, 36, 94, framebuffer->width - 72, 192, rgb(52, 28, 58));
+    rect(framebuffer, 46, 104, framebuffer->width - 92, 172, rgb(16, 22, 48));
+    rect(framebuffer, 58, 116, framebuffer->width - 116, 148, rgb(96, 34, 52));
+    rect(framebuffer, 68, 126, framebuffer->width - 136, 128, rgb(20, 26, 54));
+
+    if (glyphs == NULL || glyphs->glyph_count == 0 || chr_bytes == NULL || chr_byte_count == 0) {
+        draw_centered_text(framebuffer, 188, "CHR TITLE DATA MISSING", rgb(252, 236, 170), 2);
+        return;
+    }
+
+    title_width = (int)glyphs->glyph_count * glyph_width;
+    if (title_width > framebuffer->width - 32) {
+        scale = 2;
+        glyph_width = 16 * scale;
+        title_width = (int)glyphs->glyph_count * glyph_width;
+    }
+    if (title_width > framebuffer->width - 32) {
+        scale = 1;
+        glyph_width = 16 * scale;
+        title_width = (int)glyphs->glyph_count * glyph_width;
+    }
+    start_x = (framebuffer->width - title_width) / 2;
+
+    for (size_t i = 0; i < glyphs->glyph_count; ++i) {
+        draw_title_glyph(framebuffer, chr_bytes, chr_byte_count, chr_bank, &glyphs->glyphs[i], start_x + (int)i * glyph_width, y, scale);
+    }
+
+    draw_centered_text(framebuffer, 294, "NATIVE CHR TITLE GLYPH PROBE", rgb(142, 174, 190), 1);
+    (void)snprintf(line,
+                   sizeof(line),
+                   "C711 %02X -> BANK %02X:%04X  CHR BANK %02u",
+                   (unsigned)glyphs->dispatcher_call_index,
+                   (unsigned)glyphs->dispatcher_bank,
+                   (unsigned)glyphs->dispatcher_target,
+                   (unsigned)chr_bank);
+    draw_centered_text(framebuffer, 316, line, rgb(142, 174, 190), 1);
+    (void)snprintf(line,
+                   sizeof(line),
+                   "TITLE SETUP 0100=%02X 0352=%02X  BA16/PAL NEXT",
+                   (unsigned)glyphs->chr_config_0100,
+                   (unsigned)glyphs->setup_selector_0352);
+    draw_centered_text(framebuffer, 338, line, rgb(230, 232, 214), 1);
+
+    rect(framebuffer, 116, 382, 408, 2, rgb(236, 214, 112));
+    draw_centered_text(framebuffer, 402, "RAW CHR DIAGNOSTIC  NOT PIXEL ACCURATE YET", rgb(230, 232, 214), 1);
 }
 
 void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer)

@@ -105,6 +105,13 @@
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode original-title build\\original_title_test.png",
       "description": "Renders a source-backed original title probe before CHR/layout mapping is pixel accurate.",
       "expected_screen": "Source-backed original title probe rendered from local private data."
+    },
+    {
+      "id": "original_title_chr_probe",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode original-title-chr build\\original_title_chr_test.png",
+      "description": "Renders a native CHR-backed diagnostic from local title glyph mapping and local CHR data; BA16/palette setup is still not modeled.",
+      "expected_screen": "Ignored local-only CHR glyph probe with dispatcher and setup diagnostics."
     }
   ],
   "debug_overlay": {
@@ -188,6 +195,18 @@
         "Frame is sourced from local Bank 04 title data",
         "PNG remains in ignored build output"
       ]
+    },
+    {
+      "id": "shot_original_title_chr_probe",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode original-title-chr build\\original_title_chr_test.png",
+      "commit_safe": false,
+      "assertions": [
+        "PNG exists",
+        "PNG dimensions are 640x480",
+        "Frame is rendered by native CHR tile decoding from local-only glyph mapping",
+        "PNG remains in ignored build output"
+      ]
     }
   ],
   "memory_budgets": {
@@ -221,7 +240,7 @@
     "current_findings": [
       "Bank 04 title loop dispatches A=0x38 through fixed helper C711.",
       "C711 entry 0x38 resolves locally to Bank 06 text setup at 06:$9E50.",
-      "Title characters are mapped through the Bank 06 character-to-tile helper and the 2x2 glyph tile table at 06:$AF05.",
+      "Title characters are mapped through the Bank 06 character-to-tile helper, the baseline $A273,X lookup operand, and the 2x2 glyph tile table at 06:$AF05.",
       "Bank 04 BA16 pattern setup still needs to be modeled before raw CHR tile rendering is pixel-accurate."
     ],
     "rules": [

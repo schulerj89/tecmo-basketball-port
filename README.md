@@ -61,6 +61,7 @@ $env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
 .\build\tecmo_port.exe --render-test-mode rosters build\rosters_test.png
 .\build\tecmo_port.exe --render-test-mode play build\play_setup_test.png
 .\build\tecmo_port.exe --render-test-mode original-title build\original_title_test.png
+.\build\tecmo_port.exe --render-test-mode original-title-chr build\original_title_chr_test.png
 ```
 
 Run every active screenshot test declared in `port_iteration.json`:

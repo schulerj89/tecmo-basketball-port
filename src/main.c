@@ -19,7 +19,7 @@ static void print_usage(const char *program)
     printf("  --roster [TEAM|--all]   Parse labeled Bank 02 roster records\n");
     printf("  --play                  Launch native playable prototype window\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render menu, menu-overlay, rosters, play setup, or original-title to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render menu, menu-overlay, rosters, play setup, original-title, or original-title-chr to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -122,7 +122,24 @@ int main(int argc, char **argv)
 
         tecmo_arena_init(&memory.permanent, permanent_block, permanent_size);
         tecmo_arena_init(&memory.transient, transient_block, transient_size);
-        if (strcmp(mode_name, "original-title") == 0) {
+        if (strcmp(mode_name, "original-title-chr") == 0) {
+            TecmoOriginalTitleGlyphs glyphs;
+            uint8_t *chr_bytes = NULL;
+            uint64_t chr_byte_count = 0;
+            if (tecmo_load_original_title_glyphs(root, &glyphs) != 0) {
+                printf("Failed to load original title glyph mapping from local decomp root %s\n", root);
+            } else if (tecmo_load_chr_data(root, &chr_bytes, &chr_byte_count) != 0) {
+                printf("Failed to load CHR data from local decomp root %s\n", root);
+            } else {
+                framebuffer.pixels = pixels;
+                framebuffer.width = width;
+                framebuffer.height = height;
+                framebuffer.pitch_pixels = width;
+                tecmo_render_original_title_chr_probe(&framebuffer, &glyphs, chr_bytes, chr_byte_count, 31U);
+                result = 0;
+            }
+            tecmo_free_buffer(chr_bytes);
+        } else if (strcmp(mode_name, "original-title") == 0) {
             char title_text[TECMO_MAX_NAME_TEXT];
             if (tecmo_load_original_title_text(root, title_text, sizeof(title_text)) != 0) {
                 printf("Failed to load original title text from local decomp root %s\n", root);
