@@ -26,7 +26,9 @@ typedef struct TecmoFramebuffer {
 } TecmoFramebuffer;
 
 typedef enum TecmoPlayMode {
-    TECMO_MODE_TEAM_SELECT,
+    TECMO_MODE_MAIN_MENU,
+    TECMO_MODE_PLAY_SETUP,
+    TECMO_MODE_ROSTERS,
     TECMO_MODE_COURT
 } TecmoPlayMode;
 
@@ -37,7 +39,9 @@ typedef struct TecmoRuntime {
     size_t team_count;
     size_t selected_team;
     size_t selected_player;
+    size_t selected_menu_item;
     TecmoPlayMode mode;
+    bool quit_requested;
     float player_x;
     float player_y;
     float ball_x;

@@ -19,6 +19,7 @@ static void print_usage(const char *program)
     printf("  --roster [TEAM|--all]   Parse labeled Bank 02 roster records\n");
     printf("  --play                  Launch native playable prototype window\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
+    printf("  --render-test-mode MODE PATH  Render menu, rosters, or play setup to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -83,12 +84,14 @@ int main(int argc, char **argv)
 #endif
     }
 
-    if (strcmp(command, "--render-test") == 0) {
+    if (strcmp(command, "--render-test") == 0 || strcmp(command, "--render-test-mode") == 0) {
+        const bool mode_specific = strcmp(command, "--render-test-mode") == 0;
+        const char *mode_name = "menu";
         const int width = 640;
         const int height = 480;
         const size_t permanent_size = 16U * 1024U * 1024U;
         const size_t transient_size = 16U * 1024U * 1024U;
-        const char *out_path = index < argc ? argv[index] : "build\\play_test.png";
+        const char *out_path;
         TecmoGameMemory memory;
         TecmoRuntime runtime;
         TecmoFramebuffer framebuffer;
@@ -97,6 +100,11 @@ int main(int argc, char **argv)
         void *permanent_block;
         void *transient_block;
         int result = 1;
+
+        if (mode_specific) {
+            mode_name = index < argc ? argv[index++] : "menu";
+        }
+        out_path = index < argc ? argv[index] : "build\\play_test.png";
 
         memset(&memory, 0, sizeof(memory));
         permanent_block = malloc(permanent_size);
@@ -117,6 +125,21 @@ int main(int argc, char **argv)
         if (!tecmo_runtime_init(&runtime, &memory, root)) {
             printf("Failed to initialize runtime from %s\n", root);
         } else {
+            if (strcmp(mode_name, "rosters") == 0) {
+                TecmoInput input;
+                memset(&input, 0, sizeof(input));
+                input.down = true;
+                tecmo_runtime_update(&runtime, &input);
+                memset(&input, 0, sizeof(input));
+                tecmo_runtime_update(&runtime, &input);
+                input.confirm = true;
+                tecmo_runtime_update(&runtime, &input);
+            } else if (strcmp(mode_name, "play") == 0) {
+                TecmoInput input;
+                memset(&input, 0, sizeof(input));
+                input.confirm = true;
+                tecmo_runtime_update(&runtime, &input);
+            }
             framebuffer.pixels = pixels;
             framebuffer.width = width;
             framebuffer.height = height;

@@ -56,6 +56,34 @@ $env:TECMO_DECOMP_ROOT='C:\Users\joshs\Projects\disassem\tecmo-basketball-decomp
 .\build\tecmo_port.exe --assets
 .\build\tecmo_port.exe --play
 .\build\tecmo_port.exe --render-test build\play_test.png
+.\build\tecmo_port.exe --render-test-mode menu build\menu_test.png
+.\build\tecmo_port.exe --render-test-mode rosters build\rosters_test.png
+.\build\tecmo_port.exe --render-test-mode play build\play_setup_test.png
+```
+
+Prototype controls:
+
+```text
+Main menu:
+Up/Down = choose Play Game, Rosters, or Quit
+Enter = confirm
+Esc = quit
+
+Play Game:
+Left/Right = team
+Up/Down = player
+Enter = start court prototype
+Esc = main menu
+
+Rosters:
+Left/Right = team
+Up/Down = player
+Esc = main menu
+
+Court prototype:
+Arrows = move
+Space = shoot
+Esc = play setup
 ```
 
 Local-only generated outputs:

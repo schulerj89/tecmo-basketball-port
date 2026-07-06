@@ -89,7 +89,7 @@ bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const ch
         add_team_if_missing(runtime, runtime->roster.records[i].team);
     }
 
-    runtime->mode = TECMO_MODE_TEAM_SELECT;
+    runtime->mode = TECMO_MODE_MAIN_MENU;
     runtime->player_x = 320.0f;
     runtime->player_y = 260.0f;
     runtime->ball_x = runtime->player_x + 14.0f;
@@ -102,7 +102,32 @@ void tecmo_runtime_shutdown(TecmoRuntime *runtime)
     roster_table_free(&runtime->roster);
 }
 
-static void update_team_select(TecmoRuntime *runtime, const TecmoInput *input)
+static void update_main_menu(TecmoRuntime *runtime, const TecmoInput *input)
+{
+    const size_t menu_count = 3;
+
+    if (pressed(input->up, runtime->previous_input.up) && runtime->selected_menu_item > 0) {
+        --runtime->selected_menu_item;
+    }
+    if (pressed(input->down, runtime->previous_input.down) &&
+        runtime->selected_menu_item + 1U < menu_count) {
+        ++runtime->selected_menu_item;
+    }
+    if (pressed(input->cancel, runtime->previous_input.cancel)) {
+        runtime->quit_requested = true;
+    }
+    if (pressed(input->confirm, runtime->previous_input.confirm)) {
+        if (runtime->selected_menu_item == 0) {
+            runtime->mode = TECMO_MODE_PLAY_SETUP;
+        } else if (runtime->selected_menu_item == 1) {
+            runtime->mode = TECMO_MODE_ROSTERS;
+        } else {
+            runtime->quit_requested = true;
+        }
+    }
+}
+
+static void update_roster_selection(TecmoRuntime *runtime, const TecmoInput *input, bool allow_start_game)
 {
     size_t player_count = selected_team_player_count(runtime);
 
@@ -122,7 +147,10 @@ static void update_team_select(TecmoRuntime *runtime, const TecmoInput *input)
         runtime->selected_player + 1U < player_count) {
         ++runtime->selected_player;
     }
-    if (pressed(input->confirm, runtime->previous_input.confirm)) {
+    if (pressed(input->cancel, runtime->previous_input.cancel)) {
+        runtime->mode = TECMO_MODE_MAIN_MENU;
+    }
+    if (allow_start_game && pressed(input->confirm, runtime->previous_input.confirm)) {
         runtime->mode = TECMO_MODE_COURT;
     }
 }
@@ -164,7 +192,7 @@ static void update_court(TecmoRuntime *runtime, const TecmoInput *input)
     clamp_player_to_court(runtime);
 
     if (pressed(input->cancel, runtime->previous_input.cancel)) {
-        runtime->mode = TECMO_MODE_TEAM_SELECT;
+        runtime->mode = TECMO_MODE_PLAY_SETUP;
         runtime->ball_in_air = false;
     }
 
@@ -204,10 +232,15 @@ void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input)
     tecmo_cpu_ram_write(runtime->memory, 0x0000, (uint8_t)runtime->mode);
     tecmo_cpu_ram_write(runtime->memory, 0x0001, (uint8_t)runtime->selected_team);
     tecmo_cpu_ram_write(runtime->memory, 0x0002, (uint8_t)runtime->selected_player);
+    tecmo_cpu_ram_write(runtime->memory, 0x0003, (uint8_t)runtime->selected_menu_item);
 
-    if (runtime->mode == TECMO_MODE_TEAM_SELECT) {
-        update_team_select(runtime, input);
-    } else {
+    if (runtime->mode == TECMO_MODE_MAIN_MENU) {
+        update_main_menu(runtime, input);
+    } else if (runtime->mode == TECMO_MODE_PLAY_SETUP) {
+        update_roster_selection(runtime, input, true);
+    } else if (runtime->mode == TECMO_MODE_ROSTERS) {
+        update_roster_selection(runtime, input, false);
+    } else if (runtime->mode == TECMO_MODE_COURT) {
         update_court(runtime, input);
     }
 
@@ -311,7 +344,33 @@ static void draw_text(TecmoFramebuffer *fb, int x, int y, const char *text, uint
     }
 }
 
-static void render_team_select(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+static void draw_button(TecmoFramebuffer *fb, int x, int y, int w, int h, const char *label, bool selected)
+{
+    uint32_t fill = selected ? rgb(220, 198, 80) : rgb(34, 42, 50);
+    uint32_t border = selected ? rgb(248, 244, 198) : rgb(100, 118, 132);
+    uint32_t text = selected ? rgb(24, 24, 22) : rgb(230, 235, 226);
+
+    rect(fb, x, y, w, h, border);
+    rect(fb, x + 2, y + 2, w - 4, h - 4, fill);
+    draw_text(fb, x + 18, y + 16, label, text, 2);
+}
+
+static void render_main_menu(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+{
+    clear(fb, rgb(14, 18, 22));
+    rect(fb, 0, 0, fb->width, 70, rgb(120, 16, 24));
+    draw_text(fb, 34, 24, "TECMO BASKETBALL NATIVE PORT", rgb(248, 248, 232), 2);
+    draw_text(fb, 74, 102, "LOCAL HOBBY PORT PROTOTYPE", rgb(144, 176, 192), 1);
+
+    draw_button(fb, 160, 150, 320, 58, "PLAY GAME", runtime->selected_menu_item == 0);
+    draw_button(fb, 160, 222, 320, 58, "ROSTERS", runtime->selected_menu_item == 1);
+    draw_button(fb, 160, 294, 320, 58, "QUIT", runtime->selected_menu_item == 2);
+
+    draw_text(fb, 150, 396, "UP DOWN SELECT   ENTER CONFIRM   ESC QUIT", rgb(226, 228, 208), 1);
+    draw_text(fb, 82, 426, "NO ROM ASM OR EXTRACTED ASSETS ARE LOADED FROM THIS REPO", rgb(124, 148, 160), 1);
+}
+
+static void render_roster_browser(const TecmoRuntime *runtime, TecmoFramebuffer *fb, bool play_setup)
 {
     char line[256];
     const char *team = runtime->team_count > 0 ? runtime->teams[runtime->selected_team] : "NO DATA";
@@ -319,14 +378,17 @@ static void render_team_select(const TecmoRuntime *runtime, TecmoFramebuffer *fb
 
     clear(fb, rgb(16, 20, 24));
     rect(fb, 0, 0, fb->width, 48, rgb(120, 16, 24));
-    draw_text(fb, 24, 16, "TECMO BASKETBALL NATIVE PORT", rgb(248, 248, 232), 2);
+    draw_text(fb, 24, 16, play_setup ? "PLAY GAME SETUP" : "ROSTERS", rgb(248, 248, 232), 2);
 
     (void)snprintf(line, sizeof(line), "TEAM %u OF %u: %s",
                    (unsigned)(runtime->selected_team + 1U),
                    (unsigned)runtime->team_count,
                    team);
     draw_text(fb, 32, 72, line, rgb(238, 238, 214), 2);
-    draw_text(fb, 32, 102, "ARROWS SELECT   ENTER START   ESC BACK", rgb(144, 176, 192), 1);
+    draw_text(fb, 32, 102,
+              play_setup ? "ARROWS SELECT   ENTER START GAME   ESC MENU" : "ARROWS BROWSE ROSTERS   ESC MENU",
+              rgb(144, 176, 192),
+              1);
 
     for (size_t i = 0; i < runtime->roster.count; ++i) {
         const RosterRecord *record = &runtime->roster.records[i];
@@ -376,9 +438,13 @@ static void render_court(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
 
 void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer)
 {
-    if (runtime->mode == TECMO_MODE_TEAM_SELECT) {
-        render_team_select(runtime, framebuffer);
-    } else {
+    if (runtime->mode == TECMO_MODE_MAIN_MENU) {
+        render_main_menu(runtime, framebuffer);
+    } else if (runtime->mode == TECMO_MODE_PLAY_SETUP) {
+        render_roster_browser(runtime, framebuffer, true);
+    } else if (runtime->mode == TECMO_MODE_ROSTERS) {
+        render_roster_browser(runtime, framebuffer, false);
+    } else if (runtime->mode == TECMO_MODE_COURT) {
         render_court(runtime, framebuffer);
     }
 }

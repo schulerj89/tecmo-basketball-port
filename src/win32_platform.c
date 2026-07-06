@@ -215,6 +215,10 @@ int tecmo_run_win32_game(const char *project_root)
         last_counter = now;
 
         tecmo_runtime_update(&runtime, &g_input);
+        if (runtime.quit_requested) {
+            g_running = false;
+            continue;
+        }
         if (g_backbuffer.pixels != 0) {
             TecmoFramebuffer framebuffer;
             framebuffer.pixels = g_backbuffer.pixels;
