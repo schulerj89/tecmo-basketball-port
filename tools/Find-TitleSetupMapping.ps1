@@ -233,6 +233,124 @@ function New-TableRef {
     }
 }
 
+function Test-RangePresent {
+    param(
+        [hashtable]$Map,
+        [int]$Start,
+        [int]$EndExclusive
+    )
+
+    for ($Address = $Start; $Address -lt $EndExclusive; ++$Address) {
+        if (!$Map.ContainsKey($Address)) {
+            return $false
+        }
+    }
+    return $true
+}
+
+function New-StreamTableEntry {
+    param(
+        [hashtable]$Map,
+        [int]$Index
+    )
+
+    $Lo = Get-MapByte -Map $Map -Address (0xB33F + $Index)
+    $Hi = Get-MapByte -Map $Map -Address (0xB34E + $Index)
+    $Pointer = ($Hi -shl 8) -bor $Lo
+    $RecordCount = Get-MapByte -Map $Map -Address $Pointer
+    $BytesConsumed = 1 + ($RecordCount * 5)
+    $EmittedBytes = $RecordCount * 4
+
+    return [pscustomobject]@{
+        index = $Index
+        pointer = Format-HexWord $Pointer
+        record_count = $RecordCount
+        source_bytes_consumed = $BytesConsumed
+        staged_bytes_emitted = $EmittedBytes
+        record_shape = "one count byte followed by five private source bytes per record; helper emits four staged bytes per record"
+        payload_bytes_included = $false
+        verified_range_present = Test-RangePresent -Map $Map -Start $Pointer -EndExclusive ($Pointer + $BytesConsumed)
+    }
+}
+
+function New-SelectorRow {
+    param(
+        [hashtable]$Map,
+        [int]$Row
+    )
+
+    $Lo = Get-MapByte -Map $Map -Address (0xB317 + $Row)
+    $Hi = Get-MapByte -Map $Map -Address (0xB31C + $Row)
+    $Pointer = ($Hi -shl 8) -bor $Lo
+    $EntryCount = 0
+    $TerminatorFound = $false
+    $MaxStreamIndex = -1
+
+    for ($Offset = 0; $Offset -lt 16; ++$Offset) {
+        $Value = Get-MapByte -Map $Map -Address ($Pointer + $Offset)
+        if (($Value -band 0x80) -ne 0) {
+            $TerminatorFound = $true
+            break
+        }
+        ++$EntryCount
+        if ($Value -gt $MaxStreamIndex) {
+            $MaxStreamIndex = $Value
+        }
+    }
+
+    return [pscustomobject]@{
+        row = $Row
+        pointer = Format-HexWord $Pointer
+        entry_count = $EntryCount
+        terminator_found = $TerminatorFound
+        max_stream_index = if ($MaxStreamIndex -ge 0) { $MaxStreamIndex } else { $null }
+        values_included = $false
+    }
+}
+
+function New-StreamDecodeSummary {
+    param([hashtable]$Map)
+
+    $Entries = @(
+        for ($Index = 0; $Index -lt 15; ++$Index) {
+            New-StreamTableEntry -Map $Map -Index $Index
+        }
+    )
+    $Rows = @(
+        for ($Row = 0; $Row -lt 5; ++$Row) {
+            New-SelectorRow -Map $Map -Row $Row
+        }
+    )
+    $VerifiedEntries = @($Entries | Where-Object { $_.verified_range_present }).Count
+    $TerminatedRows = @($Rows | Where-Object { $_.terminator_found }).Count
+    $MaxRecordCount = ($Entries | Measure-Object -Property record_count -Maximum).Maximum
+    $MaxBytesConsumed = ($Entries | Measure-Object -Property source_bytes_consumed -Maximum).Maximum
+    $MaxEmittedBytes = ($Entries | Measure-Object -Property staged_bytes_emitted -Maximum).Maximum
+
+    return [pscustomobject]@{
+        status = "stream format summarized without payload bytes; fixed helper effects still need native modeling"
+        helper_range = '04:$BAA4-$BAEF'
+        direct_bootstrap_stream_index = 0
+        dynamic_selector_path = '$0742 -> selector remap at 04:$BA88 -> pointer rows at 04:$B317/04:$B31C -> BAA4 stream index'
+        stream_table_entries = $Entries
+        selector_rows = $Rows
+        aggregate = [pscustomobject]@{
+            stream_table_entry_count = @($Entries).Count
+            verified_stream_table_entry_count = $VerifiedEntries
+            selector_row_count = @($Rows).Count
+            terminated_selector_row_count = $TerminatedRows
+            max_stream_record_count = $MaxRecordCount
+            max_source_bytes_consumed = $MaxBytesConsumed
+            max_staged_bytes_emitted = $MaxEmittedBytes
+        }
+        safety = [pscustomobject]@{
+            source_payload_bytes_included = $false
+            selector_values_included = $false
+            report_is_ignored = $true
+        }
+    }
+}
+
 $LocalDecompRoot = Find-LocalDecompRoot
 if (!$LocalDecompRoot) {
     throw "Could not find a local decomp root. Pass -DecompRoot or set TECMO_DECOMP_ROOT."
@@ -290,16 +408,17 @@ $Report = [pscustomobject]@{
         helper_calls = @(Count-CallTargets -Map $Bank04 -Start 0xBAA4 -End 0xBAEF)
         write_targets = @(Count-WriteTargets -Map $Bank04 -Start 0xBAA4 -End 0xBAEF)
     }
+    stream_decode_summary = New-StreamDecodeSummary -Map $Bank04
     table_references = $TableRefs
     unresolved_gates = @(
-        "Decode the adjacent setup stream/table formats without committing table bytes.",
+        "Model the semantic effects of decoded setup stream records without committing table bytes.",
         'Model fixed helper effects for $C05A, $C06F, $C009, $C054, and $C000 as explicit native staging operations.',
         "Identify which adjacent stream/table path supplies title pattern-table or nametable data for the first visible title screen.",
         "Identify palette RAM initialization and palette animation for the title path."
     )
     next_steps = @(
-        "Add native structs for title setup staging state and fixed helper side effects.",
-        "Add a local-only stream decoder report for selected B33F/B34E stream entries.",
+        "Map decoded stream record fields to explicit native staging operations.",
+        "Add native structs for fixed helper side effects.",
         "Promote original-title-chr from raw CHR diagnostic once pattern/palette state is modeled."
     )
 }
@@ -314,6 +433,8 @@ $Report | ConvertTo-Json -Depth 8 | Set-Content -Path $ReportPath -Encoding ASCI
     report = $ReportPath
     exact_ba16 = $Report.exact_ba16_entry.behavior
     adjacent_driver_calls = @($Report.adjacent_setup_driver.helper_calls).Count
+    stream_entries = $Report.stream_decode_summary.aggregate.stream_table_entry_count
+    stream_entries_verified = $Report.stream_decode_summary.aggregate.verified_stream_table_entry_count
     table_refs = @($Report.table_references).Count
-    next_gate = "Decode adjacent setup streams and fixed helper effects"
+    next_gate = "Model decoded stream effects and fixed helper effects"
 } | Format-List

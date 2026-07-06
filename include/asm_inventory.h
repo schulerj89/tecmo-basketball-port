@@ -11,6 +11,8 @@
 #define TECMO_TITLE_MAX_CHARS 64
 #define TECMO_TITLE_SETUP_MAX_TARGETS 16
 #define TECMO_TITLE_SETUP_TABLE_REFS 5
+#define TECMO_TITLE_SETUP_STREAM_TABLE_ENTRIES 15
+#define TECMO_TITLE_SETUP_SELECTOR_ROWS 5
 
 typedef struct AsmStats {
     uint64_t files;
@@ -70,6 +72,15 @@ typedef struct TecmoTitleSetupSummary {
     TecmoAddressCount stream_writes[TECMO_TITLE_SETUP_MAX_TARGETS];
     uint8_t table_reference_count;
     uint8_t verified_table_reference_count;
+    uint8_t stream_table_entry_count;
+    uint8_t verified_stream_table_entry_count;
+    uint8_t selected_stream_count;
+    uint8_t dynamic_selector_row_count;
+    uint8_t terminated_selector_row_count;
+    uint8_t max_stream_record_count;
+    uint16_t max_stream_bytes_consumed;
+    uint16_t max_stream_emitted_bytes;
+    bool stream_format_summary_loaded;
     bool stream_decode_pending;
     bool fixed_helper_effects_pending;
     uint16_t first_unclassified_call;

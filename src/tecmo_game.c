@@ -701,10 +701,23 @@ void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
                            (unsigned)setup->stream_write_count);
         }
         draw_centered_text(framebuffer, 382, line, rgb(142, 174, 190), 1);
+
+        if (setup->stream_format_summary_loaded) {
+            (void)snprintf(line,
+                           sizeof(line),
+                           "STREAM TABLE %02u/%02u SELECTED %02u ROWS %02u/%02u MAX %02u REC",
+                           (unsigned)setup->verified_stream_table_entry_count,
+                           (unsigned)setup->stream_table_entry_count,
+                           (unsigned)setup->selected_stream_count,
+                           (unsigned)setup->terminated_selector_row_count,
+                           (unsigned)setup->dynamic_selector_row_count,
+                           (unsigned)setup->max_stream_record_count);
+            draw_centered_text(framebuffer, 404, line, rgb(142, 174, 190), 1);
+        }
     }
 
-    rect(framebuffer, 116, 410, 408, 2, rgb(236, 214, 112));
-    draw_centered_text(framebuffer, 430, "STREAM AND PALETTE DECODE NEXT", rgb(230, 232, 214), 1);
+    rect(framebuffer, 116, 430, 408, 2, rgb(236, 214, 112));
+    draw_centered_text(framebuffer, 450, "STREAM EFFECTS AND PALETTE DECODE NEXT", rgb(230, 232, 214), 1);
 }
 
 void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer)

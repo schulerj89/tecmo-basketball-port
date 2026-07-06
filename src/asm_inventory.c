@@ -1272,6 +1272,94 @@ static bool mapped_range_present(const bool *present, uint32_t cpu_base, uint16_
     return true;
 }
 
+static void add_selected_stream_index(bool *selected, uint8_t *selected_count, uint8_t index)
+{
+    if (index >= TECMO_TITLE_SETUP_STREAM_TABLE_ENTRIES || selected[index]) {
+        return;
+    }
+    selected[index] = true;
+    ++(*selected_count);
+}
+
+static int load_title_stream_format_summary(const uint8_t *bank04,
+                                            const bool *bank04_present,
+                                            TecmoTitleSetupSummary *summary)
+{
+    bool selected_streams[TECMO_TITLE_SETUP_STREAM_TABLE_ENTRIES];
+    memset(selected_streams, 0, sizeof(selected_streams));
+
+    summary->stream_table_entry_count = TECMO_TITLE_SETUP_STREAM_TABLE_ENTRIES;
+    summary->dynamic_selector_row_count = TECMO_TITLE_SETUP_SELECTOR_ROWS;
+    add_selected_stream_index(selected_streams, &summary->selected_stream_count, 0U);
+
+    for (uint8_t index = 0; index < TECMO_TITLE_SETUP_STREAM_TABLE_ENTRIES; ++index) {
+        uint8_t lo = 0;
+        uint8_t hi = 0;
+        uint8_t record_count = 0;
+        uint16_t pointer;
+        uint16_t bytes_consumed;
+        uint16_t emitted_bytes;
+
+        if (read_mapped_byte(bank04, bank04_present, 0x8000U, 0xB33FU + index, &lo) != 0 ||
+            read_mapped_byte(bank04, bank04_present, 0x8000U, 0xB34EU + index, &hi) != 0) {
+            return -1;
+        }
+
+        pointer = (uint16_t)(((uint16_t)hi << 8U) | lo);
+        if (read_mapped_byte(bank04, bank04_present, 0x8000U, pointer, &record_count) != 0) {
+            return -1;
+        }
+
+        bytes_consumed = (uint16_t)(1U + (uint16_t)record_count * 5U);
+        emitted_bytes = (uint16_t)((uint16_t)record_count * 4U);
+        if ((uint32_t)pointer + (uint32_t)bytes_consumed <= 0xC000U &&
+            mapped_range_present(bank04_present, 0x8000U, pointer, (uint16_t)(pointer + bytes_consumed))) {
+            ++summary->verified_stream_table_entry_count;
+        }
+        if (record_count > summary->max_stream_record_count) {
+            summary->max_stream_record_count = record_count;
+        }
+        if (bytes_consumed > summary->max_stream_bytes_consumed) {
+            summary->max_stream_bytes_consumed = bytes_consumed;
+        }
+        if (emitted_bytes > summary->max_stream_emitted_bytes) {
+            summary->max_stream_emitted_bytes = emitted_bytes;
+        }
+    }
+
+    for (uint8_t row = 0; row < TECMO_TITLE_SETUP_SELECTOR_ROWS; ++row) {
+        uint8_t lo = 0;
+        uint8_t hi = 0;
+        uint16_t pointer;
+        bool terminated = false;
+
+        if (read_mapped_byte(bank04, bank04_present, 0x8000U, 0xB317U + row, &lo) != 0 ||
+            read_mapped_byte(bank04, bank04_present, 0x8000U, 0xB31CU + row, &hi) != 0) {
+            return -1;
+        }
+
+        pointer = (uint16_t)(((uint16_t)hi << 8U) | lo);
+        for (uint8_t offset = 0; offset < 16U; ++offset) {
+            uint8_t value = 0;
+            if (read_mapped_byte(bank04, bank04_present, 0x8000U, pointer + offset, &value) != 0) {
+                return -1;
+            }
+            if ((value & 0x80U) != 0) {
+                terminated = true;
+                break;
+            }
+            add_selected_stream_index(selected_streams, &summary->selected_stream_count, value);
+        }
+
+        if (terminated) {
+            ++summary->terminated_selector_row_count;
+        }
+    }
+
+    summary->stream_format_summary_loaded = true;
+    return 0;
+}
+
 static int load_title_setup_summary(const uint8_t *bank04,
                                     const bool *bank04_present,
                                     TecmoTitleSetupSummary *summary)
@@ -1331,6 +1419,9 @@ static int load_title_setup_summary(const uint8_t *bank04,
                             summary->stream_copy_end,
                             summary->stream_writes,
                             &summary->stream_write_count) != 0) {
+        return -1;
+    }
+    if (load_title_stream_format_summary(bank04, bank04_present, summary) != 0) {
         return -1;
     }
 
