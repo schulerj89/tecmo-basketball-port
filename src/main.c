@@ -19,7 +19,7 @@ static void print_usage(const char *program)
     printf("  --roster [TEAM|--all]   Parse labeled Bank 02 roster records\n");
     printf("  --play                  Launch native playable prototype window\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render menu, menu-overlay, rosters, or play setup to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render menu, menu-overlay, rosters, play setup, or original-title to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -122,7 +122,19 @@ int main(int argc, char **argv)
 
         tecmo_arena_init(&memory.permanent, permanent_block, permanent_size);
         tecmo_arena_init(&memory.transient, transient_block, transient_size);
-        if (!tecmo_runtime_init(&runtime, &memory, root)) {
+        if (strcmp(mode_name, "original-title") == 0) {
+            char title_text[TECMO_MAX_NAME_TEXT];
+            if (tecmo_load_original_title_text(root, title_text, sizeof(title_text)) != 0) {
+                printf("Failed to load original title text from local decomp root %s\n", root);
+            } else {
+                framebuffer.pixels = pixels;
+                framebuffer.width = width;
+                framebuffer.height = height;
+                framebuffer.pitch_pixels = width;
+                tecmo_render_original_title_probe(&framebuffer, title_text);
+                result = 0;
+            }
+        } else if (!tecmo_runtime_init(&runtime, &memory, root)) {
             printf("Failed to initialize runtime from %s\n", root);
         } else {
             if (strcmp(mode_name, "menu-overlay") == 0) {
@@ -151,6 +163,11 @@ int main(int argc, char **argv)
             framebuffer.height = height;
             framebuffer.pitch_pixels = width;
             tecmo_runtime_render(&runtime, &framebuffer);
+            result = 0;
+            tecmo_runtime_shutdown(&runtime);
+        }
+
+        if (result == 0) {
             for (size_t i = 0; i < (size_t)width * (size_t)height; ++i) {
                 uint32_t pixel = pixels[i];
                 rgba[i * 4U + 0U] = (uint8_t)((pixel >> 16U) & 0xFFU);
@@ -163,8 +180,8 @@ int main(int argc, char **argv)
                 result = 0;
             } else {
                 printf("Failed to write %s\n", out_path);
+                result = 1;
             }
-            tecmo_runtime_shutdown(&runtime);
         }
 
         free(permanent_block);

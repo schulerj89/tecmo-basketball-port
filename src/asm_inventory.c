@@ -58,6 +58,9 @@ static const char *ROSTER_FILES[] = {
     "decomp\\lifted\\bank02\\C-0177_bank02_roster_team_player_data_9000_BFFF.asm",
 };
 
+static const char *ORIGINAL_TITLE_TEXT_FILE =
+    "decomp\\lifted\\bank04\\C-0004_bank04_menu_title_text_836B_8384.asm";
+
 static const char *TEAM_CODES[] = {
     "GOLDEN_STATE",
     "NEW_JERSEY",
@@ -416,6 +419,42 @@ static size_t parse_byte_values(const char *line, uint8_t *values, size_t capaci
     }
 
     return count;
+}
+
+static int parse_byte_values_strict(const char *line, uint8_t *values, size_t capacity, size_t *count_out)
+{
+    char code[LINE_BUFFER_SIZE];
+    const char *directive;
+    const char *p;
+    size_t count = 0;
+
+    *count_out = 0;
+    strip_comment_copy(code, sizeof(code), line);
+    directive = find_ci(after_optional_label(code), ".byte");
+    if (directive == NULL) {
+        return 0;
+    }
+
+    p = directive + 5;
+    while (*p != '\0') {
+        uint32_t value = 0;
+
+        while (*p != '\0' && (isspace((unsigned char)*p) || *p == ',')) {
+            ++p;
+        }
+        if (*p == '\0') {
+            break;
+        }
+
+        if (!parse_number_token(&p, &value) || value > 0xFFU || count >= capacity) {
+            return -1;
+        }
+
+        values[count++] = (uint8_t)value;
+    }
+
+    *count_out = count;
+    return 0;
 }
 
 static uint64_t count_data_values(const char *line, const char *directive)
@@ -941,6 +980,55 @@ int tecmo_generate_roster_c(const char *project_root, const char *out_dir)
 
     roster_table_free(&table);
     return 0;
+}
+
+int tecmo_load_original_title_text(const char *project_root, char *title, size_t title_size)
+{
+    char path[TECMO_MAX_PATH_TEXT];
+    char line[LINE_BUFFER_SIZE];
+    FILE *file;
+    size_t out_count = 0;
+
+    if (title == NULL || title_size == 0) {
+        return -1;
+    }
+
+    title[0] = '\0';
+    append_path(path, sizeof(path), project_root, ORIGINAL_TITLE_TEXT_FILE);
+    normalize_separators(path);
+
+    file = fopen(path, "rb");
+    if (file == NULL) {
+        return -1;
+    }
+
+    while (fgets(line, sizeof(line), file) != NULL) {
+        uint8_t bytes[128];
+        size_t count = 0;
+        if (parse_byte_values_strict(line, bytes, sizeof(bytes), &count) != 0) {
+            fclose(file);
+            title[0] = '\0';
+            return -1;
+        }
+        for (size_t i = 0; i < count && out_count + 1 < title_size; ++i) {
+            uint8_t value = bytes[i];
+            if (value < 0x20U || value > 0x7EU) {
+                fclose(file);
+                title[0] = '\0';
+                return -1;
+            }
+            title[out_count++] = (char)value;
+        }
+        if (count > 0 && out_count + 1 >= title_size) {
+            fclose(file);
+            title[0] = '\0';
+            return -1;
+        }
+    }
+
+    fclose(file);
+    title[out_count] = '\0';
+    return out_count > 0 ? 0 : -1;
 }
 
 static int convert_tiles_file(const char *path, FILE *out, uint64_t *byte_count)

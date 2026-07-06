@@ -94,10 +94,10 @@
     },
     {
       "id": "original_title_screen",
-      "status": "planned",
+      "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode original-title build\\original_title_test.png",
-      "description": "First real original-game screen target after CHR/layout mapping.",
-      "expected_screen": "Original title/menu presentation reconstructed from local data."
+      "description": "Renders a source-backed original title probe before CHR/layout mapping is pixel accurate.",
+      "expected_screen": "Source-backed original title probe rendered from local private data."
     }
   ],
   "debug_overlay": {
@@ -169,6 +169,18 @@
         "Play Game Setup heading appears",
         "Enter starts the court prototype"
       ]
+    },
+    {
+      "id": "shot_original_title_probe",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode original-title build\\original_title_test.png",
+      "commit_safe": false,
+      "assertions": [
+        "PNG exists",
+        "PNG dimensions are 640x480",
+        "Frame is sourced from local Bank 04 title data",
+        "PNG remains in ignored build output"
+      ]
     }
   ],
   "memory_budgets": {
@@ -234,19 +246,25 @@
     },
     {
       "id": "M006",
+      "status": "complete",
+      "title": "Source-backed original title probe",
+      "done_when": "A quick launch renders a title probe from local private Bank 04 title data."
+    },
+    {
+      "id": "M007",
       "status": "planned",
-      "title": "First original-screen renderer",
-      "done_when": "A quick launch renders the first original-game title/menu screen from local private data."
+      "title": "Pixel-accurate title CHR and palette pass",
+      "done_when": "The original title quick launch uses mapped CHR tiles, palette state, and layout data instead of the probe font."
     }
   ],
   "next_engineering_step": {
-    "id": "M006",
-    "title": "First original-screen renderer",
+    "id": "M007",
+    "title": "Pixel-accurate title CHR and palette pass",
     "notes": [
-      "Use the local source map to implement --render-test-mode original-title.",
-      "Start with a static title/menu frame from local private data, then move timing/animation into native runtime state.",
-      "Keep any extracted/generated CHR, palette, or script caches local and ignored.",
-      "Add only safe screenshots unless the image is a project UI verification screen without original assets."
+      "Resolve title glyph/tile IDs through the local Bank 04 title path and fixed C711-style render helper behavior.",
+      "Map palette initialization and any title palette animation path.",
+      "Keep extracted/generated CHR, palette, or script caches local and ignored.",
+      "Continue committing only safe project UI screenshots; original-title screenshots stay under ignored build output."
     ]
   }
 }

@@ -61,6 +61,7 @@ bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const ch
 void tecmo_runtime_shutdown(TecmoRuntime *runtime);
 void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input);
 void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
+void tecmo_render_original_title_probe(TecmoFramebuffer *framebuffer, const char *title_text);
 
 #ifdef _WIN32
 int tecmo_run_win32_game(const char *project_root);

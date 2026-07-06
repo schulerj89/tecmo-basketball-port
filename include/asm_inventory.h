@@ -45,6 +45,7 @@ int tecmo_collect_rosters(const char *project_root, RosterTable *table);
 void roster_table_free(RosterTable *table);
 
 int tecmo_generate_roster_c(const char *project_root, const char *out_dir);
+int tecmo_load_original_title_text(const char *project_root, char *title, size_t title_size);
 int tecmo_export_chr(const char *project_root, const char *out_path, uint64_t *bytes_written);
 int tecmo_export_chr_png_sheets(const char *project_root, const char *out_dir, uint64_t *sheets_written);
 int tecmo_analyze_chr(const char *project_root, uint64_t *byte_count);

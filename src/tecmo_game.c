@@ -373,6 +373,21 @@ static void draw_text(TecmoFramebuffer *fb, int x, int y, const char *text, uint
     }
 }
 
+static int text_width_pixels(const char *text, int scale)
+{
+    if (scale < 1) {
+        scale = 1;
+    }
+    return (int)strlen(text) * 6 * scale;
+}
+
+static void draw_centered_text(TecmoFramebuffer *fb, int y, const char *text, uint32_t color, int scale)
+{
+    int width = text_width_pixels(text, scale);
+    int x = (fb->width - width) / 2;
+    draw_text(fb, x, y, text, color, scale);
+}
+
 static void draw_button(TecmoFramebuffer *fb, int x, int y, int w, int h, const char *label, bool selected)
 {
     uint32_t fill = selected ? rgb(220, 198, 80) : rgb(34, 42, 50);
@@ -527,6 +542,26 @@ static void render_debug_overlay(const TecmoRuntime *runtime, TecmoFramebuffer *
     draw_debug_text(fb, x, y + 100, line);
 
     draw_debug_text(fb, x, y + 124, "F3 TOGGLE DEBUG OVERLAY");
+}
+
+void tecmo_render_original_title_probe(TecmoFramebuffer *framebuffer, const char *title_text)
+{
+    const char *title = title_text != NULL && title_text[0] != '\0' ? title_text : "TITLE DATA MISSING";
+
+    clear(framebuffer, rgb(8, 10, 24));
+    rect(framebuffer, 0, 0, framebuffer->width, 46, rgb(18, 18, 34));
+    rect(framebuffer, 0, framebuffer->height - 52, framebuffer->width, 52, rgb(18, 18, 34));
+    rect(framebuffer, 52, 112, framebuffer->width - 104, 156, rgb(106, 18, 32));
+    rect(framebuffer, 60, 120, framebuffer->width - 120, 140, rgb(20, 26, 54));
+    rect(framebuffer, 72, 132, framebuffer->width - 144, 116, rgb(170, 42, 44));
+    rect(framebuffer, 84, 144, framebuffer->width - 168, 92, rgb(28, 34, 66));
+
+    draw_centered_text(framebuffer, 168, title, rgb(252, 236, 170), 3);
+    draw_centered_text(framebuffer, 284, "SOURCE BACKED TITLE PROBE", rgb(142, 174, 190), 1);
+    draw_centered_text(framebuffer, 306, "BANK 04 TITLE TABLE  RENDERER STEP 1", rgb(142, 174, 190), 1);
+
+    rect(framebuffer, 132, 356, 376, 2, rgb(236, 214, 112));
+    draw_centered_text(framebuffer, 376, "CHR PALETTE AND LAYOUT MAPPING NEXT", rgb(230, 232, 214), 1);
 }
 
 void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer)

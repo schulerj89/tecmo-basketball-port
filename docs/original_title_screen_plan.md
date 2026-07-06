@@ -20,6 +20,12 @@ Run the local mapper:
 .\tools\Find-OriginalScreenSources.ps1
 ```
 
+Render the first source-backed title probe:
+
+```powershell
+.\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode original-title build\original_title_test.png
+```
+
 It writes:
 
 ```text
@@ -33,5 +39,5 @@ That report is intentionally ignored by Git and should contain only paths, label
 - Replace fixed-bank helper effects such as frame waits, render writes, and setup wrappers with explicit native C functions.
 - Resolve palette initialization for the title/menu path.
 - Map title/menu tile IDs to local CHR bank(s) while keeping extracted bytes local.
-- Convert the Bank 04 title/pattern/script records into safe native structs or a local-only generated cache.
-- Add the first `--render-test-mode original-title` quick launch after those dependencies are mapped.
+- Convert the Bank 04 pattern/script records into safe native structs or a local-only generated cache.
+- Replace the probe font/colors with mapped title/menu CHR, palette, and layout data while keeping generated assets local.
