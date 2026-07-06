@@ -173,7 +173,7 @@ function Read-StreamSummary {
 }
 
 $A7DbProbe = Read-StreamSummary "rabbit_reference_table" "bank04:L8988" 0xA7DB @(0, 1, 2, 3)
-$A90fProbe = Read-StreamSummary "tecmo_logo_candidate_table" "bank04:L8818" 0xA90F @(0, 1, 2, 3)
+$A90fProbe = Read-StreamSummary "tecmo_logo_candidate_table" "bank04:L8818/L8645" 0xA90F @(0, 1, 2, 3, 4)
 $A90fSelector0 = @($A90fProbe.selectors | Where-Object { $_.selector -eq 0 })[0]
 $AllPairs = @(
     $A90fSelector0.tecmo_logo_hits |

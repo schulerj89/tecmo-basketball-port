@@ -209,8 +209,18 @@
       "id": "map_intro_tecmo_logo_lookup",
       "status": "active",
       "command": ".\\tools\\Find-IntroTecmoLogoLookup.ps1",
-      "description": "Decodes the local-only Bank 04 TECMO logo selector into the fixed $C051/$D861 sprite-record model and verifies the $A90F selector 00 hit range without committing decoded payload data.",
+      "description": "Decodes the local-only Bank 04 TECMO logo selector into the fixed $C051/$D861 sprite-record model and verifies the $A90F selector 00 hit range across selectors 00-04 without committing decoded payload data.",
       "expected_artifact": "build/intro_tecmo_logo_lookup.json"
+    },
+    {
+      "id": "map_intro_composite_trace",
+      "status": "active",
+      "command": ".\\tools\\Find-IntroCompositeTrace.ps1 -ChrBank 31",
+      "description": "Decodes the local-only Bank 04 rabbit and TECMO pointer streams, infers A7DB/A90F selector counts, and renders an ignored actual-CHR preview for Intro Lab comparison.",
+      "expected_artifacts": [
+        "build/intro_composite_trace.json",
+        "build/intro_composite_trace_preview.png"
+      ]
     },
     {
       "id": "render_rosters",
@@ -551,13 +561,14 @@
       "The native launcher exposes a Title Screen mode before the prototype play setup so the title remains reachable from the menu.",
       "The native launcher exposes an Intro Lab builder that renders the selected local-only CHR sheet, lets the user place selected tiles onto a target canvas, shows local placement records, and can save ignored placement JSON.",
       "The native launcher exposes a CHR Playground that renders selected-bank/table tile IDs $080-$0AF or $180-$1AF and assembled title glyphs for number/letter verification.",
-      "Intro Lab and CHR Playground default to Bank 31 table 0 because that is the verified title glyph path. Intro Lab uses Q/E for bank, T for table, Tab for source/canvas focus, Space to record, R to add the Bank 31/table 1 rabbit lookup candidate, M to add the visual TECMO 180-193 candidate, C to add the combined intro candidate, and S to save ignored placement JSON. CHR Playground keeps Left/Right/Tab bank switching and Up/Down table switching.",
+      "Intro Lab and CHR Playground default to Bank 31 table 0 because that is the verified title glyph path. Intro Lab uses Q/E for bank, T for table, Tab for source/canvas focus, Space to record, R to add the Bank 31/table 1 rabbit head/upper lookup subset, M to add the visual TECMO 180-193 candidate, C to add the combined intro candidate, and S to save ignored placement JSON. CHR Playground keeps Left/Right/Tab bank switching and Up/Down table switching.",
       "The --flow-test command now exercises title-to-menu input, roster browsing, play setup team selection, court start/cancel, watched RAM mode/menu bytes, and the quit menu path without opening a window.",
-      "The current rabbit-head lookup path is Bank 04 L88E7 -> L8988 -> fixed $C051/$D861. The local lookup resolves OAM tile lows $25, $27, $29, and $2B, which imply table-1 8x16 sprite pairs $124/$125, $126/$127, $128/$129, and $12A/$12B.",
+      "The current rabbit lookup path is Bank 04 L88E7 -> L8988 -> fixed $C051/$D861 through Bank 0 pointer table $A7DB. The seeded rabbit pass is selector $01, pointer entry $A7DD, stream pointer $A8C0, with 16 records. Its visible head/upper subset includes OAM tile lows $25, $27, $29, and $2B, which imply table-1 8x16 sprite pairs $124/$125, $126/$127, $128/$129, and $12A/$12B.",
       "The intro-c051-d861-model screenshot is gated by a native synthetic helper self-test and renders a read-only schematic of the fixed helper contract so the native model can be reviewed without committing decoded payload rows.",
       "tools/Find-NesReferenceIntro.ps1 detects a local rebuilt NES ROM plus Mesen/FCEUX-style emulator candidates and writes only a sanitized ignored availability report for original intro comparison.",
       "CHR Playground visual inspection points to Bank 31/table 1 tiles $180-$193 for the TECMO logo candidate, matching five 2x2 letters.",
-      "The stronger TECMO execution lead is Bank 04 L8818 -> fixed $C051/$D861 using Bank 0 pointer table $A90F selector $00. The local-only mapper verifies ten $80-$93 OAM tile-low hits that cover table-1 pairs $180/$181 through $192/$193, while the rabbit $A7DB selectors $00-$03 have zero hits in that range.",
+      "The stronger TECMO execution lead is Bank 04 L8818 -> fixed $C051/$D861 using Bank 0 pointer table $A90F selector $00. The local-only mapper infers five $A90F entries, verifies selector $00 has 46 records and ten $80-$93 OAM tile-low hits covering table-1 pairs $180/$181 through $192/$193, and confirms the rabbit $A7DB selectors $00-$03 have zero hits in that range.",
+      "tools/Find-IntroCompositeTrace.ps1 now writes ignored build/intro_composite_trace.json and build/intro_composite_trace_preview.png with full local pointer-row evidence for A7DB selector $01 rabbit, A7DB selector $00 partner stream, A90F selector $00 TECMO hits/context, and the L8645 A90F selector $01 follow-on lead.",
       "Each 8KB local CHR bank exposes 512 8x8 tiles: table 0 is tile IDs $000-$0FF and table 1 is tile IDs $100-$1FF.",
       "Bank 04 title loop dispatches A=0x38 through fixed helper C711.",
       "C711 entry 0x38 resolves locally to Bank 06 text setup at 06:$9E50.",

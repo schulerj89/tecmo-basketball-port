@@ -26,7 +26,7 @@ To compare against the original intro locally, detect a rebuilt NES ROM and emul
 
 Use `-Launch` on that script when you want to manually open the local ROM in the discovered emulator.
 
-The current frame is asset-backed and bank/table-switchable. It defaults to Bank 31 table 0 because that is the verified title glyph path. Table 0 shows tile IDs `$000-$0FF`; table 1 shows `$100-$1FF`. The frame renders the selected local-only CHR sheet, lets the user place selected source tiles onto a target canvas, and shows the local placement records on screen. The exact intro bank/table, mascot/logo sprite layout, and palette path are not yet decoded from the original intro script streams.
+The current frame is asset-backed and bank/table-switchable. It defaults to Bank 31 table 0 because that is the verified title glyph path. Table 0 shows tile IDs `$000-$0FF`; table 1 shows `$100-$1FF`. The frame renders the selected local-only CHR sheet, lets the user place selected source tiles onto a target canvas, and shows the local placement records on screen. The first rabbit and `TECMO` pointer leads are now decoded into ignored local reports; the live CHR bank, exact palette, and runtime scroll/base state still need emulator/state validation before replacing the manual lab presets.
 
 Intro Lab builder controls:
 
@@ -47,8 +47,9 @@ Current rabbit-head trace:
 
 - User visual inspection points to Bank 31/table 1 rabbit-head parts near `$125-$127`, with adjacent candidate parts near `$129-$12B`.
 - Bank 04 `L88E7` seeds the stream pass that reaches fixed helper `$C051`, which trampolines to `$D861`.
-- `$D861` stages 4-byte sprite records and adds the `$0D` tile offset. For the Bank 04 seeded pass, the current local lookup resolves OAM tile lows `$25`, `$27`, `$29`, and `$2B`.
-- In NES 8x16 sprite terms, those odd OAM tile IDs imply table-1 8x8 pairs `$124/$125`, `$126/$127`, `$128/$129`, and `$12A/$12B`. The native `R` preset now runs through a small C-side OAM-tile-pair helper before placing those pairs for inspection.
+- Bank 04 `L8988` emits two `$A7DB` streams in pass order `X=1` then `X=0`. The seeded rabbit pass is selector `$01`, pointer entry `$A7DD`, stream pointer `$A8C0`, with 16 records. Selector `$00` is a partner stream emitted by the same helper.
+- `$D861` stages 4-byte sprite records and adds the `$0D` tile offset. For the Bank 04 seeded pass, the local lookup resolves a full 16-record stream; the visible head/upper subset includes OAM tile lows `$25`, `$27`, `$29`, and `$2B`.
+- In NES 8x16 sprite terms, those odd OAM tile IDs imply table-1 8x8 pairs `$124/$125`, `$126/$127`, `$128/$129`, and `$12A/$12B`. The native `R` preset now runs through a small C-side OAM-tile-pair helper before placing that inspection subset.
 - `tools/Find-IntroRabbitLookup.ps1` writes the ignored local report `build/intro_rabbit_lookup.json` with the decoded selector and record summary.
 - `intro-c051-d861-model` runs the native synthetic helper self-test and renders the same helper contract as a screenshot-tested schematic with no CHR or decoded stream payload.
 
@@ -57,8 +58,18 @@ Current `TECMO` logo visual trace:
 - CHR Playground visual inspection points to Bank 31/table 1 tiles `$180-$193`.
 - Bank 04 `L8818` is now the stronger execution lead for that logo range. It reaches fixed helper `$C051/$D861` through the Bank 0 `$A90F` pointer table, selector `$00`.
 - The local lookup resolves ten OAM tile lows in `$80-$93`; interpreted as NES 8x16 sprites, those cover table-1 tile pairs `$180/$181` through `$192/$193`.
+- The `$A90F` pointer table infers five entries. Selector `$00` has 46 records and 10 logo-range hits; selectors `$01-$04` have no logo-range hits in the current trace. `L8645` is the separate selector `$01` consumer and remains a useful follow-on lead for intro setup/loop/transition placement.
 - `tools/Find-IntroTecmoLogoLookup.ps1` writes the ignored local report `build/intro_tecmo_logo_lookup.json` and verifies that the rabbit `$A7DB` table has zero `$80-$93` hits for selectors `$00-$03`.
 - The native `M` preset lays out `$180-$193` as a visual candidate until that local decoder drives placement directly.
+
+Composite local trace:
+
+```powershell
+.\tools\Find-IntroCompositeTrace.ps1
+.\tools\Find-IntroCompositeTrace.ps1 -ChrBank 31
+```
+
+This writes ignored `build/intro_composite_trace.json` and `build/intro_composite_trace_preview.png`. The report includes row-level decoded local data and the preview renders CHR-derived graphics, so both must stay out of Git. Use `-ChrBank` to render the same decoded pointer rows against another candidate CHR bank while checking the live bank context.
 
 ## Current CHR Playground
 
@@ -94,6 +105,6 @@ Create an ignored local-only draft for your picks, or use the running Intro Lab 
 
 ## Next Decode Gate
 
-Resolve the Bank 04 sequence state that selects the "TECMO PRESENTS" frame, then model `$C051/$D861` as a native sprite/tile composition helper without committing extracted CHR, OAM, palettes, or nametable data.
+Capture the Bank 04 runtime state for the "TECMO PRESENTS" frame, especially `$88` at `L8818`, live CHR bank/table, sprite-size mode, and palette selection. Then model `$C051/$D861` as a native sprite/tile composition helper without committing extracted CHR, OAM, palettes, or nametable data.
 
 Use the local NES reference detector plus a manual emulator launch to compare timing and layout against the original while the native helper is expanded.

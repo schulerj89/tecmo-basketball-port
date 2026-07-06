@@ -150,6 +150,15 @@ Decode the local-only Bank 04 TECMO logo selector into the same fixed helper mod
 .\tools\Find-IntroTecmoLogoLookup.ps1
 ```
 
+Decode the local-only Bank 04 composite intro streams and render a private CHR preview of the rabbit/TECMO pointer leads:
+
+```powershell
+.\tools\Find-IntroCompositeTrace.ps1
+.\tools\Find-IntroCompositeTrace.ps1 -ChrBank 31
+```
+
+That writes ignored `build\intro_composite_trace.json` and `build\intro_composite_trace_preview.png`; do not commit those generated files.
+
 Prototype controls:
 
 ```text
@@ -173,7 +182,7 @@ T = switch CHR pattern table half
 Tab = switch focus between source sheet and canvas
 Arrows = move focused source tile or canvas cell
 Space = record selected tile at selected canvas cell
-R = record the Bank 31 table 1 rabbit lookup candidate as 8x16 sprite pairs 124-12B
+R = record the Bank 31 table 1 rabbit lookup head/upper candidate as 8x16 sprite pairs 124-12B
 M = record the visual TECMO logo candidate tiles 180-193
 C = record the current composite candidate with rabbit plus TECMO
 Backspace/Delete = remove last placement record
