@@ -56,6 +56,7 @@ $env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
 .\build\tecmo_port.exe --assets
 .\build\tecmo_port.exe --play
 .\build\tecmo_port.exe --render-test build\play_test.png
+.\build\tecmo_port.exe --render-test-mode boot-title build\boot_title_test.png
 .\build\tecmo_port.exe --render-test-mode menu docs\screenshots\menu_default.png
 .\build\tecmo_port.exe --render-test-mode menu-overlay build\menu_overlay_test.png
 .\build\tecmo_port.exe --render-test-mode title-screen build\title_screen_runtime_test.png
@@ -94,6 +95,10 @@ Map the local-only title setup ranges, helper calls, fixed-helper aggregate coun
 Prototype controls:
 
 ```text
+Boot title:
+Enter = launcher menu
+Esc = quit
+
 Main menu:
 Up/Down = choose Title Screen, Play Prototype, Rosters, or Quit
 Enter = confirm
@@ -101,7 +106,8 @@ Esc = quit
 F3 = debug overlay
 
 Title Screen:
-Enter/Esc = main menu
+Enter = launcher menu
+Esc = quit
 
 Play Prototype:
 Left/Right = team

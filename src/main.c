@@ -19,7 +19,7 @@ static void print_usage(const char *program)
     printf("  --roster [TEAM|--all]   Parse labeled Bank 02 roster records\n");
     printf("  --play                  Launch native playable prototype window\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render menu, menu-overlay, title-screen, rosters, play setup, original-title, or original-title-chr to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, rosters, play setup, original-title, or original-title-chr to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -154,15 +154,20 @@ int main(int argc, char **argv)
         } else if (!tecmo_runtime_init(&runtime, &memory, root)) {
             printf("Failed to initialize runtime from %s\n", root);
         } else {
-            if (strcmp(mode_name, "menu-overlay") == 0) {
+            bool render_runtime = true;
+            if (strcmp(mode_name, "menu") == 0) {
+                tecmo_runtime_set_mode(&runtime, TECMO_MODE_MAIN_MENU);
+            } else if (strcmp(mode_name, "menu-overlay") == 0) {
                 TecmoInput input;
                 memset(&input, 0, sizeof(input));
+                tecmo_runtime_set_mode(&runtime, TECMO_MODE_MAIN_MENU);
                 runtime.debug_overlay = true;
                 runtime.frame_seconds = 1.0f / 60.0f;
                 tecmo_runtime_update(&runtime, &input);
             } else if (strcmp(mode_name, "rosters") == 0) {
                 TecmoInput input;
                 memset(&input, 0, sizeof(input));
+                tecmo_runtime_set_mode(&runtime, TECMO_MODE_MAIN_MENU);
                 input.down = true;
                 tecmo_runtime_update(&runtime, &input);
                 memset(&input, 0, sizeof(input));
@@ -176,6 +181,7 @@ int main(int argc, char **argv)
             } else if (strcmp(mode_name, "play") == 0) {
                 TecmoInput input;
                 memset(&input, 0, sizeof(input));
+                tecmo_runtime_set_mode(&runtime, TECMO_MODE_MAIN_MENU);
                 input.down = true;
                 tecmo_runtime_update(&runtime, &input);
                 memset(&input, 0, sizeof(input));
@@ -183,17 +189,21 @@ int main(int argc, char **argv)
                 input.confirm = true;
                 tecmo_runtime_update(&runtime, &input);
             } else if (strcmp(mode_name, "title-screen") == 0) {
-                TecmoInput input;
-                memset(&input, 0, sizeof(input));
-                input.confirm = true;
-                tecmo_runtime_update(&runtime, &input);
+                tecmo_runtime_set_mode(&runtime, TECMO_MODE_TITLE_SCREEN);
+            } else if (strcmp(mode_name, "boot-title") == 0) {
+                /* Default runtime initialization already starts at the title screen. */
+            } else {
+                printf("Unsupported render-test mode: %s\n", mode_name);
+                render_runtime = false;
             }
-            framebuffer.pixels = pixels;
-            framebuffer.width = width;
-            framebuffer.height = height;
-            framebuffer.pitch_pixels = width;
-            tecmo_runtime_render(&runtime, &framebuffer);
-            result = 0;
+            if (render_runtime) {
+                framebuffer.pixels = pixels;
+                framebuffer.width = width;
+                framebuffer.height = height;
+                framebuffer.pitch_pixels = width;
+                tecmo_runtime_render(&runtime, &framebuffer);
+                result = 0;
+            }
             tecmo_runtime_shutdown(&runtime);
         }
 

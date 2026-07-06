@@ -64,6 +64,7 @@ typedef struct TecmoRuntime {
 
 bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const char *project_root);
 void tecmo_runtime_shutdown(TecmoRuntime *runtime);
+void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode);
 void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input);
 void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 void tecmo_render_original_title_probe(TecmoFramebuffer *framebuffer, const char *title_text);

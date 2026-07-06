@@ -48,8 +48,15 @@
       "id": "launcher_menu",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --play",
-      "description": "Starts at the native launcher main menu.",
-      "expected_screen": "Top-level menu with Title Screen, Play Prototype, Rosters, Quit."
+      "description": "Starts at the native title screen, then Enter opens the launcher menu.",
+      "expected_screen": "Boot title first; Enter opens the launcher menu with Title Screen, Play Prototype, Rosters, Quit."
+    },
+    {
+      "id": "render_boot_title",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode boot-title build\\boot_title_test.png",
+      "description": "Renders the runtime boot screen before any launcher input.",
+      "expected_artifact": "build/boot_title_test.png"
     },
     {
       "id": "render_menu",
@@ -69,7 +76,7 @@
       "id": "render_title_screen_runtime",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode title-screen build\\title_screen_runtime_test.png",
-      "description": "Renders the in-app Title Screen launcher mode that can return to the menu with Enter or Esc.",
+      "description": "Renders the in-app Title Screen launcher mode; Enter opens the launcher and Esc quits at runtime.",
       "expected_artifact": "build/title_screen_runtime_test.png"
     },
     {
@@ -145,6 +152,20 @@
   },
   "screenshot_tests": [
     {
+      "id": "shot_boot_title",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode boot-title build\\boot_title_test.png",
+      "commit_safe": false,
+      "assertions": [
+        "PNG exists",
+        "PNG dimensions are 640x480",
+        "Frame is the default runtime boot screen before launcher input",
+        "Enter advances from this mode to the launcher menu at runtime",
+        "Esc quits from this mode at runtime",
+        "PNG remains in ignored build output"
+      ]
+    },
+    {
       "id": "shot_menu_default",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode menu docs\\screenshots\\menu_default.png",
@@ -177,7 +198,7 @@
         "PNG exists",
         "PNG dimensions are 640x480",
         "Frame is rendered through the native launcher Title Screen mode",
-        "Enter or Esc returns from this mode to the main menu at runtime",
+        "Enter opens the launcher and Esc quits from this mode at runtime",
         "PNG remains in ignored build output"
       ]
     },
@@ -268,7 +289,8 @@
       "ppu_chr_and_fixed_helpers"
     ],
     "current_findings": [
-      "The native launcher now exposes a Title Screen mode before the prototype play setup; Enter or Esc returns to the launcher.",
+      "The native runtime now boots into the current CHR-backed title diagnostic; Enter opens the launcher and Esc quits.",
+      "The native launcher exposes a Title Screen mode before the prototype play setup so the title remains reachable from the menu.",
       "Bank 04 title loop dispatches A=0x38 through fixed helper C711.",
       "C711 entry 0x38 resolves locally to Bank 06 text setup at 06:$9E50.",
       "Title characters are mapped through the Bank 06 character-to-tile helper, the baseline $A273,X lookup operand, and the 2x2 glyph tile table at 06:$AF05.",

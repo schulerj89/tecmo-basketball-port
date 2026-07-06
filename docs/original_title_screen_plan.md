@@ -63,7 +63,8 @@ Those reports/probes are intentionally ignored by Git. Public docs may keep chun
 - The five fixed helper targets used by the title setup path are now verified as five fixed-bank jump entries with five resolved targets spanning `0xC419-0xF2F6`; helper body decoding is still pending.
 - The title setup palette/PPU probe checks three Bank 04 title setup ranges and finds zero direct PPU address writes, zero direct PPU data writes, and zero direct palette-address high-byte literals, so title palette state must be decoded through the fixed-helper/queued PPU path.
 - The native `original-title-chr` path now loads a setup staging summary from local Bank 04 bytes and renders driver call/write counts, fixed-helper aggregate counts, fixed-bank vector counts, palette/PPU probe counts, stream-copy write counts, verified table-reference counts, stream-table coverage, stream effect shape, and aggregate native staging coverage without committing setup streams.
-- The native launcher now exposes the current CHR-backed title diagnostic as a Title Screen mode before the prototype play setup; Enter or Esc returns to the launcher.
+- The native runtime now boots into the current CHR-backed title diagnostic; Enter opens the launcher and Esc quits.
+- The native launcher also exposes the current CHR-backed title diagnostic as a Title Screen mode before the prototype play setup, so the title remains reachable from the menu.
 - The aggregate native staging pass covers 15 selected streams, 415 records, and 1660 staged writes across local staging range `$0200-$0287`; payload bytes are not retained.
 - Detailed fixed helper side effects and palette setup still need a native model before the CHR-backed quick launch can be called pixel-accurate.
 

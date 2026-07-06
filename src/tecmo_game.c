@@ -119,7 +119,7 @@ bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const ch
         runtime->title_chr_byte_count = 0;
     }
 
-    runtime->mode = TECMO_MODE_MAIN_MENU;
+    runtime->mode = TECMO_MODE_TITLE_SCREEN;
     runtime->frame_seconds = 1.0f / 60.0f;
     runtime->player_x = 320.0f;
     runtime->player_y = 260.0f;
@@ -134,6 +134,12 @@ void tecmo_runtime_shutdown(TecmoRuntime *runtime)
     runtime->title_chr_bytes = NULL;
     runtime->title_chr_byte_count = 0;
     roster_table_free(&runtime->roster);
+}
+
+void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
+{
+    runtime->mode = mode;
+    runtime->previous_input = (TecmoInput){0};
 }
 
 static void update_main_menu(TecmoRuntime *runtime, const TecmoInput *input)
@@ -165,9 +171,10 @@ static void update_main_menu(TecmoRuntime *runtime, const TecmoInput *input)
 
 static void update_title_screen(TecmoRuntime *runtime, const TecmoInput *input)
 {
-    if (pressed(input->cancel, runtime->previous_input.cancel) ||
-        pressed(input->confirm, runtime->previous_input.confirm)) {
+    if (pressed(input->confirm, runtime->previous_input.confirm)) {
         runtime->mode = TECMO_MODE_MAIN_MENU;
+    } else if (pressed(input->cancel, runtime->previous_input.cancel)) {
+        runtime->quit_requested = true;
     }
 }
 
@@ -451,7 +458,7 @@ static void render_title_screen_mode(const TecmoRuntime *runtime, TecmoFramebuff
                                               runtime->title_chr_bytes,
                                               runtime->title_chr_byte_count,
                                               31U);
-        draw_text(fb, 22, 22, "ENTER ESC MENU", rgb(230, 232, 214), 1);
+        draw_text(fb, 22, 22, "ENTER MENU   ESC QUIT", rgb(230, 232, 214), 1);
     } else {
         tecmo_render_original_title_probe(fb, "TITLE DATA MISSING");
         draw_centered_text(fb, 404, "LOCAL TITLE DATA UNAVAILABLE", rgb(230, 232, 214), 1);
