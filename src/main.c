@@ -18,6 +18,7 @@ static void print_usage(const char *program)
     printf("  --assets                Analyze raw CHR bytes in build\\baseline\\Tiles.asm\n");
     printf("  --roster [TEAM|--all]   Parse labeled Bank 02 roster records\n");
     printf("  --play                  Launch native playable prototype window\n");
+    printf("  --flow-test             Run headless native title/menu/rosters/play/quit flow checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
     printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, intro-presents, intro-builder-sample, intro-rabbit-preset, intro-tecmo-preset, intro-composite-preset, intro-c051-d861-model, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play setup, original-title, or original-title-chr to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
@@ -82,6 +83,44 @@ int main(int argc, char **argv)
         printf("--play currently has a Win32 backend only. The game core is platform-neutral.\n");
         return 1;
 #endif
+    }
+
+    if (strcmp(command, "--flow-test") == 0) {
+        const size_t permanent_size = 16U * 1024U * 1024U;
+        const size_t transient_size = 16U * 1024U * 1024U;
+        TecmoGameMemory memory;
+        TecmoRuntime runtime;
+        void *permanent_block;
+        void *transient_block;
+        char message[160];
+        int result = 1;
+
+        memset(&memory, 0, sizeof(memory));
+        permanent_block = malloc(permanent_size);
+        transient_block = malloc(transient_size);
+        if (permanent_block == NULL || transient_block == NULL) {
+            printf("Failed to allocate flow-test memory.\n");
+            free(permanent_block);
+            free(transient_block);
+            return 1;
+        }
+
+        tecmo_arena_init(&memory.permanent, permanent_block, permanent_size);
+        tecmo_arena_init(&memory.transient, transient_block, transient_size);
+        if (!tecmo_runtime_init(&runtime, &memory, root)) {
+            printf("Failed to initialize runtime from %s\n", root);
+        } else if (!tecmo_runtime_flow_self_test(&runtime, message, sizeof(message))) {
+            printf("Native flow test failed: %s\n", message);
+            tecmo_runtime_shutdown(&runtime);
+        } else {
+            printf("%s\n", message);
+            tecmo_runtime_shutdown(&runtime);
+            result = 0;
+        }
+
+        free(permanent_block);
+        free(transient_block);
+        return result;
     }
 
     if (strcmp(command, "--render-test") == 0 || strcmp(command, "--render-test-mode") == 0) {

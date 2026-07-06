@@ -127,6 +127,7 @@ void tecmo_runtime_shutdown(TecmoRuntime *runtime);
 void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode);
 void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input);
 void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
+bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t message_size);
 size_t tecmo_intro_stage_sprite_records(const TecmoIntroSpriteRecord *records,
                                         size_t record_count,
                                         const TecmoIntroSpriteStageConfig *config,

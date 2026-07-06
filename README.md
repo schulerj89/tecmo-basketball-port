@@ -55,6 +55,7 @@ $env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
 .\build\tecmo_port.exe --roster CHICAGO
 .\build\tecmo_port.exe --assets
 .\build\tecmo_port.exe --play
+.\build\tecmo_port.exe --flow-test
 .\build\tecmo_port.exe --render-test build\play_test.png
 .\build\tecmo_port.exe --render-test-mode boot-title build\boot_title_test.png
 .\build\tecmo_port.exe --render-test-mode menu docs\screenshots\menu_default.png
@@ -82,6 +83,20 @@ Run every active screenshot test declared in `port_iteration.json`:
 ```
 
 Pass `-DecompRoot <LOCAL_DECOMP_ROOT>` if the script cannot discover your private local decomp workspace.
+
+Run every active native flow test declared in `port_iteration.json`:
+
+```powershell
+.\tools\Run-NativeFlowTests.ps1 -Build
+```
+
+The flow runner writes ignored `build\native_flow_test_report.json` with sanitized pass/fail metadata only.
+
+Run the headless native flow test for title -> menu -> rosters -> play setup -> court -> quit:
+
+```powershell
+.\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --flow-test
+```
 
 The `intro-c051-d861-model` render mode runs a synthetic C helper self-test before writing its PNG, then shows the staged byte rows without decoded payload data.
 

@@ -1023,6 +1023,239 @@ void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input)
     runtime->previous_input = *input;
 }
 
+static void set_flow_test_message(char *dest, size_t dest_size, const char *text)
+{
+    if (dest == NULL || dest_size == 0) {
+        return;
+    }
+    if (text == NULL) {
+        text = "";
+    }
+    (void)snprintf(dest, dest_size, "%s", text);
+}
+
+static void flow_step(TecmoRuntime *runtime, TecmoInput input)
+{
+    TecmoInput released;
+    tecmo_runtime_update(runtime, &input);
+    memset(&released, 0, sizeof(released));
+    tecmo_runtime_update(runtime, &released);
+}
+
+static bool flow_expect_mode(TecmoRuntime *runtime,
+                             TecmoPlayMode expected,
+                             const char *label,
+                             char *message,
+                             size_t message_size)
+{
+    if (runtime->mode != expected) {
+        char detail[128];
+        (void)snprintf(detail,
+                       sizeof(detail),
+                       "%s expected mode %s got %s",
+                       label,
+                       mode_name(expected),
+                       mode_name(runtime->mode));
+        set_flow_test_message(message, message_size, detail);
+        return false;
+    }
+    if (tecmo_cpu_ram_read(runtime->memory, 0x0000) != (uint8_t)expected) {
+        char detail[128];
+        (void)snprintf(detail,
+                       sizeof(detail),
+                       "%s watched RAM mode expected %u got %u",
+                       label,
+                       (unsigned)expected,
+                       (unsigned)tecmo_cpu_ram_read(runtime->memory, 0x0000));
+        set_flow_test_message(message, message_size, detail);
+        return false;
+    }
+    return true;
+}
+
+static bool flow_expect_menu_item(TecmoRuntime *runtime,
+                                  size_t expected,
+                                  const char *label,
+                                  char *message,
+                                  size_t message_size)
+{
+    if (runtime->selected_menu_item != expected) {
+        char detail[128];
+        (void)snprintf(detail,
+                       sizeof(detail),
+                       "%s expected menu item %u got %u",
+                       label,
+                       (unsigned)expected,
+                       (unsigned)runtime->selected_menu_item);
+        set_flow_test_message(message, message_size, detail);
+        return false;
+    }
+    if (tecmo_cpu_ram_read(runtime->memory, 0x0003) != (uint8_t)expected) {
+        char detail[128];
+        (void)snprintf(detail,
+                       sizeof(detail),
+                       "%s watched RAM menu expected %u got %u",
+                       label,
+                       (unsigned)expected,
+                       (unsigned)tecmo_cpu_ram_read(runtime->memory, 0x0003));
+        set_flow_test_message(message, message_size, detail);
+        return false;
+    }
+    return true;
+}
+
+static bool flow_press_menu_down(TecmoRuntime *runtime,
+                                 size_t count,
+                                 size_t expected,
+                                 const char *label,
+                                 char *message,
+                                 size_t message_size)
+{
+    TecmoInput input;
+    for (size_t i = 0; i < count; ++i) {
+        memset(&input, 0, sizeof(input));
+        input.down = true;
+        flow_step(runtime, input);
+    }
+    return flow_expect_menu_item(runtime, expected, label, message, message_size);
+}
+
+static bool flow_press_menu_up(TecmoRuntime *runtime,
+                               size_t count,
+                               size_t expected,
+                               const char *label,
+                               char *message,
+                               size_t message_size)
+{
+    TecmoInput input;
+    for (size_t i = 0; i < count; ++i) {
+        memset(&input, 0, sizeof(input));
+        input.up = true;
+        flow_step(runtime, input);
+    }
+    return flow_expect_menu_item(runtime, expected, label, message, message_size);
+}
+
+bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t message_size)
+{
+    TecmoInput input;
+    size_t original_team;
+
+    if (message != NULL && message_size > 0) {
+        message[0] = '\0';
+    }
+    if (runtime == NULL || runtime->memory == NULL) {
+        set_flow_test_message(message, message_size, "runtime or memory is null");
+        return false;
+    }
+    if (runtime->team_count == 0) {
+        set_flow_test_message(message, message_size, "no roster teams loaded");
+        return false;
+    }
+    if (runtime->team_count < 2U || runtime->roster.count < 2U) {
+        set_flow_test_message(message, message_size, "not enough roster data to browse teams and players");
+        return false;
+    }
+
+    memset(&input, 0, sizeof(input));
+    flow_step(runtime, input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_TITLE_SCREEN, "boot title", message, message_size)) {
+        return false;
+    }
+
+    input.confirm = true;
+    flow_step(runtime, input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_MAIN_MENU, "title confirm", message, message_size)) {
+        return false;
+    }
+    if (!flow_expect_menu_item(runtime, 0U, "initial menu", message, message_size)) {
+        return false;
+    }
+
+    if (!flow_press_menu_down(runtime, 4U, 4U, "navigate to rosters", message, message_size)) {
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.confirm = true;
+    flow_step(runtime, input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_ROSTERS, "enter rosters", message, message_size)) {
+        return false;
+    }
+    if (selected_team_player_count(runtime) < 2U) {
+        set_flow_test_message(message, message_size, "selected roster has fewer than two players");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.down = true;
+    flow_step(runtime, input);
+    if (runtime->selected_player != 1U || tecmo_cpu_ram_read(runtime->memory, 0x0002) != 1U) {
+        set_flow_test_message(message, message_size, "roster player navigation failed");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.cancel = true;
+    flow_step(runtime, input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_MAIN_MENU, "exit rosters", message, message_size)) {
+        return false;
+    }
+
+    if (!flow_press_menu_up(runtime, 1U, 3U, "navigate to play setup", message, message_size)) {
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.confirm = true;
+    flow_step(runtime, input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_PLAY_SETUP, "enter play setup", message, message_size)) {
+        return false;
+    }
+    original_team = runtime->selected_team;
+    memset(&input, 0, sizeof(input));
+    input.right = true;
+    flow_step(runtime, input);
+    if (runtime->selected_team != original_team + 1U ||
+        tecmo_cpu_ram_read(runtime->memory, 0x0001) != (uint8_t)runtime->selected_team) {
+        set_flow_test_message(message, message_size, "play setup team navigation failed");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.confirm = true;
+    flow_step(runtime, input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_COURT, "start court", message, message_size)) {
+        return false;
+    }
+    if (runtime->ball_x <= 0.0f || runtime->ball_y <= 0.0f) {
+        set_flow_test_message(message, message_size, "court ball state was not initialized");
+        return false;
+    }
+
+    memset(&input, 0, sizeof(input));
+    input.cancel = true;
+    flow_step(runtime, input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_PLAY_SETUP, "court cancel", message, message_size)) {
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.cancel = true;
+    flow_step(runtime, input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_MAIN_MENU, "play setup cancel", message, message_size)) {
+        return false;
+    }
+
+    if (!flow_press_menu_down(runtime, 2U, 5U, "navigate to quit", message, message_size)) {
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.confirm = true;
+    flow_step(runtime, input);
+    if (!runtime->quit_requested) {
+        set_flow_test_message(message, message_size, "quit menu item did not request quit");
+        return false;
+    }
+
+    set_flow_test_message(message, message_size, "FLOW TEST PASS: title menu rosters play court quit");
+    return true;
+}
+
 static void clear(TecmoFramebuffer *fb, uint32_t color)
 {
     for (int y = 0; y < fb->height; ++y) {

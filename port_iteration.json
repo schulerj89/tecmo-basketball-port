@@ -52,6 +52,13 @@
       "expected_screen": "Boot title first; Enter opens the launcher menu with Title Screen, Intro Lab, CHR Playground, Play Prototype, Rosters, Quit."
     },
     {
+      "id": "run_native_flow_test",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --flow-test",
+      "description": "Runs the headless runtime input-flow check that reaches rosters, starts the native court prototype, returns to setup, and confirms the quit path.",
+      "expected_output": "FLOW TEST PASS: title menu rosters play court quit"
+    },
+    {
       "id": "render_boot_title",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode boot-title build\\boot_title_test.png",
@@ -148,6 +155,13 @@
       "command": ".\\tools\\Run-ScreenshotTests.ps1 -Build",
       "description": "Builds the executable, renders every active screenshot test, and validates PNG dimensions.",
       "expected_artifact": "build/screenshot_test_report.json"
+    },
+    {
+      "id": "run_native_flow_tests",
+      "status": "active",
+      "command": ".\\tools\\Run-NativeFlowTests.ps1 -Build",
+      "description": "Builds the executable, runs all active headless native flow tests, and writes a sanitized local-only report.",
+      "expected_artifact": "build/native_flow_test_report.json"
     },
     {
       "id": "detect_nes_intro_reference",
@@ -250,6 +264,25 @@
       "Overlay screenshots committed to this repo must avoid roster names and extracted game assets."
     ]
   },
+  "native_flow_tests": [
+    {
+      "id": "flow_title_menu_rosters_play_quit",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --flow-test",
+      "expected_output": "FLOW TEST PASS: title menu rosters play court quit",
+      "assertions": [
+        "Executable exits with code 0",
+        "Title screen Enter reaches the launcher menu",
+        "Launcher menu reaches Rosters through input, not direct mode injection",
+        "Roster browsing updates selected player and watched RAM",
+        "Launcher menu reaches Play Prototype setup through input",
+        "Play setup can change teams and start native court mode",
+        "Court cancel returns to play setup, then menu",
+        "Launcher Quit row sets quit_requested",
+        "Runner report persists only sanitized pass/fail metadata under ignored build output"
+      ]
+    }
+  ],
   "screenshot_tests": [
     {
       "id": "shot_boot_title",
@@ -519,6 +552,7 @@
       "The native launcher exposes an Intro Lab builder that renders the selected local-only CHR sheet, lets the user place selected tiles onto a target canvas, shows local placement records, and can save ignored placement JSON.",
       "The native launcher exposes a CHR Playground that renders selected-bank/table tile IDs $080-$0AF or $180-$1AF and assembled title glyphs for number/letter verification.",
       "Intro Lab and CHR Playground default to Bank 31 table 0 because that is the verified title glyph path. Intro Lab uses Q/E for bank, T for table, Tab for source/canvas focus, Space to record, R to add the Bank 31/table 1 rabbit lookup candidate, M to add the visual TECMO 180-193 candidate, C to add the combined intro candidate, and S to save ignored placement JSON. CHR Playground keeps Left/Right/Tab bank switching and Up/Down table switching.",
+      "The --flow-test command now exercises title-to-menu input, roster browsing, play setup team selection, court start/cancel, watched RAM mode/menu bytes, and the quit menu path without opening a window.",
       "The current rabbit-head lookup path is Bank 04 L88E7 -> L8988 -> fixed $C051/$D861. The local lookup resolves OAM tile lows $25, $27, $29, and $2B, which imply table-1 8x16 sprite pairs $124/$125, $126/$127, $128/$129, and $12A/$12B.",
       "The intro-c051-d861-model screenshot is gated by a native synthetic helper self-test and renders a read-only schematic of the fixed helper contract so the native model can be reviewed without committing decoded payload rows.",
       "tools/Find-NesReferenceIntro.ps1 detects a local rebuilt NES ROM plus Mesen/FCEUX-style emulator candidates and writes only a sanitized ignored availability report for original intro comparison.",
@@ -557,7 +591,7 @@
       "id": "M002",
       "status": "complete",
       "title": "Prototype launcher and roster flow",
-      "done_when": "Native window launches, menu flows to Title Screen, Play Prototype, and Rosters, screenshot tests render."
+      "done_when": "Native window launches; screenshot tests render Title Screen, Play Prototype, and Rosters; --flow-test proves rosters, court start, and quit transitions."
     },
     {
       "id": "M003",
