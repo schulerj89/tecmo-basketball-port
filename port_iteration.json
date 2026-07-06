@@ -39,6 +39,7 @@
     "target": ".\\build\\tecmo_port.exe",
     "arguments": "--play, with --root added automatically when a local decomp root is discoverable",
     "icon": ".\\build\\tecmo_port.ico",
+    "icon_refresh_policy": "Every successful build regenerates the original TNB basketball icon and refreshes the Desktop shortcut.",
     "icon_policy": "Generated original project icon only; do not use copied Tecmo, NBA, ROM, or extracted game artwork.",
     "opt_out": "Set TECMO_SKIP_SHORTCUT=1 before running build.ps1."
   },
@@ -230,6 +231,8 @@
     "title_chr_mapper_command": ".\\tools\\Find-TitleChrMapping.ps1",
     "title_chr_local_report": "build\\title_chr_mapping.json",
     "title_chr_local_probe": "build\\title_mapped_chr_probe.png",
+    "title_setup_mapper_command": ".\\tools\\Find-TitleSetupMapping.ps1",
+    "title_setup_local_report": "build\\title_setup_mapping.json",
     "public_plan": "docs\\original_title_screen_plan.md",
     "highest_confidence_groups": [
       "bank04_title_splash_core",
@@ -241,7 +244,7 @@
       "Bank 04 title loop dispatches A=0x38 through fixed helper C711.",
       "C711 entry 0x38 resolves locally to Bank 06 text setup at 06:$9E50.",
       "Title characters are mapped through the Bank 06 character-to-tile helper, the baseline $A273,X lookup operand, and the 2x2 glyph tile table at 06:$AF05.",
-      "The exact Bank 04 BA16 entry sets the $05B6 update flag bit; adjacent pattern/palette setup still needs mapping before raw CHR tile rendering is pixel-accurate."
+      "The exact Bank 04 BA16 entry sets the $05B6 update flag bit; adjacent setup now has a local-only range/call/write/table report, but stream formats and palette setup still need mapping before raw CHR tile rendering is pixel-accurate."
     ],
     "rules": [
       "Generated source-map reports stay local and ignored under build.",
@@ -298,6 +301,7 @@
     "title": "Pixel-accurate title CHR and palette pass",
     "notes": [
       "Map the adjacent Bank 04 pattern setup tables and fixed helper effects that surround the exact BA16 update-flag entry.",
+      "Decode selected adjacent Bank 04 setup streams and model fixed helper side effects as native staging operations.",
       "Map palette initialization and any title palette animation path.",
       "Keep extracted/generated CHR, palette, or script caches local and ignored.",
       "Continue committing only safe project UI screenshots; original-title screenshots stay under ignored build output."

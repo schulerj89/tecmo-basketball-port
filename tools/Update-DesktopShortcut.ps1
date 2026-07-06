@@ -40,7 +40,7 @@ function New-TecmoPortIcon {
     $shadow = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(80, 0, 0, 0))
     $linePen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(62, 35, 24), 10)
     $ringPen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(250, 244, 212), 8)
-    $font = New-Object System.Drawing.Font([System.Drawing.FontFamily]::GenericSansSerif, 74, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+    $font = New-Object System.Drawing.Font([System.Drawing.FontFamily]::GenericSansSerif, 58, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
     $smallFont = New-Object System.Drawing.Font([System.Drawing.FontFamily]::GenericSansSerif, 25, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
     $format = New-Object System.Drawing.StringFormat
     $format.Alignment = [System.Drawing.StringAlignment]::Center
@@ -57,15 +57,29 @@ function New-TecmoPortIcon {
     $graphics.DrawArc($linePen, 112, 26, 168, 194, 112, 136)
 
     $textRect = New-Object System.Drawing.RectangleF 0, 72, 256, 86
-    $graphics.DrawString("TB", $font, $shadow, $textRect, $format)
-    $graphics.DrawString("TB", $font, $cream, $textRect, $format)
+    $graphics.DrawString("TNB", $font, $shadow, $textRect, $format)
+    $graphics.DrawString("TNB", $font, $cream, $textRect, $format)
     $smallRect = New-Object System.Drawing.RectangleF 0, 150, 256, 38
     $graphics.DrawString("PORT", $smallFont, $shadow, $smallRect, $format)
     $graphics.DrawString("PORT", $smallFont, $cream, $smallRect, $format)
 
-    $pngStream = New-Object System.IO.MemoryStream
-    $bitmap.Save($pngStream, [System.Drawing.Imaging.ImageFormat]::Png)
-    $pngBytes = $pngStream.ToArray()
+    $width = $bitmap.Width
+    $height = $bitmap.Height
+    $xorBytes = New-Object byte[] ($width * $height * 4)
+    $offset = 0
+    for ($y = $height - 1; $y -ge 0; --$y) {
+        for ($x = 0; $x -lt $width; ++$x) {
+            $pixel = $bitmap.GetPixel($x, $y)
+            $xorBytes[$offset++] = $pixel.B
+            $xorBytes[$offset++] = $pixel.G
+            $xorBytes[$offset++] = $pixel.R
+            $xorBytes[$offset++] = $pixel.A
+        }
+    }
+
+    $maskStride = [int][Math]::Floor(($width + 31) / 32) * 4
+    $maskBytes = New-Object byte[] ($maskStride * $height)
+    $dibBytesLength = 40 + $xorBytes.Length + $maskBytes.Length
 
     $fileStream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write)
     $writer = New-Object System.IO.BinaryWriter($fileStream)
@@ -79,13 +93,24 @@ function New-TecmoPortIcon {
         $writer.Write([byte]0)
         $writer.Write([UInt16]1)
         $writer.Write([UInt16]32)
-        $writer.Write([UInt32]$pngBytes.Length)
+        $writer.Write([UInt32]$dibBytesLength)
         $writer.Write([UInt32]22)
-        $writer.Write($pngBytes)
+        $writer.Write([UInt32]40)
+        $writer.Write([Int32]$width)
+        $writer.Write([Int32]($height * 2))
+        $writer.Write([UInt16]1)
+        $writer.Write([UInt16]32)
+        $writer.Write([UInt32]0)
+        $writer.Write([UInt32]$xorBytes.Length)
+        $writer.Write([Int32]0)
+        $writer.Write([Int32]0)
+        $writer.Write([UInt32]0)
+        $writer.Write([UInt32]0)
+        $writer.Write($xorBytes)
+        $writer.Write($maskBytes)
     } finally {
         $writer.Dispose()
         $fileStream.Dispose()
-        $pngStream.Dispose()
         $graphics.Dispose()
         $bitmap.Dispose()
         $bg.Dispose()

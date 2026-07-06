@@ -84,6 +84,12 @@ Resolve the local-only title text to glyph/tile mapping path and write an ignore
 .\tools\Find-TitleChrMapping.ps1
 ```
 
+Map the local-only title setup ranges, helper calls, write targets, and adjacent table references:
+
+```powershell
+.\tools\Find-TitleSetupMapping.ps1
+```
+
 Prototype controls:
 
 ```text
@@ -128,7 +134,7 @@ Each successful build refreshes a local Desktop shortcut named:
 Tecmo Basketball Native Port.lnk
 ```
 
-The shortcut points at the latest `build\tecmo_port.exe`, uses a generated original basketball icon from `build\tecmo_port.ico`, and launches `--play`. It will include `--root` automatically when `TECMO_DECOMP_ROOT` is set or the local decomp folder is found next to this repo. Set `TECMO_SKIP_SHORTCUT=1` before running `build.ps1` if you want to skip shortcut generation.
+The shortcut points at the latest `build\tecmo_port.exe`, regenerates an original TNB basketball icon at `build\tecmo_port.ico`, and launches `--play`. It will include `--root` automatically when `TECMO_DECOMP_ROOT` is set or the local decomp folder is found next to this repo. Set `TECMO_SKIP_SHORTCUT=1` before running `build.ps1` if you want to skip shortcut generation.
 
 ## Current Scope
 
@@ -170,4 +176,4 @@ That file lists quick launch points, screenshot tests, planned debug overlay fie
 
 Screenshot tests are driven from this manifest through `tools\Run-ScreenshotTests.ps1`. The runner only accepts the known render-test command shape and only writes PNGs under ignored `build\` output or explicitly safe `docs\screenshots\` files.
 
-The original title/menu investigation is tracked in [docs/original_title_screen_plan.md](docs/original_title_screen_plan.md). Its local mappers write `build\original_screen_sources.json`, `build\title_chr_mapping.json`, and `build\title_mapped_chr_probe.png`, which are ignored because they are generated from the private local decomp workspace.
+The original title/menu investigation is tracked in [docs/original_title_screen_plan.md](docs/original_title_screen_plan.md). Its local mappers write `build\original_screen_sources.json`, `build\title_chr_mapping.json`, `build\title_mapped_chr_probe.png`, and `build\title_setup_mapping.json`, which are ignored because they are generated from the private local decomp workspace.
