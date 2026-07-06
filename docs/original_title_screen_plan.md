@@ -20,6 +20,12 @@ Run the local mapper:
 .\tools\Find-OriginalScreenSources.ps1
 ```
 
+Resolve the title text render path through the fixed dispatcher, Bank 06 character mapping, and the 2x2 glyph tile table:
+
+```powershell
+.\tools\Find-TitleChrMapping.ps1
+```
+
 Render the first source-backed title probe:
 
 ```powershell
@@ -30,12 +36,22 @@ It writes:
 
 ```text
 build\original_screen_sources.json
+build\title_chr_mapping.json
+build\title_mapped_chr_probe.png
 ```
 
-That report is intentionally ignored by Git and should contain only paths, labels, address ranges, counts, and implementation notes. It must not include copied ASM, ROM bytes, extracted CHR bytes, generated proprietary data, screenshots from original assets, or absolute private paths.
+Those reports/probes are intentionally ignored by Git. Public docs may keep chunk IDs, ranges, labels, and conclusions, but must not include copied ASM, ROM bytes, extracted CHR bytes, generated proprietary data, screenshots from original assets, or absolute private paths.
+
+## Current Title CHR Findings
+
+- Bank 04 title text does not map directly to CHR tile IDs.
+- The title loop dispatches `A=0x38` through fixed helper `$C711`; the local dispatcher tables resolve that to `06:$9E50`.
+- Bank 06 maps characters through the `06:$A290` helper and then reads four tile IDs per glyph from the `06:$AF05` table.
+- Bank 04 setup writes `$0352=0x1F` and `$0100=0x06` before entering the `$BA16` setup path; that pattern/VRAM setup still needs a native model before the CHR-backed quick launch can be called pixel-accurate.
 
 ## Next Native-Port Gates
 
+- Model the Bank 04 `$BA16` pattern setup path into explicit native pattern-table/VRAM state.
 - Replace fixed-bank helper effects such as frame waits, render writes, and setup wrappers with explicit native C functions.
 - Resolve palette initialization for the title/menu path.
 - Map title/menu tile IDs to local CHR bank(s) while keeping extracted bytes local.

@@ -77,6 +77,12 @@ Map the local-only source candidates for the first original title/menu screen:
 .\tools\Find-OriginalScreenSources.ps1
 ```
 
+Resolve the local-only title text to glyph/tile mapping path and write an ignored JSON/probe:
+
+```powershell
+.\tools\Find-TitleChrMapping.ps1
+```
+
 Prototype controls:
 
 ```text
@@ -163,4 +169,4 @@ That file lists quick launch points, screenshot tests, planned debug overlay fie
 
 Screenshot tests are driven from this manifest through `tools\Run-ScreenshotTests.ps1`. The runner only accepts the known render-test command shape and only writes PNGs under ignored `build\` output or explicitly safe `docs\screenshots\` files.
 
-The original title/menu investigation is tracked in [docs/original_title_screen_plan.md](docs/original_title_screen_plan.md). Its local mapper writes `build\original_screen_sources.json`, which is ignored because it is generated from the private local decomp workspace.
+The original title/menu investigation is tracked in [docs/original_title_screen_plan.md](docs/original_title_screen_plan.md). Its local mappers write `build\original_screen_sources.json`, `build\title_chr_mapping.json`, and `build\title_mapped_chr_probe.png`, which are ignored because they are generated from the private local decomp workspace.

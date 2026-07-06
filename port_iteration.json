@@ -79,6 +79,13 @@
       "expected_artifact": "build/original_screen_sources.json"
     },
     {
+      "id": "map_title_chr_path",
+      "status": "active",
+      "command": ".\\tools\\Find-TitleChrMapping.ps1",
+      "description": "Resolves the Bank 04 title text path through C711, Bank 06 character mapping, and the four-tile glyph table; writes local-only JSON and a probe PNG.",
+      "expected_artifact": "build/title_chr_mapping.json"
+    },
+    {
       "id": "render_rosters",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode rosters build\\rosters_test.png",
@@ -201,11 +208,21 @@
     "status": "active",
     "mapper_command": ".\\tools\\Find-OriginalScreenSources.ps1",
     "local_report": "build\\original_screen_sources.json",
+    "title_chr_mapper_command": ".\\tools\\Find-TitleChrMapping.ps1",
+    "title_chr_local_report": "build\\title_chr_mapping.json",
+    "title_chr_local_probe": "build\\title_mapped_chr_probe.png",
     "public_plan": "docs\\original_title_screen_plan.md",
     "highest_confidence_groups": [
       "bank04_title_splash_core",
       "bank04_intro_staging",
+      "bank06_text_tile_mapping",
       "ppu_chr_and_fixed_helpers"
+    ],
+    "current_findings": [
+      "Bank 04 title loop dispatches A=0x38 through fixed helper C711.",
+      "C711 entry 0x38 resolves locally to Bank 06 text setup at 06:$9E50.",
+      "Title characters are mapped through the Bank 06 character-to-tile helper and the 2x2 glyph tile table at 06:$AF05.",
+      "Bank 04 BA16 pattern setup still needs to be modeled before raw CHR tile rendering is pixel-accurate."
     ],
     "rules": [
       "Generated source-map reports stay local and ignored under build.",
@@ -252,7 +269,7 @@
     },
     {
       "id": "M007",
-      "status": "planned",
+      "status": "active",
       "title": "Pixel-accurate title CHR and palette pass",
       "done_when": "The original title quick launch uses mapped CHR tiles, palette state, and layout data instead of the probe font."
     }
@@ -261,7 +278,7 @@
     "id": "M007",
     "title": "Pixel-accurate title CHR and palette pass",
     "notes": [
-      "Resolve title glyph/tile IDs through the local Bank 04 title path and fixed C711-style render helper behavior.",
+      "Model the Bank 04 BA16 pattern setup path that follows title setup $0352=0x1F and $0100=0x06.",
       "Map palette initialization and any title palette animation path.",
       "Keep extracted/generated CHR, palette, or script caches local and ignored.",
       "Continue committing only safe project UI screenshots; original-title screenshots stay under ignored build output."
