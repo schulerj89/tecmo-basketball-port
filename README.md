@@ -70,6 +70,12 @@ Run every active screenshot test declared in `port_iteration.json`:
 
 Pass `-DecompRoot <LOCAL_DECOMP_ROOT>` if the script cannot discover your private local decomp workspace.
 
+Map the local-only source candidates for the first original title/menu screen:
+
+```powershell
+.\tools\Find-OriginalScreenSources.ps1
+```
+
 Prototype controls:
 
 ```text
@@ -155,3 +161,5 @@ port_iteration.json
 That file lists quick launch points, screenshot tests, planned debug overlay fields, memory budgets, and near-term milestones. It is intentionally safe to commit: it must not contain ROM paths, ASM, extracted bytes, generated roster data, or private local paths.
 
 Screenshot tests are driven from this manifest through `tools\Run-ScreenshotTests.ps1`. The runner only accepts the known render-test command shape and only writes PNGs under ignored `build\` output or explicitly safe `docs\screenshots\` files.
+
+The original title/menu investigation is tracked in [docs/original_title_screen_plan.md](docs/original_title_screen_plan.md). Its local mapper writes `build\original_screen_sources.json`, which is ignored because it is generated from the private local decomp workspace.

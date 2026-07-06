@@ -72,6 +72,13 @@
       "expected_artifact": "build/screenshot_test_report.json"
     },
     {
+      "id": "map_original_title_sources",
+      "status": "active",
+      "command": ".\\tools\\Find-OriginalScreenSources.ps1",
+      "description": "Scans the private local decomp for first original title/menu screen source candidates without committing source bytes.",
+      "expected_artifact": "build/original_screen_sources.json"
+    },
+    {
       "id": "render_rosters",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode rosters build\\rosters_test.png",
@@ -88,7 +95,7 @@
     {
       "id": "original_title_screen",
       "status": "planned",
-      "command": "not implemented",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode original-title build\\original_title_test.png",
       "description": "First real original-game screen target after CHR/layout mapping.",
       "expected_screen": "Original title/menu presentation reconstructed from local data."
     }
@@ -178,6 +185,22 @@
       "Report arena high-water marks once debug overlay is implemented."
     ]
   },
+  "original_title_screen_investigation": {
+    "status": "active",
+    "mapper_command": ".\\tools\\Find-OriginalScreenSources.ps1",
+    "local_report": "build\\original_screen_sources.json",
+    "public_plan": "docs\\original_title_screen_plan.md",
+    "highest_confidence_groups": [
+      "bank04_title_splash_core",
+      "bank04_intro_staging",
+      "ppu_chr_and_fixed_helpers"
+    ],
+    "rules": [
+      "Generated source-map reports stay local and ignored under build.",
+      "Public docs may list chunk IDs, relative paths, labels, ranges, and unresolved gates only.",
+      "Do not commit ASM text, ROM bytes, extracted CHR bytes, generated proprietary data, or screenshots rendered from original assets."
+    ]
+  },
   "incremental_milestones": [
     {
       "id": "M001",
@@ -205,7 +228,7 @@
     },
     {
       "id": "M005",
-      "status": "planned",
+      "status": "complete",
       "title": "Original title/menu render investigation",
       "done_when": "Local-only tooling identifies CHR/layout sources needed to render the first original menu screen."
     },
@@ -217,12 +240,13 @@
     }
   ],
   "next_engineering_step": {
-    "id": "M005",
-    "title": "Original title/menu render investigation",
+    "id": "M006",
+    "title": "First original-screen renderer",
     "notes": [
-      "Use local-only tooling to identify which CHR banks, nametable/layout data, palettes, and sprite/OAM tables are needed for the first original title or menu screen.",
-      "Document findings without committing ASM, ROM bytes, extracted graphics, or generated proprietary data.",
-      "Add a quick-launch target for the first original-screen renderer once the data dependencies are mapped."
+      "Use the local source map to implement --render-test-mode original-title.",
+      "Start with a static title/menu frame from local private data, then move timing/animation into native runtime state.",
+      "Keep any extracted/generated CHR, palette, or script caches local and ignored.",
+      "Add only safe screenshots unless the image is a project UI verification screen without original assets."
     ]
   }
 }
