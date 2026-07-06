@@ -1,0 +1,33 @@
+$ErrorActionPreference = "Stop"
+
+$Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$BuildDir = Join-Path $Root "build"
+$ObjDir = Join-Path $BuildDir "obj"
+New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
+New-Item -ItemType Directory -Force -Path $ObjDir | Out-Null
+
+$VsWhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+if (!(Test-Path $VsWhere)) {
+    throw "vswhere.exe was not found. Install Visual Studio Build Tools with the Desktop development with C++ workload."
+}
+
+$VsPath = & $VsWhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+if (!$VsPath) {
+    throw "MSVC C++ tools were not found. Install the Desktop development with C++ workload."
+}
+
+$VcVars = Join-Path $VsPath "VC\Auxiliary\Build\vcvars64.bat"
+if (!(Test-Path $VcVars)) {
+    throw "vcvars64.bat was not found under $VsPath."
+}
+
+$ExePath = Join-Path $BuildDir "tecmo_port.exe"
+$ObjPrefix = $ObjDir.TrimEnd("\") + "\"
+$Command = "call `"$VcVars`" >nul && cd /d `"$Root`" && cl /nologo /std:c11 /W4 /I include /Fo:$ObjPrefix /Fe:`"$ExePath`" src\main.c src\asm_inventory.c src\png_writer.c"
+
+& cmd.exe /d /c $Command
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
+
+Write-Host "Built $ExePath"

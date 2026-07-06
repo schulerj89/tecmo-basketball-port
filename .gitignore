@@ -1,0 +1,36 @@
+# Build outputs
+build/
+*.obj
+*.pdb
+*.ilk
+*.exe
+
+# Generated local extraction outputs
+generated/
+*.chr
+*.png
+*.bmp
+*.gif
+*.bin
+*.nes
+*.fds
+*.sav
+*.srm
+
+# Do not commit reverse-engineered source dumps or local decomp trees.
+*.asm
+decomp/
+baseline/
+reconstruct_by_bank/
+split_compile/
+Tiles.*
+Header.*
+Main_split_bank01.*
+Variables.inc
+
+# Local editor/system files
+.vs/
+.vscode/
+*.user
+Thumbs.db
+Desktop.ini

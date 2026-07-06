@@ -1,0 +1,76 @@
+# Tecmo Basketball Port Tooling
+
+This is a local hobby/research scaffold for exploring a native C port workflow for Tecmo NBA Basketball. It contains tooling only.
+
+## Important Boundaries
+
+This repository intentionally does not include:
+
+- ROM files
+- PRG/CHR dumps
+- reverse-engineered ASM
+- lifted decompilation chunks
+- extracted graphics, tile sheets, audio, or roster dumps
+- generated files derived from the original game
+
+Do not use this project to distribute copyrighted game data, bypass ownership of the original game, sell or repackage proprietary content, or help others obtain assets they do not have the right to use. Use it only with local files you are legally allowed to study.
+
+The tooling expects your private decompilation/asset workspace to live outside this repository.
+
+## Build
+
+PowerShell with Visual Studio C++ tools installed:
+
+```powershell
+.\build.ps1
+```
+
+The script locates Visual Studio via `vswhere` and builds:
+
+```text
+build\tecmo_port.exe
+```
+
+## Point It At Your Local Decomp
+
+Pass the private decomp path explicitly:
+
+```powershell
+.\build\tecmo_port.exe --root C:\Users\joshs\Projects\disassem\tecmo-basketball-decompilation --summary
+```
+
+Or set an environment variable:
+
+```powershell
+$env:TECMO_DECOMP_ROOT='C:\Users\joshs\Projects\disassem\tecmo-basketball-decompilation'
+.\build\tecmo_port.exe --summary
+```
+
+## Commands
+
+```powershell
+.\build\tecmo_port.exe --summary
+.\build\tecmo_port.exe --banks
+.\build\tecmo_port.exe --chunks
+.\build\tecmo_port.exe --roster CHICAGO
+.\build\tecmo_port.exe --assets
+```
+
+Local-only generated outputs:
+
+```powershell
+.\build\tecmo_port.exe --generate-rosters generated
+.\build\tecmo_port.exe --export-chr build\tecmo_tiles.chr
+.\build\tecmo_port.exe --export-chr-png build\chr_png
+```
+
+Those generated outputs are ignored by Git and should stay local.
+
+## Current Scope
+
+- Inventory banked ASM files from a private decomp tree
+- Count lifted chunks and labels
+- Parse local Bank 02 roster labels into C-friendly records
+- Export local CHR bytes and grayscale tile sheet PNGs for private inspection
+
+This is not a playable game port yet. The next clean step is to translate verified, non-asset logic into portable C modules while keeping all proprietary data outside the public repository.
