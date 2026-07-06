@@ -63,6 +63,7 @@ $env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
 .\build\tecmo_port.exe --render-test-mode intro-presents build\intro_presents_test.png
 .\build\tecmo_port.exe --render-test-mode intro-builder-sample build\intro_builder_sample_test.png
 .\build\tecmo_port.exe --render-test-mode intro-rabbit-preset build\intro_rabbit_preset_test.png
+.\build\tecmo_port.exe --render-test-mode intro-tecmo-preset build\intro_tecmo_preset_test.png
 .\build\tecmo_port.exe --render-test-mode intro-presents-table1 build\intro_presents_table1_test.png
 .\build\tecmo_port.exe --render-test-mode chr-playground build\chr_playground_test.png
 .\build\tecmo_port.exe --render-test-mode chr-playground-table1 build\chr_playground_table1_test.png
@@ -110,6 +111,12 @@ Scan the private decomp for safe intro procedure counts and `$C051` helper leads
 .\tools\Find-IntroProcedureMapping.ps1
 ```
 
+Decode the local-only Bank 04 rabbit stream selector into the fixed `$C051/$D861` sprite-record model:
+
+```powershell
+.\tools\Find-IntroRabbitLookup.ps1
+```
+
 Prototype controls:
 
 ```text
@@ -133,7 +140,8 @@ T = switch CHR pattern table half
 Tab = switch focus between source sheet and canvas
 Arrows = move focused source tile or canvas cell
 Space = record selected tile at selected canvas cell
-R = record the Bank 31 table 1 rabbit-head candidate tiles 125, 126, 127, 129, 12A, 12B
+R = record the Bank 31 table 1 rabbit lookup candidate as 8x16 sprite pairs 124-12B
+M = record the visual TECMO logo candidate tiles 180-193
 Backspace/Delete = remove last placement record
 S = save ignored local placement JSON
 Enter/Esc = launcher menu

@@ -215,6 +215,22 @@ int main(int argc, char **argv)
                     memset(&released_input, 0, sizeof(released_input));
                     tecmo_runtime_update(&runtime, &released_input);
                 }
+            } else if (strcmp(mode_name, "intro-tecmo-preset") == 0) {
+                TecmoInput input;
+                tecmo_runtime_set_mode(&runtime, TECMO_MODE_INTRO_PROBE);
+                runtime.selected_chr_table = 1U;
+                runtime.intro_source_tile = 0x80U;
+                runtime.intro_canvas_focus = true;
+                runtime.intro_canvas_cell_x = 4;
+                runtime.intro_canvas_cell_y = 5;
+                memset(&input, 0, sizeof(input));
+                input.preset_tecmo = true;
+                tecmo_runtime_update(&runtime, &input);
+                {
+                    TecmoInput released_input;
+                    memset(&released_input, 0, sizeof(released_input));
+                    tecmo_runtime_update(&runtime, &released_input);
+                }
             } else if (strcmp(mode_name, "intro-presents-table1") == 0) {
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_INTRO_PROBE);
                 runtime.selected_chr_table = 1U;

@@ -21,6 +21,7 @@ typedef struct TecmoInput {
     bool table_toggle;
     bool save;
     bool preset_rabbit;
+    bool preset_tecmo;
     bool remove;
     bool debug_toggle;
 } TecmoInput;

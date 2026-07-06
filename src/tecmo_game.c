@@ -410,13 +410,20 @@ static void add_intro_rabbit_head_candidate(TecmoRuntime *runtime)
         const char *label;
     } RabbitTile;
 
+    /*
+     * Bank 04 L88E7 seeds the stream that fixed helper C051/D861 stages as
+     * 8x16 sprite tile IDs 25, 27, 29, and 2B. In 8x16 mode those imply the
+     * table-1 8x8 pairs below for Intro Lab inspection.
+     */
     static const RabbitTile rabbit_tiles[] = {
-        {0x125U, 0, 0, "RABBIT 125"},
-        {0x126U, 1, 0, "RABBIT 126"},
-        {0x127U, 2, 0, "RABBIT 127"},
-        {0x129U, 0, 1, "RABBIT 129"},
-        {0x12AU, 1, 1, "RABBIT 12A"},
-        {0x12BU, 2, 1, "RABBIT 12B"},
+        {0x124U, 0, 0, "RAB25 TOP"},
+        {0x125U, 0, 1, "RAB25 BOT"},
+        {0x126U, 1, 0, "RAB27 TOP"},
+        {0x127U, 1, 1, "RAB27 BOT"},
+        {0x128U, 2, 0, "RAB29 TOP"},
+        {0x129U, 2, 1, "RAB29 BOT"},
+        {0x12AU, 3, 0, "RAB2B TOP"},
+        {0x12BU, 3, 1, "RAB2B BOT"},
     };
     uint32_t chr_bank = 31U;
     const uint32_t chr_table = 1U;
@@ -427,8 +434,8 @@ static void add_intro_rabbit_head_candidate(TecmoRuntime *runtime)
     if (chr_bank >= chr_bank_count(runtime)) {
         chr_bank = selected_chr_bank(runtime);
     }
-    if (base_x > INTRO_CANVAS_CELLS_X - 3) {
-        base_x = INTRO_CANVAS_CELLS_X - 3;
+    if (base_x > INTRO_CANVAS_CELLS_X - 4) {
+        base_x = INTRO_CANVAS_CELLS_X - 4;
     }
     if (base_y > INTRO_CANVAS_CELLS_Y - 2) {
         base_y = INTRO_CANVAS_CELLS_Y - 2;
@@ -471,7 +478,77 @@ static void add_intro_rabbit_head_candidate(TecmoRuntime *runtime)
     } else {
         set_runtime_status(runtime->intro_layout_status,
                            sizeof(runtime->intro_layout_status),
-                           "RABBIT PRESET B31 T1 125-12B RECORDED");
+                           "RABBIT LOOKUP B31 T1 124-12B RECORDED");
+    }
+}
+
+static void add_intro_tecmo_logo_candidate(TecmoRuntime *runtime)
+{
+    uint32_t chr_bank = 31U;
+    const uint32_t chr_table = 1U;
+    int base_x = runtime->intro_canvas_cell_x;
+    int base_y = runtime->intro_canvas_cell_y;
+    size_t before = runtime->intro_placement_count;
+
+    if (chr_bank >= chr_bank_count(runtime)) {
+        chr_bank = selected_chr_bank(runtime);
+    }
+    if (base_x > INTRO_CANVAS_CELLS_X - 10) {
+        base_x = INTRO_CANVAS_CELLS_X - 10;
+    }
+    if (base_y > INTRO_CANVAS_CELLS_Y - 2) {
+        base_y = INTRO_CANVAS_CELLS_Y - 2;
+    }
+    if (base_x < 0) {
+        base_x = 0;
+    }
+    if (base_y < 0) {
+        base_y = 0;
+    }
+
+    runtime->selected_chr_bank = chr_bank;
+    runtime->selected_chr_table = chr_table;
+    runtime->intro_source_tile = 0x80U;
+    runtime->intro_canvas_focus = true;
+    runtime->intro_canvas_cell_x = base_x;
+    runtime->intro_canvas_cell_y = base_y;
+
+    for (uint16_t letter = 0; letter < 5U; ++letter) {
+        uint16_t tile_base = (uint16_t)(0x180U + letter * 4U);
+        int letter_x = base_x + (int)letter * 2;
+        for (uint16_t tile = 0; tile < 4U; ++tile) {
+            char label[32];
+            int dx = (int)(tile & 1U);
+            int dy = (int)(tile >> 1U);
+            uint16_t tile_id = (uint16_t)(tile_base + tile);
+            (void)snprintf(label, sizeof(label), "TECMO %03X", (unsigned)tile_id);
+            if (append_intro_tile_placement(runtime,
+                                            chr_bank,
+                                            chr_table,
+                                            tile_id,
+                                            letter_x + dx,
+                                            base_y + dy,
+                                            label) != 0) {
+                break;
+            }
+        }
+        if (runtime->intro_placement_count >= TECMO_MAX_INTRO_PLACEMENTS) {
+            break;
+        }
+    }
+
+    if (runtime->intro_placement_count == before) {
+        set_runtime_status(runtime->intro_layout_status,
+                           sizeof(runtime->intro_layout_status),
+                           "PLACEMENT LIST FULL");
+    } else if (runtime->intro_placement_count - before < 20U) {
+        set_runtime_status(runtime->intro_layout_status,
+                           sizeof(runtime->intro_layout_status),
+                           "TECMO PRESET PARTIAL  LIST FULL");
+    } else {
+        set_runtime_status(runtime->intro_layout_status,
+                           sizeof(runtime->intro_layout_status),
+                           "TECMO VISUAL CANDIDATE B31 T1 180-193 RECORDED");
     }
 }
 
@@ -583,6 +660,9 @@ static void update_probe_screen(TecmoRuntime *runtime, const TecmoInput *input)
         }
         if (pressed(input->preset_rabbit, runtime->previous_input.preset_rabbit)) {
             add_intro_rabbit_head_candidate(runtime);
+        }
+        if (pressed(input->preset_tecmo, runtime->previous_input.preset_tecmo)) {
+            add_intro_tecmo_logo_candidate(runtime);
         }
         if (pressed(input->remove, runtime->previous_input.remove)) {
             remove_intro_placement(runtime);
@@ -1317,7 +1397,7 @@ static void render_intro_layout_lab(const TecmoRuntime *runtime, TecmoFramebuffe
                    (unsigned)(bank_count - 1U),
                    (unsigned)chr_table);
     draw_text(fb, 22, 18, line, rgb(248, 248, 232), 2);
-    draw_text(fb, 292, 40, "QE BANK T TABLE TAB FOCUS R RABBIT", rgb(142, 174, 190), 1);
+    draw_text(fb, 292, 40, "QE BANK T TABLE TAB FOCUS R RABBIT M TECMO", rgb(142, 174, 190), 1);
 
     if (!runtime->title_probe_available) {
         draw_centered_text(fb, 212, "LOCAL CHR DATA UNAVAILABLE", rgb(252, 236, 170), 2);
@@ -1432,7 +1512,7 @@ static void render_intro_layout_lab(const TecmoRuntime *runtime, TecmoFramebuffe
     if (runtime->intro_placement_count == 0) {
         draw_text(fb, 30, 406, "NO RECORDS YET  SPACE ADDS THE SELECTED TILE TO THE CANVAS", rgb(92, 116, 128), 1);
     } else {
-        size_t first = runtime->intro_placement_count > 6U ? runtime->intro_placement_count - 6U : 0U;
+        size_t first = runtime->intro_placement_count > 8U ? runtime->intro_placement_count - 8U : 0U;
         draw_text(fb, 30, 400, "LOCAL PLACEMENT RECORDS", rgb(230, 232, 214), 1);
         for (size_t i = first; i < runtime->intro_placement_count; ++i) {
             const TecmoIntroPlacement *placement = &runtime->intro_placements[i];
@@ -1444,7 +1524,7 @@ static void render_intro_layout_lab(const TecmoRuntime *runtime, TecmoFramebuffe
                            (unsigned)(placement->tile_count > 0 ? placement->tile_ids[0] : 0U),
                            placement->canvas_cell_x,
                            placement->canvas_cell_y);
-            draw_text(fb, 30, 410 + (int)(i - first) * 10, line, rgb(142, 174, 190), 1);
+            draw_text(fb, 30, 408 + (int)(i - first) * 8, line, rgb(142, 174, 190), 1);
         }
     }
     draw_text(fb, 30, 470, "S WRITES IGNORED BUILD INTRO_LAYOUT_PICKS.JSON", rgb(92, 116, 128), 1);
