@@ -893,7 +893,6 @@ static void update_main_menu(TecmoRuntime *runtime, const TecmoInput *input)
             tecmo_runtime_set_mode(runtime, TECMO_MODE_CHR_PLAYGROUND);
         } else if (runtime->selected_menu_item == 3) {
             tecmo_runtime_set_mode(runtime, TECMO_MODE_FIRST_SPRITE);
-            runtime->intro_output_step = 0;
         } else if (runtime->selected_menu_item == 4) {
             tecmo_runtime_set_mode(runtime, TECMO_MODE_ROSTERS);
         } else {
