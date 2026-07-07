@@ -141,6 +141,7 @@ typedef struct TecmoRuntime {
     bool ball_in_air;
     unsigned score;
     unsigned frame_counter;
+    unsigned mode_frame_counter;
     float frame_seconds;
     TecmoInput previous_input;
 } TecmoRuntime;

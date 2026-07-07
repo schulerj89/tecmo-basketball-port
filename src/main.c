@@ -22,7 +22,7 @@ static void print_usage(const char *program)
     printf("  --flow-test             Run headless native title/menu/rosters/play/quit flow checks\n");
     printf("  --bank07-test           Run fixed-bank helper C counterpart checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, first-sprite, first-sprite-debug, intro-l88e7-proof, intro-presents, intro-builder-sample, intro-rabbit-preset, intro-tecmo-preset, intro-composite-preset, intro-c051-d861-model, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play, play-step0..play-step6, play-setup, original-title, or original-title-chr to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, first-sprite, first-sprite-debug, intro-l88e7-proof, intro-presents, intro-builder-sample, intro-rabbit-preset, intro-tecmo-preset, intro-composite-preset, intro-c051-d861-model, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play, play-fade0..play-fade4, play-step0..play-step6, play-setup, original-title, or original-title-chr to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -231,6 +231,17 @@ int main(int argc, char **argv)
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_ROSTERS);
             } else if (strcmp(mode_name, "play") == 0) {
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_FIRST_SPRITE);
+                runtime.mode_frame_counter = 16U;
+            } else if (strncmp(mode_name, "play-fade", 9) == 0) {
+                long stage = strtol(mode_name + 9, NULL, 10);
+                if (stage < 0) {
+                    stage = 0;
+                }
+                if (stage > 4) {
+                    stage = 4;
+                }
+                tecmo_runtime_set_mode(&runtime, TECMO_MODE_FIRST_SPRITE);
+                runtime.mode_frame_counter = (unsigned)stage * 4U;
             } else if (strncmp(mode_name, "play-step", 9) == 0) {
                 long step = strtol(mode_name + 9, NULL, 10);
                 if (step < 0) {
@@ -238,6 +249,7 @@ int main(int argc, char **argv)
                 }
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_FIRST_SPRITE);
                 runtime.intro_output_step = (uint8_t)step;
+                runtime.mode_frame_counter = 16U;
             } else if (strcmp(mode_name, "first-sprite") == 0 || strcmp(mode_name, "first-sprite-debug") == 0) {
                 framebuffer.pixels = pixels;
                 framebuffer.width = width;
@@ -258,8 +270,10 @@ int main(int argc, char **argv)
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_PLAY_SETUP);
             } else if (strcmp(mode_name, "title-screen") == 0) {
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_TITLE_SCREEN);
+                runtime.mode_frame_counter = 16U;
             } else if (strcmp(mode_name, "boot-title") == 0) {
                 /* Default runtime initialization already starts at the title screen. */
+                runtime.mode_frame_counter = 16U;
             } else if (strcmp(mode_name, "intro-presents") == 0) {
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_INTRO_PROBE);
             } else if (strcmp(mode_name, "intro-builder-sample") == 0) {

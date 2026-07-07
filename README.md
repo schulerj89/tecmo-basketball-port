@@ -76,6 +76,11 @@ $env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
 .\build\tecmo_port.exe --render-test-mode first-sprite-debug build\first_sprite_debug_test.png
 .\build\tecmo_port.exe --render-test-mode intro-l88e7-proof build\intro_l88e7_proof_test.png
 .\build\tecmo_port.exe --render-test-mode play build\play_test.png
+.\build\tecmo_port.exe --render-test-mode play-fade0 build\play_fade0_test.png
+.\build\tecmo_port.exe --render-test-mode play-fade1 build\play_fade1_test.png
+.\build\tecmo_port.exe --render-test-mode play-fade2 build\play_fade2_test.png
+.\build\tecmo_port.exe --render-test-mode play-fade3 build\play_fade3_test.png
+.\build\tecmo_port.exe --render-test-mode play-fade4 build\play_fade4_test.png
 .\build\tecmo_port.exe --render-test-mode play-step0 build\play_step0_test.png
 .\build\tecmo_port.exe --render-test-mode play-step1 build\play_step1_test.png
 .\build\tecmo_port.exe --render-test-mode play-step2 build\play_step2_test.png

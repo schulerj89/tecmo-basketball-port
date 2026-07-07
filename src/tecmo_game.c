@@ -863,6 +863,7 @@ void tecmo_runtime_shutdown(TecmoRuntime *runtime)
 void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
 {
     runtime->mode = mode;
+    runtime->mode_frame_counter = 0;
     if (mode == TECMO_MODE_FIRST_SPRITE) {
         runtime->intro_output_step = TECMO_INTRO_OUTPUT_TITLE_STEP;
     }
@@ -885,16 +886,16 @@ static void update_main_menu(TecmoRuntime *runtime, const TecmoInput *input)
     }
     if (pressed(input->confirm, runtime->previous_input.confirm)) {
         if (runtime->selected_menu_item == 0) {
-            runtime->mode = TECMO_MODE_TITLE_SCREEN;
+            tecmo_runtime_set_mode(runtime, TECMO_MODE_TITLE_SCREEN);
         } else if (runtime->selected_menu_item == 1) {
-            runtime->mode = TECMO_MODE_INTRO_PROBE;
+            tecmo_runtime_set_mode(runtime, TECMO_MODE_INTRO_PROBE);
         } else if (runtime->selected_menu_item == 2) {
-            runtime->mode = TECMO_MODE_CHR_PLAYGROUND;
+            tecmo_runtime_set_mode(runtime, TECMO_MODE_CHR_PLAYGROUND);
         } else if (runtime->selected_menu_item == 3) {
-            runtime->mode = TECMO_MODE_FIRST_SPRITE;
+            tecmo_runtime_set_mode(runtime, TECMO_MODE_FIRST_SPRITE);
             runtime->intro_output_step = 0;
         } else if (runtime->selected_menu_item == 4) {
-            runtime->mode = TECMO_MODE_ROSTERS;
+            tecmo_runtime_set_mode(runtime, TECMO_MODE_ROSTERS);
         } else {
             runtime->quit_requested = true;
         }
@@ -904,7 +905,7 @@ static void update_main_menu(TecmoRuntime *runtime, const TecmoInput *input)
 static void update_title_screen(TecmoRuntime *runtime, const TecmoInput *input)
 {
     if (pressed(input->confirm, runtime->previous_input.confirm)) {
-        runtime->mode = TECMO_MODE_MAIN_MENU;
+        tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
     } else if (pressed(input->cancel, runtime->previous_input.cancel)) {
         runtime->quit_requested = true;
     }
@@ -1337,7 +1338,7 @@ static void update_probe_screen(TecmoRuntime *runtime, const TecmoInput *input)
 
     if (pressed(input->confirm, runtime->previous_input.confirm) ||
         pressed(input->cancel, runtime->previous_input.cancel)) {
-        runtime->mode = TECMO_MODE_MAIN_MENU;
+        tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
     }
 }
 
@@ -1362,10 +1363,10 @@ static void update_roster_selection(TecmoRuntime *runtime, const TecmoInput *inp
         ++runtime->selected_player;
     }
     if (pressed(input->cancel, runtime->previous_input.cancel)) {
-        runtime->mode = TECMO_MODE_MAIN_MENU;
+        tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
     }
     if (allow_start_game && pressed(input->confirm, runtime->previous_input.confirm)) {
-        runtime->mode = TECMO_MODE_COURT;
+        tecmo_runtime_set_mode(runtime, TECMO_MODE_COURT);
     }
 }
 
@@ -1406,7 +1407,7 @@ static void update_court(TecmoRuntime *runtime, const TecmoInput *input)
     clamp_player_to_court(runtime);
 
     if (pressed(input->cancel, runtime->previous_input.cancel)) {
-        runtime->mode = TECMO_MODE_PLAY_SETUP;
+        tecmo_runtime_set_mode(runtime, TECMO_MODE_PLAY_SETUP);
         runtime->ball_in_air = false;
     }
 
@@ -1444,7 +1445,7 @@ static void update_first_sprite_probe(TecmoRuntime *runtime, const TecmoInput *i
 {
     if (pressed(input->confirm, runtime->previous_input.confirm) ||
         pressed(input->cancel, runtime->previous_input.cancel)) {
-        runtime->mode = TECMO_MODE_MAIN_MENU;
+        tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
     } else if (pressed(input->left, runtime->previous_input.left) &&
                runtime->intro_output_step > 0U) {
         --runtime->intro_output_step;
@@ -1470,6 +1471,7 @@ static void write_runtime_watch_memory(TecmoRuntime *runtime)
 void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input)
 {
     ++runtime->frame_counter;
+    ++runtime->mode_frame_counter;
 
     if (pressed(input->debug_toggle, runtime->previous_input.debug_toggle)) {
         runtime->debug_overlay = !runtime->debug_overlay;
@@ -2185,12 +2187,15 @@ static uint32_t nes_2c02_rgba(uint8_t color)
 static uint8_t intro_captured_title_attribute_byte(uint16_t attr_addr)
 {
     switch (attr_addr) {
+    case 0x23D2U: return 0xCCU;
     case 0x23D3U: return 0xB3U;
     case 0x23D4U: return 0xA0U;
     case 0x23D5U: return 0xA0U;
-    case 0x23DBU: return 0xA8U;
+    case 0x23DAU: return 0xCCU;
+    case 0x23DBU: return 0xBBU;
     case 0x23DCU: return 0xAAU;
     case 0x23DDU: return 0xAAU;
+    case 0x23DEU: return 0x02U;
     default: return 0x00U;
     }
 }
@@ -2211,28 +2216,78 @@ static uint8_t intro_captured_title_palette_index(int row, int col)
     return (uint8_t)((attr >> shift) & 0x03U);
 }
 
-static const uint32_t *intro_captured_title_palette(uint8_t palette_index)
+static uint8_t intro_captured_title_palette_stage(const TecmoRuntime *runtime)
 {
-    static const uint8_t captured_palette[4][4] = {
-        { 0x0FU, 0x16U, 0x15U, 0x17U },
-        { 0x19U, 0x17U, 0x38U, 0x03U },
-        { 0x19U, 0x15U, 0x12U, 0x30U },
-        { 0x19U, 0x05U, 0x26U, 0x36U },
+    unsigned frame = runtime != NULL ? runtime->mode_frame_counter : 16U;
+
+    if (frame < 4U) {
+        return 0U;
+    }
+    if (frame < 8U) {
+        return 1U;
+    }
+    if (frame < 12U) {
+        return 2U;
+    }
+    if (frame < 16U) {
+        return 3U;
+    }
+    return 4U;
+}
+
+static const uint32_t *intro_captured_title_palette(uint8_t palette_stage, uint8_t palette_index)
+{
+    static const uint8_t captured_palette[5][4][4] = {
+        {
+            { 0x0FU, 0x0FU, 0x0FU, 0x0FU },
+            { 0x0FU, 0x0FU, 0x0FU, 0x0FU },
+            { 0x0FU, 0x0FU, 0x0FU, 0x0FU },
+            { 0x0FU, 0x0FU, 0x0FU, 0x0FU },
+        },
+        {
+            { 0x0FU, 0x06U, 0x05U, 0x07U },
+            { 0x09U, 0x07U, 0x08U, 0x03U },
+            { 0x09U, 0x05U, 0x02U, 0x00U },
+            { 0x09U, 0x05U, 0x06U, 0x06U },
+        },
+        {
+            { 0x0FU, 0x16U, 0x15U, 0x17U },
+            { 0x19U, 0x17U, 0x18U, 0x03U },
+            { 0x19U, 0x15U, 0x12U, 0x10U },
+            { 0x19U, 0x05U, 0x16U, 0x16U },
+        },
+        {
+            { 0x0FU, 0x16U, 0x15U, 0x17U },
+            { 0x19U, 0x17U, 0x28U, 0x03U },
+            { 0x19U, 0x15U, 0x12U, 0x20U },
+            { 0x19U, 0x05U, 0x26U, 0x26U },
+        },
+        {
+            { 0x0FU, 0x16U, 0x15U, 0x17U },
+            { 0x19U, 0x17U, 0x38U, 0x03U },
+            { 0x19U, 0x15U, 0x12U, 0x30U },
+            { 0x19U, 0x05U, 0x26U, 0x36U },
+        },
     };
-    static uint32_t palettes[4][4];
+    static uint32_t palettes[5][4][4];
     static bool initialized = false;
 
     if (!initialized) {
-        for (size_t outer = 0; outer < 4U; ++outer) {
-            palettes[outer][0] = 0x00000000U;
-            for (size_t inner = 1; inner < 4U; ++inner) {
-                palettes[outer][inner] = nes_2c02_rgba(captured_palette[outer][inner]);
+        for (size_t stage = 0; stage < 5U; ++stage) {
+            for (size_t outer = 0; outer < 4U; ++outer) {
+                palettes[stage][outer][0] = 0x00000000U;
+                for (size_t inner = 1; inner < 4U; ++inner) {
+                    palettes[stage][outer][inner] = nes_2c02_rgba(captured_palette[stage][outer][inner]);
+                }
             }
         }
         initialized = true;
     }
 
-    return palettes[palette_index & 0x03U];
+    if (palette_stage > 4U) {
+        palette_stage = 4U;
+    }
+    return palettes[palette_stage][palette_index & 0x03U];
 }
 
 static uint16_t intro_captured_title_chr_tile(uint8_t ppu_tile)
@@ -2257,6 +2312,7 @@ static void draw_intro_captured_title_nametable(TecmoFramebuffer *fb,
                                                 bool draw_debug_bounds)
 {
     const size_t tile_count = sizeof(INTRO_CAPTURED_TITLE_TILES) / sizeof(INTRO_CAPTURED_TITLE_TILES[0]);
+    uint8_t palette_stage = intro_captured_title_palette_stage(runtime);
 
     if (runtime->title_chr_bytes == NULL || runtime->title_chr_byte_count == 0) {
         draw_centered_text(fb, 212, "LOCAL CHR DATA UNAVAILABLE", rgb(252, 236, 170), 2);
@@ -2271,7 +2327,7 @@ static void draw_intro_captured_title_nametable(TecmoFramebuffer *fb,
         int x = origin_x + col * 8 * scale;
         int y = origin_y + row * 8 * scale;
         uint8_t palette_index = intro_captured_title_palette_index(row, col);
-        const uint32_t *palette = intro_captured_title_palette(palette_index);
+        const uint32_t *palette = intro_captured_title_palette(palette_stage, palette_index);
         uint16_t chr_tile = intro_captured_title_chr_tile(entry->tile);
 
         draw_chr_tile_ex(fb,
@@ -2317,8 +2373,10 @@ static void render_intro_captured_title_screen(const TecmoRuntime *runtime,
         char line[160];
         (void)snprintf(line,
                        sizeof(line),
-                       "CAPTURED FRAME16 PPU $210B-$21EB  %u TILES  MMC3 R0=FC R1=FA  CHR BANK %02u",
+                       "CAPTURED FRAME16  %u TILES  STAGE %u  MODEFRAME %u  CHR BANK %02u",
                        (unsigned)(sizeof(INTRO_CAPTURED_TITLE_TILES) / sizeof(INTRO_CAPTURED_TITLE_TILES[0])),
+                       (unsigned)intro_captured_title_palette_stage(runtime),
+                       runtime != NULL ? runtime->mode_frame_counter : 0U,
                        (unsigned)runtime->intro_trace_chr_bank);
         draw_text(fb, 22, 446, line, rgb(92, 116, 128), 1);
     }
