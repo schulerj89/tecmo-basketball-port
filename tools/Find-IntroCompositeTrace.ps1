@@ -141,6 +141,74 @@ function Get-PrgWord {
     return $Low -bor ($High -shl 8)
 }
 
+function Get-FixedPrgByte {
+    param([int]$CpuAddress)
+
+    if ($CpuAddress -lt 0xC000 -or $CpuAddress -gt 0xFFFF) {
+        throw ("Fixed CPU address must be in C000-FFFF: {0}" -f (Format-HexWord $CpuAddress))
+    }
+
+    return Get-PrgByte ($PrgBankCount - 1) (0x8000 + ($CpuAddress - 0xC000))
+}
+
+function Get-IntroGlyphCode {
+    param([char]$Char)
+
+    if ($Char -ge [char]'0' -and $Char -le [char]'9') {
+        return 0x82 + ([int]$Char - [int][char]'0')
+    }
+    if ($Char -ge [char]'A' -and $Char -le [char]'D') {
+        return 0x8C + ([int]$Char - [int][char]'A')
+    }
+    if ($Char -ge [char]'E' -and $Char -le [char]'T') {
+        return 0x90 + ([int]$Char - [int][char]'E')
+    }
+    if ($Char -ge [char]'U' -and $Char -le [char]'Z') {
+        return 0xA0 + ([int]$Char - [int][char]'U')
+    }
+    return $null
+}
+
+function Convert-IntroTextToGlyphCodes {
+    param([string]$Text)
+
+    $Codes = New-Object System.Collections.Generic.List[int]
+    foreach ($Char in $Text.ToCharArray()) {
+        $Code = Get-IntroGlyphCode $Char
+        if ($null -eq $Code) {
+            return @()
+        }
+        $Codes.Add($Code)
+    }
+    return @($Codes.ToArray())
+}
+
+function Find-PrgSequence {
+    param(
+        [int]$Bank,
+        [int[]]$Sequence
+    )
+
+    if ($Sequence.Count -eq 0) {
+        return $null
+    }
+
+    for ($CpuAddress = 0x8000; $CpuAddress -le (0xBFFF - $Sequence.Count + 1); ++$CpuAddress) {
+        $Matches = $true
+        for ($Index = 0; $Index -lt $Sequence.Count; ++$Index) {
+            if ((Get-PrgByte $Bank ($CpuAddress + $Index)) -ne $Sequence[$Index]) {
+                $Matches = $false
+                break
+            }
+        }
+        if ($Matches) {
+            return $CpuAddress
+        }
+    }
+
+    return $null
+}
+
 function Get-PointerTableEntryCount {
     param([int]$PointerTable)
 
@@ -515,6 +583,17 @@ $PenPanel.Dispose()
 
 $RabbitPairs = @($RabbitRecords | ForEach-Object { $_.table1_pair_top_hex; $_.table1_pair_bottom_hex } | Sort-Object -Unique)
 $TecmoPairs = @($TecmoLogoRecords | ForEach-Object { $_.table1_pair_top_hex; $_.table1_pair_bottom_hex } | Sort-Object -Unique)
+$L88E7PaletteBytes = @()
+for ($PaletteIndex = 0; $PaletteIndex -lt 16; ++$PaletteIndex) {
+    $L88E7PaletteBytes += (Format-HexByte (Get-PrgByte 4 (0x89DD + $PaletteIndex)))
+}
+$L88E7IrqVectorIndex = 0x05
+$L88E7IrqVectorLow = Get-FixedPrgByte (0xCDF2 + $L88E7IrqVectorIndex)
+$L88E7IrqVectorHigh = Get-FixedPrgByte (0xCDFA + $L88E7IrqVectorIndex)
+$L88E7IrqVectorTarget = $L88E7IrqVectorLow -bor ($L88E7IrqVectorHigh -shl 8)
+$PresentsText = "PRESENTS"
+$PresentsGlyphCodes = Convert-IntroTextToGlyphCodes $PresentsText
+$PresentsCpu = Find-PrgSequence -Bank 0 -Sequence $PresentsGlyphCodes
 
 $Report = [ordered]@{
     schema_version = 1
@@ -528,6 +607,46 @@ $Report = [ordered]@{
         chr_table = 1
         tile_offset_from_d861 = 1
         note = "Preview renders local CHR bank $ChrBank/table 1 as 8x16 sprite pairs. Palette and exact runtime base X for L8818 still need emulator/state capture."
+    }
+    l88e7_setup = [ordered]@{
+        driver = "bank04:L88E7 first intro seed path"
+        c05a_effect = "fixed $C05A/$D700 copies a 16-byte palette snapshot into $033E-$034D and low nibbles into $031E-$032D"
+        palette_snapshot_cpu = "bank04:89DD"
+        palette_snapshot_bytes_hex = $L88E7PaletteBytes
+        seed_88_hex = "A8"
+        seed_8a_hex = "3C"
+        seed_0352_hex = "01"
+        seed_0100_hex = "05"
+        nmi_irq_vector = [ordered]@{
+            consumer = 'fixed bank NMI tail $CDAC'
+            mapper_bank_select_from_0352_hex = "01"
+            vector_index_from_0100_hex = "05"
+            vector_table_low_cpu = "fixed:CDF2"
+            vector_table_high_cpu = "fixed:CDFA"
+            vector_target_cpu = ("fixed:{0}" -f (Format-HexWord $L88E7IrqVectorTarget))
+            effect = "selects IRQ/scanline CHR split handler; this is not the PRESENTS text/layout stream"
+        }
+        presents_data_lead = [ordered]@{
+            source = "bank00:C-0191 normal-letter text/layout stream"
+            text = $PresentsText
+            match_found = ($null -ne $PresentsCpu)
+            presents_match_cpu = if ($null -ne $PresentsCpu) { ("bank00:{0}" -f (Format-HexWord $PresentsCpu)) } else { $null }
+            note = "This is a data lead for the normal-letter PRESENTS glyph sequence; the stream interpreter and final placement are still the next decode target."
+        }
+        stream0 = [ordered]@{
+            pointer_table = "bank00:A7DB"
+            selector = 0
+            base_x_hex = "00"
+            base_y_hex = "0000"
+            record_count = $A7DbSelector0Stream.record_count
+        }
+        stream1 = [ordered]@{
+            pointer_table = "bank00:A7DB"
+            selector = $RabbitSelector
+            base_x_hex = "B8"
+            base_y_hex = "011E"
+            record_count = $RabbitStream.record_count
+        }
     }
     safe_summary = [ordered]@{
         rabbit_driver = "bank04:L88E7 -> bank04:L8988 -> C051/D861"

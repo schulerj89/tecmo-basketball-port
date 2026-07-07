@@ -62,7 +62,7 @@
       "id": "run_bank07_helper_test",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --bank07-test",
-      "description": "Runs the native Bank07 fixed-helper C counterpart checks without loading ROM data or starting an emulator.",
+      "description": "Runs the native Bank07 fixed-helper C counterpart checks, including the decoded L88E7 CDAC IRQ setup contract, without loading ROM data or starting an emulator.",
       "expected_output": "BANK07 C HELPER SELF TEST PASS"
     },
     {
@@ -113,6 +113,13 @@
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode first-sprite-debug build\\first_sprite_test.png",
       "description": "Renders the first-sprite debug proof from the local decoded intro trace. Shows the first staged D861 sprite, the first visible rabbit sprite, and the full 16-record/64-byte rabbit stream table.",
       "expected_artifact": "build/first_sprite_test.png"
+    },
+    {
+      "id": "render_intro_l88e7_proof",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-l88e7-proof build\\intro_l88e7_proof_test.png",
+      "description": "Renders the Bank04 L88E7 first-intro proof with the local $89DD palette snapshot, the A7DB selector 0 stream, the A7DB selector 1 rabbit stream, the $0100=05 IRQ/vector interpretation, and the Bank00 PRESENTS data lead.",
+      "expected_artifact": "build/intro_l88e7_proof_test.png"
     },
     {
       "id": "render_intro_layout_lab",
@@ -374,6 +381,18 @@
       ]
     },
     {
+      "id": "shot_intro_l88e7_proof",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-l88e7-proof build\\intro_l88e7_proof_test.png",
+      "commit_safe": false,
+      "assertions": [
+        "PNG exists",
+        "PNG dimensions are 640x480",
+        "Frame shows Bank04 L88E7 seed values, the $89DD palette snapshot loaded by C05A/D700, A7DB selector 0, A7DB selector 1 rabbit stream, $0100=05 IRQ/vector target, and the Bank00 PRESENTS data lead",
+        "PNG remains in ignored build output"
+      ]
+    },
+    {
       "id": "shot_intro_layout_lab",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-presents build\\intro_presents_test.png",
@@ -597,6 +616,11 @@
       "tools/emu_intro_first_sprite_watch.lua is a FCEUX Lua watcher that logs $058D and $0200-$02FF OAM staging changes to ignored build/emu_intro_first_sprite_watch.ndjson for original-run comparison against the ignored first-sprite trace.",
       "The native runtime now boots into the current local intro splash when build/intro_composite_trace.json exists; Enter opens the launcher and Esc quits.",
       "The native launcher Title Screen now stages the decoded A7DB selector $01 rabbit rows in a fixed native buffer and renders a provisional local intro splash with the visual Bank 31/table 1 TECMO $180-$193 asset construction plus normal CHR glyphs for PRESENTS. Palette, $C05A background script decode, live CHR bank, and exact placement remain pending.",
+      "$C05A/$89DD is now modeled as a palette snapshot path, not a layout stream: fixed $C05A jumps to $D700, copies 16 bytes from Bank04 $89DD-$89EC into the local palette staging area, and the new L88E7 proof render displays those bytes beside the two A7DB streams.",
+      "Bank04 L88E7 seeds $88=A8, $8A=3C, $0352=01, $0100=05, $57=08, and $58=09 before calling L8988. The decoded first intro proof shows A7DB selector $00 as a 55-record companion OAM stream and A7DB selector $01 as the 16-record rabbit stream.",
+      "$0352/$0100 are now separated from the PRESENTS text search: the fixed NMI tail writes $0352 to mapper registers and uses $0100=05 to select IRQ/vector target $FCF6, while the normal-letter PRESENTS glyph data lead is in the Bank00 C-0191 text/layout stream around bank00:$8549.",
+      "The Bank07 native self-test now includes the decoded L88E7 $CDAC IRQ setup contract: with $0352=01, $0100=05, $05B6 bit 0 set, $0305=0, $0301=32, and $88=A8, the model selects IRQ vector $FCF6 and produces the expected phase latch/address values.",
+      "The next original-intro decode target is the Bank00 stream interpreter that consumes the PRESENTS data lead and establishes exact placement, instead of guessing from CHR tiles alone.",
       "The native launcher exposes a Title Screen mode before the Play Game intro splash/probe mode so the title remains reachable from the menu.",
       "The native launcher exposes an Intro Lab builder that renders the selected local-only CHR sheet, lets the user place selected tiles onto a target canvas, shows local placement records, and can save ignored placement JSON.",
       "The native launcher exposes a CHR Playground that renders selected-bank/table tile IDs $080-$0AF or $180-$1AF and assembled title glyphs for number/letter verification.",

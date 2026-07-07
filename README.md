@@ -74,6 +74,7 @@ $env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
 .\build\tecmo_port.exe --render-test-mode rosters build\rosters_test.png
 .\build\tecmo_port.exe --render-test-mode first-sprite build\first_sprite_test.png
 .\build\tecmo_port.exe --render-test-mode first-sprite-debug build\first_sprite_debug_test.png
+.\build\tecmo_port.exe --render-test-mode intro-l88e7-proof build\intro_l88e7_proof_test.png
 .\build\tecmo_port.exe --render-test-mode play build\play_test.png
 .\build\tecmo_port.exe --render-test-mode play-setup build\play_setup_test.png
 .\build\tecmo_port.exe --render-test-mode original-title build\original_title_test.png
@@ -102,7 +103,7 @@ Run the native Bank07 fixed-helper C counterpart test:
 .\build\tecmo_port.exe --bank07-test
 ```
 
-This validates the first fixed-bank native capability layer: sprite/OAM staging, unused-OAM hiding, setup-byte copy, and 8x16 sprite tile-pair mapping. It does not emulate the NES CPU or run the original ROM.
+This validates the first fixed-bank native capability layer: sprite/OAM staging, unused-OAM hiding, setup-byte copy, 8x16 sprite tile-pair mapping, and the decoded L88E7 `$CDAC` IRQ setup contract. It does not emulate the NES CPU or run the original ROM.
 
 Trace the local-only boot handoff from Bank07 reset/bootstrap to the first Bank04 intro script target:
 
@@ -187,7 +188,7 @@ Decode the local-only Bank 04 composite intro streams and render a private CHR p
 
 That writes ignored `build\intro_composite_trace.json` and `build\intro_composite_trace_preview.png`; do not commit those generated files.
 
-When that ignored trace JSON is present, the runtime Title Screen loads it locally and renders a first rabbit plus asset-backed `TECMO` splash. The visible `TECMO` word uses the Bank 31/table 1 `$180-$193` construction; the rabbit is drawn from the decoded `$A7DB` selector `$01` trace. Palette, live CHR bank, and exact scroll/base state are still under investigation.
+When that ignored trace JSON is present, the runtime Title Screen loads it locally and renders a first rabbit plus asset-backed `TECMO` splash. The visible `TECMO` word uses the Bank 31/table 1 `$180-$193` construction; the rabbit is drawn from the decoded `$A7DB` selector `$01` trace. The `intro-l88e7-proof` render mode shows the Bank 04 `L88E7` seed values, the `$89DD` palette snapshot loaded by `$C05A/$D700`, both `$A7DB` selector streams, the `$0100=05` IRQ/vector interpretation, and the Bank 00 normal-letter `PRESENTS` data lead. Palette, live CHR bank, exact scroll/base state, and the Bank 00 stream interpreter that places `PRESENTS` are still under investigation.
 
 To compare the original run in FCEUX, load this Lua script after opening the private local rebuilt NES image:
 

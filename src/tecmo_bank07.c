@@ -9,6 +9,17 @@
 #define BANK07_SETUP_NIBBLE_BASE 0x031EU
 #define BANK07_MAX_OAM_SPRITES 64U
 
+typedef struct Bank07L88E7IrqProof {
+    uint8_t irq_latch;
+    uint8_t irq_reload;
+    uint16_t irq_vector;
+    bool irq_enabled;
+    uint8_t phase0_latch;
+    uint8_t phase1_latch;
+    uint16_t phase1_ppu_address;
+    uint16_t phase2_ppu_address;
+} Bank07L88E7IrqProof;
+
 static void set_bank07_message(char *dest, size_t dest_size, const char *text)
 {
     if (dest == NULL || dest_size == 0) {
@@ -85,6 +96,38 @@ void tecmo_bank07_sprite_8x16_pair_for_table(uint8_t oam_tile_low,
     out_tiles[1] = (uint16_t)(out_tiles[0] + 1U);
 }
 
+static bool model_bank07_l88e7_cdac_irq_setup(const TecmoGameMemory *memory, Bank07L88E7IrqProof *proof)
+{
+    uint8_t vector_index;
+    if (memory == NULL || proof == NULL) {
+        return false;
+    }
+
+    memset(proof, 0, sizeof(*proof));
+    proof->irq_enabled = (tecmo_cpu_ram_read(memory, 0x05B6U) & 0x01U) != 0U;
+
+    if (tecmo_cpu_ram_read(memory, 0x0305U) != 0U) {
+        proof->irq_latch = 0x1FU;
+        proof->irq_reload = 0x1FU;
+        proof->irq_vector = 0xFE92U;
+        return true;
+    }
+
+    proof->irq_latch = tecmo_cpu_ram_read(memory, 0x0352U);
+    proof->irq_reload = proof->irq_latch;
+    vector_index = tecmo_cpu_ram_read(memory, 0x0100U);
+    if (vector_index != 0x05U) {
+        return false;
+    }
+
+    proof->irq_vector = 0xFCF6U;
+    proof->phase0_latch = (uint8_t)(0x78U - tecmo_cpu_ram_read(memory, 0x0301U));
+    proof->phase1_latch = (uint8_t)(tecmo_cpu_ram_read(memory, 0x0088U) + tecmo_cpu_ram_read(memory, 0x0301U));
+    proof->phase1_ppu_address = 0x0400U;
+    proof->phase2_ppu_address = 0x0200U;
+    return true;
+}
+
 static bool check_oam_entry(const TecmoBank07OamSprite *entry,
                             uint8_t y,
                             uint8_t tile,
@@ -107,6 +150,7 @@ bool tecmo_bank07_self_test(char *message, size_t message_size)
     const TecmoBank07SpriteStageConfig config = {10, 20, 0x0DU, 0x10U};
     TecmoBank07OamSprite entries[3];
     TecmoGameMemory memory;
+    Bank07L88E7IrqProof irq_proof;
     uint8_t setup[16];
     uint16_t pair[2] = {0, 0};
     size_t count;
@@ -183,6 +227,26 @@ bool tecmo_bank07_self_test(char *message, size_t message_size)
     tecmo_bank07_sprite_8x16_pair_for_table(0x80U, 0U, pair);
     if (pair[0] != 0x080U || pair[1] != 0x081U) {
         set_bank07_message(message, message_size, "BANK07 SPRITE TABLE ZERO PAIR CONTRACT FAILED");
+        return false;
+    }
+
+    memset(&memory, 0, sizeof(memory));
+    tecmo_cpu_ram_write(&memory, 0x0352U, 0x01U);
+    tecmo_cpu_ram_write(&memory, 0x0100U, 0x05U);
+    tecmo_cpu_ram_write(&memory, 0x05B6U, 0x01U);
+    tecmo_cpu_ram_write(&memory, 0x0305U, 0x00U);
+    tecmo_cpu_ram_write(&memory, 0x0301U, 0x32U);
+    tecmo_cpu_ram_write(&memory, 0x0088U, 0xA8U);
+    if (!model_bank07_l88e7_cdac_irq_setup(&memory, &irq_proof) ||
+        irq_proof.irq_latch != 0x01U ||
+        irq_proof.irq_reload != 0x01U ||
+        irq_proof.irq_vector != 0xFCF6U ||
+        !irq_proof.irq_enabled ||
+        irq_proof.phase0_latch != 0x46U ||
+        irq_proof.phase1_latch != 0xDAU ||
+        irq_proof.phase1_ppu_address != 0x0400U ||
+        irq_proof.phase2_ppu_address != 0x0200U) {
+        set_bank07_message(message, message_size, "BANK07 L88E7 IRQ SETUP CONTRACT FAILED");
         return false;
     }
 

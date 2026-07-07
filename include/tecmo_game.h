@@ -48,7 +48,7 @@ typedef enum TecmoPlayMode {
 
 #define TECMO_MAX_INTRO_PLACEMENTS 32
 #define TECMO_MAX_INTRO_PLACEMENT_TILES 8
-#define TECMO_MAX_INTRO_TRACE_SPRITES 96
+#define TECMO_MAX_INTRO_TRACE_SPRITES 192
 
 typedef struct TecmoIntroPlacement {
     bool active;
@@ -118,8 +118,14 @@ typedef struct TecmoRuntime {
     TecmoIntroTraceSprite intro_trace_sprites[TECMO_MAX_INTRO_TRACE_SPRITES];
     size_t intro_trace_sprite_count;
     uint32_t intro_trace_chr_bank;
+    uint8_t intro_l88e7_palette[16];
+    char intro_l88e7_irq_vector[16];
+    char intro_presents_data_cpu[16];
     bool intro_trace_available;
     bool intro_trace_truncated;
+    bool intro_l88e7_palette_available;
+    bool intro_l88e7_irq_vector_available;
+    bool intro_presents_data_available;
     char intro_trace_status[96];
     TecmoPlayMode mode;
     bool quit_requested;
@@ -158,6 +164,7 @@ uint16_t tecmo_intro_oam_tile_pair_bottom(uint8_t oam_tile_low, uint32_t chr_tab
 void tecmo_render_original_title_probe(TecmoFramebuffer *framebuffer, const char *title_text);
 void tecmo_render_intro_c051_d861_model(TecmoFramebuffer *framebuffer);
 void tecmo_render_first_sprite_probe(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
+void tecmo_render_intro_l88e7_proof(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
                                            const TecmoOriginalTitleGlyphs *glyphs,
                                            const uint8_t *chr_bytes,

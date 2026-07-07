@@ -17,6 +17,7 @@
 #define INTRO_TRACE_GROUP_RABBIT 1U
 #define INTRO_TRACE_GROUP_TECMO_STREAM 2U
 #define INTRO_TRACE_GROUP_TECMO_LOGO 3U
+#define INTRO_TRACE_GROUP_A7DB_SELECTOR0 4U
 
 static bool pressed(bool now, bool before)
 {
@@ -511,6 +512,51 @@ static bool parse_json_hex_byte_field(const char *start, const char *end, const 
     return true;
 }
 
+static bool parse_json_hex_byte_array_after(const char *start,
+                                            const char *end,
+                                            const char *key,
+                                            uint8_t *out,
+                                            size_t out_count)
+{
+    const char *value = find_json_value(start, end, key);
+    const char *cursor;
+    size_t count = 0;
+
+    if (out == NULL || out_count == 0 || value == NULL || value >= end || *value != '[') {
+        return false;
+    }
+    cursor = value + 1;
+    while (cursor < end && count < out_count) {
+        char text[8];
+        char *parse_end;
+        size_t len;
+        unsigned long parsed;
+        const char *open = strchr(cursor, '"');
+        const char *close;
+        if (open == NULL || open >= end) {
+            break;
+        }
+        close = strchr(open + 1, '"');
+        if (close == NULL || close >= end) {
+            break;
+        }
+        len = (size_t)(close - open - 1);
+        if (len == 0 || len >= sizeof(text)) {
+            return false;
+        }
+        memcpy(text, open + 1, len);
+        text[len] = '\0';
+        parsed = strtoul(text, &parse_end, 16);
+        if (parse_end == text || parsed > 0xFFUL) {
+            return false;
+        }
+        out[count++] = (uint8_t)parsed;
+        cursor = close + 1;
+    }
+
+    return count == out_count;
+}
+
 static void append_intro_trace_sprite(TecmoRuntime *runtime,
                                       uint8_t group,
                                       uint8_t tile_low,
@@ -546,8 +592,7 @@ static bool load_intro_trace_from_json(TecmoRuntime *runtime, const char *json, 
 {
     const char *json_end = json + json_size;
     const char *primary = strstr(json, "\"primary_streams\"");
-    const char *sweep = primary != NULL ? strstr(primary, "\"selector_sweep_streams\"") : NULL;
-    const char *section_end = sweep != NULL ? sweep : json_end;
+    const char *section_end = json_end;
     const char *cursor = primary != NULL ? primary : json;
     int chr_bank = 31;
 
@@ -558,6 +603,21 @@ static bool load_intro_trace_from_json(TecmoRuntime *runtime, const char *json, 
     runtime->intro_trace_chr_bank = (uint32_t)chr_bank;
     runtime->intro_trace_sprite_count = 0;
     runtime->intro_trace_truncated = false;
+    runtime->intro_l88e7_palette_available = parse_json_hex_byte_array_after(json,
+                                                                             json_end,
+                                                                             "palette_snapshot_bytes_hex",
+                                                                             runtime->intro_l88e7_palette,
+                                                                             sizeof(runtime->intro_l88e7_palette));
+    runtime->intro_l88e7_irq_vector_available = parse_json_string_field(json,
+                                                                        json_end,
+                                                                        "vector_target_cpu",
+                                                                        runtime->intro_l88e7_irq_vector,
+                                                                        sizeof(runtime->intro_l88e7_irq_vector));
+    runtime->intro_presents_data_available = parse_json_string_field(json,
+                                                                     json_end,
+                                                                     "presents_match_cpu",
+                                                                     runtime->intro_presents_data_cpu,
+                                                                     sizeof(runtime->intro_presents_data_cpu));
 
     while (cursor < section_end) {
         const char *component_pos = strstr(cursor, "\"component\"");
@@ -593,6 +653,9 @@ static bool load_intro_trace_from_json(TecmoRuntime *runtime, const char *json, 
                 if (strcmp(role, "tecmo_logo_candidate") == 0) {
                     append_intro_trace_sprite(runtime, INTRO_TRACE_GROUP_TECMO_LOGO, tile_low, attributes, screen_x, screen_y);
                 }
+            } else if (strcmp(component, "a7db_selector0") == 0) {
+                append_intro_trace_sprite(runtime, INTRO_TRACE_GROUP_A7DB_SELECTOR0, tile_low, attributes, screen_x, screen_y);
+                appended = true;
             }
         }
         (void)appended;
@@ -638,6 +701,10 @@ static void load_intro_trace(TecmoRuntime *runtime, const char *project_root)
     runtime->intro_trace_chr_bank = 31U;
     runtime->intro_trace_sprite_count = 0;
     runtime->intro_trace_truncated = false;
+    runtime->intro_l88e7_irq_vector_available = false;
+    runtime->intro_presents_data_available = false;
+    runtime->intro_l88e7_irq_vector[0] = '\0';
+    runtime->intro_presents_data_cpu[0] = '\0';
     set_runtime_status(runtime->intro_trace_status,
                        sizeof(runtime->intro_trace_status),
                        "RUN TOOLS FIND-INTROCOMPOSITETRACE FIRST");
@@ -666,9 +733,10 @@ static void load_intro_trace(TecmoRuntime *runtime, const char *project_root)
     if (load_intro_trace_from_json(runtime, json, json_size)) {
         (void)snprintf(runtime->intro_trace_status,
                        sizeof(runtime->intro_trace_status),
-                       "LOCAL TRACE %u SPRITES R%u A%u L%u",
+                       "LOCAL TRACE %u SPRITES R%u S0%u A%u L%u",
                        (unsigned)runtime->intro_trace_sprite_count,
                        (unsigned)intro_trace_group_count(runtime, INTRO_TRACE_GROUP_RABBIT),
+                       (unsigned)intro_trace_group_count(runtime, INTRO_TRACE_GROUP_A7DB_SELECTOR0),
                        (unsigned)intro_trace_group_count(runtime, INTRO_TRACE_GROUP_TECMO_STREAM),
                        (unsigned)intro_trace_group_count(runtime, INTRO_TRACE_GROUP_TECMO_LOGO));
     } else {
@@ -2255,6 +2323,32 @@ static void draw_intro_trace_group(TecmoFramebuffer *fb,
     }
 }
 
+static void draw_intro_trace_group_scaled_box(TecmoFramebuffer *fb,
+                                              const TecmoRuntime *runtime,
+                                              uint8_t group,
+                                              int target_x,
+                                              int target_y,
+                                              int scale,
+                                              uint32_t border)
+{
+    int min_x;
+    int min_y;
+    int max_x;
+    int max_y;
+    int width;
+    int height;
+
+    if (!get_intro_trace_bounds(runtime, group, &min_x, &min_y, &max_x, &max_y)) {
+        draw_text(fb, target_x, target_y, "NO RECORDS PARSED", rgb(232, 92, 76), 1);
+        return;
+    }
+
+    width = (max_x - min_x) * scale;
+    height = (max_y - min_y) * scale;
+    outline_rect(fb, target_x - 2, target_y - 2, width + 4, height + 4, border);
+    draw_intro_trace_group(fb, runtime, group, target_x, target_y, scale);
+}
+
 static const TecmoIntroTraceSprite *find_intro_trace_sprite(const TecmoRuntime *runtime,
                                                             uint8_t group,
                                                             bool require_visible,
@@ -2313,6 +2407,30 @@ static void describe_intro_trace_sprite(const TecmoIntroTraceSprite *sprite,
                    (unsigned)oam_x,
                    (unsigned)pair_top,
                    (unsigned)pair_bottom);
+}
+
+static void describe_intro_trace_sprite_short(const TecmoIntroTraceSprite *sprite,
+                                              size_t record_index,
+                                              const char *prefix,
+                                              char *out,
+                                              size_t out_size)
+{
+    if (out == NULL || out_size == 0) {
+        return;
+    }
+    if (sprite == NULL) {
+        (void)snprintf(out, out_size, "%s MISSING", prefix);
+        return;
+    }
+    (void)snprintf(out,
+                   out_size,
+                   "%s R%02u Y%02X T%02X A%02X X%02X",
+                   prefix,
+                   (unsigned)record_index,
+                   (unsigned)((uint8_t)sprite->screen_y),
+                   (unsigned)sprite->tile_low,
+                   (unsigned)sprite->attributes,
+                   (unsigned)((uint8_t)sprite->screen_x));
 }
 
 static void draw_intro_trace_byte_table(const TecmoRuntime *runtime,
@@ -2421,6 +2539,107 @@ void tecmo_render_first_sprite_probe(const TecmoRuntime *runtime, TecmoFramebuff
     draw_text(fb, 24, 464, runtime->intro_trace_status, rgb(92, 116, 128), 1);
 }
 
+static void draw_l88e7_seed_panel(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+{
+    char line[160];
+    rect(fb, 24, 62, 592, 96, rgb(12, 14, 18));
+    outline_rect(fb, 24, 62, 592, 96, rgb(66, 78, 88));
+    draw_text(fb, 40, 78, "BANK04 L88E7 SEEDS", rgb(252, 236, 118), 1);
+    draw_text(fb, 40, 96, "$88=A8  $8A=3C  $0352=01  $0100=05  CHR SLOTS $57=08 $58=09", rgb(230, 232, 214), 1);
+    draw_text(fb, 40, 112, "C05A -> D700 LOADS PALETTE SNAPSHOT $89DD, NOT SPRITE PLACEMENT", rgb(142, 174, 190), 1);
+    (void)snprintf(line,
+                   sizeof(line),
+                   "$0100=05 -> IRQ %s   PRESENTS DATA -> %s",
+                   runtime->intro_l88e7_irq_vector_available ? runtime->intro_l88e7_irq_vector : "UNRESOLVED",
+                   runtime->intro_presents_data_available ? runtime->intro_presents_data_cpu : "UNRESOLVED");
+    draw_text(fb, 40, 130, line, rgb(142, 174, 190), 1);
+
+    if (runtime->intro_l88e7_palette_available) {
+        for (size_t row = 0; row < 4U; ++row) {
+            (void)snprintf(line,
+                           sizeof(line),
+                           "%02X %02X %02X %02X",
+                           (unsigned)runtime->intro_l88e7_palette[row * 4U + 0U],
+                           (unsigned)runtime->intro_l88e7_palette[row * 4U + 1U],
+                           (unsigned)runtime->intro_l88e7_palette[row * 4U + 2U],
+                           (unsigned)runtime->intro_l88e7_palette[row * 4U + 3U]);
+            draw_text(fb, 410, 78 + (int)row * 15, line, rgb(230, 232, 214), 1);
+        }
+    } else {
+        draw_text(fb, 410, 96, "PALETTE BYTES NEED TRACE REGEN", rgb(232, 92, 76), 1);
+    }
+}
+
+static void draw_l88e7_group_summary(const TecmoRuntime *runtime,
+                                     TecmoFramebuffer *fb,
+                                     uint8_t group,
+                                     const char *prefix,
+                                     int x,
+                                     int y)
+{
+    const TecmoIntroTraceSprite *first_staged;
+    const TecmoIntroTraceSprite *first_visible;
+    size_t first_staged_index = 0;
+    size_t first_visible_index = 0;
+    char line[192];
+
+    first_staged = find_intro_trace_sprite(runtime, group, false, &first_staged_index);
+    first_visible = find_intro_trace_sprite(runtime, group, true, &first_visible_index);
+    draw_text(fb, x, y, prefix, rgb(252, 236, 118), 1);
+    describe_intro_trace_sprite_short(first_staged, first_staged_index, "FIRST", line, sizeof(line));
+    draw_text(fb, x, y + 16, line, rgb(230, 232, 214), 1);
+    describe_intro_trace_sprite_short(first_visible, first_visible_index, "VISIBLE", line, sizeof(line));
+    draw_text(fb, x, y + 32, line, rgb(142, 174, 190), 1);
+}
+
+void tecmo_render_intro_l88e7_proof(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+{
+    char line[192];
+    size_t selector0_count;
+    size_t selector1_count;
+
+    clear(fb, rgb(0, 0, 0));
+    rect(fb, 0, 0, fb->width, 52, rgb(18, 18, 34));
+    draw_text(fb, 24, 18, "BANK04 L88E7 FIRST INTRO PROOF", rgb(248, 248, 232), 2);
+
+    if (!runtime->title_probe_available || !runtime->intro_trace_available) {
+        draw_centered_text(fb, 206, "LOCAL INTRO TRACE OR CHR DATA MISSING", rgb(252, 236, 170), 2);
+        draw_centered_text(fb, 242, "RUN TOOLS FIND-INTROCOMPOSITETRACE FIRST", rgb(230, 232, 214), 1);
+        draw_centered_text(fb, 264, runtime->intro_trace_status, rgb(142, 174, 190), 1);
+        return;
+    }
+
+    selector0_count = intro_trace_group_count(runtime, INTRO_TRACE_GROUP_A7DB_SELECTOR0);
+    selector1_count = intro_trace_group_count(runtime, INTRO_TRACE_GROUP_RABBIT);
+    draw_l88e7_seed_panel(runtime, fb);
+
+    rect(fb, 24, 164, 276, 284, rgb(12, 14, 18));
+    outline_rect(fb, 24, 164, 276, 284, rgb(66, 78, 88));
+    (void)snprintf(line,
+                   sizeof(line),
+                   "STREAM0 A7DB SEL00  BASE X00 Y0000  %02u REC",
+                   (unsigned)selector0_count);
+    draw_text(fb, 38, 180, line, rgb(252, 236, 118), 1);
+    draw_intro_trace_group_scaled_box(fb, runtime, INTRO_TRACE_GROUP_A7DB_SELECTOR0, 44, 188, 1, rgb(100, 118, 132));
+    draw_l88e7_group_summary(runtime, fb, INTRO_TRACE_GROUP_A7DB_SELECTOR0, "SELECTOR 0 OAM SUMMARY", 112, 214);
+
+    rect(fb, 324, 164, 292, 284, rgb(12, 14, 18));
+    outline_rect(fb, 324, 164, 292, 284, rgb(66, 78, 88));
+    (void)snprintf(line,
+                   sizeof(line),
+                   "STREAM1 A7DB SEL01  BASE XB8 Y011E  %02u REC",
+                   (unsigned)selector1_count);
+    draw_text(fb, 338, 180, line, rgb(252, 236, 118), 1);
+    draw_intro_trace_group_scaled_box(fb, runtime, INTRO_TRACE_GROUP_RABBIT, 382, 214, 3, rgb(100, 118, 132));
+    draw_l88e7_group_summary(runtime, fb, INTRO_TRACE_GROUP_RABBIT, "SELECTOR 1 RABBIT SUMMARY", 338, 406);
+
+    (void)snprintf(line,
+                   sizeof(line),
+                   "NEXT: DECODE BANK00 STREAM INTERPRETER THAT PLACES PRESENTS FROM %s",
+                   runtime->intro_presents_data_available ? runtime->intro_presents_data_cpu : "DATA LEAD");
+    draw_text(fb, 24, 456, line, rgb(92, 116, 128), 1);
+}
+
 static void draw_intro_visual_tecmo_logo(TecmoFramebuffer *fb,
                                          const TecmoRuntime *runtime,
                                          int x,
@@ -2467,22 +2686,31 @@ static void draw_intro_presents_text(TecmoFramebuffer *fb,
         0xFFFFFFFFU,
         0xFFFFFFFFU,
     };
+    const char *text = "PRESENTS";
 
-    if (runtime->intro_glyphs.glyph_count >= 14U) {
-        draw_title_glyph_range_palette(fb,
-                                       runtime->title_chr_bytes,
-                                       runtime->title_chr_byte_count,
-                                       runtime->intro_trace_chr_bank,
-                                       0U,
-                                       &runtime->intro_glyphs,
-                                       6U,
-                                       8U,
-                                       x,
-                                       y,
-                                       scale,
-                                       presents_palette);
-    } else {
-        draw_text(fb, x, y, "PRESENTS", rgb(248, 248, 232), scale);
+    for (size_t i = 0; text[i] != '\0'; ++i) {
+        uint16_t tile = 0x080U;
+        char c = text[i];
+        if (c >= '0' && c <= '9') {
+            tile = (uint16_t)(0x082U + (uint16_t)(c - '0'));
+        } else if (c >= 'A' && c <= 'D') {
+            tile = (uint16_t)(0x08CU + (uint16_t)(c - 'A'));
+        } else if (c >= 'E' && c <= 'T') {
+            tile = (uint16_t)(0x090U + (uint16_t)(c - 'E'));
+        } else if (c >= 'U' && c <= 'Z') {
+            tile = (uint16_t)(0x0A0U + (uint16_t)(c - 'U'));
+        }
+        draw_chr_tile_ex(fb,
+                         runtime->title_chr_bytes,
+                         runtime->title_chr_byte_count,
+                         runtime->intro_trace_chr_bank,
+                         tile,
+                         x + (int)i * 8 * scale,
+                         y,
+                         scale,
+                         presents_palette,
+                         false,
+                         false);
     }
 }
 
@@ -2492,12 +2720,12 @@ static void render_intro_trace_title_common(const TecmoRuntime *runtime,
 {
     const int rabbit_scale = 3;
     const int logo_scale = 4;
-    const int presents_scale = 2;
+    const int presents_scale = 3;
     const int logo_x = 228;
     const int logo_y = 178;
     const int rabbit_x = 156;
     const int rabbit_y = 96;
-    const int presents_x = 276;
+    const int presents_x = 292;
     const int presents_y = 286;
 
     clear(fb, rgb(0, 0, 0));
