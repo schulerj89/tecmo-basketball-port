@@ -224,6 +224,14 @@ tools\emu_intro_memory_watch.lua
 
 That watcher now runs in a conservative FCEUX-safe mode: it logs `$0200-$02FF` OAM frame diffs, `$1200` mirror checks, `$03A0` queue changes, compact `$2006/$2007` nametable/attribute/palette write batches, and MMC3 `$8000/$8001` bank writes. It writes ignored `build\emu_intro_memory_watch.ndjson`; send that log back when matching intro screens.
 
+For the arena bottom-strip/IRQ CHR split, use the narrow watcher:
+
+```text
+tools\emu_intro_arena_irq_watch.lua
+```
+
+It waits for the arena mapper setup (`R0=$14`, `R1=$16`), captures a short window of MMC3 CHR slot changes, IRQ writes, `$2005` scroll pairs, compact OAM facts, and small PPU row snapshots, then resets/writes ignored `build\emu_intro_arena_irq_watch.ndjson` and `build\emu_intro_arena_irq_watch.log`.
+
 Prototype controls:
 
 ```text
