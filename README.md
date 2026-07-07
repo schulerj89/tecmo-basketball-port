@@ -216,7 +216,7 @@ For a broader intro memory capture, use:
 tools\emu_intro_memory_watch.lua
 ```
 
-That watcher logs OAM shadow writes/frame diffs for `$0200-$02FF`, `$1200` mirror checks, `$03A0` queue changes, `$2006/$2007` PPU writes, MMC3 `$8000/$8001` bank writes, and focused nametable bytes around `$2100`. It writes ignored `build\emu_intro_memory_watch.ndjson`; send that log back when matching the rabbit and `TECMO` sequence.
+That watcher now runs in a conservative FCEUX-safe mode: it logs `$0200-$02FF` OAM frame diffs, `$1200` mirror checks, `$03A0` queue changes, compact `$2006/$2007` nametable/attribute/palette write batches, and MMC3 `$8000/$8001` bank writes. It writes ignored `build\emu_intro_memory_watch.ndjson`; send that log back when matching intro screens.
 
 Prototype controls:
 

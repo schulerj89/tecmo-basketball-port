@@ -16,9 +16,12 @@
 -- This writes only local ignored logs. It does not dump ROM, CHR, or ASM bytes.
 
 local WATCH_SECONDS = 30
-local MAX_WRITE_EVENTS = 1200
-local MAX_PPU_EVENTS = 2400
-local MAX_NAMETABLE_EVENTS = 600
+local MAX_WRITE_EVENTS = 300
+local MAX_PPU_EVENTS = 600
+local MAX_NAMETABLE_EVENTS = 160
+local ENABLE_OAM_WRITE_HOOKS = false
+local ENABLE_PPU_MEMORY_SNAPSHOTS = false
+local PPU_MEMORY_SNAPSHOT_FRAMES = { [0] = true, [60] = true, [120] = true, [180] = true }
 local OAM_BASE = 0x0200
 local OAM_MIRROR_BASE = 0x1200
 local OAM_SIZE = 0x100
@@ -70,11 +73,14 @@ local ppu_addr = nil
 local ppu_ctrl = 0
 local mapper_select = 0
 local started_frame = nil
-local previous_full_nametable_signature = ""
-local previous_nametable_signature = ""
 local previous_queue_signature = ""
-local previous_palette_signature = ""
-local previous_attribute_signature = ""
+local logged_ppu_snapshot_frames = {}
+local pending_ppu_ctrl_writes = {}
+local pending_ppu_addr_writes = {}
+local pending_mapper_writes = {}
+local pending_nametable_writes = {}
+local pending_attribute_writes = {}
+local pending_palette_writes = {}
 
 local function append_line(path, line)
   local h = io.open(path, "a")
@@ -273,6 +279,63 @@ local function log_nametable_event(kind, detail, extra)
   log_compact_event(kind, detail, extra)
 end
 
+local function append_pending(parts, item)
+  if #parts < 1024 then
+    parts[#parts + 1] = item
+  end
+end
+
+local function clear_pending(parts)
+  for i = #parts, 1, -1 do
+    parts[i] = nil
+  end
+end
+
+local function flush_pending_ppu_writes()
+  local ppu_ctrl_writes = table.concat(pending_ppu_ctrl_writes, ",")
+  local ppu_addr_writes = table.concat(pending_ppu_addr_writes, ",")
+  local mapper_writes = table.concat(pending_mapper_writes, ",")
+  local nametable = table.concat(pending_nametable_writes, ",")
+  local attributes = table.concat(pending_attribute_writes, ",")
+  local palette = table.concat(pending_palette_writes, ",")
+  if ppu_ctrl_writes ~= "" then
+    log_ppu_event("ppu_ctrl_write_batch",
+      "batched PPUCTRL writes",
+      string.format(",\"ppu_ctrl_writes\":\"%s\"", json_escape(ppu_ctrl_writes)))
+  end
+  if ppu_addr_writes ~= "" then
+    log_ppu_event("ppu_addr_write_batch",
+      "batched PPUADDR complete writes",
+      string.format(",\"ppu_addr_writes\":\"%s\"", json_escape(ppu_addr_writes)))
+  end
+  if mapper_writes ~= "" then
+    log_ppu_event("mapper_write_batch",
+      "batched MMC3 mapper writes",
+      string.format(",\"mapper_writes\":\"%s\"", json_escape(mapper_writes)))
+  end
+  if nametable ~= "" then
+    log_nametable_event("ppu_nametable_write_batch",
+      "batched non-FF PPUDATA nametable writes",
+      string.format(",\"nametable_writes\":\"%s\"", json_escape(nametable)))
+  end
+  if attributes ~= "" then
+    log_nametable_event("ppu_attribute_write_batch",
+      "batched PPUDATA attribute writes",
+      string.format(",\"attribute_writes\":\"%s\"", json_escape(attributes)))
+  end
+  if palette ~= "" then
+    log_nametable_event("ppu_palette_write_batch",
+      "batched PPUDATA palette writes",
+      string.format(",\"palette_writes\":\"%s\"", json_escape(palette)))
+  end
+  clear_pending(pending_nametable_writes)
+  clear_pending(pending_attribute_writes)
+  clear_pending(pending_palette_writes)
+  clear_pending(pending_ppu_ctrl_writes)
+  clear_pending(pending_ppu_addr_writes)
+  clear_pending(pending_mapper_writes)
+end
+
 local function log_write(addr, value)
   if write_event_count >= MAX_WRITE_EVENTS then return end
   write_event_count = write_event_count + 1
@@ -389,15 +452,13 @@ local function register_write_hook(base)
 end
 
 local function handle_mapper_write(addr, value)
-  if ppu_event_count >= MAX_PPU_EVENTS then return end
   if addr == 0x8000 then
     mapper_select = value or 0
-    log_ppu_event("mapper_select_write", "MMC3 bank register select",
-      string.format(",\"addr\":\"%s\",\"value\":\"%s\"", hex4(addr), hex2(mapper_select)))
+    append_pending(pending_mapper_writes,
+      string.format("%s=%s", hex4(addr), hex2(mapper_select)))
   elseif addr == 0x8001 then
-    log_ppu_event("mapper_bank_write", "MMC3 selected bank register value",
-      string.format(",\"addr\":\"%s\",\"select\":\"%s\",\"value\":\"%s\"",
-        hex4(addr), hex2(mapper_select), hex2(value)))
+    append_pending(pending_mapper_writes,
+      string.format("%s[%s]=%s", hex4(addr), hex2(mapper_select), hex2(value)))
   end
 end
 
@@ -407,29 +468,30 @@ local function handle_ppu_write(addr, value)
 
   if reg == 0x2000 then
     ppu_ctrl = value
-    log_ppu_event("ppu_ctrl_write", "PPUCTRL write",
-      string.format(",\"addr\":\"%s\",\"value\":\"%s\",\"increment\":%d",
-        hex4(addr), hex2(value), ppu_increment()))
+    append_pending(pending_ppu_ctrl_writes,
+      string.format("%s=%s/inc%d", hex4(addr), hex2(value), ppu_increment()))
   elseif reg == 0x2006 then
     if ppu_addr_latch_high then
       ppu_addr_high = value % 0x40
       ppu_addr_latch_high = false
-      log_ppu_event("ppu_addr_high_write", "PPUADDR high byte",
-        string.format(",\"addr\":\"%s\",\"value\":\"%s\"", hex4(addr), hex2(value)))
     else
       ppu_addr = ((ppu_addr_high * 0x100) + value) % 0x4000
       ppu_addr_latch_high = true
-      log_ppu_event("ppu_addr_write", "PPUADDR complete",
-        string.format(",\"addr\":\"%s\",\"value\":\"%s\",\"ppu_addr\":\"%s\"",
-          hex4(addr), hex2(value), hex4(ppu_addr)))
+      append_pending(pending_ppu_addr_writes,
+        string.format("%s", hex4(ppu_addr)))
     end
   elseif reg == 0x2007 then
     local current = ppu_addr
-    if should_log_ppu_tile(current, value) then
-      log_ppu_event("ppu_tile_write", "PPUDATA tile/palette write",
-        string.format(",\"addr\":\"%s\",\"value\":\"%s\",\"ppu_addr\":\"%s\",\"increment\":%d",
-          hex4(addr), hex2(value), current and hex4(current) or "????",
-          ppu_increment()))
+    if current ~= nil then
+      if current >= 0x2000 and current < 0x23C0 then
+        if value ~= 0xFF then
+          append_pending(pending_nametable_writes, string.format("%s=%s", hex4(current), hex2(value)))
+        end
+      elseif current >= ATTRIBUTE_TABLE_START and current < ATTRIBUTE_TABLE_START + ATTRIBUTE_TABLE_SIZE then
+        append_pending(pending_attribute_writes, string.format("%s=%s", hex4(current), hex2(value)))
+      elseif current >= PALETTE_RAM_START and current < PALETTE_RAM_START + PALETTE_RAM_SIZE then
+        append_pending(pending_palette_writes, string.format("%s=%s", hex4(current), hex2(value)))
+      end
     end
     if current ~= nil then
       ppu_addr = (current + ppu_increment()) % 0x4000
@@ -469,20 +531,22 @@ local function draw_overlay()
   gui.text(8, 28, string.format("$1200 mirror=%s writes=%d",
     mirror_matches() and "yes" or "no",
     write_event_count))
-  gui.text(8, 38, string.format("ppu events=%d nt=%s",
+  gui.text(8, 38, string.format("ppu events=%d mode=%s",
     ppu_event_count,
-    ppu_snapshot_available == nil and "?" or (ppu_snapshot_available and "yes" or "no")))
+    ppu_hook_active and "write-batch" or "hook-off"))
 end
 
 clear_file(STATE_FILE)
 clear_file(LOG_FILE)
 append_line(LOG_FILE, "intro memory watcher started")
-append_line(LOG_FILE, "watching $0200-$02FF, $1200-$12FF mirror, $03A0 queue, $2006/$2007, full PPU $2000-$23BF nametable rows, PPU $2100 focus, $23C0-$23FF attributes, and $3F00-$3F1F palette")
+append_line(LOG_FILE, "watching $0200-$02FF frame diffs, $1200-$12FF mirror, $03A0 queue, $2006/$2007 compact nametable/attribute/palette write batches, and MMC3 $8000/$8001 bank writes")
 
-write_hook_active = register_write_hook(OAM_BASE)
-write_hook_active = register_write_hook(OAM_MIRROR_BASE) or write_hook_active
+if ENABLE_OAM_WRITE_HOOKS then
+  write_hook_active = register_write_hook(OAM_BASE)
+  write_hook_active = register_write_hook(OAM_MIRROR_BASE) or write_hook_active
+end
 ppu_hook_active = register_ppu_hook()
-log_event("watch_started", write_hook_active and "write hooks active" or "write hooks unavailable; using per-frame diffs",
+log_event("watch_started", write_hook_active and "OAM write hooks active" or "OAM write hooks disabled; using per-frame diffs",
   string.format(",\"ppu_hooks_active\":%s", ppu_hook_active and "true" or "false"))
 
 while true do
@@ -509,42 +573,18 @@ while true do
     end
   end
 
-  local full_nametable = full_nametable_signature()
-  if full_nametable ~= previous_full_nametable_signature then
-    previous_full_nametable_signature = full_nametable
+  if ENABLE_PPU_MEMORY_SNAPSHOTS and
+     PPU_MEMORY_SNAPSHOT_FRAMES[current_frame()] == true and
+     logged_ppu_snapshot_frames[current_frame()] ~= true then
+    logged_ppu_snapshot_frames[current_frame()] = true
+    local full_nametable = full_nametable_signature()
     if full_nametable ~= "" then
-      log_nametable_event("ppu_nametable_full_snapshot_changed", "full PPU nametable rows changed",
+      log_nametable_event("ppu_nametable_full_snapshot_changed", "single full PPU nametable row snapshot",
         string.format(",\"nametable_full_rows\":\"%s\"", json_escape(full_nametable)))
     end
   end
 
-  local nametable = nametable_candidate_signature()
-  if nametable ~= previous_nametable_signature then
-    previous_nametable_signature = nametable
-    if nametable ~= "" then
-      log_nametable_event("ppu_nametable_candidate_changed", "PPU nametable candidate/focus bytes changed",
-        string.format(",\"nametable_candidates\":\"%s\"", json_escape(nametable)))
-    end
-  end
-
-  local palette = palette_ram_signature()
-  if palette ~= previous_palette_signature then
-    previous_palette_signature = palette
-    if palette ~= "" then
-      log_nametable_event("ppu_palette_snapshot_changed", "PPU palette RAM bytes changed",
-        string.format(",\"palette_ram\":\"%s\"", json_escape(palette)))
-    end
-  end
-
-  local attributes = attribute_table_signature()
-  if attributes ~= previous_attribute_signature then
-    previous_attribute_signature = attributes
-    if attributes ~= "" then
-      log_nametable_event("ppu_attribute_snapshot_changed", "PPU attribute table bytes changed",
-        string.format(",\"attribute_table\":\"%s\"", json_escape(attributes)))
-    end
-  end
-
+  flush_pending_ppu_writes()
   draw_overlay()
 
   if WATCH_SECONDS > 0 then
