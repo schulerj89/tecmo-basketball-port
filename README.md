@@ -73,6 +73,7 @@ $env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
 .\build\tecmo_port.exe --render-test-mode chr-playground-table1 build\chr_playground_table1_test.png
 .\build\tecmo_port.exe --render-test-mode rosters build\rosters_test.png
 .\build\tecmo_port.exe --render-test-mode first-sprite build\first_sprite_test.png
+.\build\tecmo_port.exe --render-test-mode first-sprite-debug build\first_sprite_debug_test.png
 .\build\tecmo_port.exe --render-test-mode play build\play_test.png
 .\build\tecmo_port.exe --render-test-mode play-setup build\play_setup_test.png
 .\build\tecmo_port.exe --render-test-mode original-title build\original_title_test.png
@@ -268,7 +269,7 @@ The shortcut points at the latest `build\tecmo_port.exe`, regenerates an origina
 - Count lifted chunks and labels
 - Parse local Bank 02 roster labels into C-friendly records
 - Export local CHR bytes and grayscale tile sheet PNGs for private inspection
-- Run a native Win32 playable prototype with explicit memory arenas, a first Bank07 fixed-helper C layer, source-backed title/CHR diagnostics, a Play Game first-sprite probe, bank/table-switchable intro/CHR labs, and roster browsing
+- Run a native Win32 playable prototype with explicit memory arenas, a first Bank07 fixed-helper C layer, source-backed title/CHR diagnostics, a Play Game intro splash backed by local CHR/trace data, a first-sprite debug proof, bank/table-switchable intro/CHR labs, and roster browsing
 
 The current playable mode is a native prototype, not a full recreation of the original game. It establishes the frame loop, input path, memory model, and data-loading boundary that future translated gameplay systems can plug into. The `original-title-chr` render test also loads a native title setup summary from the private local Bank 04 and fixed-bank baselines so setup helper/write/table/stream/staging counts, fixed-helper aggregate categories, fixed-bank vector counts, and palette/PPU probe counts can be verified without committing setup streams, palette values, helper code, or graphics.
 
@@ -287,7 +288,7 @@ The current runtime separates:
 
 - `TecmoGameMemory`: permanent/transient arenas plus NES-shaped RAM buffers for ported systems that still need mirrored RAM semantics
 - `tecmo_bank07`: native C counterparts for verified fixed-bank helper behavior used by translated systems
-- `TecmoRuntime`: game state, menu flow, first-sprite probe state, roster browsing, and deterministic frame update
+- `TecmoRuntime`: game state, menu flow, intro splash/probe state, roster browsing, and deterministic frame update
 - `TecmoFramebuffer`: platform-neutral software framebuffer consumed by the Win32 backend
 - `win32_platform.c`: temporary Windows window/input/presentation layer
 

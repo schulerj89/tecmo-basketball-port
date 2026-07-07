@@ -30,7 +30,7 @@
     "backend": "win32 software framebuffer",
     "game_core": "portable C runtime state plus explicit memory arenas",
     "asset_mode": "local development read-only scan/export tools; no committed proprietary data",
-    "known_status": "prototype launcher/menu, first native Bank07 fixed-helper C layer, source-backed title screen mode, Play Game first-sprite probe, bank/table-switchable intro builder lab, CHR playground, roster viewer"
+    "known_status": "prototype launcher/menu, first native Bank07 fixed-helper C layer, source-backed title screen mode, Play Game intro splash, first-sprite debug proof, bank/table-switchable intro builder lab, CHR playground, roster viewer"
   },
   "local_desktop_shortcut": {
     "status": "active",
@@ -55,7 +55,7 @@
       "id": "run_native_flow_test",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --flow-test",
-      "description": "Runs the headless runtime input-flow check that reaches rosters, enters the Play Game first-sprite probe, returns to menu, and confirms the quit path.",
+      "description": "Runs the headless runtime input-flow check that reaches rosters, enters the Play Game intro splash/probe mode, returns to menu, and confirms the quit path.",
       "expected_output": "FLOW TEST PASS: title menu rosters first-sprite quit"
     },
     {
@@ -110,8 +110,8 @@
     {
       "id": "render_first_sprite_probe",
       "status": "active",
-      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode first-sprite build\\first_sprite_test.png",
-      "description": "Renders the Play Game first-sprite probe from the local decoded intro trace. Shows the first staged D861 sprite, the first visible rabbit sprite, and the full 16-record/64-byte rabbit stream table.",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode first-sprite-debug build\\first_sprite_test.png",
+      "description": "Renders the first-sprite debug proof from the local decoded intro trace. Shows the first staged D861 sprite, the first visible rabbit sprite, and the full 16-record/64-byte rabbit stream table.",
       "expected_artifact": "build/first_sprite_test.png"
     },
     {
@@ -258,10 +258,10 @@
       "expected_artifact": "build/rosters_test.png"
     },
     {
-      "id": "render_play_setup",
+      "id": "render_play_intro_splash",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode play build\\play_test.png",
-      "description": "Renders the Play Game first-sprite probe with the full 16-record OAM byte table to a PNG for screenshot QA.",
+      "description": "Renders the Play Game intro splash using the decoded rabbit trace, the asset-backed TECMO mark, and normal CHR lettering for PRESENTS.",
       "expected_artifact": "build/play_test.png"
     },
     {
@@ -313,8 +313,8 @@
         "Title screen Enter reaches the launcher menu",
         "Launcher menu reaches Rosters through input, not direct mode injection",
         "Roster browsing updates selected player and watched RAM",
-        "Launcher menu reaches Play Game first-sprite probe through input",
-        "First-sprite probe cancel returns to the launcher menu",
+        "Launcher menu reaches Play Game intro splash/probe mode through input",
+        "Play Game cancel returns to the launcher menu",
         "Launcher Quit row sets quit_requested",
         "Runner report persists only sanitized pass/fail metadata under ignored build output"
       ]
@@ -518,8 +518,8 @@
       "assertions": [
         "PNG exists",
         "PNG dimensions are 640x480",
-        "Play Game first-sprite probe heading appears",
-        "Frame shows the first staged D861 sprite, first visible rabbit sprite, and all 16 rabbit stream OAM rows"
+        "Play Game intro splash appears",
+        "Frame shows the decoded rabbit trace, asset-backed TECMO mark, and normal CHR lettering for PRESENTS"
       ]
     },
     {
@@ -596,12 +596,12 @@
       "The Play Game launcher option now opens a first intro sprite probe rendered from the local decoded intro trace instead of the old court placeholder.",
       "tools/emu_intro_first_sprite_watch.lua is a FCEUX Lua watcher that logs $058D and $0200-$02FF OAM staging changes to ignored build/emu_intro_first_sprite_watch.ndjson for original-run comparison against the ignored first-sprite trace.",
       "The native runtime now boots into the current local intro splash when build/intro_composite_trace.json exists; Enter opens the launcher and Esc quits.",
-      "The native launcher Title Screen now stages the decoded A7DB selector $01 rabbit rows in a fixed native buffer and renders a first local intro splash with the visual Bank 31/table 1 TECMO $180-$193 asset construction. Palette, live CHR bank, and exact PRESENTS placement remain pending.",
-      "The native launcher exposes a Title Screen mode before the Play Game first-sprite probe so the title remains reachable from the menu.",
+      "The native launcher Title Screen now stages the decoded A7DB selector $01 rabbit rows in a fixed native buffer and renders a provisional local intro splash with the visual Bank 31/table 1 TECMO $180-$193 asset construction plus normal CHR glyphs for PRESENTS. Palette, $C05A background script decode, live CHR bank, and exact placement remain pending.",
+      "The native launcher exposes a Title Screen mode before the Play Game intro splash/probe mode so the title remains reachable from the menu.",
       "The native launcher exposes an Intro Lab builder that renders the selected local-only CHR sheet, lets the user place selected tiles onto a target canvas, shows local placement records, and can save ignored placement JSON.",
       "The native launcher exposes a CHR Playground that renders selected-bank/table tile IDs $080-$0AF or $180-$1AF and assembled title glyphs for number/letter verification.",
       "Intro Lab and CHR Playground default to Bank 31 table 0 because that is the verified title glyph path. Intro Lab uses Q/E for bank, T for table, Tab for source/canvas focus, Space to record, R to add the Bank 31/table 1 rabbit head/upper lookup subset, M to add the visual TECMO 180-193 candidate, C to add the combined intro candidate, and S to save ignored placement JSON. CHR Playground keeps Left/Right/Tab bank switching and Up/Down table switching.",
-      "The --flow-test command now exercises title-to-menu input, roster browsing, Play Game first-sprite probe entry/cancel, watched RAM mode/menu bytes, and the quit menu path without opening a window.",
+      "The --flow-test command now exercises title-to-menu input, roster browsing, Play Game intro splash/probe entry/cancel, watched RAM mode/menu bytes, and the quit menu path without opening a window.",
       "The current rabbit lookup path is Bank 04 L88E7 -> L8988 -> fixed $C051/$D861 through Bank 0 pointer table $A7DB. The seeded rabbit pass is selector $01, pointer entry $A7DD, stream pointer $A8C0, with 16 records. Its visible head/upper subset includes OAM tile lows $25, $27, $29, and $2B, which imply table-1 8x16 sprite pairs $124/$125, $126/$127, $128/$129, and $12A/$12B.",
       "The intro-c051-d861-model screenshot is gated by a native synthetic helper self-test and renders a read-only schematic of the fixed helper contract so the native model can be reviewed without committing decoded payload rows.",
       "tools/Find-NesReferenceIntro.ps1 detects a local rebuilt NES ROM plus Mesen/FCEUX-style emulator candidates and writes only a sanitized ignored availability report for original intro comparison.",
@@ -641,7 +641,7 @@
       "id": "M002",
       "status": "complete",
       "title": "Prototype launcher and roster flow",
-      "done_when": "Native window launches; screenshot tests render Title Screen, Play Game first-sprite probe, and Rosters; --flow-test proves rosters, first-sprite entry/cancel, and quit transitions."
+      "done_when": "Native window launches; screenshot tests render Title Screen, Play Game intro splash/probe mode, and Rosters; --flow-test proves rosters, Play Game entry/cancel, and quit transitions."
     },
     {
       "id": "M003",

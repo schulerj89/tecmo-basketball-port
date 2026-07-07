@@ -15,7 +15,8 @@
 #define INTRO_CANVAS_CELLS_X 17
 #define INTRO_CANVAS_CELLS_Y 14
 #define INTRO_TRACE_GROUP_RABBIT 1U
-#define INTRO_TRACE_GROUP_TECMO_LOGO 2U
+#define INTRO_TRACE_GROUP_TECMO_STREAM 2U
+#define INTRO_TRACE_GROUP_TECMO_LOGO 3U
 
 static bool pressed(bool now, bool before)
 {
@@ -567,7 +568,7 @@ static bool load_intro_trace_from_json(TecmoRuntime *runtime, const char *json, 
         uint8_t attributes;
         int screen_x;
         int screen_y;
-        uint8_t group = 0;
+        bool appended = false;
 
         if (component_pos == NULL || component_pos >= section_end) {
             break;
@@ -584,16 +585,17 @@ static bool load_intro_trace_from_json(TecmoRuntime *runtime, const char *json, 
             parse_json_int_field(component_pos, record_end, "screen_x_from_current_base", &screen_x) &&
             parse_json_int_field(component_pos, record_end, "screen_y_from_current_base", &screen_y)) {
             if (strcmp(component, "rabbit_full_stream") == 0) {
-                group = INTRO_TRACE_GROUP_RABBIT;
-            } else if (strcmp(component, "tecmo_selector0") == 0 &&
-                       strcmp(role, "tecmo_logo_candidate") == 0) {
-                group = INTRO_TRACE_GROUP_TECMO_LOGO;
-            }
-
-            if (group != 0U) {
-                append_intro_trace_sprite(runtime, group, tile_low, attributes, screen_x, screen_y);
+                append_intro_trace_sprite(runtime, INTRO_TRACE_GROUP_RABBIT, tile_low, attributes, screen_x, screen_y);
+                appended = true;
+            } else if (strcmp(component, "tecmo_selector0") == 0) {
+                append_intro_trace_sprite(runtime, INTRO_TRACE_GROUP_TECMO_STREAM, tile_low, attributes, screen_x, screen_y);
+                appended = true;
+                if (strcmp(role, "tecmo_logo_candidate") == 0) {
+                    append_intro_trace_sprite(runtime, INTRO_TRACE_GROUP_TECMO_LOGO, tile_low, attributes, screen_x, screen_y);
+                }
             }
         }
+        (void)appended;
 
         cursor = record_end + 1;
     }
@@ -664,9 +666,10 @@ static void load_intro_trace(TecmoRuntime *runtime, const char *project_root)
     if (load_intro_trace_from_json(runtime, json, json_size)) {
         (void)snprintf(runtime->intro_trace_status,
                        sizeof(runtime->intro_trace_status),
-                       "LOCAL TRACE %u SPRITES R%u T%u",
+                       "LOCAL TRACE %u SPRITES R%u A%u L%u",
                        (unsigned)runtime->intro_trace_sprite_count,
                        (unsigned)intro_trace_group_count(runtime, INTRO_TRACE_GROUP_RABBIT),
+                       (unsigned)intro_trace_group_count(runtime, INTRO_TRACE_GROUP_TECMO_STREAM),
                        (unsigned)intro_trace_group_count(runtime, INTRO_TRACE_GROUP_TECMO_LOGO));
     } else {
         set_runtime_status(runtime->intro_trace_status,
@@ -2041,6 +2044,32 @@ static void draw_title_glyph(TecmoFramebuffer *fb,
     }
 }
 
+static void draw_title_glyph_palette(TecmoFramebuffer *fb,
+                                     const uint8_t *chr_bytes,
+                                     uint64_t chr_byte_count,
+                                     uint32_t chr_bank,
+                                     uint32_t chr_table,
+                                     const TecmoTitleGlyph *glyph,
+                                     int x,
+                                     int y,
+                                     int scale,
+                                     const uint32_t palette[4])
+{
+    uint16_t base = (uint16_t)((chr_table & 1U) * 0x100U);
+    if (glyph->glyph_tiles[0] != 0xFFU) {
+        draw_chr_tile_ex(fb, chr_bytes, chr_byte_count, chr_bank, (uint16_t)(base + glyph->glyph_tiles[0]), x, y, scale, palette, false, false);
+    }
+    if (glyph->glyph_tiles[1] != 0xFFU) {
+        draw_chr_tile_ex(fb, chr_bytes, chr_byte_count, chr_bank, (uint16_t)(base + glyph->glyph_tiles[1]), x + 8 * scale, y, scale, palette, false, false);
+    }
+    if (glyph->glyph_tiles[2] != 0xFFU) {
+        draw_chr_tile_ex(fb, chr_bytes, chr_byte_count, chr_bank, (uint16_t)(base + glyph->glyph_tiles[2]), x, y + 8 * scale, scale, palette, false, false);
+    }
+    if (glyph->glyph_tiles[3] != 0xFFU) {
+        draw_chr_tile_ex(fb, chr_bytes, chr_byte_count, chr_bank, (uint16_t)(base + glyph->glyph_tiles[3]), x + 8 * scale, y + 8 * scale, scale, palette, false, false);
+    }
+}
+
 static void draw_title_glyph_range(TecmoFramebuffer *fb,
                                    const uint8_t *chr_bytes,
                                    uint64_t chr_byte_count,
@@ -2066,6 +2095,37 @@ static void draw_title_glyph_range(TecmoFramebuffer *fb,
                              x + (int)i * glyph_width,
                              y,
                              scale);
+        }
+    }
+}
+
+static void draw_title_glyph_range_palette(TecmoFramebuffer *fb,
+                                           const uint8_t *chr_bytes,
+                                           uint64_t chr_byte_count,
+                                           uint32_t chr_bank,
+                                           uint32_t chr_table,
+                                           const TecmoOriginalTitleGlyphs *glyphs,
+                                           size_t first,
+                                           size_t count,
+                                           int x,
+                                           int y,
+                                           int scale,
+                                           const uint32_t palette[4])
+{
+    int glyph_width = 16 * scale;
+    for (size_t i = 0; i < count && first + i < glyphs->glyph_count; ++i) {
+        const TecmoTitleGlyph *glyph = &glyphs->glyphs[first + i];
+        if (glyph->character != ' ') {
+            draw_title_glyph_palette(fb,
+                                     chr_bytes,
+                                     chr_byte_count,
+                                     chr_bank,
+                                     chr_table,
+                                     glyph,
+                                     x + (int)i * glyph_width,
+                                     y,
+                                     scale,
+                                     palette);
         }
     }
 }
@@ -2312,7 +2372,7 @@ static void draw_intro_trace_byte_table(const TecmoRuntime *runtime,
     }
 }
 
-static void render_first_sprite_probe(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+void tecmo_render_first_sprite_probe(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
 {
     const TecmoIntroTraceSprite *first_staged;
     const TecmoIntroTraceSprite *first_visible;
@@ -2369,7 +2429,7 @@ static void draw_intro_visual_tecmo_logo(TecmoFramebuffer *fb,
 {
     static const uint32_t logo_palette[4] = {
         0x00000000U,
-        0xFF8C2638U,
+        0xFFFF1F72U,
         0xFFFF1F72U,
         0xFFFFFFFFU,
     };
@@ -2395,21 +2455,73 @@ static void draw_intro_visual_tecmo_logo(TecmoFramebuffer *fb,
     }
 }
 
-static void render_intro_trace_title(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+static void draw_intro_presents_text(TecmoFramebuffer *fb,
+                                     const TecmoRuntime *runtime,
+                                     int x,
+                                     int y,
+                                     int scale)
+{
+    static const uint32_t presents_palette[4] = {
+        0x00000000U,
+        0xFF6E7480U,
+        0xFFFFFFFFU,
+        0xFFFFFFFFU,
+    };
+
+    if (runtime->intro_glyphs.glyph_count >= 14U) {
+        draw_title_glyph_range_palette(fb,
+                                       runtime->title_chr_bytes,
+                                       runtime->title_chr_byte_count,
+                                       runtime->intro_trace_chr_bank,
+                                       0U,
+                                       &runtime->intro_glyphs,
+                                       6U,
+                                       8U,
+                                       x,
+                                       y,
+                                       scale,
+                                       presents_palette);
+    } else {
+        draw_text(fb, x, y, "PRESENTS", rgb(248, 248, 232), scale);
+    }
+}
+
+static void render_intro_trace_title_common(const TecmoRuntime *runtime,
+                                            TecmoFramebuffer *fb,
+                                            const char *prompt)
 {
     const int rabbit_scale = 3;
     const int logo_scale = 4;
-    const int logo_x = 236;
-    const int logo_y = 190;
+    const int presents_scale = 2;
+    const int logo_x = 228;
+    const int logo_y = 178;
     const int rabbit_x = 156;
-    const int rabbit_y = 104;
+    const int rabbit_y = 96;
+    const int presents_x = 276;
+    const int presents_y = 286;
 
     clear(fb, rgb(0, 0, 0));
     draw_intro_visual_tecmo_logo(fb, runtime, logo_x, logo_y, logo_scale);
     draw_intro_trace_group(fb, runtime, INTRO_TRACE_GROUP_RABBIT, rabbit_x, rabbit_y, rabbit_scale);
+    draw_intro_presents_text(fb, runtime, presents_x, presents_y, presents_scale);
 
-    draw_text(fb, 22, 22, "ENTER MENU   ESC QUIT", rgb(230, 232, 214), 1);
+    draw_text(fb, 22, 22, prompt, rgb(230, 232, 214), 1);
     draw_text(fb, 22, 446, runtime->intro_trace_status, rgb(92, 116, 128), 1);
+}
+
+static void render_intro_trace_title(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+{
+    render_intro_trace_title_common(runtime, fb, "ENTER MENU   ESC QUIT");
+}
+
+static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+{
+    if (runtime->title_probe_available && runtime->intro_trace_available) {
+        render_intro_trace_title_common(runtime, fb, "ENTER OR ESC RETURNS TO MENU");
+        return;
+    }
+
+    tecmo_render_first_sprite_probe(runtime, fb);
 }
 
 static void draw_chr_bank_sheet(TecmoFramebuffer *fb,
@@ -2882,7 +2994,7 @@ void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebu
     } else if (runtime->mode == TECMO_MODE_CHR_PLAYGROUND) {
         render_chr_playground(runtime, framebuffer);
     } else if (runtime->mode == TECMO_MODE_FIRST_SPRITE) {
-        render_first_sprite_probe(runtime, framebuffer);
+        render_intro_splash_play(runtime, framebuffer);
     } else if (runtime->mode == TECMO_MODE_PLAY_SETUP) {
         render_roster_browser(runtime, framebuffer, true);
     } else if (runtime->mode == TECMO_MODE_ROSTERS) {
