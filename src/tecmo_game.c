@@ -18,7 +18,7 @@
 #define INTRO_TRACE_GROUP_TECMO_STREAM 2U
 #define INTRO_TRACE_GROUP_TECMO_LOGO 3U
 #define INTRO_TRACE_GROUP_A7DB_SELECTOR0 4U
-#define TECMO_INTRO_OUTPUT_STEP_COUNT 6U
+#define TECMO_INTRO_OUTPUT_STEP_COUNT 7U
 #define INTRO_PRESENTS_SCREEN_ID 0x00U
 #define INTRO_PRESENTS_RECORD_CPU 0xDC85U
 #define INTRO_PRESENTS_STREAM_BANK 0x00U
@@ -29,6 +29,8 @@
 #define INTRO_PRESENTS_LEN 8U
 #define INTRO_PRESENTS_TILE_ROW 14U
 #define INTRO_PRESENTS_TILE_COL 15U
+#define INTRO_PRESENTS_PIXEL_X ((int)INTRO_PRESENTS_TILE_COL * 8)
+#define INTRO_PRESENTS_PIXEL_Y ((int)INTRO_PRESENTS_TILE_ROW * 8)
 #define INTRO_RABBIT_SCREEN_ID 0x18U
 #define INTRO_RABBIT_BASE_X 184
 #define INTRO_RABBIT_BASE_Y 30
@@ -2773,7 +2775,10 @@ static const char *intro_output_step_label(uint8_t step)
     if (step == 4U) {
         return "SCREEN 00 PRESENTS NAMETABLE";
     }
-    return "COORDINATE AUDIT";
+    if (step == 5U) {
+        return "COORDINATE AUDIT";
+    }
+    return "COORDINATE ASSEMBLY PREVIEW";
 }
 
 static void draw_intro_output_header(TecmoFramebuffer *fb, uint8_t step)
@@ -2819,6 +2824,26 @@ static bool draw_intro_trace_group_centered(TecmoFramebuffer *fb,
     outline_rect(fb, target_x - 3, target_y - 3, width + 6, height + 6, border);
     draw_intro_trace_group(fb, runtime, group, target_x, target_y, scale);
     return true;
+}
+
+static void draw_intro_trace_group_absolute(TecmoFramebuffer *fb,
+                                            const TecmoRuntime *runtime,
+                                            uint8_t group,
+                                            int origin_x,
+                                            int origin_y,
+                                            int scale)
+{
+    for (size_t i = 0; i < runtime->intro_trace_sprite_count; ++i) {
+        const TecmoIntroTraceSprite *sprite = &runtime->intro_trace_sprites[i];
+        int x;
+        int y;
+        if (sprite->group != group) {
+            continue;
+        }
+        x = origin_x + sprite->screen_x * scale;
+        y = origin_y + sprite->screen_y * scale;
+        draw_intro_trace_sprite(fb, runtime, sprite, x, y, scale);
+    }
 }
 
 static void draw_intro_presents_nametable_position(TecmoFramebuffer *fb,
@@ -2931,6 +2956,53 @@ static void render_intro_coordinate_audit(const TecmoRuntime *runtime, TecmoFram
                    INTRO_TECMO_STREAM_BOUNDS_MAX_Y);
     draw_text(fb, 440, 270, line, rgb(142, 174, 190), 1);
     draw_intro_trace_group_scaled_box(fb, runtime, INTRO_TRACE_GROUP_TECMO_LOGO, 486, 304, 1, rgb(80, 96, 110));
+}
+
+static void render_intro_coordinate_assembly_preview(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+{
+    const int scale = 2;
+    const int canvas_x = 64;
+    const int canvas_y = 0;
+    const int canvas_w = 256 * scale;
+    const int canvas_h = 240 * scale;
+    char line[160];
+
+    clear(fb, rgb(0, 0, 0));
+    rect(fb, canvas_x, canvas_y, canvas_w, canvas_h, rgb(0, 0, 0));
+    outline_rect(fb, canvas_x, canvas_y, canvas_w, canvas_h, rgb(52, 62, 72));
+
+    draw_intro_trace_group_absolute(fb, runtime, INTRO_TRACE_GROUP_TECMO_STREAM, canvas_x, canvas_y, scale);
+    draw_intro_trace_group_absolute(fb, runtime, INTRO_TRACE_GROUP_RABBIT, canvas_x, canvas_y, scale);
+    draw_intro_presents_text(fb,
+                             runtime,
+                             canvas_x + INTRO_PRESENTS_PIXEL_X * scale,
+                             canvas_y + INTRO_PRESENTS_PIXEL_Y * scale,
+                             scale);
+
+    rect(fb, 0, 0, fb->width, 98, rgb(0, 0, 0));
+    draw_text(fb, 24, 18, "CROSS STATE COORDINATE ASSEMBLY PREVIEW", rgb(248, 248, 232), 2);
+    draw_text(fb, 24, 56, "USES VERIFIED COORDINATES BUT NOT A VERIFIED SINGLE INTRO STATE", rgb(252, 236, 118), 1);
+    draw_text(fb, 24, 74, "SCREEN00 PRESENTS + SCREEN18 RABBIT OAM + SCREEN1A TECMO OAM", rgb(142, 174, 190), 1);
+
+    rect(fb, 14, 396, 612, 58, rgb(0, 0, 0));
+    outline_rect(fb, 14, 396, 612, 58, rgb(52, 62, 72));
+    (void)snprintf(line,
+                   sizeof(line),
+                   "PRESENTS X%d-%d Y%d-%d  RABBIT X%d-%d Y%d-%d  TECMO X%d-%d Y%d-%d",
+                   INTRO_PRESENTS_PIXEL_X,
+                   INTRO_PRESENTS_PIXEL_X + (int)INTRO_PRESENTS_LEN * 8,
+                   INTRO_PRESENTS_PIXEL_Y,
+                   INTRO_PRESENTS_PIXEL_Y + 8,
+                   INTRO_RABBIT_BOUNDS_MIN_X,
+                   INTRO_RABBIT_BOUNDS_MAX_X,
+                   INTRO_RABBIT_BOUNDS_MIN_Y,
+                   INTRO_RABBIT_BOUNDS_MAX_Y,
+                   INTRO_TECMO_LOGO_BOUNDS_MIN_X,
+                   INTRO_TECMO_LOGO_BOUNDS_MAX_X,
+                   INTRO_TECMO_LOGO_BOUNDS_MIN_Y,
+                   INTRO_TECMO_LOGO_BOUNDS_MAX_Y);
+    draw_text(fb, 24, 412, line, rgb(230, 232, 214), 1);
+    draw_text(fb, 24, 432, "NEXT: CAPTURE THE REAL FIRST INTRO STATE ORDER BEFORE TREATING THIS AS FINAL", rgb(142, 174, 190), 1);
 }
 
 static void render_intro_trace_title_common(const TecmoRuntime *runtime,
@@ -3050,8 +3122,10 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
                        "MATCH %s  L88E7 LOADS SCREEN 18, SO THIS IS A SEPARATE SCREEN00 PATH",
                        runtime->intro_presents_data_available ? runtime->intro_presents_data_cpu : "UNRESOLVED");
         draw_text(fb, 48, 190, line, rgb(142, 174, 190), 1);
-    } else {
+    } else if (step == 5U) {
         render_intro_coordinate_audit(runtime, fb);
+    } else {
+        render_intro_coordinate_assembly_preview(runtime, fb);
     }
 
     draw_text(fb, 24, 464, runtime->intro_trace_status, rgb(92, 116, 128), 1);

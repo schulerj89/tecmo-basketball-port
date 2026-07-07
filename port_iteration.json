@@ -268,7 +268,7 @@
       "id": "render_play_intro_output_stepper",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode play build\\play_test.png",
-      "description": "Renders Play Game at output step 0: the first verified D861 sprite record from the decoded Bank04/A7DB trace. Left/Right in the window steps through verified layers, ending with a coordinate audit that keeps screen 00 PRESENTS, screen 18 rabbit OAM, and screen 1A TECMO OAM separate.",
+      "description": "Renders Play Game at output step 0: the first verified D861 sprite record from the decoded Bank04/A7DB trace. Left/Right in the window steps through verified layers, ending with a coordinate audit and cross-state assembly preview that keep screen 00 PRESENTS, screen 18 rabbit OAM, and screen 1A TECMO OAM labeled separately.",
       "expected_artifact": "build/play_test.png"
     },
     {
@@ -539,7 +539,7 @@
         "PNG dimensions are 640x480",
         "Play Game progressive intro-output mode appears",
         "Frame shows output step 0 with the first verified D861 sprite record only, not the provisional stitched TECMO/PRESENTS splash",
-        "Runtime Left/Right steps through the full rabbit stream, L88E7 selector streams, the separate screen ID 00 PRESENTS nametable placement, and a coordinate audit that does not compose those states"
+        "Runtime Left/Right steps through the full rabbit stream, L88E7 selector streams, the separate screen ID 00 PRESENTS nametable placement, a coordinate audit, and a cross-state assembly preview that does not mark those states as final"
       ]
     },
     {
@@ -622,6 +622,7 @@
       "$0352/$0100 are now separated from the PRESENTS text search: the fixed NMI tail writes $0352 to mapper registers and uses $0100=05 to select IRQ/vector target $FCF6, while the normal-letter PRESENTS glyph data lead is in the Bank00 C-0191 text/layout stream around bank00:$8549.",
       "The Bank00 $8549 PRESENTS bytes are consumed by the fixed-bank screen/nametable stream loader, not the A7DB OAM interpreter: screen ID $00 record $DC85 resolves to bank00:$84FB, decoder $D9F6 outputs the literal run to PPU $21CF-$21D6 at row 14 columns 15-22.",
       "The coordinate audit now records the current verified state split: PRESENTS is screen $00 x120-184 y112-120, rabbit main OAM is screen $18 A7DB selector $01 with bounds x165-205 y-34-30 and first visible record at x181 y14, and TECMO logo OAM is screen $1A A90F selector $00 with initial base x98 y92 and logo-hit bounds x66-122 y121-169.",
+      "The Play Game stepper now includes a cross-state coordinate assembly preview that draws the parsed screen $18 rabbit OAM, screen $1A A90F TECMO OAM, and screen $00 PRESENTS nametable text on one 256x240 canvas while labeling it as non-final.",
       "The Bank07 native self-test now includes the decoded L88E7 $CDAC IRQ setup contract: with $0352=01, $0100=05, $05B6 bit 0 set, $0305=0, $0301=32, and $88=A8, the model selects IRQ vector $FCF6 and produces the expected phase latch/address values.",
       "The next original-intro decode target is the full first-intro screen selection/composite order: L88E7 loads screen ID $18 and emits A7DB OAM, while the known PRESENTS placement currently belongs to separate screen ID $00.",
       "The native launcher exposes a Title Screen mode before the Play Game progressive intro-output mode so the title remains reachable from the menu.",
