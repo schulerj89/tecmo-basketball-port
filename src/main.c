@@ -1,5 +1,6 @@
 #include "asm_inventory.h"
 #include "png_writer.h"
+#include "tecmo_bank07.h"
 #include "tecmo_game.h"
 
 #include <stdio.h>
@@ -19,8 +20,9 @@ static void print_usage(const char *program)
     printf("  --roster [TEAM|--all]   Parse labeled Bank 02 roster records\n");
     printf("  --play                  Launch native playable prototype window\n");
     printf("  --flow-test             Run headless native title/menu/rosters/play/quit flow checks\n");
+    printf("  --bank07-test           Run fixed-bank helper C counterpart checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, intro-presents, intro-builder-sample, intro-rabbit-preset, intro-tecmo-preset, intro-composite-preset, intro-c051-d861-model, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play setup, original-title, or original-title-chr to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, first-sprite, intro-presents, intro-builder-sample, intro-rabbit-preset, intro-tecmo-preset, intro-composite-preset, intro-c051-d861-model, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play, play-setup, original-title, or original-title-chr to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -123,6 +125,16 @@ int main(int argc, char **argv)
         return result;
     }
 
+    if (strcmp(command, "--bank07-test") == 0) {
+        char message[128];
+        if (!tecmo_bank07_self_test(message, sizeof(message))) {
+            printf("Bank07 C helper test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
     if (strcmp(command, "--render-test") == 0 || strcmp(command, "--render-test-mode") == 0) {
         const bool mode_specific = strcmp(command, "--render-test-mode") == 0;
         const char *mode_name = "menu";
@@ -217,7 +229,9 @@ int main(int argc, char **argv)
                 tecmo_runtime_update(&runtime, &input);
             } else if (strcmp(mode_name, "rosters") == 0) {
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_ROSTERS);
-            } else if (strcmp(mode_name, "play") == 0) {
+            } else if (strcmp(mode_name, "play") == 0 || strcmp(mode_name, "first-sprite") == 0) {
+                tecmo_runtime_set_mode(&runtime, TECMO_MODE_FIRST_SPRITE);
+            } else if (strcmp(mode_name, "play-setup") == 0) {
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_PLAY_SETUP);
             } else if (strcmp(mode_name, "title-screen") == 0) {
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_TITLE_SCREEN);

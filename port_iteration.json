@@ -30,7 +30,7 @@
     "backend": "win32 software framebuffer",
     "game_core": "portable C runtime state plus explicit memory arenas",
     "asset_mode": "local development read-only scan/export tools; no committed proprietary data",
-    "known_status": "prototype launcher/menu, source-backed title screen mode, bank/table-switchable intro builder lab, CHR playground, roster viewer, play setup, court placeholder"
+    "known_status": "prototype launcher/menu, first native Bank07 fixed-helper C layer, source-backed title screen mode, Play Game first-sprite probe, bank/table-switchable intro builder lab, CHR playground, roster viewer"
   },
   "local_desktop_shortcut": {
     "status": "active",
@@ -49,14 +49,35 @@
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --play",
       "description": "Starts at the native title screen, then Enter opens the launcher menu.",
-      "expected_screen": "Boot title first; Enter opens the launcher menu with Title Screen, Intro Lab, CHR Playground, Play Prototype, Rosters, Quit."
+      "expected_screen": "Boot title first; Enter opens the launcher menu with Title Screen, Intro Lab, CHR Playground, Play Game, Rosters, Quit."
     },
     {
       "id": "run_native_flow_test",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --flow-test",
-      "description": "Runs the headless runtime input-flow check that reaches rosters, starts the native court prototype, returns to setup, and confirms the quit path.",
-      "expected_output": "FLOW TEST PASS: title menu rosters play court quit"
+      "description": "Runs the headless runtime input-flow check that reaches rosters, enters the Play Game first-sprite probe, returns to menu, and confirms the quit path.",
+      "expected_output": "FLOW TEST PASS: title menu rosters first-sprite quit"
+    },
+    {
+      "id": "run_bank07_helper_test",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --bank07-test",
+      "description": "Runs the native Bank07 fixed-helper C counterpart checks without loading ROM data or starting an emulator.",
+      "expected_output": "BANK07 C HELPER SELF TEST PASS"
+    },
+    {
+      "id": "trace_boot_first_screen",
+      "status": "active",
+      "command": ".\\tools\\Find-BootFirstScreenTrace.ps1",
+      "description": "Traces the local-only Bank07 reset/bootstrap scheduler handoff into the first Bank04 intro script target without committing source bytes or asset payloads.",
+      "expected_artifact": "build/boot_first_screen_trace.json"
+    },
+    {
+      "id": "trace_intro_first_sprite",
+      "status": "active",
+      "command": ".\\tools\\Find-IntroFirstSpriteTrace.ps1",
+      "description": "Traces the first Bank04 intro stream record staged through fixed $C051/$D861, including the first visible rabbit record, without committing decoded output.",
+      "expected_artifact": "build/intro_first_sprite_trace.json"
     },
     {
       "id": "render_boot_title",
@@ -85,6 +106,13 @@
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode title-screen build\\title_screen_runtime_test.png",
       "description": "Renders the in-app Title Screen mode. When the ignored composite trace exists, it shows the local rabbit trace plus asset-backed TECMO splash; Enter opens the launcher and Esc quits at runtime.",
       "expected_artifact": "build/title_screen_runtime_test.png"
+    },
+    {
+      "id": "render_first_sprite_probe",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode first-sprite build\\first_sprite_test.png",
+      "description": "Renders the Play Game first-sprite probe from the local decoded intro trace. Shows the first staged D861 sprite, the first visible rabbit sprite, and the full 16-record/64-byte rabbit stream table.",
+      "expected_artifact": "build/first_sprite_test.png"
     },
     {
       "id": "render_intro_layout_lab",
@@ -232,9 +260,9 @@
     {
       "id": "render_play_setup",
       "status": "active",
-      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode play build\\play_setup_test.png",
-      "description": "Renders the play setup screen to a PNG for screenshot QA.",
-      "expected_artifact": "build/play_setup_test.png"
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode play build\\play_test.png",
+      "description": "Renders the Play Game first-sprite probe with the full 16-record OAM byte table to a PNG for screenshot QA.",
+      "expected_artifact": "build/play_test.png"
     },
     {
       "id": "original_title_screen",
@@ -279,15 +307,14 @@
       "id": "flow_title_menu_rosters_play_quit",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --flow-test",
-      "expected_output": "FLOW TEST PASS: title menu rosters play court quit",
+      "expected_output": "FLOW TEST PASS: title menu rosters first-sprite quit",
       "assertions": [
         "Executable exits with code 0",
         "Title screen Enter reaches the launcher menu",
         "Launcher menu reaches Rosters through input, not direct mode injection",
         "Roster browsing updates selected player and watched RAM",
-        "Launcher menu reaches Play Prototype setup through input",
-        "Play setup can change teams and start native court mode",
-        "Court cancel returns to play setup, then menu",
+        "Launcher menu reaches Play Game first-sprite probe through input",
+        "First-sprite probe cancel returns to the launcher menu",
         "Launcher Quit row sets quit_requested",
         "Runner report persists only sanitized pass/fail metadata under ignored build output"
       ]
@@ -484,15 +511,15 @@
       ]
     },
     {
-      "id": "shot_play_setup_default",
+      "id": "shot_first_sprite_probe",
       "status": "active",
-      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode play build\\play_setup_test.png",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode play build\\play_test.png",
       "commit_safe": false,
       "assertions": [
         "PNG exists",
         "PNG dimensions are 640x480",
-        "Play Prototype Setup heading appears",
-        "Enter starts the court prototype"
+        "Play Game first-sprite probe heading appears",
+        "Frame shows the first staged D861 sprite, first visible rabbit sprite, and all 16 rabbit stream OAM rows"
       ]
     },
     {
@@ -550,6 +577,11 @@
     "title_chr_local_probe": "build\\title_mapped_chr_probe.png",
     "title_setup_mapper_command": ".\\tools\\Find-TitleSetupMapping.ps1",
     "title_setup_local_report": "build\\title_setup_mapping.json",
+    "boot_first_screen_trace_command": ".\\tools\\Find-BootFirstScreenTrace.ps1",
+    "boot_first_screen_trace_report": "build\\boot_first_screen_trace.json",
+    "intro_first_sprite_trace_command": ".\\tools\\Find-IntroFirstSpriteTrace.ps1",
+    "intro_first_sprite_trace_report": "build\\intro_first_sprite_trace.json",
+    "emulator_first_sprite_watch_lua": "tools\\emu_intro_first_sprite_watch.lua",
     "public_plan": "docs\\original_title_screen_plan.md",
     "highest_confidence_groups": [
       "bank04_title_splash_core",
@@ -558,13 +590,18 @@
       "ppu_chr_and_fixed_helpers"
     ],
     "current_findings": [
+      "The first Bank07 C counterpart is now a native capability layer, not emulator compatibility: it covers verified fixed-helper behavior for D861 sprite/OAM staging, D2D2 unused-OAM hiding, D700 setup-byte copying, and 8x16 sprite tile-pair mapping.",
+      "The boot trace now verifies Bank07 reset jumps to fixed bootstrap $CC30, bootstrap schedules the Bank07 task, that task schedules Bank04 $825D, and Bank04 dispatch index 0 targets $88E8 before flowing into the $8988 dual-stream emitter and fixed $C051/$D861 staging path.",
+      "The first-sprite trace follows Bank04 $88E8 through $8988 into fixed $C051/$D861, then writes an ignored local report with the first staged record and first rabbit record that has an onscreen Y position.",
+      "The Play Game launcher option now opens a first intro sprite probe rendered from the local decoded intro trace instead of the old court placeholder.",
+      "tools/emu_intro_first_sprite_watch.lua is a FCEUX Lua watcher that logs $058D and $0200-$02FF OAM staging changes to ignored build/emu_intro_first_sprite_watch.ndjson for original-run comparison against the ignored first-sprite trace.",
       "The native runtime now boots into the current local intro splash when build/intro_composite_trace.json exists; Enter opens the launcher and Esc quits.",
       "The native launcher Title Screen now stages the decoded A7DB selector $01 rabbit rows in a fixed native buffer and renders a first local intro splash with the visual Bank 31/table 1 TECMO $180-$193 asset construction. Palette, live CHR bank, and exact PRESENTS placement remain pending.",
-      "The native launcher exposes a Title Screen mode before the prototype play setup so the title remains reachable from the menu.",
+      "The native launcher exposes a Title Screen mode before the Play Game first-sprite probe so the title remains reachable from the menu.",
       "The native launcher exposes an Intro Lab builder that renders the selected local-only CHR sheet, lets the user place selected tiles onto a target canvas, shows local placement records, and can save ignored placement JSON.",
       "The native launcher exposes a CHR Playground that renders selected-bank/table tile IDs $080-$0AF or $180-$1AF and assembled title glyphs for number/letter verification.",
       "Intro Lab and CHR Playground default to Bank 31 table 0 because that is the verified title glyph path. Intro Lab uses Q/E for bank, T for table, Tab for source/canvas focus, Space to record, R to add the Bank 31/table 1 rabbit head/upper lookup subset, M to add the visual TECMO 180-193 candidate, C to add the combined intro candidate, and S to save ignored placement JSON. CHR Playground keeps Left/Right/Tab bank switching and Up/Down table switching.",
-      "The --flow-test command now exercises title-to-menu input, roster browsing, play setup team selection, court start/cancel, watched RAM mode/menu bytes, and the quit menu path without opening a window.",
+      "The --flow-test command now exercises title-to-menu input, roster browsing, Play Game first-sprite probe entry/cancel, watched RAM mode/menu bytes, and the quit menu path without opening a window.",
       "The current rabbit lookup path is Bank 04 L88E7 -> L8988 -> fixed $C051/$D861 through Bank 0 pointer table $A7DB. The seeded rabbit pass is selector $01, pointer entry $A7DD, stream pointer $A8C0, with 16 records. Its visible head/upper subset includes OAM tile lows $25, $27, $29, and $2B, which imply table-1 8x16 sprite pairs $124/$125, $126/$127, $128/$129, and $12A/$12B.",
       "The intro-c051-d861-model screenshot is gated by a native synthetic helper self-test and renders a read-only schematic of the fixed helper contract so the native model can be reviewed without committing decoded payload rows.",
       "tools/Find-NesReferenceIntro.ps1 detects a local rebuilt NES ROM plus Mesen/FCEUX-style emulator candidates and writes only a sanitized ignored availability report for original intro comparison.",
@@ -604,7 +641,7 @@
       "id": "M002",
       "status": "complete",
       "title": "Prototype launcher and roster flow",
-      "done_when": "Native window launches; screenshot tests render Title Screen, Play Prototype, and Rosters; --flow-test proves rosters, court start, and quit transitions."
+      "done_when": "Native window launches; screenshot tests render Title Screen, Play Game first-sprite probe, and Rosters; --flow-test proves rosters, first-sprite entry/cancel, and quit transitions."
     },
     {
       "id": "M003",

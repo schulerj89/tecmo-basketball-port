@@ -56,6 +56,7 @@ $env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
 .\build\tecmo_port.exe --assets
 .\build\tecmo_port.exe --play
 .\build\tecmo_port.exe --flow-test
+.\build\tecmo_port.exe --bank07-test
 .\build\tecmo_port.exe --render-test build\play_test.png
 .\build\tecmo_port.exe --render-test-mode boot-title build\boot_title_test.png
 .\build\tecmo_port.exe --render-test-mode menu docs\screenshots\menu_default.png
@@ -71,7 +72,9 @@ $env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
 .\build\tecmo_port.exe --render-test-mode chr-playground build\chr_playground_test.png
 .\build\tecmo_port.exe --render-test-mode chr-playground-table1 build\chr_playground_table1_test.png
 .\build\tecmo_port.exe --render-test-mode rosters build\rosters_test.png
-.\build\tecmo_port.exe --render-test-mode play build\play_setup_test.png
+.\build\tecmo_port.exe --render-test-mode first-sprite build\first_sprite_test.png
+.\build\tecmo_port.exe --render-test-mode play build\play_test.png
+.\build\tecmo_port.exe --render-test-mode play-setup build\play_setup_test.png
 .\build\tecmo_port.exe --render-test-mode original-title build\original_title_test.png
 .\build\tecmo_port.exe --render-test-mode original-title-chr build\original_title_chr_test.png
 ```
@@ -92,7 +95,31 @@ Run every active native flow test declared in `port_iteration.json`:
 
 The flow runner writes ignored `build\native_flow_test_report.json` with sanitized pass/fail metadata only.
 
-Run the headless native flow test for title -> menu -> rosters -> play setup -> court -> quit:
+Run the native Bank07 fixed-helper C counterpart test:
+
+```powershell
+.\build\tecmo_port.exe --bank07-test
+```
+
+This validates the first fixed-bank native capability layer: sprite/OAM staging, unused-OAM hiding, setup-byte copy, and 8x16 sprite tile-pair mapping. It does not emulate the NES CPU or run the original ROM.
+
+Trace the local-only boot handoff from Bank07 reset/bootstrap to the first Bank04 intro script target:
+
+```powershell
+.\tools\Find-BootFirstScreenTrace.ps1
+```
+
+That writes ignored `build\boot_first_screen_trace.json` with sanitized call-chain, vector, and pointer metadata only.
+
+Trace the first Bank04 intro sprite staged through `$C051/$D861`:
+
+```powershell
+.\tools\Find-IntroFirstSpriteTrace.ps1
+```
+
+That writes ignored `build\intro_first_sprite_trace.json` with the first staged D861 record and the first rabbit record that has an onscreen Y position.
+
+Run the headless native flow test for title -> menu -> rosters -> first sprite -> quit:
 
 ```powershell
 .\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --flow-test
@@ -161,6 +188,14 @@ That writes ignored `build\intro_composite_trace.json` and `build\intro_composit
 
 When that ignored trace JSON is present, the runtime Title Screen loads it locally and renders a first rabbit plus asset-backed `TECMO` splash. The visible `TECMO` word uses the Bank 31/table 1 `$180-$193` construction; the rabbit is drawn from the decoded `$A7DB` selector `$01` trace. Palette, live CHR bank, and exact scroll/base state are still under investigation.
 
+To compare the original run in FCEUX, load this Lua script after opening the private local rebuilt NES image:
+
+```text
+tools\emu_intro_first_sprite_watch.lua
+```
+
+It writes ignored `build\emu_intro_first_sprite_watch.ndjson` and watches `$058D` plus OAM staging bytes `$0200-$02FF` so the original run can be compared against the ignored first-sprite trace report.
+
 Prototype controls:
 
 ```text
@@ -169,7 +204,7 @@ Enter = launcher menu
 Esc = quit
 
 Main menu:
-Up/Down = choose Title Screen, Intro Lab, CHR Playground, Play Prototype, Rosters, or Quit
+Up/Down = choose Title Screen, Intro Lab, CHR Playground, Play Game, Rosters, or Quit
 Enter = confirm
 Esc = quit
 F3 = debug overlay
@@ -197,21 +232,14 @@ Up/Down = switch CHR pattern table half
 Tab = next CHR bank
 Enter/Esc = launcher menu
 
-Play Prototype:
-Left/Right = team
-Up/Down = player
-Enter = start court prototype
-Esc = main menu
+Play Game:
+Shows the first native D861 intro sprite probe
+Enter/Esc = main menu
 
 Rosters:
 Left/Right = team
 Up/Down = player
 Esc = main menu
-
-Court prototype:
-Arrows = move
-Space = shoot
-Esc = play setup
 ```
 
 Local-only generated outputs:
@@ -240,11 +268,11 @@ The shortcut points at the latest `build\tecmo_port.exe`, regenerates an origina
 - Count lifted chunks and labels
 - Parse local Bank 02 roster labels into C-friendly records
 - Export local CHR bytes and grayscale tile sheet PNGs for private inspection
-- Run a native Win32 playable prototype with explicit memory arenas, source-backed title/CHR diagnostics, bank/table-switchable intro/CHR labs, and roster-driven team/player selection
+- Run a native Win32 playable prototype with explicit memory arenas, a first Bank07 fixed-helper C layer, source-backed title/CHR diagnostics, a Play Game first-sprite probe, bank/table-switchable intro/CHR labs, and roster browsing
 
 The current playable mode is a native prototype, not a full recreation of the original game. It establishes the frame loop, input path, memory model, and data-loading boundary that future translated gameplay systems can plug into. The `original-title-chr` render test also loads a native title setup summary from the private local Bank 04 and fixed-bank baselines so setup helper/write/table/stream/staging counts, fixed-helper aggregate categories, fixed-bank vector counts, and palette/PPU probe counts can be verified without committing setup streams, palette values, helper code, or graphics.
 
-For original intro comparison, `tools\Find-NesReferenceIntro.ps1` can find the local rebuilt `.nes` and an installed emulator such as Mesen or FCEUX, then write an ignored sanitized report. It does not make the runtime depend on an emulator.
+For original intro comparison, `tools\Find-NesReferenceIntro.ps1` can find the local rebuilt `.nes` and an installed emulator such as Mesen or FCEUX, then write an ignored sanitized report. `tools\emu_intro_first_sprite_watch.lua` can be loaded manually in FCEUX to log OAM timing for the first intro sprite. Neither tool makes the runtime depend on an emulator.
 
 ## Native Runtime Direction
 
@@ -258,7 +286,8 @@ This project is not embedding a NES CPU emulator. The intended path is a native 
 The current runtime separates:
 
 - `TecmoGameMemory`: permanent/transient arenas plus NES-shaped RAM buffers for ported systems that still need mirrored RAM semantics
-- `TecmoRuntime`: game state, roster selection, court prototype state, and deterministic frame update
+- `tecmo_bank07`: native C counterparts for verified fixed-bank helper behavior used by translated systems
+- `TecmoRuntime`: game state, menu flow, first-sprite probe state, roster browsing, and deterministic frame update
 - `TecmoFramebuffer`: platform-neutral software framebuffer consumed by the Win32 backend
 - `win32_platform.c`: temporary Windows window/input/presentation layer
 

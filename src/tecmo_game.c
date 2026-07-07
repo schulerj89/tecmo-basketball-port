@@ -1,4 +1,5 @@
 #include "tecmo_game.h"
+#include "tecmo_bank07.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -44,6 +45,9 @@ static const char *mode_name(TecmoPlayMode mode)
     }
     if (mode == TECMO_MODE_CHR_PLAYGROUND) {
         return "CHR PLAYGROUND";
+    }
+    if (mode == TECMO_MODE_FIRST_SPRITE) {
+        return "FIRST SPRITE";
     }
     if (mode == TECMO_MODE_PLAY_SETUP) {
         return "PLAY SETUP";
@@ -145,18 +149,36 @@ size_t tecmo_intro_stage_sprite_records(const TecmoIntroSpriteRecord *records,
                                         TecmoIntroStagedSprite *entries,
                                         size_t entry_capacity)
 {
+    TecmoBank07SpriteStageConfig bank_config;
     size_t staged_count = 0;
     if (records == NULL || config == NULL || entries == NULL || entry_capacity == 0) {
         return 0;
     }
 
+    bank_config.base_x = config->base_x;
+    bank_config.base_y = config->base_y;
+    bank_config.tile_offset = config->tile_offset;
+    bank_config.attribute_or = 0U;
+
     for (size_t i = 0; i < record_count && staged_count < entry_capacity; ++i) {
         const TecmoIntroSpriteRecord *record = &records[i];
-        TecmoIntroStagedSprite *entry = &entries[staged_count++];
-        entry->y = (uint8_t)(config->base_y + record->relative_y);
-        entry->tile = (uint8_t)(record->tile + config->tile_offset);
-        entry->attributes = record->attributes;
-        entry->x = (uint8_t)(config->base_x + record->relative_x);
+        TecmoBank07SpriteRecord bank_record;
+        TecmoBank07OamSprite bank_entry;
+        TecmoIntroStagedSprite *entry = &entries[staged_count];
+
+        bank_record.relative_y = record->relative_y;
+        bank_record.tile = record->tile;
+        bank_record.attributes = record->attributes;
+        bank_record.relative_x = record->relative_x;
+        if (tecmo_bank07_d861_stage_sprite_records(&bank_record, 1, &bank_config, &bank_entry, 1) != 1) {
+            break;
+        }
+
+        entry->y = bank_entry.y;
+        entry->tile = bank_entry.tile;
+        entry->attributes = bank_entry.attributes;
+        entry->x = bank_entry.x;
+        ++staged_count;
     }
 
     return staged_count;
@@ -257,12 +279,7 @@ bool tecmo_intro_stage_self_test(char *message, size_t message_size)
 
 void tecmo_intro_sprite_8x16_pair_for_table(uint8_t oam_tile_low, uint32_t chr_table, uint16_t out_tiles[2])
 {
-    if (out_tiles == NULL) {
-        return;
-    }
-
-    out_tiles[0] = (uint16_t)((chr_table & 1U) * 0x100U + (uint16_t)(oam_tile_low & 0xFEU));
-    out_tiles[1] = (uint16_t)(out_tiles[0] + 1U);
+    tecmo_bank07_sprite_8x16_pair_for_table(oam_tile_low, chr_table, out_tiles);
 }
 
 uint16_t tecmo_intro_oam_tile_pair_top(uint8_t oam_tile_low, uint32_t chr_table)
@@ -585,13 +602,33 @@ static bool load_intro_trace_from_json(TecmoRuntime *runtime, const char *json, 
     return runtime->intro_trace_available;
 }
 
-static void load_intro_trace(TecmoRuntime *runtime)
+static void append_runtime_path(char *dest, size_t dest_size, const char *root, const char *relative)
 {
-    static const char *trace_paths[] = {
-        "build\\intro_composite_trace.json",
-        "intro_composite_trace.json",
-        "..\\build\\intro_composite_trace.json",
-    };
+    size_t root_len;
+    if (dest == NULL || dest_size == 0) {
+        return;
+    }
+    dest[0] = '\0';
+    if (root == NULL || root[0] == '\0') {
+        root = ".";
+    }
+    (void)snprintf(dest, dest_size, "%s", root);
+    root_len = strlen(dest);
+    if (root_len > 0U && root_len + 1U < dest_size &&
+        dest[root_len - 1U] != '\\' && dest[root_len - 1U] != '/') {
+        dest[root_len++] = '\\';
+        dest[root_len] = '\0';
+    }
+    if (root_len < dest_size) {
+        (void)snprintf(dest + root_len, dest_size - root_len, "%s", relative);
+    }
+}
+
+static void load_intro_trace(TecmoRuntime *runtime, const char *project_root)
+{
+    char project_trace_path[TECMO_MAX_PATH_TEXT];
+    char cwd_trace_path[TECMO_MAX_PATH_TEXT];
+    const char *trace_paths[4];
     char *json = NULL;
     size_t json_size = 0;
 
@@ -602,6 +639,16 @@ static void load_intro_trace(TecmoRuntime *runtime)
     set_runtime_status(runtime->intro_trace_status,
                        sizeof(runtime->intro_trace_status),
                        "RUN TOOLS FIND-INTROCOMPOSITETRACE FIRST");
+
+    append_runtime_path(project_trace_path,
+                        sizeof(project_trace_path),
+                        project_root,
+                        "build\\intro_composite_trace.json");
+    (void)snprintf(cwd_trace_path, sizeof(cwd_trace_path), "build\\intro_composite_trace.json");
+    trace_paths[0] = project_trace_path;
+    trace_paths[1] = cwd_trace_path;
+    trace_paths[2] = "intro_composite_trace.json";
+    trace_paths[3] = "..\\build\\intro_composite_trace.json";
 
     for (size_t i = 0; i < sizeof(trace_paths) / sizeof(trace_paths[0]); ++i) {
         json = read_text_file(trace_paths[i], &json_size);
@@ -641,7 +688,7 @@ bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const ch
     set_runtime_status(runtime->intro_layout_status,
                        sizeof(runtime->intro_layout_status),
                        "SPACE RECORD  S SAVE  BACKSPACE REMOVE");
-    load_intro_trace(runtime);
+    load_intro_trace(runtime, project_root);
 
     if (tecmo_collect_rosters(project_root, &runtime->roster) != 0) {
         return false;
@@ -709,7 +756,7 @@ static void update_main_menu(TecmoRuntime *runtime, const TecmoInput *input)
         } else if (runtime->selected_menu_item == 2) {
             runtime->mode = TECMO_MODE_CHR_PLAYGROUND;
         } else if (runtime->selected_menu_item == 3) {
-            runtime->mode = TECMO_MODE_PLAY_SETUP;
+            runtime->mode = TECMO_MODE_FIRST_SPRITE;
         } else if (runtime->selected_menu_item == 4) {
             runtime->mode = TECMO_MODE_ROSTERS;
         } else {
@@ -1257,6 +1304,14 @@ static void update_court(TecmoRuntime *runtime, const TecmoInput *input)
     }
 }
 
+static void update_first_sprite_probe(TecmoRuntime *runtime, const TecmoInput *input)
+{
+    if (pressed(input->confirm, runtime->previous_input.confirm) ||
+        pressed(input->cancel, runtime->previous_input.cancel)) {
+        runtime->mode = TECMO_MODE_MAIN_MENU;
+    }
+}
+
 static void write_runtime_watch_memory(TecmoRuntime *runtime)
 {
     tecmo_cpu_ram_write(runtime->memory, 0x0000, (uint8_t)runtime->mode);
@@ -1285,6 +1340,8 @@ void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input)
     } else if (runtime->mode == TECMO_MODE_INTRO_PROBE ||
                runtime->mode == TECMO_MODE_CHR_PLAYGROUND) {
         update_probe_screen(runtime, input);
+    } else if (runtime->mode == TECMO_MODE_FIRST_SPRITE) {
+        update_first_sprite_probe(runtime, input);
     } else if (runtime->mode == TECMO_MODE_PLAY_SETUP) {
         update_roster_selection(runtime, input, true);
     } else if (runtime->mode == TECMO_MODE_ROSTERS) {
@@ -1413,7 +1470,6 @@ static bool flow_press_menu_up(TecmoRuntime *runtime,
 bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t message_size)
 {
     TecmoInput input;
-    size_t original_team;
 
     if (message != NULL && message_size > 0) {
         message[0] = '\0';
@@ -1473,45 +1529,19 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         return false;
     }
 
-    if (!flow_press_menu_up(runtime, 1U, 3U, "navigate to play setup", message, message_size)) {
+    if (!flow_press_menu_up(runtime, 1U, 3U, "navigate to play game", message, message_size)) {
         return false;
     }
     memset(&input, 0, sizeof(input));
     input.confirm = true;
     flow_step(runtime, input);
-    if (!flow_expect_mode(runtime, TECMO_MODE_PLAY_SETUP, "enter play setup", message, message_size)) {
-        return false;
-    }
-    original_team = runtime->selected_team;
-    memset(&input, 0, sizeof(input));
-    input.right = true;
-    flow_step(runtime, input);
-    if (runtime->selected_team != original_team + 1U ||
-        tecmo_cpu_ram_read(runtime->memory, 0x0001) != (uint8_t)runtime->selected_team) {
-        set_flow_test_message(message, message_size, "play setup team navigation failed");
-        return false;
-    }
-    memset(&input, 0, sizeof(input));
-    input.confirm = true;
-    flow_step(runtime, input);
-    if (!flow_expect_mode(runtime, TECMO_MODE_COURT, "start court", message, message_size)) {
-        return false;
-    }
-    if (runtime->ball_x <= 0.0f || runtime->ball_y <= 0.0f) {
-        set_flow_test_message(message, message_size, "court ball state was not initialized");
-        return false;
-    }
-
-    memset(&input, 0, sizeof(input));
-    input.cancel = true;
-    flow_step(runtime, input);
-    if (!flow_expect_mode(runtime, TECMO_MODE_PLAY_SETUP, "court cancel", message, message_size)) {
+    if (!flow_expect_mode(runtime, TECMO_MODE_FIRST_SPRITE, "enter play game", message, message_size)) {
         return false;
     }
     memset(&input, 0, sizeof(input));
     input.cancel = true;
     flow_step(runtime, input);
-    if (!flow_expect_mode(runtime, TECMO_MODE_MAIN_MENU, "play setup cancel", message, message_size)) {
+    if (!flow_expect_mode(runtime, TECMO_MODE_MAIN_MENU, "first sprite cancel", message, message_size)) {
         return false;
     }
 
@@ -1526,7 +1556,7 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         return false;
     }
 
-    set_flow_test_message(message, message_size, "FLOW TEST PASS: title menu rosters play court quit");
+    set_flow_test_message(message, message_size, "FLOW TEST PASS: title menu rosters first-sprite quit");
     return true;
 }
 
@@ -1671,7 +1701,7 @@ static void render_main_menu(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
     draw_button(fb, 150, 116, 340, 42, "TITLE SCREEN", runtime->selected_menu_item == 0);
     draw_button(fb, 150, 166, 340, 42, "INTRO LAB", runtime->selected_menu_item == 1);
     draw_button(fb, 150, 216, 340, 42, "CHR PLAYGROUND", runtime->selected_menu_item == 2);
-    draw_button(fb, 150, 266, 340, 42, "PLAY PROTOTYPE", runtime->selected_menu_item == 3);
+    draw_button(fb, 150, 266, 340, 42, "PLAY GAME", runtime->selected_menu_item == 3);
     draw_button(fb, 150, 316, 340, 42, "ROSTERS", runtime->selected_menu_item == 4);
     draw_button(fb, 150, 366, 340, 42, "QUIT", runtime->selected_menu_item == 5);
 
@@ -2163,6 +2193,172 @@ static void draw_intro_trace_group(TecmoFramebuffer *fb,
         y = target_y + (sprite->screen_y - min_y) * scale;
         draw_intro_trace_sprite(fb, runtime, sprite, x, y, scale);
     }
+}
+
+static const TecmoIntroTraceSprite *find_intro_trace_sprite(const TecmoRuntime *runtime,
+                                                            uint8_t group,
+                                                            bool require_visible,
+                                                            size_t *group_index_out)
+{
+    size_t group_index = 0;
+    for (size_t i = 0; i < runtime->intro_trace_sprite_count; ++i) {
+        const TecmoIntroTraceSprite *sprite = &runtime->intro_trace_sprites[i];
+        if (sprite->group != group) {
+            continue;
+        }
+        if (!require_visible || (sprite->screen_y >= 0 && sprite->screen_y < 240)) {
+            if (group_index_out != NULL) {
+                *group_index_out = group_index;
+            }
+            return sprite;
+        }
+        ++group_index;
+    }
+    if (group_index_out != NULL) {
+        *group_index_out = 0;
+    }
+    return NULL;
+}
+
+static void describe_intro_trace_sprite(const TecmoIntroTraceSprite *sprite,
+                                        size_t record_index,
+                                        const char *prefix,
+                                        char *out,
+                                        size_t out_size)
+{
+    uint8_t oam_y;
+    uint8_t oam_x;
+    uint16_t pair_top;
+    uint16_t pair_bottom;
+    if (out == NULL || out_size == 0) {
+        return;
+    }
+    if (sprite == NULL) {
+        (void)snprintf(out, out_size, "%s MISSING", prefix);
+        return;
+    }
+
+    oam_y = (uint8_t)sprite->screen_y;
+    oam_x = (uint8_t)sprite->screen_x;
+    pair_top = tecmo_intro_oam_tile_pair_top(sprite->tile_low, 1U);
+    pair_bottom = tecmo_intro_oam_tile_pair_bottom(sprite->tile_low, 1U);
+    (void)snprintf(out,
+                   out_size,
+                   "%s R%02u OAM Y%02X T%02X A%02X X%02X  CHR %03X/%03X",
+                   prefix,
+                   (unsigned)record_index,
+                   (unsigned)oam_y,
+                   (unsigned)sprite->tile_low,
+                   (unsigned)sprite->attributes,
+                   (unsigned)oam_x,
+                   (unsigned)pair_top,
+                   (unsigned)pair_bottom);
+}
+
+static void draw_intro_trace_byte_table(const TecmoRuntime *runtime,
+                                        TecmoFramebuffer *fb,
+                                        int x,
+                                        int y)
+{
+    const size_t rows_per_column = 8;
+    size_t record_index = 0;
+    char line[160];
+
+    draw_text(fb, x, y, "FULL D861 RABBIT STREAM  16 RECORDS  64 BYTES", rgb(252, 236, 118), 1);
+    draw_text(fb, x, y + 18, "REC  Y TILE AT X  CHR    V", rgb(142, 174, 190), 1);
+    draw_text(fb, x + 294, y + 18, "REC  Y TILE AT X  CHR    V", rgb(142, 174, 190), 1);
+
+    for (size_t i = 0; i < runtime->intro_trace_sprite_count && record_index < 16U; ++i) {
+        const TecmoIntroTraceSprite *sprite = &runtime->intro_trace_sprites[i];
+        uint8_t oam_y;
+        uint8_t oam_x;
+        uint16_t pair_top;
+        uint16_t pair_bottom;
+        bool visible_y;
+        int column_x;
+        int row_y;
+
+        if (sprite->group != INTRO_TRACE_GROUP_RABBIT) {
+            continue;
+        }
+
+        oam_y = (uint8_t)sprite->screen_y;
+        oam_x = (uint8_t)sprite->screen_x;
+        pair_top = tecmo_intro_oam_tile_pair_top(sprite->tile_low, 1U);
+        pair_bottom = tecmo_intro_oam_tile_pair_bottom(sprite->tile_low, 1U);
+        visible_y = sprite->screen_y >= 0 && sprite->screen_y < 240;
+        column_x = x + (record_index >= rows_per_column ? 294 : 0);
+        row_y = y + 34 + (int)(record_index % rows_per_column) * 11;
+        (void)snprintf(line,
+                       sizeof(line),
+                       "R%02u %02X  %02X  %02X %02X %03X/%03X %c",
+                       (unsigned)record_index,
+                       (unsigned)oam_y,
+                       (unsigned)sprite->tile_low,
+                       (unsigned)sprite->attributes,
+                       (unsigned)oam_x,
+                       (unsigned)pair_top,
+                       (unsigned)pair_bottom,
+                       visible_y ? 'Y' : 'N');
+        draw_text(fb, column_x, row_y, line, rgb(230, 232, 214), 1);
+        ++record_index;
+    }
+
+    if (record_index == 0) {
+        draw_text(fb, x, y + 36, "NO RABBIT STREAM ROWS PARSED", rgb(232, 92, 76), 1);
+    } else if (record_index < 16U) {
+        (void)snprintf(line, sizeof(line), "ONLY %u RABBIT ROWS PARSED", (unsigned)record_index);
+        draw_text(fb, x + 294, y + 122, line, rgb(232, 92, 76), 1);
+    }
+}
+
+static void render_first_sprite_probe(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+{
+    const TecmoIntroTraceSprite *first_staged;
+    const TecmoIntroTraceSprite *first_visible;
+    size_t first_staged_index = 0;
+    size_t first_visible_index = 0;
+    char line[192];
+
+    clear(fb, rgb(0, 0, 0));
+    rect(fb, 0, 0, fb->width, 58, rgb(18, 18, 34));
+    draw_text(fb, 24, 20, "PLAY GAME - FIRST INTRO SPRITE PROBE", rgb(248, 248, 232), 2);
+    draw_text(fb, 24, 66, "BANK07 RESET -> CC30 -> E41A -> BANK04 825D -> 88E8 -> 8988 -> C051/D861", rgb(142, 174, 190), 1);
+    draw_text(fb, 24, 84, "ENTER OR ESC RETURNS TO MENU", rgb(142, 174, 190), 1);
+
+    if (!runtime->title_probe_available || !runtime->intro_trace_available) {
+        draw_centered_text(fb, 206, "LOCAL INTRO TRACE OR CHR DATA MISSING", rgb(252, 236, 170), 2);
+        draw_centered_text(fb, 242, "RUN TOOLS FIND-INTROCOMPOSITETRACE FIRST", rgb(230, 232, 214), 1);
+        draw_centered_text(fb, 264, runtime->intro_trace_status, rgb(142, 174, 190), 1);
+        return;
+    }
+
+    first_staged = find_intro_trace_sprite(runtime, INTRO_TRACE_GROUP_RABBIT, false, &first_staged_index);
+    first_visible = find_intro_trace_sprite(runtime, INTRO_TRACE_GROUP_RABBIT, true, &first_visible_index);
+
+    draw_text(fb, 24, 116, "FIRST D861 OUTPUT RECORD", rgb(252, 236, 118), 1);
+    describe_intro_trace_sprite(first_staged, first_staged_index, "STAGED", line, sizeof(line));
+    draw_text(fb, 24, 136, line, rgb(230, 232, 214), 1);
+    draw_text(fb, 24, 154, "OFFSCREEN IN ORIGINAL  Y WRAPS TO FE", rgb(142, 174, 190), 1);
+    if (first_staged != NULL) {
+        outline_rect(fb, 72, 188, 8 * 7 + 2, 16 * 7 + 2, rgb(80, 96, 110));
+        draw_intro_trace_sprite(fb, runtime, first_staged, 73, 189, 7);
+    }
+
+    draw_text(fb, 326, 116, "FIRST VISIBLE RABBIT RECORD", rgb(252, 236, 118), 1);
+    describe_intro_trace_sprite(first_visible, first_visible_index, "VISIBLE", line, sizeof(line));
+    draw_text(fb, 326, 136, line, rgb(230, 232, 214), 1);
+    draw_text(fb, 326, 154, "FIRST RABBIT SPRITE WITH ONSCREEN Y", rgb(142, 174, 190), 1);
+    if (first_visible != NULL) {
+        outline_rect(fb, 386, 188, 8 * 7 + 2, 16 * 7 + 2, rgb(80, 96, 110));
+        draw_intro_trace_sprite(fb, runtime, first_visible, 387, 189, 7);
+    }
+
+    rect(fb, 24, 318, 592, 138, rgb(12, 14, 18));
+    outline_rect(fb, 24, 318, 592, 138, rgb(66, 78, 88));
+    draw_intro_trace_byte_table(runtime, fb, 42, 336);
+
+    draw_text(fb, 24, 464, runtime->intro_trace_status, rgb(92, 116, 128), 1);
 }
 
 static void draw_intro_visual_tecmo_logo(TecmoFramebuffer *fb,
@@ -2685,6 +2881,8 @@ void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebu
         render_intro_layout_lab(runtime, framebuffer);
     } else if (runtime->mode == TECMO_MODE_CHR_PLAYGROUND) {
         render_chr_playground(runtime, framebuffer);
+    } else if (runtime->mode == TECMO_MODE_FIRST_SPRITE) {
+        render_first_sprite_probe(runtime, framebuffer);
     } else if (runtime->mode == TECMO_MODE_PLAY_SETUP) {
         render_roster_browser(runtime, framebuffer, true);
     } else if (runtime->mode == TECMO_MODE_ROSTERS) {
