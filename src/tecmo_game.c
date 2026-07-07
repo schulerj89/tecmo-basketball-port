@@ -20,8 +20,10 @@
 #define INTRO_TRACE_GROUP_TECMO_STREAM 2U
 #define INTRO_TRACE_GROUP_TECMO_LOGO 3U
 #define INTRO_TRACE_GROUP_A7DB_SELECTOR0 4U
-#define TECMO_INTRO_OUTPUT_STEP_COUNT 7U
-#define TECMO_INTRO_OUTPUT_TITLE_STEP (TECMO_INTRO_OUTPUT_STEP_COUNT - 1U)
+#define TECMO_INTRO_OUTPUT_STEP_COUNT 8U
+#define TECMO_INTRO_OUTPUT_TITLE_STEP 6U
+#define TECMO_INTRO_OUTPUT_LICENSE_STEP 7U
+#define TECMO_INTRO_LICENSE_AUTO_FRAME 120U
 #define INTRO_PRESENTS_SCREEN_ID 0x00U
 #define INTRO_PRESENTS_RECORD_CPU 0xDC85U
 #define INTRO_PRESENTS_STREAM_BANK 0x00U
@@ -661,7 +663,7 @@ bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const ch
         runtime->title_chr_byte_count = 0;
     }
 
-    runtime->mode = TECMO_MODE_TITLE_SCREEN;
+    runtime->mode = TECMO_MODE_MAIN_MENU;
     runtime->frame_seconds = 1.0f / 60.0f;
     runtime->player_x = 320.0f;
     runtime->player_y = 260.0f;
@@ -1267,9 +1269,15 @@ static void update_first_sprite_probe(TecmoRuntime *runtime, const TecmoControlF
     } else if (controls->pressed.left &&
                runtime->intro_output_step > 0U) {
         --runtime->intro_output_step;
+        runtime->mode_frame_counter = 0;
     } else if (controls->pressed.right &&
                runtime->intro_output_step + 1U < TECMO_INTRO_OUTPUT_STEP_COUNT) {
         ++runtime->intro_output_step;
+        runtime->mode_frame_counter = 0;
+    } else if (runtime->intro_output_step == TECMO_INTRO_OUTPUT_TITLE_STEP &&
+               runtime->mode_frame_counter >= TECMO_INTRO_LICENSE_AUTO_FRAME) {
+        runtime->intro_output_step = TECMO_INTRO_OUTPUT_LICENSE_STEP;
+        runtime->mode_frame_counter = 0;
     }
 }
 
@@ -1454,13 +1462,7 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
 
     memset(&input, 0, sizeof(input));
     flow_step(runtime, input);
-    if (!flow_expect_mode(runtime, TECMO_MODE_TITLE_SCREEN, "boot title", message, message_size)) {
-        return false;
-    }
-
-    input.confirm = true;
-    flow_step(runtime, input);
-    if (!flow_expect_mode(runtime, TECMO_MODE_MAIN_MENU, "title confirm", message, message_size)) {
+    if (!flow_expect_mode(runtime, TECMO_MODE_MAIN_MENU, "boot menu", message, message_size)) {
         return false;
     }
     if (!flow_expect_menu_item(runtime, 0U, "initial menu", message, message_size)) {
@@ -1504,6 +1506,14 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         return false;
     }
     memset(&input, 0, sizeof(input));
+    for (size_t frame = 0; frame < TECMO_INTRO_LICENSE_AUTO_FRAME; ++frame) {
+        tecmo_runtime_update(runtime, &input);
+    }
+    if (runtime->intro_output_step != TECMO_INTRO_OUTPUT_LICENSE_STEP) {
+        set_flow_test_message(message, message_size, "play game did not advance to NBA license step");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
     input.cancel = true;
     flow_step(runtime, input);
     if (!flow_expect_mode(runtime, TECMO_MODE_MAIN_MENU, "first sprite cancel", message, message_size)) {
@@ -1521,7 +1531,7 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         return false;
     }
 
-    set_flow_test_message(message, message_size, "FLOW TEST PASS: title menu rosters first-sprite quit");
+    set_flow_test_message(message, message_size, "FLOW TEST PASS: menu rosters play-intro quit");
     return true;
 }
 
@@ -2687,7 +2697,10 @@ static const char *intro_output_step_label(uint8_t step)
     if (step == 5U) {
         return "COORDINATE AUDIT";
     }
-    return "CAPTURED PPU TITLE BACKGROUND";
+    if (step == TECMO_INTRO_OUTPUT_TITLE_STEP) {
+        return "CAPTURED PPU TITLE BACKGROUND";
+    }
+    return "NBA LICENSE SCREEN";
 }
 
 static void draw_intro_output_header(TecmoFramebuffer *fb, uint8_t step)
@@ -2951,13 +2964,21 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
         step = TECMO_INTRO_OUTPUT_STEP_COUNT - 1U;
     }
 
-    if (!runtime->title_probe_available || (!runtime->intro_trace_available && step != TECMO_INTRO_OUTPUT_TITLE_STEP)) {
+    if (!runtime->title_probe_available ||
+        (!runtime->intro_trace_available &&
+         step != TECMO_INTRO_OUTPUT_TITLE_STEP &&
+         step != TECMO_INTRO_OUTPUT_LICENSE_STEP)) {
         tecmo_render_first_sprite_probe(runtime, fb);
         return;
     }
 
     if (step == TECMO_INTRO_OUTPUT_TITLE_STEP) {
-        render_intro_captured_title_screen(runtime, fb, "ENTER ESC MENU   LEFT DEBUG", false);
+        render_intro_captured_title_screen(runtime, fb, NULL, false);
+        return;
+    }
+
+    if (step == TECMO_INTRO_OUTPUT_LICENSE_STEP) {
+        tecmo_render_intro_license_screen(runtime, fb);
         return;
     }
 
@@ -3034,8 +3055,6 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
         draw_text(fb, 48, 346, line, rgb(142, 174, 190), 1);
     } else if (step == 5U) {
         render_intro_coordinate_audit(runtime, fb);
-    } else {
-        render_intro_captured_title_screen(runtime, fb, "ENTER ESC MENU   LEFT DEBUG", false);
     }
 
     draw_text(fb, 24, 464, runtime->intro_trace_status, rgb(92, 116, 128), 1);

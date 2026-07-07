@@ -88,6 +88,7 @@ $env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
 .\build\tecmo_port.exe --render-test-mode play-step4 build\play_step4_test.png
 .\build\tecmo_port.exe --render-test-mode play-step5 build\play_step5_test.png
 .\build\tecmo_port.exe --render-test-mode play-step6 build\play_step6_test.png
+.\build\tecmo_port.exe --render-test-mode play-step7 build\play_step7_test.png
 .\build\tecmo_port.exe --render-test-mode play-setup build\play_setup_test.png
 .\build\tecmo_port.exe --render-test-mode original-title build\original_title_test.png
 .\build\tecmo_port.exe --render-test-mode original-title-chr build\original_title_chr_test.png

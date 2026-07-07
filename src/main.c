@@ -19,11 +19,11 @@ static void print_usage(const char *program)
     printf("  --assets                Analyze raw CHR bytes in build\\baseline\\Tiles.asm\n");
     printf("  --roster [TEAM|--all]   Parse labeled Bank 02 roster records\n");
     printf("  --play                  Launch native playable prototype window\n");
-    printf("  --flow-test             Run headless native title/menu/rosters/play/quit flow checks\n");
+    printf("  --flow-test             Run headless native menu/rosters/play/quit flow checks\n");
     printf("  --controls-test         Run portable held/pressed/released control-state checks\n");
     printf("  --bank07-test           Run fixed-bank helper C counterpart checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, first-sprite, first-sprite-debug, intro-license, intro-l88e7-proof, intro-presents, intro-builder-sample, intro-rabbit-preset, intro-tecmo-preset, intro-composite-preset, intro-c051-d861-model, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play, play-fade0..play-fade4, play-step0..play-step6, play-setup, original-title, or original-title-chr to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, first-sprite, first-sprite-debug, intro-license, intro-l88e7-proof, intro-presents, intro-builder-sample, intro-rabbit-preset, intro-tecmo-preset, intro-composite-preset, intro-c051-d861-model, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play, play-fade0..play-fade4, play-step0..play-step7, play-setup, original-title, or original-title-chr to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -291,7 +291,7 @@ int main(int argc, char **argv)
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_TITLE_SCREEN);
                 runtime.mode_frame_counter = 16U;
             } else if (strcmp(mode_name, "boot-title") == 0) {
-                /* Default runtime initialization already starts at the title screen. */
+                tecmo_runtime_set_mode(&runtime, TECMO_MODE_TITLE_SCREEN);
                 runtime.mode_frame_counter = 16U;
             } else if (strcmp(mode_name, "intro-presents") == 0) {
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_INTRO_PROBE);
