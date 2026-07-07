@@ -2,6 +2,7 @@
 #define TECMO_GAME_H
 
 #include "asm_inventory.h"
+#include "tecmo_framebuffer.h"
 #include "tecmo_memory.h"
 
 #include <stdbool.h>
@@ -27,13 +28,6 @@ typedef struct TecmoInput {
     bool remove;
     bool debug_toggle;
 } TecmoInput;
-
-typedef struct TecmoFramebuffer {
-    uint32_t *pixels;
-    int width;
-    int height;
-    int pitch_pixels;
-} TecmoFramebuffer;
 
 typedef enum TecmoPlayMode {
     TECMO_MODE_MAIN_MENU,

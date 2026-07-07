@@ -28,6 +28,8 @@ $Sources = @(
     "src\asm_inventory.c",
     "src\png_writer.c",
     "src\tecmo_bank07.c",
+    "src\tecmo_nes_video.c",
+    "src\tecmo_intro_title.c",
     "src\tecmo_memory.c",
     "src\tecmo_game.c",
     "src\win32_platform.c"
