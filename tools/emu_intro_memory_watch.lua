@@ -28,6 +28,8 @@ local VRAM_FOCUS_START = 0x2100
 local VRAM_FOCUS_SIZE = 0x100
 local PPU_QUEUE_BASE = 0x03A0
 local PPU_QUEUE_SIZE = 0x60
+local ATTRIBUTE_TABLE_START = 0x23C0
+local ATTRIBUTE_TABLE_SIZE = 0x40
 local PALETTE_RAM_START = 0x3F00
 local PALETTE_RAM_SIZE = 0x20
 
@@ -69,6 +71,7 @@ local started_frame = nil
 local previous_nametable_signature = ""
 local previous_queue_signature = ""
 local previous_palette_signature = ""
+local previous_attribute_signature = ""
 
 local function append_line(path, line)
   local h = io.open(path, "a")
@@ -250,6 +253,7 @@ local function should_log_ppu_tile(addr, value)
   addr = addr or 0
   value = value or 0
   if addr >= 0x2100 and addr <= 0x21FF then return true end
+  if addr >= ATTRIBUTE_TABLE_START and addr < ATTRIBUTE_TABLE_START + ATTRIBUTE_TABLE_SIZE then return true end
   if addr >= PALETTE_RAM_START and addr < PALETTE_RAM_START + PALETTE_RAM_SIZE then return true end
   return tile_is_intro_candidate(value)
 end
@@ -301,6 +305,21 @@ local function palette_ram_signature()
   local any_read = false
   for offset = 0, PALETTE_RAM_SIZE - 1 do
     local addr = PALETTE_RAM_START + offset
+    local value = read_ppu_safe(addr)
+    if value ~= nil then
+      any_read = true
+      parts[#parts + 1] = string.format("%s=%s", hex4(addr), hex2(value))
+    end
+  end
+  if not any_read then return "" end
+  return table.concat(parts, ",")
+end
+
+local function attribute_table_signature()
+  local parts = {}
+  local any_read = false
+  for offset = 0, ATTRIBUTE_TABLE_SIZE - 1 do
+    local addr = ATTRIBUTE_TABLE_START + offset
     local value = read_ppu_safe(addr)
     if value ~= nil then
       any_read = true
@@ -433,7 +452,7 @@ end
 clear_file(STATE_FILE)
 clear_file(LOG_FILE)
 append_line(LOG_FILE, "intro memory watcher started")
-append_line(LOG_FILE, "watching $0200-$02FF, $1200-$12FF mirror, $03A0 queue, $2006/$2007, PPU $2100 focus, and $3F00-$3F1F palette")
+append_line(LOG_FILE, "watching $0200-$02FF, $1200-$12FF mirror, $03A0 queue, $2006/$2007, PPU $2100 focus, $23C0-$23FF attributes, and $3F00-$3F1F palette")
 
 write_hook_active = register_write_hook(OAM_BASE)
 write_hook_active = register_write_hook(OAM_MIRROR_BASE) or write_hook_active
@@ -480,6 +499,15 @@ while true do
     if palette ~= "" then
       log_nametable_event("ppu_palette_snapshot_changed", "PPU palette RAM bytes changed",
         string.format(",\"palette_ram\":\"%s\"", json_escape(palette)))
+    end
+  end
+
+  local attributes = attribute_table_signature()
+  if attributes ~= previous_attribute_signature then
+    previous_attribute_signature = attributes
+    if attributes ~= "" then
+      log_nametable_event("ppu_attribute_snapshot_changed", "PPU attribute table bytes changed",
+        string.format(",\"attribute_table\":\"%s\"", json_escape(attributes)))
     end
   end
 

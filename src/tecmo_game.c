@@ -2158,6 +2158,30 @@ static void draw_chr_tile(TecmoFramebuffer *fb,
     draw_chr_tile_ex(fb, chr_bytes, chr_byte_count, chr_bank, tile, x, y, scale, palette, false, false);
 }
 
+static uint32_t nes_2c02_rgba(uint8_t color)
+{
+    static const uint32_t colors[64] = {
+        0xFF7C7C7CU, 0xFF0000FCU, 0xFF0000BCU, 0xFF4428BCU,
+        0xFF940084U, 0xFFA80020U, 0xFFA81000U, 0xFF881400U,
+        0xFF503000U, 0xFF007800U, 0xFF006800U, 0xFF005800U,
+        0xFF004058U, 0xFF000000U, 0xFF000000U, 0xFF000000U,
+        0xFFBCBCBCU, 0xFF0078F8U, 0xFF0058F8U, 0xFF6844FCU,
+        0xFFD800CCU, 0xFFE40058U, 0xFFF83800U, 0xFFE45C10U,
+        0xFFAC7C00U, 0xFF00B800U, 0xFF00A800U, 0xFF00A844U,
+        0xFF008888U, 0xFF000000U, 0xFF000000U, 0xFF000000U,
+        0xFFF8F8F8U, 0xFF3CBCFCU, 0xFF6888FCU, 0xFF9878F8U,
+        0xFFF878F8U, 0xFFF85898U, 0xFFF87858U, 0xFFFCA044U,
+        0xFFF8B800U, 0xFFB8F818U, 0xFF58D854U, 0xFF58F898U,
+        0xFF00E8D8U, 0xFF787878U, 0xFF000000U, 0xFF000000U,
+        0xFFFCFCFCU, 0xFFA4E4FCU, 0xFFB8B8F8U, 0xFFD8B8F8U,
+        0xFFF8B8F8U, 0xFFF8A4C0U, 0xFFF0D0B0U, 0xFFFCE0A8U,
+        0xFFF8D878U, 0xFFD8F878U, 0xFFB8F8B8U, 0xFFB8F8D8U,
+        0xFF00FCFCU, 0xFFF8D8F8U, 0xFF000000U, 0xFF000000U,
+    };
+
+    return colors[color & 0x3FU];
+}
+
 static uint8_t intro_captured_title_attribute_byte(uint16_t attr_addr)
 {
     switch (attr_addr) {
@@ -2189,12 +2213,24 @@ static uint8_t intro_captured_title_palette_index(int row, int col)
 
 static const uint32_t *intro_captured_title_palette(uint8_t palette_index)
 {
-    static const uint32_t palettes[4][4] = {
-        { 0x00000000U, 0xFFFF1F72U, 0xFFFF8A4EU, 0xFFFFFFFFU },
-        { 0x00000000U, 0xFFFF1F72U, 0xFFFF8A4EU, 0xFFFFFFFFU },
-        { 0x00000000U, 0xFFFF0A68U, 0xFFECEFF4U, 0xFFFFFFFFU },
-        { 0x00000000U, 0xFFFF1F72U, 0xFFFF8A4EU, 0xFFFFFFFFU },
+    static const uint8_t captured_palette[4][4] = {
+        { 0x0FU, 0x16U, 0x15U, 0x17U },
+        { 0x19U, 0x17U, 0x38U, 0x03U },
+        { 0x19U, 0x15U, 0x12U, 0x30U },
+        { 0x19U, 0x05U, 0x26U, 0x36U },
     };
+    static uint32_t palettes[4][4];
+    static bool initialized = false;
+
+    if (!initialized) {
+        for (size_t outer = 0; outer < 4U; ++outer) {
+            palettes[outer][0] = 0x00000000U;
+            for (size_t inner = 1; inner < 4U; ++inner) {
+                palettes[outer][inner] = nes_2c02_rgba(captured_palette[outer][inner]);
+            }
+        }
+        initialized = true;
+    }
 
     return palettes[palette_index & 0x03U];
 }
