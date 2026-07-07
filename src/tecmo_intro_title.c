@@ -1,16 +1,11 @@
 #include "tecmo_intro_title.h"
-#include "tecmo_nes_video.h"
+#include "tecmo_nametable_screen.h"
 
 #define TECMO_INTRO_PRESENTS_TILE_ROW 14
 #define TECMO_INTRO_PRESENTS_TILE_COL 15
 #define TECMO_INTRO_PRESENTS_LEN 8U
 
-typedef struct TecmoCapturedNametableTile {
-    uint16_t ppu;
-    uint8_t tile;
-} TecmoCapturedNametableTile;
-
-static const TecmoCapturedNametableTile INTRO_CAPTURED_TITLE_TILES[] = {
+static const TecmoNametableTile INTRO_CAPTURED_TITLE_TILES[] = {
     {0x210BU, 0x21U},
     {0x212BU, 0x22U}, {0x212CU, 0x23U},
     {0x214BU, 0x24U}, {0x214CU, 0x26U},
@@ -65,96 +60,49 @@ static void intro_outline_rect(TecmoFramebuffer *fb, int x, int y, int w, int h,
     intro_rect(fb, x + w - 1, y, 1, h, color);
 }
 
-static uint8_t intro_title_attribute_byte(uint16_t attr_addr)
-{
-    switch (attr_addr) {
-    case 0x23D2U: return 0xCCU;
-    case 0x23D3U: return 0xB3U;
-    case 0x23D4U: return 0xA0U;
-    case 0x23D5U: return 0xA0U;
-    case 0x23DAU: return 0xCCU;
-    case 0x23DBU: return 0xBBU;
-    case 0x23DCU: return 0xAAU;
-    case 0x23DDU: return 0xAAU;
-    case 0x23DEU: return 0x02U;
-    default: return 0x00U;
-    }
-}
+static const uint8_t INTRO_CAPTURED_TITLE_ATTRIBUTES[64] = {
+    0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U,
+    0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U,
+    0x00U, 0x00U, 0xCCU, 0xB3U, 0xA0U, 0xA0U, 0x00U, 0x00U,
+    0x00U, 0x00U, 0xCCU, 0xBBU, 0xAAU, 0xAAU, 0x02U, 0x00U,
+    0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U,
+    0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U,
+    0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U,
+    0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U,
+};
 
-static uint8_t intro_title_palette_index(int row, int col)
-{
-    uint16_t attr_addr = (uint16_t)(0x23C0U + (uint16_t)(row / 4) * 8U + (uint16_t)(col / 4));
-    return tecmo_nes_attribute_palette_index(intro_title_attribute_byte(attr_addr), row, col);
-}
-
-static const uint32_t *intro_title_palette(uint8_t palette_stage, uint8_t palette_index)
-{
-    static const uint8_t captured_palette[5][4][4] = {
-        {
-            { 0x0FU, 0x0FU, 0x0FU, 0x0FU },
-            { 0x0FU, 0x0FU, 0x0FU, 0x0FU },
-            { 0x0FU, 0x0FU, 0x0FU, 0x0FU },
-            { 0x0FU, 0x0FU, 0x0FU, 0x0FU },
-        },
-        {
-            { 0x0FU, 0x06U, 0x05U, 0x07U },
-            { 0x09U, 0x07U, 0x08U, 0x03U },
-            { 0x09U, 0x05U, 0x02U, 0x00U },
-            { 0x09U, 0x05U, 0x06U, 0x06U },
-        },
-        {
-            { 0x0FU, 0x16U, 0x15U, 0x17U },
-            { 0x19U, 0x17U, 0x18U, 0x03U },
-            { 0x19U, 0x15U, 0x12U, 0x10U },
-            { 0x19U, 0x05U, 0x16U, 0x16U },
-        },
-        {
-            { 0x0FU, 0x16U, 0x15U, 0x17U },
-            { 0x19U, 0x17U, 0x28U, 0x03U },
-            { 0x19U, 0x15U, 0x12U, 0x20U },
-            { 0x19U, 0x05U, 0x26U, 0x26U },
-        },
-        {
-            { 0x0FU, 0x16U, 0x15U, 0x17U },
-            { 0x19U, 0x17U, 0x38U, 0x03U },
-            { 0x19U, 0x15U, 0x12U, 0x30U },
-            { 0x19U, 0x05U, 0x26U, 0x36U },
-        },
-    };
-    static uint32_t palettes[5][4][4];
-    static bool initialized = false;
-
-    if (!initialized) {
-        for (size_t stage = 0; stage < 5U; ++stage) {
-            for (size_t outer = 0; outer < 4U; ++outer) {
-                palettes[stage][outer][0] = 0x00000000U;
-                for (size_t inner = 1; inner < 4U; ++inner) {
-                    palettes[stage][outer][inner] = tecmo_nes_2c02_rgba(captured_palette[stage][outer][inner]);
-                }
-            }
-        }
-        initialized = true;
-    }
-
-    if (palette_stage > 4U) {
-        palette_stage = 4U;
-    }
-    return palettes[palette_stage][palette_index & 0x03U];
-}
-
-static uint16_t intro_title_chr_tile(uint8_t ppu_tile)
-{
-    /*
-     * Frame 16 mapper state uses MMC3 CHR R0=$FC for PPU $0000-$07FF and
-     * R1=$FA for PPU $0800-$0FFF. In the local 8KB-bank view that makes the
-     * low title tiles live at bank31 tile $100+tile, while PRESENTS remains
-     * at its visible $90-$9F indexes.
-     */
-    if (ppu_tile < 0x80U) {
-        return (uint16_t)(0x100U + (uint16_t)ppu_tile);
-    }
-    return (uint16_t)ppu_tile;
-}
+static const uint8_t INTRO_CAPTURED_TITLE_PALETTE[5][4][4] = {
+    {
+        { 0x0FU, 0x0FU, 0x0FU, 0x0FU },
+        { 0x0FU, 0x0FU, 0x0FU, 0x0FU },
+        { 0x0FU, 0x0FU, 0x0FU, 0x0FU },
+        { 0x0FU, 0x0FU, 0x0FU, 0x0FU },
+    },
+    {
+        { 0x0FU, 0x06U, 0x05U, 0x07U },
+        { 0x09U, 0x07U, 0x08U, 0x03U },
+        { 0x09U, 0x05U, 0x02U, 0x00U },
+        { 0x09U, 0x05U, 0x06U, 0x06U },
+    },
+    {
+        { 0x0FU, 0x16U, 0x15U, 0x17U },
+        { 0x19U, 0x17U, 0x18U, 0x03U },
+        { 0x19U, 0x15U, 0x12U, 0x10U },
+        { 0x19U, 0x05U, 0x16U, 0x16U },
+    },
+    {
+        { 0x0FU, 0x16U, 0x15U, 0x17U },
+        { 0x19U, 0x17U, 0x28U, 0x03U },
+        { 0x19U, 0x15U, 0x12U, 0x20U },
+        { 0x19U, 0x05U, 0x26U, 0x26U },
+    },
+    {
+        { 0x0FU, 0x16U, 0x15U, 0x17U },
+        { 0x19U, 0x17U, 0x38U, 0x03U },
+        { 0x19U, 0x15U, 0x12U, 0x30U },
+        { 0x19U, 0x05U, 0x26U, 0x36U },
+    },
+};
 
 uint8_t tecmo_intro_title_palette_stage_for_frame(unsigned mode_frame_counter)
 {
@@ -195,29 +143,19 @@ bool tecmo_intro_title_draw(TecmoFramebuffer *fb,
         return false;
     }
 
-    for (size_t i = 0; i < tile_count; ++i) {
-        const TecmoCapturedNametableTile *entry = &INTRO_CAPTURED_TITLE_TILES[i];
-        uint16_t offset = (uint16_t)(entry->ppu - 0x2000U);
-        int row = (int)(offset / 32U);
-        int col = (int)(offset % 32U);
-        int x = origin_x + col * 8 * scale;
-        int y = origin_y + row * 8 * scale;
-        uint8_t palette_index = intro_title_palette_index(row, col);
-        const uint32_t *palette = intro_title_palette(palette_stage, palette_index);
-        uint16_t chr_tile = intro_title_chr_tile(entry->tile);
-
-        tecmo_draw_chr_tile_ex(fb,
-                               chr_bytes,
-                               chr_byte_count,
-                               chr_bank,
-                               chr_tile,
-                               x,
-                               y,
-                               scale,
-                               palette,
-                               false,
-                               false);
-    }
+    (void)tecmo_nametable_draw_tiles(fb,
+                                     chr_bytes,
+                                     chr_byte_count,
+                                     chr_bank,
+                                     INTRO_CAPTURED_TITLE_TILES,
+                                     tile_count,
+                                     INTRO_CAPTURED_TITLE_ATTRIBUTES,
+                                     &INTRO_CAPTURED_TITLE_PALETTE[palette_stage][0][0],
+                                     tecmo_nametable_map_low_tiles_to_table1,
+                                     0,
+                                     origin_x,
+                                     origin_y,
+                                     scale);
 
     if (draw_debug_bounds) {
         intro_outline_rect(fb, origin_x + 10 * 8 * scale - 2, origin_y + 8 * 8 * scale - 2,

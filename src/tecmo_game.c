@@ -1,5 +1,6 @@
 #include "tecmo_game.h"
 #include "tecmo_bank07.h"
+#include "tecmo_intro_license.h"
 #include "tecmo_intro_title.h"
 #include "tecmo_nes_video.h"
 
@@ -2168,6 +2169,28 @@ static void render_intro_captured_title_screen(const TecmoRuntime *runtime,
                        runtime != NULL ? runtime->mode_frame_counter : 0U,
                        runtime != NULL ? (unsigned)runtime->intro_trace_chr_bank : 0U);
         draw_text(fb, 22, 446, line, rgb(92, 116, 128), 1);
+    }
+}
+
+void tecmo_render_intro_license_screen(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer)
+{
+    const int scale = 2;
+    const int origin_x = 64;
+    const int origin_y = 0;
+    bool drew = false;
+
+    clear(framebuffer, rgb(0, 0, 0));
+    if (runtime != NULL) {
+        drew = tecmo_intro_license_draw(framebuffer,
+                                        runtime->title_chr_bytes,
+                                        runtime->title_chr_byte_count,
+                                        runtime->intro_trace_chr_bank,
+                                        origin_x,
+                                        origin_y,
+                                        scale);
+    }
+    if (!drew) {
+        draw_centered_text(framebuffer, 212, "LOCAL CHR DATA UNAVAILABLE", rgb(252, 236, 170), 2);
     }
 }
 

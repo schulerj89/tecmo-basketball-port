@@ -24,6 +24,8 @@ local OAM_MIRROR_BASE = 0x1200
 local OAM_SIZE = 0x100
 local VRAM_SCAN_START = 0x2000
 local VRAM_SCAN_SIZE = 0x400
+local VRAM_FULL_START = 0x2000
+local VRAM_FULL_SIZE = 0x3C0
 local VRAM_FOCUS_START = 0x2100
 local VRAM_FOCUS_SIZE = 0x100
 local PPU_QUEUE_BASE = 0x03A0
@@ -68,6 +70,7 @@ local ppu_addr = nil
 local ppu_ctrl = 0
 local mapper_select = 0
 local started_frame = nil
+local previous_full_nametable_signature = ""
 local previous_nametable_signature = ""
 local previous_queue_signature = ""
 local previous_palette_signature = ""
@@ -330,6 +333,28 @@ local function attribute_table_signature()
   return table.concat(parts, ",")
 end
 
+local function full_nametable_signature()
+  local rows = {}
+  local any_read = false
+  local row_count = math.floor(VRAM_FULL_SIZE / 32)
+  for row = 0, row_count - 1 do
+    local row_bytes = {}
+    for col = 0, 31 do
+      local addr = VRAM_FULL_START + row * 32 + col
+      local value = read_ppu_safe(addr)
+      if value ~= nil then
+        any_read = true
+        row_bytes[#row_bytes + 1] = hex2(value)
+      else
+        row_bytes[#row_bytes + 1] = "??"
+      end
+    end
+    rows[#rows + 1] = string.format("%s:%s", hex4(VRAM_FULL_START + row * 32), table.concat(row_bytes, ""))
+  end
+  if not any_read then return "" end
+  return table.concat(rows, ";")
+end
+
 local function nametable_candidate_signature()
   local parts = {}
   local any_read = false
@@ -452,7 +477,7 @@ end
 clear_file(STATE_FILE)
 clear_file(LOG_FILE)
 append_line(LOG_FILE, "intro memory watcher started")
-append_line(LOG_FILE, "watching $0200-$02FF, $1200-$12FF mirror, $03A0 queue, $2006/$2007, PPU $2100 focus, $23C0-$23FF attributes, and $3F00-$3F1F palette")
+append_line(LOG_FILE, "watching $0200-$02FF, $1200-$12FF mirror, $03A0 queue, $2006/$2007, full PPU $2000-$23BF nametable rows, PPU $2100 focus, $23C0-$23FF attributes, and $3F00-$3F1F palette")
 
 write_hook_active = register_write_hook(OAM_BASE)
 write_hook_active = register_write_hook(OAM_MIRROR_BASE) or write_hook_active
@@ -481,6 +506,15 @@ while true do
     if queue ~= "" then
       log_nametable_event("ppu_queue_candidate_changed", "candidate tile values in CPU $03A0 queue",
         string.format(",\"queue_candidates\":\"%s\"", json_escape(queue)))
+    end
+  end
+
+  local full_nametable = full_nametable_signature()
+  if full_nametable ~= previous_full_nametable_signature then
+    previous_full_nametable_signature = full_nametable
+    if full_nametable ~= "" then
+      log_nametable_event("ppu_nametable_full_snapshot_changed", "full PPU nametable rows changed",
+        string.format(",\"nametable_full_rows\":\"%s\"", json_escape(full_nametable)))
     end
   end
 

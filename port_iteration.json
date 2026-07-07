@@ -30,7 +30,7 @@
     "backend": "win32 software framebuffer",
     "game_core": "portable C runtime state plus explicit memory arenas",
     "asset_mode": "local development read-only scan/export tools; no committed proprietary data",
-    "known_status": "prototype launcher/menu, portable controls engine, first native Bank07 fixed-helper C layer, source-backed title screen mode, Play Game progressive intro-output stepper, first-sprite debug proof, bank/table-switchable intro builder lab, CHR playground, roster viewer"
+    "known_status": "prototype launcher/menu, portable controls engine, reusable nametable screen renderer, first native Bank07 fixed-helper C layer, source-backed title screen mode, NBA license screen render target, Play Game progressive intro-output stepper, first-sprite debug proof, bank/table-switchable intro builder lab, CHR playground, roster viewer"
   },
   "local_desktop_shortcut": {
     "status": "active",
@@ -113,6 +113,13 @@
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode title-screen build\\title_screen_runtime_test.png",
       "description": "Renders the in-app Title Screen mode. When the ignored composite trace exists, it shows the local rabbit trace plus asset-backed TECMO splash; Enter opens the launcher and Esc quits at runtime.",
       "expected_artifact": "build/title_screen_runtime_test.png"
+    },
+    {
+      "id": "render_intro_license_screen",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-license build\\intro_license_test.png",
+      "description": "Renders the NBA Properties license screen from the local Lua palette/attribute capture plus the decoded Bank00 nametable stream rows using the shared native nametable renderer.",
+      "expected_artifact": "build/intro_license_test.png"
     },
     {
       "id": "render_first_sprite_probe",
@@ -401,6 +408,19 @@
       ]
     },
     {
+      "id": "shot_intro_license_screen",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-license build\\intro_license_test.png",
+      "commit_safe": false,
+      "assertions": [
+        "PNG exists",
+        "PNG dimensions are 640x480",
+        "Frame is rendered from the local Lua frame-0 PPU attribute/palette snapshot and the matching Bank00 nametable stream rows",
+        "Renderer uses local CHR Bank 31 with low PPU tile IDs mapped to local table-1 tile IDs",
+        "PNG remains in ignored build output"
+      ]
+    },
+    {
       "id": "shot_intro_l88e7_proof",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-l88e7-proof build\\intro_l88e7_proof_test.png",
@@ -635,8 +655,9 @@
       "The boot trace now verifies Bank07 reset jumps to fixed bootstrap $CC30, bootstrap schedules the Bank07 task, that task schedules Bank04 $825D, and Bank04 dispatch index 0 targets $88E8 before flowing into the $8988 dual-stream emitter and fixed $C051/$D861 staging path.",
       "The first-sprite trace follows Bank04 $88E8 through $8988 into fixed $C051/$D861, then writes an ignored local report with the first staged record and first rabbit record that has an onscreen Y position.",
       "The Play Game launcher option now opens on the captured first TECMO PRESENTS background layer, with Left/Right still available for the progressive debug evidence steps.",
+      "The NBA Properties license screen has a native render target from the Lua frame-0 capture plus the decoded Bank00 nametable stream: 102 PPU tiles across $208E-$22DA, captured attribute/palette state, local CHR Bank 31, and the same low-tile-to-table-1 mapper used by the TECMO splash.",
       "tools/emu_intro_first_sprite_watch.lua is a FCEUX Lua watcher that logs $058D and $0200-$02FF OAM staging changes to ignored build/emu_intro_first_sprite_watch.ndjson for original-run comparison against the ignored first-sprite trace.",
-      "tools/emu_intro_memory_watch.lua is a broader FCEUX Lua watcher for the original run. It logs OAM shadow writes/frame diffs for $0200-$02FF, records $1200 as the mirrored view of the same internal RAM page, captures $03A0 queue changes, $2006/$2007 PPU writes, MMC3 $8000/$8001 bank writes, and focused nametable bytes around $2100.",
+      "tools/emu_intro_memory_watch.lua is a broader FCEUX Lua watcher for the original run. It logs OAM shadow writes/frame diffs for $0200-$02FF, records $1200 as the mirrored view of the same internal RAM page, captures $03A0 queue changes, $2006/$2007 PPU writes, MMC3 $8000/$8001 bank writes, full $2000-$23BF nametable row snapshots, and focused nametable bytes around $2100.",
       "The native runtime now boots into the captured first TECMO PRESENTS background layer; Enter opens the launcher and Esc quits.",
       "The native launcher Title Screen renders the original-run frame 16 nametable capture: 58 non-empty PPU writes across $210B-$21EB, with PRESENTS at $21CF-$21D6 and the low rabbit/TECMO tiles translated through captured MMC3 CHR state R0=$FC/R1=$FA into the local Bank 31 CHR view. Captured frame-17 attribute bytes and the dark-to-bright palette fade stages are now modeled natively.",
       "$C05A/$89DD is now modeled as a palette snapshot path, not a layout stream: fixed $C05A jumps to $D700, copies 16 bytes from Bank04 $89DD-$89EC into the local palette staging area, and the new L88E7 proof render displays those bytes beside the two A7DB streams.",

@@ -140,6 +140,7 @@ uint16_t tecmo_intro_oam_tile_pair_top(uint8_t oam_tile_low, uint32_t chr_table)
 uint16_t tecmo_intro_oam_tile_pair_bottom(uint8_t oam_tile_low, uint32_t chr_table);
 void tecmo_render_original_title_probe(TecmoFramebuffer *framebuffer, const char *title_text);
 void tecmo_render_intro_c051_d861_model(TecmoFramebuffer *framebuffer);
+void tecmo_render_intro_license_screen(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 void tecmo_render_first_sprite_probe(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 void tecmo_render_intro_l88e7_proof(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
