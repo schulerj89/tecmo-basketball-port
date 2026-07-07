@@ -30,7 +30,7 @@
     "backend": "win32 software framebuffer",
     "game_core": "portable C runtime state plus explicit memory arenas",
     "asset_mode": "local development read-only scan/export tools; no committed proprietary data",
-    "known_status": "prototype launcher/menu, portable controls engine, reusable nametable screen renderer, first native Bank07 fixed-helper C layer, source-backed title screen mode, NBA license screen render target, Play Game progressive intro-output stepper, first-sprite debug proof, bank/table-switchable intro builder lab, CHR playground, roster viewer"
+    "known_status": "prototype launcher/menu, portable controls engine, reusable nametable screen renderer, first native Bank07 fixed-helper C layer, source-backed title screen mode, NBA license screen render target, Bank04 arena third-screen render target with captured background and scoreboard OAM, Play Game progressive intro-output stepper, first-sprite debug proof, bank/table-switchable intro builder lab, CHR playground, roster viewer"
   },
   "local_desktop_shortcut": {
     "status": "active",
@@ -134,6 +134,20 @@
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-l88e7-proof build\\intro_l88e7_proof_test.png",
       "description": "Renders the Bank04 L88E7 first-intro proof with the local $89DD palette snapshot, the A7DB selector 0 stream, the A7DB selector 1 rabbit stream, the $0100=05 IRQ/vector interpretation, and the Bank00 PRESENTS data lead.",
       "expected_artifact": "build/intro_l88e7_proof_test.png"
+    },
+    {
+      "id": "render_intro_arena_transition",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-arena-transition build\\intro_arena_transition_test.png",
+      "description": "Renders the Bank04 $88E8 third-screen arena proof from the refreshed Lua capture: screen id $18 nametable frames 428-430, palette fade frames 425-476, live scoreboard OAM frame 461, captured $2005 vertical scroll pairs, background CHR bank 02/table 1, and sprite CHR bank 01/table 0.",
+      "expected_artifact": "build/intro_arena_transition_test.png"
+    },
+    {
+      "id": "render_intro_arena_frame120",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-arena-frame120 build\\intro_arena_frame120_test.png",
+      "description": "Renders the arena third-screen slice at native frame 120 so the fade/foreground scoreboard composition can be inspected without running the windowed app.",
+      "expected_artifact": "build/intro_arena_frame120_test.png"
     },
     {
       "id": "render_intro_layout_lab",
@@ -579,8 +593,8 @@
         "PNG dimensions are 640x480",
         "Play Game progressive intro-output mode appears",
         "Frame starts on the captured first TECMO PRESENTS background layer from the original-run PPU nametable capture",
-        "Runtime auto-advances from TECMO PRESENTS to the native NBA Properties license screen",
-        "Runtime Left/Right steps through the first verified D861 sprite record, full rabbit stream, L88E7 selector streams, captured nametable placement, coordinate audit, captured title, and NBA license screen"
+        "Runtime auto-advances from TECMO PRESENTS to the native NBA Properties license screen and then to the Bank04 arena-transition trace step",
+        "Runtime Left/Right steps through the first verified D861 sprite record, full rabbit stream, L88E7 selector streams, captured nametable placement, coordinate audit, captured title, NBA license screen, and arena-transition trace"
       ]
     },
     {
@@ -592,6 +606,19 @@
         "PNG exists",
         "PNG dimensions are 640x480",
         "Frame shows the native NBA Properties license screen as the Play Game sequence step after the TECMO splash",
+        "PNG remains in ignored build output"
+      ]
+    },
+    {
+      "id": "shot_intro_arena_transition",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-arena-transition build\\intro_arena_transition_test.png",
+      "commit_safe": false,
+      "assertions": [
+        "PNG exists",
+        "PNG dimensions are 640x480",
+        "Frame renders the Bank04 $88E8 arena screen id $18 background from captured nametable writes",
+        "Frame includes the live scoreboard OAM layer from the refreshed Lua capture and shows the current $88/$8A/$0301-style scroll trace values in debug mode",
         "PNG remains in ignored build output"
       ]
     },
@@ -668,14 +695,16 @@
       "The D861-style intro sprite staging adapter and 8x16 tile-pair helpers now live in tecmo_intro_stage.c/.h instead of the large tecmo_game.c runtime file.",
       "The boot trace now verifies Bank07 reset jumps to fixed bootstrap $CC30, bootstrap schedules the Bank07 task, that task schedules Bank04 $825D, and Bank04 dispatch index 0 targets $88E8 before flowing into the $8988 dual-stream emitter and fixed $C051/$D861 staging path.",
       "The first-sprite trace follows Bank04 $88E8 through $8988 into fixed $C051/$D861, then writes an ignored local report with the first staged record and first rabbit record that has an onscreen Y position.",
-      "The Play Game launcher option now opens on the captured first TECMO PRESENTS background layer, auto-advances to the NBA Properties license screen after 120 native update ticks, and keeps Left/Right available for the progressive debug evidence steps.",
+      "The Play Game launcher option now opens on the captured first TECMO PRESENTS background layer, auto-advances to the NBA Properties license screen after 120 native update ticks, then advances to the Bank04 arena-transition trace step after another 120 native update ticks, and keeps Left/Right available for the progressive debug evidence steps.",
       "The NBA Properties license screen has a native render target from the Lua frame-0 capture plus the decoded Bank00 nametable stream: 102 PPU tiles across $208E-$22DA, captured attribute/palette state, local CHR Bank 31, and the same low-tile-to-table-1 mapper used by the TECMO splash.",
       "tools/emu_intro_first_sprite_watch.lua is a FCEUX Lua watcher that logs $058D and $0200-$02FF OAM staging changes to ignored build/emu_intro_first_sprite_watch.ndjson for original-run comparison against the ignored first-sprite trace.",
-      "tools/emu_intro_memory_watch.lua is a broader FCEUX Lua watcher for the original run. It now defaults to a conservative crash-safe capture mode: OAM frame diffs for $0200-$02FF, $1200 mirror checks, $03A0 queue changes, compact $2006/$2007 nametable/attribute/palette write batches, and MMC3 $8000/$8001 bank writes.",
+      "tools/emu_intro_memory_watch.lua is a broader FCEUX Lua watcher for the original run. It now defaults to a conservative crash-safe capture mode: OAM frame diffs for $0200-$02FF, $1200 mirror checks, Bank04 scratch bytes including $20/$21/$57/$58/$88/$8A/$07EB/$07EC, $03A0 queue changes, compact $2006/$2007 nametable/attribute/palette write batches across $2000-$2FFF, and deduped MMC3/PPUCTRL/PPUADDR/palette batches.",
       "The native runtime now boots directly into the launcher menu first; the source-backed Title Screen remains reachable from the menu.",
       "The native launcher Title Screen renders the original-run frame 16 nametable capture: 58 non-empty PPU writes across $210B-$21EB, with PRESENTS at $21CF-$21D6 and the low rabbit/TECMO tiles translated through captured MMC3 CHR state R0=$FC/R1=$FA into the local Bank 31 CHR view. Captured frame-17 attribute bytes and the dark-to-bright palette fade stages are now modeled natively.",
       "$C05A/$89DD is now modeled as a palette snapshot path, not a layout stream: fixed $C05A jumps to $D700, copies 16 bytes from Bank04 $89DD-$89EC into the local palette staging area, and the new L88E7 proof render displays those bytes beside the two A7DB streams.",
       "Bank04 L88E7 seeds $88=A8, $8A=3C, $0352=01, $0100=05, $57=08, and $58=09 before calling L8988. The decoded first intro proof shows A7DB selector $00 as a 55-record companion OAM stream and A7DB selector $01 as the 16-record rabbit stream.",
+      "The third intro screen is now sourced from the refreshed original-run Lua capture: Bank04 $88E8 loads screen id $18 through the fixed $C003/$D92E/$D9F6 nametable path, frames 428-430 provide the stadium/crowd background across PPU $2000/$2400 pages, frames 425-476 provide the dark-to-bright palette stages, frame 461 provides the live 55-sprite scoreboard OAM layer, and frame 614+ $2005 writes show the arena vertical scroll advancing after the initial wait.",
+      "The arena native renderer maps the screen $18 background through MMC3 R0/R1=$14/$16 as local CHR bank 02/table 1, applies the captured $0301-style vertical scroll to the nametable pages, and maps the scoreboard OAM through MMC3 R2/R3=$08/$09 as local CHR bank 01/table 0. A local-only TECMO_ARENA_CHR_BANK override exists for CHR split experiments without committing generated assets.",
       "$0352/$0100 are now separated from the PRESENTS text search: the fixed NMI tail writes $0352 to mapper registers and uses $0100=05 to select IRQ/vector target $FCF6, while the normal-letter PRESENTS glyph data lead is in the Bank00 C-0191 text/layout stream around bank00:$8549.",
       "The Bank00 title background stream is consumed by the fixed-bank screen/nametable loader, not the A7DB/A90F OAM interpreters: the emulator capture shows frame 16 writing the visible rabbit/TECMO/PRESENTS layer to PPU $210B-$21EB, with PRESENTS at row 14 columns 15-22.",
       "The coordinate audit still records the older split debug evidence for A7DB/A90F OAM streams, but the first visible TECMO PRESENTS screen is now sourced from the PPU nametable capture rather than that cross-state assembly.",

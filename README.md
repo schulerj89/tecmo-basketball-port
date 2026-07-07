@@ -75,6 +75,8 @@ $env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
 .\build\tecmo_port.exe --render-test-mode first-sprite build\first_sprite_test.png
 .\build\tecmo_port.exe --render-test-mode first-sprite-debug build\first_sprite_debug_test.png
 .\build\tecmo_port.exe --render-test-mode intro-l88e7-proof build\intro_l88e7_proof_test.png
+.\build\tecmo_port.exe --render-test-mode intro-arena-transition build\intro_arena_transition_test.png
+.\build\tecmo_port.exe --render-test-mode intro-arena-frame120 build\intro_arena_frame120_test.png
 .\build\tecmo_port.exe --render-test-mode play build\play_test.png
 .\build\tecmo_port.exe --render-test-mode play-fade0 build\play_fade0_test.png
 .\build\tecmo_port.exe --render-test-mode play-fade1 build\play_fade1_test.png
@@ -89,6 +91,7 @@ $env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
 .\build\tecmo_port.exe --render-test-mode play-step5 build\play_step5_test.png
 .\build\tecmo_port.exe --render-test-mode play-step6 build\play_step6_test.png
 .\build\tecmo_port.exe --render-test-mode play-step7 build\play_step7_test.png
+.\build\tecmo_port.exe --render-test-mode play-step8 build\play_step8_test.png
 .\build\tecmo_port.exe --render-test-mode play-setup build\play_setup_test.png
 .\build\tecmo_port.exe --render-test-mode original-title build\original_title_test.png
 .\build\tecmo_port.exe --render-test-mode original-title-chr build\original_title_chr_test.png
@@ -141,6 +144,8 @@ Run the headless native flow test for title -> menu -> rosters -> first sprite -
 ```
 
 The `intro-c051-d861-model` render mode runs a synthetic C helper self-test before writing its PNG, then shows the staged byte rows without decoded payload data.
+
+The `intro-arena-transition` and `intro-arena-frameN` render modes consume the ignored local Lua watcher output when available. The current native arena slice uses screen id `$18` nametable writes from frames 428-430, palette fade writes from frames 425-476, live scoreboard OAM from frame 461, and `$2005` scroll-pair evidence for the vertical arena transition; no ROM, ASM, or extracted graphics are committed.
 
 Detect a local rebuilt NES ROM and emulator candidate for original intro comparison:
 

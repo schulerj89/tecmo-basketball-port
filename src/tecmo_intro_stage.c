@@ -4,6 +4,14 @@
 #include <stdio.h>
 #include <string.h>
 
+#define TECMO_INTRO_ARENA_WAIT_FRAMES 0x96U
+#define TECMO_INTRO_ARENA_INITIAL_BASE_Y 0xFEU
+#define TECMO_INTRO_ARENA_FINAL_BASE_Y 0x38U
+#define TECMO_INTRO_ARENA_SCROLL_Y_STEPS 99U
+#define TECMO_INTRO_ARENA_SCROLL_START_8A 0x3CU
+#define TECMO_INTRO_ARENA_SCROLL_WRAP_TICK 0xC4U
+#define TECMO_INTRO_ARENA_X_SHIFT_DELAY_TICKS 43U
+
 size_t tecmo_intro_stage_sprite_records(const TecmoIntroSpriteRecord *records,
                                         size_t record_count,
                                         const TecmoIntroSpriteStageConfig *config,
@@ -68,6 +76,27 @@ static bool check_intro_stage_entry(const TecmoIntroStagedSprite *entry,
            entry->x == x;
 }
 
+static bool check_intro_arena_state(const TecmoIntroArenaTransitionState *state,
+                                    TecmoIntroArenaPhase phase,
+                                    uint8_t base_y,
+                                    uint8_t scroll_8a,
+                                    uint8_t scroll_y_0301)
+{
+    return state->phase == phase &&
+           state->base_y == base_y &&
+           state->scroll_8a == scroll_8a &&
+           state->scroll_y_0301 == scroll_y_0301 &&
+           state->seed_88 == 0xA8U &&
+           state->seed_57 == 0x08U &&
+           state->seed_58 == 0x09U &&
+           state->seed_07eb == 0x00U &&
+           state->seed_07ec == 0x1EU &&
+           state->seed_20 == 0x00U &&
+           state->seed_21 == 0x01U &&
+           state->irq_0100 == 0x05U &&
+           state->mapper_select_0352 == 0x01U;
+}
+
 bool tecmo_intro_stage_self_test(char *message, size_t message_size)
 {
     const TecmoIntroSpriteRecord records[] = {
@@ -77,6 +106,7 @@ bool tecmo_intro_stage_self_test(char *message, size_t message_size)
     };
     const TecmoIntroSpriteStageConfig config = {10, 20, 0x0DU};
     TecmoIntroStagedSprite entries[3];
+    TecmoIntroArenaTransitionState arena_state;
     uint16_t pair[2] = {0, 0};
     size_t count;
 
@@ -134,8 +164,99 @@ bool tecmo_intro_stage_self_test(char *message, size_t message_size)
         return false;
     }
 
+    tecmo_intro_arena_transition_state(0U, &arena_state);
+    if (!check_intro_arena_state(&arena_state,
+                                 TECMO_INTRO_ARENA_PHASE_WAIT,
+                                 TECMO_INTRO_ARENA_INITIAL_BASE_Y,
+                                 TECMO_INTRO_ARENA_SCROLL_START_8A,
+                                 0x00U)) {
+        set_intro_stage_test_message(message, message_size, "ARENA INITIAL WAIT STATE CONTRACT FAILED");
+        return false;
+    }
+    tecmo_intro_arena_transition_state(TECMO_INTRO_ARENA_WAIT_FRAMES + 88U, &arena_state);
+    if (!check_intro_arena_state(&arena_state, TECMO_INTRO_ARENA_PHASE_SCROLL, 0xA6U, 0x69U, 0x2DU)) {
+        set_intro_stage_test_message(message, message_size, "ARENA SCROLL CHECKPOINT CONTRACT FAILED");
+        return false;
+    }
+    tecmo_intro_arena_transition_state(TECMO_INTRO_ARENA_WAIT_FRAMES + 198U, &arena_state);
+    if (!check_intro_arena_state(&arena_state, TECMO_INTRO_ARENA_PHASE_SETTLE, 0x38U, 0xA0U, 0x64U)) {
+        set_intro_stage_test_message(message, message_size, "ARENA SETTLE CHECKPOINT CONTRACT FAILED");
+        return false;
+    }
+    tecmo_intro_arena_transition_state(TECMO_INTRO_ARENA_WAIT_FRAMES + (TECMO_INTRO_ARENA_SCROLL_WRAP_TICK * 2U), &arena_state);
+    if (!check_intro_arena_state(&arena_state, TECMO_INTRO_ARENA_PHASE_WRAP, 0x38U, 0x00U, 0x77U)) {
+        set_intro_stage_test_message(message, message_size, "ARENA WRAP CHECKPOINT CONTRACT FAILED");
+        return false;
+    }
+
     set_intro_stage_test_message(message, message_size, "INTRO SPRITE STAGING SELF TEST PASS");
     return true;
+}
+
+void tecmo_intro_arena_transition_state(unsigned frame, TecmoIntroArenaTransitionState *state)
+{
+    unsigned tick = 0;
+    unsigned y_steps = 0;
+
+    if (state == NULL) {
+        return;
+    }
+
+    memset(state, 0, sizeof(*state));
+    state->frame = frame;
+    state->phase = TECMO_INTRO_ARENA_PHASE_WAIT;
+    state->base_y = TECMO_INTRO_ARENA_INITIAL_BASE_Y;
+    state->scroll_8a = TECMO_INTRO_ARENA_SCROLL_START_8A;
+    state->scroll_y_0301 = 0x00U;
+    state->seed_88 = 0xA8U;
+    state->seed_57 = 0x08U;
+    state->seed_58 = 0x09U;
+    state->seed_07eb = 0x00U;
+    state->seed_07ec = 0x1EU;
+    state->seed_20 = 0x00U;
+    state->seed_21 = 0x01U;
+    state->irq_0100 = 0x05U;
+    state->mapper_select_0352 = 0x01U;
+
+    if (frame < TECMO_INTRO_ARENA_WAIT_FRAMES) {
+        return;
+    }
+
+    tick = ((frame - TECMO_INTRO_ARENA_WAIT_FRAMES) / 2U) + 1U;
+    state->scroll_8a = (uint8_t)(TECMO_INTRO_ARENA_SCROLL_START_8A + tick);
+    state->scroll_y_0301 = (uint8_t)(tick > 0x77U ? 0x77U : tick);
+    y_steps = tick - 1U;
+    if (y_steps < TECMO_INTRO_ARENA_SCROLL_Y_STEPS) {
+        state->phase = TECMO_INTRO_ARENA_PHASE_SCROLL;
+        state->base_y = (uint8_t)(TECMO_INTRO_ARENA_INITIAL_BASE_Y - y_steps * 2U);
+    } else {
+        state->phase = TECMO_INTRO_ARENA_PHASE_SETTLE;
+        state->base_y = TECMO_INTRO_ARENA_FINAL_BASE_Y;
+    }
+
+    if (tick > TECMO_INTRO_ARENA_X_SHIFT_DELAY_TICKS) {
+        state->base_x_offset = -2 * (int)(tick - TECMO_INTRO_ARENA_X_SHIFT_DELAY_TICKS);
+    }
+    if (tick >= TECMO_INTRO_ARENA_SCROLL_WRAP_TICK) {
+        state->phase = TECMO_INTRO_ARENA_PHASE_WRAP;
+    }
+}
+
+const char *tecmo_intro_arena_phase_name(TecmoIntroArenaPhase phase)
+{
+    if (phase == TECMO_INTRO_ARENA_PHASE_WAIT) {
+        return "WAIT";
+    }
+    if (phase == TECMO_INTRO_ARENA_PHASE_SCROLL) {
+        return "SCROLL";
+    }
+    if (phase == TECMO_INTRO_ARENA_PHASE_SETTLE) {
+        return "SETTLE";
+    }
+    if (phase == TECMO_INTRO_ARENA_PHASE_WRAP) {
+        return "WRAP";
+    }
+    return "UNKNOWN";
 }
 
 void tecmo_intro_sprite_8x16_pair_for_table(uint8_t oam_tile_low, uint32_t chr_table, uint16_t out_tiles[2])

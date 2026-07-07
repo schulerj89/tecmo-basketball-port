@@ -23,7 +23,7 @@ static void print_usage(const char *program)
     printf("  --controls-test         Run portable held/pressed/released control-state checks\n");
     printf("  --bank07-test           Run fixed-bank helper C counterpart checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, first-sprite, first-sprite-debug, intro-license, intro-l88e7-proof, intro-presents, intro-builder-sample, intro-rabbit-preset, intro-tecmo-preset, intro-composite-preset, intro-c051-d861-model, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play, play-fade0..play-fade4, play-step0..play-step7, play-setup, original-title, or original-title-chr to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, first-sprite, first-sprite-debug, intro-license, intro-arena-transition, intro-arena-frameN, intro-l88e7-proof, intro-presents, intro-builder-sample, intro-rabbit-preset, intro-tecmo-preset, intro-composite-preset, intro-c051-d861-model, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play, play-fade0..play-fade4, play-step0..play-step8, play-setup, original-title, or original-title-chr to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -260,7 +260,7 @@ int main(int argc, char **argv)
                 }
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_FIRST_SPRITE);
                 runtime.intro_output_step = (uint8_t)step;
-                runtime.mode_frame_counter = 16U;
+                runtime.mode_frame_counter = step >= 8 ? 240U : 16U;
             } else if (strcmp(mode_name, "first-sprite") == 0 || strcmp(mode_name, "first-sprite-debug") == 0) {
                 framebuffer.pixels = pixels;
                 framebuffer.width = width;
@@ -283,6 +283,30 @@ int main(int argc, char **argv)
                 framebuffer.height = height;
                 framebuffer.pitch_pixels = width;
                 tecmo_render_intro_license_screen(&runtime, &framebuffer);
+                render_runtime = false;
+                result = 0;
+            } else if (strcmp(mode_name, "intro-arena-transition") == 0) {
+                framebuffer.pixels = pixels;
+                framebuffer.width = width;
+                framebuffer.height = height;
+                framebuffer.pitch_pixels = width;
+                runtime.debug_overlay = true;
+                runtime.mode_frame_counter = 240U;
+                tecmo_render_intro_arena_transition(&runtime, &framebuffer);
+                render_runtime = false;
+                result = 0;
+            } else if (strncmp(mode_name, "intro-arena-frame", 17) == 0) {
+                long frame = strtol(mode_name + 17, NULL, 10);
+                if (frame < 0) {
+                    frame = 0;
+                }
+                framebuffer.pixels = pixels;
+                framebuffer.width = width;
+                framebuffer.height = height;
+                framebuffer.pitch_pixels = width;
+                runtime.debug_overlay = true;
+                runtime.mode_frame_counter = (unsigned)frame;
+                tecmo_render_intro_arena_transition(&runtime, &framebuffer);
                 render_runtime = false;
                 result = 0;
             } else if (strcmp(mode_name, "play-setup") == 0) {

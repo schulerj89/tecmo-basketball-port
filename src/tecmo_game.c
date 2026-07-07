@@ -20,10 +20,12 @@
 #define INTRO_TRACE_GROUP_TECMO_STREAM 2U
 #define INTRO_TRACE_GROUP_TECMO_LOGO 3U
 #define INTRO_TRACE_GROUP_A7DB_SELECTOR0 4U
-#define TECMO_INTRO_OUTPUT_STEP_COUNT 8U
+#define TECMO_INTRO_OUTPUT_STEP_COUNT 9U
 #define TECMO_INTRO_OUTPUT_TITLE_STEP 6U
 #define TECMO_INTRO_OUTPUT_LICENSE_STEP 7U
+#define TECMO_INTRO_OUTPUT_ARENA_STEP 8U
 #define TECMO_INTRO_LICENSE_AUTO_FRAME 120U
+#define TECMO_INTRO_ARENA_AUTO_FRAME 120U
 #define INTRO_PRESENTS_SCREEN_ID 0x00U
 #define INTRO_PRESENTS_RECORD_CPU 0xDC85U
 #define INTRO_PRESENTS_STREAM_BANK 0x00U
@@ -641,6 +643,7 @@ bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const ch
                        sizeof(runtime->intro_layout_status),
                        "SPACE RECORD  S SAVE  BACKSPACE REMOVE");
     load_intro_trace(runtime, project_root);
+    (void)tecmo_intro_arena_capture_load(&runtime->intro_arena_capture, project_root);
 
     if (tecmo_collect_rosters(project_root, &runtime->roster) != 0) {
         return false;
@@ -1278,6 +1281,10 @@ static void update_first_sprite_probe(TecmoRuntime *runtime, const TecmoControlF
                runtime->mode_frame_counter >= TECMO_INTRO_LICENSE_AUTO_FRAME) {
         runtime->intro_output_step = TECMO_INTRO_OUTPUT_LICENSE_STEP;
         runtime->mode_frame_counter = 0;
+    } else if (runtime->intro_output_step == TECMO_INTRO_OUTPUT_LICENSE_STEP &&
+               runtime->mode_frame_counter >= TECMO_INTRO_ARENA_AUTO_FRAME) {
+        runtime->intro_output_step = TECMO_INTRO_OUTPUT_ARENA_STEP;
+        runtime->mode_frame_counter = 0;
     }
 }
 
@@ -1511,6 +1518,13 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     }
     if (runtime->intro_output_step != TECMO_INTRO_OUTPUT_LICENSE_STEP) {
         set_flow_test_message(message, message_size, "play game did not advance to NBA license step");
+        return false;
+    }
+    for (size_t frame = 0; frame < TECMO_INTRO_ARENA_AUTO_FRAME; ++frame) {
+        tecmo_runtime_update(runtime, &input);
+    }
+    if (runtime->intro_output_step != TECMO_INTRO_OUTPUT_ARENA_STEP) {
+        set_flow_test_message(message, message_size, "play game did not advance to arena intro step");
         return false;
     }
     memset(&input, 0, sizeof(input));
@@ -2210,12 +2224,13 @@ static bool get_intro_trace_bounds(const TecmoRuntime *runtime,
     return found;
 }
 
-static void draw_intro_trace_sprite(TecmoFramebuffer *fb,
-                                    const TecmoRuntime *runtime,
-                                    const TecmoIntroTraceSprite *sprite,
-                                    int x,
-                                    int y,
-                                    int scale)
+static void draw_intro_trace_sprite_with_chr_bank(TecmoFramebuffer *fb,
+                                                  const TecmoRuntime *runtime,
+                                                  const TecmoIntroTraceSprite *sprite,
+                                                  uint32_t chr_bank,
+                                                  int x,
+                                                  int y,
+                                                  int scale)
 {
     static const uint32_t palettes[4][4] = {
         {0x00000000U, 0xFF5A6274U, 0xFFC4CCD8U, 0xFFFFFCF0U},
@@ -2234,7 +2249,7 @@ static void draw_intro_trace_sprite(TecmoFramebuffer *fb,
     draw_chr_tile_ex(fb,
                      runtime->title_chr_bytes,
                      runtime->title_chr_byte_count,
-                     runtime->intro_trace_chr_bank,
+                     chr_bank,
                      first_tile,
                      x,
                      y,
@@ -2245,7 +2260,7 @@ static void draw_intro_trace_sprite(TecmoFramebuffer *fb,
     draw_chr_tile_ex(fb,
                      runtime->title_chr_bytes,
                      runtime->title_chr_byte_count,
-                     runtime->intro_trace_chr_bank,
+                     chr_bank,
                      second_tile,
                      x,
                      y + 8 * scale,
@@ -2253,6 +2268,16 @@ static void draw_intro_trace_sprite(TecmoFramebuffer *fb,
                      palettes[palette_index],
                      flip_horizontal,
                      flip_vertical);
+}
+
+static void draw_intro_trace_sprite(TecmoFramebuffer *fb,
+                                    const TecmoRuntime *runtime,
+                                    const TecmoIntroTraceSprite *sprite,
+                                    int x,
+                                    int y,
+                                    int scale)
+{
+    draw_intro_trace_sprite_with_chr_bank(fb, runtime, sprite, runtime->intro_trace_chr_bank, x, y, scale);
 }
 
 static void draw_intro_trace_group(TecmoFramebuffer *fb,
@@ -2700,7 +2725,10 @@ static const char *intro_output_step_label(uint8_t step)
     if (step == TECMO_INTRO_OUTPUT_TITLE_STEP) {
         return "CAPTURED PPU TITLE BACKGROUND";
     }
-    return "NBA LICENSE SCREEN";
+    if (step == TECMO_INTRO_OUTPUT_LICENSE_STEP) {
+        return "NBA LICENSE SCREEN";
+    }
+    return "BANK04 ARENA TRANSITION TRACE";
 }
 
 static void draw_intro_output_header(TecmoFramebuffer *fb, uint8_t step)
@@ -2765,6 +2793,139 @@ static void draw_intro_trace_group_absolute(TecmoFramebuffer *fb,
         x = origin_x + sprite->screen_x * scale;
         y = origin_y + sprite->screen_y * scale;
         draw_intro_trace_sprite(fb, runtime, sprite, x, y, scale);
+    }
+}
+
+static size_t draw_intro_trace_group_oam_base(TecmoFramebuffer *fb,
+                                              const TecmoRuntime *runtime,
+                                              uint8_t group,
+                                              int base_x,
+                                              uint8_t base_y,
+                                              uint32_t chr_bank,
+                                              int origin_x,
+                                              int origin_y,
+                                              int scale)
+{
+    size_t visible_count = 0;
+
+    for (size_t i = 0; i < runtime->intro_trace_sprite_count; ++i) {
+        const TecmoIntroTraceSprite *sprite = &runtime->intro_trace_sprites[i];
+        uint8_t oam_x;
+        uint8_t oam_y;
+        int x;
+        int y;
+
+        if (sprite->group != group) {
+            continue;
+        }
+
+        oam_x = (uint8_t)(base_x + sprite->screen_x);
+        oam_y = (uint8_t)((int)base_y + sprite->screen_y);
+        if (oam_y >= 240U) {
+            continue;
+        }
+
+        x = origin_x + (int)oam_x * scale;
+        y = origin_y + (int)oam_y * scale;
+        draw_intro_trace_sprite_with_chr_bank(fb, runtime, sprite, chr_bank, x, y, scale);
+        ++visible_count;
+    }
+
+    return visible_count;
+}
+
+void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+{
+    const int scale = 2;
+    const int viewport_x = 64;
+    const int viewport_y = 0;
+    const int viewport_w = 256 * scale;
+    const int viewport_h = 240 * scale;
+    TecmoIntroArenaTransitionState state;
+    unsigned frame = runtime != NULL ? runtime->mode_frame_counter : 240U;
+    int background_y;
+    size_t record_count = 0;
+    size_t visible_count = 0;
+    bool drew_arena = false;
+    bool show_debug = runtime == NULL || runtime->debug_overlay;
+    char line[192];
+
+    tecmo_intro_arena_transition_state(frame, &state);
+    background_y = viewport_y - (int)state.scroll_y_0301 * scale;
+    clear(fb, rgb(0, 0, 0));
+    rect(fb, viewport_x, viewport_y, viewport_w, viewport_h, rgb(0, 0, 0));
+
+    if (runtime != NULL && runtime->title_probe_available) {
+        bool drew_page0 = tecmo_intro_arena_draw_page(fb,
+                                                      &runtime->intro_arena_capture,
+                                                      runtime->title_chr_bytes,
+                                                      runtime->title_chr_byte_count,
+                                                      0U,
+                                                      frame,
+                                                      viewport_x,
+                                                      background_y,
+                                                      scale);
+        bool drew_page1 = tecmo_intro_arena_draw_page(fb,
+                                                      &runtime->intro_arena_capture,
+                                                      runtime->title_chr_bytes,
+                                                      runtime->title_chr_byte_count,
+                                                      1U,
+                                                      frame,
+                                                      viewport_x + 256 * scale,
+                                                      background_y,
+                                                      scale);
+        drew_arena = drew_page0 || drew_page1;
+        if (drew_arena) {
+            visible_count = tecmo_intro_arena_draw_sprites(fb,
+                                                           &runtime->intro_arena_capture,
+                                                           runtime->title_chr_bytes,
+                                                           runtime->title_chr_byte_count,
+                                                           frame,
+                                                           viewport_x,
+                                                           viewport_y,
+                                                           scale);
+        }
+    }
+
+    if (!drew_arena) {
+        draw_centered_text(fb, 196, "LOCAL ARENA CAPTURE OR CHR DATA MISSING", rgb(252, 236, 170), 2);
+        draw_centered_text(fb, 232, "RUN THE FCEUX LUA INTRO MEMORY WATCH THROUGH SCREEN 3", rgb(230, 232, 214), 1);
+        if (runtime != NULL) {
+            draw_centered_text(fb, 254, runtime->intro_arena_capture.status, rgb(142, 174, 190), 1);
+        }
+    }
+
+    if (runtime != NULL && runtime->intro_trace_available) {
+        record_count = intro_trace_group_count(runtime, INTRO_TRACE_GROUP_A7DB_SELECTOR0);
+        (void)drew_arena;
+    }
+
+    if (show_debug) {
+        rect(fb, 0, 0, 640, 20, rgb(0, 0, 0));
+        (void)snprintf(line,
+                       sizeof(line),
+                       "BANK04 $88E8 -> SCREEN18 $A2ED  F%u %s  PAL%u  $88=%02X $8A=%02X $0301=%02X BG%+d",
+                       frame,
+                       tecmo_intro_arena_phase_name(state.phase),
+                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.palette_stage_count : 0U,
+                       (unsigned)state.seed_88,
+                       (unsigned)state.scroll_8a,
+                       (unsigned)state.scroll_y_0301,
+                       background_y - viewport_y);
+        draw_text(fb, 12, 7, line, rgb(230, 232, 214), 1);
+
+        rect(fb, 0, 456, 640, 24, rgb(0, 0, 0));
+        (void)snprintf(line,
+                       sizeof(line),
+                       "SCREEN18 P0 %u P1 %u  BG CHR %02u/T1  OAM %u CHR %02u/T0  A7DB SEL0 %u/%u",
+                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.tile_count[0] : 0U,
+                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.tile_count[1] : 0U,
+                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.chr_bank : 0U,
+                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.sprite_count : 0U,
+                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.sprite_chr_bank : 0U,
+                       (unsigned)record_count,
+                       (unsigned)visible_count);
+        draw_text(fb, 12, 464, line, rgb(142, 174, 190), 1);
     }
 }
 
@@ -2967,7 +3128,8 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
     if (!runtime->title_probe_available ||
         (!runtime->intro_trace_available &&
          step != TECMO_INTRO_OUTPUT_TITLE_STEP &&
-         step != TECMO_INTRO_OUTPUT_LICENSE_STEP)) {
+         step != TECMO_INTRO_OUTPUT_LICENSE_STEP &&
+         step != TECMO_INTRO_OUTPUT_ARENA_STEP)) {
         tecmo_render_first_sprite_probe(runtime, fb);
         return;
     }
@@ -2979,6 +3141,11 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
 
     if (step == TECMO_INTRO_OUTPUT_LICENSE_STEP) {
         tecmo_render_intro_license_screen(runtime, fb);
+        return;
+    }
+
+    if (step == TECMO_INTRO_OUTPUT_ARENA_STEP) {
+        tecmo_render_intro_arena_transition(runtime, fb);
         return;
     }
 

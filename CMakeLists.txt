@@ -7,8 +7,15 @@ add_executable(tecmo_port
     src/asm_inventory.c
     src/png_writer.c
     src/tecmo_bank07.c
+    src/tecmo_controls.c
     src/tecmo_game.c
+    src/tecmo_intro_arena.c
+    src/tecmo_intro_license.c
+    src/tecmo_intro_stage.c
+    src/tecmo_intro_title.c
     src/tecmo_memory.c
+    src/tecmo_nametable_screen.c
+    src/tecmo_nes_video.c
 )
 
 if(WIN32)

@@ -29,6 +29,27 @@ static uint8_t nametable_attribute_byte(const uint8_t attributes[64], int row, i
     return attributes[index];
 }
 
+static bool nametable_tile_position(uint16_t ppu, int *row, int *col)
+{
+    uint16_t page_offset;
+
+    if (row == 0 || col == 0) {
+        return false;
+    }
+    if (ppu < 0x2000U || ppu >= 0x3000U) {
+        return false;
+    }
+
+    page_offset = (uint16_t)((ppu - 0x2000U) % 0x400U);
+    if (page_offset >= 0x3C0U) {
+        return false;
+    }
+
+    *row = (int)(page_offset / 32U);
+    *col = (int)(page_offset % 32U);
+    return true;
+}
+
 static void build_palette(uint32_t out_palette[4],
                           const uint8_t background_palette[16],
                           uint8_t palette_index)
@@ -71,7 +92,6 @@ bool tecmo_nametable_draw_tiles(TecmoFramebuffer *fb,
 
     for (size_t i = 0; i < tile_count; ++i) {
         const TecmoNametableTile *entry = &tiles[i];
-        uint16_t offset;
         int row;
         int col;
         uint8_t attribute;
@@ -79,13 +99,10 @@ bool tecmo_nametable_draw_tiles(TecmoFramebuffer *fb,
         uint32_t palette[4];
         uint16_t chr_tile;
 
-        if (entry->ppu < 0x2000U || entry->ppu >= 0x23C0U) {
+        if (!nametable_tile_position(entry->ppu, &row, &col)) {
             continue;
         }
 
-        offset = (uint16_t)(entry->ppu - 0x2000U);
-        row = (int)(offset / 32U);
-        col = (int)(offset % 32U);
         attribute = nametable_attribute_byte(attributes, row, col);
         palette_index = tecmo_nes_attribute_palette_index(attribute, row, col);
         build_palette(palette, background_palette, palette_index);

@@ -4,6 +4,7 @@
 #include "asm_inventory.h"
 #include "tecmo_controls.h"
 #include "tecmo_framebuffer.h"
+#include "tecmo_intro_arena.h"
 #include "tecmo_intro_stage.h"
 #include "tecmo_memory.h"
 
@@ -75,6 +76,7 @@ typedef struct TecmoRuntime {
     size_t intro_trace_sprite_count;
     uint32_t intro_trace_chr_bank;
     uint8_t intro_l88e7_palette[16];
+    TecmoIntroArenaCapture intro_arena_capture;
     char intro_l88e7_irq_vector[16];
     char intro_presents_data_cpu[16];
     bool intro_trace_available;
@@ -111,6 +113,7 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
 void tecmo_render_original_title_probe(TecmoFramebuffer *framebuffer, const char *title_text);
 void tecmo_render_intro_c051_d861_model(TecmoFramebuffer *framebuffer);
 void tecmo_render_intro_license_screen(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
+void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 void tecmo_render_first_sprite_probe(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 void tecmo_render_intro_l88e7_proof(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
