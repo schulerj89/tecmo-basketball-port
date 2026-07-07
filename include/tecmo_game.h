@@ -4,6 +4,7 @@
 #include "asm_inventory.h"
 #include "tecmo_controls.h"
 #include "tecmo_framebuffer.h"
+#include "tecmo_intro_stage.h"
 #include "tecmo_memory.h"
 
 #include <stdbool.h>
@@ -38,26 +39,6 @@ typedef struct TecmoIntroPlacement {
     int scale;
     char label[32];
 } TecmoIntroPlacement;
-
-typedef struct TecmoIntroSpriteRecord {
-    int relative_y;
-    uint8_t tile;
-    uint8_t attributes;
-    int relative_x;
-} TecmoIntroSpriteRecord;
-
-typedef struct TecmoIntroSpriteStageConfig {
-    int base_x;
-    int base_y;
-    uint8_t tile_offset;
-} TecmoIntroSpriteStageConfig;
-
-typedef struct TecmoIntroStagedSprite {
-    uint8_t y;
-    uint8_t tile;
-    uint8_t attributes;
-    uint8_t x;
-} TecmoIntroStagedSprite;
 
 typedef struct TecmoIntroTraceSprite {
     uint8_t group;
@@ -127,17 +108,6 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode);
 void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input);
 void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t message_size);
-size_t tecmo_intro_stage_sprite_records(const TecmoIntroSpriteRecord *records,
-                                        size_t record_count,
-                                        const TecmoIntroSpriteStageConfig *config,
-                                        TecmoIntroStagedSprite *entries,
-                                        size_t entry_capacity);
-bool tecmo_intro_stage_self_test(char *message, size_t message_size);
-void tecmo_intro_sprite_8x16_pair_for_table(uint8_t oam_tile_low,
-                                            uint32_t chr_table,
-                                            uint16_t out_tiles[2]);
-uint16_t tecmo_intro_oam_tile_pair_top(uint8_t oam_tile_low, uint32_t chr_table);
-uint16_t tecmo_intro_oam_tile_pair_bottom(uint8_t oam_tile_low, uint32_t chr_table);
 void tecmo_render_original_title_probe(TecmoFramebuffer *framebuffer, const char *title_text);
 void tecmo_render_intro_c051_d861_model(TecmoFramebuffer *framebuffer);
 void tecmo_render_intro_license_screen(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);

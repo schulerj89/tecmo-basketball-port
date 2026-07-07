@@ -652,6 +652,7 @@
     ],
     "current_findings": [
       "The first Bank07 C counterpart is now a native capability layer, not emulator compatibility: it covers verified fixed-helper behavior for D861 sprite/OAM staging, D2D2 unused-OAM hiding, D700 setup-byte copying, and 8x16 sprite tile-pair mapping.",
+      "The D861-style intro sprite staging adapter and 8x16 tile-pair helpers now live in tecmo_intro_stage.c/.h instead of the large tecmo_game.c runtime file.",
       "The boot trace now verifies Bank07 reset jumps to fixed bootstrap $CC30, bootstrap schedules the Bank07 task, that task schedules Bank04 $825D, and Bank04 dispatch index 0 targets $88E8 before flowing into the $8988 dual-stream emitter and fixed $C051/$D861 staging path.",
       "The first-sprite trace follows Bank04 $88E8 through $8988 into fixed $C051/$D861, then writes an ignored local report with the first staged record and first rabbit record that has an onscreen Y position.",
       "The Play Game launcher option now opens on the captured first TECMO PRESENTS background layer, with Left/Right still available for the progressive debug evidence steps.",
