@@ -13,9 +13,16 @@
 #define ARENA_SCREEN_PALETTE_FRAME_FIRST 425
 #define ARENA_SCREEN_PALETTE_FRAME_LAST 476
 #define ARENA_SCREEN_DEFAULT_CHR_BANK 2U
+#define ARENA_SCREEN_DEFAULT_LOWER_CHR_BANK 11U
 #define ARENA_SCREEN_DEFAULT_SPRITE_CHR_BANK 1U
 #define ARENA_SCREEN_OAM_FRAME_FIRST 461
 #define ARENA_SCREEN_OAM_FRAME_LAST 520
+#define ARENA_SCREEN_CHR_1KB_BYTES 1024ULL
+#define ARENA_SCREEN_BG_UPPER_R0 0x14U
+#define ARENA_SCREEN_BG_UPPER_R1 0x16U
+#define ARENA_SCREEN_BG_LOWER_R0 0x5EU
+#define ARENA_SCREEN_BG_LOWER_R1 0x60U
+#define ARENA_SCREEN_BG_SPLIT_ROW 26
 
 typedef struct ArenaCaptureBuild {
     uint8_t tiles[TECMO_INTRO_ARENA_PAGE_COUNT][TECMO_INTRO_ARENA_TILES_PER_PAGE];
@@ -28,6 +35,95 @@ static const uint8_t ARENA_DEFAULT_PALETTE[16] = {
     0x0FU, 0x15U, 0x17U, 0x12U,
     0x0FU, 0x15U, 0x17U, 0x37U,
 };
+
+static bool arena_tile_position(uint16_t ppu, int *row, int *col)
+{
+    uint16_t page_offset;
+
+    if (row == NULL || col == NULL || ppu < 0x2000U || ppu >= 0x3000U) {
+        return false;
+    }
+
+    page_offset = (uint16_t)((ppu - 0x2000U) % 0x400U);
+    if (page_offset >= 0x3C0U) {
+        return false;
+    }
+
+    *row = (int)(page_offset / 32U);
+    *col = (int)(page_offset % 32U);
+    return true;
+}
+
+static uint8_t arena_attribute_byte(const uint8_t attributes[64], int row, int col)
+{
+    size_t index;
+
+    if (attributes == NULL) {
+        return 0U;
+    }
+    index = (size_t)(row / 4) * 8U + (size_t)(col / 4);
+    if (index >= 64U) {
+        return 0U;
+    }
+    return attributes[index];
+}
+
+static void arena_build_palette(uint32_t out_palette[4],
+                                const uint8_t background_palette[16],
+                                uint8_t palette_index)
+{
+    uint8_t base = (uint8_t)((palette_index & 0x03U) * 4U);
+
+    out_palette[0] = 0x00000000U;
+    if (background_palette == NULL) {
+        out_palette[1] = 0xFFFFFFFFU;
+        out_palette[2] = 0xFFFFFFFFU;
+        out_palette[3] = 0xFFFFFFFFU;
+        return;
+    }
+    for (size_t i = 1; i < 4U; ++i) {
+        out_palette[i] = tecmo_nes_2c02_rgba(background_palette[(size_t)base + i]);
+    }
+}
+
+static uint64_t arena_mmc3_bg_tile_offset(const TecmoIntroArenaCapture *capture,
+                                          unsigned page,
+                                          int row,
+                                          uint8_t tile)
+{
+    uint8_t r0;
+    uint8_t r1;
+    uint8_t slot;
+    uint8_t local_tile = (uint8_t)(tile & 0x3FU);
+
+    if (capture == NULL) {
+        r0 = ARENA_SCREEN_BG_UPPER_R0;
+        r1 = ARENA_SCREEN_BG_UPPER_R1;
+    } else if (page == 0U && row < capture->bg_split_row) {
+        r0 = capture->bg_upper_r0;
+        r1 = capture->bg_upper_r1;
+    } else {
+        r0 = capture->bg_lower_r0;
+        r1 = capture->bg_lower_r1;
+    }
+
+    switch (tile >> 6U) {
+    case 0U:
+        slot = (uint8_t)(r0 & 0xFEU);
+        break;
+    case 1U:
+        slot = (uint8_t)((r0 & 0xFEU) + 1U);
+        break;
+    case 2U:
+        slot = (uint8_t)(r1 & 0xFEU);
+        break;
+    default:
+        slot = (uint8_t)((r1 & 0xFEU) + 1U);
+        break;
+    }
+
+    return (uint64_t)slot * ARENA_SCREEN_CHR_1KB_BYTES + (uint64_t)local_tile * 16ULL;
+}
 
 static void arena_status(TecmoIntroArenaCapture *capture, const char *text)
 {
@@ -602,12 +698,13 @@ static bool load_arena_capture_file(TecmoIntroArenaCapture *capture, const char 
     if (capture->available) {
         (void)snprintf(capture->status,
                        sizeof(capture->status),
-                       "ARENA TRACE %s  P0 %u P1 %u  PAL %u  CHR%02u",
+                       "ARENA TRACE %s  P0 %u/CHR%02u P1 %u/CHR%02u  PAL %u",
                        path,
                        (unsigned)capture->tile_count[0],
+                       (unsigned)capture->page_chr_bank[0],
                        (unsigned)capture->tile_count[1],
-                       (unsigned)capture->palette_stage_count,
-                       (unsigned)capture->chr_bank);
+                       (unsigned)capture->page_chr_bank[1],
+                       (unsigned)capture->palette_stage_count);
     }
 
     free(json);
@@ -627,11 +724,42 @@ bool tecmo_intro_arena_capture_load(TecmoIntroArenaCapture *capture, const char 
 
     memset(capture, 0, sizeof(*capture));
     capture->chr_bank = ARENA_SCREEN_DEFAULT_CHR_BANK;
+    capture->page_chr_bank[0] = ARENA_SCREEN_DEFAULT_CHR_BANK;
+    capture->page_chr_bank[1] = ARENA_SCREEN_DEFAULT_LOWER_CHR_BANK;
+    capture->bg_upper_r0 = ARENA_SCREEN_BG_UPPER_R0;
+    capture->bg_upper_r1 = ARENA_SCREEN_BG_UPPER_R1;
+    capture->bg_lower_r0 = ARENA_SCREEN_BG_LOWER_R0;
+    capture->bg_lower_r1 = ARENA_SCREEN_BG_LOWER_R1;
+    capture->bg_split_row = ARENA_SCREEN_BG_SPLIT_ROW;
     capture->sprite_chr_bank = ARENA_SCREEN_DEFAULT_SPRITE_CHR_BANK;
     {
         unsigned override_bank = 0;
         if (arena_env_uint("TECMO_ARENA_CHR_BANK", &override_bank)) {
             capture->chr_bank = override_bank;
+            capture->page_chr_bank[0] = override_bank;
+            capture->page_chr_bank[1] = override_bank;
+        }
+        if (arena_env_uint("TECMO_ARENA_PAGE0_CHR_BANK", &override_bank)) {
+            capture->page_chr_bank[0] = override_bank;
+            capture->chr_bank = override_bank;
+        }
+        if (arena_env_uint("TECMO_ARENA_PAGE1_CHR_BANK", &override_bank)) {
+            capture->page_chr_bank[1] = override_bank;
+        }
+        if (arena_env_uint("TECMO_ARENA_UPPER_R0", &override_bank)) {
+            capture->bg_upper_r0 = (uint8_t)override_bank;
+        }
+        if (arena_env_uint("TECMO_ARENA_UPPER_R1", &override_bank)) {
+            capture->bg_upper_r1 = (uint8_t)override_bank;
+        }
+        if (arena_env_uint("TECMO_ARENA_LOWER_R0", &override_bank)) {
+            capture->bg_lower_r0 = (uint8_t)override_bank;
+        }
+        if (arena_env_uint("TECMO_ARENA_LOWER_R1", &override_bank)) {
+            capture->bg_lower_r1 = (uint8_t)override_bank;
+        }
+        if (arena_env_uint("TECMO_ARENA_SPLIT_ROW", &override_bank)) {
+            capture->bg_split_row = override_bank > 30U ? 30 : (int)override_bank;
         }
     }
     arena_status(capture, "RUN FCEUX LUA WATCH TO CAPTURE INTRO ARENA SCREEN");
@@ -702,25 +830,49 @@ bool tecmo_intro_arena_draw_page(TecmoFramebuffer *fb,
                                  int origin_y,
                                  int scale)
 {
+    const uint8_t *background_palette;
+
     if (capture == NULL || !capture->available ||
         page >= TECMO_INTRO_ARENA_PAGE_COUNT ||
         capture->tile_count[page] == 0U) {
         return false;
     }
+    if (fb == NULL || chr_bytes == NULL || chr_byte_count == 0U || scale <= 0) {
+        return false;
+    }
 
-    return tecmo_nametable_draw_tiles(fb,
-                                      chr_bytes,
-                                      chr_byte_count,
-                                      capture->chr_bank,
-                                      capture->tiles[page],
-                                      capture->tile_count[page],
-                                      capture->attributes[page],
-                                      tecmo_intro_arena_palette_for_frame(capture, frame),
-                                      tecmo_nametable_map_low_tiles_to_table1,
-                                      0,
-                                      origin_x,
-                                      origin_y,
-                                      scale);
+    background_palette = tecmo_intro_arena_palette_for_frame(capture, frame);
+    for (size_t i = 0; i < capture->tile_count[page]; ++i) {
+        const TecmoNametableTile *entry = &capture->tiles[page][i];
+        uint8_t attribute;
+        uint8_t palette_index;
+        uint32_t palette[4];
+        uint64_t tile_offset;
+        int row;
+        int col;
+
+        if (!arena_tile_position(entry->ppu, &row, &col)) {
+            continue;
+        }
+
+        attribute = arena_attribute_byte(capture->attributes[page], row, col);
+        palette_index = tecmo_nes_attribute_palette_index(attribute, row, col);
+        arena_build_palette(palette, background_palette, palette_index);
+        tile_offset = arena_mmc3_bg_tile_offset(capture, page, row, entry->tile);
+
+        tecmo_draw_chr_tile_at_offset_ex(fb,
+                                         chr_bytes,
+                                         chr_byte_count,
+                                         tile_offset,
+                                         origin_x + col * 8 * scale,
+                                         origin_y + row * 8 * scale,
+                                         scale,
+                                         palette,
+                                         false,
+                                         false);
+    }
+
+    return true;
 }
 
 bool tecmo_intro_arena_draw_sprites(TecmoFramebuffer *fb,

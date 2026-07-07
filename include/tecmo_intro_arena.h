@@ -24,6 +24,12 @@ typedef struct TecmoIntroArenaCapture {
     bool available;
     bool palette_available;
     uint32_t chr_bank;
+    uint32_t page_chr_bank[TECMO_INTRO_ARENA_PAGE_COUNT];
+    uint8_t bg_upper_r0;
+    uint8_t bg_upper_r1;
+    uint8_t bg_lower_r0;
+    uint8_t bg_lower_r1;
+    int bg_split_row;
     TecmoNametableTile tiles[TECMO_INTRO_ARENA_PAGE_COUNT][TECMO_INTRO_ARENA_TILES_PER_PAGE];
     size_t tile_count[TECMO_INTRO_ARENA_PAGE_COUNT];
     TecmoIntroArenaSprite sprites[TECMO_INTRO_ARENA_MAX_SPRITES];

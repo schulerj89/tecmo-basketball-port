@@ -145,7 +145,7 @@ Run the headless native flow test for title -> menu -> rosters -> first sprite -
 
 The `intro-c051-d861-model` render mode runs a synthetic C helper self-test before writing its PNG, then shows the staged byte rows without decoded payload data.
 
-The `intro-arena-transition` and `intro-arena-frameN` render modes consume the ignored local Lua watcher output when available. The current native arena slice uses screen id `$18` nametable writes from frames 428-430, palette fade writes from frames 425-476, live scoreboard OAM from frame 461, and `$2005` scroll-pair evidence for the vertical arena transition; no ROM, ASM, or extracted graphics are committed.
+The `intro-arena-transition` and `intro-arena-frameN` render modes consume the ignored local Lua watcher output when available. The current native arena slice uses screen id `$18` nametable writes from frames 428-430, palette fade writes from frames 425-476, live scoreboard OAM from frame 461, `$2005` scroll-pair evidence for the vertical arena transition, vertically stacked `$2000/$2400` nametable pages, and MMC3-style 1KB R0/R1 background CHR slot resolution; no ROM, ASM, or extracted graphics are committed.
 
 Detect a local rebuilt NES ROM and emulator candidate for original intro comparison:
 

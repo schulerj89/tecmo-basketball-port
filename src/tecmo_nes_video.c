@@ -68,24 +68,21 @@ uint8_t tecmo_nes_attribute_palette_index(uint8_t attribute, int tile_row, int t
     return (uint8_t)((attribute >> shift) & 0x03U);
 }
 
-void tecmo_draw_chr_tile_ex(TecmoFramebuffer *fb,
-                            const uint8_t *chr_bytes,
-                            uint64_t chr_byte_count,
-                            uint32_t chr_bank,
-                            uint16_t tile,
-                            int x,
-                            int y,
-                            int scale,
-                            const uint32_t palette[4],
-                            bool flip_horizontal,
-                            bool flip_vertical)
+void tecmo_draw_chr_tile_at_offset_ex(TecmoFramebuffer *fb,
+                                      const uint8_t *chr_bytes,
+                                      uint64_t chr_byte_count,
+                                      uint64_t tile_offset,
+                                      int x,
+                                      int y,
+                                      int scale,
+                                      const uint32_t palette[4],
+                                      bool flip_horizontal,
+                                      bool flip_vertical)
 {
-    uint64_t tile_offset = (uint64_t)chr_bank * TECMO_NES_CHR_BANK_BYTES + (uint64_t)tile * 16ULL;
-
     if (fb == 0 || chr_bytes == 0 || palette == 0 || scale <= 0) {
         return;
     }
-    if (tile > 0x1FFU || tile_offset + 15ULL >= chr_byte_count) {
+    if (tile_offset + 15ULL >= chr_byte_count) {
         return;
     }
 
@@ -103,6 +100,35 @@ void tecmo_draw_chr_tile_ex(TecmoFramebuffer *fb,
             video_rect(fb, x + col * scale, y + row * scale, scale, scale, color);
         }
     }
+}
+
+void tecmo_draw_chr_tile_ex(TecmoFramebuffer *fb,
+                            const uint8_t *chr_bytes,
+                            uint64_t chr_byte_count,
+                            uint32_t chr_bank,
+                            uint16_t tile,
+                            int x,
+                            int y,
+                            int scale,
+                            const uint32_t palette[4],
+                            bool flip_horizontal,
+                            bool flip_vertical)
+{
+    uint64_t tile_offset = (uint64_t)chr_bank * TECMO_NES_CHR_BANK_BYTES + (uint64_t)tile * 16ULL;
+
+    if (tile > 0x1FFU) {
+        return;
+    }
+    tecmo_draw_chr_tile_at_offset_ex(fb,
+                                     chr_bytes,
+                                     chr_byte_count,
+                                     tile_offset,
+                                     x,
+                                     y,
+                                     scale,
+                                     palette,
+                                     flip_horizontal,
+                                     flip_vertical);
 }
 
 void tecmo_draw_chr_tile(TecmoFramebuffer *fb,

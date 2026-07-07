@@ -2844,7 +2844,6 @@ void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
     TecmoIntroArenaTransitionState state;
     unsigned frame = runtime != NULL ? runtime->mode_frame_counter : 240U;
     int background_y;
-    size_t record_count = 0;
     size_t visible_count = 0;
     bool drew_arena = false;
     bool show_debug = runtime == NULL || runtime->debug_overlay;
@@ -2871,8 +2870,8 @@ void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
                                                       runtime->title_chr_byte_count,
                                                       1U,
                                                       frame,
-                                                      viewport_x + 256 * scale,
-                                                      background_y,
+                                                      viewport_x,
+                                                      background_y + 240 * scale,
                                                       scale);
         drew_arena = drew_page0 || drew_page1;
         if (drew_arena) {
@@ -2895,11 +2894,6 @@ void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
         }
     }
 
-    if (runtime != NULL && runtime->intro_trace_available) {
-        record_count = intro_trace_group_count(runtime, INTRO_TRACE_GROUP_A7DB_SELECTOR0);
-        (void)drew_arena;
-    }
-
     if (show_debug) {
         rect(fb, 0, 0, 640, 20, rgb(0, 0, 0));
         (void)snprintf(line,
@@ -2917,14 +2911,17 @@ void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
         rect(fb, 0, 456, 640, 24, rgb(0, 0, 0));
         (void)snprintf(line,
                        sizeof(line),
-                       "SCREEN18 P0 %u P1 %u  BG CHR %02u/T1  OAM %u CHR %02u/T0  A7DB SEL0 %u/%u",
+                       "SCREEN18 P0 %u P1 %u  BG R0/R1 %02X/%02X -> %02X/%02X R%d  OAM %u/%u CHR %02u/T0",
                        runtime != NULL ? (unsigned)runtime->intro_arena_capture.tile_count[0] : 0U,
                        runtime != NULL ? (unsigned)runtime->intro_arena_capture.tile_count[1] : 0U,
-                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.chr_bank : 0U,
+                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.bg_upper_r0 : 0U,
+                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.bg_upper_r1 : 0U,
+                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.bg_lower_r0 : 0U,
+                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.bg_lower_r1 : 0U,
+                       runtime != NULL ? runtime->intro_arena_capture.bg_split_row : 0,
                        runtime != NULL ? (unsigned)runtime->intro_arena_capture.sprite_count : 0U,
-                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.sprite_chr_bank : 0U,
-                       (unsigned)record_count,
-                       (unsigned)visible_count);
+                       (unsigned)visible_count,
+                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.sprite_chr_bank : 0U);
         draw_text(fb, 12, 464, line, rgb(142, 174, 190), 1);
     }
 }
