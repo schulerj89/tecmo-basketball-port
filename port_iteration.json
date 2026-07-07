@@ -268,7 +268,7 @@
       "id": "render_play_intro_output_stepper",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode play build\\play_test.png",
-      "description": "Renders Play Game at output step 0: the first verified D861 sprite record from the decoded Bank04/A7DB trace. Left/Right in the window steps through verified layers, ending with a coordinate audit and cross-state assembly preview that keep screen 00 PRESENTS, screen 18 rabbit OAM, and screen 1A TECMO OAM labeled separately.",
+      "description": "Renders Play Game at the captured first TECMO PRESENTS background layer. Left/Right in the window steps backward through the debug evidence layers, including the first D861 sprite, rabbit stream, L88E7 selector streams, nametable proof, and coordinate audit.",
       "expected_artifact": "build/play_test.png"
     },
     {
@@ -538,8 +538,8 @@
         "PNG exists",
         "PNG dimensions are 640x480",
         "Play Game progressive intro-output mode appears",
-        "Frame shows output step 0 with the first verified D861 sprite record only, not the provisional stitched TECMO/PRESENTS splash",
-        "Runtime Left/Right steps through the full rabbit stream, L88E7 selector streams, the separate screen ID 00 PRESENTS nametable placement, a coordinate audit, and a cross-state assembly preview that does not mark those states as final"
+        "Frame shows the captured first TECMO PRESENTS background layer from the original-run PPU nametable capture",
+        "Runtime Left/Right steps through the first verified D861 sprite record, full rabbit stream, L88E7 selector streams, captured nametable placement, and coordinate audit"
       ]
     },
     {
@@ -602,6 +602,7 @@
     "intro_first_sprite_trace_command": ".\\tools\\Find-IntroFirstSpriteTrace.ps1",
     "intro_first_sprite_trace_report": "build\\intro_first_sprite_trace.json",
     "emulator_first_sprite_watch_lua": "tools\\emu_intro_first_sprite_watch.lua",
+    "emulator_intro_memory_watch_lua": "tools\\emu_intro_memory_watch.lua",
     "public_plan": "docs\\original_title_screen_plan.md",
     "highest_confidence_groups": [
       "bank04_title_splash_core",
@@ -613,18 +614,19 @@
       "The first Bank07 C counterpart is now a native capability layer, not emulator compatibility: it covers verified fixed-helper behavior for D861 sprite/OAM staging, D2D2 unused-OAM hiding, D700 setup-byte copying, and 8x16 sprite tile-pair mapping.",
       "The boot trace now verifies Bank07 reset jumps to fixed bootstrap $CC30, bootstrap schedules the Bank07 task, that task schedules Bank04 $825D, and Bank04 dispatch index 0 targets $88E8 before flowing into the $8988 dual-stream emitter and fixed $C051/$D861 staging path.",
       "The first-sprite trace follows Bank04 $88E8 through $8988 into fixed $C051/$D861, then writes an ignored local report with the first staged record and first rabbit record that has an onscreen Y position.",
-      "The Play Game launcher option now opens a progressive first-intro output stepper rendered from the local decoded intro trace instead of a guessed full title composite.",
+      "The Play Game launcher option now opens on the captured first TECMO PRESENTS background layer, with Left/Right still available for the progressive debug evidence steps.",
       "tools/emu_intro_first_sprite_watch.lua is a FCEUX Lua watcher that logs $058D and $0200-$02FF OAM staging changes to ignored build/emu_intro_first_sprite_watch.ndjson for original-run comparison against the ignored first-sprite trace.",
-      "The native runtime now boots into the current local intro splash when build/intro_composite_trace.json exists; Enter opens the launcher and Esc quits.",
-      "The native launcher Title Screen now stages the decoded A7DB selector $01 rabbit rows in a fixed native buffer and renders a provisional local intro splash with the visual Bank 31/table 1 TECMO $180-$193 asset construction plus normal CHR glyphs for PRESENTS. Palette, $C05A background script decode, live CHR bank, and exact placement remain pending.",
+      "tools/emu_intro_memory_watch.lua is a broader FCEUX Lua watcher for the original run. It logs OAM shadow writes/frame diffs for $0200-$02FF, records $1200 as the mirrored view of the same internal RAM page, captures $03A0 queue changes, $2006/$2007 PPU writes, MMC3 $8000/$8001 bank writes, and focused nametable bytes around $2100.",
+      "The native runtime now boots into the captured first TECMO PRESENTS background layer; Enter opens the launcher and Esc quits.",
+      "The native launcher Title Screen renders the original-run frame 16 nametable capture: 58 non-empty PPU writes across $210B-$21EB, with PRESENTS at $21CF-$21D6 and the low rabbit/TECMO tiles translated through captured MMC3 CHR state R0=$FC/R1=$FA into the local Bank 31 CHR view. Palette/attribute precision and fade timing remain pending.",
       "$C05A/$89DD is now modeled as a palette snapshot path, not a layout stream: fixed $C05A jumps to $D700, copies 16 bytes from Bank04 $89DD-$89EC into the local palette staging area, and the new L88E7 proof render displays those bytes beside the two A7DB streams.",
       "Bank04 L88E7 seeds $88=A8, $8A=3C, $0352=01, $0100=05, $57=08, and $58=09 before calling L8988. The decoded first intro proof shows A7DB selector $00 as a 55-record companion OAM stream and A7DB selector $01 as the 16-record rabbit stream.",
       "$0352/$0100 are now separated from the PRESENTS text search: the fixed NMI tail writes $0352 to mapper registers and uses $0100=05 to select IRQ/vector target $FCF6, while the normal-letter PRESENTS glyph data lead is in the Bank00 C-0191 text/layout stream around bank00:$8549.",
-      "The Bank00 $8549 PRESENTS bytes are consumed by the fixed-bank screen/nametable stream loader, not the A7DB OAM interpreter: screen ID $00 record $DC85 resolves to bank00:$84FB, decoder $D9F6 outputs the literal run to PPU $21CF-$21D6 at row 14 columns 15-22.",
-      "The coordinate audit now records the current verified state split: PRESENTS is screen $00 x120-184 y112-120, rabbit main OAM is screen $18 A7DB selector $01 with bounds x165-205 y-34-30 and first visible record at x181 y14, and TECMO logo OAM is screen $1A A90F selector $00 with initial base x98 y92 and logo-hit bounds x66-122 y121-169.",
-      "The Play Game stepper now includes a cross-state coordinate assembly preview that draws the parsed screen $18 rabbit OAM, screen $1A A90F TECMO OAM, and screen $00 PRESENTS nametable text on one 256x240 canvas while labeling it as non-final.",
+      "The Bank00 title background stream is consumed by the fixed-bank screen/nametable loader, not the A7DB/A90F OAM interpreters: the emulator capture shows frame 16 writing the visible rabbit/TECMO/PRESENTS layer to PPU $210B-$21EB, with PRESENTS at row 14 columns 15-22.",
+      "The coordinate audit still records the older split debug evidence for A7DB/A90F OAM streams, but the first visible TECMO PRESENTS screen is now sourced from the PPU nametable capture rather than that cross-state assembly.",
+      "The Play Game stepper keeps the old cross-state coordinate assembly preview as a debug step only; the default Play Game view is the captured PPU background layer.",
       "The Bank07 native self-test now includes the decoded L88E7 $CDAC IRQ setup contract: with $0352=01, $0100=05, $05B6 bit 0 set, $0305=0, $0301=32, and $88=A8, the model selects IRQ vector $FCF6 and produces the expected phase latch/address values.",
-      "The next original-intro decode target is the full first-intro screen selection/composite order: L88E7 loads screen ID $18 and emits A7DB OAM, while the known PRESENTS placement currently belongs to separate screen ID $00.",
+      "The next original-intro decode target is palette/attribute precision and fade timing for the captured first TECMO PRESENTS background layer.",
       "The native launcher exposes a Title Screen mode before the Play Game progressive intro-output mode so the title remains reachable from the menu.",
       "The native launcher exposes an Intro Lab builder that renders the selected local-only CHR sheet, lets the user place selected tiles onto a target canvas, shows local placement records, and can save ignored placement JSON.",
       "The native launcher exposes a CHR Playground that renders selected-bank/table tile IDs $080-$0AF or $180-$1AF and assembled title glyphs for number/letter verification.",

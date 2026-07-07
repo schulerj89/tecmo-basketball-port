@@ -19,6 +19,7 @@
 #define INTRO_TRACE_GROUP_TECMO_LOGO 3U
 #define INTRO_TRACE_GROUP_A7DB_SELECTOR0 4U
 #define TECMO_INTRO_OUTPUT_STEP_COUNT 7U
+#define TECMO_INTRO_OUTPUT_TITLE_STEP (TECMO_INTRO_OUTPUT_STEP_COUNT - 1U)
 #define INTRO_PRESENTS_SCREEN_ID 0x00U
 #define INTRO_PRESENTS_RECORD_CPU 0xDC85U
 #define INTRO_PRESENTS_STREAM_BANK 0x00U
@@ -52,6 +53,32 @@
 #define INTRO_TECMO_STREAM_BOUNDS_MAX_X 122
 #define INTRO_TECMO_STREAM_BOUNDS_MIN_Y 41
 #define INTRO_TECMO_STREAM_BOUNDS_MAX_Y 169
+
+typedef struct TecmoCapturedNametableTile {
+    uint16_t ppu;
+    uint8_t tile;
+} TecmoCapturedNametableTile;
+
+static const TecmoCapturedNametableTile INTRO_CAPTURED_TITLE_TILES[] = {
+    {0x210BU, 0x21U},
+    {0x212BU, 0x22U}, {0x212CU, 0x23U},
+    {0x214BU, 0x24U}, {0x214CU, 0x26U},
+    {0x216BU, 0x25U}, {0x216CU, 0x27U}, {0x216DU, 0x28U}, {0x216EU, 0x29U},
+    {0x216FU, 0x2AU}, {0x2170U, 0x2BU}, {0x2171U, 0x2CU}, {0x2172U, 0x2DU},
+    {0x2173U, 0x2EU}, {0x2174U, 0x2FU}, {0x2175U, 0x30U}, {0x2176U, 0x31U},
+    {0x218AU, 0x32U}, {0x218BU, 0x33U}, {0x218CU, 0x36U}, {0x218DU, 0x37U},
+    {0x218EU, 0x39U}, {0x218FU, 0x3AU}, {0x2190U, 0x3DU}, {0x2191U, 0x3EU},
+    {0x2192U, 0x41U}, {0x2193U, 0x42U}, {0x2194U, 0x45U}, {0x2195U, 0x46U},
+    {0x2196U, 0x49U}, {0x2197U, 0x4AU}, {0x2198U, 0x4DU},
+    {0x21AAU, 0x34U}, {0x21ABU, 0x35U}, {0x21ACU, 0x38U},
+    {0x21AEU, 0x3BU}, {0x21AFU, 0x3CU}, {0x21B0U, 0x3FU}, {0x21B1U, 0x40U},
+    {0x21B2U, 0x43U}, {0x21B3U, 0x44U}, {0x21B4U, 0x47U}, {0x21B5U, 0x48U},
+    {0x21B6U, 0x4BU}, {0x21B7U, 0x4CU},
+    {0x21CAU, 0x4EU}, {0x21CBU, 0x4FU}, {0x21CCU, 0x52U},
+    {0x21CFU, 0x9BU}, {0x21D0U, 0x9DU}, {0x21D1U, 0x90U}, {0x21D2U, 0x9EU},
+    {0x21D3U, 0x90U}, {0x21D4U, 0x99U}, {0x21D5U, 0x9FU}, {0x21D6U, 0x9EU},
+    {0x21EAU, 0x50U}, {0x21EBU, 0x51U},
+};
 
 static bool pressed(bool now, bool before)
 {
@@ -837,7 +864,7 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
 {
     runtime->mode = mode;
     if (mode == TECMO_MODE_FIRST_SPRITE) {
-        runtime->intro_output_step = 0;
+        runtime->intro_output_step = TECMO_INTRO_OUTPUT_TITLE_STEP;
     }
     runtime->previous_input = (TecmoInput){0};
 }
@@ -2131,6 +2158,124 @@ static void draw_chr_tile(TecmoFramebuffer *fb,
     draw_chr_tile_ex(fb, chr_bytes, chr_byte_count, chr_bank, tile, x, y, scale, palette, false, false);
 }
 
+static const uint32_t *intro_captured_title_palette(uint8_t tile, int col)
+{
+    static const uint32_t rabbit_palette[4] = {
+        0x00000000U,
+        0xFF8C2638U,
+        0xFFFF8A4EU,
+        0xFFFFF0C8U,
+    };
+    static const uint32_t tecmo_palette[4] = {
+        0x00000000U,
+        0xFF8C2638U,
+        0xFFFF1F72U,
+        0xFFFFFFFFU,
+    };
+    static const uint32_t presents_palette[4] = {
+        0x00000000U,
+        0xFF6E7480U,
+        0xFFECEFF4U,
+        0xFFFFFFFFU,
+    };
+
+    if (tile >= 0x90U) {
+        return presents_palette;
+    }
+    if (col <= 13) {
+        return rabbit_palette;
+    }
+    return tecmo_palette;
+}
+
+static uint16_t intro_captured_title_chr_tile(uint8_t ppu_tile)
+{
+    /*
+     * Frame 16 mapper state uses MMC3 CHR R0=$FC for PPU $0000-$07FF and
+     * R1=$FA for PPU $0800-$0FFF. In the local 8KB-bank view that makes the
+     * low title tiles live at bank31 tile $100+tile, while PRESENTS remains
+     * at its visible $90-$9F indexes.
+     */
+    if (ppu_tile < 0x80U) {
+        return (uint16_t)(0x100U + (uint16_t)ppu_tile);
+    }
+    return (uint16_t)ppu_tile;
+}
+
+static void draw_intro_captured_title_nametable(TecmoFramebuffer *fb,
+                                                const TecmoRuntime *runtime,
+                                                int origin_x,
+                                                int origin_y,
+                                                int scale,
+                                                bool draw_debug_bounds)
+{
+    const size_t tile_count = sizeof(INTRO_CAPTURED_TITLE_TILES) / sizeof(INTRO_CAPTURED_TITLE_TILES[0]);
+
+    if (runtime->title_chr_bytes == NULL || runtime->title_chr_byte_count == 0) {
+        draw_centered_text(fb, 212, "LOCAL CHR DATA UNAVAILABLE", rgb(252, 236, 170), 2);
+        return;
+    }
+
+    for (size_t i = 0; i < tile_count; ++i) {
+        const TecmoCapturedNametableTile *entry = &INTRO_CAPTURED_TITLE_TILES[i];
+        uint16_t offset = (uint16_t)(entry->ppu - 0x2000U);
+        int row = (int)(offset / 32U);
+        int col = (int)(offset % 32U);
+        int x = origin_x + col * 8 * scale;
+        int y = origin_y + row * 8 * scale;
+        const uint32_t *palette = intro_captured_title_palette(entry->tile, col);
+        uint16_t chr_tile = intro_captured_title_chr_tile(entry->tile);
+
+        draw_chr_tile_ex(fb,
+                         runtime->title_chr_bytes,
+                         runtime->title_chr_byte_count,
+                         runtime->intro_trace_chr_bank,
+                         chr_tile,
+                         x,
+                         y,
+                         scale,
+                         palette,
+                         false,
+                         false);
+    }
+
+    if (draw_debug_bounds) {
+        outline_rect(fb, origin_x + 10 * 8 * scale - 2, origin_y + 8 * 8 * scale - 2,
+                     15 * 8 * scale + 4, 8 * 8 * scale + 4, rgb(80, 96, 110));
+        outline_rect(fb,
+                     origin_x + INTRO_PRESENTS_TILE_COL * 8 * scale - 2,
+                     origin_y + INTRO_PRESENTS_TILE_ROW * 8 * scale - 2,
+                     (int)INTRO_PRESENTS_LEN * 8 * scale + 4,
+                     8 * scale + 4,
+                     rgb(142, 174, 190));
+    }
+}
+
+static void render_intro_captured_title_screen(const TecmoRuntime *runtime,
+                                               TecmoFramebuffer *fb,
+                                               const char *prompt,
+                                               bool draw_debug)
+{
+    const int scale = 2;
+    const int origin_x = 64;
+    const int origin_y = 0;
+
+    clear(fb, rgb(0, 0, 0));
+    draw_intro_captured_title_nametable(fb, runtime, origin_x, origin_y, scale, draw_debug);
+    if (prompt != NULL && prompt[0] != '\0') {
+        draw_text(fb, 22, 22, prompt, rgb(230, 232, 214), 1);
+    }
+    if (draw_debug) {
+        char line[160];
+        (void)snprintf(line,
+                       sizeof(line),
+                       "CAPTURED FRAME16 PPU $210B-$21EB  %u TILES  MMC3 R0=FC R1=FA  CHR BANK %02u",
+                       (unsigned)(sizeof(INTRO_CAPTURED_TITLE_TILES) / sizeof(INTRO_CAPTURED_TITLE_TILES[0])),
+                       (unsigned)runtime->intro_trace_chr_bank);
+        draw_text(fb, 22, 446, line, rgb(92, 116, 128), 1);
+    }
+}
+
 static void draw_title_glyph(TecmoFramebuffer *fb,
                              const uint8_t *chr_bytes,
                              uint64_t chr_byte_count,
@@ -2778,7 +2923,7 @@ static const char *intro_output_step_label(uint8_t step)
     if (step == 5U) {
         return "COORDINATE AUDIT";
     }
-    return "COORDINATE ASSEMBLY PREVIEW";
+    return "CAPTURED PPU TITLE BACKGROUND";
 }
 
 static void draw_intro_output_header(TecmoFramebuffer *fb, uint8_t step)
@@ -2852,13 +2997,8 @@ static void draw_intro_presents_nametable_position(TecmoFramebuffer *fb,
     const int scale = 2;
     const int nametable_x = 64;
     const int nametable_y = 0;
-    const int tile_size = 8 * scale;
-    const int x = nametable_x + (int)INTRO_PRESENTS_TILE_COL * tile_size;
-    const int y = nametable_y + (int)INTRO_PRESENTS_TILE_ROW * tile_size;
-    const int width = (int)INTRO_PRESENTS_LEN * tile_size;
 
-    outline_rect(fb, x - 4, y - 4, width + 8, tile_size + 8, rgb(80, 96, 110));
-    draw_intro_presents_text(fb, runtime, x, y, scale);
+    draw_intro_captured_title_nametable(fb, runtime, nametable_x, nametable_y, scale, true);
 }
 
 static void draw_coordinate_panel(TecmoFramebuffer *fb,
@@ -2971,7 +3111,7 @@ static void render_intro_coordinate_assembly_preview(const TecmoRuntime *runtime
     rect(fb, canvas_x, canvas_y, canvas_w, canvas_h, rgb(0, 0, 0));
     outline_rect(fb, canvas_x, canvas_y, canvas_w, canvas_h, rgb(52, 62, 72));
 
-    draw_intro_trace_group_absolute(fb, runtime, INTRO_TRACE_GROUP_TECMO_STREAM, canvas_x, canvas_y, scale);
+    draw_intro_trace_group_absolute(fb, runtime, INTRO_TRACE_GROUP_TECMO_LOGO, canvas_x, canvas_y, scale);
     draw_intro_trace_group_absolute(fb, runtime, INTRO_TRACE_GROUP_RABBIT, canvas_x, canvas_y, scale);
     draw_intro_presents_text(fb,
                              runtime,
@@ -2979,13 +3119,29 @@ static void render_intro_coordinate_assembly_preview(const TecmoRuntime *runtime
                              canvas_y + INTRO_PRESENTS_PIXEL_Y * scale,
                              scale);
 
-    rect(fb, 0, 0, fb->width, 98, rgb(0, 0, 0));
-    draw_text(fb, 24, 18, "CROSS STATE COORDINATE ASSEMBLY PREVIEW", rgb(248, 248, 232), 2);
-    draw_text(fb, 24, 56, "USES VERIFIED COORDINATES BUT NOT A VERIFIED SINGLE INTRO STATE", rgb(252, 236, 118), 1);
-    draw_text(fb, 24, 74, "SCREEN00 PRESENTS + SCREEN18 RABBIT OAM + SCREEN1A TECMO OAM", rgb(142, 174, 190), 1);
+    outline_rect(fb,
+                 canvas_x + INTRO_PRESENTS_PIXEL_X * scale - 2,
+                 canvas_y + INTRO_PRESENTS_PIXEL_Y * scale - 2,
+                 (int)INTRO_PRESENTS_LEN * 8 * scale + 4,
+                 8 * scale + 4,
+                 rgb(92, 116, 128));
+    outline_rect(fb,
+                 canvas_x + INTRO_RABBIT_BOUNDS_MIN_X * scale,
+                 canvas_y + INTRO_RABBIT_BOUNDS_MIN_Y * scale,
+                 (INTRO_RABBIT_BOUNDS_MAX_X - INTRO_RABBIT_BOUNDS_MIN_X) * scale,
+                 (INTRO_RABBIT_BOUNDS_MAX_Y - INTRO_RABBIT_BOUNDS_MIN_Y) * scale,
+                 rgb(118, 80, 96));
+    outline_rect(fb,
+                 canvas_x + INTRO_TECMO_LOGO_BOUNDS_MIN_X * scale,
+                 canvas_y + INTRO_TECMO_LOGO_BOUNDS_MIN_Y * scale,
+                 (INTRO_TECMO_LOGO_BOUNDS_MAX_X - INTRO_TECMO_LOGO_BOUNDS_MIN_X) * scale,
+                 (INTRO_TECMO_LOGO_BOUNDS_MAX_Y - INTRO_TECMO_LOGO_BOUNDS_MIN_Y) * scale,
+                 rgb(96, 118, 80));
 
-    rect(fb, 14, 396, 612, 58, rgb(0, 0, 0));
-    outline_rect(fb, 14, 396, 612, 58, rgb(52, 62, 72));
+    rect(fb, 14, 376, 612, 78, rgb(0, 0, 0));
+    outline_rect(fb, 14, 376, 612, 78, rgb(52, 62, 72));
+    draw_text(fb, 24, 390, "CROSS STATE COORDINATE ASSEMBLY PREVIEW", rgb(248, 248, 232), 1);
+    draw_text(fb, 24, 406, "USES LOGO-ONLY A90F RECORDS  NOT FULL A90F CONTEXT", rgb(252, 236, 118), 1);
     (void)snprintf(line,
                    sizeof(line),
                    "PRESENTS X%d-%d Y%d-%d  RABBIT X%d-%d Y%d-%d  TECMO X%d-%d Y%d-%d",
@@ -3001,30 +3157,15 @@ static void render_intro_coordinate_assembly_preview(const TecmoRuntime *runtime
                    INTRO_TECMO_LOGO_BOUNDS_MAX_X,
                    INTRO_TECMO_LOGO_BOUNDS_MIN_Y,
                    INTRO_TECMO_LOGO_BOUNDS_MAX_Y);
-    draw_text(fb, 24, 412, line, rgb(230, 232, 214), 1);
-    draw_text(fb, 24, 432, "NEXT: CAPTURE THE REAL FIRST INTRO STATE ORDER BEFORE TREATING THIS AS FINAL", rgb(142, 174, 190), 1);
+    draw_text(fb, 24, 422, line, rgb(230, 232, 214), 1);
+    draw_text(fb, 24, 440, "NEXT: CAPTURE THE REAL FIRST INTRO STATE ORDER BEFORE TREATING THIS AS FINAL", rgb(142, 174, 190), 1);
 }
 
 static void render_intro_trace_title_common(const TecmoRuntime *runtime,
                                             TecmoFramebuffer *fb,
                                             const char *prompt)
 {
-    const int rabbit_scale = 3;
-    const int logo_scale = 4;
-    const int presents_scale = 3;
-    const int logo_x = 228;
-    const int logo_y = 178;
-    const int rabbit_x = 156;
-    const int rabbit_y = 96;
-    const int presents_x = 292;
-    const int presents_y = 286;
-
-    clear(fb, rgb(0, 0, 0));
-    draw_intro_visual_tecmo_logo(fb, runtime, logo_x, logo_y, logo_scale);
-    draw_intro_trace_group(fb, runtime, INTRO_TRACE_GROUP_RABBIT, rabbit_x, rabbit_y, rabbit_scale);
-    draw_intro_presents_text(fb, runtime, presents_x, presents_y, presents_scale);
-
-    draw_text(fb, 22, 22, prompt, rgb(230, 232, 214), 1);
+    render_intro_captured_title_screen(runtime, fb, prompt, false);
     draw_text(fb, 22, 446, runtime->intro_trace_status, rgb(92, 116, 128), 1);
 }
 
@@ -3046,8 +3187,13 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
         step = TECMO_INTRO_OUTPUT_STEP_COUNT - 1U;
     }
 
-    if (!runtime->title_probe_available || !runtime->intro_trace_available) {
+    if (!runtime->title_probe_available || (!runtime->intro_trace_available && step != TECMO_INTRO_OUTPUT_TITLE_STEP)) {
         tecmo_render_first_sprite_probe(runtime, fb);
+        return;
+    }
+
+    if (step == TECMO_INTRO_OUTPUT_TITLE_STEP) {
+        render_intro_captured_title_screen(runtime, fb, "ENTER ESC MENU   LEFT DEBUG", false);
         return;
     }
 
@@ -3099,14 +3245,14 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
         draw_intro_trace_group_scaled_box(fb, runtime, INTRO_TRACE_GROUP_RABBIT, 412, 198, 2, rgb(80, 96, 110));
     } else if (step == 4U) {
         draw_intro_presents_nametable_position(fb, runtime);
-        draw_text(fb, 48, 136, "SCREEN ID 00 NAMETABLE STREAM, NOT A7DB OAM", rgb(230, 232, 214), 1);
+        draw_text(fb, 48, 292, "SCREEN ID 00 NAMETABLE STREAM, NOT A7DB OAM", rgb(230, 232, 214), 1);
         (void)snprintf(line,
                        sizeof(line),
                        "C003 -> D92E -> D9F6  REC $%04X  BANK%02X STREAM $%04X",
                        (unsigned)INTRO_PRESENTS_RECORD_CPU,
                        (unsigned)INTRO_PRESENTS_STREAM_BANK,
                        (unsigned)INTRO_PRESENTS_STREAM_CPU);
-        draw_text(fb, 48, 154, line, rgb(142, 174, 190), 1);
+        draw_text(fb, 48, 310, line, rgb(142, 174, 190), 1);
         (void)snprintf(line,
                        sizeof(line),
                        "SRC $%04X -> PPU $%04X-$%04X  ROW %u  COL %u-%u",
@@ -3116,16 +3262,16 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
                        (unsigned)INTRO_PRESENTS_TILE_ROW,
                        (unsigned)INTRO_PRESENTS_TILE_COL,
                        (unsigned)(INTRO_PRESENTS_TILE_COL + INTRO_PRESENTS_LEN - 1U));
-        draw_text(fb, 48, 172, line, rgb(142, 174, 190), 1);
+        draw_text(fb, 48, 328, line, rgb(142, 174, 190), 1);
         (void)snprintf(line,
                        sizeof(line),
-                       "MATCH %s  L88E7 LOADS SCREEN 18, SO THIS IS A SEPARATE SCREEN00 PATH",
+                       "MATCH %s  CAPTURED FRAME16 WRITES 58 NON-FF BG TILES",
                        runtime->intro_presents_data_available ? runtime->intro_presents_data_cpu : "UNRESOLVED");
-        draw_text(fb, 48, 190, line, rgb(142, 174, 190), 1);
+        draw_text(fb, 48, 346, line, rgb(142, 174, 190), 1);
     } else if (step == 5U) {
         render_intro_coordinate_audit(runtime, fb);
     } else {
-        render_intro_coordinate_assembly_preview(runtime, fb);
+        render_intro_captured_title_screen(runtime, fb, "ENTER ESC MENU   LEFT DEBUG", false);
     }
 
     draw_text(fb, 24, 464, runtime->intro_trace_status, rgb(92, 116, 128), 1);

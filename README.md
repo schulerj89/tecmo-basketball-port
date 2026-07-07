@@ -195,7 +195,7 @@ Decode the local-only Bank 04 composite intro streams and render a private CHR p
 
 That writes ignored `build\intro_composite_trace.json` and `build\intro_composite_trace_preview.png`; do not commit those generated files.
 
-When that ignored trace JSON is present, the runtime Title Screen loads it locally and renders a first rabbit plus asset-backed `TECMO` splash. The visible `TECMO` word uses the Bank 31/table 1 `$180-$193` construction; the rabbit is drawn from the decoded `$A7DB` selector `$01` trace. The `intro-l88e7-proof` render mode shows the Bank 04 `L88E7` seed values, the `$89DD` palette snapshot loaded by `$C05A/$D700`, both `$A7DB` selector streams, the `$0100=05` IRQ/vector interpretation, and the Bank 00 normal-letter `PRESENTS` data lead. The Play Game stepper now keeps those paths separate: `$8549` `PRESENTS` belongs to screen ID `$00`, fixed decoder `$D9F6`, PPU `$21CF-$21D6` at row 14 columns 15-22, while `L88E7` loads screen ID `$18` before emitting A7DB OAM and the TECMO logo OAM path is screen command `$1A` through `L8818/A90F`. The final Play Game steps show a coordinate audit and a cross-state assembly preview so the pieces can be inspected together without marking the composite as solved. Palette, live CHR bank, exact scroll/base state, and the first complete intro composite sequence are still under investigation.
+The current Title Screen and Play Game default render the captured first `TECMO PRESENTS` background from the original run: frame 16 writes 58 non-empty nametable tiles across PPU `$210B-$21EB`, including `PRESENTS` at `$21CF-$21D6`. The low rabbit/TECMO tile IDs are resolved through the captured MMC3 CHR state (`R0=$FC`, `R1=$FA`) into the local Bank 31 CHR view. The older A7DB/A90F sprite traces are still available in the Play Game stepper for debugging, but they are no longer treated as the source of the first visible `TECMO PRESENTS` screen. Palette/attribute precision and fade timing are still under investigation.
 
 To compare the original run in FCEUX, load this Lua script after opening the private local rebuilt NES image:
 
@@ -204,6 +204,14 @@ tools\emu_intro_first_sprite_watch.lua
 ```
 
 It writes ignored `build\emu_intro_first_sprite_watch.ndjson` and watches `$058D` plus OAM staging bytes `$0200-$02FF` so the original run can be compared against the ignored first-sprite trace report.
+
+For a broader intro memory capture, use:
+
+```text
+tools\emu_intro_memory_watch.lua
+```
+
+That watcher logs OAM shadow writes/frame diffs for `$0200-$02FF`, `$1200` mirror checks, `$03A0` queue changes, `$2006/$2007` PPU writes, MMC3 `$8000/$8001` bank writes, and focused nametable bytes around `$2100`. It writes ignored `build\emu_intro_memory_watch.ndjson`; send that log back when matching the rabbit and `TECMO` sequence.
 
 Prototype controls:
 
@@ -242,8 +250,8 @@ Tab = next CHR bank
 Enter/Esc = launcher menu
 
 Play Game:
-Shows progressive first-intro decoded output steps
-Left/Right = step through decoded output layers
+Shows the captured first TECMO PRESENTS background layer
+Left/Right = step through decoded debug evidence layers
 Enter/Esc = main menu
 
 Rosters:
