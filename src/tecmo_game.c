@@ -18,7 +18,7 @@
 #define INTRO_TRACE_GROUP_TECMO_STREAM 2U
 #define INTRO_TRACE_GROUP_TECMO_LOGO 3U
 #define INTRO_TRACE_GROUP_A7DB_SELECTOR0 4U
-#define TECMO_INTRO_OUTPUT_STEP_COUNT 5U
+#define TECMO_INTRO_OUTPUT_STEP_COUNT 6U
 #define INTRO_PRESENTS_SCREEN_ID 0x00U
 #define INTRO_PRESENTS_RECORD_CPU 0xDC85U
 #define INTRO_PRESENTS_STREAM_BANK 0x00U
@@ -29,6 +29,27 @@
 #define INTRO_PRESENTS_LEN 8U
 #define INTRO_PRESENTS_TILE_ROW 14U
 #define INTRO_PRESENTS_TILE_COL 15U
+#define INTRO_RABBIT_SCREEN_ID 0x18U
+#define INTRO_RABBIT_BASE_X 184
+#define INTRO_RABBIT_BASE_Y 30
+#define INTRO_RABBIT_Y_PAGE 1
+#define INTRO_RABBIT_BOUNDS_MIN_X 165
+#define INTRO_RABBIT_BOUNDS_MAX_X 205
+#define INTRO_RABBIT_BOUNDS_MIN_Y -34
+#define INTRO_RABBIT_BOUNDS_MAX_Y 30
+#define INTRO_RABBIT_FIRST_VISIBLE_X 181
+#define INTRO_RABBIT_FIRST_VISIBLE_Y 14
+#define INTRO_TECMO_SCREEN_ID 0x1AU
+#define INTRO_TECMO_INITIAL_BASE_X 98
+#define INTRO_TECMO_BASE_Y 92
+#define INTRO_TECMO_LOGO_BOUNDS_MIN_X 66
+#define INTRO_TECMO_LOGO_BOUNDS_MAX_X 122
+#define INTRO_TECMO_LOGO_BOUNDS_MIN_Y 121
+#define INTRO_TECMO_LOGO_BOUNDS_MAX_Y 169
+#define INTRO_TECMO_STREAM_BOUNDS_MIN_X 58
+#define INTRO_TECMO_STREAM_BOUNDS_MAX_X 122
+#define INTRO_TECMO_STREAM_BOUNDS_MIN_Y 41
+#define INTRO_TECMO_STREAM_BOUNDS_MAX_Y 169
 
 static bool pressed(bool now, bool before)
 {
@@ -2749,7 +2770,10 @@ static const char *intro_output_step_label(uint8_t step)
     if (step == 3U) {
         return "L88E7 A7DB SELECTOR STREAMS";
     }
-    return "SCREEN 00 PRESENTS NAMETABLE";
+    if (step == 4U) {
+        return "SCREEN 00 PRESENTS NAMETABLE";
+    }
+    return "COORDINATE AUDIT";
 }
 
 static void draw_intro_output_header(TecmoFramebuffer *fb, uint8_t step)
@@ -2810,6 +2834,103 @@ static void draw_intro_presents_nametable_position(TecmoFramebuffer *fb,
 
     outline_rect(fb, x - 4, y - 4, width + 8, tile_size + 8, rgb(80, 96, 110));
     draw_intro_presents_text(fb, runtime, x, y, scale);
+}
+
+static void draw_coordinate_panel(TecmoFramebuffer *fb,
+                                  int x,
+                                  int y,
+                                  int w,
+                                  int h,
+                                  const char *title)
+{
+    rect(fb, x, y, w, h, rgb(12, 14, 18));
+    outline_rect(fb, x, y, w, h, rgb(66, 78, 88));
+    draw_text(fb, x + 10, y + 12, title, rgb(252, 236, 118), 1);
+}
+
+static void render_intro_coordinate_audit(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+{
+    char line[160];
+
+    draw_text(fb, 48, 132, "RABBIT TECMO AND PRESENTS ARE VERIFIED IN SEPARATE STATES", rgb(230, 232, 214), 1);
+    draw_text(fb, 48, 150, "DO NOT PLACE SPRITE STREAMS RELATIVE TO SCREEN00 PRESENTS UNTIL ORDER IS CAPTURED",
+              rgb(142, 174, 190), 1);
+
+    draw_coordinate_panel(fb, 24, 184, 188, 232, "PRESENTS BG");
+    (void)snprintf(line, sizeof(line), "SCREEN %02X  NAMETABLE", (unsigned)INTRO_PRESENTS_SCREEN_ID);
+    draw_text(fb, 36, 216, line, rgb(230, 232, 214), 1);
+    (void)snprintf(line,
+                   sizeof(line),
+                   "PPU %04X-%04X",
+                   (unsigned)INTRO_PRESENTS_PPU,
+                   (unsigned)(INTRO_PRESENTS_PPU + INTRO_PRESENTS_LEN - 1U));
+    draw_text(fb, 36, 234, line, rgb(142, 174, 190), 1);
+    (void)snprintf(line,
+                   sizeof(line),
+                   "X %u-%u  Y %u-%u",
+                   (unsigned)(INTRO_PRESENTS_TILE_COL * 8U),
+                   (unsigned)((INTRO_PRESENTS_TILE_COL + INTRO_PRESENTS_LEN) * 8U),
+                   (unsigned)(INTRO_PRESENTS_TILE_ROW * 8U),
+                   (unsigned)((INTRO_PRESENTS_TILE_ROW + 1U) * 8U));
+    draw_text(fb, 36, 252, line, rgb(142, 174, 190), 1);
+    draw_intro_presents_text(fb, runtime, 52, 324, 1);
+
+    draw_coordinate_panel(fb, 226, 184, 188, 232, "RABBIT OAM");
+    (void)snprintf(line,
+                   sizeof(line),
+                   "SCREEN %02X  A7DB SEL01",
+                   (unsigned)INTRO_RABBIT_SCREEN_ID);
+    draw_text(fb, 238, 216, line, rgb(230, 232, 214), 1);
+    (void)snprintf(line,
+                   sizeof(line),
+                   "BASE %u %u  PAGE %u",
+                   (unsigned)INTRO_RABBIT_BASE_X,
+                   (unsigned)INTRO_RABBIT_BASE_Y,
+                   (unsigned)INTRO_RABBIT_Y_PAGE);
+    draw_text(fb, 238, 234, line, rgb(142, 174, 190), 1);
+    (void)snprintf(line,
+                   sizeof(line),
+                   "BOUNDS X%d-%d",
+                   INTRO_RABBIT_BOUNDS_MIN_X,
+                   INTRO_RABBIT_BOUNDS_MAX_X);
+    draw_text(fb, 238, 252, line, rgb(142, 174, 190), 1);
+    (void)snprintf(line,
+                   sizeof(line),
+                   "Y%d-%d  VISIBLE %d %d",
+                   INTRO_RABBIT_BOUNDS_MIN_Y,
+                   INTRO_RABBIT_BOUNDS_MAX_Y,
+                   INTRO_RABBIT_FIRST_VISIBLE_X,
+                   INTRO_RABBIT_FIRST_VISIBLE_Y);
+    draw_text(fb, 238, 270, line, rgb(142, 174, 190), 1);
+    draw_intro_trace_group_scaled_box(fb, runtime, INTRO_TRACE_GROUP_RABBIT, 286, 304, 1, rgb(80, 96, 110));
+
+    draw_coordinate_panel(fb, 428, 184, 188, 232, "TECMO OAM");
+    (void)snprintf(line,
+                   sizeof(line),
+                   "SCREEN %02X  A90F SEL00",
+                   (unsigned)INTRO_TECMO_SCREEN_ID);
+    draw_text(fb, 440, 216, line, rgb(230, 232, 214), 1);
+    (void)snprintf(line,
+                   sizeof(line),
+                   "BASE 62-R88 INIT %u %u",
+                   (unsigned)INTRO_TECMO_INITIAL_BASE_X,
+                   (unsigned)INTRO_TECMO_BASE_Y);
+    draw_text(fb, 440, 234, line, rgb(142, 174, 190), 1);
+    (void)snprintf(line,
+                   sizeof(line),
+                   "LOGO X%d-%d",
+                   INTRO_TECMO_LOGO_BOUNDS_MIN_X,
+                   INTRO_TECMO_LOGO_BOUNDS_MAX_X);
+    draw_text(fb, 440, 252, line, rgb(142, 174, 190), 1);
+    (void)snprintf(line,
+                   sizeof(line),
+                   "Y%d-%d FULL Y%d-%d",
+                   INTRO_TECMO_LOGO_BOUNDS_MIN_Y,
+                   INTRO_TECMO_LOGO_BOUNDS_MAX_Y,
+                   INTRO_TECMO_STREAM_BOUNDS_MIN_Y,
+                   INTRO_TECMO_STREAM_BOUNDS_MAX_Y);
+    draw_text(fb, 440, 270, line, rgb(142, 174, 190), 1);
+    draw_intro_trace_group_scaled_box(fb, runtime, INTRO_TRACE_GROUP_TECMO_LOGO, 486, 304, 1, rgb(80, 96, 110));
 }
 
 static void render_intro_trace_title_common(const TecmoRuntime *runtime,
@@ -2904,7 +3025,7 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
         draw_intro_trace_group_scaled_box(fb, runtime, INTRO_TRACE_GROUP_A7DB_SELECTOR0, 92, 198, 1, rgb(80, 96, 110));
         draw_text(fb, 392, 178, "SEL01 RABBIT STREAM", rgb(252, 236, 118), 1);
         draw_intro_trace_group_scaled_box(fb, runtime, INTRO_TRACE_GROUP_RABBIT, 412, 198, 2, rgb(80, 96, 110));
-    } else {
+    } else if (step == 4U) {
         draw_intro_presents_nametable_position(fb, runtime);
         draw_text(fb, 48, 136, "SCREEN ID 00 NAMETABLE STREAM, NOT A7DB OAM", rgb(230, 232, 214), 1);
         (void)snprintf(line,
@@ -2929,6 +3050,8 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
                        "MATCH %s  L88E7 LOADS SCREEN 18, SO THIS IS A SEPARATE SCREEN00 PATH",
                        runtime->intro_presents_data_available ? runtime->intro_presents_data_cpu : "UNRESOLVED");
         draw_text(fb, 48, 190, line, rgb(142, 174, 190), 1);
+    } else {
+        render_intro_coordinate_audit(runtime, fb);
     }
 
     draw_text(fb, 24, 464, runtime->intro_trace_status, rgb(92, 116, 128), 1);
