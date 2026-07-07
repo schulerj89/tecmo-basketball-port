@@ -183,7 +183,7 @@ bool tecmo_intro_stage_self_test(char *message, size_t message_size)
         set_intro_stage_test_message(message, message_size, "ARENA SETTLE CHECKPOINT CONTRACT FAILED");
         return false;
     }
-    tecmo_intro_arena_transition_state(TECMO_INTRO_ARENA_WAIT_FRAMES + (TECMO_INTRO_ARENA_SCROLL_WRAP_TICK * 2U), &arena_state);
+    tecmo_intro_arena_transition_state(TECMO_INTRO_ARENA_WAIT_FRAMES + ((TECMO_INTRO_ARENA_SCROLL_WRAP_TICK - 1U) * 2U), &arena_state);
     if (!check_intro_arena_state(&arena_state, TECMO_INTRO_ARENA_PHASE_WRAP, 0x38U, 0x00U, 0x77U)) {
         set_intro_stage_test_message(message, message_size, "ARENA WRAP CHECKPOINT CONTRACT FAILED");
         return false;

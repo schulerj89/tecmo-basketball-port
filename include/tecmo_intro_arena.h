@@ -60,6 +60,15 @@ bool tecmo_intro_arena_draw_page(TecmoFramebuffer *fb,
                                  int origin_y,
                                  int scale);
 
+bool tecmo_intro_arena_draw_composite(TecmoFramebuffer *fb,
+                                      const TecmoIntroArenaCapture *capture,
+                                      const uint8_t *chr_bytes,
+                                      uint64_t chr_byte_count,
+                                      unsigned frame,
+                                      int origin_x,
+                                      int origin_y,
+                                      int scale);
+
 bool tecmo_intro_arena_draw_sprites(TecmoFramebuffer *fb,
                                     const TecmoIntroArenaCapture *capture,
                                     const uint8_t *chr_bytes,

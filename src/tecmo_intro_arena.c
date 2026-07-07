@@ -23,6 +23,13 @@
 #define ARENA_SCREEN_BG_LOWER_R0 0x5EU
 #define ARENA_SCREEN_BG_LOWER_R1 0x60U
 #define ARENA_SCREEN_BG_SPLIT_ROW 26
+#define ARENA_SCREEN_TOP_ROWS 16
+#define ARENA_SCREEN_SMALL_CROWD_PAGE 1U
+#define ARENA_SCREEN_SMALL_CROWD_FIRST_ROW 1
+#define ARENA_SCREEN_SMALL_CROWD_ROWS 13
+#define ARENA_SCREEN_LARGE_CROWD_PAGE 0U
+#define ARENA_SCREEN_LARGE_CROWD_FIRST_ROW 16
+#define ARENA_SCREEN_LARGE_CROWD_ROWS 13
 
 typedef struct ArenaCaptureBuild {
     uint8_t tiles[TECMO_INTRO_ARENA_PAGE_COUNT][TECMO_INTRO_ARENA_TILES_PER_PAGE];
@@ -820,6 +827,47 @@ static const uint8_t *arena_sprite_palette_for_frame(const TecmoIntroArenaCaptur
     return capture->sprite_palette_stages[selected];
 }
 
+static bool arena_draw_tile_entry(TecmoFramebuffer *fb,
+                                  const TecmoIntroArenaCapture *capture,
+                                  const uint8_t *chr_bytes,
+                                  uint64_t chr_byte_count,
+                                  const uint8_t *background_palette,
+                                  unsigned page,
+                                  const TecmoNametableTile *entry,
+                                  int display_row,
+                                  int origin_x,
+                                  int origin_y,
+                                  int scale)
+{
+    uint8_t attribute;
+    uint8_t palette_index;
+    uint32_t palette[4];
+    uint64_t tile_offset;
+    int row;
+    int col;
+
+    if (entry == NULL || !arena_tile_position(entry->ppu, &row, &col)) {
+        return false;
+    }
+
+    attribute = arena_attribute_byte(capture->attributes[page], row, col);
+    palette_index = tecmo_nes_attribute_palette_index(attribute, row, col);
+    arena_build_palette(palette, background_palette, palette_index);
+    tile_offset = arena_mmc3_bg_tile_offset(capture, page, row, entry->tile);
+
+    tecmo_draw_chr_tile_at_offset_ex(fb,
+                                     chr_bytes,
+                                     chr_byte_count,
+                                     tile_offset,
+                                     origin_x + col * 8 * scale,
+                                     origin_y + display_row * 8 * scale,
+                                     scale,
+                                     palette,
+                                     false,
+                                     false);
+    return true;
+}
+
 bool tecmo_intro_arena_draw_page(TecmoFramebuffer *fb,
                                  const TecmoIntroArenaCapture *capture,
                                  const uint8_t *chr_bytes,
@@ -844,35 +892,107 @@ bool tecmo_intro_arena_draw_page(TecmoFramebuffer *fb,
     background_palette = tecmo_intro_arena_palette_for_frame(capture, frame);
     for (size_t i = 0; i < capture->tile_count[page]; ++i) {
         const TecmoNametableTile *entry = &capture->tiles[page][i];
-        uint8_t attribute;
-        uint8_t palette_index;
-        uint32_t palette[4];
-        uint64_t tile_offset;
         int row;
         int col;
 
         if (!arena_tile_position(entry->ppu, &row, &col)) {
             continue;
         }
+        (void)col;
 
-        attribute = arena_attribute_byte(capture->attributes[page], row, col);
-        palette_index = tecmo_nes_attribute_palette_index(attribute, row, col);
-        arena_build_palette(palette, background_palette, palette_index);
-        tile_offset = arena_mmc3_bg_tile_offset(capture, page, row, entry->tile);
-
-        tecmo_draw_chr_tile_at_offset_ex(fb,
-                                         chr_bytes,
-                                         chr_byte_count,
-                                         tile_offset,
-                                         origin_x + col * 8 * scale,
-                                         origin_y + row * 8 * scale,
-                                         scale,
-                                         palette,
-                                         false,
-                                         false);
+        (void)arena_draw_tile_entry(fb,
+                                    capture,
+                                    chr_bytes,
+                                    chr_byte_count,
+                                    background_palette,
+                                    page,
+                                    entry,
+                                    row,
+                                    origin_x,
+                                    origin_y,
+                                    scale);
     }
 
     return true;
+}
+
+bool tecmo_intro_arena_draw_composite(TecmoFramebuffer *fb,
+                                      const TecmoIntroArenaCapture *capture,
+                                      const uint8_t *chr_bytes,
+                                      uint64_t chr_byte_count,
+                                      unsigned frame,
+                                      int origin_x,
+                                      int origin_y,
+                                      int scale)
+{
+    const uint8_t *background_palette;
+    bool drew_any = false;
+
+    if (capture == NULL || !capture->available ||
+        fb == NULL || chr_bytes == NULL || chr_byte_count == 0U || scale <= 0) {
+        return false;
+    }
+
+    background_palette = tecmo_intro_arena_palette_for_frame(capture, frame);
+
+    for (unsigned pass = 0; pass < 3U; ++pass) {
+        unsigned page = 0U;
+        int source_first_row = 0;
+        int source_last_row = 0;
+        int destination_first_row = 0;
+
+        if (pass == 0U) {
+            page = 0U;
+            source_first_row = 0;
+            source_last_row = ARENA_SCREEN_TOP_ROWS - 1;
+            destination_first_row = 0;
+        } else if (pass == 1U) {
+            page = ARENA_SCREEN_SMALL_CROWD_PAGE;
+            source_first_row = ARENA_SCREEN_SMALL_CROWD_FIRST_ROW;
+            source_last_row = source_first_row + ARENA_SCREEN_SMALL_CROWD_ROWS - 1;
+            destination_first_row = ARENA_SCREEN_TOP_ROWS;
+        } else {
+            page = ARENA_SCREEN_LARGE_CROWD_PAGE;
+            source_first_row = ARENA_SCREEN_LARGE_CROWD_FIRST_ROW;
+            source_last_row = source_first_row + ARENA_SCREEN_LARGE_CROWD_ROWS - 1;
+            destination_first_row = ARENA_SCREEN_TOP_ROWS + ARENA_SCREEN_SMALL_CROWD_ROWS;
+        }
+
+        if (page >= TECMO_INTRO_ARENA_PAGE_COUNT) {
+            continue;
+        }
+
+        for (size_t i = 0; i < capture->tile_count[page]; ++i) {
+            const TecmoNametableTile *entry = &capture->tiles[page][i];
+            int row;
+            int col;
+            int display_row;
+
+            if (!arena_tile_position(entry->ppu, &row, &col) ||
+                row < source_first_row ||
+                row > source_last_row) {
+                continue;
+            }
+            (void)col;
+
+            display_row = destination_first_row + (row - source_first_row);
+            if (arena_draw_tile_entry(fb,
+                                      capture,
+                                      chr_bytes,
+                                      chr_byte_count,
+                                      background_palette,
+                                      page,
+                                      entry,
+                                      display_row,
+                                      origin_x,
+                                      origin_y,
+                                      scale)) {
+                drew_any = true;
+            }
+        }
+    }
+
+    return drew_any;
 }
 
 bool tecmo_intro_arena_draw_sprites(TecmoFramebuffer *fb,

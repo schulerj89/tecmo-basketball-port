@@ -2855,25 +2855,14 @@ void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
     rect(fb, viewport_x, viewport_y, viewport_w, viewport_h, rgb(0, 0, 0));
 
     if (runtime != NULL && runtime->title_probe_available) {
-        bool drew_page0 = tecmo_intro_arena_draw_page(fb,
+        drew_arena = tecmo_intro_arena_draw_composite(fb,
                                                       &runtime->intro_arena_capture,
                                                       runtime->title_chr_bytes,
                                                       runtime->title_chr_byte_count,
-                                                      0U,
                                                       frame,
                                                       viewport_x,
                                                       background_y,
                                                       scale);
-        bool drew_page1 = tecmo_intro_arena_draw_page(fb,
-                                                      &runtime->intro_arena_capture,
-                                                      runtime->title_chr_bytes,
-                                                      runtime->title_chr_byte_count,
-                                                      1U,
-                                                      frame,
-                                                      viewport_x,
-                                                      background_y + 240 * scale,
-                                                      scale);
-        drew_arena = drew_page0 || drew_page1;
         if (drew_arena) {
             visible_count = tecmo_intro_arena_draw_sprites(fb,
                                                            &runtime->intro_arena_capture,
