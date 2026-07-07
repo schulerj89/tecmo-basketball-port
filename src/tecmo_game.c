@@ -19,6 +19,16 @@
 #define INTRO_TRACE_GROUP_TECMO_LOGO 3U
 #define INTRO_TRACE_GROUP_A7DB_SELECTOR0 4U
 #define TECMO_INTRO_OUTPUT_STEP_COUNT 5U
+#define INTRO_PRESENTS_SCREEN_ID 0x00U
+#define INTRO_PRESENTS_RECORD_CPU 0xDC85U
+#define INTRO_PRESENTS_STREAM_BANK 0x00U
+#define INTRO_PRESENTS_STREAM_CPU 0x84FBU
+#define INTRO_PRESENTS_DECODER_CPU 0xD9F6U
+#define INTRO_PRESENTS_SRC_CPU 0x8549U
+#define INTRO_PRESENTS_PPU 0x21CFU
+#define INTRO_PRESENTS_LEN 8U
+#define INTRO_PRESENTS_TILE_ROW 14U
+#define INTRO_PRESENTS_TILE_COL 15U
 
 static bool pressed(bool now, bool before)
 {
@@ -2739,7 +2749,7 @@ static const char *intro_output_step_label(uint8_t step)
     if (step == 3U) {
         return "L88E7 A7DB SELECTOR STREAMS";
     }
-    return "BANK00 PRESENTS DATA LEAD";
+    return "SCREEN 00 PRESENTS NAMETABLE";
 }
 
 static void draw_intro_output_header(TecmoFramebuffer *fb, uint8_t step)
@@ -2785,6 +2795,21 @@ static bool draw_intro_trace_group_centered(TecmoFramebuffer *fb,
     outline_rect(fb, target_x - 3, target_y - 3, width + 6, height + 6, border);
     draw_intro_trace_group(fb, runtime, group, target_x, target_y, scale);
     return true;
+}
+
+static void draw_intro_presents_nametable_position(TecmoFramebuffer *fb,
+                                                   const TecmoRuntime *runtime)
+{
+    const int scale = 2;
+    const int nametable_x = 64;
+    const int nametable_y = 0;
+    const int tile_size = 8 * scale;
+    const int x = nametable_x + (int)INTRO_PRESENTS_TILE_COL * tile_size;
+    const int y = nametable_y + (int)INTRO_PRESENTS_TILE_ROW * tile_size;
+    const int width = (int)INTRO_PRESENTS_LEN * tile_size;
+
+    outline_rect(fb, x - 4, y - 4, width + 8, tile_size + 8, rgb(80, 96, 110));
+    draw_intro_presents_text(fb, runtime, x, y, scale);
 }
 
 static void render_intro_trace_title_common(const TecmoRuntime *runtime,
@@ -2880,15 +2905,30 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
         draw_text(fb, 392, 178, "SEL01 RABBIT STREAM", rgb(252, 236, 118), 1);
         draw_intro_trace_group_scaled_box(fb, runtime, INTRO_TRACE_GROUP_RABBIT, 412, 198, 2, rgb(80, 96, 110));
     } else {
-        draw_text(fb, 48, 136, "ISOLATED NORMAL LETTER DATA LEAD ONLY", rgb(230, 232, 214), 1);
+        draw_intro_presents_nametable_position(fb, runtime);
+        draw_text(fb, 48, 136, "SCREEN ID 00 NAMETABLE STREAM, NOT A7DB OAM", rgb(230, 232, 214), 1);
         (void)snprintf(line,
                        sizeof(line),
-                       "MATCH %s  INTERPRETER AND FINAL PLACEMENT STILL PENDING",
-                       runtime->intro_presents_data_available ? runtime->intro_presents_data_cpu : "UNRESOLVED");
+                       "C003 -> D92E -> D9F6  REC $%04X  BANK%02X STREAM $%04X",
+                       (unsigned)INTRO_PRESENTS_RECORD_CPU,
+                       (unsigned)INTRO_PRESENTS_STREAM_BANK,
+                       (unsigned)INTRO_PRESENTS_STREAM_CPU);
         draw_text(fb, 48, 154, line, rgb(142, 174, 190), 1);
-        draw_text(fb, 48, 172, "THIS SCREEN DOES NOT CLAIM ORDER OR POSITION YET", rgb(142, 174, 190), 1);
-        outline_rect(fb, 248, 232, 8 * 8 * 2 + 6, 8 * 2 + 6, rgb(80, 96, 110));
-        draw_intro_presents_text(fb, runtime, 251, 235, 2);
+        (void)snprintf(line,
+                       sizeof(line),
+                       "SRC $%04X -> PPU $%04X-$%04X  ROW %u  COL %u-%u",
+                       (unsigned)INTRO_PRESENTS_SRC_CPU,
+                       (unsigned)INTRO_PRESENTS_PPU,
+                       (unsigned)(INTRO_PRESENTS_PPU + INTRO_PRESENTS_LEN - 1U),
+                       (unsigned)INTRO_PRESENTS_TILE_ROW,
+                       (unsigned)INTRO_PRESENTS_TILE_COL,
+                       (unsigned)(INTRO_PRESENTS_TILE_COL + INTRO_PRESENTS_LEN - 1U));
+        draw_text(fb, 48, 172, line, rgb(142, 174, 190), 1);
+        (void)snprintf(line,
+                       sizeof(line),
+                       "MATCH %s  L88E7 LOADS SCREEN 18, SO THIS IS A SEPARATE SCREEN00 PATH",
+                       runtime->intro_presents_data_available ? runtime->intro_presents_data_cpu : "UNRESOLVED");
+        draw_text(fb, 48, 190, line, rgb(142, 174, 190), 1);
     }
 
     draw_text(fb, 24, 464, runtime->intro_trace_status, rgb(92, 116, 128), 1);

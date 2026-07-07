@@ -268,7 +268,7 @@
       "id": "render_play_intro_output_stepper",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode play build\\play_test.png",
-      "description": "Renders Play Game at output step 0: the first verified D861 sprite record from the decoded Bank04/A7DB trace, without composing the unsolved full title splash.",
+      "description": "Renders Play Game at output step 0: the first verified D861 sprite record from the decoded Bank04/A7DB trace. Left/Right in the window steps through verified layers, ending with the separate screen ID 00 PRESENTS nametable placement.",
       "expected_artifact": "build/play_test.png"
     },
     {
@@ -538,7 +538,8 @@
         "PNG exists",
         "PNG dimensions are 640x480",
         "Play Game progressive intro-output mode appears",
-        "Frame shows output step 0 with the first verified D861 sprite record only, not the provisional stitched TECMO/PRESENTS splash"
+        "Frame shows output step 0 with the first verified D861 sprite record only, not the provisional stitched TECMO/PRESENTS splash",
+        "Runtime Left/Right steps through the full rabbit stream, L88E7 selector streams, and the separate screen ID 00 PRESENTS nametable placement"
       ]
     },
     {
@@ -619,8 +620,9 @@
       "$C05A/$89DD is now modeled as a palette snapshot path, not a layout stream: fixed $C05A jumps to $D700, copies 16 bytes from Bank04 $89DD-$89EC into the local palette staging area, and the new L88E7 proof render displays those bytes beside the two A7DB streams.",
       "Bank04 L88E7 seeds $88=A8, $8A=3C, $0352=01, $0100=05, $57=08, and $58=09 before calling L8988. The decoded first intro proof shows A7DB selector $00 as a 55-record companion OAM stream and A7DB selector $01 as the 16-record rabbit stream.",
       "$0352/$0100 are now separated from the PRESENTS text search: the fixed NMI tail writes $0352 to mapper registers and uses $0100=05 to select IRQ/vector target $FCF6, while the normal-letter PRESENTS glyph data lead is in the Bank00 C-0191 text/layout stream around bank00:$8549.",
+      "The Bank00 $8549 PRESENTS bytes are consumed by the fixed-bank screen/nametable stream loader, not the A7DB OAM interpreter: screen ID $00 record $DC85 resolves to bank00:$84FB, decoder $D9F6 outputs the literal run to PPU $21CF-$21D6 at row 14 columns 15-22.",
       "The Bank07 native self-test now includes the decoded L88E7 $CDAC IRQ setup contract: with $0352=01, $0100=05, $05B6 bit 0 set, $0305=0, $0301=32, and $88=A8, the model selects IRQ vector $FCF6 and produces the expected phase latch/address values.",
-      "The next original-intro decode target is the Bank00 stream interpreter that consumes the PRESENTS data lead and establishes exact placement, instead of guessing from CHR tiles alone.",
+      "The next original-intro decode target is the full first-intro screen selection/composite order: L88E7 loads screen ID $18 and emits A7DB OAM, while the known PRESENTS placement currently belongs to separate screen ID $00.",
       "The native launcher exposes a Title Screen mode before the Play Game progressive intro-output mode so the title remains reachable from the menu.",
       "The native launcher exposes an Intro Lab builder that renders the selected local-only CHR sheet, lets the user place selected tiles onto a target canvas, shows local placement records, and can save ignored placement JSON.",
       "The native launcher exposes a CHR Playground that renders selected-bank/table tile IDs $080-$0AF or $180-$1AF and assembled title glyphs for number/letter verification.",
