@@ -29,6 +29,7 @@ $Sources = @(
     "src\png_writer.c",
     "src\tecmo_bank07.c",
     "src\tecmo_controls.c",
+    "src\tecmo_flow_test.c",
     "src\tecmo_intro_stage.c",
     "src\tecmo_nes_video.c",
     "src\tecmo_nametable_screen.c",
