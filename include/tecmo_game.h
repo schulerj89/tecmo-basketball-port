@@ -126,6 +126,7 @@ typedef struct TecmoRuntime {
     bool intro_l88e7_palette_available;
     bool intro_l88e7_irq_vector_available;
     bool intro_presents_data_available;
+    uint8_t intro_output_step;
     char intro_trace_status[96];
     TecmoPlayMode mode;
     bool quit_requested;

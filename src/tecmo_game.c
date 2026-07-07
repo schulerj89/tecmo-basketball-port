@@ -18,6 +18,7 @@
 #define INTRO_TRACE_GROUP_TECMO_STREAM 2U
 #define INTRO_TRACE_GROUP_TECMO_LOGO 3U
 #define INTRO_TRACE_GROUP_A7DB_SELECTOR0 4U
+#define TECMO_INTRO_OUTPUT_STEP_COUNT 5U
 
 static bool pressed(bool now, bool before)
 {
@@ -49,7 +50,7 @@ static const char *mode_name(TecmoPlayMode mode)
         return "CHR PLAYGROUND";
     }
     if (mode == TECMO_MODE_FIRST_SPRITE) {
-        return "FIRST SPRITE";
+        return "INTRO OUTPUT";
     }
     if (mode == TECMO_MODE_PLAY_SETUP) {
         return "PLAY SETUP";
@@ -802,6 +803,9 @@ void tecmo_runtime_shutdown(TecmoRuntime *runtime)
 void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
 {
     runtime->mode = mode;
+    if (mode == TECMO_MODE_FIRST_SPRITE) {
+        runtime->intro_output_step = 0;
+    }
     runtime->previous_input = (TecmoInput){0};
 }
 
@@ -828,6 +832,7 @@ static void update_main_menu(TecmoRuntime *runtime, const TecmoInput *input)
             runtime->mode = TECMO_MODE_CHR_PLAYGROUND;
         } else if (runtime->selected_menu_item == 3) {
             runtime->mode = TECMO_MODE_FIRST_SPRITE;
+            runtime->intro_output_step = 0;
         } else if (runtime->selected_menu_item == 4) {
             runtime->mode = TECMO_MODE_ROSTERS;
         } else {
@@ -1380,6 +1385,12 @@ static void update_first_sprite_probe(TecmoRuntime *runtime, const TecmoInput *i
     if (pressed(input->confirm, runtime->previous_input.confirm) ||
         pressed(input->cancel, runtime->previous_input.cancel)) {
         runtime->mode = TECMO_MODE_MAIN_MENU;
+    } else if (pressed(input->left, runtime->previous_input.left) &&
+               runtime->intro_output_step > 0U) {
+        --runtime->intro_output_step;
+    } else if (pressed(input->right, runtime->previous_input.right) &&
+               runtime->intro_output_step + 1U < TECMO_INTRO_OUTPUT_STEP_COUNT) {
+        ++runtime->intro_output_step;
     }
 }
 
@@ -2714,6 +2725,68 @@ static void draw_intro_presents_text(TecmoFramebuffer *fb,
     }
 }
 
+static const char *intro_output_step_label(uint8_t step)
+{
+    if (step == 0U) {
+        return "FIRST D861 RECORD";
+    }
+    if (step == 1U) {
+        return "FIRST VISIBLE RABBIT RECORD";
+    }
+    if (step == 2U) {
+        return "FULL A7DB SELECTOR 1 RABBIT STREAM";
+    }
+    if (step == 3U) {
+        return "L88E7 A7DB SELECTOR STREAMS";
+    }
+    return "BANK00 PRESENTS DATA LEAD";
+}
+
+static void draw_intro_output_header(TecmoFramebuffer *fb, uint8_t step)
+{
+    char line[128];
+    rect(fb, 0, 0, fb->width, 58, rgb(18, 18, 34));
+    (void)snprintf(line,
+                   sizeof(line),
+                   "PLAY GAME - FIRST INTRO OUTPUT %u OF %u",
+                   (unsigned)step + 1U,
+                   (unsigned)TECMO_INTRO_OUTPUT_STEP_COUNT);
+    draw_text(fb, 24, 18, line, rgb(248, 248, 232), 2);
+    draw_text(fb, 24, 66, "LEFT RIGHT STEP   ENTER ESC MENU", rgb(142, 174, 190), 1);
+    draw_text(fb, 24, 82, "SOURCE ORDER VIEW - NOT THE FINAL COMPOSITE TITLE SCREEN", rgb(142, 174, 190), 1);
+    draw_text(fb, 24, 106, intro_output_step_label(step), rgb(252, 236, 118), 1);
+}
+
+static bool draw_intro_trace_group_centered(TecmoFramebuffer *fb,
+                                            const TecmoRuntime *runtime,
+                                            uint8_t group,
+                                            int center_x,
+                                            int center_y,
+                                            int scale,
+                                            uint32_t border)
+{
+    int min_x;
+    int min_y;
+    int max_x;
+    int max_y;
+    int width;
+    int height;
+    int target_x;
+    int target_y;
+
+    if (!get_intro_trace_bounds(runtime, group, &min_x, &min_y, &max_x, &max_y)) {
+        return false;
+    }
+
+    width = (max_x - min_x) * scale;
+    height = (max_y - min_y) * scale;
+    target_x = center_x - width / 2;
+    target_y = center_y - height / 2;
+    outline_rect(fb, target_x - 3, target_y - 3, width + 6, height + 6, border);
+    draw_intro_trace_group(fb, runtime, group, target_x, target_y, scale);
+    return true;
+}
+
 static void render_intro_trace_title_common(const TecmoRuntime *runtime,
                                             TecmoFramebuffer *fb,
                                             const char *prompt)
@@ -2744,12 +2817,81 @@ static void render_intro_trace_title(const TecmoRuntime *runtime, TecmoFramebuff
 
 static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
 {
-    if (runtime->title_probe_available && runtime->intro_trace_available) {
-        render_intro_trace_title_common(runtime, fb, "ENTER OR ESC RETURNS TO MENU");
+    uint8_t step = runtime->intro_output_step;
+    const TecmoIntroTraceSprite *sprite;
+    size_t record_index = 0;
+    size_t selector0_count;
+    size_t selector1_count;
+    char line[192];
+
+    if (step >= TECMO_INTRO_OUTPUT_STEP_COUNT) {
+        step = TECMO_INTRO_OUTPUT_STEP_COUNT - 1U;
+    }
+
+    if (!runtime->title_probe_available || !runtime->intro_trace_available) {
+        tecmo_render_first_sprite_probe(runtime, fb);
         return;
     }
 
-    tecmo_render_first_sprite_probe(runtime, fb);
+    clear(fb, rgb(0, 0, 0));
+    draw_intro_output_header(fb, step);
+
+    if (step == 0U) {
+        sprite = find_intro_trace_sprite(runtime, INTRO_TRACE_GROUP_RABBIT, false, &record_index);
+        describe_intro_trace_sprite(sprite, record_index, "STAGED", line, sizeof(line));
+        draw_text(fb, 48, 136, "FIRST EMITTED SPRITE ROW FROM THE LOCAL D861 TRACE", rgb(230, 232, 214), 1);
+        draw_text(fb, 48, 154, line, rgb(230, 232, 214), 1);
+        draw_text(fb, 48, 172, "ORIGINAL Y WRAPS OFFSCREEN HERE; IT IS ENLARGED FOR INSPECTION", rgb(142, 174, 190), 1);
+        if (sprite != NULL) {
+            outline_rect(fb, 288, 214, 8 * 8 + 2, 16 * 8 + 2, rgb(80, 96, 110));
+            draw_intro_trace_sprite(fb, runtime, sprite, 289, 215, 8);
+        }
+    } else if (step == 1U) {
+        sprite = find_intro_trace_sprite(runtime, INTRO_TRACE_GROUP_RABBIT, true, &record_index);
+        describe_intro_trace_sprite(sprite, record_index, "VISIBLE", line, sizeof(line));
+        draw_text(fb, 48, 136, "FIRST RABBIT SPRITE ROW WITH AN ONSCREEN Y POSITION", rgb(230, 232, 214), 1);
+        draw_text(fb, 48, 154, line, rgb(230, 232, 214), 1);
+        draw_text(fb, 48, 172, "THIS IS STILL ONE 8X16 SPRITE PAIR, NOT THE WHOLE RABBIT", rgb(142, 174, 190), 1);
+        if (sprite != NULL) {
+            outline_rect(fb, 288, 214, 8 * 8 + 2, 16 * 8 + 2, rgb(80, 96, 110));
+            draw_intro_trace_sprite(fb, runtime, sprite, 289, 215, 8);
+        }
+    } else if (step == 2U) {
+        selector1_count = intro_trace_group_count(runtime, INTRO_TRACE_GROUP_RABBIT);
+        (void)snprintf(line,
+                       sizeof(line),
+                       "A7DB SELECTOR 01  BASE XB8 Y011E  %02u RECORDS",
+                       (unsigned)selector1_count);
+        draw_text(fb, 48, 136, line, rgb(230, 232, 214), 1);
+        draw_intro_trace_group_centered(fb, runtime, INTRO_TRACE_GROUP_RABBIT, 320, 270, 3, rgb(80, 96, 110));
+        draw_l88e7_group_summary(runtime, fb, INTRO_TRACE_GROUP_RABBIT, "SELECTOR 1 RABBIT SUMMARY", 48, 410);
+    } else if (step == 3U) {
+        selector0_count = intro_trace_group_count(runtime, INTRO_TRACE_GROUP_A7DB_SELECTOR0);
+        selector1_count = intro_trace_group_count(runtime, INTRO_TRACE_GROUP_RABBIT);
+        (void)snprintf(line,
+                       sizeof(line),
+                       "L88E7 L8988 OUTPUTS TWO A7DB STREAMS  SEL00 %02u REC  SEL01 %02u REC",
+                       (unsigned)selector0_count,
+                       (unsigned)selector1_count);
+        draw_text(fb, 48, 132, line, rgb(230, 232, 214), 1);
+        draw_text(fb, 48, 148, "$0100=05 SELECTS FIXED IRQ VECTOR FCF6; THAT IS SETUP, NOT TEXT", rgb(142, 174, 190), 1);
+        draw_text(fb, 78, 178, "SEL00 COMPANION STREAM", rgb(252, 236, 118), 1);
+        draw_intro_trace_group_scaled_box(fb, runtime, INTRO_TRACE_GROUP_A7DB_SELECTOR0, 92, 198, 1, rgb(80, 96, 110));
+        draw_text(fb, 392, 178, "SEL01 RABBIT STREAM", rgb(252, 236, 118), 1);
+        draw_intro_trace_group_scaled_box(fb, runtime, INTRO_TRACE_GROUP_RABBIT, 412, 198, 2, rgb(80, 96, 110));
+    } else {
+        draw_text(fb, 48, 136, "ISOLATED NORMAL LETTER DATA LEAD ONLY", rgb(230, 232, 214), 1);
+        (void)snprintf(line,
+                       sizeof(line),
+                       "MATCH %s  INTERPRETER AND FINAL PLACEMENT STILL PENDING",
+                       runtime->intro_presents_data_available ? runtime->intro_presents_data_cpu : "UNRESOLVED");
+        draw_text(fb, 48, 154, line, rgb(142, 174, 190), 1);
+        draw_text(fb, 48, 172, "THIS SCREEN DOES NOT CLAIM ORDER OR POSITION YET", rgb(142, 174, 190), 1);
+        outline_rect(fb, 248, 232, 8 * 8 * 2 + 6, 8 * 2 + 6, rgb(80, 96, 110));
+        draw_intro_presents_text(fb, runtime, 251, 235, 2);
+    }
+
+    draw_text(fb, 24, 464, runtime->intro_trace_status, rgb(92, 116, 128), 1);
 }
 
 static void draw_chr_bank_sheet(TecmoFramebuffer *fb,
