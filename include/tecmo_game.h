@@ -2,32 +2,13 @@
 #define TECMO_GAME_H
 
 #include "asm_inventory.h"
+#include "tecmo_controls.h"
 #include "tecmo_framebuffer.h"
 #include "tecmo_memory.h"
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-
-typedef struct TecmoInput {
-    bool up;
-    bool down;
-    bool left;
-    bool right;
-    bool confirm;
-    bool cancel;
-    bool shoot;
-    bool tab;
-    bool bank_prev;
-    bool bank_next;
-    bool table_toggle;
-    bool save;
-    bool preset_rabbit;
-    bool preset_tecmo;
-    bool preset_composite;
-    bool remove;
-    bool debug_toggle;
-} TecmoInput;
 
 typedef enum TecmoPlayMode {
     TECMO_MODE_MAIN_MENU,

@@ -30,7 +30,7 @@
     "backend": "win32 software framebuffer",
     "game_core": "portable C runtime state plus explicit memory arenas",
     "asset_mode": "local development read-only scan/export tools; no committed proprietary data",
-    "known_status": "prototype launcher/menu, first native Bank07 fixed-helper C layer, source-backed title screen mode, Play Game progressive intro-output stepper, first-sprite debug proof, bank/table-switchable intro builder lab, CHR playground, roster viewer"
+    "known_status": "prototype launcher/menu, portable controls engine, first native Bank07 fixed-helper C layer, source-backed title screen mode, Play Game progressive intro-output stepper, first-sprite debug proof, bank/table-switchable intro builder lab, CHR playground, roster viewer"
   },
   "local_desktop_shortcut": {
     "status": "active",
@@ -64,6 +64,13 @@
       "command": ".\\build\\tecmo_port.exe --bank07-test",
       "description": "Runs the native Bank07 fixed-helper C counterpart checks, including the decoded L88E7 CDAC IRQ setup contract, without loading ROM data or starting an emulator.",
       "expected_output": "BANK07 C HELPER SELF TEST PASS"
+    },
+    {
+      "id": "run_controls_test",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --controls-test",
+      "description": "Runs the portable controls engine checks for held, pressed, released, and named button mapping without opening a window.",
+      "expected_output": "CONTROLS SELF TEST PASS"
     },
     {
       "id": "trace_boot_first_screen",

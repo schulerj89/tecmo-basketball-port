@@ -20,6 +20,7 @@ static void print_usage(const char *program)
     printf("  --roster [TEAM|--all]   Parse labeled Bank 02 roster records\n");
     printf("  --play                  Launch native playable prototype window\n");
     printf("  --flow-test             Run headless native title/menu/rosters/play/quit flow checks\n");
+    printf("  --controls-test         Run portable held/pressed/released control-state checks\n");
     printf("  --bank07-test           Run fixed-bank helper C counterpart checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
     printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, first-sprite, first-sprite-debug, intro-l88e7-proof, intro-presents, intro-builder-sample, intro-rabbit-preset, intro-tecmo-preset, intro-composite-preset, intro-c051-d861-model, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play, play-fade0..play-fade4, play-step0..play-step6, play-setup, original-title, or original-title-chr to PNG\n");
@@ -123,6 +124,16 @@ int main(int argc, char **argv)
         free(permanent_block);
         free(transient_block);
         return result;
+    }
+
+    if (strcmp(command, "--controls-test") == 0) {
+        char message[128];
+        if (!tecmo_controls_self_test(message, sizeof(message))) {
+            printf("Controls test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
     }
 
     if (strcmp(command, "--bank07-test") == 0) {

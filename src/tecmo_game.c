@@ -56,11 +56,6 @@
 #define INTRO_TECMO_STREAM_BOUNDS_MIN_Y 41
 #define INTRO_TECMO_STREAM_BOUNDS_MAX_Y 169
 
-static bool pressed(bool now, bool before)
-{
-    return now && !before;
-}
-
 static int text_equals(const char *a, const char *b)
 {
     return strcmp(a, b) == 0;
@@ -846,21 +841,21 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
     runtime->previous_input = (TecmoInput){0};
 }
 
-static void update_main_menu(TecmoRuntime *runtime, const TecmoInput *input)
+static void update_main_menu(TecmoRuntime *runtime, const TecmoControlFrame *controls)
 {
     const size_t menu_count = 6;
 
-    if (pressed(input->up, runtime->previous_input.up) && runtime->selected_menu_item > 0) {
+    if (controls->pressed.up && runtime->selected_menu_item > 0) {
         --runtime->selected_menu_item;
     }
-    if (pressed(input->down, runtime->previous_input.down) &&
+    if (controls->pressed.down &&
         runtime->selected_menu_item + 1U < menu_count) {
         ++runtime->selected_menu_item;
     }
-    if (pressed(input->cancel, runtime->previous_input.cancel)) {
+    if (controls->pressed.cancel) {
         runtime->quit_requested = true;
     }
-    if (pressed(input->confirm, runtime->previous_input.confirm)) {
+    if (controls->pressed.confirm) {
         if (runtime->selected_menu_item == 0) {
             tecmo_runtime_set_mode(runtime, TECMO_MODE_TITLE_SCREEN);
         } else if (runtime->selected_menu_item == 1) {
@@ -877,11 +872,11 @@ static void update_main_menu(TecmoRuntime *runtime, const TecmoInput *input)
     }
 }
 
-static void update_title_screen(TecmoRuntime *runtime, const TecmoInput *input)
+static void update_title_screen(TecmoRuntime *runtime, const TecmoControlFrame *controls)
 {
-    if (pressed(input->confirm, runtime->previous_input.confirm)) {
+    if (controls->pressed.confirm) {
         tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
-    } else if (pressed(input->cancel, runtime->previous_input.cancel)) {
+    } else if (controls->pressed.cancel) {
         runtime->quit_requested = true;
     }
 }
@@ -1229,118 +1224,118 @@ static void move_intro_canvas_cursor(TecmoRuntime *runtime, int dx, int dy)
     }
 }
 
-static void update_probe_screen(TecmoRuntime *runtime, const TecmoInput *input)
+static void update_probe_screen(TecmoRuntime *runtime, const TecmoControlFrame *controls)
 {
     if (runtime->mode == TECMO_MODE_INTRO_PROBE) {
         uint32_t count = chr_bank_count(runtime);
-        if (pressed(input->bank_prev, runtime->previous_input.bank_prev) && runtime->selected_chr_bank > 0U) {
+        if (controls->pressed.bank_prev && runtime->selected_chr_bank > 0U) {
             --runtime->selected_chr_bank;
         }
-        if (pressed(input->bank_next, runtime->previous_input.bank_next) &&
+        if (controls->pressed.bank_next &&
             runtime->selected_chr_bank + 1U < count) {
             ++runtime->selected_chr_bank;
         }
-        if (pressed(input->table_toggle, runtime->previous_input.table_toggle)) {
+        if (controls->pressed.table_toggle) {
             runtime->selected_chr_table ^= 1U;
         }
-        if (pressed(input->tab, runtime->previous_input.tab)) {
+        if (controls->pressed.tab) {
             runtime->intro_canvas_focus = !runtime->intro_canvas_focus;
         }
-        if (pressed(input->left, runtime->previous_input.left)) {
+        if (controls->pressed.left) {
             if (runtime->intro_canvas_focus) {
                 move_intro_canvas_cursor(runtime, -1, 0);
             } else {
                 move_intro_source_tile(runtime, -1, 0);
             }
         }
-        if (pressed(input->right, runtime->previous_input.right)) {
+        if (controls->pressed.right) {
             if (runtime->intro_canvas_focus) {
                 move_intro_canvas_cursor(runtime, 1, 0);
             } else {
                 move_intro_source_tile(runtime, 1, 0);
             }
         }
-        if (pressed(input->up, runtime->previous_input.up)) {
+        if (controls->pressed.up) {
             if (runtime->intro_canvas_focus) {
                 move_intro_canvas_cursor(runtime, 0, -1);
             } else {
                 move_intro_source_tile(runtime, 0, -1);
             }
         }
-        if (pressed(input->down, runtime->previous_input.down)) {
+        if (controls->pressed.down) {
             if (runtime->intro_canvas_focus) {
                 move_intro_canvas_cursor(runtime, 0, 1);
             } else {
                 move_intro_source_tile(runtime, 0, 1);
             }
         }
-        if (pressed(input->shoot, runtime->previous_input.shoot)) {
+        if (controls->pressed.shoot) {
             add_intro_placement(runtime);
         }
-        if (pressed(input->preset_rabbit, runtime->previous_input.preset_rabbit)) {
+        if (controls->pressed.preset_rabbit) {
             add_intro_rabbit_head_candidate(runtime);
         }
-        if (pressed(input->preset_tecmo, runtime->previous_input.preset_tecmo)) {
+        if (controls->pressed.preset_tecmo) {
             add_intro_tecmo_logo_candidate(runtime);
         }
-        if (pressed(input->preset_composite, runtime->previous_input.preset_composite)) {
+        if (controls->pressed.preset_composite) {
             add_intro_composite_candidate(runtime);
         }
-        if (pressed(input->remove, runtime->previous_input.remove)) {
+        if (controls->pressed.remove) {
             remove_intro_placement(runtime);
         }
-        if (pressed(input->save, runtime->previous_input.save)) {
+        if (controls->pressed.save) {
             (void)save_intro_layout_file(runtime);
         }
     } else if (runtime->mode == TECMO_MODE_CHR_PLAYGROUND) {
         uint32_t count = chr_bank_count(runtime);
-        if (pressed(input->left, runtime->previous_input.left) && runtime->selected_chr_bank > 0U) {
+        if (controls->pressed.left && runtime->selected_chr_bank > 0U) {
             --runtime->selected_chr_bank;
         }
-        if (pressed(input->right, runtime->previous_input.right) &&
+        if (controls->pressed.right &&
             runtime->selected_chr_bank + 1U < count) {
             ++runtime->selected_chr_bank;
         }
-        if (pressed(input->tab, runtime->previous_input.tab)) {
+        if (controls->pressed.tab) {
             runtime->selected_chr_bank = (runtime->selected_chr_bank + 1U) % count;
         }
-        if (pressed(input->up, runtime->previous_input.up) ||
-            pressed(input->down, runtime->previous_input.down) ||
-            pressed(input->table_toggle, runtime->previous_input.table_toggle)) {
+        if (controls->pressed.up ||
+            controls->pressed.down ||
+            controls->pressed.table_toggle) {
             runtime->selected_chr_table ^= 1U;
         }
     }
 
-    if (pressed(input->confirm, runtime->previous_input.confirm) ||
-        pressed(input->cancel, runtime->previous_input.cancel)) {
+    if (controls->pressed.confirm ||
+        controls->pressed.cancel) {
         tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
     }
 }
 
-static void update_roster_selection(TecmoRuntime *runtime, const TecmoInput *input, bool allow_start_game)
+static void update_roster_selection(TecmoRuntime *runtime, const TecmoControlFrame *controls, bool allow_start_game)
 {
     size_t player_count = selected_team_player_count(runtime);
 
-    if (pressed(input->left, runtime->previous_input.left) && runtime->selected_team > 0) {
+    if (controls->pressed.left && runtime->selected_team > 0) {
         --runtime->selected_team;
         runtime->selected_player = 0;
     }
-    if (pressed(input->right, runtime->previous_input.right) &&
+    if (controls->pressed.right &&
         runtime->selected_team + 1U < runtime->team_count) {
         ++runtime->selected_team;
         runtime->selected_player = 0;
     }
-    if (pressed(input->up, runtime->previous_input.up) && runtime->selected_player > 0) {
+    if (controls->pressed.up && runtime->selected_player > 0) {
         --runtime->selected_player;
     }
-    if (pressed(input->down, runtime->previous_input.down) &&
+    if (controls->pressed.down &&
         runtime->selected_player + 1U < player_count) {
         ++runtime->selected_player;
     }
-    if (pressed(input->cancel, runtime->previous_input.cancel)) {
+    if (controls->pressed.cancel) {
         tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
     }
-    if (allow_start_game && pressed(input->confirm, runtime->previous_input.confirm)) {
+    if (allow_start_game && controls->pressed.confirm) {
         tecmo_runtime_set_mode(runtime, TECMO_MODE_COURT);
     }
 }
@@ -1361,11 +1356,12 @@ static void clamp_player_to_court(TecmoRuntime *runtime)
     }
 }
 
-static void update_court(TecmoRuntime *runtime, const TecmoInput *input)
+static void update_court(TecmoRuntime *runtime, const TecmoControlFrame *controls)
 {
     const float speed = 3.0f;
     const float hoop_x = 542.0f;
     const float hoop_y = 126.0f;
+    const TecmoInput *input = &controls->held;
 
     if (input->left) {
         runtime->player_x -= speed;
@@ -1381,7 +1377,7 @@ static void update_court(TecmoRuntime *runtime, const TecmoInput *input)
     }
     clamp_player_to_court(runtime);
 
-    if (pressed(input->cancel, runtime->previous_input.cancel)) {
+    if (controls->pressed.cancel) {
         tecmo_runtime_set_mode(runtime, TECMO_MODE_PLAY_SETUP);
         runtime->ball_in_air = false;
     }
@@ -1389,7 +1385,7 @@ static void update_court(TecmoRuntime *runtime, const TecmoInput *input)
     if (!runtime->ball_in_air) {
         runtime->ball_x = runtime->player_x + 14.0f;
         runtime->ball_y = runtime->player_y - 8.0f;
-        if (pressed(input->shoot, runtime->previous_input.shoot)) {
+        if (controls->pressed.shoot) {
             float dx = hoop_x - runtime->ball_x;
             float dy = hoop_y - runtime->ball_y;
             runtime->ball_vx = dx / 44.0f;
@@ -1416,15 +1412,15 @@ static void update_court(TecmoRuntime *runtime, const TecmoInput *input)
     }
 }
 
-static void update_first_sprite_probe(TecmoRuntime *runtime, const TecmoInput *input)
+static void update_first_sprite_probe(TecmoRuntime *runtime, const TecmoControlFrame *controls)
 {
-    if (pressed(input->confirm, runtime->previous_input.confirm) ||
-        pressed(input->cancel, runtime->previous_input.cancel)) {
+    if (controls->pressed.confirm ||
+        controls->pressed.cancel) {
         tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
-    } else if (pressed(input->left, runtime->previous_input.left) &&
+    } else if (controls->pressed.left &&
                runtime->intro_output_step > 0U) {
         --runtime->intro_output_step;
-    } else if (pressed(input->right, runtime->previous_input.right) &&
+    } else if (controls->pressed.right &&
                runtime->intro_output_step + 1U < TECMO_INTRO_OUTPUT_STEP_COUNT) {
         ++runtime->intro_output_step;
     }
@@ -1445,32 +1441,35 @@ static void write_runtime_watch_memory(TecmoRuntime *runtime)
 
 void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input)
 {
+    TecmoControlFrame controls;
+
+    tecmo_control_frame_build(&controls, input, &runtime->previous_input);
     ++runtime->frame_counter;
     ++runtime->mode_frame_counter;
 
-    if (pressed(input->debug_toggle, runtime->previous_input.debug_toggle)) {
+    if (controls.pressed.debug_toggle) {
         runtime->debug_overlay = !runtime->debug_overlay;
     }
 
     if (runtime->mode == TECMO_MODE_MAIN_MENU) {
-        update_main_menu(runtime, input);
+        update_main_menu(runtime, &controls);
     } else if (runtime->mode == TECMO_MODE_TITLE_SCREEN) {
-        update_title_screen(runtime, input);
+        update_title_screen(runtime, &controls);
     } else if (runtime->mode == TECMO_MODE_INTRO_PROBE ||
                runtime->mode == TECMO_MODE_CHR_PLAYGROUND) {
-        update_probe_screen(runtime, input);
+        update_probe_screen(runtime, &controls);
     } else if (runtime->mode == TECMO_MODE_FIRST_SPRITE) {
-        update_first_sprite_probe(runtime, input);
+        update_first_sprite_probe(runtime, &controls);
     } else if (runtime->mode == TECMO_MODE_PLAY_SETUP) {
-        update_roster_selection(runtime, input, true);
+        update_roster_selection(runtime, &controls, true);
     } else if (runtime->mode == TECMO_MODE_ROSTERS) {
-        update_roster_selection(runtime, input, false);
+        update_roster_selection(runtime, &controls, false);
     } else if (runtime->mode == TECMO_MODE_COURT) {
-        update_court(runtime, input);
+        update_court(runtime, &controls);
     }
 
     write_runtime_watch_memory(runtime);
-    runtime->previous_input = *input;
+    runtime->previous_input = controls.held;
 }
 
 static void set_flow_test_message(char *dest, size_t dest_size, const char *text)

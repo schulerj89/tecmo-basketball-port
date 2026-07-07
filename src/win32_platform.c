@@ -17,7 +17,7 @@ typedef struct Win32Backbuffer {
 
 static Win32Backbuffer g_backbuffer;
 static bool g_running;
-static TecmoInput g_input;
+static TecmoControls g_controls;
 
 static void win32_resize_backbuffer(Win32Backbuffer *buffer, int width, int height)
 {
@@ -62,62 +62,65 @@ static void win32_present_backbuffer(HWND window, Win32Backbuffer *buffer)
 
 static void win32_set_key(WPARAM key, bool down)
 {
+    TecmoControlButton button;
+
     switch (key) {
     case VK_UP:
-        g_input.up = down;
+        button = TECMO_CONTROL_UP;
         break;
     case VK_DOWN:
-        g_input.down = down;
+        button = TECMO_CONTROL_DOWN;
         break;
     case VK_LEFT:
-        g_input.left = down;
+        button = TECMO_CONTROL_LEFT;
         break;
     case VK_RIGHT:
-        g_input.right = down;
+        button = TECMO_CONTROL_RIGHT;
         break;
     case VK_RETURN:
-        g_input.confirm = down;
+        button = TECMO_CONTROL_CONFIRM;
         break;
     case VK_ESCAPE:
-        g_input.cancel = down;
+        button = TECMO_CONTROL_CANCEL;
         break;
     case VK_SPACE:
-        g_input.shoot = down;
+        button = TECMO_CONTROL_SHOOT;
         break;
     case VK_TAB:
-        g_input.tab = down;
+        button = TECMO_CONTROL_TAB;
         break;
     case 'Q':
-        g_input.bank_prev = down;
+        button = TECMO_CONTROL_BANK_PREV;
         break;
     case 'E':
-        g_input.bank_next = down;
+        button = TECMO_CONTROL_BANK_NEXT;
         break;
     case 'T':
-        g_input.table_toggle = down;
+        button = TECMO_CONTROL_TABLE_TOGGLE;
         break;
     case 'S':
-        g_input.save = down;
+        button = TECMO_CONTROL_SAVE;
         break;
     case 'R':
-        g_input.preset_rabbit = down;
+        button = TECMO_CONTROL_PRESET_RABBIT;
         break;
     case 'M':
-        g_input.preset_tecmo = down;
+        button = TECMO_CONTROL_PRESET_TECMO;
         break;
     case 'C':
-        g_input.preset_composite = down;
+        button = TECMO_CONTROL_PRESET_COMPOSITE;
         break;
     case VK_BACK:
     case VK_DELETE:
-        g_input.remove = down;
+        button = TECMO_CONTROL_REMOVE;
         break;
     case VK_F3:
-        g_input.debug_toggle = down;
+        button = TECMO_CONTROL_DEBUG_TOGGLE;
         break;
     default:
-        break;
+        return;
     }
+    tecmo_controls_set_button(&g_controls, button, down);
 }
 
 static LRESULT CALLBACK win32_window_proc(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
@@ -216,6 +219,7 @@ int tecmo_run_win32_game(const char *project_root)
 
     QueryPerformanceFrequency(&perf_freq);
     QueryPerformanceCounter(&last_counter);
+    tecmo_controls_init(&g_controls);
     g_running = true;
 
     while (g_running) {
@@ -242,8 +246,9 @@ int tecmo_run_win32_game(const char *project_root)
         }
         last_counter = now;
 
+        tecmo_controls_begin_frame(&g_controls);
         runtime.frame_seconds = (float)elapsed;
-        tecmo_runtime_update(&runtime, &g_input);
+        tecmo_runtime_update(&runtime, tecmo_controls_held(&g_controls));
         if (runtime.quit_requested) {
             g_running = false;
             continue;
