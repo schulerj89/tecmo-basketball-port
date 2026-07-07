@@ -2158,34 +2158,45 @@ static void draw_chr_tile(TecmoFramebuffer *fb,
     draw_chr_tile_ex(fb, chr_bytes, chr_byte_count, chr_bank, tile, x, y, scale, palette, false, false);
 }
 
-static const uint32_t *intro_captured_title_palette(uint8_t tile, int col)
+static uint8_t intro_captured_title_attribute_byte(uint16_t attr_addr)
 {
-    static const uint32_t rabbit_palette[4] = {
-        0x00000000U,
-        0xFF8C2638U,
-        0xFFFF8A4EU,
-        0xFFFFF0C8U,
-    };
-    static const uint32_t tecmo_palette[4] = {
-        0x00000000U,
-        0xFF8C2638U,
-        0xFFFF1F72U,
-        0xFFFFFFFFU,
-    };
-    static const uint32_t presents_palette[4] = {
-        0x00000000U,
-        0xFF6E7480U,
-        0xFFECEFF4U,
-        0xFFFFFFFFU,
+    switch (attr_addr) {
+    case 0x23D3U: return 0xB3U;
+    case 0x23D4U: return 0xA0U;
+    case 0x23D5U: return 0xA0U;
+    case 0x23DBU: return 0xA8U;
+    case 0x23DCU: return 0xAAU;
+    case 0x23DDU: return 0xAAU;
+    default: return 0x00U;
+    }
+}
+
+static uint8_t intro_captured_title_palette_index(int row, int col)
+{
+    uint16_t attr_addr = (uint16_t)(0x23C0U + (uint16_t)(row / 4) * 8U + (uint16_t)(col / 4));
+    uint8_t attr = intro_captured_title_attribute_byte(attr_addr);
+    uint8_t shift = 0U;
+
+    if ((row & 0x03) >= 2) {
+        shift = (uint8_t)(shift + 4U);
+    }
+    if ((col & 0x03) >= 2) {
+        shift = (uint8_t)(shift + 2U);
+    }
+
+    return (uint8_t)((attr >> shift) & 0x03U);
+}
+
+static const uint32_t *intro_captured_title_palette(uint8_t palette_index)
+{
+    static const uint32_t palettes[4][4] = {
+        { 0x00000000U, 0xFFFF1F72U, 0xFFFF8A4EU, 0xFFFFFFFFU },
+        { 0x00000000U, 0xFFFF1F72U, 0xFFFF8A4EU, 0xFFFFFFFFU },
+        { 0x00000000U, 0xFFFF0A68U, 0xFFECEFF4U, 0xFFFFFFFFU },
+        { 0x00000000U, 0xFFFF1F72U, 0xFFFF8A4EU, 0xFFFFFFFFU },
     };
 
-    if (tile >= 0x90U) {
-        return presents_palette;
-    }
-    if (col <= 13) {
-        return rabbit_palette;
-    }
-    return tecmo_palette;
+    return palettes[palette_index & 0x03U];
 }
 
 static uint16_t intro_captured_title_chr_tile(uint8_t ppu_tile)
@@ -2223,7 +2234,8 @@ static void draw_intro_captured_title_nametable(TecmoFramebuffer *fb,
         int col = (int)(offset % 32U);
         int x = origin_x + col * 8 * scale;
         int y = origin_y + row * 8 * scale;
-        const uint32_t *palette = intro_captured_title_palette(entry->tile, col);
+        uint8_t palette_index = intro_captured_title_palette_index(row, col);
+        const uint32_t *palette = intro_captured_title_palette(palette_index);
         uint16_t chr_tile = intro_captured_title_chr_tile(entry->tile);
 
         draw_chr_tile_ex(fb,
