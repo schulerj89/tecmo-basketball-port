@@ -5,6 +5,7 @@
 #include "tecmo_controls.h"
 #include "tecmo_framebuffer.h"
 #include "tecmo_intro_arena.h"
+#include "tecmo_intro_layout.h"
 #include "tecmo_intro_stage.h"
 #include "tecmo_intro_trace.h"
 #include "tecmo_memory.h"
@@ -23,23 +24,6 @@ typedef enum TecmoPlayMode {
     TECMO_MODE_ROSTERS,
     TECMO_MODE_COURT
 } TecmoPlayMode;
-
-#define TECMO_MAX_INTRO_PLACEMENTS 32
-#define TECMO_MAX_INTRO_PLACEMENT_TILES 8
-
-typedef struct TecmoIntroPlacement {
-    bool active;
-    uint32_t chr_bank;
-    uint32_t chr_table;
-    uint16_t tile_ids[TECMO_MAX_INTRO_PLACEMENT_TILES];
-    size_t tile_count;
-    int canvas_cell_x;
-    int canvas_cell_y;
-    int pixel_x;
-    int pixel_y;
-    int scale;
-    char label[32];
-} TecmoIntroPlacement;
 
 typedef struct TecmoRuntime {
     TecmoGameMemory *memory;
