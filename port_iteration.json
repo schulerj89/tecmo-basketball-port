@@ -30,7 +30,7 @@
     "backend": "win32 software framebuffer",
     "game_core": "portable C runtime state plus explicit memory arenas",
     "asset_mode": "local development read-only scan/export tools; no committed proprietary data",
-    "known_status": "prototype launcher/menu, portable controls engine, reusable nametable screen renderer, first native Bank07 fixed-helper C layer, source-backed title screen mode, NBA license screen render target, Bank04 arena third-screen render target with captured background and scoreboard OAM, Play Game progressive intro-output stepper, first-sprite debug proof, bank/table-switchable intro builder lab, CHR playground, roster viewer"
+    "known_status": "prototype launcher/menu, portable controls engine, reusable nametable screen renderer, first native Bank07 fixed-helper C layer, source-backed title screen mode, NBA license screen render target, Bank04 arena third-screen render target with captured background and scoreboard OAM, post-arena READY sweep and Warriors transition capture targets, Play Game progressive intro-output stepper, first-sprite debug proof, bank/table-switchable intro builder lab, CHR playground, roster viewer"
   },
   "local_desktop_shortcut": {
     "status": "active",
@@ -55,8 +55,8 @@
       "id": "run_native_flow_test",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --flow-test",
-      "description": "Runs the headless runtime input-flow check that reaches rosters, enters the Play Game progressive intro-output mode, returns to menu, and confirms the quit path.",
-      "expected_output": "FLOW TEST PASS: menu rosters play-intro quit"
+      "description": "Runs the headless runtime input-flow check that enters the Play Game progressive intro-output mode, advances through the opening sequence transitions, returns to menu, and confirms the quit path.",
+      "expected_output": "FLOW TEST PASS: menu play-intro quit"
     },
     {
       "id": "run_bank07_helper_test",
@@ -352,16 +352,15 @@
   },
   "native_flow_tests": [
     {
-      "id": "flow_menu_rosters_play_quit",
+      "id": "flow_menu_play_quit",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --flow-test",
-      "expected_output": "FLOW TEST PASS: menu rosters play-intro quit",
+      "expected_output": "FLOW TEST PASS: menu play-intro quit",
       "assertions": [
         "Executable exits with code 0",
         "Runtime boots directly to the launcher menu",
-        "Launcher menu reaches Rosters through input, not direct mode injection",
-        "Roster browsing updates selected player and watched RAM",
         "Launcher menu reaches Play Game progressive intro-output mode through input",
+        "Play Game auto-advances through NBA license, arena, READY, and Warriors intro steps",
         "Play Game cancel returns to the launcher menu",
         "Launcher Quit row sets quit_requested",
         "Runner report persists only sanitized pass/fail metadata under ignored build output"
@@ -619,6 +618,31 @@
         "PNG dimensions are 640x480",
         "Frame renders the Bank04 $88E8 arena screen id $18 background from captured nametable writes",
         "Frame includes the live scoreboard OAM layer from the refreshed Lua capture and shows the current $88/$8A/$0301-style scroll trace values in debug mode",
+        "PNG remains in ignored build output"
+      ]
+    },
+    {
+      "id": "shot_intro_ready_transition",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-ready-frame35 build\\intro_ready_frame35_test.png",
+      "commit_safe": false,
+      "assertions": [
+        "PNG exists",
+        "PNG dimensions are 640x480",
+        "Frame renders the post-arena READY capture from the local Lua memory watch without loading raw log output into the report",
+        "Frame shows the captured moving palette/attribute reveal across the READY word",
+        "PNG remains in ignored build output"
+      ]
+    },
+    {
+      "id": "shot_intro_warriors_transition",
+      "status": "active",
+      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-warriors-frame74 build\\intro_warriors_frame74_test.png",
+      "commit_safe": false,
+      "assertions": [
+        "PNG exists",
+        "PNG dimensions are 640x480",
+        "Frame renders the captured Warriors post-arena transition background, sprites, scroll, and team wordmark from the local Lua memory watch",
         "PNG remains in ignored build output"
       ]
     },

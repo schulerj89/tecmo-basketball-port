@@ -203,6 +203,24 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
                                           message_size)) {
         return false;
     }
+    previous_intro_step = runtime->intro_output_step;
+    if (!flow_wait_for_intro_step_advance(runtime,
+                                          previous_intro_step,
+                                          540U,
+                                          "play game did not advance to ready intro step",
+                                          message,
+                                          message_size)) {
+        return false;
+    }
+    previous_intro_step = runtime->intro_output_step;
+    if (!flow_wait_for_intro_step_advance(runtime,
+                                          previous_intro_step,
+                                          120U,
+                                          "play game did not advance to Warriors intro step",
+                                          message,
+                                          message_size)) {
+        return false;
+    }
 
     memset(&input, 0, sizeof(input));
     input.cancel = true;

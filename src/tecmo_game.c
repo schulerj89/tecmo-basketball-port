@@ -13,12 +13,16 @@
 #define COURT_RIGHT 592
 #define COURT_BOTTOM 424
 #define TITLE_CHR_BANK_BYTES 8192U
-#define TECMO_INTRO_OUTPUT_STEP_COUNT 9U
+#define TECMO_INTRO_OUTPUT_STEP_COUNT 11U
 #define TECMO_INTRO_OUTPUT_TITLE_STEP 6U
 #define TECMO_INTRO_OUTPUT_LICENSE_STEP 7U
 #define TECMO_INTRO_OUTPUT_ARENA_STEP 8U
+#define TECMO_INTRO_OUTPUT_READY_STEP 9U
+#define TECMO_INTRO_OUTPUT_WARRIORS_STEP 10U
 #define TECMO_INTRO_LICENSE_AUTO_FRAME 120U
 #define TECMO_INTRO_ARENA_AUTO_FRAME 120U
+#define TECMO_INTRO_ARENA_TO_READY_FRAME 506U
+#define TECMO_INTRO_READY_TO_WARRIORS_FRAME 58U
 #define MAIN_MENU_PLAY_GAME 0U
 #define MAIN_MENU_QUIT 1U
 #define MAIN_MENU_COUNT 2U
@@ -196,6 +200,7 @@ bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const ch
     tecmo_intro_layout_init(runtime);
     tecmo_intro_trace_load(runtime, project_root);
     (void)tecmo_intro_arena_capture_load(&runtime->intro_arena_capture, project_root);
+    (void)tecmo_intro_post_arena_capture_load(&runtime->intro_post_arena_capture, project_root);
 
     if (tecmo_collect_rosters(project_root, &runtime->roster) != 0) {
         return false;
@@ -486,6 +491,14 @@ static void update_first_sprite_probe(TecmoRuntime *runtime, const TecmoControlF
     } else if (runtime->intro_output_step == TECMO_INTRO_OUTPUT_LICENSE_STEP &&
                runtime->mode_frame_counter >= TECMO_INTRO_ARENA_AUTO_FRAME) {
         runtime->intro_output_step = TECMO_INTRO_OUTPUT_ARENA_STEP;
+        runtime->mode_frame_counter = 0;
+    } else if (runtime->intro_output_step == TECMO_INTRO_OUTPUT_ARENA_STEP &&
+               runtime->mode_frame_counter >= TECMO_INTRO_ARENA_TO_READY_FRAME) {
+        runtime->intro_output_step = TECMO_INTRO_OUTPUT_READY_STEP;
+        runtime->mode_frame_counter = 0;
+    } else if (runtime->intro_output_step == TECMO_INTRO_OUTPUT_READY_STEP &&
+               runtime->mode_frame_counter >= TECMO_INTRO_READY_TO_WARRIORS_FRAME) {
+        runtime->intro_output_step = TECMO_INTRO_OUTPUT_WARRIORS_STEP;
         runtime->mode_frame_counter = 0;
     }
 }
@@ -1711,7 +1724,13 @@ static const char *intro_output_step_label(uint8_t step)
     if (step == TECMO_INTRO_OUTPUT_LICENSE_STEP) {
         return "NBA LICENSE SCREEN";
     }
-    return "BANK04 ARENA TRANSITION TRACE";
+    if (step == TECMO_INTRO_OUTPUT_ARENA_STEP) {
+        return "BANK04 ARENA TRANSITION TRACE";
+    }
+    if (step == TECMO_INTRO_OUTPUT_READY_STEP) {
+        return "READY FLASH CAPTURE";
+    }
+    return "WARRIORS TRANSITION CAPTURE";
 }
 
 static void draw_intro_output_header(TecmoFramebuffer *fb, uint8_t step)
@@ -1897,6 +1916,94 @@ void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
                        (unsigned)visible_count,
                        runtime != NULL ? (unsigned)runtime->intro_arena_capture.sprite_chr_bank : 0U);
         draw_text(fb, 12, 464, line, rgb(142, 174, 190), 1);
+    }
+}
+
+void tecmo_render_intro_ready_screen(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+{
+    const int scale = 2;
+    const int viewport_x = 64;
+    const int viewport_y = 0;
+    const int viewport_w = 256 * scale;
+    const int viewport_h = 240 * scale;
+    unsigned native_frame = runtime != NULL ? runtime->mode_frame_counter : 24U;
+    bool show_debug = runtime == NULL || runtime->debug_overlay;
+    char line[192];
+
+    clear(fb, rgb(0, 0, 0));
+    rect(fb, viewport_x, viewport_y, viewport_w, viewport_h, rgb(0, 0, 0));
+    if (runtime != NULL && runtime->title_probe_available &&
+        runtime->intro_post_arena_capture.available) {
+        tecmo_intro_post_arena_draw_ready(fb,
+                                          &runtime->intro_post_arena_capture,
+                                          runtime->title_chr_bytes,
+                                          runtime->title_chr_byte_count,
+                                          native_frame,
+                                          viewport_x,
+                                          viewport_y,
+                                          scale);
+    } else {
+        draw_centered_text(fb, 212, "LOCAL READY CAPTURE OR CHR DATA MISSING", rgb(252, 236, 170), 2);
+        if (runtime != NULL) {
+            draw_centered_text(fb, 238, runtime->intro_post_arena_capture.status, rgb(142, 174, 190), 1);
+        }
+    }
+
+    if (show_debug) {
+        rect(fb, 0, 0, 640, 20, rgb(0, 0, 0));
+        (void)snprintf(line,
+                       sizeof(line),
+                       "POST ARENA READY  native F%u capture F%u  NT %u ATTR %u PAL %u",
+                       native_frame,
+                       tecmo_intro_ready_capture_frame(native_frame),
+                       runtime != NULL ? (unsigned)runtime->intro_post_arena_capture.tile_event_count : 0U,
+                       runtime != NULL ? (unsigned)runtime->intro_post_arena_capture.attribute_event_count : 0U,
+                       runtime != NULL ? (unsigned)runtime->intro_post_arena_capture.palette_stage_count : 0U);
+        draw_text(fb, 12, 7, line, rgb(230, 232, 214), 1);
+    }
+}
+
+void tecmo_render_intro_warriors_transition(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+{
+    const int scale = 2;
+    const int viewport_x = 64;
+    const int viewport_y = 0;
+    const int viewport_w = 256 * scale;
+    const int viewport_h = 240 * scale;
+    unsigned native_frame = runtime != NULL ? runtime->mode_frame_counter : 64U;
+    bool show_debug = runtime == NULL || runtime->debug_overlay;
+    char line[192];
+
+    clear(fb, rgb(0, 0, 0));
+    rect(fb, viewport_x, viewport_y, viewport_w, viewport_h, rgb(0, 0, 0));
+    if (runtime != NULL && runtime->title_probe_available &&
+        runtime->intro_post_arena_capture.available) {
+        tecmo_intro_post_arena_draw_warriors(fb,
+                                             &runtime->intro_post_arena_capture,
+                                             runtime->title_chr_bytes,
+                                             runtime->title_chr_byte_count,
+                                             native_frame,
+                                             viewport_x,
+                                             viewport_y,
+                                             scale);
+    } else {
+        draw_centered_text(fb, 212, "LOCAL WARRIORS CAPTURE OR CHR DATA MISSING", rgb(252, 236, 170), 2);
+        if (runtime != NULL) {
+            draw_centered_text(fb, 238, runtime->intro_post_arena_capture.status, rgb(142, 174, 190), 1);
+        }
+    }
+
+    if (show_debug) {
+        rect(fb, 0, 0, 640, 20, rgb(0, 0, 0));
+        (void)snprintf(line,
+                       sizeof(line),
+                       "POST ARENA WARRIORS  native F%u capture F%u  NT %u OAM %u SCROLL %u",
+                       native_frame,
+                       tecmo_intro_warriors_capture_frame(native_frame),
+                       runtime != NULL ? (unsigned)runtime->intro_post_arena_capture.tile_event_count : 0U,
+                       runtime != NULL ? (unsigned)runtime->intro_post_arena_capture.sprite_stage_count : 0U,
+                       runtime != NULL ? (unsigned)runtime->intro_post_arena_capture.scroll_stage_count : 0U);
+        draw_text(fb, 12, 7, line, rgb(230, 232, 214), 1);
     }
 }
 
@@ -2100,7 +2207,9 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
         (!runtime->intro_trace_available &&
          step != TECMO_INTRO_OUTPUT_TITLE_STEP &&
          step != TECMO_INTRO_OUTPUT_LICENSE_STEP &&
-         step != TECMO_INTRO_OUTPUT_ARENA_STEP)) {
+         step != TECMO_INTRO_OUTPUT_ARENA_STEP &&
+         step != TECMO_INTRO_OUTPUT_READY_STEP &&
+         step != TECMO_INTRO_OUTPUT_WARRIORS_STEP)) {
         tecmo_render_first_sprite_probe(runtime, fb);
         return;
     }
@@ -2117,6 +2226,16 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
 
     if (step == TECMO_INTRO_OUTPUT_ARENA_STEP) {
         tecmo_render_intro_arena_transition(runtime, fb);
+        return;
+    }
+
+    if (step == TECMO_INTRO_OUTPUT_READY_STEP) {
+        tecmo_render_intro_ready_screen(runtime, fb);
+        return;
+    }
+
+    if (step == TECMO_INTRO_OUTPUT_WARRIORS_STEP) {
+        tecmo_render_intro_warriors_transition(runtime, fb);
         return;
     }
 
