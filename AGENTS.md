@@ -91,6 +91,14 @@ build\emu_intro_arena_irq_watch.log
 
 The broad memory watcher logs OAM diffs, compact PPU write batches, MMC3 bank writes, and scroll evidence. Use narrow filters when reading it.
 
+To avoid repeatedly parsing large raw watcher logs, distill the local-only arena data into a compact ignored capture:
+
+```powershell
+.\tools\Import-IntroArenaCapture.ps1
+```
+
+This writes `build\intro_arena_capture.ndjson`, which the arena renderer loads before the raw watcher logs. The compact file is generated data from the private reference environment and must stay uncommitted.
+
 ## Opening Sequence Notes
 
 The current opening path includes:

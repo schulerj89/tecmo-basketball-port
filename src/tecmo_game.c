@@ -1845,7 +1845,7 @@ void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
     const int viewport_h = 240 * scale;
     TecmoIntroArenaTransitionState state;
     unsigned native_frame = runtime != NULL ? runtime->mode_frame_counter : 240U;
-    unsigned frame = tecmo_intro_arena_display_frame(native_frame);
+    unsigned frame = native_frame;
     int background_y;
     size_t visible_count = 0;
     bool drew_arena = false;
