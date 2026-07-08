@@ -8,6 +8,7 @@
 #define TECMO_INTRO_ARENA_INITIAL_BASE_Y 0xFEU
 #define TECMO_INTRO_ARENA_FINAL_BASE_Y 0x38U
 #define TECMO_INTRO_ARENA_SCROLL_Y_STEPS 99U
+#define TECMO_INTRO_ARENA_FINAL_SCROLL_Y 0x64U
 #define TECMO_INTRO_ARENA_SCROLL_START_8A 0x3CU
 #define TECMO_INTRO_ARENA_SCROLL_WRAP_TICK 0xC4U
 #define TECMO_INTRO_ARENA_X_SHIFT_DELAY_TICKS 43U
@@ -184,7 +185,7 @@ bool tecmo_intro_stage_self_test(char *message, size_t message_size)
         return false;
     }
     tecmo_intro_arena_transition_state(TECMO_INTRO_ARENA_WAIT_FRAMES + ((TECMO_INTRO_ARENA_SCROLL_WRAP_TICK - 1U) * 2U), &arena_state);
-    if (!check_intro_arena_state(&arena_state, TECMO_INTRO_ARENA_PHASE_WRAP, 0x38U, 0x00U, 0x77U)) {
+    if (!check_intro_arena_state(&arena_state, TECMO_INTRO_ARENA_PHASE_WRAP, 0x38U, 0x00U, TECMO_INTRO_ARENA_FINAL_SCROLL_Y)) {
         set_intro_stage_test_message(message, message_size, "ARENA WRAP CHECKPOINT CONTRACT FAILED");
         return false;
     }
@@ -224,7 +225,9 @@ void tecmo_intro_arena_transition_state(unsigned frame, TecmoIntroArenaTransitio
 
     tick = ((frame - TECMO_INTRO_ARENA_WAIT_FRAMES) / 2U) + 1U;
     state->scroll_8a = (uint8_t)(TECMO_INTRO_ARENA_SCROLL_START_8A + tick);
-    state->scroll_y_0301 = (uint8_t)(tick > 0x77U ? 0x77U : tick);
+    state->scroll_y_0301 = (uint8_t)(tick > TECMO_INTRO_ARENA_FINAL_SCROLL_Y ?
+        TECMO_INTRO_ARENA_FINAL_SCROLL_Y :
+        tick);
     y_steps = tick - 1U;
     if (y_steps < TECMO_INTRO_ARENA_SCROLL_Y_STEPS) {
         state->phase = TECMO_INTRO_ARENA_PHASE_SCROLL;

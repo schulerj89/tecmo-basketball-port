@@ -16,16 +16,15 @@
 #define INTRO_CANVAS_CELL_SIZE 16
 #define INTRO_CANVAS_CELLS_X 17
 #define INTRO_CANVAS_CELLS_Y 14
-#define INTRO_TRACE_GROUP_RABBIT 1U
-#define INTRO_TRACE_GROUP_TECMO_STREAM 2U
-#define INTRO_TRACE_GROUP_TECMO_LOGO 3U
-#define INTRO_TRACE_GROUP_A7DB_SELECTOR0 4U
 #define TECMO_INTRO_OUTPUT_STEP_COUNT 9U
 #define TECMO_INTRO_OUTPUT_TITLE_STEP 6U
 #define TECMO_INTRO_OUTPUT_LICENSE_STEP 7U
 #define TECMO_INTRO_OUTPUT_ARENA_STEP 8U
 #define TECMO_INTRO_LICENSE_AUTO_FRAME 120U
 #define TECMO_INTRO_ARENA_AUTO_FRAME 120U
+#define MAIN_MENU_PLAY_GAME 0U
+#define MAIN_MENU_QUIT 1U
+#define MAIN_MENU_COUNT 2U
 #define INTRO_PRESENTS_SCREEN_ID 0x00U
 #define INTRO_PRESENTS_RECORD_CPU 0xDC85U
 #define INTRO_PRESENTS_STREAM_BANK 0x00U
@@ -261,376 +260,6 @@ static int save_intro_layout_file(TecmoRuntime *runtime)
     return -1;
 }
 
-static char *read_text_file(const char *path, size_t *size_out)
-{
-    FILE *file = fopen(path, "rb");
-    long size;
-    char *buffer;
-
-    if (size_out != NULL) {
-        *size_out = 0;
-    }
-    if (file == NULL) {
-        return NULL;
-    }
-    if (fseek(file, 0, SEEK_END) != 0) {
-        fclose(file);
-        return NULL;
-    }
-    size = ftell(file);
-    if (size < 0) {
-        fclose(file);
-        return NULL;
-    }
-    if (fseek(file, 0, SEEK_SET) != 0) {
-        fclose(file);
-        return NULL;
-    }
-
-    buffer = (char *)malloc((size_t)size + 1U);
-    if (buffer == NULL) {
-        fclose(file);
-        return NULL;
-    }
-    if (size > 0 && fread(buffer, 1U, (size_t)size, file) != (size_t)size) {
-        free(buffer);
-        fclose(file);
-        return NULL;
-    }
-    fclose(file);
-    buffer[size] = '\0';
-    if (size_out != NULL) {
-        *size_out = (size_t)size;
-    }
-    return buffer;
-}
-
-static const char *skip_json_spaces(const char *cursor, const char *end)
-{
-    while (cursor < end &&
-           (*cursor == ' ' || *cursor == '\t' || *cursor == '\r' || *cursor == '\n')) {
-        ++cursor;
-    }
-    return cursor;
-}
-
-static const char *find_json_value(const char *start, const char *end, const char *key)
-{
-    char pattern[96];
-    const char *cursor = start;
-    size_t key_len = strlen(key);
-
-    if (key_len + 3U >= sizeof(pattern)) {
-        return NULL;
-    }
-    (void)snprintf(pattern, sizeof(pattern), "\"%s\"", key);
-    while ((cursor = strstr(cursor, pattern)) != NULL && cursor < end) {
-        const char *colon = strchr(cursor + strlen(pattern), ':');
-        if (colon == NULL || colon >= end) {
-            return NULL;
-        }
-        return skip_json_spaces(colon + 1, end);
-    }
-    return NULL;
-}
-
-static bool parse_json_string_field(const char *start,
-                                    const char *end,
-                                    const char *key,
-                                    char *out,
-                                    size_t out_size)
-{
-    const char *value = find_json_value(start, end, key);
-    size_t count = 0;
-
-    if (out_size == 0) {
-        return false;
-    }
-    out[0] = '\0';
-    if (value == NULL || value >= end || *value != '"') {
-        return false;
-    }
-    ++value;
-    while (value < end && *value != '"') {
-        if (count + 1U < out_size) {
-            out[count++] = *value;
-        }
-        ++value;
-    }
-    out[count] = '\0';
-    return value < end && *value == '"';
-}
-
-static bool parse_json_int_field(const char *start, const char *end, const char *key, int *out)
-{
-    const char *value = find_json_value(start, end, key);
-    char *parse_end;
-    long parsed;
-
-    if (value == NULL || value >= end) {
-        return false;
-    }
-    parsed = strtol(value, &parse_end, 10);
-    if (parse_end == value || parse_end > end) {
-        return false;
-    }
-    *out = (int)parsed;
-    return true;
-}
-
-static bool parse_json_hex_byte_field(const char *start, const char *end, const char *key, uint8_t *out)
-{
-    char text[16];
-    char *parse_end;
-    unsigned long parsed;
-
-    if (!parse_json_string_field(start, end, key, text, sizeof(text))) {
-        return false;
-    }
-    parsed = strtoul(text, &parse_end, 16);
-    if (parse_end == text || parsed > 0xFFUL) {
-        return false;
-    }
-    *out = (uint8_t)parsed;
-    return true;
-}
-
-static bool parse_json_hex_byte_array_after(const char *start,
-                                            const char *end,
-                                            const char *key,
-                                            uint8_t *out,
-                                            size_t out_count)
-{
-    const char *value = find_json_value(start, end, key);
-    const char *cursor;
-    size_t count = 0;
-
-    if (out == NULL || out_count == 0 || value == NULL || value >= end || *value != '[') {
-        return false;
-    }
-    cursor = value + 1;
-    while (cursor < end && count < out_count) {
-        char text[8];
-        char *parse_end;
-        size_t len;
-        unsigned long parsed;
-        const char *open = strchr(cursor, '"');
-        const char *close;
-        if (open == NULL || open >= end) {
-            break;
-        }
-        close = strchr(open + 1, '"');
-        if (close == NULL || close >= end) {
-            break;
-        }
-        len = (size_t)(close - open - 1);
-        if (len == 0 || len >= sizeof(text)) {
-            return false;
-        }
-        memcpy(text, open + 1, len);
-        text[len] = '\0';
-        parsed = strtoul(text, &parse_end, 16);
-        if (parse_end == text || parsed > 0xFFUL) {
-            return false;
-        }
-        out[count++] = (uint8_t)parsed;
-        cursor = close + 1;
-    }
-
-    return count == out_count;
-}
-
-static void append_intro_trace_sprite(TecmoRuntime *runtime,
-                                      uint8_t group,
-                                      uint8_t tile_low,
-                                      uint8_t attributes,
-                                      int screen_x,
-                                      int screen_y)
-{
-    TecmoIntroTraceSprite *sprite;
-    if (runtime->intro_trace_sprite_count >= TECMO_MAX_INTRO_TRACE_SPRITES) {
-        runtime->intro_trace_truncated = true;
-        return;
-    }
-    sprite = &runtime->intro_trace_sprites[runtime->intro_trace_sprite_count++];
-    sprite->group = group;
-    sprite->tile_low = tile_low;
-    sprite->attributes = attributes;
-    sprite->screen_x = screen_x;
-    sprite->screen_y = screen_y;
-}
-
-static size_t intro_trace_group_count(const TecmoRuntime *runtime, uint8_t group)
-{
-    size_t count = 0;
-    for (size_t i = 0; i < runtime->intro_trace_sprite_count; ++i) {
-        if (runtime->intro_trace_sprites[i].group == group) {
-            ++count;
-        }
-    }
-    return count;
-}
-
-static bool load_intro_trace_from_json(TecmoRuntime *runtime, const char *json, size_t json_size)
-{
-    const char *json_end = json + json_size;
-    const char *primary = strstr(json, "\"primary_streams\"");
-    const char *section_end = json_end;
-    const char *cursor = primary != NULL ? primary : json;
-    int chr_bank = 31;
-
-    (void)parse_json_int_field(json, json_end, "chr_bank", &chr_bank);
-    if (chr_bank < 0) {
-        chr_bank = 31;
-    }
-    runtime->intro_trace_chr_bank = (uint32_t)chr_bank;
-    runtime->intro_trace_sprite_count = 0;
-    runtime->intro_trace_truncated = false;
-    runtime->intro_l88e7_palette_available = parse_json_hex_byte_array_after(json,
-                                                                             json_end,
-                                                                             "palette_snapshot_bytes_hex",
-                                                                             runtime->intro_l88e7_palette,
-                                                                             sizeof(runtime->intro_l88e7_palette));
-    runtime->intro_l88e7_irq_vector_available = parse_json_string_field(json,
-                                                                        json_end,
-                                                                        "vector_target_cpu",
-                                                                        runtime->intro_l88e7_irq_vector,
-                                                                        sizeof(runtime->intro_l88e7_irq_vector));
-    runtime->intro_presents_data_available = parse_json_string_field(json,
-                                                                     json_end,
-                                                                     "presents_match_cpu",
-                                                                     runtime->intro_presents_data_cpu,
-                                                                     sizeof(runtime->intro_presents_data_cpu));
-
-    while (cursor < section_end) {
-        const char *component_pos = strstr(cursor, "\"component\"");
-        const char *record_end;
-        char component[48];
-        char role[64];
-        uint8_t tile_low;
-        uint8_t attributes;
-        int screen_x;
-        int screen_y;
-        bool appended = false;
-
-        if (component_pos == NULL || component_pos >= section_end) {
-            break;
-        }
-        record_end = strchr(component_pos, '}');
-        if (record_end == NULL || record_end >= section_end) {
-            break;
-        }
-
-        if (parse_json_string_field(component_pos, record_end, "component", component, sizeof(component)) &&
-            parse_json_string_field(component_pos, record_end, "role", role, sizeof(role)) &&
-            parse_json_hex_byte_field(component_pos, record_end, "oam_tile_low_after_offset_hex", &tile_low) &&
-            parse_json_hex_byte_field(component_pos, record_end, "attributes_hex", &attributes) &&
-            parse_json_int_field(component_pos, record_end, "screen_x_from_current_base", &screen_x) &&
-            parse_json_int_field(component_pos, record_end, "screen_y_from_current_base", &screen_y)) {
-            if (strcmp(component, "rabbit_full_stream") == 0) {
-                append_intro_trace_sprite(runtime, INTRO_TRACE_GROUP_RABBIT, tile_low, attributes, screen_x, screen_y);
-                appended = true;
-            } else if (strcmp(component, "tecmo_selector0") == 0) {
-                append_intro_trace_sprite(runtime, INTRO_TRACE_GROUP_TECMO_STREAM, tile_low, attributes, screen_x, screen_y);
-                appended = true;
-                if (strcmp(role, "tecmo_logo_candidate") == 0) {
-                    append_intro_trace_sprite(runtime, INTRO_TRACE_GROUP_TECMO_LOGO, tile_low, attributes, screen_x, screen_y);
-                }
-            } else if (strcmp(component, "a7db_selector0") == 0) {
-                append_intro_trace_sprite(runtime, INTRO_TRACE_GROUP_A7DB_SELECTOR0, tile_low, attributes, screen_x, screen_y);
-                appended = true;
-            }
-        }
-        (void)appended;
-
-        cursor = record_end + 1;
-    }
-
-    runtime->intro_trace_available = runtime->intro_trace_sprite_count > 0;
-    return runtime->intro_trace_available;
-}
-
-static void append_runtime_path(char *dest, size_t dest_size, const char *root, const char *relative)
-{
-    size_t root_len;
-    if (dest == NULL || dest_size == 0) {
-        return;
-    }
-    dest[0] = '\0';
-    if (root == NULL || root[0] == '\0') {
-        root = ".";
-    }
-    (void)snprintf(dest, dest_size, "%s", root);
-    root_len = strlen(dest);
-    if (root_len > 0U && root_len + 1U < dest_size &&
-        dest[root_len - 1U] != '\\' && dest[root_len - 1U] != '/') {
-        dest[root_len++] = '\\';
-        dest[root_len] = '\0';
-    }
-    if (root_len < dest_size) {
-        (void)snprintf(dest + root_len, dest_size - root_len, "%s", relative);
-    }
-}
-
-static void load_intro_trace(TecmoRuntime *runtime, const char *project_root)
-{
-    char project_trace_path[TECMO_MAX_PATH_TEXT];
-    char cwd_trace_path[TECMO_MAX_PATH_TEXT];
-    const char *trace_paths[4];
-    char *json = NULL;
-    size_t json_size = 0;
-
-    runtime->intro_trace_available = false;
-    runtime->intro_trace_chr_bank = 31U;
-    runtime->intro_trace_sprite_count = 0;
-    runtime->intro_trace_truncated = false;
-    runtime->intro_l88e7_irq_vector_available = false;
-    runtime->intro_presents_data_available = false;
-    runtime->intro_l88e7_irq_vector[0] = '\0';
-    runtime->intro_presents_data_cpu[0] = '\0';
-    set_runtime_status(runtime->intro_trace_status,
-                       sizeof(runtime->intro_trace_status),
-                       "RUN TOOLS FIND-INTROCOMPOSITETRACE FIRST");
-
-    append_runtime_path(project_trace_path,
-                        sizeof(project_trace_path),
-                        project_root,
-                        "build\\intro_composite_trace.json");
-    (void)snprintf(cwd_trace_path, sizeof(cwd_trace_path), "build\\intro_composite_trace.json");
-    trace_paths[0] = project_trace_path;
-    trace_paths[1] = cwd_trace_path;
-    trace_paths[2] = "intro_composite_trace.json";
-    trace_paths[3] = "..\\build\\intro_composite_trace.json";
-
-    for (size_t i = 0; i < sizeof(trace_paths) / sizeof(trace_paths[0]); ++i) {
-        json = read_text_file(trace_paths[i], &json_size);
-        if (json != NULL) {
-            break;
-        }
-    }
-
-    if (json == NULL) {
-        return;
-    }
-
-    if (load_intro_trace_from_json(runtime, json, json_size)) {
-        (void)snprintf(runtime->intro_trace_status,
-                       sizeof(runtime->intro_trace_status),
-                       "LOCAL TRACE %u SPRITES R%u S0%u A%u L%u",
-                       (unsigned)runtime->intro_trace_sprite_count,
-                       (unsigned)intro_trace_group_count(runtime, INTRO_TRACE_GROUP_RABBIT),
-                       (unsigned)intro_trace_group_count(runtime, INTRO_TRACE_GROUP_A7DB_SELECTOR0),
-                       (unsigned)intro_trace_group_count(runtime, INTRO_TRACE_GROUP_TECMO_STREAM),
-                       (unsigned)intro_trace_group_count(runtime, INTRO_TRACE_GROUP_TECMO_LOGO));
-    } else {
-        set_runtime_status(runtime->intro_trace_status,
-                           sizeof(runtime->intro_trace_status),
-                           "TRACE JSON FOUND BUT NO SPRITES PARSED");
-    }
-
-    free(json);
-}
-
 bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const char *project_root)
 {
     memset(runtime, 0, sizeof(*runtime));
@@ -642,7 +271,7 @@ bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const ch
     set_runtime_status(runtime->intro_layout_status,
                        sizeof(runtime->intro_layout_status),
                        "SPACE RECORD  S SAVE  BACKSPACE REMOVE");
-    load_intro_trace(runtime, project_root);
+    tecmo_intro_trace_load(runtime, project_root);
     (void)tecmo_intro_arena_capture_load(&runtime->intro_arena_capture, project_root);
 
     if (tecmo_collect_rosters(project_root, &runtime->roster) != 0) {
@@ -687,6 +316,9 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
 {
     runtime->mode = mode;
     runtime->mode_frame_counter = 0;
+    if (mode == TECMO_MODE_MAIN_MENU && runtime->selected_menu_item >= MAIN_MENU_COUNT) {
+        runtime->selected_menu_item = MAIN_MENU_PLAY_GAME;
+    }
     if (mode == TECMO_MODE_FIRST_SPRITE) {
         runtime->intro_output_step = TECMO_INTRO_OUTPUT_TITLE_STEP;
     }
@@ -695,29 +327,19 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
 
 static void update_main_menu(TecmoRuntime *runtime, const TecmoControlFrame *controls)
 {
-    const size_t menu_count = 6;
-
     if (controls->pressed.up && runtime->selected_menu_item > 0) {
         --runtime->selected_menu_item;
     }
     if (controls->pressed.down &&
-        runtime->selected_menu_item + 1U < menu_count) {
+        runtime->selected_menu_item + 1U < MAIN_MENU_COUNT) {
         ++runtime->selected_menu_item;
     }
     if (controls->pressed.cancel) {
         runtime->quit_requested = true;
     }
     if (controls->pressed.confirm) {
-        if (runtime->selected_menu_item == 0) {
-            tecmo_runtime_set_mode(runtime, TECMO_MODE_TITLE_SCREEN);
-        } else if (runtime->selected_menu_item == 1) {
-            tecmo_runtime_set_mode(runtime, TECMO_MODE_INTRO_PROBE);
-        } else if (runtime->selected_menu_item == 2) {
-            tecmo_runtime_set_mode(runtime, TECMO_MODE_CHR_PLAYGROUND);
-        } else if (runtime->selected_menu_item == 3) {
+        if (runtime->selected_menu_item == MAIN_MENU_PLAY_GAME) {
             tecmo_runtime_set_mode(runtime, TECMO_MODE_FIRST_SPRITE);
-        } else if (runtime->selected_menu_item == 4) {
-            tecmo_runtime_set_mode(runtime, TECMO_MODE_ROSTERS);
         } else {
             runtime->quit_requested = true;
         }
@@ -1470,16 +1092,12 @@ static void render_main_menu(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
     clear(fb, rgb(14, 18, 22));
     rect(fb, 0, 0, fb->width, 70, rgb(120, 16, 24));
     draw_text(fb, 34, 24, "TECMO BASKETBALL NATIVE PORT", rgb(248, 248, 232), 2);
-    draw_text(fb, 74, 96, "LOCAL HOBBY PORT PROTOTYPE", rgb(144, 176, 192), 1);
+    draw_text(fb, 74, 128, "LOCAL HOBBY PORT PROTOTYPE", rgb(144, 176, 192), 1);
 
-    draw_button(fb, 150, 116, 340, 42, "TITLE SCREEN", runtime->selected_menu_item == 0);
-    draw_button(fb, 150, 166, 340, 42, "INTRO LAB", runtime->selected_menu_item == 1);
-    draw_button(fb, 150, 216, 340, 42, "CHR PLAYGROUND", runtime->selected_menu_item == 2);
-    draw_button(fb, 150, 266, 340, 42, "PLAY GAME", runtime->selected_menu_item == 3);
-    draw_button(fb, 150, 316, 340, 42, "ROSTERS", runtime->selected_menu_item == 4);
-    draw_button(fb, 150, 366, 340, 42, "QUIT", runtime->selected_menu_item == 5);
+    draw_button(fb, 150, 186, 340, 42, "PLAY GAME", runtime->selected_menu_item == MAIN_MENU_PLAY_GAME);
+    draw_button(fb, 150, 248, 340, 42, "QUIT", runtime->selected_menu_item == MAIN_MENU_QUIT);
 
-    draw_text(fb, 150, 424, "UP DOWN SELECT   ENTER CONFIRM   ESC QUIT", rgb(226, 228, 208), 1);
+    draw_text(fb, 150, 364, "UP DOWN SELECT   ENTER CONFIRM   ESC QUIT", rgb(226, 228, 208), 1);
     draw_text(fb, 82, 452, "NO ROM ASM OR EXTRACTED ASSETS ARE LOADED FROM THIS REPO", rgb(124, 148, 160), 1);
 }
 
@@ -2382,8 +2000,8 @@ void tecmo_render_intro_l88e7_proof(const TecmoRuntime *runtime, TecmoFramebuffe
         return;
     }
 
-    selector0_count = intro_trace_group_count(runtime, INTRO_TRACE_GROUP_A7DB_SELECTOR0);
-    selector1_count = intro_trace_group_count(runtime, INTRO_TRACE_GROUP_RABBIT);
+    selector0_count = tecmo_intro_trace_group_count(runtime, INTRO_TRACE_GROUP_A7DB_SELECTOR0);
+    selector1_count = tecmo_intro_trace_group_count(runtime, INTRO_TRACE_GROUP_RABBIT);
     draw_l88e7_seed_panel(runtime, fb);
 
     rect(fb, 24, 164, 276, 284, rgb(12, 14, 18));
@@ -2627,7 +2245,8 @@ void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
     const int viewport_w = 256 * scale;
     const int viewport_h = 240 * scale;
     TecmoIntroArenaTransitionState state;
-    unsigned frame = runtime != NULL ? runtime->mode_frame_counter : 240U;
+    unsigned native_frame = runtime != NULL ? runtime->mode_frame_counter : 240U;
+    unsigned frame = tecmo_intro_arena_display_frame(native_frame);
     int background_y;
     size_t visible_count = 0;
     bool drew_arena = false;
@@ -2655,7 +2274,7 @@ void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
                                                            runtime->title_chr_byte_count,
                                                            frame,
                                                            viewport_x,
-                                                           viewport_y,
+                                                           background_y,
                                                            scale);
         }
     }
@@ -2672,7 +2291,8 @@ void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
         rect(fb, 0, 0, 640, 20, rgb(0, 0, 0));
         (void)snprintf(line,
                        sizeof(line),
-                       "BANK04 $88E8 -> SCREEN18 $A2ED  F%u %s  PAL%u  $88=%02X $8A=%02X $0301=%02X BG%+d",
+                       "BANK04 $88E8 -> SCREEN18 $A2ED  F%u/%u %s  PAL%u  $88=%02X $8A=%02X $0301=%02X BG%+d",
+                       native_frame,
                        frame,
                        tecmo_intro_arena_phase_name(state.phase),
                        runtime != NULL ? (unsigned)runtime->intro_arena_capture.palette_stage_count : 0U,
@@ -2944,7 +2564,7 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
             draw_intro_trace_sprite(fb, runtime, sprite, 289, 215, 8);
         }
     } else if (step == 2U) {
-        selector1_count = intro_trace_group_count(runtime, INTRO_TRACE_GROUP_RABBIT);
+        selector1_count = tecmo_intro_trace_group_count(runtime, INTRO_TRACE_GROUP_RABBIT);
         (void)snprintf(line,
                        sizeof(line),
                        "A7DB SELECTOR 01  BASE XB8 Y011E  %02u RECORDS",
@@ -2953,8 +2573,8 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
         draw_intro_trace_group_centered(fb, runtime, INTRO_TRACE_GROUP_RABBIT, 320, 270, 3, rgb(80, 96, 110));
         draw_l88e7_group_summary(runtime, fb, INTRO_TRACE_GROUP_RABBIT, "SELECTOR 1 RABBIT SUMMARY", 48, 410);
     } else if (step == 3U) {
-        selector0_count = intro_trace_group_count(runtime, INTRO_TRACE_GROUP_A7DB_SELECTOR0);
-        selector1_count = intro_trace_group_count(runtime, INTRO_TRACE_GROUP_RABBIT);
+        selector0_count = tecmo_intro_trace_group_count(runtime, INTRO_TRACE_GROUP_A7DB_SELECTOR0);
+        selector1_count = tecmo_intro_trace_group_count(runtime, INTRO_TRACE_GROUP_RABBIT);
         (void)snprintf(line,
                        sizeof(line),
                        "L88E7 L8988 OUTPUTS TWO A7DB STREAMS  SEL00 %02u REC  SEL01 %02u REC",

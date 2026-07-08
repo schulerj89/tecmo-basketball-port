@@ -36,6 +36,7 @@ $Sources = @(
     "src\tecmo_intro_arena.c",
     "src\tecmo_intro_license.c",
     "src\tecmo_intro_title.c",
+    "src\tecmo_intro_trace.c",
     "src\tecmo_memory.c",
     "src\tecmo_game.c",
     "src\win32_platform.c"

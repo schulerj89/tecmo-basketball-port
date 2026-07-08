@@ -131,38 +131,6 @@ static bool flow_press_menu_down(TecmoRuntime *runtime,
     return flow_expect_menu_item(runtime, expected, label, message, message_size);
 }
 
-static bool flow_press_menu_up(TecmoRuntime *runtime,
-                               size_t count,
-                               size_t expected,
-                               const char *label,
-                               char *message,
-                               size_t message_size)
-{
-    TecmoInput input;
-
-    for (size_t i = 0; i < count; ++i) {
-        memset(&input, 0, sizeof(input));
-        input.up = true;
-        flow_step(runtime, input);
-    }
-    return flow_expect_menu_item(runtime, expected, label, message, message_size);
-}
-
-static size_t flow_selected_team_player_count(const TecmoRuntime *runtime)
-{
-    size_t count = 0;
-
-    if (runtime->team_count == 0U || runtime->selected_team >= runtime->team_count) {
-        return 0U;
-    }
-    for (size_t i = 0; i < runtime->roster.count; ++i) {
-        if (strcmp(runtime->roster.records[i].team, runtime->teams[runtime->selected_team]) == 0) {
-            ++count;
-        }
-    }
-    return count;
-}
-
 static bool flow_wait_for_intro_step_advance(TecmoRuntime *runtime,
                                              uint8_t previous_step,
                                              size_t max_frames,
@@ -200,10 +168,6 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         set_flow_test_message(message, message_size, "no roster teams loaded");
         return false;
     }
-    if (runtime->team_count < 2U || runtime->roster.count < 2U) {
-        set_flow_test_message(message, message_size, "not enough roster data to browse teams and players");
-        return false;
-    }
 
     memset(&input, 0, sizeof(input));
     flow_step(runtime, input);
@@ -214,36 +178,6 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         return false;
     }
 
-    if (!flow_press_menu_down(runtime, 4U, 4U, "navigate to rosters", message, message_size)) {
-        return false;
-    }
-    memset(&input, 0, sizeof(input));
-    input.confirm = true;
-    flow_step(runtime, input);
-    if (!flow_expect_mode(runtime, TECMO_MODE_ROSTERS, "enter rosters", message, message_size)) {
-        return false;
-    }
-    if (flow_selected_team_player_count(runtime) < 2U) {
-        set_flow_test_message(message, message_size, "selected roster has fewer than two players");
-        return false;
-    }
-    memset(&input, 0, sizeof(input));
-    input.down = true;
-    flow_step(runtime, input);
-    if (runtime->selected_player != 1U || tecmo_cpu_ram_read(runtime->memory, 0x0002) != 1U) {
-        set_flow_test_message(message, message_size, "roster player navigation failed");
-        return false;
-    }
-    memset(&input, 0, sizeof(input));
-    input.cancel = true;
-    flow_step(runtime, input);
-    if (!flow_expect_mode(runtime, TECMO_MODE_MAIN_MENU, "exit rosters", message, message_size)) {
-        return false;
-    }
-
-    if (!flow_press_menu_up(runtime, 1U, 3U, "navigate to play game", message, message_size)) {
-        return false;
-    }
     memset(&input, 0, sizeof(input));
     input.confirm = true;
     flow_step(runtime, input);
@@ -277,7 +211,7 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         return false;
     }
 
-    if (!flow_press_menu_down(runtime, 2U, 5U, "navigate to quit", message, message_size)) {
+    if (!flow_press_menu_down(runtime, 1U, 1U, "navigate to quit", message, message_size)) {
         return false;
     }
     memset(&input, 0, sizeof(input));
@@ -288,6 +222,6 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         return false;
     }
 
-    set_flow_test_message(message, message_size, "FLOW TEST PASS: menu rosters play-intro quit");
+    set_flow_test_message(message, message_size, "FLOW TEST PASS: menu play-intro quit");
     return true;
 }

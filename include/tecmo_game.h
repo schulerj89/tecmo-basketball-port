@@ -6,6 +6,7 @@
 #include "tecmo_framebuffer.h"
 #include "tecmo_intro_arena.h"
 #include "tecmo_intro_stage.h"
+#include "tecmo_intro_trace.h"
 #include "tecmo_memory.h"
 
 #include <stdbool.h>
@@ -25,7 +26,6 @@ typedef enum TecmoPlayMode {
 
 #define TECMO_MAX_INTRO_PLACEMENTS 32
 #define TECMO_MAX_INTRO_PLACEMENT_TILES 8
-#define TECMO_MAX_INTRO_TRACE_SPRITES 192
 
 typedef struct TecmoIntroPlacement {
     bool active;
@@ -40,14 +40,6 @@ typedef struct TecmoIntroPlacement {
     int scale;
     char label[32];
 } TecmoIntroPlacement;
-
-typedef struct TecmoIntroTraceSprite {
-    uint8_t group;
-    uint8_t tile_low;
-    uint8_t attributes;
-    int screen_x;
-    int screen_y;
-} TecmoIntroTraceSprite;
 
 typedef struct TecmoRuntime {
     TecmoGameMemory *memory;

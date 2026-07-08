@@ -12,6 +12,7 @@
 #define TECMO_INTRO_ARENA_TILES_PER_PAGE 960U
 #define TECMO_INTRO_ARENA_PALETTE_STAGE_COUNT 8U
 #define TECMO_INTRO_ARENA_MAX_SPRITES 64U
+#define TECMO_INTRO_ARENA_MAX_SPRITE_STAGES 128U
 
 typedef struct TecmoIntroArenaSprite {
     uint8_t y;
@@ -19,6 +20,12 @@ typedef struct TecmoIntroArenaSprite {
     uint8_t attributes;
     uint8_t x;
 } TecmoIntroArenaSprite;
+
+typedef struct TecmoIntroArenaSpriteStage {
+    unsigned capture_frame;
+    TecmoIntroArenaSprite sprites[TECMO_INTRO_ARENA_MAX_SPRITES];
+    size_t sprite_count;
+} TecmoIntroArenaSpriteStage;
 
 typedef struct TecmoIntroArenaCapture {
     bool available;
@@ -34,6 +41,8 @@ typedef struct TecmoIntroArenaCapture {
     size_t tile_count[TECMO_INTRO_ARENA_PAGE_COUNT];
     TecmoIntroArenaSprite sprites[TECMO_INTRO_ARENA_MAX_SPRITES];
     size_t sprite_count;
+    TecmoIntroArenaSpriteStage sprite_stages[TECMO_INTRO_ARENA_MAX_SPRITE_STAGES];
+    size_t sprite_stage_count;
     uint32_t sprite_chr_bank;
     uint8_t attributes[TECMO_INTRO_ARENA_PAGE_COUNT][64];
     uint8_t palette_stages[TECMO_INTRO_ARENA_PALETTE_STAGE_COUNT][16];
@@ -46,6 +55,8 @@ typedef struct TecmoIntroArenaCapture {
 } TecmoIntroArenaCapture;
 
 bool tecmo_intro_arena_capture_load(TecmoIntroArenaCapture *capture, const char *project_root);
+
+unsigned tecmo_intro_arena_display_frame(unsigned native_frame);
 
 const uint8_t *tecmo_intro_arena_palette_for_frame(const TecmoIntroArenaCapture *capture,
                                                    unsigned frame);
@@ -69,13 +80,13 @@ bool tecmo_intro_arena_draw_composite(TecmoFramebuffer *fb,
                                       int origin_y,
                                       int scale);
 
-bool tecmo_intro_arena_draw_sprites(TecmoFramebuffer *fb,
-                                    const TecmoIntroArenaCapture *capture,
-                                    const uint8_t *chr_bytes,
-                                    uint64_t chr_byte_count,
-                                    unsigned frame,
-                                    int origin_x,
-                                    int origin_y,
-                                    int scale);
+size_t tecmo_intro_arena_draw_sprites(TecmoFramebuffer *fb,
+                                      const TecmoIntroArenaCapture *capture,
+                                      const uint8_t *chr_bytes,
+                                      uint64_t chr_byte_count,
+                                      unsigned frame,
+                                      int origin_x,
+                                      int origin_y,
+                                      int scale);
 
 #endif

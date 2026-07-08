@@ -1,4 +1,5 @@
 #include "tecmo_intro_arena.h"
+#include "tecmo_intro_stage.h"
 #include "tecmo_nes_video.h"
 
 #include <ctype.h>
@@ -16,7 +17,9 @@
 #define ARENA_SCREEN_DEFAULT_LOWER_CHR_BANK 11U
 #define ARENA_SCREEN_DEFAULT_SPRITE_CHR_BANK 1U
 #define ARENA_SCREEN_OAM_FRAME_FIRST 461
-#define ARENA_SCREEN_OAM_FRAME_LAST 520
+#define ARENA_SCREEN_OAM_FRAME_LAST 811
+#define ARENA_SCREEN_NATIVE_REFERENCE_FRAME 320U
+#define ARENA_SCREEN_CAPTURE_REFERENCE_FRAME 386U
 #define ARENA_SCREEN_CHR_1KB_BYTES 1024ULL
 #define ARENA_SCREEN_BG_UPPER_R0 0x14U
 #define ARENA_SCREEN_BG_UPPER_R1 0x16U
@@ -26,10 +29,12 @@
 #define ARENA_SCREEN_TOP_ROWS 16
 #define ARENA_SCREEN_SMALL_CROWD_PAGE 1U
 #define ARENA_SCREEN_SMALL_CROWD_FIRST_ROW 1
-#define ARENA_SCREEN_SMALL_CROWD_ROWS 13
+#define ARENA_SCREEN_SMALL_CROWD_ROWS 22
 #define ARENA_SCREEN_LARGE_CROWD_PAGE 0U
 #define ARENA_SCREEN_LARGE_CROWD_FIRST_ROW 16
 #define ARENA_SCREEN_LARGE_CROWD_ROWS 13
+#define ARENA_SCREEN_BASKET_SPRITE_MIN_X 0x80U
+#define ARENA_SCREEN_FINAL_SCROLL_Y 0x64U
 
 typedef struct ArenaCaptureBuild {
     uint8_t tiles[TECMO_INTRO_ARENA_PAGE_COUNT][TECMO_INTRO_ARENA_TILES_PER_PAGE];
@@ -42,6 +47,13 @@ static const uint8_t ARENA_DEFAULT_PALETTE[16] = {
     0x0FU, 0x15U, 0x17U, 0x12U,
     0x0FU, 0x15U, 0x17U, 0x37U,
 };
+
+unsigned tecmo_intro_arena_display_frame(unsigned native_frame)
+{
+    return (unsigned)(((uint64_t)native_frame * ARENA_SCREEN_CAPTURE_REFERENCE_FRAME +
+                       (ARENA_SCREEN_NATIVE_REFERENCE_FRAME / 2U)) /
+                      ARENA_SCREEN_NATIVE_REFERENCE_FRAME);
+}
 
 static bool arena_tile_position(uint16_t ppu, int *row, int *col)
 {
@@ -510,22 +522,34 @@ static bool parse_oam_quad(const char **cursor_io,
     return true;
 }
 
-static void parse_visible_oam(TecmoIntroArenaCapture *capture, const char *start, const char *end)
+static void parse_visible_oam_stage(TecmoIntroArenaCapture *capture,
+                                    int frame,
+                                    const char *start,
+                                    const char *end)
 {
     const char *cursor = start;
+    TecmoIntroArenaSpriteStage *stage;
     size_t count = 0;
 
-    if (capture == NULL) {
+    if (capture == NULL ||
+        capture->sprite_stage_count >= TECMO_INTRO_ARENA_MAX_SPRITE_STAGES) {
         return;
     }
 
+    stage = &capture->sprite_stages[capture->sprite_stage_count];
+    stage->capture_frame = (unsigned)frame;
     while (cursor < end && count < TECMO_INTRO_ARENA_MAX_SPRITES) {
         TecmoIntroArenaSprite sprite;
         if (parse_oam_quad(&cursor, end, &sprite)) {
-            capture->sprites[count++] = sprite;
+            stage->sprites[count++] = sprite;
         }
     }
+    stage->sprite_count = count;
+    ++capture->sprite_stage_count;
+
+    memcpy(capture->sprites, stage->sprites, count * sizeof(stage->sprites[0]));
     capture->sprite_count = count;
+    capture->last_capture_frame = (unsigned)frame;
 }
 
 static void finalize_tile_lists(TecmoIntroArenaCapture *capture, const ArenaCaptureBuild *build)
@@ -690,7 +714,7 @@ static bool load_arena_capture_file(TecmoIntroArenaCapture *capture, const char 
                        frame <= ARENA_SCREEN_OAM_FRAME_LAST &&
                        json_string_field_equals(cursor, line_end, "kind", "oam_frame_diff") &&
                        json_string_span(cursor, line_end, "visible_oam", &pair_start, &pair_end)) {
-                parse_visible_oam(capture, pair_start, pair_end);
+                parse_visible_oam_stage(capture, frame, pair_start, pair_end);
             }
         }
 
@@ -705,13 +729,14 @@ static bool load_arena_capture_file(TecmoIntroArenaCapture *capture, const char 
     if (capture->available) {
         (void)snprintf(capture->status,
                        sizeof(capture->status),
-                       "ARENA TRACE %s  P0 %u/CHR%02u P1 %u/CHR%02u  PAL %u",
+                       "ARENA TRACE %s  P0 %u/CHR%02u P1 %u/CHR%02u  PAL %u OAM %u",
                        path,
                        (unsigned)capture->tile_count[0],
                        (unsigned)capture->page_chr_bank[0],
                        (unsigned)capture->tile_count[1],
                        (unsigned)capture->page_chr_bank[1],
-                       (unsigned)capture->palette_stage_count);
+                       (unsigned)capture->palette_stage_count,
+                       (unsigned)capture->sprite_stage_count);
     }
 
     free(json);
@@ -825,6 +850,56 @@ static const uint8_t *arena_sprite_palette_for_frame(const TecmoIntroArenaCaptur
         }
     }
     return capture->sprite_palette_stages[selected];
+}
+
+static const TecmoIntroArenaSpriteStage *arena_sprite_stage_for_frame(const TecmoIntroArenaCapture *capture,
+                                                                      unsigned frame,
+                                                                      unsigned frame_advance)
+{
+    const TecmoIntroArenaSpriteStage *selected = NULL;
+    unsigned target_capture_frame;
+
+    if (capture == NULL || capture->sprite_stage_count == 0U) {
+        return NULL;
+    }
+
+    target_capture_frame = capture->first_capture_frame != 0U ?
+        capture->first_capture_frame + frame + frame_advance :
+        frame + frame_advance;
+    for (size_t i = 0; i < capture->sprite_stage_count; ++i) {
+        if (capture->sprite_stages[i].capture_frame <= target_capture_frame) {
+            selected = &capture->sprite_stages[i];
+        }
+    }
+    return selected;
+}
+
+static bool arena_stage_has_basket_sprites(const TecmoIntroArenaSpriteStage *stage)
+{
+    if (stage == NULL) {
+        return false;
+    }
+    for (size_t i = 0; i < stage->sprite_count; ++i) {
+        if (stage->sprites[i].x >= ARENA_SCREEN_BASKET_SPRITE_MIN_X) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static const TecmoIntroArenaSpriteStage *arena_last_basket_sprite_stage(const TecmoIntroArenaCapture *capture)
+{
+    const TecmoIntroArenaSpriteStage *selected = NULL;
+
+    if (capture == NULL) {
+        return NULL;
+    }
+    for (size_t i = 0; i < capture->sprite_stage_count; ++i) {
+        if (arena_stage_has_basket_sprites(&capture->sprite_stages[i])) {
+            selected = &capture->sprite_stages[i];
+        }
+    }
+    return selected;
 }
 
 static bool arena_draw_tile_entry(TecmoFramebuffer *fb,
@@ -995,65 +1070,169 @@ bool tecmo_intro_arena_draw_composite(TecmoFramebuffer *fb,
     return drew_any;
 }
 
-bool tecmo_intro_arena_draw_sprites(TecmoFramebuffer *fb,
+static void arena_draw_sprite_entry(TecmoFramebuffer *fb,
                                     const TecmoIntroArenaCapture *capture,
                                     const uint8_t *chr_bytes,
                                     uint64_t chr_byte_count,
-                                    unsigned frame,
+                                    const uint8_t *sprite_palette,
+                                    const TecmoIntroArenaSprite *sprite,
                                     int origin_x,
                                     int origin_y,
                                     int scale)
 {
+    uint8_t palette_index;
+    bool flip_horizontal;
+    bool flip_vertical;
+    uint16_t top_tile;
+    uint16_t bottom_tile;
+    uint16_t first_tile;
+    uint16_t second_tile;
+    uint8_t palette_base;
+    uint32_t rgba_palette[4];
+    int x;
+    int y;
+
+    if (sprite == NULL) {
+        return;
+    }
+
+    palette_index = (uint8_t)(sprite->attributes & 0x03U);
+    flip_horizontal = (sprite->attributes & 0x40U) != 0U;
+    flip_vertical = (sprite->attributes & 0x80U) != 0U;
+    top_tile = (uint16_t)(sprite->tile & 0xFEU);
+    bottom_tile = (uint16_t)(top_tile + 1U);
+    first_tile = flip_vertical ? bottom_tile : top_tile;
+    second_tile = flip_vertical ? top_tile : bottom_tile;
+    palette_base = (uint8_t)(palette_index * 4U);
+    x = origin_x + (int)sprite->x * scale;
+    y = origin_y + (int)sprite->y * scale;
+
+    rgba_palette[0] = 0x00000000U;
+    rgba_palette[1] = tecmo_nes_2c02_rgba(sprite_palette[(size_t)palette_base + 1U]);
+    rgba_palette[2] = tecmo_nes_2c02_rgba(sprite_palette[(size_t)palette_base + 2U]);
+    rgba_palette[3] = tecmo_nes_2c02_rgba(sprite_palette[(size_t)palette_base + 3U]);
+
+    tecmo_draw_chr_tile_ex(fb,
+                           chr_bytes,
+                           chr_byte_count,
+                           capture->sprite_chr_bank,
+                           first_tile,
+                           x,
+                           y,
+                           scale,
+                           rgba_palette,
+                           flip_horizontal,
+                           flip_vertical);
+    tecmo_draw_chr_tile_ex(fb,
+                           chr_bytes,
+                           chr_byte_count,
+                           capture->sprite_chr_bank,
+                           second_tile,
+                           x,
+                           y + 8 * scale,
+                           scale,
+                           rgba_palette,
+                           flip_horizontal,
+                           flip_vertical);
+}
+
+static size_t arena_draw_sprite_stage_filtered(TecmoFramebuffer *fb,
+                                               const TecmoIntroArenaCapture *capture,
+                                               const uint8_t *chr_bytes,
+                                               uint64_t chr_byte_count,
+                                               const uint8_t *sprite_palette,
+                                               const TecmoIntroArenaSpriteStage *stage,
+                                               bool draw_basket_sprites,
+                                               int origin_x,
+                                               int origin_y,
+                                               int scale)
+{
+    size_t drawn = 0;
+
+    if (stage == NULL) {
+        return 0U;
+    }
+
+    for (size_t i = 0; i < stage->sprite_count; ++i) {
+        const TecmoIntroArenaSprite *sprite = &stage->sprites[i];
+        bool is_basket_sprite = sprite->x >= ARENA_SCREEN_BASKET_SPRITE_MIN_X;
+
+        if (is_basket_sprite != draw_basket_sprites) {
+            continue;
+        }
+        arena_draw_sprite_entry(fb,
+                                capture,
+                                chr_bytes,
+                                chr_byte_count,
+                                sprite_palette,
+                                sprite,
+                                origin_x,
+                                origin_y,
+                                scale);
+        ++drawn;
+    }
+
+    return drawn;
+}
+
+size_t tecmo_intro_arena_draw_sprites(TecmoFramebuffer *fb,
+                                      const TecmoIntroArenaCapture *capture,
+                                      const uint8_t *chr_bytes,
+                                      uint64_t chr_byte_count,
+                                      unsigned frame,
+                                      int origin_x,
+                                      int origin_y,
+                                      int scale)
+{
     const uint8_t *sprite_palette;
+    const TecmoIntroArenaSpriteStage *stage;
+    const TecmoIntroArenaSpriteStage *basket_stage;
+    TecmoIntroArenaTransitionState transition_state;
+    TecmoIntroArenaSpriteStage fallback_stage;
+    int basket_origin_y;
+    size_t drawn = 0;
 
     if (fb == NULL || capture == NULL || !capture->available ||
         chr_bytes == NULL || chr_byte_count == 0U || scale <= 0) {
-        return false;
+        return 0U;
     }
 
+    stage = arena_sprite_stage_for_frame(capture, frame, 0U);
+    basket_stage = arena_last_basket_sprite_stage(capture);
+    if (stage == NULL && capture->sprite_stage_count == 0U) {
+        memset(&fallback_stage, 0, sizeof(fallback_stage));
+        memcpy(fallback_stage.sprites,
+               capture->sprites,
+               capture->sprite_count * sizeof(capture->sprites[0]));
+        fallback_stage.sprite_count = capture->sprite_count;
+        stage = &fallback_stage;
+        basket_stage = &fallback_stage;
+    } else if (stage == NULL) {
+        return 0U;
+    }
+    tecmo_intro_arena_transition_state(frame, &transition_state);
+    basket_origin_y = origin_y + (int)transition_state.scroll_y_0301 * scale;
     sprite_palette = arena_sprite_palette_for_frame(capture, frame);
-    for (size_t i = 0; i < capture->sprite_count; ++i) {
-        const TecmoIntroArenaSprite *sprite = &capture->sprites[i];
-        uint8_t palette_index = (uint8_t)(sprite->attributes & 0x03U);
-        bool flip_horizontal = (sprite->attributes & 0x40U) != 0U;
-        bool flip_vertical = (sprite->attributes & 0x80U) != 0U;
-        uint16_t top_tile = (uint16_t)(sprite->tile & 0xFEU);
-        uint16_t bottom_tile = (uint16_t)(top_tile + 1U);
-        uint16_t first_tile = flip_vertical ? bottom_tile : top_tile;
-        uint16_t second_tile = flip_vertical ? top_tile : bottom_tile;
-        uint8_t palette_base = (uint8_t)(palette_index * 4U);
-        uint32_t rgba_palette[4];
-        int x = origin_x + (int)sprite->x * scale;
-        int y = origin_y + (int)sprite->y * scale;
+    drawn += arena_draw_sprite_stage_filtered(fb,
+                                             capture,
+                                             chr_bytes,
+                                             chr_byte_count,
+                                             sprite_palette,
+                                             stage,
+                                             false,
+                                             origin_x,
+                                             origin_y,
+                                             scale);
+    drawn += arena_draw_sprite_stage_filtered(fb,
+                                             capture,
+                                             chr_bytes,
+                                             chr_byte_count,
+                                             sprite_palette,
+                                             basket_stage,
+                                             true,
+                                             origin_x,
+                                             basket_origin_y,
+                                             scale);
 
-        rgba_palette[0] = 0x00000000U;
-        rgba_palette[1] = tecmo_nes_2c02_rgba(sprite_palette[(size_t)palette_base + 1U]);
-        rgba_palette[2] = tecmo_nes_2c02_rgba(sprite_palette[(size_t)palette_base + 2U]);
-        rgba_palette[3] = tecmo_nes_2c02_rgba(sprite_palette[(size_t)palette_base + 3U]);
-
-        tecmo_draw_chr_tile_ex(fb,
-                               chr_bytes,
-                               chr_byte_count,
-                               capture->sprite_chr_bank,
-                               first_tile,
-                               x,
-                               y,
-                               scale,
-                               rgba_palette,
-                               flip_horizontal,
-                               flip_vertical);
-        tecmo_draw_chr_tile_ex(fb,
-                               chr_bytes,
-                               chr_byte_count,
-                               capture->sprite_chr_bank,
-                               second_tile,
-                               x,
-                               y + 8 * scale,
-                               scale,
-                               rgba_palette,
-                               flip_horizontal,
-                               flip_vertical);
-    }
-
-    return capture->sprite_count > 0U;
+    return drawn;
 }

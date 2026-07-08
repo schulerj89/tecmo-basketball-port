@@ -19,7 +19,7 @@ static void print_usage(const char *program)
     printf("  --assets                Analyze raw CHR bytes in build\\baseline\\Tiles.asm\n");
     printf("  --roster [TEAM|--all]   Parse labeled Bank 02 roster records\n");
     printf("  --play                  Launch native playable prototype window\n");
-    printf("  --flow-test             Run headless native menu/rosters/play/quit flow checks\n");
+    printf("  --flow-test             Run headless native menu/play/quit flow checks\n");
     printf("  --controls-test         Run portable held/pressed/released control-state checks\n");
     printf("  --bank07-test           Run fixed-bank helper C counterpart checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
