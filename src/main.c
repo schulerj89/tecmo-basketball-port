@@ -102,6 +102,13 @@ static void print_intro_render_capture_status(const TecmoRuntime *runtime, const
     }
 }
 
+static bool render_mode_requires_roster_data(const char *mode_name)
+{
+    return mode_name != NULL &&
+           (strcmp(mode_name, "rosters") == 0 ||
+            strcmp(mode_name, "play-setup") == 0);
+}
+
 int main(int argc, char **argv)
 {
     const char *program = argc > 0 ? argv[0] : "tecmo_port";
@@ -312,7 +319,12 @@ int main(int argc, char **argv)
                 tecmo_render_intro_c051_d861_model(&framebuffer);
                 result = 0;
             }
-        } else if (!tecmo_runtime_init(&runtime, &memory, root)) {
+        } else if (!tecmo_runtime_init_with_flags(&runtime,
+                                                  &memory,
+                                                  root,
+                                                  render_mode_requires_roster_data(mode_name)
+                                                      ? 0U
+                                                      : TECMO_RUNTIME_INIT_ALLOW_EMPTY_ROSTER)) {
             printf("Failed to initialize runtime from %s\n", root);
         } else {
             bool render_runtime = true;
