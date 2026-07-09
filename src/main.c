@@ -36,7 +36,9 @@ static void print_usage(const char *program)
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
 }
 
-static void print_intro_render_capture_status(const TecmoRuntime *runtime, const char *mode_name)
+static void print_intro_render_capture_status(const TecmoRuntime *runtime,
+                                              const char *mode_name,
+                                              bool arena_rendered)
 {
     const char *assetpack_marker = "assetpack entry ";
     const char *entry_start;
@@ -46,9 +48,8 @@ static void print_intro_render_capture_status(const TecmoRuntime *runtime, const
         return;
     }
 
-    if (strncmp(mode_name, "intro-arena", 11) == 0 ||
-        strcmp(mode_name, "play-step8") == 0) {
-        bool native_chr_available;
+    if (strncmp(mode_name, "intro-arena", 11) == 0) {
+        bool native_layer_available;
         size_t native_goal_pairs;
 
         entry_id[0] = '\0';
@@ -77,16 +78,18 @@ static void print_intro_render_capture_status(const TecmoRuntime *runtime, const
         printf("intro-capture-source kind=arena assetpack=%u entry=%s\n",
                entry_id[0] != '\0' ? 1U : 0U,
                entry_id[0] != '\0' ? entry_id : "none");
-        native_chr_available = runtime->title_chr_bytes != NULL &&
-            runtime->title_chr_byte_count != 0U &&
-            tecmo_intro_arena_native_chr_available(runtime->title_chr_bytes,
-                                                   runtime->title_chr_byte_count);
-        native_goal_pairs = native_chr_available ?
+        native_layer_available = tecmo_intro_arena_tile_layer_chr_available(
+            &runtime->intro_arena_tile_layer,
+            runtime->title_chr_bytes,
+            runtime->title_chr_byte_count);
+        native_goal_pairs = native_layer_available ?
             tecmo_intro_arena_native_goal_chr_pair_count(runtime->title_chr_bytes,
                                                          runtime->title_chr_byte_count) :
             0U;
-        printf("intro-arena-render-source kind=arena native_chr=%u goal_pairs=%u\n",
-               native_chr_available ? 1U : 0U,
+        printf("intro-arena-render-source kind=arena exact_layer=%u rendered=%u cells=%u palette=16 goal_pairs=%u\n",
+               native_layer_available ? 1U : 0U,
+               arena_rendered ? 1U : 0U,
+               native_layer_available ? (unsigned)runtime->intro_arena_tile_layer.cell_count : 0U,
                (unsigned)native_goal_pairs);
     } else if (strncmp(mode_name, "intro-ready", 11) == 0 ||
                strncmp(mode_name, "intro-warriors", 14) == 0 ||
@@ -281,6 +284,7 @@ int main(int argc, char **argv)
         uint8_t *rgba;
         void *permanent_block;
         void *transient_block;
+        bool arena_render_succeeded = false;
         int result = 1;
 
         if (mode_specific) {
@@ -425,9 +429,9 @@ int main(int argc, char **argv)
                 framebuffer.pitch_pixels = width;
                 runtime.debug_overlay = true;
                 runtime.mode_frame_counter = 240U;
-                tecmo_render_intro_arena_transition(&runtime, &framebuffer);
+                arena_render_succeeded = tecmo_render_intro_arena_transition(&runtime, &framebuffer);
                 render_runtime = false;
-                result = 0;
+                result = arena_render_succeeded ? 0 : 1;
             } else if (strncmp(mode_name, "intro-arena-frame", 17) == 0) {
                 long frame = strtol(mode_name + 17, NULL, 10);
                 if (frame < 0) {
@@ -439,9 +443,9 @@ int main(int argc, char **argv)
                 framebuffer.pitch_pixels = width;
                 runtime.debug_overlay = true;
                 runtime.mode_frame_counter = (unsigned)frame;
-                tecmo_render_intro_arena_transition(&runtime, &framebuffer);
+                arena_render_succeeded = tecmo_render_intro_arena_transition(&runtime, &framebuffer);
                 render_runtime = false;
-                result = 0;
+                result = arena_render_succeeded ? 0 : 1;
             } else if (strncmp(mode_name, "intro-ready-frame", 17) == 0) {
                 long frame = strtol(mode_name + 17, NULL, 10);
                 if (frame < 0) {
@@ -571,7 +575,7 @@ int main(int argc, char **argv)
                 tecmo_runtime_render(&runtime, &framebuffer);
                 result = 0;
             }
-            print_intro_render_capture_status(&runtime, mode_name);
+            print_intro_render_capture_status(&runtime, mode_name, arena_render_succeeded);
             tecmo_runtime_shutdown(&runtime);
         }
 

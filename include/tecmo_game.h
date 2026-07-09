@@ -53,6 +53,7 @@ typedef struct TecmoRuntime {
     size_t intro_trace_sprite_count;
     uint32_t intro_trace_chr_bank;
     uint8_t intro_l88e7_palette[16];
+    TecmoArenaTileLayer intro_arena_tile_layer;
     TecmoIntroArenaCapture intro_arena_capture;
     TecmoIntroPostArenaCapture intro_post_arena_capture;
     char intro_l88e7_irq_vector[16];
@@ -97,7 +98,7 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
 void tecmo_render_original_title_probe(TecmoFramebuffer *framebuffer, const char *title_text);
 void tecmo_render_intro_c051_d861_model(TecmoFramebuffer *framebuffer);
 void tecmo_render_intro_license_screen(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
-void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
+bool tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 void tecmo_render_intro_ready_screen(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 void tecmo_render_intro_warriors_transition(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 void tecmo_render_first_sprite_probe(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);

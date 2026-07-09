@@ -3191,19 +3191,18 @@ static int load_chr_from_asset_pack(const char *project_root, uint8_t **bytes_ou
     const char *env_path = getenv("TECMO_ASSETPACK");
     char path[TECMO_MAX_PATH_TEXT];
 
-    if (env_path != NULL && env_path[0] != '\0' &&
-        load_chr_from_asset_pack_path(env_path, bytes_out, byte_count) == 0) {
-        return 0;
+    if (env_path != NULL && env_path[0] != '\0') {
+        return load_chr_from_asset_pack_path(env_path, bytes_out, byte_count) == 0 ? 0 : 1;
     }
 
     append_path(path, sizeof(path), project_root, "build\\tecmo.assetpack");
     normalize_separators(path);
-    if (file_exists(path) && load_chr_from_asset_pack_path(path, bytes_out, byte_count) == 0) {
-        return 0;
+    if (file_exists(path)) {
+        return load_chr_from_asset_pack_path(path, bytes_out, byte_count) == 0 ? 0 : 1;
     }
 
-    if (load_chr_from_asset_pack_path("build\\tecmo.assetpack", bytes_out, byte_count) == 0) {
-        return 0;
+    if (file_exists("build\\tecmo.assetpack")) {
+        return load_chr_from_asset_pack_path("build\\tecmo.assetpack", bytes_out, byte_count) == 0 ? 0 : 1;
     }
 
     return -1;
@@ -3211,8 +3210,13 @@ static int load_chr_from_asset_pack(const char *project_root, uint8_t **bytes_ou
 
 int tecmo_load_chr_data(const char *project_root, uint8_t **bytes_out, uint64_t *byte_count)
 {
-    if (load_chr_from_asset_pack(project_root, bytes_out, byte_count) == 0) {
+    int asset_pack_status = load_chr_from_asset_pack(project_root, bytes_out, byte_count);
+
+    if (asset_pack_status == 0) {
         return 0;
+    }
+    if (asset_pack_status > 0) {
+        return -1;
     }
     return load_chr_padded(project_root, bytes_out, byte_count);
 }

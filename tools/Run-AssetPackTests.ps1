@@ -179,7 +179,7 @@ function Read-AssetPackDirectory {
     }
 }
 
-function Read-AssetPackEntryText {
+function Read-AssetPackEntryBytes {
     param(
         [string]$Path,
         [object]$Directory,
@@ -202,10 +202,21 @@ function Read-AssetPackEntryText {
         if ($Read -ne $Bytes.Length) {
             throw "Asset pack entry '$EntryId' payload is truncated."
         }
-        return [System.Text.Encoding]::UTF8.GetString($Bytes)
+        return $Bytes
     } finally {
         $File.Dispose()
     }
+}
+
+function Read-AssetPackEntryText {
+    param(
+        [string]$Path,
+        [object]$Directory,
+        [string]$EntryId
+    )
+
+    $Bytes = Read-AssetPackEntryBytes -Path $Path -Directory $Directory -EntryId $EntryId
+    return [System.Text.Encoding]::UTF8.GetString($Bytes)
 }
 
 function Get-ExpectedAssetPackEntries {
@@ -662,6 +673,88 @@ try {
             })
 
             try {
+                $LayerBytes = Read-AssetPackEntryBytes -Path $AssetPackPath -Directory $Directory -EntryId "arena/intro/background-layer"
+                $LayerMagic = if ($LayerBytes.Length -ge 4) {
+                    [System.Text.Encoding]::ASCII.GetString($LayerBytes, 0, 4)
+                } else {
+                    ""
+                }
+                $LayerVersion = if ($LayerBytes.Length -ge 6) { [System.BitConverter]::ToUInt16($LayerBytes, 4) } else { 0 }
+                $LayerHeaderSize = if ($LayerBytes.Length -ge 8) { [System.BitConverter]::ToUInt16($LayerBytes, 6) } else { 0 }
+                $LayerWidth = if ($LayerBytes.Length -ge 10) { [System.BitConverter]::ToUInt16($LayerBytes, 8) } else { 0 }
+                $LayerHeight = if ($LayerBytes.Length -ge 12) { [System.BitConverter]::ToUInt16($LayerBytes, 10) } else { 0 }
+                $LayerCellStride = if ($LayerBytes.Length -ge 18) { [System.BitConverter]::ToUInt16($LayerBytes, 16) } else { 0 }
+                $LayerCellCount = if ($LayerBytes.Length -ge 24) { [System.BitConverter]::ToUInt32($LayerBytes, 20) } else { 0 }
+                $LayerCellsOffset = if ($LayerBytes.Length -ge 28) { [System.BitConverter]::ToUInt32($LayerBytes, 24) } else { 0 }
+                $ExpectedLayerSize = 48 + 1632 * 6
+                $KnownReferenceRomSha256 = "076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4"
+                $KnownReferenceLayerSha256 = "5DE04C010CC08F47A510A25D3A48012C58C1DE58529EED4D5BF3F553C1107EFC"
+                $RomSha256 = (Get-FileHash -LiteralPath $ReferenceRom -Algorithm SHA256).Hash
+                $LayerHasher = [System.Security.Cryptography.SHA256]::Create()
+                try {
+                    $LayerSha256 = [System.BitConverter]::ToString($LayerHasher.ComputeHash($LayerBytes)).Replace("-", "")
+                } finally {
+                    $LayerHasher.Dispose()
+                }
+                $KnownReferenceContentMatches = $RomSha256 -ne $KnownReferenceRomSha256 -or
+                    $LayerSha256 -eq $KnownReferenceLayerSha256
+                $InvalidPaletteIndexes = 0
+                $InvalidChrOffsets = 0
+                $DistinctChrOffsets = [System.Collections.Generic.HashSet[uint32]]::new()
+                $ChrByteCount = [uint64]$ExpectedChrBanks * 8192
+
+                if ($LayerBytes.Length -eq $ExpectedLayerSize -and
+                    $LayerCellCount -eq 1632 -and $LayerCellStride -eq 6 -and
+                    $LayerCellsOffset -eq 48) {
+                    for ($Index = 0; $Index -lt [int]$LayerCellCount; ++$Index) {
+                        $CellOffset = [int]$LayerCellsOffset + $Index * [int]$LayerCellStride
+                        $PaletteIndex = $LayerBytes[$CellOffset + 1]
+                        $ChrOffset = [System.BitConverter]::ToUInt32($LayerBytes, $CellOffset + 2)
+                        if ($PaletteIndex -gt 3) {
+                            ++$InvalidPaletteIndexes
+                        }
+                        if (($ChrOffset -band 0x0F) -ne 0 -or ([uint64]$ChrOffset + 16) -gt $ChrByteCount) {
+                            ++$InvalidChrOffsets
+                        }
+                        [void]$DistinctChrOffsets.Add($ChrOffset)
+                    }
+                }
+
+                $LayerContractPassed = $LayerMagic -eq "TATL" -and
+                    $LayerVersion -eq 1 -and $LayerHeaderSize -eq 48 -and
+                    $LayerWidth -eq 32 -and $LayerHeight -eq 51 -and
+                    $LayerCellStride -eq 6 -and $LayerCellCount -eq 1632 -and
+                    $LayerCellsOffset -eq 48 -and $LayerBytes.Length -eq $ExpectedLayerSize -and
+                    $InvalidPaletteIndexes -eq 0 -and $InvalidChrOffsets -eq 0 -and
+                    $DistinctChrOffsets.Count -gt 16 -and $KnownReferenceContentMatches
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-arena-background-layer"
+                    passed = $LayerContractPassed
+                    format = $LayerMagic
+                    version = $LayerVersion
+                    width = $LayerWidth
+                    height = $LayerHeight
+                    cell_count = $LayerCellCount
+                    cell_stride = $LayerCellStride
+                    byte_count = $LayerBytes.Length
+                    invalid_palette_indexes = $InvalidPaletteIndexes
+                    invalid_chr_offsets = $InvalidChrOffsets
+                    distinct_chr_offset_count = $DistinctChrOffsets.Count
+                    known_reference_revision = $RomSha256 -eq $KnownReferenceRomSha256
+                    known_reference_content_match = $KnownReferenceContentMatches
+                    raw_asset_bytes_persisted = $false
+                })
+            } catch {
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-arena-background-layer"
+                    passed = $false
+                    error = "arena background layer inspection failed"
+                    error_type = Get-SafeExceptionName $_
+                    raw_asset_bytes_persisted = $false
+                })
+            }
+
+            try {
                 $SourceMapText = Read-AssetPackEntryText -Path $AssetPackPath -Directory $Directory -EntryId "system/source-map"
                 $SourceMap = $SourceMapText | ConvertFrom-Json
                 $SourceMapLogicalIds = @($SourceMap.logical_entries | ForEach-Object { [string]$_.id })
@@ -674,6 +767,54 @@ try {
                     source_map_logical_entries = $SourceMapLogicalIds
                     missing_logical_entries = $MissingSourceMapLogicalEntries
                     unexpected_logical_entries = $UnexpectedSourceMapLogicalEntries
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $ArenaSource = @($SourceMap.logical_entries | Where-Object { $_.id -eq "arena/intro/background-layer" } | Select-Object -First 1)
+                $PrgStart = 16 + [int]$ReferenceHeader.trainer_bytes
+                $ExpectedRouteOffset = [uint64]($PrgStart + 4 * 0x4000 + (0x88E8 - 0x8000))
+                $ExpectedDescriptorOffset = [uint64]($PrgStart + ($ExpectedPrgBanks - 1) * 0x4000 + (0xDD2D - 0xC000))
+                $ExpectedLowerR0Offset = [uint64]($PrgStart + ($ExpectedPrgBanks - 1) * 0x4000 + (0xFD7C - 0xC000))
+                $ExpectedLowerR1Offset = [uint64]($PrgStart + ($ExpectedPrgBanks - 1) * 0x4000 + (0xFD80 - 0xC000))
+                $ExpectedStreamOffset = if ($ArenaSource.Count -eq 1) {
+                    [uint64]($PrgStart + [int]$ArenaSource.stream.bank * 0x4000 + ([int]$ArenaSource.stream.cpu_address - 0x8000))
+                } else { 0 }
+                $ExpectedPaletteOffset = if ($ArenaSource.Count -eq 1) {
+                    [uint64]($PrgStart + [int]$ArenaSource.palette.bank * 0x4000 + ([int]$ArenaSource.palette.cpu_address - 0x8000))
+                } else { 0 }
+                $ArenaBasicProvenancePassed = $ArenaSource.Count -eq 1 -and
+                    $ArenaSource.schema -eq "tecmo.arena-intro.background-layer/TATL-1" -and
+                    [int]$ArenaSource.screen_id -eq 24 -and
+                    [int]$ArenaSource.decoder_cpu_address -eq 0xD9F6 -and
+                    [int]$ArenaSource.route.bank -eq 4 -and [int]$ArenaSource.route.cpu_address -eq 0x88E8 -and
+                    [uint64]$ArenaSource.route.source_offset -eq $ExpectedRouteOffset -and
+                    [int]$ArenaSource.descriptor.bank -eq ($ExpectedPrgBanks - 1) -and
+                    [int]$ArenaSource.descriptor.cpu_address -eq 0xDD2D -and
+                    [uint64]$ArenaSource.descriptor.source_offset -eq $ExpectedDescriptorOffset -and
+                    [uint64]$ArenaSource.stream.source_offset -eq $ExpectedStreamOffset -and
+                    [int]$ArenaSource.stream.encoded_size -gt 0 -and [int]$ArenaSource.stream.decoded_size -eq 2048 -and
+                    [int]$ArenaSource.palette.size -eq 16 -and
+                    [uint64]$ArenaSource.palette.source_offset -eq $ExpectedPaletteOffset -and
+                    @($ArenaSource.lower_chr_tables).Count -eq 2 -and
+                    [int]$ArenaSource.lower_chr_tables[0].selector_cpu_address -eq 0xFD7D -and
+                    [uint64]$ArenaSource.lower_chr_tables[0].source_offset -eq $ExpectedLowerR0Offset -and
+                    [int]$ArenaSource.lower_chr_tables[1].selector_cpu_address -eq 0xFD81 -and
+                    [uint64]$ArenaSource.lower_chr_tables[1].source_offset -eq $ExpectedLowerR1Offset
+                $KnownReferenceProvenanceMatches = $RomSha256 -ne $KnownReferenceRomSha256 -or
+                    ([int]$ArenaSource.stream.bank -eq 0 -and
+                     [int]$ArenaSource.stream.cpu_address -eq 0xA2ED -and
+                     [int]$ArenaSource.stream.encoded_size -eq 1247 -and
+                     [int]$ArenaSource.palette.bank -eq 0 -and
+                     [int]$ArenaSource.palette.cpu_address -eq 0xA7CB)
+                $ArenaProvenancePassed = $ArenaBasicProvenancePassed -and $KnownReferenceProvenanceMatches
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-arena-source-provenance"
+                    passed = $ArenaProvenancePassed
+                    schema_valid = $ArenaSource.Count -eq 1 -and $ArenaSource.schema -eq "tecmo.arena-intro.background-layer/TATL-1"
+                    descriptor_valid = $ArenaSource.Count -eq 1 -and [int]$ArenaSource.descriptor.cpu_address -eq 0xDD2D
+                    stream_valid = $ArenaSource.Count -eq 1 -and [int]$ArenaSource.stream.encoded_size -gt 0 -and [int]$ArenaSource.stream.decoded_size -eq 2048
+                    irq_selector_tables_valid = $ArenaSource.Count -eq 1 -and @($ArenaSource.lower_chr_tables).Count -eq 2
+                    known_reference_provenance_match = $KnownReferenceProvenanceMatches
                     raw_asset_bytes_persisted = $false
                 })
             } catch {

@@ -126,6 +126,13 @@ Asset-pack entries should move toward native names, for example:
 Temporary capture-shaped entries may remain only as migration aids until the
 native scene is validated.
 
+The arena background is now on the native path: the ROM importer decodes
+screen `$18` into a versioned `TecmoArenaTileLayer` with exact tile IDs,
+attribute-derived palette indexes, background palette bytes, and resolved CHR
+offsets. Runtime rendering must load that layer and `chr/all` from the same
+asset pack. Do not reintroduce generated tile-sheet patterns or captured
+nametable playback as a normal fallback.
+
 ## Validation Rules
 
 Validation should prove native behavior, not just that a captured frame can be

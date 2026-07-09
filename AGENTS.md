@@ -147,7 +147,15 @@ The current opening path includes:
 - arena/jumbotron/crowd transition from ROM CHR through native arena bands
 - native anchored CHR goal/basket pieces for the arena pan
 
-The normal arena render should not replay captured screen `$18` nametable or OAM data. It consumes `chr/all` from a ROM-derived asset pack, follows the native arena band contract, and draws goal pieces from one shared native anchor. Capture-shaped arena loaders remain only as migration/debug scaffolding until exact tile-layer and palette-cycle extractors populate the native asset-pack entries.
+The normal arena render must not replay captured screen `$18` nametable or OAM data. The ROM-only importer decodes the fixed-bank screen descriptor and compressed Bank00 stream into `arena/intro/background-layer`, a versioned native `32x51` tile layer whose cells contain exact attribute-derived palette indexes and resolved `chr/all` offsets. Runtime rendering consumes that layer and draws goal pieces from one shared native anchor. Capture-shaped arena loaders remain only as migration/debug scaffolding; the separate palette-cycle and goal/crowd sprite-group migrations can continue without replacing the exact background path.
+
+For screen `$18` research, use the verified ROM route rather than capture bytes:
+
+- Bank04 arena entry starts at `$88E8`; `$88E7` is the preceding `RTS`.
+- Fixed screen descriptor `$DD2D-$DD33` selects the Bank00 compressed stream and background palette.
+- The fixed `$D9F6` decoder emits exactly two complete 1 KiB nametable pages.
+- Backreferences subtract their distance from the source cursor before advancing past the distance word.
+- Lower arena CHR selectors come from the fixed IRQ tables at `$FD7C/$FD80`; similarly valued Bank01 bytes are not the runtime source.
 
 ## Runtime Architecture Notes
 

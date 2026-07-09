@@ -3,12 +3,17 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #define TECMO_ARENA_INTRO_MAX_SPRITE_GROUPS 8U
 #define TECMO_ARENA_SPRITE_GROUP_MAX_PIECES 16U
 #define TECMO_ARENA_GOAL_PART_COUNT 5U
 #define TECMO_ARENA_INTRO_GOAL_ANCHOR_X 184
 #define TECMO_ARENA_INTRO_GOAL_ANCHOR_Y 302
+#define TECMO_ARENA_TILE_LAYER_WIDTH 32U
+#define TECMO_ARENA_TILE_LAYER_HEIGHT 51U
+#define TECMO_ARENA_TILE_LAYER_CELL_COUNT \
+    (TECMO_ARENA_TILE_LAYER_WIDTH * TECMO_ARENA_TILE_LAYER_HEIGHT)
 
 typedef enum TecmoArenaIntroPhase {
     TECMO_ARENA_INTRO_PHASE_ENTER,
@@ -42,6 +47,24 @@ typedef struct TecmoArenaCamera {
     int viewport_width;
     int viewport_height;
 } TecmoArenaCamera;
+
+typedef struct TecmoArenaTileCell {
+    uint8_t tile_id;
+    uint8_t palette_index;
+    uint32_t chr_byte_offset;
+} TecmoArenaTileCell;
+
+typedef struct TecmoArenaTileLayer {
+    bool available;
+    unsigned width;
+    unsigned height;
+    unsigned viewport_width;
+    unsigned viewport_height;
+    uint8_t palette[16];
+    TecmoArenaTileCell cells[TECMO_ARENA_TILE_LAYER_CELL_COUNT];
+    size_t cell_count;
+    char status[128];
+} TecmoArenaTileLayer;
 
 typedef struct TecmoArenaSpritePiece {
     TecmoArenaGoalPart part;

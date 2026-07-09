@@ -207,13 +207,13 @@ try {
             $RenderCreated = Test-Path -LiteralPath $RenderPath
             $CaptureUnavailableSeen = $RenderText -match "intro-capture-status kind=arena available=0"
             $NoCaptureSourceSeen = $RenderText -match "intro-capture-source kind=arena assetpack=0 entry=none"
-            $NativeChrSeen = $RenderText -match "intro-arena-render-source kind=arena native_chr=1"
+            $ExactLayerSeen = $RenderText -match "intro-arena-render-source kind=arena exact_layer=1 rendered=1 cells=1632 palette=16"
             $NativeGoalPairsSeen = $RenderText -match "goal_pairs=[1-9][0-9]*"
             $ModePassed = $RenderExitCode -eq 0 -and
                 $RenderCreated -and
                 $CaptureUnavailableSeen -and
                 $NoCaptureSourceSeen -and
-                $NativeChrSeen -and
+                $ExactLayerSeen -and
                 $NativeGoalPairsSeen
             if (!$ModePassed) {
                 $RenderPassed = $false
@@ -225,7 +225,7 @@ try {
                 exit_code = $RenderExitCode
                 capture_unavailable_seen = $CaptureUnavailableSeen
                 no_capture_source_seen = $NoCaptureSourceSeen
-                native_chr_seen = $NativeChrSeen
+                exact_layer_seen = $ExactLayerSeen
                 native_goal_pairs_seen = $NativeGoalPairsSeen
             })
         }

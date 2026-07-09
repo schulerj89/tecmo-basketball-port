@@ -204,6 +204,7 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
     runtime->selected_chr_bank = 31U;
     tecmo_intro_layout_init(runtime);
     tecmo_intro_trace_load(runtime, project_root);
+    (void)tecmo_intro_arena_tile_layer_load(&runtime->intro_arena_tile_layer, project_root);
     (void)tecmo_intro_arena_capture_load(&runtime->intro_arena_capture, project_root);
     (void)tecmo_intro_post_arena_capture_load(&runtime->intro_post_arena_capture, project_root);
 
@@ -1850,7 +1851,7 @@ static size_t draw_intro_trace_group_oam_base(TecmoFramebuffer *fb,
     return visible_count;
 }
 
-void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+bool tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
 {
     const int scale = 2;
     const int viewport_x = 64;
@@ -1874,6 +1875,7 @@ void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
 
     if (runtime != NULL && runtime->title_chr_bytes != NULL && runtime->title_chr_byte_count != 0U) {
         drew_native_arena = tecmo_intro_arena_draw_native_chr(fb,
+                                                             &runtime->intro_arena_tile_layer,
                                                              runtime->title_chr_bytes,
                                                              runtime->title_chr_byte_count,
                                                              frame,
@@ -1893,10 +1895,10 @@ void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
     }
 
     if (!drew_arena) {
-        draw_centered_text(fb, 196, "ROM ARENA CHR DATA MISSING", rgb(252, 236, 170), 2);
-        draw_centered_text(fb, 232, "BUILD A ROM-DERIVED ASSET PACK WITH CHR/ALL", rgb(230, 232, 214), 1);
+        draw_centered_text(fb, 196, "ROM ARENA TILE LAYER OR CHR DATA MISSING", rgb(252, 236, 170), 2);
+        draw_centered_text(fb, 232, "REBUILD THE ROM-DERIVED ASSET PACK", rgb(230, 232, 214), 1);
         if (runtime != NULL) {
-            draw_centered_text(fb, 254, runtime->intro_arena_capture.status, rgb(142, 174, 190), 1);
+            draw_centered_text(fb, 254, runtime->intro_arena_tile_layer.status, rgb(142, 174, 190), 1);
         }
     }
 
@@ -1907,8 +1909,8 @@ void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
                        "BANK04 $88E8 -> SCREEN18 $A2ED  F%u/%u %s  PAL%u  $88=%02X $8A=%02X $0301=%02X BG%+d",
                        native_frame,
                        frame,
-                       drew_native_arena ? "NATIVE-CHR" : tecmo_intro_arena_phase_name(state.phase),
-                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.palette_stage_count : 0U,
+                       drew_native_arena ? "EXACT-ROM-LAYER" : tecmo_intro_arena_phase_name(state.phase),
+                       runtime != NULL && runtime->intro_arena_tile_layer.available ? 1U : 0U,
                        (unsigned)state.seed_88,
                        (unsigned)state.scroll_8a,
                        (unsigned)state.scroll_y_0301,
@@ -1919,7 +1921,7 @@ void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
         if (drew_native_arena) {
             (void)snprintf(line,
                            sizeof(line),
-                           "SCREEN18 NATIVE CHR BG  32x51 BANDS SCOREBOARD/SMALL-CROWD/LARGE-CROWD  GOAL PAIRS %u",
+                           "SCREEN18 EXACT ROM TILE/ATTRIBUTE/PALETTE LAYER  32x51  GOAL PAIRS %u",
                            (unsigned)visible_count);
         } else {
             (void)snprintf(line,
@@ -1938,6 +1940,8 @@ void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
         }
         draw_text(fb, 12, 464, line, rgb(142, 174, 190), 1);
     }
+
+    return drew_arena;
 }
 
 void tecmo_render_intro_ready_screen(const TecmoRuntime *runtime, TecmoFramebuffer *fb)

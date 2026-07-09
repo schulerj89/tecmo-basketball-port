@@ -2,6 +2,7 @@
 #define TECMO_INTRO_ARENA_H
 
 #include "tecmo_framebuffer.h"
+#include "tecmo_intro_arena_scene.h"
 #include "tecmo_nametable_screen.h"
 
 #include <stdbool.h>
@@ -55,14 +56,16 @@ typedef struct TecmoIntroArenaCapture {
 } TecmoIntroArenaCapture;
 
 bool tecmo_intro_arena_capture_load(TecmoIntroArenaCapture *capture, const char *project_root);
+bool tecmo_intro_arena_tile_layer_load(TecmoArenaTileLayer *layer, const char *project_root);
 
 unsigned tecmo_intro_arena_display_frame(unsigned native_frame);
 
 const uint8_t *tecmo_intro_arena_palette_for_frame(const TecmoIntroArenaCapture *capture,
                                                    unsigned frame);
 
-bool tecmo_intro_arena_native_chr_available(const uint8_t *chr_bytes,
-                                            uint64_t chr_byte_count);
+bool tecmo_intro_arena_tile_layer_chr_available(const TecmoArenaTileLayer *layer,
+                                                const uint8_t *chr_bytes,
+                                                uint64_t chr_byte_count);
 
 size_t tecmo_intro_arena_native_goal_chr_pair_count(const uint8_t *chr_bytes,
                                                     uint64_t chr_byte_count);
@@ -87,6 +90,7 @@ bool tecmo_intro_arena_draw_composite(TecmoFramebuffer *fb,
                                       int scale);
 
 bool tecmo_intro_arena_draw_native_chr(TecmoFramebuffer *fb,
+                                       const TecmoArenaTileLayer *layer,
                                        const uint8_t *chr_bytes,
                                        uint64_t chr_byte_count,
                                        unsigned frame,
