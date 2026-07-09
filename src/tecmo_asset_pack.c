@@ -940,6 +940,7 @@ static char *build_ines_source_map(uint32_t mapper,
 int tecmo_asset_pack_build_from_ines(const char *rom_path,
                                      const char *out_path,
                                      const char *project_root,
+                                     const char *capture_project_root,
                                      char *message,
                                      size_t message_size)
 {
@@ -1182,8 +1183,15 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
             goto cleanup;
         }
 
+    }
+
+    if ((capture_project_root != NULL && capture_project_root[0] != '\0') || project_root_status > 0) {
+        const char *fallback_capture_root = project_root_status > 0 ? resolved_project_root : NULL;
+        char helper_message[256];
+
         helper_message[0] = '\0';
-        if (tecmo_asset_pack_import_intro_captures(resolved_project_root,
+        if (tecmo_asset_pack_import_intro_captures(capture_project_root,
+                                                   fallback_capture_root,
                                                    builder,
                                                    &imported_intro_count,
                                                    helper_message,
@@ -1191,14 +1199,10 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
             if (helper_message[0] != '\0') {
                 set_messagef(message,
                              message_size,
-                             "Could not import intro capture asset pack entries from %s: %s",
-                             resolved_project_root,
+                             "Could not import intro capture asset pack entries: %s",
                              helper_message);
             } else {
-                set_messagef(message,
-                             message_size,
-                             "Could not import intro capture asset pack entries from %s.",
-                             resolved_project_root);
+                set_message(message, message_size, "Could not import intro capture asset pack entries.");
             }
             goto cleanup;
         }
@@ -1222,6 +1226,15 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
                                (unsigned long long)entry_count,
                                out_path,
                                resolved_project_root,
+                               imported_intro_count);
+            } else if (imported_intro_count > 0U) {
+                (void)snprintf(message,
+                               message_size,
+                               "Wrote %u PRG banks, %u CHR banks, %llu entries to %s; imported %u intro captures",
+                               prg_banks,
+                               chr_banks,
+                               (unsigned long long)entry_count,
+                               out_path,
                                imported_intro_count);
             } else {
                 (void)snprintf(message,
@@ -1940,7 +1953,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         set_message(message, message_size, "Self-test could not write temporary iNES ROM.");
         goto cleanup;
     }
-    if (tecmo_asset_pack_build_from_ines(rom_path, ines_pack_path, NULL, message, message_size) != 0) {
+    if (tecmo_asset_pack_build_from_ines(rom_path, ines_pack_path, NULL, NULL, message, message_size) != 0) {
         goto cleanup;
     }
 

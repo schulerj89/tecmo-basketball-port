@@ -34,6 +34,11 @@ typedef struct TecmoJsonLineState {
     size_t depth;
 } TecmoJsonLineState;
 
+typedef struct TecmoCaptureSearchRoots {
+    const char *roots[2];
+    size_t count;
+} TecmoCaptureSearchRoots;
+
 static const TecmoCaptureImport INTRO_CAPTURE_IMPORTS[] = {
     {
         "intro/arena/capture.ndjson",
@@ -139,6 +144,34 @@ static int build_project_path(char *dest,
 
     written = snprintf(dest + root_len, dest_size - root_len, "%s", relative_path);
     return written >= 0 && (size_t)written < dest_size - root_len ? 0 : -1;
+}
+
+static int roots_match(const char *left, const char *right)
+{
+    if (left == NULL) {
+        left = "";
+    }
+    if (right == NULL) {
+        right = "";
+    }
+    return strcmp(left, right) == 0;
+}
+
+static void add_capture_search_root(TecmoCaptureSearchRoots *search_roots, const char *project_root)
+{
+    if (search_roots == NULL || project_root == NULL || project_root[0] == '\0') {
+        return;
+    }
+
+    for (size_t i = 0U; i < search_roots->count; ++i) {
+        if (roots_match(search_roots->roots[i], project_root)) {
+            return;
+        }
+    }
+
+    if (search_roots->count < sizeof(search_roots->roots) / sizeof(search_roots->roots[0])) {
+        search_roots->roots[search_roots->count++] = project_root;
+    }
 }
 
 static int process_json_line_char(TecmoJsonLineState *state, int value)
@@ -411,13 +444,15 @@ static int add_intro_capture_source_map(TecmoAssetPackBuilder *builder,
                                                message_size);
 }
 
-int tecmo_asset_pack_import_intro_captures(const char *project_root,
+int tecmo_asset_pack_import_intro_captures(const char *primary_project_root,
+                                           const char *fallback_project_root,
                                            TecmoAssetPackBuilder *builder,
                                            unsigned *imported_count_out,
                                            char *message,
                                            size_t message_size)
 {
     TecmoImportedCapture imported[sizeof(INTRO_CAPTURE_IMPORTS) / sizeof(INTRO_CAPTURE_IMPORTS[0])];
+    TecmoCaptureSearchRoots search_roots;
     unsigned import_count = 0U;
 
     if (imported_count_out != NULL) {
@@ -428,38 +463,54 @@ int tecmo_asset_pack_import_intro_captures(const char *project_root,
         return -1;
     }
 
+    memset(&search_roots, 0, sizeof(search_roots));
+    add_capture_search_root(&search_roots, primary_project_root);
+    add_capture_search_root(&search_roots, fallback_project_root);
+    if (search_roots.count == 0U) {
+        add_capture_search_root(&search_roots, ".");
+    }
+
     for (size_t i = 0U; i < sizeof(INTRO_CAPTURE_IMPORTS) / sizeof(INTRO_CAPTURE_IMPORTS[0]); ++i) {
         const TecmoCaptureImport *spec = &INTRO_CAPTURE_IMPORTS[i];
         TecmoAssetPackEntryInfo entry_info;
         char path[TECMO_IMPORT_PATH_SIZE];
-        bool present = false;
+        bool imported_entry = false;
 
-        if (build_project_path(path, sizeof(path), project_root, spec->local_path) != 0) {
-            set_message(message,
-                        message_size,
-                        "Intro capture source path is too long for %s",
-                        spec->local_path);
-            return -1;
-        }
+        for (size_t root_index = 0U; root_index < search_roots.count; ++root_index) {
+            bool present = false;
 
-        if (validate_ndjson_file(path, spec->entry_id, &present, message, message_size) != 0) {
-            return -1;
+            if (build_project_path(path, sizeof(path), search_roots.roots[root_index], spec->local_path) != 0) {
+                set_message(message,
+                            message_size,
+                            "Intro capture source path is too long for %s",
+                            spec->local_path);
+                return -1;
+            }
+
+            if (validate_ndjson_file(path, spec->entry_id, &present, message, message_size) != 0) {
+                return -1;
+            }
+            if (!present) {
+                continue;
+            }
+
+            entry_info = capture_entry_info(spec);
+            if (tecmo_asset_pack_builder_add_file(builder,
+                                                  &entry_info,
+                                                  path,
+                                                  message,
+                                                  message_size) != 0) {
+                return -1;
+            }
+
+            imported[import_count].spec = spec;
+            ++import_count;
+            imported_entry = true;
+            break;
         }
-        if (!present) {
+        if (imported_entry) {
             continue;
         }
-
-        entry_info = capture_entry_info(spec);
-        if (tecmo_asset_pack_builder_add_file(builder,
-                                              &entry_info,
-                                              path,
-                                              message,
-                                              message_size) != 0) {
-            return -1;
-        }
-
-        imported[import_count].spec = spec;
-        ++import_count;
     }
 
     if (add_intro_capture_source_map(builder, imported, import_count, message, message_size) != 0) {

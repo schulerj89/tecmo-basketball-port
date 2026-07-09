@@ -506,6 +506,7 @@ int main(int argc, char **argv)
         const char *rom_path;
         const char *out_path;
         const char *asset_project_root = (root_explicit || root_from_env) ? root : NULL;
+        const char *asset_capture_root = ".";
         char message[256];
 
         if (index + 1 >= argc) {
@@ -518,6 +519,7 @@ int main(int argc, char **argv)
         if (tecmo_asset_pack_build_from_ines(rom_path,
                                              out_path,
                                              asset_project_root,
+                                             asset_capture_root,
                                              message,
                                              sizeof(message)) != 0) {
             printf("Failed to build asset pack: %s\n", message);
