@@ -62,6 +62,133 @@ static bool arena_sprite_group_add_piece(TecmoArenaSpriteGroup *group,
     return true;
 }
 
+static bool arena_sprite_piece_matches(const TecmoArenaSpritePiece *actual,
+                                       const TecmoArenaSpritePiece *expected)
+{
+    if (actual == NULL || expected == NULL) {
+        return false;
+    }
+
+    return actual->part == expected->part &&
+           actual->offset_from_anchor.x == expected->offset_from_anchor.x &&
+           actual->offset_from_anchor.y == expected->offset_from_anchor.y &&
+           actual->width == expected->width &&
+           actual->height == expected->height &&
+           actual->frame_index == expected->frame_index;
+}
+
+static bool arena_sprite_group_matches(const TecmoArenaSpriteGroup *actual,
+                                       const TecmoArenaSpriteGroup *expected)
+{
+    if (actual == NULL || expected == NULL) {
+        return false;
+    }
+
+    if (actual->anchor.x != expected->anchor.x ||
+        actual->anchor.y != expected->anchor.y ||
+        actual->piece_count != expected->piece_count ||
+        actual->visible != expected->visible) {
+        return false;
+    }
+
+    for (size_t i = 0; i < expected->piece_count; ++i) {
+        if (!arena_sprite_piece_matches(&actual->pieces[i], &expected->pieces[i])) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool arena_intro_render_list_matches_goal(const TecmoArenaIntro *intro,
+                                                 char *message,
+                                                 size_t message_size)
+{
+    if (intro == NULL) {
+        arena_scene_message(message, message_size, "ARENA INTRO INPUT MISSING");
+        return false;
+    }
+
+    if (intro->sprite_group_count != 1U) {
+        arena_scene_message(message, message_size, "ARENA INTRO GROUP COUNT FAILED");
+        return false;
+    }
+
+    if (!arena_sprite_group_matches(&intro->sprite_groups[0], &intro->goal.sprite_group)) {
+        arena_scene_message(message, message_size, "ARENA INTRO RENDER GROUP DESYNC");
+        return false;
+    }
+
+    return true;
+}
+
+static TecmoArenaIntroPhase arena_intro_expected_phase(unsigned frame)
+{
+    if (frame == 0U) {
+        return TECMO_ARENA_INTRO_PHASE_ENTER;
+    }
+    if (frame < TECMO_ARENA_INTRO_PAN_FRAMES) {
+        return TECMO_ARENA_INTRO_PHASE_PAN_TO_GOAL;
+    }
+    if (frame < TECMO_ARENA_INTRO_HANDOFF_FRAME) {
+        return TECMO_ARENA_INTRO_PHASE_HOLD_GOAL;
+    }
+    return TECMO_ARENA_INTRO_PHASE_HANDOFF;
+}
+
+static TecmoArenaPoint arena_intro_expected_camera_position(unsigned frame)
+{
+    TecmoArenaPoint point;
+    unsigned pan_step = frame < TECMO_ARENA_INTRO_PAN_FRAMES
+                            ? frame
+                            : TECMO_ARENA_INTRO_PAN_FRAMES;
+
+    point.x = arena_lerp_int(TECMO_ARENA_INTRO_PAN_START_X,
+                             TECMO_ARENA_INTRO_PAN_END_X,
+                             pan_step,
+                             TECMO_ARENA_INTRO_PAN_FRAMES);
+    point.y = arena_lerp_int(TECMO_ARENA_INTRO_PAN_START_Y,
+                             TECMO_ARENA_INTRO_PAN_END_Y,
+                             pan_step,
+                             TECMO_ARENA_INTRO_PAN_FRAMES);
+    return point;
+}
+
+static bool arena_intro_state_matches_frame(const TecmoArenaIntro *intro,
+                                            unsigned expected_frame,
+                                            char *message,
+                                            size_t message_size)
+{
+    TecmoArenaPoint expected_camera;
+    TecmoArenaIntroPhase expected_phase;
+
+    if (intro == NULL) {
+        arena_scene_message(message, message_size, "ARENA INTRO INPUT MISSING");
+        return false;
+    }
+
+    expected_camera = arena_intro_expected_camera_position(expected_frame);
+    expected_phase = arena_intro_expected_phase(expected_frame);
+
+    if (intro->frame != expected_frame) {
+        arena_scene_message(message, message_size, "ARENA INTRO FRAME CONTRACT FAILED");
+        return false;
+    }
+    if (intro->phase != expected_phase) {
+        arena_scene_message(message, message_size, "ARENA INTRO PHASE BOUNDARY FAILED");
+        return false;
+    }
+    if (intro->camera.position.x != expected_camera.x ||
+        intro->camera.position.y != expected_camera.y ||
+        intro->camera.viewport_width != TECMO_ARENA_INTRO_VIEW_WIDTH ||
+        intro->camera.viewport_height != TECMO_ARENA_INTRO_VIEW_HEIGHT) {
+        arena_scene_message(message, message_size, "ARENA INTRO CAMERA BOUNDARY FAILED");
+        return false;
+    }
+
+    return true;
+}
+
 void tecmo_arena_camera_init(TecmoArenaCamera *camera,
                              int world_x,
                              int world_y,
@@ -302,8 +429,10 @@ bool tecmo_arena_intro_scene_self_test(char *message, size_t message_size)
     }
 
     tecmo_arena_intro_init(&intro);
-    if (intro.sprite_group_count != 1U ||
-        intro.sprite_groups[0].piece_count != TECMO_ARENA_GOAL_PART_COUNT) {
+    if (!arena_intro_render_list_matches_goal(&intro, message, message_size)) {
+        return false;
+    }
+    if (intro.sprite_groups[0].piece_count != TECMO_ARENA_GOAL_PART_COUNT) {
         arena_scene_message(message, message_size, "ARENA INTRO GROUP SETUP FAILED");
         return false;
     }
@@ -312,6 +441,13 @@ bool tecmo_arena_intro_scene_self_test(char *message, size_t message_size)
         TecmoArenaRect rects[TECMO_ARENA_GOAL_PART_COUNT];
         TecmoArenaPoint anchor;
         size_t rect_count;
+
+        if (!arena_intro_state_matches_frame(&intro, step, message, message_size)) {
+            return false;
+        }
+        if (!arena_intro_render_list_matches_goal(&intro, message, message_size)) {
+            return false;
+        }
 
         camera = intro.camera;
         if (!tecmo_arena_goal_parts_attached(&intro.goal, &camera, message, message_size)) {
@@ -347,6 +483,19 @@ bool tecmo_arena_intro_scene_self_test(char *message, size_t message_size)
         previous_anchor = anchor;
         have_previous = true;
         tecmo_arena_intro_update(&intro);
+
+        if (!arena_intro_render_list_matches_goal(&intro, message, message_size)) {
+            return false;
+        }
+        if (intro.frame == 1U ||
+            intro.frame == TECMO_ARENA_INTRO_PAN_FRAMES - 1U ||
+            intro.frame == TECMO_ARENA_INTRO_PAN_FRAMES ||
+            intro.frame == TECMO_ARENA_INTRO_HOLD_START_FRAME ||
+            intro.frame == TECMO_ARENA_INTRO_HANDOFF_FRAME) {
+            if (!arena_intro_state_matches_frame(&intro, intro.frame, message, message_size)) {
+                return false;
+            }
+        }
     }
 
     tecmo_arena_camera_init(&camera, -80, 37, 320, 180);
