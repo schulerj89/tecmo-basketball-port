@@ -168,14 +168,12 @@ High-level runtime APIs should remain shaped around scene and renderer concepts.
 
 ## Test Hook
 
-The current ROM-only asset-pack smoke test is intentionally narrower than this
-target design. `tools/Run-AssetPackTests.ps1` currently expects only the raw ROM
-entries (`system/*`, `prg/*`, and `chr/*`) and an empty logical-entry set; any
-new `arena/intro/*` entry would be an unknown logical entry until the test's
-expected logical-entry list is updated in the same change that emits it.
+The ROM-only asset-pack smoke test now expects the first native arena entries:
+`arena/intro/script` and `arena/intro/goal-sprite-group`. Broader entries such
+as background layers, palette cycles, READY, and WARRIORS should extend the same
+directory/source-map gate in the change that emits them.
 
-When the first native arena entry is emitted, extend the asset-pack tests with a
-directory-only assertion before checking rendered frames:
+Keep the first gate directory-only before checking rendered frames:
 
 - Build from `<LOCAL_ROM.nes>` with no decomp root or loose capture files.
 - Verify the expected `arena/intro/*` IDs are present and non-empty.
@@ -184,5 +182,5 @@ directory-only assertion before checking rendered frames:
 - Verify forbidden capture entries such as `intro/arena/capture.ndjson` and
   `intro/post-arena/capture.ndjson` are absent from the ROM-only pack.
 
-This keeps the first gate small: it proves the importer writes native entries
-from the ROM-only input before the runtime is required to render parity frames.
+This keeps the gate small: it proves the importer writes native entries from the
+ROM-only input before the runtime is required to render parity frames.

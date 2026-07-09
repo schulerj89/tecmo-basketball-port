@@ -22,6 +22,13 @@
 #define TECMO_ASSET_PACK_PRG_BANK_BYTES 0x4000ULL
 #define TECMO_ASSET_PACK_CHR_BANK_BYTES 0x2000ULL
 #define TECMO_ASSET_PACK_PATH_SIZE 1024U
+#define TECMO_ASSET_PACK_ARENA_INTRO_SCRIPT_ID "arena/intro/script"
+#define TECMO_ASSET_PACK_ARENA_INTRO_GOAL_ID "arena/intro/goal-sprite-group"
+#define TECMO_ASSET_PACK_ARENA_BANK04 4U
+#define TECMO_ASSET_PACK_ARENA_ROUTE_CPU 0x88E7U
+#define TECMO_ASSET_PACK_ARENA_SPRITE_EMIT_CPU 0x8988U
+#define TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE 0x8000U
+#define TECMO_ASSET_PACK_SWITCHED_PRG_CPU_LIMIT 0xC000U
 
 typedef struct TecmoAssetPackBuildEntry {
     char id[TECMO_ASSET_PACK_ID_SIZE];
@@ -703,6 +710,56 @@ static int append_source_map_entry(char *buffer,
                        cpu_address);
 }
 
+static uint64_t prg_bank_cpu_source_offset(uint64_t prg_offset,
+                                           uint32_t prg_banks,
+                                           uint32_t bank,
+                                           uint32_t cpu_address)
+{
+    if (bank >= prg_banks ||
+        cpu_address < TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE ||
+        cpu_address >= TECMO_ASSET_PACK_SWITCHED_PRG_CPU_LIMIT) {
+        return 0U;
+    }
+
+    return prg_offset +
+           (uint64_t)bank * TECMO_ASSET_PACK_PRG_BANK_BYTES +
+           (uint64_t)(cpu_address - TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
+}
+
+static int append_logical_source_map_entry(char *buffer,
+                                           size_t capacity,
+                                           size_t *length,
+                                           int *first,
+                                           const char *id,
+                                           const char *kind,
+                                           const char *schema,
+                                           const char *source_entry,
+                                           uint64_t source_offset,
+                                           uint32_t bank,
+                                           uint32_t cpu_address,
+                                           int source_bank_available)
+{
+    const char *prefix = *first != 0 ? "" : ",\n";
+
+    *first = 0;
+    return append_text(buffer,
+                       capacity,
+                       length,
+                       "%s"
+                       "    {\"id\":\"%s\",\"kind\":\"%s\",\"schema\":\"%s\","
+                       "\"source_entry\":\"%s\",\"source_offset\":%llu,"
+                       "\"bank\":%u,\"cpu_address\":%u,\"source_bank_available\":%s}",
+                       prefix,
+                       id,
+                       kind,
+                       schema,
+                       source_entry,
+                       (unsigned long long)source_offset,
+                       bank,
+                       cpu_address,
+                       source_bank_available ? "true" : "false");
+}
+
 static char *build_ines_source_map(uint32_t mapper,
                                    uint32_t trainer_bytes,
                                    uint32_t prg_banks,
@@ -712,16 +769,28 @@ static char *build_ines_source_map(uint32_t mapper,
                                    uint64_t chr_size,
                                    size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 2U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 4U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
+    uint64_t script_source_offset =
+        prg_bank_cpu_source_offset(prg_offset,
+                                   prg_banks,
+                                   TECMO_ASSET_PACK_ARENA_BANK04,
+                                   TECMO_ASSET_PACK_ARENA_ROUTE_CPU);
+    uint64_t goal_source_offset =
+        prg_bank_cpu_source_offset(prg_offset,
+                                   prg_banks,
+                                   TECMO_ASSET_PACK_ARENA_BANK04,
+                                   TECMO_ASSET_PACK_ARENA_SPRITE_EMIT_CPU);
+    int bank04_available = prg_banks > TECMO_ASSET_PACK_ARENA_BANK04;
     int first = 1;
+    int first_logical = 1;
 
-    if (entry_count > (SIZE_MAX - 2048U) / 192U) {
+    if (entry_count > (SIZE_MAX - 4096U) / 320U) {
         return NULL;
     }
-    capacity = 2048U + entry_count * 192U;
+    capacity = 4096U + entry_count * 320U;
     source_map = (char *)malloc(capacity);
     if (source_map == NULL) {
         return NULL;
@@ -836,9 +905,46 @@ static char *build_ines_source_map(uint32_t mapper,
                     &length,
                     "\n"
                     "  ],\n"
-                    "  \"logical_entries\":[],\n"
+                    "  \"logical_entries\":[\n") != 0) {
+        free(source_map);
+        return NULL;
+    }
+
+    if (append_logical_source_map_entry(source_map,
+                                        capacity,
+                                        &length,
+                                        &first_logical,
+                                        TECMO_ASSET_PACK_ARENA_INTRO_SCRIPT_ID,
+                                        "arena-intro-native-script",
+                                        "tecmo.arena-intro.script/1",
+                                        bank04_available ? "prg/bank04" : "prg/fixed",
+                                        script_source_offset,
+                                        bank04_available ? TECMO_ASSET_PACK_ARENA_BANK04 : prg_banks - 1U,
+                                        TECMO_ASSET_PACK_ARENA_ROUTE_CPU,
+                                        bank04_available) != 0 ||
+        append_logical_source_map_entry(source_map,
+                                        capacity,
+                                        &length,
+                                        &first_logical,
+                                        TECMO_ASSET_PACK_ARENA_INTRO_GOAL_ID,
+                                        "arena-intro-goal-sprite-group",
+                                        "tecmo.arena-intro.goal-sprite-group/1",
+                                        bank04_available ? "prg/bank04" : "prg/fixed",
+                                        goal_source_offset,
+                                        bank04_available ? TECMO_ASSET_PACK_ARENA_BANK04 : prg_banks - 1U,
+                                        TECMO_ASSET_PACK_ARENA_SPRITE_EMIT_CPU,
+                                        bank04_available) != 0) {
+        free(source_map);
+        return NULL;
+    }
+
+    if (append_text(source_map,
+                    capacity,
+                    &length,
+                    "\n"
+                    "  ],\n"
                     "  \"input_contract\":\"ines-only\",\n"
-                    "  \"logical_entry_note\":\"ROM-only pack; no decomp, capture, or loose-file entries are imported\"\n"
+                    "  \"logical_entry_note\":\"ROM-only pack with sanitized native arena intro entries; no decomp, capture, or loose-file entries are imported\"\n"
                     "}\n") != 0) {
         free(source_map);
         return NULL;
@@ -846,6 +952,113 @@ static char *build_ines_source_map(uint32_t mapper,
 
     *source_map_size_out = length;
     return source_map;
+}
+
+static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
+                                          uint64_t prg_offset,
+                                          uint32_t prg_banks,
+                                          char *message,
+                                          size_t message_size)
+{
+    char script_payload[2048];
+    char goal_payload[2048];
+    uint64_t script_source_offset =
+        prg_bank_cpu_source_offset(prg_offset,
+                                   prg_banks,
+                                   TECMO_ASSET_PACK_ARENA_BANK04,
+                                   TECMO_ASSET_PACK_ARENA_ROUTE_CPU);
+    uint64_t goal_source_offset =
+        prg_bank_cpu_source_offset(prg_offset,
+                                   prg_banks,
+                                   TECMO_ASSET_PACK_ARENA_BANK04,
+                                   TECMO_ASSET_PACK_ARENA_SPRITE_EMIT_CPU);
+    uint32_t source_bank =
+        prg_banks > TECMO_ASSET_PACK_ARENA_BANK04
+            ? TECMO_ASSET_PACK_ARENA_BANK04
+            : prg_banks - 1U;
+    int bank04_available = prg_banks > TECMO_ASSET_PACK_ARENA_BANK04;
+    int payload_length;
+    TecmoAssetPackEntryInfo entry_info;
+
+    payload_length = snprintf(script_payload,
+                              sizeof(script_payload),
+                              "{\n"
+                              "  \"format\":\"tecmo.arena-intro.script/1\",\n"
+                              "  \"input_contract\":\"ines-only\",\n"
+                              "  \"source_route\":\"bank04:C-0127\",\n"
+                              "  \"source_bank_available\":%s,\n"
+                              "  \"runtime_shape\":\"native-scene-script\",\n"
+                              "  \"phases\":[\"enter\",\"pan_to_goal\",\"hold_goal\",\"handoff\"],\n"
+                              "  \"camera\":{\"viewport\":[256,240],\"start\":[0,0],\"end\":[40,72],\"pan_frames\":96},\n"
+                              "  \"timeline\":[\n"
+                              "    {\"op\":\"set_phase\",\"phase\":\"enter\",\"frame\":0},\n"
+                              "    {\"op\":\"move_camera\",\"phase\":\"pan_to_goal\",\"duration_frames\":96},\n"
+                              "    {\"op\":\"set_phase\",\"phase\":\"hold_goal\",\"frame\":96},\n"
+                              "    {\"op\":\"handoff\",\"phase\":\"handoff\",\"frame\":192,\"target\":\"arena/intro/ready-screen\"}\n"
+                              "  ]\n"
+                              "}\n",
+                              bank04_available ? "true" : "false");
+    if (payload_length < 0 || (size_t)payload_length >= sizeof(script_payload)) {
+        set_message(message, message_size, "Could not build arena intro script entry.");
+        return -1;
+    }
+
+    entry_info = make_entry_info(TECMO_ASSET_PACK_ARENA_INTRO_SCRIPT_ID,
+                                 TECMO_ASSET_PACK_TYPE_DATA,
+                                 source_bank,
+                                 TECMO_ASSET_PACK_ARENA_ROUTE_CPU,
+                                 script_source_offset,
+                                 TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+    if (tecmo_asset_pack_builder_add_memory(builder,
+                                            &entry_info,
+                                            script_payload,
+                                            (uint64_t)payload_length,
+                                            message,
+                                            message_size) != 0) {
+        set_message(message, message_size, "Could not write arena intro script entry.");
+        return -1;
+    }
+
+    payload_length = snprintf(goal_payload,
+                              sizeof(goal_payload),
+                              "{\n"
+                              "  \"format\":\"tecmo.arena-intro.goal-sprite-group/1\",\n"
+                              "  \"input_contract\":\"ines-only\",\n"
+                              "  \"source_route\":\"bank04:C-0129\",\n"
+                              "  \"source_bank_available\":%s,\n"
+                              "  \"alignment_contract\":\"all pieces project from one shared goal_anchor\",\n"
+                              "  \"goal_anchor\":{\"x\":184,\"y\":128},\n"
+                              "  \"pieces\":[\n"
+                              "    {\"part\":\"backboard\",\"offset\":{\"x\":-32,\"y\":-40},\"size\":{\"width\":64,\"height\":36},\"frame_index\":0},\n"
+                              "    {\"part\":\"rim\",\"offset\":{\"x\":-13,\"y\":-8},\"size\":{\"width\":26,\"height\":8},\"frame_index\":0},\n"
+                              "    {\"part\":\"net\",\"offset\":{\"x\":-10,\"y\":0},\"size\":{\"width\":20,\"height\":24},\"frame_index\":0},\n"
+                              "    {\"part\":\"support\",\"offset\":{\"x\":22,\"y\":-28},\"size\":{\"width\":34,\"height\":10},\"frame_index\":0},\n"
+                              "    {\"part\":\"post\",\"offset\":{\"x\":48,\"y\":-24},\"size\":{\"width\":10,\"height\":96},\"frame_index\":0}\n"
+                              "  ]\n"
+                              "}\n",
+                              bank04_available ? "true" : "false");
+    if (payload_length < 0 || (size_t)payload_length >= sizeof(goal_payload)) {
+        set_message(message, message_size, "Could not build arena goal sprite group entry.");
+        return -1;
+    }
+
+    entry_info = make_entry_info(TECMO_ASSET_PACK_ARENA_INTRO_GOAL_ID,
+                                 TECMO_ASSET_PACK_TYPE_DATA,
+                                 source_bank,
+                                 TECMO_ASSET_PACK_ARENA_SPRITE_EMIT_CPU,
+                                 goal_source_offset,
+                                 TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+    if (tecmo_asset_pack_builder_add_memory(builder,
+                                            &entry_info,
+                                            goal_payload,
+                                            (uint64_t)payload_length,
+                                            message,
+                                            message_size) != 0) {
+        set_message(message, message_size, "Could not write arena goal sprite group entry.");
+        return -1;
+    }
+
+    return 0;
 }
 
 int tecmo_asset_pack_build_from_ines(const char *rom_path,
@@ -916,6 +1129,7 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
                                "prg_banks_16k=%u\n"
                                "chr_banks_8k=%u\n"
                                "raw_entry_prefixes=prg/,chr/\n"
+                               "logical_entry_prefixes=arena/intro/\n"
                                "input_contract=ines-only\n",
                                mapper,
                                trainer_bytes,
@@ -1023,6 +1237,14 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
                 goto cleanup;
             }
         }
+    }
+
+    if (add_native_arena_intro_entries(builder,
+                                       prg_offset,
+                                       prg_banks,
+                                       message,
+                                       message_size) != 0) {
+        goto cleanup;
     }
 
     source_map = build_ines_source_map(mapper,
@@ -1583,6 +1805,8 @@ typedef struct TecmoAssetPackSelfTestInesListState {
     unsigned int count;
     int saw_manifest;
     int saw_source_map;
+    int saw_arena_intro_script;
+    int saw_arena_intro_goal;
     int saw_prg_bank0;
     int saw_prg_bank1;
     int saw_prg_fixed;
@@ -1605,6 +1829,10 @@ static int self_test_ines_list_entry(const TecmoAssetPackDirectoryEntryInfo *ent
         state->saw_manifest = 1;
     } else if (strcmp(entry_info->id, "system/source-map") == 0) {
         state->saw_source_map = 1;
+    } else if (strcmp(entry_info->id, TECMO_ASSET_PACK_ARENA_INTRO_SCRIPT_ID) == 0) {
+        state->saw_arena_intro_script = 1;
+    } else if (strcmp(entry_info->id, TECMO_ASSET_PACK_ARENA_INTRO_GOAL_ID) == 0) {
+        state->saw_arena_intro_goal = 1;
     } else if (strcmp(entry_info->id, "prg/bank00") == 0) {
         state->saw_prg_bank0 = 1;
     } else if (strcmp(entry_info->id, "prg/bank01") == 0) {
@@ -1801,6 +2029,11 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                                       message_size) != 0 ||
         self_test_entry_contains_text(ines_pack_path,
                                       "system/manifest",
+                                      "logical_entry_prefixes=arena/intro/",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      "system/manifest",
                                       "input_contract=ines-only",
                                       message,
                                       message_size) != 0 ||
@@ -1816,7 +2049,12 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                                       message_size) != 0 ||
         self_test_entry_contains_text(ines_pack_path,
                                       "system/source-map",
-                                      "\"logical_entries\":[]",
+                                      "\"id\":\"" TECMO_ASSET_PACK_ARENA_INTRO_SCRIPT_ID "\"",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      "system/source-map",
+                                      "\"id\":\"" TECMO_ASSET_PACK_ARENA_INTRO_GOAL_ID "\"",
                                       message,
                                       message_size) != 0 ||
         self_test_entry_contains_text(ines_pack_path,
@@ -1832,6 +2070,24 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         self_test_entry_contains_text(ines_pack_path,
                                       "system/source-map",
                                       "\"id\":\"chr/bank00\"",
+                                      message,
+                                      message_size) != 0) {
+        goto cleanup;
+    }
+
+    if (self_test_entry_contains_text(ines_pack_path,
+                                      TECMO_ASSET_PACK_ARENA_INTRO_SCRIPT_ID,
+                                      "\"format\":\"tecmo.arena-intro.script/1\"",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      TECMO_ASSET_PACK_ARENA_INTRO_GOAL_ID,
+                                      "\"format\":\"tecmo.arena-intro.goal-sprite-group/1\"",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      TECMO_ASSET_PACK_ARENA_INTRO_GOAL_ID,
+                                      "\"alignment_contract\"",
                                       message,
                                       message_size) != 0) {
         goto cleanup;
@@ -1874,9 +2130,11 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
     if (tecmo_asset_pack_list_entries(ines_pack_path,
                                       self_test_ines_list_entry,
                                       &ines_list_state) != 0 ||
-        ines_list_state.count != 7U ||
+        ines_list_state.count != 9U ||
         !ines_list_state.saw_manifest ||
         !ines_list_state.saw_source_map ||
+        !ines_list_state.saw_arena_intro_script ||
+        !ines_list_state.saw_arena_intro_goal ||
         !ines_list_state.saw_prg_bank0 ||
         !ines_list_state.saw_prg_bank1 ||
         !ines_list_state.saw_prg_fixed ||

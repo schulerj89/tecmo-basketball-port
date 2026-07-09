@@ -29,10 +29,11 @@ copied ASM, emulator logs, or loose capture files.
    .\build\tecmo_port.exe --assetpack-list build\tecmo.assetpack
    ```
 
-   The list should contain `system/manifest`, `system/source-map`, and PRG/CHR
-   entries only. `system/manifest` records `input_contract=ines-only`; the
-   source map records `"input_contract":"ines-only"` and an empty
-   `"logical_entries":[]` array.
+   The list should contain `system/manifest`, `system/source-map`, raw PRG/CHR
+   entries, and the current native `arena/intro/*` logical entries.
+   `system/manifest` records `input_contract=ines-only`; the source map records
+   `"input_contract":"ines-only"` and names the logical entries without
+   embedding asset payload data.
 4. Runtime lookup order remains: `TECMO_ASSETPACK`, then
    `<project-root>\build\tecmo.assetpack`, then `build\tecmo.assetpack`.
    Loose file/log fallbacks are temporary migration aids and should be isolated
@@ -45,11 +46,13 @@ copied ASM, emulator logs, or loose capture files.
 | Entry | Written by | Runtime consumer |
 | --- | --- | --- |
 | `system/manifest` | iNES pack builder | Metadata for the iNES-only input contract. |
-| `system/source-map` | iNES pack builder | Metadata/source audit for raw iNES offsets. Its `logical_entries` array is empty until a ROM-only logical extractor exists. |
+| `system/source-map` | iNES pack builder | Metadata/source audit for raw iNES offsets and sanitized native arena logical entries. |
 | `prg/bankNN` | iNES pack builder | Reserved for import reconciliation. |
 | `prg/fixed` | iNES pack builder | Reserved fixed-bank alias. |
 | `chr/all` | iNES pack builder | `tecmo_load_chr_data` through the CHR asset-pack loader. |
 | `chr/bankNN` | iNES pack builder | Reserved bank entries; current renderers read `chr/all`. |
+| `arena/intro/script` | iNES pack builder | Native arena intro scene script contract, with source-map provenance. |
+| `arena/intro/goal-sprite-group` | iNES pack builder | Native anchored goal object contract, with source-map provenance. |
 
 These entries are intentionally no longer imported by `--build-assetpack`:
 

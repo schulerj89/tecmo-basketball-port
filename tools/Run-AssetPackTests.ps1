@@ -242,6 +242,8 @@ function New-StringSet {
 
 function Get-KnownLogicalAssetPackEntries {
     return @(
+        "arena/intro/script",
+        "arena/intro/goal-sprite-group",
         "roster/table.tsv",
         "title/original-text.txt",
         "title/glyph-map.tsv",
@@ -268,7 +270,10 @@ function Get-KnownLogicalAssetPackEntryTypes {
 
 function Get-ExpectedLogicalAssetPackEntries {
     return [pscustomobject]@{
-        entries = @()
+        entries = @(
+            "arena/intro/script",
+            "arena/intro/goal-sprite-group"
+        )
         capture_sources_present = @()
     }
 }
@@ -607,7 +612,7 @@ try {
                 unexpected_raw_entries = $UnexpectedRawEntries
                 size_mismatches = $SizeMismatches
                 chr_all_valid = $ChrAllValid
-                logical_entries_allowed = $false
+                logical_entries_allowed = $ExpectedLogicalEntries.Count -gt 0
                 raw_asset_bytes_persisted = $false
             })
 
