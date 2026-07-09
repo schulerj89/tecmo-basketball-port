@@ -16,10 +16,10 @@
 #define TECMO_INTRO_ARENA_SCROLL_LIMIT_0301 0x77U
 #define TECMO_INTRO_ARENA_STREAM1_INC_START_0301 0x32U
 #define TECMO_INTRO_ARENA_STREAM1_INC_END_0301 0x50U
-#define TECMO_INTRO_ARENA_STREAM0_PTR_LOW 0x00U
-#define TECMO_INTRO_ARENA_STREAM0_PTR_HIGH 0x00U
-#define TECMO_INTRO_ARENA_STREAM1_PTR_LOW 0xB8U
-#define TECMO_INTRO_ARENA_STREAM1_PTR_HIGH 0x01U
+#define TECMO_INTRO_ARENA_STREAM0_PARAM_09 0x00U
+#define TECMO_INTRO_ARENA_STREAM0_PARAM_2E 0x00U
+#define TECMO_INTRO_ARENA_STREAM1_PARAM_09 0xB8U
+#define TECMO_INTRO_ARENA_STREAM1_PARAM_2E 0x01U
 #define TECMO_INTRO_ARENA_STREAM0_SEED_LOW 0x00U
 #define TECMO_INTRO_ARENA_STREAM0_SEED_HIGH 0x00U
 #define TECMO_INTRO_ARENA_STREAM1_SEED_LOW 0x1EU
@@ -150,13 +150,13 @@ static void intro_arena_set_emit_pass(TecmoIntroArenaAsmMachine *machine,
     memset(pass, 0, sizeof(*pass));
     pass->stream_index = stream_index;
     if (stream_index == 1U) {
-        pass->pointer_low = TECMO_INTRO_ARENA_STREAM1_PTR_LOW;
-        pass->pointer_high = TECMO_INTRO_ARENA_STREAM1_PTR_HIGH;
+        pass->stream_param_09 = TECMO_INTRO_ARENA_STREAM1_PARAM_09;
+        pass->stream_param_2e = TECMO_INTRO_ARENA_STREAM1_PARAM_2E;
         pass->stream_low = machine->zp_07ec;
         pass->stream_high = machine->zp_21;
     } else {
-        pass->pointer_low = TECMO_INTRO_ARENA_STREAM0_PTR_LOW;
-        pass->pointer_high = TECMO_INTRO_ARENA_STREAM0_PTR_HIGH;
+        pass->stream_param_09 = TECMO_INTRO_ARENA_STREAM0_PARAM_09;
+        pass->stream_param_2e = TECMO_INTRO_ARENA_STREAM0_PARAM_2E;
         pass->stream_low = machine->zp_07eb;
         pass->stream_high = machine->zp_20;
     }
@@ -240,8 +240,8 @@ static void intro_arena_run_until_frame(unsigned frame, TecmoIntroArenaAsmMachin
 static bool check_intro_arena_emit_pass(const TecmoIntroArenaTransitionState *state,
                                         size_t pass_index,
                                         uint8_t stream_index,
-                                        uint8_t pointer_low,
-                                        uint8_t pointer_high,
+                                        uint8_t stream_param_09,
+                                        uint8_t stream_param_2e,
                                         uint8_t stream_low,
                                         uint8_t stream_high)
 {
@@ -252,8 +252,8 @@ static bool check_intro_arena_emit_pass(const TecmoIntroArenaTransitionState *st
 
     pass = &state->emit_passes[pass_index];
     return pass->stream_index == stream_index &&
-           pass->pointer_low == pointer_low &&
-           pass->pointer_high == pointer_high &&
+           pass->stream_param_09 == stream_param_09 &&
+           pass->stream_param_2e == stream_param_2e &&
            pass->stream_low == stream_low &&
            pass->stream_high == stream_high;
 }
@@ -295,15 +295,15 @@ static bool check_intro_arena_state(const TecmoIntroArenaTransitionState *state,
            check_intro_arena_emit_pass(state,
                                        0U,
                                        1U,
-                                       TECMO_INTRO_ARENA_STREAM1_PTR_LOW,
-                                       TECMO_INTRO_ARENA_STREAM1_PTR_HIGH,
+                                       TECMO_INTRO_ARENA_STREAM1_PARAM_09,
+                                       TECMO_INTRO_ARENA_STREAM1_PARAM_2E,
                                        stream1_low,
                                        stream1_high) &&
            check_intro_arena_emit_pass(state,
                                        1U,
                                        0U,
-                                       TECMO_INTRO_ARENA_STREAM0_PTR_LOW,
-                                       TECMO_INTRO_ARENA_STREAM0_PTR_HIGH,
+                                       TECMO_INTRO_ARENA_STREAM0_PARAM_09,
+                                       TECMO_INTRO_ARENA_STREAM0_PARAM_2E,
                                        stream0_low,
                                        stream0_high);
 }

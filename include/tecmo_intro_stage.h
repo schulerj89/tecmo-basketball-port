@@ -36,8 +36,8 @@ typedef enum TecmoIntroArenaPhase {
 
 typedef struct TecmoIntroArenaEmitPassState {
     uint8_t stream_index;
-    uint8_t pointer_low;
-    uint8_t pointer_high;
+    uint8_t stream_param_09;
+    uint8_t stream_param_2e;
     uint8_t stream_low;
     uint8_t stream_high;
 } TecmoIntroArenaEmitPassState;

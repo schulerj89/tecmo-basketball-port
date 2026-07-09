@@ -1,7 +1,10 @@
 #include "tecmo_game.h"
+#include "tecmo_intro_stage.h"
 
 #include <stdio.h>
 #include <string.h>
+
+#define FLOW_INTRO_ARENA_BANK04_HANDOFF_FRAME 540U
 
 static const char *flow_mode_name(TecmoPlayMode mode)
 {
@@ -152,6 +155,51 @@ static bool flow_wait_for_intro_step_advance(TecmoRuntime *runtime,
     return false;
 }
 
+static bool flow_hold_intro_step(TecmoRuntime *runtime,
+                                 uint8_t expected_step,
+                                 size_t frames,
+                                 const char *label,
+                                 char *message,
+                                 size_t message_size)
+{
+    TecmoInput input;
+
+    memset(&input, 0, sizeof(input));
+    for (size_t frame = 0; frame < frames; ++frame) {
+        tecmo_runtime_update(runtime, &input);
+        if (runtime->intro_output_step != expected_step) {
+            char detail[160];
+            (void)snprintf(detail,
+                           sizeof(detail),
+                           "%s after %u arena frames",
+                           label,
+                           (unsigned)(frame + 1U));
+            set_flow_test_message(message, message_size, detail);
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool flow_expect_arena_bank04_handoff_frame(char *message, size_t message_size)
+{
+    TecmoIntroArenaTransitionState arena_state;
+
+    tecmo_intro_arena_transition_state(FLOW_INTRO_ARENA_BANK04_HANDOFF_FRAME - 1U, &arena_state);
+    if (arena_state.phase == TECMO_INTRO_ARENA_PHASE_WRAP) {
+        set_flow_test_message(message, message_size, "arena Bank04 state wrapped before handoff frame");
+        return false;
+    }
+
+    tecmo_intro_arena_transition_state(FLOW_INTRO_ARENA_BANK04_HANDOFF_FRAME, &arena_state);
+    if (arena_state.phase != TECMO_INTRO_ARENA_PHASE_WRAP) {
+        set_flow_test_message(message, message_size, "arena Bank04 state did not wrap at handoff frame");
+        return false;
+    }
+
+    return true;
+}
+
 bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t message_size)
 {
     TecmoInput input;
@@ -204,12 +252,25 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         return false;
     }
     previous_intro_step = runtime->intro_output_step;
-    if (!flow_wait_for_intro_step_advance(runtime,
-                                          previous_intro_step,
-                                          540U,
-                                          "play game did not advance to ready intro step",
-                                          message,
-                                          message_size)) {
+    if (!flow_expect_arena_bank04_handoff_frame(message, message_size)) {
+        return false;
+    }
+    if (!flow_hold_intro_step(runtime,
+                              previous_intro_step,
+                              FLOW_INTRO_ARENA_BANK04_HANDOFF_FRAME - 1U,
+                              "play game left arena before Bank04 handoff",
+                              message,
+                              message_size)) {
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->intro_output_step == previous_intro_step) {
+        set_flow_test_message(message, message_size, "play game did not advance at Bank04 handoff");
+        return false;
+    }
+    if (runtime->mode_frame_counter != 0U) {
+        set_flow_test_message(message, message_size, "arena handoff did not reset intro frame counter");
         return false;
     }
     previous_intro_step = runtime->intro_output_step;
