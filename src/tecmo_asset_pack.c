@@ -23,9 +23,12 @@
 #define TECMO_ASSET_PACK_CHR_BANK_BYTES 0x2000ULL
 #define TECMO_ASSET_PACK_PATH_SIZE 1024U
 #define TECMO_ASSET_PACK_ARENA_INTRO_SCRIPT_ID "arena/intro/script"
+#define TECMO_ASSET_PACK_ARENA_INTRO_BACKGROUND_ID "arena/intro/background-layer"
+#define TECMO_ASSET_PACK_ARENA_INTRO_PALETTE_ID "arena/intro/palette-cycle"
 #define TECMO_ASSET_PACK_ARENA_INTRO_GOAL_ID "arena/intro/goal-sprite-group"
 #define TECMO_ASSET_PACK_ARENA_BANK04 4U
 #define TECMO_ASSET_PACK_ARENA_ROUTE_CPU 0x88E7U
+#define TECMO_ASSET_PACK_ARENA_PALETTE_CPU 0x89DDU
 #define TECMO_ASSET_PACK_ARENA_SPRITE_EMIT_CPU 0x8988U
 #define TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE 0x8000U
 #define TECMO_ASSET_PACK_SWITCHED_PRG_CPU_LIMIT 0xC000U
@@ -769,7 +772,7 @@ static char *build_ines_source_map(uint32_t mapper,
                                    uint64_t chr_size,
                                    size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 4U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 6U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -778,6 +781,11 @@ static char *build_ines_source_map(uint32_t mapper,
                                    prg_banks,
                                    TECMO_ASSET_PACK_ARENA_BANK04,
                                    TECMO_ASSET_PACK_ARENA_ROUTE_CPU);
+    uint64_t palette_source_offset =
+        prg_bank_cpu_source_offset(prg_offset,
+                                   prg_banks,
+                                   TECMO_ASSET_PACK_ARENA_BANK04,
+                                   TECMO_ASSET_PACK_ARENA_PALETTE_CPU);
     uint64_t goal_source_offset =
         prg_bank_cpu_source_offset(prg_offset,
                                    prg_banks,
@@ -926,6 +934,30 @@ static char *build_ines_source_map(uint32_t mapper,
                                         capacity,
                                         &length,
                                         &first_logical,
+                                        TECMO_ASSET_PACK_ARENA_INTRO_BACKGROUND_ID,
+                                        "arena-intro-background-layer",
+                                        "tecmo.arena-intro.background-layer/1",
+                                        bank04_available ? "prg/bank04" : "prg/fixed",
+                                        script_source_offset,
+                                        bank04_available ? TECMO_ASSET_PACK_ARENA_BANK04 : prg_banks - 1U,
+                                        TECMO_ASSET_PACK_ARENA_ROUTE_CPU,
+                                        bank04_available) != 0 ||
+        append_logical_source_map_entry(source_map,
+                                        capacity,
+                                        &length,
+                                        &first_logical,
+                                        TECMO_ASSET_PACK_ARENA_INTRO_PALETTE_ID,
+                                        "arena-intro-palette-cycle",
+                                        "tecmo.arena-intro.palette-cycle/1",
+                                        bank04_available ? "prg/bank04" : "prg/fixed",
+                                        palette_source_offset,
+                                        bank04_available ? TECMO_ASSET_PACK_ARENA_BANK04 : prg_banks - 1U,
+                                        TECMO_ASSET_PACK_ARENA_PALETTE_CPU,
+                                        bank04_available) != 0 ||
+        append_logical_source_map_entry(source_map,
+                                        capacity,
+                                        &length,
+                                        &first_logical,
                                         TECMO_ASSET_PACK_ARENA_INTRO_GOAL_ID,
                                         "arena-intro-goal-sprite-group",
                                         "tecmo.arena-intro.goal-sprite-group/1",
@@ -961,12 +993,19 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                           size_t message_size)
 {
     char script_payload[2048];
+    char background_payload[2048];
+    char palette_payload[2048];
     char goal_payload[2048];
     uint64_t script_source_offset =
         prg_bank_cpu_source_offset(prg_offset,
                                    prg_banks,
                                    TECMO_ASSET_PACK_ARENA_BANK04,
                                    TECMO_ASSET_PACK_ARENA_ROUTE_CPU);
+    uint64_t palette_source_offset =
+        prg_bank_cpu_source_offset(prg_offset,
+                                   prg_banks,
+                                   TECMO_ASSET_PACK_ARENA_BANK04,
+                                   TECMO_ASSET_PACK_ARENA_PALETTE_CPU);
     uint64_t goal_source_offset =
         prg_bank_cpu_source_offset(prg_offset,
                                    prg_banks,
@@ -1016,6 +1055,88 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                             message,
                                             message_size) != 0) {
         set_message(message, message_size, "Could not write arena intro script entry.");
+        return -1;
+    }
+
+    payload_length = snprintf(background_payload,
+                              sizeof(background_payload),
+                              "{\n"
+                              "  \"format\":\"tecmo.arena-intro.background-layer/1\",\n"
+                              "  \"input_contract\":\"ines-only\",\n"
+                              "  \"source_route\":\"bank04:L88E7-screen18\",\n"
+                              "  \"source_bank_available\":%s,\n"
+                              "  \"runtime_shape\":\"native-tile-layer\",\n"
+                              "  \"chr_source\":\"chr/all\",\n"
+                              "  \"scene_size_tiles\":[32,51],\n"
+                              "  \"viewport_tiles\":[32,30],\n"
+                              "  \"screen_id\":24,\n"
+                              "  \"mmc3_background\":{\"upper_r0\":20,\"upper_r1\":22,\"lower_r0\":94,\"lower_r1\":96,\"split_row\":26},\n"
+                              "  \"bands\":[\n"
+                              "    {\"name\":\"scoreboard\",\"source_page\":0,\"source_first_row\":0,\"rows\":16,\"destination_first_row\":0},\n"
+                              "    {\"name\":\"small_crowd\",\"source_page\":1,\"source_first_row\":1,\"rows\":22,\"destination_first_row\":16},\n"
+                              "    {\"name\":\"large_crowd\",\"source_page\":0,\"source_first_row\":16,\"rows\":13,\"destination_first_row\":38}\n"
+                              "  ],\n"
+                              "  \"tile_state\":\"extractor-populated-runtime-state-pending\"\n"
+                              "}\n",
+                              bank04_available ? "true" : "false");
+    if (payload_length < 0 || (size_t)payload_length >= sizeof(background_payload)) {
+        set_message(message, message_size, "Could not build arena background layer entry.");
+        return -1;
+    }
+
+    entry_info = make_entry_info(TECMO_ASSET_PACK_ARENA_INTRO_BACKGROUND_ID,
+                                 TECMO_ASSET_PACK_TYPE_DATA,
+                                 source_bank,
+                                 TECMO_ASSET_PACK_ARENA_ROUTE_CPU,
+                                 script_source_offset,
+                                 TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+    if (tecmo_asset_pack_builder_add_memory(builder,
+                                            &entry_info,
+                                            background_payload,
+                                            (uint64_t)payload_length,
+                                            message,
+                                            message_size) != 0) {
+        set_message(message, message_size, "Could not write arena background layer entry.");
+        return -1;
+    }
+
+    payload_length = snprintf(palette_payload,
+                              sizeof(palette_payload),
+                              "{\n"
+                              "  \"format\":\"tecmo.arena-intro.palette-cycle/1\",\n"
+                              "  \"input_contract\":\"ines-only\",\n"
+                              "  \"source_route\":\"bank04:C-0132\",\n"
+                              "  \"source_bank_available\":%s,\n"
+                              "  \"runtime_shape\":\"native-palette-cycle\",\n"
+                              "  \"source_snapshot_cpu\":%u,\n"
+                              "  \"fixed_helper\":\"C05A/D700 setup snapshot copy\",\n"
+                              "  \"work_ranges\":{\"full\":\"033E-034D\",\"low_nibbles\":\"031E-032D\"},\n"
+                              "  \"stages\":[\n"
+                              "    {\"name\":\"setup\",\"frame\":0,\"mode\":\"copy_rom_snapshot\"},\n"
+                              "    {\"name\":\"fade_step\",\"source\":\"bank04:L88A9\",\"mode\":\"subtract_clamped\"}\n"
+                              "  ],\n"
+                              "  \"palette_state\":\"extractor-populated-runtime-state-pending\"\n"
+                              "}\n",
+                              bank04_available ? "true" : "false",
+                              TECMO_ASSET_PACK_ARENA_PALETTE_CPU);
+    if (payload_length < 0 || (size_t)payload_length >= sizeof(palette_payload)) {
+        set_message(message, message_size, "Could not build arena palette cycle entry.");
+        return -1;
+    }
+
+    entry_info = make_entry_info(TECMO_ASSET_PACK_ARENA_INTRO_PALETTE_ID,
+                                 TECMO_ASSET_PACK_TYPE_DATA,
+                                 source_bank,
+                                 TECMO_ASSET_PACK_ARENA_PALETTE_CPU,
+                                 palette_source_offset,
+                                 TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+    if (tecmo_asset_pack_builder_add_memory(builder,
+                                            &entry_info,
+                                            palette_payload,
+                                            (uint64_t)payload_length,
+                                            message,
+                                            message_size) != 0) {
+        set_message(message, message_size, "Could not write arena palette cycle entry.");
         return -1;
     }
 
@@ -1806,6 +1927,8 @@ typedef struct TecmoAssetPackSelfTestInesListState {
     int saw_manifest;
     int saw_source_map;
     int saw_arena_intro_script;
+    int saw_arena_intro_background;
+    int saw_arena_intro_palette;
     int saw_arena_intro_goal;
     int saw_prg_bank0;
     int saw_prg_bank1;
@@ -1831,6 +1954,10 @@ static int self_test_ines_list_entry(const TecmoAssetPackDirectoryEntryInfo *ent
         state->saw_source_map = 1;
     } else if (strcmp(entry_info->id, TECMO_ASSET_PACK_ARENA_INTRO_SCRIPT_ID) == 0) {
         state->saw_arena_intro_script = 1;
+    } else if (strcmp(entry_info->id, TECMO_ASSET_PACK_ARENA_INTRO_BACKGROUND_ID) == 0) {
+        state->saw_arena_intro_background = 1;
+    } else if (strcmp(entry_info->id, TECMO_ASSET_PACK_ARENA_INTRO_PALETTE_ID) == 0) {
+        state->saw_arena_intro_palette = 1;
     } else if (strcmp(entry_info->id, TECMO_ASSET_PACK_ARENA_INTRO_GOAL_ID) == 0) {
         state->saw_arena_intro_goal = 1;
     } else if (strcmp(entry_info->id, "prg/bank00") == 0) {
@@ -2054,6 +2181,16 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                                       message_size) != 0 ||
         self_test_entry_contains_text(ines_pack_path,
                                       "system/source-map",
+                                      "\"id\":\"" TECMO_ASSET_PACK_ARENA_INTRO_BACKGROUND_ID "\"",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      "system/source-map",
+                                      "\"id\":\"" TECMO_ASSET_PACK_ARENA_INTRO_PALETTE_ID "\"",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      "system/source-map",
                                       "\"id\":\"" TECMO_ASSET_PACK_ARENA_INTRO_GOAL_ID "\"",
                                       message,
                                       message_size) != 0 ||
@@ -2078,6 +2215,21 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
     if (self_test_entry_contains_text(ines_pack_path,
                                       TECMO_ASSET_PACK_ARENA_INTRO_SCRIPT_ID,
                                       "\"format\":\"tecmo.arena-intro.script/1\"",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      TECMO_ASSET_PACK_ARENA_INTRO_BACKGROUND_ID,
+                                      "\"format\":\"tecmo.arena-intro.background-layer/1\"",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      TECMO_ASSET_PACK_ARENA_INTRO_BACKGROUND_ID,
+                                      "\"chr_source\":\"chr/all\"",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      TECMO_ASSET_PACK_ARENA_INTRO_PALETTE_ID,
+                                      "\"format\":\"tecmo.arena-intro.palette-cycle/1\"",
                                       message,
                                       message_size) != 0 ||
         self_test_entry_contains_text(ines_pack_path,
@@ -2130,10 +2282,12 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
     if (tecmo_asset_pack_list_entries(ines_pack_path,
                                       self_test_ines_list_entry,
                                       &ines_list_state) != 0 ||
-        ines_list_state.count != 9U ||
+        ines_list_state.count != 11U ||
         !ines_list_state.saw_manifest ||
         !ines_list_state.saw_source_map ||
         !ines_list_state.saw_arena_intro_script ||
+        !ines_list_state.saw_arena_intro_background ||
+        !ines_list_state.saw_arena_intro_palette ||
         !ines_list_state.saw_arena_intro_goal ||
         !ines_list_state.saw_prg_bank0 ||
         !ines_list_state.saw_prg_bank1 ||

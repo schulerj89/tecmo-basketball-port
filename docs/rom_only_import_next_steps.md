@@ -19,9 +19,13 @@ fixtures.
 - Replace `intro/arena/capture.ndjson` and `intro/post-arena/capture.ndjson`
   loose-capture loading with ROM-derived intro/arena state or importer-owned
   emulator replay output generated from the `.nes` input.
-- Expand the initial `arena/intro/script` and `arena/intro/goal-sprite-group`
-  entries into renderer-consumable background, palette, crowd group, READY, and
-  WARRIORS native entries.
+- Populate the current `arena/intro/background-layer` and
+  `arena/intro/palette-cycle` contracts with renderer-consumable tile,
+  attribute, and palette state from a ROM-owned extractor instead of loose
+  captures.
+- Expand the current `arena/intro/script`, `arena/intro/background-layer`,
+  `arena/intro/palette-cycle`, and `arena/intro/goal-sprite-group` entries into
+  crowd group, READY, and WARRIORS native entries.
 - Update arena intro render paths to consume pack entries first and report a
   clear missing-ROM-derived-state status when those entries are absent.
 - Promote `tools\Run-IntroSequenceTests.ps1` from skipped runtime-render gap to

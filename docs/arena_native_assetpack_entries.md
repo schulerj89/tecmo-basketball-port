@@ -169,9 +169,10 @@ High-level runtime APIs should remain shaped around scene and renderer concepts.
 ## Test Hook
 
 The ROM-only asset-pack smoke test now expects the first native arena entries:
-`arena/intro/script` and `arena/intro/goal-sprite-group`. Broader entries such
-as background layers, palette cycles, READY, and WARRIORS should extend the same
-directory/source-map gate in the change that emits them.
+`arena/intro/script`, `arena/intro/background-layer`,
+`arena/intro/palette-cycle`, and `arena/intro/goal-sprite-group`. Broader
+entries such as READY and WARRIORS should extend the same directory/source-map
+gate in the change that emits them.
 
 Keep the first gate directory-only before checking rendered frames:
 

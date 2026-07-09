@@ -164,9 +164,18 @@ try {
     $ListOutput = & $ExePath --assetpack-list $AssetPackPath 2>&1
     $ListExitCode = $LASTEXITCODE
     $ListText = (@($ListOutput) | ForEach-Object { [string]$_ }) -join "`n"
+    $RequiredNativeEntries = @(
+        "arena/intro/script",
+        "arena/intro/background-layer",
+        "arena/intro/palette-cycle",
+        "arena/intro/goal-sprite-group"
+    )
     $ForbiddenCaptureEntries = @("intro/arena/capture.ndjson", "intro/post-arena/capture.ndjson", "intro/captures/source-map")
+    $MissingNativeEntries = @($RequiredNativeEntries | Where-Object { $ListText -notmatch [regex]::Escape($_) })
     $PresentForbiddenCaptureEntries = @($ForbiddenCaptureEntries | Where-Object { $ListText -match [regex]::Escape($_) })
-    $ListPassed = $ListExitCode -eq 0 -and $PresentForbiddenCaptureEntries.Count -eq 0
+    $ListPassed = $ListExitCode -eq 0 -and
+        $MissingNativeEntries.Count -eq 0 -and
+        $PresentForbiddenCaptureEntries.Count -eq 0
     if (!$ListPassed) {
         ++$Failures
     }
@@ -176,10 +185,12 @@ try {
         passed = $ListPassed
         skipped = $false
         exit_code = $ListExitCode
+        required_native_entries = $RequiredNativeEntries
+        missing_native_entries = $MissingNativeEntries
         forbidden_capture_entries = $ForbiddenCaptureEntries
         present_forbidden_capture_entries = $PresentForbiddenCaptureEntries
         raw_output_persisted = $false
-        error = if ($ListPassed) { $null } else { "ROM-only test asset pack unexpectedly contains capture entries" }
+        error = if ($ListPassed) { $null } else { "ROM-only test asset pack is missing native arena entries or contains capture entries" }
     })
 
     ++$Skipped

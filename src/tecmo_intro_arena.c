@@ -65,6 +65,11 @@ static const char *ARENA_CAPTURE_ASSET_ENTRIES[] = {
     "emu_intro_arena_irq_watch.ndjson",
 };
 
+static const char *ARENA_NATIVE_ASSET_ENTRIES[] = {
+    "arena/intro/background-layer",
+    "arena/intro/palette-cycle",
+};
+
 unsigned tecmo_intro_arena_display_frame(unsigned native_frame)
 {
     return (unsigned)(((uint64_t)native_frame * ARENA_SCREEN_CAPTURE_REFERENCE_FRAME +
@@ -869,6 +874,39 @@ static const char *asset_pack_env_path(void)
     return value != NULL && value[0] != '\0' ? value : NULL;
 }
 
+static bool arena_env_enabled(const char *name)
+{
+    char text[16];
+
+    if (name == NULL) {
+        return false;
+    }
+#ifdef _WIN32
+    {
+        char *value = NULL;
+        size_t value_size = 0;
+        if (_dupenv_s(&value, &value_size, name) != 0 ||
+            value == NULL || value[0] == '\0') {
+            free(value);
+            return false;
+        }
+        (void)snprintf(text, sizeof(text), "%s", value);
+        free(value);
+    }
+#else
+    {
+        const char *value = getenv(name);
+        if (value == NULL || value[0] == '\0') {
+            return false;
+        }
+        (void)snprintf(text, sizeof(text), "%s", value);
+    }
+#endif
+    return strcmp(text, "0") != 0 &&
+           strcmp(text, "false") != 0 &&
+           strcmp(text, "FALSE") != 0;
+}
+
 static bool arena_env_uint(const char *name, unsigned *out)
 {
     char text[64];
@@ -1125,6 +1163,68 @@ static bool load_arena_capture_asset_pack(TecmoIntroArenaCapture *capture,
     return false;
 }
 
+static bool arena_native_asset_entry_present(const char *pack_path, const char *entry_id)
+{
+    char *json;
+    size_t json_size = 0U;
+    bool present = false;
+
+    if (pack_path == NULL || pack_path[0] == '\0' || entry_id == NULL || entry_id[0] == '\0') {
+        return false;
+    }
+
+    json = read_asset_pack_text_entry(pack_path, entry_id, &json_size);
+    if (json == NULL) {
+        return false;
+    }
+    present = json_size > 0U &&
+              strstr(json, "\"input_contract\":\"ines-only\"") != NULL;
+    free(json);
+    return present;
+}
+
+static bool load_arena_native_asset_pack_status(TecmoIntroArenaCapture *capture,
+                                                const char *project_root)
+{
+    char project_pack_path[260];
+    const char *env_path;
+    const char *pack_paths[4];
+
+    append_path(project_pack_path,
+                sizeof(project_pack_path),
+                project_root,
+                "build\\tecmo.assetpack");
+    env_path = asset_pack_env_path();
+
+    pack_paths[0] = env_path;
+    pack_paths[1] = project_pack_path[0] != '\0' ? project_pack_path : NULL;
+    pack_paths[2] = "build\\tecmo.assetpack";
+    pack_paths[3] = "..\\build\\tecmo.assetpack";
+
+    for (size_t i = 0; i < sizeof(pack_paths) / sizeof(pack_paths[0]); ++i) {
+        bool present = true;
+
+        if (pack_paths[i] == NULL || pack_paths[i][0] == '\0') {
+            continue;
+        }
+        for (size_t entry = 0;
+             entry < sizeof(ARENA_NATIVE_ASSET_ENTRIES) / sizeof(ARENA_NATIVE_ASSET_ENTRIES[0]);
+             ++entry) {
+            if (!arena_native_asset_entry_present(pack_paths[i], ARENA_NATIVE_ASSET_ENTRIES[entry])) {
+                present = false;
+                break;
+            }
+        }
+        if (present) {
+            arena_status(capture,
+                         "ROM-ONLY ARENA NATIVE ENTRIES PRESENT; TILE/PALETTE STATE EXTRACTOR PENDING");
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool tecmo_intro_arena_capture_load(TecmoIntroArenaCapture *capture, const char *project_root)
 {
     char project_compact_path[260];
@@ -1178,6 +1278,11 @@ bool tecmo_intro_arena_capture_load(TecmoIntroArenaCapture *capture, const char 
         }
     }
     arena_status(capture, "IMPORT INTRO ARENA CAPTURE OR RUN FCEUX LUA WATCH");
+
+    if (load_arena_native_asset_pack_status(capture, project_root) &&
+        !arena_env_enabled("TECMO_ALLOW_LOOSE_INTRO_CAPTURE")) {
+        return false;
+    }
 
     env_path = arena_capture_env_path();
     if (env_path != NULL && env_path[0] != '\0') {

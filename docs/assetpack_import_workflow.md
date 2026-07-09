@@ -36,8 +36,8 @@ copied ASM, emulator logs, or loose capture files.
    embedding asset payload data.
 4. Runtime lookup order remains: `TECMO_ASSETPACK`, then
    `<project-root>\build\tecmo.assetpack`, then `build\tecmo.assetpack`.
-   Loose file/log fallbacks are temporary migration aids and should be isolated
-   whenever a test claims ROM-only or pack-backed behavior.
+   When native arena entries are present, old arena capture inputs are disabled
+   unless `TECMO_ALLOW_LOOSE_INTRO_CAPTURE=1` is set for a local diagnostic run.
 
 ## Current Pack Entries
 
@@ -52,6 +52,8 @@ copied ASM, emulator logs, or loose capture files.
 | `chr/all` | iNES pack builder | `tecmo_load_chr_data` through the CHR asset-pack loader. |
 | `chr/bankNN` | iNES pack builder | Reserved bank entries; current renderers read `chr/all`. |
 | `arena/intro/script` | iNES pack builder | Native arena intro scene script contract, with source-map provenance. |
+| `arena/intro/background-layer` | iNES pack builder | Native arena background/CHR/MMC3 band contract; dynamic tile state still requires extractor population. |
+| `arena/intro/palette-cycle` | iNES pack builder | Native palette-cycle contract sourced from the Bank04 setup route; runtime palette stages still require extractor population. |
 | `arena/intro/goal-sprite-group` | iNES pack builder | Native anchored goal object contract, with source-map provenance. |
 
 These entries are intentionally no longer imported by `--build-assetpack`:

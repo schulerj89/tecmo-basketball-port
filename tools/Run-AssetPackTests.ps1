@@ -243,6 +243,8 @@ function New-StringSet {
 function Get-KnownLogicalAssetPackEntries {
     return @(
         "arena/intro/script",
+        "arena/intro/background-layer",
+        "arena/intro/palette-cycle",
         "arena/intro/goal-sprite-group",
         "roster/table.tsv",
         "title/original-text.txt",
@@ -272,6 +274,8 @@ function Get-ExpectedLogicalAssetPackEntries {
     return [pscustomobject]@{
         entries = @(
             "arena/intro/script",
+            "arena/intro/background-layer",
+            "arena/intro/palette-cycle",
             "arena/intro/goal-sprite-group"
         )
         capture_sources_present = @()
