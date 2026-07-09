@@ -9,29 +9,49 @@ decomp files or watcher logs.
 
 1. Keep inputs local: `<LOCAL_ROM.nes>`, `<LOCAL_DECOMP_ROOT>`, and any emulator
    captures under ignored paths such as `build\`.
-2. Build the base pack from a locally owned iNES image:
-
-   ```powershell
-   .\build\tecmo_port.exe --build-assetpack <LOCAL_ROM.nes> build\tecmo.assetpack
-   ```
-
-3. Distill captures and decomp-derived reports into compact, named import
-   payloads. For arena work, prefer:
+2. Distill raw emulator captures before building the pack. For arena work, run:
 
    ```powershell
    .\tools\Import-IntroArenaCapture.ps1
    ```
 
-   The generated payload is still private local data and should be imported into
-   the ignored pack, not committed.
-4. Extend the pack in the import step with `tecmo_asset_pack_builder_add_memory`
+   This reads ignored raw watcher logs such as
+   `build\emu_intro_memory_watch.ndjson` and
+   `build\emu_intro_arena_irq_watch.ndjson`, then writes the compact ignored
+   input `build\intro_arena_capture.ndjson`.
+3. Build the pack from a locally owned iNES image:
+
+   ```powershell
+   .\build\tecmo_port.exe --build-assetpack <LOCAL_ROM.nes> build\tecmo.assetpack
+   ```
+
+   The integrated target for `--build-assetpack` is one pass that starts from
+   `<LOCAL_ROM.nes>` plus the decomp root/capture inputs and writes both the
+   base iNES entries and any present compact import entries into
+   `build\tecmo.assetpack`. In that state, use:
+
+   ```powershell
+   .\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --build-assetpack <LOCAL_ROM.nes> build\tecmo.assetpack
+   ```
+
+   Expected integrated imports are `intro/arena/capture.ndjson` from the compact
+   arena capture, raw watcher-shaped migration entries only while still needed,
+   and `intro/captures/source-map` metadata that records source labels without
+   raw payload bytes.
+4. Current manual gap: in this worktree, the CLI path still builds the base iNES
+   pack only. Until `--build-assetpack` calls the import layer, adding
+   `build\intro_arena_capture.ndjson` to the filesystem does not prove it entered
+   `build\tecmo.assetpack`; add capture entries with the builder/import command
+   under development and verify the pack directory before treating a render as
+   asset-pack-backed.
+5. Extend the pack in the import step with `tecmo_asset_pack_builder_add_memory`
    or `tecmo_asset_pack_builder_add_file`. Use stable logical names, keep
-   `system/source-map` current, and record only source offsets/counts or schema
+   source-map metadata current, and record only source offsets/counts or schema
    metadata in committed docs.
-5. Runtime lookup order should remain: `TECMO_ASSETPACK`, then
+6. Runtime lookup order should remain: `TECMO_ASSETPACK`, then
    `<project-root>\build\tecmo.assetpack`, then `build\tecmo.assetpack`.
    Raw file/log fallbacks are temporary migration aids.
-6. Render and test from the runtime pack entries. If a render still needs
+7. Render and test from the runtime pack entries. If a render still needs
    `build\*.ndjson` raw watcher logs, that data has not finished the import
    cleanup.
 
@@ -70,9 +90,11 @@ pack is present:
 | `intro/post-arena/emu_intro_memory_watch.ndjson` | post-arena migration alias for raw watcher-shaped data. |
 
 The intro composite trace is not pack-backed yet. `tecmo_intro_trace_load` still
-looks for ignored local `build\intro_composite_trace.json` files. A future import
-entry should make that trace pack-backed before runtime depends on it for the
-finished intro path.
+looks for ignored local `build\intro_composite_trace.json` files. The proposed
+canonical namespace is `intro/composite/`, with
+`intro/composite/trace.json` as the trace entry and
+`intro/composite/source-map` for local source metadata. Add those entries before
+runtime depends on the composite trace for the finished intro path.
 
 ## Intro Retest Checklist
 
@@ -86,6 +108,29 @@ pack, generated captures, reports, or rendered original-asset screenshots.
 .\build\tecmo_port.exe --controls-test
 .\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --flow-test
 ```
+
+Source isolation before focused intro retests:
+
+```powershell
+$CandidateAssetPack = "build\tecmo.assetpack"
+Remove-Item Env:\TECMO_INTRO_CAPTURE -ErrorAction SilentlyContinue
+$env:TECMO_ASSETPACK = (Resolve-Path $CandidateAssetPack).Path
+```
+
+Temporarily move or rename local capture fallbacks before judging an import
+cleanup pass, then restore them after the run. At minimum isolate:
+`build\intro_arena_capture.ndjson`, `intro_arena_capture.ndjson`,
+`build\emu_intro_memory_watch.ndjson`, `emu_intro_memory_watch.ndjson`,
+`build\emu_intro_arena_irq_watch.ndjson`, and
+`emu_intro_arena_irq_watch.ndjson`. If local fallbacks cannot be moved, require
+source proof instead: the candidate pack directory must contain the intended
+entry, `intro/captures/source-map` must identify its source label, and the render
+status/footer must name an `assetpack entry` loaded from the candidate
+`TECMO_ASSETPACK` path rather than a local file path.
+
+Do not count `intro-composite-preset` as pack-backed while it still depends on
+`build\intro_composite_trace.json`; it is a local-trace render until
+`intro/composite/trace.json` exists and the runtime status proves that entry won.
 
 Focused intro renders:
 
@@ -109,15 +154,17 @@ Full declared checks:
 
 When validating importer cleanup specifically, point `TECMO_ASSETPACK` at the
 candidate pack and verify the focused intro renders work without relying on raw
-watcher logs in `build\`.
+watcher logs in `build\`. A passing screenshot alone is not enough if raw/local
+fallbacks were still reachable.
 
 ## Next Milestones
 
 1. Add one import command or script that starts from `<LOCAL_ROM.nes>`,
    `<LOCAL_DECOMP_ROOT>`, and ignored captures, then writes all compact logical
    entries into `build\tecmo.assetpack`.
-2. Import `build\intro_composite_trace.json` into a canonical intro composite
-   entry and update `tecmo_intro_trace_load` to prefer that pack entry.
+2. Import `build\intro_composite_trace.json` into
+   `intro/composite/trace.json` and update `tecmo_intro_trace_load` to prefer
+   that pack entry.
 3. Make `intro/arena/capture.ndjson` and `intro/post-arena/capture.ndjson` the
    only required runtime capture shapes. Keep raw watcher aliases only until the
    compact import path covers the existing render tests.
