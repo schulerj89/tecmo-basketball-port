@@ -52,6 +52,11 @@
     (TECMO_ASSET_PACK_ARENA_SPRITE_CHR_BASE + 2U * 1024U)
 #define TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_Y 0xE0U
 #define TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_X 0xFDU
+#define TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_TILE 0x36U
+#define TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_ATTRIBUTES 0x02U
+#define TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_TOP_CHR_OFFSET \
+    (TECMO_ASSET_PACK_ARENA_SPRITE_CHR_BASE + \
+     TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_TILE * 16U)
 #define TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_OVERLAY_Y_ADJUST (-1)
 #define TECMO_ASSET_PACK_ARENA_SPRITE_CHR_R2 8U
 #define TECMO_ASSET_PACK_ARENA_SPRITE_CHR_R3 9U
@@ -1333,7 +1338,30 @@ static int build_arena_sprite_groups(const uint8_t *rom,
             int16_t dy;
             int16_t connector_overlay_y_adjust = 0;
             uint8_t flags = 0U;
+            int is_goal_connector_record =
+                selector == 1U &&
+                record[0] == TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_Y &&
+                record[3] == TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_X;
 
+            if (is_goal_connector_record &&
+                (record[1] != TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_TILE ||
+                 attributes != TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_ATTRIBUTES ||
+                 chr_byte_offset != TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_TOP_CHR_OFFSET)) {
+                set_messagef(
+                    message,
+                    message_size,
+                    "Arena goal connector source-contract mismatch at record %u: "
+                    "tile $%02X, attributes $%02X, top CHR offset %u; "
+                    "expected $%02X/$%02X/%u.",
+                    (unsigned int)index,
+                    (unsigned int)record[1],
+                    (unsigned int)attributes,
+                    (unsigned int)chr_byte_offset,
+                    TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_TILE,
+                    TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_ATTRIBUTES,
+                    TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_TOP_CHR_OFFSET);
+                return -1;
+            }
             if ((attributes & 0x1CU) != 0U) {
                 set_messagef(message,
                              message_size,
@@ -1375,8 +1403,7 @@ static int build_arena_sprite_groups(const uint8_t *rom,
                                      (unsigned int)record[0]);
                         return -1;
                 }
-                if (record[0] == TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_Y &&
-                    record[3] == TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_X) {
+                if (is_goal_connector_record) {
                     connector_overlay_y_adjust =
                         TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_OVERLAY_Y_ADJUST;
                     ++connector_overlay_piece_count;
@@ -2875,6 +2902,8 @@ static int self_test_arena_sprite_group_validation(uint8_t *rom,
                              (TECMO_ASSET_PACK_ARENA_PARAMS_CPU -
                               TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
     uint64_t first_record_tile_offset = prg_offset + (0xA7E3U - 0x8000U) + 2U;
+    uint64_t goal_connector_record_offset =
+        prg_offset + (0xA8C0U - 0x8000U) + 1U + 7U * 4U;
     uint8_t saved;
     char validation_message[192];
 
@@ -2933,6 +2962,53 @@ static int self_test_arena_sprite_group_validation(uint8_t *rom,
         return -1;
     }
     rom[(size_t)first_record_tile_offset] = saved;
+
+    saved = rom[(size_t)goal_connector_record_offset + 1U];
+    /* $35 still normalizes to top tile $36, so this checks raw identity too. */
+    rom[(size_t)goal_connector_record_offset + 1U] = 0x35U;
+    validation_message[0] = '\0';
+    if (build_arena_sprite_groups(rom,
+                                  rom_size,
+                                  prg_offset,
+                                  8U,
+                                  chr_offset,
+                                  chr_size,
+                                  payload,
+                                  sizeof(payload),
+                                  &provenance,
+                                  validation_message,
+                                  sizeof(validation_message)) == 0 ||
+        strstr(validation_message, "connector source-contract mismatch") == NULL) {
+        rom[(size_t)goal_connector_record_offset + 1U] = saved;
+        set_message(message,
+                    message_size,
+                    "Self-test accepted a connector record with the wrong raw tile identity.");
+        return -1;
+    }
+    rom[(size_t)goal_connector_record_offset + 1U] = saved;
+
+    saved = rom[(size_t)goal_connector_record_offset + 2U];
+    rom[(size_t)goal_connector_record_offset + 2U] = 0x03U;
+    validation_message[0] = '\0';
+    if (build_arena_sprite_groups(rom,
+                                  rom_size,
+                                  prg_offset,
+                                  8U,
+                                  chr_offset,
+                                  chr_size,
+                                  payload,
+                                  sizeof(payload),
+                                  &provenance,
+                                  validation_message,
+                                  sizeof(validation_message)) == 0 ||
+        strstr(validation_message, "connector source-contract mismatch") == NULL) {
+        rom[(size_t)goal_connector_record_offset + 2U] = saved;
+        set_message(message,
+                    message_size,
+                    "Self-test accepted a connector record with the wrong source attributes.");
+        return -1;
+    }
+    rom[(size_t)goal_connector_record_offset + 2U] = saved;
 
     saved = rom[(size_t)seeds_offset + 1U];
     rom[(size_t)seeds_offset + 1U] ^= 1U;
