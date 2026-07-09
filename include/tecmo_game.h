@@ -54,6 +54,7 @@ typedef struct TecmoRuntime {
     uint32_t intro_trace_chr_bank;
     uint8_t intro_l88e7_palette[16];
     TecmoArenaTileLayer intro_arena_tile_layer;
+    TecmoArenaNativeSpriteGroups intro_arena_sprite_groups;
     TecmoIntroArenaCapture intro_arena_capture;
     TecmoIntroPostArenaCapture intro_post_arena_capture;
     char intro_l88e7_irq_vector[16];

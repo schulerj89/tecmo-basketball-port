@@ -117,8 +117,7 @@ Asset-pack entries should move toward native names, for example:
 
 - `arena/intro/background-layer`
 - `arena/intro/palette-cycle`
-- `arena/intro/goal-sprite-group`
-- `arena/intro/crowd-sprite-groups`
+- `arena/intro/sprite-groups`
 - `arena/intro/script`
 - `arena/intro/ready-screen`
 - `arena/intro/warriors-transition`
@@ -132,6 +131,13 @@ attribute-derived palette indexes, background palette bytes, and resolved CHR
 offsets. Runtime rendering must load that layer and `chr/all` from the same
 asset pack. Do not reintroduce generated tile-sheet patterns or captured
 nametable playback as a normal fallback.
+
+Arena sprites are also on the native path. The ROM importer emits TASG-1 at
+`arena/intro/sprite-groups`; runtime validates the exact two-group, 71-piece
+contract and draws the goal before the jumbotron using stored CHR offsets,
+palette indexes, flips, anchors, and transition scroll. Missing or invalid TASG
+data must fail the exact arena render instead of falling back to hardcoded goal
+pieces, synthetic palettes, or captured OAM.
 
 ## Validation Rules
 

@@ -163,7 +163,7 @@ try {
         "arena/intro/script",
         "arena/intro/background-layer",
         "arena/intro/palette-cycle",
-        "arena/intro/goal-sprite-group"
+        "arena/intro/sprite-groups"
     )
     $ForbiddenCaptureEntries = @("intro/arena/capture.ndjson", "intro/post-arena/capture.ndjson", "intro/captures/source-map")
     $MissingNativeEntries = @($RequiredNativeEntries | Where-Object { $ListText -notmatch [regex]::Escape($_) })
@@ -208,13 +208,23 @@ try {
             $CaptureUnavailableSeen = $RenderText -match "intro-capture-status kind=arena available=0"
             $NoCaptureSourceSeen = $RenderText -match "intro-capture-source kind=arena assetpack=0 entry=none"
             $ExactLayerSeen = $RenderText -match "intro-arena-render-source kind=arena exact_layer=1 rendered=1 cells=1632 palette=16"
-            $NativeGoalPairsSeen = $RenderText -match "goal_pairs=[1-9][0-9]*"
+            $TasgContractSeen = $RenderText -match "sprite_groups=2 jumbotron_pieces=55 goal_pieces=16"
+            $VisibleJumbotronSeen = $RenderText -match "visible_jumbotron=[1-9][0-9]*"
+            $VisibleGoalSeen = $RenderText -match "visible_goal=[1-9][0-9]*"
+            $FrameVisibilitySeen = if ($Mode -eq "intro-arena-frame0") {
+                $VisibleJumbotronSeen
+            } elseif ($Mode -eq "intro-arena-frame320") {
+                $VisibleGoalSeen
+            } else {
+                $true
+            }
             $ModePassed = $RenderExitCode -eq 0 -and
                 $RenderCreated -and
                 $CaptureUnavailableSeen -and
                 $NoCaptureSourceSeen -and
                 $ExactLayerSeen -and
-                $NativeGoalPairsSeen
+                $TasgContractSeen -and
+                $FrameVisibilitySeen
             if (!$ModePassed) {
                 $RenderPassed = $false
             }
@@ -226,7 +236,10 @@ try {
                 capture_unavailable_seen = $CaptureUnavailableSeen
                 no_capture_source_seen = $NoCaptureSourceSeen
                 exact_layer_seen = $ExactLayerSeen
-                native_goal_pairs_seen = $NativeGoalPairsSeen
+                tasg_contract_seen = $TasgContractSeen
+                visible_jumbotron_seen = $VisibleJumbotronSeen
+                visible_goal_seen = $VisibleGoalSeen
+                frame_visibility_seen = $FrameVisibilitySeen
             })
         }
     } finally {

@@ -50,7 +50,12 @@ static void print_intro_render_capture_status(const TecmoRuntime *runtime,
 
     if (strncmp(mode_name, "intro-arena", 11) == 0) {
         bool native_layer_available;
-        size_t native_goal_pairs;
+        bool native_sprite_groups_available;
+        size_t native_sprite_group_count;
+        size_t jumbotron_piece_count;
+        size_t goal_piece_count;
+        TecmoIntroArenaTransitionState arena_state;
+        TecmoArenaNativeSpriteVisibleCounts visible_counts = {0U, 0U};
 
         entry_id[0] = '\0';
         entry_start = strstr(runtime->intro_arena_capture.status, assetpack_marker);
@@ -82,15 +87,33 @@ static void print_intro_render_capture_status(const TecmoRuntime *runtime,
             &runtime->intro_arena_tile_layer,
             runtime->title_chr_bytes,
             runtime->title_chr_byte_count);
-        native_goal_pairs = native_layer_available ?
-            tecmo_intro_arena_native_goal_chr_pair_count(runtime->title_chr_bytes,
-                                                         runtime->title_chr_byte_count) :
-            0U;
-        printf("intro-arena-render-source kind=arena exact_layer=%u rendered=%u cells=%u palette=16 goal_pairs=%u\n",
+        native_sprite_groups_available = tecmo_intro_arena_native_sprite_chr_available(
+            &runtime->intro_arena_sprite_groups,
+            runtime->title_chr_bytes,
+            runtime->title_chr_byte_count);
+        native_sprite_group_count = tecmo_intro_arena_native_sprite_group_count(
+            &runtime->intro_arena_sprite_groups);
+        jumbotron_piece_count = tecmo_intro_arena_native_sprite_piece_count(
+            &runtime->intro_arena_sprite_groups,
+            TECMO_ARENA_NATIVE_SPRITE_GROUP_JUMBOTRON);
+        goal_piece_count = tecmo_intro_arena_native_sprite_piece_count(
+            &runtime->intro_arena_sprite_groups,
+            TECMO_ARENA_NATIVE_SPRITE_GROUP_GOAL);
+        if (native_sprite_groups_available) {
+            tecmo_intro_arena_transition_state(runtime->mode_frame_counter, &arena_state);
+            visible_counts = tecmo_intro_arena_native_sprite_visible_counts(
+                &runtime->intro_arena_sprite_groups,
+                &arena_state);
+        }
+        printf("intro-arena-render-source kind=arena exact_layer=%u rendered=%u cells=%u palette=16 sprite_groups=%u jumbotron_pieces=%u goal_pieces=%u visible_jumbotron=%u visible_goal=%u\n",
                native_layer_available ? 1U : 0U,
                arena_rendered ? 1U : 0U,
                native_layer_available ? (unsigned)runtime->intro_arena_tile_layer.cell_count : 0U,
-               (unsigned)native_goal_pairs);
+               native_sprite_groups_available ? (unsigned)native_sprite_group_count : 0U,
+               native_sprite_groups_available ? (unsigned)jumbotron_piece_count : 0U,
+               native_sprite_groups_available ? (unsigned)goal_piece_count : 0U,
+               (unsigned)visible_counts.jumbotron,
+               (unsigned)visible_counts.goal);
     } else if (strncmp(mode_name, "intro-ready", 11) == 0 ||
                strncmp(mode_name, "intro-warriors", 14) == 0 ||
                strcmp(mode_name, "play-step9") == 0 ||

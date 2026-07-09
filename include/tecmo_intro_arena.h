@@ -3,6 +3,7 @@
 
 #include "tecmo_framebuffer.h"
 #include "tecmo_intro_arena_scene.h"
+#include "tecmo_intro_stage.h"
 #include "tecmo_nametable_screen.h"
 
 #include <stdbool.h>
@@ -14,6 +15,53 @@
 #define TECMO_INTRO_ARENA_PALETTE_STAGE_COUNT 8U
 #define TECMO_INTRO_ARENA_MAX_SPRITES 64U
 #define TECMO_INTRO_ARENA_MAX_SPRITE_STAGES 128U
+#define TECMO_INTRO_ARENA_NATIVE_SPRITE_GROUP_COUNT 2U
+#define TECMO_INTRO_ARENA_NATIVE_SPRITE_PIECE_COUNT 71U
+
+typedef enum TecmoArenaNativeSpriteGroupKind {
+    TECMO_ARENA_NATIVE_SPRITE_GROUP_JUMBOTRON = 1,
+    TECMO_ARENA_NATIVE_SPRITE_GROUP_GOAL = 2
+} TecmoArenaNativeSpriteGroupKind;
+
+typedef enum TecmoArenaNativeSpritePieceFlags {
+    TECMO_ARENA_NATIVE_SPRITE_FLIP_HORIZONTAL = 0x01U,
+    TECMO_ARENA_NATIVE_SPRITE_FLIP_VERTICAL = 0x02U,
+    TECMO_ARENA_NATIVE_SPRITE_PRIORITY = 0x04U
+} TecmoArenaNativeSpritePieceFlags;
+
+typedef struct TecmoArenaNativeSpriteGroup {
+    TecmoArenaNativeSpriteGroupKind kind;
+    unsigned draw_order;
+    size_t first_piece;
+    size_t piece_count;
+    int anchor_x;
+    int anchor_y;
+    int camera_x_multiplier;
+    int camera_y_multiplier;
+} TecmoArenaNativeSpriteGroup;
+
+typedef struct TecmoArenaNativeSpritePiece {
+    int dx;
+    int dy;
+    uint32_t top_chr_offset;
+    uint8_t palette_index;
+    uint8_t flags;
+} TecmoArenaNativeSpritePiece;
+
+typedef struct TecmoArenaNativeSpriteGroups {
+    bool available;
+    uint8_t palette[16];
+    TecmoArenaNativeSpriteGroup groups[TECMO_INTRO_ARENA_NATIVE_SPRITE_GROUP_COUNT];
+    TecmoArenaNativeSpritePiece pieces[TECMO_INTRO_ARENA_NATIVE_SPRITE_PIECE_COUNT];
+    size_t group_count;
+    size_t piece_count;
+    char status[160];
+} TecmoArenaNativeSpriteGroups;
+
+typedef struct TecmoArenaNativeSpriteVisibleCounts {
+    size_t jumbotron;
+    size_t goal;
+} TecmoArenaNativeSpriteVisibleCounts;
 
 typedef struct TecmoIntroArenaSprite {
     uint8_t y;
@@ -57,6 +105,8 @@ typedef struct TecmoIntroArenaCapture {
 
 bool tecmo_intro_arena_capture_load(TecmoIntroArenaCapture *capture, const char *project_root);
 bool tecmo_intro_arena_tile_layer_load(TecmoArenaTileLayer *layer, const char *project_root);
+bool tecmo_intro_arena_sprite_groups_load(TecmoArenaNativeSpriteGroups *sprite_groups,
+                                          const char *project_root);
 
 unsigned tecmo_intro_arena_display_frame(unsigned native_frame);
 
@@ -67,8 +117,21 @@ bool tecmo_intro_arena_tile_layer_chr_available(const TecmoArenaTileLayer *layer
                                                 const uint8_t *chr_bytes,
                                                 uint64_t chr_byte_count);
 
-size_t tecmo_intro_arena_native_goal_chr_pair_count(const uint8_t *chr_bytes,
-                                                    uint64_t chr_byte_count);
+size_t tecmo_intro_arena_native_sprite_group_count(
+    const TecmoArenaNativeSpriteGroups *sprite_groups);
+const TecmoArenaNativeSpriteGroup *tecmo_intro_arena_native_sprite_group(
+    const TecmoArenaNativeSpriteGroups *sprite_groups,
+    TecmoArenaNativeSpriteGroupKind kind);
+size_t tecmo_intro_arena_native_sprite_piece_count(
+    const TecmoArenaNativeSpriteGroups *sprite_groups,
+    TecmoArenaNativeSpriteGroupKind kind);
+bool tecmo_intro_arena_native_sprite_chr_available(
+    const TecmoArenaNativeSpriteGroups *sprite_groups,
+    const uint8_t *chr_bytes,
+    uint64_t chr_byte_count);
+TecmoArenaNativeSpriteVisibleCounts tecmo_intro_arena_native_sprite_visible_counts(
+    const TecmoArenaNativeSpriteGroups *sprite_groups,
+    const TecmoIntroArenaTransitionState *state);
 
 bool tecmo_intro_arena_draw_page(TecmoFramebuffer *fb,
                                  const TecmoIntroArenaCapture *capture,
@@ -98,13 +161,15 @@ bool tecmo_intro_arena_draw_native_chr(TecmoFramebuffer *fb,
                                        int origin_y,
                                        int scale);
 
-size_t tecmo_intro_arena_draw_native_goal_chr(TecmoFramebuffer *fb,
-                                              const uint8_t *chr_bytes,
-                                              uint64_t chr_byte_count,
-                                              unsigned frame,
-                                              int origin_x,
-                                              int origin_y,
-                                              int scale);
+TecmoArenaNativeSpriteVisibleCounts tecmo_intro_arena_draw_native_sprite_groups(
+    TecmoFramebuffer *fb,
+    const TecmoArenaNativeSpriteGroups *sprite_groups,
+    const uint8_t *chr_bytes,
+    uint64_t chr_byte_count,
+    const TecmoIntroArenaTransitionState *state,
+    int origin_x,
+    int origin_y,
+    int scale);
 
 size_t tecmo_intro_arena_draw_sprites(TecmoFramebuffer *fb,
                                       const TecmoIntroArenaCapture *capture,

@@ -145,9 +145,9 @@ The current opening path includes:
 - TECMO/rabbit intro composite from local trace data
 - NBA license screen
 - arena/jumbotron/crowd transition from ROM CHR through native arena bands
-- native anchored CHR goal/basket pieces for the arena pan
+- native TASG-1 jumbotron and anchored goal sprite groups for the arena pan
 
-The normal arena render must not replay captured screen `$18` nametable or OAM data. The ROM-only importer decodes the fixed-bank screen descriptor and compressed Bank00 stream into `arena/intro/background-layer`, a versioned native `32x51` tile layer whose cells contain exact attribute-derived palette indexes and resolved `chr/all` offsets. Runtime rendering consumes that layer and draws goal pieces from one shared native anchor. Capture-shaped arena loaders remain only as migration/debug scaffolding; the separate palette-cycle and goal/crowd sprite-group migrations can continue without replacing the exact background path.
+The normal arena render must not replay captured screen `$18` nametable or OAM data. The ROM-only importer decodes the fixed-bank screen descriptor and compressed Bank00 stream into `arena/intro/background-layer`, a versioned native `32x51` tile layer whose cells contain exact attribute-derived palette indexes and resolved `chr/all` offsets. It also emits `arena/intro/sprite-groups` as TASG-1 with the exact NES sprite palette, jumbotron pieces, and goal pieces. Runtime rendering requires both native entries, scrolls TATL as the background, and projects TASG groups from their stored anchors using the transition state. Capture-shaped arena loaders remain only as migration/debug scaffolding; palette-cycle migration can continue without replacing the exact background or sprite-group paths.
 
 For screen `$18` research, use the verified ROM route rather than capture bytes:
 
@@ -163,7 +163,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 
 - `src/tecmo_game.c`: runtime orchestration and high-level render dispatch
 - `src/tecmo_intro_trace.c`: local intro composite trace loading/parsing
-- `src/tecmo_intro_arena.c`: arena capture loading, background composite, staged OAM draw
+- `src/tecmo_intro_arena.c`: strict TATL/TASG loading, native arena drawing, capture debug scaffolding
 - `src/tecmo_intro_stage.c`: intro sprite staging and arena transition state model
 - `src/tecmo_bank07.c`: fixed-bank helper counterparts
 - `src/win32_platform.c`: temporary Windows platform layer
