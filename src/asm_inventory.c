@@ -743,6 +743,23 @@ typedef enum AssetPackEntryStatus {
 #define TECMO_LOCAL_ASSET_PACK_HEADER_SIZE 40U
 #define TECMO_LOCAL_ASSET_PACK_ENTRY_SIZE 128U
 
+static void set_inventory_message(char *message, size_t message_size, const char *format, ...)
+{
+    va_list args;
+
+    if (message == NULL || message_size == 0U) {
+        return;
+    }
+    if (format == NULL) {
+        message[0] = '\0';
+        return;
+    }
+
+    va_start(args, format);
+    (void)vsnprintf(message, message_size, format, args);
+    va_end(args);
+}
+
 static int text_buffer_reserve(TextBuffer *buffer, size_t additional)
 {
     size_t needed;
@@ -1249,7 +1266,8 @@ static int parse_roster_file(const char *path, RosterTable *table)
                 if (roster_table_push(table, &record) == 0) {
                     current_index = (int)(table->count - 1);
                 } else {
-                    current_index = -1;
+                    fclose(file);
+                    return -1;
                 }
                 pending_attrs_index = -1;
             }
@@ -1275,6 +1293,11 @@ static int parse_roster_file(const char *path, RosterTable *table)
                 }
             }
         }
+    }
+
+    if (ferror(file) != 0) {
+        fclose(file);
+        return -1;
     }
 
     fclose(file);
@@ -1418,6 +1441,27 @@ static AssetPackEntryStatus load_roster_table_from_asset_pack(const char *projec
     return status;
 }
 
+static int collect_rosters_from_decomp_sources(const char *project_root, RosterTable *table)
+{
+    if (project_root == NULL || table == NULL) {
+        return -1;
+    }
+
+    memset(table, 0, sizeof(*table));
+    for (size_t i = 0; i < sizeof(ROSTER_FILES) / sizeof(ROSTER_FILES[0]); ++i) {
+        char path[TECMO_MAX_PATH_TEXT];
+        size_t before_count = table->count;
+
+        append_path(path, sizeof(path), project_root, ROSTER_FILES[i]);
+        normalize_separators(path);
+        if (parse_roster_file(path, table) != 0 || table->count == before_count) {
+            roster_table_free(table);
+            return -1;
+        }
+    }
+    return table->count > 0 ? 0 : -1;
+}
+
 int tecmo_serialize_roster_table_tsv(const RosterTable *table, char **text_out, uint64_t *byte_count)
 {
     TextBuffer buffer;
@@ -1470,6 +1514,9 @@ int tecmo_collect_rosters(const char *project_root, RosterTable *table)
 {
     AssetPackEntryStatus pack_status;
 
+    if (table == NULL) {
+        return -1;
+    }
     memset(table, 0, sizeof(*table));
     pack_status = load_roster_table_from_asset_pack(project_root, table);
     if (pack_status == ASSET_PACK_ENTRY_LOADED) {
@@ -1479,13 +1526,7 @@ int tecmo_collect_rosters(const char *project_root, RosterTable *table)
         return -1;
     }
 
-    for (size_t i = 0; i < sizeof(ROSTER_FILES) / sizeof(ROSTER_FILES[0]); ++i) {
-        char path[TECMO_MAX_PATH_TEXT];
-        append_path(path, sizeof(path), project_root, ROSTER_FILES[i]);
-        normalize_separators(path);
-        (void)parse_roster_file(path, table);
-    }
-    return table->count > 0 ? 0 : -1;
+    return collect_rosters_from_decomp_sources(project_root, table);
 }
 
 static void write_c_string(FILE *file, const char *text)
@@ -1944,41 +1985,18 @@ cleanup:
     return result;
 }
 
-int tecmo_load_original_title_text(const char *project_root, char *title, size_t title_size)
+static int load_original_title_text_from_decomp(const char *project_root, char *title, size_t title_size)
 {
     char path[TECMO_MAX_PATH_TEXT];
     char line[LINE_BUFFER_SIZE];
     FILE *file;
     size_t out_count = 0;
-    AssetPackEntryStatus pack_status;
 
-    if (title == NULL || title_size == 0) {
+    if (project_root == NULL || title == NULL || title_size == 0) {
         return -1;
     }
 
     title[0] = '\0';
-    pack_status = load_title_text_from_asset_pack(project_root, title, title_size);
-    if (pack_status == ASSET_PACK_ENTRY_LOADED) {
-        return 0;
-    }
-    if (pack_status == ASSET_PACK_ENTRY_ERROR) {
-        return -1;
-    }
-    {
-        TecmoOriginalTitleGlyphs pack_glyphs;
-        pack_status = load_title_glyph_map_from_asset_pack(project_root, NULL, &pack_glyphs);
-        if (pack_status == ASSET_PACK_ENTRY_LOADED) {
-            if (strlen(pack_glyphs.title_text) >= title_size) {
-                return -1;
-            }
-            copy_text(title, title_size, pack_glyphs.title_text);
-            return 0;
-        }
-        if (pack_status == ASSET_PACK_ENTRY_ERROR) {
-            return -1;
-        }
-    }
-
     append_path(path, sizeof(path), project_root, ORIGINAL_TITLE_TEXT_FILE);
     normalize_separators(path);
 
@@ -2014,6 +2032,40 @@ int tecmo_load_original_title_text(const char *project_root, char *title, size_t
     fclose(file);
     title[out_count] = '\0';
     return out_count > 0 ? 0 : -1;
+}
+
+int tecmo_load_original_title_text(const char *project_root, char *title, size_t title_size)
+{
+    AssetPackEntryStatus pack_status;
+
+    if (title == NULL || title_size == 0) {
+        return -1;
+    }
+
+    title[0] = '\0';
+    pack_status = load_title_text_from_asset_pack(project_root, title, title_size);
+    if (pack_status == ASSET_PACK_ENTRY_LOADED) {
+        return 0;
+    }
+    if (pack_status == ASSET_PACK_ENTRY_ERROR) {
+        return -1;
+    }
+    {
+        TecmoOriginalTitleGlyphs pack_glyphs;
+        pack_status = load_title_glyph_map_from_asset_pack(project_root, NULL, &pack_glyphs);
+        if (pack_status == ASSET_PACK_ENTRY_LOADED) {
+            if (strlen(pack_glyphs.title_text) >= title_size) {
+                return -1;
+            }
+            copy_text(title, title_size, pack_glyphs.title_text);
+            return 0;
+        }
+        if (pack_status == ASSET_PACK_ENTRY_ERROR) {
+            return -1;
+        }
+    }
+
+    return load_original_title_text_from_decomp(project_root, title, title_size);
 }
 
 static int load_baseline_byte_map(const char *project_root,
@@ -2887,6 +2939,147 @@ int tecmo_load_title_glyphs_for_text(const char *project_root,
         return -1;
     }
     return load_title_glyphs_for_text(project_root, title_text, glyphs);
+}
+
+static int add_decomp_derived_text_entry(TecmoAssetPackBuilder *builder,
+                                         const char *entry_id,
+                                         const char *text,
+                                         uint64_t byte_count,
+                                         char *message,
+                                         size_t message_size)
+{
+    TecmoAssetPackEntryInfo entry_info;
+    char builder_message[256];
+
+    memset(&entry_info, 0, sizeof(entry_info));
+    entry_info.id = entry_id;
+    entry_info.type = TECMO_ASSET_PACK_TYPE_DATA;
+    entry_info.flags = TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL;
+
+    builder_message[0] = '\0';
+    if (tecmo_asset_pack_builder_add_memory(builder,
+                                            &entry_info,
+                                            text,
+                                            byte_count,
+                                            builder_message,
+                                            sizeof(builder_message)) != 0) {
+        if (builder_message[0] != '\0') {
+            set_inventory_message(message, message_size, "Could not append %s: %s", entry_id, builder_message);
+        } else {
+            set_inventory_message(message, message_size, "Could not append %s.", entry_id);
+        }
+        return -1;
+    }
+
+    return 0;
+}
+
+int tecmo_asset_pack_builder_add_decomp_derived_entries(const char *project_root,
+                                                        TecmoAssetPackBuilder *builder,
+                                                        char *message,
+                                                        size_t message_size)
+{
+    RosterTable roster;
+    TecmoOriginalTitleGlyphs glyphs;
+    char title_text[TECMO_MAX_NAME_TEXT];
+    char *roster_text = NULL;
+    char *title_text_payload = NULL;
+    char *glyph_text = NULL;
+    uint64_t roster_byte_count = 0U;
+    uint64_t title_byte_count = 0U;
+    uint64_t glyph_byte_count = 0U;
+    int result = -1;
+
+    memset(&roster, 0, sizeof(roster));
+    memset(&glyphs, 0, sizeof(glyphs));
+    title_text[0] = '\0';
+
+    if (project_root == NULL || project_root[0] == '\0') {
+        set_inventory_message(message, message_size, "Project root is required for decomp-derived asset pack entries.");
+        return -1;
+    }
+    if (builder == NULL) {
+        set_inventory_message(message, message_size, "Asset pack builder is required for decomp-derived entries.");
+        return -1;
+    }
+
+    /* Avoid reading old logical entries from TECMO_ASSETPACK while building a replacement pack. */
+    if (collect_rosters_from_decomp_sources(project_root, &roster) != 0) {
+        set_inventory_message(message,
+                              message_size,
+                              "Could not collect roster/table.tsv from decomp roster sources.");
+        goto cleanup;
+    }
+    if (tecmo_serialize_roster_table_tsv(&roster, &roster_text, &roster_byte_count) != 0) {
+        set_inventory_message(message, message_size, "Could not serialize roster/table.tsv.");
+        goto cleanup;
+    }
+    if (add_decomp_derived_text_entry(builder,
+                                      "roster/table.tsv",
+                                      roster_text,
+                                      roster_byte_count,
+                                      message,
+                                      message_size) != 0) {
+        goto cleanup;
+    }
+    free(roster_text);
+    roster_text = NULL;
+
+    if (load_original_title_text_from_decomp(project_root, title_text, sizeof(title_text)) != 0) {
+        set_inventory_message(message,
+                              message_size,
+                              "Could not collect title/original-text.txt from the decomp title text source.");
+        goto cleanup;
+    }
+    if (tecmo_serialize_title_text(title_text, &title_text_payload, &title_byte_count) != 0) {
+        set_inventory_message(message, message_size, "Could not serialize title/original-text.txt.");
+        goto cleanup;
+    }
+    if (add_decomp_derived_text_entry(builder,
+                                      "title/original-text.txt",
+                                      title_text_payload,
+                                      title_byte_count,
+                                      message,
+                                      message_size) != 0) {
+        goto cleanup;
+    }
+    free(title_text_payload);
+    title_text_payload = NULL;
+
+    if (load_title_glyphs_for_text(project_root, title_text, &glyphs) != 0) {
+        set_inventory_message(message,
+                              message_size,
+                              "Could not collect title/glyph-map.tsv from baseline title glyph sources.");
+        goto cleanup;
+    }
+    if (tecmo_serialize_title_glyph_map_tsv(&glyphs, &glyph_text, &glyph_byte_count) != 0) {
+        set_inventory_message(message, message_size, "Could not serialize title/glyph-map.tsv.");
+        goto cleanup;
+    }
+    if (add_decomp_derived_text_entry(builder,
+                                      "title/glyph-map.tsv",
+                                      glyph_text,
+                                      glyph_byte_count,
+                                      message,
+                                      message_size) != 0) {
+        goto cleanup;
+    }
+    free(glyph_text);
+    glyph_text = NULL;
+
+    set_inventory_message(message,
+                          message_size,
+                          "Added decomp-derived logical entries: roster/table.tsv (%llu records), title/original-text.txt, title/glyph-map.tsv (%llu glyphs).",
+                          (unsigned long long)roster.count,
+                          (unsigned long long)glyphs.glyph_count);
+    result = 0;
+
+cleanup:
+    free(roster_text);
+    free(title_text_payload);
+    free(glyph_text);
+    roster_table_free(&roster);
+    return result;
 }
 
 static int convert_tiles_file(const char *path, FILE *out, uint64_t *byte_count)
