@@ -351,7 +351,6 @@ function Write-AssetPackReport {
         generated_at_utc = [DateTime]::UtcNow.ToString("o")
         data_policy = "Sanitized asset-pack smoke report only; raw stdout/stderr, local paths, ROM bytes, extracted assets, ASM, CHR bytes, and screenshots outside ignored build output are not persisted."
         passed = $Failures -eq 0
-        decomp_root_used = "not-used"
         reference_rom_used = "<local>"
         build_requested = [bool]$Build
         private_paths_included = $false
@@ -364,9 +363,9 @@ function Write-AssetPackReport {
             prg_banks_reported = $ReportedPrgBanks
             chr_banks_reported = $ReportedChrBanks
             entries_reported = $ReportedEntries
-            expected_entry_count = if ($ExpectedEntries) { $ExpectedEntries.Count } else { $null }
-            expected_raw_entry_count = if ($ExpectedRawEntries) { $ExpectedRawEntries.Count } else { $null }
-            expected_logical_entry_count = if ($ExpectedLogicalEntries) { $ExpectedLogicalEntries.Count } else { $null }
+            expected_entry_count = if ($null -ne $ExpectedEntries) { $ExpectedEntries.Count } else { $null }
+            expected_raw_entry_count = if ($null -ne $ExpectedRawEntries) { $ExpectedRawEntries.Count } else { $null }
+            expected_logical_entry_count = if ($null -ne $ExpectedLogicalEntries) { $ExpectedLogicalEntries.Count } else { $null }
             directory_entry_count = if ($Directory) { $Directory.entry_count } else { $null }
             logical_capture_sources_present = $LogicalCaptureSources
             canonical_fallback_cleared = $CanonicalFallbackCleared

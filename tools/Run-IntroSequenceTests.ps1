@@ -81,277 +81,6 @@ function Get-SafeExceptionName {
     return "Error"
 }
 
-function Move-PathAside {
-    param(
-        [string]$Path,
-        [string]$Suffix
-    )
-
-    if (!(Test-Path -LiteralPath $Path)) {
-        return $null
-    }
-
-    $FullPath = [System.IO.Path]::GetFullPath($Path)
-    $AsidePath = "$FullPath.$Suffix"
-    $Index = 0
-    while (Test-Path -LiteralPath $AsidePath) {
-        ++$Index
-        $AsidePath = "$FullPath.$Suffix.$Index"
-    }
-    Move-Item -LiteralPath $FullPath -Destination $AsidePath
-    return [pscustomobject]@{
-        original = $FullPath
-        aside = $AsidePath
-    }
-}
-
-function Restore-MovedPath {
-    param([object]$MovedPath)
-
-    if (!$MovedPath) {
-        return
-    }
-    if ((Test-Path -LiteralPath $MovedPath.aside) -and !(Test-Path -LiteralPath $MovedPath.original)) {
-        Move-Item -LiteralPath $MovedPath.aside -Destination $MovedPath.original
-    }
-}
-
-function Get-PngInspection {
-    param(
-        [string]$Path
-    )
-
-    $Item = Get-Item $Path
-    $Source = [System.Drawing.Image]::FromFile($Path)
-    $Width = $Source.Width
-    $Height = $Source.Height
-    $Bitmap = $null
-    $Graphics = $null
-    $Data = $null
-    try {
-        $Bitmap = New-Object System.Drawing.Bitmap -ArgumentList $Width, $Height, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
-        $Graphics = [System.Drawing.Graphics]::FromImage($Bitmap)
-        $Graphics.DrawImage($Source, 0, 0, $Width, $Height)
-
-        $Rect = New-Object System.Drawing.Rectangle 0, 0, $Bitmap.Width, $Bitmap.Height
-        $Data = $Bitmap.LockBits($Rect, [System.Drawing.Imaging.ImageLockMode]::ReadOnly, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
-        $Stride = [Math]::Abs($Data.Stride)
-        $Bytes = New-Object byte[] ($Stride * $Bitmap.Height)
-        [System.Runtime.InteropServices.Marshal]::Copy($Data.Scan0, $Bytes, 0, $Bytes.Length)
-
-        $NonzeroRgbaPixels = 0
-        $VisibleNonblackPixels = 0
-        $MainAreaVisiblePixels = 0
-        $TopDebugPixels = 0
-        $BottomDebugPixels = 0
-        $CenterWarningBandPixels = 0
-        $UniqueColors = @{}
-        $MinX = $Bitmap.Width
-        $MinY = $Bitmap.Height
-        $MaxX = -1
-        $MaxY = -1
-        $MainMinY = $Bitmap.Height
-        $MainMaxY = -1
-        for ($Y = 0; $Y -lt $Bitmap.Height; ++$Y) {
-            $Row = $Y * $Stride
-            for ($X = 0; $X -lt $Bitmap.Width; ++$X) {
-                $Offset = $Row + ($X * 4)
-                $Blue = [int]$Bytes[$Offset]
-                $Green = [int]$Bytes[$Offset + 1]
-                $Red = [int]$Bytes[$Offset + 2]
-                $Alpha = [int]$Bytes[$Offset + 3]
-                if (($Red -bor $Green -bor $Blue -bor $Alpha) -ne 0) {
-                    ++$NonzeroRgbaPixels
-                }
-                if ($Alpha -ne 0 -and (($Red -bor $Green -bor $Blue) -ne 0)) {
-                    ++$VisibleNonblackPixels
-                    if ($X -lt $MinX) {
-                        $MinX = $X
-                    }
-                    if ($Y -lt $MinY) {
-                        $MinY = $Y
-                    }
-                    if ($X -gt $MaxX) {
-                        $MaxX = $X
-                    }
-                    if ($Y -gt $MaxY) {
-                        $MaxY = $Y
-                    }
-                    if ($Y -lt 24) {
-                        ++$TopDebugPixels
-                    } elseif ($Y -ge 456) {
-                        ++$BottomDebugPixels
-                    } else {
-                        ++$MainAreaVisiblePixels
-                        if ($Y -lt $MainMinY) {
-                            $MainMinY = $Y
-                        }
-                        if ($Y -gt $MainMaxY) {
-                            $MainMaxY = $Y
-                        }
-                    }
-                    if ($X -ge 64 -and $X -lt 576 -and $Y -ge 150 -and $Y -lt 285) {
-                        ++$CenterWarningBandPixels
-                    }
-                    if ($UniqueColors.Count -lt 256) {
-                        $ColorKey = "{0:X2}{1:X2}{2:X2}{3:X2}" -f $Alpha, $Red, $Green, $Blue
-                        $UniqueColors[$ColorKey] = $true
-                    }
-                }
-            }
-        }
-    } finally {
-        if ($Data -ne $null -and $Bitmap -ne $null) {
-            $Bitmap.UnlockBits($Data)
-        }
-        if ($Graphics -ne $null) {
-            $Graphics.Dispose()
-        }
-        if ($Bitmap -ne $null) {
-            $Bitmap.Dispose()
-        }
-        $Source.Dispose()
-    }
-
-    return [pscustomobject]@{
-        width = $Width
-        height = $Height
-        bytes = $Item.Length
-        nonzero_rgba_pixels = $NonzeroRgbaPixels
-        visible_nonblack_pixels = $VisibleNonblackPixels
-        unique_color_sample_count = $UniqueColors.Count
-        visible_min_x = if ($MaxX -ge 0) { $MinX } else { $null }
-        visible_min_y = if ($MaxY -ge 0) { $MinY } else { $null }
-        visible_max_x = if ($MaxX -ge 0) { $MaxX } else { $null }
-        visible_max_y = if ($MaxY -ge 0) { $MaxY } else { $null }
-        main_area_visible_pixels = $MainAreaVisiblePixels
-        main_content_height = if ($MainMaxY -ge 0) { $MainMaxY - $MainMinY + 1 } else { 0 }
-        top_debug_pixels = $TopDebugPixels
-        bottom_debug_pixels = $BottomDebugPixels
-        center_warning_band_pixels = $CenterWarningBandPixels
-    }
-}
-
-function Get-InspectionValidation {
-    param(
-        [object]$Test,
-        [object]$Inspection,
-        [object]$CaptureStatus,
-        [object]$CaptureSource
-    )
-
-    $MinVisiblePixels = [int]$Test.min_visible_nonblack_pixels
-    $RomOnlyExpectedMissingCapture = [bool]$Test.requires_capture
-    if ($RomOnlyExpectedMissingCapture) {
-        $MinVisiblePixels = 1000
-    }
-    $CaptureLoaded = !$Test.requires_capture
-    $CaptureStatusPresent = $false
-    if ($Test.requires_capture -and $CaptureStatus) {
-        $CaptureStatusPresent = $true
-        $CaptureLoaded = [bool]$CaptureStatus.available -and
-            [int]$CaptureStatus.nt -gt 0 -and
-            [int]$CaptureStatus.pal -gt 0
-    }
-    $CaptureSourceAssetPack = !$Test.requires_capture
-    if ($Test.requires_capture -and $CaptureSource) {
-        $CaptureSourceAssetPack = [bool]$CaptureSource.assetpack
-    }
-    $AllowLowColorCapture = [bool]$Test.allow_low_color_capture -and $CaptureLoaded
-    $LooksLikeMissingCaptureWarning = [bool]$Test.requires_capture -and
-        !$AllowLowColorCapture -and
-        $Inspection.unique_color_sample_count -le 4 -and
-        $Inspection.center_warning_band_pixels -ge 1000 -and
-        $Inspection.main_content_height -le 96
-    $BasicImagePassed = $Inspection.width -eq 640 -and
-        $Inspection.height -eq 480 -and
-        $Inspection.bytes -gt 0 -and
-        $Inspection.nonzero_rgba_pixels -gt 0 -and
-        $Inspection.visible_nonblack_pixels -ge $MinVisiblePixels
-    if ($RomOnlyExpectedMissingCapture) {
-        $Passed = $BasicImagePassed -and
-            $CaptureStatusPresent -and
-            !$CaptureLoaded -and
-            !$CaptureSourceAssetPack -and
-            $LooksLikeMissingCaptureWarning
-    } else {
-        $Passed = $BasicImagePassed -and
-            $CaptureLoaded -and
-            $CaptureSourceAssetPack -and
-            !$LooksLikeMissingCaptureWarning
-    }
-
-    $Error = $null
-    if (!$Passed) {
-        if ($RomOnlyExpectedMissingCapture -and !$CaptureStatusPresent) {
-            $Error = "ROM-only missing-capture mode did not report capture status"
-        } elseif ($RomOnlyExpectedMissingCapture -and $CaptureLoaded) {
-            $Error = "ROM-only pack unexpectedly loaded capture data"
-        } elseif ($RomOnlyExpectedMissingCapture -and !$LooksLikeMissingCaptureWarning) {
-            $Error = "ROM-only capture-dependent frame did not show the expected missing-capture diagnostic"
-        } elseif ($Test.requires_capture -and !$CaptureStatusPresent) {
-            $Error = "renderer did not report capture status"
-        } elseif ($Test.requires_capture -and !$CaptureLoaded) {
-            $Error = "required intro capture was not loaded"
-        } elseif ($Test.requires_capture -and !$CaptureSourceAssetPack) {
-            $Error = "required intro capture was not loaded from the test asset pack"
-        } elseif ($LooksLikeMissingCaptureWarning) {
-            $Error = "PNG resembles a missing-capture diagnostic frame"
-        } else {
-            $Error = "PNG failed dimension, visibility, or capture-strength assertions"
-        }
-    }
-
-    return [pscustomobject]@{
-        passed = $Passed
-        capture_status_present = $CaptureStatusPresent
-        capture_loaded = $CaptureLoaded
-        capture_source_assetpack = $CaptureSourceAssetPack
-        rom_only_expected_missing_capture = $RomOnlyExpectedMissingCapture
-        diagnostic_warning_like = $LooksLikeMissingCaptureWarning
-        error = $Error
-    }
-}
-
-function Get-IntroCaptureStatus {
-    param(
-        [object[]]$RenderOutput
-    )
-
-    foreach ($Line in @($RenderOutput)) {
-        $Text = [string]$Line
-        if ($Text -match '^intro-capture-status kind=(?<kind>[a-z-]+) available=(?<available>[01]) nt=(?<nt>\d+) attr=(?<attr>\d+) pal=(?<pal>\d+) oam=(?<oam>\d+)$') {
-            return [pscustomobject]@{
-                kind = $Matches.kind
-                available = $Matches.available -eq "1"
-                nt = [int]$Matches.nt
-                attr = [int]$Matches.attr
-                pal = [int]$Matches.pal
-                oam = [int]$Matches.oam
-            }
-        }
-    }
-    return $null
-}
-
-function Get-IntroCaptureSource {
-    param(
-        [object[]]$RenderOutput
-    )
-
-    foreach ($Line in @($RenderOutput)) {
-        $Text = [string]$Line
-        if ($Text -match '^intro-capture-source kind=(?<kind>[a-z-]+) assetpack=(?<assetpack>[01]) entry=(?<entry>.+)$') {
-            return [pscustomobject]@{
-                kind = $Matches.kind
-                assetpack = $Matches.assetpack -eq "1"
-                entry = $Matches.entry
-            }
-        }
-    }
-    return $null
-}
-
 $ExePath = Join-Path $BuildDir "tecmo_port.exe"
 
 $ReferenceRom = Find-ReferenceRom
@@ -388,83 +117,20 @@ if (!(Test-Path $ExePath)) {
 New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $AssetPackPath) | Out-Null
-Add-Type -AssemblyName System.Drawing
-
-$Tests = @(
-    [pscustomobject]@{
-        id = "intro-license"
-        mode = "intro-license"
-        output = "intro_license.png"
-        optional = $false
-        requires_capture = $false
-        min_visible_nonblack_pixels = 12000
-    },
-    [pscustomobject]@{
-        id = "intro-arena-frame320"
-        mode = "intro-arena-frame320"
-        output = "intro_arena_frame320.png"
-        optional = $false
-        requires_capture = $true
-        min_visible_nonblack_pixels = 3000
-    },
-    [pscustomobject]@{
-        id = "intro-ready-frame35"
-        mode = "intro-ready-frame35"
-        output = "intro_ready_frame35.png"
-        optional = $false
-        requires_capture = $true
-        min_visible_nonblack_pixels = 1000
-        allow_low_color_capture = $true
-    },
-    [pscustomobject]@{
-        id = "intro-warriors-frame74"
-        mode = "intro-warriors-frame74"
-        output = "intro_warriors_frame74.png"
-        optional = $false
-        requires_capture = $true
-        min_visible_nonblack_pixels = 2500
-    },
-    [pscustomobject]@{
-        id = "play-step7"
-        mode = "play-step7"
-        output = "play_step7.png"
-        optional = $false
-        requires_capture = $false
-        min_visible_nonblack_pixels = 12000
-    },
-    [pscustomobject]@{
-        id = "play-step8"
-        mode = "play-step8"
-        output = "play_step8.png"
-        optional = $false
-        requires_capture = $true
-        min_visible_nonblack_pixels = 3000
-    },
-    [pscustomobject]@{
-        id = "play-step9"
-        mode = "play-step9"
-        output = "play_step9.png"
-        optional = $false
-        requires_capture = $true
-        min_visible_nonblack_pixels = 1000
-        allow_low_color_capture = $true
-    },
-    [pscustomobject]@{
-        id = "play-step10"
-        mode = "play-step10"
-        output = "play_step10.png"
-        optional = $false
-        requires_capture = $true
-        min_visible_nonblack_pixels = 2500
-    }
+$RenderGapModes = @(
+    "intro-license",
+    "intro-arena-frame320",
+    "intro-ready-frame35",
+    "intro-warriors-frame74",
+    "play-step7",
+    "play-step8",
+    "play-step9",
+    "play-step10"
 )
 
 $Results = New-Object System.Collections.Generic.List[object]
 $Failures = 0
 $Skipped = 0
-$PreviousAssetPack = $env:TECMO_ASSETPACK
-$MovedFallbacks = New-Object System.Collections.Generic.List[object]
-$IsolationSuffix = "intro-sequence-test-isolated"
 $AssetPackRelative = Get-RepoRelativePath $AssetPackPath
 
 try {
@@ -516,43 +182,16 @@ try {
         error = if ($ListPassed) { $null } else { "ROM-only test asset pack unexpectedly contains capture entries" }
     })
 
-    $FallbackCandidates = @(
-        (Join-Path $BuildDir "intro_arena_capture.ndjson"),
-        (Join-Path $ProjectRoot "intro_arena_capture.ndjson"),
-        (Join-Path $BuildDir "emu_intro_memory_watch.ndjson"),
-        (Join-Path $ProjectRoot "emu_intro_memory_watch.ndjson"),
-        (Join-Path $BuildDir "emu_intro_arena_irq_watch.ndjson"),
-        (Join-Path $ProjectRoot "emu_intro_arena_irq_watch.ndjson"),
-        (Join-Path $BuildDir "tecmo.assetpack")
-    )
-    foreach ($Candidate in $FallbackCandidates) {
-        $FullCandidate = [System.IO.Path]::GetFullPath($Candidate)
-        if ($FullCandidate.Equals($AssetPackPath, [System.StringComparison]::OrdinalIgnoreCase)) {
-            continue
-        }
-        $Moved = Move-PathAside -Path $FullCandidate -Suffix $IsolationSuffix
-        if ($Moved) {
-            [void]$MovedFallbacks.Add($Moved)
-        }
-    }
-    $Results.Add([pscustomobject]@{
-        id = "intro-capture-fallbacks-isolated"
-        passed = $true
-        skipped = $false
-        moved_count = $MovedFallbacks.Count
-        asset_pack_env = $AssetPackRelative
-        raw_output_persisted = $false
-    })
-
     ++$Skipped
     $Results.Add([pscustomobject]@{
         id = "intro-render-rom-only-runtime-gap"
         passed = $true
         skipped = $true
-        render_modes = @($Tests | ForEach-Object { $_.mode })
+        render_modes = $RenderGapModes
         rom_only_asset_pack = $AssetPackRelative
         raw_output_persisted = $false
-        note = "Runtime render smoke is intentionally skipped until runtime init and intro capture/state data are derived from the .nes file only."
+        coverage_status = "skipped"
+        gap = "Runtime render smoke is not covered until runtime init and intro capture/state data can be derived from the ROM-only asset pack."
     })
 } catch {
     ++$Failures
@@ -565,29 +204,22 @@ try {
         error_type = Get-SafeExceptionName $_
     })
 } finally {
-    if ($null -eq $PreviousAssetPack) {
-        Remove-Item Env:\TECMO_ASSETPACK -ErrorAction SilentlyContinue
-    } else {
-        $env:TECMO_ASSETPACK = $PreviousAssetPack
-    }
-    for ($Index = $MovedFallbacks.Count - 1; $Index -ge 0; $Index--) {
-        Restore-MovedPath $MovedFallbacks[$Index]
-    }
-
     $Report = [pscustomobject]@{
         schema_version = 1
         generated_by = "tools/Run-IntroSequenceTests.ps1"
         generated_at_utc = [DateTime]::UtcNow.ToString("o")
         data_policy = "Sanitized intro-sequence smoke report only; raw stdout/stderr, local paths, ROM bytes, ASM, CHR bytes, trace payloads, and screenshots are not embedded."
         passed = $Failures -eq 0
-        decomp_root_used = "not-used"
+        reference_rom_used = "<local>"
         build_requested = [bool]$Build
         output_directory = (Get-RepoRelativePath $OutputDir)
         asset_pack = [pscustomobject]@{
             output = $AssetPackRelative
-            env_pack_set_for_renders = $false
-            loose_fallbacks_isolated = $MovedFallbacks.Count
             rom_only_contract = $true
+        }
+        render_coverage = [pscustomobject]@{
+            status = "skipped"
+            reason = "runtime-rom-only-pack-render-gap"
         }
         private_paths_included = $false
         raw_output_persisted = $false
@@ -604,7 +236,7 @@ try {
     $Report | ConvertTo-Json -Depth 8 | Set-Content -Path $ReportPath -Encoding ASCII
 }
 
-$Results | Format-Table id, mode, passed, skipped, diagnostic_warning_like, width, height, visible_nonblack_pixels, output -AutoSize
+$Results | Format-Table id, passed, skipped, output -AutoSize
 Write-Host "Wrote intro sequence test report: $(Get-RepoRelativePath $ReportPath)"
 
 if ($Failures -ne 0) {
