@@ -1331,7 +1331,7 @@ bool tecmo_intro_arena_tile_layer_load(TecmoArenaTileLayer *layer, const char *p
 {
     char project_pack_path[260];
     const char *env_path;
-    const char *pack_paths[2];
+    const char *pack_paths[3];
 
     if (layer == NULL) {
         return false;
@@ -1348,7 +1348,8 @@ bool tecmo_intro_arena_tile_layer_load(TecmoArenaTileLayer *layer, const char *p
         return load_arena_tile_layer_entry(layer, env_path);
     }
     pack_paths[0] = project_pack_path[0] != '\0' ? project_pack_path : NULL;
-    pack_paths[1] = "build\\tecmo.assetpack";
+    pack_paths[1] = "tecmo.assetpack";
+    pack_paths[2] = "build\\tecmo.assetpack";
     for (size_t i = 0; i < sizeof(pack_paths) / sizeof(pack_paths[0]); ++i) {
         if (arena_file_exists(pack_paths[i])) {
             return load_arena_tile_layer_entry(layer, pack_paths[i]);
@@ -1379,9 +1380,9 @@ static bool load_arena_native_asset_pack_status(TecmoIntroArenaCapture *capture,
     pack_paths[0] = env_path != NULL
                         ? env_path
                         : (project_pack_path[0] != '\0' ? project_pack_path : NULL);
-    pack_paths[1] = env_path == NULL ? "build\\tecmo.assetpack" : NULL;
-    pack_paths[2] = env_path == NULL ? "..\\build\\tecmo.assetpack" : NULL;
-    pack_paths[3] = NULL;
+    pack_paths[1] = env_path == NULL ? "tecmo.assetpack" : NULL;
+    pack_paths[2] = env_path == NULL ? "build\\tecmo.assetpack" : NULL;
+    pack_paths[3] = env_path == NULL ? "..\\build\\tecmo.assetpack" : NULL;
 
     for (size_t i = 0; i < sizeof(pack_paths) / sizeof(pack_paths[0]); ++i) {
         if (pack_paths[i] == NULL || pack_paths[i][0] == '\0') {

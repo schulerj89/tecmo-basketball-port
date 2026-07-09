@@ -3201,6 +3201,10 @@ static int load_chr_from_asset_pack(const char *project_root, uint8_t **bytes_ou
         return load_chr_from_asset_pack_path(path, bytes_out, byte_count) == 0 ? 0 : 1;
     }
 
+    if (file_exists("tecmo.assetpack")) {
+        return load_chr_from_asset_pack_path("tecmo.assetpack", bytes_out, byte_count) == 0 ? 0 : 1;
+    }
+
     if (file_exists("build\\tecmo.assetpack")) {
         return load_chr_from_asset_pack_path("build\\tecmo.assetpack", bytes_out, byte_count) == 0 ? 0 : 1;
     }

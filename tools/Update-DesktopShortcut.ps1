@@ -159,7 +159,7 @@ $Shell = New-Object -ComObject WScript.Shell
 $Shortcut = $Shell.CreateShortcut($ShortcutPath)
 $Shortcut.TargetPath = $ExePath
 $Shortcut.Arguments = $Arguments
-$Shortcut.WorkingDirectory = $BuildDir
+$Shortcut.WorkingDirectory = $ProjectRoot
 $Shortcut.IconLocation = "$IconPath,0"
 $Shortcut.Description = "Launch the local-only Tecmo Basketball native port prototype."
 $Shortcut.Save()
