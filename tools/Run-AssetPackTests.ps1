@@ -460,14 +460,11 @@ $DirectoryCountPassed = $false
 $BankCompletenessPassed = $false
 $LogicalEntriesPassed = $false
 $ChrAllValid = $false
-$CanonicalFallbackCleared = $false
+$CanonicalFallbackInitiallyPresent = Test-Path -LiteralPath $CanonicalAssetPackPath
 
 try {
     $ClearTargets = [System.Collections.Generic.List[string]]::new()
     [void]$ClearTargets.Add($AssetPackPath)
-    if (!$AssetPackPath.Equals($CanonicalAssetPackPath, [System.StringComparison]::OrdinalIgnoreCase)) {
-        [void]$ClearTargets.Add($CanonicalAssetPackPath)
-    }
 
     $ClearedTargets = [System.Collections.Generic.List[string]]::new()
     $ClearErrors = 0
@@ -484,14 +481,18 @@ try {
             ++$ClearErrors
         }
     }
-    $CanonicalFallbackCleared = !(Test-Path -LiteralPath $CanonicalAssetPackPath)
+    $TargetOutputCleared = !(Test-Path -LiteralPath $AssetPackPath)
+    $CanonicalFallbackPreserved = $AssetPackPath.Equals(
+        $CanonicalAssetPackPath,
+        [System.StringComparison]::OrdinalIgnoreCase) -or
+        ((Test-Path -LiteralPath $CanonicalAssetPackPath) -eq $CanonicalFallbackInitiallyPresent)
     Add-TestResult ([pscustomobject]@{
-        id = "stale-assetpack-cleared"
-        passed = $ClearErrors -eq 0 -and $CanonicalFallbackCleared
+        id = "target-assetpack-cleared"
+        passed = $ClearErrors -eq 0 -and $TargetOutputCleared -and $CanonicalFallbackPreserved
         target_output = $AssetPackRelative
         canonical_fallback = $CanonicalAssetPackRelative
         removed_outputs = $ClearedTargets.ToArray()
-        canonical_fallback_absent_before_build = $CanonicalFallbackCleared
+        canonical_fallback_preserved = $CanonicalFallbackPreserved
         raw_output_persisted = $false
     })
 
@@ -895,7 +896,7 @@ try {
         id = "chr-all-entry-readable"
         passed = $ChrAllReadable
         asset_pack_entry_validated = $ChrAllValid
-        canonical_fallback_absent_before_validation = $CanonicalFallbackCleared
+        canonical_fallback_preserved = $CanonicalFallbackPreserved
         rom_only_contract = $true
         raw_output_persisted = $false
         error = if ($ChrAllReadable) { $null } else { "chr/all entry was missing or failed size/bounds validation" }
