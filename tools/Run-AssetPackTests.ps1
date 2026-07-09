@@ -16,9 +16,10 @@ if (!$ProjectRoot) {
 $ProjectRoot = (Resolve-Path $ProjectRoot).Path
 
 $BuildDir = Join-Path $ProjectRoot "build"
+$CanonicalAssetPackPath = [System.IO.Path]::GetFullPath((Join-Path $BuildDir "tecmo.assetpack"))
 
 if (!$AssetPackPath) {
-    $AssetPackPath = Join-Path $BuildDir "tecmo.assetpack"
+    $AssetPackPath = Join-Path $BuildDir "asset_pack_test\tecmo_test.assetpack"
 }
 if (![System.IO.Path]::IsPathRooted($AssetPackPath)) {
     $AssetPackPath = Join-Path $ProjectRoot $AssetPackPath
@@ -26,7 +27,7 @@ if (![System.IO.Path]::IsPathRooted($AssetPackPath)) {
 $AssetPackPath = [System.IO.Path]::GetFullPath($AssetPackPath)
 
 if (!$ChrRenderPath) {
-    $ChrRenderPath = Join-Path $BuildDir "asset_pack_chr_playground_test.png"
+    $ChrRenderPath = Join-Path $BuildDir "asset_pack_test\chr_playground_test.png"
 }
 if (![System.IO.Path]::IsPathRooted($ChrRenderPath)) {
     $ChrRenderPath = Join-Path $ProjectRoot $ChrRenderPath
@@ -111,9 +112,18 @@ function ConvertTo-RepoRelativePath {
     $FullPath = [System.IO.Path]::GetFullPath($Path)
     $FullRoot = [System.IO.Path]::GetFullPath($ProjectRoot).TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
     if ($FullPath.StartsWith($FullRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
-        return $FullPath.Substring($FullRoot.Length)
+        return $FullPath.Substring($FullRoot.Length).Replace('\', '/')
     }
     return "<outside-repo>"
+}
+
+function Get-SafeExceptionName {
+    param($ErrorRecord)
+
+    if ($ErrorRecord -and $ErrorRecord.Exception) {
+        return $ErrorRecord.Exception.GetType().Name
+    }
+    return "Error"
 }
 
 function Read-AssetPackDirectory {
@@ -146,6 +156,7 @@ function Read-AssetPackDirectory {
 
         [void]$File.Seek([int64]$DirectoryOffset, [System.IO.SeekOrigin]::Begin)
         $Ids = [System.Collections.Generic.List[string]]::new()
+        $Entries = [System.Collections.Generic.List[object]]::new()
         for ($Index = 0; $Index -lt $EntryCount; ++$Index) {
             $EntryBytes = $Reader.ReadBytes($EntrySize)
             if ($EntryBytes.Length -ne $EntrySize) {
@@ -156,18 +167,123 @@ function Read-AssetPackDirectory {
                 $IdLength = 64
             }
             $Id = [System.Text.Encoding]::ASCII.GetString($EntryBytes, 0, $IdLength)
+            $Type = [System.BitConverter]::ToUInt32($EntryBytes, 64)
+            $Bank = [System.BitConverter]::ToUInt32($EntryBytes, 68)
+            $CpuAddress = [System.BitConverter]::ToUInt32($EntryBytes, 72)
+            $SourceOffset = [System.BitConverter]::ToUInt64($EntryBytes, 76)
+            $PackOffset = [System.BitConverter]::ToUInt64($EntryBytes, 84)
+            $ByteCount = [System.BitConverter]::ToUInt64($EntryBytes, 92)
+            $Flags = [System.BitConverter]::ToUInt32($EntryBytes, 100)
+            if ($PackOffset -lt $DataOffset -or $PackOffset -gt $DirectoryOffset -or $ByteCount -gt ($DirectoryOffset - $PackOffset)) {
+                throw "Asset pack directory entry payload bounds are invalid."
+            }
             [void]$Ids.Add($Id)
+            [void]$Entries.Add([pscustomobject]@{
+                id = $Id
+                type = $Type
+                bank = $Bank
+                cpu_address = $CpuAddress
+                source_offset = $SourceOffset
+                pack_offset = $PackOffset
+                byte_count = $ByteCount
+                flags = $Flags
+            })
         }
 
         return [pscustomobject]@{
             version = $Version
             entry_count = $EntryCount
             ids = $Ids
+            entries = $Entries
         }
     } finally {
         $Reader.Dispose()
         $File.Dispose()
     }
+}
+
+function Get-ExpectedAssetPackEntries {
+    param(
+        [int]$PrgBanks,
+        [int]$ChrBanks
+    )
+
+    $Entries = [System.Collections.Generic.List[string]]::new()
+    [void]$Entries.Add("system/manifest")
+    [void]$Entries.Add("system/source-map")
+    for ($Index = 0; $Index -lt $PrgBanks; ++$Index) {
+        [void]$Entries.Add(("prg/bank{0:D2}" -f $Index))
+    }
+    [void]$Entries.Add("prg/fixed")
+    if ($ChrBanks -gt 0) {
+        [void]$Entries.Add("chr/all")
+        for ($Index = 0; $Index -lt $ChrBanks; ++$Index) {
+            [void]$Entries.Add(("chr/bank{0:D2}" -f $Index))
+        }
+    }
+    return $Entries.ToArray()
+}
+
+function Get-DuplicateValues {
+    param([string[]]$Values)
+
+    $Seen = @{}
+    $Duplicates = [System.Collections.Generic.List[string]]::new()
+    foreach ($Value in $Values) {
+        if ($Seen.ContainsKey($Value)) {
+            if (!$Duplicates.Contains($Value)) {
+                [void]$Duplicates.Add($Value)
+            }
+        } else {
+            $Seen[$Value] = $true
+        }
+    }
+    return $Duplicates.ToArray()
+}
+
+function Get-AssetPackSizeMismatches {
+    param(
+        [object]$Directory,
+        [int]$PrgBanks,
+        [int]$ChrBanks
+    )
+
+    $EntryById = @{}
+    foreach ($Entry in $Directory.entries) {
+        if (!$EntryById.ContainsKey($Entry.id)) {
+            $EntryById[$Entry.id] = $Entry
+        }
+    }
+
+    $ExpectedSizes = @{}
+    for ($Index = 0; $Index -lt $PrgBanks; ++$Index) {
+        $ExpectedSizes[("prg/bank{0:D2}" -f $Index)] = 16384
+    }
+    $ExpectedSizes["prg/fixed"] = 16384
+    if ($ChrBanks -gt 0) {
+        $ExpectedSizes["chr/all"] = 8192 * $ChrBanks
+        for ($Index = 0; $Index -lt $ChrBanks; ++$Index) {
+            $ExpectedSizes[("chr/bank{0:D2}" -f $Index)] = 8192
+        }
+    }
+
+    $Mismatches = [System.Collections.Generic.List[object]]::new()
+    foreach ($Id in $ExpectedSizes.Keys) {
+        if (!$EntryById.ContainsKey($Id)) {
+            continue
+        }
+        $ExpectedBytes = [uint64]$ExpectedSizes[$Id]
+        $ActualBytes = [uint64]$EntryById[$Id].byte_count
+        if ($ActualBytes -ne $ExpectedBytes) {
+            [void]$Mismatches.Add([pscustomobject]@{
+                id = $Id
+                expected_bytes = $ExpectedBytes
+                actual_bytes = $ActualBytes
+            })
+        }
+    }
+
+    return $Mismatches.ToArray()
 }
 
 function Test-PngSmoke {
@@ -193,6 +309,48 @@ function Test-PngSmoke {
     } finally {
         $Bitmap.Dispose()
     }
+}
+
+function Add-TestResult {
+    param([pscustomobject]$Result)
+
+    $script:Results.Add($Result) | Out-Null
+    if (($Result.PSObject.Properties.Name -contains "passed") -and !$Result.passed) {
+        ++$script:Failures
+    }
+}
+
+function Write-AssetPackReport {
+    $Report = [pscustomobject]@{
+        schema_version = 1
+        generated_by = "tools/Run-AssetPackTests.ps1"
+        generated_at_utc = [DateTime]::UtcNow.ToString("o")
+        data_policy = "Sanitized asset-pack smoke report only; raw stdout/stderr, local paths, ROM bytes, extracted assets, ASM, CHR bytes, and screenshots outside ignored build output are not persisted."
+        passed = $Failures -eq 0
+        decomp_root_used = "<local>"
+        reference_rom_used = "<local>"
+        build_requested = [bool]$Build
+        private_paths_included = $false
+        raw_output_persisted = $false
+        asset_pack = [pscustomobject]@{
+            output = $AssetPackRelative
+            canonical_fallback = $CanonicalAssetPackRelative
+            prg_banks_reported = $ReportedPrgBanks
+            chr_banks_reported = $ReportedChrBanks
+            entries_reported = $ReportedEntries
+            expected_entry_count = if ($ExpectedEntries) { $ExpectedEntries.Count } else { $null }
+            directory_entry_count = if ($Directory) { $Directory.entry_count } else { $null }
+            canonical_fallback_cleared = $CanonicalFallbackCleared
+            env_pack_use_proven = $false
+        }
+        tests = $Results
+    }
+
+    $ReportDir = Split-Path -Parent $ReportPath
+    if ($ReportDir) {
+        New-Item -ItemType Directory -Force -Path $ReportDir | Out-Null
+    }
+    $Report | ConvertTo-Json -Depth 8 | Set-Content -Path $ReportPath -Encoding UTF8
 }
 
 if (!(Test-PathUnder $AssetPackPath $BuildDir)) {
@@ -249,166 +407,301 @@ Add-Type -AssemblyName System.Drawing
 $Results = [System.Collections.Generic.List[object]]::new()
 $Failures = 0
 $AssetPackRelative = ConvertTo-RepoRelativePath $AssetPackPath
+$CanonicalAssetPackRelative = ConvertTo-RepoRelativePath $CanonicalAssetPackPath
 $ChrRenderRelative = ConvertTo-RepoRelativePath $ChrRenderPath
 $ReportedPrgBanks = $null
 $ReportedChrBanks = $null
 $ReportedEntries = $null
 $Directory = $null
-$RequiredEntries = @("system/manifest", "system/source-map", "prg/bank00", "prg/fixed", "chr/all", "chr/bank00", "chr/bank31")
+$ExpectedEntries = $null
+$DirectoryCountPassed = $false
+$BankCompletenessPassed = $false
+$CanonicalFallbackCleared = $false
+$PreviousAssetPack = $null
+$AssetPackEnvChanged = $false
 
-Write-Host "Building asset pack -> $AssetPackRelative"
-$BuildOutput = & $ExePath --build-assetpack $ReferenceRom $AssetPackPath 2>&1
-$BuildExitCode = $LASTEXITCODE
-$BuildOutputText = (@($BuildOutput) | ForEach-Object { [string]$_ }) -join "`n"
-if ($BuildOutputText -match "Wrote\s+([0-9]+)\s+PRG banks,\s+([0-9]+)\s+CHR banks,\s+([0-9]+)\s+entries to .+") {
-    $ReportedPrgBanks = [int]$Matches[1]
-    $ReportedChrBanks = [int]$Matches[2]
-    $ReportedEntries = [int]$Matches[3]
-}
-$BuildPassed = $BuildExitCode -eq 0 -and $null -ne $ReportedPrgBanks -and $null -ne $ReportedChrBanks -and $null -ne $ReportedEntries
-if (!$BuildPassed) {
-    ++$Failures
-}
-$Results.Add([pscustomobject]@{
-    id = "build-assetpack"
-    passed = $BuildPassed
-    exit_code = $BuildExitCode
-    output_reported_prg_banks = $null -ne $ReportedPrgBanks
-    output_reported_chr_banks = $null -ne $ReportedChrBanks
-    output_reported_entry_count = $null -ne $ReportedEntries
-    raw_output_persisted = $false
-}) | Out-Null
-
-if ($BuildPassed) {
-    Write-Host ("Asset pack build reported {0} PRG banks, {1} CHR banks, {2} entries." -f $ReportedPrgBanks, $ReportedChrBanks, $ReportedEntries)
-} else {
-    Write-Host "Asset pack build failed or did not report PRG/CHR entry counts."
-}
-
-$PackCreated = Test-Path $AssetPackPath
-if (!$PackCreated) {
-    ++$Failures
-}
-$Results.Add([pscustomobject]@{
-    id = "assetpack-file-created"
-    passed = $PackCreated
-    output = $AssetPackRelative
-    bytes = if ($PackCreated) { (Get-Item $AssetPackPath).Length } else { $null }
-}) | Out-Null
-
-if ($PackCreated) {
-    $Directory = Read-AssetPackDirectory $AssetPackPath
-    $MissingEntries = @($RequiredEntries | Where-Object { !$Directory.ids.Contains($_) })
-    $DirectoryPassed = $MissingEntries.Count -eq 0
-    if (!$DirectoryPassed) {
-        ++$Failures
-    }
-    $Results.Add([pscustomobject]@{
-        id = "assetpack-required-entries"
-        passed = $DirectoryPassed
-        directory_entry_count = $Directory.entry_count
-        required_entries = $RequiredEntries
-        missing_entries = $MissingEntries
-        raw_asset_bytes_persisted = $false
-    }) | Out-Null
-} else {
-    $Results.Add([pscustomobject]@{
-        id = "assetpack-required-entries"
-        passed = $false
-        error = "asset pack file was not created"
-    }) | Out-Null
-}
-
-$PreviousAssetPack = $env:TECMO_ASSETPACK
-$env:TECMO_ASSETPACK = $AssetPackPath
 try {
-    Write-Host "Rendering CHR playground from asset pack -> $ChrRenderRelative"
-    $RenderOutput = & $ExePath --root $LocalDecompRoot --render-test-mode chr-playground $ChrRenderPath 2>&1
-    $RenderExitCode = $LASTEXITCODE
-    $RenderExists = Test-Path $ChrRenderPath
-    $RenderSmoke = if ($RenderExists) { Test-PngSmoke $ChrRenderPath } else { $null }
-    $RenderPassed = $RenderExitCode -eq 0 -and
-        $RenderExists -and
-        $RenderSmoke.width -eq 640 -and
-        $RenderSmoke.height -eq 480 -and
-        $RenderSmoke.non_background_grid_pixels -gt 200
-    if (!$RenderPassed) {
-        ++$Failures
-    }
-    $Results.Add([pscustomobject]@{
-        id = "chr-playground-render"
-        passed = $RenderPassed
-        exit_code = $RenderExitCode
-        output = $ChrRenderRelative
-        width = if ($RenderSmoke) { $RenderSmoke.width } else { $null }
-        height = if ($RenderSmoke) { $RenderSmoke.height } else { $null }
-        non_background_grid_pixels = if ($RenderSmoke) { $RenderSmoke.non_background_grid_pixels } else { $null }
-        asset_pack_env_used = $true
-        raw_output_persisted = $false
-    }) | Out-Null
-
-    $Manifest = Get-Content -Raw $ManifestPath | ConvertFrom-Json
-    $FlowTests = @($Manifest.native_flow_tests | Where-Object { $_.status -eq "active" })
-    if ($FlowTests.Count -eq 0) {
-        throw "No active native flow tests declared in port_iteration.json."
-    }
-    $FlowTest = $FlowTests[0]
-    $ExpectedFlowOutput = [string]$FlowTest.expected_output
-    if ([string]$FlowTest.command -notmatch '^\.\\build\\tecmo_port\.exe --root <LOCAL_DECOMP_ROOT> --flow-test$') {
-        throw "Native flow test '$($FlowTest.id)' uses an unsupported command shape."
+    $ClearTargets = [System.Collections.Generic.List[string]]::new()
+    [void]$ClearTargets.Add($AssetPackPath)
+    if (!$AssetPackPath.Equals($CanonicalAssetPackPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+        [void]$ClearTargets.Add($CanonicalAssetPackPath)
     }
 
-    Write-Host "Running flow-test with asset pack present"
-    $FlowOutput = & $ExePath --root $LocalDecompRoot --flow-test 2>&1
-    $FlowExitCode = $LASTEXITCODE
-    $ExpectedFlowOutputSeen = $false
-    foreach ($Line in @($FlowOutput)) {
-        if ([string]$Line -eq $ExpectedFlowOutput) {
-            $ExpectedFlowOutputSeen = $true
+    $ClearedTargets = [System.Collections.Generic.List[string]]::new()
+    $ClearErrors = 0
+    foreach ($Target in $ClearTargets) {
+        try {
+            if (Test-Path -LiteralPath $Target) {
+                Remove-Item -LiteralPath $Target -Force
+                [void]$ClearedTargets.Add((ConvertTo-RepoRelativePath $Target))
+            }
+        } catch {
+            ++$ClearErrors
+        }
+        if (Test-Path -LiteralPath $Target) {
+            ++$ClearErrors
         }
     }
-    $FlowPassed = $FlowExitCode -eq 0 -and $ExpectedFlowOutputSeen
-    if (!$FlowPassed) {
-        ++$Failures
-    }
-    $Results.Add([pscustomobject]@{
-        id = "flow-test"
-        passed = $FlowPassed
-        exit_code = $FlowExitCode
-        expected_output_seen = $ExpectedFlowOutputSeen
-        asset_pack_env_used = $true
+    $CanonicalFallbackCleared = !(Test-Path -LiteralPath $CanonicalAssetPackPath)
+    Add-TestResult ([pscustomobject]@{
+        id = "stale-assetpack-cleared"
+        passed = $ClearErrors -eq 0 -and $CanonicalFallbackCleared
+        target_output = $AssetPackRelative
+        canonical_fallback = $CanonicalAssetPackRelative
+        removed_outputs = $ClearedTargets.ToArray()
+        canonical_fallback_absent_before_build = $CanonicalFallbackCleared
         raw_output_persisted = $false
-    }) | Out-Null
-} finally {
-    if ($null -eq $PreviousAssetPack) {
-        Remove-Item Env:\TECMO_ASSETPACK -ErrorAction SilentlyContinue
+    })
+
+    Write-Host "Building asset pack -> $AssetPackRelative"
+    $BuildOutput = & $ExePath --build-assetpack $ReferenceRom $AssetPackPath 2>&1
+    $BuildExitCode = $LASTEXITCODE
+    $BuildOutputText = (@($BuildOutput) | ForEach-Object { [string]$_ }) -join "`n"
+    if ($BuildOutputText -match "Wrote\s+([0-9]+)\s+PRG banks,\s+([0-9]+)\s+CHR banks,\s+([0-9]+)\s+entries to .+") {
+        $ReportedPrgBanks = [int]$Matches[1]
+        $ReportedChrBanks = [int]$Matches[2]
+        $ReportedEntries = [int]$Matches[3]
+    }
+    $BuildPassed = $BuildExitCode -eq 0 -and $null -ne $ReportedPrgBanks -and $null -ne $ReportedChrBanks -and $null -ne $ReportedEntries
+    Add-TestResult ([pscustomobject]@{
+        id = "build-assetpack"
+        passed = $BuildPassed
+        exit_code = $BuildExitCode
+        output_reported_prg_banks = $null -ne $ReportedPrgBanks
+        output_reported_chr_banks = $null -ne $ReportedChrBanks
+        output_reported_entry_count = $null -ne $ReportedEntries
+        raw_output_persisted = $false
+    })
+
+    if ($BuildPassed) {
+        Write-Host ("Asset pack build reported {0} PRG banks, {1} CHR banks, {2} entries." -f $ReportedPrgBanks, $ReportedChrBanks, $ReportedEntries)
     } else {
-        $env:TECMO_ASSETPACK = $PreviousAssetPack
+        Write-Host "Asset pack build failed or did not report PRG/CHR entry counts."
     }
-}
 
-$Report = [pscustomobject]@{
-    schema_version = 1
-    generated_by = "tools/Run-AssetPackTests.ps1"
-    data_policy = "Sanitized asset-pack smoke report only; raw stdout/stderr, local paths, ROM bytes, extracted assets, ASM, CHR bytes, and screenshots outside ignored build output are not persisted."
-    passed = $Failures -eq 0
-    decomp_root_used = "<local>"
-    reference_rom_used = "<local>"
-    private_paths_included = $false
-    raw_output_persisted = $false
-    asset_pack = [pscustomobject]@{
+    $PackCreated = Test-Path -LiteralPath $AssetPackPath
+    Add-TestResult ([pscustomobject]@{
+        id = "assetpack-file-created"
+        passed = $PackCreated
         output = $AssetPackRelative
-        prg_banks_reported = $ReportedPrgBanks
-        chr_banks_reported = $ReportedChrBanks
-        entries_reported = $ReportedEntries
-        directory_entry_count = if ($Directory) { $Directory.entry_count } else { $null }
+        bytes = if ($PackCreated) { (Get-Item -LiteralPath $AssetPackPath).Length } else { $null }
+    })
+
+    if ($PackCreated) {
+        try {
+            $Directory = Read-AssetPackDirectory $AssetPackPath
+            Add-TestResult ([pscustomobject]@{
+                id = "assetpack-directory-readable"
+                passed = $true
+                directory_entry_count = $Directory.entry_count
+                raw_asset_bytes_persisted = $false
+            })
+        } catch {
+            Add-TestResult ([pscustomobject]@{
+                id = "assetpack-directory-readable"
+                passed = $false
+                error = "asset pack directory inspection failed"
+                error_type = Get-SafeExceptionName $_
+                raw_asset_bytes_persisted = $false
+            })
+        }
+    } else {
+        Add-TestResult ([pscustomobject]@{
+            id = "assetpack-directory-readable"
+            passed = $false
+            error = "asset pack file was not created"
+            raw_asset_bytes_persisted = $false
+        })
     }
-    tests = $Results
+
+    if ($Directory) {
+        $DirectoryCountPassed = $null -ne $ReportedEntries -and
+            [uint32]$Directory.entry_count -eq [uint32]$ReportedEntries -and
+            $Directory.ids.Count -eq [int]$Directory.entry_count
+        Add-TestResult ([pscustomobject]@{
+            id = "assetpack-directory-count"
+            passed = $DirectoryCountPassed
+            cli_reported_entry_count = $ReportedEntries
+            parsed_directory_entry_count = $Directory.entry_count
+            parsed_id_count = $Directory.ids.Count
+            raw_asset_bytes_persisted = $false
+        })
+
+        if ($null -ne $ReportedPrgBanks -and $null -ne $ReportedChrBanks) {
+            $ExpectedEntries = @(Get-ExpectedAssetPackEntries -PrgBanks $ReportedPrgBanks -ChrBanks $ReportedChrBanks)
+            $MissingEntries = @($ExpectedEntries | Where-Object { !$Directory.ids.Contains($_) })
+            $DuplicateEntries = @(Get-DuplicateValues -Values ([string[]]$Directory.ids.ToArray()))
+            $UnexpectedEntries = @($Directory.ids | Where-Object { $ExpectedEntries -notcontains $_ })
+            $SizeMismatches = @(Get-AssetPackSizeMismatches -Directory $Directory -PrgBanks $ReportedPrgBanks -ChrBanks $ReportedChrBanks)
+            $ExpectedCountMatchesCli = $ExpectedEntries.Count -eq $ReportedEntries
+            $BankCompletenessPassed = $MissingEntries.Count -eq 0 -and
+                $DuplicateEntries.Count -eq 0 -and
+                $ExpectedCountMatchesCli -and
+                $SizeMismatches.Count -eq 0
+            Add-TestResult ([pscustomobject]@{
+                id = "assetpack-bank-completeness"
+                passed = $BankCompletenessPassed
+                expected_entry_count = $ExpectedEntries.Count
+                cli_reported_entry_count = $ReportedEntries
+                expected_count_matches_cli = $ExpectedCountMatchesCli
+                missing_entries = $MissingEntries
+                duplicate_entries = $DuplicateEntries
+                unexpected_entries = $UnexpectedEntries
+                size_mismatches = $SizeMismatches
+                raw_asset_bytes_persisted = $false
+            })
+        } else {
+            Add-TestResult ([pscustomobject]@{
+                id = "assetpack-bank-completeness"
+                passed = $false
+                error = "asset pack builder did not report PRG/CHR bank counts"
+                raw_asset_bytes_persisted = $false
+            })
+        }
+    } else {
+        Add-TestResult ([pscustomobject]@{
+            id = "assetpack-directory-count"
+            passed = $false
+            error = "asset pack directory was not parsed"
+            raw_asset_bytes_persisted = $false
+        })
+        Add-TestResult ([pscustomobject]@{
+            id = "assetpack-bank-completeness"
+            passed = $false
+            error = "asset pack directory was not parsed"
+            raw_asset_bytes_persisted = $false
+        })
+    }
+
+    $AssetPackValidatedForRender = $PackCreated -and
+        $DirectoryCountPassed -and
+        $BankCompletenessPassed -and
+        $Directory -and
+        $Directory.ids.Contains("chr/all")
+
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    $AssetPackEnvChanged = $true
+    $env:TECMO_ASSETPACK = $AssetPackPath
+    try {
+        if (Test-Path -LiteralPath $ChrRenderPath) {
+            Remove-Item -LiteralPath $ChrRenderPath -Force
+        }
+
+        if ($AssetPackValidatedForRender) {
+            Write-Host "Rendering CHR playground with TECMO_ASSETPACK set -> $ChrRenderRelative"
+            $RenderOutput = & $ExePath --root $LocalDecompRoot --render-test-mode chr-playground $ChrRenderPath 2>&1
+            $RenderExitCode = $LASTEXITCODE
+            $RenderExists = Test-Path -LiteralPath $ChrRenderPath
+            $RenderSmoke = $null
+            $PngInspectionError = $null
+            if ($RenderExists) {
+                try {
+                    $RenderSmoke = Test-PngSmoke $ChrRenderPath
+                } catch {
+                    $PngInspectionError = Get-SafeExceptionName $_
+                }
+            }
+            $RenderPassed = $RenderExitCode -eq 0 -and
+                $RenderExists -and
+                $null -eq $PngInspectionError -and
+                $RenderSmoke.width -eq 640 -and
+                $RenderSmoke.height -eq 480 -and
+                $RenderSmoke.non_background_grid_pixels -gt 200
+            Add-TestResult ([pscustomobject]@{
+                id = "chr-playground-render"
+                passed = $RenderPassed
+                exit_code = $RenderExitCode
+                output = $ChrRenderRelative
+                width = if ($RenderSmoke) { $RenderSmoke.width } else { $null }
+                height = if ($RenderSmoke) { $RenderSmoke.height } else { $null }
+                non_background_grid_pixels = if ($RenderSmoke) { $RenderSmoke.non_background_grid_pixels } else { $null }
+                asset_pack_env_set = $true
+                asset_pack_entry_validated = $true
+                canonical_fallback_absent_before_render = $CanonicalFallbackCleared
+                asset_pack_use_proven = $false
+                raw_output_persisted = $false
+                error = if ($PngInspectionError) { "PNG inspection failed" } elseif ($RenderPassed) { $null } else { "render failed PNG smoke assertions" }
+                error_type = $PngInspectionError
+            })
+        } else {
+            Add-TestResult ([pscustomobject]@{
+                id = "chr-playground-render"
+                passed = $false
+                output = $ChrRenderRelative
+                asset_pack_env_set = $true
+                asset_pack_entry_validated = $false
+                asset_pack_use_proven = $false
+                raw_output_persisted = $false
+                error = "asset pack validation failed before render"
+            })
+        }
+
+        try {
+            $Manifest = Get-Content -Raw $ManifestPath | ConvertFrom-Json
+            $FlowTests = @($Manifest.native_flow_tests | Where-Object { $_.status -eq "active" })
+            if ($FlowTests.Count -eq 0) {
+                throw "No active native flow tests declared in port_iteration.json."
+            }
+            $FlowTest = $FlowTests[0]
+            $ExpectedFlowOutput = [string]$FlowTest.expected_output
+            if ([string]$FlowTest.command -notmatch '^\.\\build\\tecmo_port\.exe --root <LOCAL_DECOMP_ROOT> --flow-test$') {
+                throw "Native flow test uses an unsupported command shape."
+            }
+
+            Write-Host "Running flow-test with TECMO_ASSETPACK set"
+            $FlowOutput = & $ExePath --root $LocalDecompRoot --flow-test 2>&1
+            $FlowExitCode = $LASTEXITCODE
+            $ExpectedFlowOutputSeen = $false
+            foreach ($Line in @($FlowOutput)) {
+                if ([string]$Line -eq $ExpectedFlowOutput) {
+                    $ExpectedFlowOutputSeen = $true
+                }
+            }
+            $FlowPassed = $FlowExitCode -eq 0 -and $ExpectedFlowOutputSeen
+            Add-TestResult ([pscustomobject]@{
+                id = "flow-test"
+                passed = $FlowPassed
+                exit_code = $FlowExitCode
+                expected_output_seen = $ExpectedFlowOutputSeen
+                asset_pack_env_set = $true
+                asset_pack_use_proven = $false
+                raw_output_persisted = $false
+            })
+        } catch {
+            Add-TestResult ([pscustomobject]@{
+                id = "flow-test"
+                passed = $false
+                asset_pack_env_set = $true
+                asset_pack_use_proven = $false
+                raw_output_persisted = $false
+                error = "flow-test setup or execution failed"
+                error_type = Get-SafeExceptionName $_
+            })
+        }
+    } finally {
+        if ($AssetPackEnvChanged) {
+            if ($null -eq $PreviousAssetPack) {
+                Remove-Item Env:\TECMO_ASSETPACK -ErrorAction SilentlyContinue
+            } else {
+                $env:TECMO_ASSETPACK = $PreviousAssetPack
+            }
+        }
+    }
+} catch {
+    Add-TestResult ([pscustomobject]@{
+        id = "assetpack-runner-error"
+        passed = $false
+        raw_output_persisted = $false
+        private_paths_included = $false
+        error = "asset-pack test runner failed before completing all checks"
+        error_type = Get-SafeExceptionName $_
+    })
+} finally {
+    Write-AssetPackReport
 }
 
-$Report | ConvertTo-Json -Depth 6 | Set-Content -Path $ReportPath -Encoding UTF8
 $Results | Format-Table -AutoSize
-Write-Host "Wrote asset-pack test report: $ReportPath"
+Write-Host "Wrote asset-pack test report: $(ConvertTo-RepoRelativePath $ReportPath)"
 
 if ($Failures -ne 0) {
     throw "$Failures asset-pack test(s) failed."
