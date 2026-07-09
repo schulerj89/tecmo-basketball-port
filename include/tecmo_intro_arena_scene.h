@@ -1,8 +1,6 @@
 #ifndef TECMO_INTRO_ARENA_SCENE_H
 #define TECMO_INTRO_ARENA_SCENE_H
 
-#include "tecmo_framebuffer.h"
-
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -91,9 +89,6 @@ bool tecmo_arena_goal_parts_attached(const TecmoArenaGoal *goal,
                                      const TecmoArenaCamera *camera,
                                      char *message,
                                      size_t message_size);
-
-void tecmo_arena_intro_scene_draw_preview(TecmoFramebuffer *fb,
-                                          const TecmoArenaIntro *intro);
 
 const char *tecmo_arena_intro_phase_name(TecmoArenaIntroPhase phase);
 bool tecmo_arena_intro_scene_self_test(char *message, size_t message_size);

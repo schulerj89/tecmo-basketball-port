@@ -27,7 +27,7 @@ static void print_usage(const char *program)
     printf("  --bank07-test           Run fixed-bank helper C counterpart checks\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, first-sprite, first-sprite-debug, intro-license, intro-arena-transition, intro-arena-frameN, intro-arena-native-frameN, intro-ready-frameN, intro-warriors-frameN, intro-l88e7-proof, intro-presents, intro-builder-sample, intro-rabbit-preset, intro-tecmo-preset, intro-composite-preset, intro-c051-d861-model, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play, play-fade0..play-fade4, play-step0..play-step10, play-setup, original-title, or original-title-chr to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, first-sprite, first-sprite-debug, intro-license, intro-arena-transition, intro-arena-frameN, intro-ready-frameN, intro-warriors-frameN, intro-l88e7-proof, intro-presents, intro-builder-sample, intro-rabbit-preset, intro-tecmo-preset, intro-composite-preset, intro-c051-d861-model, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play, play-fade0..play-fade4, play-step0..play-step10, play-setup, original-title, or original-title-chr to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --build-assetpack ROM PATH  Build a private .assetpack from an iNES ROM only; no decomp/capture imports\n");
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
@@ -331,24 +331,6 @@ int main(int argc, char **argv)
                 tecmo_render_intro_c051_d861_model(&framebuffer);
                 result = 0;
             }
-        } else if (strcmp(mode_name, "intro-arena-native") == 0 ||
-                   strncmp(mode_name, "intro-arena-native-frame", 24) == 0) {
-            TecmoArenaIntro intro;
-            unsigned frame = 120U;
-            if (strncmp(mode_name, "intro-arena-native-frame", 24) == 0) {
-                long parsed_frame = strtol(mode_name + 24, NULL, 10);
-                frame = parsed_frame < 0 ? 0U : (unsigned)parsed_frame;
-            }
-            tecmo_arena_intro_init(&intro);
-            for (unsigned i = 0; i < frame; ++i) {
-                tecmo_arena_intro_update(&intro);
-            }
-            framebuffer.pixels = pixels;
-            framebuffer.width = width;
-            framebuffer.height = height;
-            framebuffer.pitch_pixels = width;
-            tecmo_arena_intro_scene_draw_preview(&framebuffer, &intro);
-            result = 0;
         } else if (!tecmo_runtime_init_with_flags(&runtime,
                                                   &memory,
                                                   root,
