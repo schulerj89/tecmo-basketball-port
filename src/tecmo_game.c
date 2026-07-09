@@ -192,8 +192,13 @@ static void set_runtime_status(char *dest, size_t dest_size, const char *text)
     (void)snprintf(dest, dest_size, "%s", text);
 }
 
-bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const char *project_root)
+bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
+                                   TecmoGameMemory *memory,
+                                   const char *project_root,
+                                   unsigned flags)
 {
+    const bool allow_empty_roster = (flags & TECMO_RUNTIME_INIT_ALLOW_EMPTY_ROSTER) != 0U;
+
     memset(runtime, 0, sizeof(*runtime));
     runtime->memory = memory;
     runtime->selected_chr_bank = 31U;
@@ -203,7 +208,10 @@ bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const ch
     (void)tecmo_intro_post_arena_capture_load(&runtime->intro_post_arena_capture, project_root);
 
     if (tecmo_collect_rosters(project_root, &runtime->roster) != 0) {
-        return false;
+        if (!allow_empty_roster) {
+            return false;
+        }
+        memset(&runtime->roster, 0, sizeof(runtime->roster));
     }
 
     for (size_t i = 0; i < runtime->roster.count; ++i) {
@@ -229,7 +237,12 @@ bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const ch
     runtime->player_y = 260.0f;
     runtime->ball_x = runtime->player_x + 14.0f;
     runtime->ball_y = runtime->player_y - 8.0f;
-    return runtime->team_count > 0;
+    return runtime->team_count > 0 || allow_empty_roster;
+}
+
+bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const char *project_root)
+{
+    return tecmo_runtime_init_with_flags(runtime, memory, project_root, 0U);
 }
 
 void tecmo_runtime_shutdown(TecmoRuntime *runtime)

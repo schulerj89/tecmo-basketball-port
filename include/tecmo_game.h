@@ -82,7 +82,13 @@ typedef struct TecmoRuntime {
     TecmoInput previous_input;
 } TecmoRuntime;
 
+#define TECMO_RUNTIME_INIT_ALLOW_EMPTY_ROSTER 0x01U
+
 bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const char *project_root);
+bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
+                                   TecmoGameMemory *memory,
+                                   const char *project_root,
+                                   unsigned flags);
 void tecmo_runtime_shutdown(TecmoRuntime *runtime);
 void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode);
 void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input);
