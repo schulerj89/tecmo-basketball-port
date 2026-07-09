@@ -793,6 +793,34 @@ static int append_source_map_entry(char *buffer,
                        cpu_address);
 }
 
+static const char *asset_pack_type_name(uint32_t type)
+{
+    if (type == TECMO_ASSET_PACK_TYPE_META) {
+        return "META";
+    }
+    if (type == TECMO_ASSET_PACK_TYPE_PRG) {
+        return "PRG";
+    }
+    if (type == TECMO_ASSET_PACK_TYPE_CHR) {
+        return "CHR";
+    }
+    if (type == TECMO_ASSET_PACK_TYPE_DATA) {
+        return "DATA";
+    }
+    return "UNKNOWN";
+}
+
+static int is_ines_raw_source_map_entry(const char *id)
+{
+    if (id == NULL) {
+        return 0;
+    }
+    return strncmp(id, "prg/", 4U) == 0 ||
+           strncmp(id, "chr/", 4U) == 0 ||
+           strcmp(id, "system/manifest") == 0 ||
+           strcmp(id, "system/source-map") == 0;
+}
+
 static char *build_ines_source_map(uint32_t mapper,
                                    uint32_t trainer_bytes,
                                    uint32_t prg_banks,
@@ -800,9 +828,11 @@ static char *build_ines_source_map(uint32_t mapper,
                                    uint64_t prg_offset,
                                    uint64_t chr_offset,
                                    uint64_t chr_size,
+                                   const TecmoAssetPackBuilder *builder,
                                    size_t *source_map_size_out)
 {
     size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 2U;
+    size_t logical_capacity = builder != NULL ? builder->entry_count : 0U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -811,7 +841,10 @@ static char *build_ines_source_map(uint32_t mapper,
     if (entry_count > (SIZE_MAX - 2048U) / 192U) {
         return NULL;
     }
-    capacity = 2048U + entry_count * 192U;
+    if (logical_capacity > (SIZE_MAX - 2048U - entry_count * 192U) / 192U) {
+        return NULL;
+    }
+    capacity = 2048U + (entry_count + logical_capacity) * 192U;
     source_map = (char *)malloc(capacity);
     if (source_map == NULL) {
         return NULL;
@@ -926,8 +959,47 @@ static char *build_ines_source_map(uint32_t mapper,
                     &length,
                     "\n"
                     "  ],\n"
-                    "  \"logical_entries\":[],\n"
-                    "  \"logical_entry_note\":\"reserved for decomp-derived named entries added by import tools\"\n"
+                    "  \"logical_entries\":[\n") != 0) {
+        free(source_map);
+        return NULL;
+    }
+
+    first = 1;
+    if (builder != NULL) {
+        for (size_t i = 0U; i < builder->entry_count; ++i) {
+            const TecmoAssetPackBuildEntry *entry = &builder->entries[i];
+            const char *prefix;
+
+            if (is_ines_raw_source_map_entry(entry->id)) {
+                continue;
+            }
+
+            prefix = first != 0 ? "" : ",\n";
+            first = 0;
+            if (append_text(source_map,
+                            capacity,
+                            &length,
+                            "%s"
+                            "    {\"id\":\"%s\",\"type\":\"%s\",\"source_offset\":%llu,"
+                            "\"size\":%llu,\"flags\":%u}",
+                            prefix,
+                            entry->id,
+                            asset_pack_type_name(entry->type),
+                            (unsigned long long)entry->source_offset,
+                            (unsigned long long)entry->size,
+                            entry->flags) != 0) {
+                free(source_map);
+                return NULL;
+            }
+        }
+    }
+
+    if (append_text(source_map,
+                    capacity,
+                    &length,
+                    "\n"
+                    "  ],\n"
+                    "  \"logical_entry_note\":\"decomp-derived and capture entries present in this pack\"\n"
                     "}\n") != 0) {
         free(source_map);
         return NULL;
@@ -1046,37 +1118,6 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
         goto cleanup;
     }
 
-    source_map = build_ines_source_map(mapper,
-                                       trainer_bytes,
-                                       prg_banks,
-                                       chr_banks,
-                                       prg_offset,
-                                       chr_offset,
-                                       chr_size,
-                                       &source_map_size);
-    if (source_map == NULL) {
-        set_message(message, message_size, "Could not build asset pack source map.");
-        goto cleanup;
-    }
-
-    entry_info = make_entry_info("system/source-map",
-                                 TECMO_ASSET_PACK_TYPE_META,
-                                 0U,
-                                 0U,
-                                 0U,
-                                 TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
-    if (tecmo_asset_pack_builder_add_memory(builder,
-                                            &entry_info,
-                                            source_map,
-                                            (uint64_t)source_map_size,
-                                            message,
-                                            message_size) != 0) {
-        set_message(message, message_size, "Could not write asset pack source map.");
-        goto cleanup;
-    }
-    free(source_map);
-    source_map = NULL;
-
     for (uint32_t bank = 0; bank < prg_banks; ++bank) {
         char id[TECMO_ASSET_PACK_ID_SIZE];
         uint64_t offset = prg_offset + (uint64_t)bank * TECMO_ASSET_PACK_PRG_BANK_BYTES;
@@ -1185,8 +1226,12 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
 
     }
 
-    if ((capture_project_root != NULL && capture_project_root[0] != '\0') || project_root_status > 0) {
-        const char *fallback_capture_root = project_root_status > 0 ? resolved_project_root : NULL;
+    if ((capture_project_root != NULL && capture_project_root[0] != '\0') ||
+        (project_root != NULL && project_root[0] != '\0' && project_root_status > 0)) {
+        const char *fallback_capture_root =
+            project_root != NULL && project_root[0] != '\0' && project_root_status > 0
+                ? resolved_project_root
+                : NULL;
         char helper_message[256];
 
         helper_message[0] = '\0';
@@ -1207,6 +1252,38 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
             goto cleanup;
         }
     }
+
+    source_map = build_ines_source_map(mapper,
+                                       trainer_bytes,
+                                       prg_banks,
+                                       chr_banks,
+                                       prg_offset,
+                                       chr_offset,
+                                       chr_size,
+                                       builder,
+                                       &source_map_size);
+    if (source_map == NULL) {
+        set_message(message, message_size, "Could not build asset pack source map.");
+        goto cleanup;
+    }
+
+    entry_info = make_entry_info("system/source-map",
+                                 TECMO_ASSET_PACK_TYPE_META,
+                                 0U,
+                                 0U,
+                                 0U,
+                                 TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+    if (tecmo_asset_pack_builder_add_memory(builder,
+                                            &entry_info,
+                                            source_map,
+                                            (uint64_t)source_map_size,
+                                            message,
+                                            message_size) != 0) {
+        set_message(message, message_size, "Could not write asset pack source map.");
+        goto cleanup;
+    }
+    free(source_map);
+    source_map = NULL;
 
     {
         size_t entry_count = builder->entry_count;
