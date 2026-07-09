@@ -243,6 +243,7 @@ function Get-KnownLogicalAssetPackEntries {
         "intro/arena/emu_intro_memory_watch.ndjson",
         "intro/arena/emu_intro_arena_irq_watch.ndjson",
         "intro/post-arena/emu_intro_memory_watch.ndjson",
+        "intro/post-arena/capture.ndjson",
         "intro/captures/source-map"
     )
 }
@@ -279,7 +280,8 @@ function Get-ExpectedLogicalAssetPackEntries {
             local_path = Join-Path $BuildDir "emu_intro_memory_watch.ndjson"
             entries = @(
                 "intro/arena/emu_intro_memory_watch.ndjson",
-                "intro/post-arena/emu_intro_memory_watch.ndjson"
+                "intro/post-arena/emu_intro_memory_watch.ndjson",
+                "intro/post-arena/capture.ndjson"
             )
         },
         [pscustomobject]@{

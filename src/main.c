@@ -34,6 +34,36 @@ static void print_usage(const char *program)
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
 }
 
+static void print_intro_render_capture_status(const TecmoRuntime *runtime, const char *mode_name)
+{
+    if (runtime == NULL || mode_name == NULL) {
+        return;
+    }
+
+    if (strncmp(mode_name, "intro-arena", 11) == 0 ||
+        strcmp(mode_name, "play-step8") == 0) {
+        printf("intro-capture-status kind=arena available=%u nt=%u attr=%u pal=%u oam=%u\n",
+               runtime->intro_arena_capture.available ? 1U : 0U,
+               (unsigned)(runtime->intro_arena_capture.tile_count[0] +
+                          runtime->intro_arena_capture.tile_count[1]),
+               runtime->intro_arena_capture.available
+                   ? (unsigned)(TECMO_INTRO_ARENA_PAGE_COUNT * 64U)
+                   : 0U,
+               (unsigned)runtime->intro_arena_capture.palette_stage_count,
+               (unsigned)runtime->intro_arena_capture.sprite_count);
+    } else if (strncmp(mode_name, "intro-ready", 11) == 0 ||
+               strncmp(mode_name, "intro-warriors", 14) == 0 ||
+               strcmp(mode_name, "play-step9") == 0 ||
+               strcmp(mode_name, "play-step10") == 0) {
+        printf("intro-capture-status kind=post-arena available=%u nt=%u attr=%u pal=%u oam=%u\n",
+               runtime->intro_post_arena_capture.available ? 1U : 0U,
+               (unsigned)runtime->intro_post_arena_capture.tile_event_count,
+               (unsigned)runtime->intro_post_arena_capture.attribute_event_count,
+               (unsigned)runtime->intro_post_arena_capture.palette_stage_count,
+               (unsigned)runtime->intro_post_arena_capture.sprite_stage_count);
+    }
+}
+
 int main(int argc, char **argv)
 {
     const char *program = argc > 0 ? argv[0] : "tecmo_port";
@@ -465,6 +495,7 @@ int main(int argc, char **argv)
                 tecmo_runtime_render(&runtime, &framebuffer);
                 result = 0;
             }
+            print_intro_render_capture_status(&runtime, mode_name);
             tecmo_runtime_shutdown(&runtime);
         }
 

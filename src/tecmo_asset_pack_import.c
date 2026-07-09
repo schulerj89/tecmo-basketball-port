@@ -68,6 +68,13 @@ static const TecmoCaptureImport INTRO_CAPTURE_IMPORTS[] = {
         "raw-intro-memory-watch",
         TECMO_ASSET_PACK_FLAG_LOCAL,
     },
+    {
+        "intro/post-arena/capture.ndjson",
+        "build\\emu_intro_memory_watch.ndjson",
+        "build/emu_intro_memory_watch.ndjson",
+        "raw-post-arena-capture",
+        TECMO_ASSET_PACK_FLAG_LOCAL,
+    },
 };
 
 static void set_message(char *message, size_t message_size, const char *format, ...)

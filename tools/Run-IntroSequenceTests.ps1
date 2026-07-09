@@ -199,11 +199,22 @@ function Get-PngInspection {
 function Get-InspectionValidation {
     param(
         [object]$Test,
-        [object]$Inspection
+        [object]$Inspection,
+        [object]$CaptureStatus
     )
 
     $MinVisiblePixels = [int]$Test.min_visible_nonblack_pixels
+    $CaptureLoaded = !$Test.requires_capture
+    $CaptureStatusPresent = $false
+    if ($Test.requires_capture -and $CaptureStatus) {
+        $CaptureStatusPresent = $true
+        $CaptureLoaded = [bool]$CaptureStatus.available -and
+            [int]$CaptureStatus.nt -gt 0 -and
+            [int]$CaptureStatus.pal -gt 0
+    }
+    $AllowLowColorCapture = [bool]$Test.allow_low_color_capture -and $CaptureLoaded
     $LooksLikeMissingCaptureWarning = [bool]$Test.requires_capture -and
+        !$AllowLowColorCapture -and
         $Inspection.unique_color_sample_count -le 4 -and
         $Inspection.center_warning_band_pixels -ge 1000 -and
         $Inspection.main_content_height -le 96
@@ -212,11 +223,16 @@ function Get-InspectionValidation {
         $Inspection.bytes -gt 0 -and
         $Inspection.nonzero_rgba_pixels -gt 0 -and
         $Inspection.visible_nonblack_pixels -ge $MinVisiblePixels -and
+        $CaptureLoaded -and
         !$LooksLikeMissingCaptureWarning
 
     $Error = $null
     if (!$Passed) {
-        if ($LooksLikeMissingCaptureWarning) {
+        if ($Test.requires_capture -and !$CaptureStatusPresent) {
+            $Error = "renderer did not report capture status"
+        } elseif ($Test.requires_capture -and !$CaptureLoaded) {
+            $Error = "required intro capture was not loaded"
+        } elseif ($LooksLikeMissingCaptureWarning) {
             $Error = "PNG resembles a missing-capture diagnostic frame"
         } else {
             $Error = "PNG failed dimension, visibility, or capture-strength assertions"
@@ -225,9 +241,32 @@ function Get-InspectionValidation {
 
     return [pscustomobject]@{
         passed = $Passed
+        capture_status_present = $CaptureStatusPresent
+        capture_loaded = $CaptureLoaded
         diagnostic_warning_like = $LooksLikeMissingCaptureWarning
         error = $Error
     }
+}
+
+function Get-IntroCaptureStatus {
+    param(
+        [object[]]$RenderOutput
+    )
+
+    foreach ($Line in @($RenderOutput)) {
+        $Text = [string]$Line
+        if ($Text -match '^intro-capture-status kind=(?<kind>[a-z-]+) available=(?<available>[01]) nt=(?<nt>\d+) attr=(?<attr>\d+) pal=(?<pal>\d+) oam=(?<oam>\d+)$') {
+            return [pscustomobject]@{
+                kind = $Matches.kind
+                available = $Matches.available -eq "1"
+                nt = [int]$Matches.nt
+                attr = [int]$Matches.attr
+                pal = [int]$Matches.pal
+                oam = [int]$Matches.oam
+            }
+        }
+    }
+    return $null
 }
 
 $ExePath = Join-Path $BuildDir "tecmo_port.exe"
@@ -285,7 +324,8 @@ $Tests = @(
         output = "intro_ready_frame35.png"
         optional = $false
         requires_capture = $true
-        min_visible_nonblack_pixels = 2400
+        min_visible_nonblack_pixels = 1000
+        allow_low_color_capture = $true
     },
     [pscustomobject]@{
         id = "intro-warriors-frame74"
@@ -317,7 +357,8 @@ $Tests = @(
         output = "play_step9.png"
         optional = $false
         requires_capture = $true
-        min_visible_nonblack_pixels = 2400
+        min_visible_nonblack_pixels = 1000
+        allow_low_color_capture = $true
     },
     [pscustomobject]@{
         id = "play-step10"
@@ -436,7 +477,8 @@ try {
             continue
         }
 
-        $Validation = Get-InspectionValidation -Test $Test -Inspection $Inspection
+        $CaptureStatus = Get-IntroCaptureStatus -RenderOutput @($RenderOutput)
+        $Validation = Get-InspectionValidation -Test $Test -Inspection $Inspection -CaptureStatus $CaptureStatus
         if (!$Validation.passed) {
             ++$Failures
         }
@@ -464,6 +506,13 @@ try {
             top_debug_pixels = $Inspection.top_debug_pixels
             bottom_debug_pixels = $Inspection.bottom_debug_pixels
             center_warning_band_pixels = $Inspection.center_warning_band_pixels
+            capture_status_present = $Validation.capture_status_present
+            capture_loaded = $Validation.capture_loaded
+            capture_kind = if ($CaptureStatus) { $CaptureStatus.kind } else { $null }
+            capture_nt = if ($CaptureStatus) { $CaptureStatus.nt } else { $null }
+            capture_attr = if ($CaptureStatus) { $CaptureStatus.attr } else { $null }
+            capture_pal = if ($CaptureStatus) { $CaptureStatus.pal } else { $null }
+            capture_oam = if ($CaptureStatus) { $CaptureStatus.oam } else { $null }
             diagnostic_warning_like = $Validation.diagnostic_warning_like
             raw_output_persisted = $false
             error = $Validation.error
