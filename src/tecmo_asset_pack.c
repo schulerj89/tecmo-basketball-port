@@ -1148,7 +1148,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                               "  \"source_route\":\"bank04:C-0129\",\n"
                               "  \"source_bank_available\":%s,\n"
                               "  \"alignment_contract\":\"all pieces project from one shared goal_anchor\",\n"
-                              "  \"goal_anchor\":{\"x\":184,\"y\":128},\n"
+                              "  \"goal_anchor\":{\"x\":184,\"y\":302},\n"
                               "  \"pieces\":[\n"
                               "    {\"part\":\"backboard\",\"offset\":{\"x\":-32,\"y\":-40},\"size\":{\"width\":64,\"height\":36},\"frame_index\":0},\n"
                               "    {\"part\":\"rim\",\"offset\":{\"x\":-13,\"y\":-8},\"size\":{\"width\":26,\"height\":8},\"frame_index\":0},\n"

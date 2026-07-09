@@ -1,5 +1,6 @@
 #include "tecmo_intro_arena.h"
 #include "tecmo_asset_pack.h"
+#include "tecmo_intro_arena_scene.h"
 #include "tecmo_intro_stage.h"
 #include "tecmo_nes_video.h"
 
@@ -41,11 +42,30 @@
 #define ARENA_SCREEN_BASKET_STAGE_FRAME_LAG 2
 #define ARENA_SCREEN_FINAL_SCROLL_Y 0x64U
 #define ARENA_SCREEN_SPRITE_Y_HARDWARE_OFFSET 1
+#define ARENA_SCREEN_NATIVE_COLUMNS 32
+#define ARENA_SCREEN_NATIVE_ROWS \
+    (ARENA_SCREEN_TOP_ROWS + ARENA_SCREEN_SMALL_CROWD_ROWS + ARENA_SCREEN_LARGE_CROWD_ROWS)
+#define ARENA_SCREEN_NATIVE_TILE_SHEET_COLUMNS 16
+#define ARENA_SCREEN_NATIVE_SLOT_TILE_ROWS 4
 
 typedef struct ArenaCaptureBuild {
     uint8_t tiles[TECMO_INTRO_ARENA_PAGE_COUNT][TECMO_INTRO_ARENA_TILES_PER_PAGE];
     bool tile_present[TECMO_INTRO_ARENA_PAGE_COUNT][TECMO_INTRO_ARENA_TILES_PER_PAGE];
 } ArenaCaptureBuild;
+
+typedef struct ArenaNativeBand {
+    unsigned source_page;
+    int source_first_row;
+    int row_count;
+    int destination_first_row;
+} ArenaNativeBand;
+
+typedef struct ArenaNativeGoalTilePair {
+    TecmoArenaGoalPart part;
+    int offset_x;
+    int offset_y;
+    uint16_t top_tile;
+} ArenaNativeGoalTilePair;
 
 static const uint8_t ARENA_DEFAULT_PALETTE[16] = {
     0x0FU, 0x02U, 0x00U, 0x30U,
@@ -68,6 +88,35 @@ static const char *ARENA_CAPTURE_ASSET_ENTRIES[] = {
 static const char *ARENA_NATIVE_ASSET_ENTRIES[] = {
     "arena/intro/background-layer",
     "arena/intro/palette-cycle",
+};
+
+static const ArenaNativeBand ARENA_NATIVE_BANDS[] = {
+    {0U, 0, ARENA_SCREEN_TOP_ROWS, 0},
+    {ARENA_SCREEN_SMALL_CROWD_PAGE,
+     ARENA_SCREEN_SMALL_CROWD_FIRST_ROW,
+     ARENA_SCREEN_SMALL_CROWD_ROWS,
+     ARENA_SCREEN_TOP_ROWS},
+    {ARENA_SCREEN_LARGE_CROWD_PAGE,
+     ARENA_SCREEN_LARGE_CROWD_FIRST_ROW,
+     ARENA_SCREEN_LARGE_CROWD_ROWS,
+     ARENA_SCREEN_TOP_ROWS + ARENA_SCREEN_SMALL_CROWD_ROWS},
+};
+
+static const ArenaNativeGoalTilePair ARENA_NATIVE_GOAL_TILE_PAIRS[] = {
+    {TECMO_ARENA_GOAL_PART_BACKBOARD, -32, -40, 0x98U},
+    {TECMO_ARENA_GOAL_PART_BACKBOARD, -24, -40, 0x9AU},
+    {TECMO_ARENA_GOAL_PART_BACKBOARD, -16, -40, 0x9CU},
+    {TECMO_ARENA_GOAL_PART_BACKBOARD, -8, -40, 0x9EU},
+    {TECMO_ARENA_GOAL_PART_RIM, -13, -8, 0xA0U},
+    {TECMO_ARENA_GOAL_PART_RIM, -5, -8, 0xA2U},
+    {TECMO_ARENA_GOAL_PART_NET, -10, 0, 0xA4U},
+    {TECMO_ARENA_GOAL_PART_NET, -2, 0, 0xA6U},
+    {TECMO_ARENA_GOAL_PART_SUPPORT, 22, -28, 0x96U},
+    {TECMO_ARENA_GOAL_PART_SUPPORT, 30, -28, 0x9EU},
+    {TECMO_ARENA_GOAL_PART_POST, 48, -24, 0x96U},
+    {TECMO_ARENA_GOAL_PART_POST, 48, -8, 0x96U},
+    {TECMO_ARENA_GOAL_PART_POST, 48, 8, 0x96U},
+    {TECMO_ARENA_GOAL_PART_POST, 48, 24, 0x96U},
 };
 
 unsigned tecmo_intro_arena_display_frame(unsigned native_frame)
@@ -127,26 +176,12 @@ static void arena_build_palette(uint32_t out_palette[4],
     }
 }
 
-static uint64_t arena_mmc3_bg_tile_offset(const TecmoIntroArenaCapture *capture,
-                                          unsigned page,
-                                          int row,
-                                          uint8_t tile)
+static uint64_t arena_mmc3_bg_tile_offset_for_registers(uint8_t r0,
+                                                        uint8_t r1,
+                                                        uint8_t tile)
 {
-    uint8_t r0;
-    uint8_t r1;
     uint8_t slot;
     uint8_t local_tile = (uint8_t)(tile & 0x3FU);
-
-    if (capture == NULL) {
-        r0 = ARENA_SCREEN_BG_UPPER_R0;
-        r1 = ARENA_SCREEN_BG_UPPER_R1;
-    } else if (page == 0U && row < capture->bg_split_row) {
-        r0 = capture->bg_upper_r0;
-        r1 = capture->bg_upper_r1;
-    } else {
-        r0 = capture->bg_lower_r0;
-        r1 = capture->bg_lower_r1;
-    }
 
     switch (tile >> 6U) {
     case 0U:
@@ -164,6 +199,56 @@ static uint64_t arena_mmc3_bg_tile_offset(const TecmoIntroArenaCapture *capture,
     }
 
     return (uint64_t)slot * ARENA_SCREEN_CHR_1KB_BYTES + (uint64_t)local_tile * 16ULL;
+}
+
+static uint64_t arena_mmc3_bg_tile_offset(const TecmoIntroArenaCapture *capture,
+                                          unsigned page,
+                                          int row,
+                                          uint8_t tile)
+{
+    uint8_t r0;
+    uint8_t r1;
+
+    if (capture == NULL) {
+        r0 = ARENA_SCREEN_BG_UPPER_R0;
+        r1 = ARENA_SCREEN_BG_UPPER_R1;
+    } else if (page == 0U && row < capture->bg_split_row) {
+        r0 = capture->bg_upper_r0;
+        r1 = capture->bg_upper_r1;
+    } else {
+        r0 = capture->bg_lower_r0;
+        r1 = capture->bg_lower_r1;
+    }
+
+    return arena_mmc3_bg_tile_offset_for_registers(r0, r1, tile);
+}
+
+static uint64_t arena_native_bg_tile_offset_for_source(unsigned source_page,
+                                                       int source_row,
+                                                       uint8_t tile)
+{
+    if (source_page == 0U && source_row < ARENA_SCREEN_BG_SPLIT_ROW) {
+        return arena_mmc3_bg_tile_offset_for_registers(ARENA_SCREEN_BG_UPPER_R0,
+                                                       ARENA_SCREEN_BG_UPPER_R1,
+                                                       tile);
+    }
+    return arena_mmc3_bg_tile_offset_for_registers(ARENA_SCREEN_BG_LOWER_R0,
+                                                   ARENA_SCREEN_BG_LOWER_R1,
+                                                   tile);
+}
+
+static bool arena_chr_tile_offset_available(uint64_t chr_byte_count, uint64_t tile_offset)
+{
+    return tile_offset + 15ULL < chr_byte_count;
+}
+
+static bool arena_chr_bank_tile_available(uint64_t chr_byte_count,
+                                          uint32_t chr_bank,
+                                          uint16_t tile)
+{
+    uint64_t tile_offset = (uint64_t)chr_bank * 8192ULL + (uint64_t)tile * 16ULL;
+
+    return tile <= 0x1FFU && arena_chr_tile_offset_available(chr_byte_count, tile_offset);
 }
 
 static void arena_status(TecmoIntroArenaCapture *capture, const char *text)
@@ -1564,6 +1649,272 @@ bool tecmo_intro_arena_draw_composite(TecmoFramebuffer *fb,
     }
 
     return drew_any;
+}
+
+static uint8_t arena_native_tile_from_sheet_row(int sheet_row, int col)
+{
+    uint8_t slot_group = (uint8_t)((sheet_row / ARENA_SCREEN_NATIVE_SLOT_TILE_ROWS) & 0x03);
+    uint8_t local_row = (uint8_t)(sheet_row % ARENA_SCREEN_NATIVE_SLOT_TILE_ROWS);
+    uint8_t local_col = (uint8_t)(col % ARENA_SCREEN_NATIVE_TILE_SHEET_COLUMNS);
+
+    return (uint8_t)((slot_group << 6U) |
+                     (uint8_t)(local_row * ARENA_SCREEN_NATIVE_TILE_SHEET_COLUMNS + local_col));
+}
+
+static bool arena_native_source_for_display_row(int display_row,
+                                                unsigned *source_page_out,
+                                                int *source_row_out,
+                                                int *band_row_out)
+{
+    for (size_t i = 0; i < sizeof(ARENA_NATIVE_BANDS) / sizeof(ARENA_NATIVE_BANDS[0]); ++i) {
+        const ArenaNativeBand *band = &ARENA_NATIVE_BANDS[i];
+        int band_row = display_row - band->destination_first_row;
+
+        if (band_row < 0 || band_row >= band->row_count) {
+            continue;
+        }
+        if (source_page_out != NULL) {
+            *source_page_out = band->source_page;
+        }
+        if (source_row_out != NULL) {
+            *source_row_out = band->source_first_row + band_row;
+        }
+        if (band_row_out != NULL) {
+            *band_row_out = band_row;
+        }
+        return true;
+    }
+
+    return false;
+}
+
+static int arena_native_sheet_row_for_source(unsigned source_page,
+                                             int source_row,
+                                             int band_row)
+{
+    if (source_page == ARENA_SCREEN_SMALL_CROWD_PAGE) {
+        return band_row % ARENA_SCREEN_NATIVE_SLOT_TILE_ROWS;
+    }
+    if (source_row >= ARENA_SCREEN_BG_SPLIT_ROW) {
+        return (band_row + 2) % ARENA_SCREEN_NATIVE_SLOT_TILE_ROWS;
+    }
+    return source_row % (ARENA_SCREEN_NATIVE_SLOT_TILE_ROWS * 4);
+}
+
+static uint8_t arena_native_palette_index_for_cell(int display_row, int col)
+{
+    if (display_row < 6) {
+        return 0U;
+    }
+    if (display_row < ARENA_SCREEN_TOP_ROWS) {
+        return (uint8_t)(1U + (((display_row + col) >> 2) & 0x01U));
+    }
+    if (display_row < ARENA_SCREEN_TOP_ROWS + ARENA_SCREEN_SMALL_CROWD_ROWS) {
+        return (uint8_t)(1U + (((display_row ^ col) >> 1) & 0x01U));
+    }
+    return (uint8_t)(2U + (((display_row + col) >> 2) & 0x01U));
+}
+
+static bool arena_native_background_chr_available(uint64_t chr_byte_count)
+{
+    for (int row = 0; row < ARENA_SCREEN_NATIVE_ROWS; ++row) {
+        unsigned source_page = 0U;
+        int source_row = 0;
+        int band_row = 0;
+        int sheet_row;
+
+        if (!arena_native_source_for_display_row(row, &source_page, &source_row, &band_row)) {
+            return false;
+        }
+
+        sheet_row = arena_native_sheet_row_for_source(source_page, source_row, band_row);
+        for (int col = 0; col < ARENA_SCREEN_NATIVE_COLUMNS; ++col) {
+            uint8_t tile = arena_native_tile_from_sheet_row(sheet_row, col);
+            uint64_t tile_offset = arena_native_bg_tile_offset_for_source(source_page,
+                                                                         source_row,
+                                                                         tile);
+            if (!arena_chr_tile_offset_available(chr_byte_count, tile_offset)) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool tecmo_intro_arena_native_chr_available(const uint8_t *chr_bytes,
+                                            uint64_t chr_byte_count)
+{
+    if (chr_bytes == NULL || chr_byte_count == 0U) {
+        return false;
+    }
+    return arena_native_background_chr_available(chr_byte_count);
+}
+
+bool tecmo_intro_arena_draw_native_chr(TecmoFramebuffer *fb,
+                                       const uint8_t *chr_bytes,
+                                       uint64_t chr_byte_count,
+                                       unsigned frame,
+                                       int origin_x,
+                                       int origin_y,
+                                       int scale)
+{
+    const uint8_t *background_palette;
+    bool drew_any = false;
+
+    if (fb == NULL || chr_bytes == NULL || chr_byte_count == 0U || scale <= 0) {
+        return false;
+    }
+    if (!tecmo_intro_arena_native_chr_available(chr_bytes, chr_byte_count)) {
+        return false;
+    }
+
+    background_palette = tecmo_intro_arena_palette_for_frame(NULL, frame);
+    for (int row = 0; row < ARENA_SCREEN_NATIVE_ROWS; ++row) {
+        unsigned source_page = 0U;
+        int source_row = 0;
+        int band_row = 0;
+        int sheet_row;
+
+        if (!arena_native_source_for_display_row(row, &source_page, &source_row, &band_row)) {
+            return false;
+        }
+        sheet_row = arena_native_sheet_row_for_source(source_page, source_row, band_row);
+
+        for (int col = 0; col < ARENA_SCREEN_NATIVE_COLUMNS; ++col) {
+            uint8_t tile = arena_native_tile_from_sheet_row(sheet_row, col);
+            uint8_t palette_index = arena_native_palette_index_for_cell(row, col);
+            uint32_t palette[4];
+            uint64_t tile_offset = arena_native_bg_tile_offset_for_source(source_page,
+                                                                         source_row,
+                                                                         tile);
+
+            arena_build_palette(palette, background_palette, palette_index);
+            tecmo_draw_chr_tile_at_offset_ex(fb,
+                                             chr_bytes,
+                                             chr_byte_count,
+                                             tile_offset,
+                                             origin_x + col * 8 * scale,
+                                             origin_y + row * 8 * scale,
+                                             scale,
+                                             palette,
+                                             false,
+                                             false);
+            drew_any = true;
+        }
+    }
+
+    return drew_any;
+}
+
+static bool arena_native_goal_chr_available(uint64_t chr_byte_count)
+{
+    for (size_t i = 0; i < sizeof(ARENA_NATIVE_GOAL_TILE_PAIRS) /
+                               sizeof(ARENA_NATIVE_GOAL_TILE_PAIRS[0]); ++i) {
+        uint16_t top_tile = ARENA_NATIVE_GOAL_TILE_PAIRS[i].top_tile;
+        if (!arena_chr_bank_tile_available(chr_byte_count,
+                                           ARENA_SCREEN_DEFAULT_SPRITE_CHR_BANK,
+                                           top_tile) ||
+            !arena_chr_bank_tile_available(chr_byte_count,
+                                           ARENA_SCREEN_DEFAULT_SPRITE_CHR_BANK,
+                                           (uint16_t)(top_tile + 1U))) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+size_t tecmo_intro_arena_native_goal_chr_pair_count(const uint8_t *chr_bytes,
+                                                    uint64_t chr_byte_count)
+{
+    if (chr_bytes == NULL || chr_byte_count == 0U || !arena_native_goal_chr_available(chr_byte_count)) {
+        return 0U;
+    }
+    return sizeof(ARENA_NATIVE_GOAL_TILE_PAIRS) / sizeof(ARENA_NATIVE_GOAL_TILE_PAIRS[0]);
+}
+
+static void arena_native_goal_palette(uint32_t out_palette[4])
+{
+    out_palette[0] = 0x00000000U;
+    out_palette[1] = tecmo_nes_2c02_rgba(0x02U);
+    out_palette[2] = tecmo_nes_2c02_rgba(0x05U);
+    out_palette[3] = tecmo_nes_2c02_rgba(0x30U);
+}
+
+static void arena_draw_native_goal_pair(TecmoFramebuffer *fb,
+                                        const uint8_t *chr_bytes,
+                                        uint64_t chr_byte_count,
+                                        uint16_t top_tile,
+                                        int x,
+                                        int y,
+                                        int scale,
+                                        const uint32_t palette[4])
+{
+    tecmo_draw_chr_tile_ex(fb,
+                           chr_bytes,
+                           chr_byte_count,
+                           ARENA_SCREEN_DEFAULT_SPRITE_CHR_BANK,
+                           top_tile,
+                           x,
+                           y,
+                           scale,
+                           palette,
+                           false,
+                           false);
+    tecmo_draw_chr_tile_ex(fb,
+                           chr_bytes,
+                           chr_byte_count,
+                           ARENA_SCREEN_DEFAULT_SPRITE_CHR_BANK,
+                           (uint16_t)(top_tile + 1U),
+                           x,
+                           y + 8 * scale,
+                           scale,
+                           palette,
+                           false,
+                           false);
+}
+
+size_t tecmo_intro_arena_draw_native_goal_chr(TecmoFramebuffer *fb,
+                                              const uint8_t *chr_bytes,
+                                              uint64_t chr_byte_count,
+                                              unsigned frame,
+                                              int origin_x,
+                                              int origin_y,
+                                              int scale)
+{
+    uint32_t palette[4];
+    int goal_x;
+    int goal_y;
+    size_t drawn = 0U;
+
+    (void)frame;
+    if (fb == NULL || chr_bytes == NULL || chr_byte_count == 0U || scale <= 0) {
+        return 0U;
+    }
+    if (tecmo_intro_arena_native_goal_chr_pair_count(chr_bytes, chr_byte_count) == 0U) {
+        return 0U;
+    }
+
+    arena_native_goal_palette(palette);
+    goal_x = origin_x + TECMO_ARENA_INTRO_GOAL_ANCHOR_X * scale;
+    goal_y = origin_y + TECMO_ARENA_INTRO_GOAL_ANCHOR_Y * scale;
+
+    for (size_t i = 0; i < sizeof(ARENA_NATIVE_GOAL_TILE_PAIRS) /
+                               sizeof(ARENA_NATIVE_GOAL_TILE_PAIRS[0]); ++i) {
+        const ArenaNativeGoalTilePair *pair = &ARENA_NATIVE_GOAL_TILE_PAIRS[i];
+        arena_draw_native_goal_pair(fb,
+                                    chr_bytes,
+                                    chr_byte_count,
+                                    pair->top_tile,
+                                    goal_x + pair->offset_x * scale,
+                                    goal_y + pair->offset_y * scale,
+                                    scale,
+                                    palette);
+        ++drawn;
+    }
+
+    return drawn;
 }
 
 static void arena_draw_sprite_entry(TecmoFramebuffer *fb,

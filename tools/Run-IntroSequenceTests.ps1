@@ -117,15 +117,10 @@ if (!(Test-Path $ExePath)) {
 New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $AssetPackPath) | Out-Null
-$RenderGapModes = @(
-    "intro-license",
-    "intro-arena-frame320",
-    "intro-ready-frame35",
-    "intro-warriors-frame74",
-    "play-step7",
-    "play-step8",
-    "play-step9",
-    "play-step10"
+$RomOnlyArenaRenderModes = @(
+    "intro-arena-frame0",
+    "intro-arena-frame240",
+    "intro-arena-frame320"
 )
 
 $Results = New-Object System.Collections.Generic.List[object]
@@ -193,16 +188,64 @@ try {
         error = if ($ListPassed) { $null } else { "ROM-only test asset pack is missing native arena entries or contains capture entries" }
     })
 
-    ++$Skipped
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    $PreviousLooseArenaCapture = $env:TECMO_ALLOW_LOOSE_INTRO_CAPTURE
+    $RenderOutputs = New-Object System.Collections.Generic.List[object]
+    $RenderPassed = $ListPassed
+    try {
+        $env:TECMO_ASSETPACK = $AssetPackPath
+        Remove-Item Env:TECMO_ALLOW_LOOSE_INTRO_CAPTURE -ErrorAction SilentlyContinue
+
+        foreach ($Mode in $RomOnlyArenaRenderModes) {
+            $RenderPath = Join-Path $OutputDir "$Mode.png"
+            if (Test-Path -LiteralPath $RenderPath) {
+                Remove-Item -LiteralPath $RenderPath -Force
+            }
+            $RenderOutput = & $ExePath --root $ProjectRoot --render-test-mode $Mode $RenderPath 2>&1
+            $RenderExitCode = $LASTEXITCODE
+            $RenderText = (@($RenderOutput) | ForEach-Object { [string]$_ }) -join "`n"
+            $RenderCreated = Test-Path -LiteralPath $RenderPath
+            $CaptureUnavailableSeen = $RenderText -match "intro-capture-status kind=arena available=0"
+            $NoCaptureSourceSeen = $RenderText -match "intro-capture-source kind=arena assetpack=0 entry=none"
+            $NativeChrSeen = $RenderText -match "intro-arena-render-source kind=arena native_chr=1"
+            $NativeGoalPairsSeen = $RenderText -match "goal_pairs=[1-9][0-9]*"
+            $ModePassed = $RenderExitCode -eq 0 -and
+                $RenderCreated -and
+                $CaptureUnavailableSeen -and
+                $NoCaptureSourceSeen -and
+                $NativeChrSeen -and
+                $NativeGoalPairsSeen
+            if (!$ModePassed) {
+                $RenderPassed = $false
+            }
+            $RenderOutputs.Add([pscustomobject]@{
+                mode = $Mode
+                output = Get-RepoRelativePath $RenderPath
+                passed = $ModePassed
+                exit_code = $RenderExitCode
+                capture_unavailable_seen = $CaptureUnavailableSeen
+                no_capture_source_seen = $NoCaptureSourceSeen
+                native_chr_seen = $NativeChrSeen
+                native_goal_pairs_seen = $NativeGoalPairsSeen
+            })
+        }
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+        $env:TECMO_ALLOW_LOOSE_INTRO_CAPTURE = $PreviousLooseArenaCapture
+    }
+    if (!$RenderPassed) {
+        ++$Failures
+    }
     $Results.Add([pscustomobject]@{
-        id = "intro-render-rom-only-runtime-gap"
-        passed = $true
-        skipped = $true
-        render_modes = $RenderGapModes
+        id = "intro-render-rom-only-arena"
+        passed = $RenderPassed
+        skipped = $false
+        render_modes = $RomOnlyArenaRenderModes
+        outputs = $RenderOutputs
         rom_only_asset_pack = $AssetPackRelative
         raw_output_persisted = $false
-        coverage_status = "skipped"
-        gap = "Runtime render smoke is not covered until runtime init and intro capture/state data can be derived from the ROM-only asset pack."
+        coverage_status = "covered"
+        error = if ($RenderPassed) { $null } else { "ROM-only arena render did not complete without capture data" }
     })
 } catch {
     ++$Failures
@@ -229,8 +272,8 @@ try {
             rom_only_contract = $true
         }
         render_coverage = [pscustomobject]@{
-            status = "skipped"
-            reason = "runtime-rom-only-pack-render-gap"
+            status = "arena-native-chr-smoke"
+            render_modes = $RomOnlyArenaRenderModes
         }
         private_paths_included = $false
         raw_output_persisted = $false

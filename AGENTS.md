@@ -144,10 +144,10 @@ The current opening path includes:
 
 - TECMO/rabbit intro composite from local trace data
 - NBA license screen
-- arena/jumbotron/crowd transition
-- staged arena OAM for the goal/basket
+- arena/jumbotron/crowd transition from ROM CHR through native arena bands
+- native anchored CHR goal/basket pieces for the arena pan
 
-The arena render uses captured screen `$18` nametable/palette/OAM evidence from the private local watcher output. Basket sprites are drawn from later OAM stages and anchored against the current arena scroll so the goal does not drift into place during screen 3.
+The normal arena render should not replay captured screen `$18` nametable or OAM data. It consumes `chr/all` from a ROM-derived asset pack, follows the native arena band contract, and draws goal pieces from one shared native anchor. Capture-shaped arena loaders remain only as migration/debug scaffolding until exact tile-layer and palette-cycle extractors populate the native asset-pack entries.
 
 ## Runtime Architecture Notes
 

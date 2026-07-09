@@ -218,13 +218,14 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
         add_team_if_missing(runtime, runtime->roster.records[i].team);
     }
 
-    if (tecmo_load_original_title_glyphs(project_root, &runtime->title_glyphs) == 0 &&
-        tecmo_load_chr_data(project_root, &runtime->title_chr_bytes, &runtime->title_chr_byte_count) == 0) {
+    if (tecmo_load_chr_data(project_root, &runtime->title_chr_bytes, &runtime->title_chr_byte_count) == 0) {
         if (runtime->selected_chr_bank >= chr_bank_count(runtime)) {
             runtime->selected_chr_bank = chr_bank_count(runtime) - 1U;
         }
-        runtime->title_probe_available = true;
-        (void)tecmo_load_title_glyphs_for_text(project_root, "TECMO PRESENTS", &runtime->intro_glyphs);
+        if (tecmo_load_original_title_glyphs(project_root, &runtime->title_glyphs) == 0) {
+            runtime->title_probe_available = true;
+            (void)tecmo_load_title_glyphs_for_text(project_root, "TECMO PRESENTS", &runtime->intro_glyphs);
+        }
     } else {
         tecmo_free_buffer(runtime->title_chr_bytes);
         runtime->title_chr_bytes = NULL;
@@ -1862,6 +1863,7 @@ void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
     int background_y;
     size_t visible_count = 0;
     bool drew_arena = false;
+    bool drew_native_arena = false;
     bool show_debug = runtime == NULL || runtime->debug_overlay;
     char line[192];
 
@@ -1870,30 +1872,29 @@ void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
     clear(fb, rgb(0, 0, 0));
     rect(fb, viewport_x, viewport_y, viewport_w, viewport_h, rgb(0, 0, 0));
 
-    if (runtime != NULL && runtime->title_probe_available) {
-        drew_arena = tecmo_intro_arena_draw_composite(fb,
-                                                      &runtime->intro_arena_capture,
-                                                      runtime->title_chr_bytes,
-                                                      runtime->title_chr_byte_count,
-                                                      frame,
-                                                      viewport_x,
-                                                      background_y,
-                                                      scale);
-        if (drew_arena) {
-            visible_count = tecmo_intro_arena_draw_sprites(fb,
-                                                           &runtime->intro_arena_capture,
-                                                           runtime->title_chr_bytes,
-                                                           runtime->title_chr_byte_count,
-                                                           frame,
-                                                           viewport_x,
-                                                           background_y,
-                                                           scale);
+    if (runtime != NULL && runtime->title_chr_bytes != NULL && runtime->title_chr_byte_count != 0U) {
+        drew_native_arena = tecmo_intro_arena_draw_native_chr(fb,
+                                                             runtime->title_chr_bytes,
+                                                             runtime->title_chr_byte_count,
+                                                             frame,
+                                                             viewport_x,
+                                                             background_y,
+                                                             scale);
+        drew_arena = drew_native_arena;
+        if (drew_native_arena) {
+            visible_count = tecmo_intro_arena_draw_native_goal_chr(fb,
+                                                                   runtime->title_chr_bytes,
+                                                                   runtime->title_chr_byte_count,
+                                                                   frame,
+                                                                   viewport_x,
+                                                                   background_y,
+                                                                   scale);
         }
     }
 
     if (!drew_arena) {
-        draw_centered_text(fb, 196, "LOCAL ARENA CAPTURE OR CHR DATA MISSING", rgb(252, 236, 170), 2);
-        draw_centered_text(fb, 232, "RUN THE FCEUX LUA INTRO MEMORY WATCH THROUGH SCREEN 3", rgb(230, 232, 214), 1);
+        draw_centered_text(fb, 196, "ROM ARENA CHR DATA MISSING", rgb(252, 236, 170), 2);
+        draw_centered_text(fb, 232, "BUILD A ROM-DERIVED ASSET PACK WITH CHR/ALL", rgb(230, 232, 214), 1);
         if (runtime != NULL) {
             draw_centered_text(fb, 254, runtime->intro_arena_capture.status, rgb(142, 174, 190), 1);
         }
@@ -1906,7 +1907,7 @@ void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
                        "BANK04 $88E8 -> SCREEN18 $A2ED  F%u/%u %s  PAL%u  $88=%02X $8A=%02X $0301=%02X BG%+d",
                        native_frame,
                        frame,
-                       tecmo_intro_arena_phase_name(state.phase),
+                       drew_native_arena ? "NATIVE-CHR" : tecmo_intro_arena_phase_name(state.phase),
                        runtime != NULL ? (unsigned)runtime->intro_arena_capture.palette_stage_count : 0U,
                        (unsigned)state.seed_88,
                        (unsigned)state.scroll_8a,
@@ -1915,19 +1916,26 @@ void tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
         draw_text(fb, 12, 7, line, rgb(230, 232, 214), 1);
 
         rect(fb, 0, 456, 640, 24, rgb(0, 0, 0));
-        (void)snprintf(line,
-                       sizeof(line),
-                       "SCREEN18 P0 %u P1 %u  BG R0/R1 %02X/%02X -> %02X/%02X R%d  OAM %u/%u CHR %02u/T0",
-                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.tile_count[0] : 0U,
-                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.tile_count[1] : 0U,
-                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.bg_upper_r0 : 0U,
-                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.bg_upper_r1 : 0U,
-                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.bg_lower_r0 : 0U,
-                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.bg_lower_r1 : 0U,
-                       runtime != NULL ? runtime->intro_arena_capture.bg_split_row : 0,
-                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.sprite_count : 0U,
-                       (unsigned)visible_count,
-                       runtime != NULL ? (unsigned)runtime->intro_arena_capture.sprite_chr_bank : 0U);
+        if (drew_native_arena) {
+            (void)snprintf(line,
+                           sizeof(line),
+                           "SCREEN18 NATIVE CHR BG  32x51 BANDS SCOREBOARD/SMALL-CROWD/LARGE-CROWD  GOAL PAIRS %u",
+                           (unsigned)visible_count);
+        } else {
+            (void)snprintf(line,
+                           sizeof(line),
+                           "SCREEN18 P0 %u P1 %u  BG R0/R1 %02X/%02X -> %02X/%02X R%d  OAM %u/%u CHR %02u/T0",
+                           runtime != NULL ? (unsigned)runtime->intro_arena_capture.tile_count[0] : 0U,
+                           runtime != NULL ? (unsigned)runtime->intro_arena_capture.tile_count[1] : 0U,
+                           runtime != NULL ? (unsigned)runtime->intro_arena_capture.bg_upper_r0 : 0U,
+                           runtime != NULL ? (unsigned)runtime->intro_arena_capture.bg_upper_r1 : 0U,
+                           runtime != NULL ? (unsigned)runtime->intro_arena_capture.bg_lower_r0 : 0U,
+                           runtime != NULL ? (unsigned)runtime->intro_arena_capture.bg_lower_r1 : 0U,
+                           runtime != NULL ? runtime->intro_arena_capture.bg_split_row : 0,
+                           runtime != NULL ? (unsigned)runtime->intro_arena_capture.sprite_count : 0U,
+                           (unsigned)visible_count,
+                           runtime != NULL ? (unsigned)runtime->intro_arena_capture.sprite_chr_bank : 0U);
+        }
         draw_text(fb, 12, 464, line, rgb(142, 174, 190), 1);
     }
 }

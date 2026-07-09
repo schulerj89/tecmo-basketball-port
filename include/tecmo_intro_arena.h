@@ -61,6 +61,12 @@ unsigned tecmo_intro_arena_display_frame(unsigned native_frame);
 const uint8_t *tecmo_intro_arena_palette_for_frame(const TecmoIntroArenaCapture *capture,
                                                    unsigned frame);
 
+bool tecmo_intro_arena_native_chr_available(const uint8_t *chr_bytes,
+                                            uint64_t chr_byte_count);
+
+size_t tecmo_intro_arena_native_goal_chr_pair_count(const uint8_t *chr_bytes,
+                                                    uint64_t chr_byte_count);
+
 bool tecmo_intro_arena_draw_page(TecmoFramebuffer *fb,
                                  const TecmoIntroArenaCapture *capture,
                                  const uint8_t *chr_bytes,
@@ -79,6 +85,22 @@ bool tecmo_intro_arena_draw_composite(TecmoFramebuffer *fb,
                                       int origin_x,
                                       int origin_y,
                                       int scale);
+
+bool tecmo_intro_arena_draw_native_chr(TecmoFramebuffer *fb,
+                                       const uint8_t *chr_bytes,
+                                       uint64_t chr_byte_count,
+                                       unsigned frame,
+                                       int origin_x,
+                                       int origin_y,
+                                       int scale);
+
+size_t tecmo_intro_arena_draw_native_goal_chr(TecmoFramebuffer *fb,
+                                              const uint8_t *chr_bytes,
+                                              uint64_t chr_byte_count,
+                                              unsigned frame,
+                                              int origin_x,
+                                              int origin_y,
+                                              int scale);
 
 size_t tecmo_intro_arena_draw_sprites(TecmoFramebuffer *fb,
                                       const TecmoIntroArenaCapture *capture,

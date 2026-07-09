@@ -12,8 +12,6 @@
 #define TECMO_ARENA_INTRO_HANDOFF_FRAME 192U
 #define TECMO_ARENA_INTRO_VIEW_WIDTH 256
 #define TECMO_ARENA_INTRO_VIEW_HEIGHT 240
-#define TECMO_ARENA_INTRO_GOAL_ANCHOR_X 184
-#define TECMO_ARENA_INTRO_GOAL_ANCHOR_Y 128
 
 static void arena_scene_message(char *dest, size_t dest_size, const char *text)
 {

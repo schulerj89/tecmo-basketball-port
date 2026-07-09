@@ -48,6 +48,9 @@ static void print_intro_render_capture_status(const TecmoRuntime *runtime, const
 
     if (strncmp(mode_name, "intro-arena", 11) == 0 ||
         strcmp(mode_name, "play-step8") == 0) {
+        bool native_chr_available;
+        size_t native_goal_pairs;
+
         entry_id[0] = '\0';
         entry_start = strstr(runtime->intro_arena_capture.status, assetpack_marker);
         if (entry_start != NULL) {
@@ -74,6 +77,17 @@ static void print_intro_render_capture_status(const TecmoRuntime *runtime, const
         printf("intro-capture-source kind=arena assetpack=%u entry=%s\n",
                entry_id[0] != '\0' ? 1U : 0U,
                entry_id[0] != '\0' ? entry_id : "none");
+        native_chr_available = runtime->title_chr_bytes != NULL &&
+            runtime->title_chr_byte_count != 0U &&
+            tecmo_intro_arena_native_chr_available(runtime->title_chr_bytes,
+                                                   runtime->title_chr_byte_count);
+        native_goal_pairs = native_chr_available ?
+            tecmo_intro_arena_native_goal_chr_pair_count(runtime->title_chr_bytes,
+                                                         runtime->title_chr_byte_count) :
+            0U;
+        printf("intro-arena-render-source kind=arena native_chr=%u goal_pairs=%u\n",
+               native_chr_available ? 1U : 0U,
+               (unsigned)native_goal_pairs);
     } else if (strncmp(mode_name, "intro-ready", 11) == 0 ||
                strncmp(mode_name, "intro-warriors", 14) == 0 ||
                strcmp(mode_name, "play-step9") == 0 ||
