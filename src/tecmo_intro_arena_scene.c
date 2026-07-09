@@ -15,6 +15,19 @@
 #define TECMO_ARENA_INTRO_GOAL_ANCHOR_X 184
 #define TECMO_ARENA_INTRO_GOAL_ANCHOR_Y 128
 
+static unsigned arena_min_unsigned(unsigned a, unsigned b)
+{
+    return a < b ? a : b;
+}
+
+static uint32_t arena_rgb(unsigned r, unsigned g, unsigned b)
+{
+    return 0xFF000000U |
+           ((uint32_t)(r & 0xFFU) << 16U) |
+           ((uint32_t)(g & 0xFFU) << 8U) |
+           (uint32_t)(b & 0xFFU);
+}
+
 static void arena_scene_message(char *dest, size_t dest_size, const char *text)
 {
     if (dest == NULL || dest_size == 0U) {
@@ -24,6 +37,84 @@ static void arena_scene_message(char *dest, size_t dest_size, const char *text)
         text = "";
     }
     (void)snprintf(dest, dest_size, "%s", text);
+}
+
+static void arena_fill_rect(TecmoFramebuffer *fb, int x, int y, int width, int height, uint32_t color)
+{
+    int x0;
+    int y0;
+    int x1;
+    int y1;
+
+    if (fb == NULL || fb->pixels == NULL || width <= 0 || height <= 0) {
+        return;
+    }
+
+    x0 = x < 0 ? 0 : x;
+    y0 = y < 0 ? 0 : y;
+    x1 = x + width > fb->width ? fb->width : x + width;
+    y1 = y + height > fb->height ? fb->height : y + height;
+    if (x1 <= x0 || y1 <= y0) {
+        return;
+    }
+
+    for (int row = y0; row < y1; ++row) {
+        uint32_t *pixels = fb->pixels + (size_t)row * (size_t)fb->pitch_pixels;
+        for (int col = x0; col < x1; ++col) {
+            pixels[col] = color;
+        }
+    }
+}
+
+static void arena_outline_rect(TecmoFramebuffer *fb,
+                               int x,
+                               int y,
+                               int width,
+                               int height,
+                               uint32_t color)
+{
+    arena_fill_rect(fb, x, y, width, 1, color);
+    arena_fill_rect(fb, x, y + height - 1, width, 1, color);
+    arena_fill_rect(fb, x, y, 1, height, color);
+    arena_fill_rect(fb, x + width - 1, y, 1, height, color);
+}
+
+static void arena_draw_world_rect(TecmoFramebuffer *fb,
+                                  const TecmoArenaCamera *camera,
+                                  int origin_x,
+                                  int origin_y,
+                                  int scale,
+                                  const TecmoArenaRect *world_rect,
+                                  uint32_t color)
+{
+    if (camera == NULL || world_rect == NULL) {
+        return;
+    }
+
+    arena_fill_rect(fb,
+                    origin_x + (world_rect->x - camera->position.x) * scale,
+                    origin_y + (world_rect->y - camera->position.y) * scale,
+                    world_rect->width * scale,
+                    world_rect->height * scale,
+                    color);
+}
+
+static uint32_t arena_goal_part_color(TecmoArenaGoalPart part)
+{
+    switch (part) {
+    case TECMO_ARENA_GOAL_PART_BACKBOARD:
+        return arena_rgb(238U, 240U, 224U);
+    case TECMO_ARENA_GOAL_PART_RIM:
+        return arena_rgb(236U, 82U, 48U);
+    case TECMO_ARENA_GOAL_PART_NET:
+        return arena_rgb(232U, 232U, 220U);
+    case TECMO_ARENA_GOAL_PART_SUPPORT:
+        return arena_rgb(92U, 102U, 106U);
+    case TECMO_ARENA_GOAL_PART_POST:
+        return arena_rgb(202U, 204U, 192U);
+    default:
+        return arena_rgb(180U, 180U, 180U);
+    }
 }
 
 static int arena_lerp_int(int start, int end, unsigned step, unsigned step_count)
@@ -398,6 +489,99 @@ bool tecmo_arena_goal_parts_attached(const TecmoArenaGoal *goal,
 
     arena_scene_message(message, message_size, "GOAL PARTS ATTACHED");
     return true;
+}
+
+void tecmo_arena_intro_scene_draw_preview(TecmoFramebuffer *fb, const TecmoArenaIntro *intro)
+{
+    const int scale = 2;
+    const int viewport_width = TECMO_ARENA_INTRO_VIEW_WIDTH * scale;
+    const int viewport_height = TECMO_ARENA_INTRO_VIEW_HEIGHT * scale;
+    int origin_x;
+    int origin_y;
+    unsigned phase_index;
+    TecmoArenaRect rects[TECMO_ARENA_GOAL_PART_COUNT];
+    size_t rect_count;
+
+    if (fb == NULL || fb->pixels == NULL || intro == NULL) {
+        return;
+    }
+
+    origin_x = (fb->width - viewport_width) / 2;
+    origin_y = (fb->height - viewport_height) / 2;
+    phase_index = intro->phase == TECMO_ARENA_INTRO_PHASE_ENTER
+                      ? 0U
+                      : intro->phase == TECMO_ARENA_INTRO_PHASE_PAN_TO_GOAL
+                            ? 1U
+                            : intro->phase == TECMO_ARENA_INTRO_PHASE_HOLD_GOAL ? 2U : 3U;
+
+    arena_fill_rect(fb, 0, 0, fb->width, fb->height, arena_rgb(8U, 10U, 12U));
+    arena_fill_rect(fb, origin_x, origin_y, viewport_width, viewport_height, arena_rgb(18U, 20U, 26U));
+
+    {
+        const TecmoArenaRect crowd_top = {-16, -18, 300, 118};
+        const TecmoArenaRect jumbotron = {26, 4, 94, 54};
+        const TecmoArenaRect railing = {-16, 102, 300, 8};
+        const TecmoArenaRect lower_crowd = {-16, 120, 300, 94};
+        const TecmoArenaRect floor = {-16, 214, 300, 90};
+        const TecmoArenaRect baseline = {-16, 204, 300, 4};
+        const TecmoArenaRect phase_bar = {
+            0,
+            0,
+            (int)arena_min_unsigned(intro->frame, TECMO_ARENA_INTRO_HANDOFF_FRAME) *
+                TECMO_ARENA_INTRO_VIEW_WIDTH / (int)TECMO_ARENA_INTRO_HANDOFF_FRAME,
+            4};
+
+        arena_draw_world_rect(fb, &intro->camera, origin_x, origin_y, scale, &crowd_top, arena_rgb(36U, 40U, 66U));
+        arena_draw_world_rect(fb, &intro->camera, origin_x, origin_y, scale, &jumbotron, arena_rgb(18U, 22U, 32U));
+        arena_draw_world_rect(fb, &intro->camera, origin_x, origin_y, scale, &railing, arena_rgb(28U, 72U, 156U));
+        arena_draw_world_rect(fb, &intro->camera, origin_x, origin_y, scale, &lower_crowd, arena_rgb(136U, 62U, 42U));
+        arena_draw_world_rect(fb, &intro->camera, origin_x, origin_y, scale, &floor, arena_rgb(196U, 112U, 54U));
+        arena_draw_world_rect(fb, &intro->camera, origin_x, origin_y, scale, &baseline, arena_rgb(236U, 38U, 80U));
+        arena_fill_rect(fb,
+                        origin_x,
+                        origin_y,
+                        phase_bar.width * scale,
+                        phase_bar.height * scale,
+                        phase_index == 0U
+                            ? arena_rgb(132U, 142U, 154U)
+                            : phase_index == 1U
+                                  ? arena_rgb(80U, 180U, 226U)
+                                  : phase_index == 2U ? arena_rgb(248U, 210U, 88U) : arena_rgb(96U, 214U, 124U));
+    }
+
+    rect_count = tecmo_arena_goal_project_parts(&intro->goal,
+                                                &intro->camera,
+                                                rects,
+                                                sizeof(rects) / sizeof(rects[0]));
+    for (size_t i = 0; i < rect_count; ++i) {
+        const TecmoArenaSpritePiece *piece = &intro->goal.sprite_group.pieces[i];
+        uint32_t color = arena_goal_part_color(piece->part);
+        TecmoArenaRect screen_rect = rects[i];
+        arena_fill_rect(fb,
+                        origin_x + screen_rect.x * scale,
+                        origin_y + screen_rect.y * scale,
+                        screen_rect.width * scale,
+                        screen_rect.height * scale,
+                        color);
+        arena_outline_rect(fb,
+                           origin_x + screen_rect.x * scale,
+                           origin_y + screen_rect.y * scale,
+                           screen_rect.width * scale,
+                           screen_rect.height * scale,
+                           arena_rgb(24U, 28U, 30U));
+    }
+
+    {
+        TecmoArenaPoint anchor = tecmo_arena_goal_anchor_screen_point(&intro->goal, &intro->camera);
+        arena_fill_rect(fb,
+                        origin_x + anchor.x * scale - 3,
+                        origin_y + anchor.y * scale - 3,
+                        6,
+                        6,
+                        arena_rgb(252U, 236U, 118U));
+    }
+
+    arena_outline_rect(fb, origin_x, origin_y, viewport_width, viewport_height, arena_rgb(82U, 94U, 104U));
 }
 
 const char *tecmo_arena_intro_phase_name(TecmoArenaIntroPhase phase)
