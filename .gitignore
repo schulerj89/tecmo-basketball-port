@@ -12,6 +12,7 @@ generated/
 *.bmp
 *.gif
 *.bin
+*.assetpack
 *.prg
 *.nes
 *.fds

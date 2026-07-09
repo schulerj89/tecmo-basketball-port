@@ -2,6 +2,7 @@
 
 #include "asm_inventory.h"
 #include "png_writer.h"
+#include "tecmo_asset_pack.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -1989,8 +1990,72 @@ static int load_chr_padded(const char *project_root, uint8_t **bytes_out, uint64
     return 0;
 }
 
+static int file_exists(const char *path)
+{
+    FILE *file = fopen(path, "rb");
+    if (file == NULL) {
+        return 0;
+    }
+    fclose(file);
+    return 1;
+}
+
+static int load_chr_from_asset_pack_path(const char *path, uint8_t **bytes_out, uint64_t *byte_count)
+{
+    uint8_t *entry_bytes = NULL;
+    uint64_t entry_size = 0;
+    uint8_t *padded;
+    uint64_t copy_size;
+
+    if (tecmo_asset_pack_read_entry(path, "chr/all", &entry_bytes, &entry_size) != 0) {
+        return -1;
+    }
+
+    padded = (uint8_t *)calloc((size_t)TECMO_CHR_CONFIG_BYTES, 1);
+    if (padded == NULL) {
+        tecmo_asset_pack_free(entry_bytes);
+        return -1;
+    }
+
+    copy_size = entry_size < TECMO_CHR_CONFIG_BYTES ? entry_size : TECMO_CHR_CONFIG_BYTES;
+    if (copy_size > 0U) {
+        memcpy(padded, entry_bytes, (size_t)copy_size);
+    }
+    tecmo_asset_pack_free(entry_bytes);
+
+    *bytes_out = padded;
+    *byte_count = TECMO_CHR_CONFIG_BYTES;
+    return 0;
+}
+
+static int load_chr_from_asset_pack(const char *project_root, uint8_t **bytes_out, uint64_t *byte_count)
+{
+    const char *env_path = getenv("TECMO_ASSETPACK");
+    char path[TECMO_MAX_PATH_TEXT];
+
+    if (env_path != NULL && env_path[0] != '\0' &&
+        load_chr_from_asset_pack_path(env_path, bytes_out, byte_count) == 0) {
+        return 0;
+    }
+
+    append_path(path, sizeof(path), project_root, "build\\tecmo.assetpack");
+    normalize_separators(path);
+    if (file_exists(path) && load_chr_from_asset_pack_path(path, bytes_out, byte_count) == 0) {
+        return 0;
+    }
+
+    if (load_chr_from_asset_pack_path("build\\tecmo.assetpack", bytes_out, byte_count) == 0) {
+        return 0;
+    }
+
+    return -1;
+}
+
 int tecmo_load_chr_data(const char *project_root, uint8_t **bytes_out, uint64_t *byte_count)
 {
+    if (load_chr_from_asset_pack(project_root, bytes_out, byte_count) == 0) {
+        return 0;
+    }
     return load_chr_padded(project_root, bytes_out, byte_count);
 }
 

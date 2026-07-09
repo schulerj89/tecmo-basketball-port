@@ -99,6 +99,16 @@ To avoid repeatedly parsing large raw watcher logs, distill the local-only arena
 
 This writes `build\intro_arena_capture.ndjson`, which the arena renderer loads before the raw watcher logs. The compact file is generated data from the private reference environment and must stay uncommitted.
 
+## Asset Pack Direction
+
+Prefer moving local ROM-backed assets into an ignored `.assetpack` instead of making runtime code parse raw decomp files or emulator logs directly. Build the initial pack with:
+
+```powershell
+.\build\tecmo_port.exe --build-assetpack <LOCAL_ROM.nes> build\tecmo.assetpack
+```
+
+The initial pack contains `system/manifest`, `prg/bankNN`, `prg/fixed`, `chr/all`, and `chr/bankNN` entries. Runtime CHR loading already prefers `TECMO_ASSETPACK` or `build\tecmo.assetpack`; keep extending that pattern by adding named entries to the pack/import step, then pointing C render/game code at those entries.
+
 ## Opening Sequence Notes
 
 The current opening path includes:

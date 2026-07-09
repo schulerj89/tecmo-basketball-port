@@ -27,6 +27,7 @@ $Sources = @(
     "src\main.c",
     "src\asm_inventory.c",
     "src\png_writer.c",
+    "src\tecmo_asset_pack.c",
     "src\tecmo_bank07.c",
     "src\tecmo_controls.c",
     "src\tecmo_flow_test.c",

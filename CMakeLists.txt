@@ -6,14 +6,18 @@ add_executable(tecmo_port
     src/main.c
     src/asm_inventory.c
     src/png_writer.c
+    src/tecmo_asset_pack.c
     src/tecmo_bank07.c
     src/tecmo_controls.c
+    src/tecmo_flow_test.c
     src/tecmo_game.c
     src/tecmo_intro_arena.c
+    src/tecmo_intro_layout.c
     src/tecmo_intro_license.c
     src/tecmo_intro_post_arena.c
     src/tecmo_intro_stage.c
     src/tecmo_intro_title.c
+    src/tecmo_intro_trace.c
     src/tecmo_memory.c
     src/tecmo_nametable_screen.c
     src/tecmo_nes_video.c

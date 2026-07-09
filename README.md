@@ -126,6 +126,14 @@ Run every active native flow test declared in `port_iteration.json`:
 
 Pass `-DecompRoot <LOCAL_DECOMP_ROOT>` if a helper script cannot discover your private local decomp workspace.
 
+Build a private local asset pack from a local iNES image:
+
+```powershell
+.\build\tecmo_port.exe --build-assetpack <LOCAL_ROM.nes> build\tecmo.assetpack
+```
+
+The runtime prefers `TECMO_ASSETPACK` or `build\tecmo.assetpack` for CHR data, then falls back to the older local `build\baseline\Tiles.asm` path.
+
 ## Current Scope
 
 The project is actively porting the original game into native C modules. Current work includes:
