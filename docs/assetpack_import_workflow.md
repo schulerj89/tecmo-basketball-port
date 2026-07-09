@@ -29,7 +29,9 @@ files as final inputs.
    ```
 
    The list should contain `system/manifest`, `system/source-map`, and PRG/CHR
-   entries only.
+   entries only. `system/manifest` records `input_contract=ines-only`; the
+   source map records `"input_contract":"ines-only"` and an empty
+   `"logical_entries":[]` array.
 4. Runtime lookup order remains: `TECMO_ASSETPACK`, then
    `<project-root>\build\tecmo.assetpack`, then `build\tecmo.assetpack`.
    Loose file/log fallbacks are temporary migration aids and should be isolated
@@ -41,8 +43,8 @@ files as final inputs.
 
 | Entry | Written by | Runtime consumer |
 | --- | --- | --- |
-| `system/manifest` | iNES pack builder | Metadata only. |
-| `system/source-map` | iNES pack builder | Metadata/source audit for raw iNES offsets. Its `logical_entries` array should be empty until a ROM-only logical extractor exists. |
+| `system/manifest` | iNES pack builder | Metadata for the iNES-only input contract. |
+| `system/source-map` | iNES pack builder | Metadata/source audit for raw iNES offsets. Its `logical_entries` array is empty until a ROM-only logical extractor exists. |
 | `prg/bankNN` | iNES pack builder | Reserved for import reconciliation. |
 | `prg/fixed` | iNES pack builder | Reserved fixed-bank alias. |
 | `chr/all` | iNES pack builder | `tecmo_load_chr_data` through the CHR asset-pack loader. |
@@ -85,8 +87,8 @@ directory gate. It validates `chr/all` directly from the pack directory because
 the full runtime still needs ROM-derived roster/title data before it can launch
 without a decomp root.
 
-`Run-IntroSequenceTests.ps1` builds a fresh ROM-only test pack, sets
-temporarily isolates loose capture files and canonical stale packs, and records
+`Run-IntroSequenceTests.ps1` builds a fresh ROM-only test pack, temporarily
+isolates loose capture files and canonical stale packs, and records
 the runtime render path as a skipped ROM-only gap. Capture-dependent intro frames
 cannot be judged from a `.nes` alone until the importer derives the needed
 runtime state from the ROM itself.

@@ -27,7 +27,7 @@ static void print_usage(const char *program)
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
     printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, first-sprite, first-sprite-debug, intro-license, intro-arena-transition, intro-arena-frameN, intro-ready-frameN, intro-warriors-frameN, intro-l88e7-proof, intro-presents, intro-builder-sample, intro-rabbit-preset, intro-tecmo-preset, intro-composite-preset, intro-c051-d861-model, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play, play-fade0..play-fade4, play-step0..play-step10, play-setup, original-title, or original-title-chr to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
-    printf("  --build-assetpack ROM PATH  Extract local iNES PRG/CHR data and metadata to a private .assetpack\n");
+    printf("  --build-assetpack ROM PATH  Build a private .assetpack from an iNES ROM only; no decomp/capture imports\n");
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
     printf("  --assetpack-list PACK  Print an asset-pack directory listing\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
