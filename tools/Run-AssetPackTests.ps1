@@ -780,6 +780,15 @@ try {
 
             try {
                 $SpriteBytes = Read-AssetPackEntryBytes -Path $AssetPackPath -Directory $Directory -EntryId "arena/intro/sprite-groups"
+                $KnownReferenceSpriteSha256 = "DB0F5FB7B84F6CB79D3311A552EEFAFB95144BB6682909A0A569CCE0545D0C2D"
+                $SpriteHasher = [System.Security.Cryptography.SHA256]::Create()
+                try {
+                    $SpriteSha256 = [System.BitConverter]::ToString($SpriteHasher.ComputeHash($SpriteBytes)).Replace("-", "")
+                } finally {
+                    $SpriteHasher.Dispose()
+                }
+                $KnownReferenceSpriteContentMatches = $RomSha256 -ne $KnownReferenceRomSha256 -or
+                    $SpriteSha256 -eq $KnownReferenceSpriteSha256
                 $SpriteMagic = if ($SpriteBytes.Length -ge 4) { [System.Text.Encoding]::ASCII.GetString($SpriteBytes, 0, 4) } else { "" }
                 $SpriteVersion = if ($SpriteBytes.Length -ge 6) { [System.BitConverter]::ToUInt16($SpriteBytes, 4) } else { 0 }
                 $SpriteHeaderSize = if ($SpriteBytes.Length -ge 8) { [System.BitConverter]::ToUInt16($SpriteBytes, 6) } else { 0 }
@@ -820,35 +829,54 @@ try {
 
                 $InvalidSpritePalettes = 0
                 $InvalidSpriteFlags = 0
-                $InvalidSpriteReserved = 0
+                $InvalidSpriteAdjustments = 0
                 $InvalidSpriteChrOffsets = 0
                 $InvalidGoalY = 0
+                $AdjustedSecondTileCount = 0
+                $ZeroSecondTileAdjustmentCount = 0
+                $AdjustedGoalContractCount = 0
                 $SpriteChrByteCount = [uint64]$ExpectedChrBanks * 8192
                 $SpriteChrPagesAvailable = $SpriteChrByteCount -ge 10240
                 if ($SpriteBytes.Length -eq 956 -and $SpritePieceCount -eq 71 -and $SpritePieceStride -eq 12) {
                     for ($Index = 0; $Index -lt 71; ++$Index) {
                         $PieceOffset = 104 + $Index * 12
+                        $Dx = [System.BitConverter]::ToInt16($SpriteBytes, $PieceOffset + 0)
+                        $Dy = [System.BitConverter]::ToInt16($SpriteBytes, $PieceOffset + 2)
                         $ChrOffset = [System.BitConverter]::ToUInt32($SpriteBytes, $PieceOffset + 4)
+                        $SecondTileYAdjust = [System.BitConverter]::ToInt16($SpriteBytes, $PieceOffset + 10)
                         if ($SpriteBytes[$PieceOffset + 8] -gt 3) { ++$InvalidSpritePalettes }
-                        if ($SpriteBytes[$PieceOffset + 9] -gt 7) { ++$InvalidSpriteFlags }
-                        if ([System.BitConverter]::ToUInt16($SpriteBytes, $PieceOffset + 10) -ne 0) { ++$InvalidSpriteReserved }
+                        if (($SpriteBytes[$PieceOffset + 9] -band 0xFC) -ne 0) { ++$InvalidSpriteFlags }
+                        if ($SecondTileYAdjust -eq -2) {
+                            ++$AdjustedSecondTileCount
+                            if ($Index -ge 55 -and $Dx -eq 16 -and $Dy -eq 48 -and $ChrOffset -eq 9248) {
+                                ++$AdjustedGoalContractCount
+                            } else {
+                                ++$InvalidSpriteAdjustments
+                            }
+                        } elseif ($SecondTileYAdjust -eq 0) {
+                            ++$ZeroSecondTileAdjustmentCount
+                        } else {
+                            ++$InvalidSpriteAdjustments
+                        }
                         if (($ChrOffset -band 0x0F) -ne 0 -or $ChrOffset -lt 8192 -or ([uint64]$ChrOffset + 32) -gt 10240) {
                             ++$InvalidSpriteChrOffsets
                         }
-                        if ($Index -ge 55 -and !(@(0, 16, 32, 48).Contains([int][System.BitConverter]::ToInt16($SpriteBytes, $PieceOffset + 2)))) {
+                        if ($Index -ge 55 -and !(@(0, 16, 32, 48).Contains([int]$Dy))) {
                             ++$InvalidGoalY
                         }
                     }
                 }
-                $SpriteContractPassed = $SpriteMagic -eq "TASG" -and $SpriteVersion -eq 1 -and
+                $SpriteContractPassed = $SpriteMagic -eq "TASG" -and $SpriteVersion -eq 2 -and
                     $SpriteHeaderSize -eq 48 -and $SpriteGroupCount -eq 2 -and $SpriteGroupStride -eq 20 -and
                     $SpritePieceCount -eq 71 -and $SpritePieceStride -eq 12 -and $SpriteFlags -eq 1 -and
                     $SpritePaletteOffset -eq 48 -and $SpriteGroupsOffset -eq 64 -and $SpritePiecesOffset -eq 104 -and
                     $SpriteBytes.Length -eq 956 -and $ReservedHeaderNonzero -eq 0 -and
                     $InvalidUniversalColors -eq 0 -and $InvalidSpritePaletteColors -eq 0 -and $GroupsValid -and
-                    $SpriteChrPagesAvailable -and
+                    $SpriteChrPagesAvailable -and $KnownReferenceSpriteContentMatches -and
                     $InvalidSpritePalettes -eq 0 -and $InvalidSpriteFlags -eq 0 -and
-                    $InvalidSpriteReserved -eq 0 -and $InvalidSpriteChrOffsets -eq 0 -and $InvalidGoalY -eq 0
+                    $InvalidSpriteAdjustments -eq 0 -and $InvalidSpriteChrOffsets -eq 0 -and $InvalidGoalY -eq 0 -and
+                    $AdjustedSecondTileCount -eq 1 -and $ZeroSecondTileAdjustmentCount -eq 70 -and
+                    $AdjustedGoalContractCount -eq 1
                 Add-TestResult ([pscustomobject]@{
                     id = "assetpack-arena-sprite-groups"
                     passed = $SpriteContractPassed
@@ -861,7 +889,12 @@ try {
                     normalized_palette_count = 4 - $InvalidUniversalColors
                     palette_colors_valid = $InvalidSpritePaletteColors -eq 0
                     chr_page_pair_bounds_valid = $SpriteChrPagesAvailable -and $InvalidSpriteChrOffsets -eq 0
-                    invalid_piece_count = $InvalidSpritePalettes + $InvalidSpriteFlags + $InvalidSpriteReserved + $InvalidSpriteChrOffsets + $InvalidGoalY
+                    adjusted_second_tile_count = $AdjustedSecondTileCount
+                    zero_second_tile_adjustment_count = $ZeroSecondTileAdjustmentCount
+                    adjusted_goal_contract_count = $AdjustedGoalContractCount
+                    known_reference_revision = $RomSha256 -eq $KnownReferenceRomSha256
+                    known_reference_content_match = $KnownReferenceSpriteContentMatches
+                    invalid_piece_count = $InvalidSpritePalettes + $InvalidSpriteFlags + $InvalidSpriteAdjustments + $InvalidSpriteChrOffsets + $InvalidGoalY
                     raw_asset_bytes_persisted = $false
                 })
             } catch {
@@ -965,7 +998,7 @@ try {
                     [int]$SpriteSource.chr_pages[1].chr_offset -eq 9216 -and
                     [uint64]$SpriteSource.chr_pages[1].source_offset -eq ($ChrStart + 9216)
                 $SpriteProvenancePassed = $SpriteSource.Count -eq 1 -and
-                    $SpriteSource.schema -eq "tecmo.arena-intro.sprite-groups/TASG-1" -and
+                    $SpriteSource.schema -eq "tecmo.arena-intro.sprite-groups/TASG-2" -and
                     [int]$SpriteSource.palette.bank -eq 4 -and [int]$SpriteSource.palette.cpu_address -eq 0x89DD -and
                     [int]$SpriteSource.palette.size -eq 16 -and [uint64]$SpriteSource.palette.source_offset -eq $ExpectedSpritePaletteOffset -and
                     [int]$SpriteSource.pointer_table.bank -eq 0 -and [int]$SpriteSource.pointer_table.cpu_address -eq 0xA7DB -and
@@ -989,7 +1022,7 @@ try {
                 Add-TestResult ([pscustomobject]@{
                     id = "assetpack-arena-sprite-provenance"
                     passed = $SpriteProvenancePassed
-                    schema_valid = $SpriteSource.Count -eq 1 -and $SpriteSource.schema -eq "tecmo.arena-intro.sprite-groups/TASG-1"
+                    schema_valid = $SpriteSource.Count -eq 1 -and $SpriteSource.schema -eq "tecmo.arena-intro.sprite-groups/TASG-2"
                     streams_valid = $SpriteSource.Count -eq 1 -and @($SpriteSource.streams).Count -eq 2
                     bank04_regions_valid = $SpriteSource.Count -eq 1 -and [int]$SpriteSource.bank04.emitter.cpu_address -eq 0x8988
                     bank04_anchor_contracts_valid = $Bank04AnchorContractsValid

@@ -328,6 +328,24 @@ try {
             mutation = "or-byte"
             payload_offset = 113
             value = 0x08
+        },
+        [pscustomobject]@{
+            id = "jumbotron-second-tile-adjustment-unsupported"
+            mutation = "i16"
+            payload_offset = 114
+            value = -2
+        },
+        [pscustomobject]@{
+            id = "goal-second-tile-adjustment-required"
+            mutation = "i16"
+            payload_offset = 846
+            value = 0
+        },
+        [pscustomobject]@{
+            id = "goal-second-tile-adjustment-value-strict"
+            mutation = "i16"
+            payload_offset = 846
+            value = -1
         }
     )
     $MalformedPackPath = Join-Path $OutputDir "malformed-tasg.assetpack"
@@ -345,6 +363,10 @@ try {
                 $MutationOffset = $TasgPayloadOffset + $Case.payload_offset
                 if ($Case.mutation -eq "u32") {
                     [System.BitConverter]::GetBytes([uint32]$Case.value).CopyTo(
+                        $MalformedBytes,
+                        $MutationOffset)
+                } elseif ($Case.mutation -eq "i16") {
+                    [System.BitConverter]::GetBytes([int16]$Case.value).CopyTo(
                         $MalformedBytes,
                         $MutationOffset)
                 } else {

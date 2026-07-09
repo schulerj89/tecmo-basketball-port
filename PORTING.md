@@ -132,12 +132,17 @@ offsets. Runtime rendering must load that layer and `chr/all` from the same
 asset pack. Do not reintroduce generated tile-sheet patterns or captured
 nametable playback as a normal fallback.
 
-Arena sprites are also on the native path. The ROM importer emits TASG-1 at
+Arena sprites are also on the native path. The ROM importer emits TASG-2 at
 `arena/intro/sprite-groups`; runtime validates the exact two-group, 71-piece
 contract and draws the goal before the jumbotron using stored CHR offsets,
 palette indexes, flips, anchors, and transition scroll. Missing or invalid TASG
 data must fail the exact arena render instead of falling back to hardcoded goal
-pieces, synthetic palettes, or captured OAM.
+pieces, synthetic palettes, or captured OAM. TASG-2 keeps its existing header,
+group, and piece strides and interprets piece bytes 10..11 as signed
+`second_tile_y_adjust`. Exactly the center-lower goal post/base piece uses `-2`;
+the remaining 70 pieces use zero, and the second 8x8 tile is drawn at
+`(8 + adjustment)` native pixels below the first without changing the shared
+goal anchor, piece offsets, or goal motion.
 
 ## Validation Rules
 

@@ -145,9 +145,9 @@ The current opening path includes:
 - TECMO/rabbit intro composite from local trace data
 - NBA license screen
 - arena/jumbotron/crowd transition from ROM CHR through native arena bands
-- native TASG-1 jumbotron and anchored goal sprite groups for the arena pan
+- native TASG-2 jumbotron and anchored goal sprite groups for the arena pan
 
-The normal arena render must not replay captured screen `$18` nametable or OAM data. The ROM-only importer decodes the fixed-bank screen descriptor and compressed Bank00 stream into `arena/intro/background-layer`, a versioned native `32x51` tile layer whose cells contain exact attribute-derived palette indexes and resolved `chr/all` offsets. It also emits `arena/intro/sprite-groups` as TASG-1 with the exact NES sprite palette, jumbotron pieces, and goal pieces. Runtime rendering requires both native entries, scrolls TATL as the background, and projects TASG groups from their stored anchors using the transition state. Capture-shaped arena loaders remain only as migration/debug scaffolding; palette-cycle migration can continue without replacing the exact background or sprite-group paths.
+The normal arena render must not replay captured screen `$18` nametable or OAM data. The ROM-only importer decodes the fixed-bank screen descriptor and compressed Bank00 stream into `arena/intro/background-layer`, a versioned native `32x51` tile layer whose cells contain exact attribute-derived palette indexes and resolved `chr/all` offsets. It also emits `arena/intro/sprite-groups` as TASG-2 with the exact NES sprite palette, jumbotron pieces, and goal pieces. TASG-2 reuses piece bytes 10..11 as signed `second_tile_y_adjust`; the imported center-lower goal post/base record is the sole `-2` adjustment and all other pieces use zero. Runtime rendering requires both native entries, scrolls TATL as the background, and projects TASG groups from their stored anchors using the transition state. Capture-shaped arena loaders remain only as migration/debug scaffolding; palette-cycle migration can continue without replacing the exact background or sprite-group paths.
 
 For screen `$18` research, use the verified ROM route rather than capture bytes:
 

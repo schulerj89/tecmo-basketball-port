@@ -57,10 +57,14 @@
 #define ARENA_SPRITE_GROUPS_PALETTE_OFFSET 48U
 #define ARENA_SPRITE_GROUPS_GROUPS_OFFSET 64U
 #define ARENA_SPRITE_GROUPS_PIECES_OFFSET 104U
-#define ARENA_SPRITE_GROUPS_VERSION 1U
+#define ARENA_SPRITE_GROUPS_VERSION 2U
 #define ARENA_SPRITE_GROUPS_FLAGS 1U
 #define ARENA_SPRITE_GROUPS_JUMBOTRON_PIECES 55U
 #define ARENA_SPRITE_GROUPS_GOAL_PIECES 16U
+#define ARENA_SPRITE_GROUPS_GOAL_GAP_DX 16
+#define ARENA_SPRITE_GROUPS_GOAL_GAP_DY 48
+#define ARENA_SPRITE_GROUPS_GOAL_GAP_TOP_CHR_OFFSET 9248U
+#define ARENA_SPRITE_GROUPS_GOAL_GAP_SECOND_TILE_Y_ADJUST (-2)
 #define ARENA_SPRITE_VIEWPORT_WIDTH 256
 #define ARENA_SPRITE_VIEWPORT_HEIGHT 240
 #define ARENA_SPRITE_WIDTH 8
@@ -1395,8 +1399,10 @@ static bool arena_decode_sprite_groups(TecmoArenaNativeSpriteGroups *sprite_grou
             ARENA_SPRITE_GROUPS_PIECE_STRIDE;
     TecmoArenaNativeSpriteGroups decoded;
     bool covered[TECMO_INTRO_ARENA_NATIVE_SPRITE_PIECE_COUNT] = {false};
+    bool goal_piece[TECMO_INTRO_ARENA_NATIVE_SPRITE_PIECE_COUNT] = {false};
     bool saw_jumbotron = false;
     bool saw_goal = false;
+    size_t adjusted_piece_count = 0U;
 
     if (sprite_groups == NULL || bytes == NULL || byte_count != expected_size ||
         memcmp(bytes, "TASG", 4U) != 0 ||
@@ -1469,6 +1475,8 @@ static bool arena_decode_sprite_groups(TecmoArenaNativeSpriteGroups *sprite_grou
                 return false;
             }
             covered[piece] = true;
+            goal_piece[piece] =
+                group->kind == TECMO_ARENA_NATIVE_SPRITE_GROUP_GOAL;
         }
     }
     if (!saw_jumbotron || !saw_goal) {
@@ -1490,13 +1498,28 @@ static bool arena_decode_sprite_groups(TecmoArenaNativeSpriteGroups *sprite_grou
         piece->top_chr_offset = arena_read_le_u32(piece_bytes + 4U);
         piece->palette_index = piece_bytes[8U];
         piece->flags = piece_bytes[9U];
+        piece->second_tile_y_adjust = arena_read_le_i16(piece_bytes + 10U);
         if (!arena_sprite_chr_pair_offset_valid(piece->top_chr_offset) ||
             piece->palette_index > 3U ||
             (piece->flags & ~(uint8_t)(TECMO_ARENA_NATIVE_SPRITE_FLIP_HORIZONTAL |
-                                      TECMO_ARENA_NATIVE_SPRITE_FLIP_VERTICAL)) != 0U ||
-            arena_read_le_u16(piece_bytes + 10U) != 0U) {
+                                      TECMO_ARENA_NATIVE_SPRITE_FLIP_VERTICAL)) != 0U) {
             return false;
         }
+        if (goal_piece[i] &&
+            piece->dx == ARENA_SPRITE_GROUPS_GOAL_GAP_DX &&
+            piece->dy == ARENA_SPRITE_GROUPS_GOAL_GAP_DY &&
+            piece->top_chr_offset == ARENA_SPRITE_GROUPS_GOAL_GAP_TOP_CHR_OFFSET) {
+            if (piece->second_tile_y_adjust !=
+                ARENA_SPRITE_GROUPS_GOAL_GAP_SECOND_TILE_Y_ADJUST) {
+                return false;
+            }
+            ++adjusted_piece_count;
+        } else if (piece->second_tile_y_adjust != 0) {
+            return false;
+        }
+    }
+    if (adjusted_piece_count != 1U) {
+        return false;
     }
 
     decoded.available = true;
@@ -1523,7 +1546,7 @@ static bool load_arena_sprite_groups_entry(TecmoArenaNativeSpriteGroups *sprite_
     tecmo_asset_pack_free(bytes);
     if (!loaded) {
         arena_sprite_groups_status(sprite_groups,
-                                   "ROM-ONLY EXACT ARENA SPRITE GROUPS INVALID (TASG-1)");
+                                   "ROM-ONLY EXACT ARENA SPRITE GROUPS INVALID (TASG-2)");
     }
     return loaded;
 }
@@ -2171,7 +2194,7 @@ static void arena_draw_native_sprite_piece(TecmoFramebuffer *fb,
                                      chr_byte_count,
                                      second_offset,
                                      x,
-                                     y + 8 * scale,
+                                     y + (8 + piece->second_tile_y_adjust) * scale,
                                      scale,
                                      palette,
                                      flip_horizontal,
