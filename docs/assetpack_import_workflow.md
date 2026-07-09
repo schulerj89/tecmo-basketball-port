@@ -1,13 +1,13 @@
 # Asset Pack Import Workflow
 
 This note defines the local asset-pack workflow for importer-driven intro work.
-The pack is ignored build output and its production input contract is a single
-local iNES ROM: `<LOCAL_ROM.nes>`.
+The pack is ignored build output and the final importer input contract is a
+single local iNES ROM: `<LOCAL_ROM.nes>`.
 
-The decompilation project is still useful as engineering reference while writing
-extractors and mapping ROM offsets, but the pack builder and importer test gates
-must not require decompilation files, copied ASM, emulator logs, or loose capture
-files as final inputs.
+The decompilation project is still useful as development reference while writing
+extractors and mapping ROM offsets. It is not a final runtime or import input:
+the pack builder and importer test gates must not require decompilation files,
+copied ASM, emulator logs, or loose capture files.
 
 ## Pipeline
 
@@ -21,7 +21,8 @@ files as final inputs.
 
    `--build-assetpack` writes only data directly derived from the iNES file. It
    must not silently import `build\*.ndjson`, decompilation files, or data found
-   through `--root`/`TECMO_DECOMP_ROOT`.
+   through `--root`/`TECMO_DECOMP_ROOT`. Passing a `.nes` file is the final
+   importer contract.
 3. Verify the directory before treating runtime output as pack-backed:
 
    ```powershell
@@ -67,6 +68,9 @@ future namespace is `intro/composite/`, with `intro/composite/trace.json` as the
 trace entry and `intro/composite/source-map` for source metadata once that data
 is generated from the ROM-only importer.
 
+For the concise migration checklist, see
+`docs/rom_only_import_next_steps.md`.
+
 ## Importer Gates
 
 Use placeholders or environment variables for private paths. The importer gates
@@ -88,10 +92,21 @@ the full runtime still needs ROM-derived roster/title data before it can launch
 without a decomp root.
 
 `Run-IntroSequenceTests.ps1` builds a fresh ROM-only test pack, temporarily
-isolates loose capture files and canonical stale packs, and records
-the runtime render path as a skipped ROM-only gap. Capture-dependent intro frames
-cannot be judged from a `.nes` alone until the importer derives the needed
-runtime state from the ROM itself.
+isolates loose capture files and canonical stale packs, and records the runtime
+render path as a skipped ROM-only gap. Capture-dependent intro frames cannot be
+judged from a `.nes` alone until the importer derives the needed runtime state
+from the ROM itself.
+
+These are the current public gate categories:
+
+| Script or command | Status | Input contract |
+| --- | --- | --- |
+| `--build-assetpack <LOCAL_ROM.nes>` | ROM-only importer gate | `.nes` only. Must not read decompilation roots, emulator logs, loose captures, or generated reports. |
+| `--assetpack-list build\tecmo.assetpack` | ROM-only directory gate | Generated pack only; used to confirm the importer did not include stale logical/capture entries. |
+| `tools\Run-AssetPackTests.ps1 -RomPath <LOCAL_ROM.nes>` | ROM-only automated gate | `.nes` only, with `TECMO_ROM_PATH` allowed as a private local convenience. |
+| `tools\Run-IntroSequenceTests.ps1 -RomPath <LOCAL_ROM.nes>` | ROM-only migration gate | `.nes` only for pack checks; runtime render is intentionally recorded as a skipped gap until intro state is ROM-derived. |
+| `tools\Run-NativeFlowTests.ps1` and `tools\Run-ScreenshotTests.ps1` | Older runtime/screenshot probes | Still require `-DecompRoot` or `TECMO_DECOMP_ROOT`; useful for analysis, not evidence that importer/runtime flow is ROM-only. |
+| `tools\Find-*.ps1`, `tools\Import-IntroArenaCapture.ps1`, and emulator Lua probes | Development reference helpers | May consume decompilation files, rebuilt local ROMs, emulator logs, or ignored reports. Outputs stay local and must not become final importer inputs. |
 
 Focused manual renders can still be useful while debugging:
 
