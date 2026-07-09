@@ -95,6 +95,32 @@ function Find-ReferenceRom {
     return $null
 }
 
+function Get-InesHeaderInfo {
+    param([string]$Path)
+
+    $File = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
+    try {
+        $Header = New-Object byte[] 16
+        $Read = $File.Read($Header, 0, $Header.Length)
+        if ($Read -ne 16 -or
+            $Header[0] -ne [byte][char]'N' -or
+            $Header[1] -ne [byte][char]'E' -or
+            $Header[2] -ne [byte][char]'S' -or
+            $Header[3] -ne 0x1A) {
+            throw "Reference ROM is not an iNES file."
+        }
+
+        return [pscustomobject]@{
+            prg_banks = [int]$Header[4]
+            chr_banks = [int]$Header[5]
+            mapper = (($Header[6] -shr 4) -bor ($Header[7] -band 0xF0))
+            trainer_bytes = if (($Header[6] -band 0x04) -ne 0) { 512 } else { 0 }
+        }
+    } finally {
+        $File.Dispose()
+    }
+}
+
 function Test-PathUnder {
     param(
         [string]$Path,
@@ -198,6 +224,35 @@ function Read-AssetPackDirectory {
         }
     } finally {
         $Reader.Dispose()
+        $File.Dispose()
+    }
+}
+
+function Read-AssetPackEntryText {
+    param(
+        [string]$Path,
+        [object]$Directory,
+        [string]$EntryId
+    )
+
+    $Entry = @($Directory.entries | Where-Object { $_.id -eq $EntryId } | Select-Object -First 1)
+    if (!$Entry) {
+        throw "Asset pack entry '$EntryId' was not found."
+    }
+    if ([uint64]$Entry.byte_count -gt [uint64][int]::MaxValue) {
+        throw "Asset pack entry '$EntryId' is too large for test inspection."
+    }
+
+    $File = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
+    try {
+        [void]$File.Seek([int64]$Entry.pack_offset, [System.IO.SeekOrigin]::Begin)
+        $Bytes = New-Object byte[] ([int]$Entry.byte_count)
+        $Read = $File.Read($Bytes, 0, $Bytes.Length)
+        if ($Read -ne $Bytes.Length) {
+            throw "Asset pack entry '$EntryId' payload is truncated."
+        }
+        return [System.Text.Encoding]::UTF8.GetString($Bytes)
+    } finally {
         $File.Dispose()
     }
 }
@@ -425,6 +480,8 @@ function Write-AssetPackReport {
         asset_pack = [pscustomobject]@{
             output = $AssetPackRelative
             canonical_fallback = $CanonicalAssetPackRelative
+            prg_banks_expected_from_rom = $ExpectedPrgBanks
+            chr_banks_expected_from_rom = $ExpectedChrBanks
             prg_banks_reported = $ReportedPrgBanks
             chr_banks_reported = $ReportedChrBanks
             entries_reported = $ReportedEntries
@@ -474,6 +531,10 @@ $ReferenceRom = Find-ReferenceRom $LocalDecompRoot
 if (!$ReferenceRom) {
     throw "Could not find a local iNES ROM. Pass -RomPath or set TECMO_ROM_PATH."
 }
+$ReferenceHeader = Get-InesHeaderInfo $ReferenceRom
+if ($ReferenceHeader.prg_banks -le 0) {
+    throw "Reference ROM reports zero PRG banks."
+}
 
 if ($Build) {
     $PreviousSkipShortcut = $env:TECMO_SKIP_SHORTCUT
@@ -505,6 +566,8 @@ $ChrRenderRelative = ConvertTo-RepoRelativePath $ChrRenderPath
 $ReportedPrgBanks = $null
 $ReportedChrBanks = $null
 $ReportedEntries = $null
+$ExpectedPrgBanks = [int]$ReferenceHeader.prg_banks
+$ExpectedChrBanks = [int]$ReferenceHeader.chr_banks
 $Directory = $null
 $ExpectedEntries = $null
 $ExpectedRawEntries = $null
@@ -565,11 +628,18 @@ try {
         $ReportedChrBanks = [int]$Matches[2]
         $ReportedEntries = [int]$Matches[3]
     }
-    $BuildPassed = $BuildExitCode -eq 0 -and $null -ne $ReportedPrgBanks -and $null -ne $ReportedChrBanks -and $null -ne $ReportedEntries
+    $ReportedBanksMatchRom = $null -ne $ReportedPrgBanks -and
+        $null -ne $ReportedChrBanks -and
+        [int]$ReportedPrgBanks -eq $ExpectedPrgBanks -and
+        [int]$ReportedChrBanks -eq $ExpectedChrBanks
+    $BuildPassed = $BuildExitCode -eq 0 -and $ReportedBanksMatchRom -and $null -ne $ReportedEntries
     Add-TestResult ([pscustomobject]@{
         id = "build-assetpack"
         passed = $BuildPassed
         exit_code = $BuildExitCode
+        expected_prg_banks_from_rom = $ExpectedPrgBanks
+        expected_chr_banks_from_rom = $ExpectedChrBanks
+        reported_banks_match_rom = $ReportedBanksMatchRom
         output_reported_prg_banks = $null -ne $ReportedPrgBanks
         output_reported_chr_banks = $null -ne $ReportedChrBanks
         output_reported_entry_count = $null -ne $ReportedEntries
@@ -630,8 +700,8 @@ try {
             raw_asset_bytes_persisted = $false
         })
 
-        if ($null -ne $ReportedPrgBanks -and $null -ne $ReportedChrBanks) {
-            $ExpectedRawEntries = @(Get-ExpectedAssetPackEntries -PrgBanks $ReportedPrgBanks -ChrBanks $ReportedChrBanks)
+        if ($ExpectedPrgBanks -gt 0 -and $ExpectedChrBanks -ge 0) {
+            $ExpectedRawEntries = @(Get-ExpectedAssetPackEntries -PrgBanks $ExpectedPrgBanks -ChrBanks $ExpectedChrBanks)
             $LogicalExpectation = Get-ExpectedLogicalAssetPackEntries -BuildDir $BuildDir
             $ExpectedLogicalEntries = @($LogicalExpectation.entries)
             $LogicalCaptureSources = @($LogicalExpectation.capture_sources_present)
@@ -651,7 +721,7 @@ try {
                   $_.StartsWith("system/", [System.StringComparison]::Ordinal)) -and
                  !$ExpectedRawEntrySet.Contains($_))
             })
-            $SizeMismatches = @(Get-AssetPackSizeMismatches -Directory $Directory -PrgBanks $ReportedPrgBanks -ChrBanks $ReportedChrBanks)
+            $SizeMismatches = @(Get-AssetPackSizeMismatches -Directory $Directory -PrgBanks $ExpectedPrgBanks -ChrBanks $ExpectedChrBanks)
             $RawCountMatchesExpected = $RawEntriesPresent.Count -eq $ExpectedRawEntries.Count
             $ChrAllMismatches = @($SizeMismatches | Where-Object { $_.id -eq "chr/all" })
             $ChrAllValid = $Directory.ids.Contains("chr/all") -and $ChrAllMismatches.Count -eq 0
@@ -665,6 +735,8 @@ try {
                 passed = $BankCompletenessPassed
                 expected_entry_count = $ExpectedEntries.Count
                 expected_raw_entry_count = $ExpectedRawEntries.Count
+                expected_prg_banks_from_rom = $ExpectedPrgBanks
+                expected_chr_banks_from_rom = $ExpectedChrBanks
                 parsed_raw_entry_count = $RawEntriesPresent.Count
                 cli_reported_entry_count = $ReportedEntries
                 parsed_directory_entry_count = $Directory.entry_count
@@ -701,6 +773,7 @@ try {
                 }
             })
             $LogicalEntriesPassed = $MissingLogicalEntries.Count -eq 0 -and
+                $UnexpectedLogicalEntries.Count -eq 0 -and
                 $UnknownEntries.Count -eq 0 -and
                 $EmptyLogicalEntries.Count -eq 0 -and
                 $LogicalTypeMismatches.Count -eq 0
@@ -717,6 +790,54 @@ try {
                 capture_sources_present = $LogicalCaptureSources
                 raw_asset_bytes_persisted = $false
             })
+
+            try {
+                $SourceMapText = Read-AssetPackEntryText -Path $AssetPackPath -Directory $Directory -EntryId "system/source-map"
+                $SourceMap = $SourceMapText | ConvertFrom-Json
+                $SourceMapLogicalIds = @($SourceMap.logical_entries | ForEach-Object { [string]$_.id })
+                $MissingSourceMapLogicalEntries = @($ExpectedLogicalEntries | Where-Object { !$SourceMapLogicalIds.Contains($_) })
+                $UnexpectedSourceMapLogicalEntries = @($SourceMapLogicalIds | Where-Object { !$ExpectedLogicalEntrySet.Contains($_) })
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-source-map-logical-entries"
+                    passed = $MissingSourceMapLogicalEntries.Count -eq 0 -and $UnexpectedSourceMapLogicalEntries.Count -eq 0
+                    expected_logical_entries = $ExpectedLogicalEntries
+                    source_map_logical_entries = $SourceMapLogicalIds
+                    missing_logical_entries = $MissingSourceMapLogicalEntries
+                    unexpected_logical_entries = $UnexpectedSourceMapLogicalEntries
+                    raw_asset_bytes_persisted = $false
+                })
+            } catch {
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-source-map-logical-entries"
+                    passed = $false
+                    error = "system/source-map logical entry inspection failed"
+                    error_type = Get-SafeExceptionName $_
+                    raw_asset_bytes_persisted = $false
+                })
+            }
+
+            try {
+                $ListOutput = & $ExePath --assetpack-list $AssetPackPath 2>&1
+                $ListExitCode = $LASTEXITCODE
+                $ListText = (@($ListOutput) | ForEach-Object { [string]$_ }) -join "`n"
+                $MissingFromList = @($ExpectedEntries | Where-Object { $ListText -notmatch [regex]::Escape($_) })
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-list-verification"
+                    passed = $ListExitCode -eq 0 -and $MissingFromList.Count -eq 0
+                    exit_code = $ListExitCode
+                    expected_entry_count = $ExpectedEntries.Count
+                    missing_entries = $MissingFromList
+                    raw_output_persisted = $false
+                })
+            } catch {
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-list-verification"
+                    passed = $false
+                    error = "--assetpack-list verification failed"
+                    error_type = Get-SafeExceptionName $_
+                    raw_output_persisted = $false
+                })
+            }
         } else {
             Add-TestResult ([pscustomobject]@{
                 id = "assetpack-bank-completeness"
@@ -767,7 +888,7 @@ try {
         }
 
         if ($AssetPackValidatedForRender) {
-            Write-Host "Rendering CHR playground with TECMO_ASSETPACK set -> $ChrRenderRelative"
+            Write-Host "Rendering CHR playground after validating chr/all in the test pack -> $ChrRenderRelative"
             $RenderOutput = & $ExePath --root $LocalDecompRoot --render-test-mode chr-playground $ChrRenderPath 2>&1
             $RenderExitCode = $LASTEXITCODE
             $RenderExists = Test-Path -LiteralPath $ChrRenderPath
@@ -798,6 +919,7 @@ try {
                 asset_pack_entry_validated = $true
                 canonical_fallback_absent_before_render = $CanonicalFallbackCleared
                 asset_pack_use_proven = $false
+                asset_pack_use_scope = "chr/all entry validated before render; renderer fallback isolation is not claimed by this smoke test"
                 raw_output_persisted = $false
                 error = if ($PngInspectionError) { "PNG inspection failed" } elseif ($RenderPassed) { $null } else { "render failed PNG smoke assertions" }
                 error_type = $PngInspectionError
@@ -810,6 +932,7 @@ try {
                 asset_pack_env_set = $true
                 asset_pack_entry_validated = $false
                 asset_pack_use_proven = $false
+                asset_pack_use_scope = "render skipped because asset pack validation failed"
                 raw_output_persisted = $false
                 error = "asset pack validation failed before render"
             })
@@ -827,7 +950,7 @@ try {
                 throw "Native flow test uses an unsupported command shape."
             }
 
-            Write-Host "Running flow-test with TECMO_ASSETPACK set"
+            Write-Host "Running flow-test with TECMO_ASSETPACK set; this checks compatibility, not exclusive pack use"
             $FlowOutput = & $ExePath --root $LocalDecompRoot --flow-test 2>&1
             $FlowExitCode = $LASTEXITCODE
             $ExpectedFlowOutputSeen = $false
@@ -844,6 +967,7 @@ try {
                 expected_output_seen = $ExpectedFlowOutputSeen
                 asset_pack_env_set = $true
                 asset_pack_use_proven = $false
+                asset_pack_use_scope = "compatibility only; flow-test output does not prove asset-pack-backed runtime data"
                 raw_output_persisted = $false
             })
         } catch {

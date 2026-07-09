@@ -1,7 +1,9 @@
 param(
     [string]$ProjectRoot,
     [string]$DecompRoot,
+    [string]$RomPath,
     [switch]$Build,
+    [string]$AssetPackPath,
     [string]$ReportPath
 )
 
@@ -13,6 +15,14 @@ if (!$ProjectRoot) {
 $ProjectRoot = (Resolve-Path $ProjectRoot).Path
 
 $BuildDir = Join-Path $ProjectRoot "build"
+$OutputDir = Join-Path $BuildDir "intro_sequence"
+if (!$AssetPackPath) {
+    $AssetPackPath = Join-Path $OutputDir "tecmo_intro_sequence_test.assetpack"
+}
+if (![System.IO.Path]::IsPathRooted($AssetPackPath)) {
+    $AssetPackPath = Join-Path $ProjectRoot $AssetPackPath
+}
+$AssetPackPath = [System.IO.Path]::GetFullPath($AssetPackPath)
 if (!$ReportPath) {
     $ReportPath = Join-Path $BuildDir "intro_sequence_test_report.json"
 }
@@ -33,6 +43,37 @@ function Find-LocalDecompRoot {
     $Candidates = @(
         (Join-Path $ProjectsRoot "disassem\tecmo-basketball-decompilation"),
         (Join-Path $ProjectsRoot "tecmo-basketball-decompilation")
+    )
+    foreach ($Candidate in $Candidates) {
+        if (Test-Path $Candidate) {
+            return (Resolve-Path $Candidate).Path
+        }
+    }
+
+    return $null
+}
+
+function Find-ReferenceRom {
+    param([string]$LocalDecompRoot)
+
+    if ($RomPath) {
+        if (!(Test-Path $RomPath)) {
+            throw "RomPath does not exist."
+        }
+        return (Resolve-Path $RomPath).Path
+    }
+    if ($env:TECMO_ROM_PATH -and (Test-Path $env:TECMO_ROM_PATH)) {
+        return (Resolve-Path $env:TECMO_ROM_PATH).Path
+    }
+    if (!$LocalDecompRoot) {
+        return $null
+    }
+
+    $Candidates = @(
+        (Join-Path $LocalDecompRoot "build\out\tecmo_basketball_disassem.nes"),
+        (Join-Path $LocalDecompRoot "build\out\tecmo_basketball_split_compile.nes"),
+        (Join-Path $LocalDecompRoot "build\out\tecmo_basketball_split_bank01.nes"),
+        (Join-Path $LocalDecompRoot "build\split_compile\build\out\tecmo_basketball_split_compile.nes")
     )
     foreach ($Candidate in $Candidates) {
         if (Test-Path $Candidate) {
@@ -78,6 +119,41 @@ function Get-SafeExceptionName {
         return $ErrorRecord.Exception.GetType().Name
     }
     return "Error"
+}
+
+function Move-PathAside {
+    param(
+        [string]$Path,
+        [string]$Suffix
+    )
+
+    if (!(Test-Path -LiteralPath $Path)) {
+        return $null
+    }
+
+    $FullPath = [System.IO.Path]::GetFullPath($Path)
+    $AsidePath = "$FullPath.$Suffix"
+    $Index = 0
+    while (Test-Path -LiteralPath $AsidePath) {
+        ++$Index
+        $AsidePath = "$FullPath.$Suffix.$Index"
+    }
+    Move-Item -LiteralPath $FullPath -Destination $AsidePath
+    return [pscustomobject]@{
+        original = $FullPath
+        aside = $AsidePath
+    }
+}
+
+function Restore-MovedPath {
+    param([object]$MovedPath)
+
+    if (!$MovedPath) {
+        return
+    }
+    if ((Test-Path -LiteralPath $MovedPath.aside) -and !(Test-Path -LiteralPath $MovedPath.original)) {
+        Move-Item -LiteralPath $MovedPath.aside -Destination $MovedPath.original
+    }
 }
 
 function Get-PngInspection {
@@ -200,7 +276,8 @@ function Get-InspectionValidation {
     param(
         [object]$Test,
         [object]$Inspection,
-        [object]$CaptureStatus
+        [object]$CaptureStatus,
+        [object]$CaptureSource
     )
 
     $MinVisiblePixels = [int]$Test.min_visible_nonblack_pixels
@@ -211,6 +288,10 @@ function Get-InspectionValidation {
         $CaptureLoaded = [bool]$CaptureStatus.available -and
             [int]$CaptureStatus.nt -gt 0 -and
             [int]$CaptureStatus.pal -gt 0
+    }
+    $CaptureSourceAssetPack = !$Test.requires_capture
+    if ($Test.requires_capture -and $CaptureSource) {
+        $CaptureSourceAssetPack = [bool]$CaptureSource.assetpack
     }
     $AllowLowColorCapture = [bool]$Test.allow_low_color_capture -and $CaptureLoaded
     $LooksLikeMissingCaptureWarning = [bool]$Test.requires_capture -and
@@ -224,6 +305,7 @@ function Get-InspectionValidation {
         $Inspection.nonzero_rgba_pixels -gt 0 -and
         $Inspection.visible_nonblack_pixels -ge $MinVisiblePixels -and
         $CaptureLoaded -and
+        $CaptureSourceAssetPack -and
         !$LooksLikeMissingCaptureWarning
 
     $Error = $null
@@ -232,6 +314,8 @@ function Get-InspectionValidation {
             $Error = "renderer did not report capture status"
         } elseif ($Test.requires_capture -and !$CaptureLoaded) {
             $Error = "required intro capture was not loaded"
+        } elseif ($Test.requires_capture -and !$CaptureSourceAssetPack) {
+            $Error = "required intro capture was not loaded from the test asset pack"
         } elseif ($LooksLikeMissingCaptureWarning) {
             $Error = "PNG resembles a missing-capture diagnostic frame"
         } else {
@@ -243,6 +327,7 @@ function Get-InspectionValidation {
         passed = $Passed
         capture_status_present = $CaptureStatusPresent
         capture_loaded = $CaptureLoaded
+        capture_source_assetpack = $CaptureSourceAssetPack
         diagnostic_warning_like = $LooksLikeMissingCaptureWarning
         error = $Error
     }
@@ -269,16 +354,43 @@ function Get-IntroCaptureStatus {
     return $null
 }
 
+function Get-IntroCaptureSource {
+    param(
+        [object[]]$RenderOutput
+    )
+
+    foreach ($Line in @($RenderOutput)) {
+        $Text = [string]$Line
+        if ($Text -match '^intro-capture-source kind=(?<kind>[a-z-]+) assetpack=(?<assetpack>[01]) entry=(?<entry>.+)$') {
+            return [pscustomobject]@{
+                kind = $Matches.kind
+                assetpack = $Matches.assetpack -eq "1"
+                entry = $Matches.entry
+            }
+        }
+    }
+    return $null
+}
+
 $ExePath = Join-Path $BuildDir "tecmo_port.exe"
-$OutputDir = Join-Path $BuildDir "intro_sequence"
 $LocalDecompRoot = Find-LocalDecompRoot
 
 if (!$LocalDecompRoot) {
     throw "Could not find a local decomp root. Pass -DecompRoot or set TECMO_DECOMP_ROOT."
 }
+$ReferenceRom = Find-ReferenceRom $LocalDecompRoot
+if (!$ReferenceRom) {
+    throw "Could not find a local iNES ROM. Pass -RomPath or set TECMO_ROM_PATH."
+}
 
+if (!(Test-PathUnder $AssetPackPath $BuildDir)) {
+    throw "Intro sequence asset pack output must stay under build\."
+}
 if (!(Test-PathUnder $ReportPath $BuildDir)) {
     throw "Intro sequence report must stay under build\."
+}
+if (!$AssetPackPath.EndsWith(".assetpack", [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Intro sequence asset pack output must use the .assetpack extension."
 }
 
 if ($Build) {
@@ -299,6 +411,7 @@ if (!(Test-Path $ExePath)) {
 
 New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+New-Item -ItemType Directory -Force -Path (Split-Path -Parent $AssetPackPath) | Out-Null
 Add-Type -AssemblyName System.Drawing
 
 $Tests = @(
@@ -373,8 +486,96 @@ $Tests = @(
 $Results = New-Object System.Collections.Generic.List[object]
 $Failures = 0
 $Skipped = 0
+$PreviousAssetPack = $env:TECMO_ASSETPACK
+$MovedFallbacks = New-Object System.Collections.Generic.List[object]
+$IsolationSuffix = "intro-sequence-test-isolated"
+$AssetPackRelative = Get-RepoRelativePath $AssetPackPath
 
 try {
+    if (Test-Path -LiteralPath $AssetPackPath) {
+        Remove-Item -LiteralPath $AssetPackPath -Force
+    }
+
+    Write-Host "Building intro sequence test asset pack -> $AssetPackRelative"
+    $PackBuildOutput = & $ExePath --root $LocalDecompRoot --build-assetpack $ReferenceRom $AssetPackPath 2>&1
+    $PackBuildExitCode = $LASTEXITCODE
+    $PackCreated = Test-Path -LiteralPath $AssetPackPath
+    $PackBuildOutputText = (@($PackBuildOutput) | ForEach-Object { [string]$_ }) -join "`n"
+    $PackReportedImports = $null
+    if ($PackBuildOutputText -match "imported decomp-derived entries from .+ and ([0-9]+) intro captures") {
+        $PackReportedImports = [int]$Matches[1]
+    } elseif ($PackBuildOutputText -match "imported ([0-9]+) intro captures") {
+        $PackReportedImports = [int]$Matches[1]
+    }
+    $PackBuildPassed = $PackBuildExitCode -eq 0 -and $PackCreated
+    if (!$PackBuildPassed) {
+        ++$Failures
+    }
+    $Results.Add([pscustomobject]@{
+        id = "intro-test-assetpack-build"
+        command = ".\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --build-assetpack <LOCAL_ROM.nes> $($AssetPackRelative.Replace('/', '\'))"
+        output = $AssetPackRelative
+        passed = $PackBuildPassed
+        skipped = $false
+        exit_code = $PackBuildExitCode
+        created = $PackCreated
+        reported_intro_captures_imported = $PackReportedImports
+        raw_output_persisted = $false
+        error = if ($PackBuildPassed) { $null } else { "fresh test asset pack was not built" }
+    })
+
+    $ListOutput = & $ExePath --assetpack-list $AssetPackPath 2>&1
+    $ListExitCode = $LASTEXITCODE
+    $ListText = (@($ListOutput) | ForEach-Object { [string]$_ }) -join "`n"
+    $RequiredCaptureEntries = @("intro/arena/capture.ndjson", "intro/post-arena/capture.ndjson")
+    $MissingCaptureEntries = @($RequiredCaptureEntries | Where-Object { $ListText -notmatch [regex]::Escape($_) })
+    $ListPassed = $ListExitCode -eq 0 -and $MissingCaptureEntries.Count -eq 0
+    if (!$ListPassed) {
+        ++$Failures
+    }
+    $Results.Add([pscustomobject]@{
+        id = "intro-test-assetpack-capture-entries"
+        output = $AssetPackRelative
+        passed = $ListPassed
+        skipped = $false
+        exit_code = $ListExitCode
+        required_entries = $RequiredCaptureEntries
+        missing_entries = $MissingCaptureEntries
+        raw_output_persisted = $false
+        error = if ($ListPassed) { $null } else { "fresh test asset pack is missing required capture entries" }
+    })
+
+    $FallbackCandidates = @(
+        (Join-Path $BuildDir "intro_arena_capture.ndjson"),
+        (Join-Path $ProjectRoot "intro_arena_capture.ndjson"),
+        (Join-Path $BuildDir "emu_intro_memory_watch.ndjson"),
+        (Join-Path $ProjectRoot "emu_intro_memory_watch.ndjson"),
+        (Join-Path $BuildDir "emu_intro_arena_irq_watch.ndjson"),
+        (Join-Path $ProjectRoot "emu_intro_arena_irq_watch.ndjson"),
+        (Join-Path $BuildDir "tecmo.assetpack"),
+        (Join-Path $LocalDecompRoot "build\tecmo.assetpack")
+    )
+    foreach ($Candidate in $FallbackCandidates) {
+        $FullCandidate = [System.IO.Path]::GetFullPath($Candidate)
+        if ($FullCandidate.Equals($AssetPackPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+            continue
+        }
+        $Moved = Move-PathAside -Path $FullCandidate -Suffix $IsolationSuffix
+        if ($Moved) {
+            [void]$MovedFallbacks.Add($Moved)
+        }
+    }
+    $Results.Add([pscustomobject]@{
+        id = "intro-capture-fallbacks-isolated"
+        passed = $true
+        skipped = $false
+        moved_count = $MovedFallbacks.Count
+        asset_pack_env = $AssetPackRelative
+        raw_output_persisted = $false
+    })
+
+    $env:TECMO_ASSETPACK = $AssetPackPath
+
     foreach ($Test in $Tests) {
         $OutputPath = [System.IO.Path]::GetFullPath((Join-Path $OutputDir $Test.output))
         if (!(Test-PathUnder $OutputPath $BuildDir)) {
@@ -478,7 +679,8 @@ try {
         }
 
         $CaptureStatus = Get-IntroCaptureStatus -RenderOutput @($RenderOutput)
-        $Validation = Get-InspectionValidation -Test $Test -Inspection $Inspection -CaptureStatus $CaptureStatus
+        $CaptureSource = Get-IntroCaptureSource -RenderOutput @($RenderOutput)
+        $Validation = Get-InspectionValidation -Test $Test -Inspection $Inspection -CaptureStatus $CaptureStatus -CaptureSource $CaptureSource
         if (!$Validation.passed) {
             ++$Failures
         }
@@ -508,7 +710,10 @@ try {
             center_warning_band_pixels = $Inspection.center_warning_band_pixels
             capture_status_present = $Validation.capture_status_present
             capture_loaded = $Validation.capture_loaded
+            capture_source_assetpack = $Validation.capture_source_assetpack
             capture_kind = if ($CaptureStatus) { $CaptureStatus.kind } else { $null }
+            capture_source_kind = if ($CaptureSource) { $CaptureSource.kind } else { $null }
+            capture_source_entry = if ($CaptureSource) { $CaptureSource.entry } else { $null }
             capture_nt = if ($CaptureStatus) { $CaptureStatus.nt } else { $null }
             capture_attr = if ($CaptureStatus) { $CaptureStatus.attr } else { $null }
             capture_pal = if ($CaptureStatus) { $CaptureStatus.pal } else { $null }
@@ -529,6 +734,15 @@ try {
         error_type = Get-SafeExceptionName $_
     })
 } finally {
+    if ($null -eq $PreviousAssetPack) {
+        Remove-Item Env:\TECMO_ASSETPACK -ErrorAction SilentlyContinue
+    } else {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+    }
+    for ($Index = $MovedFallbacks.Count - 1; $Index -ge 0; $Index--) {
+        Restore-MovedPath $MovedFallbacks[$Index]
+    }
+
     $Report = [pscustomobject]@{
         schema_version = 1
         generated_by = "tools/Run-IntroSequenceTests.ps1"
@@ -538,6 +752,11 @@ try {
         decomp_root_used = "<local>"
         build_requested = [bool]$Build
         output_directory = (Get-RepoRelativePath $OutputDir)
+        asset_pack = [pscustomobject]@{
+            output = $AssetPackRelative
+            env_pack_set_for_renders = $true
+            loose_fallbacks_isolated = $MovedFallbacks.Count
+        }
         private_paths_included = $false
         raw_output_persisted = $false
         test_count = $Results.Count

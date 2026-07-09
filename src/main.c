@@ -36,12 +36,30 @@ static void print_usage(const char *program)
 
 static void print_intro_render_capture_status(const TecmoRuntime *runtime, const char *mode_name)
 {
+    const char *assetpack_marker = "assetpack entry ";
+    const char *entry_start;
+    char entry_id[64];
+
     if (runtime == NULL || mode_name == NULL) {
         return;
     }
 
     if (strncmp(mode_name, "intro-arena", 11) == 0 ||
         strcmp(mode_name, "play-step8") == 0) {
+        entry_id[0] = '\0';
+        entry_start = strstr(runtime->intro_arena_capture.status, assetpack_marker);
+        if (entry_start != NULL) {
+            const char *entry_end;
+            size_t entry_length;
+
+            entry_start += strlen(assetpack_marker);
+            entry_end = strstr(entry_start, " pack ");
+            entry_length = entry_end != NULL ? (size_t)(entry_end - entry_start) : 0U;
+            if (entry_length > 0U && entry_length < sizeof(entry_id)) {
+                memcpy(entry_id, entry_start, entry_length);
+                entry_id[entry_length] = '\0';
+            }
+        }
         printf("intro-capture-status kind=arena available=%u nt=%u attr=%u pal=%u oam=%u\n",
                runtime->intro_arena_capture.available ? 1U : 0U,
                (unsigned)(runtime->intro_arena_capture.tile_count[0] +
@@ -51,16 +69,36 @@ static void print_intro_render_capture_status(const TecmoRuntime *runtime, const
                    : 0U,
                (unsigned)runtime->intro_arena_capture.palette_stage_count,
                (unsigned)runtime->intro_arena_capture.sprite_count);
+        printf("intro-capture-source kind=arena assetpack=%u entry=%s\n",
+               entry_id[0] != '\0' ? 1U : 0U,
+               entry_id[0] != '\0' ? entry_id : "none");
     } else if (strncmp(mode_name, "intro-ready", 11) == 0 ||
                strncmp(mode_name, "intro-warriors", 14) == 0 ||
                strcmp(mode_name, "play-step9") == 0 ||
                strcmp(mode_name, "play-step10") == 0) {
+        entry_id[0] = '\0';
+        entry_start = strstr(runtime->intro_post_arena_capture.status, assetpack_marker);
+        if (entry_start != NULL) {
+            const char *entry_end;
+            size_t entry_length;
+
+            entry_start += strlen(assetpack_marker);
+            entry_end = strstr(entry_start, " pack ");
+            entry_length = entry_end != NULL ? (size_t)(entry_end - entry_start) : 0U;
+            if (entry_length > 0U && entry_length < sizeof(entry_id)) {
+                memcpy(entry_id, entry_start, entry_length);
+                entry_id[entry_length] = '\0';
+            }
+        }
         printf("intro-capture-status kind=post-arena available=%u nt=%u attr=%u pal=%u oam=%u\n",
                runtime->intro_post_arena_capture.available ? 1U : 0U,
                (unsigned)runtime->intro_post_arena_capture.tile_event_count,
                (unsigned)runtime->intro_post_arena_capture.attribute_event_count,
                (unsigned)runtime->intro_post_arena_capture.palette_stage_count,
                (unsigned)runtime->intro_post_arena_capture.sprite_stage_count);
+        printf("intro-capture-source kind=post-arena assetpack=%u entry=%s\n",
+               entry_id[0] != '\0' ? 1U : 0U,
+               entry_id[0] != '\0' ? entry_id : "none");
     }
 }
 
@@ -537,7 +575,7 @@ int main(int argc, char **argv)
         const char *rom_path;
         const char *out_path;
         const char *asset_project_root = (root_explicit || root_from_env) ? root : NULL;
-        const char *asset_capture_root = ".";
+        const char *asset_capture_root = (root_explicit || root_from_env) ? "." : NULL;
         char message[256];
 
         if (index + 1 >= argc) {
