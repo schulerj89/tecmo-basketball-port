@@ -4,6 +4,7 @@
 #include "tecmo_bank07.h"
 #include "tecmo_game.h"
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,6 +28,8 @@ static void print_usage(const char *program)
     printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, first-sprite, first-sprite-debug, intro-license, intro-arena-transition, intro-arena-frameN, intro-ready-frameN, intro-warriors-frameN, intro-l88e7-proof, intro-presents, intro-builder-sample, intro-rabbit-preset, intro-tecmo-preset, intro-composite-preset, intro-c051-d861-model, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play, play-fade0..play-fade4, play-step0..play-step10, play-setup, original-title, or original-title-chr to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --build-assetpack ROM PATH  Extract local iNES PRG/CHR data and metadata to a private .assetpack\n");
+    printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
+    printf("  --assetpack-list PACK  Print an asset-pack directory listing\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
 }
@@ -34,11 +37,14 @@ static void print_usage(const char *program)
 int main(int argc, char **argv)
 {
     const char *program = argc > 0 ? argv[0] : "tecmo_port";
-    const char *root = getenv("TECMO_DECOMP_ROOT");
+    const char *env_root = getenv("TECMO_DECOMP_ROOT");
+    const char *root = env_root;
     const char *command = "--summary";
+    bool root_from_env = env_root != NULL && env_root[0] != '\0';
+    bool root_explicit = false;
     int index = 1;
 
-    if (root == NULL || root[0] == '\0') {
+    if (!root_from_env) {
         root = ".";
     }
 
@@ -48,6 +54,7 @@ int main(int argc, char **argv)
             return 2;
         }
         root = argv[index + 1];
+        root_explicit = true;
         index += 2;
     }
 
@@ -142,6 +149,16 @@ int main(int argc, char **argv)
         char message[128];
         if (!tecmo_bank07_self_test(message, sizeof(message))) {
             printf("Bank07 C helper test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--assetpack-test") == 0) {
+        char message[256];
+        if (tecmo_asset_pack_self_test(message, sizeof(message)) != 0) {
+            printf("Asset pack self-test failed: %s\n", message);
             return 1;
         }
         printf("%s\n", message);
@@ -488,6 +505,7 @@ int main(int argc, char **argv)
     if (strcmp(command, "--build-assetpack") == 0) {
         const char *rom_path;
         const char *out_path;
+        const char *asset_project_root = (root_explicit || root_from_env) ? root : NULL;
         char message[256];
 
         if (index + 1 >= argc) {
@@ -497,11 +515,51 @@ int main(int argc, char **argv)
 
         rom_path = argv[index++];
         out_path = argv[index++];
-        if (tecmo_asset_pack_build_from_ines(rom_path, out_path, message, sizeof(message)) != 0) {
+        if (tecmo_asset_pack_build_from_ines(rom_path,
+                                             out_path,
+                                             asset_project_root,
+                                             message,
+                                             sizeof(message)) != 0) {
             printf("Failed to build asset pack: %s\n", message);
             return 1;
         }
         printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--assetpack-list") == 0) {
+        const char *pack_path;
+        char *dump = NULL;
+        size_t required_size = 0U;
+        int result;
+
+        if (index >= argc) {
+            print_usage(program);
+            return 2;
+        }
+
+        pack_path = argv[index++];
+        if (tecmo_asset_pack_dump_directory(pack_path, NULL, 0U, &required_size) != 0 ||
+            required_size == 0U) {
+            printf("Failed to read asset pack directory from %s\n", pack_path);
+            return 1;
+        }
+
+        dump = (char *)malloc(required_size);
+        if (dump == NULL) {
+            printf("Failed to allocate asset pack directory listing.\n");
+            return 1;
+        }
+
+        result = tecmo_asset_pack_dump_directory(pack_path, dump, required_size, &required_size);
+        if (result != 0) {
+            printf("Failed to read asset pack directory from %s\n", pack_path);
+            free(dump);
+            return 1;
+        }
+
+        printf("%s", dump);
+        free(dump);
         return 0;
     }
 

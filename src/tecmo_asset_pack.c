@@ -1,19 +1,30 @@
 #define _CRT_SECURE_NO_WARNINGS
 
+#include "asm_inventory.h"
 #include "tecmo_asset_pack.h"
+#include "tecmo_asset_pack_import.h"
 
+#include <ctype.h>
 #include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
+
+#ifdef _WIN32
+#include <direct.h>
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
 
 #define TECMO_ASSET_PACK_VERSION 1U
 #define TECMO_ASSET_PACK_HEADER_SIZE 40U
 #define TECMO_ASSET_PACK_ENTRY_SIZE 128U
 #define TECMO_ASSET_PACK_PRG_BANK_BYTES 0x4000ULL
 #define TECMO_ASSET_PACK_CHR_BANK_BYTES 0x2000ULL
+#define TECMO_ASSET_PACK_PATH_SIZE 1024U
 
 typedef struct TecmoAssetPackBuildEntry {
     char id[TECMO_ASSET_PACK_ID_SIZE];
@@ -89,6 +100,105 @@ static char *copy_string(const char *text)
     }
     memcpy(copy, text, length + 1U);
     return copy;
+}
+
+static int copy_path_text(char *dest, size_t dest_size, const char *src)
+{
+    int written;
+
+    if (dest == NULL || dest_size == 0U || src == NULL) {
+        return -1;
+    }
+
+    written = snprintf(dest, dest_size, "%s", src);
+    return written >= 0 && (size_t)written < dest_size ? 0 : -1;
+}
+
+static void trim_trailing_path_separators(char *path)
+{
+    size_t length;
+
+    if (path == NULL) {
+        return;
+    }
+
+    length = strlen(path);
+    while (length > 1U &&
+           (path[length - 1U] == '/' || path[length - 1U] == '\\')) {
+        path[length - 1U] = '\0';
+        --length;
+    }
+}
+
+static int infer_project_root_from_rom_path(const char *rom_path,
+                                            char *root,
+                                            size_t root_size)
+{
+    char normalized[TECMO_ASSET_PACK_PATH_SIZE];
+    const char *marker = "/build/out/";
+    char *found;
+    size_t length;
+    size_t root_length;
+
+    if (rom_path == NULL || root == NULL || root_size == 0U) {
+        return -1;
+    }
+
+    length = strlen(rom_path);
+    if (length >= sizeof(normalized)) {
+        return -1;
+    }
+
+    for (size_t i = 0U; i <= length; ++i) {
+        char c = rom_path[i];
+        if (c == '\\') {
+            c = '/';
+        }
+        normalized[i] = (char)tolower((unsigned char)c);
+    }
+
+    found = strstr(normalized, marker);
+    if (found == NULL) {
+        return -1;
+    }
+
+    root_length = (size_t)(found - normalized);
+    if (root_length == 0U) {
+        return copy_path_text(root, root_size, ".");
+    }
+    if (root_length >= root_size) {
+        return -1;
+    }
+
+    memcpy(root, rom_path, root_length);
+    root[root_length] = '\0';
+    trim_trailing_path_separators(root);
+    return root[0] != '\0' ? 0 : -1;
+}
+
+static int resolve_asset_pack_project_root(const char *project_root,
+                                           const char *rom_path,
+                                           char *root,
+                                           size_t root_size)
+{
+    if (root == NULL || root_size == 0U) {
+        return -1;
+    }
+    root[0] = '\0';
+
+    if (project_root != NULL && project_root[0] != '\0') {
+        if (copy_path_text(root, root_size, project_root) != 0) {
+            return -1;
+        }
+        trim_trailing_path_separators(root);
+        return root[0] != '\0' ? 1 : 0;
+    }
+
+    if (infer_project_root_from_rom_path(rom_path, root, root_size) == 0) {
+        return 1;
+    }
+
+    return 0;
 }
 
 static int file_tell_u64(FILE *file, uint64_t *position_out)
@@ -829,6 +939,7 @@ static char *build_ines_source_map(uint32_t mapper,
 
 int tecmo_asset_pack_build_from_ines(const char *rom_path,
                                      const char *out_path,
+                                     const char *project_root,
                                      char *message,
                                      size_t message_size)
 {
@@ -845,9 +956,12 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
     TecmoAssetPackBuilder *builder = NULL;
     TecmoAssetPackEntryInfo entry_info;
     char manifest[512];
+    char resolved_project_root[TECMO_ASSET_PACK_PATH_SIZE];
     char *source_map = NULL;
     size_t source_map_size = 0U;
     int manifest_length;
+    int project_root_status;
+    unsigned imported_intro_count = 0U;
     int result = -1;
 
     if (rom_path == NULL || out_path == NULL) {
@@ -878,6 +992,15 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
 
     if (prg_banks == 0U || rom_size < chr_offset + chr_size) {
         set_message(message, message_size, "ROM is shorter than its iNES PRG/CHR sizes.");
+        goto cleanup;
+    }
+
+    project_root_status = resolve_asset_pack_project_root(project_root,
+                                                          rom_path,
+                                                          resolved_project_root,
+                                                          sizeof(resolved_project_root));
+    if (project_root_status < 0) {
+        set_message(message, message_size, "Could not resolve project root for asset pack imports.");
         goto cleanup;
     }
 
@@ -1036,8 +1159,53 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
         }
     }
 
+    if (project_root_status > 0) {
+        char helper_message[256];
+
+        helper_message[0] = '\0';
+        if (tecmo_asset_pack_builder_add_decomp_derived_entries(resolved_project_root,
+                                                                builder,
+                                                                helper_message,
+                                                                sizeof(helper_message)) != 0) {
+            if (helper_message[0] != '\0') {
+                set_messagef(message,
+                             message_size,
+                             "Could not add decomp-derived asset pack entries from %s: %s",
+                             resolved_project_root,
+                             helper_message);
+            } else {
+                set_messagef(message,
+                             message_size,
+                             "Could not add decomp-derived asset pack entries from %s.",
+                             resolved_project_root);
+            }
+            goto cleanup;
+        }
+
+        helper_message[0] = '\0';
+        if (tecmo_asset_pack_import_intro_captures(resolved_project_root,
+                                                   builder,
+                                                   &imported_intro_count,
+                                                   helper_message,
+                                                   sizeof(helper_message)) != 0) {
+            if (helper_message[0] != '\0') {
+                set_messagef(message,
+                             message_size,
+                             "Could not import intro capture asset pack entries from %s: %s",
+                             resolved_project_root,
+                             helper_message);
+            } else {
+                set_messagef(message,
+                             message_size,
+                             "Could not import intro capture asset pack entries from %s.",
+                             resolved_project_root);
+            }
+            goto cleanup;
+        }
+    }
+
     {
-        unsigned entry_count = 2U + prg_banks + 1U + (chr_size > 0U ? chr_banks + 1U : 0U);
+        size_t entry_count = builder->entry_count;
         int finish_result = tecmo_asset_pack_builder_finish(builder, message, message_size);
 
         builder = NULL;
@@ -1045,13 +1213,25 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
             goto cleanup;
         }
         if (message != NULL && message_size > 0U) {
-            (void)snprintf(message,
-                           message_size,
-                           "Wrote %u PRG banks, %u CHR banks, %u entries to %s",
-                           prg_banks,
-                           chr_banks,
-                           entry_count,
-                           out_path);
+            if (project_root_status > 0) {
+                (void)snprintf(message,
+                               message_size,
+                               "Wrote %u PRG banks, %u CHR banks, %llu entries to %s; imported decomp-derived entries from %s and %u intro captures",
+                               prg_banks,
+                               chr_banks,
+                               (unsigned long long)entry_count,
+                               out_path,
+                               resolved_project_root,
+                               imported_intro_count);
+            } else {
+                (void)snprintf(message,
+                               message_size,
+                               "Wrote %u PRG banks, %u CHR banks, %llu entries to %s",
+                               prg_banks,
+                               chr_banks,
+                               (unsigned long long)entry_count,
+                               out_path);
+            }
         }
     }
     result = 0;
@@ -1299,30 +1479,73 @@ cleanup:
     return result;
 }
 
-static int make_self_test_path(char *path,
-                               size_t path_size,
-                               const char *suffix,
-                               unsigned int index)
+static int make_self_test_temp_dir(char *path, size_t path_size)
 {
-    const char *directory;
-    const char *separator = "";
-    size_t directory_length;
-    unsigned long long tag;
-    int written;
-
-    if (path == NULL || path_size == 0U || suffix == NULL) {
+    if (path == NULL || path_size == 0U) {
         return -1;
     }
+    path[0] = '\0';
 
-    directory = getenv("TMPDIR");
-    if (directory == NULL || directory[0] == '\0') {
-        directory = getenv("TEMP");
+#ifdef _WIN32
+    {
+        char temp_root[TECMO_ASSET_PACK_PATH_SIZE];
+        char temp_name[TECMO_ASSET_PACK_PATH_SIZE];
+        DWORD root_length = GetTempPathA((DWORD)sizeof(temp_root), temp_root);
+
+        if (root_length == 0U || root_length >= sizeof(temp_root)) {
+            return -1;
+        }
+        if (GetTempFileNameA(temp_root, "tap", 0U, temp_name) == 0U) {
+            return -1;
+        }
+        if (DeleteFileA(temp_name) == 0) {
+            return -1;
+        }
+        if (CreateDirectoryA(temp_name, NULL) == 0) {
+            return -1;
+        }
+        return copy_path_text(path, path_size, temp_name);
     }
-    if (directory == NULL || directory[0] == '\0') {
-        directory = getenv("TMP");
+#else
+    {
+        const char *directory = getenv("TMPDIR");
+        char template_path[TECMO_ASSET_PACK_PATH_SIZE];
+        char *created;
+        int written;
+
+        if (directory == NULL || directory[0] == '\0') {
+            directory = "/tmp";
+        }
+        written = snprintf(template_path,
+                           sizeof(template_path),
+                           "%s%stecmo_asset_pack_self_test_XXXXXX",
+                           directory,
+                           directory[strlen(directory) - 1U] == '/' ? "" : "/");
+        if (written < 0 || (size_t)written >= sizeof(template_path)) {
+            return -1;
+        }
+        created = mkdtemp(template_path);
+        if (created == NULL) {
+            return -1;
+        }
+        return copy_path_text(path, path_size, created);
     }
-    if (directory == NULL || directory[0] == '\0') {
-        directory = ".";
+#endif
+}
+
+static int make_self_test_path(char *path,
+                               size_t path_size,
+                               const char *directory,
+                               const char *file_name)
+{
+    const char *separator = "";
+    size_t directory_length;
+    int written;
+
+    if (path == NULL || path_size == 0U ||
+        directory == NULL || directory[0] == '\0' ||
+        file_name == NULL || file_name[0] == '\0') {
+        return -1;
     }
 
     directory_length = strlen(directory);
@@ -1332,28 +1555,30 @@ static int make_self_test_path(char *path,
         separator = "/";
     }
 
-    tag = (unsigned long long)time(NULL) ^
-          (unsigned long long)(uintptr_t)path ^
-          (unsigned long long)index;
-    written = snprintf(path,
-                       path_size,
-                       "%s%stecmo_asset_pack_self_test_%llu_%u_%s",
-                       directory,
-                       separator,
-                       tag,
-                       index,
-                       suffix);
+    written = snprintf(path, path_size, "%s%s%s", directory, separator, file_name);
     if (written < 0 || (size_t)written >= path_size) {
         return -1;
     }
     return 0;
 }
 
-static void remove_self_test_path(const char *path)
+static void remove_self_test_file(const char *path)
 {
     if (path != NULL && path[0] != '\0') {
         (void)remove(path);
     }
+}
+
+static void remove_self_test_dir(const char *path)
+{
+    if (path == NULL || path[0] == '\0') {
+        return;
+    }
+#ifdef _WIN32
+    (void)_rmdir(path);
+#else
+    (void)rmdir(path);
+#endif
 }
 
 static int write_self_test_file(const char *path, const uint8_t *bytes, size_t byte_count)
@@ -1519,6 +1744,7 @@ typedef struct TecmoAssetPackSelfTestInesListState {
     int saw_manifest;
     int saw_source_map;
     int saw_prg_bank0;
+    int saw_prg_bank1;
     int saw_prg_fixed;
     int saw_chr_all;
     int saw_chr_bank0;
@@ -1541,6 +1767,8 @@ static int self_test_ines_list_entry(const TecmoAssetPackDirectoryEntryInfo *ent
         state->saw_source_map = 1;
     } else if (strcmp(entry_info->id, "prg/bank00") == 0) {
         state->saw_prg_bank0 = 1;
+    } else if (strcmp(entry_info->id, "prg/bank01") == 0) {
+        state->saw_prg_bank1 = 1;
     } else if (strcmp(entry_info->id, "prg/fixed") == 0) {
         state->saw_prg_fixed = 1;
     } else if (strcmp(entry_info->id, "chr/all") == 0) {
@@ -1562,6 +1790,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
     char local_file_path[1024] = {0};
     char rom_path[1024] = {0};
     char ines_pack_path[1024] = {0};
+    char temp_dir[1024] = {0};
     TecmoAssetPackBuilder *builder = NULL;
     TecmoAssetPackEntryInfo entry_info;
     TecmoAssetPackSelfTestBuilderListState builder_list_state;
@@ -1579,18 +1808,14 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         message[0] = '\0';
     }
 
-    if (make_self_test_path(builder_pack_path, sizeof(builder_pack_path), "builder.assetpack", 1U) != 0 ||
-        make_self_test_path(local_file_path, sizeof(local_file_path), "local.bin", 2U) != 0 ||
-        make_self_test_path(rom_path, sizeof(rom_path), "input.nes", 3U) != 0 ||
-        make_self_test_path(ines_pack_path, sizeof(ines_pack_path), "ines.assetpack", 4U) != 0) {
+    if (make_self_test_temp_dir(temp_dir, sizeof(temp_dir)) != 0 ||
+        make_self_test_path(builder_pack_path, sizeof(builder_pack_path), temp_dir, "builder.assetpack") != 0 ||
+        make_self_test_path(local_file_path, sizeof(local_file_path), temp_dir, "local.bin") != 0 ||
+        make_self_test_path(rom_path, sizeof(rom_path), temp_dir, "input.nes") != 0 ||
+        make_self_test_path(ines_pack_path, sizeof(ines_pack_path), temp_dir, "ines.assetpack") != 0) {
         set_message(message, message_size, "Self-test could not create temporary paths.");
         goto cleanup;
     }
-
-    remove_self_test_path(builder_pack_path);
-    remove_self_test_path(local_file_path);
-    remove_self_test_path(rom_path);
-    remove_self_test_path(ines_pack_path);
 
     if (tecmo_asset_pack_builder_begin(&builder, builder_pack_path, message, message_size) != 0) {
         goto cleanup;
@@ -1715,7 +1940,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         set_message(message, message_size, "Self-test could not write temporary iNES ROM.");
         goto cleanup;
     }
-    if (tecmo_asset_pack_build_from_ines(rom_path, ines_pack_path, message, message_size) != 0) {
+    if (tecmo_asset_pack_build_from_ines(rom_path, ines_pack_path, NULL, message, message_size) != 0) {
         goto cleanup;
     }
 
@@ -1746,6 +1971,11 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                                       message_size) != 0 ||
         self_test_entry_contains_text(ines_pack_path,
                                       "system/source-map",
+                                      "\"id\":\"prg/bank01\"",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      "system/source-map",
                                       "\"id\":\"chr/bank00\"",
                                       message,
                                       message_size) != 0) {
@@ -1755,6 +1985,12 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
     if (self_test_read_and_compare(ines_pack_path,
                                    "prg/bank00",
                                    rom + (size_t)prg_offset,
+                                   TECMO_ASSET_PACK_PRG_BANK_BYTES,
+                                   message,
+                                   message_size) != 0 ||
+        self_test_read_and_compare(ines_pack_path,
+                                   "prg/bank01",
+                                   rom + (size_t)(prg_offset + TECMO_ASSET_PACK_PRG_BANK_BYTES),
                                    TECMO_ASSET_PACK_PRG_BANK_BYTES,
                                    message,
                                    message_size) != 0 ||
@@ -1787,6 +2023,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         !ines_list_state.saw_manifest ||
         !ines_list_state.saw_source_map ||
         !ines_list_state.saw_prg_bank0 ||
+        !ines_list_state.saw_prg_bank1 ||
         !ines_list_state.saw_prg_fixed ||
         !ines_list_state.saw_chr_all ||
         !ines_list_state.saw_chr_bank0) {
@@ -1803,10 +2040,11 @@ cleanup:
     }
     free(dump);
     free(rom);
-    remove_self_test_path(builder_pack_path);
-    remove_self_test_path(local_file_path);
-    remove_self_test_path(rom_path);
-    remove_self_test_path(ines_pack_path);
+    remove_self_test_file(builder_pack_path);
+    remove_self_test_file(local_file_path);
+    remove_self_test_file(rom_path);
+    remove_self_test_file(ines_pack_path);
+    remove_self_test_dir(temp_dir);
     return result;
 }
 

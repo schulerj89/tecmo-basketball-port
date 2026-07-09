@@ -1266,7 +1266,8 @@ static int parse_roster_file(const char *path, RosterTable *table)
                 if (roster_table_push(table, &record) == 0) {
                     current_index = (int)(table->count - 1);
                 } else {
-                    current_index = -1;
+                    fclose(file);
+                    return -1;
                 }
                 pending_attrs_index = -1;
             }
@@ -1292,6 +1293,11 @@ static int parse_roster_file(const char *path, RosterTable *table)
                 }
             }
         }
+    }
+
+    if (ferror(file) != 0) {
+        fclose(file);
+        return -1;
     }
 
     fclose(file);
@@ -1444,9 +1450,14 @@ static int collect_rosters_from_decomp_sources(const char *project_root, RosterT
     memset(table, 0, sizeof(*table));
     for (size_t i = 0; i < sizeof(ROSTER_FILES) / sizeof(ROSTER_FILES[0]); ++i) {
         char path[TECMO_MAX_PATH_TEXT];
+        size_t before_count = table->count;
+
         append_path(path, sizeof(path), project_root, ROSTER_FILES[i]);
         normalize_separators(path);
-        (void)parse_roster_file(path, table);
+        if (parse_roster_file(path, table) != 0 || table->count == before_count) {
+            roster_table_free(table);
+            return -1;
+        }
     }
     return table->count > 0 ? 0 : -1;
 }

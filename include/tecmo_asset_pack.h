@@ -71,6 +71,7 @@ void tecmo_asset_pack_builder_cancel(TecmoAssetPackBuilder *builder);
 
 int tecmo_asset_pack_build_from_ines(const char *rom_path,
                                      const char *out_path,
+                                     const char *project_root,
                                      char *message,
                                      size_t message_size);
 
