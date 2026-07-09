@@ -703,34 +703,6 @@ static int append_source_map_entry(char *buffer,
                        cpu_address);
 }
 
-static const char *asset_pack_type_name(uint32_t type)
-{
-    if (type == TECMO_ASSET_PACK_TYPE_META) {
-        return "META";
-    }
-    if (type == TECMO_ASSET_PACK_TYPE_PRG) {
-        return "PRG";
-    }
-    if (type == TECMO_ASSET_PACK_TYPE_CHR) {
-        return "CHR";
-    }
-    if (type == TECMO_ASSET_PACK_TYPE_DATA) {
-        return "DATA";
-    }
-    return "UNKNOWN";
-}
-
-static int is_ines_raw_source_map_entry(const char *id)
-{
-    if (id == NULL) {
-        return 0;
-    }
-    return strncmp(id, "prg/", 4U) == 0 ||
-           strncmp(id, "chr/", 4U) == 0 ||
-           strcmp(id, "system/manifest") == 0 ||
-           strcmp(id, "system/source-map") == 0;
-}
-
 static char *build_ines_source_map(uint32_t mapper,
                                    uint32_t trainer_bytes,
                                    uint32_t prg_banks,
@@ -738,11 +710,9 @@ static char *build_ines_source_map(uint32_t mapper,
                                    uint64_t prg_offset,
                                    uint64_t chr_offset,
                                    uint64_t chr_size,
-                                   const TecmoAssetPackBuilder *builder,
                                    size_t *source_map_size_out)
 {
     size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 2U;
-    size_t logical_capacity = builder != NULL ? builder->entry_count : 0U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -751,10 +721,7 @@ static char *build_ines_source_map(uint32_t mapper,
     if (entry_count > (SIZE_MAX - 2048U) / 192U) {
         return NULL;
     }
-    if (logical_capacity > (SIZE_MAX - 2048U - entry_count * 192U) / 192U) {
-        return NULL;
-    }
-    capacity = 2048U + (entry_count + logical_capacity) * 192U;
+    capacity = 2048U + entry_count * 192U;
     source_map = (char *)malloc(capacity);
     if (source_map == NULL) {
         return NULL;
@@ -869,47 +836,9 @@ static char *build_ines_source_map(uint32_t mapper,
                     &length,
                     "\n"
                     "  ],\n"
-                    "  \"logical_entries\":[\n") != 0) {
-        free(source_map);
-        return NULL;
-    }
-
-    first = 1;
-    if (builder != NULL) {
-        for (size_t i = 0U; i < builder->entry_count; ++i) {
-            const TecmoAssetPackBuildEntry *entry = &builder->entries[i];
-            const char *prefix;
-
-            if (is_ines_raw_source_map_entry(entry->id)) {
-                continue;
-            }
-
-            prefix = first != 0 ? "" : ",\n";
-            first = 0;
-            if (append_text(source_map,
-                            capacity,
-                            &length,
-                            "%s"
-                            "    {\"id\":\"%s\",\"type\":\"%s\",\"source_offset\":%llu,"
-                            "\"size\":%llu,\"flags\":%u}",
-                            prefix,
-                            entry->id,
-                            asset_pack_type_name(entry->type),
-                            (unsigned long long)entry->source_offset,
-                            (unsigned long long)entry->size,
-                            entry->flags) != 0) {
-                free(source_map);
-                return NULL;
-            }
-        }
-    }
-
-    if (append_text(source_map,
-                    capacity,
-                    &length,
-                    "\n"
-                    "  ],\n"
-                    "  \"logical_entry_note\":\"ROM-only pack; logical extractors are not imported from decomp or capture files\"\n"
+                    "  \"logical_entries\":[],\n"
+                    "  \"input_contract\":\"ines-only\",\n"
+                    "  \"logical_entry_note\":\"ROM-only pack; no decomp, capture, or loose-file entries are imported\"\n"
                     "}\n") != 0) {
         free(source_map);
         return NULL;
@@ -983,11 +912,11 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
                                "source=ines\n"
                                "source_map=system/source-map\n"
                                "mapper=%u\n"
-                                "trainer_bytes=%u\n"
-                                "prg_banks_16k=%u\n"
-                                "chr_banks_8k=%u\n"
-                                "raw_entry_prefixes=prg/,chr/\n"
-                                "input_contract=ines-only\n",
+                               "trainer_bytes=%u\n"
+                               "prg_banks_16k=%u\n"
+                               "chr_banks_8k=%u\n"
+                               "raw_entry_prefixes=prg/,chr/\n"
+                               "input_contract=ines-only\n",
                                mapper,
                                trainer_bytes,
                                prg_banks,
@@ -1103,7 +1032,6 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
                                        prg_offset,
                                        chr_offset,
                                        chr_size,
-                                       builder,
                                        &source_map_size);
     if (source_map == NULL) {
         set_message(message, message_size, "Could not build asset pack source map.");
@@ -1872,8 +1800,23 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                                       message,
                                       message_size) != 0 ||
         self_test_entry_contains_text(ines_pack_path,
+                                      "system/manifest",
+                                      "input_contract=ines-only",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
                                       "system/source-map",
                                       "\"format\":\"tecmo.assetpack.source-map/1\"",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      "system/source-map",
+                                      "\"input_contract\":\"ines-only\"",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      "system/source-map",
+                                      "\"logical_entries\":[]",
                                       message,
                                       message_size) != 0 ||
         self_test_entry_contains_text(ines_pack_path,
