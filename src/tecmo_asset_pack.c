@@ -1,10 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 
-#include "asm_inventory.h"
 #include "tecmo_asset_pack.h"
-#include "tecmo_asset_pack_import.h"
 
-#include <ctype.h>
 #include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -112,93 +109,6 @@ static int copy_path_text(char *dest, size_t dest_size, const char *src)
 
     written = snprintf(dest, dest_size, "%s", src);
     return written >= 0 && (size_t)written < dest_size ? 0 : -1;
-}
-
-static void trim_trailing_path_separators(char *path)
-{
-    size_t length;
-
-    if (path == NULL) {
-        return;
-    }
-
-    length = strlen(path);
-    while (length > 1U &&
-           (path[length - 1U] == '/' || path[length - 1U] == '\\')) {
-        path[length - 1U] = '\0';
-        --length;
-    }
-}
-
-static int infer_project_root_from_rom_path(const char *rom_path,
-                                            char *root,
-                                            size_t root_size)
-{
-    char normalized[TECMO_ASSET_PACK_PATH_SIZE];
-    const char *marker = "/build/out/";
-    char *found;
-    size_t length;
-    size_t root_length;
-
-    if (rom_path == NULL || root == NULL || root_size == 0U) {
-        return -1;
-    }
-
-    length = strlen(rom_path);
-    if (length >= sizeof(normalized)) {
-        return -1;
-    }
-
-    for (size_t i = 0U; i <= length; ++i) {
-        char c = rom_path[i];
-        if (c == '\\') {
-            c = '/';
-        }
-        normalized[i] = (char)tolower((unsigned char)c);
-    }
-
-    found = strstr(normalized, marker);
-    if (found == NULL) {
-        return -1;
-    }
-
-    root_length = (size_t)(found - normalized);
-    if (root_length == 0U) {
-        return copy_path_text(root, root_size, ".");
-    }
-    if (root_length >= root_size) {
-        return -1;
-    }
-
-    memcpy(root, rom_path, root_length);
-    root[root_length] = '\0';
-    trim_trailing_path_separators(root);
-    return root[0] != '\0' ? 0 : -1;
-}
-
-static int resolve_asset_pack_project_root(const char *project_root,
-                                           const char *rom_path,
-                                           char *root,
-                                           size_t root_size)
-{
-    if (root == NULL || root_size == 0U) {
-        return -1;
-    }
-    root[0] = '\0';
-
-    if (project_root != NULL && project_root[0] != '\0') {
-        if (copy_path_text(root, root_size, project_root) != 0) {
-            return -1;
-        }
-        trim_trailing_path_separators(root);
-        return root[0] != '\0' ? 1 : 0;
-    }
-
-    if (infer_project_root_from_rom_path(rom_path, root, root_size) == 0) {
-        return 1;
-    }
-
-    return 0;
 }
 
 static int file_tell_u64(FILE *file, uint64_t *position_out)
@@ -999,7 +909,7 @@ static char *build_ines_source_map(uint32_t mapper,
                     &length,
                     "\n"
                     "  ],\n"
-                    "  \"logical_entry_note\":\"decomp-derived and capture entries present in this pack\"\n"
+                    "  \"logical_entry_note\":\"ROM-only pack; logical extractors are not imported from decomp or capture files\"\n"
                     "}\n") != 0) {
         free(source_map);
         return NULL;
@@ -1011,8 +921,6 @@ static char *build_ines_source_map(uint32_t mapper,
 
 int tecmo_asset_pack_build_from_ines(const char *rom_path,
                                      const char *out_path,
-                                     const char *project_root,
-                                     const char *capture_project_root,
                                      char *message,
                                      size_t message_size)
 {
@@ -1029,12 +937,9 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
     TecmoAssetPackBuilder *builder = NULL;
     TecmoAssetPackEntryInfo entry_info;
     char manifest[512];
-    char resolved_project_root[TECMO_ASSET_PACK_PATH_SIZE];
     char *source_map = NULL;
     size_t source_map_size = 0U;
     int manifest_length;
-    int project_root_status;
-    unsigned imported_intro_count = 0U;
     int result = -1;
 
     if (rom_path == NULL || out_path == NULL) {
@@ -1068,15 +973,6 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
         goto cleanup;
     }
 
-    project_root_status = resolve_asset_pack_project_root(project_root,
-                                                          rom_path,
-                                                          resolved_project_root,
-                                                          sizeof(resolved_project_root));
-    if (project_root_status < 0) {
-        set_message(message, message_size, "Could not resolve project root for asset pack imports.");
-        goto cleanup;
-    }
-
     if (tecmo_asset_pack_builder_begin(&builder, out_path, message, message_size) != 0) {
         goto cleanup;
     }
@@ -1087,12 +983,11 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
                                "source=ines\n"
                                "source_map=system/source-map\n"
                                "mapper=%u\n"
-                               "trainer_bytes=%u\n"
-                               "prg_banks_16k=%u\n"
-                               "chr_banks_8k=%u\n"
-                               "raw_entry_prefixes=prg/,chr/\n"
-                               "logical_entry_namespace=logical/\n"
-                               "derived_entry_namespace=derived/\n",
+                                "trainer_bytes=%u\n"
+                                "prg_banks_16k=%u\n"
+                                "chr_banks_8k=%u\n"
+                                "raw_entry_prefixes=prg/,chr/\n"
+                                "input_contract=ines-only\n",
                                mapper,
                                trainer_bytes,
                                prg_banks,
@@ -1201,58 +1096,6 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
         }
     }
 
-    if (project_root_status > 0) {
-        char helper_message[256];
-
-        helper_message[0] = '\0';
-        if (tecmo_asset_pack_builder_add_decomp_derived_entries(resolved_project_root,
-                                                                builder,
-                                                                helper_message,
-                                                                sizeof(helper_message)) != 0) {
-            if (helper_message[0] != '\0') {
-                set_messagef(message,
-                             message_size,
-                             "Could not add decomp-derived asset pack entries from %s: %s",
-                             resolved_project_root,
-                             helper_message);
-            } else {
-                set_messagef(message,
-                             message_size,
-                             "Could not add decomp-derived asset pack entries from %s.",
-                             resolved_project_root);
-            }
-            goto cleanup;
-        }
-
-    }
-
-    if ((capture_project_root != NULL && capture_project_root[0] != '\0') ||
-        (project_root != NULL && project_root[0] != '\0' && project_root_status > 0)) {
-        const char *fallback_capture_root =
-            project_root != NULL && project_root[0] != '\0' && project_root_status > 0
-                ? resolved_project_root
-                : NULL;
-        char helper_message[256];
-
-        helper_message[0] = '\0';
-        if (tecmo_asset_pack_import_intro_captures(capture_project_root,
-                                                   fallback_capture_root,
-                                                   builder,
-                                                   &imported_intro_count,
-                                                   helper_message,
-                                                   sizeof(helper_message)) != 0) {
-            if (helper_message[0] != '\0') {
-                set_messagef(message,
-                             message_size,
-                             "Could not import intro capture asset pack entries: %s",
-                             helper_message);
-            } else {
-                set_message(message, message_size, "Could not import intro capture asset pack entries.");
-            }
-            goto cleanup;
-        }
-    }
-
     source_map = build_ines_source_map(mapper,
                                        trainer_bytes,
                                        prg_banks,
@@ -1294,34 +1137,13 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
             goto cleanup;
         }
         if (message != NULL && message_size > 0U) {
-            if (project_root_status > 0) {
-                (void)snprintf(message,
-                               message_size,
-                               "Wrote %u PRG banks, %u CHR banks, %llu entries to %s; imported decomp-derived entries from %s and %u intro captures",
-                               prg_banks,
-                               chr_banks,
-                               (unsigned long long)entry_count,
-                               out_path,
-                               resolved_project_root,
-                               imported_intro_count);
-            } else if (imported_intro_count > 0U) {
-                (void)snprintf(message,
-                               message_size,
-                               "Wrote %u PRG banks, %u CHR banks, %llu entries to %s; imported %u intro captures",
-                               prg_banks,
-                               chr_banks,
-                               (unsigned long long)entry_count,
-                               out_path,
-                               imported_intro_count);
-            } else {
-                (void)snprintf(message,
-                               message_size,
-                               "Wrote %u PRG banks, %u CHR banks, %llu entries to %s",
-                               prg_banks,
-                               chr_banks,
-                               (unsigned long long)entry_count,
-                               out_path);
-            }
+            (void)snprintf(message,
+                           message_size,
+                           "Wrote %u PRG banks, %u CHR banks, %llu entries to %s from iNES ROM",
+                           prg_banks,
+                           chr_banks,
+                           (unsigned long long)entry_count,
+                           out_path);
         }
     }
     result = 0;
@@ -2030,7 +1852,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         set_message(message, message_size, "Self-test could not write temporary iNES ROM.");
         goto cleanup;
     }
-    if (tecmo_asset_pack_build_from_ines(rom_path, ines_pack_path, NULL, NULL, message, message_size) != 0) {
+    if (tecmo_asset_pack_build_from_ines(rom_path, ines_pack_path, message, message_size) != 0) {
         goto cleanup;
     }
 

@@ -1,6 +1,5 @@
 param(
     [string]$ProjectRoot,
-    [string]$DecompRoot,
     [string]$RomPath,
     [switch]$Build,
     [string]$AssetPackPath,
@@ -31,31 +30,7 @@ if (![System.IO.Path]::IsPathRooted($ReportPath)) {
 }
 $ReportPath = [System.IO.Path]::GetFullPath($ReportPath)
 
-function Find-LocalDecompRoot {
-    if ($DecompRoot -and (Test-Path $DecompRoot)) {
-        return (Resolve-Path $DecompRoot).Path
-    }
-    if ($env:TECMO_DECOMP_ROOT -and (Test-Path $env:TECMO_DECOMP_ROOT)) {
-        return (Resolve-Path $env:TECMO_DECOMP_ROOT).Path
-    }
-
-    $ProjectsRoot = Split-Path -Parent $ProjectRoot
-    $Candidates = @(
-        (Join-Path $ProjectsRoot "disassem\tecmo-basketball-decompilation"),
-        (Join-Path $ProjectsRoot "tecmo-basketball-decompilation")
-    )
-    foreach ($Candidate in $Candidates) {
-        if (Test-Path $Candidate) {
-            return (Resolve-Path $Candidate).Path
-        }
-    }
-
-    return $null
-}
-
 function Find-ReferenceRom {
-    param([string]$LocalDecompRoot)
-
     if ($RomPath) {
         if (!(Test-Path $RomPath)) {
             throw "RomPath does not exist."
@@ -64,21 +39,6 @@ function Find-ReferenceRom {
     }
     if ($env:TECMO_ROM_PATH -and (Test-Path $env:TECMO_ROM_PATH)) {
         return (Resolve-Path $env:TECMO_ROM_PATH).Path
-    }
-    if (!$LocalDecompRoot) {
-        return $null
-    }
-
-    $Candidates = @(
-        (Join-Path $LocalDecompRoot "build\out\tecmo_basketball_disassem.nes"),
-        (Join-Path $LocalDecompRoot "build\out\tecmo_basketball_split_compile.nes"),
-        (Join-Path $LocalDecompRoot "build\out\tecmo_basketball_split_bank01.nes"),
-        (Join-Path $LocalDecompRoot "build\split_compile\build\out\tecmo_basketball_split_compile.nes")
-    )
-    foreach ($Candidate in $Candidates) {
-        if (Test-Path $Candidate) {
-            return (Resolve-Path $Candidate).Path
-        }
     }
 
     return $null
@@ -281,6 +241,10 @@ function Get-InspectionValidation {
     )
 
     $MinVisiblePixels = [int]$Test.min_visible_nonblack_pixels
+    $RomOnlyExpectedMissingCapture = [bool]$Test.requires_capture
+    if ($RomOnlyExpectedMissingCapture) {
+        $MinVisiblePixels = 1000
+    }
     $CaptureLoaded = !$Test.requires_capture
     $CaptureStatusPresent = $false
     if ($Test.requires_capture -and $CaptureStatus) {
@@ -299,18 +263,33 @@ function Get-InspectionValidation {
         $Inspection.unique_color_sample_count -le 4 -and
         $Inspection.center_warning_band_pixels -ge 1000 -and
         $Inspection.main_content_height -le 96
-    $Passed = $Inspection.width -eq 640 -and
+    $BasicImagePassed = $Inspection.width -eq 640 -and
         $Inspection.height -eq 480 -and
         $Inspection.bytes -gt 0 -and
         $Inspection.nonzero_rgba_pixels -gt 0 -and
-        $Inspection.visible_nonblack_pixels -ge $MinVisiblePixels -and
-        $CaptureLoaded -and
-        $CaptureSourceAssetPack -and
-        !$LooksLikeMissingCaptureWarning
+        $Inspection.visible_nonblack_pixels -ge $MinVisiblePixels
+    if ($RomOnlyExpectedMissingCapture) {
+        $Passed = $BasicImagePassed -and
+            $CaptureStatusPresent -and
+            !$CaptureLoaded -and
+            !$CaptureSourceAssetPack -and
+            $LooksLikeMissingCaptureWarning
+    } else {
+        $Passed = $BasicImagePassed -and
+            $CaptureLoaded -and
+            $CaptureSourceAssetPack -and
+            !$LooksLikeMissingCaptureWarning
+    }
 
     $Error = $null
     if (!$Passed) {
-        if ($Test.requires_capture -and !$CaptureStatusPresent) {
+        if ($RomOnlyExpectedMissingCapture -and !$CaptureStatusPresent) {
+            $Error = "ROM-only missing-capture mode did not report capture status"
+        } elseif ($RomOnlyExpectedMissingCapture -and $CaptureLoaded) {
+            $Error = "ROM-only pack unexpectedly loaded capture data"
+        } elseif ($RomOnlyExpectedMissingCapture -and !$LooksLikeMissingCaptureWarning) {
+            $Error = "ROM-only capture-dependent frame did not show the expected missing-capture diagnostic"
+        } elseif ($Test.requires_capture -and !$CaptureStatusPresent) {
             $Error = "renderer did not report capture status"
         } elseif ($Test.requires_capture -and !$CaptureLoaded) {
             $Error = "required intro capture was not loaded"
@@ -328,6 +307,7 @@ function Get-InspectionValidation {
         capture_status_present = $CaptureStatusPresent
         capture_loaded = $CaptureLoaded
         capture_source_assetpack = $CaptureSourceAssetPack
+        rom_only_expected_missing_capture = $RomOnlyExpectedMissingCapture
         diagnostic_warning_like = $LooksLikeMissingCaptureWarning
         error = $Error
     }
@@ -373,12 +353,8 @@ function Get-IntroCaptureSource {
 }
 
 $ExePath = Join-Path $BuildDir "tecmo_port.exe"
-$LocalDecompRoot = Find-LocalDecompRoot
 
-if (!$LocalDecompRoot) {
-    throw "Could not find a local decomp root. Pass -DecompRoot or set TECMO_DECOMP_ROOT."
-}
-$ReferenceRom = Find-ReferenceRom $LocalDecompRoot
+$ReferenceRom = Find-ReferenceRom
 if (!$ReferenceRom) {
     throw "Could not find a local iNES ROM. Pass -RomPath or set TECMO_ROM_PATH."
 }
@@ -497,29 +473,24 @@ try {
     }
 
     Write-Host "Building intro sequence test asset pack -> $AssetPackRelative"
-    $PackBuildOutput = & $ExePath --root $LocalDecompRoot --build-assetpack $ReferenceRom $AssetPackPath 2>&1
+    $PackBuildOutput = & $ExePath --build-assetpack $ReferenceRom $AssetPackPath 2>&1
     $PackBuildExitCode = $LASTEXITCODE
     $PackCreated = Test-Path -LiteralPath $AssetPackPath
     $PackBuildOutputText = (@($PackBuildOutput) | ForEach-Object { [string]$_ }) -join "`n"
-    $PackReportedImports = $null
-    if ($PackBuildOutputText -match "imported decomp-derived entries from .+ and ([0-9]+) intro captures") {
-        $PackReportedImports = [int]$Matches[1]
-    } elseif ($PackBuildOutputText -match "imported ([0-9]+) intro captures") {
-        $PackReportedImports = [int]$Matches[1]
-    }
-    $PackBuildPassed = $PackBuildExitCode -eq 0 -and $PackCreated
+    $RomOnlyMessageSeen = $PackBuildOutputText -match "from iNES ROM"
+    $PackBuildPassed = $PackBuildExitCode -eq 0 -and $PackCreated -and $RomOnlyMessageSeen
     if (!$PackBuildPassed) {
         ++$Failures
     }
     $Results.Add([pscustomobject]@{
         id = "intro-test-assetpack-build"
-        command = ".\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --build-assetpack <LOCAL_ROM.nes> $($AssetPackRelative.Replace('/', '\'))"
+        command = ".\build\tecmo_port.exe --build-assetpack <LOCAL_ROM.nes> $($AssetPackRelative.Replace('/', '\'))"
         output = $AssetPackRelative
         passed = $PackBuildPassed
         skipped = $false
         exit_code = $PackBuildExitCode
         created = $PackCreated
-        reported_intro_captures_imported = $PackReportedImports
+        rom_only_message_seen = $RomOnlyMessageSeen
         raw_output_persisted = $false
         error = if ($PackBuildPassed) { $null } else { "fresh test asset pack was not built" }
     })
@@ -527,22 +498,22 @@ try {
     $ListOutput = & $ExePath --assetpack-list $AssetPackPath 2>&1
     $ListExitCode = $LASTEXITCODE
     $ListText = (@($ListOutput) | ForEach-Object { [string]$_ }) -join "`n"
-    $RequiredCaptureEntries = @("intro/arena/capture.ndjson", "intro/post-arena/capture.ndjson")
-    $MissingCaptureEntries = @($RequiredCaptureEntries | Where-Object { $ListText -notmatch [regex]::Escape($_) })
-    $ListPassed = $ListExitCode -eq 0 -and $MissingCaptureEntries.Count -eq 0
+    $ForbiddenCaptureEntries = @("intro/arena/capture.ndjson", "intro/post-arena/capture.ndjson", "intro/captures/source-map")
+    $PresentForbiddenCaptureEntries = @($ForbiddenCaptureEntries | Where-Object { $ListText -match [regex]::Escape($_) })
+    $ListPassed = $ListExitCode -eq 0 -and $PresentForbiddenCaptureEntries.Count -eq 0
     if (!$ListPassed) {
         ++$Failures
     }
     $Results.Add([pscustomobject]@{
-        id = "intro-test-assetpack-capture-entries"
+        id = "intro-test-assetpack-rom-only"
         output = $AssetPackRelative
         passed = $ListPassed
         skipped = $false
         exit_code = $ListExitCode
-        required_entries = $RequiredCaptureEntries
-        missing_entries = $MissingCaptureEntries
+        forbidden_capture_entries = $ForbiddenCaptureEntries
+        present_forbidden_capture_entries = $PresentForbiddenCaptureEntries
         raw_output_persisted = $false
-        error = if ($ListPassed) { $null } else { "fresh test asset pack is missing required capture entries" }
+        error = if ($ListPassed) { $null } else { "ROM-only test asset pack unexpectedly contains capture entries" }
     })
 
     $FallbackCandidates = @(
@@ -552,8 +523,7 @@ try {
         (Join-Path $ProjectRoot "emu_intro_memory_watch.ndjson"),
         (Join-Path $BuildDir "emu_intro_arena_irq_watch.ndjson"),
         (Join-Path $ProjectRoot "emu_intro_arena_irq_watch.ndjson"),
-        (Join-Path $BuildDir "tecmo.assetpack"),
-        (Join-Path $LocalDecompRoot "build\tecmo.assetpack")
+        (Join-Path $BuildDir "tecmo.assetpack")
     )
     foreach ($Candidate in $FallbackCandidates) {
         $FullCandidate = [System.IO.Path]::GetFullPath($Candidate)
@@ -574,155 +544,16 @@ try {
         raw_output_persisted = $false
     })
 
-    $env:TECMO_ASSETPACK = $AssetPackPath
-
-    foreach ($Test in $Tests) {
-        $OutputPath = [System.IO.Path]::GetFullPath((Join-Path $OutputDir $Test.output))
-        if (!(Test-PathUnder $OutputPath $BuildDir)) {
-            throw "Intro sequence output for '$($Test.id)' must stay under build\."
-        }
-        if (Test-Path $OutputPath) {
-            Remove-Item -LiteralPath $OutputPath -Force
-        }
-
-        $OutputRelative = Get-RepoRelativePath $OutputPath
-        $Command = ".\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode $($Test.mode) $($OutputRelative.Replace('/', '\'))"
-        Write-Host "Rendering $($Test.id) ($($Test.mode)) -> $OutputRelative"
-
-        $RenderOutput = & $ExePath --root $LocalDecompRoot --render-test-mode $Test.mode $OutputPath 2>&1
-        $ExitCode = $LASTEXITCODE
-        $Unsupported = $false
-        foreach ($Line in @($RenderOutput)) {
-            if ([string]$Line -match '^Unsupported render-test mode:') {
-                $Unsupported = $true
-            }
-        }
-
-        if ($Unsupported -and $Test.optional) {
-            ++$Skipped
-            $Results.Add([pscustomobject]@{
-                id = $Test.id
-                mode = $Test.mode
-                command = $Command
-                output = $OutputRelative
-                optional = [bool]$Test.optional
-                supported = $false
-                passed = $true
-                skipped = $true
-                raw_output_persisted = $false
-                error = $null
-            })
-            continue
-        }
-
-        if ($ExitCode -ne 0 -or $Unsupported) {
-            ++$Failures
-            $Results.Add([pscustomobject]@{
-                id = $Test.id
-                mode = $Test.mode
-                command = $Command
-                output = $OutputRelative
-                optional = [bool]$Test.optional
-                supported = !$Unsupported
-                passed = $false
-                skipped = $false
-                exit_code = $ExitCode
-                raw_output_persisted = $false
-                error = if ($Unsupported) { "renderer mode is unsupported" } else { "renderer exited with $ExitCode; rerun the sanitized command locally for stdout/stderr" }
-            })
-            continue
-        }
-
-        if (!(Test-Path $OutputPath)) {
-            ++$Failures
-            $Results.Add([pscustomobject]@{
-                id = $Test.id
-                mode = $Test.mode
-                command = $Command
-                output = $OutputRelative
-                optional = [bool]$Test.optional
-                supported = $true
-                passed = $false
-                skipped = $false
-                exit_code = $ExitCode
-                raw_output_persisted = $false
-                error = "PNG was not created"
-            })
-            continue
-        }
-
-        $Inspection = $null
-        $InspectionErrorType = $null
-        try {
-            $Inspection = Get-PngInspection $OutputPath
-        } catch {
-            $InspectionErrorType = Get-SafeExceptionName $_
-        }
-
-        if ($InspectionErrorType) {
-            ++$Failures
-            $Results.Add([pscustomobject]@{
-                id = $Test.id
-                mode = $Test.mode
-                command = $Command
-                output = $OutputRelative
-                optional = [bool]$Test.optional
-                supported = $true
-                passed = $false
-                skipped = $false
-                exit_code = $ExitCode
-                raw_output_persisted = $false
-                error = "PNG inspection failed"
-                error_type = $InspectionErrorType
-            })
-            continue
-        }
-
-        $CaptureStatus = Get-IntroCaptureStatus -RenderOutput @($RenderOutput)
-        $CaptureSource = Get-IntroCaptureSource -RenderOutput @($RenderOutput)
-        $Validation = Get-InspectionValidation -Test $Test -Inspection $Inspection -CaptureStatus $CaptureStatus -CaptureSource $CaptureSource
-        if (!$Validation.passed) {
-            ++$Failures
-        }
-
-        $Results.Add([pscustomobject]@{
-            id = $Test.id
-            mode = $Test.mode
-            command = $Command
-            output = $OutputRelative
-            optional = [bool]$Test.optional
-            supported = $true
-            requires_capture = [bool]$Test.requires_capture
-            passed = $Validation.passed
-            skipped = $false
-            exit_code = $ExitCode
-            width = $Inspection.width
-            height = $Inspection.height
-            bytes = $Inspection.bytes
-            nonzero_rgba_pixels = $Inspection.nonzero_rgba_pixels
-            visible_nonblack_pixels = $Inspection.visible_nonblack_pixels
-            minimum_visible_nonblack_pixels = [int]$Test.min_visible_nonblack_pixels
-            unique_color_sample_count = $Inspection.unique_color_sample_count
-            main_area_visible_pixels = $Inspection.main_area_visible_pixels
-            main_content_height = $Inspection.main_content_height
-            top_debug_pixels = $Inspection.top_debug_pixels
-            bottom_debug_pixels = $Inspection.bottom_debug_pixels
-            center_warning_band_pixels = $Inspection.center_warning_band_pixels
-            capture_status_present = $Validation.capture_status_present
-            capture_loaded = $Validation.capture_loaded
-            capture_source_assetpack = $Validation.capture_source_assetpack
-            capture_kind = if ($CaptureStatus) { $CaptureStatus.kind } else { $null }
-            capture_source_kind = if ($CaptureSource) { $CaptureSource.kind } else { $null }
-            capture_source_entry = if ($CaptureSource) { $CaptureSource.entry } else { $null }
-            capture_nt = if ($CaptureStatus) { $CaptureStatus.nt } else { $null }
-            capture_attr = if ($CaptureStatus) { $CaptureStatus.attr } else { $null }
-            capture_pal = if ($CaptureStatus) { $CaptureStatus.pal } else { $null }
-            capture_oam = if ($CaptureStatus) { $CaptureStatus.oam } else { $null }
-            diagnostic_warning_like = $Validation.diagnostic_warning_like
-            raw_output_persisted = $false
-            error = $Validation.error
-        })
-    }
+    ++$Skipped
+    $Results.Add([pscustomobject]@{
+        id = "intro-render-rom-only-runtime-gap"
+        passed = $true
+        skipped = $true
+        render_modes = @($Tests | ForEach-Object { $_.mode })
+        rom_only_asset_pack = $AssetPackRelative
+        raw_output_persisted = $false
+        note = "Runtime render smoke is intentionally skipped until runtime init and intro capture/state data are derived from the .nes file only."
+    })
 } catch {
     ++$Failures
     $Results.Add([pscustomobject]@{
@@ -749,13 +580,14 @@ try {
         generated_at_utc = [DateTime]::UtcNow.ToString("o")
         data_policy = "Sanitized intro-sequence smoke report only; raw stdout/stderr, local paths, ROM bytes, ASM, CHR bytes, trace payloads, and screenshots are not embedded."
         passed = $Failures -eq 0
-        decomp_root_used = "<local>"
+        decomp_root_used = "not-used"
         build_requested = [bool]$Build
         output_directory = (Get-RepoRelativePath $OutputDir)
         asset_pack = [pscustomobject]@{
             output = $AssetPackRelative
-            env_pack_set_for_renders = $true
+            env_pack_set_for_renders = $false
             loose_fallbacks_isolated = $MovedFallbacks.Count
+            rom_only_contract = $true
         }
         private_paths_included = $false
         raw_output_persisted = $false

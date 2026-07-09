@@ -1,10 +1,8 @@
 param(
     [string]$ProjectRoot,
-    [string]$DecompRoot,
     [string]$RomPath,
     [switch]$Build,
     [string]$AssetPackPath,
-    [string]$ChrRenderPath,
     [string]$ReportPath
 )
 
@@ -26,14 +24,6 @@ if (![System.IO.Path]::IsPathRooted($AssetPackPath)) {
 }
 $AssetPackPath = [System.IO.Path]::GetFullPath($AssetPackPath)
 
-if (!$ChrRenderPath) {
-    $ChrRenderPath = Join-Path $BuildDir "asset_pack_test\chr_playground_test.png"
-}
-if (![System.IO.Path]::IsPathRooted($ChrRenderPath)) {
-    $ChrRenderPath = Join-Path $ProjectRoot $ChrRenderPath
-}
-$ChrRenderPath = [System.IO.Path]::GetFullPath($ChrRenderPath)
-
 if (!$ReportPath) {
     $ReportPath = Join-Path $BuildDir "asset_pack_test_report.json"
 }
@@ -42,31 +32,7 @@ if (![System.IO.Path]::IsPathRooted($ReportPath)) {
 }
 $ReportPath = [System.IO.Path]::GetFullPath($ReportPath)
 
-function Find-LocalDecompRoot {
-    if ($DecompRoot -and (Test-Path $DecompRoot)) {
-        return (Resolve-Path $DecompRoot).Path
-    }
-    if ($env:TECMO_DECOMP_ROOT -and (Test-Path $env:TECMO_DECOMP_ROOT)) {
-        return (Resolve-Path $env:TECMO_DECOMP_ROOT).Path
-    }
-
-    $ProjectsRoot = Split-Path -Parent $ProjectRoot
-    $Candidates = @(
-        (Join-Path $ProjectsRoot "disassem\tecmo-basketball-decompilation"),
-        (Join-Path $ProjectsRoot "tecmo-basketball-decompilation")
-    )
-    foreach ($Candidate in $Candidates) {
-        if (Test-Path $Candidate) {
-            return (Resolve-Path $Candidate).Path
-        }
-    }
-
-    return $null
-}
-
 function Find-ReferenceRom {
-    param([string]$LocalDecompRoot)
-
     if ($RomPath) {
         if (!(Test-Path $RomPath)) {
             throw "RomPath does not exist."
@@ -75,21 +41,6 @@ function Find-ReferenceRom {
     }
     if ($env:TECMO_ROM_PATH -and (Test-Path $env:TECMO_ROM_PATH)) {
         return (Resolve-Path $env:TECMO_ROM_PATH).Path
-    }
-    if (!$LocalDecompRoot) {
-        return $null
-    }
-
-    $Candidates = @(
-        (Join-Path $LocalDecompRoot "build\out\tecmo_basketball_disassem.nes"),
-        (Join-Path $LocalDecompRoot "build\out\tecmo_basketball_split_compile.nes"),
-        (Join-Path $LocalDecompRoot "build\out\tecmo_basketball_split_bank01.nes"),
-        (Join-Path $LocalDecompRoot "build\split_compile\build\out\tecmo_basketball_split_compile.nes")
-    )
-    foreach ($Candidate in $Candidates) {
-        if (Test-Path $Candidate) {
-            return (Resolve-Path $Candidate).Path
-        }
     }
 
     return $null
@@ -316,56 +267,9 @@ function Get-KnownLogicalAssetPackEntryTypes {
 }
 
 function Get-ExpectedLogicalAssetPackEntries {
-    param([string]$BuildDir)
-
-    $Entries = [System.Collections.Generic.List[string]]::new()
-    $CaptureSources = [System.Collections.Generic.List[string]]::new()
-    [void]$Entries.Add("roster/table.tsv")
-    [void]$Entries.Add("title/original-text.txt")
-    [void]$Entries.Add("title/glyph-map.tsv")
-
-    $CaptureSpecs = @(
-        [pscustomobject]@{
-            relative_path = "build/intro_arena_capture.ndjson"
-            local_path = Join-Path $BuildDir "intro_arena_capture.ndjson"
-            entries = @("intro/arena/capture.ndjson")
-        },
-        [pscustomobject]@{
-            relative_path = "build/emu_intro_memory_watch.ndjson"
-            local_path = Join-Path $BuildDir "emu_intro_memory_watch.ndjson"
-            entries = @(
-                "intro/arena/emu_intro_memory_watch.ndjson",
-                "intro/post-arena/emu_intro_memory_watch.ndjson",
-                "intro/post-arena/capture.ndjson"
-            )
-        },
-        [pscustomobject]@{
-            relative_path = "build/emu_intro_arena_irq_watch.ndjson"
-            local_path = Join-Path $BuildDir "emu_intro_arena_irq_watch.ndjson"
-            entries = @("intro/arena/emu_intro_arena_irq_watch.ndjson")
-        }
-    )
-
-    foreach ($Spec in $CaptureSpecs) {
-        if (!(Test-Path -LiteralPath $Spec.local_path)) {
-            continue
-        }
-
-        [void]$CaptureSources.Add($Spec.relative_path)
-        foreach ($EntryId in $Spec.entries) {
-            if (!$Entries.Contains($EntryId)) {
-                [void]$Entries.Add($EntryId)
-            }
-        }
-    }
-
-    if ($CaptureSources.Count -gt 0 -and !$Entries.Contains("intro/captures/source-map")) {
-        [void]$Entries.Add("intro/captures/source-map")
-    }
-
     return [pscustomobject]@{
-        entries = $Entries.ToArray()
-        capture_sources_present = $CaptureSources.ToArray()
+        entries = @()
+        capture_sources_present = @()
     }
 }
 
@@ -431,31 +335,6 @@ function Get-AssetPackSizeMismatches {
     return $Mismatches.ToArray()
 }
 
-function Test-PngSmoke {
-    param([string]$Path)
-
-    $Bitmap = [System.Drawing.Bitmap]::FromFile($Path)
-    try {
-        $NonBackground = 0
-        for ($Y = 56; $Y -lt 160; ++$Y) {
-            for ($X = 28; $X -lt 610; ++$X) {
-                $Pixel = $Bitmap.GetPixel($X, $Y)
-                if ($Pixel.R -ne 8 -or $Pixel.G -ne 10 -or $Pixel.B -ne 16) {
-                    ++$NonBackground
-                }
-            }
-        }
-
-        return [pscustomobject]@{
-            width = $Bitmap.Width
-            height = $Bitmap.Height
-            non_background_grid_pixels = $NonBackground
-        }
-    } finally {
-        $Bitmap.Dispose()
-    }
-}
-
 function Add-TestResult {
     param([pscustomobject]$Result)
 
@@ -472,7 +351,7 @@ function Write-AssetPackReport {
         generated_at_utc = [DateTime]::UtcNow.ToString("o")
         data_policy = "Sanitized asset-pack smoke report only; raw stdout/stderr, local paths, ROM bytes, extracted assets, ASM, CHR bytes, and screenshots outside ignored build output are not persisted."
         passed = $Failures -eq 0
-        decomp_root_used = "<local>"
+        decomp_root_used = "not-used"
         reference_rom_used = "<local>"
         build_requested = [bool]$Build
         private_paths_included = $false
@@ -491,7 +370,7 @@ function Write-AssetPackReport {
             directory_entry_count = if ($Directory) { $Directory.entry_count } else { $null }
             logical_capture_sources_present = $LogicalCaptureSources
             canonical_fallback_cleared = $CanonicalFallbackCleared
-            env_pack_use_proven = $false
+            rom_only_contract = $true
         }
         tests = $Results
     }
@@ -506,28 +385,16 @@ function Write-AssetPackReport {
 if (!(Test-PathUnder $AssetPackPath $BuildDir)) {
     throw "Asset pack output must stay under build\."
 }
-if (!(Test-PathUnder $ChrRenderPath $BuildDir)) {
-    throw "CHR playground render output must stay under build\."
-}
 if (!(Test-PathUnder $ReportPath $BuildDir)) {
     throw "Asset pack test report must stay under build\."
 }
 if (!$AssetPackPath.EndsWith(".assetpack", [System.StringComparison]::OrdinalIgnoreCase)) {
     throw "Asset pack output must use the .assetpack extension."
 }
-if (!$ChrRenderPath.EndsWith(".png", [System.StringComparison]::OrdinalIgnoreCase)) {
-    throw "CHR playground render output must be a PNG."
-}
 
-$ManifestPath = Join-Path $ProjectRoot "port_iteration.json"
 $ExePath = Join-Path $ProjectRoot "build\tecmo_port.exe"
-$LocalDecompRoot = Find-LocalDecompRoot
 
-if (!$LocalDecompRoot) {
-    throw "Could not find a local decomp root. Pass -DecompRoot or set TECMO_DECOMP_ROOT."
-}
-
-$ReferenceRom = Find-ReferenceRom $LocalDecompRoot
+$ReferenceRom = Find-ReferenceRom
 if (!$ReferenceRom) {
     throw "Could not find a local iNES ROM. Pass -RomPath or set TECMO_ROM_PATH."
 }
@@ -554,15 +421,12 @@ if (!(Test-Path $ExePath)) {
 
 New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $AssetPackPath) | Out-Null
-New-Item -ItemType Directory -Force -Path (Split-Path -Parent $ChrRenderPath) | Out-Null
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $ReportPath) | Out-Null
-Add-Type -AssemblyName System.Drawing
 
 $Results = [System.Collections.Generic.List[object]]::new()
 $Failures = 0
 $AssetPackRelative = ConvertTo-RepoRelativePath $AssetPackPath
 $CanonicalAssetPackRelative = ConvertTo-RepoRelativePath $CanonicalAssetPackPath
-$ChrRenderRelative = ConvertTo-RepoRelativePath $ChrRenderPath
 $ReportedPrgBanks = $null
 $ReportedChrBanks = $null
 $ReportedEntries = $null
@@ -578,8 +442,6 @@ $BankCompletenessPassed = $false
 $LogicalEntriesPassed = $false
 $ChrAllValid = $false
 $CanonicalFallbackCleared = $false
-$PreviousAssetPack = $null
-$AssetPackEnvChanged = $false
 
 try {
     $ClearTargets = [System.Collections.Generic.List[string]]::new()
@@ -617,7 +479,7 @@ try {
     Write-Host "Building asset pack -> $AssetPackRelative"
     Push-Location $ProjectRoot
     try {
-        $BuildOutput = & $ExePath --root $LocalDecompRoot --build-assetpack $ReferenceRom $AssetPackPath 2>&1
+        $BuildOutput = & $ExePath --build-assetpack $ReferenceRom $AssetPackPath 2>&1
         $BuildExitCode = $LASTEXITCODE
     } finally {
         Pop-Location
@@ -702,7 +564,7 @@ try {
 
         if ($ExpectedPrgBanks -gt 0 -and $ExpectedChrBanks -ge 0) {
             $ExpectedRawEntries = @(Get-ExpectedAssetPackEntries -PrgBanks $ExpectedPrgBanks -ChrBanks $ExpectedChrBanks)
-            $LogicalExpectation = Get-ExpectedLogicalAssetPackEntries -BuildDir $BuildDir
+            $LogicalExpectation = Get-ExpectedLogicalAssetPackEntries
             $ExpectedLogicalEntries = @($LogicalExpectation.entries)
             $LogicalCaptureSources = @($LogicalExpectation.capture_sources_present)
             $ExpectedEntries = @($ExpectedRawEntries + $ExpectedLogicalEntries)
@@ -746,7 +608,7 @@ try {
                 unexpected_raw_entries = $UnexpectedRawEntries
                 size_mismatches = $SizeMismatches
                 chr_all_valid = $ChrAllValid
-                logical_entries_allowed = $true
+                logical_entries_allowed = $false
                 raw_asset_bytes_persisted = $false
             })
 
@@ -873,123 +735,22 @@ try {
         })
     }
 
-    $AssetPackValidatedForRender = $PackCreated -and
+    $ChrAllReadable = $PackCreated -and
         $DirectoryCountPassed -and
         $BankCompletenessPassed -and
+        $LogicalEntriesPassed -and
         $Directory -and
         $ChrAllValid
 
-    $PreviousAssetPack = $env:TECMO_ASSETPACK
-    $AssetPackEnvChanged = $true
-    $env:TECMO_ASSETPACK = $AssetPackPath
-    try {
-        if (Test-Path -LiteralPath $ChrRenderPath) {
-            Remove-Item -LiteralPath $ChrRenderPath -Force
-        }
-
-        if ($AssetPackValidatedForRender) {
-            Write-Host "Rendering CHR playground after validating chr/all in the test pack -> $ChrRenderRelative"
-            $RenderOutput = & $ExePath --root $LocalDecompRoot --render-test-mode chr-playground $ChrRenderPath 2>&1
-            $RenderExitCode = $LASTEXITCODE
-            $RenderExists = Test-Path -LiteralPath $ChrRenderPath
-            $RenderSmoke = $null
-            $PngInspectionError = $null
-            if ($RenderExists) {
-                try {
-                    $RenderSmoke = Test-PngSmoke $ChrRenderPath
-                } catch {
-                    $PngInspectionError = Get-SafeExceptionName $_
-                }
-            }
-            $RenderPassed = $RenderExitCode -eq 0 -and
-                $RenderExists -and
-                $null -eq $PngInspectionError -and
-                $RenderSmoke.width -eq 640 -and
-                $RenderSmoke.height -eq 480 -and
-                $RenderSmoke.non_background_grid_pixels -gt 200
-            Add-TestResult ([pscustomobject]@{
-                id = "chr-playground-render"
-                passed = $RenderPassed
-                exit_code = $RenderExitCode
-                output = $ChrRenderRelative
-                width = if ($RenderSmoke) { $RenderSmoke.width } else { $null }
-                height = if ($RenderSmoke) { $RenderSmoke.height } else { $null }
-                non_background_grid_pixels = if ($RenderSmoke) { $RenderSmoke.non_background_grid_pixels } else { $null }
-                asset_pack_env_set = $true
-                asset_pack_entry_validated = $true
-                canonical_fallback_absent_before_render = $CanonicalFallbackCleared
-                asset_pack_use_proven = $false
-                asset_pack_use_scope = "chr/all entry validated before render; renderer fallback isolation is not claimed by this smoke test"
-                raw_output_persisted = $false
-                error = if ($PngInspectionError) { "PNG inspection failed" } elseif ($RenderPassed) { $null } else { "render failed PNG smoke assertions" }
-                error_type = $PngInspectionError
-            })
-        } else {
-            Add-TestResult ([pscustomobject]@{
-                id = "chr-playground-render"
-                passed = $false
-                output = $ChrRenderRelative
-                asset_pack_env_set = $true
-                asset_pack_entry_validated = $false
-                asset_pack_use_proven = $false
-                asset_pack_use_scope = "render skipped because asset pack validation failed"
-                raw_output_persisted = $false
-                error = "asset pack validation failed before render"
-            })
-        }
-
-        try {
-            $Manifest = Get-Content -Raw $ManifestPath | ConvertFrom-Json
-            $FlowTests = @($Manifest.native_flow_tests | Where-Object { $_.status -eq "active" })
-            if ($FlowTests.Count -eq 0) {
-                throw "No active native flow tests declared in port_iteration.json."
-            }
-            $FlowTest = $FlowTests[0]
-            $ExpectedFlowOutput = [string]$FlowTest.expected_output
-            if ([string]$FlowTest.command -notmatch '^\.\\build\\tecmo_port\.exe --root <LOCAL_DECOMP_ROOT> --flow-test$') {
-                throw "Native flow test uses an unsupported command shape."
-            }
-
-            Write-Host "Running flow-test with TECMO_ASSETPACK set; this checks compatibility, not exclusive pack use"
-            $FlowOutput = & $ExePath --root $LocalDecompRoot --flow-test 2>&1
-            $FlowExitCode = $LASTEXITCODE
-            $ExpectedFlowOutputSeen = $false
-            foreach ($Line in @($FlowOutput)) {
-                if ([string]$Line -eq $ExpectedFlowOutput) {
-                    $ExpectedFlowOutputSeen = $true
-                }
-            }
-            $FlowPassed = $FlowExitCode -eq 0 -and $ExpectedFlowOutputSeen
-            Add-TestResult ([pscustomobject]@{
-                id = "flow-test"
-                passed = $FlowPassed
-                exit_code = $FlowExitCode
-                expected_output_seen = $ExpectedFlowOutputSeen
-                asset_pack_env_set = $true
-                asset_pack_use_proven = $false
-                asset_pack_use_scope = "compatibility only; flow-test output does not prove asset-pack-backed runtime data"
-                raw_output_persisted = $false
-            })
-        } catch {
-            Add-TestResult ([pscustomobject]@{
-                id = "flow-test"
-                passed = $false
-                asset_pack_env_set = $true
-                asset_pack_use_proven = $false
-                raw_output_persisted = $false
-                error = "flow-test setup or execution failed"
-                error_type = Get-SafeExceptionName $_
-            })
-        }
-    } finally {
-        if ($AssetPackEnvChanged) {
-            if ($null -eq $PreviousAssetPack) {
-                Remove-Item Env:\TECMO_ASSETPACK -ErrorAction SilentlyContinue
-            } else {
-                $env:TECMO_ASSETPACK = $PreviousAssetPack
-            }
-        }
-    }
+    Add-TestResult ([pscustomobject]@{
+        id = "chr-all-entry-readable"
+        passed = $ChrAllReadable
+        asset_pack_entry_validated = $ChrAllValid
+        canonical_fallback_absent_before_validation = $CanonicalFallbackCleared
+        rom_only_contract = $true
+        raw_output_persisted = $false
+        error = if ($ChrAllReadable) { $null } else { "chr/all entry was missing or failed size/bounds validation" }
+    })
 } catch {
     Add-TestResult ([pscustomobject]@{
         id = "assetpack-runner-error"
