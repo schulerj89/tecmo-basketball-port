@@ -25,11 +25,31 @@
 #define TECMO_ASSET_PACK_ARENA_INTRO_SCRIPT_ID "arena/intro/script"
 #define TECMO_ASSET_PACK_ARENA_INTRO_BACKGROUND_ID "arena/intro/background-layer"
 #define TECMO_ASSET_PACK_ARENA_INTRO_PALETTE_ID "arena/intro/palette-cycle"
-#define TECMO_ASSET_PACK_ARENA_INTRO_GOAL_ID "arena/intro/goal-sprite-group"
+#define TECMO_ASSET_PACK_ARENA_INTRO_SPRITE_GROUPS_ID "arena/intro/sprite-groups"
 #define TECMO_ASSET_PACK_ARENA_BANK04 4U
-#define TECMO_ASSET_PACK_ARENA_ROUTE_CPU 0x88E7U
+#define TECMO_ASSET_PACK_ARENA_ROUTE_CPU 0x88E8U
 #define TECMO_ASSET_PACK_ARENA_PALETTE_CPU 0x89DDU
+#define TECMO_ASSET_PACK_ARENA_SEEDS_CPU 0x8984U
 #define TECMO_ASSET_PACK_ARENA_SPRITE_EMIT_CPU 0x8988U
+#define TECMO_ASSET_PACK_ARENA_SPRITE_EMIT_SIZE 53U
+#define TECMO_ASSET_PACK_ARENA_PARAMS_CPU 0x89BDU
+#define TECMO_ASSET_PACK_ARENA_POINTER_TABLE_CPU 0xA7DBU
+#define TECMO_ASSET_PACK_ARENA_JUMBOTRON_COUNT 55U
+#define TECMO_ASSET_PACK_ARENA_GOAL_COUNT 16U
+#define TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_COUNT 71U
+#define TECMO_ASSET_PACK_ARENA_SPRITE_GROUP_HEADER_SIZE 48U
+#define TECMO_ASSET_PACK_ARENA_SPRITE_GROUP_STRIDE 20U
+#define TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_STRIDE 12U
+#define TECMO_ASSET_PACK_ARENA_SPRITE_PALETTE_OFFSET 48U
+#define TECMO_ASSET_PACK_ARENA_SPRITE_GROUPS_OFFSET 64U
+#define TECMO_ASSET_PACK_ARENA_SPRITE_PIECES_OFFSET 104U
+#define TECMO_ASSET_PACK_ARENA_SPRITE_GROUPS_SIZE \
+    (TECMO_ASSET_PACK_ARENA_SPRITE_PIECES_OFFSET + \
+     TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_COUNT * \
+         TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_STRIDE)
+#define TECMO_ASSET_PACK_ARENA_SPRITE_CHR_BASE 8192U
+#define TECMO_ASSET_PACK_ARENA_SPRITE_CHR_R2 8U
+#define TECMO_ASSET_PACK_ARENA_SPRITE_CHR_R3 9U
 #define TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE 0x8000U
 #define TECMO_ASSET_PACK_SWITCHED_PRG_CPU_LIMIT 0xC000U
 #define TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_CPU 0xDC85U
@@ -91,6 +111,18 @@ typedef struct TecmoArenaBackgroundProvenance {
     uint64_t lower_r0_table_source_offset;
     uint64_t lower_r1_table_source_offset;
 } TecmoArenaBackgroundProvenance;
+
+typedef struct TecmoArenaSpriteGroupsProvenance {
+    uint64_t palette_source_offset;
+    uint64_t pointer_table_source_offset;
+    uint32_t stream_cpu[2];
+    uint64_t stream_source_offset[2];
+    uint32_t stream_size[2];
+    uint64_t seeds_source_offset;
+    uint64_t emitter_source_offset;
+    uint64_t params_source_offset;
+    uint64_t chr_page_source_offset[2];
+} TecmoArenaSpriteGroupsProvenance;
 
 struct TecmoAssetPackBuilder {
     FILE *out;
@@ -1100,6 +1132,251 @@ static int build_arena_background_layer(const uint8_t *rom,
     return 0;
 }
 
+static int build_arena_sprite_groups(const uint8_t *rom,
+                                     uint64_t rom_size,
+                                     uint64_t prg_offset,
+                                     uint32_t prg_banks,
+                                     uint64_t chr_offset,
+                                     uint64_t chr_size,
+                                     uint8_t *payload,
+                                     size_t payload_size,
+                                     TecmoArenaSpriteGroupsProvenance *provenance,
+                                     char *message,
+                                     size_t message_size)
+{
+    static const uint8_t expected_counts[2] = {
+        TECMO_ASSET_PACK_ARENA_JUMBOTRON_COUNT,
+        TECMO_ASSET_PACK_ARENA_GOAL_COUNT
+    };
+    uint64_t bank04_offset;
+    uint64_t palette_offset;
+    uint64_t pointer_table_offset;
+    uint32_t stream_cpu[2];
+    uint32_t stream_size[2];
+    uint64_t stream_offset[2];
+    size_t output_piece = 0U;
+
+    if (rom == NULL || payload == NULL || provenance == NULL ||
+        payload_size != TECMO_ASSET_PACK_ARENA_SPRITE_GROUPS_SIZE ||
+        prg_banks <= TECMO_ASSET_PACK_ARENA_BANK04) {
+        set_message(message, message_size, "Arena sprite import requires Bank00 and Bank04.");
+        return -1;
+    }
+    if (chr_size < ((uint64_t)TECMO_ASSET_PACK_ARENA_SPRITE_CHR_R3 + 1U) * 1024U) {
+        set_message(message, message_size, "Arena sprite import requires CHR pages R2=08 and R3=09.");
+        return -1;
+    }
+
+    bank04_offset = prg_offset +
+                    (uint64_t)TECMO_ASSET_PACK_ARENA_BANK04 *
+                        TECMO_ASSET_PACK_PRG_BANK_BYTES;
+    palette_offset = bank04_offset +
+                     (TECMO_ASSET_PACK_ARENA_PALETTE_CPU -
+                      TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
+    pointer_table_offset = prg_offset +
+                           (TECMO_ASSET_PACK_ARENA_POINTER_TABLE_CPU -
+                            TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
+    if (palette_offset > rom_size || 16U > rom_size - palette_offset ||
+        pointer_table_offset > rom_size || 4U > rom_size - pointer_table_offset) {
+        set_message(message, message_size, "Arena sprite palette or pointer table is outside the ROM.");
+        return -1;
+    }
+
+    for (size_t palette = 0U; palette < 4U; ++palette) {
+        const uint8_t *source = rom + (size_t)palette_offset + palette * 4U;
+
+        if (source[0] != 2U) {
+            set_messagef(message,
+                         message_size,
+                         "Arena sprite subpalette %u has control %u; expected 2.",
+                         (unsigned int)palette,
+                         (unsigned int)source[0]);
+            return -1;
+        }
+    }
+
+    for (size_t selector = 0U; selector < 2U; ++selector) {
+        uint32_t pointer = read_u16(rom + (size_t)pointer_table_offset + selector * 2U);
+        uint64_t source_offset;
+
+        if (pointer < TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE ||
+            pointer >= TECMO_ASSET_PACK_SWITCHED_PRG_CPU_LIMIT) {
+            set_messagef(message,
+                         message_size,
+                         "Arena sprite selector %u has invalid pointer $%04X.",
+                         (unsigned int)selector,
+                         pointer);
+            return -1;
+        }
+        source_offset = prg_offset +
+                        (uint64_t)(pointer - TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
+        if (source_offset >= rom_size || rom[(size_t)source_offset] != expected_counts[selector]) {
+            set_messagef(message,
+                         message_size,
+                         "Arena sprite selector %u does not have the expected %u records.",
+                         (unsigned int)selector,
+                         (unsigned int)expected_counts[selector]);
+            return -1;
+        }
+
+        stream_size[selector] = 1U + (uint32_t)expected_counts[selector] * 4U;
+        if (stream_size[selector] > TECMO_ASSET_PACK_SWITCHED_PRG_CPU_LIMIT - pointer ||
+            stream_size[selector] > rom_size - source_offset) {
+            set_messagef(message,
+                         message_size,
+                         "Arena sprite selector %u stream crosses its PRG bank.",
+                         (unsigned int)selector);
+            return -1;
+        }
+        stream_cpu[selector] = pointer;
+        stream_offset[selector] = source_offset;
+    }
+    if (stream_cpu[0] == stream_cpu[1] ||
+        !((uint64_t)stream_cpu[0] + stream_size[0] <= stream_cpu[1] ||
+          (uint64_t)stream_cpu[1] + stream_size[1] <= stream_cpu[0])) {
+        set_message(message, message_size, "Arena sprite stream pointers overlap.");
+        return -1;
+    }
+
+    memset(payload, 0, payload_size);
+    memcpy(payload, "TASG", 4U);
+    store_u16(payload + 4U, 1U);
+    store_u16(payload + 6U, TECMO_ASSET_PACK_ARENA_SPRITE_GROUP_HEADER_SIZE);
+    store_u16(payload + 8U, 2U);
+    store_u16(payload + 10U, TECMO_ASSET_PACK_ARENA_SPRITE_GROUP_STRIDE);
+    store_u32(payload + 12U, TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_COUNT);
+    store_u16(payload + 16U, TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_STRIDE);
+    store_u16(payload + 18U, 1U);
+    store_u32(payload + 20U, TECMO_ASSET_PACK_ARENA_SPRITE_PALETTE_OFFSET);
+    store_u32(payload + 24U, TECMO_ASSET_PACK_ARENA_SPRITE_GROUPS_OFFSET);
+    store_u32(payload + 28U, TECMO_ASSET_PACK_ARENA_SPRITE_PIECES_OFFSET);
+
+    for (size_t palette = 0U; palette < 4U; ++palette) {
+        const uint8_t *source = rom + (size_t)palette_offset + palette * 4U;
+        uint8_t *dest = payload + TECMO_ASSET_PACK_ARENA_SPRITE_PALETTE_OFFSET +
+                        palette * 4U;
+        dest[0] = 0x0FU;
+        memcpy(dest + 1U, source + 1U, 3U);
+    }
+
+    {
+        uint8_t *jumbotron = payload + TECMO_ASSET_PACK_ARENA_SPRITE_GROUPS_OFFSET;
+        uint8_t *goal = jumbotron + TECMO_ASSET_PACK_ARENA_SPRITE_GROUP_STRIDE;
+
+        store_u16(jumbotron + 0U, 1U);
+        store_u16(jumbotron + 2U, 1U);
+        store_u32(jumbotron + 4U, 0U);
+        store_u32(jumbotron + 8U, TECMO_ASSET_PACK_ARENA_JUMBOTRON_COUNT);
+        store_u16(jumbotron + 12U, 0U);
+        store_u16(jumbotron + 14U, 0U);
+        store_u16(jumbotron + 16U, 0U);
+        store_u16(jumbotron + 18U, 2U);
+
+        store_u16(goal + 0U, 2U);
+        store_u16(goal + 2U, 0U);
+        store_u32(goal + 4U, TECMO_ASSET_PACK_ARENA_JUMBOTRON_COUNT);
+        store_u32(goal + 8U, TECMO_ASSET_PACK_ARENA_GOAL_COUNT);
+        store_u16(goal + 12U, 165U);
+        store_u16(goal + 14U, 350U);
+        store_u16(goal + 16U, 0U);
+        store_u16(goal + 18U, 2U);
+    }
+
+    for (size_t selector = 0U; selector < 2U; ++selector) {
+        const uint8_t *records = rom + (size_t)stream_offset[selector] + 1U;
+
+        for (size_t index = 0U; index < expected_counts[selector]; ++index) {
+            const uint8_t *record = records + index * 4U;
+            uint8_t *piece = payload + TECMO_ASSET_PACK_ARENA_SPRITE_PIECES_OFFSET +
+                             output_piece * TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_STRIDE;
+            uint8_t top_tile = (uint8_t)(((uint8_t)(record[1] + 1U)) & 0xFEU);
+            uint8_t attributes = record[2];
+            uint32_t chr_byte_offset = TECMO_ASSET_PACK_ARENA_SPRITE_CHR_BASE +
+                                       (uint32_t)top_tile * 16U;
+            int16_t dx;
+            int16_t dy;
+            uint8_t flags = 0U;
+
+            if ((attributes & 0x1CU) != 0U) {
+                set_messagef(message,
+                             message_size,
+                             "Arena sprite selector %u record %u has unsupported attributes $%02X.",
+                             (unsigned int)selector,
+                             (unsigned int)index,
+                             (unsigned int)attributes);
+                return -1;
+            }
+            if ((uint64_t)chr_byte_offset + 32U > chr_size) {
+                set_messagef(message,
+                             message_size,
+                             "Arena sprite selector %u record %u references CHR outside chr/all.",
+                             (unsigned int)selector,
+                             (unsigned int)index);
+                return -1;
+            }
+
+            if (selector == 0U) {
+                dx = (int16_t)record[3];
+                dy = (int16_t)record[0];
+            } else {
+                int16_t relative_x = (int16_t)(int8_t)record[3];
+                uint8_t final_x = (uint8_t)(0xB8 + relative_x);
+
+                dx = (int16_t)((int16_t)final_x - 165);
+                switch (record[0]) {
+                    case 0xC0U: dy = 0; break;
+                    case 0xD0U: dy = 16; break;
+                    case 0xE0U: dy = 32; break;
+                    case 0xF0U: dy = 48; break;
+                    default:
+                        set_messagef(message,
+                                     message_size,
+                                     "Arena goal record %u has invalid relative Y $%02X.",
+                                     (unsigned int)index,
+                                     (unsigned int)record[0]);
+                        return -1;
+                }
+            }
+
+            if ((attributes & 0x40U) != 0U) flags |= 0x01U;
+            if ((attributes & 0x80U) != 0U) flags |= 0x02U;
+            if ((attributes & 0x20U) != 0U) flags |= 0x04U;
+            store_u16(piece + 0U, (uint16_t)dx);
+            store_u16(piece + 2U, (uint16_t)dy);
+            store_u32(piece + 4U, chr_byte_offset);
+            piece[8] = (uint8_t)(attributes & 0x03U);
+            piece[9] = flags;
+            ++output_piece;
+        }
+    }
+    if (output_piece != TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_COUNT) {
+        set_message(message, message_size, "Arena sprite piece count mismatch.");
+        return -1;
+    }
+
+    provenance->palette_source_offset = palette_offset;
+    provenance->pointer_table_source_offset = pointer_table_offset;
+    provenance->seeds_source_offset = bank04_offset +
+                                      (TECMO_ASSET_PACK_ARENA_SEEDS_CPU -
+                                       TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
+    provenance->emitter_source_offset = bank04_offset +
+                                        (TECMO_ASSET_PACK_ARENA_SPRITE_EMIT_CPU -
+                                         TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
+    provenance->params_source_offset = bank04_offset +
+                                       (TECMO_ASSET_PACK_ARENA_PARAMS_CPU -
+                                        TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
+    provenance->chr_page_source_offset[0] = chr_offset +
+                                            (uint64_t)TECMO_ASSET_PACK_ARENA_SPRITE_CHR_R2 * 1024U;
+    provenance->chr_page_source_offset[1] = chr_offset +
+                                            (uint64_t)TECMO_ASSET_PACK_ARENA_SPRITE_CHR_R3 * 1024U;
+    for (size_t selector = 0U; selector < 2U; ++selector) {
+        provenance->stream_cpu[selector] = stream_cpu[selector];
+        provenance->stream_source_offset[selector] = stream_offset[selector];
+        provenance->stream_size[selector] = stream_size[selector];
+    }
+    return 0;
+}
+
 static int append_logical_source_map_entry(char *buffer,
                                            size_t capacity,
                                            size_t *length,
@@ -1197,6 +1474,72 @@ static int append_arena_background_source_map_entry(
             TECMO_ASSET_PACK_ARENA_LOWER_SELECTOR_INDEX);
 }
 
+static int append_arena_sprite_groups_source_map_entry(
+    char *buffer,
+    size_t capacity,
+    size_t *length,
+    int *first,
+    const TecmoArenaSpriteGroupsProvenance *provenance)
+{
+    const char *prefix = *first != 0 ? "" : ",\n";
+
+    *first = 0;
+    return append_text(
+        buffer,
+        capacity,
+        length,
+        "%s"
+        "    {\"id\":\"%s\",\"kind\":\"arena-intro-sprite-groups\","
+        "\"schema\":\"tecmo.arena-intro.sprite-groups/TASG-1\","
+        "\"palette\":{\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,"
+        "\"size\":16,\"bank\":4,\"cpu_address\":%u},"
+        "\"pointer_table\":{\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,"
+        "\"size\":4,\"bank\":0,\"cpu_address\":%u},"
+        "\"streams\":["
+        "{\"kind\":\"jumbotron\",\"selector\":0,\"pointer_entry_cpu_address\":%u,"
+        "\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"size\":%u,"
+        "\"bank\":0,\"cpu_address\":%u,\"record_count\":55},"
+        "{\"kind\":\"goal\",\"selector\":1,\"pointer_entry_cpu_address\":%u,"
+        "\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"size\":%u,"
+        "\"bank\":0,\"cpu_address\":%u,\"record_count\":16}],"
+        "\"bank04\":{"
+        "\"seeds\":{\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,"
+        "\"size\":4,\"bank\":4,\"cpu_address\":%u},"
+        "\"emitter\":{\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,"
+        "\"size\":%u,\"bank\":4,\"cpu_address\":%u},"
+        "\"params\":{\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,"
+        "\"size\":4,\"bank\":4,\"cpu_address\":%u}},"
+        "\"mapper\":{\"sprite_size\":\"8x16\",\"r2\":8,\"r3\":9},"
+        "\"chr_pages\":["
+        "{\"source_entry\":\"chr/bank01\",\"source_offset\":%llu,\"size\":1024,"
+        "\"mapper_register\":2,\"selector\":8,\"chr_offset\":8192},"
+        "{\"source_entry\":\"chr/bank01\",\"source_offset\":%llu,\"size\":1024,"
+        "\"mapper_register\":3,\"selector\":9,\"chr_offset\":9216}]}",
+        prefix,
+        TECMO_ASSET_PACK_ARENA_INTRO_SPRITE_GROUPS_ID,
+        (unsigned long long)provenance->palette_source_offset,
+        TECMO_ASSET_PACK_ARENA_PALETTE_CPU,
+        (unsigned long long)provenance->pointer_table_source_offset,
+        TECMO_ASSET_PACK_ARENA_POINTER_TABLE_CPU,
+        TECMO_ASSET_PACK_ARENA_POINTER_TABLE_CPU,
+        (unsigned long long)provenance->stream_source_offset[0],
+        provenance->stream_size[0],
+        provenance->stream_cpu[0],
+        TECMO_ASSET_PACK_ARENA_POINTER_TABLE_CPU + 2U,
+        (unsigned long long)provenance->stream_source_offset[1],
+        provenance->stream_size[1],
+        provenance->stream_cpu[1],
+        (unsigned long long)provenance->seeds_source_offset,
+        TECMO_ASSET_PACK_ARENA_SEEDS_CPU,
+        (unsigned long long)provenance->emitter_source_offset,
+        TECMO_ASSET_PACK_ARENA_SPRITE_EMIT_SIZE,
+        TECMO_ASSET_PACK_ARENA_SPRITE_EMIT_CPU,
+        (unsigned long long)provenance->params_source_offset,
+        TECMO_ASSET_PACK_ARENA_PARAMS_CPU,
+        (unsigned long long)provenance->chr_page_source_offset[0],
+        (unsigned long long)provenance->chr_page_source_offset[1]);
+}
+
 static char *build_ines_source_map(uint32_t mapper,
                                    uint32_t trainer_bytes,
                                    uint32_t prg_banks,
@@ -1205,6 +1548,7 @@ static char *build_ines_source_map(uint32_t mapper,
                                    uint64_t chr_offset,
                                    uint64_t chr_size,
                                    const TecmoArenaBackgroundProvenance *background_provenance,
+                                   const TecmoArenaSpriteGroupsProvenance *sprite_groups_provenance,
                                    size_t *source_map_size_out)
 {
     size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 6U;
@@ -1221,11 +1565,6 @@ static char *build_ines_source_map(uint32_t mapper,
                                    prg_banks,
                                    TECMO_ASSET_PACK_ARENA_BANK04,
                                    TECMO_ASSET_PACK_ARENA_PALETTE_CPU);
-    uint64_t goal_source_offset =
-        prg_bank_cpu_source_offset(prg_offset,
-                                   prg_banks,
-                                   TECMO_ASSET_PACK_ARENA_BANK04,
-                                   TECMO_ASSET_PACK_ARENA_SPRITE_EMIT_CPU);
     int bank04_available = prg_banks > TECMO_ASSET_PACK_ARENA_BANK04;
     int first = 1;
     int first_logical = 1;
@@ -1382,18 +1721,11 @@ static char *build_ines_source_map(uint32_t mapper,
                                         bank04_available ? TECMO_ASSET_PACK_ARENA_BANK04 : prg_banks - 1U,
                                         TECMO_ASSET_PACK_ARENA_PALETTE_CPU,
                                         bank04_available) != 0 ||
-        append_logical_source_map_entry(source_map,
-                                        capacity,
-                                        &length,
-                                        &first_logical,
-                                        TECMO_ASSET_PACK_ARENA_INTRO_GOAL_ID,
-                                        "arena-intro-goal-sprite-group",
-                                        "tecmo.arena-intro.goal-sprite-group/1",
-                                        bank04_available ? "prg/bank04" : "prg/fixed",
-                                        goal_source_offset,
-                                        bank04_available ? TECMO_ASSET_PACK_ARENA_BANK04 : prg_banks - 1U,
-                                        TECMO_ASSET_PACK_ARENA_SPRITE_EMIT_CPU,
-                                        bank04_available) != 0) {
+        append_arena_sprite_groups_source_map_entry(source_map,
+                                                    capacity,
+                                                    &length,
+                                                    &first_logical,
+                                                    sprite_groups_provenance) != 0) {
         free(source_map);
         return NULL;
     }
@@ -1419,15 +1751,17 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                           uint64_t rom_size,
                                           uint64_t prg_offset,
                                           uint32_t prg_banks,
+                                          uint64_t chr_offset,
                                           uint64_t chr_size,
                                           TecmoArenaBackgroundProvenance *background_provenance,
+                                          TecmoArenaSpriteGroupsProvenance *sprite_groups_provenance,
                                           char *message,
                                           size_t message_size)
 {
     char script_payload[2048];
     uint8_t background_payload[TECMO_ASSET_PACK_ARENA_LAYER_SIZE];
     char palette_payload[2048];
-    char goal_payload[2048];
+    uint8_t sprite_groups_payload[TECMO_ASSET_PACK_ARENA_SPRITE_GROUPS_SIZE];
     uint64_t script_source_offset =
         prg_bank_cpu_source_offset(prg_offset,
                                    prg_banks,
@@ -1438,11 +1772,6 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                    prg_banks,
                                    TECMO_ASSET_PACK_ARENA_BANK04,
                                    TECMO_ASSET_PACK_ARENA_PALETTE_CPU);
-    uint64_t goal_source_offset =
-        prg_bank_cpu_source_offset(prg_offset,
-                                   prg_banks,
-                                   TECMO_ASSET_PACK_ARENA_BANK04,
-                                   TECMO_ASSET_PACK_ARENA_SPRITE_EMIT_CPU);
     uint32_t source_bank =
         prg_banks > TECMO_ASSET_PACK_ARENA_BANK04
             ? TECMO_ASSET_PACK_ARENA_BANK04
@@ -1559,42 +1888,33 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
         return -1;
     }
 
-    payload_length = snprintf(goal_payload,
-                              sizeof(goal_payload),
-                              "{\n"
-                              "  \"format\":\"tecmo.arena-intro.goal-sprite-group/1\",\n"
-                              "  \"input_contract\":\"ines-only\",\n"
-                              "  \"source_route\":\"bank04:C-0129\",\n"
-                              "  \"source_bank_available\":%s,\n"
-                              "  \"alignment_contract\":\"all pieces project from one shared goal_anchor\",\n"
-                              "  \"goal_anchor\":{\"x\":184,\"y\":302},\n"
-                              "  \"pieces\":[\n"
-                              "    {\"part\":\"backboard\",\"offset\":{\"x\":-32,\"y\":-40},\"size\":{\"width\":64,\"height\":36},\"frame_index\":0},\n"
-                              "    {\"part\":\"rim\",\"offset\":{\"x\":-13,\"y\":-8},\"size\":{\"width\":26,\"height\":8},\"frame_index\":0},\n"
-                              "    {\"part\":\"net\",\"offset\":{\"x\":-10,\"y\":0},\"size\":{\"width\":20,\"height\":24},\"frame_index\":0},\n"
-                              "    {\"part\":\"support\",\"offset\":{\"x\":22,\"y\":-28},\"size\":{\"width\":34,\"height\":10},\"frame_index\":0},\n"
-                              "    {\"part\":\"post\",\"offset\":{\"x\":48,\"y\":-24},\"size\":{\"width\":10,\"height\":96},\"frame_index\":0}\n"
-                              "  ]\n"
-                              "}\n",
-                              bank04_available ? "true" : "false");
-    if (payload_length < 0 || (size_t)payload_length >= sizeof(goal_payload)) {
-        set_message(message, message_size, "Could not build arena goal sprite group entry.");
+    if (build_arena_sprite_groups(rom,
+                                  rom_size,
+                                  prg_offset,
+                                  prg_banks,
+                                  chr_offset,
+                                  chr_size,
+                                  sprite_groups_payload,
+                                  sizeof(sprite_groups_payload),
+                                  sprite_groups_provenance,
+                                  message,
+                                  message_size) != 0) {
         return -1;
     }
 
-    entry_info = make_entry_info(TECMO_ASSET_PACK_ARENA_INTRO_GOAL_ID,
+    entry_info = make_entry_info(TECMO_ASSET_PACK_ARENA_INTRO_SPRITE_GROUPS_ID,
                                  TECMO_ASSET_PACK_TYPE_DATA,
-                                 source_bank,
-                                 TECMO_ASSET_PACK_ARENA_SPRITE_EMIT_CPU,
-                                 goal_source_offset,
+                                 0U,
+                                 TECMO_ASSET_PACK_ARENA_POINTER_TABLE_CPU,
+                                 sprite_groups_provenance->pointer_table_source_offset,
                                  TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
     if (tecmo_asset_pack_builder_add_memory(builder,
                                             &entry_info,
-                                            goal_payload,
-                                            (uint64_t)payload_length,
+                                            sprite_groups_payload,
+                                            sizeof(sprite_groups_payload),
                                             message,
                                             message_size) != 0) {
-        set_message(message, message_size, "Could not write arena goal sprite group entry.");
+        set_message(message, message_size, "Could not write arena sprite groups entry.");
         return -1;
     }
 
@@ -1622,6 +1942,7 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
     char *source_map = NULL;
     size_t source_map_size = 0U;
     TecmoArenaBackgroundProvenance background_provenance;
+    TecmoArenaSpriteGroupsProvenance sprite_groups_provenance;
     int manifest_length;
     int result = -1;
 
@@ -1781,13 +2102,16 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
     }
 
     memset(&background_provenance, 0, sizeof(background_provenance));
+    memset(&sprite_groups_provenance, 0, sizeof(sprite_groups_provenance));
     if (add_native_arena_intro_entries(builder,
                                        rom,
                                        rom_size,
                                        prg_offset,
                                        prg_banks,
+                                       chr_offset,
                                        chr_size,
                                        &background_provenance,
+                                       &sprite_groups_provenance,
                                        message,
                                        message_size) != 0) {
         goto cleanup;
@@ -1801,6 +2125,7 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
                                        chr_offset,
                                        chr_size,
                                        &background_provenance,
+                                       &sprite_groups_provenance,
                                        &source_map_size);
     if (source_map == NULL) {
         set_message(message, message_size, "Could not build asset pack source map.");
@@ -2344,6 +2669,111 @@ cleanup:
     return result;
 }
 
+static int self_test_arena_sprite_groups(const char *pack_path,
+                                         const uint8_t expected_palette[16],
+                                         uint64_t chr_size,
+                                         char *message,
+                                         size_t message_size)
+{
+    uint8_t *bytes = NULL;
+    uint64_t byte_count = 0U;
+    const uint8_t *jumbotron;
+    const uint8_t *goal;
+    const uint8_t *piece;
+    int result = -1;
+
+    if (tecmo_asset_pack_read_entry(pack_path,
+                                    TECMO_ASSET_PACK_ARENA_INTRO_SPRITE_GROUPS_ID,
+                                    &bytes,
+                                    &byte_count) != 0) {
+        set_message(message, message_size, "Self-test could not read arena sprite groups.");
+        return -1;
+    }
+    if (byte_count != TECMO_ASSET_PACK_ARENA_SPRITE_GROUPS_SIZE ||
+        memcmp(bytes, "TASG", 4U) != 0 ||
+        read_u16(bytes + 4U) != 1U ||
+        read_u16(bytes + 6U) != 48U ||
+        read_u16(bytes + 8U) != 2U ||
+        read_u16(bytes + 10U) != 20U ||
+        read_u32(bytes + 12U) != 71U ||
+        read_u16(bytes + 16U) != 12U ||
+        read_u16(bytes + 18U) != 1U ||
+        read_u32(bytes + 20U) != 48U ||
+        read_u32(bytes + 24U) != 64U ||
+        read_u32(bytes + 28U) != 104U ||
+        memcmp(bytes + 48U, expected_palette, 16U) != 0) {
+        set_message(message, message_size, "Self-test TASG header or palette mismatch.");
+        goto cleanup;
+    }
+    for (size_t index = 32U; index < 48U; ++index) {
+        if (bytes[index] != 0U) {
+            set_message(message, message_size, "Self-test TASG reserved header bytes are nonzero.");
+            goto cleanup;
+        }
+    }
+
+    jumbotron = bytes + TECMO_ASSET_PACK_ARENA_SPRITE_GROUPS_OFFSET;
+    goal = jumbotron + TECMO_ASSET_PACK_ARENA_SPRITE_GROUP_STRIDE;
+    if (read_u16(jumbotron + 0U) != 1U ||
+        read_u16(jumbotron + 2U) != 1U ||
+        read_u32(jumbotron + 4U) != 0U ||
+        read_u32(jumbotron + 8U) != 55U ||
+        read_u16(jumbotron + 12U) != 0U ||
+        read_u16(jumbotron + 14U) != 0U ||
+        read_u16(jumbotron + 16U) != 0U ||
+        read_u16(jumbotron + 18U) != 2U ||
+        read_u16(goal + 0U) != 2U ||
+        read_u16(goal + 2U) != 0U ||
+        read_u32(goal + 4U) != 55U ||
+        read_u32(goal + 8U) != 16U ||
+        read_u16(goal + 12U) != 165U ||
+        read_u16(goal + 14U) != 350U ||
+        read_u16(goal + 16U) != 0U ||
+        read_u16(goal + 18U) != 2U) {
+        set_message(message, message_size, "Self-test TASG group descriptors mismatch.");
+        goto cleanup;
+    }
+
+    piece = bytes + TECMO_ASSET_PACK_ARENA_SPRITE_PIECES_OFFSET;
+    if ((int16_t)read_u16(piece + 0U) != 32 ||
+        (int16_t)read_u16(piece + 2U) != 16 ||
+        read_u32(piece + 4U) != 8192U + 0x22U * 16U ||
+        piece[8] != 3U || piece[9] != 7U || read_u16(piece + 10U) != 0U) {
+        set_message(message, message_size, "Self-test TASG first jumbotron piece mismatch.");
+        goto cleanup;
+    }
+    piece = bytes + TECMO_ASSET_PACK_ARENA_SPRITE_PIECES_OFFSET +
+            TECMO_ASSET_PACK_ARENA_JUMBOTRON_COUNT *
+                TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_STRIDE;
+    if ((int16_t)read_u16(piece + 0U) != 3 ||
+        (int16_t)read_u16(piece + 2U) != 0 ||
+        read_u32(piece + 4U) != 8192U + 0x40U * 16U ||
+        piece[8] != 2U || piece[9] != 1U || read_u16(piece + 10U) != 0U) {
+        set_message(message, message_size, "Self-test TASG first goal piece mismatch.");
+        goto cleanup;
+    }
+
+    for (size_t index = 0U; index < TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_COUNT; ++index) {
+        uint32_t chr_byte_offset;
+        piece = bytes + TECMO_ASSET_PACK_ARENA_SPRITE_PIECES_OFFSET +
+                index * TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_STRIDE;
+        chr_byte_offset = read_u32(piece + 4U);
+        if (piece[8] > 3U || piece[9] > 7U || read_u16(piece + 10U) != 0U ||
+            (chr_byte_offset & 0x0FU) != 0U ||
+            chr_byte_offset < TECMO_ASSET_PACK_ARENA_SPRITE_CHR_BASE ||
+            (uint64_t)chr_byte_offset + 32U > chr_size) {
+            set_message(message, message_size, "Self-test TASG piece contract mismatch.");
+            goto cleanup;
+        }
+    }
+
+    result = 0;
+
+cleanup:
+    tecmo_asset_pack_free(bytes);
+    return result;
+}
+
 static int self_test_d9f6_decoder(char *message, size_t message_size)
 {
     static const uint8_t backreference_stream[] = {
@@ -2550,12 +2980,14 @@ typedef struct TecmoAssetPackSelfTestInesListState {
     int saw_arena_intro_background;
     int arena_intro_background_metadata_valid;
     int saw_arena_intro_palette;
-    int saw_arena_intro_goal;
+    int saw_arena_intro_sprite_groups;
+    int arena_intro_sprite_groups_metadata_valid;
     int saw_prg_bank0;
     int saw_prg_bank1;
     int saw_prg_fixed;
     int saw_chr_all;
     int saw_chr_bank0;
+    int saw_chr_bank1;
 } TecmoAssetPackSelfTestInesListState;
 
 static int self_test_ines_list_entry(const TecmoAssetPackDirectoryEntryInfo *entry_info,
@@ -2585,8 +3017,16 @@ static int self_test_ines_list_entry(const TecmoAssetPackDirectoryEntryInfo *ent
             entry_info->byte_count == TECMO_ASSET_PACK_ARENA_LAYER_SIZE;
     } else if (strcmp(entry_info->id, TECMO_ASSET_PACK_ARENA_INTRO_PALETTE_ID) == 0) {
         state->saw_arena_intro_palette = 1;
-    } else if (strcmp(entry_info->id, TECMO_ASSET_PACK_ARENA_INTRO_GOAL_ID) == 0) {
-        state->saw_arena_intro_goal = 1;
+    } else if (strcmp(entry_info->id, TECMO_ASSET_PACK_ARENA_INTRO_SPRITE_GROUPS_ID) == 0) {
+        state->saw_arena_intro_sprite_groups = 1;
+        state->arena_intro_sprite_groups_metadata_valid =
+            entry_info->type == TECMO_ASSET_PACK_TYPE_DATA &&
+            entry_info->bank == 0U &&
+            entry_info->cpu_address == TECMO_ASSET_PACK_ARENA_POINTER_TABLE_CPU &&
+            entry_info->source_offset == 16ULL +
+                                             (TECMO_ASSET_PACK_ARENA_POINTER_TABLE_CPU -
+                                              TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE) &&
+            entry_info->byte_count == TECMO_ASSET_PACK_ARENA_SPRITE_GROUPS_SIZE;
     } else if (strcmp(entry_info->id, "prg/bank00") == 0) {
         state->saw_prg_bank0 = 1;
     } else if (strcmp(entry_info->id, "prg/bank01") == 0) {
@@ -2597,6 +3037,8 @@ static int self_test_ines_list_entry(const TecmoAssetPackDirectoryEntryInfo *ent
         state->saw_chr_all = 1;
     } else if (strcmp(entry_info->id, "chr/bank00") == 0) {
         state->saw_chr_bank0 = 1;
+    } else if (strcmp(entry_info->id, "chr/bank01") == 0) {
+        state->saw_chr_bank1 = 1;
     }
 
     return 0;
@@ -2611,6 +3053,14 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
     static const uint8_t arena_palette[16] = {
         0x0FU, 0x01U, 0x02U, 0x03U, 0x0FU, 0x04U, 0x05U, 0x06U,
         0x0FU, 0x07U, 0x08U, 0x09U, 0x0FU, 0x0AU, 0x0BU, 0x0CU
+    };
+    static const uint8_t arena_sprite_palette[16] = {
+        0x02U, 0x11U, 0x12U, 0x13U, 0x02U, 0x14U, 0x15U, 0x16U,
+        0x02U, 0x17U, 0x18U, 0x19U, 0x02U, 0x1AU, 0x1BU, 0x1CU
+    };
+    static const uint8_t expected_sprite_palette[16] = {
+        0x0FU, 0x11U, 0x12U, 0x13U, 0x0FU, 0x14U, 0x15U, 0x16U,
+        0x0FU, 0x17U, 0x18U, 0x19U, 0x0FU, 0x1AU, 0x1BU, 0x1CU
     };
     static const uint8_t arena_stream[] = {
         0xB9U,
@@ -2641,8 +3091,9 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
     char *dump = NULL;
     uint64_t prg_offset = 16ULL;
     uint64_t chr_offset = 16ULL + 8ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES;
-    uint64_t chr_size = TECMO_ASSET_PACK_CHR_BANK_BYTES;
-    uint64_t rom_size = 16ULL + 8ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES + TECMO_ASSET_PACK_CHR_BANK_BYTES;
+    uint64_t chr_size = 2ULL * TECMO_ASSET_PACK_CHR_BANK_BYTES;
+    uint64_t rom_size = 16ULL + 8ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES +
+                        2ULL * TECMO_ASSET_PACK_CHR_BANK_BYTES;
     size_t dump_size = 0U;
     int result = -1;
 
@@ -2771,7 +3222,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
     rom[2] = 'S';
     rom[3] = 0x1AU;
     rom[4] = 8U;
-    rom[5] = 1U;
+    rom[5] = 2U;
 
     for (uint32_t bank = 0U; bank < 8U; ++bank) {
         for (size_t i = 0; i < (size_t)TECMO_ASSET_PACK_PRG_BANK_BYTES; ++i) {
@@ -2779,7 +3230,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                 (uint8_t)((bank * 29U) ^ (i & 0xFFU));
         }
     }
-    for (size_t i = 0; i < (size_t)TECMO_ASSET_PACK_CHR_BANK_BYTES; ++i) {
+    for (size_t i = 0; i < (size_t)chr_size; ++i) {
         rom[(size_t)chr_offset + i] = (uint8_t)(0x40U ^ (i & 0xFFU));
     }
 
@@ -2808,6 +3259,48 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                      (TECMO_ASSET_PACK_ARENA_LOWER_R1_TABLE_CPU - 0xC000U) +
                      TECMO_ASSET_PACK_ARENA_LOWER_SELECTOR_INDEX)] = 4U;
     }
+    {
+        uint64_t bank00_offset = prg_offset;
+        uint64_t bank04_offset = prg_offset + 4ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES;
+        uint8_t *pointer_table = rom + (size_t)(bank00_offset +
+                                                (TECMO_ASSET_PACK_ARENA_POINTER_TABLE_CPU -
+                                                 TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE));
+        uint8_t *jumbotron = rom + (size_t)(bank00_offset + (0xA7E3U - 0x8000U));
+        uint8_t *goal = rom + (size_t)(bank00_offset + (0xA8C0U - 0x8000U));
+
+        store_u16(pointer_table + 0U, 0xA7E3U);
+        store_u16(pointer_table + 2U, 0xA8C0U);
+        jumbotron[0] = TECMO_ASSET_PACK_ARENA_JUMBOTRON_COUNT;
+        for (size_t index = 0U; index < TECMO_ASSET_PACK_ARENA_JUMBOTRON_COUNT; ++index) {
+            uint8_t *record = jumbotron + 1U + index * 4U;
+            record[0] = (uint8_t)(0x10U + index);
+            record[1] = (uint8_t)(0x20U + index % 0x40U);
+            record[2] = (uint8_t)(index & 0x03U);
+            if ((index & 1U) != 0U) record[2] |= 0x20U;
+            if ((index & 2U) != 0U) record[2] |= 0x40U;
+            if ((index & 4U) != 0U) record[2] |= 0x80U;
+            record[3] = (uint8_t)(0x20U + index * 3U);
+        }
+        jumbotron[1U + 1U] = 0x21U;
+        jumbotron[1U + 2U] = 0xE3U;
+
+        goal[0] = TECMO_ASSET_PACK_ARENA_GOAL_COUNT;
+        for (size_t index = 0U; index < TECMO_ASSET_PACK_ARENA_GOAL_COUNT; ++index) {
+            uint8_t *record = goal + 1U + index * 4U;
+            record[0] = (uint8_t)(0xC0U + (index % 4U) * 0x10U);
+            record[1] = (uint8_t)(0x40U + index * 2U);
+            record[2] = (uint8_t)(index & 0x03U);
+            if ((index & 1U) != 0U) record[2] |= 0x20U;
+            if ((index & 2U) != 0U) record[2] |= 0x80U;
+            record[3] = (uint8_t)(0xF0U + index);
+        }
+        goal[1U + 2U] = 0x42U;
+        memcpy(rom + (size_t)(bank04_offset +
+                              (TECMO_ASSET_PACK_ARENA_PALETTE_CPU -
+                               TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE)),
+               arena_sprite_palette,
+               sizeof(arena_sprite_palette));
+    }
 
     if (write_self_test_file(rom_path, rom, (size_t)rom_size) != 0) {
         set_message(message, message_size, "Self-test could not write temporary iNES ROM.");
@@ -2829,7 +3322,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                                       message_size) != 0 ||
         self_test_entry_contains_text(ines_pack_path,
                                       "system/manifest",
-                                      "chr_banks_8k=1",
+                                      "chr_banks_8k=2",
                                       message,
                                       message_size) != 0 ||
         self_test_entry_contains_text(ines_pack_path,
@@ -2894,7 +3387,37 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                                       message_size) != 0 ||
         self_test_entry_contains_text(ines_pack_path,
                                       "system/source-map",
-                                      "\"id\":\"" TECMO_ASSET_PACK_ARENA_INTRO_GOAL_ID "\"",
+                                      "\"id\":\"" TECMO_ASSET_PACK_ARENA_INTRO_SPRITE_GROUPS_ID "\"",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      "system/source-map",
+                                      "\"schema\":\"tecmo.arena-intro.sprite-groups/TASG-1\"",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      "system/source-map",
+                                      "\"pointer_table\":{\"source_entry\":\"prg/bank00\"",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      "system/source-map",
+                                      "\"record_count\":55",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      "system/source-map",
+                                      "\"record_count\":16",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      "system/source-map",
+                                      "\"emitter\":{\"source_entry\":\"prg/bank04\"",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      "system/source-map",
+                                      "\"chr_pages\":[{\"source_entry\":\"chr/bank01\"",
                                       message,
                                       message_size) != 0 ||
         self_test_entry_contains_text(ines_pack_path,
@@ -2926,13 +3449,8 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                                       message,
                                       message_size) != 0 ||
         self_test_entry_contains_text(ines_pack_path,
-                                      TECMO_ASSET_PACK_ARENA_INTRO_GOAL_ID,
-                                      "\"format\":\"tecmo.arena-intro.goal-sprite-group/1\"",
-                                      message,
-                                      message_size) != 0 ||
-        self_test_entry_contains_text(ines_pack_path,
-                                      TECMO_ASSET_PACK_ARENA_INTRO_GOAL_ID,
-                                      "\"alignment_contract\"",
+                                      TECMO_ASSET_PACK_ARENA_INTRO_SCRIPT_ID,
+                                      "\"source_route\":\"bank04:C-0127\"",
                                       message,
                                       message_size) != 0) {
         goto cleanup;
@@ -2941,6 +3459,13 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                                          arena_palette,
                                          message,
                                          message_size) != 0) {
+        goto cleanup;
+    }
+    if (self_test_arena_sprite_groups(ines_pack_path,
+                                      expected_sprite_palette,
+                                      chr_size,
+                                      message,
+                                      message_size) != 0) {
         goto cleanup;
     }
 
@@ -2981,19 +3506,21 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
     if (tecmo_asset_pack_list_entries(ines_pack_path,
                                       self_test_ines_list_entry,
                                       &ines_list_state) != 0 ||
-        ines_list_state.count != 17U ||
+        ines_list_state.count != 18U ||
         !ines_list_state.saw_manifest ||
         !ines_list_state.saw_source_map ||
         !ines_list_state.saw_arena_intro_script ||
         !ines_list_state.saw_arena_intro_background ||
         !ines_list_state.arena_intro_background_metadata_valid ||
         !ines_list_state.saw_arena_intro_palette ||
-        !ines_list_state.saw_arena_intro_goal ||
+        !ines_list_state.saw_arena_intro_sprite_groups ||
+        !ines_list_state.arena_intro_sprite_groups_metadata_valid ||
         !ines_list_state.saw_prg_bank0 ||
         !ines_list_state.saw_prg_bank1 ||
         !ines_list_state.saw_prg_fixed ||
         !ines_list_state.saw_chr_all ||
-        !ines_list_state.saw_chr_bank0) {
+        !ines_list_state.saw_chr_bank0 ||
+        !ines_list_state.saw_chr_bank1) {
         set_message(message, message_size, "Self-test iNES pack directory enumeration mismatch.");
         goto cleanup;
     }

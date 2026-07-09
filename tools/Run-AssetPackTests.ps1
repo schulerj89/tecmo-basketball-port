@@ -256,7 +256,7 @@ function Get-KnownLogicalAssetPackEntries {
         "arena/intro/script",
         "arena/intro/background-layer",
         "arena/intro/palette-cycle",
-        "arena/intro/goal-sprite-group",
+        "arena/intro/sprite-groups",
         "roster/table.tsv",
         "title/original-text.txt",
         "title/glyph-map.tsv",
@@ -287,7 +287,7 @@ function Get-ExpectedLogicalAssetPackEntries {
             "arena/intro/script",
             "arena/intro/background-layer",
             "arena/intro/palette-cycle",
-            "arena/intro/goal-sprite-group"
+            "arena/intro/sprite-groups"
         )
         capture_sources_present = @()
     }
@@ -756,6 +756,97 @@ try {
             }
 
             try {
+                $SpriteBytes = Read-AssetPackEntryBytes -Path $AssetPackPath -Directory $Directory -EntryId "arena/intro/sprite-groups"
+                $SpriteMagic = if ($SpriteBytes.Length -ge 4) { [System.Text.Encoding]::ASCII.GetString($SpriteBytes, 0, 4) } else { "" }
+                $SpriteVersion = if ($SpriteBytes.Length -ge 6) { [System.BitConverter]::ToUInt16($SpriteBytes, 4) } else { 0 }
+                $SpriteHeaderSize = if ($SpriteBytes.Length -ge 8) { [System.BitConverter]::ToUInt16($SpriteBytes, 6) } else { 0 }
+                $SpriteGroupCount = if ($SpriteBytes.Length -ge 10) { [System.BitConverter]::ToUInt16($SpriteBytes, 8) } else { 0 }
+                $SpriteGroupStride = if ($SpriteBytes.Length -ge 12) { [System.BitConverter]::ToUInt16($SpriteBytes, 10) } else { 0 }
+                $SpritePieceCount = if ($SpriteBytes.Length -ge 16) { [System.BitConverter]::ToUInt32($SpriteBytes, 12) } else { 0 }
+                $SpritePieceStride = if ($SpriteBytes.Length -ge 18) { [System.BitConverter]::ToUInt16($SpriteBytes, 16) } else { 0 }
+                $SpriteFlags = if ($SpriteBytes.Length -ge 20) { [System.BitConverter]::ToUInt16($SpriteBytes, 18) } else { 0 }
+                $SpritePaletteOffset = if ($SpriteBytes.Length -ge 24) { [System.BitConverter]::ToUInt32($SpriteBytes, 20) } else { 0 }
+                $SpriteGroupsOffset = if ($SpriteBytes.Length -ge 28) { [System.BitConverter]::ToUInt32($SpriteBytes, 24) } else { 0 }
+                $SpritePiecesOffset = if ($SpriteBytes.Length -ge 32) { [System.BitConverter]::ToUInt32($SpriteBytes, 28) } else { 0 }
+                $ReservedHeaderNonzero = @($SpriteBytes[32..47] | Where-Object { $_ -ne 0 }).Count
+                $InvalidUniversalColors = 0
+                foreach ($Offset in @(48, 52, 56, 60)) {
+                    if ($SpriteBytes[$Offset] -ne 0x0F) { ++$InvalidUniversalColors }
+                }
+
+                $Jumbotron = 64
+                $Goal = 84
+                $GroupsValid =
+                    [System.BitConverter]::ToUInt16($SpriteBytes, $Jumbotron + 0) -eq 1 -and
+                    [System.BitConverter]::ToUInt16($SpriteBytes, $Jumbotron + 2) -eq 1 -and
+                    [System.BitConverter]::ToUInt32($SpriteBytes, $Jumbotron + 4) -eq 0 -and
+                    [System.BitConverter]::ToUInt32($SpriteBytes, $Jumbotron + 8) -eq 55 -and
+                    [System.BitConverter]::ToInt16($SpriteBytes, $Jumbotron + 12) -eq 0 -and
+                    [System.BitConverter]::ToInt16($SpriteBytes, $Jumbotron + 14) -eq 0 -and
+                    [System.BitConverter]::ToInt16($SpriteBytes, $Jumbotron + 16) -eq 0 -and
+                    [System.BitConverter]::ToInt16($SpriteBytes, $Jumbotron + 18) -eq 2 -and
+                    [System.BitConverter]::ToUInt16($SpriteBytes, $Goal + 0) -eq 2 -and
+                    [System.BitConverter]::ToUInt16($SpriteBytes, $Goal + 2) -eq 0 -and
+                    [System.BitConverter]::ToUInt32($SpriteBytes, $Goal + 4) -eq 55 -and
+                    [System.BitConverter]::ToUInt32($SpriteBytes, $Goal + 8) -eq 16 -and
+                    [System.BitConverter]::ToInt16($SpriteBytes, $Goal + 12) -eq 165 -and
+                    [System.BitConverter]::ToInt16($SpriteBytes, $Goal + 14) -eq 350 -and
+                    [System.BitConverter]::ToInt16($SpriteBytes, $Goal + 16) -eq 0 -and
+                    [System.BitConverter]::ToInt16($SpriteBytes, $Goal + 18) -eq 2
+
+                $InvalidSpritePalettes = 0
+                $InvalidSpriteFlags = 0
+                $InvalidSpriteReserved = 0
+                $InvalidSpriteChrOffsets = 0
+                $InvalidGoalY = 0
+                $SpriteChrByteCount = [uint64]$ExpectedChrBanks * 8192
+                if ($SpriteBytes.Length -eq 956 -and $SpritePieceCount -eq 71 -and $SpritePieceStride -eq 12) {
+                    for ($Index = 0; $Index -lt 71; ++$Index) {
+                        $PieceOffset = 104 + $Index * 12
+                        $ChrOffset = [System.BitConverter]::ToUInt32($SpriteBytes, $PieceOffset + 4)
+                        if ($SpriteBytes[$PieceOffset + 8] -gt 3) { ++$InvalidSpritePalettes }
+                        if ($SpriteBytes[$PieceOffset + 9] -gt 7) { ++$InvalidSpriteFlags }
+                        if ([System.BitConverter]::ToUInt16($SpriteBytes, $PieceOffset + 10) -ne 0) { ++$InvalidSpriteReserved }
+                        if (($ChrOffset -band 0x0F) -ne 0 -or $ChrOffset -lt 8192 -or ([uint64]$ChrOffset + 32) -gt $SpriteChrByteCount) {
+                            ++$InvalidSpriteChrOffsets
+                        }
+                        if ($Index -ge 55 -and !(@(0, 16, 32, 48).Contains([int][System.BitConverter]::ToInt16($SpriteBytes, $PieceOffset + 2)))) {
+                            ++$InvalidGoalY
+                        }
+                    }
+                }
+                $SpriteContractPassed = $SpriteMagic -eq "TASG" -and $SpriteVersion -eq 1 -and
+                    $SpriteHeaderSize -eq 48 -and $SpriteGroupCount -eq 2 -and $SpriteGroupStride -eq 20 -and
+                    $SpritePieceCount -eq 71 -and $SpritePieceStride -eq 12 -and $SpriteFlags -eq 1 -and
+                    $SpritePaletteOffset -eq 48 -and $SpriteGroupsOffset -eq 64 -and $SpritePiecesOffset -eq 104 -and
+                    $SpriteBytes.Length -eq 956 -and $ReservedHeaderNonzero -eq 0 -and
+                    $InvalidUniversalColors -eq 0 -and $GroupsValid -and
+                    $InvalidSpritePalettes -eq 0 -and $InvalidSpriteFlags -eq 0 -and
+                    $InvalidSpriteReserved -eq 0 -and $InvalidSpriteChrOffsets -eq 0 -and $InvalidGoalY -eq 0
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-arena-sprite-groups"
+                    passed = $SpriteContractPassed
+                    format = $SpriteMagic
+                    version = $SpriteVersion
+                    group_count = $SpriteGroupCount
+                    piece_count = $SpritePieceCount
+                    byte_count = $SpriteBytes.Length
+                    groups_valid = $GroupsValid
+                    normalized_palette_count = 4 - $InvalidUniversalColors
+                    invalid_piece_count = $InvalidSpritePalettes + $InvalidSpriteFlags + $InvalidSpriteReserved + $InvalidSpriteChrOffsets + $InvalidGoalY
+                    raw_asset_bytes_persisted = $false
+                })
+            } catch {
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-arena-sprite-groups"
+                    passed = $false
+                    error = "arena sprite groups inspection failed"
+                    error_type = Get-SafeExceptionName $_
+                    raw_asset_bytes_persisted = $false
+                })
+            }
+
+            try {
                 $SourceMapText = Read-AssetPackEntryText -Path $AssetPackPath -Directory $Directory -EntryId "system/source-map"
                 $SourceMap = $SourceMapText | ConvertFrom-Json
                 $SourceMapLogicalIds = @($SourceMap.logical_entries | ForEach-Object { [string]$_.id })
@@ -816,6 +907,44 @@ try {
                     stream_valid = $ArenaSource.Count -eq 1 -and [int]$ArenaSource.stream.encoded_size -gt 0 -and [int]$ArenaSource.stream.decoded_size -eq 2048
                     irq_selector_tables_valid = $ArenaSource.Count -eq 1 -and @($ArenaSource.lower_chr_tables).Count -eq 2
                     known_reference_provenance_match = $KnownReferenceProvenanceMatches
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $SpriteSource = @($SourceMap.logical_entries | Where-Object { $_.id -eq "arena/intro/sprite-groups" } | Select-Object -First 1)
+                $ChrStart = [uint64]($PrgStart + $ExpectedPrgBanks * 0x4000)
+                $ExpectedSpritePaletteOffset = [uint64]($PrgStart + 4 * 0x4000 + (0x89DD - 0x8000))
+                $ExpectedPointerTableOffset = [uint64]($PrgStart + (0xA7DB - 0x8000))
+                $ExpectedSeedsOffset = [uint64]($PrgStart + 4 * 0x4000 + (0x8984 - 0x8000))
+                $ExpectedEmitterOffset = [uint64]($PrgStart + 4 * 0x4000 + (0x8988 - 0x8000))
+                $ExpectedParamsOffset = [uint64]($PrgStart + 4 * 0x4000 + (0x89BD - 0x8000))
+                $SpriteProvenancePassed = $SpriteSource.Count -eq 1 -and
+                    $SpriteSource.schema -eq "tecmo.arena-intro.sprite-groups/TASG-1" -and
+                    [int]$SpriteSource.palette.bank -eq 4 -and [int]$SpriteSource.palette.cpu_address -eq 0x89DD -and
+                    [int]$SpriteSource.palette.size -eq 16 -and [uint64]$SpriteSource.palette.source_offset -eq $ExpectedSpritePaletteOffset -and
+                    [int]$SpriteSource.pointer_table.bank -eq 0 -and [int]$SpriteSource.pointer_table.cpu_address -eq 0xA7DB -and
+                    [int]$SpriteSource.pointer_table.size -eq 4 -and [uint64]$SpriteSource.pointer_table.source_offset -eq $ExpectedPointerTableOffset -and
+                    @($SpriteSource.streams).Count -eq 2 -and
+                    [int]$SpriteSource.streams[0].selector -eq 0 -and $SpriteSource.streams[0].kind -eq "jumbotron" -and
+                    [int]$SpriteSource.streams[0].record_count -eq 55 -and [int]$SpriteSource.streams[0].size -eq 221 -and
+                    [uint64]$SpriteSource.streams[0].source_offset -eq [uint64]($PrgStart + [int]$SpriteSource.streams[0].cpu_address - 0x8000) -and
+                    [int]$SpriteSource.streams[1].selector -eq 1 -and $SpriteSource.streams[1].kind -eq "goal" -and
+                    [int]$SpriteSource.streams[1].record_count -eq 16 -and [int]$SpriteSource.streams[1].size -eq 65 -and
+                    [uint64]$SpriteSource.streams[1].source_offset -eq [uint64]($PrgStart + [int]$SpriteSource.streams[1].cpu_address - 0x8000) -and
+                    [int]$SpriteSource.bank04.seeds.cpu_address -eq 0x8984 -and [uint64]$SpriteSource.bank04.seeds.source_offset -eq $ExpectedSeedsOffset -and
+                    [int]$SpriteSource.bank04.emitter.cpu_address -eq 0x8988 -and [int]$SpriteSource.bank04.emitter.size -eq 53 -and
+                    [uint64]$SpriteSource.bank04.emitter.source_offset -eq $ExpectedEmitterOffset -and
+                    [int]$SpriteSource.bank04.params.cpu_address -eq 0x89BD -and [uint64]$SpriteSource.bank04.params.source_offset -eq $ExpectedParamsOffset -and
+                    [int]$SpriteSource.mapper.r2 -eq 8 -and [int]$SpriteSource.mapper.r3 -eq 9 -and
+                    @($SpriteSource.chr_pages).Count -eq 2 -and
+                    [uint64]$SpriteSource.chr_pages[0].source_offset -eq ($ChrStart + 8192) -and
+                    [uint64]$SpriteSource.chr_pages[1].source_offset -eq ($ChrStart + 9216)
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-arena-sprite-provenance"
+                    passed = $SpriteProvenancePassed
+                    schema_valid = $SpriteSource.Count -eq 1 -and $SpriteSource.schema -eq "tecmo.arena-intro.sprite-groups/TASG-1"
+                    streams_valid = $SpriteSource.Count -eq 1 -and @($SpriteSource.streams).Count -eq 2
+                    bank04_regions_valid = $SpriteSource.Count -eq 1 -and [int]$SpriteSource.bank04.emitter.cpu_address -eq 0x8988
+                    chr_pages_valid = $SpriteSource.Count -eq 1 -and @($SpriteSource.chr_pages).Count -eq 2
                     raw_asset_bytes_persisted = $false
                 })
             } catch {
