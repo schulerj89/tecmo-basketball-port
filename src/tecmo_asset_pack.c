@@ -32,6 +32,26 @@
 #define TECMO_ASSET_PACK_ARENA_SPRITE_EMIT_CPU 0x8988U
 #define TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE 0x8000U
 #define TECMO_ASSET_PACK_SWITCHED_PRG_CPU_LIMIT 0xC000U
+#define TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_CPU 0xDC85U
+#define TECMO_ASSET_PACK_ARENA_SCREEN_ID 0x18U
+#define TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_SIZE 7U
+#define TECMO_ASSET_PACK_SCREEN_DECODED_SIZE 2048U
+#define TECMO_ASSET_PACK_NAMETABLE_SIZE 1024U
+#define TECMO_ASSET_PACK_ATTRIBUTE_OFFSET 0x3C0U
+#define TECMO_ASSET_PACK_ARENA_LAYER_WIDTH 32U
+#define TECMO_ASSET_PACK_ARENA_LAYER_HEIGHT 51U
+#define TECMO_ASSET_PACK_ARENA_LAYER_CELL_STRIDE 6U
+#define TECMO_ASSET_PACK_ARENA_LAYER_HEADER_SIZE 48U
+#define TECMO_ASSET_PACK_ARENA_LAYER_CELL_COUNT \
+    (TECMO_ASSET_PACK_ARENA_LAYER_WIDTH * TECMO_ASSET_PACK_ARENA_LAYER_HEIGHT)
+#define TECMO_ASSET_PACK_ARENA_LAYER_SIZE \
+    (TECMO_ASSET_PACK_ARENA_LAYER_HEADER_SIZE + \
+     TECMO_ASSET_PACK_ARENA_LAYER_CELL_COUNT * TECMO_ASSET_PACK_ARENA_LAYER_CELL_STRIDE)
+#define TECMO_ASSET_PACK_ARENA_BACKGROUND_ROUTE_CPU 0x88E8U
+#define TECMO_ASSET_PACK_ARENA_LOWER_R0_TABLE_CPU 0xFD7CU
+#define TECMO_ASSET_PACK_ARENA_LOWER_R1_TABLE_CPU 0xFD80U
+#define TECMO_ASSET_PACK_ARENA_LOWER_SELECTOR_INDEX 1U
+#define TECMO_ASSET_PACK_ARENA_DECODER_CPU 0xD9F6U
 
 typedef struct TecmoAssetPackBuildEntry {
     char id[TECMO_ASSET_PACK_ID_SIZE];
@@ -54,6 +74,23 @@ typedef struct TecmoAssetPackDirectoryEntry {
     uint64_t size;
     uint32_t flags;
 } TecmoAssetPackDirectoryEntry;
+
+typedef struct TecmoArenaBackgroundProvenance {
+    uint32_t route_bank;
+    uint32_t route_cpu;
+    uint64_t route_source_offset;
+    uint32_t descriptor_bank;
+    uint32_t descriptor_cpu;
+    uint64_t descriptor_source_offset;
+    uint32_t stream_bank;
+    uint32_t stream_cpu;
+    uint64_t stream_source_offset;
+    uint64_t stream_encoded_size;
+    uint32_t palette_cpu;
+    uint64_t palette_source_offset;
+    uint64_t lower_r0_table_source_offset;
+    uint64_t lower_r1_table_source_offset;
+} TecmoArenaBackgroundProvenance;
 
 struct TecmoAssetPackBuilder {
     FILE *out;
@@ -209,6 +246,11 @@ static uint32_t read_u32(const uint8_t *bytes)
            ((uint32_t)bytes[3] << 24U);
 }
 
+static uint16_t read_u16(const uint8_t *bytes)
+{
+    return (uint16_t)((uint16_t)bytes[0] | ((uint16_t)bytes[1] << 8U));
+}
+
 static uint64_t read_u64(const uint8_t *bytes)
 {
     uint64_t value = 0;
@@ -217,6 +259,20 @@ static uint64_t read_u64(const uint8_t *bytes)
         value |= (uint64_t)bytes[i] << (unsigned)(i * 8U);
     }
     return value;
+}
+
+static void store_u16(uint8_t *bytes, uint16_t value)
+{
+    bytes[0] = (uint8_t)(value & 0xFFU);
+    bytes[1] = (uint8_t)(value >> 8U);
+}
+
+static void store_u32(uint8_t *bytes, uint32_t value)
+{
+    bytes[0] = (uint8_t)(value & 0xFFU);
+    bytes[1] = (uint8_t)((value >> 8U) & 0xFFU);
+    bytes[2] = (uint8_t)((value >> 16U) & 0xFFU);
+    bytes[3] = (uint8_t)((value >> 24U) & 0xFFU);
 }
 
 static int read_pack_header(FILE *file,
@@ -729,6 +785,321 @@ static uint64_t prg_bank_cpu_source_offset(uint64_t prg_offset,
            (uint64_t)(cpu_address - TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
 }
 
+static int decode_d9f6_stream(const uint8_t *bank_bytes,
+                              size_t bank_size,
+                              size_t stream_offset,
+                              uint8_t *decoded,
+                              size_t decoded_size,
+                              size_t *encoded_size_out,
+                              char *message,
+                              size_t message_size)
+{
+    size_t source = stream_offset;
+    size_t output = 0U;
+
+    if (bank_bytes == NULL || decoded == NULL || stream_offset >= bank_size) {
+        set_message(message, message_size, "Arena screen stream starts outside its PRG bank.");
+        return -1;
+    }
+
+    for (;;) {
+        uint8_t control;
+
+        if (source >= bank_size) {
+            set_message(message, message_size, "Arena screen stream ended before a terminator.");
+            return -1;
+        }
+        control = bank_bytes[source++];
+
+        for (unsigned int slot = 0U; slot < 4U; ++slot) {
+            unsigned int operation = (unsigned int)(control & 0x03U);
+            size_t count;
+
+            control >>= 2U;
+            if (source >= bank_size) {
+                set_message(message, message_size, "Arena screen stream is missing an operation count.");
+                return -1;
+            }
+            count = bank_bytes[source++];
+            if (count == 0U) {
+                count = 256U;
+            }
+
+            if (operation == 0U) {
+                if (output != decoded_size) {
+                    set_messagef(message,
+                                 message_size,
+                                 "Arena screen stream terminated after %llu decoded bytes; expected %llu.",
+                                 (unsigned long long)output,
+                                 (unsigned long long)decoded_size);
+                    return -1;
+                }
+                if (encoded_size_out != NULL) {
+                    *encoded_size_out = source - stream_offset;
+                }
+                return 0;
+            }
+            if (count > decoded_size - output) {
+                set_message(message, message_size, "Arena screen stream decodes past two nametables.");
+                return -1;
+            }
+
+            if (operation == 1U) {
+                if (count > bank_size - source) {
+                    set_message(message, message_size, "Arena screen literal crosses its PRG bank.");
+                    return -1;
+                }
+                memcpy(decoded + output, bank_bytes + source, count);
+                source += count;
+            } else if (operation == 2U) {
+                if (source >= bank_size) {
+                    set_message(message, message_size, "Arena screen repeat is missing its byte.");
+                    return -1;
+                }
+                memset(decoded + output, bank_bytes[source++], count);
+            } else {
+                size_t delta_offset = source;
+                size_t delta;
+                size_t copy_source;
+
+                if (bank_size - source < 2U) {
+                    set_message(message, message_size, "Arena screen back-copy is missing its delta.");
+                    return -1;
+                }
+                delta = (size_t)bank_bytes[source] |
+                        ((size_t)bank_bytes[source + 1U] << 8U);
+                source += 2U;
+
+                /* D9F6 subtracts from the address of the delta, then resumes after it. */
+                if (delta > delta_offset) {
+                    set_message(message, message_size, "Arena screen back-copy underflows its PRG bank.");
+                    return -1;
+                }
+                copy_source = delta_offset - delta;
+                if (count > bank_size - copy_source) {
+                    set_message(message, message_size, "Arena screen back-copy crosses its PRG bank.");
+                    return -1;
+                }
+                memcpy(decoded + output, bank_bytes + copy_source, count);
+            }
+            output += count;
+        }
+    }
+}
+
+static int validate_chr_pair(uint8_t r0,
+                             uint8_t r1,
+                             uint64_t chr_size,
+                             const char *pair_name,
+                             char *message,
+                             size_t message_size)
+{
+    if ((r0 & 1U) != 0U || (r1 & 1U) != 0U ||
+        ((uint64_t)r0 + 2U) * 1024U > chr_size ||
+        ((uint64_t)r1 + 2U) * 1024U > chr_size) {
+        set_messagef(message,
+                     message_size,
+                     "Arena %s CHR selectors %u/%u are not valid even 2KB-bank selectors.",
+                     pair_name,
+                     (unsigned int)r0,
+                     (unsigned int)r1);
+        return -1;
+    }
+    return 0;
+}
+
+static int build_arena_background_layer(const uint8_t *rom,
+                                        uint64_t rom_size,
+                                        uint64_t prg_offset,
+                                        uint32_t prg_banks,
+                                        uint64_t chr_size,
+                                        uint8_t *payload,
+                                        size_t payload_size,
+                                        TecmoArenaBackgroundProvenance *provenance,
+                                        char *message,
+                                        size_t message_size)
+{
+    uint8_t decoded[TECMO_ASSET_PACK_SCREEN_DECODED_SIZE];
+    uint32_t fixed_bank;
+    uint64_t descriptor_offset;
+    const uint8_t *descriptor;
+    uint32_t palette_cpu;
+    uint32_t stream_cpu;
+    uint32_t stream_bank;
+    uint64_t stream_bank_offset;
+    uint64_t palette_offset;
+    uint8_t upper_r0;
+    uint8_t upper_r1;
+    uint8_t lower_r0;
+    uint8_t lower_r1;
+    size_t encoded_size = 0U;
+
+    if (rom == NULL || payload == NULL || provenance == NULL ||
+        payload_size != TECMO_ASSET_PACK_ARENA_LAYER_SIZE ||
+        prg_banks <= TECMO_ASSET_PACK_ARENA_BANK04) {
+        set_message(message, message_size, "Arena screen import requires a compatible ROM with Bank04.");
+        return -1;
+    }
+
+    fixed_bank = prg_banks - 1U;
+    descriptor_offset = prg_offset +
+                        (uint64_t)fixed_bank * TECMO_ASSET_PACK_PRG_BANK_BYTES +
+                        (TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_CPU - 0xC000U) +
+                        TECMO_ASSET_PACK_ARENA_SCREEN_ID * TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_SIZE;
+    if (descriptor_offset > rom_size ||
+        TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_SIZE > rom_size - descriptor_offset) {
+        set_message(message, message_size, "Arena screen descriptor is outside the fixed PRG bank.");
+        return -1;
+    }
+    descriptor = rom + (size_t)descriptor_offset;
+    palette_cpu = (uint32_t)descriptor[2] | ((uint32_t)descriptor[3] << 8U);
+    stream_cpu = (uint32_t)descriptor[4] | ((uint32_t)descriptor[5] << 8U);
+    stream_bank = descriptor[6];
+
+    if (descriptor[0] > 0x7FU || descriptor[1] > 0x7FU) {
+        set_message(message, message_size, "Arena upper CHR pair overflows MMC3 selectors.");
+        return -1;
+    }
+    upper_r0 = (uint8_t)(descriptor[0] * 2U);
+    upper_r1 = (uint8_t)(descriptor[1] * 2U);
+    if (stream_bank >= prg_banks ||
+        palette_cpu < TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE ||
+        palette_cpu >= TECMO_ASSET_PACK_SWITCHED_PRG_CPU_LIMIT ||
+        stream_cpu < TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE ||
+        stream_cpu >= TECMO_ASSET_PACK_SWITCHED_PRG_CPU_LIMIT) {
+        set_message(message, message_size, "Arena screen descriptor has an invalid stream bank or CPU pointer.");
+        return -1;
+    }
+
+    stream_bank_offset = prg_offset + (uint64_t)stream_bank * TECMO_ASSET_PACK_PRG_BANK_BYTES;
+    palette_offset = stream_bank_offset +
+                     (uint64_t)(palette_cpu - TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
+    if (palette_offset > rom_size || 16U > rom_size - palette_offset) {
+        set_message(message, message_size, "Arena background palette is outside its descriptor bank.");
+        return -1;
+    }
+
+    {
+        uint64_t fixed_offset = prg_offset +
+                                (uint64_t)fixed_bank * TECMO_ASSET_PACK_PRG_BANK_BYTES;
+        uint64_t lower_r0_offset = fixed_offset +
+                                   (TECMO_ASSET_PACK_ARENA_LOWER_R0_TABLE_CPU - 0xC000U) +
+                                   TECMO_ASSET_PACK_ARENA_LOWER_SELECTOR_INDEX;
+        uint64_t lower_r1_offset = fixed_offset +
+                                   (TECMO_ASSET_PACK_ARENA_LOWER_R1_TABLE_CPU - 0xC000U) +
+                                   TECMO_ASSET_PACK_ARENA_LOWER_SELECTOR_INDEX;
+        if (lower_r0_offset >= rom_size || lower_r1_offset >= rom_size) {
+            set_message(message, message_size, "Arena lower CHR selectors are outside fixed PRG.");
+            return -1;
+        }
+        lower_r0 = rom[(size_t)lower_r0_offset];
+        lower_r1 = rom[(size_t)lower_r1_offset];
+        provenance->lower_r0_table_source_offset = lower_r0_offset -
+                                                   TECMO_ASSET_PACK_ARENA_LOWER_SELECTOR_INDEX;
+        provenance->lower_r1_table_source_offset = lower_r1_offset -
+                                                   TECMO_ASSET_PACK_ARENA_LOWER_SELECTOR_INDEX;
+    }
+
+    if (validate_chr_pair(upper_r0, upper_r1, chr_size, "upper", message, message_size) != 0 ||
+        validate_chr_pair(lower_r0, lower_r1, chr_size, "lower", message, message_size) != 0) {
+        return -1;
+    }
+    if (decode_d9f6_stream(rom + (size_t)stream_bank_offset,
+                           (size_t)TECMO_ASSET_PACK_PRG_BANK_BYTES,
+                           (size_t)(stream_cpu - TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE),
+                           decoded,
+                           sizeof(decoded),
+                           &encoded_size,
+                           message,
+                           message_size) != 0) {
+        return -1;
+    }
+
+    memset(payload, 0, payload_size);
+    memcpy(payload, "TATL", 4U);
+    store_u16(payload + 4U, 1U);
+    store_u16(payload + 6U, TECMO_ASSET_PACK_ARENA_LAYER_HEADER_SIZE);
+    store_u16(payload + 8U, TECMO_ASSET_PACK_ARENA_LAYER_WIDTH);
+    store_u16(payload + 10U, TECMO_ASSET_PACK_ARENA_LAYER_HEIGHT);
+    store_u16(payload + 12U, 32U);
+    store_u16(payload + 14U, 30U);
+    store_u16(payload + 16U, TECMO_ASSET_PACK_ARENA_LAYER_CELL_STRIDE);
+    store_u16(payload + 18U, 0U);
+    store_u32(payload + 20U, TECMO_ASSET_PACK_ARENA_LAYER_CELL_COUNT);
+    store_u32(payload + 24U, TECMO_ASSET_PACK_ARENA_LAYER_HEADER_SIZE);
+    store_u32(payload + 28U, 32U);
+    memcpy(payload + 32U, rom + (size_t)palette_offset, 16U);
+
+    for (uint32_t destination_row = 0U;
+         destination_row < TECMO_ASSET_PACK_ARENA_LAYER_HEIGHT;
+         ++destination_row) {
+        uint32_t page;
+        uint32_t source_row;
+
+        if (destination_row < 16U) {
+            page = 0U;
+            source_row = destination_row;
+        } else if (destination_row < 38U) {
+            page = 1U;
+            source_row = destination_row - 15U;
+        } else {
+            page = 0U;
+            source_row = destination_row - 22U;
+        }
+
+        for (uint32_t column = 0U; column < TECMO_ASSET_PACK_ARENA_LAYER_WIDTH; ++column) {
+            size_t nametable = (size_t)page * TECMO_ASSET_PACK_NAMETABLE_SIZE;
+            uint8_t tile_id = decoded[nametable + (size_t)source_row * 32U + column];
+            size_t attribute_index = nametable + TECMO_ASSET_PACK_ATTRIBUTE_OFFSET +
+                                     (size_t)(source_row / 4U) * 8U + column / 4U;
+            unsigned int attribute_shift =
+                ((source_row & 2U) != 0U ? 4U : 0U) + ((column & 2U) != 0U ? 2U : 0U);
+            uint8_t palette_index = (uint8_t)((decoded[attribute_index] >> attribute_shift) & 3U);
+            uint8_t r0 = page == 0U && source_row < 26U ? upper_r0 : lower_r0;
+            uint8_t r1 = page == 0U && source_row < 26U ? upper_r1 : lower_r1;
+            uint8_t selector = tile_id < 128U ? r0 : r1;
+            uint64_t chr_byte_offset = (uint64_t)selector * 1024U +
+                                       (uint64_t)(tile_id & 0x7FU) * 16U;
+            size_t cell_index = (size_t)destination_row * TECMO_ASSET_PACK_ARENA_LAYER_WIDTH + column;
+            uint8_t *cell = payload + TECMO_ASSET_PACK_ARENA_LAYER_HEADER_SIZE +
+                            cell_index * TECMO_ASSET_PACK_ARENA_LAYER_CELL_STRIDE;
+
+            if (chr_byte_offset > UINT32_MAX || chr_byte_offset + 16U > chr_size) {
+                set_messagef(message,
+                             message_size,
+                             "Arena tile at row %u column %u resolves outside chr/all.",
+                             destination_row,
+                             column);
+                return -1;
+            }
+            cell[0] = tile_id;
+            cell[1] = palette_index;
+            store_u32(cell + 2U, (uint32_t)chr_byte_offset);
+        }
+    }
+
+    provenance->route_bank = TECMO_ASSET_PACK_ARENA_BANK04;
+    provenance->route_cpu = TECMO_ASSET_PACK_ARENA_BACKGROUND_ROUTE_CPU;
+    provenance->route_source_offset = prg_offset +
+                                      (uint64_t)TECMO_ASSET_PACK_ARENA_BANK04 *
+                                          TECMO_ASSET_PACK_PRG_BANK_BYTES +
+                                      (TECMO_ASSET_PACK_ARENA_BACKGROUND_ROUTE_CPU -
+                                       TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
+    provenance->descriptor_bank = fixed_bank;
+    provenance->descriptor_cpu = TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_CPU +
+                                 TECMO_ASSET_PACK_ARENA_SCREEN_ID *
+                                     TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_SIZE;
+    provenance->descriptor_source_offset = descriptor_offset;
+    provenance->stream_bank = stream_bank;
+    provenance->stream_cpu = stream_cpu;
+    provenance->stream_source_offset = stream_bank_offset +
+                                       (uint64_t)(stream_cpu - TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
+    provenance->stream_encoded_size = encoded_size;
+    provenance->palette_cpu = palette_cpu;
+    provenance->palette_source_offset = palette_offset;
+    return 0;
+}
+
 static int append_logical_source_map_entry(char *buffer,
                                            size_t capacity,
                                            size_t *length,
@@ -763,6 +1134,69 @@ static int append_logical_source_map_entry(char *buffer,
                        source_bank_available ? "true" : "false");
 }
 
+static int append_arena_background_source_map_entry(
+    char *buffer,
+    size_t capacity,
+    size_t *length,
+    int *first,
+    const TecmoArenaBackgroundProvenance *provenance)
+{
+    const char *prefix = *first != 0 ? "" : ",\n";
+
+    *first = 0;
+    return append_text(
+        buffer,
+        capacity,
+        length,
+        "%s"
+        "    {\"id\":\"%s\",\"kind\":\"arena-intro-background-layer\","
+        "\"schema\":\"tecmo.arena-intro.background-layer/TATL-1\","
+        "\"screen_id\":24,\"decoder_cpu_address\":%u,"
+        "\"route\":{\"source_entry\":\"prg/bank%02u\",\"source_offset\":%llu,"
+        "\"bank\":%u,\"cpu_address\":%u},"
+        "\"descriptor\":{\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,"
+        "\"size\":7,\"bank\":%u,\"cpu_address\":%u},"
+        "\"stream\":{\"source_entry\":\"prg/bank%02u\",\"source_offset\":%llu,"
+        "\"encoded_size\":%llu,\"decoded_size\":2048,\"bank\":%u,"
+        "\"cpu_address\":%u},"
+        "\"palette\":{\"source_entry\":\"prg/bank%02u\",\"source_offset\":%llu,"
+        "\"size\":16,\"bank\":%u,\"cpu_address\":%u},"
+        "\"lower_chr_tables\":["
+        "{\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"bank\":%u,"
+        "\"cpu_address\":%u,\"selector_cpu_address\":%u},"
+        "{\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"bank\":%u,"
+        "\"cpu_address\":%u,\"selector_cpu_address\":%u}]}",
+        prefix,
+        TECMO_ASSET_PACK_ARENA_INTRO_BACKGROUND_ID,
+        TECMO_ASSET_PACK_ARENA_DECODER_CPU,
+        provenance->route_bank,
+        (unsigned long long)provenance->route_source_offset,
+        provenance->route_bank,
+        provenance->route_cpu,
+        (unsigned long long)provenance->descriptor_source_offset,
+        provenance->descriptor_bank,
+        provenance->descriptor_cpu,
+        provenance->stream_bank,
+        (unsigned long long)provenance->stream_source_offset,
+        (unsigned long long)provenance->stream_encoded_size,
+        provenance->stream_bank,
+        provenance->stream_cpu,
+        provenance->stream_bank,
+        (unsigned long long)provenance->palette_source_offset,
+        provenance->stream_bank,
+        provenance->palette_cpu,
+        (unsigned long long)provenance->lower_r0_table_source_offset,
+        provenance->descriptor_bank,
+        TECMO_ASSET_PACK_ARENA_LOWER_R0_TABLE_CPU,
+        TECMO_ASSET_PACK_ARENA_LOWER_R0_TABLE_CPU +
+            TECMO_ASSET_PACK_ARENA_LOWER_SELECTOR_INDEX,
+        (unsigned long long)provenance->lower_r1_table_source_offset,
+        provenance->descriptor_bank,
+        TECMO_ASSET_PACK_ARENA_LOWER_R1_TABLE_CPU,
+        TECMO_ASSET_PACK_ARENA_LOWER_R1_TABLE_CPU +
+            TECMO_ASSET_PACK_ARENA_LOWER_SELECTOR_INDEX);
+}
+
 static char *build_ines_source_map(uint32_t mapper,
                                    uint32_t trainer_bytes,
                                    uint32_t prg_banks,
@@ -770,6 +1204,7 @@ static char *build_ines_source_map(uint32_t mapper,
                                    uint64_t prg_offset,
                                    uint64_t chr_offset,
                                    uint64_t chr_size,
+                                   const TecmoArenaBackgroundProvenance *background_provenance,
                                    size_t *source_map_size_out)
 {
     size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 6U;
@@ -930,18 +1365,11 @@ static char *build_ines_source_map(uint32_t mapper,
                                         bank04_available ? TECMO_ASSET_PACK_ARENA_BANK04 : prg_banks - 1U,
                                         TECMO_ASSET_PACK_ARENA_ROUTE_CPU,
                                         bank04_available) != 0 ||
-        append_logical_source_map_entry(source_map,
-                                        capacity,
-                                        &length,
-                                        &first_logical,
-                                        TECMO_ASSET_PACK_ARENA_INTRO_BACKGROUND_ID,
-                                        "arena-intro-background-layer",
-                                        "tecmo.arena-intro.background-layer/1",
-                                        bank04_available ? "prg/bank04" : "prg/fixed",
-                                        script_source_offset,
-                                        bank04_available ? TECMO_ASSET_PACK_ARENA_BANK04 : prg_banks - 1U,
-                                        TECMO_ASSET_PACK_ARENA_ROUTE_CPU,
-                                        bank04_available) != 0 ||
+        append_arena_background_source_map_entry(source_map,
+                                                 capacity,
+                                                 &length,
+                                                 &first_logical,
+                                                 background_provenance) != 0 ||
         append_logical_source_map_entry(source_map,
                                         capacity,
                                         &length,
@@ -987,13 +1415,17 @@ static char *build_ines_source_map(uint32_t mapper,
 }
 
 static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
+                                          const uint8_t *rom,
+                                          uint64_t rom_size,
                                           uint64_t prg_offset,
                                           uint32_t prg_banks,
+                                          uint64_t chr_size,
+                                          TecmoArenaBackgroundProvenance *background_provenance,
                                           char *message,
                                           size_t message_size)
 {
     char script_payload[2048];
-    char background_payload[2048];
+    uint8_t background_payload[TECMO_ASSET_PACK_ARENA_LAYER_SIZE];
     char palette_payload[2048];
     char goal_payload[2048];
     uint64_t script_source_offset =
@@ -1058,42 +1490,29 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
         return -1;
     }
 
-    payload_length = snprintf(background_payload,
-                              sizeof(background_payload),
-                              "{\n"
-                              "  \"format\":\"tecmo.arena-intro.background-layer/1\",\n"
-                              "  \"input_contract\":\"ines-only\",\n"
-                              "  \"source_route\":\"bank04:L88E7-screen18\",\n"
-                              "  \"source_bank_available\":%s,\n"
-                              "  \"runtime_shape\":\"native-tile-layer\",\n"
-                              "  \"chr_source\":\"chr/all\",\n"
-                              "  \"scene_size_tiles\":[32,51],\n"
-                              "  \"viewport_tiles\":[32,30],\n"
-                              "  \"screen_id\":24,\n"
-                              "  \"mmc3_background\":{\"upper_r0\":20,\"upper_r1\":22,\"lower_r0\":94,\"lower_r1\":96,\"split_row\":26},\n"
-                              "  \"bands\":[\n"
-                              "    {\"name\":\"scoreboard\",\"source_page\":0,\"source_first_row\":0,\"rows\":16,\"destination_first_row\":0},\n"
-                              "    {\"name\":\"small_crowd\",\"source_page\":1,\"source_first_row\":1,\"rows\":22,\"destination_first_row\":16},\n"
-                              "    {\"name\":\"large_crowd\",\"source_page\":0,\"source_first_row\":16,\"rows\":13,\"destination_first_row\":38}\n"
-                              "  ],\n"
-                              "  \"tile_state\":\"extractor-populated-runtime-state-pending\"\n"
-                              "}\n",
-                              bank04_available ? "true" : "false");
-    if (payload_length < 0 || (size_t)payload_length >= sizeof(background_payload)) {
-        set_message(message, message_size, "Could not build arena background layer entry.");
+    if (build_arena_background_layer(rom,
+                                     rom_size,
+                                     prg_offset,
+                                     prg_banks,
+                                     chr_size,
+                                     background_payload,
+                                     sizeof(background_payload),
+                                     background_provenance,
+                                     message,
+                                     message_size) != 0) {
         return -1;
     }
 
     entry_info = make_entry_info(TECMO_ASSET_PACK_ARENA_INTRO_BACKGROUND_ID,
                                  TECMO_ASSET_PACK_TYPE_DATA,
-                                 source_bank,
-                                 TECMO_ASSET_PACK_ARENA_ROUTE_CPU,
-                                 script_source_offset,
+                                 background_provenance->stream_bank,
+                                 background_provenance->stream_cpu,
+                                 background_provenance->stream_source_offset,
                                  TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
     if (tecmo_asset_pack_builder_add_memory(builder,
                                             &entry_info,
                                             background_payload,
-                                            (uint64_t)payload_length,
+                                            sizeof(background_payload),
                                             message,
                                             message_size) != 0) {
         set_message(message, message_size, "Could not write arena background layer entry.");
@@ -1202,6 +1621,7 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
     char manifest[512];
     char *source_map = NULL;
     size_t source_map_size = 0U;
+    TecmoArenaBackgroundProvenance background_provenance;
     int manifest_length;
     int result = -1;
 
@@ -1360,9 +1780,14 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
         }
     }
 
+    memset(&background_provenance, 0, sizeof(background_provenance));
     if (add_native_arena_intro_entries(builder,
+                                       rom,
+                                       rom_size,
                                        prg_offset,
                                        prg_banks,
+                                       chr_size,
+                                       &background_provenance,
                                        message,
                                        message_size) != 0) {
         goto cleanup;
@@ -1375,6 +1800,7 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
                                        prg_offset,
                                        chr_offset,
                                        chr_size,
+                                       &background_provenance,
                                        &source_map_size);
     if (source_map == NULL) {
         set_message(message, message_size, "Could not build asset pack source map.");
@@ -1840,6 +2266,84 @@ cleanup:
     return result;
 }
 
+static int self_test_arena_background_layer(const char *pack_path,
+                                            const uint8_t expected_palette[16],
+                                            char *message,
+                                            size_t message_size)
+{
+    uint8_t *bytes = NULL;
+    uint64_t byte_count = 0U;
+    const uint8_t *cell;
+    int result = -1;
+
+    if (tecmo_asset_pack_read_entry(pack_path,
+                                    TECMO_ASSET_PACK_ARENA_INTRO_BACKGROUND_ID,
+                                    &bytes,
+                                    &byte_count) != 0) {
+        set_message(message, message_size, "Self-test could not read arena background layer.");
+        return -1;
+    }
+    if (byte_count != TECMO_ASSET_PACK_ARENA_LAYER_SIZE ||
+        memcmp(bytes, "TATL", 4U) != 0 ||
+        read_u16(bytes + 4U) != 1U ||
+        read_u16(bytes + 6U) != 48U ||
+        read_u16(bytes + 8U) != 32U ||
+        read_u16(bytes + 10U) != 51U ||
+        read_u16(bytes + 12U) != 32U ||
+        read_u16(bytes + 14U) != 30U ||
+        read_u16(bytes + 16U) != 6U ||
+        read_u16(bytes + 18U) != 0U ||
+        read_u32(bytes + 20U) != 1632U ||
+        read_u32(bytes + 24U) != 48U ||
+        read_u32(bytes + 28U) != 32U ||
+        memcmp(bytes + 32U, expected_palette, 16U) != 0) {
+        set_message(message, message_size, "Self-test arena background header mismatch.");
+        goto cleanup;
+    }
+
+#define SELF_TEST_CELL(row, column) \
+    (bytes + TECMO_ASSET_PACK_ARENA_LAYER_HEADER_SIZE + \
+     (((size_t)(row) * TECMO_ASSET_PACK_ARENA_LAYER_WIDTH + (column)) * \
+      TECMO_ASSET_PACK_ARENA_LAYER_CELL_STRIDE))
+    cell = SELF_TEST_CELL(0U, 0U);
+    if (cell[0] != 1U || cell[1] != 0U || read_u32(cell + 2U) != 16U) {
+        set_message(message, message_size, "Self-test literal tile cell mismatch.");
+        goto cleanup;
+    }
+    cell = SELF_TEST_CELL(0U, 2U);
+    if (cell[0] != 3U || cell[1] != 2U || read_u32(cell + 2U) != 48U) {
+        set_message(message, message_size, "Self-test attribute quadrant mismatch.");
+        goto cleanup;
+    }
+    cell = SELF_TEST_CELL(16U, 0U);
+    if (cell[0] != 9U || cell[1] != 0U || read_u32(cell + 2U) != 2192U) {
+        set_message(message, message_size, "Self-test page-1 lower CHR cell mismatch.");
+        goto cleanup;
+    }
+    cell = SELF_TEST_CELL(38U, 0U);
+    if (cell[0] != 6U || cell[1] != 0U || read_u32(cell + 2U) != 96U) {
+        set_messagef(message,
+                     message_size,
+                     "Self-test page-0 upper CHR cell mismatch: %u/%u/%u.",
+                     (unsigned int)cell[0],
+                     (unsigned int)cell[1],
+                     read_u32(cell + 2U));
+        goto cleanup;
+    }
+    cell = SELF_TEST_CELL(48U, 0U);
+    if (cell[0] != 8U || cell[1] != 0U || read_u32(cell + 2U) != 2176U) {
+        set_message(message, message_size, "Self-test page-0 lower CHR split mismatch.");
+        goto cleanup;
+    }
+#undef SELF_TEST_CELL
+
+    result = 0;
+
+cleanup:
+    tecmo_asset_pack_free(bytes);
+    return result;
+}
+
 static int self_test_entry_contains_text(const char *pack_path,
                                          const char *entry_id,
                                          const char *needle,
@@ -1928,6 +2432,7 @@ typedef struct TecmoAssetPackSelfTestInesListState {
     int saw_source_map;
     int saw_arena_intro_script;
     int saw_arena_intro_background;
+    int arena_intro_background_metadata_valid;
     int saw_arena_intro_palette;
     int saw_arena_intro_goal;
     int saw_prg_bank0;
@@ -1956,6 +2461,12 @@ static int self_test_ines_list_entry(const TecmoAssetPackDirectoryEntryInfo *ent
         state->saw_arena_intro_script = 1;
     } else if (strcmp(entry_info->id, TECMO_ASSET_PACK_ARENA_INTRO_BACKGROUND_ID) == 0) {
         state->saw_arena_intro_background = 1;
+        state->arena_intro_background_metadata_valid =
+            entry_info->type == TECMO_ASSET_PACK_TYPE_DATA &&
+            entry_info->bank == 0U &&
+            entry_info->cpu_address == 0xA000U &&
+            entry_info->source_offset == 16ULL + 0x2000ULL &&
+            entry_info->byte_count == TECMO_ASSET_PACK_ARENA_LAYER_SIZE;
     } else if (strcmp(entry_info->id, TECMO_ASSET_PACK_ARENA_INTRO_PALETTE_ID) == 0) {
         state->saw_arena_intro_palette = 1;
     } else if (strcmp(entry_info->id, TECMO_ASSET_PACK_ARENA_INTRO_GOAL_ID) == 0) {
@@ -1981,6 +2492,26 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
     static const uint8_t file_entry_bytes[] = {
         'l', 'o', 'c', 'a', 'l', '-', 'f', 'i', 'l', 'e', '-', 'e', 'n', 't', 'r', 'y'
     };
+    static const uint8_t arena_palette[16] = {
+        0x0FU, 0x01U, 0x02U, 0x03U, 0x0FU, 0x04U, 0x05U, 0x06U,
+        0x0FU, 0x07U, 0x08U, 0x09U, 0x0FU, 0x0AU, 0x0BU, 0x0CU
+    };
+    static const uint8_t arena_stream[] = {
+        0xB9U,
+        0x04U, 0x01U, 0x02U, 0x03U, 0x04U,
+        0x00U, 0x05U,
+        0x04U, 0x07U, 0x00U,
+        0x00U, 0x06U,
+        0xAAU,
+        0x00U, 0x07U,
+        0x00U, 0x08U,
+        0x00U, 0x09U,
+        0x00U, 0x0AU,
+        0x0AU,
+        0x00U, 0x0BU,
+        0xF8U, 0x0CU,
+        0x00U
+    };
     char builder_pack_path[1024] = {0};
     char local_file_path[1024] = {0};
     char rom_path[1024] = {0};
@@ -1993,9 +2524,9 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
     uint8_t *rom = NULL;
     char *dump = NULL;
     uint64_t prg_offset = 16ULL;
-    uint64_t chr_offset = 16ULL + 2ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES;
+    uint64_t chr_offset = 16ULL + 8ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES;
     uint64_t chr_size = TECMO_ASSET_PACK_CHR_BANK_BYTES;
-    uint64_t rom_size = 16ULL + 2ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES + TECMO_ASSET_PACK_CHR_BANK_BYTES;
+    uint64_t rom_size = 16ULL + 8ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES + TECMO_ASSET_PACK_CHR_BANK_BYTES;
     size_t dump_size = 0U;
     int result = -1;
 
@@ -2119,16 +2650,43 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
     rom[1] = 'E';
     rom[2] = 'S';
     rom[3] = 0x1AU;
-    rom[4] = 2U;
+    rom[4] = 8U;
     rom[5] = 1U;
 
-    for (size_t i = 0; i < (size_t)TECMO_ASSET_PACK_PRG_BANK_BYTES; ++i) {
-        rom[(size_t)prg_offset + i] = (uint8_t)(i & 0xFFU);
-        rom[(size_t)(prg_offset + TECMO_ASSET_PACK_PRG_BANK_BYTES) + i] =
-            (uint8_t)(0x80U ^ (i & 0xFFU));
+    for (uint32_t bank = 0U; bank < 8U; ++bank) {
+        for (size_t i = 0; i < (size_t)TECMO_ASSET_PACK_PRG_BANK_BYTES; ++i) {
+            rom[(size_t)(prg_offset + (uint64_t)bank * TECMO_ASSET_PACK_PRG_BANK_BYTES) + i] =
+                (uint8_t)((bank * 29U) ^ (i & 0xFFU));
+        }
     }
     for (size_t i = 0; i < (size_t)TECMO_ASSET_PACK_CHR_BANK_BYTES; ++i) {
         rom[(size_t)chr_offset + i] = (uint8_t)(0x40U ^ (i & 0xFFU));
+    }
+
+    {
+        uint64_t fixed_offset = prg_offset + 7ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES;
+        uint64_t descriptor_offset = fixed_offset +
+                                     (TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_CPU - 0xC000U) +
+                                     TECMO_ASSET_PACK_ARENA_SCREEN_ID *
+                                         TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_SIZE;
+        uint64_t stream_offset = prg_offset + (0xA000U - TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
+        uint64_t palette_offset = prg_offset + (0xA100U - TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
+
+        rom[(size_t)descriptor_offset + 0U] = 0U;
+        rom[(size_t)descriptor_offset + 1U] = 1U;
+        rom[(size_t)descriptor_offset + 2U] = 0x00U;
+        rom[(size_t)descriptor_offset + 3U] = 0xA1U;
+        rom[(size_t)descriptor_offset + 4U] = 0x00U;
+        rom[(size_t)descriptor_offset + 5U] = 0xA0U;
+        rom[(size_t)descriptor_offset + 6U] = 0U;
+        memcpy(rom + (size_t)stream_offset, arena_stream, sizeof(arena_stream));
+        memcpy(rom + (size_t)palette_offset, arena_palette, sizeof(arena_palette));
+        rom[(size_t)(fixed_offset +
+                     (TECMO_ASSET_PACK_ARENA_LOWER_R0_TABLE_CPU - 0xC000U) +
+                     TECMO_ASSET_PACK_ARENA_LOWER_SELECTOR_INDEX)] = 2U;
+        rom[(size_t)(fixed_offset +
+                     (TECMO_ASSET_PACK_ARENA_LOWER_R1_TABLE_CPU - 0xC000U) +
+                     TECMO_ASSET_PACK_ARENA_LOWER_SELECTOR_INDEX)] = 4U;
     }
 
     if (write_self_test_file(rom_path, rom, (size_t)rom_size) != 0) {
@@ -2146,7 +2704,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                                       message_size) != 0 ||
         self_test_entry_contains_text(ines_pack_path,
                                       "system/manifest",
-                                      "prg_banks_16k=2",
+                                      "prg_banks_16k=8",
                                       message,
                                       message_size) != 0 ||
         self_test_entry_contains_text(ines_pack_path,
@@ -2186,6 +2744,31 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                                       message_size) != 0 ||
         self_test_entry_contains_text(ines_pack_path,
                                       "system/source-map",
+                                      "\"screen_id\":24,\"decoder_cpu_address\":55798",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      "system/source-map",
+                                      "\"cpu_address\":56621",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      "system/source-map",
+                                      "\"encoded_size\":28,\"decoded_size\":2048",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      "system/source-map",
+                                      "\"cpu_address\":64892,\"selector_cpu_address\":64893",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      "system/source-map",
+                                      "\"cpu_address\":64896,\"selector_cpu_address\":64897",
+                                      message,
+                                      message_size) != 0 ||
+        self_test_entry_contains_text(ines_pack_path,
+                                      "system/source-map",
                                       "\"id\":\"" TECMO_ASSET_PACK_ARENA_INTRO_PALETTE_ID "\"",
                                       message,
                                       message_size) != 0 ||
@@ -2218,16 +2801,6 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                                       message,
                                       message_size) != 0 ||
         self_test_entry_contains_text(ines_pack_path,
-                                      TECMO_ASSET_PACK_ARENA_INTRO_BACKGROUND_ID,
-                                      "\"format\":\"tecmo.arena-intro.background-layer/1\"",
-                                      message,
-                                      message_size) != 0 ||
-        self_test_entry_contains_text(ines_pack_path,
-                                      TECMO_ASSET_PACK_ARENA_INTRO_BACKGROUND_ID,
-                                      "\"chr_source\":\"chr/all\"",
-                                      message,
-                                      message_size) != 0 ||
-        self_test_entry_contains_text(ines_pack_path,
                                       TECMO_ASSET_PACK_ARENA_INTRO_PALETTE_ID,
                                       "\"format\":\"tecmo.arena-intro.palette-cycle/1\"",
                                       message,
@@ -2242,6 +2815,12 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                                       "\"alignment_contract\"",
                                       message,
                                       message_size) != 0) {
+        goto cleanup;
+    }
+    if (self_test_arena_background_layer(ines_pack_path,
+                                         arena_palette,
+                                         message,
+                                         message_size) != 0) {
         goto cleanup;
     }
 
@@ -2259,7 +2838,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                                    message_size) != 0 ||
         self_test_read_and_compare(ines_pack_path,
                                    "prg/fixed",
-                                   rom + (size_t)(prg_offset + TECMO_ASSET_PACK_PRG_BANK_BYTES),
+                                   rom + (size_t)(prg_offset + 7ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES),
                                    TECMO_ASSET_PACK_PRG_BANK_BYTES,
                                    message,
                                    message_size) != 0 ||
@@ -2282,11 +2861,12 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
     if (tecmo_asset_pack_list_entries(ines_pack_path,
                                       self_test_ines_list_entry,
                                       &ines_list_state) != 0 ||
-        ines_list_state.count != 11U ||
+        ines_list_state.count != 17U ||
         !ines_list_state.saw_manifest ||
         !ines_list_state.saw_source_map ||
         !ines_list_state.saw_arena_intro_script ||
         !ines_list_state.saw_arena_intro_background ||
+        !ines_list_state.arena_intro_background_metadata_valid ||
         !ines_list_state.saw_arena_intro_palette ||
         !ines_list_state.saw_arena_intro_goal ||
         !ines_list_state.saw_prg_bank0 ||
