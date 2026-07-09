@@ -72,6 +72,29 @@ function Get-InesHeaderInfo {
     }
 }
 
+function Read-FileBytesAtOffset {
+    param(
+        [string]$Path,
+        [uint64]$Offset,
+        [int]$Count
+    )
+
+    $File = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
+    try {
+        if ($Count -lt 0 -or $Offset -gt [uint64]$File.Length -or [uint64]$Count -gt ([uint64]$File.Length - $Offset)) {
+            throw "Requested byte range is outside the file."
+        }
+        [void]$File.Seek([int64]$Offset, [System.IO.SeekOrigin]::Begin)
+        $Bytes = New-Object byte[] $Count
+        if ($File.Read($Bytes, 0, $Count) -ne $Count) {
+            throw "Requested byte range is truncated."
+        }
+        return $Bytes
+    } finally {
+        $File.Dispose()
+    }
+}
+
 function Test-PathUnder {
     param(
         [string]$Path,
@@ -773,6 +796,7 @@ try {
                 foreach ($Offset in @(48, 52, 56, 60)) {
                     if ($SpriteBytes[$Offset] -ne 0x0F) { ++$InvalidUniversalColors }
                 }
+                $InvalidSpritePaletteColors = @($SpriteBytes[48..63] | Where-Object { $_ -gt 0x3F }).Count
 
                 $Jumbotron = 64
                 $Goal = 84
@@ -800,6 +824,7 @@ try {
                 $InvalidSpriteChrOffsets = 0
                 $InvalidGoalY = 0
                 $SpriteChrByteCount = [uint64]$ExpectedChrBanks * 8192
+                $SpriteChrPagesAvailable = $SpriteChrByteCount -ge 10240
                 if ($SpriteBytes.Length -eq 956 -and $SpritePieceCount -eq 71 -and $SpritePieceStride -eq 12) {
                     for ($Index = 0; $Index -lt 71; ++$Index) {
                         $PieceOffset = 104 + $Index * 12
@@ -807,7 +832,7 @@ try {
                         if ($SpriteBytes[$PieceOffset + 8] -gt 3) { ++$InvalidSpritePalettes }
                         if ($SpriteBytes[$PieceOffset + 9] -gt 7) { ++$InvalidSpriteFlags }
                         if ([System.BitConverter]::ToUInt16($SpriteBytes, $PieceOffset + 10) -ne 0) { ++$InvalidSpriteReserved }
-                        if (($ChrOffset -band 0x0F) -ne 0 -or $ChrOffset -lt 8192 -or ([uint64]$ChrOffset + 32) -gt $SpriteChrByteCount) {
+                        if (($ChrOffset -band 0x0F) -ne 0 -or $ChrOffset -lt 8192 -or ([uint64]$ChrOffset + 32) -gt 10240) {
                             ++$InvalidSpriteChrOffsets
                         }
                         if ($Index -ge 55 -and !(@(0, 16, 32, 48).Contains([int][System.BitConverter]::ToInt16($SpriteBytes, $PieceOffset + 2)))) {
@@ -820,7 +845,8 @@ try {
                     $SpritePieceCount -eq 71 -and $SpritePieceStride -eq 12 -and $SpriteFlags -eq 1 -and
                     $SpritePaletteOffset -eq 48 -and $SpriteGroupsOffset -eq 64 -and $SpritePiecesOffset -eq 104 -and
                     $SpriteBytes.Length -eq 956 -and $ReservedHeaderNonzero -eq 0 -and
-                    $InvalidUniversalColors -eq 0 -and $GroupsValid -and
+                    $InvalidUniversalColors -eq 0 -and $InvalidSpritePaletteColors -eq 0 -and $GroupsValid -and
+                    $SpriteChrPagesAvailable -and
                     $InvalidSpritePalettes -eq 0 -and $InvalidSpriteFlags -eq 0 -and
                     $InvalidSpriteReserved -eq 0 -and $InvalidSpriteChrOffsets -eq 0 -and $InvalidGoalY -eq 0
                 Add-TestResult ([pscustomobject]@{
@@ -833,6 +859,8 @@ try {
                     byte_count = $SpriteBytes.Length
                     groups_valid = $GroupsValid
                     normalized_palette_count = 4 - $InvalidUniversalColors
+                    palette_colors_valid = $InvalidSpritePaletteColors -eq 0
+                    chr_page_pair_bounds_valid = $SpriteChrPagesAvailable -and $InvalidSpriteChrOffsets -eq 0
                     invalid_piece_count = $InvalidSpritePalettes + $InvalidSpriteFlags + $InvalidSpriteReserved + $InvalidSpriteChrOffsets + $InvalidGoalY
                     raw_asset_bytes_persisted = $false
                 })
@@ -917,6 +945,25 @@ try {
                 $ExpectedSeedsOffset = [uint64]($PrgStart + 4 * 0x4000 + (0x8984 - 0x8000))
                 $ExpectedEmitterOffset = [uint64]($PrgStart + 4 * 0x4000 + (0x8988 - 0x8000))
                 $ExpectedParamsOffset = [uint64]($PrgStart + 4 * 0x4000 + (0x89BD - 0x8000))
+                $SeedBytes = Read-FileBytesAtOffset -Path $ReferenceRom -Offset $ExpectedSeedsOffset -Count 4
+                $ParamBytes = Read-FileBytesAtOffset -Path $ReferenceRom -Offset $ExpectedParamsOffset -Count 4
+                $Bank04AnchorContractsValid =
+                    $SeedBytes[0] -eq 0x00 -and $SeedBytes[1] -eq 0x1E -and
+                    $SeedBytes[2] -eq 0x00 -and $SeedBytes[3] -eq 0x01 -and
+                    $ParamBytes[0] -eq 0x00 -and $ParamBytes[1] -eq 0xB8 -and
+                    $ParamBytes[2] -eq 0x00 -and $ParamBytes[3] -eq 0x01
+                $SpriteChrPagesValid = $SpriteSource.Count -eq 1 -and
+                    @($SpriteSource.chr_pages).Count -eq 2 -and
+                    [int]$SpriteSource.chr_pages[0].size -eq 1024 -and
+                    [int]$SpriteSource.chr_pages[0].mapper_register -eq 2 -and
+                    [int]$SpriteSource.chr_pages[0].selector -eq 8 -and
+                    [int]$SpriteSource.chr_pages[0].chr_offset -eq 8192 -and
+                    [uint64]$SpriteSource.chr_pages[0].source_offset -eq ($ChrStart + 8192) -and
+                    [int]$SpriteSource.chr_pages[1].size -eq 1024 -and
+                    [int]$SpriteSource.chr_pages[1].mapper_register -eq 3 -and
+                    [int]$SpriteSource.chr_pages[1].selector -eq 9 -and
+                    [int]$SpriteSource.chr_pages[1].chr_offset -eq 9216 -and
+                    [uint64]$SpriteSource.chr_pages[1].source_offset -eq ($ChrStart + 9216)
                 $SpriteProvenancePassed = $SpriteSource.Count -eq 1 -and
                     $SpriteSource.schema -eq "tecmo.arena-intro.sprite-groups/TASG-1" -and
                     [int]$SpriteSource.palette.bank -eq 4 -and [int]$SpriteSource.palette.cpu_address -eq 0x89DD -and
@@ -930,21 +977,23 @@ try {
                     [int]$SpriteSource.streams[1].selector -eq 1 -and $SpriteSource.streams[1].kind -eq "goal" -and
                     [int]$SpriteSource.streams[1].record_count -eq 16 -and [int]$SpriteSource.streams[1].size -eq 65 -and
                     [uint64]$SpriteSource.streams[1].source_offset -eq [uint64]($PrgStart + [int]$SpriteSource.streams[1].cpu_address - 0x8000) -and
-                    [int]$SpriteSource.bank04.seeds.cpu_address -eq 0x8984 -and [uint64]$SpriteSource.bank04.seeds.source_offset -eq $ExpectedSeedsOffset -and
+                    [int]$SpriteSource.bank04.seeds.cpu_address -eq 0x8984 -and [int]$SpriteSource.bank04.seeds.size -eq 4 -and
+                    [uint64]$SpriteSource.bank04.seeds.source_offset -eq $ExpectedSeedsOffset -and
                     [int]$SpriteSource.bank04.emitter.cpu_address -eq 0x8988 -and [int]$SpriteSource.bank04.emitter.size -eq 53 -and
                     [uint64]$SpriteSource.bank04.emitter.source_offset -eq $ExpectedEmitterOffset -and
-                    [int]$SpriteSource.bank04.params.cpu_address -eq 0x89BD -and [uint64]$SpriteSource.bank04.params.source_offset -eq $ExpectedParamsOffset -and
+                    [int]$SpriteSource.bank04.params.cpu_address -eq 0x89BD -and [int]$SpriteSource.bank04.params.size -eq 4 -and
+                    [uint64]$SpriteSource.bank04.params.source_offset -eq $ExpectedParamsOffset -and
+                    $Bank04AnchorContractsValid -and
                     [int]$SpriteSource.mapper.r2 -eq 8 -and [int]$SpriteSource.mapper.r3 -eq 9 -and
-                    @($SpriteSource.chr_pages).Count -eq 2 -and
-                    [uint64]$SpriteSource.chr_pages[0].source_offset -eq ($ChrStart + 8192) -and
-                    [uint64]$SpriteSource.chr_pages[1].source_offset -eq ($ChrStart + 9216)
+                    $SpriteChrPagesValid
                 Add-TestResult ([pscustomobject]@{
                     id = "assetpack-arena-sprite-provenance"
                     passed = $SpriteProvenancePassed
                     schema_valid = $SpriteSource.Count -eq 1 -and $SpriteSource.schema -eq "tecmo.arena-intro.sprite-groups/TASG-1"
                     streams_valid = $SpriteSource.Count -eq 1 -and @($SpriteSource.streams).Count -eq 2
                     bank04_regions_valid = $SpriteSource.Count -eq 1 -and [int]$SpriteSource.bank04.emitter.cpu_address -eq 0x8988
-                    chr_pages_valid = $SpriteSource.Count -eq 1 -and @($SpriteSource.chr_pages).Count -eq 2
+                    bank04_anchor_contracts_valid = $Bank04AnchorContractsValid
+                    chr_pages_valid = $SpriteChrPagesValid
                     raw_asset_bytes_persisted = $false
                 })
             } catch {

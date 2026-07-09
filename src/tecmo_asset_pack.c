@@ -48,6 +48,8 @@
      TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_COUNT * \
          TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_STRIDE)
 #define TECMO_ASSET_PACK_ARENA_SPRITE_CHR_BASE 8192U
+#define TECMO_ASSET_PACK_ARENA_SPRITE_CHR_LIMIT \
+    (TECMO_ASSET_PACK_ARENA_SPRITE_CHR_BASE + 2U * 1024U)
 #define TECMO_ASSET_PACK_ARENA_SPRITE_CHR_R2 8U
 #define TECMO_ASSET_PACK_ARENA_SPRITE_CHR_R3 9U
 #define TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE 0x8000U
@@ -1148,9 +1150,13 @@ static int build_arena_sprite_groups(const uint8_t *rom,
         TECMO_ASSET_PACK_ARENA_JUMBOTRON_COUNT,
         TECMO_ASSET_PACK_ARENA_GOAL_COUNT
     };
+    static const uint8_t expected_seeds[4] = {0x00U, 0x1EU, 0x00U, 0x01U};
+    static const uint8_t expected_params[4] = {0x00U, 0xB8U, 0x00U, 0x01U};
     uint64_t bank04_offset;
     uint64_t palette_offset;
     uint64_t pointer_table_offset;
+    uint64_t seeds_offset;
+    uint64_t params_offset;
     uint32_t stream_cpu[2];
     uint32_t stream_size[2];
     uint64_t stream_offset[2];
@@ -1176,9 +1182,17 @@ static int build_arena_sprite_groups(const uint8_t *rom,
     pointer_table_offset = prg_offset +
                            (TECMO_ASSET_PACK_ARENA_POINTER_TABLE_CPU -
                             TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
+    seeds_offset = bank04_offset +
+                   (TECMO_ASSET_PACK_ARENA_SEEDS_CPU -
+                    TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
+    params_offset = bank04_offset +
+                    (TECMO_ASSET_PACK_ARENA_PARAMS_CPU -
+                     TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
     if (palette_offset > rom_size || 16U > rom_size - palette_offset ||
-        pointer_table_offset > rom_size || 4U > rom_size - pointer_table_offset) {
-        set_message(message, message_size, "Arena sprite palette or pointer table is outside the ROM.");
+        pointer_table_offset > rom_size || 4U > rom_size - pointer_table_offset ||
+        seeds_offset > rom_size || sizeof(expected_seeds) > rom_size - seeds_offset ||
+        params_offset > rom_size || sizeof(expected_params) > rom_size - params_offset) {
+        set_message(message, message_size, "Arena sprite source contract is outside the ROM.");
         return -1;
     }
 
@@ -1193,6 +1207,24 @@ static int build_arena_sprite_groups(const uint8_t *rom,
                          (unsigned int)source[0]);
             return -1;
         }
+        for (size_t color = 1U; color < 4U; ++color) {
+            if (source[color] > 0x3FU) {
+                set_messagef(message,
+                             message_size,
+                             "Arena sprite subpalette %u color %u is outside the NES palette.",
+                             (unsigned int)palette,
+                             (unsigned int)color);
+                return -1;
+            }
+        }
+    }
+    if (memcmp(rom + (size_t)seeds_offset, expected_seeds, sizeof(expected_seeds)) != 0) {
+        set_message(message, message_size, "Arena sprite seed bytes do not match normalized anchors.");
+        return -1;
+    }
+    if (memcmp(rom + (size_t)params_offset, expected_params, sizeof(expected_params)) != 0) {
+        set_message(message, message_size, "Arena sprite parameter bytes do not match normalized anchors.");
+        return -1;
     }
 
     for (size_t selector = 0U; selector < 2U; ++selector) {
@@ -1306,10 +1338,12 @@ static int build_arena_sprite_groups(const uint8_t *rom,
                              (unsigned int)attributes);
                 return -1;
             }
-            if ((uint64_t)chr_byte_offset + 32U > chr_size) {
+            if (chr_byte_offset < TECMO_ASSET_PACK_ARENA_SPRITE_CHR_BASE ||
+                (uint64_t)chr_byte_offset + 32U >
+                    TECMO_ASSET_PACK_ARENA_SPRITE_CHR_LIMIT) {
                 set_messagef(message,
                              message_size,
-                             "Arena sprite selector %u record %u references CHR outside chr/all.",
+                             "Arena sprite selector %u record %u references CHR outside pages 8/9.",
                              (unsigned int)selector,
                              (unsigned int)index);
                 return -1;
@@ -1356,15 +1390,11 @@ static int build_arena_sprite_groups(const uint8_t *rom,
 
     provenance->palette_source_offset = palette_offset;
     provenance->pointer_table_source_offset = pointer_table_offset;
-    provenance->seeds_source_offset = bank04_offset +
-                                      (TECMO_ASSET_PACK_ARENA_SEEDS_CPU -
-                                       TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
+    provenance->seeds_source_offset = seeds_offset;
     provenance->emitter_source_offset = bank04_offset +
                                         (TECMO_ASSET_PACK_ARENA_SPRITE_EMIT_CPU -
                                          TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
-    provenance->params_source_offset = bank04_offset +
-                                       (TECMO_ASSET_PACK_ARENA_PARAMS_CPU -
-                                        TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
+    provenance->params_source_offset = params_offset;
     provenance->chr_page_source_offset[0] = chr_offset +
                                             (uint64_t)TECMO_ASSET_PACK_ARENA_SPRITE_CHR_R2 * 1024U;
     provenance->chr_page_source_offset[1] = chr_offset +
@@ -2671,7 +2701,6 @@ cleanup:
 
 static int self_test_arena_sprite_groups(const char *pack_path,
                                          const uint8_t expected_palette[16],
-                                         uint64_t chr_size,
                                          char *message,
                                          size_t message_size)
 {
@@ -2708,6 +2737,14 @@ static int self_test_arena_sprite_groups(const char *pack_path,
     for (size_t index = 32U; index < 48U; ++index) {
         if (bytes[index] != 0U) {
             set_message(message, message_size, "Self-test TASG reserved header bytes are nonzero.");
+            goto cleanup;
+        }
+    }
+    for (size_t index = TECMO_ASSET_PACK_ARENA_SPRITE_PALETTE_OFFSET;
+         index < TECMO_ASSET_PACK_ARENA_SPRITE_PALETTE_OFFSET + 16U;
+         ++index) {
+        if (bytes[index] > 0x3FU) {
+            set_message(message, message_size, "Self-test TASG palette color is outside the NES palette.");
             goto cleanup;
         }
     }
@@ -2761,7 +2798,8 @@ static int self_test_arena_sprite_groups(const char *pack_path,
         if (piece[8] > 3U || piece[9] > 7U || read_u16(piece + 10U) != 0U ||
             (chr_byte_offset & 0x0FU) != 0U ||
             chr_byte_offset < TECMO_ASSET_PACK_ARENA_SPRITE_CHR_BASE ||
-            (uint64_t)chr_byte_offset + 32U > chr_size) {
+            (uint64_t)chr_byte_offset + 32U >
+                TECMO_ASSET_PACK_ARENA_SPRITE_CHR_LIMIT) {
             set_message(message, message_size, "Self-test TASG piece contract mismatch.");
             goto cleanup;
         }
@@ -2772,6 +2810,128 @@ static int self_test_arena_sprite_groups(const char *pack_path,
 cleanup:
     tecmo_asset_pack_free(bytes);
     return result;
+}
+
+static int self_test_arena_sprite_group_validation(uint8_t *rom,
+                                                   uint64_t rom_size,
+                                                   uint64_t prg_offset,
+                                                   uint64_t chr_offset,
+                                                   uint64_t chr_size,
+                                                   char *message,
+                                                   size_t message_size)
+{
+    uint8_t payload[TECMO_ASSET_PACK_ARENA_SPRITE_GROUPS_SIZE];
+    TecmoArenaSpriteGroupsProvenance provenance;
+    uint64_t bank04_offset = prg_offset +
+                             (uint64_t)TECMO_ASSET_PACK_ARENA_BANK04 *
+                                 TECMO_ASSET_PACK_PRG_BANK_BYTES;
+    uint64_t palette_offset = bank04_offset +
+                              (TECMO_ASSET_PACK_ARENA_PALETTE_CPU -
+                               TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
+    uint64_t seeds_offset = bank04_offset +
+                            (TECMO_ASSET_PACK_ARENA_SEEDS_CPU -
+                             TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
+    uint64_t params_offset = bank04_offset +
+                             (TECMO_ASSET_PACK_ARENA_PARAMS_CPU -
+                              TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
+    uint64_t first_record_tile_offset = prg_offset + (0xA7E3U - 0x8000U) + 2U;
+    uint8_t saved;
+    char validation_message[192];
+
+    saved = rom[(size_t)palette_offset + 1U];
+    rom[(size_t)palette_offset + 1U] = 0x40U;
+    if (build_arena_sprite_groups(rom,
+                                  rom_size,
+                                  prg_offset,
+                                  8U,
+                                  chr_offset,
+                                  chr_size,
+                                  payload,
+                                  sizeof(payload),
+                                  &provenance,
+                                  validation_message,
+                                  sizeof(validation_message)) == 0) {
+        rom[(size_t)palette_offset + 1U] = saved;
+        set_message(message, message_size, "Self-test accepted an invalid sprite palette color.");
+        return -1;
+    }
+    rom[(size_t)palette_offset + 1U] = saved;
+
+    saved = rom[(size_t)first_record_tile_offset];
+    rom[(size_t)first_record_tile_offset] = 0x7DU;
+    if (build_arena_sprite_groups(rom,
+                                  rom_size,
+                                  prg_offset,
+                                  8U,
+                                  chr_offset,
+                                  chr_size,
+                                  payload,
+                                  sizeof(payload),
+                                  &provenance,
+                                  validation_message,
+                                  sizeof(validation_message)) != 0 ||
+        read_u32(payload + TECMO_ASSET_PACK_ARENA_SPRITE_PIECES_OFFSET + 4U) !=
+            TECMO_ASSET_PACK_ARENA_SPRITE_CHR_LIMIT - 32U) {
+        rom[(size_t)first_record_tile_offset] = saved;
+        set_message(message, message_size, "Self-test rejected the final valid sprite CHR pair.");
+        return -1;
+    }
+    rom[(size_t)first_record_tile_offset] = 0x7FU;
+    if (build_arena_sprite_groups(rom,
+                                  rom_size,
+                                  prg_offset,
+                                  8U,
+                                  chr_offset,
+                                  chr_size,
+                                  payload,
+                                  sizeof(payload),
+                                  &provenance,
+                                  validation_message,
+                                  sizeof(validation_message)) == 0) {
+        rom[(size_t)first_record_tile_offset] = saved;
+        set_message(message, message_size, "Self-test accepted a sprite CHR pair outside pages 8/9.");
+        return -1;
+    }
+    rom[(size_t)first_record_tile_offset] = saved;
+
+    saved = rom[(size_t)seeds_offset + 1U];
+    rom[(size_t)seeds_offset + 1U] ^= 1U;
+    if (build_arena_sprite_groups(rom,
+                                  rom_size,
+                                  prg_offset,
+                                  8U,
+                                  chr_offset,
+                                  chr_size,
+                                  payload,
+                                  sizeof(payload),
+                                  &provenance,
+                                  validation_message,
+                                  sizeof(validation_message)) == 0) {
+        rom[(size_t)seeds_offset + 1U] = saved;
+        set_message(message, message_size, "Self-test accepted invalid sprite anchor seeds.");
+        return -1;
+    }
+    rom[(size_t)seeds_offset + 1U] = saved;
+
+    saved = rom[(size_t)params_offset + 1U];
+    rom[(size_t)params_offset + 1U] ^= 1U;
+    if (build_arena_sprite_groups(rom,
+                                  rom_size,
+                                  prg_offset,
+                                  8U,
+                                  chr_offset,
+                                  chr_size,
+                                  payload,
+                                  sizeof(payload),
+                                  &provenance,
+                                  validation_message,
+                                  sizeof(validation_message)) == 0) {
+        rom[(size_t)params_offset + 1U] = saved;
+        set_message(message, message_size, "Self-test accepted invalid sprite anchor parameters.");
+        return -1;
+    }
+    rom[(size_t)params_offset + 1U] = saved;
+    return 0;
 }
 
 static int self_test_d9f6_decoder(char *message, size_t message_size)
@@ -3062,6 +3222,8 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         0x0FU, 0x11U, 0x12U, 0x13U, 0x0FU, 0x14U, 0x15U, 0x16U,
         0x0FU, 0x17U, 0x18U, 0x19U, 0x0FU, 0x1AU, 0x1BU, 0x1CU
     };
+    static const uint8_t arena_sprite_seeds[4] = {0x00U, 0x1EU, 0x00U, 0x01U};
+    static const uint8_t arena_sprite_params[4] = {0x00U, 0xB8U, 0x00U, 0x01U};
     static const uint8_t arena_stream[] = {
         0xB9U,
         0x04U, 0x01U, 0x02U, 0x03U, 0x04U,
@@ -3300,6 +3462,26 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                                TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE)),
                arena_sprite_palette,
                sizeof(arena_sprite_palette));
+        memcpy(rom + (size_t)(bank04_offset +
+                              (TECMO_ASSET_PACK_ARENA_SEEDS_CPU -
+                               TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE)),
+               arena_sprite_seeds,
+               sizeof(arena_sprite_seeds));
+        memcpy(rom + (size_t)(bank04_offset +
+                              (TECMO_ASSET_PACK_ARENA_PARAMS_CPU -
+                               TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE)),
+               arena_sprite_params,
+               sizeof(arena_sprite_params));
+    }
+
+    if (self_test_arena_sprite_group_validation(rom,
+                                                rom_size,
+                                                prg_offset,
+                                                chr_offset,
+                                                chr_size,
+                                                message,
+                                                message_size) != 0) {
+        goto cleanup;
     }
 
     if (write_self_test_file(rom_path, rom, (size_t)rom_size) != 0) {
@@ -3463,7 +3645,6 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
     }
     if (self_test_arena_sprite_groups(ines_pack_path,
                                       expected_sprite_palette,
-                                      chr_size,
                                       message,
                                       message_size) != 0) {
         goto cleanup;
