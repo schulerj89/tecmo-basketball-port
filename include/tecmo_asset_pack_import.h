@@ -5,7 +5,8 @@
 
 #include <stddef.h>
 
-int tecmo_asset_pack_import_intro_captures(const char *project_root,
+int tecmo_asset_pack_import_intro_captures(const char *primary_project_root,
+                                           const char *fallback_project_root,
                                            TecmoAssetPackBuilder *builder,
                                            unsigned *imported_count_out,
                                            char *message,
