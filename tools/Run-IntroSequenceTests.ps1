@@ -330,22 +330,22 @@ try {
             value = 0x08
         },
         [pscustomobject]@{
-            id = "jumbotron-second-tile-adjustment-unsupported"
+            id = "jumbotron-connector-overlay-unsupported"
             mutation = "i16"
             payload_offset = 114
-            value = -2
+            value = -1
         },
         [pscustomobject]@{
-            id = "goal-second-tile-adjustment-required"
+            id = "goal-connector-overlay-required"
             mutation = "i16"
-            payload_offset = 846
+            payload_offset = 858
             value = 0
         },
         [pscustomobject]@{
-            id = "goal-second-tile-adjustment-value-strict"
+            id = "goal-connector-overlay-value-strict"
             mutation = "i16"
-            payload_offset = 846
-            value = -1
+            payload_offset = 858
+            value = -2
         }
     )
     $MalformedPackPath = Join-Path $OutputDir "malformed-tasg.assetpack"

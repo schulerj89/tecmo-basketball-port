@@ -49,7 +49,7 @@ typedef struct TecmoArenaNativeSpritePiece {
     uint32_t top_chr_offset;
     uint8_t palette_index;
     uint8_t flags;
-    int16_t second_tile_y_adjust;
+    int16_t connector_overlay_y_adjust;
 } TecmoArenaNativeSpritePiece;
 
 typedef struct TecmoArenaNativeSpriteGroups {

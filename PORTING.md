@@ -139,10 +139,13 @@ palette indexes, flips, anchors, and transition scroll. Missing or invalid TASG
 data must fail the exact arena render instead of falling back to hardcoded goal
 pieces, synthetic palettes, or captured OAM. TASG-2 keeps its existing header,
 group, and piece strides and interprets piece bytes 10..11 as signed
-`second_tile_y_adjust`. Exactly the center-lower goal post/base piece uses `-2`;
-the remaining 70 pieces use zero, and the second 8x8 tile is drawn at
-`(8 + adjustment)` native pixels below the first without changing the shared
-goal anchor, piece offsets, or goal motion.
+`connector_overlay_y_adjust`. Exactly the center `dx=16`, `dy=32` goal
+connector piece uses `-1`; the remaining 70 pieces use zero. Runtime draws the
+canonical ROM-derived second 8x8 tile at `y+8`, then draws an adjusted copy of
+that tile using a connector overlay palette. Overlay indexes 0 and 1 are
+transparent, while indexes 2 and 3 retain their exact ROM palette colors. This
+bridges opaque-black internal rows without changing the shared goal anchor,
+piece offsets, canonical post position or extent, or goal motion.
 
 ## Validation Rules
 

@@ -50,9 +50,9 @@
 #define TECMO_ASSET_PACK_ARENA_SPRITE_CHR_BASE 8192U
 #define TECMO_ASSET_PACK_ARENA_SPRITE_CHR_LIMIT \
     (TECMO_ASSET_PACK_ARENA_SPRITE_CHR_BASE + 2U * 1024U)
-#define TECMO_ASSET_PACK_ARENA_GOAL_GAP_RAW_Y 0xF0U
-#define TECMO_ASSET_PACK_ARENA_GOAL_GAP_RAW_X 0xFDU
-#define TECMO_ASSET_PACK_ARENA_GOAL_GAP_SECOND_TILE_Y_ADJUST (-2)
+#define TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_Y 0xE0U
+#define TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_X 0xFDU
+#define TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_OVERLAY_Y_ADJUST (-1)
 #define TECMO_ASSET_PACK_ARENA_SPRITE_CHR_R2 8U
 #define TECMO_ASSET_PACK_ARENA_SPRITE_CHR_R3 9U
 #define TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE 0x8000U
@@ -1164,7 +1164,7 @@ static int build_arena_sprite_groups(const uint8_t *rom,
     uint32_t stream_size[2];
     uint64_t stream_offset[2];
     size_t output_piece = 0U;
-    size_t adjusted_piece_count = 0U;
+    size_t connector_overlay_piece_count = 0U;
 
     if (rom == NULL || payload == NULL || provenance == NULL ||
         payload_size != TECMO_ASSET_PACK_ARENA_SPRITE_GROUPS_SIZE ||
@@ -1331,7 +1331,7 @@ static int build_arena_sprite_groups(const uint8_t *rom,
                                        (uint32_t)top_tile * 16U;
             int16_t dx;
             int16_t dy;
-            int16_t second_tile_y_adjust = 0;
+            int16_t connector_overlay_y_adjust = 0;
             uint8_t flags = 0U;
 
             if ((attributes & 0x1CU) != 0U) {
@@ -1375,11 +1375,11 @@ static int build_arena_sprite_groups(const uint8_t *rom,
                                      (unsigned int)record[0]);
                         return -1;
                 }
-                if (record[0] == TECMO_ASSET_PACK_ARENA_GOAL_GAP_RAW_Y &&
-                    record[3] == TECMO_ASSET_PACK_ARENA_GOAL_GAP_RAW_X) {
-                    second_tile_y_adjust =
-                        TECMO_ASSET_PACK_ARENA_GOAL_GAP_SECOND_TILE_Y_ADJUST;
-                    ++adjusted_piece_count;
+                if (record[0] == TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_Y &&
+                    record[3] == TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_X) {
+                    connector_overlay_y_adjust =
+                        TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_OVERLAY_Y_ADJUST;
+                    ++connector_overlay_piece_count;
                 }
             }
 
@@ -1391,7 +1391,7 @@ static int build_arena_sprite_groups(const uint8_t *rom,
             store_u32(piece + 4U, chr_byte_offset);
             piece[8] = (uint8_t)(attributes & 0x03U);
             piece[9] = flags;
-            store_u16(piece + 10U, (uint16_t)second_tile_y_adjust);
+            store_u16(piece + 10U, (uint16_t)connector_overlay_y_adjust);
             ++output_piece;
         }
     }
@@ -1399,8 +1399,8 @@ static int build_arena_sprite_groups(const uint8_t *rom,
         set_message(message, message_size, "Arena sprite piece count mismatch.");
         return -1;
     }
-    if (adjusted_piece_count != 1U) {
-        set_message(message, message_size, "Arena sprite gap-adjustment record count mismatch.");
+    if (connector_overlay_piece_count != 1U) {
+        set_message(message, message_size, "Arena sprite connector-overlay record count mismatch.");
         return -1;
     }
 
@@ -2725,8 +2725,8 @@ static int self_test_arena_sprite_groups(const char *pack_path,
     const uint8_t *jumbotron;
     const uint8_t *goal;
     const uint8_t *piece;
-    size_t adjusted_piece_count = 0U;
-    size_t zero_adjustment_count = 0U;
+    size_t connector_overlay_piece_count = 0U;
+    size_t zero_connector_overlay_count = 0U;
     int result = -1;
 
     if (tecmo_asset_pack_read_entry(pack_path,
@@ -2810,24 +2810,25 @@ static int self_test_arena_sprite_groups(const char *pack_path,
 
     for (size_t index = 0U; index < TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_COUNT; ++index) {
         uint32_t chr_byte_offset;
-        int16_t second_tile_y_adjust;
+        int16_t connector_overlay_y_adjust;
         piece = bytes + TECMO_ASSET_PACK_ARENA_SPRITE_PIECES_OFFSET +
                 index * TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_STRIDE;
         chr_byte_offset = read_u32(piece + 4U);
-        second_tile_y_adjust = (int16_t)read_u16(piece + 10U);
-        if (second_tile_y_adjust == TECMO_ASSET_PACK_ARENA_GOAL_GAP_SECOND_TILE_Y_ADJUST) {
-            ++adjusted_piece_count;
+        connector_overlay_y_adjust = (int16_t)read_u16(piece + 10U);
+        if (connector_overlay_y_adjust ==
+            TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_OVERLAY_Y_ADJUST) {
+            ++connector_overlay_piece_count;
             if (index < TECMO_ASSET_PACK_ARENA_JUMBOTRON_COUNT ||
                 (int16_t)read_u16(piece + 0U) != 16 ||
-                (int16_t)read_u16(piece + 2U) != 48 ||
-                chr_byte_offset != 9248U) {
-                set_message(message, message_size, "Self-test TASG adjusted goal piece mismatch.");
+                (int16_t)read_u16(piece + 2U) != 32 ||
+                chr_byte_offset != 9056U) {
+                set_message(message, message_size, "Self-test TASG connector-overlay goal piece mismatch.");
                 goto cleanup;
             }
-        } else if (second_tile_y_adjust == 0) {
-            ++zero_adjustment_count;
+        } else if (connector_overlay_y_adjust == 0) {
+            ++zero_connector_overlay_count;
         } else {
-            set_message(message, message_size, "Self-test TASG piece adjustment mismatch.");
+            set_message(message, message_size, "Self-test TASG piece connector overlay mismatch.");
             goto cleanup;
         }
         if (piece[8] > 3U || piece[9] > 7U ||
@@ -2839,8 +2840,8 @@ static int self_test_arena_sprite_groups(const char *pack_path,
             goto cleanup;
         }
     }
-    if (adjusted_piece_count != 1U || zero_adjustment_count != 70U) {
-        set_message(message, message_size, "Self-test TASG adjustment counts mismatch.");
+    if (connector_overlay_piece_count != 1U || zero_connector_overlay_count != 70U) {
+        set_message(message, message_size, "Self-test TASG connector-overlay counts mismatch.");
         goto cleanup;
     }
 
@@ -3496,10 +3497,10 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
             record[3] = (uint8_t)(0xF0U + index);
         }
         goal[1U + 2U] = 0x42U;
-        goal[1U + 6U * 4U + 0U] = TECMO_ASSET_PACK_ARENA_GOAL_GAP_RAW_Y;
-        goal[1U + 6U * 4U + 1U] = 0x42U;
-        goal[1U + 6U * 4U + 2U] = 0x03U;
-        goal[1U + 6U * 4U + 3U] = TECMO_ASSET_PACK_ARENA_GOAL_GAP_RAW_X;
+        goal[1U + 7U * 4U + 0U] = TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_Y;
+        goal[1U + 7U * 4U + 1U] = 0x36U;
+        goal[1U + 7U * 4U + 2U] = 0x02U;
+        goal[1U + 7U * 4U + 3U] = TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_X;
         memcpy(rom + (size_t)(bank04_offset +
                               (TECMO_ASSET_PACK_ARENA_PALETTE_CPU -
                                TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE)),

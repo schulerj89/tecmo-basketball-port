@@ -780,7 +780,7 @@ try {
 
             try {
                 $SpriteBytes = Read-AssetPackEntryBytes -Path $AssetPackPath -Directory $Directory -EntryId "arena/intro/sprite-groups"
-                $KnownReferenceSpriteSha256 = "DB0F5FB7B84F6CB79D3311A552EEFAFB95144BB6682909A0A569CCE0545D0C2D"
+                $KnownReferenceSpriteSha256 = "8479FF1F5AB502D68169F74D88DBCB4B582D5E1F6009D18D509E020499A79679"
                 $SpriteHasher = [System.Security.Cryptography.SHA256]::Create()
                 try {
                     $SpriteSha256 = [System.BitConverter]::ToString($SpriteHasher.ComputeHash($SpriteBytes)).Replace("-", "")
@@ -829,12 +829,12 @@ try {
 
                 $InvalidSpritePalettes = 0
                 $InvalidSpriteFlags = 0
-                $InvalidSpriteAdjustments = 0
+                $InvalidConnectorOverlays = 0
                 $InvalidSpriteChrOffsets = 0
                 $InvalidGoalY = 0
-                $AdjustedSecondTileCount = 0
-                $ZeroSecondTileAdjustmentCount = 0
-                $AdjustedGoalContractCount = 0
+                $ConnectorOverlayCount = 0
+                $ZeroConnectorOverlayCount = 0
+                $GoalConnectorOverlayContractCount = 0
                 $SpriteChrByteCount = [uint64]$ExpectedChrBanks * 8192
                 $SpriteChrPagesAvailable = $SpriteChrByteCount -ge 10240
                 if ($SpriteBytes.Length -eq 956 -and $SpritePieceCount -eq 71 -and $SpritePieceStride -eq 12) {
@@ -843,20 +843,20 @@ try {
                         $Dx = [System.BitConverter]::ToInt16($SpriteBytes, $PieceOffset + 0)
                         $Dy = [System.BitConverter]::ToInt16($SpriteBytes, $PieceOffset + 2)
                         $ChrOffset = [System.BitConverter]::ToUInt32($SpriteBytes, $PieceOffset + 4)
-                        $SecondTileYAdjust = [System.BitConverter]::ToInt16($SpriteBytes, $PieceOffset + 10)
+                        $ConnectorOverlayYAdjust = [System.BitConverter]::ToInt16($SpriteBytes, $PieceOffset + 10)
                         if ($SpriteBytes[$PieceOffset + 8] -gt 3) { ++$InvalidSpritePalettes }
                         if (($SpriteBytes[$PieceOffset + 9] -band 0xFC) -ne 0) { ++$InvalidSpriteFlags }
-                        if ($SecondTileYAdjust -eq -2) {
-                            ++$AdjustedSecondTileCount
-                            if ($Index -ge 55 -and $Dx -eq 16 -and $Dy -eq 48 -and $ChrOffset -eq 9248) {
-                                ++$AdjustedGoalContractCount
+                        if ($ConnectorOverlayYAdjust -eq -1) {
+                            ++$ConnectorOverlayCount
+                            if ($Index -ge 55 -and $Dx -eq 16 -and $Dy -eq 32 -and $ChrOffset -eq 9056) {
+                                ++$GoalConnectorOverlayContractCount
                             } else {
-                                ++$InvalidSpriteAdjustments
+                                ++$InvalidConnectorOverlays
                             }
-                        } elseif ($SecondTileYAdjust -eq 0) {
-                            ++$ZeroSecondTileAdjustmentCount
+                        } elseif ($ConnectorOverlayYAdjust -eq 0) {
+                            ++$ZeroConnectorOverlayCount
                         } else {
-                            ++$InvalidSpriteAdjustments
+                            ++$InvalidConnectorOverlays
                         }
                         if (($ChrOffset -band 0x0F) -ne 0 -or $ChrOffset -lt 8192 -or ([uint64]$ChrOffset + 32) -gt 10240) {
                             ++$InvalidSpriteChrOffsets
@@ -874,9 +874,9 @@ try {
                     $InvalidUniversalColors -eq 0 -and $InvalidSpritePaletteColors -eq 0 -and $GroupsValid -and
                     $SpriteChrPagesAvailable -and $KnownReferenceSpriteContentMatches -and
                     $InvalidSpritePalettes -eq 0 -and $InvalidSpriteFlags -eq 0 -and
-                    $InvalidSpriteAdjustments -eq 0 -and $InvalidSpriteChrOffsets -eq 0 -and $InvalidGoalY -eq 0 -and
-                    $AdjustedSecondTileCount -eq 1 -and $ZeroSecondTileAdjustmentCount -eq 70 -and
-                    $AdjustedGoalContractCount -eq 1
+                    $InvalidConnectorOverlays -eq 0 -and $InvalidSpriteChrOffsets -eq 0 -and $InvalidGoalY -eq 0 -and
+                    $ConnectorOverlayCount -eq 1 -and $ZeroConnectorOverlayCount -eq 70 -and
+                    $GoalConnectorOverlayContractCount -eq 1
                 Add-TestResult ([pscustomobject]@{
                     id = "assetpack-arena-sprite-groups"
                     passed = $SpriteContractPassed
@@ -889,12 +889,12 @@ try {
                     normalized_palette_count = 4 - $InvalidUniversalColors
                     palette_colors_valid = $InvalidSpritePaletteColors -eq 0
                     chr_page_pair_bounds_valid = $SpriteChrPagesAvailable -and $InvalidSpriteChrOffsets -eq 0
-                    adjusted_second_tile_count = $AdjustedSecondTileCount
-                    zero_second_tile_adjustment_count = $ZeroSecondTileAdjustmentCount
-                    adjusted_goal_contract_count = $AdjustedGoalContractCount
+                    connector_overlay_count = $ConnectorOverlayCount
+                    zero_connector_overlay_count = $ZeroConnectorOverlayCount
+                    goal_connector_overlay_contract_count = $GoalConnectorOverlayContractCount
                     known_reference_revision = $RomSha256 -eq $KnownReferenceRomSha256
                     known_reference_content_match = $KnownReferenceSpriteContentMatches
-                    invalid_piece_count = $InvalidSpritePalettes + $InvalidSpriteFlags + $InvalidSpriteAdjustments + $InvalidSpriteChrOffsets + $InvalidGoalY
+                    invalid_piece_count = $InvalidSpritePalettes + $InvalidSpriteFlags + $InvalidConnectorOverlays + $InvalidSpriteChrOffsets + $InvalidGoalY
                     raw_asset_bytes_persisted = $false
                 })
             } catch {

@@ -61,10 +61,10 @@
 #define ARENA_SPRITE_GROUPS_FLAGS 1U
 #define ARENA_SPRITE_GROUPS_JUMBOTRON_PIECES 55U
 #define ARENA_SPRITE_GROUPS_GOAL_PIECES 16U
-#define ARENA_SPRITE_GROUPS_GOAL_GAP_DX 16
-#define ARENA_SPRITE_GROUPS_GOAL_GAP_DY 48
-#define ARENA_SPRITE_GROUPS_GOAL_GAP_TOP_CHR_OFFSET 9248U
-#define ARENA_SPRITE_GROUPS_GOAL_GAP_SECOND_TILE_Y_ADJUST (-2)
+#define ARENA_SPRITE_GROUPS_GOAL_CONNECTOR_DX 16
+#define ARENA_SPRITE_GROUPS_GOAL_CONNECTOR_DY 32
+#define ARENA_SPRITE_GROUPS_GOAL_CONNECTOR_TOP_CHR_OFFSET 9056U
+#define ARENA_SPRITE_GROUPS_GOAL_CONNECTOR_OVERLAY_Y_ADJUST (-1)
 #define ARENA_SPRITE_VIEWPORT_WIDTH 256
 #define ARENA_SPRITE_VIEWPORT_HEIGHT 240
 #define ARENA_SPRITE_WIDTH 8
@@ -1402,7 +1402,7 @@ static bool arena_decode_sprite_groups(TecmoArenaNativeSpriteGroups *sprite_grou
     bool goal_piece[TECMO_INTRO_ARENA_NATIVE_SPRITE_PIECE_COUNT] = {false};
     bool saw_jumbotron = false;
     bool saw_goal = false;
-    size_t adjusted_piece_count = 0U;
+    size_t connector_overlay_piece_count = 0U;
 
     if (sprite_groups == NULL || bytes == NULL || byte_count != expected_size ||
         memcmp(bytes, "TASG", 4U) != 0 ||
@@ -1498,7 +1498,7 @@ static bool arena_decode_sprite_groups(TecmoArenaNativeSpriteGroups *sprite_grou
         piece->top_chr_offset = arena_read_le_u32(piece_bytes + 4U);
         piece->palette_index = piece_bytes[8U];
         piece->flags = piece_bytes[9U];
-        piece->second_tile_y_adjust = arena_read_le_i16(piece_bytes + 10U);
+        piece->connector_overlay_y_adjust = arena_read_le_i16(piece_bytes + 10U);
         if (!arena_sprite_chr_pair_offset_valid(piece->top_chr_offset) ||
             piece->palette_index > 3U ||
             (piece->flags & ~(uint8_t)(TECMO_ARENA_NATIVE_SPRITE_FLIP_HORIZONTAL |
@@ -1506,19 +1506,19 @@ static bool arena_decode_sprite_groups(TecmoArenaNativeSpriteGroups *sprite_grou
             return false;
         }
         if (goal_piece[i] &&
-            piece->dx == ARENA_SPRITE_GROUPS_GOAL_GAP_DX &&
-            piece->dy == ARENA_SPRITE_GROUPS_GOAL_GAP_DY &&
-            piece->top_chr_offset == ARENA_SPRITE_GROUPS_GOAL_GAP_TOP_CHR_OFFSET) {
-            if (piece->second_tile_y_adjust !=
-                ARENA_SPRITE_GROUPS_GOAL_GAP_SECOND_TILE_Y_ADJUST) {
+            piece->dx == ARENA_SPRITE_GROUPS_GOAL_CONNECTOR_DX &&
+            piece->dy == ARENA_SPRITE_GROUPS_GOAL_CONNECTOR_DY &&
+            piece->top_chr_offset == ARENA_SPRITE_GROUPS_GOAL_CONNECTOR_TOP_CHR_OFFSET) {
+            if (piece->connector_overlay_y_adjust !=
+                ARENA_SPRITE_GROUPS_GOAL_CONNECTOR_OVERLAY_Y_ADJUST) {
                 return false;
             }
-            ++adjusted_piece_count;
-        } else if (piece->second_tile_y_adjust != 0) {
+            ++connector_overlay_piece_count;
+        } else if (piece->connector_overlay_y_adjust != 0) {
             return false;
         }
     }
-    if (adjusted_piece_count != 1U) {
+    if (connector_overlay_piece_count != 1U) {
         return false;
     }
 
@@ -2167,12 +2167,14 @@ static void arena_draw_native_sprite_piece(TecmoFramebuffer *fb,
                                            int scale)
 {
     uint32_t palette[4];
+    uint32_t connector_overlay_palette[4];
     uint64_t first_offset = piece->top_chr_offset;
     uint64_t second_offset = first_offset + 16ULL;
     bool flip_horizontal =
         (piece->flags & TECMO_ARENA_NATIVE_SPRITE_FLIP_HORIZONTAL) != 0U;
     bool flip_vertical =
         (piece->flags & TECMO_ARENA_NATIVE_SPRITE_FLIP_VERTICAL) != 0U;
+    int canonical_second_y = y + 8 * scale;
 
     if (flip_vertical) {
         first_offset += 16ULL;
@@ -2194,11 +2196,27 @@ static void arena_draw_native_sprite_piece(TecmoFramebuffer *fb,
                                      chr_byte_count,
                                      second_offset,
                                      x,
-                                     y + (8 + piece->second_tile_y_adjust) * scale,
+                                     canonical_second_y,
                                      scale,
                                      palette,
                                      flip_horizontal,
                                      flip_vertical);
+    if (piece->connector_overlay_y_adjust != 0) {
+        memcpy(connector_overlay_palette, palette, sizeof(connector_overlay_palette));
+        connector_overlay_palette[0] = 0U;
+        connector_overlay_palette[1] = 0U;
+        tecmo_draw_chr_tile_at_offset_ex(
+            fb,
+            chr_bytes,
+            chr_byte_count,
+            second_offset,
+            x,
+            canonical_second_y + piece->connector_overlay_y_adjust * scale,
+            scale,
+            connector_overlay_palette,
+            flip_horizontal,
+            flip_vertical);
+    }
 }
 
 TecmoArenaNativeSpriteVisibleCounts tecmo_intro_arena_draw_native_sprite_groups(
