@@ -224,6 +224,94 @@ function Get-ExpectedAssetPackEntries {
     return $Entries.ToArray()
 }
 
+function New-StringSet {
+    param([string[]]$Values)
+
+    $Set = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    foreach ($Value in $Values) {
+        [void]$Set.Add($Value)
+    }
+    return $Set
+}
+
+function Get-KnownLogicalAssetPackEntries {
+    return @(
+        "roster/table.tsv",
+        "title/original-text.txt",
+        "title/glyph-map.tsv",
+        "intro/arena/capture.ndjson",
+        "intro/arena/emu_intro_memory_watch.ndjson",
+        "intro/arena/emu_intro_arena_irq_watch.ndjson",
+        "intro/post-arena/emu_intro_memory_watch.ndjson",
+        "intro/captures/source-map"
+    )
+}
+
+function Get-KnownLogicalAssetPackEntryTypes {
+    $DataType = [System.BitConverter]::ToUInt32([System.Text.Encoding]::ASCII.GetBytes("DATA"), 0)
+    $MetaType = [System.BitConverter]::ToUInt32([System.Text.Encoding]::ASCII.GetBytes("META"), 0)
+    $Types = [System.Collections.Generic.Dictionary[string, uint32]]::new([System.StringComparer]::Ordinal)
+
+    foreach ($EntryId in Get-KnownLogicalAssetPackEntries) {
+        $Types[$EntryId] = $DataType
+    }
+    $Types["intro/captures/source-map"] = $MetaType
+    return $Types
+}
+
+function Get-ExpectedLogicalAssetPackEntries {
+    param([string]$BuildDir)
+
+    $Entries = [System.Collections.Generic.List[string]]::new()
+    $CaptureSources = [System.Collections.Generic.List[string]]::new()
+    [void]$Entries.Add("roster/table.tsv")
+    [void]$Entries.Add("title/original-text.txt")
+    [void]$Entries.Add("title/glyph-map.tsv")
+
+    $CaptureSpecs = @(
+        [pscustomobject]@{
+            relative_path = "build/intro_arena_capture.ndjson"
+            local_path = Join-Path $BuildDir "intro_arena_capture.ndjson"
+            entries = @("intro/arena/capture.ndjson")
+        },
+        [pscustomobject]@{
+            relative_path = "build/emu_intro_memory_watch.ndjson"
+            local_path = Join-Path $BuildDir "emu_intro_memory_watch.ndjson"
+            entries = @(
+                "intro/arena/emu_intro_memory_watch.ndjson",
+                "intro/post-arena/emu_intro_memory_watch.ndjson"
+            )
+        },
+        [pscustomobject]@{
+            relative_path = "build/emu_intro_arena_irq_watch.ndjson"
+            local_path = Join-Path $BuildDir "emu_intro_arena_irq_watch.ndjson"
+            entries = @("intro/arena/emu_intro_arena_irq_watch.ndjson")
+        }
+    )
+
+    foreach ($Spec in $CaptureSpecs) {
+        if (!(Test-Path -LiteralPath $Spec.local_path)) {
+            continue
+        }
+
+        [void]$CaptureSources.Add($Spec.relative_path)
+        foreach ($EntryId in $Spec.entries) {
+            if (!$Entries.Contains($EntryId)) {
+                [void]$Entries.Add($EntryId)
+            }
+        }
+    }
+
+    if ($CaptureSources.Count -gt 0 -and !$Entries.Contains("intro/captures/source-map")) {
+        [void]$Entries.Add("intro/captures/source-map")
+    }
+
+    return [pscustomobject]@{
+        entries = $Entries.ToArray()
+        capture_sources_present = $CaptureSources.ToArray()
+    }
+}
+
 function Get-DuplicateValues {
     param([string[]]$Values)
 
@@ -339,7 +427,10 @@ function Write-AssetPackReport {
             chr_banks_reported = $ReportedChrBanks
             entries_reported = $ReportedEntries
             expected_entry_count = if ($ExpectedEntries) { $ExpectedEntries.Count } else { $null }
+            expected_raw_entry_count = if ($ExpectedRawEntries) { $ExpectedRawEntries.Count } else { $null }
+            expected_logical_entry_count = if ($ExpectedLogicalEntries) { $ExpectedLogicalEntries.Count } else { $null }
             directory_entry_count = if ($Directory) { $Directory.entry_count } else { $null }
+            logical_capture_sources_present = $LogicalCaptureSources
             canonical_fallback_cleared = $CanonicalFallbackCleared
             env_pack_use_proven = $false
         }
@@ -414,8 +505,13 @@ $ReportedChrBanks = $null
 $ReportedEntries = $null
 $Directory = $null
 $ExpectedEntries = $null
+$ExpectedRawEntries = $null
+$ExpectedLogicalEntries = $null
+$LogicalCaptureSources = @()
 $DirectoryCountPassed = $false
 $BankCompletenessPassed = $false
+$LogicalEntriesPassed = $false
+$ChrAllValid = $false
 $CanonicalFallbackCleared = $false
 $PreviousAssetPack = $null
 $AssetPackEnvChanged = $false
@@ -454,8 +550,13 @@ try {
     })
 
     Write-Host "Building asset pack -> $AssetPackRelative"
-    $BuildOutput = & $ExePath --build-assetpack $ReferenceRom $AssetPackPath 2>&1
-    $BuildExitCode = $LASTEXITCODE
+    Push-Location $ProjectRoot
+    try {
+        $BuildOutput = & $ExePath --root $LocalDecompRoot --build-assetpack $ReferenceRom $AssetPackPath 2>&1
+        $BuildExitCode = $LASTEXITCODE
+    } finally {
+        Pop-Location
+    }
     $BuildOutputText = (@($BuildOutput) | ForEach-Object { [string]$_ }) -join "`n"
     if ($BuildOutputText -match "Wrote\s+([0-9]+)\s+PRG banks,\s+([0-9]+)\s+CHR banks,\s+([0-9]+)\s+entries to .+") {
         $ReportedPrgBanks = [int]$Matches[1]
@@ -528,31 +629,101 @@ try {
         })
 
         if ($null -ne $ReportedPrgBanks -and $null -ne $ReportedChrBanks) {
-            $ExpectedEntries = @(Get-ExpectedAssetPackEntries -PrgBanks $ReportedPrgBanks -ChrBanks $ReportedChrBanks)
-            $MissingEntries = @($ExpectedEntries | Where-Object { !$Directory.ids.Contains($_) })
+            $ExpectedRawEntries = @(Get-ExpectedAssetPackEntries -PrgBanks $ReportedPrgBanks -ChrBanks $ReportedChrBanks)
+            $LogicalExpectation = Get-ExpectedLogicalAssetPackEntries -BuildDir $BuildDir
+            $ExpectedLogicalEntries = @($LogicalExpectation.entries)
+            $LogicalCaptureSources = @($LogicalExpectation.capture_sources_present)
+            $ExpectedEntries = @($ExpectedRawEntries + $ExpectedLogicalEntries)
+            $ExpectedRawEntrySet = New-StringSet -Values ([string[]]$ExpectedRawEntries)
+            $KnownLogicalEntries = @(Get-KnownLogicalAssetPackEntries)
+            $KnownLogicalEntrySet = New-StringSet -Values ([string[]]$KnownLogicalEntries)
+            $ExpectedLogicalEntrySet = New-StringSet -Values ([string[]]$ExpectedLogicalEntries)
+            $ExpectedLogicalEntryTypes = Get-KnownLogicalAssetPackEntryTypes
+
+            $MissingEntries = @($ExpectedRawEntries | Where-Object { !$Directory.ids.Contains($_) })
             $DuplicateEntries = @(Get-DuplicateValues -Values ([string[]]$Directory.ids.ToArray()))
-            $UnexpectedEntries = @($Directory.ids | Where-Object { $ExpectedEntries -notcontains $_ })
+            $RawEntriesPresent = @($Directory.ids | Where-Object { $ExpectedRawEntrySet.Contains($_) })
+            $UnexpectedRawEntries = @($Directory.ids | Where-Object {
+                (($_.StartsWith("prg/", [System.StringComparison]::Ordinal) -or
+                  $_.StartsWith("chr/", [System.StringComparison]::Ordinal) -or
+                  $_.StartsWith("system/", [System.StringComparison]::Ordinal)) -and
+                 !$ExpectedRawEntrySet.Contains($_))
+            })
             $SizeMismatches = @(Get-AssetPackSizeMismatches -Directory $Directory -PrgBanks $ReportedPrgBanks -ChrBanks $ReportedChrBanks)
-            $ExpectedCountMatchesCli = $ExpectedEntries.Count -eq $ReportedEntries
+            $RawCountMatchesExpected = $RawEntriesPresent.Count -eq $ExpectedRawEntries.Count
+            $ChrAllMismatches = @($SizeMismatches | Where-Object { $_.id -eq "chr/all" })
+            $ChrAllValid = $Directory.ids.Contains("chr/all") -and $ChrAllMismatches.Count -eq 0
             $BankCompletenessPassed = $MissingEntries.Count -eq 0 -and
                 $DuplicateEntries.Count -eq 0 -and
-                $ExpectedCountMatchesCli -and
+                $UnexpectedRawEntries.Count -eq 0 -and
+                $RawCountMatchesExpected -and
                 $SizeMismatches.Count -eq 0
             Add-TestResult ([pscustomobject]@{
                 id = "assetpack-bank-completeness"
                 passed = $BankCompletenessPassed
                 expected_entry_count = $ExpectedEntries.Count
+                expected_raw_entry_count = $ExpectedRawEntries.Count
+                parsed_raw_entry_count = $RawEntriesPresent.Count
                 cli_reported_entry_count = $ReportedEntries
-                expected_count_matches_cli = $ExpectedCountMatchesCli
+                parsed_directory_entry_count = $Directory.entry_count
+                raw_count_matches_expected = $RawCountMatchesExpected
                 missing_entries = $MissingEntries
                 duplicate_entries = $DuplicateEntries
-                unexpected_entries = $UnexpectedEntries
+                unexpected_raw_entries = $UnexpectedRawEntries
                 size_mismatches = $SizeMismatches
+                chr_all_valid = $ChrAllValid
+                logical_entries_allowed = $true
+                raw_asset_bytes_persisted = $false
+            })
+
+            $MissingLogicalEntries = @($ExpectedLogicalEntries | Where-Object { !$Directory.ids.Contains($_) })
+            $LogicalEntriesPresent = @($Directory.ids | Where-Object { $KnownLogicalEntrySet.Contains($_) })
+            $UnknownEntries = @($Directory.ids | Where-Object {
+                !$ExpectedRawEntrySet.Contains($_) -and !$KnownLogicalEntrySet.Contains($_)
+            })
+            $UnexpectedLogicalEntries = @($Directory.ids | Where-Object {
+                $KnownLogicalEntrySet.Contains($_) -and !$ExpectedLogicalEntrySet.Contains($_)
+            })
+            $EmptyLogicalEntries = @($Directory.entries | Where-Object {
+                $KnownLogicalEntrySet.Contains($_.id) -and [uint64]$_.byte_count -eq 0
+            } | ForEach-Object { $_.id })
+            $LogicalTypeMismatches = @($Directory.entries | Where-Object {
+                $KnownLogicalEntrySet.Contains($_.id) -and
+                    $ExpectedLogicalEntryTypes.ContainsKey($_.id) -and
+                    [uint32]$_.type -ne [uint32]$ExpectedLogicalEntryTypes[$_.id]
+            } | ForEach-Object {
+                [pscustomobject]@{
+                    id = $_.id
+                    expected_type = $ExpectedLogicalEntryTypes[$_.id]
+                    actual_type = $_.type
+                }
+            })
+            $LogicalEntriesPassed = $MissingLogicalEntries.Count -eq 0 -and
+                $UnknownEntries.Count -eq 0 -and
+                $EmptyLogicalEntries.Count -eq 0 -and
+                $LogicalTypeMismatches.Count -eq 0
+            Add-TestResult ([pscustomobject]@{
+                id = "assetpack-logical-entries"
+                passed = $LogicalEntriesPassed
+                expected_logical_entries = $ExpectedLogicalEntries
+                logical_entries_present = $LogicalEntriesPresent
+                missing_logical_entries = $MissingLogicalEntries
+                unexpected_logical_entries = $UnexpectedLogicalEntries
+                unknown_entries = $UnknownEntries
+                empty_logical_entries = $EmptyLogicalEntries
+                logical_type_mismatches = $LogicalTypeMismatches
+                capture_sources_present = $LogicalCaptureSources
                 raw_asset_bytes_persisted = $false
             })
         } else {
             Add-TestResult ([pscustomobject]@{
                 id = "assetpack-bank-completeness"
+                passed = $false
+                error = "asset pack builder did not report PRG/CHR bank counts"
+                raw_asset_bytes_persisted = $false
+            })
+            Add-TestResult ([pscustomobject]@{
+                id = "assetpack-logical-entries"
                 passed = $false
                 error = "asset pack builder did not report PRG/CHR bank counts"
                 raw_asset_bytes_persisted = $false
@@ -571,13 +742,19 @@ try {
             error = "asset pack directory was not parsed"
             raw_asset_bytes_persisted = $false
         })
+        Add-TestResult ([pscustomobject]@{
+            id = "assetpack-logical-entries"
+            passed = $false
+            error = "asset pack directory was not parsed"
+            raw_asset_bytes_persisted = $false
+        })
     }
 
     $AssetPackValidatedForRender = $PackCreated -and
         $DirectoryCountPassed -and
         $BankCompletenessPassed -and
         $Directory -and
-        $Directory.ids.Contains("chr/all")
+        $ChrAllValid
 
     $PreviousAssetPack = $env:TECMO_ASSETPACK
     $AssetPackEnvChanged = $true
