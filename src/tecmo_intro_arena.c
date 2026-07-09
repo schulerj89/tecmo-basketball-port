@@ -44,6 +44,11 @@
 #define ARENA_SCREEN_BASKET_STAGE_FRAME_LAG 2
 #define ARENA_SCREEN_FINAL_SCROLL_Y 0x64U
 #define ARENA_SCREEN_SPRITE_Y_HARDWARE_OFFSET 1
+/* The arena IRQ restarts composition for TATL rows 38..50. The lower
+   large-crowd band has its own motion-counter origin and clip scanline. */
+#define ARENA_SCREEN_LOWER_BAND_FIRST_ROW 38
+#define ARENA_SCREEN_LOWER_BAND_ORIGIN_BIAS 0x7B
+#define ARENA_SCREEN_LOWER_BAND_CLIP_BIAS 0x7C
 #define ARENA_TILE_LAYER_ENTRY_ID "arena/intro/background-layer"
 #define ARENA_TILE_LAYER_HEADER_SIZE 48U
 #define ARENA_TILE_LAYER_CELL_STRIDE 6U
@@ -1996,29 +2001,103 @@ bool tecmo_intro_arena_draw_native_chr(TecmoFramebuffer *fb,
                                        int origin_y,
                                        int scale)
 {
-    (void)frame;
+    TecmoIntroArenaTransitionState state;
+    TecmoFramebuffer upper_fb;
+    TecmoFramebuffer lower_fb;
+    int viewport_y;
+    int viewport_bottom;
+    int lower_origin_y;
+    int lower_clip_y;
+    int clipped_lower_start;
+
     if (fb == NULL || scale <= 0 ||
         !tecmo_intro_arena_tile_layer_chr_available(layer, chr_bytes, chr_byte_count)) {
         return false;
     }
 
-    for (size_t i = 0; i < layer->cell_count; ++i) {
-        const TecmoArenaTileCell *cell = &layer->cells[i];
-        int row = (int)(i / layer->width);
-        int col = (int)(i % layer->width);
-        uint32_t palette[4];
+    tecmo_intro_arena_transition_state(frame, &state);
+    viewport_y = origin_y + (int)state.scroll_y_0301 * scale;
+    viewport_bottom = viewport_y + ARENA_SPRITE_VIEWPORT_HEIGHT * scale;
+    lower_origin_y = viewport_y +
+        ((int)state.motion_counter_88 + ARENA_SCREEN_LOWER_BAND_ORIGIN_BIAS) * scale;
+    lower_clip_y = viewport_y +
+        ((int)state.motion_counter_88 + ARENA_SCREEN_LOWER_BAND_CLIP_BIAS) * scale;
 
-        arena_build_palette(palette, layer->palette, cell->palette_index);
-        tecmo_draw_chr_tile_at_offset_ex(fb,
-                                         chr_bytes,
-                                         chr_byte_count,
-                                         cell->chr_byte_offset,
-                                         origin_x + col * 8 * scale,
-                                         origin_y + row * 8 * scale,
-                                         scale,
-                                         palette,
-                                         false,
-                                         false);
+    upper_fb = *fb;
+    if (lower_clip_y < upper_fb.height) {
+        upper_fb.height = lower_clip_y > 0 ? lower_clip_y : 0;
+    }
+    for (int row = 0; row < ARENA_SCREEN_LOWER_BAND_FIRST_ROW; ++row) {
+        for (int col = 0; col < (int)layer->width; ++col) {
+            size_t i = (size_t)row * layer->width + (size_t)col;
+            const TecmoArenaTileCell *cell = &layer->cells[i];
+            uint32_t palette[4];
+
+            arena_build_palette(palette, layer->palette, cell->palette_index);
+            tecmo_draw_chr_tile_at_offset_ex(&upper_fb,
+                                             chr_bytes,
+                                             chr_byte_count,
+                                             cell->chr_byte_offset,
+                                             origin_x + col * 8 * scale,
+                                             origin_y + row * 8 * scale,
+                                             scale,
+                                             palette,
+                                             false,
+                                             false);
+        }
+    }
+
+    clipped_lower_start = lower_clip_y;
+    if (clipped_lower_start < 0) {
+        clipped_lower_start = 0;
+    }
+    if (clipped_lower_start > fb->height) {
+        clipped_lower_start = fb->height;
+    }
+    {
+        int clear_left = origin_x > 0 ? origin_x : 0;
+        int clear_right = origin_x + (int)layer->width * 8 * scale;
+        int clear_top = clipped_lower_start > viewport_y ? clipped_lower_start : viewport_y;
+        int clear_bottom = viewport_bottom < fb->height ? viewport_bottom : fb->height;
+
+        if (clear_right > fb->width) {
+            clear_right = fb->width;
+        }
+        if (clear_top < 0) {
+            clear_top = 0;
+        }
+        for (int y = clear_top; y < clear_bottom; ++y) {
+            for (int x = clear_left; x < clear_right; ++x) {
+                fb->pixels[(size_t)y * fb->pitch_pixels + (size_t)x] = 0xFF000000U;
+            }
+        }
+    }
+
+    lower_fb = *fb;
+    lower_fb.pixels += (size_t)clipped_lower_start * lower_fb.pitch_pixels;
+    lower_fb.height -= clipped_lower_start;
+    for (int row = ARENA_SCREEN_LOWER_BAND_FIRST_ROW;
+         row < (int)layer->height;
+         ++row) {
+        for (int col = 0; col < (int)layer->width; ++col) {
+            size_t i = (size_t)row * layer->width + (size_t)col;
+            const TecmoArenaTileCell *cell = &layer->cells[i];
+            uint32_t palette[4];
+
+            arena_build_palette(palette, layer->palette, cell->palette_index);
+            tecmo_draw_chr_tile_at_offset_ex(
+                &lower_fb,
+                chr_bytes,
+                chr_byte_count,
+                cell->chr_byte_offset,
+                origin_x + col * 8 * scale,
+                lower_origin_y - clipped_lower_start +
+                    (row - ARENA_SCREEN_LOWER_BAND_FIRST_ROW) * 8 * scale,
+                scale,
+                palette,
+                false,
+                false);
+        }
     }
     return true;
 }
@@ -2072,6 +2151,55 @@ bool tecmo_intro_arena_native_sprite_chr_available(
     return true;
 }
 
+static bool arena_bank07_d861_project_goal_y(uint8_t base_low,
+                                             uint8_t base_page,
+                                             int relative_y,
+                                             int *oam_y)
+{
+    uint8_t relative = (uint8_t)relative_y;
+    uint8_t low;
+    uint8_t page = base_page;
+
+    if (relative >= 0xC0U) {
+        uint8_t magnitude = (uint8_t)(~relative + 1U);
+
+        low = (uint8_t)(base_low - magnitude);
+        if (base_low < magnitude) {
+            uint8_t first_low = low;
+
+            page = (uint8_t)(page - 1U);
+            /* Bank07 $D8A6-$D8AE falls through with the subtraction result
+               still in A and adds the base low byte a second time. */
+            low = (uint8_t)(first_low + base_low);
+            if (low < first_low) {
+                page = (uint8_t)(page + 1U);
+            }
+        }
+    } else {
+        unsigned sum = (unsigned)relative + base_low;
+
+        low = (uint8_t)sum;
+        if (sum > 0xFFU) {
+            page = (uint8_t)(page + 1U);
+        }
+    }
+
+    /* Bank07 $D8B0-$D8BF admits page $00 plus the near-top part of $FF. */
+    if (page == 0x00U) {
+        if (oam_y != NULL) {
+            *oam_y = low;
+        }
+        return true;
+    }
+    if (page == 0xFFU && low >= 0xF0U) {
+        if (oam_y != NULL) {
+            *oam_y = (int)low - 256;
+        }
+        return true;
+    }
+    return false;
+}
+
 static bool arena_native_sprite_piece_position(
     const TecmoArenaNativeSpriteGroup *group,
     const TecmoArenaNativeSpritePiece *piece,
@@ -2088,30 +2216,16 @@ static bool arena_native_sprite_piece_position(
     }
     piece_x = group->anchor_x + piece->dx;
     if (group->kind == TECMO_ARENA_NATIVE_SPRITE_GROUP_GOAL) {
-        uint16_t stream_y;
-        uint16_t projected;
-        uint8_t projected_low;
-        uint8_t projected_page;
         int relative_y;
 
         if (state->phase == TECMO_INTRO_ARENA_PHASE_WAIT) {
             return false;
         }
-        stream_y = (uint16_t)(((uint16_t)state->stream1_high << 8U) |
-                              state->stream1_low);
         relative_y = piece->dy - 0x40;
-        /* Keep stream1 timing, but omit D861's negative-borrow
-           low-byte fallthrough. */
-        projected = (uint16_t)(stream_y + relative_y);
-        projected_low = (uint8_t)projected;
-        projected_page = (uint8_t)(projected >> 8U);
-
-        /* Native grounding admits the 16-bit page before OAM Y is narrowed. */
-        if (projected_page == 0x00U) {
-            oam_y = projected_low;
-        } else if (projected_page == 0xFFU && projected_low >= 0xF0U) {
-            oam_y = (int)projected_low - 256;
-        } else {
+        if (!arena_bank07_d861_project_goal_y(state->stream1_low,
+                                              state->stream1_high,
+                                              relative_y,
+                                              &oam_y)) {
             return false;
         }
     } else {

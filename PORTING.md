@@ -147,25 +147,30 @@ transparent, while indexes 2 and 3 retain their exact ROM palette colors. This
 bridges opaque-black internal rows without changing the shared goal anchor,
 piece offsets, canonical post position or extent, or goal motion.
 
-Goal motion uses a native grounded projection driven by Bank04's stream1
-(`$07EC/$21`) timing and 16-bit coordinate state. The scene adds the goal
-record's signed relative Y (`dy - $40`) once and admits the result by page
-before narrowing it to OAM Y: page `$00` is accepted, and page `$FF` is
-accepted only for low bytes `$F0-$FF` so near-top sprites reach normal viewport
-clipping. Other pages, including page `$01`, stay offscreen rather than
-wrapping into view.
+Goal motion reproduces Bank07 `$D861` bytewise and is driven by Bank04's
+stream1 (`$07EC/$21`) timing and coordinate bytes. For raw negative relative Y
+bytes (`dy - $40` in `$C0-$FF`), convert the byte to a magnitude and subtract
+it from the stream low byte. If that subtraction borrows, decrement the page,
+then preserve D861's fallthrough: add the stream low byte to the subtraction
+result a second time and increment the page on carry. Non-negative relative
+bytes use the normal low-byte add and carry. Admit page `$00`, plus page `$FF`
+only when its low byte is `$F0-$FF`; reject every other page before narrowing
+to OAM Y. This produces the ROM-exact visible goal timing: frame 240=0, 260=5,
+276=10, 280=10, 292=15, 300=15, and 308=16, with 16 in the final pose.
+Jumbotron positioning and the TASG-2 masked connector overlay remain unchanged.
 
-This is an intentional visual-grounding divergence from D861 hardware
-arithmetic.
-The native scene omits D861's extra low-byte add when a negative relative Y
-borrow falls through, because that hardware quirk recreates the observed `-2`
-entrance drift and detaches the goal from the checkerboard base. Stream1 remains
-the source of timing and coordinate state, and the single-add projection keeps
-goal and background deltas equal through the ease. Final pose and phases with
-`$0301 >= $50` remain ROM-identical. The earlier `anchor_y - 2*$0301`
-projection is not an equivalent camera transform during the ease because
-`$0301` tracks background scroll. Jumbotron positioning and the TASG-2 masked
-connector overlay do not use this goal-only rule.
+The TATL importer's 51-row source mapping remains exact, but runtime drawing
+must model the arena IRQ as two independently positioned bands. Draw rows
+`0..37` at the global `-$0301` scroll and clip them below the lower-band restart.
+Rows `38..50` are the lower large-crowd/pedestal band. Its logical screen origin
+is `motion_counter_88 + $7B`, and its first complete scanline and upper clip are
+`motion_counter_88 + $7C`; clear/restart the viewport from that clip and draw
+the lower rows relative to row 38. The correction versus a uniform tile stack
+changes with the transition: `+5` native pixels at scroll `$50`/motion `$6A`,
+`-3` at `$58/$5A`, `-11` at `$60/$4A`, and `-15` at the final `$64/$42`.
+Do not encode the final `-15` as a constant. At clean frame 539, the post ends
+at output Y 429, the black pedestal opening begins at Y 430, and its cream cap
+begins at Y 432.
 
 ## Validation Rules
 

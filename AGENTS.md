@@ -78,6 +78,7 @@ out of unrelated commits unless the user explicitly asks to commit them.
 .\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode menu build\main_menu_test.png
 .\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-composite-preset build\intro_composite_preset_test.png
 .\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-arena-frame320 build\intro_arena_frame320_test.png
+.\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-arena-clean-frame539 build\intro_arena_clean_frame539_test.png
 ```
 
 If the build fails with `LNK1104` for `build\tecmo_port.exe`, check whether the local executable is still running before rebuilding.
@@ -93,6 +94,7 @@ Hidden/debug screens are still useful through render-test modes. Common examples
 .\build\tecmo_port.exe --render-test-mode intro-license build\intro_license_test.png
 .\build\tecmo_port.exe --render-test-mode intro-arena-transition build\intro_arena_transition_test.png
 .\build\tecmo_port.exe --render-test-mode intro-arena-frame320 build\intro_arena_frame320_test.png
+.\build\tecmo_port.exe --render-test-mode intro-arena-clean-frame539 build\intro_arena_clean_frame539_test.png
 .\build\tecmo_port.exe --render-test-mode chr-playground build\chr_playground_test.png
 .\build\tecmo_port.exe --render-test-mode rosters build\rosters_test.png
 ```
@@ -149,24 +151,29 @@ The current opening path includes:
 
 The normal arena render must not replay captured screen `$18` nametable or OAM data. The ROM-only importer decodes the fixed-bank screen descriptor and compressed Bank00 stream into `arena/intro/background-layer`, a versioned native `32x51` tile layer whose cells contain exact attribute-derived palette indexes and resolved `chr/all` offsets. It also emits `arena/intro/sprite-groups` as TASG-2 with the exact NES sprite palette, jumbotron pieces, and goal pieces. TASG-2 reuses piece bytes 10..11 as signed `connector_overlay_y_adjust`; the imported center `dy=32` goal connector record is the sole `-1` overlay adjustment and all other pieces use zero. Runtime first draws its canonical ROM-derived second tile at `y+8`, then draws a shifted copy of that tile with palette indexes 0 and 1 transparent while preserving exact ROM palette colors for indexes 2 and 3. Canonical goal position and extent remain unchanged. Runtime rendering requires both native entries, scrolls TATL as the background, and projects TASG groups from their stored anchors using the transition state. Capture-shaped arena loaders remain only as migration/debug scaffolding; palette-cycle migration can continue without replacing the exact background or sprite-group paths.
 
-Goal Y uses a native grounded projection instead of anchor-based TASG
-positioning or D861 hardware arithmetic. Bank04's first `$8988` emit pass
-supplies the `$07EC/$21` stream1 timing and 16-bit coordinate state. The native
-scene adds each goal record's signed raw-Y equivalent (`dy - $40`) once, then admits
-the resulting page before narrowing to OAM Y. Page `$00` is admitted; page
-`$FF` is admitted only for low bytes `$F0-$FF` so ordinary viewport clipping
-can retain near-top sprites; all other pages are rejected.
+Goal Y reproduces Bank07 `$D861` bytewise using Bank04's first `$8988` emit
+pass (`$07EC/$21` stream1). For raw negative relative Y bytes (`dy - $40` in
+`$C0-$FF`), D861 converts the byte to a magnitude and subtracts it from the
+stream low byte. On borrow it decrements the page, then falls through with the
+subtraction result still in A, adds the stream low byte a second time, and
+repairs the page on carry. Non-negative bytes use the normal low-byte add and
+carry. Page `$00` is admitted; page `$FF` is admitted only for low bytes
+`$F0-$FF`; every other page is rejected before OAM Y is narrowed. ROM-exact
+visible goal records are frame 240=0, 260=5, 276=10, 280=10, 292=15, 300=15,
+and 308=16; the final remains 16. Jumbotron projection and the TASG-2 masked
+connector overlay are unchanged.
 
-This intentionally omits D861's extra low-byte add when a negative relative Y
-borrow falls through. Reproducing that hardware quirk creates the observed
-`-2` entrance drift and detaches the goal from the checkerboard base. Stream1
-still supplies the native timing and coordinate state, while the grounded
-single-add projection keeps the goal and background at equal deltas during the
-eased entrance. The final pose and phases with `$0301 >= $50` remain
-ROM-identical. The old `anchor_y - 2*$0301` approximation is also incorrect
-during the ease because `$0301` is background scroll rather than the goal's
-coordinate stream. Jumbotron anchor projection and the TASG-2 masked connector
-overlay remain unchanged.
+The 51-row TATL source mapping is correct, but its runtime composition is not
+a uniform scrolled stack. Rows `0..37` use the global `$0301` scroll and are
+clipped below the arena IRQ restart. Rows `38..50` are the independent lower
+large-crowd band: its logical screen origin is `motion_counter_88 + $7B`, its
+first complete scanline/clip is `motion_counter_88 + $7C`, and the viewport is
+cleared/restarted from that clip before the lower rows draw. Relative to the
+old uniform renderer, the correction evolves through `+5`, `-3`, `-11`, and
+`-15` native pixels at the `$50/$6A`, `$58/$5A`, `$60/$4A`, and `$64/$42`
+scroll/motion checkpoints. The final `-15` is therefore an IRQ-composition
+result, not a constant offset. This registers the centered gray post with the
+black opening and cream/red pedestal carried by the lower band.
 
 For screen `$18` research, use the verified ROM route rather than capture bytes:
 
