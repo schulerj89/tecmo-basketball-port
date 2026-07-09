@@ -3,6 +3,7 @@
 #include "tecmo_asset_pack.h"
 #include "tecmo_bank07.h"
 #include "tecmo_game.h"
+#include "tecmo_intro_arena_scene.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -24,6 +25,7 @@ static void print_usage(const char *program)
     printf("  --flow-test             Run headless native menu/play/quit flow checks\n");
     printf("  --controls-test         Run portable held/pressed/released control-state checks\n");
     printf("  --bank07-test           Run fixed-bank helper C counterpart checks\n");
+    printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
     printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, first-sprite, first-sprite-debug, intro-license, intro-arena-transition, intro-arena-frameN, intro-ready-frameN, intro-warriors-frameN, intro-l88e7-proof, intro-presents, intro-builder-sample, intro-rabbit-preset, intro-tecmo-preset, intro-composite-preset, intro-c051-d861-model, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play, play-fade0..play-fade4, play-step0..play-step10, play-setup, original-title, or original-title-chr to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
@@ -224,6 +226,16 @@ int main(int argc, char **argv)
         char message[128];
         if (!tecmo_bank07_self_test(message, sizeof(message))) {
             printf("Bank07 C helper test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--arena-scene-test") == 0) {
+        char message[160];
+        if (!tecmo_arena_intro_scene_self_test(message, sizeof(message))) {
+            printf("Arena intro scene self-test failed: %s\n", message);
             return 1;
         }
         printf("%s\n", message);
