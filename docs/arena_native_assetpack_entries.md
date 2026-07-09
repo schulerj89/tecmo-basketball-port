@@ -168,6 +168,12 @@ High-level runtime APIs should remain shaped around scene and renderer concepts.
 
 ## Test Hook
 
+The current ROM-only asset-pack smoke test is intentionally narrower than this
+target design. `tools/Run-AssetPackTests.ps1` currently expects only the raw ROM
+entries (`system/*`, `prg/*`, and `chr/*`) and an empty logical-entry set; any
+new `arena/intro/*` entry would be an unknown logical entry until the test's
+expected logical-entry list is updated in the same change that emits it.
+
 When the first native arena entry is emitted, extend the asset-pack tests with a
 directory-only assertion before checking rendered frames:
 
