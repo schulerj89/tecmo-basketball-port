@@ -147,16 +147,25 @@ transparent, while indexes 2 and 3 retain their exact ROM palette colors. This
 bridges opaque-black internal rows without changing the shared goal anchor,
 piece offsets, canonical post position or extent, or goal motion.
 
-Goal motion follows Bank04's stream1 (`$07EC/$21`) exactly. D861 adds the goal
-record's signed relative Y (`dy - $40`) to that 16-bit stream and admits the
-result by page before narrowing it to OAM Y: page `$00` is accepted, and page
-`$FF` is accepted only for low bytes `$F0-$FF` so near-top sprites reach normal
-viewport clipping. Other pages, including page `$01`, stay offscreen rather
-than wrapping into view. The earlier `anchor_y - 2*$0301` projection was not an
-equivalent camera transform: stream1 has Bank04-specific gated increments,
-decrements, borrows, and page state, while `$0301` tracks background scroll.
-Jumbotron positioning and the TASG-2 masked connector overlay do not use this
-goal-only rule.
+Goal motion uses a native grounded projection driven by Bank04's stream1
+(`$07EC/$21`) timing and 16-bit coordinate state. The scene adds the goal
+record's signed relative Y (`dy - $40`) once and admits the result by page
+before narrowing it to OAM Y: page `$00` is accepted, and page `$FF` is
+accepted only for low bytes `$F0-$FF` so near-top sprites reach normal viewport
+clipping. Other pages, including page `$01`, stay offscreen rather than
+wrapping into view.
+
+This is an intentional visual-grounding divergence from D861 hardware
+arithmetic.
+The native scene omits D861's extra low-byte add when a negative relative Y
+borrow falls through, because that hardware quirk recreates the observed `-2`
+entrance drift and detaches the goal from the checkerboard base. Stream1 remains
+the source of timing and coordinate state, and the single-add projection keeps
+goal and background deltas equal through the ease. Final pose and phases with
+`$0301 >= $50` remain ROM-identical. The earlier `anchor_y - 2*$0301`
+projection is not an equivalent camera transform during the ease because
+`$0301` tracks background scroll. Jumbotron positioning and the TASG-2 masked
+connector overlay do not use this goal-only rule.
 
 ## Validation Rules
 

@@ -149,17 +149,24 @@ The current opening path includes:
 
 The normal arena render must not replay captured screen `$18` nametable or OAM data. The ROM-only importer decodes the fixed-bank screen descriptor and compressed Bank00 stream into `arena/intro/background-layer`, a versioned native `32x51` tile layer whose cells contain exact attribute-derived palette indexes and resolved `chr/all` offsets. It also emits `arena/intro/sprite-groups` as TASG-2 with the exact NES sprite palette, jumbotron pieces, and goal pieces. TASG-2 reuses piece bytes 10..11 as signed `connector_overlay_y_adjust`; the imported center `dy=32` goal connector record is the sole `-1` overlay adjustment and all other pieces use zero. Runtime first draws its canonical ROM-derived second tile at `y+8`, then draws a shifted copy of that tile with palette indexes 0 and 1 transparent while preserving exact ROM palette colors for indexes 2 and 3. Canonical goal position and extent remain unchanged. Runtime rendering requires both native entries, scrolls TATL as the background, and projects TASG groups from their stored anchors using the transition state. Capture-shaped arena loaders remain only as migration/debug scaffolding; palette-cycle migration can continue without replacing the exact background or sprite-group paths.
 
-Goal Y projection is the exception to anchor-based TASG positioning. Bank04's
-first `$8988` emit pass sends `$07EC/$21` to D861, so transition `stream1` is
-the authoritative 16-bit goal Y source. Add each goal record's signed raw-Y
-equivalent (`dy - $40`) to that stream, then apply D861 page admission before
-narrowing to an OAM Y byte. Page `$00` is admitted; page `$FF` is admitted only
-for low bytes `$F0-$FF` so ordinary viewport clipping can retain near-top
-sprites; all other pages are rejected. The old `anchor_y - 2*$0301` model was
-wrong because stream1 changes at Bank04's own gated rates and carries its own
-borrow/page state; `$0301` is background scroll, not a substitute for D861's
-goal input. Jumbotron anchor projection and the TASG-2 masked connector overlay
-remain unchanged.
+Goal Y uses a native grounded projection instead of anchor-based TASG
+positioning or D861 hardware arithmetic. Bank04's first `$8988` emit pass
+supplies the `$07EC/$21` stream1 timing and 16-bit coordinate state. The native
+scene adds each goal record's signed raw-Y equivalent (`dy - $40`) once, then admits
+the resulting page before narrowing to OAM Y. Page `$00` is admitted; page
+`$FF` is admitted only for low bytes `$F0-$FF` so ordinary viewport clipping
+can retain near-top sprites; all other pages are rejected.
+
+This intentionally omits D861's extra low-byte add when a negative relative Y
+borrow falls through. Reproducing that hardware quirk creates the observed
+`-2` entrance drift and detaches the goal from the checkerboard base. Stream1
+still supplies the native timing and coordinate state, while the grounded
+single-add projection keeps the goal and background at equal deltas during the
+eased entrance. The final pose and phases with `$0301 >= $50` remain
+ROM-identical. The old `anchor_y - 2*$0301` approximation is also incorrect
+during the ease because `$0301` is background scroll rather than the goal's
+coordinate stream. Jumbotron anchor projection and the TASG-2 masked connector
+overlay remain unchanged.
 
 For screen `$18` research, use the verified ROM route rather than capture bytes:
 

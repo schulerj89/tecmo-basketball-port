@@ -2100,11 +2100,13 @@ static bool arena_native_sprite_piece_position(
         stream_y = (uint16_t)(((uint16_t)state->stream1_high << 8U) |
                               state->stream1_low);
         relative_y = piece->dy - 0x40;
+        /* Keep stream1 timing, but omit D861's negative-borrow
+           low-byte fallthrough. */
         projected = (uint16_t)(stream_y + relative_y);
         projected_low = (uint8_t)projected;
         projected_page = (uint8_t)(projected >> 8U);
 
-        /* D861 admits the 16-bit page before its OAM Y byte is narrowed. */
+        /* Native grounding admits the 16-bit page before OAM Y is narrowed. */
         if (projected_page == 0x00U) {
             oam_y = projected_low;
         } else if (projected_page == 0xFFU && projected_low >= 0xF0U) {

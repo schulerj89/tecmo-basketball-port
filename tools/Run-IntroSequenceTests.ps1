@@ -82,6 +82,30 @@ function Get-SafeExceptionName {
     return "Error"
 }
 
+function Get-GroundedGoalWhiteMinY {
+    param([string]$Path)
+
+    $Bitmap = [System.Drawing.Bitmap]::FromFile($Path)
+    try {
+        # The goal outline is the only exact NES white in this arena crop.
+        $MinY = [int]::MaxValue
+        for ($Y = 300; $Y -lt 455; ++$Y) {
+            for ($X = 390; $X -lt 475; ++$X) {
+                $Pixel = $Bitmap.GetPixel($X, $Y)
+                if ($Pixel.R -eq 252 -and $Pixel.G -eq 252 -and $Pixel.B -eq 252) {
+                    $MinY = [Math]::Min($MinY, $Y)
+                }
+            }
+        }
+        if ($MinY -eq [int]::MaxValue) {
+            throw "Grounded goal marker pixels were not found."
+        }
+        return $MinY
+    } finally {
+        $Bitmap.Dispose()
+    }
+}
+
 function Get-AssetPackEntryPayloadOffset {
     param(
         [byte[]]$Bytes,
@@ -162,6 +186,7 @@ New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 New-Item -ItemType Directory -Force -Path $CheckpointOutputDir | Out-Null
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $AssetPackPath) | Out-Null
+Add-Type -AssemblyName System.Drawing
 $RomOnlyArenaRenderCases = @(
     [pscustomobject]@{ mode = "intro-arena-frame0"; expected_goal = 0; expected_jumbotron = 55; checkpoint = $false },
     [pscustomobject]@{ mode = "intro-arena-frame240"; expected_goal = 10; expected_jumbotron = $null; checkpoint = $true },
@@ -327,6 +352,42 @@ try {
         error = if ($RenderPassed) { $null } else { "ROM-only arena render did not complete without capture data" }
     })
 
+    $GroundedFrame260Path = Join-Path $CheckpointOutputDir "intro-arena-frame260.png"
+    $GroundedFrame280Path = Join-Path $CheckpointOutputDir "intro-arena-frame280.png"
+    $GroundedFinalPath = Join-Path $CheckpointOutputDir "intro-arena-frame539.png"
+    $GroundedFrame260MinY = Get-GroundedGoalWhiteMinY $GroundedFrame260Path
+    $GroundedFrame280MinY = Get-GroundedGoalWhiteMinY $GroundedFrame280Path
+    $GroundedGoalPixelDelta = $GroundedFrame280MinY - $GroundedFrame260MinY
+    # Transition state moves scroll $38->$42 and stream1 $0117->$010D.
+    $GroundedBackgroundNativeDelta = -(0x42 - 0x38)
+    $GroundedBackgroundPixelDelta = 2 * $GroundedBackgroundNativeDelta
+    $GroundedStreamNativeDelta = 0x010D - 0x0117
+    # Verified against the untouched cbd37cc final frame.
+    $ExpectedFinalHash = "96994C5EF4919AB1FBA63B98BB7CEE874F8109F437700DCE60D8EB44B5C1EBB8"
+    $ActualFinalHash = (Get-FileHash -Algorithm SHA256 $GroundedFinalPath).Hash
+    $GroundedContractPassed = $GroundedGoalPixelDelta -eq $GroundedBackgroundPixelDelta -and
+        $GroundedStreamNativeDelta -eq $GroundedBackgroundNativeDelta -and
+        $ActualFinalHash -eq $ExpectedFinalHash
+    if (!$GroundedContractPassed) {
+        ++$Failures
+    }
+    $Results.Add([pscustomobject]@{
+        id = "intro-arena-native-grounded-goal-contract"
+        passed = $GroundedContractPassed
+        skipped = $false
+        frame260_goal_marker_min_y = $GroundedFrame260MinY
+        frame280_goal_marker_min_y = $GroundedFrame280MinY
+        goal_pixel_delta = $GroundedGoalPixelDelta
+        background_pixel_delta = $GroundedBackgroundPixelDelta
+        stream1_native_delta = $GroundedStreamNativeDelta
+        background_native_delta = $GroundedBackgroundNativeDelta
+        final539_sha256 = $ActualFinalHash
+        expected_final539_sha256 = $ExpectedFinalHash
+        raw_output_persisted = $false
+        coverage_status = "grounded-ease-delta-and-rom-identical-final"
+        error = if ($GroundedContractPassed) { $null } else { "native grounded goal delta or final pose changed" }
+    })
+
     $Page01BaselinePath = Join-Path $CheckpointOutputDir "intro-arena-frame240.png"
     $Page01MarkerPackPath = Join-Path $OutputDir "page01-marker.assetpack"
     $Page01MarkerRenderPath = Join-Path $OutputDir "page01-marker-frame240.png"
@@ -413,7 +474,7 @@ try {
         ++$Failures
     }
     $Results.Add([pscustomobject]@{
-        id = "intro-arena-goal-page01-no-wrap"
+        id = "intro-arena-native-grounded-goal-page01-no-wrap"
         passed = $Page01MarkerPassed
         skipped = $false
         baseline = Get-RepoRelativePath $Page01BaselinePath
@@ -423,7 +484,7 @@ try {
         png_identical = $Page01PngIdentical
         raw_output_persisted = $false
         coverage_status = "count-marker-and-png"
-        error = if ($Page01MarkerPassed) { $null } else { "a frame 240 page01 goal value wrapped into the visible PNG" }
+        error = if ($Page01MarkerPassed) { $null } else { "a frame 240 native grounded page01 goal value wrapped into the visible PNG" }
     })
 
     $MalformedTasgCases = @(
@@ -562,7 +623,7 @@ try {
             rom_only_contract = $true
         }
         render_coverage = [pscustomobject]@{
-            status = "arena-native-stream1-checkpoints"
+            status = "arena-native-grounded-goal-checkpoints"
             render_modes = $RomOnlyArenaRenderModes
             checkpoint_directory = Get-RepoRelativePath $CheckpointOutputDir
         }
