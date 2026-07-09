@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+typedef struct TecmoAssetPackBuilder TecmoAssetPackBuilder;
+
 #define TECMO_MAX_PATH_TEXT 1024
 #define TECMO_MAX_LABEL_TEXT 256
 #define TECMO_MAX_NAME_TEXT 128
@@ -147,6 +149,10 @@ int tecmo_serialize_title_text(const char *title_text, char **text_out, uint64_t
 int tecmo_serialize_title_glyph_map_tsv(const TecmoOriginalTitleGlyphs *glyphs,
                                         char **text_out,
                                         uint64_t *byte_count);
+int tecmo_asset_pack_builder_add_decomp_derived_entries(const char *project_root,
+                                                        TecmoAssetPackBuilder *builder,
+                                                        char *message,
+                                                        size_t message_size);
 
 int tecmo_generate_roster_c(const char *project_root, const char *out_dir);
 int tecmo_load_original_title_text(const char *project_root, char *title, size_t title_size);
