@@ -2,6 +2,11 @@
 
 These notes are for Codex/AI-agent development work in this repo. Keep the README user-facing; put debug-only capture details here.
 
+For porting direction, follow [PORTING.md](PORTING.md). In short: this is a
+native C port, not an emulator wrapper. Final runtime paths should consume
+ROM-derived asset packs and native C scene/game concepts, not decompilation
+files, Lua captures, or emulator-shaped replay data.
+
 ## Current Product Surface
 
 The normal executable menu exposes only:
