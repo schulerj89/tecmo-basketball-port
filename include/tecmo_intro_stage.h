@@ -32,6 +32,16 @@ typedef enum TecmoIntroArenaPhase {
     TECMO_INTRO_ARENA_PHASE_WRAP
 } TecmoIntroArenaPhase;
 
+#define TECMO_INTRO_ARENA_EMIT_PASS_COUNT 2U
+
+typedef struct TecmoIntroArenaEmitPassState {
+    uint8_t stream_index;
+    uint8_t pointer_low;
+    uint8_t pointer_high;
+    uint8_t stream_low;
+    uint8_t stream_high;
+} TecmoIntroArenaEmitPassState;
+
 typedef struct TecmoIntroArenaTransitionState {
     unsigned frame;
     TecmoIntroArenaPhase phase;
@@ -48,6 +58,16 @@ typedef struct TecmoIntroArenaTransitionState {
     uint8_t seed_21;
     uint8_t irq_0100;
     uint8_t mapper_select_0352;
+    uint8_t stream0_low;
+    uint8_t stream0_high;
+    uint8_t stream1_low;
+    uint8_t stream1_high;
+    unsigned loop_tick;
+    uint8_t handoff_timer_8a;
+    uint8_t motion_counter_88;
+    uint8_t emit_reset_058d;
+    uint8_t emit_pass_count;
+    TecmoIntroArenaEmitPassState emit_passes[TECMO_INTRO_ARENA_EMIT_PASS_COUNT];
 } TecmoIntroArenaTransitionState;
 
 size_t tecmo_intro_stage_sprite_records(const TecmoIntroSpriteRecord *records,
