@@ -81,6 +81,49 @@ function Get-SafeExceptionName {
     return "Error"
 }
 
+function Get-AssetPackEntryPayloadOffset {
+    param(
+        [byte[]]$Bytes,
+        [string]$EntryId
+    )
+
+    if ($Bytes.Length -lt 40 -or
+        [System.Text.Encoding]::ASCII.GetString($Bytes, 0, 4) -ne "TAP1") {
+        throw "Malformed asset-pack header."
+    }
+
+    $EntryCount = [System.BitConverter]::ToUInt32($Bytes, 16)
+    $DirectoryOffset = [System.BitConverter]::ToUInt64($Bytes, 20)
+    for ($EntryIndex = 0; $EntryIndex -lt $EntryCount; ++$EntryIndex) {
+        $EntryOffset64 = $DirectoryOffset + [uint64]($EntryIndex * 128)
+        if ($EntryOffset64 + 128 -gt [uint64]$Bytes.Length -or
+            $EntryOffset64 -gt [int]::MaxValue) {
+            throw "Malformed asset-pack directory."
+        }
+
+        $EntryOffset = [int]$EntryOffset64
+        $EntryNameLength = 0
+        while ($EntryNameLength -lt 64 -and $Bytes[$EntryOffset + $EntryNameLength] -ne 0) {
+            ++$EntryNameLength
+        }
+        $EntryName = [System.Text.Encoding]::ASCII.GetString(
+            $Bytes,
+            $EntryOffset,
+            $EntryNameLength)
+        if ($EntryName -eq $EntryId) {
+            $PayloadOffset = [System.BitConverter]::ToUInt64($Bytes, $EntryOffset + 84)
+            $PayloadSize = [System.BitConverter]::ToUInt64($Bytes, $EntryOffset + 92)
+            if ($PayloadOffset + $PayloadSize -gt [uint64]$Bytes.Length -or
+                $PayloadOffset -gt [int]::MaxValue) {
+                throw "Malformed asset-pack entry payload."
+            }
+            return [int]$PayloadOffset
+        }
+    }
+
+    throw "Asset-pack entry was not found."
+}
+
 $ExePath = Join-Path $BuildDir "tecmo_port.exe"
 
 $ReferenceRom = Find-ReferenceRom
@@ -259,6 +302,96 @@ try {
         raw_output_persisted = $false
         coverage_status = "covered"
         error = if ($RenderPassed) { $null } else { "ROM-only arena render did not complete without capture data" }
+    })
+
+    $MalformedTasgCases = @(
+        [pscustomobject]@{
+            id = "top-tile-before-page-8"
+            mutation = "u32"
+            payload_offset = 108
+            value = 8176
+        },
+        [pscustomobject]@{
+            id = "bottom-tile-after-page-9"
+            mutation = "u32"
+            payload_offset = 108
+            value = 10224
+        },
+        [pscustomobject]@{
+            id = "priority-flag-unsupported"
+            mutation = "or-byte"
+            payload_offset = 113
+            value = 0x04
+        },
+        [pscustomobject]@{
+            id = "reserved-flag-unsupported"
+            mutation = "or-byte"
+            payload_offset = 113
+            value = 0x08
+        }
+    )
+    $MalformedPackPath = Join-Path $OutputDir "malformed-tasg.assetpack"
+    $MalformedRenderPath = Join-Path $OutputDir "malformed-tasg.png"
+    $MalformedCaseResults = New-Object System.Collections.Generic.List[object]
+    $MalformedContractPassed = $PackBuildPassed
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    try {
+        if ($PackBuildPassed) {
+            foreach ($Case in $MalformedTasgCases) {
+                [byte[]]$MalformedBytes = [System.IO.File]::ReadAllBytes($AssetPackPath)
+                $TasgPayloadOffset = Get-AssetPackEntryPayloadOffset `
+                    -Bytes $MalformedBytes `
+                    -EntryId "arena/intro/sprite-groups"
+                $MutationOffset = $TasgPayloadOffset + $Case.payload_offset
+                if ($Case.mutation -eq "u32") {
+                    [System.BitConverter]::GetBytes([uint32]$Case.value).CopyTo(
+                        $MalformedBytes,
+                        $MutationOffset)
+                } else {
+                    $MalformedBytes[$MutationOffset] = [byte](
+                        $MalformedBytes[$MutationOffset] -bor [byte]$Case.value)
+                }
+                [System.IO.File]::WriteAllBytes($MalformedPackPath, $MalformedBytes)
+
+                if (Test-Path -LiteralPath $MalformedRenderPath) {
+                    Remove-Item -LiteralPath $MalformedRenderPath -Force
+                }
+                $env:TECMO_ASSETPACK = $MalformedPackPath
+                $MalformedRenderOutput = & $ExePath `
+                    --root $ProjectRoot `
+                    --render-test-mode intro-arena-frame0 $MalformedRenderPath 2>&1
+                $MalformedRenderExitCode = $LASTEXITCODE
+                $MalformedRenderText = (@($MalformedRenderOutput) | ForEach-Object { [string]$_ }) -join "`n"
+                $Rejected = $MalformedRenderExitCode -eq 1 -and
+                    !(Test-Path -LiteralPath $MalformedRenderPath) -and
+                    $MalformedRenderText -match "intro-arena-render-source kind=arena exact_layer=1 rendered=0 cells=1632 palette=16 sprite_groups=0 jumbotron_pieces=0 goal_pieces=0 visible_jumbotron=0 visible_goal=0"
+                if (!$Rejected) {
+                    $MalformedContractPassed = $false
+                }
+                $MalformedCaseResults.Add([pscustomobject]@{
+                    id = $Case.id
+                    passed = $Rejected
+                    exit_code = $MalformedRenderExitCode
+                    rejected_by_runtime = $Rejected
+                })
+            }
+        }
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+        Remove-Item -LiteralPath $MalformedPackPath -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $MalformedRenderPath -Force -ErrorAction SilentlyContinue
+    }
+    if (!$MalformedContractPassed) {
+        ++$Failures
+    }
+    $Results.Add([pscustomobject]@{
+        id = "intro-tasg-malformed-contract"
+        passed = $MalformedContractPassed
+        skipped = $false
+        cases = $MalformedCaseResults
+        raw_output_persisted = $false
+        coverage_status = "covered"
+        error = if ($MalformedContractPassed) { $null } else { "runtime accepted a malformed TASG sprite contract" }
     })
 } catch {
     ++$Failures

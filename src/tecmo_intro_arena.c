@@ -66,6 +66,7 @@
 #define ARENA_SPRITE_WIDTH 8
 #define ARENA_SPRITE_HEIGHT 16
 #define ARENA_SPRITE_PIXEL_TOP_OFFSET 1
+#define ARENA_SPRITE_CHR_PAIR_BYTES 32ULL
 
 typedef struct ArenaCaptureBuild {
     uint8_t tiles[TECMO_INTRO_ARENA_PAGE_COUNT][TECMO_INTRO_ARENA_TILES_PER_PAGE];
@@ -1377,6 +1378,14 @@ static bool arena_sprite_group_contract_valid(const TecmoArenaNativeSpriteGroup 
     return false;
 }
 
+static bool arena_sprite_chr_pair_offset_valid(uint64_t top_offset)
+{
+    return (top_offset & 0x0FULL) == 0U &&
+           top_offset >= TECMO_INTRO_ARENA_NATIVE_SPRITE_CHR_OFFSET_BEGIN &&
+           top_offset <= TECMO_INTRO_ARENA_NATIVE_SPRITE_CHR_OFFSET_LIMIT -
+                             ARENA_SPRITE_CHR_PAIR_BYTES;
+}
+
 static bool arena_decode_sprite_groups(TecmoArenaNativeSpriteGroups *sprite_groups,
                                        const uint8_t *bytes,
                                        uint64_t byte_count)
@@ -1481,11 +1490,10 @@ static bool arena_decode_sprite_groups(TecmoArenaNativeSpriteGroups *sprite_grou
         piece->top_chr_offset = arena_read_le_u32(piece_bytes + 4U);
         piece->palette_index = piece_bytes[8U];
         piece->flags = piece_bytes[9U];
-        if ((piece->top_chr_offset & 0x0FU) != 0U ||
+        if (!arena_sprite_chr_pair_offset_valid(piece->top_chr_offset) ||
             piece->palette_index > 3U ||
             (piece->flags & ~(uint8_t)(TECMO_ARENA_NATIVE_SPRITE_FLIP_HORIZONTAL |
-                                      TECMO_ARENA_NATIVE_SPRITE_FLIP_VERTICAL |
-                                      TECMO_ARENA_NATIVE_SPRITE_PRIORITY)) != 0U ||
+                                      TECMO_ARENA_NATIVE_SPRITE_FLIP_VERTICAL)) != 0U ||
             arena_read_le_u16(piece_bytes + 10U) != 0U) {
             return false;
         }
@@ -2033,7 +2041,8 @@ bool tecmo_intro_arena_native_sprite_chr_available(
     }
     for (size_t i = 0; i < sprite_groups->piece_count; ++i) {
         uint64_t top_offset = sprite_groups->pieces[i].top_chr_offset;
-        if ((top_offset & 0x0FULL) != 0U || top_offset + 31ULL >= chr_byte_count) {
+        if (!arena_sprite_chr_pair_offset_valid(top_offset) ||
+            top_offset + ARENA_SPRITE_CHR_PAIR_BYTES > chr_byte_count) {
             return false;
         }
     }
