@@ -31,6 +31,19 @@ typedef struct TecmoAssetPackEntryInfo {
     uint32_t flags;
 } TecmoAssetPackEntryInfo;
 
+typedef struct TecmoAssetPackDirectoryEntryInfo {
+    const char *id;
+    uint32_t type;
+    uint32_t bank;
+    uint32_t cpu_address;
+    uint64_t source_offset;
+    uint64_t byte_count;
+    uint32_t flags;
+} TecmoAssetPackDirectoryEntryInfo;
+
+typedef int (*TecmoAssetPackListCallback)(const TecmoAssetPackDirectoryEntryInfo *entry_info,
+                                          void *user_data);
+
 int tecmo_asset_pack_builder_begin(TecmoAssetPackBuilder **builder_out,
                                    const char *out_path,
                                    char *message,
@@ -65,6 +78,20 @@ int tecmo_asset_pack_read_entry(const char *pack_path,
                                 const char *entry_id,
                                 uint8_t **bytes_out,
                                 uint64_t *byte_count);
+
+/* Callback id pointers are valid only for the duration of each callback call.
+   A non-zero callback result stops enumeration and is returned to the caller. */
+int tecmo_asset_pack_list_entries(const char *pack_path,
+                                  TecmoAssetPackListCallback callback,
+                                  void *user_data);
+
+/* Writes a human-readable directory listing. required_size_out includes the NUL terminator. */
+int tecmo_asset_pack_dump_directory(const char *pack_path,
+                                    char *buffer,
+                                    size_t buffer_size,
+                                    size_t *required_size_out);
+
+int tecmo_asset_pack_self_test(char *message, size_t message_size);
 
 void tecmo_asset_pack_free(void *buffer);
 
