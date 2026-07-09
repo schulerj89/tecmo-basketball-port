@@ -2009,6 +2009,7 @@ bool tecmo_intro_arena_draw_native_chr(TecmoFramebuffer *fb,
     int lower_origin_y;
     int lower_clip_y;
     int clipped_lower_start;
+    int clipped_lower_end;
 
     if (fb == NULL || scale <= 0 ||
         !tecmo_intro_arena_tile_layer_chr_available(layer, chr_bytes, chr_byte_count)) {
@@ -2054,6 +2055,16 @@ bool tecmo_intro_arena_draw_native_chr(TecmoFramebuffer *fb,
     if (clipped_lower_start > fb->height) {
         clipped_lower_start = fb->height;
     }
+    clipped_lower_end = viewport_bottom;
+    if (clipped_lower_end < 0) {
+        clipped_lower_end = 0;
+    }
+    if (clipped_lower_end > fb->height) {
+        clipped_lower_end = fb->height;
+    }
+    if (clipped_lower_end < clipped_lower_start) {
+        clipped_lower_end = clipped_lower_start;
+    }
     {
         int clear_left = origin_x > 0 ? origin_x : 0;
         int clear_right = origin_x + (int)layer->width * 8 * scale;
@@ -2075,7 +2086,7 @@ bool tecmo_intro_arena_draw_native_chr(TecmoFramebuffer *fb,
 
     lower_fb = *fb;
     lower_fb.pixels += (size_t)clipped_lower_start * lower_fb.pitch_pixels;
-    lower_fb.height -= clipped_lower_start;
+    lower_fb.height = clipped_lower_end - clipped_lower_start;
     for (int row = ARENA_SCREEN_LOWER_BAND_FIRST_ROW;
          row < (int)layer->height;
          ++row) {

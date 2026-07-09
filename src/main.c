@@ -5,6 +5,8 @@
 #include "tecmo_game.h"
 #include "tecmo_intro_arena_scene.h"
 
+#include <errno.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -149,6 +151,36 @@ static bool render_mode_requires_roster_data(const char *mode_name)
     return mode_name != NULL &&
            (strcmp(mode_name, "rosters") == 0 ||
             strcmp(mode_name, "play-setup") == 0);
+}
+
+static bool parse_render_frame_suffix(const char *mode_name,
+                                      const char *prefix,
+                                      unsigned *frame)
+{
+    const char *suffix;
+    char *end;
+    unsigned long value;
+    size_t prefix_length;
+
+    if (mode_name == NULL || prefix == NULL || frame == NULL) {
+        return false;
+    }
+    prefix_length = strlen(prefix);
+    if (strncmp(mode_name, prefix, prefix_length) != 0) {
+        return false;
+    }
+    suffix = mode_name + prefix_length;
+    if (*suffix < '0' || *suffix > '9') {
+        return false;
+    }
+
+    errno = 0;
+    value = strtoul(suffix, &end, 10);
+    if (errno == ERANGE || value > UINT_MAX || *end != '\0') {
+        return false;
+    }
+    *frame = (unsigned)value;
+    return true;
 }
 
 int main(int argc, char **argv)
@@ -456,19 +488,24 @@ int main(int argc, char **argv)
                 render_runtime = false;
                 result = arena_render_succeeded ? 0 : 1;
             } else if (strncmp(mode_name, "intro-arena-clean-frame", 23) == 0) {
-                long frame = strtol(mode_name + 23, NULL, 10);
-                if (frame < 0) {
-                    frame = 0;
+                unsigned frame;
+                if (!parse_render_frame_suffix(mode_name,
+                                               "intro-arena-clean-frame",
+                                               &frame)) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    framebuffer.pixels = pixels;
+                    framebuffer.width = width;
+                    framebuffer.height = height;
+                    framebuffer.pitch_pixels = width;
+                    runtime.debug_overlay = false;
+                    runtime.mode_frame_counter = frame;
+                    arena_render_succeeded =
+                        tecmo_render_intro_arena_transition(&runtime, &framebuffer);
+                    render_runtime = false;
+                    result = arena_render_succeeded ? 0 : 1;
                 }
-                framebuffer.pixels = pixels;
-                framebuffer.width = width;
-                framebuffer.height = height;
-                framebuffer.pitch_pixels = width;
-                runtime.debug_overlay = false;
-                runtime.mode_frame_counter = (unsigned)frame;
-                arena_render_succeeded = tecmo_render_intro_arena_transition(&runtime, &framebuffer);
-                render_runtime = false;
-                result = arena_render_succeeded ? 0 : 1;
             } else if (strncmp(mode_name, "intro-arena-frame", 17) == 0) {
                 long frame = strtol(mode_name + 17, NULL, 10);
                 if (frame < 0) {

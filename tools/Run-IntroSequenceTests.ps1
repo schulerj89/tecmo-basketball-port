@@ -198,6 +198,18 @@ $RomOnlyArenaRenderCases = @(
     [pscustomobject]@{ mode = "intro-arena-frame539"; expected_goal = 16; expected_jumbotron = $null; checkpoint = $true }
 )
 $RomOnlyArenaRenderModes = @($RomOnlyArenaRenderCases | ForEach-Object { $_.mode })
+$LowerBandGeometryCases = @(
+    [pscustomobject]@{ frame = 308; scroll = "50"; motion = "6A"; origin_y = 458; clip_y = 460 },
+    [pscustomobject]@{ frame = 324; scroll = "58"; motion = "5A"; origin_y = 426; clip_y = 428 },
+    [pscustomobject]@{ frame = 340; scroll = "60"; motion = "4A"; origin_y = 394; clip_y = 396 },
+    [pscustomobject]@{ frame = 348; scroll = "64"; motion = "42"; origin_y = 378; clip_y = 380 }
+)
+$MalformedCleanArenaModes = @(
+    "intro-arena-clean-frame",
+    "intro-arena-clean-frame-1",
+    "intro-arena-clean-frame1junk",
+    "intro-arena-clean-frame4294967296"
+)
 
 $Results = New-Object System.Collections.Generic.List[object]
 $Failures = 0
@@ -349,6 +361,136 @@ try {
         raw_output_persisted = $false
         coverage_status = "covered"
         error = if ($RenderPassed) { $null } else { "ROM-only arena render did not complete without capture data" }
+    })
+
+    $LowerBandGeometryOutputs = New-Object System.Collections.Generic.List[object]
+    $LowerBandGeometryPassed = $true
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    $PreviousLooseArenaCapture = $env:TECMO_ALLOW_LOOSE_INTRO_CAPTURE
+    try {
+        $env:TECMO_ASSETPACK = $AssetPackPath
+        Remove-Item Env:TECMO_ALLOW_LOOSE_INTRO_CAPTURE -ErrorAction SilentlyContinue
+        foreach ($GeometryCase in $LowerBandGeometryCases) {
+            $Mode = "intro-arena-clean-frame$($GeometryCase.frame)"
+            $RenderPath = Join-Path $CheckpointOutputDir "$Mode.png"
+            if (Test-Path -LiteralPath $RenderPath) {
+                Remove-Item -LiteralPath $RenderPath -Force
+            }
+            $RenderOutput = & $ExePath `
+                --root $ProjectRoot `
+                --render-test-mode $Mode $RenderPath 2>&1
+            $RenderExitCode = $LASTEXITCODE
+            $RenderText = (@($RenderOutput) | ForEach-Object { [string]$_ }) -join "`n"
+            $RenderCreated = Test-Path -LiteralPath $RenderPath
+            $ExactLayerSeen = $RenderText -match
+                "intro-arena-render-source kind=arena exact_layer=1 rendered=1 cells=1632 palette=16"
+            $OriginDoesNotMatchBoundary = $false
+            $BoundaryRed = $false
+            $BoundaryBlack = $false
+
+            if ($RenderCreated) {
+                $Bitmap = [System.Drawing.Bitmap]::FromFile($RenderPath)
+                try {
+                    $OriginDoesNotMatchBoundary = !(Test-PixelRectColor `
+                        $Bitmap 64 $GeometryCase.origin_y 191 ($GeometryCase.origin_y + 1) `
+                        228 0 88)
+                    $BoundaryRed = Test-PixelRectColor `
+                        $Bitmap 64 $GeometryCase.clip_y 191 ($GeometryCase.clip_y + 1) `
+                        228 0 88
+                    $BoundaryBlack = Test-PixelRectColor `
+                        $Bitmap 64 ($GeometryCase.clip_y + 2) 191 ($GeometryCase.clip_y + 3) `
+                        0 0 0
+                } finally {
+                    $Bitmap.Dispose()
+                }
+            }
+            $ModePassed = $RenderExitCode -eq 0 -and
+                $RenderCreated -and
+                $ExactLayerSeen -and
+                $OriginDoesNotMatchBoundary -and
+                $BoundaryRed -and
+                $BoundaryBlack
+            if (!$ModePassed) {
+                $LowerBandGeometryPassed = $false
+            }
+            $LowerBandGeometryOutputs.Add([pscustomobject]@{
+                frame = [int]$GeometryCase.frame
+                mode = $Mode
+                output = Get-RepoRelativePath $RenderPath
+                passed = $ModePassed
+                exit_code = $RenderExitCode
+                scroll_0301_hex = $GeometryCase.scroll
+                motion_counter_88_hex = $GeometryCase.motion
+                expected_origin_output_y = [int]$GeometryCase.origin_y
+                expected_clip_output_y = [int]$GeometryCase.clip_y
+                origin_does_not_match_boundary = $OriginDoesNotMatchBoundary
+                boundary_red_signature = $BoundaryRed
+                boundary_black_signature = $BoundaryBlack
+            })
+        }
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+        $env:TECMO_ALLOW_LOOSE_INTRO_CAPTURE = $PreviousLooseArenaCapture
+    }
+    if (!$LowerBandGeometryPassed) {
+        ++$Failures
+    }
+    $Results.Add([pscustomobject]@{
+        id = "intro-arena-dynamic-lower-band-geometry"
+        passed = $LowerBandGeometryPassed
+        skipped = $false
+        outputs = $LowerBandGeometryOutputs
+        raw_output_persisted = $false
+        coverage_status = "clean-frame-irq-boundary-progression"
+        error = if ($LowerBandGeometryPassed) { $null } else { "lower-band IRQ origin progression changed" }
+    })
+
+    $MalformedCleanModeOutputs = New-Object System.Collections.Generic.List[object]
+    $MalformedCleanModesPassed = $true
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    $PreviousLooseArenaCapture = $env:TECMO_ALLOW_LOOSE_INTRO_CAPTURE
+    try {
+        $env:TECMO_ASSETPACK = $AssetPackPath
+        Remove-Item Env:TECMO_ALLOW_LOOSE_INTRO_CAPTURE -ErrorAction SilentlyContinue
+        for ($CaseIndex = 0; $CaseIndex -lt $MalformedCleanArenaModes.Count; ++$CaseIndex) {
+            $Mode = $MalformedCleanArenaModes[$CaseIndex]
+            $RenderPath = Join-Path $OutputDir "malformed-clean-arena-mode-$CaseIndex.png"
+            if (Test-Path -LiteralPath $RenderPath) {
+                Remove-Item -LiteralPath $RenderPath -Force
+            }
+            $RenderOutput = & $ExePath `
+                --root $ProjectRoot `
+                --render-test-mode $Mode $RenderPath 2>&1
+            $RenderExitCode = $LASTEXITCODE
+            $RenderText = (@($RenderOutput) | ForEach-Object { [string]$_ }) -join "`n"
+            $Rejected = $RenderExitCode -eq 1 -and
+                !(Test-Path -LiteralPath $RenderPath) -and
+                $RenderText -match "Unsupported render-test mode: $([regex]::Escape($Mode))"
+            if (!$Rejected) {
+                $MalformedCleanModesPassed = $false
+            }
+            $MalformedCleanModeOutputs.Add([pscustomobject]@{
+                mode = $Mode
+                passed = $Rejected
+                exit_code = $RenderExitCode
+                png_created = Test-Path -LiteralPath $RenderPath
+            })
+        }
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+        $env:TECMO_ALLOW_LOOSE_INTRO_CAPTURE = $PreviousLooseArenaCapture
+    }
+    if (!$MalformedCleanModesPassed) {
+        ++$Failures
+    }
+    $Results.Add([pscustomobject]@{
+        id = "intro-arena-clean-frame-mode-validation"
+        passed = $MalformedCleanModesPassed
+        skipped = $false
+        cases = $MalformedCleanModeOutputs
+        raw_output_persisted = $false
+        coverage_status = "strict-decimal-suffix"
+        error = if ($MalformedCleanModesPassed) { $null } else { "malformed clean arena frame mode was accepted" }
     })
 
     $CleanFinalMode = "intro-arena-clean-frame539"
