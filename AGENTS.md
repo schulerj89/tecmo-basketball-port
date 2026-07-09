@@ -44,6 +44,30 @@ rg -n '"frame":(8[0-9]{2}|7[0-9]{2})|oam_frame_diff|scroll' build
 
 When checking timing, extract only the frame range and fields needed for the current question.
 
+## Sub-Agent Workflow
+
+For non-trivial porting work, prefer a deliberate sub-agent cycle:
+
+1. Use read-only explorer agents to inspect ASM, docs, and current C flow. Ask
+   for concrete file/line mappings and behavior summaries, not broad opinions.
+2. Put code-writing worker agents in temporary git worktrees with narrow file
+   ownership. Tell them other agents may be working nearby and not to revert
+   unrelated changes.
+3. Have worker agents commit their work on the temporary branch after building
+   and running focused tests.
+4. Use a separate reviewer agent to inspect the worker commit before merging.
+   If review finds issues, send the worker a targeted follow-up in the same
+   worktree and repeat the review cycle.
+5. The main agent owns integration: cherry-pick or merge only reviewed commits,
+   run the full relevant verification set, inspect key screenshots when visuals
+   matter, then push.
+6. Close sub-agents and remove temporary worktrees/branches when the task is
+   done.
+
+Do not leave temporary worktrees or agent branches around after reviewed commits
+have landed on `main`. Keep untracked handoff notes such as `NEXT_SESSION.md`
+out of unrelated commits unless the user explicitly asks to commit them.
+
 ## Useful Verification Commands
 
 ```powershell
