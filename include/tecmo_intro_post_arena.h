@@ -76,7 +76,7 @@ typedef struct TecmoIntroPostArenaCapture {
     size_t scroll_stage_count;
     unsigned first_capture_frame;
     unsigned last_capture_frame;
-    char status[160];
+    char status[512];
 } TecmoIntroPostArenaCapture;
 
 bool tecmo_intro_post_arena_capture_load(TecmoIntroPostArenaCapture *capture,

@@ -132,6 +132,8 @@ Build a private local asset pack from a local iNES image:
 .\build\tecmo_port.exe --build-assetpack <LOCAL_ROM.nes> build\tecmo.assetpack
 ```
 
+Generated `.assetpack` files are ignored local data. The default builder writes `system/manifest`, `system/source-map`, raw `prg/*` entries, raw `chr/*` entries, and reserves logical namespaces for later decomp-derived entries.
+
 The runtime prefers `TECMO_ASSETPACK` or `build\tecmo.assetpack` for CHR data, then falls back to the older local `build\baseline\Tiles.asm` path.
 
 ## Current Scope
@@ -163,6 +165,7 @@ Lower-level runtime and memory notes are kept in [AGENTS.md](AGENTS.md) for deve
 These commands write ignored local outputs:
 
 ```powershell
+.\build\tecmo_port.exe --build-assetpack <LOCAL_ROM.nes> build\tecmo.assetpack
 .\build\tecmo_port.exe --generate-rosters generated
 .\build\tecmo_port.exe --export-chr build\tecmo_tiles.chr
 .\build\tecmo_port.exe --export-chr-png build\chr_png

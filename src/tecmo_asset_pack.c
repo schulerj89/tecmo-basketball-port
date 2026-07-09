@@ -2,6 +2,8 @@
 
 #include "tecmo_asset_pack.h"
 
+#include <limits.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,7 +19,7 @@ typedef struct TecmoAssetPackBuildEntry {
     uint32_t type;
     uint32_t bank;
     uint32_t cpu_address;
-    uint64_t rom_offset;
+    uint64_t source_offset;
     uint64_t pack_offset;
     uint64_t size;
     uint32_t flags;
@@ -28,29 +30,106 @@ typedef struct TecmoAssetPackDirectoryEntry {
     uint32_t type;
     uint32_t bank;
     uint32_t cpu_address;
-    uint64_t rom_offset;
+    uint64_t source_offset;
     uint64_t pack_offset;
     uint64_t size;
     uint32_t flags;
 } TecmoAssetPackDirectoryEntry;
 
-static uint32_t pack_fourcc(char a, char b, char c, char d)
-{
-    return ((uint32_t)(uint8_t)a) |
-           ((uint32_t)(uint8_t)b << 8U) |
-           ((uint32_t)(uint8_t)c << 16U) |
-           ((uint32_t)(uint8_t)d << 24U);
-}
+struct TecmoAssetPackBuilder {
+    FILE *out;
+    char *out_path;
+    TecmoAssetPackBuildEntry *entries;
+    size_t entry_count;
+    size_t entry_capacity;
+};
 
 static void set_message(char *message, size_t message_size, const char *text)
 {
-    if (message_size == 0U) {
+    if (message == NULL || message_size == 0U) {
         return;
     }
     if (text == NULL) {
         text = "";
     }
     (void)snprintf(message, message_size, "%s", text);
+}
+
+static char *copy_string(const char *text)
+{
+    size_t length;
+    char *copy;
+
+    if (text == NULL) {
+        text = "";
+    }
+
+    length = strlen(text);
+    copy = (char *)malloc(length + 1U);
+    if (copy == NULL) {
+        return NULL;
+    }
+    memcpy(copy, text, length + 1U);
+    return copy;
+}
+
+static int file_tell_u64(FILE *file, uint64_t *position_out)
+{
+#ifdef _WIN32
+    __int64 position = _ftelli64(file);
+    if (position < 0) {
+        return -1;
+    }
+    *position_out = (uint64_t)position;
+#else
+    long position = ftell(file);
+    if (position < 0) {
+        return -1;
+    }
+    *position_out = (uint64_t)position;
+#endif
+    return 0;
+}
+
+static int file_seek_u64(FILE *file, uint64_t position)
+{
+#ifdef _WIN32
+    if (position > 0x7FFFFFFFFFFFFFFFULL) {
+        return -1;
+    }
+    return _fseeki64(file, (__int64)position, SEEK_SET);
+#else
+    if (position > (uint64_t)LONG_MAX) {
+        return -1;
+    }
+    return fseek(file, (long)position, SEEK_SET);
+#endif
+}
+
+static int append_text(char *buffer,
+                       size_t capacity,
+                       size_t *length,
+                       const char *format,
+                       ...)
+{
+    va_list args;
+    int written;
+    size_t remaining;
+
+    if (buffer == NULL || length == NULL || *length >= capacity) {
+        return -1;
+    }
+
+    remaining = capacity - *length;
+    va_start(args, format);
+    written = vsnprintf(buffer + *length, remaining, format, args);
+    va_end(args);
+    if (written < 0 || (size_t)written >= remaining) {
+        return -1;
+    }
+
+    *length += (size_t)written;
+    return 0;
 }
 
 static int write_u32(FILE *file, uint32_t value)
@@ -119,7 +198,7 @@ static int write_directory_entry(FILE *file, const TecmoAssetPackBuildEntry *ent
         write_u32(file, entry->type) != 0 ||
         write_u32(file, entry->bank) != 0 ||
         write_u32(file, entry->cpu_address) != 0 ||
-        write_u64(file, entry->rom_offset) != 0 ||
+        write_u64(file, entry->source_offset) != 0 ||
         write_u64(file, entry->pack_offset) != 0 ||
         write_u64(file, entry->size) != 0 ||
         write_u32(file, entry->flags) != 0 ||
@@ -144,59 +223,345 @@ static int read_directory_entry(FILE *file, TecmoAssetPackDirectoryEntry *entry)
     entry->type = read_u32(bytes + 64U);
     entry->bank = read_u32(bytes + 68U);
     entry->cpu_address = read_u32(bytes + 72U);
-    entry->rom_offset = read_u64(bytes + 76U);
+    entry->source_offset = read_u64(bytes + 76U);
     entry->pack_offset = read_u64(bytes + 84U);
     entry->size = read_u64(bytes + 92U);
     entry->flags = read_u32(bytes + 100U);
     return 0;
 }
 
-static int add_entry(TecmoAssetPackBuildEntry **entries,
-                     size_t *count,
-                     size_t *capacity,
-                     FILE *out,
-                     const char *id,
-                     uint32_t type,
-                     uint32_t bank,
-                     uint32_t cpu_address,
-                     uint64_t rom_offset,
-                     const uint8_t *data,
-                     uint64_t size)
+static TecmoAssetPackEntryInfo make_entry_info(const char *id,
+                                               uint32_t type,
+                                               uint32_t bank,
+                                               uint32_t cpu_address,
+                                               uint64_t source_offset,
+                                               uint32_t flags)
+{
+    TecmoAssetPackEntryInfo entry_info;
+
+    entry_info.id = id;
+    entry_info.type = type;
+    entry_info.bank = bank;
+    entry_info.cpu_address = cpu_address;
+    entry_info.source_offset = source_offset;
+    entry_info.flags = flags;
+    return entry_info;
+}
+
+static void release_builder(TecmoAssetPackBuilder *builder)
+{
+    if (builder == NULL) {
+        return;
+    }
+    if (builder->out != NULL) {
+        fclose(builder->out);
+    }
+    free(builder->out_path);
+    free(builder->entries);
+    free(builder);
+}
+
+static int reserve_build_entry(TecmoAssetPackBuilder *builder, char *message, size_t message_size)
+{
+    size_t new_capacity;
+    TecmoAssetPackBuildEntry *new_entries;
+
+    if (builder->entry_count >= UINT32_MAX) {
+        set_message(message, message_size, "Asset pack directory entry count exceeds format limits.");
+        return -1;
+    }
+    if (builder->entry_count < builder->entry_capacity) {
+        return 0;
+    }
+
+    if (builder->entry_capacity > SIZE_MAX / 2U) {
+        set_message(message, message_size, "Asset pack directory capacity overflow.");
+        return -1;
+    }
+    new_capacity = builder->entry_capacity == 0U ? 32U : builder->entry_capacity * 2U;
+    if (new_capacity > SIZE_MAX / sizeof(builder->entries[0])) {
+        set_message(message, message_size, "Asset pack directory allocation is too large.");
+        return -1;
+    }
+
+    new_entries = (TecmoAssetPackBuildEntry *)realloc(builder->entries,
+                                                      new_capacity * sizeof(builder->entries[0]));
+    if (new_entries == NULL) {
+        set_message(message, message_size, "Out of memory for asset pack directory.");
+        return -1;
+    }
+
+    builder->entries = new_entries;
+    builder->entry_capacity = new_capacity;
+    return 0;
+}
+
+static int validate_entry_info(const TecmoAssetPackBuilder *builder,
+                               const TecmoAssetPackEntryInfo *entry_info,
+                               char *message,
+                               size_t message_size)
+{
+    if (builder == NULL || builder->out == NULL) {
+        set_message(message, message_size, "Asset pack builder is not open.");
+        return -1;
+    }
+    if (entry_info == NULL || entry_info->id == NULL || entry_info->id[0] == '\0') {
+        set_message(message, message_size, "Asset pack entry id is required.");
+        return -1;
+    }
+    if (strlen(entry_info->id) >= TECMO_ASSET_PACK_ID_SIZE) {
+        set_message(message, message_size, "Asset pack entry id is too long.");
+        return -1;
+    }
+    return 0;
+}
+
+static int append_build_entry(TecmoAssetPackBuilder *builder,
+                              const TecmoAssetPackEntryInfo *entry_info,
+                              uint64_t pack_offset,
+                              uint64_t byte_count,
+                              char *message,
+                              size_t message_size)
 {
     TecmoAssetPackBuildEntry *entry;
-    long position;
 
-    if (*count >= *capacity) {
-        size_t new_capacity = *capacity == 0U ? 32U : *capacity * 2U;
-        TecmoAssetPackBuildEntry *new_entries =
-            (TecmoAssetPackBuildEntry *)realloc(*entries, new_capacity * sizeof((*entries)[0]));
-        if (new_entries == NULL) {
+    if (reserve_build_entry(builder, message, message_size) != 0) {
+        return -1;
+    }
+
+    entry = &builder->entries[builder->entry_count];
+    memset(entry, 0, sizeof(*entry));
+    (void)snprintf(entry->id, sizeof(entry->id), "%s", entry_info->id);
+    entry->type = entry_info->type;
+    entry->bank = entry_info->bank;
+    entry->cpu_address = entry_info->cpu_address;
+    entry->source_offset = entry_info->source_offset;
+    entry->pack_offset = pack_offset;
+    entry->size = byte_count;
+    entry->flags = entry_info->flags;
+    ++builder->entry_count;
+    return 0;
+}
+
+static int write_memory_payload(FILE *out, const void *data, uint64_t byte_count)
+{
+    const uint8_t *cursor = (const uint8_t *)data;
+    uint64_t remaining = byte_count;
+
+    if (byte_count > 0U && data == NULL) {
+        return -1;
+    }
+
+    while (remaining > 0U) {
+        size_t chunk = remaining > 65536U ? 65536U : (size_t)remaining;
+        if (fwrite(cursor, 1U, chunk, out) != chunk) {
             return -1;
         }
-        *entries = new_entries;
-        *capacity = new_capacity;
+        cursor += chunk;
+        remaining -= (uint64_t)chunk;
     }
-
-    position = ftell(out);
-    if (position < 0) {
-        return -1;
-    }
-    if (size > 0U && fwrite(data, 1U, (size_t)size, out) != (size_t)size) {
-        return -1;
-    }
-
-    entry = &(*entries)[*count];
-    memset(entry, 0, sizeof(*entry));
-    (void)snprintf(entry->id, sizeof(entry->id), "%s", id);
-    entry->type = type;
-    entry->bank = bank;
-    entry->cpu_address = cpu_address;
-    entry->rom_offset = rom_offset;
-    entry->pack_offset = (uint64_t)position;
-    entry->size = size;
-    entry->flags = 0U;
-    ++(*count);
     return 0;
+}
+
+int tecmo_asset_pack_builder_begin(TecmoAssetPackBuilder **builder_out,
+                                   const char *out_path,
+                                   char *message,
+                                   size_t message_size)
+{
+    TecmoAssetPackBuilder *builder;
+
+    if (builder_out == NULL) {
+        set_message(message, message_size, "Asset pack builder output is required.");
+        return -1;
+    }
+    *builder_out = NULL;
+
+    if (out_path == NULL || out_path[0] == '\0') {
+        set_message(message, message_size, "Asset pack output path is required.");
+        return -1;
+    }
+
+    builder = (TecmoAssetPackBuilder *)calloc(1U, sizeof(*builder));
+    if (builder == NULL) {
+        set_message(message, message_size, "Out of memory for asset pack builder.");
+        return -1;
+    }
+
+    builder->out_path = copy_string(out_path);
+    if (builder->out_path == NULL) {
+        set_message(message, message_size, "Out of memory for asset pack output path.");
+        release_builder(builder);
+        return -1;
+    }
+
+    builder->out = fopen(out_path, "wb");
+    if (builder->out == NULL) {
+        set_message(message, message_size, "Could not open asset pack output.");
+        release_builder(builder);
+        return -1;
+    }
+    if (write_header(builder->out, 0U, 0U, TECMO_ASSET_PACK_HEADER_SIZE) != 0) {
+        set_message(message, message_size, "Could not write asset pack header.");
+        release_builder(builder);
+        return -1;
+    }
+
+    *builder_out = builder;
+    return 0;
+}
+
+int tecmo_asset_pack_builder_add_memory(TecmoAssetPackBuilder *builder,
+                                        const TecmoAssetPackEntryInfo *entry_info,
+                                        const void *data,
+                                        uint64_t byte_count,
+                                        char *message,
+                                        size_t message_size)
+{
+    uint64_t pack_offset;
+
+    if (validate_entry_info(builder, entry_info, message, message_size) != 0) {
+        return -1;
+    }
+    if (byte_count > 0U && data == NULL) {
+        set_message(message, message_size, "Asset pack memory entry has no bytes.");
+        return -1;
+    }
+    if (file_tell_u64(builder->out, &pack_offset) != 0) {
+        set_message(message, message_size, "Could not locate asset pack data offset.");
+        return -1;
+    }
+    if (write_memory_payload(builder->out, data, byte_count) != 0) {
+        set_message(message, message_size, "Could not write asset pack memory entry.");
+        return -1;
+    }
+
+    return append_build_entry(builder, entry_info, pack_offset, byte_count, message, message_size);
+}
+
+int tecmo_asset_pack_builder_add_file(TecmoAssetPackBuilder *builder,
+                                      const TecmoAssetPackEntryInfo *entry_info,
+                                      const char *local_path,
+                                      char *message,
+                                      size_t message_size)
+{
+    FILE *input;
+    uint8_t buffer[16384];
+    uint64_t pack_offset;
+    uint64_t byte_count = 0U;
+    size_t bytes_read;
+    int result = -1;
+
+    if (validate_entry_info(builder, entry_info, message, message_size) != 0) {
+        return -1;
+    }
+    if (local_path == NULL || local_path[0] == '\0') {
+        set_message(message, message_size, "Asset pack local file path is required.");
+        return -1;
+    }
+
+    input = fopen(local_path, "rb");
+    if (input == NULL) {
+        set_message(message, message_size, "Could not read local asset pack entry file.");
+        return -1;
+    }
+
+    if (file_tell_u64(builder->out, &pack_offset) != 0) {
+        set_message(message, message_size, "Could not locate asset pack data offset.");
+        goto cleanup;
+    }
+
+    while ((bytes_read = fread(buffer, 1U, sizeof(buffer), input)) > 0U) {
+        if (UINT64_MAX - byte_count < (uint64_t)bytes_read) {
+            set_message(message, message_size, "Asset pack local file is too large.");
+            goto cleanup;
+        }
+        if (fwrite(buffer, 1U, bytes_read, builder->out) != bytes_read) {
+            set_message(message, message_size, "Could not write local asset pack entry.");
+            goto cleanup;
+        }
+        byte_count += (uint64_t)bytes_read;
+    }
+
+    if (ferror(input) != 0) {
+        set_message(message, message_size, "Could not read local asset pack entry file.");
+        goto cleanup;
+    }
+
+    if (append_build_entry(builder, entry_info, pack_offset, byte_count, message, message_size) != 0) {
+        goto cleanup;
+    }
+    result = 0;
+
+cleanup:
+    fclose(input);
+    return result;
+}
+
+int tecmo_asset_pack_builder_finish(TecmoAssetPackBuilder *builder,
+                                    char *message,
+                                    size_t message_size)
+{
+    uint64_t directory_offset;
+    uint32_t entry_count;
+    int result = -1;
+
+    if (builder == NULL || builder->out == NULL) {
+        set_message(message, message_size, "Asset pack builder is not open.");
+        return -1;
+    }
+    if (builder->entry_count > UINT32_MAX) {
+        set_message(message, message_size, "Asset pack directory entry count exceeds format limits.");
+        goto cleanup;
+    }
+
+    if (file_tell_u64(builder->out, &directory_offset) != 0) {
+        set_message(message, message_size, "Could not locate asset pack directory.");
+        goto cleanup;
+    }
+
+    for (size_t i = 0; i < builder->entry_count; ++i) {
+        if (write_directory_entry(builder->out, &builder->entries[i]) != 0) {
+            set_message(message, message_size, "Could not write asset pack directory.");
+            goto cleanup;
+        }
+    }
+
+    entry_count = (uint32_t)builder->entry_count;
+    if (file_seek_u64(builder->out, 0U) != 0 ||
+        write_header(builder->out,
+                     entry_count,
+                     directory_offset,
+                     TECMO_ASSET_PACK_HEADER_SIZE) != 0) {
+        set_message(message, message_size, "Could not finalize asset pack header.");
+        goto cleanup;
+    }
+
+    {
+        FILE *out = builder->out;
+        builder->out = NULL;
+        if (fclose(out) != 0) {
+            set_message(message, message_size, "Could not close asset pack output.");
+            goto cleanup;
+        }
+    }
+
+    if (message != NULL && message_size > 0U) {
+        (void)snprintf(message,
+                       message_size,
+                       "Wrote %u entries to %s",
+                       entry_count,
+                       builder->out_path);
+    }
+    result = 0;
+
+cleanup:
+    release_builder(builder);
+    return result;
+}
+
+void tecmo_asset_pack_builder_cancel(TecmoAssetPackBuilder *builder)
+{
+    release_builder(builder);
 }
 
 static int read_file(const char *path, uint8_t **bytes_out, uint64_t *size_out)
@@ -235,6 +600,179 @@ static int read_file(const char *path, uint8_t **bytes_out, uint64_t *size_out)
     return 0;
 }
 
+static int append_source_map_entry(char *buffer,
+                                   size_t capacity,
+                                   size_t *length,
+                                   int *first,
+                                   const char *id,
+                                   const char *kind,
+                                   uint64_t source_offset,
+                                   uint64_t size,
+                                   uint32_t bank,
+                                   uint32_t cpu_address)
+{
+    const char *prefix = *first != 0 ? "" : ",\n";
+
+    *first = 0;
+    return append_text(buffer,
+                       capacity,
+                       length,
+                       "%s"
+                       "    {\"id\":\"%s\",\"kind\":\"%s\",\"source_offset\":%llu,"
+                       "\"size\":%llu,\"bank\":%u,\"cpu_address\":%u}",
+                       prefix,
+                       id,
+                       kind,
+                       (unsigned long long)source_offset,
+                       (unsigned long long)size,
+                       bank,
+                       cpu_address);
+}
+
+static char *build_ines_source_map(uint32_t mapper,
+                                   uint32_t trainer_bytes,
+                                   uint32_t prg_banks,
+                                   uint32_t chr_banks,
+                                   uint64_t prg_offset,
+                                   uint64_t chr_offset,
+                                   uint64_t chr_size,
+                                   size_t *source_map_size_out)
+{
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 2U;
+    size_t capacity;
+    size_t length = 0U;
+    char *source_map;
+    int first = 1;
+
+    if (entry_count > (SIZE_MAX - 2048U) / 192U) {
+        return NULL;
+    }
+    capacity = 2048U + entry_count * 192U;
+    source_map = (char *)malloc(capacity);
+    if (source_map == NULL) {
+        return NULL;
+    }
+
+    if (append_text(source_map,
+                    capacity,
+                    &length,
+                    "{\n"
+                    "  \"format\":\"tecmo.assetpack.source-map/1\",\n"
+                    "  \"source\":{\n"
+                    "    \"kind\":\"ines\",\n"
+                    "    \"mapper\":%u,\n"
+                    "    \"trainer_bytes\":%u,\n"
+                    "    \"prg_offset\":%llu,\n"
+                    "    \"prg_bank_bytes\":%llu,\n"
+                    "    \"prg_banks\":%u,\n"
+                    "    \"chr_offset\":%llu,\n"
+                    "    \"chr_bank_bytes\":%llu,\n"
+                    "    \"chr_banks\":%u\n"
+                    "  },\n"
+                    "  \"raw_entries\":[\n",
+                    mapper,
+                    trainer_bytes,
+                    (unsigned long long)prg_offset,
+                    (unsigned long long)TECMO_ASSET_PACK_PRG_BANK_BYTES,
+                    prg_banks,
+                    (unsigned long long)chr_offset,
+                    (unsigned long long)TECMO_ASSET_PACK_CHR_BANK_BYTES,
+                    chr_banks) != 0) {
+        free(source_map);
+        return NULL;
+    }
+
+    for (uint32_t bank = 0; bank < prg_banks; ++bank) {
+        char id[TECMO_ASSET_PACK_ID_SIZE];
+        uint64_t offset = prg_offset + (uint64_t)bank * TECMO_ASSET_PACK_PRG_BANK_BYTES;
+
+        (void)snprintf(id, sizeof(id), "prg/bank%02u", bank);
+        if (append_source_map_entry(source_map,
+                                    capacity,
+                                    &length,
+                                    &first,
+                                    id,
+                                    "raw-prg-bank",
+                                    offset,
+                                    TECMO_ASSET_PACK_PRG_BANK_BYTES,
+                                    bank,
+                                    0x8000U) != 0) {
+            free(source_map);
+            return NULL;
+        }
+    }
+
+    {
+        uint32_t fixed_bank = prg_banks - 1U;
+        uint64_t offset = prg_offset + (uint64_t)fixed_bank * TECMO_ASSET_PACK_PRG_BANK_BYTES;
+
+        if (append_source_map_entry(source_map,
+                                    capacity,
+                                    &length,
+                                    &first,
+                                    "prg/fixed",
+                                    "raw-prg-fixed-alias",
+                                    offset,
+                                    TECMO_ASSET_PACK_PRG_BANK_BYTES,
+                                    fixed_bank,
+                                    0xC000U) != 0) {
+            free(source_map);
+            return NULL;
+        }
+    }
+
+    if (chr_size > 0U) {
+        if (append_source_map_entry(source_map,
+                                    capacity,
+                                    &length,
+                                    &first,
+                                    "chr/all",
+                                    "raw-chr-range",
+                                    chr_offset,
+                                    chr_size,
+                                    0U,
+                                    0U) != 0) {
+            free(source_map);
+            return NULL;
+        }
+
+        for (uint32_t bank = 0; bank < chr_banks; ++bank) {
+            char id[TECMO_ASSET_PACK_ID_SIZE];
+            uint64_t offset = chr_offset + (uint64_t)bank * TECMO_ASSET_PACK_CHR_BANK_BYTES;
+
+            (void)snprintf(id, sizeof(id), "chr/bank%02u", bank);
+            if (append_source_map_entry(source_map,
+                                        capacity,
+                                        &length,
+                                        &first,
+                                        id,
+                                        "raw-chr-bank",
+                                        offset,
+                                        TECMO_ASSET_PACK_CHR_BANK_BYTES,
+                                        bank,
+                                        0U) != 0) {
+                free(source_map);
+                return NULL;
+            }
+        }
+    }
+
+    if (append_text(source_map,
+                    capacity,
+                    &length,
+                    "\n"
+                    "  ],\n"
+                    "  \"logical_entries\":[],\n"
+                    "  \"logical_entry_note\":\"reserved for decomp-derived named entries added by import tools\"\n"
+                    "}\n") != 0) {
+        free(source_map);
+        return NULL;
+    }
+
+    *source_map_size_out = length;
+    return source_map;
+}
+
 int tecmo_asset_pack_build_from_ines(const char *rom_path,
                                      const char *out_path,
                                      char *message,
@@ -250,15 +788,12 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
     uint32_t chr_banks;
     uint32_t mapper;
     uint32_t trainer_bytes;
-    FILE *out = NULL;
-    TecmoAssetPackBuildEntry *entries = NULL;
-    size_t entry_count = 0;
-    size_t entry_capacity = 0;
-    uint64_t directory_offset;
-    const uint32_t meta_type = pack_fourcc('M', 'E', 'T', 'A');
-    const uint32_t prg_type = pack_fourcc('P', 'R', 'G', ' ');
-    const uint32_t chr_type = pack_fourcc('C', 'H', 'R', ' ');
-    char manifest[256];
+    TecmoAssetPackBuilder *builder = NULL;
+    TecmoAssetPackEntryInfo entry_info;
+    char manifest[512];
+    char *source_map = NULL;
+    size_t source_map_size = 0U;
+    int manifest_length;
     int result = -1;
 
     if (rom_path == NULL || out_path == NULL) {
@@ -292,52 +827,95 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
         goto cleanup;
     }
 
-    out = fopen(out_path, "wb");
-    if (out == NULL) {
-        set_message(message, message_size, "Could not open asset pack output.");
-        goto cleanup;
-    }
-    if (write_header(out, 0U, 0U, TECMO_ASSET_PACK_HEADER_SIZE) != 0) {
-        set_message(message, message_size, "Could not write asset pack header.");
+    if (tecmo_asset_pack_builder_begin(&builder, out_path, message, message_size) != 0) {
         goto cleanup;
     }
 
-    (void)snprintf(manifest,
-                   sizeof(manifest),
-                   "format=tecmo.assetpack/1\nsource=ines\nmapper=%u\nprg_banks_16k=%u\nchr_banks_8k=%u\n",
-                   mapper,
-                   prg_banks,
-                   chr_banks);
-    if (add_entry(&entries,
-                  &entry_count,
-                  &entry_capacity,
-                  out,
-                  "system/manifest",
-                  meta_type,
-                  0U,
-                  0U,
-                  0U,
-                  (const uint8_t *)manifest,
-                  (uint64_t)strlen(manifest)) != 0) {
+    manifest_length = snprintf(manifest,
+                               sizeof(manifest),
+                               "format=tecmo.assetpack/1\n"
+                               "source=ines\n"
+                               "source_map=system/source-map\n"
+                               "mapper=%u\n"
+                               "trainer_bytes=%u\n"
+                               "prg_banks_16k=%u\n"
+                               "chr_banks_8k=%u\n"
+                               "raw_entry_prefixes=prg/,chr/\n"
+                               "logical_entry_namespace=logical/\n"
+                               "derived_entry_namespace=derived/\n",
+                               mapper,
+                               trainer_bytes,
+                               prg_banks,
+                               chr_banks);
+    if (manifest_length < 0 || (size_t)manifest_length >= sizeof(manifest)) {
+        set_message(message, message_size, "Could not build asset pack manifest.");
+        goto cleanup;
+    }
+
+    entry_info = make_entry_info("system/manifest",
+                                 TECMO_ASSET_PACK_TYPE_META,
+                                 0U,
+                                 0U,
+                                 0U,
+                                 TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+    if (tecmo_asset_pack_builder_add_memory(builder,
+                                            &entry_info,
+                                            manifest,
+                                            (uint64_t)manifest_length,
+                                            message,
+                                            message_size) != 0) {
         set_message(message, message_size, "Could not write asset pack manifest.");
         goto cleanup;
     }
 
+    source_map = build_ines_source_map(mapper,
+                                       trainer_bytes,
+                                       prg_banks,
+                                       chr_banks,
+                                       prg_offset,
+                                       chr_offset,
+                                       chr_size,
+                                       &source_map_size);
+    if (source_map == NULL) {
+        set_message(message, message_size, "Could not build asset pack source map.");
+        goto cleanup;
+    }
+
+    entry_info = make_entry_info("system/source-map",
+                                 TECMO_ASSET_PACK_TYPE_META,
+                                 0U,
+                                 0U,
+                                 0U,
+                                 TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+    if (tecmo_asset_pack_builder_add_memory(builder,
+                                            &entry_info,
+                                            source_map,
+                                            (uint64_t)source_map_size,
+                                            message,
+                                            message_size) != 0) {
+        set_message(message, message_size, "Could not write asset pack source map.");
+        goto cleanup;
+    }
+    free(source_map);
+    source_map = NULL;
+
     for (uint32_t bank = 0; bank < prg_banks; ++bank) {
         char id[TECMO_ASSET_PACK_ID_SIZE];
         uint64_t offset = prg_offset + (uint64_t)bank * TECMO_ASSET_PACK_PRG_BANK_BYTES;
+
         (void)snprintf(id, sizeof(id), "prg/bank%02u", bank);
-        if (add_entry(&entries,
-                      &entry_count,
-                      &entry_capacity,
-                      out,
-                      id,
-                      prg_type,
-                      bank,
-                      0x8000U,
-                      offset,
-                      rom + offset,
-                      TECMO_ASSET_PACK_PRG_BANK_BYTES) != 0) {
+        entry_info = make_entry_info(id,
+                                     TECMO_ASSET_PACK_TYPE_PRG,
+                                     bank,
+                                     0x8000U,
+                                     offset,
+                                     TECMO_ASSET_PACK_FLAG_RAW_ROM | TECMO_ASSET_PACK_FLAG_LOCAL);
+        if (tecmo_asset_pack_builder_add_memory(builder,
+                                                &entry_info,
+                                                rom + (size_t)offset,
+                                                TECMO_ASSET_PACK_PRG_BANK_BYTES,
+                                                message,
+                                                message_size) != 0) {
             set_message(message, message_size, "Could not write PRG bank asset.");
             goto cleanup;
         }
@@ -346,52 +924,58 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
     {
         uint32_t fixed_bank = prg_banks - 1U;
         uint64_t offset = prg_offset + (uint64_t)fixed_bank * TECMO_ASSET_PACK_PRG_BANK_BYTES;
-        if (add_entry(&entries,
-                      &entry_count,
-                      &entry_capacity,
-                      out,
-                      "prg/fixed",
-                      prg_type,
-                      fixed_bank,
-                      0xC000U,
-                      offset,
-                      rom + offset,
-                      TECMO_ASSET_PACK_PRG_BANK_BYTES) != 0) {
+
+        entry_info = make_entry_info("prg/fixed",
+                                     TECMO_ASSET_PACK_TYPE_PRG,
+                                     fixed_bank,
+                                     0xC000U,
+                                     offset,
+                                     TECMO_ASSET_PACK_FLAG_RAW_ROM | TECMO_ASSET_PACK_FLAG_LOCAL);
+        if (tecmo_asset_pack_builder_add_memory(builder,
+                                                &entry_info,
+                                                rom + (size_t)offset,
+                                                TECMO_ASSET_PACK_PRG_BANK_BYTES,
+                                                message,
+                                                message_size) != 0) {
             set_message(message, message_size, "Could not write fixed PRG bank asset.");
             goto cleanup;
         }
     }
 
     if (chr_size > 0U) {
-        if (add_entry(&entries,
-                      &entry_count,
-                      &entry_capacity,
-                      out,
-                      "chr/all",
-                      chr_type,
-                      0U,
-                      0U,
-                      chr_offset,
-                      rom + chr_offset,
-                      chr_size) != 0) {
+        entry_info = make_entry_info("chr/all",
+                                     TECMO_ASSET_PACK_TYPE_CHR,
+                                     0U,
+                                     0U,
+                                     chr_offset,
+                                     TECMO_ASSET_PACK_FLAG_RAW_ROM | TECMO_ASSET_PACK_FLAG_LOCAL);
+        if (tecmo_asset_pack_builder_add_memory(builder,
+                                                &entry_info,
+                                                rom + (size_t)chr_offset,
+                                                chr_size,
+                                                message,
+                                                message_size) != 0) {
             set_message(message, message_size, "Could not write CHR asset.");
             goto cleanup;
         }
+
         for (uint32_t bank = 0; bank < chr_banks; ++bank) {
             char id[TECMO_ASSET_PACK_ID_SIZE];
             uint64_t offset = chr_offset + (uint64_t)bank * TECMO_ASSET_PACK_CHR_BANK_BYTES;
+
             (void)snprintf(id, sizeof(id), "chr/bank%02u", bank);
-            if (add_entry(&entries,
-                          &entry_count,
-                          &entry_capacity,
-                          out,
-                          id,
-                          chr_type,
-                          bank,
-                          0U,
-                          offset,
-                          rom + offset,
-                          TECMO_ASSET_PACK_CHR_BANK_BYTES) != 0) {
+            entry_info = make_entry_info(id,
+                                         TECMO_ASSET_PACK_TYPE_CHR,
+                                         bank,
+                                         0U,
+                                         offset,
+                                         TECMO_ASSET_PACK_FLAG_RAW_ROM | TECMO_ASSET_PACK_FLAG_LOCAL);
+            if (tecmo_asset_pack_builder_add_memory(builder,
+                                                    &entry_info,
+                                                    rom + (size_t)offset,
+                                                    TECMO_ASSET_PACK_CHR_BANK_BYTES,
+                                                    message,
+                                                    message_size) != 0) {
                 set_message(message, message_size, "Could not write CHR bank asset.");
                 goto cleanup;
             }
@@ -399,44 +983,30 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
     }
 
     {
-        long dir_pos = ftell(out);
-        if (dir_pos < 0) {
-            set_message(message, message_size, "Could not locate asset pack directory.");
+        unsigned entry_count = 2U + prg_banks + 1U + (chr_size > 0U ? chr_banks + 1U : 0U);
+        int finish_result = tecmo_asset_pack_builder_finish(builder, message, message_size);
+
+        builder = NULL;
+        if (finish_result != 0) {
             goto cleanup;
         }
-        directory_offset = (uint64_t)dir_pos;
-    }
-
-    for (size_t i = 0; i < entry_count; ++i) {
-        if (write_directory_entry(out, &entries[i]) != 0) {
-            set_message(message, message_size, "Could not write asset pack directory.");
-            goto cleanup;
+        if (message != NULL && message_size > 0U) {
+            (void)snprintf(message,
+                           message_size,
+                           "Wrote %u PRG banks, %u CHR banks, %u entries to %s",
+                           prg_banks,
+                           chr_banks,
+                           entry_count,
+                           out_path);
         }
     }
-
-    if (fseek(out, 0L, SEEK_SET) != 0 ||
-        write_header(out,
-                     (uint32_t)entry_count,
-                     directory_offset,
-                     TECMO_ASSET_PACK_HEADER_SIZE) != 0) {
-        set_message(message, message_size, "Could not finalize asset pack header.");
-        goto cleanup;
-    }
-
-    (void)snprintf(message,
-                   message_size,
-                   "Wrote %u PRG banks, %u CHR banks, %u entries to %s",
-                   prg_banks,
-                   chr_banks,
-                   (unsigned)entry_count,
-                   out_path);
     result = 0;
 
 cleanup:
-    if (out != NULL) {
-        fclose(out);
+    if (builder != NULL) {
+        tecmo_asset_pack_builder_cancel(builder);
     }
-    free(entries);
+    free(source_map);
     free(rom);
     return result;
 }
@@ -480,7 +1050,7 @@ int tecmo_asset_pack_read_entry(const char *pack_path,
     if (version != TECMO_ASSET_PACK_VERSION ||
         header_size != TECMO_ASSET_PACK_HEADER_SIZE ||
         entry_size != TECMO_ASSET_PACK_ENTRY_SIZE ||
-        fseek(file, (long)directory_offset, SEEK_SET) != 0) {
+        file_seek_u64(file, directory_offset) != 0) {
         goto cleanup;
     }
 
@@ -497,7 +1067,7 @@ int tecmo_asset_pack_read_entry(const char *pack_path,
             if (bytes == NULL && entry.size > 0U) {
                 goto cleanup;
             }
-            if (fseek(file, (long)entry.pack_offset, SEEK_SET) != 0 ||
+            if (file_seek_u64(file, entry.pack_offset) != 0 ||
                 (entry.size > 0U &&
                  fread(bytes, 1U, (size_t)entry.size, file) != (size_t)entry.size)) {
                 free(bytes);

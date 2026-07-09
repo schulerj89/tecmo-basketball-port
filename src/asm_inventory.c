@@ -6,6 +6,8 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <limits.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -725,6 +727,382 @@ int asm_scan_tree(const char *root, const char *relative_dir, const char *extens
     return 0;
 }
 
+typedef struct TextBuffer {
+    char *data;
+    size_t length;
+    size_t capacity;
+} TextBuffer;
+
+typedef enum AssetPackEntryStatus {
+    ASSET_PACK_ENTRY_ERROR = -1,
+    ASSET_PACK_ENTRY_ABSENT = 0,
+    ASSET_PACK_ENTRY_LOADED = 1,
+} AssetPackEntryStatus;
+
+#define TECMO_LOCAL_ASSET_PACK_VERSION 1U
+#define TECMO_LOCAL_ASSET_PACK_HEADER_SIZE 40U
+#define TECMO_LOCAL_ASSET_PACK_ENTRY_SIZE 128U
+
+static int text_buffer_reserve(TextBuffer *buffer, size_t additional)
+{
+    size_t needed;
+    size_t new_capacity;
+    char *new_data;
+
+    if (buffer->length > SIZE_MAX - 1U || additional > SIZE_MAX - buffer->length - 1U) {
+        return -1;
+    }
+    needed = buffer->length + additional + 1U;
+    if (needed <= buffer->capacity) {
+        return 0;
+    }
+
+    new_capacity = buffer->capacity == 0U ? 256U : buffer->capacity;
+    while (new_capacity < needed) {
+        if (new_capacity > SIZE_MAX / 2U) {
+            new_capacity = needed;
+            break;
+        }
+        new_capacity *= 2U;
+    }
+
+    new_data = (char *)realloc(buffer->data, new_capacity);
+    if (new_data == NULL) {
+        return -1;
+    }
+    buffer->data = new_data;
+    buffer->capacity = new_capacity;
+    return 0;
+}
+
+static int text_buffer_append_n(TextBuffer *buffer, const char *text, size_t length)
+{
+    if (text_buffer_reserve(buffer, length) != 0) {
+        return -1;
+    }
+    if (length > 0U) {
+        memcpy(buffer->data + buffer->length, text, length);
+    }
+    buffer->length += length;
+    buffer->data[buffer->length] = '\0';
+    return 0;
+}
+
+static int text_buffer_append(TextBuffer *buffer, const char *text)
+{
+    return text_buffer_append_n(buffer, text, strlen(text));
+}
+
+static int text_buffer_append_char(TextBuffer *buffer, char c)
+{
+    return text_buffer_append_n(buffer, &c, 1U);
+}
+
+static int text_buffer_appendf(TextBuffer *buffer, const char *format, ...)
+{
+    va_list args;
+    va_list args_copy;
+    int needed;
+    size_t length;
+
+    va_start(args, format);
+    va_copy(args_copy, args);
+    needed = vsnprintf(NULL, 0U, format, args);
+    va_end(args);
+    if (needed < 0) {
+        va_end(args_copy);
+        return -1;
+    }
+
+    length = (size_t)needed;
+    if (text_buffer_reserve(buffer, length) != 0) {
+        va_end(args_copy);
+        return -1;
+    }
+    if (vsnprintf(buffer->data + buffer->length, buffer->capacity - buffer->length, format, args_copy) != needed) {
+        va_end(args_copy);
+        return -1;
+    }
+    va_end(args_copy);
+    buffer->length += length;
+    return 0;
+}
+
+static int text_buffer_take(TextBuffer *buffer, char **text_out, uint64_t *byte_count)
+{
+    if (buffer->data == NULL) {
+        buffer->data = (char *)malloc(1U);
+        if (buffer->data == NULL) {
+            return -1;
+        }
+        buffer->data[0] = '\0';
+        buffer->capacity = 1U;
+    }
+    *text_out = buffer->data;
+    *byte_count = (uint64_t)buffer->length;
+    buffer->data = NULL;
+    buffer->length = 0U;
+    buffer->capacity = 0U;
+    return 0;
+}
+
+static uint32_t read_le_u32(const uint8_t *bytes)
+{
+    return ((uint32_t)bytes[0]) |
+           ((uint32_t)bytes[1] << 8U) |
+           ((uint32_t)bytes[2] << 16U) |
+           ((uint32_t)bytes[3] << 24U);
+}
+
+static uint64_t read_le_u64(const uint8_t *bytes)
+{
+    uint64_t value = 0U;
+
+    for (size_t i = 0; i < 8U; ++i) {
+        value |= (uint64_t)bytes[i] << (unsigned)(i * 8U);
+    }
+    return value;
+}
+
+static AssetPackEntryStatus load_asset_pack_entry_from_path(const char *pack_path,
+                                                            const char *entry_id,
+                                                            uint8_t **bytes_out,
+                                                            uint64_t *byte_count)
+{
+    FILE *file;
+    uint8_t header[TECMO_LOCAL_ASSET_PACK_HEADER_SIZE];
+    uint32_t version;
+    uint32_t header_size;
+    uint32_t entry_size;
+    uint32_t entry_count;
+    uint64_t directory_offset;
+    AssetPackEntryStatus status = ASSET_PACK_ENTRY_ABSENT;
+
+    if (pack_path == NULL || pack_path[0] == '\0') {
+        return ASSET_PACK_ENTRY_ABSENT;
+    }
+
+    file = fopen(pack_path, "rb");
+    if (file == NULL) {
+        return ASSET_PACK_ENTRY_ABSENT;
+    }
+
+    if (fread(header, 1U, sizeof(header), file) != sizeof(header) ||
+        memcmp(header, "TAP1", 4U) != 0) {
+        status = ASSET_PACK_ENTRY_ERROR;
+        goto cleanup;
+    }
+
+    version = read_le_u32(header + 4U);
+    header_size = read_le_u32(header + 8U);
+    entry_size = read_le_u32(header + 12U);
+    entry_count = read_le_u32(header + 16U);
+    directory_offset = read_le_u64(header + 20U);
+
+    if (version != TECMO_LOCAL_ASSET_PACK_VERSION ||
+        header_size != TECMO_LOCAL_ASSET_PACK_HEADER_SIZE ||
+        entry_size != TECMO_LOCAL_ASSET_PACK_ENTRY_SIZE ||
+        directory_offset > (uint64_t)LONG_MAX ||
+        fseek(file, (long)directory_offset, SEEK_SET) != 0) {
+        status = ASSET_PACK_ENTRY_ERROR;
+        goto cleanup;
+    }
+
+    for (uint32_t i = 0; i < entry_count; ++i) {
+        uint8_t entry[TECMO_LOCAL_ASSET_PACK_ENTRY_SIZE];
+
+        if (fread(entry, 1U, sizeof(entry), file) != sizeof(entry)) {
+            status = ASSET_PACK_ENTRY_ERROR;
+            goto cleanup;
+        }
+        if (strncmp((const char *)entry, entry_id, TECMO_ASSET_PACK_ID_SIZE) == 0) {
+            fclose(file);
+            if (tecmo_asset_pack_read_entry(pack_path, entry_id, bytes_out, byte_count) != 0) {
+                *bytes_out = NULL;
+                *byte_count = 0U;
+                return ASSET_PACK_ENTRY_ERROR;
+            }
+            return ASSET_PACK_ENTRY_LOADED;
+        }
+    }
+
+cleanup:
+    fclose(file);
+    return status;
+}
+
+static AssetPackEntryStatus load_asset_pack_entry(const char *project_root,
+                                                  const char *entry_id,
+                                                  uint8_t **bytes_out,
+                                                  uint64_t *byte_count)
+{
+    const char *env_path = getenv("TECMO_ASSETPACK");
+    char path[TECMO_MAX_PATH_TEXT];
+    AssetPackEntryStatus status;
+
+    if (bytes_out == NULL || byte_count == NULL) {
+        return ASSET_PACK_ENTRY_ERROR;
+    }
+    *bytes_out = NULL;
+    *byte_count = 0U;
+
+    status = load_asset_pack_entry_from_path(env_path, entry_id, bytes_out, byte_count);
+    if (status != ASSET_PACK_ENTRY_ABSENT) {
+        return status;
+    }
+
+    if (project_root != NULL && project_root[0] != '\0') {
+        append_path(path, sizeof(path), project_root, "build\\tecmo.assetpack");
+        normalize_separators(path);
+        status = load_asset_pack_entry_from_path(path, entry_id, bytes_out, byte_count);
+        if (status != ASSET_PACK_ENTRY_ABSENT) {
+            return status;
+        }
+    }
+
+    return load_asset_pack_entry_from_path("build\\tecmo.assetpack", entry_id, bytes_out, byte_count);
+}
+
+static int copy_asset_text_payload(const uint8_t *bytes, uint64_t byte_count, char **text_out)
+{
+    char *text;
+    size_t size;
+
+    if ((bytes == NULL && byte_count > 0U) || text_out == NULL || byte_count > (uint64_t)(SIZE_MAX - 1U)) {
+        return -1;
+    }
+
+    size = (size_t)byte_count;
+    if (size > 0U && memchr(bytes, '\0', size) != NULL) {
+        return -1;
+    }
+
+    text = (char *)malloc(size + 1U);
+    if (text == NULL) {
+        return -1;
+    }
+    if (size > 0U) {
+        memcpy(text, bytes, size);
+    }
+    text[size] = '\0';
+    *text_out = text;
+    return 0;
+}
+
+static void strip_line_cr(char *line)
+{
+    size_t len = strlen(line);
+    if (len > 0U && line[len - 1U] == '\r') {
+        line[len - 1U] = '\0';
+    }
+}
+
+static int tsv_field_is_blank(const char *field)
+{
+    for (const unsigned char *p = (const unsigned char *)field; *p != '\0'; ++p) {
+        if (!isspace(*p)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static int copy_tsv_text_field(char *dst, size_t dst_size, const char *field)
+{
+    size_t len;
+
+    if (dst == NULL || dst_size == 0U || field == NULL) {
+        return -1;
+    }
+
+    len = strlen(field);
+    if (len >= dst_size) {
+        return -1;
+    }
+    for (const unsigned char *p = (const unsigned char *)field; *p != '\0'; ++p) {
+        if (*p < 0x20U || *p > 0x7EU) {
+            return -1;
+        }
+    }
+
+    memcpy(dst, field, len + 1U);
+    return 0;
+}
+
+static int parse_tsv_uint_field(const char *field, uint32_t max_value, uint32_t *value_out)
+{
+    char tmp[64];
+    char *text;
+    char *end;
+    int base = 10;
+    unsigned long value;
+
+    if (field == NULL || value_out == NULL || strlen(field) >= sizeof(tmp)) {
+        return -1;
+    }
+    copy_text(tmp, sizeof(tmp), field);
+    text = left_trim(tmp);
+    right_trim(text);
+    if (text[0] == '\0') {
+        return -1;
+    }
+    if (text[0] == '+' || text[0] == '-') {
+        return -1;
+    }
+    if (text[0] == '$') {
+        ++text;
+        base = 16;
+    } else if (text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) {
+        base = 16;
+    }
+
+    errno = 0;
+    value = strtoul(text, &end, base);
+    if (errno != 0 || end == text || *end != '\0' || value > (unsigned long)max_value) {
+        return -1;
+    }
+
+    *value_out = (uint32_t)value;
+    return 0;
+}
+
+static size_t split_tsv_line(char *line, char **fields, size_t max_fields)
+{
+    char *cursor = line;
+    size_t count = 0U;
+
+    for (;;) {
+        char *tab;
+        if (count >= max_fields) {
+            return 0U;
+        }
+        fields[count++] = cursor;
+        tab = strchr(cursor, '\t');
+        if (tab == NULL) {
+            break;
+        }
+        *tab = '\0';
+        cursor = tab + 1;
+    }
+    return count;
+}
+
+static int append_tsv_text_field(TextBuffer *buffer, const char *text)
+{
+    for (const unsigned char *p = (const unsigned char *)text; *p != '\0'; ++p) {
+        char out = '?';
+        if (*p == '\t' || *p == '\r' || *p == '\n') {
+            out = ' ';
+        } else if (*p >= 0x20U && *p <= 0x7EU) {
+            out = (char)*p;
+        }
+        if (text_buffer_append_char(buffer, out) != 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
 static int roster_table_push(RosterTable *table, const RosterRecord *record)
 {
     RosterRecord *new_records;
@@ -903,9 +1281,204 @@ static int parse_roster_file(const char *path, RosterTable *table)
     return 0;
 }
 
+/*
+ * Asset-pack roster entry format: roster/table.tsv
+ *
+ * The serializer writes one optional header row followed by:
+ *   team<TAB>player<TAB>label<TAB>attr0<TAB>...<TAB>attr6
+ *
+ * Text fields are printable ASCII with tabs/newlines sanitized to spaces.
+ * Attribute fields are byte values accepted as decimal, 0xNN, or $NN. If all
+ * seven attribute fields are blank the row is retained with has_attrs=false.
+ * The parser also accepts a compact 9-column form without the label column.
+ */
+static int parse_roster_tsv_line(char **fields, size_t field_count, RosterTable *table)
+{
+    RosterRecord record;
+    size_t attr_start;
+    int attrs_present = 0;
+
+    if (field_count >= 2U && equals_ci(fields[0], "team") && equals_ci(fields[1], "player")) {
+        return 0;
+    }
+
+    if (field_count == 10U) {
+        attr_start = 3U;
+    } else if (field_count == 9U) {
+        attr_start = 2U;
+    } else if (field_count == 3U || field_count == 2U) {
+        attr_start = field_count;
+    } else {
+        return -1;
+    }
+
+    if (tsv_field_is_blank(fields[0]) || tsv_field_is_blank(fields[1])) {
+        return -1;
+    }
+
+    memset(&record, 0, sizeof(record));
+    if (copy_tsv_text_field(record.team, sizeof(record.team), fields[0]) != 0 ||
+        copy_tsv_text_field(record.player, sizeof(record.player), fields[1]) != 0) {
+        return -1;
+    }
+    if ((field_count == 10U || field_count == 3U) && !tsv_field_is_blank(fields[2])) {
+        if (copy_tsv_text_field(record.label, sizeof(record.label), fields[2]) != 0) {
+            return -1;
+        }
+    } else {
+        (void)snprintf(record.label,
+                       sizeof(record.label),
+                       "pack_roster_%03llu",
+                       (unsigned long long)table->count);
+    }
+
+    if (field_count == 9U || field_count == 10U) {
+        for (size_t i = 0; i < 7U; ++i) {
+            if (!tsv_field_is_blank(fields[attr_start + i])) {
+                attrs_present = 1;
+            }
+        }
+        if (attrs_present) {
+            for (size_t i = 0; i < 7U; ++i) {
+                uint32_t value = 0U;
+                if (parse_tsv_uint_field(fields[attr_start + i], 0xFFU, &value) != 0) {
+                    return -1;
+                }
+                record.attrs[i] = (uint8_t)value;
+            }
+            record.has_attrs = true;
+        }
+    }
+
+    return roster_table_push(table, &record);
+}
+
+static int load_roster_table_from_tsv_bytes(const uint8_t *bytes, uint64_t byte_count, RosterTable *table)
+{
+    char *text = NULL;
+    char *line;
+    RosterTable parsed;
+    int result = -1;
+
+    memset(&parsed, 0, sizeof(parsed));
+    if (copy_asset_text_payload(bytes, byte_count, &text) != 0) {
+        return -1;
+    }
+
+    line = text;
+    while (line != NULL) {
+        char *next = strchr(line, '\n');
+        char *trimmed;
+        char *fields[12];
+        size_t field_count;
+
+        if (next != NULL) {
+            *next = '\0';
+            ++next;
+        }
+        strip_line_cr(line);
+        trimmed = left_trim(line);
+        if (trimmed[0] != '\0' && trimmed[0] != '#') {
+            field_count = split_tsv_line(trimmed, fields, sizeof(fields) / sizeof(fields[0]));
+            if (field_count == 0U || parse_roster_tsv_line(fields, field_count, &parsed) != 0) {
+                goto cleanup;
+            }
+        }
+        line = next;
+    }
+
+    if (parsed.count == 0U) {
+        goto cleanup;
+    }
+
+    *table = parsed;
+    memset(&parsed, 0, sizeof(parsed));
+    result = 0;
+
+cleanup:
+    roster_table_free(&parsed);
+    free(text);
+    return result;
+}
+
+static AssetPackEntryStatus load_roster_table_from_asset_pack(const char *project_root, RosterTable *table)
+{
+    uint8_t *entry_bytes = NULL;
+    uint64_t entry_size = 0U;
+    AssetPackEntryStatus status;
+
+    status = load_asset_pack_entry(project_root, "roster/table.tsv", &entry_bytes, &entry_size);
+    if (status == ASSET_PACK_ENTRY_LOADED) {
+        status = load_roster_table_from_tsv_bytes(entry_bytes, entry_size, table) == 0
+            ? ASSET_PACK_ENTRY_LOADED
+            : ASSET_PACK_ENTRY_ERROR;
+        tecmo_asset_pack_free(entry_bytes);
+    }
+
+    return status;
+}
+
+int tecmo_serialize_roster_table_tsv(const RosterTable *table, char **text_out, uint64_t *byte_count)
+{
+    TextBuffer buffer;
+    int result = -1;
+
+    if (table == NULL || text_out == NULL || byte_count == NULL) {
+        return -1;
+    }
+    *text_out = NULL;
+    *byte_count = 0U;
+    memset(&buffer, 0, sizeof(buffer));
+
+    if (text_buffer_append(&buffer, "team\tplayer\tlabel\tattr0\tattr1\tattr2\tattr3\tattr4\tattr5\tattr6\n") != 0) {
+        goto cleanup;
+    }
+
+    for (size_t i = 0; i < table->count; ++i) {
+        const RosterRecord *record = &table->records[i];
+
+        if (append_tsv_text_field(&buffer, record->team) != 0 ||
+            text_buffer_append_char(&buffer, '\t') != 0 ||
+            append_tsv_text_field(&buffer, record->player) != 0 ||
+            text_buffer_append_char(&buffer, '\t') != 0 ||
+            append_tsv_text_field(&buffer, record->label) != 0) {
+            goto cleanup;
+        }
+
+        for (size_t attr = 0; attr < 7U; ++attr) {
+            if (text_buffer_append_char(&buffer, '\t') != 0) {
+                goto cleanup;
+            }
+            if (record->has_attrs &&
+                text_buffer_appendf(&buffer, "0x%02X", (unsigned)record->attrs[attr]) != 0) {
+                goto cleanup;
+            }
+        }
+        if (text_buffer_append_char(&buffer, '\n') != 0) {
+            goto cleanup;
+        }
+    }
+
+    result = text_buffer_take(&buffer, text_out, byte_count);
+
+cleanup:
+    free(buffer.data);
+    return result;
+}
+
 int tecmo_collect_rosters(const char *project_root, RosterTable *table)
 {
+    AssetPackEntryStatus pack_status;
+
     memset(table, 0, sizeof(*table));
+    pack_status = load_roster_table_from_asset_pack(project_root, table);
+    if (pack_status == ASSET_PACK_ENTRY_LOADED) {
+        return 0;
+    }
+    if (pack_status == ASSET_PACK_ENTRY_ERROR) {
+        return -1;
+    }
+
     for (size_t i = 0; i < sizeof(ROSTER_FILES) / sizeof(ROSTER_FILES[0]); ++i) {
         char path[TECMO_MAX_PATH_TEXT];
         append_path(path, sizeof(path), project_root, ROSTER_FILES[i]);
@@ -1019,18 +1592,393 @@ int tecmo_generate_roster_c(const char *project_root, const char *out_dir)
     return 0;
 }
 
+static uint16_t title_ppu_address_for_index(size_t index, uint8_t *render_x_out);
+
+static void title_glyphs_set_pack_defaults(TecmoOriginalTitleGlyphs *glyphs)
+{
+    glyphs->dispatcher_call_index = 0x38U;
+    glyphs->dispatcher_bank = 0x06U;
+    glyphs->dispatcher_target = 0x9E50U;
+    glyphs->dispatcher_matches_expected = true;
+    glyphs->chr_config_0100 = 0x06U;
+    glyphs->setup_selector_0352 = 0x1FU;
+    glyphs->ba16_update_flags_or_05b6 = 0x01U;
+    glyphs->ba16_update_flag_modeled = true;
+}
+
+/*
+ * Asset-pack title text entry format: title/original-text.txt
+ *
+ * The payload is a single printable ASCII line. A trailing CR/LF is ignored.
+ * This keeps the entry hand-editable while matching the lifted ASM text bytes.
+ */
+static int parse_title_text_payload(const uint8_t *bytes, uint64_t byte_count, char *title, size_t title_size)
+{
+    size_t start = 0U;
+    size_t end;
+    size_t size;
+
+    if (title == NULL || title_size == 0U || (bytes == NULL && byte_count > 0U) || byte_count > (uint64_t)SIZE_MAX) {
+        return -1;
+    }
+    title[0] = '\0';
+    size = (size_t)byte_count;
+
+    if (size >= 3U && bytes[0] == 0xEFU && bytes[1] == 0xBBU && bytes[2] == 0xBFU) {
+        start = 3U;
+    }
+    end = size;
+    while (end > start && (bytes[end - 1U] == '\n' || bytes[end - 1U] == '\r')) {
+        --end;
+    }
+    if (end == start || end - start >= title_size) {
+        return -1;
+    }
+
+    for (size_t i = start; i < end; ++i) {
+        uint8_t value = bytes[i];
+        if (value < 0x20U || value > 0x7EU) {
+            title[0] = '\0';
+            return -1;
+        }
+        title[i - start] = (char)value;
+    }
+    title[end - start] = '\0';
+    return 0;
+}
+
+static AssetPackEntryStatus load_title_text_from_asset_pack(const char *project_root, char *title, size_t title_size)
+{
+    uint8_t *entry_bytes = NULL;
+    uint64_t entry_size = 0U;
+    AssetPackEntryStatus status;
+
+    status = load_asset_pack_entry(project_root, "title/original-text.txt", &entry_bytes, &entry_size);
+    if (status == ASSET_PACK_ENTRY_LOADED) {
+        status = parse_title_text_payload(entry_bytes, entry_size, title, title_size) == 0
+            ? ASSET_PACK_ENTRY_LOADED
+            : ASSET_PACK_ENTRY_ERROR;
+        tecmo_asset_pack_free(entry_bytes);
+    }
+
+    return status;
+}
+
+/*
+ * Asset-pack title glyph-map entry format: title/glyph-map.tsv
+ *
+ * The serializer writes:
+ *   index<TAB>char_code<TAB>char<TAB>render_x<TAB>ppu_address<TAB>tile_index<TAB>glyph0<TAB>...<TAB>glyph3
+ *
+ * char_code is the authoritative printable ASCII byte. The char column is a
+ * readability aid, so spaces are represented as a literal space field. Numeric
+ * fields accept decimal, 0xNN, or $NN. Rows must be ordered by zero-based index.
+ */
+static int parse_title_glyph_tsv_line(char **fields, size_t field_count, TecmoOriginalTitleGlyphs *glyphs)
+{
+    uint32_t index = 0U;
+    uint32_t char_code = 0U;
+    uint32_t render_x = 0U;
+    uint32_t ppu_address = 0U;
+    uint32_t tile_index = 0U;
+    TecmoTitleGlyph *glyph;
+
+    if (field_count >= 1U && equals_ci(fields[0], "index")) {
+        return 0;
+    }
+    if (field_count != 10U) {
+        return -1;
+    }
+    if (parse_tsv_uint_field(fields[0], TECMO_TITLE_MAX_CHARS, &index) != 0 ||
+        index != glyphs->glyph_count ||
+        index >= TECMO_TITLE_MAX_CHARS ||
+        index + 1U >= sizeof(glyphs->title_text)) {
+        return -1;
+    }
+
+    if (parse_tsv_uint_field(fields[1], 0x7EU, &char_code) != 0) {
+        if (strlen(fields[2]) != 1U) {
+            return -1;
+        }
+        char_code = (uint8_t)fields[2][0];
+    }
+    if (char_code < 0x20U || char_code > 0x7EU) {
+        return -1;
+    }
+
+    if (parse_tsv_uint_field(fields[3], 0xFFU, &render_x) != 0 ||
+        parse_tsv_uint_field(fields[4], 0xFFFFU, &ppu_address) != 0 ||
+        parse_tsv_uint_field(fields[5], 0xFFU, &tile_index) != 0) {
+        return -1;
+    }
+
+    glyph = &glyphs->glyphs[index];
+    memset(glyph, 0, sizeof(*glyph));
+    glyph->character = (uint8_t)char_code;
+    glyph->render_x = (uint8_t)render_x;
+    glyph->ppu_address = (uint16_t)ppu_address;
+    glyph->tile_index = (uint8_t)tile_index;
+    for (size_t i = 0; i < 4U; ++i) {
+        uint32_t value = 0U;
+        if (parse_tsv_uint_field(fields[6U + i], 0xFFU, &value) != 0) {
+            return -1;
+        }
+        glyph->glyph_tiles[i] = (uint8_t)value;
+    }
+
+    glyphs->title_text[index] = (char)char_code;
+    glyphs->title_text[index + 1U] = '\0';
+    glyphs->glyph_count = index + 1U;
+    return 0;
+}
+
+static const TecmoTitleGlyph *find_packed_title_glyph_for_char(const TecmoOriginalTitleGlyphs *source, uint8_t character)
+{
+    for (size_t i = 0; i < source->glyph_count; ++i) {
+        if (source->glyphs[i].character == character) {
+            return &source->glyphs[i];
+        }
+    }
+    return NULL;
+}
+
+static int synthesize_title_glyphs_from_map(const TecmoOriginalTitleGlyphs *source,
+                                            const char *title_text,
+                                            TecmoOriginalTitleGlyphs *glyphs)
+{
+    size_t title_len;
+
+    if (source == NULL || title_text == NULL || title_text[0] == '\0' || glyphs == NULL) {
+        return -1;
+    }
+    title_len = strlen(title_text);
+    if (title_len == 0U || title_len > TECMO_TITLE_MAX_CHARS || title_len >= sizeof(glyphs->title_text)) {
+        return -1;
+    }
+
+    memset(glyphs, 0, sizeof(*glyphs));
+    title_glyphs_set_pack_defaults(glyphs);
+    for (size_t i = 0; i < title_len; ++i) {
+        unsigned char character = (unsigned char)title_text[i];
+        const TecmoTitleGlyph *source_glyph;
+        TecmoTitleGlyph *glyph;
+
+        if (character < 0x20U || character > 0x7EU) {
+            return -1;
+        }
+        source_glyph = find_packed_title_glyph_for_char(source, (uint8_t)character);
+        if (source_glyph == NULL) {
+            return -1;
+        }
+
+        glyph = &glyphs->glyphs[i];
+        glyph->character = (uint8_t)character;
+        glyph->tile_index = source_glyph->tile_index;
+        for (size_t tile = 0; tile < 4U; ++tile) {
+            glyph->glyph_tiles[tile] = source_glyph->glyph_tiles[tile];
+        }
+        glyph->ppu_address = title_ppu_address_for_index(i, &glyph->render_x);
+        glyphs->title_text[i] = (char)character;
+        glyphs->title_text[i + 1U] = '\0';
+    }
+
+    glyphs->glyph_count = title_len;
+    return 0;
+}
+
+static AssetPackEntryStatus load_title_glyph_map_from_tsv_bytes(const uint8_t *bytes,
+                                                                uint64_t byte_count,
+                                                                const char *expected_title,
+                                                                TecmoOriginalTitleGlyphs *glyphs)
+{
+    char *text = NULL;
+    char *line;
+    TecmoOriginalTitleGlyphs parsed;
+    AssetPackEntryStatus result = ASSET_PACK_ENTRY_ERROR;
+
+    if (glyphs == NULL) {
+        return ASSET_PACK_ENTRY_ERROR;
+    }
+    memset(&parsed, 0, sizeof(parsed));
+    title_glyphs_set_pack_defaults(&parsed);
+    if (copy_asset_text_payload(bytes, byte_count, &text) != 0) {
+        return ASSET_PACK_ENTRY_ERROR;
+    }
+
+    line = text;
+    while (line != NULL) {
+        char *next = strchr(line, '\n');
+        char *trimmed;
+        char *fields[12];
+        size_t field_count;
+
+        if (next != NULL) {
+            *next = '\0';
+            ++next;
+        }
+        strip_line_cr(line);
+        trimmed = left_trim(line);
+        if (trimmed[0] != '\0' && trimmed[0] != '#') {
+            field_count = split_tsv_line(trimmed, fields, sizeof(fields) / sizeof(fields[0]));
+            if (field_count == 0U || parse_title_glyph_tsv_line(fields, field_count, &parsed) != 0) {
+                goto cleanup;
+            }
+        }
+        line = next;
+    }
+
+    if (parsed.glyph_count == 0U ||
+        (expected_title != NULL &&
+         strcmp(parsed.title_text, expected_title) != 0 &&
+         synthesize_title_glyphs_from_map(&parsed, expected_title, glyphs) != 0)) {
+        result = parsed.glyph_count == 0U ? ASSET_PACK_ENTRY_ERROR : ASSET_PACK_ENTRY_ABSENT;
+        goto cleanup;
+    }
+
+    if (expected_title == NULL || strcmp(parsed.title_text, expected_title) == 0) {
+        *glyphs = parsed;
+    }
+    result = ASSET_PACK_ENTRY_LOADED;
+
+cleanup:
+    free(text);
+    return result;
+}
+
+static AssetPackEntryStatus load_title_glyph_map_from_asset_pack(const char *project_root,
+                                                                 const char *expected_title,
+                                                                 TecmoOriginalTitleGlyphs *glyphs)
+{
+    uint8_t *entry_bytes = NULL;
+    uint64_t entry_size = 0U;
+    AssetPackEntryStatus status;
+
+    status = load_asset_pack_entry(project_root, "title/glyph-map.tsv", &entry_bytes, &entry_size);
+    if (status == ASSET_PACK_ENTRY_LOADED) {
+        status = load_title_glyph_map_from_tsv_bytes(entry_bytes, entry_size, expected_title, glyphs);
+        tecmo_asset_pack_free(entry_bytes);
+    }
+
+    return status;
+}
+
+int tecmo_serialize_title_text(const char *title_text, char **text_out, uint64_t *byte_count)
+{
+    TextBuffer buffer;
+    int result = -1;
+
+    if (title_text == NULL || title_text[0] == '\0' || text_out == NULL || byte_count == NULL) {
+        return -1;
+    }
+    *text_out = NULL;
+    *byte_count = 0U;
+    memset(&buffer, 0, sizeof(buffer));
+
+    for (const unsigned char *p = (const unsigned char *)title_text; *p != '\0'; ++p) {
+        if (*p < 0x20U || *p > 0x7EU || text_buffer_append_char(&buffer, (char)*p) != 0) {
+            goto cleanup;
+        }
+    }
+    if (text_buffer_append_char(&buffer, '\n') != 0) {
+        goto cleanup;
+    }
+
+    result = text_buffer_take(&buffer, text_out, byte_count);
+
+cleanup:
+    free(buffer.data);
+    return result;
+}
+
+int tecmo_serialize_title_glyph_map_tsv(const TecmoOriginalTitleGlyphs *glyphs,
+                                        char **text_out,
+                                        uint64_t *byte_count)
+{
+    TextBuffer buffer;
+    int result = -1;
+
+    if (glyphs == NULL ||
+        glyphs->glyph_count == 0U ||
+        glyphs->glyph_count > TECMO_TITLE_MAX_CHARS ||
+        text_out == NULL ||
+        byte_count == NULL) {
+        return -1;
+    }
+    *text_out = NULL;
+    *byte_count = 0U;
+    memset(&buffer, 0, sizeof(buffer));
+
+    if (text_buffer_append(&buffer,
+                           "index\tchar_code\tchar\trender_x\tppu_address\ttile_index\tglyph0\tglyph1\tglyph2\tglyph3\n") != 0) {
+        goto cleanup;
+    }
+
+    for (size_t i = 0; i < glyphs->glyph_count; ++i) {
+        const TecmoTitleGlyph *glyph = &glyphs->glyphs[i];
+
+        if (glyph->character < 0x20U || glyph->character > 0x7EU) {
+            goto cleanup;
+        }
+        if (text_buffer_appendf(&buffer,
+                                "%llu\t0x%02X\t",
+                                (unsigned long long)i,
+                                (unsigned)glyph->character) != 0 ||
+            text_buffer_append_char(&buffer, (char)glyph->character) != 0 ||
+            text_buffer_appendf(&buffer,
+                                "\t0x%02X\t0x%04X\t0x%02X\t0x%02X\t0x%02X\t0x%02X\t0x%02X\n",
+                                (unsigned)glyph->render_x,
+                                (unsigned)glyph->ppu_address,
+                                (unsigned)glyph->tile_index,
+                                (unsigned)glyph->glyph_tiles[0],
+                                (unsigned)glyph->glyph_tiles[1],
+                                (unsigned)glyph->glyph_tiles[2],
+                                (unsigned)glyph->glyph_tiles[3]) != 0) {
+            goto cleanup;
+        }
+    }
+
+    result = text_buffer_take(&buffer, text_out, byte_count);
+
+cleanup:
+    free(buffer.data);
+    return result;
+}
+
 int tecmo_load_original_title_text(const char *project_root, char *title, size_t title_size)
 {
     char path[TECMO_MAX_PATH_TEXT];
     char line[LINE_BUFFER_SIZE];
     FILE *file;
     size_t out_count = 0;
+    AssetPackEntryStatus pack_status;
 
     if (title == NULL || title_size == 0) {
         return -1;
     }
 
     title[0] = '\0';
+    pack_status = load_title_text_from_asset_pack(project_root, title, title_size);
+    if (pack_status == ASSET_PACK_ENTRY_LOADED) {
+        return 0;
+    }
+    if (pack_status == ASSET_PACK_ENTRY_ERROR) {
+        return -1;
+    }
+    {
+        TecmoOriginalTitleGlyphs pack_glyphs;
+        pack_status = load_title_glyph_map_from_asset_pack(project_root, NULL, &pack_glyphs);
+        if (pack_status == ASSET_PACK_ENTRY_LOADED) {
+            if (strlen(pack_glyphs.title_text) >= title_size) {
+                return -1;
+            }
+            copy_text(title, title_size, pack_glyphs.title_text);
+            return 0;
+        }
+        if (pack_status == ASSET_PACK_ENTRY_ERROR) {
+            return -1;
+        }
+    }
+
     append_path(path, sizeof(path), project_root, ORIGINAL_TITLE_TEXT_FILE);
     normalize_separators(path);
 
@@ -1910,7 +2858,15 @@ static int load_title_glyphs_for_text(const char *project_root,
 int tecmo_load_original_title_glyphs(const char *project_root, TecmoOriginalTitleGlyphs *glyphs)
 {
     char title_text[TECMO_MAX_NAME_TEXT];
+    AssetPackEntryStatus pack_status;
 
+    pack_status = load_title_glyph_map_from_asset_pack(project_root, NULL, glyphs);
+    if (pack_status == ASSET_PACK_ENTRY_LOADED) {
+        return 0;
+    }
+    if (pack_status == ASSET_PACK_ENTRY_ERROR) {
+        return -1;
+    }
     if (tecmo_load_original_title_text(project_root, title_text, sizeof(title_text)) != 0) {
         return -1;
     }
@@ -1921,6 +2877,15 @@ int tecmo_load_title_glyphs_for_text(const char *project_root,
                                      const char *title_text,
                                      TecmoOriginalTitleGlyphs *glyphs)
 {
+    AssetPackEntryStatus pack_status;
+
+    pack_status = load_title_glyph_map_from_asset_pack(project_root, title_text, glyphs);
+    if (pack_status == ASSET_PACK_ENTRY_LOADED) {
+        return 0;
+    }
+    if (pack_status == ASSET_PACK_ENTRY_ERROR) {
+        return -1;
+    }
     return load_title_glyphs_for_text(project_root, title_text, glyphs);
 }
 

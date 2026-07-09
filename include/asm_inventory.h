@@ -141,6 +141,13 @@ int asm_scan_tree(const char *root, const char *relative_dir, const char *extens
 int tecmo_collect_rosters(const char *project_root, RosterTable *table);
 void roster_table_free(RosterTable *table);
 
+/* Returned serializer buffers are malloc-owned; release them with tecmo_free_buffer. */
+int tecmo_serialize_roster_table_tsv(const RosterTable *table, char **text_out, uint64_t *byte_count);
+int tecmo_serialize_title_text(const char *title_text, char **text_out, uint64_t *byte_count);
+int tecmo_serialize_title_glyph_map_tsv(const TecmoOriginalTitleGlyphs *glyphs,
+                                        char **text_out,
+                                        uint64_t *byte_count);
+
 int tecmo_generate_roster_c(const char *project_root, const char *out_dir);
 int tecmo_load_original_title_text(const char *project_root, char *title, size_t title_size);
 int tecmo_load_original_title_glyphs(const char *project_root, TecmoOriginalTitleGlyphs *glyphs);

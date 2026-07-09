@@ -107,7 +107,7 @@ Prefer moving local ROM-backed assets into an ignored `.assetpack` instead of ma
 .\build\tecmo_port.exe --build-assetpack <LOCAL_ROM.nes> build\tecmo.assetpack
 ```
 
-The initial pack contains `system/manifest`, `prg/bankNN`, `prg/fixed`, `chr/all`, and `chr/bankNN` entries. Runtime CHR loading already prefers `TECMO_ASSETPACK` or `build\tecmo.assetpack`; keep extending that pattern by adding named entries to the pack/import step, then pointing C render/game code at those entries.
+The initial pack contains `system/manifest`, `system/source-map`, `prg/bankNN`, `prg/fixed`, `chr/all`, and `chr/bankNN` entries. Generated `.assetpack` files are ignored local outputs. Runtime CHR loading already prefers `TECMO_ASSETPACK` or `build\tecmo.assetpack`; keep extending that pattern with the asset-pack builder API by adding named memory or local-file entries to the pack/import step, then pointing C render/game code at those entries.
 
 ## Opening Sequence Notes
 

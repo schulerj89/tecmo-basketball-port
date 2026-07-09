@@ -51,7 +51,7 @@ typedef struct TecmoIntroArenaCapture {
     size_t palette_stage_count;
     unsigned first_capture_frame;
     unsigned last_capture_frame;
-    char status[128];
+    char status[512];
 } TecmoIntroArenaCapture;
 
 bool tecmo_intro_arena_capture_load(TecmoIntroArenaCapture *capture, const char *project_root);

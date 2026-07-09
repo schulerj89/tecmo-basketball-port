@@ -1,4 +1,5 @@
 #include "tecmo_intro_arena.h"
+#include "tecmo_asset_pack.h"
 #include "tecmo_intro_stage.h"
 #include "tecmo_nes_video.h"
 
@@ -51,6 +52,17 @@ static const uint8_t ARENA_DEFAULT_PALETTE[16] = {
     0x0FU, 0x00U, 0x01U, 0x05U,
     0x0FU, 0x15U, 0x17U, 0x12U,
     0x0FU, 0x15U, 0x17U, 0x37U,
+};
+
+static const char *ARENA_CAPTURE_ASSET_ENTRIES[] = {
+    "intro/arena/capture.ndjson",
+    "intro/arena/capture",
+    "intro/arena/intro_arena_capture.ndjson",
+    "intro_arena_capture.ndjson",
+    "intro/arena/emu_intro_memory_watch.ndjson",
+    "emu_intro_memory_watch.ndjson",
+    "intro/arena/emu_intro_arena_irq_watch.ndjson",
+    "emu_intro_arena_irq_watch.ndjson",
 };
 
 unsigned tecmo_intro_arena_display_frame(unsigned native_frame)
@@ -202,6 +214,43 @@ static char *read_text_file(const char *path, size_t *size_out)
     if (size_out != NULL) {
         *size_out = (size_t)size;
     }
+    return buffer;
+}
+
+static char *read_asset_pack_text_entry(const char *pack_path,
+                                        const char *entry_id,
+                                        size_t *size_out)
+{
+    uint8_t *entry_bytes = NULL;
+    uint64_t entry_size = 0;
+    char *buffer;
+
+    if (size_out != NULL) {
+        *size_out = 0U;
+    }
+    if (pack_path == NULL || entry_id == NULL ||
+        tecmo_asset_pack_read_entry(pack_path, entry_id, &entry_bytes, &entry_size) != 0) {
+        return NULL;
+    }
+    if (entry_size > (uint64_t)((size_t)-1) - 1ULL) {
+        tecmo_asset_pack_free(entry_bytes);
+        return NULL;
+    }
+
+    buffer = (char *)malloc((size_t)entry_size + 1U);
+    if (buffer == NULL) {
+        tecmo_asset_pack_free(entry_bytes);
+        return NULL;
+    }
+    if (entry_size > 0U) {
+        memcpy(buffer, entry_bytes, (size_t)entry_size);
+    }
+    buffer[(size_t)entry_size] = '\0';
+    if (size_out != NULL) {
+        *size_out = (size_t)entry_size;
+    }
+
+    tecmo_asset_pack_free(entry_bytes);
     return buffer;
 }
 
@@ -808,31 +857,16 @@ static void append_path(char *dest, size_t dest_size, const char *root, const ch
     }
 }
 
-static const char *arena_capture_env_path(char *buffer, size_t buffer_size)
+static const char *arena_capture_env_path(void)
 {
-#ifdef _WIN32
-    char *value = NULL;
-    size_t value_size = 0;
-
-    if (buffer == NULL || buffer_size == 0U) {
-        return NULL;
-    }
-    buffer[0] = '\0';
-    if (_dupenv_s(&value, &value_size, "TECMO_INTRO_CAPTURE") != 0 ||
-        value == NULL || value[0] == '\0') {
-        free(value);
-        return NULL;
-    }
-    (void)snprintf(buffer, buffer_size, "%s", value);
-    free(value);
-    return buffer;
-#else
-    const char *value;
-    (void)buffer;
-    (void)buffer_size;
-    value = getenv("TECMO_INTRO_CAPTURE");
+    const char *value = getenv("TECMO_INTRO_CAPTURE");
     return value != NULL && value[0] != '\0' ? value : NULL;
-#endif
+}
+
+static const char *asset_pack_env_path(void)
+{
+    const char *value = getenv("TECMO_ASSETPACK");
+    return value != NULL && value[0] != '\0' ? value : NULL;
 }
 
 static bool arena_env_uint(const char *name, unsigned *out)
@@ -875,17 +909,20 @@ static bool arena_env_uint(const char *name, unsigned *out)
     return true;
 }
 
-static bool load_arena_capture_file(TecmoIntroArenaCapture *capture, const char *path)
+static bool load_arena_capture_text(TecmoIntroArenaCapture *capture,
+                                    const char *source_label,
+                                    const char *json,
+                                    size_t json_size)
 {
     ArenaCaptureBuild build;
-    char *json;
-    size_t json_size = 0;
     const char *cursor;
     const char *json_end;
 
-    json = read_text_file(path, &json_size);
-    if (json == NULL) {
+    if (capture == NULL || json == NULL) {
         return false;
+    }
+    if (source_label == NULL) {
+        source_label = "";
     }
 
     memset(&build, 0, sizeof(build));
@@ -969,7 +1006,7 @@ static bool load_arena_capture_file(TecmoIntroArenaCapture *capture, const char 
         (void)snprintf(capture->status,
                        sizeof(capture->status),
                        "ARENA TRACE %s  P0 %u/CHR%02u P1 %u/CHR%02u  PAL %u OAM %u",
-                       path,
+                       source_label,
                        (unsigned)capture->tile_count[0],
                        (unsigned)capture->page_chr_bank[0],
                        (unsigned)capture->tile_count[1],
@@ -978,8 +1015,114 @@ static bool load_arena_capture_file(TecmoIntroArenaCapture *capture, const char 
                        (unsigned)capture->sprite_stage_count);
     }
 
-    free(json);
     return capture->available;
+}
+
+static void arena_asset_pack_status(TecmoIntroArenaCapture *capture,
+                                    const char *pack_path,
+                                    const char *entry_id)
+{
+    if (capture == NULL) {
+        return;
+    }
+    if (pack_path == NULL) {
+        pack_path = "";
+    }
+    if (entry_id == NULL) {
+        entry_id = "";
+    }
+    (void)snprintf(capture->status,
+                   sizeof(capture->status),
+                   "ARENA TRACE assetpack entry %s pack %s  P0 %u/CHR%02u P1 %u/CHR%02u  PAL %u OAM %u",
+                   entry_id,
+                   pack_path,
+                   (unsigned)capture->tile_count[0],
+                   (unsigned)capture->page_chr_bank[0],
+                   (unsigned)capture->tile_count[1],
+                   (unsigned)capture->page_chr_bank[1],
+                   (unsigned)capture->palette_stage_count,
+                   (unsigned)capture->sprite_stage_count);
+}
+
+static bool load_arena_capture_file(TecmoIntroArenaCapture *capture, const char *path)
+{
+    char *json;
+    size_t json_size = 0;
+    bool loaded;
+
+    json = read_text_file(path, &json_size);
+    if (json == NULL) {
+        return false;
+    }
+
+    loaded = load_arena_capture_text(capture, path, json, json_size);
+    free(json);
+    return loaded;
+}
+
+static bool load_arena_capture_asset_pack_entry(TecmoIntroArenaCapture *capture,
+                                                const char *pack_path,
+                                                const char *entry_id)
+{
+    char *json;
+    size_t json_size = 0;
+    TecmoIntroArenaCapture candidate;
+    bool loaded;
+
+    if (capture == NULL || pack_path == NULL || pack_path[0] == '\0' ||
+        entry_id == NULL || entry_id[0] == '\0') {
+        return false;
+    }
+
+    json = read_asset_pack_text_entry(pack_path, entry_id, &json_size);
+    if (json == NULL) {
+        return false;
+    }
+
+    candidate = *capture;
+    loaded = load_arena_capture_text(&candidate, entry_id, json, json_size);
+    free(json);
+    if (loaded) {
+        arena_asset_pack_status(&candidate, pack_path, entry_id);
+        *capture = candidate;
+    }
+    return loaded;
+}
+
+static bool load_arena_capture_asset_pack(TecmoIntroArenaCapture *capture,
+                                          const char *project_root)
+{
+    char project_pack_path[260];
+    const char *env_path;
+    const char *pack_paths[4];
+
+    append_path(project_pack_path,
+                sizeof(project_pack_path),
+                project_root,
+                "build\\tecmo.assetpack");
+    env_path = asset_pack_env_path();
+
+    pack_paths[0] = env_path;
+    pack_paths[1] = project_pack_path[0] != '\0' ? project_pack_path : NULL;
+    pack_paths[2] = "build\\tecmo.assetpack";
+    pack_paths[3] = "..\\build\\tecmo.assetpack";
+
+    for (size_t i = 0; i < sizeof(pack_paths) / sizeof(pack_paths[0]); ++i) {
+        if (pack_paths[i] == NULL || pack_paths[i][0] == '\0') {
+            continue;
+        }
+        for (size_t entry = 0;
+             entry < sizeof(ARENA_CAPTURE_ASSET_ENTRIES) / sizeof(ARENA_CAPTURE_ASSET_ENTRIES[0]);
+             ++entry) {
+            if (load_arena_capture_asset_pack_entry(capture,
+                                                    pack_paths[i],
+                                                    ARENA_CAPTURE_ASSET_ENTRIES[entry])) {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 bool tecmo_intro_arena_capture_load(TecmoIntroArenaCapture *capture, const char *project_root)
@@ -987,7 +1130,6 @@ bool tecmo_intro_arena_capture_load(TecmoIntroArenaCapture *capture, const char 
     char project_compact_path[260];
     char project_memory_path[260];
     char project_arena_path[260];
-    char env_path_buffer[260];
     const char *env_path;
     const char *paths[12];
 
@@ -1037,6 +1179,19 @@ bool tecmo_intro_arena_capture_load(TecmoIntroArenaCapture *capture, const char 
     }
     arena_status(capture, "IMPORT INTRO ARENA CAPTURE OR RUN FCEUX LUA WATCH");
 
+    env_path = arena_capture_env_path();
+    if (env_path != NULL && env_path[0] != '\0') {
+        TecmoIntroArenaCapture candidate = *capture;
+        if (load_arena_capture_file(&candidate, env_path)) {
+            *capture = candidate;
+            return true;
+        }
+    }
+
+    if (load_arena_capture_asset_pack(capture, project_root)) {
+        return true;
+    }
+
     append_path(project_compact_path,
                 sizeof(project_compact_path),
                 project_root,
@@ -1049,9 +1204,8 @@ bool tecmo_intro_arena_capture_load(TecmoIntroArenaCapture *capture, const char 
                 sizeof(project_arena_path),
                 project_root,
                 "build\\emu_intro_arena_irq_watch.ndjson");
-    env_path = arena_capture_env_path(env_path_buffer, sizeof(env_path_buffer));
 
-    paths[0] = env_path;
+    paths[0] = NULL;
     paths[1] = project_compact_path[0] != '\0' ? project_compact_path : NULL;
     paths[2] = "build\\intro_arena_capture.ndjson";
     paths[3] = "intro_arena_capture.ndjson";
