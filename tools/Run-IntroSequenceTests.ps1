@@ -15,6 +15,7 @@ $ProjectRoot = (Resolve-Path $ProjectRoot).Path
 
 $BuildDir = Join-Path $ProjectRoot "build"
 $OutputDir = Join-Path $BuildDir "intro_sequence"
+$CheckpointOutputDir = Join-Path $BuildDir "arena_goal_motion_fixed"
 if (!$AssetPackPath) {
     $AssetPackPath = Join-Path $OutputDir "tecmo_intro_sequence_test.assetpack"
 }
@@ -159,12 +160,20 @@ if (!(Test-Path $ExePath)) {
 
 New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+New-Item -ItemType Directory -Force -Path $CheckpointOutputDir | Out-Null
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $AssetPackPath) | Out-Null
-$RomOnlyArenaRenderModes = @(
-    "intro-arena-frame0",
-    "intro-arena-frame240",
-    "intro-arena-frame320"
+$RomOnlyArenaRenderCases = @(
+    [pscustomobject]@{ mode = "intro-arena-frame0"; expected_goal = 0; expected_jumbotron = 55; checkpoint = $false },
+    [pscustomobject]@{ mode = "intro-arena-frame240"; expected_goal = 10; expected_jumbotron = $null; checkpoint = $true },
+    [pscustomobject]@{ mode = "intro-arena-frame260"; expected_goal = 10; expected_jumbotron = $null; checkpoint = $true },
+    [pscustomobject]@{ mode = "intro-arena-frame280"; expected_goal = 15; expected_jumbotron = $null; checkpoint = $true },
+    [pscustomobject]@{ mode = "intro-arena-frame300"; expected_goal = 15; expected_jumbotron = $null; checkpoint = $true },
+    [pscustomobject]@{ mode = "intro-arena-frame320"; expected_goal = 16; expected_jumbotron = $null; checkpoint = $true },
+    [pscustomobject]@{ mode = "intro-arena-frame340"; expected_goal = 16; expected_jumbotron = $null; checkpoint = $true },
+    [pscustomobject]@{ mode = "intro-arena-frame386"; expected_goal = 16; expected_jumbotron = $null; checkpoint = $true },
+    [pscustomobject]@{ mode = "intro-arena-frame539"; expected_goal = 16; expected_jumbotron = $null; checkpoint = $true }
 )
+$RomOnlyArenaRenderModes = @($RomOnlyArenaRenderCases | ForEach-Object { $_.mode })
 
 $Results = New-Object System.Collections.Generic.List[object]
 $Failures = 0
@@ -239,8 +248,10 @@ try {
         $env:TECMO_ASSETPACK = $AssetPackPath
         Remove-Item Env:TECMO_ALLOW_LOOSE_INTRO_CAPTURE -ErrorAction SilentlyContinue
 
-        foreach ($Mode in $RomOnlyArenaRenderModes) {
-            $RenderPath = Join-Path $OutputDir "$Mode.png"
+        foreach ($RenderCase in $RomOnlyArenaRenderCases) {
+            $Mode = $RenderCase.mode
+            $RenderDirectory = if ($RenderCase.checkpoint) { $CheckpointOutputDir } else { $OutputDir }
+            $RenderPath = Join-Path $RenderDirectory "$Mode.png"
             if (Test-Path -LiteralPath $RenderPath) {
                 Remove-Item -LiteralPath $RenderPath -Force
             }
@@ -252,15 +263,24 @@ try {
             $NoCaptureSourceSeen = $RenderText -match "intro-capture-source kind=arena assetpack=0 entry=none"
             $ExactLayerSeen = $RenderText -match "intro-arena-render-source kind=arena exact_layer=1 rendered=1 cells=1632 palette=16"
             $TasgContractSeen = $RenderText -match "sprite_groups=2 jumbotron_pieces=55 goal_pieces=16"
-            $VisibleJumbotronSeen = $RenderText -match "visible_jumbotron=[1-9][0-9]*"
-            $VisibleGoalSeen = $RenderText -match "visible_goal=[1-9][0-9]*"
-            $FrameVisibilitySeen = if ($Mode -eq "intro-arena-frame0") {
-                $VisibleJumbotronSeen
-            } elseif ($Mode -eq "intro-arena-frame320") {
-                $VisibleGoalSeen
+            $VisibilityMatch = [regex]::Match(
+                $RenderText,
+                "visible_jumbotron=([0-9]+) visible_goal=([0-9]+)")
+            $ActualJumbotron = if ($VisibilityMatch.Success) {
+                [int]$VisibilityMatch.Groups[1].Value
             } else {
-                $true
+                -1
             }
+            $ActualGoal = if ($VisibilityMatch.Success) {
+                [int]$VisibilityMatch.Groups[2].Value
+            } else {
+                -1
+            }
+            $ExactGoalSeen = $ActualGoal -eq [int]$RenderCase.expected_goal
+            $ExactJumbotronSeen = $null -eq $RenderCase.expected_jumbotron -or
+                $ActualJumbotron -eq [int]$RenderCase.expected_jumbotron
+            $FrameVisibilitySeen = $VisibilityMatch.Success -and
+                $ExactGoalSeen -and $ExactJumbotronSeen
             $ModePassed = $RenderExitCode -eq 0 -and
                 $RenderCreated -and
                 $CaptureUnavailableSeen -and
@@ -280,9 +300,12 @@ try {
                 no_capture_source_seen = $NoCaptureSourceSeen
                 exact_layer_seen = $ExactLayerSeen
                 tasg_contract_seen = $TasgContractSeen
-                visible_jumbotron_seen = $VisibleJumbotronSeen
-                visible_goal_seen = $VisibleGoalSeen
+                visible_jumbotron = $ActualJumbotron
+                expected_jumbotron = $RenderCase.expected_jumbotron
+                visible_goal = $ActualGoal
+                expected_goal = $RenderCase.expected_goal
                 frame_visibility_seen = $FrameVisibilitySeen
+                checkpoint = [bool]$RenderCase.checkpoint
             })
         }
     } finally {
@@ -302,6 +325,105 @@ try {
         raw_output_persisted = $false
         coverage_status = "covered"
         error = if ($RenderPassed) { $null } else { "ROM-only arena render did not complete without capture data" }
+    })
+
+    $Page01BaselinePath = Join-Path $CheckpointOutputDir "intro-arena-frame240.png"
+    $Page01MarkerPackPath = Join-Path $OutputDir "page01-marker.assetpack"
+    $Page01MarkerRenderPath = Join-Path $OutputDir "page01-marker-frame240.png"
+    $Page01MarkerPassed = $false
+    $Page01PieceCount = 0
+    $Page01MarkerExitCode = -1
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    $PreviousLooseArenaCapture = $env:TECMO_ALLOW_LOOSE_INTRO_CAPTURE
+    try {
+        [byte[]]$MarkerBytes = [System.IO.File]::ReadAllBytes($AssetPackPath)
+        $TasgPayloadOffset = Get-AssetPackEntryPayloadOffset `
+            -Bytes $MarkerBytes `
+            -EntryId "arena/intro/sprite-groups"
+        $GroupCount = [System.BitConverter]::ToUInt16($MarkerBytes, $TasgPayloadOffset + 8)
+        $GroupStride = [System.BitConverter]::ToUInt16($MarkerBytes, $TasgPayloadOffset + 10)
+        $PieceStride = [System.BitConverter]::ToUInt16($MarkerBytes, $TasgPayloadOffset + 16)
+        $GroupsOffset = [System.BitConverter]::ToUInt32($MarkerBytes, $TasgPayloadOffset + 24)
+        $PiecesOffset = [System.BitConverter]::ToUInt32($MarkerBytes, $TasgPayloadOffset + 28)
+        $Page01PieceOffset = -1
+
+        for ($GroupIndex = 0; $GroupIndex -lt $GroupCount; ++$GroupIndex) {
+            $GroupOffset = $TasgPayloadOffset + [int]$GroupsOffset + $GroupIndex * $GroupStride
+            if ([System.BitConverter]::ToUInt16($MarkerBytes, $GroupOffset) -ne 2) {
+                continue
+            }
+            $FirstPiece = [System.BitConverter]::ToUInt32($MarkerBytes, $GroupOffset + 4)
+            $GoalPieceCount = [System.BitConverter]::ToUInt32($MarkerBytes, $GroupOffset + 8)
+            for ($PieceIndex = 0; $PieceIndex -lt $GoalPieceCount; ++$PieceIndex) {
+                $AbsolutePieceIndex = $FirstPiece + $PieceIndex
+                $PieceOffset = $TasgPayloadOffset + [int]$PiecesOffset +
+                    [int]$AbsolutePieceIndex * $PieceStride
+                $Dy = [System.BitConverter]::ToInt16($MarkerBytes, $PieceOffset + 2)
+                $Projected = (0x011E + $Dy - 0x40) -band 0xFFFF
+                if (($Projected -shr 8) -eq 0x01) {
+                    ++$Page01PieceCount
+                    if ($Page01PieceOffset -lt 0) {
+                        $Page01PieceOffset = $PieceOffset
+                    }
+                }
+            }
+        }
+        if ($Page01PieceOffset -lt 0) {
+            throw "The frame 240 TASG stream has no page01 goal marker candidate."
+        }
+
+        $OriginalTopChr = [System.BitConverter]::ToUInt32($MarkerBytes, $Page01PieceOffset + 4)
+        $MarkerTopChr = if ($OriginalTopChr -eq 8192) { 8224 } else { 8192 }
+        [System.BitConverter]::GetBytes([uint32]$MarkerTopChr).CopyTo(
+            $MarkerBytes,
+            $Page01PieceOffset + 4)
+        $MarkerBytes[$Page01PieceOffset + 8] = [byte](
+            ([int]$MarkerBytes[$Page01PieceOffset + 8] + 1) % 4)
+        $MarkerBytes[$Page01PieceOffset + 9] = [byte](
+            $MarkerBytes[$Page01PieceOffset + 9] -bxor 0x01)
+        [System.IO.File]::WriteAllBytes($Page01MarkerPackPath, $MarkerBytes)
+
+        if (Test-Path -LiteralPath $Page01MarkerRenderPath) {
+            Remove-Item -LiteralPath $Page01MarkerRenderPath -Force
+        }
+        $env:TECMO_ASSETPACK = $Page01MarkerPackPath
+        Remove-Item Env:TECMO_ALLOW_LOOSE_INTRO_CAPTURE -ErrorAction SilentlyContinue
+        $Page01MarkerOutput = & $ExePath `
+            --root $ProjectRoot `
+            --render-test-mode intro-arena-frame240 $Page01MarkerRenderPath 2>&1
+        $Page01MarkerExitCode = $LASTEXITCODE
+        $Page01MarkerText = (@($Page01MarkerOutput) | ForEach-Object { [string]$_ }) -join "`n"
+        $Page01MarkerCreated = Test-Path -LiteralPath $Page01MarkerRenderPath
+        $Page01MarkerCountSeen = $Page01MarkerText -match
+            "visible_jumbotron=[0-9]+ visible_goal=10"
+        $Page01PngIdentical = $Page01MarkerCreated -and
+            (Test-Path -LiteralPath $Page01BaselinePath) -and
+            (Get-FileHash -Algorithm SHA256 $Page01MarkerRenderPath).Hash -eq
+                (Get-FileHash -Algorithm SHA256 $Page01BaselinePath).Hash
+        $Page01MarkerPassed = $Page01MarkerExitCode -eq 0 -and
+            $Page01PieceCount -gt 0 -and
+            $Page01MarkerCountSeen -and
+            $Page01PngIdentical
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+        $env:TECMO_ALLOW_LOOSE_INTRO_CAPTURE = $PreviousLooseArenaCapture
+        Remove-Item -LiteralPath $Page01MarkerPackPath -Force -ErrorAction SilentlyContinue
+    }
+    if (!$Page01MarkerPassed) {
+        ++$Failures
+    }
+    $Results.Add([pscustomobject]@{
+        id = "intro-arena-goal-page01-no-wrap"
+        passed = $Page01MarkerPassed
+        skipped = $false
+        baseline = Get-RepoRelativePath $Page01BaselinePath
+        marker_output = Get-RepoRelativePath $Page01MarkerRenderPath
+        page01_goal_piece_count = $Page01PieceCount
+        marker_exit_code = $Page01MarkerExitCode
+        png_identical = $Page01PngIdentical
+        raw_output_persisted = $false
+        coverage_status = "count-marker-and-png"
+        error = if ($Page01MarkerPassed) { $null } else { "a frame 240 page01 goal value wrapped into the visible PNG" }
     })
 
     $MalformedTasgCases = @(
@@ -440,8 +562,9 @@ try {
             rom_only_contract = $true
         }
         render_coverage = [pscustomobject]@{
-            status = "arena-native-chr-smoke"
+            status = "arena-native-stream1-checkpoints"
             render_modes = $RomOnlyArenaRenderModes
+            checkpoint_directory = Get-RepoRelativePath $CheckpointOutputDir
         }
         private_paths_included = $false
         raw_output_persisted = $false

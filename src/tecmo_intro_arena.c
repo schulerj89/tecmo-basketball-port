@@ -2087,8 +2087,35 @@ static bool arena_native_sprite_piece_position(
         return false;
     }
     piece_x = group->anchor_x + piece->dx;
-    oam_y = group->anchor_y + piece->dy -
-        group->camera_y_multiplier * (int)state->scroll_y_0301;
+    if (group->kind == TECMO_ARENA_NATIVE_SPRITE_GROUP_GOAL) {
+        uint16_t stream_y;
+        uint16_t projected;
+        uint8_t projected_low;
+        uint8_t projected_page;
+        int relative_y;
+
+        if (state->phase == TECMO_INTRO_ARENA_PHASE_WAIT) {
+            return false;
+        }
+        stream_y = (uint16_t)(((uint16_t)state->stream1_high << 8U) |
+                              state->stream1_low);
+        relative_y = piece->dy - 0x40;
+        projected = (uint16_t)(stream_y + relative_y);
+        projected_low = (uint8_t)projected;
+        projected_page = (uint8_t)(projected >> 8U);
+
+        /* D861 admits the 16-bit page before its OAM Y byte is narrowed. */
+        if (projected_page == 0x00U) {
+            oam_y = projected_low;
+        } else if (projected_page == 0xFFU && projected_low >= 0xF0U) {
+            oam_y = (int)projected_low - 256;
+        } else {
+            return false;
+        }
+    } else {
+        oam_y = group->anchor_y + piece->dy -
+            group->camera_y_multiplier * (int)state->scroll_y_0301;
+    }
     piece_pixel_top = oam_y + ARENA_SPRITE_PIXEL_TOP_OFFSET;
     if (x != NULL) {
         *x = piece_x;

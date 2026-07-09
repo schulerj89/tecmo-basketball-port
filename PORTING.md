@@ -147,6 +147,17 @@ transparent, while indexes 2 and 3 retain their exact ROM palette colors. This
 bridges opaque-black internal rows without changing the shared goal anchor,
 piece offsets, canonical post position or extent, or goal motion.
 
+Goal motion follows Bank04's stream1 (`$07EC/$21`) exactly. D861 adds the goal
+record's signed relative Y (`dy - $40`) to that 16-bit stream and admits the
+result by page before narrowing it to OAM Y: page `$00` is accepted, and page
+`$FF` is accepted only for low bytes `$F0-$FF` so near-top sprites reach normal
+viewport clipping. Other pages, including page `$01`, stay offscreen rather
+than wrapping into view. The earlier `anchor_y - 2*$0301` projection was not an
+equivalent camera transform: stream1 has Bank04-specific gated increments,
+decrements, borrows, and page state, while `$0301` tracks background scroll.
+Jumbotron positioning and the TASG-2 masked connector overlay do not use this
+goal-only rule.
+
 ## Validation Rules
 
 Validation should prove native behavior, not just that a captured frame can be
