@@ -388,7 +388,7 @@ static bool parse_bucks(TecmoIntroBucksAsset *asset,
         read_u16(bytes + 50U) != TECMO_INTRO_BUCKS_WORDMARK_TILE_COUNT ||
         bytes[52U] != 0x5EU || bytes[53U] != 0x60U ||
         bytes[54U] != 0x5EU || bytes[55U] != 0xFAU ||
-        read_u16(bytes + 56U) != 6U || read_u16(bytes + 58U) != 19U ||
+        read_u16(bytes + 56U) != 6U || read_u16(bytes + 58U) != 20U ||
         memcmp(bytes + 64U, thresholds, sizeof(thresholds)) != 0) return false;
 
     memcpy(asset->palettes, bytes + BUCKS_PALETTES_OFFSET, sizeof(asset->palettes));
@@ -442,7 +442,7 @@ static bool parse_pass(TecmoIntroPassAsset *asset,
         bytes[52U] != 0xF0U || bytes[53U] != 0xF2U ||
         bytes[54U] != 0x91U || bytes[55U] != 0x93U || bytes[56U] != 0x95U ||
         bytes[57U] != 0x54U || read_u16(bytes + 58U) != 0x854FU || bytes[60U] != 0x1DU ||
-        memcmp(bytes + 64U, palette_frames, sizeof(palette_frames)) != 0) return false;
+        memcmp(bytes + 64U, palette_frames, sizeof(palette_frames)) != 0 || bytes[69U] != 28U) return false;
 
     memcpy(asset->palettes, bytes + PASS_PALETTES_OFFSET, sizeof(asset->palettes));
     memcpy(asset->sprite_palette, bytes + PASS_SPRITE_PALETTE_OFFSET, sizeof(asset->sprite_palette));
@@ -892,16 +892,16 @@ void tecmo_intro_clippers_state(unsigned frame, TecmoIntroClippersState *state)
 
 void tecmo_intro_bucks_state(unsigned frame, TecmoIntroBucksState *state)
 {
-    static const uint8_t event_frames[19] = {
+    static const uint8_t event_frames[20] = {
         16U,17U,19U,21U,22U,24U,26U,28U,30U,32U,
-        34U,36U,38U,40U,42U,44U,46U,48U,50U
+        34U,36U,38U,40U,42U,44U,46U,48U,50U,52U
     };
-    static const uint8_t palette_stages[19] = {
-        0U,0U,1U,0U,1U,2U,3U,0U,1U,2U,
-        3U,0U,1U,2U,3U,0U,1U,2U,3U
+    static const uint8_t palette_stages[20] = {
+        1U,0U,1U,2U,0U,1U,2U,3U,0U,1U,
+        2U,3U,0U,1U,2U,3U,0U,1U,2U,3U
     };
-    static const uint8_t scrolls[19] = {
-        0x00U,0x30U,0x10U,0x60U,0x40U,0x20U,0x00U,
+    static const uint8_t scrolls[20] = {
+        0x28U,0x30U,0x10U,0x58U,0x60U,0x40U,0x20U,0x00U,
         0x90U,0x70U,0x50U,0x30U,0xC0U,0xA0U,0x80U,0x60U,
         0xEFU,0xCFU,0xAFU,0x8FU
     };
@@ -924,7 +924,7 @@ void tecmo_intro_bucks_state(unsigned frame, TecmoIntroBucksState *state)
         state->palette_stage = palette_stages[i];
         state->scroll_x = scrolls[i];
     }
-    if (frame >= 52U) {
+    if (frame >= 53U) {
         state->palette_stage = 3U;
         state->scroll_x = 0xF0U;
     }
@@ -944,34 +944,34 @@ void tecmo_intro_pass_state(unsigned frame, TecmoIntroPassState *state)
 
     if (frame == 0U) {
         state->phase = TECMO_INTRO_PASS_PRIOR;
-    } else if (frame == 1U) {
+        state->black = true;
+    } else if (frame < 8U) {
         state->phase = TECMO_INTRO_PASS_BLACK;
         state->black = true;
-    } else if (frame <= 19U) {
+    } else if (frame <= 25U) {
         state->phase = TECMO_INTRO_PASS_FIRST_MOVE;
-        state->first_move_count = (uint8_t)(frame - 1U);
+        state->first_move_count = (uint8_t)(frame - 7U);
         state->player_x = (uint8_t)(TECMO_INTRO_PASS_INITIAL_X +
                                     state->first_move_count * TECMO_INTRO_PASS_MOVE_DELTA);
-        state->sprites_visible = true;
-    } else if (frame <= 49U) {
-        state->phase = TECMO_INTRO_PASS_SECOND_MOVE;
-        state->first_move_count = TECMO_INTRO_PASS_FIRST_MOVE_FRAMES;
-        state->second_move_count = (uint8_t)(frame - 19U);
-        state->player_x = (uint8_t)(state->second_move_count * TECMO_INTRO_PASS_MOVE_DELTA);
-        state->scroll_x = state->player_x;
-        state->sprites_visible = true;
-    } else if (frame < TECMO_INTRO_PASS_HANDOFF_FRAME) {
+        state->black = frame < 10U;
+        state->sprites_visible = !state->black;
+    } else if (frame == 26U) {
         state->phase = TECMO_INTRO_PASS_HOLD;
         state->first_move_count = TECMO_INTRO_PASS_FIRST_MOVE_FRAMES;
-        state->second_move_count = TECMO_INTRO_PASS_SECOND_MOVE_FRAMES;
-        state->player_x = (uint8_t)(TECMO_INTRO_PASS_SECOND_MOVE_FRAMES * TECMO_INTRO_PASS_MOVE_DELTA);
+        state->player_x = 0xF8U;
+        state->sprites_visible = true;
+    } else if (frame < TECMO_INTRO_PASS_HANDOFF_FRAME) {
+        state->phase = TECMO_INTRO_PASS_SECOND_MOVE;
+        state->first_move_count = TECMO_INTRO_PASS_FIRST_MOVE_FRAMES;
+        state->second_move_count = (uint8_t)(frame - 26U);
+        state->player_x = (uint8_t)(state->second_move_count * TECMO_INTRO_PASS_MOVE_DELTA);
         state->scroll_x = state->player_x;
         state->sprites_visible = true;
     } else {
         state->phase = TECMO_INTRO_PASS_HANDOFF;
         state->first_move_count = TECMO_INTRO_PASS_FIRST_MOVE_FRAMES;
-        state->second_move_count = TECMO_INTRO_PASS_SECOND_MOVE_FRAMES;
-        state->player_x = (uint8_t)(TECMO_INTRO_PASS_SECOND_MOVE_FRAMES * TECMO_INTRO_PASS_MOVE_DELTA);
+        state->second_move_count = (uint8_t)(TECMO_INTRO_PASS_HANDOFF_FRAME - 27U);
+        state->player_x = (uint8_t)(state->second_move_count * TECMO_INTRO_PASS_MOVE_DELTA);
         state->scroll_x = state->player_x;
         state->black = true;
         state->handoff = true;
@@ -1335,9 +1335,10 @@ bool tecmo_intro_post_arena_draw_bucks(TecmoFramebuffer *fb,
     for (unsigned scanline = 0U; scanline < 240U; ++scanline) {
         unsigned row = scanline / 8U;
         unsigned tile_scanline = scanline % 8U;
+        /* The center IRQ restart begins one decoded tile past the reported $34 scroll. */
         unsigned scroll = scanline >= TECMO_INTRO_BUCKS_TOP_SPLIT_SCANLINE &&
                           scanline < TECMO_INTRO_BUCKS_LOWER_SPLIT_SCANLINE
-                              ? state.scroll_x
+                              ? (unsigned)state.scroll_x + 8U
                               : 0U;
         for (unsigned x = 0U; x < 256U; ++x) {
             unsigned source_x = x + scroll;
@@ -1352,10 +1353,10 @@ bool tecmo_intro_post_arena_draw_bucks(TecmoFramebuffer *fb,
             uint8_t plane1;
             uint8_t bit;
             uint8_t value;
-            if (page == 0U && row >= 26U && row < 28U && col >= 11U && col < 21U) {
-                unsigned glyph = (col - 11U) / 2U;
+            if (page == 0U && row >= 26U && row < 28U && col >= 12U && col < 22U) {
+                unsigned glyph = (col - 12U) / 2U;
                 if (glyph < state.wordmark_glyph_count) {
-                    unsigned tile_index = (row - 26U) * 2U + (col - 11U) % 2U;
+                    unsigned tile_index = (row - 26U) * 2U + (col - 12U) % 2U;
                     cell = &asset->wordmark[glyph * 4U + tile_index];
                 }
             }
@@ -1398,8 +1399,10 @@ bool tecmo_intro_post_arena_draw_pass(TecmoFramebuffer *fb,
         unsigned row = scanline / 8U;
         unsigned tile_scanline = scanline % 8U;
         for (unsigned x = 0U; x < 256U; ++x) {
-            unsigned source_x = x + state.scroll_x;
-            unsigned page = (source_x >> 8U) & 1U;
+            bool second_phase = state.phase == TECMO_INTRO_PASS_SECOND_MOVE;
+            bool mapper_transition = second_phase && frame == 27U;
+            unsigned source_x = x + state.scroll_x + (mapper_transition ? 8U : 0U);
+            unsigned page = mapper_transition ? 1U : (source_x >> 8U) & 1U;
             unsigned page_x = source_x & 0xFFU;
             unsigned col = page_x / 8U;
             unsigned tile_col = page_x % 8U;
@@ -1430,7 +1433,7 @@ bool tecmo_intro_post_arena_draw_pass(TecmoFramebuffer *fb,
             uint32_t top = flip_y ? piece->bottom_chr_offset : piece->top_chr_offset;
             uint32_t bottom = flip_y ? piece->top_chr_offset : piece->bottom_chr_offset;
             int x = origin_x + ((int)state.player_x + piece->dx) * scale;
-            int y = origin_y + (0x54 + piece->dy) * scale;
+            int y = origin_y + (0x55 + piece->dy) * scale;
             if (!chr_range_valid(top, chr_byte_count, 16U) ||
                 !chr_range_valid(bottom, chr_byte_count, 16U)) return false;
             make_sprite_palette(rgba, asset->sprite_palette, piece->palette_index);

@@ -1099,9 +1099,9 @@ try {
                     "0F172737020F1627020C013002211727",
                     "0F011121020F1627020C0130020C1727"
                 )
-                $PassPassed = $PassBytes.Length -eq 12480 -and $PassMagic -eq "TPAS" -and
+                $PassPassed = $PassBytes.Length -eq 11904 -and $PassMagic -eq "TPAS" -and
                     [System.BitConverter]::ToUInt16($PassBytes, 6) -eq 128 -and
-                    [System.BitConverter]::ToUInt16($PassBytes, 16) -eq 46 -and
+                    [System.BitConverter]::ToUInt16($PassBytes, 16) -eq 10 -and
                     [System.BitConverter]::ToUInt16($PassBytes, 20) -eq 5 -and
                     [System.BitConverter]::ToUInt32($PassBytes, 40) -eq 52 -and
                     [System.BitConverter]::ToUInt16($PassBytes, 44) -eq 0x851C -and
@@ -1110,6 +1110,7 @@ try {
                     $PassBytes[50] -eq 0x68 -and $PassBytes[51] -eq 8 -and
                     $PassBytes[52] -eq 0xF0 -and $PassBytes[53] -eq 0xF2 -and
                     $PassBytes[54] -eq 0x91 -and $PassBytes[55] -eq 0x93 -and $PassBytes[56] -eq 0x95 -and
+                    $PassBytes[69] -eq 28 -and
                     $PassPaletteHex.Count -eq 5 -and (@(Compare-Object $ExpectedPassPalettes $PassPaletteHex)).Count -eq 0
                 Add-TestResult ([pscustomobject]@{
                     id = "assetpack-pass-native"
@@ -1160,6 +1161,16 @@ try {
                     $PassRoles -contains "route" -and $PassRoles -contains "descriptor" -and
                     $PassRoles -contains "compressed-screen" -and $PassRoles -contains "helper-palette" -and
                     $PassRoles -contains "special-palette" -and $PassRoles -contains "player-ball-stream"
+                $PassPointerSource = @($PassSource.sources | Where-Object { $_.role -eq "player-sprite-pointer" } | Select-Object -First 1)
+                $PassStreamSource = @($PassSource.sources | Where-Object { $_.role -eq "player-ball-stream" } | Select-Object -First 1)
+                $PassPrgStart = 16 + [int]$ReferenceHeader.trainer_bytes
+                $ExpectedPassPointerOffset = [uint64]($PassPrgStart + (0xA911 - 0x8000))
+                $ExpectedPassStreamOffset = [uint64]($PassPrgStart + (0xA9D2 - 0x8000))
+                $PostArenaProvenancePassed = $PostArenaProvenancePassed -and
+                    $PassPointerSource.Count -eq 1 -and [int]$PassPointerSource.cpu_address -eq 0xA911 -and
+                    [int]$PassPointerSource.size -eq 2 -and [uint64]$PassPointerSource.source_offset -eq $ExpectedPassPointerOffset -and
+                    $PassStreamSource.Count -eq 1 -and [int]$PassStreamSource.cpu_address -eq 0xA9D2 -and
+                    [int]$PassStreamSource.size -eq 41 -and [uint64]$PassStreamSource.source_offset -eq $ExpectedPassStreamOffset
                 Add-TestResult ([pscustomobject]@{
                     id = "assetpack-bucks-pass-source-provenance"
                     passed = $PostArenaProvenancePassed

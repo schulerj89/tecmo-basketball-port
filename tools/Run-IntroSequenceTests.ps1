@@ -125,6 +125,57 @@ function Test-PixelRectHasNonBlack {
     return $false
 }
 
+function Compare-NativeViewportMask {
+    param(
+        [System.Drawing.Bitmap]$HostBitmap,
+        [System.Drawing.Bitmap]$ReferenceBitmap
+    )
+
+    $HostCount = 0
+    $ReferenceCount = 0
+    $Intersection = 0
+    $Union = 0
+    $HostBounds = @([int]::MaxValue, [int]::MaxValue, -1, -1)
+    $ReferenceBounds = @([int]::MaxValue, [int]::MaxValue, -1, -1)
+    for ($Y = 0; $Y -lt 224; ++$Y) {
+        for ($X = 0; $X -lt 256; ++$X) {
+            $HostPixel = $HostBitmap.GetPixel(64 + $X * 2, 16 + $Y * 2)
+            $ReferencePixel = $ReferenceBitmap.GetPixel($X, $Y)
+            $HostSet = $HostPixel.R -ne 0 -or $HostPixel.G -ne 0 -or $HostPixel.B -ne 0
+            $ReferenceSet = $ReferencePixel.R -ne 0 -or $ReferencePixel.G -ne 0 -or $ReferencePixel.B -ne 0
+            if ($HostSet) {
+                ++$HostCount
+                if ($X -lt $HostBounds[0]) { $HostBounds[0] = $X }
+                if ($Y -lt $HostBounds[1]) { $HostBounds[1] = $Y }
+                if ($X -gt $HostBounds[2]) { $HostBounds[2] = $X }
+                if ($Y -gt $HostBounds[3]) { $HostBounds[3] = $Y }
+            }
+            if ($ReferenceSet) {
+                ++$ReferenceCount
+                if ($X -lt $ReferenceBounds[0]) { $ReferenceBounds[0] = $X }
+                if ($Y -lt $ReferenceBounds[1]) { $ReferenceBounds[1] = $Y }
+                if ($X -gt $ReferenceBounds[2]) { $ReferenceBounds[2] = $X }
+                if ($Y -gt $ReferenceBounds[3]) { $ReferenceBounds[3] = $Y }
+            }
+            if ($HostSet -and $ReferenceSet) { ++$Intersection }
+            if ($HostSet -or $ReferenceSet) { ++$Union }
+        }
+    }
+    $HostBoundsText = $HostBounds -join ","
+    $ReferenceBoundsText = $ReferenceBounds -join ","
+    return [pscustomobject]@{
+        passed = $HostCount -eq $ReferenceCount -and $Intersection -eq $Union -and
+            $HostBoundsText -eq $ReferenceBoundsText
+        host_nonblack = $HostCount
+        reference_nonblack = $ReferenceCount
+        intersection = $Intersection
+        union = $Union
+        mask_iou = if ($Union -eq 0) { 1.0 } else { [double]$Intersection / [double]$Union }
+        host_bounds = $HostBoundsText
+        reference_bounds = $ReferenceBoundsText
+    }
+}
+
 function Get-AssetPackEntryPayloadOffset {
     param(
         [byte[]]$Bytes,
@@ -262,18 +313,54 @@ $PostArenaRenderCases = @(
     [pscustomobject]@{ mode = "intro-bucks-clean-frame0"; state = "intro-bucks-state frame=0 palette=0 flash=0 scroll=0 wordmark=0 prior=1 black=1 handoff=0 next_route=854F"; visual = "black" },
     [pscustomobject]@{ mode = "intro-bucks-clean-frame1"; state = "intro-bucks-state frame=1 palette=0 flash=0 scroll=0 wordmark=0 prior=0 black=1 handoff=0 next_route=854F"; visual = "black" },
     [pscustomobject]@{ mode = "intro-bucks-clean-frame14"; state = "intro-bucks-state frame=14 palette=0 flash=0 scroll=0 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame16"; state = "intro-bucks-state frame=16 palette=1 flash=1 scroll=40 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame17"; state = "intro-bucks-state frame=17 palette=0 flash=2 scroll=48 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
     [pscustomobject]@{ mode = "intro-bucks-clean-frame19"; state = "intro-bucks-state frame=19 palette=1 flash=3 scroll=16 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
-    [pscustomobject]@{ mode = "intro-bucks-clean-frame50"; state = "intro-bucks-state frame=50 palette=3 flash=19 scroll=143 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
-    [pscustomobject]@{ mode = "intro-bucks-clean-frame52"; state = "intro-bucks-state frame=52 palette=3 flash=19 scroll=240 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
-    [pscustomobject]@{ mode = "intro-bucks-clean-frame83"; state = "intro-bucks-state frame=83 palette=3 flash=19 scroll=240 wordmark=5 prior=0 black=0 handoff=1 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame21"; state = "intro-bucks-state frame=21 palette=2 flash=4 scroll=88 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame22"; state = "intro-bucks-state frame=22 palette=0 flash=5 scroll=96 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame24"; state = "intro-bucks-state frame=24 palette=1 flash=6 scroll=64 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame26"; state = "intro-bucks-state frame=26 palette=2 flash=7 scroll=32 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame28"; state = "intro-bucks-state frame=28 palette=3 flash=8 scroll=0 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame30"; state = "intro-bucks-state frame=30 palette=0 flash=9 scroll=144 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame32"; state = "intro-bucks-state frame=32 palette=1 flash=10 scroll=112 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame34"; state = "intro-bucks-state frame=34 palette=2 flash=11 scroll=80 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame36"; state = "intro-bucks-state frame=36 palette=3 flash=12 scroll=48 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame38"; state = "intro-bucks-state frame=38 palette=0 flash=13 scroll=192 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame40"; state = "intro-bucks-state frame=40 palette=1 flash=14 scroll=160 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame42"; state = "intro-bucks-state frame=42 palette=2 flash=15 scroll=128 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame44"; state = "intro-bucks-state frame=44 palette=3 flash=16 scroll=96 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame46"; state = "intro-bucks-state frame=46 palette=0 flash=17 scroll=239 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame48"; state = "intro-bucks-state frame=48 palette=1 flash=18 scroll=207 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame50"; state = "intro-bucks-state frame=50 palette=2 flash=19 scroll=175 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame52"; state = "intro-bucks-state frame=52 palette=3 flash=20 scroll=143 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame53"; state = "intro-bucks-state frame=53 palette=3 flash=20 scroll=240 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame83"; state = "intro-bucks-state frame=83 palette=3 flash=20 scroll=240 wordmark=5 prior=0 black=0 handoff=1 next_route=854F"; visual = "bucks" },
     [pscustomobject]@{ mode = "intro-pass-clean-frame1"; state = "intro-pass-state frame=1 phase=black palette=0 x=104 scroll=0 first=0 second=0 sprites=0 black=1 handoff=0 next_route=851C"; visual = "black" },
-    [pscustomobject]@{ mode = "intro-pass-clean-frame10"; state = "intro-pass-state frame=10 phase=first-move palette=0 x=176 scroll=0 first=9 second=0 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
-    [pscustomobject]@{ mode = "intro-pass-clean-frame19"; state = "intro-pass-state frame=19 phase=first-move palette=2 x=248 scroll=0 first=18 second=0 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
-    [pscustomobject]@{ mode = "intro-pass-clean-frame20"; state = "intro-pass-state frame=20 phase=second-move palette=2 x=8 scroll=8 first=18 second=1 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
-    [pscustomobject]@{ mode = "intro-pass-clean-frame22"; state = "intro-pass-state frame=22 phase=second-move palette=3 x=24 scroll=24 first=18 second=3 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
-    [pscustomobject]@{ mode = "intro-pass-clean-frame27"; state = "intro-pass-state frame=27 phase=second-move palette=4 x=64 scroll=64 first=18 second=8 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
-    [pscustomobject]@{ mode = "intro-pass-clean-frame49"; state = "intro-pass-state frame=49 phase=second-move palette=4 x=240 scroll=240 first=18 second=30 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
-    [pscustomobject]@{ mode = "intro-pass-clean-frame52"; state = "intro-pass-state frame=52 phase=handoff palette=4 x=240 scroll=240 first=18 second=30 sprites=0 black=1 handoff=1 next_route=851C"; visual = "black" }
+    [pscustomobject]@{ mode = "intro-pass-clean-frame10"; state = "intro-pass-state frame=10 phase=first-move palette=0 x=128 scroll=0 first=3 second=0 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame14"; state = "intro-pass-state frame=14 phase=first-move palette=1 x=160 scroll=0 first=7 second=0 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame18"; state = "intro-pass-state frame=18 phase=first-move palette=2 x=192 scroll=0 first=11 second=0 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame22"; state = "intro-pass-state frame=22 phase=first-move palette=3 x=224 scroll=0 first=15 second=0 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame25"; state = "intro-pass-state frame=25 phase=first-move palette=3 x=248 scroll=0 first=18 second=0 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame26"; state = "intro-pass-state frame=26 phase=hold palette=3 x=248 scroll=0 first=18 second=0 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame27"; state = "intro-pass-state frame=27 phase=second-move palette=4 x=8 scroll=8 first=18 second=1 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame28"; state = "intro-pass-state frame=28 phase=second-move palette=4 x=16 scroll=16 first=18 second=2 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame49"; state = "intro-pass-state frame=49 phase=second-move palette=4 x=184 scroll=184 first=18 second=23 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame51"; state = "intro-pass-state frame=51 phase=second-move palette=4 x=200 scroll=200 first=18 second=25 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass-late" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame52"; state = "intro-pass-state frame=52 phase=handoff palette=4 x=200 scroll=200 first=18 second=25 sprites=0 black=1 handoff=1 next_route=851C"; visual = "black" }
+)
+$BoundedReferenceCases = @(
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame14"; reference = "bucks-pass-02.png" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame16"; reference = "bucks-pass-03.png" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame22"; reference = "bucks-pass-07.png" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame30"; reference = "bucks-pass-11.png" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame38"; reference = "bucks-pass-15.png" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame46"; reference = "bucks-pass-19.png" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame52"; reference = "bucks-pass-22.png" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame10"; reference = "bucks-pass-25.png" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame14"; reference = "bucks-pass-26.png" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame18"; reference = "bucks-pass-27.png" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame22"; reference = "bucks-pass-28.png" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame27"; reference = "bucks-pass-29.png" }
 )
 
 $Results = New-Object System.Collections.Generic.List[object]
@@ -461,6 +548,10 @@ try {
                         $VisualSeen = Test-PixelRectHasNonBlack $Bitmap 192 240 447 319
                     } elseif ($RenderCase.visual -eq "clippers-pose") {
                         $VisualSeen = Test-PixelRectHasNonBlack $Bitmap 64 32 575 383
+                    } elseif ($RenderCase.visual -eq "pass-late") {
+                        $PasserSeen = Test-PixelRectHasNonBlack $Bitmap 160 160 431 351
+                        $BallEdgeSeen = Test-PixelRectHasNonBlack $Bitmap 472 144 551 255
+                        $VisualSeen = $PasserSeen -and $BallEdgeSeen
                     } elseif ($RenderCase.visual -eq "pass") {
                         $VisualSeen = Test-PixelRectHasNonBlack $Bitmap 64 32 575 447
                     } elseif ($RenderCase.visual -eq "bucks") {
@@ -507,6 +598,56 @@ try {
         raw_output_persisted = $false
         coverage_status = "ready-warriors-clippers-bucks-pass-native-checkpoints"
         error = if ($PostArenaPassed) { $null } else { "ROM-only post-arena render or timing checkpoint failed" }
+    })
+
+    $BoundedReferenceOutputs = New-Object System.Collections.Generic.List[object]
+    $BoundedReferencePassed = $true
+    $BoundedReferenceCompared = 0
+    foreach ($Case in $BoundedReferenceCases) {
+        $HostPath = Join-Path $OutputDir "$($Case.mode).png"
+        $ReferencePath = Join-Path $BuildDir $Case.reference
+        if (!(Test-Path -LiteralPath $ReferencePath)) {
+            $BoundedReferenceOutputs.Add([pscustomobject]@{
+                mode = $Case.mode
+                reference = $Case.reference
+                passed = $true
+                skipped = $true
+                reason = "bounded reference PNG unavailable"
+            })
+            continue
+        }
+        ++$BoundedReferenceCompared
+        $HostBitmap = [System.Drawing.Bitmap]::FromFile($HostPath)
+        $ReferenceBitmap = [System.Drawing.Bitmap]::FromFile($ReferencePath)
+        try {
+            $Comparison = Compare-NativeViewportMask $HostBitmap $ReferenceBitmap
+        } finally {
+            $HostBitmap.Dispose()
+            $ReferenceBitmap.Dispose()
+        }
+        if (!$Comparison.passed) { $BoundedReferencePassed = $false }
+        $BoundedReferenceOutputs.Add([pscustomobject]@{
+            mode = $Case.mode
+            reference = $Case.reference
+            passed = $Comparison.passed
+            skipped = $false
+            mask_iou = $Comparison.mask_iou
+            host_nonblack = $Comparison.host_nonblack
+            reference_nonblack = $Comparison.reference_nonblack
+            host_bounds = $Comparison.host_bounds
+            reference_bounds = $Comparison.reference_bounds
+        })
+    }
+    if (!$BoundedReferencePassed) { ++$Failures }
+    $Results.Add([pscustomobject]@{
+        id = "intro-bucks-pass-bounded-pixel-masks"
+        passed = $BoundedReferencePassed
+        skipped = $BoundedReferenceCompared -eq 0
+        compared = $BoundedReferenceCompared
+        outputs = $BoundedReferenceOutputs
+        raw_output_persisted = $false
+        coverage_status = if ($BoundedReferenceCompared -eq 0) { "local-reference-unavailable" } else { "covered" }
+        error = if ($BoundedReferencePassed) { $null } else { "native viewport mask differed from bounded BUCKS/PASS reference" }
     })
 
     $LowerBandGeometryOutputs = New-Object System.Collections.Generic.List[object]

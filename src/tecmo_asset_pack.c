@@ -177,7 +177,7 @@
 #define TECMO_ASSET_PACK_PASS_SCREEN_ID 0x1DU
 #define TECMO_ASSET_PACK_PASS_HEADER_SIZE 128U
 #define TECMO_ASSET_PACK_PASS_CELL_STRIDE 6U
-#define TECMO_ASSET_PACK_PASS_PIECE_COUNT 46U
+#define TECMO_ASSET_PACK_PASS_PIECE_COUNT 10U
 #define TECMO_ASSET_PACK_PASS_PIECE_STRIDE 16U
 #define TECMO_ASSET_PACK_PASS_PALETTES_OFFSET 128U
 #define TECMO_ASSET_PACK_PASS_SPRITE_PALETTE_OFFSET 208U
@@ -190,7 +190,7 @@
 #define TECMO_ASSET_PACK_PASS_HELPER_PALETTE_CPU 0x89FDU
 #define TECMO_ASSET_PACK_PASS_SPECIAL_PALETTE_CPU 0x8A1DU
 #define TECMO_ASSET_PACK_PASS_POINTER_CPU 0xA90FU
-#define TECMO_ASSET_PACK_PASS_STREAM_CPU 0xA919U
+#define TECMO_ASSET_PACK_PASS_STREAM_CPU 0xA9D2U
 
 typedef struct TecmoAssetPackBuildEntry {
     char id[TECMO_ASSET_PACK_ID_SIZE];
@@ -2461,7 +2461,7 @@ static int build_bucks_transition(const uint8_t *rom,
     payload[54U] = 0x5EU;
     payload[55U] = 0xFAU;
     store_u16(payload + 56U, 6U);
-    store_u16(payload + 58U, 19U);
+    store_u16(payload + 58U, 20U);
     memcpy(payload + 64U, expected_thresholds, sizeof(expected_thresholds));
     for (size_t stage = 0U; stage < 4U; ++stage) {
         for (size_t i = 0U; i < 16U; ++i) {
@@ -2498,7 +2498,7 @@ static int build_bucks_transition(const uint8_t *rom,
         if (glyph_offset + 4U > rom_size) return -1;
         for (size_t tile_index = 0U; tile_index < 4U; ++tile_index) {
             unsigned row = 26U + (unsigned)(tile_index / 2U);
-            unsigned col = 11U + (unsigned)glyph * 2U + (unsigned)(tile_index % 2U);
+            unsigned col = 12U + (unsigned)glyph * 2U + (unsigned)(tile_index % 2U);
             uint8_t tile = rom[(size_t)glyph_offset + tile_index];
             uint8_t *cell = payload + TECMO_ASSET_PACK_BUCKS_WORDMARK_OFFSET +
                             (glyph * 4U + tile_index) * TECMO_ASSET_PACK_BUCKS_CELL_STRIDE;
@@ -2539,6 +2539,11 @@ static int build_pass_transition(const uint8_t *rom,
         0xAEU,0xE9U,0x07U,0xBDU,0x3CU,0x86U,0x20U,0xF2U,0x82U,
         0xA9U,0x0DU,0x20U,0x6EU,0x8AU,0xA2U,0xFDU,0xA0U,0x89U
     };
+    static const uint8_t expected_emit_helper[] = {
+        0x85U,0x09U,0x84U,0x0BU,0xA9U,0x00U,0x85U,0x2DU,0x85U,0x2CU,
+        0xA9U,0x01U,0x85U,0x0DU,0x85U,0x2EU,0xA9U,0x00U,0xA2U,0x0FU,
+        0xA0U,0xA9U,0x4CU,0x51U,0xC0U
+    };
     static const uint8_t sprite_selectors[3] = {0x91U,0x93U,0x95U};
     uint8_t decoded[2048];
     uint64_t fixed_offset;
@@ -2566,11 +2571,13 @@ static int build_pass_transition(const uint8_t *rom,
     piece_stream_offset = prg_offset + (TECMO_ASSET_PACK_PASS_STREAM_CPU - 0x8000U);
     if (descriptor_offset + 7U > rom_size || palette_offset + 16U > rom_size ||
         helper_offset + 16U > rom_size || special_offset + 16U > rom_size ||
-        pointer_offset + 2U > rom_size || piece_stream_offset + 185U > rom_size ||
+        pointer_offset + 4U > rom_size || piece_stream_offset + 41U > rom_size ||
         memcmp(rom + (size_t)descriptor_offset, expected_descriptor, 7U) != 0 ||
         memcmp(rom + (size_t)(bank04_offset + (TECMO_ASSET_PACK_PASS_ROUTE_CPU - 0x8000U)),
                expected_route, sizeof(expected_route)) != 0 ||
-        read_u16(rom + (size_t)pointer_offset) != TECMO_ASSET_PACK_PASS_STREAM_CPU ||
+        memcmp(rom + (size_t)(bank04_offset + (0x8645U - 0x8000U)),
+               expected_emit_helper, sizeof(expected_emit_helper)) != 0 ||
+        read_u16(rom + (size_t)pointer_offset + 2U) != TECMO_ASSET_PACK_PASS_STREAM_CPU ||
         rom[(size_t)piece_stream_offset] != TECMO_ASSET_PACK_PASS_PIECE_COUNT) {
         set_message(message, message_size, "PASS Rev1 route, descriptor, or player stream is invalid.");
         return -1;
@@ -2622,6 +2629,7 @@ static int build_pass_transition(const uint8_t *rom,
     payload[66U] = 18U;
     payload[67U] = 22U;
     payload[68U] = 27U;
+    payload[69U] = 28U;
 
     for (size_t stage = 0U; stage < 4U; ++stage) {
         for (size_t i = 0U; i < 16U; ++i) {
@@ -2689,7 +2697,7 @@ static int build_pass_transition(const uint8_t *rom,
     provenance->pass_palette_offset = palette_offset;
     provenance->pass_helper_palette_offset = helper_offset;
     provenance->pass_special_palette_offset = special_offset;
-    provenance->pass_pointer_offset = pointer_offset;
+    provenance->pass_pointer_offset = pointer_offset + 2U;
     provenance->pass_piece_stream_offset = piece_stream_offset;
     return 0;
 }
@@ -2961,9 +2969,9 @@ static int append_post_arena_source_map_entries(char *buffer,
         "{\"role\":\"special-palette\",\"source_entry\":\"prg/bank04\","
         "\"source_offset\":%llu,\"bank\":4,\"cpu_address\":35357,\"size\":16},"
         "{\"role\":\"player-sprite-pointer\",\"source_entry\":\"prg/bank00\","
-        "\"source_offset\":%llu,\"bank\":0,\"cpu_address\":43279,\"size\":2},"
+        "\"source_offset\":%llu,\"bank\":0,\"cpu_address\":43281,\"size\":2},"
         "{\"role\":\"player-ball-stream\",\"source_entry\":\"prg/bank00\","
-        "\"source_offset\":%llu,\"bank\":0,\"cpu_address\":43289,\"size\":185}],"
+        "\"source_offset\":%llu,\"bank\":0,\"cpu_address\":43474,\"size\":41}],"
         "\"chr_resolution\":\"background and sprite offsets into chr/all\"}",
         prefix,
         TECMO_ASSET_PACK_READY_ID,
@@ -5429,6 +5437,11 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                 0xAEU,0xE9U,0x07U,0xBDU,0x3CU,0x86U,0x20U,0xF2U,0x82U,
                 0xA9U,0x0DU,0x20U,0x6EU,0x8AU,0xA2U,0xFDU,0xA0U,0x89U
             };
+            static const uint8_t pass_emit_helper[] = {
+                0x85U,0x09U,0x84U,0x0BU,0xA9U,0x00U,0x85U,0x2DU,0x85U,0x2CU,
+                0xA9U,0x01U,0x85U,0x0DU,0x85U,0x2EU,0xA9U,0x00U,0xA2U,0x0FU,
+                0xA0U,0xA9U,0x4CU,0x51U,0xC0U
+            };
             static const uint8_t thresholds[6] = {0xEFU,0xC0U,0x90U,0x60U,0x30U,0x00U};
             static const uint8_t bucks_record[6] = {5U,'B','U','C','K','S'};
             static const uint8_t bucks_chars[5] = {'B','U','C','K','S'};
@@ -5440,6 +5453,9 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
             memcpy(rom + (size_t)(bank04_offset + (0x8A1DU - 0x8000U)), special_palette, 16U);
             memcpy(rom + (size_t)(bank04_offset + (0x883DU - 0x8000U)), bucks_route, sizeof(bucks_route));
             memcpy(rom + (size_t)(bank04_offset + (0x854FU - 0x8000U)), pass_route, sizeof(pass_route));
+            memcpy(rom + (size_t)(bank04_offset + (0x8645U - 0x8000U)),
+                   pass_emit_helper,
+                   sizeof(pass_emit_helper));
             memcpy(rom + (size_t)(bank04_offset + (0x88A3U - 0x8000U)), thresholds, sizeof(thresholds));
             rom[(size_t)(fixed_offset + (0xDC19U - 0xC000U) + 0x0EU)] = 0x2AU;
             store_u16(rom + (size_t)(bank06_offset + (0xAD60U - 0x8000U) + 0x0EU * 2U), 0xACB8U);
@@ -5455,7 +5471,10 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
 
         store_u16(rom + (size_t)(bank00_offset +
                                  (TECMO_ASSET_PACK_WARRIORS_POINTER_CPU - 0x8000U)),
-                  TECMO_ASSET_PACK_WARRIORS_STREAM_CPU);
+                   TECMO_ASSET_PACK_WARRIORS_STREAM_CPU);
+        store_u16(rom + (size_t)(bank00_offset +
+                                 (TECMO_ASSET_PACK_PASS_POINTER_CPU - 0x8000U) + 2U),
+                   TECMO_ASSET_PACK_PASS_STREAM_CPU);
         {
             uint8_t *pieces = rom + (size_t)(bank00_offset +
                 (TECMO_ASSET_PACK_WARRIORS_STREAM_CPU - 0x8000U));
@@ -5465,6 +5484,17 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                 pieces[1U + i * 4U + 1U] = (uint8_t)((i * 2U) & 0xFCU);
                 pieces[1U + i * 4U + 2U] = (uint8_t)(i & 3U);
                 pieces[1U + i * 4U + 3U] = (uint8_t)(i * 5U);
+            }
+        }
+        {
+            uint8_t *pieces = rom + (size_t)(bank00_offset +
+                (TECMO_ASSET_PACK_PASS_STREAM_CPU - 0x8000U));
+            pieces[0] = TECMO_ASSET_PACK_PASS_PIECE_COUNT;
+            for (size_t i = 0U; i < TECMO_ASSET_PACK_PASS_PIECE_COUNT; ++i) {
+                pieces[1U + i * 4U + 0U] = (uint8_t)((i / 3U) * 8U);
+                pieces[1U + i * 4U + 1U] = (uint8_t)((i * 2U) & 0x3EU);
+                pieces[1U + i * 4U + 2U] = 1U;
+                pieces[1U + i * 4U + 3U] = (uint8_t)((i % 3U) * 8U);
             }
         }
         memset(rom + (size_t)(bank01_offset +
