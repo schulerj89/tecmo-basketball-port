@@ -282,6 +282,7 @@ function Get-KnownLogicalAssetPackEntries {
         "arena/intro/sprite-groups",
         "arena/intro/ready-screen",
         "arena/intro/warriors-transition",
+        "arena/intro/clippers-transition",
         "roster/table.tsv",
         "title/original-text.txt",
         "title/glyph-map.tsv",
@@ -314,7 +315,8 @@ function Get-ExpectedLogicalAssetPackEntries {
             "arena/intro/palette-cycle",
             "arena/intro/sprite-groups",
             "arena/intro/ready-screen",
-            "arena/intro/warriors-transition"
+            "arena/intro/warriors-transition",
+            "arena/intro/clippers-transition"
         )
         capture_sources_present = @()
     }
@@ -981,6 +983,60 @@ try {
                     wordmark_glyph_count = [System.BitConverter]::ToUInt16($WarriorsBytes, 68)
                     invalid_wordmark_tiles = $InvalidWordmarkTiles
                     handoff_frame = [System.BitConverter]::ToUInt32($WarriorsBytes, 48)
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $ClippersBytes = Read-AssetPackEntryBytes -Path $AssetPackPath -Directory $Directory -EntryId "arena/intro/clippers-transition"
+                $ClippersMagic = if ($ClippersBytes.Length -ge 4) { [System.Text.Encoding]::ASCII.GetString($ClippersBytes, 0, 4) } else { "" }
+                [byte[]]$ExpectedClippersWordmark = @(
+                    0xBA,0xBB,0xBC,0xBD, 0xD0,0xFF,0xC0,0xD1,
+                    0xC7,0xC8,0xC9,0xCA, 0xB6,0xB7,0xB4,0xD8,
+                    0xB6,0xB7,0xB4,0xD8, 0xB6,0xC2,0xB8,0xC3,
+                    0xB6,0xB7,0xB4,0xCF, 0xD9,0xDA,0xDB,0xB9
+                )
+                $InvalidClippersWordmarkTiles = 0
+                if ($ClippersBytes.Length -eq 19680) {
+                    for ($Index = 0; $Index -lt 32; ++$Index) {
+                        $CellOffset = 19360 + $Index * 10
+                        $BaseChrOffset = [System.BitConverter]::ToUInt32($ClippersBytes, $CellOffset + 2)
+                        $LowerChrOffset = [System.BitConverter]::ToUInt32($ClippersBytes, $CellOffset + 6)
+                        if ($ClippersBytes[$CellOffset] -ne $ExpectedClippersWordmark[$Index] -or
+                            $ClippersBytes[$CellOffset + 1] -gt 3 -or
+                            ($BaseChrOffset -band 0x0F) -ne 0 -or
+                            ($LowerChrOffset -band 0x0F) -ne 0 -or
+                            ([uint64]$BaseChrOffset + 16) -gt ([uint64]$ExpectedChrBanks * 8192) -or
+                            ([uint64]$LowerChrOffset + 16) -gt ([uint64]$ExpectedChrBanks * 8192)) {
+                            ++$InvalidClippersWordmarkTiles
+                        }
+                    }
+                } else {
+                    $InvalidClippersWordmarkTiles = 32
+                }
+                $ClippersPassed = $ClippersBytes.Length -eq 19680 -and
+                    $ClippersMagic -eq "TCLP" -and
+                    [System.BitConverter]::ToUInt16($ClippersBytes, 4) -eq 1 -and
+                    [System.BitConverter]::ToUInt16($ClippersBytes, 6) -eq 96 -and
+                    [System.BitConverter]::ToUInt16($ClippersBytes, 12) -eq 2 -and
+                    [System.BitConverter]::ToUInt16($ClippersBytes, 14) -eq 10 -and
+                    [System.BitConverter]::ToUInt16($ClippersBytes, 16) -eq 4 -and
+                    [System.BitConverter]::ToUInt32($ClippersBytes, 28) -eq 1920 -and
+                    [System.BitConverter]::ToUInt32($ClippersBytes, 32) -eq 151 -and
+                    [System.BitConverter]::ToUInt16($ClippersBytes, 36) -eq 0x883D -and
+                    [System.BitConverter]::ToUInt16($ClippersBytes, 38) -eq 200 -and
+                    $ClippersBytes[48] -eq 0x2C -and $ClippersBytes[49] -eq 0x2E -and
+                    $ClippersBytes[50] -eq 0x2C -and $ClippersBytes[51] -eq 0xFA -and
+                    [System.BitConverter]::ToUInt32($ClippersBytes, 56) -eq 19360 -and
+                    [System.BitConverter]::ToUInt16($ClippersBytes, 60) -eq 32 -and
+                    [System.BitConverter]::ToUInt16($ClippersBytes, 62) -eq 32 -and
+                    $InvalidClippersWordmarkTiles -eq 0
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-clippers-native"
+                    passed = $ClippersPassed
+                    format = $ClippersMagic
+                    byte_count = $ClippersBytes.Length
+                    handoff_frame = [System.BitConverter]::ToUInt32($ClippersBytes, 32)
+                    next_route = ('{0:X4}' -f [System.BitConverter]::ToUInt16($ClippersBytes, 36))
+                    invalid_wordmark_tiles = $InvalidClippersWordmarkTiles
                     raw_asset_bytes_persisted = $false
                 })
             } catch {

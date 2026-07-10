@@ -36,6 +36,17 @@
 #define WARRIORS_PAYLOAD_SIZE \
     (WARRIORS_WORDMARK_OFFSET + TECMO_INTRO_WARRIORS_WORDMARK_TILE_COUNT * \
                                     WARRIORS_PATCH_STRIDE)
+#define CLIPPERS_ENTRY_ID "arena/intro/clippers-transition"
+#define CLIPPERS_HEADER_SIZE 96U
+#define CLIPPERS_CELL_STRIDE 10U
+#define CLIPPERS_PALETTES_OFFSET 96U
+#define CLIPPERS_CELLS_OFFSET 160U
+#define CLIPPERS_WORDMARK_OFFSET \
+    (CLIPPERS_CELLS_OFFSET + TECMO_INTRO_CLIPPERS_PAGE_COUNT * \
+                                TECMO_INTRO_CLIPPERS_TILES_PER_PAGE * CLIPPERS_CELL_STRIDE)
+#define CLIPPERS_PAYLOAD_SIZE \
+    (CLIPPERS_WORDMARK_OFFSET + \
+     TECMO_INTRO_CLIPPERS_WORDMARK_TILE_COUNT * CLIPPERS_CELL_STRIDE)
 
 static uint16_t read_u16(const uint8_t *bytes)
 {
@@ -275,6 +286,61 @@ static bool parse_warriors(TecmoIntroWarriorsAsset *asset,
     return true;
 }
 
+static bool parse_clippers(TecmoIntroClippersAsset *asset,
+                           const uint8_t *bytes,
+                           uint64_t byte_count)
+{
+    if (byte_count != CLIPPERS_PAYLOAD_SIZE || memcmp(bytes, "TCLP", 4U) != 0 ||
+        read_u16(bytes + 4U) != 1U || read_u16(bytes + 6U) != CLIPPERS_HEADER_SIZE ||
+        read_u16(bytes + 8U) != 32U || read_u16(bytes + 10U) != 30U ||
+        read_u16(bytes + 12U) != TECMO_INTRO_CLIPPERS_PAGE_COUNT ||
+        read_u16(bytes + 14U) != CLIPPERS_CELL_STRIDE ||
+        read_u16(bytes + 16U) != TECMO_INTRO_CLIPPERS_PALETTE_STAGE_COUNT ||
+        read_u32(bytes + 20U) != CLIPPERS_PALETTES_OFFSET ||
+        read_u32(bytes + 24U) != CLIPPERS_CELLS_OFFSET ||
+        read_u32(bytes + 28U) != TECMO_INTRO_CLIPPERS_PAGE_COUNT *
+                                  TECMO_INTRO_CLIPPERS_TILES_PER_PAGE ||
+        read_u32(bytes + 32U) != TECMO_INTRO_CLIPPERS_HANDOFF_FRAME ||
+        read_u16(bytes + 36U) != TECMO_INTRO_CLIPPERS_NEXT_ROUTE ||
+        read_u16(bytes + 38U) != TECMO_INTRO_CLIPPERS_LOWER_SPLIT_SCANLINE ||
+        read_u16(bytes + 40U) != TECMO_INTRO_CLIPPERS_MOTION_FRAME ||
+        read_u16(bytes + 42U) != TECMO_INTRO_CLIPPERS_MOTION_TICK_FRAMES ||
+        read_u16(bytes + 44U) != TECMO_INTRO_CLIPPERS_MOTION_TICK_COUNT ||
+        read_u16(bytes + 46U) != TECMO_INTRO_CLIPPERS_POSE_SWITCH_TICK ||
+        bytes[48U] != 0x2CU || bytes[49U] != 0x2EU ||
+        bytes[50U] != 0x2CU || bytes[51U] != 0xFAU ||
+        read_u32(bytes + 56U) != CLIPPERS_WORDMARK_OFFSET ||
+        read_u16(bytes + 60U) != TECMO_INTRO_CLIPPERS_WORDMARK_TILE_COUNT ||
+        read_u16(bytes + 62U) != TECMO_INTRO_CLIPPERS_WORDMARK_FRAME) {
+        return false;
+    }
+
+    memcpy(asset->palettes, bytes + CLIPPERS_PALETTES_OFFSET, sizeof(asset->palettes));
+    for (size_t page = 0U; page < TECMO_INTRO_CLIPPERS_PAGE_COUNT; ++page) {
+        for (size_t i = 0U; i < TECMO_INTRO_CLIPPERS_TILES_PER_PAGE; ++i) {
+            const uint8_t *cell = bytes + CLIPPERS_CELLS_OFFSET +
+                                  (page * TECMO_INTRO_CLIPPERS_TILES_PER_PAGE + i) *
+                                      CLIPPERS_CELL_STRIDE;
+            TecmoIntroClippersTile *dest = &asset->pages[page][i];
+            dest->tile_id = cell[0];
+            dest->palette_index = cell[1];
+            dest->base_chr_offset = read_u32(cell + 2U);
+            dest->lower_chr_offset = read_u32(cell + 6U);
+            if (dest->palette_index > 3U) return false;
+        }
+    }
+    for (size_t i = 0U; i < TECMO_INTRO_CLIPPERS_WORDMARK_TILE_COUNT; ++i) {
+        const uint8_t *cell = bytes + CLIPPERS_WORDMARK_OFFSET + i * CLIPPERS_CELL_STRIDE;
+        TecmoIntroClippersTile *dest = &asset->wordmark[i];
+        dest->tile_id = cell[0];
+        dest->palette_index = cell[1];
+        dest->base_chr_offset = read_u32(cell + 2U);
+        dest->lower_chr_offset = read_u32(cell + 6U);
+        if (dest->tile_id < 0x80U || dest->palette_index > 3U) return false;
+    }
+    return true;
+}
+
 static bool palette_valid(const uint8_t *palette, size_t count)
 {
     for (size_t i = 0U; i < count; ++i) {
@@ -322,6 +388,37 @@ static bool validate_warriors_asset(const TecmoIntroWarriorsAsset *asset,
     }
     for (size_t i = 0U; i < TECMO_INTRO_WARRIORS_WORDMARK_TILE_COUNT; ++i) {
         if (!resolved_chr_valid(asset->wordmark[i].chr_offset, chr_byte_count, 16U)) return false;
+    }
+    return true;
+}
+
+static bool validate_clippers_asset(const TecmoIntroClippersAsset *asset,
+                                    uint64_t chr_byte_count)
+{
+    if (!palette_valid(&asset->palettes[0][0], sizeof(asset->palettes))) return false;
+    for (size_t page = 0U; page < TECMO_INTRO_CLIPPERS_PAGE_COUNT; ++page) {
+        for (size_t i = 0U; i < TECMO_INTRO_CLIPPERS_TILES_PER_PAGE; ++i) {
+            const TecmoIntroClippersTile *cell = &asset->pages[page][i];
+            uint32_t tile_offset = (uint32_t)(cell->tile_id & 0x7FU) * 16U;
+            uint32_t expected_base =
+                (uint32_t)(cell->tile_id < 0x80U ? 0x2CU : 0x2EU) * 1024U + tile_offset;
+            uint32_t expected_lower =
+                (uint32_t)(cell->tile_id < 0x80U ? 0x2CU : 0xFAU) * 1024U + tile_offset;
+            if (cell->base_chr_offset != expected_base ||
+                cell->lower_chr_offset != expected_lower ||
+                !resolved_chr_valid(cell->base_chr_offset, chr_byte_count, 16U) ||
+                !resolved_chr_valid(cell->lower_chr_offset, chr_byte_count, 16U)) return false;
+        }
+    }
+    for (size_t i = 0U; i < TECMO_INTRO_CLIPPERS_WORDMARK_TILE_COUNT; ++i) {
+        const TecmoIntroClippersTile *cell = &asset->wordmark[i];
+        uint32_t tile_offset = (uint32_t)(cell->tile_id & 0x7FU) * 16U;
+        uint32_t expected_base = 0x2EU * 1024U + tile_offset;
+        uint32_t expected_lower = 0xFAU * 1024U + tile_offset;
+        if (cell->base_chr_offset != expected_base ||
+            cell->lower_chr_offset != expected_lower ||
+            !resolved_chr_valid(cell->base_chr_offset, chr_byte_count, 16U) ||
+            !resolved_chr_valid(cell->lower_chr_offset, chr_byte_count, 16U)) return false;
     }
     return true;
 }
@@ -411,6 +508,47 @@ bool tecmo_intro_warriors_asset_load(TecmoIntroWarriorsAsset *asset,
     return true;
 }
 
+bool tecmo_intro_clippers_asset_load(TecmoIntroClippersAsset *asset,
+                                     const char *project_root)
+{
+    uint8_t *bytes = NULL;
+    uint8_t *chr_bytes = NULL;
+    uint64_t byte_count = 0U;
+    uint64_t chr_byte_count = 0U;
+    char pack_path[1024];
+    bool loaded;
+
+    if (asset == NULL) return false;
+    memset(asset, 0, sizeof(*asset));
+    if (!read_native_entry(project_root,
+                           CLIPPERS_ENTRY_ID,
+                           &bytes,
+                           &byte_count,
+                           pack_path,
+                           sizeof(pack_path))) {
+        set_status(asset->status, sizeof(asset->status), "TCLP-1 asset unavailable");
+        return false;
+    }
+    loaded = parse_clippers(asset, bytes, byte_count);
+    tecmo_asset_pack_free(bytes);
+    if (loaded && tecmo_asset_pack_read_entry(pack_path,
+                                              "chr/all",
+                                              &chr_bytes,
+                                              &chr_byte_count) == 0) {
+        loaded = validate_clippers_asset(asset, chr_byte_count);
+    } else {
+        loaded = false;
+    }
+    tecmo_asset_pack_free(chr_bytes);
+    if (!loaded) {
+        set_status(asset->status, sizeof(asset->status), "TCLP-1 asset rejected");
+        return false;
+    }
+    asset->available = true;
+    (void)snprintf(asset->status, sizeof(asset->status), "TCLP-1 assetpack %s", pack_path);
+    return true;
+}
+
 void tecmo_intro_ready_state(unsigned frame, TecmoIntroReadyState *state)
 {
     if (state == NULL) {
@@ -483,6 +621,30 @@ void tecmo_intro_warriors_state(unsigned frame, TecmoIntroWarriorsState *state)
         unsigned pan = (frame - 24U) / 2U;
         state->pan = (uint8_t)(pan < 25U ? pan : 25U);
     }
+}
+
+void tecmo_intro_clippers_state(unsigned frame, TecmoIntroClippersState *state)
+{
+    unsigned tick = 0U;
+    if (state == NULL) return;
+    memset(state, 0, sizeof(*state));
+    state->frame = frame;
+    state->next_route = TECMO_INTRO_CLIPPERS_NEXT_ROUTE;
+    state->handoff = frame >= TECMO_INTRO_CLIPPERS_HANDOFF_FRAME;
+    if (frame >= 18U) state->palette_stage = 3U;
+    else if (frame >= 14U) state->palette_stage = 2U;
+    else if (frame >= 10U) state->palette_stage = 1U;
+    if (frame >= TECMO_INTRO_CLIPPERS_MOTION_FRAME) {
+        tick = (frame - TECMO_INTRO_CLIPPERS_MOTION_FRAME) /
+               TECMO_INTRO_CLIPPERS_MOTION_TICK_FRAMES;
+        if (tick > TECMO_INTRO_CLIPPERS_MOTION_TICK_COUNT) {
+            tick = TECMO_INTRO_CLIPPERS_MOTION_TICK_COUNT;
+        }
+    }
+    state->motion = (uint8_t)tick;
+    state->scroll_x = tick >= TECMO_INTRO_CLIPPERS_POSE_SWITCH_TICK ? 0xFFU : 0U;
+    state->pose_page = state->scroll_x != 0U ? 1U : 0U;
+    state->wordmark_visible = frame >= TECMO_INTRO_CLIPPERS_WORDMARK_FRAME;
 }
 
 const char *tecmo_intro_warriors_phase_name(TecmoIntroWarriorsPhase phase)
@@ -736,6 +898,79 @@ bool tecmo_intro_post_arena_draw_warriors(TecmoFramebuffer *fb,
                                              x, y, scale, rgba, flip_x, flip_y);
             tecmo_draw_chr_tile_at_offset_ex(fb, chr_bytes, chr_byte_count, bottom,
                                              x, y + 8 * scale, scale, rgba, flip_x, flip_y);
+        }
+    }
+    return true;
+}
+
+bool tecmo_intro_post_arena_draw_clippers(TecmoFramebuffer *fb,
+                                          const TecmoIntroClippersAsset *asset,
+                                          const uint8_t *chr_bytes,
+                                          uint64_t chr_byte_count,
+                                          unsigned frame,
+                                          int origin_x,
+                                          int origin_y,
+                                          int scale)
+{
+    TecmoIntroClippersState state;
+    const uint8_t *palette;
+
+    if (fb == NULL || asset == NULL || !asset->available || chr_bytes == NULL || scale <= 0) {
+        return false;
+    }
+    tecmo_intro_clippers_state(frame, &state);
+    palette = asset->palettes[state.palette_stage];
+    fill_rect(fb,
+              origin_x,
+              origin_y,
+              256 * scale,
+              240 * scale,
+              tecmo_nes_2c02_rgba(palette[0]));
+
+    for (unsigned scanline = 0U; scanline < 240U; ++scanline) {
+        unsigned row = scanline / 8U;
+        unsigned tile_scanline = scanline % 8U;
+        unsigned scroll = scanline < TECMO_INTRO_CLIPPERS_LOWER_SPLIT_SCANLINE
+                              ? state.scroll_x
+                              : 0U;
+        for (unsigned x = 0U; x < 256U; ++x) {
+            unsigned source_x = x + scroll;
+            unsigned page = (source_x >> 8U) & 1U;
+            unsigned page_x = source_x & 0xFFU;
+            unsigned col = page_x / 8U;
+            unsigned tile_col = page_x % 8U;
+            const TecmoIntroClippersTile *cell = &asset->pages[page][row * 32U + col];
+            uint32_t rgba[4];
+            uint32_t offset;
+            uint8_t plane0;
+            uint8_t plane1;
+            uint8_t bit;
+            uint8_t value;
+
+            if (state.wordmark_visible && page == 0U && row >= 26U && row < 28U &&
+                col >= 8U && col < 24U) {
+                unsigned glyph = (col - 8U) / 2U;
+                unsigned tile_index = (row - 26U) * 2U + (col - 8U) % 2U;
+                cell = &asset->wordmark[glyph * 4U + tile_index];
+            }
+            offset = scanline >= TECMO_INTRO_CLIPPERS_LOWER_SPLIT_SCANLINE
+                         ? cell->lower_chr_offset
+                         : cell->base_chr_offset;
+            if (!chr_range_valid(offset, chr_byte_count, 16U)) return false;
+            make_bg_palette(rgba, palette, cell->palette_index);
+            plane0 = chr_bytes[offset + tile_scanline];
+            plane1 = chr_bytes[offset + tile_scanline + 8U];
+            bit = (uint8_t)(7U - tile_col);
+            value = (uint8_t)(((plane0 >> bit) & 1U) |
+                              (((plane1 >> bit) & 1U) << 1U));
+            if (value != 0U) {
+                fill_rect(fb,
+                          origin_x + (int)x * scale,
+                          origin_y + (int)scanline * scale,
+                          scale,
+                          scale,
+                          rgba[value]);
+            }
         }
     }
     return true;

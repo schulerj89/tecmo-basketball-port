@@ -245,7 +245,20 @@ $PostArenaRenderCases = @(
     [pscustomobject]@{ mode = "intro-warriors-clean-frame193"; state = "intro-warriors-state frame=193 phase=patch-one palette=3 pan=25 wordmark=8 patches=1 black=0 handoff=0 next_screen=1B"; visual = "warriors" },
     [pscustomobject]@{ mode = "intro-warriors-clean-frame200"; state = "intro-warriors-state frame=200 phase=patch-two palette=3 pan=25 wordmark=8 patches=2 black=0 handoff=0 next_screen=1B"; visual = "warriors" },
     [pscustomobject]@{ mode = "intro-warriors-clean-frame213"; state = "intro-warriors-state frame=213 phase=black palette=0 pan=0 wordmark=0 patches=0 black=1 handoff=0 next_screen=1B"; visual = "black" },
-    [pscustomobject]@{ mode = "intro-warriors-clean-frame214"; state = "intro-warriors-state frame=214 phase=handoff palette=0 pan=0 wordmark=0 patches=0 black=1 handoff=1 next_screen=1B"; visual = "black" }
+    [pscustomobject]@{ mode = "intro-warriors-clean-frame214"; state = "intro-warriors-state frame=214 phase=handoff palette=0 pan=0 wordmark=0 patches=0 black=1 handoff=1 next_screen=1B"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-clippers-clean-frame0"; state = "intro-clippers-state frame=0 palette=0 motion=0 scroll=0 page=0 wordmark=0 handoff=0 next_route=883D"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-clippers-clean-frame10"; state = "intro-clippers-state frame=10 palette=1 motion=0 scroll=0 page=0 wordmark=0 handoff=0 next_route=883D"; visual = "clippers-pose" },
+    [pscustomobject]@{ mode = "intro-clippers-clean-frame14"; state = "intro-clippers-state frame=14 palette=2 motion=0 scroll=0 page=0 wordmark=0 handoff=0 next_route=883D"; visual = "clippers-pose" },
+    [pscustomobject]@{ mode = "intro-clippers-clean-frame18"; state = "intro-clippers-state frame=18 palette=3 motion=0 scroll=0 page=0 wordmark=0 handoff=0 next_route=883D"; visual = "clippers-pose" },
+    [pscustomobject]@{ mode = "intro-clippers-clean-frame31"; state = "intro-clippers-state frame=31 palette=3 motion=0 scroll=0 page=0 wordmark=0 handoff=0 next_route=883D"; visual = "clippers-pose" },
+    [pscustomobject]@{ mode = "intro-clippers-clean-frame32"; state = "intro-clippers-state frame=32 palette=3 motion=0 scroll=0 page=0 wordmark=1 handoff=0 next_route=883D"; visual = "clippers" },
+    [pscustomobject]@{ mode = "intro-clippers-clean-frame39"; state = "intro-clippers-state frame=39 palette=3 motion=0 scroll=0 page=0 wordmark=1 handoff=0 next_route=883D"; visual = "clippers" },
+    [pscustomobject]@{ mode = "intro-clippers-clean-frame40"; state = "intro-clippers-state frame=40 palette=3 motion=0 scroll=0 page=0 wordmark=1 handoff=0 next_route=883D"; visual = "clippers" },
+    [pscustomobject]@{ mode = "intro-clippers-clean-frame79"; state = "intro-clippers-state frame=79 palette=3 motion=19 scroll=0 page=0 wordmark=1 handoff=0 next_route=883D"; visual = "clippers" },
+    [pscustomobject]@{ mode = "intro-clippers-clean-frame80"; state = "intro-clippers-state frame=80 palette=3 motion=20 scroll=255 page=1 wordmark=1 handoff=0 next_route=883D"; visual = "clippers" },
+    [pscustomobject]@{ mode = "intro-clippers-clean-frame98"; state = "intro-clippers-state frame=98 palette=3 motion=29 scroll=255 page=1 wordmark=1 handoff=0 next_route=883D"; visual = "clippers" },
+    [pscustomobject]@{ mode = "intro-clippers-clean-frame150"; state = "intro-clippers-state frame=150 palette=3 motion=41 scroll=255 page=1 wordmark=1 handoff=0 next_route=883D"; visual = "clippers" },
+    [pscustomobject]@{ mode = "intro-clippers-clean-frame151"; state = "intro-clippers-state frame=151 palette=3 motion=41 scroll=255 page=1 wordmark=1 handoff=1 next_route=883D"; visual = "clippers" }
 )
 
 $Results = New-Object System.Collections.Generic.List[object]
@@ -290,7 +303,8 @@ try {
         "arena/intro/palette-cycle",
         "arena/intro/sprite-groups",
         "arena/intro/ready-screen",
-        "arena/intro/warriors-transition"
+        "arena/intro/warriors-transition",
+        "arena/intro/clippers-transition"
     )
     $ForbiddenCaptureEntries = @("intro/arena/capture.ndjson", "intro/post-arena/capture.ndjson", "intro/captures/source-map")
     $MissingNativeEntries = @($RequiredNativeEntries | Where-Object { $ListText -notmatch [regex]::Escape($_) })
@@ -418,7 +432,7 @@ try {
             $RenderExitCode = $LASTEXITCODE
             $RenderText = (@($RenderOutput) | ForEach-Object { [string]$_ }) -join "`n"
             $RenderCreated = Test-Path -LiteralPath $RenderPath
-            $NativeSourceSeen = $RenderText -match "intro-post-render-source ready=1 warriors=1 chr=1 ready_schema=TRDY-1 warriors_schema=TWAR-1"
+            $NativeSourceSeen = $RenderText -match "intro-post-render-source ready=1 warriors=1 clippers=1 chr=1 ready_schema=TRDY-1 warriors_schema=TWAR-1 clippers_schema=TCLP-1"
             $StateSeen = $RenderText.Contains([string]$RenderCase.state)
             $VisualSeen = $false
             if ($RenderCreated) {
@@ -428,6 +442,8 @@ try {
                         $VisualSeen = Test-PixelRectColor $Bitmap 64 0 575 479 0 0 0
                     } elseif ($RenderCase.visual -eq "ready") {
                         $VisualSeen = Test-PixelRectHasNonBlack $Bitmap 192 240 447 319
+                    } elseif ($RenderCase.visual -eq "clippers-pose") {
+                        $VisualSeen = Test-PixelRectHasNonBlack $Bitmap 64 32 575 383
                     } else {
                         $PlayersSeen = Test-PixelRectHasNonBlack $Bitmap 64 80 575 327
                         $WordmarkSeen = Test-PixelRectHasNonBlack $Bitmap 192 416 447 447
@@ -466,8 +482,8 @@ try {
         outputs = $PostArenaOutputs
         rom_only_asset_pack = $AssetPackRelative
         raw_output_persisted = $false
-        coverage_status = "ready-and-warriors-native-checkpoints"
-        error = if ($PostArenaPassed) { $null } else { "ROM-only READY/WARRIORS render or timing checkpoint failed" }
+        coverage_status = "ready-warriors-and-clippers-native-checkpoints"
+        error = if ($PostArenaPassed) { $null } else { "ROM-only READY/WARRIORS/CLIPPERS render or timing checkpoint failed" }
     })
 
     $LowerBandGeometryOutputs = New-Object System.Collections.Generic.List[object]
@@ -798,6 +814,47 @@ try {
         raw_output_persisted = $false
         coverage_status = "covered"
         error = if ($MalformedContractPassed) { $null } else { "runtime accepted a malformed TASG sprite contract" }
+    })
+
+    $MalformedTclpPackPath = Join-Path $OutputDir "malformed-tclp.assetpack"
+    $MalformedTclpRenderPath = Join-Path $OutputDir "malformed-tclp.png"
+    $MalformedTclpPassed = $PackBuildPassed
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    try {
+        if ($PackBuildPassed) {
+            [byte[]]$MalformedTclpBytes = [System.IO.File]::ReadAllBytes($AssetPackPath)
+            $TclpPayloadOffset = Get-AssetPackEntryPayloadOffset `
+                -Bytes $MalformedTclpBytes `
+                -EntryId "arena/intro/clippers-transition"
+            [System.BitConverter]::GetBytes([uint32]0).CopyTo(
+                $MalformedTclpBytes,
+                $TclpPayloadOffset + 162)
+            [System.IO.File]::WriteAllBytes($MalformedTclpPackPath, $MalformedTclpBytes)
+            $env:TECMO_ASSETPACK = $MalformedTclpPackPath
+            $MalformedTclpOutput = & $ExePath `
+                --root $ProjectRoot `
+                --render-test-mode intro-clippers-clean-frame40 $MalformedTclpRenderPath 2>&1
+            $MalformedTclpExitCode = $LASTEXITCODE
+            $MalformedTclpText = (@($MalformedTclpOutput) | ForEach-Object { [string]$_ }) -join "`n"
+            $MalformedTclpPassed = $MalformedTclpExitCode -eq 1 -and
+                !(Test-Path -LiteralPath $MalformedTclpRenderPath) -and
+                $MalformedTclpText -match "clippers=0"
+        }
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+        Remove-Item -LiteralPath $MalformedTclpPackPath -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $MalformedTclpRenderPath -Force -ErrorAction SilentlyContinue
+    }
+    if (!$MalformedTclpPassed) {
+        ++$Failures
+    }
+    $Results.Add([pscustomobject]@{
+        id = "intro-tclp-malformed-chr-contract"
+        passed = $MalformedTclpPassed
+        skipped = $false
+        raw_output_persisted = $false
+        coverage_status = "covered"
+        error = if ($MalformedTclpPassed) { $null } else { "runtime accepted a malformed TCLP CHR offset" }
     })
 } catch {
     ++$Failures

@@ -29,7 +29,7 @@ static void print_usage(const char *program)
     printf("  --bank07-test           Run fixed-bank helper C counterpart checks\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, first-sprite, first-sprite-debug, intro-license, intro-arena-transition, intro-arena-frameN, intro-arena-clean-frameN, intro-ready-frameN, intro-ready-clean-frameN, intro-warriors-frameN, intro-warriors-clean-frameN, intro-l88e7-proof, intro-presents, intro-builder-sample, intro-rabbit-preset, intro-tecmo-preset, intro-composite-preset, intro-c051-d861-model, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play, play-fade0..play-fade4, play-step0..play-step10, play-setup, original-title, or original-title-chr to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, first-sprite, first-sprite-debug, intro-license, intro-arena-transition, intro-arena-frameN, intro-arena-clean-frameN, intro-ready-frameN, intro-ready-clean-frameN, intro-warriors-frameN, intro-warriors-clean-frameN, intro-clippers-frameN, intro-clippers-clean-frameN, intro-l88e7-proof, intro-presents, intro-builder-sample, intro-rabbit-preset, intro-tecmo-preset, intro-composite-preset, intro-c051-d861-model, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play, play-fade0..play-fade4, play-step0..play-step11, play-setup, original-title, or original-title-chr to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --build-assetpack ROM PATH  Build a private .assetpack from an iNES ROM only; no decomp/capture imports\n");
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
@@ -118,15 +118,20 @@ static void print_intro_render_capture_status(const TecmoRuntime *runtime,
                (unsigned)visible_counts.goal);
     } else if (strncmp(mode_name, "intro-ready", 11) == 0 ||
                strncmp(mode_name, "intro-warriors", 14) == 0 ||
+               strncmp(mode_name, "intro-clippers", 14) == 0 ||
                strcmp(mode_name, "play-step9") == 0 ||
-               strcmp(mode_name, "play-step10") == 0) {
+               strcmp(mode_name, "play-step10") == 0 ||
+               strcmp(mode_name, "play-step11") == 0) {
         TecmoIntroReadyState ready_state;
         TecmoIntroWarriorsState warriors_state;
+        TecmoIntroClippersState clippers_state;
         tecmo_intro_ready_state(runtime->mode_frame_counter, &ready_state);
         tecmo_intro_warriors_state(runtime->mode_frame_counter, &warriors_state);
-        printf("intro-post-render-source ready=%u warriors=%u chr=%u ready_schema=TRDY-1 warriors_schema=TWAR-1\n",
+        tecmo_intro_clippers_state(runtime->mode_frame_counter, &clippers_state);
+        printf("intro-post-render-source ready=%u warriors=%u clippers=%u chr=%u ready_schema=TRDY-1 warriors_schema=TWAR-1 clippers_schema=TCLP-1\n",
                runtime->intro_ready_asset.available ? 1U : 0U,
                runtime->intro_warriors_asset.available ? 1U : 0U,
+               runtime->intro_clippers_asset.available ? 1U : 0U,
                runtime->title_chr_bytes != NULL ? 1U : 0U);
         if (strncmp(mode_name, "intro-ready", 11) == 0 || strcmp(mode_name, "play-step9") == 0) {
             printf("intro-ready-state frame=%u palette=%u mask=%u black=%u handoff=%u\n",
@@ -135,7 +140,8 @@ static void print_intro_render_capture_status(const TecmoRuntime *runtime,
                    (unsigned)ready_state.mask_index,
                    ready_state.black ? 1U : 0U,
                    ready_state.handoff ? 1U : 0U);
-        } else {
+        } else if (strncmp(mode_name, "intro-warriors", 14) == 0 ||
+                   strcmp(mode_name, "play-step10") == 0) {
             printf("intro-warriors-state frame=%u phase=%s palette=%u pan=%u wordmark=%u patches=%u black=%u handoff=%u next_screen=%02X\n",
                    runtime->mode_frame_counter,
                    tecmo_intro_warriors_phase_name(warriors_state.phase),
@@ -146,6 +152,16 @@ static void print_intro_render_capture_status(const TecmoRuntime *runtime,
                    warriors_state.black ? 1U : 0U,
                    warriors_state.handoff ? 1U : 0U,
                    (unsigned)warriors_state.next_screen);
+        } else {
+            printf("intro-clippers-state frame=%u palette=%u motion=%u scroll=%u page=%u wordmark=%u handoff=%u next_route=%04X\n",
+                   runtime->mode_frame_counter,
+                   (unsigned)clippers_state.palette_stage,
+                   (unsigned)clippers_state.motion,
+                   (unsigned)clippers_state.scroll_x,
+                   (unsigned)clippers_state.pose_page,
+                   clippers_state.wordmark_visible ? 1U : 0U,
+                   clippers_state.handoff ? 1U : 0U,
+                   (unsigned)clippers_state.next_route);
         }
     }
 }
@@ -561,6 +577,26 @@ int main(int argc, char **argv)
                 runtime.debug_overlay = strcmp(prefix, "intro-warriors-frame") == 0;
                 runtime.mode_frame_counter = frame;
                 arena_render_succeeded = tecmo_render_intro_warriors_transition(&runtime, &framebuffer);
+                render_runtime = false;
+                result = arena_render_succeeded ? 0 : 1;
+                }
+            } else if (strncmp(mode_name, "intro-clippers-clean-frame", 26) == 0 ||
+                       strncmp(mode_name, "intro-clippers-frame", 20) == 0) {
+                const char *prefix = strncmp(mode_name, "intro-clippers-clean-frame", 26) == 0
+                                         ? "intro-clippers-clean-frame"
+                                         : "intro-clippers-frame";
+                unsigned frame;
+                if (!parse_render_frame_suffix(mode_name, prefix, &frame)) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                framebuffer.pixels = pixels;
+                framebuffer.width = width;
+                framebuffer.height = height;
+                framebuffer.pitch_pixels = width;
+                runtime.debug_overlay = strcmp(prefix, "intro-clippers-frame") == 0;
+                runtime.mode_frame_counter = frame;
+                arena_render_succeeded = tecmo_render_intro_clippers_transition(&runtime, &framebuffer);
                 render_runtime = false;
                 result = arena_render_succeeded ? 0 : 1;
                 }

@@ -13,12 +13,13 @@
 #define COURT_RIGHT 592
 #define COURT_BOTTOM 424
 #define TITLE_CHR_BANK_BYTES 8192U
-#define TECMO_INTRO_OUTPUT_STEP_COUNT 11U
+#define TECMO_INTRO_OUTPUT_STEP_COUNT 12U
 #define TECMO_INTRO_OUTPUT_TITLE_STEP 6U
 #define TECMO_INTRO_OUTPUT_LICENSE_STEP 7U
 #define TECMO_INTRO_OUTPUT_ARENA_STEP 8U
 #define TECMO_INTRO_OUTPUT_READY_STEP 9U
 #define TECMO_INTRO_OUTPUT_WARRIORS_STEP 10U
+#define TECMO_INTRO_OUTPUT_CLIPPERS_STEP 11U
 #define TECMO_INTRO_LICENSE_AUTO_FRAME 120U
 #define TECMO_INTRO_ARENA_AUTO_FRAME 120U
 #define TECMO_INTRO_ARENA_TO_READY_FRAME 540U
@@ -211,6 +212,7 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
     (void)tecmo_intro_arena_capture_load(&runtime->intro_arena_capture, project_root);
     (void)tecmo_intro_ready_asset_load(&runtime->intro_ready_asset, project_root);
     (void)tecmo_intro_warriors_asset_load(&runtime->intro_warriors_asset, project_root);
+    (void)tecmo_intro_clippers_asset_load(&runtime->intro_clippers_asset, project_root);
 
     if (tecmo_collect_rosters(project_root, &runtime->roster) != 0) {
         if (!allow_empty_roster) {
@@ -524,8 +526,11 @@ static void update_first_sprite_probe(TecmoRuntime *runtime, const TecmoControlF
     } else if (runtime->intro_output_step == TECMO_INTRO_OUTPUT_WARRIORS_STEP &&
                runtime->mode_frame_counter >= TECMO_INTRO_WARRIORS_TO_NEXT_FRAME) {
         runtime->intro_next_screen = TECMO_INTRO_WARRIORS_NEXT_SCREEN;
+        runtime->intro_output_step = TECMO_INTRO_OUTPUT_CLIPPERS_STEP;
+        runtime->mode_frame_counter = 0U;
+    } else if (runtime->intro_output_step == TECMO_INTRO_OUTPUT_CLIPPERS_STEP &&
+               runtime->mode_frame_counter >= TECMO_INTRO_CLIPPERS_HANDOFF_FRAME) {
         runtime->intro_handoff_complete = true;
-        tecmo_runtime_set_mode(runtime, TECMO_MODE_PLAY_SETUP);
     }
 }
 
@@ -2078,6 +2083,51 @@ bool tecmo_render_intro_warriors_transition(const TecmoRuntime *runtime, TecmoFr
     return rendered;
 }
 
+bool tecmo_render_intro_clippers_transition(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+{
+    const int scale = 2;
+    const int viewport_x = 64;
+    const int viewport_y = 0;
+    unsigned native_frame = runtime != NULL ? runtime->mode_frame_counter : 60U;
+    bool show_debug = runtime == NULL || runtime->debug_overlay;
+    bool rendered = false;
+    TecmoIntroClippersState state;
+    char line[192];
+
+    clear(fb, rgb(0, 0, 0));
+    if (runtime != NULL) {
+        rendered = tecmo_intro_post_arena_draw_clippers(fb,
+                                                        &runtime->intro_clippers_asset,
+                                                        runtime->title_chr_bytes,
+                                                        runtime->title_chr_byte_count,
+                                                        native_frame,
+                                                        viewport_x,
+                                                        viewport_y,
+                                                        scale);
+    }
+    if (!rendered) {
+        draw_centered_text(fb, 212, "ROM CLIPPERS ASSET OR CHR DATA MISSING", rgb(252, 236, 170), 2);
+        if (runtime != NULL) {
+            draw_centered_text(fb, 238, runtime->intro_clippers_asset.status, rgb(142, 174, 190), 1);
+        }
+    }
+    tecmo_intro_clippers_state(native_frame, &state);
+    if (show_debug) {
+        rect(fb, 0, 0, 640, 20, rgb(0, 0, 0));
+        (void)snprintf(line,
+                       sizeof(line),
+                       "POST ARENA CLIPPERS F%u PAL%u MOVE%u SCROLL%u PAGE%u NEXT%04X",
+                       native_frame,
+                       (unsigned)state.palette_stage,
+                       (unsigned)state.motion,
+                       (unsigned)state.scroll_x,
+                       (unsigned)state.pose_page,
+                       (unsigned)state.next_route);
+        draw_text(fb, 12, 7, line, rgb(230, 232, 214), 1);
+    }
+    return rendered;
+}
+
 static void draw_intro_presents_nametable_position(TecmoFramebuffer *fb,
                                                    const TecmoRuntime *runtime)
 {
@@ -2278,13 +2328,15 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
          step != TECMO_INTRO_OUTPUT_LICENSE_STEP &&
          step != TECMO_INTRO_OUTPUT_ARENA_STEP &&
          step != TECMO_INTRO_OUTPUT_READY_STEP &&
-         step != TECMO_INTRO_OUTPUT_WARRIORS_STEP) ||
+         step != TECMO_INTRO_OUTPUT_WARRIORS_STEP &&
+         step != TECMO_INTRO_OUTPUT_CLIPPERS_STEP) ||
         (!runtime->intro_trace_available &&
          step != TECMO_INTRO_OUTPUT_TITLE_STEP &&
          step != TECMO_INTRO_OUTPUT_LICENSE_STEP &&
          step != TECMO_INTRO_OUTPUT_ARENA_STEP &&
          step != TECMO_INTRO_OUTPUT_READY_STEP &&
-         step != TECMO_INTRO_OUTPUT_WARRIORS_STEP)) {
+         step != TECMO_INTRO_OUTPUT_WARRIORS_STEP &&
+         step != TECMO_INTRO_OUTPUT_CLIPPERS_STEP)) {
         tecmo_render_first_sprite_probe(runtime, fb);
         return;
     }
@@ -2311,6 +2363,11 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
 
     if (step == TECMO_INTRO_OUTPUT_WARRIORS_STEP) {
         tecmo_render_intro_warriors_transition(runtime, fb);
+        return;
+    }
+
+    if (step == TECMO_INTRO_OUTPUT_CLIPPERS_STEP) {
+        tecmo_render_intro_clippers_transition(runtime, fb);
         return;
     }
 

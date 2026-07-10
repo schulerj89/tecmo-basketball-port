@@ -121,6 +121,7 @@ Asset-pack entries should move toward native names, for example:
 - `arena/intro/script`
 - `arena/intro/ready-screen`
 - `arena/intro/warriors-transition`
+- `arena/intro/clippers-transition`
 
 Temporary capture-shaped entries may remain only as migration aids until the
 native scene is validated.
@@ -181,6 +182,19 @@ glyphs, two late tile patches, and frame-214 handoff to screen `$1B`. Runtime
 must load these entries and `chr/all` from the same pack and validate all
 resolved CHR offsets before marking either scene available.
 
+CLIPPERS is also ROM-only. `arena/intro/clippers-transition` decodes screen
+`$1B`, the four palette stages, both horizontal nametable pages, and the fixed
+lower band used by IRQ handler `$FD84`. The upper 200 scanlines use CHR
+`$2C/$2E`; scanlines 200..239 reset horizontal scroll and use `$2C/$FA` so the
+Bank06 `$9EAE` team-name glyphs remain fixed. Bank06 pointer `$AD76` selects the
+length-prefixed `CLIPPERS` string at `$ACA3`; character map `$A273` and glyph
+quads `$AF05` generate the two tile rows. Do not source those tiles from a PPU
+capture. Palette stages begin at frames 10, 14, and 18, the wordmark is ready
+at frame 32, `$88` begins advancing at frame 40, and `$88 >= $14` changes the
+upper scroll to `$FF` at frame 80. The native chain reaches route `$883D` at
+frame 151 and must remain in the intro mode until that next route is ported;
+never fall through to the placeholder play-setup court.
+
 ## Validation Rules
 
 Validation should prove native behavior, not just that a captured frame can be
@@ -192,7 +206,8 @@ Use layered validation:
 - Unit tests for native scripts: phase order, waits, camera movement, palette
   timing, handoff points, and object anchors.
 - Unit tests for object composition, especially goal pieces sharing one anchor.
-- Render tests for deterministic frames such as arena, READY, and WARRIORS.
+- Render tests for deterministic frames such as arena, READY, WARRIORS, and
+  CLIPPERS.
 - Local-only visual comparisons against a known-good emulator or old-commit
   reference screenshot.
 

@@ -171,7 +171,7 @@ static bool flow_hold_intro_step(TecmoRuntime *runtime,
             char detail[160];
             (void)snprintf(detail,
                            sizeof(detail),
-                           "%s after %u arena frames",
+                           "%s after %u intro frames",
                            label,
                            (unsigned)(frame + 1U));
             set_flow_test_message(message, message_size, detail);
@@ -280,6 +280,38 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
                                           "play game did not advance to Warriors intro step",
                                           message,
                                           message_size)) {
+        return false;
+    }
+    previous_intro_step = runtime->intro_output_step;
+    if (!flow_hold_intro_step(runtime,
+                              previous_intro_step,
+                              TECMO_INTRO_WARRIORS_HANDOFF_FRAME - 1U,
+                              "play game left Warriors before ROM handoff",
+                              message,
+                              message_size)) {
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->intro_output_step != 11U || runtime->mode_frame_counter != 0U ||
+        runtime->intro_next_screen != TECMO_INTRO_WARRIORS_NEXT_SCREEN ||
+        runtime->mode != TECMO_MODE_FIRST_SPRITE) {
+        set_flow_test_message(message,
+                              message_size,
+                              "Warriors did not hand off cleanly to native Clippers");
+        return false;
+    }
+    if (!flow_hold_intro_step(runtime,
+                              11U,
+                              TECMO_INTRO_CLIPPERS_HANDOFF_FRAME + 24U,
+                              "Clippers fell through to placeholder play setup",
+                              message,
+                              message_size) ||
+        runtime->mode != TECMO_MODE_FIRST_SPRITE ||
+        !runtime->intro_handoff_complete) {
+        set_flow_test_message(message,
+                              message_size,
+                              "Clippers did not hold the native intro chain after handoff");
         return false;
     }
 

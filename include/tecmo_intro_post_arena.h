@@ -26,6 +26,19 @@
 #define TECMO_INTRO_WARRIORS_HANDOFF_FRAME 214U
 #define TECMO_INTRO_WARRIORS_NEXT_SCREEN 0x1BU
 
+#define TECMO_INTRO_CLIPPERS_PAGE_COUNT 2U
+#define TECMO_INTRO_CLIPPERS_TILES_PER_PAGE 960U
+#define TECMO_INTRO_CLIPPERS_PALETTE_STAGE_COUNT 4U
+#define TECMO_INTRO_CLIPPERS_LOWER_SPLIT_SCANLINE 200U
+#define TECMO_INTRO_CLIPPERS_MOTION_FRAME 40U
+#define TECMO_INTRO_CLIPPERS_MOTION_TICK_FRAMES 2U
+#define TECMO_INTRO_CLIPPERS_MOTION_TICK_COUNT 41U
+#define TECMO_INTRO_CLIPPERS_POSE_SWITCH_TICK 20U
+#define TECMO_INTRO_CLIPPERS_WORDMARK_TILE_COUNT 32U
+#define TECMO_INTRO_CLIPPERS_WORDMARK_FRAME 32U
+#define TECMO_INTRO_CLIPPERS_HANDOFF_FRAME 151U
+#define TECMO_INTRO_CLIPPERS_NEXT_ROUTE 0x883DU
+
 typedef struct TecmoIntroNativeTile {
     uint8_t tile_id;
     uint8_t palette_index;
@@ -110,12 +123,42 @@ typedef struct TecmoIntroWarriorsState {
     uint8_t next_screen;
 } TecmoIntroWarriorsState;
 
+typedef struct TecmoIntroClippersTile {
+    uint8_t tile_id;
+    uint8_t palette_index;
+    uint32_t base_chr_offset;
+    uint32_t lower_chr_offset;
+} TecmoIntroClippersTile;
+
+typedef struct TecmoIntroClippersAsset {
+    bool available;
+    TecmoIntroClippersTile pages[TECMO_INTRO_CLIPPERS_PAGE_COUNT]
+                                         [TECMO_INTRO_CLIPPERS_TILES_PER_PAGE];
+    TecmoIntroClippersTile wordmark[TECMO_INTRO_CLIPPERS_WORDMARK_TILE_COUNT];
+    uint8_t palettes[TECMO_INTRO_CLIPPERS_PALETTE_STAGE_COUNT][16];
+    char status[160];
+} TecmoIntroClippersAsset;
+
+typedef struct TecmoIntroClippersState {
+    unsigned frame;
+    uint8_t palette_stage;
+    uint8_t motion;
+    uint8_t scroll_x;
+    uint8_t pose_page;
+    bool wordmark_visible;
+    bool handoff;
+    uint16_t next_route;
+} TecmoIntroClippersState;
+
 bool tecmo_intro_ready_asset_load(TecmoIntroReadyAsset *asset, const char *project_root);
 bool tecmo_intro_warriors_asset_load(TecmoIntroWarriorsAsset *asset,
+                                     const char *project_root);
+bool tecmo_intro_clippers_asset_load(TecmoIntroClippersAsset *asset,
                                      const char *project_root);
 
 void tecmo_intro_ready_state(unsigned frame, TecmoIntroReadyState *state);
 void tecmo_intro_warriors_state(unsigned frame, TecmoIntroWarriorsState *state);
+void tecmo_intro_clippers_state(unsigned frame, TecmoIntroClippersState *state);
 const char *tecmo_intro_warriors_phase_name(TecmoIntroWarriorsPhase phase);
 
 bool tecmo_intro_post_arena_draw_ready(TecmoFramebuffer *fb,
@@ -129,6 +172,15 @@ bool tecmo_intro_post_arena_draw_ready(TecmoFramebuffer *fb,
 
 bool tecmo_intro_post_arena_draw_warriors(TecmoFramebuffer *fb,
                                           const TecmoIntroWarriorsAsset *asset,
+                                          const uint8_t *chr_bytes,
+                                          uint64_t chr_byte_count,
+                                          unsigned frame,
+                                          int origin_x,
+                                          int origin_y,
+                                          int scale);
+
+bool tecmo_intro_post_arena_draw_clippers(TecmoFramebuffer *fb,
+                                          const TecmoIntroClippersAsset *asset,
                                           const uint8_t *chr_bytes,
                                           uint64_t chr_byte_count,
                                           unsigned frame,
