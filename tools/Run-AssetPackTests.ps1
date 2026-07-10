@@ -285,6 +285,7 @@ function Get-KnownLogicalAssetPackEntries {
         "arena/intro/clippers-transition",
         "arena/intro/bucks-transition",
         "arena/intro/pass-transition",
+        "intro/finale-sequence",
         "roster/table.tsv",
         "title/original-text.txt",
         "title/glyph-map.tsv",
@@ -320,7 +321,8 @@ function Get-ExpectedLogicalAssetPackEntries {
             "arena/intro/warriors-transition",
             "arena/intro/clippers-transition",
             "arena/intro/bucks-transition",
-            "arena/intro/pass-transition"
+            "arena/intro/pass-transition",
+            "intro/finale-sequence"
         )
         capture_sources_present = @()
     }
@@ -386,6 +388,223 @@ function Get-AssetPackSizeMismatches {
     }
 
     return $Mismatches.ToArray()
+}
+
+function Test-FinalePayloadContract {
+    param(
+        [byte[]]$Bytes,
+        [uint64]$ChrByteCount
+    )
+
+    $Issues = [System.Collections.Generic.List[string]]::new()
+    $HeaderSize = 192
+    $ScreenCount = 5
+    $CellsPerScreen = 1920
+    $CellStride = 6
+    $ScreensOffset = 192
+    $BackgroundPalettesOffset = 57792
+    $ReversePalettesOffset = 57872
+    $ReverseFramesOffset = 57952
+    $GroupsOffset = 57964
+    $SpritePalettesOffset = 57996
+    $PiecesOffset = 58028
+    $RoutesOffset = 58188
+    $AnchorsOffset = 58228
+    $ReverseMetadataOffset = 58248
+    $TitleMetadataOffset = 58264
+    $BandsOffset = 58296
+    $TitleSlotsOffset = 58344
+    $PayloadSize = 59752
+
+    if ($null -eq $Bytes -or $Bytes.Length -ne $PayloadSize) {
+        [void]$Issues.Add("payload-size")
+        return [pscustomobject]@{ passed = $false; issues = $Issues.ToArray() }
+    }
+
+    $Magic = [System.Text.Encoding]::ASCII.GetString($Bytes, 0, 4)
+    $ExpectedU16 = @{
+        4 = 1; 6 = $HeaderSize; 8 = $ScreenCount; 10 = 32; 12 = 30; 14 = 2; 16 = $CellStride
+        18 = 5; 28 = 5; 30 = 2; 40 = 2; 42 = 16; 48 = 16; 50 = 16; 52 = 10
+        54 = 0; 60 = 5; 62 = 8; 68 = 9; 70 = 2; 76 = 16; 78 = 32
+        88 = 44; 90 = 26; 92 = 32; 94 = 4; 100 = 3; 102 = 16; 108 = 1; 110 = 1
+    }
+    $ExpectedU32 = @{
+        20 = $ScreensOffset; 24 = $BackgroundPalettesOffset; 32 = $ReversePalettesOffset
+        36 = $ReverseFramesOffset; 44 = $GroupsOffset; 56 = $PiecesOffset; 64 = $RoutesOffset
+        72 = $AnchorsOffset; 80 = $ReverseMetadataOffset; 84 = $TitleMetadataOffset
+        96 = $TitleSlotsOffset; 104 = $BandsOffset; 112 = $PayloadSize
+    }
+    if ($Magic -ne "TFIN") { [void]$Issues.Add("magic") }
+    foreach ($Offset in $ExpectedU16.Keys) {
+        if ([System.BitConverter]::ToUInt16($Bytes, [int]$Offset) -ne [uint16]$ExpectedU16[$Offset]) {
+            [void]$Issues.Add("u16-$Offset")
+        }
+    }
+    foreach ($Offset in $ExpectedU32.Keys) {
+        if ([System.BitConverter]::ToUInt32($Bytes, [int]$Offset) -ne [uint32]$ExpectedU32[$Offset]) {
+            [void]$Issues.Add("u32-$Offset")
+        }
+    }
+    for ($Index = 116; $Index -lt $HeaderSize; ++$Index) {
+        if ($Bytes[$Index] -ne 0) { [void]$Issues.Add("header-reserved"); break }
+    }
+    for ($Index = $ReverseFramesOffset + 10; $Index -lt $GroupsOffset; ++$Index) {
+        if ($Bytes[$Index] -ne 0) { [void]$Issues.Add("alignment-reserved"); break }
+    }
+
+    $InvalidScreenCells = 0
+    for ($Screen = 0; $Screen -lt $ScreenCount; ++$Screen) {
+        for ($CellIndex = 0; $CellIndex -lt $CellsPerScreen; ++$CellIndex) {
+            $Offset = $ScreensOffset + ($Screen * $CellsPerScreen + $CellIndex) * $CellStride
+            $Palette = $Bytes[$Offset + 1]
+            $ChrOffset = [System.BitConverter]::ToUInt32($Bytes, $Offset + 2)
+            if ($Palette -gt 3 -or ($ChrOffset % 16) -ne 0 -or
+                [uint64]$ChrOffset + 16 -gt $ChrByteCount) {
+                ++$InvalidScreenCells
+            }
+        }
+    }
+    if ($InvalidScreenCells -ne 0) { [void]$Issues.Add("screen-cells") }
+    foreach ($Screen in @(0, 3)) {
+        $Page0 = New-Object byte[] (960 * $CellStride)
+        $Page1 = New-Object byte[] (960 * $CellStride)
+        [Array]::Copy($Bytes, $ScreensOffset + $Screen * $CellsPerScreen * $CellStride,
+                      $Page0, 0, $Page0.Length)
+        [Array]::Copy($Bytes, $ScreensOffset + ($Screen * $CellsPerScreen + 960) * $CellStride,
+                      $Page1, 0, $Page1.Length)
+        if ([Convert]::ToBase64String($Page0) -cne [Convert]::ToBase64String($Page1)) {
+            [void]$Issues.Add("one-page-mirror-$Screen")
+        }
+    }
+
+    foreach ($PaletteOffset in @($BackgroundPalettesOffset, $ReversePalettesOffset, $SpritePalettesOffset)) {
+        $PaletteCount = if ($PaletteOffset -eq $SpritePalettesOffset) { 2 } else { 5 }
+        for ($Index = 0; $Index -lt $PaletteCount * 16; ++$Index) {
+            if ($Bytes[$PaletteOffset + $Index] -gt 0x3F) {
+                [void]$Issues.Add("palette-range")
+                break
+            }
+        }
+    }
+    $ExpectedFrames = @(10, 14, 18, 22, 27)
+    for ($Index = 0; $Index -lt $ExpectedFrames.Count; ++$Index) {
+        if ([System.BitConverter]::ToUInt16($Bytes, $ReverseFramesOffset + $Index * 2) -ne $ExpectedFrames[$Index]) {
+            [void]$Issues.Add("reverse-palette-frames")
+            break
+        }
+    }
+
+    for ($Group = 0; $Group -lt 2; ++$Group) {
+        $Offset = $GroupsOffset + $Group * 16
+        $ExpectedUsage = if ($Group -eq 0) { 5 } else { 2 }
+        if ($Bytes[$Offset] -ne $Group -or $Bytes[$Offset + 1] -ne $Group -or
+            [System.BitConverter]::ToUInt16($Bytes, $Offset + 2) -ne 10 -or
+            [System.BitConverter]::ToUInt32($Bytes, $Offset + 4) -ne $PiecesOffset -or
+            [System.BitConverter]::ToUInt32($Bytes, $Offset + 8) -ne ($SpritePalettesOffset + $Group * 16) -or
+            [System.BitConverter]::ToUInt16($Bytes, $Offset + 12) -ne $ExpectedUsage -or
+            [System.BitConverter]::ToUInt16($Bytes, $Offset + 14) -ne 0) {
+            [void]$Issues.Add("group-$Group")
+        }
+    }
+    for ($Piece = 0; $Piece -lt 10; ++$Piece) {
+        $Offset = $PiecesOffset + $Piece * 16
+        $Top = [System.BitConverter]::ToUInt32($Bytes, $Offset + 4)
+        $Bottom = [System.BitConverter]::ToUInt32($Bytes, $Offset + 8)
+        if ($Bytes[$Offset + 12] -gt 3 -or ($Bytes[$Offset + 13] -band 0xFC) -ne 0 -or
+            $Bytes[$Offset + 14] -ne 0 -or $Bytes[$Offset + 15] -ne 0 -or
+            ($Top % 16) -ne 0 -or $Bottom -ne ($Top + 16) -or
+            [uint64]$Bottom + 16 -gt $ChrByteCount) {
+            [void]$Issues.Add("piece-$Piece")
+        }
+    }
+
+    $ExpectedRouteGroups = @(0xFF, 0, 1, 0, 0xFF)
+    $ExpectedInternal = @(0, 16, 45, 80, 601)
+    $ExpectedWaits = @(50, 30, 0, 75, 1)
+    for ($Route = 0; $Route -lt 5; ++$Route) {
+        $Offset = $RoutesOffset + $Route * 8
+        $ExpectedFlags = if ($Route -eq 4) { 1 } else { 0 }
+        if ($Bytes[$Offset] -ne $Route -or $Bytes[$Offset + 1] -ne $ExpectedRouteGroups[$Route] -or
+            $Bytes[$Offset + 2] -ne $Route -or $Bytes[$Offset + 3] -ne $ExpectedFlags -or
+            [System.BitConverter]::ToUInt16($Bytes, $Offset + 4) -ne $ExpectedInternal[$Route] -or
+            [System.BitConverter]::ToUInt16($Bytes, $Offset + 6) -ne $ExpectedWaits[$Route]) {
+            [void]$Issues.Add("route-$Route")
+        }
+    }
+    $ExpectedReverseBytes = @(0x78, 0xD8, 0xF8, 0x54)
+    for ($Index = 0; $Index -lt 4; ++$Index) {
+        if ($Bytes[$ReverseMetadataOffset + $Index] -ne $ExpectedReverseBytes[$Index]) {
+            [void]$Issues.Add("reverse-operands"); break
+        }
+    }
+    if ([System.BitConverter]::ToUInt16($Bytes, $ReverseMetadataOffset + 4) -ne 18 -or
+        [System.BitConverter]::ToUInt16($Bytes, $ReverseMetadataOffset + 6) -ne 1 -or
+        [System.BitConverter]::ToUInt16($Bytes, $ReverseMetadataOffset + 8) -ne 26 -or
+        [System.BitConverter]::ToUInt16($Bytes, $ReverseMetadataOffset + 10) -ne 5 -or
+        [System.BitConverter]::ToUInt32($Bytes, $ReverseMetadataOffset + 12) -ne 0) {
+        [void]$Issues.Add("reverse-metadata")
+    }
+    $ExpectedTitleMetadata = @(128, 44, 1, 7, 301, 345, 128, 1, 2, 2, 8, 1, 16, 2, 2, 0)
+    for ($Index = 0; $Index -lt 16; ++$Index) {
+        if ([System.BitConverter]::ToUInt16($Bytes, $TitleMetadataOffset + $Index * 2) -ne $ExpectedTitleMetadata[$Index]) {
+            [void]$Issues.Add("title-metadata"); break
+        }
+    }
+    $ExpectedBandStarts = @(0, 200, 223)
+    $ExpectedBandEnds = @(200, 223, 240)
+    for ($Band = 0; $Band -lt 3; ++$Band) {
+        $Offset = $BandsOffset + $Band * 16
+        $Low = [System.BitConverter]::ToUInt32($Bytes, $Offset + 8)
+        $High = [System.BitConverter]::ToUInt32($Bytes, $Offset + 12)
+        if ([System.BitConverter]::ToUInt16($Bytes, $Offset) -ne $ExpectedBandStarts[$Band] -or
+            [System.BitConverter]::ToUInt16($Bytes, $Offset + 2) -ne $ExpectedBandEnds[$Band] -or
+            $Bytes[$Offset + 4] -ne $Band -or $Bytes[$Offset + 5] -ne $Band -or
+            [System.BitConverter]::ToUInt16($Bytes, $Offset + 6) -ne 0 -or
+            ($Low % 1024) -ne 0 -or ($High % 1024) -ne 0 -or
+            [uint64]$Low + 2048 -gt $ChrByteCount -or [uint64]$High + 2048 -gt $ChrByteCount) {
+            [void]$Issues.Add("band-$Band")
+        }
+    }
+
+    $BlankTileSignatures = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    for ($SlotIndex = 0; $SlotIndex -lt 44; ++$SlotIndex) {
+        $Offset = $TitleSlotsOffset + $SlotIndex * 32
+        $VirtualSlot = ($SlotIndex + 16) -band 31
+        $ExpectedPage = if ($VirtualSlot -ge 16) { 1 } else { 0 }
+        $ExpectedColumn = ($VirtualSlot -band 15) * 2
+        if ($Bytes[$Offset] -ne $ExpectedPage -or $Bytes[$Offset + 1] -ne $ExpectedColumn -or
+            $Bytes[$Offset + 2] -ne 16 -or $Bytes[$Offset + 3] -ne 0) {
+            [void]$Issues.Add("title-order-$SlotIndex")
+        }
+        for ($Pad = 28; $Pad -lt 32; ++$Pad) {
+            if ($Bytes[$Offset + $Pad] -ne 0) { [void]$Issues.Add("title-reserved-$SlotIndex"); break }
+        }
+        $SignatureParts = [System.Collections.Generic.List[string]]::new()
+        for ($Tile = 0; $Tile -lt 4; ++$Tile) {
+            $CellOffset = $Offset + 4 + $Tile * 6
+            $ChrOffset = [System.BitConverter]::ToUInt32($Bytes, $CellOffset + 2)
+            if ($Bytes[$CellOffset + 1] -gt 3 -or ($ChrOffset % 16) -ne 0 -or
+                [uint64]$ChrOffset + 16 -gt $ChrByteCount) {
+                [void]$Issues.Add("title-cell-$SlotIndex-$Tile")
+            }
+            [void]$SignatureParts.Add(("{0:X2}:{1}" -f $Bytes[$CellOffset], $ChrOffset))
+        }
+        if ($SlotIndex -ge 26) { [void]$BlankTileSignatures.Add(($SignatureParts -join ",")) }
+        if ($SlotIndex -ge 32) {
+            $PriorOffset = $TitleSlotsOffset + ($SlotIndex - 32) * 32
+            if ($Bytes[$Offset] -ne $Bytes[$PriorOffset] -or
+                $Bytes[$Offset + 1] -ne $Bytes[$PriorOffset + 1] -or
+                $Bytes[$Offset + 2] -ne $Bytes[$PriorOffset + 2]) {
+                [void]$Issues.Add("title-overwrite-$SlotIndex")
+            }
+        }
+    }
+    if ($BlankTileSignatures.Count -ne 1) { [void]$Issues.Add("blank-glyph-consistency") }
+
+    return [pscustomobject]@{
+        passed = $Issues.Count -eq 0
+        issues = $Issues.ToArray()
+    }
 }
 
 function Add-TestResult {
@@ -566,6 +785,38 @@ try {
     } else {
         Write-Host "Asset pack build failed or did not report PRG/CHR entry counts."
     }
+
+    $MalformedSourceRom = Join-Path (Split-Path -Parent $AssetPackPath) "malformed-finale-source.nes"
+    $MalformedSourcePack = Join-Path (Split-Path -Parent $AssetPackPath) "malformed-finale-source.assetpack"
+    $SourceContractRejected = $false
+    try {
+        [System.IO.File]::Copy($ReferenceRom, $MalformedSourceRom, $true)
+        $PatchOffset = [uint64](16 + [int]$ReferenceHeader.trainer_bytes + 4 * 0x4000 + (0x852F - 0x8000))
+        $PatchFile = [System.IO.File]::Open($MalformedSourceRom,
+                                           [System.IO.FileMode]::Open,
+                                           [System.IO.FileAccess]::ReadWrite,
+                                           [System.IO.FileShare]::None)
+        try {
+            [void]$PatchFile.Seek([int64]$PatchOffset, [System.IO.SeekOrigin]::Begin)
+            $PatchFile.WriteByte(3)
+        } finally {
+            $PatchFile.Dispose()
+        }
+        $MalformedOutput = & $ExePath --build-assetpack $MalformedSourceRom $MalformedSourcePack 2>&1
+        $MalformedExitCode = $LASTEXITCODE
+        $SourceContractRejected = $MalformedExitCode -ne 0
+    } finally {
+        if (Test-Path -LiteralPath $MalformedSourcePack) { Remove-Item -LiteralPath $MalformedSourcePack -Force }
+        if (Test-Path -LiteralPath $MalformedSourceRom) { Remove-Item -LiteralPath $MalformedSourceRom -Force }
+    }
+    Add-TestResult ([pscustomobject]@{
+        id = "assetpack-finale-source-contract"
+        passed = $SourceContractRejected
+        selector_two_operand_mutated = $true
+        malformed_rom_persisted = $false
+        malformed_assetpack_persisted = $false
+        raw_output_persisted = $false
+    })
 
     $PackCreated = Test-Path -LiteralPath $AssetPackPath
     Add-TestResult ([pscustomobject]@{
@@ -1122,6 +1373,57 @@ try {
                     handoff_frame = [System.BitConverter]::ToUInt32($PassBytes, 40)
                     raw_asset_bytes_persisted = $false
                 })
+
+                $FinaleBytes = Read-AssetPackEntryBytes -Path $AssetPackPath -Directory $Directory -EntryId "intro/finale-sequence"
+                $FinaleContract = Test-FinalePayloadContract -Bytes $FinaleBytes -ChrByteCount ([uint64]$ExpectedChrBanks * 8192)
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-finale-native"
+                    passed = $FinaleContract.passed
+                    format = if ($FinaleBytes.Length -ge 4) { [System.Text.Encoding]::ASCII.GetString($FinaleBytes, 0, 4) } else { "" }
+                    byte_count = $FinaleBytes.Length
+                    screen_count = if ($FinaleBytes.Length -ge 10) { [System.BitConverter]::ToUInt16($FinaleBytes, 8) } else { 0 }
+                    sprite_group_count = if ($FinaleBytes.Length -ge 42) { [System.BitConverter]::ToUInt16($FinaleBytes, 40) } else { 0 }
+                    title_slot_count = if ($FinaleBytes.Length -ge 90) { [System.BitConverter]::ToUInt16($FinaleBytes, 88) } else { 0 }
+                    one_page_layers_mirrored = $FinaleContract.issues -notcontains "one-page-mirror-0" -and
+                        $FinaleContract.issues -notcontains "one-page-mirror-3"
+                    contract_issues = $FinaleContract.issues
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $MalformedCases = [System.Collections.Generic.List[object]]::new()
+                $MalformedSpecs = @(
+                    [pscustomobject]@{ id = "reserved"; mutate = { param([byte[]]$Data) $Data[116] = 1 } },
+                    [pscustomobject]@{ id = "offset"; mutate = {
+                        param([byte[]]$Data)
+                        [Array]::Copy([System.BitConverter]::GetBytes([uint32]193), 0, $Data, 20, 4)
+                    } },
+                    [pscustomobject]@{ id = "count"; mutate = {
+                        param([byte[]]$Data)
+                        [Array]::Copy([System.BitConverter]::GetBytes([uint16]1), 0, $Data, 40, 2)
+                    } },
+                    [pscustomobject]@{ id = "group"; mutate = { param([byte[]]$Data) $Data[57964] = 7 } },
+                    [pscustomobject]@{ id = "palette"; mutate = { param([byte[]]$Data) $Data[57792] = 0x40 } },
+                    [pscustomobject]@{ id = "title-order"; mutate = { param([byte[]]$Data) $Data[58344] = 0 } },
+                    [pscustomobject]@{ id = "title-reserved"; mutate = { param([byte[]]$Data) $Data[58344 + 28] = 1 } },
+                    [pscustomobject]@{ id = "chr-alignment"; mutate = {
+                        param([byte[]]$Data)
+                        $Value = [System.BitConverter]::ToUInt32($Data, 194) + 1
+                        [Array]::Copy([System.BitConverter]::GetBytes([uint32]$Value), 0, $Data, 194, 4)
+                    } }
+                )
+                foreach ($Spec in $MalformedSpecs) {
+                    $Malformed = [byte[]]$FinaleBytes.Clone()
+                    & $Spec.mutate $Malformed
+                    $Rejected = !(Test-FinalePayloadContract -Bytes $Malformed -ChrByteCount ([uint64]$ExpectedChrBanks * 8192)).passed
+                    [void]$MalformedCases.Add([pscustomobject]@{ id = $Spec.id; rejected = $Rejected })
+                }
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-finale-malformed-contracts"
+                    passed = @($MalformedCases | Where-Object { !$_.rejected }).Count -eq 0
+                    cases = $MalformedCases.ToArray()
+                    mutated_payloads_persisted = $false
+                    raw_asset_bytes_persisted = $false
+                })
             } catch {
                 Add-TestResult ([pscustomobject]@{
                     id = "assetpack-post-arena-native"
@@ -1178,6 +1480,64 @@ try {
                     pass_schema = if ($PassSource.Count -eq 1) { $PassSource.schema } else { $null }
                     bucks_roles = $BucksRoles
                     pass_roles = $PassRoles
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $FinaleSource = @($SourceMap.logical_entries | Where-Object { $_.id -eq "intro/finale-sequence" } | Select-Object -First 1)
+                $FinaleRoles = @($FinaleSource.sources | ForEach-Object { [string]$_.role })
+                $FinaleDescriptors = @($FinaleSource.sources | Where-Object { $_.role -like "screen-descriptor-*" })
+                $FinaleStreams = @($FinaleSource.sources | Where-Object { $_.role -like "compressed-screen-*" })
+                $FinaleRouteTitle = @($FinaleSource.sources | Where-Object { $_.role -eq "route-title" } | Select-Object -First 1)
+                $FinalePointer = @($FinaleSource.sources | Where-Object { $_.role -eq "sprite-pointer" } | Select-Object -First 1)
+                $FinaleStream = @($FinaleSource.sources | Where-Object { $_.role -eq "sprite-stream" } | Select-Object -First 1)
+                $FinaleTitleRecord = @($FinaleSource.sources | Where-Object { $_.role -eq "title-character-record" } | Select-Object -First 1)
+                $FinaleSplit = @($FinaleSource.sources | Where-Object { $_.role -eq "title-split" } | Select-Object -First 1)
+                $ExpectedFinaleDescriptorCpu = @(0xDD49, 0xDD65, 0xDD5E, 0xDD73, 0xDDC0)
+                $ActualFinaleDescriptorCpu = @($FinaleDescriptors | ForEach-Object { [int]$_.cpu_address })
+                $ExpectedFinaleDispatchOffset = [uint64]($PassPrgStart + 4 * 0x4000 + (0x82CF - 0x8000))
+                $ExpectedFinaleTitleOffset = [uint64]($PassPrgStart + 4 * 0x4000 + (0x836B - 0x8000))
+                $ExpectedFinaleSplitOffset = [uint64]($PassPrgStart + ($ExpectedPrgBanks - 1) * 0x4000 + (0xFE14 - 0xC000))
+                $FinaleSourcePassed = $FinaleSource.Count -eq 1 -and
+                    $FinaleSource.schema -eq "tecmo.intro.finale/TFIN-1" -and
+                    $FinaleRoles -contains "dispatch" -and $FinaleRoles -contains "route-opening" -and
+                    $FinaleRoles -contains "route-short-loop" -and $FinaleRoles -contains "route-selector-two" -and
+                    $FinaleRoles -contains "route-staged" -and $FinaleRoles -contains "route-title" -and
+                    $FinaleRoles -contains "short-anchor-tables" -and $FinaleRoles -contains "selector-two-operands" -and
+                    $FinaleRoles -contains "short-staged-sprite-palette" -and
+                    $FinaleRoles -contains "selector-two-sprite-palette" -and
+                    $FinaleRoles -contains "title-character-record" -and $FinaleRoles -contains "glyph-map" -and
+                    $FinaleRoles -contains "glyph-quads" -and $FinaleRoles -contains "title-split" -and
+                    $FinaleDescriptors.Count -eq 5 -and $FinaleStreams.Count -eq 5 -and
+                    (@(Compare-Object $ExpectedFinaleDescriptorCpu $ActualFinaleDescriptorCpu)).Count -eq 0 -and
+                    [uint64]$FinaleSource.sources[0].source_offset -eq $ExpectedFinaleDispatchOffset -and
+                    $FinaleRouteTitle.Count -eq 1 -and [int]$FinaleRouteTitle.cpu_address -eq 0x8310 -and
+                    $FinalePointer.Count -eq 1 -and [int]$FinalePointer.cpu_address -eq 0xA911 -and
+                    [int]$FinalePointer.size -eq 2 -and
+                    $FinaleStream.Count -eq 1 -and [int]$FinaleStream.cpu_address -eq 0xA9D2 -and
+                    [int]$FinaleStream.size -eq 41 -and
+                    $FinaleTitleRecord.Count -eq 1 -and [int]$FinaleTitleRecord.cpu_address -eq 0x836B -and
+                    [int]$FinaleTitleRecord.size -eq 26 -and [uint64]$FinaleTitleRecord.source_offset -eq $ExpectedFinaleTitleOffset -and
+                    $FinaleSplit.Count -eq 1 -and [int]$FinaleSplit.cpu_address -eq 0xFE14 -and
+                    [int]$FinaleSplit.size -eq 49 -and [uint64]$FinaleSplit.source_offset -eq $ExpectedFinaleSplitOffset -and
+                    [int]$FinaleSource.native_contract.screen_layers -eq 5 -and
+                    [int]$FinaleSource.native_contract.pages_per_layer -eq 2 -and
+                    @($FinaleSource.native_contract.one_page_mirror_layers).Count -eq 2 -and
+                    [int]$FinaleSource.native_contract.one_page_source_decoded_bytes -eq 1024 -and
+                    [int]$FinaleSource.native_contract.sprite_groups -eq 2 -and
+                    [int]$FinaleSource.native_contract.shared_piece_count -eq 10 -and
+                    [int]$FinaleSource.native_contract.title_slots -eq 44 -and
+                    [int]$FinaleSource.native_contract.title_source_slots -eq 26 -and
+                    [int]$FinaleSource.native_contract.blank_slots -eq 18
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-finale-source-provenance"
+                    passed = $FinaleSourcePassed
+                    schema = if ($FinaleSource.Count -eq 1) { $FinaleSource.schema } else { $null }
+                    source_role_count = $FinaleRoles.Count
+                    descriptor_count = $FinaleDescriptors.Count
+                    stream_count = $FinaleStreams.Count
+                    title_route_exact = $FinaleRouteTitle.Count -eq 1 -and [int]$FinaleRouteTitle.cpu_address -eq 0x8310
+                    one_page_mirror_contract = $FinaleSource.Count -eq 1 -and
+                        @($FinaleSource.native_contract.one_page_mirror_layers).Count -eq 2
                     raw_asset_bytes_persisted = $false
                 })
 
