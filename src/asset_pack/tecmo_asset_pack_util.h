@@ -28,6 +28,8 @@ uint32_t tecmo_asset_pack_fnv1a32(const uint8_t *bytes, size_t byte_count);
 void tecmo_asset_pack_store_u16(uint8_t *bytes, uint16_t value);
 void tecmo_asset_pack_store_u32(uint8_t *bytes, uint32_t value);
 uint8_t tecmo_asset_pack_imported_fade_color(uint8_t color, uint8_t reduction);
+uint8_t tecmo_asset_pack_palette_brightness_cap(uint8_t color, uint8_t cap);
+uint32_t tecmo_asset_pack_bg_chr_offset(uint8_t tile, uint8_t r0, uint8_t r1);
 uint8_t tecmo_asset_pack_decoded_palette_index(const uint8_t *page,
                                                 unsigned row,
                                                 unsigned col);

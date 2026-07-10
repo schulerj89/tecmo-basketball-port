@@ -127,6 +127,23 @@ uint8_t tecmo_asset_pack_imported_fade_color(uint8_t color, uint8_t reduction)
     return (color & 0x30U) >= reduction ? (uint8_t)(color - reduction) : 0x0FU;
 }
 
+uint8_t tecmo_asset_pack_palette_brightness_cap(uint8_t color, uint8_t cap)
+{
+    uint8_t brightness;
+    if (color == 0x0FU) return color;
+    brightness = (uint8_t)(color & 0x30U);
+    if (brightness > (uint8_t)(cap << 4U)) {
+        color = (uint8_t)((color & 0x0FU) | (cap << 4U));
+    }
+    return color;
+}
+
+uint32_t tecmo_asset_pack_bg_chr_offset(uint8_t tile, uint8_t r0, uint8_t r1)
+{
+    uint8_t selector = tile < 128U ? r0 : r1;
+    return (uint32_t)selector * 1024U + (uint32_t)(tile & 0x7FU) * 16U;
+}
+
 uint8_t tecmo_asset_pack_decoded_palette_index(const uint8_t *page,
                                                 unsigned row,
                                                 unsigned col)
