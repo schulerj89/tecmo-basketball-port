@@ -95,6 +95,11 @@ Hidden/debug screens are still useful through render-test modes. Common examples
 .\build\tecmo_port.exe --render-test-mode intro-arena-transition build\intro_arena_transition_test.png
 .\build\tecmo_port.exe --render-test-mode intro-arena-frame320 build\intro_arena_frame320_test.png
 .\build\tecmo_port.exe --render-test-mode intro-arena-clean-frame539 build\intro_arena_clean_frame539_test.png
+.\build\tecmo_port.exe --render-test-mode intro-finale-opening-clean-frame0 build\finale_opening_test.png
+.\build\tecmo_port.exe --render-test-mode intro-finale-reverse-frame27 build\finale_reverse_debug_test.png
+.\build\tecmo_port.exe --render-test-mode intro-finale-staged-clean-frame1 build\finale_staged_test.png
+.\build\tecmo_port.exe --render-test-mode intro-finale-title-clean-frame473 build\finale_title_test.png
+.\build\tecmo_port.exe --render-test-mode intro-finale-hold-frame0 build\finale_hold_debug_test.png
 .\build\tecmo_port.exe --render-test-mode chr-playground build\chr_playground_test.png
 .\build\tecmo_port.exe --render-test-mode rosters build\rosters_test.png
 ```
@@ -148,8 +153,27 @@ The current opening path includes:
 - NBA license screen
 - arena/jumbotron/crowd transition from ROM CHR through native arena bands
 - native TASG-2 jumbotron and anchored goal sprite groups for the arena pan
+- the ROM-only post-PASS finale, progressive title, and persistent terminator hold
 
 The normal arena render must not replay captured screen `$18` nametable or OAM data. The ROM-only importer decodes the fixed-bank screen descriptor and compressed Bank00 stream into `arena/intro/background-layer`, a versioned native `32x51` tile layer whose cells contain exact attribute-derived palette indexes and resolved `chr/all` offsets. It also emits `arena/intro/sprite-groups` as TASG-2 with the exact NES sprite palette, jumbotron pieces, and goal pieces. TASG-2 reuses piece bytes 10..11 as signed `connector_overlay_y_adjust`; the imported center `dy=32` goal connector record is the sole `-1` overlay adjustment and all other pieces use zero. Runtime first draws its canonical ROM-derived second tile at `y+8`, then draws a shifted copy of that tile with palette indexes 0 and 1 transparent while preserving exact ROM palette colors for indexes 2 and 3. Canonical goal position and extent remain unchanged. Runtime rendering requires both native entries, scrolls TATL as the background, and projects TASG groups from their stored anchors using the transition state. Capture-shaped arena loaders remain only as migration/debug scaffolding; palette-cycle migration can continue without replacing the exact background or sprite-group paths.
+
+The post-PASS continuation is stored in `intro/finale-sequence` as TFIN-1.
+It contains five native two-page screens, resolved palettes and CHR offsets, a
+shared ten-piece sprite geometry with two scene palettes, imported scene
+anchors, reverse-transition metadata, three title bands, and 44 resolved 2x2
+title slots. Slots contain native page positions and tile cells, not imported
+text. Runtime uses only TFIN-1 and `chr/all`; missing or malformed finale data
+fails cleanly with no decompilation or capture fallback. Play Game advances
+through the named finale phases and remains on the final native hold.
+
+Finale provenance is the raw Bank04 chain `$851C` wait 50 -> `$83EA` wait 30
+-> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 -> `$FFFF`, loading
+screens `$1C`, `$20`, `$1F`, `$22`, and `$2D`. The selector-2 transition uses
+first seed `$78`, second seed `$D8`, and delta `-8`: the swap holds the last
+emitted `$E8`, and the outward pass begins at `$D0`. The native state model
+adds an explicit one-frame load gate at each asynchronous screen boundary. That
+normalization makes the bounded continuation reach its persistent hold at frame
+909; those load gates are not claimed as ROM-exact scheduler wait durations.
 
 Goal Y reproduces Bank07 `$D861` bytewise using Bank04's first `$8988` emit
 pass (`$07EC/$21` stream1). For raw negative relative Y bytes (`dy - $40` in
@@ -190,6 +214,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/tecmo_game.c`: runtime orchestration and high-level render dispatch
 - `src/tecmo_intro_trace.c`: local intro composite trace loading/parsing
 - `src/tecmo_intro_arena.c`: strict TATL/TASG loading, native arena drawing, capture debug scaffolding
+- `src/tecmo_intro_finale.c`: strict TFIN-1 loading, finale phases, title bands, and rendering
 - `src/tecmo_intro_stage.c`: intro sprite staging and arena transition state model
 - `src/tecmo_bank07.c`: fixed-bank helper counterparts
 - `src/win32_platform.c`: temporary Windows platform layer

@@ -13,7 +13,7 @@
 #define COURT_RIGHT 592
 #define COURT_BOTTOM 424
 #define TITLE_CHR_BANK_BYTES 8192U
-#define TECMO_INTRO_OUTPUT_STEP_COUNT 14U
+#define TECMO_INTRO_OUTPUT_STEP_COUNT 15U
 #define TECMO_INTRO_OUTPUT_TITLE_STEP 6U
 #define TECMO_INTRO_OUTPUT_LICENSE_STEP 7U
 #define TECMO_INTRO_OUTPUT_ARENA_STEP 8U
@@ -22,6 +22,7 @@
 #define TECMO_INTRO_OUTPUT_CLIPPERS_STEP 11U
 #define TECMO_INTRO_OUTPUT_BUCKS_STEP 12U
 #define TECMO_INTRO_OUTPUT_PASS_STEP 13U
+#define TECMO_INTRO_OUTPUT_FINALE_STEP 14U
 #define TECMO_INTRO_LICENSE_AUTO_FRAME 120U
 #define TECMO_INTRO_ARENA_AUTO_FRAME 120U
 #define TECMO_INTRO_ARENA_TO_READY_FRAME 540U
@@ -217,6 +218,7 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
     (void)tecmo_intro_clippers_asset_load(&runtime->intro_clippers_asset, project_root);
     (void)tecmo_intro_bucks_asset_load(&runtime->intro_bucks_asset, project_root);
     (void)tecmo_intro_pass_asset_load(&runtime->intro_pass_asset, project_root);
+    (void)tecmo_intro_finale_asset_load(&runtime->intro_finale_asset, project_root);
 
     if (tecmo_collect_rosters(project_root, &runtime->roster) != 0) {
         if (!allow_empty_roster) {
@@ -230,6 +232,15 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
     }
 
     if (tecmo_load_chr_data(project_root, &runtime->title_chr_bytes, &runtime->title_chr_byte_count) == 0) {
+        if (runtime->intro_finale_asset.available &&
+            !tecmo_intro_finale_asset_chr_available(&runtime->intro_finale_asset,
+                                                    runtime->title_chr_bytes,
+                                                    runtime->title_chr_byte_count)) {
+            runtime->intro_finale_asset.available = false;
+            set_runtime_status(runtime->intro_finale_asset.status,
+                               sizeof(runtime->intro_finale_asset.status),
+                               "TFIN-1 chr/all contract rejected");
+        }
         if (runtime->selected_chr_bank >= chr_bank_count(runtime)) {
             runtime->selected_chr_bank = chr_bank_count(runtime) - 1U;
         }
@@ -542,6 +553,10 @@ static void update_first_sprite_probe(TecmoRuntime *runtime, const TecmoControlF
         runtime->mode_frame_counter = 0U;
     } else if (runtime->intro_output_step == TECMO_INTRO_OUTPUT_PASS_STEP &&
                runtime->mode_frame_counter >= TECMO_INTRO_PASS_HANDOFF_FRAME) {
+        runtime->intro_output_step = TECMO_INTRO_OUTPUT_FINALE_STEP;
+        runtime->mode_frame_counter = 0U;
+    } else if (runtime->intro_output_step == TECMO_INTRO_OUTPUT_FINALE_STEP &&
+               runtime->mode_frame_counter >= tecmo_intro_finale_hold_frame()) {
         runtime->intro_handoff_complete = true;
     }
 }
@@ -1776,7 +1791,8 @@ static const char *intro_output_step_label(uint8_t step)
     if (step == TECMO_INTRO_OUTPUT_WARRIORS_STEP) return "ROM WARRIORS TRANSITION";
     if (step == TECMO_INTRO_OUTPUT_CLIPPERS_STEP) return "ROM CLIPPERS TRANSITION";
     if (step == TECMO_INTRO_OUTPUT_BUCKS_STEP) return "ROM BUCKS TRANSITION";
-    return "ROM PASS TRANSITION";
+    if (step == TECMO_INTRO_OUTPUT_PASS_STEP) return "ROM PASS TRANSITION";
+    return "ROM INTRO FINALE AND TITLE";
 }
 
 static void draw_intro_output_header(TecmoFramebuffer *fb, uint8_t step)
@@ -2220,6 +2236,62 @@ bool tecmo_render_intro_pass_transition(const TecmoRuntime *runtime, TecmoFrameb
     return rendered;
 }
 
+bool tecmo_render_intro_finale(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+{
+    const int scale = 2;
+    const int viewport_x = 64;
+    const int viewport_y = 0;
+    unsigned native_frame = runtime != NULL ? runtime->mode_frame_counter : 0U;
+    bool show_debug = runtime == NULL || runtime->debug_overlay;
+    bool rendered = false;
+    TecmoIntroFinaleState state;
+    char line[192];
+
+    clear(fb, rgb(0, 0, 0));
+    if (runtime != NULL) {
+        rendered = tecmo_intro_finale_draw(fb,
+                                           &runtime->intro_finale_asset,
+                                           runtime->title_chr_bytes,
+                                           runtime->title_chr_byte_count,
+                                           native_frame,
+                                           viewport_x,
+                                           viewport_y,
+                                           scale);
+    }
+    if (!rendered) {
+        draw_centered_text(fb, 212, "ROM INTRO FINALE ASSET OR CHR DATA MISSING",
+                           rgb(252, 236, 170), 2);
+        if (runtime != NULL) {
+            draw_centered_text(fb, 238, runtime->intro_finale_asset.status,
+                               rgb(142, 174, 190), 1);
+        }
+    }
+    tecmo_intro_finale_state(runtime != NULL ? &runtime->intro_finale_asset : NULL,
+                             native_frame,
+                             &state);
+    if (show_debug) {
+        rect(fb, 0, 0, 640, 20, rgb(0, 0, 0));
+        (void)snprintf(line,
+                       sizeof(line),
+                       "INTRO FINALE F%u %s/%s LOCAL%u LOOP%u XY%u,%u TITLE%u P%u:%u S%u:%u HOLD%u",
+                       native_frame,
+                       tecmo_intro_finale_scene_name(state.scene),
+                       tecmo_intro_finale_phase_name(state.phase),
+                       state.scene_frame,
+                       (unsigned)state.short_loop_step,
+                       (unsigned)state.player_x,
+                       (unsigned)state.player_y,
+                       (unsigned)state.title_slots_written,
+                       (unsigned)state.scroll_page,
+                       (unsigned)state.scroll_x,
+                       (unsigned)state.secondary_scroll_page,
+                       (unsigned)state.secondary_scroll_x,
+                       state.persistent_hold ? 1U : 0U);
+        draw_text(fb, 12, 7, line, rgb(230, 232, 214), 1);
+    }
+    return rendered;
+}
+
 static void draw_intro_presents_nametable_position(TecmoFramebuffer *fb,
                                                    const TecmoRuntime *runtime)
 {
@@ -2423,7 +2495,8 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
          step != TECMO_INTRO_OUTPUT_WARRIORS_STEP &&
          step != TECMO_INTRO_OUTPUT_CLIPPERS_STEP &&
          step != TECMO_INTRO_OUTPUT_BUCKS_STEP &&
-         step != TECMO_INTRO_OUTPUT_PASS_STEP) ||
+         step != TECMO_INTRO_OUTPUT_PASS_STEP &&
+         step != TECMO_INTRO_OUTPUT_FINALE_STEP) ||
         (!runtime->intro_trace_available &&
          step != TECMO_INTRO_OUTPUT_TITLE_STEP &&
          step != TECMO_INTRO_OUTPUT_LICENSE_STEP &&
@@ -2432,7 +2505,8 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
          step != TECMO_INTRO_OUTPUT_WARRIORS_STEP &&
          step != TECMO_INTRO_OUTPUT_CLIPPERS_STEP &&
          step != TECMO_INTRO_OUTPUT_BUCKS_STEP &&
-         step != TECMO_INTRO_OUTPUT_PASS_STEP)) {
+         step != TECMO_INTRO_OUTPUT_PASS_STEP &&
+         step != TECMO_INTRO_OUTPUT_FINALE_STEP)) {
         tecmo_render_first_sprite_probe(runtime, fb);
         return;
     }
@@ -2474,6 +2548,11 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
 
     if (step == TECMO_INTRO_OUTPUT_PASS_STEP) {
         tecmo_render_intro_pass_transition(runtime, fb);
+        return;
+    }
+
+    if (step == TECMO_INTRO_OUTPUT_FINALE_STEP) {
+        tecmo_render_intro_finale(runtime, fb);
         return;
     }
 

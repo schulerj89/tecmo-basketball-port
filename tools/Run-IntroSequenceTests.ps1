@@ -219,6 +219,36 @@ function Get-AssetPackEntryPayloadOffset {
     throw "Asset-pack entry was not found."
 }
 
+function Get-AssetPackEntryDirectoryOffset {
+    param(
+        [byte[]]$Bytes,
+        [string]$EntryId
+    )
+
+    if ($Bytes.Length -lt 40 -or
+        [System.Text.Encoding]::ASCII.GetString($Bytes, 0, 4) -ne "TAP1") {
+        throw "Malformed asset-pack header."
+    }
+    $EntryCount = [System.BitConverter]::ToUInt32($Bytes, 16)
+    $DirectoryOffset = [System.BitConverter]::ToUInt64($Bytes, 20)
+    for ($EntryIndex = 0; $EntryIndex -lt $EntryCount; ++$EntryIndex) {
+        $EntryOffset64 = $DirectoryOffset + [uint64]($EntryIndex * 128)
+        if ($EntryOffset64 + 128 -gt [uint64]$Bytes.Length -or
+            $EntryOffset64 -gt [int]::MaxValue) {
+            throw "Malformed asset-pack directory."
+        }
+        $EntryOffset = [int]$EntryOffset64
+        $EntryNameLength = 0
+        while ($EntryNameLength -lt 64 -and $Bytes[$EntryOffset + $EntryNameLength] -ne 0) {
+            ++$EntryNameLength
+        }
+        $EntryName = [System.Text.Encoding]::ASCII.GetString(
+            $Bytes, $EntryOffset, $EntryNameLength)
+        if ($EntryName -eq $EntryId) { return $EntryOffset }
+    }
+    throw "Asset-pack entry was not found."
+}
+
 $ExePath = Join-Path $BuildDir "tecmo_port.exe"
 
 $ReferenceRom = Find-ReferenceRom
@@ -348,6 +378,35 @@ $PostArenaRenderCases = @(
     [pscustomobject]@{ mode = "intro-pass-clean-frame51"; state = "intro-pass-state frame=51 phase=second-move palette=4 x=200 scroll=200 first=18 second=25 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass-late" },
     [pscustomobject]@{ mode = "intro-pass-clean-frame52"; state = "intro-pass-state frame=52 phase=handoff palette=4 x=200 scroll=200 first=18 second=25 sprites=0 black=1 handoff=1 next_route=851C"; visual = "black" }
 )
+$FinaleRenderCases = @(
+    [pscustomobject]@{ mode = "intro-finale-opening-clean-frame0"; state = "frame=0 scene=opening-screen phase=load local=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-opening-clean-frame50"; state = "frame=50 scene=opening-screen phase=dispatch-wait local=50"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame0"; state = "frame=51 scene=short-sprite-loop phase=load local=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame1"; state = "frame=52 scene=short-sprite-loop phase=short-loop local=1"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame16"; state = "frame=67 scene=short-sprite-loop phase=short-loop local=16"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame17"; state = "frame=68 scene=short-sprite-loop phase=dispatch-wait local=17"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame0"; state = "frame=98 scene=selector-transition phase=load local=0"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame10"; state = "frame=108 scene=selector-transition phase=first-move local=10"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame26"; state = "frame=124 scene=selector-transition phase=hold local=26"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame27"; state = "frame=125 scene=selector-transition phase=second-move local=27"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame51"; state = "frame=149 scene=selector-transition phase=second-move local=51"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-staged-clean-frame0"; state = "frame=150 scene=staged-group phase=load local=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-staged-clean-frame1"; state = "frame=151 scene=staged-group phase=staged-wait local=1"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-staged-clean-frame81"; state = "frame=231 scene=staged-group phase=dispatch-wait local=81"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame0"; state = "frame=306 scene=title phase=load local=0"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame128"; state = "frame=434 scene=title phase=title-preroll local=128"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame129"; state = "frame=435 scene=title phase=title-write local=129"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame473"; state = "frame=779 scene=title phase=title-write local=473"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame474"; state = "frame=780 scene=title phase=title-tail local=474"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame602"; state = "frame=908 scene=title phase=dispatch-wait local=602"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-hold-clean-frame0"; state = "frame=909 scene=terminator-hold phase=terminator-hold local=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-opening-frame1"; state = "frame=1 scene=opening-screen phase=dispatch-wait local=1"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-frame1"; state = "frame=52 scene=short-sprite-loop phase=short-loop local=1"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-frame27"; state = "frame=125 scene=selector-transition phase=second-move local=27"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-staged-frame1"; state = "frame=151 scene=staged-group phase=staged-wait local=1"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-title-frame473"; state = "frame=779 scene=title phase=title-write local=473"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-hold-frame0"; state = "frame=909 scene=terminator-hold phase=terminator-hold local=0"; visual = "scene" }
+)
 $BoundedReferenceCases = @(
     [pscustomobject]@{ mode = "intro-bucks-clean-frame14"; reference = "bucks-pass-02.png" },
     [pscustomobject]@{ mode = "intro-bucks-clean-frame16"; reference = "bucks-pass-03.png" },
@@ -408,7 +467,8 @@ try {
         "arena/intro/warriors-transition",
         "arena/intro/clippers-transition",
         "arena/intro/bucks-transition",
-        "arena/intro/pass-transition"
+        "arena/intro/pass-transition",
+        "intro/finale-sequence"
     )
     $ForbiddenCaptureEntries = @("intro/arena/capture.ndjson", "intro/post-arena/capture.ndjson", "intro/captures/source-map")
     $MissingNativeEntries = @($RequiredNativeEntries | Where-Object { $ListText -notmatch [regex]::Escape($_) })
@@ -598,6 +658,126 @@ try {
         raw_output_persisted = $false
         coverage_status = "ready-warriors-clippers-bucks-pass-native-checkpoints"
         error = if ($PostArenaPassed) { $null } else { "ROM-only post-arena render or timing checkpoint failed" }
+    })
+
+    $FinaleOutputs = New-Object System.Collections.Generic.List[object]
+    $FinalePassed = $ListPassed
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    try {
+        $env:TECMO_ASSETPACK = $AssetPackPath
+        foreach ($RenderCase in $FinaleRenderCases) {
+            $RenderPath = Join-Path $OutputDir "$($RenderCase.mode).png"
+            if (Test-Path -LiteralPath $RenderPath) {
+                Remove-Item -LiteralPath $RenderPath -Force
+            }
+            $RenderOutput = & $ExePath --root $ProjectRoot `
+                --render-test-mode $RenderCase.mode $RenderPath 2>&1
+            $RenderExitCode = $LASTEXITCODE
+            $RenderText = (@($RenderOutput) | ForEach-Object { [string]$_ }) -join "`n"
+            $RenderCreated = Test-Path -LiteralPath $RenderPath
+            $NativeSourceSeen = $RenderText -match `
+                "intro-finale-render-source finale=1 chr=1 schema=TFIN-1"
+            $StateSeen = $RenderText.Contains([string]$RenderCase.state)
+            $VisualSeen = $false
+            if ($RenderCreated) {
+                $Bitmap = [System.Drawing.Bitmap]::FromFile($RenderPath)
+                try {
+                    if ($RenderCase.visual -eq "black") {
+                        $VisualSeen = Test-PixelRectColor $Bitmap 64 0 575 479 0 0 0
+                    } else {
+                        $VisualSeen = Test-PixelRectHasNonBlack $Bitmap 64 0 575 479
+                    }
+                } finally {
+                    $Bitmap.Dispose()
+                }
+            }
+            $ModePassed = $RenderExitCode -eq 0 -and $RenderCreated -and
+                $NativeSourceSeen -and $StateSeen -and $VisualSeen
+            if (!$ModePassed) { $FinalePassed = $false }
+            $FinaleOutputs.Add([pscustomobject]@{
+                mode = $RenderCase.mode
+                output = Get-RepoRelativePath $RenderPath
+                passed = $ModePassed
+                exit_code = $RenderExitCode
+                native_source_seen = $NativeSourceSeen
+                state_seen = $StateSeen
+                visual_signature_seen = $VisualSeen
+            })
+        }
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+    }
+    if (!$FinalePassed) { ++$Failures }
+    $Results.Add([pscustomobject]@{
+        id = "intro-render-rom-only-finale-title"
+        passed = $FinalePassed
+        skipped = $false
+        outputs = $FinaleOutputs
+        rom_only_asset_pack = $AssetPackRelative
+        raw_output_persisted = $false
+        coverage_status = "five-finale-scenes-title-scroll-and-terminator-hold"
+        error = if ($FinalePassed) { $null } else { "ROM-only finale/title render or timing checkpoint failed" }
+    })
+
+    $FinaleNegativeResults = New-Object System.Collections.Generic.List[object]
+    $FinaleNegativePassed = $PackBuildPassed
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    try {
+        foreach ($NegativeCase in @("missing", "bad-magic", "bad-slot-order", "bad-chr", "bad-route")) {
+            $CasePack = Join-Path $OutputDir "finale-$NegativeCase.assetpack"
+            $CaseRender = Join-Path $OutputDir "finale-$NegativeCase.png"
+            [byte[]]$CaseBytes = [System.IO.File]::ReadAllBytes($AssetPackPath)
+            $PayloadOffset = Get-AssetPackEntryPayloadOffset `
+                -Bytes $CaseBytes -EntryId "intro/finale-sequence"
+            if ($NegativeCase -eq "missing") {
+                $DirectoryOffset = Get-AssetPackEntryDirectoryOffset `
+                    -Bytes $CaseBytes -EntryId "intro/finale-sequence"
+                $CaseBytes[$DirectoryOffset] = [byte][char]'x'
+            } elseif ($NegativeCase -eq "bad-magic") {
+                $CaseBytes[$PayloadOffset] = [byte][char]'X'
+            } elseif ($NegativeCase -eq "bad-slot-order") {
+                $SlotsOffset = [System.BitConverter]::ToUInt32($CaseBytes, $PayloadOffset + 96)
+                $CaseBytes[$PayloadOffset + $SlotsOffset + 1] = 1
+            } elseif ($NegativeCase -eq "bad-chr") {
+                $ScreensOffset = [System.BitConverter]::ToUInt32($CaseBytes, $PayloadOffset + 20)
+                [System.BitConverter]::GetBytes([uint32]262144).CopyTo(
+                    $CaseBytes, $PayloadOffset + $ScreensOffset + 2)
+            } else {
+                $RoutesOffset = [System.BitConverter]::ToUInt32($CaseBytes, $PayloadOffset + 64)
+                $CaseBytes[$PayloadOffset + $RoutesOffset + 6] = 49
+            }
+            [System.IO.File]::WriteAllBytes($CasePack, $CaseBytes)
+            Remove-Item -LiteralPath $CaseRender -Force -ErrorAction SilentlyContinue
+            $env:TECMO_ASSETPACK = $CasePack
+            $CaseOutput = & $ExePath --root $ProjectRoot `
+                --render-test-mode intro-finale-opening-clean-frame0 $CaseRender 2>&1
+            $CaseExitCode = $LASTEXITCODE
+            $CaseText = (@($CaseOutput) | ForEach-Object { [string]$_ }) -join "`n"
+            $Rejected = $CaseExitCode -eq 1 -and
+                !(Test-Path -LiteralPath $CaseRender) -and
+                $CaseText -match "intro-finale-render-source finale=0 chr=1 schema=TFIN-1"
+            if (!$Rejected) { $FinaleNegativePassed = $false }
+            $FinaleNegativeResults.Add([pscustomobject]@{
+                id = $NegativeCase
+                passed = $Rejected
+                exit_code = $CaseExitCode
+                rejected_by_runtime = $Rejected
+            })
+            Remove-Item -LiteralPath $CasePack -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $CaseRender -Force -ErrorAction SilentlyContinue
+        }
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+    }
+    if (!$FinaleNegativePassed) { ++$Failures }
+    $Results.Add([pscustomobject]@{
+        id = "intro-finale-missing-malformed-contract"
+        passed = $FinaleNegativePassed
+        skipped = $false
+        cases = $FinaleNegativeResults
+        raw_output_persisted = $false
+        coverage_status = "missing-entry-bad-schema-bad-title-slot-order-bad-chr-bad-route"
+        error = if ($FinaleNegativePassed) { $null } else { "runtime accepted a missing or malformed TFIN entry" }
     })
 
     $BoundedReferenceOutputs = New-Object System.Collections.Generic.List[object]

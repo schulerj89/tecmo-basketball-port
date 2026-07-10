@@ -195,6 +195,28 @@ upper scroll to `$FF` at frame 80. The native chain reaches route `$883D` at
 frame 151 and must remain in the intro mode until that next route is ported;
 never fall through to the placeholder play-setup court.
 
+The entire post-PASS finale is ROM-only and native. The importer emits
+`intro/finale-sequence` as TFIN-1, and runtime consumes that entry with
+`chr/all`. TFIN-1 represents five named two-page scenes, shared sprite geometry
+with scene-specific palettes and imported anchors, reverse-transition timing,
+and the progressive title as 44 resolved 2x2 glyph slots across virtual pages.
+It does not store imported title text. The title renderer preserves three
+horizontal bands: the primary progressive-write scroll, the independently
+advanced pre-roll/tail scroll, and the fixed lower band. The final script runs
+its load boundaries, short loop, reverse transition, staged wait, title
+pre-roll/write/tail, final dispatch wait, and then remains in a persistent
+terminator hold. Missing or malformed TFIN-1 data is a hard native-render
+failure; there is no decompilation, Lua-log, or capture fallback.
+
+The importer validates the raw finale dispatch chain as `$851C` wait 50 ->
+`$83EA` wait 30 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 ->
+`$FFFF`, with screens `$1C`, `$20`, `$1F`, `$22`, and `$2D`. Selector 2 uses
+first seed `$78`, second seed `$D8`, and delta `-8`; the swap holds the last
+emitted `$E8`, while the outward pass begins at `$D0`. Native C models each
+asynchronous screen boundary with a documented one-frame load gate, producing
+a bounded 909-frame continuation before the persistent hold. Those gates are a
+native scheduling boundary, not a claim about an unknown ROM scheduler wait.
+
 ## Validation Rules
 
 Validation should prove native behavior, not just that a captured frame can be

@@ -29,7 +29,7 @@ static void print_usage(const char *program)
     printf("  --bank07-test           Run fixed-bank helper C counterpart checks\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render boot-title, menu, intro scenes (arena/ready/warriors/clippers/bucks/pass frameN), play, or probe modes to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render boot-title, menu, intro scenes (arena through finale/title frameN), play, or probe modes to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --build-assetpack ROM PATH  Build a private .assetpack from an iNES ROM only; no decomp/capture imports\n");
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
@@ -116,6 +116,33 @@ static void print_intro_render_capture_status(const TecmoRuntime *runtime,
                native_sprite_groups_available ? (unsigned)goal_piece_count : 0U,
                (unsigned)visible_counts.jumbotron,
                (unsigned)visible_counts.goal);
+    } else if (strncmp(mode_name, "intro-finale", 12) == 0 ||
+               strcmp(mode_name, "play-step14") == 0) {
+        TecmoIntroFinaleState state;
+        tecmo_intro_finale_state(&runtime->intro_finale_asset,
+                                 runtime->mode_frame_counter,
+                                 &state);
+        printf("intro-finale-render-source finale=%u chr=%u schema=TFIN-1\n",
+               runtime->intro_finale_asset.available ? 1U : 0U,
+               runtime->title_chr_bytes != NULL ? 1U : 0U);
+        printf("intro-finale-state frame=%u scene=%s phase=%s local=%u palette=%u variant=%u loop=%u anchor=%u,%u title=%u primary=%u:%u secondary=%u:%u sprites=%u black=%u hold=%u\n",
+               runtime->mode_frame_counter,
+               tecmo_intro_finale_scene_name(state.scene),
+               tecmo_intro_finale_phase_name(state.phase),
+               state.scene_frame,
+               (unsigned)state.palette_stage,
+               (unsigned)state.sprite_variant_index,
+               (unsigned)state.short_loop_step,
+               (unsigned)state.player_x,
+               (unsigned)state.player_y,
+               (unsigned)state.title_slots_written,
+               (unsigned)state.scroll_page,
+               (unsigned)state.scroll_x,
+               (unsigned)state.secondary_scroll_page,
+               (unsigned)state.secondary_scroll_x,
+               state.sprites_visible ? 1U : 0U,
+               state.black ? 1U : 0U,
+               state.persistent_hold ? 1U : 0U);
     } else if (strncmp(mode_name, "intro-ready", 11) == 0 ||
                strncmp(mode_name, "intro-warriors", 14) == 0 ||
                strncmp(mode_name, "intro-clippers", 14) == 0 ||
@@ -225,6 +252,60 @@ static bool parse_render_frame_suffix(const char *mode_name,
     }
     *frame = (unsigned)value;
     return true;
+}
+
+static bool parse_finale_render_mode(const char *mode_name,
+                                     unsigned *frame_out,
+                                     bool *debug_out)
+{
+    static const struct FinaleModePrefix {
+        const char *clean_prefix;
+        const char *debug_prefix;
+        TecmoIntroFinaleScene scene;
+    } scene_prefixes[] = {
+        {"intro-finale-opening-clean-frame", "intro-finale-opening-frame",
+         TECMO_INTRO_FINALE_OPENING_SCREEN},
+        {"intro-finale-short-clean-frame", "intro-finale-short-frame",
+         TECMO_INTRO_FINALE_SHORT_SPRITE_LOOP},
+        {"intro-finale-reverse-clean-frame", "intro-finale-reverse-frame",
+         TECMO_INTRO_FINALE_SELECTOR_TRANSITION},
+        {"intro-finale-staged-clean-frame", "intro-finale-staged-frame",
+         TECMO_INTRO_FINALE_STAGED_GROUP},
+        {"intro-finale-title-clean-frame", "intro-finale-title-frame",
+         TECMO_INTRO_FINALE_TITLE},
+        {"intro-finale-hold-clean-frame", "intro-finale-hold-frame",
+         TECMO_INTRO_FINALE_TERMINATOR_HOLD}
+    };
+    unsigned local_frame;
+
+    if (parse_render_frame_suffix(mode_name, "intro-finale-clean-frame", &local_frame)) {
+        *frame_out = local_frame;
+        *debug_out = false;
+        return true;
+    }
+    if (parse_render_frame_suffix(mode_name, "intro-finale-frame", &local_frame)) {
+        *frame_out = local_frame;
+        *debug_out = true;
+        return true;
+    }
+    for (size_t i = 0U; i < sizeof(scene_prefixes) / sizeof(scene_prefixes[0]); ++i) {
+        unsigned start = tecmo_intro_finale_scene_start_frame(scene_prefixes[i].scene);
+        if (parse_render_frame_suffix(mode_name, scene_prefixes[i].clean_prefix,
+                                      &local_frame)) {
+            if (local_frame > UINT_MAX - start) return false;
+            *frame_out = start + local_frame;
+            *debug_out = false;
+            return true;
+        }
+        if (parse_render_frame_suffix(mode_name, scene_prefixes[i].debug_prefix,
+                                      &local_frame)) {
+            if (local_frame > UINT_MAX - start) return false;
+            *frame_out = start + local_frame;
+            *debug_out = true;
+            return true;
+        }
+    }
+    return false;
 }
 
 int main(int argc, char **argv)
@@ -661,6 +742,23 @@ int main(int argc, char **argv)
                     runtime.debug_overlay = strcmp(prefix, "intro-pass-frame") == 0;
                     runtime.mode_frame_counter = frame;
                     arena_render_succeeded = tecmo_render_intro_pass_transition(&runtime, &framebuffer);
+                    render_runtime = false;
+                    result = arena_render_succeeded ? 0 : 1;
+                }
+            } else if (strncmp(mode_name, "intro-finale", 12) == 0) {
+                unsigned frame;
+                bool debug;
+                if (!parse_finale_render_mode(mode_name, &frame, &debug)) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    framebuffer.pixels = pixels;
+                    framebuffer.width = width;
+                    framebuffer.height = height;
+                    framebuffer.pitch_pixels = width;
+                    runtime.debug_overlay = debug;
+                    runtime.mode_frame_counter = frame;
+                    arena_render_succeeded = tecmo_render_intro_finale(&runtime, &framebuffer);
                     render_runtime = false;
                     result = arena_render_succeeded ? 0 : 1;
                 }
