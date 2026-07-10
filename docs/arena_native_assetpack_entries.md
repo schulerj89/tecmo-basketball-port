@@ -117,9 +117,9 @@ Represents the READY screen as the post-arena destination:
 - Duration and handoff label back to the main intro script.
 - Asset references for text or glyph tiles where needed.
 
-This entry is loaded by native READY rendering. It replaces the current
-post-arena capture dependency for READY frames once the importer can derive the
-state from the ROM.
+This entry is loaded by native READY rendering and replaces the post-arena
+capture dependency. The importer derives its screen, palette stages, and
+12-step reveal masks directly from the ROM.
 
 ### `arena/intro/warriors-transition`
 
@@ -130,8 +130,9 @@ Represents the WARRIORS transition after READY:
 - Palette stages and visibility ranges.
 - Handoff target for the next intro or menu phase.
 
-This entry should model the transition as a native scene segment. Mapper
-snapshots, scroll-register pairs, and OAM frame diffs remain importer concerns.
+This entry models the transition as a native scene segment. It includes the
+split render bands, player pieces, progressive WARRIORS glyphs, late patches,
+and handoff to screen `$1B`; mapper details remain importer provenance.
 
 ## Importer Boundary
 
@@ -168,11 +169,10 @@ High-level runtime APIs should remain shaped around scene and renderer concepts.
 
 ## Test Hook
 
-The ROM-only asset-pack smoke test now expects the first native arena entries:
+The ROM-only asset-pack smoke test expects the arena entries
 `arena/intro/script`, `arena/intro/background-layer`,
-`arena/intro/palette-cycle`, and `arena/intro/goal-sprite-group`. Broader
-entries such as READY and WARRIORS should extend the same directory/source-map
-gate in the change that emits them.
+`arena/intro/palette-cycle`, `arena/intro/sprite-groups`,
+`arena/intro/ready-screen`, and `arena/intro/warriors-transition`.
 
 Keep the first gate directory-only before checking rendered frames:
 

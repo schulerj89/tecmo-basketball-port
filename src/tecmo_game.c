@@ -23,6 +23,7 @@
 #define TECMO_INTRO_ARENA_AUTO_FRAME 120U
 #define TECMO_INTRO_ARENA_TO_READY_FRAME 540U
 #define TECMO_INTRO_READY_TO_WARRIORS_FRAME 58U
+#define TECMO_INTRO_WARRIORS_TO_NEXT_FRAME 214U
 #define MAIN_MENU_PLAY_GAME 0U
 #define MAIN_MENU_QUIT 1U
 #define MAIN_MENU_COUNT 2U
@@ -208,7 +209,8 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
     (void)tecmo_intro_arena_sprite_groups_load(&runtime->intro_arena_sprite_groups,
                                                project_root);
     (void)tecmo_intro_arena_capture_load(&runtime->intro_arena_capture, project_root);
-    (void)tecmo_intro_post_arena_capture_load(&runtime->intro_post_arena_capture, project_root);
+    (void)tecmo_intro_ready_asset_load(&runtime->intro_ready_asset, project_root);
+    (void)tecmo_intro_warriors_asset_load(&runtime->intro_warriors_asset, project_root);
 
     if (tecmo_collect_rosters(project_root, &runtime->roster) != 0) {
         if (!allow_empty_roster) {
@@ -266,6 +268,8 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
     }
     if (mode == TECMO_MODE_FIRST_SPRITE) {
         runtime->intro_output_step = TECMO_INTRO_OUTPUT_TITLE_STEP;
+        runtime->intro_handoff_complete = false;
+        runtime->intro_next_screen = 0U;
     }
     runtime->previous_input = (TecmoInput){0};
 }
@@ -517,6 +521,11 @@ static void update_first_sprite_probe(TecmoRuntime *runtime, const TecmoControlF
                runtime->mode_frame_counter >= TECMO_INTRO_READY_TO_WARRIORS_FRAME) {
         runtime->intro_output_step = TECMO_INTRO_OUTPUT_WARRIORS_STEP;
         runtime->mode_frame_counter = 0;
+    } else if (runtime->intro_output_step == TECMO_INTRO_OUTPUT_WARRIORS_STEP &&
+               runtime->mode_frame_counter >= TECMO_INTRO_WARRIORS_TO_NEXT_FRAME) {
+        runtime->intro_next_screen = TECMO_INTRO_WARRIORS_NEXT_SCREEN;
+        runtime->intro_handoff_complete = true;
+        tecmo_runtime_set_mode(runtime, TECMO_MODE_PLAY_SETUP);
     }
 }
 
@@ -1745,9 +1754,9 @@ static const char *intro_output_step_label(uint8_t step)
         return "BANK04 ARENA TRANSITION TRACE";
     }
     if (step == TECMO_INTRO_OUTPUT_READY_STEP) {
-        return "READY FLASH CAPTURE";
+        return "ROM READY REVEAL";
     }
-    return "WARRIORS TRANSITION CAPTURE";
+    return "ROM WARRIORS TRANSITION";
 }
 
 static void draw_intro_output_header(TecmoFramebuffer *fb, uint8_t step)
@@ -1972,7 +1981,7 @@ bool tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
     return drew_arena;
 }
 
-void tecmo_render_intro_ready_screen(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+bool tecmo_render_intro_ready_screen(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
 {
     const int scale = 2;
     const int viewport_x = 64;
@@ -1981,42 +1990,46 @@ void tecmo_render_intro_ready_screen(const TecmoRuntime *runtime, TecmoFramebuff
     const int viewport_h = 240 * scale;
     unsigned native_frame = runtime != NULL ? runtime->mode_frame_counter : 24U;
     bool show_debug = runtime == NULL || runtime->debug_overlay;
+    bool rendered = false;
+    TecmoIntroReadyState state;
     char line[192];
 
     clear(fb, rgb(0, 0, 0));
     rect(fb, viewport_x, viewport_y, viewport_w, viewport_h, rgb(0, 0, 0));
-    if (runtime != NULL && runtime->title_probe_available &&
-        runtime->intro_post_arena_capture.available) {
-        tecmo_intro_post_arena_draw_ready(fb,
-                                          &runtime->intro_post_arena_capture,
-                                          runtime->title_chr_bytes,
-                                          runtime->title_chr_byte_count,
-                                          native_frame,
-                                          viewport_x,
-                                          viewport_y,
-                                          scale);
-    } else {
-        draw_centered_text(fb, 212, "LOCAL READY CAPTURE OR CHR DATA MISSING", rgb(252, 236, 170), 2);
+    if (runtime != NULL) {
+        rendered = tecmo_intro_post_arena_draw_ready(fb,
+                                                     &runtime->intro_ready_asset,
+                                                     runtime->title_chr_bytes,
+                                                     runtime->title_chr_byte_count,
+                                                     native_frame,
+                                                     viewport_x,
+                                                     viewport_y,
+                                                     scale);
+    }
+    if (!rendered) {
+        draw_centered_text(fb, 212, "ROM READY ASSET OR CHR DATA MISSING", rgb(252, 236, 170), 2);
         if (runtime != NULL) {
-            draw_centered_text(fb, 238, runtime->intro_post_arena_capture.status, rgb(142, 174, 190), 1);
+            draw_centered_text(fb, 238, runtime->intro_ready_asset.status, rgb(142, 174, 190), 1);
         }
     }
+    tecmo_intro_ready_state(native_frame, &state);
 
     if (show_debug) {
         rect(fb, 0, 0, 640, 20, rgb(0, 0, 0));
         (void)snprintf(line,
                        sizeof(line),
-                       "POST ARENA READY  native F%u capture F%u  NT %u ATTR %u PAL %u",
+                       "POST ARENA READY  F%u PAL %u MASK %u BLACK %u HANDOFF %u",
                        native_frame,
-                       tecmo_intro_ready_capture_frame(native_frame),
-                       runtime != NULL ? (unsigned)runtime->intro_post_arena_capture.tile_event_count : 0U,
-                       runtime != NULL ? (unsigned)runtime->intro_post_arena_capture.attribute_event_count : 0U,
-                       runtime != NULL ? (unsigned)runtime->intro_post_arena_capture.palette_stage_count : 0U);
+                       (unsigned)state.palette_stage,
+                       (unsigned)state.mask_index,
+                       state.black ? 1U : 0U,
+                       state.handoff ? 1U : 0U);
         draw_text(fb, 12, 7, line, rgb(230, 232, 214), 1);
     }
+    return rendered;
 }
 
-void tecmo_render_intro_warriors_transition(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+bool tecmo_render_intro_warriors_transition(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
 {
     const int scale = 2;
     const int viewport_x = 64;
@@ -2025,39 +2038,44 @@ void tecmo_render_intro_warriors_transition(const TecmoRuntime *runtime, TecmoFr
     const int viewport_h = 240 * scale;
     unsigned native_frame = runtime != NULL ? runtime->mode_frame_counter : 64U;
     bool show_debug = runtime == NULL || runtime->debug_overlay;
+    bool rendered = false;
+    TecmoIntroWarriorsState state;
     char line[192];
 
     clear(fb, rgb(0, 0, 0));
     rect(fb, viewport_x, viewport_y, viewport_w, viewport_h, rgb(0, 0, 0));
-    if (runtime != NULL && runtime->title_probe_available &&
-        runtime->intro_post_arena_capture.available) {
-        tecmo_intro_post_arena_draw_warriors(fb,
-                                             &runtime->intro_post_arena_capture,
-                                             runtime->title_chr_bytes,
-                                             runtime->title_chr_byte_count,
-                                             native_frame,
-                                             viewport_x,
-                                             viewport_y,
-                                             scale);
-    } else {
-        draw_centered_text(fb, 212, "LOCAL WARRIORS CAPTURE OR CHR DATA MISSING", rgb(252, 236, 170), 2);
+    if (runtime != NULL) {
+        rendered = tecmo_intro_post_arena_draw_warriors(fb,
+                                                        &runtime->intro_warriors_asset,
+                                                        runtime->title_chr_bytes,
+                                                        runtime->title_chr_byte_count,
+                                                        native_frame,
+                                                        viewport_x,
+                                                        viewport_y,
+                                                        scale);
+    }
+    if (!rendered) {
+        draw_centered_text(fb, 212, "ROM WARRIORS ASSET OR CHR DATA MISSING", rgb(252, 236, 170), 2);
         if (runtime != NULL) {
-            draw_centered_text(fb, 238, runtime->intro_post_arena_capture.status, rgb(142, 174, 190), 1);
+            draw_centered_text(fb, 238, runtime->intro_warriors_asset.status, rgb(142, 174, 190), 1);
         }
     }
+    tecmo_intro_warriors_state(native_frame, &state);
 
     if (show_debug) {
         rect(fb, 0, 0, 640, 20, rgb(0, 0, 0));
         (void)snprintf(line,
                        sizeof(line),
-                       "POST ARENA WARRIORS  native F%u capture F%u  NT %u OAM %u SCROLL %u",
+                       "POST ARENA WARRIORS F%u %s PAL%u PAN%u PATCH%u NEXT%02X",
                        native_frame,
-                       tecmo_intro_warriors_capture_frame(native_frame),
-                       runtime != NULL ? (unsigned)runtime->intro_post_arena_capture.tile_event_count : 0U,
-                       runtime != NULL ? (unsigned)runtime->intro_post_arena_capture.sprite_stage_count : 0U,
-                       runtime != NULL ? (unsigned)runtime->intro_post_arena_capture.scroll_stage_count : 0U);
+                       tecmo_intro_warriors_phase_name(state.phase),
+                       (unsigned)state.palette_stage,
+                       (unsigned)state.pan,
+                       (unsigned)state.patch_count,
+                       (unsigned)state.next_screen);
         draw_text(fb, 12, 7, line, rgb(230, 232, 214), 1);
     }
+    return rendered;
 }
 
 static void draw_intro_presents_nametable_position(TecmoFramebuffer *fb,
@@ -2256,7 +2274,11 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
         step = TECMO_INTRO_OUTPUT_STEP_COUNT - 1U;
     }
 
-    if (!runtime->title_probe_available ||
+    if ((!runtime->title_probe_available &&
+         step != TECMO_INTRO_OUTPUT_LICENSE_STEP &&
+         step != TECMO_INTRO_OUTPUT_ARENA_STEP &&
+         step != TECMO_INTRO_OUTPUT_READY_STEP &&
+         step != TECMO_INTRO_OUTPUT_WARRIORS_STEP) ||
         (!runtime->intro_trace_available &&
          step != TECMO_INTRO_OUTPUT_TITLE_STEP &&
          step != TECMO_INTRO_OUTPUT_LICENSE_STEP &&

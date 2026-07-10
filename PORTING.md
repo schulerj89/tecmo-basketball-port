@@ -172,6 +172,15 @@ Do not encode the final `-15` as a constant. At clean frame 539, the post ends
 at output Y 429, the black pedestal opening begins at Y 430, and its cream cap
 begins at Y 432.
 
+READY and WARRIORS are ROM-only native scenes. `arena/intro/ready-screen`
+contains the decoded screen, five palette stages, and the 12-record attribute
+sweep at native frames 24 through 46. It blacks out at frame 56 and hands off
+at frame 58. `arena/intro/warriors-transition` contains the two-page layer,
+split-band CHR mappings, 46-piece player group, progressive Bank06 WARRIORS
+glyphs, two late tile patches, and frame-214 handoff to screen `$1B`. Runtime
+must load these entries and `chr/all` from the same pack and validate all
+resolved CHR offsets before marking either scene available.
+
 ## Validation Rules
 
 Validation should prove native behavior, not just that a captured frame can be

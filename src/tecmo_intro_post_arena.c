@@ -1,1330 +1,742 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "tecmo_intro_post_arena.h"
+
 #include "tecmo_asset_pack.h"
 #include "tecmo_nes_video.h"
 
-#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define POST_CHR_1KB_BYTES 1024ULL
+#define READY_ENTRY_ID "arena/intro/ready-screen"
+#define WARRIORS_ENTRY_ID "arena/intro/warriors-transition"
+#define READY_HEADER_SIZE 64U
+#define READY_CELL_STRIDE 6U
+#define READY_PALETTES_OFFSET 64U
+#define READY_PALETTE_FRAMES_OFFSET 144U
+#define READY_MASKS_OFFSET 149U
+#define READY_CELLS_OFFSET 245U
+#define READY_PAYLOAD_SIZE (READY_CELLS_OFFSET + TECMO_INTRO_READY_CELL_COUNT * READY_CELL_STRIDE)
+#define WARRIORS_HEADER_SIZE 96U
+#define WARRIORS_CELL_STRIDE 10U
+#define WARRIORS_PIECE_STRIDE 16U
+#define WARRIORS_PATCH_STRIDE 6U
+#define WARRIORS_BG_PALETTE_OFFSET 96U
+#define WARRIORS_SPRITE_PALETTE_OFFSET 112U
+#define WARRIORS_PAGES_OFFSET 128U
+#define WARRIORS_PIECES_OFFSET \
+    (WARRIORS_PAGES_OFFSET + TECMO_INTRO_WARRIORS_PAGE_COUNT * \
+                                  TECMO_INTRO_WARRIORS_TILES_PER_PAGE * WARRIORS_CELL_STRIDE)
+#define WARRIORS_PATCHES_OFFSET \
+    (WARRIORS_PIECES_OFFSET + TECMO_INTRO_WARRIORS_PIECE_COUNT * WARRIORS_PIECE_STRIDE)
+#define WARRIORS_WORDMARK_OFFSET \
+    (WARRIORS_PATCHES_OFFSET + TECMO_INTRO_WARRIORS_PATCH_COUNT * \
+                                    TECMO_INTRO_WARRIORS_PATCH_TILE_COUNT * WARRIORS_PATCH_STRIDE)
+#define WARRIORS_PAYLOAD_SIZE \
+    (WARRIORS_WORDMARK_OFFSET + TECMO_INTRO_WARRIORS_WORDMARK_TILE_COUNT * \
+                                    WARRIORS_PATCH_STRIDE)
 
-typedef struct PostTileCell {
-    bool present;
-    uint8_t tile;
-    TecmoIntroPostMapperState mapper;
-} PostTileCell;
-
-static const uint8_t POST_BLACK_PALETTE[16] = {
-    0x0FU, 0x0FU, 0x0FU, 0x0FU,
-    0x0FU, 0x0FU, 0x0FU, 0x0FU,
-    0x0FU, 0x0FU, 0x0FU, 0x0FU,
-    0x0FU, 0x0FU, 0x0FU, 0x0FU,
-};
-
-static const TecmoIntroPostMapperState POST_READY_DEFAULT_MAPPER = {
-    {0xF0U, 0xF2U, 0x08U, 0x09U, 0x00U, 0x00U, 0x08U, 0x09U}
-};
-
-static const TecmoIntroPostMapperState POST_WARRIORS_DEFAULT_MAPPER = {
-    {0x0AU, 0xFAU, 0x91U, 0x93U, 0x95U, 0x97U, 0x08U, 0x09U}
-};
-
-static const char *POST_CAPTURE_ASSET_ENTRIES[] = {
-    "intro/post-arena/capture.ndjson",
-    "intro/post-arena/capture",
-    "intro/post_arena/capture.ndjson",
-    "intro/post-arena/emu_intro_memory_watch.ndjson",
-};
-
-static void post_rect(TecmoFramebuffer *fb, int x, int y, int w, int h, uint32_t color)
+static uint16_t read_u16(const uint8_t *bytes)
 {
-    int x0 = x;
-    int y0 = y;
-    int x1 = x + w;
-    int y1 = y + h;
+    return (uint16_t)bytes[0] | ((uint16_t)bytes[1] << 8U);
+}
 
-    if (fb == NULL || fb->pixels == NULL || w <= 0 || h <= 0) {
-        return;
-    }
-    if (x0 < 0) x0 = 0;
-    if (y0 < 0) y0 = 0;
-    if (x1 > fb->width) x1 = fb->width;
-    if (y1 > fb->height) y1 = fb->height;
-    if (x0 >= x1 || y0 >= y1) {
-        return;
-    }
+static uint32_t read_u32(const uint8_t *bytes)
+{
+    return (uint32_t)bytes[0] |
+           ((uint32_t)bytes[1] << 8U) |
+           ((uint32_t)bytes[2] << 16U) |
+           ((uint32_t)bytes[3] << 24U);
+}
 
-    for (int row = y0; row < y1; ++row) {
-        uint32_t *dst = fb->pixels + (size_t)row * (size_t)fb->pitch_pixels + (size_t)x0;
-        for (int col = x0; col < x1; ++col) {
-            *dst++ = color;
-        }
+static void set_status(char *dest, size_t size, const char *text)
+{
+    if (dest != NULL && size > 0U) {
+        (void)snprintf(dest, size, "%s", text != NULL ? text : "");
     }
 }
 
-static char *read_text_file(const char *path, size_t *size_out)
+static int make_pack_path(char *path,
+                          size_t path_size,
+                          const char *root,
+                          const char *suffix)
 {
-    FILE *file = fopen(path, "rb");
-    long size;
-    char *buffer;
+    int written;
+    size_t root_length;
 
-    if (size_out != NULL) {
-        *size_out = 0;
+    if (path == NULL || path_size == 0U || root == NULL || root[0] == '\0') {
+        return -1;
     }
-    if (file == NULL) {
-        return NULL;
-    }
-    if (fseek(file, 0, SEEK_END) != 0) {
-        fclose(file);
-        return NULL;
-    }
-    size = ftell(file);
-    if (size < 0) {
-        fclose(file);
-        return NULL;
-    }
-    if (fseek(file, 0, SEEK_SET) != 0) {
-        fclose(file);
-        return NULL;
-    }
+    root_length = strlen(root);
+    written = snprintf(path,
+                       path_size,
+                       "%s%s%s",
+                       root,
+                       root[root_length - 1U] == '\\' || root[root_length - 1U] == '/' ? "" : "\\",
+                       suffix);
+    return written >= 0 && (size_t)written < path_size ? 0 : -1;
+}
 
-    buffer = (char *)malloc((size_t)size + 1U);
-    if (buffer == NULL) {
-        fclose(file);
-        return NULL;
-    }
-    if (size > 0 && fread(buffer, 1U, (size_t)size, file) != (size_t)size) {
-        free(buffer);
-        fclose(file);
-        return NULL;
-    }
+static bool file_exists(const char *path)
+{
+    FILE *file;
+    if (path == NULL || path[0] == '\0') return false;
+    file = fopen(path, "rb");
+    if (file == NULL) return false;
     fclose(file);
-
-    buffer[size] = '\0';
-    if (size_out != NULL) {
-        *size_out = (size_t)size;
-    }
-    return buffer;
+    return true;
 }
 
-static char *read_asset_pack_text_entry(const char *pack_path,
-                                        const char *entry_id,
-                                        size_t *size_out)
+static bool read_native_entry(const char *project_root,
+                              const char *entry_id,
+                              uint8_t **bytes_out,
+                              uint64_t *size_out,
+                              char *pack_path_out,
+                              size_t pack_path_size)
 {
-    uint8_t *entry_bytes = NULL;
-    uint64_t entry_size = 0;
-    char *buffer;
+    const char *env_path = getenv("TECMO_ASSETPACK");
+    const char *paths[5] = {0};
+    char root_build[1024];
+    char root_pack[1024];
+    size_t path_count = 0U;
 
-    if (size_out != NULL) {
-        *size_out = 0U;
-    }
-    if (pack_path == NULL || entry_id == NULL ||
-        tecmo_asset_pack_read_entry(pack_path, entry_id, &entry_bytes, &entry_size) != 0) {
-        return NULL;
-    }
-    if (entry_size > (uint64_t)((size_t)-1) - 1ULL) {
-        tecmo_asset_pack_free(entry_bytes);
-        return NULL;
-    }
-
-    buffer = (char *)malloc((size_t)entry_size + 1U);
-    if (buffer == NULL) {
-        tecmo_asset_pack_free(entry_bytes);
-        return NULL;
-    }
-    if (entry_size > 0U) {
-        memcpy(buffer, entry_bytes, (size_t)entry_size);
-    }
-    buffer[(size_t)entry_size] = '\0';
-    if (size_out != NULL) {
-        *size_out = (size_t)entry_size;
-    }
-
-    tecmo_asset_pack_free(entry_bytes);
-    return buffer;
-}
-
-static const char *skip_json_spaces(const char *cursor, const char *end)
-{
-    while (cursor < end && isspace((unsigned char)*cursor)) {
-        ++cursor;
-    }
-    return cursor;
-}
-
-static const char *find_json_value(const char *start, const char *end, const char *key)
-{
-    char pattern[96];
-    const char *cursor = start;
-    size_t key_len = strlen(key);
-
-    if (key_len + 3U >= sizeof(pattern)) {
-        return NULL;
-    }
-    (void)snprintf(pattern, sizeof(pattern), "\"%s\"", key);
-    while ((cursor = strstr(cursor, pattern)) != NULL && cursor < end) {
-        const char *colon = strchr(cursor + strlen(pattern), ':');
-        if (colon == NULL || colon >= end) {
-            return NULL;
+    if (env_path != NULL && env_path[0] != '\0') {
+        paths[path_count++] = env_path;
+    } else {
+        if (make_pack_path(root_build, sizeof(root_build), project_root, "build\\tecmo.assetpack") == 0) {
+            paths[path_count++] = root_build;
         }
-        return skip_json_spaces(colon + 1, end);
+        if (make_pack_path(root_pack, sizeof(root_pack), project_root, "tecmo.assetpack") == 0) {
+            paths[path_count++] = root_pack;
+        }
+        paths[path_count++] = "build\\tecmo.assetpack";
+        paths[path_count++] = "tecmo.assetpack";
+        paths[path_count++] = "..\\build\\tecmo.assetpack";
     }
-    return NULL;
+
+    for (size_t i = 0U; i < path_count; ++i) {
+        if (!file_exists(paths[i])) continue;
+        if (tecmo_asset_pack_read_entry(paths[i], entry_id, bytes_out, size_out) == 0) {
+            if (pack_path_out != NULL && pack_path_size > 0U) {
+                (void)snprintf(pack_path_out, pack_path_size, "%s", paths[i]);
+            }
+            return true;
+        }
+        return false;
+    }
+    return false;
 }
 
-static bool json_int_field(const char *start, const char *end, const char *key, int *out)
+static bool chr_range_valid(uint32_t offset, uint64_t chr_byte_count, uint32_t size)
 {
-    const char *value = find_json_value(start, end, key);
-    char *parse_end;
-    long parsed;
+    return (uint64_t)offset <= chr_byte_count && (uint64_t)size <= chr_byte_count - offset;
+}
 
-    if (value == NULL || value >= end || out == NULL) {
+static bool parse_ready(TecmoIntroReadyAsset *asset,
+                        const uint8_t *bytes,
+                        uint64_t byte_count)
+{
+    if (byte_count != READY_PAYLOAD_SIZE || memcmp(bytes, "TRDY", 4U) != 0 ||
+        read_u16(bytes + 4U) != 1U || read_u16(bytes + 6U) != READY_HEADER_SIZE ||
+        read_u16(bytes + 8U) != TECMO_INTRO_READY_WIDTH ||
+        read_u16(bytes + 10U) != TECMO_INTRO_READY_HEIGHT ||
+        read_u16(bytes + 12U) != READY_CELL_STRIDE ||
+        read_u16(bytes + 14U) != TECMO_INTRO_READY_PALETTE_STAGE_COUNT ||
+        read_u16(bytes + 16U) != TECMO_INTRO_READY_MASK_COUNT ||
+        read_u16(bytes + 18U) != TECMO_INTRO_READY_MASK_SLOT_COUNT ||
+        read_u32(bytes + 20U) != READY_PALETTES_OFFSET ||
+        read_u32(bytes + 24U) != READY_PALETTE_FRAMES_OFFSET ||
+        read_u32(bytes + 28U) != READY_MASKS_OFFSET ||
+        read_u32(bytes + 32U) != READY_CELLS_OFFSET ||
+        read_u32(bytes + 36U) != TECMO_INTRO_READY_CELL_COUNT ||
+        read_u32(bytes + 40U) != TECMO_INTRO_READY_HANDOFF_FRAME ||
+        read_u16(bytes + 44U) != 8U || read_u16(bytes + 46U) != 16U ||
+        read_u16(bytes + 48U) != 16U || read_u16(bytes + 50U) != 4U) {
         return false;
     }
-    parsed = strtol(value, &parse_end, 10);
-    if (parse_end == value || parse_end > end) {
+
+    memcpy(asset->palettes, bytes + READY_PALETTES_OFFSET, sizeof(asset->palettes));
+    memcpy(asset->palette_frames,
+           bytes + READY_PALETTE_FRAMES_OFFSET,
+           sizeof(asset->palette_frames));
+    memcpy(asset->masks, bytes + READY_MASKS_OFFSET, sizeof(asset->masks));
+    if (asset->palette_frames[0] != 0U || asset->palette_frames[1] != 10U ||
+        asset->palette_frames[2] != 14U || asset->palette_frames[3] != 18U ||
+        asset->palette_frames[4] != 22U) {
         return false;
     }
-    *out = (int)parsed;
+
+    for (size_t i = 0U; i < TECMO_INTRO_READY_CELL_COUNT; ++i) {
+        const uint8_t *cell = bytes + READY_CELLS_OFFSET + i * READY_CELL_STRIDE;
+        asset->cells[i].tile_id = cell[0];
+        asset->cells[i].palette_index = cell[1];
+        asset->cells[i].chr_offset = read_u32(cell + 2U);
+        if (asset->cells[i].palette_index > 3U) {
+            return false;
+        }
+    }
+    for (size_t record = 0U; record < TECMO_INTRO_READY_MASK_COUNT; ++record) {
+        for (size_t slot = 0U; slot < TECMO_INTRO_READY_MASK_SLOT_COUNT; ++slot) {
+            if (asset->masks[record][slot] > 3U) {
+                return false;
+            }
+        }
+    }
     return true;
 }
 
-static bool json_string_span(const char *start,
-                             const char *end,
-                             const char *key,
-                             const char **value_start,
-                             const char **value_end)
+static bool parse_warriors(TecmoIntroWarriorsAsset *asset,
+                           const uint8_t *bytes,
+                           uint64_t byte_count)
 {
-    const char *value = find_json_value(start, end, key);
-    const char *close;
+    if (byte_count != WARRIORS_PAYLOAD_SIZE || memcmp(bytes, "TWAR", 4U) != 0 ||
+        read_u16(bytes + 4U) != 1U || read_u16(bytes + 6U) != WARRIORS_HEADER_SIZE ||
+        read_u16(bytes + 8U) != 32U || read_u16(bytes + 10U) != 30U ||
+        read_u16(bytes + 12U) != TECMO_INTRO_WARRIORS_PAGE_COUNT ||
+        read_u16(bytes + 14U) != WARRIORS_CELL_STRIDE ||
+        read_u16(bytes + 16U) != TECMO_INTRO_WARRIORS_PIECE_COUNT ||
+        read_u16(bytes + 18U) != WARRIORS_PIECE_STRIDE ||
+        read_u16(bytes + 20U) != TECMO_INTRO_WARRIORS_PATCH_COUNT ||
+        read_u16(bytes + 22U) != TECMO_INTRO_WARRIORS_PATCH_TILE_COUNT ||
+        read_u16(bytes + 24U) != TECMO_INTRO_WARRIORS_SPLIT_SCANLINE ||
+        read_u32(bytes + 28U) != WARRIORS_BG_PALETTE_OFFSET ||
+        read_u32(bytes + 32U) != WARRIORS_SPRITE_PALETTE_OFFSET ||
+        read_u32(bytes + 36U) != WARRIORS_PAGES_OFFSET ||
+        read_u32(bytes + 40U) != WARRIORS_PIECES_OFFSET ||
+        read_u32(bytes + 44U) != WARRIORS_PATCHES_OFFSET ||
+        read_u32(bytes + 48U) != TECMO_INTRO_WARRIORS_HANDOFF_FRAME ||
+        bytes[52U] != TECMO_INTRO_WARRIORS_NEXT_SCREEN ||
+        bytes[53U] != 4U || bytes[54U] != 7U || bytes[55U] != 11U ||
+        bytes[56U] != 15U || bytes[57U] != 17U || bytes[58U] != 26U ||
+        bytes[59U] != 74U || bytes[60U] != 193U || bytes[61U] != 200U ||
+        bytes[62U] != 213U ||
+        read_u32(bytes + 64U) != WARRIORS_WORDMARK_OFFSET ||
+        read_u16(bytes + 68U) != TECMO_INTRO_WARRIORS_WORDMARK_GLYPH_COUNT ||
+        read_u16(bytes + 70U) != 4U || read_u16(bytes + 72U) != 8U ||
+        read_u16(bytes + 74U) != 26U) {
+        return false;
+    }
 
-    if (value_start == NULL || value_end == NULL) {
-        return false;
+    memcpy(asset->background_palette, bytes + WARRIORS_BG_PALETTE_OFFSET, 16U);
+    memcpy(asset->sprite_palette, bytes + WARRIORS_SPRITE_PALETTE_OFFSET, 16U);
+    for (size_t page = 0U; page < TECMO_INTRO_WARRIORS_PAGE_COUNT; ++page) {
+        for (size_t i = 0U; i < TECMO_INTRO_WARRIORS_TILES_PER_PAGE; ++i) {
+            const uint8_t *cell = bytes + WARRIORS_PAGES_OFFSET +
+                                  (page * TECMO_INTRO_WARRIORS_TILES_PER_PAGE + i) *
+                                      WARRIORS_CELL_STRIDE;
+            TecmoIntroWarriorsTile *dest = &asset->pages[page][i];
+            dest->tile_id = cell[0];
+            dest->palette_index = cell[1];
+            dest->moving_chr_offset = read_u32(cell + 2U);
+            dest->lower_chr_offset = read_u32(cell + 6U);
+            if (dest->palette_index > 3U) {
+                return false;
+            }
+        }
     }
-    *value_start = NULL;
-    *value_end = NULL;
-    if (value == NULL || value >= end || *value != '"') {
-        return false;
+    for (size_t i = 0U; i < TECMO_INTRO_WARRIORS_PIECE_COUNT; ++i) {
+        const uint8_t *piece = bytes + WARRIORS_PIECES_OFFSET + i * WARRIORS_PIECE_STRIDE;
+        TecmoIntroWarriorsPiece *dest = &asset->pieces[i];
+        dest->dx = (int16_t)read_u16(piece + 0U);
+        dest->dy = (int16_t)read_u16(piece + 2U);
+        dest->top_chr_offset = read_u32(piece + 4U);
+        dest->bottom_chr_offset = read_u32(piece + 8U);
+        dest->palette_index = piece[12U];
+        dest->flags = piece[13U];
+        if (dest->palette_index > 3U || (dest->flags & 0xFCU) != 0U) {
+            return false;
+        }
     }
-    close = strchr(value + 1, '"');
-    if (close == NULL || close >= end) {
-        return false;
+    for (size_t patch = 0U; patch < TECMO_INTRO_WARRIORS_PATCH_COUNT; ++patch) {
+        for (size_t i = 0U; i < TECMO_INTRO_WARRIORS_PATCH_TILE_COUNT; ++i) {
+            const uint8_t *cell = bytes + WARRIORS_PATCHES_OFFSET +
+                                  (patch * TECMO_INTRO_WARRIORS_PATCH_TILE_COUNT + i) *
+                                      WARRIORS_PATCH_STRIDE;
+            TecmoIntroWarriorsPatchTile *dest = &asset->patches[patch][i];
+            dest->tile_id = cell[0];
+            dest->palette_index = cell[1];
+            dest->chr_offset = read_u32(cell + 2U);
+            if (dest->palette_index > 3U) {
+                return false;
+            }
+        }
     }
-    *value_start = value + 1;
-    *value_end = close;
+    for (size_t i = 0U; i < TECMO_INTRO_WARRIORS_WORDMARK_TILE_COUNT; ++i) {
+        const uint8_t *cell = bytes + WARRIORS_WORDMARK_OFFSET + i * WARRIORS_PATCH_STRIDE;
+        TecmoIntroWarriorsPatchTile *dest = &asset->wordmark[i];
+        dest->tile_id = cell[0];
+        dest->palette_index = cell[1];
+        dest->chr_offset = read_u32(cell + 2U);
+        if (dest->tile_id < 0x80U || dest->palette_index > 3U) {
+            return false;
+        }
+    }
     return true;
 }
 
-static bool json_string_field_equals(const char *start,
-                                     const char *end,
-                                     const char *key,
-                                     const char *expected)
+static bool palette_valid(const uint8_t *palette, size_t count)
 {
-    const char *value_start;
-    const char *value_end;
-    size_t expected_len;
-
-    if (!json_string_span(start, end, key, &value_start, &value_end) || expected == NULL) {
-        return false;
+    for (size_t i = 0U; i < count; ++i) {
+        if (palette[i] > 0x3FU) return false;
     }
-    expected_len = strlen(expected);
-    return (size_t)(value_end - value_start) == expected_len &&
-           strncmp(value_start, expected, expected_len) == 0;
-}
-
-static bool parse_hex_pair(const char **cursor_io,
-                           const char *end,
-                           unsigned *address_out,
-                           unsigned *value_out)
-{
-    const char *cursor;
-    char *parse_end;
-    unsigned long address;
-    unsigned long value;
-
-    if (cursor_io == NULL || *cursor_io == NULL ||
-        address_out == NULL || value_out == NULL) {
-        return false;
-    }
-    cursor = *cursor_io;
-    while (cursor < end && (*cursor == ',' || isspace((unsigned char)*cursor))) {
-        ++cursor;
-    }
-    if (cursor >= end) {
-        *cursor_io = cursor;
-        return false;
-    }
-
-    address = strtoul(cursor, &parse_end, 16);
-    if (parse_end == cursor || parse_end >= end || *parse_end != '=') {
-        *cursor_io = parse_end > cursor ? parse_end : cursor + 1;
-        return false;
-    }
-    cursor = parse_end + 1;
-    value = strtoul(cursor, &parse_end, 16);
-    if (parse_end == cursor) {
-        *cursor_io = cursor + 1;
-        return false;
-    }
-
-    *address_out = (unsigned)address;
-    *value_out = (unsigned)value;
-    cursor = parse_end;
-    while (cursor < end && *cursor != ',') {
-        ++cursor;
-    }
-    if (cursor < end && *cursor == ',') {
-        ++cursor;
-    }
-    *cursor_io = cursor;
     return true;
 }
 
-static void post_capture_status(TecmoIntroPostArenaCapture *capture, const char *text)
+static bool resolved_chr_valid(uint32_t offset, uint64_t chr_byte_count, uint32_t size)
 {
-    if (capture == NULL) {
-        return;
-    }
-    if (text == NULL) {
-        text = "";
-    }
-    (void)snprintf(capture->status, sizeof(capture->status), "%s", text);
+    return (offset & 0x0FU) == 0U && chr_range_valid(offset, chr_byte_count, size);
 }
 
-static void append_path(char *dest, size_t dest_size, const char *root, const char *relative)
+static bool validate_ready_asset(const TecmoIntroReadyAsset *asset, uint64_t chr_byte_count)
 {
-    size_t root_len;
-
-    if (dest == NULL || dest_size == 0U) {
-        return;
+    if (!palette_valid(&asset->palettes[0][0], sizeof(asset->palettes))) return false;
+    for (size_t i = 0U; i < TECMO_INTRO_READY_CELL_COUNT; ++i) {
+        if (!resolved_chr_valid(asset->cells[i].chr_offset, chr_byte_count, 16U)) return false;
     }
-    dest[0] = '\0';
-    if (root == NULL || root[0] == '\0') {
-        return;
-    }
-
-    (void)snprintf(dest, dest_size, "%s", root);
-    root_len = strlen(dest);
-    if (root_len > 0U && root_len + 1U < dest_size &&
-        dest[root_len - 1U] != '\\' && dest[root_len - 1U] != '/') {
-        dest[root_len++] = '\\';
-        dest[root_len] = '\0';
-    }
-    if (root_len < dest_size) {
-        (void)snprintf(dest + root_len, dest_size - root_len, "%s", relative);
-    }
+    return true;
 }
 
-static const char *post_capture_env_path(void)
+static bool validate_warriors_asset(const TecmoIntroWarriorsAsset *asset,
+                                    uint64_t chr_byte_count)
 {
-    const char *value = getenv("TECMO_INTRO_CAPTURE");
-    return value != NULL && value[0] != '\0' ? value : NULL;
+    if (!palette_valid(asset->background_palette, sizeof(asset->background_palette)) ||
+        !palette_valid(asset->sprite_palette, sizeof(asset->sprite_palette))) return false;
+    for (size_t page = 0U; page < TECMO_INTRO_WARRIORS_PAGE_COUNT; ++page) {
+        for (size_t i = 0U; i < TECMO_INTRO_WARRIORS_TILES_PER_PAGE; ++i) {
+            const TecmoIntroWarriorsTile *cell = &asset->pages[page][i];
+            if (!resolved_chr_valid(cell->moving_chr_offset, chr_byte_count, 16U) ||
+                !resolved_chr_valid(cell->lower_chr_offset, chr_byte_count, 16U)) return false;
+        }
+    }
+    for (size_t i = 0U; i < TECMO_INTRO_WARRIORS_PIECE_COUNT; ++i) {
+        if (!resolved_chr_valid(asset->pieces[i].top_chr_offset, chr_byte_count, 16U) ||
+            !resolved_chr_valid(asset->pieces[i].bottom_chr_offset, chr_byte_count, 16U)) return false;
+    }
+    for (size_t patch = 0U; patch < TECMO_INTRO_WARRIORS_PATCH_COUNT; ++patch) {
+        for (size_t i = 0U; i < TECMO_INTRO_WARRIORS_PATCH_TILE_COUNT; ++i) {
+            if (!resolved_chr_valid(asset->patches[patch][i].chr_offset,
+                                    chr_byte_count,
+                                    16U)) return false;
+        }
+    }
+    for (size_t i = 0U; i < TECMO_INTRO_WARRIORS_WORDMARK_TILE_COUNT; ++i) {
+        if (!resolved_chr_valid(asset->wordmark[i].chr_offset, chr_byte_count, 16U)) return false;
+    }
+    return true;
 }
 
-static const char *asset_pack_env_path(void)
+bool tecmo_intro_ready_asset_load(TecmoIntroReadyAsset *asset, const char *project_root)
 {
-    const char *value = getenv("TECMO_ASSETPACK");
-    return value != NULL && value[0] != '\0' ? value : NULL;
+    uint8_t *bytes = NULL;
+    uint8_t *chr_bytes = NULL;
+    uint64_t byte_count = 0U;
+    uint64_t chr_byte_count = 0U;
+    char pack_path[1024];
+    bool loaded;
+
+    if (asset == NULL) {
+        return false;
+    }
+    memset(asset, 0, sizeof(*asset));
+    if (!read_native_entry(project_root,
+                           READY_ENTRY_ID,
+                           &bytes,
+                           &byte_count,
+                           pack_path,
+                           sizeof(pack_path))) {
+        set_status(asset->status, sizeof(asset->status), "TRDY-1 asset unavailable");
+        return false;
+    }
+    loaded = parse_ready(asset, bytes, byte_count);
+    tecmo_asset_pack_free(bytes);
+    if (loaded && tecmo_asset_pack_read_entry(pack_path,
+                                              "chr/all",
+                                              &chr_bytes,
+                                              &chr_byte_count) == 0) {
+        loaded = validate_ready_asset(asset, chr_byte_count);
+    } else {
+        loaded = false;
+    }
+    tecmo_asset_pack_free(chr_bytes);
+    if (!loaded) {
+        set_status(asset->status, sizeof(asset->status), "TRDY-1 asset rejected");
+        return false;
+    }
+    asset->available = true;
+    (void)snprintf(asset->status, sizeof(asset->status), "TRDY-1 assetpack %s", pack_path);
+    return true;
 }
 
-static void parse_mapper_batch(TecmoIntroPostMapperState *state, const char *start, const char *end)
+bool tecmo_intro_warriors_asset_load(TecmoIntroWarriorsAsset *asset,
+                                     const char *project_root)
 {
-    const char *cursor = start;
-    int selected = 0;
+    uint8_t *bytes = NULL;
+    uint8_t *chr_bytes = NULL;
+    uint64_t byte_count = 0U;
+    uint64_t chr_byte_count = 0U;
+    char pack_path[1024];
+    bool loaded;
 
+    if (asset == NULL) {
+        return false;
+    }
+    memset(asset, 0, sizeof(*asset));
+    if (!read_native_entry(project_root,
+                           WARRIORS_ENTRY_ID,
+                           &bytes,
+                           &byte_count,
+                           pack_path,
+                           sizeof(pack_path))) {
+        set_status(asset->status, sizeof(asset->status), "TWAR-1 asset unavailable");
+        return false;
+    }
+    loaded = parse_warriors(asset, bytes, byte_count);
+    tecmo_asset_pack_free(bytes);
+    if (loaded && tecmo_asset_pack_read_entry(pack_path,
+                                              "chr/all",
+                                              &chr_bytes,
+                                              &chr_byte_count) == 0) {
+        loaded = validate_warriors_asset(asset, chr_byte_count);
+    } else {
+        loaded = false;
+    }
+    tecmo_asset_pack_free(chr_bytes);
+    if (!loaded) {
+        set_status(asset->status, sizeof(asset->status), "TWAR-1 asset rejected");
+        return false;
+    }
+    asset->available = true;
+    (void)snprintf(asset->status, sizeof(asset->status), "TWAR-1 assetpack %s", pack_path);
+    return true;
+}
+
+void tecmo_intro_ready_state(unsigned frame, TecmoIntroReadyState *state)
+{
     if (state == NULL) {
         return;
     }
-
-    while (cursor < end) {
-        while (cursor < end && (*cursor == ',' || isspace((unsigned char)*cursor))) {
-            ++cursor;
-        }
-        if (cursor + 5 <= end && strncmp(cursor, "8000=", 5) == 0) {
-            char *parse_end;
-            unsigned long value = strtoul(cursor + 5, &parse_end, 16);
-            if (parse_end != cursor + 5) {
-                selected = (int)(value & 0x07UL);
-                cursor = parse_end;
-                continue;
-            }
-        } else if (cursor + 5 <= end && strncmp(cursor, "8001", 4) == 0) {
-            const char *value_start = strchr(cursor, '=');
-            char *parse_end;
-            int reg = selected;
-            if (value_start != NULL && value_start < end) {
-                if (cursor[4] == '[' && cursor + 7 < value_start) {
-                    reg = (int)strtoul(cursor + 5, NULL, 16);
-                }
-                if (reg >= 0 && reg < 8) {
-                    unsigned long value = strtoul(value_start + 1, &parse_end, 16);
-                    if (parse_end != value_start + 1 && value <= 0xFFUL) {
-                        state->regs[reg] = (uint8_t)value;
-                        cursor = parse_end;
-                        continue;
-                    }
-                }
-            }
-        }
-
-        while (cursor < end && *cursor != ',') {
-            ++cursor;
-        }
-        if (cursor < end && *cursor == ',') {
-            ++cursor;
-        }
+    memset(state, 0, sizeof(*state));
+    state->frame = frame;
+    state->handoff = frame >= TECMO_INTRO_READY_HANDOFF_FRAME;
+    state->black = frame >= 56U;
+    if (frame >= 22U) state->palette_stage = 4U;
+    else if (frame >= 18U) state->palette_stage = 3U;
+    else if (frame >= 14U) state->palette_stage = 2U;
+    else if (frame >= 10U) state->palette_stage = 1U;
+    if (frame >= 24U) {
+        unsigned record = (frame - 24U) / 2U;
+        state->mask_index = (uint8_t)(record < TECMO_INTRO_READY_MASK_COUNT
+                                          ? record
+                                          : TECMO_INTRO_READY_MASK_COUNT - 1U);
     }
 }
 
-static void append_tile_event(TecmoIntroPostArenaCapture *capture,
-                              unsigned frame,
-                              unsigned address,
-                              unsigned value,
-                              const TecmoIntroPostMapperState *mapper)
+void tecmo_intro_warriors_state(unsigned frame, TecmoIntroWarriorsState *state)
 {
-    TecmoIntroPostTileEvent *event;
-
-    if (capture == NULL || mapper == NULL || value > 0xFFU ||
-        address < 0x2000U || address >= 0x2800U) {
+    if (state == NULL) {
         return;
     }
-    if (((address - 0x2000U) % 0x400U) >= TECMO_INTRO_POST_TILES_PER_PAGE) {
+    memset(state, 0, sizeof(*state));
+    state->frame = frame;
+    state->next_screen = TECMO_INTRO_WARRIORS_NEXT_SCREEN;
+    if (frame >= TECMO_INTRO_WARRIORS_HANDOFF_FRAME) {
+        state->phase = TECMO_INTRO_WARRIORS_HANDOFF;
+        state->handoff = true;
+        state->black = true;
         return;
     }
-    if (capture->tile_event_count >= TECMO_INTRO_POST_MAX_TILE_EVENTS) {
-        capture->truncated = true;
+    if (frame >= 213U) {
+        state->phase = TECMO_INTRO_WARRIORS_BLACK;
+        state->black = true;
         return;
     }
-
-    event = &capture->tile_events[capture->tile_event_count++];
-    event->frame = frame;
-    event->ppu = (uint16_t)address;
-    event->tile = (uint8_t)value;
-    event->mapper = *mapper;
-    capture->last_capture_frame = frame;
-}
-
-static void append_attribute_event(TecmoIntroPostArenaCapture *capture,
-                                   unsigned frame,
-                                   unsigned address,
-                                   unsigned value)
-{
-    TecmoIntroPostAttributeEvent *event;
-
-    if (capture == NULL || value > 0xFFU) {
-        return;
-    }
-    if (!((address >= 0x23C0U && address < 0x2400U) ||
-          (address >= 0x27C0U && address < 0x2800U))) {
-        return;
-    }
-    if (capture->attribute_event_count >= TECMO_INTRO_POST_MAX_ATTRIBUTE_EVENTS) {
-        capture->truncated = true;
-        return;
-    }
-
-    event = &capture->attribute_events[capture->attribute_event_count++];
-    event->frame = frame;
-    event->ppu = (uint16_t)address;
-    event->value = (uint8_t)value;
-    capture->last_capture_frame = frame;
-}
-
-static void parse_nametable_pairs(TecmoIntroPostArenaCapture *capture,
-                                  unsigned frame,
-                                  const char *start,
-                                  const char *end,
-                                  const TecmoIntroPostMapperState *mapper)
-{
-    const char *cursor = start;
-
-    while (cursor < end) {
-        unsigned address;
-        unsigned value;
-        if (parse_hex_pair(&cursor, end, &address, &value)) {
-            append_tile_event(capture, frame, address, value, mapper);
-        }
-    }
-}
-
-static void parse_attribute_pairs(TecmoIntroPostArenaCapture *capture,
-                                  unsigned frame,
-                                  const char *start,
-                                  const char *end)
-{
-    const char *cursor = start;
-
-    while (cursor < end) {
-        unsigned address;
-        unsigned value;
-        if (parse_hex_pair(&cursor, end, &address, &value)) {
-            append_attribute_event(capture, frame, address, value);
-        }
-    }
-}
-
-static void parse_palette_stage(TecmoIntroPostArenaCapture *capture,
-                                unsigned frame,
-                                const char *start,
-                                const char *end)
-{
-    TecmoIntroPostPaletteStage *stage;
-    const char *cursor = start;
-
-    if (capture == NULL ||
-        capture->palette_stage_count >= TECMO_INTRO_POST_MAX_PALETTE_STAGES) {
-        if (capture != NULL) {
-            capture->truncated = true;
-        }
-        return;
-    }
-
-    stage = &capture->palette_stages[capture->palette_stage_count];
-    stage->frame = frame;
-    if (capture->palette_stage_count > 0U) {
-        const TecmoIntroPostPaletteStage *previous =
-            &capture->palette_stages[capture->palette_stage_count - 1U];
-        memcpy(stage->background, previous->background, sizeof(stage->background));
-        memcpy(stage->sprites, previous->sprites, sizeof(stage->sprites));
+    if (frame >= 200U) {
+        state->phase = TECMO_INTRO_WARRIORS_PATCH_TWO;
+        state->patch_count = 2U;
+    } else if (frame >= 193U) {
+        state->phase = TECMO_INTRO_WARRIORS_PATCH_ONE;
+        state->patch_count = 1U;
+    } else if (frame >= 75U) {
+        state->phase = TECMO_INTRO_WARRIORS_HOLD;
+    } else if (frame >= 26U) {
+        state->phase = TECMO_INTRO_WARRIORS_PAN;
+    } else if (frame >= 17U) {
+        state->phase = TECMO_INTRO_WARRIORS_WORDMARK;
+    } else if (frame >= 4U) {
+        state->phase = TECMO_INTRO_WARRIORS_FADE;
     } else {
-        memcpy(stage->background, POST_BLACK_PALETTE, sizeof(stage->background));
-        memcpy(stage->sprites, POST_BLACK_PALETTE, sizeof(stage->sprites));
+        state->phase = TECMO_INTRO_WARRIORS_LOAD;
     }
-
-    while (cursor < end) {
-        unsigned address;
-        unsigned value;
-        if (parse_hex_pair(&cursor, end, &address, &value)) {
-            if (address >= 0x3F00U && address < 0x3F10U && value <= 0xFFU) {
-                stage->background[address - 0x3F00U] = (uint8_t)value;
-            } else if (address >= 0x3F10U && address < 0x3F20U && value <= 0xFFU) {
-                stage->sprites[address - 0x3F10U] = (uint8_t)value;
-            }
-        }
+    if (frame >= 15U) state->palette_stage = 3U;
+    else if (frame >= 11U) state->palette_stage = 2U;
+    else if (frame >= 7U) state->palette_stage = 1U;
+    state->sprites_visible = frame >= 4U;
+    state->wordmark_visible = frame >= 17U;
+    if (frame >= 17U) {
+        unsigned glyphs = frame - 16U;
+        state->wordmark_glyph_count = (uint8_t)(glyphs < TECMO_INTRO_WARRIORS_WORDMARK_GLYPH_COUNT
+                                                    ? glyphs
+                                                    : TECMO_INTRO_WARRIORS_WORDMARK_GLYPH_COUNT);
     }
-
-    ++capture->palette_stage_count;
-    capture->last_capture_frame = frame;
+    if (frame >= 26U) {
+        unsigned pan = (frame - 24U) / 2U;
+        state->pan = (uint8_t)(pan < 25U ? pan : 25U);
+    }
 }
 
-static bool parse_oam_quad(const char **cursor_io,
-                           const char *end,
-                           TecmoIntroPostSprite *sprite_out)
+const char *tecmo_intro_warriors_phase_name(TecmoIntroWarriorsPhase phase)
 {
-    const char *cursor;
-    char *parse_end;
-    unsigned long ignored_slot;
-    unsigned long y;
-    unsigned long tile;
-    unsigned long attributes;
-    unsigned long x;
+    static const char *names[] = {
+        "load", "fade", "wordmark", "pan", "hold",
+        "patch-one", "patch-two", "black", "handoff"
+    };
+    return (unsigned)phase < sizeof(names) / sizeof(names[0]) ? names[phase] : "unknown";
+}
 
-    if (cursor_io == NULL || *cursor_io == NULL || sprite_out == NULL) {
-        return false;
+static void fill_rect(TecmoFramebuffer *fb, int x, int y, int w, int h, uint32_t color)
+{
+    int x0 = x < 0 ? 0 : x;
+    int y0 = y < 0 ? 0 : y;
+    int x1 = x + w > fb->width ? fb->width : x + w;
+    int y1 = y + h > fb->height ? fb->height : y + h;
+    if (fb == NULL || fb->pixels == NULL || x0 >= x1 || y0 >= y1) return;
+    for (int row = y0; row < y1; ++row) {
+        uint32_t *dest = fb->pixels + (size_t)row * (size_t)fb->pitch_pixels + (size_t)x0;
+        for (int col = x0; col < x1; ++col) *dest++ = color;
     }
+}
 
-    cursor = *cursor_io;
-    while (cursor < end && (*cursor == ';' || isspace((unsigned char)*cursor))) {
-        ++cursor;
-    }
-    if (cursor >= end) {
-        *cursor_io = cursor;
-        return false;
-    }
+static void make_bg_palette(uint32_t rgba[4], const uint8_t palette[16], uint8_t index)
+{
+    size_t base = (size_t)(index & 3U) * 4U;
+    rgba[0] = tecmo_nes_2c02_rgba(palette[0]);
+    for (size_t i = 1U; i < 4U; ++i) rgba[i] = tecmo_nes_2c02_rgba(palette[base + i]);
+}
 
-    ignored_slot = strtoul(cursor, &parse_end, 10);
-    (void)ignored_slot;
-    if (parse_end == cursor || parse_end >= end || *parse_end != ':') {
-        *cursor_io = parse_end > cursor ? parse_end : cursor + 1;
-        return false;
-    }
-    cursor = parse_end + 1;
+static void make_sprite_palette(uint32_t rgba[4], const uint8_t palette[16], uint8_t index)
+{
+    size_t base = (size_t)(index & 3U) * 4U;
+    rgba[0] = 0U;
+    for (size_t i = 1U; i < 4U; ++i) rgba[i] = tecmo_nes_2c02_rgba(palette[base + i]);
+}
 
-    y = strtoul(cursor, &parse_end, 16);
-    if (parse_end == cursor || parse_end >= end || *parse_end != ',') {
-        *cursor_io = parse_end > cursor ? parse_end : cursor + 1;
-        return false;
-    }
-    cursor = parse_end + 1;
-    tile = strtoul(cursor, &parse_end, 16);
-    if (parse_end == cursor || parse_end >= end || *parse_end != ',') {
-        *cursor_io = parse_end > cursor ? parse_end : cursor + 1;
-        return false;
-    }
-    cursor = parse_end + 1;
-    attributes = strtoul(cursor, &parse_end, 16);
-    if (parse_end == cursor || parse_end >= end || *parse_end != ',') {
-        *cursor_io = parse_end > cursor ? parse_end : cursor + 1;
-        return false;
-    }
-    cursor = parse_end + 1;
-    x = strtoul(cursor, &parse_end, 16);
-    if (parse_end == cursor || y > 0xFFUL || tile > 0xFFUL ||
-        attributes > 0xFFUL || x > 0xFFUL) {
-        *cursor_io = parse_end > cursor ? parse_end : cursor + 1;
-        return false;
-    }
+static uint8_t fade_color(uint8_t color, uint8_t stage)
+{
+    uint8_t reduction;
+    if (stage == 0U) return 0x0FU;
+    if (stage >= 3U || color == 0x0FU) return color;
+    reduction = stage == 1U ? 0x20U : 0x10U;
+    return (color & 0x30U) >= reduction ? (uint8_t)(color - reduction) : 0x0FU;
+}
 
-    sprite_out->y = (uint8_t)y;
-    sprite_out->tile = (uint8_t)tile;
-    sprite_out->attributes = (uint8_t)attributes;
-    sprite_out->x = (uint8_t)x;
+bool tecmo_intro_post_arena_draw_ready(TecmoFramebuffer *fb,
+                                       const TecmoIntroReadyAsset *asset,
+                                       const uint8_t *chr_bytes,
+                                       uint64_t chr_byte_count,
+                                       unsigned frame,
+                                       int origin_x,
+                                       int origin_y,
+                                       int scale)
+{
+    TecmoIntroReadyState state;
+    if (fb == NULL || asset == NULL || !asset->available || chr_bytes == NULL || scale <= 0) {
+        return false;
+    }
+    tecmo_intro_ready_state(frame, &state);
+    fill_rect(fb, origin_x, origin_y, 256 * scale, 240 * scale, tecmo_nes_2c02_rgba(0x0FU));
+    if (state.black) return true;
 
-    cursor = parse_end;
-    while (cursor < end && *cursor != ';') {
-        ++cursor;
+    for (size_t i = 0U; i < TECMO_INTRO_READY_CELL_COUNT; ++i) {
+        const TecmoIntroNativeTile *cell = &asset->cells[i];
+        unsigned row = (unsigned)(i / TECMO_INTRO_READY_WIDTH);
+        unsigned col = (unsigned)(i % TECMO_INTRO_READY_WIDTH);
+        uint8_t palette_index = cell->palette_index;
+        uint32_t rgba[4];
+        if (!chr_range_valid(cell->chr_offset, chr_byte_count, 16U)) return false;
+        if (row >= 16U && row < 18U && col >= 8U && col < 24U) {
+            palette_index = asset->masks[state.mask_index][(col - 8U) / 2U];
+        } else if (row >= 18U && row < 20U && col >= 8U && col < 24U) {
+            palette_index = 0U;
+        }
+        make_bg_palette(rgba, asset->palettes[state.palette_stage], palette_index);
+        tecmo_draw_chr_tile_at_offset_ex(fb,
+                                         chr_bytes,
+                                         chr_byte_count,
+                                         cell->chr_offset,
+                                         origin_x + (int)col * 8 * scale,
+                                         origin_y + (int)row * 8 * scale,
+                                         scale,
+                                         rgba,
+                                         false,
+                                         false);
     }
-    if (cursor < end && *cursor == ';') {
-        ++cursor;
-    }
-    *cursor_io = cursor;
     return true;
 }
 
-static void parse_visible_oam_stage(TecmoIntroPostArenaCapture *capture,
-                                    unsigned frame,
-                                    const char *start,
-                                    const char *end,
-                                    const TecmoIntroPostMapperState *mapper)
+static const TecmoIntroWarriorsTile *warriors_tile(const TecmoIntroWarriorsAsset *asset,
+                                                    unsigned page,
+                                                    unsigned row,
+                                                    unsigned col,
+                                                    uint8_t patch_count,
+                                                    TecmoIntroWarriorsPatchTile const **patch_out)
 {
-    const char *cursor = start;
-    TecmoIntroPostSpriteStage *stage;
-    size_t count = 0;
-
-    if (capture == NULL || mapper == NULL ||
-        capture->sprite_stage_count >= TECMO_INTRO_POST_MAX_SPRITE_STAGES) {
-        if (capture != NULL) {
-            capture->truncated = true;
-        }
-        return;
+    *patch_out = NULL;
+    if (page == 0U && patch_count > 0U && row >= 10U && row < 18U && col >= 12U && col < 20U) {
+        unsigned patch = patch_count - 1U;
+        *patch_out = &asset->patches[patch][(row - 10U) * 8U + col - 12U];
     }
-
-    stage = &capture->sprite_stages[capture->sprite_stage_count];
-    stage->frame = frame;
-    stage->mapper = *mapper;
-    while (cursor < end && count < TECMO_INTRO_POST_MAX_SPRITES) {
-        TecmoIntroPostSprite sprite;
-        if (parse_oam_quad(&cursor, end, &sprite)) {
-            stage->sprites[count++] = sprite;
-        }
-    }
-    stage->sprite_count = count;
-    ++capture->sprite_stage_count;
-    capture->last_capture_frame = frame;
+    return &asset->pages[page][row * 32U + col];
 }
 
-static void parse_scroll_stage(TecmoIntroPostArenaCapture *capture,
-                               unsigned frame,
-                               const char *start,
-                               const char *end)
+static bool draw_warriors_page_rows(TecmoFramebuffer *fb,
+                                    const TecmoIntroWarriorsAsset *asset,
+                                    const uint8_t *chr_bytes,
+                                    uint64_t chr_byte_count,
+                                    const uint8_t palette[16],
+                                    unsigned page,
+                                    unsigned row_first,
+                                    unsigned row_last,
+                                    uint8_t patch_count,
+                                    bool lower,
+                                    int page_x,
+                                    int origin_y,
+                                    int scale)
 {
-    const char *cursor = start;
-    int selected_x = 0;
-    bool found = false;
-    TecmoIntroPostScrollStage *stage;
-
-    if (capture == NULL) {
-        return;
-    }
-
-    while (cursor < end) {
-        const char *match = strstr(cursor, "2005X=");
-        char *parse_end;
-        unsigned long value;
-        if (match == NULL || match >= end) {
-            break;
-        }
-        value = strtoul(match + 6, &parse_end, 16);
-        if (parse_end != match + 6 && value <= 0xFFUL) {
-            int signed_value = value >= 0x80UL ? (int)value - 0x100 : (int)value;
-            if (signed_value != 0 || !found) {
-                selected_x = signed_value;
-                found = true;
-            }
-            cursor = parse_end;
-        } else {
-            cursor = match + 6;
-        }
-    }
-
-    if (!found || capture->scroll_stage_count >= TECMO_INTRO_POST_MAX_SPRITE_STAGES) {
-        return;
-    }
-
-    stage = &capture->scroll_stages[capture->scroll_stage_count++];
-    stage->frame = frame;
-    stage->scroll_x = selected_x;
-}
-
-static bool load_post_capture_text(TecmoIntroPostArenaCapture *capture,
-                                   const char *source_label,
-                                   const char *json,
-                                   size_t json_size)
-{
-    const char *cursor;
-    const char *json_end;
-    TecmoIntroPostMapperState mapper = POST_READY_DEFAULT_MAPPER;
-
-    if (capture == NULL || json == NULL) {
-        return false;
-    }
-    if (source_label == NULL) {
-        source_label = "";
-    }
-
-    cursor = json;
-    json_end = json + json_size;
-
-    while (cursor < json_end) {
-        const char *line_end = strchr(cursor, '\n');
-        int frame_value = 0;
-        unsigned frame;
-
-        if (line_end == NULL || line_end > json_end) {
-            line_end = json_end;
-        }
-
-        if (json_int_field(cursor, line_end, "frame", &frame_value) &&
-            frame_value >= (int)TECMO_INTRO_READY_CAPTURE_FIRST &&
-            frame_value <= (int)TECMO_INTRO_WARRIORS_CAPTURE_LAST) {
-            const char *pair_start;
-            const char *pair_end;
-            frame = (unsigned)frame_value;
-            if (capture->first_capture_frame == 0U) {
-                capture->first_capture_frame = frame;
-            }
-
-            if (json_string_field_equals(cursor, line_end, "kind", "mapper_write_batch") &&
-                json_string_span(cursor, line_end, "mapper_writes", &pair_start, &pair_end)) {
-                parse_mapper_batch(&mapper, pair_start, pair_end);
-            } else if (json_string_field_equals(cursor, line_end, "kind", "ppu_nametable_write_batch") &&
-                       json_string_span(cursor, line_end, "nametable_writes", &pair_start, &pair_end)) {
-                parse_nametable_pairs(capture, frame, pair_start, pair_end, &mapper);
-            } else if (json_string_field_equals(cursor, line_end, "kind", "ppu_attribute_write_batch") &&
-                       json_string_span(cursor, line_end, "attribute_writes", &pair_start, &pair_end)) {
-                parse_attribute_pairs(capture, frame, pair_start, pair_end);
-            } else if (json_string_field_equals(cursor, line_end, "kind", "ppu_palette_write_batch") &&
-                       json_string_span(cursor, line_end, "palette_writes", &pair_start, &pair_end)) {
-                parse_palette_stage(capture, frame, pair_start, pair_end);
-            } else if (json_string_field_equals(cursor, line_end, "kind", "oam_frame_diff") &&
-                       json_string_span(cursor, line_end, "visible_oam", &pair_start, &pair_end)) {
-                TecmoIntroPostMapperState sprite_mapper = mapper;
-                if (frame >= TECMO_INTRO_WARRIORS_CAPTURE_FIRST) {
-                    sprite_mapper = POST_WARRIORS_DEFAULT_MAPPER;
-                }
-                parse_visible_oam_stage(capture, frame, pair_start, pair_end, &sprite_mapper);
-            } else if (json_string_field_equals(cursor, line_end, "kind", "ppu_scroll_write_batch") &&
-                       json_string_span(cursor, line_end, "ppu_scroll_writes", &pair_start, &pair_end)) {
-                parse_scroll_stage(capture, frame, pair_start, pair_end);
-            }
-        }
-
-        cursor = line_end;
-        if (cursor < json_end && *cursor == '\n') {
-            ++cursor;
-        }
-    }
-
-    capture->available = capture->tile_event_count > 0U || capture->sprite_stage_count > 0U;
-    if (capture->available) {
-        (void)snprintf(capture->status,
-                       sizeof(capture->status),
-                       "POST ARENA TRACE %s  NT %u ATTR %u PAL %u OAM %u%s",
-                       source_label,
-                       (unsigned)capture->tile_event_count,
-                       (unsigned)capture->attribute_event_count,
-                       (unsigned)capture->palette_stage_count,
-                       (unsigned)capture->sprite_stage_count,
-                       capture->truncated ? " TRUNCATED" : "");
-    }
-
-    return capture->available;
-}
-
-static void post_asset_pack_status(TecmoIntroPostArenaCapture *capture,
-                                   const char *pack_path,
-                                   const char *entry_id)
-{
-    if (capture == NULL) {
-        return;
-    }
-    if (pack_path == NULL) {
-        pack_path = "";
-    }
-    if (entry_id == NULL) {
-        entry_id = "";
-    }
-    (void)snprintf(capture->status,
-                   sizeof(capture->status),
-                   "POST ARENA TRACE assetpack entry %s pack %s  NT %u ATTR %u PAL %u OAM %u%s",
-                   entry_id,
-                   pack_path,
-                   (unsigned)capture->tile_event_count,
-                   (unsigned)capture->attribute_event_count,
-                   (unsigned)capture->palette_stage_count,
-                   (unsigned)capture->sprite_stage_count,
-                   capture->truncated ? " TRUNCATED" : "");
-}
-
-static bool load_post_capture_file(TecmoIntroPostArenaCapture *capture, const char *path)
-{
-    char *json;
-    size_t json_size = 0;
-    bool loaded;
-
-    json = read_text_file(path, &json_size);
-    if (json == NULL) {
-        return false;
-    }
-
-    loaded = load_post_capture_text(capture, path, json, json_size);
-    free(json);
-    return loaded;
-}
-
-static bool load_post_capture_asset_pack_entry(TecmoIntroPostArenaCapture *capture,
-                                               const char *pack_path,
-                                               const char *entry_id)
-{
-    char *json;
-    size_t json_size = 0;
-    TecmoIntroPostArenaCapture candidate;
-    bool loaded;
-
-    if (capture == NULL || pack_path == NULL || pack_path[0] == '\0' ||
-        entry_id == NULL || entry_id[0] == '\0') {
-        return false;
-    }
-
-    json = read_asset_pack_text_entry(pack_path, entry_id, &json_size);
-    if (json == NULL) {
-        return false;
-    }
-
-    candidate = *capture;
-    loaded = load_post_capture_text(&candidate, entry_id, json, json_size);
-    free(json);
-    if (loaded) {
-        post_asset_pack_status(&candidate, pack_path, entry_id);
-        *capture = candidate;
-    }
-    return loaded;
-}
-
-static bool load_post_capture_asset_pack(TecmoIntroPostArenaCapture *capture,
-                                         const char *project_root)
-{
-    char project_pack_path[260];
-    const char *env_path;
-    const char *pack_paths[4];
-
-    append_path(project_pack_path,
-                sizeof(project_pack_path),
-                project_root,
-                "build\\tecmo.assetpack");
-    env_path = asset_pack_env_path();
-
-    pack_paths[0] = env_path;
-    pack_paths[1] = project_pack_path[0] != '\0' ? project_pack_path : NULL;
-    pack_paths[2] = "build\\tecmo.assetpack";
-    pack_paths[3] = "..\\build\\tecmo.assetpack";
-
-    for (size_t i = 0; i < sizeof(pack_paths) / sizeof(pack_paths[0]); ++i) {
-        if (pack_paths[i] == NULL || pack_paths[i][0] == '\0') {
-            continue;
-        }
-        for (size_t entry = 0;
-             entry < sizeof(POST_CAPTURE_ASSET_ENTRIES) / sizeof(POST_CAPTURE_ASSET_ENTRIES[0]);
-             ++entry) {
-            if (load_post_capture_asset_pack_entry(capture,
-                                                   pack_paths[i],
-                                                   POST_CAPTURE_ASSET_ENTRIES[entry])) {
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
-bool tecmo_intro_post_arena_capture_load(TecmoIntroPostArenaCapture *capture,
-                                         const char *project_root)
-{
-    char project_path[260];
-    const char *env_path;
-    const char *paths[5];
-
-    if (capture == NULL) {
-        return false;
-    }
-
-    memset(capture, 0, sizeof(*capture));
-    post_capture_status(capture, "RUN FCEUX LUA WATCH THROUGH READY/WARRIORS INTRO");
-
-    env_path = post_capture_env_path();
-    if (env_path != NULL && env_path[0] != '\0') {
-        TecmoIntroPostArenaCapture candidate = *capture;
-        if (load_post_capture_file(&candidate, env_path)) {
-            *capture = candidate;
-            return true;
-        }
-    }
-
-    if (load_post_capture_asset_pack(capture, project_root)) {
-        return true;
-    }
-
-    append_path(project_path,
-                sizeof(project_path),
-                project_root,
-                "build\\emu_intro_memory_watch.ndjson");
-
-    paths[0] = NULL;
-    paths[1] = project_path[0] != '\0' ? project_path : NULL;
-    paths[2] = "build\\emu_intro_memory_watch.ndjson";
-    paths[3] = "emu_intro_memory_watch.ndjson";
-    paths[4] = "..\\build\\emu_intro_memory_watch.ndjson";
-
-    for (size_t i = 0; i < sizeof(paths) / sizeof(paths[0]); ++i) {
-        if (paths[i] != NULL && paths[i][0] != '\0' &&
-            load_post_capture_file(capture, paths[i])) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-unsigned tecmo_intro_ready_capture_frame(unsigned native_frame)
-{
-    unsigned frame = TECMO_INTRO_READY_CAPTURE_FIRST + native_frame;
-    if (frame > TECMO_INTRO_READY_CAPTURE_LAST) {
-        frame = TECMO_INTRO_READY_CAPTURE_LAST;
-    }
-    return frame;
-}
-
-unsigned tecmo_intro_warriors_capture_frame(unsigned native_frame)
-{
-    unsigned frame = TECMO_INTRO_WARRIORS_CAPTURE_FIRST + native_frame;
-    if (frame > TECMO_INTRO_WARRIORS_CAPTURE_LAST) {
-        frame = TECMO_INTRO_WARRIORS_CAPTURE_LAST;
-    }
-    return frame;
-}
-
-static bool ppu_tile_position(uint16_t ppu, unsigned *page_out, unsigned *offset_out)
-{
-    unsigned page;
-    unsigned offset;
-
-    if (ppu < 0x2000U || ppu >= 0x2800U || page_out == NULL || offset_out == NULL) {
-        return false;
-    }
-    page = ppu >= 0x2400U ? 1U : 0U;
-    offset = ppu - (page == 0U ? 0x2000U : 0x2400U);
-    if (offset >= TECMO_INTRO_POST_TILES_PER_PAGE) {
-        return false;
-    }
-    *page_out = page;
-    *offset_out = offset;
-    return true;
-}
-
-static bool ppu_attribute_position(uint16_t ppu, unsigned *page_out, unsigned *index_out)
-{
-    if (page_out == NULL || index_out == NULL) {
-        return false;
-    }
-    if (ppu >= 0x23C0U && ppu < 0x2400U) {
-        *page_out = 0U;
-        *index_out = ppu - 0x23C0U;
-        return true;
-    }
-    if (ppu >= 0x27C0U && ppu < 0x2800U) {
-        *page_out = 1U;
-        *index_out = ppu - 0x27C0U;
-        return true;
-    }
-    return false;
-}
-
-static uint8_t attribute_byte(const uint8_t attributes[TECMO_INTRO_POST_PAGE_COUNT][64],
-                              unsigned page,
-                              int row,
-                              int col)
-{
-    size_t index;
-
-    if (page >= TECMO_INTRO_POST_PAGE_COUNT) {
-        return 0U;
-    }
-    index = (size_t)(row / 4) * 8U + (size_t)(col / 4);
-    if (index >= 64U) {
-        return 0U;
-    }
-    return attributes[page][index];
-}
-
-static void build_palette(uint32_t out_palette[4],
-                          const uint8_t nes_palette[16],
-                          uint8_t palette_index)
-{
-    uint8_t base = (uint8_t)((palette_index & 0x03U) * 4U);
-
-    out_palette[0] = tecmo_nes_2c02_rgba(nes_palette[0]);
-    for (size_t i = 1; i < 4U; ++i) {
-        out_palette[i] = tecmo_nes_2c02_rgba(nes_palette[(size_t)base + i]);
-    }
-}
-
-static void build_sprite_palette(uint32_t out_palette[4],
-                                 const uint8_t nes_palette[16],
-                                 uint8_t palette_index)
-{
-    uint8_t base = (uint8_t)((palette_index & 0x03U) * 4U);
-
-    out_palette[0] = 0x00000000U;
-    for (size_t i = 1; i < 4U; ++i) {
-        out_palette[i] = tecmo_nes_2c02_rgba(nes_palette[(size_t)base + i]);
-    }
-}
-
-static uint64_t mmc3_ppu_offset(const TecmoIntroPostMapperState *mapper, uint16_t ppu_address)
-{
-    unsigned slot = (unsigned)(ppu_address >> 10U) & 0x07U;
-    unsigned local = (unsigned)(ppu_address & 0x03FFU);
-    uint8_t bank;
-
-    if (mapper == NULL) {
-        mapper = &POST_WARRIORS_DEFAULT_MAPPER;
-    }
-
-    switch (slot) {
-    case 0U:
-        bank = (uint8_t)(mapper->regs[0] & 0xFEU);
-        break;
-    case 1U:
-        bank = (uint8_t)((mapper->regs[0] & 0xFEU) + 1U);
-        break;
-    case 2U:
-        bank = (uint8_t)(mapper->regs[1] & 0xFEU);
-        break;
-    case 3U:
-        bank = (uint8_t)((mapper->regs[1] & 0xFEU) + 1U);
-        break;
-    case 4U:
-        bank = mapper->regs[2];
-        break;
-    case 5U:
-        bank = mapper->regs[3];
-        break;
-    case 6U:
-        bank = mapper->regs[4];
-        break;
-    default:
-        bank = mapper->regs[5];
-        break;
-    }
-
-    return (uint64_t)bank * POST_CHR_1KB_BYTES + (uint64_t)local;
-}
-
-static uint64_t bg_tile_offset(const TecmoIntroPostMapperState *mapper, uint8_t tile)
-{
-    return mmc3_ppu_offset(mapper, (uint16_t)tile * 16U);
-}
-
-static uint64_t sprite_tile_offset(const TecmoIntroPostMapperState *mapper, uint8_t tile, bool bottom)
-{
-    uint16_t base = (tile & 1U) != 0U ? 0x1000U : 0x0000U;
-    uint16_t even_tile = (uint16_t)(tile & 0xFEU);
-    uint16_t address = (uint16_t)(base + even_tile * 16U + (bottom ? 16U : 0U));
-    return mmc3_ppu_offset(mapper, address);
-}
-
-static const TecmoIntroPostPaletteStage *palette_for_frame(const TecmoIntroPostArenaCapture *capture,
-                                                           unsigned frame)
-{
-    const TecmoIntroPostPaletteStage *selected = NULL;
-
-    if (capture == NULL) {
-        return NULL;
-    }
-    for (size_t i = 0; i < capture->palette_stage_count; ++i) {
-        if (capture->palette_stages[i].frame <= frame) {
-            selected = &capture->palette_stages[i];
-        }
-    }
-    return selected;
-}
-
-static const TecmoIntroPostSpriteStage *sprite_stage_for_frame(const TecmoIntroPostArenaCapture *capture,
-                                                               unsigned frame)
-{
-    const TecmoIntroPostSpriteStage *selected = NULL;
-
-    if (capture == NULL) {
-        return NULL;
-    }
-    for (size_t i = 0; i < capture->sprite_stage_count; ++i) {
-        const TecmoIntroPostSpriteStage *stage = &capture->sprite_stages[i];
-        if (stage->frame >= TECMO_INTRO_WARRIORS_CAPTURE_FIRST && stage->frame <= frame) {
-            selected = stage;
-        }
-    }
-    return selected;
-}
-
-static int scroll_x_for_frame(const TecmoIntroPostArenaCapture *capture, unsigned frame)
-{
-    int selected = 0;
-
-    if (capture == NULL) {
-        return 0;
-    }
-    for (size_t i = 0; i < capture->scroll_stage_count; ++i) {
-        if (capture->scroll_stages[i].frame >= TECMO_INTRO_WARRIORS_CAPTURE_FIRST &&
-            capture->scroll_stages[i].frame <= frame) {
-            selected = capture->scroll_stages[i].scroll_x;
-        }
-    }
-    return selected;
-}
-
-static void build_scene_cells(const TecmoIntroPostArenaCapture *capture,
-                              unsigned first_frame,
-                              unsigned target_frame,
-                              PostTileCell tiles[TECMO_INTRO_POST_PAGE_COUNT][TECMO_INTRO_POST_TILES_PER_PAGE],
-                              uint8_t attributes[TECMO_INTRO_POST_PAGE_COUNT][64])
-{
-    if (tiles == NULL || attributes == NULL) {
-        return;
-    }
-    memset(tiles, 0, sizeof(PostTileCell) * TECMO_INTRO_POST_PAGE_COUNT * TECMO_INTRO_POST_TILES_PER_PAGE);
-    memset(attributes, 0, 64U * TECMO_INTRO_POST_PAGE_COUNT);
-
-    if (capture == NULL) {
-        return;
-    }
-
-    for (size_t i = 0; i < capture->attribute_event_count; ++i) {
-        const TecmoIntroPostAttributeEvent *event = &capture->attribute_events[i];
-        unsigned page;
-        unsigned index;
-        if (event->frame < first_frame || event->frame > target_frame) {
-            continue;
-        }
-        if (ppu_attribute_position(event->ppu, &page, &index)) {
-            attributes[page][index] = event->value;
-        }
-    }
-
-    for (size_t i = 0; i < capture->tile_event_count; ++i) {
-        const TecmoIntroPostTileEvent *event = &capture->tile_events[i];
-        unsigned page;
-        unsigned offset;
-        if (event->frame < first_frame || event->frame > target_frame) {
-            continue;
-        }
-        if (ppu_tile_position(event->ppu, &page, &offset)) {
-            tiles[page][offset].present = true;
-            tiles[page][offset].tile = event->tile;
-            tiles[page][offset].mapper = event->mapper;
-        }
-    }
-}
-
-static void draw_scene_tiles(TecmoFramebuffer *fb,
-                             const uint8_t *chr_bytes,
-                             uint64_t chr_byte_count,
-                             const PostTileCell tiles[TECMO_INTRO_POST_PAGE_COUNT][TECMO_INTRO_POST_TILES_PER_PAGE],
-                             const uint8_t attributes[TECMO_INTRO_POST_PAGE_COUNT][64],
-                             const uint8_t palette[16],
-                             int origin_x,
-                             int origin_y,
-                             int scale,
-                             int scroll_x)
-{
-    for (unsigned page = 0; page < TECMO_INTRO_POST_PAGE_COUNT; ++page) {
-        int page_x = origin_x + ((int)page * 256 + scroll_x) * scale;
-        for (unsigned offset = 0; offset < TECMO_INTRO_POST_TILES_PER_PAGE; ++offset) {
-            const PostTileCell *cell = &tiles[page][offset];
-            int row;
-            int col;
-            uint8_t attribute;
-            uint8_t palette_index;
+    for (unsigned row = row_first; row < row_last; ++row) {
+        for (unsigned col = 0U; col < 32U; ++col) {
+            const TecmoIntroWarriorsPatchTile *patch;
+            const TecmoIntroWarriorsTile *cell = warriors_tile(asset,
+                                                                page,
+                                                                row,
+                                                                col,
+                                                                patch_count,
+                                                                &patch);
+            uint32_t offset = patch != NULL ? patch->chr_offset
+                                            : (lower ? cell->lower_chr_offset
+                                                     : cell->moving_chr_offset);
+            uint8_t palette_index = patch != NULL ? patch->palette_index : cell->palette_index;
             uint32_t rgba[4];
-            uint64_t tile_offset;
-
-            if (!cell->present) {
-                continue;
-            }
-
-            row = (int)(offset / 32U);
-            col = (int)(offset % 32U);
-            attribute = attribute_byte(attributes, page, row, col);
-            palette_index = tecmo_nes_attribute_palette_index(attribute, row, col);
-            build_palette(rgba, palette, palette_index);
-            tile_offset = bg_tile_offset(&cell->mapper, cell->tile);
-
+            if (!chr_range_valid(offset, chr_byte_count, 16U)) return false;
+            make_bg_palette(rgba, palette, palette_index);
             tecmo_draw_chr_tile_at_offset_ex(fb,
                                              chr_bytes,
                                              chr_byte_count,
-                                             tile_offset,
-                                             page_x + col * 8 * scale,
-                                             origin_y + row * 8 * scale,
+                                             offset,
+                                             page_x + (int)col * 8 * scale,
+                                             origin_y + (int)row * 8 * scale,
                                              scale,
                                              rgba,
                                              false,
                                              false);
         }
     }
+    return true;
 }
 
-static void draw_sprite_stage(TecmoFramebuffer *fb,
-                              const uint8_t *chr_bytes,
-                              uint64_t chr_byte_count,
-                              const TecmoIntroPostSpriteStage *stage,
-                              const uint8_t sprite_palette[16],
-                              int origin_x,
-                              int origin_y,
-                              int scale)
-{
-    if (stage == NULL) {
-        return;
-    }
-
-    for (size_t i = 0; i < stage->sprite_count; ++i) {
-        const TecmoIntroPostSprite *sprite = &stage->sprites[i];
-        uint8_t palette_index = (uint8_t)(sprite->attributes & 0x03U);
-        bool flip_horizontal = (sprite->attributes & 0x40U) != 0U;
-        bool flip_vertical = (sprite->attributes & 0x80U) != 0U;
-        uint32_t rgba[4];
-        uint64_t top_offset;
-        uint64_t bottom_offset;
-        int x = origin_x + (int)sprite->x * scale;
-        int y = origin_y + (int)sprite->y * scale;
-
-        build_sprite_palette(rgba, sprite_palette, palette_index);
-        if (flip_vertical) {
-            top_offset = sprite_tile_offset(&stage->mapper, sprite->tile, true);
-            bottom_offset = sprite_tile_offset(&stage->mapper, sprite->tile, false);
-        } else {
-            top_offset = sprite_tile_offset(&stage->mapper, sprite->tile, false);
-            bottom_offset = sprite_tile_offset(&stage->mapper, sprite->tile, true);
-        }
-
-        tecmo_draw_chr_tile_at_offset_ex(fb,
-                                         chr_bytes,
-                                         chr_byte_count,
-                                         top_offset,
-                                         x,
-                                         y,
-                                         scale,
-                                         rgba,
-                                         flip_horizontal,
-                                         flip_vertical);
-        tecmo_draw_chr_tile_at_offset_ex(fb,
-                                         chr_bytes,
-                                         chr_byte_count,
-                                         bottom_offset,
-                                         x,
-                                         y + 8 * scale,
-                                         scale,
-                                         rgba,
-                                         flip_horizontal,
-                                         flip_vertical);
-    }
-}
-
-static void draw_capture_scene(TecmoFramebuffer *fb,
-                               const TecmoIntroPostArenaCapture *capture,
-                               const uint8_t *chr_bytes,
-                               uint64_t chr_byte_count,
-                               unsigned scene_first_frame,
-                               unsigned target_frame,
-                               bool draw_warriors_sprites,
-                               int origin_x,
-                               int origin_y,
-                               int scale)
-{
-    PostTileCell tiles[TECMO_INTRO_POST_PAGE_COUNT][TECMO_INTRO_POST_TILES_PER_PAGE];
-    uint8_t attributes[TECMO_INTRO_POST_PAGE_COUNT][64];
-    const TecmoIntroPostPaletteStage *palette_stage;
-    int scroll_x = draw_warriors_sprites ? scroll_x_for_frame(capture, target_frame) : 0;
-
-    post_rect(fb, 0, 0, fb->width, fb->height, tecmo_nes_2c02_rgba(0x0FU));
-    if (capture == NULL || !capture->available || chr_bytes == NULL || chr_byte_count == 0U) {
-        return;
-    }
-
-    palette_stage = palette_for_frame(capture, target_frame);
-    build_scene_cells(capture, scene_first_frame, target_frame, tiles, attributes);
-    draw_scene_tiles(fb,
-                     chr_bytes,
-                     chr_byte_count,
-                     tiles,
-                     attributes,
-                     palette_stage != NULL ? palette_stage->background : POST_BLACK_PALETTE,
-                     origin_x,
-                     origin_y,
-                     scale,
-                     scroll_x);
-
-    if (draw_warriors_sprites && palette_stage != NULL) {
-        draw_sprite_stage(fb,
-                          chr_bytes,
-                          chr_byte_count,
-                          sprite_stage_for_frame(capture, target_frame),
-                          palette_stage->sprites,
-                          origin_x,
-                          origin_y,
-                          scale);
-    }
-}
-
-void tecmo_intro_post_arena_draw_ready(TecmoFramebuffer *fb,
-                                       const TecmoIntroPostArenaCapture *capture,
-                                       const uint8_t *chr_bytes,
-                                       uint64_t chr_byte_count,
-                                       unsigned native_frame,
-                                       int origin_x,
-                                       int origin_y,
-                                       int scale)
-{
-    unsigned frame = tecmo_intro_ready_capture_frame(native_frame);
-    draw_capture_scene(fb,
-                       capture,
-                       chr_bytes,
-                       chr_byte_count,
-                       TECMO_INTRO_READY_CAPTURE_FIRST,
-                       frame,
-                       false,
-                       origin_x,
-                       origin_y,
-                       scale);
-}
-
-void tecmo_intro_post_arena_draw_warriors(TecmoFramebuffer *fb,
-                                          const TecmoIntroPostArenaCapture *capture,
+bool tecmo_intro_post_arena_draw_warriors(TecmoFramebuffer *fb,
+                                          const TecmoIntroWarriorsAsset *asset,
                                           const uint8_t *chr_bytes,
                                           uint64_t chr_byte_count,
-                                          unsigned native_frame,
+                                          unsigned frame,
                                           int origin_x,
                                           int origin_y,
                                           int scale)
 {
-    unsigned frame = tecmo_intro_warriors_capture_frame(native_frame);
-    draw_capture_scene(fb,
-                       capture,
-                       chr_bytes,
-                       chr_byte_count,
-                       TECMO_INTRO_WARRIORS_CAPTURE_FIRST,
-                       frame,
-                       true,
-                       origin_x,
-                       origin_y,
-                       scale);
+    TecmoIntroWarriorsState state;
+    uint8_t palette[16];
+    uint8_t sprite_palette[16];
+    unsigned scroll;
+
+    if (fb == NULL || asset == NULL || !asset->available || chr_bytes == NULL || scale <= 0) {
+        return false;
+    }
+    tecmo_intro_warriors_state(frame, &state);
+    fill_rect(fb, origin_x, origin_y, 256 * scale, 240 * scale, tecmo_nes_2c02_rgba(0x0FU));
+    if (state.black || state.phase == TECMO_INTRO_WARRIORS_LOAD) return true;
+
+    for (size_t i = 0U; i < 16U; ++i) {
+        palette[i] = fade_color(asset->background_palette[i], state.palette_stage);
+        sprite_palette[i] = fade_color(asset->sprite_palette[i], state.palette_stage);
+    }
+    scroll = state.pan == 0U ? 0U : 512U - state.pan;
+    for (int copy = -1; copy <= 1; ++copy) {
+        for (unsigned page = 0U; page < 2U; ++page) {
+            int page_x = origin_x + ((int)page * 256 + copy * 512 - (int)scroll) * scale;
+            if (!draw_warriors_page_rows(fb,
+                                         asset,
+                                         chr_bytes,
+                                         chr_byte_count,
+                                         palette,
+                                         page,
+                                         0U,
+                                         21U,
+                                         state.patch_count,
+                                         false,
+                                         page_x,
+                                         origin_y,
+                                         scale)) return false;
+        }
+    }
+    fill_rect(fb,
+              origin_x,
+              origin_y + (int)TECMO_INTRO_WARRIORS_SPLIT_SCANLINE * scale,
+              256 * scale,
+              (240 - (int)TECMO_INTRO_WARRIORS_SPLIT_SCANLINE) * scale,
+              tecmo_nes_2c02_rgba(palette[0]));
+    if (!draw_warriors_page_rows(fb,
+                                 asset,
+                                 chr_bytes,
+                                 chr_byte_count,
+                                 palette,
+                                 0U,
+                                 21U,
+                                 30U,
+                                 0U,
+                                 true,
+                                 origin_x,
+                                 origin_y,
+                                 scale)) return false;
+
+    for (size_t glyph = 0U; glyph < state.wordmark_glyph_count; ++glyph) {
+        for (size_t tile_index = 0U; tile_index < 4U; ++tile_index) {
+            const TecmoIntroWarriorsPatchTile *cell = &asset->wordmark[glyph * 4U + tile_index];
+            unsigned row = 26U + (unsigned)(tile_index / 2U);
+            unsigned col = 8U + (unsigned)glyph * 2U + (unsigned)(tile_index % 2U);
+            uint32_t rgba[4];
+            if (!chr_range_valid(cell->chr_offset, chr_byte_count, 16U)) return false;
+            make_bg_palette(rgba, palette, cell->palette_index);
+            tecmo_draw_chr_tile_at_offset_ex(fb,
+                                             chr_bytes,
+                                             chr_byte_count,
+                                             cell->chr_offset,
+                                             origin_x + (int)col * 8 * scale,
+                                             origin_y + (int)row * 8 * scale,
+                                             scale,
+                                             rgba,
+                                             false,
+                                             false);
+        }
+    }
+
+    if (state.sprites_visible) {
+        for (size_t i = 0U; i < TECMO_INTRO_WARRIORS_PIECE_COUNT; ++i) {
+            const TecmoIntroWarriorsPiece *piece = &asset->pieces[i];
+            bool flip_x = (piece->flags & 1U) != 0U;
+            bool flip_y = (piece->flags & 2U) != 0U;
+            uint32_t rgba[4];
+            uint32_t top = flip_y ? piece->bottom_chr_offset : piece->top_chr_offset;
+            uint32_t bottom = flip_y ? piece->top_chr_offset : piece->bottom_chr_offset;
+            int x = origin_x + (98 - (int)state.pan + piece->dx) * scale;
+            int y = origin_y + (92 + piece->dy) * scale;
+            if (!chr_range_valid(top, chr_byte_count, 16U) ||
+                !chr_range_valid(bottom, chr_byte_count, 16U)) return false;
+            make_sprite_palette(rgba, sprite_palette, piece->palette_index);
+            tecmo_draw_chr_tile_at_offset_ex(fb, chr_bytes, chr_byte_count, top,
+                                             x, y, scale, rgba, flip_x, flip_y);
+            tecmo_draw_chr_tile_at_offset_ex(fb, chr_bytes, chr_byte_count, bottom,
+                                             x, y + 8 * scale, scale, rgba, flip_x, flip_y);
+        }
+    }
+    return true;
 }

@@ -7,100 +7,133 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define TECMO_INTRO_POST_PAGE_COUNT 2U
-#define TECMO_INTRO_POST_TILES_PER_PAGE 960U
-#define TECMO_INTRO_POST_MAX_TILE_EVENTS 4096U
-#define TECMO_INTRO_POST_MAX_ATTRIBUTE_EVENTS 1024U
-#define TECMO_INTRO_POST_MAX_PALETTE_STAGES 32U
-#define TECMO_INTRO_POST_MAX_SPRITES 64U
-#define TECMO_INTRO_POST_MAX_SPRITE_STAGES 128U
-#define TECMO_INTRO_READY_CAPTURE_FIRST 1034U
-#define TECMO_INTRO_READY_CAPTURE_LAST 1091U
-#define TECMO_INTRO_WARRIORS_CAPTURE_FIRST 1092U
-#define TECMO_INTRO_WARRIORS_CAPTURE_LAST 1305U
+#define TECMO_INTRO_READY_WIDTH 32U
+#define TECMO_INTRO_READY_HEIGHT 30U
+#define TECMO_INTRO_READY_CELL_COUNT (TECMO_INTRO_READY_WIDTH * TECMO_INTRO_READY_HEIGHT)
+#define TECMO_INTRO_READY_PALETTE_STAGE_COUNT 5U
+#define TECMO_INTRO_READY_MASK_COUNT 12U
+#define TECMO_INTRO_READY_MASK_SLOT_COUNT 8U
+#define TECMO_INTRO_READY_HANDOFF_FRAME 58U
 
-typedef struct TecmoIntroPostMapperState {
-    uint8_t regs[8];
-} TecmoIntroPostMapperState;
+#define TECMO_INTRO_WARRIORS_PAGE_COUNT 2U
+#define TECMO_INTRO_WARRIORS_TILES_PER_PAGE 960U
+#define TECMO_INTRO_WARRIORS_PIECE_COUNT 46U
+#define TECMO_INTRO_WARRIORS_PATCH_COUNT 2U
+#define TECMO_INTRO_WARRIORS_PATCH_TILE_COUNT 64U
+#define TECMO_INTRO_WARRIORS_WORDMARK_GLYPH_COUNT 8U
+#define TECMO_INTRO_WARRIORS_WORDMARK_TILE_COUNT 32U
+#define TECMO_INTRO_WARRIORS_SPLIT_SCANLINE 168U
+#define TECMO_INTRO_WARRIORS_HANDOFF_FRAME 214U
+#define TECMO_INTRO_WARRIORS_NEXT_SCREEN 0x1BU
 
-typedef struct TecmoIntroPostTileEvent {
-    unsigned frame;
-    uint16_t ppu;
-    uint8_t tile;
-    TecmoIntroPostMapperState mapper;
-} TecmoIntroPostTileEvent;
+typedef struct TecmoIntroNativeTile {
+    uint8_t tile_id;
+    uint8_t palette_index;
+    uint32_t chr_offset;
+} TecmoIntroNativeTile;
 
-typedef struct TecmoIntroPostAttributeEvent {
-    unsigned frame;
-    uint16_t ppu;
-    uint8_t value;
-} TecmoIntroPostAttributeEvent;
-
-typedef struct TecmoIntroPostPaletteStage {
-    unsigned frame;
-    uint8_t background[16];
-    uint8_t sprites[16];
-} TecmoIntroPostPaletteStage;
-
-typedef struct TecmoIntroPostSprite {
-    uint8_t y;
-    uint8_t tile;
-    uint8_t attributes;
-    uint8_t x;
-} TecmoIntroPostSprite;
-
-typedef struct TecmoIntroPostSpriteStage {
-    unsigned frame;
-    TecmoIntroPostMapperState mapper;
-    TecmoIntroPostSprite sprites[TECMO_INTRO_POST_MAX_SPRITES];
-    size_t sprite_count;
-} TecmoIntroPostSpriteStage;
-
-typedef struct TecmoIntroPostScrollStage {
-    unsigned frame;
-    int scroll_x;
-} TecmoIntroPostScrollStage;
-
-typedef struct TecmoIntroPostArenaCapture {
+typedef struct TecmoIntroReadyAsset {
     bool available;
-    bool truncated;
-    TecmoIntroPostTileEvent tile_events[TECMO_INTRO_POST_MAX_TILE_EVENTS];
-    size_t tile_event_count;
-    TecmoIntroPostAttributeEvent attribute_events[TECMO_INTRO_POST_MAX_ATTRIBUTE_EVENTS];
-    size_t attribute_event_count;
-    TecmoIntroPostPaletteStage palette_stages[TECMO_INTRO_POST_MAX_PALETTE_STAGES];
-    size_t palette_stage_count;
-    TecmoIntroPostSpriteStage sprite_stages[TECMO_INTRO_POST_MAX_SPRITE_STAGES];
-    size_t sprite_stage_count;
-    TecmoIntroPostScrollStage scroll_stages[TECMO_INTRO_POST_MAX_SPRITE_STAGES];
-    size_t scroll_stage_count;
-    unsigned first_capture_frame;
-    unsigned last_capture_frame;
-    char status[512];
-} TecmoIntroPostArenaCapture;
+    TecmoIntroNativeTile cells[TECMO_INTRO_READY_CELL_COUNT];
+    uint8_t palettes[TECMO_INTRO_READY_PALETTE_STAGE_COUNT][16];
+    uint8_t palette_frames[TECMO_INTRO_READY_PALETTE_STAGE_COUNT];
+    uint8_t masks[TECMO_INTRO_READY_MASK_COUNT][TECMO_INTRO_READY_MASK_SLOT_COUNT];
+    char status[160];
+} TecmoIntroReadyAsset;
 
-bool tecmo_intro_post_arena_capture_load(TecmoIntroPostArenaCapture *capture,
-                                         const char *project_root);
+typedef struct TecmoIntroReadyState {
+    unsigned frame;
+    uint8_t palette_stage;
+    uint8_t mask_index;
+    bool black;
+    bool handoff;
+} TecmoIntroReadyState;
 
-void tecmo_intro_post_arena_draw_ready(TecmoFramebuffer *fb,
-                                       const TecmoIntroPostArenaCapture *capture,
+typedef struct TecmoIntroWarriorsTile {
+    uint8_t tile_id;
+    uint8_t palette_index;
+    uint32_t moving_chr_offset;
+    uint32_t lower_chr_offset;
+} TecmoIntroWarriorsTile;
+
+typedef struct TecmoIntroWarriorsPiece {
+    int16_t dx;
+    int16_t dy;
+    uint32_t top_chr_offset;
+    uint32_t bottom_chr_offset;
+    uint8_t palette_index;
+    uint8_t flags;
+} TecmoIntroWarriorsPiece;
+
+typedef struct TecmoIntroWarriorsPatchTile {
+    uint8_t tile_id;
+    uint8_t palette_index;
+    uint32_t chr_offset;
+} TecmoIntroWarriorsPatchTile;
+
+typedef struct TecmoIntroWarriorsAsset {
+    bool available;
+    TecmoIntroWarriorsTile pages[TECMO_INTRO_WARRIORS_PAGE_COUNT]
+                                         [TECMO_INTRO_WARRIORS_TILES_PER_PAGE];
+    uint8_t background_palette[16];
+    uint8_t sprite_palette[16];
+    TecmoIntroWarriorsPiece pieces[TECMO_INTRO_WARRIORS_PIECE_COUNT];
+    TecmoIntroWarriorsPatchTile patches[TECMO_INTRO_WARRIORS_PATCH_COUNT]
+                                                [TECMO_INTRO_WARRIORS_PATCH_TILE_COUNT];
+    TecmoIntroWarriorsPatchTile wordmark[TECMO_INTRO_WARRIORS_WORDMARK_TILE_COUNT];
+    char status[160];
+} TecmoIntroWarriorsAsset;
+
+typedef enum TecmoIntroWarriorsPhase {
+    TECMO_INTRO_WARRIORS_LOAD,
+    TECMO_INTRO_WARRIORS_FADE,
+    TECMO_INTRO_WARRIORS_WORDMARK,
+    TECMO_INTRO_WARRIORS_PAN,
+    TECMO_INTRO_WARRIORS_HOLD,
+    TECMO_INTRO_WARRIORS_PATCH_ONE,
+    TECMO_INTRO_WARRIORS_PATCH_TWO,
+    TECMO_INTRO_WARRIORS_BLACK,
+    TECMO_INTRO_WARRIORS_HANDOFF
+} TecmoIntroWarriorsPhase;
+
+typedef struct TecmoIntroWarriorsState {
+    unsigned frame;
+    TecmoIntroWarriorsPhase phase;
+    uint8_t palette_stage;
+    uint8_t pan;
+    uint8_t patch_count;
+    uint8_t wordmark_glyph_count;
+    bool sprites_visible;
+    bool wordmark_visible;
+    bool black;
+    bool handoff;
+    uint8_t next_screen;
+} TecmoIntroWarriorsState;
+
+bool tecmo_intro_ready_asset_load(TecmoIntroReadyAsset *asset, const char *project_root);
+bool tecmo_intro_warriors_asset_load(TecmoIntroWarriorsAsset *asset,
+                                     const char *project_root);
+
+void tecmo_intro_ready_state(unsigned frame, TecmoIntroReadyState *state);
+void tecmo_intro_warriors_state(unsigned frame, TecmoIntroWarriorsState *state);
+const char *tecmo_intro_warriors_phase_name(TecmoIntroWarriorsPhase phase);
+
+bool tecmo_intro_post_arena_draw_ready(TecmoFramebuffer *fb,
+                                       const TecmoIntroReadyAsset *asset,
                                        const uint8_t *chr_bytes,
                                        uint64_t chr_byte_count,
-                                       unsigned native_frame,
+                                       unsigned frame,
                                        int origin_x,
                                        int origin_y,
                                        int scale);
 
-void tecmo_intro_post_arena_draw_warriors(TecmoFramebuffer *fb,
-                                          const TecmoIntroPostArenaCapture *capture,
+bool tecmo_intro_post_arena_draw_warriors(TecmoFramebuffer *fb,
+                                          const TecmoIntroWarriorsAsset *asset,
                                           const uint8_t *chr_bytes,
                                           uint64_t chr_byte_count,
-                                          unsigned native_frame,
+                                          unsigned frame,
                                           int origin_x,
                                           int origin_y,
                                           int scale);
-
-unsigned tecmo_intro_ready_capture_frame(unsigned native_frame);
-unsigned tecmo_intro_warriors_capture_frame(unsigned native_frame);
 
 #endif

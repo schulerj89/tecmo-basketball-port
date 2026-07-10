@@ -105,6 +105,26 @@ function Test-PixelRectColor {
     return $true
 }
 
+function Test-PixelRectHasNonBlack {
+    param(
+        [System.Drawing.Bitmap]$Bitmap,
+        [int]$Left,
+        [int]$Top,
+        [int]$Right,
+        [int]$Bottom
+    )
+
+    for ($Y = $Top; $Y -le $Bottom; ++$Y) {
+        for ($X = $Left; $X -le $Right; ++$X) {
+            $Pixel = $Bitmap.GetPixel($X, $Y)
+            if ($Pixel.R -ne 0 -or $Pixel.G -ne 0 -or $Pixel.B -ne 0) {
+                return $true
+            }
+        }
+    }
+    return $false
+}
+
 function Get-AssetPackEntryPayloadOffset {
     param(
         [byte[]]$Bytes,
@@ -210,6 +230,23 @@ $MalformedCleanArenaModes = @(
     "intro-arena-clean-frame1junk",
     "intro-arena-clean-frame4294967296"
 )
+$PostArenaRenderCases = @(
+    [pscustomobject]@{ mode = "intro-ready-clean-frame0"; state = "intro-ready-state frame=0 palette=0 mask=0 black=0 handoff=0"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-ready-clean-frame28"; state = "intro-ready-state frame=28 palette=4 mask=2 black=0 handoff=0"; visual = "ready" },
+    [pscustomobject]@{ mode = "intro-ready-clean-frame32"; state = "intro-ready-state frame=32 palette=4 mask=4 black=0 handoff=0"; visual = "ready" },
+    [pscustomobject]@{ mode = "intro-ready-clean-frame35"; state = "intro-ready-state frame=35 palette=4 mask=5 black=0 handoff=0"; visual = "ready" },
+    [pscustomobject]@{ mode = "intro-ready-clean-frame40"; state = "intro-ready-state frame=40 palette=4 mask=8 black=0 handoff=0"; visual = "ready" },
+    [pscustomobject]@{ mode = "intro-ready-clean-frame56"; state = "intro-ready-state frame=56 palette=4 mask=11 black=1 handoff=0"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-warriors-clean-frame0"; state = "intro-warriors-state frame=0 phase=load palette=0 pan=0 wordmark=0 patches=0 black=0 handoff=0 next_screen=1B"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-warriors-clean-frame17"; state = "intro-warriors-state frame=17 phase=wordmark palette=3 pan=0 wordmark=1 patches=0 black=0 handoff=0 next_screen=1B"; visual = "warriors" },
+    [pscustomobject]@{ mode = "intro-warriors-clean-frame24"; state = "intro-warriors-state frame=24 phase=wordmark palette=3 pan=0 wordmark=8 patches=0 black=0 handoff=0 next_screen=1B"; visual = "warriors" },
+    [pscustomobject]@{ mode = "intro-warriors-clean-frame64"; state = "intro-warriors-state frame=64 phase=pan palette=3 pan=20 wordmark=8 patches=0 black=0 handoff=0 next_screen=1B"; visual = "warriors" },
+    [pscustomobject]@{ mode = "intro-warriors-clean-frame160"; state = "intro-warriors-state frame=160 phase=hold palette=3 pan=25 wordmark=8 patches=0 black=0 handoff=0 next_screen=1B"; visual = "warriors" },
+    [pscustomobject]@{ mode = "intro-warriors-clean-frame193"; state = "intro-warriors-state frame=193 phase=patch-one palette=3 pan=25 wordmark=8 patches=1 black=0 handoff=0 next_screen=1B"; visual = "warriors" },
+    [pscustomobject]@{ mode = "intro-warriors-clean-frame200"; state = "intro-warriors-state frame=200 phase=patch-two palette=3 pan=25 wordmark=8 patches=2 black=0 handoff=0 next_screen=1B"; visual = "warriors" },
+    [pscustomobject]@{ mode = "intro-warriors-clean-frame213"; state = "intro-warriors-state frame=213 phase=black palette=0 pan=0 wordmark=0 patches=0 black=1 handoff=0 next_screen=1B"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-warriors-clean-frame214"; state = "intro-warriors-state frame=214 phase=handoff palette=0 pan=0 wordmark=0 patches=0 black=1 handoff=1 next_screen=1B"; visual = "black" }
+)
 
 $Results = New-Object System.Collections.Generic.List[object]
 $Failures = 0
@@ -251,7 +288,9 @@ try {
         "arena/intro/script",
         "arena/intro/background-layer",
         "arena/intro/palette-cycle",
-        "arena/intro/sprite-groups"
+        "arena/intro/sprite-groups",
+        "arena/intro/ready-screen",
+        "arena/intro/warriors-transition"
     )
     $ForbiddenCaptureEntries = @("intro/arena/capture.ndjson", "intro/post-arena/capture.ndjson", "intro/captures/source-map")
     $MissingNativeEntries = @($RequiredNativeEntries | Where-Object { $ListText -notmatch [regex]::Escape($_) })
@@ -361,6 +400,74 @@ try {
         raw_output_persisted = $false
         coverage_status = "covered"
         error = if ($RenderPassed) { $null } else { "ROM-only arena render did not complete without capture data" }
+    })
+
+    $PostArenaOutputs = New-Object System.Collections.Generic.List[object]
+    $PostArenaPassed = $ListPassed
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    $PreviousLooseArenaCapture = $env:TECMO_ALLOW_LOOSE_INTRO_CAPTURE
+    try {
+        $env:TECMO_ASSETPACK = $AssetPackPath
+        Remove-Item Env:TECMO_ALLOW_LOOSE_INTRO_CAPTURE -ErrorAction SilentlyContinue
+        foreach ($RenderCase in $PostArenaRenderCases) {
+            $RenderPath = Join-Path $OutputDir "$($RenderCase.mode).png"
+            if (Test-Path -LiteralPath $RenderPath) {
+                Remove-Item -LiteralPath $RenderPath -Force
+            }
+            $RenderOutput = & $ExePath --root $ProjectRoot --render-test-mode $RenderCase.mode $RenderPath 2>&1
+            $RenderExitCode = $LASTEXITCODE
+            $RenderText = (@($RenderOutput) | ForEach-Object { [string]$_ }) -join "`n"
+            $RenderCreated = Test-Path -LiteralPath $RenderPath
+            $NativeSourceSeen = $RenderText -match "intro-post-render-source ready=1 warriors=1 chr=1 ready_schema=TRDY-1 warriors_schema=TWAR-1"
+            $StateSeen = $RenderText.Contains([string]$RenderCase.state)
+            $VisualSeen = $false
+            if ($RenderCreated) {
+                $Bitmap = [System.Drawing.Bitmap]::FromFile($RenderPath)
+                try {
+                    if ($RenderCase.visual -eq "black") {
+                        $VisualSeen = Test-PixelRectColor $Bitmap 64 0 575 479 0 0 0
+                    } elseif ($RenderCase.visual -eq "ready") {
+                        $VisualSeen = Test-PixelRectHasNonBlack $Bitmap 192 240 447 319
+                    } else {
+                        $PlayersSeen = Test-PixelRectHasNonBlack $Bitmap 64 80 575 327
+                        $WordmarkSeen = Test-PixelRectHasNonBlack $Bitmap 192 416 447 447
+                        $VisualSeen = $PlayersSeen -and $WordmarkSeen
+                    }
+                } finally {
+                    $Bitmap.Dispose()
+                }
+            }
+            $ModePassed = $RenderExitCode -eq 0 -and $RenderCreated -and
+                $NativeSourceSeen -and $StateSeen -and $VisualSeen
+            if (!$ModePassed) {
+                $PostArenaPassed = $false
+            }
+            $PostArenaOutputs.Add([pscustomobject]@{
+                mode = $RenderCase.mode
+                output = Get-RepoRelativePath $RenderPath
+                passed = $ModePassed
+                exit_code = $RenderExitCode
+                native_source_seen = $NativeSourceSeen
+                state_seen = $StateSeen
+                visual_signature_seen = $VisualSeen
+            })
+        }
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+        $env:TECMO_ALLOW_LOOSE_INTRO_CAPTURE = $PreviousLooseArenaCapture
+    }
+    if (!$PostArenaPassed) {
+        ++$Failures
+    }
+    $Results.Add([pscustomobject]@{
+        id = "intro-render-rom-only-post-arena"
+        passed = $PostArenaPassed
+        skipped = $false
+        outputs = $PostArenaOutputs
+        rom_only_asset_pack = $AssetPackRelative
+        raw_output_persisted = $false
+        coverage_status = "ready-and-warriors-native-checkpoints"
+        error = if ($PostArenaPassed) { $null } else { "ROM-only READY/WARRIORS render or timing checkpoint failed" }
     })
 
     $LowerBandGeometryOutputs = New-Object System.Collections.Generic.List[object]

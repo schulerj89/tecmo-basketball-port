@@ -56,7 +56,8 @@ typedef struct TecmoRuntime {
     TecmoArenaTileLayer intro_arena_tile_layer;
     TecmoArenaNativeSpriteGroups intro_arena_sprite_groups;
     TecmoIntroArenaCapture intro_arena_capture;
-    TecmoIntroPostArenaCapture intro_post_arena_capture;
+    TecmoIntroReadyAsset intro_ready_asset;
+    TecmoIntroWarriorsAsset intro_warriors_asset;
     char intro_l88e7_irq_vector[16];
     char intro_presents_data_cpu[16];
     bool intro_trace_available;
@@ -65,6 +66,8 @@ typedef struct TecmoRuntime {
     bool intro_l88e7_irq_vector_available;
     bool intro_presents_data_available;
     uint8_t intro_output_step;
+    uint8_t intro_next_screen;
+    bool intro_handoff_complete;
     char intro_trace_status[96];
     TecmoPlayMode mode;
     bool quit_requested;
@@ -100,8 +103,8 @@ void tecmo_render_original_title_probe(TecmoFramebuffer *framebuffer, const char
 void tecmo_render_intro_c051_d861_model(TecmoFramebuffer *framebuffer);
 void tecmo_render_intro_license_screen(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 bool tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
-void tecmo_render_intro_ready_screen(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
-void tecmo_render_intro_warriors_transition(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
+bool tecmo_render_intro_ready_screen(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
+bool tecmo_render_intro_warriors_transition(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 void tecmo_render_first_sprite_probe(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 void tecmo_render_intro_l88e7_proof(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,

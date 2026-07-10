@@ -280,6 +280,8 @@ function Get-KnownLogicalAssetPackEntries {
         "arena/intro/background-layer",
         "arena/intro/palette-cycle",
         "arena/intro/sprite-groups",
+        "arena/intro/ready-screen",
+        "arena/intro/warriors-transition",
         "roster/table.tsv",
         "title/original-text.txt",
         "title/glyph-map.tsv",
@@ -310,7 +312,9 @@ function Get-ExpectedLogicalAssetPackEntries {
             "arena/intro/script",
             "arena/intro/background-layer",
             "arena/intro/palette-cycle",
-            "arena/intro/sprite-groups"
+            "arena/intro/sprite-groups",
+            "arena/intro/ready-screen",
+            "arena/intro/warriors-transition"
         )
         capture_sources_present = @()
     }
@@ -902,6 +906,88 @@ try {
                     id = "assetpack-arena-sprite-groups"
                     passed = $false
                     error = "arena sprite groups inspection failed"
+                    error_type = Get-SafeExceptionName $_
+                    raw_asset_bytes_persisted = $false
+                })
+            }
+
+            try {
+                $ReadyBytes = Read-AssetPackEntryBytes -Path $AssetPackPath -Directory $Directory -EntryId "arena/intro/ready-screen"
+                $ReadyMagic = if ($ReadyBytes.Length -ge 4) { [System.Text.Encoding]::ASCII.GetString($ReadyBytes, 0, 4) } else { "" }
+                $ReadyPassed = $ReadyBytes.Length -eq 6005 -and
+                    $ReadyMagic -eq "TRDY" -and
+                    [System.BitConverter]::ToUInt16($ReadyBytes, 4) -eq 1 -and
+                    [System.BitConverter]::ToUInt16($ReadyBytes, 6) -eq 64 -and
+                    [System.BitConverter]::ToUInt16($ReadyBytes, 8) -eq 32 -and
+                    [System.BitConverter]::ToUInt16($ReadyBytes, 10) -eq 30 -and
+                    [System.BitConverter]::ToUInt16($ReadyBytes, 14) -eq 5 -and
+                    [System.BitConverter]::ToUInt16($ReadyBytes, 16) -eq 12 -and
+                    [System.BitConverter]::ToUInt16($ReadyBytes, 18) -eq 8 -and
+                    [System.BitConverter]::ToUInt32($ReadyBytes, 40) -eq 58
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-ready-native"
+                    passed = $ReadyPassed
+                    format = $ReadyMagic
+                    byte_count = $ReadyBytes.Length
+                    palette_stage_count = [System.BitConverter]::ToUInt16($ReadyBytes, 14)
+                    reveal_record_count = [System.BitConverter]::ToUInt16($ReadyBytes, 16)
+                    handoff_frame = [System.BitConverter]::ToUInt32($ReadyBytes, 40)
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $WarriorsBytes = Read-AssetPackEntryBytes -Path $AssetPackPath -Directory $Directory -EntryId "arena/intro/warriors-transition"
+                $WarriorsMagic = if ($WarriorsBytes.Length -ge 4) { [System.Text.Encoding]::ASCII.GetString($WarriorsBytes, 0, 4) } else { "" }
+                $WordmarkOffset = if ($WarriorsBytes.Length -ge 68) { [System.BitConverter]::ToUInt32($WarriorsBytes, 64) } else { 0 }
+                $InvalidWordmarkTiles = 0
+                if ($WordmarkOffset -eq 20832 -and $WarriorsBytes.Length -eq 21024) {
+                    for ($Index = 0; $Index -lt 32; ++$Index) {
+                        $CellOffset = [int]$WordmarkOffset + $Index * 6
+                        $Tile = $WarriorsBytes[$CellOffset]
+                        $PaletteIndex = $WarriorsBytes[$CellOffset + 1]
+                        $ChrOffset = [System.BitConverter]::ToUInt32($WarriorsBytes, $CellOffset + 2)
+                        if ($Tile -lt 0x80 -or $PaletteIndex -gt 3 -or
+                            ($ChrOffset -band 0x0F) -ne 0 -or
+                            ([uint64]$ChrOffset + 16) -gt ([uint64]$ExpectedChrBanks * 8192)) {
+                            ++$InvalidWordmarkTiles
+                        }
+                    }
+                } else {
+                    $InvalidWordmarkTiles = 32
+                }
+                $WarriorsPassed = $WarriorsBytes.Length -eq 21024 -and
+                    $WarriorsMagic -eq "TWAR" -and
+                    [System.BitConverter]::ToUInt16($WarriorsBytes, 4) -eq 1 -and
+                    [System.BitConverter]::ToUInt16($WarriorsBytes, 6) -eq 96 -and
+                    [System.BitConverter]::ToUInt16($WarriorsBytes, 12) -eq 2 -and
+                    [System.BitConverter]::ToUInt16($WarriorsBytes, 16) -eq 46 -and
+                    [System.BitConverter]::ToUInt16($WarriorsBytes, 20) -eq 2 -and
+                    [System.BitConverter]::ToUInt16($WarriorsBytes, 22) -eq 64 -and
+                    [System.BitConverter]::ToUInt16($WarriorsBytes, 24) -eq 168 -and
+                    [System.BitConverter]::ToUInt32($WarriorsBytes, 48) -eq 214 -and
+                    $WarriorsBytes[52] -eq 0x1B -and
+                    $WordmarkOffset -eq 20832 -and
+                    [System.BitConverter]::ToUInt16($WarriorsBytes, 68) -eq 8 -and
+                    [System.BitConverter]::ToUInt16($WarriorsBytes, 70) -eq 4 -and
+                    [System.BitConverter]::ToUInt16($WarriorsBytes, 72) -eq 8 -and
+                    [System.BitConverter]::ToUInt16($WarriorsBytes, 74) -eq 26 -and
+                    $InvalidWordmarkTiles -eq 0
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-warriors-native"
+                    passed = $WarriorsPassed
+                    format = $WarriorsMagic
+                    byte_count = $WarriorsBytes.Length
+                    sprite_piece_count = [System.BitConverter]::ToUInt16($WarriorsBytes, 16)
+                    split_scanline = [System.BitConverter]::ToUInt16($WarriorsBytes, 24)
+                    wordmark_glyph_count = [System.BitConverter]::ToUInt16($WarriorsBytes, 68)
+                    invalid_wordmark_tiles = $InvalidWordmarkTiles
+                    handoff_frame = [System.BitConverter]::ToUInt32($WarriorsBytes, 48)
+                    raw_asset_bytes_persisted = $false
+                })
+            } catch {
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-post-arena-native"
+                    passed = $false
+                    error = "post-arena native asset inspection failed"
                     error_type = Get-SafeExceptionName $_
                     raw_asset_bytes_persisted = $false
                 })
