@@ -4,8 +4,8 @@
 
 #include "asset_pack/tecmo_asset_pack_d9f6.h"
 #include "asset_pack/tecmo_asset_pack_import_layout.h"
+#include "asset_pack/tecmo_asset_pack_util.h"
 #include "asset_pack/tecmo_asset_pack_writer.h"
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,163 +17,6 @@
 #else
 #include <unistd.h>
 #endif
-
-static void set_message(char *message, size_t message_size, const char *text)
-{
-    if (message == NULL || message_size == 0U) {
-        return;
-    }
-    if (text == NULL) {
-        text = "";
-    }
-    (void)snprintf(message, message_size, "%s", text);
-}
-
-static void set_messagef(char *message, size_t message_size, const char *format, ...)
-{
-    va_list args;
-
-    if (message == NULL || message_size == 0U) {
-        return;
-    }
-    if (format == NULL) {
-        message[0] = '\0';
-        return;
-    }
-
-    va_start(args, format);
-    (void)vsnprintf(message, message_size, format, args);
-    va_end(args);
-}
-
-static int copy_path_text(char *dest, size_t dest_size, const char *src)
-{
-    int written;
-
-    if (dest == NULL || dest_size == 0U || src == NULL) {
-        return -1;
-    }
-
-    written = snprintf(dest, dest_size, "%s", src);
-    return written >= 0 && (size_t)written < dest_size ? 0 : -1;
-}
-
-static int append_text(char *buffer,
-                       size_t capacity,
-                       size_t *length,
-                       const char *format,
-                       ...)
-{
-    va_list args;
-    int written;
-    size_t remaining;
-
-    if (buffer == NULL || length == NULL || *length >= capacity) {
-        return -1;
-    }
-
-    remaining = capacity - *length;
-    va_start(args, format);
-    written = vsnprintf(buffer + *length, remaining, format, args);
-    va_end(args);
-    if (written < 0 || (size_t)written >= remaining) {
-        return -1;
-    }
-
-    *length += (size_t)written;
-    return 0;
-}
-
-static uint32_t read_u32(const uint8_t *bytes)
-{
-    return ((uint32_t)bytes[0]) |
-           ((uint32_t)bytes[1] << 8U) |
-           ((uint32_t)bytes[2] << 16U) |
-           ((uint32_t)bytes[3] << 24U);
-}
-
-static uint16_t read_u16(const uint8_t *bytes)
-{
-    return (uint16_t)((uint16_t)bytes[0] | ((uint16_t)bytes[1] << 8U));
-}
-
-static uint32_t fnv1a32(const uint8_t *bytes, size_t byte_count)
-{
-    uint32_t hash = 2166136261U;
-    for (size_t i = 0U; i < byte_count; ++i) {
-        hash ^= bytes[i];
-        hash *= 16777619U;
-    }
-    return hash;
-}
-
-static void store_u16(uint8_t *bytes, uint16_t value)
-{
-    bytes[0] = (uint8_t)(value & 0xFFU);
-    bytes[1] = (uint8_t)(value >> 8U);
-}
-
-static void store_u32(uint8_t *bytes, uint32_t value)
-{
-    bytes[0] = (uint8_t)(value & 0xFFU);
-    bytes[1] = (uint8_t)((value >> 8U) & 0xFFU);
-    bytes[2] = (uint8_t)((value >> 16U) & 0xFFU);
-    bytes[3] = (uint8_t)((value >> 24U) & 0xFFU);
-}
-
-static TecmoAssetPackEntryInfo make_entry_info(const char *id,
-                                               uint32_t type,
-                                               uint32_t bank,
-                                               uint32_t cpu_address,
-                                               uint64_t source_offset,
-                                               uint32_t flags)
-{
-    TecmoAssetPackEntryInfo entry_info;
-
-    entry_info.id = id;
-    entry_info.type = type;
-    entry_info.bank = bank;
-    entry_info.cpu_address = cpu_address;
-    entry_info.source_offset = source_offset;
-    entry_info.flags = flags;
-    return entry_info;
-}
-
-static int read_file(const char *path, uint8_t **bytes_out, uint64_t *size_out)
-{
-    FILE *file = fopen(path, "rb");
-    long size;
-    uint8_t *bytes;
-
-    if (file == NULL) {
-        return -1;
-    }
-    if (fseek(file, 0L, SEEK_END) != 0) {
-        fclose(file);
-        return -1;
-    }
-    size = ftell(file);
-    if (size < 0 || fseek(file, 0L, SEEK_SET) != 0) {
-        fclose(file);
-        return -1;
-    }
-
-    bytes = (uint8_t *)malloc((size_t)size);
-    if (bytes == NULL && size > 0) {
-        fclose(file);
-        return -1;
-    }
-    if (size > 0 && fread(bytes, 1U, (size_t)size, file) != (size_t)size) {
-        free(bytes);
-        fclose(file);
-        return -1;
-    }
-    fclose(file);
-
-    *bytes_out = bytes;
-    *size_out = (uint64_t)size;
-    return 0;
-}
 
 static int append_source_map_entry(char *buffer,
                                    size_t capacity,
@@ -189,7 +32,7 @@ static int append_source_map_entry(char *buffer,
     const char *prefix = *first != 0 ? "" : ",\n";
 
     *first = 0;
-    return append_text(buffer,
+    return tecmo_asset_pack_append_text(buffer,
                        capacity,
                        length,
                        "%s"
@@ -230,7 +73,7 @@ static int validate_chr_pair(uint8_t r0,
     if ((r0 & 1U) != 0U || (r1 & 1U) != 0U ||
         ((uint64_t)r0 + 2U) * 1024U > chr_size ||
         ((uint64_t)r1 + 2U) * 1024U > chr_size) {
-        set_messagef(message,
+        tecmo_asset_pack_set_messagef(message,
                      message_size,
                      "Arena %s CHR selectors %u/%u are not valid even 2KB-bank selectors.",
                      pair_name,
@@ -270,7 +113,7 @@ static int build_arena_background_layer(const uint8_t *rom,
     if (rom == NULL || payload == NULL || provenance == NULL ||
         payload_size != TECMO_ASSET_PACK_ARENA_LAYER_SIZE ||
         prg_banks <= TECMO_ASSET_PACK_ARENA_BANK04) {
-        set_message(message, message_size, "Arena screen import requires a compatible ROM with Bank04.");
+        tecmo_asset_pack_set_message(message, message_size, "Arena screen import requires a compatible ROM with Bank04.");
         return -1;
     }
 
@@ -281,7 +124,7 @@ static int build_arena_background_layer(const uint8_t *rom,
                         TECMO_ASSET_PACK_ARENA_SCREEN_ID * TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_SIZE;
     if (descriptor_offset > rom_size ||
         TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_SIZE > rom_size - descriptor_offset) {
-        set_message(message, message_size, "Arena screen descriptor is outside the fixed PRG bank.");
+        tecmo_asset_pack_set_message(message, message_size, "Arena screen descriptor is outside the fixed PRG bank.");
         return -1;
     }
     descriptor = rom + (size_t)descriptor_offset;
@@ -290,7 +133,7 @@ static int build_arena_background_layer(const uint8_t *rom,
     stream_bank = descriptor[6];
 
     if (descriptor[0] > 0x7FU || descriptor[1] > 0x7FU) {
-        set_message(message, message_size, "Arena upper CHR pair overflows MMC3 selectors.");
+        tecmo_asset_pack_set_message(message, message_size, "Arena upper CHR pair overflows MMC3 selectors.");
         return -1;
     }
     upper_r0 = (uint8_t)(descriptor[0] * 2U);
@@ -300,7 +143,7 @@ static int build_arena_background_layer(const uint8_t *rom,
         palette_cpu >= TECMO_ASSET_PACK_SWITCHED_PRG_CPU_LIMIT ||
         stream_cpu < TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE ||
         stream_cpu >= TECMO_ASSET_PACK_SWITCHED_PRG_CPU_LIMIT) {
-        set_message(message, message_size, "Arena screen descriptor has an invalid stream bank or CPU pointer.");
+        tecmo_asset_pack_set_message(message, message_size, "Arena screen descriptor has an invalid stream bank or CPU pointer.");
         return -1;
     }
 
@@ -308,7 +151,7 @@ static int build_arena_background_layer(const uint8_t *rom,
     palette_offset = stream_bank_offset +
                      (uint64_t)(palette_cpu - TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
     if (palette_offset > rom_size || 16U > rom_size - palette_offset) {
-        set_message(message, message_size, "Arena background palette is outside its descriptor bank.");
+        tecmo_asset_pack_set_message(message, message_size, "Arena background palette is outside its descriptor bank.");
         return -1;
     }
 
@@ -322,7 +165,7 @@ static int build_arena_background_layer(const uint8_t *rom,
                                    (TECMO_ASSET_PACK_ARENA_LOWER_R1_TABLE_CPU - 0xC000U) +
                                    TECMO_ASSET_PACK_ARENA_LOWER_SELECTOR_INDEX;
         if (lower_r0_offset >= rom_size || lower_r1_offset >= rom_size) {
-            set_message(message, message_size, "Arena lower CHR selectors are outside fixed PRG.");
+            tecmo_asset_pack_set_message(message, message_size, "Arena lower CHR selectors are outside fixed PRG.");
             return -1;
         }
         lower_r0 = rom[(size_t)lower_r0_offset];
@@ -350,17 +193,17 @@ static int build_arena_background_layer(const uint8_t *rom,
 
     memset(payload, 0, payload_size);
     memcpy(payload, "TATL", 4U);
-    store_u16(payload + 4U, 1U);
-    store_u16(payload + 6U, TECMO_ASSET_PACK_ARENA_LAYER_HEADER_SIZE);
-    store_u16(payload + 8U, TECMO_ASSET_PACK_ARENA_LAYER_WIDTH);
-    store_u16(payload + 10U, TECMO_ASSET_PACK_ARENA_LAYER_HEIGHT);
-    store_u16(payload + 12U, 32U);
-    store_u16(payload + 14U, 30U);
-    store_u16(payload + 16U, TECMO_ASSET_PACK_ARENA_LAYER_CELL_STRIDE);
-    store_u16(payload + 18U, 0U);
-    store_u32(payload + 20U, TECMO_ASSET_PACK_ARENA_LAYER_CELL_COUNT);
-    store_u32(payload + 24U, TECMO_ASSET_PACK_ARENA_LAYER_HEADER_SIZE);
-    store_u32(payload + 28U, 32U);
+    tecmo_asset_pack_store_u16(payload + 4U, 1U);
+    tecmo_asset_pack_store_u16(payload + 6U, TECMO_ASSET_PACK_ARENA_LAYER_HEADER_SIZE);
+    tecmo_asset_pack_store_u16(payload + 8U, TECMO_ASSET_PACK_ARENA_LAYER_WIDTH);
+    tecmo_asset_pack_store_u16(payload + 10U, TECMO_ASSET_PACK_ARENA_LAYER_HEIGHT);
+    tecmo_asset_pack_store_u16(payload + 12U, 32U);
+    tecmo_asset_pack_store_u16(payload + 14U, 30U);
+    tecmo_asset_pack_store_u16(payload + 16U, TECMO_ASSET_PACK_ARENA_LAYER_CELL_STRIDE);
+    tecmo_asset_pack_store_u16(payload + 18U, 0U);
+    tecmo_asset_pack_store_u32(payload + 20U, TECMO_ASSET_PACK_ARENA_LAYER_CELL_COUNT);
+    tecmo_asset_pack_store_u32(payload + 24U, TECMO_ASSET_PACK_ARENA_LAYER_HEADER_SIZE);
+    tecmo_asset_pack_store_u32(payload + 28U, 32U);
     memcpy(payload + 32U, rom + (size_t)palette_offset, 16U);
 
     for (uint32_t destination_row = 0U;
@@ -398,7 +241,7 @@ static int build_arena_background_layer(const uint8_t *rom,
                             cell_index * TECMO_ASSET_PACK_ARENA_LAYER_CELL_STRIDE;
 
             if (chr_byte_offset > UINT32_MAX || chr_byte_offset + 16U > chr_size) {
-                set_messagef(message,
+                tecmo_asset_pack_set_messagef(message,
                              message_size,
                              "Arena tile at row %u column %u resolves outside chr/all.",
                              destination_row,
@@ -407,7 +250,7 @@ static int build_arena_background_layer(const uint8_t *rom,
             }
             cell[0] = tile_id;
             cell[1] = palette_index;
-            store_u32(cell + 2U, (uint32_t)chr_byte_offset);
+            tecmo_asset_pack_store_u32(cell + 2U, (uint32_t)chr_byte_offset);
         }
     }
 
@@ -465,11 +308,11 @@ static int build_arena_sprite_groups(const uint8_t *rom,
     if (rom == NULL || payload == NULL || provenance == NULL ||
         payload_size != TECMO_ASSET_PACK_ARENA_SPRITE_GROUPS_SIZE ||
         prg_banks <= TECMO_ASSET_PACK_ARENA_BANK04) {
-        set_message(message, message_size, "Arena sprite import requires Bank00 and Bank04.");
+        tecmo_asset_pack_set_message(message, message_size, "Arena sprite import requires Bank00 and Bank04.");
         return -1;
     }
     if (chr_size < ((uint64_t)TECMO_ASSET_PACK_ARENA_SPRITE_CHR_R3 + 1U) * 1024U) {
-        set_message(message, message_size, "Arena sprite import requires CHR pages R2=08 and R3=09.");
+        tecmo_asset_pack_set_message(message, message_size, "Arena sprite import requires CHR pages R2=08 and R3=09.");
         return -1;
     }
 
@@ -492,7 +335,7 @@ static int build_arena_sprite_groups(const uint8_t *rom,
         pointer_table_offset > rom_size || 4U > rom_size - pointer_table_offset ||
         seeds_offset > rom_size || sizeof(expected_seeds) > rom_size - seeds_offset ||
         params_offset > rom_size || sizeof(expected_params) > rom_size - params_offset) {
-        set_message(message, message_size, "Arena sprite source contract is outside the ROM.");
+        tecmo_asset_pack_set_message(message, message_size, "Arena sprite source contract is outside the ROM.");
         return -1;
     }
 
@@ -500,7 +343,7 @@ static int build_arena_sprite_groups(const uint8_t *rom,
         const uint8_t *source = rom + (size_t)palette_offset + palette * 4U;
 
         if (source[0] != 2U) {
-            set_messagef(message,
+            tecmo_asset_pack_set_messagef(message,
                          message_size,
                          "Arena sprite subpalette %u has control %u; expected 2.",
                          (unsigned int)palette,
@@ -509,7 +352,7 @@ static int build_arena_sprite_groups(const uint8_t *rom,
         }
         for (size_t color = 1U; color < 4U; ++color) {
             if (source[color] > 0x3FU) {
-                set_messagef(message,
+                tecmo_asset_pack_set_messagef(message,
                              message_size,
                              "Arena sprite subpalette %u color %u is outside the NES palette.",
                              (unsigned int)palette,
@@ -519,21 +362,21 @@ static int build_arena_sprite_groups(const uint8_t *rom,
         }
     }
     if (memcmp(rom + (size_t)seeds_offset, expected_seeds, sizeof(expected_seeds)) != 0) {
-        set_message(message, message_size, "Arena sprite seed bytes do not match normalized anchors.");
+        tecmo_asset_pack_set_message(message, message_size, "Arena sprite seed bytes do not match normalized anchors.");
         return -1;
     }
     if (memcmp(rom + (size_t)params_offset, expected_params, sizeof(expected_params)) != 0) {
-        set_message(message, message_size, "Arena sprite parameter bytes do not match normalized anchors.");
+        tecmo_asset_pack_set_message(message, message_size, "Arena sprite parameter bytes do not match normalized anchors.");
         return -1;
     }
 
     for (size_t selector = 0U; selector < 2U; ++selector) {
-        uint32_t pointer = read_u16(rom + (size_t)pointer_table_offset + selector * 2U);
+        uint32_t pointer = tecmo_asset_pack_read_u16(rom + (size_t)pointer_table_offset + selector * 2U);
         uint64_t source_offset;
 
         if (pointer < TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE ||
             pointer >= TECMO_ASSET_PACK_SWITCHED_PRG_CPU_LIMIT) {
-            set_messagef(message,
+            tecmo_asset_pack_set_messagef(message,
                          message_size,
                          "Arena sprite selector %u has invalid pointer $%04X.",
                          (unsigned int)selector,
@@ -543,7 +386,7 @@ static int build_arena_sprite_groups(const uint8_t *rom,
         source_offset = prg_offset +
                         (uint64_t)(pointer - TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
         if (source_offset >= rom_size || rom[(size_t)source_offset] != expected_counts[selector]) {
-            set_messagef(message,
+            tecmo_asset_pack_set_messagef(message,
                          message_size,
                          "Arena sprite selector %u does not have the expected %u records.",
                          (unsigned int)selector,
@@ -554,7 +397,7 @@ static int build_arena_sprite_groups(const uint8_t *rom,
         stream_size[selector] = 1U + (uint32_t)expected_counts[selector] * 4U;
         if (stream_size[selector] > TECMO_ASSET_PACK_SWITCHED_PRG_CPU_LIMIT - pointer ||
             stream_size[selector] > rom_size - source_offset) {
-            set_messagef(message,
+            tecmo_asset_pack_set_messagef(message,
                          message_size,
                          "Arena sprite selector %u stream crosses its PRG bank.",
                          (unsigned int)selector);
@@ -566,22 +409,22 @@ static int build_arena_sprite_groups(const uint8_t *rom,
     if (stream_cpu[0] == stream_cpu[1] ||
         !((uint64_t)stream_cpu[0] + stream_size[0] <= stream_cpu[1] ||
           (uint64_t)stream_cpu[1] + stream_size[1] <= stream_cpu[0])) {
-        set_message(message, message_size, "Arena sprite stream pointers overlap.");
+        tecmo_asset_pack_set_message(message, message_size, "Arena sprite stream pointers overlap.");
         return -1;
     }
 
     memset(payload, 0, payload_size);
     memcpy(payload, "TASG", 4U);
-    store_u16(payload + 4U, 2U);
-    store_u16(payload + 6U, TECMO_ASSET_PACK_ARENA_SPRITE_GROUP_HEADER_SIZE);
-    store_u16(payload + 8U, 2U);
-    store_u16(payload + 10U, TECMO_ASSET_PACK_ARENA_SPRITE_GROUP_STRIDE);
-    store_u32(payload + 12U, TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_COUNT);
-    store_u16(payload + 16U, TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_STRIDE);
-    store_u16(payload + 18U, 1U);
-    store_u32(payload + 20U, TECMO_ASSET_PACK_ARENA_SPRITE_PALETTE_OFFSET);
-    store_u32(payload + 24U, TECMO_ASSET_PACK_ARENA_SPRITE_GROUPS_OFFSET);
-    store_u32(payload + 28U, TECMO_ASSET_PACK_ARENA_SPRITE_PIECES_OFFSET);
+    tecmo_asset_pack_store_u16(payload + 4U, 2U);
+    tecmo_asset_pack_store_u16(payload + 6U, TECMO_ASSET_PACK_ARENA_SPRITE_GROUP_HEADER_SIZE);
+    tecmo_asset_pack_store_u16(payload + 8U, 2U);
+    tecmo_asset_pack_store_u16(payload + 10U, TECMO_ASSET_PACK_ARENA_SPRITE_GROUP_STRIDE);
+    tecmo_asset_pack_store_u32(payload + 12U, TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_COUNT);
+    tecmo_asset_pack_store_u16(payload + 16U, TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_STRIDE);
+    tecmo_asset_pack_store_u16(payload + 18U, 1U);
+    tecmo_asset_pack_store_u32(payload + 20U, TECMO_ASSET_PACK_ARENA_SPRITE_PALETTE_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 24U, TECMO_ASSET_PACK_ARENA_SPRITE_GROUPS_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 28U, TECMO_ASSET_PACK_ARENA_SPRITE_PIECES_OFFSET);
 
     for (size_t palette = 0U; palette < 4U; ++palette) {
         const uint8_t *source = rom + (size_t)palette_offset + palette * 4U;
@@ -595,23 +438,23 @@ static int build_arena_sprite_groups(const uint8_t *rom,
         uint8_t *jumbotron = payload + TECMO_ASSET_PACK_ARENA_SPRITE_GROUPS_OFFSET;
         uint8_t *goal = jumbotron + TECMO_ASSET_PACK_ARENA_SPRITE_GROUP_STRIDE;
 
-        store_u16(jumbotron + 0U, 1U);
-        store_u16(jumbotron + 2U, 1U);
-        store_u32(jumbotron + 4U, 0U);
-        store_u32(jumbotron + 8U, TECMO_ASSET_PACK_ARENA_JUMBOTRON_COUNT);
-        store_u16(jumbotron + 12U, 0U);
-        store_u16(jumbotron + 14U, 0U);
-        store_u16(jumbotron + 16U, 0U);
-        store_u16(jumbotron + 18U, 2U);
+        tecmo_asset_pack_store_u16(jumbotron + 0U, 1U);
+        tecmo_asset_pack_store_u16(jumbotron + 2U, 1U);
+        tecmo_asset_pack_store_u32(jumbotron + 4U, 0U);
+        tecmo_asset_pack_store_u32(jumbotron + 8U, TECMO_ASSET_PACK_ARENA_JUMBOTRON_COUNT);
+        tecmo_asset_pack_store_u16(jumbotron + 12U, 0U);
+        tecmo_asset_pack_store_u16(jumbotron + 14U, 0U);
+        tecmo_asset_pack_store_u16(jumbotron + 16U, 0U);
+        tecmo_asset_pack_store_u16(jumbotron + 18U, 2U);
 
-        store_u16(goal + 0U, 2U);
-        store_u16(goal + 2U, 0U);
-        store_u32(goal + 4U, TECMO_ASSET_PACK_ARENA_JUMBOTRON_COUNT);
-        store_u32(goal + 8U, TECMO_ASSET_PACK_ARENA_GOAL_COUNT);
-        store_u16(goal + 12U, 165U);
-        store_u16(goal + 14U, 350U);
-        store_u16(goal + 16U, 0U);
-        store_u16(goal + 18U, 2U);
+        tecmo_asset_pack_store_u16(goal + 0U, 2U);
+        tecmo_asset_pack_store_u16(goal + 2U, 0U);
+        tecmo_asset_pack_store_u32(goal + 4U, TECMO_ASSET_PACK_ARENA_JUMBOTRON_COUNT);
+        tecmo_asset_pack_store_u32(goal + 8U, TECMO_ASSET_PACK_ARENA_GOAL_COUNT);
+        tecmo_asset_pack_store_u16(goal + 12U, 165U);
+        tecmo_asset_pack_store_u16(goal + 14U, 350U);
+        tecmo_asset_pack_store_u16(goal + 16U, 0U);
+        tecmo_asset_pack_store_u16(goal + 18U, 2U);
     }
 
     for (size_t selector = 0U; selector < 2U; ++selector) {
@@ -638,7 +481,7 @@ static int build_arena_sprite_groups(const uint8_t *rom,
                 (record[1] != TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_TILE ||
                  attributes != TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_RAW_ATTRIBUTES ||
                  chr_byte_offset != TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_TOP_CHR_OFFSET)) {
-                set_messagef(
+                tecmo_asset_pack_set_messagef(
                     message,
                     message_size,
                     "Arena goal connector source-contract mismatch at record %u: "
@@ -654,7 +497,7 @@ static int build_arena_sprite_groups(const uint8_t *rom,
                 return -1;
             }
             if ((attributes & 0x1CU) != 0U) {
-                set_messagef(message,
+                tecmo_asset_pack_set_messagef(message,
                              message_size,
                              "Arena sprite selector %u record %u has unsupported attributes $%02X.",
                              (unsigned int)selector,
@@ -665,7 +508,7 @@ static int build_arena_sprite_groups(const uint8_t *rom,
             if (chr_byte_offset < TECMO_ASSET_PACK_ARENA_SPRITE_CHR_BASE ||
                 (uint64_t)chr_byte_offset + 32U >
                     TECMO_ASSET_PACK_ARENA_SPRITE_CHR_LIMIT) {
-                set_messagef(message,
+                tecmo_asset_pack_set_messagef(message,
                              message_size,
                              "Arena sprite selector %u record %u references CHR outside pages 8/9.",
                              (unsigned int)selector,
@@ -687,7 +530,7 @@ static int build_arena_sprite_groups(const uint8_t *rom,
                     case 0xE0U: dy = 32; break;
                     case 0xF0U: dy = 48; break;
                     default:
-                        set_messagef(message,
+                        tecmo_asset_pack_set_messagef(message,
                                      message_size,
                                      "Arena goal record %u has invalid relative Y $%02X.",
                                      (unsigned int)index,
@@ -704,21 +547,21 @@ static int build_arena_sprite_groups(const uint8_t *rom,
             if ((attributes & 0x40U) != 0U) flags |= 0x01U;
             if ((attributes & 0x80U) != 0U) flags |= 0x02U;
             if ((attributes & 0x20U) != 0U) flags |= 0x04U;
-            store_u16(piece + 0U, (uint16_t)dx);
-            store_u16(piece + 2U, (uint16_t)dy);
-            store_u32(piece + 4U, chr_byte_offset);
+            tecmo_asset_pack_store_u16(piece + 0U, (uint16_t)dx);
+            tecmo_asset_pack_store_u16(piece + 2U, (uint16_t)dy);
+            tecmo_asset_pack_store_u32(piece + 4U, chr_byte_offset);
             piece[8] = (uint8_t)(attributes & 0x03U);
             piece[9] = flags;
-            store_u16(piece + 10U, (uint16_t)connector_overlay_y_adjust);
+            tecmo_asset_pack_store_u16(piece + 10U, (uint16_t)connector_overlay_y_adjust);
             ++output_piece;
         }
     }
     if (output_piece != TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_COUNT) {
-        set_message(message, message_size, "Arena sprite piece count mismatch.");
+        tecmo_asset_pack_set_message(message, message_size, "Arena sprite piece count mismatch.");
         return -1;
     }
     if (connector_overlay_piece_count != 1U) {
-        set_message(message, message_size, "Arena sprite connector-overlay record count mismatch.");
+        tecmo_asset_pack_set_message(message, message_size, "Arena sprite connector-overlay record count mismatch.");
         return -1;
     }
 
@@ -854,7 +697,7 @@ static int build_opening_screen(const uint8_t *rom,
 
     if (rom == NULL || payload == NULL || provenance == NULL || prg_banks == 0U ||
         kind > 1U || chr_size == 0U) {
-        set_message(message, message_size, "Opening screen import requires Rev1 PRG and CHR ROM data.");
+        tecmo_asset_pack_set_message(message, message_size, "Opening screen import requires Rev1 PRG and CHR ROM data.");
         return -1;
     }
 
@@ -888,7 +731,7 @@ static int build_opening_screen(const uint8_t *rom,
     if (payload_size != total_size ||
         (kind == 0U && total_size != TECMO_ASSET_PACK_PRESENTS_SIZE) ||
         (kind == 1U && total_size != TECMO_ASSET_PACK_LICENSE_SIZE)) {
-        set_message(message, message_size, "Opening screen payload layout mismatch.");
+        tecmo_asset_pack_set_message(message, message_size, "Opening screen payload layout mismatch.");
         return -1;
     }
 
@@ -906,21 +749,21 @@ static int build_opening_screen(const uint8_t *rom,
         TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_SIZE > rom_size - descriptor_offset ||
         stream_offset >= rom_size || palette_offset > rom_size ||
         16U > rom_size - palette_offset) {
-        set_message(message, message_size, "Opening screen descriptor, stream, or palette is outside PRG ROM.");
+        tecmo_asset_pack_set_message(message, message_size, "Opening screen descriptor, stream, or palette is outside PRG ROM.");
         return -1;
     }
     descriptor = rom + (size_t)descriptor_offset;
     if (descriptor[0] != TECMO_ASSET_PACK_PRESENTS_BG_R0 / 2U ||
         descriptor[1] != TECMO_ASSET_PACK_PRESENTS_BG_R1 / 2U ||
-        read_u16(descriptor + 2U) != TECMO_ASSET_PACK_OPENING_PALETTE_CPU ||
-        read_u16(descriptor + 4U) != stream_cpu || descriptor[6U] != 0U) {
-        set_message(message, message_size, "Opening screen descriptor does not match the Rev1 route.");
+        tecmo_asset_pack_read_u16(descriptor + 2U) != TECMO_ASSET_PACK_OPENING_PALETTE_CPU ||
+        tecmo_asset_pack_read_u16(descriptor + 4U) != stream_cpu || descriptor[6U] != 0U) {
+        tecmo_asset_pack_set_message(message, message_size, "Opening screen descriptor does not match the Rev1 route.");
         return -1;
     }
     if (enforce_revision_fingerprints != 0 &&
-        fnv1a32(rom + (size_t)palette_offset, 16U) !=
+        tecmo_asset_pack_fnv1a32(rom + (size_t)palette_offset, 16U) !=
             TECMO_ASSET_PACK_OPENING_BG_PALETTE_FINGERPRINT) {
-        set_message(message, message_size, "Opening screen background palette fingerprint mismatch.");
+        tecmo_asset_pack_set_message(message, message_size, "Opening screen background palette fingerprint mismatch.");
         return -1;
     }
     if (validate_chr_pair(TECMO_ASSET_PACK_PRESENTS_BG_R0,
@@ -938,7 +781,7 @@ static int build_opening_screen(const uint8_t *rom,
                            message,
                            message_size) != 0 ||
         encoded_size != expected_stream_size) {
-        set_messagef(message,
+        tecmo_asset_pack_set_messagef(message,
                      message_size,
                      "Opening screen %u is not the Rev1 %u-byte compressed stream.",
                      screen_id,
@@ -978,21 +821,21 @@ static int build_opening_screen(const uint8_t *rom,
                    sizeof(selector_contract)) != 0 ||
             rom[(size_t)sprite_table_offset] != TECMO_ASSET_PACK_PRESENTS_SPRITE_COUNT ||
             (enforce_revision_fingerprints != 0 &&
-             fnv1a32(rom + (size_t)sprite_table_offset + 1U,
+             tecmo_asset_pack_fnv1a32(rom + (size_t)sprite_table_offset + 1U,
                      TECMO_ASSET_PACK_PRESENTS_SPRITE_COUNT * 4U) !=
                  TECMO_ASSET_PACK_PRESENTS_SPRITE_RECORD_FINGERPRINT) ||
             (enforce_revision_fingerprints != 0 &&
-             fnv1a32(rom + (size_t)sprite_palette_offset, 16U) !=
+             tecmo_asset_pack_fnv1a32(rom + (size_t)sprite_palette_offset, 16U) !=
                  TECMO_ASSET_PACK_PRESENTS_SPRITE_PALETTE_FINGERPRINT) ||
             rom[(size_t)y_base_operand_offset] != 0x40U ||
             rom[(size_t)tile_base_operand_offset] != 0x55U ||
             rom[(size_t)x_base_operand_offset] != 0x50U) {
-            set_message(message, message_size, "TECMO rabbit sprite route does not match Rev1.");
+            tecmo_asset_pack_set_message(message, message_size, "TECMO rabbit sprite route does not match Rev1.");
             return -1;
         }
         if (((uint64_t)TECMO_ASSET_PACK_PRESENTS_SPRITE_R2 + 1U) * 1024U > chr_size ||
             ((uint64_t)TECMO_ASSET_PACK_PRESENTS_SPRITE_R3 + 1U) * 1024U > chr_size) {
-            set_message(message, message_size, "TECMO rabbit sprite selectors resolve outside chr/all.");
+            tecmo_asset_pack_set_message(message, message_size, "TECMO rabbit sprite selectors resolve outside chr/all.");
             return -1;
         }
         memcpy(target_palette + 16U, rom + (size_t)sprite_palette_offset, 16U);
@@ -1000,25 +843,25 @@ static int build_opening_screen(const uint8_t *rom,
 
     memset(payload, 0, payload_size);
     memcpy(payload, "TISC", 4U);
-    store_u16(payload + 4U, 1U);
-    store_u16(payload + 6U, TECMO_ASSET_PACK_OPENING_SCREEN_HEADER_SIZE);
-    store_u16(payload + 8U, TECMO_ASSET_PACK_OPENING_SCREEN_WIDTH);
-    store_u16(payload + 10U, TECMO_ASSET_PACK_OPENING_SCREEN_HEIGHT);
-    store_u16(payload + 12U, TECMO_ASSET_PACK_OPENING_SCREEN_CELL_STRIDE);
-    store_u16(payload + 14U, (uint16_t)kind);
-    store_u32(payload + 16U, TECMO_ASSET_PACK_OPENING_SCREEN_CELL_COUNT);
-    store_u32(payload + 20U, TECMO_ASSET_PACK_OPENING_SCREEN_CELLS_OFFSET);
-    store_u16(payload + 24U, stage_count);
-    store_u16(payload + 26U, palette_stride);
-    store_u32(payload + 28U, palettes_offset);
-    store_u32(payload + 32U, frames_offset);
-    store_u16(payload + 36U, duration);
-    store_u16(payload + 38U, sprite_count);
-    store_u32(payload + 40U, total_size);
-    store_u32(payload + 44U, sprites_offset);
-    store_u16(payload + 48U, TECMO_ASSET_PACK_PRESENTS_SPRITE_STRIDE);
-    store_u16(payload + 50U, 0U);
-    store_u16(payload + 52U, sprite_hide_frame);
+    tecmo_asset_pack_store_u16(payload + 4U, 1U);
+    tecmo_asset_pack_store_u16(payload + 6U, TECMO_ASSET_PACK_OPENING_SCREEN_HEADER_SIZE);
+    tecmo_asset_pack_store_u16(payload + 8U, TECMO_ASSET_PACK_OPENING_SCREEN_WIDTH);
+    tecmo_asset_pack_store_u16(payload + 10U, TECMO_ASSET_PACK_OPENING_SCREEN_HEIGHT);
+    tecmo_asset_pack_store_u16(payload + 12U, TECMO_ASSET_PACK_OPENING_SCREEN_CELL_STRIDE);
+    tecmo_asset_pack_store_u16(payload + 14U, (uint16_t)kind);
+    tecmo_asset_pack_store_u32(payload + 16U, TECMO_ASSET_PACK_OPENING_SCREEN_CELL_COUNT);
+    tecmo_asset_pack_store_u32(payload + 20U, TECMO_ASSET_PACK_OPENING_SCREEN_CELLS_OFFSET);
+    tecmo_asset_pack_store_u16(payload + 24U, stage_count);
+    tecmo_asset_pack_store_u16(payload + 26U, palette_stride);
+    tecmo_asset_pack_store_u32(payload + 28U, palettes_offset);
+    tecmo_asset_pack_store_u32(payload + 32U, frames_offset);
+    tecmo_asset_pack_store_u16(payload + 36U, duration);
+    tecmo_asset_pack_store_u16(payload + 38U, sprite_count);
+    tecmo_asset_pack_store_u32(payload + 40U, total_size);
+    tecmo_asset_pack_store_u32(payload + 44U, sprites_offset);
+    tecmo_asset_pack_store_u16(payload + 48U, TECMO_ASSET_PACK_PRESENTS_SPRITE_STRIDE);
+    tecmo_asset_pack_store_u16(payload + 50U, 0U);
+    tecmo_asset_pack_store_u16(payload + 52U, sprite_hide_frame);
 
     for (size_t i = 0U; i < TECMO_ASSET_PACK_OPENING_SCREEN_CELL_COUNT; ++i) {
         unsigned row = (unsigned)(i / TECMO_ASSET_PACK_OPENING_SCREEN_WIDTH);
@@ -1031,12 +874,12 @@ static int build_opening_screen(const uint8_t *rom,
         uint8_t *cell = payload + TECMO_ASSET_PACK_OPENING_SCREEN_CELLS_OFFSET +
                         i * TECMO_ASSET_PACK_OPENING_SCREEN_CELL_STRIDE;
         if ((uint64_t)chr_offset + 16U > chr_size) {
-            set_message(message, message_size, "Opening screen tile resolves outside chr/all.");
+            tecmo_asset_pack_set_message(message, message_size, "Opening screen tile resolves outside chr/all.");
             return -1;
         }
         cell[0] = tile;
         cell[1] = decoded_palette_index(decoded, row, col);
-        store_u32(cell + 2U, chr_offset);
+        tecmo_asset_pack_store_u32(cell + 2U, chr_offset);
     }
     for (size_t stage = 0U; stage < stage_count; ++stage) {
         uint8_t *stage_palette = payload + palettes_offset + stage * palette_stride;
@@ -1051,7 +894,7 @@ static int build_opening_screen(const uint8_t *rom,
                                         palette_stride,
                                         palette_levels[stage]);
         }
-        store_u16(payload + frames_offset + stage * 2U, palette_frames[stage]);
+        tecmo_asset_pack_store_u16(payload + frames_offset + stage * 2U, palette_frames[stage]);
     }
 
     if (kind == 0U) {
@@ -1069,22 +912,22 @@ static int build_opening_screen(const uint8_t *rom,
             if (tile < 0x40U) selector = TECMO_ASSET_PACK_PRESENTS_SPRITE_R2;
             else if (tile < 0x80U) selector = TECMO_ASSET_PACK_PRESENTS_SPRITE_R3;
             else {
-                set_message(message, message_size, "TECMO rabbit tile is outside its two CHR pages.");
+                tecmo_asset_pack_set_message(message, message_size, "TECMO rabbit tile is outside its two CHR pages.");
                 return -1;
             }
             chr_offset = (uint32_t)selector * 1024U + (uint32_t)(tile & 0x3FU) * 16U;
             if ((uint64_t)chr_offset + 16U > chr_size || (record[2] & 0x3CU) != 0U) {
-                set_message(message, message_size, "TECMO rabbit piece is invalid.");
+                tecmo_asset_pack_set_message(message, message_size, "TECMO rabbit piece is invalid.");
                 return -1;
             }
             if ((record[2] & 0x40U) != 0U) flags |= 0x01U;
             if ((record[2] & 0x80U) != 0U) flags |= 0x02U;
-            store_u16(piece + 0U, (uint16_t)x);
-            store_u16(piece + 2U, (uint16_t)y);
-            store_u32(piece + 4U, chr_offset);
+            tecmo_asset_pack_store_u16(piece + 0U, (uint16_t)x);
+            tecmo_asset_pack_store_u16(piece + 2U, (uint16_t)y);
+            tecmo_asset_pack_store_u32(piece + 4U, chr_offset);
             piece[8] = record[2] & 3U;
             piece[9] = flags;
-            store_u16(piece + 10U, 0U);
+            tecmo_asset_pack_store_u16(piece + 10U, 0U);
         }
     }
 
@@ -1160,14 +1003,14 @@ static int validate_post_arena_route_contract(const uint8_t *rom,
     for (size_t i = 0U; i < sizeof(POST_ARENA_BANK04_CONTRACT) / sizeof(POST_ARENA_BANK04_CONTRACT[0]); ++i) {
         uint64_t offset = bank04_offset + (POST_ARENA_BANK04_CONTRACT[i].cpu - 0x8000U);
         if (offset >= rom_size || rom[(size_t)offset] != POST_ARENA_BANK04_CONTRACT[i].value) {
-            set_message(message, message_size, "Post-arena Bank04 route contract is not Rev1.");
+            tecmo_asset_pack_set_message(message, message_size, "Post-arena Bank04 route contract is not Rev1.");
             return -1;
         }
     }
     for (size_t i = 0U; i < sizeof(POST_ARENA_FIXED_CONTRACT) / sizeof(POST_ARENA_FIXED_CONTRACT[0]); ++i) {
         uint64_t offset = fixed_offset + (POST_ARENA_FIXED_CONTRACT[i].cpu - 0xC000U);
         if (offset >= rom_size || rom[(size_t)offset] != POST_ARENA_FIXED_CONTRACT[i].value) {
-            set_message(message, message_size, "Post-arena IRQ route contract is not Rev1.");
+            tecmo_asset_pack_set_message(message, message_size, "Post-arena IRQ route contract is not Rev1.");
             return -1;
         }
     }
@@ -1209,7 +1052,7 @@ static int build_ready_screen(const uint8_t *rom,
     size_t encoded_size = 0U;
 
     if (prg_banks <= TECMO_ASSET_PACK_ARENA_BANK04 || chr_size == 0U) {
-        set_message(message, message_size, "READY import requires Bank04 and CHR ROM.");
+        tecmo_asset_pack_set_message(message, message_size, "READY import requires Bank04 and CHR ROM.");
         return -1;
     }
     if (validate_post_arena_route_contract(rom,
@@ -1228,17 +1071,17 @@ static int build_ready_screen(const uint8_t *rom,
     if (descriptor_offset > rom_size || 7U > rom_size - descriptor_offset ||
         script_offset > rom_size || sizeof(expected_script) > rom_size - script_offset ||
         memcmp(rom + (size_t)script_offset, expected_script, sizeof(expected_script)) != 0) {
-        set_message(message, message_size, "READY descriptor or reveal script does not match Rev1.");
+        tecmo_asset_pack_set_message(message, message_size, "READY descriptor or reveal script does not match Rev1.");
         return -1;
     }
     descriptor = rom + (size_t)descriptor_offset;
-    palette_cpu = read_u16(descriptor + 2U);
-    stream_cpu = read_u16(descriptor + 4U);
+    palette_cpu = tecmo_asset_pack_read_u16(descriptor + 2U);
+    stream_cpu = tecmo_asset_pack_read_u16(descriptor + 4U);
     stream_bank = descriptor[6U];
     if (stream_bank >= prg_banks || palette_cpu < 0x8000U || palette_cpu >= 0xC000U ||
         stream_cpu < 0x8000U || stream_cpu >= 0xC000U ||
         descriptor[0] > 0x7FU || descriptor[1] > 0x7FU) {
-        set_message(message, message_size, "READY screen descriptor is invalid.");
+        tecmo_asset_pack_set_message(message, message_size, "READY screen descriptor is invalid.");
         return -1;
     }
     r0 = (uint8_t)(descriptor[0] * 2U);
@@ -1257,30 +1100,30 @@ static int build_ready_screen(const uint8_t *rom,
                            &encoded_size,
                            message,
                            message_size) != 0 || encoded_size != 53U) {
-        set_message(message, message_size, "READY compressed screen is not the Rev1 53-byte stream.");
+        tecmo_asset_pack_set_message(message, message_size, "READY compressed screen is not the Rev1 53-byte stream.");
         return -1;
     }
 
     memset(payload, 0, TECMO_ASSET_PACK_READY_SIZE);
     memcpy(payload, "TRDY", 4U);
-    store_u16(payload + 4U, 1U);
-    store_u16(payload + 6U, TECMO_ASSET_PACK_READY_HEADER_SIZE);
-    store_u16(payload + 8U, 32U);
-    store_u16(payload + 10U, 30U);
-    store_u16(payload + 12U, TECMO_ASSET_PACK_READY_CELL_STRIDE);
-    store_u16(payload + 14U, 5U);
-    store_u16(payload + 16U, 12U);
-    store_u16(payload + 18U, 8U);
-    store_u32(payload + 20U, TECMO_ASSET_PACK_READY_PALETTES_OFFSET);
-    store_u32(payload + 24U, TECMO_ASSET_PACK_READY_PALETTE_FRAMES_OFFSET);
-    store_u32(payload + 28U, TECMO_ASSET_PACK_READY_MASKS_OFFSET);
-    store_u32(payload + 32U, TECMO_ASSET_PACK_READY_CELLS_OFFSET);
-    store_u32(payload + 36U, TECMO_ASSET_PACK_READY_CELL_COUNT);
-    store_u32(payload + 40U, 58U);
-    store_u16(payload + 44U, 8U);
-    store_u16(payload + 46U, 16U);
-    store_u16(payload + 48U, 16U);
-    store_u16(payload + 50U, 4U);
+    tecmo_asset_pack_store_u16(payload + 4U, 1U);
+    tecmo_asset_pack_store_u16(payload + 6U, TECMO_ASSET_PACK_READY_HEADER_SIZE);
+    tecmo_asset_pack_store_u16(payload + 8U, 32U);
+    tecmo_asset_pack_store_u16(payload + 10U, 30U);
+    tecmo_asset_pack_store_u16(payload + 12U, TECMO_ASSET_PACK_READY_CELL_STRIDE);
+    tecmo_asset_pack_store_u16(payload + 14U, 5U);
+    tecmo_asset_pack_store_u16(payload + 16U, 12U);
+    tecmo_asset_pack_store_u16(payload + 18U, 8U);
+    tecmo_asset_pack_store_u32(payload + 20U, TECMO_ASSET_PACK_READY_PALETTES_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 24U, TECMO_ASSET_PACK_READY_PALETTE_FRAMES_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 28U, TECMO_ASSET_PACK_READY_MASKS_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 32U, TECMO_ASSET_PACK_READY_CELLS_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 36U, TECMO_ASSET_PACK_READY_CELL_COUNT);
+    tecmo_asset_pack_store_u32(payload + 40U, 58U);
+    tecmo_asset_pack_store_u16(payload + 44U, 8U);
+    tecmo_asset_pack_store_u16(payload + 46U, 16U);
+    tecmo_asset_pack_store_u16(payload + 48U, 16U);
+    tecmo_asset_pack_store_u16(payload + 50U, 4U);
 
     memset(payload + TECMO_ASSET_PACK_READY_PALETTES_OFFSET, 0x0F, 16U);
     for (size_t i = 0U; i < 16U; ++i) {
@@ -1314,12 +1157,12 @@ static int build_ready_screen(const uint8_t *rom,
         uint8_t *cell = payload + TECMO_ASSET_PACK_READY_CELLS_OFFSET +
                         i * TECMO_ASSET_PACK_READY_CELL_STRIDE;
         if ((uint64_t)chr_offset + 16U > chr_size) {
-            set_message(message, message_size, "READY tile resolves outside chr/all.");
+            tecmo_asset_pack_set_message(message, message_size, "READY tile resolves outside chr/all.");
             return -1;
         }
         cell[0] = tile;
         cell[1] = decoded_palette_index(decoded, row, col);
-        store_u32(cell + 2U, chr_offset);
+        tecmo_asset_pack_store_u32(cell + 2U, chr_offset);
     }
 
     provenance->ready_route_offset = bank04_offset +
@@ -1377,7 +1220,7 @@ static int build_warriors_transition(const uint8_t *rom,
     size_t encoded_size = 0U;
 
     if (prg_banks <= TECMO_ASSET_PACK_WARRIORS_WORDMARK_BANK || chr_size == 0U) {
-        set_message(message, message_size, "WARRIORS import requires Bank04 and CHR ROM.");
+        tecmo_asset_pack_set_message(message, message_size, "WARRIORS import requires Bank04 and CHR ROM.");
         return -1;
     }
     if (validate_post_arena_route_contract(rom,
@@ -1392,17 +1235,17 @@ static int build_warriors_transition(const uint8_t *rom,
                         (TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_CPU - 0xC000U) +
                         TECMO_ASSET_PACK_WARRIORS_SCREEN_ID * TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_SIZE;
     if (descriptor_offset > rom_size || 7U > rom_size - descriptor_offset) {
-        set_message(message, message_size, "WARRIORS descriptor is outside fixed PRG.");
+        tecmo_asset_pack_set_message(message, message_size, "WARRIORS descriptor is outside fixed PRG.");
         return -1;
     }
     descriptor = rom + (size_t)descriptor_offset;
-    palette_cpu = read_u16(descriptor + 2U);
-    stream_cpu = read_u16(descriptor + 4U);
+    palette_cpu = tecmo_asset_pack_read_u16(descriptor + 2U);
+    stream_cpu = tecmo_asset_pack_read_u16(descriptor + 4U);
     stream_bank = descriptor[6U];
     if (stream_bank >= prg_banks || descriptor[0] > 0x7FU || descriptor[1] > 0x7FU ||
         palette_cpu < 0x8000U || palette_cpu >= 0xC000U ||
         stream_cpu < 0x8000U || stream_cpu >= 0xC000U) {
-        set_message(message, message_size, "WARRIORS descriptor is invalid.");
+        tecmo_asset_pack_set_message(message, message_size, "WARRIORS descriptor is invalid.");
         return -1;
     }
     r0 = (uint8_t)(descriptor[0] * 2U);
@@ -1418,7 +1261,7 @@ static int build_warriors_transition(const uint8_t *rom,
     }
     for (size_t i = 0U; i < 4U; ++i) {
         if ((uint64_t)(sprite_selectors[i] + 1U) * 1024U > chr_size) {
-            set_message(message, message_size, "WARRIORS sprite selector resolves outside chr/all.");
+            tecmo_asset_pack_set_message(message, message_size, "WARRIORS sprite selector resolves outside chr/all.");
             return -1;
         }
     }
@@ -1434,7 +1277,7 @@ static int build_warriors_transition(const uint8_t *rom,
                            &encoded_size,
                            message,
                            message_size) != 0 || encoded_size != 279U) {
-        set_message(message, message_size, "WARRIORS compressed screen is not the Rev1 279-byte stream.");
+        tecmo_asset_pack_set_message(message, message_size, "WARRIORS compressed screen is not the Rev1 279-byte stream.");
         return -1;
     }
     sprite_palette_offset = bank04_offset +
@@ -1446,16 +1289,16 @@ static int build_warriors_transition(const uint8_t *rom,
                                TECMO_ASSET_PACK_PRG_BANK_BYTES;
     if (sprite_palette_offset > rom_size || 16U > rom_size - sprite_palette_offset ||
         pointer_offset > rom_size || 2U > rom_size - pointer_offset ||
-        read_u16(rom + (size_t)pointer_offset) != TECMO_ASSET_PACK_WARRIORS_STREAM_CPU ||
+        tecmo_asset_pack_read_u16(rom + (size_t)pointer_offset) != TECMO_ASSET_PACK_WARRIORS_STREAM_CPU ||
         piece_stream_offset > rom_size || 1U + 46U * 4U > rom_size - piece_stream_offset ||
         rom[(size_t)piece_stream_offset] != 46U) {
-        set_message(message, message_size, "WARRIORS player sprite pointer/stream contract is invalid.");
+        tecmo_asset_pack_set_message(message, message_size, "WARRIORS player sprite pointer/stream contract is invalid.");
         return -1;
     }
     for (size_t patch = 0U; patch < 2U; ++patch) {
         uint64_t offset = stream_bank_offset + (patch_cpu[patch] - 0x8000U);
         if (offset > rom_size || 64U > rom_size - offset) {
-            set_message(message, message_size, "WARRIORS patch crosses Bank01.");
+            tecmo_asset_pack_set_message(message, message_size, "WARRIORS patch crosses Bank01.");
             return -1;
         }
         provenance->warriors_patch_offset[patch] = offset;
@@ -1463,23 +1306,23 @@ static int build_warriors_transition(const uint8_t *rom,
 
     memset(payload, 0, TECMO_ASSET_PACK_WARRIORS_SIZE);
     memcpy(payload, "TWAR", 4U);
-    store_u16(payload + 4U, 1U);
-    store_u16(payload + 6U, TECMO_ASSET_PACK_WARRIORS_HEADER_SIZE);
-    store_u16(payload + 8U, 32U);
-    store_u16(payload + 10U, 30U);
-    store_u16(payload + 12U, 2U);
-    store_u16(payload + 14U, TECMO_ASSET_PACK_WARRIORS_CELL_STRIDE);
-    store_u16(payload + 16U, 46U);
-    store_u16(payload + 18U, TECMO_ASSET_PACK_WARRIORS_PIECE_STRIDE);
-    store_u16(payload + 20U, 2U);
-    store_u16(payload + 22U, 64U);
-    store_u16(payload + 24U, 0xA8U);
-    store_u32(payload + 28U, TECMO_ASSET_PACK_WARRIORS_BG_PALETTE_OFFSET);
-    store_u32(payload + 32U, TECMO_ASSET_PACK_WARRIORS_SPRITE_PALETTE_OFFSET);
-    store_u32(payload + 36U, TECMO_ASSET_PACK_WARRIORS_PAGES_OFFSET);
-    store_u32(payload + 40U, TECMO_ASSET_PACK_WARRIORS_PIECES_OFFSET);
-    store_u32(payload + 44U, TECMO_ASSET_PACK_WARRIORS_PATCHES_OFFSET);
-    store_u32(payload + 48U, 214U);
+    tecmo_asset_pack_store_u16(payload + 4U, 1U);
+    tecmo_asset_pack_store_u16(payload + 6U, TECMO_ASSET_PACK_WARRIORS_HEADER_SIZE);
+    tecmo_asset_pack_store_u16(payload + 8U, 32U);
+    tecmo_asset_pack_store_u16(payload + 10U, 30U);
+    tecmo_asset_pack_store_u16(payload + 12U, 2U);
+    tecmo_asset_pack_store_u16(payload + 14U, TECMO_ASSET_PACK_WARRIORS_CELL_STRIDE);
+    tecmo_asset_pack_store_u16(payload + 16U, 46U);
+    tecmo_asset_pack_store_u16(payload + 18U, TECMO_ASSET_PACK_WARRIORS_PIECE_STRIDE);
+    tecmo_asset_pack_store_u16(payload + 20U, 2U);
+    tecmo_asset_pack_store_u16(payload + 22U, 64U);
+    tecmo_asset_pack_store_u16(payload + 24U, 0xA8U);
+    tecmo_asset_pack_store_u32(payload + 28U, TECMO_ASSET_PACK_WARRIORS_BG_PALETTE_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 32U, TECMO_ASSET_PACK_WARRIORS_SPRITE_PALETTE_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 36U, TECMO_ASSET_PACK_WARRIORS_PAGES_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 40U, TECMO_ASSET_PACK_WARRIORS_PIECES_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 44U, TECMO_ASSET_PACK_WARRIORS_PATCHES_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 48U, 214U);
     payload[52U] = 0x1BU;
     payload[53U] = 4U;
     payload[54U] = 7U;
@@ -1492,11 +1335,11 @@ static int build_warriors_transition(const uint8_t *rom,
     payload[61U] = 200U;
     payload[62U] = 213U;
     payload[63U] = 0xA3U;
-    store_u32(payload + 64U, TECMO_ASSET_PACK_WARRIORS_WORDMARK_OFFSET);
-    store_u16(payload + 68U, TECMO_ASSET_PACK_WARRIORS_WORDMARK_GLYPH_COUNT);
-    store_u16(payload + 70U, 4U);
-    store_u16(payload + 72U, 8U);
-    store_u16(payload + 74U, 26U);
+    tecmo_asset_pack_store_u32(payload + 64U, TECMO_ASSET_PACK_WARRIORS_WORDMARK_OFFSET);
+    tecmo_asset_pack_store_u16(payload + 68U, TECMO_ASSET_PACK_WARRIORS_WORDMARK_GLYPH_COUNT);
+    tecmo_asset_pack_store_u16(payload + 70U, 4U);
+    tecmo_asset_pack_store_u16(payload + 72U, 8U);
+    tecmo_asset_pack_store_u16(payload + 74U, 26U);
     memcpy(payload + TECMO_ASSET_PACK_WARRIORS_BG_PALETTE_OFFSET,
            rom + (size_t)palette_offset,
            16U);
@@ -1505,7 +1348,7 @@ static int build_warriors_transition(const uint8_t *rom,
         uint8_t *dest = payload + TECMO_ASSET_PACK_WARRIORS_SPRITE_PALETTE_OFFSET +
                         palette * 4U;
         if (source[0] != 2U) {
-            set_message(message, message_size, "WARRIORS sprite palette control is not Rev1.");
+            tecmo_asset_pack_set_message(message, message_size, "WARRIORS sprite palette control is not Rev1.");
             return -1;
         }
         dest[0] = 0x0FU;
@@ -1528,13 +1371,13 @@ static int build_warriors_transition(const uint8_t *rom,
             uint8_t *cell = payload + TECMO_ASSET_PACK_WARRIORS_PAGES_OFFSET +
                             (page * 960U + i) * TECMO_ASSET_PACK_WARRIORS_CELL_STRIDE;
             if ((uint64_t)moving + 16U > chr_size || (uint64_t)lower + 16U > chr_size) {
-                set_message(message, message_size, "WARRIORS background tile resolves outside chr/all.");
+                tecmo_asset_pack_set_message(message, message_size, "WARRIORS background tile resolves outside chr/all.");
                 return -1;
             }
             cell[0] = tile;
             cell[1] = palette_index;
-            store_u32(cell + 2U, moving);
-            store_u32(cell + 6U, lower);
+            tecmo_asset_pack_store_u32(cell + 2U, moving);
+            tecmo_asset_pack_store_u32(cell + 6U, lower);
         }
     }
     for (size_t i = 0U; i < 46U; ++i) {
@@ -1548,15 +1391,15 @@ static int build_warriors_transition(const uint8_t *rom,
         uint8_t attributes = record[2];
         uint8_t flags = 0U;
         if ((attributes & 0x3CU) != 0U || (uint64_t)top_offset + 32U > chr_size) {
-            set_message(message, message_size, "WARRIORS player sprite piece has invalid attributes or CHR.");
+            tecmo_asset_pack_set_message(message, message_size, "WARRIORS player sprite piece has invalid attributes or CHR.");
             return -1;
         }
         if ((attributes & 0x40U) != 0U) flags |= 1U;
         if ((attributes & 0x80U) != 0U) flags |= 2U;
-        store_u16(piece + 0U, (uint16_t)(int16_t)(int8_t)record[3]);
-        store_u16(piece + 2U, (uint16_t)(int16_t)(int8_t)record[0]);
-        store_u32(piece + 4U, top_offset);
-        store_u32(piece + 8U, top_offset + 16U);
+        tecmo_asset_pack_store_u16(piece + 0U, (uint16_t)(int16_t)(int8_t)record[3]);
+        tecmo_asset_pack_store_u16(piece + 2U, (uint16_t)(int16_t)(int8_t)record[0]);
+        tecmo_asset_pack_store_u32(piece + 4U, top_offset);
+        tecmo_asset_pack_store_u32(piece + 8U, top_offset + 16U);
         piece[12U] = attributes & 3U;
         piece[13U] = flags;
     }
@@ -1571,14 +1414,14 @@ static int build_warriors_transition(const uint8_t *rom,
                             (patch * 64U + i) * TECMO_ASSET_PACK_WARRIORS_PATCH_STRIDE;
             cell[0] = tile;
             cell[1] = decoded_palette_index(decoded, row, col);
-            store_u32(cell + 2U, chr_offset);
+            tecmo_asset_pack_store_u32(cell + 2U, chr_offset);
         }
     }
     for (size_t glyph = 0U; glyph < TECMO_ASSET_PACK_WARRIORS_WORDMARK_GLYPH_COUNT; ++glyph) {
         uint64_t glyph_offset = wordmark_bank_offset +
                                 (uint64_t)(wordmark_glyph_cpu[glyph] - 0x8000U);
         if (glyph_offset > rom_size || 4U > rom_size - glyph_offset) {
-            set_message(message, message_size, "WARRIORS wordmark glyph crosses Bank06.");
+            tecmo_asset_pack_set_message(message, message_size, "WARRIORS wordmark glyph crosses Bank06.");
             return -1;
         }
         provenance->warriors_wordmark_glyph_offset[glyph] = glyph_offset;
@@ -1595,12 +1438,12 @@ static int build_warriors_transition(const uint8_t *rom,
                             (glyph * 4U + tile_index) *
                                 TECMO_ASSET_PACK_WARRIORS_WORDMARK_STRIDE;
             if (tile < 0x80U || (uint64_t)chr_offset + 16U > chr_size) {
-                set_message(message, message_size, "WARRIORS wordmark glyph has invalid CHR data.");
+                tecmo_asset_pack_set_message(message, message_size, "WARRIORS wordmark glyph has invalid CHR data.");
                 return -1;
             }
             cell[0] = tile;
             cell[1] = decoded_palette_index(decoded, row, col);
-            store_u32(cell + 2U, chr_offset);
+            tecmo_asset_pack_store_u32(cell + 2U, chr_offset);
         }
     }
 
@@ -1652,7 +1495,7 @@ static int build_clippers_transition(const uint8_t *rom,
                                            prg_banks,
                                            message,
                                            message_size) != 0) {
-        set_message(message, message_size, "CLIPPERS import requires the Rev1 post-arena route.");
+        tecmo_asset_pack_set_message(message, message_size, "CLIPPERS import requires the Rev1 post-arena route.");
         return -1;
     }
     fixed_offset = prg_offset +
@@ -1664,16 +1507,16 @@ static int build_clippers_transition(const uint8_t *rom,
                         (TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_CPU - 0xC000U) +
                         TECMO_ASSET_PACK_CLIPPERS_SCREEN_ID * TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_SIZE;
     if (descriptor_offset > rom_size || 7U > rom_size - descriptor_offset) {
-        set_message(message, message_size, "CLIPPERS descriptor is outside fixed PRG.");
+        tecmo_asset_pack_set_message(message, message_size, "CLIPPERS descriptor is outside fixed PRG.");
         return -1;
     }
     descriptor = rom + (size_t)descriptor_offset;
     if (memcmp(descriptor, clippers_descriptor, sizeof(clippers_descriptor)) != 0) {
-        set_message(message, message_size, "CLIPPERS screen descriptor is not Rev1.");
+        tecmo_asset_pack_set_message(message, message_size, "CLIPPERS screen descriptor is not Rev1.");
         return -1;
     }
-    palette_cpu = read_u16(descriptor + 2U);
-    stream_cpu = read_u16(descriptor + 4U);
+    palette_cpu = tecmo_asset_pack_read_u16(descriptor + 2U);
+    stream_cpu = tecmo_asset_pack_read_u16(descriptor + 4U);
     stream_bank = descriptor[6U];
     base_r0 = (uint8_t)(descriptor[0] * 2U);
     base_r1 = (uint8_t)(descriptor[1] * 2U);
@@ -1702,36 +1545,36 @@ static int build_clippers_transition(const uint8_t *rom,
                            &encoded_size,
                            message,
                            message_size) != 0 || encoded_size != 474U) {
-        set_message(message, message_size, "CLIPPERS compressed screen is not the Rev1 474-byte stream.");
+        tecmo_asset_pack_set_message(message, message_size, "CLIPPERS compressed screen is not the Rev1 474-byte stream.");
         return -1;
     }
 
     memset(payload, 0, TECMO_ASSET_PACK_CLIPPERS_SIZE);
     memcpy(payload, "TCLP", 4U);
-    store_u16(payload + 4U, 1U);
-    store_u16(payload + 6U, TECMO_ASSET_PACK_CLIPPERS_HEADER_SIZE);
-    store_u16(payload + 8U, 32U);
-    store_u16(payload + 10U, 30U);
-    store_u16(payload + 12U, 2U);
-    store_u16(payload + 14U, TECMO_ASSET_PACK_CLIPPERS_CELL_STRIDE);
-    store_u16(payload + 16U, 4U);
-    store_u32(payload + 20U, TECMO_ASSET_PACK_CLIPPERS_PALETTES_OFFSET);
-    store_u32(payload + 24U, TECMO_ASSET_PACK_CLIPPERS_CELLS_OFFSET);
-    store_u32(payload + 28U, TECMO_ASSET_PACK_CLIPPERS_CELL_COUNT);
-    store_u32(payload + 32U, 151U);
-    store_u16(payload + 36U, 0x883DU);
-    store_u16(payload + 38U, 200U);
-    store_u16(payload + 40U, 40U);
-    store_u16(payload + 42U, 2U);
-    store_u16(payload + 44U, 41U);
-    store_u16(payload + 46U, 20U);
+    tecmo_asset_pack_store_u16(payload + 4U, 1U);
+    tecmo_asset_pack_store_u16(payload + 6U, TECMO_ASSET_PACK_CLIPPERS_HEADER_SIZE);
+    tecmo_asset_pack_store_u16(payload + 8U, 32U);
+    tecmo_asset_pack_store_u16(payload + 10U, 30U);
+    tecmo_asset_pack_store_u16(payload + 12U, 2U);
+    tecmo_asset_pack_store_u16(payload + 14U, TECMO_ASSET_PACK_CLIPPERS_CELL_STRIDE);
+    tecmo_asset_pack_store_u16(payload + 16U, 4U);
+    tecmo_asset_pack_store_u32(payload + 20U, TECMO_ASSET_PACK_CLIPPERS_PALETTES_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 24U, TECMO_ASSET_PACK_CLIPPERS_CELLS_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 28U, TECMO_ASSET_PACK_CLIPPERS_CELL_COUNT);
+    tecmo_asset_pack_store_u32(payload + 32U, 151U);
+    tecmo_asset_pack_store_u16(payload + 36U, 0x883DU);
+    tecmo_asset_pack_store_u16(payload + 38U, 200U);
+    tecmo_asset_pack_store_u16(payload + 40U, 40U);
+    tecmo_asset_pack_store_u16(payload + 42U, 2U);
+    tecmo_asset_pack_store_u16(payload + 44U, 41U);
+    tecmo_asset_pack_store_u16(payload + 46U, 20U);
     payload[48U] = base_r0;
     payload[49U] = base_r1;
     payload[50U] = TECMO_ASSET_PACK_CLIPPERS_LOWER_R0;
     payload[51U] = TECMO_ASSET_PACK_CLIPPERS_LOWER_R1;
-    store_u32(payload + 56U, TECMO_ASSET_PACK_CLIPPERS_WORDMARK_OFFSET);
-    store_u16(payload + 60U, TECMO_ASSET_PACK_CLIPPERS_WORDMARK_TILE_COUNT);
-    store_u16(payload + 62U, 32U);
+    tecmo_asset_pack_store_u32(payload + 56U, TECMO_ASSET_PACK_CLIPPERS_WORDMARK_OFFSET);
+    tecmo_asset_pack_store_u16(payload + 60U, TECMO_ASSET_PACK_CLIPPERS_WORDMARK_TILE_COUNT);
+    tecmo_asset_pack_store_u16(payload + 62U, 32U);
     memset(payload + TECMO_ASSET_PACK_CLIPPERS_PALETTES_OFFSET, 0x0F, 16U);
     for (size_t i = 0U; i < 16U; ++i) {
         uint8_t color = rom[(size_t)palette_offset + i];
@@ -1754,13 +1597,13 @@ static int build_clippers_transition(const uint8_t *rom,
                                                     TECMO_ASSET_PACK_CLIPPERS_LOWER_R0,
                                                     TECMO_ASSET_PACK_CLIPPERS_LOWER_R1);
             if ((uint64_t)base + 16U > chr_size || (uint64_t)lower + 16U > chr_size) {
-                set_message(message, message_size, "CLIPPERS tile resolves outside chr/all.");
+                tecmo_asset_pack_set_message(message, message_size, "CLIPPERS tile resolves outside chr/all.");
                 return -1;
             }
             cell[0] = tile;
             cell[1] = decoded_palette_index(decoded_page, row, col);
-            store_u32(cell + 2U, base);
-            store_u32(cell + 6U, lower);
+            tecmo_asset_pack_store_u32(cell + 2U, base);
+            tecmo_asset_pack_store_u32(cell + 6U, lower);
         }
     }
     {
@@ -1778,16 +1621,16 @@ static int build_clippers_transition(const uint8_t *rom,
             memcmp(rom + (size_t)(bank06_offset + (0x9EAEU - 0x8000U)),
                    "\xBD\x60\xAD\x85\x16\xBD\x61\xAD\x85\x17",
                    10U) != 0) {
-            set_message(message, message_size, "CLIPPERS text dispatch is not the Rev1 Bank06 path.");
+            tecmo_asset_pack_set_message(message, message_size, "CLIPPERS text dispatch is not the Rev1 Bank06 path.");
             return -1;
         }
-        string_cpu = read_u16(rom + (size_t)string_pointer);
+        string_cpu = tecmo_asset_pack_read_u16(rom + (size_t)string_pointer);
         string_offset = bank06_offset + (uint64_t)(string_cpu - 0x8000U);
         if (string_cpu != 0xACA3U ||
             string_offset + 9U > bank06_offset + TECMO_ASSET_PACK_PRG_BANK_BYTES ||
             string_offset + 9U > rom_size || rom[(size_t)string_offset] != 8U ||
             memcmp(rom + (size_t)string_offset + 1U, clippers_text, sizeof(clippers_text)) != 0) {
-            set_message(message, message_size, "CLIPPERS Bank06 text record is not Rev1.");
+            tecmo_asset_pack_set_message(message, message_size, "CLIPPERS Bank06 text record is not Rev1.");
             return -1;
         }
         for (size_t glyph = 0U; glyph < sizeof(clippers_text); ++glyph) {
@@ -1813,8 +1656,8 @@ static int build_clippers_transition(const uint8_t *rom,
                 if ((uint64_t)base + 16U > chr_size || (uint64_t)lower + 16U > chr_size) return -1;
                 cell[0] = tile;
                 cell[1] = decoded_palette_index(decoded, row, col);
-                store_u32(cell + 2U, base);
-                store_u32(cell + 6U, lower);
+                tecmo_asset_pack_store_u32(cell + 2U, base);
+                tecmo_asset_pack_store_u32(cell + 6U, lower);
             }
         }
         provenance->clippers_string_offset = string_offset;
@@ -1879,7 +1722,7 @@ static int build_bucks_transition(const uint8_t *rom,
     if (prg_banks <= 6U || chr_size == 0U ||
         validate_post_arena_route_contract(rom, rom_size, prg_offset, prg_banks,
                                            message, message_size) != 0) {
-        set_message(message, message_size, "BUCKS import requires the Rev1 post-arena route.");
+        tecmo_asset_pack_set_message(message, message_size, "BUCKS import requires the Rev1 post-arena route.");
         return -1;
     }
     fixed_offset = prg_offset + (uint64_t)(prg_banks - 1U) * TECMO_ASSET_PACK_PRG_BANK_BYTES;
@@ -1900,7 +1743,7 @@ static int build_bucks_transition(const uint8_t *rom,
         memcmp(rom + (size_t)(bank04_offset + (TECMO_ASSET_PACK_BUCKS_ROUTE_CPU - 0x8000U)),
                expected_route, sizeof(expected_route)) != 0 ||
         rom[(size_t)color_offset] != 0x2AU) {
-        set_message(message, message_size, "BUCKS Rev1 route, descriptor, thresholds, or team color is invalid.");
+        tecmo_asset_pack_set_message(message, message_size, "BUCKS Rev1 route, descriptor, thresholds, or team color is invalid.");
         return -1;
     }
     if (validate_chr_pair(0x5EU, 0x60U, chr_size, "BUCKS base", message, message_size) != 0 ||
@@ -1914,42 +1757,42 @@ static int build_bucks_transition(const uint8_t *rom,
                            message,
                            message_size) != 0) return -1;
 
-    string_cpu = read_u16(rom + (size_t)string_pointer_offset);
+    string_cpu = tecmo_asset_pack_read_u16(rom + (size_t)string_pointer_offset);
     string_offset = bank06_offset + (uint64_t)(string_cpu - 0x8000U);
     if (string_cpu != 0xACB8U || string_offset + 6U > rom_size ||
         rom[(size_t)string_offset] != 5U ||
         memcmp(rom + (size_t)string_offset + 1U, bucks_text, sizeof(bucks_text)) != 0) {
-        set_message(message, message_size, "BUCKS Bank06 team-name record is invalid.");
+        tecmo_asset_pack_set_message(message, message_size, "BUCKS Bank06 team-name record is invalid.");
         return -1;
     }
 
     memset(payload, 0, TECMO_ASSET_PACK_BUCKS_SIZE);
     memcpy(payload, "TBUC", 4U);
-    store_u16(payload + 4U, 1U);
-    store_u16(payload + 6U, TECMO_ASSET_PACK_BUCKS_HEADER_SIZE);
-    store_u16(payload + 8U, 32U);
-    store_u16(payload + 10U, 30U);
-    store_u16(payload + 12U, 2U);
-    store_u16(payload + 14U, TECMO_ASSET_PACK_BUCKS_CELL_STRIDE);
-    store_u16(payload + 16U, 4U);
-    store_u16(payload + 18U, 5U);
-    store_u32(payload + 20U, TECMO_ASSET_PACK_BUCKS_PALETTES_OFFSET);
-    store_u32(payload + 24U, TECMO_ASSET_PACK_BUCKS_CELLS_OFFSET);
-    store_u32(payload + 28U, TECMO_ASSET_PACK_BUCKS_CELL_COUNT);
-    store_u32(payload + 32U, TECMO_ASSET_PACK_BUCKS_WORDMARK_OFFSET);
-    store_u32(payload + 36U, 83U);
-    store_u16(payload + 40U, 0x854FU);
-    store_u16(payload + 42U, 31U);
-    store_u16(payload + 44U, 168U);
-    store_u16(payload + 46U, 10U);
-    store_u16(payload + 48U, 14U);
-    store_u16(payload + 50U, 20U);
+    tecmo_asset_pack_store_u16(payload + 4U, 1U);
+    tecmo_asset_pack_store_u16(payload + 6U, TECMO_ASSET_PACK_BUCKS_HEADER_SIZE);
+    tecmo_asset_pack_store_u16(payload + 8U, 32U);
+    tecmo_asset_pack_store_u16(payload + 10U, 30U);
+    tecmo_asset_pack_store_u16(payload + 12U, 2U);
+    tecmo_asset_pack_store_u16(payload + 14U, TECMO_ASSET_PACK_BUCKS_CELL_STRIDE);
+    tecmo_asset_pack_store_u16(payload + 16U, 4U);
+    tecmo_asset_pack_store_u16(payload + 18U, 5U);
+    tecmo_asset_pack_store_u32(payload + 20U, TECMO_ASSET_PACK_BUCKS_PALETTES_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 24U, TECMO_ASSET_PACK_BUCKS_CELLS_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 28U, TECMO_ASSET_PACK_BUCKS_CELL_COUNT);
+    tecmo_asset_pack_store_u32(payload + 32U, TECMO_ASSET_PACK_BUCKS_WORDMARK_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 36U, 83U);
+    tecmo_asset_pack_store_u16(payload + 40U, 0x854FU);
+    tecmo_asset_pack_store_u16(payload + 42U, 31U);
+    tecmo_asset_pack_store_u16(payload + 44U, 168U);
+    tecmo_asset_pack_store_u16(payload + 46U, 10U);
+    tecmo_asset_pack_store_u16(payload + 48U, 14U);
+    tecmo_asset_pack_store_u16(payload + 50U, 20U);
     payload[52U] = 0x5EU;
     payload[53U] = 0x60U;
     payload[54U] = 0x5EU;
     payload[55U] = 0xFAU;
-    store_u16(payload + 56U, 6U);
-    store_u16(payload + 58U, 20U);
+    tecmo_asset_pack_store_u16(payload + 56U, 6U);
+    tecmo_asset_pack_store_u16(payload + 58U, 20U);
     memcpy(payload + 64U, expected_thresholds, sizeof(expected_thresholds));
     for (size_t stage = 0U; stage < 4U; ++stage) {
         for (size_t i = 0U; i < 16U; ++i) {
@@ -1972,8 +1815,8 @@ static int build_bucks_transition(const uint8_t *rom,
             if ((uint64_t)base + 16U > chr_size || (uint64_t)lower + 16U > chr_size) return -1;
             cell[0] = tile;
             cell[1] = decoded_palette_index(decoded_page, row, col);
-            store_u32(cell + 2U, base);
-            store_u32(cell + 6U, lower);
+            tecmo_asset_pack_store_u32(cell + 2U, base);
+            tecmo_asset_pack_store_u32(cell + 6U, lower);
         }
     }
     for (size_t glyph = 0U; glyph < sizeof(bucks_text); ++glyph) {
@@ -1995,8 +1838,8 @@ static int build_bucks_transition(const uint8_t *rom,
             if (tile < 0x80U || (uint64_t)lower + 16U > chr_size) return -1;
             cell[0] = tile;
             cell[1] = decoded_palette_index(decoded, row, col);
-            store_u32(cell + 2U, base);
-            store_u32(cell + 6U, lower);
+            tecmo_asset_pack_store_u32(cell + 2U, base);
+            tecmo_asset_pack_store_u32(cell + 6U, lower);
         }
     }
     provenance->bucks_route_offset = bank04_offset + (TECMO_ASSET_PACK_BUCKS_ROUTE_CPU - 0x8000U);
@@ -2065,9 +1908,9 @@ static int build_pass_transition(const uint8_t *rom,
                expected_route, sizeof(expected_route)) != 0 ||
         memcmp(rom + (size_t)(bank04_offset + (0x8645U - 0x8000U)),
                expected_emit_helper, sizeof(expected_emit_helper)) != 0 ||
-        read_u16(rom + (size_t)pointer_offset + 2U) != TECMO_ASSET_PACK_PASS_STREAM_CPU ||
+        tecmo_asset_pack_read_u16(rom + (size_t)pointer_offset + 2U) != TECMO_ASSET_PACK_PASS_STREAM_CPU ||
         rom[(size_t)piece_stream_offset] != TECMO_ASSET_PACK_PASS_PIECE_COUNT) {
-        set_message(message, message_size, "PASS Rev1 route, descriptor, or player stream is invalid.");
+        tecmo_asset_pack_set_message(message, message_size, "PASS Rev1 route, descriptor, or player stream is invalid.");
         return -1;
     }
     for (size_t i = 0U; i < 4U; ++i) {
@@ -2085,23 +1928,23 @@ static int build_pass_transition(const uint8_t *rom,
 
     memset(payload, 0, TECMO_ASSET_PACK_PASS_SIZE);
     memcpy(payload, "TPAS", 4U);
-    store_u16(payload + 4U, 1U);
-    store_u16(payload + 6U, TECMO_ASSET_PACK_PASS_HEADER_SIZE);
-    store_u16(payload + 8U, 32U);
-    store_u16(payload + 10U, 30U);
-    store_u16(payload + 12U, 2U);
-    store_u16(payload + 14U, TECMO_ASSET_PACK_PASS_CELL_STRIDE);
-    store_u16(payload + 16U, TECMO_ASSET_PACK_PASS_PIECE_COUNT);
-    store_u16(payload + 18U, TECMO_ASSET_PACK_PASS_PIECE_STRIDE);
-    store_u16(payload + 20U, 5U);
-    store_u32(payload + 24U, TECMO_ASSET_PACK_PASS_PALETTES_OFFSET);
-    store_u32(payload + 28U, TECMO_ASSET_PACK_PASS_SPRITE_PALETTE_OFFSET);
-    store_u32(payload + 32U, TECMO_ASSET_PACK_PASS_CELLS_OFFSET);
-    store_u32(payload + 36U, TECMO_ASSET_PACK_PASS_PIECES_OFFSET);
-    store_u32(payload + 40U, 52U);
-    store_u16(payload + 44U, 0x851CU);
-    store_u16(payload + 46U, 18U);
-    store_u16(payload + 48U, 30U);
+    tecmo_asset_pack_store_u16(payload + 4U, 1U);
+    tecmo_asset_pack_store_u16(payload + 6U, TECMO_ASSET_PACK_PASS_HEADER_SIZE);
+    tecmo_asset_pack_store_u16(payload + 8U, 32U);
+    tecmo_asset_pack_store_u16(payload + 10U, 30U);
+    tecmo_asset_pack_store_u16(payload + 12U, 2U);
+    tecmo_asset_pack_store_u16(payload + 14U, TECMO_ASSET_PACK_PASS_CELL_STRIDE);
+    tecmo_asset_pack_store_u16(payload + 16U, TECMO_ASSET_PACK_PASS_PIECE_COUNT);
+    tecmo_asset_pack_store_u16(payload + 18U, TECMO_ASSET_PACK_PASS_PIECE_STRIDE);
+    tecmo_asset_pack_store_u16(payload + 20U, 5U);
+    tecmo_asset_pack_store_u32(payload + 24U, TECMO_ASSET_PACK_PASS_PALETTES_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 28U, TECMO_ASSET_PACK_PASS_SPRITE_PALETTE_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 32U, TECMO_ASSET_PACK_PASS_CELLS_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 36U, TECMO_ASSET_PACK_PASS_PIECES_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 40U, 52U);
+    tecmo_asset_pack_store_u16(payload + 44U, 0x851CU);
+    tecmo_asset_pack_store_u16(payload + 46U, 18U);
+    tecmo_asset_pack_store_u16(payload + 48U, 30U);
     payload[50U] = 0x68U;
     payload[51U] = 8U;
     payload[52U] = 0xF0U;
@@ -2110,7 +1953,7 @@ static int build_pass_transition(const uint8_t *rom,
     payload[55U] = 0x93U;
     payload[56U] = 0x95U;
     payload[57U] = 0x54U;
-    store_u16(payload + 58U, TECMO_ASSET_PACK_PASS_ROUTE_CPU);
+    tecmo_asset_pack_store_u16(payload + 58U, TECMO_ASSET_PACK_PASS_ROUTE_CPU);
     payload[60U] = TECMO_ASSET_PACK_PASS_SCREEN_ID;
     payload[64U] = 10U;
     payload[65U] = 14U;
@@ -2153,7 +1996,7 @@ static int build_pass_transition(const uint8_t *rom,
             if ((uint64_t)chr_offset + 16U > chr_size) return -1;
             cell[0] = tile;
             cell[1] = decoded_palette_index(decoded_page, row, col);
-            store_u32(cell + 2U, chr_offset);
+            tecmo_asset_pack_store_u32(cell + 2U, chr_offset);
         }
     }
     for (size_t i = 0U; i < TECMO_ASSET_PACK_PASS_PIECE_COUNT; ++i) {
@@ -2171,10 +2014,10 @@ static int build_pass_transition(const uint8_t *rom,
         if ((uint64_t)top_offset + 32U > chr_size) return -1;
         if ((attributes & 0x40U) != 0U) flags |= 1U;
         if ((attributes & 0x80U) != 0U) flags |= 2U;
-        store_u16(piece + 0U, (uint16_t)(int16_t)(int8_t)record[3]);
-        store_u16(piece + 2U, (uint16_t)(int16_t)(int8_t)record[0]);
-        store_u32(piece + 4U, top_offset);
-        store_u32(piece + 8U, top_offset + 16U);
+        tecmo_asset_pack_store_u16(piece + 0U, (uint16_t)(int16_t)(int8_t)record[3]);
+        tecmo_asset_pack_store_u16(piece + 2U, (uint16_t)(int16_t)(int8_t)record[0]);
+        tecmo_asset_pack_store_u32(piece + 4U, top_offset);
+        tecmo_asset_pack_store_u32(piece + 8U, top_offset + 16U);
         piece[12U] = attributes & 3U;
         piece[13U] = flags;
     }
@@ -2200,8 +2043,8 @@ static int validate_finale_fingerprint(const uint8_t *rom,
                                        size_t message_size)
 {
     if (source_offset > rom_size || (uint64_t)byte_count > rom_size - source_offset ||
-        fnv1a32(rom + (size_t)source_offset, byte_count) != expected) {
-        set_messagef(message,
+        tecmo_asset_pack_fnv1a32(rom + (size_t)source_offset, byte_count) != expected) {
+        tecmo_asset_pack_set_messagef(message,
                      message_size,
                      "Finale %s revision fingerprint mismatch.",
                      role);
@@ -2247,7 +2090,7 @@ static int validate_finale_source_contract(const uint8_t *rom,
     uint64_t comparison_offset;
 
     if (prg_banks <= 6U) {
-        set_message(message, message_size, "Finale import requires Banks 00, 04, 06 and fixed PRG.");
+        tecmo_asset_pack_set_message(message, message_size, "Finale import requires Banks 00, 04, 06 and fixed PRG.");
         return -1;
     }
     bank00_offset = prg_offset;
@@ -2297,12 +2140,12 @@ static int validate_finale_source_contract(const uint8_t *rom,
             const uint8_t *dispatch = rom + (size_t)bank04_offset + (0x82CFU - 0x8000U);
             const uint8_t *irq = rom + (size_t)fixed_offset +
                                  (TECMO_ASSET_PACK_FINALE_FIXED_IRQ_CPU - 0xC000U);
-            if (read_u16(dispatch + 12U) != 0x851CU ||
-                read_u16(dispatch + 14U) != 0x83EAU ||
-                read_u16(dispatch + 16U) != 0x852EU ||
-                read_u16(dispatch + 18U) != 0x83AEU ||
-                read_u16(dispatch + 20U) != 0x8310U ||
-                read_u16(dispatch + 22U) != 0xFFFFU ||
+            if (tecmo_asset_pack_read_u16(dispatch + 12U) != 0x851CU ||
+                tecmo_asset_pack_read_u16(dispatch + 14U) != 0x83EAU ||
+                tecmo_asset_pack_read_u16(dispatch + 16U) != 0x852EU ||
+                tecmo_asset_pack_read_u16(dispatch + 18U) != 0x83AEU ||
+                tecmo_asset_pack_read_u16(dispatch + 20U) != 0x8310U ||
+                tecmo_asset_pack_read_u16(dispatch + 22U) != 0xFFFFU ||
                 dispatch[30U] != 50U || dispatch[31U] != 30U ||
                 dispatch[32U] != 0U || dispatch[33U] != 75U || dispatch[34U] != 1U ||
                 rom[(size_t)bank04_offset + (0x851CU - 0x8000U)] != 0xA9U ||
@@ -2317,8 +2160,8 @@ static int validate_finale_source_contract(const uint8_t *rom,
                 irq[55U] != 0xC8U || irq[98U] != 0x02U ||
                 irq[102U] != 0xB5U || irq[103U] != 0x33U ||
                 irq[118U] != 0x15U || irq[119U] != 0x39U ||
-                irq[123U] != 0x4CU || read_u16(irq + 124U) != 0xFDDDU) {
-                set_message(message, message_size, "Finale native route or title-band semantics mismatch.");
+                irq[123U] != 0x4CU || tecmo_asset_pack_read_u16(irq + 124U) != 0xFDDDU) {
+                tecmo_asset_pack_set_message(message, message_size, "Finale native route or title-band semantics mismatch.");
                 return -1;
             }
         }
@@ -2336,13 +2179,13 @@ static int validate_finale_source_contract(const uint8_t *rom,
                                        0x8571U, 0x59U,
                                        &chr_selectors_out[2],
                                        &chr_selector_offsets_out[2]) != 0) {
-        set_message(message, message_size, "Finale reverse-route CHR selector writes are invalid.");
+        tecmo_asset_pack_set_message(message, message_size, "Finale reverse-route CHR selector writes are invalid.");
         return -1;
     }
     if (chr_selectors_out[0] != 0x91U ||
         chr_selectors_out[1] != 0x93U ||
         chr_selectors_out[2] != 0x95U) {
-        set_message(message, message_size, "Finale sprite CHR selector operands are unsupported.");
+        tecmo_asset_pack_set_message(message, message_size, "Finale sprite CHR selector operands are unsupported.");
         return -1;
     }
     for (size_t selector = 0U; selector < 3U; ++selector) {
@@ -2359,19 +2202,19 @@ static int validate_finale_source_contract(const uint8_t *rom,
                                            &comparison_selector,
                                            &comparison_offset) != 0 ||
             comparison_selector != chr_selectors_out[selector]) {
-            set_message(message, message_size, "Finale scene CHR selector writes disagree.");
+            tecmo_asset_pack_set_message(message, message_size, "Finale scene CHR selector writes disagree.");
             return -1;
         }
     }
 
     if (bank00_offset + (TECMO_ASSET_PACK_FINALE_POINTER_TABLE_CPU - 0x8000U) + 4U > rom_size ||
-        read_u16(rom + (size_t)bank00_offset +
+        tecmo_asset_pack_read_u16(rom + (size_t)bank00_offset +
                  (TECMO_ASSET_PACK_FINALE_POINTER_TABLE_CPU - 0x8000U) + 2U) !=
             TECMO_ASSET_PACK_FINALE_PIECE_STREAM_CPU ||
         rom[(size_t)bank00_offset +
             (TECMO_ASSET_PACK_FINALE_PIECE_STREAM_CPU - 0x8000U)] !=
             TECMO_ASSET_PACK_FINALE_PIECE_COUNT) {
-        set_message(message, message_size, "Finale ten-piece selector source-contract mismatch.");
+        tecmo_asset_pack_set_message(message, message_size, "Finale ten-piece selector source-contract mismatch.");
         return -1;
     }
     return 0;
@@ -2461,7 +2304,7 @@ static int build_finale_sequence(const uint8_t *rom,
     memset(provenance, 0, sizeof(*provenance));
     for (size_t selector = 0U; selector < 3U; ++selector) {
         if ((uint64_t)(sprite_selectors[selector] + 1U) * 1024U > chr_size) {
-            set_message(message, message_size, "Finale sprite CHR selector resolves outside chr/all.");
+            tecmo_asset_pack_set_message(message, message_size, "Finale sprite CHR selector resolves outside chr/all.");
             return -1;
         }
         provenance->sprite_chr_selector[selector] = sprite_selectors[selector];
@@ -2482,17 +2325,17 @@ static int build_finale_sequence(const uint8_t *rom,
         size_t encoded_size = 0U;
 
         if (descriptor_offset + TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_SIZE > rom_size) {
-            set_message(message, message_size, "Finale screen descriptor crosses fixed PRG.");
+            tecmo_asset_pack_set_message(message, message_size, "Finale screen descriptor crosses fixed PRG.");
             return -1;
         }
         descriptor = rom + (size_t)descriptor_offset;
-        palette_cpu = read_u16(descriptor + 2U);
-        stream_cpu = read_u16(descriptor + 4U);
+        palette_cpu = tecmo_asset_pack_read_u16(descriptor + 2U);
+        stream_cpu = tecmo_asset_pack_read_u16(descriptor + 4U);
         stream_bank = descriptor[6U];
         if (descriptor[0] > 0x7FU || descriptor[1] > 0x7FU ||
             stream_bank >= prg_banks || palette_cpu < 0x8000U || palette_cpu >= 0xC000U ||
             stream_cpu < 0x8000U || stream_cpu >= 0xC000U) {
-            set_message(message, message_size, "Finale screen descriptor is invalid.");
+            tecmo_asset_pack_set_message(message, message_size, "Finale screen descriptor is invalid.");
             return -1;
         }
         screen_r0[screen] = (uint8_t)(descriptor[0] * 2U);
@@ -2510,7 +2353,7 @@ static int build_finale_sequence(const uint8_t *rom,
                                &encoded_size,
                                message,
                                message_size) != 0) {
-            set_messagef(message, message_size, "Finale screen %u decode failed.", (unsigned)screen);
+            tecmo_asset_pack_set_messagef(message, message_size, "Finale screen %u decode failed.", (unsigned)screen);
             return -1;
         }
         if (decoded_size == 1024U) memcpy(decoded[screen] + 1024U, decoded[screen], 1024U);
@@ -2530,12 +2373,12 @@ static int build_finale_sequence(const uint8_t *rom,
                     (screen * TECMO_ASSET_PACK_FINALE_CELLS_PER_SCREEN + page * 960U + i) *
                         TECMO_ASSET_PACK_FINALE_CELL_STRIDE;
                 if ((uint64_t)chr_offset + 16U > chr_size) {
-                    set_message(message, message_size, "Finale background tile resolves outside chr/all.");
+                    tecmo_asset_pack_set_message(message, message_size, "Finale background tile resolves outside chr/all.");
                     return -1;
                 }
                 cell[0] = tile;
                 cell[1] = decoded_palette_index(decoded_page, row, col);
-                store_u32(cell + 2U, chr_offset);
+                tecmo_asset_pack_store_u32(cell + 2U, chr_offset);
             }
         }
         provenance->screens[screen].descriptor_offset = descriptor_offset;
@@ -2555,7 +2398,7 @@ static int build_finale_sequence(const uint8_t *rom,
                              (TECMO_ASSET_PACK_FINALE_SPECIAL_PALETTE_CPU - 0x8000U);
     if (short_palette_offset + 16U > rom_size || helper_palette_offset + 16U > rom_size ||
         special_palette_offset + 16U > rom_size) {
-        set_message(message, message_size, "Finale palette sources cross PRG.");
+        tecmo_asset_pack_set_message(message, message_size, "Finale palette sources cross PRG.");
         return -1;
     }
     for (size_t stage = 0U; stage < 4U; ++stage) {
@@ -2579,7 +2422,7 @@ static int build_finale_sequence(const uint8_t *rom,
     payload[TECMO_ASSET_PACK_FINALE_REVERSE_PALETTES_OFFSET + 76U] =
         rom[(size_t)helper_palette_offset + 12U];
     for (size_t i = 0U; i < TECMO_ASSET_PACK_FINALE_REVERSE_PALETTE_COUNT; ++i) {
-        store_u16(payload + TECMO_ASSET_PACK_FINALE_REVERSE_PALETTE_FRAMES_OFFSET + i * 2U,
+        tecmo_asset_pack_store_u16(payload + TECMO_ASSET_PACK_FINALE_REVERSE_PALETTE_FRAMES_OFFSET + i * 2U,
                   reverse_palette_frames[i]);
     }
 
@@ -2591,7 +2434,7 @@ static int build_finale_sequence(const uint8_t *rom,
         for (size_t palette = 0U; palette < 4U; ++palette) {
             const uint8_t *source = rom + (size_t)source_offset + palette * 4U;
             if (source[0] != 0x02U) {
-                set_message(message, message_size, "Finale sprite palette control is not Rev1.");
+                tecmo_asset_pack_set_message(message, message_size, "Finale sprite palette control is not Rev1.");
                 return -1;
             }
             dest[palette * 4U] = 0x0FU;
@@ -2599,11 +2442,11 @@ static int build_finale_sequence(const uint8_t *rom,
         }
         descriptor[0] = (uint8_t)group;
         descriptor[1] = (uint8_t)group;
-        store_u16(descriptor + 2U, TECMO_ASSET_PACK_FINALE_PIECE_COUNT);
-        store_u32(descriptor + 4U, TECMO_ASSET_PACK_FINALE_PIECES_OFFSET);
-        store_u32(descriptor + 8U,
+        tecmo_asset_pack_store_u16(descriptor + 2U, TECMO_ASSET_PACK_FINALE_PIECE_COUNT);
+        tecmo_asset_pack_store_u32(descriptor + 4U, TECMO_ASSET_PACK_FINALE_PIECES_OFFSET);
+        tecmo_asset_pack_store_u32(descriptor + 8U,
                   TECMO_ASSET_PACK_FINALE_SPRITE_PALETTES_OFFSET + (uint32_t)group * 16U);
-        store_u16(descriptor + 12U, group == 0U ? 0x0005U : 0x0002U);
+        tecmo_asset_pack_store_u16(descriptor + 12U, group == 0U ? 0x0005U : 0x0002U);
         provenance->sprite_palette_offset[group] = source_offset;
     }
 
@@ -2619,21 +2462,21 @@ static int build_finale_sequence(const uint8_t *rom,
         uint8_t *piece = payload + TECMO_ASSET_PACK_FINALE_PIECES_OFFSET +
                          i * TECMO_ASSET_PACK_FINALE_PIECE_STRIDE;
         if (slot >= 3U || (attributes & 0x3CU) != 0U) {
-            set_message(message, message_size, "Finale sprite piece has invalid selector or attributes.");
+            tecmo_asset_pack_set_message(message, message_size, "Finale sprite piece has invalid selector or attributes.");
             return -1;
         }
         top_offset = (uint32_t)sprite_selectors[slot] * 1024U +
                      (uint32_t)(top_tile & 0x3FU) * 16U;
         if ((uint64_t)top_offset + 32U > chr_size) {
-            set_message(message, message_size, "Finale sprite piece resolves outside chr/all.");
+            tecmo_asset_pack_set_message(message, message_size, "Finale sprite piece resolves outside chr/all.");
             return -1;
         }
         if ((attributes & 0x40U) != 0U) flags |= 1U;
         if ((attributes & 0x80U) != 0U) flags |= 2U;
-        store_u16(piece + 0U, (uint16_t)(int16_t)(int8_t)record[3]);
-        store_u16(piece + 2U, (uint16_t)(int16_t)(int8_t)record[0]);
-        store_u32(piece + 4U, top_offset);
-        store_u32(piece + 8U, top_offset + 16U);
+        tecmo_asset_pack_store_u16(piece + 0U, (uint16_t)(int16_t)(int8_t)record[3]);
+        tecmo_asset_pack_store_u16(piece + 2U, (uint16_t)(int16_t)(int8_t)record[0]);
+        tecmo_asset_pack_store_u32(piece + 4U, top_offset);
+        tecmo_asset_pack_store_u32(piece + 8U, top_offset + 16U);
         piece[12U] = attributes & 3U;
         piece[13U] = flags;
     }
@@ -2646,8 +2489,8 @@ static int build_finale_sequence(const uint8_t *rom,
         record[1] = route_groups[route];
         record[2] = route_kinds[route];
         record[3] = route == 4U ? 1U : 0U;
-        store_u16(record + 4U, route_internal_frames[route]);
-        store_u16(record + 6U, dispatch_wait);
+        tecmo_asset_pack_store_u16(record + 4U, route_internal_frames[route]);
+        tecmo_asset_pack_store_u16(record + 6U, dispatch_wait);
         provenance->route_offsets[route] = bank04_offset + (route_cpu[route] - 0x8000U);
     }
 
@@ -2669,36 +2512,36 @@ static int build_finale_sequence(const uint8_t *rom,
             rom[(size_t)bank04_offset + (0x863EU - 0x8000U) + selector] != 0x78U ||
             rom[(size_t)bank04_offset + (0x8640U - 0x8000U) + selector] != 0xD8U ||
             rom[(size_t)bank04_offset + (0x8642U - 0x8000U) + selector] != 0xF8U) {
-            set_message(message, message_size, "Finale selector-two operand contract mismatch.");
+            tecmo_asset_pack_set_message(message, message_size, "Finale selector-two operand contract mismatch.");
             return -1;
         }
         meta[0] = rom[(size_t)bank04_offset + (0x863EU - 0x8000U) + selector];
         meta[1] = rom[(size_t)bank04_offset + (0x8640U - 0x8000U) + selector];
         meta[2] = rom[(size_t)bank04_offset + (0x8642U - 0x8000U) + selector];
         meta[3] = 0x54U;
-        store_u16(meta + 4U, 18U);
-        store_u16(meta + 6U, 1U);
-        store_u16(meta + 8U, 26U);
-        store_u16(meta + 10U, TECMO_ASSET_PACK_FINALE_REVERSE_PALETTE_COUNT);
+        tecmo_asset_pack_store_u16(meta + 4U, 18U);
+        tecmo_asset_pack_store_u16(meta + 6U, 1U);
+        tecmo_asset_pack_store_u16(meta + 8U, 26U);
+        tecmo_asset_pack_store_u16(meta + 10U, TECMO_ASSET_PACK_FINALE_REVERSE_PALETTE_COUNT);
     }
 
     {
         uint8_t *meta = payload + TECMO_ASSET_PACK_FINALE_TITLE_METADATA_OFFSET;
-        store_u16(meta + 0U, 128U);
-        store_u16(meta + 2U, TECMO_ASSET_PACK_FINALE_TITLE_SLOT_COUNT);
-        store_u16(meta + 4U, 1U);
-        store_u16(meta + 6U, 7U);
-        store_u16(meta + 8U, 301U);
-        store_u16(meta + 10U, 345U);
-        store_u16(meta + 12U, 128U);
-        store_u16(meta + 14U, 1U);
-        store_u16(meta + 16U, 2U);
-        store_u16(meta + 18U, 2U);
-        store_u16(meta + 20U, 8U);
-        store_u16(meta + 22U, 1U);
-        store_u16(meta + 24U, 16U);
-        store_u16(meta + 26U, 2U);
-        store_u16(meta + 28U, 2U);
+        tecmo_asset_pack_store_u16(meta + 0U, 128U);
+        tecmo_asset_pack_store_u16(meta + 2U, TECMO_ASSET_PACK_FINALE_TITLE_SLOT_COUNT);
+        tecmo_asset_pack_store_u16(meta + 4U, 1U);
+        tecmo_asset_pack_store_u16(meta + 6U, 7U);
+        tecmo_asset_pack_store_u16(meta + 8U, 301U);
+        tecmo_asset_pack_store_u16(meta + 10U, 345U);
+        tecmo_asset_pack_store_u16(meta + 12U, 128U);
+        tecmo_asset_pack_store_u16(meta + 14U, 1U);
+        tecmo_asset_pack_store_u16(meta + 16U, 2U);
+        tecmo_asset_pack_store_u16(meta + 18U, 2U);
+        tecmo_asset_pack_store_u16(meta + 20U, 8U);
+        tecmo_asset_pack_store_u16(meta + 22U, 1U);
+        tecmo_asset_pack_store_u16(meta + 24U, 16U);
+        tecmo_asset_pack_store_u16(meta + 26U, 2U);
+        tecmo_asset_pack_store_u16(meta + 28U, 2U);
     }
     {
         static const uint16_t starts[3] = {0U, 200U, 223U};
@@ -2708,12 +2551,12 @@ static int build_finale_sequence(const uint8_t *rom,
         uint32_t high_base = (uint32_t)screen_r1[4] * 1024U;
         for (size_t band = 0U; band < 3U; ++band) {
             uint8_t *record = payload + TECMO_ASSET_PACK_FINALE_BANDS_OFFSET + band * 16U;
-            store_u16(record + 0U, starts[band]);
-            store_u16(record + 2U, ends[band]);
+            tecmo_asset_pack_store_u16(record + 0U, starts[band]);
+            tecmo_asset_pack_store_u16(record + 2U, ends[band]);
             record[4] = channels[band];
             record[5] = channels[band];
-            store_u32(record + 8U, low_base);
-            store_u32(record + 12U, high_base);
+            tecmo_asset_pack_store_u32(record + 8U, low_base);
+            tecmo_asset_pack_store_u32(record + 12U, high_base);
         }
     }
 
@@ -2722,7 +2565,7 @@ static int build_finale_sequence(const uint8_t *rom,
     for (size_t i = 0U; i < TECMO_ASSET_PACK_FINALE_TITLE_SOURCE_SIZE; ++i) {
         uint8_t value = rom[(size_t)title_source_offset + i];
         if (value < 0x20U || value > 0x5AU) {
-            set_message(message, message_size, "Finale title source record is not the expected 26-character form.");
+            tecmo_asset_pack_set_message(message, message_size, "Finale title source record is not the expected 26-character form.");
             return -1;
         }
     }
@@ -2743,14 +2586,14 @@ static int build_finale_sequence(const uint8_t *rom,
                                       bank06_offset,
                                       source_value,
                                       &mapped) != 0) {
-            set_message(message, message_size, "Finale title character mapping is outside Bank06.");
+            tecmo_asset_pack_set_message(message, message_size, "Finale title character mapping is outside Bank06.");
             return -1;
         }
         glyph_offset = bank06_offset +
                        (TECMO_ASSET_PACK_FINALE_GLYPH_TABLE_CPU - 0x8000U) +
                        (uint64_t)mapped * 4U;
         if (glyph_offset + 4U > rom_size) {
-            set_message(message, message_size, "Finale title glyph quad crosses Bank06.");
+            tecmo_asset_pack_set_message(message, message_size, "Finale title glyph quad crosses Bank06.");
             return -1;
         }
         slot[0] = (uint8_t)page;
@@ -2763,60 +2606,60 @@ static int build_finale_sequence(const uint8_t *rom,
             uint32_t chr_offset = warriors_bg_chr_offset(tile, screen_r0[4], screen_r1[4]);
             uint8_t *cell = slot + 4U + tile_index * TECMO_ASSET_PACK_FINALE_CELL_STRIDE;
             if ((uint64_t)chr_offset + 16U > chr_size) {
-                set_message(message, message_size, "Finale title glyph resolves outside chr/all.");
+                tecmo_asset_pack_set_message(message, message_size, "Finale title glyph resolves outside chr/all.");
                 return -1;
             }
             cell[0] = tile;
             cell[1] = decoded_palette_index(decoded[4] + page * 1024U,
                                              row + local_row,
                                              col + local_col);
-            store_u32(cell + 2U, chr_offset);
+            tecmo_asset_pack_store_u32(cell + 2U, chr_offset);
         }
     }
 
     memcpy(payload, "TFIN", 4U);
-    store_u16(payload + 4U, 1U);
-    store_u16(payload + 6U, TECMO_ASSET_PACK_FINALE_HEADER_SIZE);
-    store_u16(payload + 8U, TECMO_ASSET_PACK_FINALE_SCREEN_COUNT);
-    store_u16(payload + 10U, TECMO_ASSET_PACK_FINALE_WIDTH);
-    store_u16(payload + 12U, TECMO_ASSET_PACK_FINALE_HEIGHT);
-    store_u16(payload + 14U, TECMO_ASSET_PACK_FINALE_PAGE_COUNT);
-    store_u16(payload + 16U, TECMO_ASSET_PACK_FINALE_CELL_STRIDE);
-    store_u16(payload + 18U, TECMO_ASSET_PACK_FINALE_BACKGROUND_PALETTE_COUNT);
-    store_u32(payload + 20U, TECMO_ASSET_PACK_FINALE_SCREENS_OFFSET);
-    store_u32(payload + 24U, TECMO_ASSET_PACK_FINALE_BACKGROUND_PALETTES_OFFSET);
-    store_u16(payload + 28U, TECMO_ASSET_PACK_FINALE_REVERSE_PALETTE_COUNT);
-    store_u16(payload + 30U, 2U);
-    store_u32(payload + 32U, TECMO_ASSET_PACK_FINALE_REVERSE_PALETTES_OFFSET);
-    store_u32(payload + 36U, TECMO_ASSET_PACK_FINALE_REVERSE_PALETTE_FRAMES_OFFSET);
-    store_u16(payload + 40U, TECMO_ASSET_PACK_FINALE_GROUP_COUNT);
-    store_u16(payload + 42U, TECMO_ASSET_PACK_FINALE_GROUP_STRIDE);
-    store_u32(payload + 44U, TECMO_ASSET_PACK_FINALE_GROUPS_OFFSET);
-    store_u16(payload + 48U, 16U);
-    store_u16(payload + 50U, TECMO_ASSET_PACK_FINALE_PIECE_STRIDE);
-    store_u16(payload + 52U, TECMO_ASSET_PACK_FINALE_PIECE_COUNT);
-    store_u32(payload + 56U, TECMO_ASSET_PACK_FINALE_PIECES_OFFSET);
-    store_u16(payload + 60U, TECMO_ASSET_PACK_FINALE_ROUTE_COUNT);
-    store_u16(payload + 62U, TECMO_ASSET_PACK_FINALE_ROUTE_STRIDE);
-    store_u32(payload + 64U, TECMO_ASSET_PACK_FINALE_ROUTES_OFFSET);
-    store_u16(payload + 68U, TECMO_ASSET_PACK_FINALE_SHORT_ANCHOR_COUNT);
-    store_u16(payload + 70U, TECMO_ASSET_PACK_FINALE_ANCHOR_STRIDE);
-    store_u32(payload + 72U, TECMO_ASSET_PACK_FINALE_SHORT_ANCHORS_OFFSET);
-    store_u16(payload + 76U, TECMO_ASSET_PACK_FINALE_REVERSE_METADATA_SIZE);
-    store_u16(payload + 78U, TECMO_ASSET_PACK_FINALE_TITLE_METADATA_SIZE);
-    store_u32(payload + 80U, TECMO_ASSET_PACK_FINALE_REVERSE_METADATA_OFFSET);
-    store_u32(payload + 84U, TECMO_ASSET_PACK_FINALE_TITLE_METADATA_OFFSET);
-    store_u16(payload + 88U, TECMO_ASSET_PACK_FINALE_TITLE_SLOT_COUNT);
-    store_u16(payload + 90U, TECMO_ASSET_PACK_FINALE_TITLE_TEXT_SLOT_COUNT);
-    store_u16(payload + 92U, TECMO_ASSET_PACK_FINALE_TITLE_SLOT_STRIDE);
-    store_u16(payload + 94U, TECMO_ASSET_PACK_FINALE_TITLE_CELL_COUNT);
-    store_u32(payload + 96U, TECMO_ASSET_PACK_FINALE_TITLE_SLOTS_OFFSET);
-    store_u16(payload + 100U, TECMO_ASSET_PACK_FINALE_BAND_COUNT);
-    store_u16(payload + 102U, TECMO_ASSET_PACK_FINALE_BAND_STRIDE);
-    store_u32(payload + 104U, TECMO_ASSET_PACK_FINALE_BANDS_OFFSET);
-    store_u16(payload + 108U, 1U);
-    store_u16(payload + 110U, 1U);
-    store_u32(payload + 112U, TECMO_ASSET_PACK_FINALE_SIZE);
+    tecmo_asset_pack_store_u16(payload + 4U, 1U);
+    tecmo_asset_pack_store_u16(payload + 6U, TECMO_ASSET_PACK_FINALE_HEADER_SIZE);
+    tecmo_asset_pack_store_u16(payload + 8U, TECMO_ASSET_PACK_FINALE_SCREEN_COUNT);
+    tecmo_asset_pack_store_u16(payload + 10U, TECMO_ASSET_PACK_FINALE_WIDTH);
+    tecmo_asset_pack_store_u16(payload + 12U, TECMO_ASSET_PACK_FINALE_HEIGHT);
+    tecmo_asset_pack_store_u16(payload + 14U, TECMO_ASSET_PACK_FINALE_PAGE_COUNT);
+    tecmo_asset_pack_store_u16(payload + 16U, TECMO_ASSET_PACK_FINALE_CELL_STRIDE);
+    tecmo_asset_pack_store_u16(payload + 18U, TECMO_ASSET_PACK_FINALE_BACKGROUND_PALETTE_COUNT);
+    tecmo_asset_pack_store_u32(payload + 20U, TECMO_ASSET_PACK_FINALE_SCREENS_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 24U, TECMO_ASSET_PACK_FINALE_BACKGROUND_PALETTES_OFFSET);
+    tecmo_asset_pack_store_u16(payload + 28U, TECMO_ASSET_PACK_FINALE_REVERSE_PALETTE_COUNT);
+    tecmo_asset_pack_store_u16(payload + 30U, 2U);
+    tecmo_asset_pack_store_u32(payload + 32U, TECMO_ASSET_PACK_FINALE_REVERSE_PALETTES_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 36U, TECMO_ASSET_PACK_FINALE_REVERSE_PALETTE_FRAMES_OFFSET);
+    tecmo_asset_pack_store_u16(payload + 40U, TECMO_ASSET_PACK_FINALE_GROUP_COUNT);
+    tecmo_asset_pack_store_u16(payload + 42U, TECMO_ASSET_PACK_FINALE_GROUP_STRIDE);
+    tecmo_asset_pack_store_u32(payload + 44U, TECMO_ASSET_PACK_FINALE_GROUPS_OFFSET);
+    tecmo_asset_pack_store_u16(payload + 48U, 16U);
+    tecmo_asset_pack_store_u16(payload + 50U, TECMO_ASSET_PACK_FINALE_PIECE_STRIDE);
+    tecmo_asset_pack_store_u16(payload + 52U, TECMO_ASSET_PACK_FINALE_PIECE_COUNT);
+    tecmo_asset_pack_store_u32(payload + 56U, TECMO_ASSET_PACK_FINALE_PIECES_OFFSET);
+    tecmo_asset_pack_store_u16(payload + 60U, TECMO_ASSET_PACK_FINALE_ROUTE_COUNT);
+    tecmo_asset_pack_store_u16(payload + 62U, TECMO_ASSET_PACK_FINALE_ROUTE_STRIDE);
+    tecmo_asset_pack_store_u32(payload + 64U, TECMO_ASSET_PACK_FINALE_ROUTES_OFFSET);
+    tecmo_asset_pack_store_u16(payload + 68U, TECMO_ASSET_PACK_FINALE_SHORT_ANCHOR_COUNT);
+    tecmo_asset_pack_store_u16(payload + 70U, TECMO_ASSET_PACK_FINALE_ANCHOR_STRIDE);
+    tecmo_asset_pack_store_u32(payload + 72U, TECMO_ASSET_PACK_FINALE_SHORT_ANCHORS_OFFSET);
+    tecmo_asset_pack_store_u16(payload + 76U, TECMO_ASSET_PACK_FINALE_REVERSE_METADATA_SIZE);
+    tecmo_asset_pack_store_u16(payload + 78U, TECMO_ASSET_PACK_FINALE_TITLE_METADATA_SIZE);
+    tecmo_asset_pack_store_u32(payload + 80U, TECMO_ASSET_PACK_FINALE_REVERSE_METADATA_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 84U, TECMO_ASSET_PACK_FINALE_TITLE_METADATA_OFFSET);
+    tecmo_asset_pack_store_u16(payload + 88U, TECMO_ASSET_PACK_FINALE_TITLE_SLOT_COUNT);
+    tecmo_asset_pack_store_u16(payload + 90U, TECMO_ASSET_PACK_FINALE_TITLE_TEXT_SLOT_COUNT);
+    tecmo_asset_pack_store_u16(payload + 92U, TECMO_ASSET_PACK_FINALE_TITLE_SLOT_STRIDE);
+    tecmo_asset_pack_store_u16(payload + 94U, TECMO_ASSET_PACK_FINALE_TITLE_CELL_COUNT);
+    tecmo_asset_pack_store_u32(payload + 96U, TECMO_ASSET_PACK_FINALE_TITLE_SLOTS_OFFSET);
+    tecmo_asset_pack_store_u16(payload + 100U, TECMO_ASSET_PACK_FINALE_BAND_COUNT);
+    tecmo_asset_pack_store_u16(payload + 102U, TECMO_ASSET_PACK_FINALE_BAND_STRIDE);
+    tecmo_asset_pack_store_u32(payload + 104U, TECMO_ASSET_PACK_FINALE_BANDS_OFFSET);
+    tecmo_asset_pack_store_u16(payload + 108U, 1U);
+    tecmo_asset_pack_store_u16(payload + 110U, 1U);
+    tecmo_asset_pack_store_u32(payload + 112U, TECMO_ASSET_PACK_FINALE_SIZE);
 
     provenance->dispatch_offset = bank04_offset + (0x82CFU - 0x8000U);
     provenance->short_anchor_table_offset = bank04_offset + (0x8463U - 0x8000U);
@@ -2855,7 +2698,7 @@ static int append_logical_source_map_entry(char *buffer,
     const char *prefix = *first != 0 ? "" : ",\n";
 
     *first = 0;
-    return append_text(buffer,
+    return tecmo_asset_pack_append_text(buffer,
                        capacity,
                        length,
                        "%s"
@@ -2883,7 +2726,7 @@ static int append_opening_screen_source_map_entries(
     const char *prefix = *first != 0 ? "" : ",\n";
 
     *first = 0;
-    return append_text(
+    return tecmo_asset_pack_append_text(
         buffer,
         capacity,
         length,
@@ -2974,7 +2817,7 @@ static int append_arena_background_source_map_entry(
     const char *prefix = *first != 0 ? "" : ",\n";
 
     *first = 0;
-    return append_text(
+    return tecmo_asset_pack_append_text(
         buffer,
         capacity,
         length,
@@ -3037,7 +2880,7 @@ static int append_arena_sprite_groups_source_map_entry(
     const char *prefix = *first != 0 ? "" : ",\n";
 
     *first = 0;
-    return append_text(
+    return tecmo_asset_pack_append_text(
         buffer,
         capacity,
         length,
@@ -3103,7 +2946,7 @@ static int append_post_arena_source_map_entries(char *buffer,
     int result;
 
     *first = 0;
-    result = append_text(
+    result = tecmo_asset_pack_append_text(
         buffer,
         capacity,
         length,
@@ -3288,7 +3131,7 @@ static int append_finale_source_map_entry(char *buffer,
     int result;
 
     *first = 0;
-    result = append_text(
+    result = tecmo_asset_pack_append_text(
         buffer,
         capacity,
         length,
@@ -3492,7 +3335,7 @@ static char *build_ines_source_map(uint32_t mapper,
         return NULL;
     }
 
-    if (append_text(source_map,
+    if (tecmo_asset_pack_append_text(source_map,
                     capacity,
                     &length,
                     "{\n"
@@ -3596,7 +3439,7 @@ static char *build_ines_source_map(uint32_t mapper,
         }
     }
 
-    if (append_text(source_map,
+    if (tecmo_asset_pack_append_text(source_map,
                     capacity,
                     &length,
                     "\n"
@@ -3659,7 +3502,7 @@ static char *build_ines_source_map(uint32_t mapper,
         return NULL;
     }
 
-    if (append_text(source_map,
+    if (tecmo_asset_pack_append_text(source_map,
                     capacity,
                     &length,
                     "\n"
@@ -3734,7 +3577,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                              message_size) != 0) {
         return -1;
     }
-    entry_info = make_entry_info(TECMO_ASSET_PACK_PRESENTS_ID,
+    entry_info = tecmo_asset_pack_make_entry_info(TECMO_ASSET_PACK_PRESENTS_ID,
                                  TECMO_ASSET_PACK_TYPE_DATA,
                                  0U,
                                  TECMO_ASSET_PACK_PRESENTS_STREAM_CPU,
@@ -3746,7 +3589,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                             TECMO_ASSET_PACK_PRESENTS_SIZE,
                                             message,
                                             message_size) != 0) {
-        set_message(message, message_size, "Could not write native TECMO presents entry.");
+        tecmo_asset_pack_set_message(message, message_size, "Could not write native TECMO presents entry.");
         return -1;
     }
 
@@ -3764,7 +3607,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                              message_size) != 0) {
         return -1;
     }
-    entry_info = make_entry_info(TECMO_ASSET_PACK_LICENSE_ID,
+    entry_info = tecmo_asset_pack_make_entry_info(TECMO_ASSET_PACK_LICENSE_ID,
                                  TECMO_ASSET_PACK_TYPE_DATA,
                                  0U,
                                  TECMO_ASSET_PACK_LICENSE_STREAM_CPU,
@@ -3776,7 +3619,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                             TECMO_ASSET_PACK_LICENSE_SIZE,
                                             message,
                                             message_size) != 0) {
-        set_message(message, message_size, "Could not write native NBA license entry.");
+        tecmo_asset_pack_set_message(message, message_size, "Could not write native NBA license entry.");
         return -1;
     }
 
@@ -3799,11 +3642,11 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                               "}\n",
                               bank04_available ? "true" : "false");
     if (payload_length < 0 || (size_t)payload_length >= sizeof(script_payload)) {
-        set_message(message, message_size, "Could not build arena intro script entry.");
+        tecmo_asset_pack_set_message(message, message_size, "Could not build arena intro script entry.");
         return -1;
     }
 
-    entry_info = make_entry_info(TECMO_ASSET_PACK_ARENA_INTRO_SCRIPT_ID,
+    entry_info = tecmo_asset_pack_make_entry_info(TECMO_ASSET_PACK_ARENA_INTRO_SCRIPT_ID,
                                  TECMO_ASSET_PACK_TYPE_DATA,
                                  source_bank,
                                  TECMO_ASSET_PACK_ARENA_ROUTE_CPU,
@@ -3815,7 +3658,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                             (uint64_t)payload_length,
                                             message,
                                             message_size) != 0) {
-        set_message(message, message_size, "Could not write arena intro script entry.");
+        tecmo_asset_pack_set_message(message, message_size, "Could not write arena intro script entry.");
         return -1;
     }
 
@@ -3832,7 +3675,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
         return -1;
     }
 
-    entry_info = make_entry_info(TECMO_ASSET_PACK_ARENA_INTRO_BACKGROUND_ID,
+    entry_info = tecmo_asset_pack_make_entry_info(TECMO_ASSET_PACK_ARENA_INTRO_BACKGROUND_ID,
                                  TECMO_ASSET_PACK_TYPE_DATA,
                                  background_provenance->stream_bank,
                                  background_provenance->stream_cpu,
@@ -3844,7 +3687,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                             sizeof(background_payload),
                                             message,
                                             message_size) != 0) {
-        set_message(message, message_size, "Could not write arena background layer entry.");
+        tecmo_asset_pack_set_message(message, message_size, "Could not write arena background layer entry.");
         return -1;
     }
 
@@ -3868,11 +3711,11 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                               bank04_available ? "true" : "false",
                               TECMO_ASSET_PACK_ARENA_PALETTE_CPU);
     if (payload_length < 0 || (size_t)payload_length >= sizeof(palette_payload)) {
-        set_message(message, message_size, "Could not build arena palette cycle entry.");
+        tecmo_asset_pack_set_message(message, message_size, "Could not build arena palette cycle entry.");
         return -1;
     }
 
-    entry_info = make_entry_info(TECMO_ASSET_PACK_ARENA_INTRO_PALETTE_ID,
+    entry_info = tecmo_asset_pack_make_entry_info(TECMO_ASSET_PACK_ARENA_INTRO_PALETTE_ID,
                                  TECMO_ASSET_PACK_TYPE_DATA,
                                  source_bank,
                                  TECMO_ASSET_PACK_ARENA_PALETTE_CPU,
@@ -3884,7 +3727,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                             (uint64_t)payload_length,
                                             message,
                                             message_size) != 0) {
-        set_message(message, message_size, "Could not write arena palette cycle entry.");
+        tecmo_asset_pack_set_message(message, message_size, "Could not write arena palette cycle entry.");
         return -1;
     }
 
@@ -3902,7 +3745,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
         return -1;
     }
 
-    entry_info = make_entry_info(TECMO_ASSET_PACK_ARENA_INTRO_SPRITE_GROUPS_ID,
+    entry_info = tecmo_asset_pack_make_entry_info(TECMO_ASSET_PACK_ARENA_INTRO_SPRITE_GROUPS_ID,
                                  TECMO_ASSET_PACK_TYPE_DATA,
                                  0U,
                                  TECMO_ASSET_PACK_ARENA_POINTER_TABLE_CPU,
@@ -3914,7 +3757,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                             sizeof(sprite_groups_payload),
                                             message,
                                             message_size) != 0) {
-        set_message(message, message_size, "Could not write arena sprite groups entry.");
+        tecmo_asset_pack_set_message(message, message_size, "Could not write arena sprite groups entry.");
         return -1;
     }
 
@@ -3929,7 +3772,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                            message_size) != 0) {
         return -1;
     }
-    entry_info = make_entry_info(TECMO_ASSET_PACK_READY_ID,
+    entry_info = tecmo_asset_pack_make_entry_info(TECMO_ASSET_PACK_READY_ID,
                                  TECMO_ASSET_PACK_TYPE_DATA,
                                  4U,
                                  TECMO_ASSET_PACK_READY_ROUTE_CPU,
@@ -3941,7 +3784,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                             sizeof(ready_payload),
                                             message,
                                             message_size) != 0) {
-        set_message(message, message_size, "Could not write native READY entry.");
+        tecmo_asset_pack_set_message(message, message_size, "Could not write native READY entry.");
         return -1;
     }
 
@@ -3956,7 +3799,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                   message_size) != 0) {
         return -1;
     }
-    entry_info = make_entry_info(TECMO_ASSET_PACK_WARRIORS_ID,
+    entry_info = tecmo_asset_pack_make_entry_info(TECMO_ASSET_PACK_WARRIORS_ID,
                                  TECMO_ASSET_PACK_TYPE_DATA,
                                  4U,
                                  TECMO_ASSET_PACK_WARRIORS_ROUTE_CPU,
@@ -3968,7 +3811,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                             sizeof(warriors_payload),
                                             message,
                                             message_size) != 0) {
-        set_message(message, message_size, "Could not write native WARRIORS entry.");
+        tecmo_asset_pack_set_message(message, message_size, "Could not write native WARRIORS entry.");
         return -1;
     }
 
@@ -3983,7 +3826,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                   message_size) != 0) {
         return -1;
     }
-    entry_info = make_entry_info(TECMO_ASSET_PACK_CLIPPERS_ID,
+    entry_info = tecmo_asset_pack_make_entry_info(TECMO_ASSET_PACK_CLIPPERS_ID,
                                  TECMO_ASSET_PACK_TYPE_DATA,
                                  4U,
                                  TECMO_ASSET_PACK_CLIPPERS_ROUTE_CPU,
@@ -3995,7 +3838,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                             sizeof(clippers_payload),
                                             message,
                                             message_size) != 0) {
-        set_message(message, message_size, "Could not write native CLIPPERS entry.");
+        tecmo_asset_pack_set_message(message, message_size, "Could not write native CLIPPERS entry.");
         return -1;
     }
 
@@ -4010,7 +3853,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                message_size) != 0) {
         return -1;
     }
-    entry_info = make_entry_info(TECMO_ASSET_PACK_BUCKS_ID,
+    entry_info = tecmo_asset_pack_make_entry_info(TECMO_ASSET_PACK_BUCKS_ID,
                                  TECMO_ASSET_PACK_TYPE_DATA,
                                  4U,
                                  TECMO_ASSET_PACK_BUCKS_ROUTE_CPU,
@@ -4022,7 +3865,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                             sizeof(bucks_payload),
                                             message,
                                             message_size) != 0) {
-        set_message(message, message_size, "Could not write native BUCKS entry.");
+        tecmo_asset_pack_set_message(message, message_size, "Could not write native BUCKS entry.");
         return -1;
     }
 
@@ -4037,7 +3880,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                               message_size) != 0) {
         return -1;
     }
-    entry_info = make_entry_info(TECMO_ASSET_PACK_PASS_ID,
+    entry_info = tecmo_asset_pack_make_entry_info(TECMO_ASSET_PACK_PASS_ID,
                                  TECMO_ASSET_PACK_TYPE_DATA,
                                  4U,
                                  TECMO_ASSET_PACK_PASS_ROUTE_CPU,
@@ -4049,7 +3892,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                             sizeof(pass_payload),
                                             message,
                                             message_size) != 0) {
-        set_message(message, message_size, "Could not write native PASS entry.");
+        tecmo_asset_pack_set_message(message, message_size, "Could not write native PASS entry.");
         return -1;
     }
 
@@ -4065,7 +3908,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                               message_size) != 0) {
         return -1;
     }
-    entry_info = make_entry_info(TECMO_ASSET_PACK_FINALE_ID,
+    entry_info = tecmo_asset_pack_make_entry_info(TECMO_ASSET_PACK_FINALE_ID,
                                  TECMO_ASSET_PACK_TYPE_DATA,
                                  4U,
                                  0x82CFU,
@@ -4077,7 +3920,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                             sizeof(finale_payload),
                                             message,
                                             message_size) != 0) {
-        set_message(message, message_size, "Could not write native intro finale entry.");
+        tecmo_asset_pack_set_message(message, message_size, "Could not write native intro finale entry.");
         return -1;
     }
 
@@ -4115,11 +3958,11 @@ static int tecmo_asset_pack_build_from_ines_internal(
     int result = -1;
 
     if (rom_path == NULL || out_path == NULL) {
-        set_message(message, message_size, "ROM path and output path are required.");
+        tecmo_asset_pack_set_message(message, message_size, "ROM path and output path are required.");
         return -1;
     }
-    if (read_file(rom_path, &rom, &rom_size) != 0) {
-        set_message(message, message_size, "Could not read iNES ROM.");
+    if (tecmo_asset_pack_read_file(rom_path, &rom, &rom_size) != 0) {
+        tecmo_asset_pack_set_message(message, message_size, "Could not read iNES ROM.");
         return -1;
     }
     if (rom_size < 16U ||
@@ -4127,7 +3970,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
         rom[1] != 'E' ||
         rom[2] != 'S' ||
         rom[3] != 0x1AU) {
-        set_message(message, message_size, "Input is not an iNES ROM.");
+        tecmo_asset_pack_set_message(message, message_size, "Input is not an iNES ROM.");
         goto cleanup;
     }
 
@@ -4141,7 +3984,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     chr_size = (uint64_t)chr_banks * TECMO_ASSET_PACK_CHR_BANK_BYTES;
 
     if (prg_banks == 0U || rom_size < chr_offset + chr_size) {
-        set_message(message, message_size, "ROM is shorter than its iNES PRG/CHR sizes.");
+        tecmo_asset_pack_set_message(message, message_size, "ROM is shorter than its iNES PRG/CHR sizes.");
         goto cleanup;
     }
 
@@ -4166,11 +4009,11 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                prg_banks,
                                chr_banks);
     if (manifest_length < 0 || (size_t)manifest_length >= sizeof(manifest)) {
-        set_message(message, message_size, "Could not build asset pack manifest.");
+        tecmo_asset_pack_set_message(message, message_size, "Could not build asset pack manifest.");
         goto cleanup;
     }
 
-    entry_info = make_entry_info("system/manifest",
+    entry_info = tecmo_asset_pack_make_entry_info("system/manifest",
                                  TECMO_ASSET_PACK_TYPE_META,
                                  0U,
                                  0U,
@@ -4182,7 +4025,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                             (uint64_t)manifest_length,
                                             message,
                                             message_size) != 0) {
-        set_message(message, message_size, "Could not write asset pack manifest.");
+        tecmo_asset_pack_set_message(message, message_size, "Could not write asset pack manifest.");
         goto cleanup;
     }
 
@@ -4191,7 +4034,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
         uint64_t offset = prg_offset + (uint64_t)bank * TECMO_ASSET_PACK_PRG_BANK_BYTES;
 
         (void)snprintf(id, sizeof(id), "prg/bank%02u", bank);
-        entry_info = make_entry_info(id,
+        entry_info = tecmo_asset_pack_make_entry_info(id,
                                      TECMO_ASSET_PACK_TYPE_PRG,
                                      bank,
                                      0x8000U,
@@ -4203,7 +4046,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                                 TECMO_ASSET_PACK_PRG_BANK_BYTES,
                                                 message,
                                                 message_size) != 0) {
-            set_message(message, message_size, "Could not write PRG bank asset.");
+            tecmo_asset_pack_set_message(message, message_size, "Could not write PRG bank asset.");
             goto cleanup;
         }
     }
@@ -4212,7 +4055,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
         uint32_t fixed_bank = prg_banks - 1U;
         uint64_t offset = prg_offset + (uint64_t)fixed_bank * TECMO_ASSET_PACK_PRG_BANK_BYTES;
 
-        entry_info = make_entry_info("prg/fixed",
+        entry_info = tecmo_asset_pack_make_entry_info("prg/fixed",
                                      TECMO_ASSET_PACK_TYPE_PRG,
                                      fixed_bank,
                                      0xC000U,
@@ -4224,13 +4067,13 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                                 TECMO_ASSET_PACK_PRG_BANK_BYTES,
                                                 message,
                                                 message_size) != 0) {
-            set_message(message, message_size, "Could not write fixed PRG bank asset.");
+            tecmo_asset_pack_set_message(message, message_size, "Could not write fixed PRG bank asset.");
             goto cleanup;
         }
     }
 
     if (chr_size > 0U) {
-        entry_info = make_entry_info("chr/all",
+        entry_info = tecmo_asset_pack_make_entry_info("chr/all",
                                      TECMO_ASSET_PACK_TYPE_CHR,
                                      0U,
                                      0U,
@@ -4242,7 +4085,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                                 chr_size,
                                                 message,
                                                 message_size) != 0) {
-            set_message(message, message_size, "Could not write CHR asset.");
+            tecmo_asset_pack_set_message(message, message_size, "Could not write CHR asset.");
             goto cleanup;
         }
 
@@ -4251,7 +4094,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
             uint64_t offset = chr_offset + (uint64_t)bank * TECMO_ASSET_PACK_CHR_BANK_BYTES;
 
             (void)snprintf(id, sizeof(id), "chr/bank%02u", bank);
-            entry_info = make_entry_info(id,
+            entry_info = tecmo_asset_pack_make_entry_info(id,
                                          TECMO_ASSET_PACK_TYPE_CHR,
                                          bank,
                                          0U,
@@ -4263,7 +4106,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                                     TECMO_ASSET_PACK_CHR_BANK_BYTES,
                                                     message,
                                                     message_size) != 0) {
-                set_message(message, message_size, "Could not write CHR bank asset.");
+                tecmo_asset_pack_set_message(message, message_size, "Could not write CHR bank asset.");
                 goto cleanup;
             }
         }
@@ -4305,11 +4148,11 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &finale_provenance,
                                        &source_map_size);
     if (source_map == NULL) {
-        set_message(message, message_size, "Could not build asset pack source map.");
+        tecmo_asset_pack_set_message(message, message_size, "Could not build asset pack source map.");
         goto cleanup;
     }
 
-    entry_info = make_entry_info("system/source-map",
+    entry_info = tecmo_asset_pack_make_entry_info("system/source-map",
                                  TECMO_ASSET_PACK_TYPE_META,
                                  0U,
                                  0U,
@@ -4321,7 +4164,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                             (uint64_t)source_map_size,
                                             message,
                                             message_size) != 0) {
-        set_message(message, message_size, "Could not write asset pack source map.");
+        tecmo_asset_pack_set_message(message, message_size, "Could not write asset pack source map.");
         goto cleanup;
     }
     free(source_map);
@@ -4393,7 +4236,7 @@ static int make_self_test_temp_dir(char *path, size_t path_size)
         if (CreateDirectoryA(temp_name, NULL) == 0) {
             return -1;
         }
-        return copy_path_text(path, path_size, temp_name);
+        return tecmo_asset_pack_copy_path(path, path_size, temp_name);
     }
 #else
     {
@@ -4417,7 +4260,7 @@ static int make_self_test_temp_dir(char *path, size_t path_size)
         if (created == NULL) {
             return -1;
         }
-        return copy_path_text(path, path_size, created);
+        return tecmo_asset_pack_copy_path(path, path_size, created);
     }
 #endif
 }
@@ -4530,12 +4373,12 @@ static int self_test_read_and_compare(const char *pack_path,
     int result = -1;
 
     if (tecmo_asset_pack_read_entry(pack_path, entry_id, &bytes, &byte_count) != 0) {
-        set_messagef(message, message_size, "Self-test could not read entry '%s'.", entry_id);
+        tecmo_asset_pack_set_messagef(message, message_size, "Self-test could not read entry '%s'.", entry_id);
         return -1;
     }
     if (byte_count != expected_size ||
         (expected_size > 0U && memcmp(bytes, expected, (size_t)expected_size) != 0)) {
-        set_messagef(message, message_size, "Self-test readback mismatch for entry '%s'.", entry_id);
+        tecmo_asset_pack_set_messagef(message, message_size, "Self-test readback mismatch for entry '%s'.", entry_id);
         goto cleanup;
     }
 
@@ -4560,24 +4403,24 @@ static int self_test_arena_background_layer(const char *pack_path,
                                     TECMO_ASSET_PACK_ARENA_INTRO_BACKGROUND_ID,
                                     &bytes,
                                     &byte_count) != 0) {
-        set_message(message, message_size, "Self-test could not read arena background layer.");
+        tecmo_asset_pack_set_message(message, message_size, "Self-test could not read arena background layer.");
         return -1;
     }
     if (byte_count != TECMO_ASSET_PACK_ARENA_LAYER_SIZE ||
         memcmp(bytes, "TATL", 4U) != 0 ||
-        read_u16(bytes + 4U) != 1U ||
-        read_u16(bytes + 6U) != 48U ||
-        read_u16(bytes + 8U) != 32U ||
-        read_u16(bytes + 10U) != 51U ||
-        read_u16(bytes + 12U) != 32U ||
-        read_u16(bytes + 14U) != 30U ||
-        read_u16(bytes + 16U) != 6U ||
-        read_u16(bytes + 18U) != 0U ||
-        read_u32(bytes + 20U) != 1632U ||
-        read_u32(bytes + 24U) != 48U ||
-        read_u32(bytes + 28U) != 32U ||
+        tecmo_asset_pack_read_u16(bytes + 4U) != 1U ||
+        tecmo_asset_pack_read_u16(bytes + 6U) != 48U ||
+        tecmo_asset_pack_read_u16(bytes + 8U) != 32U ||
+        tecmo_asset_pack_read_u16(bytes + 10U) != 51U ||
+        tecmo_asset_pack_read_u16(bytes + 12U) != 32U ||
+        tecmo_asset_pack_read_u16(bytes + 14U) != 30U ||
+        tecmo_asset_pack_read_u16(bytes + 16U) != 6U ||
+        tecmo_asset_pack_read_u16(bytes + 18U) != 0U ||
+        tecmo_asset_pack_read_u32(bytes + 20U) != 1632U ||
+        tecmo_asset_pack_read_u32(bytes + 24U) != 48U ||
+        tecmo_asset_pack_read_u32(bytes + 28U) != 32U ||
         memcmp(bytes + 32U, expected_palette, 16U) != 0) {
-        set_message(message, message_size, "Self-test arena background header mismatch.");
+        tecmo_asset_pack_set_message(message, message_size, "Self-test arena background header mismatch.");
         goto cleanup;
     }
 
@@ -4586,33 +4429,33 @@ static int self_test_arena_background_layer(const char *pack_path,
      (((size_t)(row) * TECMO_ASSET_PACK_ARENA_LAYER_WIDTH + (column)) * \
       TECMO_ASSET_PACK_ARENA_LAYER_CELL_STRIDE))
     cell = SELF_TEST_CELL(0U, 0U);
-    if (cell[0] != 1U || cell[1] != 0U || read_u32(cell + 2U) != 16U) {
-        set_message(message, message_size, "Self-test literal tile cell mismatch.");
+    if (cell[0] != 1U || cell[1] != 0U || tecmo_asset_pack_read_u32(cell + 2U) != 16U) {
+        tecmo_asset_pack_set_message(message, message_size, "Self-test literal tile cell mismatch.");
         goto cleanup;
     }
     cell = SELF_TEST_CELL(0U, 2U);
-    if (cell[0] != 3U || cell[1] != 2U || read_u32(cell + 2U) != 48U) {
-        set_message(message, message_size, "Self-test attribute quadrant mismatch.");
+    if (cell[0] != 3U || cell[1] != 2U || tecmo_asset_pack_read_u32(cell + 2U) != 48U) {
+        tecmo_asset_pack_set_message(message, message_size, "Self-test attribute quadrant mismatch.");
         goto cleanup;
     }
     cell = SELF_TEST_CELL(16U, 0U);
-    if (cell[0] != 9U || cell[1] != 0U || read_u32(cell + 2U) != 96400U) {
-        set_message(message, message_size, "Self-test page-1 lower CHR cell mismatch.");
+    if (cell[0] != 9U || cell[1] != 0U || tecmo_asset_pack_read_u32(cell + 2U) != 96400U) {
+        tecmo_asset_pack_set_message(message, message_size, "Self-test page-1 lower CHR cell mismatch.");
         goto cleanup;
     }
     cell = SELF_TEST_CELL(38U, 0U);
-    if (cell[0] != 6U || cell[1] != 0U || read_u32(cell + 2U) != 96U) {
-        set_messagef(message,
+    if (cell[0] != 6U || cell[1] != 0U || tecmo_asset_pack_read_u32(cell + 2U) != 96U) {
+        tecmo_asset_pack_set_messagef(message,
                      message_size,
                      "Self-test page-0 upper CHR cell mismatch: %u/%u/%u.",
                      (unsigned int)cell[0],
                      (unsigned int)cell[1],
-                     read_u32(cell + 2U));
+                     tecmo_asset_pack_read_u32(cell + 2U));
         goto cleanup;
     }
     cell = SELF_TEST_CELL(48U, 0U);
-    if (cell[0] != 8U || cell[1] != 0U || read_u32(cell + 2U) != 96384U) {
-        set_message(message, message_size, "Self-test page-0 lower CHR split mismatch.");
+    if (cell[0] != 8U || cell[1] != 0U || tecmo_asset_pack_read_u32(cell + 2U) != 96384U) {
+        tecmo_asset_pack_set_message(message, message_size, "Self-test page-0 lower CHR split mismatch.");
         goto cleanup;
     }
 #undef SELF_TEST_CELL
@@ -4642,28 +4485,28 @@ static int self_test_arena_sprite_groups(const char *pack_path,
                                     TECMO_ASSET_PACK_ARENA_INTRO_SPRITE_GROUPS_ID,
                                     &bytes,
                                     &byte_count) != 0) {
-        set_message(message, message_size, "Self-test could not read arena sprite groups.");
+        tecmo_asset_pack_set_message(message, message_size, "Self-test could not read arena sprite groups.");
         return -1;
     }
     if (byte_count != TECMO_ASSET_PACK_ARENA_SPRITE_GROUPS_SIZE ||
         memcmp(bytes, "TASG", 4U) != 0 ||
-        read_u16(bytes + 4U) != 2U ||
-        read_u16(bytes + 6U) != 48U ||
-        read_u16(bytes + 8U) != 2U ||
-        read_u16(bytes + 10U) != 20U ||
-        read_u32(bytes + 12U) != 71U ||
-        read_u16(bytes + 16U) != 12U ||
-        read_u16(bytes + 18U) != 1U ||
-        read_u32(bytes + 20U) != 48U ||
-        read_u32(bytes + 24U) != 64U ||
-        read_u32(bytes + 28U) != 104U ||
+        tecmo_asset_pack_read_u16(bytes + 4U) != 2U ||
+        tecmo_asset_pack_read_u16(bytes + 6U) != 48U ||
+        tecmo_asset_pack_read_u16(bytes + 8U) != 2U ||
+        tecmo_asset_pack_read_u16(bytes + 10U) != 20U ||
+        tecmo_asset_pack_read_u32(bytes + 12U) != 71U ||
+        tecmo_asset_pack_read_u16(bytes + 16U) != 12U ||
+        tecmo_asset_pack_read_u16(bytes + 18U) != 1U ||
+        tecmo_asset_pack_read_u32(bytes + 20U) != 48U ||
+        tecmo_asset_pack_read_u32(bytes + 24U) != 64U ||
+        tecmo_asset_pack_read_u32(bytes + 28U) != 104U ||
         memcmp(bytes + 48U, expected_palette, 16U) != 0) {
-        set_message(message, message_size, "Self-test TASG header or palette mismatch.");
+        tecmo_asset_pack_set_message(message, message_size, "Self-test TASG header or palette mismatch.");
         goto cleanup;
     }
     for (size_t index = 32U; index < 48U; ++index) {
         if (bytes[index] != 0U) {
-            set_message(message, message_size, "Self-test TASG reserved header bytes are nonzero.");
+            tecmo_asset_pack_set_message(message, message_size, "Self-test TASG reserved header bytes are nonzero.");
             goto cleanup;
         }
     }
@@ -4671,49 +4514,49 @@ static int self_test_arena_sprite_groups(const char *pack_path,
          index < TECMO_ASSET_PACK_ARENA_SPRITE_PALETTE_OFFSET + 16U;
          ++index) {
         if (bytes[index] > 0x3FU) {
-            set_message(message, message_size, "Self-test TASG palette color is outside the NES palette.");
+            tecmo_asset_pack_set_message(message, message_size, "Self-test TASG palette color is outside the NES palette.");
             goto cleanup;
         }
     }
 
     jumbotron = bytes + TECMO_ASSET_PACK_ARENA_SPRITE_GROUPS_OFFSET;
     goal = jumbotron + TECMO_ASSET_PACK_ARENA_SPRITE_GROUP_STRIDE;
-    if (read_u16(jumbotron + 0U) != 1U ||
-        read_u16(jumbotron + 2U) != 1U ||
-        read_u32(jumbotron + 4U) != 0U ||
-        read_u32(jumbotron + 8U) != 55U ||
-        read_u16(jumbotron + 12U) != 0U ||
-        read_u16(jumbotron + 14U) != 0U ||
-        read_u16(jumbotron + 16U) != 0U ||
-        read_u16(jumbotron + 18U) != 2U ||
-        read_u16(goal + 0U) != 2U ||
-        read_u16(goal + 2U) != 0U ||
-        read_u32(goal + 4U) != 55U ||
-        read_u32(goal + 8U) != 16U ||
-        read_u16(goal + 12U) != 165U ||
-        read_u16(goal + 14U) != 350U ||
-        read_u16(goal + 16U) != 0U ||
-        read_u16(goal + 18U) != 2U) {
-        set_message(message, message_size, "Self-test TASG group descriptors mismatch.");
+    if (tecmo_asset_pack_read_u16(jumbotron + 0U) != 1U ||
+        tecmo_asset_pack_read_u16(jumbotron + 2U) != 1U ||
+        tecmo_asset_pack_read_u32(jumbotron + 4U) != 0U ||
+        tecmo_asset_pack_read_u32(jumbotron + 8U) != 55U ||
+        tecmo_asset_pack_read_u16(jumbotron + 12U) != 0U ||
+        tecmo_asset_pack_read_u16(jumbotron + 14U) != 0U ||
+        tecmo_asset_pack_read_u16(jumbotron + 16U) != 0U ||
+        tecmo_asset_pack_read_u16(jumbotron + 18U) != 2U ||
+        tecmo_asset_pack_read_u16(goal + 0U) != 2U ||
+        tecmo_asset_pack_read_u16(goal + 2U) != 0U ||
+        tecmo_asset_pack_read_u32(goal + 4U) != 55U ||
+        tecmo_asset_pack_read_u32(goal + 8U) != 16U ||
+        tecmo_asset_pack_read_u16(goal + 12U) != 165U ||
+        tecmo_asset_pack_read_u16(goal + 14U) != 350U ||
+        tecmo_asset_pack_read_u16(goal + 16U) != 0U ||
+        tecmo_asset_pack_read_u16(goal + 18U) != 2U) {
+        tecmo_asset_pack_set_message(message, message_size, "Self-test TASG group descriptors mismatch.");
         goto cleanup;
     }
 
     piece = bytes + TECMO_ASSET_PACK_ARENA_SPRITE_PIECES_OFFSET;
-    if ((int16_t)read_u16(piece + 0U) != 32 ||
-        (int16_t)read_u16(piece + 2U) != 16 ||
-        read_u32(piece + 4U) != 8192U + 0x22U * 16U ||
-        piece[8] != 3U || piece[9] != 7U || read_u16(piece + 10U) != 0U) {
-        set_message(message, message_size, "Self-test TASG first jumbotron piece mismatch.");
+    if ((int16_t)tecmo_asset_pack_read_u16(piece + 0U) != 32 ||
+        (int16_t)tecmo_asset_pack_read_u16(piece + 2U) != 16 ||
+        tecmo_asset_pack_read_u32(piece + 4U) != 8192U + 0x22U * 16U ||
+        piece[8] != 3U || piece[9] != 7U || tecmo_asset_pack_read_u16(piece + 10U) != 0U) {
+        tecmo_asset_pack_set_message(message, message_size, "Self-test TASG first jumbotron piece mismatch.");
         goto cleanup;
     }
     piece = bytes + TECMO_ASSET_PACK_ARENA_SPRITE_PIECES_OFFSET +
             TECMO_ASSET_PACK_ARENA_JUMBOTRON_COUNT *
                 TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_STRIDE;
-    if ((int16_t)read_u16(piece + 0U) != 3 ||
-        (int16_t)read_u16(piece + 2U) != 0 ||
-        read_u32(piece + 4U) != 8192U + 0x40U * 16U ||
-        piece[8] != 2U || piece[9] != 1U || read_u16(piece + 10U) != 0U) {
-        set_message(message, message_size, "Self-test TASG first goal piece mismatch.");
+    if ((int16_t)tecmo_asset_pack_read_u16(piece + 0U) != 3 ||
+        (int16_t)tecmo_asset_pack_read_u16(piece + 2U) != 0 ||
+        tecmo_asset_pack_read_u32(piece + 4U) != 8192U + 0x40U * 16U ||
+        piece[8] != 2U || piece[9] != 1U || tecmo_asset_pack_read_u16(piece + 10U) != 0U) {
+        tecmo_asset_pack_set_message(message, message_size, "Self-test TASG first goal piece mismatch.");
         goto cleanup;
     }
 
@@ -4722,22 +4565,22 @@ static int self_test_arena_sprite_groups(const char *pack_path,
         int16_t connector_overlay_y_adjust;
         piece = bytes + TECMO_ASSET_PACK_ARENA_SPRITE_PIECES_OFFSET +
                 index * TECMO_ASSET_PACK_ARENA_SPRITE_PIECE_STRIDE;
-        chr_byte_offset = read_u32(piece + 4U);
-        connector_overlay_y_adjust = (int16_t)read_u16(piece + 10U);
+        chr_byte_offset = tecmo_asset_pack_read_u32(piece + 4U);
+        connector_overlay_y_adjust = (int16_t)tecmo_asset_pack_read_u16(piece + 10U);
         if (connector_overlay_y_adjust ==
             TECMO_ASSET_PACK_ARENA_GOAL_CONNECTOR_OVERLAY_Y_ADJUST) {
             ++connector_overlay_piece_count;
             if (index < TECMO_ASSET_PACK_ARENA_JUMBOTRON_COUNT ||
-                (int16_t)read_u16(piece + 0U) != 16 ||
-                (int16_t)read_u16(piece + 2U) != 32 ||
+                (int16_t)tecmo_asset_pack_read_u16(piece + 0U) != 16 ||
+                (int16_t)tecmo_asset_pack_read_u16(piece + 2U) != 32 ||
                 chr_byte_offset != 9056U) {
-                set_message(message, message_size, "Self-test TASG connector-overlay goal piece mismatch.");
+                tecmo_asset_pack_set_message(message, message_size, "Self-test TASG connector-overlay goal piece mismatch.");
                 goto cleanup;
             }
         } else if (connector_overlay_y_adjust == 0) {
             ++zero_connector_overlay_count;
         } else {
-            set_message(message, message_size, "Self-test TASG piece connector overlay mismatch.");
+            tecmo_asset_pack_set_message(message, message_size, "Self-test TASG piece connector overlay mismatch.");
             goto cleanup;
         }
         if (piece[8] > 3U || piece[9] > 7U ||
@@ -4745,12 +4588,12 @@ static int self_test_arena_sprite_groups(const char *pack_path,
             chr_byte_offset < TECMO_ASSET_PACK_ARENA_SPRITE_CHR_BASE ||
             (uint64_t)chr_byte_offset + 32U >
                 TECMO_ASSET_PACK_ARENA_SPRITE_CHR_LIMIT) {
-            set_message(message, message_size, "Self-test TASG piece contract mismatch.");
+            tecmo_asset_pack_set_message(message, message_size, "Self-test TASG piece contract mismatch.");
             goto cleanup;
         }
     }
     if (connector_overlay_piece_count != 1U || zero_connector_overlay_count != 70U) {
-        set_message(message, message_size, "Self-test TASG connector-overlay counts mismatch.");
+        tecmo_asset_pack_set_message(message, message_size, "Self-test TASG connector-overlay counts mismatch.");
         goto cleanup;
     }
 
@@ -4803,7 +4646,7 @@ static int self_test_arena_sprite_group_validation(uint8_t *rom,
                                   validation_message,
                                   sizeof(validation_message)) == 0) {
         rom[(size_t)palette_offset + 1U] = saved;
-        set_message(message, message_size, "Self-test accepted an invalid sprite palette color.");
+        tecmo_asset_pack_set_message(message, message_size, "Self-test accepted an invalid sprite palette color.");
         return -1;
     }
     rom[(size_t)palette_offset + 1U] = saved;
@@ -4821,10 +4664,10 @@ static int self_test_arena_sprite_group_validation(uint8_t *rom,
                                   &provenance,
                                   validation_message,
                                   sizeof(validation_message)) != 0 ||
-        read_u32(payload + TECMO_ASSET_PACK_ARENA_SPRITE_PIECES_OFFSET + 4U) !=
+        tecmo_asset_pack_read_u32(payload + TECMO_ASSET_PACK_ARENA_SPRITE_PIECES_OFFSET + 4U) !=
             TECMO_ASSET_PACK_ARENA_SPRITE_CHR_LIMIT - 32U) {
         rom[(size_t)first_record_tile_offset] = saved;
-        set_message(message, message_size, "Self-test rejected the final valid sprite CHR pair.");
+        tecmo_asset_pack_set_message(message, message_size, "Self-test rejected the final valid sprite CHR pair.");
         return -1;
     }
     rom[(size_t)first_record_tile_offset] = 0x7FU;
@@ -4840,7 +4683,7 @@ static int self_test_arena_sprite_group_validation(uint8_t *rom,
                                   validation_message,
                                   sizeof(validation_message)) == 0) {
         rom[(size_t)first_record_tile_offset] = saved;
-        set_message(message, message_size, "Self-test accepted a sprite CHR pair outside pages 8/9.");
+        tecmo_asset_pack_set_message(message, message_size, "Self-test accepted a sprite CHR pair outside pages 8/9.");
         return -1;
     }
     rom[(size_t)first_record_tile_offset] = saved;
@@ -4862,7 +4705,7 @@ static int self_test_arena_sprite_group_validation(uint8_t *rom,
                                   sizeof(validation_message)) == 0 ||
         strstr(validation_message, "connector source-contract mismatch") == NULL) {
         rom[(size_t)goal_connector_record_offset + 1U] = saved;
-        set_message(message,
+        tecmo_asset_pack_set_message(message,
                     message_size,
                     "Self-test accepted a connector record with the wrong raw tile identity.");
         return -1;
@@ -4885,7 +4728,7 @@ static int self_test_arena_sprite_group_validation(uint8_t *rom,
                                   sizeof(validation_message)) == 0 ||
         strstr(validation_message, "connector source-contract mismatch") == NULL) {
         rom[(size_t)goal_connector_record_offset + 2U] = saved;
-        set_message(message,
+        tecmo_asset_pack_set_message(message,
                     message_size,
                     "Self-test accepted a connector record with the wrong source attributes.");
         return -1;
@@ -4906,7 +4749,7 @@ static int self_test_arena_sprite_group_validation(uint8_t *rom,
                                   validation_message,
                                   sizeof(validation_message)) == 0) {
         rom[(size_t)seeds_offset + 1U] = saved;
-        set_message(message, message_size, "Self-test accepted invalid sprite anchor seeds.");
+        tecmo_asset_pack_set_message(message, message_size, "Self-test accepted invalid sprite anchor seeds.");
         return -1;
     }
     rom[(size_t)seeds_offset + 1U] = saved;
@@ -4925,7 +4768,7 @@ static int self_test_arena_sprite_group_validation(uint8_t *rom,
                                   validation_message,
                                   sizeof(validation_message)) == 0) {
         rom[(size_t)params_offset + 1U] = saved;
-        set_message(message, message_size, "Self-test accepted invalid sprite anchor parameters.");
+        tecmo_asset_pack_set_message(message, message_size, "Self-test accepted invalid sprite anchor parameters.");
         return -1;
     }
     rom[(size_t)params_offset + 1U] = saved;
@@ -4943,11 +4786,11 @@ static int self_test_entry_contains_text(const char *pack_path,
     int result = -1;
 
     if (tecmo_asset_pack_read_entry(pack_path, entry_id, &bytes, &byte_count) != 0) {
-        set_messagef(message, message_size, "Self-test could not read entry '%s'.", entry_id);
+        tecmo_asset_pack_set_messagef(message, message_size, "Self-test could not read entry '%s'.", entry_id);
         return -1;
     }
     if (!bytes_contain_text(bytes, byte_count, needle)) {
-        set_messagef(message,
+        tecmo_asset_pack_set_messagef(message,
                      message_size,
                      "Self-test entry '%s' did not contain '%s'.",
                      entry_id,
@@ -4990,7 +4833,7 @@ static int self_test_builder_list_entry(const TecmoAssetPackDirectoryEntryInfo *
             entry_info->source_offset != 0x1234ULL ||
             entry_info->byte_count != state->memory_size ||
             entry_info->flags != TECMO_ASSET_PACK_FLAG_DERIVED) {
-            set_message(state->message,
+            tecmo_asset_pack_set_message(state->message,
                         state->message_size,
                         "Self-test memory directory metadata mismatch.");
             return -1;
@@ -5003,7 +4846,7 @@ static int self_test_builder_list_entry(const TecmoAssetPackDirectoryEntryInfo *
             entry_info->source_offset != 0x5678ULL ||
             entry_info->byte_count != state->file_size ||
             entry_info->flags != TECMO_ASSET_PACK_FLAG_LOCAL) {
-            set_message(state->message,
+            tecmo_asset_pack_set_message(state->message,
                         state->message_size,
                         "Self-test file directory metadata mismatch.");
             return -1;
@@ -5212,11 +5055,11 @@ static int populate_self_test_opening_fixture(uint8_t *bank00, uint8_t *fixed)
     if (bank00 == NULL || fixed == NULL) return -1;
     presents_descriptor[0] = TECMO_ASSET_PACK_PRESENTS_BG_R0 / 2U;
     presents_descriptor[1] = TECMO_ASSET_PACK_PRESENTS_BG_R1 / 2U;
-    store_u16(presents_descriptor + 2U, TECMO_ASSET_PACK_OPENING_PALETTE_CPU);
-    store_u16(presents_descriptor + 4U, TECMO_ASSET_PACK_PRESENTS_STREAM_CPU);
+    tecmo_asset_pack_store_u16(presents_descriptor + 2U, TECMO_ASSET_PACK_OPENING_PALETTE_CPU);
+    tecmo_asset_pack_store_u16(presents_descriptor + 4U, TECMO_ASSET_PACK_PRESENTS_STREAM_CPU);
     presents_descriptor[6] = 0U;
     memcpy(license_descriptor, presents_descriptor, TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_SIZE);
-    store_u16(license_descriptor + 4U, TECMO_ASSET_PACK_LICENSE_STREAM_CPU);
+    tecmo_asset_pack_store_u16(license_descriptor + 4U, TECMO_ASSET_PACK_LICENSE_STREAM_CPU);
 
     presents_size = write_self_test_opening_stream(
         bank00,
@@ -5345,7 +5188,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         if (finale_title_char_to_tile(NULL, 0U, 0U, 0x20U, &space_tile) != 0 ||
             finale_title_char_to_tile(NULL, 0U, 0U, 0x2EU, &period_tile) != 0 ||
             space_tile != 0x18U || period_tile != 0x18U) {
-            set_message(message, message_size, "Self-test finale space/period mapping mismatch.");
+            tecmo_asset_pack_set_message(message, message_size, "Self-test finale space/period mapping mismatch.");
             return -1;
         }
     }
@@ -5363,7 +5206,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         make_self_test_path(local_file_path, sizeof(local_file_path), temp_dir, "local.bin") != 0 ||
         make_self_test_path(rom_path, sizeof(rom_path), temp_dir, "input.nes") != 0 ||
         make_self_test_path(ines_pack_path, sizeof(ines_pack_path), temp_dir, "ines.assetpack") != 0) {
-        set_message(message, message_size, "Self-test could not create temporary paths.");
+        tecmo_asset_pack_set_message(message, message_size, "Self-test could not create temporary paths.");
         goto cleanup;
     }
 
@@ -5371,7 +5214,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         goto cleanup;
     }
 
-    entry_info = make_entry_info("test/memory",
+    entry_info = tecmo_asset_pack_make_entry_info("test/memory",
                                  TECMO_ASSET_PACK_TYPE_DATA,
                                  7U,
                                  0x8123U,
@@ -5387,11 +5230,11 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
     }
 
     if (write_self_test_file(local_file_path, file_entry_bytes, sizeof(file_entry_bytes)) != 0) {
-        set_message(message, message_size, "Self-test could not write temporary file entry source.");
+        tecmo_asset_pack_set_message(message, message_size, "Self-test could not write temporary file entry source.");
         goto cleanup;
     }
 
-    entry_info = make_entry_info("test/file",
+    entry_info = tecmo_asset_pack_make_entry_info("test/file",
                                  TECMO_ASSET_PACK_TYPE_DATA,
                                  3U,
                                  0x9000U,
@@ -5437,37 +5280,37 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         !builder_list_state.saw_memory ||
         !builder_list_state.saw_file) {
         if (message != NULL && message_size > 0U && message[0] == '\0') {
-            set_message(message, message_size, "Self-test directory enumeration mismatch.");
+            tecmo_asset_pack_set_message(message, message_size, "Self-test directory enumeration mismatch.");
         }
         goto cleanup;
     }
 
     if (tecmo_asset_pack_dump_directory(builder_pack_path, NULL, 0U, &dump_size) != 0 ||
         dump_size == 0U) {
-        set_message(message, message_size, "Self-test could not size directory dump.");
+        tecmo_asset_pack_set_message(message, message_size, "Self-test could not size directory dump.");
         goto cleanup;
     }
     dump = (char *)malloc(dump_size);
     if (dump == NULL) {
-        set_message(message, message_size, "Self-test could not allocate directory dump.");
+        tecmo_asset_pack_set_message(message, message_size, "Self-test could not allocate directory dump.");
         goto cleanup;
     }
     if (tecmo_asset_pack_dump_directory(builder_pack_path, dump, dump_size, &dump_size) != 0 ||
         strstr(dump, "test/memory") == NULL ||
         strstr(dump, "test/file") == NULL) {
-        set_message(message, message_size, "Self-test directory dump did not include expected entries.");
+        tecmo_asset_pack_set_message(message, message_size, "Self-test directory dump did not include expected entries.");
         goto cleanup;
     }
     free(dump);
     dump = NULL;
 
     if (rom_size > (uint64_t)SIZE_MAX) {
-        set_message(message, message_size, "Self-test ROM fixture is too large.");
+        tecmo_asset_pack_set_message(message, message_size, "Self-test ROM fixture is too large.");
         goto cleanup;
     }
     rom = (uint8_t *)calloc(1U, (size_t)rom_size);
     if (rom == NULL) {
-        set_message(message, message_size, "Self-test could not allocate ROM fixture.");
+        tecmo_asset_pack_set_message(message, message_size, "Self-test could not allocate ROM fixture.");
         goto cleanup;
     }
     rom[0] = 'N';
@@ -5490,7 +5333,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
     if (populate_self_test_opening_fixture(
             rom + (size_t)prg_offset,
             rom + (size_t)(prg_offset + 7ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES)) != 0) {
-        set_message(message, message_size, "Self-test could not build opening screen fixture.");
+        tecmo_asset_pack_set_message(message, message_size, "Self-test could not build opening screen fixture.");
         goto cleanup;
     }
 
@@ -5528,8 +5371,8 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         uint8_t *jumbotron = rom + (size_t)(bank00_offset + (0xA7E3U - 0x8000U));
         uint8_t *goal = rom + (size_t)(bank00_offset + (0xA8C0U - 0x8000U));
 
-        store_u16(pointer_table + 0U, 0xA7E3U);
-        store_u16(pointer_table + 2U, 0xA8C0U);
+        tecmo_asset_pack_store_u16(pointer_table + 0U, 0xA7E3U);
+        tecmo_asset_pack_store_u16(pointer_table + 2U, 0xA8C0U);
         jumbotron[0] = TECMO_ASSET_PACK_ARENA_JUMBOTRON_COUNT;
         for (size_t index = 0U; index < TECMO_ASSET_PACK_ARENA_JUMBOTRON_COUNT; ++index) {
             uint8_t *record = jumbotron + 1U + index * 4U;
@@ -5647,7 +5490,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
             memcpy(rom + (size_t)(bank06_offset + (0x9EAEU - 0x8000U)),
                    text_routine,
                    sizeof(text_routine));
-            store_u16(rom + (size_t)(bank06_offset + (0xAD60U - 0x8000U) + 0x16U),
+            tecmo_asset_pack_store_u16(rom + (size_t)(bank06_offset + (0xAD60U - 0x8000U) + 0x16U),
                       0xACA3U);
             memcpy(rom + (size_t)(bank06_offset + (0xACA3U - 0x8000U)),
                    text_record,
@@ -5662,18 +5505,18 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
 
         ready_descriptor[0] = 0U;
         ready_descriptor[1] = 1U;
-        store_u16(ready_descriptor + 2U, 0xBD61U);
-        store_u16(ready_descriptor + 4U, 0xBAF2U);
+        tecmo_asset_pack_store_u16(ready_descriptor + 2U, 0xBD61U);
+        tecmo_asset_pack_store_u16(ready_descriptor + 4U, 0xBAF2U);
         ready_descriptor[6] = 4U;
         warriors_descriptor[0] = 0U;
         warriors_descriptor[1] = 1U;
-        store_u16(warriors_descriptor + 2U, 0xB5DBU);
-        store_u16(warriors_descriptor + 4U, 0xB4C5U);
+        tecmo_asset_pack_store_u16(warriors_descriptor + 2U, 0xB5DBU);
+        tecmo_asset_pack_store_u16(warriors_descriptor + 4U, 0xB4C5U);
         warriors_descriptor[6] = 1U;
         clippers_descriptor[0] = 0x16U;
         clippers_descriptor[1] = 0x17U;
-        store_u16(clippers_descriptor + 2U, 0xB7C4U);
-        store_u16(clippers_descriptor + 4U, 0xB5EBU);
+        tecmo_asset_pack_store_u16(clippers_descriptor + 2U, 0xB7C4U);
+        tecmo_asset_pack_store_u16(clippers_descriptor + 4U, 0xB5EBU);
         clippers_descriptor[6] = 1U;
         memcpy(bucks_descriptor, "\x2F\x30\xA5\xB4\x01\xB4\x01", 7U);
         memcpy(pass_descriptor, "\x78\x79\xA9\xBA\x33\xB9\x01", 7U);
@@ -5709,7 +5552,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         ready_stream[out++] = 0U;
         ready_stream[out++] = 0U;
         if (out != 53U) {
-            set_message(message, message_size, "Self-test READY stream size mismatch.");
+            tecmo_asset_pack_set_message(message, message_size, "Self-test READY stream size mismatch.");
             goto cleanup;
         }
 
@@ -5733,7 +5576,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         warriors_stream[out++] = 0x7FU;
         warriors_stream[out++] = 0U;
         if (out != 279U) {
-            set_message(message, message_size, "Self-test WARRIORS stream size mismatch.");
+            tecmo_asset_pack_set_message(message, message_size, "Self-test WARRIORS stream size mismatch.");
             goto cleanup;
         }
 
@@ -5757,7 +5600,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         clippers_stream[out++] = 0x7FU;
         clippers_stream[out++] = 0U;
         if (out != 474U) {
-            set_message(message, message_size, "Self-test CLIPPERS stream size mismatch.");
+            tecmo_asset_pack_set_message(message, message_size, "Self-test CLIPPERS stream size mismatch.");
             goto cleanup;
         }
         memcpy(rom + (size_t)(bank01_offset + (0xB7C4U - 0x8000U)),
@@ -5814,7 +5657,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                    sizeof(pass_emit_helper));
             memcpy(rom + (size_t)(bank04_offset + (0x88A3U - 0x8000U)), thresholds, sizeof(thresholds));
             rom[(size_t)(fixed_offset + (0xDC19U - 0xC000U) + 0x0EU)] = 0x2AU;
-            store_u16(rom + (size_t)(bank06_offset + (0xAD60U - 0x8000U) + 0x0EU * 2U), 0xACB8U);
+            tecmo_asset_pack_store_u16(rom + (size_t)(bank06_offset + (0xAD60U - 0x8000U) + 0x0EU * 2U), 0xACB8U);
             memcpy(rom + (size_t)(bank06_offset + (0xACB8U - 0x8000U)), bucks_record, sizeof(bucks_record));
             for (size_t i = 0U; i < sizeof(bucks_chars); ++i) {
                 uint8_t map = (uint8_t)(20U + i);
@@ -5825,10 +5668,10 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
             }
         }
 
-        store_u16(rom + (size_t)(bank00_offset +
+        tecmo_asset_pack_store_u16(rom + (size_t)(bank00_offset +
                                  (TECMO_ASSET_PACK_WARRIORS_POINTER_CPU - 0x8000U)),
                    TECMO_ASSET_PACK_WARRIORS_STREAM_CPU);
-        store_u16(rom + (size_t)(bank00_offset +
+        tecmo_asset_pack_store_u16(rom + (size_t)(bank00_offset +
                                  (TECMO_ASSET_PACK_PASS_POINTER_CPU - 0x8000U) + 2U),
                    TECMO_ASSET_PACK_PASS_STREAM_CPU);
         {
@@ -5877,12 +5720,12 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                 0x02U,0x03U,0x13U,0x23U,0x02U,0x04U,0x14U,0x24U
             };
             uint8_t *finale_bank04 = rom + (size_t)bank04_offset;
-            store_u16(finale_bank04 + (0x82DBU - 0x8000U), 0x851CU);
-            store_u16(finale_bank04 + (0x82DDU - 0x8000U), 0x83EAU);
-            store_u16(finale_bank04 + (0x82DFU - 0x8000U), 0x852EU);
-            store_u16(finale_bank04 + (0x82E1U - 0x8000U), 0x83AEU);
-            store_u16(finale_bank04 + (0x82E3U - 0x8000U), 0x8310U);
-            store_u16(finale_bank04 + (0x82E5U - 0x8000U), 0xFFFFU);
+            tecmo_asset_pack_store_u16(finale_bank04 + (0x82DBU - 0x8000U), 0x851CU);
+            tecmo_asset_pack_store_u16(finale_bank04 + (0x82DDU - 0x8000U), 0x83EAU);
+            tecmo_asset_pack_store_u16(finale_bank04 + (0x82DFU - 0x8000U), 0x852EU);
+            tecmo_asset_pack_store_u16(finale_bank04 + (0x82E1U - 0x8000U), 0x83AEU);
+            tecmo_asset_pack_store_u16(finale_bank04 + (0x82E3U - 0x8000U), 0x8310U);
+            tecmo_asset_pack_store_u16(finale_bank04 + (0x82E5U - 0x8000U), 0xFFFFU);
             finale_bank04[0x82EDU - 0x8000U] = 50U;
             finale_bank04[0x82EEU - 0x8000U] = 30U;
             finale_bank04[0x82EFU - 0x8000U] = 0U;
@@ -5920,8 +5763,8 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                 uint8_t selector = (uint8_t)(screen * 2U);
                 descriptor[0] = selector;
                 descriptor[1] = selector;
-                store_u16(descriptor + 2U, finale_palette_cpu[screen]);
-                store_u16(descriptor + 4U, finale_stream_cpu[screen]);
+                tecmo_asset_pack_store_u16(descriptor + 2U, finale_palette_cpu[screen]);
+                tecmo_asset_pack_store_u16(descriptor + 4U, finale_stream_cpu[screen]);
                 descriptor[6U] = 2U;
                 memcpy(rom + (size_t)(bank02_offset + finale_stream_cpu[screen] - 0x8000U),
                        screen == 0U || screen == 3U ? one_page_stream : two_page_stream,
@@ -5990,7 +5833,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
     }
 
     if (write_self_test_file(rom_path, rom, (size_t)rom_size) != 0) {
-        set_message(message, message_size, "Self-test could not write temporary iNES ROM.");
+        tecmo_asset_pack_set_message(message, message_size, "Self-test could not write temporary iNES ROM.");
         goto cleanup;
     }
     if (tecmo_asset_pack_build_from_ines_internal(rom_path,
@@ -6267,11 +6110,11 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         !ines_list_state.saw_chr_all ||
         !ines_list_state.saw_chr_bank0 ||
         !ines_list_state.saw_chr_bank1) {
-        set_message(message, message_size, "Self-test iNES pack directory enumeration mismatch.");
+        tecmo_asset_pack_set_message(message, message_size, "Self-test iNES pack directory enumeration mismatch.");
         goto cleanup;
     }
 
-    set_message(message, message_size, "Asset pack self-test passed.");
+    tecmo_asset_pack_set_message(message, message_size, "Asset pack self-test passed.");
     result = 0;
 
 cleanup:
