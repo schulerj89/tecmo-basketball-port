@@ -127,3 +127,119 @@ int tecmo_asset_pack_decode_d9f6_stream(const uint8_t *bank_bytes,
         }
     }
 }
+
+int tecmo_asset_pack_d9f6_self_test(char *message, size_t message_size)
+{
+    static const uint8_t backreference_stream[] = {
+        0x0DU, 0x04U, 'A', 'B', 'C', 'D', 0x04U, 0x05U, 0x00U, 0x00U
+    };
+    static const uint8_t backreference_expected[] = {
+        'A', 'B', 'C', 'D', 'A', 'B', 'C', 'D'
+    };
+    static const uint8_t zero_count_stream[] = {0x02U, 0x00U, 0x7AU, 0x00U};
+    static const uint8_t truncated_count_stream[] = {0x01U};
+    static const uint8_t overflow_stream[] = {0x02U, 0x02U, 0xAAU};
+    static const uint8_t underflow_stream[] = {0x03U, 0x01U, 0x03U, 0x00U};
+    static const uint8_t boundary_crossing_stream[] = {0x03U, 0x03U, 0x00U, 0x00U};
+    uint8_t decoded[256];
+    size_t encoded_size = 0U;
+    char decoder_message[160];
+
+    memset(decoded, 0, sizeof(decoded));
+    decoder_message[0] = '\0';
+    if (tecmo_asset_pack_decode_d9f6_stream(backreference_stream,
+                           sizeof(backreference_stream),
+                           0U,
+                           decoded,
+                           sizeof(backreference_expected),
+                           &encoded_size,
+                           decoder_message,
+                           sizeof(decoder_message)) != 0 ||
+        encoded_size != sizeof(backreference_stream) ||
+        memcmp(decoded, backreference_expected, sizeof(backreference_expected)) != 0) {
+        set_message(message,
+                    message_size,
+                    "Self-test D9F6 backreference did not use the delta-word address as its base.");
+        return -1;
+    }
+
+    memset(decoded, 0, sizeof(decoded));
+    encoded_size = 0U;
+    decoder_message[0] = '\0';
+    if (tecmo_asset_pack_decode_d9f6_stream(zero_count_stream,
+                           sizeof(zero_count_stream),
+                           0U,
+                           decoded,
+                           sizeof(decoded),
+                           &encoded_size,
+                           decoder_message,
+                           sizeof(decoder_message)) != 0 ||
+        encoded_size != sizeof(zero_count_stream)) {
+        set_message(message, message_size, "Self-test D9F6 zero count did not decode 256 bytes.");
+        return -1;
+    }
+    for (size_t i = 0U; i < sizeof(decoded); ++i) {
+        if (decoded[i] != 0x7AU) {
+            set_message(message, message_size, "Self-test D9F6 zero-count output mismatch.");
+            return -1;
+        }
+    }
+
+    decoder_message[0] = '\0';
+    if (tecmo_asset_pack_decode_d9f6_stream(truncated_count_stream,
+                           sizeof(truncated_count_stream),
+                           0U,
+                           decoded,
+                           1U,
+                           NULL,
+                           decoder_message,
+                           sizeof(decoder_message)) == 0 ||
+        strstr(decoder_message, "missing an operation count") == NULL) {
+        set_message(message, message_size, "Self-test D9F6 truncated count was not rejected.");
+        return -1;
+    }
+
+    decoder_message[0] = '\0';
+    if (tecmo_asset_pack_decode_d9f6_stream(overflow_stream,
+                           sizeof(overflow_stream),
+                           0U,
+                           decoded,
+                           1U,
+                           NULL,
+                           decoder_message,
+                           sizeof(decoder_message)) == 0 ||
+        strstr(decoder_message, "decodes past two nametables") == NULL) {
+        set_message(message, message_size, "Self-test D9F6 output overflow was not rejected.");
+        return -1;
+    }
+
+    decoder_message[0] = '\0';
+    if (tecmo_asset_pack_decode_d9f6_stream(underflow_stream,
+                           sizeof(underflow_stream),
+                           0U,
+                           decoded,
+                           1U,
+                           NULL,
+                           decoder_message,
+                           sizeof(decoder_message)) == 0 ||
+        strstr(decoder_message, "back-copy underflows") == NULL) {
+        set_message(message, message_size, "Self-test D9F6 backreference underflow was not rejected.");
+        return -1;
+    }
+
+    decoder_message[0] = '\0';
+    if (tecmo_asset_pack_decode_d9f6_stream(boundary_crossing_stream,
+                           sizeof(boundary_crossing_stream),
+                           0U,
+                           decoded,
+                           3U,
+                           NULL,
+                           decoder_message,
+                           sizeof(decoder_message)) == 0 ||
+        strstr(decoder_message, "back-copy crosses its PRG bank") == NULL) {
+        set_message(message, message_size, "Self-test D9F6 bank-boundary crossing was not rejected.");
+        return -1;
+    }
+
+    return 0;
+}

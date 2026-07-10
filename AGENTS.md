@@ -228,7 +228,8 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/tecmo_asset_pack.c`: ROM import orchestration and native entry builders
 - `src/asset_pack/tecmo_asset_pack_reader.c`: generic TAP1 read/list/dump API
 - `src/asset_pack/tecmo_asset_pack_writer.c`: generic TAP1 builder/write API
-- `src/asset_pack/tecmo_asset_pack_d9f6.c`: bounded D9F6 nametable decoder
+- `src/asset_pack/tecmo_asset_pack_d9f6.c`: bounded D9F6 nametable decoder and edge-case self-test
+- `src/asset_pack/tecmo_asset_pack_import_layout.h`: shared ROM import layout and provenance contracts
 - `src/tecmo_intro_screen.c`: strict TISC-1 opening-screen loading and rendering
 - `src/tecmo_intro_trace.c`: explicitly enabled local trace diagnostics only
 - `src/tecmo_intro_arena.c`: strict TATL/TASG loading, native arena drawing, capture debug scaffolding

@@ -13,4 +13,6 @@ int tecmo_asset_pack_decode_d9f6_stream(const uint8_t *bank_bytes,
                                          char *message,
                                          size_t message_size);
 
+int tecmo_asset_pack_d9f6_self_test(char *message, size_t message_size);
+
 #endif
