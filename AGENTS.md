@@ -171,9 +171,12 @@ Finale provenance is the raw Bank04 chain `$851C` wait 50 -> `$83EA` wait 30
 screens `$1C`, `$20`, `$1F`, `$22`, and `$2D`. The selector-2 transition uses
 first seed `$78`, second seed `$D8`, and delta `-8`: the swap holds the last
 emitted `$E8`, and the outward pass begins at `$D0`. The native state model
-adds an explicit one-frame load gate at each asynchronous screen boundary. That
-normalization makes the bounded continuation reach its persistent hold at frame
-909; those load gates are not claimed as ROM-exact scheduler wait durations.
+starts from 742 imported route-core frames plus 156 dispatch-wait frames, or
+898. Five explicit one-frame asynchronous load gates reach 903, and six
+selector black/fade normalization frames preserve the exact `$E8` hold, `$D0`
+outward start, and `$10` endpoint before the persistent hold begins at native
+frame 909. The ROM's `$8A48` and `$850C` state gates are conditional; these 11
+native scheduling frames are not claimed as ROM-exact scheduler wait durations.
 
 Goal Y reproduces Bank07 `$D861` bytewise using Bank04's first `$8988` emit
 pass (`$07EC/$21` stream1). For raw negative relative Y bytes (`dy - $40` in

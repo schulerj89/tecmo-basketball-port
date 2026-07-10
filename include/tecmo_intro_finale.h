@@ -32,6 +32,7 @@
 #define TECMO_INTRO_FINALE_TRANSITION_IN_FRAMES 18U
 #define TECMO_INTRO_FINALE_TRANSITION_SWAP_FRAMES 1U
 #define TECMO_INTRO_FINALE_TRANSITION_OUT_FRAMES 26U
+#define TECMO_INTRO_FINALE_SELECTOR_NORMALIZATION_FRAMES 6U
 #define TECMO_INTRO_FINALE_STAGED_WAIT_FRAMES 80U
 #define TECMO_INTRO_FINALE_STAGED_DISPATCH_WAIT_FRAMES 75U
 #define TECMO_INTRO_FINALE_TITLE_PREROLL_FRAMES 128U
@@ -93,6 +94,8 @@ typedef struct TecmoIntroFinaleAsset {
     uint8_t staged_anchor_y;
     uint16_t reverse_palette_frames[TECMO_INTRO_FINALE_PALETTE_STAGE_COUNT];
     TecmoIntroFinaleTitleBand title_bands[TECMO_INTRO_FINALE_TITLE_BAND_COUNT];
+    uint64_t chr_byte_count;
+    uint64_t chr_fingerprint;
     char status[160];
 } TecmoIntroFinaleAsset;
 
@@ -153,6 +156,7 @@ const char *tecmo_intro_finale_scene_name(TecmoIntroFinaleScene scene);
 const char *tecmo_intro_finale_phase_name(TecmoIntroFinalePhase phase);
 unsigned tecmo_intro_finale_hold_frame(void);
 unsigned tecmo_intro_finale_scene_start_frame(TecmoIntroFinaleScene scene);
+unsigned tecmo_intro_finale_scene_duration(TecmoIntroFinaleScene scene);
 
 bool tecmo_intro_finale_draw(TecmoFramebuffer *fb,
                              const TecmoIntroFinaleAsset *asset,

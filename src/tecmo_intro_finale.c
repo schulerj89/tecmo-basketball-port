@@ -26,6 +26,41 @@
 #define FINALE_REVERSE_FIRST_SCROLL_ADJUST 8U
 #define FINALE_REVERSE_FIRST_VIRTUAL_PAGE 1U
 
+#define FINALE_SCREENS_OFFSET FINALE_HEADER_SIZE
+#define FINALE_BACKGROUND_PALETTES_OFFSET \
+    (FINALE_SCREENS_OFFSET + TECMO_INTRO_FINALE_SCREEN_COUNT * \
+        TECMO_INTRO_FINALE_CELL_COUNT * FINALE_CELL_STRIDE)
+#define FINALE_REVERSE_PALETTES_OFFSET \
+    (FINALE_BACKGROUND_PALETTES_OFFSET + TECMO_INTRO_FINALE_SCREEN_COUNT * 16U)
+#define FINALE_REVERSE_PALETTE_FRAMES_OFFSET \
+    (FINALE_REVERSE_PALETTES_OFFSET + TECMO_INTRO_FINALE_PALETTE_STAGE_COUNT * 16U)
+#define FINALE_GROUPS_OFFSET \
+    ((FINALE_REVERSE_PALETTE_FRAMES_OFFSET + \
+      TECMO_INTRO_FINALE_PALETTE_STAGE_COUNT * \
+          FINALE_REVERSE_PALETTE_FRAME_STRIDE + 3U) & ~3U)
+#define FINALE_SPRITE_PALETTES_OFFSET \
+    (FINALE_GROUPS_OFFSET + \
+     TECMO_INTRO_FINALE_SPRITE_PALETTE_COUNT * FINALE_GROUP_STRIDE)
+#define FINALE_PIECES_OFFSET \
+    (FINALE_SPRITE_PALETTES_OFFSET + \
+     TECMO_INTRO_FINALE_SPRITE_PALETTE_COUNT * 16U)
+#define FINALE_ROUTES_OFFSET \
+    (FINALE_PIECES_OFFSET + TECMO_INTRO_FINALE_PIECE_COUNT * FINALE_PIECE_STRIDE)
+#define FINALE_ANCHORS_OFFSET \
+    (FINALE_ROUTES_OFFSET + FINALE_ROUTE_COUNT * FINALE_ROUTE_STRIDE)
+#define FINALE_REVERSE_META_OFFSET \
+    ((FINALE_ANCHORS_OFFSET + FINALE_ANCHOR_COUNT * FINALE_ANCHOR_STRIDE + 3U) & \
+     ~3U)
+#define FINALE_TITLE_META_OFFSET \
+    (FINALE_REVERSE_META_OFFSET + FINALE_REVERSE_META_SIZE)
+#define FINALE_BANDS_OFFSET \
+    (FINALE_TITLE_META_OFFSET + FINALE_TITLE_META_SIZE)
+#define FINALE_TITLE_SLOTS_OFFSET \
+    (FINALE_BANDS_OFFSET + TECMO_INTRO_FINALE_TITLE_BAND_COUNT * FINALE_BAND_STRIDE)
+#define FINALE_BYTE_COUNT \
+    (FINALE_TITLE_SLOTS_OFFSET + \
+     TECMO_INTRO_FINALE_TITLE_SLOT_COUNT * FINALE_TITLE_SLOT_STRIDE)
+
 #define FINALE_OPENING_DURATION \
     (TECMO_INTRO_FINALE_LOAD_BOUNDARY_FRAMES + \
      TECMO_INTRO_FINALE_OPENING_WAIT_FRAMES)
@@ -34,8 +69,13 @@
      TECMO_INTRO_FINALE_SHORT_LOOP_STEPS * \
          TECMO_INTRO_FINALE_SHORT_LOOP_STEP_FRAMES + \
      TECMO_INTRO_FINALE_SHORT_LOOP_WAIT_FRAMES)
-/* Includes the reviewed prior/black loader normalization around the 45-frame motion core. */
-#define FINALE_SELECTOR_DURATION 52U
+/* 45 imported core frames + 1 load boundary + 6 native black/fade frames. */
+#define FINALE_SELECTOR_DURATION \
+    (TECMO_INTRO_FINALE_TRANSITION_IN_FRAMES + \
+     TECMO_INTRO_FINALE_TRANSITION_SWAP_FRAMES + \
+     TECMO_INTRO_FINALE_TRANSITION_OUT_FRAMES + \
+     TECMO_INTRO_FINALE_LOAD_BOUNDARY_FRAMES + \
+     TECMO_INTRO_FINALE_SELECTOR_NORMALIZATION_FRAMES)
 #define FINALE_STAGED_DURATION \
     (TECMO_INTRO_FINALE_LOAD_BOUNDARY_FRAMES + \
      TECMO_INTRO_FINALE_STAGED_WAIT_FRAMES + \
@@ -60,6 +100,16 @@ static uint32_t read_u32(const uint8_t *bytes)
            ((uint32_t)bytes[1] << 8U) |
            ((uint32_t)bytes[2] << 16U) |
            ((uint32_t)bytes[3] << 24U);
+}
+
+static uint64_t fnv1a64(const uint8_t *bytes, uint64_t byte_count)
+{
+    uint64_t hash = 14695981039346656037ULL;
+    for (uint64_t i = 0U; i < byte_count; ++i) {
+        hash ^= bytes[i];
+        hash *= 1099511628211ULL;
+    }
+    return hash;
 }
 
 static void set_status(char *dest, size_t size, const char *text)
@@ -225,6 +275,32 @@ static bool parse_asset(TecmoIntroFinaleAsset *asset,
     title_slots_offset = read_u32(bytes + 96U);
     bands_offset = read_u32(bytes + 104U);
 
+    if (screens_offset != FINALE_SCREENS_OFFSET ||
+        background_palettes_offset != FINALE_BACKGROUND_PALETTES_OFFSET ||
+        reverse_palettes_offset != FINALE_REVERSE_PALETTES_OFFSET ||
+        reverse_palette_frames_offset != FINALE_REVERSE_PALETTE_FRAMES_OFFSET ||
+        groups_offset != FINALE_GROUPS_OFFSET || pieces_offset != FINALE_PIECES_OFFSET ||
+        routes_offset != FINALE_ROUTES_OFFSET || anchors_offset != FINALE_ANCHORS_OFFSET ||
+        reverse_meta_offset != FINALE_REVERSE_META_OFFSET ||
+        title_meta_offset != FINALE_TITLE_META_OFFSET ||
+        bands_offset != FINALE_BANDS_OFFSET ||
+        title_slots_offset != FINALE_TITLE_SLOTS_OFFSET || byte_count != FINALE_BYTE_COUNT) {
+        return false;
+    }
+    for (uint32_t pad = FINALE_REVERSE_PALETTE_FRAMES_OFFSET +
+                        TECMO_INTRO_FINALE_PALETTE_STAGE_COUNT *
+                            FINALE_REVERSE_PALETTE_FRAME_STRIDE;
+         pad < FINALE_GROUPS_OFFSET;
+         ++pad) {
+        if (bytes[pad] != 0U) return false;
+    }
+    for (uint32_t pad = FINALE_ANCHORS_OFFSET +
+                        FINALE_ANCHOR_COUNT * FINALE_ANCHOR_STRIDE;
+         pad < FINALE_REVERSE_META_OFFSET;
+         ++pad) {
+        if (bytes[pad] != 0U) return false;
+    }
+
     if (!range_valid(screens_offset,
                      (uint64_t)TECMO_INTRO_FINALE_SCREEN_COUNT *
                          TECMO_INTRO_FINALE_CELL_COUNT * FINALE_CELL_STRIDE,
@@ -278,6 +354,16 @@ static bool parse_asset(TecmoIntroFinaleAsset *asset,
                 return false;
             }
         }
+        if (screen == 0U || screen == 3U) {
+            for (size_t i = 0U; i < TECMO_INTRO_FINALE_TILES_PER_PAGE; ++i) {
+                const TecmoIntroFinaleCell *first = &asset->screens[screen][i];
+                const TecmoIntroFinaleCell *second =
+                    &asset->screens[screen][TECMO_INTRO_FINALE_TILES_PER_PAGE + i];
+                if (first->tile_id != second->tile_id ||
+                    first->palette_index != second->palette_index ||
+                    first->chr_offset != second->chr_offset) return false;
+            }
+        }
     }
     if (!palette_valid(bytes + reverse_palettes_offset,
                        TECMO_INTRO_FINALE_PALETTE_STAGE_COUNT * 16U)) return false;
@@ -308,7 +394,9 @@ static bool parse_asset(TecmoIntroFinaleAsset *asset,
         uint32_t palette_offset = read_u32(group + 8U);
         if (group[0] != variant || group[1] != variant ||
             read_u16(group + 2U) != TECMO_INTRO_FINALE_PIECE_COUNT ||
-            group_pieces_offset != pieces_offset || !range_valid(palette_offset, 16U, byte_count) ||
+            group_pieces_offset != pieces_offset ||
+            palette_offset != FINALE_SPRITE_PALETTES_OFFSET + variant * 16U ||
+            !range_valid(palette_offset, 16U, byte_count) ||
             read_u16(group + 12U) != expected_usage[variant] ||
             read_u16(group + 14U) != 0U ||
             !palette_valid(bytes + palette_offset, 16U)) return false;
@@ -326,7 +414,10 @@ static bool parse_asset(TecmoIntroFinaleAsset *asset,
         if (piece[12U] > 3U || (piece[13U] & ~3U) != 0U ||
             piece[14U] != 0U || piece[15U] != 0U ||
             (asset->pieces[i].top_chr_offset & 0x0FU) != 0U ||
-            (asset->pieces[i].bottom_chr_offset & 0x0FU) != 0U) return false;
+            (asset->pieces[i].bottom_chr_offset & 0x0FU) != 0U ||
+            asset->pieces[i].top_chr_offset > UINT32_MAX - 16U ||
+            asset->pieces[i].bottom_chr_offset !=
+                asset->pieces[i].top_chr_offset + 16U) return false;
     }
 
     {
@@ -342,15 +433,13 @@ static bool parse_asset(TecmoIntroFinaleAsset *asset,
         static const uint16_t expected_dispatch_waits[FINALE_ROUTE_COUNT] = {
             50U, 30U, 0U, 75U, 1U
         };
-        bool screen_seen[TECMO_INTRO_FINALE_SCREEN_COUNT] = {false};
         for (size_t route_index = 0U; route_index < FINALE_ROUTE_COUNT; ++route_index) {
             const uint8_t *route = bytes + routes_offset + route_index * FINALE_ROUTE_STRIDE;
-            if (route[0] >= TECMO_INTRO_FINALE_SCREEN_COUNT || screen_seen[route[0]] ||
+            if (route[0] != route_index ||
                 route[1] != expected_variants[route_index] || route[2] != route_index ||
                 route[3] != expected_flags[route_index] ||
                 read_u16(route + 4U) != expected_internal_frames[route_index] ||
                 read_u16(route + 6U) != expected_dispatch_waits[route_index]) return false;
-            screen_seen[route[0]] = true;
         }
     }
 
@@ -369,8 +458,11 @@ static bool parse_asset(TecmoIntroFinaleAsset *asset,
     asset->reverse_second_x = reverse_meta[1];
     asset->reverse_delta_x = (int8_t)reverse_meta[2];
     asset->reverse_anchor_y = reverse_meta[3];
-    if (asset->reverse_delta_x == 0 || read_u16(reverse_meta + 4U) != 18U ||
-        read_u16(reverse_meta + 6U) != 1U || read_u16(reverse_meta + 8U) != 26U ||
+    if (asset->reverse_initial_x != 0x78U || asset->reverse_second_x != 0xD8U ||
+        asset->reverse_delta_x != -8 || asset->reverse_anchor_y != 0x54U ||
+        read_u16(reverse_meta + 4U) != TECMO_INTRO_FINALE_TRANSITION_IN_FRAMES ||
+        read_u16(reverse_meta + 6U) != TECMO_INTRO_FINALE_TRANSITION_SWAP_FRAMES ||
+        read_u16(reverse_meta + 8U) != TECMO_INTRO_FINALE_TRANSITION_OUT_FRAMES ||
         read_u16(reverse_meta + 10U) != TECMO_INTRO_FINALE_PALETTE_STAGE_COUNT ||
         read_u32(reverse_meta + 12U) != 0U) return false;
 
@@ -416,27 +508,30 @@ static bool parse_asset(TecmoIntroFinaleAsset *asset,
         if (read_u32(slot + 28U) != 0U) return false;
     }
 
-    for (size_t band_index = 0U; band_index < TECMO_INTRO_FINALE_TITLE_BAND_COUNT;
-         ++band_index) {
-        const uint8_t *band = bytes + bands_offset + band_index * FINALE_BAND_STRIDE;
-        TecmoIntroFinaleTitleBand *dest = &asset->title_bands[band_index];
-        dest->start_scanline = read_u16(band + 0U);
-        dest->end_scanline = read_u16(band + 2U);
-        dest->scroll_channel = band[4U];
-        dest->page_channel = band[5U];
-        dest->low_chr_base = read_u32(band + 8U);
-        dest->high_chr_base = read_u32(band + 12U);
-        if (dest->start_scanline >= dest->end_scanline || dest->end_scanline > 240U ||
-            dest->scroll_channel > 2U || dest->page_channel > 2U ||
-            read_u16(band + 6U) != 0U ||
-            (dest->low_chr_base & 0x3FFU) != 0U ||
-            (dest->high_chr_base & 0x3FFU) != 0U ||
-            (band_index == 0U ? dest->start_scanline != 0U
-                              : dest->start_scanline !=
-                                    asset->title_bands[band_index - 1U].end_scanline)) return false;
-    }
-    if (asset->title_bands[TECMO_INTRO_FINALE_TITLE_BAND_COUNT - 1U].end_scanline != 240U) {
-        return false;
+    {
+        static const uint16_t expected_starts[TECMO_INTRO_FINALE_TITLE_BAND_COUNT] = {
+            0U, 200U, 223U
+        };
+        static const uint16_t expected_ends[TECMO_INTRO_FINALE_TITLE_BAND_COUNT] = {
+            200U, 223U, 240U
+        };
+        for (size_t band_index = 0U; band_index < TECMO_INTRO_FINALE_TITLE_BAND_COUNT;
+             ++band_index) {
+            const uint8_t *band = bytes + bands_offset + band_index * FINALE_BAND_STRIDE;
+            TecmoIntroFinaleTitleBand *dest = &asset->title_bands[band_index];
+            dest->start_scanline = read_u16(band + 0U);
+            dest->end_scanline = read_u16(band + 2U);
+            dest->scroll_channel = band[4U];
+            dest->page_channel = band[5U];
+            dest->low_chr_base = read_u32(band + 8U);
+            dest->high_chr_base = read_u32(band + 12U);
+            if (dest->start_scanline != expected_starts[band_index] ||
+                dest->end_scanline != expected_ends[band_index] ||
+                dest->scroll_channel != band_index || dest->page_channel != band_index ||
+                read_u16(band + 6U) != 0U ||
+                (dest->low_chr_base & 0x3FFU) != 0U ||
+                (dest->high_chr_base & 0x3FFU) != 0U) return false;
+        }
     }
     return true;
 }
@@ -474,6 +569,8 @@ bool tecmo_intro_finale_asset_load(TecmoIntroFinaleAsset *asset,
                    "TFIN-1 chr/all contract rejected");
         return false;
     }
+    asset->chr_byte_count = chr_byte_count;
+    asset->chr_fingerprint = fnv1a64(chr_bytes, chr_byte_count);
     free(chr_bytes);
     asset->available = true;
     (void)snprintf(asset->status, sizeof(asset->status),
@@ -486,6 +583,11 @@ bool tecmo_intro_finale_asset_chr_available(const TecmoIntroFinaleAsset *asset,
                                             uint64_t chr_byte_count)
 {
     if (asset == NULL || chr_bytes == NULL || chr_byte_count == 0U) {
+        return false;
+    }
+    if (asset->chr_byte_count != 0U &&
+        (asset->chr_byte_count != chr_byte_count ||
+         asset->chr_fingerprint != fnv1a64(chr_bytes, chr_byte_count))) {
         return false;
     }
     for (size_t screen = 0U; screen < TECMO_INTRO_FINALE_SCREEN_COUNT; ++screen) {
@@ -543,6 +645,26 @@ unsigned tecmo_intro_finale_scene_start_frame(TecmoIntroFinaleScene scene)
             return FINALE_TITLE_HOLD_FRAME;
         default:
             return FINALE_TITLE_HOLD_FRAME;
+    }
+}
+
+unsigned tecmo_intro_finale_scene_duration(TecmoIntroFinaleScene scene)
+{
+    switch (scene) {
+        case TECMO_INTRO_FINALE_OPENING_SCREEN:
+            return FINALE_OPENING_DURATION;
+        case TECMO_INTRO_FINALE_SHORT_SPRITE_LOOP:
+            return FINALE_SHORT_LOOP_DURATION;
+        case TECMO_INTRO_FINALE_SELECTOR_TRANSITION:
+            return FINALE_SELECTOR_DURATION;
+        case TECMO_INTRO_FINALE_STAGED_GROUP:
+            return FINALE_STAGED_DURATION;
+        case TECMO_INTRO_FINALE_TITLE:
+            return FINALE_TITLE_HOLD_FRAME -
+                   tecmo_intro_finale_scene_start_frame(TECMO_INTRO_FINALE_TITLE);
+        case TECMO_INTRO_FINALE_TERMINATOR_HOLD:
+        default:
+            return 0U;
     }
 }
 

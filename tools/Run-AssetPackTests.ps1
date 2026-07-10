@@ -802,6 +802,7 @@ try {
         [pscustomobject]@{ id = "sprite-chr-selector"; bank = 4; cpu = 0x856A },
         [pscustomobject]@{ id = "geometry-pointer"; bank = 0; cpu = 0xA911 },
         [pscustomobject]@{ id = "geometry-count"; bank = 0; cpu = 0xA9D2 },
+        [pscustomobject]@{ id = "title-uppercase-map"; bank = 6; cpu = 0xA2B4 },
         [pscustomobject]@{ id = "one-page-screen-source"; bank = 1; cpu = 0xB7D5 }
     )
     foreach ($Spec in $SourceMutationSpecs) {

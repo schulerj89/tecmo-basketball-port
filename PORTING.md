@@ -213,9 +213,12 @@ The importer validates the raw finale dispatch chain as `$851C` wait 50 ->
 `$FFFF`, with screens `$1C`, `$20`, `$1F`, `$22`, and `$2D`. Selector 2 uses
 first seed `$78`, second seed `$D8`, and delta `-8`; the swap holds the last
 emitted `$E8`, while the outward pass begins at `$D0`. Native C models each
-asynchronous screen boundary with a documented one-frame load gate, producing
-a bounded 909-frame continuation before the persistent hold. Those gates are a
-native scheduling boundary, not a claim about an unknown ROM scheduler wait.
+route from 742 imported core frames plus 156 dispatch-wait frames, or 898. Five
+one-frame asynchronous load gates reach 903; six selector black/fade
+normalization frames preserve the exact `$E8` hold, `$D0` outward start, and
+`$10` endpoint before the persistent hold begins at bounded native frame 909.
+The ROM's `$8A48` and `$850C` state gates are conditional, so these 11 native
+scheduling frames are not claimed as ROM-exact wait durations.
 
 ## Validation Rules
 

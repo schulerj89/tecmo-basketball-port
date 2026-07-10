@@ -290,16 +290,19 @@ static bool parse_finale_render_mode(const char *mode_name,
     }
     for (size_t i = 0U; i < sizeof(scene_prefixes) / sizeof(scene_prefixes[0]); ++i) {
         unsigned start = tecmo_intro_finale_scene_start_frame(scene_prefixes[i].scene);
+        unsigned duration = tecmo_intro_finale_scene_duration(scene_prefixes[i].scene);
         if (parse_render_frame_suffix(mode_name, scene_prefixes[i].clean_prefix,
                                       &local_frame)) {
-            if (local_frame > UINT_MAX - start) return false;
+            if ((duration != 0U && local_frame >= duration) ||
+                local_frame > UINT_MAX - start) return false;
             *frame_out = start + local_frame;
             *debug_out = false;
             return true;
         }
         if (parse_render_frame_suffix(mode_name, scene_prefixes[i].debug_prefix,
                                       &local_frame)) {
-            if (local_frame > UINT_MAX - start) return false;
+            if ((duration != 0U && local_frame >= duration) ||
+                local_frame > UINT_MAX - start) return false;
             *frame_out = start + local_frame;
             *debug_out = true;
             return true;
