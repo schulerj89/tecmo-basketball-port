@@ -226,6 +226,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 
 - `src/tecmo_game.c`: runtime orchestration and high-level render dispatch
 - `src/tecmo_asset_pack.c`: ROM import orchestration and native entry builders
+- `src/asset_pack/tecmo_asset_pack_arena.c`: ROM-only native arena background-layer and sprite-group importers
 - `src/asset_pack/tecmo_asset_pack_reader.c`: generic TAP1 read/list/dump API
 - `src/asset_pack/tecmo_asset_pack_source_map.c`: sanitized iNES source-map serialization
 - `src/asset_pack/tecmo_asset_pack_writer.c`: generic TAP1 builder/write API
