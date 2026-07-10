@@ -29,7 +29,7 @@ static void print_usage(const char *program)
     printf("  --bank07-test           Run fixed-bank helper C counterpart checks\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render boot-title, menu, menu-overlay, title-screen, first-sprite, first-sprite-debug, intro-license, intro-arena-transition, intro-arena-frameN, intro-arena-clean-frameN, intro-ready-frameN, intro-ready-clean-frameN, intro-warriors-frameN, intro-warriors-clean-frameN, intro-clippers-frameN, intro-clippers-clean-frameN, intro-l88e7-proof, intro-presents, intro-builder-sample, intro-rabbit-preset, intro-tecmo-preset, intro-composite-preset, intro-c051-d861-model, intro-presents-table1, chr-playground, chr-playground-table1, rosters, play, play-fade0..play-fade4, play-step0..play-step11, play-setup, original-title, or original-title-chr to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render boot-title, menu, intro scenes (arena/ready/warriors/clippers/bucks/pass frameN), play, or probe modes to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --build-assetpack ROM PATH  Build a private .assetpack from an iNES ROM only; no decomp/capture imports\n");
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
@@ -119,19 +119,27 @@ static void print_intro_render_capture_status(const TecmoRuntime *runtime,
     } else if (strncmp(mode_name, "intro-ready", 11) == 0 ||
                strncmp(mode_name, "intro-warriors", 14) == 0 ||
                strncmp(mode_name, "intro-clippers", 14) == 0 ||
+               strncmp(mode_name, "intro-bucks", 11) == 0 ||
+               strncmp(mode_name, "intro-pass", 10) == 0 ||
                strcmp(mode_name, "play-step9") == 0 ||
                strcmp(mode_name, "play-step10") == 0 ||
                strcmp(mode_name, "play-step11") == 0) {
         TecmoIntroReadyState ready_state;
         TecmoIntroWarriorsState warriors_state;
         TecmoIntroClippersState clippers_state;
+        TecmoIntroBucksState bucks_state;
+        TecmoIntroPassState pass_state;
         tecmo_intro_ready_state(runtime->mode_frame_counter, &ready_state);
         tecmo_intro_warriors_state(runtime->mode_frame_counter, &warriors_state);
         tecmo_intro_clippers_state(runtime->mode_frame_counter, &clippers_state);
-        printf("intro-post-render-source ready=%u warriors=%u clippers=%u chr=%u ready_schema=TRDY-1 warriors_schema=TWAR-1 clippers_schema=TCLP-1\n",
+        tecmo_intro_bucks_state(runtime->mode_frame_counter, &bucks_state);
+        tecmo_intro_pass_state(runtime->mode_frame_counter, &pass_state);
+        printf("intro-post-render-source ready=%u warriors=%u clippers=%u bucks=%u pass=%u chr=%u ready_schema=TRDY-1 warriors_schema=TWAR-1 clippers_schema=TCLP-1 bucks_schema=TBUC-1 pass_schema=TPAS-1\n",
                runtime->intro_ready_asset.available ? 1U : 0U,
                runtime->intro_warriors_asset.available ? 1U : 0U,
                runtime->intro_clippers_asset.available ? 1U : 0U,
+               runtime->intro_bucks_asset.available ? 1U : 0U,
+               runtime->intro_pass_asset.available ? 1U : 0U,
                runtime->title_chr_bytes != NULL ? 1U : 0U);
         if (strncmp(mode_name, "intro-ready", 11) == 0 || strcmp(mode_name, "play-step9") == 0) {
             printf("intro-ready-state frame=%u palette=%u mask=%u black=%u handoff=%u\n",
@@ -152,7 +160,8 @@ static void print_intro_render_capture_status(const TecmoRuntime *runtime,
                    warriors_state.black ? 1U : 0U,
                    warriors_state.handoff ? 1U : 0U,
                    (unsigned)warriors_state.next_screen);
-        } else {
+        } else if (strncmp(mode_name, "intro-clippers", 14) == 0 ||
+                   strcmp(mode_name, "play-step11") == 0) {
             printf("intro-clippers-state frame=%u palette=%u motion=%u scroll=%u page=%u wordmark=%u handoff=%u next_route=%04X\n",
                    runtime->mode_frame_counter,
                    (unsigned)clippers_state.palette_stage,
@@ -162,6 +171,21 @@ static void print_intro_render_capture_status(const TecmoRuntime *runtime,
                    clippers_state.wordmark_visible ? 1U : 0U,
                    clippers_state.handoff ? 1U : 0U,
                    (unsigned)clippers_state.next_route);
+        } else if (strncmp(mode_name, "intro-bucks", 11) == 0) {
+            printf("intro-bucks-state frame=%u palette=%u flash=%u scroll=%u wordmark=%u prior=%u black=%u handoff=%u next_route=%04X\n",
+                   runtime->mode_frame_counter, (unsigned)bucks_state.palette_stage,
+                   (unsigned)bucks_state.flash_pass, (unsigned)bucks_state.scroll_x,
+                   (unsigned)bucks_state.wordmark_glyph_count, bucks_state.prior ? 1U : 0U,
+                   bucks_state.black ? 1U : 0U, bucks_state.handoff ? 1U : 0U,
+                   (unsigned)bucks_state.next_route);
+        } else {
+            printf("intro-pass-state frame=%u phase=%s palette=%u x=%u scroll=%u first=%u second=%u sprites=%u black=%u handoff=%u next_route=%04X\n",
+                   runtime->mode_frame_counter, tecmo_intro_pass_phase_name(pass_state.phase),
+                   (unsigned)pass_state.palette_stage, (unsigned)pass_state.player_x,
+                   (unsigned)pass_state.scroll_x, (unsigned)pass_state.first_move_count,
+                   (unsigned)pass_state.second_move_count, pass_state.sprites_visible ? 1U : 0U,
+                   pass_state.black ? 1U : 0U, pass_state.handoff ? 1U : 0U,
+                   (unsigned)pass_state.next_route);
         }
     }
 }
@@ -599,6 +623,46 @@ int main(int argc, char **argv)
                 arena_render_succeeded = tecmo_render_intro_clippers_transition(&runtime, &framebuffer);
                 render_runtime = false;
                 result = arena_render_succeeded ? 0 : 1;
+                }
+            } else if (strncmp(mode_name, "intro-bucks-clean-frame", 23) == 0 ||
+                       strncmp(mode_name, "intro-bucks-frame", 17) == 0) {
+                const char *prefix = strncmp(mode_name, "intro-bucks-clean-frame", 23) == 0
+                                         ? "intro-bucks-clean-frame"
+                                         : "intro-bucks-frame";
+                unsigned frame;
+                if (!parse_render_frame_suffix(mode_name, prefix, &frame)) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    framebuffer.pixels = pixels;
+                    framebuffer.width = width;
+                    framebuffer.height = height;
+                    framebuffer.pitch_pixels = width;
+                    runtime.debug_overlay = strcmp(prefix, "intro-bucks-frame") == 0;
+                    runtime.mode_frame_counter = frame;
+                    arena_render_succeeded = tecmo_render_intro_bucks_transition(&runtime, &framebuffer);
+                    render_runtime = false;
+                    result = arena_render_succeeded ? 0 : 1;
+                }
+            } else if (strncmp(mode_name, "intro-pass-clean-frame", 22) == 0 ||
+                       strncmp(mode_name, "intro-pass-frame", 16) == 0) {
+                const char *prefix = strncmp(mode_name, "intro-pass-clean-frame", 22) == 0
+                                         ? "intro-pass-clean-frame"
+                                         : "intro-pass-frame";
+                unsigned frame;
+                if (!parse_render_frame_suffix(mode_name, prefix, &frame)) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    framebuffer.pixels = pixels;
+                    framebuffer.width = width;
+                    framebuffer.height = height;
+                    framebuffer.pitch_pixels = width;
+                    runtime.debug_overlay = strcmp(prefix, "intro-pass-frame") == 0;
+                    runtime.mode_frame_counter = frame;
+                    arena_render_succeeded = tecmo_render_intro_pass_transition(&runtime, &framebuffer);
+                    render_runtime = false;
+                    result = arena_render_succeeded ? 0 : 1;
                 }
             } else if (strcmp(mode_name, "play-setup") == 0) {
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_PLAY_SETUP);

@@ -39,6 +39,29 @@
 #define TECMO_INTRO_CLIPPERS_HANDOFF_FRAME 151U
 #define TECMO_INTRO_CLIPPERS_NEXT_ROUTE 0x883DU
 
+#define TECMO_INTRO_BUCKS_PAGE_COUNT 2U
+#define TECMO_INTRO_BUCKS_TILES_PER_PAGE 960U
+#define TECMO_INTRO_BUCKS_PALETTE_STAGE_COUNT 4U
+#define TECMO_INTRO_BUCKS_WORDMARK_GLYPH_COUNT 5U
+#define TECMO_INTRO_BUCKS_WORDMARK_TILE_COUNT 20U
+#define TECMO_INTRO_BUCKS_TOP_SPLIT_SCANLINE 31U
+#define TECMO_INTRO_BUCKS_LOWER_SPLIT_SCANLINE 168U
+#define TECMO_INTRO_BUCKS_WORDMARK_FRAME 10U
+#define TECMO_INTRO_BUCKS_FULL_FRAME 14U
+#define TECMO_INTRO_BUCKS_HANDOFF_FRAME 83U
+#define TECMO_INTRO_BUCKS_NEXT_ROUTE 0x854FU
+
+#define TECMO_INTRO_PASS_PAGE_COUNT 2U
+#define TECMO_INTRO_PASS_TILES_PER_PAGE 960U
+#define TECMO_INTRO_PASS_PALETTE_STAGE_COUNT 5U
+#define TECMO_INTRO_PASS_PIECE_COUNT 46U
+#define TECMO_INTRO_PASS_FIRST_MOVE_FRAMES 18U
+#define TECMO_INTRO_PASS_SECOND_MOVE_FRAMES 30U
+#define TECMO_INTRO_PASS_INITIAL_X 0x68U
+#define TECMO_INTRO_PASS_MOVE_DELTA 8U
+#define TECMO_INTRO_PASS_HANDOFF_FRAME 52U
+#define TECMO_INTRO_PASS_NEXT_ROUTE 0x851CU
+
 typedef struct TecmoIntroNativeTile {
     uint8_t tile_id;
     uint8_t palette_index;
@@ -150,16 +173,93 @@ typedef struct TecmoIntroClippersState {
     uint16_t next_route;
 } TecmoIntroClippersState;
 
+typedef struct TecmoIntroBucksAsset {
+    bool available;
+    TecmoIntroClippersTile pages[TECMO_INTRO_BUCKS_PAGE_COUNT]
+                                      [TECMO_INTRO_BUCKS_TILES_PER_PAGE];
+    TecmoIntroClippersTile wordmark[TECMO_INTRO_BUCKS_WORDMARK_TILE_COUNT];
+    uint8_t palettes[TECMO_INTRO_BUCKS_PALETTE_STAGE_COUNT][16];
+    uint8_t thresholds[6];
+    char status[160];
+} TecmoIntroBucksAsset;
+
+typedef struct TecmoIntroBucksState {
+    unsigned frame;
+    uint8_t palette_stage;
+    uint8_t scroll_x;
+    uint8_t flash_pass;
+    uint8_t wordmark_glyph_count;
+    bool prior;
+    bool black;
+    bool handoff;
+    uint16_t next_route;
+} TecmoIntroBucksState;
+
+typedef struct TecmoIntroPassTile {
+    uint8_t tile_id;
+    uint8_t palette_index;
+    uint32_t chr_offset;
+} TecmoIntroPassTile;
+
+typedef struct TecmoIntroPassPiece {
+    int16_t dx;
+    int16_t dy;
+    uint32_t top_chr_offset;
+    uint32_t bottom_chr_offset;
+    uint8_t palette_index;
+    uint8_t flags;
+} TecmoIntroPassPiece;
+
+typedef enum TecmoIntroPassPhase {
+    TECMO_INTRO_PASS_PRIOR,
+    TECMO_INTRO_PASS_BLACK,
+    TECMO_INTRO_PASS_FIRST_MOVE,
+    TECMO_INTRO_PASS_SECOND_MOVE,
+    TECMO_INTRO_PASS_HOLD,
+    TECMO_INTRO_PASS_HANDOFF
+} TecmoIntroPassPhase;
+
+typedef struct TecmoIntroPassAsset {
+    bool available;
+    TecmoIntroPassTile pages[TECMO_INTRO_PASS_PAGE_COUNT]
+                                  [TECMO_INTRO_PASS_TILES_PER_PAGE];
+    TecmoIntroPassPiece pieces[TECMO_INTRO_PASS_PIECE_COUNT];
+    uint8_t palettes[TECMO_INTRO_PASS_PALETTE_STAGE_COUNT][16];
+    uint8_t sprite_palette[16];
+    char status[160];
+} TecmoIntroPassAsset;
+
+typedef struct TecmoIntroPassState {
+    unsigned frame;
+    TecmoIntroPassPhase phase;
+    uint8_t palette_stage;
+    uint8_t player_x;
+    uint8_t scroll_x;
+    uint8_t first_move_count;
+    uint8_t second_move_count;
+    bool sprites_visible;
+    bool black;
+    bool handoff;
+    uint16_t next_route;
+} TecmoIntroPassState;
+
 bool tecmo_intro_ready_asset_load(TecmoIntroReadyAsset *asset, const char *project_root);
 bool tecmo_intro_warriors_asset_load(TecmoIntroWarriorsAsset *asset,
                                      const char *project_root);
 bool tecmo_intro_clippers_asset_load(TecmoIntroClippersAsset *asset,
                                      const char *project_root);
+bool tecmo_intro_bucks_asset_load(TecmoIntroBucksAsset *asset,
+                                  const char *project_root);
+bool tecmo_intro_pass_asset_load(TecmoIntroPassAsset *asset,
+                                 const char *project_root);
 
 void tecmo_intro_ready_state(unsigned frame, TecmoIntroReadyState *state);
 void tecmo_intro_warriors_state(unsigned frame, TecmoIntroWarriorsState *state);
 void tecmo_intro_clippers_state(unsigned frame, TecmoIntroClippersState *state);
+void tecmo_intro_bucks_state(unsigned frame, TecmoIntroBucksState *state);
+void tecmo_intro_pass_state(unsigned frame, TecmoIntroPassState *state);
 const char *tecmo_intro_warriors_phase_name(TecmoIntroWarriorsPhase phase);
+const char *tecmo_intro_pass_phase_name(TecmoIntroPassPhase phase);
 
 bool tecmo_intro_post_arena_draw_ready(TecmoFramebuffer *fb,
                                        const TecmoIntroReadyAsset *asset,
@@ -187,5 +287,23 @@ bool tecmo_intro_post_arena_draw_clippers(TecmoFramebuffer *fb,
                                           int origin_x,
                                           int origin_y,
                                           int scale);
+
+bool tecmo_intro_post_arena_draw_bucks(TecmoFramebuffer *fb,
+                                       const TecmoIntroBucksAsset *asset,
+                                       const uint8_t *chr_bytes,
+                                       uint64_t chr_byte_count,
+                                       unsigned frame,
+                                       int origin_x,
+                                       int origin_y,
+                                       int scale);
+
+bool tecmo_intro_post_arena_draw_pass(TecmoFramebuffer *fb,
+                                      const TecmoIntroPassAsset *asset,
+                                      const uint8_t *chr_bytes,
+                                      uint64_t chr_byte_count,
+                                      unsigned frame,
+                                      int origin_x,
+                                      int origin_y,
+                                      int scale);
 
 #endif

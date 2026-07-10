@@ -29,6 +29,8 @@
 #define TECMO_ASSET_PACK_READY_ID "arena/intro/ready-screen"
 #define TECMO_ASSET_PACK_WARRIORS_ID "arena/intro/warriors-transition"
 #define TECMO_ASSET_PACK_CLIPPERS_ID "arena/intro/clippers-transition"
+#define TECMO_ASSET_PACK_BUCKS_ID "arena/intro/bucks-transition"
+#define TECMO_ASSET_PACK_PASS_ID "arena/intro/pass-transition"
 #define TECMO_ASSET_PACK_ARENA_BANK04 4U
 #define TECMO_ASSET_PACK_ARENA_ROUTE_CPU 0x88E8U
 #define TECMO_ASSET_PACK_ARENA_PALETTE_CPU 0x89DDU
@@ -155,6 +157,40 @@
      TECMO_ASSET_PACK_CLIPPERS_WORDMARK_TILE_COUNT * TECMO_ASSET_PACK_CLIPPERS_CELL_STRIDE)
 #define TECMO_ASSET_PACK_CLIPPERS_LOWER_R0 0x2CU
 #define TECMO_ASSET_PACK_CLIPPERS_LOWER_R1 0xFAU
+#define TECMO_ASSET_PACK_BUCKS_ROUTE_CPU 0x883DU
+#define TECMO_ASSET_PACK_BUCKS_SCREEN_ID 0x19U
+#define TECMO_ASSET_PACK_BUCKS_HEADER_SIZE 96U
+#define TECMO_ASSET_PACK_BUCKS_CELL_STRIDE 10U
+#define TECMO_ASSET_PACK_BUCKS_CELL_COUNT 1920U
+#define TECMO_ASSET_PACK_BUCKS_PALETTES_OFFSET 96U
+#define TECMO_ASSET_PACK_BUCKS_CELLS_OFFSET 160U
+#define TECMO_ASSET_PACK_BUCKS_WORDMARK_TILE_COUNT 20U
+#define TECMO_ASSET_PACK_BUCKS_WORDMARK_OFFSET \
+    (TECMO_ASSET_PACK_BUCKS_CELLS_OFFSET + \
+     TECMO_ASSET_PACK_BUCKS_CELL_COUNT * TECMO_ASSET_PACK_BUCKS_CELL_STRIDE)
+#define TECMO_ASSET_PACK_BUCKS_SIZE \
+    (TECMO_ASSET_PACK_BUCKS_WORDMARK_OFFSET + \
+     TECMO_ASSET_PACK_BUCKS_WORDMARK_TILE_COUNT * TECMO_ASSET_PACK_BUCKS_CELL_STRIDE)
+#define TECMO_ASSET_PACK_BUCKS_LOWER_R0 0x5EU
+#define TECMO_ASSET_PACK_BUCKS_LOWER_R1 0xFAU
+#define TECMO_ASSET_PACK_PASS_ROUTE_CPU 0x854FU
+#define TECMO_ASSET_PACK_PASS_SCREEN_ID 0x1DU
+#define TECMO_ASSET_PACK_PASS_HEADER_SIZE 128U
+#define TECMO_ASSET_PACK_PASS_CELL_STRIDE 6U
+#define TECMO_ASSET_PACK_PASS_PIECE_COUNT 46U
+#define TECMO_ASSET_PACK_PASS_PIECE_STRIDE 16U
+#define TECMO_ASSET_PACK_PASS_PALETTES_OFFSET 128U
+#define TECMO_ASSET_PACK_PASS_SPRITE_PALETTE_OFFSET 208U
+#define TECMO_ASSET_PACK_PASS_CELLS_OFFSET 224U
+#define TECMO_ASSET_PACK_PASS_PIECES_OFFSET \
+    (TECMO_ASSET_PACK_PASS_CELLS_OFFSET + 1920U * TECMO_ASSET_PACK_PASS_CELL_STRIDE)
+#define TECMO_ASSET_PACK_PASS_SIZE \
+    (TECMO_ASSET_PACK_PASS_PIECES_OFFSET + \
+     TECMO_ASSET_PACK_PASS_PIECE_COUNT * TECMO_ASSET_PACK_PASS_PIECE_STRIDE)
+#define TECMO_ASSET_PACK_PASS_HELPER_PALETTE_CPU 0x89FDU
+#define TECMO_ASSET_PACK_PASS_SPECIAL_PALETTE_CPU 0x8A1DU
+#define TECMO_ASSET_PACK_PASS_POINTER_CPU 0xA90FU
+#define TECMO_ASSET_PACK_PASS_STREAM_CPU 0xA919U
 
 typedef struct TecmoAssetPackBuildEntry {
     char id[TECMO_ASSET_PACK_ID_SIZE];
@@ -232,6 +268,23 @@ typedef struct TecmoPostArenaProvenance {
     uint64_t clippers_irq_table_offset[2];
     uint64_t clippers_string_offset;
     uint64_t clippers_glyph_table_offset;
+    uint64_t bucks_route_offset;
+    uint64_t bucks_descriptor_offset;
+    uint64_t bucks_stream_offset;
+    uint64_t bucks_stream_size;
+    uint64_t bucks_palette_offset;
+    uint64_t bucks_threshold_offset;
+    uint64_t bucks_string_offset;
+    uint64_t bucks_glyph_table_offset;
+    uint64_t pass_route_offset;
+    uint64_t pass_descriptor_offset;
+    uint64_t pass_stream_offset;
+    uint64_t pass_stream_size;
+    uint64_t pass_palette_offset;
+    uint64_t pass_helper_palette_offset;
+    uint64_t pass_special_palette_offset;
+    uint64_t pass_pointer_offset;
+    uint64_t pass_piece_stream_offset;
 } TecmoPostArenaProvenance;
 
 struct TecmoAssetPackBuilder {
@@ -2291,6 +2344,356 @@ static int build_clippers_transition(const uint8_t *rom,
     return 0;
 }
 
+static uint8_t palette_brightness_cap(uint8_t color, uint8_t cap)
+{
+    uint8_t brightness;
+    if (color == 0x0FU) return color;
+    brightness = (uint8_t)(color & 0x30U);
+    if (brightness > (uint8_t)(cap << 4U)) {
+        color = (uint8_t)((color & 0x0FU) | (cap << 4U));
+    }
+    return color;
+}
+
+static int build_bucks_transition(const uint8_t *rom,
+                                  uint64_t rom_size,
+                                  uint64_t prg_offset,
+                                  uint32_t prg_banks,
+                                  uint64_t chr_size,
+                                  uint8_t payload[TECMO_ASSET_PACK_BUCKS_SIZE],
+                                  TecmoPostArenaProvenance *provenance,
+                                  char *message,
+                                  size_t message_size)
+{
+    static const uint8_t expected_descriptor[7] = {
+        0x2FU,0x30U,0xA5U,0xB4U,0x01U,0xB4U,0x01U
+    };
+    static const uint8_t expected_thresholds[6] = {0xEFU,0xC0U,0x90U,0x60U,0x30U,0x00U};
+    static const uint8_t expected_route[] = {
+        0xA9U,0x19U,0x20U,0xF2U,0x82U,0xA9U,0x0BU,0x20U,0x6EU,0x8AU
+    };
+    static const uint8_t bucks_text[5] = {'B','U','C','K','S'};
+    uint8_t decoded[2048];
+    uint64_t fixed_offset;
+    uint64_t bank01_offset;
+    uint64_t bank04_offset;
+    uint64_t bank06_offset;
+    uint64_t descriptor_offset;
+    uint64_t stream_offset;
+    uint64_t palette_offset;
+    uint64_t threshold_offset;
+    uint64_t color_offset;
+    uint64_t string_pointer_offset;
+    uint16_t string_cpu;
+    uint64_t string_offset;
+    size_t encoded_size = 0U;
+
+    if (prg_banks <= 6U || chr_size == 0U ||
+        validate_post_arena_route_contract(rom, rom_size, prg_offset, prg_banks,
+                                           message, message_size) != 0) {
+        set_message(message, message_size, "BUCKS import requires the Rev1 post-arena route.");
+        return -1;
+    }
+    fixed_offset = prg_offset + (uint64_t)(prg_banks - 1U) * TECMO_ASSET_PACK_PRG_BANK_BYTES;
+    bank01_offset = prg_offset + TECMO_ASSET_PACK_PRG_BANK_BYTES;
+    bank04_offset = prg_offset + 4ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES;
+    bank06_offset = prg_offset + 6ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES;
+    descriptor_offset = fixed_offset + (0xDD34U - 0xC000U);
+    stream_offset = bank01_offset + (0xB401U - 0x8000U);
+    palette_offset = bank01_offset + (0xB4A5U - 0x8000U);
+    threshold_offset = bank04_offset + (0x88A3U - 0x8000U);
+    color_offset = fixed_offset + (0xDC19U - 0xC000U) + 0x0EU;
+    string_pointer_offset = bank06_offset + (0xAD60U - 0x8000U) + 0x0EU * 2U;
+    if (descriptor_offset + 7U > rom_size || stream_offset >= rom_size ||
+        palette_offset + 16U > rom_size || threshold_offset + 6U > rom_size ||
+        color_offset >= rom_size || string_pointer_offset + 2U > rom_size ||
+        memcmp(rom + (size_t)descriptor_offset, expected_descriptor, 7U) != 0 ||
+        memcmp(rom + (size_t)threshold_offset, expected_thresholds, 6U) != 0 ||
+        memcmp(rom + (size_t)(bank04_offset + (TECMO_ASSET_PACK_BUCKS_ROUTE_CPU - 0x8000U)),
+               expected_route, sizeof(expected_route)) != 0 ||
+        rom[(size_t)color_offset] != 0x2AU) {
+        set_message(message, message_size, "BUCKS Rev1 route, descriptor, thresholds, or team color is invalid.");
+        return -1;
+    }
+    if (validate_chr_pair(0x5EU, 0x60U, chr_size, "BUCKS base", message, message_size) != 0 ||
+        validate_chr_pair(0x5EU, 0xFAU, chr_size, "BUCKS lower", message, message_size) != 0 ||
+        decode_d9f6_stream(rom + (size_t)bank01_offset,
+                           TECMO_ASSET_PACK_PRG_BANK_BYTES,
+                           0xB401U - 0x8000U,
+                           decoded,
+                           sizeof(decoded),
+                           &encoded_size,
+                           message,
+                           message_size) != 0) return -1;
+
+    string_cpu = read_u16(rom + (size_t)string_pointer_offset);
+    string_offset = bank06_offset + (uint64_t)(string_cpu - 0x8000U);
+    if (string_cpu != 0xACB8U || string_offset + 6U > rom_size ||
+        rom[(size_t)string_offset] != 5U ||
+        memcmp(rom + (size_t)string_offset + 1U, bucks_text, sizeof(bucks_text)) != 0) {
+        set_message(message, message_size, "BUCKS Bank06 team-name record is invalid.");
+        return -1;
+    }
+
+    memset(payload, 0, TECMO_ASSET_PACK_BUCKS_SIZE);
+    memcpy(payload, "TBUC", 4U);
+    store_u16(payload + 4U, 1U);
+    store_u16(payload + 6U, TECMO_ASSET_PACK_BUCKS_HEADER_SIZE);
+    store_u16(payload + 8U, 32U);
+    store_u16(payload + 10U, 30U);
+    store_u16(payload + 12U, 2U);
+    store_u16(payload + 14U, TECMO_ASSET_PACK_BUCKS_CELL_STRIDE);
+    store_u16(payload + 16U, 4U);
+    store_u16(payload + 18U, 5U);
+    store_u32(payload + 20U, TECMO_ASSET_PACK_BUCKS_PALETTES_OFFSET);
+    store_u32(payload + 24U, TECMO_ASSET_PACK_BUCKS_CELLS_OFFSET);
+    store_u32(payload + 28U, TECMO_ASSET_PACK_BUCKS_CELL_COUNT);
+    store_u32(payload + 32U, TECMO_ASSET_PACK_BUCKS_WORDMARK_OFFSET);
+    store_u32(payload + 36U, 83U);
+    store_u16(payload + 40U, 0x854FU);
+    store_u16(payload + 42U, 31U);
+    store_u16(payload + 44U, 168U);
+    store_u16(payload + 46U, 10U);
+    store_u16(payload + 48U, 14U);
+    store_u16(payload + 50U, 20U);
+    payload[52U] = 0x5EU;
+    payload[53U] = 0x60U;
+    payload[54U] = 0x5EU;
+    payload[55U] = 0xFAU;
+    store_u16(payload + 56U, 6U);
+    store_u16(payload + 58U, 19U);
+    memcpy(payload + 64U, expected_thresholds, sizeof(expected_thresholds));
+    for (size_t stage = 0U; stage < 4U; ++stage) {
+        for (size_t i = 0U; i < 16U; ++i) {
+            uint8_t color = rom[(size_t)palette_offset + i];
+            if (i == 11U) color = rom[(size_t)color_offset];
+            if (stage != 0U && i >= 4U) color = imported_fade_color(color, (uint8_t)(stage * 0x10U));
+            payload[TECMO_ASSET_PACK_BUCKS_PALETTES_OFFSET + stage * 16U + i] = color;
+        }
+    }
+    for (size_t page = 0U; page < 2U; ++page) {
+        const uint8_t *decoded_page = decoded + page * 1024U;
+        for (size_t i = 0U; i < 960U; ++i) {
+            unsigned row = (unsigned)(i / 32U);
+            unsigned col = (unsigned)(i % 32U);
+            uint8_t tile = decoded_page[i];
+            uint8_t *cell = payload + TECMO_ASSET_PACK_BUCKS_CELLS_OFFSET +
+                            (page * 960U + i) * TECMO_ASSET_PACK_BUCKS_CELL_STRIDE;
+            uint32_t base = warriors_bg_chr_offset(tile, 0x5EU, 0x60U);
+            uint32_t lower = warriors_bg_chr_offset(tile, 0x5EU, 0xFAU);
+            if ((uint64_t)base + 16U > chr_size || (uint64_t)lower + 16U > chr_size) return -1;
+            cell[0] = tile;
+            cell[1] = decoded_palette_index(decoded_page, row, col);
+            store_u32(cell + 2U, base);
+            store_u32(cell + 6U, lower);
+        }
+    }
+    for (size_t glyph = 0U; glyph < sizeof(bucks_text); ++glyph) {
+        uint64_t map_offset = bank06_offset + (0xA273U - 0x8000U) + bucks_text[glyph];
+        uint8_t mapped;
+        uint64_t glyph_offset;
+        if (map_offset >= rom_size) return -1;
+        mapped = rom[(size_t)map_offset];
+        glyph_offset = bank06_offset + (0xAF05U - 0x8000U) + (uint64_t)mapped * 4U;
+        if (glyph_offset + 4U > rom_size) return -1;
+        for (size_t tile_index = 0U; tile_index < 4U; ++tile_index) {
+            unsigned row = 26U + (unsigned)(tile_index / 2U);
+            unsigned col = 11U + (unsigned)glyph * 2U + (unsigned)(tile_index % 2U);
+            uint8_t tile = rom[(size_t)glyph_offset + tile_index];
+            uint8_t *cell = payload + TECMO_ASSET_PACK_BUCKS_WORDMARK_OFFSET +
+                            (glyph * 4U + tile_index) * TECMO_ASSET_PACK_BUCKS_CELL_STRIDE;
+            uint32_t base = warriors_bg_chr_offset(tile, 0x5EU, 0x60U);
+            uint32_t lower = warriors_bg_chr_offset(tile, 0x5EU, 0xFAU);
+            if (tile < 0x80U || (uint64_t)lower + 16U > chr_size) return -1;
+            cell[0] = tile;
+            cell[1] = decoded_palette_index(decoded, row, col);
+            store_u32(cell + 2U, base);
+            store_u32(cell + 6U, lower);
+        }
+    }
+    provenance->bucks_route_offset = bank04_offset + (TECMO_ASSET_PACK_BUCKS_ROUTE_CPU - 0x8000U);
+    provenance->bucks_descriptor_offset = descriptor_offset;
+    provenance->bucks_stream_offset = stream_offset;
+    provenance->bucks_stream_size = encoded_size;
+    provenance->bucks_palette_offset = palette_offset;
+    provenance->bucks_threshold_offset = threshold_offset;
+    provenance->bucks_string_offset = string_offset;
+    provenance->bucks_glyph_table_offset = bank06_offset + (0xAF05U - 0x8000U);
+    return 0;
+}
+
+static int build_pass_transition(const uint8_t *rom,
+                                 uint64_t rom_size,
+                                 uint64_t prg_offset,
+                                 uint32_t prg_banks,
+                                 uint64_t chr_size,
+                                 uint8_t payload[TECMO_ASSET_PACK_PASS_SIZE],
+                                 TecmoPostArenaProvenance *provenance,
+                                 char *message,
+                                 size_t message_size)
+{
+    static const uint8_t expected_descriptor[7] = {
+        0x78U,0x79U,0xA9U,0xBAU,0x33U,0xB9U,0x01U
+    };
+    static const uint8_t expected_route[] = {
+        0xAEU,0xE9U,0x07U,0xBDU,0x3CU,0x86U,0x20U,0xF2U,0x82U,
+        0xA9U,0x0DU,0x20U,0x6EU,0x8AU,0xA2U,0xFDU,0xA0U,0x89U
+    };
+    static const uint8_t sprite_selectors[3] = {0x91U,0x93U,0x95U};
+    uint8_t decoded[2048];
+    uint64_t fixed_offset;
+    uint64_t bank01_offset;
+    uint64_t bank04_offset;
+    uint64_t descriptor_offset;
+    uint64_t stream_offset;
+    uint64_t palette_offset;
+    uint64_t helper_offset;
+    uint64_t special_offset;
+    uint64_t pointer_offset;
+    uint64_t piece_stream_offset;
+    size_t encoded_size = 0U;
+
+    if (prg_banks <= 4U || chr_size == 0U) return -1;
+    fixed_offset = prg_offset + (uint64_t)(prg_banks - 1U) * TECMO_ASSET_PACK_PRG_BANK_BYTES;
+    bank01_offset = prg_offset + TECMO_ASSET_PACK_PRG_BANK_BYTES;
+    bank04_offset = prg_offset + 4ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES;
+    descriptor_offset = fixed_offset + (0xDD50U - 0xC000U);
+    stream_offset = bank01_offset + (0xB933U - 0x8000U);
+    palette_offset = bank01_offset + (0xBAA9U - 0x8000U);
+    helper_offset = bank04_offset + (TECMO_ASSET_PACK_PASS_HELPER_PALETTE_CPU - 0x8000U);
+    special_offset = bank04_offset + (TECMO_ASSET_PACK_PASS_SPECIAL_PALETTE_CPU - 0x8000U);
+    pointer_offset = prg_offset + (TECMO_ASSET_PACK_PASS_POINTER_CPU - 0x8000U);
+    piece_stream_offset = prg_offset + (TECMO_ASSET_PACK_PASS_STREAM_CPU - 0x8000U);
+    if (descriptor_offset + 7U > rom_size || palette_offset + 16U > rom_size ||
+        helper_offset + 16U > rom_size || special_offset + 16U > rom_size ||
+        pointer_offset + 2U > rom_size || piece_stream_offset + 185U > rom_size ||
+        memcmp(rom + (size_t)descriptor_offset, expected_descriptor, 7U) != 0 ||
+        memcmp(rom + (size_t)(bank04_offset + (TECMO_ASSET_PACK_PASS_ROUTE_CPU - 0x8000U)),
+               expected_route, sizeof(expected_route)) != 0 ||
+        read_u16(rom + (size_t)pointer_offset) != TECMO_ASSET_PACK_PASS_STREAM_CPU ||
+        rom[(size_t)piece_stream_offset] != TECMO_ASSET_PACK_PASS_PIECE_COUNT) {
+        set_message(message, message_size, "PASS Rev1 route, descriptor, or player stream is invalid.");
+        return -1;
+    }
+    for (size_t i = 0U; i < 4U; ++i) {
+        if (rom[(size_t)helper_offset + i * 4U] != 0x02U) return -1;
+    }
+    if (validate_chr_pair(0xF0U, 0xF2U, chr_size, "PASS background", message, message_size) != 0 ||
+        decode_d9f6_stream(rom + (size_t)bank01_offset,
+                           TECMO_ASSET_PACK_PRG_BANK_BYTES,
+                           0xB933U - 0x8000U,
+                           decoded,
+                           sizeof(decoded),
+                           &encoded_size,
+                           message,
+                           message_size) != 0) return -1;
+
+    memset(payload, 0, TECMO_ASSET_PACK_PASS_SIZE);
+    memcpy(payload, "TPAS", 4U);
+    store_u16(payload + 4U, 1U);
+    store_u16(payload + 6U, TECMO_ASSET_PACK_PASS_HEADER_SIZE);
+    store_u16(payload + 8U, 32U);
+    store_u16(payload + 10U, 30U);
+    store_u16(payload + 12U, 2U);
+    store_u16(payload + 14U, TECMO_ASSET_PACK_PASS_CELL_STRIDE);
+    store_u16(payload + 16U, TECMO_ASSET_PACK_PASS_PIECE_COUNT);
+    store_u16(payload + 18U, TECMO_ASSET_PACK_PASS_PIECE_STRIDE);
+    store_u16(payload + 20U, 5U);
+    store_u32(payload + 24U, TECMO_ASSET_PACK_PASS_PALETTES_OFFSET);
+    store_u32(payload + 28U, TECMO_ASSET_PACK_PASS_SPRITE_PALETTE_OFFSET);
+    store_u32(payload + 32U, TECMO_ASSET_PACK_PASS_CELLS_OFFSET);
+    store_u32(payload + 36U, TECMO_ASSET_PACK_PASS_PIECES_OFFSET);
+    store_u32(payload + 40U, 52U);
+    store_u16(payload + 44U, 0x851CU);
+    store_u16(payload + 46U, 18U);
+    store_u16(payload + 48U, 30U);
+    payload[50U] = 0x68U;
+    payload[51U] = 8U;
+    payload[52U] = 0xF0U;
+    payload[53U] = 0xF2U;
+    payload[54U] = 0x91U;
+    payload[55U] = 0x93U;
+    payload[56U] = 0x95U;
+    payload[57U] = 0x54U;
+    store_u16(payload + 58U, TECMO_ASSET_PACK_PASS_ROUTE_CPU);
+    payload[60U] = TECMO_ASSET_PACK_PASS_SCREEN_ID;
+    payload[64U] = 10U;
+    payload[65U] = 14U;
+    payload[66U] = 18U;
+    payload[67U] = 22U;
+    payload[68U] = 27U;
+
+    for (size_t stage = 0U; stage < 4U; ++stage) {
+        for (size_t i = 0U; i < 16U; ++i) {
+            uint8_t color = rom[(size_t)palette_offset + i];
+            if (i == 4U || i == 8U || i == 12U) color = rom[(size_t)helper_offset + i];
+            if (i == 13U) color = rom[(size_t)special_offset + 3U];
+            if (i != 4U && i != 8U && i != 12U) color = palette_brightness_cap(color, (uint8_t)stage);
+            payload[TECMO_ASSET_PACK_PASS_PALETTES_OFFSET + stage * 16U + i] = color;
+        }
+    }
+    memcpy(payload + TECMO_ASSET_PACK_PASS_PALETTES_OFFSET + 64U,
+           rom + (size_t)palette_offset,
+           16U);
+    memcpy(payload + TECMO_ASSET_PACK_PASS_PALETTES_OFFSET + 64U,
+           rom + (size_t)special_offset,
+           4U);
+    payload[TECMO_ASSET_PACK_PASS_PALETTES_OFFSET + 68U] = rom[(size_t)helper_offset + 4U];
+    payload[TECMO_ASSET_PACK_PASS_PALETTES_OFFSET + 72U] = rom[(size_t)helper_offset + 8U];
+    payload[TECMO_ASSET_PACK_PASS_PALETTES_OFFSET + 76U] = rom[(size_t)helper_offset + 12U];
+    memcpy(payload + TECMO_ASSET_PACK_PASS_SPRITE_PALETTE_OFFSET,
+           rom + (size_t)helper_offset,
+           16U);
+
+    for (size_t page = 0U; page < 2U; ++page) {
+        const uint8_t *decoded_page = decoded + page * 1024U;
+        for (size_t i = 0U; i < 960U; ++i) {
+            unsigned row = (unsigned)(i / 32U);
+            unsigned col = (unsigned)(i % 32U);
+            uint8_t tile = decoded_page[i];
+            uint32_t chr_offset = warriors_bg_chr_offset(tile, 0xF0U, 0xF2U);
+            uint8_t *cell = payload + TECMO_ASSET_PACK_PASS_CELLS_OFFSET +
+                            (page * 960U + i) * TECMO_ASSET_PACK_PASS_CELL_STRIDE;
+            if ((uint64_t)chr_offset + 16U > chr_size) return -1;
+            cell[0] = tile;
+            cell[1] = decoded_palette_index(decoded_page, row, col);
+            store_u32(cell + 2U, chr_offset);
+        }
+    }
+    for (size_t i = 0U; i < TECMO_ASSET_PACK_PASS_PIECE_COUNT; ++i) {
+        const uint8_t *record = rom + (size_t)piece_stream_offset + 1U + i * 4U;
+        uint8_t top_tile = (uint8_t)((record[1] + 1U) & 0xFEU);
+        unsigned slot = top_tile / 64U;
+        uint32_t top_offset;
+        uint8_t attributes = record[2];
+        uint8_t flags = 0U;
+        uint8_t *piece = payload + TECMO_ASSET_PACK_PASS_PIECES_OFFSET +
+                         i * TECMO_ASSET_PACK_PASS_PIECE_STRIDE;
+        if (slot >= 3U || (attributes & 0x3CU) != 0U) return -1;
+        top_offset = (uint32_t)sprite_selectors[slot] * 1024U +
+                     (uint32_t)(top_tile & 0x3FU) * 16U;
+        if ((uint64_t)top_offset + 32U > chr_size) return -1;
+        if ((attributes & 0x40U) != 0U) flags |= 1U;
+        if ((attributes & 0x80U) != 0U) flags |= 2U;
+        store_u16(piece + 0U, (uint16_t)(int16_t)(int8_t)record[3]);
+        store_u16(piece + 2U, (uint16_t)(int16_t)(int8_t)record[0]);
+        store_u32(piece + 4U, top_offset);
+        store_u32(piece + 8U, top_offset + 16U);
+        piece[12U] = attributes & 3U;
+        piece[13U] = flags;
+    }
+    provenance->pass_route_offset = bank04_offset + (TECMO_ASSET_PACK_PASS_ROUTE_CPU - 0x8000U);
+    provenance->pass_descriptor_offset = descriptor_offset;
+    provenance->pass_stream_offset = stream_offset;
+    provenance->pass_stream_size = encoded_size;
+    provenance->pass_palette_offset = palette_offset;
+    provenance->pass_helper_palette_offset = helper_offset;
+    provenance->pass_special_palette_offset = special_offset;
+    provenance->pass_pointer_offset = pointer_offset;
+    provenance->pass_piece_stream_offset = piece_stream_offset;
+    return 0;
+}
+
 static int append_logical_source_map_entry(char *buffer,
                                            size_t capacity,
                                            size_t *length,
@@ -2525,7 +2928,43 @@ static int append_post_arena_source_map_entries(char *buffer,
         "\"source_offset\":%llu,\"bank\":6,\"cpu_address\":44195,\"size\":9},"
         "{\"role\":\"wordmark-glyph-table\",\"source_entry\":\"prg/bank06\","
         "\"source_offset\":%llu,\"bank\":6,\"cpu_address\":44805}],"
-        "\"chr_resolution\":\"base and fixed-lower-band offsets into chr/all\"}",
+        "\"chr_resolution\":\"base and fixed-lower-band offsets into chr/all\"},\n"
+        "    {\"id\":\"%s\",\"kind\":\"post-arena-bucks-native\","
+        "\"schema\":\"tecmo.intro.bucks/TBUC-1\",\"sources\":["
+        "{\"role\":\"route\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,"
+        "\"bank\":4,\"cpu_address\":%u},"
+        "{\"role\":\"descriptor\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,"
+        "\"cpu_address\":56628,\"size\":7},"
+        "{\"role\":\"compressed-screen\",\"source_entry\":\"prg/bank01\","
+        "\"source_offset\":%llu,\"bank\":1,\"cpu_address\":46081,\"size\":%llu},"
+        "{\"role\":\"palette\",\"source_entry\":\"prg/bank01\",\"source_offset\":%llu,"
+        "\"bank\":1,\"cpu_address\":46245,\"size\":16},"
+        "{\"role\":\"flash-thresholds\",\"source_entry\":\"prg/bank04\","
+        "\"source_offset\":%llu,\"bank\":4,\"cpu_address\":34979,\"size\":6},"
+        "{\"role\":\"team-name\",\"source_entry\":\"prg/bank06\",\"source_offset\":%llu,"
+        "\"bank\":6,\"cpu_address\":44216,\"size\":6},"
+        "{\"role\":\"wordmark-glyph-table\",\"source_entry\":\"prg/bank06\","
+        "\"source_offset\":%llu,\"bank\":6,\"cpu_address\":44805}],"
+        "\"chr_resolution\":\"base and fixed-lower-band offsets into chr/all\"},\n"
+        "    {\"id\":\"%s\",\"kind\":\"post-arena-pass-native\","
+        "\"schema\":\"tecmo.intro.pass/TPAS-1\",\"sources\":["
+        "{\"role\":\"route\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,"
+        "\"bank\":4,\"cpu_address\":%u},"
+        "{\"role\":\"descriptor\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,"
+        "\"cpu_address\":56656,\"size\":7},"
+        "{\"role\":\"compressed-screen\",\"source_entry\":\"prg/bank01\","
+        "\"source_offset\":%llu,\"bank\":1,\"cpu_address\":47411,\"size\":%llu},"
+        "{\"role\":\"background-palette\",\"source_entry\":\"prg/bank01\","
+        "\"source_offset\":%llu,\"bank\":1,\"cpu_address\":47785,\"size\":16},"
+        "{\"role\":\"helper-palette\",\"source_entry\":\"prg/bank04\","
+        "\"source_offset\":%llu,\"bank\":4,\"cpu_address\":35325,\"size\":16},"
+        "{\"role\":\"special-palette\",\"source_entry\":\"prg/bank04\","
+        "\"source_offset\":%llu,\"bank\":4,\"cpu_address\":35357,\"size\":16},"
+        "{\"role\":\"player-sprite-pointer\",\"source_entry\":\"prg/bank00\","
+        "\"source_offset\":%llu,\"bank\":0,\"cpu_address\":43279,\"size\":2},"
+        "{\"role\":\"player-ball-stream\",\"source_entry\":\"prg/bank00\","
+        "\"source_offset\":%llu,\"bank\":0,\"cpu_address\":43289,\"size\":185}],"
+        "\"chr_resolution\":\"background and sprite offsets into chr/all\"}",
         prefix,
         TECMO_ASSET_PACK_READY_ID,
         (unsigned long long)provenance->ready_route_offset,
@@ -2572,7 +3011,28 @@ static int append_post_arena_source_map_entries(char *buffer,
         (unsigned long long)provenance->clippers_irq_table_offset[0],
         (unsigned long long)provenance->clippers_irq_table_offset[1],
         (unsigned long long)provenance->clippers_string_offset,
-        (unsigned long long)provenance->clippers_glyph_table_offset);
+        (unsigned long long)provenance->clippers_glyph_table_offset,
+        TECMO_ASSET_PACK_BUCKS_ID,
+        (unsigned long long)provenance->bucks_route_offset,
+        TECMO_ASSET_PACK_BUCKS_ROUTE_CPU,
+        (unsigned long long)provenance->bucks_descriptor_offset,
+        (unsigned long long)provenance->bucks_stream_offset,
+        (unsigned long long)provenance->bucks_stream_size,
+        (unsigned long long)provenance->bucks_palette_offset,
+        (unsigned long long)provenance->bucks_threshold_offset,
+        (unsigned long long)provenance->bucks_string_offset,
+        (unsigned long long)provenance->bucks_glyph_table_offset,
+        TECMO_ASSET_PACK_PASS_ID,
+        (unsigned long long)provenance->pass_route_offset,
+        TECMO_ASSET_PACK_PASS_ROUTE_CPU,
+        (unsigned long long)provenance->pass_descriptor_offset,
+        (unsigned long long)provenance->pass_stream_offset,
+        (unsigned long long)provenance->pass_stream_size,
+        (unsigned long long)provenance->pass_palette_offset,
+        (unsigned long long)provenance->pass_helper_palette_offset,
+        (unsigned long long)provenance->pass_special_palette_offset,
+        (unsigned long long)provenance->pass_pointer_offset,
+        (unsigned long long)provenance->pass_piece_stream_offset);
     return result;
 }
 
@@ -2588,7 +3048,7 @@ static char *build_ines_source_map(uint32_t mapper,
                                    const TecmoPostArenaProvenance *post_arena_provenance,
                                    size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 8U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 10U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -2609,7 +3069,7 @@ static char *build_ines_source_map(uint32_t mapper,
     if (entry_count > (SIZE_MAX - 12288U) / 320U) {
         return NULL;
     }
-    capacity = 12288U + entry_count * 320U;
+    capacity = 18432U + entry_count * 320U;
     source_map = (char *)malloc(capacity);
     if (source_map == NULL) {
         return NULL;
@@ -2808,6 +3268,8 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
     uint8_t ready_payload[TECMO_ASSET_PACK_READY_SIZE];
     uint8_t warriors_payload[TECMO_ASSET_PACK_WARRIORS_SIZE];
     uint8_t clippers_payload[TECMO_ASSET_PACK_CLIPPERS_SIZE];
+    uint8_t bucks_payload[TECMO_ASSET_PACK_BUCKS_SIZE];
+    uint8_t pass_payload[TECMO_ASSET_PACK_PASS_SIZE];
     uint64_t script_source_offset =
         prg_bank_cpu_source_offset(prg_offset,
                                    prg_banks,
@@ -3042,6 +3504,60 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                             message,
                                             message_size) != 0) {
         set_message(message, message_size, "Could not write native CLIPPERS entry.");
+        return -1;
+    }
+
+    if (build_bucks_transition(rom,
+                               rom_size,
+                               prg_offset,
+                               prg_banks,
+                               chr_size,
+                               bucks_payload,
+                               post_arena_provenance,
+                               message,
+                               message_size) != 0) {
+        return -1;
+    }
+    entry_info = make_entry_info(TECMO_ASSET_PACK_BUCKS_ID,
+                                 TECMO_ASSET_PACK_TYPE_DATA,
+                                 4U,
+                                 TECMO_ASSET_PACK_BUCKS_ROUTE_CPU,
+                                 post_arena_provenance->bucks_route_offset,
+                                 TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+    if (tecmo_asset_pack_builder_add_memory(builder,
+                                            &entry_info,
+                                            bucks_payload,
+                                            sizeof(bucks_payload),
+                                            message,
+                                            message_size) != 0) {
+        set_message(message, message_size, "Could not write native BUCKS entry.");
+        return -1;
+    }
+
+    if (build_pass_transition(rom,
+                              rom_size,
+                              prg_offset,
+                              prg_banks,
+                              chr_size,
+                              pass_payload,
+                              post_arena_provenance,
+                              message,
+                              message_size) != 0) {
+        return -1;
+    }
+    entry_info = make_entry_info(TECMO_ASSET_PACK_PASS_ID,
+                                 TECMO_ASSET_PACK_TYPE_DATA,
+                                 4U,
+                                 TECMO_ASSET_PACK_PASS_ROUTE_CPU,
+                                 post_arena_provenance->pass_route_offset,
+                                 TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+    if (tecmo_asset_pack_builder_add_memory(builder,
+                                            &entry_info,
+                                            pass_payload,
+                                            sizeof(pass_payload),
+                                            message,
+                                            message_size) != 0) {
+        set_message(message, message_size, "Could not write native PASS entry.");
         return -1;
     }
 
@@ -4322,6 +4838,10 @@ typedef struct TecmoAssetPackSelfTestInesListState {
     int warriors_metadata_valid;
     int saw_clippers;
     int clippers_metadata_valid;
+    int saw_bucks;
+    int bucks_metadata_valid;
+    int saw_pass;
+    int pass_metadata_valid;
     int saw_prg_bank0;
     int saw_prg_bank1;
     int saw_prg_fixed;
@@ -4388,6 +4908,20 @@ static int self_test_ines_list_entry(const TecmoAssetPackDirectoryEntryInfo *ent
             entry_info->bank == TECMO_ASSET_PACK_ARENA_BANK04 &&
             entry_info->cpu_address == TECMO_ASSET_PACK_CLIPPERS_ROUTE_CPU &&
             entry_info->byte_count == TECMO_ASSET_PACK_CLIPPERS_SIZE;
+    } else if (strcmp(entry_info->id, TECMO_ASSET_PACK_BUCKS_ID) == 0) {
+        state->saw_bucks = 1;
+        state->bucks_metadata_valid =
+            entry_info->type == TECMO_ASSET_PACK_TYPE_DATA &&
+            entry_info->bank == TECMO_ASSET_PACK_ARENA_BANK04 &&
+            entry_info->cpu_address == TECMO_ASSET_PACK_BUCKS_ROUTE_CPU &&
+            entry_info->byte_count == TECMO_ASSET_PACK_BUCKS_SIZE;
+    } else if (strcmp(entry_info->id, TECMO_ASSET_PACK_PASS_ID) == 0) {
+        state->saw_pass = 1;
+        state->pass_metadata_valid =
+            entry_info->type == TECMO_ASSET_PACK_TYPE_DATA &&
+            entry_info->bank == TECMO_ASSET_PACK_ARENA_BANK04 &&
+            entry_info->cpu_address == TECMO_ASSET_PACK_PASS_ROUTE_CPU &&
+            entry_info->byte_count == TECMO_ASSET_PACK_PASS_SIZE;
     } else if (strcmp(entry_info->id, "prg/bank00") == 0) {
         state->saw_prg_bank0 = 1;
     } else if (strcmp(entry_info->id, "prg/bank01") == 0) {
@@ -4705,9 +5239,13 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         uint8_t *clippers_descriptor = rom + (size_t)(fixed_offset +
             (TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_CPU - 0xC000U) +
             TECMO_ASSET_PACK_CLIPPERS_SCREEN_ID * TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_SIZE);
+        uint8_t *bucks_descriptor = rom + (size_t)(fixed_offset + (0xDD34U - 0xC000U));
+        uint8_t *pass_descriptor = rom + (size_t)(fixed_offset + (0xDD50U - 0xC000U));
         uint8_t *ready_stream = rom + (size_t)(bank04_offset + (0xBAF2U - 0x8000U));
         uint8_t *warriors_stream = rom + (size_t)(bank01_offset + (0xB4C5U - 0x8000U));
         uint8_t *clippers_stream = rom + (size_t)(bank01_offset + (0xB5EBU - 0x8000U));
+        uint8_t *bucks_stream = rom + (size_t)(bank01_offset + (0xB401U - 0x8000U));
+        uint8_t *pass_stream = rom + (size_t)(bank01_offset + (0xB933U - 0x8000U));
         size_t out = 0U;
 
         for (size_t i = 0U;
@@ -4773,6 +5311,8 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         store_u16(clippers_descriptor + 2U, 0xB7C4U);
         store_u16(clippers_descriptor + 4U, 0xB5EBU);
         clippers_descriptor[6] = 1U;
+        memcpy(bucks_descriptor, "\x2F\x30\xA5\xB4\x01\xB4\x01", 7U);
+        memcpy(pass_descriptor, "\x78\x79\xA9\xBA\x33\xB9\x01", 7U);
         memcpy(rom + (size_t)(bank04_offset +
                               (TECMO_ASSET_PACK_READY_SCRIPT_CPU - 0x8000U)),
                ready_script,
@@ -4859,6 +5399,59 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         memcpy(rom + (size_t)(bank01_offset + (0xB7C4U - 0x8000U)),
                arena_palette,
                sizeof(arena_palette));
+
+        {
+            static const uint8_t compact_two_page_stream[20] = {
+                0xAAU,0x00U,0x7FU,0x00U,0x7FU,0x00U,0x7FU,0x00U,0x7FU,
+                0xAAU,0x00U,0x7FU,0x00U,0x7FU,0x00U,0x7FU,0x00U,0x7FU,
+                0x00U,0x00U
+            };
+            static const uint8_t bucks_palette[16] = {
+                0x0FU,0x17U,0x27U,0x01U,0x0FU,0x17U,0x16U,0x26U,
+                0x0FU,0x17U,0x27U,0x01U,0x0FU,0x17U,0x27U,0x11U
+            };
+            static const uint8_t pass_palette[16] = {
+                0x0FU,0x17U,0x27U,0x37U,0x0FU,0x0FU,0x16U,0x27U,
+                0x0FU,0x0CU,0x01U,0x30U,0x0FU,0x0CU,0x17U,0x27U
+            };
+            static const uint8_t helper_palette[16] = {
+                0x02U,0x01U,0x11U,0x21U,0x02U,0x17U,0x16U,0x26U,
+                0x02U,0x0FU,0x09U,0x30U,0x02U,0x0FU,0x00U,0x30U
+            };
+            static const uint8_t special_palette[16] = {
+                0x0FU,0x01U,0x11U,0x21U,0x0FU,0x0FU,0x16U,0x27U,
+                0x0FU,0x0CU,0x01U,0x30U,0x0FU,0x0CU,0x17U,0x27U
+            };
+            static const uint8_t bucks_route[] = {
+                0xA9U,0x19U,0x20U,0xF2U,0x82U,0xA9U,0x0BU,0x20U,0x6EU,0x8AU
+            };
+            static const uint8_t pass_route[] = {
+                0xAEU,0xE9U,0x07U,0xBDU,0x3CU,0x86U,0x20U,0xF2U,0x82U,
+                0xA9U,0x0DU,0x20U,0x6EU,0x8AU,0xA2U,0xFDU,0xA0U,0x89U
+            };
+            static const uint8_t thresholds[6] = {0xEFU,0xC0U,0x90U,0x60U,0x30U,0x00U};
+            static const uint8_t bucks_record[6] = {5U,'B','U','C','K','S'};
+            static const uint8_t bucks_chars[5] = {'B','U','C','K','S'};
+            memcpy(bucks_stream, compact_two_page_stream, sizeof(compact_two_page_stream));
+            memcpy(pass_stream, compact_two_page_stream, sizeof(compact_two_page_stream));
+            memcpy(rom + (size_t)(bank01_offset + (0xB4A5U - 0x8000U)), bucks_palette, 16U);
+            memcpy(rom + (size_t)(bank01_offset + (0xBAA9U - 0x8000U)), pass_palette, 16U);
+            memcpy(rom + (size_t)(bank04_offset + (0x89FDU - 0x8000U)), helper_palette, 16U);
+            memcpy(rom + (size_t)(bank04_offset + (0x8A1DU - 0x8000U)), special_palette, 16U);
+            memcpy(rom + (size_t)(bank04_offset + (0x883DU - 0x8000U)), bucks_route, sizeof(bucks_route));
+            memcpy(rom + (size_t)(bank04_offset + (0x854FU - 0x8000U)), pass_route, sizeof(pass_route));
+            memcpy(rom + (size_t)(bank04_offset + (0x88A3U - 0x8000U)), thresholds, sizeof(thresholds));
+            rom[(size_t)(fixed_offset + (0xDC19U - 0xC000U) + 0x0EU)] = 0x2AU;
+            store_u16(rom + (size_t)(bank06_offset + (0xAD60U - 0x8000U) + 0x0EU * 2U), 0xACB8U);
+            memcpy(rom + (size_t)(bank06_offset + (0xACB8U - 0x8000U)), bucks_record, sizeof(bucks_record));
+            for (size_t i = 0U; i < sizeof(bucks_chars); ++i) {
+                uint8_t map = (uint8_t)(20U + i);
+                rom[(size_t)(bank06_offset + (0xA273U - 0x8000U) + bucks_chars[i])] = map;
+                memset(rom + (size_t)(bank06_offset + (0xAF05U - 0x8000U) + map * 4U),
+                       (int)(0x80U + i * 4U),
+                       4U);
+            }
+        }
 
         store_u16(rom + (size_t)(bank00_offset +
                                  (TECMO_ASSET_PACK_WARRIORS_POINTER_CPU - 0x8000U)),
@@ -5107,7 +5700,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
     if (tecmo_asset_pack_list_entries(ines_pack_path,
                                       self_test_ines_list_entry,
                                       &ines_list_state) != 0 ||
-        ines_list_state.count != 51U ||
+        ines_list_state.count != 53U ||
         !ines_list_state.saw_manifest ||
         !ines_list_state.saw_source_map ||
         !ines_list_state.saw_arena_intro_script ||
@@ -5122,6 +5715,10 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         !ines_list_state.warriors_metadata_valid ||
         !ines_list_state.saw_clippers ||
         !ines_list_state.clippers_metadata_valid ||
+        !ines_list_state.saw_bucks ||
+        !ines_list_state.bucks_metadata_valid ||
+        !ines_list_state.saw_pass ||
+        !ines_list_state.pass_metadata_valid ||
         !ines_list_state.saw_prg_bank0 ||
         !ines_list_state.saw_prg_bank1 ||
         !ines_list_state.saw_prg_fixed ||

@@ -301,17 +301,31 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
                               "Warriors did not hand off cleanly to native Clippers");
         return false;
     }
-    if (!flow_hold_intro_step(runtime,
-                              11U,
-                              TECMO_INTRO_CLIPPERS_HANDOFF_FRAME + 24U,
-                              "Clippers fell through to placeholder play setup",
-                              message,
-                              message_size) ||
-        runtime->mode != TECMO_MODE_FIRST_SPRITE ||
-        !runtime->intro_handoff_complete) {
+    if (!flow_hold_intro_step(runtime, 11U, TECMO_INTRO_CLIPPERS_HANDOFF_FRAME - 1U,
+                              "Clippers left before BUCKS handoff", message, message_size)) {
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->intro_output_step != 12U || runtime->mode_frame_counter != 0U) {
+        set_flow_test_message(message, message_size, "Clippers did not hand off cleanly to native BUCKS");
+        return false;
+    }
+    if (!flow_hold_intro_step(runtime, 12U, TECMO_INTRO_BUCKS_HANDOFF_FRAME - 1U,
+                              "BUCKS left before PASS handoff", message, message_size)) {
+        return false;
+    }
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->intro_output_step != 13U || runtime->mode_frame_counter != 0U) {
+        set_flow_test_message(message, message_size, "BUCKS did not hand off cleanly to native PASS");
+        return false;
+    }
+    if (!flow_hold_intro_step(runtime, 13U, TECMO_INTRO_PASS_HANDOFF_FRAME + 24U,
+                              "PASS fell through to placeholder play setup", message, message_size) ||
+        runtime->mode != TECMO_MODE_FIRST_SPRITE || !runtime->intro_handoff_complete) {
         set_flow_test_message(message,
                               message_size,
-                              "Clippers did not hold the native intro chain after handoff");
+                              "PASS did not hold the native final state after handoff");
         return false;
     }
 

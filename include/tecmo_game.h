@@ -59,6 +59,8 @@ typedef struct TecmoRuntime {
     TecmoIntroReadyAsset intro_ready_asset;
     TecmoIntroWarriorsAsset intro_warriors_asset;
     TecmoIntroClippersAsset intro_clippers_asset;
+    TecmoIntroBucksAsset intro_bucks_asset;
+    TecmoIntroPassAsset intro_pass_asset;
     char intro_l88e7_irq_vector[16];
     char intro_presents_data_cpu[16];
     bool intro_trace_available;
@@ -107,6 +109,8 @@ bool tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFrame
 bool tecmo_render_intro_ready_screen(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 bool tecmo_render_intro_warriors_transition(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 bool tecmo_render_intro_clippers_transition(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
+bool tecmo_render_intro_bucks_transition(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
+bool tecmo_render_intro_pass_transition(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 void tecmo_render_first_sprite_probe(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 void tecmo_render_intro_l88e7_proof(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,

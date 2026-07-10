@@ -258,7 +258,22 @@ $PostArenaRenderCases = @(
     [pscustomobject]@{ mode = "intro-clippers-clean-frame80"; state = "intro-clippers-state frame=80 palette=3 motion=20 scroll=255 page=1 wordmark=1 handoff=0 next_route=883D"; visual = "clippers" },
     [pscustomobject]@{ mode = "intro-clippers-clean-frame98"; state = "intro-clippers-state frame=98 palette=3 motion=29 scroll=255 page=1 wordmark=1 handoff=0 next_route=883D"; visual = "clippers" },
     [pscustomobject]@{ mode = "intro-clippers-clean-frame150"; state = "intro-clippers-state frame=150 palette=3 motion=41 scroll=255 page=1 wordmark=1 handoff=0 next_route=883D"; visual = "clippers" },
-    [pscustomobject]@{ mode = "intro-clippers-clean-frame151"; state = "intro-clippers-state frame=151 palette=3 motion=41 scroll=255 page=1 wordmark=1 handoff=1 next_route=883D"; visual = "clippers" }
+    [pscustomobject]@{ mode = "intro-clippers-clean-frame151"; state = "intro-clippers-state frame=151 palette=3 motion=41 scroll=255 page=1 wordmark=1 handoff=1 next_route=883D"; visual = "clippers" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame0"; state = "intro-bucks-state frame=0 palette=0 flash=0 scroll=0 wordmark=0 prior=1 black=1 handoff=0 next_route=854F"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame1"; state = "intro-bucks-state frame=1 palette=0 flash=0 scroll=0 wordmark=0 prior=0 black=1 handoff=0 next_route=854F"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame14"; state = "intro-bucks-state frame=14 palette=0 flash=0 scroll=0 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame19"; state = "intro-bucks-state frame=19 palette=1 flash=3 scroll=16 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame50"; state = "intro-bucks-state frame=50 palette=3 flash=19 scroll=143 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame52"; state = "intro-bucks-state frame=52 palette=3 flash=19 scroll=240 wordmark=5 prior=0 black=0 handoff=0 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-bucks-clean-frame83"; state = "intro-bucks-state frame=83 palette=3 flash=19 scroll=240 wordmark=5 prior=0 black=0 handoff=1 next_route=854F"; visual = "bucks" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame1"; state = "intro-pass-state frame=1 phase=black palette=0 x=104 scroll=0 first=0 second=0 sprites=0 black=1 handoff=0 next_route=851C"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame10"; state = "intro-pass-state frame=10 phase=first-move palette=0 x=176 scroll=0 first=9 second=0 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame19"; state = "intro-pass-state frame=19 phase=first-move palette=2 x=248 scroll=0 first=18 second=0 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame20"; state = "intro-pass-state frame=20 phase=second-move palette=2 x=8 scroll=8 first=18 second=1 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame22"; state = "intro-pass-state frame=22 phase=second-move palette=3 x=24 scroll=24 first=18 second=3 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame27"; state = "intro-pass-state frame=27 phase=second-move palette=4 x=64 scroll=64 first=18 second=8 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame49"; state = "intro-pass-state frame=49 phase=second-move palette=4 x=240 scroll=240 first=18 second=30 sprites=1 black=0 handoff=0 next_route=851C"; visual = "pass" },
+    [pscustomobject]@{ mode = "intro-pass-clean-frame52"; state = "intro-pass-state frame=52 phase=handoff palette=4 x=240 scroll=240 first=18 second=30 sprites=0 black=1 handoff=1 next_route=851C"; visual = "black" }
 )
 
 $Results = New-Object System.Collections.Generic.List[object]
@@ -304,7 +319,9 @@ try {
         "arena/intro/sprite-groups",
         "arena/intro/ready-screen",
         "arena/intro/warriors-transition",
-        "arena/intro/clippers-transition"
+        "arena/intro/clippers-transition",
+        "arena/intro/bucks-transition",
+        "arena/intro/pass-transition"
     )
     $ForbiddenCaptureEntries = @("intro/arena/capture.ndjson", "intro/post-arena/capture.ndjson", "intro/captures/source-map")
     $MissingNativeEntries = @($RequiredNativeEntries | Where-Object { $ListText -notmatch [regex]::Escape($_) })
@@ -432,7 +449,7 @@ try {
             $RenderExitCode = $LASTEXITCODE
             $RenderText = (@($RenderOutput) | ForEach-Object { [string]$_ }) -join "`n"
             $RenderCreated = Test-Path -LiteralPath $RenderPath
-            $NativeSourceSeen = $RenderText -match "intro-post-render-source ready=1 warriors=1 clippers=1 chr=1 ready_schema=TRDY-1 warriors_schema=TWAR-1 clippers_schema=TCLP-1"
+            $NativeSourceSeen = $RenderText -match "intro-post-render-source ready=1 warriors=1 clippers=1 bucks=1 pass=1 chr=1 ready_schema=TRDY-1 warriors_schema=TWAR-1 clippers_schema=TCLP-1 bucks_schema=TBUC-1 pass_schema=TPAS-1"
             $StateSeen = $RenderText.Contains([string]$RenderCase.state)
             $VisualSeen = $false
             if ($RenderCreated) {
@@ -444,6 +461,12 @@ try {
                         $VisualSeen = Test-PixelRectHasNonBlack $Bitmap 192 240 447 319
                     } elseif ($RenderCase.visual -eq "clippers-pose") {
                         $VisualSeen = Test-PixelRectHasNonBlack $Bitmap 64 32 575 383
+                    } elseif ($RenderCase.visual -eq "pass") {
+                        $VisualSeen = Test-PixelRectHasNonBlack $Bitmap 64 32 575 447
+                    } elseif ($RenderCase.visual -eq "bucks") {
+                        $SceneSeen = Test-PixelRectHasNonBlack $Bitmap 64 32 575 383
+                        $WordmarkSeen = Test-PixelRectHasNonBlack $Bitmap 192 416 447 447
+                        $VisualSeen = $SceneSeen -and $WordmarkSeen
                     } else {
                         $PlayersSeen = Test-PixelRectHasNonBlack $Bitmap 64 80 575 327
                         $WordmarkSeen = Test-PixelRectHasNonBlack $Bitmap 192 416 447 447
@@ -482,8 +505,8 @@ try {
         outputs = $PostArenaOutputs
         rom_only_asset_pack = $AssetPackRelative
         raw_output_persisted = $false
-        coverage_status = "ready-warriors-and-clippers-native-checkpoints"
-        error = if ($PostArenaPassed) { $null } else { "ROM-only READY/WARRIORS/CLIPPERS render or timing checkpoint failed" }
+        coverage_status = "ready-warriors-clippers-bucks-pass-native-checkpoints"
+        error = if ($PostArenaPassed) { $null } else { "ROM-only post-arena render or timing checkpoint failed" }
     })
 
     $LowerBandGeometryOutputs = New-Object System.Collections.Generic.List[object]
@@ -855,6 +878,51 @@ try {
         raw_output_persisted = $false
         coverage_status = "covered"
         error = if ($MalformedTclpPassed) { $null } else { "runtime accepted a malformed TCLP CHR offset" }
+    })
+
+    $MalformedNativeCases = @(
+        [pscustomobject]@{ id = "bucks"; entry = "arena/intro/bucks-transition"; offset = 162; mode = "intro-bucks-clean-frame14"; unavailable = "bucks=0" },
+        [pscustomobject]@{ id = "pass"; entry = "arena/intro/pass-transition"; offset = 226; mode = "intro-pass-clean-frame27"; unavailable = "pass=0" }
+    )
+    $MalformedNativeResults = New-Object System.Collections.Generic.List[object]
+    $MalformedNativePassed = $PackBuildPassed
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    try {
+        foreach ($Case in $MalformedNativeCases) {
+            $CasePack = Join-Path $OutputDir "malformed-$($Case.id).assetpack"
+            $CaseRender = Join-Path $OutputDir "malformed-$($Case.id).png"
+            [byte[]]$CaseBytes = [System.IO.File]::ReadAllBytes($AssetPackPath)
+            $PayloadOffset = Get-AssetPackEntryPayloadOffset -Bytes $CaseBytes -EntryId $Case.entry
+            [System.BitConverter]::GetBytes([uint32]0).CopyTo($CaseBytes, $PayloadOffset + $Case.offset)
+            [System.IO.File]::WriteAllBytes($CasePack, $CaseBytes)
+            $env:TECMO_ASSETPACK = $CasePack
+            $CaseOutput = & $ExePath --root $ProjectRoot --render-test-mode $Case.mode $CaseRender 2>&1
+            $CaseExitCode = $LASTEXITCODE
+            $CaseText = (@($CaseOutput) | ForEach-Object { [string]$_ }) -join "`n"
+            $Rejected = $CaseExitCode -eq 1 -and !(Test-Path -LiteralPath $CaseRender) -and
+                $CaseText -match [regex]::Escape($Case.unavailable)
+            if (!$Rejected) { $MalformedNativePassed = $false }
+            $MalformedNativeResults.Add([pscustomobject]@{
+                id = $Case.id
+                passed = $Rejected
+                exit_code = $CaseExitCode
+                rejected_by_runtime = $Rejected
+            })
+            Remove-Item -LiteralPath $CasePack -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $CaseRender -Force -ErrorAction SilentlyContinue
+        }
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+    }
+    if (!$MalformedNativePassed) { ++$Failures }
+    $Results.Add([pscustomobject]@{
+        id = "intro-bucks-pass-malformed-chr-contract"
+        passed = $MalformedNativePassed
+        skipped = $false
+        cases = $MalformedNativeResults
+        raw_output_persisted = $false
+        coverage_status = "covered"
+        error = if ($MalformedNativePassed) { $null } else { "runtime accepted malformed TBUC/TPAS CHR offsets" }
     })
 } catch {
     ++$Failures

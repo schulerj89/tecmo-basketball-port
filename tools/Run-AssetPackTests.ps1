@@ -283,6 +283,8 @@ function Get-KnownLogicalAssetPackEntries {
         "arena/intro/ready-screen",
         "arena/intro/warriors-transition",
         "arena/intro/clippers-transition",
+        "arena/intro/bucks-transition",
+        "arena/intro/pass-transition",
         "roster/table.tsv",
         "title/original-text.txt",
         "title/glyph-map.tsv",
@@ -316,7 +318,9 @@ function Get-ExpectedLogicalAssetPackEntries {
             "arena/intro/sprite-groups",
             "arena/intro/ready-screen",
             "arena/intro/warriors-transition",
-            "arena/intro/clippers-transition"
+            "arena/intro/clippers-transition",
+            "arena/intro/bucks-transition",
+            "arena/intro/pass-transition"
         )
         capture_sources_present = @()
     }
@@ -1039,6 +1043,84 @@ try {
                     invalid_wordmark_tiles = $InvalidClippersWordmarkTiles
                     raw_asset_bytes_persisted = $false
                 })
+
+                $BucksBytes = Read-AssetPackEntryBytes -Path $AssetPackPath -Directory $Directory -EntryId "arena/intro/bucks-transition"
+                $BucksMagic = if ($BucksBytes.Length -ge 4) { [System.Text.Encoding]::ASCII.GetString($BucksBytes, 0, 4) } else { "" }
+                $BucksPaletteHex = @()
+                if ($BucksBytes.Length -ge 160) {
+                    for ($Stage = 0; $Stage -lt 4; ++$Stage) {
+                        $BucksPaletteHex += [System.BitConverter]::ToString($BucksBytes, 96 + $Stage * 16, 16).Replace("-", "")
+                    }
+                }
+                $ExpectedBucksPalettes = @(
+                    "0F1727010F1716260F17272A0F172711",
+                    "0F1727010F0706160F07171A0F071701",
+                    "0F1727010F0F0F060F0F070A0F0F070F",
+                    "0F1727010F0F0F0F0F0F0F0F0F0F0F0F"
+                )
+                $BucksThresholds = if ($BucksBytes.Length -ge 70) { [System.BitConverter]::ToString($BucksBytes, 64, 6).Replace("-", "") } else { "" }
+                $BucksPassed = $BucksBytes.Length -eq 19560 -and $BucksMagic -eq "TBUC" -and
+                    [System.BitConverter]::ToUInt16($BucksBytes, 6) -eq 96 -and
+                    [System.BitConverter]::ToUInt16($BucksBytes, 12) -eq 2 -and
+                    [System.BitConverter]::ToUInt16($BucksBytes, 14) -eq 10 -and
+                    [System.BitConverter]::ToUInt16($BucksBytes, 16) -eq 4 -and
+                    [System.BitConverter]::ToUInt16($BucksBytes, 18) -eq 5 -and
+                    [System.BitConverter]::ToUInt32($BucksBytes, 36) -eq 83 -and
+                    [System.BitConverter]::ToUInt16($BucksBytes, 40) -eq 0x854F -and
+                    [System.BitConverter]::ToUInt16($BucksBytes, 42) -eq 31 -and
+                    [System.BitConverter]::ToUInt16($BucksBytes, 44) -eq 168 -and
+                    $BucksBytes[52] -eq 0x5E -and $BucksBytes[53] -eq 0x60 -and
+                    $BucksBytes[54] -eq 0x5E -and $BucksBytes[55] -eq 0xFA -and
+                    $BucksPaletteHex.Count -eq 4 -and (@(Compare-Object $ExpectedBucksPalettes $BucksPaletteHex)).Count -eq 0 -and
+                    $BucksThresholds -eq "EFC090603000"
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-bucks-native"
+                    passed = $BucksPassed
+                    format = $BucksMagic
+                    byte_count = $BucksBytes.Length
+                    palettes = $BucksPaletteHex
+                    thresholds = $BucksThresholds
+                    handoff_frame = [System.BitConverter]::ToUInt32($BucksBytes, 36)
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $PassBytes = Read-AssetPackEntryBytes -Path $AssetPackPath -Directory $Directory -EntryId "arena/intro/pass-transition"
+                $PassMagic = if ($PassBytes.Length -ge 4) { [System.Text.Encoding]::ASCII.GetString($PassBytes, 0, 4) } else { "" }
+                $PassPaletteHex = @()
+                if ($PassBytes.Length -ge 208) {
+                    for ($Stage = 0; $Stage -lt 5; ++$Stage) {
+                        $PassPaletteHex += [System.BitConverter]::ToString($PassBytes, 128 + $Stage * 16, 16).Replace("-", "")
+                    }
+                }
+                $ExpectedPassPalettes = @(
+                    "0F070707020F0607020C010002010707",
+                    "0F171717020F1617020C011002111717",
+                    "0F172727020F1627020C012002211727",
+                    "0F172737020F1627020C013002211727",
+                    "0F011121020F1627020C0130020C1727"
+                )
+                $PassPassed = $PassBytes.Length -eq 12480 -and $PassMagic -eq "TPAS" -and
+                    [System.BitConverter]::ToUInt16($PassBytes, 6) -eq 128 -and
+                    [System.BitConverter]::ToUInt16($PassBytes, 16) -eq 46 -and
+                    [System.BitConverter]::ToUInt16($PassBytes, 20) -eq 5 -and
+                    [System.BitConverter]::ToUInt32($PassBytes, 40) -eq 52 -and
+                    [System.BitConverter]::ToUInt16($PassBytes, 44) -eq 0x851C -and
+                    [System.BitConverter]::ToUInt16($PassBytes, 46) -eq 18 -and
+                    [System.BitConverter]::ToUInt16($PassBytes, 48) -eq 30 -and
+                    $PassBytes[50] -eq 0x68 -and $PassBytes[51] -eq 8 -and
+                    $PassBytes[52] -eq 0xF0 -and $PassBytes[53] -eq 0xF2 -and
+                    $PassBytes[54] -eq 0x91 -and $PassBytes[55] -eq 0x93 -and $PassBytes[56] -eq 0x95 -and
+                    $PassPaletteHex.Count -eq 5 -and (@(Compare-Object $ExpectedPassPalettes $PassPaletteHex)).Count -eq 0
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-pass-native"
+                    passed = $PassPassed
+                    format = $PassMagic
+                    byte_count = $PassBytes.Length
+                    palettes = $PassPaletteHex
+                    piece_count = [System.BitConverter]::ToUInt16($PassBytes, 16)
+                    handoff_frame = [System.BitConverter]::ToUInt32($PassBytes, 40)
+                    raw_asset_bytes_persisted = $false
+                })
             } catch {
                 Add-TestResult ([pscustomobject]@{
                     id = "assetpack-post-arena-native"
@@ -1062,6 +1144,29 @@ try {
                     source_map_logical_entries = $SourceMapLogicalIds
                     missing_logical_entries = $MissingSourceMapLogicalEntries
                     unexpected_logical_entries = $UnexpectedSourceMapLogicalEntries
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $BucksSource = @($SourceMap.logical_entries | Where-Object { $_.id -eq "arena/intro/bucks-transition" } | Select-Object -First 1)
+                $PassSource = @($SourceMap.logical_entries | Where-Object { $_.id -eq "arena/intro/pass-transition" } | Select-Object -First 1)
+                $BucksRoles = @($BucksSource.sources | ForEach-Object { [string]$_.role })
+                $PassRoles = @($PassSource.sources | ForEach-Object { [string]$_.role })
+                $PostArenaProvenancePassed = $BucksSource.Count -eq 1 -and $PassSource.Count -eq 1 -and
+                    $BucksSource.schema -eq "tecmo.intro.bucks/TBUC-1" -and
+                    $PassSource.schema -eq "tecmo.intro.pass/TPAS-1" -and
+                    $BucksRoles -contains "route" -and $BucksRoles -contains "descriptor" -and
+                    $BucksRoles -contains "compressed-screen" -and $BucksRoles -contains "flash-thresholds" -and
+                    $BucksRoles -contains "team-name" -and
+                    $PassRoles -contains "route" -and $PassRoles -contains "descriptor" -and
+                    $PassRoles -contains "compressed-screen" -and $PassRoles -contains "helper-palette" -and
+                    $PassRoles -contains "special-palette" -and $PassRoles -contains "player-ball-stream"
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-bucks-pass-source-provenance"
+                    passed = $PostArenaProvenancePassed
+                    bucks_schema = if ($BucksSource.Count -eq 1) { $BucksSource.schema } else { $null }
+                    pass_schema = if ($PassSource.Count -eq 1) { $PassSource.schema } else { $null }
+                    bucks_roles = $BucksRoles
+                    pass_roles = $PassRoles
                     raw_asset_bytes_persisted = $false
                 })
 
