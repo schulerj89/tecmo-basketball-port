@@ -445,11 +445,17 @@ function Test-FinalePayloadContract {
             [void]$Issues.Add("u32-$Offset")
         }
     }
+    for ($Index = 106; $Index -le 107; ++$Index) {
+        if ($Bytes[$Index] -ne 0) { [void]$Issues.Add("header-offset-high-reserved"); break }
+    }
     for ($Index = 116; $Index -lt $HeaderSize; ++$Index) {
         if ($Bytes[$Index] -ne 0) { [void]$Issues.Add("header-reserved"); break }
     }
     for ($Index = $ReverseFramesOffset + 10; $Index -lt $GroupsOffset; ++$Index) {
         if ($Bytes[$Index] -ne 0) { [void]$Issues.Add("alignment-reserved"); break }
+    }
+    for ($Index = $AnchorsOffset + 9 * 2; $Index -lt $ReverseMetadataOffset; ++$Index) {
+        if ($Bytes[$Index] -ne 0) { [void]$Issues.Add("post-anchor-reserved"); break }
     }
 
     $InvalidScreenCells = 0
@@ -788,31 +794,46 @@ try {
 
     $MalformedSourceRom = Join-Path (Split-Path -Parent $AssetPackPath) "malformed-finale-source.nes"
     $MalformedSourcePack = Join-Path (Split-Path -Parent $AssetPackPath) "malformed-finale-source.assetpack"
-    $SourceContractRejected = $false
-    try {
-        [System.IO.File]::Copy($ReferenceRom, $MalformedSourceRom, $true)
-        $PatchOffset = [uint64](16 + [int]$ReferenceHeader.trainer_bytes + 4 * 0x4000 + (0x852F - 0x8000))
-        $PatchFile = [System.IO.File]::Open($MalformedSourceRom,
-                                           [System.IO.FileMode]::Open,
-                                           [System.IO.FileAccess]::ReadWrite,
-                                           [System.IO.FileShare]::None)
+    $SourceMutationCases = [System.Collections.Generic.List[object]]::new()
+    $PrgStart = 16 + [int]$ReferenceHeader.trainer_bytes
+    $SourceMutationSpecs = @(
+        [pscustomobject]@{ id = "selector-two-immediate"; bank = 4; cpu = 0x852F },
+        [pscustomobject]@{ id = "selector-two-indexed-operand"; bank = 4; cpu = 0x863E },
+        [pscustomobject]@{ id = "sprite-chr-selector"; bank = 4; cpu = 0x856A },
+        [pscustomobject]@{ id = "geometry-pointer"; bank = 0; cpu = 0xA911 },
+        [pscustomobject]@{ id = "geometry-count"; bank = 0; cpu = 0xA9D2 },
+        [pscustomobject]@{ id = "one-page-screen-source"; bank = 1; cpu = 0xB7D5 }
+    )
+    foreach ($Spec in $SourceMutationSpecs) {
+        $Rejected = $false
         try {
-            [void]$PatchFile.Seek([int64]$PatchOffset, [System.IO.SeekOrigin]::Begin)
-            $PatchFile.WriteByte(3)
+            [System.IO.File]::Copy($ReferenceRom, $MalformedSourceRom, $true)
+            $PatchOffset = [uint64]($PrgStart + [int]$Spec.bank * 0x4000 + ([int]$Spec.cpu - 0x8000))
+            $PatchFile = [System.IO.File]::Open($MalformedSourceRom,
+                                               [System.IO.FileMode]::Open,
+                                               [System.IO.FileAccess]::ReadWrite,
+                                               [System.IO.FileShare]::None)
+            try {
+                [void]$PatchFile.Seek([int64]$PatchOffset, [System.IO.SeekOrigin]::Begin)
+                $Original = $PatchFile.ReadByte()
+                if ($Original -lt 0) { throw "Could not read finale mutation source byte." }
+                [void]$PatchFile.Seek(-1, [System.IO.SeekOrigin]::Current)
+                $PatchFile.WriteByte([byte]($Original -bxor 1))
+            } finally {
+                $PatchFile.Dispose()
+            }
+            $null = & $ExePath --build-assetpack $MalformedSourceRom $MalformedSourcePack 2>&1
+            $Rejected = $LASTEXITCODE -ne 0
         } finally {
-            $PatchFile.Dispose()
+            if (Test-Path -LiteralPath $MalformedSourcePack) { Remove-Item -LiteralPath $MalformedSourcePack -Force }
+            if (Test-Path -LiteralPath $MalformedSourceRom) { Remove-Item -LiteralPath $MalformedSourceRom -Force }
         }
-        $MalformedOutput = & $ExePath --build-assetpack $MalformedSourceRom $MalformedSourcePack 2>&1
-        $MalformedExitCode = $LASTEXITCODE
-        $SourceContractRejected = $MalformedExitCode -ne 0
-    } finally {
-        if (Test-Path -LiteralPath $MalformedSourcePack) { Remove-Item -LiteralPath $MalformedSourcePack -Force }
-        if (Test-Path -LiteralPath $MalformedSourceRom) { Remove-Item -LiteralPath $MalformedSourceRom -Force }
+        [void]$SourceMutationCases.Add([pscustomobject]@{ id = $Spec.id; rejected = $Rejected })
     }
     Add-TestResult ([pscustomobject]@{
         id = "assetpack-finale-source-contract"
-        passed = $SourceContractRejected
-        selector_two_operand_mutated = $true
+        passed = @($SourceMutationCases | Where-Object { !$_.rejected }).Count -eq 0
+        cases = $SourceMutationCases.ToArray()
         malformed_rom_persisted = $false
         malformed_assetpack_persisted = $false
         raw_output_persisted = $false
@@ -1393,6 +1414,8 @@ try {
                 $MalformedCases = [System.Collections.Generic.List[object]]::new()
                 $MalformedSpecs = @(
                     [pscustomobject]@{ id = "reserved"; mutate = { param([byte[]]$Data) $Data[116] = 1 } },
+                    [pscustomobject]@{ id = "header-offset-high-reserved"; mutate = { param([byte[]]$Data) $Data[106] = 1 } },
+                    [pscustomobject]@{ id = "post-anchor-reserved"; mutate = { param([byte[]]$Data) $Data[58246] = 1 } },
                     [pscustomobject]@{ id = "offset"; mutate = {
                         param([byte[]]$Data)
                         [Array]::Copy([System.BitConverter]::GetBytes([uint32]193), 0, $Data, 20, 4)
@@ -1403,13 +1426,20 @@ try {
                     } },
                     [pscustomobject]@{ id = "group"; mutate = { param([byte[]]$Data) $Data[57964] = 7 } },
                     [pscustomobject]@{ id = "palette"; mutate = { param([byte[]]$Data) $Data[57792] = 0x40 } },
+                    [pscustomobject]@{ id = "route"; mutate = { param([byte[]]$Data) $Data[58188 + 2] = 7 } },
+                    [pscustomobject]@{ id = "band"; mutate = { param([byte[]]$Data) $Data[58296 + 4] = 7 } },
                     [pscustomobject]@{ id = "title-order"; mutate = { param([byte[]]$Data) $Data[58344] = 0 } },
                     [pscustomobject]@{ id = "title-reserved"; mutate = { param([byte[]]$Data) $Data[58344 + 28] = 1 } },
+                    [pscustomobject]@{ id = "chr-range"; mutate = {
+                        param([byte[]]$Data)
+                        [Array]::Copy([System.BitConverter]::GetBytes([uint32]([uint64]$ExpectedChrBanks * 8192)), 0, $Data, 194, 4)
+                    } },
                     [pscustomobject]@{ id = "chr-alignment"; mutate = {
                         param([byte[]]$Data)
                         $Value = [System.BitConverter]::ToUInt32($Data, 194) + 1
                         [Array]::Copy([System.BitConverter]::GetBytes([uint32]$Value), 0, $Data, 194, 4)
-                    } }
+                    } },
+                    [pscustomobject]@{ id = "one-page-mirror"; mutate = { param([byte[]]$Data) $Data[192 + 960 * 6] = $Data[192 + 960 * 6] -bxor 1 } }
                 )
                 foreach ($Spec in $MalformedSpecs) {
                     $Malformed = [byte[]]$FinaleBytes.Clone()
@@ -1488,6 +1518,9 @@ try {
                 $FinaleDescriptors = @($FinaleSource.sources | Where-Object { $_.role -like "screen-descriptor-*" })
                 $FinaleStreams = @($FinaleSource.sources | Where-Object { $_.role -like "compressed-screen-*" })
                 $FinaleRouteTitle = @($FinaleSource.sources | Where-Object { $_.role -eq "route-title" } | Select-Object -First 1)
+                $FinaleSelectorImmediate = @($FinaleSource.sources | Where-Object { $_.role -eq "selector-two-immediate" } | Select-Object -First 1)
+                $FinaleSelectorIndexed = @($FinaleSource.sources | Where-Object { $_.role -eq "selector-two-indexed-operands" } | Select-Object -First 1)
+                $FinaleSpriteSelectors = @($FinaleSource.sources | Where-Object { $_.role -eq "sprite-chr-selector-writes" } | Select-Object -First 1)
                 $FinalePointer = @($FinaleSource.sources | Where-Object { $_.role -eq "sprite-pointer" } | Select-Object -First 1)
                 $FinaleStream = @($FinaleSource.sources | Where-Object { $_.role -eq "sprite-stream" } | Select-Object -First 1)
                 $FinaleTitleRecord = @($FinaleSource.sources | Where-Object { $_.role -eq "title-character-record" } | Select-Object -First 1)
@@ -1497,12 +1530,29 @@ try {
                 $ExpectedFinaleDispatchOffset = [uint64]($PassPrgStart + 4 * 0x4000 + (0x82CF - 0x8000))
                 $ExpectedFinaleTitleOffset = [uint64]($PassPrgStart + 4 * 0x4000 + (0x836B - 0x8000))
                 $ExpectedFinaleSplitOffset = [uint64]($PassPrgStart + ($ExpectedPrgBanks - 1) * 0x4000 + (0xFE14 - 0xC000))
+                $ExpectedSelectorImmediateOffset = [uint64]($PassPrgStart + 4 * 0x4000 + (0x852F - 0x8000))
+                $ExpectedSelectorIndexedCpu = @(0x863E, 0x8640, 0x8642, 0x8644)
+                $ExpectedSelectorIndexedOffsets = @($ExpectedSelectorIndexedCpu | ForEach-Object {
+                    [uint64]($PassPrgStart + 4 * 0x4000 + ($_ - 0x8000))
+                })
+                $ExpectedSpriteSelectorCpu = @(0x856A, 0x856E, 0x8572)
+                $ExpectedSpriteSelectorOffsets = @($ExpectedSpriteSelectorCpu | ForEach-Object {
+                    [uint64]($PassPrgStart + 4 * 0x4000 + ($_ - 0x8000))
+                })
+                $ActualSelectorIndexedCpu = @($FinaleSelectorIndexed.cpu_addresses | ForEach-Object { [int]$_ })
+                $ActualSelectorIndexedOffsets = @($FinaleSelectorIndexed.source_offsets | ForEach-Object { [uint64]$_ })
+                $ActualSpriteSelectorCpu = @($FinaleSpriteSelectors.cpu_addresses | ForEach-Object { [int]$_ })
+                $ActualSpriteSelectorOffsets = @($FinaleSpriteSelectors.source_offsets | ForEach-Object { [uint64]$_ })
+                $ActualSpriteSelectors = @($FinaleSpriteSelectors.selectors | ForEach-Object { [int]$_ })
                 $FinaleSourcePassed = $FinaleSource.Count -eq 1 -and
                     $FinaleSource.schema -eq "tecmo.intro.finale/TFIN-1" -and
                     $FinaleRoles -contains "dispatch" -and $FinaleRoles -contains "route-opening" -and
                     $FinaleRoles -contains "route-short-loop" -and $FinaleRoles -contains "route-selector-two" -and
                     $FinaleRoles -contains "route-staged" -and $FinaleRoles -contains "route-title" -and
-                    $FinaleRoles -contains "short-anchor-tables" -and $FinaleRoles -contains "selector-two-operands" -and
+                    $FinaleRoles -contains "short-anchor-tables" -and
+                    $FinaleRoles -contains "selector-two-immediate" -and
+                    $FinaleRoles -contains "selector-two-indexed-operands" -and
+                    $FinaleRoles -contains "sprite-chr-selector-writes" -and
                     $FinaleRoles -contains "short-staged-sprite-palette" -and
                     $FinaleRoles -contains "selector-two-sprite-palette" -and
                     $FinaleRoles -contains "title-character-record" -and $FinaleRoles -contains "glyph-map" -and
@@ -1511,6 +1561,19 @@ try {
                     (@(Compare-Object $ExpectedFinaleDescriptorCpu $ActualFinaleDescriptorCpu)).Count -eq 0 -and
                     [uint64]$FinaleSource.sources[0].source_offset -eq $ExpectedFinaleDispatchOffset -and
                     $FinaleRouteTitle.Count -eq 1 -and [int]$FinaleRouteTitle.cpu_address -eq 0x8310 -and
+                    $FinaleSelectorImmediate.Count -eq 1 -and
+                    [int]$FinaleSelectorImmediate.cpu_address -eq 0x852F -and
+                    [int]$FinaleSelectorImmediate.size -eq 1 -and
+                    [int]$FinaleSelectorImmediate.selector -eq 2 -and
+                    [uint64]$FinaleSelectorImmediate.source_offset -eq $ExpectedSelectorImmediateOffset -and
+                    $FinaleSelectorIndexed.Count -eq 1 -and
+                    [int]$FinaleSelectorIndexed.selector -eq 2 -and
+                    ($ActualSelectorIndexedCpu -join ",") -eq ($ExpectedSelectorIndexedCpu -join ",") -and
+                    ($ActualSelectorIndexedOffsets -join ",") -eq ($ExpectedSelectorIndexedOffsets -join ",") -and
+                    $FinaleSpriteSelectors.Count -eq 1 -and
+                    ($ActualSpriteSelectorCpu -join ",") -eq ($ExpectedSpriteSelectorCpu -join ",") -and
+                    ($ActualSpriteSelectorOffsets -join ",") -eq ($ExpectedSpriteSelectorOffsets -join ",") -and
+                    ($ActualSpriteSelectors -join ",") -eq (@(0x91, 0x93, 0x95) -join ",") -and
                     $FinalePointer.Count -eq 1 -and [int]$FinalePointer.cpu_address -eq 0xA911 -and
                     [int]$FinalePointer.size -eq 2 -and
                     $FinaleStream.Count -eq 1 -and [int]$FinaleStream.cpu_address -eq 0xA9D2 -and
@@ -1518,7 +1581,8 @@ try {
                     $FinaleTitleRecord.Count -eq 1 -and [int]$FinaleTitleRecord.cpu_address -eq 0x836B -and
                     [int]$FinaleTitleRecord.size -eq 26 -and [uint64]$FinaleTitleRecord.source_offset -eq $ExpectedFinaleTitleOffset -and
                     $FinaleSplit.Count -eq 1 -and [int]$FinaleSplit.cpu_address -eq 0xFE14 -and
-                    [int]$FinaleSplit.size -eq 49 -and [uint64]$FinaleSplit.source_offset -eq $ExpectedFinaleSplitOffset -and
+                    [int]$FinaleSplit.end_cpu_address -eq 0xFE91 -and
+                    [int]$FinaleSplit.size -eq 126 -and [uint64]$FinaleSplit.source_offset -eq $ExpectedFinaleSplitOffset -and
                     [int]$FinaleSource.native_contract.screen_layers -eq 5 -and
                     [int]$FinaleSource.native_contract.pages_per_layer -eq 2 -and
                     @($FinaleSource.native_contract.one_page_mirror_layers).Count -eq 2 -and

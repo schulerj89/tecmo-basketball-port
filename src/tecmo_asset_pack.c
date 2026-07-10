@@ -270,7 +270,20 @@
 #define TECMO_ASSET_PACK_FINALE_GLYPH_MAP_CPU 0xA273U
 #define TECMO_ASSET_PACK_FINALE_GLYPH_TABLE_CPU 0xAF05U
 #define TECMO_ASSET_PACK_FINALE_FIXED_IRQ_CPU 0xFE14U
-#define TECMO_ASSET_PACK_FINALE_FIXED_IRQ_SIZE 49U
+#define TECMO_ASSET_PACK_FINALE_FIXED_IRQ_SIZE 126U
+#define TECMO_ASSET_PACK_FINALE_BANK04_FINGERPRINT_CPU 0x82CFU
+#define TECMO_ASSET_PACK_FINALE_BANK04_FINGERPRINT_SIZE 913U
+#define TECMO_ASSET_PACK_FINALE_BANK04_FINGERPRINT 0xFAEF1D02U
+#define TECMO_ASSET_PACK_FINALE_DESCRIPTOR_FINGERPRINT_CPU 0xDC85U
+#define TECMO_ASSET_PACK_FINALE_DESCRIPTOR_FINGERPRINT_SIZE 322U
+#define TECMO_ASSET_PACK_FINALE_DESCRIPTOR_FINGERPRINT 0x66D469E1U
+#define TECMO_ASSET_PACK_FINALE_IRQ_FINGERPRINT 0xE688E7F2U
+#define TECMO_ASSET_PACK_FINALE_GEOMETRY_FINGERPRINT 0xE0B9063FU
+#define TECMO_ASSET_PACK_FINALE_TITLE_HANDLER_CPU 0x9E50U
+#define TECMO_ASSET_PACK_FINALE_TITLE_HANDLER_SIZE 90U
+#define TECMO_ASSET_PACK_FINALE_TITLE_HANDLER_FINGERPRINT 0x9E459370U
+#define TECMO_ASSET_PACK_FINALE_CHAR_MAP_FINGERPRINT_SIZE 48U
+#define TECMO_ASSET_PACK_FINALE_CHAR_MAP_FINGERPRINT 0xBC264779U
 
 typedef struct TecmoAssetPackBuildEntry {
     char id[TECMO_ASSET_PACK_ID_SIZE];
@@ -382,10 +395,13 @@ typedef struct TecmoFinaleProvenance {
     TecmoFinaleScreenProvenance screens[TECMO_ASSET_PACK_FINALE_SCREEN_COUNT];
     uint64_t route_offsets[TECMO_ASSET_PACK_FINALE_ROUTE_COUNT];
     uint64_t short_anchor_table_offset;
-    uint64_t reverse_operand_offset;
+    uint64_t reverse_selector_offset;
+    uint64_t reverse_indexed_operand_offset[4];
     uint64_t sprite_pointer_offset;
     uint64_t sprite_stream_offset;
     uint64_t sprite_palette_offset[TECMO_ASSET_PACK_FINALE_GROUP_COUNT];
+    uint64_t sprite_chr_selector_offset[3];
+    uint8_t sprite_chr_selector[3];
     uint64_t title_code_offset;
     uint64_t title_source_offset;
     uint64_t glyph_map_offset;
@@ -550,6 +566,16 @@ static uint32_t read_u32(const uint8_t *bytes)
 static uint16_t read_u16(const uint8_t *bytes)
 {
     return (uint16_t)((uint16_t)bytes[0] | ((uint16_t)bytes[1] << 8U));
+}
+
+static uint32_t fnv1a32(const uint8_t *bytes, size_t byte_count)
+{
+    uint32_t hash = 2166136261U;
+    for (size_t i = 0U; i < byte_count; ++i) {
+        hash ^= bytes[i];
+        hash *= 16777619U;
+    }
+    return hash;
 }
 
 static uint64_t read_u64(const uint8_t *bytes)
@@ -2808,50 +2834,61 @@ static int build_pass_transition(const uint8_t *rom,
     return 0;
 }
 
-static const TecmoRomByteContract FINALE_BANK04_CONTRACT[] = {
-    {0x82DBU,0x1CU},{0x82DCU,0x85U},{0x82DDU,0xEAU},{0x82DEU,0x83U},
-    {0x82DFU,0x2EU},{0x82E0U,0x85U},{0x82E1U,0xAEU},{0x82E2U,0x83U},
-    {0x82E3U,0x10U},{0x82E4U,0x83U},{0x82E5U,0xFFU},{0x82E6U,0xFFU},
-    {0x82EDU,0x32U},{0x82EEU,0x1EU},{0x82EFU,0x00U},
-    {0x82F0U,0x4BU},{0x82F1U,0x01U},
-    {0x8310U,0xA9U},{0x8311U,0x2DU},{0x8312U,0x20U},
-    {0x8331U,0xE0U},{0x8332U,0x1AU},{0x8335U,0xBCU},{0x8336U,0x6BU},{0x8337U,0x83U},
-    {0x8362U,0xC9U},{0x8363U,0x2CU},
-    {0x83AEU,0xA9U},{0x83AFU,0x22U},{0x83D7U,0xA0U},{0x83D8U,0x2CU},
-    {0x83D9U,0xA9U},{0x83DAU,0x30U},
-    {0x83EAU,0xA9U},{0x83EBU,0x20U},{0x83F0U,0xF8U},
-    {0x8427U,0xA9U},{0x8428U,0x02U},{0x845CU,0xE6U},{0x845DU,0x88U},
-    {0x8463U,0x8EU},{0x8464U,0x8EU},{0x8465U,0x8EU},{0x8466U,0x8EU},
-    {0x8473U,0x46U},{0x8474U,0x80U},{0x8475U,0xBEU},{0x8476U,0xF0U},
-    {0x851CU,0xA9U},{0x851DU,0x1CU},
-    {0x852EU,0xA9U},{0x852FU,0x02U},{0x8530U,0x8DU},
-    {0x8531U,0xE9U},{0x8532U,0x07U},{0x8533U,0xD0U},
-    {0x854FU,0xAEU},{0x8550U,0xE9U},{0x8551U,0x07U},
-    {0x8552U,0xBDU},{0x8553U,0x3CU},{0x8554U,0x86U},
-    {0x8589U,0xA9U},{0x858AU,0x12U},{0x85C7U,0xA9U},{0x85C8U,0x1EU},
-    {0x8645U,0x85U},{0x8646U,0x09U},{0x8647U,0x84U},{0x8648U,0x0BU},
-    {0x864FU,0xA9U},{0x8650U,0x01U},{0x8653U,0x85U},{0x8654U,0x2EU}
-};
+static int validate_finale_fingerprint(const uint8_t *rom,
+                                       uint64_t rom_size,
+                                       uint64_t source_offset,
+                                       size_t byte_count,
+                                       uint32_t expected,
+                                       const char *role,
+                                       char *message,
+                                       size_t message_size)
+{
+    if (source_offset > rom_size || (uint64_t)byte_count > rom_size - source_offset ||
+        fnv1a32(rom + (size_t)source_offset, byte_count) != expected) {
+        set_messagef(message,
+                     message_size,
+                     "Finale %s revision fingerprint mismatch.",
+                     role);
+        return -1;
+    }
+    return 0;
+}
 
-static const TecmoRomByteContract FINALE_FIXED_CONTRACT[] = {
-    {0xFE14U,0x48U},{0xFE17U,0xA9U},{0xFE18U,0x17U},
-    {0xFE23U,0xA5U},{0xFE24U,0x34U},{0xFE27U,0xA5U},{0xFE28U,0x3AU},
-    {0xFE2BU,0xA5U},{0xFE2CU,0x34U},{0xFE2EU,0xE9U},{0xFE2FU,0x08U},
-    {0xFE3AU,0xA9U},{0xFE3BU,0x47U},{0xFE3FU,0xFEU},
-    {0xFE42U,0xA2U},{0xFE43U,0x01U},{0xFE44U,0x4CU},
-    {0xFE47U,0x48U},{0xFE4AU,0xA9U},{0xFE4BU,0xC8U}
-};
+static int read_finale_chr_selector_write(const uint8_t *rom,
+                                          uint64_t rom_size,
+                                          uint64_t bank04_offset,
+                                          uint16_t instruction_cpu,
+                                          uint8_t destination,
+                                          uint8_t *selector_out,
+                                          uint64_t *operand_offset_out)
+{
+    uint64_t offset = bank04_offset + (instruction_cpu - 0x8000U);
+    if (offset + 4U > rom_size || rom[(size_t)offset] != 0xA9U ||
+        rom[(size_t)offset + 2U] != 0x85U ||
+        rom[(size_t)offset + 3U] != destination) {
+        return -1;
+    }
+    *selector_out = rom[(size_t)offset + 1U];
+    *operand_offset_out = offset + 1U;
+    return 0;
+}
 
 static int validate_finale_source_contract(const uint8_t *rom,
                                            uint64_t rom_size,
                                            uint64_t prg_offset,
                                            uint32_t prg_banks,
+                                           int enforce_revision_fingerprints,
+                                           uint8_t chr_selectors_out[3],
+                                           uint64_t chr_selector_offsets_out[3],
                                            char *message,
                                            size_t message_size)
 {
     uint64_t bank04_offset;
     uint64_t fixed_offset;
     uint64_t bank00_offset;
+    uint64_t bank06_offset;
+    uint8_t comparison_selector;
+    uint64_t comparison_offset;
 
     if (prg_banks <= 6U) {
         set_message(message, message_size, "Finale import requires Banks 00, 04, 06 and fixed PRG.");
@@ -2859,21 +2896,118 @@ static int validate_finale_source_contract(const uint8_t *rom,
     }
     bank00_offset = prg_offset;
     bank04_offset = prg_offset + 4ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES;
+    bank06_offset = prg_offset + 6ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES;
     fixed_offset = prg_offset + (uint64_t)(prg_banks - 1U) * TECMO_ASSET_PACK_PRG_BANK_BYTES;
-    for (size_t i = 0U; i < sizeof(FINALE_BANK04_CONTRACT) / sizeof(FINALE_BANK04_CONTRACT[0]); ++i) {
-        uint64_t offset = bank04_offset + (FINALE_BANK04_CONTRACT[i].cpu - 0x8000U);
-        if (offset >= rom_size || rom[(size_t)offset] != FINALE_BANK04_CONTRACT[i].value) {
-            set_message(message, message_size, "Finale Bank04 route source-contract mismatch.");
+    if (enforce_revision_fingerprints != 0) {
+        if (validate_finale_fingerprint(
+                rom, rom_size,
+                bank04_offset + (TECMO_ASSET_PACK_FINALE_BANK04_FINGERPRINT_CPU - 0x8000U),
+                TECMO_ASSET_PACK_FINALE_BANK04_FINGERPRINT_SIZE,
+                TECMO_ASSET_PACK_FINALE_BANK04_FINGERPRINT,
+                "Bank04 route", message, message_size) != 0 ||
+            validate_finale_fingerprint(
+                rom, rom_size,
+                fixed_offset + (TECMO_ASSET_PACK_FINALE_DESCRIPTOR_FINGERPRINT_CPU - 0xC000U),
+                TECMO_ASSET_PACK_FINALE_DESCRIPTOR_FINGERPRINT_SIZE,
+                TECMO_ASSET_PACK_FINALE_DESCRIPTOR_FINGERPRINT,
+                "screen descriptor", message, message_size) != 0 ||
+            validate_finale_fingerprint(
+                rom, rom_size,
+                fixed_offset + (TECMO_ASSET_PACK_FINALE_FIXED_IRQ_CPU - 0xC000U),
+                TECMO_ASSET_PACK_FINALE_FIXED_IRQ_SIZE,
+                TECMO_ASSET_PACK_FINALE_IRQ_FINGERPRINT,
+                "title split", message, message_size) != 0 ||
+            validate_finale_fingerprint(
+                rom, rom_size,
+                bank00_offset + (TECMO_ASSET_PACK_FINALE_PIECE_STREAM_CPU - 0x8000U),
+                1U + TECMO_ASSET_PACK_FINALE_PIECE_COUNT * 4U,
+                TECMO_ASSET_PACK_FINALE_GEOMETRY_FINGERPRINT,
+                "sprite geometry", message, message_size) != 0 ||
+            validate_finale_fingerprint(
+                rom, rom_size,
+                bank06_offset + (TECMO_ASSET_PACK_FINALE_TITLE_HANDLER_CPU - 0x8000U),
+                TECMO_ASSET_PACK_FINALE_TITLE_HANDLER_SIZE,
+                TECMO_ASSET_PACK_FINALE_TITLE_HANDLER_FINGERPRINT,
+                "title handler", message, message_size) != 0 ||
+            validate_finale_fingerprint(
+                rom, rom_size,
+                bank06_offset + (TECMO_ASSET_PACK_FINALE_GLYPH_MAP_CPU - 0x8000U),
+                TECMO_ASSET_PACK_FINALE_CHAR_MAP_FINGERPRINT_SIZE,
+                TECMO_ASSET_PACK_FINALE_CHAR_MAP_FINGERPRINT,
+                "character map", message, message_size) != 0) {
+            return -1;
+        }
+        {
+            const uint8_t *dispatch = rom + (size_t)bank04_offset + (0x82CFU - 0x8000U);
+            const uint8_t *irq = rom + (size_t)fixed_offset +
+                                 (TECMO_ASSET_PACK_FINALE_FIXED_IRQ_CPU - 0xC000U);
+            if (read_u16(dispatch + 12U) != 0x851CU ||
+                read_u16(dispatch + 14U) != 0x83EAU ||
+                read_u16(dispatch + 16U) != 0x852EU ||
+                read_u16(dispatch + 18U) != 0x83AEU ||
+                read_u16(dispatch + 20U) != 0x8310U ||
+                read_u16(dispatch + 22U) != 0xFFFFU ||
+                dispatch[30U] != 50U || dispatch[31U] != 30U ||
+                dispatch[32U] != 0U || dispatch[33U] != 75U || dispatch[34U] != 1U ||
+                rom[(size_t)bank04_offset + (0x851CU - 0x8000U)] != 0xA9U ||
+                rom[(size_t)bank04_offset + (0x851DU - 0x8000U)] != 0x1CU ||
+                rom[(size_t)bank04_offset + (0x83EAU - 0x8000U)] != 0xA9U ||
+                rom[(size_t)bank04_offset + (0x83EBU - 0x8000U)] != 0x20U ||
+                rom[(size_t)bank04_offset + (0x83AEU - 0x8000U)] != 0xA9U ||
+                rom[(size_t)bank04_offset + (0x83AFU - 0x8000U)] != 0x22U ||
+                rom[(size_t)bank04_offset + (0x8310U - 0x8000U)] != 0xA9U ||
+                rom[(size_t)bank04_offset + (0x8311U - 0x8000U)] != 0x2DU ||
+                irq[4U] != 0x17U || irq[47U] != 0x01U ||
+                irq[55U] != 0xC8U || irq[98U] != 0x02U ||
+                irq[102U] != 0xB5U || irq[103U] != 0x33U ||
+                irq[118U] != 0x15U || irq[119U] != 0x39U ||
+                irq[123U] != 0x4CU || read_u16(irq + 124U) != 0xFDDDU) {
+                set_message(message, message_size, "Finale native route or title-band semantics mismatch.");
+                return -1;
+            }
+        }
+    }
+
+    if (read_finale_chr_selector_write(rom, rom_size, bank04_offset,
+                                       0x8569U, 0x57U,
+                                       &chr_selectors_out[0],
+                                       &chr_selector_offsets_out[0]) != 0 ||
+        read_finale_chr_selector_write(rom, rom_size, bank04_offset,
+                                       0x856DU, 0x58U,
+                                       &chr_selectors_out[1],
+                                       &chr_selector_offsets_out[1]) != 0 ||
+        read_finale_chr_selector_write(rom, rom_size, bank04_offset,
+                                       0x8571U, 0x59U,
+                                       &chr_selectors_out[2],
+                                       &chr_selector_offsets_out[2]) != 0) {
+        set_message(message, message_size, "Finale reverse-route CHR selector writes are invalid.");
+        return -1;
+    }
+    if (chr_selectors_out[0] != 0x91U ||
+        chr_selectors_out[1] != 0x93U ||
+        chr_selectors_out[2] != 0x95U) {
+        set_message(message, message_size, "Finale sprite CHR selector operands are unsupported.");
+        return -1;
+    }
+    for (size_t selector = 0U; selector < 3U; ++selector) {
+        uint16_t short_cpu = (uint16_t)(0x8402U + selector * 4U);
+        uint16_t staged_cpu = (uint16_t)(0x83C2U + selector * 4U);
+        uint8_t destination = (uint8_t)(0x57U + selector);
+        if (read_finale_chr_selector_write(rom, rom_size, bank04_offset,
+                                           short_cpu, destination,
+                                           &comparison_selector,
+                                           &comparison_offset) != 0 ||
+            comparison_selector != chr_selectors_out[selector] ||
+            read_finale_chr_selector_write(rom, rom_size, bank04_offset,
+                                           staged_cpu, destination,
+                                           &comparison_selector,
+                                           &comparison_offset) != 0 ||
+            comparison_selector != chr_selectors_out[selector]) {
+            set_message(message, message_size, "Finale scene CHR selector writes disagree.");
             return -1;
         }
     }
-    for (size_t i = 0U; i < sizeof(FINALE_FIXED_CONTRACT) / sizeof(FINALE_FIXED_CONTRACT[0]); ++i) {
-        uint64_t offset = fixed_offset + (FINALE_FIXED_CONTRACT[i].cpu - 0xC000U);
-        if (offset >= rom_size || rom[(size_t)offset] != FINALE_FIXED_CONTRACT[i].value) {
-            set_message(message, message_size, "Finale fixed split source-contract mismatch.");
-            return -1;
-        }
-    }
+
     if (bank00_offset + (TECMO_ASSET_PACK_FINALE_POINTER_TABLE_CPU - 0x8000U) + 4U > rom_size ||
         read_u16(rom + (size_t)bank00_offset +
                  (TECMO_ASSET_PACK_FINALE_POINTER_TABLE_CPU - 0x8000U) + 2U) !=
@@ -2919,6 +3053,7 @@ static int build_finale_sequence(const uint8_t *rom,
                                  uint64_t prg_offset,
                                  uint32_t prg_banks,
                                  uint64_t chr_size,
+                                 int enforce_revision_fingerprints,
                                  uint8_t payload[TECMO_ASSET_PACK_FINALE_SIZE],
                                  TecmoFinaleProvenance *provenance,
                                  char *message,
@@ -2942,7 +3077,8 @@ static int build_finale_sequence(const uint8_t *rom,
     static const uint16_t reverse_palette_frames[TECMO_ASSET_PACK_FINALE_REVERSE_PALETTE_COUNT] = {
         10U, 14U, 18U, 22U, 27U
     };
-    static const uint8_t sprite_selectors[3] = {0x91U, 0x93U, 0x95U};
+    uint8_t sprite_selectors[3];
+    uint64_t sprite_selector_offsets[3];
     uint8_t decoded[TECMO_ASSET_PACK_FINALE_SCREEN_COUNT][2048];
     uint8_t screen_r0[TECMO_ASSET_PACK_FINALE_SCREEN_COUNT];
     uint8_t screen_r1[TECMO_ASSET_PACK_FINALE_SCREEN_COUNT];
@@ -2958,12 +3094,23 @@ static int build_finale_sequence(const uint8_t *rom,
 
     if (payload == NULL || provenance == NULL || chr_size == 0U ||
         validate_finale_source_contract(rom, rom_size, prg_offset, prg_banks,
+                                        enforce_revision_fingerprints,
+                                        sprite_selectors,
+                                        sprite_selector_offsets,
                                         message, message_size) != 0) {
         return -1;
     }
     fixed_offset = prg_offset + (uint64_t)(prg_banks - 1U) * TECMO_ASSET_PACK_PRG_BANK_BYTES;
     memset(payload, 0, TECMO_ASSET_PACK_FINALE_SIZE);
     memset(provenance, 0, sizeof(*provenance));
+    for (size_t selector = 0U; selector < 3U; ++selector) {
+        if ((uint64_t)(sprite_selectors[selector] + 1U) * 1024U > chr_size) {
+            set_message(message, message_size, "Finale sprite CHR selector resolves outside chr/all.");
+            return -1;
+        }
+        provenance->sprite_chr_selector[selector] = sprite_selectors[selector];
+        provenance->sprite_chr_selector_offset[selector] = sprite_selector_offsets[selector];
+    }
 
     for (size_t screen = 0U; screen < TECMO_ASSET_PACK_FINALE_SCREEN_COUNT; ++screen) {
         uint64_t descriptor_offset = fixed_offset +
@@ -3317,7 +3464,11 @@ static int build_finale_sequence(const uint8_t *rom,
 
     provenance->dispatch_offset = bank04_offset + (0x82CFU - 0x8000U);
     provenance->short_anchor_table_offset = bank04_offset + (0x8463U - 0x8000U);
-    provenance->reverse_operand_offset = bank04_offset + (0x852EU - 0x8000U);
+    provenance->reverse_selector_offset = bank04_offset + (0x852FU - 0x8000U);
+    provenance->reverse_indexed_operand_offset[0] = bank04_offset + (0x863EU - 0x8000U);
+    provenance->reverse_indexed_operand_offset[1] = bank04_offset + (0x8640U - 0x8000U);
+    provenance->reverse_indexed_operand_offset[2] = bank04_offset + (0x8642U - 0x8000U);
+    provenance->reverse_indexed_operand_offset[3] = bank04_offset + (0x8644U - 0x8000U);
     provenance->sprite_pointer_offset = bank00_offset +
                                         (TECMO_ASSET_PACK_FINALE_POINTER_TABLE_CPU - 0x8000U) + 2U;
     provenance->sprite_stream_offset = piece_stream_offset;
@@ -3741,12 +3892,19 @@ static int append_finale_source_map_entry(char *buffer,
         "\"source_offset\":%llu,\"bank\":%u,\"cpu_address\":%u,\"size\":16},"
         "{\"role\":\"short-anchor-tables\",\"source_entry\":\"prg/bank04\","
         "\"source_offset\":%llu,\"bank\":4,\"cpu_addresses\":[33891,33907],\"size_each\":16},"
-        "{\"role\":\"selector-two-operands\",\"source_entry\":\"prg/bank04\","
-        "\"source_offset\":%llu,\"bank\":4,\"cpu_address\":34094},"
+        "{\"role\":\"selector-two-immediate\",\"source_entry\":\"prg/bank04\","
+        "\"source_offset\":%llu,\"bank\":4,\"cpu_address\":34095,\"size\":1,\"selector\":2},"
+        "{\"role\":\"selector-two-indexed-operands\",\"source_entry\":\"prg/bank04\","
+        "\"source_offsets\":[%llu,%llu,%llu,%llu],"
+        "\"bank\":4,\"cpu_addresses\":[34366,34368,34370,34372],\"selector\":2},"
         "{\"role\":\"sprite-pointer\",\"source_entry\":\"prg/bank00\","
         "\"source_offset\":%llu,\"bank\":0,\"cpu_address\":43281,\"size\":2},"
         "{\"role\":\"sprite-stream\",\"source_entry\":\"prg/bank00\","
         "\"source_offset\":%llu,\"bank\":0,\"cpu_address\":43474,\"size\":41},"
+        "{\"role\":\"sprite-chr-selector-writes\",\"source_entry\":\"prg/bank04\","
+        "\"source_offsets\":[%llu,%llu,%llu],\"bank\":4,"
+        "\"cpu_addresses\":[34154,34158,34162],\"selectors\":[%u,%u,%u],"
+        "\"validated_across\":[\"short-loop\",\"selector-two\",\"staged\"]},"
         "{\"role\":\"short-staged-sprite-palette\",\"source_entry\":\"prg/bank04\","
         "\"source_offset\":%llu,\"bank\":4,\"cpu_address\":35341,\"size\":16},"
         "{\"role\":\"selector-two-sprite-palette\",\"source_entry\":\"prg/bank04\","
@@ -3758,7 +3916,8 @@ static int append_finale_source_map_entry(char *buffer,
         "{\"role\":\"glyph-quads\",\"source_entry\":\"prg/bank06\","
         "\"source_offset\":%llu,\"bank\":6,\"cpu_address\":44805},"
         "{\"role\":\"title-split\",\"source_entry\":\"prg/fixed\","
-        "\"source_offset\":%llu,\"cpu_address\":65044,\"size\":49}],"
+        "\"source_offset\":%llu,\"cpu_address\":65044,"
+        "\"end_cpu_address\":65169,\"size\":126}],"
         "\"native_contract\":{\"screen_layers\":5,\"pages_per_layer\":2,"
         "\"one_page_mirror_layers\":[0,3],\"one_page_source_decoded_bytes\":1024,"
         "\"sprite_groups\":2,\"shared_piece_count\":10,"
@@ -3823,9 +3982,19 @@ static int append_finale_source_map_entry(char *buffer,
         provenance->screens[4].stream_bank,
         provenance->screens[4].palette_cpu,
         (unsigned long long)provenance->short_anchor_table_offset,
-        (unsigned long long)provenance->reverse_operand_offset,
+        (unsigned long long)provenance->reverse_selector_offset,
+        (unsigned long long)provenance->reverse_indexed_operand_offset[0],
+        (unsigned long long)provenance->reverse_indexed_operand_offset[1],
+        (unsigned long long)provenance->reverse_indexed_operand_offset[2],
+        (unsigned long long)provenance->reverse_indexed_operand_offset[3],
         (unsigned long long)provenance->sprite_pointer_offset,
         (unsigned long long)provenance->sprite_stream_offset,
+        (unsigned long long)provenance->sprite_chr_selector_offset[0],
+        (unsigned long long)provenance->sprite_chr_selector_offset[1],
+        (unsigned long long)provenance->sprite_chr_selector_offset[2],
+        provenance->sprite_chr_selector[0],
+        provenance->sprite_chr_selector[1],
+        provenance->sprite_chr_selector[2],
         (unsigned long long)provenance->sprite_palette_offset[0],
         (unsigned long long)provenance->sprite_palette_offset[1],
         (unsigned long long)provenance->title_source_offset,
@@ -4060,6 +4229,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                           uint32_t prg_banks,
                                           uint64_t chr_offset,
                                           uint64_t chr_size,
+                                          int enforce_finale_revision_fingerprints,
                                           TecmoArenaBackgroundProvenance *background_provenance,
                                           TecmoArenaSpriteGroupsProvenance *sprite_groups_provenance,
                                           TecmoPostArenaProvenance *post_arena_provenance,
@@ -4373,6 +4543,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                               prg_offset,
                               prg_banks,
                               chr_size,
+                              enforce_finale_revision_fingerprints,
                               finale_payload,
                               finale_provenance,
                               message,
@@ -4398,10 +4569,12 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
     return 0;
 }
 
-int tecmo_asset_pack_build_from_ines(const char *rom_path,
-                                     const char *out_path,
-                                     char *message,
-                                     size_t message_size)
+static int tecmo_asset_pack_build_from_ines_internal(
+    const char *rom_path,
+    const char *out_path,
+    int enforce_finale_revision_fingerprints,
+    char *message,
+    size_t message_size)
 {
     uint8_t *rom = NULL;
     uint64_t rom_size = 0;
@@ -4590,6 +4763,7 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
                                        prg_banks,
                                        chr_offset,
                                        chr_size,
+                                       enforce_finale_revision_fingerprints,
                                        &background_provenance,
                                        &sprite_groups_provenance,
                                        &post_arena_provenance,
@@ -4661,6 +4835,18 @@ cleanup:
     free(source_map);
     free(rom);
     return result;
+}
+
+int tecmo_asset_pack_build_from_ines(const char *rom_path,
+                                     const char *out_path,
+                                     char *message,
+                                     size_t message_size)
+{
+    return tecmo_asset_pack_build_from_ines_internal(rom_path,
+                                                      out_path,
+                                                      1,
+                                                      message,
+                                                      message_size);
 }
 
 int tecmo_asset_pack_list_entries(const char *pack_path,
@@ -5785,6 +5971,18 @@ static int self_test_ines_list_entry(const TecmoAssetPackDirectoryEntryInfo *ent
     return 0;
 }
 
+static void write_self_test_chr_selector(uint8_t *bank04,
+                                         uint16_t instruction_cpu,
+                                         uint8_t selector,
+                                         uint8_t destination)
+{
+    size_t offset = instruction_cpu - 0x8000U;
+    bank04[offset + 0U] = 0xA9U;
+    bank04[offset + 1U] = selector;
+    bank04[offset + 2U] = 0x85U;
+    bank04[offset + 3U] = destination;
+}
+
 int tecmo_asset_pack_self_test(char *message, size_t message_size)
 {
     static const uint8_t memory_entry_bytes[] = {0x00U, 0x01U, 0x7FU, 0x80U, 0xFFU};
@@ -5839,6 +6037,17 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                         32ULL * TECMO_ASSET_PACK_CHR_BANK_BYTES;
     size_t dump_size = 0U;
     int result = -1;
+
+    {
+        uint8_t space_tile = 0U;
+        uint8_t period_tile = 0U;
+        if (finale_title_char_to_tile(NULL, 0U, 0U, 0x20U, &space_tile) != 0 ||
+            finale_title_char_to_tile(NULL, 0U, 0U, 0x2EU, &period_tile) != 0 ||
+            space_tile != 0x18U || period_tile != 0x18U) {
+            set_message(message, message_size, "Self-test finale space/period mapping mismatch.");
+            return -1;
+        }
+    }
 
     if (message != NULL && message_size > 0U) {
         message[0] = '\0';
@@ -6109,20 +6318,6 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                          (POST_ARENA_FIXED_CONTRACT[i].cpu - 0xC000U))] =
                 POST_ARENA_FIXED_CONTRACT[i].value;
         }
-        for (size_t i = 0U;
-             i < sizeof(FINALE_BANK04_CONTRACT) / sizeof(FINALE_BANK04_CONTRACT[0]);
-             ++i) {
-            rom[(size_t)(bank04_offset +
-                         (FINALE_BANK04_CONTRACT[i].cpu - 0x8000U))] =
-                FINALE_BANK04_CONTRACT[i].value;
-        }
-        for (size_t i = 0U;
-             i < sizeof(FINALE_FIXED_CONTRACT) / sizeof(FINALE_FIXED_CONTRACT[0]);
-             ++i) {
-            rom[(size_t)(fixed_offset +
-                         (FINALE_FIXED_CONTRACT[i].cpu - 0xC000U))] =
-                FINALE_FIXED_CONTRACT[i].value;
-        }
         rom[(size_t)(fixed_offset + (0xCAF5U - 0xC000U) + 0x37U)] = 6U;
         rom[(size_t)(fixed_offset + (0xCB33U - 0xC000U) + 0x37U)] = 0xAEU;
         rom[(size_t)(fixed_offset + (0xCB71U - 0xC000U) + 0x37U)] = 0x9EU;
@@ -6373,6 +6568,43 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                 0x02U,0x01U,0x11U,0x21U,0x02U,0x02U,0x12U,0x22U,
                 0x02U,0x03U,0x13U,0x23U,0x02U,0x04U,0x14U,0x24U
             };
+            uint8_t *finale_bank04 = rom + (size_t)bank04_offset;
+            store_u16(finale_bank04 + (0x82DBU - 0x8000U), 0x851CU);
+            store_u16(finale_bank04 + (0x82DDU - 0x8000U), 0x83EAU);
+            store_u16(finale_bank04 + (0x82DFU - 0x8000U), 0x852EU);
+            store_u16(finale_bank04 + (0x82E1U - 0x8000U), 0x83AEU);
+            store_u16(finale_bank04 + (0x82E3U - 0x8000U), 0x8310U);
+            store_u16(finale_bank04 + (0x82E5U - 0x8000U), 0xFFFFU);
+            finale_bank04[0x82EDU - 0x8000U] = 50U;
+            finale_bank04[0x82EEU - 0x8000U] = 30U;
+            finale_bank04[0x82EFU - 0x8000U] = 0U;
+            finale_bank04[0x82F0U - 0x8000U] = 75U;
+            finale_bank04[0x82F1U - 0x8000U] = 1U;
+            finale_bank04[0x852FU - 0x8000U] = 2U;
+            for (size_t selector = 0U; selector < 3U; ++selector) {
+                uint8_t value = (uint8_t)(0x91U + selector * 2U);
+                uint8_t destination = (uint8_t)(0x57U + selector);
+                write_self_test_chr_selector(finale_bank04,
+                                             (uint16_t)(0x83C2U + selector * 4U),
+                                             value,
+                                             destination);
+                write_self_test_chr_selector(finale_bank04,
+                                             (uint16_t)(0x8402U + selector * 4U),
+                                             value,
+                                             destination);
+                write_self_test_chr_selector(finale_bank04,
+                                             (uint16_t)(0x8569U + selector * 4U),
+                                             value,
+                                             destination);
+            }
+            for (size_t anchor = 0U; anchor < 4U; ++anchor) {
+                finale_bank04[0x8463U - 0x8000U + anchor] =
+                    (uint8_t)(0x80U + anchor * 8U);
+                finale_bank04[0x8473U - 0x8000U + anchor] =
+                    (uint8_t)(0x40U + anchor * 16U);
+            }
+            finale_bank04[0x83D8U - 0x8000U] = 0x2CU;
+            finale_bank04[0x83DAU - 0x8000U] = 0x30U;
             for (size_t screen = 0U; screen < TECMO_ASSET_PACK_FINALE_SCREEN_COUNT; ++screen) {
                 uint8_t *descriptor = rom + (size_t)(fixed_offset +
                     (TECMO_ASSET_PACK_SCREEN_DESCRIPTOR_CPU - 0xC000U) +
@@ -6453,7 +6685,11 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         set_message(message, message_size, "Self-test could not write temporary iNES ROM.");
         goto cleanup;
     }
-    if (tecmo_asset_pack_build_from_ines(rom_path, ines_pack_path, message, message_size) != 0) {
+    if (tecmo_asset_pack_build_from_ines_internal(rom_path,
+                                                  ines_pack_path,
+                                                  0,
+                                                  message,
+                                                  message_size) != 0) {
         goto cleanup;
     }
 
@@ -6594,7 +6830,7 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
                                       message_size) != 0 ||
         self_test_entry_contains_text(ines_pack_path,
                                       "system/source-map",
-                                      "\"role\":\"selector-two-operands\"",
+                                      "\"role\":\"selector-two-indexed-operands\"",
                                       message,
                                       message_size) != 0 ||
         self_test_entry_contains_text(ines_pack_path,
