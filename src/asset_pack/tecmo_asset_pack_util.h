@@ -27,6 +27,16 @@ uint32_t tecmo_asset_pack_read_u32(const uint8_t *bytes);
 uint32_t tecmo_asset_pack_fnv1a32(const uint8_t *bytes, size_t byte_count);
 void tecmo_asset_pack_store_u16(uint8_t *bytes, uint16_t value);
 void tecmo_asset_pack_store_u32(uint8_t *bytes, uint32_t value);
+uint8_t tecmo_asset_pack_imported_fade_color(uint8_t color, uint8_t reduction);
+uint8_t tecmo_asset_pack_decoded_palette_index(const uint8_t *page,
+                                                unsigned row,
+                                                unsigned col);
+int tecmo_asset_pack_validate_chr_pair(uint8_t r0,
+                                       uint8_t r1,
+                                       uint64_t chr_size,
+                                       const char *pair_name,
+                                       char *message,
+                                       size_t message_size);
 
 TecmoAssetPackEntryInfo tecmo_asset_pack_make_entry_info(
     const char *id,

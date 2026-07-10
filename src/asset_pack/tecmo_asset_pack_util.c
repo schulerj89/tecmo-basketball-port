@@ -1,6 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include "tecmo_asset_pack_util.h"
+#include "tecmo_asset_pack_import_layout.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -116,6 +117,46 @@ void tecmo_asset_pack_store_u32(uint8_t *bytes, uint32_t value)
     bytes[1] = (uint8_t)((value >> 8U) & 0xFFU);
     bytes[2] = (uint8_t)((value >> 16U) & 0xFFU);
     bytes[3] = (uint8_t)((value >> 24U) & 0xFFU);
+}
+
+uint8_t tecmo_asset_pack_imported_fade_color(uint8_t color, uint8_t reduction)
+{
+    if (color == 0x0FU) {
+        return color;
+    }
+    return (color & 0x30U) >= reduction ? (uint8_t)(color - reduction) : 0x0FU;
+}
+
+uint8_t tecmo_asset_pack_decoded_palette_index(const uint8_t *page,
+                                                unsigned row,
+                                                unsigned col)
+{
+    size_t attribute_index = TECMO_ASSET_PACK_ATTRIBUTE_OFFSET +
+                             (size_t)(row / 4U) * 8U + col / 4U;
+    unsigned shift = ((row & 2U) != 0U ? 4U : 0U) +
+                     ((col & 2U) != 0U ? 2U : 0U);
+    return (uint8_t)((page[attribute_index] >> shift) & 3U);
+}
+
+int tecmo_asset_pack_validate_chr_pair(uint8_t r0,
+                                       uint8_t r1,
+                                       uint64_t chr_size,
+                                       const char *pair_name,
+                                       char *message,
+                                       size_t message_size)
+{
+    if ((r0 & 1U) != 0U || (r1 & 1U) != 0U ||
+        ((uint64_t)r0 + 2U) * 1024U > chr_size ||
+        ((uint64_t)r1 + 2U) * 1024U > chr_size) {
+        tecmo_asset_pack_set_messagef(message,
+                                      message_size,
+                                      "Arena %s CHR selectors %u/%u are not valid even 2KB-bank selectors.",
+                                      pair_name,
+                                      (unsigned int)r0,
+                                      (unsigned int)r1);
+        return -1;
+    }
+    return 0;
 }
 
 TecmoAssetPackEntryInfo tecmo_asset_pack_make_entry_info(
