@@ -126,6 +126,18 @@ Asset-pack entries should move toward native names, for example:
 Temporary capture-shaped entries may remain only as migration aids until the
 native scene is validated.
 
+The TECMO/rabbit and NBA opening screens are native ROM-only scenes. The
+importer emits `intro/tecmo-presents-screen` and `intro/nba-license-screen` as
+TISC-1. The first combines decoded screen `$00` background cells with the
+20-piece ROM rabbit OAM compositor, exact background/sprite palettes, resolved
+`chr/all` offsets, and its nine-stage fade schedule. The NBA entry contains
+decoded screen `$02`, its background palette, and the six-stage delayed fade
+schedule; it has no sprites. Runtime must reject malformed TISC-1 data and CHR
+fingerprint mismatches without falling back to the former hardcoded tables or
+loose trace JSON. The exact native handoffs are title-to-license frame 133 and
+license-to-arena frame 277. Loose trace parsing is opt-in diagnostic
+scaffolding only via `TECMO_ALLOW_LOOSE_INTRO_TRACE=1`.
+
 The arena background is now on the native path: the ROM importer decodes
 screen `$18` into a versioned `TecmoArenaTileLayer` with exact tile IDs,
 attribute-derived palette indexes, background palette bytes, and resolved CHR

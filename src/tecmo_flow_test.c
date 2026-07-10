@@ -5,6 +5,11 @@
 #include <string.h>
 
 #define FLOW_INTRO_ARENA_BANK04_HANDOFF_FRAME 540U
+#define FLOW_INTRO_TITLE_STEP 6U
+#define FLOW_INTRO_LICENSE_STEP 7U
+#define FLOW_INTRO_ARENA_STEP 8U
+#define FLOW_INTRO_TITLE_HANDOFF_FRAME 133U
+#define FLOW_INTRO_LICENSE_HANDOFF_FRAME 277U
 
 static const char *flow_mode_name(TecmoPlayMode mode)
 {
@@ -200,6 +205,47 @@ static bool flow_expect_arena_bank04_handoff_frame(char *message, size_t message
     return true;
 }
 
+static bool flow_expect_opening_handoff_frames(TecmoRuntime *runtime,
+                                               char *message,
+                                               size_t message_size)
+{
+    TecmoInput input;
+    memset(&input, 0, sizeof(input));
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_FIRST_SPRITE);
+    runtime->intro_output_step = FLOW_INTRO_TITLE_STEP;
+    runtime->mode_frame_counter = FLOW_INTRO_TITLE_HANDOFF_FRAME - 2U;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->intro_output_step != FLOW_INTRO_TITLE_STEP ||
+        runtime->mode_frame_counter != FLOW_INTRO_TITLE_HANDOFF_FRAME - 1U) {
+        set_flow_test_message(message, message_size, "title left before native frame 133");
+        return false;
+    }
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->intro_output_step != FLOW_INTRO_LICENSE_STEP ||
+        runtime->mode_frame_counter != 0U) {
+        set_flow_test_message(message, message_size, "title did not hand off at native frame 133");
+        return false;
+    }
+
+    runtime->mode_frame_counter = FLOW_INTRO_LICENSE_HANDOFF_FRAME - 2U;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->intro_output_step != FLOW_INTRO_LICENSE_STEP ||
+        runtime->mode_frame_counter != FLOW_INTRO_LICENSE_HANDOFF_FRAME - 1U) {
+        set_flow_test_message(message, message_size, "license left before native frame 277");
+        return false;
+    }
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->intro_output_step != FLOW_INTRO_ARENA_STEP ||
+        runtime->mode_frame_counter != 0U) {
+        set_flow_test_message(message, message_size, "license did not hand off at native frame 277");
+        return false;
+    }
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
+    return true;
+}
+
 bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t message_size)
 {
     TecmoInput input;
@@ -214,6 +260,9 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     }
     if (runtime->team_count == 0U) {
         set_flow_test_message(message, message_size, "no roster teams loaded");
+        return false;
+    }
+    if (!flow_expect_opening_handoff_frames(runtime, message, message_size)) {
         return false;
     }
 
@@ -245,7 +294,7 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     previous_intro_step = runtime->intro_output_step;
     if (!flow_wait_for_intro_step_advance(runtime,
                                           previous_intro_step,
-                                          180U,
+                                          300U,
                                           "play game did not advance to arena intro step",
                                           message,
                                           message_size)) {

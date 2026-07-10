@@ -8,6 +8,7 @@
 #include "tecmo_intro_finale.h"
 #include "tecmo_intro_layout.h"
 #include "tecmo_intro_post_arena.h"
+#include "tecmo_intro_screen.h"
 #include "tecmo_intro_stage.h"
 #include "tecmo_intro_trace.h"
 #include "tecmo_memory.h"
@@ -63,6 +64,8 @@ typedef struct TecmoRuntime {
     TecmoIntroBucksAsset intro_bucks_asset;
     TecmoIntroPassAsset intro_pass_asset;
     TecmoIntroFinaleAsset intro_finale_asset;
+    TecmoIntroScreenAsset intro_presents_asset;
+    TecmoIntroScreenAsset intro_license_asset;
     char intro_l88e7_irq_vector[16];
     char intro_presents_data_cpu[16];
     bool intro_trace_available;
@@ -106,7 +109,10 @@ void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebu
 bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t message_size);
 void tecmo_render_original_title_probe(TecmoFramebuffer *framebuffer, const char *title_text);
 void tecmo_render_intro_c051_d861_model(TecmoFramebuffer *framebuffer);
-void tecmo_render_intro_license_screen(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
+bool tecmo_render_intro_presents_screen(const TecmoRuntime *runtime,
+                                        TecmoFramebuffer *framebuffer);
+bool tecmo_render_intro_license_screen(const TecmoRuntime *runtime,
+                                       TecmoFramebuffer *framebuffer);
 bool tecmo_render_intro_arena_transition(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 bool tecmo_render_intro_ready_screen(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 bool tecmo_render_intro_warriors_transition(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);

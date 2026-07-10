@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "tecmo_game.h"
 
 #include <stdbool.h>
@@ -329,6 +331,7 @@ static void append_runtime_path(char *dest, size_t dest_size, const char *root, 
 
 void tecmo_intro_trace_load(TecmoRuntime *runtime, const char *project_root)
 {
+    const char *allow_loose_trace;
     char project_trace_path[TECMO_MAX_PATH_TEXT];
     char cwd_trace_path[TECMO_MAX_PATH_TEXT];
     const char *trace_paths[4];
@@ -345,7 +348,15 @@ void tecmo_intro_trace_load(TecmoRuntime *runtime, const char *project_root)
     runtime->intro_presents_data_cpu[0] = '\0';
     set_intro_trace_status(runtime->intro_trace_status,
                            sizeof(runtime->intro_trace_status),
-                           "RUN TOOLS FIND-INTROCOMPOSITETRACE FIRST");
+                           "LOOSE INTRO TRACE DISABLED");
+
+    allow_loose_trace = getenv("TECMO_ALLOW_LOOSE_INTRO_TRACE");
+    if (allow_loose_trace == NULL || strcmp(allow_loose_trace, "1") != 0) {
+        return;
+    }
+    set_intro_trace_status(runtime->intro_trace_status,
+                           sizeof(runtime->intro_trace_status),
+                           "LOOSE INTRO TRACE ENABLED BUT UNAVAILABLE");
 
     append_runtime_path(project_trace_path,
                         sizeof(project_trace_path),

@@ -471,6 +471,8 @@ try {
         "arena/intro/clippers-transition",
         "arena/intro/bucks-transition",
         "arena/intro/pass-transition",
+        "intro/tecmo-presents-screen",
+        "intro/nba-license-screen",
         "intro/finale-sequence"
     )
     $ForbiddenCaptureEntries = @("intro/arena/capture.ndjson", "intro/post-arena/capture.ndjson", "intro/captures/source-map")
@@ -494,6 +496,172 @@ try {
         present_forbidden_capture_entries = $PresentForbiddenCaptureEntries
         raw_output_persisted = $false
         error = if ($ListPassed) { $null } else { "ROM-only test asset pack is missing native arena entries or contains capture entries" }
+    })
+
+    $OpeningRenderCases = @(
+        [pscustomobject]@{
+            mode = "play-step6"
+            state = "intro-opening-state kind=tecmo-presents frame=16 palette=4 duration=133"
+        },
+        [pscustomobject]@{
+            mode = "intro-license"
+            state = "intro-opening-state kind=nba-license frame=48 palette=4 duration=277"
+        },
+        [pscustomobject]@{
+            mode = "play-step7"
+            state = "intro-opening-state kind=nba-license frame=48 palette=4 duration=277"
+        }
+    )
+    $OpeningRenderOutputs = New-Object System.Collections.Generic.List[object]
+    $OpeningRenderPassed = $ListPassed
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    $PreviousLooseIntroTrace = $env:TECMO_ALLOW_LOOSE_INTRO_TRACE
+    $OpeningIsolatedRoot = Join-Path $OutputDir `
+        ("opening_rom_only_root-" + [Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Force -Path $OpeningIsolatedRoot | Out-Null
+    try {
+        $env:TECMO_ASSETPACK = $AssetPackPath
+        Remove-Item Env:TECMO_ALLOW_LOOSE_INTRO_TRACE -ErrorAction SilentlyContinue
+        foreach ($OpeningCase in $OpeningRenderCases) {
+            $RenderPath = Join-Path $OutputDir "$($OpeningCase.mode)-rom-only.png"
+            Remove-Item -LiteralPath $RenderPath -Force -ErrorAction SilentlyContinue
+            $RenderOutput = & $ExePath --root $OpeningIsolatedRoot `
+                --render-test-mode $OpeningCase.mode $RenderPath 2>&1
+            $RenderExitCode = $LASTEXITCODE
+            $RenderText = (@($RenderOutput) | ForEach-Object { [string]$_ }) -join "`n"
+            $RenderCreated = Test-Path -LiteralPath $RenderPath
+            $NativeSourceSeen = $RenderText -match
+                "intro-opening-render-source presents=1 license=1 chr=1 schema=TISC-1 loose_trace=0"
+            $StateSeen = $RenderText.Contains($OpeningCase.state)
+            $ModePassed = $RenderExitCode -eq 0 -and $RenderCreated -and
+                $NativeSourceSeen -and $StateSeen
+            if (!$ModePassed) { $OpeningRenderPassed = $false }
+            $OpeningRenderOutputs.Add([pscustomobject]@{
+                mode = $OpeningCase.mode
+                output = Get-RepoRelativePath $RenderPath
+                passed = $ModePassed
+                exit_code = $RenderExitCode
+                native_source_seen = $NativeSourceSeen
+                state_seen = $StateSeen
+                loose_trace_disabled = $NativeSourceSeen
+                isolated_root = $true
+            })
+        }
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+        if ($null -eq $PreviousLooseIntroTrace) {
+            Remove-Item Env:TECMO_ALLOW_LOOSE_INTRO_TRACE -ErrorAction SilentlyContinue
+        } else {
+            $env:TECMO_ALLOW_LOOSE_INTRO_TRACE = $PreviousLooseIntroTrace
+        }
+        Remove-Item -LiteralPath $OpeningIsolatedRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    if (!$OpeningRenderPassed) { ++$Failures }
+    $Results.Add([pscustomobject]@{
+        id = "intro-opening-rom-only-render"
+        passed = $OpeningRenderPassed
+        skipped = $false
+        outputs = $OpeningRenderOutputs
+        rom_only_asset_pack = $AssetPackRelative
+        loose_trace_disabled = $true
+        isolated_from_trace_and_decomp = $true
+        raw_output_persisted = $false
+        error = if ($OpeningRenderPassed) { $null } else { "ROM-only TECMO/NBA opening render failed or used loose trace data" }
+    })
+
+    $OpeningNegativeSpecs = @(
+        [pscustomobject]@{ id = "presents-missing"; entry = "intro/tecmo-presents-screen"; mode = "play-step6"; mutation = "missing"; marker = "presents=0 license=1" },
+        [pscustomobject]@{ id = "presents-bad-magic"; entry = "intro/tecmo-presents-screen"; mode = "play-step6"; mutation = "bad-magic"; marker = "presents=0 license=1" },
+        [pscustomobject]@{ id = "presents-bad-layout"; entry = "intro/tecmo-presents-screen"; mode = "play-step6"; mutation = "bad-layout"; marker = "presents=0 license=1" },
+        [pscustomobject]@{ id = "presents-bad-cell-chr"; entry = "intro/tecmo-presents-screen"; mode = "play-step6"; mutation = "bad-cell-chr"; marker = "presents=0 license=1" },
+        [pscustomobject]@{ id = "presents-bad-sprite-reserved"; entry = "intro/tecmo-presents-screen"; mode = "play-step6"; mutation = "bad-sprite-reserved"; marker = "presents=0 license=1" },
+        [pscustomobject]@{ id = "license-missing"; entry = "intro/nba-license-screen"; mode = "intro-license"; mutation = "missing"; marker = "presents=1 license=0" },
+        [pscustomobject]@{ id = "license-bad-magic"; entry = "intro/nba-license-screen"; mode = "intro-license"; mutation = "bad-magic"; marker = "presents=1 license=0" },
+        [pscustomobject]@{ id = "license-bad-layout"; entry = "intro/nba-license-screen"; mode = "play-step7"; mutation = "bad-layout"; marker = "presents=1 license=0" },
+        [pscustomobject]@{ id = "license-bad-palette"; entry = "intro/nba-license-screen"; mode = "intro-license"; mutation = "bad-palette"; marker = "presents=1 license=0" },
+        [pscustomobject]@{ id = "license-bad-frame"; entry = "intro/nba-license-screen"; mode = "play-step7"; mutation = "bad-frame"; marker = "presents=1 license=0" }
+    )
+    $OpeningNegativeResults = New-Object System.Collections.Generic.List[object]
+    $OpeningNegativePassed = $PackBuildPassed
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    $PreviousLooseIntroTrace = $env:TECMO_ALLOW_LOOSE_INTRO_TRACE
+    $OpeningNegativeRoot = Join-Path $OutputDir `
+        ("opening_negative_root-" + [Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Force -Path $OpeningNegativeRoot | Out-Null
+    try {
+        Remove-Item Env:TECMO_ALLOW_LOOSE_INTRO_TRACE -ErrorAction SilentlyContinue
+        foreach ($NegativeCase in $OpeningNegativeSpecs) {
+            [byte[]]$CaseBytes = [System.IO.File]::ReadAllBytes($AssetPackPath)
+            $PayloadOffset = Get-AssetPackEntryPayloadOffset `
+                -Bytes $CaseBytes -EntryId $NegativeCase.entry
+            if ($NegativeCase.mutation -eq "missing") {
+                $DirectoryOffset = Get-AssetPackEntryDirectoryOffset `
+                    -Bytes $CaseBytes -EntryId $NegativeCase.entry
+                $CaseBytes[$DirectoryOffset] = [byte][char]'x'
+            } elseif ($NegativeCase.mutation -eq "bad-magic") {
+                $CaseBytes[$PayloadOffset] = [byte][char]'X'
+            } elseif ($NegativeCase.mutation -eq "bad-layout") {
+                $FramesOffset = [System.BitConverter]::ToUInt32($CaseBytes, $PayloadOffset + 32)
+                [System.BitConverter]::GetBytes([uint32]($FramesOffset + 1)).CopyTo(
+                    $CaseBytes, $PayloadOffset + 32)
+            } elseif ($NegativeCase.mutation -eq "bad-cell-chr") {
+                $CellsOffset = [System.BitConverter]::ToUInt32($CaseBytes, $PayloadOffset + 20)
+                [System.BitConverter]::GetBytes([uint32]::MaxValue).CopyTo(
+                    $CaseBytes, $PayloadOffset + $CellsOffset + 2)
+            } elseif ($NegativeCase.mutation -eq "bad-sprite-reserved") {
+                $SpritesOffset = [System.BitConverter]::ToUInt32($CaseBytes, $PayloadOffset + 44)
+                $CaseBytes[$PayloadOffset + $SpritesOffset + 10] = 1
+            } elseif ($NegativeCase.mutation -eq "bad-palette") {
+                $PalettesOffset = [System.BitConverter]::ToUInt32($CaseBytes, $PayloadOffset + 28)
+                $CaseBytes[$PayloadOffset + $PalettesOffset] = 0x40
+            } else {
+                $FramesOffset = [System.BitConverter]::ToUInt32($CaseBytes, $PayloadOffset + 32)
+                $CaseBytes[$PayloadOffset + $FramesOffset + 2] = 35
+            }
+
+            $CasePack = Join-Path $OutputDir "$($NegativeCase.id).assetpack"
+            $CaseRender = Join-Path $OutputDir "$($NegativeCase.id).png"
+            [System.IO.File]::WriteAllBytes($CasePack, $CaseBytes)
+            Remove-Item -LiteralPath $CaseRender -Force -ErrorAction SilentlyContinue
+            $env:TECMO_ASSETPACK = $CasePack
+            $CaseOutput = & $ExePath --root $OpeningNegativeRoot `
+                --render-test-mode $NegativeCase.mode $CaseRender 2>&1
+            $CaseExitCode = $LASTEXITCODE
+            $CaseText = (@($CaseOutput) | ForEach-Object { [string]$_ }) -join "`n"
+            $ExpectedSource = "intro-opening-render-source $($NegativeCase.marker) chr=1 schema=TISC-1 loose_trace=0"
+            $Rejected = $CaseExitCode -eq 1 -and
+                !(Test-Path -LiteralPath $CaseRender) -and
+                $CaseText.Contains($ExpectedSource)
+            if (!$Rejected) { $OpeningNegativePassed = $false }
+            $OpeningNegativeResults.Add([pscustomobject]@{
+                id = $NegativeCase.id
+                mode = $NegativeCase.mode
+                passed = $Rejected
+                exit_code = $CaseExitCode
+                rejected_by_runtime = $Rejected
+            })
+            Remove-Item -LiteralPath $CasePack -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $CaseRender -Force -ErrorAction SilentlyContinue
+        }
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+        if ($null -eq $PreviousLooseIntroTrace) {
+            Remove-Item Env:TECMO_ALLOW_LOOSE_INTRO_TRACE -ErrorAction SilentlyContinue
+        } else {
+            $env:TECMO_ALLOW_LOOSE_INTRO_TRACE = $PreviousLooseIntroTrace
+        }
+        Remove-Item -LiteralPath $OpeningNegativeRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    if (!$OpeningNegativePassed) { ++$Failures }
+    $Results.Add([pscustomobject]@{
+        id = "intro-opening-missing-malformed-contract"
+        passed = $OpeningNegativePassed
+        skipped = $false
+        cases = $OpeningNegativeResults
+        loose_trace_disabled = $true
+        isolated_from_trace_and_decomp = $true
+        raw_output_persisted = $false
+        error = if ($OpeningNegativePassed) { $null } else { "runtime accepted a missing or malformed TISC entry" }
     })
 
     $PreviousAssetPack = $env:TECMO_ASSETPACK

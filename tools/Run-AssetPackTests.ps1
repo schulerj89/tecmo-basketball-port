@@ -285,6 +285,8 @@ function Get-KnownLogicalAssetPackEntries {
         "arena/intro/clippers-transition",
         "arena/intro/bucks-transition",
         "arena/intro/pass-transition",
+        "intro/tecmo-presents-screen",
+        "intro/nba-license-screen",
         "intro/finale-sequence",
         "roster/table.tsv",
         "title/original-text.txt",
@@ -322,6 +324,8 @@ function Get-ExpectedLogicalAssetPackEntries {
             "arena/intro/clippers-transition",
             "arena/intro/bucks-transition",
             "arena/intro/pass-transition",
+            "intro/tecmo-presents-screen",
+            "intro/nba-license-screen",
             "intro/finale-sequence"
         )
         capture_sources_present = @()
@@ -388,6 +392,179 @@ function Get-AssetPackSizeMismatches {
     }
 
     return $Mismatches.ToArray()
+}
+
+function Test-OpeningScreenPayloadContract {
+    param(
+        [byte[]]$Bytes,
+        [uint64]$ChrByteCount,
+        [ValidateSet("presents", "license")]
+        [string]$Kind
+    )
+
+    $Issues = [System.Collections.Generic.List[string]]::new()
+    $HeaderSize = 64
+    $CellCount = 960
+    $CellStride = 6
+    $CellsOffset = 64
+    $PalettesOffset = $CellsOffset + $CellCount * $CellStride
+    $SpriteStride = 12
+    $IsPresents = $Kind -eq "presents"
+    $ExpectedKind = if ($IsPresents) { 0 } else { 1 }
+    $StageCount = if ($IsPresents) { 9 } else { 6 }
+    $PaletteStride = if ($IsPresents) { 32 } else { 16 }
+    $Duration = if ($IsPresents) { 133 } else { 277 }
+    $SpriteCount = if ($IsPresents) { 20 } else { 0 }
+    $SpriteFirstFrame = 0
+    $SpriteHideFrame = if ($IsPresents) { 131 } else { 0 }
+    $ExpectedFrames = if ($IsPresents) {
+        @(0, 4, 8, 12, 16, 123, 125, 127, 129)
+    } else {
+        @(0, 36, 40, 44, 48, 275)
+    }
+    $FramesOffset = $PalettesOffset + $StageCount * $PaletteStride
+    $SpritesOffset = $FramesOffset + $StageCount * 2
+    $PayloadSize = $SpritesOffset + $SpriteCount * $SpriteStride
+
+    if ($null -eq $Bytes -or $Bytes.Length -ne $PayloadSize) {
+        [void]$Issues.Add("payload-size")
+        return [pscustomobject]@{ passed = $false; issues = $Issues.ToArray() }
+    }
+
+    if ([System.Text.Encoding]::ASCII.GetString($Bytes, 0, 4) -ne "TISC") {
+        [void]$Issues.Add("magic")
+    }
+    $ExpectedU16 = @{
+        4 = 1
+        6 = $HeaderSize
+        8 = 32
+        10 = 30
+        12 = $CellStride
+        14 = $ExpectedKind
+        24 = $StageCount
+        26 = $PaletteStride
+        36 = $Duration
+        38 = $SpriteCount
+        48 = $SpriteStride
+        50 = $SpriteFirstFrame
+        52 = $SpriteHideFrame
+    }
+    $ExpectedU32 = @{
+        16 = $CellCount
+        20 = $CellsOffset
+        28 = $PalettesOffset
+        32 = $FramesOffset
+        40 = $PayloadSize
+        44 = $SpritesOffset
+    }
+    foreach ($Offset in $ExpectedU16.Keys) {
+        if ([System.BitConverter]::ToUInt16($Bytes, [int]$Offset) -ne
+            [uint16]$ExpectedU16[$Offset]) {
+            [void]$Issues.Add("u16-$Offset")
+        }
+    }
+    foreach ($Offset in $ExpectedU32.Keys) {
+        if ([System.BitConverter]::ToUInt32($Bytes, [int]$Offset) -ne
+            [uint32]$ExpectedU32[$Offset]) {
+            [void]$Issues.Add("u32-$Offset")
+        }
+    }
+    for ($Index = 54; $Index -lt $HeaderSize; ++$Index) {
+        if ($Bytes[$Index] -ne 0) {
+            [void]$Issues.Add("header-reserved")
+            break
+        }
+    }
+
+    $NonblankCells = 0
+    for ($Index = 0; $Index -lt $CellCount; ++$Index) {
+        $Offset = $CellsOffset + $Index * $CellStride
+        $ChrOffset = [System.BitConverter]::ToUInt32($Bytes, $Offset + 2)
+        if ($Bytes[$Offset] -ne 0xFF) { ++$NonblankCells }
+        if ($Bytes[$Offset + 1] -gt 3 -or ($ChrOffset % 16) -ne 0 -or
+            [uint64]$ChrOffset + 16 -gt $ChrByteCount) {
+            [void]$Issues.Add("cell-$Index")
+        }
+    }
+    $ExpectedNonblankCells = if ($IsPresents) { 58 } else { 104 }
+    if ($NonblankCells -ne $ExpectedNonblankCells) {
+        [void]$Issues.Add("nonblank-cell-count")
+    }
+    for ($Index = 0; $Index -lt $StageCount * $PaletteStride; ++$Index) {
+        if ($Bytes[$PalettesOffset + $Index] -gt 0x3F) {
+            [void]$Issues.Add("palette-range")
+            break
+        }
+    }
+    for ($Index = 0; $Index -lt $StageCount; ++$Index) {
+        if ([System.BitConverter]::ToUInt16($Bytes, $FramesOffset + $Index * 2) -ne
+            [uint16]$ExpectedFrames[$Index]) {
+            [void]$Issues.Add("palette-frames")
+            break
+        }
+    }
+    for ($Color = 0; $Color -lt $PaletteStride; ++$Color) {
+        $Target = $Bytes[$PalettesOffset + 4 * $PaletteStride + $Color]
+        if ($Bytes[$PalettesOffset + $Color] -ne 0x0F) {
+            [void]$Issues.Add("palette-black-stage")
+            break
+        }
+        for ($Stage = 1; $Stage -le 3; ++$Stage) {
+            if ($Target -eq 0x0F) {
+                $ExpectedColor = 0x0F
+            } else {
+                $High = $Target -band 0x30
+                $Maximum = ($Stage - 1) * 0x10
+                if ($High -gt $Maximum) { $High = $Maximum }
+                $ExpectedColor = $High -bor ($Target -band 0x0F)
+            }
+            if ($Bytes[$PalettesOffset + $Stage * $PaletteStride + $Color] -ne
+                [byte]$ExpectedColor) {
+                [void]$Issues.Add("palette-fade-in")
+                break
+            }
+        }
+        if ($IsPresents) {
+            $Current = [int]$Target
+            for ($Stage = 5; $Stage -lt $StageCount; ++$Stage) {
+                if ($Current -eq 0x0F) {
+                    $Current = 0x0F
+                } elseif (($Current -band 0x30) -ge 0x10) {
+                    $Current -= 0x10
+                } else {
+                    $Current = 0x0F
+                }
+                if ($Bytes[$PalettesOffset + $Stage * $PaletteStride + $Color] -ne
+                    [byte]$Current) {
+                    [void]$Issues.Add("palette-fade-out")
+                    break
+                }
+            }
+        } elseif ($Bytes[$PalettesOffset + 5 * $PaletteStride + $Color] -ne 0x0F) {
+            [void]$Issues.Add("palette-final-black")
+            break
+        }
+    }
+    for ($Index = 0; $Index -lt $SpriteCount; ++$Index) {
+        $Offset = $SpritesOffset + $Index * $SpriteStride
+        $ChrOffset = [System.BitConverter]::ToUInt32($Bytes, $Offset + 4)
+        $SpriteX = [System.BitConverter]::ToInt16($Bytes, $Offset)
+        $SpriteY = [System.BitConverter]::ToInt16($Bytes, $Offset + 2)
+        if ($Bytes[$Offset + 8] -gt 3 -or
+            ($Bytes[$Offset + 9] -band 0xFC) -ne 0 -or
+            [System.BitConverter]::ToUInt16($Bytes, $Offset + 10) -ne 0 -or
+            $SpriteX -lt 80 -or $SpriteX -gt 104 -or
+            $SpriteY -lt 64 -or $SpriteY -gt 120 -or
+            ($ChrOffset % 16) -ne 0 -or
+            [uint64]$ChrOffset + 16 -gt $ChrByteCount) {
+            [void]$Issues.Add("sprite-$Index")
+        }
+    }
+
+    return [pscustomobject]@{
+        passed = $Issues.Count -eq 0
+        issues = $Issues.ToArray()
+    }
 }
 
 function Test-FinalePayloadContract {
@@ -1396,6 +1573,154 @@ try {
                     raw_asset_bytes_persisted = $false
                 })
 
+                $ChrByteCount = [uint64]$ExpectedChrBanks * 8192
+                $PresentsBytes = Read-AssetPackEntryBytes `
+                    -Path $AssetPackPath -Directory $Directory `
+                    -EntryId "intro/tecmo-presents-screen"
+                $LicenseBytes = Read-AssetPackEntryBytes `
+                    -Path $AssetPackPath -Directory $Directory `
+                    -EntryId "intro/nba-license-screen"
+                $PresentsContract = Test-OpeningScreenPayloadContract `
+                    -Bytes $PresentsBytes -ChrByteCount $ChrByteCount -Kind "presents"
+                $LicenseContract = Test-OpeningScreenPayloadContract `
+                    -Bytes $LicenseBytes -ChrByteCount $ChrByteCount -Kind "license"
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-opening-presents-native"
+                    passed = $PresentsContract.passed
+                    format = if ($PresentsBytes.Length -ge 4) {
+                        [System.Text.Encoding]::ASCII.GetString($PresentsBytes, 0, 4)
+                    } else { "" }
+                    byte_count = $PresentsBytes.Length
+                    palette_stage_count = if ($PresentsBytes.Length -ge 26) {
+                        [System.BitConverter]::ToUInt16($PresentsBytes, 24)
+                    } else { 0 }
+                    sprite_count = if ($PresentsBytes.Length -ge 40) {
+                        [System.BitConverter]::ToUInt16($PresentsBytes, 38)
+                    } else { 0 }
+                    contract_issues = $PresentsContract.issues
+                    raw_asset_bytes_persisted = $false
+                })
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-opening-license-native"
+                    passed = $LicenseContract.passed
+                    format = if ($LicenseBytes.Length -ge 4) {
+                        [System.Text.Encoding]::ASCII.GetString($LicenseBytes, 0, 4)
+                    } else { "" }
+                    byte_count = $LicenseBytes.Length
+                    palette_stage_count = if ($LicenseBytes.Length -ge 26) {
+                        [System.BitConverter]::ToUInt16($LicenseBytes, 24)
+                    } else { 0 }
+                    sprite_count = if ($LicenseBytes.Length -ge 40) {
+                        [System.BitConverter]::ToUInt16($LicenseBytes, 38)
+                    } else { 0 }
+                    contract_issues = $LicenseContract.issues
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $OpeningMalformedCases = [System.Collections.Generic.List[object]]::new()
+                $OpeningMalformedSpecs = @(
+                    [pscustomobject]@{ id = "presents-magic"; kind = "presents"; mutate = {
+                        param([byte[]]$Data) $Data[0] = [byte][char]'X'
+                    } },
+                    [pscustomobject]@{ id = "presents-packed-layout"; kind = "presents"; mutate = {
+                        param([byte[]]$Data)
+                        [System.BitConverter]::GetBytes([uint32]6113).CopyTo($Data, 32)
+                    } },
+                    [pscustomobject]@{ id = "presents-declared-size"; kind = "presents"; mutate = {
+                        param([byte[]]$Data)
+                        [System.BitConverter]::GetBytes([uint32]($Data.Length - 1)).CopyTo($Data, 40)
+                    } },
+                    [pscustomobject]@{ id = "presents-header-reserved"; kind = "presents"; mutate = {
+                        param([byte[]]$Data) $Data[54] = 1
+                    } },
+                    [pscustomobject]@{ id = "presents-cell-palette"; kind = "presents"; mutate = {
+                        param([byte[]]$Data) $Data[65] = 4
+                    } },
+                    [pscustomobject]@{ id = "presents-cell-chr-alignment"; kind = "presents"; mutate = {
+                        param([byte[]]$Data) $Data[66] = $Data[66] -bxor 1
+                    } },
+                    [pscustomobject]@{ id = "presents-cell-chr-range"; kind = "presents"; mutate = {
+                        param([byte[]]$Data)
+                        [System.BitConverter]::GetBytes([uint32]$ChrByteCount).CopyTo($Data, 66)
+                    } },
+                    [pscustomobject]@{ id = "presents-nonblank-count"; kind = "presents"; mutate = {
+                        param([byte[]]$Data)
+                        for ($Cell = 0; $Cell -lt 960; ++$Cell) {
+                            $Offset = 64 + $Cell * 6
+                            if ($Data[$Offset] -eq 0xFF) { $Data[$Offset] = 0; break }
+                        }
+                    } },
+                    [pscustomobject]@{ id = "presents-palette-range"; kind = "presents"; mutate = {
+                        param([byte[]]$Data) $Data[5824] = 0x40
+                    } },
+                    [pscustomobject]@{ id = "presents-palette-fade"; kind = "presents"; mutate = {
+                        param([byte[]]$Data) $Data[5824 + 32 + 1] =
+                            [byte](($Data[5824 + 32 + 1] + 1) -band 0x3F)
+                    } },
+                    [pscustomobject]@{ id = "presents-palette-frame"; kind = "presents"; mutate = {
+                        param([byte[]]$Data) $Data[6112 + 2] = 5
+                    } },
+                    [pscustomobject]@{ id = "presents-sprite-palette"; kind = "presents"; mutate = {
+                        param([byte[]]$Data) $Data[6130 + 8] = 4
+                    } },
+                    [pscustomobject]@{ id = "presents-sprite-flags"; kind = "presents"; mutate = {
+                        param([byte[]]$Data) $Data[6130 + 9] = 4
+                    } },
+                    [pscustomobject]@{ id = "presents-sprite-reserved"; kind = "presents"; mutate = {
+                        param([byte[]]$Data) $Data[6130 + 10] = 1
+                    } },
+                    [pscustomobject]@{ id = "presents-sprite-coordinate"; kind = "presents"; mutate = {
+                        param([byte[]]$Data) $Data[6130] = 0
+                    } },
+                    [pscustomobject]@{ id = "presents-sprite-chr-alignment"; kind = "presents"; mutate = {
+                        param([byte[]]$Data) $Data[6130 + 4] = $Data[6130 + 4] -bxor 1
+                    } },
+                    [pscustomobject]@{ id = "presents-sprite-chr-range"; kind = "presents"; mutate = {
+                        param([byte[]]$Data)
+                        [System.BitConverter]::GetBytes([uint32]$ChrByteCount).CopyTo($Data, 6130 + 4)
+                    } },
+                    [pscustomobject]@{ id = "license-stage-count"; kind = "license"; mutate = {
+                        param([byte[]]$Data) $Data[24] = 5
+                    } },
+                    [pscustomobject]@{ id = "license-palette-stride"; kind = "license"; mutate = {
+                        param([byte[]]$Data) $Data[26] = 32
+                    } },
+                    [pscustomobject]@{ id = "license-duration"; kind = "license"; mutate = {
+                        param([byte[]]$Data) $Data[36] = 0
+                    } },
+                    [pscustomobject]@{ id = "license-palette-frame"; kind = "license"; mutate = {
+                        param([byte[]]$Data) $Data[5920 + 2] = 35
+                    } },
+                    [pscustomobject]@{ id = "license-final-palette"; kind = "license"; mutate = {
+                        param([byte[]]$Data) $Data[5824 + 5 * 16] = 0x0E
+                    } },
+                    [pscustomobject]@{ id = "license-sprite-count"; kind = "license"; mutate = {
+                        param([byte[]]$Data) $Data[38] = 1
+                    } }
+                )
+                foreach ($Spec in $OpeningMalformedSpecs) {
+                    $SourceBytes = if ($Spec.kind -eq "presents") {
+                        $PresentsBytes
+                    } else {
+                        $LicenseBytes
+                    }
+                    $Malformed = [byte[]]$SourceBytes.Clone()
+                    & $Spec.mutate $Malformed
+                    $Rejected = !(Test-OpeningScreenPayloadContract `
+                        -Bytes $Malformed -ChrByteCount $ChrByteCount -Kind $Spec.kind).passed
+                    [void]$OpeningMalformedCases.Add([pscustomobject]@{
+                        id = $Spec.id
+                        rejected = $Rejected
+                    })
+                }
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-opening-malformed-contracts"
+                    passed = @($OpeningMalformedCases | Where-Object { !$_.rejected }).Count -eq 0
+                    cases = $OpeningMalformedCases.ToArray()
+                    mutated_payloads_persisted = $false
+                    raw_asset_bytes_persisted = $false
+                })
+
                 $FinaleBytes = Read-AssetPackEntryBytes -Path $AssetPackPath -Directory $Directory -EntryId "intro/finale-sequence"
                 $FinaleContract = Test-FinalePayloadContract -Bytes $FinaleBytes -ChrByteCount ([uint64]$ExpectedChrBanks * 8192)
                 Add-TestResult ([pscustomobject]@{
@@ -1478,6 +1803,92 @@ try {
                     source_map_logical_entries = $SourceMapLogicalIds
                     missing_logical_entries = $MissingSourceMapLogicalEntries
                     unexpected_logical_entries = $UnexpectedSourceMapLogicalEntries
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $PresentsSource = @($SourceMap.logical_entries | Where-Object {
+                    $_.id -eq "intro/tecmo-presents-screen"
+                } | Select-Object -First 1)
+                $LicenseSource = @($SourceMap.logical_entries | Where-Object {
+                    $_.id -eq "intro/nba-license-screen"
+                } | Select-Object -First 1)
+                $PresentsRoles = @($PresentsSource.sources | ForEach-Object { [string]$_.role })
+                $LicenseRoles = @($LicenseSource.sources | ForEach-Object { [string]$_.role })
+                $PresentsDescriptor = @($PresentsSource.sources | Where-Object { $_.role -eq "descriptor" } | Select-Object -First 1)
+                $PresentsStream = @($PresentsSource.sources | Where-Object { $_.role -eq "compressed-screen" } | Select-Object -First 1)
+                $PresentsSelectors = @($PresentsSource.sources | Where-Object { $_.role -eq "sprite-chr-selectors" } | Select-Object -First 1)
+                $PresentsRecords = @($PresentsSource.sources | Where-Object { $_.role -eq "sprite-records" } | Select-Object -First 1)
+                $PresentsSpritePalette = @($PresentsSource.sources | Where-Object { $_.role -eq "sprite-palette" } | Select-Object -First 1)
+                $PresentsLayout = @($PresentsSource.sources | Where-Object { $_.role -eq "sprite-layout-operands" } | Select-Object -First 1)
+                $LicenseDescriptor = @($LicenseSource.sources | Where-Object { $_.role -eq "descriptor" } | Select-Object -First 1)
+                $LicenseStream = @($LicenseSource.sources | Where-Object { $_.role -eq "compressed-screen" } | Select-Object -First 1)
+                $OpeningPrgStart = 16 + [int]$ReferenceHeader.trainer_bytes
+                $OpeningFixedStart = $OpeningPrgStart + ($ExpectedPrgBanks - 1) * 0x4000
+                $ExpectedPresentsDescriptor = [uint64]($OpeningFixedStart + (0xDC85 - 0xC000))
+                $ExpectedLicenseDescriptor = [uint64]($OpeningFixedStart + (0xDC93 - 0xC000))
+                $ExpectedPresentsStream = [uint64]($OpeningPrgStart + (0x84FB - 0x8000))
+                $ExpectedLicenseStream = [uint64]($OpeningPrgStart + (0x856E - 0x8000))
+                $ExpectedSelectorSource = [uint64]($OpeningPrgStart + (0xBC90 - 0x8000))
+                $ExpectedRecordSource = [uint64]($OpeningPrgStart + (0xBDD6 - 0x8000))
+                $ExpectedSpritePaletteSource = [uint64]($OpeningPrgStart + (0xBE27 - 0x8000))
+                $ExpectedLayoutSources = @(
+                    [uint64]($OpeningPrgStart + (0xBDA8 - 0x8000)),
+                    [uint64]($OpeningPrgStart + (0xBDB2 - 0x8000)),
+                    [uint64]($OpeningPrgStart + (0xBDC3 - 0x8000))
+                )
+                $OpeningSourcePassed = $PresentsSource.Count -eq 1 -and
+                    $LicenseSource.Count -eq 1 -and
+                    $PresentsSource.schema -eq "tecmo.intro.screen/TISC-1" -and
+                    $LicenseSource.schema -eq "tecmo.intro.screen/TISC-1" -and
+                    [int]$PresentsSource.duration_frames -eq 133 -and
+                    [int]$LicenseSource.duration_frames -eq 277 -and
+                    $PresentsRoles -contains "descriptor" -and
+                    $PresentsRoles -contains "compressed-screen" -and
+                    $PresentsRoles -contains "background-palette" -and
+                    $PresentsRoles -contains "sprite-chr-selectors" -and
+                    $PresentsRoles -contains "sprite-records" -and
+                    $PresentsRoles -contains "sprite-palette" -and
+                    $PresentsRoles -contains "sprite-layout-operands" -and
+                    $LicenseRoles -contains "descriptor" -and
+                    $LicenseRoles -contains "compressed-screen" -and
+                    $LicenseRoles -contains "background-palette" -and
+                    @($LicenseRoles | Where-Object { $_ -like "sprite-*" }).Count -eq 0 -and
+                    @($PresentsRoles + $LicenseRoles | Where-Object {
+                        $_ -match "trace|capture|log"
+                    }).Count -eq 0 -and
+                    [uint64]$PresentsDescriptor.source_offset -eq $ExpectedPresentsDescriptor -and
+                    [int]$PresentsDescriptor.cpu_address -eq 0xDC85 -and
+                    [uint64]$LicenseDescriptor.source_offset -eq $ExpectedLicenseDescriptor -and
+                    [int]$LicenseDescriptor.cpu_address -eq 0xDC93 -and
+                    [uint64]$PresentsStream.source_offset -eq $ExpectedPresentsStream -and
+                    [int]$PresentsStream.cpu_address -eq 0x84FB -and
+                    [int]$PresentsStream.encoded_size -eq 116 -and
+                    [int]$PresentsStream.decoded_size -eq 1024 -and
+                    [uint64]$LicenseStream.source_offset -eq $ExpectedLicenseStream -and
+                    [int]$LicenseStream.cpu_address -eq 0x856E -and
+                    [int]$LicenseStream.encoded_size -eq 177 -and
+                    [int]$LicenseStream.decoded_size -eq 1024 -and
+                    [uint64]$PresentsSelectors.source_offset -eq $ExpectedSelectorSource -and
+                    [int]$PresentsSelectors.cpu_address -eq 0xBC90 -and
+                    (@(Compare-Object @(244, 245) @($PresentsSelectors.selectors))).Count -eq 0 -and
+                    [uint64]$PresentsRecords.source_offset -eq $ExpectedRecordSource -and
+                    [int]$PresentsRecords.cpu_address -eq 0xBDD6 -and
+                    [int]$PresentsRecords.record_count -eq 20 -and
+                    [int]$PresentsRecords.record_stride -eq 4 -and
+                    [uint64]$PresentsSpritePalette.source_offset -eq $ExpectedSpritePaletteSource -and
+                    [int]$PresentsSpritePalette.cpu_address -eq 0xBE27 -and
+                    (@(Compare-Object $ExpectedLayoutSources @($PresentsLayout.source_offsets))).Count -eq 0
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-opening-source-provenance"
+                    passed = $OpeningSourcePassed
+                    presents_roles = $PresentsRoles
+                    license_roles = $LicenseRoles
+                    rabbit_record_count = if ($PresentsRecords.Count -eq 1) {
+                        [int]$PresentsRecords.record_count
+                    } else { 0 }
+                    loose_trace_sources = @($PresentsRoles + $LicenseRoles | Where-Object {
+                        $_ -match "trace|capture|log"
+                    })
                     raw_asset_bytes_persisted = $false
                 })
 

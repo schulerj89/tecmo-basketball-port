@@ -50,7 +50,47 @@ static void print_intro_render_capture_status(const TecmoRuntime *runtime,
         return;
     }
 
-    if (strncmp(mode_name, "intro-arena", 11) == 0) {
+    if (strcmp(mode_name, "intro-license") == 0 ||
+        strcmp(mode_name, "play") == 0 ||
+        strncmp(mode_name, "play-fade", 9) == 0 ||
+        strcmp(mode_name, "play-step6") == 0 ||
+        strcmp(mode_name, "play-step7") == 0 ||
+        strcmp(mode_name, "title-screen") == 0 ||
+        strcmp(mode_name, "boot-title") == 0) {
+        const bool presents_renderable =
+            runtime->intro_presents_asset.available &&
+            tecmo_intro_screen_chr_available(&runtime->intro_presents_asset,
+                                             runtime->title_chr_bytes,
+                                             runtime->title_chr_byte_count);
+        const bool license_renderable =
+            runtime->intro_license_asset.available &&
+            tecmo_intro_screen_chr_available(&runtime->intro_license_asset,
+                                             runtime->title_chr_bytes,
+                                             runtime->title_chr_byte_count);
+        const bool license_mode = strcmp(mode_name, "intro-license") == 0 ||
+                                  strcmp(mode_name, "play-step7") == 0;
+        const bool loose_trace_enabled =
+            strcmp(runtime->intro_trace_status, "LOOSE INTRO TRACE DISABLED") != 0;
+        const TecmoIntroScreenAsset *asset = license_mode
+                                                 ? &runtime->intro_license_asset
+                                                 : &runtime->intro_presents_asset;
+        printf("intro-opening-render-source presents=%u license=%u chr=%u schema=TISC-1 loose_trace=%u\n",
+               presents_renderable ? 1U : 0U,
+               license_renderable ? 1U : 0U,
+               runtime->title_chr_bytes != NULL ? 1U : 0U,
+               loose_trace_enabled ? 1U : 0U);
+        printf("intro-opening-state kind=%s frame=%u palette=%u duration=%u sprites=%u\n",
+               license_mode ? "nba-license" : "tecmo-presents",
+               runtime->mode_frame_counter,
+               (unsigned)tecmo_intro_screen_palette_stage(asset,
+                                                          runtime->mode_frame_counter),
+               (unsigned)asset->duration_frames,
+               asset->sprite_count > 0U &&
+                       runtime->mode_frame_counter >= asset->sprite_first_frame &&
+                       runtime->mode_frame_counter < asset->sprite_hide_frame
+                   ? (unsigned)asset->sprite_count
+                   : 0U);
+    } else if (strncmp(mode_name, "intro-arena", 11) == 0) {
         bool native_layer_available;
         bool native_sprite_groups_available;
         size_t native_sprite_group_count;
@@ -574,6 +614,8 @@ int main(int argc, char **argv)
                 runtime.intro_output_step = (uint8_t)step;
                 if (step == 8) {
                     runtime.mode_frame_counter = 320U;
+                } else if (step == 7) {
+                    runtime.mode_frame_counter = 48U;
                 } else if (step == 9) {
                     runtime.mode_frame_counter = 35U;
                 } else if (step >= 10) {
@@ -602,9 +644,11 @@ int main(int argc, char **argv)
                 framebuffer.width = width;
                 framebuffer.height = height;
                 framebuffer.pitch_pixels = width;
-                tecmo_render_intro_license_screen(&runtime, &framebuffer);
+                runtime.mode_frame_counter = 48U;
+                arena_render_succeeded =
+                    tecmo_render_intro_license_screen(&runtime, &framebuffer);
                 render_runtime = false;
-                result = 0;
+                result = arena_render_succeeded ? 0 : 1;
             } else if (strcmp(mode_name, "intro-arena-transition") == 0) {
                 framebuffer.pixels = pixels;
                 framebuffer.width = width;
@@ -865,6 +909,23 @@ int main(int argc, char **argv)
                 framebuffer.pitch_pixels = width;
                 tecmo_runtime_render(&runtime, &framebuffer);
                 result = 0;
+                if ((strcmp(mode_name, "play") == 0 ||
+                     strncmp(mode_name, "play-fade", 9) == 0 ||
+                     strcmp(mode_name, "play-step6") == 0 ||
+                     strcmp(mode_name, "title-screen") == 0 ||
+                     strcmp(mode_name, "boot-title") == 0) &&
+                    (!runtime.intro_presents_asset.available ||
+                     !tecmo_intro_screen_chr_available(&runtime.intro_presents_asset,
+                                                       runtime.title_chr_bytes,
+                                                       runtime.title_chr_byte_count))) {
+                    result = 1;
+                } else if (strcmp(mode_name, "play-step7") == 0 &&
+                           (!runtime.intro_license_asset.available ||
+                            !tecmo_intro_screen_chr_available(&runtime.intro_license_asset,
+                                                              runtime.title_chr_bytes,
+                                                              runtime.title_chr_byte_count))) {
+                    result = 1;
+                }
             }
             print_intro_render_capture_status(&runtime, mode_name, arena_render_succeeded);
             tecmo_runtime_shutdown(&runtime);

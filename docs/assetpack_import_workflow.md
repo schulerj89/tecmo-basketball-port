@@ -67,11 +67,11 @@ These entries are intentionally no longer imported by `--build-assetpack`:
 | `intro/post-arena/capture.ndjson` | Same as above for the post-arena READY/WARRIORS frames. |
 | `intro/captures/source-map` | Reintroduce only after capture data is generated from the ROM-only extractor. |
 
-The intro composite trace is not pack-backed yet. `tecmo_intro_trace_load` still
-looks for ignored local `build\intro_composite_trace.json` files. The proposed
-future namespace is `intro/composite/`, with `intro/composite/trace.json` as the
-trace entry and `intro/composite/source-map` for source metadata once that data
-is generated from the ROM-only importer.
+The normal TECMO/rabbit and NBA opening path is pack-backed by
+`intro/tecmo-presents-screen` and `intro/nba-license-screen` (TISC-1). It uses
+ROM-decoded nametable cells, palettes, resolved CHR offsets, and the native
+rabbit OAM group. `tecmo_intro_trace_load` does not inspect ignored loose files
+unless a diagnostic run explicitly sets `TECMO_ALLOW_LOOSE_INTRO_TRACE=1`.
 
 For the concise migration checklist, see
 `docs/rom_only_import_next_steps.md`.
@@ -96,11 +96,10 @@ directory gate. It validates `chr/all` directly from the pack directory because
 the full runtime still needs ROM-derived roster/title data before it can launch
 without a decomp root.
 
-`Run-IntroSequenceTests.ps1` builds a fresh ROM-only test pack, temporarily
-isolates loose capture files and canonical stale packs, and records the runtime
-render path as a skipped ROM-only gap. Capture-dependent intro frames cannot be
-judged from a `.nes` alone until the importer derives the needed runtime state
-from the ROM itself.
+`Run-IntroSequenceTests.ps1` builds a fresh ROM-only test pack, isolates loose
+capture and trace files plus canonical stale packs, and renders the TISC-1
+opening from that fresh pack. The opening gate requires the native source
+marker and fails when either TISC-1 entry is missing or malformed.
 
 These are the current public gate categories:
 
@@ -109,7 +108,7 @@ These are the current public gate categories:
 | `--build-assetpack <LOCAL_ROM.nes>` | ROM-only importer gate | `.nes` only. Must not read decompilation roots, emulator logs, loose captures, or generated reports. |
 | `--assetpack-list build\tecmo.assetpack` | ROM-only directory gate | Generated pack only; used to confirm the importer did not include stale logical/capture entries. |
 | `tools\Run-AssetPackTests.ps1 -RomPath <LOCAL_ROM.nes>` | ROM-only automated gate | `.nes` only, with `TECMO_ROM_PATH` allowed as a private local convenience. |
-| `tools\Run-IntroSequenceTests.ps1 -RomPath <LOCAL_ROM.nes>` | ROM-only migration gate | `.nes` only for pack checks; runtime render is intentionally recorded as a skipped gap until intro state is ROM-derived. |
+| `tools\Run-IntroSequenceTests.ps1 -RomPath <LOCAL_ROM.nes>` | ROM-only migration gate | `.nes` only; validates and renders the native opening and later intro entries from a fresh pack. |
 | `tools\Run-NativeFlowTests.ps1` and `tools\Run-ScreenshotTests.ps1` | Older runtime/screenshot probes | Still require `-DecompRoot` or `TECMO_DECOMP_ROOT`; useful for analysis, not evidence that importer/runtime flow is ROM-only. |
 | `tools\Find-*.ps1`, `tools\Import-IntroArenaCapture.ps1`, and emulator Lua probes | Development reference helpers | May consume decompilation files, rebuilt local ROMs, emulator logs, or ignored reports. Outputs stay local and must not become final importer inputs. |
 
@@ -126,9 +125,9 @@ $env:TECMO_ASSETPACK = (Resolve-Path build\tecmo.assetpack).Path
 .\build\tecmo_port.exe --render-test-mode play-step10 build\play_step10_test.png
 ```
 
-Before judging a manual render as ROM-only, isolate loose fallbacks or require
-the render output to show the expected missing-capture state for capture-dependent
-frames. A passing PNG alone is not enough.
+Before judging a manual render as ROM-only, isolate loose fallbacks and require
+the render output to identify the expected native schema and entries. A passing
+PNG alone is not enough.
 
 ## Data Boundary
 

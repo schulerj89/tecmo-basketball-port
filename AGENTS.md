@@ -149,11 +149,21 @@ The initial pack contains `system/manifest`, `system/source-map`, `prg/bankNN`, 
 
 The current opening path includes:
 
-- TECMO/rabbit intro composite from local trace data
-- NBA license screen
+- ROM-only TECMO/PRESENTS background plus the native 20-piece rabbit OAM group
+- ROM-only NBA license screen
 - arena/jumbotron/crowd transition from ROM CHR through native arena bands
 - native TASG-2 jumbotron and anchored goal sprite groups for the arena pan
 - the ROM-only post-PASS finale, progressive title, and persistent terminator hold
+
+The first two screens use strict TISC-1 entries: `intro/tecmo-presents-screen`
+and `intro/nba-license-screen`. The first contains the decoded screen `$00`
+nametable, attribute palettes, resolved background CHR, the 20-piece `$BD9E`
+rabbit group with resolved sprite CHR, and both palette halves. The second is
+the decoded background-only screen `$02`. Native timing includes the title
+fade and rabbit clear through the license handoff at frame 133, then the NBA
+delay/fade and arena handoff at frame 277. Normal startup does not read
+`intro_composite_trace.json`; loose trace parsing is diagnostic-only and must
+be explicitly enabled with `TECMO_ALLOW_LOOSE_INTRO_TRACE=1`.
 
 The normal arena render must not replay captured screen `$18` nametable or OAM data. The ROM-only importer decodes the fixed-bank screen descriptor and compressed Bank00 stream into `arena/intro/background-layer`, a versioned native `32x51` tile layer whose cells contain exact attribute-derived palette indexes and resolved `chr/all` offsets. It also emits `arena/intro/sprite-groups` as TASG-2 with the exact NES sprite palette, jumbotron pieces, and goal pieces. TASG-2 reuses piece bytes 10..11 as signed `connector_overlay_y_adjust`; the imported center `dy=32` goal connector record is the sole `-1` overlay adjustment and all other pieces use zero. Runtime first draws its canonical ROM-derived second tile at `y+8`, then draws a shifted copy of that tile with palette indexes 0 and 1 transparent while preserving exact ROM palette colors for indexes 2 and 3. Canonical goal position and extent remain unchanged. Runtime rendering requires both native entries, scrolls TATL as the background, and projects TASG groups from their stored anchors using the transition state. Capture-shaped arena loaders remain only as migration/debug scaffolding; palette-cycle migration can continue without replacing the exact background or sprite-group paths.
 
@@ -215,7 +225,8 @@ For screen `$18` research, use the verified ROM route rather than capture bytes:
 This is a native port, not an emulator wrapper. Current modules of interest:
 
 - `src/tecmo_game.c`: runtime orchestration and high-level render dispatch
-- `src/tecmo_intro_trace.c`: local intro composite trace loading/parsing
+- `src/tecmo_intro_screen.c`: strict TISC-1 opening-screen loading and rendering
+- `src/tecmo_intro_trace.c`: explicitly enabled local trace diagnostics only
 - `src/tecmo_intro_arena.c`: strict TATL/TASG loading, native arena drawing, capture debug scaffolding
 - `src/tecmo_intro_finale.c`: strict TFIN-1 loading, finale phases, title bands, and rendering
 - `src/tecmo_intro_stage.c`: intro sprite staging and arena transition state model

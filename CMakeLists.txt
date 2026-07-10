@@ -14,11 +14,10 @@ add_executable(tecmo_port
     src/tecmo_intro_arena.c
     src/tecmo_intro_arena_scene.c
     src/tecmo_intro_layout.c
-    src/tecmo_intro_license.c
     src/tecmo_intro_finale.c
     src/tecmo_intro_post_arena.c
+    src/tecmo_intro_screen.c
     src/tecmo_intro_stage.c
-    src/tecmo_intro_title.c
     src/tecmo_intro_trace.c
     src/tecmo_memory.c
     src/tecmo_nametable_screen.c

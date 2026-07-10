@@ -1,6 +1,4 @@
 #include "tecmo_game.h"
-#include "tecmo_intro_license.h"
-#include "tecmo_intro_title.h"
 #include "tecmo_nes_video.h"
 
 #include <math.h>
@@ -23,8 +21,8 @@
 #define TECMO_INTRO_OUTPUT_BUCKS_STEP 12U
 #define TECMO_INTRO_OUTPUT_PASS_STEP 13U
 #define TECMO_INTRO_OUTPUT_FINALE_STEP 14U
-#define TECMO_INTRO_LICENSE_AUTO_FRAME 120U
-#define TECMO_INTRO_ARENA_AUTO_FRAME 120U
+#define TECMO_INTRO_TITLE_AUTO_FRAME 133U
+#define TECMO_INTRO_LICENSE_AUTO_FRAME 277U
 #define TECMO_INTRO_ARENA_TO_READY_FRAME 540U
 #define TECMO_INTRO_READY_TO_WARRIORS_FRAME 58U
 #define TECMO_INTRO_WARRIORS_TO_NEXT_FRAME 214U
@@ -209,6 +207,14 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
     runtime->selected_chr_bank = 31U;
     tecmo_intro_layout_init(runtime);
     tecmo_intro_trace_load(runtime, project_root);
+    (void)tecmo_intro_screen_load(&runtime->intro_presents_asset,
+                                  project_root,
+                                  TECMO_INTRO_PRESENTS_ENTRY_ID,
+                                  TECMO_INTRO_SCREEN_PRESENTS);
+    (void)tecmo_intro_screen_load(&runtime->intro_license_asset,
+                                  project_root,
+                                  TECMO_INTRO_LICENSE_ENTRY_ID,
+                                  TECMO_INTRO_SCREEN_LICENSE);
     (void)tecmo_intro_arena_tile_layer_load(&runtime->intro_arena_tile_layer, project_root);
     (void)tecmo_intro_arena_sprite_groups_load(&runtime->intro_arena_sprite_groups,
                                                project_root);
@@ -232,6 +238,24 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
     }
 
     if (tecmo_load_chr_data(project_root, &runtime->title_chr_bytes, &runtime->title_chr_byte_count) == 0) {
+        if (runtime->intro_presents_asset.available &&
+            !tecmo_intro_screen_chr_available(&runtime->intro_presents_asset,
+                                              runtime->title_chr_bytes,
+                                              runtime->title_chr_byte_count)) {
+            runtime->intro_presents_asset.available = false;
+            set_runtime_status(runtime->intro_presents_asset.status,
+                               sizeof(runtime->intro_presents_asset.status),
+                               "TISC-1 chr/all contract rejected");
+        }
+        if (runtime->intro_license_asset.available &&
+            !tecmo_intro_screen_chr_available(&runtime->intro_license_asset,
+                                              runtime->title_chr_bytes,
+                                              runtime->title_chr_byte_count)) {
+            runtime->intro_license_asset.available = false;
+            set_runtime_status(runtime->intro_license_asset.status,
+                               sizeof(runtime->intro_license_asset.status),
+                               "TISC-1 chr/all contract rejected");
+        }
         if (runtime->intro_finale_asset.available &&
             !tecmo_intro_finale_asset_chr_available(&runtime->intro_finale_asset,
                                                     runtime->title_chr_bytes,
@@ -523,11 +547,11 @@ static void update_first_sprite_probe(TecmoRuntime *runtime, const TecmoControlF
         ++runtime->intro_output_step;
         runtime->mode_frame_counter = 0;
     } else if (runtime->intro_output_step == TECMO_INTRO_OUTPUT_TITLE_STEP &&
-               runtime->mode_frame_counter >= TECMO_INTRO_LICENSE_AUTO_FRAME) {
+               runtime->mode_frame_counter >= TECMO_INTRO_TITLE_AUTO_FRAME) {
         runtime->intro_output_step = TECMO_INTRO_OUTPUT_LICENSE_STEP;
         runtime->mode_frame_counter = 0;
     } else if (runtime->intro_output_step == TECMO_INTRO_OUTPUT_LICENSE_STEP &&
-               runtime->mode_frame_counter >= TECMO_INTRO_ARENA_AUTO_FRAME) {
+               runtime->mode_frame_counter >= TECMO_INTRO_LICENSE_AUTO_FRAME) {
         runtime->intro_output_step = TECMO_INTRO_OUTPUT_ARENA_STEP;
         runtime->mode_frame_counter = 0;
     } else if (runtime->intro_output_step == TECMO_INTRO_OUTPUT_ARENA_STEP &&
@@ -752,12 +776,18 @@ static void render_main_menu(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
     draw_text(fb, 82, 452, "NO ROM ASM OR EXTRACTED ASSETS ARE LOADED FROM THIS REPO", rgb(124, 148, 160), 1);
 }
 
-static void render_intro_trace_title(const TecmoRuntime *runtime, TecmoFramebuffer *fb);
+static bool render_intro_native_title_screen(const TecmoRuntime *runtime,
+                                             TecmoFramebuffer *fb,
+                                             const char *prompt,
+                                             bool draw_debug);
 
 static void render_title_screen_mode(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
 {
-    if (runtime->title_probe_available && runtime->intro_trace_available) {
-        render_intro_trace_title(runtime, fb);
+    if (runtime->intro_presents_asset.available) {
+        (void)render_intro_native_title_screen(runtime,
+                                               fb,
+                                               "ENTER MENU   ESC QUIT",
+                                               runtime->debug_overlay);
     } else if (runtime->title_probe_available) {
         tecmo_render_original_title_chr_probe(fb,
                                               &runtime->title_glyphs,
@@ -1044,59 +1074,8 @@ static void draw_chr_tile(TecmoFramebuffer *fb,
     tecmo_draw_chr_tile(fb, chr_bytes, chr_byte_count, chr_bank, tile, x, y, scale);
 }
 
-static void draw_intro_captured_title_nametable(TecmoFramebuffer *fb,
-                                                const TecmoRuntime *runtime,
-                                                int origin_x,
-                                                int origin_y,
-                                                int scale,
-                                                bool draw_debug_bounds)
-{
-    bool drew = false;
-
-    if (runtime != NULL) {
-        drew = tecmo_intro_title_draw(fb,
-                                      runtime->title_chr_bytes,
-                                      runtime->title_chr_byte_count,
-                                      runtime->intro_trace_chr_bank,
-                                      runtime->mode_frame_counter,
-                                      origin_x,
-                                      origin_y,
-                                      scale,
-                                      draw_debug_bounds);
-    }
-    if (!drew) {
-        draw_centered_text(fb, 212, "LOCAL CHR DATA UNAVAILABLE", rgb(252, 236, 170), 2);
-    }
-}
-
-static void render_intro_captured_title_screen(const TecmoRuntime *runtime,
-                                               TecmoFramebuffer *fb,
-                                               const char *prompt,
-                                               bool draw_debug)
-{
-    const int scale = 2;
-    const int origin_x = 64;
-    const int origin_y = 0;
-
-    clear(fb, rgb(0, 0, 0));
-    draw_intro_captured_title_nametable(fb, runtime, origin_x, origin_y, scale, draw_debug);
-    if (prompt != NULL && prompt[0] != '\0') {
-        draw_text(fb, 22, 22, prompt, rgb(230, 232, 214), 1);
-    }
-    if (draw_debug) {
-        char line[160];
-        (void)snprintf(line,
-                       sizeof(line),
-                       "CAPTURED FRAME16  %u TILES  STAGE %u  MODEFRAME %u  CHR BANK %02u",
-                       (unsigned)tecmo_intro_title_tile_count(),
-                       (unsigned)tecmo_intro_title_palette_stage_for_frame(runtime != NULL ? runtime->mode_frame_counter : 16U),
-                       runtime != NULL ? runtime->mode_frame_counter : 0U,
-                       runtime != NULL ? (unsigned)runtime->intro_trace_chr_bank : 0U);
-        draw_text(fb, 22, 446, line, rgb(92, 116, 128), 1);
-    }
-}
-
-void tecmo_render_intro_license_screen(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer)
+bool tecmo_render_intro_presents_screen(const TecmoRuntime *runtime,
+                                        TecmoFramebuffer *framebuffer)
 {
     const int scale = 2;
     const int origin_x = 64;
@@ -1105,17 +1084,69 @@ void tecmo_render_intro_license_screen(const TecmoRuntime *runtime, TecmoFramebu
 
     clear(framebuffer, rgb(0, 0, 0));
     if (runtime != NULL) {
-        drew = tecmo_intro_license_draw(framebuffer,
-                                        runtime->title_chr_bytes,
-                                        runtime->title_chr_byte_count,
-                                        runtime->intro_trace_chr_bank,
-                                        origin_x,
-                                        origin_y,
-                                        scale);
+        drew = tecmo_intro_screen_draw(framebuffer,
+                                       &runtime->intro_presents_asset,
+                                       runtime->title_chr_bytes,
+                                       runtime->title_chr_byte_count,
+                                       runtime->mode_frame_counter,
+                                       origin_x,
+                                       origin_y,
+                                       scale);
     }
     if (!drew) {
-        draw_centered_text(framebuffer, 212, "LOCAL CHR DATA UNAVAILABLE", rgb(252, 236, 170), 2);
+        draw_centered_text(framebuffer, 212, "NATIVE TECMO SCREEN UNAVAILABLE", rgb(252, 236, 170), 2);
     }
+    return drew;
+}
+
+static bool render_intro_native_title_screen(const TecmoRuntime *runtime,
+                                             TecmoFramebuffer *fb,
+                                             const char *prompt,
+                                             bool draw_debug)
+{
+    bool drew = tecmo_render_intro_presents_screen(runtime, fb);
+
+    if (prompt != NULL && prompt[0] != '\0') {
+        draw_text(fb, 22, 22, prompt, rgb(230, 232, 214), 1);
+    }
+    if (draw_debug) {
+        char line[160];
+        (void)snprintf(line,
+                       sizeof(line),
+                       "NATIVE TISC-1  STAGE %u  MODEFRAME %u  ROM-RESOLVED CHR",
+                       runtime != NULL
+                           ? (unsigned)tecmo_intro_screen_palette_stage(
+                                 &runtime->intro_presents_asset,
+                                 runtime->mode_frame_counter)
+                           : 0U,
+                       runtime != NULL ? runtime->mode_frame_counter : 0U);
+        draw_text(fb, 22, 446, line, rgb(92, 116, 128), 1);
+    }
+    return drew;
+}
+
+bool tecmo_render_intro_license_screen(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer)
+{
+    const int scale = 2;
+    const int origin_x = 64;
+    const int origin_y = 0;
+    bool drew = false;
+
+    clear(framebuffer, rgb(0, 0, 0));
+    if (runtime != NULL) {
+        drew = tecmo_intro_screen_draw(framebuffer,
+                                       &runtime->intro_license_asset,
+                                       runtime->title_chr_bytes,
+                                       runtime->title_chr_byte_count,
+                                       runtime->mode_frame_counter,
+                                       origin_x,
+                                       origin_y,
+                                       scale);
+    }
+    if (!drew) {
+        draw_centered_text(framebuffer, 212, "NATIVE NBA SCREEN UNAVAILABLE", rgb(252, 236, 170), 2);
+    }
+    return drew;
 }
 
 static void draw_title_glyph(TecmoFramebuffer *fb,
@@ -1777,7 +1808,7 @@ static const char *intro_output_step_label(uint8_t step)
         return "COORDINATE AUDIT";
     }
     if (step == TECMO_INTRO_OUTPUT_TITLE_STEP) {
-        return "CAPTURED PPU TITLE BACKGROUND";
+        return "ROM-NATIVE TECMO AND RABBIT";
     }
     if (step == TECMO_INTRO_OUTPUT_LICENSE_STEP) {
         return "NBA LICENSE SCREEN";
@@ -2299,7 +2330,14 @@ static void draw_intro_presents_nametable_position(TecmoFramebuffer *fb,
     const int nametable_x = 64;
     const int nametable_y = 0;
 
-    draw_intro_captured_title_nametable(fb, runtime, nametable_x, nametable_y, scale, true);
+    (void)tecmo_intro_screen_draw(fb,
+                                  &runtime->intro_presents_asset,
+                                  runtime->title_chr_bytes,
+                                  runtime->title_chr_byte_count,
+                                  runtime->mode_frame_counter,
+                                  nametable_x,
+                                  nametable_y,
+                                  scale);
 }
 
 static void draw_coordinate_panel(TecmoFramebuffer *fb,
@@ -2318,8 +2356,8 @@ static void render_intro_coordinate_audit(const TecmoRuntime *runtime, TecmoFram
 {
     char line[160];
 
-    draw_text(fb, 48, 132, "RABBIT TECMO AND PRESENTS ARE VERIFIED IN SEPARATE STATES", rgb(230, 232, 214), 1);
-    draw_text(fb, 48, 150, "DO NOT PLACE SPRITE STREAMS RELATIVE TO SCREEN00 PRESENTS UNTIL ORDER IS CAPTURED",
+    draw_text(fb, 48, 132, "TECMO PRESENTS BACKGROUND AND RABBIT OAM ARE ROM-VERIFIED", rgb(230, 232, 214), 1);
+    draw_text(fb, 48, 150, "SCREEN00 PLUS BD9E OAM ARE IMPORTED AS ONE STRICT NATIVE ASSET",
               rgb(142, 174, 190), 1);
 
     draw_coordinate_panel(fb, 24, 184, 188, 232, "PRESENTS BG");
@@ -2459,20 +2497,7 @@ static void render_intro_coordinate_assembly_preview(const TecmoRuntime *runtime
                    INTRO_TECMO_LOGO_BOUNDS_MIN_Y,
                    INTRO_TECMO_LOGO_BOUNDS_MAX_Y);
     draw_text(fb, 24, 422, line, rgb(230, 232, 214), 1);
-    draw_text(fb, 24, 440, "NEXT: CAPTURE THE REAL FIRST INTRO STATE ORDER BEFORE TREATING THIS AS FINAL", rgb(142, 174, 190), 1);
-}
-
-static void render_intro_trace_title_common(const TecmoRuntime *runtime,
-                                            TecmoFramebuffer *fb,
-                                            const char *prompt)
-{
-    render_intro_captured_title_screen(runtime, fb, prompt, false);
-    draw_text(fb, 22, 446, runtime->intro_trace_status, rgb(92, 116, 128), 1);
-}
-
-static void render_intro_trace_title(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
-{
-    render_intro_trace_title_common(runtime, fb, "ENTER MENU   ESC QUIT");
+    draw_text(fb, 24, 440, "NORMAL PLAY USES THE ROM-DERIVED TISC-1 OPENING; TRACE DATA IS DEBUG-ONLY", rgb(142, 174, 190), 1);
 }
 
 static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
@@ -2489,6 +2514,7 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
     }
 
     if ((!runtime->title_probe_available &&
+         step != TECMO_INTRO_OUTPUT_TITLE_STEP &&
          step != TECMO_INTRO_OUTPUT_LICENSE_STEP &&
          step != TECMO_INTRO_OUTPUT_ARENA_STEP &&
          step != TECMO_INTRO_OUTPUT_READY_STEP &&
@@ -2512,7 +2538,7 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
     }
 
     if (step == TECMO_INTRO_OUTPUT_TITLE_STEP) {
-        render_intro_captured_title_screen(runtime, fb, NULL, false);
+        (void)render_intro_native_title_screen(runtime, fb, NULL, false);
         return;
     }
 
@@ -2624,7 +2650,7 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
         draw_text(fb, 48, 328, line, rgb(142, 174, 190), 1);
         (void)snprintf(line,
                        sizeof(line),
-                       "MATCH %s  CAPTURED FRAME16 WRITES 58 NON-FF BG TILES",
+                       "MATCH %s  ROM SCREEN00 DECODES 58 NON-FF BG TILES",
                        runtime->intro_presents_data_available ? runtime->intro_presents_data_cpu : "UNRESOLVED");
         draw_text(fb, 48, 346, line, rgb(142, 174, 190), 1);
     } else if (step == 5U) {
