@@ -2,6 +2,9 @@
 
 #include "tecmo_asset_pack.h"
 
+#include "asset_pack/tecmo_asset_pack_d9f6.h"
+#include "asset_pack/tecmo_asset_pack_format.h"
+
 #include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -16,9 +19,6 @@
 #include <unistd.h>
 #endif
 
-#define TECMO_ASSET_PACK_VERSION 1U
-#define TECMO_ASSET_PACK_HEADER_SIZE 40U
-#define TECMO_ASSET_PACK_ENTRY_SIZE 128U
 #define TECMO_ASSET_PACK_PRG_BANK_BYTES 0x4000ULL
 #define TECMO_ASSET_PACK_CHR_BANK_BYTES 0x2000ULL
 #define TECMO_ASSET_PACK_PATH_SIZE 1024U
@@ -349,17 +349,6 @@ typedef struct TecmoAssetPackBuildEntry {
     uint32_t flags;
 } TecmoAssetPackBuildEntry;
 
-typedef struct TecmoAssetPackDirectoryEntry {
-    char id[TECMO_ASSET_PACK_ID_SIZE];
-    uint32_t type;
-    uint32_t bank;
-    uint32_t cpu_address;
-    uint64_t source_offset;
-    uint64_t pack_offset;
-    uint64_t size;
-    uint32_t flags;
-} TecmoAssetPackDirectoryEntry;
-
 typedef struct TecmoArenaBackgroundProvenance {
     uint32_t route_bank;
     uint32_t route_cpu;
@@ -649,16 +638,6 @@ static uint32_t fnv1a32(const uint8_t *bytes, size_t byte_count)
     return hash;
 }
 
-static uint64_t read_u64(const uint8_t *bytes)
-{
-    uint64_t value = 0;
-
-    for (size_t i = 0; i < 8U; ++i) {
-        value |= (uint64_t)bytes[i] << (unsigned)(i * 8U);
-    }
-    return value;
-}
-
 static void store_u16(uint8_t *bytes, uint16_t value)
 {
     bytes[0] = (uint8_t)(value & 0xFFU);
@@ -671,42 +650,6 @@ static void store_u32(uint8_t *bytes, uint32_t value)
     bytes[1] = (uint8_t)((value >> 8U) & 0xFFU);
     bytes[2] = (uint8_t)((value >> 16U) & 0xFFU);
     bytes[3] = (uint8_t)((value >> 24U) & 0xFFU);
-}
-
-static int read_pack_header(FILE *file,
-                            uint32_t *entry_count_out,
-                            uint64_t *directory_offset_out)
-{
-    uint8_t header[TECMO_ASSET_PACK_HEADER_SIZE];
-    uint32_t version;
-    uint32_t header_size;
-    uint32_t entry_size;
-    uint32_t entry_count;
-    uint64_t directory_offset;
-
-    if (file == NULL || entry_count_out == NULL || directory_offset_out == NULL) {
-        return -1;
-    }
-
-    if (fread(header, 1U, sizeof(header), file) != sizeof(header) ||
-        memcmp(header, "TAP1", 4U) != 0) {
-        return -1;
-    }
-
-    version = read_u32(header + 4U);
-    header_size = read_u32(header + 8U);
-    entry_size = read_u32(header + 12U);
-    entry_count = read_u32(header + 16U);
-    directory_offset = read_u64(header + 20U);
-    if (version != TECMO_ASSET_PACK_VERSION ||
-        header_size != TECMO_ASSET_PACK_HEADER_SIZE ||
-        entry_size != TECMO_ASSET_PACK_ENTRY_SIZE) {
-        return -1;
-    }
-
-    *entry_count_out = entry_count;
-    *directory_offset_out = directory_offset;
-    return 0;
 }
 
 static int write_header(FILE *file,
@@ -744,27 +687,6 @@ static int write_directory_entry(FILE *file, const TecmoAssetPackBuildEntry *ent
         fwrite(padding, 1U, sizeof(padding), file) != sizeof(padding)) {
         return -1;
     }
-    return 0;
-}
-
-static int read_directory_entry(FILE *file, TecmoAssetPackDirectoryEntry *entry)
-{
-    uint8_t bytes[TECMO_ASSET_PACK_ENTRY_SIZE];
-
-    if (fread(bytes, 1U, sizeof(bytes), file) != sizeof(bytes)) {
-        return -1;
-    }
-
-    memset(entry, 0, sizeof(*entry));
-    memcpy(entry->id, bytes, TECMO_ASSET_PACK_ID_SIZE);
-    entry->id[TECMO_ASSET_PACK_ID_SIZE - 1U] = '\0';
-    entry->type = read_u32(bytes + 64U);
-    entry->bank = read_u32(bytes + 68U);
-    entry->cpu_address = read_u32(bytes + 72U);
-    entry->source_offset = read_u64(bytes + 76U);
-    entry->pack_offset = read_u64(bytes + 84U);
-    entry->size = read_u64(bytes + 92U);
-    entry->flags = read_u32(bytes + 100U);
     return 0;
 }
 
@@ -1183,108 +1105,6 @@ static uint64_t prg_bank_cpu_source_offset(uint64_t prg_offset,
            (uint64_t)(cpu_address - TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
 }
 
-static int decode_d9f6_stream(const uint8_t *bank_bytes,
-                              size_t bank_size,
-                              size_t stream_offset,
-                              uint8_t *decoded,
-                              size_t decoded_size,
-                              size_t *encoded_size_out,
-                              char *message,
-                              size_t message_size)
-{
-    size_t source = stream_offset;
-    size_t output = 0U;
-
-    if (bank_bytes == NULL || decoded == NULL || stream_offset >= bank_size) {
-        set_message(message, message_size, "Arena screen stream starts outside its PRG bank.");
-        return -1;
-    }
-
-    for (;;) {
-        uint8_t control;
-
-        if (source >= bank_size) {
-            set_message(message, message_size, "Arena screen stream ended before a terminator.");
-            return -1;
-        }
-        control = bank_bytes[source++];
-
-        for (unsigned int slot = 0U; slot < 4U; ++slot) {
-            unsigned int operation = (unsigned int)(control & 0x03U);
-            size_t count;
-
-            control >>= 2U;
-            if (source >= bank_size) {
-                set_message(message, message_size, "Arena screen stream is missing an operation count.");
-                return -1;
-            }
-            count = bank_bytes[source++];
-            if (count == 0U) {
-                count = 256U;
-            }
-
-            if (operation == 0U) {
-                if (output != decoded_size) {
-                    set_messagef(message,
-                                 message_size,
-                                 "Arena screen stream terminated after %llu decoded bytes; expected %llu.",
-                                 (unsigned long long)output,
-                                 (unsigned long long)decoded_size);
-                    return -1;
-                }
-                if (encoded_size_out != NULL) {
-                    *encoded_size_out = source - stream_offset;
-                }
-                return 0;
-            }
-            if (count > decoded_size - output) {
-                set_message(message, message_size, "Arena screen stream decodes past two nametables.");
-                return -1;
-            }
-
-            if (operation == 1U) {
-                if (count > bank_size - source) {
-                    set_message(message, message_size, "Arena screen literal crosses its PRG bank.");
-                    return -1;
-                }
-                memcpy(decoded + output, bank_bytes + source, count);
-                source += count;
-            } else if (operation == 2U) {
-                if (source >= bank_size) {
-                    set_message(message, message_size, "Arena screen repeat is missing its byte.");
-                    return -1;
-                }
-                memset(decoded + output, bank_bytes[source++], count);
-            } else {
-                size_t delta_offset = source;
-                size_t delta;
-                size_t copy_source;
-
-                if (bank_size - source < 2U) {
-                    set_message(message, message_size, "Arena screen back-copy is missing its delta.");
-                    return -1;
-                }
-                delta = (size_t)bank_bytes[source] |
-                        ((size_t)bank_bytes[source + 1U] << 8U);
-                source += 2U;
-
-                /* D9F6 subtracts from the address of the delta, then resumes after it. */
-                if (delta > delta_offset) {
-                    set_message(message, message_size, "Arena screen back-copy underflows its PRG bank.");
-                    return -1;
-                }
-                copy_source = delta_offset - delta;
-                if (count > bank_size - copy_source) {
-                    set_message(message, message_size, "Arena screen back-copy crosses its PRG bank.");
-                    return -1;
-                }
-                memcpy(decoded + output, bank_bytes + copy_source, count);
-            }
-            output += count;
-        }
-    }
-}
-
 static int validate_chr_pair(uint8_t r0,
                              uint8_t r1,
                              uint64_t chr_size,
@@ -1402,7 +1222,7 @@ static int build_arena_background_layer(const uint8_t *rom,
         validate_chr_pair(lower_r0, lower_r1, chr_size, "lower", message, message_size) != 0) {
         return -1;
     }
-    if (decode_d9f6_stream(rom + (size_t)stream_bank_offset,
+    if (tecmo_asset_pack_decode_d9f6_stream(rom + (size_t)stream_bank_offset,
                            (size_t)TECMO_ASSET_PACK_PRG_BANK_BYTES,
                            (size_t)(stream_cpu - TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE),
                            decoded,
@@ -1994,7 +1814,7 @@ static int build_opening_screen(const uint8_t *rom,
                           "opening background",
                           message,
                           message_size) != 0 ||
-        decode_d9f6_stream(rom + (size_t)bank00_offset,
+        tecmo_asset_pack_decode_d9f6_stream(rom + (size_t)bank00_offset,
                            TECMO_ASSET_PACK_PRG_BANK_BYTES,
                            stream_cpu - TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE,
                            decoded,
@@ -2314,7 +2134,7 @@ static int build_ready_screen(const uint8_t *rom,
     stream_bank_offset = prg_offset + (uint64_t)stream_bank * TECMO_ASSET_PACK_PRG_BANK_BYTES;
     palette_offset = stream_bank_offset + (palette_cpu - 0x8000U);
     if (palette_offset > rom_size || 16U > rom_size - palette_offset ||
-        decode_d9f6_stream(rom + (size_t)stream_bank_offset,
+        tecmo_asset_pack_decode_d9f6_stream(rom + (size_t)stream_bank_offset,
                            TECMO_ASSET_PACK_PRG_BANK_BYTES,
                            stream_cpu - 0x8000U,
                            decoded,
@@ -2491,7 +2311,7 @@ static int build_warriors_transition(const uint8_t *rom,
     palette_offset = stream_bank_offset + (palette_cpu - 0x8000U);
     memset(decoded, 0xFF, sizeof(decoded));
     if (palette_offset > rom_size || 16U > rom_size - palette_offset ||
-        decode_d9f6_stream(rom + (size_t)stream_bank_offset,
+        tecmo_asset_pack_decode_d9f6_stream(rom + (size_t)stream_bank_offset,
                            TECMO_ASSET_PACK_PRG_BANK_BYTES,
                            stream_cpu - 0x8000U,
                            decoded,
@@ -2759,7 +2579,7 @@ static int build_clippers_transition(const uint8_t *rom,
     if (palette_offset > stream_bank_offset + TECMO_ASSET_PACK_PRG_BANK_BYTES ||
         16U > stream_bank_offset + TECMO_ASSET_PACK_PRG_BANK_BYTES - palette_offset ||
         palette_offset > rom_size || 16U > rom_size - palette_offset ||
-        decode_d9f6_stream(rom + (size_t)stream_bank_offset,
+        tecmo_asset_pack_decode_d9f6_stream(rom + (size_t)stream_bank_offset,
                            TECMO_ASSET_PACK_PRG_BANK_BYTES,
                            stream_cpu - 0x8000U,
                            decoded,
@@ -2970,7 +2790,7 @@ static int build_bucks_transition(const uint8_t *rom,
     }
     if (validate_chr_pair(0x5EU, 0x60U, chr_size, "BUCKS base", message, message_size) != 0 ||
         validate_chr_pair(0x5EU, 0xFAU, chr_size, "BUCKS lower", message, message_size) != 0 ||
-        decode_d9f6_stream(rom + (size_t)bank01_offset,
+        tecmo_asset_pack_decode_d9f6_stream(rom + (size_t)bank01_offset,
                            TECMO_ASSET_PACK_PRG_BANK_BYTES,
                            0xB401U - 0x8000U,
                            decoded,
@@ -3139,7 +2959,7 @@ static int build_pass_transition(const uint8_t *rom,
         if (rom[(size_t)helper_offset + i * 4U] != 0x02U) return -1;
     }
     if (validate_chr_pair(0xF0U, 0xF2U, chr_size, "PASS background", message, message_size) != 0 ||
-        decode_d9f6_stream(rom + (size_t)bank01_offset,
+        tecmo_asset_pack_decode_d9f6_stream(rom + (size_t)bank01_offset,
                            TECMO_ASSET_PACK_PRG_BANK_BYTES,
                            0xB933U - 0x8000U,
                            decoded,
@@ -3567,7 +3387,7 @@ static int build_finale_sequence(const uint8_t *rom,
         stream_bank_offset = prg_offset + (uint64_t)stream_bank * TECMO_ASSET_PACK_PRG_BANK_BYTES;
         palette_offset = stream_bank_offset + (palette_cpu - 0x8000U);
         if (palette_offset + 16U > rom_size ||
-            decode_d9f6_stream(rom + (size_t)stream_bank_offset,
+            tecmo_asset_pack_decode_d9f6_stream(rom + (size_t)stream_bank_offset,
                                TECMO_ASSET_PACK_PRG_BANK_BYTES,
                                stream_cpu - 0x8000U,
                                decoded[screen],
@@ -5433,240 +5253,6 @@ int tecmo_asset_pack_build_from_ines(const char *rom_path,
                                                       message_size);
 }
 
-int tecmo_asset_pack_list_entries(const char *pack_path,
-                                  TecmoAssetPackListCallback callback,
-                                  void *user_data)
-{
-    FILE *file;
-    uint32_t entry_count;
-    uint64_t directory_offset;
-    int result = -1;
-
-    if (pack_path == NULL || callback == NULL) {
-        return -1;
-    }
-
-    file = fopen(pack_path, "rb");
-    if (file == NULL) {
-        return -1;
-    }
-
-    if (read_pack_header(file, &entry_count, &directory_offset) != 0 ||
-        file_seek_u64(file, directory_offset) != 0) {
-        goto cleanup;
-    }
-
-    for (uint32_t i = 0; i < entry_count; ++i) {
-        TecmoAssetPackDirectoryEntry entry;
-        TecmoAssetPackDirectoryEntryInfo entry_info;
-        int callback_result;
-
-        if (read_directory_entry(file, &entry) != 0) {
-            goto cleanup;
-        }
-
-        entry_info.id = entry.id;
-        entry_info.type = entry.type;
-        entry_info.bank = entry.bank;
-        entry_info.cpu_address = entry.cpu_address;
-        entry_info.source_offset = entry.source_offset;
-        entry_info.byte_count = entry.size;
-        entry_info.flags = entry.flags;
-
-        callback_result = callback(&entry_info, user_data);
-        if (callback_result != 0) {
-            result = callback_result;
-            goto cleanup;
-        }
-    }
-
-    result = 0;
-
-cleanup:
-    fclose(file);
-    return result;
-}
-
-typedef struct TecmoAssetPackDirectoryDumpContext {
-    char *buffer;
-    size_t buffer_size;
-    size_t length;
-    size_t required;
-    int overflow;
-} TecmoAssetPackDirectoryDumpContext;
-
-static void append_directory_dump_text(TecmoAssetPackDirectoryDumpContext *context,
-                                       const char *text,
-                                       size_t text_length)
-{
-    if (context == NULL || text == NULL) {
-        return;
-    }
-
-    if (SIZE_MAX - context->required < text_length) {
-        context->required = SIZE_MAX;
-        context->overflow = 1;
-    } else {
-        context->required += text_length;
-    }
-
-    if (context->buffer != NULL &&
-        context->buffer_size > 0U &&
-        context->length < context->buffer_size - 1U) {
-        size_t available = context->buffer_size - 1U - context->length;
-        size_t copy_length = text_length < available ? text_length : available;
-
-        if (copy_length > 0U) {
-            memcpy(context->buffer + context->length, text, copy_length);
-            context->length += copy_length;
-        }
-    }
-}
-
-static int append_directory_dump_entry(const TecmoAssetPackDirectoryEntryInfo *entry_info,
-                                       void *user_data)
-{
-    TecmoAssetPackDirectoryDumpContext *context = (TecmoAssetPackDirectoryDumpContext *)user_data;
-    char line[512];
-    int written;
-
-    if (entry_info == NULL || context == NULL) {
-        return -1;
-    }
-
-    written = snprintf(line,
-                       sizeof(line),
-                       "%s\ttype=0x%08X\tbank=%u\tcpu=0x%04X\tsource=%llu\tbytes=%llu\tflags=0x%08X\n",
-                       entry_info->id,
-                       (unsigned int)entry_info->type,
-                       (unsigned int)entry_info->bank,
-                       (unsigned int)entry_info->cpu_address,
-                       (unsigned long long)entry_info->source_offset,
-                       (unsigned long long)entry_info->byte_count,
-                       (unsigned int)entry_info->flags);
-    if (written < 0) {
-        context->overflow = 1;
-        return 0;
-    }
-    if ((size_t)written >= sizeof(line)) {
-        context->overflow = 1;
-        return 0;
-    }
-
-    append_directory_dump_text(context, line, (size_t)written);
-    return 0;
-}
-
-int tecmo_asset_pack_dump_directory(const char *pack_path,
-                                    char *buffer,
-                                    size_t buffer_size,
-                                    size_t *required_size_out)
-{
-    static const char header[] = "id\ttype\tbank\tcpu_address\tsource_offset\tbyte_count\tflags\n";
-    TecmoAssetPackDirectoryDumpContext context;
-    size_t required_size;
-    int list_result;
-
-    if (pack_path == NULL || (buffer == NULL && buffer_size > 0U)) {
-        return -1;
-    }
-    if (required_size_out != NULL) {
-        *required_size_out = 0U;
-    }
-
-    memset(&context, 0, sizeof(context));
-    context.buffer = buffer;
-    context.buffer_size = buffer_size;
-    if (buffer != NULL && buffer_size > 0U) {
-        buffer[0] = '\0';
-    }
-
-    append_directory_dump_text(&context, header, sizeof(header) - 1U);
-    list_result = tecmo_asset_pack_list_entries(pack_path, append_directory_dump_entry, &context);
-
-    if (buffer != NULL && buffer_size > 0U) {
-        buffer[context.length] = '\0';
-    }
-
-    if (list_result != 0 || context.overflow || SIZE_MAX - context.required < 1U) {
-        if (required_size_out != NULL) {
-            *required_size_out = SIZE_MAX;
-        }
-        return -1;
-    }
-
-    required_size = context.required + 1U;
-    if (required_size_out != NULL) {
-        *required_size_out = required_size;
-    }
-    if (buffer != NULL && buffer_size < required_size) {
-        return -1;
-    }
-
-    return 0;
-}
-
-int tecmo_asset_pack_read_entry(const char *pack_path,
-                                const char *entry_id,
-                                uint8_t **bytes_out,
-                                uint64_t *byte_count)
-{
-    FILE *file;
-    uint32_t entry_count;
-    uint64_t directory_offset;
-    uint8_t *bytes = NULL;
-    int result = -1;
-
-    if (pack_path == NULL || entry_id == NULL || bytes_out == NULL || byte_count == NULL) {
-        return -1;
-    }
-    *bytes_out = NULL;
-    *byte_count = 0U;
-
-    file = fopen(pack_path, "rb");
-    if (file == NULL) {
-        return -1;
-    }
-
-    if (read_pack_header(file, &entry_count, &directory_offset) != 0 ||
-        file_seek_u64(file, directory_offset) != 0) {
-        goto cleanup;
-    }
-
-    for (uint32_t i = 0; i < entry_count; ++i) {
-        TecmoAssetPackDirectoryEntry entry;
-        if (read_directory_entry(file, &entry) != 0) {
-            goto cleanup;
-        }
-        if (strncmp(entry.id, entry_id, TECMO_ASSET_PACK_ID_SIZE) == 0) {
-            if (entry.size > (uint64_t)SIZE_MAX) {
-                goto cleanup;
-            }
-            bytes = (uint8_t *)malloc((size_t)entry.size);
-            if (bytes == NULL && entry.size > 0U) {
-                goto cleanup;
-            }
-            if (file_seek_u64(file, entry.pack_offset) != 0 ||
-                (entry.size > 0U &&
-                 fread(bytes, 1U, (size_t)entry.size, file) != (size_t)entry.size)) {
-                free(bytes);
-                bytes = NULL;
-                goto cleanup;
-            }
-            *bytes_out = bytes;
-            *byte_count = entry.size;
-            bytes = NULL;
-            result = 0;
-            goto cleanup;
-        }
-    }
-
-cleanup:
-    free(bytes);
-    fclose(file);
-    return result;
-}
-
 static int make_self_test_temp_dir(char *path, size_t path_size)
 {
     if (path == NULL || path_size == 0U) {
@@ -6250,7 +5836,7 @@ static int self_test_d9f6_decoder(char *message, size_t message_size)
 
     memset(decoded, 0, sizeof(decoded));
     decoder_message[0] = '\0';
-    if (decode_d9f6_stream(backreference_stream,
+    if (tecmo_asset_pack_decode_d9f6_stream(backreference_stream,
                            sizeof(backreference_stream),
                            0U,
                            decoded,
@@ -6269,7 +5855,7 @@ static int self_test_d9f6_decoder(char *message, size_t message_size)
     memset(decoded, 0, sizeof(decoded));
     encoded_size = 0U;
     decoder_message[0] = '\0';
-    if (decode_d9f6_stream(zero_count_stream,
+    if (tecmo_asset_pack_decode_d9f6_stream(zero_count_stream,
                            sizeof(zero_count_stream),
                            0U,
                            decoded,
@@ -6289,7 +5875,7 @@ static int self_test_d9f6_decoder(char *message, size_t message_size)
     }
 
     decoder_message[0] = '\0';
-    if (decode_d9f6_stream(truncated_count_stream,
+    if (tecmo_asset_pack_decode_d9f6_stream(truncated_count_stream,
                            sizeof(truncated_count_stream),
                            0U,
                            decoded,
@@ -6303,7 +5889,7 @@ static int self_test_d9f6_decoder(char *message, size_t message_size)
     }
 
     decoder_message[0] = '\0';
-    if (decode_d9f6_stream(overflow_stream,
+    if (tecmo_asset_pack_decode_d9f6_stream(overflow_stream,
                            sizeof(overflow_stream),
                            0U,
                            decoded,
@@ -6317,7 +5903,7 @@ static int self_test_d9f6_decoder(char *message, size_t message_size)
     }
 
     decoder_message[0] = '\0';
-    if (decode_d9f6_stream(underflow_stream,
+    if (tecmo_asset_pack_decode_d9f6_stream(underflow_stream,
                            sizeof(underflow_stream),
                            0U,
                            decoded,
@@ -6331,7 +5917,7 @@ static int self_test_d9f6_decoder(char *message, size_t message_size)
     }
 
     decoder_message[0] = '\0';
-    if (decode_d9f6_stream(boundary_crossing_stream,
+    if (tecmo_asset_pack_decode_d9f6_stream(boundary_crossing_stream,
                            sizeof(boundary_crossing_stream),
                            0U,
                            decoded,
@@ -7701,9 +7287,4 @@ cleanup:
     remove_self_test_file(ines_pack_path);
     remove_self_test_dir(temp_dir);
     return result;
-}
-
-void tecmo_asset_pack_free(void *buffer)
-{
-    free(buffer);
 }
