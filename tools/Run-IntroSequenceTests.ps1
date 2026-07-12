@@ -473,7 +473,9 @@ try {
         "arena/intro/pass-transition",
         "intro/tecmo-presents-screen",
         "intro/nba-license-screen",
-        "intro/finale-sequence"
+        "intro/finale-sequence",
+        "title/attract-continuation",
+        "title/start-screen"
     )
     $ForbiddenCaptureEntries = @("intro/arena/capture.ndjson", "intro/post-arena/capture.ndjson", "intro/captures/source-map")
     $MissingNativeEntries = @($RequiredNativeEntries | Where-Object { $ListText -notmatch [regex]::Escape($_) })
@@ -496,6 +498,86 @@ try {
         present_forbidden_capture_entries = $PresentForbiddenCaptureEntries
         raw_output_persisted = $false
         error = if ($ListPassed) { $null } else { "ROM-only test asset pack is missing native arena entries or contains capture entries" }
+    })
+
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    $TitleRenderPassed = $ListPassed
+    $TitleRenderOutputs = New-Object System.Collections.Generic.List[object]
+    try {
+        $env:TECMO_ASSETPACK = $AssetPackPath
+        foreach ($Mode in @("title-attract-frame6", "title-attract-frame621",
+                             "title-screen", "title-confirm-frame1",
+                             "title-confirm-frame10", "title-confirm-frame30",
+                             "title-confirm-frame60", "title-confirm-frame120",
+                             "title-confirm-frame126")) {
+            $RenderPath = Join-Path $OutputDir ($Mode + ".png")
+            $Output = & $ExePath --root $ProjectRoot --render-test-mode $Mode $RenderPath 2>&1
+            $ExitCode = $LASTEXITCODE
+            $Passed = $ExitCode -eq 0 -and (Test-Path -LiteralPath $RenderPath)
+            if (!$Passed) { $TitleRenderPassed = $false }
+            $TitleRenderOutputs.Add([pscustomobject]@{
+                mode = $Mode
+                passed = $Passed
+                exit_code = $ExitCode
+                output_created = Test-Path -LiteralPath $RenderPath
+            })
+            Remove-Item -LiteralPath $RenderPath -Force -ErrorAction SilentlyContinue
+        }
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+    }
+    if (!$TitleRenderPassed) { ++$Failures }
+    $Results.Add([pscustomobject]@{
+        id = "intro-title-attract-start-render"
+        passed = $TitleRenderPassed
+        skipped = $false
+        cases = $TitleRenderOutputs
+        timing = "TATR natural=621 reset=642; TTLE prompt halves=7 frames handoff=127"
+        raw_output_persisted = $false
+        error = if ($TitleRenderPassed) { $null } else { "native title attract/start render mode failed" }
+    })
+
+    $MalformedTitleCases = @(
+        [pscustomobject]@{ id = "attract-reserved"; entry = "title/attract-continuation"; offset = 48; mode = "title-attract-frame6" },
+        [pscustomobject]@{ id = "start-prompt"; entry = "title/start-screen"; offset = 5850; mode = "title-confirm-frame10" }
+    )
+    $MalformedTitleResults = New-Object System.Collections.Generic.List[object]
+    $MalformedTitlePassed = $ListPassed
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    try {
+        foreach ($Case in $MalformedTitleCases) {
+            $CasePack = Join-Path $OutputDir "malformed-title-$($Case.id).assetpack"
+            $CaseRender = Join-Path $OutputDir "malformed-title-$($Case.id).png"
+            [byte[]]$CaseBytes = [System.IO.File]::ReadAllBytes($AssetPackPath)
+            $PayloadOffset = Get-AssetPackEntryPayloadOffset -Bytes $CaseBytes -EntryId $Case.entry
+            $CaseBytes[$PayloadOffset + $Case.offset] = $CaseBytes[$PayloadOffset + $Case.offset] -bxor 1
+            [System.IO.File]::WriteAllBytes($CasePack, $CaseBytes)
+            $env:TECMO_ASSETPACK = $CasePack
+            $CaseOutput = & $ExePath --root $ProjectRoot --render-test-mode $Case.mode $CaseRender 2>&1
+            $CaseExitCode = $LASTEXITCODE
+            $Rejected = $CaseExitCode -eq 1 -and !(Test-Path -LiteralPath $CaseRender)
+            if (!$Rejected) { $MalformedTitlePassed = $false }
+            $MalformedTitleResults.Add([pscustomobject]@{
+                id = $Case.id
+                passed = $Rejected
+                exit_code = $CaseExitCode
+                rejected_by_runtime = $Rejected
+            })
+            Remove-Item -LiteralPath $CasePack -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $CaseRender -Force -ErrorAction SilentlyContinue
+        }
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+    }
+    if (!$MalformedTitlePassed) { ++$Failures }
+    $Results.Add([pscustomobject]@{
+        id = "intro-title-malformed-contract"
+        passed = $MalformedTitlePassed
+        skipped = $false
+        cases = $MalformedTitleResults
+        raw_output_persisted = $false
+        coverage_status = "covered"
+        error = if ($MalformedTitlePassed) { $null } else { "runtime accepted malformed native title data" }
     })
 
     $OpeningRenderCases = @(

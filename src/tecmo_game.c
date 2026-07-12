@@ -11,7 +11,7 @@
 #define COURT_RIGHT 592
 #define COURT_BOTTOM 424
 #define TITLE_CHR_BANK_BYTES 8192U
-#define TECMO_INTRO_OUTPUT_STEP_COUNT 15U
+#define TECMO_INTRO_OUTPUT_STEP_COUNT 16U
 #define TECMO_INTRO_OUTPUT_TITLE_STEP 6U
 #define TECMO_INTRO_OUTPUT_LICENSE_STEP 7U
 #define TECMO_INTRO_OUTPUT_ARENA_STEP 8U
@@ -21,6 +21,7 @@
 #define TECMO_INTRO_OUTPUT_BUCKS_STEP 12U
 #define TECMO_INTRO_OUTPUT_PASS_STEP 13U
 #define TECMO_INTRO_OUTPUT_FINALE_STEP 14U
+#define TECMO_INTRO_OUTPUT_ATTRACT_STEP 15U
 #define TECMO_INTRO_TITLE_AUTO_FRAME 133U
 #define TECMO_INTRO_LICENSE_AUTO_FRAME 277U
 #define TECMO_INTRO_ARENA_TO_READY_FRAME 540U
@@ -225,6 +226,7 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
     (void)tecmo_intro_bucks_asset_load(&runtime->intro_bucks_asset, project_root);
     (void)tecmo_intro_pass_asset_load(&runtime->intro_pass_asset, project_root);
     (void)tecmo_intro_finale_asset_load(&runtime->intro_finale_asset, project_root);
+    (void)tecmo_title_asset_load(&runtime->title_asset, project_root);
 
     if (tecmo_collect_rosters(project_root, &runtime->roster) != 0) {
         if (!allow_empty_roster) {
@@ -264,6 +266,16 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
             set_runtime_status(runtime->intro_finale_asset.status,
                                sizeof(runtime->intro_finale_asset.status),
                                "TFIN-1 chr/all contract rejected");
+        }
+        if ((runtime->title_asset.attract_available || runtime->title_asset.start_available) &&
+            !tecmo_title_asset_chr_available(&runtime->title_asset,
+                                             runtime->title_chr_bytes,
+                                             runtime->title_chr_byte_count)) {
+            runtime->title_asset.attract_available = false;
+            runtime->title_asset.start_available = false;
+            set_runtime_status(runtime->title_asset.status,
+                               sizeof(runtime->title_asset.status),
+                               "TATR-2/TTLE-1 chr/all contract rejected");
         }
         if (runtime->selected_chr_bank >= chr_bank_count(runtime)) {
             runtime->selected_chr_bank = chr_bank_count(runtime) - 1U;
@@ -312,6 +324,11 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
         runtime->intro_handoff_complete = false;
         runtime->intro_next_screen = 0U;
     }
+    if (mode == TECMO_MODE_TITLE_SCREEN) {
+        runtime->title_start_armed = false;
+        runtime->title_confirming = false;
+        runtime->title_confirmation_frame = 0U;
+    }
     runtime->previous_input = (TecmoInput){0};
 }
 
@@ -338,10 +355,21 @@ static void update_main_menu(TecmoRuntime *runtime, const TecmoControlFrame *con
 
 static void update_title_screen(TecmoRuntime *runtime, const TecmoControlFrame *controls)
 {
-    if (controls->pressed.confirm) {
-        tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
+    if (runtime->title_confirming) {
+        ++runtime->title_confirmation_frame;
+        if (runtime->title_confirmation_frame >= tecmo_title_confirmation_handoff_frame()) {
+            tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
+        }
     } else if (controls->pressed.cancel) {
-        runtime->quit_requested = true;
+        tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
+    } else if (runtime->mode_frame_counter >= TECMO_TITLE_START_LOAD_FRAMES) {
+        if (!controls->held.confirm) {
+            runtime->title_start_armed = true;
+        }
+        if (runtime->title_start_armed && controls->pressed.confirm) {
+            runtime->title_confirming = true;
+            runtime->title_confirmation_frame = 1U;
+        }
     }
 }
 
@@ -535,8 +563,9 @@ static void update_court(TecmoRuntime *runtime, const TecmoControlFrame *control
 
 static void update_first_sprite_probe(TecmoRuntime *runtime, const TecmoControlFrame *controls)
 {
-    if (controls->pressed.confirm ||
-        controls->pressed.cancel) {
+    if (controls->pressed.confirm) {
+        tecmo_runtime_set_mode(runtime, TECMO_MODE_TITLE_SCREEN);
+    } else if (controls->pressed.cancel) {
         tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
     } else if (controls->pressed.left &&
                runtime->intro_output_step > 0U) {
@@ -581,6 +610,16 @@ static void update_first_sprite_probe(TecmoRuntime *runtime, const TecmoControlF
         runtime->mode_frame_counter = 0U;
     } else if (runtime->intro_output_step == TECMO_INTRO_OUTPUT_FINALE_STEP &&
                runtime->mode_frame_counter >= tecmo_intro_finale_hold_frame()) {
+        runtime->intro_output_step = TECMO_INTRO_OUTPUT_ATTRACT_STEP;
+        runtime->intro_handoff_complete = false;
+        runtime->mode_frame_counter = 0U;
+    } else if (runtime->intro_output_step == TECMO_INTRO_OUTPUT_ATTRACT_STEP &&
+               runtime->mode_frame_counter >= tecmo_title_attract_reset_frame()) {
+        runtime->intro_output_step = TECMO_INTRO_OUTPUT_TITLE_STEP;
+        runtime->intro_handoff_complete = false;
+        runtime->mode_frame_counter = 0U;
+    } else if (runtime->intro_output_step == TECMO_INTRO_OUTPUT_ATTRACT_STEP &&
+               tecmo_title_attract_natural_complete(runtime->mode_frame_counter)) {
         runtime->intro_handoff_complete = true;
     }
 }
@@ -783,23 +822,17 @@ static bool render_intro_native_title_screen(const TecmoRuntime *runtime,
 
 static void render_title_screen_mode(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
 {
-    if (runtime->intro_presents_asset.available) {
-        (void)render_intro_native_title_screen(runtime,
-                                               fb,
-                                               "ENTER MENU   ESC QUIT",
-                                               runtime->debug_overlay);
-    } else if (runtime->title_probe_available) {
-        tecmo_render_original_title_chr_probe(fb,
-                                              &runtime->title_glyphs,
-                                              runtime->title_chr_bytes,
-                                              runtime->title_chr_byte_count,
-                                              31U);
-        draw_text(fb, 22, 22, "ENTER MENU   ESC QUIT", rgb(230, 232, 214), 1);
-        draw_text(fb, 22, 438, runtime->intro_trace_status, rgb(142, 174, 190), 1);
-    } else {
-        tecmo_render_original_title_probe(fb, "TITLE DATA MISSING");
-        draw_centered_text(fb, 404, "LOCAL TITLE DATA UNAVAILABLE", rgb(230, 232, 214), 1);
+    clear(fb, rgb(0, 0, 0));
+    if (runtime->mode_frame_counter < TECMO_TITLE_START_LOAD_FRAMES) {
+        return;
     }
+    if (!tecmo_title_start_draw(fb, &runtime->title_asset,
+                                runtime->title_chr_bytes,
+                                runtime->title_chr_byte_count,
+                                runtime->title_confirming,
+                                runtime->title_confirmation_frame,
+                                64, 0, 2))
+        draw_centered_text(fb, 212, "NATIVE TTLE-1 TITLE UNAVAILABLE", rgb(252, 236, 170), 2);
 }
 
 static void render_roster_browser(const TecmoRuntime *runtime, TecmoFramebuffer *fb, bool play_setup)
@@ -2522,7 +2555,8 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
          step != TECMO_INTRO_OUTPUT_CLIPPERS_STEP &&
          step != TECMO_INTRO_OUTPUT_BUCKS_STEP &&
          step != TECMO_INTRO_OUTPUT_PASS_STEP &&
-         step != TECMO_INTRO_OUTPUT_FINALE_STEP) ||
+         step != TECMO_INTRO_OUTPUT_FINALE_STEP &&
+         step != TECMO_INTRO_OUTPUT_ATTRACT_STEP) ||
         (!runtime->intro_trace_available &&
          step != TECMO_INTRO_OUTPUT_TITLE_STEP &&
          step != TECMO_INTRO_OUTPUT_LICENSE_STEP &&
@@ -2532,7 +2566,8 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
          step != TECMO_INTRO_OUTPUT_CLIPPERS_STEP &&
          step != TECMO_INTRO_OUTPUT_BUCKS_STEP &&
          step != TECMO_INTRO_OUTPUT_PASS_STEP &&
-         step != TECMO_INTRO_OUTPUT_FINALE_STEP)) {
+         step != TECMO_INTRO_OUTPUT_FINALE_STEP &&
+         step != TECMO_INTRO_OUTPUT_ATTRACT_STEP)) {
         tecmo_render_first_sprite_probe(runtime, fb);
         return;
     }
@@ -2579,6 +2614,15 @@ static void render_intro_splash_play(const TecmoRuntime *runtime, TecmoFramebuff
 
     if (step == TECMO_INTRO_OUTPUT_FINALE_STEP) {
         tecmo_render_intro_finale(runtime, fb);
+        return;
+    }
+    if (step == TECMO_INTRO_OUTPUT_ATTRACT_STEP) {
+        clear(fb, rgb(0, 0, 0));
+        (void)tecmo_title_attract_draw(fb, &runtime->title_asset,
+                                      runtime->title_chr_bytes,
+                                      runtime->title_chr_byte_count,
+                                      runtime->mode_frame_counter,
+                                      64, 0, 2);
         return;
     }
 

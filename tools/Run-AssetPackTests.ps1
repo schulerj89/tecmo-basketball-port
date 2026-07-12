@@ -288,6 +288,8 @@ function Get-KnownLogicalAssetPackEntries {
         "intro/tecmo-presents-screen",
         "intro/nba-license-screen",
         "intro/finale-sequence",
+        "title/attract-continuation",
+        "title/start-screen",
         "roster/table.tsv",
         "title/original-text.txt",
         "title/glyph-map.tsv",
@@ -327,6 +329,8 @@ function Get-ExpectedLogicalAssetPackEntries {
             "intro/tecmo-presents-screen",
             "intro/nba-license-screen",
             "intro/finale-sequence"
+            "title/attract-continuation"
+            "title/start-screen"
         )
         capture_sources_present = @()
     }
@@ -1889,6 +1893,27 @@ try {
                     loose_trace_sources = @($PresentsRoles + $LicenseRoles | Where-Object {
                         $_ -match "trace|capture|log"
                     })
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $TitleAttractSource = @($SourceMap.logical_entries | Where-Object { $_.id -eq "title/attract-continuation" } | Select-Object -First 1)
+                $TitleStartSource = @($SourceMap.logical_entries | Where-Object { $_.id -eq "title/start-screen" } | Select-Object -First 1)
+                $TitleAttractRoles = @($TitleAttractSource.sources | ForEach-Object { [string]$_.role })
+                $TitleStartRoles = @($TitleStartSource.sources | ForEach-Object { [string]$_.role })
+                $ExpectedAttractRoles = @("descriptor", "compressed-screen", "initial-palettes", "final-sprite-palette", "sprite-records", "attribute-state-a", "attribute-state-b")
+                $ExpectedStartRoles = @("descriptor", "compressed-screen", "palette", "prompt-blank", "prompt-visible")
+                $TitleSourcePassed = $TitleAttractSource.Count -eq 1 -and
+                    $TitleStartSource.Count -eq 1 -and
+                    $TitleAttractSource.schema -eq "tecmo.title-attract/TATR-2" -and
+                    $TitleStartSource.schema -eq "tecmo.title-start/TTLE-1" -and
+                    (@(Compare-Object $ExpectedAttractRoles $TitleAttractRoles)).Count -eq 0 -and
+                    (@(Compare-Object $ExpectedStartRoles $TitleStartRoles)).Count -eq 0 -and
+                    @($TitleAttractRoles + $TitleStartRoles | Where-Object { $_ -match "trace|capture|log" }).Count -eq 0
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-title-source-provenance"
+                    passed = $TitleSourcePassed
+                    attract_roles = $TitleAttractRoles
+                    start_roles = $TitleStartRoles
                     raw_asset_bytes_persisted = $false
                 })
 

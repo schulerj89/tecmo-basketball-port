@@ -809,6 +809,27 @@ int main(int argc, char **argv)
                     render_runtime = false;
                     result = arena_render_succeeded ? 0 : 1;
                 }
+            } else if (strncmp(mode_name, "title-confirm-frame", 19) == 0) {
+                unsigned frame;
+                if (!parse_render_frame_suffix(mode_name, "title-confirm-frame", &frame) || frame > 126U) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(&runtime, TECMO_MODE_TITLE_SCREEN);
+                    runtime.title_confirming = true;
+                    runtime.title_confirmation_frame = frame;
+                    runtime.mode_frame_counter = TECMO_TITLE_START_LOAD_FRAMES + frame;
+                }
+            } else if (strncmp(mode_name, "title-attract-frame", 19) == 0) {
+                unsigned frame;
+                if (!parse_render_frame_suffix(mode_name, "title-attract-frame", &frame) || frame > 642U) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(&runtime, TECMO_MODE_FIRST_SPRITE);
+                    runtime.intro_output_step = 15U;
+                    runtime.mode_frame_counter = frame;
+                }
             } else if (strcmp(mode_name, "play-setup") == 0) {
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_PLAY_SETUP);
             } else if (strcmp(mode_name, "title-screen") == 0) {
@@ -909,11 +930,19 @@ int main(int argc, char **argv)
                 framebuffer.pitch_pixels = width;
                 tecmo_runtime_render(&runtime, &framebuffer);
                 result = 0;
-                if ((strcmp(mode_name, "play") == 0 ||
-                     strncmp(mode_name, "play-fade", 9) == 0 ||
-                     strcmp(mode_name, "play-step6") == 0 ||
+                if ((strncmp(mode_name, "title-confirm-frame", 19) == 0 ||
+                     strncmp(mode_name, "title-attract-frame", 19) == 0 ||
                      strcmp(mode_name, "title-screen") == 0 ||
                      strcmp(mode_name, "boot-title") == 0) &&
+                    (!runtime.title_asset.attract_available ||
+                     !runtime.title_asset.start_available ||
+                     !tecmo_title_asset_chr_available(&runtime.title_asset,
+                                                       runtime.title_chr_bytes,
+                                                       runtime.title_chr_byte_count))) {
+                    result = 1;
+                } else if ((strcmp(mode_name, "play") == 0 ||
+                     strncmp(mode_name, "play-fade", 9) == 0 ||
+                     strcmp(mode_name, "play-step6") == 0) &&
                     (!runtime.intro_presents_asset.available ||
                      !tecmo_intro_screen_chr_available(&runtime.intro_presents_asset,
                                                        runtime.title_chr_bytes,

@@ -19,6 +19,7 @@ char *tecmo_asset_pack_build_ines_source_map(
     const TecmoArenaSpriteGroupsProvenance *sprite_groups_provenance,
     const TecmoPostArenaProvenance *post_arena_provenance,
     const TecmoFinaleProvenance *finale_provenance,
+    const TecmoTitleProvenance title_provenance[2],
     size_t *source_map_size_out);
 
 #endif

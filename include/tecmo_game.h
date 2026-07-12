@@ -12,6 +12,7 @@
 #include "tecmo_intro_stage.h"
 #include "tecmo_intro_trace.h"
 #include "tecmo_memory.h"
+#include "tecmo_title_screen.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -66,6 +67,7 @@ typedef struct TecmoRuntime {
     TecmoIntroFinaleAsset intro_finale_asset;
     TecmoIntroScreenAsset intro_presents_asset;
     TecmoIntroScreenAsset intro_license_asset;
+    TecmoTitleAsset title_asset;
     char intro_l88e7_irq_vector[16];
     char intro_presents_data_cpu[16];
     bool intro_trace_available;
@@ -76,6 +78,9 @@ typedef struct TecmoRuntime {
     uint8_t intro_output_step;
     uint8_t intro_next_screen;
     bool intro_handoff_complete;
+    bool title_start_armed;
+    bool title_confirming;
+    unsigned title_confirmation_frame;
     char intro_trace_status[96];
     TecmoPlayMode mode;
     bool quit_requested;

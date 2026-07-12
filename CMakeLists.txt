@@ -10,6 +10,7 @@ add_executable(tecmo_port
     src/asset_pack/tecmo_asset_pack_arena.c
     src/asset_pack/tecmo_asset_pack_d9f6.c
     src/asset_pack/tecmo_asset_pack_finale.c
+    src/asset_pack/tecmo_asset_pack_title.c
     src/asset_pack/tecmo_asset_pack_opening.c
     src/asset_pack/tecmo_asset_pack_post_arena.c
     src/asset_pack/tecmo_asset_pack_reader.c
@@ -31,6 +32,7 @@ add_executable(tecmo_port
     src/tecmo_memory.c
     src/tecmo_nametable_screen.c
     src/tecmo_nes_video.c
+    src/tecmo_title_screen.c
 )
 
 if(WIN32)

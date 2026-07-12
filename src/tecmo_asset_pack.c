@@ -9,6 +9,7 @@
 #include "asset_pack/tecmo_asset_pack_opening.h"
 #include "asset_pack/tecmo_asset_pack_post_arena.h"
 #include "asset_pack/tecmo_asset_pack_source_map.h"
+#include "asset_pack/tecmo_asset_pack_title.h"
 #include "asset_pack/tecmo_asset_pack_util.h"
 #include "asset_pack/tecmo_asset_pack_writer.h"
 #include <stdio.h>
@@ -54,6 +55,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                           TecmoArenaSpriteGroupsProvenance *sprite_groups_provenance,
                                           TecmoPostArenaProvenance *post_arena_provenance,
                                           TecmoFinaleProvenance *finale_provenance,
+                                          TecmoTitleProvenance title_provenance[2],
                                           char *message,
                                           size_t message_size)
 {
@@ -68,6 +70,8 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
     uint8_t bucks_payload[TECMO_ASSET_PACK_BUCKS_SIZE];
     uint8_t pass_payload[TECMO_ASSET_PACK_PASS_SIZE];
     uint8_t finale_payload[TECMO_ASSET_PACK_FINALE_SIZE];
+    uint8_t title_attract_payload[TECMO_ASSET_PACK_TITLE_ATTRACT_SIZE];
+    uint8_t title_screen_payload[TECMO_ASSET_PACK_TITLE_SCREEN_SIZE];
     uint64_t script_source_offset =
         prg_bank_cpu_source_offset(prg_offset,
                                    prg_banks,
@@ -447,6 +451,47 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
         return -1;
     }
 
+    if (enforce_finale_revision_fingerprints != 0) {
+    if (tecmo_asset_pack_build_title_asset(rom, rom_size, prg_offset, prg_banks,
+                                           chr_size, 0U,
+                                           enforce_finale_revision_fingerprints,
+                                           title_attract_payload,
+                                           sizeof(title_attract_payload),
+                                           &title_provenance[0], message,
+                                           message_size) != 0) return -1;
+    entry_info = tecmo_asset_pack_make_entry_info(TECMO_ASSET_PACK_TITLE_ATTRACT_ID,
+                                 TECMO_ASSET_PACK_TYPE_DATA, 0U,
+                                 TECMO_ASSET_PACK_TITLE_ATTRACT_STREAM_CPU,
+                                 title_provenance[0].stream_offset,
+                                 TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+    if (tecmo_asset_pack_builder_add_memory(builder, &entry_info,
+                                            title_attract_payload,
+                                            sizeof(title_attract_payload),
+                                            message, message_size) != 0) {
+        tecmo_asset_pack_set_message(message, message_size, "Could not write native title attract entry.");
+        return -1;
+    }
+    if (tecmo_asset_pack_build_title_asset(rom, rom_size, prg_offset, prg_banks,
+                                           chr_size, 1U,
+                                           enforce_finale_revision_fingerprints,
+                                           title_screen_payload,
+                                           sizeof(title_screen_payload),
+                                           &title_provenance[1], message,
+                                           message_size) != 0) return -1;
+    entry_info = tecmo_asset_pack_make_entry_info(TECMO_ASSET_PACK_TITLE_SCREEN_ID,
+                                 TECMO_ASSET_PACK_TYPE_DATA, 0U,
+                                 TECMO_ASSET_PACK_TITLE_START_STREAM_CPU,
+                                 title_provenance[1].stream_offset,
+                                 TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+    if (tecmo_asset_pack_builder_add_memory(builder, &entry_info,
+                                            title_screen_payload,
+                                            sizeof(title_screen_payload),
+                                            message, message_size) != 0) {
+        tecmo_asset_pack_set_message(message, message_size, "Could not write native START GAME title entry.");
+        return -1;
+    }
+    }
+
     return 0;
 }
 
@@ -477,6 +522,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     TecmoArenaSpriteGroupsProvenance sprite_groups_provenance;
     TecmoPostArenaProvenance post_arena_provenance;
     TecmoFinaleProvenance finale_provenance;
+    TecmoTitleProvenance title_provenance[2];
     int manifest_length;
     int result = -1;
 
@@ -639,6 +685,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     memset(&background_provenance, 0, sizeof(background_provenance));
     memset(&sprite_groups_provenance, 0, sizeof(sprite_groups_provenance));
     memset(&post_arena_provenance, 0, sizeof(post_arena_provenance));
+    memset(title_provenance, 0, sizeof(title_provenance));
     if (add_native_arena_intro_entries(builder,
                                        rom,
                                        rom_size,
@@ -652,6 +699,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &sprite_groups_provenance,
                                        &post_arena_provenance,
                                        &finale_provenance,
+                                       title_provenance,
                                        message,
                                        message_size) != 0) {
         goto cleanup;
@@ -669,6 +717,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &sprite_groups_provenance,
                                        &post_arena_provenance,
                                        &finale_provenance,
+                                       title_provenance,
                                        &source_map_size);
     if (source_map == NULL) {
         tecmo_asset_pack_set_message(message, message_size, "Could not build asset pack source map.");

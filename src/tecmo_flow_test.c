@@ -382,32 +382,72 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         return false;
     }
     if (!flow_hold_intro_step(runtime, 14U, tecmo_intro_finale_hold_frame() - 1U,
-                              "finale left before terminator hold", message, message_size) ||
+                              "finale left before terminator boundary", message, message_size) ||
         runtime->intro_handoff_complete) {
         set_flow_test_message(message, message_size,
-                              "finale marked handoff before the terminator route");
+                              "finale marked handoff before the terminator boundary");
         return false;
     }
     tecmo_runtime_update(runtime, &input);
-    if (runtime->intro_output_step != 14U ||
-        runtime->mode_frame_counter != tecmo_intro_finale_hold_frame() ||
-        runtime->mode != TECMO_MODE_FIRST_SPRITE || !runtime->intro_handoff_complete) {
+    if (runtime->intro_output_step != 15U || runtime->mode_frame_counter != 0U ||
+        runtime->mode != TECMO_MODE_FIRST_SPRITE || runtime->intro_handoff_complete) {
         set_flow_test_message(message, message_size,
-                              "finale did not enter the persistent terminator hold");
+                              "finale did not enter the native title attract continuation");
         return false;
     }
-    if (!flow_hold_intro_step(runtime, 14U, 24U,
-                              "terminator fell through to placeholder play setup",
+    if (!flow_hold_intro_step(runtime, 15U, 620U,
+                              "title attract reset before its natural completion",
                               message, message_size)) {
+        return false;
+    }
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->intro_output_step != 15U || !runtime->intro_handoff_complete ||
+        runtime->mode_frame_counter != 621U) {
+        set_flow_test_message(message, message_size, "title attract did not signal natural completion at frame 621");
+        return false;
+    }
+    if (!flow_hold_intro_step(runtime, 15U, 20U,
+                              "title attract reset before dispatch frame 642",
+                              message, message_size)) return false;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->intro_output_step != FLOW_INTRO_TITLE_STEP ||
+        runtime->mode_frame_counter != 0U || runtime->intro_handoff_complete) {
+        set_flow_test_message(message, message_size, "title attract did not restart TECMO opening at frame 642");
         return false;
     }
 
     memset(&input, 0, sizeof(input));
-    input.cancel = true;
-    flow_step(runtime, input);
-    if (!flow_expect_mode(runtime, TECMO_MODE_MAIN_MENU, "first sprite cancel", message, message_size)) {
+    input.confirm = true;
+    tecmo_runtime_update(runtime, &input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_TITLE_SCREEN, "first START title entry", message, message_size)) return false;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->title_confirming || runtime->title_start_armed) {
+        set_flow_test_message(message, message_size, "held first START incorrectly retriggered the title");
         return false;
     }
+    memset(&input, 0, sizeof(input));
+    while (runtime->mode_frame_counter < TECMO_TITLE_START_LOAD_FRAMES) {
+        tecmo_runtime_update(runtime, &input);
+    }
+    if (!runtime->title_start_armed || runtime->title_confirming ||
+        runtime->mode_frame_counter != TECMO_TITLE_START_LOAD_FRAMES) {
+        set_flow_test_message(message, message_size, "title did not load and arm after START release");
+        return false;
+    }
+    input.confirm = true;
+    tecmo_runtime_update(runtime, &input);
+    if (!runtime->title_confirming || runtime->title_confirmation_frame != 1U) {
+        set_flow_test_message(message, message_size, "second START did not begin title confirmation");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    for (size_t flash = 1U; flash < 126U; ++flash) tecmo_runtime_update(runtime, &input);
+    if (runtime->mode != TECMO_MODE_TITLE_SCREEN || runtime->title_confirmation_frame != 126U) {
+        set_flow_test_message(message, message_size, "title confirmation did not remain visible through frame 126");
+        return false;
+    }
+    tecmo_runtime_update(runtime, &input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_MAIN_MENU, "title confirmation frame 127 handoff", message, message_size)) return false;
 
     if (!flow_press_menu_down(runtime, 1U, 1U, "navigate to quit", message, message_size)) {
         return false;

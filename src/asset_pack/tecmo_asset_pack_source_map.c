@@ -664,6 +664,49 @@ static int append_finale_source_map_entry(char *buffer,
     return result;
 }
 
+static int append_title_source_map_entries(char *buffer, size_t capacity,
+                                           size_t *length, int *first,
+                                           const TecmoTitleProvenance p[2])
+{
+    const char *prefix = *first != 0 ? "" : ",\n";
+    *first = 0;
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "%s"
+        "    {\"id\":\"%s\",\"kind\":\"title-attract-native\","
+        "\"schema\":\"tecmo.title-attract/TATR-2\",\"sources\":["
+        "{\"role\":\"descriptor\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":7},"
+        "{\"role\":\"compressed-screen\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"bank\":0,\"cpu_address\":%u,\"encoded_size\":%llu},"
+        "{\"role\":\"initial-palettes\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"bank\":0,\"cpu_address\":%u,\"size\":32},"
+        "{\"role\":\"final-sprite-palette\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"bank\":0,\"cpu_address\":%u,\"size\":16},"
+        "{\"role\":\"sprite-records\",\"source_entry\":\"prg/bank01\",\"source_offset\":%llu,\"bank\":1,\"cpu_address\":%u,\"size\":197},"
+        "{\"role\":\"attribute-state-a\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"bank\":0,\"cpu_address\":%u,\"size\":16},"
+        "{\"role\":\"attribute-state-b\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"bank\":0,\"cpu_address\":%u,\"size\":16}]},\n"
+        "    {\"id\":\"%s\",\"kind\":\"title-start-native\","
+        "\"schema\":\"tecmo.title-start/TTLE-1\",\"sources\":["
+        "{\"role\":\"descriptor\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":7},"
+        "{\"role\":\"compressed-screen\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"bank\":0,\"cpu_address\":%u,\"encoded_size\":%llu},"
+        "{\"role\":\"palette\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"bank\":0,\"cpu_address\":%u,\"size\":16},"
+        "{\"role\":\"prompt-blank\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":10},"
+        "{\"role\":\"prompt-visible\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":10}]}",
+        prefix, TECMO_ASSET_PACK_TITLE_ATTRACT_ID,
+        (unsigned long long)p[0].descriptor_offset, 0xDC8CU,
+        (unsigned long long)p[0].stream_offset, p[0].stream_cpu,
+        (unsigned long long)p[0].stream_size,
+        (unsigned long long)p[0].palette_offset, TECMO_ASSET_PACK_TITLE_PALETTE_CPU,
+        (unsigned long long)p[0].sprite_palette_offset, TECMO_ASSET_PACK_TITLE_SPRITE_PALETTE_CPU,
+        (unsigned long long)p[0].sprite_table_offset, TECMO_ASSET_PACK_TITLE_SPRITE_TABLE_CPU,
+        (unsigned long long)p[0].attr_a_offset, TECMO_ASSET_PACK_TITLE_ATTR_A_CPU,
+        (unsigned long long)p[0].attr_b_offset, TECMO_ASSET_PACK_TITLE_ATTR_B_CPU,
+        TECMO_ASSET_PACK_TITLE_SCREEN_ID,
+        (unsigned long long)p[1].descriptor_offset, 0xDC9AU,
+        (unsigned long long)p[1].stream_offset, p[1].stream_cpu,
+        (unsigned long long)p[1].stream_size,
+        (unsigned long long)p[1].palette_offset, TECMO_ASSET_PACK_TITLE_PALETTE_CPU,
+        (unsigned long long)p[1].prompt_blank_offset, TECMO_ASSET_PACK_TITLE_PROMPT_BLANK_CPU,
+        (unsigned long long)p[1].prompt_visible_offset, TECMO_ASSET_PACK_TITLE_PROMPT_VISIBLE_CPU);
+}
+
 char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    uint32_t trainer_bytes,
                                    uint32_t prg_banks,
@@ -676,6 +719,7 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoArenaSpriteGroupsProvenance *sprite_groups_provenance,
                                    const TecmoPostArenaProvenance *post_arena_provenance,
                                    const TecmoFinaleProvenance *finale_provenance,
+                                   const TecmoTitleProvenance title_provenance[2],
                                    size_t *source_map_size_out)
 {
     size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 13U;
@@ -867,7 +911,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                        capacity,
                                        &length,
                                        &first_logical,
-                                       finale_provenance) != 0) {
+                                       finale_provenance) != 0 ||
+        (title_provenance[0].stream_cpu != 0U &&
+         append_title_source_map_entries(source_map, capacity, &length,
+                                         &first_logical, title_provenance) != 0)) {
         free(source_map);
         return NULL;
     }

@@ -220,6 +220,21 @@ pre-roll/write/tail, final dispatch wait, and then remains in a persistent
 terminator hold. Missing or malformed TFIN-1 data is a hard native-render
 failure; there is no decompilation, Lua-log, or capture fallback.
 
+The next ROM-only boundary is implemented as two strict entries. TATR-2
+(`title/attract-continuation`) decodes command `$14` screen `$01` and carries
+the initial/final sprite palettes, resolved 49-piece NBA emblem, attribute
+states, and bounded completion/reset timing. TTLE-1 (`title/start-screen`)
+decodes screen `$03` and carries its palette, resolved CHR cells, and the exact
+blank/visible `$222B-$2234` prompt rows. Runtime never consumes the local video,
+FCEUX screenshots, Lua status, OAM dumps, or PPU dumps used for verification.
+
+After the attract route resets, the first START enters a ten-frame title load
+window. The input must be released before a second START is armed. That second
+press runs nine seven-frame blank/visible prompt cycles through confirmation
+frame 126 and hands off at frame 127. The current handoff target is the existing
+native menu; porting the original blue menu screen is the next independent
+boundary.
+
 The importer validates the raw finale dispatch chain as `$851C` wait 50 ->
 `$83EA` wait 30 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 ->
 `$FFFF`, with screens `$1C`, `$20`, `$1F`, `$22`, and `$2D`. Selector 2 uses

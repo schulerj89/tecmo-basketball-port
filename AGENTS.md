@@ -153,7 +153,7 @@ The current opening path includes:
 - ROM-only NBA license screen
 - arena/jumbotron/crowd transition from ROM CHR through native arena bands
 - native TASG-2 jumbotron and anchored goal sprite groups for the arena pan
-- the ROM-only post-PASS finale, progressive title, and persistent terminator hold
+- the ROM-only post-PASS finale, command-$14 NBA emblem continuation, and start screen
 
 The first two screens use strict TISC-1 entries: `intro/tecmo-presents-screen`
 and `intro/nba-license-screen`. The first contains the decoded screen `$00`
@@ -174,7 +174,19 @@ anchors, reverse-transition metadata, three title bands, and 44 resolved 2x2
 title slots. Slots contain native page positions and tile cells, not imported
 text. Runtime uses only TFIN-1 and `chr/all`; missing or malformed finale data
 fails cleanly with no decompilation or capture fallback. Play Game advances
-through the named finale phases and remains on the final native hold.
+through the named finale phases, then continues into the title attract route.
+
+The command-$14 continuation and start screen are native ROM-only assets.
+`title/attract-continuation` uses TATR-2 for the decoded screen `$01`, both
+sprite-palette phases, the 49-piece NBA emblem, attribute states, resolved CHR
+offsets, and the bounded 621/642-frame completion/reset points.
+`title/start-screen` uses TTLE-1 for decoded screen `$03`, its palette and
+resolved CHR cells, and the two exact ten-cell prompt rows. Runtime requires
+these entries plus `chr/all`; it does not read Lua captures or trace data.
+The first START enters the title after a ten-frame load window. It must be
+released before a second START is accepted. Confirmation alternates the blank
+and visible prompt rows every seven frames for 126 frames, then hands off at
+frame 127 to the existing native menu.
 
 Finale provenance is the raw Bank04 chain `$851C` wait 50 -> `$83EA` wait 30
 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 -> `$FFFF`, loading
