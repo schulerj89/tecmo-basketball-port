@@ -17,6 +17,7 @@
 #define TECMO_START_GAME_MENU_DIGIT_COUNT 10U
 #define TECMO_START_GAME_MENU_ROOT_COUNT 7U
 #define TECMO_START_GAME_MENU_SEASON_COUNT 6U
+#define TECMO_START_GAME_MENU_ACTION_COOLDOWN 5U
 
 typedef struct TecmoStartGameMenuCell {
     uint8_t tile_id;
@@ -97,8 +98,7 @@ typedef struct TecmoStartGameMenuState {
     uint8_t music_value;
     uint8_t speed_value;
     uint8_t period_index;
-    int8_t repeat_direction;
-    uint16_t repeat_counter;
+    uint16_t input_cooldown;
 } TecmoStartGameMenuState;
 
 bool tecmo_start_game_menu_asset_load(TecmoStartGameMenuAsset *asset,

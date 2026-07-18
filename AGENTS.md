@@ -199,8 +199,8 @@ exact 8x16 pair at `chr/all` offset `$C240`; both the source record and resolved
 CHR pair are revision-fingerprinted. Native timing preserves palette
 checkpoints at local frames 0,
 2, 4, 6, 8, 20, 24, 28, and 32. Root Up/Down wraps across seven items, repeats
-every eight held frames, and both NES A and B dispatch while START, SELECT,
-Left, and Right are ignored. SEASON GAME slides to the six-item second page
+every eight held frames, and only NES A dispatches; B, START, SELECT, Left, and
+Right are ignored. SEASON GAME slides to the six-item second page
 over exactly 32 frames at eight background pixels and five emblem pixels per
 frame; B reverses the same transition. That second-page boundary maps GAME
 START to `PLAY_SETUP` and TEAM DATA to `ROSTERS`; the other four season
@@ -208,10 +208,15 @@ management selections remain explicitly unported no-ops.
 
 The settings popups are native: MUSIC wraps OFF/ON, SPEED wraps
 FAST/NORMAL/SLOW, and PERIOD clamps across 2/3/4/8/12 minutes. A accepts the
-highlighted setting and B cancels it. Menu A/B checks use held-level state,
-with A taking priority when both are held. The fixed helper's one-frame
-previous-action release grace is intentionally not modeled because the native
-popup setup latency is collapsed rather than scheduled as a separate frame.
+highlighted setting and B cancels it. Menu input uses the shared fixed-helper
+cooldown: accepted A/B returns through `$D788` with five suppressed interactive
+loops, while generic direction `$D79D` writes eight before the same-loop tail
+decrement and therefore repeats on the eighth following frame. Release or
+re-press does not clear the gate, and it carries through popup returns and the
+32-frame season slides without ticking during a slide. Root, season, MUSIC, and
+SPEED give held-level A/B priority over direction; PERIOD gives direction
+priority and uses the `$D788` five-loop gate for each adjustment. A wins when A
+and B are both eligible. Root's `$9F87[0]=$80` mask admits A only.
 
 TSGM-1 import is revision-locked with fingerprints for its descriptor,
 compressed and decoded screen, composed two-page result, palette sources,

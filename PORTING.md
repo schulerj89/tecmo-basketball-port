@@ -251,17 +251,23 @@ runtime.
 
 Title-out/menu-in timing uses local palette checkpoints 0, 2, 4, 6, 8, 20,
 24, 28, and fully bright 32. The stable root has seven selections. Up/Down
-wrap immediately and repeat every eight held frames; NES A and B both dispatch,
-while START, SELECT, Left, and Right do nothing on the root. SEASON GAME moves
+wrap immediately and repeat every eight held frames; NES A dispatches, while B,
+START, SELECT, Left, and Right do nothing on the root. SEASON GAME moves
 to the six-item second page over 32 frames, advancing the background eight
 pixels and the emblem five pixels per frame; B performs the exact reverse.
 Within that six-item boundary, GAME START hands off to `PLAY_SETUP` and TEAM
 DATA hands off to `ROSTERS`; the other four season-management selections remain
 unported no-ops. MUSIC wraps OFF/ON, SPEED wraps FAST/NORMAL/SLOW, and PERIOD
 clamps across 2/3/4/8/12 minutes. A accepts the highlighted setting and B
-cancels it. A/B are sampled as held-level actions and simultaneous input gives
-A priority. The fixed helper's one-frame previous-action release grace is
-intentionally omitted because native popup setup latency is collapsed. Other
+cancels it. The native shared input gate follows fixed helper `$D723`: accepted
+A/B reaches `$D788` and preserves five suppressed interactive loops across
+popup returns or season slides; generic direction reaches `$D79D`, writes eight,
+and is decremented once by the same-loop tail so held direction repeats on the
+eighth following frame. Release and re-press do not bypass the gate, and slide
+frames do not decrement it. Root, season, MUSIC, and SPEED test held-level
+actions before direction, with A priority over B. PERIOD tests direction first
+and gives each adjustment the `$D788` five-loop gate. Root's `$9F87[0]=$80`
+input mask accepts A only. Other
 unported root routes cross an explicit native handoff rather than silently
 replaying 6502 code or consuming capture data.
 
