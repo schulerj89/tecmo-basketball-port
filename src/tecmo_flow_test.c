@@ -490,6 +490,16 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     }
     memset(&input, 0, sizeof(input));
     input.up = true;
+    input.down = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.root_selection != 0U ||
+        runtime->start_game_menu_state.input_cooldown != 7U) {
+        set_flow_test_message(message, message_size, "root Up+Down did not consume a direction gate");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    for (size_t wait = 0U; wait < 7U; ++wait) tecmo_runtime_update(runtime, &input);
+    input.up = true;
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.root_selection != 6U ||
         runtime->start_game_menu_state.input_cooldown != 7U) {
@@ -542,10 +552,11 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     }
     input.cancel = false;
     input.shoot = true;
+    input.up = true;
     input.down = true;
     tecmo_runtime_update(runtime, &input);
     if (!flow_expect_mode(runtime, TECMO_MODE_PLAY_SETUP,
-                          "root A+Down current-selection dispatch", message, message_size)) return false;
+                          "root A+Up+Down current-selection dispatch", message, message_size)) return false;
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 32U;
@@ -710,13 +721,14 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     runtime->start_game_menu_state.setting_selection = 0U;
     memset(&input, 0, sizeof(input));
     input.up = true;
+    input.down = true;
     input.shoot = true;
     input.cancel = true;
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
         runtime->start_game_menu_state.speed_value != 0U ||
         runtime->start_game_menu_state.input_cooldown != 5U) {
-        set_flow_test_message(message, message_size, "SPEED A+B+Up did not prioritize accept");
+        set_flow_test_message(message, message_size, "SPEED A+B+Up+Down did not prioritize accept");
         return false;
     }
 
@@ -744,6 +756,23 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         runtime->start_game_menu_state.period_index != 2U ||
         runtime->start_game_menu_state.input_cooldown != 5U) {
         set_flow_test_message(message, message_size, "PERIOD A+B did not accept after direction grace");
+        return false;
+    }
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame = 32U;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_PERIOD;
+    runtime->start_game_menu_state.setting_selection = 3U;
+    memset(&input, 0, sizeof(input));
+    input.up = true;
+    input.down = true;
+    input.shoot = true;
+    input.cancel = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_PERIOD ||
+        runtime->start_game_menu_state.setting_selection != 3U ||
+        runtime->start_game_menu_state.input_cooldown != 5U) {
+        set_flow_test_message(message, message_size, "PERIOD Up+Down did not consume A+B");
         return false;
     }
 
