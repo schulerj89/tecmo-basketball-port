@@ -249,8 +249,15 @@ wrap immediately and repeat every eight held frames; NES A and B both dispatch,
 while START, SELECT, Left, and Right do nothing on the root. SEASON GAME moves
 to the six-item second page over 32 frames, advancing the background eight
 pixels and the emblem five pixels per frame; B performs the exact reverse.
-Unported routes cross an explicit native handoff rather than silently replaying
-6502 code or consuming capture data.
+Within that six-item boundary, GAME START hands off to `PLAY_SETUP` and TEAM
+DATA hands off to `ROSTERS`; the other four season-management selections remain
+unported no-ops. MUSIC wraps OFF/ON, SPEED wraps FAST/NORMAL/SLOW, and PERIOD
+clamps across 2/3/4/8/12 minutes. A accepts the highlighted setting and B
+cancels it. A/B are sampled as held-level actions and simultaneous input gives
+A priority. The fixed helper's one-frame previous-action release grace is
+intentionally omitted because native popup setup latency is collapsed. Other
+unported root routes cross an explicit native handoff rather than silently
+replaying 6502 code or consuming capture data.
 
 The importer validates the raw finale dispatch chain as `$851C` wait 50 ->
 `$83EA` wait 30 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 ->

@@ -199,7 +199,16 @@ emulator dump. Native timing preserves palette checkpoints at local frames 0,
 every eight held frames, and both NES A and B dispatch while START, SELECT,
 Left, and Right are ignored. SEASON GAME slides to the six-item second page
 over exactly 32 frames at eight background pixels and five emblem pixels per
-frame; B reverses the same transition.
+frame; B reverses the same transition. That second-page boundary maps GAME
+START to `PLAY_SETUP` and TEAM DATA to `ROSTERS`; the other four season
+management selections remain explicitly unported no-ops.
+
+The settings popups are native: MUSIC wraps OFF/ON, SPEED wraps
+FAST/NORMAL/SLOW, and PERIOD clamps across 2/3/4/8/12 minutes. A accepts the
+highlighted setting and B cancels it. Menu A/B checks use held-level state,
+with A taking priority when both are held. The fixed helper's one-frame
+previous-action release grace is intentionally not modeled because the native
+popup setup latency is collapsed rather than scheduled as a separate frame.
 
 TSGM-1 import is revision-locked with fingerprints for its descriptor,
 compressed and decoded screen, composed two-page result, palette sources,
