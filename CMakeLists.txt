@@ -33,6 +33,7 @@ add_executable(tecmo_port
     src/tecmo_memory.c
     src/tecmo_nametable_screen.c
     src/tecmo_nes_video.c
+    src/tecmo_start_game_menu.c
     src/tecmo_title_screen.c
 )
 
