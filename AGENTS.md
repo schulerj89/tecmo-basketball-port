@@ -208,15 +208,25 @@ management selections remain explicitly unported no-ops.
 
 The settings popups are native: MUSIC wraps OFF/ON, SPEED wraps
 FAST/NORMAL/SLOW, and PERIOD clamps across 2/3/4/8/12 minutes. A accepts the
-highlighted setting and B cancels it. Menu input uses the shared fixed-helper
-cooldown: accepted A/B returns through `$D788` with five suppressed interactive
-loops, while generic direction `$D79D` writes eight before the same-loop tail
-decrement and therefore repeats on the eighth following frame. Release or
-re-press does not clear the gate, and it carries through popup returns and the
-32-frame season slides without ticking during a slide. Root, season, MUSIC, and
-SPEED give held-level A/B priority over direction; PERIOD gives direction
-priority and uses the `$D788` five-loop gate for each adjustment. A wins when A
-and B are both eligible. Root's `$9F87[0]=$80` mask admits A only.
+highlighted setting and B cancels it, but `$07F6=0` makes every menu A/B action
+release-triggered. Root, season, MUSIC, and SPEED reject the prior action while
+the current NES controller byte is nonzero; held A/B never activates. When the
+current byte reaches zero, the previous byte gets one final masked check: root's
+`$9F87[0]=$80` admits released A only, while generic `$C0` rows admit released
+A/B and raw A+B accepts with A priority. Current Up/Down still takes the generic
+direction path, so A+Down first moves and releasing both activates the newly
+selected row. Native byte order is A `$80`, B `$40`, SELECT `$20`, START `$10`,
+Up `$08`, Down `$04`, Left `$02`, and Right `$01`.
+
+Accepted release actions return through `$D788` and seed directional `$E1=5`;
+generic direction `$D79D` writes eight before the same-loop tail decrement, so
+held direction repeats on the eighth following frame. Generic release actions
+reach `$D788` before that directional gate. PERIOD is the exception: it first
+consumes `(current|previous)&$0C`, including direction release and zero-delta
+Up+Down, so that preliminary path can suppress and lose released A/B. PERIOD A
+alone accepts and B alone cancels on release; raw A+B is consumed with `$E1=5`
+but does neither. Season slides do not tick `$E1` for their first 31 steps; the
+32nd step enters the destination helper in the same update and ticks 5 to 4.
 
 TSGM-1 import is revision-locked with fingerprints for its descriptor,
 compressed and decoded screen, composed two-page result, palette sources,

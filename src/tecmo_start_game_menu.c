@@ -341,40 +341,65 @@ void tecmo_start_game_menu_state_init(TecmoStartGameMenuState *state)
     state->period_index = 1U;
 }
 
-static bool suppress_menu_input(TecmoStartGameMenuState *state)
+static void tick_direction_cooldown(TecmoStartGameMenuState *state)
 {
-    if (state->input_cooldown == 0U) return false;
-    --state->input_cooldown;
-    return true;
+    if (state->direction_cooldown > 0U) --state->direction_cooldown;
 }
 
-static bool vertical_direction(const TecmoControlFrame *controls, int *direction)
+typedef enum StartMenuControllerMask {
+    START_MENU_BUTTON_RIGHT = 0x01,
+    START_MENU_BUTTON_LEFT = 0x02,
+    START_MENU_BUTTON_DOWN = 0x04,
+    START_MENU_BUTTON_UP = 0x08,
+    START_MENU_BUTTON_START = 0x10,
+    START_MENU_BUTTON_SELECT = 0x20,
+    START_MENU_BUTTON_B = 0x40,
+    START_MENU_BUTTON_A = 0x80
+} StartMenuControllerMask;
+
+static uint8_t controller_byte(const TecmoInput *input)
 {
+    uint8_t value = 0U;
+    if (input->right) value |= START_MENU_BUTTON_RIGHT;
+    if (input->left) value |= START_MENU_BUTTON_LEFT;
+    if (input->down) value |= START_MENU_BUTTON_DOWN;
+    if (input->up) value |= START_MENU_BUTTON_UP;
+    if (input->confirm) value |= START_MENU_BUTTON_START;
+    if (input->tab) value |= START_MENU_BUTTON_SELECT;
+    if (input->cancel) value |= START_MENU_BUTTON_B;
+    if (input->shoot) value |= START_MENU_BUTTON_A;
+    return value;
+}
+
+static bool vertical_direction(const TecmoControlFrame *controls,
+                               bool include_released,
+                               int *direction)
+{
+    uint8_t raw = controller_byte(&controls->held);
+    if (include_released) raw |= controller_byte(&controls->released);
+    raw &= START_MENU_BUTTON_UP | START_MENU_BUTTON_DOWN;
     /* The fixed helper consumes any nonzero raw Up/Down mask, including $0C
        for both buttons; only the caller's selection delta collapses to zero. */
     *direction = 0;
-    if (!controls->held.up && !controls->held.down) return false;
-    if (controls->held.up != controls->held.down)
-        *direction = controls->held.up ? -1 : 1;
+    if (raw == 0U) return false;
+    if (raw == START_MENU_BUTTON_UP) *direction = -1;
+    else if (raw == START_MENU_BUTTON_DOWN) *direction = 1;
     return true;
 }
 
-static void begin_action_cooldown(TecmoStartGameMenuState *state)
+static void begin_accepted_input_cooldown(TecmoStartGameMenuState *state)
 {
     /* The accepted-input return at fixed helper $D788 stores five in $E1 and
        returns before the common loop tail can decrement it. */
-    state->input_cooldown = TECMO_START_GAME_MENU_ACTION_COOLDOWN;
+    state->direction_cooldown = TECMO_START_GAME_MENU_ACCEPT_COOLDOWN;
 }
 
 static void begin_generic_direction_cooldown(TecmoStartGameMenuState *state,
                                              const TecmoStartGameMenuAsset *asset)
 {
-    /* Generic direction path $D79D stores eight, then $D82C decrements it at
-       the tail of that same helper loop. The next held repeat is eight frames
-       after the move, so the observable post-loop state is seven. */
-    state->input_cooldown = asset->repeat_frames > 0U
-                                ? (uint16_t)(asset->repeat_frames - 1U)
-                                : 0U;
+    /* Generic direction path $D79D stores eight. The caller runs the common
+       $D82C tail afterward, leaving seven in the observable post-loop state. */
+    state->direction_cooldown = asset->repeat_frames;
 }
 
 static uint8_t wrap_selection(uint8_t selection, unsigned count, int direction)
@@ -397,11 +422,33 @@ typedef enum StartMenuSelectionAction {
     START_MENU_SELECTION_CANCEL
 } StartMenuSelectionAction;
 
-static StartMenuSelectionAction selection_action(const TecmoControlFrame *controls)
+static StartMenuSelectionAction selection_action(const TecmoControlFrame *controls,
+                                                  bool allow_cancel)
 {
-    if (controls->held.shoot) return START_MENU_SELECTION_ACCEPT;
-    if (controls->held.cancel) return START_MENU_SELECTION_CANCEL;
+    uint8_t action;
+    /* With scene flag $07F6 clear, $D764 rejects every nonzero current byte.
+       Only the previous A/B bits survive as a release-frame action. */
+    if (controller_byte(&controls->held) != 0U) return START_MENU_SELECTION_NONE;
+    action = controller_byte(&controls->released) &
+             (allow_cancel ? (START_MENU_BUTTON_A | START_MENU_BUTTON_B)
+                           : START_MENU_BUTTON_A);
+    if ((action & START_MENU_BUTTON_A) != 0U) return START_MENU_SELECTION_ACCEPT;
+    if ((action & START_MENU_BUTTON_B) != 0U) return START_MENU_SELECTION_CANCEL;
     return START_MENU_SELECTION_NONE;
+}
+
+static bool period_selection_action(const TecmoControlFrame *controls,
+                                    StartMenuSelectionAction *action)
+{
+    uint8_t raw;
+    if (controller_byte(&controls->held) != 0U) return false;
+    raw = controller_byte(&controls->released) &
+          (START_MENU_BUTTON_A | START_MENU_BUTTON_B);
+    if (raw == 0U) return false;
+    *action = START_MENU_SELECTION_NONE;
+    if (raw == START_MENU_BUTTON_A) *action = START_MENU_SELECTION_ACCEPT;
+    else if (raw == START_MENU_BUTTON_B) *action = START_MENU_SELECTION_CANCEL;
+    return true;
 }
 
 TecmoStartGameMenuAction tecmo_start_game_menu_update(
@@ -410,8 +457,9 @@ TecmoStartGameMenuAction tecmo_start_game_menu_update(
     const TecmoControlFrame *controls)
 {
     int direction = 0;
+    bool action_active;
     bool direction_active;
-    StartMenuSelectionAction action;
+    StartMenuSelectionAction action = START_MENU_SELECTION_NONE;
     if (state == NULL || asset == NULL || controls == NULL) return TECMO_START_GAME_MENU_ACTION_NONE;
     ++state->frame;
     if (!asset->available) return TECMO_START_GAME_MENU_ACTION_NONE;
@@ -421,25 +469,21 @@ TecmoStartGameMenuAction tecmo_start_game_menu_update(
     }
     if (state->phase == TECMO_START_GAME_MENU_SEASON_SLIDE_IN) {
         if (state->slide_frame < asset->slide_frames) ++state->slide_frame;
-        if (state->slide_frame >= asset->slide_frames) {
-            state->slide_frame = asset->slide_frames;
-            state->phase = TECMO_START_GAME_MENU_SEASON;
-        }
-        return TECMO_START_GAME_MENU_ACTION_NONE;
+        if (state->slide_frame < asset->slide_frames) return TECMO_START_GAME_MENU_ACTION_NONE;
+        state->slide_frame = asset->slide_frames;
+        state->phase = TECMO_START_GAME_MENU_SEASON;
     }
     if (state->phase == TECMO_START_GAME_MENU_SEASON_SLIDE_OUT) {
         if (state->slide_frame > 0U) --state->slide_frame;
-        if (state->slide_frame == 0U) {
-            state->phase = TECMO_START_GAME_MENU_ROOT;
-        }
-        return TECMO_START_GAME_MENU_ACTION_NONE;
+        if (state->slide_frame > 0U) return TECMO_START_GAME_MENU_ACTION_NONE;
+        state->phase = TECMO_START_GAME_MENU_ROOT;
     }
 
     if (state->phase == TECMO_START_GAME_MENU_ROOT) {
-        if (suppress_menu_input(state)) return TECMO_START_GAME_MENU_ACTION_NONE;
-        /* Root row X=0 has action mask $80: A activates and B is ignored. */
-        if (controls->held.shoot) {
-            begin_action_cooldown(state);
+        /* Root row X=0 has action mask $80: only a released A activates. */
+        action = selection_action(controls, false);
+        if (action == START_MENU_SELECTION_ACCEPT) {
+            begin_accepted_input_cooldown(state);
             switch (asset->routes[state->root_selection]) {
             case 1U: return TECMO_START_GAME_MENU_ACTION_PLAY_SETUP;
             case 2U:
@@ -463,21 +507,23 @@ TecmoStartGameMenuAction tecmo_start_game_menu_update(
             default: return TECMO_START_GAME_MENU_ACTION_NONE;
             }
         }
-        if (vertical_direction(controls, &direction)) {
-            if (direction != 0)
-                state->root_selection = wrap_selection(state->root_selection,
-                                                       TECMO_START_GAME_MENU_ROOT_COUNT,
-                                                       direction);
-            begin_generic_direction_cooldown(state, asset);
+        if (vertical_direction(controls, false, &direction)) {
+            if (state->direction_cooldown == 0U) {
+                if (direction != 0)
+                    state->root_selection = wrap_selection(state->root_selection,
+                                                           TECMO_START_GAME_MENU_ROOT_COUNT,
+                                                           direction);
+                begin_generic_direction_cooldown(state, asset);
+            }
         }
+        tick_direction_cooldown(state);
         return TECMO_START_GAME_MENU_ACTION_NONE;
     }
 
     if (state->phase == TECMO_START_GAME_MENU_SEASON) {
-        if (suppress_menu_input(state)) return TECMO_START_GAME_MENU_ACTION_NONE;
-        action = selection_action(controls);
+        action = selection_action(controls, true);
         if (action != START_MENU_SELECTION_NONE) {
-            begin_action_cooldown(state);
+            begin_accepted_input_cooldown(state);
             if (action == START_MENU_SELECTION_CANCEL) {
                 state->phase = TECMO_START_GAME_MENU_SEASON_SLIDE_OUT;
                 return TECMO_START_GAME_MENU_ACTION_NONE;
@@ -486,13 +532,16 @@ TecmoStartGameMenuAction tecmo_start_game_menu_update(
             if (state->season_selection == 5U) return TECMO_START_GAME_MENU_ACTION_ROSTERS;
             return TECMO_START_GAME_MENU_ACTION_NONE;
         }
-        if (vertical_direction(controls, &direction)) {
-            if (direction != 0)
-                state->season_selection = wrap_selection(state->season_selection,
-                                                         TECMO_START_GAME_MENU_SEASON_COUNT,
-                                                         direction);
-            begin_generic_direction_cooldown(state, asset);
+        if (vertical_direction(controls, false, &direction)) {
+            if (state->direction_cooldown == 0U) {
+                if (direction != 0)
+                    state->season_selection = wrap_selection(state->season_selection,
+                                                             TECMO_START_GAME_MENU_SEASON_COUNT,
+                                                             direction);
+                begin_generic_direction_cooldown(state, asset);
+            }
         }
+        tick_direction_cooldown(state);
         return TECMO_START_GAME_MENU_ACTION_NONE;
     }
 
@@ -500,21 +549,33 @@ TecmoStartGameMenuAction tecmo_start_game_menu_update(
         state->phase != TECMO_START_GAME_MENU_SPEED &&
         state->phase != TECMO_START_GAME_MENU_PERIOD)
         return TECMO_START_GAME_MENU_ACTION_NONE;
-    if (suppress_menu_input(state)) return TECMO_START_GAME_MENU_ACTION_NONE;
 
     /* Period row X=9 has action mask $CC, so Up/Down exits $D723 through the
        accepted-input path before A/B and receives the five-frame cooldown. */
-    direction_active = vertical_direction(controls, &direction);
+    direction_active = vertical_direction(controls,
+                                          state->phase == TECMO_START_GAME_MENU_PERIOD,
+                                          &direction);
     if (state->phase == TECMO_START_GAME_MENU_PERIOD && direction_active) {
-        if (direction != 0)
-            state->setting_selection = clamp_selection(state->setting_selection, 5U, -direction);
-        begin_action_cooldown(state);
+        if (state->direction_cooldown == 0U) {
+            if (direction != 0)
+                state->setting_selection = clamp_selection(state->setting_selection, 5U, -direction);
+            begin_accepted_input_cooldown(state);
+            return TECMO_START_GAME_MENU_ACTION_NONE;
+        }
+        tick_direction_cooldown(state);
         return TECMO_START_GAME_MENU_ACTION_NONE;
     }
 
-    action = selection_action(controls);
-    if (action != START_MENU_SELECTION_NONE) {
-        begin_action_cooldown(state);
+    if (state->phase == TECMO_START_GAME_MENU_PERIOD)
+        action_active = period_selection_action(controls, &action);
+    else {
+        action = selection_action(controls, true);
+        action_active = action != START_MENU_SELECTION_NONE;
+    }
+    if (action_active) {
+        begin_accepted_input_cooldown(state);
+        /* PERIOD consumes raw A+B ($C0) without accepting or cancelling. */
+        if (action == START_MENU_SELECTION_NONE) return TECMO_START_GAME_MENU_ACTION_NONE;
         if (action == START_MENU_SELECTION_CANCEL) {
             state->phase = TECMO_START_GAME_MENU_ROOT;
             return TECMO_START_GAME_MENU_ACTION_NONE;
@@ -530,14 +591,17 @@ TecmoStartGameMenuAction tecmo_start_game_menu_update(
     }
 
     if (direction_active) {
-        if (direction != 0) {
-            if (state->phase == TECMO_START_GAME_MENU_MUSIC)
-                state->setting_selection = wrap_selection(state->setting_selection, 2U, direction);
-            else
-                state->setting_selection = wrap_selection(state->setting_selection, 3U, direction);
+        if (state->direction_cooldown == 0U) {
+            if (direction != 0) {
+                if (state->phase == TECMO_START_GAME_MENU_MUSIC)
+                    state->setting_selection = wrap_selection(state->setting_selection, 2U, direction);
+                else
+                    state->setting_selection = wrap_selection(state->setting_selection, 3U, direction);
+            }
+            begin_generic_direction_cooldown(state, asset);
         }
-        begin_generic_direction_cooldown(state, asset);
     }
+    tick_direction_cooldown(state);
     return TECMO_START_GAME_MENU_ACTION_NONE;
 }
 

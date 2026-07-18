@@ -259,15 +259,25 @@ Within that six-item boundary, GAME START hands off to `PLAY_SETUP` and TEAM
 DATA hands off to `ROSTERS`; the other four season-management selections remain
 unported no-ops. MUSIC wraps OFF/ON, SPEED wraps FAST/NORMAL/SLOW, and PERIOD
 clamps across 2/3/4/8/12 minutes. A accepts the highlighted setting and B
-cancels it. The native shared input gate follows fixed helper `$D723`: accepted
-A/B reaches `$D788` and preserves five suppressed interactive loops across
-popup returns or season slides; generic direction reaches `$D79D`, writes eight,
-and is decremented once by the same-loop tail so held direction repeats on the
-eighth following frame. Release and re-press do not bypass the gate, and slide
-frames do not decrement it. Root, season, MUSIC, and SPEED test held-level
-actions before direction, with A priority over B. PERIOD tests direction first
-and gives each adjustment the `$D788` five-loop gate. Root's `$9F87[0]=$80`
-input mask accepts A only. Other
+cancels it on release. The native helper `$D723` runs with `$07F6=0`, so held
+A/B never activates. Root, season, MUSIC, and SPEED consider the previous A/B
+byte only when the current NES controller byte is zero; any current button
+suppresses that released action. Root's `$9F87[0]=$80` mask accepts released A
+only, generic `$C0` rows accept released A/B with A priority for raw A+B, and
+current Up/Down still takes the generic direction path. Consequently A+Down
+moves first and releasing both activates the moved selection. The native byte
+map is A `$80`, B `$40`, SELECT `$20`, START `$10`, Up `$08`, Down `$04`, Left
+`$02`, and Right `$01`.
+
+An accepted release reaches `$D788` and seeds directional `$E1=5`. Generic
+direction reaches `$D79D`, writes eight, and the same-loop tail decrements it so
+held direction repeats on the eighth following frame; generic release actions
+branch before this directional gate. PERIOD instead checks
+`(current|previous)&$0C` first, so direction release (including zero-delta
+Up+Down) can consume and lose released A/B. PERIOD released A accepts, released
+B cancels, and raw A+B is consumed with `$E1=5` but does neither. Season slide
+steps 1-31 preserve `$E1`; step 32 runs the destination helper immediately and
+ticks 5 to 4. Other
 unported root routes cross an explicit native handoff rather than silently
 replaying 6502 code or consuming capture data.
 

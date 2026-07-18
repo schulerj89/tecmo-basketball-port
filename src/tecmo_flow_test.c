@@ -493,7 +493,7 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     input.down = true;
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.root_selection != 0U ||
-        runtime->start_game_menu_state.input_cooldown != 7U) {
+        runtime->start_game_menu_state.direction_cooldown != 7U) {
         set_flow_test_message(message, message_size, "root Up+Down did not consume a direction gate");
         return false;
     }
@@ -502,7 +502,7 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     input.up = true;
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.root_selection != 6U ||
-        runtime->start_game_menu_state.input_cooldown != 7U) {
+        runtime->start_game_menu_state.direction_cooldown != 7U) {
         set_flow_test_message(message, message_size, "root UP did not wrap to GAME MUSIC");
         return false;
     }
@@ -544,19 +544,61 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     memset(&input, 0, sizeof(input));
     input.cancel = true;
     for (size_t held = 0U; held < 120U; ++held) tecmo_runtime_update(runtime, &input);
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
     if (runtime->mode != TECMO_MODE_START_GAME_MENU ||
         runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
         runtime->start_game_menu_state.root_selection != 0U) {
         set_flow_test_message(message, message_size, "root B was not ignored");
         return false;
     }
-    input.cancel = false;
-    input.shoot = true;
-    input.up = true;
-    input.down = true;
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame = 32U;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
+    runtime->previous_input.shoot = true;
+    memset(&input, 0, sizeof(input));
+    input.left = true;
+    tecmo_runtime_update(runtime, &input);
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->mode != TECMO_MODE_START_GAME_MENU ||
+        runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+        runtime->start_game_menu_state.direction_cooldown != 0U) {
+        set_flow_test_message(message, message_size, "current button did not suppress root A-release grace");
+        return false;
+    }
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame = 32U;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
+    runtime->previous_input.shoot = true;
+    memset(&input, 0, sizeof(input));
     tecmo_runtime_update(runtime, &input);
     if (!flow_expect_mode(runtime, TECMO_MODE_PLAY_SETUP,
-                          "root A+Up+Down current-selection dispatch", message, message_size)) return false;
+                          "root A-release grace dispatch", message, message_size)) return false;
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame = 32U;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
+    memset(&input, 0, sizeof(input));
+    input.shoot = true;
+    input.down = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->mode != TECMO_MODE_START_GAME_MENU ||
+        runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+        runtime->start_game_menu_state.root_selection != 1U ||
+        runtime->start_game_menu_state.direction_cooldown != 7U) {
+        set_flow_test_message(message, message_size, "root A+Down press did not move before release");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SEASON_SLIDE_IN ||
+        runtime->start_game_menu_state.direction_cooldown != 5U) {
+        set_flow_test_message(message, message_size, "root A+Down release did not activate moved selection");
+        return false;
+    }
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 32U;
@@ -564,7 +606,7 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     runtime->start_game_menu_state.root_selection = 3U;
     memset(&input, 0, sizeof(input));
     input.shoot = true;
-    tecmo_runtime_update(runtime, &input);
+    flow_step(runtime, input);
     if (!flow_expect_mode(runtime, TECMO_MODE_ROSTERS,
                           "root A team-data dispatch", message, message_size)) return false;
 
@@ -576,16 +618,18 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     tecmo_runtime_update(runtime, &input);
     input.down = false;
     input.shoot = true;
-    for (size_t wait = 0U; wait < 7U; ++wait) tecmo_runtime_update(runtime, &input);
+    tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
         runtime->start_game_menu_state.root_selection != 1U ||
-        runtime->start_game_menu_state.input_cooldown != 0U) {
-        set_flow_test_message(message, message_size, "direction cooldown did not suppress root A");
+        runtime->start_game_menu_state.direction_cooldown != 6U) {
+        set_flow_test_message(message, message_size, "held root A changed state during direction gate");
         return false;
     }
+    memset(&input, 0, sizeof(input));
     tecmo_runtime_update(runtime, &input);
-    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SEASON_SLIDE_IN) {
-        set_flow_test_message(message, message_size, "root A was not eligible eight frames after direction");
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SEASON_SLIDE_IN ||
+        runtime->start_game_menu_state.direction_cooldown != 5U) {
+        set_flow_test_message(message, message_size, "root A release was gated by directional E1");
         return false;
     }
 
@@ -595,7 +639,7 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     runtime->start_game_menu_state.root_selection = 1U;
     memset(&input, 0, sizeof(input));
     input.shoot = true;
-    tecmo_runtime_update(runtime, &input);
+    flow_step(runtime, input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SEASON_SLIDE_IN ||
         runtime->start_game_menu_state.slide_frame != 0U) {
         set_flow_test_message(message, message_size, "season route did not start at slide frame zero");
@@ -611,21 +655,22 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SEASON ||
         runtime->start_game_menu_state.slide_frame != 32U ||
-        runtime->start_game_menu_state.input_cooldown != 5U) {
+        runtime->start_game_menu_state.direction_cooldown != 4U) {
         set_flow_test_message(message, message_size, "season slide did not end at frame 32");
         return false;
     }
     input.cancel = true;
-    for (size_t wait = 0U; wait < 5U; ++wait) tecmo_runtime_update(runtime, &input);
+    tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SEASON ||
-        runtime->start_game_menu_state.input_cooldown != 0U) {
-        set_flow_test_message(message, message_size, "season slide did not preserve action cooldown");
+        runtime->start_game_menu_state.direction_cooldown != 3U) {
+        set_flow_test_message(message, message_size, "held season B activated before release");
         return false;
     }
+    memset(&input, 0, sizeof(input));
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SEASON_SLIDE_OUT ||
         runtime->start_game_menu_state.slide_frame != 32U ||
-        runtime->start_game_menu_state.input_cooldown != 5U) {
+        runtime->start_game_menu_state.direction_cooldown != 5U) {
         set_flow_test_message(message, message_size, "season B did not begin exact reverse slide");
         return false;
     }
@@ -639,7 +684,7 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
         runtime->start_game_menu_state.slide_frame != 0U ||
-        runtime->start_game_menu_state.input_cooldown != 5U) {
+        runtime->start_game_menu_state.direction_cooldown != 4U) {
         set_flow_test_message(message, message_size, "season reverse did not restore root at frame 32");
         return false;
     }
@@ -651,54 +696,79 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     memset(&input, 0, sizeof(input));
     input.shoot = true;
     tecmo_runtime_update(runtime, &input);
-    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_MUSIC ||
-        runtime->start_game_menu_state.setting_selection != 1U ||
-        runtime->start_game_menu_state.input_cooldown != 5U) {
-        set_flow_test_message(message, message_size, "GAME MUSIC did not open its native popup");
-        return false;
-    }
-    for (size_t wait = 0U; wait < 5U; ++wait) tecmo_runtime_update(runtime, &input);
-    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_MUSIC ||
-        runtime->start_game_menu_state.input_cooldown != 0U) {
-        set_flow_test_message(message, message_size, "popup did not suppress five held-A frames");
-        return false;
-    }
-    tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
-        runtime->start_game_menu_state.music_value != 1U ||
-        runtime->start_game_menu_state.input_cooldown != 5U) {
-        set_flow_test_message(message, message_size, "held A was not eligible after popup cooldown");
-        return false;
-    }
-    for (size_t wait = 0U; wait < 5U; ++wait) tecmo_runtime_update(runtime, &input);
-    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
-        runtime->start_game_menu_state.input_cooldown != 0U) {
-        set_flow_test_message(message, message_size, "popup return cooldown did not prevent reopen");
-        return false;
-    }
-    tecmo_runtime_update(runtime, &input);
-    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_MUSIC ||
-        runtime->start_game_menu_state.input_cooldown != 5U) {
-        set_flow_test_message(message, message_size, "held A did not reopen after return cooldown");
+        runtime->start_game_menu_state.direction_cooldown != 0U) {
+        set_flow_test_message(message, message_size, "held root A opened GAME MUSIC before release");
         return false;
     }
     memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_MUSIC ||
+        runtime->start_game_menu_state.setting_selection != 1U ||
+        runtime->start_game_menu_state.direction_cooldown != 5U) {
+        set_flow_test_message(message, message_size, "GAME MUSIC did not open its native popup");
+        return false;
+    }
+    input.shoot = true;
+    tecmo_runtime_update(runtime, &input);
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_MUSIC ||
+        runtime->start_game_menu_state.direction_cooldown != 3U) {
+        set_flow_test_message(message, message_size, "held popup A activated before release");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+        runtime->start_game_menu_state.music_value != 1U ||
+        runtime->start_game_menu_state.direction_cooldown != 5U) {
+        set_flow_test_message(message, message_size, "popup A release did not accept");
+        return false;
+    }
+    input.shoot = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+        runtime->start_game_menu_state.direction_cooldown != 4U) {
+        set_flow_test_message(message, message_size, "held root A reopened popup before release");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_MUSIC ||
+        runtime->start_game_menu_state.direction_cooldown != 5U) {
+        set_flow_test_message(message, message_size, "root A release did not bypass directional E1");
+        return false;
+    }
     for (size_t wait = 0U; wait < 5U; ++wait) tecmo_runtime_update(runtime, &input);
     input.down = true;
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.setting_selection != 0U ||
-        runtime->start_game_menu_state.input_cooldown != 7U) {
+        runtime->start_game_menu_state.direction_cooldown != 7U) {
         set_flow_test_message(message, message_size, "GAME MUSIC DOWN did not wrap");
         return false;
     }
     memset(&input, 0, sizeof(input));
     for (size_t wait = 0U; wait < 7U; ++wait) tecmo_runtime_update(runtime, &input);
     input.cancel = true;
+    flow_step(runtime, input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+        runtime->start_game_menu_state.music_value != 1U ||
+        runtime->start_game_menu_state.direction_cooldown != 5U) {
+        set_flow_test_message(message, message_size, "GAME MUSIC B did not cancel its edit");
+        return false;
+    }
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame = 32U;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_MUSIC;
+    runtime->start_game_menu_state.setting_selection = 0U;
+    runtime->previous_input.cancel = true;
+    memset(&input, 0, sizeof(input));
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
         runtime->start_game_menu_state.music_value != 1U ||
-        runtime->start_game_menu_state.input_cooldown != 5U) {
-        set_flow_test_message(message, message_size, "GAME MUSIC B did not cancel its edit");
+        runtime->start_game_menu_state.direction_cooldown != 5U) {
+        set_flow_test_message(message, message_size, "GAME MUSIC B-release grace did not cancel");
         return false;
     }
 
@@ -710,7 +780,7 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     input.up = true;
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.setting_selection != 2U ||
-        runtime->start_game_menu_state.input_cooldown != 7U) {
+        runtime->start_game_menu_state.direction_cooldown != 7U) {
         set_flow_test_message(message, message_size, "GAME SPEED UP did not wrap");
         return false;
     }
@@ -725,10 +795,18 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     input.shoot = true;
     input.cancel = true;
     tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SPEED ||
+        runtime->start_game_menu_state.setting_selection != 0U ||
+        runtime->start_game_menu_state.direction_cooldown != 7U) {
+        set_flow_test_message(message, message_size, "SPEED A+B+Up+Down press was not direction-consumed");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
         runtime->start_game_menu_state.speed_value != 0U ||
-        runtime->start_game_menu_state.input_cooldown != 5U) {
-        set_flow_test_message(message, message_size, "SPEED A+B+Up+Down did not prioritize accept");
+        runtime->start_game_menu_state.direction_cooldown != 5U) {
+        set_flow_test_message(message, message_size, "SPEED A+B release did not accept with A priority");
         return false;
     }
 
@@ -743,19 +821,76 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_PERIOD ||
         runtime->start_game_menu_state.setting_selection != 2U ||
-        runtime->start_game_menu_state.input_cooldown != 5U) {
+        runtime->start_game_menu_state.direction_cooldown != 5U) {
         set_flow_test_message(message, message_size, "PERIOD Up did not precede A+B");
         return false;
     }
+    memset(&input, 0, sizeof(input));
+    input.shoot = true;
     for (size_t wait = 0U; wait < 5U; ++wait) tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_PERIOD ||
+        runtime->start_game_menu_state.direction_cooldown != 0U) {
+        set_flow_test_message(message, message_size, "held PERIOD A activated before release");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+        runtime->start_game_menu_state.period_index != 2U ||
+        runtime->start_game_menu_state.direction_cooldown != 5U) {
+        set_flow_test_message(message, message_size, "PERIOD A did not accept after direction grace");
+        return false;
+    }
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame = 32U;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_PERIOD;
+    runtime->start_game_menu_state.setting_selection = 3U;
     memset(&input, 0, sizeof(input));
     input.shoot = true;
     input.cancel = true;
     tecmo_runtime_update(runtime, &input);
-    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
-        runtime->start_game_menu_state.period_index != 2U ||
-        runtime->start_game_menu_state.input_cooldown != 5U) {
-        set_flow_test_message(message, message_size, "PERIOD A+B did not accept after direction grace");
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_PERIOD ||
+        runtime->start_game_menu_state.setting_selection != 3U ||
+        runtime->start_game_menu_state.direction_cooldown != 0U) {
+        set_flow_test_message(message, message_size, "held PERIOD A+B changed state before release");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_PERIOD ||
+        runtime->start_game_menu_state.setting_selection != 3U ||
+        runtime->start_game_menu_state.direction_cooldown != 5U) {
+        set_flow_test_message(message, message_size, "PERIOD A+B release was not a consumed no-op");
+        return false;
+    }
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame = 32U;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_PERIOD;
+    runtime->start_game_menu_state.setting_selection = 3U;
+    runtime->previous_input.shoot = true;
+    runtime->previous_input.cancel = true;
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_PERIOD ||
+        runtime->start_game_menu_state.setting_selection != 3U ||
+        runtime->start_game_menu_state.direction_cooldown != 5U) {
+        set_flow_test_message(message, message_size, "PERIOD A+B release did not remain a consumed no-op");
+        return false;
+    }
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame = 32U;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_PERIOD;
+    runtime->start_game_menu_state.setting_selection = 1U;
+    runtime->previous_input.up = true;
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_PERIOD ||
+        runtime->start_game_menu_state.setting_selection != 2U ||
+        runtime->start_game_menu_state.direction_cooldown != 5U) {
+        set_flow_test_message(message, message_size, "PERIOD Up-release was not consumed");
         return false;
     }
 
@@ -771,8 +906,16 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_PERIOD ||
         runtime->start_game_menu_state.setting_selection != 3U ||
-        runtime->start_game_menu_state.input_cooldown != 5U) {
+        runtime->start_game_menu_state.direction_cooldown != 5U) {
         set_flow_test_message(message, message_size, "PERIOD Up+Down did not consume A+B");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_PERIOD ||
+        runtime->start_game_menu_state.setting_selection != 3U ||
+        runtime->start_game_menu_state.direction_cooldown != 4U) {
+        set_flow_test_message(message, message_size, "PERIOD direction release did not suppress A+B");
         return false;
     }
 
@@ -819,9 +962,9 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     runtime->start_game_menu_state.season_selection = 0U;
     memset(&input, 0, sizeof(input));
     input.shoot = true;
-    tecmo_runtime_update(runtime, &input);
+    flow_step(runtime, input);
     if (runtime->mode != TECMO_MODE_START_GAME_MENU ||
-        runtime->start_game_menu_state.input_cooldown != 5U) {
+        runtime->start_game_menu_state.direction_cooldown != 5U) {
         set_flow_test_message(message, message_size, "unported season route did not stay explicit");
         return false;
     }
@@ -832,16 +975,15 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     runtime->start_game_menu_state.slide_frame = 32U;
     runtime->start_game_menu_state.season_selection = 2U;
     memset(&input, 0, sizeof(input));
-    input.down = true;
     input.shoot = true;
     input.cancel = true;
-    tecmo_runtime_update(runtime, &input);
+    flow_step(runtime, input);
     if (runtime->start_game_menu_state.season_selection != 2U) {
-        set_flow_test_message(message, message_size, "season action did not precede direction");
+        set_flow_test_message(message, message_size, "season A+B release changed selection");
         return false;
     }
     if (!flow_expect_mode(runtime, TECMO_MODE_PLAY_SETUP,
-                          "season A+B+Down GAME START dispatch", message, message_size)) return false;
+                          "season A+B release GAME START dispatch", message, message_size)) return false;
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 64U;
@@ -850,7 +992,7 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     runtime->start_game_menu_state.season_selection = 5U;
     memset(&input, 0, sizeof(input));
     input.shoot = true;
-    tecmo_runtime_update(runtime, &input);
+    flow_step(runtime, input);
     if (!flow_expect_mode(runtime, TECMO_MODE_ROSTERS,
                           "season TEAM DATA dispatch", message, message_size)) return false;
 
