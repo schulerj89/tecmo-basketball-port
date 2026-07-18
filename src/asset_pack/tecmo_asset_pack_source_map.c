@@ -745,7 +745,7 @@ static int append_start_menu_source_map_entry(char *buffer,
         "{\"role\":\"pointer-coordinate-tables\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":247,\"fingerprint_fnv1a32\":\"218E8BCB\"}],"
         "\"native_contract\":{\"pages\":2,\"cells\":1920,\"composed_fingerprint_fnv1a32\":\"661750F3\","
         "\"palette_stage_frames\":[0,2,4,6,8,20,24,28,32],\"root_items\":7,\"season_items\":6,"
-        "\"direction_repeat_frames\":8,\"season_transition_frames\":32,"
+        "\"direction_repeat_frames\":8,\"season_transition_frames\":32,\"period_value_count\":5,"
         "\"background_pixels_per_frame\":8,\"emblem_pixels_per_frame\":5,"
         "\"resolved_chr_entry\":\"chr/all\"}}",
         prefix, TECMO_ASSET_PACK_START_GAME_MENU_ID,

@@ -856,7 +856,13 @@ function Test-StartMenuPayloadContract {
     for ($Index = 0; $Index -lt 7; ++$Index) {
         if ($Bytes[114 + $Index] -ne ($Index + 1)) { [void]$Issues.Add("routes"); break }
     }
-    for ($Index = 121; $Index -lt 160; ++$Index) {
+    $ExpectedPeriodValues = @(2, 3, 4, 8, 12)
+    for ($Index = 0; $Index -lt 5; ++$Index) {
+        if ($Bytes[121 + $Index] -ne $ExpectedPeriodValues[$Index]) {
+            [void]$Issues.Add("period-values"); break
+        }
+    }
+    for ($Index = 126; $Index -lt 160; ++$Index) {
         if ($Bytes[$Index] -ne 0) { [void]$Issues.Add("reserved"); break }
     }
     foreach ($Range in @(
@@ -1945,7 +1951,8 @@ try {
                 $StartMenuMalformedSpecs = @(
                     [pscustomobject]@{ id = "magic"; mutate = { param([byte[]]$Data) $Data[0] = [byte][char]'X' } },
                     [pscustomobject]@{ id = "declared-size"; mutate = { param([byte[]]$Data) [System.BitConverter]::GetBytes([uint32]($Data.Length - 1)).CopyTo($Data, 44) } },
-                    [pscustomobject]@{ id = "reserved"; mutate = { param([byte[]]$Data) $Data[121] = 1 } },
+                    [pscustomobject]@{ id = "period-value"; mutate = { param([byte[]]$Data) $Data[121] = 1 } },
+                    [pscustomobject]@{ id = "reserved"; mutate = { param([byte[]]$Data) $Data[126] = 1 } },
                     [pscustomobject]@{ id = "stage-frame"; mutate = { param([byte[]]$Data) $Data[96 + 8 * 2] = 31 } },
                     [pscustomobject]@{ id = "route"; mutate = { param([byte[]]$Data) $Data[114] = 0 } },
                     [pscustomobject]@{ id = "cell-palette"; mutate = { param([byte[]]$Data) $Data[161] = 4 } },
@@ -2200,6 +2207,7 @@ try {
                     [int]$StartMenuSource.native_contract.season_items -eq 6 -and
                     [int]$StartMenuSource.native_contract.direction_repeat_frames -eq 8 -and
                     [int]$StartMenuSource.native_contract.season_transition_frames -eq 32 -and
+                    [int]$StartMenuSource.native_contract.period_value_count -eq 5 -and
                     @($StartMenuRoles | Where-Object { $_ -match "trace|capture|log|screenshot" }).Count -eq 0
                 Add-TestResult ([pscustomobject]@{
                     id = "assetpack-start-game-menu-source-provenance"

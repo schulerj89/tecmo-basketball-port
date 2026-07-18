@@ -429,6 +429,9 @@ int tecmo_asset_pack_build_start_game_menu(const uint8_t *rom,
     tecmo_asset_pack_store_u16(payload + 94U, 6U);
     for (size_t i = 0U; i < 9U; ++i) tecmo_asset_pack_store_u16(payload + 96U + i * 2U, stage_frames[i]);
     memcpy(payload + 114U, routes, sizeof(routes));
+    memcpy(payload + TECMO_ASSET_PACK_START_MENU_PERIOD_VALUES_HEADER_OFFSET,
+           rom + (size_t)period_values_offset,
+           TECMO_ASSET_PACK_START_MENU_PERIOD_VALUE_COUNT);
 
     build_screen_cells(payload, decoded);
     build_palette_stages(payload, rom + (size_t)title_palette_offset,
