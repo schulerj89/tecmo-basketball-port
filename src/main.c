@@ -29,7 +29,7 @@ static void print_usage(const char *program)
     printf("  --bank07-test           Run fixed-bank helper C counterpart checks\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render boot-title, menu, intro scenes (arena through finale/title frameN), play, or probe modes to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render boot-title, native start-game menu, intro scenes (arena through finale/title frameN), play, or probe modes to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --build-assetpack ROM PATH  Build a private .assetpack from an iNES ROM only; no decomp/capture imports\n");
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
@@ -583,6 +583,70 @@ int main(int argc, char **argv)
             bool render_runtime = true;
             if (strcmp(mode_name, "menu") == 0) {
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_MAIN_MENU);
+            } else if (strcmp(mode_name, "start-game-menu") == 0) {
+                tecmo_runtime_set_mode(&runtime, TECMO_MODE_START_GAME_MENU);
+                runtime.start_game_menu_state.frame = 32U;
+                runtime.start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
+            } else if (strncmp(mode_name, "start-game-menu-frame", 21) == 0) {
+                unsigned frame;
+                if (!parse_render_frame_suffix(mode_name, "start-game-menu-frame", &frame) ||
+                    frame > 32U) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(&runtime, TECMO_MODE_START_GAME_MENU);
+                    runtime.start_game_menu_state.frame = frame;
+                    runtime.start_game_menu_state.phase = frame < 32U
+                        ? TECMO_START_GAME_MENU_REVEAL : TECMO_START_GAME_MENU_ROOT;
+                }
+            } else if (strncmp(mode_name, "start-game-menu-cursor", 22) == 0) {
+                unsigned selection;
+                if (!parse_render_frame_suffix(mode_name, "start-game-menu-cursor", &selection) ||
+                    selection >= TECMO_START_GAME_MENU_ROOT_COUNT) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(&runtime, TECMO_MODE_START_GAME_MENU);
+                    runtime.start_game_menu_state.frame = 32U;
+                    runtime.start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
+                    runtime.start_game_menu_state.root_selection = (uint8_t)selection;
+                }
+            } else if (strncmp(mode_name, "start-game-menu-season-frame", 28) == 0) {
+                unsigned frame;
+                if (!parse_render_frame_suffix(mode_name, "start-game-menu-season-frame", &frame) ||
+                    frame > 32U) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(&runtime, TECMO_MODE_START_GAME_MENU);
+                    runtime.start_game_menu_state.frame = 32U + frame;
+                    runtime.start_game_menu_state.slide_frame = (uint16_t)frame;
+                    runtime.start_game_menu_state.phase = frame < 32U
+                        ? TECMO_START_GAME_MENU_SEASON_SLIDE_IN : TECMO_START_GAME_MENU_SEASON;
+                }
+            } else if (strcmp(mode_name, "start-game-menu-season") == 0) {
+                tecmo_runtime_set_mode(&runtime, TECMO_MODE_START_GAME_MENU);
+                runtime.start_game_menu_state.frame = 64U;
+                runtime.start_game_menu_state.slide_frame = 32U;
+                runtime.start_game_menu_state.phase = TECMO_START_GAME_MENU_SEASON;
+            } else if (strcmp(mode_name, "start-game-menu-music") == 0 ||
+                       strcmp(mode_name, "start-game-menu-speed") == 0 ||
+                       strcmp(mode_name, "start-game-menu-period") == 0) {
+                tecmo_runtime_set_mode(&runtime, TECMO_MODE_START_GAME_MENU);
+                runtime.start_game_menu_state.frame = 32U;
+                if (strcmp(mode_name, "start-game-menu-music") == 0) {
+                    runtime.start_game_menu_state.phase = TECMO_START_GAME_MENU_MUSIC;
+                    runtime.start_game_menu_state.setting_selection =
+                        runtime.start_game_menu_state.music_value;
+                } else if (strcmp(mode_name, "start-game-menu-speed") == 0) {
+                    runtime.start_game_menu_state.phase = TECMO_START_GAME_MENU_SPEED;
+                    runtime.start_game_menu_state.setting_selection =
+                        runtime.start_game_menu_state.speed_value;
+                } else {
+                    runtime.start_game_menu_state.phase = TECMO_START_GAME_MENU_PERIOD;
+                    runtime.start_game_menu_state.setting_selection =
+                        runtime.start_game_menu_state.period_index;
+                }
             } else if (strcmp(mode_name, "menu-overlay") == 0) {
                 TecmoInput input;
                 memset(&input, 0, sizeof(input));
@@ -940,6 +1004,19 @@ int main(int argc, char **argv)
                                                        runtime.title_chr_bytes,
                                                        runtime.title_chr_byte_count))) {
                     result = 1;
+                } else if (strncmp(mode_name, "start-game-menu", 15) == 0 &&
+                           (!runtime.start_game_menu_asset.available ||
+                            !tecmo_start_game_menu_asset_chr_available(
+                                &runtime.start_game_menu_asset,
+                                runtime.title_chr_bytes,
+                                runtime.title_chr_byte_count) ||
+                            (runtime.start_game_menu_state.frame < 8U &&
+                             (!runtime.title_asset.start_available ||
+                              !tecmo_title_asset_chr_available(
+                                  &runtime.title_asset,
+                                  runtime.title_chr_bytes,
+                                  runtime.title_chr_byte_count))))) {
+                    result = 1;
                 } else if ((strcmp(mode_name, "play") == 0 ||
                      strncmp(mode_name, "play-fade", 9) == 0 ||
                      strcmp(mode_name, "play-step6") == 0) &&
@@ -955,6 +1032,15 @@ int main(int argc, char **argv)
                                                               runtime.title_chr_byte_count))) {
                     result = 1;
                 }
+            }
+            if (strncmp(mode_name, "start-game-menu", 15) == 0) {
+                printf("start-game-menu-state frame=%u phase=%s root=%u season=%u slide=%u setting=%u\n",
+                       runtime.start_game_menu_state.frame,
+                       tecmo_start_game_menu_phase_name(runtime.start_game_menu_state.phase),
+                       (unsigned)runtime.start_game_menu_state.root_selection,
+                       (unsigned)runtime.start_game_menu_state.season_selection,
+                       (unsigned)runtime.start_game_menu_state.slide_frame,
+                       (unsigned)runtime.start_game_menu_state.setting_selection);
             }
             print_intro_render_capture_status(&runtime, mode_name, arena_render_succeeded);
             tecmo_runtime_shutdown(&runtime);

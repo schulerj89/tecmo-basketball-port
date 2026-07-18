@@ -100,6 +100,9 @@ static const char *mode_name(TecmoPlayMode mode)
     if (mode == TECMO_MODE_COURT) {
         return "COURT";
     }
+    if (mode == TECMO_MODE_START_GAME_MENU) {
+        return "START GAME MENU";
+    }
     return "UNKNOWN";
 }
 
@@ -227,6 +230,7 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
     (void)tecmo_intro_pass_asset_load(&runtime->intro_pass_asset, project_root);
     (void)tecmo_intro_finale_asset_load(&runtime->intro_finale_asset, project_root);
     (void)tecmo_title_asset_load(&runtime->title_asset, project_root);
+    (void)tecmo_start_game_menu_asset_load(&runtime->start_game_menu_asset, project_root);
 
     if (tecmo_collect_rosters(project_root, &runtime->roster) != 0) {
         if (!allow_empty_roster) {
@@ -276,6 +280,15 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
             set_runtime_status(runtime->title_asset.status,
                                sizeof(runtime->title_asset.status),
                                "TATR-2/TTLE-1 chr/all contract rejected");
+        }
+        if (runtime->start_game_menu_asset.available &&
+            !tecmo_start_game_menu_asset_chr_available(&runtime->start_game_menu_asset,
+                                                       runtime->title_chr_bytes,
+                                                       runtime->title_chr_byte_count)) {
+            runtime->start_game_menu_asset.available = false;
+            set_runtime_status(runtime->start_game_menu_asset.status,
+                               sizeof(runtime->start_game_menu_asset.status),
+                               "TSGM-1 chr/all contract rejected");
         }
         if (runtime->selected_chr_bank >= chr_bank_count(runtime)) {
             runtime->selected_chr_bank = chr_bank_count(runtime) - 1U;
@@ -329,6 +342,9 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
         runtime->title_confirming = false;
         runtime->title_confirmation_frame = 0U;
     }
+    if (mode == TECMO_MODE_START_GAME_MENU) {
+        tecmo_start_game_menu_state_init(&runtime->start_game_menu_state);
+    }
     runtime->previous_input = (TecmoInput){0};
 }
 
@@ -358,7 +374,7 @@ static void update_title_screen(TecmoRuntime *runtime, const TecmoControlFrame *
     if (runtime->title_confirming) {
         ++runtime->title_confirmation_frame;
         if (runtime->title_confirmation_frame >= tecmo_title_confirmation_handoff_frame()) {
-            tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
+            tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
         }
     } else if (controls->pressed.cancel) {
         tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
@@ -370,6 +386,20 @@ static void update_title_screen(TecmoRuntime *runtime, const TecmoControlFrame *
             runtime->title_confirming = true;
             runtime->title_confirmation_frame = 1U;
         }
+    }
+}
+
+static void update_start_game_menu(TecmoRuntime *runtime,
+                                   const TecmoControlFrame *controls)
+{
+    TecmoStartGameMenuAction action =
+        tecmo_start_game_menu_update(&runtime->start_game_menu_state,
+                                     &runtime->start_game_menu_asset,
+                                     controls);
+    if (action == TECMO_START_GAME_MENU_ACTION_PLAY_SETUP) {
+        tecmo_runtime_set_mode(runtime, TECMO_MODE_PLAY_SETUP);
+    } else if (action == TECMO_START_GAME_MENU_ACTION_ROSTERS) {
+        tecmo_runtime_set_mode(runtime, TECMO_MODE_ROSTERS);
     }
 }
 
@@ -629,7 +659,10 @@ static void write_runtime_watch_memory(TecmoRuntime *runtime)
     tecmo_cpu_ram_write(runtime->memory, 0x0000, (uint8_t)runtime->mode);
     tecmo_cpu_ram_write(runtime->memory, 0x0001, (uint8_t)runtime->selected_team);
     tecmo_cpu_ram_write(runtime->memory, 0x0002, (uint8_t)runtime->selected_player);
-    tecmo_cpu_ram_write(runtime->memory, 0x0003, (uint8_t)runtime->selected_menu_item);
+    tecmo_cpu_ram_write(runtime->memory, 0x0003,
+                        runtime->mode == TECMO_MODE_START_GAME_MENU
+                            ? runtime->start_game_menu_state.root_selection
+                            : (uint8_t)runtime->selected_menu_item);
     tecmo_cpu_ram_write(runtime->memory, 0x0004, (uint8_t)(runtime->frame_counter & 0xFFU));
     tecmo_cpu_ram_write(runtime->memory, 0x0005, (uint8_t)((runtime->frame_counter >> 8U) & 0xFFU));
     tecmo_cpu_ram_write(runtime->memory, 0x0006, (uint8_t)selected_chr_bank(runtime));
@@ -664,6 +697,8 @@ void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input)
         update_roster_selection(runtime, &controls, false);
     } else if (runtime->mode == TECMO_MODE_COURT) {
         update_court(runtime, &controls);
+    } else if (runtime->mode == TECMO_MODE_START_GAME_MENU) {
+        update_start_game_menu(runtime, &controls);
     }
 
     write_runtime_watch_memory(runtime);
@@ -833,6 +868,22 @@ static void render_title_screen_mode(const TecmoRuntime *runtime, TecmoFramebuff
                                 runtime->title_confirmation_frame,
                                 64, 0, 2))
         draw_centered_text(fb, 212, "NATIVE TTLE-1 TITLE UNAVAILABLE", rgb(252, 236, 170), 2);
+}
+
+static void render_start_game_menu_mode(const TecmoRuntime *runtime,
+                                        TecmoFramebuffer *fb)
+{
+    clear(fb, rgb(0, 0, 0));
+    if (!tecmo_start_game_menu_draw(fb,
+                                    &runtime->start_game_menu_asset,
+                                    &runtime->start_game_menu_state,
+                                    &runtime->title_asset,
+                                    runtime->title_chr_bytes,
+                                    runtime->title_chr_byte_count,
+                                    64, 0, 2)) {
+        draw_centered_text(fb, 212, "NATIVE TSGM-1 START MENU UNAVAILABLE",
+                           rgb(252, 236, 170), 2);
+    }
 }
 
 static void render_roster_browser(const TecmoRuntime *runtime, TecmoFramebuffer *fb, bool play_setup)
@@ -3181,6 +3232,8 @@ void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebu
         render_roster_browser(runtime, framebuffer, false);
     } else if (runtime->mode == TECMO_MODE_COURT) {
         render_court(runtime, framebuffer);
+    } else if (runtime->mode == TECMO_MODE_START_GAME_MENU) {
+        render_start_game_menu_mode(runtime, framebuffer);
     }
 
     if (runtime->debug_overlay) {

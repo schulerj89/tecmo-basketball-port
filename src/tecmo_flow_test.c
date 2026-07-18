@@ -37,6 +37,9 @@ static const char *flow_mode_name(TecmoPlayMode mode)
     if (mode == TECMO_MODE_COURT) {
         return "COURT";
     }
+    if (mode == TECMO_MODE_START_GAME_MENU) {
+        return "START GAME MENU";
+    }
     return "UNKNOWN";
 }
 
@@ -447,7 +450,270 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         return false;
     }
     tecmo_runtime_update(runtime, &input);
-    if (!flow_expect_mode(runtime, TECMO_MODE_MAIN_MENU, "title confirmation frame 127 handoff", message, message_size)) return false;
+    if (!flow_expect_mode(runtime, TECMO_MODE_START_GAME_MENU,
+                          "title confirmation frame 127 handoff", message, message_size)) return false;
+
+    for (size_t reveal = 0U; reveal < 31U; ++reveal)
+        tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.frame != 31U ||
+        runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_REVEAL) {
+        set_flow_test_message(message, message_size,
+                              "start-game menu accepted input before reveal frame 32");
+        return false;
+    }
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.frame != 32U ||
+        runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+        runtime->start_game_menu_state.root_selection != 0U) {
+        set_flow_test_message(message, message_size,
+                              "start-game menu did not become stable at frame 32");
+        return false;
+    }
+
+    memset(&input, 0, sizeof(input));
+    input.confirm = true;
+    flow_step(runtime, input);
+    if (runtime->mode != TECMO_MODE_START_GAME_MENU ||
+        runtime->start_game_menu_state.root_selection != 0U) {
+        set_flow_test_message(message, message_size, "START was not ignored by start-game menu");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.left = true;
+    flow_step(runtime, input);
+    input.left = false;
+    input.right = true;
+    flow_step(runtime, input);
+    if (runtime->start_game_menu_state.root_selection != 0U) {
+        set_flow_test_message(message, message_size, "left/right changed root menu selection");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.up = true;
+    flow_step(runtime, input);
+    if (runtime->start_game_menu_state.root_selection != 6U) {
+        set_flow_test_message(message, message_size, "root UP did not wrap to GAME MUSIC");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.down = true;
+    flow_step(runtime, input);
+    if (runtime->start_game_menu_state.root_selection != 0U) {
+        set_flow_test_message(message, message_size, "root DOWN did not wrap to PRESEASON");
+        return false;
+    }
+
+    memset(&input, 0, sizeof(input));
+    input.down = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.root_selection != 1U) {
+        set_flow_test_message(message, message_size, "root DOWN edge was not immediate");
+        return false;
+    }
+    for (size_t held = 0U; held < 7U; ++held) tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.root_selection != 1U) {
+        set_flow_test_message(message, message_size, "root direction repeated before eight frames");
+        return false;
+    }
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.root_selection != 2U) {
+        set_flow_test_message(message, message_size, "root direction did not repeat at eight frames");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame = 32U;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
+    memset(&input, 0, sizeof(input));
+    input.cancel = true;
+    tecmo_runtime_update(runtime, &input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_PLAY_SETUP,
+                          "root B preseason dispatch", message, message_size)) return false;
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame = 32U;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
+    runtime->start_game_menu_state.root_selection = 3U;
+    memset(&input, 0, sizeof(input));
+    input.shoot = true;
+    tecmo_runtime_update(runtime, &input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_ROSTERS,
+                          "root A team-data dispatch", message, message_size)) return false;
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame = 32U;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
+    runtime->start_game_menu_state.root_selection = 1U;
+    memset(&input, 0, sizeof(input));
+    input.shoot = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SEASON_SLIDE_IN ||
+        runtime->start_game_menu_state.slide_frame != 0U) {
+        set_flow_test_message(message, message_size, "season route did not start at slide frame zero");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    for (size_t slide = 0U; slide < 31U; ++slide) tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SEASON_SLIDE_IN ||
+        runtime->start_game_menu_state.slide_frame != 31U) {
+        set_flow_test_message(message, message_size, "season slide ended before frame 32");
+        return false;
+    }
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SEASON ||
+        runtime->start_game_menu_state.slide_frame != 32U) {
+        set_flow_test_message(message, message_size, "season slide did not end at frame 32");
+        return false;
+    }
+    input.cancel = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SEASON_SLIDE_OUT ||
+        runtime->start_game_menu_state.slide_frame != 32U) {
+        set_flow_test_message(message, message_size, "season B did not begin exact reverse slide");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    for (size_t slide = 0U; slide < 31U; ++slide) tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SEASON_SLIDE_OUT ||
+        runtime->start_game_menu_state.slide_frame != 1U) {
+        set_flow_test_message(message, message_size, "season reverse ended before frame 32");
+        return false;
+    }
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+        runtime->start_game_menu_state.slide_frame != 0U) {
+        set_flow_test_message(message, message_size, "season reverse did not restore root at frame 32");
+        return false;
+    }
+
+    runtime->start_game_menu_state.root_selection = 6U;
+    input.shoot = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_MUSIC ||
+        runtime->start_game_menu_state.setting_selection != 1U) {
+        set_flow_test_message(message, message_size, "GAME MUSIC did not open its native popup");
+        return false;
+    }
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+        runtime->start_game_menu_state.music_value != 1U) {
+        set_flow_test_message(message, message_size, "held A did not level-trigger popup accept");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    input.shoot = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_MUSIC) {
+        set_flow_test_message(message, message_size, "GAME MUSIC popup did not reopen");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    input.down = true;
+    flow_step(runtime, input);
+    if (runtime->start_game_menu_state.setting_selection != 0U) {
+        set_flow_test_message(message, message_size, "GAME MUSIC DOWN did not wrap");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.cancel = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+        runtime->start_game_menu_state.music_value != 1U) {
+        set_flow_test_message(message, message_size, "GAME MUSIC B did not cancel its edit");
+        return false;
+    }
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame = 32U;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_SPEED;
+    runtime->start_game_menu_state.setting_selection = 0U;
+    memset(&input, 0, sizeof(input));
+    input.up = true;
+    flow_step(runtime, input);
+    if (runtime->start_game_menu_state.setting_selection != 2U) {
+        set_flow_test_message(message, message_size, "GAME SPEED UP did not wrap");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.shoot = true;
+    input.cancel = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+        runtime->start_game_menu_state.speed_value != 2U) {
+        set_flow_test_message(message, message_size, "A+B did not prioritize popup accept");
+        return false;
+    }
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame = 32U;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_PERIOD;
+    runtime->start_game_menu_state.setting_selection = 1U;
+    memset(&input, 0, sizeof(input));
+    input.up = true;
+    flow_step(runtime, input);
+    if (runtime->start_game_menu_state.setting_selection != 2U) {
+        set_flow_test_message(message, message_size, "PERIOD UP did not increase minutes");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.down = true;
+    flow_step(runtime, input);
+    if (runtime->start_game_menu_state.setting_selection != 1U) {
+        set_flow_test_message(message, message_size, "PERIOD DOWN did not decrease minutes");
+        return false;
+    }
+    runtime->start_game_menu_state.setting_selection = 4U;
+    memset(&input, 0, sizeof(input));
+    input.up = true;
+    flow_step(runtime, input);
+    runtime->start_game_menu_state.setting_selection = 0U;
+    memset(&input, 0, sizeof(input));
+    input.down = true;
+    flow_step(runtime, input);
+    if (runtime->start_game_menu_state.setting_selection != 0U) {
+        set_flow_test_message(message, message_size, "PERIOD values did not clamp at two minutes");
+        return false;
+    }
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame = 64U;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_SEASON;
+    runtime->start_game_menu_state.slide_frame = 32U;
+    runtime->start_game_menu_state.season_selection = 0U;
+    memset(&input, 0, sizeof(input));
+    input.shoot = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->mode != TECMO_MODE_START_GAME_MENU) {
+        set_flow_test_message(message, message_size, "unported season route did not stay explicit");
+        return false;
+    }
+    runtime->start_game_menu_state.season_selection = 2U;
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    input.shoot = true;
+    input.cancel = true;
+    tecmo_runtime_update(runtime, &input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_PLAY_SETUP,
+                          "season A+B GAME START dispatch", message, message_size)) return false;
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame = 64U;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_SEASON;
+    runtime->start_game_menu_state.slide_frame = 32U;
+    runtime->start_game_menu_state.season_selection = 5U;
+    memset(&input, 0, sizeof(input));
+    input.shoot = true;
+    tecmo_runtime_update(runtime, &input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_ROSTERS,
+                          "season TEAM DATA dispatch", message, message_size)) return false;
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
 
     if (!flow_press_menu_down(runtime, 1U, 1U, "navigate to quit", message, message_size)) {
         return false;
@@ -460,6 +726,7 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         return false;
     }
 
-    set_flow_test_message(message, message_size, "FLOW TEST PASS: menu play-intro quit");
+    set_flow_test_message(message, message_size,
+                          "FLOW TEST PASS: menu play-intro title start-game-menu quit");
     return true;
 }

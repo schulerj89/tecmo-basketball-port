@@ -12,6 +12,7 @@
 #include "tecmo_intro_stage.h"
 #include "tecmo_intro_trace.h"
 #include "tecmo_memory.h"
+#include "tecmo_start_game_menu.h"
 #include "tecmo_title_screen.h"
 
 #include <stdbool.h>
@@ -26,7 +27,8 @@ typedef enum TecmoPlayMode {
     TECMO_MODE_FIRST_SPRITE,
     TECMO_MODE_PLAY_SETUP,
     TECMO_MODE_ROSTERS,
-    TECMO_MODE_COURT
+    TECMO_MODE_COURT,
+    TECMO_MODE_START_GAME_MENU
 } TecmoPlayMode;
 
 typedef struct TecmoRuntime {
@@ -68,6 +70,8 @@ typedef struct TecmoRuntime {
     TecmoIntroScreenAsset intro_presents_asset;
     TecmoIntroScreenAsset intro_license_asset;
     TecmoTitleAsset title_asset;
+    TecmoStartGameMenuAsset start_game_menu_asset;
+    TecmoStartGameMenuState start_game_menu_state;
     char intro_l88e7_irq_vector[16];
     char intro_presents_data_cpu[16];
     bool intro_trace_available;

@@ -56,7 +56,7 @@
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --flow-test",
       "description": "Runs the headless runtime input-flow check that enters the Play Game progressive intro-output mode, advances through the opening sequence transitions, returns to menu, and confirms the quit path.",
-      "expected_output": "FLOW TEST PASS: menu play-intro quit"
+      "expected_output": "FLOW TEST PASS: menu play-intro title start-game-menu quit"
     },
     {
       "id": "run_bank07_helper_test",
@@ -355,7 +355,7 @@
       "id": "flow_menu_play_quit",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --flow-test",
-      "expected_output": "FLOW TEST PASS: menu play-intro quit",
+      "expected_output": "FLOW TEST PASS: menu play-intro title start-game-menu quit",
       "assertions": [
         "Executable exits with code 0",
         "Runtime boots directly to the launcher menu",

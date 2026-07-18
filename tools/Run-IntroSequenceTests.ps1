@@ -475,7 +475,8 @@ try {
         "intro/nba-license-screen",
         "intro/finale-sequence",
         "title/attract-continuation",
-        "title/start-screen"
+        "title/start-screen",
+        "menu/start-game"
     )
     $ForbiddenCaptureEntries = @("intro/arena/capture.ndjson", "intro/post-arena/capture.ndjson", "intro/captures/source-map")
     $MissingNativeEntries = @($RequiredNativeEntries | Where-Object { $ListText -notmatch [regex]::Escape($_) })
@@ -578,6 +579,138 @@ try {
         raw_output_persisted = $false
         coverage_status = "covered"
         error = if ($MalformedTitlePassed) { $null } else { "runtime accepted malformed native title data" }
+    })
+
+    $StartMenuRenderModes = @(
+        "start-game-menu-frame0", "start-game-menu-frame2",
+        "start-game-menu-frame4", "start-game-menu-frame6",
+        "start-game-menu-frame8", "start-game-menu-frame19",
+        "start-game-menu-frame20", "start-game-menu-frame24",
+        "start-game-menu-frame28", "start-game-menu-frame32",
+        "start-game-menu-cursor6", "start-game-menu-season-frame16",
+        "start-game-menu-season-frame32", "start-game-menu-music",
+        "start-game-menu-speed", "start-game-menu-period"
+    )
+    $StartMenuRenderResults = New-Object System.Collections.Generic.List[object]
+    $StartMenuRenderPassed = $ListPassed
+    $StartMenuIsolatedRoot = Join-Path $OutputDir `
+        ("start_menu_rom_only_root-" + [Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Force -Path $StartMenuIsolatedRoot | Out-Null
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    try {
+        $env:TECMO_ASSETPACK = $AssetPackPath
+        foreach ($Mode in $StartMenuRenderModes) {
+            $RenderPath = Join-Path $OutputDir ($Mode + ".png")
+            Remove-Item -LiteralPath $RenderPath -Force -ErrorAction SilentlyContinue
+            $RenderOutput = & $ExePath --root $StartMenuIsolatedRoot `
+                --render-test-mode $Mode $RenderPath 2>&1
+            $RenderExitCode = $LASTEXITCODE
+            $RenderText = (@($RenderOutput) | ForEach-Object { [string]$_ }) -join "`n"
+            $RenderPassed = $RenderExitCode -eq 0 -and
+                (Test-Path -LiteralPath $RenderPath) -and
+                $RenderText -match "start-game-menu-state"
+            if (!$RenderPassed) { $StartMenuRenderPassed = $false }
+            $StartMenuRenderResults.Add([pscustomobject]@{
+                mode = $Mode
+                passed = $RenderPassed
+                exit_code = $RenderExitCode
+                output_created = Test-Path -LiteralPath $RenderPath
+            })
+            Remove-Item -LiteralPath $RenderPath -Force -ErrorAction SilentlyContinue
+        }
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+        Remove-Item -LiteralPath $StartMenuIsolatedRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    if (!$StartMenuRenderPassed) { ++$Failures }
+    $Results.Add([pscustomobject]@{
+        id = "start-game-menu-rom-only-render"
+        passed = $StartMenuRenderPassed
+        skipped = $false
+        cases = $StartMenuRenderResults
+        timing = "title fade 0/2/4/6; black 8-19; menu fade 20/24/28; stable 32; season slide 32"
+        isolated_root = $true
+        raw_output_persisted = $false
+        error = if ($StartMenuRenderPassed) { $null } else { "TSGM-1 render mode failed from an isolated root" }
+    })
+
+    $StartMenuNegativeCases = @(
+        [pscustomobject]@{ id = "reserved"; offset = 126; value = 1 },
+        [pscustomobject]@{ id = "period-values"; offset = 121; value = 5 },
+        [pscustomobject]@{ id = "black-stage"; offset = 11808; value = 0 },
+        [pscustomobject]@{ id = "chr-range"; offset = 162; value = $null }
+    )
+    $StartMenuNegativeResults = New-Object System.Collections.Generic.List[object]
+    $StartMenuNegativePassed = $ListPassed
+    $StartMenuNegativeRoot = Join-Path $OutputDir `
+        ("start_menu_negative_root-" + [Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Force -Path $StartMenuNegativeRoot | Out-Null
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    try {
+        [byte[]]$MissingBytes = [System.IO.File]::ReadAllBytes($AssetPackPath)
+        $MissingDirectoryOffset = Get-AssetPackEntryDirectoryOffset `
+            -Bytes $MissingBytes -EntryId "menu/start-game"
+        $MissingBytes[$MissingDirectoryOffset] = [byte][char]'x'
+        $MissingPack = Join-Path $OutputDir "missing-start-game-menu.assetpack"
+        $MissingRender = Join-Path $OutputDir "missing-start-game-menu.png"
+        [System.IO.File]::WriteAllBytes($MissingPack, $MissingBytes)
+        $env:TECMO_ASSETPACK = $MissingPack
+        $MissingOutput = & $ExePath --root $StartMenuNegativeRoot `
+            --render-test-mode start-game-menu $MissingRender 2>&1
+        $MissingExitCode = $LASTEXITCODE
+        $MissingRejected = $MissingExitCode -eq 1 -and !(Test-Path -LiteralPath $MissingRender)
+        if (!$MissingRejected) { $StartMenuNegativePassed = $false }
+        $StartMenuNegativeResults.Add([pscustomobject]@{
+            id = "missing-entry"
+            passed = $MissingRejected
+            exit_code = $MissingExitCode
+            rejected_by_runtime = $MissingRejected
+        })
+        Remove-Item -LiteralPath $MissingPack -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $MissingRender -Force -ErrorAction SilentlyContinue
+
+        foreach ($Case in $StartMenuNegativeCases) {
+            [byte[]]$CaseBytes = [System.IO.File]::ReadAllBytes($AssetPackPath)
+            $PayloadOffset = Get-AssetPackEntryPayloadOffset `
+                -Bytes $CaseBytes -EntryId "menu/start-game"
+            if ($Case.id -eq "chr-range") {
+                [System.BitConverter]::GetBytes([uint32]([uint32]::MaxValue - 15)).CopyTo(
+                    $CaseBytes, $PayloadOffset + $Case.offset)
+            } else {
+                $CaseBytes[$PayloadOffset + $Case.offset] = [byte]$Case.value
+            }
+            $CasePack = Join-Path $OutputDir "malformed-start-menu-$($Case.id).assetpack"
+            $CaseRender = Join-Path $OutputDir "malformed-start-menu-$($Case.id).png"
+            [System.IO.File]::WriteAllBytes($CasePack, $CaseBytes)
+            $env:TECMO_ASSETPACK = $CasePack
+            $CaseOutput = & $ExePath --root $StartMenuNegativeRoot `
+                --render-test-mode start-game-menu $CaseRender 2>&1
+            $CaseExitCode = $LASTEXITCODE
+            $Rejected = $CaseExitCode -eq 1 -and !(Test-Path -LiteralPath $CaseRender)
+            if (!$Rejected) { $StartMenuNegativePassed = $false }
+            $StartMenuNegativeResults.Add([pscustomobject]@{
+                id = $Case.id
+                passed = $Rejected
+                exit_code = $CaseExitCode
+                rejected_by_runtime = $Rejected
+            })
+            Remove-Item -LiteralPath $CasePack -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $CaseRender -Force -ErrorAction SilentlyContinue
+        }
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+        Remove-Item -LiteralPath $StartMenuNegativeRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    if (!$StartMenuNegativePassed) { ++$Failures }
+    $Results.Add([pscustomobject]@{
+        id = "start-game-menu-missing-malformed-contract"
+        passed = $StartMenuNegativePassed
+        skipped = $false
+        cases = $StartMenuNegativeResults
+        isolated_root = $true
+        raw_output_persisted = $false
+        coverage_status = "missing-reserved-period-palette-chr"
+        error = if ($StartMenuNegativePassed) { $null } else { "runtime accepted missing or malformed TSGM-1 data" }
     })
 
     $OpeningRenderCases = @(
