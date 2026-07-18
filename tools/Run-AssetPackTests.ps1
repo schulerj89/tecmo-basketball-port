@@ -242,6 +242,16 @@ function Read-AssetPackEntryText {
     return [System.Text.Encoding]::UTF8.GetString($Bytes)
 }
 
+function Get-Fnv1a32Hex {
+    param([byte[]]$Bytes)
+
+    [uint64]$Hash = 2166136261
+    foreach ($Byte in $Bytes) {
+        $Hash = (($Hash -bxor [uint64]$Byte) * [uint64]16777619) % [uint64]4294967296
+    }
+    return ("{0:X8}" -f $Hash)
+}
+
 function Get-ExpectedAssetPackEntries {
     param(
         [int]$PrgBanks,
@@ -1934,9 +1944,13 @@ try {
                 }
                 $ActualMenuPalettes = [byte[]]$StartMenuBytes[11680..11967]
                 $MenuPalettesExact = (@(Compare-Object $ExpectedMenuPalettes.ToArray() $ActualMenuPalettes -SyncWindow 0)).Count -eq 0
+                $StartMenuPayloadFingerprint = Get-Fnv1a32Hex -Bytes $StartMenuBytes
+                $StartMenuPaletteFingerprint = Get-Fnv1a32Hex -Bytes $ActualMenuPalettes
                 Add-TestResult ([pscustomobject]@{
                     id = "assetpack-start-game-menu-native"
-                    passed = $StartMenuContract.passed -and $MenuPalettesExact
+                    passed = $StartMenuContract.passed -and $MenuPalettesExact -and
+                        $StartMenuPayloadFingerprint -eq "DEFB37CF" -and
+                        $StartMenuPaletteFingerprint -eq "F83B6C17"
                     format = if ($StartMenuBytes.Length -ge 4) { [System.Text.Encoding]::ASCII.GetString($StartMenuBytes, 0, 4) } else { "" }
                     byte_count = $StartMenuBytes.Length
                     page_count = if ($StartMenuBytes.Length -ge 14) { [System.BitConverter]::ToUInt16($StartMenuBytes, 12) } else { 0 }
@@ -1944,7 +1958,27 @@ try {
                     root_item_count = if ($StartMenuBytes.Length -ge 52) { [System.BitConverter]::ToUInt16($StartMenuBytes, 50) } else { 0 }
                     season_transition_frames = if ($StartMenuBytes.Length -ge 58) { [System.BitConverter]::ToUInt16($StartMenuBytes, 56) } else { 0 }
                     palette_stages_exact = $MenuPalettesExact
+                    payload_fingerprint_fnv1a32 = $StartMenuPayloadFingerprint
+                    palette_stages_fingerprint_fnv1a32 = $StartMenuPaletteFingerprint
                     contract_issues = $StartMenuContract.issues
+                    raw_asset_bytes_persisted = $false
+                })
+                $FingerprintMutation = [byte[]]$StartMenuBytes.Clone()
+                $FingerprintMutation[160] = $FingerprintMutation[160] -bxor 1
+                $FingerprintMutationContract = Test-StartMenuPayloadContract `
+                    -Bytes $FingerprintMutation -ChrByteCount $ChrByteCount
+                $FingerprintMutationHash = Get-Fnv1a32Hex -Bytes $FingerprintMutation
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-start-game-menu-revision-fingerprint"
+                    passed = $StartMenuPayloadFingerprint -eq "DEFB37CF" -and
+                        $StartMenuPaletteFingerprint -eq "F83B6C17" -and
+                        $FingerprintMutationContract.passed -and
+                        $FingerprintMutationHash -ne "DEFB37CF"
+                    payload_fingerprint_fnv1a32 = $StartMenuPayloadFingerprint
+                    palette_stages_fingerprint_fnv1a32 = $StartMenuPaletteFingerprint
+                    structurally_valid_mutation_rejected_by_fingerprint = `
+                        $FingerprintMutationContract.passed -and $FingerprintMutationHash -ne "DEFB37CF"
+                    mutated_payloads_persisted = $false
                     raw_asset_bytes_persisted = $false
                 })
                 $StartMenuMalformedCases = [System.Collections.Generic.List[object]]::new()
@@ -2202,6 +2236,9 @@ try {
                     [int]$StartMenuStream.decoded_size -eq 2048 -and
                     [int]$StartMenuSource.native_contract.pages -eq 2 -and
                     [int]$StartMenuSource.native_contract.cells -eq 1920 -and
+                    [int]$StartMenuSource.native_contract.payload_size -eq 14112 -and
+                    $StartMenuSource.native_contract.payload_fingerprint_fnv1a32 -eq "DEFB37CF" -and
+                    $StartMenuSource.native_contract.palette_stages_fingerprint_fnv1a32 -eq "F83B6C17" -and
                     (@($StartMenuSource.native_contract.palette_stage_frames) -join ",") -eq "0,2,4,6,8,20,24,28,32" -and
                     [int]$StartMenuSource.native_contract.root_items -eq 7 -and
                     [int]$StartMenuSource.native_contract.season_items -eq 6 -and

@@ -9,6 +9,8 @@
 #define MENU_DESCRIPTOR_CPU 0xDCA1U
 #define MENU_BG_R0 0xFAU
 #define MENU_BG_R1 0xFAU
+#define MENU_PAYLOAD_FNV1A32 0xDEFB37CFU
+#define MENU_PALETTE_STAGES_FNV1A32 0xF83B6C17U
 
 typedef struct MenuRecordSource {
     uint32_t cpu;
@@ -449,6 +451,16 @@ int tecmo_asset_pack_build_start_game_menu(const uint8_t *rom,
     for (size_t i = 0U; i < 10U; ++i) {
         uint8_t tile = rom[(size_t)char_map_offset + 0x30U + i];
         store_cell(payload + TECMO_ASSET_PACK_START_MENU_DIGITS_OFFSET + i * 6U, tile, 0U);
+    }
+    if (enforce_revision_fingerprints != 0 &&
+        (tecmo_asset_pack_fnv1a32(payload, payload_size) != MENU_PAYLOAD_FNV1A32 ||
+         tecmo_asset_pack_fnv1a32(
+             payload + TECMO_ASSET_PACK_START_MENU_PALETTES_OFFSET,
+             TECMO_ASSET_PACK_START_MENU_PALETTE_STAGE_COUNT * 32U) !=
+             MENU_PALETTE_STAGES_FNV1A32)) {
+        tecmo_asset_pack_set_message(message, message_size,
+                                     "TSGM-1 generated Rev1 payload fingerprint mismatch.");
+        return -1;
     }
 
     memset(provenance, 0, sizeof(*provenance));
