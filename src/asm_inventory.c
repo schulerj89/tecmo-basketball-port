@@ -3165,7 +3165,8 @@ static int load_chr_from_asset_pack_path(const char *path, uint8_t **bytes_out, 
     uint8_t *padded;
     uint64_t copy_size;
 
-    if (tecmo_asset_pack_read_entry(path, "chr/all", &entry_bytes, &entry_size) != 0) {
+    if (tecmo_asset_pack_read_entry_exact(path, "chr/all", TECMO_CHR_CONFIG_BYTES,
+                                          &entry_bytes, &entry_size) != 0) {
         return -1;
     }
 

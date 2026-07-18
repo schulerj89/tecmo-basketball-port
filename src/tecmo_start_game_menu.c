@@ -21,6 +21,16 @@
 #define START_MENU_SPRITE_STRIDE 16U
 #define START_MENU_OVERLAY_DESC_STRIDE 16U
 #define START_MENU_SEASON_CURSOR_X 103
+#define START_MENU_PAYLOAD_FNV1A32 0x7505D7BDU
+#define START_MENU_CHR_BYTE_COUNT 262144U
+#define START_MENU_CHR_FNV1A32 0xF6F6E854U
+#define START_MENU_CHR_FNV1A64 0x96A64F53B240ABB4ULL
+#define START_MENU_METADATA_OFFSET 126U
+#define START_MENU_METADATA_ALIGNMENT_OFFSET 139U
+#define START_MENU_CHR_SIZE_OFFSET 140U
+#define START_MENU_CHR_FNV1A32_OFFSET 144U
+#define START_MENU_CURSOR_COMMIT_DELAY_OFFSET 148U
+#define START_MENU_METADATA_RESERVED_OFFSET 149U
 
 static uint16_t read_u16(const uint8_t *p)
 {
@@ -106,10 +116,13 @@ static bool read_entry_from_selected_pack(const char *root,
 
     for (i = 0U; i < path_count; ++i) {
         if (!file_exists(paths[i])) continue;
-        if (tecmo_asset_pack_read_entry(paths[i], START_MENU_ENTRY_ID,
-                                        menu_bytes, menu_count) != 0)
+        if (tecmo_asset_pack_read_entry_exact(paths[i], START_MENU_ENTRY_ID,
+                                              START_MENU_PAYLOAD_SIZE,
+                                              menu_bytes, menu_count) != 0)
             return false;
-        if (tecmo_asset_pack_read_entry(paths[i], "chr/all", chr_bytes, chr_count) != 0) {
+        if (tecmo_asset_pack_read_entry_exact(paths[i], "chr/all",
+                                              START_MENU_CHR_BYTE_COUNT,
+                                              chr_bytes, chr_count) != 0) {
             tecmo_asset_pack_free(*menu_bytes);
             *menu_bytes = NULL;
             *menu_count = 0U;
@@ -165,10 +178,13 @@ static bool parse_payload(TecmoStartGameMenuAsset *asset,
     static const uint16_t overlay_x[3] = {5U, 5U, 5U};
     static const uint16_t overlay_y[3] = {23U, 19U, 21U};
     static const uint8_t expected_period_values[5] = {2U, 3U, 4U, 8U, 12U};
+    static const uint8_t expected_metadata[13] = {
+        5U, 1U, 2U, 8U, 11U, 0x80U, 0xC0U, 0xCCU, 0x0CU, 0U, 1U, 0U, 1U
+    };
     size_t i;
 
     if (bytes == NULL || count != START_MENU_PAYLOAD_SIZE ||
-        fnv1a32(bytes, count) != 0xA6C1E06BU ||
+        fnv1a32(bytes, count) != START_MENU_PAYLOAD_FNV1A32 ||
         memcmp(bytes, "TSGM", 4U) != 0 ||
         read_u16(bytes + 4U) != 1U ||
         read_u16(bytes + 6U) != START_MENU_HEADER_SIZE ||
@@ -199,8 +215,16 @@ static bool parse_payload(TecmoStartGameMenuAsset *asset,
         read_u32(bytes + 84U) != TECMO_START_GAME_MENU_OVERLAY_CELL_COUNT ||
         read_u32(bytes + 88U) != START_MENU_DIGITS_OFFSET ||
         read_u16(bytes + 92U) != TECMO_START_GAME_MENU_DIGIT_COUNT ||
-        read_u16(bytes + 94U) != START_MENU_CELL_STRIDE)
+        read_u16(bytes + 94U) != START_MENU_CELL_STRIDE ||
+        memcmp(bytes + START_MENU_METADATA_OFFSET,
+               expected_metadata, sizeof(expected_metadata)) != 0 ||
+        bytes[START_MENU_METADATA_ALIGNMENT_OFFSET] != 0U ||
+        read_u32(bytes + START_MENU_CHR_SIZE_OFFSET) != START_MENU_CHR_BYTE_COUNT ||
+        read_u32(bytes + START_MENU_CHR_FNV1A32_OFFSET) != START_MENU_CHR_FNV1A32 ||
+        bytes[START_MENU_CURSOR_COMMIT_DELAY_OFFSET] != 1U)
         return false;
+    for (i = START_MENU_METADATA_RESERVED_OFFSET; i < START_MENU_HEADER_SIZE; ++i)
+        if (bytes[i] != 0U) return false;
 
     asset->stable_frame = read_u16(bytes + 48U);
     asset->repeat_frames = read_u16(bytes + 54U);
@@ -212,6 +236,22 @@ static bool parse_payload(TecmoStartGameMenuAsset *asset,
     asset->cursor_stride = read_u16(bytes + 66U);
     asset->emblem_anchor_x = read_u16(bytes + 68U);
     asset->emblem_anchor_y = read_u16(bytes + 70U);
+    asset->accepted_input_seed = bytes[126U];
+    asset->period_setup_extra_frames = bytes[127U];
+    asset->exit_palette_step_frames = bytes[128U];
+    asset->exit_black_frame = bytes[129U];
+    asset->exit_handoff_frame = bytes[130U];
+    asset->root_input_mask = bytes[131U];
+    asset->generic_input_mask = bytes[132U];
+    asset->period_input_mask = bytes[133U];
+    asset->direction_mask = bytes[134U];
+    asset->initial_input_gate = bytes[135U];
+    asset->popup_row_cadence = bytes[136U];
+    asset->popup_setup_order = bytes[137U];
+    asset->popup_teardown_order = bytes[138U];
+    asset->cursor_commit_delay_frames = bytes[START_MENU_CURSOR_COMMIT_DELAY_OFFSET];
+    asset->expected_chr_byte_count = read_u32(bytes + START_MENU_CHR_SIZE_OFFSET);
+    asset->expected_chr_fingerprint32 = read_u32(bytes + START_MENU_CHR_FNV1A32_OFFSET);
 
     for (i = 0U; i < TECMO_START_GAME_MENU_PALETTE_STAGE_COUNT; ++i) {
         asset->stage_frames[i] = read_u16(bytes + 96U + i * 2U);
@@ -225,9 +265,6 @@ static bool parse_payload(TecmoStartGameMenuAsset *asset,
         asset->period_values[i] = bytes[121U + i];
         if (asset->period_values[i] != expected_period_values[i]) return false;
     }
-    for (i = 126U; i < START_MENU_HEADER_SIZE; ++i)
-        if (bytes[i] != 0U) return false;
-
     for (i = 0U; i < TECMO_START_GAME_MENU_CELL_COUNT; ++i)
         if (!parse_cell(&asset->cells[i], bytes + START_MENU_CELLS_OFFSET + i * 6U))
             return false;
@@ -296,8 +333,11 @@ bool tecmo_start_game_menu_asset_load(TecmoStartGameMenuAsset *asset,
     if (ok) {
         asset->chr_byte_count = chr_count;
         asset->chr_fingerprint = fnv1a64(chr, chr_count);
+        ok = chr_count == asset->expected_chr_byte_count &&
+             fnv1a32(chr, chr_count) == asset->expected_chr_fingerprint32 &&
+             asset->chr_fingerprint == START_MENU_CHR_FNV1A64;
         asset->available = true;
-        ok = tecmo_start_game_menu_asset_chr_available(asset, chr, chr_count);
+        if (ok) ok = tecmo_start_game_menu_asset_chr_available(asset, chr, chr_count);
     }
     if (!ok) asset->available = false;
     tecmo_asset_pack_free(menu);
@@ -312,10 +352,14 @@ bool tecmo_start_game_menu_asset_chr_available(const TecmoStartGameMenuAsset *as
                                                uint64_t chr_byte_count)
 {
     size_t i;
-    if (asset == NULL || chr_bytes == NULL || chr_byte_count == 0U ||
-        (asset->chr_byte_count != 0U &&
-         (asset->chr_byte_count != chr_byte_count ||
-          asset->chr_fingerprint != fnv1a64(chr_bytes, chr_byte_count))))
+    if (asset == NULL || chr_bytes == NULL ||
+        asset->expected_chr_byte_count != START_MENU_CHR_BYTE_COUNT ||
+        asset->expected_chr_fingerprint32 != START_MENU_CHR_FNV1A32 ||
+        chr_byte_count != asset->expected_chr_byte_count ||
+        fnv1a32(chr_bytes, chr_byte_count) != asset->expected_chr_fingerprint32 ||
+        asset->chr_byte_count != chr_byte_count ||
+        asset->chr_fingerprint != START_MENU_CHR_FNV1A64 ||
+        asset->chr_fingerprint != fnv1a64(chr_bytes, chr_byte_count))
         return false;
     for (i = 0U; i < TECMO_START_GAME_MENU_CELL_COUNT; ++i)
         if ((uint64_t)asset->cells[i].chr_offset + 16U > chr_byte_count) return false;
@@ -373,11 +417,12 @@ static uint8_t controller_byte(const TecmoInput *input)
 
 static bool vertical_direction(const TecmoControlFrame *controls,
                                bool include_released,
+                               uint8_t direction_mask,
                                int *direction)
 {
     uint8_t raw = controller_byte(&controls->held);
     if (include_released) raw |= controller_byte(&controls->released);
-    raw &= START_MENU_BUTTON_UP | START_MENU_BUTTON_DOWN;
+    raw &= direction_mask;
     /* The fixed helper consumes any nonzero raw Up/Down mask, including $0C
        for both buttons; only the caller's selection delta collapses to zero. */
     *direction = 0;
@@ -387,11 +432,12 @@ static bool vertical_direction(const TecmoControlFrame *controls,
     return true;
 }
 
-static void begin_accepted_input_cooldown(TecmoStartGameMenuState *state)
+static void begin_accepted_input_cooldown(TecmoStartGameMenuState *state,
+                                          const TecmoStartGameMenuAsset *asset)
 {
     /* The accepted-input return at fixed helper $D788 stores five in $E1 and
        returns before the common loop tail can decrement it. */
-    state->direction_cooldown = TECMO_START_GAME_MENU_ACCEPT_COOLDOWN;
+    state->direction_cooldown = asset->accepted_input_seed;
 }
 
 static void begin_generic_direction_cooldown(TecmoStartGameMenuState *state,
@@ -423,32 +469,80 @@ typedef enum StartMenuSelectionAction {
 } StartMenuSelectionAction;
 
 static StartMenuSelectionAction selection_action(const TecmoControlFrame *controls,
-                                                  bool allow_cancel)
+                                                  uint8_t action_mask)
 {
     uint8_t action;
     /* With scene flag $07F6 clear, $D764 rejects every nonzero current byte.
        Only the previous A/B bits survive as a release-frame action. */
     if (controller_byte(&controls->held) != 0U) return START_MENU_SELECTION_NONE;
-    action = controller_byte(&controls->released) &
-             (allow_cancel ? (START_MENU_BUTTON_A | START_MENU_BUTTON_B)
-                           : START_MENU_BUTTON_A);
+    action = controller_byte(&controls->released) & action_mask;
     if ((action & START_MENU_BUTTON_A) != 0U) return START_MENU_SELECTION_ACCEPT;
     if ((action & START_MENU_BUTTON_B) != 0U) return START_MENU_SELECTION_CANCEL;
     return START_MENU_SELECTION_NONE;
 }
 
 static bool period_selection_action(const TecmoControlFrame *controls,
+                                    uint8_t action_mask,
                                     StartMenuSelectionAction *action)
 {
     uint8_t raw;
     if (controller_byte(&controls->held) != 0U) return false;
-    raw = controller_byte(&controls->released) &
+    raw = controller_byte(&controls->released) & action_mask &
           (START_MENU_BUTTON_A | START_MENU_BUTTON_B);
     if (raw == 0U) return false;
     *action = START_MENU_SELECTION_NONE;
     if (raw == START_MENU_BUTTON_A) *action = START_MENU_SELECTION_ACCEPT;
     else if (raw == START_MENU_BUTTON_B) *action = START_MENU_SELECTION_CANCEL;
     return true;
+}
+
+static size_t popup_overlay_index(TecmoStartGameMenuPhase phase)
+{
+    if (phase == TECMO_START_GAME_MENU_MUSIC) return 0U;
+    if (phase == TECMO_START_GAME_MENU_SPEED) return 1U;
+    if (phase == TECMO_START_GAME_MENU_PERIOD) return 2U;
+    return TECMO_START_GAME_MENU_OVERLAY_COUNT;
+}
+
+static uint16_t popup_setup_frame_count(const TecmoStartGameMenuAsset *asset,
+                                        TecmoStartGameMenuPhase phase)
+{
+    size_t index = popup_overlay_index(phase);
+    uint16_t frames;
+    if (index >= TECMO_START_GAME_MENU_OVERLAY_COUNT) return 0U;
+    frames = (uint16_t)(asset->overlays[index].height * asset->popup_row_cadence);
+    if (phase == TECMO_START_GAME_MENU_PERIOD)
+        frames = (uint16_t)(frames + asset->period_setup_extra_frames);
+    return frames;
+}
+
+static void begin_popup_setup(TecmoStartGameMenuState *state,
+                              TecmoStartGameMenuPhase popup_phase,
+                              uint8_t selection)
+{
+    state->phase = TECMO_START_GAME_MENU_POPUP_SETUP;
+    state->popup_phase = popup_phase;
+    state->setting_selection = selection;
+    state->transition_frame = 0U;
+    state->cursor_delay = 0U;
+}
+
+static void begin_popup_teardown(TecmoStartGameMenuState *state)
+{
+    state->phase = TECMO_START_GAME_MENU_POPUP_TEARDOWN;
+    state->transition_frame = 0U;
+    state->cursor_delay = 0U;
+}
+
+static void begin_exit(TecmoStartGameMenuState *state,
+                       TecmoStartGameMenuAction action,
+                       bool from_season)
+{
+    state->phase = TECMO_START_GAME_MENU_EXIT;
+    state->transition_frame = 0U;
+    state->cursor_delay = 0U;
+    state->pending_action = action;
+    state->exit_from_season = from_season;
 }
 
 TecmoStartGameMenuAction tecmo_start_game_menu_update(
@@ -463,51 +557,100 @@ TecmoStartGameMenuAction tecmo_start_game_menu_update(
     if (state == NULL || asset == NULL || controls == NULL) return TECMO_START_GAME_MENU_ACTION_NONE;
     ++state->frame;
     if (!asset->available) return TECMO_START_GAME_MENU_ACTION_NONE;
+    if (state->cursor_delay > 0U) --state->cursor_delay;
+    if ((state->phase == TECMO_START_GAME_MENU_ROOT ||
+         state->phase == TECMO_START_GAME_MENU_MUSIC ||
+         state->phase == TECMO_START_GAME_MENU_SPEED ||
+         state->phase == TECMO_START_GAME_MENU_PERIOD) &&
+        state->transition_frame != 0U) {
+        state->transition_frame = 0U;
+        if (state->phase == TECMO_START_GAME_MENU_ROOT)
+            state->popup_phase = TECMO_START_GAME_MENU_REVEAL;
+    }
     if (state->phase == TECMO_START_GAME_MENU_REVEAL) {
         if (state->frame < asset->stable_frame) return TECMO_START_GAME_MENU_ACTION_NONE;
         state->phase = TECMO_START_GAME_MENU_ROOT;
+        state->direction_cooldown = asset->initial_input_gate;
+    }
+    if (state->phase == TECMO_START_GAME_MENU_POPUP_SETUP) {
+        uint16_t setup_frames = popup_setup_frame_count(asset, state->popup_phase);
+        if (state->transition_frame < setup_frames) ++state->transition_frame;
+        if (state->transition_frame < setup_frames) return TECMO_START_GAME_MENU_ACTION_NONE;
+        state->phase = state->popup_phase;
+        state->cursor_delay = asset->cursor_commit_delay_frames;
+    }
+    if (state->phase == TECMO_START_GAME_MENU_POPUP_TEARDOWN) {
+        size_t index = popup_overlay_index(state->popup_phase);
+        uint16_t teardown_frames;
+        if (index >= TECMO_START_GAME_MENU_OVERLAY_COUNT)
+            return TECMO_START_GAME_MENU_ACTION_NONE;
+        teardown_frames = (uint16_t)(asset->overlays[index].height *
+                                     asset->popup_row_cadence);
+        if (state->transition_frame < teardown_frames) ++state->transition_frame;
+        if (state->transition_frame < teardown_frames)
+            return TECMO_START_GAME_MENU_ACTION_NONE;
+        state->phase = TECMO_START_GAME_MENU_ROOT;
+        state->cursor_delay = asset->cursor_commit_delay_frames;
+    }
+    if (state->phase == TECMO_START_GAME_MENU_EXIT) {
+        TecmoStartGameMenuAction pending;
+        if (state->transition_frame < asset->exit_handoff_frame)
+            ++state->transition_frame;
+        if (state->transition_frame < asset->exit_handoff_frame ||
+            state->pending_action == TECMO_START_GAME_MENU_ACTION_NONE)
+            return TECMO_START_GAME_MENU_ACTION_NONE;
+        pending = state->pending_action;
+        state->pending_action = TECMO_START_GAME_MENU_ACTION_NONE;
+        return pending;
     }
     if (state->phase == TECMO_START_GAME_MENU_SEASON_SLIDE_IN) {
         if (state->slide_frame < asset->slide_frames) ++state->slide_frame;
         if (state->slide_frame < asset->slide_frames) return TECMO_START_GAME_MENU_ACTION_NONE;
         state->slide_frame = asset->slide_frames;
         state->phase = TECMO_START_GAME_MENU_SEASON;
+        state->cursor_delay = asset->cursor_commit_delay_frames;
     }
     if (state->phase == TECMO_START_GAME_MENU_SEASON_SLIDE_OUT) {
         if (state->slide_frame > 0U) --state->slide_frame;
         if (state->slide_frame > 0U) return TECMO_START_GAME_MENU_ACTION_NONE;
         state->phase = TECMO_START_GAME_MENU_ROOT;
+        state->cursor_delay = asset->cursor_commit_delay_frames;
     }
 
     if (state->phase == TECMO_START_GAME_MENU_ROOT) {
         /* Root row X=0 has action mask $80: only a released A activates. */
-        action = selection_action(controls, false);
+        action = selection_action(controls, asset->root_input_mask);
         if (action == START_MENU_SELECTION_ACCEPT) {
-            begin_accepted_input_cooldown(state);
+            begin_accepted_input_cooldown(state, asset);
             switch (asset->routes[state->root_selection]) {
-            case 1U: return TECMO_START_GAME_MENU_ACTION_PLAY_SETUP;
+            case 1U:
+                return TECMO_START_GAME_MENU_ACTION_PLAY_SETUP;
             case 2U:
                 state->phase = TECMO_START_GAME_MENU_SEASON_SLIDE_IN;
                 state->slide_frame = 0U;
+                state->cursor_delay = 0U;
                 return TECMO_START_GAME_MENU_ACTION_NONE;
-            case 3U: return TECMO_START_GAME_MENU_ACTION_PLAY_SETUP;
-            case 4U: return TECMO_START_GAME_MENU_ACTION_ROSTERS;
+            case 3U:
+                return TECMO_START_GAME_MENU_ACTION_PLAY_SETUP;
+            case 4U:
+                begin_exit(state, TECMO_START_GAME_MENU_ACTION_ROSTERS, false);
+                return TECMO_START_GAME_MENU_ACTION_NONE;
             case 5U:
-                state->phase = TECMO_START_GAME_MENU_SPEED;
-                state->setting_selection = state->speed_value;
+                begin_popup_setup(state, TECMO_START_GAME_MENU_SPEED,
+                                  state->speed_value);
                 return TECMO_START_GAME_MENU_ACTION_NONE;
             case 6U:
-                state->phase = TECMO_START_GAME_MENU_PERIOD;
-                state->setting_selection = state->period_index;
+                begin_popup_setup(state, TECMO_START_GAME_MENU_PERIOD,
+                                  state->period_index);
                 return TECMO_START_GAME_MENU_ACTION_NONE;
             case 7U:
-                state->phase = TECMO_START_GAME_MENU_MUSIC;
-                state->setting_selection = state->music_value;
+                begin_popup_setup(state, TECMO_START_GAME_MENU_MUSIC,
+                                  state->music_value);
                 return TECMO_START_GAME_MENU_ACTION_NONE;
             default: return TECMO_START_GAME_MENU_ACTION_NONE;
             }
         }
-        if (vertical_direction(controls, false, &direction)) {
+        if (vertical_direction(controls, false, asset->direction_mask, &direction)) {
             if (state->direction_cooldown == 0U) {
                 if (direction != 0)
                     state->root_selection = wrap_selection(state->root_selection,
@@ -521,18 +664,25 @@ TecmoStartGameMenuAction tecmo_start_game_menu_update(
     }
 
     if (state->phase == TECMO_START_GAME_MENU_SEASON) {
-        action = selection_action(controls, true);
+        action = selection_action(controls, asset->generic_input_mask);
         if (action != START_MENU_SELECTION_NONE) {
-            begin_accepted_input_cooldown(state);
+            begin_accepted_input_cooldown(state, asset);
             if (action == START_MENU_SELECTION_CANCEL) {
                 state->phase = TECMO_START_GAME_MENU_SEASON_SLIDE_OUT;
+                state->cursor_delay = 0U;
                 return TECMO_START_GAME_MENU_ACTION_NONE;
             }
-            if (state->season_selection == 2U) return TECMO_START_GAME_MENU_ACTION_PLAY_SETUP;
-            if (state->season_selection == 5U) return TECMO_START_GAME_MENU_ACTION_ROSTERS;
+            if (state->season_selection == 2U) {
+                begin_exit(state, TECMO_START_GAME_MENU_ACTION_PLAY_SETUP, true);
+                return TECMO_START_GAME_MENU_ACTION_NONE;
+            }
+            if (state->season_selection == 5U) {
+                begin_exit(state, TECMO_START_GAME_MENU_ACTION_ROSTERS, true);
+                return TECMO_START_GAME_MENU_ACTION_NONE;
+            }
             return TECMO_START_GAME_MENU_ACTION_NONE;
         }
-        if (vertical_direction(controls, false, &direction)) {
+        if (vertical_direction(controls, false, asset->direction_mask, &direction)) {
             if (state->direction_cooldown == 0U) {
                 if (direction != 0)
                     state->season_selection = wrap_selection(state->season_selection,
@@ -554,12 +704,13 @@ TecmoStartGameMenuAction tecmo_start_game_menu_update(
        accepted-input path before A/B and receives the five-frame cooldown. */
     direction_active = vertical_direction(controls,
                                           state->phase == TECMO_START_GAME_MENU_PERIOD,
+                                          asset->direction_mask,
                                           &direction);
     if (state->phase == TECMO_START_GAME_MENU_PERIOD && direction_active) {
         if (state->direction_cooldown == 0U) {
             if (direction != 0)
                 state->setting_selection = clamp_selection(state->setting_selection, 5U, -direction);
-            begin_accepted_input_cooldown(state);
+            begin_accepted_input_cooldown(state, asset);
             return TECMO_START_GAME_MENU_ACTION_NONE;
         }
         tick_direction_cooldown(state);
@@ -567,17 +718,19 @@ TecmoStartGameMenuAction tecmo_start_game_menu_update(
     }
 
     if (state->phase == TECMO_START_GAME_MENU_PERIOD)
-        action_active = period_selection_action(controls, &action);
+        action_active = period_selection_action(controls, asset->period_input_mask, &action);
     else {
-        action = selection_action(controls, true);
+        action = selection_action(controls, asset->generic_input_mask);
         action_active = action != START_MENU_SELECTION_NONE;
     }
     if (action_active) {
-        begin_accepted_input_cooldown(state);
+        TecmoStartGameMenuPhase popup_phase = state->phase;
+        begin_accepted_input_cooldown(state, asset);
         /* PERIOD consumes raw A+B ($C0) without accepting or cancelling. */
         if (action == START_MENU_SELECTION_NONE) return TECMO_START_GAME_MENU_ACTION_NONE;
         if (action == START_MENU_SELECTION_CANCEL) {
-            state->phase = TECMO_START_GAME_MENU_ROOT;
+            state->popup_phase = popup_phase;
+            begin_popup_teardown(state);
             return TECMO_START_GAME_MENU_ACTION_NONE;
         }
         if (state->phase == TECMO_START_GAME_MENU_MUSIC)
@@ -586,7 +739,8 @@ TecmoStartGameMenuAction tecmo_start_game_menu_update(
             state->speed_value = state->setting_selection;
         else
             state->period_index = state->setting_selection;
-        state->phase = TECMO_START_GAME_MENU_ROOT;
+        state->popup_phase = popup_phase;
+        begin_popup_teardown(state);
         return TECMO_START_GAME_MENU_ACTION_NONE;
     }
 
@@ -760,23 +914,27 @@ static void draw_cursor(TecmoFramebuffer *view,
                       chr_byte_count, x, y, scale);
 }
 
-static void draw_overlay(TecmoFramebuffer *view,
-                         const TecmoStartGameMenuAsset *asset,
-                         size_t index,
-                         const uint8_t *chr_bytes,
-                         uint64_t chr_byte_count,
-                         const uint8_t palette[16],
-                         int scale)
+static void draw_overlay_rows(TecmoFramebuffer *view,
+                              const TecmoStartGameMenuAsset *asset,
+                              size_t index,
+                              unsigned visible_rows,
+                              const uint8_t *chr_bytes,
+                              uint64_t chr_byte_count,
+                              const uint8_t palette[16],
+                              int scale)
 {
     const TecmoStartGameMenuOverlay *overlay = &asset->overlays[index];
+    size_t visible_cell_count;
     size_t i;
+    if (visible_rows > overlay->height) visible_rows = overlay->height;
+    visible_cell_count = (size_t)visible_rows * overlay->width;
     fill_viewport_rect(view,
                        (int)overlay->x * 8 * scale,
                        (int)overlay->y * 8 * scale,
                        (int)overlay->width * 8 * scale,
-                       (int)overlay->height * 8 * scale,
+                       (int)visible_rows * 8 * scale,
                        tecmo_nes_2c02_rgba(palette[0]));
-    for (i = 0U; i < overlay->cell_count; ++i) {
+    for (i = 0U; i < visible_cell_count; ++i) {
         unsigned col = (unsigned)(i % overlay->width);
         unsigned row = (unsigned)(i / overlay->width);
         draw_cell(view, &asset->overlay_cells[overlay->cell_start + i], palette,
@@ -806,6 +964,75 @@ static void draw_period_value(TecmoFramebuffer *view,
               col * 8 * scale, row, scale);
 }
 
+unsigned tecmo_start_game_menu_palette_stage(const TecmoStartGameMenuAsset *asset,
+                                             const TecmoStartGameMenuState *state)
+{
+    unsigned stage = 0U;
+    size_t i;
+    if (asset == NULL || state == NULL || !asset->available)
+        return 0U;
+    if (state->phase == TECMO_START_GAME_MENU_EXIT) {
+        unsigned fade_step = asset->exit_palette_step_frames == 0U
+            ? 0U : state->transition_frame / asset->exit_palette_step_frames;
+        if (state->transition_frame >= asset->exit_black_frame || fade_step >= 4U)
+            return 4U;
+        return (unsigned)(TECMO_START_GAME_MENU_PALETTE_STAGE_COUNT - 1U) - fade_step;
+    }
+    for (i = 1U; i < TECMO_START_GAME_MENU_PALETTE_STAGE_COUNT; ++i)
+        if (state->frame >= asset->stage_frames[i]) stage = (unsigned)i;
+    return stage;
+}
+
+unsigned tecmo_start_game_menu_overlay_visible_rows(const TecmoStartGameMenuAsset *asset,
+                                                    const TecmoStartGameMenuState *state)
+{
+    TecmoStartGameMenuPhase popup_phase;
+    size_t overlay_index;
+    unsigned height;
+    unsigned cadence;
+    unsigned elapsed_rows;
+    if (asset == NULL || state == NULL || !asset->available)
+        return 0U;
+    popup_phase = state->phase;
+    if (popup_phase == TECMO_START_GAME_MENU_POPUP_SETUP ||
+        popup_phase == TECMO_START_GAME_MENU_POPUP_TEARDOWN)
+        popup_phase = state->popup_phase;
+    overlay_index = popup_overlay_index(popup_phase);
+    if (overlay_index >= TECMO_START_GAME_MENU_OVERLAY_COUNT)
+        return 0U;
+    height = asset->overlays[overlay_index].height;
+    if (state->phase == popup_phase) return height;
+    cadence = asset->popup_row_cadence;
+    if (cadence == 0U) return 0U;
+    elapsed_rows = state->transition_frame / cadence;
+    if (elapsed_rows > height) elapsed_rows = height;
+    if (state->phase == TECMO_START_GAME_MENU_POPUP_SETUP) {
+        if (asset->popup_setup_order != 0U) return 0U;
+        return elapsed_rows < height ? elapsed_rows + 1U : height;
+    }
+    if (state->phase == TECMO_START_GAME_MENU_POPUP_TEARDOWN) {
+        if (asset->popup_teardown_order != 1U) return 0U;
+        return height - elapsed_rows;
+    }
+    return 0U;
+}
+
+bool tecmo_start_game_menu_cursor_visible(const TecmoStartGameMenuAsset *asset,
+                                          const TecmoStartGameMenuState *state)
+{
+    if (asset == NULL || state == NULL || !asset->available)
+        return false;
+    if (state->cursor_delay > 0U) return false;
+    if (state->phase == TECMO_START_GAME_MENU_ROOT ||
+        state->phase == TECMO_START_GAME_MENU_SEASON ||
+        state->phase == TECMO_START_GAME_MENU_MUSIC ||
+        state->phase == TECMO_START_GAME_MENU_SPEED ||
+        state->phase == TECMO_START_GAME_MENU_PERIOD)
+        return true;
+    return state->phase == TECMO_START_GAME_MENU_REVEAL &&
+           state->frame >= asset->stage_frames[5U];
+}
+
 bool tecmo_start_game_menu_draw(TecmoFramebuffer *framebuffer,
                                 const TecmoStartGameMenuAsset *asset,
                                 const TecmoStartGameMenuState *state,
@@ -817,16 +1044,17 @@ bool tecmo_start_game_menu_draw(TecmoFramebuffer *framebuffer,
                                 int scale)
 {
     TecmoFramebuffer view;
-    unsigned stage = 0U;
+    unsigned stage;
+    unsigned visible_rows;
     int background_x = 0;
     int emblem_x;
-    size_t i;
+    TecmoStartGameMenuPhase popup_phase;
+    size_t overlay_index;
     if (asset == NULL || state == NULL || !asset->available ||
         !tecmo_start_game_menu_asset_chr_available(asset, chr_bytes, chr_byte_count) ||
         !make_viewport(&view, framebuffer, origin_x, origin_y, scale))
         return false;
-    for (i = 1U; i < TECMO_START_GAME_MENU_PALETTE_STAGE_COUNT; ++i)
-        if (state->frame >= asset->stage_frames[i]) stage = (unsigned)i;
+    stage = tecmo_start_game_menu_palette_stage(asset, state);
 
     fill_viewport(&view, tecmo_nes_2c02_rgba(asset->palettes[stage][0]));
     if (state->frame < asset->stage_frames[4]) {
@@ -841,8 +1069,11 @@ bool tecmo_start_game_menu_draw(TecmoFramebuffer *framebuffer,
 
     if (state->phase == TECMO_START_GAME_MENU_SEASON_SLIDE_IN ||
         state->phase == TECMO_START_GAME_MENU_SEASON ||
-        state->phase == TECMO_START_GAME_MENU_SEASON_SLIDE_OUT) {
+        state->phase == TECMO_START_GAME_MENU_SEASON_SLIDE_OUT ||
+        (state->phase == TECMO_START_GAME_MENU_EXIT && state->exit_from_season)) {
         background_x = -(int)state->slide_frame * (int)asset->background_step;
+        if (state->phase == TECMO_START_GAME_MENU_EXIT)
+            background_x = -(int)asset->slide_frames * (int)asset->background_step;
     }
     emblem_x = (int)asset->emblem_anchor_x +
                 background_x / (int)asset->background_step * (int)asset->emblem_step;
@@ -851,30 +1082,35 @@ bool tecmo_start_game_menu_draw(TecmoFramebuffer *framebuffer,
     draw_emblem(&view, asset, chr_bytes, chr_byte_count,
                 asset->palettes[stage] + 16U, emblem_x, scale);
 
-    if (state->phase == TECMO_START_GAME_MENU_MUSIC ||
-        state->phase == TECMO_START_GAME_MENU_SPEED ||
-        state->phase == TECMO_START_GAME_MENU_PERIOD) {
-        size_t overlay_index = state->phase == TECMO_START_GAME_MENU_MUSIC ? 0U :
-                               state->phase == TECMO_START_GAME_MENU_SPEED ? 1U : 2U;
+    popup_phase = state->phase;
+    if (popup_phase == TECMO_START_GAME_MENU_POPUP_SETUP ||
+        popup_phase == TECMO_START_GAME_MENU_POPUP_TEARDOWN)
+        popup_phase = state->popup_phase;
+    overlay_index = popup_overlay_index(popup_phase);
+    visible_rows = tecmo_start_game_menu_overlay_visible_rows(asset, state);
+    if (overlay_index < TECMO_START_GAME_MENU_OVERLAY_COUNT && visible_rows > 0U) {
         const TecmoStartGameMenuOverlay *overlay = &asset->overlays[overlay_index];
-        draw_overlay(&view, asset, overlay_index, chr_bytes, chr_byte_count,
-                     asset->palettes[stage], scale);
-        if (overlay_index == 2U)
+        draw_overlay_rows(&view, asset, overlay_index, visible_rows,
+                          chr_bytes, chr_byte_count, asset->palettes[stage], scale);
+        if (overlay_index == 2U && visible_rows > 4U)
             draw_period_value(&view, asset, chr_bytes, chr_byte_count,
                               asset->palettes[stage], state->setting_selection, scale);
-        draw_cursor(&view, asset, chr_bytes, chr_byte_count,
-                    asset->palettes[stage] + 16U,
-                    overlay_index == 2U ? 71 : (int)overlay->x * 8 - 9,
-                    ((int)overlay->y + 2 + (overlay_index == 2U ? 2 :
-                      2 * (int)state->setting_selection)) * 8,
-                    scale);
-    } else if (state->phase == TECMO_START_GAME_MENU_ROOT ||
-               (state->phase == TECMO_START_GAME_MENU_REVEAL && state->frame >= 20U)) {
+        if (tecmo_start_game_menu_cursor_visible(asset, state))
+            draw_cursor(&view, asset, chr_bytes, chr_byte_count,
+                        asset->palettes[stage] + 16U,
+                        overlay_index == 2U ? 71 : (int)overlay->x * 8 - 9,
+                        ((int)overlay->y + 2 + (overlay_index == 2U ? 2 :
+                          2 * (int)state->setting_selection)) * 8,
+                        scale);
+    } else if (tecmo_start_game_menu_cursor_visible(asset, state) &&
+               (state->phase == TECMO_START_GAME_MENU_ROOT ||
+                state->phase == TECMO_START_GAME_MENU_REVEAL)) {
         draw_cursor(&view, asset, chr_bytes, chr_byte_count,
                     asset->palettes[stage] + 16U, asset->cursor_x,
                     (int)asset->cursor_y + (int)state->root_selection * asset->cursor_stride,
                     scale);
-    } else if (state->phase == TECMO_START_GAME_MENU_SEASON) {
+    } else if (tecmo_start_game_menu_cursor_visible(asset, state) &&
+               state->phase == TECMO_START_GAME_MENU_SEASON) {
         draw_cursor(&view, asset, chr_bytes, chr_byte_count,
                     asset->palettes[stage] + 16U, START_MENU_SEASON_CURSOR_X,
                     (int)asset->cursor_y + (int)state->season_selection * asset->cursor_stride,
@@ -894,6 +1130,9 @@ const char *tecmo_start_game_menu_phase_name(TecmoStartGameMenuPhase phase)
     case TECMO_START_GAME_MENU_MUSIC: return "music";
     case TECMO_START_GAME_MENU_SPEED: return "speed";
     case TECMO_START_GAME_MENU_PERIOD: return "period";
+    case TECMO_START_GAME_MENU_POPUP_SETUP: return "popup-setup";
+    case TECMO_START_GAME_MENU_POPUP_TEARDOWN: return "popup-teardown";
+    case TECMO_START_GAME_MENU_EXIT: return "exit";
     default: return "unknown";
     }
 }

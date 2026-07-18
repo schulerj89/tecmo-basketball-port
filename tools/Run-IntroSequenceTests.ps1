@@ -589,8 +589,70 @@ try {
         "start-game-menu-frame28", "start-game-menu-frame32",
         "start-game-menu-cursor6", "start-game-menu-season-frame16",
         "start-game-menu-season-frame32", "start-game-menu-music",
-        "start-game-menu-speed", "start-game-menu-period"
+        "start-game-menu-speed", "start-game-menu-period",
+        "start-game-menu-music-setup-frame0",
+        "start-game-menu-music-setup-frame1",
+        "start-game-menu-music-setup-frame5",
+        "start-game-menu-music-setup-frame6",
+        "start-game-menu-speed-setup-frame0",
+        "start-game-menu-speed-setup-frame7",
+        "start-game-menu-speed-setup-frame8",
+        "start-game-menu-period-setup-frame0",
+        "start-game-menu-period-setup-frame5",
+        "start-game-menu-period-setup-frame6",
+        "start-game-menu-period-setup-frame7",
+        "start-game-menu-music-teardown-frame0",
+        "start-game-menu-music-teardown-frame5",
+        "start-game-menu-music-teardown-frame6",
+        "start-game-menu-speed-teardown-frame0",
+        "start-game-menu-speed-teardown-frame7",
+        "start-game-menu-speed-teardown-frame8",
+        "start-game-menu-period-teardown-frame0",
+        "start-game-menu-period-teardown-frame5",
+        "start-game-menu-period-teardown-frame6",
+        "start-game-menu-exit-root-frame0",
+        "start-game-menu-exit-root-frame2",
+        "start-game-menu-exit-root-frame4",
+        "start-game-menu-exit-root-frame6",
+        "start-game-menu-exit-root-frame8",
+        "start-game-menu-exit-root-frame10",
+        "start-game-menu-exit-season-frame0",
+        "start-game-menu-exit-season-frame6",
+        "start-game-menu-exit-season-frame10"
     )
+    $StartMenuExpectedStates = @{
+        "start-game-menu-season-frame16" = "phase=season-slide-in .*root=1 .*slide=16 .*cursor=0 cursor-delay=0 cooldown=5"
+        "start-game-menu-season-frame32" = "phase=season .*root=1 .*slide=32 .*cursor=0 cursor-delay=1 cooldown=4"
+        "start-game-menu-music-setup-frame0" = "phase=popup-setup .*root=6 .*transition=0 rows=1 palette=8 cursor=0 cursor-delay=0 cooldown=5"
+        "start-game-menu-music-setup-frame1" = "phase=popup-setup .*root=6 .*transition=1 rows=2 palette=8 cursor=0 cursor-delay=0 cooldown=5"
+        "start-game-menu-music-setup-frame5" = "phase=popup-setup .*transition=5 rows=6 palette=8 cursor=0 cursor-delay=0 cooldown=5"
+        "start-game-menu-music-setup-frame6" = "phase=music .*transition=6 rows=6 palette=8 cursor=0 cursor-delay=1 cooldown=4"
+        "start-game-menu-speed-setup-frame0" = "phase=popup-setup .*root=4 .*transition=0 rows=1 palette=8 cursor=0 cursor-delay=0 cooldown=5"
+        "start-game-menu-speed-setup-frame7" = "phase=popup-setup .*transition=7 rows=8 palette=8 cursor=0 cursor-delay=0 cooldown=5"
+        "start-game-menu-speed-setup-frame8" = "phase=speed .*transition=8 rows=8 palette=8 cursor=0 cursor-delay=1 cooldown=4"
+        "start-game-menu-period-setup-frame0" = "phase=popup-setup .*root=5 .*transition=0 rows=1 palette=8 cursor=0 cursor-delay=0 cooldown=5"
+        "start-game-menu-period-setup-frame5" = "phase=popup-setup .*transition=5 rows=6 palette=8 cursor=0 cursor-delay=0 cooldown=5"
+        "start-game-menu-period-setup-frame6" = "phase=popup-setup .*transition=6 rows=6 palette=8 cursor=0 cursor-delay=0 cooldown=5"
+        "start-game-menu-period-setup-frame7" = "phase=period .*transition=7 rows=6 palette=8 cursor=0 cursor-delay=1 cooldown=4"
+        "start-game-menu-music-teardown-frame0" = "phase=popup-teardown .*root=6 .*transition=0 rows=6 palette=8 cursor=0 cursor-delay=0 cooldown=5"
+        "start-game-menu-music-teardown-frame5" = "phase=popup-teardown .*transition=5 rows=1 palette=8 cursor=0 cursor-delay=0 cooldown=5"
+        "start-game-menu-music-teardown-frame6" = "phase=root .*root=6 .*transition=6 rows=0 palette=8 cursor=0 cursor-delay=1 cooldown=4"
+        "start-game-menu-speed-teardown-frame0" = "phase=popup-teardown .*root=4 .*transition=0 rows=8 palette=8 cursor=0 cursor-delay=0 cooldown=5"
+        "start-game-menu-speed-teardown-frame7" = "phase=popup-teardown .*transition=7 rows=1 palette=8 cursor=0 cursor-delay=0 cooldown=5"
+        "start-game-menu-speed-teardown-frame8" = "phase=root .*root=4 .*transition=8 rows=0 palette=8 cursor=0 cursor-delay=1 cooldown=4"
+        "start-game-menu-period-teardown-frame0" = "phase=popup-teardown .*root=5 .*transition=0 rows=6 palette=8 cursor=0 cursor-delay=0 cooldown=5"
+        "start-game-menu-period-teardown-frame5" = "phase=popup-teardown .*transition=5 rows=1 palette=8 cursor=0 cursor-delay=0 cooldown=5"
+        "start-game-menu-period-teardown-frame6" = "phase=root .*root=5 .*transition=6 rows=0 palette=8 cursor=0 cursor-delay=1 cooldown=4"
+        "start-game-menu-exit-root-frame0" = "phase=exit .*root=3 .*transition=0 rows=0 palette=8 cursor=0 cursor-delay=0 cooldown=5 pending=2"
+        "start-game-menu-exit-root-frame2" = "phase=exit .*root=3 .*transition=2 rows=0 palette=7 cursor=0 cursor-delay=0 cooldown=5 pending=2"
+        "start-game-menu-exit-root-frame4" = "phase=exit .*root=3 .*transition=4 rows=0 palette=6 cursor=0 cursor-delay=0 cooldown=5 pending=2"
+        "start-game-menu-exit-root-frame6" = "phase=exit .*root=3 .*transition=6 rows=0 palette=5 cursor=0 cursor-delay=0 cooldown=5 pending=2"
+        "start-game-menu-exit-root-frame8" = "phase=exit .*root=3 .*transition=8 rows=0 palette=4 cursor=0 cursor-delay=0 cooldown=5 pending=2"
+        "start-game-menu-exit-root-frame10" = "phase=exit .*root=3 .*transition=10 rows=0 palette=4 cursor=0 cursor-delay=0 cooldown=5 pending=2"
+        "start-game-menu-exit-season-frame0" = "phase=exit .*slide=32 .*transition=0 rows=0 palette=8 cursor=0 cursor-delay=0 cooldown=5 pending=1"
+        "start-game-menu-exit-season-frame6" = "phase=exit .*slide=32 .*transition=6 rows=0 palette=5 cursor=0 cursor-delay=0 cooldown=5 pending=1"
+        "start-game-menu-exit-season-frame10" = "phase=exit .*slide=32 .*transition=10 rows=0 palette=4 cursor=0 cursor-delay=0 cooldown=5 pending=1"
+    }
     $StartMenuRenderResults = New-Object System.Collections.Generic.List[object]
     $StartMenuRenderPassed = $ListPassed
     $StartMenuIsolatedRoot = Join-Path $OutputDir `
@@ -606,15 +668,19 @@ try {
                 --render-test-mode $Mode $RenderPath 2>&1
             $RenderExitCode = $LASTEXITCODE
             $RenderText = (@($RenderOutput) | ForEach-Object { [string]$_ }) -join "`n"
+            $ExpectedState = $StartMenuExpectedStates[$Mode]
             $RenderPassed = $RenderExitCode -eq 0 -and
                 (Test-Path -LiteralPath $RenderPath) -and
-                $RenderText -match "start-game-menu-state"
+                $RenderText -match "start-game-menu-state" -and
+                ([string]::IsNullOrEmpty($ExpectedState) -or $RenderText -match $ExpectedState)
             if (!$RenderPassed) { $StartMenuRenderPassed = $false }
             $StartMenuRenderResults.Add([pscustomobject]@{
                 mode = $Mode
                 passed = $RenderPassed
                 exit_code = $RenderExitCode
                 output_created = Test-Path -LiteralPath $RenderPath
+                expected_state = $ExpectedState
+                state_matched = [string]::IsNullOrEmpty($ExpectedState) -or $RenderText -match $ExpectedState
             })
             Remove-Item -LiteralPath $RenderPath -Force -ErrorAction SilentlyContinue
         }
@@ -628,15 +694,20 @@ try {
         passed = $StartMenuRenderPassed
         skipped = $false
         cases = $StartMenuRenderResults
-        timing = "title fade 0/2/4/6; black 8-19; menu fade 20/24/28; stable 32; season slide 32"
+        timing = "title/menu reveal through 32; popup first-row setup, bottom-up teardown, one-frame cursor commit; E481 palette stages 0/2/4/6/8 and handoff 11"
         isolated_root = $true
         raw_output_persisted = $false
         error = if ($StartMenuRenderPassed) { $null } else { "TSGM-1 render mode failed from an isolated root" }
     })
 
     $StartMenuNegativeCases = @(
-        [pscustomobject]@{ id = "reserved"; offset = 126; value = 1 },
+        [pscustomobject]@{ id = "native-metadata"; offset = 126; value = 4 },
+        [pscustomobject]@{ id = "cursor-commit-delay"; offset = 148; value = 0 },
+        [pscustomobject]@{ id = "reserved"; offset = 149; value = 1 },
+        [pscustomobject]@{ id = "payload-fingerprint"; offset = 160; value = $null },
         [pscustomobject]@{ id = "period-values"; offset = 121; value = 5 },
+        [pscustomobject]@{ id = "chr-size-metadata"; offset = 140; value = 1 },
+        [pscustomobject]@{ id = "chr-fingerprint-metadata"; offset = 144; value = 1 },
         [pscustomobject]@{ id = "black-stage"; offset = 11808; value = 0 },
         [pscustomobject]@{ id = "chr-range"; offset = 162; value = $null }
     )
@@ -669,6 +740,87 @@ try {
         Remove-Item -LiteralPath $MissingPack -Force -ErrorAction SilentlyContinue
         Remove-Item -LiteralPath $MissingRender -Force -ErrorAction SilentlyContinue
 
+        $StartMenuPackMutationCases = @(
+            [pscustomobject]@{
+                id = "huge-start-menu-directory-size"
+                entry = "menu/start-game"
+                kind = "huge-size"
+                mode = "start-game-menu"
+                payload_offset = 0
+            },
+            [pscustomobject]@{
+                id = "same-sized-chr-mutation"
+                entry = "chr/all"
+                kind = "payload-xor"
+                mode = "start-game-menu"
+                payload_offset = 131071
+            },
+            [pscustomobject]@{
+                id = "huge-chr-directory-size"
+                entry = "chr/all"
+                kind = "huge-size"
+                mode = "start-game-menu"
+                payload_offset = 0
+            },
+            [pscustomobject]@{
+                id = "missing-title-start-dependency"
+                entry = "title/start-screen"
+                kind = "missing-id"
+                mode = "start-game-menu-frame0"
+                payload_offset = 0
+            },
+            [pscustomobject]@{
+                id = "malformed-title-start-dependency"
+                entry = "title/start-screen"
+                kind = "payload-xor"
+                mode = "start-game-menu-frame0"
+                payload_offset = 0
+            },
+            [pscustomobject]@{
+                id = "huge-title-start-directory-size"
+                entry = "title/start-screen"
+                kind = "huge-size"
+                mode = "start-game-menu-frame0"
+                payload_offset = 0
+            }
+        )
+        foreach ($PackCase in $StartMenuPackMutationCases) {
+            [byte[]]$CaseBytes = [System.IO.File]::ReadAllBytes($AssetPackPath)
+            $DirectoryOffset = Get-AssetPackEntryDirectoryOffset `
+                -Bytes $CaseBytes -EntryId $PackCase.entry
+            if ($PackCase.kind -eq "huge-size") {
+                [System.BitConverter]::GetBytes([uint64]::MaxValue).CopyTo(
+                    $CaseBytes, $DirectoryOffset + 92)
+            } elseif ($PackCase.kind -eq "missing-id") {
+                $CaseBytes[$DirectoryOffset] = [byte][char]'x'
+            } else {
+                $PayloadOffset = Get-AssetPackEntryPayloadOffset `
+                    -Bytes $CaseBytes -EntryId $PackCase.entry
+                $MutationOffset = $PayloadOffset + [int]$PackCase.payload_offset
+                $CaseBytes[$MutationOffset] = $CaseBytes[$MutationOffset] -bxor 1
+            }
+            $CasePack = Join-Path $OutputDir "malformed-start-menu-$($PackCase.id).assetpack"
+            $CaseRender = Join-Path $OutputDir "malformed-start-menu-$($PackCase.id).png"
+            [System.IO.File]::WriteAllBytes($CasePack, $CaseBytes)
+            Remove-Item -LiteralPath $CaseRender -Force -ErrorAction SilentlyContinue
+            $env:TECMO_ASSETPACK = $CasePack
+            $CaseOutput = & $ExePath --root $StartMenuNegativeRoot `
+                --render-test-mode $PackCase.mode $CaseRender 2>&1
+            $CaseExitCode = $LASTEXITCODE
+            $Rejected = $CaseExitCode -eq 1 -and !(Test-Path -LiteralPath $CaseRender)
+            if (!$Rejected) { $StartMenuNegativePassed = $false }
+            $StartMenuNegativeResults.Add([pscustomobject]@{
+                id = $PackCase.id
+                passed = $Rejected
+                exit_code = $CaseExitCode
+                rejected_by_runtime = $Rejected
+                exact_size_preflight = $PackCase.kind -eq "huge-size"
+                dependency = $PackCase.entry
+            })
+            Remove-Item -LiteralPath $CasePack -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $CaseRender -Force -ErrorAction SilentlyContinue
+        }
+
         foreach ($Case in $StartMenuNegativeCases) {
             [byte[]]$CaseBytes = [System.IO.File]::ReadAllBytes($AssetPackPath)
             $PayloadOffset = Get-AssetPackEntryPayloadOffset `
@@ -676,6 +828,9 @@ try {
             if ($Case.id -eq "chr-range") {
                 [System.BitConverter]::GetBytes([uint32]([uint32]::MaxValue - 15)).CopyTo(
                     $CaseBytes, $PayloadOffset + $Case.offset)
+            } elseif ($Case.id -eq "payload-fingerprint") {
+                $CaseBytes[$PayloadOffset + $Case.offset] =
+                    $CaseBytes[$PayloadOffset + $Case.offset] -bxor 1
             } else {
                 $CaseBytes[$PayloadOffset + $Case.offset] = [byte]$Case.value
             }
@@ -709,7 +864,7 @@ try {
         cases = $StartMenuNegativeResults
         isolated_root = $true
         raw_output_persisted = $false
-        coverage_status = "missing-reserved-period-palette-chr"
+        coverage_status = "missing-metadata-cursor-reserved-fingerprint-chr-bounds-title-dependency-exact-size"
         error = if ($StartMenuNegativePassed) { $null } else { "runtime accepted missing or malformed TSGM-1 data" }
     })
 

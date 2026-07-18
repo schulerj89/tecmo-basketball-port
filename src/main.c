@@ -621,14 +621,143 @@ int main(int argc, char **argv)
                     tecmo_runtime_set_mode(&runtime, TECMO_MODE_START_GAME_MENU);
                     runtime.start_game_menu_state.frame = 32U + frame;
                     runtime.start_game_menu_state.slide_frame = (uint16_t)frame;
+                    runtime.start_game_menu_state.root_selection = 1U;
                     runtime.start_game_menu_state.phase = frame < 32U
                         ? TECMO_START_GAME_MENU_SEASON_SLIDE_IN : TECMO_START_GAME_MENU_SEASON;
+                    runtime.start_game_menu_state.cursor_delay = frame < 32U ? 0U :
+                        runtime.start_game_menu_asset.cursor_commit_delay_frames;
+                    runtime.start_game_menu_state.direction_cooldown = frame < 32U
+                        ? runtime.start_game_menu_asset.accepted_input_seed
+                        : (uint16_t)(runtime.start_game_menu_asset.accepted_input_seed - 1U);
                 }
             } else if (strcmp(mode_name, "start-game-menu-season") == 0) {
                 tecmo_runtime_set_mode(&runtime, TECMO_MODE_START_GAME_MENU);
                 runtime.start_game_menu_state.frame = 64U;
                 runtime.start_game_menu_state.slide_frame = 32U;
                 runtime.start_game_menu_state.phase = TECMO_START_GAME_MENU_SEASON;
+            } else if (strncmp(mode_name, "start-game-menu-music-setup-frame", 33) == 0 ||
+                       strncmp(mode_name, "start-game-menu-speed-setup-frame", 33) == 0 ||
+                       strncmp(mode_name, "start-game-menu-period-setup-frame", 34) == 0) {
+                const char *prefix;
+                TecmoStartGameMenuPhase popup_phase;
+                size_t overlay_index;
+                unsigned frame;
+                unsigned setup_frames;
+                if (strncmp(mode_name, "start-game-menu-music-setup-frame", 33) == 0) {
+                    prefix = "start-game-menu-music-setup-frame";
+                    popup_phase = TECMO_START_GAME_MENU_MUSIC;
+                    overlay_index = 0U;
+                } else if (strncmp(mode_name, "start-game-menu-speed-setup-frame", 33) == 0) {
+                    prefix = "start-game-menu-speed-setup-frame";
+                    popup_phase = TECMO_START_GAME_MENU_SPEED;
+                    overlay_index = 1U;
+                } else {
+                    prefix = "start-game-menu-period-setup-frame";
+                    popup_phase = TECMO_START_GAME_MENU_PERIOD;
+                    overlay_index = 2U;
+                }
+                setup_frames = runtime.start_game_menu_asset.overlays[overlay_index].height *
+                               runtime.start_game_menu_asset.popup_row_cadence;
+                if (popup_phase == TECMO_START_GAME_MENU_PERIOD)
+                    setup_frames += runtime.start_game_menu_asset.period_setup_extra_frames;
+                if (!parse_render_frame_suffix(mode_name, prefix, &frame) ||
+                    frame > setup_frames) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(&runtime, TECMO_MODE_START_GAME_MENU);
+                    runtime.start_game_menu_state.frame = 32U + frame;
+                    runtime.start_game_menu_state.popup_phase = popup_phase;
+                    runtime.start_game_menu_state.phase = frame < setup_frames
+                        ? TECMO_START_GAME_MENU_POPUP_SETUP : popup_phase;
+                    runtime.start_game_menu_state.transition_frame = (uint16_t)frame;
+                    runtime.start_game_menu_state.direction_cooldown = frame < setup_frames
+                        ? runtime.start_game_menu_asset.accepted_input_seed
+                        : (uint16_t)(runtime.start_game_menu_asset.accepted_input_seed - 1U);
+                    runtime.start_game_menu_state.cursor_delay = frame < setup_frames ? 0U :
+                        runtime.start_game_menu_asset.cursor_commit_delay_frames;
+                    runtime.start_game_menu_state.root_selection = popup_phase == TECMO_START_GAME_MENU_MUSIC
+                        ? 6U : popup_phase == TECMO_START_GAME_MENU_SPEED ? 4U : 5U;
+                    runtime.start_game_menu_state.setting_selection = popup_phase == TECMO_START_GAME_MENU_MUSIC
+                        ? runtime.start_game_menu_state.music_value :
+                        popup_phase == TECMO_START_GAME_MENU_SPEED
+                            ? runtime.start_game_menu_state.speed_value
+                            : runtime.start_game_menu_state.period_index;
+                }
+            } else if (strncmp(mode_name, "start-game-menu-music-teardown-frame", 36) == 0 ||
+                       strncmp(mode_name, "start-game-menu-speed-teardown-frame", 36) == 0 ||
+                       strncmp(mode_name, "start-game-menu-period-teardown-frame", 37) == 0) {
+                const char *prefix;
+                TecmoStartGameMenuPhase popup_phase;
+                size_t overlay_index;
+                unsigned frame;
+                unsigned teardown_frames;
+                if (strncmp(mode_name, "start-game-menu-music-teardown-frame", 36) == 0) {
+                    prefix = "start-game-menu-music-teardown-frame";
+                    popup_phase = TECMO_START_GAME_MENU_MUSIC;
+                    overlay_index = 0U;
+                } else if (strncmp(mode_name, "start-game-menu-speed-teardown-frame", 36) == 0) {
+                    prefix = "start-game-menu-speed-teardown-frame";
+                    popup_phase = TECMO_START_GAME_MENU_SPEED;
+                    overlay_index = 1U;
+                } else {
+                    prefix = "start-game-menu-period-teardown-frame";
+                    popup_phase = TECMO_START_GAME_MENU_PERIOD;
+                    overlay_index = 2U;
+                }
+                teardown_frames = runtime.start_game_menu_asset.overlays[overlay_index].height *
+                                  runtime.start_game_menu_asset.popup_row_cadence;
+                if (!parse_render_frame_suffix(mode_name, prefix, &frame) ||
+                    frame > teardown_frames) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(&runtime, TECMO_MODE_START_GAME_MENU);
+                    runtime.start_game_menu_state.frame = 40U + frame;
+                    runtime.start_game_menu_state.popup_phase = popup_phase;
+                    runtime.start_game_menu_state.phase = frame < teardown_frames
+                        ? TECMO_START_GAME_MENU_POPUP_TEARDOWN : TECMO_START_GAME_MENU_ROOT;
+                    runtime.start_game_menu_state.transition_frame = (uint16_t)frame;
+                    runtime.start_game_menu_state.direction_cooldown = frame < teardown_frames
+                        ? runtime.start_game_menu_asset.accepted_input_seed
+                        : (uint16_t)(runtime.start_game_menu_asset.accepted_input_seed - 1U);
+                    runtime.start_game_menu_state.cursor_delay = frame < teardown_frames ? 0U :
+                        runtime.start_game_menu_asset.cursor_commit_delay_frames;
+                    runtime.start_game_menu_state.root_selection = popup_phase == TECMO_START_GAME_MENU_MUSIC
+                        ? 6U : popup_phase == TECMO_START_GAME_MENU_SPEED ? 4U : 5U;
+                    runtime.start_game_menu_state.setting_selection = popup_phase == TECMO_START_GAME_MENU_MUSIC
+                        ? runtime.start_game_menu_state.music_value :
+                        popup_phase == TECMO_START_GAME_MENU_SPEED
+                            ? runtime.start_game_menu_state.speed_value
+                            : runtime.start_game_menu_state.period_index;
+                }
+            } else if (strncmp(mode_name, "start-game-menu-exit-root-frame", 31) == 0 ||
+                       strncmp(mode_name, "start-game-menu-exit-season-frame", 33) == 0) {
+                bool from_season = strncmp(mode_name,
+                                           "start-game-menu-exit-season-frame", 33) == 0;
+                const char *prefix = from_season ? "start-game-menu-exit-season-frame"
+                                                 : "start-game-menu-exit-root-frame";
+                unsigned frame;
+                if (!parse_render_frame_suffix(mode_name, prefix, &frame) ||
+                    frame >= runtime.start_game_menu_asset.exit_handoff_frame) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(&runtime, TECMO_MODE_START_GAME_MENU);
+                    runtime.start_game_menu_state.frame = from_season ? 64U + frame : 32U + frame;
+                    runtime.start_game_menu_state.phase = TECMO_START_GAME_MENU_EXIT;
+                    runtime.start_game_menu_state.transition_frame = (uint16_t)frame;
+                    runtime.start_game_menu_state.pending_action = from_season
+                        ? TECMO_START_GAME_MENU_ACTION_PLAY_SETUP
+                        : TECMO_START_GAME_MENU_ACTION_ROSTERS;
+                    runtime.start_game_menu_state.exit_from_season = from_season;
+                    runtime.start_game_menu_state.root_selection = from_season ? 1U : 3U;
+                    runtime.start_game_menu_state.season_selection = from_season ? 2U : 0U;
+                    runtime.start_game_menu_state.direction_cooldown =
+                        runtime.start_game_menu_asset.accepted_input_seed;
+                    runtime.start_game_menu_state.slide_frame = from_season
+                        ? runtime.start_game_menu_asset.slide_frames : 0U;
+                }
             } else if (strcmp(mode_name, "start-game-menu-music") == 0 ||
                        strcmp(mode_name, "start-game-menu-speed") == 0 ||
                        strcmp(mode_name, "start-game-menu-period") == 0) {
@@ -1034,13 +1163,23 @@ int main(int argc, char **argv)
                 }
             }
             if (strncmp(mode_name, "start-game-menu", 15) == 0) {
-                printf("start-game-menu-state frame=%u phase=%s root=%u season=%u slide=%u setting=%u\n",
+                printf("start-game-menu-state frame=%u phase=%s root=%u season=%u slide=%u setting=%u transition=%u rows=%u palette=%u cursor=%u cursor-delay=%u cooldown=%u pending=%u\n",
                        runtime.start_game_menu_state.frame,
                        tecmo_start_game_menu_phase_name(runtime.start_game_menu_state.phase),
                        (unsigned)runtime.start_game_menu_state.root_selection,
                        (unsigned)runtime.start_game_menu_state.season_selection,
                        (unsigned)runtime.start_game_menu_state.slide_frame,
-                       (unsigned)runtime.start_game_menu_state.setting_selection);
+                       (unsigned)runtime.start_game_menu_state.setting_selection,
+                       (unsigned)runtime.start_game_menu_state.transition_frame,
+                       tecmo_start_game_menu_overlay_visible_rows(
+                           &runtime.start_game_menu_asset, &runtime.start_game_menu_state),
+                       tecmo_start_game_menu_palette_stage(
+                           &runtime.start_game_menu_asset, &runtime.start_game_menu_state),
+                       tecmo_start_game_menu_cursor_visible(
+                           &runtime.start_game_menu_asset, &runtime.start_game_menu_state) ? 1U : 0U,
+                       (unsigned)runtime.start_game_menu_state.cursor_delay,
+                       (unsigned)runtime.start_game_menu_state.direction_cooldown,
+                       (unsigned)runtime.start_game_menu_state.pending_action);
             }
             print_intro_render_capture_status(&runtime, mode_name, arena_render_succeeded);
             tecmo_runtime_shutdown(&runtime);

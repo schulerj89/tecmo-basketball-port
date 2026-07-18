@@ -17,7 +17,6 @@
 #define TECMO_START_GAME_MENU_DIGIT_COUNT 10U
 #define TECMO_START_GAME_MENU_ROOT_COUNT 7U
 #define TECMO_START_GAME_MENU_SEASON_COUNT 6U
-#define TECMO_START_GAME_MENU_ACCEPT_COOLDOWN 5U
 
 typedef struct TecmoStartGameMenuCell {
     uint8_t tile_id;
@@ -66,6 +65,22 @@ typedef struct TecmoStartGameMenuAsset {
     uint16_t cursor_stride;
     uint16_t emblem_anchor_x;
     uint16_t emblem_anchor_y;
+    uint8_t accepted_input_seed;
+    uint8_t period_setup_extra_frames;
+    uint8_t exit_palette_step_frames;
+    uint8_t exit_black_frame;
+    uint8_t exit_handoff_frame;
+    uint8_t root_input_mask;
+    uint8_t generic_input_mask;
+    uint8_t period_input_mask;
+    uint8_t direction_mask;
+    uint8_t initial_input_gate;
+    uint8_t popup_row_cadence;
+    uint8_t popup_setup_order;
+    uint8_t popup_teardown_order;
+    uint8_t cursor_commit_delay_frames;
+    uint32_t expected_chr_byte_count;
+    uint32_t expected_chr_fingerprint32;
     uint64_t chr_byte_count;
     uint64_t chr_fingerprint;
     char status[160];
@@ -79,7 +94,10 @@ typedef enum TecmoStartGameMenuPhase {
     TECMO_START_GAME_MENU_SEASON_SLIDE_OUT,
     TECMO_START_GAME_MENU_MUSIC,
     TECMO_START_GAME_MENU_SPEED,
-    TECMO_START_GAME_MENU_PERIOD
+    TECMO_START_GAME_MENU_PERIOD,
+    TECMO_START_GAME_MENU_POPUP_SETUP,
+    TECMO_START_GAME_MENU_POPUP_TEARDOWN,
+    TECMO_START_GAME_MENU_EXIT
 } TecmoStartGameMenuPhase;
 
 typedef enum TecmoStartGameMenuAction {
@@ -99,6 +117,11 @@ typedef struct TecmoStartGameMenuState {
     uint8_t speed_value;
     uint8_t period_index;
     uint16_t direction_cooldown;
+    TecmoStartGameMenuPhase popup_phase;
+    uint16_t transition_frame;
+    uint8_t cursor_delay;
+    TecmoStartGameMenuAction pending_action;
+    bool exit_from_season;
 } TecmoStartGameMenuState;
 
 bool tecmo_start_game_menu_asset_load(TecmoStartGameMenuAsset *asset,
@@ -120,6 +143,12 @@ bool tecmo_start_game_menu_draw(TecmoFramebuffer *framebuffer,
                                 int origin_x,
                                 int origin_y,
                                 int scale);
+unsigned tecmo_start_game_menu_palette_stage(const TecmoStartGameMenuAsset *asset,
+                                             const TecmoStartGameMenuState *state);
+unsigned tecmo_start_game_menu_overlay_visible_rows(const TecmoStartGameMenuAsset *asset,
+                                                    const TecmoStartGameMenuState *state);
+bool tecmo_start_game_menu_cursor_visible(const TecmoStartGameMenuAsset *asset,
+                                          const TecmoStartGameMenuState *state);
 const char *tecmo_start_game_menu_phase_name(TecmoStartGameMenuPhase phase);
 
 #endif

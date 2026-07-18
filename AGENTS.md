@@ -194,7 +194,9 @@ black / menu-in palette stages, the 49-piece NBA emblem, the root cursor,
 settings overlays, digit cells, and native timing/input/route metadata. The
 screen is composed during import from screen `$04` plus Bank03's bounded text
 records and character map; runtime does not parse those records or use an
-emulator dump. Bank01's root-cursor selector `$30` and tile `$24` resolve the
+emulator dump. Frames 0-7 retain TTLE-1's `title/start-screen`, so the runtime
+dependency set is TSGM-1, TTLE-1, and the same pack's exact 262144-byte
+`chr/all`. Bank01's root-cursor selector `$30` and tile `$24` resolve the
 exact 8x16 pair at `chr/all` offset `$C240`; both the source record and resolved
 CHR pair are revision-fingerprinted. Native timing preserves palette
 checkpoints at local frames 0,
@@ -205,6 +207,25 @@ over exactly 32 frames at eight background pixels and five emblem pixels per
 frame; B reverses the same transition. That second-page boundary maps GAME
 START to `PLAY_SETUP` and TEAM DATA to `ROSTERS`; the other four season
 management selections remain explicitly unported no-ops.
+
+Popup construction follows Bank03 `$AB77`: row zero transfers before its first
+yield, then one row transfers per frame. MUSIC starts with one of six rows at
+setup frame 0 and enters its helper on frame 6; SPEED does the same for eight
+rows and enters on frame 8. PERIOD fills six rows by frame 5, holds one extra
+full cursorless setup frame at frame 6, and enters its helper on frame 7.
+Teardown begins full at frame 0 and removes one bottom row per frame (six frames
+for MUSIC/PERIOD, eight for SPEED). Setup-to-popup, teardown-to-root, and both
+32-frame season-slide destinations execute their helper on the final update,
+but the cursor reaches displayed OAM one frame later. TSGM byte 148 binds that
+commit delay to one frame; it is not a hardcoded renderer exception.
+
+The post-return `$E481` fade is used only where the traced native session has
+actually returned from Bank03: root TEAM DATA and the supported season-page
+GAME START/TEAM DATA departures. It holds palette stage 8 on exit frames 0-1,
+then stages 7/6/5 on 2-3/4-5/6-7, black stage 4 on 8-10, and emits the one-shot
+handoff on frame 11. Root PRESEASON (`$9966`) and ALL STAR (`$8221`) instead
+enter additional unported `$9A67` submenus, so the current native boundary
+hands them directly to `PLAY_SETUP` without incorrectly running `$E481` early.
 
 The settings popups are native: MUSIC wraps OFF/ON, SPEED wraps
 FAST/NORMAL/SLOW, and PERIOD clamps across 2/3/4/8/12 minutes. A accepts the
@@ -231,8 +252,12 @@ but does neither. Season slides do not tick `$E1` for their first 31 steps; the
 TSGM-1 import is revision-locked with fingerprints for its descriptor,
 compressed and decoded screen, composed two-page result, palette sources,
 sprite selectors/palette, emblem, cursor, character map, menu/settings text
-records, fixed loader/fades, input tables, and season transition. The sanitized
-`system/source-map` records every ROM source range and the `chr/all` dependency.
+records, fixed loader/fades, input tables, and season transition. Its exact
+payload fingerprint is `7505D7BD`; metadata includes the one-frame cursor
+commit, and the full CHR contract is 262144 bytes / FNV1a32 `F6F6E854` /
+FNV1a64 `96A64F53B240ABB4`. Exact-size directory preflight rejects forged sizes
+before allocation. The sanitized `system/source-map` records every ROM source
+range plus TTLE-1 and `chr/all` runtime dependencies.
 Missing, malformed, cross-pack, or out-of-range menu data must remain a native
 render failure; captures under `temp-videos` and FCEUX/Lua screenshots, logs,
 states, PPU/OAM dumps, and traces are verification material only.

@@ -240,7 +240,9 @@ overlays/digits, and native input/route/timing metadata. The importer decodes
 screen `$04`, composes the root and season records through the ROM character
 map and box rules, and rejects any result that does not match the Rev1 raw,
 decoded, and composed fingerprints. Runtime consumes only TSGM-1 and `chr/all`
-from the same asset pack; local video, Lua traces, PPU/OAM dumps, save states,
+from the same asset pack after frame 8; frames 0-7 also require TTLE-1
+`title/start-screen` for the retained title image. Local video, Lua traces,
+PPU/OAM dumps, save states,
 screenshots, and decompilation files remain verification-only.
 
 The root cursor is resolved directly from Bank01's selector `$30`, tile `$24`
@@ -269,6 +271,25 @@ moves first and releasing both activates the moved selection. The native byte
 map is A `$80`, B `$40`, SELECT `$20`, START `$10`, Up `$08`, Down `$04`, Left
 `$02`, and Right `$01`.
 
+Popup setup uses the ROM `$AB77` transfer order. Row zero is installed before
+the first yield, so local setup frame 0 already shows one row; each following
+frame adds one row. MUSIC reaches all six rows on frame 5 and enters its input
+helper on frame 6. SPEED reaches eight rows on frame 7 and enters on frame 8.
+PERIOD reaches six rows on frame 5, keeps frame 6 as an extra full cursorless
+delay, and enters on frame 7. Teardown frame 0 is still full, then removes one
+bottom row per frame: the final removal/helper update is frame 6 for MUSIC and
+PERIOD and frame 8 for SPEED. Popup destinations, the restored root, and both
+season-slide destinations defer the displayed cursor by one OAM commit frame;
+TSGM metadata byte 148 supplies `cursor_commit_delay_frames=1`.
+
+`$E481` is a post-return fade, not a universal root dispatch. Root TEAM DATA
+and the supported season GAME START/TEAM DATA exits show stage 8 on frames 0-1,
+stage 7 on 2-3, stage 6 on 4-5, stage 5 on 6-7, black stage 4 on 8-10, and hand
+off once on frame 11. PRESEASON's `$9966` and ALL STAR's `$8221` routes enter
+additional `$9A67` Bank03 submenus which remain beyond this milestone; the
+current boundary hands those routes directly to `PLAY_SETUP` and does not run
+the later `$E481` fade prematurely.
+
 An accepted release reaches `$D788` and seeds directional `$E1=5`. Generic
 direction reaches `$D79D`, writes eight, and the same-loop tail decrements it so
 held direction repeats on the eighth following frame; generic release actions
@@ -277,9 +298,17 @@ branch before this directional gate. PERIOD instead checks
 Up+Down) can consume and lose released A/B. PERIOD released A accepts, released
 B cancels, and raw A+B is consumed with `$E1=5` but does neither. Season slide
 steps 1-31 preserve `$E1`; step 32 runs the destination helper immediately and
-ticks 5 to 4. Other
+ticks 5 to 4. The cursor commits on the following displayed frame. Other
 unported root routes cross an explicit native handoff rather than silently
 replaying 6502 code or consuming capture data.
+
+TSGM-1 has exact payload FNV1a32 `7505D7BD`. Runtime validates the complete
+14112-byte entry, byte-148 cursor delay, zero reserved tail, and full 262144-byte
+CHR fingerprints (FNV1a32 `F6F6E854`, FNV1a64 `96A64F53B240ABB4`). Exact-size
+asset-pack reads reject forged TSGM, TTLE-1, and `chr/all` directory sizes before
+allocation. Missing or malformed TTLE-1 is a hard render failure for start-menu
+frames 0-7; there is no loose-file, decompilation, capture, or cross-pack
+fallback.
 
 The importer validates the raw finale dispatch chain as `$851C` wait 50 ->
 `$83EA` wait 30 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 ->

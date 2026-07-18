@@ -11,6 +11,7 @@
 #define TITLE_CELL_STRIDE 6U
 #define TITLE_ATTRACT_SIZE (64U + 960U * 6U + 48U + 49U * 16U + 32U)
 #define TITLE_START_SIZE (64U + 960U * 6U + 16U + 20U)
+#define TITLE_CHR_SIZE 262144U
 
 static uint16_t read_u16(const uint8_t *p) { return (uint16_t)(p[0] | ((uint16_t)p[1] << 8U)); }
 static uint32_t read_u32(const uint8_t *p) { return (uint32_t)p[0] | ((uint32_t)p[1] << 8U) | ((uint32_t)p[2] << 16U) | ((uint32_t)p[3] << 24U); }
@@ -42,7 +43,8 @@ static bool file_exists(const char *path)
     return true;
 }
 
-static bool read_entry(const char *root, const char *id, uint8_t **bytes,
+static bool read_entry(const char *root, const char *id, uint64_t expected_count,
+                       uint8_t **bytes,
                        uint64_t *count, char *pack, size_t pack_size)
 {
     const char *env = getenv("TECMO_ASSETPACK");
@@ -58,7 +60,8 @@ static bool read_entry(const char *root, const char *id, uint8_t **bytes,
     }
     for (size_t i = 0U; i < n; ++i) {
         if (!file_exists(paths[i])) continue;
-        if (tecmo_asset_pack_read_entry(paths[i], id, bytes, count) != 0) return false;
+        if (tecmo_asset_pack_read_entry_exact(paths[i], id, expected_count,
+                                              bytes, count) != 0) return false;
         (void)snprintf(pack, pack_size, "%s", paths[i]);
         return true;
     }
@@ -138,10 +141,13 @@ bool tecmo_title_asset_load(TecmoTitleAsset *asset, const char *root)
     char pack[1024] = {0};
     if (asset == NULL) return false;
     memset(asset, 0, sizeof(*asset));
-    if (!read_entry(root, "title/attract-continuation", &attract, &attract_count, pack, sizeof(pack)) ||
-        !read_entry(root, "title/start-screen", &start, &start_count, pack, sizeof(pack)) ||
+    if (!read_entry(root, "title/attract-continuation", TITLE_ATTRACT_SIZE,
+                    &attract, &attract_count, pack, sizeof(pack)) ||
+        !read_entry(root, "title/start-screen", TITLE_START_SIZE,
+                    &start, &start_count, pack, sizeof(pack)) ||
         !parse_attract(asset, attract, attract_count) || !parse_start(asset, start, start_count) ||
-        tecmo_asset_pack_read_entry(pack, "chr/all", &chr, &chr_count) != 0) {
+        tecmo_asset_pack_read_entry_exact(pack, "chr/all", TITLE_CHR_SIZE,
+                                          &chr, &chr_count) != 0) {
         tecmo_asset_pack_free(attract); tecmo_asset_pack_free(start); tecmo_asset_pack_free(chr);
         (void)snprintf(asset->status, sizeof(asset->status), "TATR-2/TTLE-1 assets unavailable or rejected");
         return false;

@@ -78,6 +78,11 @@ int tecmo_asset_pack_read_entry(const char *pack_path,
                                 const char *entry_id,
                                 uint8_t **bytes_out,
                                 uint64_t *byte_count);
+int tecmo_asset_pack_read_entry_exact(const char *pack_path,
+                                      const char *entry_id,
+                                      uint64_t expected_byte_count,
+                                      uint8_t **bytes_out,
+                                      uint64_t *byte_count);
 
 /* Callback id pointers are valid only for the duration of each callback call.
    A non-zero callback result stops enumeration and is returned to the caller. */

@@ -94,6 +94,190 @@ static bool flow_expect_mode(TecmoRuntime *runtime,
     return true;
 }
 
+static bool flow_finish_start_menu_exit(TecmoRuntime *runtime,
+                                        TecmoPlayMode expected_mode,
+                                        bool from_season,
+                                        const char *label,
+                                        char *message,
+                                        size_t message_size)
+{
+    TecmoInput input;
+    const TecmoStartGameMenuAsset *asset = &runtime->start_game_menu_asset;
+    unsigned frame;
+    if (runtime->mode != TECMO_MODE_START_GAME_MENU ||
+        runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_EXIT ||
+        runtime->start_game_menu_state.transition_frame != 0U ||
+        runtime->start_game_menu_state.exit_from_season != from_season ||
+        runtime->start_game_menu_state.pending_action == TECMO_START_GAME_MENU_ACTION_NONE) {
+        set_flow_test_message(message, message_size, "start-game menu exit did not begin at frame zero");
+        return false;
+    }
+    for (frame = 0U; frame < asset->exit_handoff_frame; ++frame) {
+        unsigned expected_stage = frame >= asset->exit_black_frame
+            ? 4U : (unsigned)(TECMO_START_GAME_MENU_PALETTE_STAGE_COUNT - 1U) -
+                   frame / asset->exit_palette_step_frames;
+        if (runtime->start_game_menu_state.transition_frame != frame ||
+            tecmo_start_game_menu_palette_stage(asset,
+                                                &runtime->start_game_menu_state) != expected_stage ||
+            tecmo_start_game_menu_cursor_visible(asset,
+                                                 &runtime->start_game_menu_state)) {
+            set_flow_test_message(message, message_size, "start-game menu exit fade/cursor checkpoint mismatch");
+            return false;
+        }
+        memset(&input, 0, sizeof(input));
+        if (frame == 0U) {
+            input.up = true;
+            input.down = true;
+            input.shoot = true;
+            input.cancel = true;
+        }
+        tecmo_runtime_update(runtime, &input);
+        if (frame + 1U < asset->exit_handoff_frame &&
+            (runtime->mode != TECMO_MODE_START_GAME_MENU ||
+             runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_EXIT ||
+             runtime->start_game_menu_state.transition_frame != frame + 1U)) {
+            set_flow_test_message(message, message_size, "start-game menu exit handed off before frame eleven");
+            return false;
+        }
+    }
+    return flow_expect_mode(runtime, expected_mode, label, message, message_size);
+}
+
+static bool flow_finish_popup_setup(TecmoRuntime *runtime,
+                                    TecmoStartGameMenuPhase popup_phase,
+                                    const char *label,
+                                    char *message,
+                                    size_t message_size)
+{
+    TecmoInput input;
+    const TecmoStartGameMenuAsset *asset = &runtime->start_game_menu_asset;
+    size_t overlay_index = popup_phase == TECMO_START_GAME_MENU_MUSIC ? 0U :
+                           popup_phase == TECMO_START_GAME_MENU_SPEED ? 1U : 2U;
+    unsigned height = asset->overlays[overlay_index].height;
+    unsigned total = height * asset->popup_row_cadence +
+                     (popup_phase == TECMO_START_GAME_MENU_PERIOD
+                          ? asset->period_setup_extra_frames : 0U);
+    unsigned frame;
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_POPUP_SETUP ||
+        runtime->start_game_menu_state.popup_phase != popup_phase ||
+        runtime->start_game_menu_state.transition_frame != 0U ||
+        tecmo_start_game_menu_overlay_visible_rows(asset,
+                                                   &runtime->start_game_menu_state) != 1U ||
+        tecmo_start_game_menu_cursor_visible(asset,
+                                             &runtime->start_game_menu_state)) {
+        set_flow_test_message(message, message_size, "popup setup did not install its first cursorless row");
+        return false;
+    }
+    for (frame = 1U; frame <= total; ++frame) {
+        memset(&input, 0, sizeof(input));
+        if (frame == 1U) {
+            input.down = true;
+            input.shoot = true;
+        }
+        tecmo_runtime_update(runtime, &input);
+        if (frame < total) {
+            unsigned expected_rows = frame + 1U > height ? height : frame + 1U;
+            if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_POPUP_SETUP ||
+                runtime->start_game_menu_state.transition_frame != frame ||
+                tecmo_start_game_menu_overlay_visible_rows(asset,
+                                                           &runtime->start_game_menu_state) != expected_rows ||
+                tecmo_start_game_menu_cursor_visible(asset,
+                                                     &runtime->start_game_menu_state)) {
+                set_flow_test_message(message, message_size, "popup setup row checkpoint mismatch");
+                return false;
+            }
+        }
+    }
+    if (runtime->start_game_menu_state.phase != popup_phase ||
+        runtime->start_game_menu_state.transition_frame != total ||
+        tecmo_start_game_menu_overlay_visible_rows(asset,
+                                                   &runtime->start_game_menu_state) != height ||
+        tecmo_start_game_menu_cursor_visible(asset,
+                                             &runtime->start_game_menu_state) ||
+        runtime->start_game_menu_state.cursor_delay != asset->cursor_commit_delay_frames ||
+        runtime->start_game_menu_state.direction_cooldown != 4U) {
+        set_flow_test_message(message, message_size, label);
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != popup_phase ||
+        runtime->start_game_menu_state.transition_frame != 0U ||
+        runtime->start_game_menu_state.cursor_delay != 0U ||
+        !tecmo_start_game_menu_cursor_visible(asset,
+                                              &runtime->start_game_menu_state) ||
+        runtime->start_game_menu_state.direction_cooldown != 3U) {
+        set_flow_test_message(message, message_size, "popup cursor did not reach OAM on the following frame");
+        return false;
+    }
+    return true;
+}
+
+static bool flow_finish_popup_teardown(TecmoRuntime *runtime,
+                                       TecmoStartGameMenuPhase popup_phase,
+                                       const char *label,
+                                       char *message,
+                                       size_t message_size)
+{
+    TecmoInput input;
+    const TecmoStartGameMenuAsset *asset = &runtime->start_game_menu_asset;
+    size_t overlay_index = popup_phase == TECMO_START_GAME_MENU_MUSIC ? 0U :
+                           popup_phase == TECMO_START_GAME_MENU_SPEED ? 1U : 2U;
+    unsigned height = asset->overlays[overlay_index].height;
+    unsigned frame;
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_POPUP_TEARDOWN ||
+        runtime->start_game_menu_state.popup_phase != popup_phase ||
+        runtime->start_game_menu_state.transition_frame != 0U ||
+        tecmo_start_game_menu_overlay_visible_rows(asset,
+                                                   &runtime->start_game_menu_state) != height ||
+        tecmo_start_game_menu_cursor_visible(asset,
+                                             &runtime->start_game_menu_state)) {
+        set_flow_test_message(message, message_size, "popup teardown did not begin full and cursorless");
+        return false;
+    }
+    for (frame = 1U; frame <= height; ++frame) {
+        memset(&input, 0, sizeof(input));
+        if (frame == 1U) {
+            input.up = true;
+            input.cancel = true;
+        }
+        tecmo_runtime_update(runtime, &input);
+        if (frame < height &&
+            (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_POPUP_TEARDOWN ||
+             runtime->start_game_menu_state.transition_frame != frame ||
+             tecmo_start_game_menu_overlay_visible_rows(asset,
+                                                        &runtime->start_game_menu_state) != height - frame ||
+             tecmo_start_game_menu_cursor_visible(asset,
+                                                  &runtime->start_game_menu_state))) {
+            set_flow_test_message(message, message_size, "popup teardown row checkpoint mismatch");
+            return false;
+        }
+    }
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+        runtime->start_game_menu_state.transition_frame != height ||
+        tecmo_start_game_menu_overlay_visible_rows(asset,
+                                                   &runtime->start_game_menu_state) != 0U ||
+        tecmo_start_game_menu_cursor_visible(asset,
+                                             &runtime->start_game_menu_state) ||
+        runtime->start_game_menu_state.cursor_delay != asset->cursor_commit_delay_frames ||
+        runtime->start_game_menu_state.direction_cooldown != 4U) {
+        set_flow_test_message(message, message_size, label);
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+        runtime->start_game_menu_state.transition_frame != 0U ||
+        runtime->start_game_menu_state.cursor_delay != 0U ||
+        !tecmo_start_game_menu_cursor_visible(asset,
+                                              &runtime->start_game_menu_state) ||
+        runtime->start_game_menu_state.direction_cooldown != 3U) {
+        set_flow_test_message(message, message_size, "root cursor did not reach OAM after popup teardown");
+        return false;
+    }
+    return true;
+}
+
 static bool flow_expect_menu_item(TecmoRuntime *runtime,
                                   size_t expected,
                                   const char *label,
@@ -576,7 +760,19 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     memset(&input, 0, sizeof(input));
     tecmo_runtime_update(runtime, &input);
     if (!flow_expect_mode(runtime, TECMO_MODE_PLAY_SETUP,
-                          "root A-release grace dispatch", message, message_size)) return false;
+                          "root PRESEASON submenu-boundary dispatch",
+                          message, message_size)) return false;
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame = 32U;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
+    runtime->start_game_menu_state.root_selection = 2U;
+    memset(&input, 0, sizeof(input));
+    input.shoot = true;
+    flow_step(runtime, input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_PLAY_SETUP,
+                          "root ALL STAR submenu-boundary dispatch",
+                          message, message_size)) return false;
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 32U;
@@ -607,8 +803,9 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     memset(&input, 0, sizeof(input));
     input.shoot = true;
     flow_step(runtime, input);
-    if (!flow_expect_mode(runtime, TECMO_MODE_ROSTERS,
-                          "root A team-data dispatch", message, message_size)) return false;
+    if (!flow_finish_start_menu_exit(runtime, TECMO_MODE_ROSTERS, false,
+                                     "root A team-data frame-eleven dispatch",
+                                     message, message_size)) return false;
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 32U;
@@ -655,14 +852,21 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SEASON ||
         runtime->start_game_menu_state.slide_frame != 32U ||
-        runtime->start_game_menu_state.direction_cooldown != 4U) {
+        runtime->start_game_menu_state.direction_cooldown != 4U ||
+        runtime->start_game_menu_state.cursor_delay !=
+            runtime->start_game_menu_asset.cursor_commit_delay_frames ||
+        tecmo_start_game_menu_cursor_visible(&runtime->start_game_menu_asset,
+                                             &runtime->start_game_menu_state)) {
         set_flow_test_message(message, message_size, "season slide did not end at frame 32");
         return false;
     }
     input.cancel = true;
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SEASON ||
-        runtime->start_game_menu_state.direction_cooldown != 3U) {
+        runtime->start_game_menu_state.direction_cooldown != 3U ||
+        runtime->start_game_menu_state.cursor_delay != 0U ||
+        !tecmo_start_game_menu_cursor_visible(&runtime->start_game_menu_asset,
+                                              &runtime->start_game_menu_state)) {
         set_flow_test_message(message, message_size, "held season B activated before release");
         return false;
     }
@@ -684,8 +888,21 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
         runtime->start_game_menu_state.slide_frame != 0U ||
-        runtime->start_game_menu_state.direction_cooldown != 4U) {
+        runtime->start_game_menu_state.direction_cooldown != 4U ||
+        runtime->start_game_menu_state.cursor_delay !=
+            runtime->start_game_menu_asset.cursor_commit_delay_frames ||
+        tecmo_start_game_menu_cursor_visible(&runtime->start_game_menu_asset,
+                                             &runtime->start_game_menu_state)) {
         set_flow_test_message(message, message_size, "season reverse did not restore root at frame 32");
+        return false;
+    }
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+        runtime->start_game_menu_state.direction_cooldown != 3U ||
+        runtime->start_game_menu_state.cursor_delay != 0U ||
+        !tecmo_start_game_menu_cursor_visible(&runtime->start_game_menu_asset,
+                                              &runtime->start_game_menu_state)) {
+        set_flow_test_message(message, message_size, "root cursor did not reach OAM after season reverse");
         return false;
     }
 
@@ -703,43 +920,54 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     }
     memset(&input, 0, sizeof(input));
     tecmo_runtime_update(runtime, &input);
-    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_MUSIC ||
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_POPUP_SETUP ||
+        runtime->start_game_menu_state.popup_phase != TECMO_START_GAME_MENU_MUSIC ||
         runtime->start_game_menu_state.setting_selection != 1U ||
         runtime->start_game_menu_state.direction_cooldown != 5U) {
-        set_flow_test_message(message, message_size, "GAME MUSIC did not open its native popup");
+        set_flow_test_message(message, message_size, "GAME MUSIC did not begin native row setup");
         return false;
     }
+    if (!flow_finish_popup_setup(runtime, TECMO_START_GAME_MENU_MUSIC,
+                                 "GAME MUSIC setup did not finish at frame six",
+                                 message, message_size)) return false;
     input.shoot = true;
     tecmo_runtime_update(runtime, &input);
-    tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_MUSIC ||
-        runtime->start_game_menu_state.direction_cooldown != 3U) {
+        runtime->start_game_menu_state.direction_cooldown != 2U) {
         set_flow_test_message(message, message_size, "held popup A activated before release");
         return false;
     }
     memset(&input, 0, sizeof(input));
     tecmo_runtime_update(runtime, &input);
-    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_POPUP_TEARDOWN ||
         runtime->start_game_menu_state.music_value != 1U ||
         runtime->start_game_menu_state.direction_cooldown != 5U) {
-        set_flow_test_message(message, message_size, "popup A release did not accept");
+        set_flow_test_message(message, message_size, "popup A release did not begin teardown");
         return false;
     }
+    if (!flow_finish_popup_teardown(runtime, TECMO_START_GAME_MENU_MUSIC,
+                                    "GAME MUSIC teardown did not restore root at frame six",
+                                    message, message_size)) return false;
     input.shoot = true;
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
-        runtime->start_game_menu_state.direction_cooldown != 4U) {
+        runtime->start_game_menu_state.direction_cooldown != 2U ||
+        !tecmo_start_game_menu_cursor_visible(&runtime->start_game_menu_asset,
+                                              &runtime->start_game_menu_state)) {
         set_flow_test_message(message, message_size, "held root A reopened popup before release");
         return false;
     }
     memset(&input, 0, sizeof(input));
     tecmo_runtime_update(runtime, &input);
-    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_MUSIC ||
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_POPUP_SETUP ||
         runtime->start_game_menu_state.direction_cooldown != 5U) {
         set_flow_test_message(message, message_size, "root A release did not bypass directional E1");
         return false;
     }
-    for (size_t wait = 0U; wait < 5U; ++wait) tecmo_runtime_update(runtime, &input);
+    if (!flow_finish_popup_setup(runtime, TECMO_START_GAME_MENU_MUSIC,
+                                 "second GAME MUSIC setup did not finish",
+                                 message, message_size)) return false;
+    for (size_t wait = 0U; wait < 3U; ++wait) tecmo_runtime_update(runtime, &input);
     input.down = true;
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.setting_selection != 0U ||
@@ -751,12 +979,15 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     for (size_t wait = 0U; wait < 7U; ++wait) tecmo_runtime_update(runtime, &input);
     input.cancel = true;
     flow_step(runtime, input);
-    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_POPUP_TEARDOWN ||
         runtime->start_game_menu_state.music_value != 1U ||
         runtime->start_game_menu_state.direction_cooldown != 5U) {
-        set_flow_test_message(message, message_size, "GAME MUSIC B did not cancel its edit");
+        set_flow_test_message(message, message_size, "GAME MUSIC B did not begin cancel teardown");
         return false;
     }
+    if (!flow_finish_popup_teardown(runtime, TECMO_START_GAME_MENU_MUSIC,
+                                    "GAME MUSIC cancel teardown did not restore root",
+                                    message, message_size)) return false;
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 32U;
@@ -765,12 +996,49 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     runtime->previous_input.cancel = true;
     memset(&input, 0, sizeof(input));
     tecmo_runtime_update(runtime, &input);
-    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_POPUP_TEARDOWN ||
         runtime->start_game_menu_state.music_value != 1U ||
         runtime->start_game_menu_state.direction_cooldown != 5U) {
-        set_flow_test_message(message, message_size, "GAME MUSIC B-release grace did not cancel");
+        set_flow_test_message(message, message_size, "GAME MUSIC B-release grace did not begin teardown");
         return false;
     }
+    if (!flow_finish_popup_teardown(runtime, TECMO_START_GAME_MENU_MUSIC,
+                                    "GAME MUSIC B-release teardown did not finish",
+                                    message, message_size)) return false;
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame = 32U;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
+    runtime->start_game_menu_state.root_selection = 4U;
+    memset(&input, 0, sizeof(input));
+    input.shoot = true;
+    flow_step(runtime, input);
+    if (!flow_finish_popup_setup(runtime, TECMO_START_GAME_MENU_SPEED,
+                                 "GAME SPEED setup did not finish at frame eight",
+                                 message, message_size)) return false;
+    memset(&input, 0, sizeof(input));
+    input.cancel = true;
+    flow_step(runtime, input);
+    if (!flow_finish_popup_teardown(runtime, TECMO_START_GAME_MENU_SPEED,
+                                    "GAME SPEED teardown did not finish at frame eight",
+                                    message, message_size)) return false;
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame = 32U;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
+    runtime->start_game_menu_state.root_selection = 5U;
+    memset(&input, 0, sizeof(input));
+    input.shoot = true;
+    flow_step(runtime, input);
+    if (!flow_finish_popup_setup(runtime, TECMO_START_GAME_MENU_PERIOD,
+                                 "PERIOD setup did not preserve its extra frame",
+                                 message, message_size)) return false;
+    memset(&input, 0, sizeof(input));
+    input.cancel = true;
+    flow_step(runtime, input);
+    if (!flow_finish_popup_teardown(runtime, TECMO_START_GAME_MENU_PERIOD,
+                                    "PERIOD teardown did not finish at frame six",
+                                    message, message_size)) return false;
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 32U;
@@ -803,12 +1071,15 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     }
     memset(&input, 0, sizeof(input));
     tecmo_runtime_update(runtime, &input);
-    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_POPUP_TEARDOWN ||
         runtime->start_game_menu_state.speed_value != 0U ||
         runtime->start_game_menu_state.direction_cooldown != 5U) {
-        set_flow_test_message(message, message_size, "SPEED A+B release did not accept with A priority");
+        set_flow_test_message(message, message_size, "SPEED A+B release did not begin A-priority teardown");
         return false;
     }
+    if (!flow_finish_popup_teardown(runtime, TECMO_START_GAME_MENU_SPEED,
+                                    "SPEED A-priority teardown did not finish",
+                                    message, message_size)) return false;
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 32U;
@@ -835,12 +1106,15 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     }
     memset(&input, 0, sizeof(input));
     tecmo_runtime_update(runtime, &input);
-    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+    if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_POPUP_TEARDOWN ||
         runtime->start_game_menu_state.period_index != 2U ||
         runtime->start_game_menu_state.direction_cooldown != 5U) {
-        set_flow_test_message(message, message_size, "PERIOD A did not accept after direction grace");
+        set_flow_test_message(message, message_size, "PERIOD A did not begin teardown after direction grace");
         return false;
     }
+    if (!flow_finish_popup_teardown(runtime, TECMO_START_GAME_MENU_PERIOD,
+                                    "PERIOD accept teardown did not finish",
+                                    message, message_size)) return false;
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 32U;
@@ -982,8 +1256,9 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         set_flow_test_message(message, message_size, "season A+B release changed selection");
         return false;
     }
-    if (!flow_expect_mode(runtime, TECMO_MODE_PLAY_SETUP,
-                          "season A+B release GAME START dispatch", message, message_size)) return false;
+    if (!flow_finish_start_menu_exit(runtime, TECMO_MODE_PLAY_SETUP, true,
+                                     "season A+B GAME START frame-eleven dispatch",
+                                     message, message_size)) return false;
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 64U;
@@ -993,8 +1268,9 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     memset(&input, 0, sizeof(input));
     input.shoot = true;
     flow_step(runtime, input);
-    if (!flow_expect_mode(runtime, TECMO_MODE_ROSTERS,
-                          "season TEAM DATA dispatch", message, message_size)) return false;
+    if (!flow_finish_start_menu_exit(runtime, TECMO_MODE_ROSTERS, true,
+                                     "season TEAM DATA frame-eleven dispatch",
+                                     message, message_size)) return false;
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
     memset(&input, 0, sizeof(input));

@@ -5,6 +5,7 @@
 #include "tecmo_asset_pack_format.h"
 
 #include <limits.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -234,10 +235,12 @@ int tecmo_asset_pack_dump_directory(const char *pack_path,
     return 0;
 }
 
-int tecmo_asset_pack_read_entry(const char *pack_path,
-                                const char *entry_id,
-                                uint8_t **bytes_out,
-                                uint64_t *byte_count)
+static int read_entry(const char *pack_path,
+                      const char *entry_id,
+                      bool require_exact_size,
+                      uint64_t expected_byte_count,
+                      uint8_t **bytes_out,
+                      uint64_t *byte_count)
 {
     FILE *file;
     uint32_t entry_count;
@@ -262,7 +265,9 @@ int tecmo_asset_pack_read_entry(const char *pack_path,
         TecmoAssetPackDirectoryEntry entry;
         if (read_directory_entry(file, &entry) != 0) goto cleanup;
         if (strncmp(entry.id, entry_id, TECMO_ASSET_PACK_ID_SIZE) == 0) {
-            if (entry.size > (uint64_t)SIZE_MAX) goto cleanup;
+            if ((require_exact_size && entry.size != expected_byte_count) ||
+                entry.size > (uint64_t)SIZE_MAX)
+                goto cleanup;
             bytes = (uint8_t *)malloc((size_t)entry.size);
             if (bytes == NULL && entry.size > 0U) goto cleanup;
             if (file_seek_u64(file, entry.pack_offset) != 0 ||
@@ -284,6 +289,24 @@ cleanup:
     free(bytes);
     fclose(file);
     return result;
+}
+
+int tecmo_asset_pack_read_entry(const char *pack_path,
+                                const char *entry_id,
+                                uint8_t **bytes_out,
+                                uint64_t *byte_count)
+{
+    return read_entry(pack_path, entry_id, false, 0U, bytes_out, byte_count);
+}
+
+int tecmo_asset_pack_read_entry_exact(const char *pack_path,
+                                      const char *entry_id,
+                                      uint64_t expected_byte_count,
+                                      uint8_t **bytes_out,
+                                      uint64_t *byte_count)
+{
+    return read_entry(pack_path, entry_id, true, expected_byte_count,
+                      bytes_out, byte_count);
 }
 
 void tecmo_asset_pack_free(void *buffer)
