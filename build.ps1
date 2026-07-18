@@ -36,6 +36,7 @@ $Sources = @(
     "src\asset_pack\tecmo_asset_pack_post_arena.c",
     "src\asset_pack\tecmo_asset_pack_reader.c",
     "src\asset_pack\tecmo_asset_pack_source_map.c",
+    "src\asset_pack\tecmo_asset_pack_start_menu.c",
     "src\asset_pack\tecmo_asset_pack_util.c",
     "src\asset_pack\tecmo_asset_pack_writer.c",
     "src\tecmo_bank07.c",

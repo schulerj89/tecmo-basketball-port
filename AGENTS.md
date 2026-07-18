@@ -186,7 +186,29 @@ these entries plus `chr/all`; it does not read Lua captures or trace data.
 The first START enters the title after a ten-frame load window. It must be
 released before a second START is accepted. Confirmation alternates the blank
 and visible prompt rows every seven frames for 126 frames, then hands off at
-frame 127 to the existing native menu.
+frame 127 to the original blue start-game menu.
+
+The blue menu is a strict ROM-only native scene. The importer emits
+`menu/start-game` as TSGM-1: two precomposed 32x30 pages, nine exact title-out /
+black / menu-in palette stages, the 49-piece NBA emblem, the root cursor,
+settings overlays, digit cells, and native timing/input/route metadata. The
+screen is composed during import from screen `$04` plus Bank03's bounded text
+records and character map; runtime does not parse those records or use an
+emulator dump. Native timing preserves palette checkpoints at local frames 0,
+2, 4, 6, 8, 20, 24, 28, and 32. Root Up/Down wraps across seven items, repeats
+every eight held frames, and both NES A and B dispatch while START, SELECT,
+Left, and Right are ignored. SEASON GAME slides to the six-item second page
+over exactly 32 frames at eight background pixels and five emblem pixels per
+frame; B reverses the same transition.
+
+TSGM-1 import is revision-locked with fingerprints for its descriptor,
+compressed and decoded screen, composed two-page result, palette sources,
+sprite selectors/palette, emblem, cursor, character map, menu/settings text
+records, fixed loader/fades, input tables, and season transition. The sanitized
+`system/source-map` records every ROM source range and the `chr/all` dependency.
+Missing, malformed, cross-pack, or out-of-range menu data must remain a native
+render failure; captures under `temp-videos` and FCEUX/Lua screenshots, logs,
+states, PPU/OAM dumps, and traces are verification material only.
 
 Finale provenance is the raw Bank04 chain `$851C` wait 50 -> `$83EA` wait 30
 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 -> `$FFFF`, loading
@@ -244,6 +266,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/asset_pack/tecmo_asset_pack_writer.c`: generic TAP1 builder/write API
 - `src/asset_pack/tecmo_asset_pack_d9f6.c`: bounded D9F6 nametable decoder and edge-case self-test
 - `src/asset_pack/tecmo_asset_pack_finale.c`: ROM-only TFIN-1 post-PASS finale importer
+- `src/asset_pack/tecmo_asset_pack_start_menu.c`: ROM-only TSGM-1 blue start-game menu importer
 - `src/asset_pack/tecmo_asset_pack_opening.c`: ROM-only TISC-1 TECMO/rabbit and NBA opening-screen importer
 - `src/asset_pack/tecmo_asset_pack_post_arena.c`: ROM-only READY/WARRIORS/CLIPPERS/BUCKS/PASS importers
 - `src/asset_pack/tecmo_asset_pack_util.c`: shared importer diagnostics, byte encoding, and local file helpers
@@ -252,6 +275,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/tecmo_intro_trace.c`: explicitly enabled local trace diagnostics only
 - `src/tecmo_intro_arena.c`: strict TATL/TASG loading, native arena drawing, capture debug scaffolding
 - `src/tecmo_intro_finale.c`: strict TFIN-1 loading, finale phases, title bands, and rendering
+- `src/tecmo_start_game_menu.c`: strict TSGM-1 menu loading, update, transition, and rendering
 - `src/tecmo_intro_stage.c`: intro sprite staging and arena transition state model
 - `src/tecmo_bank07.c`: fixed-bank helper counterparts
 - `src/win32_platform.c`: temporary Windows platform layer

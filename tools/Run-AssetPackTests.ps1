@@ -290,6 +290,7 @@ function Get-KnownLogicalAssetPackEntries {
         "intro/finale-sequence",
         "title/attract-continuation",
         "title/start-screen",
+        "menu/start-game",
         "roster/table.tsv",
         "title/original-text.txt",
         "title/glyph-map.tsv",
@@ -331,6 +332,7 @@ function Get-ExpectedLogicalAssetPackEntries {
             "intro/finale-sequence"
             "title/attract-continuation"
             "title/start-screen"
+            "menu/start-game"
         )
         capture_sources_present = @()
     }
@@ -794,6 +796,133 @@ function Test-FinalePayloadContract {
     }
 }
 
+function Test-StartMenuPayloadContract {
+    param(
+        [byte[]]$Bytes,
+        [uint64]$ChrByteCount
+    )
+
+    $Issues = [System.Collections.Generic.List[string]]::new()
+    $CellsOffset = 160
+    $PalettesOffset = 11680
+    $EmblemOffset = 11968
+    $CursorOffset = 12752
+    $OverlayDescsOffset = 12768
+    $OverlayCellsOffset = 12816
+    $DigitsOffset = 14052
+    if ($Bytes.Length -ne 14112 -or
+        [System.Text.Encoding]::ASCII.GetString($Bytes, 0, 4) -ne "TSGM" -or
+        [System.BitConverter]::ToUInt16($Bytes, 4) -ne 1 -or
+        [System.BitConverter]::ToUInt16($Bytes, 6) -ne 160 -or
+        [System.BitConverter]::ToUInt16($Bytes, 8) -ne 32 -or
+        [System.BitConverter]::ToUInt16($Bytes, 10) -ne 30 -or
+        [System.BitConverter]::ToUInt16($Bytes, 12) -ne 2 -or
+        [System.BitConverter]::ToUInt16($Bytes, 14) -ne 6 -or
+        [System.BitConverter]::ToUInt32($Bytes, 16) -ne 1920 -or
+        [System.BitConverter]::ToUInt32($Bytes, 20) -ne $CellsOffset -or
+        [System.BitConverter]::ToUInt32($Bytes, 24) -ne $PalettesOffset -or
+        [System.BitConverter]::ToUInt16($Bytes, 28) -ne 9 -or
+        [System.BitConverter]::ToUInt16($Bytes, 30) -ne 32 -or
+        [System.BitConverter]::ToUInt32($Bytes, 32) -ne $EmblemOffset -or
+        [System.BitConverter]::ToUInt16($Bytes, 36) -ne 49 -or
+        [System.BitConverter]::ToUInt16($Bytes, 38) -ne 16 -or
+        [System.BitConverter]::ToUInt32($Bytes, 40) -ne $CursorOffset -or
+        [System.BitConverter]::ToUInt32($Bytes, 44) -ne $Bytes.Length) {
+        [void]$Issues.Add("header")
+        return [pscustomobject]@{ passed = $false; issues = $Issues.ToArray() }
+    }
+    $ExpectedMetadata = @(32, 7, 6, 8, 32, 8, 5, 31, 88, 16, 184, 60)
+    for ($Index = 0; $Index -lt $ExpectedMetadata.Count; ++$Index) {
+        if ([System.BitConverter]::ToUInt16($Bytes, 48 + $Index * 2) -ne $ExpectedMetadata[$Index]) {
+            [void]$Issues.Add("metadata"); break
+        }
+    }
+    if ([System.BitConverter]::ToUInt32($Bytes, 72) -ne $OverlayDescsOffset -or
+        [System.BitConverter]::ToUInt16($Bytes, 76) -ne 3 -or
+        [System.BitConverter]::ToUInt16($Bytes, 78) -ne 16 -or
+        [System.BitConverter]::ToUInt32($Bytes, 80) -ne $OverlayCellsOffset -or
+        [System.BitConverter]::ToUInt32($Bytes, 84) -ne 206 -or
+        [System.BitConverter]::ToUInt32($Bytes, 88) -ne $DigitsOffset -or
+        [System.BitConverter]::ToUInt16($Bytes, 92) -ne 10 -or
+        [System.BitConverter]::ToUInt16($Bytes, 94) -ne 6) {
+        [void]$Issues.Add("aux-layout")
+    }
+    $ExpectedStageFrames = @(0, 2, 4, 6, 8, 20, 24, 28, 32)
+    for ($Index = 0; $Index -lt 9; ++$Index) {
+        if ([System.BitConverter]::ToUInt16($Bytes, 96 + $Index * 2) -ne $ExpectedStageFrames[$Index]) {
+            [void]$Issues.Add("stage-frames"); break
+        }
+    }
+    for ($Index = 0; $Index -lt 7; ++$Index) {
+        if ($Bytes[114 + $Index] -ne ($Index + 1)) { [void]$Issues.Add("routes"); break }
+    }
+    for ($Index = 121; $Index -lt 160; ++$Index) {
+        if ($Bytes[$Index] -ne 0) { [void]$Issues.Add("reserved"); break }
+    }
+    foreach ($Range in @(
+        [pscustomobject]@{ start = $CellsOffset; count = 1920 },
+        [pscustomobject]@{ start = $OverlayCellsOffset; count = 206 },
+        [pscustomobject]@{ start = $DigitsOffset; count = 10 }
+    )) {
+        for ($Cell = 0; $Cell -lt $Range.count; ++$Cell) {
+            $Offset = $Range.start + $Cell * 6
+            $ChrOffset = [System.BitConverter]::ToUInt32($Bytes, $Offset + 2)
+            if ($Bytes[$Offset + 1] -gt 3 -or ($ChrOffset % 16) -ne 0 -or
+                [uint64]$ChrOffset + 16 -gt $ChrByteCount) {
+                [void]$Issues.Add("cell-range"); break
+            }
+        }
+    }
+    for ($Index = 0; $Index -lt 9 * 32; ++$Index) {
+        if ($Bytes[$PalettesOffset + $Index] -gt 0x3F) { [void]$Issues.Add("palette-range"); break }
+    }
+    for ($Index = 0; $Index -lt 32; ++$Index) {
+        if ($Bytes[$PalettesOffset + 4 * 32 + $Index] -ne 0x0F) {
+            [void]$Issues.Add("black-stage"); break
+        }
+    }
+    for ($Piece = 0; $Piece -lt 49; ++$Piece) {
+        $Offset = $EmblemOffset + $Piece * 16
+        $Top = [System.BitConverter]::ToUInt32($Bytes, $Offset + 4)
+        $Bottom = [System.BitConverter]::ToUInt32($Bytes, $Offset + 8)
+        if (($Top % 16) -ne 0 -or $Bottom -ne $Top + 16 -or
+            [uint64]$Bottom + 16 -gt $ChrByteCount -or $Bytes[$Offset + 12] -gt 3 -or
+            ($Bytes[$Offset + 13] -band 0xF8) -ne 0 -or $Bytes[$Offset + 14] -ne 0 -or
+            $Bytes[$Offset + 15] -ne 0) {
+            [void]$Issues.Add("emblem-piece"); break
+        }
+    }
+    if ([System.BitConverter]::ToInt16($Bytes, $CursorOffset) -ne 31 -or
+        [System.BitConverter]::ToInt16($Bytes, $CursorOffset + 2) -ne 88 -or
+        [System.BitConverter]::ToUInt32($Bytes, $CursorOffset + 8) -ne
+            ([System.BitConverter]::ToUInt32($Bytes, $CursorOffset + 4) + 16) -or
+        $Bytes[$CursorOffset + 12] -ne 0 -or $Bytes[$CursorOffset + 13] -ne 0 -or
+        $Bytes[$CursorOffset + 14] -ne 0 -or $Bytes[$CursorOffset + 15] -ne 0) {
+        [void]$Issues.Add("cursor")
+    }
+    $ExpectedOverlays = @(
+        @(0, 42, 7, 6, 5, 23, 0),
+        @(42, 80, 10, 8, 5, 19, 1),
+        @(122, 84, 14, 6, 5, 21, 2)
+    )
+    for ($Index = 0; $Index -lt 3; ++$Index) {
+        $Offset = $OverlayDescsOffset + $Index * 16
+        $Actual = @(
+            [System.BitConverter]::ToUInt32($Bytes, $Offset),
+            [System.BitConverter]::ToUInt16($Bytes, $Offset + 4),
+            [System.BitConverter]::ToUInt16($Bytes, $Offset + 6),
+            [System.BitConverter]::ToUInt16($Bytes, $Offset + 8),
+            [System.BitConverter]::ToUInt16($Bytes, $Offset + 10),
+            [System.BitConverter]::ToUInt16($Bytes, $Offset + 12),
+            $Bytes[$Offset + 14]
+        )
+        if (($Actual -join ",") -ne ($ExpectedOverlays[$Index] -join ",") -or $Bytes[$Offset + 15] -ne 0) {
+            [void]$Issues.Add("overlay-desc"); break
+        }
+    }
+    return [pscustomobject]@{ passed = $Issues.Count -eq 0; issues = $Issues.ToArray() }
+}
+
 function Add-TestResult {
     param([pscustomobject]$Result)
 
@@ -1016,6 +1145,50 @@ try {
         id = "assetpack-finale-source-contract"
         passed = @($SourceMutationCases | Where-Object { !$_.rejected }).Count -eq 0
         cases = $SourceMutationCases.ToArray()
+        malformed_rom_persisted = $false
+        malformed_assetpack_persisted = $false
+        raw_output_persisted = $false
+    })
+
+    $StartMenuSourceCases = [System.Collections.Generic.List[object]]::new()
+    $StartMenuSourceSpecs = @(
+        [pscustomobject]@{ id = "descriptor"; bank = $ExpectedPrgBanks - 1; cpu = 0xDCA1; fixed = $true },
+        [pscustomobject]@{ id = "compressed-screen"; bank = 0; cpu = 0x8898; fixed = $false },
+        [pscustomobject]@{ id = "root-menu-record"; bank = 3; cpu = 0x9B55; fixed = $false },
+        [pscustomobject]@{ id = "fade-out"; bank = $ExpectedPrgBanks - 1; cpu = 0xDB25; fixed = $true },
+        [pscustomobject]@{ id = "input-parameters"; bank = 3; cpu = 0x9F13; fixed = $false }
+    )
+    foreach ($Spec in $StartMenuSourceSpecs) {
+        $Rejected = $false
+        try {
+            [System.IO.File]::Copy($ReferenceRom, $MalformedSourceRom, $true)
+            $CpuBase = if ($Spec.fixed) { 0xC000 } else { 0x8000 }
+            $PatchOffset = [uint64]($PrgStart + [int]$Spec.bank * 0x4000 + ([int]$Spec.cpu - $CpuBase))
+            $PatchFile = [System.IO.File]::Open($MalformedSourceRom,
+                                               [System.IO.FileMode]::Open,
+                                               [System.IO.FileAccess]::ReadWrite,
+                                               [System.IO.FileShare]::None)
+            try {
+                [void]$PatchFile.Seek([int64]$PatchOffset, [System.IO.SeekOrigin]::Begin)
+                $Original = $PatchFile.ReadByte()
+                if ($Original -lt 0) { throw "Could not read start-menu mutation source byte." }
+                [void]$PatchFile.Seek(-1, [System.IO.SeekOrigin]::Current)
+                $PatchFile.WriteByte([byte]($Original -bxor 1))
+            } finally {
+                $PatchFile.Dispose()
+            }
+            $null = & $ExePath --build-assetpack $MalformedSourceRom $MalformedSourcePack 2>&1
+            $Rejected = $LASTEXITCODE -ne 0
+        } finally {
+            if (Test-Path -LiteralPath $MalformedSourcePack) { Remove-Item -LiteralPath $MalformedSourcePack -Force }
+            if (Test-Path -LiteralPath $MalformedSourceRom) { Remove-Item -LiteralPath $MalformedSourceRom -Force }
+        }
+        [void]$StartMenuSourceCases.Add([pscustomobject]@{ id = $Spec.id; rejected = $Rejected })
+    }
+    Add-TestResult ([pscustomobject]@{
+        id = "assetpack-start-game-menu-source-contract"
+        passed = @($StartMenuSourceCases | Where-Object { !$_.rejected }).Count -eq 0
+        cases = $StartMenuSourceCases.ToArray()
         malformed_rom_persisted = $false
         malformed_assetpack_persisted = $false
         raw_output_persisted = $false
@@ -1725,6 +1898,79 @@ try {
                     raw_asset_bytes_persisted = $false
                 })
 
+                $StartMenuBytes = Read-AssetPackEntryBytes -Path $AssetPackPath -Directory $Directory -EntryId "menu/start-game"
+                $StartMenuContract = Test-StartMenuPayloadContract -Bytes $StartMenuBytes -ChrByteCount $ChrByteCount
+                $TitleBgPalette = Read-FileBytesAtOffset -Path $ReferenceRom -Offset ([uint64]($PrgStart + (0x9366 - 0x8000))) -Count 16
+                $TitleSpritePalette = Read-FileBytesAtOffset -Path $ReferenceRom -Offset ([uint64]($PrgStart + (0xBE27 - 0x8000))) -Count 16
+                $MenuBgPalette = Read-FileBytesAtOffset -Path $ReferenceRom -Offset ([uint64]($PrgStart + (0x9356 - 0x8000))) -Count 16
+                $MenuSpritePalette = Read-FileBytesAtOffset -Path $ReferenceRom -Offset ([uint64]($PrgStart + (0xBE37 - 0x8000))) -Count 16
+                $ExpectedMenuPalettes = [System.Collections.Generic.List[byte]]::new()
+                $TitlePaletteSource = @($TitleBgPalette + $TitleSpritePalette)
+                for ($Stage = 0; $Stage -lt 4; ++$Stage) {
+                    $Reduction = $Stage * 0x10
+                    foreach ($Color in $TitlePaletteSource) {
+                        $Value = if ($Color -eq 0x0F) { 0x0F } elseif (($Color -band 0x30) -ge $Reduction) {
+                            $Color - $Reduction
+                        } else { 0x0F }
+                        [void]$ExpectedMenuPalettes.Add([byte]$Value)
+                    }
+                }
+                for ($Index = 0; $Index -lt 32; ++$Index) { [void]$ExpectedMenuPalettes.Add([byte]0x0F) }
+                $MenuPaletteSource = @($MenuBgPalette + $MenuSpritePalette)
+                for ($Cap = 0; $Cap -lt 4; ++$Cap) {
+                    foreach ($Color in $MenuPaletteSource) {
+                        $Value = $Color
+                        if ($Color -ne 0x0F -and ($Color -band 0x30) -gt ($Cap * 0x10)) {
+                            $Value = ($Color -band 0x0F) -bor ($Cap * 0x10)
+                        }
+                        [void]$ExpectedMenuPalettes.Add([byte]$Value)
+                    }
+                }
+                $ActualMenuPalettes = [byte[]]$StartMenuBytes[11680..11967]
+                $MenuPalettesExact = (@(Compare-Object $ExpectedMenuPalettes.ToArray() $ActualMenuPalettes -SyncWindow 0)).Count -eq 0
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-start-game-menu-native"
+                    passed = $StartMenuContract.passed -and $MenuPalettesExact
+                    format = if ($StartMenuBytes.Length -ge 4) { [System.Text.Encoding]::ASCII.GetString($StartMenuBytes, 0, 4) } else { "" }
+                    byte_count = $StartMenuBytes.Length
+                    page_count = if ($StartMenuBytes.Length -ge 14) { [System.BitConverter]::ToUInt16($StartMenuBytes, 12) } else { 0 }
+                    palette_stage_count = if ($StartMenuBytes.Length -ge 30) { [System.BitConverter]::ToUInt16($StartMenuBytes, 28) } else { 0 }
+                    root_item_count = if ($StartMenuBytes.Length -ge 52) { [System.BitConverter]::ToUInt16($StartMenuBytes, 50) } else { 0 }
+                    season_transition_frames = if ($StartMenuBytes.Length -ge 58) { [System.BitConverter]::ToUInt16($StartMenuBytes, 56) } else { 0 }
+                    palette_stages_exact = $MenuPalettesExact
+                    contract_issues = $StartMenuContract.issues
+                    raw_asset_bytes_persisted = $false
+                })
+                $StartMenuMalformedCases = [System.Collections.Generic.List[object]]::new()
+                $StartMenuMalformedSpecs = @(
+                    [pscustomobject]@{ id = "magic"; mutate = { param([byte[]]$Data) $Data[0] = [byte][char]'X' } },
+                    [pscustomobject]@{ id = "declared-size"; mutate = { param([byte[]]$Data) [System.BitConverter]::GetBytes([uint32]($Data.Length - 1)).CopyTo($Data, 44) } },
+                    [pscustomobject]@{ id = "reserved"; mutate = { param([byte[]]$Data) $Data[121] = 1 } },
+                    [pscustomobject]@{ id = "stage-frame"; mutate = { param([byte[]]$Data) $Data[96 + 8 * 2] = 31 } },
+                    [pscustomobject]@{ id = "route"; mutate = { param([byte[]]$Data) $Data[114] = 0 } },
+                    [pscustomobject]@{ id = "cell-palette"; mutate = { param([byte[]]$Data) $Data[161] = 4 } },
+                    [pscustomobject]@{ id = "cell-chr-alignment"; mutate = { param([byte[]]$Data) $Data[162] = $Data[162] -bxor 1 } },
+                    [pscustomobject]@{ id = "cell-chr-range"; mutate = { param([byte[]]$Data) [System.BitConverter]::GetBytes([uint32]$ChrByteCount).CopyTo($Data, 162) } },
+                    [pscustomobject]@{ id = "palette-range"; mutate = { param([byte[]]$Data) $Data[11680] = 0x40 } },
+                    [pscustomobject]@{ id = "black-stage"; mutate = { param([byte[]]$Data) $Data[11680 + 4 * 32] = 0 } },
+                    [pscustomobject]@{ id = "emblem-reserved"; mutate = { param([byte[]]$Data) $Data[11968 + 14] = 1 } },
+                    [pscustomobject]@{ id = "cursor-coordinate"; mutate = { param([byte[]]$Data) $Data[12752] = 30 } },
+                    [pscustomobject]@{ id = "overlay-desc"; mutate = { param([byte[]]$Data) $Data[12768 + 14] = 7 } }
+                )
+                foreach ($Spec in $StartMenuMalformedSpecs) {
+                    $Malformed = [byte[]]$StartMenuBytes.Clone()
+                    & $Spec.mutate $Malformed
+                    $Rejected = !(Test-StartMenuPayloadContract -Bytes $Malformed -ChrByteCount $ChrByteCount).passed
+                    [void]$StartMenuMalformedCases.Add([pscustomobject]@{ id = $Spec.id; rejected = $Rejected })
+                }
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-start-game-menu-malformed-contracts"
+                    passed = @($StartMenuMalformedCases | Where-Object { !$_.rejected }).Count -eq 0
+                    cases = $StartMenuMalformedCases.ToArray()
+                    mutated_payloads_persisted = $false
+                    raw_asset_bytes_persisted = $false
+                })
+
                 $FinaleBytes = Read-AssetPackEntryBytes -Path $AssetPackPath -Directory $Directory -EntryId "intro/finale-sequence"
                 $FinaleContract = Test-FinalePayloadContract -Bytes $FinaleBytes -ChrByteCount ([uint64]$ExpectedChrBanks * 8192)
                 Add-TestResult ([pscustomobject]@{
@@ -1914,6 +2160,53 @@ try {
                     passed = $TitleSourcePassed
                     attract_roles = $TitleAttractRoles
                     start_roles = $TitleStartRoles
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $StartMenuSource = @($SourceMap.logical_entries | Where-Object { $_.id -eq "menu/start-game" } | Select-Object -First 1)
+                $StartMenuRoles = @($StartMenuSource.sources | ForEach-Object { [string]$_.role })
+                $ExpectedStartMenuRoles = @(
+                    "descriptor", "compressed-screen", "menu-background-palette",
+                    "title-background-palette", "title-sprite-palette", "menu-sprite-selectors",
+                    "menu-sprite-palette", "nba-emblem", "root-cursor", "character-map",
+                    "root-menu-record", "season-menu-record", "music-popup-record",
+                    "speed-popup-record", "period-popup-record", "period-values", "screen-loader",
+                    "fade-out", "fade-in", "season-transition", "root-input-parameters",
+                    "pointer-coordinate-tables"
+                )
+                $StartMenuFingerprintedRoles = @($StartMenuSource.sources | Where-Object {
+                    (($_.PSObject.Properties.Name -contains "fingerprint_fnv1a32") -or
+                     ($_.PSObject.Properties.Name -contains "encoded_fingerprint_fnv1a32"))
+                })
+                $ExpectedStartMenuDescriptorOffset = [uint64]($OpeningFixedStart + (0xDCA1 - 0xC000))
+                $ExpectedStartMenuStreamOffset = [uint64]($OpeningPrgStart + (0x8898 - 0x8000))
+                $StartMenuDescriptor = @($StartMenuSource.sources | Where-Object { $_.role -eq "descriptor" } | Select-Object -First 1)
+                $StartMenuStream = @($StartMenuSource.sources | Where-Object { $_.role -eq "compressed-screen" } | Select-Object -First 1)
+                $StartMenuSourcePassed = $StartMenuSource.Count -eq 1 -and
+                    $StartMenuSource.schema -eq "tecmo.start-game-menu/TSGM-1" -and
+                    $StartMenuSource.input_contract -eq "ines-only" -and
+                    (@(Compare-Object $ExpectedStartMenuRoles $StartMenuRoles)).Count -eq 0 -and
+                    $StartMenuFingerprintedRoles.Count -eq 22 -and
+                    [uint64]$StartMenuDescriptor.source_offset -eq $ExpectedStartMenuDescriptorOffset -and
+                    [int]$StartMenuDescriptor.cpu_address -eq 0xDCA1 -and
+                    [uint64]$StartMenuStream.source_offset -eq $ExpectedStartMenuStreamOffset -and
+                    [int]$StartMenuStream.cpu_address -eq 0x8898 -and
+                    [int]$StartMenuStream.encoded_size -eq 220 -and
+                    [int]$StartMenuStream.decoded_size -eq 2048 -and
+                    [int]$StartMenuSource.native_contract.pages -eq 2 -and
+                    [int]$StartMenuSource.native_contract.cells -eq 1920 -and
+                    (@($StartMenuSource.native_contract.palette_stage_frames) -join ",") -eq "0,2,4,6,8,20,24,28,32" -and
+                    [int]$StartMenuSource.native_contract.root_items -eq 7 -and
+                    [int]$StartMenuSource.native_contract.season_items -eq 6 -and
+                    [int]$StartMenuSource.native_contract.direction_repeat_frames -eq 8 -and
+                    [int]$StartMenuSource.native_contract.season_transition_frames -eq 32 -and
+                    @($StartMenuRoles | Where-Object { $_ -match "trace|capture|log|screenshot" }).Count -eq 0
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-start-game-menu-source-provenance"
+                    passed = $StartMenuSourcePassed
+                    roles = $StartMenuRoles
+                    fingerprinted_role_count = $StartMenuFingerprintedRoles.Count
+                    input_contract = if ($StartMenuSource.Count -eq 1) { $StartMenuSource.input_contract } else { $null }
                     raw_asset_bytes_persisted = $false
                 })
 

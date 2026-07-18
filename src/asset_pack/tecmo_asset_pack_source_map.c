@@ -707,6 +707,73 @@ static int append_title_source_map_entries(char *buffer, size_t capacity,
         (unsigned long long)p[1].prompt_visible_offset, TECMO_ASSET_PACK_TITLE_PROMPT_VISIBLE_CPU);
 }
 
+static int append_start_menu_source_map_entry(char *buffer,
+                                              size_t capacity,
+                                              size_t *length,
+                                              int *first,
+                                              const TecmoStartGameMenuProvenance *p)
+{
+    const char *prefix = *first != 0 ? "" : ",\n";
+    *first = 0;
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "%s"
+        "    {\"id\":\"%s\",\"kind\":\"start-game-menu-native\","
+        "\"schema\":\"tecmo.start-game-menu/TSGM-1\",\"screen_id\":4,"
+        "\"input_contract\":\"ines-only\",\"sources\":["
+        "{\"role\":\"descriptor\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":7,\"fingerprint_fnv1a32\":\"0A5B3B88\"},"
+        "{\"role\":\"compressed-screen\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"bank\":0,\"cpu_address\":%u,\"encoded_size\":%llu,\"decoded_size\":2048,\"encoded_fingerprint_fnv1a32\":\"8047E031\",\"decoded_fingerprint_fnv1a32\":\"E1840CFE\"},"
+        "{\"role\":\"menu-background-palette\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"bank\":0,\"cpu_address\":%u,\"size\":16,\"fingerprint_fnv1a32\":\"F16D31BF\"},"
+        "{\"role\":\"title-background-palette\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"bank\":0,\"cpu_address\":%u,\"size\":16,\"fingerprint_fnv1a32\":\"BBF7850B\"},"
+        "{\"role\":\"title-sprite-palette\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"bank\":0,\"cpu_address\":%u,\"size\":16,\"fingerprint_fnv1a32\":\"ACF5D9A1\"},"
+        "{\"role\":\"menu-sprite-selectors\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"bank\":0,\"cpu_address\":%u,\"size\":7,\"selectors\":[244,245],\"fingerprint_fnv1a32\":\"23BDC5CE\"},"
+        "{\"role\":\"menu-sprite-palette\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"bank\":0,\"cpu_address\":%u,\"size\":16,\"fingerprint_fnv1a32\":\"F85BA74A\"},"
+        "{\"role\":\"nba-emblem\",\"source_entry\":\"prg/bank01\",\"source_offset\":%llu,\"bank\":1,\"cpu_address\":%u,\"size\":197,\"piece_count\":49,\"fingerprint_fnv1a32\":\"669E53D3\"},"
+        "{\"role\":\"root-cursor\",\"source_entry\":\"prg/bank01\",\"source_offset\":%llu,\"bank\":1,\"cpu_address\":%u,\"size\":5,\"fingerprint_fnv1a32\":\"7D5835D4\"},"
+        "{\"role\":\"character-map\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":91,\"fingerprint_fnv1a32\":\"724F80CE\"},"
+        "{\"role\":\"root-menu-record\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":110,\"fingerprint_fnv1a32\":\"8CFF0188\"},"
+        "{\"role\":\"season-menu-record\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":101,\"fingerprint_fnv1a32\":\"01620B02\"},"
+        "{\"role\":\"music-popup-record\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":21,\"fingerprint_fnv1a32\":\"A144CD78\"},"
+        "{\"role\":\"speed-popup-record\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":33,\"fingerprint_fnv1a32\":\"BE4B508D\"},"
+        "{\"role\":\"period-popup-record\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":37,\"fingerprint_fnv1a32\":\"30B68A59\"},"
+        "{\"role\":\"period-values\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":5,\"fingerprint_fnv1a32\":\"0F3A2C36\"},"
+        "{\"role\":\"screen-loader\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":122,\"fingerprint_fnv1a32\":\"835283BE\"},"
+        "{\"role\":\"fade-out\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":99,\"fingerprint_fnv1a32\":\"5D98AB7A\"},"
+        "{\"role\":\"fade-in\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":72,\"fingerprint_fnv1a32\":\"D75D6EEA\"},"
+        "{\"role\":\"season-transition\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":161,\"fingerprint_fnv1a32\":\"7CBACC29\"},"
+        "{\"role\":\"root-input-parameters\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":145,\"fingerprint_fnv1a32\":\"DE568C7B\"},"
+        "{\"role\":\"pointer-coordinate-tables\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":247,\"fingerprint_fnv1a32\":\"218E8BCB\"}],"
+        "\"native_contract\":{\"pages\":2,\"cells\":1920,\"composed_fingerprint_fnv1a32\":\"661750F3\","
+        "\"palette_stage_frames\":[0,2,4,6,8,20,24,28,32],\"root_items\":7,\"season_items\":6,"
+        "\"direction_repeat_frames\":8,\"season_transition_frames\":32,"
+        "\"background_pixels_per_frame\":8,\"emblem_pixels_per_frame\":5,"
+        "\"resolved_chr_entry\":\"chr/all\"}}",
+        prefix, TECMO_ASSET_PACK_START_GAME_MENU_ID,
+        (unsigned long long)p->descriptor_offset, TECMO_ASSET_PACK_START_MENU_DESCRIPTOR_CPU,
+        (unsigned long long)p->stream_offset, TECMO_ASSET_PACK_START_MENU_STREAM_CPU,
+        (unsigned long long)p->stream_size,
+        (unsigned long long)p->background_palette_offset, TECMO_ASSET_PACK_START_MENU_BG_PALETTE_CPU,
+        (unsigned long long)p->title_background_palette_offset, TECMO_ASSET_PACK_START_MENU_TITLE_BG_PALETTE_CPU,
+        (unsigned long long)p->title_sprite_palette_offset, TECMO_ASSET_PACK_START_MENU_TITLE_SPRITE_PALETTE_CPU,
+        (unsigned long long)p->sprite_setup_offset, TECMO_ASSET_PACK_START_MENU_SPRITE_SETUP_CPU,
+        (unsigned long long)p->sprite_palette_offset, TECMO_ASSET_PACK_START_MENU_SPRITE_PALETTE_CPU,
+        (unsigned long long)p->emblem_offset, TECMO_ASSET_PACK_START_MENU_EMBLEM_CPU,
+        (unsigned long long)p->cursor_offset, TECMO_ASSET_PACK_START_MENU_CURSOR_CPU,
+        (unsigned long long)p->char_map_offset, TECMO_ASSET_PACK_START_MENU_CHAR_MAP_CPU,
+        (unsigned long long)p->main_record_offset, TECMO_ASSET_PACK_START_MENU_MAIN_RECORD_CPU,
+        (unsigned long long)p->season_record_offset, TECMO_ASSET_PACK_START_MENU_SEASON_RECORD_CPU,
+        (unsigned long long)p->music_record_offset, TECMO_ASSET_PACK_START_MENU_MUSIC_RECORD_CPU,
+        (unsigned long long)p->speed_record_offset, TECMO_ASSET_PACK_START_MENU_SPEED_RECORD_CPU,
+        (unsigned long long)p->period_record_offset, TECMO_ASSET_PACK_START_MENU_PERIOD_RECORD_CPU,
+        (unsigned long long)p->period_values_offset, TECMO_ASSET_PACK_START_MENU_PERIOD_VALUES_CPU,
+        (unsigned long long)p->loader_offset, TECMO_ASSET_PACK_START_MENU_LOADER_CPU,
+        (unsigned long long)p->fade_out_offset, TECMO_ASSET_PACK_START_MENU_FADE_OUT_CPU,
+        (unsigned long long)p->fade_in_offset, TECMO_ASSET_PACK_START_MENU_FADE_IN_CPU,
+        (unsigned long long)p->season_route_offset, TECMO_ASSET_PACK_START_MENU_SEASON_ROUTE_CPU,
+        (unsigned long long)p->input_params_offset, TECMO_ASSET_PACK_START_MENU_INPUT_PARAMS_CPU,
+        (unsigned long long)p->pointer_coord_offset, TECMO_ASSET_PACK_START_MENU_POINTER_COORD_CPU);
+}
+
 char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    uint32_t trainer_bytes,
                                    uint32_t prg_banks,
@@ -720,9 +787,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoPostArenaProvenance *post_arena_provenance,
                                    const TecmoFinaleProvenance *finale_provenance,
                                    const TecmoTitleProvenance title_provenance[2],
+                                   const TecmoStartGameMenuProvenance *start_menu_provenance,
                                    size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 13U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 14U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -914,7 +982,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                        finale_provenance) != 0 ||
         (title_provenance[0].stream_cpu != 0U &&
          append_title_source_map_entries(source_map, capacity, &length,
-                                         &first_logical, title_provenance) != 0)) {
+                                         &first_logical, title_provenance) != 0) ||
+        (start_menu_provenance->stream_size != 0U &&
+         append_start_menu_source_map_entry(source_map, capacity, &length,
+                                            &first_logical, start_menu_provenance) != 0)) {
         free(source_map);
         return NULL;
     }

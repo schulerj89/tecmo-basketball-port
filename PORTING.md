@@ -231,9 +231,26 @@ FCEUX screenshots, Lua status, OAM dumps, or PPU dumps used for verification.
 After the attract route resets, the first START enters a ten-frame title load
 window. The input must be released before a second START is armed. That second
 press runs nine seven-frame blank/visible prompt cycles through confirmation
-frame 126 and hands off at frame 127. The current handoff target is the existing
-native menu; porting the original blue menu screen is the next independent
-boundary.
+frame 126 and hands off at frame 127 to the original blue start-game menu.
+
+The blue menu is now a ROM-only native boundary. `menu/start-game` uses TSGM-1
+and contains two precomposed 32x30 pages, nine exact transition palette stages,
+resolved background cells, the 49-piece NBA emblem, the root cursor, settings
+overlays/digits, and native input/route/timing metadata. The importer decodes
+screen `$04`, composes the root and season records through the ROM character
+map and box rules, and rejects any result that does not match the Rev1 raw,
+decoded, and composed fingerprints. Runtime consumes only TSGM-1 and `chr/all`
+from the same asset pack; local video, Lua traces, PPU/OAM dumps, save states,
+screenshots, and decompilation files remain verification-only.
+
+Title-out/menu-in timing uses local palette checkpoints 0, 2, 4, 6, 8, 20,
+24, 28, and fully bright 32. The stable root has seven selections. Up/Down
+wrap immediately and repeat every eight held frames; NES A and B both dispatch,
+while START, SELECT, Left, and Right do nothing on the root. SEASON GAME moves
+to the six-item second page over 32 frames, advancing the background eight
+pixels and the emblem five pixels per frame; B performs the exact reverse.
+Unported routes cross an explicit native handoff rather than silently replaying
+6502 code or consuming capture data.
 
 The importer validates the raw finale dispatch chain as `$851C` wait 50 ->
 `$83EA` wait 30 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 ->
