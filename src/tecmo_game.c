@@ -103,6 +103,9 @@ static const char *mode_name(TecmoPlayMode mode)
     if (mode == TECMO_MODE_START_GAME_MENU) {
         return "START GAME MENU";
     }
+    if (mode == TECMO_MODE_PRESEASON_MENU) {
+        return "PRESEASON MENU";
+    }
     return "UNKNOWN";
 }
 
@@ -231,6 +234,7 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
     (void)tecmo_intro_finale_asset_load(&runtime->intro_finale_asset, project_root);
     (void)tecmo_title_asset_load(&runtime->title_asset, project_root);
     (void)tecmo_start_game_menu_asset_load(&runtime->start_game_menu_asset, project_root);
+    (void)tecmo_preseason_asset_load(&runtime->preseason_asset, project_root);
 
     if (tecmo_collect_rosters(project_root, &runtime->roster) != 0) {
         if (!allow_empty_roster) {
@@ -290,6 +294,15 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
                                sizeof(runtime->start_game_menu_asset.status),
                                "TSGM-1 chr/all contract rejected");
         }
+        if (runtime->preseason_asset.available &&
+            !tecmo_preseason_asset_chr_available(&runtime->preseason_asset,
+                                                 runtime->title_chr_bytes,
+                                                 runtime->title_chr_byte_count)) {
+            runtime->preseason_asset.available = false;
+            set_runtime_status(runtime->preseason_asset.status,
+                               sizeof(runtime->preseason_asset.status),
+                               "TPRE-1 chr/all contract rejected");
+        }
         if (runtime->selected_chr_bank >= chr_bank_count(runtime)) {
             runtime->selected_chr_bank = chr_bank_count(runtime) - 1U;
         }
@@ -345,7 +358,15 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
     if (mode == TECMO_MODE_START_GAME_MENU) {
         tecmo_start_game_menu_state_init(&runtime->start_game_menu_state);
     }
+    if (mode == TECMO_MODE_PRESEASON_MENU) {
+        tecmo_preseason_state_init(&runtime->preseason_state);
+        if (runtime->preseason_asset.available) {
+            runtime->preseason_state.direction_cooldown =
+                runtime->preseason_asset.accepted_input_seed;
+        }
+    }
     runtime->previous_input = (TecmoInput){0};
+    runtime->previous_player_two_input = (TecmoInput){0};
 }
 
 static void update_main_menu(TecmoRuntime *runtime, const TecmoControlFrame *controls)
@@ -400,6 +421,28 @@ static void update_start_game_menu(TecmoRuntime *runtime,
         tecmo_runtime_set_mode(runtime, TECMO_MODE_PLAY_SETUP);
     } else if (action == TECMO_START_GAME_MENU_ACTION_ROSTERS) {
         tecmo_runtime_set_mode(runtime, TECMO_MODE_ROSTERS);
+    } else if (action == TECMO_START_GAME_MENU_ACTION_PRESEASON) {
+        tecmo_runtime_set_mode(runtime, TECMO_MODE_PRESEASON_MENU);
+    }
+}
+
+static void update_preseason_menu(TecmoRuntime *runtime,
+                                  const TecmoControlFrame *player_one,
+                                  const TecmoControlFrame *player_two)
+{
+    TecmoPreseasonAction action = tecmo_preseason_update(
+        &runtime->preseason_state, &runtime->preseason_asset,
+        player_one, player_two);
+    if (action == TECMO_PRESEASON_ACTION_BACK_TO_START_MENU) {
+        tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+        runtime->start_game_menu_state.frame =
+            runtime->start_game_menu_asset.stable_frame;
+        runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
+        runtime->start_game_menu_state.root_selection = 0U;
+        runtime->start_game_menu_state.direction_cooldown =
+            runtime->start_game_menu_asset.accepted_input_seed;
+        runtime->start_game_menu_state.cursor_delay =
+            runtime->start_game_menu_asset.cursor_commit_delay_frames;
     }
 }
 
@@ -670,39 +713,56 @@ static void write_runtime_watch_memory(TecmoRuntime *runtime)
     tecmo_cpu_ram_write(runtime->memory, 0x0008, (uint8_t)selected_chr_table(runtime));
 }
 
-void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input)
+void tecmo_runtime_update_players(TecmoRuntime *runtime,
+                                  const TecmoInput *player_one,
+                                  const TecmoInput *player_two)
 {
-    TecmoControlFrame controls;
+    TecmoControlFrame player_one_controls;
+    TecmoControlFrame player_two_controls;
 
-    tecmo_control_frame_build(&controls, input, &runtime->previous_input);
+    tecmo_control_frame_build(&player_one_controls,
+                              player_one,
+                              &runtime->previous_input);
+    tecmo_control_frame_build(&player_two_controls,
+                              player_two,
+                              &runtime->previous_player_two_input);
     ++runtime->frame_counter;
     ++runtime->mode_frame_counter;
 
-    if (controls.pressed.debug_toggle) {
+    if (player_one_controls.pressed.debug_toggle) {
         runtime->debug_overlay = !runtime->debug_overlay;
     }
 
     if (runtime->mode == TECMO_MODE_MAIN_MENU) {
-        update_main_menu(runtime, &controls);
+        update_main_menu(runtime, &player_one_controls);
     } else if (runtime->mode == TECMO_MODE_TITLE_SCREEN) {
-        update_title_screen(runtime, &controls);
+        update_title_screen(runtime, &player_one_controls);
     } else if (runtime->mode == TECMO_MODE_INTRO_PROBE ||
                runtime->mode == TECMO_MODE_CHR_PLAYGROUND) {
-        update_probe_screen(runtime, &controls);
+        update_probe_screen(runtime, &player_one_controls);
     } else if (runtime->mode == TECMO_MODE_FIRST_SPRITE) {
-        update_first_sprite_probe(runtime, &controls);
+        update_first_sprite_probe(runtime, &player_one_controls);
     } else if (runtime->mode == TECMO_MODE_PLAY_SETUP) {
-        update_roster_selection(runtime, &controls, true);
+        update_roster_selection(runtime, &player_one_controls, true);
     } else if (runtime->mode == TECMO_MODE_ROSTERS) {
-        update_roster_selection(runtime, &controls, false);
+        update_roster_selection(runtime, &player_one_controls, false);
     } else if (runtime->mode == TECMO_MODE_COURT) {
-        update_court(runtime, &controls);
+        update_court(runtime, &player_one_controls);
     } else if (runtime->mode == TECMO_MODE_START_GAME_MENU) {
-        update_start_game_menu(runtime, &controls);
+        update_start_game_menu(runtime, &player_one_controls);
+    } else if (runtime->mode == TECMO_MODE_PRESEASON_MENU) {
+        update_preseason_menu(runtime, &player_one_controls,
+                              &player_two_controls);
     }
 
     write_runtime_watch_memory(runtime);
-    runtime->previous_input = controls.held;
+    runtime->previous_input = player_one_controls.held;
+    runtime->previous_player_two_input = player_two_controls.held;
+}
+
+void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input)
+{
+    tecmo_runtime_update_players(runtime, input, NULL);
 }
 
 static void clear(TecmoFramebuffer *fb, uint32_t color)
@@ -882,6 +942,22 @@ static void render_start_game_menu_mode(const TecmoRuntime *runtime,
                                     runtime->title_chr_byte_count,
                                     64, 0, 2)) {
         draw_centered_text(fb, 212, "NATIVE TSGM-1 START MENU UNAVAILABLE",
+                           rgb(252, 236, 170), 2);
+    }
+}
+
+static void render_preseason_menu_mode(const TecmoRuntime *runtime,
+                                       TecmoFramebuffer *fb)
+{
+    clear(fb, rgb(0, 0, 0));
+    if (!tecmo_preseason_draw(fb,
+                              &runtime->preseason_asset,
+                              &runtime->preseason_state,
+                              &runtime->start_game_menu_asset,
+                              runtime->title_chr_bytes,
+                              runtime->title_chr_byte_count,
+                              64, 0, 2)) {
+        draw_centered_text(fb, 212, "NATIVE TPRE-1 PRESEASON MENU UNAVAILABLE",
                            rgb(252, 236, 170), 2);
     }
 }
@@ -3234,6 +3310,8 @@ void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebu
         render_court(runtime, framebuffer);
     } else if (runtime->mode == TECMO_MODE_START_GAME_MENU) {
         render_start_game_menu_mode(runtime, framebuffer);
+    } else if (runtime->mode == TECMO_MODE_PRESEASON_MENU) {
+        render_preseason_menu_mode(runtime, framebuffer);
     }
 
     if (runtime->debug_overlay) {

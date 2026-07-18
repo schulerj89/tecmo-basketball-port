@@ -12,6 +12,7 @@
 #include "tecmo_intro_stage.h"
 #include "tecmo_intro_trace.h"
 #include "tecmo_memory.h"
+#include "tecmo_preseason_menu.h"
 #include "tecmo_start_game_menu.h"
 #include "tecmo_title_screen.h"
 
@@ -28,7 +29,8 @@ typedef enum TecmoPlayMode {
     TECMO_MODE_PLAY_SETUP,
     TECMO_MODE_ROSTERS,
     TECMO_MODE_COURT,
-    TECMO_MODE_START_GAME_MENU
+    TECMO_MODE_START_GAME_MENU,
+    TECMO_MODE_PRESEASON_MENU
 } TecmoPlayMode;
 
 typedef struct TecmoRuntime {
@@ -72,6 +74,8 @@ typedef struct TecmoRuntime {
     TecmoTitleAsset title_asset;
     TecmoStartGameMenuAsset start_game_menu_asset;
     TecmoStartGameMenuState start_game_menu_state;
+    TecmoPreseasonAsset preseason_asset;
+    TecmoPreseasonState preseason_state;
     char intro_l88e7_irq_vector[16];
     char intro_presents_data_cpu[16];
     bool intro_trace_available;
@@ -102,6 +106,7 @@ typedef struct TecmoRuntime {
     unsigned mode_frame_counter;
     float frame_seconds;
     TecmoInput previous_input;
+    TecmoInput previous_player_two_input;
 } TecmoRuntime;
 
 #define TECMO_RUNTIME_INIT_ALLOW_EMPTY_ROSTER 0x01U
@@ -113,6 +118,9 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
                                    unsigned flags);
 void tecmo_runtime_shutdown(TecmoRuntime *runtime);
 void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode);
+void tecmo_runtime_update_players(TecmoRuntime *runtime,
+                                  const TecmoInput *player_one,
+                                  const TecmoInput *player_two);
 void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input);
 void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
 bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t message_size);

@@ -223,9 +223,50 @@ The post-return `$E481` fade is used only where the traced native session has
 actually returned from Bank03: root TEAM DATA and the supported season-page
 GAME START/TEAM DATA departures. It holds palette stage 8 on exit frames 0-1,
 then stages 7/6/5 on 2-3/4-5/6-7, black stage 4 on 8-10, and emits the one-shot
-handoff on frame 11. Root PRESEASON (`$9966`) and ALL STAR (`$8221`) instead
-enter additional unported `$9A67` submenus, so the current native boundary
-hands them directly to `PLAY_SETUP` without incorrectly running `$E481` early.
+handoff on frame 11. ALL STAR (`$8221`) still crosses the explicit unported
+boundary to `PLAY_SETUP`. Root PRESEASON now enters the native Bank03 `$9966`
+path directly; it must not run `$E481` before that submenu returns.
+
+PRESEASON is a strict ROM-only native scene backed by `menu/preseason` TPRE-1.
+It composes the 14-row CONTROL and DIVISION overlays and the eight-row
+DIFFICULTY overlay from Bank03's character map and menu records over TSGM-1's
+screen `$04`, then imports the four team nametables, palettes, CHR mappings,
+team order/coordinates, and Bank01 player markers. Both `$8036` marker records
+provide the same CHR selector `$30`; the importer resolves the seven referenced
+8x16 pairs into a 224-byte CHR contract with FNV1a32 `1E505537`. CONTROL row zero opens
+EASY/MEDIUM/EXPERT; accepting commits the difficulty and selects MAN VS COM,
+while B restores the previously committed value. CONTROL rows 1-6 all proceed
+to team setup. MAN VS MAN gives the second division/team selector to pad 2;
+the other control modes keep both selectors on pad 1. Division Up/Down and
+team Left/Right wrap and repeat every eight held frames. A/B actions remain
+release-triggered, opposite directions consume the repeat gate without moving,
+and a second player in the same division skips the first player's occupied
+team. Division B returns to CONTROL, and team B rebuilds the same player's
+division menu.
+
+The CONTROL/DIVISION stack fades at team-entry frames 3/5/7 and is black from
+frame 9 through the frame-16 input handoff. The team screen remains black on
+palette frames 16-17, displays capped stages on 18-21, 22-25, and 26-29, and
+is fully bright from 30. Team exit is full at frame 0, capped on 1-2, 3-4, and
+5-6, black from 7, and rebuilds the menus after 32 frames. The rebuilt division
+menu is constructed while black; its displayed return fade is black at counter
+0, capped on 1-4, 5-8, and 9-12, and full at 13. Input is active during that
+return fade, matching the fixed helper.
+Selector entry seeds `$E1=5`; setup, teardown, team-entry, and team-exit phases
+freeze that value, and only interactive selector frames decrement it.
+
+This milestone ends at the interactive second-team screen. P2 A is consumed
+and seeds `$E1=5`, but deliberately does not execute Bank03 `$B277-$B282` or
+return to fixed `$E481`; therefore it cannot launch gameplay. TPRE-1 is 26736
+bytes with FNV1a32 `13DE1C71` and requires the same pack's exact 14112-byte
+TSGM-1 (`7505D7BD`) and 262144-byte `chr/all` (`F6F6E854` /
+`96A64F53B240ABB4`). Import fingerprints cover `$9966`, ownership/difficulty
+flow, popup/input tables, `$B1CC`, focused `$B283/$B287` division/team maps,
+the unexecuted `$B277` boundary, `$8031` cursor and `$8036` player records,
+four descriptors/streams/palettes, fixed input/loader/fades, and the full CHR.
+Missing, malformed, oversized, cross-pack, or revision-mismatched data is a
+hard native load/render failure. Emulator frames, Lua logs, OAM/PPU dumps,
+states, and `temp-videos` remain local verification evidence only.
 
 The settings popups are native: MUSIC wraps OFF/ON, SPEED wraps
 FAST/NORMAL/SLOW, and PERIOD clamps across 2/3/4/8/12 minutes. A accepts the

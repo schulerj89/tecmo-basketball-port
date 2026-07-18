@@ -868,6 +868,205 @@ try {
         error = if ($StartMenuNegativePassed) { $null } else { "runtime accepted missing or malformed TSGM-1 data" }
     })
 
+    $PreseasonRenderModes = @(
+        "preseason-control-setup-frame0", "preseason-control-setup-frame1",
+        "preseason-control-setup-frame13", "preseason-control-setup-frame14",
+        "preseason-control", "preseason-difficulty", "preseason-division",
+        "preseason-team-entry-frame0", "preseason-team-entry-frame3",
+        "preseason-team-entry-frame5", "preseason-team-entry-frame7",
+        "preseason-team-entry-frame9", "preseason-team-entry-frame16",
+        "preseason-p1-team-frame16", "preseason-p1-team-frame18",
+        "preseason-p1-team-frame22", "preseason-p1-team-frame26",
+        "preseason-p1-team-frame30", "preseason-p1-team-frame31",
+        "preseason-team-exit-frame0", "preseason-team-exit-frame1",
+        "preseason-team-exit-frame3", "preseason-team-exit-frame5",
+        "preseason-team-exit-frame7",
+        "preseason-p2-division-return-frame0",
+        "preseason-p2-division-return-frame1",
+        "preseason-p2-division-return-frame5",
+        "preseason-p2-division-return-frame9",
+        "preseason-p2-division-return-frame13",
+        "preseason-p2-team"
+    )
+    $PreseasonExpectedStates = @{
+        "preseason-control-setup-frame0" = "phase=CONTROL SETUP transition=0"
+        "preseason-control-setup-frame14" = "phase=CONTROL transition=14"
+        "preseason-difficulty" = "phase=DIFFICULTY .*difficulty=1 committed=1"
+        "preseason-team-entry-frame9" = "phase=TEAM ENTRY transition=9"
+        "preseason-team-entry-frame16" = "phase=TEAM transition=16"
+        "preseason-p1-team-frame30" = "phase=TEAM .*active-player=0 .*palette=30"
+        "preseason-team-exit-frame7" = "phase=TEAM EXIT transition=7"
+        "preseason-p2-division-return-frame0" = "phase=DIVISION .*active-player=1 .*return-fade=1/0"
+        "preseason-p2-division-return-frame13" = "phase=DIVISION .*active-player=1 .*return-fade=0/13"
+        "preseason-p2-team" = "phase=TEAM .*active-player=1 .*teams=0/1 .*palette=31"
+    }
+    $PreseasonRenderResults = New-Object System.Collections.Generic.List[object]
+    $PreseasonRenderPassed = $ListPassed
+    $PreseasonIsolatedRoot = Join-Path $OutputDir `
+        ("preseason_rom_only_root-" + [Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Force -Path $PreseasonIsolatedRoot | Out-Null
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    try {
+        $env:TECMO_ASSETPACK = $AssetPackPath
+        foreach ($Mode in $PreseasonRenderModes) {
+            $RenderPath = Join-Path $OutputDir ($Mode + ".png")
+            Remove-Item -LiteralPath $RenderPath -Force -ErrorAction SilentlyContinue
+            $RenderOutput = & $ExePath --root $PreseasonIsolatedRoot `
+                --render-test-mode $Mode $RenderPath 2>&1
+            $RenderExitCode = $LASTEXITCODE
+            $RenderText = (@($RenderOutput) | ForEach-Object { [string]$_ }) -join "`n"
+            $ExpectedState = $PreseasonExpectedStates[$Mode]
+            $OutputCreated = Test-Path -LiteralPath $RenderPath
+            $VisualPassed = $true
+            if ($OutputCreated -and ($Mode -eq "preseason-team-entry-frame9" -or
+                                     $Mode -eq "preseason-p1-team-frame16" -or
+                                     $Mode -eq "preseason-p2-division-return-frame0" -or
+                                     $Mode -eq "preseason-team-exit-frame7")) {
+                $Bitmap = [System.Drawing.Bitmap]::FromFile($RenderPath)
+                try {
+                    $VisualPassed = Test-PixelRectColor -Bitmap $Bitmap `
+                        -Left 64 -Top 0 -Right 575 -Bottom 479 -Red 0 -Green 0 -Blue 0
+                } finally {
+                    $Bitmap.Dispose()
+                }
+            } elseif ($OutputCreated -and ($Mode -eq "preseason-control" -or
+                                           $Mode -eq "preseason-p2-team")) {
+                $Bitmap = [System.Drawing.Bitmap]::FromFile($RenderPath)
+                try {
+                    $VisualPassed = Test-PixelRectHasNonBlack -Bitmap $Bitmap `
+                        -Left 64 -Top 0 -Right 575 -Bottom 479
+                } finally {
+                    $Bitmap.Dispose()
+                }
+            }
+            $RenderPassed = $RenderExitCode -eq 0 -and $OutputCreated -and
+                $RenderText -match "preseason-state" -and $VisualPassed -and
+                ([string]::IsNullOrEmpty($ExpectedState) -or $RenderText -match $ExpectedState)
+            if (!$RenderPassed) { $PreseasonRenderPassed = $false }
+            $PreseasonRenderResults.Add([pscustomobject]@{
+                mode = $Mode
+                passed = $RenderPassed
+                exit_code = $RenderExitCode
+                output_created = $OutputCreated
+                visual_matched = $VisualPassed
+                expected_state = $ExpectedState
+                state_matched = [string]::IsNullOrEmpty($ExpectedState) -or
+                    $RenderText -match $ExpectedState
+            })
+            Remove-Item -LiteralPath $RenderPath -Force -ErrorAction SilentlyContinue
+        }
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+        Remove-Item -LiteralPath $PreseasonIsolatedRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    if (!$PreseasonRenderPassed) { ++$Failures }
+    $Results.Add([pscustomobject]@{
+        id = "preseason-rom-only-render"
+        passed = $PreseasonRenderPassed
+        skipped = $false
+        cases = $PreseasonRenderResults
+        timing = "popup row construction; team entry 3/5/7/9; visible team palette 18/22/26/30; exit 1/3/5/7; division return 0/1/5/9/13"
+        isolated_root = $true
+        raw_output_persisted = $false
+        error = if ($PreseasonRenderPassed) { $null } else { "TPRE-1 render checkpoint failed from an isolated root" }
+    })
+
+    $PreseasonNegativeResults = New-Object System.Collections.Generic.List[object]
+    $PreseasonNegativePassed = $ListPassed
+    $PreseasonNegativeRoot = Join-Path $OutputDir `
+        ("preseason_negative_root-" + [Guid]::NewGuid().ToString("N"))
+    $PreseasonNegativeBuild = Join-Path $PreseasonNegativeRoot "build"
+    New-Item -ItemType Directory -Force -Path $PreseasonNegativeBuild | Out-Null
+    Copy-Item -LiteralPath $AssetPackPath `
+        -Destination (Join-Path $PreseasonNegativeBuild "tecmo.assetpack") -Force
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    try {
+        $PreseasonPackCases = @(
+            [pscustomobject]@{ id = "missing-entry-cross-pack"; entry = "menu/preseason"; kind = "missing-id"; offset = 0 },
+            [pscustomobject]@{ id = "huge-preseason-size"; entry = "menu/preseason"; kind = "huge-size"; offset = 0 },
+            [pscustomobject]@{ id = "same-size-preseason-fingerprint"; entry = "menu/preseason"; kind = "payload-xor"; offset = 3364 },
+            [pscustomobject]@{ id = "preseason-timing"; entry = "menu/preseason"; kind = "payload-zero"; offset = 139 },
+            [pscustomobject]@{ id = "preseason-reserved"; entry = "menu/preseason"; kind = "payload-one"; offset = 153 },
+            [pscustomobject]@{ id = "missing-start-menu-dependency"; entry = "menu/start-game"; kind = "missing-id"; offset = 0 },
+            [pscustomobject]@{ id = "cross-pack-start-menu-mutation"; entry = "menu/start-game"; kind = "payload-xor"; offset = 160 },
+            [pscustomobject]@{ id = "huge-start-menu-dependency"; entry = "menu/start-game"; kind = "huge-size"; offset = 0 },
+            [pscustomobject]@{ id = "same-size-chr-mutation"; entry = "chr/all"; kind = "payload-xor"; offset = 131071 },
+            [pscustomobject]@{ id = "huge-chr-dependency"; entry = "chr/all"; kind = "huge-size"; offset = 0 }
+        )
+        foreach ($Case in $PreseasonPackCases) {
+            [byte[]]$CaseBytes = [System.IO.File]::ReadAllBytes($AssetPackPath)
+            $DirectoryOffset = Get-AssetPackEntryDirectoryOffset `
+                -Bytes $CaseBytes -EntryId $Case.entry
+            if ($Case.kind -eq "huge-size") {
+                [System.BitConverter]::GetBytes([uint64]::MaxValue).CopyTo(
+                    $CaseBytes, $DirectoryOffset + 92)
+            } elseif ($Case.kind -eq "missing-id") {
+                $CaseBytes[$DirectoryOffset] = [byte][char]'x'
+            } else {
+                $PayloadOffset = Get-AssetPackEntryPayloadOffset `
+                    -Bytes $CaseBytes -EntryId $Case.entry
+                if ($Case.kind -eq "payload-zero") {
+                    $CaseBytes[$PayloadOffset + $Case.offset] = 0
+                } elseif ($Case.kind -eq "payload-one") {
+                    $CaseBytes[$PayloadOffset + $Case.offset] = 1
+                } else {
+                    $CaseBytes[$PayloadOffset + $Case.offset] =
+                        $CaseBytes[$PayloadOffset + $Case.offset] -bxor 1
+                }
+            }
+            $CasePack = Join-Path $OutputDir "malformed-preseason-$($Case.id).assetpack"
+            $CaseRender = Join-Path $OutputDir "malformed-preseason-$($Case.id).png"
+            [System.IO.File]::WriteAllBytes($CasePack, $CaseBytes)
+            Remove-Item -LiteralPath $CaseRender -Force -ErrorAction SilentlyContinue
+            $env:TECMO_ASSETPACK = $CasePack
+            $CaseOutput = & $ExePath --root $PreseasonNegativeRoot `
+                --render-test-mode preseason-p2-team $CaseRender 2>&1
+            $CaseExitCode = $LASTEXITCODE
+            $Rejected = $CaseExitCode -eq 1 -and !(Test-Path -LiteralPath $CaseRender)
+            if (!$Rejected) { $PreseasonNegativePassed = $false }
+            $PreseasonNegativeResults.Add([pscustomobject]@{
+                id = $Case.id
+                passed = $Rejected
+                exit_code = $CaseExitCode
+                rejected_by_runtime = $Rejected
+                dependency = $Case.entry
+                selected_pack_did_not_mix_with_root = $Case.id -ne "missing-entry-cross-pack" -or $Rejected
+            })
+            Remove-Item -LiteralPath $CasePack -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $CaseRender -Force -ErrorAction SilentlyContinue
+        }
+        $InvalidStateRender = Join-Path $OutputDir "preseason-invalid-state.png"
+        Remove-Item -LiteralPath $InvalidStateRender -Force -ErrorAction SilentlyContinue
+        $env:TECMO_ASSETPACK = $AssetPackPath
+        $InvalidStateOutput = & $ExePath --root $PreseasonNegativeRoot `
+            --render-test-mode preseason-invalid-state $InvalidStateRender 2>&1
+        $InvalidStateExit = $LASTEXITCODE
+        $InvalidStateRejected = $InvalidStateExit -eq 1 -and
+            !(Test-Path -LiteralPath $InvalidStateRender)
+        if (!$InvalidStateRejected) { $PreseasonNegativePassed = $false }
+        $PreseasonNegativeResults.Add([pscustomobject]@{
+            id = "invalid-state-no-output"
+            passed = $InvalidStateRejected
+            exit_code = $InvalidStateExit
+            rejected_by_runtime = $InvalidStateRejected
+        })
+        Remove-Item -LiteralPath $InvalidStateRender -Force -ErrorAction SilentlyContinue
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+        Remove-Item -LiteralPath $PreseasonNegativeRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    if (!$PreseasonNegativePassed) { ++$Failures }
+    $Results.Add([pscustomobject]@{
+        id = "preseason-missing-malformed-cross-pack-contract"
+        passed = $PreseasonNegativePassed
+        skipped = $false
+        cases = $PreseasonNegativeResults
+        isolated_root = $true
+        raw_output_persisted = $false
+        coverage_status = "missing-exact-size-whole-payload-timing-reserved-same-pack-tsgm-chr-cross-pack-invalid-state"
+        error = if ($PreseasonNegativePassed) { $null } else { "runtime accepted missing, malformed, or cross-pack TPRE-1 data" }
+    })
+
     $OpeningRenderCases = @(
         [pscustomobject]@{
             mode = "play-step6"

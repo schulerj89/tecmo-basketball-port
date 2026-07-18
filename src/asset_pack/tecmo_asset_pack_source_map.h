@@ -21,6 +21,7 @@ char *tecmo_asset_pack_build_ines_source_map(
     const TecmoFinaleProvenance *finale_provenance,
     const TecmoTitleProvenance title_provenance[2],
     const TecmoStartGameMenuProvenance *start_menu_provenance,
+    const TecmoPreseasonMenuProvenance *preseason_provenance,
     size_t *source_map_size_out);
 
 #endif

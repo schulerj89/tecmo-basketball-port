@@ -8,6 +8,7 @@
 #include "asset_pack/tecmo_asset_pack_import_layout.h"
 #include "asset_pack/tecmo_asset_pack_opening.h"
 #include "asset_pack/tecmo_asset_pack_post_arena.h"
+#include "asset_pack/tecmo_asset_pack_preseason.h"
 #include "asset_pack/tecmo_asset_pack_source_map.h"
 #include "asset_pack/tecmo_asset_pack_start_menu.h"
 #include "asset_pack/tecmo_asset_pack_title.h"
@@ -58,6 +59,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                           TecmoFinaleProvenance *finale_provenance,
                                           TecmoTitleProvenance title_provenance[2],
                                           TecmoStartGameMenuProvenance *start_menu_provenance,
+                                          TecmoPreseasonMenuProvenance *preseason_provenance,
                                           char *message,
                                           size_t message_size)
 {
@@ -75,6 +77,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
     uint8_t title_attract_payload[TECMO_ASSET_PACK_TITLE_ATTRACT_SIZE];
     uint8_t title_screen_payload[TECMO_ASSET_PACK_TITLE_SCREEN_SIZE];
     uint8_t start_menu_payload[TECMO_ASSET_PACK_START_MENU_SIZE];
+    uint8_t preseason_payload[TECMO_ASSET_PACK_PRESEASON_SIZE];
     uint64_t script_source_offset =
         prg_bank_cpu_source_offset(prg_offset,
                                    prg_banks,
@@ -512,6 +515,26 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
         tecmo_asset_pack_set_message(message, message_size, "Could not write native start-game menu entry.");
         return -1;
     }
+    if (tecmo_asset_pack_build_preseason_menu(rom, rom_size, prg_offset,
+                                              prg_banks, chr_size,
+                                              enforce_finale_revision_fingerprints,
+                                              preseason_payload,
+                                              sizeof(preseason_payload),
+                                              preseason_provenance,
+                                              message, message_size) != 0) return -1;
+    entry_info = tecmo_asset_pack_make_entry_info(TECMO_ASSET_PACK_PRESEASON_MENU_ID,
+                                 TECMO_ASSET_PACK_TYPE_DATA, 3U,
+                                 TECMO_ASSET_PACK_PRESEASON_FLOW_CPU,
+                                 preseason_provenance->flow_offset,
+                                 TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+    if (tecmo_asset_pack_builder_add_memory(builder, &entry_info,
+                                            preseason_payload,
+                                            sizeof(preseason_payload),
+                                            message, message_size) != 0) {
+        tecmo_asset_pack_set_message(message, message_size,
+                                     "Could not write native preseason menu entry.");
+        return -1;
+    }
     }
 
     return 0;
@@ -546,6 +569,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     TecmoFinaleProvenance finale_provenance;
     TecmoTitleProvenance title_provenance[2];
     TecmoStartGameMenuProvenance start_menu_provenance;
+    TecmoPreseasonMenuProvenance preseason_provenance;
     int manifest_length;
     int result = -1;
 
@@ -710,6 +734,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     memset(&post_arena_provenance, 0, sizeof(post_arena_provenance));
     memset(title_provenance, 0, sizeof(title_provenance));
     memset(&start_menu_provenance, 0, sizeof(start_menu_provenance));
+    memset(&preseason_provenance, 0, sizeof(preseason_provenance));
     if (add_native_arena_intro_entries(builder,
                                        rom,
                                        rom_size,
@@ -725,6 +750,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &finale_provenance,
                                        title_provenance,
                                        &start_menu_provenance,
+                                       &preseason_provenance,
                                        message,
                                        message_size) != 0) {
         goto cleanup;
@@ -744,6 +770,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &finale_provenance,
                                        title_provenance,
                                        &start_menu_provenance,
+                                       &preseason_provenance,
                                        &source_map_size);
     if (source_map == NULL) {
         tecmo_asset_pack_set_message(message, message_size, "Could not build asset pack source map.");
@@ -1792,6 +1819,9 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         goto cleanup;
     }
     if (tecmo_asset_pack_start_menu_self_test(message, message_size) != 0) {
+        goto cleanup;
+    }
+    if (tecmo_asset_pack_preseason_self_test(message, message_size) != 0) {
         goto cleanup;
     }
 

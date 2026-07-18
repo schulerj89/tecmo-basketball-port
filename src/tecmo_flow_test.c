@@ -1,7 +1,9 @@
 #include "tecmo_game.h"
 #include "tecmo_intro_stage.h"
 
+#include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define FLOW_INTRO_ARENA_BANK04_HANDOFF_FRAME 540U
@@ -39,6 +41,9 @@ static const char *flow_mode_name(TecmoPlayMode mode)
     }
     if (mode == TECMO_MODE_START_GAME_MENU) {
         return "START GAME MENU";
+    }
+    if (mode == TECMO_MODE_PRESEASON_MENU) {
+        return "PRESEASON MENU";
     }
     return "UNKNOWN";
 }
@@ -433,6 +438,647 @@ static bool flow_expect_opening_handoff_frames(TecmoRuntime *runtime,
     return true;
 }
 
+static bool flow_expect_dual_controller_compatibility(TecmoRuntime *runtime,
+                                                      char *message,
+                                                      size_t message_size)
+{
+    TecmoInput player_one;
+    TecmoInput player_two;
+
+    memset(&player_one, 0, sizeof(player_one));
+    memset(&player_two, 0, sizeof(player_two));
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
+    runtime->selected_menu_item = 0U;
+    player_two.down = true;
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    if (runtime->selected_menu_item != 0U ||
+        runtime->previous_input.down ||
+        !runtime->previous_player_two_input.down) {
+        set_flow_test_message(message, message_size,
+                              "player two input changed a player-one-only mode");
+        return false;
+    }
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
+    if (runtime->previous_input.down || runtime->previous_player_two_input.down) {
+        set_flow_test_message(message, message_size,
+                              "mode reset did not clear both controller histories");
+        return false;
+    }
+
+    runtime->selected_menu_item = 0U;
+    player_one.down = true;
+    tecmo_runtime_update(runtime, &player_one);
+    if (runtime->selected_menu_item != 1U ||
+        !runtime->previous_input.down ||
+        runtime->previous_player_two_input.down) {
+        set_flow_test_message(message, message_size,
+                              "single-player update wrapper changed behavior");
+        return false;
+    }
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
+    runtime->selected_menu_item = 0U;
+    return true;
+}
+
+static void flow_preseason_neutral(TecmoRuntime *runtime, size_t frames)
+{
+    TecmoInput player_one = {0};
+    TecmoInput player_two = {0};
+    for (size_t frame = 0U; frame < frames; ++frame)
+        tecmo_runtime_update_players(runtime, &player_one, &player_two);
+}
+
+static void flow_preseason_release(TecmoRuntime *runtime,
+                                   bool player_two_owned,
+                                   bool accept)
+{
+    TecmoInput player_one = {0};
+    TecmoInput player_two = {0};
+    TecmoInput *input = player_two_owned ? &player_two : &player_one;
+    if (accept) input->shoot = true;
+    else input->cancel = true;
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    memset(&player_one, 0, sizeof(player_one));
+    memset(&player_two, 0, sizeof(player_two));
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+}
+
+static void flow_preseason_direction(TecmoRuntime *runtime,
+                                     bool player_two_owned,
+                                     TecmoControlButton button)
+{
+    TecmoInput player_one = {0};
+    TecmoInput player_two = {0};
+    TecmoInput *input = player_two_owned ? &player_two : &player_one;
+    tecmo_input_set_button(input, button, true);
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    memset(&player_one, 0, sizeof(player_one));
+    memset(&player_two, 0, sizeof(player_two));
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+}
+
+static bool flow_preseason_wait_cooldown(TecmoRuntime *runtime,
+                                         char *message,
+                                         size_t message_size)
+{
+    size_t frames = 0U;
+    while (runtime->preseason_state.direction_cooldown != 0U && frames < 16U) {
+        flow_preseason_neutral(runtime, 1U);
+        ++frames;
+    }
+    if (runtime->preseason_state.direction_cooldown != 0U) {
+        set_flow_test_message(message, message_size,
+                              "preseason direction cooldown did not expire");
+        return false;
+    }
+    return true;
+}
+
+static bool flow_preseason_unlock_selector(TecmoRuntime *runtime,
+                                           const char *label,
+                                           char *message,
+                                           size_t message_size)
+{
+    uint16_t seed = runtime->preseason_asset.accepted_input_seed;
+    uint16_t expected_after_first = seed == 0U ? 0U : (uint16_t)(seed - 1U);
+    if (runtime->preseason_state.direction_cooldown != seed) {
+        char detail[160];
+        (void)snprintf(detail, sizeof(detail),
+                       "%s selector gate expected %u got %u", label,
+                       (unsigned)seed,
+                       (unsigned)runtime->preseason_state.direction_cooldown);
+        set_flow_test_message(message, message_size, detail);
+        return false;
+    }
+    flow_preseason_neutral(runtime, 1U);
+    if (runtime->preseason_state.direction_cooldown != expected_after_first) {
+        char detail[160];
+        (void)snprintf(detail, sizeof(detail),
+                       "%s first interactive gate tick expected %u got %u", label,
+                       (unsigned)expected_after_first,
+                       (unsigned)runtime->preseason_state.direction_cooldown);
+        set_flow_test_message(message, message_size, detail);
+        return false;
+    }
+    return flow_preseason_wait_cooldown(runtime, message, message_size);
+}
+
+static bool flow_preseason_expect_phase(TecmoRuntime *runtime,
+                                        TecmoPreseasonPhase phase,
+                                        const char *label,
+                                        char *message,
+                                        size_t message_size)
+{
+    if (runtime->mode != TECMO_MODE_PRESEASON_MENU ||
+        runtime->preseason_state.phase != phase) {
+        char detail[160];
+        (void)snprintf(detail, sizeof(detail), "%s expected %s got %s",
+                       label, tecmo_preseason_phase_name(phase),
+                       tecmo_preseason_phase_name(runtime->preseason_state.phase));
+        set_flow_test_message(message, message_size, detail);
+        return false;
+    }
+    return true;
+}
+
+static bool flow_preseason_invalid_state_guards(TecmoRuntime *runtime,
+                                                char *message,
+                                                size_t message_size)
+{
+    const uint32_t sentinel = 0xA55AA55AU;
+    const size_t pixel_count = 256U * 240U;
+    TecmoFramebuffer framebuffer;
+    TecmoPreseasonState states[9];
+    uint32_t *pixels = (uint32_t *)malloc(pixel_count * sizeof(*pixels));
+    if (pixels == NULL) {
+        set_flow_test_message(message, message_size,
+                              "preseason invalid-state framebuffer allocation failed");
+        return false;
+    }
+    for (size_t i = 0U; i < pixel_count; ++i) pixels[i] = sentinel;
+    framebuffer.pixels = pixels;
+    framebuffer.width = 256;
+    framebuffer.height = 240;
+    framebuffer.pitch_pixels = 256;
+    for (size_t i = 0U; i < 9U; ++i)
+        tecmo_preseason_state_init(&states[i]);
+    states[0].phase = (TecmoPreseasonPhase)99;
+    states[1].phase = (TecmoPreseasonPhase)-1;
+    states[2].team_exit_target = (TecmoPreseasonTeamExitTarget)-1;
+    states[3].active_player = 2U;
+    states[4].division_selection[0] = 4U;
+    states[5].difficulty_selection = 3U;
+    states[6].committed_difficulty = 3U;
+    states[7].phase = TECMO_PRESEASON_TEAM;
+    states[7].transition_frame = runtime->preseason_asset.team_input_ready_frames;
+    states[7].team_selection[0] =
+        runtime->preseason_asset.division_counts[0];
+    states[8].phase = TECMO_PRESEASON_TEAM_EXIT;
+    states[8].transition_frame =
+        (uint16_t)(runtime->preseason_asset.team_exit_frames + 1U);
+    for (size_t state_index = 0U; state_index < 9U; ++state_index) {
+        TecmoPreseasonState before = states[state_index];
+        if (tecmo_preseason_draw(&framebuffer, &runtime->preseason_asset,
+                                 &states[state_index],
+                                 &runtime->start_game_menu_asset,
+                                 runtime->title_chr_bytes,
+                                 runtime->title_chr_byte_count,
+                                 0, 0, 1)) {
+            free(pixels);
+            set_flow_test_message(message, message_size,
+                                  "preseason draw accepted an invalid state");
+            return false;
+        }
+        for (size_t i = 0U; i < pixel_count; ++i) {
+            if (pixels[i] != sentinel) {
+                free(pixels);
+                set_flow_test_message(message, message_size,
+                                      "preseason invalid-state draw changed output");
+                return false;
+            }
+        }
+        (void)tecmo_preseason_update(&states[state_index],
+                                     &runtime->preseason_asset,
+                                     &(TecmoControlFrame){0},
+                                     &(TecmoControlFrame){0});
+        if (memcmp(&states[state_index], &before, sizeof(before)) != 0) {
+            free(pixels);
+            set_flow_test_message(message, message_size,
+                                  "preseason update mutated an invalid state");
+            return false;
+        }
+    }
+    {
+        static const int invalid_pitches[4] = {0, -1, 255, 256};
+        TecmoPreseasonState valid_control;
+        tecmo_preseason_state_init(&valid_control);
+        valid_control.phase = TECMO_PRESEASON_CONTROL;
+        valid_control.transition_frame = runtime->preseason_asset.overlays[0].height;
+        for (size_t case_index = 0U; case_index < 4U; ++case_index) {
+            int scale = case_index == 3U ? INT_MAX : 1;
+            framebuffer.pitch_pixels = invalid_pitches[case_index];
+            if (tecmo_preseason_draw(&framebuffer, &runtime->preseason_asset,
+                                     &valid_control,
+                                     &runtime->start_game_menu_asset,
+                                     runtime->title_chr_bytes,
+                                     runtime->title_chr_byte_count,
+                                     0, 0, scale)) {
+                free(pixels);
+                set_flow_test_message(message, message_size,
+                                      "preseason draw accepted an invalid viewport");
+                return false;
+            }
+            for (size_t i = 0U; i < pixel_count; ++i) {
+                if (pixels[i] != sentinel) {
+                    free(pixels);
+                    set_flow_test_message(message, message_size,
+                                          "preseason invalid viewport changed output");
+                    return false;
+                }
+            }
+        }
+    }
+    free(pixels);
+    return true;
+}
+
+static bool flow_expect_preseason_native_path(TecmoRuntime *runtime,
+                                              char *message,
+                                              size_t message_size)
+{
+    TecmoInput player_one = {0};
+    TecmoInput player_two = {0};
+    const TecmoPreseasonAsset *asset = &runtime->preseason_asset;
+    if (!asset->available ||
+        !flow_preseason_expect_phase(runtime, TECMO_PRESEASON_CONTROL_SETUP,
+                                     "preseason dispatch", message, message_size) ||
+        runtime->preseason_state.transition_frame != 0U)
+        return false;
+
+    if (runtime->preseason_state.direction_cooldown !=
+            asset->accepted_input_seed) {
+        set_flow_test_message(message, message_size,
+                              "preseason initial setup gate was not seeded");
+        return false;
+    }
+    flow_preseason_neutral(runtime, asset->overlays[0].height - 1U);
+    if (runtime->preseason_state.phase != TECMO_PRESEASON_CONTROL_SETUP ||
+        runtime->preseason_state.direction_cooldown !=
+            asset->accepted_input_seed) {
+        set_flow_test_message(message, message_size,
+                              "preseason CONTROL setup consumed its frozen gate");
+        return false;
+    }
+    flow_preseason_neutral(runtime, 1U);
+    if (!flow_preseason_expect_phase(runtime, TECMO_PRESEASON_CONTROL,
+                                      "control setup", message, message_size) ||
+        runtime->preseason_state.cursor_delay != asset->cursor_commit_delay_frames ||
+        runtime->preseason_state.direction_cooldown != asset->accepted_input_seed)
+        return false;
+    flow_preseason_neutral(runtime, 1U);
+    if (runtime->preseason_state.direction_cooldown !=
+            (uint16_t)(asset->accepted_input_seed - 1U)) {
+        set_flow_test_message(message, message_size,
+                              "preseason first CONTROL frame did not tick its gate");
+        return false;
+    }
+
+    player_one.confirm = true;
+    player_one.tab = true;
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    memset(&player_one, 0, sizeof(player_one));
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    if (runtime->preseason_state.phase != TECMO_PRESEASON_CONTROL ||
+        runtime->preseason_state.control_selection != 0U ||
+        runtime->preseason_state.direction_cooldown !=
+            (uint16_t)(asset->accepted_input_seed - 3U)) {
+        set_flow_test_message(message, message_size,
+                              "preseason START/SELECT were not ignored");
+        return false;
+    }
+    if (!flow_preseason_wait_cooldown(runtime, message, message_size)) return false;
+
+    {
+        TecmoPreseasonState ownership_state;
+        TecmoControlFrame p1_controls = {0};
+        TecmoControlFrame p2_controls = {0};
+        tecmo_preseason_state_init(&ownership_state);
+        ownership_state.phase = TECMO_PRESEASON_DIVISION;
+        ownership_state.control_selection = 1U;
+        ownership_state.active_player = 1U;
+        p1_controls.held.down = true;
+        p2_controls.held.up = true;
+        (void)tecmo_preseason_update(&ownership_state, asset,
+                                     &p1_controls, &p2_controls);
+        if (ownership_state.division_selection[1] != 1U) {
+            set_flow_test_message(message, message_size,
+                                  "non-MAN-VS-MAN P2 selection was not pad1-owned");
+            return false;
+        }
+    }
+
+    player_one.up = true;
+    player_one.down = true;
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    if (runtime->preseason_state.control_selection != 0U ||
+        runtime->preseason_state.direction_cooldown != 7U) {
+        set_flow_test_message(message, message_size,
+                              "preseason CONTROL Up+Down did not consume its gate");
+        return false;
+    }
+    memset(&player_one, 0, sizeof(player_one));
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    if (!flow_preseason_wait_cooldown(runtime, message, message_size)) return false;
+
+    flow_preseason_release(runtime, false, true);
+    if (!flow_preseason_expect_phase(runtime, TECMO_PRESEASON_DIFFICULTY_SETUP,
+                                      "difficulty open", message, message_size) ||
+        runtime->preseason_state.difficulty_selection != 0U ||
+        runtime->preseason_state.direction_cooldown != asset->accepted_input_seed)
+        return false;
+    flow_preseason_neutral(runtime, asset->overlays[2].height - 1U);
+    if (runtime->preseason_state.phase != TECMO_PRESEASON_DIFFICULTY_SETUP ||
+        runtime->preseason_state.direction_cooldown != asset->accepted_input_seed) {
+        set_flow_test_message(message, message_size,
+                              "preseason DIFFICULTY setup consumed its frozen gate");
+        return false;
+    }
+    flow_preseason_neutral(runtime, 1U);
+    if (!flow_preseason_expect_phase(runtime, TECMO_PRESEASON_DIFFICULTY,
+                                     "difficulty setup", message, message_size) ||
+        !flow_preseason_unlock_selector(runtime, "DIFFICULTY", message,
+                                        message_size))
+        return false;
+    flow_preseason_direction(runtime, false, TECMO_CONTROL_DOWN);
+    if (runtime->preseason_state.difficulty_selection != 1U ||
+        !flow_preseason_wait_cooldown(runtime, message, message_size))
+        return false;
+    flow_preseason_release(runtime, false, true);
+    if (runtime->preseason_state.committed_difficulty != 1U ||
+        runtime->preseason_state.control_selection != 1U ||
+        !flow_preseason_expect_phase(runtime, TECMO_PRESEASON_DIFFICULTY_TEARDOWN,
+                                     "difficulty accept", message, message_size))
+        return false;
+    flow_preseason_neutral(runtime, asset->overlays[2].height);
+    if (!flow_preseason_expect_phase(runtime, TECMO_PRESEASON_CONTROL,
+                                     "difficulty teardown", message, message_size) ||
+        !flow_preseason_unlock_selector(runtime, "CONTROL after difficulty",
+                                        message, message_size))
+        return false;
+
+    flow_preseason_direction(runtime, false, TECMO_CONTROL_UP);
+    if (runtime->preseason_state.control_selection != 0U ||
+        !flow_preseason_wait_cooldown(runtime, message, message_size))
+        return false;
+    flow_preseason_release(runtime, false, true);
+    if (runtime->preseason_state.difficulty_selection != 1U) {
+        set_flow_test_message(message, message_size,
+                              "difficulty reopen did not seed committed value");
+        return false;
+    }
+    flow_preseason_neutral(runtime, asset->overlays[2].height);
+    if (!flow_preseason_expect_phase(runtime, TECMO_PRESEASON_DIFFICULTY,
+                                     "difficulty reopen setup", message,
+                                     message_size) ||
+        !flow_preseason_unlock_selector(runtime, "reopened DIFFICULTY",
+                                        message, message_size))
+        return false;
+    flow_preseason_direction(runtime, false, TECMO_CONTROL_DOWN);
+    if (runtime->preseason_state.difficulty_selection != 2U ||
+        !flow_preseason_wait_cooldown(runtime, message, message_size))
+        return false;
+    flow_preseason_release(runtime, false, false);
+    if (runtime->preseason_state.difficulty_selection != 1U ||
+        runtime->preseason_state.committed_difficulty != 1U ||
+        runtime->preseason_state.control_selection != 0U)
+        return false;
+    flow_preseason_neutral(runtime, asset->overlays[2].height);
+    if (!flow_preseason_expect_phase(runtime, TECMO_PRESEASON_CONTROL,
+                                     "difficulty cancel teardown", message,
+                                     message_size) ||
+        !flow_preseason_unlock_selector(runtime, "CONTROL after cancel",
+                                        message, message_size))
+        return false;
+
+    flow_preseason_direction(runtime, false, TECMO_CONTROL_DOWN);
+    if (!flow_preseason_wait_cooldown(runtime, message, message_size)) return false;
+    flow_preseason_direction(runtime, false, TECMO_CONTROL_DOWN);
+    if (runtime->preseason_state.control_selection != 2U ||
+        !flow_preseason_wait_cooldown(runtime, message, message_size))
+        return false;
+    flow_preseason_release(runtime, false, true);
+    flow_preseason_neutral(runtime, asset->overlays[1].height);
+    if (!flow_preseason_expect_phase(runtime, TECMO_PRESEASON_DIVISION,
+                                     "P1 division setup", message, message_size) ||
+        !flow_preseason_unlock_selector(runtime, "P1 DIVISION", message,
+                                        message_size))
+        return false;
+
+    player_one.up = true;
+    player_one.down = true;
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    if (runtime->preseason_state.division_selection[0] != 0U ||
+        runtime->preseason_state.direction_cooldown != 7U)
+        return false;
+    memset(&player_one, 0, sizeof(player_one));
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    if (!flow_preseason_wait_cooldown(runtime, message, message_size)) return false;
+    player_two.down = true;
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    memset(&player_two, 0, sizeof(player_two));
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    if (runtime->preseason_state.division_selection[0] != 0U) {
+        set_flow_test_message(message, message_size,
+                              "P2 changed a P1-owned division menu");
+        return false;
+    }
+    flow_preseason_direction(runtime, false, TECMO_CONTROL_DOWN);
+    if (runtime->preseason_state.division_selection[0] != 1U ||
+        !flow_preseason_wait_cooldown(runtime, message, message_size))
+        return false;
+    flow_preseason_release(runtime, false, true);
+    if (runtime->preseason_state.team_selection[0] != 0U ||
+        !flow_preseason_expect_phase(runtime, TECMO_PRESEASON_TEAM_ENTRY,
+                                     "P1 Central team entry", message, message_size))
+        return false;
+    flow_preseason_neutral(runtime, asset->team_input_ready_frames - 1U);
+    if (runtime->preseason_state.phase != TECMO_PRESEASON_TEAM_ENTRY ||
+        runtime->preseason_state.direction_cooldown != asset->accepted_input_seed) {
+        set_flow_test_message(message, message_size,
+                              "preseason TEAM entry consumed its frozen gate");
+        return false;
+    }
+    flow_preseason_neutral(runtime, 1U);
+    if (!flow_preseason_expect_phase(runtime, TECMO_PRESEASON_TEAM,
+                                     "P1 Central team", message, message_size) ||
+        runtime->preseason_state.direction_cooldown != asset->accepted_input_seed)
+        return false;
+    player_two.left = true;
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    memset(&player_two, 0, sizeof(player_two));
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    if (runtime->preseason_state.team_selection[0] != 0U) return false;
+    if (!flow_preseason_wait_cooldown(runtime, message, message_size)) return false;
+    flow_preseason_direction(runtime, false, TECMO_CONTROL_LEFT);
+    if (runtime->preseason_state.team_selection[0] != 6U ||
+        !flow_preseason_wait_cooldown(runtime, message, message_size))
+        return false;
+    flow_preseason_release(runtime, false, false);
+    if (runtime->preseason_state.direction_cooldown != asset->accepted_input_seed)
+        return false;
+    flow_preseason_neutral(runtime, asset->team_exit_frames - 1U);
+    if (runtime->preseason_state.phase != TECMO_PRESEASON_TEAM_EXIT ||
+        runtime->preseason_state.direction_cooldown != asset->accepted_input_seed) {
+        set_flow_test_message(message, message_size,
+                              "preseason TEAM exit consumed its frozen gate");
+        return false;
+    }
+    flow_preseason_neutral(runtime, 1U);
+    if (!flow_preseason_expect_phase(runtime, TECMO_PRESEASON_DIVISION_SETUP,
+                                      "P1 team B division rebuild", message, message_size) ||
+        !runtime->preseason_state.division_return_fade_active ||
+        runtime->preseason_state.direction_cooldown != asset->accepted_input_seed)
+        return false;
+    flow_preseason_neutral(runtime, asset->overlays[1].height);
+    if (!flow_preseason_expect_phase(runtime, TECMO_PRESEASON_DIVISION,
+                                      "P1 division return", message, message_size) ||
+        runtime->preseason_state.division_return_fade_frame != 0U)
+        return false;
+    if (!flow_preseason_unlock_selector(runtime, "P1 returned DIVISION", message,
+                                        message_size))
+        return false;
+    flow_preseason_direction(runtime, false, TECMO_CONTROL_DOWN);
+    if (runtime->preseason_state.division_selection[0] != 2U ||
+        runtime->preseason_state.team_selection[0] != 6U)
+        return false;
+    flow_preseason_release(runtime, false, true);
+    if (!flow_preseason_expect_phase(runtime, TECMO_PRESEASON_TEAM_ENTRY,
+                                     "early-fade division accept", message, message_size) ||
+        runtime->preseason_state.team_selection[0] != 0U ||
+        runtime->preseason_state.division_return_fade_active)
+        return false;
+    flow_preseason_neutral(runtime, asset->team_input_ready_frames);
+    flow_preseason_release(runtime, false, false);
+    flow_preseason_neutral(runtime, asset->team_exit_frames +
+                           asset->overlays[1].height);
+    if (!flow_preseason_expect_phase(runtime, TECMO_PRESEASON_DIVISION,
+                                      "second P1 division return", message, message_size))
+        return false;
+    if (!flow_preseason_unlock_selector(runtime, "second P1 DIVISION", message,
+                                        message_size))
+        return false;
+    flow_preseason_direction(runtime, false, TECMO_CONTROL_UP);
+    if (!flow_preseason_wait_cooldown(runtime, message, message_size)) return false;
+    flow_preseason_direction(runtime, false, TECMO_CONTROL_UP);
+    if (runtime->preseason_state.division_selection[0] != 0U ||
+        !flow_preseason_wait_cooldown(runtime, message, message_size))
+        return false;
+    flow_preseason_release(runtime, false, true);
+    flow_preseason_neutral(runtime, asset->team_input_ready_frames);
+    if (runtime->preseason_state.team_selection[0] != 0U) return false;
+    flow_preseason_release(runtime, false, true);
+    flow_preseason_neutral(runtime, asset->team_exit_frames);
+    if (runtime->preseason_state.active_player != 1U ||
+        runtime->preseason_state.division_selection[1] != 0U ||
+        runtime->preseason_state.team_selection[1] != 1U)
+        return false;
+    flow_preseason_neutral(runtime, asset->overlays[1].height);
+    if (!flow_preseason_expect_phase(runtime, TECMO_PRESEASON_DIVISION,
+                                     "P2 division setup", message, message_size) ||
+        runtime->preseason_state.direction_cooldown != asset->accepted_input_seed)
+        return false;
+
+    player_one.down = true;
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    memset(&player_one, 0, sizeof(player_one));
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    if (runtime->preseason_state.division_selection[1] != 0U) {
+        set_flow_test_message(message, message_size,
+                              "P1 changed a P2-owned division menu");
+        return false;
+    }
+    if (!flow_preseason_wait_cooldown(runtime, message, message_size)) return false;
+    player_two.up = true;
+    player_two.down = true;
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    if (runtime->preseason_state.division_selection[1] != 0U ||
+        runtime->preseason_state.direction_cooldown != 7U)
+        return false;
+    memset(&player_two, 0, sizeof(player_two));
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    if (!flow_preseason_wait_cooldown(runtime, message, message_size)) return false;
+    flow_preseason_release(runtime, true, true);
+    flow_preseason_neutral(runtime, asset->team_input_ready_frames);
+    if (!flow_preseason_expect_phase(runtime, TECMO_PRESEASON_TEAM,
+                                      "terminal P2 team", message, message_size) ||
+        runtime->preseason_state.team_selection[1] != 1U ||
+        runtime->preseason_state.direction_cooldown != asset->accepted_input_seed)
+        return false;
+    player_one.left = true;
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    memset(&player_one, 0, sizeof(player_one));
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    if (runtime->preseason_state.team_selection[1] != 1U) return false;
+    if (!flow_preseason_wait_cooldown(runtime, message, message_size)) return false;
+    flow_preseason_direction(runtime, true, TECMO_CONTROL_RIGHT);
+    if (runtime->preseason_state.team_selection[1] != 2U ||
+        !flow_preseason_wait_cooldown(runtime, message, message_size))
+        return false;
+    flow_preseason_direction(runtime, true, TECMO_CONTROL_LEFT);
+    if (runtime->preseason_state.team_selection[1] != 1U ||
+        !flow_preseason_wait_cooldown(runtime, message, message_size))
+        return false;
+    flow_preseason_direction(runtime, true, TECMO_CONTROL_LEFT);
+    if (runtime->preseason_state.team_selection[1] != 6U ||
+        !flow_preseason_wait_cooldown(runtime, message, message_size))
+        return false;
+    flow_preseason_release(runtime, true, true);
+    if (runtime->mode != TECMO_MODE_PRESEASON_MENU ||
+        runtime->preseason_state.phase != TECMO_PRESEASON_TEAM ||
+        runtime->preseason_state.team_selection[1] != 6U ||
+        runtime->preseason_state.direction_cooldown != asset->accepted_input_seed) {
+        set_flow_test_message(message, message_size,
+                              "P2 A crossed the stop-before-launch boundary");
+        return false;
+    }
+    flow_preseason_direction(runtime, true, TECMO_CONTROL_RIGHT);
+    if (runtime->preseason_state.team_selection[1] != 6U) {
+        set_flow_test_message(message, message_size,
+                              "P2 A did not gate the following direction");
+        return false;
+    }
+    if (!flow_preseason_wait_cooldown(runtime, message, message_size)) return false;
+    flow_preseason_release(runtime, true, false);
+    flow_preseason_neutral(runtime, asset->team_exit_frames +
+                           asset->overlays[1].height);
+    if (!flow_preseason_expect_phase(runtime, TECMO_PRESEASON_DIVISION,
+                                     "P2 team B division return", message, message_size) ||
+        runtime->preseason_state.division_return_fade_frame != 0U)
+        return false;
+    flow_preseason_release(runtime, true, false);
+    if (runtime->preseason_state.division_return_fade_active ||
+        runtime->preseason_state.active_player != 0U ||
+        runtime->preseason_state.division_selection[0] != 0U ||
+        runtime->preseason_state.division_selection[1] != 0U)
+        return false;
+    flow_preseason_neutral(runtime, asset->overlays[1].height + 1U);
+    player_two.down = true;
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    memset(&player_two, 0, sizeof(player_two));
+    tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    if (runtime->preseason_state.control_selection != 2U) return false;
+    flow_preseason_release(runtime, false, false);
+    if (runtime->preseason_state.direction_cooldown != asset->accepted_input_seed)
+        return false;
+    flow_preseason_neutral(runtime, asset->overlays[0].height - 1U);
+    if (runtime->preseason_state.phase != TECMO_PRESEASON_CONTROL_TEARDOWN_ROOT ||
+        runtime->preseason_state.direction_cooldown != asset->accepted_input_seed) {
+        set_flow_test_message(message, message_size,
+                              "preseason root teardown consumed its frozen gate");
+        return false;
+    }
+    flow_preseason_neutral(runtime, 1U);
+    if (!flow_expect_mode(runtime, TECMO_MODE_START_GAME_MENU,
+                          "preseason CONTROL B root return", message, message_size) ||
+        runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+        runtime->start_game_menu_state.frame !=
+            runtime->start_game_menu_asset.stable_frame ||
+        runtime->start_game_menu_state.root_selection != 0U ||
+        runtime->start_game_menu_state.direction_cooldown !=
+            runtime->start_game_menu_asset.accepted_input_seed)
+        return false;
+    flow_preseason_neutral(runtime, 1U);
+    if (runtime->start_game_menu_state.direction_cooldown !=
+            (uint16_t)(runtime->start_game_menu_asset.accepted_input_seed - 1U)) {
+        set_flow_test_message(message, message_size,
+                              "start-menu root return did not tick its seeded gate");
+        return false;
+    }
+    return flow_preseason_invalid_state_guards(runtime, message, message_size);
+}
+
 bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t message_size)
 {
     TecmoInput input;
@@ -447,6 +1093,9 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     }
     if (runtime->team_count == 0U) {
         set_flow_test_message(message, message_size, "no roster teams loaded");
+        return false;
+    }
+    if (!flow_expect_dual_controller_compatibility(runtime, message, message_size)) {
         return false;
     }
     if (!flow_expect_opening_handoff_frames(runtime, message, message_size)) {
@@ -759,9 +1408,11 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     runtime->previous_input.shoot = true;
     memset(&input, 0, sizeof(input));
     tecmo_runtime_update(runtime, &input);
-    if (!flow_expect_mode(runtime, TECMO_MODE_PLAY_SETUP,
+    if (!flow_expect_mode(runtime, TECMO_MODE_PRESEASON_MENU,
                           "root PRESEASON submenu-boundary dispatch",
                           message, message_size)) return false;
+    if (!flow_expect_preseason_native_path(runtime, message, message_size))
+        return false;
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 32U;
@@ -1288,6 +1939,6 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     }
 
     set_flow_test_message(message, message_size,
-                          "FLOW TEST PASS: menu play-intro title start-game-menu quit");
+                          "FLOW TEST PASS: menu play-intro title start-game-menu preseason quit");
     return true;
 }

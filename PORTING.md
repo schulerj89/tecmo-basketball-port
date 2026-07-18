@@ -285,10 +285,45 @@ TSGM metadata byte 148 supplies `cursor_commit_delay_frames=1`.
 `$E481` is a post-return fade, not a universal root dispatch. Root TEAM DATA
 and the supported season GAME START/TEAM DATA exits show stage 8 on frames 0-1,
 stage 7 on 2-3, stage 6 on 4-5, stage 5 on 6-7, black stage 4 on 8-10, and hand
-off once on frame 11. PRESEASON's `$9966` and ALL STAR's `$8221` routes enter
-additional `$9A67` Bank03 submenus which remain beyond this milestone; the
-current boundary hands those routes directly to `PLAY_SETUP` and does not run
+off once on frame 11. ALL STAR's `$8221` route remains an explicit handoff to
+`PLAY_SETUP`. PRESEASON now enters its native `$9966` submenu and does not run
 the later `$E481` fade prematurely.
+
+PRESEASON uses the strict `menu/preseason` TPRE-1 entry. Import composes the
+CONTROL, DIFFICULTY, and DIVISION overlays from Bank03 ROM records over the
+existing TSGM-1 screen, and resolves all four division team screens, palettes,
+CHR cells, team tables/coordinates, and P1/P2 markers from the Rev1 ROM. Both
+Bank01 `$8036` marker records identify CHR selector `$30`; the importer resolves
+the seven referenced 8x16 pairs through that ROM field into a 224-byte CHR
+contract with FNV1a32 `1E505537`.
+CONTROL row zero opens EASY/MEDIUM/EXPERT, preserving the committed difficulty
+on B; rows 1-6 proceed to division selection. MAN VS MAN transfers the second
+division/team selector to controller 2. Other control modes keep both selectors
+on controller 1. Up/Down and Left/Right wrap with the generic eight-frame held
+repeat, A/B remain release-triggered, and a same-division second player cannot
+select the first player's team. Team B reconstructs the active player's
+division screen; division B returns to CONTROL.
+
+The team-entry stack fades at frames 3/5/7 and is black at 9. Team input begins
+at frame 16; its new screen is black for palette frames 16-17, capped on 18-21,
+22-25, and 26-29, and full from 30. Team exit is full at frame 0, capped on
+1-2, 3-4, and 5-6, black from 7, and completes at 32. Rebuilt overlays are
+drawn while black; the division helper is already live while the display fades
+through black counter 0, capped counters 1-4/5-8/9-12, and full counter 13.
+The accepted-input `$E1=5` seed remains frozen throughout setup, teardown,
+team-entry, and team-exit, then decrements only on interactive selector frames.
+
+The supported boundary is the fully interactive second-team screen, not game
+startup. P2 A retains the accepted-input `$E1=5` side effect but cannot execute
+the `$B277-$B282` team-confirmation state advance or fixed `$E481` launch
+chain. TPRE-1 is exactly 26736 bytes / FNV1a32 `13DE1C71` and depends on the
+same pack's 14112-byte TSGM-1 (`7505D7BD`) and 262144-byte `chr/all`
+(`F6F6E854` / `96A64F53B240ABB4`). Source-map provenance covers the Bank03
+flow, records, input/coordinate/ownership/team tables, the unexecuted boundary,
+Bank01 cursor/player records, all four descriptors/streams/palettes, fixed
+input/loader/fades, and full CHR. Exact-size preflight and deep parsing reject
+missing, malformed, oversized, cross-pack, or wrong-revision assets. No trace,
+decompilation file, screenshot, dump, state, or video is a runtime dependency.
 
 An accepted release reaches `$D788` and seeds directional `$E1=5`. Generic
 direction reaches `$D79D`, writes eight, and the same-loop tail decrements it so

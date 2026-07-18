@@ -103,7 +103,8 @@ typedef enum TecmoStartGameMenuPhase {
 typedef enum TecmoStartGameMenuAction {
     TECMO_START_GAME_MENU_ACTION_NONE,
     TECMO_START_GAME_MENU_ACTION_PLAY_SETUP,
-    TECMO_START_GAME_MENU_ACTION_ROSTERS
+    TECMO_START_GAME_MENU_ACTION_ROSTERS,
+    TECMO_START_GAME_MENU_ACTION_PRESEASON
 } TecmoStartGameMenuAction;
 
 typedef struct TecmoStartGameMenuState {

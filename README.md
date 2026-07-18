@@ -86,8 +86,16 @@ F3 = debug overlay
 
 Play Game:
 Runs the current native port sequence
-Enter/Esc = main menu while this path is still being built out
+Player 1: arrows = directions, Space = NES A, Esc = NES B,
+Enter = START, Tab = SELECT
+Player 2: numpad 8/2/4/6 = directions, numpad 1 = NES A,
+numpad 3 = NES B, numpad 9 = START, numpad 7 = SELECT
 ```
+
+The current original-game boundary includes the blue start-game menu and the
+PRESEASON path through both team selectors. In MAN VS MAN, controller 2 owns
+the second division and team selection. Confirming the second team is
+intentionally terminal for now and does not launch a game.
 
 Older diagnostic screens such as Title Screen, Intro Lab, CHR Playground, and Rosters are no longer exposed from the main executable menu. They remain available through explicit render-test/debug paths for development work.
 

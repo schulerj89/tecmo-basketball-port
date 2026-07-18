@@ -13,6 +13,7 @@ add_executable(tecmo_port
     src/asset_pack/tecmo_asset_pack_title.c
     src/asset_pack/tecmo_asset_pack_opening.c
     src/asset_pack/tecmo_asset_pack_post_arena.c
+    src/asset_pack/tecmo_asset_pack_preseason.c
     src/asset_pack/tecmo_asset_pack_reader.c
     src/asset_pack/tecmo_asset_pack_source_map.c
     src/asset_pack/tecmo_asset_pack_start_menu.c
@@ -33,6 +34,7 @@ add_executable(tecmo_port
     src/tecmo_memory.c
     src/tecmo_nametable_screen.c
     src/tecmo_nes_video.c
+    src/tecmo_preseason_menu.c
     src/tecmo_start_game_menu.c
     src/tecmo_title_screen.c
 )

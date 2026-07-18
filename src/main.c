@@ -776,6 +776,144 @@ int main(int argc, char **argv)
                     runtime.start_game_menu_state.setting_selection =
                         runtime.start_game_menu_state.period_index;
                 }
+            } else if (strcmp(mode_name, "preseason-control") == 0) {
+                tecmo_runtime_set_mode(&runtime, TECMO_MODE_PRESEASON_MENU);
+                runtime.preseason_state.phase = TECMO_PRESEASON_CONTROL;
+                runtime.preseason_state.transition_frame =
+                    runtime.preseason_asset.overlays[0].height;
+            } else if (strncmp(mode_name, "preseason-control-setup-frame", 29) == 0) {
+                unsigned frame;
+                unsigned overlay_height = runtime.preseason_asset.overlays[0].height;
+                if (!parse_render_frame_suffix(mode_name,
+                                               "preseason-control-setup-frame",
+                                               &frame) || frame > overlay_height) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(&runtime, TECMO_MODE_PRESEASON_MENU);
+                    runtime.preseason_state.phase = frame < overlay_height
+                        ? TECMO_PRESEASON_CONTROL_SETUP : TECMO_PRESEASON_CONTROL;
+                    runtime.preseason_state.transition_frame = (uint16_t)frame;
+                    runtime.preseason_state.cursor_delay = frame < overlay_height ? 0U :
+                        runtime.preseason_asset.cursor_commit_delay_frames;
+                }
+            } else if (strcmp(mode_name, "preseason-difficulty") == 0) {
+                tecmo_runtime_set_mode(&runtime, TECMO_MODE_PRESEASON_MENU);
+                runtime.preseason_state.phase = TECMO_PRESEASON_DIFFICULTY;
+                runtime.preseason_state.transition_frame =
+                    runtime.preseason_asset.overlays[2].height;
+                runtime.preseason_state.difficulty_selection = 1U;
+                runtime.preseason_state.committed_difficulty = 1U;
+            } else if (strcmp(mode_name, "preseason-division") == 0) {
+                tecmo_runtime_set_mode(&runtime, TECMO_MODE_PRESEASON_MENU);
+                runtime.preseason_state.phase = TECMO_PRESEASON_DIVISION;
+                runtime.preseason_state.transition_frame =
+                    runtime.preseason_asset.overlays[1].height;
+                runtime.preseason_state.control_selection = 2U;
+            } else if (strncmp(mode_name, "preseason-team-entry-frame", 26) == 0) {
+                unsigned frame;
+                unsigned ready = runtime.preseason_asset.team_input_ready_frames;
+                if (!parse_render_frame_suffix(mode_name,
+                                               "preseason-team-entry-frame",
+                                               &frame) || frame > ready) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(&runtime, TECMO_MODE_PRESEASON_MENU);
+                    runtime.preseason_state.phase = frame < ready
+                        ? TECMO_PRESEASON_TEAM_ENTRY : TECMO_PRESEASON_TEAM;
+                    runtime.preseason_state.transition_frame = (uint16_t)frame;
+                    runtime.preseason_state.control_selection = 2U;
+                    runtime.preseason_state.team_palette_frame = frame < ready
+                        ? 0U : (uint8_t)ready;
+                    runtime.preseason_state.cursor_delay = frame < ready ? 0U :
+                        runtime.preseason_asset.cursor_commit_delay_frames;
+                }
+            } else if (strncmp(mode_name, "preseason-p1-team-frame", 23) == 0) {
+                unsigned frame;
+                if (!parse_render_frame_suffix(mode_name, "preseason-p1-team-frame",
+                                               &frame) ||
+                    frame < runtime.preseason_asset.team_input_ready_frames ||
+                    frame > runtime.preseason_asset.team_palette_full_frames) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(&runtime, TECMO_MODE_PRESEASON_MENU);
+                    runtime.preseason_state.phase = TECMO_PRESEASON_TEAM;
+                    runtime.preseason_state.transition_frame =
+                        runtime.preseason_asset.team_input_ready_frames;
+                    runtime.preseason_state.control_selection = 2U;
+                    runtime.preseason_state.team_palette_frame = (uint8_t)frame;
+                }
+            } else if (strncmp(mode_name, "preseason-team-exit-frame", 25) == 0) {
+                unsigned frame;
+                if (!parse_render_frame_suffix(mode_name, "preseason-team-exit-frame",
+                                               &frame) ||
+                    frame > runtime.preseason_asset.team_exit_frames) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(&runtime, TECMO_MODE_PRESEASON_MENU);
+                    runtime.preseason_state.phase = TECMO_PRESEASON_TEAM_EXIT;
+                    runtime.preseason_state.transition_frame = (uint16_t)frame;
+                    runtime.preseason_state.control_selection = 2U;
+                    runtime.preseason_state.team_palette_frame =
+                        runtime.preseason_asset.team_palette_full_frames;
+                }
+            } else if (strncmp(mode_name, "preseason-p2-division-return-frame", 34) == 0) {
+                unsigned frame;
+                if (!parse_render_frame_suffix(mode_name,
+                                               "preseason-p2-division-return-frame",
+                                               &frame) ||
+                    frame > runtime.preseason_asset.division_return_full_frame) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(&runtime, TECMO_MODE_PRESEASON_MENU);
+                    runtime.preseason_state.phase = TECMO_PRESEASON_DIVISION;
+                    runtime.preseason_state.transition_frame =
+                        runtime.preseason_asset.overlays[1].height;
+                    runtime.preseason_state.control_selection = 2U;
+                    runtime.preseason_state.active_player = 1U;
+                    runtime.preseason_state.team_selection[1] = 1U;
+                    runtime.preseason_state.division_return_fade_frame = (uint8_t)frame;
+                    runtime.preseason_state.division_return_fade_active =
+                        frame < runtime.preseason_asset.division_return_full_frame;
+                }
+            } else if (strcmp(mode_name, "preseason-p2-team") == 0 ||
+                       strncmp(mode_name, "preseason-p2-team-frame", 23) == 0) {
+                unsigned frame = runtime.preseason_asset.team_palette_full_frames;
+                if (strcmp(mode_name, "preseason-p2-team") != 0 &&
+                    (!parse_render_frame_suffix(mode_name, "preseason-p2-team-frame",
+                                                &frame) ||
+                     frame < runtime.preseason_asset.team_input_ready_frames ||
+                     frame > runtime.preseason_asset.team_palette_full_frames)) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(&runtime, TECMO_MODE_PRESEASON_MENU);
+                    runtime.preseason_state.phase = TECMO_PRESEASON_TEAM;
+                    runtime.preseason_state.transition_frame =
+                        runtime.preseason_asset.team_input_ready_frames;
+                    runtime.preseason_state.control_selection = 2U;
+                    runtime.preseason_state.active_player = 1U;
+                    runtime.preseason_state.team_selection[0] = 0U;
+                    runtime.preseason_state.team_selection[1] = 1U;
+                    runtime.preseason_state.team_palette_frame = (uint8_t)frame;
+                }
+            } else if (strcmp(mode_name, "preseason-invalid-state") == 0) {
+                tecmo_runtime_set_mode(&runtime, TECMO_MODE_PRESEASON_MENU);
+                runtime.preseason_state.active_player = 2U;
+                framebuffer.pixels = pixels;
+                framebuffer.width = width;
+                framebuffer.height = height;
+                framebuffer.pitch_pixels = width;
+                arena_render_succeeded = tecmo_preseason_draw(
+                    &framebuffer, &runtime.preseason_asset, &runtime.preseason_state,
+                    &runtime.start_game_menu_asset, runtime.title_chr_bytes,
+                    runtime.title_chr_byte_count, 64, 0, 2);
+                render_runtime = false;
+                result = arena_render_succeeded ? 0 : 1;
             } else if (strcmp(mode_name, "menu-overlay") == 0) {
                 TecmoInput input;
                 memset(&input, 0, sizeof(input));
@@ -1146,6 +1284,14 @@ int main(int argc, char **argv)
                                   runtime.title_chr_bytes,
                                   runtime.title_chr_byte_count))))) {
                     result = 1;
+                } else if (strncmp(mode_name, "preseason", 9) == 0 &&
+                           (!runtime.preseason_asset.available ||
+                            !runtime.start_game_menu_asset.available ||
+                            !tecmo_preseason_asset_chr_available(
+                                &runtime.preseason_asset,
+                                runtime.title_chr_bytes,
+                                runtime.title_chr_byte_count))) {
+                    result = 1;
                 } else if ((strcmp(mode_name, "play") == 0 ||
                      strncmp(mode_name, "play-fade", 9) == 0 ||
                      strcmp(mode_name, "play-step6") == 0) &&
@@ -1180,6 +1326,23 @@ int main(int argc, char **argv)
                        (unsigned)runtime.start_game_menu_state.cursor_delay,
                        (unsigned)runtime.start_game_menu_state.direction_cooldown,
                        (unsigned)runtime.start_game_menu_state.pending_action);
+            }
+            if (strncmp(mode_name, "preseason", 9) == 0) {
+                printf("preseason-state phase=%s transition=%u control=%u difficulty=%u committed=%u active-player=%u divisions=%u/%u teams=%u/%u palette=%u return-fade=%u/%u cooldown=%u\n",
+                       tecmo_preseason_phase_name(runtime.preseason_state.phase),
+                       (unsigned)runtime.preseason_state.transition_frame,
+                       (unsigned)runtime.preseason_state.control_selection,
+                       (unsigned)runtime.preseason_state.difficulty_selection,
+                       (unsigned)runtime.preseason_state.committed_difficulty,
+                       (unsigned)runtime.preseason_state.active_player,
+                       (unsigned)runtime.preseason_state.division_selection[0],
+                       (unsigned)runtime.preseason_state.division_selection[1],
+                       (unsigned)runtime.preseason_state.team_selection[0],
+                       (unsigned)runtime.preseason_state.team_selection[1],
+                       (unsigned)runtime.preseason_state.team_palette_frame,
+                       runtime.preseason_state.division_return_fade_active ? 1U : 0U,
+                       (unsigned)runtime.preseason_state.division_return_fade_frame,
+                       (unsigned)runtime.preseason_state.direction_cooldown);
             }
             print_intro_render_capture_status(&runtime, mode_name, arena_render_succeeded);
             tecmo_runtime_shutdown(&runtime);

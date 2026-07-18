@@ -624,7 +624,7 @@ TecmoStartGameMenuAction tecmo_start_game_menu_update(
             begin_accepted_input_cooldown(state, asset);
             switch (asset->routes[state->root_selection]) {
             case 1U:
-                return TECMO_START_GAME_MENU_ACTION_PLAY_SETUP;
+                return TECMO_START_GAME_MENU_ACTION_PRESEASON;
             case 2U:
                 state->phase = TECMO_START_GAME_MENU_SEASON_SLIDE_IN;
                 state->slide_frame = 0U;

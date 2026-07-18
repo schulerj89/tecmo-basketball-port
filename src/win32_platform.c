@@ -17,7 +17,7 @@ typedef struct Win32Backbuffer {
 
 static Win32Backbuffer g_backbuffer;
 static bool g_running;
-static TecmoControls g_controls;
+static TecmoControls g_controls[2];
 
 static void win32_resize_backbuffer(Win32Backbuffer *buffer, int width, int height)
 {
@@ -63,8 +63,41 @@ static void win32_present_backbuffer(HWND window, Win32Backbuffer *buffer)
 static void win32_set_key(WPARAM key, bool down)
 {
     TecmoControlButton button;
+    unsigned player_index = 0U;
 
     switch (key) {
+    case VK_NUMPAD8:
+        player_index = 1U;
+        button = TECMO_CONTROL_UP;
+        break;
+    case VK_NUMPAD2:
+        player_index = 1U;
+        button = TECMO_CONTROL_DOWN;
+        break;
+    case VK_NUMPAD4:
+        player_index = 1U;
+        button = TECMO_CONTROL_LEFT;
+        break;
+    case VK_NUMPAD6:
+        player_index = 1U;
+        button = TECMO_CONTROL_RIGHT;
+        break;
+    case VK_NUMPAD9:
+        player_index = 1U;
+        button = TECMO_CONTROL_CONFIRM;
+        break;
+    case VK_NUMPAD3:
+        player_index = 1U;
+        button = TECMO_CONTROL_CANCEL;
+        break;
+    case VK_NUMPAD1:
+        player_index = 1U;
+        button = TECMO_CONTROL_SHOOT;
+        break;
+    case VK_NUMPAD7:
+        player_index = 1U;
+        button = TECMO_CONTROL_TAB;
+        break;
     case VK_UP:
         button = TECMO_CONTROL_UP;
         break;
@@ -120,7 +153,7 @@ static void win32_set_key(WPARAM key, bool down)
     default:
         return;
     }
-    tecmo_controls_set_button(&g_controls, button, down);
+    tecmo_controls_set_button(&g_controls[player_index], button, down);
 }
 
 static LRESULT CALLBACK win32_window_proc(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
@@ -219,7 +252,8 @@ int tecmo_run_win32_game(const char *project_root)
 
     QueryPerformanceFrequency(&perf_freq);
     QueryPerformanceCounter(&last_counter);
-    tecmo_controls_init(&g_controls);
+    tecmo_controls_init(&g_controls[0]);
+    tecmo_controls_init(&g_controls[1]);
     g_running = true;
 
     while (g_running) {
@@ -246,9 +280,12 @@ int tecmo_run_win32_game(const char *project_root)
         }
         last_counter = now;
 
-        tecmo_controls_begin_frame(&g_controls);
+        tecmo_controls_begin_frame(&g_controls[0]);
+        tecmo_controls_begin_frame(&g_controls[1]);
         runtime.frame_seconds = (float)elapsed;
-        tecmo_runtime_update(&runtime, tecmo_controls_held(&g_controls));
+        tecmo_runtime_update_players(&runtime,
+                                     tecmo_controls_held(&g_controls[0]),
+                                     tecmo_controls_held(&g_controls[1]));
         if (runtime.quit_requested) {
             g_running = false;
             continue;
