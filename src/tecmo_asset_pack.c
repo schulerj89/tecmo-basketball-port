@@ -1791,6 +1791,9 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
     if (tecmo_asset_pack_d9f6_self_test(message, message_size) != 0) {
         goto cleanup;
     }
+    if (tecmo_asset_pack_start_menu_self_test(message, message_size) != 0) {
+        goto cleanup;
+    }
 
     if (make_self_test_temp_dir(temp_dir, sizeof(temp_dir)) != 0 ||
         make_self_test_path(builder_pack_path, sizeof(builder_pack_path), temp_dir, "builder.assetpack") != 0 ||

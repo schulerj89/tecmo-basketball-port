@@ -730,6 +730,7 @@ static int append_start_menu_source_map_entry(char *buffer,
         "{\"role\":\"menu-sprite-palette\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"bank\":0,\"cpu_address\":%u,\"size\":16,\"fingerprint_fnv1a32\":\"F85BA74A\"},"
         "{\"role\":\"nba-emblem\",\"source_entry\":\"prg/bank01\",\"source_offset\":%llu,\"bank\":1,\"cpu_address\":%u,\"size\":197,\"piece_count\":49,\"fingerprint_fnv1a32\":\"669E53D3\"},"
         "{\"role\":\"root-cursor\",\"source_entry\":\"prg/bank01\",\"source_offset\":%llu,\"bank\":1,\"cpu_address\":%u,\"size\":5,\"selector\":48,\"tile\":36,\"resolved_chr_entry\":\"chr/all\",\"resolved_chr_offset\":49728,\"resolved_chr_size\":32,\"resolved_chr_fingerprint_fnv1a32\":\"18F367C4\",\"fingerprint_fnv1a32\":\"7D5835D4\"},"
+        "{\"role\":\"full-chr\",\"source_entry\":\"chr/all\",\"source_offset\":%llu,\"size\":262144,\"fingerprint_fnv1a32\":\"F6F6E854\",\"fingerprint_fnv1a64\":\"96A64F53B240ABB4\"},"
         "{\"role\":\"character-map\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":91,\"fingerprint_fnv1a32\":\"724F80CE\"},"
         "{\"role\":\"root-menu-record\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":110,\"fingerprint_fnv1a32\":\"8CFF0188\"},"
         "{\"role\":\"season-menu-record\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":101,\"fingerprint_fnv1a32\":\"01620B02\"},"
@@ -742,15 +743,31 @@ static int append_start_menu_source_map_entry(char *buffer,
         "{\"role\":\"fade-in\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":72,\"fingerprint_fnv1a32\":\"D75D6EEA\"},"
         "{\"role\":\"season-transition\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":161,\"fingerprint_fnv1a32\":\"7CBACC29\"},"
         "{\"role\":\"root-input-parameters\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":145,\"fingerprint_fnv1a32\":\"DE568C7B\"},"
-        "{\"role\":\"pointer-coordinate-tables\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":247,\"fingerprint_fnv1a32\":\"218E8BCB\"}],"
+        "{\"role\":\"pointer-coordinate-tables\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":247,\"fingerprint_fnv1a32\":\"218E8BCB\"},"
+        "{\"role\":\"music-popup-flow\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":44,\"fingerprint_fnv1a32\":\"051E3038\"},"
+        "{\"role\":\"speed-popup-flow\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":47,\"fingerprint_fnv1a32\":\"223D3BB4\"},"
+        "{\"role\":\"period-popup-flow\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":136,\"fingerprint_fnv1a32\":\"4234F755\"},"
+        "{\"role\":\"overlay-row-transfer\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":164,\"fingerprint_fnv1a32\":\"4325EDF8\"},"
+        "{\"role\":\"menu-record-render\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":517,\"fingerprint_fnv1a32\":\"7590F31B\"},"
+        "{\"role\":\"menu-input-wrapper\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":77,\"fingerprint_fnv1a32\":\"6C2709EB\"},"
+        "{\"role\":\"controller-poll\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":9,\"fingerprint_fnv1a32\":\"8868D9B5\"},"
+        "{\"role\":\"menu-input-helper\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":273,\"fingerprint_fnv1a32\":\"AE47C4A0\"},"
+        "{\"role\":\"session-setup-dispatch\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":44,\"fingerprint_fnv1a32\":\"4FBABE09\"},"
+        "{\"role\":\"post-menu-exit-chain\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":41,\"fingerprint_fnv1a32\":\"76C592FC\"}],"
         "\"native_contract\":{\"pages\":2,\"cells\":1920,\"payload_size\":14112,"
-        "\"payload_fingerprint_fnv1a32\":\"A6C1E06B\","
+        "\"payload_fingerprint_fnv1a32\":\"96438EF4\","
         "\"palette_stages_fingerprint_fnv1a32\":\"F83B6C17\","
         "\"composed_fingerprint_fnv1a32\":\"661750F3\","
         "\"palette_stage_frames\":[0,2,4,6,8,20,24,28,32],\"root_items\":7,\"season_items\":6,"
         "\"direction_repeat_frames\":8,\"season_transition_frames\":32,\"period_value_count\":5,"
         "\"background_pixels_per_frame\":8,\"emblem_pixels_per_frame\":5,"
-        "\"resolved_chr_entry\":\"chr/all\"}}",
+        "\"input_gate_seed\":5,\"period_setup_extra_frames\":1,\"exit_palette_step_frames\":2,"
+        "\"exit_black_frame\":8,\"exit_dispatch_frame\":11,\"root_input_mask\":128,"
+        "\"generic_input_mask\":192,\"period_input_mask\":204,\"direction_mask\":12,"
+        "\"initial_input_gate\":0,\"overlay_row_cadence\":1,\"setup_row_start\":0,"
+        "\"teardown_row_start\":1,\"resolved_chr_entry\":\"chr/all\","
+        "\"resolved_chr_size\":262144,\"resolved_chr_fingerprint_fnv1a32\":\"F6F6E854\","
+        "\"resolved_chr_fingerprint_fnv1a64\":\"96A64F53B240ABB4\"}}",
         prefix, TECMO_ASSET_PACK_START_GAME_MENU_ID,
         (unsigned long long)p->descriptor_offset, TECMO_ASSET_PACK_START_MENU_DESCRIPTOR_CPU,
         (unsigned long long)p->stream_offset, TECMO_ASSET_PACK_START_MENU_STREAM_CPU,
@@ -762,6 +779,7 @@ static int append_start_menu_source_map_entry(char *buffer,
         (unsigned long long)p->sprite_palette_offset, TECMO_ASSET_PACK_START_MENU_SPRITE_PALETTE_CPU,
         (unsigned long long)p->emblem_offset, TECMO_ASSET_PACK_START_MENU_EMBLEM_CPU,
         (unsigned long long)p->cursor_offset, TECMO_ASSET_PACK_START_MENU_CURSOR_CPU,
+        (unsigned long long)p->chr_offset,
         (unsigned long long)p->char_map_offset, TECMO_ASSET_PACK_START_MENU_CHAR_MAP_CPU,
         (unsigned long long)p->main_record_offset, TECMO_ASSET_PACK_START_MENU_MAIN_RECORD_CPU,
         (unsigned long long)p->season_record_offset, TECMO_ASSET_PACK_START_MENU_SEASON_RECORD_CPU,
@@ -774,7 +792,17 @@ static int append_start_menu_source_map_entry(char *buffer,
         (unsigned long long)p->fade_in_offset, TECMO_ASSET_PACK_START_MENU_FADE_IN_CPU,
         (unsigned long long)p->season_route_offset, TECMO_ASSET_PACK_START_MENU_SEASON_ROUTE_CPU,
         (unsigned long long)p->input_params_offset, TECMO_ASSET_PACK_START_MENU_INPUT_PARAMS_CPU,
-        (unsigned long long)p->pointer_coord_offset, TECMO_ASSET_PACK_START_MENU_POINTER_COORD_CPU);
+        (unsigned long long)p->pointer_coord_offset, TECMO_ASSET_PACK_START_MENU_POINTER_COORD_CPU,
+        (unsigned long long)p->music_flow_offset, TECMO_ASSET_PACK_START_MENU_MUSIC_FLOW_CPU,
+        (unsigned long long)p->speed_flow_offset, TECMO_ASSET_PACK_START_MENU_SPEED_FLOW_CPU,
+        (unsigned long long)p->period_flow_offset, TECMO_ASSET_PACK_START_MENU_PERIOD_FLOW_CPU,
+        (unsigned long long)p->overlay_transfer_offset, TECMO_ASSET_PACK_START_MENU_OVERLAY_TRANSFER_CPU,
+        (unsigned long long)p->record_render_offset, TECMO_ASSET_PACK_START_MENU_RECORD_RENDER_CPU,
+        (unsigned long long)p->input_wrapper_offset, TECMO_ASSET_PACK_START_MENU_INPUT_WRAPPER_CPU,
+        (unsigned long long)p->controller_poll_offset, TECMO_ASSET_PACK_START_MENU_CONTROLLER_POLL_CPU,
+        (unsigned long long)p->input_helper_offset, TECMO_ASSET_PACK_START_MENU_INPUT_HELPER_CPU,
+        (unsigned long long)p->session_setup_offset, TECMO_ASSET_PACK_START_MENU_SESSION_SETUP_CPU,
+        (unsigned long long)p->exit_chain_offset, TECMO_ASSET_PACK_START_MENU_EXIT_CHAIN_CPU);
 }
 
 char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,

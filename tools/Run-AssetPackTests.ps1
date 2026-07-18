@@ -872,7 +872,19 @@ function Test-StartMenuPayloadContract {
             [void]$Issues.Add("period-values"); break
         }
     }
-    for ($Index = 126; $Index -lt 160; ++$Index) {
+    $ExpectedNativeMetadata = @(5, 1, 2, 8, 11, 0x80, 0xC0, 0xCC, 0x0C, 0, 1, 0, 1)
+    for ($Index = 0; $Index -lt $ExpectedNativeMetadata.Count; ++$Index) {
+        if ($Bytes[126 + $Index] -ne $ExpectedNativeMetadata[$Index]) {
+            [void]$Issues.Add("native-metadata"); break
+        }
+    }
+    if ($Bytes[139] -ne 0 -or
+        [System.BitConverter]::ToUInt32($Bytes, 140) -ne 262144 -or
+        [System.BitConverter]::ToUInt32($Bytes, 144) -ne [uint32]4143376468 -or
+        $ChrByteCount -ne 262144) {
+        [void]$Issues.Add("chr-contract")
+    }
+    for ($Index = 148; $Index -lt 160; ++$Index) {
         if ($Bytes[$Index] -ne 0) { [void]$Issues.Add("reserved"); break }
     }
     foreach ($Range in @(
@@ -1172,14 +1184,29 @@ try {
         [pscustomobject]@{ id = "compressed-screen"; bank = 0; cpu = 0x8898; fixed = $false },
         [pscustomobject]@{ id = "root-menu-record"; bank = 3; cpu = 0x9B55; fixed = $false },
         [pscustomobject]@{ id = "fade-out"; bank = $ExpectedPrgBanks - 1; cpu = 0xDB25; fixed = $true },
-        [pscustomobject]@{ id = "input-parameters"; bank = 3; cpu = 0x9F13; fixed = $false }
+        [pscustomobject]@{ id = "input-parameters"; bank = 3; cpu = 0x9F13; fixed = $false },
+        [pscustomobject]@{ id = "music-popup-flow"; bank = 3; cpu = 0x81C6; fixed = $false },
+        [pscustomobject]@{ id = "speed-popup-flow"; bank = 3; cpu = 0x81F2; fixed = $false },
+        [pscustomobject]@{ id = "period-popup-flow"; bank = 3; cpu = 0x82EC; fixed = $false },
+        [pscustomobject]@{ id = "overlay-row-transfer"; bank = 3; cpu = 0x9A24; fixed = $false },
+        [pscustomobject]@{ id = "menu-record-render"; bank = 3; cpu = 0xAB06; fixed = $false },
+        [pscustomobject]@{ id = "menu-input-wrapper"; bank = 3; cpu = 0x9EC6; fixed = $false },
+        [pscustomobject]@{ id = "controller-poll"; bank = $ExpectedPrgBanks - 1; cpu = 0xD317; fixed = $true },
+        [pscustomobject]@{ id = "menu-input-helper"; bank = $ExpectedPrgBanks - 1; cpu = 0xD723; fixed = $true },
+        [pscustomobject]@{ id = "session-setup-dispatch"; bank = $ExpectedPrgBanks - 1; cpu = 0xE455; fixed = $true },
+        [pscustomobject]@{ id = "post-menu-exit-chain"; bank = $ExpectedPrgBanks - 1; cpu = 0xE481; fixed = $true },
+        [pscustomobject]@{ id = "full-chr"; chr = $true }
     )
     foreach ($Spec in $StartMenuSourceSpecs) {
         $Rejected = $false
         try {
             [System.IO.File]::Copy($ReferenceRom, $MalformedSourceRom, $true)
-            $CpuBase = if ($Spec.fixed) { 0xC000 } else { 0x8000 }
-            $PatchOffset = [uint64]($PrgStart + [int]$Spec.bank * 0x4000 + ([int]$Spec.cpu - $CpuBase))
+            if ($Spec.PSObject.Properties.Name -contains "chr") {
+                $PatchOffset = [uint64]($PrgStart + $ExpectedPrgBanks * 0x4000)
+            } else {
+                $CpuBase = if ($Spec.fixed) { 0xC000 } else { 0x8000 }
+                $PatchOffset = [uint64]($PrgStart + [int]$Spec.bank * 0x4000 + ([int]$Spec.cpu - $CpuBase))
+            }
             $PatchFile = [System.IO.File]::Open($MalformedSourceRom,
                                                [System.IO.FileMode]::Open,
                                                [System.IO.FileAccess]::ReadWrite,
@@ -1947,6 +1974,11 @@ try {
                 $MenuPalettesExact = (@(Compare-Object $ExpectedMenuPalettes.ToArray() $ActualMenuPalettes -SyncWindow 0)).Count -eq 0
                 $StartMenuPayloadFingerprint = Get-Fnv1a32Hex -Bytes $StartMenuBytes
                 $StartMenuPaletteFingerprint = Get-Fnv1a32Hex -Bytes $ActualMenuPalettes
+                $StartMenuChrFingerprint = Get-Fnv1a32Hex -Bytes $ChrAllBytes
+                $StartMenuChrContractExact = $ChrAllBytes.Length -eq 262144 -and
+                    [System.BitConverter]::ToUInt32($StartMenuBytes, 140) -eq 262144 -and
+                    ("{0:X8}" -f [System.BitConverter]::ToUInt32($StartMenuBytes, 144)) -eq "F6F6E854" -and
+                    $StartMenuChrFingerprint -eq "F6F6E854"
                 $StartMenuCursorRecord = Read-FileBytesAtOffset -Path $ReferenceRom `
                     -Offset ([uint64]($PrgStart + 0x4000 + (0x8031 - 0x8000))) -Count 5
                 $StartMenuCursorTop = [System.BitConverter]::ToUInt32($StartMenuBytes, 12756)
@@ -1960,8 +1992,8 @@ try {
                     $StartMenuCursorChrFingerprint -eq "18F367C4"
                 Add-TestResult ([pscustomobject]@{
                     id = "assetpack-start-game-menu-native"
-                    passed = $StartMenuContract.passed -and $MenuPalettesExact -and
-                        $StartMenuPayloadFingerprint -eq "A6C1E06B" -and
+                    passed = $StartMenuContract.passed -and $MenuPalettesExact -and $StartMenuChrContractExact -and
+                        $StartMenuPayloadFingerprint -eq "96438EF4" -and
                         $StartMenuPaletteFingerprint -eq "F83B6C17"
                     format = if ($StartMenuBytes.Length -ge 4) { [System.Text.Encoding]::ASCII.GetString($StartMenuBytes, 0, 4) } else { "" }
                     byte_count = $StartMenuBytes.Length
@@ -1973,6 +2005,15 @@ try {
                     payload_fingerprint_fnv1a32 = $StartMenuPayloadFingerprint
                     palette_stages_fingerprint_fnv1a32 = $StartMenuPaletteFingerprint
                     contract_issues = $StartMenuContract.issues
+                    raw_asset_bytes_persisted = $false
+                })
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-start-game-menu-full-chr"
+                    passed = $StartMenuChrContractExact
+                    resolved_chr_size = $ChrAllBytes.Length
+                    resolved_chr_fingerprint_fnv1a32 = $StartMenuChrFingerprint
+                    header_chr_size = [System.BitConverter]::ToUInt32($StartMenuBytes, 140)
+                    header_chr_fingerprint_fnv1a32 = ("{0:X8}" -f [System.BitConverter]::ToUInt32($StartMenuBytes, 144))
                     raw_asset_bytes_persisted = $false
                 })
                 Add-TestResult ([pscustomobject]@{
@@ -1992,14 +2033,14 @@ try {
                 $FingerprintMutationHash = Get-Fnv1a32Hex -Bytes $FingerprintMutation
                 Add-TestResult ([pscustomobject]@{
                     id = "assetpack-start-game-menu-revision-fingerprint"
-                    passed = $StartMenuPayloadFingerprint -eq "A6C1E06B" -and
+                    passed = $StartMenuPayloadFingerprint -eq "96438EF4" -and
                         $StartMenuPaletteFingerprint -eq "F83B6C17" -and
                         $FingerprintMutationContract.passed -and
-                        $FingerprintMutationHash -ne "A6C1E06B"
+                        $FingerprintMutationHash -ne "96438EF4"
                     payload_fingerprint_fnv1a32 = $StartMenuPayloadFingerprint
                     palette_stages_fingerprint_fnv1a32 = $StartMenuPaletteFingerprint
                     structurally_valid_mutation_rejected_by_fingerprint = `
-                        $FingerprintMutationContract.passed -and $FingerprintMutationHash -ne "A6C1E06B"
+                        $FingerprintMutationContract.passed -and $FingerprintMutationHash -ne "96438EF4"
                     mutated_payloads_persisted = $false
                     raw_asset_bytes_persisted = $false
                 })
@@ -2008,7 +2049,10 @@ try {
                     [pscustomobject]@{ id = "magic"; mutate = { param([byte[]]$Data) $Data[0] = [byte][char]'X' } },
                     [pscustomobject]@{ id = "declared-size"; mutate = { param([byte[]]$Data) [System.BitConverter]::GetBytes([uint32]($Data.Length - 1)).CopyTo($Data, 44) } },
                     [pscustomobject]@{ id = "period-value"; mutate = { param([byte[]]$Data) $Data[121] = 1 } },
-                    [pscustomobject]@{ id = "reserved"; mutate = { param([byte[]]$Data) $Data[126] = 1 } },
+                    [pscustomobject]@{ id = "native-metadata"; mutate = { param([byte[]]$Data) $Data[126] = 4 } },
+                    [pscustomobject]@{ id = "chr-size"; mutate = { param([byte[]]$Data) $Data[140] = 1 } },
+                    [pscustomobject]@{ id = "chr-fingerprint"; mutate = { param([byte[]]$Data) $Data[144] = $Data[144] -bxor 1 } },
+                    [pscustomobject]@{ id = "reserved"; mutate = { param([byte[]]$Data) $Data[148] = 1 } },
                     [pscustomobject]@{ id = "stage-frame"; mutate = { param([byte[]]$Data) $Data[96 + 8 * 2] = 31 } },
                     [pscustomobject]@{ id = "route"; mutate = { param([byte[]]$Data) $Data[114] = 0 } },
                     [pscustomobject]@{ id = "cell-palette"; mutate = { param([byte[]]$Data) $Data[161] = 4 } },
@@ -2232,11 +2276,15 @@ try {
                 $ExpectedStartMenuRoles = @(
                     "descriptor", "compressed-screen", "menu-background-palette",
                     "title-background-palette", "title-sprite-palette", "menu-sprite-selectors",
-                    "menu-sprite-palette", "nba-emblem", "root-cursor", "character-map",
+                    "menu-sprite-palette", "nba-emblem", "root-cursor", "full-chr",
+                    "character-map",
                     "root-menu-record", "season-menu-record", "music-popup-record",
                     "speed-popup-record", "period-popup-record", "period-values", "screen-loader",
                     "fade-out", "fade-in", "season-transition", "root-input-parameters",
-                    "pointer-coordinate-tables"
+                    "pointer-coordinate-tables", "music-popup-flow", "speed-popup-flow",
+                    "period-popup-flow", "overlay-row-transfer", "menu-record-render",
+                    "menu-input-wrapper", "controller-poll", "menu-input-helper",
+                    "session-setup-dispatch", "post-menu-exit-chain"
                 )
                 $StartMenuFingerprintedRoles = @($StartMenuSource.sources | Where-Object {
                     (($_.PSObject.Properties.Name -contains "fingerprint_fnv1a32") -or
@@ -2244,14 +2292,16 @@ try {
                 })
                 $ExpectedStartMenuDescriptorOffset = [uint64]($OpeningFixedStart + (0xDCA1 - 0xC000))
                 $ExpectedStartMenuStreamOffset = [uint64]($OpeningPrgStart + (0x8898 - 0x8000))
+                $ExpectedStartMenuChrOffset = [uint64]($OpeningPrgStart + $ExpectedPrgBanks * 0x4000)
                 $StartMenuDescriptor = @($StartMenuSource.sources | Where-Object { $_.role -eq "descriptor" } | Select-Object -First 1)
                 $StartMenuStream = @($StartMenuSource.sources | Where-Object { $_.role -eq "compressed-screen" } | Select-Object -First 1)
                 $StartMenuCursorSource = @($StartMenuSource.sources | Where-Object { $_.role -eq "root-cursor" } | Select-Object -First 1)
+                $StartMenuChrSource = @($StartMenuSource.sources | Where-Object { $_.role -eq "full-chr" } | Select-Object -First 1)
                 $StartMenuSourcePassed = $StartMenuSource.Count -eq 1 -and
                     $StartMenuSource.schema -eq "tecmo.start-game-menu/TSGM-1" -and
                     $StartMenuSource.input_contract -eq "ines-only" -and
                     (@(Compare-Object $ExpectedStartMenuRoles $StartMenuRoles)).Count -eq 0 -and
-                    $StartMenuFingerprintedRoles.Count -eq 22 -and
+                    $StartMenuFingerprintedRoles.Count -eq 33 -and
                     [uint64]$StartMenuDescriptor.source_offset -eq $ExpectedStartMenuDescriptorOffset -and
                     [int]$StartMenuDescriptor.cpu_address -eq 0xDCA1 -and
                     [uint64]$StartMenuStream.source_offset -eq $ExpectedStartMenuStreamOffset -and
@@ -2264,10 +2314,15 @@ try {
                     [int]$StartMenuCursorSource.resolved_chr_offset -eq 0xC240 -and
                     [int]$StartMenuCursorSource.resolved_chr_size -eq 32 -and
                     $StartMenuCursorSource.resolved_chr_fingerprint_fnv1a32 -eq "18F367C4" -and
+                    $StartMenuChrSource.Count -eq 1 -and
+                    [uint64]$StartMenuChrSource.source_offset -eq $ExpectedStartMenuChrOffset -and
+                    [int]$StartMenuChrSource.size -eq 262144 -and
+                    $StartMenuChrSource.fingerprint_fnv1a32 -eq "F6F6E854" -and
+                    $StartMenuChrSource.fingerprint_fnv1a64 -eq "96A64F53B240ABB4" -and
                     [int]$StartMenuSource.native_contract.pages -eq 2 -and
                     [int]$StartMenuSource.native_contract.cells -eq 1920 -and
                     [int]$StartMenuSource.native_contract.payload_size -eq 14112 -and
-                    $StartMenuSource.native_contract.payload_fingerprint_fnv1a32 -eq "A6C1E06B" -and
+                    $StartMenuSource.native_contract.payload_fingerprint_fnv1a32 -eq "96438EF4" -and
                     $StartMenuSource.native_contract.palette_stages_fingerprint_fnv1a32 -eq "F83B6C17" -and
                     (@($StartMenuSource.native_contract.palette_stage_frames) -join ",") -eq "0,2,4,6,8,20,24,28,32" -and
                     [int]$StartMenuSource.native_contract.root_items -eq 7 -and
@@ -2275,6 +2330,22 @@ try {
                     [int]$StartMenuSource.native_contract.direction_repeat_frames -eq 8 -and
                     [int]$StartMenuSource.native_contract.season_transition_frames -eq 32 -and
                     [int]$StartMenuSource.native_contract.period_value_count -eq 5 -and
+                    [int]$StartMenuSource.native_contract.input_gate_seed -eq 5 -and
+                    [int]$StartMenuSource.native_contract.period_setup_extra_frames -eq 1 -and
+                    [int]$StartMenuSource.native_contract.exit_palette_step_frames -eq 2 -and
+                    [int]$StartMenuSource.native_contract.exit_black_frame -eq 8 -and
+                    [int]$StartMenuSource.native_contract.exit_dispatch_frame -eq 11 -and
+                    [int]$StartMenuSource.native_contract.root_input_mask -eq 0x80 -and
+                    [int]$StartMenuSource.native_contract.generic_input_mask -eq 0xC0 -and
+                    [int]$StartMenuSource.native_contract.period_input_mask -eq 0xCC -and
+                    [int]$StartMenuSource.native_contract.direction_mask -eq 0x0C -and
+                    [int]$StartMenuSource.native_contract.initial_input_gate -eq 0 -and
+                    [int]$StartMenuSource.native_contract.overlay_row_cadence -eq 1 -and
+                    [int]$StartMenuSource.native_contract.setup_row_start -eq 0 -and
+                    [int]$StartMenuSource.native_contract.teardown_row_start -eq 1 -and
+                    [int]$StartMenuSource.native_contract.resolved_chr_size -eq 262144 -and
+                    $StartMenuSource.native_contract.resolved_chr_fingerprint_fnv1a32 -eq "F6F6E854" -and
+                    $StartMenuSource.native_contract.resolved_chr_fingerprint_fnv1a64 -eq "96A64F53B240ABB4" -and
                     @($StartMenuRoles | Where-Object { $_ -match "trace|capture|log|screenshot" }).Count -eq 0
                 Add-TestResult ([pscustomobject]@{
                     id = "assetpack-start-game-menu-source-provenance"

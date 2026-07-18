@@ -9,12 +9,25 @@
 #define MENU_DESCRIPTOR_CPU 0xDCA1U
 #define MENU_BG_R0 0xFAU
 #define MENU_BG_R1 0xFAU
-#define MENU_PAYLOAD_FNV1A32 0xA6C1E06BU
+#define MENU_PAYLOAD_FNV1A32 0x96438EF4U
 #define MENU_PALETTE_STAGES_FNV1A32 0xF83B6C17U
 #define MENU_CURSOR_SELECTOR 0x30U
 #define MENU_CURSOR_TILE 0x24U
 #define MENU_CURSOR_CHR_OFFSET 0xC240U
 #define MENU_CURSOR_CHR_FNV1A32 0x18F367C4U
+#define MENU_INPUT_GATE_SEED 5U
+#define MENU_PERIOD_SETUP_EXTRA_FRAMES 1U
+#define MENU_EXIT_PALETTE_STEP_FRAMES 2U
+#define MENU_EXIT_BLACK_FRAME 8U
+#define MENU_EXIT_DISPATCH_FRAME 11U
+#define MENU_ROOT_INPUT_MASK 0x80U
+#define MENU_GENERIC_INPUT_MASK 0xC0U
+#define MENU_PERIOD_INPUT_MASK 0xCCU
+#define MENU_DIRECTION_MASK 0x0CU
+#define MENU_INITIAL_INPUT_GATE 0U
+#define MENU_OVERLAY_ROW_CADENCE 1U
+#define MENU_OVERLAY_SETUP_ROW_START 0U
+#define MENU_OVERLAY_TEARDOWN_ROW_START 1U
 
 typedef struct MenuRecordSource {
     uint32_t cpu;
@@ -248,27 +261,79 @@ static int build_overlay(uint8_t *payload,
     uint8_t tiles[256];
     unsigned width;
     unsigned height;
-    uint8_t *desc = payload + TECMO_ASSET_PACK_START_MENU_OVERLAY_DESCS_OFFSET + overlay_index * 16U;
+    unsigned origin_x;
+    unsigned origin_y;
+    size_t cell_count;
+    uint8_t *desc;
+    if (payload == NULL || record == NULL || char_map == NULL || decoded == NULL ||
+        overlay_index >= TECMO_ASSET_PACK_START_MENU_OVERLAY_DESC_COUNT) {
+        tecmo_asset_pack_set_message(message, message_size,
+                                     "Start-menu overlay arguments were rejected.");
+        return -1;
+    }
     if (build_record_tiles(record, record_size, char_map, tiles, sizeof(tiles),
-                           &width, &height, message, message_size) != 0 ||
-        cell_start + (size_t)width * height > TECMO_ASSET_PACK_START_MENU_OVERLAY_CELL_COUNT) return -1;
+                           &width, &height, message, message_size) != 0) return -1;
+    origin_x = record[2];
+    origin_y = record[3];
+    cell_count = (size_t)width * height;
+    if (origin_x > 64U || width > 64U - origin_x ||
+        origin_y > 30U || height > 30U - origin_y) {
+        tecmo_asset_pack_set_messagef(message, message_size,
+                                      "Start-menu overlay placement %u,%u %ux%u is outside two native pages.",
+                                      origin_x, origin_y, width, height);
+        return -1;
+    }
+    if (cell_start > TECMO_ASSET_PACK_START_MENU_OVERLAY_CELL_COUNT ||
+        cell_count > TECMO_ASSET_PACK_START_MENU_OVERLAY_CELL_COUNT - cell_start) {
+        tecmo_asset_pack_set_message(message, message_size,
+                                     "Start-menu overlay cell span is outside its native bounds.");
+        return -1;
+    }
+    desc = payload + TECMO_ASSET_PACK_START_MENU_OVERLAY_DESCS_OFFSET + overlay_index * 16U;
     tecmo_asset_pack_store_u32(desc, (uint32_t)cell_start);
-    tecmo_asset_pack_store_u16(desc + 4U, (uint16_t)((size_t)width * height));
+    tecmo_asset_pack_store_u16(desc + 4U, (uint16_t)cell_count);
     tecmo_asset_pack_store_u16(desc + 6U, (uint16_t)width);
     tecmo_asset_pack_store_u16(desc + 8U, (uint16_t)height);
-    tecmo_asset_pack_store_u16(desc + 10U, record[2]);
-    tecmo_asset_pack_store_u16(desc + 12U, record[3]);
+    tecmo_asset_pack_store_u16(desc + 10U, (uint16_t)origin_x);
+    tecmo_asset_pack_store_u16(desc + 12U, (uint16_t)origin_y);
     desc[14U] = (uint8_t)overlay_index;
     for (unsigned y = 0U; y < height; ++y) {
         for (unsigned x = 0U; x < width; ++x) {
-            unsigned gx = record[2] + x;
+            unsigned gx = origin_x + x;
             const uint8_t *page = decoded + (gx / 32U) * 1024U;
-            uint8_t palette = tecmo_asset_pack_decoded_palette_index(page, record[3] + y, gx % 32U);
+            uint8_t palette = tecmo_asset_pack_decoded_palette_index(page, origin_y + y, gx % 32U);
             uint8_t *cell = payload + TECMO_ASSET_PACK_START_MENU_OVERLAY_CELLS_OFFSET +
                             (cell_start + (size_t)y * width + x) * 6U;
             store_cell(cell, tiles[(size_t)y * width + x], palette);
         }
     }
+    return 0;
+}
+
+int tecmo_asset_pack_start_menu_self_test(char *message, size_t message_size)
+{
+    static const uint8_t invalid_x_record[5] = {7U, 6U, 58U, 23U, 0xFFU};
+    static const uint8_t invalid_y_record[5] = {7U, 6U, 5U, 25U, 0xFFU};
+    static const uint8_t valid_edge_record[5] = {7U, 6U, 57U, 24U, 0xFFU};
+    uint8_t payload[TECMO_ASSET_PACK_START_MENU_SIZE];
+    uint8_t decoded[2048];
+    uint8_t char_map[91];
+
+    memset(payload, 0, sizeof(payload));
+    memset(decoded, 0, sizeof(decoded));
+    memset(char_map, 0, sizeof(char_map));
+    if (build_overlay(payload, 0U, 0U, invalid_x_record, sizeof(invalid_x_record),
+                      char_map, decoded, NULL, 0U) == 0 ||
+        build_overlay(payload, 0U, 0U, invalid_y_record, sizeof(invalid_y_record),
+                      char_map, decoded, NULL, 0U) == 0 ||
+        build_overlay(payload, 0U, 0U, valid_edge_record, sizeof(valid_edge_record),
+                      char_map, decoded, message, message_size) != 0) {
+        tecmo_asset_pack_set_message(message, message_size,
+                                     "Start-menu overlay placement self-test failed.");
+        return -1;
+    }
+    tecmo_asset_pack_set_message(message, message_size,
+                                 "Start-menu overlay placement self-test passed.");
     return 0;
 }
 
@@ -313,10 +378,21 @@ int tecmo_asset_pack_build_start_game_menu(const uint8_t *rom,
     uint64_t season_route_offset = bank_cpu_offset(prg_offset, 3U, TECMO_ASSET_PACK_START_MENU_SEASON_ROUTE_CPU);
     uint64_t input_params_offset = bank_cpu_offset(prg_offset, 3U, TECMO_ASSET_PACK_START_MENU_INPUT_PARAMS_CPU);
     uint64_t pointer_coord_offset = bank_cpu_offset(prg_offset, 3U, TECMO_ASSET_PACK_START_MENU_POINTER_COORD_CPU);
+    uint64_t music_flow_offset = bank_cpu_offset(prg_offset, 3U, TECMO_ASSET_PACK_START_MENU_MUSIC_FLOW_CPU);
+    uint64_t speed_flow_offset = bank_cpu_offset(prg_offset, 3U, TECMO_ASSET_PACK_START_MENU_SPEED_FLOW_CPU);
+    uint64_t period_flow_offset = bank_cpu_offset(prg_offset, 3U, TECMO_ASSET_PACK_START_MENU_PERIOD_FLOW_CPU);
+    uint64_t overlay_transfer_offset = bank_cpu_offset(prg_offset, 3U, TECMO_ASSET_PACK_START_MENU_OVERLAY_TRANSFER_CPU);
+    uint64_t record_render_offset = bank_cpu_offset(prg_offset, 3U, TECMO_ASSET_PACK_START_MENU_RECORD_RENDER_CPU);
+    uint64_t input_wrapper_offset = bank_cpu_offset(prg_offset, 3U, TECMO_ASSET_PACK_START_MENU_INPUT_WRAPPER_CPU);
+    uint64_t controller_poll_offset;
+    uint64_t input_helper_offset;
+    uint64_t session_setup_offset;
+    uint64_t exit_chain_offset;
     size_t encoded_size = 0U;
     const uint8_t *descriptor;
 
-    if (rom == NULL || payload == NULL || provenance == NULL || prg_banks < 8U || chr_size == 0U ||
+    if (rom == NULL || payload == NULL || provenance == NULL || prg_banks < 8U ||
+        chr_size != TECMO_ASSET_PACK_START_MENU_REV1_CHR_SIZE ||
         payload_size != TECMO_ASSET_PACK_START_MENU_SIZE) {
         tecmo_asset_pack_set_message(message, message_size, "TSGM-1 import requires the exact Rev1 payload contract.");
         return -1;
@@ -331,6 +407,10 @@ int tecmo_asset_pack_build_start_game_menu(const uint8_t *rom,
     loader_offset = fixed_cpu_offset(prg_offset, prg_banks, TECMO_ASSET_PACK_START_MENU_LOADER_CPU);
     fade_out_offset = fixed_cpu_offset(prg_offset, prg_banks, TECMO_ASSET_PACK_START_MENU_FADE_OUT_CPU);
     fade_in_offset = fixed_cpu_offset(prg_offset, prg_banks, TECMO_ASSET_PACK_START_MENU_FADE_IN_CPU);
+    controller_poll_offset = fixed_cpu_offset(prg_offset, prg_banks, TECMO_ASSET_PACK_START_MENU_CONTROLLER_POLL_CPU);
+    input_helper_offset = fixed_cpu_offset(prg_offset, prg_banks, TECMO_ASSET_PACK_START_MENU_INPUT_HELPER_CPU);
+    session_setup_offset = fixed_cpu_offset(prg_offset, prg_banks, TECMO_ASSET_PACK_START_MENU_SESSION_SETUP_CPU);
+    exit_chain_offset = fixed_cpu_offset(prg_offset, prg_banks, TECMO_ASSET_PACK_START_MENU_EXIT_CHAIN_CPU);
     for (size_t i = 0U; i < 3U; ++i) overlay_offsets[i] = bank_cpu_offset(prg_offset, 3U, overlays[i].cpu);
     if (!menu_range(descriptor_offset, 7U, rom_size) ||
         !menu_range(chr_offset, chr_size, rom_size) ||
@@ -351,7 +431,17 @@ int tecmo_asset_pack_build_start_game_menu(const uint8_t *rom,
         !menu_range(fade_in_offset, TECMO_ASSET_PACK_START_MENU_FADE_IN_SIZE, rom_size) ||
         !menu_range(season_route_offset, TECMO_ASSET_PACK_START_MENU_SEASON_ROUTE_SIZE, rom_size) ||
         !menu_range(input_params_offset, TECMO_ASSET_PACK_START_MENU_INPUT_PARAMS_SIZE, rom_size) ||
-        !menu_range(pointer_coord_offset, TECMO_ASSET_PACK_START_MENU_POINTER_COORD_SIZE, rom_size)) {
+        !menu_range(pointer_coord_offset, TECMO_ASSET_PACK_START_MENU_POINTER_COORD_SIZE, rom_size) ||
+        !menu_range(music_flow_offset, TECMO_ASSET_PACK_START_MENU_MUSIC_FLOW_SIZE, rom_size) ||
+        !menu_range(speed_flow_offset, TECMO_ASSET_PACK_START_MENU_SPEED_FLOW_SIZE, rom_size) ||
+        !menu_range(period_flow_offset, TECMO_ASSET_PACK_START_MENU_PERIOD_FLOW_SIZE, rom_size) ||
+        !menu_range(overlay_transfer_offset, TECMO_ASSET_PACK_START_MENU_OVERLAY_TRANSFER_SIZE, rom_size) ||
+        !menu_range(record_render_offset, TECMO_ASSET_PACK_START_MENU_RECORD_RENDER_SIZE, rom_size) ||
+        !menu_range(input_wrapper_offset, TECMO_ASSET_PACK_START_MENU_INPUT_WRAPPER_SIZE, rom_size) ||
+        !menu_range(controller_poll_offset, TECMO_ASSET_PACK_START_MENU_CONTROLLER_POLL_SIZE, rom_size) ||
+        !menu_range(input_helper_offset, TECMO_ASSET_PACK_START_MENU_INPUT_HELPER_SIZE, rom_size) ||
+        !menu_range(session_setup_offset, TECMO_ASSET_PACK_START_MENU_SESSION_SETUP_SIZE, rom_size) ||
+        !menu_range(exit_chain_offset, TECMO_ASSET_PACK_START_MENU_EXIT_CHAIN_SIZE, rom_size)) {
         tecmo_asset_pack_set_message(message, message_size, "TSGM-1 source range is outside the ROM.");
         return -1;
     }
@@ -395,7 +485,19 @@ int tecmo_asset_pack_build_start_game_menu(const uint8_t *rom,
          tecmo_asset_pack_fnv1a32(rom + (size_t)fade_in_offset, TECMO_ASSET_PACK_START_MENU_FADE_IN_SIZE) != 0xD75D6EEAU ||
          tecmo_asset_pack_fnv1a32(rom + (size_t)season_route_offset, TECMO_ASSET_PACK_START_MENU_SEASON_ROUTE_SIZE) != 0x7CBACC29U ||
          tecmo_asset_pack_fnv1a32(rom + (size_t)input_params_offset, TECMO_ASSET_PACK_START_MENU_INPUT_PARAMS_SIZE) != 0xDE568C7BU ||
-         tecmo_asset_pack_fnv1a32(rom + (size_t)pointer_coord_offset, TECMO_ASSET_PACK_START_MENU_POINTER_COORD_SIZE) != 0x218E8BCBU)) {
+         tecmo_asset_pack_fnv1a32(rom + (size_t)pointer_coord_offset, TECMO_ASSET_PACK_START_MENU_POINTER_COORD_SIZE) != 0x218E8BCBU ||
+         tecmo_asset_pack_fnv1a32(rom + (size_t)music_flow_offset, TECMO_ASSET_PACK_START_MENU_MUSIC_FLOW_SIZE) != 0x051E3038U ||
+         tecmo_asset_pack_fnv1a32(rom + (size_t)speed_flow_offset, TECMO_ASSET_PACK_START_MENU_SPEED_FLOW_SIZE) != 0x223D3BB4U ||
+         tecmo_asset_pack_fnv1a32(rom + (size_t)period_flow_offset, TECMO_ASSET_PACK_START_MENU_PERIOD_FLOW_SIZE) != 0x4234F755U ||
+         tecmo_asset_pack_fnv1a32(rom + (size_t)overlay_transfer_offset, TECMO_ASSET_PACK_START_MENU_OVERLAY_TRANSFER_SIZE) != 0x4325EDF8U ||
+         tecmo_asset_pack_fnv1a32(rom + (size_t)record_render_offset, TECMO_ASSET_PACK_START_MENU_RECORD_RENDER_SIZE) != 0x7590F31BU ||
+         tecmo_asset_pack_fnv1a32(rom + (size_t)input_wrapper_offset, TECMO_ASSET_PACK_START_MENU_INPUT_WRAPPER_SIZE) != 0x6C2709EBU ||
+         tecmo_asset_pack_fnv1a32(rom + (size_t)controller_poll_offset, TECMO_ASSET_PACK_START_MENU_CONTROLLER_POLL_SIZE) != 0x8868D9B5U ||
+         tecmo_asset_pack_fnv1a32(rom + (size_t)input_helper_offset, TECMO_ASSET_PACK_START_MENU_INPUT_HELPER_SIZE) != 0xAE47C4A0U ||
+         tecmo_asset_pack_fnv1a32(rom + (size_t)session_setup_offset, TECMO_ASSET_PACK_START_MENU_SESSION_SETUP_SIZE) != 0x4FBABE09U ||
+         tecmo_asset_pack_fnv1a32(rom + (size_t)exit_chain_offset, TECMO_ASSET_PACK_START_MENU_EXIT_CHAIN_SIZE) != 0x76C592FCU ||
+         tecmo_asset_pack_fnv1a32(rom + (size_t)chr_offset, (size_t)chr_size) !=
+             TECMO_ASSET_PACK_START_MENU_REV1_CHR_FNV1A32)) {
         tecmo_asset_pack_set_message(message, message_size, "TSGM-1 Rev1 fingerprint mismatch.");
         return -1;
     }
@@ -454,6 +556,36 @@ int tecmo_asset_pack_build_start_game_menu(const uint8_t *rom,
     memcpy(payload + TECMO_ASSET_PACK_START_MENU_PERIOD_VALUES_HEADER_OFFSET,
            rom + (size_t)period_values_offset,
            TECMO_ASSET_PACK_START_MENU_PERIOD_VALUE_COUNT);
+    payload[TECMO_ASSET_PACK_START_MENU_INPUT_GATE_SEED_HEADER_OFFSET] = MENU_INPUT_GATE_SEED;
+    payload[TECMO_ASSET_PACK_START_MENU_PERIOD_SETUP_EXTRA_HEADER_OFFSET] =
+        MENU_PERIOD_SETUP_EXTRA_FRAMES;
+    payload[TECMO_ASSET_PACK_START_MENU_EXIT_PALETTE_STEP_HEADER_OFFSET] =
+        MENU_EXIT_PALETTE_STEP_FRAMES;
+    payload[TECMO_ASSET_PACK_START_MENU_EXIT_BLACK_FRAME_HEADER_OFFSET] =
+        MENU_EXIT_BLACK_FRAME;
+    payload[TECMO_ASSET_PACK_START_MENU_EXIT_DISPATCH_FRAME_HEADER_OFFSET] =
+        MENU_EXIT_DISPATCH_FRAME;
+    payload[TECMO_ASSET_PACK_START_MENU_ROOT_INPUT_MASK_HEADER_OFFSET] =
+        MENU_ROOT_INPUT_MASK;
+    payload[TECMO_ASSET_PACK_START_MENU_GENERIC_INPUT_MASK_HEADER_OFFSET] =
+        MENU_GENERIC_INPUT_MASK;
+    payload[TECMO_ASSET_PACK_START_MENU_PERIOD_INPUT_MASK_HEADER_OFFSET] =
+        MENU_PERIOD_INPUT_MASK;
+    payload[TECMO_ASSET_PACK_START_MENU_DIRECTION_MASK_HEADER_OFFSET] =
+        MENU_DIRECTION_MASK;
+    payload[TECMO_ASSET_PACK_START_MENU_INITIAL_GATE_HEADER_OFFSET] =
+        MENU_INITIAL_INPUT_GATE;
+    payload[TECMO_ASSET_PACK_START_MENU_ROW_CADENCE_HEADER_OFFSET] =
+        MENU_OVERLAY_ROW_CADENCE;
+    payload[TECMO_ASSET_PACK_START_MENU_SETUP_ROW_START_HEADER_OFFSET] =
+        MENU_OVERLAY_SETUP_ROW_START;
+    payload[TECMO_ASSET_PACK_START_MENU_TEARDOWN_ROW_START_HEADER_OFFSET] =
+        MENU_OVERLAY_TEARDOWN_ROW_START;
+    payload[TECMO_ASSET_PACK_START_MENU_METADATA_ALIGNMENT_HEADER_OFFSET] = 0U;
+    tecmo_asset_pack_store_u32(payload + TECMO_ASSET_PACK_START_MENU_CHR_SIZE_HEADER_OFFSET,
+                               TECMO_ASSET_PACK_START_MENU_REV1_CHR_SIZE);
+    tecmo_asset_pack_store_u32(payload + TECMO_ASSET_PACK_START_MENU_CHR_FNV1A32_HEADER_OFFSET,
+                               TECMO_ASSET_PACK_START_MENU_REV1_CHR_FNV1A32);
 
     build_screen_cells(payload, decoded);
     build_palette_stages(payload, rom + (size_t)title_palette_offset,
@@ -485,6 +617,7 @@ int tecmo_asset_pack_build_start_game_menu(const uint8_t *rom,
     }
 
     memset(provenance, 0, sizeof(*provenance));
+    provenance->chr_offset = chr_offset;
     provenance->descriptor_offset = descriptor_offset;
     provenance->stream_offset = stream_offset;
     provenance->stream_size = encoded_size;
@@ -508,5 +641,15 @@ int tecmo_asset_pack_build_start_game_menu(const uint8_t *rom,
     provenance->season_route_offset = season_route_offset;
     provenance->input_params_offset = input_params_offset;
     provenance->pointer_coord_offset = pointer_coord_offset;
+    provenance->music_flow_offset = music_flow_offset;
+    provenance->speed_flow_offset = speed_flow_offset;
+    provenance->period_flow_offset = period_flow_offset;
+    provenance->overlay_transfer_offset = overlay_transfer_offset;
+    provenance->record_render_offset = record_render_offset;
+    provenance->input_wrapper_offset = input_wrapper_offset;
+    provenance->controller_poll_offset = controller_poll_offset;
+    provenance->input_helper_offset = input_helper_offset;
+    provenance->session_setup_offset = session_setup_offset;
+    provenance->exit_chain_offset = exit_chain_offset;
     return 0;
 }

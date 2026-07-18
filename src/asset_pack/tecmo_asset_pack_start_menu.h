@@ -18,4 +18,6 @@ int tecmo_asset_pack_build_start_game_menu(const uint8_t *rom,
                                            char *message,
                                            size_t message_size);
 
+int tecmo_asset_pack_start_menu_self_test(char *message, size_t message_size);
+
 #endif
