@@ -168,7 +168,7 @@ static bool parse_payload(TecmoStartGameMenuAsset *asset,
     size_t i;
 
     if (bytes == NULL || count != START_MENU_PAYLOAD_SIZE ||
-        fnv1a32(bytes, count) != 0xDEFB37CFU ||
+        fnv1a32(bytes, count) != 0xA6C1E06BU ||
         memcmp(bytes, "TSGM", 4U) != 0 ||
         read_u16(bytes + 4U) != 1U ||
         read_u16(bytes + 6U) != START_MENU_HEADER_SIZE ||
@@ -242,7 +242,9 @@ static bool parse_payload(TecmoStartGameMenuAsset *asset,
         if (!parse_sprite(&asset->emblem[i],
                           bytes + START_MENU_EMBLEM_OFFSET + i * 16U, false))
             return false;
-    if (!parse_sprite(&asset->cursor, bytes + START_MENU_CURSOR_OFFSET, true))
+    if (!parse_sprite(&asset->cursor, bytes + START_MENU_CURSOR_OFFSET, true) ||
+        asset->cursor.top_chr_offset != 0xC240U ||
+        asset->cursor.bottom_chr_offset != 0xC250U)
         return false;
 
     for (i = 0U; i < TECMO_START_GAME_MENU_OVERLAY_COUNT; ++i) {

@@ -9,8 +9,12 @@
 #define MENU_DESCRIPTOR_CPU 0xDCA1U
 #define MENU_BG_R0 0xFAU
 #define MENU_BG_R1 0xFAU
-#define MENU_PAYLOAD_FNV1A32 0xDEFB37CFU
+#define MENU_PAYLOAD_FNV1A32 0xA6C1E06BU
 #define MENU_PALETTE_STAGES_FNV1A32 0xF83B6C17U
+#define MENU_CURSOR_SELECTOR 0x30U
+#define MENU_CURSOR_TILE 0x24U
+#define MENU_CURSOR_CHR_OFFSET 0xC240U
+#define MENU_CURSOR_CHR_FNV1A32 0x18F367C4U
 
 typedef struct MenuRecordSource {
     uint32_t cpu;
@@ -184,6 +188,7 @@ static void build_palette_stages(uint8_t *payload,
 static int build_sprite_pieces(uint8_t *payload,
                                const uint8_t *emblem,
                                const uint8_t cursor[5],
+                               const uint8_t *chr,
                                uint64_t chr_size,
                                char *message,
                                size_t message_size)
@@ -213,8 +218,15 @@ static int build_sprite_pieces(uint8_t *payload,
     }
     {
         uint8_t *piece = payload + TECMO_ASSET_PACK_START_MENU_CURSOR_OFFSET;
-        uint32_t top = 0xF5U * 1024U + 0x24U * 16U;
-        if ((uint64_t)top + 32U > chr_size) return -1;
+        uint32_t top = (uint32_t)cursor[3] * 1024U + (uint32_t)cursor[4] * 16U;
+        if (cursor[3] != MENU_CURSOR_SELECTOR || cursor[4] != MENU_CURSOR_TILE ||
+            top != MENU_CURSOR_CHR_OFFSET || (uint64_t)top + 32U > chr_size ||
+            chr == NULL ||
+            tecmo_asset_pack_fnv1a32(chr + top, 32U) != MENU_CURSOR_CHR_FNV1A32) {
+            tecmo_asset_pack_set_message(message, message_size,
+                                         "Start-menu cursor CHR pair was rejected.");
+            return -1;
+        }
         tecmo_asset_pack_store_u16(piece, 31U);
         tecmo_asset_pack_store_u16(piece + 2U, 88U);
         tecmo_asset_pack_store_u32(piece + 4U, top);
@@ -281,6 +293,7 @@ int tecmo_asset_pack_build_start_game_menu(const uint8_t *rom,
     static const uint8_t routes[7] = {1U, 2U, 3U, 4U, 5U, 6U, 7U};
     uint8_t decoded[2048];
     uint64_t descriptor_offset;
+    uint64_t chr_offset;
     uint64_t stream_offset = bank_cpu_offset(prg_offset, 0U, TECMO_ASSET_PACK_START_MENU_STREAM_CPU);
     uint64_t menu_palette_offset = bank_cpu_offset(prg_offset, 0U, TECMO_ASSET_PACK_START_MENU_BG_PALETTE_CPU);
     uint64_t title_palette_offset = bank_cpu_offset(prg_offset, 0U, TECMO_ASSET_PACK_START_MENU_TITLE_BG_PALETTE_CPU);
@@ -308,12 +321,19 @@ int tecmo_asset_pack_build_start_game_menu(const uint8_t *rom,
         tecmo_asset_pack_set_message(message, message_size, "TSGM-1 import requires the exact Rev1 payload contract.");
         return -1;
     }
+    if ((uint64_t)prg_banks * TECMO_ASSET_PACK_PRG_BANK_BYTES > UINT64_MAX - prg_offset) {
+        tecmo_asset_pack_set_message(message, message_size, "TSGM-1 CHR source offset overflowed.");
+        return -1;
+    }
+    chr_offset = prg_offset +
+                 (uint64_t)prg_banks * TECMO_ASSET_PACK_PRG_BANK_BYTES;
     descriptor_offset = fixed_cpu_offset(prg_offset, prg_banks, MENU_DESCRIPTOR_CPU);
     loader_offset = fixed_cpu_offset(prg_offset, prg_banks, TECMO_ASSET_PACK_START_MENU_LOADER_CPU);
     fade_out_offset = fixed_cpu_offset(prg_offset, prg_banks, TECMO_ASSET_PACK_START_MENU_FADE_OUT_CPU);
     fade_in_offset = fixed_cpu_offset(prg_offset, prg_banks, TECMO_ASSET_PACK_START_MENU_FADE_IN_CPU);
     for (size_t i = 0U; i < 3U; ++i) overlay_offsets[i] = bank_cpu_offset(prg_offset, 3U, overlays[i].cpu);
     if (!menu_range(descriptor_offset, 7U, rom_size) ||
+        !menu_range(chr_offset, chr_size, rom_size) ||
         !menu_range(stream_offset, TECMO_ASSET_PACK_START_MENU_STREAM_SIZE, rom_size) ||
         !menu_range(menu_palette_offset, 16U, rom_size) || !menu_range(title_palette_offset, 16U, rom_size) ||
         !menu_range(title_sprite_palette_offset, 16U, rom_size) || !menu_range(sprite_palette_offset, 16U, rom_size) ||
@@ -441,7 +461,8 @@ int tecmo_asset_pack_build_start_game_menu(const uint8_t *rom,
                          rom + (size_t)menu_palette_offset,
                          rom + (size_t)sprite_palette_offset);
     if (build_sprite_pieces(payload, rom + (size_t)emblem_offset,
-                            rom + (size_t)cursor_offset, chr_size, message, message_size) != 0 ||
+                            rom + (size_t)cursor_offset, rom + (size_t)chr_offset,
+                            chr_size, message, message_size) != 0 ||
         build_overlay(payload, 0U, 0U, rom + (size_t)overlay_offsets[0], overlays[0].size,
                       rom + (size_t)char_map_offset, decoded, message, message_size) != 0 ||
         build_overlay(payload, 1U, 42U, rom + (size_t)overlay_offsets[1], overlays[1].size,

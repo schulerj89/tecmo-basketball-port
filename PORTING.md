@@ -243,6 +243,12 @@ decoded, and composed fingerprints. Runtime consumes only TSGM-1 and `chr/all`
 from the same asset pack; local video, Lua traces, PPU/OAM dumps, save states,
 screenshots, and decompilation files remain verification-only.
 
+The root cursor is resolved directly from Bank01's selector `$30`, tile `$24`
+record to the exact 8x16 pair at `chr/all` offset `$C240`. The source record,
+resolved CHR pair, and resulting TSGM-1 payload each have independent Rev1
+fingerprints so a selector-mapping regression is rejected during import and at
+runtime.
+
 Title-out/menu-in timing uses local palette checkpoints 0, 2, 4, 6, 8, 20,
 24, 28, and fully bright 32. The stable root has seven selections. Up/Down
 wrap immediately and repeat every eight held frames; NES A and B both dispatch,

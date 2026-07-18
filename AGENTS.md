@@ -194,7 +194,10 @@ black / menu-in palette stages, the 49-piece NBA emblem, the root cursor,
 settings overlays, digit cells, and native timing/input/route metadata. The
 screen is composed during import from screen `$04` plus Bank03's bounded text
 records and character map; runtime does not parse those records or use an
-emulator dump. Native timing preserves palette checkpoints at local frames 0,
+emulator dump. Bank01's root-cursor selector `$30` and tile `$24` resolve the
+exact 8x16 pair at `chr/all` offset `$C240`; both the source record and resolved
+CHR pair are revision-fingerprinted. Native timing preserves palette
+checkpoints at local frames 0,
 2, 4, 6, 8, 20, 24, 28, and 32. Root Up/Down wraps across seven items, repeats
 every eight held frames, and both NES A and B dispatch while START, SELECT,
 Left, and Right are ignored. SEASON GAME slides to the six-item second page

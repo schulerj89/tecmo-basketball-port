@@ -910,8 +910,8 @@ function Test-StartMenuPayloadContract {
     }
     if ([System.BitConverter]::ToInt16($Bytes, $CursorOffset) -ne 31 -or
         [System.BitConverter]::ToInt16($Bytes, $CursorOffset + 2) -ne 88 -or
-        [System.BitConverter]::ToUInt32($Bytes, $CursorOffset + 8) -ne
-            ([System.BitConverter]::ToUInt32($Bytes, $CursorOffset + 4) + 16) -or
+        [System.BitConverter]::ToUInt32($Bytes, $CursorOffset + 4) -ne 0xC240 -or
+        [System.BitConverter]::ToUInt32($Bytes, $CursorOffset + 8) -ne 0xC250 -or
         $Bytes[$CursorOffset + 12] -ne 0 -or $Bytes[$CursorOffset + 13] -ne 0 -or
         $Bytes[$CursorOffset + 14] -ne 0 -or $Bytes[$CursorOffset + 15] -ne 0) {
         [void]$Issues.Add("cursor")
@@ -1915,6 +1915,7 @@ try {
                 })
 
                 $StartMenuBytes = Read-AssetPackEntryBytes -Path $AssetPackPath -Directory $Directory -EntryId "menu/start-game"
+                $ChrAllBytes = Read-AssetPackEntryBytes -Path $AssetPackPath -Directory $Directory -EntryId "chr/all"
                 $StartMenuContract = Test-StartMenuPayloadContract -Bytes $StartMenuBytes -ChrByteCount $ChrByteCount
                 $TitleBgPalette = Read-FileBytesAtOffset -Path $ReferenceRom -Offset ([uint64]($PrgStart + (0x9366 - 0x8000))) -Count 16
                 $TitleSpritePalette = Read-FileBytesAtOffset -Path $ReferenceRom -Offset ([uint64]($PrgStart + (0xBE27 - 0x8000))) -Count 16
@@ -1946,10 +1947,21 @@ try {
                 $MenuPalettesExact = (@(Compare-Object $ExpectedMenuPalettes.ToArray() $ActualMenuPalettes -SyncWindow 0)).Count -eq 0
                 $StartMenuPayloadFingerprint = Get-Fnv1a32Hex -Bytes $StartMenuBytes
                 $StartMenuPaletteFingerprint = Get-Fnv1a32Hex -Bytes $ActualMenuPalettes
+                $StartMenuCursorRecord = Read-FileBytesAtOffset -Path $ReferenceRom `
+                    -Offset ([uint64]($PrgStart + 0x4000 + (0x8031 - 0x8000))) -Count 5
+                $StartMenuCursorTop = [System.BitConverter]::ToUInt32($StartMenuBytes, 12756)
+                $StartMenuCursorBottom = [System.BitConverter]::ToUInt32($StartMenuBytes, 12760)
+                [byte[]]$StartMenuCursorChrPair = $ChrAllBytes[$StartMenuCursorTop..($StartMenuCursorTop + 31)]
+                $StartMenuCursorChrFingerprint = Get-Fnv1a32Hex -Bytes $StartMenuCursorChrPair
+                $StartMenuCursorExact = $StartMenuCursorRecord[3] -eq 0x30 -and
+                    $StartMenuCursorRecord[4] -eq 0x24 -and
+                    $StartMenuCursorTop -eq 0xC240 -and
+                    $StartMenuCursorBottom -eq 0xC250 -and
+                    $StartMenuCursorChrFingerprint -eq "18F367C4"
                 Add-TestResult ([pscustomobject]@{
                     id = "assetpack-start-game-menu-native"
                     passed = $StartMenuContract.passed -and $MenuPalettesExact -and
-                        $StartMenuPayloadFingerprint -eq "DEFB37CF" -and
+                        $StartMenuPayloadFingerprint -eq "A6C1E06B" -and
                         $StartMenuPaletteFingerprint -eq "F83B6C17"
                     format = if ($StartMenuBytes.Length -ge 4) { [System.Text.Encoding]::ASCII.GetString($StartMenuBytes, 0, 4) } else { "" }
                     byte_count = $StartMenuBytes.Length
@@ -1963,6 +1975,16 @@ try {
                     contract_issues = $StartMenuContract.issues
                     raw_asset_bytes_persisted = $false
                 })
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-start-game-menu-cursor-chr"
+                    passed = $StartMenuCursorExact
+                    selector = [int]$StartMenuCursorRecord[3]
+                    tile = [int]$StartMenuCursorRecord[4]
+                    resolved_chr_offset = [uint32]$StartMenuCursorTop
+                    resolved_chr_size = 32
+                    resolved_chr_fingerprint_fnv1a32 = $StartMenuCursorChrFingerprint
+                    raw_asset_bytes_persisted = $false
+                })
                 $FingerprintMutation = [byte[]]$StartMenuBytes.Clone()
                 $FingerprintMutation[160] = $FingerprintMutation[160] -bxor 1
                 $FingerprintMutationContract = Test-StartMenuPayloadContract `
@@ -1970,14 +1992,14 @@ try {
                 $FingerprintMutationHash = Get-Fnv1a32Hex -Bytes $FingerprintMutation
                 Add-TestResult ([pscustomobject]@{
                     id = "assetpack-start-game-menu-revision-fingerprint"
-                    passed = $StartMenuPayloadFingerprint -eq "DEFB37CF" -and
+                    passed = $StartMenuPayloadFingerprint -eq "A6C1E06B" -and
                         $StartMenuPaletteFingerprint -eq "F83B6C17" -and
                         $FingerprintMutationContract.passed -and
-                        $FingerprintMutationHash -ne "DEFB37CF"
+                        $FingerprintMutationHash -ne "A6C1E06B"
                     payload_fingerprint_fnv1a32 = $StartMenuPayloadFingerprint
                     palette_stages_fingerprint_fnv1a32 = $StartMenuPaletteFingerprint
                     structurally_valid_mutation_rejected_by_fingerprint = `
-                        $FingerprintMutationContract.passed -and $FingerprintMutationHash -ne "DEFB37CF"
+                        $FingerprintMutationContract.passed -and $FingerprintMutationHash -ne "A6C1E06B"
                     mutated_payloads_persisted = $false
                     raw_asset_bytes_persisted = $false
                 })
@@ -1996,6 +2018,7 @@ try {
                     [pscustomobject]@{ id = "black-stage"; mutate = { param([byte[]]$Data) $Data[11680 + 4 * 32] = 0 } },
                     [pscustomobject]@{ id = "emblem-reserved"; mutate = { param([byte[]]$Data) $Data[11968 + 14] = 1 } },
                     [pscustomobject]@{ id = "cursor-coordinate"; mutate = { param([byte[]]$Data) $Data[12752] = 30 } },
+                    [pscustomobject]@{ id = "cursor-chr-offset"; mutate = { param([byte[]]$Data) $Data[12756] = $Data[12756] -bxor 0x10 } },
                     [pscustomobject]@{ id = "overlay-desc"; mutate = { param([byte[]]$Data) $Data[12768 + 14] = 7 } }
                 )
                 foreach ($Spec in $StartMenuMalformedSpecs) {
@@ -2223,6 +2246,7 @@ try {
                 $ExpectedStartMenuStreamOffset = [uint64]($OpeningPrgStart + (0x8898 - 0x8000))
                 $StartMenuDescriptor = @($StartMenuSource.sources | Where-Object { $_.role -eq "descriptor" } | Select-Object -First 1)
                 $StartMenuStream = @($StartMenuSource.sources | Where-Object { $_.role -eq "compressed-screen" } | Select-Object -First 1)
+                $StartMenuCursorSource = @($StartMenuSource.sources | Where-Object { $_.role -eq "root-cursor" } | Select-Object -First 1)
                 $StartMenuSourcePassed = $StartMenuSource.Count -eq 1 -and
                     $StartMenuSource.schema -eq "tecmo.start-game-menu/TSGM-1" -and
                     $StartMenuSource.input_contract -eq "ines-only" -and
@@ -2234,10 +2258,16 @@ try {
                     [int]$StartMenuStream.cpu_address -eq 0x8898 -and
                     [int]$StartMenuStream.encoded_size -eq 220 -and
                     [int]$StartMenuStream.decoded_size -eq 2048 -and
+                    [int]$StartMenuCursorSource.selector -eq 0x30 -and
+                    [int]$StartMenuCursorSource.tile -eq 0x24 -and
+                    $StartMenuCursorSource.resolved_chr_entry -eq "chr/all" -and
+                    [int]$StartMenuCursorSource.resolved_chr_offset -eq 0xC240 -and
+                    [int]$StartMenuCursorSource.resolved_chr_size -eq 32 -and
+                    $StartMenuCursorSource.resolved_chr_fingerprint_fnv1a32 -eq "18F367C4" -and
                     [int]$StartMenuSource.native_contract.pages -eq 2 -and
                     [int]$StartMenuSource.native_contract.cells -eq 1920 -and
                     [int]$StartMenuSource.native_contract.payload_size -eq 14112 -and
-                    $StartMenuSource.native_contract.payload_fingerprint_fnv1a32 -eq "DEFB37CF" -and
+                    $StartMenuSource.native_contract.payload_fingerprint_fnv1a32 -eq "A6C1E06B" -and
                     $StartMenuSource.native_contract.palette_stages_fingerprint_fnv1a32 -eq "F83B6C17" -and
                     (@($StartMenuSource.native_contract.palette_stage_frames) -join ",") -eq "0,2,4,6,8,20,24,28,32" -and
                     [int]$StartMenuSource.native_contract.root_items -eq 7 -and
