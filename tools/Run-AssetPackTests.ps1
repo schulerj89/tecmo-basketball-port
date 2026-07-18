@@ -884,7 +884,8 @@ function Test-StartMenuPayloadContract {
         $ChrByteCount -ne 262144) {
         [void]$Issues.Add("chr-contract")
     }
-    for ($Index = 148; $Index -lt 160; ++$Index) {
+    if ($Bytes[148] -ne 1) { [void]$Issues.Add("cursor-commit-delay") }
+    for ($Index = 149; $Index -lt 160; ++$Index) {
         if ($Bytes[$Index] -ne 0) { [void]$Issues.Add("reserved"); break }
     }
     foreach ($Range in @(
@@ -1193,8 +1194,8 @@ try {
         [pscustomobject]@{ id = "menu-input-wrapper"; bank = 3; cpu = 0x9EC6; fixed = $false },
         [pscustomobject]@{ id = "controller-poll"; bank = $ExpectedPrgBanks - 1; cpu = 0xD317; fixed = $true },
         [pscustomobject]@{ id = "menu-input-helper"; bank = $ExpectedPrgBanks - 1; cpu = 0xD723; fixed = $true },
-        [pscustomobject]@{ id = "session-setup-dispatch"; bank = $ExpectedPrgBanks - 1; cpu = 0xE455; fixed = $true },
-        [pscustomobject]@{ id = "post-menu-exit-chain"; bank = $ExpectedPrgBanks - 1; cpu = 0xE481; fixed = $true },
+        [pscustomobject]@{ id = "title-call-and-menu-session-setup"; bank = $ExpectedPrgBanks - 1; cpu = 0xE455; fixed = $true },
+        [pscustomobject]@{ id = "start-menu-call-and-post-return-exit-chain"; bank = $ExpectedPrgBanks - 1; cpu = 0xE481; fixed = $true },
         [pscustomobject]@{ id = "full-chr"; chr = $true }
     )
     foreach ($Spec in $StartMenuSourceSpecs) {
@@ -1993,7 +1994,7 @@ try {
                 Add-TestResult ([pscustomobject]@{
                     id = "assetpack-start-game-menu-native"
                     passed = $StartMenuContract.passed -and $MenuPalettesExact -and $StartMenuChrContractExact -and
-                        $StartMenuPayloadFingerprint -eq "96438EF4" -and
+                        $StartMenuPayloadFingerprint -eq "7505D7BD" -and
                         $StartMenuPaletteFingerprint -eq "F83B6C17"
                     format = if ($StartMenuBytes.Length -ge 4) { [System.Text.Encoding]::ASCII.GetString($StartMenuBytes, 0, 4) } else { "" }
                     byte_count = $StartMenuBytes.Length
@@ -2033,14 +2034,14 @@ try {
                 $FingerprintMutationHash = Get-Fnv1a32Hex -Bytes $FingerprintMutation
                 Add-TestResult ([pscustomobject]@{
                     id = "assetpack-start-game-menu-revision-fingerprint"
-                    passed = $StartMenuPayloadFingerprint -eq "96438EF4" -and
+                    passed = $StartMenuPayloadFingerprint -eq "7505D7BD" -and
                         $StartMenuPaletteFingerprint -eq "F83B6C17" -and
                         $FingerprintMutationContract.passed -and
-                        $FingerprintMutationHash -ne "96438EF4"
+                        $FingerprintMutationHash -ne "7505D7BD"
                     payload_fingerprint_fnv1a32 = $StartMenuPayloadFingerprint
                     palette_stages_fingerprint_fnv1a32 = $StartMenuPaletteFingerprint
                     structurally_valid_mutation_rejected_by_fingerprint = `
-                        $FingerprintMutationContract.passed -and $FingerprintMutationHash -ne "96438EF4"
+                        $FingerprintMutationContract.passed -and $FingerprintMutationHash -ne "7505D7BD"
                     mutated_payloads_persisted = $false
                     raw_asset_bytes_persisted = $false
                 })
@@ -2052,7 +2053,8 @@ try {
                     [pscustomobject]@{ id = "native-metadata"; mutate = { param([byte[]]$Data) $Data[126] = 4 } },
                     [pscustomobject]@{ id = "chr-size"; mutate = { param([byte[]]$Data) $Data[140] = 1 } },
                     [pscustomobject]@{ id = "chr-fingerprint"; mutate = { param([byte[]]$Data) $Data[144] = $Data[144] -bxor 1 } },
-                    [pscustomobject]@{ id = "reserved"; mutate = { param([byte[]]$Data) $Data[148] = 1 } },
+                    [pscustomobject]@{ id = "cursor-commit-delay"; mutate = { param([byte[]]$Data) $Data[148] = 0 } },
+                    [pscustomobject]@{ id = "reserved"; mutate = { param([byte[]]$Data) $Data[149] = 1 } },
                     [pscustomobject]@{ id = "stage-frame"; mutate = { param([byte[]]$Data) $Data[96 + 8 * 2] = 31 } },
                     [pscustomobject]@{ id = "route"; mutate = { param([byte[]]$Data) $Data[114] = 0 } },
                     [pscustomobject]@{ id = "cell-palette"; mutate = { param([byte[]]$Data) $Data[161] = 4 } },
@@ -2284,7 +2286,8 @@ try {
                     "pointer-coordinate-tables", "music-popup-flow", "speed-popup-flow",
                     "period-popup-flow", "overlay-row-transfer", "menu-record-render",
                     "menu-input-wrapper", "controller-poll", "menu-input-helper",
-                    "session-setup-dispatch", "post-menu-exit-chain"
+                    "title-call-and-menu-session-setup",
+                    "start-menu-call-and-post-return-exit-chain"
                 )
                 $StartMenuFingerprintedRoles = @($StartMenuSource.sources | Where-Object {
                     (($_.PSObject.Properties.Name -contains "fingerprint_fnv1a32") -or
@@ -2297,9 +2300,28 @@ try {
                 $StartMenuStream = @($StartMenuSource.sources | Where-Object { $_.role -eq "compressed-screen" } | Select-Object -First 1)
                 $StartMenuCursorSource = @($StartMenuSource.sources | Where-Object { $_.role -eq "root-cursor" } | Select-Object -First 1)
                 $StartMenuChrSource = @($StartMenuSource.sources | Where-Object { $_.role -eq "full-chr" } | Select-Object -First 1)
+                $StartMenuRuntimeDependencies = @($StartMenuSource.runtime_dependencies)
+                $StartMenuTitleDependency = @($StartMenuRuntimeDependencies | Where-Object {
+                    $_.entry -eq "title/start-screen"
+                } | Select-Object -First 1)
+                $StartMenuChrDependency = @($StartMenuRuntimeDependencies | Where-Object {
+                    $_.entry -eq "chr/all"
+                } | Select-Object -First 1)
                 $StartMenuSourcePassed = $StartMenuSource.Count -eq 1 -and
                     $StartMenuSource.schema -eq "tecmo.start-game-menu/TSGM-1" -and
                     $StartMenuSource.input_contract -eq "ines-only" -and
+                    $StartMenuRuntimeDependencies.Count -eq 2 -and
+                    (@($StartMenuRuntimeDependencies | ForEach-Object { [string]$_.entry }) -join ",") -eq
+                        "title/start-screen,chr/all" -and
+                    $StartMenuTitleDependency.Count -eq 1 -and
+                    $StartMenuTitleDependency.schema -eq "tecmo.title-start/TTLE-1" -and
+                    [int]$StartMenuTitleDependency.payload_size -eq 5860 -and
+                    [int]$StartMenuTitleDependency.frame_start -eq 0 -and
+                    [int]$StartMenuTitleDependency.frame_end -eq 7 -and
+                    $StartMenuChrDependency.Count -eq 1 -and
+                    [int]$StartMenuChrDependency.size -eq 262144 -and
+                    $StartMenuChrDependency.fingerprint_fnv1a32 -eq "F6F6E854" -and
+                    $StartMenuChrDependency.fingerprint_fnv1a64 -eq "96A64F53B240ABB4" -and
                     (@(Compare-Object $ExpectedStartMenuRoles $StartMenuRoles)).Count -eq 0 -and
                     $StartMenuFingerprintedRoles.Count -eq 33 -and
                     [uint64]$StartMenuDescriptor.source_offset -eq $ExpectedStartMenuDescriptorOffset -and
@@ -2322,8 +2344,11 @@ try {
                     [int]$StartMenuSource.native_contract.pages -eq 2 -and
                     [int]$StartMenuSource.native_contract.cells -eq 1920 -and
                     [int]$StartMenuSource.native_contract.payload_size -eq 14112 -and
-                    $StartMenuSource.native_contract.payload_fingerprint_fnv1a32 -eq "96438EF4" -and
+                    $StartMenuSource.native_contract.payload_fingerprint_fnv1a32 -eq "7505D7BD" -and
                     $StartMenuSource.native_contract.palette_stages_fingerprint_fnv1a32 -eq "F83B6C17" -and
+                    $StartMenuSource.native_contract.runtime_title_dependency_entry -eq "title/start-screen" -and
+                    (@($StartMenuSource.native_contract.runtime_title_dependency_frames) -join ",") -eq "0,7" -and
+                    $StartMenuSource.native_contract.runtime_chr_dependency_entry -eq "chr/all" -and
                     (@($StartMenuSource.native_contract.palette_stage_frames) -join ",") -eq "0,2,4,6,8,20,24,28,32" -and
                     [int]$StartMenuSource.native_contract.root_items -eq 7 -and
                     [int]$StartMenuSource.native_contract.season_items -eq 6 -and
@@ -2343,6 +2368,7 @@ try {
                     [int]$StartMenuSource.native_contract.overlay_row_cadence -eq 1 -and
                     [int]$StartMenuSource.native_contract.setup_row_start -eq 0 -and
                     [int]$StartMenuSource.native_contract.teardown_row_start -eq 1 -and
+                    [int]$StartMenuSource.native_contract.cursor_commit_delay_frames -eq 1 -and
                     [int]$StartMenuSource.native_contract.resolved_chr_size -eq 262144 -and
                     $StartMenuSource.native_contract.resolved_chr_fingerprint_fnv1a32 -eq "F6F6E854" -and
                     $StartMenuSource.native_contract.resolved_chr_fingerprint_fnv1a64 -eq "96A64F53B240ABB4" -and
@@ -2353,6 +2379,7 @@ try {
                     roles = $StartMenuRoles
                     fingerprinted_role_count = $StartMenuFingerprintedRoles.Count
                     input_contract = if ($StartMenuSource.Count -eq 1) { $StartMenuSource.input_contract } else { $null }
+                    runtime_dependencies = $StartMenuRuntimeDependencies
                     raw_asset_bytes_persisted = $false
                 })
 

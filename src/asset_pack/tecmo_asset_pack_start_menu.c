@@ -9,7 +9,7 @@
 #define MENU_DESCRIPTOR_CPU 0xDCA1U
 #define MENU_BG_R0 0xFAU
 #define MENU_BG_R1 0xFAU
-#define MENU_PAYLOAD_FNV1A32 0x96438EF4U
+#define MENU_PAYLOAD_FNV1A32 0x7505D7BDU
 #define MENU_PALETTE_STAGES_FNV1A32 0xF83B6C17U
 #define MENU_CURSOR_SELECTOR 0x30U
 #define MENU_CURSOR_TILE 0x24U
@@ -28,6 +28,7 @@
 #define MENU_OVERLAY_ROW_CADENCE 1U
 #define MENU_OVERLAY_SETUP_ROW_START 0U
 #define MENU_OVERLAY_TEARDOWN_ROW_START 1U
+#define MENU_CURSOR_COMMIT_DELAY_FRAMES 1U
 
 typedef struct MenuRecordSource {
     uint32_t cpu;
@@ -386,8 +387,8 @@ int tecmo_asset_pack_build_start_game_menu(const uint8_t *rom,
     uint64_t input_wrapper_offset = bank_cpu_offset(prg_offset, 3U, TECMO_ASSET_PACK_START_MENU_INPUT_WRAPPER_CPU);
     uint64_t controller_poll_offset;
     uint64_t input_helper_offset;
-    uint64_t session_setup_offset;
-    uint64_t exit_chain_offset;
+    uint64_t title_call_and_menu_session_setup_offset;
+    uint64_t start_menu_call_and_post_return_exit_chain_offset;
     size_t encoded_size = 0U;
     const uint8_t *descriptor;
 
@@ -409,8 +410,12 @@ int tecmo_asset_pack_build_start_game_menu(const uint8_t *rom,
     fade_in_offset = fixed_cpu_offset(prg_offset, prg_banks, TECMO_ASSET_PACK_START_MENU_FADE_IN_CPU);
     controller_poll_offset = fixed_cpu_offset(prg_offset, prg_banks, TECMO_ASSET_PACK_START_MENU_CONTROLLER_POLL_CPU);
     input_helper_offset = fixed_cpu_offset(prg_offset, prg_banks, TECMO_ASSET_PACK_START_MENU_INPUT_HELPER_CPU);
-    session_setup_offset = fixed_cpu_offset(prg_offset, prg_banks, TECMO_ASSET_PACK_START_MENU_SESSION_SETUP_CPU);
-    exit_chain_offset = fixed_cpu_offset(prg_offset, prg_banks, TECMO_ASSET_PACK_START_MENU_EXIT_CHAIN_CPU);
+    title_call_and_menu_session_setup_offset = fixed_cpu_offset(
+        prg_offset, prg_banks,
+        TECMO_ASSET_PACK_START_MENU_TITLE_CALL_AND_MENU_SESSION_SETUP_CPU);
+    start_menu_call_and_post_return_exit_chain_offset = fixed_cpu_offset(
+        prg_offset, prg_banks,
+        TECMO_ASSET_PACK_START_MENU_CALL_AND_POST_RETURN_EXIT_CHAIN_CPU);
     for (size_t i = 0U; i < 3U; ++i) overlay_offsets[i] = bank_cpu_offset(prg_offset, 3U, overlays[i].cpu);
     if (!menu_range(descriptor_offset, 7U, rom_size) ||
         !menu_range(chr_offset, chr_size, rom_size) ||
@@ -440,8 +445,12 @@ int tecmo_asset_pack_build_start_game_menu(const uint8_t *rom,
         !menu_range(input_wrapper_offset, TECMO_ASSET_PACK_START_MENU_INPUT_WRAPPER_SIZE, rom_size) ||
         !menu_range(controller_poll_offset, TECMO_ASSET_PACK_START_MENU_CONTROLLER_POLL_SIZE, rom_size) ||
         !menu_range(input_helper_offset, TECMO_ASSET_PACK_START_MENU_INPUT_HELPER_SIZE, rom_size) ||
-        !menu_range(session_setup_offset, TECMO_ASSET_PACK_START_MENU_SESSION_SETUP_SIZE, rom_size) ||
-        !menu_range(exit_chain_offset, TECMO_ASSET_PACK_START_MENU_EXIT_CHAIN_SIZE, rom_size)) {
+        !menu_range(title_call_and_menu_session_setup_offset,
+                    TECMO_ASSET_PACK_START_MENU_TITLE_CALL_AND_MENU_SESSION_SETUP_SIZE,
+                    rom_size) ||
+        !menu_range(start_menu_call_and_post_return_exit_chain_offset,
+                    TECMO_ASSET_PACK_START_MENU_CALL_AND_POST_RETURN_EXIT_CHAIN_SIZE,
+                    rom_size)) {
         tecmo_asset_pack_set_message(message, message_size, "TSGM-1 source range is outside the ROM.");
         return -1;
     }
@@ -494,8 +503,12 @@ int tecmo_asset_pack_build_start_game_menu(const uint8_t *rom,
          tecmo_asset_pack_fnv1a32(rom + (size_t)input_wrapper_offset, TECMO_ASSET_PACK_START_MENU_INPUT_WRAPPER_SIZE) != 0x6C2709EBU ||
          tecmo_asset_pack_fnv1a32(rom + (size_t)controller_poll_offset, TECMO_ASSET_PACK_START_MENU_CONTROLLER_POLL_SIZE) != 0x8868D9B5U ||
          tecmo_asset_pack_fnv1a32(rom + (size_t)input_helper_offset, TECMO_ASSET_PACK_START_MENU_INPUT_HELPER_SIZE) != 0xAE47C4A0U ||
-         tecmo_asset_pack_fnv1a32(rom + (size_t)session_setup_offset, TECMO_ASSET_PACK_START_MENU_SESSION_SETUP_SIZE) != 0x4FBABE09U ||
-         tecmo_asset_pack_fnv1a32(rom + (size_t)exit_chain_offset, TECMO_ASSET_PACK_START_MENU_EXIT_CHAIN_SIZE) != 0x76C592FCU ||
+         tecmo_asset_pack_fnv1a32(
+             rom + (size_t)title_call_and_menu_session_setup_offset,
+             TECMO_ASSET_PACK_START_MENU_TITLE_CALL_AND_MENU_SESSION_SETUP_SIZE) != 0x4FBABE09U ||
+         tecmo_asset_pack_fnv1a32(
+             rom + (size_t)start_menu_call_and_post_return_exit_chain_offset,
+             TECMO_ASSET_PACK_START_MENU_CALL_AND_POST_RETURN_EXIT_CHAIN_SIZE) != 0x76C592FCU ||
          tecmo_asset_pack_fnv1a32(rom + (size_t)chr_offset, (size_t)chr_size) !=
              TECMO_ASSET_PACK_START_MENU_REV1_CHR_FNV1A32)) {
         tecmo_asset_pack_set_message(message, message_size, "TSGM-1 Rev1 fingerprint mismatch.");
@@ -586,6 +599,8 @@ int tecmo_asset_pack_build_start_game_menu(const uint8_t *rom,
                                TECMO_ASSET_PACK_START_MENU_REV1_CHR_SIZE);
     tecmo_asset_pack_store_u32(payload + TECMO_ASSET_PACK_START_MENU_CHR_FNV1A32_HEADER_OFFSET,
                                TECMO_ASSET_PACK_START_MENU_REV1_CHR_FNV1A32);
+    payload[TECMO_ASSET_PACK_START_MENU_CURSOR_COMMIT_DELAY_HEADER_OFFSET] =
+        MENU_CURSOR_COMMIT_DELAY_FRAMES;
 
     build_screen_cells(payload, decoded);
     build_palette_stages(payload, rom + (size_t)title_palette_offset,
@@ -649,7 +664,9 @@ int tecmo_asset_pack_build_start_game_menu(const uint8_t *rom,
     provenance->input_wrapper_offset = input_wrapper_offset;
     provenance->controller_poll_offset = controller_poll_offset;
     provenance->input_helper_offset = input_helper_offset;
-    provenance->session_setup_offset = session_setup_offset;
-    provenance->exit_chain_offset = exit_chain_offset;
+    provenance->title_call_and_menu_session_setup_offset =
+        title_call_and_menu_session_setup_offset;
+    provenance->start_menu_call_and_post_return_exit_chain_offset =
+        start_menu_call_and_post_return_exit_chain_offset;
     return 0;
 }

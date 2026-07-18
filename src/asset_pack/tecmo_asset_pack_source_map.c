@@ -720,7 +720,10 @@ static int append_start_menu_source_map_entry(char *buffer,
         "%s"
         "    {\"id\":\"%s\",\"kind\":\"start-game-menu-native\","
         "\"schema\":\"tecmo.start-game-menu/TSGM-1\",\"screen_id\":4,"
-        "\"input_contract\":\"ines-only\",\"sources\":["
+        "\"input_contract\":\"ines-only\",\"runtime_dependencies\":["
+        "{\"entry\":\"title/start-screen\",\"schema\":\"tecmo.title-start/TTLE-1\",\"payload_size\":5860,\"frame_start\":0,\"frame_end\":7},"
+        "{\"entry\":\"chr/all\",\"size\":262144,\"fingerprint_fnv1a32\":\"F6F6E854\",\"fingerprint_fnv1a64\":\"96A64F53B240ABB4\"}],"
+        "\"sources\":["
         "{\"role\":\"descriptor\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":7,\"fingerprint_fnv1a32\":\"0A5B3B88\"},"
         "{\"role\":\"compressed-screen\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"bank\":0,\"cpu_address\":%u,\"encoded_size\":%llu,\"decoded_size\":2048,\"encoded_fingerprint_fnv1a32\":\"8047E031\",\"decoded_fingerprint_fnv1a32\":\"E1840CFE\"},"
         "{\"role\":\"menu-background-palette\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"bank\":0,\"cpu_address\":%u,\"size\":16,\"fingerprint_fnv1a32\":\"F16D31BF\"},"
@@ -752,12 +755,14 @@ static int append_start_menu_source_map_entry(char *buffer,
         "{\"role\":\"menu-input-wrapper\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":%u,\"size\":77,\"fingerprint_fnv1a32\":\"6C2709EB\"},"
         "{\"role\":\"controller-poll\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":9,\"fingerprint_fnv1a32\":\"8868D9B5\"},"
         "{\"role\":\"menu-input-helper\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":273,\"fingerprint_fnv1a32\":\"AE47C4A0\"},"
-        "{\"role\":\"session-setup-dispatch\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":44,\"fingerprint_fnv1a32\":\"4FBABE09\"},"
-        "{\"role\":\"post-menu-exit-chain\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":41,\"fingerprint_fnv1a32\":\"76C592FC\"}],"
+        "{\"role\":\"title-call-and-menu-session-setup\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":44,\"fingerprint_fnv1a32\":\"4FBABE09\"},"
+        "{\"role\":\"start-menu-call-and-post-return-exit-chain\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":41,\"fingerprint_fnv1a32\":\"76C592FC\"}],"
         "\"native_contract\":{\"pages\":2,\"cells\":1920,\"payload_size\":14112,"
-        "\"payload_fingerprint_fnv1a32\":\"96438EF4\","
+        "\"payload_fingerprint_fnv1a32\":\"7505D7BD\","
         "\"palette_stages_fingerprint_fnv1a32\":\"F83B6C17\","
         "\"composed_fingerprint_fnv1a32\":\"661750F3\","
+        "\"runtime_title_dependency_entry\":\"title/start-screen\","
+        "\"runtime_title_dependency_frames\":[0,7],\"runtime_chr_dependency_entry\":\"chr/all\","
         "\"palette_stage_frames\":[0,2,4,6,8,20,24,28,32],\"root_items\":7,\"season_items\":6,"
         "\"direction_repeat_frames\":8,\"season_transition_frames\":32,\"period_value_count\":5,"
         "\"background_pixels_per_frame\":8,\"emblem_pixels_per_frame\":5,"
@@ -765,7 +770,8 @@ static int append_start_menu_source_map_entry(char *buffer,
         "\"exit_black_frame\":8,\"exit_dispatch_frame\":11,\"root_input_mask\":128,"
         "\"generic_input_mask\":192,\"period_input_mask\":204,\"direction_mask\":12,"
         "\"initial_input_gate\":0,\"overlay_row_cadence\":1,\"setup_row_start\":0,"
-        "\"teardown_row_start\":1,\"resolved_chr_entry\":\"chr/all\","
+        "\"teardown_row_start\":1,\"cursor_commit_delay_frames\":1,"
+        "\"resolved_chr_entry\":\"chr/all\","
         "\"resolved_chr_size\":262144,\"resolved_chr_fingerprint_fnv1a32\":\"F6F6E854\","
         "\"resolved_chr_fingerprint_fnv1a64\":\"96A64F53B240ABB4\"}}",
         prefix, TECMO_ASSET_PACK_START_GAME_MENU_ID,
@@ -801,8 +807,10 @@ static int append_start_menu_source_map_entry(char *buffer,
         (unsigned long long)p->input_wrapper_offset, TECMO_ASSET_PACK_START_MENU_INPUT_WRAPPER_CPU,
         (unsigned long long)p->controller_poll_offset, TECMO_ASSET_PACK_START_MENU_CONTROLLER_POLL_CPU,
         (unsigned long long)p->input_helper_offset, TECMO_ASSET_PACK_START_MENU_INPUT_HELPER_CPU,
-        (unsigned long long)p->session_setup_offset, TECMO_ASSET_PACK_START_MENU_SESSION_SETUP_CPU,
-        (unsigned long long)p->exit_chain_offset, TECMO_ASSET_PACK_START_MENU_EXIT_CHAIN_CPU);
+        (unsigned long long)p->title_call_and_menu_session_setup_offset,
+        TECMO_ASSET_PACK_START_MENU_TITLE_CALL_AND_MENU_SESSION_SETUP_CPU,
+        (unsigned long long)p->start_menu_call_and_post_return_exit_chain_offset,
+        TECMO_ASSET_PACK_START_MENU_CALL_AND_POST_RETURN_EXIT_CHAIN_CPU);
 }
 
 char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
