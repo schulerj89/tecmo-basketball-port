@@ -546,6 +546,9 @@ static bool scene_close_pose_for_step(const TecmoGameplayScene *scene,
     TecmoGameplayCloseShotVariant variant;
     uint8_t phase;
     if (scene == NULL || pose_index == NULL ||
+        scene->close_shot_profile != TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0 ||
+        scene->close_shot_direction !=
+            TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0 ||
         !scene_shot_is_close(scene->shot_kind)) {
         return false;
     }
@@ -558,7 +561,6 @@ static bool scene_close_pose_for_step(const TecmoGameplayScene *scene,
 }
 
 static bool scene_start_shot_actor(TecmoGameplayScene *scene,
-                                   const TecmoGameplayFrameInput *input,
                                    size_t controller,
                                    uint8_t actor_index)
 {
@@ -588,6 +590,9 @@ static bool scene_start_shot_actor(TecmoGameplayScene *scene,
         scene->shot_kind = distance_x <= 24
                                ? TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_0
                                : TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_2;
+        /* Live TGCS support is intentionally narrowed to the exact numeric
+           profile-0/direction-0 slice. Actor-facing mirroring is a native
+           scene approximation; it is not a ROM direction-table mapping. */
         scene->close_shot_profile = TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0;
         scene->close_shot_direction = TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0;
         scene->close_shot_step = 0U;
@@ -615,29 +620,18 @@ static bool scene_start_shot_actor(TecmoGameplayScene *scene,
     scene->ball_y_q8 = scene->shot_start_y_q8;
     scene->ball_holder = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     ++scene->action_serial;
-    if (close && !tecmo_gameplay_nes_b_begin_close_shot_subtype01(
-                     &scene->state, input, controller,
-                     TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_ONLY,
-                     &scene->events)) {
-        scene->shot_kind = TECMO_GAMEPLAY_SCENE_SHOT_NONE;
-        scene->shot_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
-        scene->ball_holder = actor_index;
-        scene_attach_ball(scene);
-        return false;
-    }
     actor->pose_index = close ? initial_pose : scene_jump_pose(0U);
     return true;
 }
 
 static bool scene_start_shot(TecmoGameplayScene *scene,
-                             const TecmoGameplayFrameInput *input,
                              size_t controller)
 {
     if (controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT ||
         scene->launch.controller_team[controller] != scene->state.possession) {
         return false;
     }
-    return scene_start_shot_actor(scene, input, controller,
+    return scene_start_shot_actor(scene, controller,
                                   scene->controlled_actor[controller]);
 }
 
@@ -745,7 +739,7 @@ static bool scene_update_shot(TecmoGameplayScene *scene)
         actor->pose_index = pose_index;
         /* TGCS supplies one exact numeric pose phase per native scene step.
            Do not advance the unrelated bounded rightward trace on an invented
-           cadence; the pure-state semantic marker remains unset until cleanup. */
+           cadence; the pure-state semantic chain remains untouched. */
     }
 
     if (scene->shot_frame < scene->shot_duration) return true;
@@ -759,12 +753,6 @@ static bool scene_update_shot(TecmoGameplayScene *scene)
             &scene->audio_player, TECMO_GAMEPLAY_AUDIO_CROWD_RESPONSE);
     }
     actor->pose_index = TECMO_GAMEPLAY_POSE_NEUTRAL;
-    while (scene->state.close_shot_subtype01.active) {
-        if (!tecmo_gameplay_advance_close_shot_subtype01(
-                &scene->state, &scene->events)) {
-            return false;
-        }
-    }
     next_team = scene_other_team(shooting_team);
     scene->shot_kind = TECMO_GAMEPLAY_SCENE_SHOT_NONE;
     scene->shot_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
@@ -892,10 +880,7 @@ static bool scene_update_ai(TecmoGameplayScene *scene)
         scene_attach_ball(scene);
         if (holder->x >= target_x &&
             scene->frame % shot_cadence == 0U) {
-            TecmoGameplayFrameInput ai_input;
-            tecmo_gameplay_frame_input_clear(&ai_input);
-            ai_input.controllers[0].held.nes_b_jump_steal_shot = true;
-            if (!scene_start_shot_actor(scene, &ai_input, 0U,
+            if (!scene_start_shot_actor(scene, 0U,
                                         scene->ball_holder)) {
                 return false;
             }
@@ -1200,7 +1185,7 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
                 if (scene_controls_pressed_b(controls[controller]) &&
                     scene->launch.controller_team[controller] ==
                         scene->state.possession &&
-                    scene_start_shot(scene, &input, controller)) {
+                    scene_start_shot(scene, controller)) {
                     break;
                 }
             }
@@ -1538,6 +1523,9 @@ bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
     }
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
         uint8_t index = order[actor];
+        /* Actor-facing horizontal mirroring is an implementation-owned scene
+           approximation. Live close shots still resolve only the explicitly
+           supported TGCS profile-0/direction-0 slice. */
         scene_draw_pose(scene, framebuffer, &actor_poses[index],
                         scene->actors[index].x, scene->actors[index].y,
                         origin_x, origin_y, scale,
@@ -1591,6 +1579,110 @@ static bool scene_test_draw_exact_step(const TecmoGameplayScene *scene)
     drawn = tecmo_gameplay_scene_draw(scene, &framebuffer, 0, 0, 1, true);
     free(pixels);
     return drawn;
+}
+
+static bool scene_test_has_close_semantic_event(
+    const TecmoGameplayEventBuffer *events)
+{
+    size_t event_index;
+    if (events == NULL) return false;
+    for (event_index = 0U; event_index < events->count; ++event_index) {
+        if (events->events[event_index].kind ==
+            TECMO_GAMEPLAY_EVENT_CLOSE_SHOT_PHASE_CHANGED) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool scene_test_close_semantic_chain_untouched(
+    const TecmoGameplayScene *scene)
+{
+    const TecmoGameplayCloseShotState *shot;
+    if (scene == NULL) return false;
+    shot = &scene->state.close_shot_subtype01;
+    return shot->phase == TECMO_GAMEPLAY_CLOSE_SHOT_NEUTRAL &&
+           shot->observation == TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_ONLY &&
+           shot->observed_actor_pose_index == UINT16_MAX &&
+           shot->observed_ball_pose_index == UINT16_MAX &&
+           shot->transition_serial == 0U &&
+           !shot->observed_pose_available && !shot->active;
+}
+
+static bool scene_test_close_clock_collision(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *launch)
+{
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    uint8_t shot_actor;
+    if (!tecmo_gameplay_scene_launch(scene, launch)) return false;
+    scene->actors[scene->ball_holder].x = 210;
+    scene->actors[scene->ball_holder].y = 148;
+    scene->actors[scene->ball_holder].facing_right = false;
+    scene_attach_ball(scene);
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    p1.held.cancel = true;
+    p1.pressed.cancel = true;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_0 ||
+        scene->close_shot_profile != TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0 ||
+        scene->close_shot_direction !=
+            TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0 ||
+        !scene_test_close_semantic_chain_untouched(scene) ||
+        scene_test_has_close_semantic_event(&scene->events)) {
+        return false;
+    }
+    shot_actor = scene->shot_actor;
+    memset(&p1, 0, sizeof(p1));
+    while (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+           scene->shot_frame + 1U < scene->shot_duration) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->shot_actor != shot_actor ||
+            !scene_test_close_semantic_chain_untouched(scene) ||
+            scene_test_has_close_semantic_event(&scene->events)) {
+            return false;
+        }
+    }
+    if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        scene->shot_frame + 1U != scene->shot_duration) {
+        return false;
+    }
+
+    scene->state.clock_minutes = 0U;
+    scene->state.clock_seconds = 1U;
+    scene->state.clock_divider = 1U;
+    scene->state.shot_clock = 1U;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        scene->shot_actor != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+        scene->shot_frame != 0U || scene->shot_duration != 0U ||
+        scene->state.phase !=
+            TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE ||
+        scene->state.clock_minutes != 0U ||
+        scene->state.clock_seconds != 0U || scene->state.shot_clock != 0U ||
+        scene->events.count != 4U ||
+        scene->events.events[0].kind != TECMO_GAMEPLAY_EVENT_SFX_REQUEST ||
+        scene->events.events[0].value != TECMO_GAMEPLAY_SFX_LATE_CLOCK_ID ||
+        scene->events.events[1].kind != TECMO_GAMEPLAY_EVENT_SFX_REQUEST ||
+        scene->events.events[1].value != TECMO_GAMEPLAY_SFX_EXPIRY_ID ||
+        scene->events.events[2].kind !=
+            TECMO_GAMEPLAY_EVENT_SHOT_CLOCK_EXPIRED ||
+        scene->events.events[2].value !=
+            TECMO_GAMEPLAY_VIOLATION_SHOT_CLOCK ||
+        scene->events.events[2].detail != 1U ||
+        scene->events.events[3].kind != TECMO_GAMEPLAY_EVENT_SFX_REQUEST ||
+        scene->events.events[3].value != TECMO_GAMEPLAY_SFX_EXPIRY_ID ||
+        scene_test_has_close_semantic_event(&scene->events) ||
+        !scene_test_close_semantic_chain_untouched(scene) ||
+        scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->actors[scene->ball_holder].team != scene->state.possession ||
+        !tecmo_gameplay_state_valid(&scene->state)) {
+        return false;
+    }
+    tecmo_gameplay_scene_end(scene);
+    return true;
 }
 
 static bool scene_test_combined_restart_is_inert(
@@ -1833,9 +1925,11 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
         scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_0 ||
         scene.close_shot_step != 0U ||
-        scene.state.close_shot_subtype01.observation !=
-            TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_ONLY ||
-        scene.state.close_shot_subtype01.observed_pose_available ||
+        scene.close_shot_profile != TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0 ||
+        scene.close_shot_direction !=
+            TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0 ||
+        !scene_test_close_semantic_chain_untouched(&scene) ||
+        scene_test_has_close_semantic_event(&scene.events) ||
         !scene_close_pose_for_step(&scene, 0U, &expected_pose) ||
         scene.actors[scene.shot_actor].pose_index != expected_pose ||
         !scene_test_draw_exact_step(&scene)) {
@@ -1844,6 +1938,14 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
+    scene.close_shot_direction = TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_1;
+    if (scene_close_pose_for_step(&scene, 0U, &expected_pose)) {
+        scene_test_message(message, message_size,
+                           "unsupported live TGCS direction was accepted");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    scene.close_shot_direction = TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0;
     close_transition_serial =
         scene.state.close_shot_subtype01.transition_serial;
     shot_actor = scene.shot_actor;
@@ -1855,9 +1957,8 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
               (!scene_close_pose_for_step(&scene, scene.close_shot_step,
                                           &expected_pose) ||
                scene.actors[shot_actor].pose_index != expected_pose ||
-               scene.state.close_shot_subtype01.observation !=
-                   TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_ONLY ||
-               scene.state.close_shot_subtype01.observed_pose_available ||
+               !scene_test_close_semantic_chain_untouched(&scene) ||
+               scene_test_has_close_semantic_event(&scene.events) ||
                scene.state.close_shot_subtype01.transition_serial !=
                    close_transition_serial ||
                !scene_test_draw_exact_step(&scene)))) {
@@ -1871,9 +1972,8 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         scene.actors[scene.ball_holder].team != TECMO_GAMEPLAY_TEAM_HOME ||
         scene.controlled_actor[1] != scene.ball_holder ||
-        scene.state.close_shot_subtype01.observation !=
-            TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_ONLY ||
-        scene.state.close_shot_subtype01.observed_pose_available ||
+        !scene_test_close_semantic_chain_untouched(&scene) ||
+        scene_test_has_close_semantic_event(&scene.events) ||
         !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
                            "numeric close variant0 settlement failed");
@@ -1883,7 +1983,9 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
 
     scene.actors[scene.ball_holder].x = 190;
     scene.actors[scene.ball_holder].y = 148;
-    scene.actors[scene.ball_holder].facing_right = true;
+    /* Left-facing animation mirrors the supported direction-0 slice; no ROM
+       mapping to another TGCS direction entry is claimed by this milestone. */
+    scene.actors[scene.ball_holder].facing_right = false;
     scene_attach_ball(&scene);
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
@@ -1892,9 +1994,11 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
         scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_2 ||
         scene.close_shot_step != 0U ||
-        scene.state.close_shot_subtype01.observation !=
-            TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_ONLY ||
-        scene.state.close_shot_subtype01.observed_pose_available ||
+        scene.close_shot_profile != TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0 ||
+        scene.close_shot_direction !=
+            TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0 ||
+        !scene_test_close_semantic_chain_untouched(&scene) ||
+        scene_test_has_close_semantic_event(&scene.events) ||
         !scene_close_pose_for_step(&scene, 0U, &expected_pose) ||
         scene.actors[scene.shot_actor].pose_index != expected_pose ||
         !scene_test_draw_exact_step(&scene)) {
@@ -1914,9 +2018,8 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
               (!scene_close_pose_for_step(&scene, scene.close_shot_step,
                                           &expected_pose) ||
                scene.actors[shot_actor].pose_index != expected_pose ||
-               scene.state.close_shot_subtype01.observation !=
-                   TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_ONLY ||
-               scene.state.close_shot_subtype01.observed_pose_available ||
+               !scene_test_close_semantic_chain_untouched(&scene) ||
+               scene_test_has_close_semantic_event(&scene.events) ||
                scene.state.close_shot_subtype01.transition_serial !=
                    close_transition_serial ||
                !scene_test_draw_exact_step(&scene)))) {
@@ -1930,9 +2033,8 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         scene.actors[scene.ball_holder].team != TECMO_GAMEPLAY_TEAM_AWAY ||
         scene.controlled_actor[0] != scene.ball_holder ||
-        scene.state.close_shot_subtype01.observation !=
-            TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_ONLY ||
-        scene.state.close_shot_subtype01.observed_pose_available ||
+        !scene_test_close_semantic_chain_untouched(&scene) ||
+        scene_test_has_close_semantic_event(&scene.events) ||
         !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
                            "numeric close variant2 settlement failed");
@@ -1983,6 +2085,13 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     if (scene.active || scene.result_ready || !scene.available) {
         scene_test_message(message, message_size,
                            "scene end lifecycle contract failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    if (!scene_test_close_clock_collision(&scene, &launch)) {
+        scene_test_message(
+            message, message_size,
+            "close-shot countdown/dual-expiry settlement failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }

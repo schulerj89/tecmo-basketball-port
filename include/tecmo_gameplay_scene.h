@@ -133,8 +133,11 @@ bool tecmo_gameplay_scene_result(const TecmoGameplayScene *scene,
                                  TecmoGameplaySceneResult *result);
 void tecmo_gameplay_scene_end(TecmoGameplayScene *scene);
 
-/* Draws the exact ROM-derived static court base and the resolved ROM poses.
-   HUD/presentation text is intentionally supplied by the runtime overlay. */
+/* Draws the exact ROM-derived static court base and resolved ROM poses. Live
+   close-shot playback is deliberately limited to TGCS profile 0/direction 0;
+   actor-facing horizontal mirroring is a native approximation, not a mapping
+   of the other ROM direction entries. HUD/presentation text is supplied by the
+   runtime overlay. */
 bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
                                TecmoFramebuffer *framebuffer,
                                int origin_x,
