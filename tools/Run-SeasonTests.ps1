@@ -67,9 +67,10 @@ $SeasonContract = [ordered]@{
         @{ Mode="season-standings-east"; Hash="E8922D9674FDD8489A24843B5E3E66BAD5F48ABEAA8CCA33262602F0E2B57912"; Status="phase=standings .*page=0" },
         @{ Mode="season-standings-west"; Hash="E994E8876285E26E8DB1A6F094DC2C2ED27B4CC531D9D72AB6B5904DE522B90C"; Status="phase=standings .*page=1" },
         @{ Mode="season-standings-programmed"; Hash="0E5683A17727792E69AF46D5ADADC8B36EDAF1B674FC8D110C46B96AE987E12B"; Status="phase=programmed-editor .*type=PROGRAMMED" },
-        @{ Mode="season-leaders"; Hash="0FE1144CB12AA0A9D078ECF72EA227F795A7FA8A41C98D1F3F5420E07546671D"; Status="phase=leaders .*leader=0 .*leader-result=0" },
-        @{ Mode="season-leaders4"; Hash="B2087496761DA16132129EEEBD6609879BF0F45C759FB5E091743A8E7200D2FE"; Status="phase=leaders .*leader=4 .*leader-result=0" },
-        @{ Mode="season-game-start"; Hash="7D36349A9E9B1D110A6445DA7D7F589F132E3111ED6A41BDFE3DC7D714FDBA84"; Status="phase=game-start-prelaunch .*launch-blocked=0" }
+        @{ Mode="season-leaders"; Hash="2F7B7CC70D2E13B35CE8A913F11E9CBCC47F4F047B0E8D3DAB7F0514CBEC9EFC"; Status="phase=leaders .*leader=0 .*leader-result=0" },
+        @{ Mode="season-leaders4"; Hash="8D7D3793A650A8DB5808B21851273F2DB89810A51A5117E65972B1547A016379"; Status="phase=leaders .*leader=4 .*leader-result=0" },
+        @{ Mode="season-leaders-results"; Hash="6A1213C9AB7E2523A62526E145C061A0DBB51D97D3DE8D331839828BC0DA93B0"; Status="phase=leaders .*leader=0 .*leader-result=1" },
+        @{ Mode="season-game-start"; Hash="2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A"; Status="phase=game-start-prelaunch .*game-pending=1 launch-blocked=1" }
     )
 }
 
@@ -413,6 +414,10 @@ try {
             throw "Season pixel checkpoint mismatch for $($Checkpoint.Mode): $Actual"
         }
     }
+    $UnexpectedRenderSave = Join-Path $RenderRoot "saves\tecmo-season.sav"
+    if (Test-Path -LiteralPath $UnexpectedRenderSave) {
+        throw "GAME START boundary created or mutated TSAV before a result commit."
+    }
     $MutationCases = @(
         @{ Name="missing"; Mutate={ param([byte[]]$Data)
             $Data[[int]$Season.RecordOffset] = [byte][char]'X' } },
@@ -548,7 +553,7 @@ try {
         Assert-FileSnapshot $Path $RealSaveSnapshots[$Path]
     }
     $global:LASTEXITCODE = 0
-    Write-Host "SEASON TEST PASS: strict ROM-only TSNS provenance/dependencies, TSAV isolation/migration/rejection, native no-launch flow, malformed-pack guards, and 12 pixel checkpoints"
+    Write-Host "SEASON TEST PASS: strict ROM-only TSNS provenance/dependencies, TSAV isolation/migration/rejection, native no-launch flow, malformed-pack guards, and 13 pixel checkpoints"
 } finally {
     $env:TECMO_SKIP_SHORTCUT = $PreviousSkipShortcut
     $env:TECMO_ASSETPACK = $PreviousAssetPack

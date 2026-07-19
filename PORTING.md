@@ -575,3 +575,28 @@ For every area migrated to ROM-only native C:
 4. Keep local comparison tooling ignored.
 5. Remove normal runtime lookup of the old capture/decomp path once parity is
    proven.
+
+## Roster and Season Cleanup Boundary
+
+Bank02 `$AE4C-$AE9C` writes each roster number at nametable column 6 and starts
+the name three columns later at `$2249/$2649`; native roster rows now use x=48
+and x=72. Player-detail percentages previously multiplied static rating bytes
+and presented them as statistics. That was not a valid ROM statistic source.
+Fresh TSAV state now renders ROM-style `.000` percentages and zero totals until
+the mutable per-player accumulator is ported.
+
+GAME START now has an explicit two-step boundary. Preparing the next matchup
+resolves only the ROM schedule ordinal and teams and sets a pending result; it
+does not change TSAV-1. `tecmo_season_commit_game_result` validates the pending
+ordinal, teams, non-tied completed score, record limits, and save path before
+atomically committing one result. No runtime gameplay caller exists yet, so
+normal play stops at the mapped `$8599->$B27F` launch boundary without changing
+the schedule or records.
+
+League Leaders supports the seven-category ROM navigation table at
+`$AD3D-$AD58`. The earlier renderer incorrectly placed Bank01 `$8031` over the
+category text and treated blank templates as results. That cursor has been
+removed; the selection uses an imported-ROM-font boundary marker, while A
+displays `PLAYER RESULTS UNAVAILABLE`. Ranked rows remain unsupported because
+TSAV-1 contains no per-player season accumulators and TSNS does not yet carry
+the Bank00 `$AC88/$AC5E`, `$B0CC-$B17F`, and `$B430-$B4AF` result machinery.

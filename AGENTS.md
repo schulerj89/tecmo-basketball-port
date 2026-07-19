@@ -520,3 +520,25 @@ The smoke test requires `tecmo_port_game.exe` to have PE subsystem 2 and keeps
 runtime initialization and presents native frame 0 before the first update.
 Original intro/title B input and intro Left/Right debug scrubbing are ignored,
 so normal play cannot fall back into the modern menu or skip opening steps.
+
+### Roster and season-management boundary
+
+Roster rows follow Bank02 `$AE4C-$AE9C`: jersey numbers begin at nametable
+column 6 and names at column 9. Keep the native origins at x=48 and x=72.
+Static roster rating bytes are not season statistics; player detail therefore
+shows the fresh-season `.000/.000/.000` percentage row and zero totals until a
+strict mutable per-player stat source is ported.
+
+TSAV-1 persists only season type, team control, team wins/losses, and schedule
+index. Entering GAME START may prepare the next ROM schedule matchup but must
+not advance that index, alter records, synthesize scores, or write TSAV. Only
+`tecmo_season_commit_game_result` accepts a completed, matching pending result
+and atomically persists it; the live gameplay launch remains blocked.
+
+League Leaders category navigation is supported from ROM `$AD3D-$AD58`.
+Bank00's `$AC88/$AC5E` priority metasprites and per-player accumulator/ranking
+path are not yet carried by TSNS/TSAV, so the native screen must not substitute
+the unrelated Bank01 cursor or render empty result templates as valid data. A
+ROM-font marker identifies the current category and confirmation displays the
+explicit unsupported-results boundary. Do not add fabricated roster or court
+statistics to make this screen look populated.

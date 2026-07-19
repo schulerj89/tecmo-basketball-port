@@ -144,6 +144,12 @@ typedef struct TecmoSeasonGameResult {
     bool overtime;
 } TecmoSeasonGameResult;
 
+typedef struct TecmoSeasonPendingGame {
+    uint16_t game_index;
+    uint8_t away_team;
+    uint8_t home_team;
+} TecmoSeasonPendingGame;
+
 typedef struct TecmoSeasonState {
     TecmoSeasonPhase phase;
     unsigned frame;
@@ -168,10 +174,12 @@ typedef struct TecmoSeasonState {
     uint8_t game_result_count;
     uint8_t game_result_visible_rows;
     TecmoSeasonGameResult game_results[4];
+    TecmoSeasonPendingGame pending_game;
     bool programmed_return_to_schedule;
     bool popup_closing;
     bool leaders_results;
-    bool game_batch_pending;
+    bool game_prepare_pending;
+    bool game_result_pending;
     bool season_complete;
     bool game_launch_blocked;
     TecmoSeasonPhase popup_target_phase;
@@ -192,6 +200,10 @@ bool tecmo_season_schedule_raw_index(const TecmoSeasonAsset *asset,
                                      uint8_t season_type,
                                      uint16_t ordinal,
                                      uint16_t *raw_index);
+bool tecmo_season_commit_game_result(TecmoSeasonState *state,
+                                     const TecmoSeasonAsset *asset,
+                                     TecmoSeasonSession *session,
+                                     const TecmoSeasonGameResult *result);
 TecmoSeasonAction tecmo_season_update(TecmoSeasonState *state,
                                       const TecmoSeasonAsset *asset,
                                       TecmoSeasonSession *session,

@@ -1174,7 +1174,9 @@ static void draw_roster_page(TecmoFramebuffer *view,
         draw_text_forced(view, asset, palette, number, 48 + offset_x,
                          144 + (int)row * 8, scale, 2,
                          chr_bytes, chr_byte_count);
-        draw_text_forced(view, asset, palette, player->name, 64 + offset_x,
+        /* Bank02 $AE4C emits the number at nametable column 6 and the
+         * player name at column 9 ($2249/$2649). */
+        draw_text_forced(view, asset, palette, player->name, 72 + offset_x,
                          144 + (int)row * 8, scale, 2,
                          chr_bytes, chr_byte_count);
     }
@@ -1330,17 +1332,14 @@ static void draw_player_detail(TecmoFramebuffer *view,
                      tecmo_team_data_condition_name(player->condition_seed),
                      176, 72, scale, 0,
                      chr_bytes, chr_byte_count);
-    (void)snprintf(line, sizeof(line), ".%03u",
-                   (unsigned)player->attributes[4] * 4U);
-    draw_text_forced(view, asset, palette, line, 8, 112, scale, 0,
+    /* The imported roster bytes are ratings, not accumulated season stats.
+     * Until a strict mutable player-stat source exists, render the truthful
+     * fresh-season row instead of synthesizing percentages from skills. */
+    draw_text_forced(view, asset, palette, ".000", 8, 112, scale, 0,
                      chr_bytes, chr_byte_count);
-    (void)snprintf(line, sizeof(line), ".%03u",
-                   (unsigned)player->attributes[5] * 4U);
-    draw_text_forced(view, asset, palette, line, 48, 112, scale, 0,
+    draw_text_forced(view, asset, palette, ".000", 48, 112, scale, 0,
                      chr_bytes, chr_byte_count);
-    (void)snprintf(line, sizeof(line), ".%03u",
-                   (unsigned)player->attributes[6] * 4U);
-    draw_text_forced(view, asset, palette, line, 88, 112, scale, 0,
+    draw_text_forced(view, asset, palette, ".000", 88, 112, scale, 0,
                      chr_bytes, chr_byte_count);
     draw_text_forced(view, asset, palette, "0", 136, 112, scale, 0,
                      chr_bytes, chr_byte_count);

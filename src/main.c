@@ -1270,6 +1270,12 @@ int main(int argc, char **argv)
                 tecmo_season_state_init(&runtime->season_state,
                                         TECMO_SEASON_ROUTE_STANDINGS,
                                         &runtime->season_session);
+            } else if (strcmp(mode_name, "season-leaders-results") == 0) {
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
+                tecmo_season_state_init(&runtime->season_state,
+                                        TECMO_SEASON_ROUTE_LEADERS,
+                                        &runtime->season_session);
+                runtime->season_state.leaders_results = true;
             } else if (strncmp(mode_name, "season-leaders", 14) == 0) {
                 unsigned category = 0U;
                 if (mode_name[14] != '\0' &&
@@ -1285,10 +1291,16 @@ int main(int argc, char **argv)
                     runtime->season_state.leader_category = (uint8_t)category;
                 }
             } else if (strcmp(mode_name, "season-game-start") == 0) {
+                TecmoControlFrame no_input;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
                 tecmo_season_state_init(&runtime->season_state,
                                         TECMO_SEASON_ROUTE_GAME_START,
                                         &runtime->season_session);
+                memset(&no_input, 0, sizeof(no_input));
+                (void)tecmo_season_update(&runtime->season_state,
+                                          &runtime->season_asset,
+                                          &runtime->season_session,
+                                          &no_input);
             } else if (strcmp(mode_name, "season-invalid-state") == 0) {
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
                 tecmo_season_state_init(&runtime->season_state,
@@ -1817,7 +1829,7 @@ int main(int argc, char **argv)
                            &runtime->team_data_state) ? 1U : 0U);
             }
             if (strncmp(mode_name, "season-", 7) == 0) {
-                printf("season-state phase=%s type=%s schedule=%u team=%u popup=%u popup-rows=%u playoff-scroll=%u page=%u panel=%u editor-team=%u leader=%u leader-result=%u game-results=%u/%u launch-blocked=%u save=%u\n",
+                printf("season-state phase=%s type=%s schedule=%u team=%u popup=%u popup-rows=%u playoff-scroll=%u page=%u panel=%u editor-team=%u leader=%u leader-result=%u game-results=%u/%u game-pending=%u launch-blocked=%u save=%u\n",
                        tecmo_season_phase_name(runtime->season_state.phase),
                        tecmo_season_type_name(runtime->season_session.season_type),
                        (unsigned)runtime->season_state.schedule_selection,
@@ -1832,6 +1844,7 @@ int main(int argc, char **argv)
                        runtime->season_state.leaders_results ? 1U : 0U,
                        (unsigned)runtime->season_state.game_result_visible_rows,
                        (unsigned)(runtime->season_state.game_result_count * 2U),
+                       runtime->season_state.game_result_pending ? 1U : 0U,
                        runtime->season_state.game_launch_blocked ? 1U : 0U,
                        (unsigned)runtime->season_session.save_status);
             }

@@ -850,7 +850,7 @@ void tecmo_season_state_init(TecmoSeasonState *state,
                                                        : (uint16_t)(count - 1U));
         state->season_type_selection = session->season_type;
         state->season_complete = session->schedule_index == count;
-        state->game_batch_pending = route == TECMO_SEASON_ROUTE_GAME_START;
+        state->game_prepare_pending = route == TECMO_SEASON_ROUTE_GAME_START;
     }
 }
 
@@ -1017,101 +1017,98 @@ bool tecmo_season_schedule_raw_index(const TecmoSeasonAsset *asset,
     return false;
 }
 
-static uint32_t season_score_seed(uint16_t game,
-                                  uint8_t away,
-                                  uint8_t home)
-{
-    uint32_t value = 0x9E3779B9U ^ ((uint32_t)game + 1U) * 0x45D9F3BU;
-    value ^= ((uint32_t)away << 8U) | home;
-    value ^= value >> 16U;
-    value *= 0x7FEB352DU;
-    value ^= value >> 15U;
-    return value;
-}
-
-static void simulate_skip_game(TecmoSeasonSession *session,
-                               uint16_t game,
-                               uint8_t away,
-                               uint8_t home,
-                               TecmoSeasonGameResult *result)
-{
-    uint32_t seed = season_score_seed(game, away, home);
-    uint16_t away_score = (uint16_t)(72U + seed % 49U);
-    uint16_t home_score = (uint16_t)(72U + (seed >> 9U) % 49U);
-    bool overtime = (seed & 0x1FU) == 0U || away_score == home_score;
-    if (away_score == home_score)
-        home_score = (uint16_t)(home_score + 2U + ((seed >> 20U) & 3U));
-    result->game_index = game;
-    result->away_team = away;
-    result->home_team = home;
-    result->away_score = away_score;
-    result->home_score = home_score;
-    result->overtime = overtime;
-    if ((unsigned)session->wins[away] + session->losses[away] < 82U &&
-        (unsigned)session->wins[home] + session->losses[home] < 82U) {
-        if (away_score > home_score) {
-            ++session->wins[away];
-            ++session->losses[home];
-        } else {
-            ++session->losses[away];
-            ++session->wins[home];
-        }
-    }
-}
-
-static void prepare_skip_batch(TecmoSeasonState *state,
-                               const TecmoSeasonAsset *asset,
-                               TecmoSeasonSession *session)
+static void prepare_game_start_boundary(TecmoSeasonState *state,
+                                        const TecmoSeasonAsset *asset,
+                                        const TecmoSeasonSession *session)
 {
     uint16_t count = asset->game_counts[session->season_type];
-    uint16_t game = session->schedule_index;
-    uint16_t original_game = game;
-    unsigned target_games = (unsigned)count * 2U / TECMO_SEASON_TEAM_COUNT;
+    uint16_t raw;
     state->game_result_count = 0U;
     state->game_result_visible_rows = 0U;
+    state->game_prepare_pending = false;
+    state->game_result_pending = false;
+    state->game_launch_blocked = true;
+    state->season_complete = session->schedule_index >= count;
+    memset(&state->pending_game, 0, sizeof(state->pending_game));
+    if (state->season_complete ||
+        !tecmo_season_schedule_raw_index(asset, session->season_type,
+                                         session->schedule_index, &raw))
+        return;
+    state->pending_game.game_index = session->schedule_index;
+    state->pending_game.away_team = asset->schedule[raw][0] & 0x3FU;
+    state->pending_game.home_team = asset->schedule[raw][1] & 0x3FU;
+    state->game_result_pending = true;
+}
+
+bool tecmo_season_commit_game_result(TecmoSeasonState *state,
+                                     const TecmoSeasonAsset *asset,
+                                     TecmoSeasonSession *session,
+                                     const TecmoSeasonGameResult *result)
+{
+    uint8_t away_wins;
+    uint8_t away_losses;
+    uint8_t home_wins;
+    uint8_t home_losses;
+    uint16_t schedule_index;
+    bool dirty;
+    if (state == NULL || asset == NULL || session == NULL || result == NULL ||
+        !asset->available || state->phase != TECMO_SEASON_GAME_START ||
+        session->season_type >= 4U ||
+        !state->game_result_pending || state->game_prepare_pending ||
+        result->game_index != state->pending_game.game_index ||
+        result->away_team != state->pending_game.away_team ||
+        result->home_team != state->pending_game.home_team ||
+        result->away_team >= TECMO_SEASON_TEAM_COUNT ||
+        result->home_team >= TECMO_SEASON_TEAM_COUNT ||
+        result->away_team == result->home_team ||
+        result->away_score > 999U || result->home_score > 999U ||
+        result->away_score == result->home_score ||
+        session->schedule_index != state->pending_game.game_index ||
+        session->schedule_index >= asset->game_counts[session->season_type] ||
+        (unsigned)session->wins[result->away_team] +
+                session->losses[result->away_team] >= 82U ||
+        (unsigned)session->wins[result->home_team] +
+                session->losses[result->home_team] >= 82U)
+        return false;
+
+    away_wins = session->wins[result->away_team];
+    away_losses = session->losses[result->away_team];
+    home_wins = session->wins[result->home_team];
+    home_losses = session->losses[result->home_team];
+    schedule_index = session->schedule_index;
+    dirty = session->dirty;
+    if (result->away_score > result->home_score) {
+        ++session->wins[result->away_team];
+        ++session->losses[result->home_team];
+    } else {
+        ++session->losses[result->away_team];
+        ++session->wins[result->home_team];
+    }
+    ++session->schedule_index;
+    session->dirty = true;
+    if (!tecmo_season_session_save(session)) {
+        session->wins[result->away_team] = away_wins;
+        session->losses[result->away_team] = away_losses;
+        session->wins[result->home_team] = home_wins;
+        session->losses[result->home_team] = home_losses;
+        session->schedule_index = schedule_index;
+        session->dirty = dirty;
+        return false;
+    }
+
+    state->game_results[0] = *result;
+    state->game_result_count = 1U;
+    state->game_result_visible_rows = 1U;
+    state->game_result_pending = false;
     state->game_launch_blocked = false;
-    state->game_batch_pending = false;
-    state->season_complete = game >= count;
-    if (state->season_complete) return;
-    while (game < count && state->game_result_count < 4U) {
-        uint16_t raw;
-        uint8_t away;
-        uint8_t home;
-        if (!tecmo_season_schedule_raw_index(asset, session->season_type,
-                                             game, &raw)) {
-            state->game_launch_blocked = true;
-            break;
-        }
-        away = asset->schedule[raw][0] & 0x3FU;
-        home = asset->schedule[raw][1] & 0x3FU;
-        if ((unsigned)session->wins[away] + session->losses[away] >=
-                target_games ||
-            (unsigned)session->wins[home] + session->losses[home] >=
-                target_games) {
-            ++game;
-            continue;
-        }
-        if (session->team_control[away] != 0U ||
-            session->team_control[home] != 0U) {
-            if (state->game_result_count == 0U)
-                state->game_launch_blocked = true;
-            break;
-        }
-        simulate_skip_game(session, raw, away, home,
-                           &state->game_results[state->game_result_count]);
-        ++state->game_result_count;
-        ++game;
-    }
-    if (game != original_game) {
-        state->game_result_visible_rows = 1U;
-        if (state->game_result_count == 0U)
-            state->game_result_visible_rows = 0U;
-        session->schedule_index = game;
-        state->schedule_selection = game < count ? game
-                                                  : (uint16_t)(count - 1U);
-        state->season_complete = game == count;
-        persist_change(session);
-    }
+    state->schedule_selection = session->schedule_index <
+                                    asset->game_counts[session->season_type]
+                                    ? session->schedule_index
+                                    : (uint16_t)(asset->game_counts[
+                                          session->season_type] - 1U);
+    state->season_complete = session->schedule_index ==
+                             asset->game_counts[session->season_type];
+    return true;
 }
 
 static int popup_box_index(TecmoSeasonPhase phase)
@@ -1464,10 +1461,6 @@ TecmoSeasonAction tecmo_season_update(TecmoSeasonState *state,
     case TECMO_SEASON_LEADERS:
         {
             if (state->leaders_results) {
-                if (controls->pressed.down && state->leader_page < 12U)
-                    state->leader_page = (uint8_t)(state->leader_page + 6U);
-                if (controls->pressed.up && state->leader_page != 0U)
-                    state->leader_page = (uint8_t)(state->leader_page - 6U);
                 if (controls->pressed.cancel) {
                     state->leaders_results = false;
                     state->leader_page = 0U;
@@ -1495,8 +1488,8 @@ TecmoSeasonAction tecmo_season_update(TecmoSeasonState *state,
         break;
 
     case TECMO_SEASON_GAME_START:
-        if (state->game_batch_pending) {
-            prepare_skip_batch(state, asset, session);
+        if (state->game_prepare_pending) {
+            prepare_game_start_boundary(state, asset, session);
             return finish_update(state, TECMO_SEASON_ACTION_NONE, false);
         }
         if (state->game_result_visible_rows <
@@ -1504,12 +1497,7 @@ TecmoSeasonAction tecmo_season_update(TecmoSeasonState *state,
             ++state->game_result_visible_rows;
             return finish_update(state, TECMO_SEASON_ACTION_NONE, false);
         }
-        if (accept) {
-            if (state->game_result_count != 0U && !state->season_complete) {
-                state->game_batch_pending = true;
-                prepare_skip_batch(state, asset, session);
-            }
-        } else if (cancel) {
+        if (cancel) {
             return finish_update(state,
                                  TECMO_SEASON_ACTION_BACK_TO_START_MENU,
                                  true);
@@ -2031,6 +2019,17 @@ static bool valid_runtime_state(const TecmoSeasonAsset *asset,
             asset,
             state->editor_panel >= 2U ? 1U : 0U))
         return false;
+    if ((state->game_prepare_pending &&
+         state->phase != TECMO_SEASON_GAME_START) ||
+        (state->game_result_pending &&
+        (state->phase != TECMO_SEASON_GAME_START ||
+         state->game_prepare_pending || state->season_complete ||
+         state->pending_game.game_index != session->schedule_index ||
+         state->pending_game.game_index >= game_count ||
+         state->pending_game.away_team >= TECMO_SEASON_TEAM_COUNT ||
+         state->pending_game.home_team >= TECMO_SEASON_TEAM_COUNT ||
+         state->pending_game.away_team == state->pending_game.home_team)))
+        return false;
     box_index = popup_box_index(state->phase);
     if (state->popup_target_phase > TECMO_SEASON_GAME_START ||
         state->popup_animation_tick >= 10U ||
@@ -2128,19 +2127,25 @@ bool tecmo_season_draw(TecmoFramebuffer *framebuffer,
         break;
     case TECMO_SEASON_LEADERS:
         if (state->leaders_results) {
-            size_t leader_screen =
-                (size_t)(asset->leader_template[state->leader_category] - 38U);
-            draw_leader_screen(&view, asset, leader_screen,
-                               chr_bytes, chr_byte_count, scale);
-            draw_leader_text(&view, asset, leader_screen,
-                             asset->leader_labels[state->leader_category],
-                             32, 24, chr_bytes, chr_byte_count, scale);
-        } else {
             draw_leader_screen(&view, asset, 0U,
                                chr_bytes, chr_byte_count, scale);
-            draw_cursor(&view, asset, chr_bytes, chr_byte_count,
-                        asset->leader_cursor_x[state->leader_category],
-                        asset->leader_cursor_y[state->leader_category], scale);
+            draw_leader_text(&view, asset, 0U,
+                             "PLAYER RESULTS UNAVAILABLE", 24, 208,
+                             chr_bytes, chr_byte_count, scale);
+        } else {
+            int marker_x = ((int)asset->leader_cursor_x[
+                                state->leader_category] / 8) * 8 - 8;
+            int marker_y = ((int)asset->leader_cursor_y[
+                                state->leader_category] / 8) * 8;
+            if (marker_x < 0) marker_x = 0;
+            draw_leader_screen(&view, asset, 0U,
+                               chr_bytes, chr_byte_count, scale);
+            /* Bank00 $2D10 routes these coordinates through $AC88/$AC5E.
+             * TSNS does not yet carry those priority metasprites, so use the
+             * imported ROM font as a non-overlapping boundary marker instead
+             * of the unrelated Bank01 $8031 cursor. */
+            draw_leader_text(&view, asset, 0U, ">", marker_x, marker_y,
+                             chr_bytes, chr_byte_count, scale);
         }
         break;
     case TECMO_SEASON_GAME_START: {
@@ -2226,6 +2231,7 @@ bool tecmo_season_self_test(char *message, size_t message_size)
     TecmoSeasonSession session;
     TecmoSeasonSession loaded;
     TecmoSeasonState state;
+    TecmoSeasonGameResult completed;
     TecmoControlFrame controls;
     uint8_t bytes[SEASON_SAVE_SIZE] = {0};
     uint8_t *payload = bytes + SEASON_SAVE_HEADER_SIZE;
@@ -2555,41 +2561,17 @@ bool tecmo_season_self_test(char *message, size_t message_size)
     memset(&controls, 0, sizeof(controls));
     if (tecmo_season_update(&state, &asset, &session, &controls) !=
             TECMO_SEASON_ACTION_NONE ||
-        state.phase != TECMO_SEASON_GAME_START || state.game_launch_blocked ||
-        state.game_result_count != 4U || state.game_result_visible_rows != 1U ||
-        session.schedule_index != 4U)
-        goto state_failure;
-    for (size_t reveal = 1U; reveal < 8U; ++reveal)
-        (void)tecmo_season_update(&state, &asset, &session, &controls);
-    if (state.game_result_visible_rows != 8U) goto state_failure;
-    memset(&controls, 0, sizeof(controls));
-    controls.released.shoot = true;
-    controls.released.cancel = true;
-    if (tecmo_season_update(&state, &asset, &session, &controls) !=
-            TECMO_SEASON_ACTION_NONE || session.schedule_index != 8U ||
-        state.game_result_count != 4U || state.game_result_visible_rows != 1U)
-        goto state_failure;
-    memset(&controls, 0, sizeof(controls));
-    for (size_t reveal = 1U; reveal < 8U; ++reveal)
-        (void)tecmo_season_update(&state, &asset, &session, &controls);
-    controls.released.cancel = true;
-    if (tecmo_season_update(&state, &asset, &session, &controls) !=
-        TECMO_SEASON_ACTION_BACK_TO_START_MENU)
-        goto state_failure;
-    session_defaults(&session);
-    session.team_control[0] = 1U;
-    tecmo_season_state_init(&state, TECMO_SEASON_ROUTE_GAME_START, &session);
-    memset(&controls, 0, sizeof(controls));
-    (void)tecmo_season_update(&state, &asset, &session, &controls);
-    if (!state.game_launch_blocked || state.game_result_count != 0U ||
-        session.schedule_index != 0U)
+        state.phase != TECMO_SEASON_GAME_START || !state.game_launch_blocked ||
+        !state.game_result_pending || state.game_prepare_pending ||
+        state.game_result_count != 0U || state.game_result_visible_rows != 0U ||
+        session.schedule_index != 0U || session.wins[0] != 0U ||
+        session.losses[0] != 0U)
         goto state_failure;
     memset(&controls, 0, sizeof(controls));
     controls.released.shoot = true;
-    controls.released.cancel = true;
     if (tecmo_season_update(&state, &asset, &session, &controls) !=
-            TECMO_SEASON_ACTION_NONE || !state.game_launch_blocked ||
-        session.schedule_index != 0U)
+            TECMO_SEASON_ACTION_NONE || session.schedule_index != 0U ||
+        !state.game_result_pending || state.game_result_count != 0U)
         goto state_failure;
 
     temp_root = getenv("TEMP");
@@ -2602,6 +2584,25 @@ bool tecmo_season_self_test(char *message, size_t message_size)
             goto state_failure;
     }
     (void)snprintf(session.save_path, sizeof(session.save_path), "%s", temp_save);
+    memset(&completed, 0, sizeof(completed));
+    completed.game_index = state.pending_game.game_index;
+    completed.away_team = state.pending_game.away_team;
+    completed.home_team = state.pending_game.home_team;
+    completed.away_score = 101U;
+    completed.home_score = 99U;
+    ++completed.game_index;
+    if (tecmo_season_commit_game_result(&state, &asset, &session,
+                                        &completed) ||
+        session.schedule_index != 0U || !state.game_result_pending)
+        goto state_failure;
+    --completed.game_index;
+    if (!tecmo_season_commit_game_result(&state, &asset, &session,
+                                         &completed) ||
+        session.schedule_index != 1U || state.game_result_pending ||
+        state.game_result_count != 1U || state.game_result_visible_rows != 1U ||
+        session.wins[completed.away_team] != 1U ||
+        session.losses[completed.home_team] != 1U)
+        goto state_failure;
     session.team_control[4] = 3U;
     session.wins[4] = 50U;
     session.losses[4] = 32U;
@@ -2615,7 +2616,7 @@ bool tecmo_season_self_test(char *message, size_t message_size)
     memset(&loaded, 0, sizeof(loaded));
     if (got != sizeof(bytes) || trailing != EOF || !parse_save(&loaded, bytes) ||
         loaded.team_control[4] != 3U || loaded.wins[4] != 50U ||
-        loaded.losses[4] != 32U)
+        loaded.losses[4] != 32U || loaded.schedule_index != 1U)
         goto state_failure;
 
     bytes[SEASON_SAVE_SIZE - 1U] ^= 1U;
