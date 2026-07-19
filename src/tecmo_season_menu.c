@@ -996,10 +996,10 @@ static bool schedule_record_selected(uint8_t season_type,
            season_type == TECMO_SEASON_PROGRAMMED;
 }
 
-static bool season_schedule_raw_index(const TecmoSeasonAsset *asset,
-                                      uint8_t season_type,
-                                      uint16_t ordinal,
-                                      uint16_t *raw_index)
+bool tecmo_season_schedule_raw_index(const TecmoSeasonAsset *asset,
+                                     uint8_t season_type,
+                                     uint16_t ordinal,
+                                     uint16_t *raw_index)
 {
     uint16_t selected = 0U;
     if (asset == NULL || raw_index == NULL || season_type >= 4U ||
@@ -1077,8 +1077,8 @@ static void prepare_skip_batch(TecmoSeasonState *state,
         uint16_t raw;
         uint8_t away;
         uint8_t home;
-        if (!season_schedule_raw_index(asset, session->season_type,
-                                       game, &raw)) {
+        if (!tecmo_season_schedule_raw_index(asset, session->season_type,
+                                             game, &raw)) {
             state->game_launch_blocked = true;
             break;
         }
@@ -1770,8 +1770,8 @@ static void draw_schedule_rows(TecmoFramebuffer *view,
         char away[17];
         char home[17];
         if (game >= count) break;
-        if (!season_schedule_raw_index(asset, session->season_type,
-                                       game, &raw))
+        if (!tecmo_season_schedule_raw_index(asset, session->season_type,
+                                             game, &raw))
             break;
         team_label(away, team_data, asset->schedule[raw][0] & 0x3FU);
         team_label(home, team_data, asset->schedule[raw][1] & 0x3FU);
