@@ -15,8 +15,11 @@
 #define TECMO_GAMEPLAY_PERIOD_BANNER_FRAMES 60U
 #define TECMO_GAMEPLAY_HALFTIME_BANNER_FRAMES 120U
 #define TECMO_GAMEPLAY_PERIOD_EXPIRY_WAIT_FRAMES 31U
-#define TECMO_GAMEPLAY_VIOLATION_PRESENTATION_FRAMES 121U
-#define TECMO_GAMEPLAY_FOUL_PRESENTATION_FRAMES 161U
+#define TECMO_GAMEPLAY_PRESENTATION_LEAD_IN_FRAMES 4U
+#define TECMO_GAMEPLAY_VIOLATION_WAIT_FRAMES 120U
+#define TECMO_GAMEPLAY_FOUL_WAIT_FRAMES 160U
+#define TECMO_GAMEPLAY_VIOLATION_PRESENTATION_FRAMES 124U
+#define TECMO_GAMEPLAY_FOUL_PRESENTATION_FRAMES 164U
 
 /* ROM request values. The state layer reports them; it never synthesizes audio. */
 #define TECMO_GAMEPLAY_SFX_EXPIRY_ID 3U
@@ -40,7 +43,9 @@ typedef enum TecmoGameplayPhase {
     TECMO_GAMEPLAY_PHASE_FINAL_SCORE_SCREEN,
     TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION,
     TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION,
+    TECMO_GAMEPLAY_PHASE_FOUL_SETTLEMENT_REQUIRED,
     TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE,
+    TECMO_GAMEPLAY_PHASE_FREE_THROW_SETTLEMENT_REQUIRED,
     TECMO_GAMEPLAY_PHASE_COMPLETE,
     TECMO_GAMEPLAY_PHASE_COUNT
 } TecmoGameplayPhase;
@@ -79,11 +84,11 @@ typedef enum TecmoGameplayPeriodExpiryContext {
 } TecmoGameplayPeriodExpiryContext;
 
 /*
- * On the zero-clock update, ALLOWED_LIVE_ACTION enters an unbounded settlement
- * state until a later frame supplies ALLOWED_LIVE_ACTION_SETTLED. OTHER enters
- * the inclusive fixed wait: the next 31 update calls are wait frames and the
- * period transition occurs on the 31st. A settled context on the zero-clock
- * update transitions immediately.
+ * ALLOWED_LIVE_ACTION must be observed before ALLOWED_LIVE_ACTION_SETTLED can
+ * bypass the fixed wait. A zero-clock frame with an initially settled context
+ * still takes the 31-frame OTHER path. Once an allowed action was observed,
+ * the zero-clock update enters an unbounded settlement state until a later
+ * frame supplies SETTLED; the next 31 OTHER updates are inclusive wait frames.
  */
 
 typedef struct TecmoGameplayLiveContext {
@@ -97,7 +102,7 @@ typedef struct TecmoGameplayLiveContext {
  * deliberately avoids the frontend aliases where "confirm" is START,
  * "cancel" is NES B, and "shoot" is NES A.
  */
-typedef struct TecmoGameplayPadInput {
+typedef struct TecmoGameplayPadButtons {
     bool dpad_up;
     bool dpad_down;
     bool dpad_left;
@@ -106,6 +111,16 @@ typedef struct TecmoGameplayPadInput {
     bool nes_b_jump_steal_shot;
     bool nes_select;
     bool nes_start;
+} TecmoGameplayPadButtons;
+
+typedef struct TecmoGameplayPadInput {
+    /*
+     * `$EA14-$EA2A` calls `$D2B9-$D2CE`: presentations consume only a
+     * transition in released.nes_a_pass_switch, from either controller,
+     * after the fixed four-frame lead-in.
+     */
+    TecmoGameplayPadButtons held;
+    TecmoGameplayPadButtons released;
 } TecmoGameplayPadInput;
 
 typedef struct TecmoGameplayFrameInput {
@@ -136,22 +151,52 @@ typedef struct TecmoGameplayEventBuffer {
 
 typedef enum TecmoGameplayCloseShotPhase {
     TECMO_GAMEPLAY_CLOSE_SHOT_NEUTRAL = 0,
-    TECMO_GAMEPLAY_CLOSE_SHOT_ENTRY_POSE_445,
-    TECMO_GAMEPLAY_CLOSE_SHOT_GATHER_POSE_254,
-    TECMO_GAMEPLAY_CLOSE_SHOT_GATHER_POSE_255,
-    TECMO_GAMEPLAY_CLOSE_SHOT_LAUNCH_POSE_257,
-    TECMO_GAMEPLAY_CLOSE_SHOT_AIRBORNE_POSE_258,
-    TECMO_GAMEPLAY_CLOSE_SHOT_RECOVERY_POSE_259,
+    TECMO_GAMEPLAY_CLOSE_SHOT_ENTRY,
+    TECMO_GAMEPLAY_CLOSE_SHOT_GATHER_A,
+    TECMO_GAMEPLAY_CLOSE_SHOT_GATHER_B,
+    TECMO_GAMEPLAY_CLOSE_SHOT_LAUNCH,
+    TECMO_GAMEPLAY_CLOSE_SHOT_AIRBORNE,
+    TECMO_GAMEPLAY_CLOSE_SHOT_RECOVERY,
     TECMO_GAMEPLAY_CLOSE_SHOT_PHASE_COUNT
 } TecmoGameplayCloseShotPhase;
 
+typedef enum TecmoGameplayCloseShotObservation {
+    TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_ONLY = 0,
+    TECMO_GAMEPLAY_CLOSE_SHOT_OBSERVED_RIGHTWARD_TRACE,
+    TECMO_GAMEPLAY_CLOSE_SHOT_OBSERVATION_COUNT
+} TecmoGameplayCloseShotObservation;
+
 typedef struct TecmoGameplayCloseShotState {
     TecmoGameplayCloseShotPhase phase;
-    uint16_t actor_pose_index;
-    uint16_t ball_pose_index;
+    TecmoGameplayCloseShotObservation observation;
+    uint16_t observed_actor_pose_index;
+    uint16_t observed_ball_pose_index;
     uint32_t transition_serial;
+    bool observed_pose_available;
     bool active;
 } TecmoGameplayCloseShotState;
+
+typedef enum TecmoGameplayFoulCounterEffect {
+    TECMO_GAMEPLAY_FOUL_COUNTER_NONE = 0,
+    TECMO_GAMEPLAY_FOUL_COUNTER_INDIVIDUAL = 1,
+    TECMO_GAMEPLAY_FOUL_COUNTER_TEAM = 2,
+    TECMO_GAMEPLAY_FOUL_COUNTER_BOTH = 3,
+    TECMO_GAMEPLAY_FOUL_COUNTER_EFFECT_COUNT
+} TecmoGameplayFoulCounterEffect;
+
+typedef enum TecmoGameplayPostFoulClockPath {
+    TECMO_GAMEPLAY_POST_FOUL_SHOT_24_DIVIDER_45 = 0,
+    TECMO_GAMEPLAY_POST_FOUL_SHOT_24_DIVIDER_50,
+    TECMO_GAMEPLAY_POST_FOUL_CLOCK_PATH_COUNT
+} TecmoGameplayPostFoulClockPath;
+
+typedef struct TecmoGameplayFoulRequest {
+    TecmoGameplayTeam fouling_team;
+    TecmoGameplayTeam free_throw_team;
+    TecmoGameplayFoulCounterEffect counter_effect;
+    uint8_t player_index;
+    uint8_t free_throw_attempts;
+} TecmoGameplayFoulRequest;
 
 typedef struct TecmoGameplayConfig {
     uint8_t regulation_minutes;
@@ -183,6 +228,7 @@ typedef struct TecmoGameplayState {
     uint8_t shot_clock;
     uint16_t phase_frame;
     uint8_t expiry_wait_frames_remaining;
+    bool period_expiry_allowed_live_observed;
     bool initialized;
 } TecmoGameplayState;
 
@@ -194,14 +240,18 @@ uint8_t tecmo_gameplay_overtime_minutes(uint8_t regulation_minutes);
 void tecmo_gameplay_frame_input_clear(TecmoGameplayFrameInput *input);
 void tecmo_gameplay_live_context_default(TecmoGameplayLiveContext *context);
 bool tecmo_gameplay_input_any(const TecmoGameplayFrameInput *input);
-bool tecmo_gameplay_input_nes_a_pass_switch(
+bool tecmo_gameplay_input_nes_a_pass_switch_held(
     const TecmoGameplayFrameInput *input,
     size_t controller);
-bool tecmo_gameplay_input_nes_b_jump_steal_shot(
+bool tecmo_gameplay_input_nes_a_pass_switch_released(
     const TecmoGameplayFrameInput *input,
     size_t controller);
-bool tecmo_gameplay_input_nes_start(const TecmoGameplayFrameInput *input,
-                                    size_t controller);
+bool tecmo_gameplay_input_nes_b_jump_steal_shot_held(
+    const TecmoGameplayFrameInput *input,
+    size_t controller);
+bool tecmo_gameplay_input_nes_start_held(
+    const TecmoGameplayFrameInput *input,
+    size_t controller);
 
 void tecmo_gameplay_events_clear(TecmoGameplayEventBuffer *events);
 
@@ -236,15 +286,18 @@ bool tecmo_gameplay_request_violation(TecmoGameplayState *state,
                                       TecmoGameplayTeam restart_possession);
 
 /*
- * Foul detection/subtype stays outside this evidence-bounded state module.
- * Individual counts persist and saturate at six; current-period team counts
- * reset when the next playing-period banner begins and saturate at five.
+ * Foul detection/subtype stays outside this evidence-bounded state module. The
+ * request must explicitly identify which proven counters change; this module
+ * does not apply a universal team-foul delta. Presentation completion stops in
+ * a settlement-required phase until the caller selects one of the two proven
+ * shot-24/divider paths and an explicit possession.
  */
 bool tecmo_gameplay_request_foul(TecmoGameplayState *state,
-                                 TecmoGameplayTeam fouling_team,
-                                 uint8_t player_index,
-                                 TecmoGameplayTeam free_throw_team,
-                                 uint8_t free_throw_attempts);
+                                 const TecmoGameplayFoulRequest *request);
+bool tecmo_gameplay_settle_foul_presentation(
+    TecmoGameplayState *state,
+    TecmoGameplayTeam next_possession,
+    TecmoGameplayPostFoulClockPath clock_path);
 bool tecmo_gameplay_individual_fouled_out(const TecmoGameplayState *state,
                                           TecmoGameplayTeam team,
                                           uint8_t player_index);
@@ -261,16 +314,23 @@ bool tecmo_gameplay_record_free_throw_result(
     TecmoGameplayState *state,
     bool made,
     TecmoGameplayEventBuffer *events);
+bool tecmo_gameplay_settle_free_throws(
+    TecmoGameplayState *state,
+    TecmoGameplayTeam next_possession,
+    TecmoGameplayPostFoulClockPath clock_path);
 
 /*
- * This is numeric ROM subtype 01 only. Phase advancement is explicit so this
- * layer does not invent frame durations or ball trajectory. It is not named a
- * dunk or layup, and no unobserved poses 253, 256, or 260 are synthesized.
+ * This is numeric ROM subtype 01 only. Runtime phases are semantic and their
+ * advancement is explicit, so this layer invents neither duration nor ball
+ * trajectory. Pose indexes are exposed only when the caller selects the one
+ * bounded rightward observation documented in gameplay-state-foundation.md;
+ * they are not universal subtype assets or a claim that this is a dunk/layup.
  */
 bool tecmo_gameplay_nes_b_begin_close_shot_subtype01(
     TecmoGameplayState *state,
     const TecmoGameplayFrameInput *input,
     size_t controller,
+    TecmoGameplayCloseShotObservation observation,
     TecmoGameplayEventBuffer *events);
 bool tecmo_gameplay_advance_close_shot_subtype01(
     TecmoGameplayState *state,

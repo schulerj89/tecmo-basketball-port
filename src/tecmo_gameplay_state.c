@@ -43,35 +43,47 @@ static bool gameplay_event_append(TecmoGameplayEventBuffer *events,
     return true;
 }
 
-static uint16_t gameplay_close_shot_pose(TecmoGameplayCloseShotPhase phase)
+static bool gameplay_close_shot_observation_valid(
+    TecmoGameplayCloseShotObservation observation)
 {
-    switch (phase) {
-    case TECMO_GAMEPLAY_CLOSE_SHOT_NEUTRAL:
-        return 509U;
-    case TECMO_GAMEPLAY_CLOSE_SHOT_ENTRY_POSE_445:
-        return 445U;
-    case TECMO_GAMEPLAY_CLOSE_SHOT_GATHER_POSE_254:
-        return 254U;
-    case TECMO_GAMEPLAY_CLOSE_SHOT_GATHER_POSE_255:
-        return 255U;
-    case TECMO_GAMEPLAY_CLOSE_SHOT_LAUNCH_POSE_257:
-        return 257U;
-    case TECMO_GAMEPLAY_CLOSE_SHOT_AIRBORNE_POSE_258:
-        return 258U;
-    case TECMO_GAMEPLAY_CLOSE_SHOT_RECOVERY_POSE_259:
-        return 259U;
-    case TECMO_GAMEPLAY_CLOSE_SHOT_PHASE_COUNT:
-    default:
-        return UINT16_MAX;
+    return observation >= TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_ONLY &&
+           observation < TECMO_GAMEPLAY_CLOSE_SHOT_OBSERVATION_COUNT;
+}
+
+static bool gameplay_close_shot_observed_pose(
+    TecmoGameplayCloseShotObservation observation,
+    TecmoGameplayCloseShotPhase phase,
+    uint16_t *actor_pose,
+    uint16_t *ball_pose)
+{
+    static const uint16_t rightward_trace_poses[] = {
+        509U, 445U, 254U, 255U, 257U, 258U, 259U
+    };
+
+    if (actor_pose == NULL || ball_pose == NULL ||
+        observation != TECMO_GAMEPLAY_CLOSE_SHOT_OBSERVED_RIGHTWARD_TRACE ||
+        phase < TECMO_GAMEPLAY_CLOSE_SHOT_NEUTRAL ||
+        phase >= TECMO_GAMEPLAY_CLOSE_SHOT_PHASE_COUNT) {
+        return false;
     }
+    *actor_pose = rightward_trace_poses[(size_t)phase];
+    *ball_pose = 64U;
+    return true;
 }
 
 static void gameplay_close_shot_set_phase(TecmoGameplayCloseShotState *shot,
                                           TecmoGameplayCloseShotPhase phase)
 {
     shot->phase = phase;
-    shot->actor_pose_index = gameplay_close_shot_pose(phase);
-    shot->ball_pose_index = 64U;
+    shot->observed_pose_available = gameplay_close_shot_observed_pose(
+        shot->observation,
+        phase,
+        &shot->observed_actor_pose_index,
+        &shot->observed_ball_pose_index);
+    if (!shot->observed_pose_available) {
+        shot->observed_actor_pose_index = UINT16_MAX;
+        shot->observed_ball_pose_index = UINT16_MAX;
+    }
     shot->active = phase != TECMO_GAMEPLAY_CLOSE_SHOT_NEUTRAL;
     ++shot->transition_serial;
 }
@@ -82,11 +94,24 @@ static void gameplay_clock_reset(TecmoGameplayState *state, uint8_t minutes)
     state->clock_seconds = 0U;
     state->clock_divider = TECMO_GAMEPLAY_CLOCK_DIVIDER_FRAMES;
     state->shot_clock = TECMO_GAMEPLAY_SHOT_CLOCK_SECONDS;
+    state->period_expiry_allowed_live_observed = false;
 }
 
-static void gameplay_period_team_fouls_reset(TecmoGameplayState *state)
+static void gameplay_prepare_period_clock(TecmoGameplayState *state,
+                                          uint8_t minutes)
+{
+    state->clock_minutes = minutes;
+    state->clock_seconds = 0U;
+    state->clock_divider = TECMO_GAMEPLAY_CLOCK_DIVIDER_FRAMES;
+    state->period_expiry_allowed_live_observed = false;
+}
+
+static void gameplay_finish_period_banner_reset(TecmoGameplayState *state)
 {
     memset(state->team_fouls, 0, sizeof(state->team_fouls));
+    state->shot_clock = TECMO_GAMEPLAY_SHOT_CLOCK_SECONDS;
+    state->clock_divider = TECMO_GAMEPLAY_POSSESSION_DIVIDER_FRAMES;
+    state->period_expiry_allowed_live_observed = false;
 }
 
 static bool gameplay_enter_violation(TecmoGameplayState *state,
@@ -127,8 +152,8 @@ static bool gameplay_start_period_banner(TecmoGameplayState *state,
         return false;
     }
 
-    gameplay_clock_reset(state, minutes);
-    gameplay_period_team_fouls_reset(state);
+    /* Fixed E823 prepares M:00/divider 45 before the banner. */
+    gameplay_prepare_period_clock(state, minutes);
     state->phase = TECMO_GAMEPLAY_PHASE_PERIOD_BANNER;
     state->phase_frame = 0U;
     state->expiry_wait_frames_remaining = 0U;
@@ -142,6 +167,11 @@ static bool gameplay_finish_period(TecmoGameplayState *state,
 {
     const bool tied = state->score[TECMO_GAMEPLAY_TEAM_AWAY] ==
                       state->score[TECMO_GAMEPLAY_TEAM_HOME];
+
+    if (state->period == 5U && tied &&
+        state->overtime_count == UINT8_MAX) {
+        return false;
+    }
 
     state->expiry_wait_frames_remaining = 0U;
     state->phase_frame = 0U;
@@ -172,9 +202,6 @@ static bool gameplay_finish_period(TecmoGameplayState *state,
         }
     }
     if (state->period == 5U && tied) {
-        if (state->overtime_count == UINT8_MAX) {
-            return false;
-        }
         ++state->overtime_count;
         return gameplay_start_period_banner(
             state, TECMO_GAMEPLAY_BANNER_OVERTIME);
@@ -200,12 +227,14 @@ static bool gameplay_enter_period_expiry(
     state->banner = TECMO_GAMEPLAY_BANNER_NONE;
     state->violation = TECMO_GAMEPLAY_VIOLATION_NONE;
 
-    if (live_context->period_expiry ==
-        TECMO_GAMEPLAY_EXPIRY_ALLOWED_LIVE_ACTION_SETTLED) {
+    if (state->period_expiry_allowed_live_observed &&
+        live_context->period_expiry ==
+            TECMO_GAMEPLAY_EXPIRY_ALLOWED_LIVE_ACTION_SETTLED) {
         return gameplay_finish_period(state, events);
     }
     if (live_context->period_expiry ==
         TECMO_GAMEPLAY_EXPIRY_ALLOWED_LIVE_ACTION) {
+        state->period_expiry_allowed_live_observed = true;
         state->phase = TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE;
         state->expiry_wait_frames_remaining = 0U;
         return true;
@@ -218,15 +247,6 @@ static bool gameplay_enter_period_expiry(
     return true;
 }
 
-static void gameplay_advance_paused_clock_divider(TecmoGameplayState *state)
-{
-    if (state->clock_divider > 1U) {
-        --state->clock_divider;
-    } else {
-        state->clock_divider = TECMO_GAMEPLAY_CLOCK_DIVIDER_FRAMES;
-    }
-}
-
 static bool gameplay_update_live_clock(
     TecmoGameplayState *state,
     const TecmoGameplayLiveContext *live_context,
@@ -234,6 +254,11 @@ static bool gameplay_update_live_clock(
 {
     bool shot_clock_expired = false;
     bool period_expired;
+
+    if (live_context->period_expiry ==
+        TECMO_GAMEPLAY_EXPIRY_ALLOWED_LIVE_ACTION) {
+        state->period_expiry_allowed_live_observed = true;
+    }
 
     if (state->clock_divider > 1U) {
         --state->clock_divider;
@@ -361,13 +386,21 @@ void tecmo_gameplay_live_context_default(TecmoGameplayLiveContext *context)
     }
 }
 
+static bool gameplay_buttons_any(const TecmoGameplayPadButtons *buttons)
+{
+    return buttons != NULL &&
+           (buttons->dpad_up || buttons->dpad_down ||
+            buttons->dpad_left || buttons->dpad_right ||
+            buttons->nes_a_pass_switch ||
+            buttons->nes_b_jump_steal_shot ||
+            buttons->nes_select || buttons->nes_start);
+}
+
 static bool gameplay_pad_any(const TecmoGameplayPadInput *pad)
 {
     return pad != NULL &&
-           (pad->dpad_up || pad->dpad_down ||
-            pad->dpad_left || pad->dpad_right ||
-            pad->nes_a_pass_switch || pad->nes_b_jump_steal_shot ||
-            pad->nes_select || pad->nes_start);
+           (gameplay_buttons_any(&pad->held) ||
+            gameplay_buttons_any(&pad->released));
 }
 
 bool tecmo_gameplay_input_any(const TecmoGameplayFrameInput *input)
@@ -379,27 +412,43 @@ bool tecmo_gameplay_input_any(const TecmoGameplayFrameInput *input)
            gameplay_pad_any(&input->controllers[1]);
 }
 
-bool tecmo_gameplay_input_nes_a_pass_switch(
+bool tecmo_gameplay_input_nes_a_pass_switch_held(
     const TecmoGameplayFrameInput *input,
     size_t controller)
 {
     return input != NULL && controller < TECMO_GAMEPLAY_CONTROLLER_COUNT &&
-           input->controllers[controller].nes_a_pass_switch;
+           input->controllers[controller].held.nes_a_pass_switch;
 }
 
-bool tecmo_gameplay_input_nes_b_jump_steal_shot(
+bool tecmo_gameplay_input_nes_a_pass_switch_released(
     const TecmoGameplayFrameInput *input,
     size_t controller)
 {
     return input != NULL && controller < TECMO_GAMEPLAY_CONTROLLER_COUNT &&
-           input->controllers[controller].nes_b_jump_steal_shot;
+           input->controllers[controller].released.nes_a_pass_switch;
 }
 
-bool tecmo_gameplay_input_nes_start(const TecmoGameplayFrameInput *input,
-                                    size_t controller)
+bool tecmo_gameplay_input_nes_b_jump_steal_shot_held(
+    const TecmoGameplayFrameInput *input,
+    size_t controller)
 {
     return input != NULL && controller < TECMO_GAMEPLAY_CONTROLLER_COUNT &&
-           input->controllers[controller].nes_start;
+           input->controllers[controller].held.nes_b_jump_steal_shot;
+}
+
+bool tecmo_gameplay_input_nes_start_held(
+    const TecmoGameplayFrameInput *input,
+    size_t controller)
+{
+    return input != NULL && controller < TECMO_GAMEPLAY_CONTROLLER_COUNT &&
+           input->controllers[controller].held.nes_start;
+}
+
+static bool gameplay_input_either_nes_a_released(
+    const TecmoGameplayFrameInput *input)
+{
+    return tecmo_gameplay_input_nes_a_pass_switch_released(input, 0U) ||
+           tecmo_gameplay_input_nes_a_pass_switch_released(input, 1U);
 }
 
 void tecmo_gameplay_events_clear(TecmoGameplayEventBuffer *events)
@@ -432,6 +481,8 @@ bool tecmo_gameplay_state_init(TecmoGameplayState *state,
     state->free_throws.scoring_team = initial_possession;
     state->period = 1U;
     gameplay_clock_reset(state, config->regulation_minutes);
+    state->close_shot_subtype01.observation =
+        TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_ONLY;
     gameplay_close_shot_set_phase(&state->close_shot_subtype01,
                                   TECMO_GAMEPLAY_CLOSE_SHOT_NEUTRAL);
     state->close_shot_subtype01.transition_serial = 0U;
@@ -442,7 +493,9 @@ bool tecmo_gameplay_state_init(TecmoGameplayState *state,
 bool tecmo_gameplay_state_valid(const TecmoGameplayState *state)
 {
     uint8_t maximum_minutes;
-    uint16_t expected_pose;
+    uint16_t expected_actor_pose = UINT16_MAX;
+    uint16_t expected_ball_pose = UINT16_MAX;
+    bool expected_pose_available;
 
     if (state == NULL || !state->initialized ||
         !tecmo_gameplay_config_valid(&state->config) ||
@@ -460,7 +513,9 @@ bool tecmo_gameplay_state_valid(const TecmoGameplayState *state)
         state->close_shot_subtype01.phase <
             TECMO_GAMEPLAY_CLOSE_SHOT_NEUTRAL ||
         state->close_shot_subtype01.phase >=
-            TECMO_GAMEPLAY_CLOSE_SHOT_PHASE_COUNT) {
+            TECMO_GAMEPLAY_CLOSE_SHOT_PHASE_COUNT ||
+        !gameplay_close_shot_observation_valid(
+            state->close_shot_subtype01.observation)) {
         return false;
     }
 
@@ -476,11 +531,17 @@ bool tecmo_gameplay_state_valid(const TecmoGameplayState *state)
         return false;
     }
 
-    expected_pose = gameplay_close_shot_pose(
-        state->close_shot_subtype01.phase);
-    if (expected_pose == UINT16_MAX ||
-        state->close_shot_subtype01.actor_pose_index != expected_pose ||
-        state->close_shot_subtype01.ball_pose_index != 64U ||
+    expected_pose_available = gameplay_close_shot_observed_pose(
+        state->close_shot_subtype01.observation,
+        state->close_shot_subtype01.phase,
+        &expected_actor_pose,
+        &expected_ball_pose);
+    if (state->close_shot_subtype01.observed_pose_available !=
+            expected_pose_available ||
+        state->close_shot_subtype01.observed_actor_pose_index !=
+            expected_actor_pose ||
+        state->close_shot_subtype01.observed_ball_pose_index !=
+            expected_ball_pose ||
         state->close_shot_subtype01.active !=
             (state->close_shot_subtype01.phase !=
              TECMO_GAMEPLAY_CLOSE_SHOT_NEUTRAL)) {
@@ -542,6 +603,8 @@ bool tecmo_gameplay_state_valid(const TecmoGameplayState *state)
             return false;
         }
     } else if (state->phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION &&
+               state->phase !=
+                   TECMO_GAMEPLAY_PHASE_FOUL_SETTLEMENT_REQUIRED &&
                state->free_throws.attempts_remaining != 0U) {
         return false;
     }
@@ -549,12 +612,12 @@ bool tecmo_gameplay_state_valid(const TecmoGameplayState *state)
     return true;
 }
 
-bool tecmo_gameplay_update(TecmoGameplayState *state,
-                           const TecmoGameplayFrameInput *input,
-                           const TecmoGameplayLiveContext *live_context,
-                           TecmoGameplayEventBuffer *events)
+static bool gameplay_update_impl(TecmoGameplayState *state,
+                                 const TecmoGameplayFrameInput *input,
+                                 const TecmoGameplayLiveContext *live_context,
+                                 TecmoGameplayEventBuffer *events)
 {
-    const bool any_input = tecmo_gameplay_input_any(input);
+    const bool a_released = gameplay_input_either_nes_a_released(input);
 
     if (events == NULL) {
         return false;
@@ -573,8 +636,9 @@ bool tecmo_gameplay_update(TecmoGameplayState *state,
         break;
 
     case TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE:
-        if (live_context->period_expiry ==
-            TECMO_GAMEPLAY_EXPIRY_ALLOWED_LIVE_ACTION_SETTLED) {
+        if (state->period_expiry_allowed_live_observed &&
+            live_context->period_expiry ==
+                TECMO_GAMEPLAY_EXPIRY_ALLOWED_LIVE_ACTION_SETTLED) {
             if (!gameplay_finish_period(state, events)) {
                 return false;
             }
@@ -595,6 +659,8 @@ bool tecmo_gameplay_update(TecmoGameplayState *state,
     case TECMO_GAMEPLAY_PHASE_PERIOD_BANNER:
         ++state->phase_frame;
         if (state->phase_frame >= TECMO_GAMEPLAY_PERIOD_BANNER_FRAMES) {
+            /* E6E8 reaches E765 only after the complete 60-frame banner. */
+            gameplay_finish_period_banner_reset(state);
             state->phase = TECMO_GAMEPLAY_PHASE_LIVE;
             state->phase_frame = 0U;
             state->banner = TECMO_GAMEPLAY_BANNER_NONE;
@@ -617,7 +683,7 @@ bool tecmo_gameplay_update(TecmoGameplayState *state,
         break;
 
     case TECMO_GAMEPLAY_PHASE_HALFTIME_SCORE_SCREEN:
-        if (any_input) {
+        if (a_released) {
             if (!gameplay_start_period_banner(
                     state, TECMO_GAMEPLAY_BANNER_THIRD_PERIOD)) {
                 return false;
@@ -628,7 +694,7 @@ bool tecmo_gameplay_update(TecmoGameplayState *state,
         break;
 
     case TECMO_GAMEPLAY_PHASE_FINAL_SCORE_SCREEN:
-        if (any_input) {
+        if (a_released) {
             if (!gameplay_event_append(events,
                                        TECMO_GAMEPLAY_EVENT_GAME_COMPLETE,
                                        0U,
@@ -643,9 +709,10 @@ bool tecmo_gameplay_update(TecmoGameplayState *state,
         break;
 
     case TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION:
-        gameplay_advance_paused_clock_divider(state);
         ++state->phase_frame;
-        if (any_input ||
+        if ((state->phase_frame >
+                 TECMO_GAMEPLAY_PRESENTATION_LEAD_IN_FRAMES &&
+             a_released) ||
             state->phase_frame >=
                 TECMO_GAMEPLAY_VIOLATION_PRESENTATION_FRAMES) {
             const TecmoGameplayTeam restart = state->restart_possession;
@@ -664,26 +731,27 @@ bool tecmo_gameplay_update(TecmoGameplayState *state,
         break;
 
     case TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION:
-        gameplay_advance_paused_clock_divider(state);
         ++state->phase_frame;
-        if (any_input ||
+        if ((state->phase_frame >
+                 TECMO_GAMEPLAY_PRESENTATION_LEAD_IN_FRAMES &&
+             a_released) ||
             state->phase_frame >= TECMO_GAMEPLAY_FOUL_PRESENTATION_FRAMES) {
             state->phase_frame = 0U;
-            if (state->free_throws.attempts_remaining > 0U) {
-                state->possession = state->free_throws.scoring_team;
-                state->phase = TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE;
-            } else {
-                state->phase = TECMO_GAMEPLAY_PHASE_LIVE;
-            }
+            state->phase = TECMO_GAMEPLAY_PHASE_FOUL_SETTLEMENT_REQUIRED;
         }
+        break;
+
+    case TECMO_GAMEPLAY_PHASE_FOUL_SETTLEMENT_REQUIRED:
         break;
 
     case TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE:
         /* Aim, release timing, rebound, and ball motion remain evidence-gated. */
-        gameplay_advance_paused_clock_divider(state);
         if (state->phase_frame < UINT16_MAX) {
             ++state->phase_frame;
         }
+        break;
+
+    case TECMO_GAMEPLAY_PHASE_FREE_THROW_SETTLEMENT_REQUIRED:
         break;
 
     case TECMO_GAMEPLAY_PHASE_COMPLETE:
@@ -697,6 +765,30 @@ bool tecmo_gameplay_update(TecmoGameplayState *state,
     return tecmo_gameplay_state_valid(state);
 }
 
+bool tecmo_gameplay_update(TecmoGameplayState *state,
+                           const TecmoGameplayFrameInput *input,
+                           const TecmoGameplayLiveContext *live_context,
+                           TecmoGameplayEventBuffer *events)
+{
+    TecmoGameplayState before;
+
+    if (events == NULL) {
+        return false;
+    }
+    tecmo_gameplay_events_clear(events);
+    if (state == NULL) {
+        return false;
+    }
+
+    before = *state;
+    if (!gameplay_update_impl(state, input, live_context, events)) {
+        *state = before;
+        tecmo_gameplay_events_clear(events);
+        return false;
+    }
+    return true;
+}
+
 bool tecmo_gameplay_reset_possession(TecmoGameplayState *state,
                                      TecmoGameplayTeam possession)
 {
@@ -708,6 +800,7 @@ bool tecmo_gameplay_reset_possession(TecmoGameplayState *state,
     state->possession = possession;
     state->shot_clock = TECMO_GAMEPLAY_SHOT_CLOCK_SECONDS;
     state->clock_divider = TECMO_GAMEPLAY_POSSESSION_DIVIDER_FRAMES;
+    state->period_expiry_allowed_live_observed = false;
     return tecmo_gameplay_state_valid(state);
 }
 
@@ -755,39 +848,89 @@ bool tecmo_gameplay_request_violation(TecmoGameplayState *state,
            tecmo_gameplay_state_valid(state);
 }
 
+static bool gameplay_foul_counter_effect_valid(
+    TecmoGameplayFoulCounterEffect effect)
+{
+    return effect >= TECMO_GAMEPLAY_FOUL_COUNTER_NONE &&
+           effect < TECMO_GAMEPLAY_FOUL_COUNTER_EFFECT_COUNT;
+}
+
+static bool gameplay_post_foul_clock_path_valid(
+    TecmoGameplayPostFoulClockPath clock_path)
+{
+    return clock_path >= TECMO_GAMEPLAY_POST_FOUL_SHOT_24_DIVIDER_45 &&
+           clock_path < TECMO_GAMEPLAY_POST_FOUL_CLOCK_PATH_COUNT;
+}
+
+static void gameplay_apply_post_foul_clock(
+    TecmoGameplayState *state,
+    TecmoGameplayTeam next_possession,
+    TecmoGameplayPostFoulClockPath clock_path)
+{
+    state->possession = next_possession;
+    state->shot_clock = TECMO_GAMEPLAY_SHOT_CLOCK_SECONDS;
+    state->clock_divider =
+        clock_path == TECMO_GAMEPLAY_POST_FOUL_SHOT_24_DIVIDER_45
+            ? TECMO_GAMEPLAY_CLOCK_DIVIDER_FRAMES
+            : TECMO_GAMEPLAY_POSSESSION_DIVIDER_FRAMES;
+    state->period_expiry_allowed_live_observed = false;
+}
+
 bool tecmo_gameplay_request_foul(TecmoGameplayState *state,
-                                 TecmoGameplayTeam fouling_team,
-                                 uint8_t player_index,
-                                 TecmoGameplayTeam free_throw_team,
-                                 uint8_t free_throw_attempts)
+                                 const TecmoGameplayFoulRequest *request)
 {
     uint8_t *individual;
     uint8_t *team;
 
-    if (!tecmo_gameplay_state_valid(state) ||
+    if (request == NULL || !tecmo_gameplay_state_valid(state) ||
         state->phase != TECMO_GAMEPLAY_PHASE_LIVE ||
-        !gameplay_team_valid(fouling_team) ||
-        !gameplay_team_valid(free_throw_team) ||
-        fouling_team == free_throw_team ||
-        player_index >= TECMO_GAMEPLAY_PLAYER_COUNT ||
-        free_throw_attempts > 3U) {
+        !gameplay_team_valid(request->fouling_team) ||
+        !gameplay_team_valid(request->free_throw_team) ||
+        request->fouling_team == request->free_throw_team ||
+        !gameplay_foul_counter_effect_valid(request->counter_effect) ||
+        request->player_index >= TECMO_GAMEPLAY_PLAYER_COUNT ||
+        request->free_throw_attempts > 3U) {
         return false;
     }
 
-    individual = &state->individual_fouls[(size_t)fouling_team][player_index];
-    team = &state->team_fouls[(size_t)fouling_team];
-    if (*individual < 6U) {
+    individual = &state->individual_fouls[(size_t)request->fouling_team]
+                                         [request->player_index];
+    team = &state->team_fouls[(size_t)request->fouling_team];
+    if ((request->counter_effect &
+         TECMO_GAMEPLAY_FOUL_COUNTER_INDIVIDUAL) != 0 &&
+        *individual < 6U) {
         ++*individual;
     }
-    if (*team < 5U) {
+    if ((request->counter_effect & TECMO_GAMEPLAY_FOUL_COUNTER_TEAM) != 0 &&
+        *team < 5U) {
         ++*team;
     }
 
-    state->free_throws.scoring_team = free_throw_team;
-    state->free_throws.attempts_remaining = free_throw_attempts;
+    state->free_throws.scoring_team = request->free_throw_team;
+    state->free_throws.attempts_remaining = request->free_throw_attempts;
     state->phase = TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION;
     state->phase_frame = 0U;
     state->banner = TECMO_GAMEPLAY_BANNER_NONE;
+    return tecmo_gameplay_state_valid(state);
+}
+
+bool tecmo_gameplay_settle_foul_presentation(
+    TecmoGameplayState *state,
+    TecmoGameplayTeam next_possession,
+    TecmoGameplayPostFoulClockPath clock_path)
+{
+    if (!tecmo_gameplay_state_valid(state) ||
+        state->phase != TECMO_GAMEPLAY_PHASE_FOUL_SETTLEMENT_REQUIRED ||
+        !gameplay_team_valid(next_possession) ||
+        !gameplay_post_foul_clock_path_valid(clock_path)) {
+        return false;
+    }
+
+    gameplay_apply_post_foul_clock(state, next_possession, clock_path);
+    state->phase = state->free_throws.attempts_remaining > 0U
+                       ? TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE
+                       : TECMO_GAMEPLAY_PHASE_LIVE;
+    state->phase_frame = 0U;
     return tecmo_gameplay_state_valid(state);
 }
 
@@ -846,9 +989,29 @@ bool tecmo_gameplay_record_free_throw_result(
     }
 
     if (remaining == 0U) {
-        /* Possession deliberately stays with the shooting team at this boundary. */
-        state->phase = TECMO_GAMEPLAY_PHASE_LIVE;
+        /* Rebound/inbound possession is explicitly unresolved at this boundary. */
+        state->phase =
+            TECMO_GAMEPLAY_PHASE_FREE_THROW_SETTLEMENT_REQUIRED;
     }
+    return tecmo_gameplay_state_valid(state);
+}
+
+bool tecmo_gameplay_settle_free_throws(
+    TecmoGameplayState *state,
+    TecmoGameplayTeam next_possession,
+    TecmoGameplayPostFoulClockPath clock_path)
+{
+    if (!tecmo_gameplay_state_valid(state) ||
+        state->phase !=
+            TECMO_GAMEPLAY_PHASE_FREE_THROW_SETTLEMENT_REQUIRED ||
+        !gameplay_team_valid(next_possession) ||
+        !gameplay_post_foul_clock_path_valid(clock_path)) {
+        return false;
+    }
+
+    gameplay_apply_post_foul_clock(state, next_possession, clock_path);
+    state->phase = TECMO_GAMEPLAY_PHASE_LIVE;
+    state->phase_frame = 0U;
     return tecmo_gameplay_state_valid(state);
 }
 
@@ -856,24 +1019,27 @@ bool tecmo_gameplay_nes_b_begin_close_shot_subtype01(
     TecmoGameplayState *state,
     const TecmoGameplayFrameInput *input,
     size_t controller,
+    TecmoGameplayCloseShotObservation observation,
     TecmoGameplayEventBuffer *events)
 {
     if (!tecmo_gameplay_state_valid(state) || events == NULL ||
         events->count >= TECMO_GAMEPLAY_EVENT_CAPACITY ||
         state->phase != TECMO_GAMEPLAY_PHASE_LIVE ||
         state->close_shot_subtype01.active ||
-        !tecmo_gameplay_input_nes_b_jump_steal_shot(input, controller)) {
+        !gameplay_close_shot_observation_valid(observation) ||
+        !tecmo_gameplay_input_nes_b_jump_steal_shot_held(input, controller)) {
         return false;
     }
 
+    state->close_shot_subtype01.observation = observation;
     gameplay_close_shot_set_phase(
         &state->close_shot_subtype01,
-        TECMO_GAMEPLAY_CLOSE_SHOT_ENTRY_POSE_445);
+        TECMO_GAMEPLAY_CLOSE_SHOT_ENTRY);
     if (!gameplay_event_append(
             events,
             TECMO_GAMEPLAY_EVENT_CLOSE_SHOT_PHASE_CHANGED,
             (uint16_t)state->close_shot_subtype01.phase,
-            state->close_shot_subtype01.actor_pose_index)) {
+            state->close_shot_subtype01.observed_actor_pose_index)) {
         return false;
     }
     return tecmo_gameplay_state_valid(state);
@@ -892,22 +1058,22 @@ bool tecmo_gameplay_advance_close_shot_subtype01(
     }
 
     switch (state->close_shot_subtype01.phase) {
-    case TECMO_GAMEPLAY_CLOSE_SHOT_ENTRY_POSE_445:
-        next = TECMO_GAMEPLAY_CLOSE_SHOT_GATHER_POSE_254;
+    case TECMO_GAMEPLAY_CLOSE_SHOT_ENTRY:
+        next = TECMO_GAMEPLAY_CLOSE_SHOT_GATHER_A;
         break;
-    case TECMO_GAMEPLAY_CLOSE_SHOT_GATHER_POSE_254:
-        next = TECMO_GAMEPLAY_CLOSE_SHOT_GATHER_POSE_255;
+    case TECMO_GAMEPLAY_CLOSE_SHOT_GATHER_A:
+        next = TECMO_GAMEPLAY_CLOSE_SHOT_GATHER_B;
         break;
-    case TECMO_GAMEPLAY_CLOSE_SHOT_GATHER_POSE_255:
-        next = TECMO_GAMEPLAY_CLOSE_SHOT_LAUNCH_POSE_257;
+    case TECMO_GAMEPLAY_CLOSE_SHOT_GATHER_B:
+        next = TECMO_GAMEPLAY_CLOSE_SHOT_LAUNCH;
         break;
-    case TECMO_GAMEPLAY_CLOSE_SHOT_LAUNCH_POSE_257:
-        next = TECMO_GAMEPLAY_CLOSE_SHOT_AIRBORNE_POSE_258;
+    case TECMO_GAMEPLAY_CLOSE_SHOT_LAUNCH:
+        next = TECMO_GAMEPLAY_CLOSE_SHOT_AIRBORNE;
         break;
-    case TECMO_GAMEPLAY_CLOSE_SHOT_AIRBORNE_POSE_258:
-        next = TECMO_GAMEPLAY_CLOSE_SHOT_RECOVERY_POSE_259;
+    case TECMO_GAMEPLAY_CLOSE_SHOT_AIRBORNE:
+        next = TECMO_GAMEPLAY_CLOSE_SHOT_RECOVERY;
         break;
-    case TECMO_GAMEPLAY_CLOSE_SHOT_RECOVERY_POSE_259:
+    case TECMO_GAMEPLAY_CLOSE_SHOT_RECOVERY:
         next = TECMO_GAMEPLAY_CLOSE_SHOT_NEUTRAL;
         break;
     case TECMO_GAMEPLAY_CLOSE_SHOT_NEUTRAL:
@@ -921,7 +1087,7 @@ bool tecmo_gameplay_advance_close_shot_subtype01(
             events,
             TECMO_GAMEPLAY_EVENT_CLOSE_SHOT_PHASE_CHANGED,
             (uint16_t)state->close_shot_subtype01.phase,
-            state->close_shot_subtype01.actor_pose_index)) {
+            state->close_shot_subtype01.observed_actor_pose_index)) {
         return false;
     }
     return tecmo_gameplay_state_valid(state);
@@ -943,7 +1109,11 @@ const char *tecmo_gameplay_phase_name(TecmoGameplayPhase phase)
     case TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION:
         return "violation-presentation";
     case TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION: return "foul-presentation";
+    case TECMO_GAMEPLAY_PHASE_FOUL_SETTLEMENT_REQUIRED:
+        return "foul-settlement-required";
     case TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE: return "free-throw-sequence";
+    case TECMO_GAMEPLAY_PHASE_FREE_THROW_SETTLEMENT_REQUIRED:
+        return "free-throw-settlement-required";
     case TECMO_GAMEPLAY_PHASE_COMPLETE: return "complete";
     case TECMO_GAMEPLAY_PHASE_COUNT:
     default:
@@ -1010,6 +1180,8 @@ uint64_t tecmo_gameplay_state_hash(const TecmoGameplayState *state)
     hash = gameplay_hash_byte(hash, state->shot_clock);
     hash = gameplay_hash_u16(hash, state->phase_frame);
     hash = gameplay_hash_byte(hash, state->expiry_wait_frames_remaining);
+    hash = gameplay_hash_byte(
+        hash, state->period_expiry_allowed_live_observed ? 1U : 0U);
     hash = gameplay_hash_u16(hash, state->score[0]);
     hash = gameplay_hash_u16(hash, state->score[1]);
 
@@ -1026,12 +1198,16 @@ uint64_t tecmo_gameplay_state_hash(const TecmoGameplayState *state)
     hash = gameplay_hash_byte(hash, state->free_throws.attempts_remaining);
     hash = gameplay_hash_byte(
         hash, (uint8_t)state->close_shot_subtype01.phase);
+    hash = gameplay_hash_byte(
+        hash, (uint8_t)state->close_shot_subtype01.observation);
     hash = gameplay_hash_u16(
-        hash, state->close_shot_subtype01.actor_pose_index);
+        hash, state->close_shot_subtype01.observed_actor_pose_index);
     hash = gameplay_hash_u16(
-        hash, state->close_shot_subtype01.ball_pose_index);
+        hash, state->close_shot_subtype01.observed_ball_pose_index);
     hash = gameplay_hash_u32(
         hash, state->close_shot_subtype01.transition_serial);
+    hash = gameplay_hash_byte(
+        hash, state->close_shot_subtype01.observed_pose_available ? 1U : 0U);
     hash = gameplay_hash_byte(
         hash, state->close_shot_subtype01.active ? 1U : 0U);
     return hash;
@@ -1077,11 +1253,61 @@ static bool gameplay_self_test_run_frames(
     return true;
 }
 
+static bool gameplay_self_test_expire_after_allowed_action(
+    TecmoGameplayState *state,
+    const TecmoGameplayFrameInput *input,
+    TecmoGameplayEventBuffer *events)
+{
+    TecmoGameplayLiveContext context;
+
+    state->clock_minutes = 0U;
+    state->clock_seconds = 1U;
+    state->clock_divider = 2U;
+    state->shot_clock = 10U;
+    tecmo_gameplay_live_context_default(&context);
+    context.period_expiry = TECMO_GAMEPLAY_EXPIRY_ALLOWED_LIVE_ACTION;
+    if (!tecmo_gameplay_update(state, input, &context, events) ||
+        state->phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        !state->period_expiry_allowed_live_observed ||
+        state->clock_divider != 1U) {
+        return false;
+    }
+    context.period_expiry =
+        TECMO_GAMEPLAY_EXPIRY_ALLOWED_LIVE_ACTION_SETTLED;
+    return tecmo_gameplay_update(state, input, &context, events);
+}
+
+static bool gameplay_self_test_release_after_lead_in(
+    TecmoGameplayState *state,
+    TecmoGameplayLiveContext *context,
+    TecmoGameplayEventBuffer *events)
+{
+    TecmoGameplayFrameInput input;
+
+    tecmo_gameplay_frame_input_clear(&input);
+    if (!gameplay_self_test_run_frames(
+            state, TECMO_GAMEPLAY_PRESENTATION_LEAD_IN_FRAMES,
+            &input, context, events)) {
+        return false;
+    }
+    tecmo_gameplay_frame_input_clear(&input);
+    input.controllers[1].released.nes_a_pass_switch = true;
+    return tecmo_gameplay_update(state, &input, context, events);
+}
+
 static bool gameplay_self_test_config_and_input(char *message,
                                                 size_t message_size)
 {
     static const uint8_t valid_minutes[] = {2U, 3U, 4U, 8U, 12U};
     static const uint8_t overtime_minutes[] = {1U, 1U, 2U, 3U, 5U};
+    static const TecmoGameplayCloseShotPhase expected_phases[] = {
+        TECMO_GAMEPLAY_CLOSE_SHOT_GATHER_A,
+        TECMO_GAMEPLAY_CLOSE_SHOT_GATHER_B,
+        TECMO_GAMEPLAY_CLOSE_SHOT_LAUNCH,
+        TECMO_GAMEPLAY_CLOSE_SHOT_AIRBORNE,
+        TECMO_GAMEPLAY_CLOSE_SHOT_RECOVERY,
+        TECMO_GAMEPLAY_CLOSE_SHOT_NEUTRAL
+    };
     static const uint16_t expected_advance_poses[] = {
         254U, 255U, 257U, 258U, 259U, 509U
     };
@@ -1129,52 +1355,55 @@ static bool gameplay_self_test_config_and_input(char *message,
 
     tecmo_gameplay_frame_input_clear(&input);
     tecmo_gameplay_events_clear(&events);
-    input.controllers[0].nes_start = true;
-    if (!tecmo_gameplay_input_nes_start(&input, 0U) ||
-        tecmo_gameplay_input_nes_a_pass_switch(&input, 0U) ||
-        tecmo_gameplay_input_nes_b_jump_steal_shot(&input, 0U) ||
+    input.controllers[0].held.nes_start = true;
+    if (!tecmo_gameplay_input_nes_start_held(&input, 0U) ||
+        tecmo_gameplay_input_nes_a_pass_switch_held(&input, 0U) ||
+        tecmo_gameplay_input_nes_b_jump_steal_shot_held(&input, 0U) ||
         tecmo_gameplay_nes_b_begin_close_shot_subtype01(
-            &state, &input, 0U, &events)) {
+            &state, &input, 0U,
+            TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_ONLY, &events)) {
         gameplay_self_test_message(message, message_size,
                                    "START WAS REVERSED INTO SHOT INPUT");
         return false;
     }
 
     tecmo_gameplay_frame_input_clear(&input);
-    input.controllers[0].nes_a_pass_switch = true;
-    if (!tecmo_gameplay_input_nes_a_pass_switch(&input, 0U) ||
-        tecmo_gameplay_input_nes_b_jump_steal_shot(&input, 0U) ||
+    input.controllers[0].held.nes_a_pass_switch = true;
+    if (!tecmo_gameplay_input_nes_a_pass_switch_held(&input, 0U) ||
+        tecmo_gameplay_input_nes_b_jump_steal_shot_held(&input, 0U) ||
         tecmo_gameplay_nes_b_begin_close_shot_subtype01(
-            &state, &input, 0U, &events)) {
+            &state, &input, 0U,
+            TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_ONLY, &events)) {
         gameplay_self_test_message(message, message_size,
                                    "NES A PASS/SWITCH MAPPING FAILED");
         return false;
     }
 
     tecmo_gameplay_frame_input_clear(&input);
-    input.controllers[0].nes_b_jump_steal_shot = true;
+    input.controllers[0].held.nes_b_jump_steal_shot = true;
     if (!tecmo_gameplay_nes_b_begin_close_shot_subtype01(
-            &state, &input, 0U, &events) ||
-        state.close_shot_subtype01.actor_pose_index != 445U ||
-        state.close_shot_subtype01.ball_pose_index != 64U ||
+            &state, &input, 0U,
+            TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_ONLY, &events) ||
+        state.close_shot_subtype01.phase != TECMO_GAMEPLAY_CLOSE_SHOT_ENTRY ||
+        state.close_shot_subtype01.observed_pose_available ||
+        state.close_shot_subtype01.observed_actor_pose_index != UINT16_MAX ||
+        state.close_shot_subtype01.observed_ball_pose_index != UINT16_MAX ||
         !gameplay_events_contain(
             &events, TECMO_GAMEPLAY_EVENT_CLOSE_SHOT_PHASE_CHANGED,
-            TECMO_GAMEPLAY_CLOSE_SHOT_ENTRY_POSE_445)) {
+            TECMO_GAMEPLAY_CLOSE_SHOT_ENTRY)) {
         gameplay_self_test_message(message, message_size,
-                                   "NUMERIC CLOSE SHOT ENTRY FAILED");
+                                   "SEMANTIC CLOSE SHOT ENTRY FAILED");
         return false;
     }
 
     for (size_t index = 0U;
-         index < sizeof(expected_advance_poses) /
-                     sizeof(expected_advance_poses[0]);
+         index < sizeof(expected_phases) / sizeof(expected_phases[0]);
          ++index) {
         if (!tecmo_gameplay_advance_close_shot_subtype01(&state, &events) ||
-            state.close_shot_subtype01.actor_pose_index !=
-                expected_advance_poses[index] ||
-            state.close_shot_subtype01.ball_pose_index != 64U) {
+            state.close_shot_subtype01.phase != expected_phases[index] ||
+            state.close_shot_subtype01.observed_pose_available) {
             gameplay_self_test_message(message, message_size,
-                                       "NUMERIC CLOSE SHOT SEQUENCE FAILED");
+                                       "SEMANTIC CLOSE SHOT SEQUENCE FAILED");
             return false;
         }
     }
@@ -1185,6 +1414,42 @@ static bool gameplay_self_test_config_and_input(char *message,
         gameplay_self_test_message(message, message_size,
                                    "NUMERIC CLOSE SHOT RECOVERY FAILED");
         return false;
+    }
+
+    if (!tecmo_gameplay_state_init(&state, &config,
+                                   TECMO_GAMEPLAY_TEAM_AWAY)) {
+        gameplay_self_test_message(message, message_size,
+                                   "OBSERVED SHOT TRACE INIT FAILED");
+        return false;
+    }
+    tecmo_gameplay_events_clear(&events);
+    if (tecmo_gameplay_nes_b_begin_close_shot_subtype01(
+            &state, &input, 0U,
+            TECMO_GAMEPLAY_CLOSE_SHOT_OBSERVATION_COUNT, &events) ||
+        state.close_shot_subtype01.active || events.count != 0U ||
+        !tecmo_gameplay_nes_b_begin_close_shot_subtype01(
+            &state, &input, 0U,
+            TECMO_GAMEPLAY_CLOSE_SHOT_OBSERVED_RIGHTWARD_TRACE, &events) ||
+        !state.close_shot_subtype01.observed_pose_available ||
+        state.close_shot_subtype01.observed_actor_pose_index != 445U ||
+        state.close_shot_subtype01.observed_ball_pose_index != 64U) {
+        gameplay_self_test_message(message, message_size,
+                                   "BOUNDED SHOT TRACE ENTRY FAILED");
+        return false;
+    }
+    for (size_t index = 0U;
+         index < sizeof(expected_advance_poses) /
+                     sizeof(expected_advance_poses[0]);
+         ++index) {
+        if (!tecmo_gameplay_advance_close_shot_subtype01(&state, &events) ||
+            !state.close_shot_subtype01.observed_pose_available ||
+            state.close_shot_subtype01.observed_actor_pose_index !=
+                expected_advance_poses[index] ||
+            state.close_shot_subtype01.observed_ball_pose_index != 64U) {
+            gameplay_self_test_message(message, message_size,
+                                       "BOUNDED SHOT TRACE SEQUENCE FAILED");
+            return false;
+        }
     }
 
     state.clock_seconds = 60U;
@@ -1287,7 +1552,17 @@ static bool gameplay_self_test_clock_and_periods(char *message,
                                    "AUTOMATIC SHOT CLOCK VIOLATION FAILED");
         return false;
     }
-    input.controllers[1].nes_start = true;
+    input.controllers[1].held.nes_start = true;
+    if (!gameplay_self_test_run_frames(&state, 4U, &input, &context,
+                                       &events) ||
+        state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+        state.phase_frame != 4U || state.clock_divider != 45U) {
+        gameplay_self_test_message(message, message_size,
+                                   "VIOLATION LEAD-IN/FROZEN CLOCK FAILED");
+        return false;
+    }
+    tecmo_gameplay_frame_input_clear(&input);
+    input.controllers[1].released.nes_a_pass_switch = true;
     if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
         state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
         state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
@@ -1333,6 +1608,8 @@ static bool gameplay_self_test_clock_and_periods(char *message,
     state.clock_seconds = 1U;
     state.clock_divider = 1U;
     state.shot_clock = 10U;
+    state.team_fouls[0] = 4U;
+    state.team_fouls[1] = 3U;
     if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
         state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_FIXED_WAIT ||
         state.expiry_wait_frames_remaining != 31U ||
@@ -1344,13 +1621,47 @@ static bool gameplay_self_test_clock_and_periods(char *message,
         state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_BANNER ||
         state.period != 2U ||
         state.banner != TECMO_GAMEPLAY_BANNER_SECOND_PERIOD ||
+        state.clock_minutes != 2U || state.clock_seconds != 0U ||
+        state.clock_divider != 45U || state.shot_clock != 9U ||
+        state.team_fouls[0] != 4U || state.team_fouls[1] != 3U ||
         !gameplay_self_test_run_frames(&state, 59U, &input, &context,
                                        &events) ||
         state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_BANNER ||
+        state.clock_divider != 45U || state.shot_clock != 9U ||
+        state.team_fouls[0] != 4U || state.team_fouls[1] != 3U ||
         !tecmo_gameplay_update(&state, &input, &context, &events) ||
-        state.phase != TECMO_GAMEPLAY_PHASE_LIVE) {
+        state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        state.clock_divider != 50U || state.shot_clock != 24U ||
+        state.team_fouls[0] != 0U || state.team_fouls[1] != 0U) {
         gameplay_self_test_message(message, message_size,
                                    "31/60 FRAME PERIOD TRANSITION FAILED");
+        return false;
+    }
+
+    if (!tecmo_gameplay_state_init(&state, &config,
+                                   TECMO_GAMEPLAY_TEAM_AWAY)) {
+        gameplay_self_test_message(message, message_size,
+                                   "INITIAL SETTLED INIT FAILED");
+        return false;
+    }
+    state.clock_minutes = 0U;
+    state.clock_seconds = 1U;
+    state.clock_divider = 1U;
+    state.shot_clock = 10U;
+    context.period_expiry =
+        TECMO_GAMEPLAY_EXPIRY_ALLOWED_LIVE_ACTION_SETTLED;
+    if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
+        state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_FIXED_WAIT ||
+        state.expiry_wait_frames_remaining != 31U ||
+        !gameplay_self_test_run_frames(&state, 30U, &input, &context,
+                                       &events) ||
+        state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_FIXED_WAIT ||
+        state.expiry_wait_frames_remaining != 1U ||
+        !tecmo_gameplay_update(&state, &input, &context, &events) ||
+        state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_BANNER ||
+        state.period != 2U) {
+        gameplay_self_test_message(message, message_size,
+                                   "INITIAL SETTLED DID NOT TAKE FIXED31");
         return false;
     }
 
@@ -1394,19 +1705,42 @@ static bool gameplay_self_test_clock_and_periods(char *message,
             return false;
         }
         state.period = 4U;
-        state.clock_minutes = 0U;
-        state.clock_seconds = 1U;
-        state.clock_divider = 1U;
-        state.shot_clock = 10U;
-        context.period_expiry =
-            TECMO_GAMEPLAY_EXPIRY_ALLOWED_LIVE_ACTION_SETTLED;
-        if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
+        if (!gameplay_self_test_expire_after_allowed_action(
+                &state, &input, &events) ||
             state.period != 5U || state.overtime_count != 1U ||
             state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_BANNER ||
             state.banner != TECMO_GAMEPLAY_BANNER_OVERTIME ||
-            state.clock_minutes != overtime_minutes[index]) {
+            state.clock_minutes != overtime_minutes[index] ||
+            state.clock_divider != 45U || state.shot_clock != 9U) {
             gameplay_self_test_message(message, message_size,
                                        "OVERTIME MINUTE MATRIX FAILED");
+            return false;
+        }
+    }
+
+    if (!tecmo_gameplay_config_init(&config, 2U) ||
+        !tecmo_gameplay_state_init(&state, &config,
+                                   TECMO_GAMEPLAY_TEAM_AWAY)) {
+        gameplay_self_test_message(message, message_size,
+                                   "MAX OVERTIME INIT FAILED");
+        return false;
+    }
+    state.period = 5U;
+    state.overtime_count = UINT8_MAX;
+    state.clock_minutes = 0U;
+    state.clock_seconds = 1U;
+    state.clock_divider = 1U;
+    state.shot_clock = 10U;
+    state.period_expiry_allowed_live_observed = true;
+    context.period_expiry =
+        TECMO_GAMEPLAY_EXPIRY_ALLOWED_LIVE_ACTION_SETTLED;
+    {
+        const uint64_t before_hash = tecmo_gameplay_state_hash(&state);
+        if (tecmo_gameplay_update(&state, &input, &context, &events) ||
+            tecmo_gameplay_state_hash(&state) != before_hash ||
+            events.count != 0U) {
+            gameplay_self_test_message(message, message_size,
+                                       "MAX OVERTIME FAILURE MUTATED STATE");
             return false;
         }
     }
@@ -1425,8 +1759,6 @@ static bool gameplay_self_test_halftime_and_final(char *message,
 
     tecmo_gameplay_frame_input_clear(&input);
     tecmo_gameplay_live_context_default(&context);
-    context.period_expiry =
-        TECMO_GAMEPLAY_EXPIRY_ALLOWED_LIVE_ACTION_SETTLED;
     if (!tecmo_gameplay_config_init(&config, 2U) ||
         !tecmo_gameplay_state_init(&state, &config,
                                    TECMO_GAMEPLAY_TEAM_AWAY)) {
@@ -1436,13 +1768,10 @@ static bool gameplay_self_test_halftime_and_final(char *message,
     }
 
     state.period = 2U;
-    state.clock_minutes = 0U;
-    state.clock_seconds = 1U;
-    state.clock_divider = 1U;
-    state.shot_clock = 10U;
     state.team_fouls[0] = 5U;
     state.team_fouls[1] = 4U;
-    if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
+    if (!gameplay_self_test_expire_after_allowed_action(
+            &state, &input, &events) ||
         state.period != 3U ||
         state.phase != TECMO_GAMEPLAY_PHASE_HALFTIME_BANNER ||
         state.banner != TECMO_GAMEPLAY_BANNER_HALFTIME ||
@@ -1451,6 +1780,8 @@ static bool gameplay_self_test_halftime_and_final(char *message,
         state.phase != TECMO_GAMEPLAY_PHASE_HALFTIME_BANNER ||
         !tecmo_gameplay_update(&state, &input, &context, &events) ||
         state.phase != TECMO_GAMEPLAY_PHASE_HALFTIME_SCORE_SCREEN ||
+        state.clock_divider != 45U || state.shot_clock != 9U ||
+        state.team_fouls[0] != 5U || state.team_fouls[1] != 4U ||
         !gameplay_events_contain(&events,
                                  TECMO_GAMEPLAY_EVENT_MUSIC_REQUEST,
                                  TECMO_GAMEPLAY_PRESENTATION_MUSIC_ID)) {
@@ -1459,6 +1790,9 @@ static bool gameplay_self_test_halftime_and_final(char *message,
         return false;
     }
 
+    input.controllers[0].held.dpad_down = true;
+    input.controllers[0].held.nes_a_pass_switch = true;
+    input.controllers[1].released.dpad_left = true;
     if (!gameplay_self_test_run_frames(&state, 500U, &input, &context,
                                        &events) ||
         state.phase != TECMO_GAMEPLAY_PHASE_HALFTIME_SCORE_SCREEN) {
@@ -1467,26 +1801,35 @@ static bool gameplay_self_test_halftime_and_final(char *message,
         return false;
     }
 
-    input.controllers[1].dpad_left = true;
+    tecmo_gameplay_frame_input_clear(&input);
+    input.controllers[1].released.nes_a_pass_switch = true;
     if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
         state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_BANNER ||
         state.banner != TECMO_GAMEPLAY_BANNER_THIRD_PERIOD ||
         state.clock_minutes != 2U || state.clock_seconds != 0U ||
-        state.team_fouls[0] != 0U || state.team_fouls[1] != 0U ||
-        !gameplay_self_test_run_frames(&state, 60U, &input, &context,
+        state.clock_divider != 45U || state.shot_clock != 9U ||
+        state.team_fouls[0] != 5U || state.team_fouls[1] != 4U) {
+        gameplay_self_test_message(message, message_size,
+                                   "HALFTIME A-RELEASE HANDOFF FAILED");
+        return false;
+    }
+    tecmo_gameplay_frame_input_clear(&input);
+    if (!gameplay_self_test_run_frames(&state, 59U, &input, &context,
                                        &events) ||
-        state.phase != TECMO_GAMEPLAY_PHASE_LIVE) {
+        state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_BANNER ||
+        state.clock_divider != 45U || state.shot_clock != 9U ||
+        state.team_fouls[0] != 5U || state.team_fouls[1] != 4U ||
+        !tecmo_gameplay_update(&state, &input, &context, &events) ||
+        state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        state.clock_divider != 50U || state.shot_clock != 24U ||
+        state.team_fouls[0] != 0U || state.team_fouls[1] != 0U) {
         gameplay_self_test_message(message, message_size,
                                    "HALFTIME INPUT/THIRD PERIOD HANDOFF FAILED");
         return false;
     }
-    tecmo_gameplay_frame_input_clear(&input);
 
-    state.clock_minutes = 0U;
-    state.clock_seconds = 1U;
-    state.clock_divider = 1U;
-    state.shot_clock = 10U;
-    if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
+    if (!gameplay_self_test_expire_after_allowed_action(
+            &state, &input, &events) ||
         state.period != 4U ||
         state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_BANNER ||
         state.banner != TECMO_GAMEPLAY_BANNER_FOURTH_PERIOD) {
@@ -1503,11 +1846,8 @@ static bool gameplay_self_test_halftime_and_final(char *message,
         return false;
     }
     state.period = 4U;
-    state.clock_minutes = 0U;
-    state.clock_seconds = 1U;
-    state.clock_divider = 1U;
-    state.shot_clock = 10U;
-    if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
+    if (!gameplay_self_test_expire_after_allowed_action(
+            &state, &input, &events) ||
         state.period != 5U || state.overtime_count != 0U ||
         state.phase != TECMO_GAMEPLAY_PHASE_FINAL_SCORE_SCREEN ||
         !gameplay_events_contain(&events,
@@ -1525,25 +1865,20 @@ static bool gameplay_self_test_halftime_and_final(char *message,
         return false;
     }
     state.period = 4U;
-    state.clock_minutes = 0U;
-    state.clock_seconds = 1U;
-    state.clock_divider = 1U;
-    state.shot_clock = 10U;
-    if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
+    if (!gameplay_self_test_expire_after_allowed_action(
+            &state, &input, &events) ||
         state.period != 5U || state.overtime_count != 1U ||
         !gameplay_self_test_run_frames(&state, 60U, &input, &context,
                                        &events) ||
-        state.phase != TECMO_GAMEPLAY_PHASE_LIVE) {
+        state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        state.clock_divider != 50U || state.shot_clock != 24U) {
         gameplay_self_test_message(message, message_size,
                                    "FIRST OVERTIME HANDOFF FAILED");
         return false;
     }
 
-    state.clock_minutes = 0U;
-    state.clock_seconds = 1U;
-    state.clock_divider = 1U;
-    state.shot_clock = 10U;
-    if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
+    if (!gameplay_self_test_expire_after_allowed_action(
+            &state, &input, &events) ||
         state.period != 5U || state.overtime_count != 2U ||
         state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_BANNER ||
         !gameplay_self_test_run_frames(&state, 60U, &input, &context,
@@ -1555,11 +1890,8 @@ static bool gameplay_self_test_halftime_and_final(char *message,
         return false;
     }
 
-    state.clock_minutes = 0U;
-    state.clock_seconds = 1U;
-    state.clock_divider = 1U;
-    state.shot_clock = 10U;
-    if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
+    if (!gameplay_self_test_expire_after_allowed_action(
+            &state, &input, &events) ||
         state.phase != TECMO_GAMEPLAY_PHASE_FINAL_SCORE_SCREEN ||
         !gameplay_events_contain(&events,
                                  TECMO_GAMEPLAY_EVENT_MUSIC_REQUEST,
@@ -1572,7 +1904,24 @@ static bool gameplay_self_test_halftime_and_final(char *message,
         return false;
     }
 
-    input.controllers[0].nes_a_pass_switch = true;
+    input.controllers[0].held.nes_a_pass_switch = true;
+    input.controllers[1].held.nes_start = true;
+    if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
+        state.phase != TECMO_GAMEPLAY_PHASE_FINAL_SCORE_SCREEN) {
+        gameplay_self_test_message(message, message_size,
+                                   "HELD INPUT DISMISSED FINAL SCORE");
+        return false;
+    }
+    tecmo_gameplay_frame_input_clear(&input);
+    input.controllers[0].released.dpad_up = true;
+    if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
+        state.phase != TECMO_GAMEPLAY_PHASE_FINAL_SCORE_SCREEN) {
+        gameplay_self_test_message(message, message_size,
+                                   "DIRECTION RELEASE DISMISSED FINAL SCORE");
+        return false;
+    }
+    tecmo_gameplay_frame_input_clear(&input);
+    input.controllers[0].released.nes_a_pass_switch = true;
     if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
         state.phase != TECMO_GAMEPLAY_PHASE_COMPLETE ||
         !gameplay_events_contain(&events,
@@ -1606,15 +1955,22 @@ static bool gameplay_self_test_violations(char *message,
         const TecmoGameplayViolation violation =
             (TecmoGameplayViolation)value;
         if (!tecmo_gameplay_state_init(&state, &config,
-                                       TECMO_GAMEPLAY_TEAM_AWAY) ||
-            !tecmo_gameplay_request_violation(
+                                       TECMO_GAMEPLAY_TEAM_AWAY)) {
+            gameplay_self_test_message(message, message_size,
+                                       "VIOLATION ENUM INIT FAILED");
+            return false;
+        }
+        state.clock_divider = 17U;
+        state.shot_clock = 11U;
+        if (!tecmo_gameplay_request_violation(
                 &state, violation, TECMO_GAMEPLAY_TEAM_HOME) ||
             state.violation != violation ||
             strcmp(tecmo_gameplay_violation_name(violation), "INVALID") == 0 ||
-            !gameplay_self_test_run_frames(&state, 120U, &input, &context,
+            !gameplay_self_test_run_frames(&state, 123U, &input, &context,
                                            &events) ||
             state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
-            state.phase_frame != 120U ||
+            state.phase_frame != 123U ||
+            state.clock_divider != 17U || state.shot_clock != 11U ||
             !tecmo_gameplay_update(&state, &input, &context, &events) ||
             state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
             state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
@@ -1651,12 +2007,43 @@ static bool gameplay_self_test_violations(char *message,
                                    "OUT OF BOUNDS TRIGGER FAILED");
         return false;
     }
-    input.controllers[1].dpad_right = true;
+    state.clock_divider = 19U;
+    state.shot_clock = 8U;
+    tecmo_gameplay_frame_input_clear(&input);
+    input.controllers[0].released.nes_a_pass_switch = true;
+    if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
+        state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+        state.phase_frame != 1U) {
+        gameplay_self_test_message(message, message_size,
+                                   "EARLY A RELEASE DISMISSED VIOLATION");
+        return false;
+    }
+    tecmo_gameplay_frame_input_clear(&input);
+    input.controllers[0].held.nes_a_pass_switch = true;
+    input.controllers[0].held.nes_start = true;
+    input.controllers[0].held.dpad_right = true;
+    input.controllers[1].released.dpad_left = true;
+    if (!gameplay_self_test_run_frames(&state, 3U, &input, &context,
+                                       &events) ||
+        state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+        state.phase_frame != 4U || state.clock_divider != 19U ||
+        state.shot_clock != 8U ||
+        !tecmo_gameplay_update(&state, &input, &context, &events) ||
+        state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+        state.phase_frame != 5U) {
+        gameplay_self_test_message(message, message_size,
+                                   "NON-RELEASE INPUT DISMISSED VIOLATION");
+        return false;
+    }
+    tecmo_gameplay_frame_input_clear(&input);
+    input.controllers[1].released.nes_a_pass_switch = true;
     if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
         state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
-        state.phase_frame != 0U) {
+        state.phase_frame != 0U ||
+        state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
+        state.shot_clock != 24U || state.clock_divider != 50U) {
         gameplay_self_test_message(message, message_size,
-                                   "SECOND CONTROLLER VIOLATION SKIP FAILED");
+                                   "SECOND CONTROLLER A RELEASE FAILED");
         return false;
     }
     return true;
@@ -1667,26 +2054,108 @@ static bool gameplay_self_test_fouls_and_free_throws(char *message,
 {
     TecmoGameplayConfig config;
     TecmoGameplayState state;
+    TecmoGameplayState before;
     TecmoGameplayFrameInput input;
     TecmoGameplayLiveContext context;
     TecmoGameplayEventBuffer events;
+    TecmoGameplayFoulRequest request;
 
     tecmo_gameplay_frame_input_clear(&input);
     tecmo_gameplay_live_context_default(&context);
     if (!tecmo_gameplay_config_init(&config, 4U) ||
         !tecmo_gameplay_state_init(&state, &config,
-                                   TECMO_GAMEPLAY_TEAM_AWAY) ||
-        !tecmo_gameplay_request_foul(
-            &state, TECMO_GAMEPLAY_TEAM_AWAY, 0U,
-            TECMO_GAMEPLAY_TEAM_HOME, 0U) ||
-        !gameplay_self_test_run_frames(&state, 160U, &input, &context,
+                                   TECMO_GAMEPLAY_TEAM_AWAY)) {
+        gameplay_self_test_message(message, message_size,
+                                   "FOUL TIMING INIT FAILED");
+        return false;
+    }
+    state.clock_divider = 17U;
+    state.shot_clock = 11U;
+    request.fouling_team = TECMO_GAMEPLAY_TEAM_AWAY;
+    request.free_throw_team = TECMO_GAMEPLAY_TEAM_HOME;
+    request.counter_effect = TECMO_GAMEPLAY_FOUL_COUNTER_NONE;
+    request.player_index = 0U;
+    request.free_throw_attempts = 0U;
+    if (!tecmo_gameplay_request_foul(&state, &request) ||
+        !gameplay_self_test_run_frames(&state, 163U, &input, &context,
                                        &events) ||
         state.phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
-        state.phase_frame != 160U ||
+        state.phase_frame != 163U || state.clock_divider != 17U ||
+        state.shot_clock != 11U ||
         !tecmo_gameplay_update(&state, &input, &context, &events) ||
-        state.phase != TECMO_GAMEPLAY_PHASE_LIVE) {
+        state.phase != TECMO_GAMEPLAY_PHASE_FOUL_SETTLEMENT_REQUIRED ||
+        state.clock_divider != 17U || state.shot_clock != 11U) {
         gameplay_self_test_message(message, message_size,
-                                   "161-FRAME FOUL PRESENTATION FAILED");
+                                   "164-FRAME FOUL PRESENTATION FAILED");
+        return false;
+    }
+    tecmo_gameplay_frame_input_clear(&input);
+    input.controllers[0].released.nes_a_pass_switch = true;
+    if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
+        state.phase != TECMO_GAMEPLAY_PHASE_FOUL_SETTLEMENT_REQUIRED) {
+        gameplay_self_test_message(message, message_size,
+                                   "FOUL SETTLEMENT WAS NOT EXPLICIT");
+        return false;
+    }
+    before = state;
+    if (tecmo_gameplay_settle_foul_presentation(
+            &state, TECMO_GAMEPLAY_TEAM_HOME,
+            TECMO_GAMEPLAY_POST_FOUL_CLOCK_PATH_COUNT) ||
+        tecmo_gameplay_state_hash(&state) !=
+            tecmo_gameplay_state_hash(&before) ||
+        !tecmo_gameplay_settle_foul_presentation(
+            &state, TECMO_GAMEPLAY_TEAM_HOME,
+            TECMO_GAMEPLAY_POST_FOUL_SHOT_24_DIVIDER_45) ||
+        state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
+        state.shot_clock != 24U || state.clock_divider != 45U) {
+        gameplay_self_test_message(message, message_size,
+                                   "FOUL DIVIDER-45 SETTLEMENT FAILED");
+        return false;
+    }
+
+    request.counter_effect = TECMO_GAMEPLAY_FOUL_COUNTER_NONE;
+    if (!tecmo_gameplay_request_foul(&state, &request)) {
+        gameplay_self_test_message(message, message_size,
+                                   "FOUL RELEASE-GATE INIT FAILED");
+        return false;
+    }
+    state.clock_divider = 21U;
+    state.shot_clock = 7U;
+    tecmo_gameplay_frame_input_clear(&input);
+    input.controllers[0].released.nes_a_pass_switch = true;
+    if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
+        state.phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
+        state.phase_frame != 1U) {
+        gameplay_self_test_message(message, message_size,
+                                   "EARLY A RELEASE DISMISSED FOUL");
+        return false;
+    }
+    tecmo_gameplay_frame_input_clear(&input);
+    input.controllers[0].held.nes_a_pass_switch = true;
+    input.controllers[0].held.nes_start = true;
+    input.controllers[1].released.dpad_up = true;
+    if (!gameplay_self_test_run_frames(&state, 4U, &input, &context,
+                                       &events) ||
+        state.phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
+        state.phase_frame != 5U || state.clock_divider != 21U ||
+        state.shot_clock != 7U) {
+        gameplay_self_test_message(message, message_size,
+                                   "NON-RELEASE INPUT DISMISSED FOUL");
+        return false;
+    }
+    tecmo_gameplay_frame_input_clear(&input);
+    input.controllers[1].released.nes_a_pass_switch = true;
+    if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
+        state.phase != TECMO_GAMEPLAY_PHASE_FOUL_SETTLEMENT_REQUIRED ||
+        !tecmo_gameplay_settle_foul_presentation(
+            &state, TECMO_GAMEPLAY_TEAM_AWAY,
+            TECMO_GAMEPLAY_POST_FOUL_SHOT_24_DIVIDER_50) ||
+        state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+        state.shot_clock != 24U || state.clock_divider != 50U) {
+        gameplay_self_test_message(message, message_size,
+                                   "FOUL A-RELEASE/DIVIDER-50 FAILED");
         return false;
     }
 
@@ -1696,12 +2165,50 @@ static bool gameplay_self_test_fouls_and_free_throws(char *message,
                                    "FOUL CAP INIT FAILED");
         return false;
     }
-    input.controllers[0].nes_start = true;
+    request.fouling_team = TECMO_GAMEPLAY_TEAM_AWAY;
+    request.free_throw_team = TECMO_GAMEPLAY_TEAM_HOME;
+    request.player_index = 2U;
+    request.free_throw_attempts = 0U;
+    request.counter_effect = TECMO_GAMEPLAY_FOUL_COUNTER_INDIVIDUAL;
+    if (!tecmo_gameplay_request_foul(&state, &request) ||
+        state.individual_fouls[0][2] != 1U || state.team_fouls[0] != 0U ||
+        !gameplay_self_test_release_after_lead_in(
+            &state, &context, &events) ||
+        !tecmo_gameplay_settle_foul_presentation(
+            &state, TECMO_GAMEPLAY_TEAM_HOME,
+            TECMO_GAMEPLAY_POST_FOUL_SHOT_24_DIVIDER_45)) {
+        gameplay_self_test_message(message, message_size,
+                                   "INDIVIDUAL-ONLY FOUL EFFECT FAILED");
+        return false;
+    }
+    request.counter_effect = TECMO_GAMEPLAY_FOUL_COUNTER_TEAM;
+    if (!tecmo_gameplay_request_foul(&state, &request) ||
+        state.individual_fouls[0][2] != 1U || state.team_fouls[0] != 1U ||
+        !gameplay_self_test_release_after_lead_in(
+            &state, &context, &events) ||
+        !tecmo_gameplay_settle_foul_presentation(
+            &state, TECMO_GAMEPLAY_TEAM_HOME,
+            TECMO_GAMEPLAY_POST_FOUL_SHOT_24_DIVIDER_45)) {
+        gameplay_self_test_message(message, message_size,
+                                   "TEAM-ONLY FOUL EFFECT FAILED");
+        return false;
+    }
+
+    if (!tecmo_gameplay_state_init(&state, &config,
+                                   TECMO_GAMEPLAY_TEAM_AWAY)) {
+        gameplay_self_test_message(message, message_size,
+                                   "FOUL CAP REINIT FAILED");
+        return false;
+    }
+    request.player_index = 0U;
+    request.counter_effect = TECMO_GAMEPLAY_FOUL_COUNTER_BOTH;
     for (unsigned foul = 0U; foul < 7U; ++foul) {
-        if (!tecmo_gameplay_request_foul(
-                &state, TECMO_GAMEPLAY_TEAM_AWAY, 0U,
-                TECMO_GAMEPLAY_TEAM_HOME, 0U) ||
-            !tecmo_gameplay_update(&state, &input, &context, &events)) {
+        if (!tecmo_gameplay_request_foul(&state, &request) ||
+            !gameplay_self_test_release_after_lead_in(
+                &state, &context, &events) ||
+            !tecmo_gameplay_settle_foul_presentation(
+                &state, TECMO_GAMEPLAY_TEAM_HOME,
+                TECMO_GAMEPLAY_POST_FOUL_SHOT_24_DIVIDER_45)) {
             gameplay_self_test_message(message, message_size,
                                        "FOUL CAP REQUEST FAILED");
             return false;
@@ -1733,11 +2240,17 @@ static bool gameplay_self_test_fouls_and_free_throws(char *message,
     state.period = 5U;
     state.overtime_count = 1U;
     state.clock_minutes = 2U;
+    request.fouling_team = TECMO_GAMEPLAY_TEAM_HOME;
+    request.free_throw_team = TECMO_GAMEPLAY_TEAM_AWAY;
+    request.player_index = 1U;
+    request.counter_effect = TECMO_GAMEPLAY_FOUL_COUNTER_BOTH;
     for (unsigned foul = 0U; foul < 4U; ++foul) {
-        if (!tecmo_gameplay_request_foul(
-                &state, TECMO_GAMEPLAY_TEAM_HOME, 1U,
-                TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
-            !tecmo_gameplay_update(&state, &input, &context, &events)) {
+        if (!tecmo_gameplay_request_foul(&state, &request) ||
+            !gameplay_self_test_release_after_lead_in(
+                &state, &context, &events) ||
+            !tecmo_gameplay_settle_foul_presentation(
+                &state, TECMO_GAMEPLAY_TEAM_AWAY,
+                TECMO_GAMEPLAY_POST_FOUL_SHOT_24_DIVIDER_45)) {
             gameplay_self_test_message(message, message_size,
                                        "OVERTIME FOUL REQUEST FAILED");
             return false;
@@ -1752,26 +2265,51 @@ static bool gameplay_self_test_fouls_and_free_throws(char *message,
 
     tecmo_gameplay_frame_input_clear(&input);
     if (!tecmo_gameplay_state_init(&state, &config,
-                                   TECMO_GAMEPLAY_TEAM_AWAY) ||
-        tecmo_gameplay_request_foul(
-            &state, TECMO_GAMEPLAY_TEAM_AWAY,
-            TECMO_GAMEPLAY_PLAYER_COUNT, TECMO_GAMEPLAY_TEAM_HOME, 1U) ||
-        tecmo_gameplay_request_foul(
-            &state, TECMO_GAMEPLAY_TEAM_AWAY, 0U,
-            TECMO_GAMEPLAY_TEAM_HOME, 4U) ||
-        !tecmo_gameplay_request_foul(
-            &state, TECMO_GAMEPLAY_TEAM_AWAY, 1U,
-            TECMO_GAMEPLAY_TEAM_HOME, 3U)) {
+                                   TECMO_GAMEPLAY_TEAM_AWAY)) {
         gameplay_self_test_message(message, message_size,
-                                   "FOUL/FREE THROW VALIDATION FAILED");
+                                   "FOUL VALIDATION INIT FAILED");
         return false;
     }
-
-    input.controllers[1].nes_select = true;
-    if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
+    request.fouling_team = TECMO_GAMEPLAY_TEAM_AWAY;
+    request.free_throw_team = TECMO_GAMEPLAY_TEAM_HOME;
+    request.counter_effect = TECMO_GAMEPLAY_FOUL_COUNTER_BOTH;
+    request.player_index = TECMO_GAMEPLAY_PLAYER_COUNT;
+    request.free_throw_attempts = 1U;
+    before = state;
+    if (tecmo_gameplay_request_foul(&state, &request)) {
+        gameplay_self_test_message(message, message_size,
+                                   "INVALID FOUL PLAYER ACCEPTED");
+        return false;
+    }
+    request.player_index = 1U;
+    request.free_throw_attempts = 4U;
+    if (tecmo_gameplay_request_foul(&state, &request)) {
+        gameplay_self_test_message(message, message_size,
+                                   "INVALID FREE THROW COUNT ACCEPTED");
+        return false;
+    }
+    request.free_throw_attempts = 3U;
+    request.counter_effect = TECMO_GAMEPLAY_FOUL_COUNTER_EFFECT_COUNT;
+    if (tecmo_gameplay_request_foul(&state, &request) ||
+        tecmo_gameplay_request_foul(&state, NULL) ||
+        tecmo_gameplay_state_hash(&state) !=
+            tecmo_gameplay_state_hash(&before)) {
+        gameplay_self_test_message(message, message_size,
+                                   "INVALID FOUL REQUEST MUTATED STATE");
+        return false;
+    }
+    request.counter_effect = TECMO_GAMEPLAY_FOUL_COUNTER_BOTH;
+    if (!tecmo_gameplay_request_foul(&state, &request) ||
+        !gameplay_self_test_release_after_lead_in(
+            &state, &context, &events) ||
+        state.phase != TECMO_GAMEPLAY_PHASE_FOUL_SETTLEMENT_REQUIRED ||
+        !tecmo_gameplay_settle_foul_presentation(
+            &state, TECMO_GAMEPLAY_TEAM_HOME,
+            TECMO_GAMEPLAY_POST_FOUL_SHOT_24_DIVIDER_45) ||
         state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
         state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
-        state.free_throws.attempts_remaining != 3U) {
+        state.free_throws.attempts_remaining != 3U ||
+        state.shot_clock != 24U || state.clock_divider != 45U) {
         gameplay_self_test_message(message, message_size,
                                    "FOUL TO FREE THROW HANDOFF FAILED");
         return false;
@@ -1785,31 +2323,70 @@ static bool gameplay_self_test_fouls_and_free_throws(char *message,
         state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
         !tecmo_gameplay_record_free_throw_result(&state, true, &events) ||
         state.score[1] != 2U || state.free_throws.attempts_remaining != 0U ||
-        state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        state.phase !=
+            TECMO_GAMEPLAY_PHASE_FREE_THROW_SETTLEMENT_REQUIRED ||
         state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
         tecmo_gameplay_record_free_throw_result(&state, true, &events)) {
         gameplay_self_test_message(message, message_size,
                                    "EXPLICIT FREE THROW RESULTS FAILED");
         return false;
     }
+    tecmo_gameplay_frame_input_clear(&input);
+    input.controllers[0].released.nes_a_pass_switch = true;
+    if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
+        state.phase !=
+            TECMO_GAMEPLAY_PHASE_FREE_THROW_SETTLEMENT_REQUIRED) {
+        gameplay_self_test_message(message, message_size,
+                                   "FREE THROW SETTLEMENT WAS NOT EXPLICIT");
+        return false;
+    }
+    before = state;
+    if (tecmo_gameplay_settle_free_throws(
+            &state, (TecmoGameplayTeam)TECMO_GAMEPLAY_TEAM_COUNT,
+            TECMO_GAMEPLAY_POST_FOUL_SHOT_24_DIVIDER_50) ||
+        tecmo_gameplay_settle_free_throws(
+            &state, TECMO_GAMEPLAY_TEAM_AWAY,
+            TECMO_GAMEPLAY_POST_FOUL_CLOCK_PATH_COUNT) ||
+        tecmo_gameplay_state_hash(&state) !=
+            tecmo_gameplay_state_hash(&before) ||
+        !tecmo_gameplay_settle_free_throws(
+            &state, TECMO_GAMEPLAY_TEAM_AWAY,
+            TECMO_GAMEPLAY_POST_FOUL_SHOT_24_DIVIDER_50) ||
+        state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+        state.shot_clock != 24U || state.clock_divider != 50U) {
+        gameplay_self_test_message(message, message_size,
+                                   "FREE THROW SETTLEMENT PATH FAILED");
+        return false;
+    }
 
     if (!tecmo_gameplay_state_init(&state, &config,
                                    TECMO_GAMEPLAY_TEAM_AWAY) ||
         !tecmo_gameplay_set_score(&state, TECMO_GAMEPLAY_TEAM_HOME,
-                                  UINT16_MAX) ||
-        !tecmo_gameplay_request_foul(
-            &state, TECMO_GAMEPLAY_TEAM_AWAY, 2U,
-            TECMO_GAMEPLAY_TEAM_HOME, 1U)) {
+                                  UINT16_MAX)) {
         gameplay_self_test_message(message, message_size,
                                    "FREE THROW OVERFLOW INIT FAILED");
         return false;
     }
-    tecmo_gameplay_frame_input_clear(&input);
-    input.controllers[0].nes_start = true;
-    if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
-        tecmo_gameplay_record_free_throw_result(&state, true, &events) ||
+    request.player_index = 2U;
+    request.free_throw_attempts = 1U;
+    request.counter_effect = TECMO_GAMEPLAY_FOUL_COUNTER_BOTH;
+    if (!tecmo_gameplay_request_foul(&state, &request) ||
+        !gameplay_self_test_release_after_lead_in(
+            &state, &context, &events) ||
+        !tecmo_gameplay_settle_foul_presentation(
+            &state, TECMO_GAMEPLAY_TEAM_HOME,
+            TECMO_GAMEPLAY_POST_FOUL_SHOT_24_DIVIDER_45)) {
+        gameplay_self_test_message(message, message_size,
+                                   "FREE THROW OVERFLOW SETUP FAILED");
+        return false;
+    }
+    before = state;
+    if (tecmo_gameplay_record_free_throw_result(&state, true, &events) ||
         state.score[1] != UINT16_MAX ||
-        state.free_throws.attempts_remaining != 1U) {
+        state.free_throws.attempts_remaining != 1U ||
+        tecmo_gameplay_state_hash(&state) !=
+            tecmo_gameplay_state_hash(&before)) {
         gameplay_self_test_message(message, message_size,
                                    "FREE THROW SCORE OVERFLOW ACCEPTED");
         return false;
@@ -1833,6 +2410,7 @@ static bool gameplay_self_test_replay(uint64_t *result)
     TecmoGameplayFrameInput input;
     TecmoGameplayLiveContext context;
     TecmoGameplayEventBuffer events;
+    TecmoGameplayFoulRequest foul_request;
     uint64_t trace_hash = UINT64_C(14695981039346656037);
 
     if (result == NULL || !tecmo_gameplay_config_init(&config, 3U) ||
@@ -1840,19 +2418,24 @@ static bool gameplay_self_test_replay(uint64_t *result)
                                    TECMO_GAMEPLAY_TEAM_AWAY)) {
         return false;
     }
+    foul_request.fouling_team = TECMO_GAMEPLAY_TEAM_HOME;
+    foul_request.free_throw_team = TECMO_GAMEPLAY_TEAM_AWAY;
+    foul_request.counter_effect = TECMO_GAMEPLAY_FOUL_COUNTER_BOTH;
+    foul_request.player_index = 3U;
+    foul_request.free_throw_attempts = 2U;
 
     for (unsigned frame = 0U; frame < 240U; ++frame) {
         tecmo_gameplay_frame_input_clear(&input);
         tecmo_gameplay_live_context_default(&context);
 
         if (frame == 3U) {
-            input.controllers[0].nes_b_jump_steal_shot = true;
+            input.controllers[0].held.nes_b_jump_steal_shot = true;
         }
         if (frame == 45U) {
-            input.controllers[1].nes_start = true;
+            input.controllers[1].released.nes_a_pass_switch = true;
         }
         if (frame == 85U) {
-            input.controllers[1].dpad_up = true;
+            input.controllers[1].released.nes_a_pass_switch = true;
         }
 
         if (!tecmo_gameplay_update(&state, &input, &context, &events)) {
@@ -1861,7 +2444,8 @@ static bool gameplay_self_test_replay(uint64_t *result)
 
         if (frame == 3U) {
             if (!tecmo_gameplay_nes_b_begin_close_shot_subtype01(
-                    &state, &input, 0U, &events)) {
+                    &state, &input, 0U,
+                    TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_ONLY, &events)) {
                 return false;
             }
         } else if (frame == 7U || frame == 10U || frame == 13U ||
@@ -1877,9 +2461,13 @@ static bool gameplay_self_test_replay(uint64_t *result)
                 return false;
             }
         } else if (frame == 80U) {
-            if (!tecmo_gameplay_request_foul(
-                    &state, TECMO_GAMEPLAY_TEAM_HOME, 3U,
-                    TECMO_GAMEPLAY_TEAM_AWAY, 2U)) {
+            if (!tecmo_gameplay_request_foul(&state, &foul_request)) {
+                return false;
+            }
+        } else if (frame == 85U) {
+            if (!tecmo_gameplay_settle_foul_presentation(
+                    &state, TECMO_GAMEPLAY_TEAM_AWAY,
+                    TECMO_GAMEPLAY_POST_FOUL_SHOT_24_DIVIDER_45)) {
                 return false;
             }
         } else if (frame == 90U) {
@@ -1889,7 +2477,10 @@ static bool gameplay_self_test_replay(uint64_t *result)
             }
         } else if (frame == 95U) {
             if (!tecmo_gameplay_record_free_throw_result(&state, false,
-                                                          &events)) {
+                                                          &events) ||
+                !tecmo_gameplay_settle_free_throws(
+                    &state, TECMO_GAMEPLAY_TEAM_HOME,
+                    TECMO_GAMEPLAY_POST_FOUL_SHOT_24_DIVIDER_50)) {
                 return false;
             }
         } else if (frame == 130U) {
@@ -1923,7 +2514,7 @@ static bool gameplay_self_test_replay(uint64_t *result)
 
 bool tecmo_gameplay_state_self_test(char *message, size_t message_size)
 {
-    const uint64_t expected_replay_hash = UINT64_C(0x4DC1884C638DF5C1);
+    const uint64_t expected_replay_hash = UINT64_C(0xEAD5CA9E20C3F3C8);
     TecmoGameplayConfig config;
     TecmoGameplayState state;
     TecmoGameplayState before;
