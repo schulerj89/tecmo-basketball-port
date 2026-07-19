@@ -219,35 +219,39 @@ int tecmo_run_win32_game(const char *project_root)
     HWND window = 0;
     LARGE_INTEGER perf_freq;
     LARGE_INTEGER last_counter;
-    TecmoRuntime runtime;
+    TecmoRuntime *runtime = 0;
     TecmoGameMemory game_memory;
-    void *permanent_block;
-    void *transient_block;
+    void *permanent_block = 0;
+    void *transient_block = 0;
     const size_t permanent_size = 16U * 1024U * 1024U;
     const size_t transient_size = 16U * 1024U * 1024U;
+    int result = 1;
 
     memset(&game_memory, 0, sizeof(game_memory));
+    runtime = (TecmoRuntime *)VirtualAlloc(0,
+                                           sizeof(*runtime),
+                                           MEM_RESERVE | MEM_COMMIT,
+                                           PAGE_READWRITE);
     permanent_block = VirtualAlloc(0, permanent_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     transient_block = VirtualAlloc(0, transient_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-    if (permanent_block == 0 || transient_block == 0) {
+    if (runtime == 0 || permanent_block == 0 || transient_block == 0) {
         MessageBoxA(0, "Could not allocate game memory.", "Tecmo Port", MB_ICONERROR);
-        return 1;
+        goto cleanup;
     }
 
     tecmo_arena_init(&game_memory.permanent, permanent_block, permanent_size);
     tecmo_arena_init(&game_memory.transient, transient_block, transient_size);
 
-    if (!tecmo_runtime_init(&runtime, &game_memory, project_root)) {
+    if (!tecmo_runtime_init(runtime, &game_memory, project_root)) {
         MessageBoxA(0, "Could not load local decomp roster data. Pass --root or set TECMO_DECOMP_ROOT.",
                     "Tecmo Port", MB_ICONERROR);
-        return 1;
+        goto cleanup;
     }
 
     win32_resize_backbuffer(&g_backbuffer, 640, 480);
     if (!win32_init_window(instance, &window)) {
         MessageBoxA(0, "Could not create Win32 window.", "Tecmo Port", MB_ICONERROR);
-        tecmo_runtime_shutdown(&runtime);
-        return 1;
+        goto cleanup;
     }
 
     QueryPerformanceFrequency(&perf_freq);
@@ -282,11 +286,11 @@ int tecmo_run_win32_game(const char *project_root)
 
         tecmo_controls_begin_frame(&g_controls[0]);
         tecmo_controls_begin_frame(&g_controls[1]);
-        runtime.frame_seconds = (float)elapsed;
-        tecmo_runtime_update_players(&runtime,
+        runtime->frame_seconds = (float)elapsed;
+        tecmo_runtime_update_players(runtime,
                                      tecmo_controls_held(&g_controls[0]),
                                      tecmo_controls_held(&g_controls[1]));
-        if (runtime.quit_requested) {
+        if (runtime->quit_requested) {
             g_running = false;
             continue;
         }
@@ -296,17 +300,30 @@ int tecmo_run_win32_game(const char *project_root)
             framebuffer.width = g_backbuffer.width;
             framebuffer.height = g_backbuffer.height;
             framebuffer.pitch_pixels = g_backbuffer.width;
-            tecmo_runtime_render(&runtime, &framebuffer);
+            tecmo_runtime_render(runtime, &framebuffer);
         }
 
         InvalidateRect(window, 0, FALSE);
     }
 
-    tecmo_runtime_shutdown(&runtime);
+    result = 0;
+
+cleanup:
+    if (runtime != 0) {
+        tecmo_runtime_shutdown(runtime);
+    }
     if (g_backbuffer.pixels != 0) {
         VirtualFree(g_backbuffer.pixels, 0, MEM_RELEASE);
+        memset(&g_backbuffer, 0, sizeof(g_backbuffer));
     }
-    VirtualFree(permanent_block, 0, MEM_RELEASE);
-    VirtualFree(transient_block, 0, MEM_RELEASE);
-    return 0;
+    if (permanent_block != 0) {
+        VirtualFree(permanent_block, 0, MEM_RELEASE);
+    }
+    if (transient_block != 0) {
+        VirtualFree(transient_block, 0, MEM_RELEASE);
+    }
+    if (runtime != 0) {
+        VirtualFree(runtime, 0, MEM_RELEASE);
+    }
+    return result;
 }

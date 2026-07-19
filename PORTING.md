@@ -71,6 +71,12 @@ void tecmo_arena_intro_draw(TecmoFramebuffer *fb,
 Avoid making gameplay or scene APIs expose emulator-shaped write streams unless
 the module is explicitly a low-level importer, decoder, or diagnostic.
 
+`TecmoRuntime` is a large owner of native scene assets and state. Entrypoints
+must allocate it off the thread stack, clean up partial initialization through
+`tecmo_runtime_shutdown`, and release it with the matching allocator. Keep the
+normal Windows stack reserve useful for call depth; do not use a larger linker
+stack as a substitute for explicit runtime ownership.
+
 ## Scripted Screens
 
 Many opening screens are scripted. Port those scripts into native C concepts
@@ -382,6 +388,7 @@ Normal gates should stay close to:
 .\build\tecmo_port.exe --assetpack-test
 .\tools\Run-AssetPackTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-IntroSequenceTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-Win32LaunchSmokeTest.ps1 -Build -DecompRoot <LOCAL_DECOMP_ROOT>
 ```
 
 When a feature becomes ROM-only, update tests so missing decomp roots, missing

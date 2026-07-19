@@ -374,3 +374,14 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/win32_platform.c`: temporary Windows platform layer
 
 Keep new opening-sequence components out of `tecmo_game.c` when possible. Add focused modules and let `tecmo_game.c` call into them.
+
+`TecmoRuntime` embeds large native asset/state structures and must remain off
+the thread stack. Win32 owns it through `VirtualAlloc`, while command-line test
+paths use heap allocation; every initialization attempt must be paired with
+`tecmo_runtime_shutdown` and the matching release. Do not compensate for asset
+growth by increasing the PE stack reserve. Exercise the shortcut-shaped startup
+path with:
+
+```powershell
+.\tools\Run-Win32LaunchSmokeTest.ps1 -Build -DecompRoot <LOCAL_DECOMP_ROOT>
+```
