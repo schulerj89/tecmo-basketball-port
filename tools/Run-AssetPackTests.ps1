@@ -344,6 +344,7 @@ function Get-KnownLogicalAssetPackEntries {
         "gameplay/court",
         "gameplay/close-shots",
         "gameplay/dunk-cutaway",
+        "gameplay/jump-shots",
         "roster/table.tsv",
         "title/original-text.txt",
         "title/glyph-map.tsv",
@@ -398,6 +399,7 @@ function Get-ExpectedLogicalAssetPackEntries {
             "gameplay/court"
             "gameplay/close-shots"
             "gameplay/dunk-cutaway"
+            "gameplay/jump-shots"
         )
         capture_sources_present = @()
     }
@@ -3694,6 +3696,67 @@ try {
                     raw_asset_bytes_persisted = $false
                 })
 
+                $JumpShotSource = @($SourceMap.logical_entries |
+                    Where-Object { $_.id -eq "gameplay/jump-shots" } |
+                    Select-Object -First 1)
+                $ExpectedJumpShotRoles = @(
+                    "family-bases-`$8469-`$846A",
+                    "animation-counter-`$8999-`$89C0",
+                    "initial-velocity-derivation-`$8D92-`$8DD2",
+                    "phase-decrement-`$9C29-`$9C3F",
+                    "route1-follow-release-`$AD41-`$AF21",
+                    "route10-`$B6E5-`$B774",
+                    "bounce-motion-collision-`$B7C1-`$B87B",
+                    "made-settlement-`$BA65-`$BAC0"
+                )
+                $JumpShotRoles = @($JumpShotSource.source_spans |
+                    ForEach-Object { [string]$_.role })
+                $JumpShotDependencies = @($JumpShotSource.dependencies)
+                $JumpShotSourcePassed = $JumpShotSource.Count -eq 1 -and
+                    $JumpShotSource.schema -eq
+                        "tecmo.gameplay-jump-shots/TGJS-1" -and
+                    [int]$JumpShotSource.size -eq 1648 -and
+                    $JumpShotSource.fingerprint_fnv1a32 -eq "7587B099" -and
+                    (@(Compare-Object -ReferenceObject $ExpectedJumpShotRoles `
+                        -DifferenceObject $JumpShotRoles)).Count -eq 0 -and
+                    @($JumpShotSource.source_spans).Count -eq 8 -and
+                    @($JumpShotSource.source_spans | Where-Object {
+                        [int]$_.bank -ne 5 -or
+                        [string]$_.source_entry -ne "prg/bank05" -or
+                        [string]$_.fingerprint_fnv1a32 -notmatch
+                            '^[0-9A-F]{8}$'
+                    }).Count -eq 0 -and
+                    $JumpShotDependencies.Count -eq 2 -and
+                    (@($JumpShotDependencies | ForEach-Object {
+                        [string]$_.entry }) -join ",") -eq
+                        "gameplay/core,gameplay/close-shots" -and
+                    [int]$JumpShotSource.constants.nes_b_mask -eq 0x40 -and
+                    [int]$JumpShotSource.constants.gravity_q8 -eq 0x28 -and
+                    [int]$JumpShotSource.constants.floor_wrap_clamp -eq
+                        0xF6 -and
+                    [int]$JumpShotSource.constants.bounce_decay_q8 -eq
+                        0x80 -and
+                    $JumpShotSource.constants.fingerprint_fnv1a32 -eq
+                        "C868CFE3" -and
+                    [int]$JumpShotSource.pose_contract.pointer_count -eq 32 -and
+                    $JumpShotSource.pose_contract.source_fingerprint_fnv1a32 -eq
+                        "069DDFDB" -and
+                    $JumpShotSource.pose_contract.pointer_fingerprint_fnv1a32 -eq
+                        "A057A625" -and
+                    $JumpShotSource.runtime_inputs -notmatch
+                        "decompilation file|trace file|capture file"
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-gameplay-jump-shot-provenance"
+                    passed = $JumpShotSourcePassed
+                    schema_valid = $JumpShotSource.Count -eq 1 -and
+                        $JumpShotSource.schema -eq
+                            "tecmo.gameplay-jump-shots/TGJS-1"
+                    source_roles = $JumpShotRoles
+                    dependency_entries = @($JumpShotDependencies |
+                        ForEach-Object { [string]$_.entry })
+                    raw_asset_bytes_persisted = $false
+                })
+
                 $SeasonSource = @($SourceMap.logical_entries |
                     Where-Object { $_.id -eq $SeasonAssetContract.EntryId } |
                     Select-Object -First 1)
@@ -4736,6 +4799,8 @@ try {
                     passed = $false
                     error = "system/source-map logical entry inspection failed"
                     error_type = Get-SafeExceptionName $_
+                    error_message = [string]$_.Exception.Message
+                    error_position = [string]$_.InvocationInfo.PositionMessage
                     raw_asset_bytes_persisted = $false
                 })
             }

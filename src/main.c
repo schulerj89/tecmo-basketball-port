@@ -9,6 +9,7 @@
 #include "tecmo_gameplay_court.h"
 #include "tecmo_gameplay_close_shots.h"
 #include "tecmo_gameplay_dunk_cutaway.h"
+#include "tecmo_gameplay_jump_shots.h"
 #include "tecmo_gameplay_scene.h"
 #include "tecmo_gameplay_state.h"
 #include "tecmo_intro_arena_scene.h"
@@ -53,6 +54,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-court-test PACK  Validate strict TGCT-1 static court assets\n");
     printf("  --gameplay-close-shots-test PACK  Validate strict TGCS-1 close-shot assets\n");
     printf("  --gameplay-dunk-cutaway-test PACK  Validate strict TGDK-1 dunk presentation assets\n");
+    printf("  --gameplay-jump-shots-test PACK  Validate strict TGJS-1 jump-shot assets\n");
     printf("  --assetpack-list PACK  Print an asset-pack directory listing\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -1129,6 +1131,221 @@ int main(int argc, char **argv)
             return 1;
         }
         printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-jump-shots-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        TecmoGameplayJumpShotAssets assets;
+        const TecmoGameplayJumpShotSourceSpan *settlement;
+        uint8_t *payload = NULL;
+        uint8_t *gameplay_core = NULL;
+        uint8_t *close_shots = NULL;
+        uint8_t *payload_mutation = NULL;
+        uint8_t *core_mutation = NULL;
+        uint64_t payload_size = 0U;
+        uint64_t gameplay_core_size = 0U;
+        uint64_t close_shots_size = 0U;
+        uint32_t pose_hash = 2166136261U;
+        uint16_t pointer = 0U;
+        uint16_t altitude = 0U;
+        uint16_t velocity = 0x02E8U;
+        bool landed = false;
+        bool ok = false;
+
+        tecmo_gameplay_jump_shots_init(&assets);
+        if (tecmo_gameplay_jump_shots_find_source(
+                &assets,
+                TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_MADE_SETTLEMENT) != NULL ||
+            tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
+                &assets, TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0,
+                TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_0,
+                TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_1, &pointer) ||
+            tecmo_gameplay_jump_shots_step_q8(
+                &assets, &altitude, &velocity, &landed)) {
+            printf("Jump-shot asset test failed: unavailable helper accepted\n");
+            goto jump_shot_test_cleanup;
+        }
+        if (pack_path == NULL ||
+            !tecmo_gameplay_jump_shots_load(&assets, pack_path) ||
+            !tecmo_gameplay_jump_shots_load(&assets, pack_path)) {
+            printf("Jump-shot asset test failed: %s\n",
+                   pack_path != NULL ? assets.status : "PACK path required");
+            goto jump_shot_test_cleanup;
+        }
+        settlement = tecmo_gameplay_jump_shots_find_source(
+            &assets, TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_MADE_SETTLEMENT);
+        if (settlement == NULL || settlement->bank != 5U ||
+            settlement->fixed_bank || settlement->cpu_start != 0xBA65U ||
+            settlement->cpu_end != 0xBAC0U ||
+            settlement->byte_count != 92U ||
+            settlement->fingerprint != 0x130C585CU ||
+            tecmo_gameplay_jump_shots_find_source(
+                &assets, (TecmoGameplayJumpShotSourceKind)0) != NULL ||
+            tecmo_gameplay_jump_shots_find_source(
+                &assets, (TecmoGameplayJumpShotSourceKind)9) != NULL ||
+            assets.constants.nes_b_mask != 0x40U ||
+            assets.constants.actor_state_gather != 0x1EU ||
+            assets.constants.actor_state_prepared != 0x0BU ||
+            assets.constants.actor_state_held != 0x0CU ||
+            assets.constants.actor_state_airborne != 0x0DU ||
+            assets.constants.actor_state_recovery != 0x0EU ||
+            assets.constants.actor_state_neutral != 0U ||
+            assets.constants.ball_state_route17 != 0x17U ||
+            assets.constants.gravity_q8 != 0x0028U ||
+            assets.constants.floor_wrap_clamp != 0xF6U ||
+            assets.constants.bounce_decay_q8 != 0x0080U ||
+            assets.constants.made_mask != 0x80U ||
+            assets.constants.crowd_sfx != 11U ||
+            assets.constants.side_result_base != 12U) {
+            printf("Jump-shot asset test failed: source/constants contract\n");
+            goto jump_shot_test_cleanup;
+        }
+        for (unsigned family = 0U; family < 2U; ++family) {
+            for (unsigned profile = 0U; profile < 2U; ++profile) {
+                for (unsigned direction = 0U; direction < 8U; ++direction) {
+                    if (!tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
+                            &assets, (TecmoGameplayJumpShotFamily)family,
+                            (TecmoGameplayJumpShotProfile)profile,
+                            (TecmoGameplayJumpShotDirection)direction,
+                            &pointer)) {
+                        printf("Jump-shot asset test failed: pose %u/%u/%u\n",
+                               family, profile, direction);
+                        goto jump_shot_test_cleanup;
+                    }
+                    pose_hash ^= (uint8_t)(pointer & 0xFFU);
+                    pose_hash *= 16777619U;
+                    pose_hash ^= (uint8_t)(pointer >> 8U);
+                    pose_hash *= 16777619U;
+                }
+            }
+        }
+        if (pose_hash != 0xA057A625U ||
+            !tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
+                &assets, TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0,
+                TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_0,
+                TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_1, &pointer) ||
+            pointer != 213U ||
+            tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
+                &assets, (TecmoGameplayJumpShotFamily)2,
+                TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_0,
+                TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_0, &pointer) ||
+            tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
+                &assets, TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0,
+                (TecmoGameplayJumpShotProfile)2,
+                TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_0, &pointer) ||
+            tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
+                &assets, TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0,
+                TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_0,
+                (TecmoGameplayJumpShotDirection)8, &pointer) ||
+            tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
+                &assets, TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0,
+                TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_0,
+                TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_0, NULL)) {
+            printf("Jump-shot asset test failed: pose matrix contract\n");
+            goto jump_shot_test_cleanup;
+        }
+
+        for (unsigned step = 1U; step <= 36U; ++step) {
+            if (!tecmo_gameplay_jump_shots_step_q8(
+                    &assets, &altitude, &velocity, &landed) ||
+                (step < 36U && landed) || (step == 18U &&
+                    (altitude != 0x1998U || velocity != 0x0018U)) ||
+                (step == 19U &&
+                    (altitude != 0x1988U || velocity != 0xFFF0U))) {
+                printf("Jump-shot asset test failed: Q8.8 step %u\n", step);
+                goto jump_shot_test_cleanup;
+            }
+        }
+        if (!landed || altitude != 0U || velocity != 0U) {
+            printf("Jump-shot asset test failed: Q8.8 clamp contract\n");
+            goto jump_shot_test_cleanup;
+        }
+
+        if (tecmo_asset_pack_read_entry_exact(
+                pack_path, "gameplay/jump-shots", 1648U,
+                &payload, &payload_size) != 0 ||
+            tecmo_asset_pack_read_entry_exact(
+                pack_path, "gameplay/core", 23416U,
+                &gameplay_core, &gameplay_core_size) != 0 ||
+            tecmo_asset_pack_read_entry_exact(
+                pack_path, "gameplay/close-shots", 3144U,
+                &close_shots, &close_shots_size) != 0) {
+            printf("Jump-shot asset test failed: dependencies unreadable\n");
+            goto jump_shot_test_cleanup;
+        }
+        payload_mutation = (uint8_t *)malloc((size_t)payload_size);
+        core_mutation = (uint8_t *)malloc((size_t)gameplay_core_size);
+        if (payload_mutation == NULL || core_mutation == NULL) {
+            printf("Jump-shot asset test failed: mutation allocation\n");
+            goto jump_shot_test_cleanup;
+        }
+        memcpy(payload_mutation, payload, (size_t)payload_size);
+        payload_mutation[88U] = 1U;
+        if (tecmo_gameplay_jump_shots_parse(
+                &assets, payload_mutation, (size_t)payload_size,
+                gameplay_core, (size_t)gameplay_core_size,
+                close_shots, (size_t)close_shots_size) || assets.available ||
+            assets.storage != NULL) {
+            printf("Jump-shot asset test failed: reserved mutation accepted\n");
+            goto jump_shot_test_cleanup;
+        }
+        memcpy(payload_mutation, payload, (size_t)payload_size);
+        payload_mutation[1552U] ^= 1U;
+        if (tecmo_gameplay_jump_shots_parse(
+                &assets, payload_mutation, (size_t)payload_size,
+                gameplay_core, (size_t)gameplay_core_size,
+                close_shots, (size_t)close_shots_size)) {
+            printf("Jump-shot asset test failed: constant mutation accepted\n");
+            goto jump_shot_test_cleanup;
+        }
+        memcpy(payload_mutation, payload, (size_t)payload_size);
+        payload_mutation[1584U] = 0xFFU;
+        payload_mutation[1585U] = 0x7FU;
+        if (tecmo_gameplay_jump_shots_parse(
+                &assets, payload_mutation, (size_t)payload_size,
+                gameplay_core, (size_t)gameplay_core_size,
+                close_shots, (size_t)close_shots_size)) {
+            printf("Jump-shot asset test failed: pose mutation accepted\n");
+            goto jump_shot_test_cleanup;
+        }
+        memcpy(core_mutation, gameplay_core, (size_t)gameplay_core_size);
+        core_mutation[20632U] ^= 1U;
+        if (tecmo_gameplay_jump_shots_parse(
+                &assets, payload, (size_t)payload_size,
+                core_mutation, (size_t)gameplay_core_size,
+                close_shots, (size_t)close_shots_size) ||
+            tecmo_gameplay_jump_shots_parse(
+                &assets, payload, (size_t)payload_size - 1U,
+                gameplay_core, (size_t)gameplay_core_size,
+                close_shots, (size_t)close_shots_size) ||
+            tecmo_gameplay_jump_shots_parse(
+                &assets, payload, (size_t)payload_size + 1U,
+                gameplay_core, (size_t)gameplay_core_size,
+                close_shots, (size_t)close_shots_size)) {
+            printf("Jump-shot asset test failed: dependency/size mutation accepted\n");
+            goto jump_shot_test_cleanup;
+        }
+        if (!tecmo_gameplay_jump_shots_parse(
+                &assets, payload, (size_t)payload_size,
+                gameplay_core, (size_t)gameplay_core_size,
+                close_shots, (size_t)close_shots_size)) {
+            printf("Jump-shot asset test failed: canonical reparse: %s\n",
+                   assets.status);
+            goto jump_shot_test_cleanup;
+        }
+        ok = true;
+
+jump_shot_test_cleanup:
+        free(payload_mutation);
+        free(core_mutation);
+        tecmo_asset_pack_free(payload);
+        tecmo_asset_pack_free(gameplay_core);
+        tecmo_asset_pack_free(close_shots);
+        tecmo_gameplay_jump_shots_destroy(&assets);
+        tecmo_gameplay_jump_shots_destroy(&assets);
+        if (!ok) return 1;
+        printf("TGJS-1 jump-shot assets passed: sources=8 poses=32 pose-matrix=A057A625 physics=Q8.8 dependencies=TGPL-1/TGCS-1\n");
         return 0;
     }
 
