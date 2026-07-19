@@ -55,6 +55,7 @@ $Sources = @(
     "src\tecmo_intro_stage.c",
     "src\tecmo_nes_video.c",
     "src\tecmo_preseason_menu.c",
+    "src\tecmo_season_menu.c",
     "src\tecmo_start_game_menu.c",
     "src\tecmo_team_data.c",
     "src\tecmo_team_management.c",

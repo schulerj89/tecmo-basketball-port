@@ -15,6 +15,7 @@
 #include "tecmo_memory.h"
 #include "tecmo_music.h"
 #include "tecmo_preseason_menu.h"
+#include "tecmo_season_menu.h"
 #include "tecmo_start_game_menu.h"
 #include "tecmo_team_data.h"
 #include "tecmo_team_management.h"
@@ -36,7 +37,8 @@ typedef enum TecmoPlayMode {
     TECMO_MODE_START_GAME_MENU,
     TECMO_MODE_PRESEASON_MENU,
     TECMO_MODE_ALL_STAR_MENU,
-    TECMO_MODE_TEAM_DATA
+    TECMO_MODE_TEAM_DATA,
+    TECMO_MODE_SEASON_MENU
 } TecmoPlayMode;
 
 typedef struct TecmoRuntime {
@@ -91,6 +93,9 @@ typedef struct TecmoRuntime {
     TecmoTeamDataState team_data_state;
     TecmoTeamManagementAsset team_management_asset;
     TecmoTeamManagementSession team_management_session;
+    TecmoSeasonAsset season_asset;
+    TecmoSeasonSession season_session;
+    TecmoSeasonState season_state;
     char intro_l88e7_irq_vector[16];
     char intro_presents_data_cpu[16];
     bool intro_trace_available;
