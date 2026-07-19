@@ -133,21 +133,21 @@ try {
     }
 
     $Checkpoints = @(
-        @{ mode = "team-data-select"; hash = "A5AD7ACA359B812D2A17F9BA916D5EF8787B5376FA097879635C204DD16895C8"; status = "palette=3 render=1" },
-        @{ mode = "team-data-profile"; hash = "C889D530748689585BBED1E21C9A34F26EA5A8B8D7ADFDF83AD1FEDEF45ADA81"; status = "phase=TEAM PROFILE" },
-        @{ mode = "team-data-player-detail"; hash = "B9982C582D687CFC7B5439AE5B4B369421C5874754291F686D8EFFE3D4FAD6A3"; status = "phase=PLAYER DETAIL" },
+        @{ mode = "team-data-select"; hash = "C04A940E9BD78DC9D330AC9E41C2B6F03906A040CE52D442EB08BCE7FE4C7EB8"; status = "palette=3 render=1" },
+        @{ mode = "team-data-profile"; hash = "E8BA35AC6C2FF05F882CC6D374BC3D4578992A1304D7018A2FE2D21F25F8D575"; status = "phase=TEAM PROFILE" },
+        @{ mode = "team-data-player-detail"; hash = "BC717CC2C62A1BAD485BA6307F8F250198476AFBD816162D6311D4A960635174"; status = "phase=PLAYER DETAIL" },
         @{ mode = "team-data-entry-transition-frame0"; hash = "2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A"; status = "transition-frame=0 palette=4 render=0" },
         @{ mode = "team-data-entry-transition-frame4"; hash = "2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A"; status = "transition-frame=4 palette=4 render=1" },
-        @{ mode = "team-data-entry-transition-frame7"; hash = "3EBDAFA0CB536A9A24D37D4866666C7A04C7B4D645160FA4D372CBEFA5B5457D"; status = "transition-frame=7 palette=0 render=1" },
-        @{ mode = "team-data-entry-transition-frame19"; hash = "A749413AF069B7939F0FDD573DA4DB7DBE8B69123A7B8DC0F1A4207CE9232F5D"; status = "transition-frame=19 palette=3 render=1" },
+        @{ mode = "team-data-entry-transition-frame7"; hash = "1C94880CC9919AFC5C7AB1C482B24C586556F3479421F1B5BBD29DC8808AB34A"; status = "transition-frame=7 palette=0 render=1" },
+        @{ mode = "team-data-entry-transition-frame19"; hash = "C0F7882DC8C7D23A97B0864172B88446A886F9CC0C21005AEE9DE2DFA373DD07"; status = "transition-frame=19 palette=3 render=1" },
         @{ mode = "team-data-selector-profile-transition-frame10"; hash = "2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A"; status = "transition-frame=10 palette=4 render=0" },
         @{ mode = "team-data-selector-profile-transition-frame16"; hash = "2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A"; status = "transition-frame=16 palette=4 render=1" },
-        @{ mode = "team-data-selector-profile-transition-frame19"; hash = "284D95AB6B188AD67B123B9C98CFAC7E7DE9CECB30B21C065390C9ECE2D135B7"; status = "transition-frame=19 palette=0 render=1" },
-        @{ mode = "team-data-selector-profile-transition-frame31"; hash = "2619ADAF230E754E4FF6CA71C37F2E97794A2EC5DA3FD6777559E8F1D28F46B0"; status = "transition-frame=31 palette=3 render=1" },
+        @{ mode = "team-data-selector-profile-transition-frame19"; hash = "CAE05F093ED3AA29F647D6A87DC7662286B3B16DD9273EF0C100309E116DC2F7"; status = "transition-frame=19 palette=0 render=1" },
+        @{ mode = "team-data-selector-profile-transition-frame31"; hash = "FD51903BA36151C55CDD0DF1A0B16C7526402F4533F5C19D5AC5BAFE04C0BAD9"; status = "transition-frame=31 palette=3 render=1" },
         @{ mode = "team-data-roster-detail-transition-frame15"; hash = "2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A"; status = "transition-frame=15 palette=4 render=1" },
-        @{ mode = "team-data-roster-detail-transition-frame18"; hash = "472F8D5149AF8EEAD2BAD1CC132EF6E3AE42AB4B222F50A774BFC91EA9F86BA1"; status = "transition-frame=18 palette=0 render=1" },
-        @{ mode = "team-data-roster-detail-transition-frame30"; hash = "B9982C582D687CFC7B5439AE5B4B369421C5874754291F686D8EFFE3D4FAD6A3"; status = "transition-frame=30 palette=3 render=1" },
-        @{ mode = "team-data-detail-roster-transition-frame31"; hash = "2619ADAF230E754E4FF6CA71C37F2E97794A2EC5DA3FD6777559E8F1D28F46B0"; status = "transition-frame=31 palette=3 render=1" }
+        @{ mode = "team-data-roster-detail-transition-frame18"; hash = "4A758125FC6B8E1EDFA5570AE348D98A271A8B020357E57FBCE2401FA2B54317"; status = "transition-frame=18 palette=0 render=1" },
+        @{ mode = "team-data-roster-detail-transition-frame30"; hash = "BC717CC2C62A1BAD485BA6307F8F250198476AFBD816162D6311D4A960635174"; status = "transition-frame=30 palette=3 render=1" },
+        @{ mode = "team-data-detail-roster-transition-frame31"; hash = "FD51903BA36151C55CDD0DF1A0B16C7526402F4533F5C19D5AC5BAFE04C0BAD9"; status = "transition-frame=31 palette=3 render=1" }
     )
     foreach ($Checkpoint in $Checkpoints) {
         $Png = Join-Path $Scratch ($Checkpoint.mode + ".png")

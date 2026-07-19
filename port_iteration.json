@@ -55,8 +55,8 @@
       "id": "run_native_flow_test",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --flow-test",
-      "description": "Runs the headless runtime input-flow check that enters the Play Game progressive intro-output mode, advances through the opening sequence transitions, returns to menu, and confirms the quit path.",
-      "expected_output": "FLOW TEST PASS: menu play-intro title start-game-menu preseason quit"
+      "description": "Runs the headless runtime input-flow check through the native intro/title handoff, blue start-game menu, preseason and season-management routes, blocked GAME START boundary, return paths, and debug-menu quit.",
+      "expected_output": "FLOW TEST PASS: menu play-intro title start-game-menu preseason season quit"
     },
     {
       "id": "run_bank07_helper_test",
@@ -355,13 +355,15 @@
       "id": "flow_menu_play_quit",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --flow-test",
-      "expected_output": "FLOW TEST PASS: menu play-intro title start-game-menu preseason quit",
+      "expected_output": "FLOW TEST PASS: menu play-intro title start-game-menu preseason season quit",
       "assertions": [
         "Executable exits with code 0",
         "Runtime boots directly to the launcher menu",
         "Launcher menu reaches Play Game progressive intro-output mode through input",
         "Play Game auto-advances through NBA license, arena, READY, and Warriors intro steps",
-        "Play Game cancel returns to the launcher menu",
+        "Confirmed title hands off to the original blue start-game menu",
+        "Preseason and season-management routes preserve native return behavior",
+        "Season GAME START prepares only a pending ROM matchup and cannot mutate save state without gameplay results",
         "Launcher Quit row sets quit_requested",
         "Runner report persists only sanitized pass/fail metadata under ignored build output"
       ]

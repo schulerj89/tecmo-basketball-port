@@ -58,18 +58,18 @@ $SeasonContract = [ordered]@{
     ChrFnv1a32 = "F6F6E854"
     ChrFnv1a64 = "96A64F53B240ABB4"
     RenderCheckpoints = @(
-        @{ Mode="season-team-control"; Hash="D396B7449C9524FC601185A6AE9F97DC28A55A29A85C65C4465D3612539F17D6"; Status="phase=team-control .*save=0" },
-        @{ Mode="season-schedule"; Hash="36872EB4BC3A6AD51F2F250361D16DB8906E4613F6FE80E7B2833A94B54171A5"; Status="phase=schedule .*popup-rows=0" },
-        @{ Mode="season-schedule-popup"; Hash="DB7EBA70DB18721DD3CC11AF717B3C3B335E1ABF061319F200861CE4BB385044"; Status="phase=schedule-popup .*popup-rows=6" },
-        @{ Mode="season-playoff"; Hash="9FC6FE525A53D47014EDD4F271CD17D93666150482D9E00EC0CD556B7D9B3912"; Status="phase=playoff .*playoff-scroll=0" },
-        @{ Mode="season-playoff-mid"; Hash="2F7596748543EAAD907350E238525853A87AEABFD00525E837DFBFE2F5B65DC0"; Status="phase=playoff .*playoff-scroll=128" },
-        @{ Mode="season-playoff-east"; Hash="F918020EB3E95C9F427B8B3D3028D9823470DD8A773CA5A10BE62564FC75CFAF"; Status="phase=playoff .*playoff-scroll=252" },
-        @{ Mode="season-standings-east"; Hash="E8922D9674FDD8489A24843B5E3E66BAD5F48ABEAA8CCA33262602F0E2B57912"; Status="phase=standings .*page=0" },
-        @{ Mode="season-standings-west"; Hash="E994E8876285E26E8DB1A6F094DC2C2ED27B4CC531D9D72AB6B5904DE522B90C"; Status="phase=standings .*page=1" },
-        @{ Mode="season-standings-programmed"; Hash="0E5683A17727792E69AF46D5ADADC8B36EDAF1B674FC8D110C46B96AE987E12B"; Status="phase=programmed-editor .*type=PROGRAMMED" },
-        @{ Mode="season-leaders"; Hash="2F7B7CC70D2E13B35CE8A913F11E9CBCC47F4F047B0E8D3DAB7F0514CBEC9EFC"; Status="phase=leaders .*leader=0 .*leader-result=0" },
-        @{ Mode="season-leaders4"; Hash="8D7D3793A650A8DB5808B21851273F2DB89810A51A5117E65972B1547A016379"; Status="phase=leaders .*leader=4 .*leader-result=0" },
-        @{ Mode="season-leaders-results"; Hash="6A1213C9AB7E2523A62526E145C061A0DBB51D97D3DE8D331839828BC0DA93B0"; Status="phase=leaders .*leader=0 .*leader-result=1" },
+        @{ Mode="season-team-control"; Hash="ED752BB5D977D72AA05B136D6800AB5F7A94EB3A40EB8614D03A41F0D7557324"; Status="phase=team-control .*save=0" },
+        @{ Mode="season-schedule"; Hash="C237B9EF2318108D821DABABF46D2B891ACAFE7468705AA32BAE3390770C2D5E"; Status="phase=schedule .*popup-rows=0" },
+        @{ Mode="season-schedule-popup"; Hash="449A17BB6E83875BB7AECC2D796CCD4F2A11183B28DE6A54F21BAEFC6AC7E03A"; Status="phase=schedule-popup .*popup-rows=6" },
+        @{ Mode="season-playoff"; Hash="FB074365D44606A973CFAB124FBF1870ADB2F253A3540083B429CCF003BD529A"; Status="phase=playoff .*playoff-scroll=0" },
+        @{ Mode="season-playoff-mid"; Hash="665BFBBAC1FADDE02391AB880F84D8289D291D9A021DFB80583E04D36575D502"; Status="phase=playoff .*playoff-scroll=128" },
+        @{ Mode="season-playoff-east"; Hash="1F63907C61631329250454D3317E0929D9384A7DC4E30A53680B63F4A48ED0AA"; Status="phase=playoff .*playoff-scroll=252" },
+        @{ Mode="season-standings-east"; Hash="3CC04A3C668C9EA7265D7758AA08CADB33BA5E416C1D717B37B9D595050229AB"; Status="phase=standings .*page=0" },
+        @{ Mode="season-standings-west"; Hash="96C6B839321B82393D706C325610A800B8FA2B8368B662719DF8EB45DFC9387B"; Status="phase=standings .*page=1" },
+        @{ Mode="season-standings-programmed"; Hash="972415E9F5C8E7AA4305E386AD156F49C8637EB4AA8AD0C7E3E104232A4E0FB9"; Status="phase=programmed-editor .*type=PROGRAMMED" },
+        @{ Mode="season-leaders"; Hash="25FC871445406CB69B478BB2A2E2846042FA9BA2D570A728819FDFA61096ACA6"; Status="phase=leaders .*leader=0 .*leader-result=0" },
+        @{ Mode="season-leaders4"; Hash="AAF28650A08788472DE787657CAC1F4D9F69E77CAD50A17F144BB3D2FF915742"; Status="phase=leaders .*leader=4 .*leader-result=0" },
+        @{ Mode="season-leaders-results"; Hash="540D6EA78E8CB646E1D4D960E97EE5A464D04ABD32A6634BCCBD6E75F8CE7764"; Status="phase=leaders .*leader=0 .*leader-result=1" },
         @{ Mode="season-game-start"; Hash="2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A"; Status="phase=game-start-prelaunch .*game-pending=1 launch-blocked=1" }
     )
 }
