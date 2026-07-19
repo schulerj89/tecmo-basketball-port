@@ -30,7 +30,48 @@
     "backend": "win32 software framebuffer",
     "game_core": "portable C runtime state plus explicit memory arenas",
     "asset_mode": "normal GUI play uses strict ignored ROM-derived asset-pack entries; loose decomp readers remain explicit console development tools",
-    "known_status": "prototype launcher/menu, portable controls engine, reusable nametable screen renderer, first native Bank07 fixed-helper C layer, source-backed title screen mode, NBA license screen render target, Bank04 arena third-screen render target with captured background and scoreboard OAM, post-arena READY sweep and Warriors transition capture targets, Play Game progressive intro-output stepper, first-sprite debug proof, bank/table-switchable intro builder lab, CHR playground, roster viewer"
+    "known_status": "normal play boots the strict ROM-derived opening, title, blue menu, preseason/team-data/season flows, and native preseason or season gameplay; the live scene has strict court, actor-pose, numeric close-shot, music, SFX, DMC, rules-state, halftime/final, and result-handoff contracts, with documented native approximations still pending parity"
+  },
+  "gameplay_boundary": {
+    "status": "active-native-milestone",
+    "launch_sources": [
+      "preseason final team confirmation",
+      "season GAME START pending schedule matchup"
+    ],
+    "strict_same_pack_entries": [
+      "gameplay/core TGPL-1 23416 bytes FNV1a32 2047CCE0",
+      "gameplay/court TGCT-1 6559 bytes FNV1a32 ECAB7A93",
+      "gameplay/close-shots TGCS-1 3144 bytes FNV1a32 DACDC976",
+      "audio/music TMUS-1 36784 bytes FNV1a32 05C00ECB",
+      "audio/gameplay-sfx TSFX-1 2824 bytes FNV1a32 968A5DE6",
+      "audio/gameplay-dmc TDMC-1 2515 bytes FNV1a32 AD70E6E8",
+      "chr/all 262144 bytes FNV1a32 F6F6E854 FNV1a64 96A64F53B240ABB4"
+    ],
+    "controls": "directions move the owned actor; NES A passes or switches defender; NES B shoots or attempts defense; START/SELECT are inert; unassigned controllers cannot act",
+    "exact_contracts": [
+      "ROM-derived court, CHR, imported TGCT palette bytes, embedded FCEUX RGB profile, actor-pose decoding, numeric close variants 0 and 2, and their 32/16 step tables",
+      "deterministic clock, shot-clock, event, violation/foul presentation, period, halftime, overtime, final, and result state transitions",
+      "ROM-derived track 5/6 programs, gameplay SFX mappings, held-ball/dribble DMC clip, mixer cadence, and source-map provenance",
+      "season result identity validation and exact-once commit before gameplay ends"
+    ],
+    "native_approximations": [
+      "actor and camera layout",
+      "movement and AI",
+      "ordinary jump-shot timing",
+      "shot arc, make, and contact policy",
+      "distance policy selecting numeric close variant 0 or 2",
+      "dynamic team and court palette selection for matchup and scene state",
+      "foul detection",
+      "free-throw aim, timing, outcome, and rebound behavior",
+      "HUD typography and dynamic composition"
+    ],
+    "render_modes": [
+      "gameplay-start",
+      "gameplay-jump-frameN",
+      "gameplay-close-shot-frameN"
+    ],
+    "focused_test": ".\\tools\\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>",
+    "local_output_policy": "asset packs, render checkpoints, logs, emulator evidence, and comparisons remain ignored under build or temp-videos and are never committed"
   },
   "local_desktop_shortcut": {
     "status": "active",
@@ -55,8 +96,15 @@
       "id": "run_native_flow_test",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --flow-test",
-      "description": "Runs the headless runtime input-flow check through the native intro/title handoff, blue start-game menu, preseason and season-management routes, blocked GAME START boundary, return paths, and debug-menu quit.",
+      "description": "Runs the headless runtime input-flow check through the native intro/title handoff, blue start-game menu, preseason and season gameplay launch/result handoffs, return paths, and debug-menu quit.",
       "expected_output": "FLOW TEST PASS: menu play-intro title start-game-menu preseason season quit"
+    },
+    {
+      "id": "run_gameplay_scene_test",
+      "status": "active",
+      "command": ".\\tools\\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>",
+      "description": "Builds an exact Rev1 full asset pack, runs the compound native gameplay scene self-test and rejection cases, then verifies deterministic 640x480 start, ordinary-jump, and numeric-close render checkpoints under ignored build scratch.",
+      "expected_output": "GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance scene controls shots audio state halftime/final render-determinism missing malformed oversized chr-mismatch"
     },
     {
       "id": "run_bank07_helper_test",
@@ -363,7 +411,9 @@
         "Play Game auto-advances through NBA license, arena, READY, and Warriors intro steps",
         "Confirmed title hands off to the original blue start-game menu",
         "Preseason and season-management routes preserve native return behavior",
-        "Season GAME START prepares only a pending ROM matchup and cannot mutate save state without gameplay results",
+        "Preseason final team confirmation launches gameplay with selected teams, settings, and controller ownership",
+        "Season GAME START launches only its pending ROM matchup and cannot mutate save state before a matching result",
+        "A matching season result commits exactly once before gameplay ends and the existing result rows resume",
         "Launcher Quit row sets quit_requested",
         "Runner report persists only sanitized pass/fail metadata under ignored build output"
       ]
@@ -813,19 +863,31 @@
     },
     {
       "id": "M007",
-      "status": "active",
+      "status": "complete",
       "title": "Pixel-accurate title CHR and palette pass",
       "done_when": "The original title quick launch uses mapped CHR tiles, palette state, and layout data instead of the probe font."
+    },
+    {
+      "id": "M008",
+      "status": "complete",
+      "title": "Strict native gameplay milestone",
+      "done_when": "Preseason and season launch the native scene; strict court, pose, close-shot, state, music/SFX/DMC, halftime/final, result handoff, rejection, and deterministic render tests pass."
+    },
+    {
+      "id": "M009",
+      "status": "active",
+      "title": "Gameplay parity expansion",
+      "done_when": "Bounded ROM evidence replaces the documented native approximations for ordinary jumps, camera/actor motion, dynamic team/court palette selection, shot/contact/foul/free-throw behavior, and HUD composition."
     }
   ],
   "next_engineering_step": {
-    "id": "M007",
-    "title": "Pixel-accurate title CHR and palette pass",
+    "id": "M009",
+    "title": "Gameplay parity expansion",
     "notes": [
-      "Decode resolved fixed helper bodies into explicit native pattern-table/VRAM staging operations where needed.",
-      "Decode the fixed-helper/queued PPU path that initializes palette RAM and any title palette animation state.",
-      "Keep extracted/generated CHR, palette, or script caches local and ignored.",
-      "Continue committing only safe project UI screenshots; original-title screenshots stay under ignored build output."
+      "Use bounded ROM/FCEUX evidence to replace one documented gameplay approximation at a time.",
+      "Keep numeric close variants identified only as 0 and 2 until a stronger semantic mapping is proved.",
+      "Keep extracted assets, emulator evidence, render checkpoints, logs, and comparisons local and ignored.",
+      "Retain strict same-pack provenance and fail-closed rendering while extending the live scene."
     ]
   }
 }

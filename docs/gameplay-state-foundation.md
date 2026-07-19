@@ -1,9 +1,65 @@
-# Gameplay state foundation provenance
+# Native gameplay state and scene provenance
 
-`tecmo_gameplay_state` is a deterministic, pure-C state boundary. It does not
-render gameplay, load ROM/decompilation/capture files at runtime, synthesize
-audio, detect contact, or claim that gameplay itself is supported. Its events
-are requests for a future runtime integration.
+`tecmo_gameplay_state` remains a deterministic pure-C rules boundary, and is
+now driven by `tecmo_gameplay_scene` in normal preseason and season games. The
+scene renders a strict ROM-derived court and actor poses, drives native music,
+SFX, and the held-ball/dribble DMC event, and returns a completed result to the
+launching mode. It never loads a decompilation file, trace, capture, screenshot,
+video, save state, or dump at runtime.
+
+## Supported runtime boundary
+
+Preseason final team confirmation now launches the selected teams, difficulty,
+control ownership, period length, speed setting, and GAME MUSIC setting. A
+completed preseason game returns to the stable PRESEASON row on the blue menu.
+Season GAME START launches the exact pending schedule ordinal and teams. Its
+non-tied result is committed exactly once through
+`tecmo_season_commit_game_result` before control returns to the season result
+rows; failure to commit leaves the gameplay result active rather than advancing
+the schedule.
+
+Live controls use the native NES responsibilities: directions move the owned
+actor, NES A passes on offense or switches to the nearest defender, and NES B
+starts an offensive shot or attempts a defensive steal/contact action. Offense
+resolves before defense when both sides press B in one update. START and SELECT
+are inert during live play, and a controller with no assigned team cannot act.
+
+The compound scene loads `gameplay/core` TGPL-1 (23416 bytes,
+`2047CCE0`), `gameplay/court` TGCT-1 (6559 bytes, `ECAB7A93`),
+`gameplay/close-shots` TGCS-1 (3144 bytes, `DACDC976`), `audio/music`
+TMUS-1 (36784 bytes, `05C00ECB`), `audio/gameplay-sfx` TSFX-1 (2824
+bytes, `968A5DE6`), `audio/gameplay-dmc` TDMC-1 (2515 bytes,
+`AD70E6E8`), and the exact 262144-byte `chr/all` revision from one asset pack.
+Exact sizes, payload fingerprints, deep indexes, reserved bytes, source-map
+spans, CHR fingerprints, and the shared pack path are validated before the
+scene becomes available. Missing, malformed, oversized, wrong-revision, or
+cross-pack dependencies fail closed without a partial frame.
+
+The two supported close-shot families retain their numeric ROM identities.
+Variant 0 has 32 exact steps in the direct/held-release family; variant 2 has
+16 exact steps in the arc/longer-trajectory/contactable family. Their phase
+tables and 208 profile/direction pose resolutions are exact TGCS/TGPL data.
+Numeric variant 1 remains unexposed. These names do not identify any family as
+a dunk or layup.
+
+State timing is evidence-derived: game-clock divider 45, shot-clock reset 24
+with possession divider 50, an inclusive 31-update fixed expiry wait, 60-frame
+period banners, a 120-frame halftime banner, four presentation lead-in frames,
+120 violation wait frames, and 160 foul wait frames. Violation/foul overlays can
+be dismissed only by NES A release after the lead-in; halftime and final score
+screens use their separate unbounded NES A-release gate. Individual foul-out is
+six, the team-bonus threshold is five in regulation and four in overtime, and
+team fouls clear after the completed period/halftime banner path.
+
+Gameplay track 5 is queued at launch and qualifying restarts only when GAME
+MUSIC is enabled. Presentation track 6 is requested for halftime/final score
+presentation. The scene maps clock expiry to SFX 3, late-clock seconds to 14,
+violations to 6, made shots/free throws to crowd response 11, and motion with a
+held ball to the proven `$B5AB` held-ball/dribble DMC clip. Neutral SFX 5 is
+kept as `BANK05_9FEC_CUE` and is requested only at the evidence-bounded
+foul/restart boundaries under the GAME MUSIC gate. Imported side-result SFX
+12/13 and the remaining address-named DMC clips are not assigned invented live
+meanings.
 
 ## ROM-derived anchors
 
@@ -64,9 +120,26 @@ These are provenance only and are not runtime inputs.
 - Free-throw aiming, release timing, rebound behavior, and post-attempt
   possession are unresolved. Only explicit made/missed results and explicit
   settlement are modeled.
-- Close-shot phases are semantic and have no invented timing. Numeric pose
-  indexes are available only for one bounded rightward actor-9 observation
-  (facing/state transition `06 -> 07`). They are not a universal subtype-01
-  pose chain and do not identify the action as a dunk or layup.
+- The exact TGCS numeric step/phase tables and their TGPL pose resolutions are
+  used directly by the scene. The older state-only rightward actor-9
+  observation remains provenance for the semantic event layer, not a universal
+  animation label.
+- Actor starting layout, camera/orientation composition, movement and AI,
+  ordinary jump-shot timing, shot arc, make/contact policy, the distance policy
+  selecting numeric variant 0 versus 2, dynamic team/court palette selection,
+  foul detection, free-throw aim/timing/result/rebound behavior, and HUD
+  typography are native approximations. The imported TGCT palette bytes and
+  embedded FCEUX RGB profile are exact, but native selection does not yet
+  reproduce all original matchup/state colors. The exact rules state consumes
+  explicit outcomes without turning those scene policies into ROM-exact claims.
+- Local original-frame comparisons at gameplay start and ordinary-jump/numeric-
+  close checkpoints found no unrendered or garbage cells and kept exact assets
+  and poses stable. Camera, spacing, HUD, and dynamic matchup palette selection
+  remain visibly non-identical.
 - The module contains no proprietary ROM bytes, screenshots, traces, save
   states, dumps, or capture artifacts.
+
+Run `tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` for the
+strict full-pack scene test and deterministic 640x480 start, ordinary-jump, and
+numeric-close checkpoints. `--gameplay-state-test`, the TGPL/TGCT/TGCS focused
+suites, and `Run-GameplayAudioTests.ps1` retain their lower-level coverage.

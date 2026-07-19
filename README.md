@@ -95,15 +95,33 @@ The current original-game boundary includes the blue start-game menu,
 PRESEASON through both team selectors, the ALL STAR selectors, TEAM DATA's
 profile/roster/player-detail/STARTERS/PLAYBOOK flows, and native season
 management through TEAM CONTROL, SCHEDULE/PLAYOFF, STANDINGS/PROGRAMMED,
-LEADERS category navigation, and the pending GAME START matchup. In MAN VS MAN,
-controller 2 owns the second preseason division and team selection. Gameplay
-launch remains deliberately blocked, and League Leaders does not fabricate
-ranked player results until per-player season accumulators are ported.
+LEADERS category navigation, and GAME START. Preseason final team confirmation
+and a prepared season GAME START now launch the native gameplay scene. A final
+preseason result returns to the blue-menu PRESEASON row; a season result is
+validated and committed exactly once before returning to the season result
+rows. ALL STAR still ends at its documented prelaunch boundary, and League
+Leaders does not fabricate ranked player results until per-player season
+accumulators are ported.
+
+During gameplay, directions move the owned actor, NES A passes on offense or
+switches defenders, and NES B starts a shot on offense or attempts a defensive
+steal/contact action. START and SELECT are inert. The current scene includes
+ordinary jump shots, the ROM's numeric close-shot variants 0 and 2, score and
+possession changes, shot-clock violations, fouls/free throws, period banners,
+halftime, overtime/final handling, crowd/gameplay audio, and result handoff.
+Static court/CHR/palette assets, the embedded FCEUX RGB profile, numeric
+close-shot step tables, rules timing, and audio programs are ROM-derived. Actor
+layout, movement/AI, ordinary-jump timing, shot physics/results, dynamic
+team/court palette selection, contact/foul detection, free-throw behavior, and
+the temporary HUD typography remain native approximations.
 
 Opening music plays from the strict ROM-derived semantic music asset. GAME
-MUSIC gates future gameplay music, while GAME SPEED remains a stored gameplay
-setting and does not change menu or soundtrack tempo. The visible `SIC` left
-beside the speed popup is an authentic overlap from the original menu.
+MUSIC gates gameplay track 5 and the evidence-bounded restart cue; halftime and
+final presentation request track 6. Crowd, violation, clock/countdown, and
+held-ball/dribble events use strict ROM-derived TSFX-1/TDMC-1 assets. GAME SPEED
+remains a stored gameplay setting and does not change menu or soundtrack tempo.
+The visible `SIC` left beside the speed popup is an authentic overlap from the
+original menu.
 
 Older diagnostic screens and the modern Play Game/Quit menu remain available
 through explicit render-test/debug paths for development work.
@@ -119,6 +137,8 @@ through explicit render-test/debug paths for development work.
 .\build\tecmo_port.exe --flow-test
 .\build\tecmo_port.exe --bank07-test
 .\build\tecmo_port.exe --controls-test
+.\build\tecmo_port.exe --gameplay-state-test
+.\tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 ```
 
 Render the normal menu or a focused intro frame:
@@ -127,6 +147,9 @@ Render the normal menu or a focused intro frame:
 .\build\tecmo_port.exe --render-test-mode menu build\main_menu_test.png
 .\build\tecmo_port.exe --render-test-mode intro-composite-preset build\intro_composite_preset_test.png
 .\build\tecmo_port.exe --render-test-mode intro-arena-frame320 build\intro_arena_frame320_test.png
+.\build\tecmo_port.exe --render-test-mode gameplay-start build\gameplay_start_test.png
+.\build\tecmo_port.exe --render-test-mode gameplay-jump-frame12 build\gameplay_jump_12_test.png
+.\build\tecmo_port.exe --render-test-mode gameplay-close-shot-frame16 build\gameplay_close_16_test.png
 ```
 
 Run every active screenshot test declared in `port_iteration.json`:
@@ -174,6 +197,7 @@ The project is actively porting the original game into native C modules. Current
 - roster parsing from private local labels
 - Bank07 fixed-helper C counterparts
 - the opening sequence path, including the TECMO/rabbit intro, NBA license screen, and arena transition
+- native preseason/season gameplay with strict court, pose, state, and audio assets
 - focused render-test modes for visual regression checks
 
 The public repo remains source-only. Local CHR, OAM, palette, nametable, roster, trace, screenshot, and emulator-capture outputs are generated under ignored paths and should not be committed.

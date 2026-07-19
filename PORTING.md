@@ -277,8 +277,9 @@ pixels and the emblem five pixels per frame; B performs the exact reverse.
 Within that six-item boundary, TEAM CONTROL, SCHEDULE, GAME START, STANDINGS,
 and LEADERS enter native `TECMO_MODE_SEASON_MENU`; TEAM DATA enters
 `TECMO_MODE_TEAM_DATA`. GAME START prepares only the ROM-scheduled pending
-matchup and remains launch-blocked until native gameplay can provide a completed
-result. MUSIC wraps OFF/ON, SPEED wraps FAST/NORMAL/SLOW, and PERIOD
+matchup, then launches it through the native gameplay scene. The schedule and
+records remain unchanged until the matching non-tied result commits. MUSIC
+wraps OFF/ON, SPEED wraps FAST/NORMAL/SLOW, and PERIOD
 clamps across 2/3/4/8/12 minutes. A accepts the highlighted setting and B
 cancels it on release. The native helper `$D723` runs with `$07F6=0`, so held
 A/B never activates. Root, season, MUSIC, and SPEED consider the previous A/B
@@ -316,7 +317,8 @@ while PROGRAMMED uses START/SELECT because B decrements the selected record.
 The recorded-return neutral latch swallows the held return input, its release
 edge, and the first fully neutral frame before the restored menu can process
 input. Explicit debug/test routes keep their modern-menu return. Gameplay
-remains blocked at the PRESEASON, ALL STAR, and SEASON prelaunch boundaries.
+launches from PRESEASON and SEASON through explicit native handoffs. ALL STAR
+remains at its mapped prelaunch boundary.
 
 PRESEASON uses the strict `menu/preseason` TPRE-1 entry. Import composes the
 CONTROL, DIFFICULTY, and DIVISION overlays from Bank03 ROM records over the
@@ -342,13 +344,14 @@ through black counter 0, capped counters 1-4/5-8/9-12, and full counter 13.
 The accepted-input `$E1=5` seed remains frozen throughout setup, teardown,
 team-entry, and team-exit, then decrements only on interactive selector frames.
 
-The supported boundary is the fully interactive second-team screen, not game
-startup. P2 A retains the accepted-input `$E1=5` side effect but cannot execute
-the `$B277-$B282` team-confirmation state advance or fixed `$E481` launch
-chain. TPRE-1 is exactly 26736 bytes / FNV1a32 `D9EE49F4` and depends on the
+Final second-team A retains the accepted-input `$E1=5` side effect and now emits
+an explicit native gameplay launch action. The runtime transfers the selected
+teams, difficulty, ownership, and menu settings without replaying the
+`$B277-$B282` state advance or fixed `$E481` chain. TPRE-1 is exactly 26736
+bytes / FNV1a32 `D9EE49F4` and depends on the
 same pack's 14112-byte TSGM-1 (`DF89006B`) and 262144-byte `chr/all`
 (`F6F6E854` / `96A64F53B240ABB4`). Source-map provenance covers the Bank03
-flow, records, input/coordinate/ownership/team tables, the unexecuted boundary,
+flow, records, input/coordinate/ownership/team tables, the recorded launch boundary,
 Bank01 cursor/player records, all four descriptors/streams/palettes, fixed
 input/loader/fades, and full CHR. Exact-size preflight and deep parsing reject
 missing, malformed, oversized, cross-pack, or wrong-revision assets. No trace,
@@ -509,9 +512,9 @@ Bank06 `$A145-$A149` queues ID 8 with `A9 08 20 0C C0` (FNV1a32
 `1E564AC0`), providing a separate revision-checked source-map anchor for the
 pregame-matchup label.
 
-The gameplay-audio foundation is also ROM-only, but this milestone does not
-wire it into a live gameplay route. The importer emits two same-revision
-dependencies. `audio/gameplay-sfx` is the exact 2824-byte TSFX-1 payload
+Gameplay audio is ROM-only and connected to the live scene. The importer emits
+two same-revision dependencies. `audio/gameplay-sfx` is the exact 2824-byte
+TSFX-1 payload
 (FNV1a32 `968A5DE6`): seven effects (3, 5, 6, 11, 12, 13, 14), 14 voices, 75
 periods, and 131 native semantic instructions. Its safe event vocabulary is
 clock buzzer (shot or period expiry), violation cue (bounded dynamic cutaway
@@ -552,6 +555,14 @@ fail closed. Run the focused private-ROM suite with
 `tools\Run-GameplayAudioTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`; it includes
 retrigger, end-of-clip, and clear-all DAC-continuity checks.
 
+The live scene queues track 5 at launch and qualifying restarts only when GAME
+MUSIC is enabled, and requests track 6 for halftime/final presentation. Its
+evidence-bounded mappings are clock expiry to SFX 3, late-clock countdown to
+14, violation to 6, made shots/free throws to crowd response 11, and moving
+possession to the proven `$B5AB` held-ball/dribble DMC clip. ID 5 remains the
+neutral `BANK05_9FEC_CUE` at its gated foul/restart boundaries. Side-result
+12/13 and address-named DMC clips remain imported without invented live use.
+
 The importer validates the raw finale dispatch chain as `$851C` wait 50 ->
 `$83EA` wait 30 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 ->
 `$FFFF`, with screens `$1C`, `$20`, `$1F`, `$22`, and `$2D`. Selector 2 uses
@@ -589,11 +600,13 @@ Normal gates should stay close to:
 .\build\tecmo_port.exe --assetpack-test
 .\build\tecmo_port.exe --music-test
 .\build\tecmo_port.exe --gameplay-audio-test
+.\build\tecmo_port.exe --gameplay-state-test
 .\build\tecmo_port.exe --team-management-test
 .\build\tecmo_port.exe --season-test
 .\tools\Run-AssetPackTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-MusicTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayAudioTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-IntroSequenceTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-TeamDataTests.ps1 -RomPath <LOCAL_ROM.nes>
 .\tools\Run-TeamManagementTests.ps1 -RomPath <LOCAL_ROM.nes>
@@ -621,14 +634,33 @@ Names in high-level code should describe the ported game behavior:
 Low-level names are acceptable inside modules whose purpose is explicitly NES
 decode, asset import, or historical comparison.
 
-## Pure Gameplay State Foundation
+## Native Gameplay Boundary
 
-The supported boundary in `tecmo_gameplay_state` is deterministic pure state,
-not playable runtime gameplay. It currently has no renderer, runtime caller,
-collision/contact detection, penalty detection, free-throw physics, or audio
-playback. It models only evidence-bounded clock/period transitions,
-presentation input gates, explicit foul/free-throw settlement, and semantic
-numeric-subtype-01 shot phases.
+`tecmo_gameplay_state` remains deterministic pure state, but
+`tecmo_gameplay_scene` now calls it from live preseason and season games. The
+scene owns launch settings and controller/team assignment, ten actors, ball and
+possession invariants, native input, shot animation, audio-event dispatch,
+presentation phases, and final-result handoff. Directions move the owned actor;
+NES A passes on offense or switches defenders; NES B starts an offensive shot
+or attempts a defensive steal/contact action. START and SELECT are inert, and
+unassigned controllers cannot act. Preseason results return to the blue-menu
+PRESEASON row. Season results are matched to the pending ordinal/teams and
+committed exactly once before returning to the existing result rows.
+
+The compound scene strictly loads TGPL-1 `gameplay/core` (23416 bytes,
+`2047CCE0`), TGCT-1 `gameplay/court` (6559 bytes, `ECAB7A93`), TGCS-1
+`gameplay/close-shots` (3144 bytes, `DACDC976`), TMUS-1 `audio/music`, TSFX-1,
+TDMC-1, and the exact `chr/all` revision from one asset-pack path. Exact-size
+reads, payload/CHR fingerprints, deep indexes, reserved bytes, and source-map
+provenance are hard requirements. Missing, malformed, oversized,
+wrong-revision, or cross-pack data fails before availability; a draw preflight
+prevents partial framebuffer updates.
+
+Numeric close variant 0 has the exact 32-step direct/held-release table and
+variant 2 has the exact 16-step arc/longer-trajectory/contactable table. Their
+phase bytes and 208 profile/direction TGPL pose resolutions are ROM-derived;
+numeric variant 1 is not exposed. These numeric families are not assigned an
+unproved dunk or layup label.
 
 Period completion follows fixed `$E59B->$E823`: regulation M:00 and divider 45
 are prepared before selecting the next banner, halftime, overtime, or final
@@ -641,6 +673,23 @@ reset is `$E765-$E76F`, presentation release handling is `$EA14-$EA2F` with
 `$D2B9-$D2CE`, and Bank06 `$BC3C-$BCF9` supplies the separate unbounded
 halftime/final A-release loop. Detailed evidence limits and shot/foul anchors
 are in `docs/gameplay-state-foundation.md`.
+
+The exact boundary covers court/CHR/imported palette data and the embedded
+FCEUX RGB profile, actor-pose decoding, numeric
+close-shot steps, state/event timing, foul thresholds, period/halftime/final
+transitions, and audio programs/mappings. Actor/camera layout, movement/AI,
+ordinary jump timing, ball arc and make/contact policy, the trigger selecting
+numeric variant 0 versus 2, dynamic team/court palette selection, foul
+detection, free-throw aim/timing/outcome/rebound, and HUD typography remain
+explicit native approximations. Local original-frame comparisons found no
+unrendered or garbage cells and kept exact assets/poses stable, but camera,
+spacing, HUD, and matchup palette selection are visibly not frame-identical.
+Test with
+`tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`; its private
+scratch pack, logs, and PNGs remain under ignored `build\` output.
+The strict runtime checkpoints are `gameplay-start`,
+`gameplay-jump-frameN`, and `gameplay-close-shot-frameN`; the focused runner
+covers meaningful interior frames plus the 40/32 endpoints.
 
 ## Migration Policy
 
@@ -668,9 +717,10 @@ GAME START now has an explicit two-step boundary. Preparing the next matchup
 resolves only the ROM schedule ordinal and teams and sets a pending result; it
 does not change TSAV-1. `tecmo_season_commit_game_result` validates the pending
 ordinal, teams, non-tied completed score, record limits, and save path before
-atomically committing one result. No runtime gameplay caller exists yet, so
-normal play stops at the mapped `$8599->$B27F` launch boundary without changing
-the schedule or records.
+atomically committing one result. The native gameplay scene launches at the
+mapped `$8599->$B27F` boundary, returns the same ordinal/teams plus final score,
+and remains active if the commit fails. A successful commit ends it and returns
+to the season result rows without reinitializing the session.
 
 League Leaders supports the seven-category ROM navigation table at
 `$AD3D-$AD58`. The earlier renderer incorrectly placed Bank01 `$8031` over the
