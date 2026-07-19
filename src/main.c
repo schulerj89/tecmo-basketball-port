@@ -1229,6 +1229,9 @@ int main(int argc, char **argv)
                                         &runtime->season_session);
                 if (strcmp(mode_name, "season-schedule-popup") == 0)
                     runtime->season_state.phase = TECMO_SEASON_SCHEDULE_POPUP;
+                if (strcmp(mode_name, "season-schedule-popup") == 0)
+                    runtime->season_state.popup_rows_visible =
+                        runtime->season_asset.menu_boxes[0][1];
             } else if (strcmp(mode_name, "season-playoff") == 0 ||
                        strcmp(mode_name, "season-playoff-mid") == 0 ||
                        strcmp(mode_name, "season-playoff-east") == 0) {
@@ -1802,17 +1805,21 @@ int main(int argc, char **argv)
                            &runtime->team_data_state) ? 1U : 0U);
             }
             if (strncmp(mode_name, "season-", 7) == 0) {
-                printf("season-state phase=%s type=%s schedule=%u team=%u popup=%u playoff-scroll=%u page=%u panel=%u editor-team=%u leader=%u launch-blocked=%u save=%u\n",
+                printf("season-state phase=%s type=%s schedule=%u team=%u popup=%u popup-rows=%u playoff-scroll=%u page=%u panel=%u editor-team=%u leader=%u leader-result=%u game-results=%u/%u launch-blocked=%u save=%u\n",
                        tecmo_season_phase_name(runtime->season_state.phase),
                        tecmo_season_type_name(runtime->season_session.season_type),
                        (unsigned)runtime->season_state.schedule_selection,
                        (unsigned)runtime->season_state.team_selection,
                        (unsigned)runtime->season_state.popup_selection,
+                       (unsigned)runtime->season_state.popup_rows_visible,
                        (unsigned)runtime->season_state.playoff_scroll,
                        (unsigned)runtime->season_state.standings_page,
                        (unsigned)runtime->season_state.editor_panel,
                        (unsigned)runtime->season_state.editor_team,
                        (unsigned)runtime->season_state.leader_category,
+                       runtime->season_state.leaders_results ? 1U : 0U,
+                       (unsigned)runtime->season_state.game_result_visible_rows,
+                       (unsigned)(runtime->season_state.game_result_count * 2U),
                        runtime->season_state.game_launch_blocked ? 1U : 0U,
                        (unsigned)runtime->season_session.save_status);
             }

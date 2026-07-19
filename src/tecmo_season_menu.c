@@ -6,9 +6,14 @@
 #include "tecmo_nes_video.h"
 
 #include <limits.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifndef _WIN32
+#include <sys/stat.h>
+#endif
 
 #ifdef _WIN32
 #include <direct.h>
@@ -16,8 +21,8 @@
 #endif
 
 #define SEASON_ENTRY_ID "menu/season"
-#define SEASON_PAYLOAD_SIZE 101708U
-#define SEASON_PAYLOAD_FNV1A32 0xA4AF3037U
+#define SEASON_PAYLOAD_SIZE 104732U
+#define SEASON_PAYLOAD_FNV1A32 0x29C64F84U
 #define SEASON_CHR_SIZE 262144U
 #define SEASON_CHR_FNV1A32 0xF6F6E854U
 #define SEASON_CHR_FNV1A64 0x96A64F53B240ABB4ULL
@@ -41,6 +46,8 @@
 #define SEASON_LEADER_TEMPLATE_OFFSET 61269U
 #define SEASON_LEADER_SCREEN_CELLS_OFFSET 61276U
 #define SEASON_LEADER_PALETTES_OFFSET 101596U
+#define SEASON_POPUP_DESCS_OFFSET 101708U
+#define SEASON_POPUP_CELLS_OFFSET 101756U
 #define SEASON_SAVE_SIZE 108U
 #define SEASON_SAVE_HEADER_SIZE 24U
 #define SEASON_SAVE_PAYLOAD_SIZE 84U
@@ -188,6 +195,9 @@ static bool parse_cell(TecmoStartGameMenuCell *cell,
            cell->chr_offset + 16U <= SEASON_CHR_SIZE;
 }
 
+static bool schedule_record_selected(uint8_t season_type,
+                                     const uint8_t record[2]);
+
 static bool parse_padded_text(char *destination,
                               size_t destination_size,
                               const uint8_t *source,
@@ -226,10 +236,6 @@ static bool parse_payload(TecmoSeasonAsset *asset,
     static const uint8_t leader_selectors[14] = {
         0xFAU,0xFAU, 0xFAU,0x2EU, 0xFAU,0x2EU, 0xFAU,0x2EU,
         0xFAU,0x2EU, 0xFAU,0x2EU, 0xFAU,0x2EU
-    };
-    static const char *leader_labels[7] = {
-        "FIELD GOALS", "BLOCKED SHOTS", "REBOUNDS", "TOTAL POINTS",
-        "STEALS", "3 POINT SHOTS", "FREE THROWS"
     };
 
     if (bytes == NULL || count != SEASON_PAYLOAD_SIZE ||
@@ -281,7 +287,45 @@ static bool parse_payload(TecmoSeasonAsset *asset,
         memcmp(bytes + 155U, leader_selectors,
                sizeof(leader_selectors)) != 0)
         return false;
-    for (size_t i = 169U; i < SEASON_HEADER_SIZE; ++i)
+    if (bytes[169U] < 0x20U ||
+        bytes[169U] >= 0x20U + TECMO_SEASON_FONT_COUNT ||
+        bytes[170U] < 0x20U ||
+        bytes[170U] >= 0x20U + TECMO_SEASON_FONT_COUNT ||
+        bytes[171U] != 0U || bytes[172U] != 0U)
+        return false;
+    for (size_t box = 0U; box < 3U; ++box) {
+        const uint8_t *record = bytes + 173U + box * 4U;
+        if (record[0] == 0U || record[1] == 0U ||
+            (unsigned)record[0] + record[2] > 32U ||
+            (unsigned)record[1] + record[3] > 30U)
+            return false;
+    }
+    if (read_u32(bytes + 185U) != SEASON_POPUP_DESCS_OFFSET ||
+        read_u32(bytes + 189U) != SEASON_POPUP_CELLS_OFFSET ||
+        read_u16(bytes + 193U) != TECMO_SEASON_POPUP_CELL_COUNT ||
+        bytes[195U] != 3U || bytes[196U] != 16U)
+        return false;
+    {
+        static const uint8_t option_counts[3] = {2U, 2U, 4U};
+        size_t input = 197U;
+        for (size_t menu = 0U; menu < 3U; ++menu)
+            for (size_t option = 0U; option < option_counts[menu]; ++option) {
+                uint8_t x = bytes[input++];
+                uint8_t y = bytes[input++];
+                if (x > 247U || y > 223U) return false;
+                asset->popup_cursor_x[menu][option] = x;
+                asset->popup_cursor_y[menu][option] = y;
+            }
+    }
+    if (bytes[213U] != 0xFFU || bytes[219U] != 0x00U ||
+        bytes[225U] != 0xF8U ||
+        !parse_cell(&asset->zero_games_behind_cells[0], bytes + 213U,
+                    0xFAU, 0xFAU) ||
+        !parse_cell(&asset->zero_games_behind_cells[1], bytes + 219U,
+                    0xFAU, 0xFAU) ||
+        !parse_cell(&asset->half_game_cell, bytes + 225U, 0xFAU, 0xFAU))
+        return false;
+    for (size_t i = 231U; i < SEASON_HEADER_SIZE; ++i)
         if (bytes[i] != 0U) return false;
 
     for (size_t screen = 0U; screen < TECMO_SEASON_SCREEN_COUNT; ++screen) {
@@ -336,6 +380,21 @@ static bool parse_payload(TecmoSeasonAsset *asset,
             asset->schedule[game][side] = value;
         }
     }
+    for (uint8_t type = 0U; type < 4U; ++type) {
+        uint16_t expected = read_u16(bytes + 92U + (size_t)type * 2U);
+        uint16_t selected = 0U;
+        uint8_t games_by_team[TECMO_SEASON_TEAM_COUNT] = {0};
+        unsigned target = (unsigned)expected * 2U / TECMO_SEASON_TEAM_COUNT;
+        for (size_t raw = 0U; raw < TECMO_SEASON_SCHEDULE_COUNT; ++raw) {
+            if (!schedule_record_selected(type, asset->schedule[raw])) continue;
+            ++selected;
+            ++games_by_team[asset->schedule[raw][0] & 0x3FU];
+            ++games_by_team[asset->schedule[raw][1] & 0x3FU];
+        }
+        if (selected != expected) return false;
+        for (size_t team = 0U; team < TECMO_SEASON_TEAM_COUNT; ++team)
+            if (games_by_team[team] != target) return false;
+    }
     for (size_t mode = 0U; mode < 4U; ++mode)
         for (size_t glyph = 0U; glyph < 3U; ++glyph) {
             const uint8_t *record = bytes + SEASON_CONTROL_CELLS_OFFSET +
@@ -347,14 +406,23 @@ static bool parse_payload(TecmoSeasonAsset *asset,
         }
     for (size_t i = 0U; i < TECMO_SEASON_LEADER_COUNT; ++i) {
         const char *source = (const char *)bytes + SEASON_LEADERS_OFFSET + i * 20U;
-        size_t expected_length = strlen(leader_labels[i]);
-        if (expected_length >= 20U ||
-            memcmp(source, leader_labels[i], expected_length + 1U) != 0)
+        size_t length = 0U;
+        while (length < 20U && source[length] != '\0') {
+            if ((unsigned char)source[length] < 0x20U ||
+                (unsigned char)source[length] > 0x7EU)
+                return false;
+            ++length;
+        }
+        if (length == 0U || length == 20U)
             return false;
-        for (size_t j = expected_length + 1U; j < 20U; ++j)
+        for (size_t j = length + 1U; j < 20U; ++j)
             if (source[j] != '\0') return false;
         memcpy(asset->leader_labels[i], source, 20U);
     }
+    asset->overtime_text[0] = (char)bytes[169U];
+    asset->overtime_text[1] = (char)bytes[170U];
+    asset->overtime_text[2] = '\0';
+    memcpy(asset->menu_boxes, bytes + 173U, sizeof(asset->menu_boxes));
     {
         const uint8_t *source = bytes + SEASON_MENU_TEXT_OFFSET;
         for (size_t i = 0U; i < 3U; ++i)
@@ -418,6 +486,40 @@ static bool parse_payload(TecmoSeasonAsset *asset,
             if (value > 0x3FU) return false;
             asset->leader_palettes[screen][color] = value;
         }
+    }
+    {
+        size_t expected_start = 0U;
+        for (size_t overlay = 0U; overlay < 3U; ++overlay) {
+            const uint8_t *desc = bytes + SEASON_POPUP_DESCS_OFFSET +
+                                  overlay * 16U;
+            TecmoSeasonPopupOverlay *target = &asset->popup_overlays[overlay];
+            target->cell_start = read_u16(desc);
+            target->cell_count = read_u16(desc + 2U);
+            target->width = read_u16(desc + 4U);
+            target->height = read_u16(desc + 6U);
+            target->origin_x = read_u16(desc + 8U);
+            target->origin_y = read_u16(desc + 10U);
+            if (target->cell_start != expected_start ||
+                target->cell_count != target->width * target->height ||
+                target->width != asset->menu_boxes[overlay][0] ||
+                target->height != asset->menu_boxes[overlay][1] ||
+                target->origin_x != asset->menu_boxes[overlay][2] ||
+                target->origin_y != asset->menu_boxes[overlay][3] ||
+                target->origin_x + target->width > 32U ||
+                target->origin_y + target->height > 30U ||
+                desc[12U] != overlay || desc[13U] != 0U ||
+                desc[14U] != 0U || desc[15U] != 0U ||
+                expected_start + target->cell_count >
+                    TECMO_SEASON_POPUP_CELL_COUNT)
+                return false;
+            expected_start += target->cell_count;
+        }
+        if (expected_start != TECMO_SEASON_POPUP_CELL_COUNT) return false;
+        for (size_t cell = 0U; cell < TECMO_SEASON_POPUP_CELL_COUNT; ++cell)
+            if (!parse_cell(&asset->popup_cells[cell],
+                            bytes + SEASON_POPUP_CELLS_OFFSET + cell * 6U,
+                            0x76U, 0xFAU))
+                return false;
     }
     for (size_t i = 0U; i < 4U; ++i)
         asset->game_counts[i] = read_u16(bytes + 92U + i * 2U);
@@ -517,7 +619,7 @@ static bool parse_save(TecmoSeasonSession *session,
             payload[28U + team] + payload[55U + team] > 82U)
             return false;
     }
-    if (read_u16(payload + 82U) >= season_game_count(payload[0])) return false;
+    if (read_u16(payload + 82U) > season_game_count(payload[0])) return false;
     session->season_type = payload[0];
     memcpy(session->team_control, payload + 1U, TECMO_SEASON_TEAM_COUNT);
     memcpy(session->wins, payload + 28U, TECMO_SEASON_TEAM_COUNT);
@@ -527,13 +629,40 @@ static bool parse_save(TecmoSeasonSession *session,
     return true;
 }
 
+typedef enum SeasonPathState {
+    SEASON_PATH_MISSING = 0,
+    SEASON_PATH_PRESENT,
+    SEASON_PATH_ERROR
+} SeasonPathState;
+
+static SeasonPathState season_path_state(const char *path)
+{
+#ifdef _WIN32
+    DWORD attributes = GetFileAttributesA(path);
+    if (attributes != INVALID_FILE_ATTRIBUTES) return SEASON_PATH_PRESENT;
+    {
+        DWORD error = GetLastError();
+        if (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND)
+            return SEASON_PATH_MISSING;
+    }
+    return SEASON_PATH_ERROR;
+#else
+    struct stat info;
+    if (stat(path, &info) == 0) return SEASON_PATH_PRESENT;
+    return errno == ENOENT ? SEASON_PATH_MISSING : SEASON_PATH_ERROR;
+#endif
+}
+
 void tecmo_season_session_init(TecmoSeasonSession *session,
                                const char *project_root)
 {
     uint8_t bytes[SEASON_SAVE_SIZE];
+    char legacy_path[1024];
     FILE *file;
     size_t got;
     int trailing;
+    bool migrated = false;
+    SeasonPathState new_path_state;
     if (session == NULL) return;
     memset(session, 0, sizeof(*session));
     session_defaults(session);
@@ -541,14 +670,40 @@ void tecmo_season_session_init(TecmoSeasonSession *session,
     (void)snprintf(session->status, sizeof(session->status),
                    "ROM clean defaults");
     if (make_path(session->save_path, sizeof(session->save_path), project_root,
+                  "saves\\tecmo-season.sav") != 0 ||
+        make_path(legacy_path, sizeof(legacy_path), project_root,
                   "build\\tecmo-season.sav") != 0) {
         session->save_status = TECMO_SEASON_SAVE_IO_ERROR;
         (void)snprintf(session->status, sizeof(session->status),
                        "season save path unavailable");
         return;
     }
-    file = fopen(session->save_path, "rb");
-    if (file == NULL) return;
+    new_path_state = season_path_state(session->save_path);
+    if (new_path_state == SEASON_PATH_PRESENT) {
+        file = fopen(session->save_path, "rb");
+        if (file == NULL) {
+            session->save_status = TECMO_SEASON_SAVE_IO_ERROR;
+            (void)snprintf(session->status, sizeof(session->status),
+                           "existing TSAV-1 could not be read; ROM defaults active");
+            return;
+        }
+    } else if (new_path_state == SEASON_PATH_ERROR) {
+        session->save_status = TECMO_SEASON_SAVE_IO_ERROR;
+        (void)snprintf(session->status, sizeof(session->status),
+                       "TSAV-1 existence check failed; ROM defaults active");
+        return;
+    } else {
+        SeasonPathState legacy_state = season_path_state(legacy_path);
+        if (legacy_state == SEASON_PATH_MISSING) return;
+        if (legacy_state == SEASON_PATH_ERROR ||
+            (file = fopen(legacy_path, "rb")) == NULL) {
+            session->save_status = TECMO_SEASON_SAVE_IO_ERROR;
+            (void)snprintf(session->status, sizeof(session->status),
+                           "legacy TSAV-1 could not be read; ROM defaults active");
+            return;
+        }
+        migrated = true;
+    }
     got = fread(bytes, 1U, sizeof(bytes), file);
     trailing = fgetc(file);
     fclose(file);
@@ -560,8 +715,21 @@ void tecmo_season_session_init(TecmoSeasonSession *session,
         return;
     }
     session->save_status = TECMO_SEASON_SAVE_LOADED;
-    (void)snprintf(session->status, sizeof(session->status),
-                   "strict TSAV-1 loaded");
+    if (migrated) {
+        session->dirty = true;
+        if (!tecmo_season_session_save(session)) {
+            session->save_status = TECMO_SEASON_SAVE_IO_ERROR;
+            (void)snprintf(session->status, sizeof(session->status),
+                           "legacy TSAV-1 loaded; migration failed");
+            return;
+        }
+        session->save_status = TECMO_SEASON_SAVE_LOADED;
+        (void)snprintf(session->status, sizeof(session->status),
+                       "strict TSAV-1 loaded and migrated");
+    } else {
+        (void)snprintf(session->status, sizeof(session->status),
+                       "strict TSAV-1 loaded");
+    }
 }
 
 bool tecmo_season_session_save(TecmoSeasonSession *session)
@@ -569,12 +737,12 @@ bool tecmo_season_session_save(TecmoSeasonSession *session)
     uint8_t bytes[SEASON_SAVE_SIZE] = {0};
     uint8_t *payload = bytes + SEASON_SAVE_HEADER_SIZE;
     char temp_path[1060];
-    char build_path[1024];
+    char parent_path[1024];
     FILE *file;
     int written;
     if (session == NULL || session->save_path[0] == '\0' ||
         session->season_type >= 4U ||
-        session->schedule_index >= season_game_count(session->season_type))
+        session->schedule_index > season_game_count(session->season_type))
         return false;
     for (size_t team = 0U; team < TECMO_SEASON_TEAM_COUNT; ++team)
         if (session->team_control[team] >= 4U || session->wins[team] > 82U ||
@@ -591,13 +759,13 @@ bool tecmo_season_session_save(TecmoSeasonSession *session)
     memcpy(payload + 55U, session->losses, TECMO_SEASON_TEAM_COUNT);
     write_u16(payload + 82U, session->schedule_index);
     write_u32(bytes + 12U, fnv1a32(payload, SEASON_SAVE_PAYLOAD_SIZE));
-    (void)snprintf(build_path, sizeof(build_path), "%s", session->save_path);
+    (void)snprintf(parent_path, sizeof(parent_path), "%s", session->save_path);
     {
-        char *slash = strrchr(build_path, '\\');
+        char *slash = strrchr(parent_path, '\\');
         if (slash != NULL) {
             *slash = '\0';
 #ifdef _WIN32
-            (void)_mkdir(build_path);
+            (void)_mkdir(parent_path);
 #endif
         }
     }
@@ -675,8 +843,14 @@ void tecmo_season_state_init(TecmoSeasonState *state,
         break;
     }
     if (session != NULL) {
-        state->schedule_selection = session->schedule_index;
+        uint16_t count = season_game_count(session->season_type);
+        state->schedule_selection = session->schedule_index < count
+                                        ? session->schedule_index
+                                        : (count == 0U ? 0U
+                                                       : (uint16_t)(count - 1U));
         state->season_type_selection = session->season_type;
+        state->season_complete = session->schedule_index == count;
+        state->game_batch_pending = route == TECMO_SEASON_ROUTE_GAME_START;
     }
 }
 
@@ -704,6 +878,7 @@ static bool cancel_released(const TecmoControlFrame *controls)
 
 typedef enum TecmoSeasonDirection {
     TECMO_SEASON_DIRECTION_NONE,
+    TECMO_SEASON_DIRECTION_INVALID,
     TECMO_SEASON_DIRECTION_UP,
     TECMO_SEASON_DIRECTION_DOWN,
     TECMO_SEASON_DIRECTION_LEFT,
@@ -725,7 +900,7 @@ static TecmoSeasonDirection gated_direction(
     case 0x04U: return TECMO_SEASON_DIRECTION_DOWN;
     case 0x02U: return TECMO_SEASON_DIRECTION_LEFT;
     case 0x01U: return TECMO_SEASON_DIRECTION_RIGHT;
-    default: return TECMO_SEASON_DIRECTION_NONE;
+    default: return TECMO_SEASON_DIRECTION_INVALID;
     }
 }
 
@@ -769,24 +944,240 @@ static bool valid_runtime_state(const TecmoSeasonAsset *asset,
                                 const TecmoSeasonSession *session,
                                 const TecmoSeasonState *state);
 
-/* Bank 03 $A68F-$A6B1, in the fresh order produced by $A5BE/$A697. */
-static const uint8_t season_division_offsets[5] = {0U, 7U, 14U, 20U, 27U};
-static const uint8_t season_standings_teams[TECMO_SEASON_TEAM_COUNT] = {
-    26U, 16U, 1U, 18U, 13U, 19U, 17U,
-    0U, 7U, 2U, 4U, 14U, 3U, 10U,
-    9U, 25U, 5U, 6U, 15U, 23U,
-    12U, 24U, 20U, 11U, 22U, 21U, 8U
-};
-
-static uint8_t season_page_team_count(size_t page)
+static size_t season_division_start(const TecmoSeasonAsset *asset,
+                                    size_t division)
 {
-    return page == 0U ? 14U : 13U;
+    return division < 4U ? asset->division_starts[division]
+                         : TECMO_SEASON_TEAM_COUNT;
 }
 
-static uint8_t season_page_team(size_t page, uint8_t index)
+static size_t season_division_count(const TecmoSeasonAsset *asset,
+                                    size_t division)
 {
-    size_t base = page == 0U ? 0U : 14U;
-    return season_standings_teams[base + index];
+    return season_division_start(asset, division + 1U) -
+           season_division_start(asset, division);
+}
+
+static uint8_t season_division_team(const TecmoSeasonAsset *asset,
+                                    size_t division,
+                                    size_t row)
+{
+    size_t end = season_division_start(asset, division + 1U);
+    return asset->division_teams[end - 1U - row];
+}
+
+static uint8_t season_page_team_count(const TecmoSeasonAsset *asset,
+                                      size_t page)
+{
+    return (uint8_t)(season_division_count(asset, page * 2U) +
+                     season_division_count(asset, page * 2U + 1U));
+}
+
+static uint8_t season_page_team(const TecmoSeasonAsset *asset,
+                                size_t page,
+                                uint8_t index)
+{
+    size_t first_division = page * 2U;
+    size_t first_count = season_division_count(asset, first_division);
+    if (index < first_count)
+        return season_division_team(asset, first_division, index);
+    return season_division_team(asset, first_division + 1U,
+                                (size_t)index - first_count);
+}
+
+static bool schedule_record_selected(uint8_t season_type,
+                                     const uint8_t record[2])
+{
+    if (season_type == TECMO_SEASON_SHORT)
+        return (record[0] & 0x80U) != 0U && (record[1] & 0x80U) != 0U;
+    if (season_type == TECMO_SEASON_REDUCED)
+        return (record[0] & 0x80U) != 0U;
+    return season_type == TECMO_SEASON_REGULAR ||
+           season_type == TECMO_SEASON_PROGRAMMED;
+}
+
+static bool season_schedule_raw_index(const TecmoSeasonAsset *asset,
+                                      uint8_t season_type,
+                                      uint16_t ordinal,
+                                      uint16_t *raw_index)
+{
+    uint16_t selected = 0U;
+    if (asset == NULL || raw_index == NULL || season_type >= 4U ||
+        ordinal >= asset->game_counts[season_type])
+        return false;
+    for (uint16_t raw = 0U; raw < TECMO_SEASON_SCHEDULE_COUNT; ++raw) {
+        if (!schedule_record_selected(season_type, asset->schedule[raw]))
+            continue;
+        if (selected == ordinal) {
+            *raw_index = raw;
+            return true;
+        }
+        ++selected;
+    }
+    return false;
+}
+
+static uint32_t season_score_seed(uint16_t game,
+                                  uint8_t away,
+                                  uint8_t home)
+{
+    uint32_t value = 0x9E3779B9U ^ ((uint32_t)game + 1U) * 0x45D9F3BU;
+    value ^= ((uint32_t)away << 8U) | home;
+    value ^= value >> 16U;
+    value *= 0x7FEB352DU;
+    value ^= value >> 15U;
+    return value;
+}
+
+static void simulate_skip_game(TecmoSeasonSession *session,
+                               uint16_t game,
+                               uint8_t away,
+                               uint8_t home,
+                               TecmoSeasonGameResult *result)
+{
+    uint32_t seed = season_score_seed(game, away, home);
+    uint16_t away_score = (uint16_t)(72U + seed % 49U);
+    uint16_t home_score = (uint16_t)(72U + (seed >> 9U) % 49U);
+    bool overtime = (seed & 0x1FU) == 0U || away_score == home_score;
+    if (away_score == home_score)
+        home_score = (uint16_t)(home_score + 2U + ((seed >> 20U) & 3U));
+    result->game_index = game;
+    result->away_team = away;
+    result->home_team = home;
+    result->away_score = away_score;
+    result->home_score = home_score;
+    result->overtime = overtime;
+    if ((unsigned)session->wins[away] + session->losses[away] < 82U &&
+        (unsigned)session->wins[home] + session->losses[home] < 82U) {
+        if (away_score > home_score) {
+            ++session->wins[away];
+            ++session->losses[home];
+        } else {
+            ++session->losses[away];
+            ++session->wins[home];
+        }
+    }
+}
+
+static void prepare_skip_batch(TecmoSeasonState *state,
+                               const TecmoSeasonAsset *asset,
+                               TecmoSeasonSession *session)
+{
+    uint16_t count = asset->game_counts[session->season_type];
+    uint16_t game = session->schedule_index;
+    uint16_t original_game = game;
+    unsigned target_games = (unsigned)count * 2U / TECMO_SEASON_TEAM_COUNT;
+    state->game_result_count = 0U;
+    state->game_result_visible_rows = 0U;
+    state->game_launch_blocked = false;
+    state->game_batch_pending = false;
+    state->season_complete = game >= count;
+    if (state->season_complete) return;
+    while (game < count && state->game_result_count < 4U) {
+        uint16_t raw;
+        uint8_t away;
+        uint8_t home;
+        if (!season_schedule_raw_index(asset, session->season_type,
+                                       game, &raw)) {
+            state->game_launch_blocked = true;
+            break;
+        }
+        away = asset->schedule[raw][0] & 0x3FU;
+        home = asset->schedule[raw][1] & 0x3FU;
+        if ((unsigned)session->wins[away] + session->losses[away] >=
+                target_games ||
+            (unsigned)session->wins[home] + session->losses[home] >=
+                target_games) {
+            ++game;
+            continue;
+        }
+        if (session->team_control[away] != 0U ||
+            session->team_control[home] != 0U) {
+            if (state->game_result_count == 0U)
+                state->game_launch_blocked = true;
+            break;
+        }
+        simulate_skip_game(session, raw, away, home,
+                           &state->game_results[state->game_result_count]);
+        ++state->game_result_count;
+        ++game;
+    }
+    if (game != original_game) {
+        state->game_result_visible_rows = 1U;
+        if (state->game_result_count == 0U)
+            state->game_result_visible_rows = 0U;
+        session->schedule_index = game;
+        state->schedule_selection = game < count ? game
+                                                  : (uint16_t)(count - 1U);
+        state->season_complete = game == count;
+        persist_change(session);
+    }
+}
+
+static int popup_box_index(TecmoSeasonPhase phase)
+{
+    switch (phase) {
+    case TECMO_SEASON_SCHEDULE_POPUP: return 0;
+    case TECMO_SEASON_RESET_CONFIRM: return 1;
+    case TECMO_SEASON_TYPE_SELECT: return 2;
+    default: return -1;
+    }
+}
+
+static void begin_popup(TecmoSeasonState *state, TecmoSeasonPhase phase)
+{
+    state->phase = phase;
+    state->popup_rows_visible = 0U;
+    state->popup_animation_tick = 0U;
+    state->popup_open_sync_frames = 1U;
+    state->popup_closing = false;
+}
+
+static void close_popup(TecmoSeasonState *state, TecmoSeasonPhase target)
+{
+    state->popup_target_phase = target;
+    state->popup_animation_tick = 0U;
+    state->popup_open_sync_frames = 0U;
+    state->popup_closing = true;
+}
+
+static bool update_popup_animation(TecmoSeasonState *state,
+                                   const TecmoSeasonAsset *asset)
+{
+    int box_index = popup_box_index(state->phase);
+    uint8_t height;
+    if (box_index < 0) return false;
+    height = asset->menu_boxes[box_index][1];
+    if (!state->popup_closing && state->popup_rows_visible >= height)
+        return false;
+    if (!state->popup_closing && state->popup_open_sync_frames != 0U) {
+        --state->popup_open_sync_frames;
+        return true;
+    }
+    ++state->popup_animation_tick;
+    if (state->popup_animation_tick < 10U) return true;
+    state->popup_animation_tick = 0U;
+    if (state->popup_closing) {
+        if (state->popup_rows_visible != 0U)
+            --state->popup_rows_visible;
+        if (state->popup_rows_visible == 0U) {
+            TecmoSeasonPhase target = state->popup_target_phase;
+            state->popup_closing = false;
+            if (target == TECMO_SEASON_SCHEDULE_POPUP) {
+                state->phase = target;
+                state->popup_rows_visible = asset->menu_boxes[0][1];
+                state->popup_animation_tick = 0U;
+                state->popup_open_sync_frames = 0U;
+            } else if (popup_box_index(target) >= 0) {
+                begin_popup(state, target);
+            } else {
+                state->phase = target;
+            }
+        }
+    } else {
+        ++state->popup_rows_visible;
+    }
+    return true;
 }
 
 TecmoSeasonAction tecmo_season_update(TecmoSeasonState *state,
@@ -797,17 +1188,28 @@ TecmoSeasonAction tecmo_season_update(TecmoSeasonState *state,
     TecmoSeasonDirection direction;
     bool accept;
     bool cancel;
+    bool direction_consumed;
     if (state == NULL || asset == NULL || session == NULL || controls == NULL)
         return TECMO_SEASON_ACTION_NONE;
     ++state->frame;
     if (!asset->available || !valid_runtime_state(asset, session, state))
         return TECMO_SEASON_ACTION_NONE;
-    accept = state->phase != TECMO_SEASON_PROGRAMMED_EDITOR &&
+    if (update_popup_animation(state, asset))
+        return finish_update(state, TECMO_SEASON_ACTION_NONE, false);
+    direction = state->phase == TECMO_SEASON_LEADERS ||
+                        state->phase == TECMO_SEASON_GAME_START
+                    ? TECMO_SEASON_DIRECTION_NONE
+                    : gated_direction(state, controls);
+    direction_consumed = direction != TECMO_SEASON_DIRECTION_NONE;
+    accept = !direction_consumed &&
+             state->phase != TECMO_SEASON_PROGRAMMED_EDITOR &&
+             state->phase != TECMO_SEASON_LEADERS &&
              accept_released(controls);
-    cancel = state->phase != TECMO_SEASON_PROGRAMMED_EDITOR &&
+    cancel = !direction_consumed &&
+             state->phase != TECMO_SEASON_PROGRAMMED_EDITOR &&
+             state->phase != TECMO_SEASON_LEADERS &&
              cancel_released(controls);
     if (accept || cancel) state->direction_cooldown = 5U;
-    direction = gated_direction(state, controls);
 
     switch (state->phase) {
     case TECMO_SEASON_TEAM_CONTROL:
@@ -841,7 +1243,7 @@ TecmoSeasonAction tecmo_season_update(TecmoSeasonState *state,
 
     case TECMO_SEASON_SCHEDULE:
         if (accept) {
-            state->phase = TECMO_SEASON_SCHEDULE_POPUP;
+            begin_popup(state, TECMO_SEASON_SCHEDULE_POPUP);
             state->popup_selection = 0U;
             break;
         }
@@ -854,22 +1256,26 @@ TecmoSeasonAction tecmo_season_update(TecmoSeasonState *state,
             uint16_t count = asset->game_counts[session->season_type];
             state->schedule_selection = wrap_u16(state->schedule_selection,
                 count, direction == TECMO_SEASON_DIRECTION_UP ? -1 : 1);
-            session->schedule_index = state->schedule_selection;
-            persist_change(session);
         }
         break;
 
     case TECMO_SEASON_SCHEDULE_POPUP:
         if (accept) {
-            state->phase = state->popup_selection == 0U
-                               ? TECMO_SEASON_PLAYOFF
-                               : TECMO_SEASON_RESET_CONFIRM;
-            state->popup_selection = 0U;
-            state->playoff_scroll = 0U;
+            if (state->popup_selection == 0U) {
+                state->phase = TECMO_SEASON_PLAYOFF;
+                state->playoff_scroll = 0U;
+                state->popup_rows_visible = 0U;
+                state->popup_animation_tick = 0U;
+                state->popup_open_sync_frames = 0U;
+                state->popup_closing = false;
+            } else {
+                state->popup_selection = 0U;
+                begin_popup(state, TECMO_SEASON_RESET_CONFIRM);
+            }
             break;
         }
         if (cancel) {
-            state->phase = TECMO_SEASON_SCHEDULE;
+            close_popup(state, TECMO_SEASON_SCHEDULE);
             break;
         }
         if (direction == TECMO_SEASON_DIRECTION_UP ||
@@ -892,6 +1298,10 @@ TecmoSeasonAction tecmo_season_update(TecmoSeasonState *state,
         }
         if (cancel && !accept) {
             state->phase = TECMO_SEASON_SCHEDULE_POPUP;
+            state->popup_rows_visible = asset->menu_boxes[0][1];
+            state->popup_animation_tick = 0U;
+            state->popup_open_sync_frames = 0U;
+            state->popup_closing = false;
             state->popup_selection = 0U;
         }
         break;
@@ -899,18 +1309,18 @@ TecmoSeasonAction tecmo_season_update(TecmoSeasonState *state,
     case TECMO_SEASON_RESET_CONFIRM:
         if (accept) {
             if (state->popup_selection == 0U) {
-                state->phase = TECMO_SEASON_SCHEDULE_POPUP;
                 state->popup_selection = 1U;
+                close_popup(state, TECMO_SEASON_SCHEDULE_POPUP);
             } else {
-                state->phase = TECMO_SEASON_TYPE_SELECT;
                 state->season_type_selection = session->season_type;
                 state->popup_selection = 0U;
+                close_popup(state, TECMO_SEASON_TYPE_SELECT);
             }
             break;
         }
         if (cancel) {
-            state->phase = TECMO_SEASON_SCHEDULE_POPUP;
             state->popup_selection = 1U;
+            close_popup(state, TECMO_SEASON_SCHEDULE_POPUP);
             break;
         }
         if (direction == TECMO_SEASON_DIRECTION_UP ||
@@ -921,20 +1331,20 @@ TecmoSeasonAction tecmo_season_update(TecmoSeasonState *state,
         break;
 
     case TECMO_SEASON_TYPE_SELECT:
-        if (accept) {
+        if (accept || cancel) {
             reset_for_type(session, state->season_type_selection);
             state->schedule_selection = 0U;
-            state->phase = session->season_type == TECMO_SEASON_PROGRAMMED
-                               ? TECMO_SEASON_PROGRAMMED_EDITOR
-                               : TECMO_SEASON_SCHEDULE;
             state->editor_panel = 0U;
             state->editor_team = 0U;
             state->programmed_return_to_schedule =
                 session->season_type == TECMO_SEASON_PROGRAMMED;
-            break;
-        }
-        if (cancel) {
-            state->phase = TECMO_SEASON_SCHEDULE;
+            state->popup_rows_visible = 0U;
+            state->popup_animation_tick = 0U;
+            state->popup_open_sync_frames = 0U;
+            state->popup_closing = false;
+            state->phase = session->season_type == TECMO_SEASON_PROGRAMMED
+                               ? TECMO_SEASON_PROGRAMMED_EDITOR
+                               : TECMO_SEASON_SCHEDULE;
             break;
         }
         if (direction == TECMO_SEASON_DIRECTION_UP ||
@@ -945,16 +1355,44 @@ TecmoSeasonAction tecmo_season_update(TecmoSeasonState *state,
         break;
 
     case TECMO_SEASON_STANDINGS:
+        if (state->standings_slide != 0U) {
+            state->standings_slide = state->standings_slide > 248U
+                                         ? 256U
+                                         : (uint16_t)(state->standings_slide + 8U);
+            if (state->standings_slide == 256U) {
+                state->standings_page = state->standings_target_page;
+                state->standings_slide = 0U;
+                state->standings_slide_direction = 0;
+            }
+            break;
+        }
         if (cancel && !accept)
             return finish_update(state,
                                  TECMO_SEASON_ACTION_BACK_TO_START_MENU,
                                  accept || cancel);
         if (direction == TECMO_SEASON_DIRECTION_LEFT ||
-            direction == TECMO_SEASON_DIRECTION_RIGHT)
-            state->standings_page ^= 1U;
+            direction == TECMO_SEASON_DIRECTION_RIGHT) {
+            state->standings_target_page = state->standings_page ^ 1U;
+            state->standings_slide_direction =
+                direction == TECMO_SEASON_DIRECTION_LEFT ? -1 : 1;
+            state->standings_slide = 8U;
+        }
         break;
 
     case TECMO_SEASON_PROGRAMMED_EDITOR:
+        if (state->standings_slide != 0U) {
+            state->standings_slide = state->standings_slide > 248U
+                                         ? 256U
+                                         : (uint16_t)(state->standings_slide + 8U);
+            if (state->standings_slide == 256U) {
+                state->editor_panel = state->editor_target_panel;
+                state->standings_page = state->standings_target_page;
+                state->editor_team = 0U;
+                state->standings_slide = 0U;
+                state->standings_slide_direction = 0;
+            }
+            break;
+        }
         if (controls->pressed.confirm || controls->pressed.tab ||
             controls->released.confirm || controls->released.tab) {
             if (state->programmed_return_to_schedule) {
@@ -969,6 +1407,7 @@ TecmoSeasonAction tecmo_season_update(TecmoSeasonState *state,
         if (direction == TECMO_SEASON_DIRECTION_UP ||
             direction == TECMO_SEASON_DIRECTION_DOWN) {
             uint8_t count = season_page_team_count(
+                asset,
                 state->editor_panel >= 2U ? 1U : 0U);
             state->editor_team = wrap_u8(
                 state->editor_team, count,
@@ -977,11 +1416,20 @@ TecmoSeasonAction tecmo_season_update(TecmoSeasonState *state,
         }
         if (direction == TECMO_SEASON_DIRECTION_LEFT ||
             direction == TECMO_SEASON_DIRECTION_RIGHT) {
-            state->editor_panel = wrap_u8(
+            uint8_t target_panel = wrap_u8(
                 state->editor_panel, 4U,
                 direction == TECMO_SEASON_DIRECTION_LEFT ? -1 : 1);
-            state->editor_team = 0U;
-            state->standings_page = state->editor_panel >= 2U ? 1U : 0U;
+            uint8_t target_page = target_panel >= 2U ? 1U : 0U;
+            if (target_page != state->standings_page) {
+                state->editor_target_panel = target_panel;
+                state->standings_target_page = target_page;
+                state->standings_slide_direction =
+                    direction == TECMO_SEASON_DIRECTION_RIGHT ? 1 : -1;
+                state->standings_slide = 8U;
+            } else {
+                state->editor_panel = target_panel;
+                state->editor_team = 0U;
+            }
             break;
         }
         if (!controls->held.up && !controls->held.down &&
@@ -989,6 +1437,7 @@ TecmoSeasonAction tecmo_season_update(TecmoSeasonState *state,
             (controls->held.shoot || controls->held.cancel) &&
             state->direction_cooldown == 0U) {
             uint8_t team = season_page_team(
+                asset,
                 state->editor_panel >= 2U ? 1U : 0U,
                 state->editor_team);
             uint8_t *value = (state->editor_panel & 1U) == 0U
@@ -1013,32 +1462,57 @@ TecmoSeasonAction tecmo_season_update(TecmoSeasonState *state,
         break;
 
     case TECMO_SEASON_LEADERS:
-        if (cancel && !accept)
-            return finish_update(state,
-                                 TECMO_SEASON_ACTION_BACK_TO_START_MENU,
-                                 accept || cancel);
-        if (direction == TECMO_SEASON_DIRECTION_UP ||
-            direction == TECMO_SEASON_DIRECTION_LEFT)
-            state->leader_category = wrap_u8(
-                state->leader_category, TECMO_SEASON_LEADER_COUNT, -1);
-        else if (direction == TECMO_SEASON_DIRECTION_DOWN ||
-                 direction == TECMO_SEASON_DIRECTION_RIGHT)
-            state->leader_category = wrap_u8(
-                state->leader_category, TECMO_SEASON_LEADER_COUNT, 1);
+        {
+            if (state->leaders_results) {
+                if (controls->pressed.down && state->leader_page < 12U)
+                    state->leader_page = (uint8_t)(state->leader_page + 6U);
+                if (controls->pressed.up && state->leader_page != 0U)
+                    state->leader_page = (uint8_t)(state->leader_page - 6U);
+                if (controls->pressed.cancel) {
+                    state->leaders_results = false;
+                    state->leader_page = 0U;
+                }
+                break;
+            }
+            if (controls->pressed.left && state->leader_category != 0U)
+                --state->leader_category;
+            if (controls->pressed.right &&
+                state->leader_category + 1U < TECMO_SEASON_LEADER_COUNT)
+                ++state->leader_category;
+            if (controls->pressed.down)
+                state->leader_category =
+                    asset->leader_down[state->leader_category];
+            if (controls->pressed.up)
+                state->leader_category =
+                    asset->leader_up[state->leader_category];
+            if (controls->pressed.cancel)
+                return TECMO_SEASON_ACTION_BACK_TO_START_MENU;
+            if (controls->pressed.shoot) {
+                state->leaders_results = true;
+                state->leader_page = 0U;
+            }
+        }
         break;
 
     case TECMO_SEASON_GAME_START:
-        if (accept)
-            state->game_launch_blocked = true;
-        else if (cancel)
+        if (state->game_batch_pending) {
+            prepare_skip_batch(state, asset, session);
+            return finish_update(state, TECMO_SEASON_ACTION_NONE, false);
+        }
+        if (state->game_result_visible_rows <
+                (uint8_t)(state->game_result_count * 2U)) {
+            ++state->game_result_visible_rows;
+            return finish_update(state, TECMO_SEASON_ACTION_NONE, false);
+        }
+        if (accept) {
+            if (state->game_result_count != 0U && !state->season_complete) {
+                state->game_batch_pending = true;
+                prepare_skip_batch(state, asset, session);
+            }
+        } else if (cancel) {
             return finish_update(state,
                                  TECMO_SEASON_ACTION_BACK_TO_START_MENU,
-                                 accept || cancel);
-        if (direction == TECMO_SEASON_DIRECTION_UP ||
-            direction == TECMO_SEASON_DIRECTION_DOWN) {
-            uint16_t count = asset->game_counts[session->season_type];
-            state->schedule_selection = wrap_u16(state->schedule_selection,
-                count, direction == TECMO_SEASON_DIRECTION_UP ? -1 : 1);
+                                 true);
         }
         break;
     }
@@ -1170,6 +1644,45 @@ static void draw_text(TecmoFramebuffer *view,
     }
 }
 
+static void draw_leader_screen(TecmoFramebuffer *view,
+                               const TecmoSeasonAsset *asset,
+                               size_t screen,
+                               const uint8_t *chr,
+                               uint64_t chr_count,
+                               int scale)
+{
+    const uint8_t *palette = asset->leader_palettes[screen];
+    fill_rect(view, 0, 0, 256, 240, scale,
+              tecmo_nes_2c02_rgba(palette[0]));
+    for (size_t cell = 0U; cell < TECMO_SEASON_LEADER_SCREEN_CELLS; ++cell)
+        draw_cell(view, &asset->leader_screens[screen][cell], palette,
+                  chr, chr_count, (int)(cell % 32U) * 8,
+                  (int)(cell / 32U) * 8, scale, -1);
+}
+
+static void draw_leader_text(TecmoFramebuffer *view,
+                             const TecmoSeasonAsset *asset,
+                             size_t screen,
+                             const char *value,
+                             int x,
+                             int y,
+                             const uint8_t *chr,
+                             uint64_t chr_count,
+                             int scale)
+{
+    if (value == NULL) return;
+    for (size_t i = 0U; value[i] != '\0'; ++i) {
+        unsigned c = (unsigned char)value[i];
+        int px = x + (int)i * 8;
+        if (c < 0x20U || c >= 0x20U + TECMO_SEASON_FONT_COUNT ||
+            px < 0 || px >= 256)
+            continue;
+        draw_cell(view, &asset->font[c - 0x20U],
+                  asset->leader_palettes[screen], chr, chr_count,
+                  px, y, scale, 2);
+    }
+}
+
 static void draw_cursor(TecmoFramebuffer *view,
                         const TecmoSeasonAsset *asset,
                         const uint8_t *chr,
@@ -1253,11 +1766,15 @@ static void draw_schedule_rows(TecmoFramebuffer *view,
     char line[34];
     for (size_t row = 0U; row < 8U; ++row) {
         uint16_t game = (uint16_t)(start + row);
+        uint16_t raw;
         char away[17];
         char home[17];
         if (game >= count) break;
-        team_label(away, team_data, asset->schedule[game][0] & 0x3FU);
-        team_label(home, team_data, asset->schedule[game][1] & 0x3FU);
+        if (!season_schedule_raw_index(asset, session->season_type,
+                                       game, &raw))
+            break;
+        team_label(away, team_data, asset->schedule[raw][0] & 0x3FU);
+        team_label(home, team_data, asset->schedule[raw][1] & 0x3FU);
         (void)snprintf(line, sizeof(line), " %03u %.8s - %.8s",
                        (unsigned)game + 1U, away, home);
         draw_text(view, asset, 4U, 0U, line, 16, 64 + (int)row * 16,
@@ -1268,32 +1785,31 @@ static void draw_schedule_rows(TecmoFramebuffer *view,
     }
 }
 
-static void draw_popup(TecmoFramebuffer *view,
-                       const TecmoSeasonAsset *asset,
-                       size_t screen,
-                       const char *title,
-                       const char *const *options,
-                       size_t option_count,
-                       size_t selection,
-                       const uint8_t *chr,
-                       uint64_t chr_count,
-                       int scale)
+static void draw_record_popup(TecmoFramebuffer *view,
+                              const TecmoSeasonAsset *asset,
+                              size_t screen,
+                              size_t box_index,
+                              size_t selection,
+                              uint8_t visible_rows,
+                              const uint8_t *chr,
+                              uint64_t chr_count,
+                              int scale)
 {
-    int height = 40 + (int)option_count * 16;
-    int y = (240 - height) / 2;
-    fill_rect(view, 32, y, 192, height, scale,
-              tecmo_nes_2c02_rgba(0x0FU));
-    draw_text(view, asset, screen, 0U, title, 48, y + 8, scale, 2,
-              chr, chr_count);
-    for (size_t i = 0U; i < option_count; ++i) {
-        char line[24];
-        (void)snprintf(line, sizeof(line), "  %s", options[i]);
-        draw_text(view, asset, screen, 0U, line, 56,
-                  y + 32 + (int)i * 16, scale, 2, chr, chr_count);
-        if (i == selection)
-            draw_cursor(view, asset, chr, chr_count, 40,
-                        y + 32 + (int)i * 16, scale);
-    }
+    const TecmoSeasonPopupOverlay *overlay = &asset->popup_overlays[box_index];
+    if (visible_rows > overlay->height) visible_rows = (uint8_t)overlay->height;
+    for (size_t y = 0U; y < visible_rows; ++y)
+        for (size_t x = 0U; x < overlay->width; ++x) {
+            size_t cell = overlay->cell_start + y * overlay->width + x;
+            draw_cell(view, &asset->popup_cells[cell], asset->palettes[screen],
+                      chr, chr_count,
+                      ((int)overlay->origin_x + (int)x) * 8,
+                      ((int)overlay->origin_y + (int)y) * 8,
+                      scale, -1);
+        }
+    if (visible_rows == overlay->height)
+        draw_cursor(view, asset, chr, chr_count,
+                    asset->popup_cursor_x[box_index][selection],
+                    asset->popup_cursor_y[box_index][selection], scale);
 }
 
 static void draw_playoff(TecmoFramebuffer *view,
@@ -1322,29 +1838,32 @@ static void draw_playoff(TecmoFramebuffer *view,
     }
 }
 
-static void draw_standings(TecmoFramebuffer *view,
-                           const TecmoSeasonAsset *asset,
-                           const TecmoSeasonSession *session,
-                           const TecmoSeasonState *state,
-                           const TecmoTeamDataAsset *team_data,
-                           const uint8_t *chr,
-                           uint64_t chr_count,
-                           int scale)
+static void draw_standings_page(TecmoFramebuffer *view,
+                                const TecmoSeasonAsset *asset,
+                                const TecmoSeasonSession *session,
+                                const TecmoSeasonState *state,
+                                const TecmoTeamDataAsset *team_data,
+                                size_t page,
+                                int x_offset,
+                                bool editor,
+                                bool editor_cursor,
+                                const uint8_t *chr,
+                                uint64_t chr_count,
+                                int scale)
 {
-    size_t page = state->phase == TECMO_SEASON_PROGRAMMED_EDITOR
-                      ? (state->editor_panel >= 2U ? 1U : 0U)
-                      : state->standings_page;
-    draw_screen(view, asset, 2U, page, chr, chr_count, scale);
+    for (size_t cell = 0U; cell < 960U; ++cell)
+        draw_cell(view, &asset->screens[2U][page * 960U + cell],
+                  asset->palettes[2U], chr, chr_count,
+                  x_offset + (int)(cell % 32U) * 8,
+                  (int)(cell / 32U) * 8, scale, -1);
     for (size_t half = 0U; half < 2U; ++half) {
         size_t division = page * 2U + half;
-        size_t count = season_division_offsets[division + 1U] -
-                       season_division_offsets[division];
+        size_t count = season_division_count(asset, division);
         uint8_t order[7];
         int y0 = half == 0U ? 72 : 160;
         for (size_t row = 0U; row < count; ++row)
-            order[row] = season_standings_teams[
-                season_division_offsets[division] + row];
-        if (state->phase == TECMO_SEASON_STANDINGS) {
+            order[row] = season_division_team(asset, division, row);
+        if (!editor) {
             for (size_t row = 1U; row < count; ++row) {
                 uint8_t candidate = order[row];
                 size_t insert = row;
@@ -1354,12 +1873,12 @@ static void draw_standings(TecmoFramebuffer *view,
                                                session->losses[candidate];
                     unsigned prior_games = session->wins[prior] +
                                            session->losses[prior];
-                    unsigned candidate_ratio = session->wins[candidate] *
-                                               (prior_games == 0U ? 1U : prior_games);
-                    unsigned prior_ratio = session->wins[prior] *
-                                           (candidate_games == 0U ? 1U : candidate_games);
-                    bool ranks_higher = candidate_ratio > prior_ratio ||
-                        (candidate_ratio == prior_ratio &&
+                    unsigned candidate_pct = session->wins[candidate] * 1000U /
+                        (candidate_games == 0U ? 1U : candidate_games);
+                    unsigned prior_pct = session->wins[prior] * 1000U /
+                        (prior_games == 0U ? 1U : prior_games);
+                    bool ranks_higher = candidate_pct > prior_pct ||
+                        (candidate_pct == prior_pct &&
                          session->wins[candidate] > session->wins[prior]);
                     if (!ranks_higher) break;
                     order[insert] = prior;
@@ -1374,57 +1893,110 @@ static void draw_standings(TecmoFramebuffer *view,
             unsigned games = session->wins[team] + session->losses[team];
             unsigned pct = games == 0U ? 0U
                                        : session->wins[team] * 1000U / games;
-            int behind_twice =
-                (int)session->wins[leader] - (int)session->wins[team] +
-                (int)session->losses[team] - (int)session->losses[leader];
+            int games_difference = (int)games -
+                ((int)session->wins[leader] + session->losses[leader]);
+            int half_games = games_difference >= 0
+                                 ? games_difference / 2
+                                 : -((-games_difference + 1) / 2);
+            int games_behind = (int)session->wins[leader] -
+                               (int)session->wins[team] + half_games;
+            bool has_half_game =
+                ((games_difference < 0 ? -games_difference
+                                       : games_difference) % 2) != 0;
             char name[17];
             char value[16];
             int y = y0 + (int)row * 8;
             team_city_label(name, team_data, team);
             (void)snprintf(value, sizeof(value), "%.13s", name);
-            draw_text(view, asset, 2U, page, value, 8, y,
+            draw_text(view, asset, 2U, page, value, x_offset + 8, y,
                       scale, 2, chr, chr_count);
             (void)snprintf(value, sizeof(value), "%02u", session->wins[team]);
-            draw_text(view, asset, 2U, page, value, 120, y,
+            draw_text(view, asset, 2U, page, value, x_offset + 120, y,
                       scale, 2, chr, chr_count);
             (void)snprintf(value, sizeof(value), "%02u", session->losses[team]);
-            draw_text(view, asset, 2U, page, value, 144, y,
+            draw_text(view, asset, 2U, page, value, x_offset + 144, y,
                       scale, 2, chr, chr_count);
             if (games != 0U && pct >= 1000U)
                 (void)snprintf(value, sizeof(value), "1.000");
             else
                 (void)snprintf(value, sizeof(value), " .%03u", pct);
-            draw_text(view, asset, 2U, page, value, 168, y,
+            draw_text(view, asset, 2U, page, value, x_offset + 168, y,
                       scale, 2, chr, chr_count);
-            if (row == 0U || behind_twice <= 0)
-                (void)snprintf(value, sizeof(value), " -");
+            if (games_behind < 0) games_behind = 0;
+            if (games_behind == 0) {
+                draw_cell(view, &asset->zero_games_behind_cells[0],
+                          asset->palettes[2U], chr, chr_count,
+                          x_offset + 216, y, scale, 2);
+                draw_cell(view,
+                          has_half_game ? &asset->half_game_cell
+                                        : &asset->zero_games_behind_cells[1],
+                          asset->palettes[2U], chr, chr_count,
+                          x_offset + 224, y, scale, 2);
+                continue;
+            }
+            if (!has_half_game)
+                (void)snprintf(value, sizeof(value), "%2u",
+                               (unsigned)games_behind);
             else
-                (void)snprintf(value, sizeof(value), "%02u",
-                               (unsigned)(behind_twice + 1) / 2U);
-            draw_text(view, asset, 2U, page, value, 216, y,
+                (void)snprintf(value, sizeof(value), "%u",
+                               (unsigned)games_behind);
+            draw_text(view, asset, 2U, page, value, x_offset + 216, y,
                       scale, 2, chr, chr_count);
+            if (has_half_game)
+                draw_cell(view, &asset->half_game_cell, asset->palettes[2U],
+                          chr, chr_count,
+                          x_offset + 216 + (int)strlen(value) * 8,
+                          y, scale, 2);
         }
     }
-    if (state->phase == TECMO_SEASON_PROGRAMMED_EDITOR) {
-        uint8_t team = season_page_team(page, state->editor_team);
-        size_t division = 0U;
+    if (editor_cursor) {
+        uint8_t team = season_page_team(asset, page, state->editor_team);
+        size_t division = page * 2U;
         size_t row = 0U;
-        for (division = page * 2U; division < page * 2U + 2U; ++division) {
-            for (row = 0U;
-                 row < season_division_offsets[division + 1U] -
-                           season_division_offsets[division];
-                 ++row) {
-                if (season_standings_teams[
-                        season_division_offsets[division] + row] == team)
+        for (; division < page * 2U + 2U; ++division) {
+            for (row = 0U; row < season_division_count(asset, division); ++row)
+                if (season_division_team(asset, division, row) == team)
                     goto cursor_found;
-            }
         }
 cursor_found:
-        draw_cursor(view, asset, chr, chr_count,
-                    (state->editor_panel & 1U) == 0U ? 112 : 136,
-                    (division & 1U) == 0U ? 75 + (int)row * 8
-                                          : 163 + (int)row * 8,
-                    scale);
+        if (x_offset > -256 && x_offset < 256)
+            draw_cursor(view, asset, chr, chr_count,
+                        x_offset + ((state->editor_panel & 1U) == 0U
+                                        ? 112 : 136),
+                        (division & 1U) == 0U ? 75 + (int)row * 8
+                                              : 163 + (int)row * 8,
+                        scale);
+    }
+}
+
+static void draw_standings(TecmoFramebuffer *view,
+                           const TecmoSeasonAsset *asset,
+                           const TecmoSeasonSession *session,
+                           const TecmoSeasonState *state,
+                           const TecmoTeamDataAsset *team_data,
+                           const uint8_t *chr,
+                           uint64_t chr_count,
+                           int scale)
+{
+    bool editor = state->phase == TECMO_SEASON_PROGRAMMED_EDITOR;
+    size_t page = editor ? (state->editor_panel >= 2U ? 1U : 0U)
+                         : state->standings_page;
+    fill_rect(view, 0, 0, 256, 240, scale,
+              tecmo_nes_2c02_rgba(asset->palettes[2U][0]));
+    if (state->standings_slide != 0U) {
+        int direction = state->standings_slide_direction;
+        int source_x = -direction * (int)state->standings_slide;
+        int target_x = source_x + direction * 256;
+        draw_standings_page(view, asset, session, state, team_data,
+                            page, source_x, editor, editor,
+                            chr, chr_count, scale);
+        draw_standings_page(view, asset, session, state, team_data,
+                            state->standings_target_page, target_x, editor,
+                            false,
+                            chr, chr_count, scale);
+    } else {
+        draw_standings_page(view, asset, session, state, team_data,
+                            page, 0, editor, editor, chr, chr_count, scale);
     }
 }
 
@@ -1433,22 +2005,56 @@ static bool valid_runtime_state(const TecmoSeasonAsset *asset,
                                 const TecmoSeasonState *state)
 {
     uint16_t game_count;
+    int box_index;
     if (asset == NULL || session == NULL || state == NULL ||
         session->season_type >= 4U ||
         state->phase > TECMO_SEASON_GAME_START)
         return false;
     game_count = asset->game_counts[session->season_type];
     if (game_count == 0U || game_count > TECMO_SEASON_SCHEDULE_COUNT ||
-        session->schedule_index >= game_count ||
+        session->schedule_index > game_count ||
         state->schedule_selection >= game_count ||
         state->team_selection >= TECMO_SEASON_TEAM_COUNT ||
         state->popup_selection >= 2U ||
         state->season_type_selection >= 4U || state->standings_page >= 2U ||
-        state->playoff_scroll > 252U ||
-        state->editor_panel >= 4U || state->leader_category >= 7U ||
+        state->playoff_scroll > 252U || state->standings_slide > 256U ||
+        state->standings_target_page >= 2U ||
+        state->standings_slide_direction < -1 ||
+        state->standings_slide_direction > 1 ||
+        state->editor_panel >= 4U || state->editor_target_panel >= 4U ||
+        state->leader_category >= 7U ||
+        (state->leader_page != 0U && state->leader_page != 6U &&
+         state->leader_page != 12U) ||
+        state->game_result_count > 4U ||
+        state->game_result_visible_rows > state->game_result_count * 2U ||
         state->editor_team >= season_page_team_count(
+            asset,
             state->editor_panel >= 2U ? 1U : 0U))
         return false;
+    box_index = popup_box_index(state->phase);
+    if (state->popup_target_phase > TECMO_SEASON_GAME_START ||
+        state->popup_animation_tick >= 10U ||
+        state->popup_open_sync_frames > 1U ||
+        (state->popup_closing && state->popup_open_sync_frames != 0U) ||
+        (box_index >= 0 && state->popup_rows_visible >
+                               asset->menu_boxes[box_index][1]) ||
+        (box_index < 0 &&
+         (state->popup_rows_visible != 0U || state->popup_closing ||
+          state->popup_open_sync_frames != 0U)))
+        return false;
+    if ((state->standings_slide == 0U) !=
+            (state->standings_slide_direction == 0) ||
+        (state->standings_slide != 0U &&
+         state->standings_target_page == state->standings_page))
+        return false;
+    for (size_t result = 0U; result < state->game_result_count; ++result)
+        if (state->game_results[result].game_index >=
+                TECMO_SEASON_SCHEDULE_COUNT ||
+            state->game_results[result].away_team >= TECMO_SEASON_TEAM_COUNT ||
+            state->game_results[result].home_team >= TECMO_SEASON_TEAM_COUNT ||
+            state->game_results[result].away_score > 999U ||
+            state->game_results[result].home_score > 999U)
+            return false;
     for (size_t team = 0U; team < TECMO_SEASON_TEAM_COUNT; ++team)
         if (session->team_control[team] >= 4U || session->wins[team] > 82U ||
             session->losses[team] > 82U ||
@@ -1469,18 +2075,12 @@ bool tecmo_season_draw(TecmoFramebuffer *framebuffer,
                        int scale)
 {
     TecmoFramebuffer view;
-    static const char *schedule_options[2] = {"PLAYOFF", "RESET"};
-    static const char *reset_options[2] = {"NO", "YES"};
-    static const char *season_options[4] = {
-        "REGULAR", "REDUCED", "SHORT", "PROGRAMMED"
-    };
     if (asset == NULL || session == NULL || state == NULL ||
         !asset->available || team_data == NULL || !team_data->available ||
         !valid_runtime_state(asset, session, state) ||
         !tecmo_season_asset_chr_available(asset, chr_bytes, chr_byte_count) ||
         !make_viewport(&view, framebuffer, origin_x, origin_y, scale))
         return false;
-
     switch (state->phase) {
     case TECMO_SEASON_TEAM_CONTROL:
         draw_team_control(&view, asset, session, state,
@@ -1491,23 +2091,31 @@ bool tecmo_season_draw(TecmoFramebuffer *framebuffer,
     case TECMO_SEASON_RESET_CONFIRM:
     case TECMO_SEASON_TYPE_SELECT:
         draw_screen(&view, asset, 4U, 0U, chr_bytes, chr_byte_count, scale);
-        draw_text(&view, asset, 4U, 0U, "SCHEDULE", 96, 24,
+        draw_text(&view, asset, 4U, 0U, asset->schedule_text[0], 96, 24,
                   scale, 2, chr_bytes, chr_byte_count);
         draw_text(&view, asset, 4U, 0U,
-                  tecmo_season_type_name(session->season_type), 88, 40,
+                  asset->season_type_text[session->season_type + 1U], 88, 40,
                   scale, 2, chr_bytes, chr_byte_count);
         draw_schedule_rows(&view, asset, session, state, team_data,
                            chr_bytes, chr_byte_count, scale);
+        if (state->phase == TECMO_SEASON_RESET_CONFIRM ||
+            state->phase == TECMO_SEASON_TYPE_SELECT)
+            draw_record_popup(&view, asset, 4U, 0U, 1U,
+                              (uint8_t)asset->popup_overlays[0].height,
+                              chr_bytes, chr_byte_count, scale);
         if (state->phase == TECMO_SEASON_SCHEDULE_POPUP)
-            draw_popup(&view, asset, 4U, "SCHEDULE", schedule_options, 2U,
-                       state->popup_selection, chr_bytes, chr_byte_count, scale);
+            draw_record_popup(&view, asset, 4U, 0U, state->popup_selection,
+                              state->popup_rows_visible, chr_bytes,
+                              chr_byte_count, scale);
         else if (state->phase == TECMO_SEASON_RESET_CONFIRM)
-            draw_popup(&view, asset, 4U, "RESET SEASON?", reset_options, 2U,
-                       state->popup_selection, chr_bytes, chr_byte_count, scale);
+            draw_record_popup(&view, asset, 4U, 1U, state->popup_selection,
+                              state->popup_rows_visible, chr_bytes,
+                              chr_byte_count, scale);
         else if (state->phase == TECMO_SEASON_TYPE_SELECT)
-            draw_popup(&view, asset, 4U, "SEASON TYPE", season_options, 4U,
-                       state->season_type_selection, chr_bytes, chr_byte_count,
-                       scale);
+            draw_record_popup(&view, asset, 4U, 2U,
+                              state->season_type_selection,
+                              state->popup_rows_visible, chr_bytes,
+                              chr_byte_count, scale);
         break;
     case TECMO_SEASON_PLAYOFF:
         draw_playoff(&view, asset, state->playoff_scroll,
@@ -1519,39 +2127,51 @@ bool tecmo_season_draw(TecmoFramebuffer *framebuffer,
                        chr_bytes, chr_byte_count, scale);
         break;
     case TECMO_SEASON_LEADERS:
-        draw_screen(&view, asset, 1U, 0U, chr_bytes, chr_byte_count, scale);
-        draw_text(&view, asset, 1U, 0U,
-                  asset->leader_labels[state->leader_category], 48, 88,
-                  scale, 2, chr_bytes, chr_byte_count);
-        draw_text(&view, asset, 1U, 0U, "NO STATISTICS RECORDED", 40, 120,
-                  scale, 2, chr_bytes, chr_byte_count);
-        draw_text(&view, asset, 1U, 0U, "< CHANGE CATEGORY >", 48, 200,
-                  scale, 2, chr_bytes, chr_byte_count);
+        if (state->leaders_results) {
+            size_t leader_screen =
+                (size_t)(asset->leader_template[state->leader_category] - 38U);
+            draw_leader_screen(&view, asset, leader_screen,
+                               chr_bytes, chr_byte_count, scale);
+            draw_leader_text(&view, asset, leader_screen,
+                             asset->leader_labels[state->leader_category],
+                             32, 24, chr_bytes, chr_byte_count, scale);
+        } else {
+            draw_leader_screen(&view, asset, 0U,
+                               chr_bytes, chr_byte_count, scale);
+            draw_cursor(&view, asset, chr_bytes, chr_byte_count,
+                        asset->leader_cursor_x[state->leader_category],
+                        asset->leader_cursor_y[state->leader_category], scale);
+        }
         break;
     case TECMO_SEASON_GAME_START: {
-        uint16_t game = state->schedule_selection;
-        char away[17];
-        char home[17];
-        char line[34];
-        draw_screen(&view, asset, 4U, 0U, chr_bytes, chr_byte_count, scale);
-        team_label(away, team_data, asset->schedule[game][0] & 0x3FU);
-        team_label(home, team_data, asset->schedule[game][1] & 0x3FU);
-        (void)snprintf(line, sizeof(line), "GAME %03u", (unsigned)game + 1U);
-        draw_text(&view, asset, 4U, 0U, line, 88, 64, scale, 2,
-                  chr_bytes, chr_byte_count);
-        (void)snprintf(line, sizeof(line), "%.12s", away);
-        draw_text(&view, asset, 4U, 0U, line, 80, 96, scale, 2,
-                  chr_bytes, chr_byte_count);
-        draw_text(&view, asset, 4U, 0U, "AT", 120, 120, scale, 2,
-                  chr_bytes, chr_byte_count);
-        (void)snprintf(line, sizeof(line), "%.12s", home);
-        draw_text(&view, asset, 4U, 0U, line, 80, 144, scale, 2,
-                  chr_bytes, chr_byte_count);
-        draw_text(&view, asset, 4U, 0U,
-                  state->game_launch_blocked
-                      ? "GAME LAUNCH NOT YET PORTED"
-                      : "PRESS A TO START  B TO RETURN",
-                  16, 200, scale, 2, chr_bytes, chr_byte_count);
+        if (state->game_launch_blocked) {
+            fill_rect(&view, 0, 0, 256, 240, scale,
+                      tecmo_nes_2c02_rgba(0x0FU));
+            break;
+        }
+        draw_screen(&view, asset, 1U, 0U, chr_bytes, chr_byte_count, scale);
+        for (size_t row = 0U; row < state->game_result_visible_rows; ++row) {
+            const TecmoSeasonGameResult *result =
+                &state->game_results[row / 2U];
+            bool home_row = (row & 1U) != 0U;
+            uint8_t team = home_row ? result->home_team : result->away_team;
+            uint16_t score = home_row ? result->home_score : result->away_score;
+            int y = 96 + (int)(row / 2U) * 32 + (home_row ? 8 : 0);
+            char city[17];
+            char score_text[4];
+            team_city_label(city, team_data, team);
+            city[12] = '\0';
+            draw_text(&view, asset, 1U, 0U, city, 32, y, scale, 2,
+                      chr_bytes, chr_byte_count);
+            (void)snprintf(score_text, sizeof(score_text), "%3u",
+                           (unsigned)score);
+            draw_text(&view, asset, 1U, 0U, score_text, 152, y, scale, 2,
+                      chr_bytes, chr_byte_count);
+            if (result->overtime && home_row)
+                draw_text(&view, asset, 1U, 0U, asset->overtime_text,
+                          184, y, scale, 2,
+                          chr_bytes, chr_byte_count);
+        }
         break;
     }
     }
@@ -1589,6 +2209,17 @@ const char *tecmo_season_control_name(uint8_t control)
     return control < 4U ? names[control] : "INVALID";
 }
 
+static void season_test_neutral_frames(TecmoSeasonState *state,
+                                       const TecmoSeasonAsset *asset,
+                                       TecmoSeasonSession *session,
+                                       size_t count)
+{
+    TecmoControlFrame controls;
+    memset(&controls, 0, sizeof(controls));
+    for (size_t frame = 0U; frame < count; ++frame)
+        (void)tecmo_season_update(state, asset, session, &controls);
+}
+
 bool tecmo_season_self_test(char *message, size_t message_size)
 {
     TecmoSeasonAsset asset;
@@ -1603,12 +2234,36 @@ bool tecmo_season_self_test(char *message, size_t message_size)
     FILE *file;
     size_t got;
     int trailing;
+    uint8_t first_editor_team;
     memset(&asset, 0, sizeof(asset));
     asset.available = true;
     asset.game_counts[0] = 1107U;
     asset.game_counts[1] = 567U;
     asset.game_counts[2] = 351U;
     asset.game_counts[3] = 1107U;
+    asset.menu_boxes[0][0] = 13U;
+    asset.menu_boxes[0][1] = 6U;
+    asset.menu_boxes[1][0] = 24U;
+    asset.menu_boxes[1][1] = 12U;
+    asset.menu_boxes[2][0] = 13U;
+    asset.menu_boxes[2][1] = 10U;
+    asset.division_starts[0] = 0U;
+    asset.division_starts[1] = 7U;
+    asset.division_starts[2] = 14U;
+    asset.division_starts[3] = 20U;
+    for (size_t team = 0U; team < TECMO_SEASON_TEAM_COUNT; ++team)
+        asset.division_teams[team] = (uint8_t)team;
+    for (size_t leader = 0U; leader < TECMO_SEASON_LEADER_COUNT; ++leader) {
+        asset.leader_up[leader] = (uint8_t)leader;
+        asset.leader_down[leader] = (uint8_t)leader;
+        asset.leader_template[leader] = 39U;
+    }
+    for (size_t game = 0U; game < TECMO_SEASON_SCHEDULE_COUNT; ++game) {
+        asset.schedule[game][0] = (uint8_t)(game % TECMO_SEASON_TEAM_COUNT);
+        asset.schedule[game][1] =
+            (uint8_t)((game + 1U) % TECMO_SEASON_TEAM_COUNT);
+    }
+    first_editor_team = season_page_team(&asset, 0U, 0U);
     memset(&session, 0, sizeof(session));
     session_defaults(&session);
     memcpy(bytes, "TSAV", 4U);
@@ -1669,6 +2324,29 @@ bool tecmo_season_self_test(char *message, size_t message_size)
     memset(&controls, 0, sizeof(controls));
     controls.held.down = true;
     controls.pressed.down = true;
+    controls.released.shoot = true;
+    if (tecmo_season_update(&state, &asset, &session, &controls) !=
+            TECMO_SEASON_ACTION_NONE ||
+        state.team_selection != 1U || session.team_control[0] != 1U ||
+        state.direction_cooldown != 7U)
+        goto state_failure;
+    tecmo_season_state_init(&state, TECMO_SEASON_ROUTE_TEAM_CONTROL, &session);
+    memset(&controls, 0, sizeof(controls));
+    controls.held.down = true;
+    controls.held.right = true;
+    controls.pressed.down = true;
+    controls.pressed.right = true;
+    controls.released.shoot = true;
+    controls.released.cancel = true;
+    if (tecmo_season_update(&state, &asset, &session, &controls) !=
+            TECMO_SEASON_ACTION_NONE ||
+        state.team_selection != 0U || session.team_control[0] != 1U ||
+        state.direction_cooldown != 7U)
+        goto state_failure;
+    tecmo_season_state_init(&state, TECMO_SEASON_ROUTE_TEAM_CONTROL, &session);
+    memset(&controls, 0, sizeof(controls));
+    controls.held.down = true;
+    controls.pressed.down = true;
     (void)tecmo_season_update(&state, &asset, &session, &controls);
     memset(&controls, 0, sizeof(controls));
     (void)tecmo_season_update(&state, &asset, &session, &controls);
@@ -1713,6 +2391,32 @@ bool tecmo_season_self_test(char *message, size_t message_size)
 
     tecmo_season_state_init(&state, TECMO_SEASON_ROUTE_STANDINGS, &session);
     memset(&controls, 0, sizeof(controls));
+    controls.held.left = true;
+    controls.held.down = true;
+    controls.pressed.left = true;
+    controls.pressed.down = true;
+    (void)tecmo_season_update(&state, &asset, &session, &controls);
+    if (state.standings_slide != 0U || state.standings_page != 0U ||
+        state.direction_cooldown != 7U)
+        goto state_failure;
+    memset(&controls, 0, sizeof(controls));
+    for (size_t gate_frame = 0U; gate_frame < 7U; ++gate_frame)
+        (void)tecmo_season_update(&state, &asset, &session, &controls);
+    controls.held.right = true;
+    controls.pressed.right = true;
+    (void)tecmo_season_update(&state, &asset, &session, &controls);
+    if (state.standings_slide != 8U ||
+        state.standings_slide_direction != 1 ||
+        state.standings_target_page != 1U)
+        goto state_failure;
+    memset(&controls, 0, sizeof(controls));
+    for (size_t slide_frame = 0U; slide_frame < 31U; ++slide_frame)
+        (void)tecmo_season_update(&state, &asset, &session, &controls);
+    if (state.standings_slide != 0U || state.standings_page != 1U ||
+        state.standings_slide_direction != 0)
+        goto state_failure;
+    tecmo_season_state_init(&state, TECMO_SEASON_ROUTE_STANDINGS, &session);
+    memset(&controls, 0, sizeof(controls));
     controls.released.shoot = true;
     controls.released.cancel = true;
     if (tecmo_season_update(&state, &asset, &session, &controls) !=
@@ -1725,20 +2429,14 @@ bool tecmo_season_self_test(char *message, size_t message_size)
     controls.released.shoot = true;
     (void)tecmo_season_update(&state, &asset, &session, &controls);
     if (state.phase != TECMO_SEASON_SCHEDULE_POPUP) goto state_failure;
-    memset(&controls, 0, sizeof(controls));
-    for (size_t gate_frame = 0U; gate_frame < 5U; ++gate_frame)
-        (void)tecmo_season_update(&state, &asset, &session, &controls);
-    memset(&controls, 0, sizeof(controls));
-    controls.held.down = true;
-    controls.pressed.down = true;
-    (void)tecmo_season_update(&state, &asset, &session, &controls);
-    memset(&controls, 0, sizeof(controls));
-    controls.released.shoot = true;
-    (void)tecmo_season_update(&state, &asset, &session, &controls);
-    if (state.phase != TECMO_SEASON_RESET_CONFIRM) goto state_failure;
-    memset(&controls, 0, sizeof(controls));
-    for (size_t gate_frame = 0U; gate_frame < 5U; ++gate_frame)
-        (void)tecmo_season_update(&state, &asset, &session, &controls);
+    season_test_neutral_frames(&state, &asset, &session, 1U);
+    if (state.popup_rows_visible != 0U ||
+        state.popup_open_sync_frames != 0U)
+        goto state_failure;
+    season_test_neutral_frames(&state, &asset, &session, 59U);
+    if (state.popup_rows_visible != 5U) goto state_failure;
+    season_test_neutral_frames(&state, &asset, &session, 1U);
+    if (state.popup_rows_visible != 6U) goto state_failure;
     memset(&controls, 0, sizeof(controls));
     controls.held.down = true;
     controls.pressed.down = true;
@@ -1746,10 +2444,42 @@ bool tecmo_season_self_test(char *message, size_t message_size)
     memset(&controls, 0, sizeof(controls));
     controls.released.shoot = true;
     (void)tecmo_season_update(&state, &asset, &session, &controls);
-    if (state.phase != TECMO_SEASON_TYPE_SELECT) goto state_failure;
+    if (state.phase != TECMO_SEASON_RESET_CONFIRM ||
+        state.popup_rows_visible != 0U)
+        goto state_failure;
+    season_test_neutral_frames(&state, &asset, &session, 1U);
+    if (state.popup_rows_visible != 0U ||
+        state.popup_open_sync_frames != 0U)
+        goto state_failure;
+    season_test_neutral_frames(&state, &asset, &session, 119U);
+    if (state.popup_rows_visible != 11U) goto state_failure;
+    season_test_neutral_frames(&state, &asset, &session, 1U);
+    if (state.popup_rows_visible != 12U) goto state_failure;
+    memset(&controls, 0, sizeof(controls));
+    controls.held.down = true;
+    controls.pressed.down = true;
+    (void)tecmo_season_update(&state, &asset, &session, &controls);
+    memset(&controls, 0, sizeof(controls));
+    controls.released.shoot = true;
+    (void)tecmo_season_update(&state, &asset, &session, &controls);
+    season_test_neutral_frames(&state, &asset, &session, 119U);
+    if (state.phase != TECMO_SEASON_RESET_CONFIRM ||
+        state.popup_rows_visible != 1U)
+        goto state_failure;
+    season_test_neutral_frames(&state, &asset, &session, 1U);
+    if (state.phase != TECMO_SEASON_TYPE_SELECT ||
+        state.popup_rows_visible != 0U)
+        goto state_failure;
+    season_test_neutral_frames(&state, &asset, &session, 1U);
+    if (state.popup_rows_visible != 0U ||
+        state.popup_open_sync_frames != 0U)
+        goto state_failure;
+    season_test_neutral_frames(&state, &asset, &session, 99U);
+    if (state.popup_rows_visible != 9U) goto state_failure;
+    season_test_neutral_frames(&state, &asset, &session, 1U);
     state.season_type_selection = TECMO_SEASON_PROGRAMMED;
     memset(&controls, 0, sizeof(controls));
-    controls.released.shoot = true;
+    controls.released.cancel = true;
     (void)tecmo_season_update(&state, &asset, &session, &controls);
     if (state.phase != TECMO_SEASON_PROGRAMMED_EDITOR ||
         session.season_type != TECMO_SEASON_PROGRAMMED)
@@ -1760,20 +2490,21 @@ bool tecmo_season_self_test(char *message, size_t message_size)
     controls.held.shoot = true;
     controls.held.cancel = true;
     (void)tecmo_season_update(&state, &asset, &session, &controls);
-    if (session.wins[26] != 0U || state.direction_cooldown != 5U)
+    if (session.wins[first_editor_team] != 0U ||
+        state.direction_cooldown != 5U)
         goto state_failure;
     memset(&controls, 0, sizeof(controls));
     for (size_t gate_frame = 0U; gate_frame < 5U; ++gate_frame)
         (void)tecmo_season_update(&state, &asset, &session, &controls);
     controls.held.shoot = true;
     (void)tecmo_season_update(&state, &asset, &session, &controls);
-    if (session.wins[26] != 1U) goto state_failure;
+    if (session.wins[first_editor_team] != 1U) goto state_failure;
     memset(&controls, 0, sizeof(controls));
     for (size_t gate_frame = 0U; gate_frame < 5U; ++gate_frame)
         (void)tecmo_season_update(&state, &asset, &session, &controls);
     controls.held.cancel = true;
     (void)tecmo_season_update(&state, &asset, &session, &controls);
-    if (session.wins[26] != 0U) goto state_failure;
+    if (session.wins[first_editor_team] != 0U) goto state_failure;
     memset(&controls, 0, sizeof(controls));
     controls.pressed.confirm = true;
     if (tecmo_season_update(&state, &asset, &session, &controls) !=
@@ -1803,16 +2534,61 @@ bool tecmo_season_self_test(char *message, size_t message_size)
     controls.released.cancel = true;
     (void)tecmo_season_update(&state, &asset, &session, &controls);
     if (state.phase != TECMO_SEASON_SCHEDULE_POPUP ||
-        state.popup_selection != 0U)
+        state.popup_selection != 0U || state.popup_rows_visible != 6U)
+        goto state_failure;
+    state.popup_selection = 1U;
+    memset(&controls, 0, sizeof(controls));
+    controls.released.shoot = true;
+    (void)tecmo_season_update(&state, &asset, &session, &controls);
+    if (state.phase != TECMO_SEASON_RESET_CONFIRM) goto state_failure;
+    season_test_neutral_frames(&state, &asset, &session, 121U);
+    memset(&controls, 0, sizeof(controls));
+    controls.released.cancel = true;
+    (void)tecmo_season_update(&state, &asset, &session, &controls);
+    season_test_neutral_frames(&state, &asset, &session, 120U);
+    if (state.phase != TECMO_SEASON_SCHEDULE_POPUP ||
+        state.popup_rows_visible != 6U || state.popup_selection != 1U)
         goto state_failure;
 
+    session_defaults(&session);
     tecmo_season_state_init(&state, TECMO_SEASON_ROUTE_GAME_START, &session);
+    memset(&controls, 0, sizeof(controls));
+    if (tecmo_season_update(&state, &asset, &session, &controls) !=
+            TECMO_SEASON_ACTION_NONE ||
+        state.phase != TECMO_SEASON_GAME_START || state.game_launch_blocked ||
+        state.game_result_count != 4U || state.game_result_visible_rows != 1U ||
+        session.schedule_index != 4U)
+        goto state_failure;
+    for (size_t reveal = 1U; reveal < 8U; ++reveal)
+        (void)tecmo_season_update(&state, &asset, &session, &controls);
+    if (state.game_result_visible_rows != 8U) goto state_failure;
     memset(&controls, 0, sizeof(controls));
     controls.released.shoot = true;
     controls.released.cancel = true;
     if (tecmo_season_update(&state, &asset, &session, &controls) !=
-            TECMO_SEASON_ACTION_NONE ||
-        state.phase != TECMO_SEASON_GAME_START || !state.game_launch_blocked ||
+            TECMO_SEASON_ACTION_NONE || session.schedule_index != 8U ||
+        state.game_result_count != 4U || state.game_result_visible_rows != 1U)
+        goto state_failure;
+    memset(&controls, 0, sizeof(controls));
+    for (size_t reveal = 1U; reveal < 8U; ++reveal)
+        (void)tecmo_season_update(&state, &asset, &session, &controls);
+    controls.released.cancel = true;
+    if (tecmo_season_update(&state, &asset, &session, &controls) !=
+        TECMO_SEASON_ACTION_BACK_TO_START_MENU)
+        goto state_failure;
+    session_defaults(&session);
+    session.team_control[0] = 1U;
+    tecmo_season_state_init(&state, TECMO_SEASON_ROUTE_GAME_START, &session);
+    memset(&controls, 0, sizeof(controls));
+    (void)tecmo_season_update(&state, &asset, &session, &controls);
+    if (!state.game_launch_blocked || state.game_result_count != 0U ||
+        session.schedule_index != 0U)
+        goto state_failure;
+    memset(&controls, 0, sizeof(controls));
+    controls.released.shoot = true;
+    controls.released.cancel = true;
+    if (tecmo_season_update(&state, &asset, &session, &controls) !=
+            TECMO_SEASON_ACTION_NONE || !state.game_launch_blocked ||
         session.schedule_index != 0U)
         goto state_failure;
 

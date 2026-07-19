@@ -1224,20 +1224,32 @@ static int append_season_source_map_entry(char *buffer,
         "{\"role\":\"team-control-flow\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":35103,\"size\":192,\"fingerprint_fnv1a32\":\"8289F925\"},"
         "{\"role\":\"standings-and-programmed-editor-flow\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":35349,\"size\":510,\"fingerprint_fnv1a32\":\"8AA17312\"},"
         "{\"role\":\"schedule-flow\",\"source_entry\":\"prg/bank03\",\"source_offsets\":[%llu,%llu],\"cpu_addresses\":[37799,38266],\"sizes\":[467,904],\"fingerprints_fnv1a32\":[\"ED427D23\",\"A0B59AF2\"]},"
-        "{\"role\":\"popup-records\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":40448,\"size\":198,\"fingerprint_fnv1a32\":\"693C1CB1\"},"
+        "{\"role\":\"semantic-menu-records-and-box-descriptors\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":40448,\"size\":198,\"fingerprint_fnv1a32\":\"693C1CB1\"},"
+        "{\"role\":\"popup-cursor-coordinate-tables\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":40723,\"size\":58,\"fingerprint_fnv1a32\":\"E5A66DF5\"},"
+        "{\"role\":\"standings-games-behind-renderer\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":42299,\"size\":42,\"fingerprint_fnv1a32\":\"8BD60DDE\",\"zero_map_cpu_addresses\":[39624,39625],\"resolved_zero_tiles\":[255,0],\"resolved_half_tile\":248,\"resolved_half_chr_offset\":257920},"
         "{\"role\":\"font-map\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":39624,\"size\":59,\"fingerprint_fnv1a32\":\"286D27BB\"},"
         "{\"role\":\"regular-season-schedule\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":46383,\"size\":2214,\"records\":1107,\"fingerprint_fnv1a32\":\"24112737\"},"
         "{\"role\":\"season-defaults\",\"source_entry\":\"prg/bank01\",\"source_offset\":%llu,\"cpu_address\":48848,\"size\":79,\"fingerprint_fnv1a32\":\"FF4433C8\"},"
         "{\"role\":\"cursor-record\",\"source_entry\":\"prg/bank01\",\"source_offset\":%llu,\"cpu_address\":32817,\"size\":5,\"fingerprint_fnv1a32\":\"7D5835D4\",\"resolved_chr_offsets\":[49728,49744]},"
         "{\"role\":\"sprite-palette\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"cpu_address\":48695,\"size\":16,\"fingerprint_fnv1a32\":\"F85BA74A\"},"
         "{\"role\":\"leader-label-records\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"cpu_address\":45896,\"size\":165,\"fingerprint_fnv1a32\":\"7CFF9EFB\"},"
+        "{\"role\":\"division-starts\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":45699,\"size\":4,\"fingerprint_fnv1a32\":\"3B420652\"},"
+        "{\"role\":\"division-team-order\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":45703,\"size\":27,\"fingerprint_fnv1a32\":\"B33FB72A\"},"
+        "{\"role\":\"leader-navigation\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"cpu_address\":44349,\"size\":28,\"fingerprint_fnv1a32\":\"EB6AA6B8\"},"
+        "{\"role\":\"leader-template-map\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"cpu_address\":44565,\"size\":7,\"fingerprint_fnv1a32\":\"0FB6BBED\"},"
+        "{\"role\":\"leader-category-flow\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"cpu_address\":44210,\"size\":362,\"fingerprint_fnv1a32\":\"9C715947\"},"
+        "{\"role\":\"leader-ranking-flow\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"cpu_address\":45260,\"size\":180,\"fingerprint_fnv1a32\":\"FFADC10A\"},"
+        "{\"role\":\"leader-row-flow\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"cpu_address\":46128,\"size\":128,\"fingerprint_fnv1a32\":\"AC47E9DB\"},"
         "{\"role\":\"fixed-input-helpers\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":55060,\"size\":212,\"fingerprint_fnv1a32\":\"BC71E228\"},"
         "{\"role\":\"fixed-screen-loader\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":55595,\"size\":492,\"fingerprint_fnv1a32\":\"E07A8EB7\"},"
         "{\"role\":\"screen-descriptors\",\"source_entry\":\"prg/fixed\",\"source_offsets\":[%llu,%llu,%llu,%llu,%llu],\"cpu_addresses\":[56572,56579,56586,56593,56600],\"size_each\":7,\"fingerprints_fnv1a32\":[\"0D624597\",\"23D90656\",\"4EA1E05B\",\"9373DC72\",\"4EB8B3AB\"]},"
         "{\"role\":\"screen-streams\",\"source_offsets\":[%llu,%llu,%llu,%llu,%llu],\"encoded_sizes\":[%llu,%llu,%llu,%llu,%llu],\"decoded_sizes\":[2048,1024,2048,1024,2048],\"encoded_fingerprints_fnv1a32\":[\"CE7BD109\",\"4C78CE45\",\"1298E5F8\",\"33EB31D7\",\"3C7D9D61\"]},"
         "{\"role\":\"screen-palettes\",\"source_offsets\":[%llu,%llu,%llu,%llu,%llu],\"size_each\":16,\"fingerprints_fnv1a32\":[\"B389D1A4\",\"7F07658B\",\"B389D1A4\",\"B389D1A4\",\"B389D1A4\"]},"
+        "{\"role\":\"leader-screen-descriptors\",\"source_entry\":\"prg/fixed\",\"source_offsets\":[%llu,%llu,%llu,%llu,%llu,%llu,%llu],\"cpu_addresses\":[56719,56726,56733,56740,56747,56754,56761],\"size_each\":7,\"fingerprints_fnv1a32\":[\"F981E49D\",\"0E226C60\",\"6372358A\",\"71A6D7FC\",\"24D27A4B\",\"D59A23BB\",\"A1F18139\"]},"
+        "{\"role\":\"leader-screen-streams\",\"source_offsets\":[%llu,%llu,%llu,%llu,%llu,%llu,%llu],\"encoded_sizes\":[%llu,%llu,%llu,%llu,%llu,%llu,%llu],\"decoded_size_each\":1024,\"encoded_fingerprints_fnv1a32\":[\"1CE88C44\",\"8A23D17D\",\"79815D52\",\"AC3F7A71\",\"C33278AD\",\"206FC3A7\",\"E3851387\"]},"
+        "{\"role\":\"leader-screen-palettes\",\"source_offsets\":[%llu,%llu,%llu,%llu,%llu,%llu,%llu],\"size_each\":16,\"fingerprints_fnv1a32\":[\"14D2E107\",\"72B80255\",\"72B80255\",\"4D920E47\",\"72B80255\",\"4D920E47\",\"72B80255\"]},"
         "{\"role\":\"full-chr\",\"source_entry\":\"chr/all\",\"source_offset\":%llu,\"size\":262144,\"fingerprint_fnv1a32\":\"F6F6E854\",\"fingerprint_fnv1a64\":\"96A64F53B240ABB4\"}],"
-        "\"native_contract\":{\"payload_size\":%u,\"payload_fingerprint_fnv1a32\":\"%08X\",\"screens\":[17,18,19,20,21],\"teams\":27,\"schedule_records\":1107,\"leader_categories\":7,\"terminal\":\"prelaunch-no-gameplay\",\"unexecuted_boundary_cpu\":34201,\"unexecuted_target_cpu\":45695}}",
+        "\"native_contract\":{\"payload_size\":%u,\"payload_fingerprint_fnv1a32\":\"%08X\",\"screens\":[17,18,19,20,21,38,39,40,41,42,43,44],\"teams\":27,\"schedule_records\":1107,\"filtered_schedule_counts\":[1107,567,351,1107],\"leader_categories\":7,\"skip_simulation\":\"deterministic-native-results-four-slots\",\"controlled_match_terminal\":\"gameplay-launch-blocked\",\"unexecuted_boundary_cpu\":34201,\"unexecuted_target_cpu\":45695}}",
         prefix, TECMO_ASSET_PACK_SEASON_MENU_ID,
         (unsigned long long)p->dispatch_offset,
         (unsigned long long)p->route_table_offset,
@@ -1250,12 +1262,21 @@ static int append_season_source_map_entry(char *buffer,
         (unsigned long long)p->schedule_core_offset,
         (unsigned long long)p->schedule_helpers_offset,
         (unsigned long long)p->popup_records_offset,
+        (unsigned long long)p->popup_cursor_tables_offset,
+        (unsigned long long)p->standings_half_game_tile_offset,
         (unsigned long long)p->font_offset,
         (unsigned long long)p->schedule_offset,
         (unsigned long long)p->defaults_offset,
         (unsigned long long)p->cursor_offset,
         (unsigned long long)p->sprite_palette_offset,
         (unsigned long long)p->leader_records_offset,
+        (unsigned long long)p->division_starts_offset,
+        (unsigned long long)p->division_teams_offset,
+        (unsigned long long)p->leader_navigation_offset,
+        (unsigned long long)p->leader_template_offset,
+        (unsigned long long)p->leader_core_offset,
+        (unsigned long long)p->leader_ranking_offset,
+        (unsigned long long)p->leader_rows_offset,
         (unsigned long long)p->fixed_input_offset,
         (unsigned long long)p->fixed_loader_offset,
         (unsigned long long)p->descriptor_offsets[0],
@@ -1278,6 +1299,34 @@ static int append_season_source_map_entry(char *buffer,
         (unsigned long long)p->palette_offsets[2],
         (unsigned long long)p->palette_offsets[3],
         (unsigned long long)p->palette_offsets[4],
+        (unsigned long long)p->leader_descriptor_offsets[0],
+        (unsigned long long)p->leader_descriptor_offsets[1],
+        (unsigned long long)p->leader_descriptor_offsets[2],
+        (unsigned long long)p->leader_descriptor_offsets[3],
+        (unsigned long long)p->leader_descriptor_offsets[4],
+        (unsigned long long)p->leader_descriptor_offsets[5],
+        (unsigned long long)p->leader_descriptor_offsets[6],
+        (unsigned long long)p->leader_stream_offsets[0],
+        (unsigned long long)p->leader_stream_offsets[1],
+        (unsigned long long)p->leader_stream_offsets[2],
+        (unsigned long long)p->leader_stream_offsets[3],
+        (unsigned long long)p->leader_stream_offsets[4],
+        (unsigned long long)p->leader_stream_offsets[5],
+        (unsigned long long)p->leader_stream_offsets[6],
+        (unsigned long long)p->leader_stream_sizes[0],
+        (unsigned long long)p->leader_stream_sizes[1],
+        (unsigned long long)p->leader_stream_sizes[2],
+        (unsigned long long)p->leader_stream_sizes[3],
+        (unsigned long long)p->leader_stream_sizes[4],
+        (unsigned long long)p->leader_stream_sizes[5],
+        (unsigned long long)p->leader_stream_sizes[6],
+        (unsigned long long)p->leader_palette_offsets[0],
+        (unsigned long long)p->leader_palette_offsets[1],
+        (unsigned long long)p->leader_palette_offsets[2],
+        (unsigned long long)p->leader_palette_offsets[3],
+        (unsigned long long)p->leader_palette_offsets[4],
+        (unsigned long long)p->leader_palette_offsets[5],
+        (unsigned long long)p->leader_palette_offsets[6],
         (unsigned long long)p->chr_offset,
         (unsigned)TECMO_ASSET_PACK_SEASON_SIZE,
         (unsigned)TECMO_ASSET_PACK_SEASON_FNV1A32);

@@ -18,6 +18,16 @@
 #define TECMO_SEASON_LEADER_COUNT 7U
 #define TECMO_SEASON_LEADER_SCREEN_COUNT 7U
 #define TECMO_SEASON_LEADER_SCREEN_CELLS 960U
+#define TECMO_SEASON_POPUP_CELL_COUNT 496U
+
+typedef struct TecmoSeasonPopupOverlay {
+    uint16_t cell_start;
+    uint16_t cell_count;
+    uint16_t width;
+    uint16_t height;
+    uint16_t origin_x;
+    uint16_t origin_y;
+} TecmoSeasonPopupOverlay;
 
 typedef enum TecmoSeasonRoute {
     TECMO_SEASON_ROUTE_TEAM_CONTROL = 0,
@@ -67,6 +77,14 @@ typedef struct TecmoSeasonAsset {
     char schedule_text[3][24];
     char reset_text[6][32];
     char season_type_text[5][16];
+    char overtime_text[3];
+    TecmoStartGameMenuCell zero_games_behind_cells[2];
+    TecmoStartGameMenuCell half_game_cell;
+    uint8_t menu_boxes[3][4];
+    TecmoSeasonPopupOverlay popup_overlays[3];
+    TecmoStartGameMenuCell popup_cells[TECMO_SEASON_POPUP_CELL_COUNT];
+    uint8_t popup_cursor_x[3][4];
+    uint8_t popup_cursor_y[3][4];
     uint16_t game_counts[4];
     uint8_t team_control_x[3];
     uint8_t team_control_y;
@@ -117,22 +135,46 @@ typedef enum TecmoSeasonAction {
     TECMO_SEASON_ACTION_BACK_TO_START_MENU
 } TecmoSeasonAction;
 
+typedef struct TecmoSeasonGameResult {
+    uint16_t game_index;
+    uint16_t away_score;
+    uint16_t home_score;
+    uint8_t away_team;
+    uint8_t home_team;
+    bool overtime;
+} TecmoSeasonGameResult;
+
 typedef struct TecmoSeasonState {
     TecmoSeasonPhase phase;
     unsigned frame;
     uint16_t direction_cooldown;
     uint16_t schedule_selection;
     uint16_t playoff_scroll;
+    uint16_t standings_slide;
     uint8_t team_selection;
     uint8_t popup_selection;
+    uint8_t popup_rows_visible;
+    uint8_t popup_animation_tick;
+    uint8_t popup_open_sync_frames;
     uint8_t season_type_selection;
     uint8_t standings_page;
     uint8_t editor_panel;
+    uint8_t editor_target_panel;
     uint8_t editor_team;
     uint8_t leader_category;
+    uint8_t leader_page;
+    uint8_t standings_target_page;
+    int8_t standings_slide_direction;
+    uint8_t game_result_count;
+    uint8_t game_result_visible_rows;
+    TecmoSeasonGameResult game_results[4];
     bool programmed_return_to_schedule;
+    bool popup_closing;
     bool leaders_results;
+    bool game_batch_pending;
+    bool season_complete;
     bool game_launch_blocked;
+    TecmoSeasonPhase popup_target_phase;
 } TecmoSeasonState;
 
 bool tecmo_season_asset_load(TecmoSeasonAsset *asset,
