@@ -127,10 +127,6 @@ static int import_leader_labels(const uint8_t *rom,
                                 char *message,
                                 size_t message_size)
 {
-    static const char *expected[TECMO_ASSET_PACK_SEASON_LEADER_COUNT] = {
-        "FIELD GOALS", "BLOCKED SHOTS", "REBOUNDS", "TOTAL POINTS",
-        "STEALS", "3 POINT SHOTS", "FREE THROWS"
-    };
     uint64_t pointers_offset = bank_cpu_offset(
         prg_offset, SEASON_ART_BANK, 0xB348U);
     if (!range_ok(pointers_offset, 14U, rom_size)) return -1;
@@ -163,7 +159,7 @@ static int import_leader_labels(const uint8_t *rom,
         while (last > first && value[last - 1U] == ' ') --last;
         memmove(value, value + first, last - first);
         value[last - first] = '\0';
-        if (strcmp(value, expected[label]) != 0) goto reject;
+        if (last == first) goto reject;
         memcpy(payload + TECMO_ASSET_PACK_SEASON_LEADERS_OFFSET +
                    label * TECMO_ASSET_PACK_SEASON_LEADER_LABEL_SIZE,
                value, strlen(value) + 1U);
@@ -179,7 +175,6 @@ reject:
 static int import_menu_record(const uint8_t *source,
                               size_t source_size,
                               const uint8_t expected_header[4],
-                              const char *const *expected_segments,
                               size_t segment_count,
                               uint8_t *destination,
                               size_t destination_stride,
@@ -187,8 +182,7 @@ static int import_menu_record(const uint8_t *source,
                               size_t message_size)
 {
     size_t source_index = 4U;
-    if (source == NULL || expected_header == NULL ||
-        expected_segments == NULL || destination == NULL ||
+    if (source == NULL || expected_header == NULL || destination == NULL ||
         source_size < 5U || destination_stride == 0U ||
         memcmp(source, expected_header, 4U) != 0) {
         goto reject;
@@ -205,17 +199,13 @@ static int import_menu_record(const uint8_t *source,
                 goto reject;
             destination[segment * destination_stride + destination_index++] = c;
         }
-        if (strcmp((const char *)destination + segment * destination_stride,
-                   expected_segments[segment]) != 0)
-            goto reject;
+        if (destination_index == 0U) goto reject;
         if (segment + 1U < segment_count) {
             if (source_index + 1U >= source_size ||
                 source[source_index] != 0x26U ||
                 source[source_index + 1U] != 0x26U)
                 goto reject;
             source_index += 2U;
-            if (source_index < source_size && source[source_index] == 0x20U)
-                ++source_index;
         } else if (source_index >= source_size ||
                    source[source_index++] != 0xFFU) {
             goto reject;
@@ -230,11 +220,100 @@ reject:
     return -1;
 }
 
+static int build_menu_overlay(uint8_t *payload,
+                              size_t overlay,
+                              size_t cell_start,
+                              const uint8_t *record,
+                              size_t record_size,
+                              const uint8_t *font,
+                              char *message,
+                              size_t message_size)
+{
+    uint8_t tiles[288];
+    unsigned width;
+    unsigned height;
+    unsigned x;
+    unsigned y;
+    size_t source = 4U;
+    uint8_t *desc;
+    if (payload == NULL || record == NULL || font == NULL ||
+        overlay >= TECMO_ASSET_PACK_SEASON_POPUP_OVERLAY_COUNT ||
+        record_size < 5U)
+        goto reject;
+    width = record[0];
+    height = record[1];
+    if (width < 3U || height < 3U ||
+        (size_t)width * height > sizeof(tiles) ||
+        record[2] + width > 32U || record[3] + height > 30U ||
+        cell_start + (size_t)width * height >
+            TECMO_ASSET_PACK_SEASON_POPUP_CELL_COUNT)
+        goto reject;
+    memset(tiles, 0xFF, (size_t)width * height);
+    tiles[0] = 0xAEU;
+    for (x = 1U; x + 1U < width; ++x) tiles[x] = 0xAAU;
+    tiles[width - 1U] = 0xA7U;
+    for (y = 1U; y + 1U < height; ++y) {
+        tiles[(size_t)y * width] = 0xADU;
+        tiles[(size_t)y * width + width - 1U] = 0xABU;
+    }
+    tiles[(size_t)(height - 1U) * width] = 0xA8U;
+    for (x = 1U; x + 1U < width; ++x)
+        tiles[(size_t)(height - 1U) * width + x] = 0xACU;
+    tiles[(size_t)height * width - 1U] = 0xA9U;
+    x = 1U;
+    y = 0U;
+    while (source < record_size && record[source] != 0xFFU) {
+        uint8_t character = record[source++];
+        if (character == 0x26U) {
+            x = 1U;
+            ++y;
+            if (y >= height) goto reject;
+            continue;
+        }
+        if (character < 0x20U || character > 0x5AU ||
+            x + 1U >= width)
+            goto reject;
+        tiles[(size_t)y * width + x++] = font[character - 0x20U];
+    }
+    if (source >= record_size || record[source++] != 0xFFU ||
+        source != record_size)
+        goto reject;
+    desc = payload + TECMO_ASSET_PACK_SEASON_POPUP_DESCS_OFFSET +
+           overlay * TECMO_ASSET_PACK_SEASON_POPUP_DESC_STRIDE;
+    tecmo_asset_pack_store_u16(desc, (uint16_t)cell_start);
+    tecmo_asset_pack_store_u16(desc + 2U, (uint16_t)((size_t)width * height));
+    tecmo_asset_pack_store_u16(desc + 4U, (uint16_t)width);
+    tecmo_asset_pack_store_u16(desc + 6U, (uint16_t)height);
+    tecmo_asset_pack_store_u16(desc + 8U, record[2]);
+    tecmo_asset_pack_store_u16(desc + 10U, record[3]);
+    desc[12U] = (uint8_t)overlay;
+    for (y = 0U; y < height; ++y) {
+        for (x = 0U; x < width; ++x) {
+            size_t base_index = (size_t)(record[3] + y) * 32U +
+                                record[2] + x;
+            const uint8_t *base = payload + TECMO_ASSET_PACK_SEASON_CELLS_OFFSET +
+                (4U * TECMO_ASSET_PACK_SEASON_SCREEN_CELL_COUNT + base_index) *
+                    TECMO_ASSET_PACK_SEASON_CELL_STRIDE;
+            uint8_t *cell = payload + TECMO_ASSET_PACK_SEASON_POPUP_CELLS_OFFSET +
+                (cell_start + (size_t)y * width + x) *
+                    TECMO_ASSET_PACK_SEASON_CELL_STRIDE;
+            store_cell(cell, tiles[(size_t)y * width + x], base[1],
+                       0x76U, 0xFAU);
+        }
+    }
+    return 0;
+
+reject:
+    tecmo_asset_pack_set_message(message, message_size,
+                                 "TSNS-1 popup overlay record was rejected.");
+    return -1;
+}
+
 int tecmo_asset_pack_season_self_test(char *message, size_t message_size)
 {
     const uint8_t cursor_source[5] = {0x11U, 0x00U, 0xFCU, 0x30U, 0x24U};
     uint8_t cursor[16] = {0};
-    if (TECMO_ASSET_PACK_SEASON_SIZE != 101708U ||
+    if (TECMO_ASSET_PACK_SEASON_SIZE != 104732U ||
         TECMO_ASSET_PACK_SEASON_SCHEDULE_COUNT != 27U * 82U / 2U ||
         build_cursor(cursor_source, cursor) != 0 ||
         tecmo_asset_pack_read_u32(cursor + 4U) != 0xC240U ||
@@ -287,7 +366,9 @@ int tecmo_asset_pack_build_season_menu(const uint8_t *rom,
         {0U, 0xAE15U, 7U, 0x0FB6BBEDU, false},
         {0U, 0xACB2U, 362U, 0x9C715947U, false},
         {0U, 0xB0CCU, 180U, 0xFFADC10AU, false},
-        {0U, 0xB430U, 128U, 0xAC47E9DBU, false}
+        {0U, 0xB430U, 128U, 0xAC47E9DBU, false},
+        {3U, 0x9F13U, 58U, 0xE5A66DF5U, false},
+        {3U, 0xA53BU, 42U, 0x8BD60DDEU, false}
     };
     static const SeasonScreenSource screens[TECMO_ASSET_PACK_SEASON_SCREEN_COUNT] = {
         {17U, {0x7DU,0x7DU,0xEBU,0x84U,0x9DU,0x80U,0x00U},
@@ -424,6 +505,51 @@ int tecmo_asset_pack_build_season_menu(const uint8_t *rom,
             (uint8_t)(leader_screens[i].descriptor[0] * 2U);
         payload[156U + i * 2U] =
             (uint8_t)(leader_screens[i].descriptor[1] * 2U);
+    }
+    tecmo_asset_pack_store_u32(payload + 185U,
+                               TECMO_ASSET_PACK_SEASON_POPUP_DESCS_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 189U,
+                               TECMO_ASSET_PACK_SEASON_POPUP_CELLS_OFFSET);
+    tecmo_asset_pack_store_u16(payload + 193U,
+                               TECMO_ASSET_PACK_SEASON_POPUP_CELL_COUNT);
+    payload[195U] = TECMO_ASSET_PACK_SEASON_POPUP_OVERLAY_COUNT;
+    payload[196U] = TECMO_ASSET_PACK_SEASON_POPUP_DESC_STRIDE;
+    {
+        static const uint8_t table_indices[3] = {18U, 21U, 22U};
+        static const uint8_t option_counts[3] = {2U, 2U, 4U};
+        const uint8_t *tables = rom + (size_t)offsets[27];
+        size_t output = 197U;
+        for (size_t menu = 0U; menu < 3U; ++menu) {
+            uint8_t index = table_indices[menu];
+            uint8_t x = tables[29U + index];
+            uint8_t y = tables[index];
+            for (size_t option = 0U; option < option_counts[menu]; ++option) {
+                if ((unsigned)y + option * 16U > 239U) return -1;
+                payload[output++] = x;
+                payload[output++] = (uint8_t)(y + option * 16U);
+            }
+        }
+    }
+    {
+        const uint8_t *standings_gb = rom + (size_t)offsets[28];
+        const uint8_t *font = rom + (size_t)offsets[11];
+        if (standings_gb[10U] != 0xADU || standings_gb[11U] != 0xC8U ||
+            standings_gb[12U] != 0x9AU || standings_gb[20U] != 0xADU ||
+            standings_gb[21U] != 0xC9U || standings_gb[22U] != 0x9AU ||
+            standings_gb[29U] != 0x20U || standings_gb[30U] != 0x65U ||
+            standings_gb[31U] != 0xA5U || standings_gb[36U] != 0xA9U ||
+            standings_gb[37U] != 0xF8U || standings_gb[38U] != 0x8DU ||
+            standings_gb[39U] != 0x07U || standings_gb[40U] != 0x20U ||
+            standings_gb[41U] != 0x60U || font[0U] != 0xFFU ||
+            font[1U] != 0x00U) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "TSNS-1 standings games-behind renderer was rejected.");
+            return -1;
+        }
+        store_cell(payload + 213U, font[0U], 2U, 0xFAU, 0xFAU);
+        store_cell(payload + 219U, font[1U], 2U, 0xFAU, 0xFAU);
+        store_cell(payload + 225U, standings_gb[37U], 2U, 0xFAU, 0xFAU);
     }
 
     for (size_t screen = 0U;
@@ -592,6 +718,19 @@ int tecmo_asset_pack_build_season_menu(const uint8_t *rom,
                 record + 4U,
                 tecmo_asset_pack_bg_chr_offset(font[i], 0xFAU, 0xFAU));
         }
+        {
+            static const uint8_t source_indices[2] = {47U, 52U};
+            for (size_t glyph = 0U; glyph < 2U; ++glyph) {
+            size_t source_index = source_indices[glyph];
+            size_t font_index = 0U;
+            while (font_index < TECMO_ASSET_PACK_SEASON_FONT_COUNT &&
+                   font[font_index] != font[source_index])
+                ++font_index;
+            if (font_index >= TECMO_ASSET_PACK_SEASON_FONT_COUNT)
+                return -1;
+            payload[169U + glyph] = (uint8_t)(0x20U + font_index);
+            }
+        }
     }
     if (build_cursor(rom + (size_t)offsets[14],
                      payload + TECMO_ASSET_PACK_SEASON_CURSOR_OFFSET) != 0)
@@ -647,31 +786,20 @@ int tecmo_asset_pack_build_season_menu(const uint8_t *rom,
         static const uint8_t schedule_header[4] = {0x0DU,0x06U,0x01U,0x08U};
         static const uint8_t reset_header[4] = {0x18U,0x0CU,0x03U,0x0CU};
         static const uint8_t type_header[4] = {0x0DU,0x0AU,0x03U,0x0CU};
-        static const char *const schedule_segments[3] = {
-            "SCHEDULE", "PLAYOFF", "RESET"
-        };
-        static const char *const reset_segments[6] = {
-            "RESET", "THE DATA OF ALL THE", "GAMES THAT YOU HAVE",
-            "PLAYED WILL BE ERASED", "    ERASE    NO",
-            "             YES"
-        };
-        static const char *const type_segments[5] = {
-            "SEASON", "REGULAR", "REDUCED", "SHORT", "PROGRAMMED"
-        };
         const uint8_t *records = rom + (size_t)offsets[10];
         uint8_t *texts = payload + TECMO_ASSET_PACK_SEASON_MENU_TEXT_OFFSET;
         if (import_menu_record(
-                records, 31U, schedule_header, schedule_segments, 3U,
+                records, 31U, schedule_header, 3U,
                 texts, TECMO_ASSET_PACK_SEASON_SCHEDULE_TEXT_STRIDE,
                 message, message_size) != 0 ||
             import_menu_record(
-                records + 31U, 115U, reset_header, reset_segments, 6U,
+                records + 31U, 115U, reset_header, 6U,
                 texts + TECMO_ASSET_PACK_SEASON_SCHEDULE_TEXT_COUNT *
                             TECMO_ASSET_PACK_SEASON_SCHEDULE_TEXT_STRIDE,
                 TECMO_ASSET_PACK_SEASON_RESET_TEXT_STRIDE,
                 message, message_size) != 0 ||
             import_menu_record(
-                records + 146U, 52U, type_header, type_segments, 5U,
+                records + 146U, 52U, type_header, 5U,
                 texts + TECMO_ASSET_PACK_SEASON_SCHEDULE_TEXT_COUNT *
                             TECMO_ASSET_PACK_SEASON_SCHEDULE_TEXT_STRIDE +
                         TECMO_ASSET_PACK_SEASON_RESET_TEXT_COUNT *
@@ -679,6 +807,26 @@ int tecmo_asset_pack_build_season_menu(const uint8_t *rom,
                 TECMO_ASSET_PACK_SEASON_TYPE_TEXT_STRIDE,
                 message, message_size) != 0)
             return -1;
+        memcpy(payload + 173U, records, 4U);
+        memcpy(payload + 177U, records + 31U, 4U);
+        memcpy(payload + 181U, records + 146U, 4U);
+        {
+            size_t first_count = (size_t)records[0] * records[1];
+            size_t second_count = (size_t)records[31U] * records[32U];
+            size_t third_count = (size_t)records[146U] * records[147U];
+            const uint8_t *font = rom + (size_t)offsets[11];
+            if (first_count + second_count + third_count !=
+                    TECMO_ASSET_PACK_SEASON_POPUP_CELL_COUNT ||
+                build_menu_overlay(payload, 0U, 0U, records, 31U, font,
+                                   message, message_size) != 0 ||
+                build_menu_overlay(payload, 1U, first_count,
+                                   records + 31U, 115U, font,
+                                   message, message_size) != 0 ||
+                build_menu_overlay(payload, 2U, first_count + second_count,
+                                   records + 146U, 52U, font,
+                                   message, message_size) != 0)
+                return -1;
+        }
     }
     memcpy(payload + TECMO_ASSET_PACK_SEASON_DIVISION_STARTS_OFFSET,
            rom + (size_t)offsets[20],
@@ -714,6 +862,11 @@ int tecmo_asset_pack_build_season_menu(const uint8_t *rom,
     provenance->division_teams_offset = offsets[21];
     provenance->leader_navigation_offset = offsets[22];
     provenance->leader_template_offset = offsets[23];
+    provenance->leader_core_offset = offsets[24];
+    provenance->leader_ranking_offset = offsets[25];
+    provenance->leader_rows_offset = offsets[26];
+    provenance->popup_cursor_tables_offset = offsets[27];
+    provenance->standings_half_game_tile_offset = offsets[28];
     provenance->fixed_input_offset = offsets[17];
     provenance->fixed_loader_offset = offsets[18];
 
