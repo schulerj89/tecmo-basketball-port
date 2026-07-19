@@ -188,6 +188,10 @@ bool tecmo_season_session_save(TecmoSeasonSession *session);
 void tecmo_season_state_init(TecmoSeasonState *state,
                              TecmoSeasonRoute route,
                              const TecmoSeasonSession *session);
+bool tecmo_season_schedule_raw_index(const TecmoSeasonAsset *asset,
+                                     uint8_t season_type,
+                                     uint16_t ordinal,
+                                     uint16_t *raw_index);
 TecmoSeasonAction tecmo_season_update(TecmoSeasonState *state,
                                       const TecmoSeasonAsset *asset,
                                       TecmoSeasonSession *session,

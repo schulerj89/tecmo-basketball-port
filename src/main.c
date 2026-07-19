@@ -1295,7 +1295,7 @@ int main(int argc, char **argv)
                     &runtime->team_data_asset, runtime->title_chr_bytes,
                     runtime->title_chr_byte_count, 64, 0, 2);
                 render_runtime = false;
-                result = arena_render_succeeded ? 1 : 0;
+                result = arena_render_succeeded ? 0 : 1;
             } else if (strcmp(mode_name, "menu-overlay") == 0) {
                 TecmoInput input;
                 memset(&input, 0, sizeof(input));

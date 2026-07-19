@@ -3097,6 +3097,26 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         return false;
     }
 
+    {
+        uint16_t raw_game;
+        runtime->season_session.season_type = TECMO_SEASON_REGULAR;
+        runtime->season_session.schedule_index = 0U;
+        memset(runtime->season_session.team_control, 0,
+               sizeof(runtime->season_session.team_control));
+        memset(runtime->season_session.wins, 0,
+               sizeof(runtime->season_session.wins));
+        memset(runtime->season_session.losses, 0,
+               sizeof(runtime->season_session.losses));
+        if (!tecmo_season_schedule_raw_index(
+                &runtime->season_asset, runtime->season_session.season_type,
+                0U, &raw_game)) {
+            set_flow_test_message(message, message_size,
+                                  "season fixture could not map first game");
+            return false;
+        }
+        runtime->season_session.team_control[
+            runtime->season_asset.schedule[raw_game][0] & 0x3FU] = 1U;
+    }
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 64U;
     runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_SEASON;
@@ -3128,7 +3148,9 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     flow_step(runtime, input);
     if (runtime->mode != TECMO_MODE_SEASON_MENU ||
         runtime->season_state.phase != TECMO_SEASON_GAME_START ||
-        !runtime->season_state.game_launch_blocked) {
+        !runtime->season_state.game_launch_blocked ||
+        runtime->season_state.game_result_count != 0U ||
+        runtime->season_session.schedule_index != 0U) {
         set_flow_test_message(message, message_size,
                               "season GAME START crossed the no-gameplay boundary");
         return false;
