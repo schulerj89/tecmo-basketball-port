@@ -391,7 +391,8 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     } else {
         return false;
     }
-    if ((jump || close) && (checkpoint == 0U || checkpoint > 30U)) {
+    if ((jump && (checkpoint == 0U || checkpoint > 40U)) ||
+        (close && (checkpoint == 0U || checkpoint > 32U))) {
         return false;
     }
 
@@ -433,7 +434,7 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     return runtime->mode == TECMO_MODE_COURT &&
            runtime->gameplay_scene.active &&
            runtime->gameplay_scene.shot_kind ==
-               (close ? TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_SUBTYPE01
+               (close ? TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_0
                       : TECMO_GAMEPLAY_SCENE_SHOT_JUMP);
 }
 
