@@ -687,11 +687,14 @@ Free-throw launch control is evidence-derived. Bank05's human state-20 path
 reads the scoring side's current NES B level, so only that team's assigned pad
 can launch; the other pad, A, directions, START, SELECT, button edges/releases,
 and a pressed-only B bit do nothing. Human attempts never auto-fire. With no
-controller assigned to the scoring team, native play uses the bounded observed
-`$7D` (125-frame) CPU timer. Bank05 also admits `$D7` (215 frames); both values
-are named in the scene API, while deterministic selection of `$7D` remains an
-explicit approximation until the original branch policy is derived. Timing is
-reset per attempt and across scene launch/end.
+controller assigned to the scoring team, native play uses the bounded slot-3
+trace's observed 125-update inclusive state-18-to-launch schedule. Bank05
+`$96B6-$9708` selects command offsets `$007D/$00D7`, and Bank06 `$8B8E-$8B9D`
+maps them from base `$9F2E` to stream/dispatch pointers; they are command
+offsets rather than frame timers. The native scene does not implement that CPU
+positioning/script system, so its observed schedule remains a bounded
+approximation. Timing resets
+per attempt and across scene launch/end.
 
 The exact boundary covers court/CHR/imported palette data and the embedded
 FCEUX RGB profile, actor-pose decoding, numeric
@@ -701,8 +704,8 @@ ordinary jump timing, ball arc and make/contact policy, the trigger selecting
 dunk/variant 0 versus layup/variant 2, live close-shot profile/direction
 selection and left-facing mirroring, dynamic team/court palette selection,
 foul detection,
-free-throw lineup/aim/outcome/rebound behavior and CPU timer-candidate choice,
-and HUD typography remain explicit native approximations. Local original-frame
+free-throw lineup/aim/outcome/rebound and CPU positioning/script behavior, and
+HUD typography remain explicit native approximations. Local original-frame
 comparisons found no
 unrendered or garbage cells and kept exact assets/poses stable, but camera,
 spacing, HUD, and matchup palette selection are visibly not frame-identical.

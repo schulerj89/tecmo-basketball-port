@@ -115,10 +115,10 @@ close-shot step tables, rules timing, and audio programs are ROM-derived. Actor
 layout, movement/AI, ordinary-jump timing, shot physics/results, dynamic
 team/court palette selection, live close-shot profile/direction choice and
 left-facing mirroring, contact/foul detection, free-throw lineup, aim, results,
-rebounds, CPU timer-candidate choice, and the temporary HUD typography remain
-native approximations. Human free throws already use the scoring team's
-current NES B level with no timeout; unassigned CPU sides use the observed
-125-frame timer path. The strict pose asset
+rebounds, CPU positioning/script behavior, and the temporary HUD typography
+remain native approximations. Human free throws already use the scoring team's
+current NES B level with no timeout; unassigned CPU sides use the bounded
+observed 125-update launch schedule. The strict pose asset
 stores 208 exact TGCS profile/direction resolutions into TGPL pose data; live
 play currently selects only profile 0/direction 0.
 

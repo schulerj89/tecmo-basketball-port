@@ -1039,15 +1039,15 @@ static bool scene_update_free_throw(TecmoGameplayScene *scene,
            direction at this gate, and it has no arbitrary timeout. */
         launch_attempt = scene_controls_held_b(controls[controller]);
     } else {
-        /* Bank05's CPU path seeds a zero-high timer with $7D or $D7. The local
-           bounded trace observed the $7D path; native selection remains
-           deterministic until the original branch policy is derived. */
+        /* The bounded slot-3 trace spans 125 inclusive updates from CPU
+           state-18 entry through launch. The original positioning/script
+           system is not modeled by this native scene yet. */
         if (scene->free_throw_frame <
-            TECMO_GAMEPLAY_FREE_THROW_CPU_TIMER_FRAMES) {
+            TECMO_GAMEPLAY_FREE_THROW_CPU_OBSERVED_LAUNCH_UPDATES) {
             ++scene->free_throw_frame;
         }
         launch_attempt = scene->free_throw_frame >=
-                         TECMO_GAMEPLAY_FREE_THROW_CPU_TIMER_FRAMES;
+            TECMO_GAMEPLAY_FREE_THROW_CPU_OBSERVED_LAUNCH_UPDATES;
     }
     if (!launch_attempt) return true;
 
@@ -2617,7 +2617,8 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
     for (frame = 0U;
-         frame <= TECMO_GAMEPLAY_FREE_THROW_CPU_TIMER_LONG_FRAMES; ++frame) {
+         frame < TECMO_GAMEPLAY_FREE_THROW_CPU_OBSERVED_LAUNCH_UPDATES * 2U;
+         ++frame) {
         if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
             scene.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
             scene.state.free_throws.attempts_remaining != 2U ||
@@ -2739,8 +2740,8 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     }
     tecmo_gameplay_scene_end(&scene);
 
-    /* With no controller assigned to the scoring side, use the observed $7D
-       CPU path exactly and reset it for the following attempt. */
+    /* With no controller assigned to the scoring side, use the observed
+       125-update launch schedule and reset it for the following attempt. */
     launch.controller_team[1] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
     if (!tecmo_gameplay_scene_launch(&scene, &launch) ||
         !scene_test_enter_free_throw_sequence(
@@ -2753,7 +2754,9 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
     for (frame = 0U;
-         frame + 1U < TECMO_GAMEPLAY_FREE_THROW_CPU_TIMER_FRAMES; ++frame) {
+         frame + 1U <
+             TECMO_GAMEPLAY_FREE_THROW_CPU_OBSERVED_LAUNCH_UPDATES;
+         ++frame) {
         if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
             scene.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
             scene.state.free_throws.attempts_remaining != 2U ||
@@ -2761,7 +2764,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
             scene.action_serial != 0U || scene.audio_player.sfx_pending ||
             !tecmo_gameplay_state_valid(&scene.state)) {
             scene_test_message(message, message_size,
-                               "CPU free throw launched before $7D");
+                               "CPU free throw launched before observed schedule");
             tecmo_gameplay_scene_destroy(&scene);
             return false;
         }
@@ -2774,7 +2777,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.audio_player.sfx_pending ||
         !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
-                           "CPU free throw did not launch at $7D");
+                           "CPU free throw missed observed launch update");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -2787,7 +2790,9 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         return false;
     }
     for (frame = 1U;
-         frame + 1U < TECMO_GAMEPLAY_FREE_THROW_CPU_TIMER_FRAMES; ++frame) {
+         frame + 1U <
+             TECMO_GAMEPLAY_FREE_THROW_CPU_OBSERVED_LAUNCH_UPDATES;
+         ++frame) {
         if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
             scene.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
             scene.state.free_throws.attempts_remaining != 1U ||

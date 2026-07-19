@@ -569,15 +569,18 @@ follows Bank05's human state-20 gate: only the controller assigned to the
 scoring team can launch, and only while that pad's current NES B level is held.
 The other pad, input edges/releases, A, directions, START, and SELECT are inert,
 and a human side has no timer fallback. An unassigned scoring side uses a
-deterministic 125-frame CPU timer from the observed `$7D` path; `$D7` is retained
-as the other ROM timer candidate, but the branch-selection policy remains
-unresolved. The per-attempt timer resets at launch, after each attempt, and when
-the scene ends. Actor/camera layout, movement/AI,
+deterministic 125-update schedule from the bounded slot-3 trace's inclusive CPU
+state-18-to-launch span (frames 22 through 146). Bank05 `$96B6-$9708` selects
+command offsets `$007D/$00D7`, and Bank06 `$8B8E-$8B9D` maps those from base
+`$9F2E` to stream/dispatch pointers; those values are not frame timers. The
+native scene does not yet implement that positioning/script system. Its
+per-attempt observed-schedule counter resets at launch, after each attempt, and
+when the scene ends. Actor/camera layout, movement/AI,
 ordinary jump timing, ball arcs and make/contact rules, the distance policy
 selecting dunk/variant 0 versus layup/variant 2, live close-shot
 profile/direction selection and left-facing render
 mirroring, dynamic team/court palette selection, foul detection, free-throw
-lineup/aim/outcome/rebound behavior and CPU `$7D`/`$D7` choice, and HUD text are
+lineup/aim/outcome/rebound and CPU positioning/script behavior, and HUD text are
 explicit native approximations.
 TGCS stores 208 exact profile/direction resolutions into TGPL pose data, but the
 live scene currently selects only profile 0/direction 0 and mirrors
