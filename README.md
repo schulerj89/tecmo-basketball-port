@@ -91,10 +91,18 @@ numpad 3 = NES B, numpad 9 = START, numpad 7 = SELECT
 F3 = debug overlay
 ```
 
-The current original-game boundary includes the blue start-game menu and the
-PRESEASON path through both team selectors. In MAN VS MAN, controller 2 owns
-the second division and team selection. Confirming the second team is
-intentionally terminal for now and does not launch a game.
+The current original-game boundary includes the blue start-game menu,
+PRESEASON through both team selectors, and TEAM DATA through team profile,
+both six-player roster pages, player detail, and the reverse path back to the
+blue menu. In MAN VS MAN, controller 2 owns the second division and team
+selection. Confirming the second team is intentionally terminal for now and
+does not launch a game. TEAM DATA's STARTERS and PLAYBOOK rows are explicit
+no-ops; player detail also cannot launch gameplay.
+
+Opening music plays from the strict ROM-derived semantic music asset. GAME
+MUSIC gates future gameplay music, while GAME SPEED remains a stored gameplay
+setting and does not change menu or soundtrack tempo. The visible `SIC` left
+beside the speed popup is an authentic overlap from the original menu.
 
 Older diagnostic screens and the modern Play Game/Quit menu remain available
 through explicit render-test/debug paths for development work.
