@@ -3190,9 +3190,11 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
                                      "season A+B GAME START frame-eleven dispatch",
                                      message, message_size)) return false;
     if (runtime->season_state.phase != TECMO_SEASON_GAME_START ||
-        runtime->season_state.game_launch_blocked) {
+        !runtime->season_state.game_launch_blocked ||
+        !runtime->season_state.game_prepare_pending ||
+        runtime->season_state.game_result_pending) {
         set_flow_test_message(message, message_size,
-                              "season GAME START did not stop at prelaunch");
+                              "season GAME START exposed a stale prelaunch frame");
         return false;
     }
     memset(&input, 0, sizeof(input));

@@ -851,6 +851,7 @@ void tecmo_season_state_init(TecmoSeasonState *state,
         state->season_type_selection = session->season_type;
         state->season_complete = session->schedule_index == count;
         state->game_prepare_pending = route == TECMO_SEASON_ROUTE_GAME_START;
+        state->game_launch_blocked = route == TECMO_SEASON_ROUTE_GAME_START;
     }
 }
 
@@ -1049,22 +1050,35 @@ bool tecmo_season_commit_game_result(TecmoSeasonState *state,
     uint8_t away_losses;
     uint8_t home_wins;
     uint8_t home_losses;
+    uint8_t scheduled_away;
+    uint8_t scheduled_home;
+    uint16_t raw_index;
     uint16_t schedule_index;
     bool dirty;
     if (state == NULL || asset == NULL || session == NULL || result == NULL ||
         !asset->available || state->phase != TECMO_SEASON_GAME_START ||
         session->season_type >= 4U ||
+        session->schedule_index >= asset->game_counts[session->season_type] ||
+        !tecmo_season_schedule_raw_index(asset, session->season_type,
+                                         session->schedule_index, &raw_index))
+        return false;
+    scheduled_away = asset->schedule[raw_index][0] & 0x3FU;
+    scheduled_home = asset->schedule[raw_index][1] & 0x3FU;
+    if (scheduled_away >= TECMO_SEASON_TEAM_COUNT ||
+        scheduled_home >= TECMO_SEASON_TEAM_COUNT ||
+        scheduled_away == scheduled_home ||
         !state->game_result_pending || state->game_prepare_pending ||
         result->game_index != state->pending_game.game_index ||
-        result->away_team != state->pending_game.away_team ||
-        result->home_team != state->pending_game.home_team ||
+        state->pending_game.away_team != scheduled_away ||
+        state->pending_game.home_team != scheduled_home ||
+        result->away_team != scheduled_away ||
+        result->home_team != scheduled_home ||
         result->away_team >= TECMO_SEASON_TEAM_COUNT ||
         result->home_team >= TECMO_SEASON_TEAM_COUNT ||
         result->away_team == result->home_team ||
         result->away_score > 999U || result->home_score > 999U ||
         result->away_score == result->home_score ||
         session->schedule_index != state->pending_game.game_index ||
-        session->schedule_index >= asset->game_counts[session->season_type] ||
         (unsigned)session->wins[result->away_team] +
                 session->losses[result->away_team] >= 82U ||
         (unsigned)session->wins[result->home_team] +
@@ -2558,6 +2572,10 @@ bool tecmo_season_self_test(char *message, size_t message_size)
 
     session_defaults(&session);
     tecmo_season_state_init(&state, TECMO_SEASON_ROUTE_GAME_START, &session);
+    if (state.phase != TECMO_SEASON_GAME_START ||
+        !state.game_prepare_pending || !state.game_launch_blocked ||
+        state.game_result_pending || session.schedule_index != 0U)
+        goto state_failure;
     memset(&controls, 0, sizeof(controls));
     if (tecmo_season_update(&state, &asset, &session, &controls) !=
             TECMO_SEASON_ACTION_NONE ||
@@ -2590,6 +2608,21 @@ bool tecmo_season_self_test(char *message, size_t message_size)
     completed.home_team = state.pending_game.home_team;
     completed.away_score = 101U;
     completed.home_score = 99U;
+    {
+        uint8_t original_away = state.pending_game.away_team;
+        state.pending_game.away_team = (uint8_t)((original_away + 1U) %
+                                                 TECMO_SEASON_TEAM_COUNT);
+        if (state.pending_game.away_team == state.pending_game.home_team)
+            state.pending_game.away_team = (uint8_t)((state.pending_game.away_team + 1U) %
+                                                     TECMO_SEASON_TEAM_COUNT);
+        completed.away_team = state.pending_game.away_team;
+        if (tecmo_season_commit_game_result(&state, &asset, &session,
+                                            &completed) ||
+            session.schedule_index != 0U || !state.game_result_pending)
+            goto state_failure;
+        state.pending_game.away_team = original_away;
+        completed.away_team = original_away;
+    }
     ++completed.game_index;
     if (tecmo_season_commit_game_result(&state, &asset, &session,
                                         &completed) ||
