@@ -1113,8 +1113,6 @@ static void scene_process_phase_audio(TecmoGameplayScene *scene,
         if (before == TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
             before == TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
             before == TECMO_GAMEPLAY_PHASE_FOUL_SETTLEMENT_REQUIRED ||
-            before == TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
-            before == TECMO_GAMEPLAY_PHASE_FREE_THROW_SETTLEMENT_REQUIRED ||
             before == TECMO_GAMEPLAY_PHASE_PERIOD_BANNER) {
             (void)tecmo_gameplay_audio_queue_event(
                 &scene->audio_player,
@@ -1399,8 +1397,9 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
         scene_set_status(scene, "gameplay audio event rejected");
         return false;
     }
-    /* Restart-boundary audio remains last so an event emitted during the
-       settling action cannot overwrite the one-shot Bank05 $9FEC mailbox. */
+    /* Qualifying restart-boundary audio remains last so an event emitted
+       during the settling action cannot overwrite the one-shot Bank05 $9FEC
+       mailbox. Final free throws are deliberately not qualifying returns. */
     scene_process_phase_audio(scene, phase_before);
     if (!scene_ownership_valid(scene)) {
         scene_set_status(scene, "gameplay ownership invariant rejected");
@@ -2983,7 +2982,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.ball_holder < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
         scene.controlled_actor[1] != scene.ball_holder ||
         !scene.audio_player.sfx_pending ||
-        scene.audio_player.pending_sfx_id != 5U ||
+        scene.audio_player.pending_sfx_id != 12U ||
         scene.audio_player.music == NULL ||
         !scene.audio_player.music->track_pending ||
         scene.audio_player.music->pending_track_id !=
@@ -2997,14 +2996,19 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     tecmo_gameplay_audio_render_samples(&scene.audio_player, NULL, 1024U);
     memset(&p1, 0, sizeof(p1));
     if (scene.audio_player.sfx_pending ||
-        scene.audio_player.current_sfx_id != 5U ||
+        scene.audio_player.current_sfx_id != 12U ||
         !scene.audio_player.music->playing ||
         scene.audio_player.music->current_track_id !=
             TECMO_MUSIC_TRACK_GAMEPLAY ||
+        scene.audio_player.music->track_pending ||
         !tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
-        scene.audio_player.sfx_pending) {
+        scene.audio_player.sfx_pending ||
+        scene.audio_player.current_sfx_id != 12U ||
+        scene.audio_player.music->track_pending ||
+        scene.audio_player.music->current_track_id !=
+            TECMO_MUSIC_TRACK_GAMEPLAY) {
         scene_test_message(message, message_size,
-                           "foul restart cue repeated or missing");
+                           "final human free-throw audio repeated or missing");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -3052,7 +3056,11 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.controlled_actor[0] != scene.ball_holder ||
         scene.action_serial != 1U || scene.free_throw_frame != 0U ||
         !scene.audio_player.sfx_pending ||
-        scene.audio_player.pending_sfx_id != 5U ||
+        scene.audio_player.pending_sfx_id != 13U ||
+        scene.audio_player.music == NULL ||
+        !scene.audio_player.music->track_pending ||
+        scene.audio_player.music->pending_track_id !=
+            TECMO_MUSIC_TRACK_GAMEPLAY ||
         !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
                            "home owned held-B free throw failed");
@@ -3143,10 +3151,32 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.controlled_actor[0] != scene.ball_holder ||
         scene.free_throw_frame != 0U || scene.action_serial != 2U ||
         !scene.audio_player.sfx_pending ||
-        scene.audio_player.pending_sfx_id != 5U ||
+        scene.audio_player.pending_sfx_id != 13U ||
+        scene.audio_player.music == NULL ||
+        !scene.audio_player.music->track_pending ||
+        scene.audio_player.music->pending_track_id !=
+            TECMO_MUSIC_TRACK_GAMEPLAY ||
         !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
                            "CPU free-throw settlement failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    tecmo_gameplay_audio_render_samples(&scene.audio_player, NULL, 1024U);
+    if (scene.audio_player.sfx_pending ||
+        scene.audio_player.current_sfx_id != 13U ||
+        !scene.audio_player.music->playing ||
+        scene.audio_player.music->current_track_id !=
+            TECMO_MUSIC_TRACK_GAMEPLAY ||
+        scene.audio_player.music->track_pending ||
+        !tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+        scene.audio_player.sfx_pending ||
+        scene.audio_player.current_sfx_id != 13U ||
+        scene.audio_player.music->track_pending ||
+        scene.audio_player.music->current_track_id !=
+            TECMO_MUSIC_TRACK_GAMEPLAY) {
+        scene_test_message(message, message_size,
+                           "final CPU free-throw audio repeated or missing");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }

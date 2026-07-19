@@ -555,7 +555,9 @@ or an abrupt zero sample. Fixed `$EC06-$EC25` (32 bytes, FNV1a32 `F1BCC8E2`),
 called at `$E58D`, `$E9A0`, `$E9DE`, and `$ECAF`, supplies the bounded reset
 provenance. Native foul/violation presentation entry and completed-period
 presentation entry each perform this clear once before replacement audio; a
-subsequent live return queues the gated `$9FEC` cue and gameplay track 5.
+qualifying violation, direct-foul, or period live return queues the gated
+`$9FEC` cue. Every enabled live return, including post-free-throw settlement,
+independently queues gameplay track 5.
 
 Fixed `$F3FA-$F436` consumes music before SFX, and `$F3F2` maps the four SFX
 slots to priority masks `$10/$20/$40/$80`. Native mixing therefore advances
@@ -574,11 +576,16 @@ evidence-bounded mappings are clock expiry to SFX 3, late-clock countdown to
 14, violation to 6, and moving possession to the proven `$B5AB`
 held-ball/dribble DMC clip. A made dunk and every resolved free throw, including
 a miss, request crowd response 11 followed by qualifying side result 12/13;
-the final 0:00/0:01 request remains 11. Made jump shots and layups retain their
-existing crowd-response-11 mapping until their separate caller paths are
-integrated. ID 5 remains the neutral `BANK05_9FEC_CUE` at its gated
-foul/restart boundaries. Dunk action frame 87 queues sequence-named A9C5.
-ABF5 and address-named A8D6 clips remain imported without invented live use.
+the final 0:00/0:01 request remains 11. The final free-throw result survives
+the live transition while enabled GAME MUSIC independently requeues track 5.
+The ignored bounded slot-3 observation requests its result at frame 280, has no
+new request at 281, is live by 300, and has no ID-5 request through frame 360;
+post-free-throw live return therefore does not queue the neutral
+`BANK05_9FEC_CUE`. Made jump shots and layups retain their existing
+crowd-response-11 mapping until their separate caller paths are integrated.
+ID 5 remains gated at qualifying violation, direct-foul, and period restart
+boundaries. Dunk action frame 87 queues sequence-named A9C5. ABF5 and
+address-named A8D6 clips remain imported without invented live use.
 
 The importer validates the raw finale dispatch chain as `$851C` wait 50 ->
 `$83EA` wait 30 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 ->
