@@ -318,6 +318,7 @@ function Get-KnownLogicalAssetPackEntries {
         "title/start-screen",
         "menu/start-game",
         "menu/preseason",
+        "menu/all-star",
         "audio/music",
         "menu/team-data",
         "roster/table.tsv",
@@ -363,6 +364,7 @@ function Get-ExpectedLogicalAssetPackEntries {
             "title/start-screen"
             "menu/start-game"
             "menu/preseason"
+            "menu/all-star"
             "audio/music"
             "menu/team-data"
         )

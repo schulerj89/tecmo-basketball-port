@@ -3,6 +3,7 @@
 #include "tecmo_asset_pack.h"
 
 #include "asset_pack/tecmo_asset_pack_arena.h"
+#include "asset_pack/tecmo_asset_pack_all_star.h"
 #include "asset_pack/tecmo_asset_pack_d9f6.h"
 #include "asset_pack/tecmo_asset_pack_finale.h"
 #include "asset_pack/tecmo_asset_pack_import_layout.h"
@@ -62,6 +63,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                           TecmoTitleProvenance title_provenance[2],
                                           TecmoStartGameMenuProvenance *start_menu_provenance,
                                           TecmoPreseasonMenuProvenance *preseason_provenance,
+                                          TecmoAllStarMenuProvenance *all_star_provenance,
                                           TecmoMusicProvenance *music_provenance,
                                           TecmoTeamDataProvenance *team_data_provenance,
                                           char *message,
@@ -82,6 +84,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
     uint8_t title_screen_payload[TECMO_ASSET_PACK_TITLE_SCREEN_SIZE];
     uint8_t start_menu_payload[TECMO_ASSET_PACK_START_MENU_SIZE];
     uint8_t preseason_payload[TECMO_ASSET_PACK_PRESEASON_SIZE];
+    uint8_t all_star_payload[TECMO_ASSET_PACK_ALL_STAR_SIZE];
     uint8_t team_data_payload[TECMO_ASSET_PACK_TEAM_DATA_SIZE];
     uint64_t script_source_offset =
         prg_bank_cpu_source_offset(prg_offset,
@@ -540,6 +543,24 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                      "Could not write native preseason menu entry.");
         return -1;
     }
+    if (tecmo_asset_pack_build_all_star_menu(
+            rom, rom_size, prg_offset, prg_banks, chr_size,
+            enforce_finale_revision_fingerprints, all_star_payload,
+            sizeof(all_star_payload), all_star_provenance,
+            message, message_size) != 0)
+        return -1;
+    entry_info = tecmo_asset_pack_make_entry_info(
+        TECMO_ASSET_PACK_ALL_STAR_MENU_ID, TECMO_ASSET_PACK_TYPE_DATA, 3U,
+        TECMO_ASSET_PACK_ALL_STAR_ENTRY_CPU, all_star_provenance->flow_offset,
+        TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+    if (tecmo_asset_pack_builder_add_memory(builder, &entry_info,
+                                            all_star_payload,
+                                            sizeof(all_star_payload),
+                                            message, message_size) != 0) {
+        tecmo_asset_pack_set_message(message, message_size,
+                                     "Could not write native ALL STAR menu entry.");
+        return -1;
+    }
     {
         uint8_t *music_payload = NULL;
         size_t music_payload_size = 0U;
@@ -620,6 +641,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     TecmoTitleProvenance title_provenance[2];
     TecmoStartGameMenuProvenance start_menu_provenance;
     TecmoPreseasonMenuProvenance preseason_provenance;
+    TecmoAllStarMenuProvenance all_star_provenance;
     TecmoMusicProvenance music_provenance;
     TecmoTeamDataProvenance team_data_provenance;
     int manifest_length;
@@ -787,6 +809,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     memset(title_provenance, 0, sizeof(title_provenance));
     memset(&start_menu_provenance, 0, sizeof(start_menu_provenance));
     memset(&preseason_provenance, 0, sizeof(preseason_provenance));
+    memset(&all_star_provenance, 0, sizeof(all_star_provenance));
     memset(&music_provenance, 0, sizeof(music_provenance));
     memset(&team_data_provenance, 0, sizeof(team_data_provenance));
     if (add_native_arena_intro_entries(builder,
@@ -805,6 +828,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        title_provenance,
                                        &start_menu_provenance,
                                        &preseason_provenance,
+                                       &all_star_provenance,
                                        &music_provenance,
                                        &team_data_provenance,
                                        message,
@@ -827,6 +851,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        title_provenance,
                                        &start_menu_provenance,
                                        &preseason_provenance,
+                                       &all_star_provenance,
                                        &music_provenance,
                                        &team_data_provenance,
                                        &source_map_size);

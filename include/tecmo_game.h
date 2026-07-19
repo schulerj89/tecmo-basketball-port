@@ -3,6 +3,7 @@
 
 #include "asm_inventory.h"
 #include "tecmo_controls.h"
+#include "tecmo_all_star_menu.h"
 #include "tecmo_framebuffer.h"
 #include "tecmo_intro_arena.h"
 #include "tecmo_intro_finale.h"
@@ -33,6 +34,7 @@ typedef enum TecmoPlayMode {
     TECMO_MODE_COURT,
     TECMO_MODE_START_GAME_MENU,
     TECMO_MODE_PRESEASON_MENU,
+    TECMO_MODE_ALL_STAR_MENU,
     TECMO_MODE_TEAM_DATA
 } TecmoPlayMode;
 
@@ -79,6 +81,8 @@ typedef struct TecmoRuntime {
     TecmoStartGameMenuState start_game_menu_state;
     TecmoPreseasonAsset preseason_asset;
     TecmoPreseasonState preseason_state;
+    TecmoAllStarAsset all_star_asset;
+    TecmoAllStarState all_star_state;
     TecmoMusicAsset music_asset;
     TecmoMusicPlayer music_player;
     TecmoTeamDataAsset team_data_asset;

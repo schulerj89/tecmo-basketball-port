@@ -937,6 +937,72 @@ int main(int argc, char **argv)
                     runtime->title_chr_byte_count, 64, 0, 2);
                 render_runtime = false;
                 result = arena_render_succeeded ? 0 : 1;
+            } else if (strcmp(mode_name, "all-star-control") == 0) {
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_ALL_STAR_MENU);
+                runtime->all_star_state.phase = TECMO_ALL_STAR_CONTROL;
+                runtime->all_star_state.transition_frame = 14U;
+            } else if (strncmp(mode_name, "all-star-control-setup-frame", 28) == 0) {
+                unsigned frame;
+                if (!parse_render_frame_suffix(mode_name,
+                                               "all-star-control-setup-frame",
+                                               &frame) || frame > 14U) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(runtime, TECMO_MODE_ALL_STAR_MENU);
+                    runtime->all_star_state.phase = frame < 14U
+                        ? TECMO_ALL_STAR_CONTROL_SETUP : TECMO_ALL_STAR_CONTROL;
+                    runtime->all_star_state.transition_frame = (uint16_t)frame;
+                    runtime->all_star_state.cursor_delay = frame < 14U ? 0U :
+                        runtime->all_star_asset.cursor_commit_delay_frames;
+                }
+            } else if (strncmp(mode_name, "all-star-control-teardown-frame", 31) == 0) {
+                unsigned frame;
+                if (!parse_render_frame_suffix(
+                        mode_name, "all-star-control-teardown-frame", &frame) ||
+                    frame > 14U) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(runtime, TECMO_MODE_ALL_STAR_MENU);
+                    runtime->all_star_state.phase = frame < 14U
+                        ? TECMO_ALL_STAR_CONTROL_TEARDOWN_ROOT
+                        : TECMO_ALL_STAR_CONTROL;
+                    runtime->all_star_state.transition_frame = (uint16_t)frame;
+                    runtime->all_star_state.cursor_delay = frame < 14U ? 0U :
+                        runtime->all_star_asset.cursor_commit_delay_frames;
+                }
+            } else if (strcmp(mode_name, "all-star-difficulty") == 0) {
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_ALL_STAR_MENU);
+                runtime->all_star_state.phase = TECMO_ALL_STAR_DIFFICULTY;
+                runtime->all_star_state.transition_frame = 8U;
+                runtime->all_star_state.difficulty_selection = 1U;
+                runtime->all_star_state.committed_difficulty = 1U;
+            } else if (strcmp(mode_name, "all-star-team-east") == 0 ||
+                       strcmp(mode_name, "all-star-team-west") == 0) {
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_ALL_STAR_MENU);
+                runtime->all_star_state.phase = TECMO_ALL_STAR_TEAM;
+                runtime->all_star_state.transition_frame = 6U;
+                runtime->all_star_state.control_selection =
+                    strcmp(mode_name, "all-star-team-west") == 0 ? 4U : 1U;
+                runtime->all_star_state.team_selection =
+                    strcmp(mode_name, "all-star-team-west") == 0 ? 1U : 0U;
+            } else if (strcmp(mode_name, "all-star-invalid-state") == 0) {
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_ALL_STAR_MENU);
+                runtime->all_star_state.control_selection =
+                    TECMO_ALL_STAR_CONTROL_COUNT;
+                framebuffer.pixels = pixels;
+                framebuffer.width = width;
+                framebuffer.height = height;
+                framebuffer.pitch_pixels = width;
+                arena_render_succeeded = tecmo_all_star_draw(
+                    &framebuffer, &runtime->all_star_asset,
+                    &runtime->all_star_state, &runtime->preseason_asset,
+                    &runtime->start_game_menu_asset,
+                    runtime->title_chr_bytes, runtime->title_chr_byte_count,
+                    64, 0, 2);
+                render_runtime = false;
+                result = arena_render_succeeded ? 0 : 1;
             } else if (strcmp(mode_name, "team-data-select") == 0) {
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
                 runtime->team_data_state.cursor_delay = 1U;
@@ -1444,6 +1510,15 @@ int main(int argc, char **argv)
                                 runtime->title_chr_bytes,
                                 runtime->title_chr_byte_count))) {
                     result = 1;
+                } else if (strncmp(mode_name, "all-star", 8) == 0 &&
+                           (!runtime->all_star_asset.available ||
+                            !runtime->preseason_asset.available ||
+                            !runtime->start_game_menu_asset.available ||
+                            !tecmo_all_star_asset_chr_available(
+                                &runtime->all_star_asset,
+                                runtime->title_chr_bytes,
+                                runtime->title_chr_byte_count))) {
+                    result = 1;
                 } else if (strncmp(mode_name, "team-data", 9) == 0 &&
                            (!runtime->team_data_asset.available ||
                             !tecmo_team_data_asset_chr_available(
@@ -1502,6 +1577,27 @@ int main(int argc, char **argv)
                        runtime->preseason_state.division_return_fade_active ? 1U : 0U,
                        (unsigned)runtime->preseason_state.division_return_fade_frame,
                        (unsigned)runtime->preseason_state.direction_cooldown);
+            }
+            if (strncmp(mode_name, "all-star", 8) == 0) {
+                printf("all-star-state phase=%s transition=%u control=%u difficulty=%u committed=%u team=%u owners=%u/%u teams=%u/%u terminal=%u cooldown=%u rows=%u/%u/%u\n",
+                       tecmo_all_star_phase_name(runtime->all_star_state.phase),
+                       (unsigned)runtime->all_star_state.transition_frame,
+                       (unsigned)runtime->all_star_state.control_selection,
+                       (unsigned)runtime->all_star_state.difficulty_selection,
+                       (unsigned)runtime->all_star_state.committed_difficulty,
+                       (unsigned)runtime->all_star_state.team_selection,
+                       (unsigned)runtime->all_star_state.west_owner,
+                       (unsigned)runtime->all_star_state.east_owner,
+                       (unsigned)runtime->all_star_state.west_team,
+                       (unsigned)runtime->all_star_state.east_team,
+                       runtime->all_star_state.terminal_commit ? 1U : 0U,
+                       (unsigned)runtime->all_star_state.direction_cooldown,
+                       tecmo_all_star_overlay_visible_rows(
+                           &runtime->all_star_asset, &runtime->all_star_state, 0U),
+                       tecmo_all_star_overlay_visible_rows(
+                           &runtime->all_star_asset, &runtime->all_star_state, 1U),
+                       tecmo_all_star_overlay_visible_rows(
+                           &runtime->all_star_asset, &runtime->all_star_state, 2U));
             }
             if (strncmp(mode_name, "team-data", 9) == 0) {
                 printf("team-data-state phase=%s selector=%u team=%u profile=%u page=%u row=%u player=%u slide=%u/%u direction=%d cooldown=%u transition=%u transition-frame=%u palette=%u render=%u\n",

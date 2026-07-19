@@ -651,7 +651,7 @@ TecmoStartGameMenuAction tecmo_start_game_menu_update(
                 state->cursor_delay = 0U;
                 return TECMO_START_GAME_MENU_ACTION_NONE;
             case 3U:
-                return TECMO_START_GAME_MENU_ACTION_PLAY_SETUP;
+                return TECMO_START_GAME_MENU_ACTION_ALL_STAR;
             case 4U:
                 begin_exit(state, TECMO_START_GAME_MENU_ACTION_ROSTERS, false);
                 return TECMO_START_GAME_MENU_ACTION_NONE;

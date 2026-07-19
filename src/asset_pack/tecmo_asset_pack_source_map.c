@@ -917,6 +917,70 @@ static int append_preseason_source_map_entry(char *buffer,
         (unsigned)TECMO_ASSET_PACK_PRESEASON_SIZE);
 }
 
+static int append_all_star_source_map_entry(char *buffer,
+                                            size_t capacity,
+                                            size_t *length,
+                                            int *first,
+                                            const TecmoAllStarMenuProvenance *p)
+{
+    const char *prefix = *first != 0 ? "" : ",\n";
+    *first = 0;
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "%s"
+        "    {\"id\":\"%s\",\"kind\":\"all-star-menu-native\","
+        "\"schema\":\"tecmo.all-star-menu/TALL-1\",\"input_contract\":\"ines-only\","
+        "\"runtime_dependencies\":["
+        "{\"entry\":\"menu/preseason\",\"schema\":\"tecmo.preseason-menu/TPRE-1\",\"size\":26736,\"fingerprint_fnv1a32\":\"D9EE49F4\"},"
+        "{\"entry\":\"menu/start-game\",\"schema\":\"tecmo.start-game-menu/TSGM-1\",\"size\":14112,\"fingerprint_fnv1a32\":\"DF89006B\"},"
+        "{\"entry\":\"chr/all\",\"size\":262144,\"fingerprint_fnv1a32\":\"F6F6E854\",\"fingerprint_fnv1a64\":\"96A64F53B240ABB4\"}],"
+        "\"sources\":["
+        "{\"role\":\"base-start-menu-descriptor\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":56481,\"size\":7,\"fingerprint_fnv1a32\":\"0A5B3B88\"},"
+        "{\"role\":\"base-start-menu-stream\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"bank\":0,\"cpu_address\":34968,\"encoded_size\":%llu,\"decoded_size\":2048,\"encoded_fingerprint_fnv1a32\":\"8047E031\",\"decoded_fingerprint_fnv1a32\":\"E1840CFE\"},"
+        "{\"role\":\"all-star-precommit-flow\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":33313,\"size\":182,\"fingerprint_fnv1a32\":\"85DFCDE5\"},"
+        "{\"role\":\"all-star-final-side-and-launch-commit\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":33495,\"size\":21,\"fingerprint_fnv1a32\":\"369626B2\",\"runtime_behavior\":\"bounded-unexecuted\"},"
+        "{\"role\":\"all-star-launch-routine\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":45695,\"size\":4,\"fingerprint_fnv1a32\":\"8145527E\",\"runtime_behavior\":\"never-called\"},"
+        "{\"role\":\"control-ownership\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":39386,\"size\":12,\"fingerprint_fnv1a32\":\"82A498DF\"},"
+        "{\"role\":\"difficulty-flow\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":39398,\"size\":62,\"fingerprint_fnv1a32\":\"8759504B\"},"
+        "{\"role\":\"popup-row-transfer\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":39460,\"size\":164,\"fingerprint_fnv1a32\":\"4325EDF8\"},"
+        "{\"role\":\"character-map\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":39592,\"size\":91,\"fingerprint_fnv1a32\":\"724F80CE\"},"
+        "{\"role\":\"team-side-record\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":39742,\"size\":23,\"fingerprint_fnv1a32\":\"28D1A422\"},"
+        "{\"role\":\"control-record\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":40030,\"size\":91,\"fingerprint_fnv1a32\":\"C4F89AF6\"},"
+        "{\"role\":\"difficulty-record\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":40226,\"size\":40,\"fingerprint_fnv1a32\":\"8861F7F3\"},"
+        "{\"role\":\"menu-input-wrapper\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":40646,\"size\":77,\"fingerprint_fnv1a32\":\"6C2709EB\"},"
+        "{\"role\":\"input-parameters\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":40723,\"size\":145,\"fingerprint_fnv1a32\":\"DE568C7B\"},"
+        "{\"role\":\"coordinate-pointers\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":40868,\"size\":116,\"fingerprint_fnv1a32\":\"AAF64989\"},"
+        "{\"role\":\"coordinate-tables\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":40984,\"size\":131,\"fingerprint_fnv1a32\":\"7529BA7F\"},"
+        "{\"role\":\"cursor-sprite-record\",\"source_entry\":\"prg/bank01\",\"source_offset\":%llu,\"bank\":1,\"cpu_address\":32817,\"size\":5,\"fingerprint_fnv1a32\":\"7D5835D4\",\"resolved_dx\":0,\"resolved_dy\":-4},"
+        "{\"role\":\"controller-poll\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":54039,\"size\":9,\"fingerprint_fnv1a32\":\"8868D9B5\"},"
+        "{\"role\":\"menu-input-helper\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":55075,\"size\":273,\"fingerprint_fnv1a32\":\"AE47C4A0\"},"
+        "{\"role\":\"full-chr\",\"source_entry\":\"chr/all\",\"source_offset\":%llu,\"size\":262144,\"fingerprint_fnv1a32\":\"F6F6E854\",\"fingerprint_fnv1a64\":\"96A64F53B240ABB4\"}],"
+        "\"native_contract\":{\"payload_size\":%u,\"payload_fingerprint_fnv1a32\":\"F02A2A45\",\"control_rows\":7,\"difficulty_rows\":3,\"team_side_rows\":2,\"team_side_codes\":[27,28],\"team_side_modes\":[1,4],\"direction_repeat_frames\":8,\"input_gate_seed\":5,\"row_cadence_frames\":1,\"cursor_commit_delay_frames\":1,\"terminal\":\"final-accept-consumed-no-game-launch\"}}",
+        prefix, TECMO_ASSET_PACK_ALL_STAR_MENU_ID,
+        (unsigned long long)p->base_descriptor_offset,
+        (unsigned long long)p->base_stream_offset,
+        (unsigned long long)p->base_stream_size,
+        (unsigned long long)p->flow_offset,
+        (unsigned long long)p->final_commit_offset,
+        (unsigned long long)p->launch_routine_offset,
+        (unsigned long long)p->ownership_offset,
+        (unsigned long long)p->difficulty_flow_offset,
+        (unsigned long long)p->popup_builder_offset,
+        (unsigned long long)p->char_map_offset,
+        (unsigned long long)p->team_record_offset,
+        (unsigned long long)p->control_record_offset,
+        (unsigned long long)p->difficulty_record_offset,
+        (unsigned long long)p->input_wrapper_offset,
+        (unsigned long long)p->input_params_offset,
+        (unsigned long long)p->input_coord_pointers_offset,
+        (unsigned long long)p->coord_tables_offset,
+        (unsigned long long)p->cursor_record_offset,
+        (unsigned long long)p->controller_poll_offset,
+        (unsigned long long)p->input_helper_offset,
+        (unsigned long long)p->chr_offset,
+        (unsigned)TECMO_ASSET_PACK_ALL_STAR_SIZE);
+}
+
 static int append_music_source_map_entry(char *buffer,
                                          size_t capacity,
                                          size_t *length,
@@ -1087,11 +1151,12 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoTitleProvenance title_provenance[2],
                                    const TecmoStartGameMenuProvenance *start_menu_provenance,
                                    const TecmoPreseasonMenuProvenance *preseason_provenance,
+                                   const TecmoAllStarMenuProvenance *all_star_provenance,
                                    const TecmoMusicProvenance *music_provenance,
                                    const TecmoTeamDataProvenance *team_data_provenance,
                                    size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 16U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 17U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -1290,6 +1355,9 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
         (preseason_provenance->flow_offset != 0U &&
          append_preseason_source_map_entry(source_map, capacity, &length,
                                            &first_logical, preseason_provenance) != 0) ||
+        (all_star_provenance->flow_offset != 0U &&
+         append_all_star_source_map_entry(source_map, capacity, &length,
+                                          &first_logical, all_star_provenance) != 0) ||
         (music_provenance->payload_size != 0U &&
          append_music_source_map_entry(source_map, capacity, &length,
                                        &first_logical, music_provenance) != 0) ||

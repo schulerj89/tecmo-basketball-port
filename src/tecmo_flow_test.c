@@ -22,6 +22,9 @@ static uint32_t flow_fnv1a32(const uint8_t *bytes, size_t count)
 #define FLOW_INTRO_ARENA_STEP 8U
 #define FLOW_INTRO_TITLE_HANDOFF_FRAME 133U
 #define FLOW_INTRO_LICENSE_HANDOFF_FRAME 277U
+#define ALL_STAR_CONTROL_HEIGHT 14U
+#define ALL_STAR_DIFFICULTY_HEIGHT 8U
+#define ALL_STAR_TEAM_HEIGHT 6U
 
 static const char *flow_mode_name(TecmoPlayMode mode)
 {
@@ -54,6 +57,9 @@ static const char *flow_mode_name(TecmoPlayMode mode)
     }
     if (mode == TECMO_MODE_PRESEASON_MENU) {
         return "PRESEASON MENU";
+    }
+    if (mode == TECMO_MODE_ALL_STAR_MENU) {
+        return "ALL STAR MENU";
     }
     if (mode == TECMO_MODE_TEAM_DATA) {
         return "TEAM DATA";
@@ -207,6 +213,7 @@ static bool flow_expect_placeholder_return(TecmoRuntime *runtime,
                               "normal placeholder did not retain its blue-menu route");
         return false;
     }
+    memset(&input, 0, sizeof(input));
     memset(&input, 0, sizeof(input));
     input.cancel = true;
     tecmo_runtime_update(runtime, &input);
@@ -1704,6 +1711,333 @@ static bool flow_expect_team_data_native_path(TecmoRuntime *runtime,
     return true;
 }
 
+static void flow_all_star_neutral(TecmoRuntime *runtime, unsigned frames)
+{
+    TecmoInput input = {0};
+    for (unsigned i = 0U; i < frames; ++i)
+        tecmo_runtime_update(runtime, &input);
+}
+
+static bool flow_all_star_expect_phase(const TecmoRuntime *runtime,
+                                       TecmoAllStarPhase phase,
+                                       const char *label,
+                                       char *message,
+                                       size_t message_size)
+{
+    if (runtime->mode != TECMO_MODE_ALL_STAR_MENU ||
+        runtime->all_star_state.phase != phase) {
+        char detail[160];
+        (void)snprintf(detail, sizeof(detail), "%s expected %s got %s/%s",
+                       label, tecmo_all_star_phase_name(phase),
+                       flow_mode_name(runtime->mode),
+                       tecmo_all_star_phase_name(runtime->all_star_state.phase));
+        set_flow_test_message(message, message_size, detail);
+        return false;
+    }
+    return true;
+}
+
+static bool flow_expect_all_star_native_path(TecmoRuntime *runtime,
+                                             char *message,
+                                             size_t message_size)
+{
+    static const uint8_t direct_rows[4] = {2U, 3U, 5U, 6U};
+    static const uint8_t direct_owners[4][2] = {
+        {0U, 0U}, {0U, 2U}, {2U, 2U}, {1U, 1U}
+    };
+    TecmoInput input = {0};
+    TecmoControlFrame released = {0};
+    TecmoAllStarState direct_state;
+    const TecmoAllStarAsset *asset = &runtime->all_star_asset;
+    uint32_t *pixels;
+    size_t pixel_count = 640U * 480U;
+    TecmoFramebuffer framebuffer;
+
+    if (!asset->available ||
+        !flow_all_star_expect_phase(runtime, TECMO_ALL_STAR_CONTROL_SETUP,
+                                    "ALL STAR dispatch", message, message_size) ||
+        runtime->all_star_state.transition_frame != 0U ||
+        runtime->all_star_state.direction_cooldown != asset->accepted_input_seed) {
+        set_flow_test_message(message, message_size,
+                              "ALL STAR initial setup contract was rejected");
+        return false;
+    }
+    if (tecmo_all_star_overlay_visible_rows(asset, &runtime->all_star_state, 0U) != 1U) {
+        set_flow_test_message(message, message_size,
+                              "ALL STAR CONTROL frame zero did not expose one row");
+        return false;
+    }
+    flow_all_star_neutral(runtime, 13U);
+    if (!flow_all_star_expect_phase(runtime, TECMO_ALL_STAR_CONTROL_SETUP,
+                                    "ALL STAR CONTROL setup frame 13",
+                                    message, message_size) ||
+        tecmo_all_star_overlay_visible_rows(asset, &runtime->all_star_state, 0U) !=
+            ALL_STAR_CONTROL_HEIGHT) {
+        return false;
+    }
+    flow_all_star_neutral(runtime, 1U);
+    if (!flow_all_star_expect_phase(runtime, TECMO_ALL_STAR_CONTROL,
+                                    "ALL STAR CONTROL setup handoff",
+                                    message, message_size) ||
+        runtime->all_star_state.direction_cooldown != asset->accepted_input_seed ||
+        runtime->all_star_state.cursor_delay != asset->cursor_commit_delay_frames)
+        return false;
+
+    flow_all_star_neutral(runtime, asset->accepted_input_seed);
+    input.up = true;
+    input.down = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->all_star_state.control_selection != 0U ||
+        runtime->all_star_state.direction_cooldown != asset->repeat_frames - 1U) {
+        set_flow_test_message(message, message_size,
+                              "ALL STAR opposite directions did not consume one repeat gate");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    flow_all_star_neutral(runtime, asset->repeat_frames - 1U);
+    input.up = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->all_star_state.control_selection != 6U) {
+        set_flow_test_message(message, message_size,
+                              "ALL STAR CONTROL UP did not wrap");
+        return false;
+    }
+
+    runtime->all_star_state.control_selection = 0U;
+    runtime->all_star_state.direction_cooldown = 0U;
+    memset(&input, 0, sizeof(input));
+    input.shoot = true;
+    flow_step(runtime, input);
+    if (!flow_all_star_expect_phase(runtime, TECMO_ALL_STAR_DIFFICULTY_SETUP,
+                                    "ALL STAR DIFFICULTY route",
+                                    message, message_size))
+        return false;
+    flow_all_star_neutral(runtime, ALL_STAR_DIFFICULTY_HEIGHT);
+    if (!flow_all_star_expect_phase(runtime, TECMO_ALL_STAR_DIFFICULTY,
+                                    "ALL STAR DIFFICULTY setup",
+                                    message, message_size))
+        return false;
+    flow_all_star_neutral(runtime, asset->accepted_input_seed);
+    input.down = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->all_star_state.difficulty_selection != 1U) {
+        set_flow_test_message(message, message_size,
+                              "ALL STAR DIFFICULTY direction failed");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.shoot = true;
+    flow_step(runtime, input);
+    if (!flow_all_star_expect_phase(runtime,
+                                    TECMO_ALL_STAR_DIFFICULTY_TEARDOWN,
+                                    "ALL STAR DIFFICULTY accept",
+                                    message, message_size))
+        return false;
+    flow_all_star_neutral(runtime, ALL_STAR_DIFFICULTY_HEIGHT);
+    if (!flow_all_star_expect_phase(runtime, TECMO_ALL_STAR_CONTROL,
+                                    "ALL STAR DIFFICULTY return",
+                                    message, message_size) ||
+        runtime->all_star_state.committed_difficulty != 1U ||
+        runtime->all_star_state.control_selection != 1U)
+        return false;
+
+    flow_all_star_neutral(runtime, asset->accepted_input_seed);
+    input.shoot = true;
+    flow_step(runtime, input);
+    if (!flow_all_star_expect_phase(runtime, TECMO_ALL_STAR_TEAM_SETUP,
+                                    "ALL STAR MAN VS COM TEAM route",
+                                    message, message_size))
+        return false;
+    flow_all_star_neutral(runtime, ALL_STAR_TEAM_HEIGHT);
+    if (!flow_all_star_expect_phase(runtime, TECMO_ALL_STAR_TEAM,
+                                    "ALL STAR TEAM setup",
+                                    message, message_size))
+        return false;
+    flow_all_star_neutral(runtime, asset->accepted_input_seed);
+    input.shoot = true;
+    flow_step(runtime, input);
+    if (!runtime->all_star_state.terminal_commit ||
+        !runtime->all_star_state.terminal_from_team ||
+        runtime->all_star_state.west_owner != 1U ||
+        runtime->all_star_state.east_owner != 0U ||
+        runtime->all_star_state.west_team != 0x1BU ||
+        runtime->all_star_state.east_team != 0x1CU ||
+        runtime->mode != TECMO_MODE_ALL_STAR_MENU) {
+        set_flow_test_message(message, message_size,
+                              "ALL STAR EAST commit did not swap ownership at the hard boundary");
+        return false;
+    }
+    input.down = true;
+    input.shoot = true;
+    flow_step(runtime, input);
+    if (runtime->all_star_state.team_selection != 0U ||
+        !runtime->all_star_state.terminal_commit ||
+        runtime->mode != TECMO_MODE_ALL_STAR_MENU) {
+        set_flow_test_message(message, message_size,
+                              "ALL STAR terminal boundary consumed post-commit input");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.cancel = true;
+    flow_step(runtime, input);
+    if (!flow_all_star_expect_phase(runtime, TECMO_ALL_STAR_TEAM_TEARDOWN,
+                                    "ALL STAR terminal B unwind",
+                                    message, message_size))
+        return false;
+    flow_all_star_neutral(runtime, ALL_STAR_TEAM_HEIGHT);
+    if (!flow_all_star_expect_phase(runtime, TECMO_ALL_STAR_CONTROL,
+                                    "ALL STAR TEAM return",
+                                    message, message_size))
+        return false;
+
+    runtime->all_star_state.control_selection = 4U;
+    runtime->all_star_state.direction_cooldown = 0U;
+    input.shoot = true;
+    flow_step(runtime, input);
+    flow_all_star_neutral(runtime, ALL_STAR_TEAM_HEIGHT);
+    if (!flow_all_star_expect_phase(runtime, TECMO_ALL_STAR_TEAM,
+                                    "ALL STAR COA VS COM TEAM setup",
+                                    message, message_size))
+        return false;
+    flow_all_star_neutral(runtime, asset->accepted_input_seed);
+    input.down = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->all_star_state.team_selection != 1U) {
+        set_flow_test_message(message, message_size,
+                              "ALL STAR WEST selection failed");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.shoot = true;
+    flow_step(runtime, input);
+    if (!runtime->all_star_state.terminal_commit ||
+        runtime->all_star_state.west_owner != 2U ||
+        runtime->all_star_state.east_owner != 1U) {
+        set_flow_test_message(message, message_size,
+                              "ALL STAR WEST commit changed default ownership");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.cancel = true;
+    flow_step(runtime, input);
+    flow_all_star_neutral(runtime, ALL_STAR_TEAM_HEIGHT);
+
+    released.released.shoot = true;
+    for (size_t i = 0U; i < sizeof(direct_rows); ++i) {
+        tecmo_all_star_state_init(&direct_state);
+        direct_state.phase = TECMO_ALL_STAR_CONTROL;
+        direct_state.transition_frame = ALL_STAR_CONTROL_HEIGHT;
+        direct_state.control_selection = direct_rows[i];
+        if (tecmo_all_star_update(&direct_state, asset, &released) !=
+                TECMO_ALL_STAR_ACTION_NONE ||
+            !direct_state.terminal_commit || direct_state.terminal_from_team ||
+            direct_state.west_owner != direct_owners[i][0] ||
+            direct_state.east_owner != direct_owners[i][1]) {
+            set_flow_test_message(message, message_size,
+                                  "ALL STAR direct control mode ownership mismatch");
+            return false;
+        }
+    }
+    tecmo_all_star_state_init(&direct_state);
+    direct_state.phase = TECMO_ALL_STAR_CONTROL;
+    direct_state.transition_frame = ALL_STAR_CONTROL_HEIGHT;
+    direct_state.control_selection = 2U;
+    released.released.cancel = true;
+    if (tecmo_all_star_update(&direct_state, asset, &released) !=
+            TECMO_ALL_STAR_ACTION_NONE || !direct_state.terminal_commit) {
+        set_flow_test_message(message, message_size,
+                              "ALL STAR simultaneous A+B release did not prioritize A");
+        return false;
+    }
+
+    if (!flow_all_star_expect_phase(runtime, TECMO_ALL_STAR_CONTROL,
+                                    "ALL STAR final CONTROL return",
+                                    message, message_size))
+        return false;
+    memset(&input, 0, sizeof(input));
+    input.cancel = true;
+    flow_step(runtime, input);
+    if (!flow_all_star_expect_phase(runtime,
+                                    TECMO_ALL_STAR_CONTROL_TEARDOWN_ROOT,
+                                    "ALL STAR root B teardown",
+                                    message, message_size))
+        return false;
+    flow_all_star_neutral(runtime, ALL_STAR_CONTROL_HEIGHT);
+    if (!flow_expect_mode(runtime, TECMO_MODE_START_GAME_MENU,
+                          "ALL STAR blue-menu return", message, message_size) ||
+        runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+        runtime->start_game_menu_state.root_selection != 2U ||
+        runtime->start_game_menu_state.music_value != 0U ||
+        runtime->start_game_menu_state.speed_value != 2U ||
+        runtime->start_game_menu_state.period_index != 4U ||
+        !runtime->start_menu_input_neutral_gate) {
+        set_flow_test_message(message, message_size,
+                              "ALL STAR return did not restore the exact blue-menu state");
+        return false;
+    }
+    input.down = true;
+    tecmo_runtime_update(runtime, &input);
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.root_selection != 2U ||
+        runtime->start_menu_input_neutral_gate) {
+        set_flow_test_message(message, message_size,
+                              "ALL STAR return neutral gate leaked a direction");
+        return false;
+    }
+
+    pixels = (uint32_t *)malloc(pixel_count * sizeof(*pixels));
+    if (pixels == NULL) {
+        set_flow_test_message(message, message_size,
+                              "ALL STAR render guard allocation failed");
+        return false;
+    }
+    framebuffer.pixels = pixels;
+    framebuffer.width = 640;
+    framebuffer.height = 480;
+    framebuffer.pitch_pixels = 640;
+    tecmo_all_star_state_init(&direct_state);
+    direct_state.phase = TECMO_ALL_STAR_CONTROL;
+    direct_state.transition_frame = ALL_STAR_CONTROL_HEIGHT;
+    if (!tecmo_all_star_draw(&framebuffer, asset, &direct_state,
+                             &runtime->preseason_asset,
+                             &runtime->start_game_menu_asset,
+                             runtime->title_chr_bytes,
+                             runtime->title_chr_byte_count, 64, 0, 2)) {
+        free(pixels);
+        set_flow_test_message(message, message_size,
+                              "ALL STAR valid CONTROL render failed");
+        return false;
+    }
+    {
+        const uint32_t sentinel = 0xA5A55A5AU;
+        TecmoAllStarAsset invalid_asset = *asset;
+        invalid_asset.team_cells[0].chr_offset = UINT32_MAX;
+        for (size_t i = 0U; i < pixel_count; ++i) pixels[i] = sentinel;
+        if (tecmo_all_star_draw(&framebuffer, &invalid_asset, &direct_state,
+                                &runtime->preseason_asset,
+                                &runtime->start_game_menu_asset,
+                                runtime->title_chr_bytes,
+                                runtime->title_chr_byte_count, 64, 0, 2)) {
+            free(pixels);
+            set_flow_test_message(message, message_size,
+                                  "ALL STAR malformed render asset was accepted");
+            return false;
+        }
+        for (size_t i = 0U; i < pixel_count; ++i) {
+            if (pixels[i] != sentinel) {
+                free(pixels);
+                set_flow_test_message(message, message_size,
+                                      "ALL STAR rejected render changed output");
+                return false;
+            }
+        }
+    }
+    free(pixels);
+    return true;
+}
+
 bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t message_size)
 {
     TecmoInput input;
@@ -2128,24 +2462,11 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     memset(&input, 0, sizeof(input));
     input.shoot = true;
     flow_step(runtime, input);
-    if (!flow_expect_mode(runtime, TECMO_MODE_PLAY_SETUP,
+    if (!flow_expect_mode(runtime, TECMO_MODE_ALL_STAR_MENU,
                           "root ALL STAR submenu-boundary dispatch",
                           message, message_size)) return false;
-    memset(&input, 0, sizeof(input));
-    input.confirm = true;
-    flow_step(runtime, input);
-    if (!flow_expect_mode(runtime, TECMO_MODE_COURT,
-                          "normal ALL STAR placeholder court entry",
-                          message, message_size)) return false;
-    memset(&input, 0, sizeof(input));
-    input.cancel = true;
-    flow_step(runtime, input);
-    if (!flow_expect_mode(runtime, TECMO_MODE_PLAY_SETUP,
-                          "normal ALL STAR court cancel",
-                          message, message_size)) return false;
-    if (!flow_expect_placeholder_return(runtime, false, 2U, 0U,
-                                        "normal ALL STAR blue-menu return",
-                                        message, message_size)) return false;
+    if (!flow_expect_all_star_native_path(runtime, message, message_size))
+        return false;
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 32U;
