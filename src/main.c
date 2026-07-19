@@ -8,6 +8,7 @@
 #include "tecmo_gameplay_assets.h"
 #include "tecmo_gameplay_court.h"
 #include "tecmo_gameplay_close_shots.h"
+#include "tecmo_gameplay_state.h"
 #include "tecmo_intro_arena_scene.h"
 #include "tecmo_nes_video.h"
 
@@ -38,6 +39,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-audio-test   Run strict TSFX/TDMC parser/mixer checks\n");
     printf("  --team-management-test  Run strict TTMG parser and native STARTERS/PLAYBOOK checks\n");
     printf("  --season-test           Run strict TSNS/TSAV season-management checks\n");
+    printf("  --gameplay-state-test   Run deterministic gameplay clock/rules/shot-state checks\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
     printf("  --render-test-mode MODE PATH  Render boot-title, native start-game menu, intro scenes (arena through finale/title frameN), play, or probe modes to PNG\n");
@@ -545,6 +547,16 @@ int main(int argc, char **argv)
         char message[192];
         if (!tecmo_season_self_test(message, sizeof(message))) {
             printf("Season management test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-state-test") == 0) {
+        char message[192];
+        if (!tecmo_gameplay_state_self_test(message, sizeof(message))) {
+            printf("Gameplay state test failed: %s\n", message);
             return 1;
         }
         printf("%s\n", message);
