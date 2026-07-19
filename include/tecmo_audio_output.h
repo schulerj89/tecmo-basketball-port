@@ -18,6 +18,7 @@ typedef struct TecmoAudioOutput {
     TecmoMusicPlayer *player;
     TecmoGameplayAudioPlayer *gameplay_player;
     const TecmoGameplayAudioAsset *gameplay_asset;
+    bool initialized;
     bool active;
     bool silent_fallback;
     char status[96];
@@ -25,15 +26,18 @@ typedef struct TecmoAudioOutput {
 
 bool tecmo_audio_output_init(TecmoAudioOutput *output,
                              TecmoMusicPlayer *player);
-/* The gameplay player and asset are borrowed. Clear the selection before
-   either object's storage lifetime ends. A rejected selection leaves the
-   current source unchanged. A selected asset that later becomes unavailable
-   is detached on the next render and falls back to the original music player. */
+/* The gameplay player and asset are borrowed. Selection requires an initialized
+   output and its live shared music player. Clear the selection before either
+   borrowed object's storage lifetime ends. A rejected selection leaves the
+   current source unchanged. A selected asset that later becomes unavailable is
+   detached on the next render and falls back to the original music player. */
 bool tecmo_audio_output_select_gameplay_player(
     TecmoAudioOutput *output, TecmoGameplayAudioPlayer *gameplay_player);
 void tecmo_audio_output_clear_gameplay_player(TecmoAudioOutput *output);
 /* Device-independent render path used by both waveOut prefill and refill.
-   A NULL sample sink still advances a valid selected source exactly once. */
+   A NULL sample sink still advances a valid selected source exactly once.
+   Counts whose int16_t byte size would overflow are rejected without touching
+   the destination or advancing either source. */
 TecmoAudioOutputRenderSource tecmo_audio_output_render_samples(
     TecmoAudioOutput *output, int16_t *samples, size_t sample_count);
 void tecmo_audio_output_service(TecmoAudioOutput *output);
