@@ -38,9 +38,11 @@ cross-pack dependencies fail closed without a partial frame.
 The two supported close-shot families retain their numeric ROM identities.
 Variant 0 has 32 exact steps in the direct/held-release family; variant 2 has
 16 exact steps in the arc/longer-trajectory/contactable family. Their phase
-tables and 208 profile/direction pose resolutions are exact TGCS/TGPL data.
-Numeric variant 1 remains unexposed. These names do not identify any family as
-a dunk or layup.
+tables and all 208 TGCS-stored profile/direction resolutions into TGPL pose data
+are exact assets. Live play currently selects only profile 0/direction 0 and
+mirrors actor-facing-left at render time; that narrower selection and mirroring
+are native approximations, not properties proved by the asset. Numeric variant
+1 remains unexposed. These names do not identify any family as a dunk or layup.
 
 State timing is evidence-derived: game-clock divider 45, shot-clock reset 24
 with possession divider 50, an inclusive 31-update fixed expiry wait, 60-frame
@@ -120,15 +122,18 @@ These are provenance only and are not runtime inputs.
 - Free-throw aiming, release timing, rebound behavior, and post-attempt
   possession are unresolved. Only explicit made/missed results and explicit
   settlement are modeled.
-- The exact TGCS numeric step/phase tables and their TGPL pose resolutions are
-  used directly by the scene. The older state-only rightward actor-9
-  observation remains provenance for the semantic event layer, not a universal
-  animation label.
+- The exact TGCS numeric step/phase tables and the selected TGPL pose resolution
+  are consumed directly by the scene. TGCS exposes 208 exact resolutions, but
+  live selection is limited to profile 0/direction 0 and actor-facing-left is
+  mirrored during rendering. Those live policies remain approximations. The
+  older state-only rightward actor-9 observation remains provenance for the
+  semantic event layer, not a universal animation label.
 - Actor starting layout, camera/orientation composition, movement and AI,
   ordinary jump-shot timing, shot arc, make/contact policy, the distance policy
-  selecting numeric variant 0 versus 2, dynamic team/court palette selection,
-  foul detection, free-throw aim/timing/result/rebound behavior, and HUD
-  typography are native approximations. The imported TGCT palette bytes and
+  selecting numeric variant 0 versus 2, live close-shot profile/direction
+  selection and left-facing render mirroring, dynamic team/court palette
+  selection, foul detection, free-throw aim/timing/result/rebound behavior, and
+  HUD typography are native approximations. The imported TGCT palette bytes and
   embedded FCEUX RGB profile are exact, but native selection does not yet
   reproduce all original matchup/state colors. The exact rules state consumes
   explicit outcomes without turning those scene policies into ROM-exact claims.

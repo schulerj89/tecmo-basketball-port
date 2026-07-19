@@ -658,9 +658,11 @@ prevents partial framebuffer updates.
 
 Numeric close variant 0 has the exact 32-step direct/held-release table and
 variant 2 has the exact 16-step arc/longer-trajectory/contactable table. Their
-phase bytes and 208 profile/direction TGPL pose resolutions are ROM-derived;
-numeric variant 1 is not exposed. These numeric families are not assigned an
-unproved dunk or layup label.
+phase bytes and all 208 TGCS-stored profile/direction resolutions into TGPL pose
+data are ROM-derived. The live scene currently selects only profile 0/direction
+0 and mirrors actor-facing-left at render time; that selection and mirroring
+remain a native approximation. Numeric variant 1 is not exposed. These numeric
+families are not assigned an unproved dunk or layup label.
 
 Period completion follows fixed `$E59B->$E823`: regulation M:00 and divider 45
 are prepared before selecting the next banner, halftime, overtime, or final
@@ -679,9 +681,10 @@ FCEUX RGB profile, actor-pose decoding, numeric
 close-shot steps, state/event timing, foul thresholds, period/halftime/final
 transitions, and audio programs/mappings. Actor/camera layout, movement/AI,
 ordinary jump timing, ball arc and make/contact policy, the trigger selecting
-numeric variant 0 versus 2, dynamic team/court palette selection, foul
-detection, free-throw aim/timing/outcome/rebound, and HUD typography remain
-explicit native approximations. Local original-frame comparisons found no
+numeric variant 0 versus 2, live close-shot profile/direction selection and
+left-facing mirroring, dynamic team/court palette selection, foul detection,
+free-throw aim/timing/outcome/rebound, and HUD typography remain explicit
+native approximations. Local original-frame comparisons found no
 unrendered or garbage cells and kept exact assets/poses stable, but camera,
 spacing, HUD, and matchup palette selection are visibly not frame-identical.
 Test with

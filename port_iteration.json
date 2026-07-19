@@ -30,7 +30,7 @@
     "backend": "win32 software framebuffer",
     "game_core": "portable C runtime state plus explicit memory arenas",
     "asset_mode": "normal GUI play uses strict ignored ROM-derived asset-pack entries; loose decomp readers remain explicit console development tools",
-    "known_status": "normal play boots the strict ROM-derived opening, title, blue menu, preseason/team-data/season flows, and native preseason or season gameplay; the live scene has strict court, actor-pose, numeric close-shot, music, SFX, DMC, rules-state, halftime/final, and result-handoff contracts, with documented native approximations still pending parity"
+    "known_status": "normal play boots the strict ROM-derived opening, title, blue menu, preseason/team-data/season flows, and native preseason or season gameplay; the live scene has strict court and complete pose-resolution assets plus numeric close-shot, music, SFX, DMC, rules-state, halftime/final, and result-handoff contracts, with documented native approximations still pending parity"
   },
   "gameplay_boundary": {
     "status": "active-native-milestone",
@@ -49,7 +49,7 @@
     ],
     "controls": "directions move the owned actor; NES A passes or switches defender; NES B shoots or attempts defense; START/SELECT are inert; unassigned controllers cannot act",
     "exact_contracts": [
-      "ROM-derived court, CHR, imported TGCT palette bytes, embedded FCEUX RGB profile, actor-pose decoding, numeric close variants 0 and 2, and their 32/16 step tables",
+      "ROM-derived court, CHR, imported TGCT palette bytes, embedded FCEUX RGB profile, all 208 TGCS-stored profile-direction resolutions into TGPL pose data, numeric close variants 0 and 2, and their 32/16 step tables",
       "deterministic clock, shot-clock, event, violation/foul presentation, period, halftime, overtime, final, and result state transitions",
       "ROM-derived track 5/6 programs, gameplay SFX mappings, held-ball/dribble DMC clip, mixer cadence, and source-map provenance",
       "season result identity validation and exact-once commit before gameplay ends"
@@ -60,6 +60,7 @@
       "ordinary jump-shot timing",
       "shot arc, make, and contact policy",
       "distance policy selecting numeric close variant 0 or 2",
+      "live close-shot selection limited to profile 0 and direction 0, with actor-facing-left mirrored at render time",
       "dynamic team and court palette selection for matchup and scene state",
       "foul detection",
       "free-throw aim, timing, outcome, and rebound behavior",
@@ -871,13 +872,13 @@
       "id": "M008",
       "status": "complete",
       "title": "Strict native gameplay milestone",
-      "done_when": "Preseason and season launch the native scene; strict court, pose, close-shot, state, music/SFX/DMC, halftime/final, result handoff, rejection, and deterministic render tests pass."
+      "done_when": "Preseason and season launch the native scene; strict court, complete pose-resolution asset, close-shot, state, music/SFX/DMC, halftime/final, result handoff, rejection, and deterministic render tests pass."
     },
     {
       "id": "M009",
       "status": "active",
       "title": "Gameplay parity expansion",
-      "done_when": "Bounded ROM evidence replaces the documented native approximations for ordinary jumps, camera/actor motion, dynamic team/court palette selection, shot/contact/foul/free-throw behavior, and HUD composition."
+      "done_when": "Bounded ROM evidence replaces the documented native approximations for ordinary jumps, camera/actor motion, live close-shot profile/direction selection and mirroring, dynamic team/court palette selection, shot/contact/foul/free-throw behavior, and HUD composition."
     }
   ],
   "next_engineering_step": {

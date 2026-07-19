@@ -112,8 +112,11 @@ halftime, overtime/final handling, crowd/gameplay audio, and result handoff.
 Static court/CHR/palette assets, the embedded FCEUX RGB profile, numeric
 close-shot step tables, rules timing, and audio programs are ROM-derived. Actor
 layout, movement/AI, ordinary-jump timing, shot physics/results, dynamic
-team/court palette selection, contact/foul detection, free-throw behavior, and
-the temporary HUD typography remain native approximations.
+team/court palette selection, live close-shot profile/direction choice and
+left-facing mirroring, contact/foul detection, free-throw behavior, and the
+temporary HUD typography remain native approximations. The strict pose asset
+stores 208 exact TGCS profile/direction resolutions into TGPL pose data; live
+play currently selects only profile 0/direction 0.
 
 Opening music plays from the strict ROM-derived semantic music asset. GAME
 MUSIC gates gameplay track 5 and the evidence-bounded restart cue; halftime and

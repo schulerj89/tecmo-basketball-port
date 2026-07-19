@@ -560,8 +560,13 @@ Halftime/final score dismissal comes from Bank06 `$BC3C-$BCF9`. State timing,
 event ordering, foul limits, explicit free-throw result accounting, and numeric
 close-shot step tables are evidence-derived. Actor/camera layout, movement/AI,
 ordinary jump timing, ball arcs and make/contact rules, numeric-variant trigger
-selection, dynamic team/court palette selection, foul detection, free-throw
+selection, live close-shot profile/direction selection and left-facing render
+mirroring, dynamic team/court palette selection, foul detection, free-throw
 aim/timing/outcome/rebound, and HUD text are explicit native approximations.
+TGCS stores 208 exact profile/direction resolutions into TGPL pose data, but the
+live scene currently selects only profile 0/direction 0 and mirrors
+actor-facing-left; the asset breadth must not be read as proof of that narrower
+live policy.
 The imported TGCT palette bytes and embedded FCEUX RGB profile are exact; that
 does not imply frame-identical matchup/state palette selection. Never name
 numeric variants 0/2 as a dunk or layup. See
