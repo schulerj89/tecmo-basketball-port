@@ -275,7 +275,8 @@ START, SELECT, Left, and Right do nothing on the root. SEASON GAME moves
 to the six-item second page over 32 frames, advancing the background eight
 pixels and the emblem five pixels per frame; B performs the exact reverse.
 Within that six-item boundary, GAME START hands off to `PLAY_SETUP` and TEAM
-DATA hands off to `ROSTERS`; the other four season-management selections remain
+DATA hands off to native `TECMO_MODE_TEAM_DATA`; the other four
+season-management selections remain
 unported no-ops. MUSIC wraps OFF/ON, SPEED wraps FAST/NORMAL/SLOW, and PERIOD
 clamps across 2/3/4/8/12 minutes. A accepts the highlighted setting and B
 cancels it on release. The native helper `$D723` runs with `$07F6=0`, so held
@@ -306,16 +307,16 @@ off once on frame 11. ALL STAR's `$8221` route remains an explicit handoff to
 `PLAY_SETUP`. PRESEASON now enters its native `$9966` submenu and does not run
 the later `$E481` fade prematurely.
 
-The ALL STAR/GAME START and TEAM DATA destinations are still bounded native
-placeholders. In normal play, B/Escape returns from them to the exact root or
-season page and selection that dispatched the route; a season return restores
-the fully slid-in page. If a placeholder has no recorded blue-menu origin,
-normal play ignores B/Escape instead of entering the modern diagnostic menu.
-Explicit debug/test placeholder routes keep their original modern-menu return.
-Committed MUSIC, SPEED, and PERIOD values survive the placeholder round-trip.
-A neutral-input latch swallows B while held, its release edge, and the first
-fully neutral frame so the restored season page cannot re-consume that release
-as an immediate slide-out.
+ALL STAR/GAME START remain bounded native placeholders; TEAM DATA now enters
+its native scene. In normal play, B/Escape returns from those destinations to
+the exact root or season page and selection that dispatched the route; a season
+return restores the fully slid-in page. If a placeholder has no recorded
+blue-menu origin, normal play ignores B/Escape instead of entering the modern
+diagnostic menu. Explicit debug/test routes keep their modern-menu return.
+Committed MUSIC, SPEED, and PERIOD values survive the round-trip. A neutral-
+input latch swallows B while held, its release edge, and the first fully neutral
+frame so the restored season page cannot re-consume that release as an
+immediate slide-out.
 
 PRESEASON uses the strict `menu/preseason` TPRE-1 entry. Import composes the
 CONTROL, DIFFICULTY, and DIVISION overlays from Bank03 ROM records over the
@@ -352,6 +353,53 @@ Bank01 cursor/player records, all four descriptors/streams/palettes, fixed
 input/loader/fades, and full CHR. Exact-size preflight and deep parsing reject
 missing, malformed, oversized, cross-pack, or wrong-revision assets. No trace,
 decompilation file, screenshot, dump, state, or video is a runtime dependency.
+
+TEAM DATA now extends the ROM-only supported boundary through player detail and
+back to the roster. The importer emits `menu/team-data` as TTDT-1, exactly
+96372 bytes / FNV1a32 `812628F0`. It contains decoded screens `$0C/$0D/$0E`,
+29 selector records, 29 team records, 27 bounded logo expansions, four dynamic
+profile palettes, 348 player records, 24 resolved portrait cells per player,
+two cursor records, a ROM font map, and strict timing/input metadata. Runtime
+requires TTDT-1 plus the same pack's 262144-byte `chr/all`
+(`F6F6E854` / `96A64F53B240ABB4`). Exact-size preflight, canonical payload and
+CHR fingerprints, deep bounds checks, reserved-byte checks, and resolved-CHR
+validation reject missing, malformed, oversized, wrong-revision, and
+cross-pack dependencies without drawing partial output.
+
+Root and season TEAM DATA first use TSGM-1's post-return fade through its
+frame-11 dispatch. TTDT-1 then holds rendering off locally through frame 3,
+turns rendering on black at 4, applies palette caps 0/1/2/3 at 7/11/15/19,
+and reaches the stable selector/cursor on frame 20. Measured from a released
+selector A, profile entry is black at 8, rendering is off at 10, rendering
+returns black at 16, palette caps advance at 19/23/27/31, and the profile is
+stable at 32. Profile PLAYERS DATA changes only OAM/cursor state and is stable
+on the next frame. The two six-player roster pages slide in 32 frames at eight
+pixels per frame. Roster A reaches black at 8, render-off at 10, render-on black
+at 15, palette caps at 18/22/26/30, and stable player detail at 31. Detail B
+uses the 32-frame reverse timing back to the same roster row. Direction repeat
+and A/B release semantics remain ROM-derived; B restores the exact root or
+season origin. Player detail is terminal and cannot launch gameplay.
+
+Profile palettes are selected through Bank06 `$A3A5/$A3A9/$A3AD` and sourced
+from `$AC0B-$AC4A`; ATL uses `$AC0B-$AC1A` (FNV1a32 `34F6B8DC`). Logo cells
+come from Bank06 `$A2E4-$AC4A` layout/tile/attribute tables and Bank03 `$8017`
+origins. ATL therefore resolves to the exact E4-backed 10x6 tile/palette matrix
+at `(16,48)` (pair fingerprint `6F28E5C6`), rather than a capture-derived image.
+Bank02 supplies rosters, profiles, direct All-Star player pointers, and the
+`$AD5B` ability-bar algorithm. Bank03 `$8D5C/$A25C/$B432`, Bank00
+`$8001/$8071`, and fixed `$C42E/$CAF1/$D5C5/$DC19` supply portrait selection,
+layout, metatiles, attributes, and composition. Bank01 `$BF1F` supplies the
+condition seed/threshold path. Source-map provenance records each focused span,
+screen descriptor/stream/palette, fixed input/loader/fade helper, and full CHR;
+no capture, trace, video, screenshot, log, dump, save state, Lua output, or
+decompilation file is a runtime source.
+
+`tools\Run-TeamDataTests.ps1 -RomPath <LOCAL_ROM.nes>` builds a private ROM-only
+pack, runs the strict parser and native flow (including direct All-Star mapping,
+positions, conditions, ability meters, return origins, and exact transition
+checkpoints), verifies 15 deterministic PNG hashes, checks malformed-payload
+rejection, and removes its temporary pack/log/screenshots. The broader
+asset-pack and native-flow regressions retain the same TTDT coverage.
 
 An accepted release reaches `$D788` and seeds directional `$E1=5`. Generic
 direction reaches `$D79D`, writes eight, and the same-loop tail decrements it so

@@ -252,6 +252,22 @@ function Get-Fnv1a32Hex {
     return ("{0:X8}" -f $Hash)
 }
 
+function Get-CUnsignedHexDefine {
+    param(
+        [string]$Path,
+        [string]$Name
+    )
+
+    $Text = [System.IO.File]::ReadAllText($Path)
+    $Pattern = "(?m)^\s*#define\s+" + [regex]::Escape($Name) +
+        "\s+0x([0-9A-Fa-f]+)U?\s*$"
+    $Match = [regex]::Match($Text, $Pattern)
+    if (!$Match.Success) {
+        throw "Required C define '$Name' was not found."
+    }
+    return $Match.Groups[1].Value.ToUpperInvariant().PadLeft(8, '0')
+}
+
 function Get-ExpectedAssetPackEntries {
     param(
         [int]$PrgBanks,
@@ -303,6 +319,7 @@ function Get-KnownLogicalAssetPackEntries {
         "menu/start-game",
         "menu/preseason",
         "audio/music",
+        "menu/team-data",
         "roster/table.tsv",
         "title/original-text.txt",
         "title/glyph-map.tsv",
@@ -347,6 +364,7 @@ function Get-ExpectedLogicalAssetPackEntries {
             "menu/start-game"
             "menu/preseason"
             "audio/music"
+            "menu/team-data"
         )
         capture_sources_present = @()
     }
@@ -1153,6 +1171,297 @@ function Test-PreseasonPayloadContract {
     return [pscustomobject]@{ passed = $Issues.Count -eq 0; issues = $Issues.ToArray() }
 }
 
+function Test-TeamDataFixedText {
+    param(
+        [byte[]]$Bytes,
+        [int]$Offset,
+        [int]$Count
+    )
+
+    $CharacterSeen = $false
+    $TerminatorSeen = $false
+    for ($Index = 0; $Index -lt $Count; ++$Index) {
+        $Value = $Bytes[$Offset + $Index]
+        if ($Value -eq 0) {
+            $TerminatorSeen = $true
+            continue
+        }
+        if ($TerminatorSeen -or
+            !(($Value -ge [byte][char]'A' -and $Value -le [byte][char]'Z') -or
+              $Value -eq [byte][char]' ' -or $Value -eq [byte][char]'-' -or
+              $Value -eq [byte][char]'.')) {
+            return $false
+        }
+        $CharacterSeen = $true
+    }
+    return $CharacterSeen -and $TerminatorSeen
+}
+
+function Test-TeamDataPayloadContract {
+    param(
+        [byte[]]$Bytes,
+        [uint64]$ChrByteCount
+    )
+
+    $Issues = [System.Collections.Generic.List[string]]::new()
+    $PayloadSize = 96372
+    $CellsOffset = 256
+    $PalettesOffset = 17536
+    $SpritePaletteOffset = 17584
+    $CursorsOffset = 17600
+    $SelectorsOffset = 17632
+    $FontOffset = 17748
+    $TeamsOffset = 18220
+    $LogosOffset = 19380
+    $PlayersOffset = 32340
+    $LogoCellLimit = 60
+    $PlayerStride = 184
+    $PortraitOffset = 40
+    $PortraitCellCount = 24
+    if ($null -eq $Bytes -or $Bytes.Length -ne $PayloadSize -or
+        [System.Text.Encoding]::ASCII.GetString($Bytes, 0, 4) -ne "TTDT" -or
+        [System.BitConverter]::ToUInt16($Bytes, 4) -ne 1 -or
+        [System.BitConverter]::ToUInt16($Bytes, 6) -ne 256 -or
+        [System.BitConverter]::ToUInt16($Bytes, 8) -ne 32 -or
+        [System.BitConverter]::ToUInt16($Bytes, 10) -ne 30 -or
+        [System.BitConverter]::ToUInt16($Bytes, 12) -ne 3 -or
+        [System.BitConverter]::ToUInt16($Bytes, 14) -ne 29 -or
+        [System.BitConverter]::ToUInt16($Bytes, 16) -ne 29 -or
+        [System.BitConverter]::ToUInt16($Bytes, 18) -ne 12 -or
+        [System.BitConverter]::ToUInt32($Bytes, 20) -ne $CellsOffset -or
+        [System.BitConverter]::ToUInt32($Bytes, 24) -ne $PalettesOffset -or
+        [System.BitConverter]::ToUInt32($Bytes, 28) -ne $SpritePaletteOffset -or
+        [System.BitConverter]::ToUInt32($Bytes, 32) -ne $CursorsOffset -or
+        [System.BitConverter]::ToUInt32($Bytes, 36) -ne $SelectorsOffset -or
+        [System.BitConverter]::ToUInt32($Bytes, 40) -ne $FontOffset -or
+        [System.BitConverter]::ToUInt32($Bytes, 44) -ne $TeamsOffset -or
+        [System.BitConverter]::ToUInt32($Bytes, 48) -ne $LogosOffset -or
+        [System.BitConverter]::ToUInt32($Bytes, 52) -ne $PlayersOffset -or
+        [System.BitConverter]::ToUInt32($Bytes, 56) -ne $PayloadSize) {
+        [void]$Issues.Add("header")
+        return [pscustomobject]@{ passed = $false; issues = $Issues.ToArray() }
+    }
+    if ([System.BitConverter]::ToUInt32($Bytes, 60) -ne 262144 -or
+        ("{0:X8}" -f [System.BitConverter]::ToUInt32($Bytes, 64)) -ne "F6F6E854" -or
+        $ChrByteCount -ne 262144) {
+        [void]$Issues.Add("dependencies")
+    }
+    $ExpectedMetadata = @(
+        16,5,5,8,32,8,135,80,8,40,143,8,
+        0xFA,0xFA,0xCC,0xFA,0xFA,0xFA,0x0C,0x0D,0x0E,0x20,59,3,6,2,
+        6,4,32,32,0x67,0x5F,0x64,48,
+        8,10,16,19,4,32,8,10,15,18,4,31,4,7,4,20
+    )
+    for ($Index = 0; $Index -lt $ExpectedMetadata.Count; ++$Index) {
+        if ($Bytes[68 + $Index] -ne $ExpectedMetadata[$Index]) {
+            [void]$Issues.Add("metadata"); break
+        }
+    }
+    for ($Index = 118; $Index -lt 128; ++$Index) {
+        if ($Bytes[$Index] -ne 0) { [void]$Issues.Add("reserved"); break }
+    }
+    for ($Index = 128; $Index -lt 192; ++$Index) {
+        if ($Bytes[$Index] -gt 0x3F) {
+            [void]$Issues.Add("profile-palette"); break
+        }
+    }
+    for ($Index = 192; $Index -lt 256; ++$Index) {
+        if ($Bytes[$Index] -ne 0) { [void]$Issues.Add("reserved"); break }
+    }
+    $R0 = @(0xFA, 0xFA, 0xCC)
+    $R1 = @(0xFA, 0xFA, 0xFA)
+    for ($Screen = 0; $Screen -lt 3; ++$Screen) {
+        for ($Cell = 0; $Cell -lt 960; ++$Cell) {
+            $Offset = $CellsOffset + ($Screen * 960 + $Cell) * 6
+            $Tile = $Bytes[$Offset]
+            $Palette = $Bytes[$Offset + 1]
+            $ChrOffset = [System.BitConverter]::ToUInt32($Bytes, $Offset + 2)
+            $Selector = if ($Tile -lt 0x80) { $R0[$Screen] } else { $R1[$Screen] }
+            $ExpectedChr = [uint32]($Selector * 1024 + ($Tile -band 0x7F) * 16)
+            if ($Palette -gt 3 -or $ChrOffset -ne $ExpectedChr -or
+                [uint64]$ChrOffset + 16 -gt $ChrByteCount) {
+                [void]$Issues.Add("screen-cell"); break
+            }
+        }
+        if ($Issues -contains "screen-cell") { break }
+    }
+    for ($Index = 0; $Index -lt 64; ++$Index) {
+        $Offset = if ($Index -lt 48) { $PalettesOffset + $Index } else {
+            $SpritePaletteOffset + ($Index - 48)
+        }
+        if ($Bytes[$Offset] -gt 0x3F) { [void]$Issues.Add("palette"); break }
+    }
+    for ($Cursor = 0; $Cursor -lt 2; ++$Cursor) {
+        $Offset = $CursorsOffset + $Cursor * 16
+        $ExpectedDx = if ($Cursor -eq 0) { -1 } else { 0 }
+        $ExpectedDy = if ($Cursor -eq 0) { 0 } else { -4 }
+        if ([System.BitConverter]::ToInt16($Bytes, $Offset) -ne $ExpectedDx -or
+            [System.BitConverter]::ToInt16($Bytes, $Offset + 2) -ne $ExpectedDy -or
+            [System.BitConverter]::ToUInt32($Bytes, $Offset + 4) -ne 0xC240 -or
+            [System.BitConverter]::ToUInt32($Bytes, $Offset + 8) -ne 0xC250 -or
+            $Bytes[$Offset + 12] -ne 0x30 -or $Bytes[$Offset + 13] -ne 0x24 -or
+            $Bytes[$Offset + 14] -ne 0 -or $Bytes[$Offset + 15] -ne 0) {
+            [void]$Issues.Add("cursor"); break
+        }
+    }
+    $SeenTeams = [System.Collections.Generic.HashSet[int]]::new()
+    for ($Selection = 0; $Selection -lt 29; ++$Selection) {
+        $Offset = $SelectorsOffset + $Selection * 4
+        $Column = if ($Selection -lt 11) { 0 } elseif ($Selection -lt 20) { 1 } else { 2 }
+        $Row = if ($Column -eq 0) { $Selection } elseif ($Column -eq 1) {
+            $Selection - 11
+        } else { $Selection - 20 }
+        $ExpectedX = 16 + $Column * 80
+        $ExpectedY = if ($Column -eq 0 -and $Row -lt 2) {
+            32 + $Row * 16
+        } else {
+            72 + ($Row - $(if ($Column -eq 0) { 2 } else { 0 })) * 16
+        }
+        $Team = $Bytes[$Offset + 2]
+        if ($Bytes[$Offset] -ne $ExpectedX -or $Bytes[$Offset + 1] -ne $ExpectedY -or
+            $Team -ge 29 -or !$SeenTeams.Add([int]$Team) -or $Bytes[$Offset + 3] -ne 0) {
+            [void]$Issues.Add("selector-map"); break
+        }
+    }
+    if ($Bytes[$SelectorsOffset + 2] -ne 28 -or
+        $Bytes[$SelectorsOffset + 6] -ne 27) {
+        [void]$Issues.Add("selector-order")
+    }
+    for ($Index = 0; $Index -lt 59; ++$Index) {
+        $Offset = $FontOffset + $Index * 8
+        $Tile = $Bytes[$Offset + 1]
+        $ExpectedChr = [uint32](0xFA * 1024 + ($Tile -band 0x7F) * 16)
+        if ($Bytes[$Offset] -ne 0x20 + $Index -or
+            $Bytes[$Offset + 2] -ne 0xFA -or $Bytes[$Offset + 3] -ne 0xFA -or
+            [System.BitConverter]::ToUInt32($Bytes, $Offset + 4) -ne $ExpectedChr) {
+            [void]$Issues.Add("font"); break
+        }
+    }
+    for ($Team = 0; $Team -lt 29; ++$Team) {
+        $Offset = $TeamsOffset + $Team * 40
+        if (!(Test-TeamDataFixedText -Bytes $Bytes -Offset $Offset -Count 16) -or
+            !(Test-TeamDataFixedText -Bytes $Bytes -Offset ($Offset + 16) -Count 16) -or
+            $Bytes[$Offset + 32] -gt 1 -or
+            ($Bytes[$Offset + 39] -band 0x0F) -lt 1 -or
+            ($Bytes[$Offset + 39] -band 0x0F) -gt 2 -or
+            ($Bytes[$Offset + 39] -shr 4) -gt 3) {
+            [void]$Issues.Add("team-record"); break
+        }
+        if ($Team -lt 27) {
+            $Width = [int]$Bytes[$Offset + 34]
+            $Height = $Bytes[$Offset + 35]
+            $Count = $Bytes[$Offset + 38]
+            if ($Bytes[$Offset + 33] -gt 3 -or $Width -eq 0 -or $Height -eq 0 -or
+                $Width * $Height -ne $Count -or $Count -gt $LogoCellLimit -or
+                ($Bytes[$Offset + 36] -band 1) -ne 0 -or
+                ($Bytes[$Offset + 37] -ne 0 -and $Bytes[$Offset + 37] -ne 0x80)) {
+                [void]$Issues.Add("team-logo-metadata"); break
+            }
+        } elseif ($Bytes[$Offset + 33] -ne 0xFF -or
+                  $Bytes[$Offset + 34] -ne 0 -or $Bytes[$Offset + 35] -ne 0 -or
+                  $Bytes[$Offset + 38] -ne 0) {
+            [void]$Issues.Add("all-star-team-record"); break
+        }
+    }
+    for ($Team = 0; $Team -lt 27; ++$Team) {
+        $TeamOffset = $TeamsOffset + $Team * 40
+        $Count = $Bytes[$TeamOffset + 38]
+        $R0Selector = $Bytes[$TeamOffset + 36]
+        for ($Cell = 0; $Cell -lt $LogoCellLimit; ++$Cell) {
+            $Offset = $LogosOffset + ($Team * $LogoCellLimit + $Cell) * 8
+            $ChrOffset = [System.BitConverter]::ToUInt32($Bytes, $Offset + 4)
+            if ($Bytes[$Offset + 2] -ne 0 -or $Bytes[$Offset + 3] -ne 0) {
+                [void]$Issues.Add("logo-reserved"); break
+            }
+            if ($Cell -lt $Count) {
+                $Selector = if ($Bytes[$Offset] -lt 0x80) { $R0Selector } else { 0xFA }
+                $ExpectedChr = [uint32]($Selector * 1024 +
+                    ($Bytes[$Offset] -band 0x7F) * 16)
+                if ($Bytes[$Offset + 1] -gt 3 -or $ChrOffset -ne $ExpectedChr -or
+                    [uint64]$ChrOffset + 16 -gt $ChrByteCount) {
+                    [void]$Issues.Add("logo-cell"); break
+                }
+            } elseif ($Bytes[$Offset] -ne 0 -or $Bytes[$Offset + 1] -ne 0 -or
+                      $ChrOffset -ne 0) {
+                [void]$Issues.Add("logo-padding"); break
+            }
+        }
+        if ($Issues -contains "logo-reserved" -or $Issues -contains "logo-cell" -or
+            $Issues -contains "logo-padding") { break }
+    }
+    for ($Team = 0; $Team -lt 29; ++$Team) {
+        for ($Player = 0; $Player -lt 12; ++$Player) {
+            $Offset = $PlayersOffset + ($Team * 12 + $Player) * $PlayerStride
+            $NameSeen = $false
+            $ZeroSeen = $false
+            for ($Index = 0; $Index -lt 20; ++$Index) {
+                $Value = $Bytes[$Offset + $Index]
+                if ($Value -eq 0) { $ZeroSeen = $true; continue }
+                if ($ZeroSeen -or $Value -lt 0x20 -or $Value -gt 0x5A) {
+                    [void]$Issues.Add("player-name"); break
+                }
+                $NameSeen = $true
+            }
+            if (!$NameSeen -or $Bytes[$Offset + 20] -lt 0x80 -or
+                ($Bytes[$Offset + 20] -band 7) -gt 4 -or
+                ($Bytes[$Offset + 27] -shr 4) -gt 2 -or
+                $Bytes[$Offset + 33] -ge 27 -or $Bytes[$Offset + 34] -ge 12 -or
+                $Bytes[$Offset + 35] -ne 0xCC -or
+                $Bytes[$Offset + 36] -ne 0xFA -or
+                $Bytes[$Offset + 37] -ne 0x64 -or
+                ($Team -lt 27 -and
+                 ($Bytes[$Offset + 33] -ne $Team -or $Bytes[$Offset + 34] -ne $Player))) {
+                [void]$Issues.Add("player-record")
+            }
+            for ($Index = 38; $Index -lt 40; ++$Index) {
+                if ($Bytes[$Offset + $Index] -ne 0) {
+                    [void]$Issues.Add("player-reserved"); break
+                }
+            }
+            for ($Cell = 0; $Cell -lt $PortraitCellCount; ++$Cell) {
+                $CellOffset = $Offset + $PortraitOffset + $Cell * 6
+                $Tile = $Bytes[$CellOffset]
+                $Palette = $Bytes[$CellOffset + 1]
+                $ChrOffset = [System.BitConverter]::ToUInt32($Bytes, $CellOffset + 2)
+                $Selector = if ($Tile -lt 0x80) { 0xCC } else { 0xFA }
+                $ExpectedChr = [uint32]($Selector * 1024 +
+                    ($Tile -band 0x7F) * 16)
+                if ($Palette -gt 3 -or $ChrOffset -ne $ExpectedChr -or
+                    [uint64]$ChrOffset + 16 -gt $ChrByteCount) {
+                    [void]$Issues.Add("portrait-cell"); break
+                }
+            }
+            if ($Issues -contains "player-name" -or $Issues -contains "player-record" -or
+                $Issues -contains "player-reserved" -or
+                $Issues -contains "portrait-cell") { break }
+        }
+        if ($Issues -contains "player-name" -or $Issues -contains "player-record" -or
+            $Issues -contains "player-reserved" -or
+            $Issues -contains "portrait-cell") { break }
+    }
+    $AllStarSourceTeams = @(
+        @(12,21,8,25,23,25,8,20,20,12,9,6),
+        @(7,3,3,19,17,4,26,7,7,1,0,4)
+    )
+    $AllStarSourcePlayers = @(
+        @(1,1,2,3,4,0,0,1,6,2,4,4),
+        @(0,1,2,3,4,0,0,1,2,2,3,4)
+    )
+    for ($AllStar = 0; $AllStar -lt 2; ++$AllStar) {
+        for ($Player = 0; $Player -lt 12; ++$Player) {
+            $Offset = $PlayersOffset + ((27 + $AllStar) * 12 + $Player) *
+                $PlayerStride
+            if ($Bytes[$Offset + 33] -ne $AllStarSourceTeams[$AllStar][$Player] -or
+                $Bytes[$Offset + 34] -ne $AllStarSourcePlayers[$AllStar][$Player]) {
+                [void]$Issues.Add("all-star-source-map")
+                break
+            }
+        }
+        if ($Issues -contains "all-star-source-map") { break }
+    }
+    return [pscustomobject]@{ passed = $Issues.Count -eq 0; issues = $Issues.ToArray() }
+}
+
 function Add-TestResult {
     param([pscustomobject]$Result)
 
@@ -1208,6 +1517,11 @@ if (!(Test-PathUnder $ReportPath $BuildDir)) {
 if (!$AssetPackPath.EndsWith(".assetpack", [System.StringComparison]::OrdinalIgnoreCase)) {
     throw "Asset pack output must use the .assetpack extension."
 }
+
+$TeamDataLayoutHeader = Join-Path $ProjectRoot `
+    "src\asset_pack\tecmo_asset_pack_import_layout.h"
+$TeamDataExpectedPayloadFingerprint = Get-CUnsignedHexDefine `
+    -Path $TeamDataLayoutHeader -Name "TECMO_ASSET_PACK_TEAM_DATA_FNV1A32"
 
 $ExePath = Join-Path $ProjectRoot "build\tecmo_port.exe"
 
@@ -2491,6 +2805,320 @@ try {
                     raw_asset_bytes_persisted = $false
                 })
 
+                $TeamDataBytes = Read-AssetPackEntryBytes -Path $AssetPackPath `
+                    -Directory $Directory -EntryId "menu/team-data"
+                $TeamDataContract = Test-TeamDataPayloadContract `
+                    -Bytes $TeamDataBytes -ChrByteCount $ChrByteCount
+                $TeamDataFingerprint = Get-Fnv1a32Hex -Bytes $TeamDataBytes
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-team-data-native"
+                    passed = $TeamDataContract.passed -and
+                        $TeamDataBytes.Length -eq 96372 -and
+                        $TeamDataFingerprint -eq $TeamDataExpectedPayloadFingerprint
+                    format = if ($TeamDataBytes.Length -ge 4) {
+                        [System.Text.Encoding]::ASCII.GetString($TeamDataBytes, 0, 4)
+                    } else { "" }
+                    byte_count = $TeamDataBytes.Length
+                    payload_fingerprint_fnv1a32 = $TeamDataFingerprint
+                    expected_payload_fingerprint_fnv1a32 =
+                        $TeamDataExpectedPayloadFingerprint
+                    contract_issues = $TeamDataContract.issues
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $Bank06Start = [uint64]($PrgStart + 6 * 0x4000)
+                $ProfilePalettePointerLow = Read-FileBytesAtOffset `
+                    -Path $ReferenceRom `
+                    -Offset ([uint64]($Bank06Start + (0xA3A5 - 0x8000))) `
+                    -Count 4
+                $ProfilePalettePointerHigh = Read-FileBytesAtOffset `
+                    -Path $ReferenceRom `
+                    -Offset ([uint64]($Bank06Start + (0xA3A9 - 0x8000))) `
+                    -Count 4
+                $ProfilePaletteCpus = [System.Collections.Generic.List[int]]::new()
+                $ProfilePalettesExact = $true
+                for ($Group = 0; $Group -lt 4; ++$Group) {
+                    $PaletteCpu = [int]$ProfilePalettePointerLow[$Group] -bor
+                        ([int]$ProfilePalettePointerHigh[$Group] -shl 8)
+                    [void]$ProfilePaletteCpus.Add($PaletteCpu)
+                    $RomPalette = Read-FileBytesAtOffset -Path $ReferenceRom `
+                        -Offset ([uint64]($Bank06Start + ($PaletteCpu - 0x8000))) `
+                        -Count 16
+                    [byte[]]$PayloadPalette =
+                        $TeamDataBytes[(128 + $Group * 16)..(143 + $Group * 16)]
+                    if ((@(Compare-Object $RomPalette $PayloadPalette `
+                            -SyncWindow 0)).Count -ne 0) {
+                        $ProfilePalettesExact = $false
+                        break
+                    }
+                }
+                $ExpectedProfilePaletteCpus = @(0xAC1B,0xAC0B,0xAC2B,0xAC3B)
+                $ProfilePalettesExact = $ProfilePalettesExact -and
+                    (@(Compare-Object $ExpectedProfilePaletteCpus `
+                        $ProfilePaletteCpus.ToArray() -SyncWindow 0)).Count -eq 0
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-team-data-profile-palettes"
+                    passed = $ProfilePalettesExact
+                    palette_count = $ProfilePaletteCpus.Count
+                    source_cpu_addresses = $ProfilePaletteCpus.ToArray()
+                    source_span_fingerprint_fnv1a32 = "DC51B191"
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $AtlantaTeamOffset = 18220
+                $AtlantaLogoPairs = [System.Collections.Generic.List[byte]]::new()
+                for ($Cell = 0; $Cell -lt 60; ++$Cell) {
+                    [void]$AtlantaLogoPairs.Add($TeamDataBytes[19380 + $Cell * 8])
+                    [void]$AtlantaLogoPairs.Add($TeamDataBytes[19380 + $Cell * 8 + 1])
+                }
+                $AtlantaLogoPairsFingerprint =
+                    Get-Fnv1a32Hex -Bytes $AtlantaLogoPairs.ToArray()
+                [byte[]]$AtlantaPortraitCells =
+                    $TeamDataBytes[(32340 + 40)..(32340 + 40 + 143)]
+                $AtlantaPortraitFingerprint =
+                    Get-Fnv1a32Hex -Bytes $AtlantaPortraitCells
+                [byte[]]$AtlantaLogoChrSpan = $ChrAllBytes[0x395D0..0x397BF]
+                $AtlantaLogoChrFingerprint = Get-Fnv1a32Hex -Bytes $AtlantaLogoChrSpan
+                $AtlantaGraphicsExact =
+                    $TeamDataBytes[$AtlantaTeamOffset + 34] -eq 10 -and
+                    $TeamDataBytes[$AtlantaTeamOffset + 35] -eq 6 -and
+                    $TeamDataBytes[$AtlantaTeamOffset + 36] -eq 0xE4 -and
+                    $TeamDataBytes[$AtlantaTeamOffset + 37] -eq 0 -and
+                    $TeamDataBytes[$AtlantaTeamOffset + 38] -eq 60 -and
+                    ($TeamDataBytes[$AtlantaTeamOffset + 39] -band 0x0F) -eq 1 -and
+                    ($TeamDataBytes[$AtlantaTeamOffset + 39] -shr 4) -eq 1 -and
+                    $TeamDataBytes[101] -eq 48 -and
+                    $AtlantaLogoPairsFingerprint -eq "6F28E5C6" -and
+                    $AtlantaLogoChrFingerprint -eq "A17696AF" -and
+                    $AtlantaPortraitFingerprint -eq "E3F08107"
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-team-data-logo-portrait"
+                    passed = $TeamDataContract.passed -and $AtlantaGraphicsExact
+                    logo_width = [int]$TeamDataBytes[$AtlantaTeamOffset + 34]
+                    logo_height = [int]$TeamDataBytes[$AtlantaTeamOffset + 35]
+                    logo_r0 = [int]$TeamDataBytes[$AtlantaTeamOffset + 36]
+                    logo_origin_units =
+                        [int]($TeamDataBytes[$AtlantaTeamOffset + 39] -band 0x0F)
+                    profile_palette_group =
+                        [int]($TeamDataBytes[$AtlantaTeamOffset + 39] -shr 4)
+                    logo_tile_palette_fingerprint_fnv1a32 =
+                        $AtlantaLogoPairsFingerprint
+                    logo_chr_span_fingerprint_fnv1a32 = $AtlantaLogoChrFingerprint
+                    portrait_cells_fingerprint_fnv1a32 = $AtlantaPortraitFingerprint
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $AllStarSourceTeams = @(
+                    @(12,21,8,25,23,25,8,20,20,12,9,6),
+                    @(7,3,3,19,17,4,26,7,7,1,0,4)
+                )
+                $AllStarSourcePlayers = @(
+                    @(1,1,2,3,4,0,0,1,6,2,4,4),
+                    @(0,1,2,3,4,0,0,1,2,2,3,4)
+                )
+                $Bank02Start = [uint64]($PrgStart + 2 * 0x4000)
+                $AllStarPointersExact = $true
+                for ($AllStar = 0; $AllStar -lt 2; ++$AllStar) {
+                    $AllStarTeam = 27 + $AllStar
+                    $AllStarMaster = Read-FileBytesAtOffset -Path $ReferenceRom `
+                        -Offset ([uint64]($Bank02Start + 1 + $AllStarTeam * 2)) `
+                        -Count 2
+                    $AllStarTableCpu =
+                        [System.BitConverter]::ToUInt16($AllStarMaster, 0)
+                    for ($Player = 0; $Player -lt 12; ++$Player) {
+                        $SourceTeam = $AllStarSourceTeams[$AllStar][$Player]
+                        $SourcePlayer = $AllStarSourcePlayers[$AllStar][$Player]
+                        $AllStarPointerBytes = Read-FileBytesAtOffset `
+                            -Path $ReferenceRom `
+                            -Offset ([uint64]($Bank02Start +
+                                ($AllStarTableCpu - 0x8000) + $Player * 2)) `
+                            -Count 2
+                        $SourceMaster = Read-FileBytesAtOffset `
+                            -Path $ReferenceRom `
+                            -Offset ([uint64]($Bank02Start + 1 + $SourceTeam * 2)) `
+                            -Count 2
+                        $SourceTableCpu =
+                            [System.BitConverter]::ToUInt16($SourceMaster, 0)
+                        $SourcePointerBytes = Read-FileBytesAtOffset `
+                            -Path $ReferenceRom `
+                            -Offset ([uint64]($Bank02Start +
+                                ($SourceTableCpu - 0x8000) + $SourcePlayer * 2)) `
+                            -Count 2
+                        $PayloadOffset = 32340 +
+                            ($AllStarTeam * 12 + $Player) * 184
+                        if ([System.BitConverter]::ToUInt16($AllStarPointerBytes, 0) -ne
+                                [System.BitConverter]::ToUInt16($SourcePointerBytes, 0) -or
+                            $TeamDataBytes[$PayloadOffset + 33] -ne $SourceTeam -or
+                            $TeamDataBytes[$PayloadOffset + 34] -ne $SourcePlayer) {
+                            $AllStarPointersExact = $false
+                            break
+                        }
+                    }
+                    if (!$AllStarPointersExact) { break }
+                }
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-team-data-all-star-pointers"
+                    passed = $AllStarPointersExact
+                    west_source_slots = 12
+                    east_source_slots = 12
+                    mapping = "direct-ROM-pointer-to-real-roster-slot"
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $TeamDataFingerprintMutation = [byte[]]$TeamDataBytes.Clone()
+                $TeamDataFingerprintMutation[17536] =
+                    $TeamDataFingerprintMutation[17536] -bxor 1
+                $TeamDataFingerprintMutationContract = Test-TeamDataPayloadContract `
+                    -Bytes $TeamDataFingerprintMutation -ChrByteCount $ChrByteCount
+                $TeamDataFingerprintMutationHash =
+                    Get-Fnv1a32Hex -Bytes $TeamDataFingerprintMutation
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-team-data-revision-fingerprint"
+                    passed = $TeamDataFingerprint -eq
+                            $TeamDataExpectedPayloadFingerprint -and
+                        $TeamDataFingerprintMutationContract.passed -and
+                        $TeamDataFingerprintMutationHash -ne
+                            $TeamDataExpectedPayloadFingerprint
+                    payload_fingerprint_fnv1a32 = $TeamDataFingerprint
+                    structurally_valid_mutation_rejected_by_fingerprint =
+                        $TeamDataFingerprintMutationContract.passed -and
+                        $TeamDataFingerprintMutationHash -ne
+                            $TeamDataExpectedPayloadFingerprint
+                    mutated_payloads_persisted = $false
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $TeamDataMalformedCases =
+                    [System.Collections.Generic.List[object]]::new()
+                [byte[]]$TeamDataTruncated =
+                    $TeamDataBytes[0..($TeamDataBytes.Length - 2)]
+                [void]$TeamDataMalformedCases.Add([pscustomobject]@{
+                    id = "payload-size"
+                    rejected = !(Test-TeamDataPayloadContract `
+                        -Bytes $TeamDataTruncated -ChrByteCount $ChrByteCount).passed
+                })
+                $TeamDataMalformedSpecs = @(
+                    [pscustomobject]@{ id = "magic"; mutate = {
+                        param([byte[]]$Data) $Data[0] = [byte][char]'X'
+                    } },
+                    [pscustomobject]@{ id = "declared-size"; mutate = {
+                        param([byte[]]$Data)
+                        [System.BitConverter]::GetBytes(
+                            [uint32]($Data.Length - 1)).CopyTo($Data, 56)
+                    } },
+                    [pscustomobject]@{ id = "dependency-fingerprint"; mutate = {
+                        param([byte[]]$Data) $Data[64] = $Data[64] -bxor 1
+                    } },
+                    [pscustomobject]@{ id = "transition-metadata"; mutate = {
+                        param([byte[]]$Data) $Data[102] = 9
+                    } },
+                    [pscustomobject]@{ id = "entry-transition-metadata"; mutate = {
+                        param([byte[]]$Data) $Data[114] = 5
+                    } },
+                    [pscustomobject]@{ id = "header-reserved"; mutate = {
+                        param([byte[]]$Data) $Data[118] = 1
+                    } },
+                    [pscustomobject]@{ id = "profile-palette"; mutate = {
+                        param([byte[]]$Data) $Data[128] = 0x40
+                    } },
+                    [pscustomobject]@{ id = "screen-cell-palette"; mutate = {
+                        param([byte[]]$Data) $Data[257] = 4
+                    } },
+                    [pscustomobject]@{ id = "screen-cell-chr"; mutate = {
+                        param([byte[]]$Data) $Data[258] = $Data[258] -bxor 0x10
+                    } },
+                    [pscustomobject]@{ id = "palette-range"; mutate = {
+                        param([byte[]]$Data) $Data[17536] = 0x40
+                    } },
+                    [pscustomobject]@{ id = "cursor-reserved"; mutate = {
+                        param([byte[]]$Data) $Data[17614] = 1
+                    } },
+                    [pscustomobject]@{ id = "selector-duplicate"; mutate = {
+                        param([byte[]]$Data) $Data[17638] = $Data[17634]
+                    } },
+                    [pscustomobject]@{ id = "font-selector"; mutate = {
+                        param([byte[]]$Data) $Data[17750] = 0xF8
+                    } },
+                    [pscustomobject]@{ id = "team-text"; mutate = {
+                        param([byte[]]$Data) $Data[18220] = 0
+                    } },
+                    [pscustomobject]@{ id = "team-conference"; mutate = {
+                        param([byte[]]$Data) $Data[18252] = 2
+                    } },
+                    [pscustomobject]@{ id = "logo-dimensions"; mutate = {
+                        param([byte[]]$Data) $Data[18254] = 0
+                    } },
+                    [pscustomobject]@{ id = "logo-origin"; mutate = {
+                        param([byte[]]$Data) $Data[18259] =
+                            $Data[18259] -band 0xF0
+                    } },
+                    [pscustomobject]@{ id = "logo-reserved"; mutate = {
+                        param([byte[]]$Data) $Data[19382] = 1
+                    } },
+                    [pscustomobject]@{ id = "logo-cell-palette"; mutate = {
+                        param([byte[]]$Data) $Data[19381] = 4
+                    } },
+                    [pscustomobject]@{ id = "logo-cell-chr"; mutate = {
+                        param([byte[]]$Data) $Data[19384] =
+                            $Data[19384] -bxor 0x10
+                    } },
+                    [pscustomobject]@{ id = "logo-padding"; mutate = {
+                        param([byte[]]$Data) $Data[19380 + (60 + 59) * 8] = 1
+                    } },
+                    [pscustomobject]@{ id = "player-name"; mutate = {
+                        param([byte[]]$Data) $Data[32340] = 0
+                    } },
+                    [pscustomobject]@{ id = "player-position"; mutate = {
+                        param([byte[]]$Data) $Data[32360] = 0x87
+                    } },
+                    [pscustomobject]@{ id = "player-profile"; mutate = {
+                        param([byte[]]$Data) $Data[32367] = 0xF0
+                    } },
+                    [pscustomobject]@{ id = "player-source"; mutate = {
+                        param([byte[]]$Data) $Data[32373] = 1
+                    } },
+                    [pscustomobject]@{ id = "all-star-source"; mutate = {
+                        param([byte[]]$Data)
+                        $Offset = 32340 + 27 * 12 * 184 + 33
+                        $Data[$Offset] = $Data[$Offset] -bxor 1
+                    } },
+                    [pscustomobject]@{ id = "portrait-selector"; mutate = {
+                        param([byte[]]$Data) $Data[32375] = 0xCD
+                    } },
+                    [pscustomobject]@{ id = "condition-seed"; mutate = {
+                        param([byte[]]$Data) $Data[32377] = 0x63
+                    } },
+                    [pscustomobject]@{ id = "player-reserved"; mutate = {
+                        param([byte[]]$Data) $Data[32378] = 1
+                    } },
+                    [pscustomobject]@{ id = "portrait-palette"; mutate = {
+                        param([byte[]]$Data) $Data[32381] = 4
+                    } },
+                    [pscustomobject]@{ id = "portrait-chr"; mutate = {
+                        param([byte[]]$Data) $Data[32382] =
+                            $Data[32382] -bxor 0x10
+                    } }
+                )
+                foreach ($Spec in $TeamDataMalformedSpecs) {
+                    $Malformed = [byte[]]$TeamDataBytes.Clone()
+                    & $Spec.mutate $Malformed
+                    $Rejected = !(Test-TeamDataPayloadContract `
+                        -Bytes $Malformed -ChrByteCount $ChrByteCount).passed
+                    [void]$TeamDataMalformedCases.Add([pscustomobject]@{
+                        id = $Spec.id
+                        rejected = $Rejected
+                    })
+                }
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-team-data-malformed-contracts"
+                    passed = @($TeamDataMalformedCases | Where-Object {
+                        !$_.rejected
+                    }).Count -eq 0
+                    cases = $TeamDataMalformedCases.ToArray()
+                    mutated_payloads_persisted = $false
+                    raw_asset_bytes_persisted = $false
+                })
+
                 $FinaleBytes = Read-AssetPackEntryBytes -Path $AssetPackPath -Directory $Directory -EntryId "intro/finale-sequence"
                 $FinaleContract = Test-FinalePayloadContract -Bytes $FinaleBytes -ChrByteCount ([uint64]$ExpectedChrBanks * 8192)
                 Add-TestResult ([pscustomobject]@{
@@ -2980,6 +3608,259 @@ try {
                     native_contract = if ($MusicSource.Count -eq 1) {
                         $MusicSource.native_contract
                     } else { $null }
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $TeamDataSource = @($SourceMap.logical_entries | Where-Object {
+                    $_.id -eq "menu/team-data"
+                } | Select-Object -First 1)
+                $TeamDataRoles = @($TeamDataSource.sources | ForEach-Object {
+                    [string]$_.role
+                })
+                $ExpectedTeamDataRoles = @(
+                    "root-dispatch-vector", "season-dispatch-vector",
+                    "entry-and-return-routes", "team-data-core-flow",
+                    "profile-route-vector", "profile-roster-player-flow",
+                    "generic-input-and-coordinate-flow",
+                    "team-selector-flow-and-tables", "selector-cursor-record",
+                    "generic-cursor-record", "team-rosters-and-player-records",
+                    "team-profile-records", "team-city-and-nickname-strings",
+                    "team-logo-layout-and-selector-tables",
+                    "team-profile-palette-groups", "portrait-selector",
+                    "portrait-layouts", "portrait-compositor-flow",
+                    "player-detail-and-direct-all-star-flow",
+                    "ability-meter-flow", "portrait-metatile-tiles",
+                    "portrait-metatile-attributes", "player-condition-seed-flow",
+                    "team-logo-metatile-expansion", "team-logo-origins",
+                    "sprite-palette", "screen-descriptors", "screen-streams",
+                    "screen-palettes", "fixed-input-helpers",
+                    "fixed-screen-loader", "fixed-fade-flow",
+                    "fixed-metatile-tiles", "fixed-metatile-attribute-helper",
+                    "fixed-metatile-compositor",
+                    "fixed-portrait-selector-dispatch", "full-chr"
+                )
+                $TeamDataDependencies = @($TeamDataSource.runtime_dependencies)
+                $TeamDataChrDependency = @($TeamDataDependencies | Where-Object {
+                    $_.entry -eq "chr/all"
+                } | Select-Object -First 1)
+                $TeamDataProfilePalettes = @($TeamDataSource.sources |
+                    Where-Object { $_.role -eq "team-profile-palette-groups" } |
+                    Select-Object -First 1)
+                $TeamDataPortraitFlow = @($TeamDataSource.sources |
+                    Where-Object {
+                        $_.role -eq "profile-roster-player-flow"
+                    } | Select-Object -First 1)
+                $TeamDataPortraitSelector = @($TeamDataSource.sources |
+                    Where-Object { $_.role -eq "portrait-selector" } |
+                    Select-Object -First 1)
+                $TeamDataPortraitLayouts = @($TeamDataSource.sources |
+                    Where-Object { $_.role -eq "portrait-layouts" } |
+                    Select-Object -First 1)
+                $TeamDataPortraitCompositor = @($TeamDataSource.sources |
+                    Where-Object { $_.role -eq "portrait-compositor-flow" } |
+                    Select-Object -First 1)
+                $TeamDataPlayerDetail = @($TeamDataSource.sources |
+                    Where-Object {
+                        $_.role -eq "player-detail-and-direct-all-star-flow"
+                    } | Select-Object -First 1)
+                $TeamDataMeter = @($TeamDataSource.sources | Where-Object {
+                    $_.role -eq "ability-meter-flow"
+                } | Select-Object -First 1)
+                $TeamDataPortraitTiles = @($TeamDataSource.sources |
+                    Where-Object { $_.role -eq "portrait-metatile-tiles" } |
+                    Select-Object -First 1)
+                $TeamDataPortraitAttributes = @($TeamDataSource.sources |
+                    Where-Object {
+                        $_.role -eq "portrait-metatile-attributes"
+                    } | Select-Object -First 1)
+                $TeamDataCondition = @($TeamDataSource.sources | Where-Object {
+                    $_.role -eq "player-condition-seed-flow"
+                } | Select-Object -First 1)
+                $TeamDataLogoExpansion = @($TeamDataSource.sources |
+                    Where-Object { $_.role -eq "team-logo-metatile-expansion" } |
+                    Select-Object -First 1)
+                $TeamDataLogoOrigins = @($TeamDataSource.sources | Where-Object {
+                    $_.role -eq "team-logo-origins"
+                } | Select-Object -First 1)
+                $TeamDataFixedCompositor = @($TeamDataSource.sources |
+                    Where-Object { $_.role -eq "fixed-metatile-compositor" } |
+                    Select-Object -First 1)
+                $TeamDataFixedTiles = @($TeamDataSource.sources |
+                    Where-Object { $_.role -eq "fixed-metatile-tiles" } |
+                    Select-Object -First 1)
+                $TeamDataFixedAttribute = @($TeamDataSource.sources |
+                    Where-Object {
+                        $_.role -eq "fixed-metatile-attribute-helper"
+                    } | Select-Object -First 1)
+                $TeamDataFixedPortraitSelector = @($TeamDataSource.sources |
+                    Where-Object {
+                        $_.role -eq "fixed-portrait-selector-dispatch"
+                    } | Select-Object -First 1)
+                $TeamDataFullChr = @($TeamDataSource.sources | Where-Object {
+                    $_.role -eq "full-chr"
+                } | Select-Object -First 1)
+                $TeamDataExpectedChrOffset = [uint64](
+                    $OpeningPrgStart + $ExpectedPrgBanks * 0x4000)
+                $TeamDataSourcePassed = $TeamDataSource.Count -eq 1 -and
+                    $TeamDataSource.schema -eq "tecmo.team-data/TTDT-1" -and
+                    $TeamDataSource.input_contract -eq "ines-only" -and
+                    $TeamDataDependencies.Count -eq 1 -and
+                    $TeamDataChrDependency.Count -eq 1 -and
+                    [int]$TeamDataChrDependency.size -eq 262144 -and
+                    $TeamDataChrDependency.fingerprint_fnv1a32 -eq "F6F6E854" -and
+                    $TeamDataChrDependency.fingerprint_fnv1a64 -eq
+                        "96A64F53B240ABB4" -and
+                    (@(Compare-Object $ExpectedTeamDataRoles $TeamDataRoles `
+                        -SyncWindow 0)).Count -eq 0 -and
+                    $TeamDataProfilePalettes.Count -eq 1 -and
+                    [int]$TeamDataProfilePalettes.cpu_address -eq 0xAC0B -and
+                    [uint64]$TeamDataProfilePalettes.source_offset -eq
+                        [uint64]($OpeningPrgStart + 6 * 0x4000 +
+                            (0xAC0B - 0x8000)) -and
+                    [int]$TeamDataProfilePalettes.size -eq 64 -and
+                    $TeamDataProfilePalettes.fingerprint_fnv1a32 -eq
+                        "DC51B191" -and
+                    (@($TeamDataProfilePalettes.pointer_order_cpu_addresses) `
+                        -join ",") -eq "44059,44043,44075,44091" -and
+                    [int]$TeamDataPortraitFlow.cpu_address -eq 0x8C9F -and
+                    [uint64]$TeamDataPortraitFlow.source_offset -eq
+                        [uint64]($OpeningPrgStart + 3 * 0x4000 +
+                            (0x8C9F - 0x8000)) -and
+                    $TeamDataPortraitFlow.fingerprint_fnv1a32 -eq "B9232256" -and
+                    [int]$TeamDataPortraitSelector.cpu_address -eq 0xA25C -and
+                    [uint64]$TeamDataPortraitSelector.source_offset -eq
+                        [uint64]($OpeningPrgStart + 3 * 0x4000 +
+                            (0xA25C - 0x8000)) -and
+                    $TeamDataPortraitSelector.fingerprint_fnv1a32 -eq
+                        "0AE8D0EA" -and
+                    [int]$TeamDataPortraitLayouts.cpu_address -eq 0xB432 -and
+                    [uint64]$TeamDataPortraitLayouts.source_offset -eq
+                        [uint64]($OpeningPrgStart + 3 * 0x4000 +
+                            (0xB432 - 0x8000)) -and
+                    $TeamDataPortraitLayouts.fingerprint_fnv1a32 -eq
+                        "58566055" -and
+                    [int]$TeamDataPortraitCompositor.cpu_address -eq 0x8D5C -and
+                    [uint64]$TeamDataPortraitCompositor.source_offset -eq
+                        [uint64]($OpeningPrgStart + 3 * 0x4000 +
+                            (0x8D5C - 0x8000)) -and
+                    $TeamDataPortraitCompositor.fingerprint_fnv1a32 -eq
+                        "4866441B" -and
+                    [int]$TeamDataPlayerDetail.cpu_address -eq 0xAA89 -and
+                    [uint64]$TeamDataPlayerDetail.source_offset -eq
+                        [uint64]($OpeningPrgStart + 2 * 0x4000 +
+                            (0xAA89 - 0x8000)) -and
+                    $TeamDataPlayerDetail.fingerprint_fnv1a32 -eq "BEFE9E46" -and
+                    [int]$TeamDataMeter.cpu_address -eq 0xAD5B -and
+                    [uint64]$TeamDataMeter.source_offset -eq
+                        [uint64]($OpeningPrgStart + 2 * 0x4000 +
+                            (0xAD5B - 0x8000)) -and
+                    $TeamDataMeter.fingerprint_fnv1a32 -eq "8B098364" -and
+                    [int]$TeamDataPortraitTiles.cpu_address -eq 0x8001 -and
+                    [uint64]$TeamDataPortraitTiles.source_offset -eq
+                        [uint64]($OpeningPrgStart + (0x8001 - 0x8000)) -and
+                    $TeamDataPortraitTiles.fingerprint_fnv1a32 -eq
+                        "A3D60DC1" -and
+                    [int]$TeamDataPortraitAttributes.cpu_address -eq 0x8071 -and
+                    [uint64]$TeamDataPortraitAttributes.source_offset -eq
+                        [uint64]($OpeningPrgStart + (0x8071 - 0x8000)) -and
+                    $TeamDataPortraitAttributes.fingerprint_fnv1a32 -eq
+                        "427070B7" -and
+                    [int]$TeamDataCondition.cpu_address -eq 0xBF1F -and
+                    [uint64]$TeamDataCondition.source_offset -eq
+                        [uint64]($OpeningPrgStart + 1 * 0x4000 +
+                            (0xBF1F - 0x8000)) -and
+                    $TeamDataCondition.fingerprint_fnv1a32 -eq "555E360C" -and
+                    [int]$TeamDataLogoExpansion.cpu_address -eq 0xA4CF -and
+                    [uint64]$TeamDataLogoExpansion.source_offset -eq
+                        [uint64]($OpeningPrgStart + 6 * 0x4000 +
+                            (0xA4CF - 0x8000)) -and
+                    $TeamDataLogoExpansion.fingerprint_fnv1a32 -eq
+                        "D27CA55E" -and
+                    [int]$TeamDataLogoOrigins.cpu_address -eq 0x8017 -and
+                    [uint64]$TeamDataLogoOrigins.source_offset -eq
+                        [uint64]($OpeningPrgStart + 3 * 0x4000 +
+                            (0x8017 - 0x8000)) -and
+                    $TeamDataLogoOrigins.fingerprint_fnv1a32 -eq "6A54CD12" -and
+                    [int]$TeamDataFixedTiles.cpu_address -eq 0xC42E -and
+                    [uint64]$TeamDataFixedTiles.source_offset -eq
+                        [uint64]($OpeningFixedStart + (0xC42E - 0xC000)) -and
+                    $TeamDataFixedTiles.fingerprint_fnv1a32 -eq "DB6A6AEE" -and
+                    [int]$TeamDataFixedAttribute.cpu_address -eq 0xCAF1 -and
+                    [uint64]$TeamDataFixedAttribute.source_offset -eq
+                        [uint64]($OpeningFixedStart + (0xCAF1 - 0xC000)) -and
+                    $TeamDataFixedAttribute.fingerprint_fnv1a32 -eq
+                        "2D477AB7" -and
+                    [int]$TeamDataFixedCompositor.cpu_address -eq 0xD5C5 -and
+                    [uint64]$TeamDataFixedCompositor.source_offset -eq
+                        [uint64]($OpeningFixedStart + (0xD5C5 - 0xC000)) -and
+                    $TeamDataFixedCompositor.fingerprint_fnv1a32 -eq
+                        "24E23095" -and
+                    [int]$TeamDataFixedPortraitSelector.cpu_address -eq 0xDC19 -and
+                    [uint64]$TeamDataFixedPortraitSelector.source_offset -eq
+                        [uint64]($OpeningFixedStart + (0xDC19 - 0xC000)) -and
+                    $TeamDataFixedPortraitSelector.fingerprint_fnv1a32 -eq
+                        "1451114F" -and
+                    $TeamDataFullChr.Count -eq 1 -and
+                    [uint64]$TeamDataFullChr.source_offset -eq
+                        $TeamDataExpectedChrOffset -and
+                    [int]$TeamDataFullChr.size -eq 262144 -and
+                    $TeamDataFullChr.fingerprint_fnv1a32 -eq "F6F6E854" -and
+                    [int]$TeamDataSource.native_contract.payload_size -eq 96372 -and
+                    $TeamDataSource.native_contract.payload_fingerprint_fnv1a32 -eq
+                        $TeamDataExpectedPayloadFingerprint -and
+                    [int]$TeamDataSource.native_contract.logo_cell_limit -eq 60 -and
+                    [int]$TeamDataSource.native_contract.profile_palette_groups -eq
+                        4 -and
+                    [int]$TeamDataSource.native_contract.player_stride -eq 184 -and
+                    [int]$TeamDataSource.native_contract.portrait_cells -eq 24 -and
+                    [int]$TeamDataSource.native_contract.entry_transition.render_on -eq
+                        4 -and
+                    [int]$TeamDataSource.native_contract.entry_transition.first_visible -eq
+                        7 -and
+                    [int]$TeamDataSource.native_contract.entry_transition.palette_step -eq
+                        4 -and
+                    [int]$TeamDataSource.native_contract.entry_transition.stable -eq
+                        20 -and
+                    [int]$TeamDataSource.native_contract.selector_profile_transition.black -eq
+                        8 -and
+                    [int]$TeamDataSource.native_contract.selector_profile_transition.render_off -eq
+                        10 -and
+                    [int]$TeamDataSource.native_contract.selector_profile_transition.render_on -eq
+                        16 -and
+                    [int]$TeamDataSource.native_contract.selector_profile_transition.first_visible -eq
+                        19 -and
+                    [int]$TeamDataSource.native_contract.selector_profile_transition.palette_step -eq
+                        4 -and
+                    [int]$TeamDataSource.native_contract.selector_profile_transition.stable -eq
+                        32 -and
+                    [int]$TeamDataSource.native_contract.roster_detail_transition.black -eq
+                        8 -and
+                    [int]$TeamDataSource.native_contract.roster_detail_transition.render_off -eq
+                        10 -and
+                    [int]$TeamDataSource.native_contract.roster_detail_transition.render_on -eq
+                        15 -and
+                    [int]$TeamDataSource.native_contract.roster_detail_transition.first_visible -eq
+                        18 -and
+                    [int]$TeamDataSource.native_contract.roster_detail_transition.palette_step -eq
+                        4 -and
+                    [int]$TeamDataSource.native_contract.roster_detail_transition.stable -eq
+                        31 -and
+                    $TeamDataSource.native_contract.profile_roster_transition -eq
+                        "oam-only-stable-next-frame" -and
+                    $TeamDataSource.native_contract.all_star_name_mapping -eq
+                        "direct-player-pointer-to-real-roster-slot" -and
+                    $TeamDataSource.native_contract.terminal -eq
+                        "player-detail-no-gameplay" -and
+                    @($TeamDataRoles | Where-Object {
+                        $_ -match
+                            "(^|[-_])(trace|capture|log|screenshot|dump|save-state)([-_]|$)"
+                    }).Count -eq 0
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-team-data-source-provenance"
+                    passed = $TeamDataSourcePassed
+                    roles = $TeamDataRoles
+                    runtime_dependencies = $TeamDataDependencies
+                    native_contract = $TeamDataSource.native_contract
                     raw_asset_bytes_persisted = $false
                 })
 

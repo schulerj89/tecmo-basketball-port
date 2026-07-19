@@ -15,6 +15,7 @@
 #include "tecmo_music.h"
 #include "tecmo_preseason_menu.h"
 #include "tecmo_start_game_menu.h"
+#include "tecmo_team_data.h"
 #include "tecmo_title_screen.h"
 
 #include <stdbool.h>
@@ -31,7 +32,8 @@ typedef enum TecmoPlayMode {
     TECMO_MODE_ROSTERS,
     TECMO_MODE_COURT,
     TECMO_MODE_START_GAME_MENU,
-    TECMO_MODE_PRESEASON_MENU
+    TECMO_MODE_PRESEASON_MENU,
+    TECMO_MODE_TEAM_DATA
 } TecmoPlayMode;
 
 typedef struct TecmoRuntime {
@@ -79,6 +81,8 @@ typedef struct TecmoRuntime {
     TecmoPreseasonState preseason_state;
     TecmoMusicAsset music_asset;
     TecmoMusicPlayer music_player;
+    TecmoTeamDataAsset team_data_asset;
+    TecmoTeamDataState team_data_state;
     char intro_l88e7_irq_vector[16];
     char intro_presents_data_cpu[16];
     bool intro_trace_available;

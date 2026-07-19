@@ -18,6 +18,7 @@ set(TECMO_PORT_SOURCES
     src/asset_pack/tecmo_asset_pack_reader.c
     src/asset_pack/tecmo_asset_pack_source_map.c
     src/asset_pack/tecmo_asset_pack_start_menu.c
+    src/asset_pack/tecmo_asset_pack_team_data.c
     src/asset_pack/tecmo_asset_pack_util.c
     src/asset_pack/tecmo_asset_pack_writer.c
     src/tecmo_bank07.c
@@ -39,6 +40,7 @@ set(TECMO_PORT_SOURCES
     src/tecmo_nes_video.c
     src/tecmo_preseason_menu.c
     src/tecmo_start_game_menu.c
+    src/tecmo_team_data.c
     src/tecmo_title_screen.c
 )
 

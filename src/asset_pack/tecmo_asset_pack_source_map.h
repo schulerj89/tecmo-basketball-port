@@ -24,6 +24,7 @@ char *tecmo_asset_pack_build_ines_source_map(
     const TecmoStartGameMenuProvenance *start_menu_provenance,
     const TecmoPreseasonMenuProvenance *preseason_provenance,
     const TecmoMusicProvenance *music_provenance,
+    const TecmoTeamDataProvenance *team_data_provenance,
     size_t *source_map_size_out);
 
 #endif

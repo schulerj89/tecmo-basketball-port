@@ -6,6 +6,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+static uint32_t flow_fnv1a32(const uint8_t *bytes, size_t count)
+{
+    uint32_t hash = 2166136261U;
+    for (size_t i = 0U; i < count; ++i) {
+        hash ^= bytes[i];
+        hash *= 16777619U;
+    }
+    return hash;
+}
+
 #define FLOW_INTRO_ARENA_BANK04_HANDOFF_FRAME 540U
 #define FLOW_INTRO_TITLE_STEP 6U
 #define FLOW_INTRO_LICENSE_STEP 7U
@@ -44,6 +54,9 @@ static const char *flow_mode_name(TecmoPlayMode mode)
     }
     if (mode == TECMO_MODE_PRESEASON_MENU) {
         return "PRESEASON MENU";
+    }
+    if (mode == TECMO_MODE_TEAM_DATA) {
+        return "TEAM DATA";
     }
     return "UNKNOWN";
 }
@@ -1192,6 +1205,452 @@ static bool flow_expect_preseason_native_path(TecmoRuntime *runtime,
     return flow_preseason_invalid_state_guards(runtime, message, message_size);
 }
 
+static void flow_team_data_neutral(TecmoRuntime *runtime, size_t frames)
+{
+    TecmoInput input = {0};
+    for (size_t i = 0U; i < frames; ++i) tecmo_runtime_update(runtime, &input);
+}
+
+static void flow_team_data_release(TecmoRuntime *runtime, bool accept)
+{
+    TecmoInput input = {0};
+    if (accept) input.shoot = true;
+    else input.cancel = true;
+    tecmo_runtime_update(runtime, &input);
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+}
+
+static bool flow_team_data_finish_transition(
+    TecmoRuntime *runtime,
+    TecmoTeamDataTransition transition,
+    TecmoTeamDataPhase target_phase,
+    char *message,
+    size_t message_size)
+{
+    const TecmoTeamDataAsset *asset = &runtime->team_data_asset;
+    if (transition == TECMO_TEAM_DATA_TRANSITION_ENTRY_TO_SELECTOR) {
+        uint8_t on = asset->entry_transition_render_on_frame;
+        uint8_t first = asset->entry_transition_first_visible_frame;
+        uint8_t step = asset->entry_transition_palette_step_frames;
+        uint8_t stable = asset->entry_transition_stable_frame;
+        if (runtime->team_data_state.transition != transition ||
+            runtime->team_data_state.transition_frame != 0U ||
+            tecmo_team_data_transition_palette_stage(
+                asset, &runtime->team_data_state) != 4U ||
+            tecmo_team_data_transition_render_enabled(
+                asset, &runtime->team_data_state))
+            return false;
+        for (uint8_t frame = 1U; frame < stable; ++frame) {
+            flow_team_data_neutral(runtime, 1U);
+            if (runtime->team_data_state.transition != transition ||
+                runtime->team_data_state.transition_frame != frame)
+                return false;
+            if (frame == on &&
+                (!tecmo_team_data_transition_render_enabled(
+                     asset, &runtime->team_data_state) ||
+                 tecmo_team_data_transition_palette_stage(
+                     asset, &runtime->team_data_state) != 4U))
+                return false;
+            if (frame >= first && (uint8_t)(frame - first) % step == 0U) {
+                unsigned expected = (unsigned)(frame - first) / step;
+                if (expected > 3U) expected = 3U;
+                if (tecmo_team_data_transition_palette_stage(
+                        asset, &runtime->team_data_state) != expected)
+                    return false;
+            }
+        }
+        flow_team_data_neutral(runtime, 1U);
+        if (runtime->team_data_state.transition !=
+                TECMO_TEAM_DATA_TRANSITION_NONE ||
+            runtime->team_data_state.phase != target_phase ||
+            runtime->team_data_state.cursor_delay != 1U) {
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA entry transition did not stabilize");
+            return false;
+        }
+        return true;
+    }
+    uint8_t black = transition ==
+            TECMO_TEAM_DATA_TRANSITION_ROSTER_TO_DETAIL
+        ? asset->detail_transition_black_frame
+        : asset->selector_transition_black_frame;
+    uint8_t off = transition ==
+            TECMO_TEAM_DATA_TRANSITION_ROSTER_TO_DETAIL
+        ? asset->detail_transition_render_off_frame
+        : asset->selector_transition_render_off_frame;
+    uint8_t on = transition ==
+            TECMO_TEAM_DATA_TRANSITION_ROSTER_TO_DETAIL
+        ? asset->detail_transition_render_on_frame
+        : asset->selector_transition_render_on_frame;
+    uint8_t first = transition ==
+            TECMO_TEAM_DATA_TRANSITION_ROSTER_TO_DETAIL
+        ? asset->detail_transition_first_visible_frame
+        : asset->selector_transition_first_visible_frame;
+    uint8_t step = transition ==
+            TECMO_TEAM_DATA_TRANSITION_ROSTER_TO_DETAIL
+        ? asset->detail_transition_palette_step_frames
+        : asset->selector_transition_palette_step_frames;
+    uint8_t stable = transition ==
+            TECMO_TEAM_DATA_TRANSITION_ROSTER_TO_DETAIL
+        ? asset->detail_transition_stable_frame
+        : asset->selector_transition_stable_frame;
+    if (runtime->team_data_state.transition != transition ||
+        runtime->team_data_state.transition_frame != 0U ||
+        tecmo_team_data_transition_palette_stage(
+            asset, &runtime->team_data_state) != 3U ||
+        !tecmo_team_data_transition_render_enabled(
+            asset, &runtime->team_data_state)) {
+        set_flow_test_message(message, message_size,
+                              "TEAM DATA transition did not begin at full source");
+        return false;
+    }
+    for (uint8_t frame = 1U; frame < stable; ++frame) {
+        flow_team_data_neutral(runtime, 1U);
+        if (runtime->team_data_state.transition != transition ||
+            runtime->team_data_state.transition_frame != frame) {
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA transition frame cadence mismatch");
+            return false;
+        }
+        if (frame == black &&
+            tecmo_team_data_transition_palette_stage(
+                asset, &runtime->team_data_state) != 4U)
+            return false;
+        if (frame == off &&
+            tecmo_team_data_transition_render_enabled(
+                asset, &runtime->team_data_state))
+            return false;
+        if (frame == on &&
+            (!tecmo_team_data_transition_render_enabled(
+                 asset, &runtime->team_data_state) ||
+             tecmo_team_data_transition_palette_stage(
+                 asset, &runtime->team_data_state) != 4U))
+            return false;
+        if (frame >= first && (uint8_t)(frame - first) % step == 0U) {
+            unsigned expected = (unsigned)(frame - first) / step;
+            if (expected > 3U) expected = 3U;
+            if (tecmo_team_data_transition_palette_stage(
+                    asset, &runtime->team_data_state) != expected)
+                return false;
+        }
+    }
+    flow_team_data_neutral(runtime, 1U);
+    if (runtime->team_data_state.transition !=
+            TECMO_TEAM_DATA_TRANSITION_NONE ||
+        runtime->team_data_state.transition_frame != 0U ||
+        runtime->team_data_state.phase != target_phase ||
+        runtime->team_data_state.cursor_delay != 1U) {
+        set_flow_test_message(message, message_size,
+                              "TEAM DATA transition did not land on stable target");
+        return false;
+    }
+    return true;
+}
+
+static bool flow_team_data_wait_cooldown(TecmoRuntime *runtime,
+                                         char *message,
+                                         size_t message_size)
+{
+    size_t frames = 0U;
+    while (runtime->team_data_state.direction_cooldown != 0U && frames < 32U) {
+        flow_team_data_neutral(runtime, 1U);
+        ++frames;
+    }
+    if (runtime->team_data_state.direction_cooldown != 0U) {
+        set_flow_test_message(message, message_size,
+                              "TEAM DATA direction cooldown did not expire");
+        return false;
+    }
+    return true;
+}
+
+static void flow_team_data_direction(TecmoRuntime *runtime,
+                                     TecmoControlButton control)
+{
+    TecmoInput input = {0};
+    tecmo_input_set_button(&input, control, true);
+    tecmo_runtime_update(runtime, &input);
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+}
+
+static bool flow_expect_team_data_native_path(TecmoRuntime *runtime,
+                                              bool from_season,
+                                              bool exhaustive,
+                                              char *message,
+                                              size_t message_size)
+{
+    const TecmoTeamDataAsset *asset = &runtime->team_data_asset;
+    if (runtime->mode != TECMO_MODE_TEAM_DATA || !asset->available ||
+        !runtime->normal_play_active || !runtime->start_menu_return_pending ||
+        runtime->start_menu_return_from_season != from_season ||
+        runtime->start_menu_return_root_selection !=
+            (from_season ? 1U : 3U) ||
+        runtime->start_menu_return_season_selection !=
+            (from_season ? 5U : 0U) ||
+        runtime->start_menu_return_music_value != 0U ||
+        runtime->start_menu_return_speed_value != 0U ||
+        runtime->start_menu_return_period_index !=
+            (from_season ? 2U : 3U) ||
+        runtime->team_data_state.phase != TECMO_TEAM_DATA_TEAM_SELECT ||
+        runtime->team_data_state.selector_index != 0U ||
+        runtime->team_data_state.team_id != 28U ||
+        runtime->team_data_state.transition !=
+            TECMO_TEAM_DATA_TRANSITION_ENTRY_TO_SELECTOR ||
+        runtime->team_data_state.transition_frame != 0U ||
+        runtime->team_data_state.direction_cooldown !=
+            asset->selector_initial_cooldown) {
+        set_flow_test_message(message, message_size,
+                              "TEAM DATA dispatch did not initialize strict TTDT-1 state");
+        return false;
+    }
+    if (!flow_team_data_finish_transition(
+            runtime, TECMO_TEAM_DATA_TRANSITION_ENTRY_TO_SELECTOR,
+            TECMO_TEAM_DATA_TEAM_SELECT, message, message_size))
+        return false;
+
+    if (exhaustive) {
+        TecmoTeamDataState invalid = runtime->team_data_state;
+        TecmoTeamDataState before;
+        TecmoControlFrame controls = {0};
+        TecmoFramebuffer framebuffer;
+        uint32_t *pixels;
+        uint8_t logo_pairs[TECMO_TEAM_DATA_LOGO_CELL_LIMIT * 2U];
+        static const uint8_t atl_meter_lengths[6] = {
+            80U, 58U, 94U, 84U, 55U, 20U
+        };
+        const TecmoTeamDataTeam *atl = &asset->teams[0];
+        const TecmoTeamDataPlayer *atl_player = &asset->players[0][0];
+        if (atl->logo_width != 10U || atl->logo_height != 6U ||
+            atl->logo_count != 60U || atl->logo_x != 16U ||
+            asset->logo_y != 48U || atl->logo_selector != 0xE4U ||
+            atl->profile_palette_group != 1U ||
+            flow_fnv1a32(asset->profile_palettes[1], 16U) != 0x34F6B8DCU) {
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA ATL logo/palette contract mismatch");
+            return false;
+        }
+        for (size_t i = 0U; i < TECMO_TEAM_DATA_LOGO_CELL_LIMIT; ++i) {
+            logo_pairs[i * 2U] = asset->logos[0][i].tile_id;
+            logo_pairs[i * 2U + 1U] = asset->logos[0][i].palette_index;
+        }
+        if (flow_fnv1a32(logo_pairs, sizeof(logo_pairs)) != 0x6F28E5C6U)
+            return false;
+        if (strcmp(tecmo_team_data_position_name(atl_player->attributes[0]),
+                   "GUARD") != 0 ||
+            strcmp(tecmo_team_data_condition_name(atl_player->condition_seed),
+                   "EXCELLENT") != 0)
+            return false;
+        for (size_t meter = 0U; meter < 6U; ++meter)
+            if (tecmo_team_data_meter_fill_length(atl_player->profile, meter) !=
+                atl_meter_lengths[meter])
+                return false;
+        if (strcmp(tecmo_team_data_position_name(2U), "FORWARD") != 0 ||
+            strcmp(tecmo_team_data_position_name(4U), "CENTER") != 0 ||
+            tecmo_team_data_position_name(5U)[0] != '\0' ||
+            strcmp(tecmo_team_data_condition_name(0x5EU), "EXCELLENT") != 0 ||
+            strcmp(tecmo_team_data_condition_name(0x4CU), "GOOD") != 0 ||
+            strcmp(tecmo_team_data_condition_name(0x38U), "AVERAGE") != 0 ||
+            strcmp(tecmo_team_data_condition_name(0x1FU), "POOR") != 0 ||
+            strcmp(tecmo_team_data_condition_name(1U), "BAD") != 0 ||
+            strcmp(tecmo_team_data_condition_name(0U), "INJURED") != 0)
+            return false;
+        invalid.team_id = TECMO_TEAM_DATA_TEAM_COUNT;
+        before = invalid;
+        if (tecmo_team_data_update(&invalid, asset, &controls) !=
+                TECMO_TEAM_DATA_ACTION_NONE ||
+            memcmp(&invalid, &before, sizeof(invalid)) != 0) {
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA update accepted an invalid state");
+            return false;
+        }
+        pixels = (uint32_t *)malloc(640U * 480U * sizeof(*pixels));
+        if (pixels == NULL) {
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA invalid-state framebuffer allocation failed");
+            return false;
+        }
+        for (size_t i = 0U; i < 640U * 480U; ++i) pixels[i] = 0x12345678U;
+        framebuffer.pixels = pixels;
+        framebuffer.width = 640;
+        framebuffer.height = 480;
+        framebuffer.pitch_pixels = 640;
+        if (tecmo_team_data_draw(&framebuffer, asset, &invalid,
+                                 runtime->title_chr_bytes,
+                                 runtime->title_chr_byte_count,
+                                 64, 0, 2)) {
+            free(pixels);
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA draw accepted an invalid state");
+            return false;
+        }
+        for (size_t i = 0U; i < 640U * 480U; ++i)
+            if (pixels[i] != 0x12345678U) {
+                free(pixels);
+                set_flow_test_message(message, message_size,
+                                      "TEAM DATA rejected draw changed output");
+                return false;
+            }
+        free(pixels);
+
+        if (!flow_team_data_wait_cooldown(runtime, message, message_size))
+            return false;
+        flow_team_data_direction(runtime, TECMO_CONTROL_DOWN);
+        if (runtime->team_data_state.selector_index != 1U ||
+            !flow_team_data_wait_cooldown(runtime, message, message_size))
+            return false;
+        flow_team_data_direction(runtime, TECMO_CONTROL_DOWN);
+        if (runtime->team_data_state.selector_index != 2U ||
+            asset->selectors[2].team_id != 0U)
+            return false;
+        flow_team_data_release(runtime, true);
+        if (runtime->team_data_state.team_id != 0U ||
+            !flow_team_data_finish_transition(
+                runtime, TECMO_TEAM_DATA_TRANSITION_SELECTOR_TO_PROFILE,
+                TECMO_TEAM_DATA_PROFILE, message, message_size) ||
+            runtime->team_data_state.profile_selection != 0U) {
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA ATL selector did not enter profile");
+            return false;
+        }
+        flow_team_data_release(runtime, true);
+        if (runtime->team_data_state.phase != TECMO_TEAM_DATA_ROSTER ||
+            runtime->team_data_state.roster_page != 0U ||
+            runtime->team_data_state.roster_row != 0U ||
+            runtime->team_data_state.cursor_delay != 0U) {
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA PLAYERS DATA did not enter roster");
+            return false;
+        }
+        flow_team_data_neutral(runtime, 1U);
+        if (runtime->team_data_state.cursor_delay != 1U) return false;
+        if (!flow_team_data_wait_cooldown(runtime, message, message_size))
+            return false;
+        {
+            TecmoInput input = {0};
+            input.right = true;
+            tecmo_runtime_update(runtime, &input);
+        }
+        if (runtime->team_data_state.slide_direction != 1 ||
+            runtime->team_data_state.slide_frame != 0U ||
+            runtime->team_data_state.slide_from_page != 0U ||
+            runtime->team_data_state.slide_to_page != 1U) {
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA roster slide did not begin at frame zero");
+            return false;
+        }
+        flow_team_data_neutral(runtime, 16U);
+        if (runtime->team_data_state.slide_frame != 16U ||
+            runtime->team_data_state.roster_page != 0U) {
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA roster slide midpoint mismatch");
+            return false;
+        }
+        flow_team_data_neutral(runtime, 16U);
+        if (runtime->team_data_state.slide_direction != 0 ||
+            runtime->team_data_state.slide_frame != 0U ||
+            runtime->team_data_state.roster_page != 1U) {
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA roster slide did not land on page two");
+            return false;
+        }
+        flow_team_data_release(runtime, true);
+        if (runtime->team_data_state.player_index != 6U ||
+            !flow_team_data_finish_transition(
+                runtime, TECMO_TEAM_DATA_TRANSITION_ROSTER_TO_DETAIL,
+                TECMO_TEAM_DATA_PLAYER_DETAIL, message, message_size)) {
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA page-two row did not enter player detail");
+            return false;
+        }
+        flow_team_data_release(runtime, false);
+        if (!flow_team_data_finish_transition(
+                runtime, TECMO_TEAM_DATA_TRANSITION_DETAIL_TO_ROSTER,
+                TECMO_TEAM_DATA_ROSTER, message, message_size) ||
+            runtime->team_data_state.roster_page != 1U ||
+            runtime->team_data_state.roster_row != 0U)
+            return false;
+        flow_team_data_release(runtime, false);
+        if (runtime->team_data_state.phase != TECMO_TEAM_DATA_PROFILE)
+            return false;
+        flow_team_data_release(runtime, false);
+        if (!flow_team_data_finish_transition(
+                runtime, TECMO_TEAM_DATA_TRANSITION_PROFILE_TO_SELECTOR,
+                TECMO_TEAM_DATA_TEAM_SELECT, message, message_size) ||
+            runtime->team_data_state.selector_index != 2U)
+            return false;
+    }
+
+    runtime->start_game_menu_state.music_value = 1U;
+    runtime->start_game_menu_state.speed_value = 2U;
+    runtime->start_game_menu_state.period_index = 4U;
+    flow_team_data_release(runtime, false);
+    if (runtime->mode != TECMO_MODE_START_GAME_MENU ||
+        !runtime->normal_play_active || runtime->start_menu_return_pending ||
+        !runtime->start_menu_input_neutral_gate ||
+        runtime->start_game_menu_state.frame !=
+            runtime->start_game_menu_asset.stable_frame ||
+        runtime->start_game_menu_state.direction_cooldown !=
+            runtime->start_game_menu_asset.accepted_input_seed ||
+        runtime->start_game_menu_state.cursor_delay !=
+            runtime->start_game_menu_asset.cursor_commit_delay_frames ||
+        runtime->start_game_menu_state.phase !=
+            (from_season ? TECMO_START_GAME_MENU_SEASON
+                         : TECMO_START_GAME_MENU_ROOT) ||
+        runtime->start_game_menu_state.root_selection !=
+            (from_season ? 1U : 3U) ||
+        runtime->start_game_menu_state.season_selection !=
+            (from_season ? 5U : 0U) ||
+        runtime->start_game_menu_state.slide_frame !=
+            (from_season ? runtime->start_game_menu_asset.slide_frames : 0U) ||
+        runtime->start_game_menu_state.music_value != 0U ||
+        runtime->start_game_menu_state.speed_value != 0U ||
+        runtime->start_game_menu_state.period_index !=
+            (from_season ? 2U : 3U)) {
+        set_flow_test_message(message, message_size,
+                              "TEAM DATA B did not restore its exact blue-menu origin");
+        return false;
+    }
+    {
+        TecmoInput input = {0};
+        input.cancel = true;
+        tecmo_runtime_update(runtime, &input);
+        if (!runtime->start_menu_input_neutral_gate ||
+            runtime->start_game_menu_state.frame !=
+                runtime->start_game_menu_asset.stable_frame) {
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA return did not swallow held B");
+            return false;
+        }
+        memset(&input, 0, sizeof(input));
+        tecmo_runtime_update(runtime, &input);
+        if (!runtime->start_menu_input_neutral_gate ||
+            runtime->start_game_menu_state.frame !=
+                runtime->start_game_menu_asset.stable_frame) {
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA return re-consumed B release");
+            return false;
+        }
+        tecmo_runtime_update(runtime, &input);
+        if (runtime->start_menu_input_neutral_gate ||
+            runtime->start_game_menu_state.frame !=
+                runtime->start_game_menu_asset.stable_frame) {
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA return did not settle neutral gate");
+            return false;
+        }
+        tecmo_runtime_update(runtime, &input);
+        if (runtime->start_game_menu_state.frame !=
+                runtime->start_game_menu_asset.stable_frame + 1U) {
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA return did not resume stable menu");
+            return false;
+        }
+    }
+    return true;
+}
+
 bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t message_size)
 {
     TecmoInput input;
@@ -1667,12 +2126,11 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     memset(&input, 0, sizeof(input));
     input.shoot = true;
     flow_step(runtime, input);
-    if (!flow_finish_start_menu_exit(runtime, TECMO_MODE_ROSTERS, false,
+    if (!flow_finish_start_menu_exit(runtime, TECMO_MODE_TEAM_DATA, false,
                                      "root A team-data frame-eleven dispatch",
                                      message, message_size)) return false;
-    if (!flow_expect_placeholder_return(runtime, false, 3U, 0U,
-                                        "normal root TEAM DATA blue-menu return",
-                                        message, message_size)) return false;
+    if (!flow_expect_team_data_native_path(runtime, false, true,
+                                           message, message_size)) return false;
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 32U;
@@ -2169,12 +2627,11 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     memset(&input, 0, sizeof(input));
     input.shoot = true;
     flow_step(runtime, input);
-    if (!flow_finish_start_menu_exit(runtime, TECMO_MODE_ROSTERS, true,
+    if (!flow_finish_start_menu_exit(runtime, TECMO_MODE_TEAM_DATA, true,
                                      "season TEAM DATA frame-eleven dispatch",
                                      message, message_size)) return false;
-    if (!flow_expect_placeholder_return(runtime, true, 1U, 5U,
-                                        "normal season TEAM DATA blue-menu return",
-                                        message, message_size)) return false;
+    if (!flow_expect_team_data_native_path(runtime, true, false,
+                                           message, message_size)) return false;
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     tecmo_runtime_set_mode(runtime, TECMO_MODE_PLAY_SETUP);

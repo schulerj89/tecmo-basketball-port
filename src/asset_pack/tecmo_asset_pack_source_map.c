@@ -968,6 +968,110 @@ static int append_music_source_map_entry(char *buffer,
         (unsigned)p->voice_count, p->instruction_count);
 }
 
+static int append_team_data_source_map_entry(char *buffer,
+                                             size_t capacity,
+                                             size_t *length,
+                                             int *first,
+                                             const TecmoTeamDataProvenance *p)
+{
+    const char *prefix = *first != 0 ? "" : ",\n";
+    *first = 0;
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "%s"
+        "    {\"id\":\"%s\",\"kind\":\"team-data-native\","
+        "\"schema\":\"tecmo.team-data/TTDT-1\",\"input_contract\":\"ines-only\","
+        "\"runtime_dependencies\":["
+        "{\"entry\":\"chr/all\",\"size\":262144,\"fingerprint_fnv1a32\":\"F6F6E854\",\"fingerprint_fnv1a64\":\"96A64F53B240ABB4\"}],"
+        "\"sources\":["
+        "{\"role\":\"root-dispatch-vector\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":33208,\"size\":14,\"fingerprint_fnv1a32\":\"DCA1F834\"},"
+        "{\"role\":\"season-dispatch-vector\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":33818,\"size\":12,\"fingerprint_fnv1a32\":\"2CD2DE1C\"},"
+        "{\"role\":\"entry-and-return-routes\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":35835,\"size\":56,\"fingerprint_fnv1a32\":\"B67478D8\"},"
+        "{\"role\":\"team-data-core-flow\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":35891,\"size\":102,\"fingerprint_fnv1a32\":\"C831DFE1\"},"
+        "{\"role\":\"profile-route-vector\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":35993,\"size\":6,\"fingerprint_fnv1a32\":\"E51885D7\"},"
+        "{\"role\":\"profile-roster-player-flow\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":35999,\"size\":1462,\"fingerprint_fnv1a32\":\"B9232256\"},"
+        "{\"role\":\"generic-input-and-coordinate-flow\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":40646,\"size\":469,\"fingerprint_fnv1a32\":\"91DC81F3\"},"
+        "{\"role\":\"team-selector-flow-and-tables\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":41115,\"size\":451,\"fingerprint_fnv1a32\":\"A60D4C69\"},"
+        "{\"role\":\"selector-cursor-record\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":41405,\"size\":5,\"fingerprint_fnv1a32\":\"547D7A6F\",\"resolved_chr_offsets\":[49728,49744]},"
+        "{\"role\":\"generic-cursor-record\",\"source_entry\":\"prg/bank01\",\"source_offset\":%llu,\"bank\":1,\"cpu_address\":32817,\"size\":5,\"fingerprint_fnv1a32\":\"7D5835D4\",\"resolved_chr_offsets\":[49728,49744]},"
+        "{\"role\":\"team-rosters-and-player-records\",\"source_entry\":\"prg/bank02\",\"source_offset\":%llu,\"bank\":2,\"cpu_address\":32769,\"size\":7022,\"fingerprint_fnv1a32\":\"93B76340\"},"
+        "{\"role\":\"team-profile-records\",\"source_entry\":\"prg/bank02\",\"source_offset\":%llu,\"bank\":2,\"cpu_address\":40384,\"size\":2146,\"fingerprint_fnv1a32\":\"ECFDCBCB\"},"
+        "{\"role\":\"team-city-and-nickname-strings\",\"source_entry\":\"prg/bank06\",\"source_offset\":%llu,\"bank\":6,\"cpu_address\":44107,\"pointer_tables\":[44384,44747],\"encoding\":\"length-prefixed-uppercase\"},"
+        "{\"role\":\"team-logo-layout-and-selector-tables\",\"source_entry\":\"prg/bank06\",\"source_offset\":%llu,\"bank\":6,\"cpu_address\":41700,\"size\":486,\"fingerprint_fnv1a32\":\"91339DD9\"},"
+        "{\"role\":\"team-profile-palette-groups\",\"source_entry\":\"prg/bank06\",\"source_offset\":%llu,\"bank\":6,\"cpu_address\":44043,\"size\":64,\"fingerprint_fnv1a32\":\"DC51B191\",\"pointer_order_cpu_addresses\":[44059,44043,44075,44091]},"
+        "{\"role\":\"portrait-selector\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":41564,\"size\":2,\"fingerprint_fnv1a32\":\"0AE8D0EA\"},"
+        "{\"role\":\"portrait-layouts\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":46130,\"size\":192,\"fingerprint_fnv1a32\":\"58566055\"},"
+        "{\"role\":\"portrait-compositor-flow\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":36188,\"size\":136,\"fingerprint_fnv1a32\":\"4866441B\"},"
+        "{\"role\":\"player-detail-and-direct-all-star-flow\",\"source_entry\":\"prg/bank02\",\"source_offset\":%llu,\"bank\":2,\"cpu_address\":43657,\"size\":722,\"fingerprint_fnv1a32\":\"BEFE9E46\"},"
+        "{\"role\":\"ability-meter-flow\",\"source_entry\":\"prg/bank02\",\"source_offset\":%llu,\"bank\":2,\"cpu_address\":44379,\"size\":32,\"fingerprint_fnv1a32\":\"8B098364\"},"
+        "{\"role\":\"portrait-metatile-tiles\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"bank\":0,\"cpu_address\":32769,\"size\":108,\"fingerprint_fnv1a32\":\"A3D60DC1\"},"
+        "{\"role\":\"portrait-metatile-attributes\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"bank\":0,\"cpu_address\":32881,\"size\":27,\"fingerprint_fnv1a32\":\"427070B7\"},"
+        "{\"role\":\"player-condition-seed-flow\",\"source_entry\":\"prg/bank01\",\"source_offset\":%llu,\"bank\":1,\"cpu_address\":48927,\"size\":13,\"fingerprint_fnv1a32\":\"555E360C\"},"
+        "{\"role\":\"team-logo-metatile-expansion\",\"source_entry\":\"prg/bank06\",\"source_offset\":%llu,\"bank\":6,\"cpu_address\":42191,\"size\":1916,\"fingerprint_fnv1a32\":\"D27CA55E\"},"
+        "{\"role\":\"team-logo-origins\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":32791,\"size\":29,\"fingerprint_fnv1a32\":\"6A54CD12\"},"
+        "{\"role\":\"sprite-palette\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"bank\":0,\"cpu_address\":48695,\"size\":16,\"fingerprint_fnv1a32\":\"F85BA74A\"},"
+        "{\"role\":\"screen-descriptors\",\"source_entry\":\"prg/fixed\",\"source_offsets\":[%llu,%llu,%llu],\"cpu_addresses\":[56537,56544,56551],\"size_each\":7,\"fingerprints_fnv1a32\":[\"64B5020C\",\"5967A0DA\",\"7CE3E553\"]},"
+        "{\"role\":\"screen-streams\",\"source_entries\":[\"prg/bank01\",\"prg/bank00\",\"prg/bank00\"],\"source_offsets\":[%llu,%llu,%llu],\"cpu_addresses\":[47957,46226,34685],\"encoded_sizes\":[%llu,%llu,%llu],\"decoded_size_each\":1024,\"encoded_fingerprints_fnv1a32\":[\"A90DA6A3\",\"EA330745\",\"12CF0CA2\"],\"decoded_fingerprints_fnv1a32\":[\"9265F597\",\"F6D644A6\",\"69A3DB3E\"]},"
+        "{\"role\":\"screen-palettes\",\"source_entries\":[\"prg/bank01\",\"prg/bank00\",\"prg/bank00\"],\"source_offsets\":[%llu,%llu,%llu],\"cpu_addresses\":[48274,46560,32909],\"size_each\":16,\"fingerprints_fnv1a32\":[\"913CE83E\",\"98634D94\",\"F49FA2BC\"]},"
+        "{\"role\":\"fixed-input-helpers\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":55060,\"size\":212,\"fingerprint_fnv1a32\":\"BC71E228\"},"
+        "{\"role\":\"fixed-screen-loader\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":55595,\"size\":492,\"fingerprint_fnv1a32\":\"E07A8EB7\"},"
+        "{\"role\":\"fixed-fade-flow\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":56101,\"size\":171,\"fingerprint_fnv1a32\":\"C59694B5\"},"
+        "{\"role\":\"fixed-metatile-tiles\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":50222,\"size\":13,\"fingerprint_fnv1a32\":\"DB6A6AEE\"},"
+        "{\"role\":\"fixed-metatile-attribute-helper\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":51953,\"size\":4,\"fingerprint_fnv1a32\":\"2D477AB7\"},"
+        "{\"role\":\"fixed-metatile-compositor\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":54725,\"size\":147,\"fingerprint_fnv1a32\":\"24E23095\"},"
+        "{\"role\":\"fixed-portrait-selector-dispatch\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":56345,\"size\":29,\"fingerprint_fnv1a32\":\"1451114F\"},"
+        "{\"role\":\"full-chr\",\"source_entry\":\"chr/all\",\"source_offset\":%llu,\"size\":262144,\"fingerprint_fnv1a32\":\"F6F6E854\",\"fingerprint_fnv1a64\":\"96A64F53B240ABB4\"}],"
+        "\"native_contract\":{\"payload_size\":%u,\"payload_fingerprint_fnv1a32\":\"812628F0\",\"screens\":3,\"selector_entries\":29,\"teams\":29,\"real_team_logos\":27,\"logo_cell_limit\":60,\"profile_palette_groups\":4,\"players_per_team\":12,\"player_stride\":184,\"portrait_cells\":24,\"roster_rows\":6,\"roster_pages\":2,\"slide_frames\":32,\"slide_pixels_per_frame\":8,\"entry_transition\":{\"render_on\":4,\"first_visible\":7,\"palette_step\":4,\"stable\":20},\"selector_profile_transition\":{\"black\":8,\"render_off\":10,\"render_on\":16,\"first_visible\":19,\"palette_step\":4,\"stable\":32},\"roster_detail_transition\":{\"black\":8,\"render_off\":10,\"render_on\":15,\"first_visible\":18,\"palette_step\":4,\"stable\":31},\"profile_roster_transition\":\"oam-only-stable-next-frame\",\"all_star_name_mapping\":\"direct-player-pointer-to-real-roster-slot\",\"terminal\":\"player-detail-no-gameplay\"}}",
+        prefix, TECMO_ASSET_PACK_TEAM_DATA_ID,
+        (unsigned long long)p->root_vector_offset,
+        (unsigned long long)p->season_vector_offset,
+        (unsigned long long)p->entry_return_offset,
+        (unsigned long long)p->core_flow_offset,
+        (unsigned long long)p->route_vector_offset,
+        (unsigned long long)p->team_data_flow_offset,
+        (unsigned long long)p->generic_input_offset,
+        (unsigned long long)p->selector_flow_offset,
+        (unsigned long long)p->selector_cursor_offset,
+        (unsigned long long)p->generic_cursor_offset,
+        (unsigned long long)p->roster_data_offset,
+        (unsigned long long)p->profile_data_offset,
+        (unsigned long long)p->team_string_offset,
+        (unsigned long long)p->logo_layout_offset,
+        (unsigned long long)p->profile_palette_offset,
+        (unsigned long long)p->portrait_selector_offset,
+        (unsigned long long)p->portrait_layout_offset,
+        (unsigned long long)p->portrait_flow_offset,
+        (unsigned long long)p->profile_detail_flow_offset,
+        (unsigned long long)p->meter_flow_offset,
+        (unsigned long long)p->metatile_tiles_offset,
+        (unsigned long long)p->metatile_attributes_offset,
+        (unsigned long long)p->condition_seed_offset,
+        (unsigned long long)p->logo_expansion_offset,
+        (unsigned long long)p->logo_origin_offset,
+        (unsigned long long)p->sprite_palette_offset,
+        (unsigned long long)p->descriptor_offsets[0],
+        (unsigned long long)p->descriptor_offsets[1],
+        (unsigned long long)p->descriptor_offsets[2],
+        (unsigned long long)p->stream_offsets[0],
+        (unsigned long long)p->stream_offsets[1],
+        (unsigned long long)p->stream_offsets[2],
+        (unsigned long long)p->stream_sizes[0],
+        (unsigned long long)p->stream_sizes[1],
+        (unsigned long long)p->stream_sizes[2],
+        (unsigned long long)p->palette_offsets[0],
+        (unsigned long long)p->palette_offsets[1],
+        (unsigned long long)p->palette_offsets[2],
+        (unsigned long long)p->fixed_input_offset,
+        (unsigned long long)p->fixed_loader_offset,
+        (unsigned long long)p->fixed_fade_offset,
+        (unsigned long long)p->fixed_metatile_tiles_offset,
+        (unsigned long long)p->fixed_metatile_attribute_offset,
+        (unsigned long long)p->fixed_compositor_offset,
+        (unsigned long long)p->fixed_portrait_selector_offset,
+        (unsigned long long)p->chr_offset,
+        (unsigned)TECMO_ASSET_PACK_TEAM_DATA_SIZE);
+}
+
 char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    uint32_t trainer_bytes,
                                    uint32_t prg_banks,
@@ -984,9 +1088,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoStartGameMenuProvenance *start_menu_provenance,
                                    const TecmoPreseasonMenuProvenance *preseason_provenance,
                                    const TecmoMusicProvenance *music_provenance,
+                                   const TecmoTeamDataProvenance *team_data_provenance,
                                    size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 15U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 16U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -1004,10 +1109,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
     int first = 1;
     int first_logical = 1;
 
-    if (entry_count > (SIZE_MAX - 24576U) / 320U) {
+    if (entry_count > (SIZE_MAX - 49152U) / 320U) {
         return NULL;
     }
-    capacity = 32768U + entry_count * 320U;
+    capacity = 49152U + entry_count * 320U;
     source_map = (char *)malloc(capacity);
     if (source_map == NULL) {
         return NULL;
@@ -1187,7 +1292,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                            &first_logical, preseason_provenance) != 0) ||
         (music_provenance->payload_size != 0U &&
          append_music_source_map_entry(source_map, capacity, &length,
-                                       &first_logical, music_provenance) != 0)) {
+                                       &first_logical, music_provenance) != 0) ||
+        (team_data_provenance->entry_return_offset != 0U &&
+         append_team_data_source_map_entry(source_map, capacity, &length,
+                                           &first_logical, team_data_provenance) != 0)) {
         free(source_map);
         return NULL;
     }

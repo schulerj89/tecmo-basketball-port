@@ -20,6 +20,7 @@
 #define TECMO_ASSET_PACK_TITLE_SCREEN_ID "title/start-screen"
 #define TECMO_ASSET_PACK_START_GAME_MENU_ID "menu/start-game"
 #define TECMO_ASSET_PACK_PRESEASON_MENU_ID "menu/preseason"
+#define TECMO_ASSET_PACK_TEAM_DATA_ID "menu/team-data"
 #define TECMO_ASSET_PACK_MUSIC_ID "audio/music"
 #define TECMO_ASSET_PACK_MUSIC_BANK 4U
 #define TECMO_ASSET_PACK_MUSIC_DIRECTORY_CPU 0x8CD0U
@@ -607,6 +608,70 @@
 #define TECMO_ASSET_PACK_PRESEASON_TSGM_SIZE 14112U
 #define TECMO_ASSET_PACK_PRESEASON_TSGM_FNV1A32 0xDF89006BU
 
+#define TECMO_ASSET_PACK_TEAM_DATA_HEADER_SIZE 256U
+#define TECMO_ASSET_PACK_TEAM_DATA_SCREEN_COUNT 3U
+#define TECMO_ASSET_PACK_TEAM_DATA_SCREEN_CELL_COUNT 960U
+#define TECMO_ASSET_PACK_TEAM_DATA_CELL_STRIDE 6U
+#define TECMO_ASSET_PACK_TEAM_DATA_CELLS_OFFSET TECMO_ASSET_PACK_TEAM_DATA_HEADER_SIZE
+#define TECMO_ASSET_PACK_TEAM_DATA_PALETTES_OFFSET \
+    (TECMO_ASSET_PACK_TEAM_DATA_CELLS_OFFSET + \
+     TECMO_ASSET_PACK_TEAM_DATA_SCREEN_COUNT * \
+         TECMO_ASSET_PACK_TEAM_DATA_SCREEN_CELL_COUNT * \
+         TECMO_ASSET_PACK_TEAM_DATA_CELL_STRIDE)
+#define TECMO_ASSET_PACK_TEAM_DATA_SPRITE_PALETTE_OFFSET \
+    (TECMO_ASSET_PACK_TEAM_DATA_PALETTES_OFFSET + \
+     TECMO_ASSET_PACK_TEAM_DATA_SCREEN_COUNT * 16U)
+#define TECMO_ASSET_PACK_TEAM_DATA_CURSOR_STRIDE 16U
+#define TECMO_ASSET_PACK_TEAM_DATA_CURSORS_OFFSET \
+    (TECMO_ASSET_PACK_TEAM_DATA_SPRITE_PALETTE_OFFSET + 16U)
+#define TECMO_ASSET_PACK_TEAM_DATA_SELECTOR_COUNT 29U
+#define TECMO_ASSET_PACK_TEAM_DATA_SELECTOR_STRIDE 4U
+#define TECMO_ASSET_PACK_TEAM_DATA_SELECTORS_OFFSET \
+    (TECMO_ASSET_PACK_TEAM_DATA_CURSORS_OFFSET + \
+     2U * TECMO_ASSET_PACK_TEAM_DATA_CURSOR_STRIDE)
+#define TECMO_ASSET_PACK_TEAM_DATA_FONT_FIRST 0x20U
+#define TECMO_ASSET_PACK_TEAM_DATA_FONT_COUNT 59U
+#define TECMO_ASSET_PACK_TEAM_DATA_FONT_STRIDE 8U
+#define TECMO_ASSET_PACK_TEAM_DATA_FONT_OFFSET \
+    (TECMO_ASSET_PACK_TEAM_DATA_SELECTORS_OFFSET + \
+     TECMO_ASSET_PACK_TEAM_DATA_SELECTOR_COUNT * \
+         TECMO_ASSET_PACK_TEAM_DATA_SELECTOR_STRIDE)
+#define TECMO_ASSET_PACK_TEAM_DATA_TEAM_COUNT 29U
+#define TECMO_ASSET_PACK_TEAM_DATA_TEAM_STRIDE 40U
+#define TECMO_ASSET_PACK_TEAM_DATA_TEAMS_OFFSET \
+    (TECMO_ASSET_PACK_TEAM_DATA_FONT_OFFSET + \
+     TECMO_ASSET_PACK_TEAM_DATA_FONT_COUNT * \
+         TECMO_ASSET_PACK_TEAM_DATA_FONT_STRIDE)
+#define TECMO_ASSET_PACK_TEAM_DATA_REAL_TEAM_COUNT 27U
+#define TECMO_ASSET_PACK_TEAM_DATA_LOGO_CELL_LIMIT 60U
+#define TECMO_ASSET_PACK_TEAM_DATA_LOGO_CELL_STRIDE 8U
+#define TECMO_ASSET_PACK_TEAM_DATA_LOGOS_OFFSET \
+    (TECMO_ASSET_PACK_TEAM_DATA_TEAMS_OFFSET + \
+     TECMO_ASSET_PACK_TEAM_DATA_TEAM_COUNT * \
+         TECMO_ASSET_PACK_TEAM_DATA_TEAM_STRIDE)
+#define TECMO_ASSET_PACK_TEAM_DATA_PLAYERS_PER_TEAM 12U
+#define TECMO_ASSET_PACK_TEAM_DATA_PORTRAIT_CELL_COUNT 24U
+#define TECMO_ASSET_PACK_TEAM_DATA_PLAYER_PORTRAIT_OFFSET 40U
+#define TECMO_ASSET_PACK_TEAM_DATA_PLAYER_STRIDE 184U
+#define TECMO_ASSET_PACK_TEAM_DATA_PLAYERS_OFFSET \
+    (TECMO_ASSET_PACK_TEAM_DATA_LOGOS_OFFSET + \
+     TECMO_ASSET_PACK_TEAM_DATA_REAL_TEAM_COUNT * \
+         TECMO_ASSET_PACK_TEAM_DATA_LOGO_CELL_LIMIT * \
+         TECMO_ASSET_PACK_TEAM_DATA_LOGO_CELL_STRIDE)
+#define TECMO_ASSET_PACK_TEAM_DATA_SIZE \
+    (TECMO_ASSET_PACK_TEAM_DATA_PLAYERS_OFFSET + \
+     TECMO_ASSET_PACK_TEAM_DATA_TEAM_COUNT * \
+         TECMO_ASSET_PACK_TEAM_DATA_PLAYERS_PER_TEAM * \
+         TECMO_ASSET_PACK_TEAM_DATA_PLAYER_STRIDE)
+#define TECMO_ASSET_PACK_TEAM_DATA_FNV1A32 0x812628F0U
+#define TECMO_ASSET_PACK_TEAM_DATA_CHR_SIZE 262144U
+#define TECMO_ASSET_PACK_TEAM_DATA_CHR_FNV1A32 0xF6F6E854U
+#define TECMO_ASSET_PACK_TEAM_DATA_ENTRY_CPU 0x8BFBU
+#define TECMO_ASSET_PACK_TEAM_DATA_TRANSITIONS_HEADER_OFFSET 102U
+#define TECMO_ASSET_PACK_TEAM_DATA_TRANSITIONS_SIZE 12U
+#define TECMO_ASSET_PACK_TEAM_DATA_PROFILE_PALETTES_HEADER_OFFSET 128U
+#define TECMO_ASSET_PACK_TEAM_DATA_PROFILE_PALETTE_COUNT 4U
+
 typedef struct TecmoArenaBackgroundProvenance {
     uint32_t route_bank;
     uint32_t route_cpu;
@@ -812,5 +877,47 @@ typedef struct TecmoPreseasonMenuProvenance {
     uint64_t fade_in_offset;
     uint64_t post_return_exit_chain_offset;
 } TecmoPreseasonMenuProvenance;
+
+typedef struct TecmoTeamDataProvenance {
+    uint64_t chr_offset;
+    uint64_t root_vector_offset;
+    uint64_t season_vector_offset;
+    uint64_t entry_return_offset;
+    uint64_t core_flow_offset;
+    uint64_t route_vector_offset;
+    uint64_t team_data_flow_offset;
+    uint64_t generic_input_offset;
+    uint64_t selector_flow_offset;
+    uint64_t selector_cursor_offset;
+    uint64_t generic_cursor_offset;
+    uint64_t roster_data_offset;
+    uint64_t profile_data_offset;
+    uint64_t team_string_offset;
+    uint64_t logo_layout_offset;
+    uint64_t profile_palette_offset;
+    uint64_t portrait_selector_offset;
+    uint64_t portrait_layout_offset;
+    uint64_t portrait_flow_offset;
+    uint64_t profile_detail_flow_offset;
+    uint64_t meter_flow_offset;
+    uint64_t metatile_tiles_offset;
+    uint64_t metatile_attributes_offset;
+    uint64_t condition_seed_offset;
+    uint64_t logo_expansion_offset;
+    uint64_t logo_origin_offset;
+    uint64_t sprite_palette_offset;
+    uint64_t fixed_input_offset;
+    uint64_t fixed_loader_offset;
+    uint64_t fixed_fade_offset;
+    uint64_t descriptor_table_offset;
+    uint64_t fixed_metatile_tiles_offset;
+    uint64_t fixed_metatile_attribute_offset;
+    uint64_t fixed_compositor_offset;
+    uint64_t fixed_portrait_selector_offset;
+    uint64_t descriptor_offsets[TECMO_ASSET_PACK_TEAM_DATA_SCREEN_COUNT];
+    uint64_t stream_offsets[TECMO_ASSET_PACK_TEAM_DATA_SCREEN_COUNT];
+    uint64_t stream_sizes[TECMO_ASSET_PACK_TEAM_DATA_SCREEN_COUNT];
+    uint64_t palette_offsets[TECMO_ASSET_PACK_TEAM_DATA_SCREEN_COUNT];
+} TecmoTeamDataProvenance;
 
 #endif

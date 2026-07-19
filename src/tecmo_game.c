@@ -106,6 +106,9 @@ static const char *mode_name(TecmoPlayMode mode)
     if (mode == TECMO_MODE_PRESEASON_MENU) {
         return "PRESEASON MENU";
     }
+    if (mode == TECMO_MODE_TEAM_DATA) {
+        return "TEAM DATA";
+    }
     return "UNKNOWN";
 }
 
@@ -237,6 +240,7 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
     (void)tecmo_preseason_asset_load(&runtime->preseason_asset, project_root);
     (void)tecmo_music_asset_load(&runtime->music_asset, project_root);
     tecmo_music_player_init(&runtime->music_player, &runtime->music_asset);
+    (void)tecmo_team_data_asset_load(&runtime->team_data_asset, project_root);
 
     if (tecmo_collect_rosters(project_root, &runtime->roster) != 0) {
         if (!allow_empty_roster) {
@@ -304,6 +308,15 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
             set_runtime_status(runtime->preseason_asset.status,
                                sizeof(runtime->preseason_asset.status),
                                "TPRE-1 chr/all contract rejected");
+        }
+        if (runtime->team_data_asset.available &&
+            !tecmo_team_data_asset_chr_available(&runtime->team_data_asset,
+                                                 runtime->title_chr_bytes,
+                                                 runtime->title_chr_byte_count)) {
+            runtime->team_data_asset.available = false;
+            set_runtime_status(runtime->team_data_asset.status,
+                               sizeof(runtime->team_data_asset.status),
+                               "TTDT-1 chr/all contract rejected");
         }
         if (runtime->selected_chr_bank >= chr_bank_count(runtime)) {
             runtime->selected_chr_bank = chr_bank_count(runtime) - 1U;
@@ -380,6 +393,13 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
         if (runtime->preseason_asset.available) {
             runtime->preseason_state.direction_cooldown =
                 runtime->preseason_asset.accepted_input_seed;
+        }
+    }
+    if (mode == TECMO_MODE_TEAM_DATA) {
+        tecmo_team_data_state_init(&runtime->team_data_state);
+        if (runtime->team_data_asset.available) {
+            runtime->team_data_state.direction_cooldown =
+                runtime->team_data_asset.selector_initial_cooldown;
         }
     }
     runtime->previous_input = (TecmoInput){0};
@@ -546,9 +566,26 @@ static void update_start_game_menu(TecmoRuntime *runtime,
         if (runtime->normal_play_active) {
             remember_start_game_menu_return(runtime);
         }
-        tecmo_runtime_set_mode(runtime, TECMO_MODE_ROSTERS);
+        tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
+        runtime->team_data_state.transition =
+            TECMO_TEAM_DATA_TRANSITION_ENTRY_TO_SELECTOR;
+        runtime->team_data_state.transition_frame = 0U;
+        runtime->team_data_state.cursor_delay = 0U;
     } else if (action == TECMO_START_GAME_MENU_ACTION_PRESEASON) {
         tecmo_runtime_set_mode(runtime, TECMO_MODE_PRESEASON_MENU);
+    }
+}
+
+static void update_team_data_menu(TecmoRuntime *runtime,
+                                  const TecmoControlFrame *controls)
+{
+    TecmoTeamDataAction action = tecmo_team_data_update(
+        &runtime->team_data_state, &runtime->team_data_asset, controls);
+    if (action == TECMO_TEAM_DATA_ACTION_BACK_TO_START_MENU) {
+        if (runtime->normal_play_active && return_to_start_game_menu(runtime)) {
+            return;
+        }
+        tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
     }
 }
 
@@ -885,6 +922,8 @@ void tecmo_runtime_update_players(TecmoRuntime *runtime,
     } else if (runtime->mode == TECMO_MODE_PRESEASON_MENU) {
         update_preseason_menu(runtime, &player_one_controls,
                               &player_two_controls);
+    } else if (runtime->mode == TECMO_MODE_TEAM_DATA) {
+        update_team_data_menu(runtime, &player_one_controls);
     }
 
     write_runtime_watch_memory(runtime);
@@ -1090,6 +1129,20 @@ static void render_preseason_menu_mode(const TecmoRuntime *runtime,
                               runtime->title_chr_byte_count,
                               64, 0, 2)) {
         draw_centered_text(fb, 212, "NATIVE TPRE-1 PRESEASON MENU UNAVAILABLE",
+                           rgb(252, 236, 170), 2);
+    }
+}
+
+static void render_team_data_mode(const TecmoRuntime *runtime,
+                                  TecmoFramebuffer *fb)
+{
+    clear(fb, rgb(0, 0, 0));
+    if (!tecmo_team_data_draw(fb, &runtime->team_data_asset,
+                              &runtime->team_data_state,
+                              runtime->title_chr_bytes,
+                              runtime->title_chr_byte_count,
+                              64, 0, 2)) {
+        draw_centered_text(fb, 212, "NATIVE TTDT-1 TEAM DATA UNAVAILABLE",
                            rgb(252, 236, 170), 2);
     }
 }
@@ -3444,6 +3497,8 @@ void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebu
         render_start_game_menu_mode(runtime, framebuffer);
     } else if (runtime->mode == TECMO_MODE_PRESEASON_MENU) {
         render_preseason_menu_mode(runtime, framebuffer);
+    } else if (runtime->mode == TECMO_MODE_TEAM_DATA) {
+        render_team_data_mode(runtime, framebuffer);
     }
 
     if (runtime->debug_overlay) {

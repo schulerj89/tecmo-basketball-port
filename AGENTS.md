@@ -219,7 +219,8 @@ every eight held frames, and only NES A dispatches; B, START, SELECT, Left, and
 Right are ignored. SEASON GAME slides to the six-item second page
 over exactly 32 frames at eight background pixels and five emblem pixels per
 frame; B reverses the same transition. That second-page boundary maps GAME
-START to `PLAY_SETUP` and TEAM DATA to `ROSTERS`; the other four season
+START to `PLAY_SETUP` and TEAM DATA to the native `TECMO_MODE_TEAM_DATA`;
+the other four season
 management selections remain explicitly unported no-ops.
 
 Popup construction follows Bank03 `$AB77`: row zero transfers before its first
@@ -241,14 +242,15 @@ handoff on frame 11. ALL STAR (`$8221`) still crosses the explicit unported
 boundary to `PLAY_SETUP`. Root PRESEASON now enters the native Bank03 `$9966`
 path directly; it must not run `$E481` before that submenu returns.
 
-Until those ALL STAR/GAME START and TEAM DATA placeholders are replaced,
-normal-play B/Escape returns to the exact originating blue-menu page and
-selection. Season returns restore the fully slid-in second page. A normal-play
-placeholder reached without a recorded blue-menu route ignores B/Escape rather
-than exposing the modern menu; direct debug/test routes retain that menu return.
-The return also preserves committed MUSIC, SPEED, and PERIOD values. Its neutral
-gate consumes B for however long it remains held, the release edge, and the
-first fully neutral frame before the restored menu can process input again.
+ALL STAR/GAME START remain bounded placeholders; TEAM DATA now enters its native
+scene. Normal-play B/Escape returns from those destinations to the exact
+originating blue-menu page and selection, with season returns restoring the
+fully slid-in second page. A placeholder reached without a recorded blue-menu
+route ignores B/Escape rather than exposing the modern menu; direct debug/test
+routes retain that menu return. The return also preserves committed MUSIC,
+SPEED, and PERIOD values. Its neutral gate consumes B for however long it
+remains held, the release edge, and the first fully neutral frame before the
+restored menu can process input again.
 
 PRESEASON is a strict ROM-only native scene backed by `menu/preseason` TPRE-1.
 It composes the 14-row CONTROL and DIVISION overlays and the eight-row
@@ -266,6 +268,35 @@ release-triggered, opposite directions consume the repeat gate without moving,
 and a second player in the same division skips the first player's occupied
 team. Division B returns to CONTROL, and team B rebuilds the same player's
 division menu.
+
+TEAM DATA is a strict ROM-only native scene backed by `menu/team-data` TTDT-1.
+The 96372-byte payload (FNV1a32 `812628F0`) carries three decoded screens, 29
+team selectors, 29 teams with 12 players each, four dynamic profile palette
+groups, 27 expanded team logos, resolved player portraits, and timing/input
+metadata. Runtime also requires the same pack's exact 262144-byte `chr/all`;
+there is no decompilation, trace, screenshot, video, Lua, PPU/OAM dump, or save
+state fallback. Missing, malformed, oversized, wrong-revision, or cross-pack
+assets fail closed.
+
+The root and season TEAM DATA routes retain the TSGM-1 fade through its frame-11
+handoff, then TTDT-1 keeps rendering off for four local frames, turns rendering
+on while black, and shows capped palette stages at local frames 7/11/15/19;
+the selector is stable with its cursor on local frame 20. A/B actions are
+release-triggered. Selector-to-profile is black at local frame 8, render-off at
+10, render-on black at 16, capped/full at 19/23/27/31, and stable at 32.
+Profile-to-roster changes only cursor/OAM state and is stable on the following
+frame. Roster pages slide over 32 frames at eight pixels per frame.
+Roster-to-player-detail is black at 8, render-off at 10, render-on black at 15,
+capped/full at 18/22/26/30, and stable at 31; B uses the 32-frame reverse timing.
+
+Profile colors come from Bank06 `$AC0B-$AC4A`, selected by `$A3AD`. Logos use
+the Bank06 `$A2E4` layout tables and Bank03 `$8017` origin table; ATL resolves
+to the exact E4-backed 10x6 matrix at `(16,48)`. Player names/attributes and
+direct All-Star pointers come from Bank02, portraits use Bank03 `$8D5C/$B432`
+plus Bank00 metatiles, and ability bars follow Bank02 `$AD5B`. The terminal
+supported boundary is interactive player detail and its return to the roster;
+TEAM DATA never launches gameplay. Run the focused suite with
+`tools\Run-TeamDataTests.ps1 -RomPath <LOCAL_ROM.nes>`.
 
 The CONTROL/DIVISION stack fades at team-entry frames 3/5/7 and is black from
 frame 9 through the frame-16 input handoff. The team screen remains black on

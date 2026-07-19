@@ -937,6 +937,135 @@ int main(int argc, char **argv)
                     runtime->title_chr_byte_count, 64, 0, 2);
                 render_runtime = false;
                 result = arena_render_succeeded ? 0 : 1;
+            } else if (strcmp(mode_name, "team-data-select") == 0) {
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
+                runtime->team_data_state.cursor_delay = 1U;
+            } else if (strcmp(mode_name, "team-data-profile") == 0) {
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
+                runtime->team_data_state.phase = TECMO_TEAM_DATA_PROFILE;
+                runtime->team_data_state.team_id = 0U;
+                runtime->team_data_state.cursor_delay = 1U;
+            } else if (strcmp(mode_name, "team-data-roster-page1") == 0 ||
+                       strcmp(mode_name, "team-data-roster-page2") == 0) {
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
+                runtime->team_data_state.phase = TECMO_TEAM_DATA_ROSTER;
+                runtime->team_data_state.team_id = 0U;
+                runtime->team_data_state.roster_page =
+                    strcmp(mode_name, "team-data-roster-page2") == 0 ? 1U : 0U;
+                runtime->team_data_state.cursor_delay = 1U;
+            } else if (strncmp(mode_name, "team-data-roster-slide-frame", 28) == 0) {
+                unsigned frame;
+                if (!parse_render_frame_suffix(mode_name,
+                                               "team-data-roster-slide-frame",
+                                               &frame) ||
+                    frame > runtime->team_data_asset.slide_frames) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
+                    runtime->team_data_state.phase = TECMO_TEAM_DATA_ROSTER;
+                    runtime->team_data_state.team_id = 0U;
+                    runtime->team_data_state.slide_from_page = 0U;
+                    runtime->team_data_state.slide_to_page = 1U;
+                    runtime->team_data_state.slide_direction = 1;
+                    runtime->team_data_state.slide_frame = (uint8_t)frame;
+                }
+            } else if (strcmp(mode_name, "team-data-player-detail") == 0) {
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
+                runtime->team_data_state.phase = TECMO_TEAM_DATA_PLAYER_DETAIL;
+                runtime->team_data_state.team_id = 0U;
+                runtime->team_data_state.player_index = 0U;
+                runtime->team_data_state.cursor_delay = 1U;
+            } else if (strncmp(mode_name,
+                               "team-data-entry-transition-frame", 32) == 0) {
+                unsigned frame;
+                if (!parse_render_frame_suffix(
+                        mode_name, "team-data-entry-transition-frame", &frame) ||
+                    frame >
+                        runtime->team_data_asset.entry_transition_stable_frame) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
+                    runtime->team_data_state.transition =
+                        TECMO_TEAM_DATA_TRANSITION_ENTRY_TO_SELECTOR;
+                    runtime->team_data_state.transition_frame = (uint8_t)frame;
+                }
+            } else if (strncmp(mode_name,
+                               "team-data-selector-profile-transition-frame",
+                               43) == 0) {
+                unsigned frame;
+                if (!parse_render_frame_suffix(
+                        mode_name,
+                        "team-data-selector-profile-transition-frame",
+                        &frame) ||
+                    frame >
+                        runtime->team_data_asset.selector_transition_stable_frame) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
+                    runtime->team_data_state.phase = TECMO_TEAM_DATA_TEAM_SELECT;
+                    runtime->team_data_state.selector_index = 2U;
+                    runtime->team_data_state.team_id = 0U;
+                    runtime->team_data_state.transition =
+                        TECMO_TEAM_DATA_TRANSITION_SELECTOR_TO_PROFILE;
+                    runtime->team_data_state.transition_frame = (uint8_t)frame;
+                }
+            } else if (strncmp(mode_name,
+                               "team-data-roster-detail-transition-frame",
+                               40) == 0) {
+                unsigned frame;
+                if (!parse_render_frame_suffix(
+                        mode_name,
+                        "team-data-roster-detail-transition-frame", &frame) ||
+                    frame >
+                        runtime->team_data_asset.detail_transition_stable_frame) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
+                    runtime->team_data_state.phase = TECMO_TEAM_DATA_ROSTER;
+                    runtime->team_data_state.team_id = 0U;
+                    runtime->team_data_state.player_index = 0U;
+                    runtime->team_data_state.transition =
+                        TECMO_TEAM_DATA_TRANSITION_ROSTER_TO_DETAIL;
+                    runtime->team_data_state.transition_frame = (uint8_t)frame;
+                }
+            } else if (strncmp(mode_name,
+                               "team-data-detail-roster-transition-frame",
+                               40) == 0) {
+                unsigned frame;
+                if (!parse_render_frame_suffix(
+                        mode_name,
+                        "team-data-detail-roster-transition-frame", &frame) ||
+                    frame >
+                        runtime->team_data_asset.selector_transition_stable_frame) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
+                    runtime->team_data_state.phase =
+                        TECMO_TEAM_DATA_PLAYER_DETAIL;
+                    runtime->team_data_state.team_id = 0U;
+                    runtime->team_data_state.player_index = 0U;
+                    runtime->team_data_state.transition =
+                        TECMO_TEAM_DATA_TRANSITION_DETAIL_TO_ROSTER;
+                    runtime->team_data_state.transition_frame = (uint8_t)frame;
+                }
+            } else if (strcmp(mode_name, "team-data-invalid-state") == 0) {
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
+                runtime->team_data_state.team_id = TECMO_TEAM_DATA_TEAM_COUNT;
+                framebuffer.pixels = pixels;
+                framebuffer.width = width;
+                framebuffer.height = height;
+                framebuffer.pitch_pixels = width;
+                arena_render_succeeded = tecmo_team_data_draw(
+                    &framebuffer, &runtime->team_data_asset,
+                    &runtime->team_data_state, runtime->title_chr_bytes,
+                    runtime->title_chr_byte_count, 64, 0, 2);
+                render_runtime = false;
+                result = arena_render_succeeded ? 0 : 1;
             } else if (strcmp(mode_name, "menu-overlay") == 0) {
                 TecmoInput input;
                 memset(&input, 0, sizeof(input));
@@ -1315,6 +1444,13 @@ int main(int argc, char **argv)
                                 runtime->title_chr_bytes,
                                 runtime->title_chr_byte_count))) {
                     result = 1;
+                } else if (strncmp(mode_name, "team-data", 9) == 0 &&
+                           (!runtime->team_data_asset.available ||
+                            !tecmo_team_data_asset_chr_available(
+                                &runtime->team_data_asset,
+                                runtime->title_chr_bytes,
+                                runtime->title_chr_byte_count))) {
+                    result = 1;
                 } else if ((strcmp(mode_name, "play") == 0 ||
                      strncmp(mode_name, "play-fade", 9) == 0 ||
                      strcmp(mode_name, "play-step6") == 0) &&
@@ -1366,6 +1502,28 @@ int main(int argc, char **argv)
                        runtime->preseason_state.division_return_fade_active ? 1U : 0U,
                        (unsigned)runtime->preseason_state.division_return_fade_frame,
                        (unsigned)runtime->preseason_state.direction_cooldown);
+            }
+            if (strncmp(mode_name, "team-data", 9) == 0) {
+                printf("team-data-state phase=%s selector=%u team=%u profile=%u page=%u row=%u player=%u slide=%u/%u direction=%d cooldown=%u transition=%u transition-frame=%u palette=%u render=%u\n",
+                       tecmo_team_data_phase_name(runtime->team_data_state.phase),
+                       (unsigned)runtime->team_data_state.selector_index,
+                       (unsigned)runtime->team_data_state.team_id,
+                       (unsigned)runtime->team_data_state.profile_selection,
+                       (unsigned)runtime->team_data_state.roster_page,
+                       (unsigned)runtime->team_data_state.roster_row,
+                       (unsigned)runtime->team_data_state.player_index,
+                       (unsigned)runtime->team_data_state.slide_frame,
+                       (unsigned)runtime->team_data_asset.slide_frames,
+                       (int)runtime->team_data_state.slide_direction,
+                       (unsigned)runtime->team_data_state.direction_cooldown,
+                       (unsigned)runtime->team_data_state.transition,
+                       (unsigned)runtime->team_data_state.transition_frame,
+                       tecmo_team_data_transition_palette_stage(
+                           &runtime->team_data_asset,
+                           &runtime->team_data_state),
+                       tecmo_team_data_transition_render_enabled(
+                           &runtime->team_data_asset,
+                           &runtime->team_data_state) ? 1U : 0U);
             }
             print_intro_render_capture_status(runtime, mode_name, arena_render_succeeded);
         }
