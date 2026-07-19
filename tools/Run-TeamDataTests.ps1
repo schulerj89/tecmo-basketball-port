@@ -108,7 +108,7 @@ try {
 
     $Pack = Join-Path $Scratch "team-data.assetpack"
     $BuildOutput = Invoke-Tecmo @("--build-assetpack", $RomPath, $Pack)
-    if ($BuildOutput -notmatch '63 entries') {
+    if ($BuildOutput -notmatch '64 entries') {
         throw "Private ROM-only pack did not contain the canonical entry count."
     }
     $PackBytes = [IO.File]::ReadAllBytes($Pack)
