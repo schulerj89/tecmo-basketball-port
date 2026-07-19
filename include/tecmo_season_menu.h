@@ -16,6 +16,8 @@
 #define TECMO_SEASON_SCHEDULE_COUNT 1107U
 #define TECMO_SEASON_FONT_COUNT 59U
 #define TECMO_SEASON_LEADER_COUNT 7U
+#define TECMO_SEASON_LEADER_SCREEN_COUNT 7U
+#define TECMO_SEASON_LEADER_SCREEN_CELLS 960U
 
 typedef enum TecmoSeasonRoute {
     TECMO_SEASON_ROUTE_TEAM_CONTROL = 0,
@@ -52,6 +54,19 @@ typedef struct TecmoSeasonAsset {
     uint8_t schedule[TECMO_SEASON_SCHEDULE_COUNT][2];
     TecmoStartGameMenuCell control_cells[4][3];
     char leader_labels[TECMO_SEASON_LEADER_COUNT][20];
+    uint8_t division_starts[4];
+    uint8_t division_teams[TECMO_SEASON_TEAM_COUNT];
+    uint8_t leader_up[TECMO_SEASON_LEADER_COUNT];
+    uint8_t leader_down[TECMO_SEASON_LEADER_COUNT];
+    uint8_t leader_cursor_x[TECMO_SEASON_LEADER_COUNT];
+    uint8_t leader_cursor_y[TECMO_SEASON_LEADER_COUNT];
+    uint8_t leader_template[TECMO_SEASON_LEADER_COUNT];
+    TecmoStartGameMenuCell leader_screens[TECMO_SEASON_LEADER_SCREEN_COUNT]
+                                               [TECMO_SEASON_LEADER_SCREEN_CELLS];
+    uint8_t leader_palettes[TECMO_SEASON_LEADER_SCREEN_COUNT][16];
+    char schedule_text[3][24];
+    char reset_text[6][32];
+    char season_type_text[5][16];
     uint16_t game_counts[4];
     uint8_t team_control_x[3];
     uint8_t team_control_y;
@@ -107,6 +122,7 @@ typedef struct TecmoSeasonState {
     unsigned frame;
     uint16_t direction_cooldown;
     uint16_t schedule_selection;
+    uint16_t playoff_scroll;
     uint8_t team_selection;
     uint8_t popup_selection;
     uint8_t season_type_selection;
@@ -114,6 +130,8 @@ typedef struct TecmoSeasonState {
     uint8_t editor_panel;
     uint8_t editor_team;
     uint8_t leader_category;
+    bool programmed_return_to_schedule;
+    bool leaders_results;
     bool game_launch_blocked;
 } TecmoSeasonState;
 

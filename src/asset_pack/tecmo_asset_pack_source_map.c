@@ -1232,7 +1232,7 @@ static int append_season_source_map_entry(char *buffer,
         "\"schema\":\"tecmo.season/TSNS-1\",\"input_contract\":\"ines-only\","
         "\"runtime_dependencies\":["
         "{\"entry\":\"chr/all\",\"size\":262144,\"fingerprint_fnv1a32\":\"F6F6E854\",\"fingerprint_fnv1a64\":\"96A64F53B240ABB4\"},"
-        "{\"entry\":\"menu/team-data\",\"schema\":\"tecmo.team-data/TTDT-1\"}],"
+        "{\"entry\":\"menu/team-data\",\"schema\":\"tecmo.team-data/TTDT-1\",\"size\":96372,\"fingerprint_fnv1a32\":\"812628F0\"}],"
         "\"sources\":["
         "{\"role\":\"season-dispatch\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":33715,\"size\":115,\"fingerprint_fnv1a32\":\"FAA5DF69\"},"
         "{\"role\":\"route-table\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":33818,\"size\":12,\"fingerprint_fnv1a32\":\"2CD2DE1C\"},"

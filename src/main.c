@@ -1241,12 +1241,18 @@ int main(int argc, char **argv)
                                         &runtime->season_session);
                 if (strcmp(mode_name, "season-schedule-popup") == 0)
                     runtime->season_state.phase = TECMO_SEASON_SCHEDULE_POPUP;
-            } else if (strcmp(mode_name, "season-playoff") == 0) {
+            } else if (strcmp(mode_name, "season-playoff") == 0 ||
+                       strcmp(mode_name, "season-playoff-mid") == 0 ||
+                       strcmp(mode_name, "season-playoff-east") == 0) {
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
                 tecmo_season_state_init(&runtime->season_state,
                                         TECMO_SEASON_ROUTE_SCHEDULE,
                                         &runtime->season_session);
                 runtime->season_state.phase = TECMO_SEASON_PLAYOFF;
+                if (strcmp(mode_name, "season-playoff-mid") == 0)
+                    runtime->season_state.playoff_scroll = 128U;
+                else if (strcmp(mode_name, "season-playoff-east") == 0)
+                    runtime->season_state.playoff_scroll = 252U;
             } else if (strcmp(mode_name, "season-standings-east") == 0 ||
                        strcmp(mode_name, "season-standings-west") == 0) {
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
@@ -1808,12 +1814,13 @@ int main(int argc, char **argv)
                            &runtime->team_data_state) ? 1U : 0U);
             }
             if (strncmp(mode_name, "season-", 7) == 0) {
-                printf("season-state phase=%s type=%s schedule=%u team=%u popup=%u page=%u panel=%u editor-team=%u leader=%u launch-blocked=%u save=%u\n",
+                printf("season-state phase=%s type=%s schedule=%u team=%u popup=%u playoff-scroll=%u page=%u panel=%u editor-team=%u leader=%u launch-blocked=%u save=%u\n",
                        tecmo_season_phase_name(runtime->season_state.phase),
                        tecmo_season_type_name(runtime->season_session.season_type),
                        (unsigned)runtime->season_state.schedule_selection,
                        (unsigned)runtime->season_state.team_selection,
                        (unsigned)runtime->season_state.popup_selection,
+                       (unsigned)runtime->season_state.playoff_scroll,
                        (unsigned)runtime->season_state.standings_page,
                        (unsigned)runtime->season_state.editor_panel,
                        (unsigned)runtime->season_state.editor_team,
