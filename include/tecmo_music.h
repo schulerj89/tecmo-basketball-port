@@ -15,6 +15,7 @@
 #define TECMO_MUSIC_TICK_NUMERATOR 39375000U
 #define TECMO_MUSIC_TICK_DENOMINATOR 655171U
 #define TECMO_MUSIC_PAYLOAD_SIZE 36784U
+#define TECMO_MUSIC_PAYLOAD_FNV1A32 0x05C00ECBU
 #define TECMO_MUSIC_INSTRUCTION_COUNT 2251U
 
 typedef enum TecmoMusicTrackId {
@@ -82,6 +83,7 @@ typedef struct TecmoMusicAsset {
     uint32_t tick_numerator;
     uint32_t tick_denominator;
     uint32_t payload_fingerprint;
+    char asset_pack_path[1024];
     char status[160];
 } TecmoMusicAsset;
 
@@ -124,6 +126,8 @@ typedef struct TecmoMusicPlayer {
 } TecmoMusicPlayer;
 
 bool tecmo_music_asset_load(TecmoMusicAsset *asset, const char *project_root);
+bool tecmo_music_asset_load_from_pack(TecmoMusicAsset *asset,
+                                      const char *asset_pack_path);
 void tecmo_music_asset_shutdown(TecmoMusicAsset *asset);
 void tecmo_music_player_init(TecmoMusicPlayer *player,
                              const TecmoMusicAsset *asset);

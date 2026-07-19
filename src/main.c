@@ -573,7 +573,7 @@ int main(int argc, char **argv)
         bool passed;
         memset(&music_asset, 0, sizeof(music_asset));
         if (pack_path == NULL ||
-            !tecmo_music_asset_load(&music_asset, root)) {
+            !tecmo_music_asset_load_from_pack(&music_asset, pack_path)) {
             printf("Gameplay scene test failed: %s\n",
                    pack_path == NULL ? "PACK path required"
                                      : music_asset.status);

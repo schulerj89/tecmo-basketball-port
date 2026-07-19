@@ -17,7 +17,6 @@
 #define MUSIC_TRACK_STRIDE 48U
 #define MUSIC_VOICE_STRIDE 8U
 #define MUSIC_INSTRUCTION_STRIDE 16U
-#define MUSIC_PAYLOAD_FNV1A32 0x05C00ECBU
 #define MUSIC_CPU_CLOCK 1789773.0
 #define MUSIC_INVALID_INSTRUCTION UINT32_MAX
 
@@ -173,7 +172,7 @@ static bool parse_payload(TecmoMusicAsset *asset, const uint8_t *bytes,
 
     if (asset == NULL || bytes == NULL || count != TECMO_MUSIC_PAYLOAD_SIZE ||
         (enforce_payload_fingerprint &&
-         fnv1a32(bytes, (size_t)count) != MUSIC_PAYLOAD_FNV1A32) ||
+         fnv1a32(bytes, (size_t)count) != TECMO_MUSIC_PAYLOAD_FNV1A32) ||
         memcmp(bytes, "TMUS", 4U) != 0 || read_u16(bytes + 4U) != 1U ||
         read_u16(bytes + 6U) != MUSIC_HEADER_SIZE ||
         read_u32(bytes + 8U) != TECMO_MUSIC_PAYLOAD_SIZE ||
@@ -218,7 +217,7 @@ static bool parse_payload(TecmoMusicAsset *asset, const uint8_t *bytes,
     asset->sample_rate = read_u32(bytes + 44U);
     asset->tick_numerator = read_u32(bytes + 48U);
     asset->tick_denominator = read_u32(bytes + 52U);
-    asset->payload_fingerprint = MUSIC_PAYLOAD_FNV1A32;
+    asset->payload_fingerprint = TECMO_MUSIC_PAYLOAD_FNV1A32;
 
     for (track_index = 0U; track_index < TECMO_MUSIC_TRACK_COUNT; ++track_index) {
         const uint8_t *source = bytes + track_offset + track_index * MUSIC_TRACK_STRIDE;
@@ -389,16 +388,31 @@ cleanup:
     return ok;
 }
 
-bool tecmo_music_asset_load(TecmoMusicAsset *asset, const char *project_root)
+bool tecmo_music_asset_load_from_pack(TecmoMusicAsset *asset,
+                                      const char *asset_pack_path)
 {
-    char pack_path[1024];
     uint8_t *bytes = NULL;
     uint64_t count = 0U;
     bool ok;
+    int written;
     if (asset == NULL) return false;
     memset(asset, 0, sizeof(*asset));
-    if (!select_asset_pack(project_root, pack_path, sizeof(pack_path)) ||
-        tecmo_asset_pack_read_entry_exact(pack_path, MUSIC_ENTRY_ID,
+    if (asset_pack_path == NULL || asset_pack_path[0] == '\0') {
+        (void)snprintf(asset->status, sizeof(asset->status),
+                       "TMUS-1 audio/music entry unavailable");
+        return false;
+    }
+    written = snprintf(asset->asset_pack_path,
+                       sizeof(asset->asset_pack_path), "%s",
+                       asset_pack_path);
+    if (written < 0 || (size_t)written >= sizeof(asset->asset_pack_path)) {
+        asset->asset_pack_path[0] = '\0';
+        (void)snprintf(asset->status, sizeof(asset->status),
+                       "TMUS-1 asset pack path too long");
+        return false;
+    }
+    if (
+        tecmo_asset_pack_read_entry_exact(asset_pack_path, MUSIC_ENTRY_ID,
                                           TECMO_MUSIC_PAYLOAD_SIZE,
                                           &bytes, &count) != 0) {
         (void)snprintf(asset->status, sizeof(asset->status),
@@ -414,6 +428,19 @@ bool tecmo_music_asset_load(TecmoMusicAsset *asset, const char *project_root)
     return ok;
 }
 
+bool tecmo_music_asset_load(TecmoMusicAsset *asset, const char *project_root)
+{
+    char pack_path[1024];
+    if (asset == NULL) return false;
+    if (!select_asset_pack(project_root, pack_path, sizeof(pack_path))) {
+        memset(asset, 0, sizeof(*asset));
+        (void)snprintf(asset->status, sizeof(asset->status),
+                       "TMUS-1 audio/music entry unavailable");
+        return false;
+    }
+    return tecmo_music_asset_load_from_pack(asset, pack_path);
+}
+
 void tecmo_music_asset_shutdown(TecmoMusicAsset *asset)
 {
     if (asset == NULL) return;
@@ -421,6 +448,7 @@ void tecmo_music_asset_shutdown(TecmoMusicAsset *asset)
     asset->instructions = NULL;
     asset->instruction_count = 0U;
     asset->available = false;
+    asset->asset_pack_path[0] = '\0';
 }
 
 void tecmo_music_player_init(TecmoMusicPlayer *player,
@@ -1147,6 +1175,8 @@ bool tecmo_music_self_test(const char *project_root,
                            size_t message_size)
 {
     TecmoMusicAsset asset;
+    TecmoMusicAsset explicit_asset;
+    TecmoMusicAsset missing_asset;
     TecmoMusicPlayer player;
     TecmoMusicPlayer null_sink_player;
     TecmoMusicPlayer buffered_player;
@@ -1164,6 +1194,7 @@ bool tecmo_music_self_test(const char *project_root,
     uint64_t payload_size = 0U;
     char pack_path[1024];
     bool malformed_ok = false;
+    bool explicit_pack_ok = false;
     bool gate_ok;
     bool null_sink_ok;
     bool duration_ok;
@@ -1181,6 +1212,19 @@ bool tecmo_music_self_test(const char *project_root,
             (void)snprintf(message, message_size, "%s", asset.status);
         return false;
     }
+    memset(&explicit_asset, 0, sizeof(explicit_asset));
+    memset(&missing_asset, 0, sizeof(missing_asset));
+    if (select_asset_pack(project_root, pack_path, sizeof(pack_path)) &&
+        tecmo_music_asset_load_from_pack(&explicit_asset, pack_path)) {
+        explicit_pack_ok = explicit_asset.available &&
+            explicit_asset.payload_fingerprint == asset.payload_fingerprint &&
+            explicit_asset.instruction_count == asset.instruction_count &&
+            !tecmo_music_asset_load_from_pack(
+                &missing_asset, "?:\\missing-music.assetpack") &&
+            !missing_asset.available;
+    }
+    tecmo_music_asset_shutdown(&explicit_asset);
+    tecmo_music_asset_shutdown(&missing_asset);
     tecmo_music_player_init(&player, &asset);
     gate_ok = tecmo_music_queue_opening_once(&player) &&
               !tecmo_music_queue_opening_once(&player);
@@ -1320,7 +1364,8 @@ bool tecmo_music_self_test(const char *project_root,
     tecmo_music_asset_shutdown(&asset);
     return cadence_ok && gate_ok && startup_ok && anchor_ok && voice_ok &&
            pitch_ok && long_loop_ok && pregame_matchup_ok && null_sink_ok &&
-           duration_ok && malformed_ok && pcm_hash == 0x105B1338U &&
+           duration_ok && malformed_ok && explicit_pack_ok &&
+           pcm_hash == 0x105B1338U &&
            state_hash == 0x1C74513CU &&
            pulse_hash == 0xD52B0696U && triangle_hash == 0x1C9A3181U &&
            noise_hash == 0x56252AAEU && env_hash == 0x6515A87AU;

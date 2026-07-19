@@ -5,6 +5,7 @@
 #include "tecmo_framebuffer.h"
 #include "tecmo_gameplay_assets.h"
 #include "tecmo_gameplay_audio.h"
+#include "tecmo_gameplay_close_shots.h"
 #include "tecmo_gameplay_court.h"
 #include "tecmo_gameplay_state.h"
 #include "tecmo_music.h"
@@ -29,8 +30,9 @@ typedef enum TecmoGameplaySceneSource {
 typedef enum TecmoGameplaySceneShotKind {
     TECMO_GAMEPLAY_SCENE_SHOT_NONE = 0,
     TECMO_GAMEPLAY_SCENE_SHOT_JUMP,
-    /* Numeric ROM close-shot family; no unproven dunk/layup label. */
-    TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_SUBTYPE01,
+    /* Numeric ROM families; no unproven dunk/layup label. */
+    TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_0,
+    TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_2,
     TECMO_GAMEPLAY_SCENE_SHOT_KIND_COUNT
 } TecmoGameplaySceneShotKind;
 
@@ -79,6 +81,7 @@ typedef struct TecmoGameplayScene {
 
     TecmoGameplayAssets assets;
     TecmoGameplayCourt court;
+    TecmoGameplayCloseShotAssets close_shots;
     TecmoGameplayAudioAsset audio_asset;
     TecmoGameplayAudioPlayer audio_player;
     TecmoGameplayState state;
@@ -101,6 +104,9 @@ typedef struct TecmoGameplayScene {
     uint16_t free_throw_frame;
     uint8_t shot_points;
     uint8_t shot_actor;
+    uint8_t close_shot_step;
+    TecmoGameplayCloseShotProfile close_shot_profile;
+    TecmoGameplayCloseShotDirection close_shot_direction;
     TecmoGameplaySceneShotKind shot_kind;
     TecmoGameplayPhase previous_phase;
     uint32_t frame;
@@ -109,7 +115,7 @@ typedef struct TecmoGameplayScene {
 /* Initialize exactly once before load/destroy. */
 void tecmo_gameplay_scene_init(TecmoGameplayScene *scene);
 
-/* Loads TGPL-1, TGCT-1, TSFX-1, and TDMC-1 from one selected local pack.
+/* Loads TGPL-1, TGCT-1, TGCS-1, TSFX-1, and TDMC-1 from one local pack.
    `asset_pack_path` may be NULL to use the strict runtime search order.
    Runtime data is never read from decompilation/capture paths. */
 bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
