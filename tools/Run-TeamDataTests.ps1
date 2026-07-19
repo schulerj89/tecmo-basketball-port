@@ -65,8 +65,8 @@ function Invoke-Tecmo {
     return ($Output -join [Environment]::NewLine)
 }
 
-function Get-MenuEntryPackOffset {
-    param([byte[]]$Bytes)
+function Get-PackEntry {
+    param([byte[]]$Bytes, [string]$Id)
     if ($Bytes.Length -lt 40 -or
         [Text.Encoding]::ASCII.GetString($Bytes, 0, 4) -ne "TAP1") {
         throw "Private asset pack header was malformed."
@@ -78,16 +78,25 @@ function Get-MenuEntryPackOffset {
         if ($EntryOffset + 128 -gt $Bytes.Length) {
             throw "Private asset pack directory was truncated."
         }
-        $Id = [Text.Encoding]::ASCII.GetString($Bytes, [int]$EntryOffset, 64).Trim([char]0)
-        if ($Id -eq "menu/team-data") {
-            $Size = [BitConverter]::ToUInt64($Bytes, [int]$EntryOffset + 92)
-            if ($Size -ne 96372) {
-                throw "TTDT-1 directory size was not 96372."
+        $EntryId = [Text.Encoding]::ASCII.GetString(
+            $Bytes, [int]$EntryOffset, 64).Trim([char]0)
+        if ($EntryId -eq $Id) {
+            $PayloadOffset = [BitConverter]::ToUInt64(
+                $Bytes, [int]$EntryOffset + 84)
+            $PayloadSize = [BitConverter]::ToUInt64(
+                $Bytes, [int]$EntryOffset + 92)
+            if ($PayloadOffset -lt 40 -or
+                $PayloadOffset -gt $DirectoryOffset -or
+                $PayloadSize -gt $DirectoryOffset - $PayloadOffset) {
+                throw "$Id payload bounds were malformed."
             }
-            return [BitConverter]::ToUInt64($Bytes, [int]$EntryOffset + 84)
+            return @{
+                Offset = $PayloadOffset
+                Size = $PayloadSize
+            }
         }
     }
-    throw "menu/team-data was missing from the private asset pack."
+    throw "$Id was missing from the private asset pack."
 }
 
 try {
@@ -107,12 +116,15 @@ try {
     }
 
     $Pack = Join-Path $Scratch "team-data.assetpack"
-    $BuildOutput = Invoke-Tecmo @("--build-assetpack", $RomPath, $Pack)
-    if ($BuildOutput -notmatch '64 entries') {
-        throw "Private ROM-only pack did not contain the canonical entry count."
-    }
+    [void](Invoke-Tecmo @("--build-assetpack", $RomPath, $Pack))
     $PackBytes = [IO.File]::ReadAllBytes($Pack)
-    [void](Get-MenuEntryPackOffset $PackBytes)
+    $SourceMap = Get-PackEntry $PackBytes "system/source-map"
+    $Chr = Get-PackEntry $PackBytes "chr/all"
+    $TeamData = Get-PackEntry $PackBytes "menu/team-data"
+    if ($SourceMap.Size -eq 0 -or $Chr.Size -ne 262144 -or
+        $TeamData.Size -ne 96372) {
+        throw "Required source-map/CHR/TTDT-1 directory contracts were rejected."
+    }
     $env:TECMO_ASSETPACK = $Pack
 
     $FlowOutput = Invoke-Tecmo @("--root", $DecompRoot, "--flow-test")
@@ -151,7 +163,7 @@ try {
 
     $Malformed = Join-Path $Scratch "team-data-malformed.assetpack"
     $MalformedBytes = [IO.File]::ReadAllBytes($Pack)
-    $PayloadOffset = Get-MenuEntryPackOffset $MalformedBytes
+    $PayloadOffset = (Get-PackEntry $MalformedBytes "menu/team-data").Offset
     $MutationOffset = [uint64]$PayloadOffset + 128
     if ($MutationOffset -ge $MalformedBytes.Length) {
         throw "Malformed-pack mutation escaped the TTDT payload."

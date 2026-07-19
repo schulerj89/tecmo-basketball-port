@@ -73,9 +73,18 @@ function Get-PackEntry {
         $EntryId = [Text.Encoding]::ASCII.GetString(
             $Bytes, [int]$Record, 64).Trim([char]0)
         if ($EntryId -eq $Id) {
+            $PayloadOffset = [BitConverter]::ToUInt64(
+                $Bytes, [int]$Record + 84)
+            $PayloadSize = [BitConverter]::ToUInt64(
+                $Bytes, [int]$Record + 92)
+            if ($PayloadOffset -lt 40 -or
+                $PayloadOffset -gt $DirectoryOffset -or
+                $PayloadSize -gt $DirectoryOffset - $PayloadOffset) {
+                throw "$Id payload bounds were malformed."
+            }
             return @{
-                Offset = [BitConverter]::ToUInt64($Bytes, [int]$Record + 84)
-                Size = [BitConverter]::ToUInt64($Bytes, [int]$Record + 92)
+                Offset = $PayloadOffset
+                Size = $PayloadSize
             }
         }
     }
@@ -99,15 +108,15 @@ try {
     }
 
     $Pack = Join-Path $Scratch "team-management.assetpack"
-    $BuildOutput = Invoke-Tecmo @("--build-assetpack", $RomPath, $Pack)
-    if ($BuildOutput -notmatch '64 entries') {
-        throw "Private ROM-only pack did not contain 64 canonical entries."
-    }
+    [void](Invoke-Tecmo @("--build-assetpack", $RomPath, $Pack))
     $PackBytes = [IO.File]::ReadAllBytes($Pack)
+    $SourceMap = Get-PackEntry $PackBytes "system/source-map"
+    $Chr = Get-PackEntry $PackBytes "chr/all"
     $Management = Get-PackEntry $PackBytes "menu/team-management"
     $TeamData = Get-PackEntry $PackBytes "menu/team-data"
-    if ($Management.Size -ne 21061 -or $TeamData.Size -ne 96372) {
-        throw "TTMG-1/TTDT-1 exact directory sizes were rejected."
+    if ($SourceMap.Size -eq 0 -or $Chr.Size -ne 262144 -or
+        $Management.Size -ne 21061 -or $TeamData.Size -ne 96372) {
+        throw "Required source-map/CHR/TTMG-1/TTDT-1 directory contracts were rejected."
     }
     $env:TECMO_ASSETPACK = $Pack
 

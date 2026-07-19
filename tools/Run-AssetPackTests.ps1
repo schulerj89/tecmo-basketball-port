@@ -13,6 +13,21 @@ if (!$ProjectRoot) {
 }
 $ProjectRoot = (Resolve-Path $ProjectRoot).Path
 
+# Keep the independently pinned TSNS-1 release contract in one place. When the
+# importer schema intentionally changes, update PayloadSize and PayloadFnv1a32
+# together with the focused season test's render hashes.
+$SeasonAssetContract = [ordered]@{
+    EntryId = "menu/season"
+    PayloadSize = 104732
+    PayloadFnv1a32 = "29C64F84"
+    HeaderSize = 256
+    ChrSize = 262144
+    ChrFnv1a32 = "F6F6E854"
+    ChrFnv1a64 = "96A64F53B240ABB4"
+    TeamDataSize = 96372
+    TeamDataFnv1a32 = "812628F0"
+}
+
 $BuildDir = Join-Path $ProjectRoot "build"
 $CanonicalAssetPackPath = [System.IO.Path]::GetFullPath((Join-Path $BuildDir "tecmo.assetpack"))
 
@@ -322,6 +337,7 @@ function Get-KnownLogicalAssetPackEntries {
         "audio/music",
         "menu/team-data",
         "menu/team-management",
+        "menu/season",
         "roster/table.tsv",
         "title/original-text.txt",
         "title/glyph-map.tsv",
@@ -369,6 +385,7 @@ function Get-ExpectedLogicalAssetPackEntries {
             "audio/music"
             "menu/team-data"
             "menu/team-management"
+            "menu/season"
         )
         capture_sources_present = @()
     }
@@ -1464,6 +1481,318 @@ function Test-TeamDataPayloadContract {
         if ($Issues -contains "all-star-source-map") { break }
     }
     return [pscustomobject]@{ passed = $Issues.Count -eq 0; issues = $Issues.ToArray() }
+}
+
+function Test-SeasonPayloadContract {
+    param(
+        [byte[]]$Bytes,
+        [uint64]$ChrByteCount
+    )
+
+    $Issues = [System.Collections.Generic.List[string]]::new()
+    $ExpectedSize = [int]$SeasonAssetContract.PayloadSize
+    if ($Bytes.Length -ne $ExpectedSize) {
+        [void]$Issues.Add("payload-size")
+        return [pscustomobject]@{
+            passed = $false
+            issues = $Issues.ToArray()
+            schedule_counts = @()
+        }
+    }
+
+    $ExpectedHeaderU16 = @{
+        4=1; 6=256; 8=32; 10=30; 12=5; 14=1920; 16=59; 18=1107;
+        92=1107; 94=567; 96=351; 98=1107; 100=0x8599; 102=0xB27F;
+        104=1; 140=7; 142=960; 144=344; 193=496
+    }
+    $ExpectedHeaderU32 = @{
+        20=256; 24=57856; 28=57936; 32=58408; 36=58424;
+        40=58440; 44=60654; 48=60726; 52=$ExpectedSize;
+        56=262144; 60=([Convert]::ToUInt32("F6F6E854", 16));
+        112=60866; 116=61210;
+        120=61214; 124=61241; 128=61269; 132=61276;
+        136=101596; 185=101708; 189=101756
+    }
+    if ([Text.Encoding]::ASCII.GetString($Bytes, 0, 4) -ne "TSNS") {
+        [void]$Issues.Add("magic")
+    }
+    foreach ($Offset in $ExpectedHeaderU16.Keys) {
+        if ([BitConverter]::ToUInt16($Bytes, [int]$Offset) -ne
+            [uint16]$ExpectedHeaderU16[$Offset]) {
+            [void]$Issues.Add("header-u16-$Offset")
+        }
+    }
+    foreach ($Offset in $ExpectedHeaderU32.Keys) {
+        if ([BitConverter]::ToUInt32($Bytes, [int]$Offset) -ne
+            [uint32]$ExpectedHeaderU32[$Offset]) {
+            [void]$Issues.Add("header-u32-$Offset")
+        }
+    }
+    if ($ChrByteCount -ne [uint64]$SeasonAssetContract.ChrSize) {
+        [void]$Issues.Add("chr-size")
+    }
+    $ExpectedHeaderBytes = @{
+        "64" = @(2,1,2,1,2)
+        "69" = @(17,18,19,20,21)
+        "74" = @(0xFA,0xFA,0xDA,0xFA,0xFA,0xFA,0x76,0xFA,0x76,0xFA)
+        "84" = @(8,5,27,4,4,2,8,7)
+        "106" = @(40,120,200,80,16,0)
+        "148" = @(38,39,40,41,42,43,44)
+        "155" = @(0xFA,0xFA,0xFA,0x2E,0xFA,0x2E,0xFA,0x2E,
+                    0xFA,0x2E,0xFA,0x2E,0xFA,0x2E)
+        "173" = @(13,6,1,8,24,12,3,12,13,10,3,12)
+        "195" = @(3,16,15,83,15,99,135,163,135,179,
+                    31,115,31,131,31,147,31,163)
+    }
+    foreach ($OffsetText in $ExpectedHeaderBytes.Keys) {
+        $Offset = [int]$OffsetText
+        $Expected = $ExpectedHeaderBytes[$OffsetText]
+        $Actual = @($Bytes[$Offset..($Offset + $Expected.Count - 1)])
+        if (($Actual -join ",") -ne ($Expected -join ",")) {
+            [void]$Issues.Add("header-bytes-$Offset")
+        }
+    }
+    $ExpectedGamesBehindCells = @(
+        @(0xFF,2,0x0003EFF0),
+        @(0x00,2,0x0003E800),
+        @(0xF8,2,0x0003EF80)
+    )
+    for ($Cell = 0; $Cell -lt 3; ++$Cell) {
+        $Offset = 213 + $Cell * 6
+        if ($Bytes[$Offset] -ne $ExpectedGamesBehindCells[$Cell][0] -or
+            $Bytes[$Offset + 1] -ne
+                $ExpectedGamesBehindCells[$Cell][1] -or
+            [BitConverter]::ToUInt32($Bytes, $Offset + 2) -ne
+                $ExpectedGamesBehindCells[$Cell][2]) {
+            [void]$Issues.Add("games-behind-cells")
+            break
+        }
+    }
+    for ($Offset = 231; $Offset -lt 256; ++$Offset) {
+        if ($Bytes[$Offset] -ne 0) {
+            [void]$Issues.Add("header-reserved")
+            break
+        }
+    }
+
+    $ScreenSelectors = @(
+        @(0xFA,0xFA), @(0xDA,0xFA), @(0xFA,0xFA),
+        @(0x76,0xFA), @(0x76,0xFA)
+    )
+    for ($Screen = 0; $Screen -lt 5; ++$Screen) {
+        for ($Cell = 0; $Cell -lt 1920; ++$Cell) {
+            $Offset = 256 + ($Screen * 1920 + $Cell) * 6
+            $Tile = $Bytes[$Offset]
+            $Palette = $Bytes[$Offset + 1]
+            $Selector = if ($Tile -lt 0x80) {
+                $ScreenSelectors[$Screen][0]
+            } else {
+                $ScreenSelectors[$Screen][1]
+            }
+            $ExpectedChr = [uint32]($Selector * 1024 +
+                ($Tile -band 0x7F) * 16)
+            $ChrOffset = [BitConverter]::ToUInt32($Bytes, $Offset + 2)
+            if ($Palette -gt 3 -or $ChrOffset -ne $ExpectedChr -or
+                [uint64]$ChrOffset + 16 -gt $ChrByteCount) {
+                [void]$Issues.Add("screen-cell")
+                break
+            }
+        }
+        if ($Issues -contains "screen-cell") { break }
+    }
+    for ($Offset = 57856; $Offset -lt 57936; ++$Offset) {
+        if ($Bytes[$Offset] -gt 0x3F) {
+            [void]$Issues.Add("screen-palette")
+            break
+        }
+    }
+    for ($Glyph = 0; $Glyph -lt 59; ++$Glyph) {
+        $Offset = 57936 + $Glyph * 8
+        $Tile = $Bytes[$Offset + 1]
+        $ExpectedChr = [uint32](0xFA * 1024 + ($Tile -band 0x7F) * 16)
+        if ($Bytes[$Offset] -ne 0x20 + $Glyph -or
+            $Bytes[$Offset + 2] -ne 0xFA -or
+            $Bytes[$Offset + 3] -ne 0xFA -or
+            [BitConverter]::ToUInt32($Bytes, $Offset + 4) -ne $ExpectedChr) {
+            [void]$Issues.Add("font-map")
+            break
+        }
+    }
+    if ([BitConverter]::ToInt16($Bytes, 58408) -ne 0 -or
+        [BitConverter]::ToInt16($Bytes, 58410) -ne -4 -or
+        [BitConverter]::ToUInt32($Bytes, 58412) -ne 0xC240 -or
+        [BitConverter]::ToUInt32($Bytes, 58416) -ne 0xC250 -or
+        $Bytes[58420] -ne 0x30 -or $Bytes[58421] -ne 0x24 -or
+        $Bytes[58422] -ne 0 -or $Bytes[58423] -ne 0) {
+        [void]$Issues.Add("cursor")
+    }
+    for ($Offset = 58424; $Offset -lt 58440; ++$Offset) {
+        if ($Bytes[$Offset] -gt 0x3F) {
+            [void]$Issues.Add("sprite-palette")
+            break
+        }
+    }
+
+    $ScheduleCounts = @(0,0,0,0)
+    $GamesByTeam = [System.Collections.Generic.List[object]]::new()
+    for ($Type = 0; $Type -lt 4; ++$Type) {
+        [void]$GamesByTeam.Add((New-Object int[] 27))
+    }
+    for ($Game = 0; $Game -lt 1107; ++$Game) {
+        $Away = $Bytes[58440 + $Game * 2]
+        $HomeRecord = $Bytes[58440 + $Game * 2 + 1]
+        $AwayTeam = $Away -band 0x3F
+        $HomeTeam = $HomeRecord -band 0x3F
+        if ($AwayTeam -ge 27 -or $HomeTeam -ge 27 -or
+            ($Away -band 0x40) -ne 0 -or
+            ($HomeRecord -band 0x40) -ne 0) {
+            [void]$Issues.Add("schedule-record")
+            break
+        }
+        $Selected = @(
+            $true,
+            (($Away -band 0x80) -ne 0),
+            (($Away -band 0x80) -ne 0 -and
+             ($HomeRecord -band 0x80) -ne 0),
+            $true
+        )
+        for ($Type = 0; $Type -lt 4; ++$Type) {
+            if (!$Selected[$Type]) { continue }
+            ++$ScheduleCounts[$Type]
+            ++$GamesByTeam[$Type][$AwayTeam]
+            ++$GamesByTeam[$Type][$HomeTeam]
+        }
+    }
+    $ExpectedScheduleCounts = @(1107,567,351,1107)
+    $ExpectedGamesPerTeam = @(82,42,26,82)
+    if (($ScheduleCounts -join ",") -ne
+        ($ExpectedScheduleCounts -join ",")) {
+        [void]$Issues.Add("schedule-filter-counts")
+    }
+    for ($Type = 0; $Type -lt 4; ++$Type) {
+        for ($Team = 0; $Team -lt 27; ++$Team) {
+            if ($GamesByTeam[$Type][$Team] -ne
+                $ExpectedGamesPerTeam[$Type]) {
+                [void]$Issues.Add("schedule-team-balance")
+                break
+            }
+        }
+        if ($Issues -contains "schedule-team-balance") { break }
+    }
+
+    $RawDivisionOrder = @(
+        17,19,13,18,1,16,26,10,3,14,4,2,7,0,
+        23,15,6,5,25,9,8,21,22,11,20,24,12
+    )
+    $ActualDivisionStarts = @($Bytes[61210..61213])
+    $ActualDivisionOrder = @($Bytes[61214..61240])
+    if (($ActualDivisionStarts -join ",") -ne "0,7,14,20" -or
+        ($ActualDivisionOrder -join ",") -ne ($RawDivisionOrder -join ",")) {
+        [void]$Issues.Add("division-raw-order")
+    }
+    $ResolvedDivisionOrder = [System.Collections.Generic.List[int]]::new()
+    $DivisionEnds = @(7,14,20,27)
+    for ($Division = 0; $Division -lt 4; ++$Division) {
+        for ($Index = $DivisionEnds[$Division] - 1;
+             $Index -ge $ActualDivisionStarts[$Division]; --$Index) {
+            [void]$ResolvedDivisionOrder.Add($ActualDivisionOrder[$Index])
+        }
+    }
+    $ExpectedDisplayOrder = @(
+        26,16,1,18,13,19,17,0,7,2,4,14,3,10,
+        9,25,5,6,15,23,12,24,20,11,22,21,8
+    )
+    if (($ResolvedDivisionOrder.ToArray() -join ",") -ne
+        ($ExpectedDisplayOrder -join ",")) {
+        [void]$Issues.Add("division-display-order")
+    }
+    $ExpectedLeaderNav = @(
+        0,1,2,0,2,3,4, 3,1,4,5,6,5,6,
+        16,104,176,14,182,20,182, 61,61,61,117,117,189,189
+    )
+    if ((@($Bytes[61241..61268]) -join ",") -ne
+            ($ExpectedLeaderNav -join ",") -or
+        (@($Bytes[61269..61275]) -join ",") -ne
+            (@(39,40,41,42,43,39,44) -join ",")) {
+        [void]$Issues.Add("leader-navigation")
+    }
+
+    $LeaderSelectors = @(
+        @(0xFA,0xFA), @(0xFA,0x2E), @(0xFA,0x2E), @(0xFA,0x2E),
+        @(0xFA,0x2E), @(0xFA,0x2E), @(0xFA,0x2E)
+    )
+    for ($Screen = 0; $Screen -lt 7; ++$Screen) {
+        for ($Cell = 0; $Cell -lt 960; ++$Cell) {
+            $Offset = 61276 + ($Screen * 960 + $Cell) * 6
+            $Tile = $Bytes[$Offset]
+            $Selector = if ($Tile -lt 0x80) {
+                $LeaderSelectors[$Screen][0]
+            } else {
+                $LeaderSelectors[$Screen][1]
+            }
+            $ExpectedChr = [uint32]($Selector * 1024 +
+                ($Tile -band 0x7F) * 16)
+            if ($Bytes[$Offset + 1] -gt 3 -or
+                [BitConverter]::ToUInt32($Bytes, $Offset + 2) -ne
+                    $ExpectedChr -or
+                [uint64]$ExpectedChr + 16 -gt $ChrByteCount) {
+                [void]$Issues.Add("leader-screen-cell")
+                break
+            }
+        }
+        if ($Issues -contains "leader-screen-cell") { break }
+    }
+    for ($Offset = 101596; $Offset -lt 101708; ++$Offset) {
+        if ($Bytes[$Offset] -gt 0x3F) {
+            [void]$Issues.Add("leader-palette")
+            break
+        }
+    }
+
+    $ExpectedPopupDescriptors = @(
+        @(0,78,13,6,1,8,0),
+        @(78,288,24,12,3,12,1),
+        @(366,130,13,10,3,12,2)
+    )
+    for ($Popup = 0; $Popup -lt 3; ++$Popup) {
+        $Offset = 101708 + $Popup * 16
+        $Actual = @(
+            [BitConverter]::ToUInt16($Bytes,$Offset),
+            [BitConverter]::ToUInt16($Bytes,$Offset+2),
+            [BitConverter]::ToUInt16($Bytes,$Offset+4),
+            [BitConverter]::ToUInt16($Bytes,$Offset+6),
+            [BitConverter]::ToUInt16($Bytes,$Offset+8),
+            [BitConverter]::ToUInt16($Bytes,$Offset+10),
+            $Bytes[$Offset+12]
+        )
+        if (($Actual -join ",") -ne
+                ($ExpectedPopupDescriptors[$Popup] -join ",") -or
+            $Bytes[$Offset+13] -ne 0 -or $Bytes[$Offset+14] -ne 0 -or
+            $Bytes[$Offset+15] -ne 0) {
+            [void]$Issues.Add("popup-descriptor")
+            break
+        }
+    }
+    for ($Cell = 0; $Cell -lt 496; ++$Cell) {
+        $Offset = 101756 + $Cell * 6
+        $Tile = $Bytes[$Offset]
+        $Selector = if ($Tile -lt 0x80) { 0x76 } else { 0xFA }
+        $ExpectedChr = [uint32]($Selector * 1024 +
+            ($Tile -band 0x7F) * 16)
+        if ($Bytes[$Offset + 1] -gt 3 -or
+            [BitConverter]::ToUInt32($Bytes, $Offset + 2) -ne $ExpectedChr -or
+            [uint64]$ExpectedChr + 16 -gt $ChrByteCount) {
+            [void]$Issues.Add("popup-cell")
+            break
+        }
+    }
+
+    return [pscustomobject]@{
+        passed = $Issues.Count -eq 0
+        issues = $Issues.ToArray()
+        schedule_counts = $ScheduleCounts
+        resolved_division_order = $ResolvedDivisionOrder.ToArray()
+    }
 }
 
 function Add-TestResult {
@@ -3123,6 +3452,149 @@ try {
                     raw_asset_bytes_persisted = $false
                 })
 
+                $SeasonBytes = Read-AssetPackEntryBytes `
+                    -Path $AssetPackPath -Directory $Directory `
+                    -EntryId $SeasonAssetContract.EntryId
+                $SeasonFingerprint = Get-Fnv1a32Hex -Bytes $SeasonBytes
+                $SeasonContract = Test-SeasonPayloadContract `
+                    -Bytes $SeasonBytes -ChrByteCount $ChrByteCount
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-season-native"
+                    passed = $SeasonContract.passed -and
+                        $SeasonBytes.Length -eq
+                            [int]$SeasonAssetContract.PayloadSize -and
+                        $SeasonFingerprint -eq
+                            $SeasonAssetContract.PayloadFnv1a32
+                    format = if ($SeasonBytes.Length -ge 4) {
+                        [Text.Encoding]::ASCII.GetString($SeasonBytes, 0, 4)
+                    } else { "" }
+                    byte_count = $SeasonBytes.Length
+                    payload_fingerprint_fnv1a32 = $SeasonFingerprint
+                    expected_payload_fingerprint_fnv1a32 =
+                        $SeasonAssetContract.PayloadFnv1a32
+                    schedule_counts = $SeasonContract.schedule_counts
+                    resolved_division_order =
+                        $SeasonContract.resolved_division_order
+                    contract_issues = $SeasonContract.issues
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $SeasonFingerprintMutation = [byte[]]$SeasonBytes.Clone()
+                $SeasonFingerprintMutation[57856] =
+                    $SeasonFingerprintMutation[57856] -bxor 1
+                $SeasonFingerprintMutationContract =
+                    Test-SeasonPayloadContract `
+                        -Bytes $SeasonFingerprintMutation `
+                        -ChrByteCount $ChrByteCount
+                $SeasonFingerprintMutationHash =
+                    Get-Fnv1a32Hex -Bytes $SeasonFingerprintMutation
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-season-revision-fingerprint"
+                    passed = $SeasonFingerprint -eq
+                            $SeasonAssetContract.PayloadFnv1a32 -and
+                        $SeasonFingerprintMutationContract.passed -and
+                        $SeasonFingerprintMutationHash -ne
+                            $SeasonAssetContract.PayloadFnv1a32
+                    payload_fingerprint_fnv1a32 = $SeasonFingerprint
+                    structurally_valid_mutation_rejected_by_fingerprint =
+                        $SeasonFingerprintMutationContract.passed -and
+                        $SeasonFingerprintMutationHash -ne
+                            $SeasonAssetContract.PayloadFnv1a32
+                    mutated_payloads_persisted = $false
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $SeasonMalformedCases =
+                    [System.Collections.Generic.List[object]]::new()
+                [byte[]]$SeasonTruncated =
+                    $SeasonBytes[0..($SeasonBytes.Length - 2)]
+                [void]$SeasonMalformedCases.Add([pscustomobject]@{
+                    id = "payload-size"
+                    rejected = !(Test-SeasonPayloadContract `
+                        -Bytes $SeasonTruncated `
+                        -ChrByteCount $ChrByteCount).passed
+                })
+                $SeasonMalformedSpecs = @(
+                    [pscustomobject]@{ id = "magic"; mutate = {
+                        param([byte[]]$Data) $Data[0] = [byte][char]'X'
+                    } },
+                    [pscustomobject]@{ id = "declared-size"; mutate = {
+                        param([byte[]]$Data)
+                        [BitConverter]::GetBytes(
+                            [uint32]($Data.Length - 1)).CopyTo($Data, 52)
+                    } },
+                    [pscustomobject]@{ id = "chr-fingerprint"; mutate = {
+                        param([byte[]]$Data) $Data[60] = $Data[60] -bxor 1
+                    } },
+                    [pscustomobject]@{ id = "filtered-count"; mutate = {
+                        param([byte[]]$Data) $Data[94] = $Data[94] -bxor 1
+                    } },
+                    [pscustomobject]@{ id = "launch-boundary"; mutate = {
+                        param([byte[]]$Data) $Data[100] =
+                            $Data[100] -bxor 1
+                    } },
+                    [pscustomobject]@{ id = "header-reserved"; mutate = {
+                        param([byte[]]$Data) $Data[255] = 1
+                    } },
+                    [pscustomobject]@{ id = "screen-cell-palette"; mutate = {
+                        param([byte[]]$Data) $Data[257] = 4
+                    } },
+                    [pscustomobject]@{ id = "screen-cell-chr"; mutate = {
+                        param([byte[]]$Data) $Data[258] =
+                            $Data[258] -bxor 0x10
+                    } },
+                    [pscustomobject]@{ id = "palette-range"; mutate = {
+                        param([byte[]]$Data) $Data[57856] = 0x40
+                    } },
+                    [pscustomobject]@{ id = "cursor-reserved"; mutate = {
+                        param([byte[]]$Data) $Data[58422] = 1
+                    } },
+                    [pscustomobject]@{ id = "schedule-team"; mutate = {
+                        param([byte[]]$Data) $Data[58440] = 27
+                    } },
+                    [pscustomobject]@{ id = "schedule-flags"; mutate = {
+                        param([byte[]]$Data) $Data[58440] =
+                            $Data[58440] -bxor 0x80
+                    } },
+                    [pscustomobject]@{ id = "division-order"; mutate = {
+                        param([byte[]]$Data) $Data[61214] =
+                            $Data[61215]
+                    } },
+                    [pscustomobject]@{ id = "leader-navigation"; mutate = {
+                        param([byte[]]$Data) $Data[61241] = 7
+                    } },
+                    [pscustomobject]@{ id = "leader-screen-cell"; mutate = {
+                        param([byte[]]$Data) $Data[61277] = 4
+                    } },
+                    [pscustomobject]@{ id = "popup-descriptor"; mutate = {
+                        param([byte[]]$Data) $Data[101710] =
+                            $Data[101710] -bxor 1
+                    } },
+                    [pscustomobject]@{ id = "popup-cell"; mutate = {
+                        param([byte[]]$Data) $Data[101757] = 4
+                    } }
+                )
+                foreach ($Spec in $SeasonMalformedSpecs) {
+                    $Malformed = [byte[]]$SeasonBytes.Clone()
+                    & $Spec.mutate $Malformed
+                    $Rejected = !(Test-SeasonPayloadContract `
+                        -Bytes $Malformed `
+                        -ChrByteCount $ChrByteCount).passed
+                    [void]$SeasonMalformedCases.Add([pscustomobject]@{
+                        id = $Spec.id
+                        rejected = $Rejected
+                    })
+                }
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-season-malformed-contracts"
+                    passed = @($SeasonMalformedCases | Where-Object {
+                        !$_.rejected
+                    }).Count -eq 0
+                    cases = $SeasonMalformedCases.ToArray()
+                    mutated_payloads_persisted = $false
+                    raw_asset_bytes_persisted = $false
+                })
+
                 $FinaleBytes = Read-AssetPackEntryBytes -Path $AssetPackPath -Directory $Directory -EntryId "intro/finale-sequence"
                 $FinaleContract = Test-FinalePayloadContract -Bytes $FinaleBytes -ChrByteCount ([uint64]$ExpectedChrBanks * 8192)
                 Add-TestResult ([pscustomobject]@{
@@ -3205,6 +3677,104 @@ try {
                     source_map_logical_entries = $SourceMapLogicalIds
                     missing_logical_entries = $MissingSourceMapLogicalEntries
                     unexpected_logical_entries = $UnexpectedSourceMapLogicalEntries
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $SeasonSource = @($SourceMap.logical_entries |
+                    Where-Object { $_.id -eq $SeasonAssetContract.EntryId } |
+                    Select-Object -First 1)
+                $SeasonRoles = @($SeasonSource.sources |
+                    ForEach-Object { [string]$_.role })
+                $ExpectedSeasonRoles = @(
+                    "season-dispatch", "route-table", "leaders-route",
+                    "game-start-prelaunch",
+                    "game-launch-terminal-unexecuted",
+                    "game-launch-target-unexecuted", "team-control-flow",
+                    "standings-and-programmed-editor-flow", "schedule-flow",
+                    "semantic-menu-records-and-box-descriptors",
+                    "popup-cursor-coordinate-tables", "font-map",
+                    "standings-games-behind-renderer",
+                    "regular-season-schedule", "season-defaults",
+                    "cursor-record", "sprite-palette",
+                    "leader-label-records", "division-starts",
+                    "division-team-order", "leader-navigation",
+                    "leader-template-map", "leader-category-flow",
+                    "leader-ranking-flow", "leader-row-flow",
+                    "fixed-input-helpers", "fixed-screen-loader",
+                    "screen-descriptors", "screen-streams",
+                    "screen-palettes", "leader-screen-descriptors",
+                    "leader-screen-streams", "leader-screen-palettes",
+                    "full-chr"
+                )
+                $SeasonDependencies = @($SeasonSource.runtime_dependencies)
+                $SeasonChrDependency = @($SeasonDependencies |
+                    Where-Object { $_.entry -eq "chr/all" } |
+                    Select-Object -First 1)
+                $SeasonTeamDataDependency = @($SeasonDependencies |
+                    Where-Object { $_.entry -eq "menu/team-data" } |
+                    Select-Object -First 1)
+                $SeasonFingerprintedSources = @($SeasonSource.sources |
+                    Where-Object {
+                        @($_.PSObject.Properties.Name | Where-Object {
+                            $_ -match "fingerprint"
+                        }).Count -gt 0
+                    })
+                $SeasonSourcePassed = $SeasonSource.Count -eq 1 -and
+                    $SeasonSource.schema -eq "tecmo.season/TSNS-1" -and
+                    $SeasonSource.input_contract -eq "ines-only" -and
+                    (@(Compare-Object $ExpectedSeasonRoles $SeasonRoles)).Count -eq 0 -and
+                    $SeasonFingerprintedSources.Count -eq
+                        $ExpectedSeasonRoles.Count -and
+                    @($SeasonRoles | Where-Object {
+                        $_ -match "trace|capture|log|screenshot|dump|state|video"
+                    }).Count -eq 0 -and
+                    $SeasonDependencies.Count -eq 2 -and
+                    $SeasonChrDependency.Count -eq 1 -and
+                    [int]$SeasonChrDependency.size -eq
+                        [int]$SeasonAssetContract.ChrSize -and
+                    $SeasonChrDependency.fingerprint_fnv1a32 -eq
+                        $SeasonAssetContract.ChrFnv1a32 -and
+                    $SeasonChrDependency.fingerprint_fnv1a64 -eq
+                        $SeasonAssetContract.ChrFnv1a64 -and
+                    $SeasonTeamDataDependency.Count -eq 1 -and
+                    $SeasonTeamDataDependency.schema -eq
+                        "tecmo.team-data/TTDT-1" -and
+                    [int]$SeasonTeamDataDependency.size -eq
+                        [int]$SeasonAssetContract.TeamDataSize -and
+                    $SeasonTeamDataDependency.fingerprint_fnv1a32 -eq
+                        $SeasonAssetContract.TeamDataFnv1a32 -and
+                    [int]$SeasonSource.native_contract.payload_size -eq
+                        [int]$SeasonAssetContract.PayloadSize -and
+                    $SeasonSource.native_contract.payload_fingerprint_fnv1a32 -eq
+                        $SeasonAssetContract.PayloadFnv1a32 -and
+                    (@($SeasonSource.native_contract.screens) -join ",") -eq
+                        "17,18,19,20,21,38,39,40,41,42,43,44" -and
+                    [int]$SeasonSource.native_contract.teams -eq 27 -and
+                    [int]$SeasonSource.native_contract.schedule_records -eq
+                        1107 -and
+                    (@($SeasonSource.native_contract.filtered_schedule_counts) -join ",") -eq
+                        "1107,567,351,1107" -and
+                    [int]$SeasonSource.native_contract.leader_categories -eq 7 -and
+                    $SeasonSource.native_contract.controlled_match_terminal -eq
+                        "gameplay-launch-blocked" -and
+                    [int]$SeasonSource.native_contract.unexecuted_boundary_cpu -eq
+                        0x8599 -and
+                    [int]$SeasonSource.native_contract.unexecuted_target_cpu -eq
+                        0xB27F
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-season-source-provenance"
+                    passed = $SeasonSourcePassed
+                    schema = $SeasonSource.schema
+                    source_roles = $SeasonRoles
+                    fingerprinted_source_count =
+                        $SeasonFingerprintedSources.Count
+                    runtime_dependencies = @($SeasonDependencies |
+                        ForEach-Object { [string]$_.entry })
+                    payload_size = $SeasonSource.native_contract.payload_size
+                    payload_fingerprint_fnv1a32 =
+                        $SeasonSource.native_contract.payload_fingerprint_fnv1a32
+                    no_gameplay_boundary =
+                        $SeasonSource.native_contract.controlled_match_terminal
                     raw_asset_bytes_persisted = $false
                 })
 
