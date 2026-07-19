@@ -6,6 +6,7 @@
 #include "tecmo_game.h"
 #include "tecmo_gameplay_audio.h"
 #include "tecmo_gameplay_assets.h"
+#include "tecmo_gameplay_court.h"
 #include "tecmo_intro_arena_scene.h"
 #include "tecmo_nes_video.h"
 
@@ -43,6 +44,7 @@ static void print_usage(const char *program)
     printf("  --build-assetpack ROM PATH  Build a private .assetpack from an iNES ROM only; no decomp/capture imports\n");
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
     printf("  --gameplay-assets-test PACK  Validate strict TGPL-1 gameplay assets\n");
+    printf("  --gameplay-court-test PACK  Validate strict TGCT-1 static court assets\n");
     printf("  --assetpack-list PACK  Print an asset-pack directory listing\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -564,6 +566,57 @@ int main(int argc, char **argv)
             return 1;
         }
         printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-court-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        TecmoGameplayCourt court;
+        const uint8_t *nametable;
+        const uint8_t *palette;
+        size_t nametable_size;
+        size_t palette_size;
+        tecmo_gameplay_court_init(&court);
+        if (tecmo_gameplay_court_nametable(&court, &nametable_size) != NULL ||
+            nametable_size != 0U ||
+            tecmo_gameplay_court_palette(&court, &palette_size) != NULL ||
+            palette_size != 0U || pack_path == NULL ||
+            !tecmo_gameplay_court_load(&court, pack_path)) {
+            printf("Gameplay court test failed: %s\n",
+                   pack_path != NULL ? court.status : "PACK path required");
+            tecmo_gameplay_court_destroy(&court);
+            return 1;
+        }
+        if (!tecmo_gameplay_court_load(&court, pack_path)) {
+            printf("Gameplay court test failed: reload contract: %s\n",
+                   court.status);
+            tecmo_gameplay_court_destroy(&court);
+            return 1;
+        }
+        nametable = tecmo_gameplay_court_nametable(
+            &court, &nametable_size);
+        palette = tecmo_gameplay_court_palette(&court, &palette_size);
+        if (nametable == NULL || palette == NULL ||
+            nametable_size != TECMO_GAMEPLAY_COURT_NAMETABLE_SIZE ||
+            palette_size != TECMO_GAMEPLAY_COURT_PALETTE_SIZE ||
+            court.minimum_macro_index != 0U ||
+            court.maximum_macro_index != 360U ||
+            court.unique_macro_count != 130U ||
+            court.nametable_fingerprint != 0x0CF54A0EU ||
+            court.palette_fingerprint != 0xB20C1E11U ||
+            court.chr_fingerprint32 != 0xF6F6E854U ||
+            court.chr_fingerprint64 != 0x96A64F53B240ABB4ULL) {
+            printf("Gameplay court test failed: TGCT-1 golden mismatch\n");
+            tecmo_gameplay_court_destroy(&court);
+            return 1;
+        }
+        printf("TGCT-1 gameplay court passed: size=%u palette=%u min=%u max=%u unique=%u nametable=%08X palette-fnv=%08X\n",
+               (unsigned)nametable_size, (unsigned)palette_size,
+               (unsigned)court.minimum_macro_index,
+               (unsigned)court.maximum_macro_index,
+               (unsigned)court.unique_macro_count,
+               court.nametable_fingerprint, court.palette_fingerprint);
+        tecmo_gameplay_court_destroy(&court);
         return 0;
     }
 

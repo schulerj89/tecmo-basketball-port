@@ -1583,6 +1583,98 @@ static int append_gameplay_source_map_entry(
         "\"semantic_clip_names\":\"engine-state mapping pending\"}}");
 }
 
+static int append_gameplay_court_source_map_entry(
+    char *buffer,
+    size_t capacity,
+    size_t *length,
+    int *first,
+    const TecmoGameplayCourtProvenance *p)
+{
+    static const char *const roles[
+        TECMO_ASSET_PACK_GAMEPLAY_COURT_SOURCE_COUNT] = {
+        "screen-0f-descriptor", "screen-0f-encoded-stream",
+        "screen-0f-descriptor-palette", "court-pointer-tuple",
+        "court-layout", "court-macro-tiles", "court-macro-attributes",
+        "fixed-macro-builder-and-tables", "fixed-court-layout-loop",
+        "fixed-live-background-palette"
+    };
+    const char *prefix = *first != 0 ? "" : ",\n";
+
+    *first = 0;
+    if (tecmo_asset_pack_append_text(
+            buffer, capacity, length,
+            "%s"
+            "    {\"id\":\"%s\",\"kind\":\"gameplay-court-static-base\","
+            "\"schema\":\"tecmo.gameplay-court/TGCT-1\",\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"%08X\","
+            "\"input_contract\":\"ines-only\","
+            "\"dependencies\":[{\"entry\":\"chr/all\","
+            "\"source_offset\":%llu,\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"F6F6E854\","
+            "\"fingerprint_fnv1a64\":\"96A64F53B240ABB4\"}],"
+            "\"source_spans\":[",
+            prefix, TECMO_ASSET_PACK_GAMEPLAY_COURT_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_COURT_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_COURT_FNV1A32,
+            (unsigned long long)p->chr_offset,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_COURT_CHR_SIZE) != 0) {
+        return -1;
+    }
+    for (size_t index = 0U;
+         index < TECMO_ASSET_PACK_GAMEPLAY_COURT_SOURCE_COUNT; ++index) {
+        const TecmoGameplayCourtExpectedSource *source =
+            &tecmo_gameplay_court_expected_sources[index];
+        char source_entry[24];
+        if (source->fixed_bank != 0U) {
+            (void)snprintf(source_entry, sizeof(source_entry), "prg/fixed");
+        } else {
+            (void)snprintf(source_entry, sizeof(source_entry),
+                           "prg/bank%02u", (unsigned)source->bank);
+        }
+        if (tecmo_asset_pack_append_text(
+                buffer, capacity, length,
+                "%s{\"role\":\"%s\",\"source_entry\":\"%s\","
+                "\"source_offset\":%llu,\"bank\":%u,"
+                "\"fixed_bank\":%s,\"cpu_start\":%u,\"cpu_end\":%u,"
+                "\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\"}",
+                index == 0U ? "" : ",", roles[index], source_entry,
+                (unsigned long long)p->source_offsets[index],
+                (unsigned)source->bank,
+                source->fixed_bank != 0U ? "true" : "false",
+                (unsigned)source->cpu_start,
+                (unsigned)((uint32_t)source->cpu_start +
+                           source->byte_count - 1U),
+                (unsigned)source->byte_count,
+                (unsigned)source->fingerprint) != 0) {
+            return -1;
+        }
+    }
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "],\"decoded_screen_contract\":{"
+        "\"screen_id\":15,\"decoder\":\"fixed $D9F6\","
+        "\"encoded_size\":201,\"decoded_size\":1024,"
+        "\"decoded_fingerprint_fnv1a32\":\"483171E7\","
+        "\"role\":\"descriptor scaffold validation, not the live court\"},"
+        "\"native_contract\":{"
+        "\"width_tiles\":32,\"height_tiles\":30,"
+        "\"macro_rows\":15,\"macro_columns\":16,"
+        "\"initial_nametable_fill\":\"$FF before macro writes; unused lower final-row attribute quadrants remain $FF\","
+        "\"layout\":\"little-endian indexes from row*0x60+0x20+col*2\","
+        "\"macro_cells\":\"four tiles in top-left, top-right, bottom-left, bottom-right order\","
+        "\"palette\":\"(attribute[index] & 0x0C) >> 2 merged into the 2x2 quadrant\","
+        "\"macro_index_min\":0,\"macro_index_max\":360,"
+        "\"unique_macro_indexes\":130,"
+        "\"nametable_size\":1024,"
+        "\"nametable_fingerprint_fnv1a32\":\"0CF54A0E\","
+        "\"tile_fingerprint_fnv1a32\":\"D2F8364A\","
+        "\"attribute_fingerprint_fnv1a32\":\"B54833D1\","
+        "\"live_palette_size\":16,"
+        "\"live_palette_fingerprint_fnv1a32\":\"B20C1E11\","
+        "\"boundary\":\"static court base only; excludes players, ball, HUD, team overlays, scrolling, animation, and captured live frames\","
+        "\"runtime_inputs\":\"TGCT-1 plus same-pack chr/all; no decompilation, trace, capture, screenshot, dump, state, or video\"}}" );
+}
+
 char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    uint32_t trainer_bytes,
                                    uint32_t prg_banks,
@@ -1605,9 +1697,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoTeamManagementProvenance *team_management_provenance,
                                    const TecmoSeasonMenuProvenance *season_provenance,
                                    const TecmoGameplayProvenance *gameplay_provenance,
+                                   const TecmoGameplayCourtProvenance *gameplay_court_provenance,
                                    size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 19U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 20U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -1829,7 +1922,11 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
         (gameplay_provenance->source_offsets[0] != 0U &&
          append_gameplay_source_map_entry(source_map, capacity, &length,
                                           &first_logical,
-                                          gameplay_provenance) != 0)) {
+                                          gameplay_provenance) != 0) ||
+        (gameplay_court_provenance->source_offsets[0] != 0U &&
+         append_gameplay_court_source_map_entry(
+             source_map, capacity, &length, &first_logical,
+             gameplay_court_provenance) != 0)) {
         free(source_map);
         return NULL;
     }

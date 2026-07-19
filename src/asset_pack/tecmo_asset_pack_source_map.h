@@ -4,6 +4,7 @@
 #include "tecmo_asset_pack_import_layout.h"
 #include "tecmo_asset_pack_gameplay_audio.h"
 #include "tecmo_asset_pack_gameplay.h"
+#include "tecmo_asset_pack_gameplay_court.h"
 #include "tecmo_asset_pack_music.h"
 
 #include <stddef.h>
@@ -32,6 +33,7 @@ char *tecmo_asset_pack_build_ines_source_map(
     const TecmoTeamManagementProvenance *team_management_provenance,
     const TecmoSeasonMenuProvenance *season_provenance,
     const TecmoGameplayProvenance *gameplay_provenance,
+    const TecmoGameplayCourtProvenance *gameplay_court_provenance,
     size_t *source_map_size_out);
 
 #endif
