@@ -8,11 +8,13 @@ set(TECMO_PORT_SOURCES
     src/png_writer.c
     src/tecmo_asset_pack.c
     src/asset_pack/tecmo_asset_pack_arena.c
+    src/asset_pack/tecmo_asset_pack_all_star.c
     src/asset_pack/tecmo_asset_pack_d9f6.c
     src/asset_pack/tecmo_asset_pack_finale.c
     src/asset_pack/tecmo_asset_pack_gameplay.c
     src/asset_pack/tecmo_asset_pack_gameplay_court.c
     src/asset_pack/tecmo_asset_pack_gameplay_close_shots.c
+    src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c
     src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c
     src/asset_pack/tecmo_asset_pack_gameplay_audio.c
     src/asset_pack/tecmo_asset_pack_title.c
@@ -20,14 +22,17 @@ set(TECMO_PORT_SOURCES
     src/asset_pack/tecmo_asset_pack_music.c
     src/asset_pack/tecmo_asset_pack_post_arena.c
     src/asset_pack/tecmo_asset_pack_preseason.c
+    src/asset_pack/tecmo_asset_pack_season.c
     src/asset_pack/tecmo_asset_pack_reader.c
     src/asset_pack/tecmo_asset_pack_source_map.c
     src/asset_pack/tecmo_asset_pack_start_menu.c
     src/asset_pack/tecmo_asset_pack_team_data.c
+    src/asset_pack/tecmo_asset_pack_team_management.c
     src/asset_pack/tecmo_asset_pack_util.c
     src/asset_pack/tecmo_asset_pack_writer.c
     src/tecmo_bank07.c
     src/tecmo_controls.c
+    src/tecmo_all_star_menu.c
     src/tecmo_music.c
     src/tecmo_audio_output.c
     src/tecmo_flow_test.c
@@ -36,6 +41,7 @@ set(TECMO_PORT_SOURCES
     src/tecmo_gameplay_assets.c
     src/tecmo_gameplay_court.c
     src/tecmo_gameplay_close_shots.c
+    src/tecmo_gameplay_dunk_cutaway.c
     src/tecmo_gameplay_jump_shots.c
     src/tecmo_gameplay_audio.c
     src/tecmo_gameplay_scene.c
@@ -51,8 +57,10 @@ set(TECMO_PORT_SOURCES
     src/tecmo_nametable_screen.c
     src/tecmo_nes_video.c
     src/tecmo_preseason_menu.c
+    src/tecmo_season_menu.c
     src/tecmo_start_game_menu.c
     src/tecmo_team_data.c
+    src/tecmo_team_management.c
     src/tecmo_title_screen.c
 )
 

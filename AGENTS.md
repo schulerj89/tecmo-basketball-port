@@ -525,8 +525,9 @@ at 26 and consumes it at 27, then changes the terminal result mailbox from
 music-track request or SFX ID 5 through 360. The final free-throw result
 therefore remains in the SFX mailbox across the live return, which queues
 neither track 5 nor `BANK05_9FEC_CUE`.
-Made jump shots and layups remain bounded to crowd response 11 pending separate
-caller integration. `BANK05_9FEC_CUE` remains neutral and is gated at the
+The proven made jump follows the same clock-gated 11-then-12/13 mailbox ordering;
+layups alone remain bounded to crowd response 11 pending separate caller
+integration. `BANK05_9FEC_CUE` remains neutral and is gated at the
 bounded violation, direct-foul, and period restart boundaries. Dunk action
 frame 87 queues sequence-named A9C5 exactly once. ABF5 and address-named A8D6
 clips stay imported without invented live use.

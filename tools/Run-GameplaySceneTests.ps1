@@ -247,7 +247,7 @@ try {
         "--gameplay-dunk-cutaway-test", $PackPath
     ) -LogPath $DunkLog
     if ($DunkRun.exit_code -ne 0 -or
-        $DunkRun.tail -notmatch "TGDK-1 dunk-cutaway assets passed") {
+        $DunkRun.tail -notmatch "TGDK-1 dunk cutaway passed") {
         throw "Strict dunk-cutaway asset test failed.`n$($DunkRun.tail)"
     }
 

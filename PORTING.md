@@ -583,8 +583,9 @@ gameplay track 5 at 26 and consumes it at 27, then changes the terminal result
 mailbox from `$0B` to `$0D` at 280 and consumes it at 281. It is live by 300
 with no new music-track request or SFX ID 5 through 360. The final result thus
 survives the live transition, which queues neither track 5 nor the neutral
-`BANK05_9FEC_CUE`. Made jump shots and layups retain their existing
-crowd-response-11 mapping until their separate caller paths are integrated.
+`BANK05_9FEC_CUE`. The proven made jump uses the same clock-gated
+11-then-12/13 mailbox ordering; layups alone retain crowd response 11 until
+their separate caller path is integrated.
 SFX ID 5 remains gated at qualifying violation, direct-foul, and period restart
 boundaries. Dunk action frame 87 queues sequence-named A9C5. ABF5 and
 address-named A8D6 clips remain imported without invented live use.
