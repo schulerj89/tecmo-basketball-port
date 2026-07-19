@@ -390,6 +390,15 @@ signed pitch deltas, bounded loops, and resolved phrase calls/returns are C
 concepts at runtime. `$C0` retains one live loop counter per channel, matching
 the fixed engine rather than assigning persistent state per command. ROM
 addresses, pointers, and raw engine opcodes are not.
+
+Fixed `$F7D5-$F7DB` establishes the voice timing fields after shifting the raw
+voice byte: attack uses bit 7, decay bits 5-6, and release bits 2-4. Command
+`$91 00` resets both channel pitch-delta bytes; nonzero `$91` operands remain
+signed additions. Focused native anchors cover the real raw `$08`/`$07`
+voices, track-6 pulse-1 reset instructions 492/716, 100000 ticks each of the
+looping IDs 5/6 without pitch drift, and clean ID-8 termination at 396 inclusive
+ticks.
+
 Rev1 validation covers Bank04 `$8AA4-$9F05` (`06F2A750`), directory
 `$8CD0-$8CE1` (`59366EC4`), requested tracks 5/6/7/8 (`1270498B`, `BD91FCF1`,
 `69F85EC2`, `8122C6CF`), fixed engine `$F2F2-$F9D0` (`FC6A0BC1`), and period

@@ -2962,6 +2962,12 @@ try {
                         "pending-until-next-audio-tick" -and
                     $MusicSource.native_contract.envelope_phase_transition -eq
                         "same-tick-fallthrough" -and
+                    $MusicSource.native_contract.voice_timing_bits -eq
+                        "attack-7_decay-5-6_release-2-4" -and
+                    $MusicSource.native_contract.pitch_delta_zero_semantics -eq
+                        "reset-both-channel-delta-bytes" -and
+                    [int]$MusicSource.native_contract.period_stinger_queue_to_clear_ticks -eq 396 -and
+                    [int]$MusicSource.native_contract.long_loop_regression_ticks -eq 100000 -and
                     $MusicSource.native_contract.game_music_setting -eq
                         "gates-future-track-5-only" -and
                     @($MusicRoles | Where-Object {

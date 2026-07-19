@@ -448,22 +448,37 @@ static uint16_t envelope_timer16(uint8_t parameter, uint8_t shift)
     return (uint16_t)((uint16_t)(parameter >> 4U) << shift);
 }
 
+static uint8_t voice_attack_shift(uint8_t duty_and_timing)
+{
+    return (uint8_t)((duty_and_timing >> 7U) & 1U);
+}
+
+static uint8_t voice_decay_shift(uint8_t duty_and_timing)
+{
+    return (uint8_t)((duty_and_timing >> 5U) & 3U);
+}
+
+static uint8_t voice_release_shift(uint8_t duty_and_timing)
+{
+    return (uint8_t)((duty_and_timing >> 2U) & 7U);
+}
+
 static void reset_envelope(TecmoMusicChannelState *channel,
                            const TecmoMusicVoice *voice)
 {
     channel->volume = (uint8_t)(voice->initial_volume & 0x0FU);
     channel->envelope_phase = 0U;
     channel->attack_timer = envelope_timer8(
-        voice->attack, (uint8_t)((voice->duty_and_timing >> 5U) & 1U));
+        voice->attack, voice_attack_shift(voice->duty_and_timing));
     channel->decay_timer = envelope_timer8(
-        voice->decay, (uint8_t)((voice->duty_and_timing >> 3U) & 3U));
+        voice->decay, voice_decay_shift(voice->duty_and_timing));
     channel->sustain_timer = voice->sustain_ticks;
     channel->release_timer = envelope_timer16(
-        voice->release, (uint8_t)(voice->duty_and_timing & 7U));
+        voice->release, voice_release_shift(voice->duty_and_timing));
 }
 
 static void tick_envelope(TecmoMusicChannelState *channel,
-                           const TecmoMusicVoice *voice)
+                          const TecmoMusicVoice *voice)
 {
     uint8_t peak = (uint8_t)(voice->peak_and_sustain_volume & 0x0FU);
     uint8_t sustain = (uint8_t)(voice->peak_and_sustain_volume >> 4U);
@@ -480,7 +495,7 @@ static void tick_envelope(TecmoMusicChannelState *channel,
                 return;
             }
             channel->attack_timer = envelope_timer8(
-                voice->attack, (uint8_t)((voice->duty_and_timing >> 5U) & 1U));
+                voice->attack, voice_attack_shift(voice->duty_and_timing));
             channel->volume = (uint8_t)(channel->volume + amount);
             if (channel->volume >= peak || channel->volume > 15U)
                 channel->volume = peak;
@@ -497,7 +512,7 @@ static void tick_envelope(TecmoMusicChannelState *channel,
                 return;
             }
             channel->decay_timer = envelope_timer8(
-                voice->decay, (uint8_t)((voice->duty_and_timing >> 3U) & 3U));
+                voice->decay, voice_decay_shift(voice->duty_and_timing));
             channel->volume = channel->volume > amount
                 ? (uint8_t)(channel->volume - amount) : 0U;
             if (channel->volume < sustain) channel->volume = sustain;
@@ -518,7 +533,7 @@ static void tick_envelope(TecmoMusicChannelState *channel,
                 return;
             }
             channel->release_timer = envelope_timer16(
-                voice->release, (uint8_t)(voice->duty_and_timing & 7U));
+                voice->release, voice_release_shift(voice->duty_and_timing));
             channel->volume = channel->volume > amount
                 ? (uint8_t)(channel->volume - amount) : 0U;
         }
@@ -577,7 +592,10 @@ static void process_channel(TecmoMusicPlayer *player, unsigned channel_index)
             channel->pc = instruction->next;
             break;
         case TECMO_MUSIC_PITCH_DELTA:
-            channel->pitch_delta += instruction->signed_value;
+            if (instruction->signed_value == 0)
+                channel->pitch_delta = 0;
+            else
+                channel->pitch_delta += instruction->signed_value;
             channel->pc = instruction->next;
             break;
         case TECMO_MUSIC_REST:
@@ -901,6 +919,166 @@ static bool envelope_anchor_test(void)
     return channel.envelope_phase == 2U && channel.sustain_timer == 2U;
 }
 
+static bool voice_timing_anchor_test(const TecmoMusicAsset *asset)
+{
+    const TecmoMusicVoice *raw08 = NULL;
+    const TecmoMusicVoice *raw07 = NULL;
+    TecmoMusicChannelState channel;
+    unsigned i;
+
+    if (asset == NULL || !asset->available) return false;
+    for (i = 0U; i < TECMO_MUSIC_VOICE_COUNT; ++i) {
+        if (asset->voices[i].duty_and_timing == 0x08U && raw08 == NULL)
+            raw08 = &asset->voices[i];
+        if (asset->voices[i].duty_and_timing == 0x07U && raw07 == NULL)
+            raw07 = &asset->voices[i];
+    }
+    if (raw08 == NULL || raw07 == NULL ||
+        voice_attack_shift(0x08U) != 0U ||
+        voice_decay_shift(0x08U) != 0U ||
+        voice_release_shift(0x08U) != 2U ||
+        voice_attack_shift(0x07U) != 0U ||
+        voice_decay_shift(0x07U) != 0U ||
+        voice_release_shift(0x07U) != 1U)
+        return false;
+
+    memset(&channel, 0, sizeof(channel));
+    reset_envelope(&channel, raw08);
+    if (raw08->release != 0xF1U || channel.attack_timer != 0U ||
+        channel.decay_timer != 0U || channel.release_timer != 60U)
+        return false;
+
+    memset(&channel, 0, sizeof(channel));
+    reset_envelope(&channel, raw07);
+    return raw07->release == 0xF1U && channel.attack_timer == 0U &&
+           channel.decay_timer == 0U && channel.release_timer == 30U;
+}
+
+static bool pitch_delta_anchor_test(const TecmoMusicAsset *asset)
+{
+    const TecmoMusicTrack *track;
+    TecmoMusicPlayer player;
+    TecmoMusicChannelState *channel;
+    const TecmoMusicInstruction *add;
+    const TecmoMusicInstruction *reset_a;
+    const TecmoMusicInstruction *reset_b;
+
+    if (asset == NULL || asset->instruction_count <= 716U) return false;
+    track = find_track(asset, 6U);
+    if (track == NULL || track->channels[0].first_instruction != 448U ||
+        track->channels[0].instruction_count != 271U)
+        return false;
+    add = &asset->instructions[450U];
+    reset_a = &asset->instructions[492U];
+    reset_b = &asset->instructions[716U];
+    if (add->type != TECMO_MUSIC_PITCH_DELTA || add->signed_value != -4 ||
+        reset_a->type != TECMO_MUSIC_PITCH_DELTA ||
+        reset_a->signed_value != 0 ||
+        reset_b->type != TECMO_MUSIC_PITCH_DELTA ||
+        reset_b->signed_value != 0)
+        return false;
+
+    tecmo_music_player_init(&player, asset);
+    channel = &player.channels[0];
+    channel->active = true;
+    channel->pc = 450U;
+    channel->pitch_delta = 10;
+    process_channel(&player, 0U);
+    if (player.render_guard_failed || channel->pitch_delta != 6 ||
+        channel->pc != 452U || channel->duration_ticks != 2U)
+        return false;
+
+    tecmo_music_player_init(&player, asset);
+    channel = &player.channels[0];
+    channel->active = true;
+    channel->pc = 492U;
+    channel->pitch_delta = 0x1234;
+    process_channel(&player, 0U);
+    if (player.render_guard_failed || channel->pitch_delta != 0 ||
+        channel->pc != 494U || channel->duration_ticks != 11U)
+        return false;
+
+    tecmo_music_player_init(&player, asset);
+    channel = &player.channels[0];
+    channel->active = true;
+    channel->pc = 716U;
+    channel->pitch_delta = 0x1234;
+    channel->loop_remaining[0] = 1U;
+    process_channel(&player, 0U);
+    return !player.render_guard_failed && channel->pitch_delta == 0 &&
+           !channel->active && !channel->note_on;
+}
+
+static bool long_loop_anchor_test(const TecmoMusicAsset *asset)
+{
+    static const uint8_t track_ids[2] = {5U, 6U};
+    unsigned track_index;
+
+    for (track_index = 0U; track_index < 2U; ++track_index) {
+        TecmoMusicPlayer player;
+        bool saw_tuned_pitch = false;
+        bool saw_reset_pitch = false;
+        uint64_t tick;
+        tecmo_music_player_init(&player, asset);
+        if (!tecmo_music_queue_track(&player, track_ids[track_index]))
+            return false;
+        for (tick = 0U; tick < 100000U; ++tick) {
+            unsigned channel_index;
+            music_tick(&player);
+            if (!player.playing || player.render_guard_failed)
+                return false;
+            for (channel_index = 0U;
+                 channel_index < TECMO_MUSIC_CHANNEL_COUNT;
+                 ++channel_index) {
+                int32_t delta = player.channels[channel_index].pitch_delta;
+                if (track_ids[track_index] == 5U) {
+                    if ((channel_index == 0U && delta != -1) ||
+                        (channel_index != 0U && delta != 0))
+                        return false;
+                } else if (channel_index == 0U) {
+                    if (delta == -4) saw_tuned_pitch = true;
+                    else if (delta == 0 && saw_tuned_pitch)
+                        saw_reset_pitch = true;
+                    else if (delta != 0)
+                        return false;
+                } else if (delta != 0) {
+                    return false;
+                }
+            }
+        }
+        if (player.ticks_elapsed != 100000U ||
+            (track_ids[track_index] == 6U &&
+             (!saw_tuned_pitch || !saw_reset_pitch)))
+            return false;
+    }
+    return true;
+}
+
+static bool track_duration_anchor_test(const TecmoMusicAsset *asset,
+                                       uint8_t track_id,
+                                       uint64_t expected_ticks,
+                                       uint64_t *actual_ticks)
+{
+    TecmoMusicPlayer player;
+    bool ok;
+    unsigned channel_index;
+    tecmo_music_player_init(&player, asset);
+    ok = tecmo_music_queue_track(&player, track_id);
+    while (ok && player.playing && player.ticks_elapsed < 100000U)
+        music_tick(&player);
+    if (actual_ticks != NULL) *actual_ticks = player.ticks_elapsed;
+    if (!ok || player.playing || player.track_pending ||
+        player.render_guard_failed || player.ticks_elapsed != expected_ticks)
+        return false;
+    for (channel_index = 0U; channel_index < TECMO_MUSIC_CHANNEL_COUNT;
+         ++channel_index) {
+        if (player.channels[channel_index].active ||
+            player.channels[channel_index].note_on)
+            return false;
+    }
+    return true;
+}
+
 static bool reject_mutated_payload(const uint8_t *source,
                                    size_t offset,
                                    uint32_t value,
@@ -952,9 +1130,14 @@ bool tecmo_music_self_test(const char *project_root,
     bool null_sink_ok;
     bool duration_ok;
     bool anchor_ok;
+    bool voice_ok;
+    bool pitch_ok;
+    bool long_loop_ok;
+    bool stinger_ok;
     bool startup_ok;
     bool cadence_ok;
     uint64_t opening_ticks;
+    uint64_t stinger_ticks;
     if (!tecmo_music_asset_load(&asset, project_root)) {
         if (message != NULL && message_size > 0U)
             (void)snprintf(message, message_size, "%s", asset.status);
@@ -972,6 +1155,11 @@ bool tecmo_music_self_test(const char *project_root,
     noise_hash = oscillator_hash(&asset, 2U);
     env_hash = envelope_hash();
     anchor_ok = envelope_anchor_test();
+    voice_ok = voice_timing_anchor_test(&asset);
+    pitch_ok = pitch_delta_anchor_test(&asset);
+    long_loop_ok = long_loop_anchor_test(&asset);
+    stinger_ok = track_duration_anchor_test(&asset, 8U, 396U,
+                                             &stinger_ticks);
     tecmo_music_player_init(&startup_player, &asset);
     startup_ok = tecmo_music_queue_track(&startup_player, 7U) &&
                  startup_player.track_pending && startup_player.playing &&
@@ -1062,20 +1250,25 @@ bool tecmo_music_self_test(const char *project_root,
     tecmo_asset_pack_free(payload);
     if (message != NULL && message_size > 0U) {
         (void)snprintf(message, message_size,
-                       "TMUS-1 parser/state/synth: payload=%08X instructions=%u voices=%u pcm=%08X state=%08X pulse=%08X tri=%08X noise=%08X env=%08X opening_ticks=%llu cadence=%s gate=%s startup=%s anchors=%s null=%s malformed=%s",
+                       "TMUS-1 parser/state/synth: payload=%08X instructions=%u voices=%u pcm=%08X state=%08X pulse=%08X tri=%08X noise=%08X env=%08X opening_ticks=%llu stinger_ticks=%llu cadence=%s gate=%s startup=%s anchors=%s voice=%s pitch=%s long=%s null=%s malformed=%s",
                        asset.payload_fingerprint, asset.instruction_count,
                        TECMO_MUSIC_VOICE_COUNT, pcm_hash, state_hash,
                        pulse_hash, triangle_hash, noise_hash, env_hash,
                        (unsigned long long)opening_ticks,
+                       (unsigned long long)stinger_ticks,
                        cadence_ok ? "pass" : "fail",
                        gate_ok ? "pass" : "fail",
                        startup_ok ? "pass" : "fail",
                        anchor_ok ? "pass" : "fail",
+                       voice_ok ? "pass" : "fail",
+                       pitch_ok ? "pass" : "fail",
+                       long_loop_ok ? "pass" : "fail",
                        null_sink_ok ? "pass" : "fail",
                        malformed_ok ? "pass" : "fail");
     }
     tecmo_music_asset_shutdown(&asset);
-    return cadence_ok && gate_ok && startup_ok && anchor_ok && null_sink_ok &&
+    return cadence_ok && gate_ok && startup_ok && anchor_ok && voice_ok &&
+           pitch_ok && long_loop_ok && stinger_ok && null_sink_ok &&
            duration_ok && malformed_ok && pcm_hash == 0x105B1338U &&
            state_hash == 0x1C74513CU &&
            pulse_hash == 0xD52B0696U && triangle_hash == 0x1C9A3181U &&

@@ -347,6 +347,13 @@ or raw music opcodes. Import fingerprints cover Bank04 `$8AA4-$9F05`, its
 those ranges; no ASM, decompilation file, trace, capture, video, log, screenshot,
 state, or dump is an input.
 
+Match fixed `$F7D5-$F7DB` when decoding a voice timing byte: attack is bit 7,
+decay is bits 5-6, and release is bits 2-4. Music command `$91` with operand
+zero resets both pitch-delta bytes; only nonzero operands add a signed delta.
+The focused regression anchors real raw `$08`/`$07` voices, track-6 pulse-1
+semantic resets 492/716, 100000-tick looping runs for IDs 5/6, and ID 8's clean
+396-inclusive-tick termination.
+
 The native sequencer advances at exact NTSC cadence `39375000/655171`
 (approximately 60.0988 ticks per second) from the audio sample clock, not the
 render loop or the GAME SPEED menu value. Opening ID 7 is queued once when the

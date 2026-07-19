@@ -950,6 +950,10 @@ static int append_music_source_map_entry(char *buffer,
         "\"opening_tick_boundary\":\"F7EE-consume-through-first-063E-zero-inclusive\","
         "\"queue_semantics\":\"pending-until-next-audio-tick\","
         "\"envelope_phase_transition\":\"same-tick-fallthrough\","
+        "\"voice_timing_bits\":\"attack-7_decay-5-6_release-2-4\","
+        "\"pitch_delta_zero_semantics\":\"reset-both-channel-delta-bytes\","
+        "\"period_stinger_queue_to_clear_ticks\":396,"
+        "\"long_loop_regression_ticks\":100000,"
         "\"game_music_setting\":\"gates-future-track-5-only\"}}",
         prefix, TECMO_ASSET_PACK_MUSIC_ID,
         (unsigned long long)p->source_offset,

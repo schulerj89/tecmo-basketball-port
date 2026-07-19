@@ -477,7 +477,7 @@ int main(int argc, char **argv)
     }
 
     if (strcmp(command, "--music-test") == 0) {
-        char message[256];
+        char message[384];
         char output_message[64];
         if (!tecmo_music_self_test(root, message, sizeof(message))) {
             printf("Music test failed: %s\n", message);
