@@ -536,7 +536,8 @@ For screen `$18` research, use the verified ROM route rather than capture bytes:
 deterministic pure-state foundation only; no normal runtime path calls it, and
 it does not make gameplay, rendering, collision, penalties, free-throw physics,
 or gameplay audio supported. Proven timing/state anchors are fixed
-`$E59B->$E823` for pre-branch clock preparation, `$E80F-$E81E` for the exact
+`$E59B->$E823` for unconditional regulation-clock preparation,
+`$E601-$E60F` for the tied-OT-only duration overwrite, `$E80F-$E81E` for the exact
 31-update expiry wait, `$E7D0-$E822` for zero-clock live-action settlement,
 `$E6ED/$E6FF` plus `$E765-$E76F` for post-banner resets, and
 `$EA14-$EA2F`/`$D2B9-$D2CE` for the two-controller NES A-release gate.

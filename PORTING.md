@@ -630,15 +630,17 @@ playback. It models only evidence-bounded clock/period transitions,
 presentation input gates, explicit foul/free-throw settlement, and semantic
 numeric-subtype-01 shot phases.
 
-Period completion follows fixed `$E59B->$E823`: regulation or overtime M:00 and
-divider 45 are prepared before selecting the next banner, halftime, overtime,
-or final branch. The exact fixed wait is `$E80F-$E81E`; an allowed action must
-be reported on the update that reaches zero before `$E7D0-$E822` can enter its
-unbounded settlement path. Post-banner team-foul clears are `$E6ED/$E6FF`, the
-shot-24/divider-50 reset is `$E765-$E76F`, presentation release handling is
-`$EA14-$EA2F` with `$D2B9-$D2CE`, and Bank06 `$BC3C-$BCF9` supplies the separate
-unbounded halftime/final A-release loop. Detailed evidence limits and shot/foul
-anchors are in `docs/gameplay-state-foundation.md`.
+Period completion follows fixed `$E59B->$E823`: regulation M:00 and divider 45
+are prepared before selecting the next banner, halftime, overtime, or final
+branch. Only a tied overtime restart at `$E601-$E60F` overwrites that duration
+with OT minutes; a completed overtime final retains regulation minutes. The
+exact fixed wait is `$E80F-$E81E`; an allowed action must be reported on the
+update that reaches zero before `$E7D0-$E822` can enter its unbounded settlement
+path. Post-banner team-foul clears are `$E6ED/$E6FF`, the shot-24/divider-50
+reset is `$E765-$E76F`, presentation release handling is `$EA14-$EA2F` with
+`$D2B9-$D2CE`, and Bank06 `$BC3C-$BCF9` supplies the separate unbounded
+halftime/final A-release loop. Detailed evidence limits and shot/foul anchors
+are in `docs/gameplay-state-foundation.md`.
 
 ## Migration Policy
 

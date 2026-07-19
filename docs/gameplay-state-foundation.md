@@ -13,7 +13,8 @@ decompilation at these CPU-address ranges:
 - Bank 03 `$8374-$8378`: selectable regulation-period minute values.
 - Fixed bank `$E80F-$E81E`: inclusive 31-update expiry wait.
 - Fixed bank `$E58D-$E617`: period/halftime/final/overtime decisions;
-  `$E59B->$E823` prepares M:00/divider 45 before those branches.
+  `$E59B->$E823` first prepares regulation M:00/divider 45, and only the tied
+  overtime restart at `$E601-$E60F` overwrites the duration with OT minutes.
 - Fixed bank `$E6ED/$E6FF`: the two team-foul clears after a completed banner.
 - Fixed bank `$E765-$E76F`: shot-clock-24 and divider-50 reset.
 - Fixed bank `$E7D0-$E822`: live-action settlement gate at period expiry.
@@ -53,9 +54,10 @@ These are provenance only and are not runtime inputs.
   unbounded settlement; earlier action history is ignored. A later settled
   report completes that sequence, while an initially settled zero-clock state
   follows the fixed 31-update path.
-- Every completed period first prepares M:00/divider 45 through `$E823`, then
-  chooses its banner, halftime, overtime, or final-score branch. Regulation
-  completion uses regulation minutes; completed overtime uses overtime minutes.
+- Every completed period first prepares regulation M:00/divider 45 through
+  `$E823`, then chooses its banner, halftime, overtime, or final-score branch.
+  Only a tied overtime restart at `$E601-$E60F` overwrites that duration with
+  OT minutes; a completed overtime final retains regulation minutes.
 - Foul subtype/detection, which counters a foul changes, post-presentation
   possession, and selection of divider 45 versus 50 are caller-supplied.
   Unsupported or malformed choices fail without mutating state.

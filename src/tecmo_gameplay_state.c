@@ -137,6 +137,7 @@ static bool gameplay_start_period_banner(TecmoGameplayState *state,
     uint8_t minutes;
 
     if (banner == TECMO_GAMEPLAY_BANNER_OVERTIME) {
+        /* `$E601-$E60F` overwrite `$705C` only for a tied OT restart. */
         minutes = tecmo_gameplay_overtime_minutes(
             state->config.regulation_minutes);
     } else if (banner == TECMO_GAMEPLAY_BANNER_SECOND_PERIOD ||
@@ -164,19 +165,10 @@ static bool gameplay_start_period_banner(TecmoGameplayState *state,
 static bool gameplay_finish_period(TecmoGameplayState *state,
                                    TecmoGameplayEventBuffer *events)
 {
-    const uint8_t prepared_minutes =
-        state->period == 5U
-            ? tecmo_gameplay_overtime_minutes(
-                  state->config.regulation_minutes)
-            : state->config.regulation_minutes;
     bool tied;
 
-    if (prepared_minutes == 0U) {
-        return false;
-    }
-
-    /* `$E59B` reaches `$E823` before any completion branch is selected. */
-    gameplay_prepare_period_clock(state, prepared_minutes);
+    /* `$E59B->$E823` unconditionally loads regulation `$705C` first. */
+    gameplay_prepare_period_clock(state, state->config.regulation_minutes);
     tied = state->score[TECMO_GAMEPLAY_TEAM_AWAY] ==
            state->score[TECMO_GAMEPLAY_TEAM_HOME];
 
@@ -561,8 +553,13 @@ bool tecmo_gameplay_state_valid(const TecmoGameplayState *state)
             return false;
         }
     } else {
-        maximum_minutes = tecmo_gameplay_overtime_minutes(
-            state->config.regulation_minutes);
+        if (state->phase == TECMO_GAMEPLAY_PHASE_FINAL_SCORE_SCREEN ||
+            state->phase == TECMO_GAMEPLAY_PHASE_COMPLETE) {
+            maximum_minutes = state->config.regulation_minutes;
+        } else {
+            maximum_minutes = tecmo_gameplay_overtime_minutes(
+                state->config.regulation_minutes);
+        }
     }
     if (state->clock_minutes > maximum_minutes) {
         return false;
@@ -652,11 +649,7 @@ bool tecmo_gameplay_state_valid(const TecmoGameplayState *state)
 
     if (state->phase == TECMO_GAMEPLAY_PHASE_FINAL_SCORE_SCREEN ||
         state->phase == TECMO_GAMEPLAY_PHASE_COMPLETE) {
-        prepared_minutes =
-            state->overtime_count == 0U
-                ? state->config.regulation_minutes
-                : tecmo_gameplay_overtime_minutes(
-                      state->config.regulation_minutes);
+        prepared_minutes = state->config.regulation_minutes;
         if (state->period != 5U ||
             state->score[TECMO_GAMEPLAY_TEAM_AWAY] ==
                 state->score[TECMO_GAMEPLAY_TEAM_HOME] ||
@@ -667,6 +660,13 @@ bool tecmo_gameplay_state_valid(const TecmoGameplayState *state)
 
     switch (state->phase) {
     case TECMO_GAMEPLAY_PHASE_LIVE:
+        if (state->clock_minutes == 0U && state->clock_seconds == 0U) {
+            return false;
+        }
+        if (state->phase_frame != 0U) {
+            return false;
+        }
+        break;
     case TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_FIXED_WAIT:
     case TECMO_GAMEPLAY_PHASE_FOUL_SETTLEMENT_REQUIRED:
     case TECMO_GAMEPLAY_PHASE_FREE_THROW_SETTLEMENT_REQUIRED:
@@ -2089,7 +2089,7 @@ static bool gameplay_self_test_halftime_and_final(char *message,
     if (!gameplay_self_test_expire_after_allowed_action(
             &state, &input, &events) ||
         state.phase != TECMO_GAMEPLAY_PHASE_FINAL_SCORE_SCREEN ||
-        state.clock_minutes != 1U || state.clock_seconds != 0U ||
+        state.clock_minutes != 2U || state.clock_seconds != 0U ||
         state.clock_divider != 45U || state.shot_clock != 9U ||
         !gameplay_events_contain(&events,
                                  TECMO_GAMEPLAY_EVENT_MUSIC_REQUEST,
@@ -2097,7 +2097,7 @@ static bool gameplay_self_test_halftime_and_final(char *message,
         !gameplay_self_test_run_frames(&state, 500U, &input, &context,
                                        &events) ||
         state.phase != TECMO_GAMEPLAY_PHASE_FINAL_SCORE_SCREEN ||
-        state.clock_minutes != 1U || state.clock_seconds != 0U ||
+        state.clock_minutes != 2U || state.clock_seconds != 0U ||
         state.clock_divider != 45U) {
         gameplay_self_test_message(message, message_size,
                                    "NON-TIE FINAL PRESENTATION FAILED");
@@ -2168,6 +2168,15 @@ static bool gameplay_self_test_strict_state_validation(
     if (!gameplay_self_test_rejects_state(
             &state, message, message_size,
             "LIVE EXPIRY LATCH ACCEPTED")) {
+        return false;
+    }
+    state = valid;
+    state.clock_minutes = 0U;
+    state.clock_seconds = 0U;
+    state.clock_divider = 2U;
+    if (!gameplay_self_test_rejects_state(
+            &state, message, message_size,
+            "FORGED LIVE 0:00 CLOCK ACCEPTED")) {
         return false;
     }
 
@@ -2544,10 +2553,32 @@ static bool gameplay_self_test_strict_state_validation(
                                    "STRICT OVERTIME LIVE SETUP FAILED");
         return false;
     }
+    valid = state;
     state.clock_minutes = state.config.regulation_minutes;
     if (!gameplay_self_test_rejects_state(
             &state, message, message_size,
             "OVERTIME LIVE ACCEPTED REGULATION CLOCK")) {
+        return false;
+    }
+    state = valid;
+    if (!tecmo_gameplay_set_score(
+            &state, TECMO_GAMEPLAY_TEAM_AWAY, 1U) ||
+        !gameplay_self_test_expire_after_allowed_action(
+            &state, &input, &events) ||
+        state.phase != TECMO_GAMEPLAY_PHASE_FINAL_SCORE_SCREEN ||
+        state.overtime_count != 1U || state.clock_minutes != 4U ||
+        state.clock_seconds != 0U ||
+        state.clock_divider != TECMO_GAMEPLAY_CLOCK_DIVIDER_FRAMES ||
+        !tecmo_gameplay_state_valid(&state)) {
+        gameplay_self_test_message(message, message_size,
+                                   "OVERTIME FINAL LOST REGULATION CLOCK");
+        return false;
+    }
+    state.clock_minutes = tecmo_gameplay_overtime_minutes(
+        state.config.regulation_minutes);
+    if (!gameplay_self_test_rejects_state(
+            &state, message, message_size,
+            "OVERTIME FINAL ACCEPTED OVERTIME CLOCK")) {
         return false;
     }
 
