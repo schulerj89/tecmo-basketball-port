@@ -686,12 +686,18 @@ static int validate_revision(const uint8_t *rom, uint64_t bank04_source,
         {0xEB2BU, 11U, 0x181D6897U},
         {0xE747U, 30U, 0xAC51064EU},
         {0xE58DU, 92U, 0x1185F342U},
-        {0xE69FU, 41U, 0x03BFDFA0U}
+        {0xE69FU, 41U, 0x03BFDFA0U},
+        {0xE7DBU, 5U, 0xFA9A48DBU},
+        {0xE863U, 5U, 0xE30ADA62U},
+        {0xE86DU, 5U, 0xFA9A48DBU}
     }, bank05_ranges[] = {
         {0xA8D6U, 19U, 0xEE75A82EU},
         {0xA9C5U, 21U, 0x567D5B90U},
         {0xABF5U, 21U, 0x1C158FABU},
-        {0xB5ABU, 21U, 0xF6CEC8DBU}
+        {0xB5ABU, 21U, 0xF6CEC8DBU},
+        {0x9FECU, 5U, 0x5824A080U},
+        {0xAD01U, 14U, 0xB7141C72U},
+        {0xB1D1U, 22U, 0xCFCD9759U}
     };
     static const uint16_t pool_cpu[3] = {0xC080U, 0xC440U, 0xC740U};
     static const uint32_t pool_size[3] = {513U, 721U, 945U};
@@ -816,12 +822,12 @@ int tecmo_asset_pack_build_gameplay_audio(
     provenance->sfx_core_offset = bank04_source + 0x0AA4U;
     provenance->sfx_extension_offset = bank04_source + 0x1D8BU;
     provenance->engine_offset = fixed_source + 0x32F2U;
-    provenance->event_offsets[0] = fixed_source + 0x27DDU;
-    provenance->event_offsets[1] = fixed_source + 0x2865U;
-    provenance->event_offsets[2] = bank05_source + 0x1FECU;
-    provenance->event_offsets[3] = bank05_source + 0x2D01U;
-    provenance->event_offsets[4] = bank05_source + 0x31D1U;
-    provenance->event_offsets[5] = bank05_source + 0x31E6U;
+    provenance->event_offsets[0] = fixed_source + 0x27DBU;
+    provenance->event_offsets[1] = fixed_source + 0x2863U;
+    provenance->event_offsets[2] = fixed_source + 0x286DU;
+    provenance->event_offsets[3] = bank05_source + 0x1FECU;
+    provenance->event_offsets[4] = bank05_source + 0x2D01U;
+    provenance->event_offsets[5] = bank05_source + 0x31D1U;
     provenance->dmc_pool_offsets[0] = fixed_source + 0x0080U;
     provenance->dmc_pool_offsets[1] = fixed_source + 0x0440U;
     provenance->dmc_pool_offsets[2] = fixed_source + 0x0740U;

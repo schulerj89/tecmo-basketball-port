@@ -448,6 +448,7 @@ static int compile_track(ImportedMusic *music,
 
 static int validate_revision(const uint8_t *rom,
                              uint64_t bank04_offset,
+                             uint64_t bank06_offset,
                              uint64_t fixed_bank_offset,
                              char *message,
                              size_t message_size)
@@ -469,6 +470,10 @@ static int validate_revision(const uint8_t *rom,
             rom + (size_t)(fixed_bank_offset +
                 TECMO_ASSET_PACK_MUSIC_MENU_QUEUE_CPU - 0xC000U),
             TECMO_ASSET_PACK_MUSIC_MENU_QUEUE_SIZE) != 0x0ADC9176U ||
+        tecmo_asset_pack_fnv1a32(
+            rom + (size_t)(bank06_offset +
+                TECMO_ASSET_PACK_MUSIC_PREGAME_MATCHUP_QUEUE_CPU - 0x8000U),
+            TECMO_ASSET_PACK_MUSIC_PREGAME_MATCHUP_QUEUE_SIZE) != 0x1E564AC0U ||
         tecmo_asset_pack_fnv1a32(rom + (size_t)(fixed_bank_offset + 0x32F2U),
                                  TECMO_ASSET_PACK_MUSIC_ENGINE_SIZE) != 0xFC6A0BC1U ||
         tecmo_asset_pack_fnv1a32(rom + (size_t)(fixed_bank_offset + 0x393BU),
@@ -632,6 +637,7 @@ int tecmo_asset_pack_build_music(const uint8_t *rom,
 {
     ImportedMusic *music = NULL;
     uint64_t bank04_source;
+    uint64_t bank06_source;
     uint64_t fixed_source;
     unsigned i;
     int result = -1;
@@ -641,12 +647,14 @@ int tecmo_asset_pack_build_music(const uint8_t *rom,
     *payload_size_out = 0U;
     memset(provenance, 0, sizeof(*provenance));
     bank04_source = bank_offset(prg_offset, 4U, 0x8000U);
+    bank06_source = bank_offset(prg_offset, 6U, 0x8000U);
     fixed_source = fixed_offset(prg_offset, prg_banks, 0xC000U);
     if (!range_valid(bank04_source, TECMO_ASSET_PACK_PRG_BANK_BYTES, rom_size) ||
+        !range_valid(bank06_source, TECMO_ASSET_PACK_PRG_BANK_BYTES, rom_size) ||
         !range_valid(fixed_source, TECMO_ASSET_PACK_PRG_BANK_BYTES, rom_size))
         return -1;
     if (enforce_revision_fingerprints &&
-        validate_revision(rom, bank04_source, fixed_source,
+        validate_revision(rom, bank04_source, bank06_source, fixed_source,
                           message, message_size) != 0)
         return -1;
 
@@ -686,6 +694,8 @@ int tecmo_asset_pack_build_music(const uint8_t *rom,
         TECMO_ASSET_PACK_MUSIC_OPENING_FIRST_ROUTE_CPU - 0x8000U;
     provenance->menu_queue_offset = fixed_source +
         TECMO_ASSET_PACK_MUSIC_MENU_QUEUE_CPU - 0xC000U;
+    provenance->pregame_matchup_queue_offset = bank06_source +
+        TECMO_ASSET_PACK_MUSIC_PREGAME_MATCHUP_QUEUE_CPU - 0x8000U;
     for (i = 0U; i < TECMO_ASSET_PACK_MUSIC_TRACK_COUNT; ++i) {
         provenance->track_offsets[i] = bank04_source + music_tracks[i].begin - 0x8000U;
         provenance->track_sizes[i] = music_tracks[i].end - music_tracks[i].begin;

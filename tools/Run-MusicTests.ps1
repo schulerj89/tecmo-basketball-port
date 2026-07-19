@@ -156,6 +156,7 @@ try {
         [pscustomobject]@{ id = "gameplay-track"; offset = $PrgStart + 4 * 0x4000 + (0x92F4 - 0x8000) },
         [pscustomobject]@{ id = "presentation-track"; offset = $PrgStart + 4 * 0x4000 + (0x96C3 - 0x8000) },
         [pscustomobject]@{ id = "pregame-matchup-track"; offset = $PrgStart + 4 * 0x4000 + (0x9E13 - 0x8000) },
+        [pscustomobject]@{ id = "pregame-matchup-queue"; offset = $PrgStart + 6 * 0x4000 + (0xA145 - 0x8000) },
         [pscustomobject]@{ id = "audio-engine"; offset = $FixedStart + (0xF2F2 - 0xC000) },
         [pscustomobject]@{ id = "period-table"; offset = $FixedStart + (0xF93B - 0xC000) }
     )

@@ -27,7 +27,7 @@ if ((Get-FileHash -LiteralPath $RomPath -Algorithm SHA256).Hash -ne
 
 $ExePath = Join-Path $BuildDir "tecmo_port.exe"
 $PackPath = Join-Path $TestDir "gameplay-audio.assetpack"
-$Expected = "TSFX-1/TDMC-1 gameplay audio: sfx=968A5DE6 dmc=AD70E6E8 pcm=83E60072 state=17208C83 instructions=131 voices=14 events=pass override=pass cadence=pass gate=pass mailbox=pass independent=pass clear=pass crosspack=pass"
+$Expected = "TSFX-1/TDMC-1 gameplay audio: sfx=968A5DE6 dmc=AD70E6E8 pcm=83E60072 state=17208C83 instructions=131 voices=14 events=pass override=pass cadence=pass gate=pass mailbox=pass independent=pass dmc-continuity=pass clear=pass crosspack=pass"
 $PreviousPack = $env:TECMO_ASSETPACK
 $PreviousSkip = $env:TECMO_SKIP_SHORTCUT
 
@@ -123,6 +123,14 @@ try {
     $SfxMap = @($Map.logical_entries | Where-Object id -eq "audio/gameplay-sfx")
     $DmcMap = @($Map.logical_entries | Where-Object id -eq "audio/gameplay-dmc")
     $MusicMap = @($Map.logical_entries | Where-Object id -eq "audio/music")
+    $SfxSourceByRole = @{}
+    foreach ($Source in @($SfxMap[0].sources)) {
+        $SfxSourceByRole[[string]$Source.role] = $Source
+    }
+    $MusicSourceByRole = @{}
+    foreach ($Source in @($MusicMap[0].sources)) {
+        $MusicSourceByRole[[string]$Source.role] = $Source
+    }
     if ($SfxMap.Count -ne 1 -or $DmcMap.Count -ne 1 -or $MusicMap.Count -ne 1 -or
         $SfxMap[0].schema -ne "tecmo.gameplay-audio/TSFX-1" -or
         $DmcMap[0].schema -ne "tecmo.gameplay-audio/TDMC-1" -or
@@ -138,7 +146,29 @@ try {
             "16,32,64,128" -or
         $DmcMap[0].native_contract.ambiguous_clip_names -ne
             "bank05-trigger-provenance" -or
-        @($MusicMap[0].sources | Where-Object role -eq "pregame-matchup-stinger-8").Count -ne 1) {
+        $DmcMap[0].native_contract.delta_counter_persistence -ne
+            "retrigger-end-and-clear" -or
+        $DmcMap[0].native_contract.inactive_output -ne "held-dac-level" -or
+        @($MusicMap[0].sources | Where-Object role -eq "pregame-matchup-stinger-8").Count -ne 1 -or
+        [int]$SfxSourceByRole["clock-buzzer-id-3-a"].cpu_address -ne 0xE7DB -or
+        [int]$SfxSourceByRole["clock-buzzer-id-3-a"].request_site_cpu_address -ne 0xE7DD -or
+        [int]$SfxSourceByRole["clock-buzzer-id-3-a"].size -ne 5 -or
+        $SfxSourceByRole["clock-buzzer-id-3-a"].fingerprint_fnv1a32 -ne "FA9A48DB" -or
+        [int]$SfxSourceByRole["countdown-id-14"].cpu_address -ne 0xE863 -or
+        [int]$SfxSourceByRole["countdown-id-14"].request_site_cpu_address -ne 0xE865 -or
+        $SfxSourceByRole["countdown-id-14"].fingerprint_fnv1a32 -ne "E30ADA62" -or
+        [int]$SfxSourceByRole["clock-buzzer-id-3-b"].cpu_address -ne 0xE86D -or
+        [int]$SfxSourceByRole["clock-buzzer-id-3-b"].request_site_cpu_address -ne 0xE86F -or
+        $SfxSourceByRole["clock-buzzer-id-3-b"].fingerprint_fnv1a32 -ne "FA9A48DB" -or
+        [int]$SfxSourceByRole["gameplay-id-5"].size -ne 5 -or
+        $SfxSourceByRole["gameplay-id-5"].fingerprint_fnv1a32 -ne "5824A080" -or
+        [int]$SfxSourceByRole["crowd-response-id-11"].size -ne 14 -or
+        $SfxSourceByRole["crowd-response-id-11"].fingerprint_fnv1a32 -ne "B7141C72" -or
+        [int]$SfxSourceByRole["side-result-ids-12-13"].size -ne 22 -or
+        $SfxSourceByRole["side-result-ids-12-13"].fingerprint_fnv1a32 -ne "CFCD9759" -or
+        [int]$MusicSourceByRole["pregame-matchup-track-queue"].cpu_address -ne 0xA145 -or
+        [int]$MusicSourceByRole["pregame-matchup-track-queue"].size -ne 5 -or
+        $MusicSourceByRole["pregame-matchup-track-queue"].fingerprint_fnv1a32 -ne "1E564AC0") {
         throw "Gameplay-audio or track-8 source-map provenance is malformed."
     }
     Invoke-GameplayAudio $PackPath $true
@@ -186,6 +216,14 @@ try {
         [pscustomobject]@{ id = "sfx-extension"; offset = $Prg + 4 * 0x4000 + 0x1D8B },
         [pscustomobject]@{ id = "dmc-pool"; offset = $Fixed + 0x80 },
         [pscustomobject]@{ id = "dmc-trigger"; offset = $Prg + 5 * 0x4000 + 0x28D6 },
+        [pscustomobject]@{ id = "clock-buzzer-a"; offset = $Fixed + (0xE7DD - 0xC000) },
+        [pscustomobject]@{ id = "countdown"; offset = $Fixed + (0xE865 - 0xC000) },
+        [pscustomobject]@{ id = "clock-buzzer-b"; offset = $Fixed + (0xE86F - 0xC000) },
+        [pscustomobject]@{ id = "bank05-9fec"; offset = $Prg + 5 * 0x4000 + (0x9FEC - 0x8000) },
+        [pscustomobject]@{ id = "bank05-ad01"; offset = $Prg + 5 * 0x4000 + (0xAD01 - 0x8000) },
+        [pscustomobject]@{ id = "bank05-b1d1"; offset = $Prg + 5 * 0x4000 + (0xB1D1 - 0x8000) },
+        [pscustomobject]@{ id = "bank05-b1e6"; offset = $Prg + 5 * 0x4000 + (0xB1E6 - 0x8000) },
+        [pscustomobject]@{ id = "pregame-matchup-queue"; offset = $Prg + 6 * 0x4000 + (0xA145 - 0x8000) },
         [pscustomobject]@{ id = "game-music-gate"; offset = $Fixed + 0x2B2B },
         [pscustomobject]@{ id = "fixed-engine"; offset = $Fixed + 0x32F2 }
     )
@@ -201,7 +239,7 @@ try {
         }
     }
     $global:LASTEXITCODE = 0
-    Write-Output "GAMEPLAY AUDIO TEST PASS: TSFX-1 TDMC-1 provenance parser mixer override cadence music-gate mailbox DMC-independence clear-all malformed missing oversized cross-pack source-mutations"
+    Write-Output "GAMEPLAY AUDIO TEST PASS: TSFX-1 TDMC-1 provenance parser mixer override cadence music-gate mailbox DMC-independence DMC-continuity clear-all malformed missing oversized cross-pack source-mutations"
 } finally {
     $env:TECMO_ASSETPACK = $PreviousPack
     $env:TECMO_SKIP_SHORTCUT = $PreviousSkip

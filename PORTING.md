@@ -505,6 +505,9 @@ focused tests also exercise the renderer as a deterministic advancing null
 sink. Loose decompilation,
 FCEUX/Lua output, captures, frames, screenshots, logs, states, dumps, and
 `temp-videos` are never audio dependencies.
+Bank06 `$A145-$A149` queues ID 8 with `A9 08 20 0C C0` (FNV1a32
+`1E564AC0`), providing a separate revision-checked source-map anchor for the
+pregame-matchup label.
 
 The gameplay-audio foundation is also ROM-only, but this milestone does not
 wire it into a live gameplay route. The importer emits two same-revision
@@ -520,7 +523,10 @@ The `$9FEC` caller requests it after violation/foul/period-reset flow only when
 GAME MUSIC is enabled; that caller condition does not change its neutral name.
 The importer fingerprints Bank04 `$8AA4-$8CCF` and `$9D8B-$9E12`, the complete
 16-entry SFX directory, the fixed audio engine, and the focused gameplay
-request sites.
+request sites. Those request-site fingerprints cover fixed `$E7DB-$E7DF`,
+`$E863-$E867`, `$E86D-$E871` and Bank05 `$9FEC-$9FF0`, `$AD01-$AD0E`, and
+`$B1D1-$B1E6`; the source map records each bounded hash and the fixed JSR anchor
+where the fingerprint begins two bytes earlier.
 
 `audio/gameplay-dmc` is the exact 2515-byte TDMC-1 payload (FNV1a32
 `AD70E6E8`). It stores three deduplicated fixed-bank source pools and five
@@ -529,6 +535,11 @@ three triggers retain address-based provenance names because their shot/rim/
 dunk meanings are not yet correlated. `$B5AB` is the supported held-ball/
 dribble event. All clips use exact rates 14/15, `$4015=1F`, no loop, no IRQ,
 and no direct `$4011` write.
+Accordingly, the native DMC delta counter remains latched across a clip
+retrigger, after the sample reader reaches end-of-clip, and when clear-all
+disables the reader. The held DAC value continues contributing to output until
+a future DMC bit changes it; neither queue nor stop synthesizes a reset to 64
+or an abrupt zero sample.
 
 Fixed `$F3FA-$F436` consumes music before SFX, and `$F3F2` maps the four SFX
 slots to priority masks `$10/$20/$40/$80`. Native mixing therefore advances
@@ -538,7 +549,8 @@ until the next exact `39375000/655171` tick; DMC is independent. GAME MUSIC
 gates only future track 5, while GAME SPEED never changes audio cadence.
 Missing, malformed, oversized, wrong-revision, and cross-pack TSFX/TDMC assets
 fail closed. Run the focused private-ROM suite with
-`tools\Run-GameplayAudioTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
+`tools\Run-GameplayAudioTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`; it includes
+retrigger, end-of-clip, and clear-all DAC-continuity checks.
 
 The importer validates the raw finale dispatch chain as `$851C` wait 50 ->
 `$83EA` wait 30 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 ->

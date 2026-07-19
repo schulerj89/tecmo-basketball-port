@@ -4129,10 +4129,12 @@ try {
                     "audio-bank-range", "music-directory", "native-audio-engine",
                     "period-table", "opening-track-queue",
                     "opening-first-scene-route", "menu-track-queue",
+                    "pregame-matchup-track-queue",
                     "gameplay-track-5", "presentation-track-6",
                     "opening-track-7", "pregame-matchup-stinger-8"
                 )
                 $MusicBankBase = [uint64]($OpeningPrgStart + 4 * 0x4000)
+                $MusicBank06Base = [uint64]($OpeningPrgStart + 6 * 0x4000)
                 $MusicSourceByRole = @{}
                 foreach ($Source in @($MusicSource.sources)) {
                     $MusicSourceByRole[[string]$Source.role] = $Source
@@ -4172,6 +4174,11 @@ try {
                     [int]($MusicSourceByRole["menu-track-queue"].cpu_address) -eq 0xE477 -and
                     [int]($MusicSourceByRole["menu-track-queue"].size) -eq 5 -and
                     $MusicSourceByRole["menu-track-queue"].fingerprint_fnv1a32 -eq "0ADC9176" -and
+                    [uint64]($MusicSourceByRole["pregame-matchup-track-queue"].source_offset) -eq
+                        ($MusicBank06Base + (0xA145 - 0x8000)) -and
+                    [int]($MusicSourceByRole["pregame-matchup-track-queue"].cpu_address) -eq 0xA145 -and
+                    [int]($MusicSourceByRole["pregame-matchup-track-queue"].size) -eq 5 -and
+                    $MusicSourceByRole["pregame-matchup-track-queue"].fingerprint_fnv1a32 -eq "1E564AC0" -and
                     [int]($MusicSourceByRole["gameplay-track-5"].size) -eq 975 -and
                     $MusicSourceByRole["gameplay-track-5"].fingerprint_fnv1a32 -eq "1270498B" -and
                     [int]($MusicSourceByRole["presentation-track-6"].size) -eq 1736 -and

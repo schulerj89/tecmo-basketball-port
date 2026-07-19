@@ -1005,6 +1005,7 @@ static int append_music_source_map_entry(char *buffer,
         "{\"role\":\"opening-track-queue\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":%u,\"size\":%u,\"fingerprint_fnv1a32\":\"FCDCAFEF\"},"
         "{\"role\":\"opening-first-scene-route\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":%u,\"size\":%u,\"fingerprint_fnv1a32\":\"07FD2C8D\"},"
         "{\"role\":\"menu-track-queue\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":%u,\"fingerprint_fnv1a32\":\"0ADC9176\"},"
+        "{\"role\":\"pregame-matchup-track-queue\",\"source_entry\":\"prg/bank06\",\"source_offset\":%llu,\"bank\":6,\"cpu_address\":%u,\"size\":%u,\"fingerprint_fnv1a32\":\"1E564AC0\"},"
         "{\"role\":\"gameplay-track-5\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":37620,\"size\":%u,\"fingerprint_fnv1a32\":\"1270498B\"},"
         "{\"role\":\"presentation-track-6\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":38595,\"size\":%u,\"fingerprint_fnv1a32\":\"BD91FCF1\"},"
         "{\"role\":\"opening-track-7\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":36066,\"size\":%u,\"fingerprint_fnv1a32\":\"69F85EC2\"},"
@@ -1043,6 +1044,9 @@ static int append_music_source_map_entry(char *buffer,
         (unsigned long long)p->menu_queue_offset,
         (unsigned)TECMO_ASSET_PACK_MUSIC_MENU_QUEUE_CPU,
         (unsigned)TECMO_ASSET_PACK_MUSIC_MENU_QUEUE_SIZE,
+        (unsigned long long)p->pregame_matchup_queue_offset,
+        (unsigned)TECMO_ASSET_PACK_MUSIC_PREGAME_MATCHUP_QUEUE_CPU,
+        (unsigned)TECMO_ASSET_PACK_MUSIC_PREGAME_MATCHUP_QUEUE_SIZE,
         (unsigned long long)p->track_offsets[0], p->track_sizes[0],
         (unsigned long long)p->track_offsets[1], p->track_sizes[1],
         (unsigned long long)p->track_offsets[2], p->track_sizes[2],
@@ -1067,12 +1071,12 @@ static int append_gameplay_audio_source_map_entries(
             "{\"role\":\"sfx-core\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":35492,\"size\":556,\"fingerprint_fnv1a32\":\"548EED95\"},"
             "{\"role\":\"sfx-extension\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":40331,\"size\":136,\"fingerprint_fnv1a32\":\"838408D4\"},"
             "{\"role\":\"fixed-audio-engine\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":62194,\"size\":1759,\"fingerprint_fnv1a32\":\"FC6A0BC1\"},"
-            "{\"role\":\"clock-buzzer-id-3-a\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":59357,\"size\":1},"
-            "{\"role\":\"clock-buzzer-id-3-b\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":59503,\"size\":1},"
-            "{\"role\":\"countdown-id-14\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":59493,\"size\":1},"
-            "{\"role\":\"gameplay-id-5\",\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,\"bank\":5,\"cpu_address\":40940,\"size\":1},"
-            "{\"role\":\"crowd-response-id-11\",\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,\"bank\":5,\"cpu_address\":44289,\"size\":14},"
-            "{\"role\":\"side-result-ids-12-13\",\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,\"bank\":5,\"cpu_address\":45521,\"size\":22}],"
+            "{\"role\":\"clock-buzzer-id-3-a\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":59355,\"request_site_cpu_address\":59357,\"size\":5,\"fingerprint_fnv1a32\":\"FA9A48DB\"},"
+            "{\"role\":\"clock-buzzer-id-3-b\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":59501,\"request_site_cpu_address\":59503,\"size\":5,\"fingerprint_fnv1a32\":\"FA9A48DB\"},"
+            "{\"role\":\"countdown-id-14\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":59491,\"request_site_cpu_address\":59493,\"size\":5,\"fingerprint_fnv1a32\":\"E30ADA62\"},"
+            "{\"role\":\"gameplay-id-5\",\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,\"bank\":5,\"cpu_address\":40940,\"size\":5,\"fingerprint_fnv1a32\":\"5824A080\"},"
+            "{\"role\":\"crowd-response-id-11\",\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,\"bank\":5,\"cpu_address\":44289,\"size\":14,\"fingerprint_fnv1a32\":\"B7141C72\"},"
+            "{\"role\":\"side-result-ids-12-13\",\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,\"bank\":5,\"cpu_address\":45521,\"size\":22,\"fingerprint_fnv1a32\":\"CFCD9759\"}],"
             "\"native_contract\":{\"payload_size\":%u,"
             "\"payload_fingerprint_fnv1a32\":\"%08X\","
             "\"revision_fingerprint_fnv1a32\":\"0650F5B0\","
@@ -1091,11 +1095,11 @@ static int append_gameplay_audio_source_map_entries(
             (unsigned long long)p->sfx_extension_offset,
             (unsigned long long)p->engine_offset,
             (unsigned long long)p->event_offsets[0],
-            (unsigned long long)p->event_offsets[0] + 146U,
-            (unsigned long long)p->event_offsets[1],
             (unsigned long long)p->event_offsets[2],
+            (unsigned long long)p->event_offsets[1],
             (unsigned long long)p->event_offsets[3],
             (unsigned long long)p->event_offsets[4],
+            (unsigned long long)p->event_offsets[5],
             p->sfx_payload_size, p->sfx_payload_fingerprint,
             p->sfx_instruction_count, (unsigned)p->sfx_voice_count) != 0)
         return -1;
@@ -1121,6 +1125,8 @@ static int append_gameplay_audio_source_map_entries(
         "\"clip_count\":5,\"pool_count\":3,"
         "\"rates\":[14,14,14,15,15],"
         "\"loop\":false,\"irq\":false,\"direct_dac_write\":false,"
+        "\"delta_counter_persistence\":\"retrigger-end-and-clear\","
+        "\"inactive_output\":\"held-dac-level\","
         "\"independent_from_music_and_sfx\":true,"
         "\"ambiguous_clip_names\":\"bank05-trigger-provenance\"}}",
         TECMO_ASSET_PACK_GAMEPLAY_DMC_ID,

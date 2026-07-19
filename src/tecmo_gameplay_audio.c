@@ -958,7 +958,8 @@ static double render_dmc_sample(TecmoGameplayAudioPlayer *player)
     TecmoGameplayDmcState *state = &player->dmc;
     const TecmoGameplayDmcPool *pool;
     uint32_t threshold;
-    if (!state->active) return 0.0;
+    if (!state->active)
+        return ((double)((int)state->output_level - 64) / 64.0) * 0.30;
     pool = &player->asset->dmc_pools[state->pool_index];
     threshold = (uint32_t)TECMO_MUSIC_SAMPLE_RATE * state->period_cycles;
     state->cycle_accumulator += GAMEPLAY_AUDIO_CPU_CLOCK_INTEGER;
@@ -981,9 +982,7 @@ static double render_dmc_sample(TecmoGameplayAudioPlayer *player)
         state->shift_register >>= 1U;
         --state->bits_remaining;
     }
-    return state->active
-               ? ((double)((int)state->output_level - 64) / 64.0) * 0.30
-               : 0.0;
+    return ((double)((int)state->output_level - 64) / 64.0) * 0.30;
 }
 
 bool tecmo_gameplay_audio_queue_dmc_clip(TecmoGameplayAudioPlayer *player,
@@ -994,17 +993,19 @@ bool tecmo_gameplay_audio_queue_dmc_clip(TecmoGameplayAudioPlayer *player,
         190U, 160U, 142U, 128U, 106U, 85U, 72U, 54U
     };
     const TecmoGameplayDmcClip *clip;
+    uint8_t output_level;
     if (player == NULL || player->asset == NULL ||
         !player->asset->available || clip_id < 0 ||
         (unsigned)clip_id >= TECMO_GAMEPLAY_DMC_CLIP_COUNT)
         return false;
     clip = &player->asset->dmc_clips[(unsigned)clip_id];
+    output_level = player->dmc.output_level;
     memset(&player->dmc, 0, sizeof(player->dmc));
     player->dmc.pool_index = clip->pool_index;
     player->dmc.byte_index = clip->pool_offset;
     player->dmc.byte_count = clip->pool_offset + clip->byte_count;
     player->dmc.period_cycles = dmc_period_cycles[clip->rate_index];
-    player->dmc.output_level = 64U;
+    player->dmc.output_level = output_level;
     player->dmc.active = true;
     return true;
 }
@@ -1062,11 +1063,13 @@ void tecmo_gameplay_audio_set_game_music_enabled(
 
 void tecmo_gameplay_audio_stop_all(TecmoGameplayAudioPlayer *player)
 {
+    uint8_t dmc_output_level;
     if (player == NULL) return;
+    dmc_output_level = player->dmc.output_level;
     tecmo_music_stop(player->music);
     memset(player->sfx_channels, 0, sizeof(player->sfx_channels));
     memset(&player->dmc, 0, sizeof(player->dmc));
-    player->dmc.output_level = 64U;
+    player->dmc.output_level = dmc_output_level;
     player->current_sfx_id = 0U;
     player->pending_sfx_id = 0U;
     player->sfx_pending = false;
@@ -1151,7 +1154,9 @@ bool tecmo_gameplay_audio_self_test(const char *project_root,
     TecmoMusicPlayer music_b;
     TecmoGameplayAudioPlayer player;
     TecmoGameplayAudioPlayer control;
+    TecmoGameplayAudioPlayer dmc_control;
     int16_t samples[TECMO_MUSIC_SAMPLE_RATE];
+    int16_t held_samples[2];
     uint32_t pcm_hash;
     uint32_t state_hash;
     bool override_ok;
@@ -1162,6 +1167,7 @@ bool tecmo_gameplay_audio_self_test(const char *project_root,
     bool cross_pack_ok;
     bool event_map_ok;
     bool clear_ok;
+    bool dmc_continuity_ok;
     bool ok = false;
     memset(&asset, 0, sizeof(asset));
     memset(&music_asset, 0, sizeof(music_asset));
@@ -1172,6 +1178,7 @@ bool tecmo_gameplay_audio_self_test(const char *project_root,
     tecmo_music_player_init(&music_b, &music_asset);
     tecmo_gameplay_audio_player_init(&player, &asset, &music_a);
     tecmo_gameplay_audio_player_init(&control, &asset, &music_b);
+    tecmo_gameplay_audio_player_init(&dmc_control, &asset, NULL);
     event_map_ok = tecmo_gameplay_audio_queue_event(
                        &player, TECMO_GAMEPLAY_AUDIO_VIOLATION_CUE) &&
                    player.pending_sfx_id == 6U &&
@@ -1215,6 +1222,47 @@ bool tecmo_gameplay_audio_self_test(const char *project_root,
                  &player, TECMO_GAMEPLAY_AUDIO_CLOCK_BUZZER);
     tecmo_gameplay_audio_render_samples(&player, NULL, 512U);
     dmc_ok = dmc_ok && player.dmc.active && player.sfx_pending;
+    dmc_control.dmc.output_level = 90U;
+    dmc_continuity_ok = tecmo_gameplay_audio_queue_dmc_clip(
+                            &dmc_control,
+                            TECMO_GAMEPLAY_DMC_BANK05_A8D6_SHORT) &&
+                        dmc_control.dmc.output_level == 90U;
+    tecmo_gameplay_audio_render_samples(&dmc_control, NULL, 128U);
+    if (dmc_continuity_ok) {
+        uint8_t retrigger_level = dmc_control.dmc.output_level;
+        dmc_continuity_ok = dmc_control.dmc.active &&
+            tecmo_gameplay_audio_queue_dmc_clip(
+                &dmc_control, TECMO_GAMEPLAY_DMC_BANK05_A8D6_SHORT) &&
+            dmc_control.dmc.output_level == retrigger_level &&
+            dmc_control.dmc.cycle_accumulator == 0U &&
+            dmc_control.dmc.bits_remaining == 0U;
+    }
+    tecmo_gameplay_audio_render_samples(&dmc_control, NULL, 4096U);
+    if (dmc_continuity_ok) {
+        uint8_t held_level = dmc_control.dmc.output_level;
+        int held_value = (int)(
+            ((double)((int)held_level - 64) / 64.0) * 0.30 * 28000.0);
+        tecmo_gameplay_audio_render_samples(
+            &dmc_control, held_samples, 2U);
+        dmc_continuity_ok = !dmc_control.dmc.active &&
+            held_level != 64U && held_samples[0] == held_value &&
+            held_samples[1] == held_value &&
+            tecmo_gameplay_audio_queue_dmc_clip(
+                &dmc_control, TECMO_GAMEPLAY_DMC_BANK05_ABF5) &&
+            dmc_control.dmc.output_level == held_level;
+    }
+    tecmo_gameplay_audio_render_samples(&dmc_control, NULL, 64U);
+    if (dmc_continuity_ok) {
+        uint8_t chained_level = dmc_control.dmc.output_level;
+        dmc_continuity_ok = dmc_control.dmc.active &&
+            tecmo_gameplay_audio_queue_dmc_clip(
+                &dmc_control, TECMO_GAMEPLAY_DMC_BANK05_A9C5) &&
+            dmc_control.dmc.output_level == chained_level;
+        tecmo_gameplay_audio_stop_all(&dmc_control);
+        dmc_continuity_ok = dmc_continuity_ok &&
+            !dmc_control.dmc.active &&
+            dmc_control.dmc.output_level == chained_level;
+    }
     clear_ok = tecmo_gameplay_audio_queue_event(
                    &control, TECMO_GAMEPLAY_AUDIO_VIOLATION_CUE) &&
                tecmo_gameplay_audio_queue_dmc_clip(
@@ -1224,14 +1272,14 @@ bool tecmo_gameplay_audio_self_test(const char *project_root,
                !control.dmc.active && !music_b.playing &&
                !music_b.track_pending;
     ok = override_ok && gate_ok && cadence_ok && dmc_ok && mailbox_ok &&
-         event_map_ok &&
+         event_map_ok && dmc_continuity_ok &&
          clear_ok &&
          cross_pack_ok &&
          !player.render_guard_failed;
     if (message != NULL && message_size > 0U) {
         (void)snprintf(
             message, message_size,
-            "TSFX-1/TDMC-1 gameplay audio: sfx=%08X dmc=%08X pcm=%08X state=%08X instructions=%u voices=%u events=%s override=%s cadence=%s gate=%s mailbox=%s independent=%s clear=%s crosspack=%s",
+            "TSFX-1/TDMC-1 gameplay audio: sfx=%08X dmc=%08X pcm=%08X state=%08X instructions=%u voices=%u events=%s override=%s cadence=%s gate=%s mailbox=%s independent=%s dmc-continuity=%s clear=%s crosspack=%s",
             asset.sfx_payload_fingerprint,
             asset.dmc_payload_fingerprint, pcm_hash, state_hash,
             TECMO_GAMEPLAY_SFX_INSTRUCTION_COUNT,
@@ -1240,6 +1288,7 @@ bool tecmo_gameplay_audio_self_test(const char *project_root,
             override_ok ? "pass" : "fail",
             cadence_ok ? "pass" : "fail", gate_ok ? "pass" : "fail",
             mailbox_ok ? "pass" : "fail", dmc_ok ? "pass" : "fail",
+            dmc_continuity_ok ? "pass" : "fail",
             clear_ok ? "pass" : "fail",
             cross_pack_ok ? "pass" : "fail");
     }

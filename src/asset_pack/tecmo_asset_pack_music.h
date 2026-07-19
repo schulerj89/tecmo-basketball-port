@@ -12,6 +12,7 @@ typedef struct TecmoMusicProvenance {
     uint64_t opening_queue_offset;
     uint64_t opening_first_route_offset;
     uint64_t menu_queue_offset;
+    uint64_t pregame_matchup_queue_offset;
     uint64_t track_offsets[4];
     uint32_t track_sizes[4];
     uint32_t payload_size;

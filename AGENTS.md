@@ -444,6 +444,10 @@ The device-failure fallback deliberately freezes sequencer state; focused tests
 use the same renderer as a deterministic advancing null sink. Missing, oversized,
 malformed, or wrong-revision TMUS-1 data must never crash startup or fall back
 to loose/private sources.
+Track 8's pregame-matchup label is anchored independently by Bank06
+`$A145-$A149` (`A9 08 20 0C C0`, FNV1a32 `1E564AC0`); importer and source-map
+validation must retain that queue-site fingerprint in addition to the Bank04
+track bytes.
 
 Gameplay audio has a strict ROM-only foundation but is not connected to the
 live gameplay route yet. `audio/gameplay-sfx` is TSFX-1: 2824 bytes / FNV1a32
@@ -459,6 +463,10 @@ call-site condition separate from the neutral effect name. TSFX requests are las
 until the next audio tick. An active SFX channel overrides only the matching
 music output channel; the music sequencer and its oscillator state continue
 advancing underneath it, following fixed `$F3F2-$F436`.
+Advertised TSFX request provenance is revision-locked to bounded spans at fixed
+`$E7DB-$E7DF`, `$E863-$E867`, `$E86D-$E871` and Bank05 `$9FEC-$9FF0`,
+`$AD01-$AD0E`, `$B1D1-$B1E6`; every source-map role must carry the corresponding
+FNV1a32 rather than a one-byte or inferred offset.
 
 `audio/gameplay-dmc` is TDMC-1: 2515 bytes / FNV1a32 `AD70E6E8`. It deduplicates
 the exact fixed-bank `$C080-$C280`, `$C440-$C710`, and `$C740-$CAF0` inclusive
@@ -468,11 +476,15 @@ or 15. Only Bank05 `$B5AB` is safely named held-ball/dribble. The `$A8D6`,
 rim, dunk, or crowd meanings are proved. DMC advances independently of music
 and tonal SFX; no trigger writes `$4011`. GAME MUSIC gates future track 5 only,
 and GAME SPEED has no path into audio cadence. `tecmo_gameplay_audio_stop_all`
-models the fixed clear-all path for music, SFX, and DMC. Missing, oversized,
+models the fixed clear-all path for music, SFX, and DMC. Because none of these
+triggers or the clear path writes `$4011`, the DMC delta counter/DAC level must
+survive retriggers, clip completion, and clear-all while only the sample reader
+stops. Missing, oversized,
 malformed, wrong-revision, or cross-pack TSFX/TDMC dependencies fail closed.
 Run `tools\Run-GameplayAudioTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` for
 parser, source-map, PCM/state hash, override, cadence, gating, mailbox, DMC
-independence, corruption, missing/oversized/cross-pack, and ROM-mutation checks.
+independence and DAC continuity, corruption, missing/oversized/cross-pack, and
+ROM-mutation checks.
 
 Finale provenance is the raw Bank04 chain `$851C` wait 50 -> `$83EA` wait 30
 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 -> `$FFFF`, loading
