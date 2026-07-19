@@ -102,13 +102,16 @@ kept as `BANK05_9FEC_CUE` and is requested only at the evidence-bounded
 violation, direct-foul, and period restart boundaries under the GAME MUSIC
 gate. Foul/violation and completed-period presentation boundaries clear music,
 tonal SFX, and DMC once before replacement audio. Their qualifying live returns
-requeue the gated cue, while every enabled live return independently requeues
-track 5. A final free throw instead retains its result request through the live
-transition and does not queue ID 5: the ignored bounded slot-3 observation has
-the result at frame 280, no new request at 281, live play by 300, and no ID-5
-request through frame 360. Dunk action frame 87 queues A9C5 exactly once. The
-imported ABF5 and A8D6 clips are not queued, and the sequence names do not
-assert an impact or rim cue.
+requeue the gated cue and gameplay track 5. A foul route entering free throws
+instead queues track 5 at sequence setup without the same-numbered SFX cue. The
+ignored bounded slot-3 observation begins setup at frame 10, requests gameplay
+track 5 at 26 and consumes it at 27, then changes the terminal result mailbox
+from `$0B` to `$0D` at 280 and consumes it at 281. It is live by 300 with no new
+music-track request or SFX ID 5 through 360. A final free throw therefore keeps
+its result request through the live transition and queues neither track 5 nor
+`BANK05_9FEC_CUE`. Dunk action frame 87 queues A9C5 exactly once. The imported
+ABF5 and A8D6 clips are not queued, and the sequence names do not assert an
+impact or rim cue.
 
 ## ROM-derived anchors
 

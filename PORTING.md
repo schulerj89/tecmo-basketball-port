@@ -556,8 +556,8 @@ called at `$E58D`, `$E9A0`, `$E9DE`, and `$ECAF`, supplies the bounded reset
 provenance. Native foul/violation presentation entry and completed-period
 presentation entry each perform this clear once before replacement audio; a
 qualifying violation, direct-foul, or period live return queues the gated
-`$9FEC` cue. Every enabled live return, including post-free-throw settlement,
-independently queues gameplay track 5.
+`$9FEC` cue and gameplay track 5. A foul route entering the free-throw sequence
+instead queues track 5 there without the same-numbered SFX cue.
 
 Fixed `$F3FA-$F436` consumes music before SFX, and `$F3F2` maps the four SFX
 slots to priority masks `$10/$20/$40/$80`. Native mixing therefore advances
@@ -576,14 +576,16 @@ evidence-bounded mappings are clock expiry to SFX 3, late-clock countdown to
 14, violation to 6, and moving possession to the proven `$B5AB`
 held-ball/dribble DMC clip. A made dunk and every resolved free throw, including
 a miss, request crowd response 11 followed by qualifying side result 12/13;
-the final 0:00/0:01 request remains 11. The final free-throw result survives
-the live transition while enabled GAME MUSIC independently requeues track 5.
-The ignored bounded slot-3 observation requests its result at frame 280, has no
-new request at 281, is live by 300, and has no ID-5 request through frame 360;
-post-free-throw live return therefore does not queue the neutral
+the final 0:00/0:01 request remains 11. Enabled GAME MUSIC queues track 5 when
+foul presentation enters the free-throw sequence, not on terminal settlement.
+The ignored bounded slot-3 observation begins setup at frame 10, requests
+gameplay track 5 at 26 and consumes it at 27, then changes the terminal result
+mailbox from `$0B` to `$0D` at 280 and consumes it at 281. It is live by 300
+with no new music-track request or SFX ID 5 through 360. The final result thus
+survives the live transition, which queues neither track 5 nor the neutral
 `BANK05_9FEC_CUE`. Made jump shots and layups retain their existing
 crowd-response-11 mapping until their separate caller paths are integrated.
-ID 5 remains gated at qualifying violation, direct-foul, and period restart
+SFX ID 5 remains gated at qualifying violation, direct-foul, and period restart
 boundaries. Dunk action frame 87 queues sequence-named A9C5. ABF5 and
 address-named A8D6 clips remain imported without invented live use.
 

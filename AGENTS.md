@@ -516,11 +516,14 @@ expiry to SFX 3, the late-clock countdown to 14, violations to 6, and moving
 possession to the proven `$B5AB` held-ball/dribble DMC clip. A made dunk and
 every resolved free throw, including a miss, follow `$AD01` crowd response 11
 and then the qualifying `$B1D1` side result 12/13; 0:00 and 0:01 retain 11.
-The final free-throw result remains in the SFX mailbox across the live return,
-while enabled GAME MUSIC independently requeues track 5. The ignored bounded
-slot-3 observation requests its result at frame 280, has no new request at 281,
-is live by 300, and has no ID-5 request through frame 360; post-free-throw live
-return therefore does not queue `BANK05_9FEC_CUE`.
+Enabled GAME MUSIC requeues track 5 when foul presentation enters the
+free-throw sequence, not when the final attempt returns live. The ignored
+bounded slot-3 observation begins setup at frame 10, requests gameplay track 5
+at 26 and consumes it at 27, then changes the terminal result mailbox from
+`$0B` to `$0D` at 280 and consumes it at 281. It is live by 300 with no new
+music-track request or SFX ID 5 through 360. The final free-throw result
+therefore remains in the SFX mailbox across the live return, which queues
+neither track 5 nor `BANK05_9FEC_CUE`.
 Made jump shots and layups remain bounded to crowd response 11 pending separate
 caller integration. `BANK05_9FEC_CUE` remains neutral and is gated at the
 bounded violation, direct-foul, and period restart boundaries. Dunk action

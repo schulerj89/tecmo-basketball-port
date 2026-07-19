@@ -1105,8 +1105,18 @@ static void scene_process_phase_audio(TecmoGameplayScene *scene,
     if (after == TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION) {
         (void)tecmo_gameplay_audio_queue_event(
             &scene->audio_player, TECMO_GAMEPLAY_AUDIO_VIOLATION_CUE);
+    } else if (after == TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE &&
+               scene->launch.game_music_enabled &&
+               (before == TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
+                before == TECMO_GAMEPLAY_PHASE_FOUL_SETTLEMENT_REQUIRED)) {
+        /* The bounded free-throw observation requests gameplay track 5 at
+           setup. It does not request the same-numbered Bank05 $9FEC SFX. */
+        (void)tecmo_gameplay_audio_queue_game_music(&scene->audio_player);
     } else if (after == TECMO_GAMEPLAY_PHASE_LIVE &&
-               scene->launch.game_music_enabled) {
+               scene->launch.game_music_enabled &&
+               before != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE &&
+               before !=
+                   TECMO_GAMEPLAY_PHASE_FREE_THROW_SETTLEMENT_REQUIRED) {
         /* The neutral Bank05 $9FEC cue belongs only to the gated reset/restart
            boundary, never to foul-presentation entry. This function runs once
            per scene frame, so one boundary can queue it at most once. */
@@ -1963,6 +1973,23 @@ static bool scene_test_enter_free_throw_sequence(
         scene->free_throw_frame != 0U ||
         !tecmo_gameplay_state_valid(&scene->state)) {
         return false;
+    }
+    if (scene->launch.game_music_enabled) {
+        if (scene->audio_player.sfx_pending ||
+            scene->audio_player.music == NULL ||
+            !scene->audio_player.music->track_pending ||
+            scene->audio_player.music->pending_track_id !=
+                TECMO_MUSIC_TRACK_GAMEPLAY) {
+            return false;
+        }
+        tecmo_gameplay_audio_render_samples(&scene->audio_player, NULL, 1024U);
+        if (scene->audio_player.sfx_pending ||
+            !scene->audio_player.music->playing ||
+            scene->audio_player.music->current_track_id !=
+                TECMO_MUSIC_TRACK_GAMEPLAY ||
+            scene->audio_player.music->track_pending) {
+            return false;
+        }
     }
     return true;
 }
@@ -2881,9 +2908,24 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
         scene.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
         scene.state.free_throws.attempts_remaining != 2U ||
-        scene.free_throw_frame != 0U || scene.audio_player.sfx_pending) {
+        scene.free_throw_frame != 0U || scene.audio_player.sfx_pending ||
+        scene.audio_player.music == NULL ||
+        !scene.audio_player.music->track_pending ||
+        scene.audio_player.music->pending_track_id !=
+            TECMO_MUSIC_TRACK_GAMEPLAY) {
         scene_test_message(message, message_size,
                            "foul dismissal/free-throw handoff failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    tecmo_gameplay_audio_render_samples(&scene.audio_player, NULL, 1024U);
+    if (scene.audio_player.sfx_pending ||
+        !scene.audio_player.music->playing ||
+        scene.audio_player.music->current_track_id !=
+            TECMO_MUSIC_TRACK_GAMEPLAY ||
+        scene.audio_player.music->track_pending) {
+        scene_test_message(message, message_size,
+                           "free-throw setup music was not consumed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -2984,9 +3026,10 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         !scene.audio_player.sfx_pending ||
         scene.audio_player.pending_sfx_id != 12U ||
         scene.audio_player.music == NULL ||
-        !scene.audio_player.music->track_pending ||
-        scene.audio_player.music->pending_track_id !=
+        !scene.audio_player.music->playing ||
+        scene.audio_player.music->current_track_id !=
             TECMO_MUSIC_TRACK_GAMEPLAY ||
+        scene.audio_player.music->track_pending ||
         !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
                            "human free-throw settlement failed");
@@ -3058,12 +3101,30 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         !scene.audio_player.sfx_pending ||
         scene.audio_player.pending_sfx_id != 13U ||
         scene.audio_player.music == NULL ||
-        !scene.audio_player.music->track_pending ||
-        scene.audio_player.music->pending_track_id !=
+        !scene.audio_player.music->playing ||
+        scene.audio_player.music->current_track_id !=
             TECMO_MUSIC_TRACK_GAMEPLAY ||
+        scene.audio_player.music->track_pending ||
         !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
                            "home owned held-B free throw failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    tecmo_gameplay_audio_render_samples(&scene.audio_player, NULL, 1024U);
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    if (scene.audio_player.sfx_pending ||
+        scene.audio_player.current_sfx_id != 13U ||
+        scene.audio_player.music->track_pending ||
+        !tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+        scene.audio_player.sfx_pending ||
+        scene.audio_player.current_sfx_id != 13U ||
+        scene.audio_player.music->track_pending ||
+        scene.audio_player.music->current_track_id !=
+            TECMO_MUSIC_TRACK_GAMEPLAY) {
+        scene_test_message(message, message_size,
+                           "final home free-throw audio repeated or missing");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -3153,9 +3214,10 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         !scene.audio_player.sfx_pending ||
         scene.audio_player.pending_sfx_id != 13U ||
         scene.audio_player.music == NULL ||
-        !scene.audio_player.music->track_pending ||
-        scene.audio_player.music->pending_track_id !=
+        !scene.audio_player.music->playing ||
+        scene.audio_player.music->current_track_id !=
             TECMO_MUSIC_TRACK_GAMEPLAY ||
+        scene.audio_player.music->track_pending ||
         !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
                            "CPU free-throw settlement failed");
