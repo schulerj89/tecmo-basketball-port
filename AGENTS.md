@@ -131,6 +131,8 @@ Hidden/debug screens are still useful through render-test modes. Common examples
 ```
 
 These are development tools, not main-menu entries.
+`gameplay-close-shot-frameN` remains a compatibility alias for the canonical
+`gameplay-dunk-frameN` numeric-variant-0 checkpoint.
 
 ## Lua Watchers
 

@@ -388,6 +388,10 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     } else if (parse_render_frame_suffix(
                    mode_name, "gameplay-dunk-frame", &checkpoint)) {
         dunk = true;
+    } else if (parse_render_frame_suffix(
+                   mode_name, "gameplay-close-shot-frame", &checkpoint)) {
+        /* Compatibility spelling for the former numeric-variant-0 mode. */
+        dunk = true;
     } else {
         return false;
     }

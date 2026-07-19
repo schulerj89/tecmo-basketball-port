@@ -156,6 +156,9 @@ Render the normal menu or a focused intro frame:
 .\build\tecmo_port.exe --render-test-mode gameplay-dunk-frame16 build\gameplay_dunk_16_test.png
 ```
 
+The former `gameplay-close-shot-frameN` spelling remains a compatibility alias
+for the canonical dunk checkpoint.
+
 Run every active screenshot test declared in `port_iteration.json`:
 
 ```powershell

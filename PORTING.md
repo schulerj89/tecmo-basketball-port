@@ -701,6 +701,8 @@ scratch pack, logs, and PNGs remain under ignored `build\` output.
 The strict runtime checkpoints are `gameplay-start`,
 `gameplay-jump-frameN`, and `gameplay-dunk-frameN`; the focused runner
 covers meaningful interior frames plus the 40/32 endpoints.
+The former `gameplay-close-shot-frameN` spelling remains an exact compatibility
+alias for `gameplay-dunk-frameN`; it does not introduce a third shot kind.
 
 ## Migration Policy
 

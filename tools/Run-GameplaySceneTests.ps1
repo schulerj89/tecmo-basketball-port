@@ -288,6 +288,7 @@ try {
         [pscustomobject]@{ mode="gameplay-dunk-frame1"; state='gameplay-state frame=1 shot=dunk phase=live' },
         [pscustomobject]@{ mode="gameplay-dunk-frame8"; state='gameplay-state frame=8 shot=dunk phase=live' },
         [pscustomobject]@{ mode="gameplay-dunk-frame16"; state='gameplay-state frame=16 shot=dunk phase=live' },
+        [pscustomobject]@{ mode="gameplay-close-shot-frame16"; state='gameplay-state frame=16 shot=dunk phase=live' },
         [pscustomobject]@{ mode="gameplay-dunk-frame24"; state='gameplay-state frame=24 shot=dunk phase=live' },
         [pscustomobject]@{ mode="gameplay-dunk-frame32"; state='gameplay-state frame=32 shot=dunk phase=live' }
     )
@@ -302,7 +303,11 @@ try {
         $RenderHashes["gameplay-dunk-frame16"]
     ) | Select-Object -Unique
     if ($VisualSentinels.Count -ne 3) {
-        throw "Gameplay start/jump/close visual sentinels collapsed together."
+        throw "Gameplay start/jump/dunk visual sentinels collapsed together."
+    }
+    if ($RenderHashes["gameplay-close-shot-frame16"] -ne
+        $RenderHashes["gameplay-dunk-frame16"]) {
+        throw "Legacy close-shot render mode diverged from canonical dunk mode."
     }
 
     $global:LASTEXITCODE = 0
