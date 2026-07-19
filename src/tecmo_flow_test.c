@@ -1195,6 +1195,7 @@ static bool flow_expect_preseason_native_path(TecmoRuntime *runtime,
 bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t message_size)
 {
     TecmoInput input;
+    TecmoMusicPlayer speed_music_before;
     uint8_t previous_intro_step;
 
     if (message != NULL && message_size > 0U) {
@@ -1928,6 +1929,7 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     input.down = true;
     input.shoot = true;
     input.cancel = true;
+    speed_music_before = runtime->music_player;
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SPEED ||
         runtime->start_game_menu_state.setting_selection != 0U ||
@@ -1937,6 +1939,28 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     }
     memset(&input, 0, sizeof(input));
     tecmo_runtime_update(runtime, &input);
+    if (speed_music_before.asset != runtime->music_player.asset ||
+        speed_music_before.sample_tick_accumulator !=
+            runtime->music_player.sample_tick_accumulator ||
+        speed_music_before.ticks_elapsed != runtime->music_player.ticks_elapsed ||
+        speed_music_before.current_track_id !=
+            runtime->music_player.current_track_id ||
+        speed_music_before.pending_track_id !=
+            runtime->music_player.pending_track_id ||
+        speed_music_before.playing != runtime->music_player.playing ||
+        speed_music_before.track_pending != runtime->music_player.track_pending ||
+        speed_music_before.game_music_enabled !=
+            runtime->music_player.game_music_enabled ||
+        speed_music_before.opening_queued !=
+            runtime->music_player.opening_queued ||
+        speed_music_before.render_guard_failed !=
+            runtime->music_player.render_guard_failed ||
+        runtime->music_asset.tick_numerator != TECMO_MUSIC_TICK_NUMERATOR ||
+        runtime->music_asset.tick_denominator != TECMO_MUSIC_TICK_DENOMINATOR) {
+        set_flow_test_message(message, message_size,
+                              "GAME SPEED changed native music cadence/state");
+        return false;
+    }
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_POPUP_TEARDOWN ||
         runtime->start_game_menu_state.speed_value != 0U ||
         runtime->start_game_menu_state.direction_cooldown != 5U) {

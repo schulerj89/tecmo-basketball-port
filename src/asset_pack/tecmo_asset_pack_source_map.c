@@ -917,6 +917,53 @@ static int append_preseason_source_map_entry(char *buffer,
         (unsigned)TECMO_ASSET_PACK_PRESEASON_SIZE);
 }
 
+static int append_music_source_map_entry(char *buffer,
+                                         size_t capacity,
+                                         size_t *length,
+                                         int *first,
+                                         const TecmoMusicProvenance *p)
+{
+    const char *prefix = *first != 0 ? "" : ",\n";
+    *first = 0;
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "%s"
+        "    {\"id\":\"%s\",\"kind\":\"native-nes-music\","
+        "\"schema\":\"tecmo.music/TMUS-1\",\"input_contract\":\"ines-only\","
+        "\"sources\":["
+        "{\"role\":\"audio-bank-range\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":35492,\"size\":5218,\"fingerprint_fnv1a32\":\"06F2A750\"},"
+        "{\"role\":\"music-directory\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":36048,\"size\":18,\"fingerprint_fnv1a32\":\"59366EC4\"},"
+        "{\"role\":\"native-audio-engine\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":62194,\"size\":1759,\"fingerprint_fnv1a32\":\"FC6A0BC1\"},"
+        "{\"role\":\"period-table\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":63803,\"size\":150,\"fingerprint_fnv1a32\":\"3F5A394D\"},"
+        "{\"role\":\"gameplay-track-5\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":37620,\"size\":%u,\"fingerprint_fnv1a32\":\"1270498B\"},"
+        "{\"role\":\"presentation-track-6\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":38595,\"size\":%u,\"fingerprint_fnv1a32\":\"BD91FCF1\"},"
+        "{\"role\":\"opening-track-7\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":36066,\"size\":%u,\"fingerprint_fnv1a32\":\"69F85EC2\"},"
+        "{\"role\":\"period-stinger-8\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":40467,\"size\":%u,\"fingerprint_fnv1a32\":\"8122C6CF\"}],"
+        "\"native_contract\":{\"payload_size\":%u,\"payload_fingerprint_fnv1a32\":\"%08X\","
+        "\"tracks\":[5,6,7,8],\"channels\":[\"pulse1\",\"pulse2\",\"triangle\",\"noise\"],"
+        "\"voice_count\":%u,\"pitch_count\":75,\"instruction_count\":%u,"
+        "\"semantic_instructions\":[\"note\",\"voice\",\"legato\",\"pitch_delta\",\"rest\",\"bounded_loop\",\"phrase_scope\",\"resolved_call\",\"return\",\"end\"],"
+        "\"channel_loop_state_count\":1,"
+        "\"runtime_raw_pointer_or_opcode_dependency\":false,"
+        "\"tick_rate\":\"39375000/655171\",\"sample_rate\":44100,"
+        "\"opening_queue_to_clear_ticks\":2614,"
+        "\"opening_tick_boundary\":\"F7EE-consume-through-first-063E-zero-inclusive\","
+        "\"queue_semantics\":\"pending-until-next-audio-tick\","
+        "\"envelope_phase_transition\":\"same-tick-fallthrough\","
+        "\"game_music_setting\":\"gates-future-track-5-only\"}}",
+        prefix, TECMO_ASSET_PACK_MUSIC_ID,
+        (unsigned long long)p->source_offset,
+        (unsigned long long)p->directory_offset,
+        (unsigned long long)p->engine_offset,
+        (unsigned long long)p->pitch_offset,
+        (unsigned long long)p->track_offsets[0], p->track_sizes[0],
+        (unsigned long long)p->track_offsets[1], p->track_sizes[1],
+        (unsigned long long)p->track_offsets[2], p->track_sizes[2],
+        (unsigned long long)p->track_offsets[3], p->track_sizes[3],
+        p->payload_size, p->payload_fingerprint,
+        (unsigned)p->voice_count, p->instruction_count);
+}
+
 char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    uint32_t trainer_bytes,
                                    uint32_t prg_banks,
@@ -932,9 +979,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoTitleProvenance title_provenance[2],
                                    const TecmoStartGameMenuProvenance *start_menu_provenance,
                                    const TecmoPreseasonMenuProvenance *preseason_provenance,
+                                   const TecmoMusicProvenance *music_provenance,
                                    size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 14U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 15U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -1132,7 +1180,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                             &first_logical, start_menu_provenance) != 0) ||
         (preseason_provenance->flow_offset != 0U &&
          append_preseason_source_map_entry(source_map, capacity, &length,
-                                           &first_logical, preseason_provenance) != 0)) {
+                                           &first_logical, preseason_provenance) != 0) ||
+        (music_provenance->payload_size != 0U &&
+         append_music_source_map_entry(source_map, capacity, &length,
+                                       &first_logical, music_provenance) != 0)) {
         free(source_map);
         return NULL;
     }
@@ -1143,7 +1194,7 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                     "\n"
                     "  ],\n"
                     "  \"input_contract\":\"ines-only\",\n"
-                    "  \"logical_entry_note\":\"ROM-only pack with sanitized native opening and arena intro entries; no decomp, capture, or loose-file entries are imported\"\n"
+                    "  \"logical_entry_note\":\"ROM-only pack with sanitized native scene, menu, and semantic music entries; no decomp, capture, or loose-file entries are imported\"\n"
                     "}\n") != 0) {
         free(source_map);
         return NULL;

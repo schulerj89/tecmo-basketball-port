@@ -2,6 +2,7 @@
 #define TECMO_ASSET_PACK_SOURCE_MAP_H
 
 #include "tecmo_asset_pack_import_layout.h"
+#include "tecmo_asset_pack_music.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -22,6 +23,7 @@ char *tecmo_asset_pack_build_ines_source_map(
     const TecmoTitleProvenance title_provenance[2],
     const TecmoStartGameMenuProvenance *start_menu_provenance,
     const TecmoPreseasonMenuProvenance *preseason_provenance,
+    const TecmoMusicProvenance *music_provenance,
     size_t *source_map_size_out);
 
 #endif

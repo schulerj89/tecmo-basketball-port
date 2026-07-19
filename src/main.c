@@ -1,6 +1,7 @@
 #include "asm_inventory.h"
 #include "png_writer.h"
 #include "tecmo_asset_pack.h"
+#include "tecmo_audio_output.h"
 #include "tecmo_bank07.h"
 #include "tecmo_game.h"
 #include "tecmo_intro_arena_scene.h"
@@ -27,6 +28,7 @@ static void print_usage(const char *program)
     printf("  --flow-test             Run headless native menu/play/quit flow checks\n");
     printf("  --controls-test         Run portable held/pressed/released control-state checks\n");
     printf("  --bank07-test           Run fixed-bank helper C counterpart checks\n");
+    printf("  --music-test            Run strict TMUS parser/sequencer/synth checks\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
     printf("  --render-test-mode MODE PATH  Render boot-title, native start-game menu, intro scenes (arena through finale/title frameN), play, or probe modes to PNG\n");
@@ -471,6 +473,22 @@ int main(int argc, char **argv)
             return 1;
         }
         printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--music-test") == 0) {
+        char message[256];
+        char output_message[64];
+        if (!tecmo_music_self_test(root, message, sizeof(message))) {
+            printf("Music test failed: %s\n", message);
+            return 1;
+        }
+        if (!tecmo_audio_output_self_test(output_message,
+                                          sizeof(output_message))) {
+            printf("Music output test failed: %s\n", output_message);
+            return 1;
+        }
+        printf("%s %s\n", message, output_message);
         return 0;
     }
 

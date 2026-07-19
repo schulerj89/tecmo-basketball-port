@@ -84,6 +84,8 @@ out of unrelated commits unless the user explicitly asks to commit them.
 .\build.ps1
 .\build\tecmo_port.exe --bank07-test
 .\build\tecmo_port.exe --controls-test
+.\build\tecmo_port.exe --music-test
+.\tools\Run-MusicTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --flow-test
 .\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode menu build\main_menu_test.png
 .\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-composite-preset build\intro_composite_preset_test.png
@@ -329,6 +331,41 @@ overlap as a native cleanup.
 Missing, malformed, cross-pack, or out-of-range menu data must remain a native
 render failure; captures under `temp-videos` and FCEUX/Lua screenshots, logs,
 states, PPU/OAM dumps, and traces are verification material only.
+
+Opening music is native and ROM-only. The importer emits `audio/music` as the
+strict 36784-byte TMUS-1 payload (FNV1a32 `05C00ECB`) for requested music IDs
+5, 6, 7, and 8: gameplay, presentation, opening, and period stinger. It
+compiles Bank04's bounded music graph into 2251 native semantic instructions
+(`note`, voice/envelope selection, legato, pitch delta, rest, bounded loop,
+resolved call/return, and end), deduplicates 37 voices, and imports 75 fixed-bank
+periods. Each channel retains the engine's single live `$C0` loop counter;
+separate commands do not receive artificial persistent counters. Runtime does
+not retain or interpret 6502 addresses, phrase pointers,
+or raw music opcodes. Import fingerprints cover Bank04 `$8AA4-$9F05`, its
+18-byte directory at `$8CD0`, fixed `$F2F2-$F9D0`, the period table at
+`$F93B-$F9D0`, and each requested track range. The sanitized source map records
+those ranges; no ASM, decompilation file, trace, capture, video, log, screenshot,
+state, or dump is an input.
+
+The native sequencer advances at exact NTSC cadence `39375000/655171`
+(approximately 60.0988 ticks per second) from the audio sample clock, not the
+render loop or the GAME SPEED menu value. Opening ID 7 is queued once when the
+rabbit/TECMO mode begins, lasts exactly 2614 native ticks (43.4950 seconds), and
+is not restarted at title or menu handoffs. That count is inclusive from fixed
+`$F7EE` consuming queued ID 7 through the first NMI with active mask `$063E=0`.
+GAME MUSIC only gates
+future ID-5 queues; accepting OFF does not preview, stop the current song, or
+act as a global mute. The current synth implements the requested pulse 1,
+pulse 2, triangle, and noise channels with native pitch, duty, and envelope
+state; DMC and cycle-level nonlinear NES APU mixing are outside this boundary.
+Win32 uses a 44.1 kHz mono 16-bit `waveOut` ring of eight 1024-sample buffers.
+The opening is queued before that ring is filled, so its first buffer begins
+normally; a later track request can have up to 8192 queued samples (185.8 ms)
+ahead of it. Device and asset failures produce an explicit silent fallback.
+The device-failure fallback deliberately freezes sequencer state; focused tests
+use the same renderer as a deterministic advancing null sink. Missing, oversized,
+malformed, or wrong-revision TMUS-1 data must never crash startup or fall back
+to loose/private sources.
 
 Finale provenance is the raw Bank04 chain `$851C` wait 50 -> `$83EA` wait 30
 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 -> `$FFFF`, loading

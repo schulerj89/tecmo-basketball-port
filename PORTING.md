@@ -381,6 +381,41 @@ The seven-tile MUSIC overlay intentionally preserves the original visible
 `SIC` suffix from the underlying `GAME MUSIC` row. This overlap was confirmed
 against bounded emulator evidence and is not a text-composition defect.
 
+Native audio now begins at the opening. The ROM importer emits `audio/music`
+as TMUS-1, a strict semantic asset for music IDs 5 (gameplay), 6
+(presentation), 7 (opening), and 8 (period stinger). The exact payload is 36784
+bytes / FNV1a32 `05C00ECB`, with 37 deduplicated voices, 75 imported pitch
+periods, and 2251 native instructions. Notes, rests, voices/envelopes, legato,
+signed pitch deltas, bounded loops, and resolved phrase calls/returns are C
+concepts at runtime. `$C0` retains one live loop counter per channel, matching
+the fixed engine rather than assigning persistent state per command. ROM
+addresses, pointers, and raw engine opcodes are not.
+Rev1 validation covers Bank04 `$8AA4-$9F05` (`06F2A750`), directory
+`$8CD0-$8CE1` (`59366EC4`), requested tracks 5/6/7/8 (`1270498B`, `BD91FCF1`,
+`69F85EC2`, `8122C6CF`), fixed engine `$F2F2-$F9D0` (`FC6A0BC1`), and period
+table `$F93B-$F9D0` (`3F5A394D`). Only the ROM and resulting asset pack are
+runtime inputs.
+
+Sequencing uses the NTSC rational cadence `39375000/655171` from the 44.1 kHz
+audio sample clock, independently of frame rendering and GAME SPEED. ID 7 is
+queued exactly once on entry to the rabbit/TECMO opening and continues through
+the existing title/menu transitions without a restart; its imported program
+ends after 2614 inclusive ticks (43.4950 seconds), measured from fixed `$F7EE`
+consuming queued ID 7 through the first NMI where active mask `$063E` clears.
+The MUSIC setting only
+allows or rejects future ID-5 queues. OFF does not stop an active song, preview
+a choice, or globally mute IDs 6-8. The current native synthesizer covers the
+two pulse voices, triangle, and noise with imported pitch/duty/envelope state;
+there is no DMC or claim of cycle-level nonlinear APU fidelity yet. Win32 feeds
+44.1 kHz mono 16-bit PCM through eight 1024-sample `waveOut` buffers. Opening
+music is queued before the ring fill; later track changes can sit behind at most
+8192 queued samples (185.8 ms). A missing device or rejected TMUS-1 asset remains
+a clean silent runtime. Device failure deliberately freezes sequencer state;
+focused tests also exercise the renderer as a deterministic advancing null
+sink. Loose decompilation,
+FCEUX/Lua output, captures, frames, screenshots, logs, states, dumps, and
+`temp-videos` are never audio dependencies.
+
 The importer validates the raw finale dispatch chain as `$851C` wait 50 ->
 `$83EA` wait 30 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 ->
 `$FFFF`, with screens `$1C`, `$20`, `$1F`, `$22`, and `$2D`. Selector 2 uses
@@ -416,7 +451,9 @@ Normal gates should stay close to:
 .\build\tecmo_port.exe --bank07-test
 .\build\tecmo_port.exe --controls-test
 .\build\tecmo_port.exe --assetpack-test
+.\build\tecmo_port.exe --music-test
 .\tools\Run-AssetPackTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-MusicTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-IntroSequenceTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-Win32LaunchSmokeTest.ps1 -Build
 ```

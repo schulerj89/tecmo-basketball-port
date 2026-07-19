@@ -235,6 +235,8 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
     (void)tecmo_title_asset_load(&runtime->title_asset, project_root);
     (void)tecmo_start_game_menu_asset_load(&runtime->start_game_menu_asset, project_root);
     (void)tecmo_preseason_asset_load(&runtime->preseason_asset, project_root);
+    (void)tecmo_music_asset_load(&runtime->music_asset, project_root);
+    tecmo_music_player_init(&runtime->music_player, &runtime->music_asset);
 
     if (tecmo_collect_rosters(project_root, &runtime->roster) != 0) {
         if (!allow_empty_roster) {
@@ -317,7 +319,9 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
     }
 
     runtime->mode = TECMO_MODE_MAIN_MENU;
-    runtime->frame_seconds = 1.0f / 60.0f;
+    runtime->frame_seconds = (float)(
+        (double)TECMO_MUSIC_TICK_DENOMINATOR /
+        (double)TECMO_MUSIC_TICK_NUMERATOR);
     runtime->player_x = 320.0f;
     runtime->player_y = 260.0f;
     runtime->ball_x = runtime->player_x + 14.0f;
@@ -332,6 +336,7 @@ bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const ch
 
 void tecmo_runtime_shutdown(TecmoRuntime *runtime)
 {
+    tecmo_music_asset_shutdown(&runtime->music_asset);
     tecmo_free_buffer(runtime->title_chr_bytes);
     runtime->title_chr_bytes = NULL;
     runtime->title_chr_byte_count = 0;
@@ -356,6 +361,7 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
         runtime->intro_output_step = TECMO_INTRO_OUTPUT_TITLE_STEP;
         runtime->intro_handoff_complete = false;
         runtime->intro_next_screen = 0U;
+        (void)tecmo_music_queue_opening_once(&runtime->music_player);
     }
     if (mode == TECMO_MODE_TITLE_SCREEN) {
         runtime->title_start_armed = false;
@@ -366,6 +372,8 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
         runtime->start_menu_return_pending = false;
         runtime->start_menu_input_neutral_gate = false;
         tecmo_start_game_menu_state_init(&runtime->start_game_menu_state);
+        runtime->start_game_menu_state.music_value =
+            runtime->music_player.game_music_enabled ? 1U : 0U;
     }
     if (mode == TECMO_MODE_PRESEASON_MENU) {
         tecmo_preseason_state_init(&runtime->preseason_state);
@@ -508,6 +516,7 @@ static void update_title_screen(TecmoRuntime *runtime, const TecmoControlFrame *
 static void update_start_game_menu(TecmoRuntime *runtime,
                                    const TecmoControlFrame *controls)
 {
+    uint8_t prior_music_value;
     TecmoStartGameMenuAction action;
 
     if (runtime->start_menu_input_neutral_gate) {
@@ -519,9 +528,15 @@ static void update_start_game_menu(TecmoRuntime *runtime,
         }
         return;
     }
+    prior_music_value = runtime->start_game_menu_state.music_value;
     action = tecmo_start_game_menu_update(&runtime->start_game_menu_state,
                                           &runtime->start_game_menu_asset,
                                           controls);
+    if (runtime->start_game_menu_state.music_value != prior_music_value) {
+        tecmo_music_set_game_music_enabled(
+            &runtime->music_player,
+            runtime->start_game_menu_state.music_value != 0U);
+    }
     if (action == TECMO_START_GAME_MENU_ACTION_PLAY_SETUP) {
         if (runtime->normal_play_active) {
             remember_start_game_menu_return(runtime);

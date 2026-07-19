@@ -302,6 +302,7 @@ function Get-KnownLogicalAssetPackEntries {
         "title/start-screen",
         "menu/start-game",
         "menu/preseason",
+        "audio/music",
         "roster/table.tsv",
         "title/original-text.txt",
         "title/glyph-map.tsv",
@@ -345,6 +346,7 @@ function Get-ExpectedLogicalAssetPackEntries {
             "title/start-screen"
             "menu/start-game"
             "menu/preseason"
+            "audio/music"
         )
         capture_sources_present = @()
     }
@@ -2442,6 +2444,53 @@ try {
                     raw_asset_bytes_persisted = $false
                 })
 
+                $MusicBytes = Read-AssetPackEntryBytes -Path $AssetPackPath `
+                    -Directory $Directory -EntryId "audio/music"
+                $MusicFingerprint = Get-Fnv1a32Hex -Bytes $MusicBytes
+                $MusicHeaderExact = $MusicBytes.Length -eq 36784 -and
+                    [System.Text.Encoding]::ASCII.GetString($MusicBytes, 0, 4) -eq "TMUS" -and
+                    [System.BitConverter]::ToUInt16($MusicBytes, 4) -eq 1 -and
+                    [System.BitConverter]::ToUInt16($MusicBytes, 6) -eq 128 -and
+                    [System.BitConverter]::ToUInt32($MusicBytes, 8) -eq 36784 -and
+                    ("{0:X8}" -f [System.BitConverter]::ToUInt32($MusicBytes, 12)) -eq "06F2A750" -and
+                    ("{0:X8}" -f [System.BitConverter]::ToUInt32($MusicBytes, 16)) -eq "FC6A0BC1" -and
+                    ("{0:X8}" -f [System.BitConverter]::ToUInt32($MusicBytes, 20)) -eq "59366EC4" -and
+                    ("{0:X8}" -f [System.BitConverter]::ToUInt32($MusicBytes, 24)) -eq "3F5A394D" -and
+                    [System.BitConverter]::ToUInt16($MusicBytes, 28) -eq 4 -and
+                    [System.BitConverter]::ToUInt16($MusicBytes, 30) -eq 4 -and
+                    [System.BitConverter]::ToUInt16($MusicBytes, 32) -eq 37 -and
+                    [System.BitConverter]::ToUInt16($MusicBytes, 34) -eq 75 -and
+                    [System.BitConverter]::ToUInt16($MusicBytes, 36) -eq 48 -and
+                    [System.BitConverter]::ToUInt16($MusicBytes, 38) -eq 8 -and
+                    [System.BitConverter]::ToUInt16($MusicBytes, 40) -eq 16 -and
+                    [System.BitConverter]::ToUInt16($MusicBytes, 42) -eq 1 -and
+                    [System.BitConverter]::ToUInt32($MusicBytes, 44) -eq 44100 -and
+                    [System.BitConverter]::ToUInt32($MusicBytes, 48) -eq 39375000 -and
+                    [System.BitConverter]::ToUInt32($MusicBytes, 52) -eq 655171 -and
+                    [System.BitConverter]::ToUInt32($MusicBytes, 56) -eq 128 -and
+                    [System.BitConverter]::ToUInt32($MusicBytes, 60) -eq 320 -and
+                    [System.BitConverter]::ToUInt32($MusicBytes, 64) -eq 616 -and
+                    [System.BitConverter]::ToUInt32($MusicBytes, 68) -eq 768 -and
+                    [System.BitConverter]::ToUInt32($MusicBytes, 72) -eq 2251 -and
+                    [System.BitConverter]::ToUInt16($MusicBytes, 76) -eq 1 -and
+                    [System.BitConverter]::ToUInt16($MusicBytes, 78) -eq 0 -and
+                    (@($MusicBytes[96..99] | ForEach-Object { [int]$_ }) -join ",") -eq "5,6,7,8" -and
+                    @($MusicBytes[100..127] | Where-Object { $_ -ne 0 }).Count -eq 0
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-native-music"
+                    passed = $MusicHeaderExact -and $MusicFingerprint -eq "05C00ECB"
+                    format = if ($MusicBytes.Length -ge 4) {
+                        [System.Text.Encoding]::ASCII.GetString($MusicBytes, 0, 4)
+                    } else { "" }
+                    byte_count = $MusicBytes.Length
+                    tracks = if ($MusicBytes.Length -ge 100) { @($MusicBytes[96..99]) } else { @() }
+                    instruction_count = if ($MusicBytes.Length -ge 76) {
+                        [System.BitConverter]::ToUInt32($MusicBytes, 72)
+                    } else { 0 }
+                    payload_fingerprint_fnv1a32 = $MusicFingerprint
+                    raw_asset_bytes_persisted = $false
+                })
+
                 $FinaleBytes = Read-AssetPackEntryBytes -Path $AssetPackPath -Directory $Directory -EntryId "intro/finale-sequence"
                 $FinaleContract = Test-FinalePayloadContract -Bytes $FinaleBytes -ChrByteCount ([uint64]$ExpectedChrBanks * 8192)
                 Add-TestResult ([pscustomobject]@{
@@ -2847,6 +2896,84 @@ try {
                     passed = $PreseasonSourcePassed
                     roles = $PreseasonRoles
                     runtime_dependencies = $PreseasonDependencies
+                    raw_asset_bytes_persisted = $false
+                })
+
+                $MusicSource = @($SourceMap.logical_entries | Where-Object {
+                    $_.id -eq "audio/music"
+                } | Select-Object -First 1)
+                $MusicRoles = @($MusicSource.sources | ForEach-Object { [string]$_.role })
+                $ExpectedMusicRoles = @(
+                    "audio-bank-range", "music-directory", "native-audio-engine",
+                    "period-table", "gameplay-track-5", "presentation-track-6",
+                    "opening-track-7", "period-stinger-8"
+                )
+                $MusicBankBase = [uint64]($OpeningPrgStart + 4 * 0x4000)
+                $MusicSourceByRole = @{}
+                foreach ($Source in @($MusicSource.sources)) {
+                    $MusicSourceByRole[[string]$Source.role] = $Source
+                }
+                $MusicSourcePassed = $MusicSource.Count -eq 1 -and
+                    $MusicSource.schema -eq "tecmo.music/TMUS-1" -and
+                    $MusicSource.input_contract -eq "ines-only" -and
+                    (@(Compare-Object $ExpectedMusicRoles $MusicRoles)).Count -eq 0 -and
+                    [uint64]($MusicSourceByRole["audio-bank-range"].source_offset) -eq
+                        ($MusicBankBase + (0x8AA4 - 0x8000)) -and
+                    [int]($MusicSourceByRole["audio-bank-range"].size) -eq 5218 -and
+                    $MusicSourceByRole["audio-bank-range"].fingerprint_fnv1a32 -eq "06F2A750" -and
+                    [uint64]($MusicSourceByRole["music-directory"].source_offset) -eq
+                        ($MusicBankBase + (0x8CD0 - 0x8000)) -and
+                    [int]($MusicSourceByRole["music-directory"].size) -eq 18 -and
+                    $MusicSourceByRole["music-directory"].fingerprint_fnv1a32 -eq "59366EC4" -and
+                    [uint64]($MusicSourceByRole["native-audio-engine"].source_offset) -eq
+                        ($OpeningFixedStart + (0xF2F2 - 0xC000)) -and
+                    [int]($MusicSourceByRole["native-audio-engine"].size) -eq 1759 -and
+                    $MusicSourceByRole["native-audio-engine"].fingerprint_fnv1a32 -eq "FC6A0BC1" -and
+                    [uint64]($MusicSourceByRole["period-table"].source_offset) -eq
+                        ($OpeningFixedStart + (0xF93B - 0xC000)) -and
+                    [int]($MusicSourceByRole["period-table"].size) -eq 150 -and
+                    $MusicSourceByRole["period-table"].fingerprint_fnv1a32 -eq "3F5A394D" -and
+                    [int]($MusicSourceByRole["gameplay-track-5"].size) -eq 975 -and
+                    $MusicSourceByRole["gameplay-track-5"].fingerprint_fnv1a32 -eq "1270498B" -and
+                    [int]($MusicSourceByRole["presentation-track-6"].size) -eq 1736 -and
+                    $MusicSourceByRole["presentation-track-6"].fingerprint_fnv1a32 -eq "BD91FCF1" -and
+                    [int]($MusicSourceByRole["opening-track-7"].size) -eq 1554 -and
+                    $MusicSourceByRole["opening-track-7"].fingerprint_fnv1a32 -eq "69F85EC2" -and
+                    [int]($MusicSourceByRole["period-stinger-8"].size) -eq 243 -and
+                    $MusicSourceByRole["period-stinger-8"].fingerprint_fnv1a32 -eq "8122C6CF" -and
+                    [int]$MusicSource.native_contract.payload_size -eq 36784 -and
+                    $MusicSource.native_contract.payload_fingerprint_fnv1a32 -eq "05C00ECB" -and
+                    (@($MusicSource.native_contract.tracks) -join ",") -eq "5,6,7,8" -and
+                    (@($MusicSource.native_contract.channels) -join ",") -eq
+                        "pulse1,pulse2,triangle,noise" -and
+                    [int]$MusicSource.native_contract.voice_count -eq 37 -and
+                    [int]$MusicSource.native_contract.pitch_count -eq 75 -and
+                    [int]$MusicSource.native_contract.instruction_count -eq 2251 -and
+                    (@($MusicSource.native_contract.semantic_instructions) -join ",") -eq
+                        "note,voice,legato,pitch_delta,rest,bounded_loop,phrase_scope,resolved_call,return,end" -and
+                    [int]$MusicSource.native_contract.channel_loop_state_count -eq 1 -and
+                    $MusicSource.native_contract.runtime_raw_pointer_or_opcode_dependency -eq $false -and
+                    $MusicSource.native_contract.tick_rate -eq "39375000/655171" -and
+                    [int]$MusicSource.native_contract.sample_rate -eq 44100 -and
+                    [int]$MusicSource.native_contract.opening_queue_to_clear_ticks -eq 2614 -and
+                    $MusicSource.native_contract.opening_tick_boundary -eq
+                        "F7EE-consume-through-first-063E-zero-inclusive" -and
+                    $MusicSource.native_contract.queue_semantics -eq
+                        "pending-until-next-audio-tick" -and
+                    $MusicSource.native_contract.envelope_phase_transition -eq
+                        "same-tick-fallthrough" -and
+                    $MusicSource.native_contract.game_music_setting -eq
+                        "gates-future-track-5-only" -and
+                    @($MusicRoles | Where-Object {
+                        $_ -match "trace|capture|log|screenshot|dump|decomp"
+                    }).Count -eq 0
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-music-source-provenance"
+                    passed = $MusicSourcePassed
+                    roles = $MusicRoles
+                    native_contract = if ($MusicSource.Count -eq 1) {
+                        $MusicSource.native_contract
+                    } else { $null }
                     raw_asset_bytes_persisted = $false
                 })
 

@@ -34,6 +34,7 @@ $Sources = @(
     "src\asset_pack\tecmo_asset_pack_finale.c",
     "src\asset_pack\tecmo_asset_pack_title.c",
     "src\asset_pack\tecmo_asset_pack_opening.c",
+    "src\asset_pack\tecmo_asset_pack_music.c",
     "src\asset_pack\tecmo_asset_pack_post_arena.c",
     "src\asset_pack\tecmo_asset_pack_preseason.c",
     "src\asset_pack\tecmo_asset_pack_reader.c",
@@ -43,6 +44,8 @@ $Sources = @(
     "src\asset_pack\tecmo_asset_pack_writer.c",
     "src\tecmo_bank07.c",
     "src\tecmo_controls.c",
+    "src\tecmo_music.c",
+    "src\tecmo_audio_output.c",
     "src\tecmo_flow_test.c",
     "src\tecmo_intro_stage.c",
     "src\tecmo_nes_video.c",
@@ -68,8 +71,8 @@ $ObjectArgs = ($Sources | ForEach-Object {
 }) -join " "
 $BuildSteps = @(
     "cl /nologo /std:c11 /W4 /I include /c /Fo:$ObjPrefix $SourceArgs",
-    "link /nologo /out:`"$ConsoleExePath`" $ObjectArgs user32.lib gdi32.lib",
-    "link /nologo /subsystem:windows /entry:mainCRTStartup /out:`"$GameExePath`" $ObjectArgs user32.lib gdi32.lib"
+    "link /nologo /out:`"$ConsoleExePath`" $ObjectArgs user32.lib gdi32.lib winmm.lib",
+    "link /nologo /subsystem:windows /entry:mainCRTStartup /out:`"$GameExePath`" $ObjectArgs user32.lib gdi32.lib winmm.lib"
 )
 foreach ($BuildStep in $BuildSteps) {
     $Command = "call `"$VcVars`" >nul && cd /d `"$Root`" && $BuildStep"

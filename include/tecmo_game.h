@@ -12,6 +12,7 @@
 #include "tecmo_intro_stage.h"
 #include "tecmo_intro_trace.h"
 #include "tecmo_memory.h"
+#include "tecmo_music.h"
 #include "tecmo_preseason_menu.h"
 #include "tecmo_start_game_menu.h"
 #include "tecmo_title_screen.h"
@@ -76,6 +77,8 @@ typedef struct TecmoRuntime {
     TecmoStartGameMenuState start_game_menu_state;
     TecmoPreseasonAsset preseason_asset;
     TecmoPreseasonState preseason_state;
+    TecmoMusicAsset music_asset;
+    TecmoMusicPlayer music_player;
     char intro_l88e7_irq_vector[16];
     char intro_presents_data_cpu[16];
     bool intro_trace_available;

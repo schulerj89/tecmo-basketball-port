@@ -12,6 +12,7 @@ set(TECMO_PORT_SOURCES
     src/asset_pack/tecmo_asset_pack_finale.c
     src/asset_pack/tecmo_asset_pack_title.c
     src/asset_pack/tecmo_asset_pack_opening.c
+    src/asset_pack/tecmo_asset_pack_music.c
     src/asset_pack/tecmo_asset_pack_post_arena.c
     src/asset_pack/tecmo_asset_pack_preseason.c
     src/asset_pack/tecmo_asset_pack_reader.c
@@ -21,6 +22,8 @@ set(TECMO_PORT_SOURCES
     src/asset_pack/tecmo_asset_pack_writer.c
     src/tecmo_bank07.c
     src/tecmo_controls.c
+    src/tecmo_music.c
+    src/tecmo_audio_output.c
     src/tecmo_flow_test.c
     src/tecmo_game.c
     src/tecmo_intro_arena.c
@@ -49,14 +52,14 @@ function(configure_tecmo_target target_name)
         C_EXTENSIONS NO
     )
     if(MSVC)
-        target_compile_definitions(${target_name} PRIVATE _CRT_SECURE_NO_WARNINGS)
         target_compile_options(${target_name} PRIVATE /W4)
     else()
         target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic)
+        target_link_libraries(${target_name} PRIVATE m)
     endif()
     if(WIN32)
         target_sources(${target_name} PRIVATE src/win32_platform.c)
-        target_link_libraries(${target_name} PRIVATE user32 gdi32)
+        target_link_libraries(${target_name} PRIVATE user32 gdi32 winmm)
     endif()
 endfunction()
 

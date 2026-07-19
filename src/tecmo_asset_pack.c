@@ -6,6 +6,7 @@
 #include "asset_pack/tecmo_asset_pack_d9f6.h"
 #include "asset_pack/tecmo_asset_pack_finale.h"
 #include "asset_pack/tecmo_asset_pack_import_layout.h"
+#include "asset_pack/tecmo_asset_pack_music.h"
 #include "asset_pack/tecmo_asset_pack_opening.h"
 #include "asset_pack/tecmo_asset_pack_post_arena.h"
 #include "asset_pack/tecmo_asset_pack_preseason.h"
@@ -60,6 +61,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                           TecmoTitleProvenance title_provenance[2],
                                           TecmoStartGameMenuProvenance *start_menu_provenance,
                                           TecmoPreseasonMenuProvenance *preseason_provenance,
+                                          TecmoMusicProvenance *music_provenance,
                                           char *message,
                                           size_t message_size)
 {
@@ -535,6 +537,31 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                      "Could not write native preseason menu entry.");
         return -1;
     }
+    {
+        uint8_t *music_payload = NULL;
+        size_t music_payload_size = 0U;
+        int add_result;
+        if (tecmo_asset_pack_build_music(rom, rom_size, prg_offset, prg_banks,
+                                         1, &music_payload,
+                                         &music_payload_size,
+                                         music_provenance,
+                                         message, message_size) != 0)
+            return -1;
+        entry_info = tecmo_asset_pack_make_entry_info(
+            TECMO_ASSET_PACK_MUSIC_ID, TECMO_ASSET_PACK_TYPE_DATA,
+            TECMO_ASSET_PACK_MUSIC_BANK, TECMO_ASSET_PACK_MUSIC_DIRECTORY_CPU,
+            music_provenance->directory_offset,
+            TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+        add_result = tecmo_asset_pack_builder_add_memory(
+            builder, &entry_info, music_payload, music_payload_size,
+            message, message_size);
+        free(music_payload);
+        if (add_result != 0) {
+            tecmo_asset_pack_set_message(message, message_size,
+                                         "Could not write native music entry.");
+            return -1;
+        }
+    }
     }
 
     return 0;
@@ -570,6 +597,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     TecmoTitleProvenance title_provenance[2];
     TecmoStartGameMenuProvenance start_menu_provenance;
     TecmoPreseasonMenuProvenance preseason_provenance;
+    TecmoMusicProvenance music_provenance;
     int manifest_length;
     int result = -1;
 
@@ -618,7 +646,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                "prg_banks_16k=%u\n"
                                "chr_banks_8k=%u\n"
                                "raw_entry_prefixes=prg/,chr/\n"
-                               "logical_entry_prefixes=arena/intro/,intro/,title/,menu/\n"
+                               "logical_entry_prefixes=arena/intro/,intro/,title/,menu/,audio/\n"
                                "input_contract=ines-only\n",
                                mapper,
                                trainer_bytes,
@@ -735,6 +763,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     memset(title_provenance, 0, sizeof(title_provenance));
     memset(&start_menu_provenance, 0, sizeof(start_menu_provenance));
     memset(&preseason_provenance, 0, sizeof(preseason_provenance));
+    memset(&music_provenance, 0, sizeof(music_provenance));
     if (add_native_arena_intro_entries(builder,
                                        rom,
                                        rom_size,
@@ -751,6 +780,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        title_provenance,
                                        &start_menu_provenance,
                                        &preseason_provenance,
+                                       &music_provenance,
                                        message,
                                        message_size) != 0) {
         goto cleanup;
@@ -771,6 +801,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        title_provenance,
                                        &start_menu_provenance,
                                        &preseason_provenance,
+                                       &music_provenance,
                                        &source_map_size);
     if (source_map == NULL) {
         tecmo_asset_pack_set_message(message, message_size, "Could not build asset pack source map.");

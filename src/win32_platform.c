@@ -1,12 +1,18 @@
 #define WIN32_LEAN_AND_MEAN
 
 #include "tecmo_game.h"
+#include "tecmo_audio_output.h"
 
 #include <windows.h>
 
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+
+_Static_assert(TECMO_MUSIC_TICK_NUMERATOR == 39375000U,
+               "Win32 frame pacing must match the native music cadence");
+_Static_assert(TECMO_MUSIC_TICK_DENOMINATOR == 655171U,
+               "Win32 frame pacing must match the native music cadence");
 
 typedef struct Win32Backbuffer {
     BITMAPINFO info;
@@ -219,6 +225,11 @@ int tecmo_run_win32_game(const char *project_root)
     HWND window = 0;
     LARGE_INTEGER perf_freq;
     LARGE_INTEGER last_counter;
+    LONGLONG next_frame_counter = 0;
+    LONGLONG frame_step_whole = 0;
+    LONGLONG frame_step_fraction = 0;
+    LONGLONG frame_fraction_accumulator = 0;
+    TecmoAudioOutput audio_output;
     TecmoRuntime *runtime = 0;
     TecmoGameMemory game_memory;
     void *permanent_block = 0;
@@ -228,6 +239,7 @@ int tecmo_run_win32_game(const char *project_root)
     int result = 1;
 
     memset(&game_memory, 0, sizeof(game_memory));
+    memset(&audio_output, 0, sizeof(audio_output));
     runtime = (TecmoRuntime *)VirtualAlloc(0,
                                            sizeof(*runtime),
                                            MEM_RESERVE | MEM_COMMIT,
@@ -259,10 +271,23 @@ int tecmo_run_win32_game(const char *project_root)
         goto cleanup;
     }
 
-    QueryPerformanceFrequency(&perf_freq);
-    QueryPerformanceCounter(&last_counter);
+    if (!QueryPerformanceFrequency(&perf_freq) || perf_freq.QuadPart <= 0 ||
+        !QueryPerformanceCounter(&last_counter)) {
+        MessageBoxA(0, "Could not initialize the native frame clock.",
+                    "Tecmo Port", MB_ICONERROR);
+        goto cleanup;
+    }
+    {
+        LONGLONG scaled = perf_freq.QuadPart *
+                          (LONGLONG)TECMO_MUSIC_TICK_DENOMINATOR;
+        frame_step_whole = scaled / (LONGLONG)TECMO_MUSIC_TICK_NUMERATOR;
+        frame_step_fraction = scaled % (LONGLONG)TECMO_MUSIC_TICK_NUMERATOR;
+        next_frame_counter = last_counter.QuadPart + frame_step_whole;
+        frame_fraction_accumulator = frame_step_fraction;
+    }
     tecmo_controls_init(&g_controls[0]);
     tecmo_controls_init(&g_controls[1]);
+    (void)tecmo_audio_output_init(&audio_output, &runtime->music_player);
     g_running = true;
 
     if (g_backbuffer.pixels != 0) {
@@ -279,7 +304,6 @@ int tecmo_run_win32_game(const char *project_root)
     while (g_running) {
         MSG message;
         LARGE_INTEGER now;
-        double elapsed;
 
         while (PeekMessageA(&message, 0, 0, 0, PM_REMOVE)) {
             if (message.message == WM_QUIT) {
@@ -288,21 +312,32 @@ int tecmo_run_win32_game(const char *project_root)
             TranslateMessage(&message);
             DispatchMessageA(&message);
         }
+        tecmo_audio_output_service(&audio_output);
 
         QueryPerformanceCounter(&now);
-        elapsed = (double)(now.QuadPart - last_counter.QuadPart) / (double)perf_freq.QuadPart;
-        if (elapsed < (1.0 / 60.0)) {
-            DWORD sleep_ms = (DWORD)(((1.0 / 60.0) - elapsed) * 1000.0);
+        if (now.QuadPart < next_frame_counter) {
+            double remaining = (double)(next_frame_counter - now.QuadPart) /
+                               (double)perf_freq.QuadPart;
+            DWORD sleep_ms = (DWORD)(remaining * 1000.0);
             if (sleep_ms > 0) {
                 Sleep(sleep_ms);
             }
             continue;
         }
-        last_counter = now;
+        next_frame_counter += frame_step_whole;
+        frame_fraction_accumulator += frame_step_fraction;
+        if (frame_fraction_accumulator >=
+                (LONGLONG)TECMO_MUSIC_TICK_NUMERATOR) {
+            ++next_frame_counter;
+            frame_fraction_accumulator -=
+                (LONGLONG)TECMO_MUSIC_TICK_NUMERATOR;
+        }
 
         tecmo_controls_begin_frame(&g_controls[0]);
         tecmo_controls_begin_frame(&g_controls[1]);
-        runtime->frame_seconds = (float)elapsed;
+        runtime->frame_seconds = (float)(
+            (double)TECMO_MUSIC_TICK_DENOMINATOR /
+            (double)TECMO_MUSIC_TICK_NUMERATOR);
         tecmo_runtime_update_players(runtime,
                                      tecmo_controls_held(&g_controls[0]),
                                      tecmo_controls_held(&g_controls[1]));
@@ -325,6 +360,7 @@ int tecmo_run_win32_game(const char *project_root)
     result = 0;
 
 cleanup:
+    tecmo_audio_output_shutdown(&audio_output);
     if (runtime != 0) {
         tecmo_runtime_shutdown(runtime);
     }
