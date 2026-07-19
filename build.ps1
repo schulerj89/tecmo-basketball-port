@@ -38,6 +38,7 @@ $Sources = @(
     "src\asset_pack\tecmo_asset_pack_music.c",
     "src\asset_pack\tecmo_asset_pack_post_arena.c",
     "src\asset_pack\tecmo_asset_pack_preseason.c",
+    "src\asset_pack\tecmo_asset_pack_season.c",
     "src\asset_pack\tecmo_asset_pack_team_data.c",
     "src\asset_pack\tecmo_asset_pack_team_management.c",
     "src\asset_pack\tecmo_asset_pack_reader.c",

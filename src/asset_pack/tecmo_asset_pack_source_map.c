@@ -1217,6 +1217,91 @@ static int append_team_management_source_map_entry(
         (unsigned)TECMO_ASSET_PACK_TEAM_MANAGEMENT_SIZE);
 }
 
+static int append_season_source_map_entry(char *buffer,
+                                          size_t capacity,
+                                          size_t *length,
+                                          int *first,
+                                          const TecmoSeasonMenuProvenance *p)
+{
+    const char *prefix = *first != 0 ? "" : ",\n";
+    *first = 0;
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "%s"
+        "    {\"id\":\"%s\",\"kind\":\"season-management-native\","
+        "\"schema\":\"tecmo.season/TSNS-1\",\"input_contract\":\"ines-only\","
+        "\"runtime_dependencies\":["
+        "{\"entry\":\"chr/all\",\"size\":262144,\"fingerprint_fnv1a32\":\"F6F6E854\",\"fingerprint_fnv1a64\":\"96A64F53B240ABB4\"},"
+        "{\"entry\":\"menu/team-data\",\"schema\":\"tecmo.team-data/TTDT-1\"}],"
+        "\"sources\":["
+        "{\"role\":\"season-dispatch\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":33715,\"size\":115,\"fingerprint_fnv1a32\":\"FAA5DF69\"},"
+        "{\"role\":\"route-table\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":33818,\"size\":12,\"fingerprint_fnv1a32\":\"2CD2DE1C\"},"
+        "{\"role\":\"leaders-route\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":33830,\"size\":12,\"fingerprint_fnv1a32\":\"5FF8449F\"},"
+        "{\"role\":\"game-start-prelaunch\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":34068,\"size\":133,\"fingerprint_fnv1a32\":\"3A0F404F\"},"
+        "{\"role\":\"game-launch-terminal-unexecuted\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":34201,\"size\":63,\"fingerprint_fnv1a32\":\"E8D5B0AC\"},"
+        "{\"role\":\"game-launch-target-unexecuted\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":45695,\"size\":4,\"fingerprint_fnv1a32\":\"8145527E\"},"
+        "{\"role\":\"team-control-flow\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":35103,\"size\":192,\"fingerprint_fnv1a32\":\"8289F925\"},"
+        "{\"role\":\"standings-and-programmed-editor-flow\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":35349,\"size\":510,\"fingerprint_fnv1a32\":\"8AA17312\"},"
+        "{\"role\":\"schedule-flow\",\"source_entry\":\"prg/bank03\",\"source_offsets\":[%llu,%llu],\"cpu_addresses\":[37799,38266],\"sizes\":[467,904],\"fingerprints_fnv1a32\":[\"ED427D23\",\"A0B59AF2\"]},"
+        "{\"role\":\"popup-records\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":40448,\"size\":198,\"fingerprint_fnv1a32\":\"693C1CB1\"},"
+        "{\"role\":\"font-map\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":39624,\"size\":59,\"fingerprint_fnv1a32\":\"286D27BB\"},"
+        "{\"role\":\"regular-season-schedule\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"cpu_address\":46383,\"size\":2214,\"records\":1107,\"fingerprint_fnv1a32\":\"24112737\"},"
+        "{\"role\":\"season-defaults\",\"source_entry\":\"prg/bank01\",\"source_offset\":%llu,\"cpu_address\":48848,\"size\":79,\"fingerprint_fnv1a32\":\"FF4433C8\"},"
+        "{\"role\":\"cursor-record\",\"source_entry\":\"prg/bank01\",\"source_offset\":%llu,\"cpu_address\":32817,\"size\":5,\"fingerprint_fnv1a32\":\"7D5835D4\",\"resolved_chr_offsets\":[49728,49744]},"
+        "{\"role\":\"sprite-palette\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"cpu_address\":48695,\"size\":16,\"fingerprint_fnv1a32\":\"F85BA74A\"},"
+        "{\"role\":\"leader-label-records\",\"source_entry\":\"prg/bank00\",\"source_offset\":%llu,\"cpu_address\":45896,\"size\":165,\"fingerprint_fnv1a32\":\"7CFF9EFB\"},"
+        "{\"role\":\"fixed-input-helpers\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":55060,\"size\":212,\"fingerprint_fnv1a32\":\"BC71E228\"},"
+        "{\"role\":\"fixed-screen-loader\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":55595,\"size\":492,\"fingerprint_fnv1a32\":\"E07A8EB7\"},"
+        "{\"role\":\"screen-descriptors\",\"source_entry\":\"prg/fixed\",\"source_offsets\":[%llu,%llu,%llu,%llu,%llu],\"cpu_addresses\":[56572,56579,56586,56593,56600],\"size_each\":7,\"fingerprints_fnv1a32\":[\"0D624597\",\"23D90656\",\"4EA1E05B\",\"9373DC72\",\"4EB8B3AB\"]},"
+        "{\"role\":\"screen-streams\",\"source_offsets\":[%llu,%llu,%llu,%llu,%llu],\"encoded_sizes\":[%llu,%llu,%llu,%llu,%llu],\"decoded_sizes\":[2048,1024,2048,1024,2048],\"encoded_fingerprints_fnv1a32\":[\"CE7BD109\",\"4C78CE45\",\"1298E5F8\",\"33EB31D7\",\"3C7D9D61\"]},"
+        "{\"role\":\"screen-palettes\",\"source_offsets\":[%llu,%llu,%llu,%llu,%llu],\"size_each\":16,\"fingerprints_fnv1a32\":[\"B389D1A4\",\"7F07658B\",\"B389D1A4\",\"B389D1A4\",\"B389D1A4\"]},"
+        "{\"role\":\"full-chr\",\"source_entry\":\"chr/all\",\"source_offset\":%llu,\"size\":262144,\"fingerprint_fnv1a32\":\"F6F6E854\",\"fingerprint_fnv1a64\":\"96A64F53B240ABB4\"}],"
+        "\"native_contract\":{\"payload_size\":%u,\"payload_fingerprint_fnv1a32\":\"%08X\",\"screens\":[17,18,19,20,21],\"teams\":27,\"schedule_records\":1107,\"leader_categories\":7,\"terminal\":\"prelaunch-no-gameplay\",\"unexecuted_boundary_cpu\":34201,\"unexecuted_target_cpu\":45695}}",
+        prefix, TECMO_ASSET_PACK_SEASON_MENU_ID,
+        (unsigned long long)p->dispatch_offset,
+        (unsigned long long)p->route_table_offset,
+        (unsigned long long)p->leaders_offset,
+        (unsigned long long)p->game_prelaunch_offset,
+        (unsigned long long)p->game_terminal_offset,
+        (unsigned long long)p->game_launch_target_offset,
+        (unsigned long long)p->team_control_offset,
+        (unsigned long long)p->standings_offset,
+        (unsigned long long)p->schedule_core_offset,
+        (unsigned long long)p->schedule_helpers_offset,
+        (unsigned long long)p->popup_records_offset,
+        (unsigned long long)p->font_offset,
+        (unsigned long long)p->schedule_offset,
+        (unsigned long long)p->defaults_offset,
+        (unsigned long long)p->cursor_offset,
+        (unsigned long long)p->sprite_palette_offset,
+        (unsigned long long)p->leader_records_offset,
+        (unsigned long long)p->fixed_input_offset,
+        (unsigned long long)p->fixed_loader_offset,
+        (unsigned long long)p->descriptor_offsets[0],
+        (unsigned long long)p->descriptor_offsets[1],
+        (unsigned long long)p->descriptor_offsets[2],
+        (unsigned long long)p->descriptor_offsets[3],
+        (unsigned long long)p->descriptor_offsets[4],
+        (unsigned long long)p->stream_offsets[0],
+        (unsigned long long)p->stream_offsets[1],
+        (unsigned long long)p->stream_offsets[2],
+        (unsigned long long)p->stream_offsets[3],
+        (unsigned long long)p->stream_offsets[4],
+        (unsigned long long)p->stream_sizes[0],
+        (unsigned long long)p->stream_sizes[1],
+        (unsigned long long)p->stream_sizes[2],
+        (unsigned long long)p->stream_sizes[3],
+        (unsigned long long)p->stream_sizes[4],
+        (unsigned long long)p->palette_offsets[0],
+        (unsigned long long)p->palette_offsets[1],
+        (unsigned long long)p->palette_offsets[2],
+        (unsigned long long)p->palette_offsets[3],
+        (unsigned long long)p->palette_offsets[4],
+        (unsigned long long)p->chr_offset,
+        (unsigned)TECMO_ASSET_PACK_SEASON_SIZE,
+        (unsigned)TECMO_ASSET_PACK_SEASON_FNV1A32);
+}
+
 char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    uint32_t trainer_bytes,
                                    uint32_t prg_banks,
@@ -1236,9 +1321,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoMusicProvenance *music_provenance,
                                    const TecmoTeamDataProvenance *team_data_provenance,
                                    const TecmoTeamManagementProvenance *team_management_provenance,
+                                   const TecmoSeasonMenuProvenance *season_provenance,
                                    size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 17U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 18U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -1449,7 +1535,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
         (team_management_provenance->starters_flow_offset != 0U &&
          append_team_management_source_map_entry(
              source_map, capacity, &length, &first_logical,
-             team_management_provenance) != 0)) {
+             team_management_provenance) != 0) ||
+        (season_provenance->dispatch_offset != 0U &&
+         append_season_source_map_entry(source_map, capacity, &length,
+                                        &first_logical, season_provenance) != 0)) {
         free(source_map);
         return NULL;
     }
