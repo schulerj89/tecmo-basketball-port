@@ -45,6 +45,61 @@ static void close_backend(Win32AudioBackend *backend)
 }
 #endif
 
+static void render_silence(int16_t *samples, size_t sample_count)
+{
+    if (samples != NULL)
+        memset(samples, 0, sample_count * sizeof(*samples));
+}
+
+void tecmo_audio_output_clear_gameplay_player(TecmoAudioOutput *output)
+{
+    if (output == NULL) return;
+    output->gameplay_player = NULL;
+    output->gameplay_asset = NULL;
+}
+
+bool tecmo_audio_output_select_gameplay_player(
+    TecmoAudioOutput *output, TecmoGameplayAudioPlayer *gameplay_player)
+{
+    if (output == NULL || gameplay_player == NULL ||
+        gameplay_player->asset == NULL ||
+        !gameplay_player->asset->available ||
+        gameplay_player->music != output->player)
+        return false;
+    output->gameplay_player = gameplay_player;
+    output->gameplay_asset = gameplay_player->asset;
+    return true;
+}
+
+TecmoAudioOutputRenderSource tecmo_audio_output_render_samples(
+    TecmoAudioOutput *output, int16_t *samples, size_t sample_count)
+{
+    TecmoGameplayAudioPlayer *gameplay_player;
+    if (output == NULL) {
+        render_silence(samples, sample_count);
+        return TECMO_AUDIO_OUTPUT_RENDER_SILENCE;
+    }
+    gameplay_player = output->gameplay_player;
+    if (gameplay_player != NULL) {
+        if (gameplay_player->asset == output->gameplay_asset &&
+            output->gameplay_asset != NULL &&
+            output->gameplay_asset->available &&
+            gameplay_player->music == output->player) {
+            tecmo_gameplay_audio_render_samples(gameplay_player, samples,
+                                                sample_count);
+            return TECMO_AUDIO_OUTPUT_RENDER_GAMEPLAY;
+        }
+        tecmo_audio_output_clear_gameplay_player(output);
+    }
+    if (output->player != NULL && output->player->asset != NULL &&
+        output->player->asset->available) {
+        tecmo_music_render_samples(output->player, samples, sample_count);
+        return TECMO_AUDIO_OUTPUT_RENDER_MUSIC;
+    }
+    render_silence(samples, sample_count);
+    return TECMO_AUDIO_OUTPUT_RENDER_SILENCE;
+}
+
 bool tecmo_audio_output_init(TecmoAudioOutput *output,
                              TecmoMusicPlayer *player)
 {
@@ -87,8 +142,8 @@ bool tecmo_audio_output_init(TecmoAudioOutput *output,
         }
         for (i = 0U; i < AUDIO_BUFFER_COUNT; ++i) {
             WAVEHDR *header = &backend->headers[i];
-            tecmo_music_render_samples(player, backend->samples[i],
-                                       AUDIO_BUFFER_SAMPLES);
+            (void)tecmo_audio_output_render_samples(
+                output, backend->samples[i], AUDIO_BUFFER_SAMPLES);
             header->lpData = (LPSTR)backend->samples[i];
             header->dwBufferLength = sizeof(backend->samples[i]);
             if (waveOutPrepareHeader(backend->device, header,
@@ -128,14 +183,13 @@ void tecmo_audio_output_service(TecmoAudioOutput *output)
 #ifdef _WIN32
     Win32AudioBackend *backend;
     unsigned i;
-    if (output == NULL || !output->active || output->platform == NULL ||
-        output->player == NULL) return;
+    if (output == NULL || !output->active || output->platform == NULL) return;
     backend = (Win32AudioBackend *)output->platform;
     for (i = 0U; i < AUDIO_BUFFER_COUNT; ++i) {
         WAVEHDR *header = &backend->headers[i];
         if ((header->dwFlags & WHDR_DONE) == 0U) continue;
-        tecmo_music_render_samples(output->player, backend->samples[i],
-                                   AUDIO_BUFFER_SAMPLES);
+        (void)tecmo_audio_output_render_samples(
+            output, backend->samples[i], AUDIO_BUFFER_SAMPLES);
         if (waveOutWrite(backend->device, header,
                          sizeof(*header)) != MMSYSERR_NOERROR) {
             output->active = false;
@@ -161,10 +215,140 @@ void tecmo_audio_output_shutdown(TecmoAudioOutput *output)
 
 bool tecmo_audio_output_self_test(char *message, size_t message_size)
 {
+    const size_t render_count = AUDIO_BUFFER_SAMPLES;
+    const uint64_t tick_threshold =
+        (uint64_t)TECMO_MUSIC_SAMPLE_RATE * TECMO_MUSIC_TICK_DENOMINATOR;
+    const uint64_t render_numerator =
+        (uint64_t)render_count * TECMO_MUSIC_TICK_NUMERATOR;
+    TecmoMusicAsset music_asset;
+    TecmoMusicAsset unavailable_music_asset;
+    TecmoGameplayAudioAsset gameplay_asset;
+    TecmoGameplayAudioAsset unavailable_gameplay_asset;
     TecmoMusicPlayer player;
-    TecmoMusicPlayer before;
+    TecmoMusicPlayer other_player;
+    TecmoMusicPlayer frozen_before;
+    TecmoGameplayAudioPlayer gameplay_player;
+    TecmoGameplayAudioPlayer other_gameplay_player;
+    TecmoGameplayAudioPlayer unavailable_gameplay_player;
     TecmoAudioOutput output;
+    TecmoAudioOutput silent_output;
+    int16_t samples[AUDIO_BUFFER_SAMPLES];
+    uint64_t gameplay_accumulator;
+    uint64_t music_accumulator;
+    uint64_t music_ticks;
+    bool selection_ok;
+    bool once_only;
+    bool switching_ok;
+    bool fallback_ok;
+    bool silence_ok;
+    bool lifecycle_ok;
     bool frozen;
+    bool all_ok;
+
+    memset(&music_asset, 0, sizeof(music_asset));
+    music_asset.available = true;
+    music_asset.sample_rate = TECMO_MUSIC_SAMPLE_RATE;
+    music_asset.tick_numerator = TECMO_MUSIC_TICK_NUMERATOR;
+    music_asset.tick_denominator = TECMO_MUSIC_TICK_DENOMINATOR;
+    memset(&unavailable_music_asset, 0, sizeof(unavailable_music_asset));
+    memset(&gameplay_asset, 0, sizeof(gameplay_asset));
+    gameplay_asset.available = true;
+    gameplay_asset.revision_token = 0x12345678U;
+    memset(&unavailable_gameplay_asset, 0,
+           sizeof(unavailable_gameplay_asset));
+
+    tecmo_music_player_init(&player, &music_asset);
+    tecmo_music_player_init(&other_player, &music_asset);
+    tecmo_gameplay_audio_player_init(&gameplay_player, &gameplay_asset,
+                                     &player);
+    tecmo_gameplay_audio_player_init(&other_gameplay_player, &gameplay_asset,
+                                     &other_player);
+    tecmo_gameplay_audio_player_init(&unavailable_gameplay_player,
+                                     &unavailable_gameplay_asset, &player);
+    memset(&output, 0, sizeof(output));
+    output.player = &player;
+
+    selection_ok =
+        !tecmo_audio_output_select_gameplay_player(&output, NULL) &&
+        !tecmo_audio_output_select_gameplay_player(
+            &output, &unavailable_gameplay_player) &&
+        !tecmo_audio_output_select_gameplay_player(
+            &output, &other_gameplay_player) &&
+        tecmo_audio_output_select_gameplay_player(&output,
+                                                  &gameplay_player);
+    memset(samples, 0x7F, sizeof(samples));
+    once_only =
+        tecmo_audio_output_render_samples(&output, samples, render_count) ==
+            TECMO_AUDIO_OUTPUT_RENDER_GAMEPLAY &&
+        player.sample_tick_accumulator == render_numerator % tick_threshold &&
+        player.ticks_elapsed == render_numerator / tick_threshold &&
+        gameplay_player.sample_tick_accumulator ==
+            render_numerator % tick_threshold &&
+        gameplay_player.ticks_elapsed == render_numerator / tick_threshold;
+
+    gameplay_accumulator = gameplay_player.sample_tick_accumulator;
+    tecmo_audio_output_clear_gameplay_player(&output);
+    switching_ok =
+        output.gameplay_player == NULL && output.gameplay_asset == NULL &&
+        tecmo_audio_output_render_samples(&output, NULL, render_count) ==
+            TECMO_AUDIO_OUTPUT_RENDER_MUSIC &&
+        gameplay_player.sample_tick_accumulator == gameplay_accumulator &&
+        player.sample_tick_accumulator ==
+            (render_numerator * 2U) % tick_threshold &&
+        player.ticks_elapsed == (render_numerator * 2U) / tick_threshold;
+
+    selection_ok = selection_ok &&
+        tecmo_audio_output_select_gameplay_player(&output,
+                                                  &gameplay_player) &&
+        !tecmo_audio_output_select_gameplay_player(
+            &output, &unavailable_gameplay_player) &&
+        output.gameplay_player == &gameplay_player;
+    gameplay_asset.available = false;
+    music_accumulator = player.sample_tick_accumulator;
+    music_ticks = player.ticks_elapsed;
+    gameplay_accumulator = gameplay_player.sample_tick_accumulator;
+    fallback_ok =
+        tecmo_audio_output_render_samples(&output, NULL, 1U) ==
+            TECMO_AUDIO_OUTPUT_RENDER_MUSIC &&
+        output.gameplay_player == NULL && output.gameplay_asset == NULL &&
+        gameplay_player.sample_tick_accumulator == gameplay_accumulator &&
+        (player.sample_tick_accumulator != music_accumulator ||
+         player.ticks_elapsed != music_ticks);
+
+    memset(&silent_output, 0, sizeof(silent_output));
+    memset(samples, 0x7F, sizeof(samples));
+    silence_ok =
+        tecmo_audio_output_render_samples(&silent_output, samples,
+                                          render_count) ==
+            TECMO_AUDIO_OUTPUT_RENDER_SILENCE;
+    if (silence_ok) {
+        size_t index;
+        for (index = 0U; index < render_count; ++index) {
+            if (samples[index] != 0) {
+                silence_ok = false;
+                break;
+            }
+        }
+    }
+    tecmo_music_player_init(&other_player, &unavailable_music_asset);
+    silent_output.player = &other_player;
+    silence_ok = silence_ok &&
+        tecmo_audio_output_render_samples(&silent_output, NULL, 1U) ==
+            TECMO_AUDIO_OUTPUT_RENDER_SILENCE &&
+        tecmo_audio_output_render_samples(NULL, NULL, 1U) ==
+            TECMO_AUDIO_OUTPUT_RENDER_SILENCE;
+
+    gameplay_asset.available = true;
+    selection_ok = selection_ok &&
+        tecmo_audio_output_select_gameplay_player(&output,
+                                                  &gameplay_player);
+    tecmo_audio_output_shutdown(&output);
+    lifecycle_ok = output.platform == NULL && output.player == NULL &&
+        output.gameplay_player == NULL && output.gameplay_asset == NULL &&
+        !output.active && !output.silent_fallback &&
+        tecmo_audio_output_render_samples(&output, NULL, 1U) ==
+            TECMO_AUDIO_OUTPUT_RENDER_SILENCE;
+
     memset(&player, 0, sizeof(player));
     player.sample_tick_accumulator = 1234567U;
     player.ticks_elapsed = 89U;
@@ -172,18 +356,20 @@ bool tecmo_audio_output_self_test(char *message, size_t message_size)
     player.pending_track_id = 5U;
     player.playing = true;
     player.track_pending = true;
-    memset(&before, 0, sizeof(before));
-    before = player;
+    memset(&frozen_before, 0, sizeof(frozen_before));
+    frozen_before = player;
     memset(&output, 0, sizeof(output));
     output.player = &player;
     output.silent_fallback = true;
     tecmo_audio_output_service(&output);
-    frozen = memcmp(&player, &before, sizeof(player)) == 0;
+    frozen = memcmp(&player, &frozen_before, sizeof(player)) == 0;
+    all_ok = selection_ok && once_only && switching_ok && fallback_ok &&
+             silence_ok && lifecycle_ok && frozen;
     if (message != NULL && message_size > 0U) {
         (void)snprintf(message, message_size,
                        "output=%s ring=%ux%u",
-                       frozen ? "frozen-fallback" : "fail",
+                       all_ok ? "frozen-fallback" : "fail",
                        AUDIO_BUFFER_COUNT, AUDIO_BUFFER_SAMPLES);
     }
-    return frozen;
+    return all_ok;
 }

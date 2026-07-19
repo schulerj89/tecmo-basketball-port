@@ -512,8 +512,15 @@ int main(int argc, char **argv)
 
     if (strcmp(command, "--gameplay-audio-test") == 0) {
         char message[512] = {0};
+        char output_message[64];
         if (!tecmo_gameplay_audio_self_test(root, message, sizeof(message))) {
             printf("Gameplay audio test failed: %s\n", message);
+            return 1;
+        }
+        if (!tecmo_audio_output_self_test(output_message,
+                                          sizeof(output_message))) {
+            printf("Gameplay audio output test failed: %s\n",
+                   output_message);
             return 1;
         }
         printf("%s\n", message);
