@@ -7,6 +7,7 @@
 #include "asset_pack/tecmo_asset_pack_d9f6.h"
 #include "asset_pack/tecmo_asset_pack_finale.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_audio.h"
+#include "asset_pack/tecmo_asset_pack_gameplay.h"
 #include "asset_pack/tecmo_asset_pack_import_layout.h"
 #include "asset_pack/tecmo_asset_pack_music.h"
 #include "asset_pack/tecmo_asset_pack_opening.h"
@@ -72,6 +73,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                           TecmoTeamDataProvenance *team_data_provenance,
                                           TecmoTeamManagementProvenance *team_management_provenance,
                                           TecmoSeasonMenuProvenance *season_provenance,
+                                          TecmoGameplayProvenance *gameplay_provenance,
                                           char *message,
                                           size_t message_size)
 {
@@ -94,6 +96,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
     uint8_t team_data_payload[TECMO_ASSET_PACK_TEAM_DATA_SIZE];
     uint8_t team_management_payload[TECMO_ASSET_PACK_TEAM_MANAGEMENT_SIZE];
     uint8_t season_payload[TECMO_ASSET_PACK_SEASON_SIZE];
+    uint8_t gameplay_payload[TECMO_ASSET_PACK_GAMEPLAY_SIZE];
     uint64_t script_source_offset =
         prg_bank_cpu_source_offset(prg_offset,
                                    prg_banks,
@@ -698,6 +701,27 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                      "Could not write native SEASON entry.");
         return -1;
     }
+    if (enforce_finale_revision_fingerprints != 0) {
+        if (tecmo_asset_pack_build_gameplay(
+                rom, rom_size, prg_offset, prg_banks, chr_offset, chr_size,
+                enforce_finale_revision_fingerprints, gameplay_payload,
+                sizeof(gameplay_payload), gameplay_provenance,
+                message, message_size) != 0) {
+            return -1;
+        }
+        entry_info = tecmo_asset_pack_make_entry_info(
+            TECMO_ASSET_PACK_GAMEPLAY_ID, TECMO_ASSET_PACK_TYPE_DATA, 5U,
+            0x81F2U, gameplay_provenance->source_offsets[5],
+            TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+        if (tecmo_asset_pack_builder_add_memory(
+                builder, &entry_info, gameplay_payload,
+                sizeof(gameplay_payload), message, message_size) != 0) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Could not write strict TGPL-1 gameplay entry.");
+            return -1;
+        }
+    }
     }
 
     return 0;
@@ -739,6 +763,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     TecmoTeamDataProvenance team_data_provenance;
     TecmoTeamManagementProvenance team_management_provenance;
     TecmoSeasonMenuProvenance season_provenance;
+    TecmoGameplayProvenance gameplay_provenance;
     int manifest_length;
     int result = -1;
 
@@ -787,7 +812,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                "prg_banks_16k=%u\n"
                                "chr_banks_8k=%u\n"
                                "raw_entry_prefixes=prg/,chr/\n"
-                               "logical_entry_prefixes=arena/intro/,intro/,title/,menu/,audio/\n"
+                               "logical_entry_prefixes=arena/intro/,intro/,title/,menu/,audio/,gameplay/\n"
                                "input_contract=ines-only\n",
                                mapper,
                                trainer_bytes,
@@ -910,6 +935,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     memset(&team_data_provenance, 0, sizeof(team_data_provenance));
     memset(&team_management_provenance, 0, sizeof(team_management_provenance));
     memset(&season_provenance, 0, sizeof(season_provenance));
+    memset(&gameplay_provenance, 0, sizeof(gameplay_provenance));
     if (add_native_arena_intro_entries(builder,
                                        rom,
                                        rom_size,
@@ -932,6 +958,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &team_data_provenance,
                                        &team_management_provenance,
                                        &season_provenance,
+                                       &gameplay_provenance,
                                        message,
                                        message_size) != 0) {
         goto cleanup;
@@ -958,6 +985,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &team_data_provenance,
                                        &team_management_provenance,
                                        &season_provenance,
+                                       &gameplay_provenance,
                                        &source_map_size);
     if (source_map == NULL) {
         tecmo_asset_pack_set_message(message, message_size, "Could not build asset pack source map.");
@@ -2021,6 +2049,9 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         goto cleanup;
     }
     if (tecmo_asset_pack_season_self_test(message, message_size) != 0) {
+        goto cleanup;
+    }
+    if (tecmo_asset_pack_gameplay_self_test(message, message_size) != 0) {
         goto cleanup;
     }
 

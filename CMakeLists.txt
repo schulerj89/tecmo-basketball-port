@@ -10,6 +10,7 @@ set(TECMO_PORT_SOURCES
     src/asset_pack/tecmo_asset_pack_arena.c
     src/asset_pack/tecmo_asset_pack_d9f6.c
     src/asset_pack/tecmo_asset_pack_finale.c
+    src/asset_pack/tecmo_asset_pack_gameplay.c
     src/asset_pack/tecmo_asset_pack_title.c
     src/asset_pack/tecmo_asset_pack_opening.c
     src/asset_pack/tecmo_asset_pack_music.c
@@ -27,6 +28,7 @@ set(TECMO_PORT_SOURCES
     src/tecmo_audio_output.c
     src/tecmo_flow_test.c
     src/tecmo_game.c
+    src/tecmo_gameplay_assets.c
     src/tecmo_intro_arena.c
     src/tecmo_intro_arena_scene.c
     src/tecmo_intro_layout.c

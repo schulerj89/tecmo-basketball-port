@@ -5,6 +5,7 @@
 #include "tecmo_bank07.h"
 #include "tecmo_game.h"
 #include "tecmo_gameplay_audio.h"
+#include "tecmo_gameplay_assets.h"
 #include "tecmo_intro_arena_scene.h"
 #include "tecmo_nes_video.h"
 
@@ -41,6 +42,7 @@ static void print_usage(const char *program)
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --build-assetpack ROM PATH  Build a private .assetpack from an iNES ROM only; no decomp/capture imports\n");
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
+    printf("  --gameplay-assets-test PACK  Validate strict TGPL-1 gameplay assets\n");
     printf("  --assetpack-list PACK  Print an asset-pack directory listing\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -555,6 +557,54 @@ int main(int argc, char **argv)
             return 1;
         }
         printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-assets-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        TecmoGameplayAssets assets;
+        TecmoGameplayResolvedPose pose;
+        const TecmoGameplaySourceSpan *foul;
+        const TecmoGameplaySourceSpan *halftime;
+        unsigned resolved = 0U;
+        memset(&assets, 0, sizeof(assets));
+        if (pack_path == NULL ||
+            !tecmo_gameplay_assets_load(&assets, pack_path)) {
+            printf("Gameplay asset test failed: %s\n",
+                   pack_path != NULL ? assets.status : "PACK path required");
+            tecmo_gameplay_assets_destroy(&assets);
+            return 1;
+        }
+        foul = tecmo_gameplay_assets_find_source(
+            &assets, TECMO_GAMEPLAY_SOURCE_FOUL_OVERLAY);
+        halftime = tecmo_gameplay_assets_find_source(
+            &assets, TECMO_GAMEPLAY_SOURCE_HALFTIME_BANNER);
+        for (unsigned pointer = 0U;
+             pointer < TECMO_GAMEPLAY_ASSET_POINTER_COUNT; ++pointer) {
+            if (!tecmo_gameplay_assets_resolve_pose(
+                    &assets, (uint16_t)pointer,
+                    (uint8_t)(pointer % TECMO_GAMEPLAY_ASSET_DYNAMIC_SELECTOR_COUNT),
+                    (uint8_t)(pointer % TECMO_GAMEPLAY_ASSET_PALETTE_GROUP_COUNT),
+                    (uint8_t)(pointer % 4U), &pose)) {
+                printf("Gameplay asset test failed: pose pointer %u rejected\n",
+                       pointer);
+                tecmo_gameplay_assets_destroy(&assets);
+                return 1;
+            }
+            ++resolved;
+        }
+        if (foul == NULL || foul->cpu_start != 0xB0F8U ||
+            foul->cpu_end != 0xB2B0U || halftime == NULL ||
+            halftime->cpu_start != 0xBC3CU || halftime->cpu_end != 0xBD10U) {
+            printf("Gameplay asset test failed: event provenance missing\n");
+            tecmo_gameplay_assets_destroy(&assets);
+            return 1;
+        }
+        printf("TGPL-1 gameplay assets passed: screens=%u sources=%u pointers=%u chr=%08X\n",
+               TECMO_GAMEPLAY_ASSET_SCREEN_COUNT,
+               TECMO_GAMEPLAY_ASSET_SOURCE_COUNT, resolved,
+               assets.chr_fingerprint32);
+        tecmo_gameplay_assets_destroy(&assets);
         return 0;
     }
 

@@ -340,6 +340,7 @@ function Get-KnownLogicalAssetPackEntries {
         "menu/team-data",
         "menu/team-management",
         "menu/season",
+        "gameplay/core",
         "roster/table.tsv",
         "title/original-text.txt",
         "title/glyph-map.tsv",
@@ -390,6 +391,7 @@ function Get-ExpectedLogicalAssetPackEntries {
             "menu/team-data"
             "menu/team-management"
             "menu/season"
+            "gameplay/core"
         )
         capture_sources_present = @()
     }
