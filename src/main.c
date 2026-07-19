@@ -7,6 +7,7 @@
 #include "tecmo_gameplay_audio.h"
 #include "tecmo_gameplay_assets.h"
 #include "tecmo_gameplay_court.h"
+#include "tecmo_gameplay_close_shots.h"
 #include "tecmo_intro_arena_scene.h"
 #include "tecmo_nes_video.h"
 
@@ -45,6 +46,7 @@ static void print_usage(const char *program)
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
     printf("  --gameplay-assets-test PACK  Validate strict TGPL-1 gameplay assets\n");
     printf("  --gameplay-court-test PACK  Validate strict TGCT-1 static court assets\n");
+    printf("  --gameplay-close-shots-test PACK  Validate strict TGCS-1 close-shot assets\n");
     printf("  --assetpack-list PACK  Print an asset-pack directory listing\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -789,6 +791,212 @@ int main(int argc, char **argv)
                TECMO_GAMEPLAY_ASSET_SOURCE_COUNT, resolved,
                assets.chr_fingerprint32, orientation_visual_hash);
         tecmo_gameplay_assets_destroy(&assets);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-close-shots-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        TecmoGameplayCloseShotAssets assets;
+        TecmoGameplayCloseShotVariantInfo variant_info;
+        const TecmoGameplayCloseShotSourceSpan *pose_table;
+        static const TecmoGameplayCloseShotVariant variants[2] = {
+            TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0,
+            TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2
+        };
+        uint32_t phase_hash = 2166136261U;
+        uint32_t pose_hash = 2166136261U;
+        unsigned step_count = 0U;
+        unsigned pose_count = 0U;
+        uint8_t phase = 0U;
+        uint16_t pointer = 0U;
+        tecmo_gameplay_close_shots_init(&assets);
+        if (tecmo_gameplay_close_shots_get_variant_info(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0,
+                &variant_info) ||
+            tecmo_gameplay_close_shots_phase_for_step(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0, 0U, &phase) ||
+            tecmo_gameplay_close_shots_resolve_pose_pointer_index(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0,
+                TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0,
+                TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0, 0U, &pointer) ||
+            tecmo_gameplay_close_shots_find_source(
+                &assets,
+                TECMO_GAMEPLAY_CLOSE_SHOT_SOURCE_POSE_LOW_HIGH_TABLE) != NULL) {
+            printf("Close-shot asset test failed: unavailable helper accepted\n");
+            tecmo_gameplay_close_shots_destroy(&assets);
+            return 1;
+        }
+        if (pack_path == NULL ||
+            !tecmo_gameplay_close_shots_load(&assets, pack_path)) {
+            printf("Close-shot asset test failed: %s\n",
+                   pack_path != NULL ? assets.status : "PACK path required");
+            tecmo_gameplay_close_shots_destroy(&assets);
+            return 1;
+        }
+        if (!tecmo_gameplay_close_shots_load(&assets, pack_path)) {
+            printf("Close-shot asset test failed: reload contract: %s\n",
+                   assets.status);
+            tecmo_gameplay_close_shots_destroy(&assets);
+            return 1;
+        }
+        pose_table = tecmo_gameplay_close_shots_find_source(
+            &assets, TECMO_GAMEPLAY_CLOSE_SHOT_SOURCE_POSE_LOW_HIGH_TABLE);
+        if (pose_table == NULL || pose_table->bank != 5U ||
+            pose_table->cpu_start != 0x8CEDU ||
+            pose_table->cpu_end != 0x8D3CU ||
+            pose_table->byte_count != 80U ||
+            pose_table->fingerprint != 0x9BFCCE7CU ||
+            tecmo_gameplay_close_shots_find_source(
+                &assets, (TecmoGameplayCloseShotSourceKind)0) != NULL ||
+            tecmo_gameplay_close_shots_find_source(
+                &assets, (TecmoGameplayCloseShotSourceKind)14) != NULL) {
+            printf("Close-shot asset test failed: source provenance contract\n");
+            tecmo_gameplay_close_shots_destroy(&assets);
+            return 1;
+        }
+        if (!tecmo_gameplay_close_shots_get_variant_info(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0,
+                &variant_info) ||
+            variant_info.numeric_variant != 0U ||
+            variant_info.family_flags !=
+                (TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_DIRECT |
+                 TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_HELD_RELEASE) ||
+            variant_info.step_count != 32U ||
+            variant_info.pose_phase_count != 7U ||
+            !tecmo_gameplay_close_shots_get_variant_info(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2,
+                &variant_info) ||
+            variant_info.numeric_variant != 2U ||
+            variant_info.family_flags !=
+                (TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_ARC |
+                 TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_LONGER_TRAJECTORY |
+                 TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_CONTACTABLE) ||
+            variant_info.step_count != 16U ||
+            variant_info.pose_phase_count != 6U ||
+            tecmo_gameplay_close_shots_get_variant_info(
+                &assets, (TecmoGameplayCloseShotVariant)1, &variant_info) ||
+            tecmo_gameplay_close_shots_get_variant_info(
+                &assets, (TecmoGameplayCloseShotVariant)3, &variant_info) ||
+            tecmo_gameplay_close_shots_get_variant_info(
+                &assets, (TecmoGameplayCloseShotVariant)-1, &variant_info) ||
+            tecmo_gameplay_close_shots_get_variant_info(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0, NULL)) {
+            printf("Close-shot asset test failed: numeric variant contract\n");
+            tecmo_gameplay_close_shots_destroy(&assets);
+            return 1;
+        }
+        for (unsigned variant_index = 0U; variant_index < 2U;
+             ++variant_index) {
+            unsigned steps = variant_index == 0U ? 32U : 16U;
+            unsigned phases = variant_index == 0U ? 7U : 6U;
+            for (unsigned step = 0U; step < steps; ++step) {
+                if (!tecmo_gameplay_close_shots_phase_for_step(
+                        &assets, variants[variant_index], (uint8_t)step,
+                        &phase)) {
+                    printf("Close-shot asset test failed: phase step %u/%u\n",
+                           variant_index, step);
+                    tecmo_gameplay_close_shots_destroy(&assets);
+                    return 1;
+                }
+                phase_hash ^= phase;
+                phase_hash *= 16777619U;
+                ++step_count;
+            }
+            for (unsigned profile = 0U; profile < 2U; ++profile) {
+                for (unsigned direction = 0U; direction < 8U; ++direction) {
+                    for (unsigned pose_phase = 0U; pose_phase < phases;
+                         ++pose_phase) {
+                        if (!tecmo_gameplay_close_shots_resolve_pose_pointer_index(
+                                &assets, variants[variant_index],
+                                (TecmoGameplayCloseShotProfile)profile,
+                                (TecmoGameplayCloseShotDirection)direction,
+                                (uint8_t)pose_phase, &pointer)) {
+                            printf("Close-shot asset test failed: pose %u/%u/%u/%u\n",
+                                   variant_index, profile, direction,
+                                   pose_phase);
+                            tecmo_gameplay_close_shots_destroy(&assets);
+                            return 1;
+                        }
+                        pose_hash ^= (uint8_t)(pointer & 0xFFU);
+                        pose_hash *= 16777619U;
+                        pose_hash ^= (uint8_t)(pointer >> 8U);
+                        pose_hash *= 16777619U;
+                        ++pose_count;
+                    }
+                }
+            }
+        }
+        if (phase_hash != 0x0445C745U || step_count != 48U ||
+            pose_hash != 0xBFDB4095U || pose_count != 208U ||
+            !tecmo_gameplay_close_shots_resolve_pose_pointer_index(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0,
+                TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0,
+                TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0, 0U, &pointer) ||
+            pointer != 637U ||
+            !tecmo_gameplay_close_shots_resolve_pose_pointer_index(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0,
+                TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_1,
+                TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_7, 6U, &pointer) ||
+            pointer != 664U ||
+            !tecmo_gameplay_close_shots_resolve_pose_pointer_index(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2,
+                TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0,
+                TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0, 0U, &pointer) ||
+            pointer != 807U ||
+            !tecmo_gameplay_close_shots_resolve_pose_pointer_index(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2,
+                TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_1,
+                TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_7, 5U, &pointer) ||
+            pointer != 830U) {
+            printf("Close-shot asset test failed: phase/pose golden contract\n");
+            tecmo_gameplay_close_shots_destroy(&assets);
+            return 1;
+        }
+        if (tecmo_gameplay_close_shots_phase_for_step(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0, 32U, &phase) ||
+            tecmo_gameplay_close_shots_phase_for_step(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2, 16U, &phase) ||
+            tecmo_gameplay_close_shots_phase_for_step(
+                &assets, (TecmoGameplayCloseShotVariant)1, 0U, &phase) ||
+            tecmo_gameplay_close_shots_phase_for_step(
+                &assets, (TecmoGameplayCloseShotVariant)-1, 0U, &phase) ||
+            tecmo_gameplay_close_shots_phase_for_step(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0, 0U, NULL) ||
+            tecmo_gameplay_close_shots_resolve_pose_pointer_index(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0,
+                (TecmoGameplayCloseShotProfile)2,
+                TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0, 0U, &pointer) ||
+            tecmo_gameplay_close_shots_resolve_pose_pointer_index(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0,
+                (TecmoGameplayCloseShotProfile)-1,
+                TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0, 0U, &pointer) ||
+            tecmo_gameplay_close_shots_resolve_pose_pointer_index(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0,
+                TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0,
+                (TecmoGameplayCloseShotDirection)8, 0U, &pointer) ||
+            tecmo_gameplay_close_shots_resolve_pose_pointer_index(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0,
+                TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0,
+                (TecmoGameplayCloseShotDirection)-1, 0U, &pointer) ||
+            tecmo_gameplay_close_shots_resolve_pose_pointer_index(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0,
+                TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0,
+                TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0, 7U, &pointer) ||
+            tecmo_gameplay_close_shots_resolve_pose_pointer_index(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2,
+                TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0,
+                TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0, 6U, &pointer) ||
+            tecmo_gameplay_close_shots_resolve_pose_pointer_index(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2,
+                TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0,
+                TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0, 0U, NULL)) {
+            printf("Close-shot asset test failed: invalid input accepted\n");
+            tecmo_gameplay_close_shots_destroy(&assets);
+            return 1;
+        }
+        printf("TGCS-1 close-shot assets passed: sources=13 variants=2 steps=48 poses=208 phases=0445C745 pose-sequence=BFDB4095\n");
+        tecmo_gameplay_close_shots_destroy(&assets);
+        tecmo_gameplay_close_shots_destroy(&assets);
         return 0;
     }
 

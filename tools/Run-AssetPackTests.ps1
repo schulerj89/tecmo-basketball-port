@@ -342,6 +342,7 @@ function Get-KnownLogicalAssetPackEntries {
         "menu/season",
         "gameplay/core",
         "gameplay/court",
+        "gameplay/close-shots",
         "roster/table.tsv",
         "title/original-text.txt",
         "title/glyph-map.tsv",
@@ -394,6 +395,7 @@ function Get-ExpectedLogicalAssetPackEntries {
             "menu/season"
             "gameplay/core"
             "gameplay/court"
+            "gameplay/close-shots"
         )
         capture_sources_present = @()
     }

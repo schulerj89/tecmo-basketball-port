@@ -1675,6 +1675,106 @@ static int append_gameplay_court_source_map_entry(
         "\"runtime_inputs\":\"TGCT-1 plus same-pack chr/all; no decompilation, trace, capture, screenshot, dump, state, or video\"}}" );
 }
 
+static int append_gameplay_close_shot_source_map_entry(
+    char *buffer,
+    size_t capacity,
+    size_t *length,
+    int *first,
+    const TecmoGameplayCloseShotProvenance *p)
+{
+    static const char *const roles[
+        TECMO_GAMEPLAY_CLOSE_SHOT_SOURCE_COUNT] = {
+        "control-and-phase-family-$8542-$8694",
+        "state-helper-$919C-$91BB",
+        "trajectory-family-$98E1-$9A5F",
+        "contact-helper-$A214-$A25E",
+        "resolution-family-$A503-$A6ED",
+        "actor-state-family-$AB36-$AC09",
+        "launch-helper-$B100-$B13E",
+        "motion-family-$B32C-$B521",
+        "contact-state-$B678-$B6E4",
+        "release-helper-$B775-$B7AC",
+        "state-tail-$BDEF-$BDF6",
+        "state-tail-$BFC2-$BFC8",
+        "pose-low-high-table-$8CED-$8D3C"
+    };
+    const char *prefix = *first != 0 ? "" : ",\n";
+
+    *first = 0;
+    if (tecmo_asset_pack_append_text(
+            buffer, capacity, length,
+            "%s"
+            "    {\"id\":\"%s\",\"kind\":\"gameplay-close-shots-native\","
+            "\"schema\":\"tecmo.gameplay-close-shots/TGCS-1\",\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"%08X\","
+            "\"dependency\":{\"entry\":\"%s\",\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"%08X\","
+            "\"reason\":\"actor-pointer-index resolution\"},"
+            "\"source_spans\":[",
+            prefix, TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_FNV1A32,
+            TECMO_ASSET_PACK_GAMEPLAY_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_FNV1A32) != 0) {
+        return -1;
+    }
+    for (size_t index = 0U;
+         index < TECMO_GAMEPLAY_CLOSE_SHOT_SOURCE_COUNT; ++index) {
+        const TecmoGameplayCloseShotExpectedSource *source =
+            &tecmo_gameplay_close_shot_expected_sources[index];
+        if (tecmo_asset_pack_append_text(
+                buffer, capacity, length,
+                "%s{\"role\":\"%s\",\"source_entry\":\"prg/bank05\","
+                "\"source_offset\":%llu,\"bank\":5,\"cpu_start\":%u,"
+                "\"cpu_end\":%u,\"size\":%u,"
+                "\"fingerprint_fnv1a32\":\"%08X\"}",
+                index == 0U ? "" : ",", roles[index],
+                (unsigned long long)p->source_offsets[index],
+                (unsigned)source->cpu_start,
+                (unsigned)((uint32_t)source->cpu_start +
+                           source->byte_count - 1U),
+                (unsigned)source->byte_count,
+                (unsigned)source->fingerprint) != 0) {
+            return -1;
+        }
+    }
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "],\"raw_aggregate\":{\"size\":%u,"
+        "\"fingerprint_fnv1a32\":\"%08X\"},"
+        "\"supported_variants\":["
+        "{\"numeric_id\":0,\"family\":[\"direct\",\"held-release\"],"
+        "\"step_count\":32,\"pose_phase_count\":7,"
+        "\"phase_table\":[1,2,3,3,3,4,4,4,4,4,4,4,4,4,4,4,"
+        "6,6,6,6,6,6,6,5,5,5,5,5,5,5,5,5]},"
+        "{\"numeric_id\":2,"
+        "\"family\":[\"arc\",\"longer-trajectory\",\"contactable\"],"
+        "\"step_count\":16,\"pose_phase_count\":6,"
+        "\"phase_table\":[0,1,2,3,3,4,4,4,5,5,5,5,5,5,5,5]}],"
+        "\"phase_tables_fingerprint_fnv1a32\":\"%08X\","
+        "\"pose_contract\":{\"source_cpu_range\":[36077,36156],"
+        "\"raw_fingerprint_fnv1a32\":\"%08X\","
+        "\"encoding\":\"40 low bytes followed by 40 high bytes; even byte offsets divided by two\","
+        "\"profile_count\":2,\"direction_count\":8,"
+        "\"variant0_bases\":["
+        "[637,609,623,630,616,595,644,602],"
+        "[693,665,679,686,672,651,700,658]],"
+        "\"variant2_bases\":["
+        "[807,783,795,801,789,771,813,777],"
+        "[855,831,843,849,837,819,861,825]],"
+        "\"resolved_pointer_count\":%u,"
+        "\"resolved_sequence_fingerprint_fnv1a32\":\"%08X\","
+        "\"unsupported_numeric_ids\":[1],"
+        "\"unsupported_raw_group_policy\":\"intentionally unexposed\"}}",
+        (unsigned)TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_RAW_SIZE,
+        (unsigned)TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_RAW_FNV1A32,
+        (unsigned)TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_PHASES_FNV1A32,
+        (unsigned)TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_POSE_TABLE_FNV1A32,
+        (unsigned)TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_RESOLVED_POSE_COUNT,
+        (unsigned)TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_RESOLVED_POSE_FNV1A32);
+}
+
 char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    uint32_t trainer_bytes,
                                    uint32_t prg_banks,
@@ -1698,9 +1798,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoSeasonMenuProvenance *season_provenance,
                                    const TecmoGameplayProvenance *gameplay_provenance,
                                    const TecmoGameplayCourtProvenance *gameplay_court_provenance,
+                                   const TecmoGameplayCloseShotProvenance *close_shot_provenance,
                                    size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 20U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 21U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -1926,7 +2027,11 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
         (gameplay_court_provenance->source_offsets[0] != 0U &&
          append_gameplay_court_source_map_entry(
              source_map, capacity, &length, &first_logical,
-             gameplay_court_provenance) != 0)) {
+             gameplay_court_provenance) != 0) ||
+        (close_shot_provenance->source_offsets[0] != 0U &&
+         append_gameplay_close_shot_source_map_entry(
+             source_map, capacity, &length, &first_logical,
+             close_shot_provenance) != 0)) {
         free(source_map);
         return NULL;
     }
