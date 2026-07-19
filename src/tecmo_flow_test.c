@@ -1465,7 +1465,10 @@ static bool flow_expect_team_data_native_path(TecmoRuntime *runtime,
             return false;
         invalid.team_id = TECMO_TEAM_DATA_TEAM_COUNT;
         before = invalid;
-        if (tecmo_team_data_update(&invalid, asset, &controls) !=
+        if (tecmo_team_data_update(&invalid, asset,
+                                   &runtime->team_management_asset,
+                                   &runtime->team_management_session,
+                                   &controls) !=
                 TECMO_TEAM_DATA_ACTION_NONE ||
             memcmp(&invalid, &before, sizeof(invalid)) != 0) {
             set_flow_test_message(message, message_size,
@@ -1484,6 +1487,8 @@ static bool flow_expect_team_data_native_path(TecmoRuntime *runtime,
         framebuffer.height = 480;
         framebuffer.pitch_pixels = 640;
         if (tecmo_team_data_draw(&framebuffer, asset, &invalid,
+                                 &runtime->team_management_asset,
+                                 &runtime->team_management_session,
                                  runtime->title_chr_bytes,
                                  runtime->title_chr_byte_count,
                                  64, 0, 2)) {
@@ -1531,16 +1536,56 @@ static bool flow_expect_team_data_native_path(TecmoRuntime *runtime,
         }
         flow_team_data_release(runtime, true);
         if (runtime->mode != TECMO_MODE_TEAM_DATA ||
-            runtime->team_data_state.phase != TECMO_TEAM_DATA_PROFILE ||
+            runtime->team_data_state.phase != TECMO_TEAM_DATA_STARTERS ||
             runtime->team_data_state.team_id != 0U ||
-            runtime->team_data_state.profile_selection != 1U ||
-            runtime->team_data_state.transition !=
-                TECMO_TEAM_DATA_TRANSITION_NONE ||
-            runtime->team_data_state.transition_frame != 0U) {
+            runtime->team_data_state.management_view.view !=
+                TECMO_TEAM_MANAGEMENT_VIEW_STARTERS ||
+            !tecmo_team_management_session_valid(
+                &runtime->team_management_session)) {
             set_flow_test_message(message, message_size,
-                                  "TEAM DATA STARTERS A was not a native profile no-op");
+                                  "TEAM DATA STARTERS did not enter native management");
             return false;
         }
+        flow_team_data_direction(runtime, TECMO_CONTROL_DOWN);
+        if (runtime->team_data_state.management_view.selection != 1U)
+            return false;
+        flow_team_data_release(runtime, true);
+        if (runtime->team_data_state.management_view.view !=
+            TECMO_TEAM_MANAGEMENT_VIEW_STARTER_BENCH)
+            return false;
+        flow_team_data_release(runtime, true);
+        if (runtime->team_management_session.starters[0][0] != 5U ||
+            runtime->team_data_state.management_view.view !=
+                TECMO_TEAM_MANAGEMENT_VIEW_STARTERS)
+            return false;
+        {
+            TecmoInput start = {0};
+            start.confirm = true;
+            tecmo_runtime_update(runtime, &start);
+            memset(&start, 0, sizeof(start));
+            tecmo_runtime_update(runtime, &start);
+        }
+        if (runtime->team_data_state.phase !=
+                TECMO_TEAM_DATA_PLAYER_DETAIL ||
+            runtime->team_data_state.player_index != 5U ||
+            !runtime->team_data_state.detail_return_to_starters)
+            return false;
+        flow_team_data_release(runtime, false);
+        if (runtime->team_data_state.phase != TECMO_TEAM_DATA_STARTERS ||
+            runtime->team_data_state.management_view.selection != 1U)
+            return false;
+        flow_team_data_release(runtime, false);
+        if (runtime->team_data_state.phase != TECMO_TEAM_DATA_PROFILE ||
+            runtime->team_data_state.profile_selection != 1U)
+            return false;
+        flow_team_data_release(runtime, true);
+        if (runtime->team_data_state.phase != TECMO_TEAM_DATA_STARTERS ||
+            runtime->team_management_session.starters[0][0] != 5U)
+            return false;
+        flow_team_data_release(runtime, false);
+        if (runtime->team_data_state.phase != TECMO_TEAM_DATA_PROFILE ||
+            runtime->team_data_state.profile_selection != 1U)
+            return false;
         if (!flow_team_data_wait_cooldown(runtime, message, message_size))
             return false;
         flow_team_data_direction(runtime, TECMO_CONTROL_DOWN);
@@ -1551,16 +1596,47 @@ static bool flow_expect_team_data_native_path(TecmoRuntime *runtime,
         }
         flow_team_data_release(runtime, true);
         if (runtime->mode != TECMO_MODE_TEAM_DATA ||
-            runtime->team_data_state.phase != TECMO_TEAM_DATA_PROFILE ||
+            runtime->team_data_state.phase != TECMO_TEAM_DATA_PLAYBOOK ||
             runtime->team_data_state.team_id != 0U ||
-            runtime->team_data_state.profile_selection != 2U ||
-            runtime->team_data_state.transition !=
-                TECMO_TEAM_DATA_TRANSITION_NONE ||
-            runtime->team_data_state.transition_frame != 0U) {
+            runtime->team_data_state.management_view.view !=
+                TECMO_TEAM_MANAGEMENT_VIEW_PLAYBOOK) {
             set_flow_test_message(message, message_size,
-                                  "TEAM DATA PLAYBOOK A was not a native profile no-op");
+                                  "TEAM DATA PLAYBOOK did not enter native management");
             return false;
         }
+        flow_team_data_release(runtime, true);
+        if (runtime->team_data_state.management_view.view !=
+            TECMO_TEAM_MANAGEMENT_VIEW_PLAYBOOK_REPLACE)
+            return false;
+        flow_team_data_direction(runtime, TECMO_CONTROL_RIGHT);
+        if (runtime->team_data_state.management_view.carousel_direction != 1 ||
+            runtime->team_data_state.management_view.carousel_frame != 0U)
+            return false;
+        flow_team_data_neutral(runtime, 7U);
+        if (runtime->team_data_state.management_view.carousel_frame != 7U)
+            return false;
+        flow_team_data_neutral(runtime, 1U);
+        if (runtime->team_data_state.management_view.carousel_direction != 0 ||
+            runtime->team_data_state.management_view.carousel_frame != 8U ||
+            runtime->team_data_state.management_view.carousel_origin != 1U)
+            return false;
+        flow_team_data_release(runtime, true);
+        if (runtime->team_data_state.management_view.view !=
+                TECMO_TEAM_MANAGEMENT_VIEW_PLAYBOOK ||
+            runtime->team_management_session.playbooks[0][0] != 4U)
+            return false;
+        flow_team_data_release(runtime, false);
+        if (runtime->team_data_state.phase != TECMO_TEAM_DATA_PROFILE ||
+            runtime->team_data_state.profile_selection != 2U)
+            return false;
+        flow_team_data_release(runtime, true);
+        if (runtime->team_data_state.phase != TECMO_TEAM_DATA_PLAYBOOK ||
+            runtime->team_management_session.playbooks[0][0] != 4U)
+            return false;
+        flow_team_data_release(runtime, false);
+        if (runtime->team_data_state.phase != TECMO_TEAM_DATA_PROFILE ||
+            runtime->team_data_state.profile_selection != 2U)
+            return false;
         if (!flow_team_data_wait_cooldown(runtime, message, message_size))
             return false;
         flow_team_data_direction(runtime, TECMO_CONTROL_DOWN);

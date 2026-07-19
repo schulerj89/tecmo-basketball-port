@@ -17,6 +17,7 @@
 #include "tecmo_preseason_menu.h"
 #include "tecmo_start_game_menu.h"
 #include "tecmo_team_data.h"
+#include "tecmo_team_management.h"
 #include "tecmo_title_screen.h"
 
 #include <stdbool.h>
@@ -88,6 +89,8 @@ typedef struct TecmoRuntime {
     TecmoMusicPlayer music_player;
     TecmoTeamDataAsset team_data_asset;
     TecmoTeamDataState team_data_state;
+    TecmoTeamManagementAsset team_management_asset;
+    TecmoTeamManagementSession team_management_session;
     char intro_l88e7_irq_vector[16];
     char intro_presents_data_cpu[16];
     bool intro_trace_available;

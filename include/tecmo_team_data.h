@@ -4,6 +4,7 @@
 #include "tecmo_controls.h"
 #include "tecmo_framebuffer.h"
 #include "tecmo_start_game_menu.h"
+#include "tecmo_team_management.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -115,7 +116,9 @@ typedef enum TecmoTeamDataPhase {
     TECMO_TEAM_DATA_TEAM_SELECT,
     TECMO_TEAM_DATA_PROFILE,
     TECMO_TEAM_DATA_ROSTER,
-    TECMO_TEAM_DATA_PLAYER_DETAIL
+    TECMO_TEAM_DATA_PLAYER_DETAIL,
+    TECMO_TEAM_DATA_STARTERS,
+    TECMO_TEAM_DATA_PLAYBOOK
 } TecmoTeamDataPhase;
 
 typedef enum TecmoTeamDataAction {
@@ -149,6 +152,9 @@ typedef struct TecmoTeamDataState {
     uint8_t cursor_delay;
     TecmoTeamDataTransition transition;
     uint8_t transition_frame;
+    bool detail_return_to_starters;
+    uint8_t detail_return_selection;
+    TecmoTeamManagementViewState management_view;
 } TecmoTeamDataState;
 
 bool tecmo_team_data_asset_load(TecmoTeamDataAsset *asset,
@@ -160,10 +166,14 @@ void tecmo_team_data_state_init(TecmoTeamDataState *state);
 TecmoTeamDataAction tecmo_team_data_update(
     TecmoTeamDataState *state,
     const TecmoTeamDataAsset *asset,
+    const TecmoTeamManagementAsset *management_asset,
+    TecmoTeamManagementSession *management_session,
     const TecmoControlFrame *controls);
 bool tecmo_team_data_draw(TecmoFramebuffer *framebuffer,
                           const TecmoTeamDataAsset *asset,
                           const TecmoTeamDataState *state,
+                          const TecmoTeamManagementAsset *management_asset,
+                          const TecmoTeamManagementSession *management_session,
                           const uint8_t *chr_bytes,
                           uint64_t chr_byte_count,
                           int origin_x,

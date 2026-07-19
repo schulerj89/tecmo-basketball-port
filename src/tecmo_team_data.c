@@ -551,7 +551,7 @@ static bool state_valid(const TecmoTeamDataAsset *asset,
 {
     uint16_t cooldown_limit;
     if (asset == NULL || state == NULL || !asset->available ||
-        (int)state->phase < 0 || state->phase > TECMO_TEAM_DATA_PLAYER_DETAIL ||
+        (int)state->phase < 0 || state->phase > TECMO_TEAM_DATA_PLAYBOOK ||
         state->selector_index >= TECMO_TEAM_DATA_SELECTOR_COUNT ||
         state->team_id >= TECMO_TEAM_DATA_TEAM_COUNT ||
         state->profile_selection >= 3U || state->roster_page >= 2U ||
@@ -560,6 +560,9 @@ static bool state_valid(const TecmoTeamDataAsset *asset,
         state->slide_from_page >= 2U || state->slide_to_page >= 2U ||
         state->slide_direction < -1 || state->slide_direction > 1 ||
         state->cursor_delay > 1U ||
+        state->detail_return_selection >= 6U ||
+        (int)state->management_view.view < 0 ||
+        state->management_view.view > TECMO_TEAM_MANAGEMENT_VIEW_PLAYBOOK_RESET ||
         (int)state->transition < 0 ||
         state->transition > TECMO_TEAM_DATA_TRANSITION_DETAIL_TO_ROSTER)
         return false;
@@ -746,6 +749,8 @@ static uint8_t nearest_selector_in_column(const TecmoTeamDataAsset *asset,
 TecmoTeamDataAction tecmo_team_data_update(
     TecmoTeamDataState *state,
     const TecmoTeamDataAsset *asset,
+    const TecmoTeamManagementAsset *management_asset,
+    TecmoTeamManagementSession *management_session,
     const TecmoControlFrame *controls)
 {
     TeamDataSelectionAction action;
@@ -770,6 +775,32 @@ TecmoTeamDataAction tecmo_team_data_update(
             state->slide_frame = 0U;
             state->slide_direction = 0;
             state->direction_cooldown = asset->generic_initial_cooldown;
+        }
+        return TECMO_TEAM_DATA_ACTION_NONE;
+    }
+
+    if (state->phase == TECMO_TEAM_DATA_STARTERS ||
+        state->phase == TECMO_TEAM_DATA_PLAYBOOK) {
+        uint8_t detail_index = 0U;
+        TecmoTeamManagementAction management_action =
+            tecmo_team_management_update(
+                &state->management_view, management_session, management_asset,
+                asset, state->team_id, controls, &detail_index);
+        if (management_action == TECMO_TEAM_MANAGEMENT_ACTION_BACK_TO_PROFILE) {
+            uint8_t profile_row = state->phase == TECMO_TEAM_DATA_STARTERS
+                ? 1U : 2U;
+            state->phase = TECMO_TEAM_DATA_PROFILE;
+            state->profile_selection = profile_row;
+            state->cursor_delay = 0U;
+            state->direction_cooldown = asset->generic_initial_cooldown;
+            memset(&state->management_view, 0, sizeof(state->management_view));
+        } else if (management_action ==
+                   TECMO_TEAM_MANAGEMENT_ACTION_PLAYER_DETAIL) {
+            state->detail_return_to_starters = true;
+            state->detail_return_selection = state->management_view.selection;
+            state->player_index = detail_index;
+            state->phase = TECMO_TEAM_DATA_PLAYER_DETAIL;
+            state->cursor_delay = 0U;
         }
         return TECMO_TEAM_DATA_ACTION_NONE;
     }
@@ -817,14 +848,30 @@ TecmoTeamDataAction tecmo_team_data_update(
                 state, TECMO_TEAM_DATA_TRANSITION_PROFILE_TO_SELECTOR);
             return TECMO_TEAM_DATA_ACTION_NONE;
         }
-        if (action == TEAM_DATA_SELECTION_ACCEPT &&
-            state->profile_selection == 0U) {
-            state->phase = TECMO_TEAM_DATA_ROSTER;
-            state->roster_page = 0U;
-            state->roster_row = 0U;
-            state->direction_cooldown = asset->generic_initial_cooldown;
-            state->cursor_delay = 0U;
-            return TECMO_TEAM_DATA_ACTION_NONE;
+        if (action == TEAM_DATA_SELECTION_ACCEPT) {
+            if (state->profile_selection == 0U) {
+                state->phase = TECMO_TEAM_DATA_ROSTER;
+                state->roster_page = 0U;
+                state->roster_row = 0U;
+                state->direction_cooldown = asset->generic_initial_cooldown;
+                state->cursor_delay = 0U;
+                return TECMO_TEAM_DATA_ACTION_NONE;
+            }
+            if (management_asset != NULL && management_asset->available &&
+                tecmo_team_management_session_valid(management_session)) {
+                if (state->profile_selection == 1U) {
+                    state->phase = TECMO_TEAM_DATA_STARTERS;
+                    tecmo_team_management_view_init_starters(
+                        &state->management_view);
+                } else {
+                    state->phase = TECMO_TEAM_DATA_PLAYBOOK;
+                    tecmo_team_management_view_init_playbook(
+                        &state->management_view);
+                }
+                state->cursor_delay = 0U;
+                state->direction_cooldown = asset->generic_initial_cooldown;
+                return TECMO_TEAM_DATA_ACTION_NONE;
+            }
         }
         direction = held_direction(controls);
         if (state->direction_cooldown == 0U &&
@@ -870,6 +917,14 @@ TecmoTeamDataAction tecmo_team_data_update(
             }
         }
     } else if (action == TEAM_DATA_SELECTION_CANCEL) {
+        if (state->detail_return_to_starters) {
+            state->phase = TECMO_TEAM_DATA_STARTERS;
+            tecmo_team_management_view_init_starters(&state->management_view);
+            state->management_view.selection = state->detail_return_selection;
+            state->detail_return_to_starters = false;
+            state->cursor_delay = 0U;
+            return TECMO_TEAM_DATA_ACTION_NONE;
+        }
         begin_transition(state, TECMO_TEAM_DATA_TRANSITION_DETAIL_TO_ROSTER);
         return TECMO_TEAM_DATA_ACTION_NONE;
     }
@@ -885,6 +940,8 @@ const char *tecmo_team_data_phase_name(TecmoTeamDataPhase phase)
     case TECMO_TEAM_DATA_PROFILE: return "TEAM PROFILE";
     case TECMO_TEAM_DATA_ROSTER: return "PLAYERS DATA";
     case TECMO_TEAM_DATA_PLAYER_DETAIL: return "PLAYER DETAIL";
+    case TECMO_TEAM_DATA_STARTERS: return "STARTERS";
+    case TECMO_TEAM_DATA_PLAYBOOK: return "PLAYBOOK";
     default: return "UNKNOWN";
     }
 }
@@ -1438,6 +1495,8 @@ static void cap_palette(uint8_t destination[16],
 bool tecmo_team_data_draw(TecmoFramebuffer *framebuffer,
                           const TecmoTeamDataAsset *asset,
                           const TecmoTeamDataState *state,
+                          const TecmoTeamManagementAsset *management_asset,
+                          const TecmoTeamManagementSession *management_session,
                           const uint8_t *chr_bytes,
                           uint64_t chr_byte_count,
                           int origin_x,
@@ -1456,6 +1515,13 @@ bool tecmo_team_data_draw(TecmoFramebuffer *framebuffer,
         !tecmo_team_data_asset_chr_available(asset, chr_bytes, chr_byte_count) ||
         !make_viewport(&view, framebuffer, origin_x, origin_y, scale))
         return false;
+    if (state->phase == TECMO_TEAM_DATA_STARTERS ||
+        state->phase == TECMO_TEAM_DATA_PLAYBOOK) {
+        return tecmo_team_management_draw(
+            framebuffer, management_asset, asset, management_session,
+            &state->management_view, state->team_id, chr_bytes, chr_byte_count,
+            origin_x, origin_y, scale);
+    }
     if (!tecmo_team_data_transition_render_enabled(asset, state)) {
         fill_viewport(&view, tecmo_nes_2c02_rgba(0x0FU));
         return true;

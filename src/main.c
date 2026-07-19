@@ -29,6 +29,7 @@ static void print_usage(const char *program)
     printf("  --controls-test         Run portable held/pressed/released control-state checks\n");
     printf("  --bank07-test           Run fixed-bank helper C counterpart checks\n");
     printf("  --music-test            Run strict TMUS parser/sequencer/synth checks\n");
+    printf("  --team-management-test  Run strict TTMG parser and native STARTERS/PLAYBOOK checks\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
     printf("  --render-test-mode MODE PATH  Render boot-title, native start-game menu, intro scenes (arena through finale/title frameN), play, or probe modes to PNG\n");
@@ -489,6 +490,16 @@ int main(int argc, char **argv)
             return 1;
         }
         printf("%s %s\n", message, output_message);
+        return 0;
+    }
+
+    if (strcmp(command, "--team-management-test") == 0) {
+        char message[256];
+        if (!tecmo_team_management_self_test(root, message, sizeof(message))) {
+            printf("TEAM management test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
         return 0;
     }
 
@@ -1011,6 +1022,54 @@ int main(int argc, char **argv)
                 runtime->team_data_state.phase = TECMO_TEAM_DATA_PROFILE;
                 runtime->team_data_state.team_id = 0U;
                 runtime->team_data_state.cursor_delay = 1U;
+            } else if (strcmp(mode_name, "team-data-starters") == 0 ||
+                       strcmp(mode_name, "team-data-starters-reset") == 0 ||
+                       strcmp(mode_name, "team-data-starters-bench") == 0) {
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
+                runtime->team_data_state.phase = TECMO_TEAM_DATA_STARTERS;
+                runtime->team_data_state.team_id = 0U;
+                tecmo_team_management_view_init_starters(
+                    &runtime->team_data_state.management_view);
+                if (strcmp(mode_name, "team-data-starters-reset") == 0) {
+                    runtime->team_data_state.management_view.view =
+                        TECMO_TEAM_MANAGEMENT_VIEW_STARTER_RESET;
+                } else if (strcmp(mode_name, "team-data-starters-bench") == 0) {
+                    runtime->team_data_state.management_view.view =
+                        TECMO_TEAM_MANAGEMENT_VIEW_STARTER_BENCH;
+                    runtime->team_data_state.management_view.selection = 1U;
+                }
+            } else if (strcmp(mode_name, "team-data-playbook") == 0 ||
+                       strcmp(mode_name, "team-data-playbook-reset") == 0 ||
+                       strncmp(mode_name, "team-data-playbook-replace-frame", 32) == 0) {
+                unsigned frame = 0U;
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
+                runtime->team_data_state.phase = TECMO_TEAM_DATA_PLAYBOOK;
+                runtime->team_data_state.team_id = 0U;
+                tecmo_team_management_view_init_playbook(
+                    &runtime->team_data_state.management_view);
+                if (strcmp(mode_name, "team-data-playbook-reset") == 0) {
+                    runtime->team_data_state.management_view.view =
+                        TECMO_TEAM_MANAGEMENT_VIEW_PLAYBOOK_RESET;
+                } else if (strncmp(mode_name,
+                                   "team-data-playbook-replace-frame", 32) == 0) {
+                    if (!parse_render_frame_suffix(
+                            mode_name, "team-data-playbook-replace-frame", &frame) ||
+                        frame > runtime->team_management_asset.carousel_frames) {
+                        printf("Unsupported render-test mode: %s\n", mode_name);
+                        render_runtime = false;
+                    } else {
+                        runtime->team_data_state.management_view.view =
+                            TECMO_TEAM_MANAGEMENT_VIEW_PLAYBOOK_REPLACE;
+                        runtime->team_data_state.management_view.carousel_direction =
+                            frame < runtime->team_management_asset.carousel_frames
+                                ? 1 : 0;
+                        runtime->team_data_state.management_view.carousel_frame =
+                            (uint8_t)frame;
+                        runtime->team_data_state.management_view.carousel_origin =
+                            frame == runtime->team_management_asset.carousel_frames
+                                ? 1U : 0U;
+                    }
+                }
             } else if (strcmp(mode_name, "team-data-roster-page1") == 0 ||
                        strcmp(mode_name, "team-data-roster-page2") == 0) {
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
@@ -1128,7 +1187,10 @@ int main(int argc, char **argv)
                 framebuffer.pitch_pixels = width;
                 arena_render_succeeded = tecmo_team_data_draw(
                     &framebuffer, &runtime->team_data_asset,
-                    &runtime->team_data_state, runtime->title_chr_bytes,
+                    &runtime->team_data_state,
+                    &runtime->team_management_asset,
+                    &runtime->team_management_session,
+                    runtime->title_chr_bytes,
                     runtime->title_chr_byte_count, 64, 0, 2);
                 render_runtime = false;
                 result = arena_render_succeeded ? 0 : 1;
@@ -1524,7 +1586,18 @@ int main(int argc, char **argv)
                             !tecmo_team_data_asset_chr_available(
                                 &runtime->team_data_asset,
                                 runtime->title_chr_bytes,
-                                runtime->title_chr_byte_count))) {
+                                runtime->title_chr_byte_count) ||
+                            ((runtime->team_data_state.phase ==
+                                  TECMO_TEAM_DATA_STARTERS ||
+                              runtime->team_data_state.phase ==
+                                  TECMO_TEAM_DATA_PLAYBOOK) &&
+                             (!runtime->team_management_asset.available ||
+                              !tecmo_team_management_session_valid(
+                                  &runtime->team_management_session) ||
+                              !tecmo_team_management_asset_chr_available(
+                                  &runtime->team_management_asset,
+                                  runtime->title_chr_bytes,
+                                  runtime->title_chr_byte_count))))) {
                     result = 1;
                 } else if ((strcmp(mode_name, "play") == 0 ||
                      strncmp(mode_name, "play-fade", 9) == 0 ||

@@ -245,6 +245,10 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
     (void)tecmo_music_asset_load(&runtime->music_asset, project_root);
     tecmo_music_player_init(&runtime->music_player, &runtime->music_asset);
     (void)tecmo_team_data_asset_load(&runtime->team_data_asset, project_root);
+    (void)tecmo_team_management_asset_load(&runtime->team_management_asset,
+                                           project_root);
+    (void)tecmo_team_management_session_init(
+        &runtime->team_management_session, &runtime->team_management_asset);
 
     if (tecmo_collect_rosters(project_root, &runtime->roster) != 0) {
         if (!allow_empty_roster) {
@@ -330,6 +334,16 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
             set_runtime_status(runtime->team_data_asset.status,
                                sizeof(runtime->team_data_asset.status),
                                "TTDT-1 chr/all contract rejected");
+        }
+        if (runtime->team_management_asset.available &&
+            !tecmo_team_management_asset_chr_available(
+                &runtime->team_management_asset, runtime->title_chr_bytes,
+                runtime->title_chr_byte_count)) {
+            runtime->team_management_asset.available = false;
+            runtime->team_management_session.initialized = false;
+            set_runtime_status(runtime->team_management_asset.status,
+                               sizeof(runtime->team_management_asset.status),
+                               "TTMG-1 chr/all contract rejected");
         }
         if (runtime->selected_chr_bank >= chr_bank_count(runtime)) {
             runtime->selected_chr_bank = chr_bank_count(runtime) - 1U;
@@ -610,7 +624,9 @@ static void update_team_data_menu(TecmoRuntime *runtime,
                                   const TecmoControlFrame *controls)
 {
     TecmoTeamDataAction action = tecmo_team_data_update(
-        &runtime->team_data_state, &runtime->team_data_asset, controls);
+        &runtime->team_data_state, &runtime->team_data_asset,
+        &runtime->team_management_asset, &runtime->team_management_session,
+        controls);
     if (action == TECMO_TEAM_DATA_ACTION_BACK_TO_START_MENU) {
         if (runtime->normal_play_active && return_to_start_game_menu(runtime)) {
             return;
@@ -1207,6 +1223,8 @@ static void render_team_data_mode(const TecmoRuntime *runtime,
     clear(fb, rgb(0, 0, 0));
     if (!tecmo_team_data_draw(fb, &runtime->team_data_asset,
                               &runtime->team_data_state,
+                              &runtime->team_management_asset,
+                              &runtime->team_management_session,
                               runtime->title_chr_bytes,
                               runtime->title_chr_byte_count,
                               64, 0, 2)) {
