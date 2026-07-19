@@ -321,6 +321,7 @@ function Get-KnownLogicalAssetPackEntries {
         "menu/all-star",
         "audio/music",
         "menu/team-data",
+        "menu/team-management",
         "roster/table.tsv",
         "title/original-text.txt",
         "title/glyph-map.tsv",
@@ -367,6 +368,7 @@ function Get-ExpectedLogicalAssetPackEntries {
             "menu/all-star"
             "audio/music"
             "menu/team-data"
+            "menu/team-management"
         )
         capture_sources_present = @()
     }
