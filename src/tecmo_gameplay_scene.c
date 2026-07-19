@@ -23,6 +23,7 @@
 #define TECMO_GAMEPLAY_CLOSE_DISTANCE_X 48
 #define TECMO_GAMEPLAY_DRIBBLE_CADENCE 24U
 #define TECMO_GAMEPLAY_JUMP_SLOT0_DURATION 87U
+#define TECMO_GAMEPLAY_JUMP_SLOT0_INITIAL_ALTITUDE_Q8 0x02E8U
 #define TECMO_GAMEPLAY_JUMP_SLOT0_ACTOR_VELOCITY_Q8 0x02E8U
 #define TECMO_GAMEPLAY_JUMP_SLOT0_IDLE_POSE 469U
 #define TECMO_GAMEPLAY_SCENE_RENDER_FNV1A32 0x82031A59U
@@ -735,6 +736,10 @@ static bool scene_start_shot_actor(TecmoGameplayScene *scene,
         scene->jump_ball_state = scene->jump_shots.constants.ball_state_route1;
         scene->jump_phase_counter =
             scene->jump_shots.constants.phase_seed_prepared;
+        scene->jump_actor_altitude_q8 =
+            TECMO_GAMEPLAY_JUMP_SLOT0_INITIAL_ALTITUDE_Q8;
+        scene->jump_actor_velocity_q8 =
+            TECMO_GAMEPLAY_JUMP_SLOT0_ACTOR_VELOCITY_Q8;
     }
     return true;
 }
@@ -963,7 +968,7 @@ static bool scene_update_jump_shot(
     if (next_frame > scene->shot_duration) return false;
     scene->shot_frame = next_frame;
 
-    if (next_frame >= 4U && next_frame <= 39U &&
+    if (next_frame >= 4U && next_frame <= 40U &&
         !scene->jump_actor_landed) {
         if (!tecmo_gameplay_jump_shots_step_q8(
                 &scene->jump_shots, &scene->jump_actor_altitude_q8,
@@ -2088,31 +2093,31 @@ static bool scene_test_jump_slot0_checkpoint(
     }
     switch (frame) {
     case 3U:
-        return scene->jump_actor_altitude_q8 == 0U &&
+        return scene->jump_actor_altitude_q8 == 0x02E8U &&
                scene->jump_actor_velocity_q8 == 0x02E8U &&
                scene->jump_actor_state == 0x0DU &&
                scene->jump_ball_state == 0x05U;
     case 4U:
-        return scene->jump_actor_altitude_q8 == 0x02C0U &&
+        return scene->jump_actor_altitude_q8 == 0x05A8U &&
                scene->jump_actor_velocity_q8 == 0x02C0U &&
                !scene->jump_actor_landed;
     case 5U:
         return scene->jump_ball_state == 0x17U;
     case 21U:
-        return scene->jump_actor_altitude_q8 == 0x1998U &&
+        return scene->jump_actor_altitude_q8 == 0x1C80U &&
                scene->jump_actor_velocity_q8 == 0x0018U;
     case 22U:
-        return scene->jump_actor_altitude_q8 == 0x1988U &&
+        return scene->jump_actor_altitude_q8 == 0x1C70U &&
                scene->jump_actor_velocity_q8 == 0xFFF0U;
     case 39U:
-        /* The pre-clamp sum is 0x0090. Bank05 tests the integer height
-           byte, so height zero clears fraction, velocity, and altitude. */
-        return scene->jump_actor_landed &&
-               scene->jump_actor_altitude_q8 == 0U &&
-               scene->jump_actor_velocity_q8 == 0U &&
+        return !scene->jump_actor_landed &&
+               scene->jump_actor_altitude_q8 == 0x0378U &&
+               scene->jump_actor_velocity_q8 == 0xFD48U &&
                scene->jump_actor_state == 0x0DU;
     case 40U:
         return scene->jump_actor_landed &&
+               scene->jump_actor_altitude_q8 == 0U &&
+               scene->jump_actor_velocity_q8 == 0U &&
                scene->jump_actor_state == 0x0EU &&
                scene->jump_phase_counter == 0x56U;
     case 41U: return scene->jump_phase_counter == 0x46U;
@@ -2735,6 +2740,8 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.jump_actor_state != 0x0CU ||
         scene.jump_ball_state != 0x01U ||
         scene.jump_phase_counter != 0x31U ||
+        scene.jump_actor_altitude_q8 != 0x02E8U ||
+        scene.jump_actor_velocity_q8 != 0x02E8U ||
         scene.actors[scene.shot_actor].pose_index != 213U ||
         scene.audio_player.dmc.active) {
         scene_test_message(message, message_size,
@@ -2748,6 +2755,8 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.shot_frame != 1U || scene.jump_b_released ||
         scene.jump_actor_state != 0x0CU ||
         scene.jump_ball_state != 0x01U ||
+        scene.jump_actor_altitude_q8 != 0x02E8U ||
+        scene.jump_actor_velocity_q8 != 0x02E8U ||
         scene.audio_player.dmc.active) {
         scene_test_message(message, message_size,
                            "current-B held jump state diverged");
@@ -2760,6 +2769,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.jump_actor_state != 0x0DU ||
         scene.jump_ball_state != 0x05U ||
         scene.jump_phase_counter != 0x04U ||
+        scene.jump_actor_altitude_q8 != 0x02E8U ||
         scene.jump_actor_velocity_q8 != 0x02E8U ||
         scene.audio_player.dmc.active) {
         scene_test_message(message, message_size,

@@ -602,7 +602,8 @@ per-attempt observed-schedule counter resets at launch, after each attempt, and
 when the scene ends. The ordinary-jump boundary now
 also includes the exact human away/right family-0/profile-0/direction-1 made
 slot: current-level NES B release, actor states `$0C/$0D/$0E/0`, Bank05 Q8.8
-gravity/clamp, recovery through frame 46, independent ball routes through frame
+height/velocity seed `$02E8`, gravity, frame-40 clamp, recovery through frame
+46, independent ball routes through frame
 87, the conditional frame-75 `$B5AB` DMC, and made-settlement mailbox ordering.
 Actor/camera layout, movement/AI, jump-ball screen geometry, unsupported jump
 directions/profiles and misses, general make/contact rules, the distance policy

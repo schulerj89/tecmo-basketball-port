@@ -77,7 +77,8 @@ Ordinary-jump support is narrower and fails closed outside its evidence. The
 scene consumes the exact TGJS family-0/profile-0/direction-1 pose index 213 for
 the captured human away/right made slot. It preserves current-level NES B hold
 and release, actor `$0C->$0D->$0E->0` progression, Bank05 unsigned Q8.8
-gravity/integer-height floor clamp, recovery to idle pose 469 at frame 46,
+height/velocity seed `$02E8`, gravity, frame-40 integer-height floor clamp,
+recovery to idle pose 469 at frame 46,
 ball route `$01->$05->$17->$10->0`, and settlement at frame 87. Actor and ball
 lifetimes are independent. The release does not request DMC; only the proven
 route-10 ground/bounce condition requests `$B5AB` at frame 75. The ball's

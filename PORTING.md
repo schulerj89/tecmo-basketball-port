@@ -718,8 +718,9 @@ resolved TGPL pointer and pose record. Its live boundary is deliberately one
 captured made context: human-controlled away-side, facing right,
 family 0/profile 0/direction 1, pose index 213. NES B is tested as a current
 level rather than a release edge. Actor held/airborne/recovery states and Q8.8
-height end at frame 46 while the ball route remains active through settlement
-at frame 87. There is no release DMC; the route-10 ground/bounce conditions
+height/velocity both begin at `$02E8`; height clamps on frame 40 and actor
+recovery ends at frame 46 while the ball route remains active through
+settlement at frame 87. There is no release DMC; the route-10 ground/bounce conditions
 gate `$B5AB` at frame 75. Made settlement queues crowd 11 first, then writes
 side result 12/13 only while the clock is later than 0:01, matching the
 last-write-wins `$05B8` mailbox. Unknown contexts and deterministic miss
