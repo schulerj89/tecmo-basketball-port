@@ -564,12 +564,21 @@ audio events, and returns final results. Proven timing/state anchors are fixed
 `$EA14-$EA2F`/`$D2B9-$D2CE` for the two-controller NES A-release gate.
 Halftime/final score dismissal comes from Bank06 `$BC3C-$BCF9`. State timing,
 event ordering, foul limits, explicit free-throw result accounting, and numeric
-close-shot step tables are evidence-derived. Actor/camera layout, movement/AI,
+close-shot step tables are evidence-derived. Free-throw launch ownership now
+follows Bank05's human state-20 gate: only the controller assigned to the
+scoring team can launch, and only while that pad's current NES B level is held.
+The other pad, input edges/releases, A, directions, START, and SELECT are inert,
+and a human side has no timer fallback. An unassigned scoring side uses a
+deterministic 125-frame CPU timer from the observed `$7D` path; `$D7` is retained
+as the other ROM timer candidate, but the branch-selection policy remains
+unresolved. The per-attempt timer resets at launch, after each attempt, and when
+the scene ends. Actor/camera layout, movement/AI,
 ordinary jump timing, ball arcs and make/contact rules, the distance policy
 selecting dunk/variant 0 versus layup/variant 2, live close-shot
 profile/direction selection and left-facing render
 mirroring, dynamic team/court palette selection, foul detection, free-throw
-aim/timing/outcome/rebound, and HUD text are explicit native approximations.
+lineup/aim/outcome/rebound behavior and CPU `$7D`/`$D7` choice, and HUD text are
+explicit native approximations.
 TGCS stores 208 exact profile/direction resolutions into TGPL pose data, but the
 live scene currently selects only profile 0/direction 0 and mirrors
 actor-facing-left; the asset breadth must not be read as proof of that narrower

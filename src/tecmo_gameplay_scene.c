@@ -22,7 +22,6 @@
 #define TECMO_GAMEPLAY_MAX_Y 226
 #define TECMO_GAMEPLAY_CLOSE_DISTANCE_X 48
 #define TECMO_GAMEPLAY_DRIBBLE_CADENCE 24U
-#define TECMO_GAMEPLAY_FREE_THROW_FRAMES 60U
 #define TECMO_GAMEPLAY_SCENE_RENDER_FNV1A32 0x82031A59U
 
 static void scene_set_status(TecmoGameplayScene *scene, const char *status)
@@ -385,6 +384,11 @@ static bool scene_controls_pressed_a(const TecmoControlFrame *controls)
 static bool scene_controls_pressed_b(const TecmoControlFrame *controls)
 {
     return controls != NULL && controls->pressed.cancel;
+}
+
+static bool scene_controls_held_b(const TecmoControlFrame *controls)
+{
+    return controls != NULL && controls->held.cancel;
 }
 
 static void scene_clamp_actor(TecmoGameplaySceneActor *actor)
@@ -819,15 +823,24 @@ static bool scene_try_defense_action(TecmoGameplayScene *scene,
     return true;
 }
 
-static bool scene_team_has_controller(const TecmoGameplayScene *scene,
-                                      TecmoGameplayTeam team)
+static size_t scene_controller_for_team(const TecmoGameplayScene *scene,
+                                        TecmoGameplayTeam team)
 {
     size_t controller;
     for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
          ++controller) {
-        if (scene->launch.controller_team[controller] == team) return true;
+        if (scene->launch.controller_team[controller] == team) {
+            return controller;
+        }
     }
-    return false;
+    return TECMO_GAMEPLAY_CONTROLLER_COUNT;
+}
+
+static bool scene_team_has_controller(const TecmoGameplayScene *scene,
+                                      TecmoGameplayTeam team)
+{
+    return scene_controller_for_team(scene, team) <
+           TECMO_GAMEPLAY_CONTROLLER_COUNT;
 }
 
 static bool scene_actor_is_controlled(const TecmoGameplayScene *scene,
@@ -1012,16 +1025,35 @@ static bool scene_update_free_throw(TecmoGameplayScene *scene,
                                     const TecmoControlFrame *player_one,
                                     const TecmoControlFrame *player_two)
 {
-    /* Deterministic native free-throw timing/outcome policy. The 60-frame
-       fallback and serial result are implementation-owned approximations; the
-       strict state layer receives only the explicit made/missed result. */
-    bool release = scene_controls_pressed_b(player_one) ||
-                   scene_controls_pressed_b(player_two);
-    ++scene->free_throw_frame;
-    if (!release && scene->free_throw_frame <
-                        TECMO_GAMEPLAY_FREE_THROW_FRAMES) {
-        return true;
+    const TecmoControlFrame *controls[TECMO_GAMEPLAY_CONTROLLER_COUNT];
+    size_t controller;
+    bool launch_attempt;
+
+    controls[0] = player_one;
+    controls[1] = player_two;
+    controller = scene_controller_for_team(
+        scene, scene->state.free_throws.scoring_team);
+    if (controller < TECMO_GAMEPLAY_CONTROLLER_COUNT) {
+        /* Bank05's human state-20 path checks the scoring side's current NES B
+           level. It does not read the other pad, an edge/release bit, or a
+           direction at this gate, and it has no arbitrary timeout. */
+        launch_attempt = scene_controls_held_b(controls[controller]);
+    } else {
+        /* Bank05's CPU path seeds a zero-high timer with $7D or $D7. The local
+           bounded trace observed the $7D path; native selection remains
+           deterministic until the original branch policy is derived. */
+        if (scene->free_throw_frame <
+            TECMO_GAMEPLAY_FREE_THROW_CPU_TIMER_FRAMES) {
+            ++scene->free_throw_frame;
+        }
+        launch_attempt = scene->free_throw_frame >=
+                         TECMO_GAMEPLAY_FREE_THROW_CPU_TIMER_FRAMES;
     }
+    if (!launch_attempt) return true;
+
+    /* Retain the existing implementation-owned serial make/miss policy. The
+       launch itself requests no SFX; a made-result event may queue the proven
+       crowd response through the normal state-event path below. */
     ++scene->action_serial;
     scene->free_throw_frame = 0U;
     if (!tecmo_gameplay_record_free_throw_result(
@@ -1284,6 +1316,7 @@ void tecmo_gameplay_scene_end(TecmoGameplayScene *scene)
     scene->shot_kind = TECMO_GAMEPLAY_SCENE_SHOT_NONE;
     scene->shot_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     scene->close_shot_step = 0U;
+    scene->free_throw_frame = 0U;
     tecmo_gameplay_audio_stop_all(&scene->audio_player);
     scene_set_status(scene, scene->available
                                 ? "native gameplay ready"
@@ -1728,6 +1761,45 @@ static bool scene_test_combined_restart_is_inert(
         return false;
     }
     tecmo_gameplay_scene_end(scene);
+    return true;
+}
+
+static bool scene_test_enter_free_throw_sequence(
+    TecmoGameplayScene *scene,
+    TecmoGameplayTeam scoring_team,
+    uint8_t attempts)
+{
+    TecmoGameplayFoulRequest request;
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    size_t frame;
+
+    if (scene == NULL || attempts == 0U) return false;
+    request.fouling_team = scene_other_team(scoring_team);
+    request.free_throw_team = scoring_team;
+    request.counter_effect = TECMO_GAMEPLAY_FOUL_COUNTER_BOTH;
+    request.player_index = 0U;
+    request.free_throw_attempts = attempts;
+    if (!tecmo_gameplay_request_foul(&scene->state, &request)) return false;
+
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    for (frame = 0U; frame < TECMO_GAMEPLAY_PRESENTATION_LEAD_IN_FRAMES;
+         ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->state.phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION) {
+            return false;
+        }
+    }
+    p1.released.shoot = true;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
+        scene->state.free_throws.scoring_team != scoring_team ||
+        scene->state.free_throws.attempts_remaining != attempts ||
+        scene->free_throw_frame != 0U ||
+        !tecmo_gameplay_state_valid(&scene->state)) {
+        return false;
+    }
     return true;
 }
 
@@ -2510,37 +2582,88 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
+    /* Human attempts are owned by the scoring team's pad and have no timer.
+       Exercise every tempting false-positive before accepting held/current B. */
     memset(&p1, 0, sizeof(p1));
-    for (frame = 0U; frame + 1U < TECMO_GAMEPLAY_FREE_THROW_FRAMES;
-         ++frame) {
+    memset(&p2, 0, sizeof(p2));
+    p1.held.shoot = true;
+    p1.held.up = true;
+    p1.held.right = true;
+    p1.held.tab = true;
+    p1.held.confirm = true;
+    p1.pressed.shoot = true;
+    p1.pressed.left = true;
+    p1.pressed.tab = true;
+    p1.pressed.confirm = true;
+    p1.pressed.cancel = true;
+    p1.released.shoot = true;
+    p1.released.down = true;
+    p1.released.tab = true;
+    p1.released.confirm = true;
+    p1.released.cancel = true;
+    p2.held.cancel = true;
+    p2.pressed.cancel = true;
+    if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+        scene.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
+        scene.state.free_throws.attempts_remaining != 2U ||
+        scene.free_throw_frame != 0U || scene.action_serial != 4U ||
+        scene.audio_player.sfx_pending ||
+        !tecmo_gameplay_state_valid(&scene.state)) {
+        scene_test_message(message, message_size,
+                           "non-owner/free-throw non-B input launched");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    for (frame = 0U;
+         frame <= TECMO_GAMEPLAY_FREE_THROW_CPU_TIMER_LONG_FRAMES; ++frame) {
         if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
             scene.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
             scene.state.free_throws.attempts_remaining != 2U ||
-            scene.free_throw_frame != frame + 1U ||
-            scene.action_serial != 4U) {
+            scene.free_throw_frame != 0U || scene.action_serial != 4U ||
+            scene.audio_player.sfx_pending ||
+            !tecmo_gameplay_state_valid(&scene.state)) {
             scene_test_message(message, message_size,
-                               "native free-throw fallback timing diverged");
+                               "human free throw gained a timer fallback");
             tecmo_gameplay_scene_destroy(&scene);
             return false;
         }
     }
+    p1.held.cancel = true;
     if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
         scene.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
         scene.state.free_throws.attempts_remaining != 1U ||
         scene.free_throw_frame != 0U || scene.action_serial != 5U ||
-        scene.state.score[TECMO_GAMEPLAY_TEAM_AWAY] != 1U) {
+        scene.state.score[TECMO_GAMEPLAY_TEAM_AWAY] != 1U ||
+        !scene.audio_player.sfx_pending ||
+        scene.audio_player.pending_sfx_id != 11U ||
+        !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
-                           "native free-throw serial outcome diverged");
+                           "owned held-B free throw did not launch");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
     memset(&p1, 0, sizeof(p1));
     p1.pressed.cancel = true;
     if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+        scene.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
+        scene.state.free_throws.attempts_remaining != 1U ||
+        scene.free_throw_frame != 0U || scene.action_serial != 5U ||
+        scene.state.score[TECMO_GAMEPLAY_TEAM_AWAY] != 1U ||
+        !tecmo_gameplay_state_valid(&scene.state)) {
+        scene_test_message(message, message_size,
+                           "pressed-only free throw input launched");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    memset(&p1, 0, sizeof(p1));
+    p1.held.cancel = true;
+    if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
         scene.state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
         scene.state.free_throws.attempts_remaining != 0U ||
         scene.state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
-        scene.action_serial != 6U ||
+        scene.free_throw_frame != 0U || scene.action_serial != 6U ||
         scene.state.score[TECMO_GAMEPLAY_TEAM_AWAY] != 2U ||
         scene.ball_holder < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
         scene.controlled_actor[1] != scene.ball_holder ||
@@ -2548,7 +2671,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.audio_player.pending_sfx_id != 5U ||
         !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
-                           "free-throw settlement failed");
+                           "human free-throw settlement failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -2563,7 +2686,137 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
+    scene.free_throw_frame = 7U;
     tecmo_gameplay_scene_end(&scene);
+    if (scene.free_throw_frame != 0U) {
+        scene_test_message(message, message_size,
+                           "free-throw timer survived scene end");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+
+    /* Home ownership uses its assigned pad, independently of controller index. */
+    if (!tecmo_gameplay_scene_launch(&scene, &launch) ||
+        scene.free_throw_frame != 0U ||
+        !scene_test_enter_free_throw_sequence(
+            &scene, TECMO_GAMEPLAY_TEAM_HOME, 1U)) {
+        scene_test_message(message, message_size,
+                           "home free-throw ownership setup failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    p1.held.cancel = true;
+    p2.pressed.cancel = true;
+    if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+        scene.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
+        scene.state.free_throws.attempts_remaining != 1U ||
+        scene.action_serial != 0U || scene.free_throw_frame != 0U) {
+        scene_test_message(message, message_size,
+                           "home free throw accepted the wrong pad/edge");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    p2.held.cancel = true;
+    if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+        scene.state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene.state.free_throws.attempts_remaining != 0U ||
+        scene.state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene.state.score[TECMO_GAMEPLAY_TEAM_HOME] != 1U ||
+        scene.ball_holder >= TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
+        scene.controlled_actor[0] != scene.ball_holder ||
+        scene.action_serial != 1U || scene.free_throw_frame != 0U ||
+        !scene.audio_player.sfx_pending ||
+        scene.audio_player.pending_sfx_id != 5U ||
+        !tecmo_gameplay_state_valid(&scene.state)) {
+        scene_test_message(message, message_size,
+                           "home owned held-B free throw failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    tecmo_gameplay_scene_end(&scene);
+
+    /* With no controller assigned to the scoring side, use the observed $7D
+       CPU path exactly and reset it for the following attempt. */
+    launch.controller_team[1] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    if (!tecmo_gameplay_scene_launch(&scene, &launch) ||
+        !scene_test_enter_free_throw_sequence(
+            &scene, TECMO_GAMEPLAY_TEAM_HOME, 2U)) {
+        scene_test_message(message, message_size,
+                           "CPU free-throw timer setup failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    for (frame = 0U;
+         frame + 1U < TECMO_GAMEPLAY_FREE_THROW_CPU_TIMER_FRAMES; ++frame) {
+        if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+            scene.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
+            scene.state.free_throws.attempts_remaining != 2U ||
+            scene.free_throw_frame != frame + 1U ||
+            scene.action_serial != 0U || scene.audio_player.sfx_pending ||
+            !tecmo_gameplay_state_valid(&scene.state)) {
+            scene_test_message(message, message_size,
+                               "CPU free throw launched before $7D");
+            tecmo_gameplay_scene_destroy(&scene);
+            return false;
+        }
+    }
+    if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+        scene.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
+        scene.state.free_throws.attempts_remaining != 1U ||
+        scene.free_throw_frame != 0U || scene.action_serial != 1U ||
+        scene.state.score[TECMO_GAMEPLAY_TEAM_HOME] != 0U ||
+        scene.audio_player.sfx_pending ||
+        !tecmo_gameplay_state_valid(&scene.state)) {
+        scene_test_message(message, message_size,
+                           "CPU free throw did not launch at $7D");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+        scene.state.free_throws.attempts_remaining != 1U ||
+        scene.free_throw_frame != 1U || scene.action_serial != 1U) {
+        scene_test_message(message, message_size,
+                           "second CPU free-throw timer did not reset");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    for (frame = 1U;
+         frame + 1U < TECMO_GAMEPLAY_FREE_THROW_CPU_TIMER_FRAMES; ++frame) {
+        if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+            scene.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
+            scene.state.free_throws.attempts_remaining != 1U ||
+            scene.free_throw_frame != frame + 1U ||
+            scene.action_serial != 1U || scene.audio_player.sfx_pending) {
+            scene_test_message(message, message_size,
+                               "second CPU free throw launched early");
+            tecmo_gameplay_scene_destroy(&scene);
+            return false;
+        }
+    }
+    if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+        scene.state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene.state.free_throws.attempts_remaining != 0U ||
+        scene.state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene.state.score[TECMO_GAMEPLAY_TEAM_HOME] != 0U ||
+        scene.ball_holder >= TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
+        scene.controlled_actor[0] != scene.ball_holder ||
+        scene.free_throw_frame != 0U || scene.action_serial != 2U ||
+        !scene.audio_player.sfx_pending ||
+        scene.audio_player.pending_sfx_id != 5U ||
+        !tecmo_gameplay_state_valid(&scene.state)) {
+        scene_test_message(message, message_size,
+                           "CPU free-throw settlement failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    tecmo_gameplay_scene_end(&scene);
+    launch.controller_team[1] = TECMO_GAMEPLAY_TEAM_HOME;
 
     if (!tecmo_gameplay_scene_launch(&scene, &launch)) {
         scene_test_message(message, message_size,

@@ -21,6 +21,14 @@
 #define TECMO_GAMEPLAY_SCENE_NES_WIDTH 256
 #define TECMO_GAMEPLAY_SCENE_NES_HEIGHT 240
 
+/* Bank05's CPU free-throw setup chooses one of these two bounded timer lows.
+   Native play deterministically uses the observed short path until the ROM's
+   branch-selection policy is derived. Human attempts have no timer fallback. */
+#define TECMO_GAMEPLAY_FREE_THROW_CPU_TIMER_SHORT_FRAMES 0x7DU
+#define TECMO_GAMEPLAY_FREE_THROW_CPU_TIMER_LONG_FRAMES 0xD7U
+#define TECMO_GAMEPLAY_FREE_THROW_CPU_TIMER_FRAMES \
+    TECMO_GAMEPLAY_FREE_THROW_CPU_TIMER_SHORT_FRAMES
+
 typedef enum TecmoGameplaySceneSource {
     TECMO_GAMEPLAY_SCENE_PRESEASON = 0,
     TECMO_GAMEPLAY_SCENE_SEASON,

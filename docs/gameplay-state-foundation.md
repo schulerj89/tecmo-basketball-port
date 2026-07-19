@@ -24,6 +24,16 @@ starts an offensive shot or attempts a defensive steal/contact action. Offense
 resolves before defense when both sides press B in one update. START and SELECT
 are inert during live play, and a controller with no assigned team cannot act.
 
+During a human free throw, the scene resolves the controller assigned to the
+scoring team and launches only while that pad's current NES B level is held.
+The other pad, A, directions, START, SELECT, B release, and a synthetic pressed
+edge without the held level are ignored. A human attempt has no timeout. If the
+scoring team has no assigned controller, native play uses the observed `$7D`
+(125-frame) CPU timer; Bank05's `$D7` (215-frame) alternative remains a named
+candidate whose selection policy is not yet derived. The timer resets for each
+attempt and across scene launch/end. Foul-card dismissal remains the separate
+NES A-release presentation gate.
+
 The compound scene loads `gameplay/core` TGPL-1 (23416 bytes,
 `2047CCE0`), `gameplay/court` TGCT-1 (6559 bytes, `ECAB7A93`),
 `gameplay/close-shots` TGCS-1 (3144 bytes, `DACDC976`), `audio/music`
@@ -103,6 +113,13 @@ decompilation at these CPU-address ranges:
 - Bank 05 `$94F9-$9674` and Bank 02 `$B0F8-$B398`: bounded individual/team
   foul counters, bonus-related paths, overlay state, and the two observed
   post-foul shot-24 clock-divider outcomes (45 and 50).
+- Bank 05 `$8A33-$8ABD`: the human state-20 path selects the shooting side's
+  controller and tests its current NES B level before launching a shot; it does
+  not consume direction or button-edge state at that gate.
+- Bank 05 `$96B6-$9708`: CPU ownership bypass and the bounded command-4 timer
+  seeds with low byte `$7D` or `$D7` and high byte zero.
+- Bank 06 `$9621`, `$976F-$985C`: free-throw setup/lineup state boundary. The
+  visual lineup/repositioning remains outside the current scene renderer.
 - Bank 05 `$8ABD-$8CE4`, table `$8CE5-$8D7C`, launch `$9C40-$9CC9`, actor
   progression `$86BB`, `$86DD`, `$8732`, `$8745`, result `$91BC-$943A`, ball
   path `$AF30-$B073`, and scoring `$B995-$BA3F`: numeric close-shot subtype 01
@@ -131,9 +148,11 @@ These are provenance only and are not runtime inputs.
 - Foul subtype/detection, which counters a foul changes, post-presentation
   possession, and selection of divider 45 versus 50 are caller-supplied.
   Unsupported or malformed choices fail without mutating state.
-- Free-throw aiming, release timing, rebound behavior, and post-attempt
-  possession are unresolved. Only explicit made/missed results and explicit
-  settlement are modeled.
+- Free-throw controller ownership and the human current-B launch gate are
+  supported. CPU timing deterministically selects the observed `$7D` candidate;
+  choosing between `$7D` and `$D7`, visual lineup timing, aiming, made/missed
+  policy, rebound behavior, and post-attempt possession remain unresolved.
+  Only explicit made/missed results and explicit settlement are modeled.
 - The exact TGCS numeric step/phase tables and the selected TGPL pose resolution
   are consumed directly by the scene. TGCS exposes 208 exact resolutions, but
   live selection is limited to profile 0/direction 0 and actor-facing-left is
@@ -145,7 +164,7 @@ These are provenance only and are not runtime inputs.
   selecting dunk/variant 0 versus layup/variant 2, live close-shot
   profile/direction selection and left-facing render mirroring, dynamic
   team/court palette selection, foul detection, free-throw
-  aim/timing/result/rebound behavior, and
+  lineup/aim/result/rebound behavior and CPU timer-candidate choice, and
   HUD typography are native approximations. The imported TGCT palette bytes and
   embedded FCEUX RGB profile are exact, but native selection does not yet
   reproduce all original matchup/state colors. The exact rules state consumes
