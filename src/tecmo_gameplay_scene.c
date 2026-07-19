@@ -1213,12 +1213,15 @@ static bool scene_update_ai(TecmoGameplayScene *scene)
         !scene_team_has_controller(scene, scene->state.possession)) {
         TecmoGameplaySceneActor *holder = &scene->actors[scene->ball_holder];
         int target_x = 168 + (int)scene->launch.difficulty * 8;
+        int close_x = TECMO_GAMEPLAY_HOOP_X -
+                      TECMO_GAMEPLAY_CLOSE_DISTANCE_X;
         uint32_t shot_cadence = 60U -
             (uint32_t)scene->launch.difficulty * 15U;
         bool advance = scene->launch.difficulty != 0U ||
                        (scene->frame & 1U) == 0U;
         /* Native deterministic AI policy; positions/cadence are explicitly
            implementation-owned rather than claimed ROM behavior. */
+        if (target_x < close_x) target_x = close_x;
         if (advance && holder->x < target_x) ++holder->x;
         if (advance && holder->y < 148) ++holder->y;
         if (advance && holder->y > 148) --holder->y;
@@ -2327,6 +2330,50 @@ static bool scene_test_enter_free_throw_sequence(
     return true;
 }
 
+static bool scene_test_cpu_offense_all_difficulties(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *base_launch,
+    uint8_t *failed_difficulty)
+{
+    TecmoGameplaySceneLaunch launch;
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    uint8_t difficulty;
+    size_t frame;
+    if (scene == NULL || base_launch == NULL || failed_difficulty == NULL) {
+        return false;
+    }
+    launch = *base_launch;
+    launch.controller_team[0] = TECMO_GAMEPLAY_TEAM_HOME;
+    launch.controller_team[1] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    launch.game_music_enabled = false;
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    for (difficulty = 0U; difficulty <= 2U; ++difficulty) {
+        *failed_difficulty = difficulty;
+        launch.difficulty = difficulty;
+        if (!tecmo_gameplay_scene_launch(scene, &launch)) return false;
+        for (frame = 0U; frame < 300U &&
+             scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE; ++frame) {
+            if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+                scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+                scene->state.shot_clock == 0U) {
+                return false;
+            }
+        }
+        if (!scene_shot_is_close(scene->shot_kind) ||
+            scene->shot_actor >= TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
+            scene->actors[scene->shot_actor].x <
+                TECMO_GAMEPLAY_HOOP_X - TECMO_GAMEPLAY_CLOSE_DISTANCE_X ||
+            scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+            scene->state.shot_clock == 0U) {
+            return false;
+        }
+        tecmo_gameplay_scene_end(scene);
+    }
+    return true;
+}
+
 bool tecmo_gameplay_scene_self_test(const char *project_root,
                                     const char *asset_pack_path,
                                     TecmoMusicPlayer *music_player,
@@ -2349,6 +2396,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     uint16_t away_score_before;
     uint8_t holder;
     uint8_t shot_actor;
+    uint8_t failed_difficulty;
     int16_t x;
     size_t frame;
     size_t pixel;
@@ -2942,6 +2990,17 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         return false;
     }
     tecmo_gameplay_scene_end(&scene);
+    if (!scene_test_cpu_offense_all_difficulties(
+            &scene, &launch, &failed_difficulty)) {
+        char failure[192];
+        (void)snprintf(
+            failure, sizeof(failure),
+            "CPU offense stalled before a close shot at difficulty %u",
+            (unsigned)failed_difficulty);
+        scene_test_message(message, message_size, failure);
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
 
     launch.controller_team[0] = TECMO_GAMEPLAY_TEAM_AWAY;
     launch.controller_team[1] = TECMO_GAMEPLAY_TEAM_HOME;
