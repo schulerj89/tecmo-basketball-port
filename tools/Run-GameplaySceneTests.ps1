@@ -185,8 +185,8 @@ try {
             -Command (Join-Path $ProjectRoot "build.ps1") `
             -Arguments @() -LogPath $BuildLog
         if ($BuildRun.exit_code -ne 0 -or
-            @(Select-String -LiteralPath $BuildLog -Pattern
-                'warning [A-Z]+[0-9]+:').Count -ne 0) {
+            @(Select-String -LiteralPath $BuildLog `
+                -Pattern 'warning [A-Z]+[0-9]+:').Count -ne 0) {
             throw "Warning-free gameplay scene build failed.`n$($BuildRun.tail)"
         }
     }
