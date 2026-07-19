@@ -153,7 +153,12 @@ static bool parse_payload(TecmoMusicAsset *asset, const uint8_t *bytes,
     static const uint32_t track_fingerprints[TECMO_MUSIC_TRACK_COUNT] = {
         0x1270498BU, 0xBD91FCF1U, 0x69F85EC2U, 0x8122C6CFU
     };
-    static const uint8_t track_ids[TECMO_MUSIC_TRACK_COUNT] = {5U, 6U, 7U, 8U};
+    static const uint8_t track_ids[TECMO_MUSIC_TRACK_COUNT] = {
+        TECMO_MUSIC_TRACK_GAMEPLAY,
+        TECMO_MUSIC_TRACK_PRESENTATION,
+        TECMO_MUSIC_TRACK_OPENING,
+        TECMO_MUSIC_TRACK_PERIOD_STINGER
+    };
     uint32_t track_offset;
     uint32_t voice_offset;
     uint32_t pitch_offset;
@@ -692,7 +697,8 @@ static void music_tick(TecmoMusicPlayer *player)
 bool tecmo_music_queue_track(TecmoMusicPlayer *player, uint8_t track_id)
 {
     if (player == NULL || player->asset == NULL) return false;
-    if (track_id == 5U && !player->game_music_enabled) return false;
+    if (track_id == TECMO_MUSIC_TRACK_GAMEPLAY &&
+        !player->game_music_enabled) return false;
     if (find_track(player->asset, track_id) == NULL) return false;
     player->pending_track_id = track_id;
     player->track_pending = true;
@@ -705,7 +711,7 @@ bool tecmo_music_queue_opening_once(TecmoMusicPlayer *player)
 {
     if (player == NULL || player->opening_queued) return false;
     player->opening_queued = true;
-    return tecmo_music_queue_track(player, 7U);
+    return tecmo_music_queue_track(player, TECMO_MUSIC_TRACK_OPENING);
 }
 
 void tecmo_music_set_game_music_enabled(TecmoMusicPlayer *player,
@@ -1011,7 +1017,10 @@ static bool pitch_delta_anchor_test(const TecmoMusicAsset *asset)
 
 static bool long_loop_anchor_test(const TecmoMusicAsset *asset)
 {
-    static const uint8_t track_ids[2] = {5U, 6U};
+    static const uint8_t track_ids[2] = {
+        TECMO_MUSIC_TRACK_GAMEPLAY,
+        TECMO_MUSIC_TRACK_PRESENTATION
+    };
     unsigned track_index;
 
     for (track_index = 0U; track_index < 2U; ++track_index) {
@@ -1047,7 +1056,7 @@ static bool long_loop_anchor_test(const TecmoMusicAsset *asset)
             }
         }
         if (player.ticks_elapsed != 100000U ||
-            (track_ids[track_index] == 6U &&
+            (track_ids[track_index] == TECMO_MUSIC_TRACK_PRESENTATION &&
              (!saw_tuned_pitch || !saw_reset_pitch)))
             return false;
     }
@@ -1158,10 +1167,12 @@ bool tecmo_music_self_test(const char *project_root,
     voice_ok = voice_timing_anchor_test(&asset);
     pitch_ok = pitch_delta_anchor_test(&asset);
     long_loop_ok = long_loop_anchor_test(&asset);
-    stinger_ok = track_duration_anchor_test(&asset, 8U, 396U,
-                                             &stinger_ticks);
+    stinger_ok = track_duration_anchor_test(
+        &asset, TECMO_MUSIC_TRACK_PERIOD_STINGER, 396U,
+                                              &stinger_ticks);
     tecmo_music_player_init(&startup_player, &asset);
-    startup_ok = tecmo_music_queue_track(&startup_player, 7U) &&
+    startup_ok = tecmo_music_queue_track(&startup_player,
+                                          TECMO_MUSIC_TRACK_OPENING) &&
                  startup_player.track_pending && startup_player.playing &&
                  startup_player.current_track_id == 0U &&
                  startup_player.ticks_elapsed == 0U &&
@@ -1171,7 +1182,7 @@ bool tecmo_music_self_test(const char *project_root,
                  !startup_player.channels[3].active;
     music_tick(&startup_player);
     startup_ok = startup_ok && !startup_player.track_pending &&
-                 startup_player.current_track_id == 7U &&
+                  startup_player.current_track_id == TECMO_MUSIC_TRACK_OPENING &&
                  startup_player.ticks_elapsed == 1U &&
                  startup_player.channels[0].duration_ticks == 4U &&
                  startup_player.channels[1].duration_ticks == 21U &&
@@ -1191,8 +1202,10 @@ bool tecmo_music_self_test(const char *project_root,
                          TECMO_MUSIC_TICK_DENOMINATOR;
     tecmo_music_player_init(&null_sink_player, &asset);
     tecmo_music_player_init(&buffered_player, &asset);
-    null_sink_ok = tecmo_music_queue_track(&null_sink_player, 7U) &&
-                   tecmo_music_queue_track(&buffered_player, 7U);
+    null_sink_ok = tecmo_music_queue_track(&null_sink_player,
+                                            TECMO_MUSIC_TRACK_OPENING) &&
+                   tecmo_music_queue_track(&buffered_player,
+                                           TECMO_MUSIC_TRACK_OPENING);
     tecmo_music_render_samples(&null_sink_player, NULL,
                                sizeof(samples) / sizeof(samples[0]));
     tecmo_music_render_samples(&buffered_player, samples,
@@ -1201,7 +1214,8 @@ bool tecmo_music_self_test(const char *project_root,
                    memcmp(&null_sink_player, &buffered_player,
                           sizeof(null_sink_player)) == 0;
     tecmo_music_player_init(&duration_player, &asset);
-    duration_ok = tecmo_music_queue_track(&duration_player, 7U);
+    duration_ok = tecmo_music_queue_track(&duration_player,
+                                           TECMO_MUSIC_TRACK_OPENING);
     while (duration_ok && duration_player.playing &&
            duration_player.ticks_elapsed < 100000U)
         music_tick(&duration_player);
@@ -1210,10 +1224,18 @@ bool tecmo_music_self_test(const char *project_root,
     duration_ok = duration_ok && !duration_player.playing &&
                   !duration_player.render_guard_failed && opening_ticks == 2614U;
     tecmo_music_set_game_music_enabled(&player, false);
-    gate_ok = gate_ok && !tecmo_music_queue_track(&player, 5U) &&
-              player.current_track_id == 7U;
+    gate_ok = gate_ok &&
+              tecmo_music_queue_track(&player,
+                                      TECMO_MUSIC_TRACK_PRESENTATION) &&
+              player.track_pending &&
+              player.pending_track_id == TECMO_MUSIC_TRACK_PRESENTATION &&
+              !tecmo_music_queue_track(&player, TECMO_MUSIC_TRACK_GAMEPLAY) &&
+              player.pending_track_id == TECMO_MUSIC_TRACK_PRESENTATION &&
+              player.current_track_id == TECMO_MUSIC_TRACK_OPENING;
     tecmo_music_set_game_music_enabled(&player, true);
-    gate_ok = gate_ok && tecmo_music_queue_track(&player, 5U);
+    gate_ok = gate_ok &&
+              tecmo_music_queue_track(&player, TECMO_MUSIC_TRACK_GAMEPLAY) &&
+              player.pending_track_id == TECMO_MUSIC_TRACK_GAMEPLAY;
     if (select_asset_pack(project_root, pack_path, sizeof(pack_path)) &&
         tecmo_asset_pack_read_entry_exact(pack_path, MUSIC_ENTRY_ID,
                                           TECMO_MUSIC_PAYLOAD_SIZE,

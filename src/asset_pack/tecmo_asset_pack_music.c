@@ -457,12 +457,24 @@ static int validate_revision(const uint8_t *rom,
                                  TECMO_ASSET_PACK_MUSIC_SOURCE_SIZE) != 0x06F2A750U ||
         tecmo_asset_pack_fnv1a32(rom + (size_t)(bank04_offset + 0x0CD0U),
                                  TECMO_ASSET_PACK_MUSIC_DIRECTORY_SIZE) != 0x59366EC4U ||
+        tecmo_asset_pack_fnv1a32(
+            rom + (size_t)(bank04_offset +
+                TECMO_ASSET_PACK_MUSIC_OPENING_QUEUE_CPU - 0x8000U),
+            TECMO_ASSET_PACK_MUSIC_OPENING_QUEUE_SIZE) != 0xFCDCAFEFU ||
+        tecmo_asset_pack_fnv1a32(
+            rom + (size_t)(bank04_offset +
+                TECMO_ASSET_PACK_MUSIC_OPENING_FIRST_ROUTE_CPU - 0x8000U),
+            TECMO_ASSET_PACK_MUSIC_OPENING_FIRST_ROUTE_SIZE) != 0x07FD2C8DU ||
+        tecmo_asset_pack_fnv1a32(
+            rom + (size_t)(fixed_bank_offset +
+                TECMO_ASSET_PACK_MUSIC_MENU_QUEUE_CPU - 0xC000U),
+            TECMO_ASSET_PACK_MUSIC_MENU_QUEUE_SIZE) != 0x0ADC9176U ||
         tecmo_asset_pack_fnv1a32(rom + (size_t)(fixed_bank_offset + 0x32F2U),
                                  TECMO_ASSET_PACK_MUSIC_ENGINE_SIZE) != 0xFC6A0BC1U ||
         tecmo_asset_pack_fnv1a32(rom + (size_t)(fixed_bank_offset + 0x393BU),
                                  TECMO_ASSET_PACK_MUSIC_PITCH_COUNT * 2U) != 0x3F5A394DU) {
         tecmo_asset_pack_set_message(message, message_size,
-                                     "Rev1 music engine/data fingerprint mismatch.");
+                                     "Rev1 music engine/data/queue fingerprint mismatch.");
         return -1;
     }
     for (i = 0U; i < TECMO_ASSET_PACK_MUSIC_TRACK_COUNT; ++i) {
@@ -668,6 +680,12 @@ int tecmo_asset_pack_build_music(const uint8_t *rom,
     provenance->directory_offset = bank04_source + 0x0CD0U;
     provenance->engine_offset = fixed_source + 0x32F2U;
     provenance->pitch_offset = fixed_source + 0x393BU;
+    provenance->opening_queue_offset = bank04_source +
+        TECMO_ASSET_PACK_MUSIC_OPENING_QUEUE_CPU - 0x8000U;
+    provenance->opening_first_route_offset = bank04_source +
+        TECMO_ASSET_PACK_MUSIC_OPENING_FIRST_ROUTE_CPU - 0x8000U;
+    provenance->menu_queue_offset = fixed_source +
+        TECMO_ASSET_PACK_MUSIC_MENU_QUEUE_CPU - 0xC000U;
     for (i = 0U; i < TECMO_ASSET_PACK_MUSIC_TRACK_COUNT; ++i) {
         provenance->track_offsets[i] = bank04_source + music_tracks[i].begin - 0x8000U;
         provenance->track_sizes[i] = music_tracks[i].end - music_tracks[i].begin;

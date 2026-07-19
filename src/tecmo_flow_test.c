@@ -536,8 +536,16 @@ static bool flow_expect_opening_handoff_frames(TecmoRuntime *runtime,
 {
     TecmoInput input;
     memset(&input, 0, sizeof(input));
+    tecmo_music_player_init(&runtime->music_player, &runtime->music_asset);
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_FIRST_SPRITE);
+    if (runtime->music_player.opening_queued ||
+        runtime->music_player.track_pending ||
+        runtime->music_player.playing) {
+        set_flow_test_message(message, message_size,
+                              "opening music started at TECMO mode entry");
+        return false;
+    }
     runtime->intro_output_step = FLOW_INTRO_TITLE_STEP;
     runtime->mode_frame_counter = FLOW_INTRO_TITLE_HANDOFF_FRAME - 2U;
     tecmo_runtime_update(runtime, &input);
@@ -560,14 +568,29 @@ static bool flow_expect_opening_handoff_frames(TecmoRuntime *runtime,
         set_flow_test_message(message, message_size, "license left before native frame 277");
         return false;
     }
+    if (runtime->music_player.opening_queued ||
+        runtime->music_player.track_pending) {
+        set_flow_test_message(message, message_size,
+                              "opening music started before the arena handoff");
+        return false;
+    }
     tecmo_runtime_update(runtime, &input);
     if (runtime->intro_output_step != FLOW_INTRO_ARENA_STEP ||
         runtime->mode_frame_counter != 0U) {
         set_flow_test_message(message, message_size, "license did not hand off at native frame 277");
         return false;
     }
+    if (!runtime->music_player.opening_queued ||
+        (runtime->music_asset.available &&
+         (!runtime->music_player.track_pending ||
+          runtime->music_player.pending_track_id != TECMO_MUSIC_TRACK_OPENING))) {
+        set_flow_test_message(message, message_size,
+                              "opening track 7 was not queued at arena entry");
+        return false;
+    }
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
+    tecmo_music_player_init(&runtime->music_player, &runtime->music_asset);
     return true;
 }
 
@@ -2291,6 +2314,14 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
                                           message_size)) {
         return false;
     }
+    if (!runtime->music_player.opening_queued ||
+        (runtime->music_asset.available &&
+         (!runtime->music_player.track_pending ||
+          runtime->music_player.pending_track_id != TECMO_MUSIC_TRACK_OPENING))) {
+        set_flow_test_message(message, message_size,
+                              "normal opening did not queue track 7 at arena entry");
+        return false;
+    }
     previous_intro_step = runtime->intro_output_step;
     if (!flow_expect_arena_bank04_handoff_frame(message, message_size)) {
         return false;
@@ -2446,9 +2477,23 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         set_flow_test_message(message, message_size, "title confirmation did not remain visible through frame 126");
         return false;
     }
+    if (runtime->music_asset.available &&
+        (!runtime->music_player.track_pending ||
+         runtime->music_player.pending_track_id != TECMO_MUSIC_TRACK_OPENING)) {
+        set_flow_test_message(message, message_size,
+                              "presentation music replaced track 7 before confirmation frame 127");
+        return false;
+    }
     tecmo_runtime_update(runtime, &input);
     if (!flow_expect_mode(runtime, TECMO_MODE_START_GAME_MENU,
-                          "title confirmation frame 127 handoff", message, message_size)) return false;
+                           "title confirmation frame 127 handoff", message, message_size)) return false;
+    if (runtime->music_asset.available &&
+        (!runtime->music_player.track_pending ||
+         runtime->music_player.pending_track_id != TECMO_MUSIC_TRACK_PRESENTATION)) {
+        set_flow_test_message(message, message_size,
+                              "blue-menu entry did not queue presentation track 6");
+        return false;
+    }
 
     for (size_t reveal = 0U; reveal < 31U; ++reveal)
         tecmo_runtime_update(runtime, &input);
@@ -2512,7 +2557,14 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         return false;
     }
 
+    speed_music_before = runtime->music_player;
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    if (memcmp(&speed_music_before, &runtime->music_player,
+               sizeof(speed_music_before)) != 0) {
+        set_flow_test_message(message, message_size,
+                              "generic start-menu reset restarted presentation music");
+        return false;
+    }
     runtime->start_game_menu_state.frame = 32U;
     runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
     memset(&input, 0, sizeof(input));

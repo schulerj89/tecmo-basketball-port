@@ -764,6 +764,9 @@ static int append_start_menu_source_map_entry(char *buffer,
         "\"runtime_title_dependency_entry\":\"title/start-screen\","
         "\"runtime_title_dependency_frames\":[0,7],\"runtime_chr_dependency_entry\":\"chr/all\","
         "\"palette_stage_frames\":[0,2,4,6,8,20,24,28,32],\"root_items\":7,\"season_items\":6,"
+        "\"entry_music_track_id\":6,\"entry_music_queue_cpu_address\":58487,"
+        "\"entry_music_queue_fingerprint_fnv1a32\":\"0ADC9176\","
+        "\"entry_music_timing\":\"after-title-confirmation-before-root-setup\","
         "\"direction_repeat_frames\":8,\"season_transition_frames\":32,\"period_value_count\":5,"
         "\"background_pixels_per_frame\":8,\"emblem_pixels_per_frame\":5,"
         "\"input_gate_seed\":5,\"period_setup_extra_frames\":1,\"exit_palette_step_frames\":2,"
@@ -999,6 +1002,9 @@ static int append_music_source_map_entry(char *buffer,
         "{\"role\":\"music-directory\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":36048,\"size\":18,\"fingerprint_fnv1a32\":\"59366EC4\"},"
         "{\"role\":\"native-audio-engine\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":62194,\"size\":1759,\"fingerprint_fnv1a32\":\"FC6A0BC1\"},"
         "{\"role\":\"period-table\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":63803,\"size\":150,\"fingerprint_fnv1a32\":\"3F5A394D\"},"
+        "{\"role\":\"opening-track-queue\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":%u,\"size\":%u,\"fingerprint_fnv1a32\":\"FCDCAFEF\"},"
+        "{\"role\":\"opening-first-scene-route\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":%u,\"size\":%u,\"fingerprint_fnv1a32\":\"07FD2C8D\"},"
+        "{\"role\":\"menu-track-queue\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":%u,\"fingerprint_fnv1a32\":\"0ADC9176\"},"
         "{\"role\":\"gameplay-track-5\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":37620,\"size\":%u,\"fingerprint_fnv1a32\":\"1270498B\"},"
         "{\"role\":\"presentation-track-6\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":38595,\"size\":%u,\"fingerprint_fnv1a32\":\"BD91FCF1\"},"
         "{\"role\":\"opening-track-7\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":36066,\"size\":%u,\"fingerprint_fnv1a32\":\"69F85EC2\"},"
@@ -1010,8 +1016,12 @@ static int append_music_source_map_entry(char *buffer,
         "\"channel_loop_state_count\":1,"
         "\"runtime_raw_pointer_or_opcode_dependency\":false,"
         "\"tick_rate\":\"39375000/655171\",\"sample_rate\":44100,"
+        "\"opening_track_id\":7,\"opening_queue_scene\":\"arena-entry\","
+        "\"opening_queue_relation\":\"one-NMI-before-first-arena-route\","
         "\"opening_queue_to_clear_ticks\":2614,"
         "\"opening_tick_boundary\":\"F7EE-consume-through-first-063E-zero-inclusive\","
+        "\"menu_track_id\":6,\"menu_queue_scene\":\"blue-start-game-menu-entry\","
+        "\"menu_queue_timing\":\"after-title-confirmation-before-root-setup\","
         "\"queue_semantics\":\"pending-until-next-audio-tick\","
         "\"envelope_phase_transition\":\"same-tick-fallthrough\","
         "\"voice_timing_bits\":\"attack-7_decay-5-6_release-2-4\","
@@ -1024,6 +1034,15 @@ static int append_music_source_map_entry(char *buffer,
         (unsigned long long)p->directory_offset,
         (unsigned long long)p->engine_offset,
         (unsigned long long)p->pitch_offset,
+        (unsigned long long)p->opening_queue_offset,
+        (unsigned)TECMO_ASSET_PACK_MUSIC_OPENING_QUEUE_CPU,
+        (unsigned)TECMO_ASSET_PACK_MUSIC_OPENING_QUEUE_SIZE,
+        (unsigned long long)p->opening_first_route_offset,
+        (unsigned)TECMO_ASSET_PACK_MUSIC_OPENING_FIRST_ROUTE_CPU,
+        (unsigned)TECMO_ASSET_PACK_MUSIC_OPENING_FIRST_ROUTE_SIZE,
+        (unsigned long long)p->menu_queue_offset,
+        (unsigned)TECMO_ASSET_PACK_MUSIC_MENU_QUEUE_CPU,
+        (unsigned)TECMO_ASSET_PACK_MUSIC_MENU_QUEUE_SIZE,
         (unsigned long long)p->track_offsets[0], p->track_sizes[0],
         (unsigned long long)p->track_offsets[1], p->track_sizes[1],
         (unsigned long long)p->track_offsets[2], p->track_sizes[2],

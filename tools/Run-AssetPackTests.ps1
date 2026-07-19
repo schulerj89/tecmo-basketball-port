@@ -1655,6 +1655,7 @@ try {
     $SourceMutationCases = [System.Collections.Generic.List[object]]::new()
     $PrgStart = 16 + [int]$ReferenceHeader.trainer_bytes
     $SourceMutationSpecs = @(
+        [pscustomobject]@{ id = "opening-first-route"; bank = 4; cpu = 0x82CF },
         [pscustomobject]@{ id = "selector-two-immediate"; bank = 4; cpu = 0x852F },
         [pscustomobject]@{ id = "selector-two-indexed-operand"; bank = 4; cpu = 0x863E },
         [pscustomobject]@{ id = "sprite-chr-selector"; bank = 4; cpu = 0x856A },
@@ -1714,6 +1715,7 @@ try {
         [pscustomobject]@{ id = "controller-poll"; bank = $ExpectedPrgBanks - 1; cpu = 0xD317; fixed = $true },
         [pscustomobject]@{ id = "menu-input-helper"; bank = $ExpectedPrgBanks - 1; cpu = 0xD723; fixed = $true },
         [pscustomobject]@{ id = "title-call-and-menu-session-setup"; bank = $ExpectedPrgBanks - 1; cpu = 0xE455; fixed = $true },
+        [pscustomobject]@{ id = "menu-music-queue"; bank = $ExpectedPrgBanks - 1; cpu = 0xE477; fixed = $true },
         [pscustomobject]@{ id = "start-menu-call-and-post-return-exit-chain"; bank = $ExpectedPrgBanks - 1; cpu = 0xE481; fixed = $true },
         [pscustomobject]@{ id = "full-chr"; chr = $true }
     )
@@ -3391,6 +3393,10 @@ try {
                     $StartMenuSource.native_contract.runtime_title_dependency_entry -eq "title/start-screen" -and
                     (@($StartMenuSource.native_contract.runtime_title_dependency_frames) -join ",") -eq "0,7" -and
                     $StartMenuSource.native_contract.runtime_chr_dependency_entry -eq "chr/all" -and
+                    [int]$StartMenuSource.native_contract.entry_music_track_id -eq 6 -and
+                    [int]$StartMenuSource.native_contract.entry_music_queue_cpu_address -eq 0xE477 -and
+                    $StartMenuSource.native_contract.entry_music_queue_fingerprint_fnv1a32 -eq "0ADC9176" -and
+                    $StartMenuSource.native_contract.entry_music_timing -eq "after-title-confirmation-before-root-setup" -and
                     (@($StartMenuSource.native_contract.palette_stage_frames) -join ",") -eq "0,2,4,6,8,20,24,28,32" -and
                     [int]$StartMenuSource.native_contract.root_items -eq 7 -and
                     [int]$StartMenuSource.native_contract.season_items -eq 6 -and
@@ -3537,7 +3543,9 @@ try {
                 $MusicRoles = @($MusicSource.sources | ForEach-Object { [string]$_.role })
                 $ExpectedMusicRoles = @(
                     "audio-bank-range", "music-directory", "native-audio-engine",
-                    "period-table", "gameplay-track-5", "presentation-track-6",
+                    "period-table", "opening-track-queue",
+                    "opening-first-scene-route", "menu-track-queue",
+                    "gameplay-track-5", "presentation-track-6",
                     "opening-track-7", "period-stinger-8"
                 )
                 $MusicBankBase = [uint64]($OpeningPrgStart + 4 * 0x4000)
@@ -3565,6 +3573,21 @@ try {
                         ($OpeningFixedStart + (0xF93B - 0xC000)) -and
                     [int]($MusicSourceByRole["period-table"].size) -eq 150 -and
                     $MusicSourceByRole["period-table"].fingerprint_fnv1a32 -eq "3F5A394D" -and
+                    [uint64]($MusicSourceByRole["opening-track-queue"].source_offset) -eq
+                        ($MusicBankBase + (0x826A - 0x8000)) -and
+                    [int]($MusicSourceByRole["opening-track-queue"].cpu_address) -eq 0x826A -and
+                    [int]($MusicSourceByRole["opening-track-queue"].size) -eq 5 -and
+                    $MusicSourceByRole["opening-track-queue"].fingerprint_fnv1a32 -eq "FCDCAFEF" -and
+                    [uint64]($MusicSourceByRole["opening-first-scene-route"].source_offset) -eq
+                        ($MusicBankBase + (0x82CF - 0x8000)) -and
+                    [int]($MusicSourceByRole["opening-first-scene-route"].cpu_address) -eq 0x82CF -and
+                    [int]($MusicSourceByRole["opening-first-scene-route"].size) -eq 2 -and
+                    $MusicSourceByRole["opening-first-scene-route"].fingerprint_fnv1a32 -eq "07FD2C8D" -and
+                    [uint64]($MusicSourceByRole["menu-track-queue"].source_offset) -eq
+                        ($OpeningFixedStart + (0xE477 - 0xC000)) -and
+                    [int]($MusicSourceByRole["menu-track-queue"].cpu_address) -eq 0xE477 -and
+                    [int]($MusicSourceByRole["menu-track-queue"].size) -eq 5 -and
+                    $MusicSourceByRole["menu-track-queue"].fingerprint_fnv1a32 -eq "0ADC9176" -and
                     [int]($MusicSourceByRole["gameplay-track-5"].size) -eq 975 -and
                     $MusicSourceByRole["gameplay-track-5"].fingerprint_fnv1a32 -eq "1270498B" -and
                     [int]($MusicSourceByRole["presentation-track-6"].size) -eq 1736 -and
@@ -3587,9 +3610,18 @@ try {
                     $MusicSource.native_contract.runtime_raw_pointer_or_opcode_dependency -eq $false -and
                     $MusicSource.native_contract.tick_rate -eq "39375000/655171" -and
                     [int]$MusicSource.native_contract.sample_rate -eq 44100 -and
+                    [int]$MusicSource.native_contract.opening_track_id -eq 7 -and
+                    $MusicSource.native_contract.opening_queue_scene -eq "arena-entry" -and
+                    $MusicSource.native_contract.opening_queue_relation -eq
+                        "one-NMI-before-first-arena-route" -and
                     [int]$MusicSource.native_contract.opening_queue_to_clear_ticks -eq 2614 -and
                     $MusicSource.native_contract.opening_tick_boundary -eq
                         "F7EE-consume-through-first-063E-zero-inclusive" -and
+                    [int]$MusicSource.native_contract.menu_track_id -eq 6 -and
+                    $MusicSource.native_contract.menu_queue_scene -eq
+                        "blue-start-game-menu-entry" -and
+                    $MusicSource.native_contract.menu_queue_timing -eq
+                        "after-title-confirmation-before-root-setup" -and
                     $MusicSource.native_contract.queue_semantics -eq
                         "pending-until-next-audio-tick" -and
                     $MusicSource.native_contract.envelope_phase_transition -eq

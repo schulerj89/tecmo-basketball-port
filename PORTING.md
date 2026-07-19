@@ -454,23 +454,30 @@ ticks.
 Rev1 validation covers Bank04 `$8AA4-$9F05` (`06F2A750`), directory
 `$8CD0-$8CE1` (`59366EC4`), requested tracks 5/6/7/8 (`1270498B`, `BD91FCF1`,
 `69F85EC2`, `8122C6CF`), fixed engine `$F2F2-$F9D0` (`FC6A0BC1`), and period
-table `$F93B-$F9D0` (`3F5A394D`). Only the ROM and resulting asset pack are
-runtime inputs.
+table `$F93B-$F9D0` (`3F5A394D`). Queue provenance is independently anchored at
+Bank04 `$826A-$826E` (`FCDCAFEF`) for opening ID 7, the first arena route pointer
+at `$82CF-$82D0` (`07FD2C8D`), and fixed `$E477-$E47B` (`0ADC9176`) for menu ID
+6. Only the ROM and resulting asset pack are runtime inputs.
 
 Sequencing uses the NTSC rational cadence `39375000/655171` from the 44.1 kHz
-audio sample clock, independently of frame rendering and GAME SPEED. ID 7 is
-queued exactly once on entry to the rabbit/TECMO opening and continues through
-the existing title/menu transitions without a restart; its imported program
-ends after 2614 inclusive ticks (43.4950 seconds), measured from fixed `$F7EE`
-consuming queued ID 7 through the first NMI where active mask `$063E` clears.
-The MUSIC setting only
-allows or rejects future ID-5 queues. OFF does not stop an active song, preview
-a choice, or globally mute IDs 6-8. The current native synthesizer covers the
+audio sample clock, independently of frame rendering and GAME SPEED. The
+TECMO/rabbit and NBA-license scenes are silent. ID 7 is queued exactly once at
+the native license-to-arena frame-277 handoff; Bank04 `$826A` queues it one NMI
+before the first route pointer at `$82CF` enters arena routine `$88E8`. Its
+imported program ends after 2614 inclusive ticks (43.4950 seconds), measured
+from fixed `$F7EE` consuming queued ID 7 through the first NMI where active mask
+`$063E` clears. Confirmed title frame 127 then queues presentation ID 6 at the
+fixed `$E477` call, after title input completes and before the blue-menu root is
+built. Entering that mode through a generic runtime reset does not restart ID 6.
+The MUSIC setting only allows or rejects future ID-5 queues. OFF does not stop
+an active song, preview a choice, reject ID 6, or globally mute IDs 6-8. The
+current native synthesizer covers the
 two pulse voices, triangle, and noise with imported pitch/duty/envelope state;
 there is no DMC or claim of cycle-level nonlinear APU fidelity yet. Win32 feeds
-44.1 kHz mono 16-bit PCM through eight 1024-sample `waveOut` buffers. Opening
-music is queued before the ring fill; later track changes can sit behind at most
-8192 queued samples (185.8 ms). A missing device or rejected TMUS-1 asset remains
+44.1 kHz mono 16-bit PCM through eight 1024-sample `waveOut` buffers. Scene
+handoffs preserve this queue rather than flushing it, so a track change can sit
+behind at most 8192 submitted samples (185.8 ms). A missing device or rejected
+TMUS-1 asset remains
 a clean silent runtime. Device failure deliberately freezes sequencer state;
 focused tests also exercise the renderer as a deterministic advancing null
 sink. Loose decompilation,

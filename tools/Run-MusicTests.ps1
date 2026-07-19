@@ -151,6 +151,7 @@ try {
     $MusicSourceMutations = @(
         [pscustomobject]@{ id = "audio-bank"; offset = $PrgStart + 4 * 0x4000 + (0x8AA4 - 0x8000) },
         [pscustomobject]@{ id = "directory"; offset = $PrgStart + 4 * 0x4000 + (0x8CD0 - 0x8000) },
+        [pscustomobject]@{ id = "opening-queue"; offset = $PrgStart + 4 * 0x4000 + (0x826A - 0x8000) },
         [pscustomobject]@{ id = "opening-track"; offset = $PrgStart + 4 * 0x4000 + (0x8CE2 - 0x8000) },
         [pscustomobject]@{ id = "gameplay-track"; offset = $PrgStart + 4 * 0x4000 + (0x92F4 - 0x8000) },
         [pscustomobject]@{ id = "presentation-track"; offset = $PrgStart + 4 * 0x4000 + (0x96C3 - 0x8000) },

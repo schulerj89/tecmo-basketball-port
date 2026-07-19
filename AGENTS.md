@@ -391,19 +391,23 @@ semantic resets 492/716, 100000-tick looping runs for IDs 5/6, and ID 8's clean
 
 The native sequencer advances at exact NTSC cadence `39375000/655171`
 (approximately 60.0988 ticks per second) from the audio sample clock, not the
-render loop or the GAME SPEED menu value. Opening ID 7 is queued once when the
-rabbit/TECMO mode begins, lasts exactly 2614 native ticks (43.4950 seconds), and
-is not restarted at title or menu handoffs. That count is inclusive from fixed
-`$F7EE` consuming queued ID 7 through the first NMI with active mask `$063E=0`.
-GAME MUSIC only gates
-future ID-5 queues; accepting OFF does not preview, stop the current song, or
-act as a global mute. The current synth implements the requested pulse 1,
+render loop or the GAME SPEED menu value. The TECMO/rabbit and NBA-license
+scenes are silent. Opening ID 7 is queued once at the native license-to-arena
+frame-277 handoff, matching Bank04 `$826A` immediately before the first arena
+route pointer at `$82CF` resolves to `$88E8`. Its imported program lasts exactly
+2614 native ticks (43.4950 seconds), inclusive from fixed `$F7EE` consuming the
+queued ID through the first NMI with active mask `$063E=0`. Presentation ID 6
+replaces it only on the confirmed title frame-127 handoff, matching fixed
+`$E477` after the title loop and before blue-menu root setup. Generic returns to
+the menu do not restart ID 6. GAME MUSIC only gates future ID-5 queues;
+accepting OFF does not preview, stop the current song, reject ID 6, or act as a
+global mute. The current synth implements the requested pulse 1,
 pulse 2, triangle, and noise channels with native pitch, duty, and envelope
 state; DMC and cycle-level nonlinear NES APU mixing are outside this boundary.
 Win32 uses a 44.1 kHz mono 16-bit `waveOut` ring of eight 1024-sample buffers.
-The opening is queued before that ring is filled, so its first buffer begins
-normally; a later track request can have up to 8192 queued samples (185.8 ms)
-ahead of it. Device and asset failures produce an explicit silent fallback.
+Runtime does not flush that ring at either scene handoff, so a queued ID 7 or ID
+6 can have up to 8192 already-submitted samples (185.8 ms) ahead of it. Device
+and asset failures produce an explicit silent fallback.
 The device-failure fallback deliberately freezes sequencer state; focused tests
 use the same renderer as a deterministic advancing null sink. Missing, oversized,
 malformed, or wrong-revision TMUS-1 data must never crash startup or fall back

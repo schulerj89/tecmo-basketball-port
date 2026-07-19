@@ -401,7 +401,6 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
         runtime->intro_output_step = TECMO_INTRO_OUTPUT_TITLE_STEP;
         runtime->intro_handoff_complete = false;
         runtime->intro_next_screen = 0U;
-        (void)tecmo_music_queue_opening_once(&runtime->music_player);
     }
     if (mode == TECMO_MODE_TITLE_SCREEN) {
         runtime->title_start_armed = false;
@@ -559,6 +558,8 @@ static void update_title_screen(TecmoRuntime *runtime, const TecmoControlFrame *
     if (runtime->title_confirming) {
         ++runtime->title_confirmation_frame;
         if (runtime->title_confirmation_frame >= tecmo_title_confirmation_handoff_frame()) {
+            (void)tecmo_music_queue_track(&runtime->music_player,
+                                          TECMO_MUSIC_TRACK_PRESENTATION);
             tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
         }
     } else if (controls->pressed.cancel && !runtime->normal_play_active) {
@@ -888,6 +889,7 @@ static void update_first_sprite_probe(TecmoRuntime *runtime, const TecmoControlF
         runtime->mode_frame_counter = 0;
     } else if (runtime->intro_output_step == TECMO_INTRO_OUTPUT_LICENSE_STEP &&
                runtime->mode_frame_counter >= TECMO_INTRO_LICENSE_AUTO_FRAME) {
+        (void)tecmo_music_queue_opening_once(&runtime->music_player);
         runtime->intro_output_step = TECMO_INTRO_OUTPUT_ARENA_STEP;
         runtime->mode_frame_counter = 0;
     } else if (runtime->intro_output_step == TECMO_INTRO_OUTPUT_ARENA_STEP &&
