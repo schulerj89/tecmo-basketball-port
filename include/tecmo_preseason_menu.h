@@ -85,7 +85,8 @@ typedef enum TecmoPreseasonPhase {
 
 typedef enum TecmoPreseasonAction {
     TECMO_PRESEASON_ACTION_NONE,
-    TECMO_PRESEASON_ACTION_BACK_TO_START_MENU
+    TECMO_PRESEASON_ACTION_BACK_TO_START_MENU,
+    TECMO_PRESEASON_ACTION_LAUNCH_GAME
 } TecmoPreseasonAction;
 
 typedef enum TecmoPreseasonTeamExitTarget {

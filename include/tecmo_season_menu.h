@@ -132,7 +132,8 @@ typedef enum TecmoSeasonPhase {
 
 typedef enum TecmoSeasonAction {
     TECMO_SEASON_ACTION_NONE,
-    TECMO_SEASON_ACTION_BACK_TO_START_MENU
+    TECMO_SEASON_ACTION_BACK_TO_START_MENU,
+    TECMO_SEASON_ACTION_LAUNCH_GAME
 } TecmoSeasonAction;
 
 typedef struct TecmoSeasonGameResult {

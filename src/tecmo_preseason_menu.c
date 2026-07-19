@@ -864,8 +864,8 @@ TecmoPreseasonAction tecmo_preseason_update(TecmoPreseasonState *state,
                 begin_team_exit(state, TECMO_PRESEASON_TEAM_EXIT_P2_DIVISION);
             } else {
                 state->direction_cooldown = asset->accepted_input_seed;
+                return TECMO_PRESEASON_ACTION_LAUNCH_GAME;
             }
-            /* P2 A is intentionally a terminal no-op at this milestone. */
             return TECMO_PRESEASON_ACTION_NONE;
         }
         if (direction_action(controls,

@@ -1504,6 +1504,11 @@ TecmoSeasonAction tecmo_season_update(TecmoSeasonState *state,
     case TECMO_SEASON_GAME_START:
         if (state->game_prepare_pending) {
             prepare_game_start_boundary(state, asset, session);
+            if (state->game_result_pending && !state->season_complete) {
+                state->game_launch_blocked = false;
+                return finish_update(
+                    state, TECMO_SEASON_ACTION_LAUNCH_GAME, false);
+            }
             return finish_update(state, TECMO_SEASON_ACTION_NONE, false);
         }
         if (state->game_result_visible_rows <
@@ -2578,8 +2583,8 @@ bool tecmo_season_self_test(char *message, size_t message_size)
         goto state_failure;
     memset(&controls, 0, sizeof(controls));
     if (tecmo_season_update(&state, &asset, &session, &controls) !=
-            TECMO_SEASON_ACTION_NONE ||
-        state.phase != TECMO_SEASON_GAME_START || !state.game_launch_blocked ||
+            TECMO_SEASON_ACTION_LAUNCH_GAME ||
+        state.phase != TECMO_SEASON_GAME_START || state.game_launch_blocked ||
         !state.game_result_pending || state.game_prepare_pending ||
         state.game_result_count != 0U || state.game_result_visible_rows != 0U ||
         session.schedule_index != 0U || session.wins[0] != 0U ||
