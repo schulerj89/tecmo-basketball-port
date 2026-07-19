@@ -92,13 +92,18 @@ team fouls clear after the completed period/halftime banner path.
 Gameplay track 5 is queued at launch and qualifying restarts only when GAME
 MUSIC is enabled. Presentation track 6 is requested for halftime/final score
 presentation. The scene maps clock expiry to SFX 3, late-clock seconds to 14,
-violations to 6, made shots/free throws to crowd response 11, and motion with a
-held ball to the proven `$B5AB` held-ball/dribble DMC clip. Neutral SFX 5 is
+violations to 6, and motion with a held ball to the proven `$B5AB`
+held-ball/dribble DMC clip. A made dunk and every resolved free throw, make or
+miss, request crowd response 11 followed by away-side 12 or home-side 13 when
+the clock is above 0:01. The same mailbox is last-write-wins, so the side result
+is consumed next; 0:00 and 0:01 retain 11. Made jump shots and layups continue
+to request only 11 pending separate caller-path integration. Neutral SFX 5 is
 kept as `BANK05_9FEC_CUE` and is requested only at the evidence-bounded
-foul/restart boundaries under the GAME MUSIC gate. Imported side-result SFX
-12/13, the conservative layup-sequence ABF5 clip, and the two still-address-bound
-A8D6 clips are not queued by the live scene. Dunk action frame 87 queues A9C5
-exactly once. The sequence names do not assert an impact or rim cue.
+foul/restart boundaries under the GAME MUSIC gate. Foul/violation and completed
+period presentation boundaries clear music, tonal SFX, and DMC once before
+replacement audio; returning live requeues the gated cue and track 5. Dunk
+action frame 87 queues A9C5 exactly once. The imported ABF5 and A8D6 clips are
+not queued, and the sequence names do not assert an impact or rim cue.
 
 ## ROM-derived anchors
 
@@ -141,6 +146,15 @@ decompilation at these CPU-address ranges:
   progression `$86BB`, `$86DD`, `$8732`, `$8745`, result `$91BC-$943A`, ball
   path `$AF30-$B073`, and scoring `$B995-$BA3F`: numeric close-shot subtype 01
   and its surrounding shot machinery.
+- Bank 05 `$AD01-$AD0E` (FNV1a32 `B7141C72`): result crowd-response request 11;
+  `$8C7D-$8CE4` (FNV1a32 `00A4D185`) is its bounded close-shot caller path.
+- Bank 05 `$B1D1-$B1E6` (FNV1a32 `CFCD9759`): above-0:01 clock gate and
+  pre-handoff side-result request 12/13; `$B19D-$B1A4` (FNV1a32 `ED5EE105`)
+  is the bounded result caller path. `$BA65-$BA9C` (FNV1a32 `35FB80C4`) and
+  `$B87C-$B888` (FNV1a32 `E903D8F9`) remain documented for later jump-shot
+  caller integration.
+- Fixed `$EC06-$EC25` (FNV1a32 `F1BCC8E2`): clears active music, SFX, and DMC;
+  bounded call sites are `$E58D`, `$E9A0`, `$E9DE`, and `$ECAF`.
 - Bank 05 `$856B-$85A7` and `$85F3-$8640`: variant-0 presentation trigger and
   clear-lane helper.
 - Fixed `$E770-$E78D` and descriptor `$DCD2-$DCD8`: presentation dispatch and

@@ -529,7 +529,12 @@ The importer fingerprints Bank04 `$8AA4-$8CCF` and `$9D8B-$9E12`, the complete
 request sites. Those request-site fingerprints cover fixed `$E7DB-$E7DF`,
 `$E863-$E867`, `$E86D-$E871` and Bank05 `$9FEC-$9FF0`, `$AD01-$AD0E`, and
 `$B1D1-$B1E6`; the source map records each bounded hash and the fixed JSR anchor
-where the fingerprint begins two bytes earlier.
+where the fingerprint begins two bytes earlier. In the Rev 1 ROM, `$AD01-$AD0E`
+has FNV1a32 `B7141C72` and requests crowd response 11, while `$B1D1-$B1E6` has
+FNV1a32 `CFCD9759` and requests side result 12/13 only above 0:01. The latter
+uses the scoring side before possession handoff. Both requests share the
+last-write-wins SFX mailbox, so 12/13 is the next consumed request when the
+clock gate passes; 11 remains at 0:00 or 0:01.
 
 `audio/gameplay-dmc` is the exact 2515-byte TDMC-1 payload (FNV1a32
 `AD70E6E8`). It stores three deduplicated fixed-bank source pools and five
@@ -546,7 +551,11 @@ Accordingly, the native DMC delta counter remains latched across a clip
 retrigger, after the sample reader reaches end-of-clip, and when clear-all
 disables the reader. The held DAC value continues contributing to output until
 a future DMC bit changes it; neither queue nor stop synthesizes a reset to 64
-or an abrupt zero sample.
+or an abrupt zero sample. Fixed `$EC06-$EC25` (32 bytes, FNV1a32 `F1BCC8E2`),
+called at `$E58D`, `$E9A0`, `$E9DE`, and `$ECAF`, supplies the bounded reset
+provenance. Native foul/violation presentation entry and completed-period
+presentation entry each perform this clear once before replacement audio; a
+subsequent live return queues the gated `$9FEC` cue and gameplay track 5.
 
 Fixed `$F3FA-$F436` consumes music before SFX, and `$F3F2` maps the four SFX
 slots to priority masks `$10/$20/$40/$80`. Native mixing therefore advances
@@ -562,11 +571,14 @@ retrigger, end-of-clip, and clear-all DAC-continuity checks.
 The live scene queues track 5 at launch and qualifying restarts only when GAME
 MUSIC is enabled, and requests track 6 for halftime/final presentation. Its
 evidence-bounded mappings are clock expiry to SFX 3, late-clock countdown to
-14, violation to 6, made shots/free throws to crowd response 11, and moving
-possession to the proven `$B5AB` held-ball/dribble DMC clip. ID 5 remains the
-neutral `BANK05_9FEC_CUE` at its gated foul/restart boundaries. Dunk action
-frame 87 queues sequence-named A9C5. Side-result 12/13, ABF5, and address-named
-A8D6 clips remain imported without invented live use.
+14, violation to 6, and moving possession to the proven `$B5AB`
+held-ball/dribble DMC clip. A made dunk and every resolved free throw, including
+a miss, request crowd response 11 followed by qualifying side result 12/13;
+the final 0:00/0:01 request remains 11. Made jump shots and layups retain their
+existing crowd-response-11 mapping until their separate caller paths are
+integrated. ID 5 remains the neutral `BANK05_9FEC_CUE` at its gated
+foul/restart boundaries. Dunk action frame 87 queues sequence-named A9C5.
+ABF5 and address-named A8D6 clips remain imported without invented live use.
 
 The importer validates the raw finale dispatch chain as `$851C` wait 50 ->
 `$83EA` wait 30 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 ->

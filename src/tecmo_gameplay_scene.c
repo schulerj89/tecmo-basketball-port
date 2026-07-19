@@ -363,6 +363,31 @@ static TecmoGameplayTeam scene_other_team(TecmoGameplayTeam team)
                : TECMO_GAMEPLAY_TEAM_AWAY;
 }
 
+static bool scene_queue_result_audio(TecmoGameplayScene *scene,
+                                     TecmoGameplayTeam shooting_team)
+{
+    TecmoGameplayAudioEvent side_result;
+    if (scene == NULL ||
+        (shooting_team != TECMO_GAMEPLAY_TEAM_AWAY &&
+         shooting_team != TECMO_GAMEPLAY_TEAM_HOME) ||
+        !tecmo_gameplay_audio_queue_event(
+            &scene->audio_player, TECMO_GAMEPLAY_AUDIO_CROWD_RESPONSE)) {
+        return false;
+    }
+
+    /* Bank05 $AD01 requests ID 11 first. $B1D1 then overwrites the same
+       one-byte mailbox with the pre-handoff shooting-side result when the
+       clock is above 0:01. Only the final request is consumed. */
+    if (scene->state.clock_minutes == 0U &&
+        scene->state.clock_seconds < 2U) {
+        return true;
+    }
+    side_result = shooting_team == TECMO_GAMEPLAY_TEAM_AWAY
+                      ? TECMO_GAMEPLAY_AUDIO_SIDE_RESULT_12
+                      : TECMO_GAMEPLAY_AUDIO_SIDE_RESULT_13;
+    return tecmo_gameplay_audio_queue_event(&scene->audio_player, side_result);
+}
+
 static void scene_pad_from_controls(TecmoGameplayPadInput *pad,
                                     const TecmoControlFrame *controls)
 {
@@ -742,6 +767,7 @@ static bool scene_update_shot(TecmoGameplayScene *scene)
     TecmoGameplaySceneActor *actor;
     TecmoGameplayTeam shooting_team;
     TecmoGameplayTeam next_team;
+    TecmoGameplaySceneShotKind shot_kind;
     bool made;
     if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
         scene->shot_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
@@ -750,6 +776,7 @@ static bool scene_update_shot(TecmoGameplayScene *scene)
     }
     actor = &scene->actors[scene->shot_actor];
     shooting_team = (TecmoGameplayTeam)actor->team;
+    shot_kind = scene->shot_kind;
     ++scene->shot_frame;
     duration = scene->shot_duration;
     frame = scene->shot_frame < scene->shot_duration
@@ -786,7 +813,7 @@ static bool scene_update_shot(TecmoGameplayScene *scene)
            cadence; the pure-state semantic chain remains untouched. */
     }
 
-    if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_DUNK &&
+    if (shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_DUNK &&
         scene->shot_frame == TECMO_GAMEPLAY_DUNK_DMC_FRAME) {
         (void)tecmo_gameplay_audio_queue_dmc_clip(
             &scene->audio_player,
@@ -800,8 +827,13 @@ static bool scene_update_shot(TecmoGameplayScene *scene)
                                          scene->shot_points)) {
             return false;
         }
-        (void)tecmo_gameplay_audio_queue_event(
-            &scene->audio_player, TECMO_GAMEPLAY_AUDIO_CROWD_RESPONSE);
+        if (shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_DUNK) {
+            if (!scene_queue_result_audio(scene, shooting_team)) return false;
+        } else {
+            /* Jump/layup side-result integration remains evidence-gated. */
+            (void)tecmo_gameplay_audio_queue_event(
+                &scene->audio_player, TECMO_GAMEPLAY_AUDIO_CROWD_RESPONSE);
+        }
     }
     actor->pose_index = TECMO_GAMEPLAY_POSE_NEUTRAL;
     next_team = scene_other_team(shooting_team);
@@ -978,7 +1010,9 @@ static bool scene_apply_restart_events(TecmoGameplayScene *scene,
     return true;
 }
 
-static void scene_process_events(TecmoGameplayScene *scene)
+static bool scene_process_events(TecmoGameplayScene *scene,
+                                 bool free_throw_team_captured,
+                                 TecmoGameplayTeam free_throw_team)
 {
     size_t event_index;
     for (event_index = 0U; event_index < scene->events.count;
@@ -1008,17 +1042,12 @@ static void scene_process_events(TecmoGameplayScene *scene)
             /* Applied from event.detail before any live action this frame. */
             break;
         case TECMO_GAMEPLAY_EVENT_SHOT_CLOCK_EXPIRED:
-            if (event->detail == 0U) {
-                (void)tecmo_gameplay_audio_queue_event(
-                    &scene->audio_player,
-                    TECMO_GAMEPLAY_AUDIO_VIOLATION_CUE);
-            }
+            /* The phase transition below owns the single violation request. */
             break;
         case TECMO_GAMEPLAY_EVENT_FREE_THROW_RESULT:
-            if (event->value != 0U) {
-                (void)tecmo_gameplay_audio_queue_event(
-                    &scene->audio_player,
-                    TECMO_GAMEPLAY_AUDIO_CROWD_RESPONSE);
+            if (!free_throw_team_captured ||
+                !scene_queue_result_audio(scene, free_throw_team)) {
+                return false;
             }
             break;
         case TECMO_GAMEPLAY_EVENT_GAME_COMPLETE:
@@ -1038,6 +1067,33 @@ static void scene_process_events(TecmoGameplayScene *scene)
         default:
             break;
         }
+    }
+    return true;
+}
+
+static bool scene_phase_requires_audio_reset(TecmoGameplayPhase before,
+                                             TecmoGameplayPhase after)
+{
+    if (before == after) return false;
+    if (after == TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+        after == TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION) {
+        return true;
+    }
+    if (before != TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_FIXED_WAIT &&
+        before != TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE) {
+        return false;
+    }
+    return after == TECMO_GAMEPLAY_PHASE_PERIOD_BANNER ||
+           after == TECMO_GAMEPLAY_PHASE_HALFTIME_BANNER ||
+           after == TECMO_GAMEPLAY_PHASE_FINAL_SCORE_SCREEN;
+}
+
+static void scene_apply_phase_audio_reset(TecmoGameplayScene *scene,
+                                          TecmoGameplayPhase before)
+{
+    if (scene != NULL &&
+        scene_phase_requires_audio_reset(before, scene->state.phase)) {
+        tecmo_gameplay_audio_stop_all(&scene->audio_player);
     }
 }
 
@@ -1175,11 +1231,13 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
     TecmoGameplayLiveContext live_context;
     const TecmoControlFrame *controls[TECMO_GAMEPLAY_CONTROLLER_COUNT];
     TecmoGameplayPhase phase_before;
+    TecmoGameplayTeam captured_free_throw_team = TECMO_GAMEPLAY_TEAM_AWAY;
     uint8_t moving_holder = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     int16_t moving_holder_x = 0;
     int16_t moving_holder_y = 0;
     bool restart_applied;
     bool restart_frame;
+    bool free_throw_team_captured;
     size_t controller;
 
     if (scene == NULL ||
@@ -1205,6 +1263,11 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
     }
 
     phase_before = scene->state.phase;
+    free_throw_team_captured =
+        phase_before == TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE;
+    if (free_throw_team_captured) {
+        captured_free_throw_team = scene->state.free_throws.scoring_team;
+    }
     if (!tecmo_gameplay_update(&scene->state, &input, &live_context,
                                &scene->events)) {
         scene_set_status(scene, "gameplay state update rejected");
@@ -1328,8 +1391,15 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
         scene_set_status(scene, "free-throw settlement rejected");
         return false;
     }
-    scene_process_events(scene);
-    /* Restart-boundary audio is applied last so an event emitted during the
+    /* Fixed $EC06-style phase clears happen once, before a replacement event
+       or cue can populate the native mailboxes. */
+    scene_apply_phase_audio_reset(scene, phase_before);
+    if (!scene_process_events(scene, free_throw_team_captured,
+                              captured_free_throw_team)) {
+        scene_set_status(scene, "gameplay audio event rejected");
+        return false;
+    }
+    /* Restart-boundary audio remains last so an event emitted during the
        settling action cannot overwrite the one-shot Bank05 $9FEC mailbox. */
     scene_process_phase_audio(scene, phase_before);
     if (!scene_ownership_valid(scene)) {
@@ -2080,6 +2150,8 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     scene.actors[scene.ball_holder].x = 210;
     scene.actors[scene.ball_holder].y = 148;
     scene.actors[scene.ball_holder].facing_right = true;
+    /* The following dunk, layup, and jump checkpoints are deterministic makes. */
+    scene.action_serial = 1U;
     scene_attach_ball(&scene);
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
@@ -2171,11 +2243,22 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         scene.actors[scene.ball_holder].team != TECMO_GAMEPLAY_TEAM_HOME ||
         scene.controlled_actor[1] != scene.ball_holder ||
+        scene.state.score[TECMO_GAMEPLAY_TEAM_AWAY] != 2U ||
+        !scene.audio_player.sfx_pending ||
+        scene.audio_player.pending_sfx_id != 12U ||
         !scene_test_close_semantic_chain_untouched(&scene) ||
         scene_test_has_close_semantic_event(&scene.events) ||
         !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
                            "dunk/TGCS variant-0 settlement failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    tecmo_gameplay_audio_render_samples(&scene.audio_player, NULL, 1024U);
+    if (scene.audio_player.sfx_pending ||
+        scene.audio_player.current_sfx_id != 12U) {
+        scene_test_message(message, message_size,
+                           "dunk side-result mailbox was not last-write-wins");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -2232,11 +2315,22 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         scene.actors[scene.ball_holder].team != TECMO_GAMEPLAY_TEAM_AWAY ||
         scene.controlled_actor[0] != scene.ball_holder ||
+        scene.state.score[TECMO_GAMEPLAY_TEAM_HOME] != 2U ||
+        !scene.audio_player.sfx_pending ||
+        scene.audio_player.pending_sfx_id != 11U ||
         !scene_test_close_semantic_chain_untouched(&scene) ||
         scene_test_has_close_semantic_event(&scene.events) ||
         !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
                            "layup/TGCS variant-2 settlement failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    tecmo_gameplay_audio_render_samples(&scene.audio_player, NULL, 1024U);
+    if (scene.audio_player.sfx_pending ||
+        scene.audio_player.current_sfx_id != 11U) {
+        scene_test_message(message, message_size,
+                           "layup crowd-only mailbox boundary failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -2274,9 +2368,23 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     }
     if (scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
         scene.ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene.state.score[TECMO_GAMEPLAY_TEAM_AWAY] != 5U ||
+        !scene.audio_player.sfx_pending ||
+        scene.audio_player.pending_sfx_id != 11U ||
         !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
                            "jump-shot settlement failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    tecmo_gameplay_audio_stop_all(&scene.audio_player);
+    scene.state.clock_minutes = 0U;
+    scene.state.clock_seconds = 1U;
+    if (!scene_queue_result_audio(&scene, TECMO_GAMEPLAY_TEAM_HOME) ||
+        !scene.audio_player.sfx_pending ||
+        scene.audio_player.pending_sfx_id != 11U) {
+        scene_test_message(message, message_size,
+                           "side-result clock gate below two seconds failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -2305,21 +2413,41 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     scene.state.clock_divider = 1U;
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
-    if (!tecmo_gameplay_state_valid(&scene.state) ||
+    if (!tecmo_gameplay_audio_queue_dmc_clip(
+            &scene.audio_player,
+            TECMO_GAMEPLAY_DMC_BANK05_A8D6_LONG) ||
+        !tecmo_gameplay_state_valid(&scene.state) ||
         !tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
         scene.state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
         !scene.audio_player.sfx_pending ||
-        scene.audio_player.pending_sfx_id != 6U) {
+        scene.audio_player.pending_sfx_id != 6U ||
+        scene.audio_player.dmc.active ||
+        scene.audio_player.music == NULL ||
+        scene.audio_player.music->playing ||
+        scene.audio_player.music->track_pending) {
         scene_test_message(message, message_size,
-                           "shot-clock violation entry failed");
+                           "shot-clock violation reset/cue ordering failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    tecmo_gameplay_audio_render_samples(&scene.audio_player, NULL, 1024U);
+    if (scene.audio_player.sfx_pending ||
+        scene.audio_player.current_sfx_id != 6U ||
+        !tecmo_gameplay_audio_queue_dmc_clip(
+            &scene.audio_player,
+            TECMO_GAMEPLAY_DMC_BANK05_A8D6_LONG)) {
+        scene_test_message(message, message_size,
+                           "single violation cue consumption failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
     for (frame = 0U; frame < TECMO_GAMEPLAY_PRESENTATION_LEAD_IN_FRAMES;
          ++frame) {
-        if (!tecmo_gameplay_scene_update(&scene, &p1, &p2)) {
+        if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+            !scene.audio_player.dmc.active ||
+            scene.audio_player.sfx_pending) {
             scene_test_message(message, message_size,
-                               "violation lead-in update failed");
+                               "violation reset/cue repeated after entry");
             tecmo_gameplay_scene_destroy(&scene);
             return false;
         }
@@ -2331,6 +2459,9 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.ball_holder < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
         !scene.audio_player.sfx_pending ||
         scene.audio_player.pending_sfx_id != 5U ||
+        !scene.audio_player.music->track_pending ||
+        scene.audio_player.music->pending_track_id !=
+            TECMO_MUSIC_TRACK_GAMEPLAY ||
         !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
                            "violation restart holder synchronization failed");
@@ -2339,9 +2470,12 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     }
     tecmo_gameplay_audio_render_samples(&scene.audio_player, NULL, 1024U);
     if (scene.audio_player.sfx_pending ||
-        scene.audio_player.current_sfx_id != 5U) {
+        scene.audio_player.current_sfx_id != 5U ||
+        !scene.audio_player.music->playing ||
+        scene.audio_player.music->current_track_id !=
+            TECMO_MUSIC_TRACK_GAMEPLAY) {
         scene_test_message(message, message_size,
-                           "violation restart cue consumption failed");
+                           "violation live-return audio restart failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -2434,11 +2568,26 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
-    if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+    if (!tecmo_gameplay_audio_queue_dmc_clip(
+            &scene.audio_player,
+            TECMO_GAMEPLAY_DMC_BANK05_A8D6_LONG) ||
+        !tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
         scene.state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_BANNER ||
+        scene.audio_player.sfx_pending || scene.audio_player.dmc.active ||
+        scene.audio_player.music == NULL ||
+        scene.audio_player.music->playing ||
+        scene.audio_player.music->track_pending ||
         !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
-                           "period-expiry transition failed");
+                           "period-expiry audio reset transition failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    if (!tecmo_gameplay_audio_queue_dmc_clip(
+            &scene.audio_player,
+            TECMO_GAMEPLAY_DMC_BANK05_A8D6_LONG)) {
+        scene_test_message(message, message_size,
+                           "period exact-once DMC probe failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -2459,9 +2608,22 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.actors[0].x != x || scene.action_serial != 3U ||
         scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
         !scene.audio_player.sfx_pending ||
-        scene.audio_player.pending_sfx_id != 5U) {
+        scene.audio_player.pending_sfx_id != 5U ||
+        !scene.audio_player.dmc.active ||
+        !scene.audio_player.music->track_pending ||
+        scene.audio_player.music->pending_track_id !=
+            TECMO_MUSIC_TRACK_GAMEPLAY) {
         scene_test_message(message, message_size,
                            "period restart action suppression failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    tecmo_gameplay_audio_render_samples(&scene.audio_player, NULL, 1024U);
+    if (!scene.audio_player.music->playing ||
+        scene.audio_player.music->current_track_id !=
+            TECMO_MUSIC_TRACK_GAMEPLAY) {
+        scene_test_message(message, message_size,
+                           "period live-return music restart failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -2678,23 +2840,38 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     memset(&p2, 0, sizeof(p2));
     p2.held.cancel = true;
     p2.pressed.cancel = true;
-    if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+    if (!tecmo_gameplay_audio_queue_dmc_clip(
+            &scene.audio_player,
+            TECMO_GAMEPLAY_DMC_BANK05_A8D6_LONG) ||
+        !tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
         scene.state.phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
         scene.state.team_fouls[TECMO_GAMEPLAY_TEAM_HOME] != 1U ||
         scene.state.individual_fouls[TECMO_GAMEPLAY_TEAM_HOME][0] != 1U ||
         scene.action_serial != 4U ||
-        scene.audio_player.sfx_pending) {
+        scene.audio_player.sfx_pending || scene.audio_player.dmc.active ||
+        scene.audio_player.music == NULL ||
+        scene.audio_player.music->playing ||
+        scene.audio_player.music->track_pending) {
         scene_test_message(message, message_size,
-                           "native action-serial foul policy diverged");
+                           "foul entry audio reset/policy diverged");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
     memset(&p2, 0, sizeof(p2));
+    if (!tecmo_gameplay_audio_queue_dmc_clip(
+            &scene.audio_player,
+            TECMO_GAMEPLAY_DMC_BANK05_A8D6_LONG)) {
+        scene_test_message(message, message_size,
+                           "foul exact-once DMC probe failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
     for (frame = 0U; frame < TECMO_GAMEPLAY_PRESENTATION_LEAD_IN_FRAMES;
          ++frame) {
-        if (!tecmo_gameplay_scene_update(&scene, &p1, &p2)) {
+        if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+            !scene.audio_player.dmc.active) {
             scene_test_message(message, message_size,
-                               "foul presentation lead-in failed");
+                               "foul audio reset repeated after entry");
             tecmo_gameplay_scene_destroy(&scene);
             return false;
         }
@@ -2767,10 +2944,18 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.free_throw_frame != 0U || scene.action_serial != 5U ||
         scene.state.score[TECMO_GAMEPLAY_TEAM_AWAY] != 1U ||
         !scene.audio_player.sfx_pending ||
-        scene.audio_player.pending_sfx_id != 11U ||
+        scene.audio_player.pending_sfx_id != 12U ||
         !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
                            "owned held-B free throw did not launch");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    tecmo_gameplay_audio_render_samples(&scene.audio_player, NULL, 1024U);
+    if (scene.audio_player.sfx_pending ||
+        scene.audio_player.current_sfx_id != 12U) {
+        scene_test_message(message, message_size,
+                           "made away free-throw mailbox was not side-result 12");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -2799,6 +2984,10 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.controlled_actor[1] != scene.ball_holder ||
         !scene.audio_player.sfx_pending ||
         scene.audio_player.pending_sfx_id != 5U ||
+        scene.audio_player.music == NULL ||
+        !scene.audio_player.music->track_pending ||
+        scene.audio_player.music->pending_track_id !=
+            TECMO_MUSIC_TRACK_GAMEPLAY ||
         !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
                            "human free-throw settlement failed");
@@ -2809,6 +2998,9 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     memset(&p1, 0, sizeof(p1));
     if (scene.audio_player.sfx_pending ||
         scene.audio_player.current_sfx_id != 5U ||
+        !scene.audio_player.music->playing ||
+        scene.audio_player.music->current_track_id !=
+            TECMO_MUSIC_TRACK_GAMEPLAY ||
         !tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
         scene.audio_player.sfx_pending) {
         scene_test_message(message, message_size,
@@ -2903,10 +3095,19 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.state.free_throws.attempts_remaining != 1U ||
         scene.free_throw_frame != 0U || scene.action_serial != 1U ||
         scene.state.score[TECMO_GAMEPLAY_TEAM_HOME] != 0U ||
-        scene.audio_player.sfx_pending ||
+        !scene.audio_player.sfx_pending ||
+        scene.audio_player.pending_sfx_id != 13U ||
         !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
                            "CPU free throw missed observed launch update");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    tecmo_gameplay_audio_render_samples(&scene.audio_player, NULL, 1024U);
+    if (scene.audio_player.sfx_pending ||
+        scene.audio_player.current_sfx_id != 13U) {
+        scene_test_message(message, message_size,
+                           "missed home free-throw mailbox was not side-result 13");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }

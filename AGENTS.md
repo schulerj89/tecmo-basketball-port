@@ -474,8 +474,13 @@ music output channel; the music sequencer and its oscillator state continue
 advancing underneath it, following fixed `$F3F2-$F436`.
 Advertised TSFX request provenance is revision-locked to bounded spans at fixed
 `$E7DB-$E7DF`, `$E863-$E867`, `$E86D-$E871` and Bank05 `$9FEC-$9FF0`,
-`$AD01-$AD0E`, `$B1D1-$B1E6`; every source-map role must carry the corresponding
-FNV1a32 rather than a one-byte or inferred offset.
+`$AD01-$AD0E` (FNV1a32 `B7141C72`), and `$B1D1-$B1E6` (FNV1a32
+`CFCD9759`); every source-map role must carry the corresponding FNV1a32 rather
+than a one-byte or inferred offset. `$AD01` requests crowd response 11. `$B1D1`
+then requests away-side 12 or home-side 13 only above 0:01, using the scoring
+side captured before possession changes. Because the request mailbox is
+last-write-wins, a qualifying result leaves 12/13 for the next audio tick; at
+0:00 or 0:01 it leaves 11.
 
 `audio/gameplay-dmc` is TDMC-1: 2515 bytes / FNV1a32 `AD70E6E8`. It deduplicates
 the exact fixed-bank `$C080-$C280`, `$C440-$C710`, and `$C740-$CAF0` inclusive
@@ -490,7 +495,12 @@ The two `$A8D6` clips remain address-bound. DMC
 advances independently of music and tonal SFX; no trigger writes `$4011`.
 GAME MUSIC gates future track 5 only,
 and GAME SPEED has no path into audio cadence. `tecmo_gameplay_audio_stop_all`
-models the fixed clear-all path for music, SFX, and DMC. Because none of these
+models fixed `$EC06-$EC25` (32 bytes, FNV1a32 `F1BCC8E2`), called from
+`$E58D`, `$E9A0`, `$E9DE`, and `$ECAF`, as the clear-all path for music, SFX,
+and DMC. The scene invokes that reset once on entry to foul/violation
+presentation and once when completed period settlement enters its banner or
+score presentation, before any replacement request. A return to live play
+requeues the gated Bank05 `$9FEC` cue and gameplay track 5. Because none of these
 triggers or the clear path writes `$4011`, the DMC delta counter/DAC level must
 survive retriggers, clip completion, and clear-all while only the sample reader
 stops. Missing, oversized,
@@ -502,12 +512,15 @@ ROM-mutation checks.
 
 The scene queues track 5 at launch and qualifying restarts only when GAME MUSIC
 is enabled, and queues track 6 for halftime/final presentation. It maps clock
-expiry to SFX 3, the late-clock countdown to 14, violations to 6, made shots and
-free throws to crowd response 11, and moving possession to the proven `$B5AB`
-held-ball/dribble DMC clip. `BANK05_9FEC_CUE` remains neutral and is gated at
-the bounded foul/restart boundaries. Dunk action frame 87 queues the
-sequence-named A9C5 clip. Side-result 12/13, ABF5, and address-named A8D6
-clips stay imported without live use.
+expiry to SFX 3, the late-clock countdown to 14, violations to 6, and moving
+possession to the proven `$B5AB` held-ball/dribble DMC clip. A made dunk and
+every resolved free throw, including a miss, follow `$AD01` crowd response 11
+and then the qualifying `$B1D1` side result 12/13; 0:00 and 0:01 retain 11.
+Made jump shots and layups remain bounded to crowd response 11 pending separate
+caller integration. `BANK05_9FEC_CUE` remains neutral and is gated at the
+bounded foul/restart boundaries. Dunk action frame 87 queues sequence-named
+A9C5 exactly once. ABF5 and address-named A8D6 clips stay imported without
+invented live use.
 
 Finale provenance is the raw Bank04 chain `$851C` wait 50 -> `$83EA` wait 30
 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 -> `$FFFF`, loading
