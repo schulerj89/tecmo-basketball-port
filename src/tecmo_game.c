@@ -112,6 +112,9 @@ static const char *mode_name(TecmoPlayMode mode)
     if (mode == TECMO_MODE_TEAM_DATA) {
         return "TEAM DATA";
     }
+    if (mode == TECMO_MODE_SEASON_MENU) {
+        return "SEASON MENU";
+    }
     return "UNKNOWN";
 }
 
@@ -249,6 +252,8 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
                                            project_root);
     (void)tecmo_team_management_session_init(
         &runtime->team_management_session, &runtime->team_management_asset);
+    (void)tecmo_season_asset_load(&runtime->season_asset, project_root);
+    tecmo_season_session_init(&runtime->season_session, project_root);
 
     if (tecmo_collect_rosters(project_root, &runtime->roster) != 0) {
         if (!allow_empty_roster) {
@@ -345,6 +350,15 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
                                sizeof(runtime->team_management_asset.status),
                                "TTMG-1 chr/all contract rejected");
         }
+        if (runtime->season_asset.available &&
+            !tecmo_season_asset_chr_available(&runtime->season_asset,
+                                              runtime->title_chr_bytes,
+                                              runtime->title_chr_byte_count)) {
+            runtime->season_asset.available = false;
+            set_runtime_status(runtime->season_asset.status,
+                               sizeof(runtime->season_asset.status),
+                               "TSNS-1 chr/all contract rejected");
+        }
         if (runtime->selected_chr_bank >= chr_bank_count(runtime)) {
             runtime->selected_chr_bank = chr_bank_count(runtime) - 1U;
         }
@@ -376,6 +390,9 @@ bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const ch
 
 void tecmo_runtime_shutdown(TecmoRuntime *runtime)
 {
+    if (runtime->season_session.dirty) {
+        (void)tecmo_season_session_save(&runtime->season_session);
+    }
     tecmo_music_asset_shutdown(&runtime->music_asset);
     tecmo_free_buffer(runtime->title_chr_bytes);
     runtime->title_chr_bytes = NULL;
@@ -617,6 +634,32 @@ static void update_start_game_menu(TecmoRuntime *runtime,
     } else if (action == TECMO_START_GAME_MENU_ACTION_ALL_STAR) {
         remember_start_game_menu_return(runtime);
         tecmo_runtime_set_mode(runtime, TECMO_MODE_ALL_STAR_MENU);
+    } else if (action == TECMO_START_GAME_MENU_ACTION_SEASON_MANAGEMENT) {
+        uint8_t route = runtime->start_game_menu_state.season_selection;
+        if (runtime->normal_play_active) {
+            remember_start_game_menu_return(runtime);
+        }
+        if (route > TECMO_SEASON_ROUTE_LEADERS) {
+            route = TECMO_SEASON_ROUTE_TEAM_CONTROL;
+        }
+        tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
+        tecmo_season_state_init(&runtime->season_state,
+                                (TecmoSeasonRoute)route,
+                                &runtime->season_session);
+    }
+}
+
+static void update_season_menu(TecmoRuntime *runtime,
+                               const TecmoControlFrame *controls)
+{
+    TecmoSeasonAction action = tecmo_season_update(
+        &runtime->season_state, &runtime->season_asset,
+        &runtime->season_session, controls);
+    if (action == TECMO_SEASON_ACTION_BACK_TO_START_MENU) {
+        if (runtime->normal_play_active && return_to_start_game_menu(runtime)) {
+            return;
+        }
+        tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
     }
 }
 
@@ -991,6 +1034,8 @@ void tecmo_runtime_update_players(TecmoRuntime *runtime,
         update_all_star_menu(runtime, &player_one_controls);
     } else if (runtime->mode == TECMO_MODE_TEAM_DATA) {
         update_team_data_menu(runtime, &player_one_controls);
+    } else if (runtime->mode == TECMO_MODE_SEASON_MENU) {
+        update_season_menu(runtime, &player_one_controls);
     }
 
     write_runtime_watch_memory(runtime);
@@ -1229,6 +1274,23 @@ static void render_team_data_mode(const TecmoRuntime *runtime,
                               runtime->title_chr_byte_count,
                               64, 0, 2)) {
         draw_centered_text(fb, 212, "NATIVE TTDT-1 TEAM DATA UNAVAILABLE",
+                           rgb(252, 236, 170), 2);
+    }
+}
+
+static void render_season_menu_mode(const TecmoRuntime *runtime,
+                                    TecmoFramebuffer *fb)
+{
+    clear(fb, rgb(0, 0, 0));
+    if (!tecmo_season_draw(fb, &runtime->season_asset,
+                           &runtime->season_session,
+                           &runtime->season_state,
+                           &runtime->team_data_asset,
+                           runtime->title_chr_bytes,
+                           runtime->title_chr_byte_count,
+                           64, 0, 2)) {
+        draw_centered_text(fb, 212,
+                           "NATIVE TSNS-1 SEASON MENU UNAVAILABLE",
                            rgb(252, 236, 170), 2);
     }
 }
@@ -3587,6 +3649,8 @@ void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebu
         render_all_star_menu_mode(runtime, framebuffer);
     } else if (runtime->mode == TECMO_MODE_TEAM_DATA) {
         render_team_data_mode(runtime, framebuffer);
+    } else if (runtime->mode == TECMO_MODE_SEASON_MENU) {
+        render_season_menu_mode(runtime, framebuffer);
     }
 
     if (runtime->debug_overlay) {

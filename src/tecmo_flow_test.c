@@ -64,6 +64,9 @@ static const char *flow_mode_name(TecmoPlayMode mode)
     if (mode == TECMO_MODE_TEAM_DATA) {
         return "TEAM DATA";
     }
+    if (mode == TECMO_MODE_SEASON_MENU) {
+        return "SEASON MENU";
+    }
     return "UNKNOWN";
 }
 
@@ -3085,9 +3088,12 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     memset(&input, 0, sizeof(input));
     input.shoot = true;
     flow_step(runtime, input);
-    if (runtime->mode != TECMO_MODE_START_GAME_MENU ||
-        runtime->start_game_menu_state.direction_cooldown != 5U) {
-        set_flow_test_message(message, message_size, "unported season route did not stay explicit");
+    if (!flow_finish_start_menu_exit(runtime, TECMO_MODE_SEASON_MENU, true,
+                                     "season TEAM CONTROL frame-eleven dispatch",
+                                     message, message_size)) return false;
+    if (runtime->season_state.phase != TECMO_SEASON_TEAM_CONTROL) {
+        set_flow_test_message(message, message_size,
+                              "season TEAM CONTROL did not reach native route");
         return false;
     }
 
@@ -3108,12 +3114,44 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         set_flow_test_message(message, message_size, "season A+B release changed selection");
         return false;
     }
-    if (!flow_finish_start_menu_exit(runtime, TECMO_MODE_PLAY_SETUP, true,
+    if (!flow_finish_start_menu_exit(runtime, TECMO_MODE_SEASON_MENU, true,
                                      "season A+B GAME START frame-eleven dispatch",
                                      message, message_size)) return false;
-    if (!flow_expect_placeholder_return(runtime, true, 1U, 2U,
-                                        "normal season GAME START blue-menu return",
-                                        message, message_size)) return false;
+    if (runtime->season_state.phase != TECMO_SEASON_GAME_START ||
+        runtime->season_state.game_launch_blocked) {
+        set_flow_test_message(message, message_size,
+                              "season GAME START did not stop at prelaunch");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.shoot = true;
+    flow_step(runtime, input);
+    if (runtime->mode != TECMO_MODE_SEASON_MENU ||
+        runtime->season_state.phase != TECMO_SEASON_GAME_START ||
+        !runtime->season_state.game_launch_blocked) {
+        set_flow_test_message(message, message_size,
+                              "season GAME START crossed the no-gameplay boundary");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.cancel = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->mode != TECMO_MODE_SEASON_MENU) {
+        set_flow_test_message(message, message_size,
+                              "season GAME START consumed held B before release");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_START_GAME_MENU,
+                          "normal season GAME START blue-menu return",
+                          message, message_size) ||
+        runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SEASON ||
+        runtime->start_game_menu_state.season_selection != 2U) {
+        set_flow_test_message(message, message_size,
+                              "season GAME START did not restore its blue-menu row");
+        return false;
+    }
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 64U;
@@ -3184,6 +3222,6 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     }
 
     set_flow_test_message(message, message_size,
-                          "FLOW TEST PASS: menu play-intro title start-game-menu preseason quit");
+                          "FLOW TEST PASS: menu play-intro title start-game-menu preseason season quit");
     return true;
 }

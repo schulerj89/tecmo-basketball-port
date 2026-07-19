@@ -30,6 +30,7 @@ static void print_usage(const char *program)
     printf("  --bank07-test           Run fixed-bank helper C counterpart checks\n");
     printf("  --music-test            Run strict TMUS parser/sequencer/synth checks\n");
     printf("  --team-management-test  Run strict TTMG parser and native STARTERS/PLAYBOOK checks\n");
+    printf("  --season-test           Run strict TSNS/TSAV season-management checks\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
     printf("  --render-test-mode MODE PATH  Render boot-title, native start-game menu, intro scenes (arena through finale/title frameN), play, or probe modes to PNG\n");
@@ -503,6 +504,16 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (strcmp(command, "--season-test") == 0) {
+        char message[192];
+        if (!tecmo_season_self_test(message, sizeof(message))) {
+            printf("Season management test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
     if (strcmp(command, "--arena-scene-test") == 0) {
         char message[160];
         if (!tecmo_arena_intro_scene_self_test(message, sizeof(message))) {
@@ -615,6 +626,17 @@ int main(int argc, char **argv)
             printf("Failed to initialize runtime from %s\n", root);
         } else {
             bool render_runtime = true;
+            if (strncmp(mode_name, "season-", 7) == 0) {
+                runtime->season_session.season_type = TECMO_SEASON_REGULAR;
+                memset(runtime->season_session.team_control, 0,
+                       sizeof(runtime->season_session.team_control));
+                memset(runtime->season_session.wins, 0,
+                       sizeof(runtime->season_session.wins));
+                memset(runtime->season_session.losses, 0,
+                       sizeof(runtime->season_session.losses));
+                runtime->season_session.schedule_index = 0U;
+                runtime->season_session.dirty = false;
+            }
             if (strcmp(mode_name, "menu") == 0) {
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
             } else if (strcmp(mode_name, "start-game-menu") == 0) {
@@ -1194,6 +1216,77 @@ int main(int argc, char **argv)
                     runtime->title_chr_byte_count, 64, 0, 2);
                 render_runtime = false;
                 result = arena_render_succeeded ? 0 : 1;
+            } else if (strcmp(mode_name, "season-team-control") == 0) {
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
+                tecmo_season_state_init(&runtime->season_state,
+                                        TECMO_SEASON_ROUTE_TEAM_CONTROL,
+                                        &runtime->season_session);
+            } else if (strcmp(mode_name, "season-schedule") == 0 ||
+                       strcmp(mode_name, "season-schedule-popup") == 0) {
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
+                tecmo_season_state_init(&runtime->season_state,
+                                        TECMO_SEASON_ROUTE_SCHEDULE,
+                                        &runtime->season_session);
+                if (strcmp(mode_name, "season-schedule-popup") == 0)
+                    runtime->season_state.phase = TECMO_SEASON_SCHEDULE_POPUP;
+            } else if (strcmp(mode_name, "season-playoff") == 0) {
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
+                tecmo_season_state_init(&runtime->season_state,
+                                        TECMO_SEASON_ROUTE_SCHEDULE,
+                                        &runtime->season_session);
+                runtime->season_state.phase = TECMO_SEASON_PLAYOFF;
+            } else if (strcmp(mode_name, "season-standings-east") == 0 ||
+                       strcmp(mode_name, "season-standings-west") == 0) {
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
+                tecmo_season_state_init(&runtime->season_state,
+                                        TECMO_SEASON_ROUTE_STANDINGS,
+                                        &runtime->season_session);
+                runtime->season_state.standings_page =
+                    strcmp(mode_name, "season-standings-west") == 0 ? 1U : 0U;
+            } else if (strcmp(mode_name, "season-standings-programmed") == 0) {
+                runtime->season_session.season_type = TECMO_SEASON_PROGRAMMED;
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
+                tecmo_season_state_init(&runtime->season_state,
+                                        TECMO_SEASON_ROUTE_STANDINGS,
+                                        &runtime->season_session);
+            } else if (strncmp(mode_name, "season-leaders", 14) == 0) {
+                unsigned category = 0U;
+                if (mode_name[14] != '\0' &&
+                    (!parse_render_frame_suffix(mode_name, "season-leaders",
+                                                &category) || category >= 7U)) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                } else {
+                    tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
+                    tecmo_season_state_init(&runtime->season_state,
+                                            TECMO_SEASON_ROUTE_LEADERS,
+                                            &runtime->season_session);
+                    runtime->season_state.leader_category = (uint8_t)category;
+                }
+            } else if (strcmp(mode_name, "season-game-start") == 0) {
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
+                tecmo_season_state_init(&runtime->season_state,
+                                        TECMO_SEASON_ROUTE_GAME_START,
+                                        &runtime->season_session);
+            } else if (strcmp(mode_name, "season-invalid-state") == 0) {
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
+                tecmo_season_state_init(&runtime->season_state,
+                                        TECMO_SEASON_ROUTE_TEAM_CONTROL,
+                                        &runtime->season_session);
+                runtime->season_state.team_selection = TECMO_SEASON_TEAM_COUNT;
+                memset(pixels, 0,
+                       (size_t)width * (size_t)height * sizeof(*pixels));
+                framebuffer.pixels = pixels;
+                framebuffer.width = width;
+                framebuffer.height = height;
+                framebuffer.pitch_pixels = width;
+                arena_render_succeeded = tecmo_season_draw(
+                    &framebuffer, &runtime->season_asset,
+                    &runtime->season_session, &runtime->season_state,
+                    &runtime->team_data_asset, runtime->title_chr_bytes,
+                    runtime->title_chr_byte_count, 64, 0, 2);
+                render_runtime = false;
+                result = arena_render_succeeded ? 1 : 0;
             } else if (strcmp(mode_name, "menu-overlay") == 0) {
                 TecmoInput input;
                 memset(&input, 0, sizeof(input));
@@ -1599,6 +1692,14 @@ int main(int argc, char **argv)
                                   runtime->title_chr_bytes,
                                   runtime->title_chr_byte_count))))) {
                     result = 1;
+                } else if (strncmp(mode_name, "season-", 7) == 0 &&
+                           (!runtime->season_asset.available ||
+                            !runtime->team_data_asset.available ||
+                            !tecmo_season_asset_chr_available(
+                                &runtime->season_asset,
+                                runtime->title_chr_bytes,
+                                runtime->title_chr_byte_count))) {
+                    result = 1;
                 } else if ((strcmp(mode_name, "play") == 0 ||
                      strncmp(mode_name, "play-fade", 9) == 0 ||
                      strcmp(mode_name, "play-step6") == 0) &&
@@ -1693,6 +1794,20 @@ int main(int argc, char **argv)
                        tecmo_team_data_transition_render_enabled(
                            &runtime->team_data_asset,
                            &runtime->team_data_state) ? 1U : 0U);
+            }
+            if (strncmp(mode_name, "season-", 7) == 0) {
+                printf("season-state phase=%s type=%s schedule=%u team=%u popup=%u page=%u panel=%u editor-team=%u leader=%u launch-blocked=%u save=%u\n",
+                       tecmo_season_phase_name(runtime->season_state.phase),
+                       tecmo_season_type_name(runtime->season_session.season_type),
+                       (unsigned)runtime->season_state.schedule_selection,
+                       (unsigned)runtime->season_state.team_selection,
+                       (unsigned)runtime->season_state.popup_selection,
+                       (unsigned)runtime->season_state.standings_page,
+                       (unsigned)runtime->season_state.editor_panel,
+                       (unsigned)runtime->season_state.editor_team,
+                       (unsigned)runtime->season_state.leader_category,
+                       runtime->season_state.game_launch_blocked ? 1U : 0U,
+                       (unsigned)runtime->season_session.save_status);
             }
             print_intro_render_capture_status(runtime, mode_name, arena_render_succeeded);
         }

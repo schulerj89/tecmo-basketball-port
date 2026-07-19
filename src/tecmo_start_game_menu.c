@@ -692,14 +692,12 @@ TecmoStartGameMenuAction tecmo_start_game_menu_update(
                 state->cursor_delay = 0U;
                 return TECMO_START_GAME_MENU_ACTION_NONE;
             }
-            if (state->season_selection == 2U) {
-                begin_exit(state, TECMO_START_GAME_MENU_ACTION_PLAY_SETUP, true);
-                return TECMO_START_GAME_MENU_ACTION_NONE;
-            }
             if (state->season_selection == 5U) {
                 begin_exit(state, TECMO_START_GAME_MENU_ACTION_ROSTERS, true);
                 return TECMO_START_GAME_MENU_ACTION_NONE;
             }
+            begin_exit(state,
+                       TECMO_START_GAME_MENU_ACTION_SEASON_MANAGEMENT, true);
             return TECMO_START_GAME_MENU_ACTION_NONE;
         }
         if (vertical_direction(controls, false, asset->direction_mask, &direction)) {
