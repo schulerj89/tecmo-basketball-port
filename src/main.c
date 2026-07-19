@@ -44,7 +44,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-scene-test PACK  Run native gameplay launch/input/shot checks\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render boot-title, native start-game menu, intro scenes (arena through finale/title frameN), play, or probe modes to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render menus, intro scenes, or strict gameplay-start/jump-frameN/close-shot-frameN checkpoints to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --build-assetpack ROM PATH  Build a private .assetpack from an iNES ROM only; no decomp/capture imports\n");
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
@@ -367,6 +367,74 @@ static bool parse_finale_render_mode(const char *mode_name,
         }
     }
     return false;
+}
+
+static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
+                                             const char *mode_name)
+{
+    TecmoGameplaySceneLaunch launch;
+    TecmoInput input;
+    unsigned checkpoint = 0U;
+    unsigned update;
+    bool jump = false;
+    bool close = false;
+
+    if (runtime == NULL || mode_name == NULL) return false;
+    if (strcmp(mode_name, "gameplay-start") == 0) {
+        checkpoint = 0U;
+    } else if (parse_render_frame_suffix(
+                   mode_name, "gameplay-jump-frame", &checkpoint)) {
+        jump = true;
+    } else if (parse_render_frame_suffix(
+                   mode_name, "gameplay-close-shot-frame", &checkpoint)) {
+        close = true;
+    } else {
+        return false;
+    }
+    if ((jump || close) && (checkpoint == 0U || checkpoint > 30U)) {
+        return false;
+    }
+
+    memset(&launch, 0, sizeof(launch));
+    launch.source = TECMO_GAMEPLAY_SCENE_PRESEASON;
+    launch.away_team = 0U;
+    launch.home_team = 1U;
+    launch.regulation_minutes = 3U;
+    launch.difficulty = 1U;
+    launch.control_mode = 1U;
+    launch.speed_value = 1U;
+    launch.controller_team[0] = TECMO_GAMEPLAY_TEAM_AWAY;
+    launch.controller_team[1] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    launch.game_music_enabled = false;
+    if (!tecmo_gameplay_scene_launch(&runtime->gameplay_scene, &launch)) {
+        return false;
+    }
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_COURT);
+    if (!jump && !close) return true;
+
+    if (close) {
+        TecmoGameplaySceneActor *actor = &runtime->gameplay_scene.actors[0];
+        actor->x = 205;
+        actor->y = 160;
+        actor->anchor_x = actor->x;
+        actor->anchor_y = actor->y;
+        actor->facing_right = true;
+        runtime->gameplay_scene.ball_holder = 0U;
+        runtime->gameplay_scene.ball_x_q8 = (int32_t)(actor->x + 7) * 256;
+        runtime->gameplay_scene.ball_y_q8 = (int32_t)(actor->y - 18) * 256;
+    }
+    memset(&input, 0, sizeof(input));
+    input.cancel = true;
+    tecmo_runtime_update(runtime, &input);
+    memset(&input, 0, sizeof(input));
+    for (update = 1U; update < checkpoint; ++update) {
+        tecmo_runtime_update(runtime, &input);
+    }
+    return runtime->mode == TECMO_MODE_COURT &&
+           runtime->gameplay_scene.active &&
+           runtime->gameplay_scene.shot_kind ==
+               (close ? TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_SUBTYPE01
+                      : TECMO_GAMEPLAY_SCENE_SHOT_JUMP);
 }
 
 int main(int argc, char **argv)
@@ -1815,6 +1883,36 @@ int main(int argc, char **argv)
                     runtime->title_chr_byte_count, 64, 0, 2);
                 render_runtime = false;
                 result = arena_render_succeeded ? 0 : 1;
+            } else if (strncmp(mode_name, "gameplay-", 9) == 0) {
+                framebuffer.pixels = pixels;
+                framebuffer.width = width;
+                framebuffer.height = height;
+                framebuffer.pitch_pixels = width;
+                if (!setup_gameplay_render_checkpoint(runtime, mode_name)) {
+                    printf("Unsupported or unavailable gameplay render-test mode: %s\n",
+                           mode_name);
+                    result = 1;
+                } else {
+                    arena_render_succeeded = tecmo_render_gameplay_scene(
+                        runtime, &framebuffer);
+                    result = arena_render_succeeded ? 0 : 1;
+                    printf("gameplay-state frame=%u shot=%s phase=%s score=%u/%u clock=%u:%02u period=%u overtime=%u shot-clock=%u\n",
+                           runtime->gameplay_scene.frame,
+                           tecmo_gameplay_scene_shot_name(
+                               runtime->gameplay_scene.shot_kind),
+                           tecmo_gameplay_phase_name(
+                               runtime->gameplay_scene.state.phase),
+                           (unsigned)runtime->gameplay_scene.state.score[
+                               TECMO_GAMEPLAY_TEAM_AWAY],
+                           (unsigned)runtime->gameplay_scene.state.score[
+                               TECMO_GAMEPLAY_TEAM_HOME],
+                           (unsigned)runtime->gameplay_scene.state.clock_minutes,
+                           (unsigned)runtime->gameplay_scene.state.clock_seconds,
+                           (unsigned)runtime->gameplay_scene.state.period,
+                           (unsigned)runtime->gameplay_scene.state.overtime_count,
+                           (unsigned)runtime->gameplay_scene.state.shot_clock);
+                }
+                render_runtime = false;
             } else if (strcmp(mode_name, "menu-overlay") == 0) {
                 TecmoInput input;
                 memset(&input, 0, sizeof(input));

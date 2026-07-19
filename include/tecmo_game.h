@@ -5,6 +5,7 @@
 #include "tecmo_controls.h"
 #include "tecmo_all_star_menu.h"
 #include "tecmo_framebuffer.h"
+#include "tecmo_gameplay_scene.h"
 #include "tecmo_intro_arena.h"
 #include "tecmo_intro_finale.h"
 #include "tecmo_intro_layout.h"
@@ -89,6 +90,7 @@ typedef struct TecmoRuntime {
     uint8_t all_star_committed_difficulty;
     TecmoMusicAsset music_asset;
     TecmoMusicPlayer music_player;
+    TecmoGameplayScene gameplay_scene;
     TecmoTeamDataAsset team_data_asset;
     TecmoTeamDataState team_data_state;
     TecmoTeamManagementAsset team_management_asset;
@@ -123,14 +125,6 @@ typedef struct TecmoRuntime {
     bool quit_requested;
     bool debug_overlay;
     bool title_probe_available;
-    float player_x;
-    float player_y;
-    float ball_x;
-    float ball_y;
-    float ball_vx;
-    float ball_vy;
-    bool ball_in_air;
-    unsigned score;
     unsigned frame_counter;
     unsigned mode_frame_counter;
     float frame_seconds;
@@ -152,6 +146,8 @@ void tecmo_runtime_update_players(TecmoRuntime *runtime,
                                   const TecmoInput *player_two);
 void tecmo_runtime_update(TecmoRuntime *runtime, const TecmoInput *input);
 void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer);
+bool tecmo_render_gameplay_scene(const TecmoRuntime *runtime,
+                                 TecmoFramebuffer *framebuffer);
 bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t message_size);
 void tecmo_render_original_title_probe(TecmoFramebuffer *framebuffer, const char *title_text);
 void tecmo_render_intro_c051_d861_model(TecmoFramebuffer *framebuffer);

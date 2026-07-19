@@ -1,15 +1,10 @@
 #include "tecmo_game.h"
 #include "tecmo_nes_video.h"
 
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define COURT_LEFT 48
-#define COURT_TOP 54
-#define COURT_RIGHT 592
-#define COURT_BOTTOM 424
 #define TITLE_CHR_BANK_BYTES 8192U
 #define TECMO_INTRO_OUTPUT_STEP_COUNT 16U
 #define TECMO_INTRO_OUTPUT_TITLE_STEP 6U
@@ -247,6 +242,11 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
     (void)tecmo_all_star_asset_load(&runtime->all_star_asset, project_root);
     (void)tecmo_music_asset_load(&runtime->music_asset, project_root);
     tecmo_music_player_init(&runtime->music_player, &runtime->music_asset);
+    tecmo_gameplay_scene_init(&runtime->gameplay_scene);
+    (void)tecmo_gameplay_scene_load(&runtime->gameplay_scene,
+                                    project_root,
+                                    NULL,
+                                    &runtime->music_player);
     (void)tecmo_team_data_asset_load(&runtime->team_data_asset, project_root);
     (void)tecmo_team_management_asset_load(&runtime->team_management_asset,
                                            project_root);
@@ -376,10 +376,6 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
     runtime->frame_seconds = (float)(
         (double)TECMO_MUSIC_TICK_DENOMINATOR /
         (double)TECMO_MUSIC_TICK_NUMERATOR);
-    runtime->player_x = 320.0f;
-    runtime->player_y = 260.0f;
-    runtime->ball_x = runtime->player_x + 14.0f;
-    runtime->ball_y = runtime->player_y - 8.0f;
     return runtime->team_count > 0 || allow_empty_roster;
 }
 
@@ -393,6 +389,7 @@ void tecmo_runtime_shutdown(TecmoRuntime *runtime)
     if (runtime->season_session.dirty) {
         (void)tecmo_season_session_save(&runtime->season_session);
     }
+    tecmo_gameplay_scene_destroy(&runtime->gameplay_scene);
     tecmo_music_asset_shutdown(&runtime->music_asset);
     tecmo_free_buffer(runtime->title_chr_bytes);
     runtime->title_chr_bytes = NULL;
@@ -650,6 +647,143 @@ static void update_start_game_menu(TecmoRuntime *runtime,
     }
 }
 
+static bool gameplay_launch_settings(const TecmoRuntime *runtime,
+                                     TecmoGameplaySceneLaunch *launch)
+{
+    const TecmoStartGameMenuState *menu;
+    const TecmoStartGameMenuAsset *asset;
+
+    if (runtime == NULL || launch == NULL) return false;
+    menu = &runtime->start_game_menu_state;
+    asset = &runtime->start_game_menu_asset;
+    if (!asset->available ||
+        menu->music_value >= TECMO_START_GAME_MENU_MUSIC_VALUE_COUNT ||
+        menu->speed_value >= TECMO_START_GAME_MENU_SPEED_VALUE_COUNT ||
+        menu->period_index >= TECMO_START_GAME_MENU_PERIOD_VALUE_COUNT) {
+        return false;
+    }
+    launch->regulation_minutes = asset->period_values[menu->period_index];
+    launch->speed_value = menu->speed_value;
+    launch->game_music_enabled = menu->music_value != 0U;
+    return true;
+}
+
+static void gameplay_assign_manual_teams(TecmoGameplaySceneLaunch *launch,
+                                         bool away_manual,
+                                         bool home_manual)
+{
+    launch->controller_team[0] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    launch->controller_team[1] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    if (away_manual) {
+        launch->controller_team[0] = TECMO_GAMEPLAY_TEAM_AWAY;
+    }
+    if (home_manual) {
+        size_t controller = away_manual ? 1U : 0U;
+        launch->controller_team[controller] = TECMO_GAMEPLAY_TEAM_HOME;
+    }
+}
+
+static bool launch_preseason_gameplay(TecmoRuntime *runtime)
+{
+    const TecmoPreseasonAsset *asset = &runtime->preseason_asset;
+    const TecmoPreseasonState *state = &runtime->preseason_state;
+    TecmoGameplaySceneLaunch launch;
+    size_t away_slot;
+    size_t home_slot;
+    size_t ownership_index;
+
+    if (!asset->available || state->control_selection == 0U ||
+        state->control_selection > 6U || state->committed_difficulty > 2U ||
+        state->division_selection[0] >= 4U ||
+        state->division_selection[1] >= 4U ||
+        state->team_selection[0] >=
+            asset->division_counts[state->division_selection[0]] ||
+        state->team_selection[1] >=
+            asset->division_counts[state->division_selection[1]]) {
+        return false;
+    }
+    away_slot = (size_t)asset->division_offsets[
+        state->division_selection[0]] + state->team_selection[0];
+    home_slot = (size_t)asset->division_offsets[
+        state->division_selection[1]] + state->team_selection[1];
+    if (away_slot >= TECMO_PRESEASON_TEAM_COUNT ||
+        home_slot >= TECMO_PRESEASON_TEAM_COUNT ||
+        asset->team_ids[away_slot] >= TECMO_PRESEASON_TEAM_COUNT ||
+        asset->team_ids[home_slot] >= TECMO_PRESEASON_TEAM_COUNT ||
+        asset->team_ids[away_slot] == asset->team_ids[home_slot]) {
+        return false;
+    }
+
+    memset(&launch, 0, sizeof(launch));
+    launch.source = TECMO_GAMEPLAY_SCENE_PRESEASON;
+    launch.away_team = asset->team_ids[away_slot];
+    launch.home_team = asset->team_ids[home_slot];
+    launch.difficulty = state->committed_difficulty;
+    launch.control_mode = state->control_selection;
+    ownership_index = (size_t)state->control_selection - 1U;
+    gameplay_assign_manual_teams(
+        &launch,
+        asset->ownership[0][ownership_index] == 0U,
+        asset->ownership[1][ownership_index] == 0U);
+    if (!gameplay_launch_settings(runtime, &launch) ||
+        !tecmo_gameplay_scene_launch(&runtime->gameplay_scene, &launch)) {
+        return false;
+    }
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_COURT);
+    return true;
+}
+
+static bool launch_season_gameplay(TecmoRuntime *runtime)
+{
+    const TecmoSeasonPendingGame *pending =
+        &runtime->season_state.pending_game;
+    TecmoGameplaySceneLaunch launch;
+
+    if (!runtime->season_asset.available ||
+        runtime->season_state.phase != TECMO_SEASON_GAME_START ||
+        !runtime->season_state.game_result_pending ||
+        runtime->season_state.game_prepare_pending ||
+        pending->away_team >= TECMO_SEASON_TEAM_COUNT ||
+        pending->home_team >= TECMO_SEASON_TEAM_COUNT ||
+        pending->away_team == pending->home_team ||
+        pending->game_index != runtime->season_session.schedule_index) {
+        return false;
+    }
+
+    memset(&launch, 0, sizeof(launch));
+    launch.source = TECMO_GAMEPLAY_SCENE_SEASON;
+    launch.game_index = pending->game_index;
+    launch.away_team = pending->away_team;
+    launch.home_team = pending->home_team;
+    /* Season management carries per-team ownership rather than a preseason
+       control row. Keep that ownership explicit and use the neutral raw mode. */
+    launch.difficulty = 1U;
+    launch.control_mode = 0U;
+    gameplay_assign_manual_teams(
+        &launch,
+        runtime->season_session.team_control[pending->away_team] == 1U,
+        runtime->season_session.team_control[pending->home_team] == 1U);
+    if (!gameplay_launch_settings(runtime, &launch) ||
+        !tecmo_gameplay_scene_launch(&runtime->gameplay_scene, &launch)) {
+        return false;
+    }
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_COURT);
+    return true;
+}
+
+static void return_from_preseason_gameplay(TecmoRuntime *runtime)
+{
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame =
+        runtime->start_game_menu_asset.stable_frame;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
+    runtime->start_game_menu_state.root_selection = 0U;
+    runtime->start_game_menu_state.direction_cooldown =
+        runtime->start_game_menu_asset.accepted_input_seed;
+    runtime->start_game_menu_state.cursor_delay =
+        runtime->start_game_menu_asset.cursor_commit_delay_frames;
+}
+
 static void update_season_menu(TecmoRuntime *runtime,
                                const TecmoControlFrame *controls)
 {
@@ -661,6 +795,9 @@ static void update_season_menu(TecmoRuntime *runtime,
             return;
         }
         tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
+    } else if (action == TECMO_SEASON_ACTION_LAUNCH_GAME &&
+               !launch_season_gameplay(runtime)) {
+        runtime->season_state.game_launch_blocked = true;
     }
 }
 
@@ -687,15 +824,9 @@ static void update_preseason_menu(TecmoRuntime *runtime,
         &runtime->preseason_state, &runtime->preseason_asset,
         player_one, player_two);
     if (action == TECMO_PRESEASON_ACTION_BACK_TO_START_MENU) {
-        tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
-        runtime->start_game_menu_state.frame =
-            runtime->start_game_menu_asset.stable_frame;
-        runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
-        runtime->start_game_menu_state.root_selection = 0U;
-        runtime->start_game_menu_state.direction_cooldown =
-            runtime->start_game_menu_asset.accepted_input_seed;
-        runtime->start_game_menu_state.cursor_delay =
-            runtime->start_game_menu_asset.cursor_commit_delay_frames;
+        return_from_preseason_gameplay(runtime);
+    } else if (action == TECMO_PRESEASON_ACTION_LAUNCH_GAME) {
+        (void)launch_preseason_gameplay(runtime);
     }
 }
 
@@ -806,7 +937,8 @@ static void update_probe_screen(TecmoRuntime *runtime, const TecmoControlFrame *
     }
 }
 
-static void update_roster_selection(TecmoRuntime *runtime, const TecmoControlFrame *controls, bool allow_start_game)
+static void update_roster_selection(TecmoRuntime *runtime,
+                                    const TecmoControlFrame *controls)
 {
     size_t player_count = selected_team_player_count(runtime);
 
@@ -833,79 +965,47 @@ static void update_roster_selection(TecmoRuntime *runtime, const TecmoControlFra
         }
         tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
     }
-    if (allow_start_game && controls->pressed.confirm) {
-        tecmo_runtime_set_mode(runtime, TECMO_MODE_COURT);
-    }
 }
 
-static void clamp_player_to_court(TecmoRuntime *runtime)
+static void update_court(TecmoRuntime *runtime,
+                         const TecmoControlFrame *player_one,
+                         const TecmoControlFrame *player_two)
 {
-    if (runtime->player_x < (float)COURT_LEFT + 12.0f) {
-        runtime->player_x = (float)COURT_LEFT + 12.0f;
-    }
-    if (runtime->player_x > (float)COURT_RIGHT - 12.0f) {
-        runtime->player_x = (float)COURT_RIGHT - 12.0f;
-    }
-    if (runtime->player_y < (float)COURT_TOP + 18.0f) {
-        runtime->player_y = (float)COURT_TOP + 18.0f;
-    }
-    if (runtime->player_y > (float)COURT_BOTTOM - 18.0f) {
-        runtime->player_y = (float)COURT_BOTTOM - 18.0f;
-    }
-}
+    TecmoGameplaySceneResult result;
 
-static void update_court(TecmoRuntime *runtime, const TecmoControlFrame *controls)
-{
-    const float speed = 3.0f;
-    const float hoop_x = 542.0f;
-    const float hoop_y = 126.0f;
-    const TecmoInput *input = &controls->held;
-
-    if (input->left) {
-        runtime->player_x -= speed;
+    if (!runtime->gameplay_scene.active) return;
+    if (!runtime->gameplay_scene.result_ready &&
+        !tecmo_gameplay_scene_update(&runtime->gameplay_scene,
+                                     player_one, player_two)) {
+        return;
     }
-    if (input->right) {
-        runtime->player_x += speed;
+    if (!tecmo_gameplay_scene_result(&runtime->gameplay_scene, &result)) {
+        return;
     }
-    if (input->up) {
-        runtime->player_y -= speed;
+    if (result.source != runtime->gameplay_scene.launch.source ||
+        result.game_index != runtime->gameplay_scene.launch.game_index ||
+        result.away_team != runtime->gameplay_scene.launch.away_team ||
+        result.home_team != runtime->gameplay_scene.launch.home_team) {
+        return;
     }
-    if (input->down) {
-        runtime->player_y += speed;
-    }
-    clamp_player_to_court(runtime);
-
-    if (controls->pressed.cancel) {
-        tecmo_runtime_set_mode(runtime, TECMO_MODE_PLAY_SETUP);
-        runtime->ball_in_air = false;
-    }
-
-    if (!runtime->ball_in_air) {
-        runtime->ball_x = runtime->player_x + 14.0f;
-        runtime->ball_y = runtime->player_y - 8.0f;
-        if (controls->pressed.shoot) {
-            float dx = hoop_x - runtime->ball_x;
-            float dy = hoop_y - runtime->ball_y;
-            runtime->ball_vx = dx / 44.0f;
-            runtime->ball_vy = dy / 44.0f - 4.0f;
-            runtime->ball_in_air = true;
-        }
-    } else {
-        float dx;
-        float dy;
-        runtime->ball_x += runtime->ball_vx;
-        runtime->ball_y += runtime->ball_vy;
-        runtime->ball_vy += 0.18f;
-        dx = runtime->ball_x - hoop_x;
-        dy = runtime->ball_y - hoop_y;
-        if ((dx * dx + dy * dy) < 20.0f * 20.0f && runtime->ball_vy > 0.0f) {
-            ++runtime->score;
-            runtime->ball_in_air = false;
-        }
-        if (runtime->ball_y > (float)COURT_BOTTOM + 40.0f ||
-            runtime->ball_x < 0.0f ||
-            runtime->ball_x > 640.0f) {
-            runtime->ball_in_air = false;
+    if (result.source == TECMO_GAMEPLAY_SCENE_PRESEASON) {
+        tecmo_gameplay_scene_end(&runtime->gameplay_scene);
+        return_from_preseason_gameplay(runtime);
+    } else if (result.source == TECMO_GAMEPLAY_SCENE_SEASON) {
+        TecmoSeasonGameResult season_result;
+        memset(&season_result, 0, sizeof(season_result));
+        season_result.game_index = result.game_index;
+        season_result.away_team = result.away_team;
+        season_result.home_team = result.home_team;
+        season_result.away_score = result.away_score;
+        season_result.home_score = result.home_score;
+        season_result.overtime = result.overtime_count != 0U;
+        if (tecmo_season_commit_game_result(
+                &runtime->season_state, &runtime->season_asset,
+                &runtime->season_session, &season_result)) {
+            tecmo_gameplay_scene_end(&runtime->gameplay_scene);
+            /* Preserve the committed result rows and pending-game state. */
+            tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
         }
     }
 }
@@ -1022,11 +1122,11 @@ void tecmo_runtime_update_players(TecmoRuntime *runtime,
     } else if (runtime->mode == TECMO_MODE_FIRST_SPRITE) {
         update_first_sprite_probe(runtime, &player_one_controls);
     } else if (runtime->mode == TECMO_MODE_PLAY_SETUP) {
-        update_roster_selection(runtime, &player_one_controls, true);
+        update_roster_selection(runtime, &player_one_controls);
     } else if (runtime->mode == TECMO_MODE_ROSTERS) {
-        update_roster_selection(runtime, &player_one_controls, false);
+        update_roster_selection(runtime, &player_one_controls);
     } else if (runtime->mode == TECMO_MODE_COURT) {
-        update_court(runtime, &player_one_controls);
+        update_court(runtime, &player_one_controls, &player_two_controls);
     } else if (runtime->mode == TECMO_MODE_START_GAME_MENU) {
         update_start_game_menu(runtime, &player_one_controls);
     } else if (runtime->mode == TECMO_MODE_PRESEASON_MENU) {
@@ -1337,30 +1437,108 @@ static void render_roster_browser(const TecmoRuntime *runtime, TecmoFramebuffer 
     }
 }
 
-static void render_court(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
+static const char *gameplay_banner_label(TecmoGameplayBanner banner)
 {
-    char line[256];
-    const RosterRecord *player = selected_player_record(runtime);
-
-    clear(fb, rgb(12, 58, 46));
-    rect(fb, COURT_LEFT, COURT_TOP, COURT_RIGHT - COURT_LEFT, COURT_BOTTOM - COURT_TOP, rgb(197, 140, 78));
-    rect(fb, COURT_LEFT + 6, COURT_TOP + 6, COURT_RIGHT - COURT_LEFT - 12, COURT_BOTTOM - COURT_TOP - 12, rgb(226, 170, 98));
-    rect(fb, 314, COURT_TOP + 6, 4, COURT_BOTTOM - COURT_TOP - 12, rgb(245, 236, 210));
-    rect(fb, 500, 92, 84, 72, rgb(178, 92, 68));
-    rect(fb, 538, 116, 8, 28, rgb(245, 236, 210));
-    rect(fb, 528, 120, 28, 5, rgb(245, 236, 210));
-
-    rect(fb, (int)runtime->player_x - 8, (int)runtime->player_y - 18, 16, 36, rgb(42, 70, 164));
-    rect(fb, (int)runtime->player_x - 6, (int)runtime->player_y - 26, 12, 10, rgb(228, 182, 134));
-    rect(fb, (int)runtime->ball_x - 5, (int)runtime->ball_y - 5, 10, 10, rgb(214, 98, 36));
-
-    (void)snprintf(line, sizeof(line), "SCORE %u", runtime->score * 2U);
-    draw_text(fb, 24, 18, line, rgb(248, 248, 232), 2);
-    if (player != 0) {
-        (void)snprintf(line, sizeof(line), "%s - %s", runtime->teams[runtime->selected_team], player->player);
-        draw_text(fb, 220, 20, line, rgb(248, 248, 232), 1);
+    switch (banner) {
+    case TECMO_GAMEPLAY_BANNER_FIRST_PERIOD: return "FIRST PERIOD";
+    case TECMO_GAMEPLAY_BANNER_SECOND_PERIOD: return "SECOND PERIOD";
+    case TECMO_GAMEPLAY_BANNER_THIRD_PERIOD: return "THIRD PERIOD";
+    case TECMO_GAMEPLAY_BANNER_FOURTH_PERIOD: return "FOURTH PERIOD";
+    case TECMO_GAMEPLAY_BANNER_OVERTIME: return "OVERTIME";
+    case TECMO_GAMEPLAY_BANNER_HALFTIME: return "HALFTIME";
+    case TECMO_GAMEPLAY_BANNER_NONE:
+    default:
+        return "";
     }
-    draw_text(fb, 24, 452, "ARROWS MOVE   SPACE SHOOT   ESC TEAM SELECT", rgb(236, 232, 208), 1);
+}
+
+bool tecmo_render_gameplay_scene(const TecmoRuntime *runtime,
+                                 TecmoFramebuffer *fb)
+{
+    const TecmoGameplayScene *scene;
+    const TecmoGameplayState *state;
+    char line[160];
+
+    if (runtime == NULL || fb == NULL || fb->pixels == NULL ||
+        fb->width <= 0 || fb->height <= 0 ||
+        fb->pitch_pixels < fb->width ||
+        (size_t)fb->pitch_pixels >
+            SIZE_MAX / (size_t)fb->height) {
+        return false;
+    }
+    scene = &runtime->gameplay_scene;
+    state = &scene->state;
+    clear(fb, rgb(0, 0, 0));
+    if (!scene->available) {
+        draw_text(fb, 92, 224, "STRICT GAMEPLAY ASSETS UNAVAILABLE",
+                  rgb(248, 248, 232), 2);
+        return false;
+    }
+    if (!tecmo_gameplay_scene_draw(scene, fb, 64, 0, 2, true)) {
+        clear(fb, rgb(0, 0, 0));
+        draw_text(fb, 116, 224, "GAMEPLAY RENDER REJECTED",
+                  rgb(248, 248, 232), 2);
+        return false;
+    }
+    if (!scene->active || !state->initialized) return true;
+
+    /* Dynamic HUD glyph parity remains a separate ROM-asset boundary. These
+       labels expose only native scene state over the exact static court. */
+    if (state->overtime_count != 0U) {
+        (void)snprintf(line, sizeof(line),
+                       "A%02u %03u H%02u %03u  %u:%02u OT%u SH%02u",
+                       (unsigned)scene->launch.away_team,
+                       (unsigned)state->score[TECMO_GAMEPLAY_TEAM_AWAY],
+                       (unsigned)scene->launch.home_team,
+                       (unsigned)state->score[TECMO_GAMEPLAY_TEAM_HOME],
+                       (unsigned)state->clock_minutes,
+                       (unsigned)state->clock_seconds,
+                       (unsigned)state->overtime_count,
+                       (unsigned)state->shot_clock);
+    } else {
+        (void)snprintf(line, sizeof(line),
+                       "A%02u %03u H%02u %03u  %u:%02u P%u SH%02u",
+                       (unsigned)scene->launch.away_team,
+                       (unsigned)state->score[TECMO_GAMEPLAY_TEAM_AWAY],
+                       (unsigned)scene->launch.home_team,
+                       (unsigned)state->score[TECMO_GAMEPLAY_TEAM_HOME],
+                       (unsigned)state->clock_minutes,
+                       (unsigned)state->clock_seconds,
+                        (unsigned)(state->period > 4U ? 4U : state->period),
+                       (unsigned)state->shot_clock);
+    }
+    draw_text(fb, 82, 12, line, rgb(248, 248, 232), 1);
+    if (state->phase == TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION) {
+        (void)snprintf(line, sizeof(line), "VIOLATION: %s",
+                       tecmo_gameplay_violation_name(state->violation));
+    } else if (state->phase == TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
+               state->phase == TECMO_GAMEPLAY_PHASE_FOUL_SETTLEMENT_REQUIRED) {
+        (void)snprintf(line, sizeof(line), "FOUL - %u FREE THROWS",
+                       (unsigned)state->free_throws.attempts_remaining);
+    } else if (state->phase == TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
+               state->phase ==
+                   TECMO_GAMEPLAY_PHASE_FREE_THROW_SETTLEMENT_REQUIRED) {
+        (void)snprintf(line, sizeof(line), "FREE THROW - %u REMAINING",
+                       (unsigned)state->free_throws.attempts_remaining);
+    } else if (state->phase == TECMO_GAMEPLAY_PHASE_HALFTIME_BANNER ||
+               state->phase == TECMO_GAMEPLAY_PHASE_HALFTIME_SCORE_SCREEN) {
+        (void)snprintf(line, sizeof(line), "HALFTIME");
+    } else if (state->phase == TECMO_GAMEPLAY_PHASE_FINAL_SCORE_SCREEN ||
+               state->phase == TECMO_GAMEPLAY_PHASE_COMPLETE) {
+        (void)snprintf(line, sizeof(line), "FINAL");
+    } else if (state->banner != TECMO_GAMEPLAY_BANNER_NONE) {
+        (void)snprintf(line, sizeof(line), "%s",
+                       gameplay_banner_label(state->banner));
+    } else if (state->phase != TECMO_GAMEPLAY_PHASE_LIVE) {
+        (void)snprintf(line, sizeof(line), "%s",
+                       tecmo_gameplay_phase_name(state->phase));
+    } else {
+        line[0] = '\0';
+    }
+    if (line[0] != '\0') {
+        draw_text(fb, 180, 54, line, rgb(248, 248, 232), 1);
+    }
+    return true;
 }
 
 static void draw_debug_text(TecmoFramebuffer *fb, int x, int y, const char *text)
@@ -3642,7 +3820,7 @@ void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebu
     } else if (runtime->mode == TECMO_MODE_ROSTERS) {
         render_roster_browser(runtime, framebuffer, false);
     } else if (runtime->mode == TECMO_MODE_COURT) {
-        render_court(runtime, framebuffer);
+        (void)tecmo_render_gameplay_scene(runtime, framebuffer);
     } else if (runtime->mode == TECMO_MODE_START_GAME_MENU) {
         render_start_game_menu_mode(runtime, framebuffer);
     } else if (runtime->mode == TECMO_MODE_PRESEASON_MENU) {

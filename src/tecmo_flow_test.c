@@ -1,3 +1,7 @@
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+
 #include "tecmo_game.h"
 #include "tecmo_intro_stage.h"
 
@@ -1173,67 +1177,95 @@ static bool flow_expect_preseason_native_path(TecmoRuntime *runtime,
     if (runtime->preseason_state.team_selection[1] != 6U ||
         !flow_preseason_wait_cooldown(runtime, message, message_size))
         return false;
-    flow_preseason_release(runtime, true, true);
-    if (runtime->mode != TECMO_MODE_PRESEASON_MENU ||
-        runtime->preseason_state.phase != TECMO_PRESEASON_TEAM ||
-        runtime->preseason_state.team_selection[1] != 6U ||
-        runtime->preseason_state.direction_cooldown != asset->accepted_input_seed) {
-        set_flow_test_message(message, message_size,
-                              "P2 A crossed the stop-before-launch boundary");
-        return false;
-    }
-    flow_preseason_direction(runtime, true, TECMO_CONTROL_RIGHT);
-    if (runtime->preseason_state.team_selection[1] != 6U) {
-        set_flow_test_message(message, message_size,
-                              "P2 A did not gate the following direction");
-        return false;
-    }
-    if (!flow_preseason_wait_cooldown(runtime, message, message_size)) return false;
-    flow_preseason_release(runtime, true, false);
-    flow_preseason_neutral(runtime, asset->team_exit_frames +
-                           asset->overlays[1].height);
-    if (!flow_preseason_expect_phase(runtime, TECMO_PRESEASON_DIVISION,
-                                     "P2 team B division return", message, message_size) ||
-        runtime->preseason_state.division_return_fade_frame != 0U)
-        return false;
-    flow_preseason_release(runtime, true, false);
-    if (runtime->preseason_state.division_return_fade_active ||
-        runtime->preseason_state.active_player != 0U ||
-        runtime->preseason_state.division_selection[0] != 0U ||
-        runtime->preseason_state.division_selection[1] != 0U)
-        return false;
-    flow_preseason_neutral(runtime, asset->overlays[1].height + 1U);
-    player_two.down = true;
-    tecmo_runtime_update_players(runtime, &player_one, &player_two);
-    memset(&player_two, 0, sizeof(player_two));
-    tecmo_runtime_update_players(runtime, &player_one, &player_two);
-    if (runtime->preseason_state.control_selection != 2U) return false;
-    flow_preseason_release(runtime, false, false);
-    if (runtime->preseason_state.direction_cooldown != asset->accepted_input_seed)
-        return false;
-    flow_preseason_neutral(runtime, asset->overlays[0].height - 1U);
-    if (runtime->preseason_state.phase != TECMO_PRESEASON_CONTROL_TEARDOWN_ROOT ||
-        runtime->preseason_state.direction_cooldown != asset->accepted_input_seed) {
-        set_flow_test_message(message, message_size,
-                              "preseason root teardown consumed its frozen gate");
-        return false;
-    }
-    flow_preseason_neutral(runtime, 1U);
-    if (!flow_expect_mode(runtime, TECMO_MODE_START_GAME_MENU,
-                          "preseason CONTROL B root return", message, message_size) ||
-        runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
-        runtime->start_game_menu_state.frame !=
-            runtime->start_game_menu_asset.stable_frame ||
-        runtime->start_game_menu_state.root_selection != 0U ||
-        runtime->start_game_menu_state.direction_cooldown !=
-            runtime->start_game_menu_asset.accepted_input_seed)
-        return false;
-    flow_preseason_neutral(runtime, 1U);
-    if (runtime->start_game_menu_state.direction_cooldown !=
-            (uint16_t)(runtime->start_game_menu_asset.accepted_input_seed - 1U)) {
-        set_flow_test_message(message, message_size,
-                              "start-menu root return did not tick its seeded gate");
-        return false;
+    {
+        size_t away_slot = (size_t)asset->division_offsets[
+            runtime->preseason_state.division_selection[0]] +
+            runtime->preseason_state.team_selection[0];
+        size_t home_slot = (size_t)asset->division_offsets[
+            runtime->preseason_state.division_selection[1]] +
+            runtime->preseason_state.team_selection[1];
+        uint8_t expected_away = asset->team_ids[away_slot];
+        uint8_t expected_home = asset->team_ids[home_slot];
+        uint32_t scene_frame;
+
+        flow_preseason_release(runtime, true, true);
+        if (!flow_expect_mode(runtime, TECMO_MODE_COURT,
+                              "preseason gameplay launch", message,
+                              message_size) ||
+            !runtime->gameplay_scene.active ||
+            runtime->gameplay_scene.result_ready ||
+            runtime->gameplay_scene.launch.source !=
+                TECMO_GAMEPLAY_SCENE_PRESEASON ||
+            runtime->gameplay_scene.launch.away_team != expected_away ||
+            runtime->gameplay_scene.launch.home_team != expected_home ||
+            runtime->gameplay_scene.launch.difficulty != 1U ||
+            runtime->gameplay_scene.launch.control_mode != 2U ||
+            runtime->gameplay_scene.launch.regulation_minutes !=
+                runtime->start_game_menu_asset.period_values[
+                    runtime->start_game_menu_state.period_index] ||
+            runtime->gameplay_scene.launch.speed_value !=
+                runtime->start_game_menu_state.speed_value ||
+            runtime->gameplay_scene.launch.game_music_enabled !=
+                (runtime->start_game_menu_state.music_value != 0U) ||
+            runtime->gameplay_scene.launch.controller_team[0] !=
+                TECMO_GAMEPLAY_TEAM_AWAY ||
+            runtime->gameplay_scene.launch.controller_team[1] !=
+                TECMO_GAMEPLAY_TEAM_HOME) {
+            set_flow_test_message(message, message_size,
+                                  "preseason gameplay snapshot/mapping mismatch");
+            return false;
+        }
+
+        scene_frame = runtime->gameplay_scene.frame;
+        player_one.confirm = true;
+        tecmo_runtime_update_players(runtime, &player_one, &player_two);
+        memset(&player_one, 0, sizeof(player_one));
+        tecmo_runtime_update_players(runtime, &player_one, &player_two);
+        if (runtime->mode != TECMO_MODE_COURT ||
+            !runtime->gameplay_scene.active ||
+            runtime->gameplay_scene.frame != scene_frame + 2U) {
+            set_flow_test_message(message, message_size,
+                                  "live gameplay START was not inert");
+            return false;
+        }
+
+        player_one.cancel = true;
+        tecmo_runtime_update_players(runtime, &player_one, &player_two);
+        memset(&player_one, 0, sizeof(player_one));
+        tecmo_runtime_update_players(runtime, &player_one, &player_two);
+        if (runtime->mode != TECMO_MODE_COURT ||
+            !runtime->gameplay_scene.active) {
+            set_flow_test_message(message, message_size,
+                                  "NES B used the removed legacy court exit");
+            return false;
+        }
+
+        runtime->gameplay_scene.result.source =
+            TECMO_GAMEPLAY_SCENE_PRESEASON;
+        runtime->gameplay_scene.result.game_index = 0U;
+        runtime->gameplay_scene.result.away_team = expected_away;
+        runtime->gameplay_scene.result.home_team = expected_home;
+        runtime->gameplay_scene.result.away_score = 6U;
+        runtime->gameplay_scene.result.home_score = 4U;
+        runtime->gameplay_scene.result.overtime_count = 0U;
+        runtime->gameplay_scene.result_ready = true;
+        tecmo_runtime_update_players(runtime, &player_one, &player_two);
+        if (!flow_expect_mode(runtime, TECMO_MODE_START_GAME_MENU,
+                              "preseason gameplay completion", message,
+                              message_size) ||
+            runtime->gameplay_scene.active ||
+            runtime->gameplay_scene.result_ready ||
+            runtime->start_game_menu_state.phase !=
+                TECMO_START_GAME_MENU_ROOT ||
+            runtime->start_game_menu_state.frame !=
+                runtime->start_game_menu_asset.stable_frame ||
+            runtime->start_game_menu_state.root_selection != 0U ||
+            runtime->start_game_menu_state.direction_cooldown !=
+                runtime->start_game_menu_asset.accepted_input_seed) {
+            set_flow_test_message(message, message_size,
+                                  "preseason gameplay did not return to stable root");
+            return false;
+        }
     }
     return flow_preseason_invalid_state_guards(runtime, message, message_size);
 }
@@ -2190,11 +2222,15 @@ static bool flow_expect_all_star_native_path(TecmoRuntime *runtime,
     return true;
 }
 
-bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t message_size)
+static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
+                                        char *message,
+                                        size_t message_size)
 {
     TecmoInput input;
     TecmoMusicPlayer speed_music_before;
     uint8_t previous_intro_step;
+    uint8_t expected_season_away = 0U;
+    uint8_t expected_season_home = 0U;
 
     if (message != NULL && message_size > 0U) {
         message[0] = '\0';
@@ -3166,8 +3202,11 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
                                   "season fixture could not map first game");
             return false;
         }
-        runtime->season_session.team_control[
-            runtime->season_asset.schedule[raw_game][0] & 0x3FU] = 1U;
+        expected_season_away =
+            runtime->season_asset.schedule[raw_game][0] & 0x3FU;
+        expected_season_home =
+            runtime->season_asset.schedule[raw_game][1] & 0x3FU;
+        runtime->season_session.team_control[expected_season_away] = 1U;
     }
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 64U;
@@ -3198,15 +3237,65 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         return false;
     }
     memset(&input, 0, sizeof(input));
-    input.shoot = true;
-    flow_step(runtime, input);
-    if (runtime->mode != TECMO_MODE_SEASON_MENU ||
-        runtime->season_state.phase != TECMO_SEASON_GAME_START ||
-        !runtime->season_state.game_launch_blocked ||
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->mode != TECMO_MODE_COURT ||
+        !runtime->gameplay_scene.active ||
+        runtime->gameplay_scene.result_ready ||
+        runtime->gameplay_scene.launch.source != TECMO_GAMEPLAY_SCENE_SEASON ||
+        runtime->gameplay_scene.launch.game_index != 0U ||
+        runtime->gameplay_scene.launch.away_team != expected_season_away ||
+        runtime->gameplay_scene.launch.home_team != expected_season_home ||
+        runtime->gameplay_scene.launch.regulation_minutes != 12U ||
+        runtime->gameplay_scene.launch.speed_value != 2U ||
+        runtime->gameplay_scene.launch.game_music_enabled ||
+        runtime->gameplay_scene.launch.controller_team[0] !=
+            TECMO_GAMEPLAY_TEAM_AWAY ||
+        runtime->gameplay_scene.launch.controller_team[1] !=
+            TECMO_GAMEPLAY_SCENE_NO_TEAM ||
         runtime->season_state.game_result_count != 0U ||
         runtime->season_session.schedule_index != 0U) {
         set_flow_test_message(message, message_size,
-                              "season GAME START crossed the no-gameplay boundary");
+                              "season GAME START launch snapshot mismatch");
+        return false;
+    }
+
+    runtime->gameplay_scene.result.source = TECMO_GAMEPLAY_SCENE_SEASON;
+    runtime->gameplay_scene.result.game_index = 0U;
+    runtime->gameplay_scene.result.away_team = expected_season_away;
+    runtime->gameplay_scene.result.home_team = expected_season_home;
+    runtime->gameplay_scene.result.away_score = 81U;
+    runtime->gameplay_scene.result.home_score = 80U;
+    runtime->gameplay_scene.result.overtime_count = 1U;
+    runtime->gameplay_scene.result_ready = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->mode != TECMO_MODE_SEASON_MENU ||
+        runtime->season_state.phase != TECMO_SEASON_GAME_START ||
+        runtime->gameplay_scene.active ||
+        runtime->gameplay_scene.result_ready ||
+        runtime->season_session.schedule_index != 1U ||
+        runtime->season_session.wins[expected_season_away] != 1U ||
+        runtime->season_session.losses[expected_season_home] != 1U ||
+        runtime->season_state.game_result_count != 1U ||
+        runtime->season_state.game_result_visible_rows != 1U ||
+        runtime->season_state.game_result_pending ||
+        runtime->season_state.game_results[0].game_index != 0U ||
+        runtime->season_state.game_results[0].away_team !=
+            expected_season_away ||
+        runtime->season_state.game_results[0].home_team !=
+            expected_season_home ||
+        !runtime->season_state.game_results[0].overtime) {
+        set_flow_test_message(message, message_size,
+                              "season gameplay result did not commit exactly");
+        return false;
+    }
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->season_session.schedule_index != 1U ||
+        runtime->season_session.wins[expected_season_away] != 1U ||
+        runtime->season_session.losses[expected_season_home] != 1U ||
+        runtime->season_state.game_result_count != 1U ||
+        runtime->season_state.game_result_visible_rows != 2U) {
+        set_flow_test_message(message, message_size,
+                              "season gameplay result committed more than once");
         return false;
     }
     memset(&input, 0, sizeof(input));
@@ -3249,6 +3338,17 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     tecmo_runtime_set_mode(runtime, TECMO_MODE_PLAY_SETUP);
+    memset(&input, 0, sizeof(input));
+    input.confirm = true;
+    flow_step(runtime, input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_PLAY_SETUP,
+                          "legacy PLAY SETUP launch disabled",
+                          message, message_size) ||
+        runtime->gameplay_scene.active) {
+        set_flow_test_message(message, message_size,
+                              "legacy roster path entered gameplay without a launch snapshot");
+        return false;
+    }
     memset(&input, 0, sizeof(input));
     input.cancel = true;
     tecmo_runtime_update(runtime, &input);
@@ -3300,4 +3400,89 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     set_flow_test_message(message, message_size,
                           "FLOW TEST PASS: menu play-intro title start-game-menu preseason season quit");
     return true;
+}
+
+static bool flow_file_exists(const char *path)
+{
+    FILE *file;
+    if (path == NULL || path[0] == '\0') return false;
+    file = fopen(path, "rb");
+    if (file == NULL) return false;
+    fclose(file);
+    return true;
+}
+
+static bool flow_choose_scratch_save(char *path,
+                                     size_t path_size,
+                                     const TecmoRuntime *runtime)
+{
+    const char *root = getenv("TEMP");
+#ifdef _WIN32
+    const char *separator = "\\";
+#else
+    const char *separator = "/";
+#endif
+    size_t root_length;
+    unsigned nonce;
+
+    if (path == NULL || path_size == 0U || runtime == NULL) return false;
+    if (root == NULL || root[0] == '\0') root = getenv("TMP");
+    if (root == NULL || root[0] == '\0') root = getenv("TMPDIR");
+    if (root == NULL || root[0] == '\0') root = "build";
+    root_length = strlen(root);
+    for (nonce = 0U; nonce < 256U; ++nonce) {
+        char temporary[1060];
+        int written = snprintf(
+            path, path_size, "%s%sTecmo-flow-season-%p-%u.sav",
+            root,
+            root_length > 0U &&
+                    (root[root_length - 1U] == '\\' ||
+                     root[root_length - 1U] == '/')
+                ? "" : separator,
+            (const void *)runtime, nonce);
+        int temporary_written;
+        if (written < 0 || (size_t)written >= path_size) return false;
+        temporary_written = snprintf(temporary, sizeof(temporary),
+                                     "%s.tmp", path);
+        if (temporary_written < 0 ||
+            (size_t)temporary_written >= sizeof(temporary)) {
+            return false;
+        }
+        if (!flow_file_exists(path) && !flow_file_exists(temporary)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime,
+                                  char *message,
+                                  size_t message_size)
+{
+    TecmoSeasonSession original_session;
+    char scratch_path[1024];
+    char temporary_path[1060];
+    bool passed;
+
+    if (runtime == NULL) {
+        return runtime_flow_self_test_body(runtime, message, message_size);
+    }
+    if (!flow_choose_scratch_save(scratch_path, sizeof(scratch_path),
+                                  runtime)) {
+        set_flow_test_message(message, message_size,
+                              "could not reserve isolated flow-test season save");
+        return false;
+    }
+    original_session = runtime->season_session;
+    (void)snprintf(runtime->season_session.save_path,
+                   sizeof(runtime->season_session.save_path), "%s",
+                   scratch_path);
+    runtime->season_session.dirty = false;
+    passed = runtime_flow_self_test_body(runtime, message, message_size);
+    (void)snprintf(temporary_path, sizeof(temporary_path), "%s.tmp",
+                   scratch_path);
+    (void)remove(temporary_path);
+    (void)remove(scratch_path);
+    runtime->season_session = original_session;
+    return passed;
 }

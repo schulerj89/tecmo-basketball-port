@@ -70,7 +70,7 @@ $SeasonContract = [ordered]@{
         @{ Mode="season-leaders"; Hash="25FC871445406CB69B478BB2A2E2846042FA9BA2D570A728819FDFA61096ACA6"; Status="phase=leaders .*leader=0 .*leader-result=0" },
         @{ Mode="season-leaders4"; Hash="AAF28650A08788472DE787657CAC1F4D9F69E77CAD50A17F144BB3D2FF915742"; Status="phase=leaders .*leader=4 .*leader-result=0" },
         @{ Mode="season-leaders-results"; Hash="540D6EA78E8CB646E1D4D960E97EE5A464D04ABD32A6634BCCBD6E75F8CE7764"; Status="phase=leaders .*leader=0 .*leader-result=1" },
-        @{ Mode="season-game-start"; Hash="2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A"; Status="phase=game-start-prelaunch .*game-pending=1 launch-blocked=1" }
+        @{ Mode="season-game-start"; Hash="66458313C7243A8EB3C464495B5B31D1EEAD31BA5D5B8669AD1F9009B0D65649"; Status="phase=game-start-prelaunch .*game-pending=1 launch-blocked=0" }
     )
 }
 
@@ -551,14 +551,14 @@ try {
     $Flow = Invoke-Tecmo @("--root", $FlowRoot, "--flow-test")
     if ($Flow -notmatch
         "FLOW TEST PASS: menu play-intro title start-game-menu preseason season quit") {
-        throw "Native season no-gameplay flow regression did not pass."
+        throw "Native season gameplay handoff/result flow regression did not pass."
     }
 
     foreach ($Path in $RealSavePaths) {
         Assert-FileSnapshot $Path $RealSaveSnapshots[$Path]
     }
     $global:LASTEXITCODE = 0
-    Write-Host "SEASON TEST PASS: strict ROM-only TSNS provenance/dependencies, TSAV isolation/migration/rejection, native no-launch flow, malformed-pack guards, and 13 pixel checkpoints"
+    Write-Host "SEASON TEST PASS: strict ROM-only TSNS provenance/dependencies, TSAV isolation/migration/rejection, native gameplay handoff/result flow, malformed-pack guards, and 13 pixel checkpoints"
 } finally {
     $env:TECMO_SKIP_SHORTCUT = $PreviousSkipShortcut
     $env:TECMO_ASSETPACK = $PreviousAssetPack

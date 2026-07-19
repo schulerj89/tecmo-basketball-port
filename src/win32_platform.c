@@ -288,6 +288,8 @@ int tecmo_run_win32_game(const char *project_root)
     tecmo_controls_init(&g_controls[0]);
     tecmo_controls_init(&g_controls[1]);
     (void)tecmo_audio_output_init(&audio_output, &runtime->music_player);
+    (void)tecmo_audio_output_select_gameplay_player(
+        &audio_output, &runtime->gameplay_scene.audio_player);
     g_running = true;
 
     if (g_backbuffer.pixels != 0) {
