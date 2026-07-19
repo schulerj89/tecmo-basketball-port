@@ -10,6 +10,7 @@
 #include "asset_pack/tecmo_asset_pack_gameplay.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_court.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_close_shots.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.h"
 #include "asset_pack/tecmo_asset_pack_import_layout.h"
 #include "asset_pack/tecmo_asset_pack_music.h"
 #include "asset_pack/tecmo_asset_pack_opening.h"
@@ -78,6 +79,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                           TecmoGameplayProvenance *gameplay_provenance,
                                           TecmoGameplayCourtProvenance *gameplay_court_provenance,
                                           TecmoGameplayCloseShotProvenance *close_shot_provenance,
+                                          TecmoGameplayDunkProvenance *dunk_provenance,
                                           char *message,
                                           size_t message_size)
 {
@@ -104,6 +106,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
     uint8_t gameplay_court_payload[TECMO_ASSET_PACK_GAMEPLAY_COURT_SIZE];
     uint8_t close_shot_payload[
         TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_SIZE];
+    uint8_t dunk_payload[TECMO_ASSET_PACK_GAMEPLAY_DUNK_SIZE];
     uint64_t script_source_offset =
         prg_bank_cpu_source_offset(prg_offset,
                                    prg_banks,
@@ -128,6 +131,14 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
             enforce_finale_revision_fingerprints,
             close_shot_payload, sizeof(close_shot_payload),
             close_shot_provenance, message, message_size) != 0) {
+        return -1;
+    }
+    if (enforce_finale_revision_fingerprints != 0 &&
+        tecmo_asset_pack_build_gameplay_dunk_cutaway(
+            rom, rom_size, prg_offset, prg_banks, chr_offset, chr_size,
+            enforce_finale_revision_fingerprints,
+            dunk_payload, sizeof(dunk_payload), dunk_provenance,
+            message, message_size) != 0) {
         return -1;
     }
 
@@ -771,6 +782,19 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                 "Could not write strict TGCS-1 gameplay entry.");
             return -1;
         }
+        entry_info = tecmo_asset_pack_make_entry_info(
+            TECMO_ASSET_PACK_GAMEPLAY_DUNK_ID,
+            TECMO_ASSET_PACK_TYPE_DATA, 5U, 0x856BU,
+            dunk_provenance->source_offsets[0],
+            TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+        if (tecmo_asset_pack_builder_add_memory(
+                builder, &entry_info, dunk_payload,
+                sizeof(dunk_payload), message, message_size) != 0) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Could not write strict TGDK-1 dunk cutaway entry.");
+            return -1;
+        }
     }
     }
 
@@ -816,6 +840,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     TecmoGameplayProvenance gameplay_provenance;
     TecmoGameplayCourtProvenance gameplay_court_provenance;
     TecmoGameplayCloseShotProvenance close_shot_provenance;
+    TecmoGameplayDunkProvenance dunk_provenance;
     int manifest_length;
     int result = -1;
 
@@ -991,6 +1016,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     memset(&gameplay_court_provenance, 0,
            sizeof(gameplay_court_provenance));
     memset(&close_shot_provenance, 0, sizeof(close_shot_provenance));
+    memset(&dunk_provenance, 0, sizeof(dunk_provenance));
     if (add_native_arena_intro_entries(builder,
                                        rom,
                                        rom_size,
@@ -1016,6 +1042,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &gameplay_provenance,
                                        &gameplay_court_provenance,
                                        &close_shot_provenance,
+                                       &dunk_provenance,
                                        message,
                                        message_size) != 0) {
         goto cleanup;
@@ -1045,6 +1072,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &gameplay_provenance,
                                        &gameplay_court_provenance,
                                        &close_shot_provenance,
+                                       &dunk_provenance,
                                        &source_map_size);
     if (source_map == NULL) {
         tecmo_asset_pack_set_message(message, message_size, "Could not build asset pack source map.");
@@ -2117,6 +2145,10 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         goto cleanup;
     }
     if (tecmo_asset_pack_gameplay_close_shots_self_test(
+            message, message_size) != 0) {
+        goto cleanup;
+    }
+    if (tecmo_asset_pack_gameplay_dunk_cutaway_self_test(
             message, message_size) != 0) {
         goto cleanup;
     }

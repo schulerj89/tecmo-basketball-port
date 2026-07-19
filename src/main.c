@@ -8,6 +8,7 @@
 #include "tecmo_gameplay_assets.h"
 #include "tecmo_gameplay_court.h"
 #include "tecmo_gameplay_close_shots.h"
+#include "tecmo_gameplay_dunk_cutaway.h"
 #include "tecmo_gameplay_scene.h"
 #include "tecmo_gameplay_state.h"
 #include "tecmo_intro_arena_scene.h"
@@ -51,6 +52,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-assets-test PACK  Validate strict TGPL-1 gameplay assets\n");
     printf("  --gameplay-court-test PACK  Validate strict TGCT-1 static court assets\n");
     printf("  --gameplay-close-shots-test PACK  Validate strict TGCS-1 close-shot assets\n");
+    printf("  --gameplay-dunk-cutaway-test PACK  Validate strict TGDK-1 dunk presentation assets\n");
     printf("  --assetpack-list PACK  Print an asset-pack directory listing\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -1115,6 +1117,18 @@ int main(int argc, char **argv)
         printf("TGCS-1 close-shot assets passed: sources=13 variants=2 semantics=0:dunk,2:layup steps=48 poses=208 phases=0445C745 pose-sequence=BFDB4095\n");
         tecmo_gameplay_close_shots_destroy(&assets);
         tecmo_gameplay_close_shots_destroy(&assets);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-dunk-cutaway-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        char message[192];
+        if (!tecmo_gameplay_dunk_cutaway_self_test(
+                pack_path, message, sizeof(message))) {
+            printf("Dunk-cutaway asset test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
         return 0;
     }
 

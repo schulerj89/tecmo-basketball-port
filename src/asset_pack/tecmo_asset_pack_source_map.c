@@ -1783,6 +1783,111 @@ static int append_gameplay_close_shot_source_map_entry(
         (unsigned)TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_RESOLVED_POSE_FNV1A32);
 }
 
+static int append_gameplay_dunk_source_map_entry(
+    char *buffer,
+    size_t capacity,
+    size_t *length,
+    int *first,
+    const TecmoGameplayDunkProvenance *p)
+{
+    static const char *const roles[TECMO_GAMEPLAY_DUNK_SOURCE_COUNT] = {
+        "variant0-cutaway-trigger-$856B-$85A7",
+        "clear-lane-helper-$85F3-$8640",
+        "fixed-presentation-dispatch-$E770-$E78D",
+        "screen-$0B-descriptor-$DCD2-$DCD8",
+        "screen-$0B-compressed-stream-$9022-$9346",
+        "screen-$0B-base-palette-$9346-$9355",
+        "cutaway-controller-$B002-$B08A",
+        "seven-stage-setup-$B08B-$B0C6",
+        "stage-anchor-and-chr-tables-$B0C7-$B0EC",
+        "fixed-selector-dispatch-$C711-$C73B",
+        "fixed-selector-bank-table-$CAF5-$CB32",
+        "fixed-selector-address-low-$CB33-$CB70",
+        "fixed-selector-address-high-$CB71-$CBAE",
+        "relative-sprite-emitter-$B37C-$B3C3",
+        "side-pointer-control-$B3C4-$B3E9",
+        "four-byte-relative-geometry-$B3EA-$BC3B",
+        "profile-and-uniform-palette-recipe-$B0ED-$B157",
+        "fixed-court-restore-$EB8D-$EC05"
+    };
+    const char *prefix = *first != 0 ? "" : ",\n";
+    size_t index;
+    *first = 0;
+    if (tecmo_asset_pack_append_text(
+            buffer, capacity, length,
+            "%s"
+            "    {\"id\":\"%s\",\"kind\":\"gameplay-dunk-cutaway-native\","
+            "\"schema\":\"tecmo.gameplay-dunk-cutaway/TGDK-1\","
+            "\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\","
+            "\"dependencies\":[{\"entry\":\"chr/all\",\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"%08X\","
+            "\"fingerprint_fnv1a64\":\"%016llX\"}],\"source_spans\":[",
+            prefix, TECMO_ASSET_PACK_GAMEPLAY_DUNK_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_DUNK_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_DUNK_FNV1A32,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_DUNK_CHR_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_DUNK_CHR_FNV1A32,
+            (unsigned long long)TECMO_ASSET_PACK_GAMEPLAY_DUNK_CHR_FNV1A64) != 0) {
+        return -1;
+    }
+    for (index = 0U; index < TECMO_GAMEPLAY_DUNK_SOURCE_COUNT; ++index) {
+        const TecmoGameplayDunkExpectedSource *source =
+            &tecmo_gameplay_dunk_expected_sources[index];
+        const char *source_entry = source->fixed_bank != 0U
+            ? "prg/fixed" : (source->bank == 0U ? "prg/bank00" :
+              source->bank == 1U ? "prg/bank01" :
+              source->bank == 5U ? "prg/bank05" : "prg/bank06");
+        if (tecmo_asset_pack_append_text(
+                buffer, capacity, length,
+                "%s{\"role\":\"%s\",\"source_entry\":\"%s\","
+                "\"source_offset\":%llu,\"bank\":%u,\"cpu_start\":%u,"
+                "\"cpu_end\":%u,\"size\":%u,"
+                "\"fingerprint_fnv1a32\":\"%08X\"}",
+                index == 0U ? "" : ",", roles[index], source_entry,
+                (unsigned long long)p->source_offsets[index],
+                (unsigned)source->bank, (unsigned)source->cpu_start,
+                (unsigned)((uint32_t)source->cpu_start +
+                           source->byte_count - 1U),
+                (unsigned)source->byte_count,
+                (unsigned)source->fingerprint) != 0) {
+            return -1;
+        }
+    }
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "],\"decoded_screen\":{\"screen_id\":11,"
+        "\"encoded_size\":805,\"decoded_size\":2048,"
+        "\"fingerprint_fnv1a32\":\"5414E3B6\","
+        "\"page_fingerprints_fnv1a32\":[\"BA33539B\",\"7DF03FAC\"],"
+        "\"terminator_palette_overlap\":\"encoded byte 805 is also the first palette byte and is bounded by both source spans\"},"
+        "\"native_pages\":[{\"side\":0,\"decoded_page\":0,"
+        "\"background_chr_pages\":[208,209,210,211]},{\"side\":1,"
+        "\"decoded_page\":1,\"background_chr_pages\":[4,5,6,7]}],"
+        "\"stages\":{\"count\":7,\"cadence_frames\":5,"
+        "\"assignment_frames\":[27,32,37,42,47,52,57],"
+        "\"visible_frames\":[28,33,38,43,48,53,58],"
+        "\"anchor_y\":[111,79,63,47,31,16,31],"
+        "\"side0_anchor_x\":[144,136,128,120,112,104,80],"
+        "\"side1_anchor_x\":[32,48,64,80,88,96,80],"
+        "\"sprite_chr_bases\":[212,212,212,212,216,216,220]},"
+        "\"geometry\":{\"side_pointer_offsets\":[0,18],"
+        "\"null_slots\":[7,8,16,17],\"piece_limit\":64,"
+        "\"record_counts\":[[10,29,39,39,51,49,48],[10,29,39,39,51,49,47]],"
+        "\"encoding\":\"count then count native relative-y,tile-minus-one,attributes,relative-x records; 8x16 display adds one to y and tile\"},"
+        "\"reference_palette\":{\"profile\":1,\"uniform_color\":48,"
+        "\"background_fingerprint_fnv1a32\":\"DC2F67E5\","
+        "\"sprite_fingerprint_fnv1a32\":\"7E958A9E\","
+        "\"combined_fingerprint_fnv1a32\":\"939EBCBE\"},"
+        "\"timing\":{\"live\":[1,22],\"dispatch\":23,"
+        "\"initial_black\":[24,27],\"visible_cutaway\":[28,62],"
+        "\"palette_black_with_staged_sprites\":63,\"sprites_cleared\":64,"
+        "\"court_rebuild\":[66,70],\"live_return\":71,"
+        "\"route_resume\":75,\"dunk_sequence_dmc\":87,"
+        "\"action_resolution\":132},"
+        "\"approximations\":\"native clear-lane trigger and make/miss policy; dynamic team uniform selection defaults to the bounded profile-1 U=$30 checkpoint\","
+        "\"runtime_inputs\":\"TGDK-1 plus same-pack chr/all; no decompilation, capture, trace, screenshot, video, log, dump, Lua output, or save state\"}");
+}
+
 char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    uint32_t trainer_bytes,
                                    uint32_t prg_banks,
@@ -1807,9 +1912,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoGameplayProvenance *gameplay_provenance,
                                    const TecmoGameplayCourtProvenance *gameplay_court_provenance,
                                    const TecmoGameplayCloseShotProvenance *close_shot_provenance,
+                                   const TecmoGameplayDunkProvenance *dunk_provenance,
                                    size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 21U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 22U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -2039,7 +2145,11 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
         (close_shot_provenance->source_offsets[0] != 0U &&
          append_gameplay_close_shot_source_map_entry(
              source_map, capacity, &length, &first_logical,
-             close_shot_provenance) != 0)) {
+             close_shot_provenance) != 0) ||
+        (dunk_provenance->source_offsets[0] != 0U &&
+         append_gameplay_dunk_source_map_entry(
+             source_map, capacity, &length, &first_logical,
+             dunk_provenance) != 0)) {
         free(source_map);
         return NULL;
     }
