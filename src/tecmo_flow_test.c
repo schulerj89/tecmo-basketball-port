@@ -1514,6 +1514,59 @@ static bool flow_expect_team_data_native_path(TecmoRuntime *runtime,
                                   "TEAM DATA ATL selector did not enter profile");
             return false;
         }
+        if (!flow_team_data_wait_cooldown(runtime, message, message_size))
+            return false;
+        flow_team_data_direction(runtime, TECMO_CONTROL_DOWN);
+        if (runtime->team_data_state.profile_selection != 1U) {
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA profile did not select STARTERS");
+            return false;
+        }
+        flow_team_data_release(runtime, true);
+        if (runtime->mode != TECMO_MODE_TEAM_DATA ||
+            runtime->team_data_state.phase != TECMO_TEAM_DATA_PROFILE ||
+            runtime->team_data_state.team_id != 0U ||
+            runtime->team_data_state.profile_selection != 1U ||
+            runtime->team_data_state.transition !=
+                TECMO_TEAM_DATA_TRANSITION_NONE ||
+            runtime->team_data_state.transition_frame != 0U) {
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA STARTERS A was not a native profile no-op");
+            return false;
+        }
+        if (!flow_team_data_wait_cooldown(runtime, message, message_size))
+            return false;
+        flow_team_data_direction(runtime, TECMO_CONTROL_DOWN);
+        if (runtime->team_data_state.profile_selection != 2U) {
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA profile did not select PLAYBOOK");
+            return false;
+        }
+        flow_team_data_release(runtime, true);
+        if (runtime->mode != TECMO_MODE_TEAM_DATA ||
+            runtime->team_data_state.phase != TECMO_TEAM_DATA_PROFILE ||
+            runtime->team_data_state.team_id != 0U ||
+            runtime->team_data_state.profile_selection != 2U ||
+            runtime->team_data_state.transition !=
+                TECMO_TEAM_DATA_TRANSITION_NONE ||
+            runtime->team_data_state.transition_frame != 0U) {
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA PLAYBOOK A was not a native profile no-op");
+            return false;
+        }
+        if (!flow_team_data_wait_cooldown(runtime, message, message_size))
+            return false;
+        flow_team_data_direction(runtime, TECMO_CONTROL_DOWN);
+        if (runtime->mode != TECMO_MODE_TEAM_DATA ||
+            runtime->team_data_state.phase != TECMO_TEAM_DATA_PROFILE ||
+            runtime->team_data_state.team_id != 0U ||
+            runtime->team_data_state.profile_selection != 0U ||
+            runtime->team_data_state.transition !=
+                TECMO_TEAM_DATA_TRANSITION_NONE) {
+            set_flow_test_message(message, message_size,
+                                  "TEAM DATA profile did not wrap to PLAYERS DATA");
+            return false;
+        }
         flow_team_data_release(runtime, true);
         if (runtime->team_data_state.phase != TECMO_TEAM_DATA_ROSTER ||
             runtime->team_data_state.roster_page != 0U ||

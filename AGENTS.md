@@ -288,6 +288,10 @@ Profile-to-roster changes only cursor/OAM state and is stable on the following
 frame. Roster pages slide over 32 frames at eight pixels per frame.
 Roster-to-player-detail is black at 8, render-off at 10, render-on black at 15,
 capped/full at 18/22/26/30, and stable at 31; B uses the 32-frame reverse timing.
+On the profile, `PLAYERS DATA` (row 0) is the only supported A route and opens
+the roster. `STARTERS` (row 1) and `PLAYBOOK` (row 2) remain unported,
+release-triggered A no-ops: they keep the same profile/team/row, start no
+transition, and never route to gameplay.
 
 Profile colors come from Bank06 `$AC0B-$AC4A`, selected by `$A3AD`. Logos use
 the Bank06 `$A2E4` layout tables and Bank03 `$8017` origin table; ATL resolves

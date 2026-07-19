@@ -379,6 +379,10 @@ at 15, palette caps at 18/22/26/30, and stable player detail at 31. Detail B
 uses the 32-frame reverse timing back to the same roster row. Direction repeat
 and A/B release semantics remain ROM-derived; B restores the exact root or
 season origin. Player detail is terminal and cannot launch gameplay.
+`PLAYERS DATA` (profile row 0) is currently the only supported profile A route.
+`STARTERS` (row 1) and `PLAYBOOK` (row 2) are explicitly unported A no-ops:
+releasing A leaves TEAM DATA on the same profile/team/row with no transition or
+gameplay dispatch.
 
 Profile palettes are selected through Bank06 `$A3A5/$A3A9/$A3AD` and sourced
 from `$AC0B-$AC4A`; ATL uses `$AC0B-$AC1A` (FNV1a32 `34F6B8DC`). Logo cells
