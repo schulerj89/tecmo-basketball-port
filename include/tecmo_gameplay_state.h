@@ -84,11 +84,10 @@ typedef enum TecmoGameplayPeriodExpiryContext {
 } TecmoGameplayPeriodExpiryContext;
 
 /*
- * ALLOWED_LIVE_ACTION must be observed before ALLOWED_LIVE_ACTION_SETTLED can
- * bypass the fixed wait. A zero-clock frame with an initially settled context
- * still takes the 31-frame OTHER path. Once an allowed action was observed,
- * the zero-clock update enters an unbounded settlement state until a later
- * frame supplies SETTLED; the next 31 OTHER updates are inclusive wait frames.
+ * ALLOWED_LIVE_ACTION is classified only on the update that reaches zero.
+ * That update enters an unbounded settlement state until a later frame supplies
+ * ALLOWED_LIVE_ACTION_SETTLED. Earlier action history does not qualify, and an
+ * initially settled zero-clock frame takes the inclusive fixed 31-update path.
  */
 
 typedef struct TecmoGameplayLiveContext {
@@ -115,7 +114,7 @@ typedef struct TecmoGameplayPadButtons {
 
 typedef struct TecmoGameplayPadInput {
     /*
-     * `$EA14-$EA2A` calls `$D2B9-$D2CE`: presentations consume only a
+     * `$EA14-$EA2F` calls `$D2B9-$D2CE`: presentations consume only a
      * transition in released.nes_a_pass_switch, from either controller,
      * after the fixed four-frame lead-in.
      */
@@ -228,7 +227,8 @@ typedef struct TecmoGameplayState {
     uint8_t shot_clock;
     uint16_t phase_frame;
     uint8_t expiry_wait_frames_remaining;
-    bool period_expiry_allowed_live_observed;
+    /* True only while settling an allowed action observed at zero clock. */
+    bool period_expiry_zero_action_observed;
     bool initialized;
 } TecmoGameplayState;
 

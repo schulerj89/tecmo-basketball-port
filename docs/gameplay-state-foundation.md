@@ -11,14 +11,16 @@ The behavior encoded here was bounded against the Rev 1 ROM and the matching
 decompilation at these CPU-address ranges:
 
 - Bank 03 `$8374-$8378`: selectable regulation-period minute values.
-- Fixed bank `$E56E-$E58C`: inclusive 31-update expiry wait.
-- Fixed bank `$E58D-$E617`: period/halftime/final/overtime decisions.
-- Fixed bank `$E765-$E76F`: team-foul, shot-clock, and divider-50 reset.
+- Fixed bank `$E80F-$E81E`: inclusive 31-update expiry wait.
+- Fixed bank `$E58D-$E617`: period/halftime/final/overtime decisions;
+  `$E59B->$E823` prepares M:00/divider 45 before those branches.
+- Fixed bank `$E6ED/$E6FF`: the two team-foul clears after a completed banner.
+- Fixed bank `$E765-$E76F`: shot-clock-24 and divider-50 reset.
 - Fixed bank `$E7D0-$E822`: live-action settlement gate at period expiry.
 - Fixed bank `$E823-$E898`: new-period M:00/divider-45 preparation and live
   clock tick behavior.
 - Fixed bank `$E95E-$EA11`: foul presentation and its 160 one-frame waits.
-- Fixed bank `$EA14-$EA2A`, with input helper `$D2B9-$D2CE`: four-frame
+- Fixed bank `$EA14-$EA2F`, with input helper `$D2B9-$D2CE`: four-frame
   presentation lead-in followed by dismissal on NES A release from either
   controller. Held A, directions, START, and other releases do not dismiss.
 - Fixed bank `$EC5B-$ED14` and Bank 03 `$BE87-$BFA8`: violation dispatch and
@@ -47,9 +49,13 @@ These are provenance only and are not runtime inputs.
 
 ## Explicit evidence boundaries
 
-- A caller must first report an allowed live action before a later settled
-  report may bypass the fixed expiry wait. An initially settled zero-clock
-  state follows the fixed 31-update path.
+- Only an allowed live action reported on the update that reaches zero enters
+  unbounded settlement; earlier action history is ignored. A later settled
+  report completes that sequence, while an initially settled zero-clock state
+  follows the fixed 31-update path.
+- Every completed period first prepares M:00/divider 45 through `$E823`, then
+  chooses its banner, halftime, overtime, or final-score branch. Regulation
+  completion uses regulation minutes; completed overtime uses overtime minutes.
 - Foul subtype/detection, which counters a foul changes, post-presentation
   possession, and selection of divider 45 versus 50 are caller-supplied.
   Unsupported or malformed choices fail without mutating state.

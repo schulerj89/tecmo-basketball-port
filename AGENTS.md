@@ -530,6 +530,22 @@ For screen `$18` research, use the verified ROM route rather than capture bytes:
 - Backreferences subtract their distance from the source cursor before advancing past the distance word.
 - Lower arena CHR selectors come from the fixed IRQ tables at `$FD7C/$FD80`; similarly valued Bank01 bytes are not the runtime source.
 
+### Pure gameplay-state research boundary
+
+`include/tecmo_gameplay_state.h` and `src/tecmo_gameplay_state.c` provide a
+deterministic pure-state foundation only; no normal runtime path calls it, and
+it does not make gameplay, rendering, collision, penalties, free-throw physics,
+or gameplay audio supported. Proven timing/state anchors are fixed
+`$E59B->$E823` for pre-branch clock preparation, `$E80F-$E81E` for the exact
+31-update expiry wait, `$E7D0-$E822` for zero-clock live-action settlement,
+`$E6ED/$E6FF` plus `$E765-$E76F` for post-banner resets, and
+`$EA14-$EA2F`/`$D2B9-$D2CE` for the two-controller NES A-release gate.
+Halftime/final score dismissal comes from Bank06 `$BC3C-$BCF9`. Foul counter
+effects, post-foul possession/divider path, free-throw results/settlement, and
+untraced shot orientation remain explicit caller inputs. See
+`docs/gameplay-state-foundation.md`; verify with
+`tecmo_port.exe --gameplay-state-test`.
+
 ## Runtime Architecture Notes
 
 This is a native port, not an emulator wrapper. Current modules of interest:
