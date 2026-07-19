@@ -1907,6 +1907,9 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
     if (tecmo_asset_pack_preseason_self_test(message, message_size) != 0) {
         goto cleanup;
     }
+    if (tecmo_asset_pack_all_star_self_test(message, message_size) != 0) {
+        goto cleanup;
+    }
     if (tecmo_asset_pack_team_data_self_test(message, message_size) != 0) {
         goto cleanup;
     }

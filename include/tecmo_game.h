@@ -83,6 +83,7 @@ typedef struct TecmoRuntime {
     TecmoPreseasonState preseason_state;
     TecmoAllStarAsset all_star_asset;
     TecmoAllStarState all_star_state;
+    uint8_t all_star_committed_difficulty;
     TecmoMusicAsset music_asset;
     TecmoMusicPlayer music_player;
     TecmoTeamDataAsset team_data_asset;

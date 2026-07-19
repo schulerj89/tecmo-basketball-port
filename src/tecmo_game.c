@@ -410,6 +410,13 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
     }
     if (mode == TECMO_MODE_ALL_STAR_MENU) {
         tecmo_all_star_state_init(&runtime->all_star_state);
+        if (runtime->all_star_committed_difficulty >=
+            TECMO_ALL_STAR_DIFFICULTY_COUNT)
+            runtime->all_star_committed_difficulty = 0U;
+        runtime->all_star_state.committed_difficulty =
+            runtime->all_star_committed_difficulty;
+        runtime->all_star_state.difficulty_selection =
+            runtime->all_star_committed_difficulty;
         if (runtime->all_star_asset.available) {
             runtime->all_star_state.direction_cooldown =
                 runtime->all_star_asset.accepted_input_seed;
@@ -635,8 +642,17 @@ static void update_preseason_menu(TecmoRuntime *runtime,
 static void update_all_star_menu(TecmoRuntime *runtime,
                                  const TecmoControlFrame *controls)
 {
+    uint8_t prior_committed_difficulty =
+        runtime->all_star_state.committed_difficulty;
     TecmoAllStarAction action = tecmo_all_star_update(
         &runtime->all_star_state, &runtime->all_star_asset, controls);
+    if (runtime->all_star_state.committed_difficulty !=
+            prior_committed_difficulty &&
+        runtime->all_star_state.committed_difficulty <
+            TECMO_ALL_STAR_DIFFICULTY_COUNT) {
+        runtime->all_star_committed_difficulty =
+            runtime->all_star_state.committed_difficulty;
+    }
     if (action == TECMO_ALL_STAR_ACTION_BACK_TO_START_MENU) {
         (void)return_to_start_game_menu(runtime);
     }

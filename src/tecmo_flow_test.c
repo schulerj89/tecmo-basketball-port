@@ -1838,6 +1838,7 @@ static bool flow_expect_all_star_native_path(TecmoRuntime *runtime,
                                     "ALL STAR DIFFICULTY return",
                                     message, message_size) ||
         runtime->all_star_state.committed_difficulty != 1U ||
+        runtime->all_star_committed_difficulty != 1U ||
         runtime->all_star_state.control_selection != 1U)
         return false;
 
@@ -1984,6 +1985,55 @@ static bool flow_expect_all_star_native_path(TecmoRuntime *runtime,
         runtime->start_menu_input_neutral_gate) {
         set_flow_test_message(message, message_size,
                               "ALL STAR return neutral gate leaked a direction");
+        return false;
+    }
+
+    memset(&input, 0, sizeof(input));
+    input.shoot = true;
+    flow_step(runtime, input);
+    if (!flow_all_star_expect_phase(runtime, TECMO_ALL_STAR_CONTROL_SETUP,
+                                    "ALL STAR difficulty persistence re-entry",
+                                    message, message_size) ||
+        runtime->all_star_state.transition_frame != 0U ||
+        runtime->all_star_state.control_selection != 0U ||
+        runtime->all_star_state.difficulty_selection != 1U ||
+        runtime->all_star_state.committed_difficulty != 1U ||
+        runtime->all_star_state.team_selection != 0U ||
+        runtime->all_star_state.west_owner != 0U ||
+        runtime->all_star_state.east_owner != 0U ||
+        runtime->all_star_state.terminal_commit ||
+        runtime->all_star_state.terminal_from_team) {
+        set_flow_test_message(message, message_size,
+                              "ALL STAR re-entry preserved transient state or lost difficulty");
+        return false;
+    }
+    flow_all_star_neutral(runtime, ALL_STAR_CONTROL_HEIGHT);
+    input.shoot = true;
+    flow_step(runtime, input);
+    flow_all_star_neutral(runtime, ALL_STAR_DIFFICULTY_HEIGHT);
+    if (!flow_all_star_expect_phase(runtime, TECMO_ALL_STAR_DIFFICULTY,
+                                    "ALL STAR persisted DIFFICULTY popup",
+                                    message, message_size) ||
+        runtime->all_star_state.difficulty_selection != 1U ||
+        runtime->all_star_state.committed_difficulty != 1U) {
+        set_flow_test_message(message, message_size,
+                              "ALL STAR committed difficulty did not seed its popup");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.cancel = true;
+    flow_step(runtime, input);
+    flow_all_star_neutral(runtime, ALL_STAR_DIFFICULTY_HEIGHT);
+    input.cancel = true;
+    flow_step(runtime, input);
+    flow_all_star_neutral(runtime, ALL_STAR_CONTROL_HEIGHT);
+    if (!flow_expect_mode(runtime, TECMO_MODE_START_GAME_MENU,
+                          "ALL STAR persistence-test return",
+                          message, message_size) ||
+        runtime->start_game_menu_state.root_selection != 2U ||
+        runtime->all_star_committed_difficulty != 1U) {
+        set_flow_test_message(message, message_size,
+                              "ALL STAR persisted difficulty changed on cancel/return");
         return false;
     }
 
