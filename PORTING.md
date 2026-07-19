@@ -77,6 +77,13 @@ must allocate it off the thread stack, clean up partial initialization through
 normal Windows stack reserve useful for call depth; do not use a larger linker
 stack as a substitute for explicit runtime ownership.
 
+The Windows game target is `tecmo_port_game.exe`, linked with the GUI subsystem
+while retaining `mainCRTStartup` so it shares the console target's argument
+parsing. Normal Win32 play selects the native TECMO/rabbit intro immediately
+after runtime initialization and presents frame 0 before updating. The console
+`tecmo_port.exe` remains the CLI/test surface, including explicit access to the
+modern diagnostic menu.
+
 ## Scripted Screens
 
 Many opening screens are scripted. Port those scripts into native C concepts
@@ -322,8 +329,8 @@ team-entry, and team-exit, then decrements only on interactive selector frames.
 The supported boundary is the fully interactive second-team screen, not game
 startup. P2 A retains the accepted-input `$E1=5` side effect but cannot execute
 the `$B277-$B282` team-confirmation state advance or fixed `$E481` launch
-chain. TPRE-1 is exactly 26736 bytes / FNV1a32 `13DE1C71` and depends on the
-same pack's 14112-byte TSGM-1 (`7505D7BD`) and 262144-byte `chr/all`
+chain. TPRE-1 is exactly 26736 bytes / FNV1a32 `D9EE49F4` and depends on the
+same pack's 14112-byte TSGM-1 (`DF89006B`) and 262144-byte `chr/all`
 (`F6F6E854` / `96A64F53B240ABB4`). Source-map provenance covers the Bank03
 flow, records, input/coordinate/ownership/team tables, the unexecuted boundary,
 Bank01 cursor/player records, all four descriptors/streams/palettes, fixed
@@ -343,13 +350,21 @@ ticks 5 to 4. The cursor commits on the following displayed frame. Other
 unported root routes cross an explicit native handoff rather than silently
 replaying 6502 code or consuming capture data.
 
-TSGM-1 has exact payload FNV1a32 `7505D7BD`. Runtime validates the complete
-14112-byte entry, byte-148 cursor delay, zero reserved tail, and full 262144-byte
+TSGM-1 has exact payload FNV1a32 `DF89006B`. Runtime validates the complete
+14112-byte entry, byte-148 cursor delay, and the six ROM-derived popup cursor
+anchor bytes at 149..154: MUSIC `(47,200)`, SPEED `(47,167)`, and PERIOD
+`(71,200)`. Import derives these from the three popup flow selector indexes,
+Bank03 `$9F30/$9F13` coordinate tables, and Bank01 `$8031` cursor `dy=-4`.
+The remaining header tail stays zero-reserved, along with the full 262144-byte
 CHR fingerprints (FNV1a32 `F6F6E854`, FNV1a64 `96A64F53B240ABB4`). Exact-size
 asset-pack reads reject forged TSGM, TTLE-1, and `chr/all` directory sizes before
 allocation. Missing or malformed TTLE-1 is a hard render failure for start-menu
 frames 0-7; there is no loose-file, decompilation, capture, or cross-pack
 fallback.
+
+The seven-tile MUSIC overlay intentionally preserves the original visible
+`SIC` suffix from the underlying `GAME MUSIC` row. This overlap was confirmed
+against bounded emulator evidence and is not a text-composition defect.
 
 The importer validates the raw finale dispatch chain as `$851C` wait 50 ->
 `$83EA` wait 30 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 ->

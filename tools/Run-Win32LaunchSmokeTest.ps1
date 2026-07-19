@@ -46,9 +46,48 @@ if ($Build) {
     }
 }
 
-$ExePath = Join-Path $ProjectRoot "build\tecmo_port.exe"
+$ExePath = Join-Path $ProjectRoot "build\tecmo_port_game.exe"
 if (!(Test-Path $ExePath)) {
     throw "Executable was not found: $ExePath"
+}
+
+function Get-PeSubsystem {
+    param([string]$Path)
+
+    $Stream = [System.IO.File]::OpenRead($Path)
+    $Reader = New-Object System.IO.BinaryReader($Stream)
+    try {
+        if ($Reader.ReadUInt16() -ne 0x5A4D) {
+            throw "Executable does not have an MZ header: $Path"
+        }
+        $Stream.Position = 0x3C
+        $PeOffset = $Reader.ReadUInt32()
+        if ($PeOffset -gt $Stream.Length - 92) {
+            throw "Executable has an invalid PE header offset: $Path"
+        }
+        $Stream.Position = $PeOffset
+        if ($Reader.ReadUInt32() -ne 0x00004550) {
+            throw "Executable does not have a PE signature: $Path"
+        }
+        $Stream.Position = $PeOffset + 24 + 68
+        return $Reader.ReadUInt16()
+    } finally {
+        $Reader.Dispose()
+        $Stream.Dispose()
+    }
+}
+
+$ConsoleExePath = Join-Path $ProjectRoot "build\tecmo_port.exe"
+if (!(Test-Path $ConsoleExePath)) {
+    throw "Console executable was not found: $ConsoleExePath"
+}
+$ConsoleSubsystem = Get-PeSubsystem -Path $ConsoleExePath
+$GameSubsystem = Get-PeSubsystem -Path $ExePath
+if ($ConsoleSubsystem -ne 3) {
+    throw "tecmo_port.exe must retain the console subsystem for CLI tests (found $ConsoleSubsystem)."
+}
+if ($GameSubsystem -ne 2) {
+    throw "tecmo_port_game.exe must use the Windows GUI subsystem (found $GameSubsystem)."
 }
 
 $Process = $null
@@ -93,7 +132,7 @@ try {
         throw "Native game window returned exit code $($Process.ExitCode) after closing."
     }
 
-    Write-Host "Win32 shortcut launch smoke test passed: window created, remained alive for $AliveMilliseconds ms, and closed cleanly."
+    Write-Host "Win32 shortcut launch smoke test passed: GUI subsystem verified, window created, remained alive for $AliveMilliseconds ms, and closed cleanly."
 } finally {
     if ($null -ne $Process -and !$Process.HasExited) {
         Stop-Process -Id $Process.Id -Force

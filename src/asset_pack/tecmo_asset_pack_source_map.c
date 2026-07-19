@@ -758,7 +758,7 @@ static int append_start_menu_source_map_entry(char *buffer,
         "{\"role\":\"title-call-and-menu-session-setup\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":44,\"fingerprint_fnv1a32\":\"4FBABE09\"},"
         "{\"role\":\"start-menu-call-and-post-return-exit-chain\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":%u,\"size\":41,\"fingerprint_fnv1a32\":\"76C592FC\"}],"
         "\"native_contract\":{\"pages\":2,\"cells\":1920,\"payload_size\":14112,"
-        "\"payload_fingerprint_fnv1a32\":\"7505D7BD\","
+        "\"payload_fingerprint_fnv1a32\":\"DF89006B\","
         "\"palette_stages_fingerprint_fnv1a32\":\"F83B6C17\","
         "\"composed_fingerprint_fnv1a32\":\"661750F3\","
         "\"runtime_title_dependency_entry\":\"title/start-screen\","
@@ -771,6 +771,10 @@ static int append_start_menu_source_map_entry(char *buffer,
         "\"generic_input_mask\":192,\"period_input_mask\":204,\"direction_mask\":12,"
         "\"initial_input_gate\":0,\"overlay_row_cadence\":1,\"setup_row_start\":0,"
         "\"teardown_row_start\":1,\"cursor_commit_delay_frames\":1,"
+        "\"popup_cursor_anchors\":{\"music\":[47,200],\"speed\":[47,167],\"period\":[71,200]},"
+        "\"popup_cursor_anchor_derivation\":{\"selector_indices\":[27,8,9],"
+        "\"x_table_cpu_address\":40752,\"y_table_cpu_address\":40723,"
+        "\"cursor_record_cpu_address\":32817,\"cursor_dy\":-4},"
         "\"resolved_chr_entry\":\"chr/all\","
         "\"resolved_chr_size\":262144,\"resolved_chr_fingerprint_fnv1a32\":\"F6F6E854\","
         "\"resolved_chr_fingerprint_fnv1a64\":\"96A64F53B240ABB4\"}}",
@@ -827,7 +831,7 @@ static int append_preseason_source_map_entry(char *buffer,
         "    {\"id\":\"%s\",\"kind\":\"preseason-menu-native\","
         "\"schema\":\"tecmo.preseason-menu/TPRE-1\",\"input_contract\":\"ines-only\","
         "\"runtime_dependencies\":["
-        "{\"entry\":\"menu/start-game\",\"schema\":\"tecmo.start-game-menu/TSGM-1\",\"size\":14112,\"fingerprint_fnv1a32\":\"7505D7BD\"},"
+        "{\"entry\":\"menu/start-game\",\"schema\":\"tecmo.start-game-menu/TSGM-1\",\"size\":14112,\"fingerprint_fnv1a32\":\"DF89006B\"},"
         "{\"entry\":\"chr/all\",\"size\":262144,\"fingerprint_fnv1a32\":\"F6F6E854\",\"fingerprint_fnv1a64\":\"96A64F53B240ABB4\"}],"
         "\"sources\":["
         "{\"role\":\"base-start-menu-descriptor\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":56481,\"size\":7,\"fingerprint_fnv1a32\":\"0A5B3B88\"},"
@@ -862,7 +866,7 @@ static int append_preseason_source_map_entry(char *buffer,
         "{\"role\":\"fade-in\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":56200,\"size\":72,\"fingerprint_fnv1a32\":\"D75D6EEA\"},"
         "{\"role\":\"post-return-exit-chain\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":58497,\"size\":41,\"fingerprint_fnv1a32\":\"76C592FC\"},"
         "{\"role\":\"full-chr\",\"source_entry\":\"chr/all\",\"source_offset\":%llu,\"size\":262144,\"fingerprint_fnv1a32\":\"F6F6E854\",\"fingerprint_fnv1a64\":\"96A64F53B240ABB4\"}],"
-        "\"native_contract\":{\"payload_size\":%u,\"payload_fingerprint_fnv1a32\":\"13DE1C71\",\"overlay_records\":3,\"overlay_cell_count\":510,\"team_screens\":4,\"team_screen_cells\":3840,\"team_count\":27,\"control_rows\":7,\"difficulty_rows\":3,\"division_rows\":4,\"row_cadence_frames\":1,\"team_entry_display_stage_frames\":[3,5,7],\"team_entry_display_black_frame\":9,\"team_input_ready_frames\":16,\"team_memory_palette_full_frame\":31,\"team_display_first_visible_frame\":18,\"team_display_palette_step_frames\":4,\"team_display_full_frame\":30,\"team_exit_display_stage_frames\":[1,3,5],\"team_exit_display_black_frame\":7,\"team_exit_frames\":32,\"division_return_display_first_visible_frame\":1,\"division_return_display_palette_step_frames\":4,\"division_return_display_full_frame\":13,\"p2_terminal\":\"interactive-team-selection-before-confirm\"}}",
+        "\"native_contract\":{\"payload_size\":%u,\"payload_fingerprint_fnv1a32\":\"D9EE49F4\",\"overlay_records\":3,\"overlay_cell_count\":510,\"team_screens\":4,\"team_screen_cells\":3840,\"team_count\":27,\"control_rows\":7,\"difficulty_rows\":3,\"division_rows\":4,\"row_cadence_frames\":1,\"team_entry_display_stage_frames\":[3,5,7],\"team_entry_display_black_frame\":9,\"team_input_ready_frames\":16,\"team_memory_palette_full_frame\":31,\"team_display_first_visible_frame\":18,\"team_display_palette_step_frames\":4,\"team_display_full_frame\":30,\"team_exit_display_stage_frames\":[1,3,5],\"team_exit_display_black_frame\":7,\"team_exit_frames\":32,\"division_return_display_first_visible_frame\":1,\"division_return_display_palette_step_frames\":4,\"division_return_display_full_frame\":13,\"p2_terminal\":\"interactive-team-selection-before-confirm\"}}",
         prefix, TECMO_ASSET_PACK_PRESEASON_MENU_ID,
         (unsigned long long)p->base_descriptor_offset,
         (unsigned long long)p->base_stream_offset,

@@ -887,7 +887,13 @@ function Test-StartMenuPayloadContract {
         [void]$Issues.Add("chr-contract")
     }
     if ($Bytes[148] -ne 1) { [void]$Issues.Add("cursor-commit-delay") }
-    for ($Index = 149; $Index -lt 160; ++$Index) {
+    $ExpectedPopupCursorAnchors = @(47, 200, 47, 167, 71, 200)
+    for ($Index = 0; $Index -lt $ExpectedPopupCursorAnchors.Count; ++$Index) {
+        if ($Bytes[149 + $Index] -ne $ExpectedPopupCursorAnchors[$Index]) {
+            [void]$Issues.Add("popup-cursor-anchors"); break
+        }
+    }
+    for ($Index = 155; $Index -lt 160; ++$Index) {
         if ($Bytes[$Index] -ne 0) { [void]$Issues.Add("reserved"); break }
     }
     foreach ($Range in @(
@@ -998,7 +1004,7 @@ function Test-PreseasonPayloadContract {
         return [pscustomobject]@{ passed = $false; issues = $Issues.ToArray() }
     }
     if ([System.BitConverter]::ToUInt32($Bytes, 72) -ne 14112 -or
-        ("{0:X8}" -f [System.BitConverter]::ToUInt32($Bytes, 76)) -ne "7505D7BD" -or
+        ("{0:X8}" -f [System.BitConverter]::ToUInt32($Bytes, 76)) -ne "DF89006B" -or
         [System.BitConverter]::ToUInt32($Bytes, 80) -ne 262144 -or
         ("{0:X8}" -f [System.BitConverter]::ToUInt32($Bytes, 84)) -ne "F6F6E854" -or
         $ChrByteCount -ne 262144) {
@@ -2184,10 +2190,57 @@ try {
                     $StartMenuCursorTop -eq 0xC240 -and
                     $StartMenuCursorBottom -eq 0xC250 -and
                     $StartMenuCursorChrFingerprint -eq "18F367C4"
+                $PopupSelectors = [System.Collections.Generic.List[int]]::new()
+                $PopupSelectorFlowsExact = $true
+                foreach ($FlowSpec in @(
+                    [pscustomobject]@{ cpu = 0x81C6; size = 44 },
+                    [pscustomobject]@{ cpu = 0x81F2; size = 47 },
+                    [pscustomobject]@{ cpu = 0x82EC; size = 136 }
+                )) {
+                    $FlowBytes = Read-FileBytesAtOffset -Path $ReferenceRom `
+                        -Offset ([uint64]($PrgStart + 3 * 0x4000 + ($FlowSpec.cpu - 0x8000))) `
+                        -Count $FlowSpec.size
+                    $FlowMatches = [System.Collections.Generic.List[int]]::new()
+                    for ($FlowIndex = 0; $FlowIndex + 4 -lt $FlowBytes.Length; ++$FlowIndex) {
+                        if ($FlowBytes[$FlowIndex] -eq 0xA2 -and
+                            $FlowBytes[$FlowIndex + 2] -eq 0x20 -and
+                            $FlowBytes[$FlowIndex + 3] -eq 0xC6 -and
+                            $FlowBytes[$FlowIndex + 4] -eq 0x9E) {
+                            [void]$FlowMatches.Add([int]$FlowBytes[$FlowIndex + 1])
+                        }
+                    }
+                    if ($FlowMatches.Count -ne 1) {
+                        $PopupSelectorFlowsExact = $false
+                    } else {
+                        [void]$PopupSelectors.Add($FlowMatches[0])
+                    }
+                }
+                $PopupYTable = Read-FileBytesAtOffset -Path $ReferenceRom `
+                    -Offset ([uint64]($PrgStart + 3 * 0x4000 + (0x9F13 - 0x8000))) -Count 29
+                $PopupXTable = Read-FileBytesAtOffset -Path $ReferenceRom `
+                    -Offset ([uint64]($PrgStart + 3 * 0x4000 + (0x9F30 - 0x8000))) -Count 29
+                $CursorDx = if ($StartMenuCursorRecord[1] -ge 0x80) {
+                    [int]$StartMenuCursorRecord[1] - 0x100
+                } else { [int]$StartMenuCursorRecord[1] }
+                $CursorDy = if ($StartMenuCursorRecord[2] -ge 0x80) {
+                    [int]$StartMenuCursorRecord[2] - 0x100
+                } else { [int]$StartMenuCursorRecord[2] }
+                $DerivedPopupAnchors = [System.Collections.Generic.List[int]]::new()
+                if ($PopupSelectorFlowsExact -and $PopupSelectors.Count -eq 3) {
+                    foreach ($Selector in $PopupSelectors) {
+                        [void]$DerivedPopupAnchors.Add([int]$PopupXTable[$Selector] + $CursorDx)
+                        [void]$DerivedPopupAnchors.Add([int]$PopupYTable[$Selector] + $CursorDy)
+                    }
+                }
+                $HeaderPopupAnchors = @($StartMenuBytes[149..154] | ForEach-Object { [int]$_ })
+                $StartMenuPopupCursorExact = $PopupSelectorFlowsExact -and
+                    ($PopupSelectors -join ",") -eq "27,8,9" -and
+                    ($DerivedPopupAnchors -join ",") -eq "47,200,47,167,71,200" -and
+                    ($HeaderPopupAnchors -join ",") -eq ($DerivedPopupAnchors -join ",")
                 Add-TestResult ([pscustomobject]@{
                     id = "assetpack-start-game-menu-native"
                     passed = $StartMenuContract.passed -and $MenuPalettesExact -and $StartMenuChrContractExact -and
-                        $StartMenuPayloadFingerprint -eq "7505D7BD" -and
+                        $StartMenuPopupCursorExact -and $StartMenuPayloadFingerprint -eq "DF89006B" -and
                         $StartMenuPaletteFingerprint -eq "F83B6C17"
                     format = if ($StartMenuBytes.Length -ge 4) { [System.Text.Encoding]::ASCII.GetString($StartMenuBytes, 0, 4) } else { "" }
                     byte_count = $StartMenuBytes.Length
@@ -2220,6 +2273,15 @@ try {
                     resolved_chr_fingerprint_fnv1a32 = $StartMenuCursorChrFingerprint
                     raw_asset_bytes_persisted = $false
                 })
+                Add-TestResult ([pscustomobject]@{
+                    id = "assetpack-start-game-menu-popup-cursors"
+                    passed = $StartMenuPopupCursorExact
+                    selector_indices = $PopupSelectors.ToArray()
+                    derived_anchors = $DerivedPopupAnchors.ToArray()
+                    header_anchors = $HeaderPopupAnchors
+                    source_tables = @("bank03:`$9F30", "bank03:`$9F13", "bank01:`$8031")
+                    raw_asset_bytes_persisted = $false
+                })
                 $FingerprintMutation = [byte[]]$StartMenuBytes.Clone()
                 $FingerprintMutation[160] = $FingerprintMutation[160] -bxor 1
                 $FingerprintMutationContract = Test-StartMenuPayloadContract `
@@ -2227,14 +2289,14 @@ try {
                 $FingerprintMutationHash = Get-Fnv1a32Hex -Bytes $FingerprintMutation
                 Add-TestResult ([pscustomobject]@{
                     id = "assetpack-start-game-menu-revision-fingerprint"
-                    passed = $StartMenuPayloadFingerprint -eq "7505D7BD" -and
+                    passed = $StartMenuPayloadFingerprint -eq "DF89006B" -and
                         $StartMenuPaletteFingerprint -eq "F83B6C17" -and
                         $FingerprintMutationContract.passed -and
-                        $FingerprintMutationHash -ne "7505D7BD"
+                        $FingerprintMutationHash -ne "DF89006B"
                     payload_fingerprint_fnv1a32 = $StartMenuPayloadFingerprint
                     palette_stages_fingerprint_fnv1a32 = $StartMenuPaletteFingerprint
                     structurally_valid_mutation_rejected_by_fingerprint = `
-                        $FingerprintMutationContract.passed -and $FingerprintMutationHash -ne "7505D7BD"
+                        $FingerprintMutationContract.passed -and $FingerprintMutationHash -ne "DF89006B"
                     mutated_payloads_persisted = $false
                     raw_asset_bytes_persisted = $false
                 })
@@ -2247,7 +2309,8 @@ try {
                     [pscustomobject]@{ id = "chr-size"; mutate = { param([byte[]]$Data) $Data[140] = 1 } },
                     [pscustomobject]@{ id = "chr-fingerprint"; mutate = { param([byte[]]$Data) $Data[144] = $Data[144] -bxor 1 } },
                     [pscustomobject]@{ id = "cursor-commit-delay"; mutate = { param([byte[]]$Data) $Data[148] = 0 } },
-                    [pscustomobject]@{ id = "reserved"; mutate = { param([byte[]]$Data) $Data[149] = 1 } },
+                    [pscustomobject]@{ id = "popup-cursor-anchor"; mutate = { param([byte[]]$Data) $Data[149] = 46 } },
+                    [pscustomobject]@{ id = "reserved"; mutate = { param([byte[]]$Data) $Data[155] = 1 } },
                     [pscustomobject]@{ id = "stage-frame"; mutate = { param([byte[]]$Data) $Data[96 + 8 * 2] = 31 } },
                     [pscustomobject]@{ id = "route"; mutate = { param([byte[]]$Data) $Data[114] = 0 } },
                     [pscustomobject]@{ id = "cell-palette"; mutate = { param([byte[]]$Data) $Data[161] = 4 } },
@@ -2283,7 +2346,7 @@ try {
                     id = "assetpack-preseason-native"
                     passed = $PreseasonContract.passed -and
                         $PreseasonBytes.Length -eq 26736 -and
-                        $PreseasonFingerprint -eq "13DE1C71"
+                        $PreseasonFingerprint -eq "D9EE49F4"
                     format = if ($PreseasonBytes.Length -ge 4) {
                         [System.Text.Encoding]::ASCII.GetString($PreseasonBytes, 0, 4)
                     } else { "" }
@@ -2301,13 +2364,13 @@ try {
                     Get-Fnv1a32Hex -Bytes $PreseasonFingerprintMutation
                 Add-TestResult ([pscustomobject]@{
                     id = "assetpack-preseason-revision-fingerprint"
-                    passed = $PreseasonFingerprint -eq "13DE1C71" -and
+                    passed = $PreseasonFingerprint -eq "D9EE49F4" -and
                         $PreseasonFingerprintMutationContract.passed -and
-                        $PreseasonFingerprintMutationHash -ne "13DE1C71"
+                        $PreseasonFingerprintMutationHash -ne "D9EE49F4"
                     payload_fingerprint_fnv1a32 = $PreseasonFingerprint
                     structurally_valid_mutation_rejected_by_fingerprint =
                         $PreseasonFingerprintMutationContract.passed -and
-                        $PreseasonFingerprintMutationHash -ne "13DE1C71"
+                        $PreseasonFingerprintMutationHash -ne "D9EE49F4"
                     mutated_payloads_persisted = $false
                     raw_asset_bytes_persisted = $false
                 })
@@ -2642,7 +2705,7 @@ try {
                     [int]$StartMenuSource.native_contract.pages -eq 2 -and
                     [int]$StartMenuSource.native_contract.cells -eq 1920 -and
                     [int]$StartMenuSource.native_contract.payload_size -eq 14112 -and
-                    $StartMenuSource.native_contract.payload_fingerprint_fnv1a32 -eq "7505D7BD" -and
+                    $StartMenuSource.native_contract.payload_fingerprint_fnv1a32 -eq "DF89006B" -and
                     $StartMenuSource.native_contract.palette_stages_fingerprint_fnv1a32 -eq "F83B6C17" -and
                     $StartMenuSource.native_contract.runtime_title_dependency_entry -eq "title/start-screen" -and
                     (@($StartMenuSource.native_contract.runtime_title_dependency_frames) -join ",") -eq "0,7" -and
@@ -2667,6 +2730,14 @@ try {
                     [int]$StartMenuSource.native_contract.setup_row_start -eq 0 -and
                     [int]$StartMenuSource.native_contract.teardown_row_start -eq 1 -and
                     [int]$StartMenuSource.native_contract.cursor_commit_delay_frames -eq 1 -and
+                    (@($StartMenuSource.native_contract.popup_cursor_anchors.music) -join ",") -eq "47,200" -and
+                    (@($StartMenuSource.native_contract.popup_cursor_anchors.speed) -join ",") -eq "47,167" -and
+                    (@($StartMenuSource.native_contract.popup_cursor_anchors.period) -join ",") -eq "71,200" -and
+                    (@($StartMenuSource.native_contract.popup_cursor_anchor_derivation.selector_indices) -join ",") -eq "27,8,9" -and
+                    [int]$StartMenuSource.native_contract.popup_cursor_anchor_derivation.x_table_cpu_address -eq 0x9F30 -and
+                    [int]$StartMenuSource.native_contract.popup_cursor_anchor_derivation.y_table_cpu_address -eq 0x9F13 -and
+                    [int]$StartMenuSource.native_contract.popup_cursor_anchor_derivation.cursor_record_cpu_address -eq 0x8031 -and
+                    [int]$StartMenuSource.native_contract.popup_cursor_anchor_derivation.cursor_dy -eq -4 -and
                     [int]$StartMenuSource.native_contract.resolved_chr_size -eq 262144 -and
                     $StartMenuSource.native_contract.resolved_chr_fingerprint_fnv1a32 -eq "F6F6E854" -and
                     $StartMenuSource.native_contract.resolved_chr_fingerprint_fnv1a64 -eq "96A64F53B240ABB4" -and
@@ -2733,7 +2804,7 @@ try {
                         "menu/start-game,chr/all" -and
                     $PreseasonStartDependency.Count -eq 1 -and
                     [int]$PreseasonStartDependency.size -eq 14112 -and
-                    $PreseasonStartDependency.fingerprint_fnv1a32 -eq "7505D7BD" -and
+                    $PreseasonStartDependency.fingerprint_fnv1a32 -eq "DF89006B" -and
                     $PreseasonChrDependency.Count -eq 1 -and
                     [int]$PreseasonChrDependency.size -eq 262144 -and
                     $PreseasonChrDependency.fingerprint_fnv1a32 -eq "F6F6E854" -and
@@ -2755,7 +2826,7 @@ try {
                     [int]$PreseasonMarkers.resolved_chr_pair_count -eq 7 -and
                     $PreseasonMarkers.resolved_chr_fingerprint_fnv1a32 -eq "1E505537" -and
                     [int]$PreseasonSource.native_contract.payload_size -eq 26736 -and
-                    $PreseasonSource.native_contract.payload_fingerprint_fnv1a32 -eq "13DE1C71" -and
+                    $PreseasonSource.native_contract.payload_fingerprint_fnv1a32 -eq "D9EE49F4" -and
                     (@($PreseasonSource.native_contract.team_entry_display_stage_frames) -join ",") -eq "3,5,7" -and
                     [int]$PreseasonSource.native_contract.team_entry_display_black_frame -eq 9 -and
                     [int]$PreseasonSource.native_contract.team_display_first_visible_frame -eq 18 -and

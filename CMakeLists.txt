@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 project(tecmo_basketball_c_port LANGUAGES C)
 
-add_executable(tecmo_port
+set(TECMO_PORT_SOURCES
     src/main.c
     src/asm_inventory.c
     src/png_writer.c
@@ -39,24 +39,36 @@ add_executable(tecmo_port
     src/tecmo_title_screen.c
 )
 
+function(configure_tecmo_target target_name)
+    target_include_directories(${target_name} PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    set_target_properties(${target_name} PROPERTIES
+        C_STANDARD 11
+        C_STANDARD_REQUIRED YES
+        C_EXTENSIONS NO
+    )
+    if(MSVC)
+        target_compile_definitions(${target_name} PRIVATE _CRT_SECURE_NO_WARNINGS)
+        target_compile_options(${target_name} PRIVATE /W4)
+    else()
+        target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    if(WIN32)
+        target_sources(${target_name} PRIVATE src/win32_platform.c)
+        target_link_libraries(${target_name} PRIVATE user32 gdi32)
+    endif()
+endfunction()
+
+add_executable(tecmo_port ${TECMO_PORT_SOURCES})
+configure_tecmo_target(tecmo_port)
+
 if(WIN32)
-    target_sources(tecmo_port PRIVATE src/win32_platform.c)
-    target_link_libraries(tecmo_port PRIVATE user32 gdi32)
-endif()
-
-target_include_directories(tecmo_port PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
-
-set_target_properties(tecmo_port PROPERTIES
-    C_STANDARD 11
-    C_STANDARD_REQUIRED YES
-    C_EXTENSIONS NO
-)
-
-if(MSVC)
-    target_compile_definitions(tecmo_port PRIVATE _CRT_SECURE_NO_WARNINGS)
-    target_compile_options(tecmo_port PRIVATE /W4)
-else()
-    target_compile_options(tecmo_port PRIVATE -Wall -Wextra -Wpedantic)
+    add_executable(tecmo_port_game WIN32 ${TECMO_PORT_SOURCES})
+    configure_tecmo_target(tecmo_port_game)
+    if(MSVC)
+        target_link_options(tecmo_port_game PRIVATE /ENTRY:mainCRTStartup)
+    else()
+        target_link_options(tecmo_port_game PRIVATE -Wl,-e,mainCRTStartup)
+    endif()
 endif()

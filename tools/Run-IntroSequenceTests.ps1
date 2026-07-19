@@ -694,7 +694,7 @@ try {
         passed = $StartMenuRenderPassed
         skipped = $false
         cases = $StartMenuRenderResults
-        timing = "title/menu reveal through 32; popup first-row setup, bottom-up teardown, one-frame cursor commit; E481 palette stages 0/2/4/6/8 and handoff 11"
+        timing = "title/menu reveal through 32; popup first-row setup, bottom-up teardown, one-frame cursor commit; ROM-derived MUSIC/SPEED/PERIOD cursor anchors; E481 palette stages 0/2/4/6/8 and handoff 11"
         isolated_root = $true
         raw_output_persisted = $false
         error = if ($StartMenuRenderPassed) { $null } else { "TSGM-1 render mode failed from an isolated root" }
@@ -703,7 +703,8 @@ try {
     $StartMenuNegativeCases = @(
         [pscustomobject]@{ id = "native-metadata"; offset = 126; value = 4 },
         [pscustomobject]@{ id = "cursor-commit-delay"; offset = 148; value = 0 },
-        [pscustomobject]@{ id = "reserved"; offset = 149; value = 1 },
+        [pscustomobject]@{ id = "popup-cursor-anchor"; offset = 149; value = 46 },
+        [pscustomobject]@{ id = "reserved"; offset = 155; value = 1 },
         [pscustomobject]@{ id = "payload-fingerprint"; offset = 160; value = $null },
         [pscustomobject]@{ id = "period-values"; offset = 121; value = 5 },
         [pscustomobject]@{ id = "chr-size-metadata"; offset = 140; value = 1 },

@@ -79,6 +79,8 @@ typedef struct TecmoStartGameMenuAsset {
     uint8_t popup_setup_order;
     uint8_t popup_teardown_order;
     uint8_t cursor_commit_delay_frames;
+    uint8_t setting_cursor_x[TECMO_START_GAME_MENU_OVERLAY_COUNT];
+    uint8_t setting_cursor_y[TECMO_START_GAME_MENU_OVERLAY_COUNT];
     uint32_t expected_chr_byte_count;
     uint32_t expected_chr_fingerprint32;
     uint64_t chr_byte_count;

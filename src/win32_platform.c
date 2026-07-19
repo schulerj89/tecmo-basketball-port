@@ -247,6 +247,8 @@ int tecmo_run_win32_game(const char *project_root)
                     "Tecmo Port", MB_ICONERROR);
         goto cleanup;
     }
+    runtime->normal_play_active = true;
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_FIRST_SPRITE);
 
     win32_resize_backbuffer(&g_backbuffer, 640, 480);
     if (!win32_init_window(instance, &window)) {
@@ -259,6 +261,17 @@ int tecmo_run_win32_game(const char *project_root)
     tecmo_controls_init(&g_controls[0]);
     tecmo_controls_init(&g_controls[1]);
     g_running = true;
+
+    if (g_backbuffer.pixels != 0) {
+        TecmoFramebuffer framebuffer;
+        framebuffer.pixels = g_backbuffer.pixels;
+        framebuffer.width = g_backbuffer.width;
+        framebuffer.height = g_backbuffer.height;
+        framebuffer.pitch_pixels = g_backbuffer.width;
+        tecmo_runtime_render(runtime, &framebuffer);
+        InvalidateRect(window, 0, FALSE);
+        UpdateWindow(window);
+    }
 
     while (g_running) {
         MSG message;

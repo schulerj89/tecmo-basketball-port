@@ -9,7 +9,7 @@
 #define MENU_DESCRIPTOR_CPU 0xDCA1U
 #define MENU_BG_R0 0xFAU
 #define MENU_BG_R1 0xFAU
-#define MENU_PAYLOAD_FNV1A32 0x7505D7BDU
+#define MENU_PAYLOAD_FNV1A32 0xDF89006BU
 #define MENU_PALETTE_STAGES_FNV1A32 0xF83B6C17U
 #define MENU_CURSOR_SELECTOR 0x30U
 #define MENU_CURSOR_TILE 0x24U
@@ -29,6 +29,8 @@
 #define MENU_OVERLAY_SETUP_ROW_START 0U
 #define MENU_OVERLAY_TEARDOWN_ROW_START 1U
 #define MENU_CURSOR_COMMIT_DELAY_FRAMES 1U
+#define MENU_INPUT_PARAMETER_COUNT 29U
+#define MENU_CURSOR_X_TABLE_CPU 0x9F30U
 
 typedef struct MenuRecordSource {
     uint32_t cpu;
@@ -51,6 +53,76 @@ static uint64_t fixed_cpu_offset(uint64_t prg_offset, uint32_t prg_banks, uint32
 {
     return prg_offset + (uint64_t)(prg_banks - 1U) * TECMO_ASSET_PACK_PRG_BANK_BYTES +
            (uint64_t)(cpu - 0xC000U);
+}
+
+static int find_popup_selector(const uint8_t *flow,
+                               size_t flow_size,
+                               uint8_t *selector_out)
+{
+    size_t found = 0U;
+    uint8_t selector = 0U;
+    size_t i;
+
+    if (flow == NULL || selector_out == NULL) return -1;
+    for (i = 0U; i + 4U < flow_size; ++i) {
+        if (flow[i] == 0xA2U && flow[i + 2U] == 0x20U &&
+            flow[i + 3U] == 0xC6U && flow[i + 4U] == 0x9EU) {
+            selector = flow[i + 1U];
+            ++found;
+        }
+    }
+    if (found != 1U || selector >= MENU_INPUT_PARAMETER_COUNT) return -1;
+    *selector_out = selector;
+    return 0;
+}
+
+static int build_popup_cursor_anchors(uint8_t *payload,
+                                      const uint8_t *rom,
+                                      uint64_t cursor_offset,
+                                      uint64_t input_params_offset,
+                                      const uint64_t flow_offsets[3],
+                                      const size_t flow_sizes[3],
+                                      char *message,
+                                      size_t message_size)
+{
+    static const size_t x_header_offsets[3] = {
+        TECMO_ASSET_PACK_START_MENU_MUSIC_CURSOR_X_HEADER_OFFSET,
+        TECMO_ASSET_PACK_START_MENU_SPEED_CURSOR_X_HEADER_OFFSET,
+        TECMO_ASSET_PACK_START_MENU_PERIOD_CURSOR_X_HEADER_OFFSET
+    };
+    static const size_t y_header_offsets[3] = {
+        TECMO_ASSET_PACK_START_MENU_MUSIC_CURSOR_Y_HEADER_OFFSET,
+        TECMO_ASSET_PACK_START_MENU_SPEED_CURSOR_Y_HEADER_OFFSET,
+        TECMO_ASSET_PACK_START_MENU_PERIOD_CURSOR_Y_HEADER_OFFSET
+    };
+    const int cursor_dx = (int)(int8_t)rom[(size_t)cursor_offset + 1U];
+    const int cursor_dy = (int)(int8_t)rom[(size_t)cursor_offset + 2U];
+    size_t i;
+
+    for (i = 0U; i < 3U; ++i) {
+        uint8_t selector;
+        int x;
+        int y;
+        if (find_popup_selector(rom + (size_t)flow_offsets[i],
+                                flow_sizes[i], &selector) != 0) {
+            tecmo_asset_pack_set_message(message, message_size,
+                                         "TSGM-1 popup cursor selector flow was rejected.");
+            return -1;
+        }
+        x = (int)rom[(size_t)input_params_offset +
+                     (MENU_CURSOR_X_TABLE_CPU -
+                      TECMO_ASSET_PACK_START_MENU_INPUT_PARAMS_CPU) + selector] +
+            cursor_dx;
+        y = (int)rom[(size_t)input_params_offset + selector] + cursor_dy;
+        if (x < 0 || x > 255 || y < 0 || y > 239) {
+            tecmo_asset_pack_set_message(message, message_size,
+                                         "TSGM-1 popup cursor anchor is outside the native viewport.");
+            return -1;
+        }
+        payload[x_header_offsets[i]] = (uint8_t)x;
+        payload[y_header_offsets[i]] = (uint8_t)y;
+    }
+    return 0;
 }
 
 static int build_record_tiles(const uint8_t *record,
@@ -601,6 +673,20 @@ int tecmo_asset_pack_build_start_game_menu(const uint8_t *rom,
                                TECMO_ASSET_PACK_START_MENU_REV1_CHR_FNV1A32);
     payload[TECMO_ASSET_PACK_START_MENU_CURSOR_COMMIT_DELAY_HEADER_OFFSET] =
         MENU_CURSOR_COMMIT_DELAY_FRAMES;
+    {
+        const uint64_t popup_flow_offsets[3] = {
+            music_flow_offset, speed_flow_offset, period_flow_offset
+        };
+        const size_t popup_flow_sizes[3] = {
+            TECMO_ASSET_PACK_START_MENU_MUSIC_FLOW_SIZE,
+            TECMO_ASSET_PACK_START_MENU_SPEED_FLOW_SIZE,
+            TECMO_ASSET_PACK_START_MENU_PERIOD_FLOW_SIZE
+        };
+        if (build_popup_cursor_anchors(payload, rom, cursor_offset,
+                                       input_params_offset, popup_flow_offsets,
+                                       popup_flow_sizes, message, message_size) != 0)
+            return -1;
+    }
 
     build_screen_cells(payload, decoded);
     build_palette_stages(payload, rom + (size_t)title_palette_offset,

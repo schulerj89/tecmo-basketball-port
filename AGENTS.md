@@ -9,14 +9,16 @@ files, Lua captures, or emulator-shaped replay data.
 
 ## Current Product Surface
 
-The normal executable menu exposes only:
+The Desktop shortcut and `build\tecmo_port_game.exe --play` use the Windows GUI
+subsystem and boot directly into the native TECMO/rabbit opening. The same
+sources also build `build\tecmo_port.exe`, which retains the console subsystem
+for CLI tools and tests. The modern Play Game/Quit menu remains a debug/test
+surface only; normal Win32 play must not route through it.
 
-```text
-Play Game
-Quit
-```
-
-Do not re-add Title Screen, Intro Lab, CHR Playground, or Rosters to the main menu unless the user explicitly asks. Those paths can stay available for agents through direct mode setup, render-test modes, or temporary debug work.
+Do not re-add Title Screen, Intro Lab, CHR Playground, Rosters, or the modern
+menu to normal play unless the user explicitly asks. Those paths can stay
+available for agents through direct mode setup, render-test modes, or temporary
+debug work.
 
 ## Data Boundaries
 
@@ -81,7 +83,9 @@ out of unrelated commits unless the user explicitly asks to commit them.
 .\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-arena-clean-frame539 build\intro_arena_clean_frame539_test.png
 ```
 
-If the build fails with `LNK1104` for `build\tecmo_port.exe`, check whether the local executable is still running before rebuilding.
+If the build fails with `LNK1104` for either executable under `build\`, check
+whether the local game window or console process is still running before
+rebuilding.
 
 ## Debug Render Modes
 
@@ -173,7 +177,7 @@ shared ten-piece sprite geometry with two scene palettes, imported scene
 anchors, reverse-transition metadata, three title bands, and 44 resolved 2x2
 title slots. Slots contain native page positions and tile cells, not imported
 text. Runtime uses only TFIN-1 and `chr/all`; missing or malformed finale data
-fails cleanly with no decompilation or capture fallback. Play Game advances
+fails cleanly with no decompilation or capture fallback. Native play advances
 through the named finale phases, then continues into the title attract route.
 
 The command-$14 continuation and start screen are native ROM-only assets.
@@ -258,8 +262,8 @@ freeze that value, and only interactive selector frames decrement it.
 This milestone ends at the interactive second-team screen. P2 A is consumed
 and seeds `$E1=5`, but deliberately does not execute Bank03 `$B277-$B282` or
 return to fixed `$E481`; therefore it cannot launch gameplay. TPRE-1 is 26736
-bytes with FNV1a32 `13DE1C71` and requires the same pack's exact 14112-byte
-TSGM-1 (`7505D7BD`) and 262144-byte `chr/all` (`F6F6E854` /
+bytes with FNV1a32 `D9EE49F4` and requires the same pack's exact 14112-byte
+TSGM-1 (`DF89006B`) and 262144-byte `chr/all` (`F6F6E854` /
 `96A64F53B240ABB4`). Import fingerprints cover `$9966`, ownership/difficulty
 flow, popup/input tables, `$B1CC`, focused `$B283/$B287` division/team maps,
 the unexecuted `$B277` boundary, `$8031` cursor and `$8036` player records,
@@ -294,11 +298,17 @@ TSGM-1 import is revision-locked with fingerprints for its descriptor,
 compressed and decoded screen, composed two-page result, palette sources,
 sprite selectors/palette, emblem, cursor, character map, menu/settings text
 records, fixed loader/fades, input tables, and season transition. Its exact
-payload fingerprint is `7505D7BD`; metadata includes the one-frame cursor
-commit, and the full CHR contract is 262144 bytes / FNV1a32 `F6F6E854` /
+payload fingerprint is `DF89006B`; metadata includes the one-frame cursor
+commit plus ROM-derived MUSIC `(47,200)`, SPEED `(47,167)`, and PERIOD
+`(71,200)` cursor anchors. The anchors come from the popup flow selector indexes,
+Bank03 coordinate parameter tables, and Bank01 cursor `dy=-4`; the full CHR
+contract is 262144 bytes / FNV1a32 `F6F6E854` /
 FNV1a64 `96A64F53B240ABB4`. Exact-size directory preflight rejects forged sizes
 before allocation. The sanitized `system/source-map` records every ROM source
 range plus TTLE-1 and `chr/all` runtime dependencies.
+The MUSIC overlay is seven tiles wide and authentically leaves the final
+`SIC` cells from the underlying `GAME MUSIC` row visible; do not erase that
+overlap as a native cleanup.
 Missing, malformed, cross-pack, or out-of-range menu data must remain a native
 render failure; captures under `temp-videos` and FCEUX/Lua screenshots, logs,
 states, PPU/OAM dumps, and traces are verification material only.
@@ -385,3 +395,9 @@ path with:
 ```powershell
 .\tools\Run-Win32LaunchSmokeTest.ps1 -Build -DecompRoot <LOCAL_DECOMP_ROOT>
 ```
+
+The smoke test requires `tecmo_port_game.exe` to have PE subsystem 2 and keeps
+`tecmo_port.exe` at subsystem 3. Win32 selects `TECMO_MODE_FIRST_SPRITE` after
+runtime initialization and presents native frame 0 before the first update.
+Original intro/title B input is ignored, so normal play cannot fall back into
+the modern menu.

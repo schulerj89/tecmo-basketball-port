@@ -10,7 +10,7 @@ if (!$ProjectRoot) {
     $ProjectRoot = Split-Path -Parent $PSScriptRoot
 }
 if (!$ExePath) {
-    $ExePath = Join-Path $ProjectRoot "build\tecmo_port.exe"
+    $ExePath = Join-Path $ProjectRoot "build\tecmo_port_game.exe"
 }
 
 $ProjectRoot = (Resolve-Path $ProjectRoot).Path

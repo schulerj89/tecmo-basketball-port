@@ -1095,6 +1095,17 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         set_flow_test_message(message, message_size, "no roster teams loaded");
         return false;
     }
+    if (!runtime->start_game_menu_asset.available ||
+        runtime->start_game_menu_asset.setting_cursor_x[0] != 47U ||
+        runtime->start_game_menu_asset.setting_cursor_y[0] != 200U ||
+        runtime->start_game_menu_asset.setting_cursor_x[1] != 47U ||
+        runtime->start_game_menu_asset.setting_cursor_y[1] != 167U ||
+        runtime->start_game_menu_asset.setting_cursor_x[2] != 71U ||
+        runtime->start_game_menu_asset.setting_cursor_y[2] != 200U) {
+        set_flow_test_message(message, message_size,
+                              "ROM-derived settings cursor anchors were not loaded");
+        return false;
+    }
     if (!flow_expect_dual_controller_compatibility(runtime, message, message_size)) {
         return false;
     }
@@ -1117,6 +1128,27 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     if (!flow_expect_mode(runtime, TECMO_MODE_FIRST_SPRITE, "enter play game", message, message_size)) {
         return false;
     }
+    memset(&input, 0, sizeof(input));
+    flow_step(runtime, input);
+    input.cancel = true;
+    flow_step(runtime, input);
+    if (runtime->mode != TECMO_MODE_MAIN_MENU) {
+        set_flow_test_message(message, message_size,
+                              "debug intro B did not preserve the modern menu return");
+        return false;
+    }
+    runtime->normal_play_active = true;
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_FIRST_SPRITE);
+    memset(&input, 0, sizeof(input));
+    input.cancel = true;
+    flow_step(runtime, input);
+    if (runtime->mode != TECMO_MODE_FIRST_SPRITE) {
+        set_flow_test_message(message, message_size,
+                              "normal-play intro B returned to the modern debug menu");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    flow_step(runtime, input);
 
     previous_intro_step = runtime->intro_output_step;
     if (!flow_wait_for_intro_step_advance(runtime,
@@ -1270,6 +1302,15 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         set_flow_test_message(message, message_size, "title did not load and arm after START release");
         return false;
     }
+    input.cancel = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->mode != TECMO_MODE_TITLE_SCREEN || runtime->title_confirming) {
+        set_flow_test_message(message, message_size,
+                              "title B returned to the modern debug menu");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
     input.confirm = true;
     tecmo_runtime_update(runtime, &input);
     if (!runtime->title_confirming || runtime->title_confirmation_frame != 1U) {

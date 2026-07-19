@@ -342,6 +342,9 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
 {
     runtime->mode = mode;
     runtime->mode_frame_counter = 0;
+    if (mode == TECMO_MODE_MAIN_MENU) {
+        runtime->normal_play_active = false;
+    }
     if (mode == TECMO_MODE_MAIN_MENU && runtime->selected_menu_item >= MAIN_MENU_COUNT) {
         runtime->selected_menu_item = MAIN_MENU_PLAY_GAME;
     }
@@ -397,7 +400,7 @@ static void update_title_screen(TecmoRuntime *runtime, const TecmoControlFrame *
         if (runtime->title_confirmation_frame >= tecmo_title_confirmation_handoff_frame()) {
             tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
         }
-    } else if (controls->pressed.cancel) {
+    } else if (controls->pressed.cancel && !runtime->normal_play_active) {
         tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
     } else if (runtime->mode_frame_counter >= TECMO_TITLE_START_LOAD_FRAMES) {
         if (!controls->held.confirm) {
@@ -638,7 +641,7 @@ static void update_first_sprite_probe(TecmoRuntime *runtime, const TecmoControlF
 {
     if (controls->pressed.confirm) {
         tecmo_runtime_set_mode(runtime, TECMO_MODE_TITLE_SCREEN);
-    } else if (controls->pressed.cancel) {
+    } else if (controls->pressed.cancel && !runtime->normal_play_active) {
         tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
     } else if (controls->pressed.left &&
                runtime->intro_output_step > 0U) {

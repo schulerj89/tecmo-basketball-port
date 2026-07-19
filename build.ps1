@@ -21,7 +21,8 @@ if (!(Test-Path $VcVars)) {
     throw "vcvars64.bat was not found under $VsPath."
 }
 
-$ExePath = Join-Path $BuildDir "tecmo_port.exe"
+$ConsoleExePath = Join-Path $BuildDir "tecmo_port.exe"
+$GameExePath = Join-Path $BuildDir "tecmo_port_game.exe"
 $ObjPrefix = $ObjDir.TrimEnd("\") + "\"
 $Sources = @(
     "src\main.c",
@@ -61,16 +62,27 @@ $Sources = @(
     "src\win32_platform.c"
 )
 $SourceArgs = $Sources -join " "
-$Command = "call `"$VcVars`" >nul && cd /d `"$Root`" && cl /nologo /std:c11 /W4 /I include /Fo:$ObjPrefix /Fe:`"$ExePath`" $SourceArgs user32.lib gdi32.lib"
-
-& cmd.exe /d /c $Command
-if ($LASTEXITCODE -ne 0) {
-    exit $LASTEXITCODE
+$ObjectArgs = ($Sources | ForEach-Object {
+    $ObjectName = [System.IO.Path]::GetFileNameWithoutExtension($_) + ".obj"
+    "`"$(Join-Path $ObjDir $ObjectName)`""
+}) -join " "
+$BuildSteps = @(
+    "cl /nologo /std:c11 /W4 /I include /c /Fo:$ObjPrefix $SourceArgs",
+    "link /nologo /out:`"$ConsoleExePath`" $ObjectArgs user32.lib gdi32.lib",
+    "link /nologo /subsystem:windows /entry:mainCRTStartup /out:`"$GameExePath`" $ObjectArgs user32.lib gdi32.lib"
+)
+foreach ($BuildStep in $BuildSteps) {
+    $Command = "call `"$VcVars`" >nul && cd /d `"$Root`" && $BuildStep"
+    & cmd.exe /d /c $Command
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
 }
 
-Write-Host "Built $ExePath"
+Write-Host "Built $ConsoleExePath"
+Write-Host "Built $GameExePath"
 
 $ShortcutScript = Join-Path $Root "tools\Update-DesktopShortcut.ps1"
 if ((Test-Path $ShortcutScript) -and ($env:TECMO_SKIP_SHORTCUT -ne "1")) {
-    & $ShortcutScript -ExePath $ExePath -ProjectRoot $Root
+    & $ShortcutScript -ExePath $GameExePath -ProjectRoot $Root
 }

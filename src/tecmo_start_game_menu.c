@@ -21,7 +21,7 @@
 #define START_MENU_SPRITE_STRIDE 16U
 #define START_MENU_OVERLAY_DESC_STRIDE 16U
 #define START_MENU_SEASON_CURSOR_X 103
-#define START_MENU_PAYLOAD_FNV1A32 0x7505D7BDU
+#define START_MENU_PAYLOAD_FNV1A32 0xDF89006BU
 #define START_MENU_CHR_BYTE_COUNT 262144U
 #define START_MENU_CHR_FNV1A32 0xF6F6E854U
 #define START_MENU_CHR_FNV1A64 0x96A64F53B240ABB4ULL
@@ -30,7 +30,13 @@
 #define START_MENU_CHR_SIZE_OFFSET 140U
 #define START_MENU_CHR_FNV1A32_OFFSET 144U
 #define START_MENU_CURSOR_COMMIT_DELAY_OFFSET 148U
-#define START_MENU_METADATA_RESERVED_OFFSET 149U
+#define START_MENU_MUSIC_CURSOR_X_OFFSET 149U
+#define START_MENU_MUSIC_CURSOR_Y_OFFSET 150U
+#define START_MENU_SPEED_CURSOR_X_OFFSET 151U
+#define START_MENU_SPEED_CURSOR_Y_OFFSET 152U
+#define START_MENU_PERIOD_CURSOR_X_OFFSET 153U
+#define START_MENU_PERIOD_CURSOR_Y_OFFSET 154U
+#define START_MENU_METADATA_RESERVED_OFFSET 155U
 
 static uint16_t read_u16(const uint8_t *p)
 {
@@ -181,6 +187,8 @@ static bool parse_payload(TecmoStartGameMenuAsset *asset,
     static const uint8_t expected_metadata[13] = {
         5U, 1U, 2U, 8U, 11U, 0x80U, 0xC0U, 0xCCU, 0x0CU, 0U, 1U, 0U, 1U
     };
+    static const uint8_t expected_setting_cursor_x[3] = {47U, 47U, 71U};
+    static const uint8_t expected_setting_cursor_y[3] = {200U, 167U, 200U};
     size_t i;
 
     if (bytes == NULL || count != START_MENU_PAYLOAD_SIZE ||
@@ -221,7 +229,13 @@ static bool parse_payload(TecmoStartGameMenuAsset *asset,
         bytes[START_MENU_METADATA_ALIGNMENT_OFFSET] != 0U ||
         read_u32(bytes + START_MENU_CHR_SIZE_OFFSET) != START_MENU_CHR_BYTE_COUNT ||
         read_u32(bytes + START_MENU_CHR_FNV1A32_OFFSET) != START_MENU_CHR_FNV1A32 ||
-        bytes[START_MENU_CURSOR_COMMIT_DELAY_OFFSET] != 1U)
+        bytes[START_MENU_CURSOR_COMMIT_DELAY_OFFSET] != 1U ||
+        bytes[START_MENU_MUSIC_CURSOR_X_OFFSET] != expected_setting_cursor_x[0] ||
+        bytes[START_MENU_MUSIC_CURSOR_Y_OFFSET] != expected_setting_cursor_y[0] ||
+        bytes[START_MENU_SPEED_CURSOR_X_OFFSET] != expected_setting_cursor_x[1] ||
+        bytes[START_MENU_SPEED_CURSOR_Y_OFFSET] != expected_setting_cursor_y[1] ||
+        bytes[START_MENU_PERIOD_CURSOR_X_OFFSET] != expected_setting_cursor_x[2] ||
+        bytes[START_MENU_PERIOD_CURSOR_Y_OFFSET] != expected_setting_cursor_y[2])
         return false;
     for (i = START_MENU_METADATA_RESERVED_OFFSET; i < START_MENU_HEADER_SIZE; ++i)
         if (bytes[i] != 0U) return false;
@@ -250,6 +264,12 @@ static bool parse_payload(TecmoStartGameMenuAsset *asset,
     asset->popup_setup_order = bytes[137U];
     asset->popup_teardown_order = bytes[138U];
     asset->cursor_commit_delay_frames = bytes[START_MENU_CURSOR_COMMIT_DELAY_OFFSET];
+    asset->setting_cursor_x[0] = bytes[START_MENU_MUSIC_CURSOR_X_OFFSET];
+    asset->setting_cursor_y[0] = bytes[START_MENU_MUSIC_CURSOR_Y_OFFSET];
+    asset->setting_cursor_x[1] = bytes[START_MENU_SPEED_CURSOR_X_OFFSET];
+    asset->setting_cursor_y[1] = bytes[START_MENU_SPEED_CURSOR_Y_OFFSET];
+    asset->setting_cursor_x[2] = bytes[START_MENU_PERIOD_CURSOR_X_OFFSET];
+    asset->setting_cursor_y[2] = bytes[START_MENU_PERIOD_CURSOR_Y_OFFSET];
     asset->expected_chr_byte_count = read_u32(bytes + START_MENU_CHR_SIZE_OFFSET);
     asset->expected_chr_fingerprint32 = read_u32(bytes + START_MENU_CHR_FNV1A32_OFFSET);
 
@@ -1089,7 +1109,6 @@ bool tecmo_start_game_menu_draw(TecmoFramebuffer *framebuffer,
     overlay_index = popup_overlay_index(popup_phase);
     visible_rows = tecmo_start_game_menu_overlay_visible_rows(asset, state);
     if (overlay_index < TECMO_START_GAME_MENU_OVERLAY_COUNT && visible_rows > 0U) {
-        const TecmoStartGameMenuOverlay *overlay = &asset->overlays[overlay_index];
         draw_overlay_rows(&view, asset, overlay_index, visible_rows,
                           chr_bytes, chr_byte_count, asset->palettes[stage], scale);
         if (overlay_index == 2U && visible_rows > 4U)
@@ -1098,9 +1117,12 @@ bool tecmo_start_game_menu_draw(TecmoFramebuffer *framebuffer,
         if (tecmo_start_game_menu_cursor_visible(asset, state))
             draw_cursor(&view, asset, chr_bytes, chr_byte_count,
                         asset->palettes[stage] + 16U,
-                        overlay_index == 2U ? 71 : (int)overlay->x * 8 - 9,
-                        ((int)overlay->y + 2 + (overlay_index == 2U ? 2 :
-                          2 * (int)state->setting_selection)) * 8,
+                        asset->setting_cursor_x[overlay_index],
+                        (int)asset->setting_cursor_y[overlay_index] +
+                            (overlay_index < 2U
+                                 ? (int)state->setting_selection *
+                                       (int)asset->cursor_stride
+                                 : 0),
                         scale);
     } else if (tecmo_start_game_menu_cursor_visible(asset, state) &&
                (state->phase == TECMO_START_GAME_MENU_ROOT ||

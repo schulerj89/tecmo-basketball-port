@@ -91,6 +91,7 @@ typedef struct TecmoRuntime {
     unsigned title_confirmation_frame;
     char intro_trace_status[96];
     TecmoPlayMode mode;
+    bool normal_play_active;
     bool quit_requested;
     bool debug_overlay;
     bool title_probe_available;

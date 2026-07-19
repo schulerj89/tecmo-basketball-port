@@ -30,7 +30,8 @@ PowerShell with Visual Studio C++ tools installed:
 The script locates Visual Studio via `vswhere` and builds:
 
 ```text
-build\tecmo_port.exe
+build\tecmo_port_game.exe  GUI game launch (no terminal window)
+build\tecmo_port.exe       console CLI and development tools
 ```
 
 Each successful build also refreshes a local Desktop shortcut named:
@@ -43,7 +44,13 @@ Set `TECMO_SKIP_SHORTCUT=1` before running `build.ps1` to skip shortcut generati
 
 ## Run
 
-Launch the current native port:
+Launch the current native port without a terminal window:
+
+```powershell
+.\build\tecmo_port_game.exe --play
+```
+
+The console build exposes the same windowed play path plus CLI diagnostics:
 
 ```powershell
 .\build\tecmo_port.exe --play
@@ -52,44 +59,30 @@ Launch the current native port:
 Pass the private decomp path explicitly when needed:
 
 ```powershell
-.\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --play
+.\build\tecmo_port_game.exe --root <LOCAL_DECOMP_ROOT> --play
 ```
 
 Or set an environment variable:
 
 ```powershell
 $env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
-.\build\tecmo_port.exe --play
+.\build\tecmo_port_game.exe --play
 ```
 
-## Main Menu
+## Native Play
 
-The normal executable menu is intentionally simple:
-
-```text
-Play Game
-Quit
-```
+The game executable and Desktop shortcut boot directly into the original
+TECMO/rabbit opening. The temporary Play Game/Quit screen remains available
+only to console flow tests and explicit debug/render paths.
 
 Controls:
 
 ```text
-Boot title:
-Enter = main menu
-Esc = quit
-
-Main menu:
-Up/Down = choose Play Game or Quit
-Enter = confirm
-Esc = quit
-F3 = debug overlay
-
-Play Game:
-Runs the current native port sequence
 Player 1: arrows = directions, Space = NES A, Esc = NES B,
 Enter = START, Tab = SELECT
 Player 2: numpad 8/2/4/6 = directions, numpad 1 = NES A,
 numpad 3 = NES B, numpad 9 = START, numpad 7 = SELECT
+F3 = debug overlay
 ```
 
 The current original-game boundary includes the blue start-game menu and the
@@ -97,7 +90,8 @@ PRESEASON path through both team selectors. In MAN VS MAN, controller 2 owns
 the second division and team selection. Confirming the second team is
 intentionally terminal for now and does not launch a game.
 
-Older diagnostic screens such as Title Screen, Intro Lab, CHR Playground, and Rosters are no longer exposed from the main executable menu. They remain available through explicit render-test/debug paths for development work.
+Older diagnostic screens and the modern Play Game/Quit menu remain available
+through explicit render-test/debug paths for development work.
 
 ## Common Commands
 
