@@ -398,7 +398,7 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
         return false;
     }
     if ((jump && (checkpoint == 0U || checkpoint > 40U)) ||
-        (dunk && (checkpoint == 0U || checkpoint > 32U))) {
+        (dunk && (checkpoint == 0U || checkpoint > 132U))) {
         return false;
     }
 

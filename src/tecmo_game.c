@@ -1480,6 +1480,7 @@ bool tecmo_render_gameplay_scene(const TecmoRuntime *runtime,
                   rgb(248, 248, 232), 2);
         return false;
     }
+    if (tecmo_gameplay_scene_in_dunk_presentation(scene)) return true;
     if (!scene->active || !state->initialized) return true;
 
     /* Dynamic HUD glyph parity remains a separate ROM-asset boundary. These

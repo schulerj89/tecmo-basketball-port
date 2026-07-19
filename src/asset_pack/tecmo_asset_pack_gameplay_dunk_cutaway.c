@@ -19,6 +19,40 @@
 #define DUNK_PALETTE_GROUP1_CPU 0xB148U
 #define DUNK_REFERENCE_UNIFORM 0x30U
 
+_Static_assert(
+    TECMO_ASSET_PACK_GAMEPLAY_DUNK_SOURCES_OFFSET +
+            TECMO_GAMEPLAY_DUNK_SOURCE_COUNT *
+                TECMO_ASSET_PACK_GAMEPLAY_DUNK_SOURCE_STRIDE ==
+        TECMO_ASSET_PACK_GAMEPLAY_DUNK_RAW_OFFSET,
+    "TGDK-1 source table must end at the raw-source region");
+_Static_assert(
+    TECMO_ASSET_PACK_GAMEPLAY_DUNK_RAW_OFFSET +
+            TECMO_ASSET_PACK_GAMEPLAY_DUNK_RAW_SIZE ==
+        TECMO_ASSET_PACK_GAMEPLAY_DUNK_PADDING_OFFSET,
+    "TGDK-1 raw-source region must end at the reserved padding");
+_Static_assert(
+    TECMO_ASSET_PACK_GAMEPLAY_DUNK_PADDING_OFFSET +
+            TECMO_ASSET_PACK_GAMEPLAY_DUNK_PADDING_SIZE ==
+        TECMO_ASSET_PACK_GAMEPLAY_DUNK_CELLS_OFFSET,
+    "TGDK-1 reserved padding must end at the cell table");
+_Static_assert(
+    TECMO_ASSET_PACK_GAMEPLAY_DUNK_CELLS_OFFSET +
+            TECMO_GAMEPLAY_DUNK_CELL_COUNT *
+                TECMO_ASSET_PACK_GAMEPLAY_DUNK_CELL_STRIDE ==
+        TECMO_ASSET_PACK_GAMEPLAY_DUNK_PALETTE_OFFSET,
+    "TGDK-1 cell table must end at the palette");
+_Static_assert(
+    TECMO_ASSET_PACK_GAMEPLAY_DUNK_PALETTE_OFFSET +
+            TECMO_ASSET_PACK_GAMEPLAY_DUNK_PALETTE_SIZE ==
+        TECMO_ASSET_PACK_GAMEPLAY_DUNK_STAGES_OFFSET,
+    "TGDK-1 palette must end at the stage table");
+_Static_assert(
+    TECMO_ASSET_PACK_GAMEPLAY_DUNK_STAGES_OFFSET +
+            TECMO_GAMEPLAY_DUNK_STAGE_COUNT *
+                TECMO_ASSET_PACK_GAMEPLAY_DUNK_STAGE_STRIDE ==
+        TECMO_ASSET_PACK_GAMEPLAY_DUNK_SIZE,
+    "TGDK-1 stage table must end at the payload boundary");
+
 const TecmoGameplayDunkExpectedSource
     tecmo_gameplay_dunk_expected_sources[TECMO_GAMEPLAY_DUNK_SOURCE_COUNT] = {
         {TECMO_GAMEPLAY_DUNK_SOURCE_TRIGGER, 5U, 0U, 0x856BU, 61U, 832U,
@@ -89,6 +123,9 @@ static const uint8_t dunk_anchor_x[TECMO_GAMEPLAY_DUNK_SIDE_COUNT]
 };
 static const uint8_t dunk_sprite_chr_page[TECMO_GAMEPLAY_DUNK_STAGE_COUNT] = {
     0xD4U, 0xD4U, 0xD4U, 0xD4U, 0xD8U, 0xD8U, 0xDCU
+};
+static const uint8_t dunk_visible_frame[TECMO_GAMEPLAY_DUNK_STAGE_COUNT] = {
+    28U, 32U, 37U, 42U, 47U, 52U, 57U
 };
 
 static bool range_ok(uint64_t offset, uint64_t count, uint64_t total)
@@ -407,8 +444,7 @@ int tecmo_asset_pack_build_gameplay_dunk_cutaway(
             stage, (uint16_t)(TECMO_GAMEPLAY_DUNK_FIRST_ASSIGN_FRAME +
                               index * TECMO_GAMEPLAY_DUNK_STAGE_CADENCE));
         tecmo_asset_pack_store_u16(
-            stage + 2U, (uint16_t)(TECMO_GAMEPLAY_DUNK_FIRST_VISIBLE_FRAME +
-                                   index * TECMO_GAMEPLAY_DUNK_STAGE_CADENCE));
+            stage + 2U, dunk_visible_frame[index]);
         stage[4U] = dunk_anchor_y[index];
         stage[5U] = dunk_anchor_x[0U][index];
         stage[6U] = dunk_anchor_x[1U][index];
@@ -541,28 +577,6 @@ int tecmo_asset_pack_build_gameplay_dunk_cutaway(
 int tecmo_asset_pack_gameplay_dunk_cutaway_self_test(char *message,
                                                       size_t message_size)
 {
-    if (TECMO_ASSET_PACK_GAMEPLAY_DUNK_SOURCES_OFFSET +
-                TECMO_GAMEPLAY_DUNK_SOURCE_COUNT *
-                    TECMO_ASSET_PACK_GAMEPLAY_DUNK_SOURCE_STRIDE !=
-            TECMO_ASSET_PACK_GAMEPLAY_DUNK_RAW_OFFSET ||
-        TECMO_ASSET_PACK_GAMEPLAY_DUNK_RAW_OFFSET +
-                TECMO_ASSET_PACK_GAMEPLAY_DUNK_RAW_SIZE !=
-            TECMO_ASSET_PACK_GAMEPLAY_DUNK_PADDING_OFFSET ||
-        TECMO_ASSET_PACK_GAMEPLAY_DUNK_PADDING_OFFSET +
-                TECMO_ASSET_PACK_GAMEPLAY_DUNK_PADDING_SIZE !=
-            TECMO_ASSET_PACK_GAMEPLAY_DUNK_CELLS_OFFSET ||
-        TECMO_ASSET_PACK_GAMEPLAY_DUNK_CELLS_OFFSET +
-                TECMO_GAMEPLAY_DUNK_CELL_COUNT *
-                    TECMO_ASSET_PACK_GAMEPLAY_DUNK_CELL_STRIDE !=
-            TECMO_ASSET_PACK_GAMEPLAY_DUNK_PALETTE_OFFSET ||
-        TECMO_ASSET_PACK_GAMEPLAY_DUNK_STAGES_OFFSET +
-                TECMO_GAMEPLAY_DUNK_STAGE_COUNT *
-                    TECMO_ASSET_PACK_GAMEPLAY_DUNK_STAGE_STRIDE !=
-            TECMO_ASSET_PACK_GAMEPLAY_DUNK_SIZE) {
-        tecmo_asset_pack_set_message(message, message_size,
-                                     "TGDK-1 payload layout self-test failed.");
-        return -1;
-    }
     tecmo_asset_pack_set_message(message, message_size,
                                  "TGDK-1 payload layout self-test passed.");
     return 0;

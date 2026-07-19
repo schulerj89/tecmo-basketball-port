@@ -13,7 +13,11 @@
 #define TECMO_GAMEPLAY_DUNK_LIFECYCLE_TAG 0x4B444754U
 #define DUNK_GEOMETRY_CPU 0xB3EAU
 #define DUNK_GEOMETRY_SIZE 2130U
-#define DUNK_RENDER_FNV1A32 0xAA508365U
+#define DUNK_RENDER_FNV1A32 0xBA611C75U
+
+static const uint8_t dunk_visible_frame[TECMO_GAMEPLAY_DUNK_STAGE_COUNT] = {
+    28U, 32U, 37U, 42U, 47U, 52U, 57U
+};
 
 static uint16_t read_u16(const uint8_t *bytes)
 {
@@ -286,9 +290,7 @@ static bool validate_cells_and_stages(const uint8_t *payload,
         if (read_u16(stage) !=
                 TECMO_GAMEPLAY_DUNK_FIRST_ASSIGN_FRAME +
                     index * TECMO_GAMEPLAY_DUNK_STAGE_CADENCE ||
-            read_u16(stage + 2U) !=
-                TECMO_GAMEPLAY_DUNK_FIRST_VISIBLE_FRAME +
-                    index * TECMO_GAMEPLAY_DUNK_STAGE_CADENCE ||
+            read_u16(stage + 2U) != dunk_visible_frame[index] ||
             stage[7U] != expected_page || stage[8U] != index ||
             !bytes_are_zero(stage + 9U, 7U)) {
             return false;
@@ -618,7 +620,7 @@ bool tecmo_gameplay_dunk_cutaway_draw(
             origin_y + (int)(index / 32U) * 8 * scale,
             scale, palette, false, false);
     }
-    for (index = 0U; index < record->piece_count; ++index) {
+    for (index = record->piece_count; index-- > 0U;) {
         const uint8_t *piece = record->pieces + index * 4U;
         uint16_t tile = (uint16_t)piece[1U] + 1U;
         uint32_t page = stage->sprite_chr_page + ((tile & 0xFEU) >> 6U);
@@ -629,9 +631,9 @@ bool tecmo_gameplay_dunk_cutaway_draw(
         bool flip_horizontal = (attributes & 0x40U) != 0U;
         bool flip_vertical = (attributes & 0x80U) != 0U;
         int x = origin_x +
-            ((int)stage->anchor_x[side] + (int)piece[3U]) * scale;
+            (int)(uint8_t)(stage->anchor_x[side] + piece[3U]) * scale;
         int y = origin_y +
-            ((int)stage->anchor_y + (int)piece[0U] + 1) * scale;
+            (int)(uint8_t)(stage->anchor_y + piece[0U] + 1U) * scale;
         size_t color;
         for (color = 1U; color < 4U; ++color) {
             palette[color] = tecmo_nes_2c02_rgba(
@@ -757,11 +759,13 @@ bool tecmo_gameplay_dunk_cutaway_self_test(
     }
     for (frame = TECMO_GAMEPLAY_DUNK_FIRST_VISIBLE_FRAME;
          frame <= TECMO_GAMEPLAY_DUNK_LAST_VISIBLE_FRAME; ++frame) {
-        uint8_t expected = (uint8_t)(
-            (frame - TECMO_GAMEPLAY_DUNK_FIRST_VISIBLE_FRAME) /
-            TECMO_GAMEPLAY_DUNK_STAGE_CADENCE);
-        if (expected >= TECMO_GAMEPLAY_DUNK_STAGE_COUNT) {
-            expected = TECMO_GAMEPLAY_DUNK_STAGE_COUNT - 1U;
+        uint8_t expected = 0U;
+        size_t expected_stage;
+        for (expected_stage = 1U;
+             expected_stage < TECMO_GAMEPLAY_DUNK_STAGE_COUNT;
+             ++expected_stage) {
+            if (frame < dunk_visible_frame[expected_stage]) break;
+            expected = (uint8_t)expected_stage;
         }
         if (!tecmo_gameplay_dunk_cutaway_stage_for_frame(
                 &assets, (uint16_t)frame, &stage_index) ||

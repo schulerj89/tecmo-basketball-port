@@ -121,6 +121,11 @@ current NES B level with no timeout; unassigned CPU sides use the bounded
 observed 125-update launch schedule. The strict pose asset
 stores 208 exact TGCS profile/direction resolutions into TGPL pose data; live
 play currently selects only profile 0/direction 0.
+The dunk also uses the strict ROM-derived TGDK-1 cutaway: black transition,
+screen `$0B`, both side-specific seven-stage sprite streams, palette/CHR
+selection, live return, frame-87 A9C5 sequence audio, and frame-132 settlement.
+The current distance trigger, make/miss result, and dynamic uniform selection
+remain native policies.
 
 Opening music plays from the strict ROM-derived semantic music asset. GAME
 MUSIC gates gameplay track 5 and the evidence-bounded restart cue; halftime and
@@ -146,6 +151,7 @@ through explicit render-test/debug paths for development work.
 .\build\tecmo_port.exe --controls-test
 .\build\tecmo_port.exe --gameplay-state-test
 .\tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-GameplayDunkCutawayTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 ```
 
 Render the normal menu or a focused intro frame:
@@ -157,6 +163,7 @@ Render the normal menu or a focused intro frame:
 .\build\tecmo_port.exe --render-test-mode gameplay-start build\gameplay_start_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-jump-frame12 build\gameplay_jump_12_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-dunk-frame16 build\gameplay_dunk_16_test.png
+.\build\tecmo_port.exe --render-test-mode gameplay-dunk-frame64 build\gameplay_dunk_64_test.png
 ```
 
 The former `gameplay-close-shot-frameN` spelling remains a compatibility alias

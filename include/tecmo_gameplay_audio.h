@@ -32,7 +32,8 @@ typedef enum TecmoGameplayAudioEvent {
 } TecmoGameplayAudioEvent;
 
 /* The A8D6 meanings remain address-bound. A9C5/ABF5 are sequence-level
-   correlations only: neither is claimed as an impact/rim cue or queued live. */
+   correlations only, not impact/rim claims. The live scene queues A9C5 only at
+   the ROM-observed dunk action frame 87; ABF5 remains imported but unused. */
 typedef enum TecmoGameplayDmcClipId {
     TECMO_GAMEPLAY_DMC_BANK05_A8D6_SHORT = 0,
     TECMO_GAMEPLAY_DMC_BANK05_A8D6_LONG = 1,

@@ -36,7 +36,8 @@ remains the separate NES A-release presentation gate.
 
 The compound scene loads `gameplay/core` TGPL-1 (23416 bytes,
 `2047CCE0`), `gameplay/court` TGCT-1 (6559 bytes, `ECAB7A93`),
-`gameplay/close-shots` TGCS-1 (3144 bytes, `DACDC976`), `audio/music`
+`gameplay/close-shots` TGCS-1 (3144 bytes, `DACDC976`),
+`gameplay/dunk-cutaway` TGDK-1 (20272 bytes, `E02F2D21`), `audio/music`
 TMUS-1 (36784 bytes, `05C00ECB`), `audio/gameplay-sfx` TSFX-1 (2824
 bytes, `968A5DE6`), `audio/gameplay-dmc` TDMC-1 (2515 bytes,
 `AD70E6E8`), and the exact 262144-byte `chr/all` revision from one asset pack.
@@ -56,6 +57,20 @@ are native approximations, not properties proved by the asset. Numeric variant
 1 remains unexposed. TGCS APIs and fields continue to expose numeric IDs; the
 loader derives and validates the exact 0=dunk, 2=layup semantic mapping without
 changing the 3144-byte payload or its `DACDC976` fingerprint.
+
+The dunk family now crosses into the strict TGDK-1 presentation. The importer
+decodes screen `$0B` into both bounded 960-cell backgrounds, resolves the exact
+profile-1/uniform-`$30` palette checkpoint, retains both side-specific seven-stage
+8x16 sprite streams, and maps every background/sprite tile into same-pack
+`chr/all`. Record order remains NES OAM priority, so the native renderer
+composites in reverse. The observed action schedule is live 1-22, dispatch 23,
+initial black 24-27, visible cutaway 28-62, black/rebuild 63-70, live return 71,
+A9C5 at 87, and settlement at 132. Stage 0 is assigned at 27 and first visible at
+28. Later assignment and captured first-visible frames are
+32/37/42/47/52/57. Frame 63 remains black despite retained final-stage OAM; frame
+64 clears OAM. The scene freezes the TGCS live pose at step 22 during the
+presentation, resumes at step 23 on frame 71, reaches step 31 on frame 79, and
+holds it through settlement.
 
 Bounded local original execution supplies the semantic correlation. Save-state
 slot 2 held numeric variant 0 through the live approach, entered its visible
@@ -81,9 +96,9 @@ violations to 6, made shots/free throws to crowd response 11, and motion with a
 held ball to the proven `$B5AB` held-ball/dribble DMC clip. Neutral SFX 5 is
 kept as `BANK05_9FEC_CUE` and is requested only at the evidence-bounded
 foul/restart boundaries under the GAME MUSIC gate. Imported side-result SFX
-12/13, the conservative dunk-sequence A9C5 and layup-sequence ABF5 clips, and
-the two still-address-bound A8D6 clips are not queued by the live scene. The
-sequence names do not assert an impact or rim cue.
+12/13, the conservative layup-sequence ABF5 clip, and the two still-address-bound
+A8D6 clips are not queued by the live scene. Dunk action frame 87 queues A9C5
+exactly once. The sequence names do not assert an impact or rim cue.
 
 ## ROM-derived anchors
 
@@ -126,6 +141,15 @@ decompilation at these CPU-address ranges:
   progression `$86BB`, `$86DD`, `$8732`, `$8745`, result `$91BC-$943A`, ball
   path `$AF30-$B073`, and scoring `$B995-$BA3F`: numeric close-shot subtype 01
   and its surrounding shot machinery.
+- Bank 05 `$856B-$85A7` and `$85F3-$8640`: variant-0 presentation trigger and
+  clear-lane helper.
+- Fixed `$E770-$E78D` and descriptor `$DCD2-$DCD8`: presentation dispatch and
+  screen `$0B` selection; Bank 00 `$9022-$9346` plus `$9346-$9355` supply the
+  overlapping D9F6 terminator/base-palette boundary.
+- Bank 01 `$B002-$B157`: controller, seven-stage setup/tables, and palette
+  recipe; fixed `$C711-$C73B` plus `$CAF5-$CBAE` supply selector dispatch.
+- Bank 06 `$B37C-$BC3B`: relative sprite emitter, side pointers, and all
+  four-byte geometry records; fixed `$EB8D-$EC05` restores the court.
 
 The corresponding lifted sources include
 `decomp/lifted/bank03/C-0144_bank03_selection_value_table_8374_8378.asm`,
@@ -171,14 +195,22 @@ These are provenance only and are not runtime inputs.
   embedded FCEUX RGB profile are exact, but native selection does not yet
   reproduce all original matchup/state colors. The exact rules state consumes
   explicit outcomes without turning those scene policies into ROM-exact claims.
-- Local original-frame comparisons at gameplay start and ordinary-jump/dunk
-  checkpoints found no unrendered or garbage cells and kept exact assets
-  and poses stable. Camera, spacing, HUD, and dynamic matchup palette selection
-  remain visibly non-identical.
+- The dunk cutaway uses the exact bounded profile-1/uniform-`$30` checkpoint;
+  selecting a different team profile/uniform remains unresolved. Its native
+  shot arc and deterministic make/miss policy continue behind/after the exact
+  presentation and are not claimed as ROM behavior.
+- Local original-frame comparisons, after normalizing the small FCEUX screenshot
+  RGB-output difference, matched the frame-24 black, frame-32 stage, frame-48
+  stage, and frame-64 black cutaway pixels exactly. Returned live frame 80 still
+  differs because camera, spacing, HUD, and dynamic matchup palette selection
+  remain native approximations.
 - The module contains no proprietary ROM bytes, screenshots, traces, save
   states, dumps, or capture artifacts.
 
 Run `tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` for the
 strict full-pack scene test and deterministic 640x480 start, ordinary-jump, and
-dunk checkpoints. `--gameplay-state-test`, the TGPL/TGCT/TGCS focused
-suites, and `Run-GameplayAudioTests.ps1` retain their lower-level coverage.
+dunk checkpoints through frame 132. Run
+`tools\Run-GameplayDunkCutawayTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` for
+the strict TGDK payload/provenance/render/mutation/revision checks.
+`--gameplay-state-test`, the TGPL/TGCT/TGCS focused suites, and
+`Run-GameplayAudioTests.ps1` retain their lower-level coverage.

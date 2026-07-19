@@ -212,6 +212,7 @@ try {
         [pscustomobject]@{ id="gameplay/core"; size=23416; hash="2047CCE0"; schema="tecmo.gameplay/TGPL-1" },
         [pscustomobject]@{ id="gameplay/court"; size=6559; hash="ECAB7A93"; schema="tecmo.gameplay-court/TGCT-1" },
         [pscustomobject]@{ id="gameplay/close-shots"; size=3144; hash="DACDC976"; schema="tecmo.gameplay-close-shots/TGCS-1" },
+        [pscustomobject]@{ id="gameplay/dunk-cutaway"; size=20272; hash="E02F2D21"; schema="tecmo.gameplay-dunk-cutaway/TGDK-1" },
         [pscustomobject]@{ id="audio/music"; size=36784; hash="05C00ECB"; schema="tecmo.music/TMUS-1" },
         [pscustomobject]@{ id="audio/gameplay-sfx"; size=2824; hash="968A5DE6"; schema="tecmo.gameplay-audio/TSFX-1" },
         [pscustomobject]@{ id="audio/gameplay-dmc"; size=2515; hash="AD70E6E8"; schema="tecmo.gameplay-audio/TDMC-1" },
@@ -264,6 +265,31 @@ try {
     Assert-SceneRejected -AssetPack $MalformedPath `
         -Label "malformed-close-shots"
 
+    $MissingDunkPath = Join-Path $Scratch "missing-dunk-cutaway.assetpack"
+    $MissingDunk = [byte[]]$PackBytes.Clone()
+    $MissingDunk[[int]$Entries["gameplay/dunk-cutaway"].directory_offset] =
+        [byte][char]'x'
+    [IO.File]::WriteAllBytes($MissingDunkPath, $MissingDunk)
+    Assert-SceneRejected -AssetPack $MissingDunkPath `
+        -Label "missing-dunk-cutaway"
+
+    $MalformedDunkPath = Join-Path $Scratch "malformed-dunk-cutaway.assetpack"
+    $MalformedDunk = [byte[]]$PackBytes.Clone()
+    $DunkOffset = [int]$Entries["gameplay/dunk-cutaway"].pack_offset
+    $MalformedDunk[$DunkOffset] = $MalformedDunk[$DunkOffset] -bxor 1
+    [IO.File]::WriteAllBytes($MalformedDunkPath, $MalformedDunk)
+    Assert-SceneRejected -AssetPack $MalformedDunkPath `
+        -Label "malformed-dunk-cutaway"
+
+    $OversizedDunkPath = Join-Path $Scratch "oversized-dunk-cutaway.assetpack"
+    $OversizedDunk = [byte[]]$PackBytes.Clone()
+    [BitConverter]::GetBytes([uint64]20273).CopyTo(
+        $OversizedDunk,
+        [int]$Entries["gameplay/dunk-cutaway"].directory_offset + 92)
+    [IO.File]::WriteAllBytes($OversizedDunkPath, $OversizedDunk)
+    Assert-SceneRejected -AssetPack $OversizedDunkPath `
+        -Label "oversized-dunk-cutaway"
+
     $OversizedPath = Join-Path $Scratch "oversized-core.assetpack"
     $Oversized = [byte[]]$PackBytes.Clone()
     [BitConverter]::GetBytes([uint64]23417).CopyTo(
@@ -290,7 +316,12 @@ try {
         [pscustomobject]@{ mode="gameplay-dunk-frame16"; state='gameplay-state frame=16 shot=dunk phase=live' },
         [pscustomobject]@{ mode="gameplay-close-shot-frame16"; state='gameplay-state frame=16 shot=dunk phase=live' },
         [pscustomobject]@{ mode="gameplay-dunk-frame24"; state='gameplay-state frame=24 shot=dunk phase=live' },
-        [pscustomobject]@{ mode="gameplay-dunk-frame32"; state='gameplay-state frame=32 shot=dunk phase=live' }
+        [pscustomobject]@{ mode="gameplay-dunk-frame32"; state='gameplay-state frame=32 shot=dunk phase=live' },
+        [pscustomobject]@{ mode="gameplay-dunk-frame48"; state='gameplay-state frame=48 shot=dunk phase=live' },
+        [pscustomobject]@{ mode="gameplay-dunk-frame64"; state='gameplay-state frame=64 shot=dunk phase=live' },
+        [pscustomobject]@{ mode="gameplay-dunk-frame80"; state='gameplay-state frame=80 shot=dunk phase=live' },
+        [pscustomobject]@{ mode="gameplay-dunk-frame87"; state='gameplay-state frame=87 shot=dunk phase=live' },
+        [pscustomobject]@{ mode="gameplay-dunk-frame132"; state='gameplay-state frame=132 shot=dunk phase=live' }
     )
     $RenderHashes = @{}
     foreach ($Spec in $RenderSpecs) {
@@ -300,10 +331,13 @@ try {
     $VisualSentinels = @(
         $RenderHashes["gameplay-start"],
         $RenderHashes["gameplay-jump-frame12"],
-        $RenderHashes["gameplay-dunk-frame16"]
+        $RenderHashes["gameplay-dunk-frame16"],
+        $RenderHashes["gameplay-dunk-frame32"],
+        $RenderHashes["gameplay-dunk-frame64"],
+        $RenderHashes["gameplay-dunk-frame80"]
     ) | Select-Object -Unique
-    if ($VisualSentinels.Count -ne 3) {
-        throw "Gameplay start/jump/dunk visual sentinels collapsed together."
+    if ($VisualSentinels.Count -ne 6) {
+        throw "Gameplay live/cutaway/black/return visual sentinels collapsed together."
     }
     if ($RenderHashes["gameplay-close-shot-frame16"] -ne
         $RenderHashes["gameplay-dunk-frame16"]) {
@@ -312,8 +346,9 @@ try {
 
     $global:LASTEXITCODE = 0
     Write-Output ("GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance " +
-        "scene controls shots audio state halftime/final render-determinism " +
-        "missing malformed oversized chr-mismatch")
+        "scene controls shots dunk-cutaway frame87-dmc audio state " +
+        "halftime/final render-determinism missing malformed oversized " +
+        "chr-mismatch")
 } finally {
     $env:TECMO_ASSETPACK = $PreviousPack
     $env:TECMO_SKIP_SHORTCUT = $PreviousSkipShortcut

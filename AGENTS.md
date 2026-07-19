@@ -484,8 +484,9 @@ or 15. Bank05 `$B5AB` is held-ball/dribble. `$A9C5` is conservatively named
 the dunk sequence and `$ABF5` the layup sequence: bounded local slot-2 evidence
 correlates numeric variant 0, its cutaway, and the later `$A9C5` trigger at
 action frame 87; slot 1 correlates numeric variant 2 with `$ABF5` at action
-frame 34. These are sequence-level names, not impact/rim claims, and neither is
-queued by the live scene. The two `$A8D6` clips remain address-bound. DMC
+frame 34. These are sequence-level names, not impact/rim claims. The live
+scene queues A9C5 exactly once at dunk action frame 87; ABF5 is not yet queued.
+The two `$A8D6` clips remain address-bound. DMC
 advances independently of music and tonal SFX; no trigger writes `$4011`.
 GAME MUSIC gates future track 5 only,
 and GAME SPEED has no path into audio cadence. `tecmo_gameplay_audio_stop_all`
@@ -504,8 +505,9 @@ is enabled, and queues track 6 for halftime/final presentation. It maps clock
 expiry to SFX 3, the late-clock countdown to 14, violations to 6, made shots and
 free throws to crowd response 11, and moving possession to the proven `$B5AB`
 held-ball/dribble DMC clip. `BANK05_9FEC_CUE` remains neutral and is gated at
-the bounded foul/restart boundaries. Side-result 12/13, the sequence-named
-A9C5/ABF5 clips, and address-named A8D6 clips stay imported without live use.
+the bounded foul/restart boundaries. Dunk action frame 87 queues the
+sequence-named A9C5 clip. Side-result 12/13, ABF5, and address-named A8D6
+clips stay imported without live use.
 
 Finale provenance is the raw Bank04 chain `$851C` wait 50 -> `$83EA` wait 30
 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 -> `$FFFF`, loading
@@ -586,6 +588,17 @@ TGCS stores 208 exact profile/direction resolutions into TGPL pose data, but the
 live scene currently selects only profile 0/direction 0 and mirrors
 actor-facing-left; the asset breadth must not be read as proof of that narrower
 live policy.
+`gameplay/dunk-cutaway` is the strict 20272-byte TGDK-1 payload (FNV1a32
+`E02F2D21`). It resolves screen `$0B`'s two D9F6 nametable pages, exact palette
+recipe, both side-specific sprite streams, seven stage anchors, CHR selectors,
+and OAM-priority order from revision-fingerprinted PRG spans plus same-pack
+`chr/all`. The visible ROM schedule is live 1-22, dispatch 23, black 24-27,
+cutaway 28-62, black/rebuild 63-70, live return 71, A9C5 at 87, and action
+settlement at 132. Stage 0 is assigned at 27 and first visible at 28; later
+assignments at 32/37/42/47/52/57 are visible on those captured frames. Frame 63
+is black even though the last staged OAM remains, and frame 64 clears it.
+Profile 1 with uniform `$30` is the exact bounded checkpoint; dynamic matchup
+profile/uniform selection remains unresolved.
 The imported TGCT palette bytes and embedded FCEUX RGB profile are exact; that
 does not imply frame-identical matchup/state palette selection. The high-level
 mapping is proven as variant 0 = dunk and variant 2 = layup; low-level TGCS
@@ -597,7 +610,7 @@ material, not committed provenance or runtime input. See
 `tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 
 The scene must obtain TGPL-1 `gameplay/core`, TGCT-1 `gameplay/court`, TGCS-1
-`gameplay/close-shots`, TMUS-1 `audio/music`, TSFX-1
+`gameplay/close-shots`, TGDK-1 `gameplay/dunk-cutaway`, TMUS-1 `audio/music`, TSFX-1
 `audio/gameplay-sfx`, TDMC-1 `audio/gameplay-dmc`, and `chr/all` from the same
 explicit pack. Exact-size reads, canonical fingerprints, deep bounds/reserved
 checks, CHR revision fingerprints, the music asset's selected pack path, and
@@ -620,6 +633,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/asset_pack/tecmo_asset_pack_gameplay.c`: strict TGPL-1 gameplay-core importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_court.c`: strict TGCT-1 static-court importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_close_shots.c`: strict TGCS-1 numeric close-shot importer
+- `src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c`: strict TGDK-1 screen/palette/CHR/staged-sprite importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_audio.c`: strict TSFX-1/TDMC-1 gameplay-audio importer
 - `src/asset_pack/tecmo_asset_pack_start_menu.c`: ROM-only TSGM-1 blue start-game menu importer
 - `src/asset_pack/tecmo_asset_pack_opening.c`: ROM-only TISC-1 TECMO/rabbit and NBA opening-screen importer
@@ -631,6 +645,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/tecmo_intro_arena.c`: strict TATL/TASG loading, native arena drawing, capture debug scaffolding
 - `src/tecmo_intro_finale.c`: strict TFIN-1 loading, finale phases, title bands, and rendering
 - `src/tecmo_gameplay_scene.c`: native launch, input, state, animation, audio-event, result, and rendering integration
+- `src/tecmo_gameplay_dunk_cutaway.c`: strict TGDK-1 loader, palette resolver, stage scheduler, and OAM-priority renderer
 - `src/tecmo_gameplay_audio.c`: strict gameplay-audio loader, event sequencer, DMC decoder, and music/SFX mixer
 - `src/tecmo_start_game_menu.c`: strict TSGM-1 menu loading, update, transition, and rendering
 - `src/tecmo_intro_stage.c`: intro sprite staging and arena transition state model

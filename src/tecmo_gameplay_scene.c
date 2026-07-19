@@ -134,6 +134,7 @@ static void scene_release_owned(TecmoGameplayScene *scene)
         tecmo_gameplay_audio_stop_all(&scene->audio_player);
     }
     tecmo_gameplay_audio_asset_shutdown(&scene->audio_asset);
+    tecmo_gameplay_dunk_cutaway_destroy(&scene->dunk_cutaway);
     tecmo_gameplay_close_shots_destroy(&scene->close_shots);
     tecmo_gameplay_court_destroy(&scene->court);
     tecmo_gameplay_assets_destroy(&scene->assets);
@@ -142,6 +143,7 @@ static void scene_release_owned(TecmoGameplayScene *scene)
     tecmo_gameplay_assets_init(&scene->assets);
     tecmo_gameplay_court_init(&scene->court);
     tecmo_gameplay_close_shots_init(&scene->close_shots);
+    tecmo_gameplay_dunk_cutaway_init(&scene->dunk_cutaway);
     scene_set_status(scene, "gameplay scene initialized; assets not loaded");
 }
 
@@ -153,6 +155,7 @@ void tecmo_gameplay_scene_init(TecmoGameplayScene *scene)
     tecmo_gameplay_assets_init(&scene->assets);
     tecmo_gameplay_court_init(&scene->court);
     tecmo_gameplay_close_shots_init(&scene->close_shots);
+    tecmo_gameplay_dunk_cutaway_init(&scene->dunk_cutaway);
     scene_set_status(scene, "gameplay scene initialized; assets not loaded");
 }
 
@@ -193,6 +196,13 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
         scene_set_status(scene, failure);
         return false;
     }
+    if (!tecmo_gameplay_dunk_cutaway_load(&scene->dunk_cutaway, selected)) {
+        (void)snprintf(failure, sizeof(failure), "%s",
+                       scene->dunk_cutaway.status);
+        scene_release_owned(scene);
+        scene_set_status(scene, failure);
+        return false;
+    }
     if (music_player == NULL || music_player->asset == NULL ||
         !music_player->asset->available ||
         music_player->asset->payload_fingerprint !=
@@ -223,7 +233,7 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
     }
     scene->available = true;
     scene_set_status(scene,
-                     "native gameplay ready: TGPL-1/TGCT-1/TGCS-1/TSFX-1/TDMC-1");
+                     "native gameplay ready: TGPL-1/TGCT-1/TGCS-1/TGDK-1/TSFX-1/TDMC-1");
     return true;
 }
 
@@ -613,7 +623,9 @@ static bool scene_start_shot_actor(TecmoGameplayScene *scene,
     }
     scene->shot_actor = actor_index;
     scene->shot_frame = 0U;
-    scene->shot_duration = close ? close_info.step_count : 40U;
+    scene->shot_duration = scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_DUNK
+                               ? TECMO_GAMEPLAY_DUNK_RESOLVE_FRAME
+                               : (close ? close_info.step_count : 40U);
     scene->shot_points = close || distance_x < 104 ? 2U : 3U;
     scene->shot_start_x_q8 = (int32_t)(actor->x +
         (actor->facing_right ? 7 : -7)) * 256;
@@ -694,6 +706,34 @@ static bool scene_handoff_possession(TecmoGameplayScene *scene,
     return true;
 }
 
+static bool scene_close_step_for_frame(const TecmoGameplayScene *scene,
+                                       uint16_t frame,
+                                       uint8_t *step)
+{
+    TecmoGameplayCloseShotVariantInfo info;
+    uint16_t selected;
+    if (scene == NULL || step == NULL ||
+        !scene_shot_is_close(scene->shot_kind) ||
+        !tecmo_gameplay_close_shots_get_variant_info(
+            &scene->close_shots, scene_close_variant(scene->shot_kind),
+            &info) || info.step_count == 0U) {
+        return false;
+    }
+    if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_DUNK) {
+        selected = frame < info.step_count ? frame : info.step_count - 1U;
+    } else if (frame <= 22U) {
+        selected = frame;
+    } else if (frame < TECMO_GAMEPLAY_DUNK_LIVE_RETURN_FRAME) {
+        selected = 22U;
+    } else {
+        selected = (uint16_t)(22U + frame -
+                              (TECMO_GAMEPLAY_DUNK_LIVE_RETURN_FRAME - 1U));
+    }
+    if (selected >= info.step_count) selected = info.step_count - 1U;
+    *step = (uint8_t)selected;
+    return true;
+}
+
 static bool scene_update_shot(TecmoGameplayScene *scene)
 {
     int64_t duration;
@@ -732,10 +772,10 @@ static bool scene_update_shot(TecmoGameplayScene *scene)
         actor->pose_index = scene_jump_pose(scene->shot_frame);
     } else {
         uint16_t pose_index;
-        uint16_t bounded_step = scene->shot_frame < scene->shot_duration
-                                    ? scene->shot_frame
-                                    : scene->shot_duration - 1U;
-        scene->close_shot_step = (uint8_t)bounded_step;
+        if (!scene_close_step_for_frame(scene, scene->shot_frame,
+                                        &scene->close_shot_step)) {
+            return false;
+        }
         if (!scene_close_pose_for_step(scene, scene->close_shot_step,
                                        &pose_index)) {
             return false;
@@ -744,6 +784,13 @@ static bool scene_update_shot(TecmoGameplayScene *scene)
         /* TGCS supplies one exact numeric pose phase per native scene step.
            Do not advance the unrelated bounded rightward trace on an invented
            cadence; the pure-state semantic chain remains untouched. */
+    }
+
+    if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_DUNK &&
+        scene->shot_frame == TECMO_GAMEPLAY_DUNK_DMC_FRAME) {
+        (void)tecmo_gameplay_audio_queue_dmc_clip(
+            &scene->audio_player,
+            TECMO_GAMEPLAY_DMC_DUNK_SEQUENCE_A9C5);
     }
 
     if (scene->shot_frame < scene->shot_duration) return true;
@@ -1417,6 +1464,17 @@ static bool scene_resolve_pose(const TecmoGameplayScene *scene,
                                               &context, pose);
 }
 
+bool tecmo_gameplay_scene_in_dunk_presentation(
+    const TecmoGameplayScene *scene)
+{
+    return scene != NULL &&
+           scene->lifecycle_tag == TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG &&
+           scene->active &&
+           scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_DUNK &&
+           scene->shot_frame >= TECMO_GAMEPLAY_DUNK_BLACK_START_FRAME &&
+           scene->shot_frame < TECMO_GAMEPLAY_DUNK_LIVE_RETURN_FRAME;
+}
+
 static void scene_fill_rect(TecmoFramebuffer *framebuffer, int x, int y,
                             int width, int height, uint32_t color)
 {
@@ -1430,6 +1488,37 @@ static void scene_fill_rect(TecmoFramebuffer *framebuffer, int x, int y,
             pixels[column] = color;
         }
     }
+}
+
+static bool scene_draw_dunk_presentation(
+    const TecmoGameplayScene *scene,
+    TecmoFramebuffer *framebuffer,
+    int origin_x,
+    int origin_y,
+    int scale)
+{
+    uint8_t stage;
+    uint8_t side;
+    if (scene->shot_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->actors[scene->shot_actor].team >=
+            TECMO_GAMEPLAY_DUNK_SIDE_COUNT) {
+        return false;
+    }
+    side = scene->actors[scene->shot_actor].team;
+    if (scene->shot_frame >= TECMO_GAMEPLAY_DUNK_FIRST_VISIBLE_FRAME &&
+        scene->shot_frame <= TECMO_GAMEPLAY_DUNK_LAST_VISIBLE_FRAME) {
+        return tecmo_gameplay_dunk_cutaway_stage_for_frame(
+                   &scene->dunk_cutaway, scene->shot_frame, &stage) &&
+               tecmo_gameplay_dunk_cutaway_draw(
+                   &scene->dunk_cutaway, scene->assets.chr_storage,
+                   scene->assets.chr_storage_size, framebuffer,
+                   origin_x, origin_y, scale, side, 1U, 0x30U, stage);
+    }
+    scene_fill_rect(framebuffer, origin_x, origin_y,
+                    TECMO_GAMEPLAY_SCENE_NES_WIDTH * scale,
+                    TECMO_GAMEPLAY_SCENE_NES_HEIGHT * scale,
+                    tecmo_nes_2c02_rgba(0x0FU));
+    return true;
 }
 
 static void scene_draw_pose(const TecmoGameplayScene *scene,
@@ -1483,8 +1572,14 @@ bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
     if (scene == NULL ||
         scene->lifecycle_tag != TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG ||
         !scene->available || !scene_framebuffer_valid(framebuffer, origin_x,
-                                                      origin_y, scale) ||
-        !scene_build_background_context(scene, &background_context)) {
+                                                      origin_y, scale)) {
+        return false;
+    }
+    if (tecmo_gameplay_scene_in_dunk_presentation(scene)) {
+        return scene_draw_dunk_presentation(
+            scene, framebuffer, origin_x, origin_y, scale);
+    }
+    if (!scene_build_background_context(scene, &background_context)) {
         return false;
     }
     for (row = 0U; row < 30U; ++row) {
@@ -1994,6 +2089,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     p2.pressed.cancel = true;
     if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
         scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_DUNK ||
+        scene.shot_duration != TECMO_GAMEPLAY_DUNK_RESOLVE_FRAME ||
         scene.close_shot_step != 0U ||
         scene.close_shot_profile != TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0 ||
         scene.close_shot_direction !=
@@ -2019,12 +2115,17 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     close_transition_serial =
         scene.state.close_shot_subtype01.transition_serial;
     shot_actor = scene.shot_actor;
-    for (frame = 0U; frame < 40U &&
+    for (frame = 0U; frame < 140U &&
          scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE; ++frame) {
         memset(&p1, 0, sizeof(p1));
         if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
             (scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
-              (!scene_close_pose_for_step(&scene, scene.close_shot_step,
+              (tecmo_gameplay_scene_in_dunk_presentation(&scene) !=
+                   (scene.shot_frame >=
+                        TECMO_GAMEPLAY_DUNK_BLACK_START_FRAME &&
+                    scene.shot_frame <
+                        TECMO_GAMEPLAY_DUNK_LIVE_RETURN_FRAME) ||
+               !scene_close_pose_for_step(&scene, scene.close_shot_step,
                                           &expected_pose) ||
                scene.actors[shot_actor].pose_index != expected_pose ||
                !scene_test_close_semantic_chain_untouched(&scene) ||
@@ -2036,6 +2137,34 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
                                "dunk/TGCS variant-0 replay failed");
             tecmo_gameplay_scene_destroy(&scene);
             return false;
+        }
+        if (scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
+            if ((scene.shot_frame == 22U && scene.close_shot_step != 22U) ||
+                (scene.shot_frame == 23U && scene.close_shot_step != 22U) ||
+                (scene.shot_frame == 70U && scene.close_shot_step != 22U) ||
+                (scene.shot_frame == 71U && scene.close_shot_step != 23U) ||
+                (scene.shot_frame == 79U && scene.close_shot_step != 31U) ||
+                (scene.shot_frame == 86U && scene.audio_player.dmc.active) ||
+                (scene.shot_frame == TECMO_GAMEPLAY_DUNK_DMC_FRAME &&
+                 (!scene.audio_player.dmc.active ||
+                  scene.audio_player.dmc.byte_index != 0U ||
+                  scene.audio_player.dmc.byte_count !=
+                      scene.audio_asset.dmc_clips[
+                          TECMO_GAMEPLAY_DMC_DUNK_SEQUENCE_A9C5].byte_count ||
+                  scene.audio_player.dmc.pool_index !=
+                      scene.audio_asset.dmc_clips[
+                          TECMO_GAMEPLAY_DMC_DUNK_SEQUENCE_A9C5].pool_index)) ||
+                (scene.shot_frame == 88U &&
+                 scene.audio_player.dmc.byte_index != 1U)) {
+                scene_test_message(message, message_size,
+                                   "dunk presentation timing/audio boundary failed");
+                tecmo_gameplay_scene_destroy(&scene);
+                return false;
+            }
+            if (scene.shot_frame == TECMO_GAMEPLAY_DUNK_DMC_FRAME) {
+                /* A later accidental requeue would reset this sentinel. */
+                scene.audio_player.dmc.byte_index = 1U;
+            }
         }
     }
     if (scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||

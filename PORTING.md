@@ -538,7 +538,8 @@ is held-ball/dribble. `$A9C5` is conservatively the dunk sequence and `$ABF5`
 the layup sequence: local slot 2 correlated numeric variant 0, its cutaway, and
 the later `$A9C5` trigger at action frame 87, while slot 1 correlated numeric
 variant 2 and `$ABF5` at action frame 34. These names cover the action sequence,
-not an impact or rim event, and the live scene does not queue either clip. The
+not an impact or rim event. The live scene queues A9C5 exactly once at dunk
+action frame 87; ABF5 is not yet queued. The
 two `$A8D6` clips remain address-bound. All clips use exact rates 14/15,
 `$4015=1F`, no loop, no IRQ, and no direct `$4011` write.
 Accordingly, the native DMC delta counter remains latched across a clip
@@ -563,9 +564,9 @@ MUSIC is enabled, and requests track 6 for halftime/final presentation. Its
 evidence-bounded mappings are clock expiry to SFX 3, late-clock countdown to
 14, violation to 6, made shots/free throws to crowd response 11, and moving
 possession to the proven `$B5AB` held-ball/dribble DMC clip. ID 5 remains the
-neutral `BANK05_9FEC_CUE` at its gated foul/restart boundaries. Side-result
-12/13, sequence-named A9C5/ABF5, and address-named A8D6 clips remain imported
-without invented live use.
+neutral `BANK05_9FEC_CUE` at its gated foul/restart boundaries. Dunk action
+frame 87 queues sequence-named A9C5. Side-result 12/13, ABF5, and address-named
+A8D6 clips remain imported without invented live use.
 
 The importer validates the raw finale dispatch chain as `$851C` wait 50 ->
 `$83EA` wait 30 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 ->
@@ -653,8 +654,9 @@ committed exactly once before returning to the existing result rows.
 
 The compound scene strictly loads TGPL-1 `gameplay/core` (23416 bytes,
 `2047CCE0`), TGCT-1 `gameplay/court` (6559 bytes, `ECAB7A93`), TGCS-1
-`gameplay/close-shots` (3144 bytes, `DACDC976`), TMUS-1 `audio/music`, TSFX-1,
-TDMC-1, and the exact `chr/all` revision from one asset-pack path. Exact-size
+`gameplay/close-shots` (3144 bytes, `DACDC976`), TGDK-1
+`gameplay/dunk-cutaway` (20272 bytes, `E02F2D21`), TMUS-1 `audio/music`,
+TSFX-1, TDMC-1, and the exact `chr/all` revision from one asset-pack path. Exact-size
 reads, payload/CHR fingerprints, deep indexes, reserved bytes, and source-map
 provenance are hard requirements. Missing, malformed, oversized,
 wrong-revision, or cross-pack data fails before availability; a draw preflight
@@ -670,6 +672,20 @@ original execution proves the high-level mapping variant 0 = dunk and variant
 2 = layup. TGCS-1 bytes, fingerprints, APIs, and source-map fields keep the
 numeric ROM identities; the semantic mapping is derived and validated by the
 loader rather than read from loose evidence.
+
+TGDK-1 is the complete strict native dunk presentation boundary. Its importer
+revision-checks Bank05 trigger/clear-lane code, fixed dispatch/selector/restore
+code, Bank00 screen `$0B` stream and base palette, Bank01 controller/stage/palette
+recipe, Bank06 sprite emitter/pointers/geometry, and the exact 256 KiB CHR
+revision. It decodes both 1 KiB nametable pages, resolves 1920 bounded background
+cells, preserves both side streams and all seven 8x16 OAM records, and composites
+records in reverse so lower OAM indexes retain NES priority. The trace-visible
+schedule is live 1-22, dispatch 23, black 24-27, cutaway 28-62, black/rebuild
+63-70, live return 71, A9C5 at 87, and settlement at 132. Stage 0 is assigned at
+27 and becomes visible at 28; later assignments and first-visible frames are
+32/37/42/47/52/57. Frame 63 is black by palette with retained OAM, and frame 64
+clears it. The exact bounded palette checkpoint is profile 1/uniform `$30`;
+dynamic matchup selection remains a native approximation.
 
 Period completion follows fixed `$E59B->$E823`: regulation M:00 and divider 45
 are prepared before selecting the next banner, halftime, overtime, or final
@@ -703,18 +719,22 @@ transitions, and audio programs/mappings. Actor/camera layout, movement/AI,
 ordinary jump timing, ball arc and make/contact policy, the trigger selecting
 dunk/variant 0 versus layup/variant 2, live close-shot profile/direction
 selection and left-facing mirroring, dynamic team/court palette selection,
-foul detection,
-free-throw lineup/aim/outcome/rebound and CPU positioning/script behavior, and
-HUD typography remain explicit native approximations. Local original-frame
-comparisons found no
-unrendered or garbage cells and kept exact assets/poses stable, but camera,
-spacing, HUD, and matchup palette selection are visibly not frame-identical.
+foul detection, free-throw lineup/aim/outcome/rebound and CPU
+positioning/script behavior, and HUD typography remain explicit native
+approximations. Local original-frame comparisons found no unrendered or garbage
+cells. After normalizing the small emulator RGB-output difference, the TGDK
+cutaway pixels match the local frame-24 black, frame-32 stage, frame-48 stage,
+and frame-64 black checkpoints exactly. The returned live court at frame 80
+remains visibly different because camera, spacing, HUD, and matchup palette
+selection are still native approximations.
 Test with
 `tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`; its private
 scratch pack, logs, and PNGs remain under ignored `build\` output.
 The strict runtime checkpoints are `gameplay-start`,
 `gameplay-jump-frameN`, and `gameplay-dunk-frameN`; the focused runner
-covers meaningful interior frames plus the 40/32 endpoints.
+covers meaningful interior frames plus the jump endpoint and dunk frames through
+132. Run `tools\Run-GameplayDunkCutawayTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`
+for the focused TGDK parser, provenance, render, mutation, and revision suite.
 The former `gameplay-close-shot-frameN` spelling remains an exact compatibility
 alias for `gameplay-dunk-frameN`; it does not introduce a third shot kind.
 

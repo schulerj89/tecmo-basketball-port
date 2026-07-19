@@ -29,7 +29,7 @@ if (!$Scratch.StartsWith($BuildPrefix,
 }
 $PackPath = Join-Path $Scratch "dunk-cutaway.assetpack"
 $ExpectedOutput =
-    "TGDK-1 dunk cutaway passed: sources=18 cells=1920 stages=7 sides=2 palette=939EBCBE render=AA508365"
+    "TGDK-1 dunk cutaway passed: sources=18 cells=1920 stages=7 sides=2 palette=939EBCBE render=BA611C75"
 $PreviousSkipShortcut = $env:TECMO_SKIP_SHORTCUT
 
 function Get-ShortTail {
@@ -213,12 +213,12 @@ try {
     $SourceMapEntry = Get-AssetPackEntry $PackBytes "system/source-map"
     $Payload = Get-EntryBytes $PackBytes $DunkEntry
     if ($DunkEntry.byte_count -ne 20272 -or
-        (Get-Fnv1a32 $Payload) -ne "BDAF064E" -or
-        (Get-Fnv1a32 (Get-Slice $Payload 0 256)) -ne "D29DA5EF" -or
+        (Get-Fnv1a32 $Payload) -ne "E02F2D21" -or
+        (Get-Fnv1a32 (Get-Slice $Payload 0 256)) -ne "F88E47EE" -or
         (Get-Fnv1a32 (Get-Slice $Payload 832 3929)) -ne "3BCCC0F0" -or
         (Get-Fnv1a32 (Get-Slice $Payload 4768 15360)) -ne "7BE1D71B" -or
         (Get-Fnv1a32 (Get-Slice $Payload 20128 32)) -ne "939EBCBE" -or
-        (Get-Fnv1a32 (Get-Slice $Payload 20160 112)) -ne "84FFDAB7") {
+        (Get-Fnv1a32 (Get-Slice $Payload 20160 112)) -ne "B692EE01") {
         throw "gameplay/dunk-cutaway canonical section contract changed."
     }
     Invoke-DunkAssetTest $PackPath $true
@@ -265,7 +265,7 @@ try {
         $MapOk = $Map.schema -eq
                 "tecmo.gameplay-dunk-cutaway/TGDK-1" -and
             $Map.size -eq 20272 -and
-            $Map.fingerprint_fnv1a32 -eq "BDAF064E" -and
+            $Map.fingerprint_fnv1a32 -eq "E02F2D21" -and
             @($Map.dependencies).Count -eq 1 -and
             $Map.dependencies[0].entry -eq "chr/all" -and
             $Map.dependencies[0].size -eq 262144 -and
@@ -282,7 +282,7 @@ try {
             (@($Map.stages.assignment_frames) -join ",") -eq
                 "27,32,37,42,47,52,57" -and
             (@($Map.stages.visible_frames) -join ",") -eq
-                "28,33,38,43,48,53,58" -and
+                "28,32,37,42,47,52,57" -and
             (@($Map.geometry.record_counts[0]) -join ",") -eq
                 "10,29,39,39,51,49,48" -and
             (@($Map.geometry.record_counts[1]) -join ",") -eq
