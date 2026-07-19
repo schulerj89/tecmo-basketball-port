@@ -236,6 +236,9 @@ normal-play B/Escape returns to the exact originating blue-menu page and
 selection. Season returns restore the fully slid-in second page. A normal-play
 placeholder reached without a recorded blue-menu route ignores B/Escape rather
 than exposing the modern menu; direct debug/test routes retain that menu return.
+The return also preserves committed MUSIC, SPEED, and PERIOD values. Its neutral
+gate consumes B for however long it remains held, the release edge, and the
+first fully neutral frame before the restored menu can process input again.
 
 PRESEASON is a strict ROM-only native scene backed by `menu/preseason` TPRE-1.
 It composes the 14-row CONTROL and DIVISION overlays and the eight-row

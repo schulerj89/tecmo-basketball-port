@@ -308,6 +308,10 @@ season page and selection that dispatched the route; a season return restores
 the fully slid-in page. If a placeholder has no recorded blue-menu origin,
 normal play ignores B/Escape instead of entering the modern diagnostic menu.
 Explicit debug/test placeholder routes keep their original modern-menu return.
+Committed MUSIC, SPEED, and PERIOD values survive the placeholder round-trip.
+A neutral-input latch swallows B while held, its release edge, and the first
+fully neutral frame so the restored season page cannot re-consume that release
+as an immediate slide-out.
 
 PRESEASON uses the strict `menu/preseason` TPRE-1 entry. Import composes the
 CONTROL, DIFFICULTY, and DIVISION overlays from Bank03 ROM records over the

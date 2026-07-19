@@ -94,8 +94,12 @@ typedef struct TecmoRuntime {
     bool normal_play_active;
     bool start_menu_return_pending;
     bool start_menu_return_from_season;
+    bool start_menu_input_neutral_gate;
     uint8_t start_menu_return_root_selection;
     uint8_t start_menu_return_season_selection;
+    uint8_t start_menu_return_music_value;
+    uint8_t start_menu_return_speed_value;
+    uint8_t start_menu_return_period_index;
     bool quit_requested;
     bool debug_overlay;
     bool title_probe_available;

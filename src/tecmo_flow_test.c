@@ -148,6 +148,32 @@ static bool flow_finish_start_menu_exit(TecmoRuntime *runtime,
     return flow_expect_mode(runtime, expected_mode, label, message, message_size);
 }
 
+static bool flow_placeholder_route_matches(const TecmoRuntime *runtime,
+                                           bool from_season,
+                                           uint8_t root_selection,
+                                           uint8_t season_selection,
+                                           uint8_t music_value,
+                                           uint8_t speed_value,
+                                           uint8_t period_index)
+{
+    const TecmoStartGameMenuState *state = &runtime->start_game_menu_state;
+
+    if (runtime->mode != TECMO_MODE_START_GAME_MENU ||
+        state->root_selection != root_selection ||
+        state->music_value != music_value ||
+        state->speed_value != speed_value ||
+        state->period_index != period_index) {
+        return false;
+    }
+    if (from_season) {
+        return state->phase == TECMO_START_GAME_MENU_SEASON &&
+               state->slide_frame == runtime->start_game_menu_asset.slide_frames &&
+               state->season_selection == season_selection;
+    }
+    return state->phase == TECMO_START_GAME_MENU_ROOT &&
+           state->slide_frame == 0U;
+}
+
 static bool flow_expect_placeholder_return(TecmoRuntime *runtime,
                                            bool from_season,
                                            uint8_t root_selection,
@@ -158,6 +184,10 @@ static bool flow_expect_placeholder_return(TecmoRuntime *runtime,
 {
     TecmoInput input;
     const TecmoStartGameMenuAsset *asset = &runtime->start_game_menu_asset;
+    uint8_t music_value = runtime->start_game_menu_state.music_value;
+    uint8_t speed_value = runtime->start_game_menu_state.speed_value;
+    uint8_t period_index = runtime->start_game_menu_state.period_index;
+    unsigned held_frame;
 
     if (!runtime->normal_play_active || !runtime->start_menu_return_pending) {
         set_flow_test_message(message, message_size,
@@ -172,28 +202,60 @@ static bool flow_expect_placeholder_return(TecmoRuntime *runtime,
         return false;
     }
     if (!runtime->normal_play_active || runtime->start_menu_return_pending ||
+        !runtime->start_menu_input_neutral_gate ||
         runtime->start_game_menu_state.frame != asset->stable_frame ||
-        runtime->start_game_menu_state.root_selection != root_selection ||
         runtime->start_game_menu_state.direction_cooldown !=
             asset->accepted_input_seed ||
         runtime->start_game_menu_state.cursor_delay !=
-            asset->cursor_commit_delay_frames) {
+            asset->cursor_commit_delay_frames ||
+        !flow_placeholder_route_matches(runtime, from_season,
+                                        root_selection, season_selection,
+                                        music_value, speed_value, period_index)) {
         set_flow_test_message(message, message_size,
                               "placeholder return did not restore stable blue-menu state");
         return false;
     }
-    if (from_season) {
-        if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SEASON ||
-            runtime->start_game_menu_state.slide_frame != asset->slide_frames ||
-            runtime->start_game_menu_state.season_selection != season_selection) {
+    for (held_frame = 0U; held_frame < 3U; ++held_frame) {
+        tecmo_runtime_update(runtime, &input);
+        if (!runtime->start_menu_input_neutral_gate ||
+            runtime->start_game_menu_state.frame != asset->stable_frame ||
+            !flow_placeholder_route_matches(runtime, from_season,
+                                            root_selection, season_selection,
+                                            music_value, speed_value, period_index)) {
             set_flow_test_message(message, message_size,
-                                  "placeholder return did not restore the season page");
+                                  "held placeholder B escaped the neutral-input gate");
             return false;
         }
-    } else if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
-               runtime->start_game_menu_state.slide_frame != 0U) {
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    if (!runtime->start_menu_input_neutral_gate ||
+        runtime->start_game_menu_state.frame != asset->stable_frame ||
+        !flow_placeholder_route_matches(runtime, from_season,
+                                        root_selection, season_selection,
+                                        music_value, speed_value, period_index)) {
         set_flow_test_message(message, message_size,
-                              "placeholder return did not restore the root page");
+                              "placeholder B release was re-consumed by the blue menu");
+        return false;
+    }
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_menu_input_neutral_gate ||
+        runtime->start_game_menu_state.frame != asset->stable_frame ||
+        !flow_placeholder_route_matches(runtime, from_season,
+                                        root_selection, season_selection,
+                                        music_value, speed_value, period_index)) {
+        set_flow_test_message(message, message_size,
+                              "placeholder return did not settle on a neutral frame");
+        return false;
+    }
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_menu_input_neutral_gate ||
+        runtime->start_game_menu_state.frame != asset->stable_frame + 1U ||
+        !flow_placeholder_route_matches(runtime, from_season,
+                                        root_selection, season_selection,
+                                        music_value, speed_value, period_index)) {
+        set_flow_test_message(message, message_size,
+                              "restored blue menu changed route on its first live neutral frame");
         return false;
     }
     return true;
@@ -1547,6 +1609,9 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     runtime->start_game_menu_state.frame = 32U;
     runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
     runtime->start_game_menu_state.root_selection = 2U;
+    runtime->start_game_menu_state.music_value = 0U;
+    runtime->start_game_menu_state.speed_value = 2U;
+    runtime->start_game_menu_state.period_index = 4U;
     memset(&input, 0, sizeof(input));
     input.shoot = true;
     flow_step(runtime, input);
@@ -1595,6 +1660,9 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     runtime->start_game_menu_state.frame = 32U;
     runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
     runtime->start_game_menu_state.root_selection = 3U;
+    runtime->start_game_menu_state.music_value = 0U;
+    runtime->start_game_menu_state.speed_value = 0U;
+    runtime->start_game_menu_state.period_index = 3U;
     memset(&input, 0, sizeof(input));
     input.shoot = true;
     flow_step(runtime, input);
@@ -2047,6 +2115,9 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     runtime->start_game_menu_state.slide_frame = 32U;
     runtime->start_game_menu_state.root_selection = 1U;
     runtime->start_game_menu_state.season_selection = 2U;
+    runtime->start_game_menu_state.music_value = 0U;
+    runtime->start_game_menu_state.speed_value = 2U;
+    runtime->start_game_menu_state.period_index = 4U;
     memset(&input, 0, sizeof(input));
     input.shoot = true;
     input.cancel = true;
@@ -2068,6 +2139,9 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     runtime->start_game_menu_state.slide_frame = 32U;
     runtime->start_game_menu_state.root_selection = 1U;
     runtime->start_game_menu_state.season_selection = 5U;
+    runtime->start_game_menu_state.music_value = 0U;
+    runtime->start_game_menu_state.speed_value = 0U;
+    runtime->start_game_menu_state.period_index = 2U;
     memset(&input, 0, sizeof(input));
     input.shoot = true;
     flow_step(runtime, input);
