@@ -274,10 +274,11 @@ wrap immediately and repeat every eight held frames; NES A dispatches, while B,
 START, SELECT, Left, and Right do nothing on the root. SEASON GAME moves
 to the six-item second page over 32 frames, advancing the background eight
 pixels and the emblem five pixels per frame; B performs the exact reverse.
-Within that six-item boundary, GAME START hands off to `PLAY_SETUP` and TEAM
-DATA hands off to native `TECMO_MODE_TEAM_DATA`; the other four
-season-management selections remain
-unported no-ops. MUSIC wraps OFF/ON, SPEED wraps FAST/NORMAL/SLOW, and PERIOD
+Within that six-item boundary, TEAM CONTROL, SCHEDULE, GAME START, STANDINGS,
+and LEADERS enter native `TECMO_MODE_SEASON_MENU`; TEAM DATA enters
+`TECMO_MODE_TEAM_DATA`. GAME START prepares only the ROM-scheduled pending
+matchup and remains launch-blocked until native gameplay can provide a completed
+result. MUSIC wraps OFF/ON, SPEED wraps FAST/NORMAL/SLOW, and PERIOD
 clamps across 2/3/4/8/12 minutes. A accepts the highlighted setting and B
 cancels it on release. The native helper `$D723` runs with `$07F6=0`, so held
 A/B never activates. Root, season, MUSIC, and SPEED consider the previous A/B
@@ -301,22 +302,21 @@ season-slide destinations defer the displayed cursor by one OAM commit frame;
 TSGM metadata byte 148 supplies `cursor_commit_delay_frames=1`.
 
 `$E481` is a post-return fade, not a universal root dispatch. Root TEAM DATA
-and the supported season GAME START/TEAM DATA exits show stage 8 on frames 0-1,
-stage 7 on 2-3, stage 6 on 4-5, stage 5 on 6-7, black stage 4 on 8-10, and hand
-off once on frame 11. ALL STAR's `$8221` route remains an explicit handoff to
-`PLAY_SETUP`. PRESEASON now enters its native `$9966` submenu and does not run
-the later `$E481` fade prematurely.
+and all six season-page departures show stage 8 on frames 0-1, stage 7 on 2-3,
+stage 6 on 4-5, stage 5 on 6-7, black stage 4 on 8-10, and hand off once on
+frame 11. PRESEASON's `$9966` and ALL STAR's `$8221` routes enter their native
+submenu construction directly and do not run the later `$E481` fade first.
 
-ALL STAR/GAME START remain bounded native placeholders; TEAM DATA now enters
-its native scene. In normal play, B/Escape returns from those destinations to
-the exact root or season page and selection that dispatched the route; a season
-return restores the fully slid-in page. If a placeholder has no recorded
-blue-menu origin, normal play ignores B/Escape instead of entering the modern
-diagnostic menu. Explicit debug/test routes keep their modern-menu return.
-Committed MUSIC, SPEED, and PERIOD values survive the round-trip. A neutral-
-input latch swallows B while held, its release edge, and the first fully neutral
-frame so the restored season page cannot re-consume that release as an
-immediate slide-out.
+PRESEASON's B/Escape return directly rebuilds the stable root on the PRESEASON
+row; it reinitializes MUSIC/SPEED/PERIOD and does not enable the shared neutral
+gate. ALL STAR, TEAM DATA, and season-management destinations use the recorded
+return path, preserve those committed settings, and restore the exact root or
+fully slid-in season row. Return controls remain submenu-specific: most use B,
+while PROGRAMMED uses START/SELECT because B decrements the selected record.
+The recorded-return neutral latch swallows the held return input, its release
+edge, and the first fully neutral frame before the restored menu can process
+input. Explicit debug/test routes keep their modern-menu return. Gameplay
+remains blocked at the PRESEASON, ALL STAR, and SEASON prelaunch boundaries.
 
 PRESEASON uses the strict `menu/preseason` TPRE-1 entry. Import composes the
 CONTROL, DIFFICULTY, and DIVISION overlays from Bank03 ROM records over the
@@ -373,16 +373,21 @@ and reaches the stable selector/cursor on frame 20. Measured from a released
 selector A, profile entry is black at 8, rendering is off at 10, rendering
 returns black at 16, palette caps advance at 19/23/27/31, and the profile is
 stable at 32. Profile PLAYERS DATA changes only OAM/cursor state and is stable
-on the next frame. The two six-player roster pages slide in 32 frames at eight
-pixels per frame. Roster A reaches black at 8, render-off at 10, render-on black
-at 15, palette caps at 18/22/26/30, and stable player detail at 31. Detail B
-uses the 32-frame reverse timing back to the same roster row. Direction repeat
-and A/B release semantics remain ROM-derived; B restores the exact root or
-season origin. Player detail is terminal and cannot launch gameplay.
-`PLAYERS DATA` (profile row 0) is currently the only supported profile A route.
-`STARTERS` (row 1) and `PLAYBOOK` (row 2) are explicitly unported A no-ops:
-releasing A leaves TEAM DATA on the same profile/team/row with no transition or
-gameplay dispatch.
+on the next frame; STARTERS and PLAYBOOK enter natively on the next frame. The
+two six-player roster pages slide in 32 frames at eight pixels per frame. Roster
+A reaches black at 8, render-off at 10, render-on black at 15, palette caps at
+18/22/26/30, and stable player detail at 31. Detail B uses the 32-frame reverse
+timing back to the same roster row. Direction repeat and A/B release semantics
+remain ROM-derived; B restores the exact root or season origin.
+
+All three profile A routes are native. `PLAYERS DATA` opens the roster.
+`STARTERS` edits five unique starters from seven eligible bench players,
+supports player detail, and carries the reset confirmation. `PLAYBOOK` edits
+four unique slots from eight plays and carries the replacement carousel and
+reset flow. Their strict 21061-byte `menu/team-management` TTMG-1 payload
+(FNV1a32 `D192EAC6`) requires the same pack's TTDT-1 and `chr/all`; malformed or
+cross-pack dependencies fail before partial rendering. Player detail and both
+management editors are terminal and cannot launch gameplay.
 
 ## Native NES Color Profile
 
@@ -430,9 +435,9 @@ branch before this directional gate. PERIOD instead checks
 Up+Down) can consume and lose released A/B. PERIOD released A accepts, released
 B cancels, and raw A+B is consumed with `$E1=5` but does neither. Season slide
 steps 1-31 preserve `$E1`; step 32 runs the destination helper immediately and
-ticks 5 to 4. The cursor commits on the following displayed frame. Other
-unported root routes cross an explicit native handoff rather than silently
-replaying 6502 code or consuming capture data.
+ticks 5 to 4. The cursor commits on the following displayed frame. Root
+departures cross explicit native handoffs rather than silently replaying 6502
+code or consuming capture data.
 
 TSGM-1 has exact payload FNV1a32 `DF89006B`. Runtime validates the complete
 14112-byte entry, byte-148 cursor delay, and the six ROM-derived popup cursor
@@ -537,9 +542,14 @@ Normal gates should stay close to:
 .\build\tecmo_port.exe --controls-test
 .\build\tecmo_port.exe --assetpack-test
 .\build\tecmo_port.exe --music-test
+.\build\tecmo_port.exe --team-management-test
+.\build\tecmo_port.exe --season-test
 .\tools\Run-AssetPackTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-MusicTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-IntroSequenceTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-TeamDataTests.ps1 -RomPath <LOCAL_ROM.nes>
+.\tools\Run-TeamManagementTests.ps1 -RomPath <LOCAL_ROM.nes>
+.\tools\Run-SeasonTests.ps1 -RomPath <LOCAL_ROM.nes>
 .\tools\Run-Win32LaunchSmokeTest.ps1 -Build
 ```
 

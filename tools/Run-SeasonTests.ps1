@@ -384,6 +384,11 @@ try {
             $SeasonContract.PayloadFnv1a32 -or
         (@($SeasonSource.native_contract.filtered_schedule_counts) -join ",") -ne
             "1107,567,351,1107" -or
+        $SeasonSource.native_contract.native_game_simulation -ne $false -or
+        $SeasonSource.native_contract.game_result_boundary -ne
+            "pending-completed-result-required" -or
+        @($SeasonSource.native_contract.PSObject.Properties.Name) -contains
+            "skip_simulation" -or
         $SeasonSource.native_contract.controlled_match_terminal -ne
             "gameplay-launch-blocked") {
         throw "TSNS-1 source-map/dependency provenance was rejected."

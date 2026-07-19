@@ -85,7 +85,12 @@ out of unrelated commits unless the user explicitly asks to commit them.
 .\build\tecmo_port.exe --bank07-test
 .\build\tecmo_port.exe --controls-test
 .\build\tecmo_port.exe --music-test
+.\build\tecmo_port.exe --team-management-test
+.\build\tecmo_port.exe --season-test
 .\tools\Run-MusicTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-TeamDataTests.ps1 -RomPath <LOCAL_ROM.nes>
+.\tools\Run-TeamManagementTests.ps1 -RomPath <LOCAL_ROM.nes>
+.\tools\Run-SeasonTests.ps1 -RomPath <LOCAL_ROM.nes>
 .\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --flow-test
 .\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode menu build\main_menu_test.png
 .\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode intro-composite-preset build\intro_composite_preset_test.png
@@ -219,9 +224,10 @@ every eight held frames, and only NES A dispatches; B, START, SELECT, Left, and
 Right are ignored. SEASON GAME slides to the six-item second page
 over exactly 32 frames at eight background pixels and five emblem pixels per
 frame; B reverses the same transition. That second-page boundary maps GAME
-START to `PLAY_SETUP` and TEAM DATA to the native `TECMO_MODE_TEAM_DATA`;
-the other four season
-management selections remain explicitly unported no-ops.
+CONTROL, SCHEDULE, GAME START, STANDINGS, and LEADERS to native
+`TECMO_MODE_SEASON_MENU`; TEAM DATA maps to `TECMO_MODE_TEAM_DATA`. GAME START
+stops at the blocked pending-matchup boundary until native gameplay can supply
+a completed result; it must not fall through to `PLAY_SETUP` or synthesize one.
 
 Popup construction follows Bank03 `$AB77`: row zero transfers before its first
 yield, then one row transfers per frame. MUSIC starts with one of six rows at
@@ -234,23 +240,23 @@ for MUSIC/PERIOD, eight for SPEED). Setup-to-popup, teardown-to-root, and both
 but the cursor reaches displayed OAM one frame later. TSGM byte 148 binds that
 commit delay to one frame; it is not a hardcoded renderer exception.
 
-The post-return `$E481` fade is used only where the traced native session has
-actually returned from Bank03: root TEAM DATA and the supported season-page
-GAME START/TEAM DATA departures. It holds palette stage 8 on exit frames 0-1,
-then stages 7/6/5 on 2-3/4-5/6-7, black stage 4 on 8-10, and emits the one-shot
-handoff on frame 11. ALL STAR (`$8221`) still crosses the explicit unported
-boundary to `PLAY_SETUP`. Root PRESEASON now enters the native Bank03 `$9966`
-path directly; it must not run `$E481` before that submenu returns.
+The post-return `$E481` fade is used for root TEAM DATA and all six season-page
+departures. It holds palette stage 8 on exit frames 0-1, then stages 7/6/5 on
+2-3/4-5/6-7, black stage 4 on 8-10, and emits the one-shot handoff on frame 11.
+PRESEASON's `$9966` route and ALL STAR's `$8221` route enter their native
+submenu construction directly and must not run `$E481` first.
 
-ALL STAR/GAME START remain bounded placeholders; TEAM DATA now enters its native
-scene. Normal-play B/Escape returns from those destinations to the exact
-originating blue-menu page and selection, with season returns restoring the
-fully slid-in second page. A placeholder reached without a recorded blue-menu
-route ignores B/Escape rather than exposing the modern menu; direct debug/test
-routes retain that menu return. The return also preserves committed MUSIC,
-SPEED, and PERIOD values. Its neutral gate consumes B for however long it
-remains held, the release edge, and the first fully neutral frame before the
-restored menu can process input again.
+PRESEASON's B/Escape return uses its own direct path: it rebuilds the stable
+root on the PRESEASON row and resets menu settings to their initialized values.
+ALL STAR, TEAM DATA, and season-management destinations use the recorded return
+path, preserve committed MUSIC/SPEED/PERIOD values, and restore the exact root
+or fully slid-in season row. Their return controls remain submenu-specific;
+notably PROGRAMMED uses START/SELECT because B edits the selected record. The
+recorded-return neutral gate consumes the held return input, its release edge,
+and the first fully neutral frame before the menu can process input again.
+Gameplay launch remains deliberately blocked at the PRESEASON, ALL STAR, and
+SEASON prelaunch boundaries; no normal route can fall through to the modern
+diagnostic court.
 
 PRESEASON is a strict ROM-only native scene backed by `menu/preseason` TPRE-1.
 It composes the 14-row CONTROL and DIVISION overlays and the eight-row
@@ -285,22 +291,31 @@ the selector is stable with its cursor on local frame 20. A/B actions are
 release-triggered. Selector-to-profile is black at local frame 8, render-off at
 10, render-on black at 16, capped/full at 19/23/27/31, and stable at 32.
 Profile-to-roster changes only cursor/OAM state and is stable on the following
-frame. Roster pages slide over 32 frames at eight pixels per frame.
+frame. STARTERS and PLAYBOOK also enter natively on the following frame. Roster
+pages slide over 32 frames at eight pixels per frame.
 Roster-to-player-detail is black at 8, render-off at 10, render-on black at 15,
 capped/full at 18/22/26/30, and stable at 31; B uses the 32-frame reverse timing.
-On the profile, `PLAYERS DATA` (row 0) is the only supported A route and opens
-the roster. `STARTERS` (row 1) and `PLAYBOOK` (row 2) remain unported,
-release-triggered A no-ops: they keep the same profile/team/row, start no
-transition, and never route to gameplay.
+All three profile A routes are native. `PLAYERS DATA` opens the roster;
+`STARTERS` edits five unique starters from the seven-player bench with player
+detail and reset flows; `PLAYBOOK` edits four unique slots from eight plays with
+the original replacement carousel and reset flow. Their mutable session state
+remains native and never routes to gameplay.
+
+STARTERS and PLAYBOOK require the same pack's strict 21061-byte
+`menu/team-management` TTMG-1 payload (FNV1a32 `D192EAC6`) plus TTDT-1 and
+`chr/all`. Missing, malformed, oversized, wrong-revision, or cross-pack
+dependencies fail closed. Run `tools\Run-TeamManagementTests.ps1 -RomPath
+<LOCAL_ROM.nes>` for its state, flow, malformed-data, and nine-pixel-checkpoint
+coverage.
 
 Profile colors come from Bank06 `$AC0B-$AC4A`, selected by `$A3AD`. Logos use
 the Bank06 `$A2E4` layout tables and Bank03 `$8017` origin table; ATL resolves
 to the exact E4-backed 10x6 matrix at `(16,48)`. Player names/attributes and
 direct All-Star pointers come from Bank02, portraits use Bank03 `$8D5C/$B432`
-plus Bank00 metatiles, and ability bars follow Bank02 `$AD5B`. The terminal
-supported boundary is interactive player detail and its return to the roster;
-TEAM DATA never launches gameplay. Run the focused suite with
-`tools\Run-TeamDataTests.ps1 -RomPath <LOCAL_ROM.nes>`.
+plus Bank00 metatiles, and ability bars follow Bank02 `$AD5B`. The supported
+TEAM DATA boundary includes player detail, STARTERS, PLAYBOOK, and their return
+paths to profile, selector, and blue menu; none launches gameplay. Run the
+focused suite with `tools\Run-TeamDataTests.ps1 -RomPath <LOCAL_ROM.nes>`.
 
 The CONTROL/DIVISION stack fades at team-entry frames 3/5/7 and is black from
 frame 9 through the frame-16 input handoff. The team screen remains black on

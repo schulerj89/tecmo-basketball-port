@@ -3757,6 +3757,12 @@ try {
                     (@($SeasonSource.native_contract.filtered_schedule_counts) -join ",") -eq
                         "1107,567,351,1107" -and
                     [int]$SeasonSource.native_contract.leader_categories -eq 7 -and
+                    $SeasonSource.native_contract.native_game_simulation -eq
+                        $false -and
+                    $SeasonSource.native_contract.game_result_boundary -eq
+                        "pending-completed-result-required" -and
+                    @($SeasonSource.native_contract.PSObject.Properties.Name) -notcontains
+                        "skip_simulation" -and
                     $SeasonSource.native_contract.controlled_match_terminal -eq
                         "gameplay-launch-blocked" -and
                     [int]$SeasonSource.native_contract.unexecuted_boundary_cpu -eq
@@ -3777,6 +3783,10 @@ try {
                         $SeasonSource.native_contract.payload_fingerprint_fnv1a32
                     no_gameplay_boundary =
                         $SeasonSource.native_contract.controlled_match_terminal
+                    game_result_boundary =
+                        $SeasonSource.native_contract.game_result_boundary
+                    native_game_simulation =
+                        $SeasonSource.native_contract.native_game_simulation
                     raw_asset_bytes_persisted = $false
                 })
 

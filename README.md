@@ -92,12 +92,13 @@ F3 = debug overlay
 ```
 
 The current original-game boundary includes the blue start-game menu,
-PRESEASON through both team selectors, and TEAM DATA through team profile,
-both six-player roster pages, player detail, and the reverse path back to the
-blue menu. In MAN VS MAN, controller 2 owns the second division and team
-selection. Confirming the second team is intentionally terminal for now and
-does not launch a game. TEAM DATA's STARTERS and PLAYBOOK rows are explicit
-no-ops; player detail also cannot launch gameplay.
+PRESEASON through both team selectors, the ALL STAR selectors, TEAM DATA's
+profile/roster/player-detail/STARTERS/PLAYBOOK flows, and native season
+management through TEAM CONTROL, SCHEDULE/PLAYOFF, STANDINGS/PROGRAMMED,
+LEADERS category navigation, and the pending GAME START matchup. In MAN VS MAN,
+controller 2 owns the second preseason division and team selection. Gameplay
+launch remains deliberately blocked, and League Leaders does not fabricate
+ranked player results until per-player season accumulators are ported.
 
 Opening music plays from the strict ROM-derived semantic music asset. GAME
 MUSIC gates future gameplay music, while GAME SPEED remains a stored gameplay
