@@ -21,7 +21,9 @@ typedef enum TecmoMusicTrackId {
     TECMO_MUSIC_TRACK_GAMEPLAY = 5,
     TECMO_MUSIC_TRACK_PRESENTATION = 6,
     TECMO_MUSIC_TRACK_OPENING = 7,
-    TECMO_MUSIC_TRACK_PERIOD_STINGER = 8
+    TECMO_MUSIC_TRACK_PREGAME_MATCHUP_STINGER = 8,
+    /* Source-compatible name retained for older callers. */
+    TECMO_MUSIC_TRACK_PERIOD_STINGER = TECMO_MUSIC_TRACK_PREGAME_MATCHUP_STINGER
 } TecmoMusicTrackId;
 
 typedef enum TecmoMusicInstructionType {
@@ -129,9 +131,12 @@ bool tecmo_music_queue_track(TecmoMusicPlayer *player, uint8_t track_id);
 bool tecmo_music_queue_opening_once(TecmoMusicPlayer *player);
 void tecmo_music_set_game_music_enabled(TecmoMusicPlayer *player,
                                         bool enabled);
+void tecmo_music_stop(TecmoMusicPlayer *player);
 void tecmo_music_render_samples(TecmoMusicPlayer *player,
                                 int16_t *samples,
                                 size_t sample_count);
+int16_t tecmo_music_render_sample_with_overrides(TecmoMusicPlayer *player,
+                                                 uint8_t channel_mask);
 bool tecmo_music_self_test(const char *project_root,
                            char *message,
                            size_t message_size);

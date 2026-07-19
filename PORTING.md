@@ -457,7 +457,7 @@ against bounded emulator evidence and is not a text-composition defect.
 
 Native audio now begins at the opening. The ROM importer emits `audio/music`
 as TMUS-1, a strict semantic asset for music IDs 5 (gameplay), 6
-(presentation), 7 (opening), and 8 (period stinger). The exact payload is 36784
+(presentation), 7 (opening), and 8 (pregame matchup stinger). The exact payload is 36784
 bytes / FNV1a32 `05C00ECB`, with 37 deduplicated voices, 75 imported pitch
 periods, and 2251 native instructions. Notes, rests, voices/envelopes, legato,
 signed pitch deltas, bounded loops, and resolved phrase calls/returns are C
@@ -506,6 +506,40 @@ sink. Loose decompilation,
 FCEUX/Lua output, captures, frames, screenshots, logs, states, dumps, and
 `temp-videos` are never audio dependencies.
 
+The gameplay-audio foundation is also ROM-only, but this milestone does not
+wire it into a live gameplay route. The importer emits two same-revision
+dependencies. `audio/gameplay-sfx` is the exact 2824-byte TSFX-1 payload
+(FNV1a32 `968A5DE6`): seven effects (3, 5, 6, 11, 12, 13, 14), 14 voices, 75
+periods, and 131 native semantic instructions. Its safe event vocabulary is
+clock buzzer (shot or period expiry), violation cue (bounded dynamic cutaway
+correlation), crowd response, side-result 12/13, and countdown (each second
+below 0:12).
+ID 5 is deliberately exposed only as `BANK05_9FEC_CUE`; the available evidence
+does not justify calling it a foul, whistle, collision, shot, rim, or dunk.
+The `$9FEC` caller requests it after violation/foul/period-reset flow only when
+GAME MUSIC is enabled; that caller condition does not change its neutral name.
+The importer fingerprints Bank04 `$8AA4-$8CCF` and `$9D8B-$9E12`, the complete
+16-entry SFX directory, the fixed audio engine, and the focused gameplay
+request sites.
+
+`audio/gameplay-dmc` is the exact 2515-byte TDMC-1 payload (FNV1a32
+`AD70E6E8`). It stores three deduplicated fixed-bank source pools and five
+bounded clips matching Bank05 `$A8D6`, `$A9C5`, `$ABF5`, and `$B5AB`. The first
+three triggers retain address-based provenance names because their shot/rim/
+dunk meanings are not yet correlated. `$B5AB` is the supported held-ball/
+dribble event. All clips use exact rates 14/15, `$4015=1F`, no loop, no IRQ,
+and no direct `$4011` write.
+
+Fixed `$F3FA-$F436` consumes music before SFX, and `$F3F2` maps the four SFX
+slots to priority masks `$10/$20/$40/$80`. Native mixing therefore advances
+music sequencing and oscillator phases even while the corresponding SFX
+channel suppresses its output. Music and SFX mailboxes are last-write-wins
+until the next exact `39375000/655171` tick; DMC is independent. GAME MUSIC
+gates only future track 5, while GAME SPEED never changes audio cadence.
+Missing, malformed, oversized, wrong-revision, and cross-pack TSFX/TDMC assets
+fail closed. Run the focused private-ROM suite with
+`tools\Run-GameplayAudioTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
+
 The importer validates the raw finale dispatch chain as `$851C` wait 50 ->
 `$83EA` wait 30 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 ->
 `$FFFF`, with screens `$1C`, `$20`, `$1F`, `$22`, and `$2D`. Selector 2 uses
@@ -542,10 +576,12 @@ Normal gates should stay close to:
 .\build\tecmo_port.exe --controls-test
 .\build\tecmo_port.exe --assetpack-test
 .\build\tecmo_port.exe --music-test
+.\build\tecmo_port.exe --gameplay-audio-test
 .\build\tecmo_port.exe --team-management-test
 .\build\tecmo_port.exe --season-test
 .\tools\Run-AssetPackTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-MusicTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-GameplayAudioTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-IntroSequenceTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-TeamDataTests.ps1 -RomPath <LOCAL_ROM.nes>
 .\tools\Run-TeamManagementTests.ps1 -RomPath <LOCAL_ROM.nes>

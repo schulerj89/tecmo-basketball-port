@@ -85,9 +85,11 @@ out of unrelated commits unless the user explicitly asks to commit them.
 .\build\tecmo_port.exe --bank07-test
 .\build\tecmo_port.exe --controls-test
 .\build\tecmo_port.exe --music-test
+.\build\tecmo_port.exe --gameplay-audio-test
 .\build\tecmo_port.exe --team-management-test
 .\build\tecmo_port.exe --season-test
 .\tools\Run-MusicTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-GameplayAudioTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-TeamDataTests.ps1 -RomPath <LOCAL_ROM.nes>
 .\tools\Run-TeamManagementTests.ps1 -RomPath <LOCAL_ROM.nes>
 .\tools\Run-SeasonTests.ps1 -RomPath <LOCAL_ROM.nes>
@@ -399,7 +401,7 @@ CSVs remain ignored verification material only.
 
 Opening music is native and ROM-only. The importer emits `audio/music` as the
 strict 36784-byte TMUS-1 payload (FNV1a32 `05C00ECB`) for requested music IDs
-5, 6, 7, and 8: gameplay, presentation, opening, and period stinger. It
+5, 6, 7, and 8: gameplay, presentation, opening, and pregame matchup stinger. It
 compiles Bank04's bounded music graph into 2251 native semantic instructions
 (`note`, voice/envelope selection, legato, pitch delta, rest, bounded loop,
 resolved call/return, and end), deduplicates 37 voices, and imports 75 fixed-bank
@@ -442,6 +444,35 @@ The device-failure fallback deliberately freezes sequencer state; focused tests
 use the same renderer as a deterministic advancing null sink. Missing, oversized,
 malformed, or wrong-revision TMUS-1 data must never crash startup or fall back
 to loose/private sources.
+
+Gameplay audio has a strict ROM-only foundation but is not connected to the
+live gameplay route yet. `audio/gameplay-sfx` is TSFX-1: 2824 bytes / FNV1a32
+`968A5DE6`, with seven Bank04 effects (IDs 3, 5, 6, 11, 12, 13, and 14), 14
+deduplicated voices, 75 fixed periods, and 131 native semantic instructions.
+The proven names are clock buzzer 3 (shot or period expiry), referee violation
+cue 6 (bounded dynamic cutaway correlation), crowd response 11, side results
+12/13, and countdown 14 (each game-second boundary below 0:12). ID 5 remains the neutral
+`BANK05_9FEC_CUE`; do not rename it whistle, foul, collision, shot, rim, or
+dunk without bounded runtime correlation. Its `$9FEC` caller restarts it after
+violation/foul/period-reset flow only when GAME MUSIC is enabled; keep that
+call-site condition separate from the neutral effect name. TSFX requests are last-write-wins
+until the next audio tick. An active SFX channel overrides only the matching
+music output channel; the music sequencer and its oscillator state continue
+advancing underneath it, following fixed `$F3F2-$F436`.
+
+`audio/gameplay-dmc` is TDMC-1: 2515 bytes / FNV1a32 `AD70E6E8`. It deduplicates
+the exact fixed-bank `$C080-$C280`, `$C440-$C710`, and `$C740-$CAF0` inclusive
+sample pools and exposes five bounded, non-looping, non-IRQ clips at rates 14
+or 15. Only Bank05 `$B5AB` is safely named held-ball/dribble. The `$A8D6`,
+`$A9C5`, and `$ABF5` clips must keep their provenance names until their shot,
+rim, dunk, or crowd meanings are proved. DMC advances independently of music
+and tonal SFX; no trigger writes `$4011`. GAME MUSIC gates future track 5 only,
+and GAME SPEED has no path into audio cadence. `tecmo_gameplay_audio_stop_all`
+models the fixed clear-all path for music, SFX, and DMC. Missing, oversized,
+malformed, wrong-revision, or cross-pack TSFX/TDMC dependencies fail closed.
+Run `tools\Run-GameplayAudioTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` for
+parser, source-map, PCM/state hash, override, cadence, gating, mailbox, DMC
+independence, corruption, missing/oversized/cross-pack, and ROM-mutation checks.
 
 Finale provenance is the raw Bank04 chain `$851C` wait 50 -> `$83EA` wait 30
 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 -> `$FFFF`, loading
@@ -499,6 +530,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/asset_pack/tecmo_asset_pack_writer.c`: generic TAP1 builder/write API
 - `src/asset_pack/tecmo_asset_pack_d9f6.c`: bounded D9F6 nametable decoder and edge-case self-test
 - `src/asset_pack/tecmo_asset_pack_finale.c`: ROM-only TFIN-1 post-PASS finale importer
+- `src/asset_pack/tecmo_asset_pack_gameplay_audio.c`: strict TSFX-1/TDMC-1 gameplay-audio importer
 - `src/asset_pack/tecmo_asset_pack_start_menu.c`: ROM-only TSGM-1 blue start-game menu importer
 - `src/asset_pack/tecmo_asset_pack_opening.c`: ROM-only TISC-1 TECMO/rabbit and NBA opening-screen importer
 - `src/asset_pack/tecmo_asset_pack_post_arena.c`: ROM-only READY/WARRIORS/CLIPPERS/BUCKS/PASS importers
@@ -508,6 +540,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/tecmo_intro_trace.c`: explicitly enabled local trace diagnostics only
 - `src/tecmo_intro_arena.c`: strict TATL/TASG loading, native arena drawing, capture debug scaffolding
 - `src/tecmo_intro_finale.c`: strict TFIN-1 loading, finale phases, title bands, and rendering
+- `src/tecmo_gameplay_audio.c`: strict gameplay-audio loader, event sequencer, DMC decoder, and music/SFX mixer
 - `src/tecmo_start_game_menu.c`: strict TSGM-1 menu loading, update, transition, and rendering
 - `src/tecmo_intro_stage.c`: intro sprite staging and arena transition state model
 - `src/tecmo_bank07.c`: fixed-bank helper counterparts

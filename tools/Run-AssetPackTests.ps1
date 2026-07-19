@@ -335,6 +335,8 @@ function Get-KnownLogicalAssetPackEntries {
         "menu/preseason",
         "menu/all-star",
         "audio/music",
+        "audio/gameplay-sfx",
+        "audio/gameplay-dmc",
         "menu/team-data",
         "menu/team-management",
         "menu/season",
@@ -383,6 +385,8 @@ function Get-ExpectedLogicalAssetPackEntries {
             "menu/preseason"
             "menu/all-star"
             "audio/music"
+            "audio/gameplay-sfx"
+            "audio/gameplay-dmc"
             "menu/team-data"
             "menu/team-management"
             "menu/season"
@@ -4126,7 +4130,7 @@ try {
                     "period-table", "opening-track-queue",
                     "opening-first-scene-route", "menu-track-queue",
                     "gameplay-track-5", "presentation-track-6",
-                    "opening-track-7", "period-stinger-8"
+                    "opening-track-7", "pregame-matchup-stinger-8"
                 )
                 $MusicBankBase = [uint64]($OpeningPrgStart + 4 * 0x4000)
                 $MusicSourceByRole = @{}
@@ -4174,8 +4178,8 @@ try {
                     $MusicSourceByRole["presentation-track-6"].fingerprint_fnv1a32 -eq "BD91FCF1" -and
                     [int]($MusicSourceByRole["opening-track-7"].size) -eq 1554 -and
                     $MusicSourceByRole["opening-track-7"].fingerprint_fnv1a32 -eq "69F85EC2" -and
-                    [int]($MusicSourceByRole["period-stinger-8"].size) -eq 243 -and
-                    $MusicSourceByRole["period-stinger-8"].fingerprint_fnv1a32 -eq "8122C6CF" -and
+                    [int]($MusicSourceByRole["pregame-matchup-stinger-8"].size) -eq 243 -and
+                    $MusicSourceByRole["pregame-matchup-stinger-8"].fingerprint_fnv1a32 -eq "8122C6CF" -and
                     [int]$MusicSource.native_contract.payload_size -eq 36784 -and
                     $MusicSource.native_contract.payload_fingerprint_fnv1a32 -eq "05C00ECB" -and
                     (@($MusicSource.native_contract.tracks) -join ",") -eq "5,6,7,8" -and
@@ -4210,7 +4214,7 @@ try {
                         "attack-7_decay-5-6_release-2-4" -and
                     $MusicSource.native_contract.pitch_delta_zero_semantics -eq
                         "reset-both-channel-delta-bytes" -and
-                    [int]$MusicSource.native_contract.period_stinger_queue_to_clear_ticks -eq 396 -and
+                    [int]$MusicSource.native_contract.pregame_matchup_stinger_queue_to_clear_ticks -eq 396 -and
                     [int]$MusicSource.native_contract.long_loop_regression_ticks -eq 100000 -and
                     $MusicSource.native_contract.game_music_setting -eq
                         "gates-future-track-5-only" -and

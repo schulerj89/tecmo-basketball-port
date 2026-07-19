@@ -2,6 +2,7 @@
 #define TECMO_ASSET_PACK_SOURCE_MAP_H
 
 #include "tecmo_asset_pack_import_layout.h"
+#include "tecmo_asset_pack_gameplay_audio.h"
 #include "tecmo_asset_pack_music.h"
 
 #include <stddef.h>
@@ -25,6 +26,7 @@ char *tecmo_asset_pack_build_ines_source_map(
     const TecmoPreseasonMenuProvenance *preseason_provenance,
     const TecmoAllStarMenuProvenance *all_star_provenance,
     const TecmoMusicProvenance *music_provenance,
+    const TecmoGameplayAudioProvenance *gameplay_audio_provenance,
     const TecmoTeamDataProvenance *team_data_provenance,
     const TecmoTeamManagementProvenance *team_management_provenance,
     const TecmoSeasonMenuProvenance *season_provenance,

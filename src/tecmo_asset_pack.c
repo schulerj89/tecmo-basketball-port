@@ -6,6 +6,7 @@
 #include "asset_pack/tecmo_asset_pack_all_star.h"
 #include "asset_pack/tecmo_asset_pack_d9f6.h"
 #include "asset_pack/tecmo_asset_pack_finale.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_audio.h"
 #include "asset_pack/tecmo_asset_pack_import_layout.h"
 #include "asset_pack/tecmo_asset_pack_music.h"
 #include "asset_pack/tecmo_asset_pack_opening.h"
@@ -67,6 +68,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                           TecmoPreseasonMenuProvenance *preseason_provenance,
                                           TecmoAllStarMenuProvenance *all_star_provenance,
                                           TecmoMusicProvenance *music_provenance,
+                                          TecmoGameplayAudioProvenance *gameplay_audio_provenance,
                                           TecmoTeamDataProvenance *team_data_provenance,
                                           TecmoTeamManagementProvenance *team_management_provenance,
                                           TecmoSeasonMenuProvenance *season_provenance,
@@ -592,6 +594,51 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
             return -1;
         }
     }
+    {
+        uint8_t *sfx_payload = NULL;
+        uint8_t *dmc_payload = NULL;
+        size_t sfx_payload_size = 0U;
+        size_t dmc_payload_size = 0U;
+        int add_result;
+        if (tecmo_asset_pack_build_gameplay_audio(
+                rom, rom_size, prg_offset, prg_banks, 1,
+                &sfx_payload, &sfx_payload_size,
+                &dmc_payload, &dmc_payload_size,
+                gameplay_audio_provenance, message, message_size) != 0)
+            return -1;
+        entry_info = tecmo_asset_pack_make_entry_info(
+            TECMO_ASSET_PACK_GAMEPLAY_SFX_ID, TECMO_ASSET_PACK_TYPE_DATA,
+            TECMO_ASSET_PACK_GAMEPLAY_AUDIO_BANK,
+            TECMO_ASSET_PACK_GAMEPLAY_SFX_DIRECTORY_CPU,
+            gameplay_audio_provenance->sfx_directory_offset,
+            TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+        add_result = tecmo_asset_pack_builder_add_memory(
+            builder, &entry_info, sfx_payload, sfx_payload_size,
+            message, message_size);
+        free(sfx_payload);
+        if (add_result != 0) {
+            free(dmc_payload);
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Could not write native gameplay SFX entry.");
+            return -1;
+        }
+        entry_info = tecmo_asset_pack_make_entry_info(
+            TECMO_ASSET_PACK_GAMEPLAY_DMC_ID, TECMO_ASSET_PACK_TYPE_DATA,
+            prg_banks - 1U, 0xC080U,
+            gameplay_audio_provenance->dmc_pool_offsets[0],
+            TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+        add_result = tecmo_asset_pack_builder_add_memory(
+            builder, &entry_info, dmc_payload, dmc_payload_size,
+            message, message_size);
+        free(dmc_payload);
+        if (add_result != 0) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Could not write native gameplay DMC entry.");
+            return -1;
+        }
+    }
     if (tecmo_asset_pack_build_team_data(rom, rom_size, prg_offset,
                                          prg_banks, chr_size,
                                          enforce_finale_revision_fingerprints,
@@ -688,6 +735,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     TecmoPreseasonMenuProvenance preseason_provenance;
     TecmoAllStarMenuProvenance all_star_provenance;
     TecmoMusicProvenance music_provenance;
+    TecmoGameplayAudioProvenance gameplay_audio_provenance;
     TecmoTeamDataProvenance team_data_provenance;
     TecmoTeamManagementProvenance team_management_provenance;
     TecmoSeasonMenuProvenance season_provenance;
@@ -858,6 +906,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     memset(&preseason_provenance, 0, sizeof(preseason_provenance));
     memset(&all_star_provenance, 0, sizeof(all_star_provenance));
     memset(&music_provenance, 0, sizeof(music_provenance));
+    memset(&gameplay_audio_provenance, 0, sizeof(gameplay_audio_provenance));
     memset(&team_data_provenance, 0, sizeof(team_data_provenance));
     memset(&team_management_provenance, 0, sizeof(team_management_provenance));
     memset(&season_provenance, 0, sizeof(season_provenance));
@@ -879,6 +928,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &preseason_provenance,
                                        &all_star_provenance,
                                        &music_provenance,
+                                       &gameplay_audio_provenance,
                                        &team_data_provenance,
                                        &team_management_provenance,
                                        &season_provenance,
@@ -904,6 +954,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &preseason_provenance,
                                        &all_star_provenance,
                                        &music_provenance,
+                                       &gameplay_audio_provenance,
                                        &team_data_provenance,
                                        &team_management_provenance,
                                        &season_provenance,

@@ -157,7 +157,7 @@ static bool parse_payload(TecmoMusicAsset *asset, const uint8_t *bytes,
         TECMO_MUSIC_TRACK_GAMEPLAY,
         TECMO_MUSIC_TRACK_PRESENTATION,
         TECMO_MUSIC_TRACK_OPENING,
-        TECMO_MUSIC_TRACK_PERIOD_STINGER
+        TECMO_MUSIC_TRACK_PREGAME_MATCHUP_STINGER
     };
     uint32_t track_offset;
     uint32_t voice_offset;
@@ -721,6 +721,17 @@ void tecmo_music_set_game_music_enabled(TecmoMusicPlayer *player,
     player->game_music_enabled = enabled;
 }
 
+void tecmo_music_stop(TecmoMusicPlayer *player)
+{
+    if (player == NULL) return;
+    memset(player->channels, 0, sizeof(player->channels));
+    player->current_track_id = 0U;
+    player->pending_track_id = 0U;
+    player->playing = false;
+    player->track_pending = false;
+    player->render_guard_failed = false;
+}
+
 static double pulse_sample(TecmoMusicPlayer *player, unsigned channel_index)
 {
     static const double duty[4] = {0.125, 0.25, 0.5, 0.75};
@@ -779,29 +790,47 @@ void tecmo_music_render_samples(TecmoMusicPlayer *player,
                                 int16_t *samples,
                                 size_t sample_count)
 {
-    uint64_t tick_threshold;
     size_t i;
     if (player == NULL || player->asset == NULL || !player->asset->available) {
         if (samples != NULL)
             memset(samples, 0, sample_count * sizeof(*samples));
         return;
     }
+    for (i = 0U; i < sample_count; ++i) {
+        int16_t value = tecmo_music_render_sample_with_overrides(player, 0U);
+        if (samples != NULL) samples[i] = value;
+    }
+}
+
+int16_t tecmo_music_render_sample_with_overrides(TecmoMusicPlayer *player,
+                                                 uint8_t channel_mask)
+{
+    uint64_t tick_threshold;
+    double channels[TECMO_MUSIC_CHANNEL_COUNT];
+    double mixed = 0.0;
+    unsigned channel;
+    int value;
+    if (player == NULL || player->asset == NULL || !player->asset->available)
+        return 0;
+    channels[0] = pulse_sample(player, 0U);
+    channels[1] = pulse_sample(player, 1U);
+    channels[2] = triangle_sample(player);
+    channels[3] = noise_sample(player);
+    for (channel = 0U; channel < TECMO_MUSIC_CHANNEL_COUNT; ++channel) {
+        if ((channel_mask & (uint8_t)(1U << channel)) == 0U)
+            mixed += channels[channel];
+    }
+    if (mixed > 1.0) mixed = 1.0;
+    if (mixed < -1.0) mixed = -1.0;
+    value = (int)(mixed * 28000.0);
     tick_threshold = (uint64_t)player->asset->sample_rate *
                      player->asset->tick_denominator;
-    for (i = 0U; i < sample_count; ++i) {
-        double mixed = pulse_sample(player, 0U) + pulse_sample(player, 1U) +
-                       triangle_sample(player) + noise_sample(player);
-        int value;
-        if (mixed > 1.0) mixed = 1.0;
-        if (mixed < -1.0) mixed = -1.0;
-        value = (int)(mixed * 28000.0);
-        if (samples != NULL) samples[i] = (int16_t)value;
-        player->sample_tick_accumulator += player->asset->tick_numerator;
-        while (player->sample_tick_accumulator >= tick_threshold) {
-            player->sample_tick_accumulator -= tick_threshold;
-            music_tick(player);
-        }
+    player->sample_tick_accumulator += player->asset->tick_numerator;
+    while (player->sample_tick_accumulator >= tick_threshold) {
+        player->sample_tick_accumulator -= tick_threshold;
+        music_tick(player);
     }
+    return (int16_t)value;
 }
 
 static uint32_t hash_channel_state(const TecmoMusicPlayer *player)
@@ -1142,11 +1171,11 @@ bool tecmo_music_self_test(const char *project_root,
     bool voice_ok;
     bool pitch_ok;
     bool long_loop_ok;
-    bool stinger_ok;
+    bool pregame_matchup_ok;
     bool startup_ok;
     bool cadence_ok;
     uint64_t opening_ticks;
-    uint64_t stinger_ticks;
+    uint64_t pregame_matchup_ticks;
     if (!tecmo_music_asset_load(&asset, project_root)) {
         if (message != NULL && message_size > 0U)
             (void)snprintf(message, message_size, "%s", asset.status);
@@ -1167,9 +1196,9 @@ bool tecmo_music_self_test(const char *project_root,
     voice_ok = voice_timing_anchor_test(&asset);
     pitch_ok = pitch_delta_anchor_test(&asset);
     long_loop_ok = long_loop_anchor_test(&asset);
-    stinger_ok = track_duration_anchor_test(
-        &asset, TECMO_MUSIC_TRACK_PERIOD_STINGER, 396U,
-                                              &stinger_ticks);
+    pregame_matchup_ok = track_duration_anchor_test(
+        &asset, TECMO_MUSIC_TRACK_PREGAME_MATCHUP_STINGER, 396U,
+                                              &pregame_matchup_ticks);
     tecmo_music_player_init(&startup_player, &asset);
     startup_ok = tecmo_music_queue_track(&startup_player,
                                           TECMO_MUSIC_TRACK_OPENING) &&
@@ -1272,12 +1301,12 @@ bool tecmo_music_self_test(const char *project_root,
     tecmo_asset_pack_free(payload);
     if (message != NULL && message_size > 0U) {
         (void)snprintf(message, message_size,
-                       "TMUS-1 parser/state/synth: payload=%08X instructions=%u voices=%u pcm=%08X state=%08X pulse=%08X tri=%08X noise=%08X env=%08X opening_ticks=%llu stinger_ticks=%llu cadence=%s gate=%s startup=%s anchors=%s voice=%s pitch=%s long=%s null=%s malformed=%s",
+                       "TMUS-1 parser/state/synth: payload=%08X instructions=%u voices=%u pcm=%08X state=%08X pulse=%08X tri=%08X noise=%08X env=%08X opening_ticks=%llu pregame_matchup_ticks=%llu cadence=%s gate=%s startup=%s anchors=%s voice=%s pitch=%s long=%s null=%s malformed=%s",
                        asset.payload_fingerprint, asset.instruction_count,
                        TECMO_MUSIC_VOICE_COUNT, pcm_hash, state_hash,
                        pulse_hash, triangle_hash, noise_hash, env_hash,
                        (unsigned long long)opening_ticks,
-                       (unsigned long long)stinger_ticks,
+                       (unsigned long long)pregame_matchup_ticks,
                        cadence_ok ? "pass" : "fail",
                        gate_ok ? "pass" : "fail",
                        startup_ok ? "pass" : "fail",
@@ -1290,7 +1319,7 @@ bool tecmo_music_self_test(const char *project_root,
     }
     tecmo_music_asset_shutdown(&asset);
     return cadence_ok && gate_ok && startup_ok && anchor_ok && voice_ok &&
-           pitch_ok && long_loop_ok && stinger_ok && null_sink_ok &&
+           pitch_ok && long_loop_ok && pregame_matchup_ok && null_sink_ok &&
            duration_ok && malformed_ok && pcm_hash == 0x105B1338U &&
            state_hash == 0x1C74513CU &&
            pulse_hash == 0xD52B0696U && triangle_hash == 0x1C9A3181U &&

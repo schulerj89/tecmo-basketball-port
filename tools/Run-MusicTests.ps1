@@ -27,7 +27,7 @@ if (!$RomPath -or !(Test-Path -LiteralPath $RomPath)) {
 $RomPath = (Resolve-Path -LiteralPath $RomPath).Path
 $ExePath = Join-Path $BuildDir "tecmo_port.exe"
 $PackPath = Join-Path $TestDir "tecmo_music.assetpack"
-$ExpectedOutput = "TMUS-1 parser/state/synth: payload=05C00ECB instructions=2251 voices=37 pcm=105B1338 state=1C74513C pulse=D52B0696 tri=1C9A3181 noise=56252AAE env=6515A87A opening_ticks=2614 stinger_ticks=396 cadence=pass gate=pass startup=pass anchors=pass voice=pass pitch=pass long=pass null=pass malformed=pass output=frozen-fallback ring=8x1024"
+$ExpectedOutput = "TMUS-1 parser/state/synth: payload=05C00ECB instructions=2251 voices=37 pcm=105B1338 state=1C74513C pulse=D52B0696 tri=1C9A3181 noise=56252AAE env=6515A87A opening_ticks=2614 pregame_matchup_ticks=396 cadence=pass gate=pass startup=pass anchors=pass voice=pass pitch=pass long=pass null=pass malformed=pass output=frozen-fallback ring=8x1024"
 $PreviousPack = $env:TECMO_ASSETPACK
 $PreviousSkipShortcut = $env:TECMO_SKIP_SHORTCUT
 
@@ -155,7 +155,7 @@ try {
         [pscustomobject]@{ id = "opening-track"; offset = $PrgStart + 4 * 0x4000 + (0x8CE2 - 0x8000) },
         [pscustomobject]@{ id = "gameplay-track"; offset = $PrgStart + 4 * 0x4000 + (0x92F4 - 0x8000) },
         [pscustomobject]@{ id = "presentation-track"; offset = $PrgStart + 4 * 0x4000 + (0x96C3 - 0x8000) },
-        [pscustomobject]@{ id = "stinger-track"; offset = $PrgStart + 4 * 0x4000 + (0x9E13 - 0x8000) },
+        [pscustomobject]@{ id = "pregame-matchup-track"; offset = $PrgStart + 4 * 0x4000 + (0x9E13 - 0x8000) },
         [pscustomobject]@{ id = "audio-engine"; offset = $FixedStart + (0xF2F2 - 0xC000) },
         [pscustomobject]@{ id = "period-table"; offset = $FixedStart + (0xF93B - 0xC000) }
     )

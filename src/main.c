@@ -4,6 +4,7 @@
 #include "tecmo_audio_output.h"
 #include "tecmo_bank07.h"
 #include "tecmo_game.h"
+#include "tecmo_gameplay_audio.h"
 #include "tecmo_intro_arena_scene.h"
 #include "tecmo_nes_video.h"
 
@@ -31,6 +32,7 @@ static void print_usage(const char *program)
     printf("  --bank07-test           Run fixed-bank helper C counterpart checks\n");
     printf("  --video-test            Run embedded FCEUX 2.6.6 NES palette mapping checks\n");
     printf("  --music-test            Run strict TMUS parser/sequencer/synth checks\n");
+    printf("  --gameplay-audio-test   Run strict TSFX/TDMC parser/mixer checks\n");
     printf("  --team-management-test  Run strict TTMG parser and native STARTERS/PLAYBOOK checks\n");
     printf("  --season-test           Run strict TSNS/TSAV season-management checks\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
@@ -503,6 +505,16 @@ int main(int argc, char **argv)
             return 1;
         }
         printf("%s %s\n", message, output_message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-audio-test") == 0) {
+        char message[512] = {0};
+        if (!tecmo_gameplay_audio_self_test(root, message, sizeof(message))) {
+            printf("Gameplay audio test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
         return 0;
     }
 
