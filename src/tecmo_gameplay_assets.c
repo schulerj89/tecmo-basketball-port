@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define TECMO_GAMEPLAY_ASSETS_LIFECYCLE_TAG 0x5447504CU
+
 static uint16_t read_u16(const uint8_t *bytes)
 {
     return (uint16_t)((uint16_t)bytes[0] | ((uint16_t)bytes[1] << 8U));
@@ -62,19 +64,31 @@ static bool range_ok(size_t offset, size_t count, size_t total)
 static bool reject(TecmoGameplayAssets *assets, const char *message)
 {
     free(assets->storage);
+    free(assets->chr_storage);
     assets->storage = NULL;
     assets->storage_size = 0U;
+    assets->chr_storage = NULL;
+    assets->chr_storage_size = 0U;
     assets->available = false;
     (void)snprintf(assets->status, sizeof(assets->status), "%s",
                    message != NULL ? message : "TGPL-1 rejected");
     return false;
 }
 
-void tecmo_gameplay_assets_destroy(TecmoGameplayAssets *assets)
+void tecmo_gameplay_assets_init(TecmoGameplayAssets *assets)
 {
     if (assets == NULL) return;
-    free(assets->storage);
     memset(assets, 0, sizeof(*assets));
+    assets->lifecycle_tag = TECMO_GAMEPLAY_ASSETS_LIFECYCLE_TAG;
+}
+
+void tecmo_gameplay_assets_destroy(TecmoGameplayAssets *assets)
+{
+    if (assets == NULL ||
+        assets->lifecycle_tag != TECMO_GAMEPLAY_ASSETS_LIFECYCLE_TAG) return;
+    free(assets->storage);
+    free(assets->chr_storage);
+    tecmo_gameplay_assets_init(assets);
 }
 
 static bool validate_header(const uint8_t *payload, size_t payload_size)
@@ -98,51 +112,55 @@ static bool validate_header(const uint8_t *payload, size_t payload_size)
            read_u32(payload + 48U) == TECMO_ASSET_PACK_GAMEPLAY_PALETTES_SIZE &&
            read_u32(payload + 52U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_RECORDS_OFFSET &&
            read_u32(payload + 56U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_RECORDS_SIZE &&
-           read_u32(payload + 60U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_LAYOUT_OFFSET &&
-           read_u32(payload + 64U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_LAYOUT_SIZE &&
-           read_u32(payload + 68U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_PALETTE_OFFSET &&
-           read_u32(payload + 72U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_PALETTE_SIZE &&
-           read_u32(payload + 76U) == TECMO_ASSET_PACK_GAMEPLAY_PALETTE_GROUPS_OFFSET &&
-           read_u32(payload + 80U) == TECMO_ASSET_PACK_GAMEPLAY_PALETTE_GROUPS_SIZE &&
-           read_u32(payload + 84U) == TECMO_ASSET_PACK_GAMEPLAY_RULES_OFFSET &&
-           read_u32(payload + 88U) == TECMO_ASSET_PACK_GAMEPLAY_RULES_SIZE &&
-           read_u32(payload + 92U) == TECMO_ASSET_PACK_GAMEPLAY_SELECTOR_OFFSET &&
-           read_u32(payload + 96U) == TECMO_ASSET_PACK_GAMEPLAY_SELECTOR_SIZE &&
-           read_u32(payload + 100U) == TECMO_ASSET_PACK_GAMEPLAY_PERIOD_OFFSET &&
-           read_u32(payload + 104U) == TECMO_ASSET_PACK_GAMEPLAY_PERIOD_SIZE &&
-           read_u32(payload + 108U) == TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_OFFSET &&
-           read_u32(payload + 112U) == TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_SIZE &&
-           read_u32(payload + 116U) == TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_OFFSET &&
-           read_u32(payload + 120U) == TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_SIZE &&
-           read_u32(payload + 124U) == TECMO_ASSET_PACK_GAMEPLAY_CHR_SIZE &&
-           read_u32(payload + 128U) == TECMO_ASSET_PACK_GAMEPLAY_CHR_FNV1A32 &&
-           read_u64(payload + 132U) == TECMO_ASSET_PACK_GAMEPLAY_CHR_FNV1A64 &&
-           read_u32(payload + 140U) == TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_SOURCE &&
-           read_u32(payload + 144U) == TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_SIZE &&
-           read_u32(payload + 148U) == TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_FNV1A32 &&
-           read_u32(payload + 152U) == TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_SOURCE &&
-           read_u32(payload + 156U) == TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_SIZE &&
-           read_u32(payload + 160U) == TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_FNV1A32 &&
-           read_u16(payload + 164U) == TECMO_GAMEPLAY_ASSET_POINTER_COUNT &&
-           read_u16(payload + 166U) == TECMO_GAMEPLAY_ASSET_PALETTE_GROUP_COUNT &&
-           read_u16(payload + 168U) == TECMO_GAMEPLAY_ASSET_DYNAMIC_SELECTOR_COUNT &&
-           read_u16(payload + 170U) == TECMO_GAMEPLAY_ASSET_RULE_COUNT &&
-           read_u16(payload + 172U) == 3U && read_u16(payload + 174U) == 0U &&
-           read_u32(payload + 176U) == 0x41472384U &&
-           read_u32(payload + 180U) == 0xB13050B3U &&
-           read_u32(payload + 184U) == 0x3D063225U &&
-           read_u32(payload + 188U) == 0x740B4855U &&
-           read_u32(payload + 192U) == 0x6E11429DU &&
-           read_u32(payload + 196U) == 0x5041054FU &&
-           read_u32(payload + 200U) == 0xE77E8F44U &&
-           read_u32(payload + 204U) == TECMO_ASSET_PACK_GAMEPLAY_EVENTS_OFFSET &&
-           read_u32(payload + 208U) == TECMO_ASSET_PACK_GAMEPLAY_EVENTS_SIZE &&
-           read_u32(payload + 212U) == 0xC8FFCCEDU &&
-           read_u32(payload + 216U) == 0xFA6E116AU &&
-           read_u32(payload + 220U) == 0x23B7AD01U &&
-           read_u32(payload + 224U) == 0x0000000FU &&
-           bytes_are_zero(payload + 228U,
-                          TECMO_ASSET_PACK_GAMEPLAY_HEADER_SIZE - 228U);
+           read_u32(payload + 60U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_POINTERS_OFFSET &&
+           read_u32(payload + 64U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_POINTERS_SIZE &&
+           read_u32(payload + 68U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_POINTER_TAIL_OFFSET &&
+           read_u32(payload + 72U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_POINTER_TAIL_SIZE &&
+           read_u32(payload + 76U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_PALETTE_OFFSET &&
+           read_u32(payload + 80U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_PALETTE_SIZE &&
+           read_u32(payload + 84U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_PALETTE_POINTERS_OFFSET &&
+           read_u32(payload + 88U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_PALETTE_POINTERS_SIZE &&
+           read_u32(payload + 92U) == TECMO_ASSET_PACK_GAMEPLAY_PALETTE_GROUPS_OFFSET &&
+           read_u32(payload + 96U) == TECMO_ASSET_PACK_GAMEPLAY_PALETTE_GROUPS_SIZE &&
+           read_u32(payload + 100U) == TECMO_ASSET_PACK_GAMEPLAY_RENDERER_OFFSET &&
+           read_u32(payload + 104U) == TECMO_ASSET_PACK_GAMEPLAY_RENDERER_SIZE &&
+           read_u32(payload + 108U) == TECMO_ASSET_PACK_GAMEPLAY_RENDER_STAGING_OFFSET &&
+           read_u32(payload + 112U) == TECMO_ASSET_PACK_GAMEPLAY_RENDER_STAGING_SIZE &&
+           read_u32(payload + 116U) == TECMO_ASSET_PACK_GAMEPLAY_SELECTOR_OFFSET &&
+           read_u32(payload + 120U) == TECMO_ASSET_PACK_GAMEPLAY_SELECTOR_SIZE &&
+           read_u32(payload + 124U) == TECMO_ASSET_PACK_GAMEPLAY_RULES_OFFSET &&
+           read_u32(payload + 128U) == TECMO_ASSET_PACK_GAMEPLAY_RULES_SIZE &&
+           read_u32(payload + 132U) == TECMO_ASSET_PACK_GAMEPLAY_PERIOD_OFFSET &&
+           read_u32(payload + 136U) == TECMO_ASSET_PACK_GAMEPLAY_PERIOD_SIZE &&
+           read_u32(payload + 140U) == TECMO_ASSET_PACK_GAMEPLAY_EVENTS_OFFSET &&
+           read_u32(payload + 144U) == TECMO_ASSET_PACK_GAMEPLAY_EVENTS_SIZE &&
+           read_u32(payload + 148U) == TECMO_ASSET_PACK_GAMEPLAY_LIVE_OFFSET &&
+           read_u32(payload + 152U) == TECMO_ASSET_PACK_GAMEPLAY_LIVE_SIZE &&
+           read_u32(payload + 156U) == TECMO_ASSET_PACK_GAMEPLAY_CHR_SIZE &&
+           read_u32(payload + 160U) == TECMO_ASSET_PACK_GAMEPLAY_CHR_FNV1A32 &&
+           read_u64(payload + 164U) == TECMO_ASSET_PACK_GAMEPLAY_CHR_FNV1A64 &&
+           read_u16(payload + 172U) == TECMO_GAMEPLAY_ASSET_POINTER_COUNT &&
+           read_u16(payload + 174U) == TECMO_GAMEPLAY_ASSET_PALETTE_GROUP_COUNT &&
+           read_u16(payload + 176U) == TECMO_GAMEPLAY_ASSET_R2_SELECTOR_COUNT &&
+           read_u16(payload + 178U) == TECMO_GAMEPLAY_ASSET_RULE_COUNT &&
+           read_u16(payload + 180U) == TECMO_GAMEPLAY_LIVE_BAND_COUNT &&
+           read_u16(payload + 182U) == 0U &&
+           read_u32(payload + 184U) == 0x41472384U &&
+           read_u32(payload + 188U) == 0xABB3133DU &&
+           read_u32(payload + 192U) == 0xDF79E8DBU &&
+           read_u32(payload + 196U) == 0x55B90F03U &&
+           read_u32(payload + 200U) == 0xFCB596AFU &&
+           read_u32(payload + 204U) == 0x740B4855U &&
+           read_u32(payload + 208U) == 0xD487D107U &&
+           read_u32(payload + 212U) == 0xA93E123BU &&
+           read_u32(payload + 216U) == 0x6E11429DU &&
+           read_u32(payload + 220U) == 0x5041054FU &&
+           read_u32(payload + 224U) == 0xE77E8F44U &&
+           read_u32(payload + 228U) == 0xF4C8965CU &&
+           read_u32(payload + 232U) == 0xDAAC4F68U &&
+           read_u32(payload + 236U) == 0x0000001FU &&
+           bytes_are_zero(payload + 240U,
+                          TECMO_ASSET_PACK_GAMEPLAY_HEADER_SIZE - 240U);
 }
 
 static bool validate_screen_records(const uint8_t *payload,
@@ -168,8 +186,8 @@ static bool validate_screen_records(const uint8_t *payload,
             read_u32(record + 28U) != 2048U ||
             read_u32(record + 32U) != palette_offset ||
             read_u32(record + 36U) != 16U ||
-            read_u32(record + 40U) != TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_SOURCE ||
-            read_u32(record + 44U) != TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_SIZE ||
+            read_u32(record + 40U) != 1U ||
+            read_u32(record + 44U) != 0U ||
             read_u32(record + 48U) != expected->descriptor_fingerprint ||
             read_u32(record + 52U) != expected->encoded_fingerprint ||
             read_u32(record + 56U) != expected->decoded_fingerprint ||
@@ -231,7 +249,7 @@ static bool validate_actor_records(const uint8_t *payload)
     const uint8_t *records =
         payload + TECMO_ASSET_PACK_GAMEPLAY_ACTOR_RECORDS_OFFSET;
     const uint8_t *pointers =
-        payload + TECMO_ASSET_PACK_GAMEPLAY_ACTOR_LAYOUT_OFFSET;
+        payload + TECMO_ASSET_PACK_GAMEPLAY_ACTOR_POINTERS_OFFSET;
     for (size_t index = 0U; index < TECMO_GAMEPLAY_ASSET_POINTER_COUNT; ++index) {
         uint16_t target = read_u16(pointers + index * 2U);
         size_t offset;
@@ -240,7 +258,7 @@ static bool validate_actor_records(const uint8_t *payload)
         if (target < 0x8000U || target >= 0xA5B9U) return false;
         offset = (size_t)(target - 0x8000U);
         dimensions = records[offset];
-        cells = (size_t)(dimensions >> 4U) * (dimensions & 0x0FU);
+        cells = (size_t)(dimensions & 0x0FU) * (dimensions >> 4U);
         if ((dimensions >> 4U) == 0U || (dimensions & 0x0FU) == 0U ||
             cells > TECMO_GAMEPLAY_RESOLVED_PIECE_MAX ||
             offset + 4U > TECMO_ASSET_PACK_GAMEPLAY_ACTOR_RECORDS_SIZE ||
@@ -258,8 +276,12 @@ bool tecmo_gameplay_assets_parse(TecmoGameplayAssets *assets,
                                  size_t chr_size)
 {
     uint8_t *storage;
-    if (assets == NULL) return false;
-    memset(assets, 0, sizeof(*assets));
+    uint8_t *chr_storage;
+    if (assets == NULL ||
+        assets->lifecycle_tag != TECMO_GAMEPLAY_ASSETS_LIFECYCLE_TAG) {
+        return false;
+    }
+    tecmo_gameplay_assets_destroy(assets);
     if (payload == NULL || chr_bytes == NULL ||
         !validate_header(payload, payload_size)) {
         return reject(assets, "TGPL-1 header/size/reserved contract rejected");
@@ -274,33 +296,25 @@ bool tecmo_gameplay_assets_parse(TecmoGameplayAssets *assets,
         fnv1a32(payload + TECMO_ASSET_PACK_GAMEPLAY_RULES_OFFSET,
                 TECMO_ASSET_PACK_GAMEPLAY_RULES_SIZE) != 0x5041054FU ||
         fnv1a32(payload + TECMO_ASSET_PACK_GAMEPLAY_PERIOD_OFFSET,
-                TECMO_ASSET_PACK_GAMEPLAY_PERIOD_SIZE) != 0xE77E8F44U) {
+                TECMO_ASSET_PACK_GAMEPLAY_PERIOD_SIZE) != 0xE77E8F44U ||
+        fnv1a32(payload + TECMO_ASSET_PACK_GAMEPLAY_EVENTS_OFFSET,
+                TECMO_ASSET_PACK_GAMEPLAY_EVENTS_SIZE) != 0xF4C8965CU ||
+        fnv1a32(payload + TECMO_ASSET_PACK_GAMEPLAY_LIVE_OFFSET,
+                TECMO_ASSET_PACK_GAMEPLAY_LIVE_SIZE) != 0xDAAC4F68U) {
         return reject(assets, "TGPL-1 screen/source/actor contract rejected");
     }
     if (chr_size != TECMO_ASSET_PACK_GAMEPLAY_CHR_SIZE ||
         fnv1a32(chr_bytes, chr_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_CHR_FNV1A32 ||
         fnv1a64(chr_bytes, chr_size) !=
-            TECMO_ASSET_PACK_GAMEPLAY_CHR_FNV1A64 ||
-        memcmp(payload + TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_OFFSET,
-               chr_bytes + TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_SOURCE,
-               TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_SIZE) != 0 ||
-        memcmp(payload + TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_OFFSET,
-               chr_bytes + TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_SOURCE,
-               TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_SIZE) != 0 ||
-        fnv1a32(payload + TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_OFFSET,
-                TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_SIZE) !=
-            TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_FNV1A32 ||
-        fnv1a32(payload + TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_OFFSET,
-                TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_SIZE) !=
-            TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_FNV1A32) {
+            TECMO_ASSET_PACK_GAMEPLAY_CHR_FNV1A64) {
         return reject(assets, "TGPL-1 same-pack chr/all dependency rejected");
     }
     for (size_t index = 0U;
-         index < TECMO_GAMEPLAY_ASSET_DYNAMIC_SELECTOR_COUNT; ++index) {
+         index < TECMO_GAMEPLAY_ASSET_R2_SELECTOR_COUNT; ++index) {
         if (payload[TECMO_ASSET_PACK_GAMEPLAY_SELECTOR_OFFSET + index] !=
             (uint8_t)(0x40U + index)) {
-            return reject(assets, "TGPL-1 dynamic selector metadata rejected");
+            return reject(assets, "TGPL-1 sprite R2 selector metadata rejected");
         }
     }
     for (size_t index = 0U;
@@ -313,9 +327,17 @@ bool tecmo_gameplay_assets_parse(TecmoGameplayAssets *assets,
 
     storage = (uint8_t *)malloc(payload_size);
     if (storage == NULL) return reject(assets, "TGPL-1 allocation failed");
+    chr_storage = (uint8_t *)malloc(chr_size);
+    if (chr_storage == NULL) {
+        free(storage);
+        return reject(assets, "TGPL-1 CHR allocation failed");
+    }
     memcpy(storage, payload, payload_size);
+    memcpy(chr_storage, chr_bytes, chr_size);
     assets->storage = storage;
     assets->storage_size = payload_size;
+    assets->chr_storage = chr_storage;
+    assets->chr_storage_size = chr_size;
     for (size_t index = 0U; index < TECMO_GAMEPLAY_ASSET_SCREEN_COUNT; ++index) {
         const TecmoGameplayExpectedScreen *expected =
             &tecmo_gameplay_expected_screens[index];
@@ -330,8 +352,6 @@ bool tecmo_gameplay_assets_parse(TecmoGameplayAssets *assets,
         screen->palette_cpu = read_u16(record + 14U);
         screen->encoded_size = expected->encoded_size;
         screen->decoded_size = 2048U;
-        screen->background_chr_source_offset = read_u32(record + 40U);
-        screen->background_chr_size = read_u32(record + 44U);
         screen->descriptor_fingerprint = read_u32(record + 48U);
         screen->encoded_fingerprint = read_u32(record + 52U);
         screen->decoded_fingerprint = read_u32(record + 56U);
@@ -357,26 +377,27 @@ bool tecmo_gameplay_assets_parse(TecmoGameplayAssets *assets,
     assets->actor_records =
         storage + TECMO_ASSET_PACK_GAMEPLAY_ACTOR_RECORDS_OFFSET;
     assets->actor_records_size = TECMO_ASSET_PACK_GAMEPLAY_ACTOR_RECORDS_SIZE;
-    assets->actor_pointer_layout =
-        storage + TECMO_ASSET_PACK_GAMEPLAY_ACTOR_LAYOUT_OFFSET;
-    assets->actor_pointer_layout_size =
-        TECMO_ASSET_PACK_GAMEPLAY_ACTOR_LAYOUT_SIZE;
+    assets->actor_pointers =
+        storage + TECMO_ASSET_PACK_GAMEPLAY_ACTOR_POINTERS_OFFSET;
+    assets->actor_pointers_size =
+        TECMO_ASSET_PACK_GAMEPLAY_ACTOR_POINTERS_SIZE;
     assets->actor_palette_groups =
         storage + TECMO_ASSET_PACK_GAMEPLAY_PALETTE_GROUPS_OFFSET;
     assets->actor_palette_groups_size =
         TECMO_ASSET_PACK_GAMEPLAY_PALETTE_GROUPS_SIZE;
-    assets->dynamic_sprite_selectors =
+    assets->r2_selectors =
         storage + TECMO_ASSET_PACK_GAMEPLAY_SELECTOR_OFFSET;
-    assets->dynamic_sprite_selector_count =
-        TECMO_GAMEPLAY_ASSET_DYNAMIC_SELECTOR_COUNT;
-    assets->background_chr = storage + TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_OFFSET;
-    assets->background_chr_size = TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_SIZE;
-    assets->background_chr_source_offset =
-        TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_SOURCE;
-    assets->sprite_chr = storage + TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_OFFSET;
-    assets->sprite_chr_size = TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_SIZE;
-    assets->sprite_chr_source_offset =
-        TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_SOURCE;
+    assets->r2_selector_count = TECMO_GAMEPLAY_ASSET_R2_SELECTOR_COUNT;
+    {
+        static const uint8_t starts[TECMO_GAMEPLAY_LIVE_BAND_COUNT] = {
+            0U, 32U, 48U, 80U, 128U, 176U
+        };
+        memcpy(assets->live_band_starts, starts, sizeof(starts));
+        memcpy(assets->live_band_defaults,
+               storage + tecmo_gameplay_expected_sources[
+                   TECMO_GAMEPLAY_ASSET_SOURCE_COUNT - 1U].payload_offset + 27U,
+               12U);
+    }
     assets->chr_fingerprint32 = TECMO_ASSET_PACK_GAMEPLAY_CHR_FNV1A32;
     assets->chr_fingerprint64 = TECMO_ASSET_PACK_GAMEPLAY_CHR_FNV1A64;
     assets->available = true;
@@ -393,8 +414,11 @@ bool tecmo_gameplay_assets_load(TecmoGameplayAssets *assets,
     uint64_t payload_size = 0U;
     uint64_t chr_size = 0U;
     bool loaded;
-    if (assets == NULL) return false;
-    memset(assets, 0, sizeof(*assets));
+    if (assets == NULL ||
+        assets->lifecycle_tag != TECMO_GAMEPLAY_ASSETS_LIFECYCLE_TAG) {
+        return false;
+    }
+    tecmo_gameplay_assets_destroy(assets);
     if (asset_pack_path == NULL ||
         tecmo_asset_pack_read_entry_exact(
             asset_pack_path, TECMO_ASSET_PACK_GAMEPLAY_ID,
@@ -428,76 +452,174 @@ const TecmoGameplaySourceSpan *tecmo_gameplay_assets_find_source(
 bool tecmo_gameplay_assets_resolve_pose(
     const TecmoGameplayAssets *assets,
     uint16_t pointer_index,
-    uint8_t dynamic_selector_index,
-    uint8_t palette_group,
-    uint8_t palette_index,
+    const TecmoGameplayPoseContext *context,
     TecmoGameplayResolvedPose *pose)
 {
     uint16_t target;
     size_t record_offset;
     const uint8_t *record;
-    unsigned width;
-    unsigned height;
+    unsigned columns;
+    unsigned rows;
     size_t cell_count;
-    uint8_t selector;
     size_t output = 0U;
-    if (assets == NULL || pose == NULL || !assets->available ||
+    if (assets == NULL || context == NULL || pose == NULL ||
+        !assets->available ||
         pointer_index >= TECMO_GAMEPLAY_ASSET_POINTER_COUNT ||
-        dynamic_selector_index >= TECMO_GAMEPLAY_ASSET_DYNAMIC_SELECTOR_COUNT ||
-        palette_group >= TECMO_GAMEPLAY_ASSET_PALETTE_GROUP_COUNT ||
-        palette_index >= 4U) {
+        context->palette_group >= TECMO_GAMEPLAY_ASSET_PALETTE_GROUP_COUNT ||
+        (context->actor_slot_base & 1U) == 0U ||
+        (context->actor_attributes & 0xFCU) != 0U) {
         return false;
     }
-    target = read_u16(assets->actor_pointer_layout + pointer_index * 2U);
+    target = read_u16(assets->actor_pointers + pointer_index * 2U);
     if (target < 0x8000U || target >= 0xA5B9U) return false;
     record_offset = (size_t)(target - 0x8000U);
     record = assets->actor_records + record_offset;
-    width = record[0U] >> 4U;
-    height = record[0U] & 0x0FU;
-    cell_count = (size_t)width * height;
-    if (width == 0U || height == 0U ||
+    columns = record[0U] & 0x0FU;
+    rows = record[0U] >> 4U;
+    cell_count = (size_t)columns * rows;
+    if (columns == 0U || rows == 0U ||
         cell_count > TECMO_GAMEPLAY_RESOLVED_PIECE_MAX ||
         record_offset + 4U > assets->actor_records_size ||
         cell_count > assets->actor_records_size - record_offset - 4U) {
         return false;
     }
-    selector = assets->dynamic_sprite_selectors[dynamic_selector_index];
     memset(pose, 0, sizeof(*pose));
     pose->pointer_index = pointer_index;
     pose->pointer_cpu = (uint16_t)(0xA5B9U + pointer_index * 2U);
     pose->record_cpu = target;
-    pose->width = (uint8_t)width;
-    pose->height = (uint8_t)height;
+    pose->columns = (uint8_t)columns;
+    pose->rows = (uint8_t)rows;
     pose->record_tag = record[3U];
-    pose->dynamic_selector = selector;
-    pose->palette_group = palette_group;
-    pose->palette_index = palette_index;
+    pose->actor_slot_base = context->actor_slot_base;
+    pose->actor_attributes = context->actor_attributes;
+    pose->palette_group = context->palette_group;
+    memcpy(pose->mmc3_r2_r5, context->mmc3_r2_r5,
+           sizeof(pose->mmc3_r2_r5));
     for (size_t cell = 0U; cell < cell_count; ++cell) {
-        uint8_t tile = record[4U + cell];
+        uint8_t cell_byte = record[4U + cell];
+        uint8_t tile;
+        uint8_t attributes;
+        uint8_t selector;
         uint32_t top;
         TecmoGameplayResolvedPiece *piece;
-        if (tile == 0x80U) continue;
+        /* Fixed $D498 uses BPL: every cell with bit 7 set is blank. */
+        if ((cell_byte & 0x80U) != 0U) continue;
+        tile = (uint8_t)((cell_byte & 0x3EU) +
+                         context->actor_slot_base);
+        selector = context->mmc3_r2_r5[(tile >> 6U) & 3U];
         top = (uint32_t)selector * 1024U +
-              (uint32_t)(tile & 0x7FU) * 16U;
-        if (top < assets->sprite_chr_source_offset ||
-            top + 32U > assets->sprite_chr_source_offset +
-                            assets->sprite_chr_size ||
+              (uint32_t)(tile & 0x3EU) * 16U;
+        if (top + 32U > assets->chr_storage_size ||
             output >= TECMO_GAMEPLAY_RESOLVED_PIECE_MAX) {
             return false;
         }
+        attributes = (uint8_t)((cell_byte & 0x41U) |
+                               context->actor_attributes);
         piece = &pose->pieces[output++];
         piece->dx = (int16_t)(int8_t)record[1U] +
-                    (int16_t)((cell % width) * 8U);
+                    (int16_t)((cell % columns) * 8U);
         piece->dy = (int16_t)(int8_t)record[2U] +
-                    (int16_t)((cell / width) * 16U);
+                    (int16_t)((cell / columns) * 16U);
+        piece->cell_byte = cell_byte;
         piece->tile_id = tile;
-        piece->palette_index = palette_index;
+        piece->oam_attributes = attributes;
+        piece->palette_index = attributes & 3U;
+        piece->flip_horizontal = (attributes & 0x40U) != 0U;
         piece->top_chr_offset = top;
         piece->bottom_chr_offset = top + 16U;
+        piece->top_chr = assets->chr_storage + top;
+        piece->bottom_chr = assets->chr_storage + top + 16U;
         piece->palette = assets->actor_palette_groups +
-                         (size_t)palette_group * 16U +
-                         (size_t)palette_index * 4U;
+                         (size_t)context->palette_group * 16U +
+                         (size_t)piece->palette_index * 4U;
     }
     pose->piece_count = (uint8_t)output;
+    return true;
+}
+
+bool tecmo_gameplay_assets_build_live_background_context(
+    const TecmoGameplayAssets *assets,
+    uint8_t final_r1_selector,
+    TecmoGameplayLiveBackgroundContext *context)
+{
+    if (assets == NULL || context == NULL || !assets->available ||
+        final_r1_selector < 0x40U || final_r1_selector > 0x5AU) {
+        return false;
+    }
+    for (size_t band = 0U; band < TECMO_GAMEPLAY_LIVE_BAND_COUNT; ++band) {
+        context->pre_asl_r0[band] = assets->live_band_defaults[band * 2U];
+        context->pre_asl_r1[band] = assets->live_band_defaults[band * 2U + 1U];
+    }
+    context->pre_asl_r1[TECMO_GAMEPLAY_LIVE_BAND_COUNT - 1U] =
+        final_r1_selector;
+    return true;
+}
+
+uint8_t tecmo_gameplay_assets_live_band_for_scanline(uint8_t scanline)
+{
+    static const uint8_t starts[TECMO_GAMEPLAY_LIVE_BAND_COUNT] = {
+        0U, 32U, 48U, 80U, 128U, 176U
+    };
+    uint8_t band = 0U;
+    for (uint8_t index = 1U;
+         index < TECMO_GAMEPLAY_LIVE_BAND_COUNT; ++index) {
+        if (scanline < starts[index]) break;
+        band = index;
+    }
+    return band;
+}
+
+bool tecmo_gameplay_assets_resolve_live_orientation_tile(
+    const TecmoGameplayAssets *assets,
+    uint8_t screen_index,
+    uint8_t nametable_page,
+    uint8_t row,
+    uint8_t column,
+    uint8_t scanline,
+    const TecmoGameplayLiveBackgroundContext *context,
+    TecmoGameplayResolvedOrientationTile *tile)
+{
+    const TecmoGameplayScreenAsset *screen;
+    size_t nametable;
+    size_t attribute;
+    unsigned shift;
+    uint8_t tile_id;
+    uint8_t palette_index;
+    uint8_t band;
+    uint8_t pre_asl;
+    uint8_t mmc3_bank;
+    uint32_t chr_offset;
+    if (assets == NULL || context == NULL || tile == NULL ||
+        !assets->available || screen_index >= TECMO_GAMEPLAY_ASSET_SCREEN_COUNT ||
+        nametable_page >= 2U || row >= 30U || column >= 32U ||
+        scanline >= 240U) {
+        return false;
+    }
+    screen = &assets->screens[screen_index];
+    nametable = (size_t)nametable_page * 1024U;
+    tile_id = screen->nametables[nametable + (size_t)row * 32U + column];
+    attribute = nametable + 0x3C0U + (size_t)(row / 4U) * 8U + column / 4U;
+    shift = ((row & 2U) != 0U ? 4U : 0U) +
+            ((column & 2U) != 0U ? 2U : 0U);
+    palette_index = (uint8_t)((screen->nametables[attribute] >> shift) & 3U);
+    band = tecmo_gameplay_assets_live_band_for_scanline(scanline);
+    pre_asl = tile_id < 0x80U ? context->pre_asl_r0[band]
+                              : context->pre_asl_r1[band];
+    mmc3_bank = (uint8_t)(pre_asl << 1U);
+    chr_offset = (uint32_t)mmc3_bank * 1024U +
+                 (uint32_t)(tile_id & 0x7FU) * 16U;
+    if (chr_offset + 16U > assets->chr_storage_size) return false;
+    memset(tile, 0, sizeof(*tile));
+    tile->screen_id = screen->screen_id;
+    tile->nametable_page = nametable_page;
+    tile->row = row;
+    tile->column = column;
+    tile->band = band;
+    tile->tile_id = tile_id;
+    tile->palette_index = palette_index;
+    tile->mmc3_bank = mmc3_bank;
+    tile->chr_offset = chr_offset;
+    tile->chr = assets->chr_storage + chr_offset;
+    tile->palette = screen->palette + (size_t)palette_index * 4U;
     return true;
 }

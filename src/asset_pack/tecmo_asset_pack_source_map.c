@@ -1452,15 +1452,19 @@ static int append_gameplay_source_map_entry(
     const TecmoGameplayProvenance *p)
 {
     static const char *const roles[TECMO_GAMEPLAY_ASSET_SOURCE_COUNT] = {
-        "actor-metasprite-records", "actor-pointer-layout-block",
-        "actor-palette-setup", "actor-palette-groups",
-        "dynamic-sprite-selectors", "rule-setup", "rule-lookup",
+        "actor-metasprite-records", "actor-pointer-table",
+        "actor-pointer-tail", "actor-palette-setup",
+        "actor-palette-pointers", "actor-palette-groups",
+        "fixed-actor-renderer", "actor-render-staging",
+        "sprite-r2-selector-table", "rule-setup", "rule-lookup",
         "rule-subtype", "rule-animation", "rule-state",
         "rule-shot-result", "rule-shot-launch", "rule-close-shot",
         "rule-trajectory", "rule-finish", "period-banner-dispatch",
         "period-banner-pointers", "period-banner-strings",
         "scoreboard-violation-dispatch-and-text", "foul-overlay-and-text",
-        "halftime-final-banner-loop-and-data"
+        "halftime-final-banner-loop-and-data",
+        "live-orientation-select", "live-orientation-screen-ids",
+        "live-irq-arm", "live-irq-band-dispatch", "live-band-initializer"
     };
     const char *prefix = *first != 0 ? "" : ",\n";
 
@@ -1498,8 +1502,9 @@ static int append_gameplay_source_map_entry(
                 "\"palette\":{\"source_entry\":\"prg/bank%02u\","
                 "\"source_offset\":%llu,\"bank\":%u,\"cpu_address\":%u,"
                 "\"size\":16,\"fingerprint_fnv1a32\":\"%08X\"},"
-                "\"background_chr_selectors\":[22,23],"
-                "\"resolved_chr_range\":[45056,49152]}",
+                "\"nametable_role\":\"live-orientation-base\","
+                "\"descriptor_chr_role\":\"tipoff-close-up-only\","
+                "\"live_chr_contract\":\"irq-band-context-required\"}",
                 index == 0U ? "" : ",", (unsigned)screen->screen_id,
                 (unsigned long long)p->descriptor_offsets[index],
                 (unsigned)screen->descriptor_cpu,
@@ -1549,23 +1554,22 @@ static int append_gameplay_source_map_entry(
     }
     return tecmo_asset_pack_append_text(
         buffer, capacity, length,
-        "],\"resolved_chr\":["
-        "{\"role\":\"court-background\",\"source_entry\":\"chr/all\","
-        "\"source_offset\":%llu,\"chr_offset\":45056,\"size\":4096,"
-        "\"fingerprint_fnv1a32\":\"B3DB8411\"},"
-        "{\"role\":\"dynamic-player-ball-window\","
-        "\"source_entry\":\"chr/all\",\"source_offset\":%llu,"
-        "\"chr_offset\":65536,\"size\":9216,"
-        "\"selector_table\":[64,65,66,67,68,69,70,71],"
-        "\"fingerprint_fnv1a32\":\"A6E68F1F\"}],"
+        "],\"live_background_contract\":{"
+        "\"orientation_screens\":[27,46],"
+        "\"band_start_scanlines\":[0,32,48,80,128,176],"
+        "\"pre_asl_pairs\":[[91,92],[93,93],[94,95],[96,97],[98,99],[100,null]],"
+        "\"final_r1\":\"explicit team/context selector ($0599)\","
+        "\"descriptor_chr\":\"tipoff hand/ball close-up, not live court\","
+        "\"top_hud_nametable\":\"dynamic runtime writes, not frozen in orientation base\","
+        "\"runtime_chr_dependency\":\"same-pack chr/all\"},"
         "\"pose_contract\":{\"pointer_cpu_start\":42425,"
         "\"pointer_cpu_end\":44782,\"pointer_count\":1179,"
         "\"record_cpu_range\":[32768,42425],\"max_pieces\":15,"
-        "\"semantic_clip_names\":\"engine-state mapping pending\"}}",
-        (unsigned long long)(p->chr_offset +
-            TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_SOURCE),
-        (unsigned long long)(p->chr_offset +
-            TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_SOURCE));
+        "\"dimensions\":\"low-nibble columns, high-nibble rows\","
+        "\"tile\":\"(cell & 0x3E) + actor_slot_base\","
+        "\"attributes\":\"(cell & 0x41) | actor_attributes\","
+        "\"chr\":\"explicit MMC3 R2-R5 context\","
+        "\"semantic_clip_names\":\"engine-state mapping pending\"}}");
 }
 
 char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,

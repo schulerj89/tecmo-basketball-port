@@ -28,7 +28,7 @@ if (!$Scratch.StartsWith($BuildPrefix,
 }
 $PackPath = Join-Path $Scratch "gameplay.assetpack"
 $ExpectedOutput =
-    "TGPL-1 gameplay assets passed: screens=2 sources=21 pointers=1179 chr=F6F6E854"
+    "TGPL-1 gameplay assets passed: orientation-bases=2 sources=30 pointers=1179 chr=F6F6E854 base-visual=37381BBD"
 $PreviousSkipShortcut = $env:TECMO_SKIP_SHORTCUT
 
 function Get-ShortTail {
@@ -156,8 +156,8 @@ try {
     $ChrEntry = Get-AssetPackEntry $PackBytes "chr/all"
     $SourceMapEntry = Get-AssetPackEntry $PackBytes "system/source-map"
     $Payload = Get-EntryBytes $PackBytes $GameplayEntry
-    if ($GameplayEntry.byte_count -ne 35794 -or
-        (Get-Fnv1a32 $Payload) -ne "1D7897A1") {
+    if ($GameplayEntry.byte_count -ne 23379 -or
+        (Get-Fnv1a32 $Payload) -ne "185B25B1") {
         throw "gameplay/core size or canonical fingerprint changed."
     }
     Invoke-GameplayAssetTest $PackPath $true
@@ -170,13 +170,51 @@ try {
     })
     if ($GameplayMap.Count -ne 1 -or
         $GameplayMap[0].schema -ne "tecmo.gameplay/TGPL-1" -or
-        $GameplayMap[0].size -ne 35794 -or
-        $GameplayMap[0].fingerprint_fnv1a32 -ne "1D7897A1" -or
+        $GameplayMap[0].size -ne 23379 -or
+        $GameplayMap[0].fingerprint_fnv1a32 -ne "185B25B1" -or
         @($GameplayMap[0].screens).Count -ne 2 -or
-        @($GameplayMap[0].source_spans).Count -ne 21 -or
+        @($GameplayMap[0].source_spans).Count -ne 30 -or
+        @($GameplayMap[0].screens | Where-Object {
+            $_.nametable_role -eq "live-orientation-base" -and
+            $_.descriptor_chr_role -eq "tipoff-close-up-only"
+        }).Count -ne 2 -or
+        (@($GameplayMap[0].live_background_contract.band_start_scanlines) -join ",") -ne
+            "0,32,48,80,128,176" -or
+        $GameplayMap[0].live_background_contract.descriptor_chr -notmatch
+            "not live court" -or
+        $GameplayMap[0].live_background_contract.top_hud_nametable -notmatch
+            "dynamic runtime writes" -or
+        $GameplayMap[0].pose_contract.dimensions -ne
+            "low-nibble columns, high-nibble rows" -or
+        $GameplayMap[0].pose_contract.chr -ne
+            "explicit MMC3 R2-R5 context" -or
         @($GameplayMap[0].source_spans | Where-Object {
             $_.role -eq "scoreboard-violation-dispatch-and-text" -and
             $_.cpu_start -eq 0xBE87 -and $_.cpu_end -eq 0xBFA8
+        }).Count -ne 1 -or
+        @($GameplayMap[0].source_spans | Where-Object {
+            $_.role -eq "actor-pointer-table" -and
+            $_.cpu_start -eq 0xA5B9 -and $_.cpu_end -eq 0xAEEE
+        }).Count -ne 1 -or
+        @($GameplayMap[0].source_spans | Where-Object {
+            $_.role -eq "actor-pointer-tail" -and
+            $_.cpu_start -eq 0xAEEF -and $_.cpu_end -eq 0xAFFF
+        }).Count -ne 1 -or
+        @($GameplayMap[0].source_spans | Where-Object {
+            $_.role -eq "actor-palette-setup" -and
+            $_.cpu_start -eq 0xB0ED -and $_.cpu_end -eq 0xB133
+        }).Count -ne 1 -or
+        @($GameplayMap[0].source_spans | Where-Object {
+            $_.role -eq "actor-palette-pointers" -and
+            $_.cpu_start -eq 0xB134 -and $_.cpu_end -eq 0xB137
+        }).Count -ne 1 -or
+        @($GameplayMap[0].source_spans | Where-Object {
+            $_.role -eq "actor-palette-groups" -and
+            $_.cpu_start -eq 0xB138 -and $_.cpu_end -eq 0xB157
+        }).Count -ne 1 -or
+        @($GameplayMap[0].source_spans | Where-Object {
+            $_.role -eq "fixed-actor-renderer" -and
+            $_.cpu_start -eq 0xD413 -and $_.cpu_end -eq 0xD560
         }).Count -ne 1 -or
         @($GameplayMap[0].source_spans | Where-Object {
             $_.role -eq "foul-overlay-and-text" -and
@@ -185,6 +223,10 @@ try {
         @($GameplayMap[0].source_spans | Where-Object {
             $_.role -eq "halftime-final-banner-loop-and-data" -and
             $_.cpu_start -eq 0xBC3C -and $_.cpu_end -eq 0xBD10
+        }).Count -ne 1 -or
+        @($GameplayMap[0].source_spans | Where-Object {
+            $_.role -eq "live-irq-band-dispatch" -and
+            $_.cpu_start -eq 0xFE92 -and $_.cpu_end -eq 0xFEFD
         }).Count -ne 1) {
         throw "TGPL-1 source-map provenance is incomplete or malformed."
     }
@@ -195,9 +237,10 @@ try {
         @{ id="header-reserved"; offset=228 },
         @{ id="screen-record"; offset=256 + 24 },
         @{ id="source-record"; offset=384 + 16 },
-        @{ id="actor-pointer"; offset=15797 },
-        @{ id="period-data"; offset=21384 },
-        @{ id="event-data"; offset=21538 }
+        @{ id="actor-pointer"; offset=16085 },
+        @{ id="period-data"; offset=22080 },
+        @{ id="event-data"; offset=22234 },
+        @{ id="live-data"; offset=23178 }
     )
     foreach ($Mutation in $Mutations) {
         $Path = Join-Path $Scratch ("payload-" + $Mutation.id + ".assetpack")
@@ -210,7 +253,7 @@ try {
 
     $OversizedPath = Join-Path $Scratch "oversized.assetpack"
     $Oversized = [byte[]]$PackBytes.Clone()
-    [BitConverter]::GetBytes([uint64]35795).CopyTo(
+    [BitConverter]::GetBytes([uint64]23380).CopyTo(
         $Oversized, [int]$GameplayEntry.directory_offset + 92)
     [IO.File]::WriteAllBytes($OversizedPath, $Oversized)
     Invoke-GameplayAssetTest $OversizedPath $false
@@ -239,10 +282,12 @@ try {
         @{ id="screen-stream"; offset=$Prg + 1 * 0x4000 + (0xB5EB - 0x8000) },
         @{ id="actor-record"; offset=$Prg + 1 * 0x4000 },
         @{ id="actor-pointer"; offset=$Prg + 1 * 0x4000 + (0xA5B9 - 0x8000) },
+        @{ id="actor-renderer"; offset=$Fixed + (0xD413 - 0xC000) },
         @{ id="shot-rule"; offset=$Prg + 5 * 0x4000 + (0x91BC - 0x8000) },
         @{ id="scoreboard"; offset=$Prg + 3 * 0x4000 + (0xBE87 - 0x8000) },
         @{ id="foul"; offset=$Prg + 2 * 0x4000 + (0xB0F8 - 0x8000) },
         @{ id="halftime"; offset=$Prg + 6 * 0x4000 + (0xBC3C - 0x8000) },
+        @{ id="live-bands"; offset=$Fixed + (0xFE92 - 0xC000) },
         @{ id="sprite-selector"; offset=$Fixed + (0xF24D - 0xC000) },
         @{ id="chr"; offset=$Chr + 0x10000 }
     )
@@ -250,7 +295,29 @@ try {
         Invoke-RejectedRomMutation $RomBytes $Mutation.id $Mutation.offset
     }
 
-    Write-Host "TGPL-1 focused tests passed: canonical, provenance, poses, malformed, cross-pack, Rev1 mutations"
+    # Five replacement bytes collide under the declared full-CHR FNV32 while
+    # changing its FNV64. This proves import does not silently accept a
+    # same-size/same-FNV32 cross revision.
+    $CollisionBytes = [byte[]]$RomBytes.Clone()
+    [byte[]]$CollisionPatch = 0x02,0xD6,0xF7,0x4E,0x6E
+    [Array]::Copy($CollisionPatch, 0, $CollisionBytes, $Chr, 5)
+    $OriginalChr = New-Object byte[] 262144
+    $CollisionChr = New-Object byte[] 262144
+    [Array]::Copy($RomBytes, $Chr, $OriginalChr, 0, 262144)
+    [Array]::Copy($CollisionBytes, $Chr, $CollisionChr, 0, 262144)
+    if ((Get-Fnv1a32 $OriginalChr) -ne (Get-Fnv1a32 $CollisionChr)) {
+        throw "Focused CHR FNV32 collision fixture is invalid."
+    }
+    $CollisionRom = Join-Path $Scratch "rom-chr-fnv64-collision.nes"
+    $CollisionPack = Join-Path $Scratch "rom-chr-fnv64-collision.assetpack"
+    [IO.File]::WriteAllBytes($CollisionRom, $CollisionBytes)
+    $CollisionOutput = @(& $Executable --build-assetpack `
+        $CollisionRom $CollisionPack 2>&1)
+    if ($LASTEXITCODE -eq 0) {
+        throw "Same-FNV32/different-FNV64 CHR revision was accepted.`n$(Get-ShortTail $CollisionOutput)"
+    }
+
+    Write-Host "TGPL-1 focused tests passed: canonical, provenance, reload, orientation-base/CHR goldens, malformed, cross-pack, FNV64, Rev1 mutations"
 } finally {
     $env:TECMO_SKIP_SHORTCUT = $PreviousSkipShortcut
     if (Test-Path -LiteralPath $Scratch) {

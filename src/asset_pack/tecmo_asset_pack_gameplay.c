@@ -29,47 +29,75 @@ const TecmoGameplayExpectedSource
     tecmo_gameplay_expected_sources[TECMO_GAMEPLAY_ASSET_SOURCE_COUNT] = {
         {TECMO_GAMEPLAY_SOURCE_ACTOR_RECORDS, 1U, 0U, 0x8000U, 9657U,
          TECMO_ASSET_PACK_GAMEPLAY_ACTOR_RECORDS_OFFSET, 0x41472384U},
-        {TECMO_GAMEPLAY_SOURCE_ACTOR_LAYOUT, 1U, 0U, 0xA5B9U, 2631U,
-         TECMO_ASSET_PACK_GAMEPLAY_ACTOR_LAYOUT_OFFSET, 0xB13050B3U},
-        {TECMO_GAMEPLAY_SOURCE_ACTOR_PALETTE_SETUP, 1U, 0U, 0xB0EDU, 92U,
-         TECMO_ASSET_PACK_GAMEPLAY_ACTOR_PALETTE_OFFSET, 0x3D063225U},
+        {TECMO_GAMEPLAY_SOURCE_ACTOR_POINTERS, 1U, 0U, 0xA5B9U, 2358U,
+         TECMO_ASSET_PACK_GAMEPLAY_ACTOR_POINTERS_OFFSET, 0xABB3133DU},
+        {TECMO_GAMEPLAY_SOURCE_ACTOR_POINTER_TAIL, 1U, 0U, 0xAEEFU, 273U,
+         TECMO_ASSET_PACK_GAMEPLAY_ACTOR_POINTER_TAIL_OFFSET, 0xDF79E8DBU},
+        {TECMO_GAMEPLAY_SOURCE_ACTOR_PALETTE_SETUP, 1U, 0U, 0xB0EDU, 71U,
+         TECMO_ASSET_PACK_GAMEPLAY_ACTOR_PALETTE_OFFSET, 0x55B90F03U},
+        {TECMO_GAMEPLAY_SOURCE_ACTOR_PALETTE_POINTERS, 1U, 0U, 0xB134U, 4U,
+         TECMO_ASSET_PACK_GAMEPLAY_ACTOR_PALETTE_POINTERS_OFFSET, 0xFCB596AFU},
         {TECMO_GAMEPLAY_SOURCE_ACTOR_PALETTE_GROUPS, 1U, 0U, 0xB138U, 32U,
          TECMO_ASSET_PACK_GAMEPLAY_PALETTE_GROUPS_OFFSET, 0x740B4855U},
-        {TECMO_GAMEPLAY_SOURCE_SPRITE_SELECTORS, GAMEPLAY_FIXED_BANK, 1U,
+        {TECMO_GAMEPLAY_SOURCE_ACTOR_RENDERER, GAMEPLAY_FIXED_BANK, 1U,
+         0xD413U, 334U, TECMO_ASSET_PACK_GAMEPLAY_RENDERER_OFFSET, 0xD487D107U},
+        {TECMO_GAMEPLAY_SOURCE_ACTOR_RENDER_STAGING, GAMEPLAY_FIXED_BANK, 1U,
+         0xF1F2U, 91U, TECMO_ASSET_PACK_GAMEPLAY_RENDER_STAGING_OFFSET, 0xA93E123BU},
+        {TECMO_GAMEPLAY_SOURCE_SPRITE_R2_SELECTORS, GAMEPLAY_FIXED_BANK, 1U,
          0xF24DU, 8U, TECMO_ASSET_PACK_GAMEPLAY_SELECTOR_OFFSET, 0x6E11429DU},
         {TECMO_GAMEPLAY_SOURCE_RULE_SETUP, 5U, 0U, 0x81F2U, 272U,
-         18552U, 0x00EAE8BAU},
+         19256U, 0x00EAE8BAU},
         {TECMO_GAMEPLAY_SOURCE_RULE_LOOKUP, 5U, 0U, 0x8351U, 78U,
-         18824U, 0x49B11D9AU},
+         19528U, 0x49B11D9AU},
         {TECMO_GAMEPLAY_SOURCE_RULE_SUBTYPE, 5U, 0U, 0x83E9U, 128U,
-         18902U, 0xC668B1BFU},
+         19606U, 0xC668B1BFU},
         {TECMO_GAMEPLAY_SOURCE_RULE_ANIMATION, 5U, 0U, 0x86BBU, 224U,
-         19030U, 0x15CFFC00U},
+         19734U, 0x15CFFC00U},
         {TECMO_GAMEPLAY_SOURCE_RULE_STATE, 5U, 0U, 0x8ABDU, 704U,
-         19254U, 0x894D8796U},
+         19958U, 0x894D8796U},
         {TECMO_GAMEPLAY_SOURCE_RULE_SHOT_RESULT, 5U, 0U, 0x91BCU, 639U,
-         19958U, 0x4A0C68ACU},
+         20662U, 0x4A0C68ACU},
         {TECMO_GAMEPLAY_SOURCE_RULE_SHOT_LAUNCH, 5U, 0U, 0x9C40U, 138U,
-         20597U, 0xDDA3E423U},
+         21301U, 0xDDA3E423U},
         {TECMO_GAMEPLAY_SOURCE_RULE_CLOSE_SHOT, 5U, 0U, 0xAF30U, 324U,
-         20735U, 0xAE3EBA47U},
+         21439U, 0xAE3EBA47U},
         {TECMO_GAMEPLAY_SOURCE_RULE_TRAJECTORY, 5U, 0U, 0xB52EU, 146U,
-         21059U, 0xDB540670U},
+         21763U, 0xDB540670U},
         {TECMO_GAMEPLAY_SOURCE_RULE_FINISH, 5U, 0U, 0xB995U, 171U,
-         21205U, 0xD5072F07U},
+         21909U, 0xD5072F07U},
         {TECMO_GAMEPLAY_SOURCE_PERIOD_DISPATCH, 6U, 0U, 0xA05AU, 80U,
          TECMO_ASSET_PACK_GAMEPLAY_PERIOD_OFFSET, 0xF23BB5E7U},
         {TECMO_GAMEPLAY_SOURCE_PERIOD_POINTERS, 6U, 0U, 0xA0AAU, 12U,
-         21464U, 0xAD887A58U},
+         22160U, 0xAD887A58U},
         {TECMO_GAMEPLAY_SOURCE_PERIOD_STRINGS, 6U, 0U, 0xA0B6U, 62U,
-         21476U, 0x90FB5BFBU},
+         22172U, 0x90FB5BFBU},
         {TECMO_GAMEPLAY_SOURCE_SCOREBOARD_VIOLATIONS, 3U, 0U, 0xBE87U,
          290U, TECMO_ASSET_PACK_GAMEPLAY_EVENTS_OFFSET, 0xC8FFCCEDU},
         {TECMO_GAMEPLAY_SOURCE_FOUL_OVERLAY, 2U, 0U, 0xB0F8U, 441U,
-         21828U, 0xFA6E116AU},
+         22524U, 0xFA6E116AU},
         {TECMO_GAMEPLAY_SOURCE_HALFTIME_BANNER, 6U, 0U, 0xBC3CU, 213U,
-         22269U, 0x23B7AD01U}
+         22965U, 0x23B7AD01U},
+        {TECMO_GAMEPLAY_SOURCE_LIVE_ORIENTATION_SELECT, GAMEPLAY_FIXED_BANK, 1U,
+         0xE537U, 16U, TECMO_ASSET_PACK_GAMEPLAY_LIVE_OFFSET, 0x70AEA5DFU},
+        {TECMO_GAMEPLAY_SOURCE_LIVE_ORIENTATION_IDS, GAMEPLAY_FIXED_BANK, 1U,
+         0xE699U, 2U, 23194U, 0xA1B4503CU},
+        {TECMO_GAMEPLAY_SOURCE_LIVE_IRQ_ARM, GAMEPLAY_FIXED_BANK, 1U,
+         0xCDACU, 36U, 23196U, 0xC35AC4A7U},
+        {TECMO_GAMEPLAY_SOURCE_LIVE_IRQ_BANDS, GAMEPLAY_FIXED_BANK, 1U,
+         0xFE92U, 108U, 23232U, 0x49335A7EU},
+        {TECMO_GAMEPLAY_SOURCE_LIVE_BAND_INIT, GAMEPLAY_FIXED_BANK, 1U,
+         0xE937U, 39U, 23340U, 0x2E322A02U}
     };
+
+static uint64_t fnv1a64(const uint8_t *bytes, size_t size)
+{
+    uint64_t hash = 14695981039346656037ULL;
+    for (size_t index = 0U; index < size; ++index) {
+        hash ^= bytes[index];
+        hash *= 1099511628211ULL;
+    }
+    return hash;
+}
 
 static bool range_ok(uint64_t offset, uint64_t size, uint64_t total)
 {
@@ -128,8 +156,8 @@ static int validate_actor_pointer_records(const uint8_t *actor_records,
         }
         record_offset = (size_t)(target - GAMEPLAY_ACTOR_RECORD_CPU);
         dimensions = actor_records[record_offset];
-        width = dimensions >> 4U;
-        height = dimensions & 0x0FU;
+        width = dimensions & 0x0FU;
+        height = dimensions >> 4U;
         cell_count = (size_t)width * height;
         if (width == 0U || height == 0U ||
             cell_count > TECMO_GAMEPLAY_RESOLVED_PIECE_MAX ||
@@ -210,7 +238,9 @@ int tecmo_asset_pack_build_gameplay(
     }
     if (!range_ok(chr_offset, chr_size, rom_size) ||
         tecmo_asset_pack_fnv1a32(rom + (size_t)chr_offset, (size_t)chr_size) !=
-            TECMO_ASSET_PACK_GAMEPLAY_CHR_FNV1A32) {
+            TECMO_ASSET_PACK_GAMEPLAY_CHR_FNV1A32 ||
+        fnv1a64(rom + (size_t)chr_offset, (size_t)chr_size) !=
+            TECMO_ASSET_PACK_GAMEPLAY_CHR_FNV1A64) {
         tecmo_asset_pack_set_message(message, message_size,
                                      "TGPL-1 full CHR revision fingerprint mismatch.");
         return -1;
@@ -286,10 +316,11 @@ int tecmo_asset_pack_build_gameplay(
         tecmo_asset_pack_store_u32(record + 28U, (uint32_t)sizeof(decoded));
         tecmo_asset_pack_store_u32(record + 32U, (uint32_t)screen_palette_offset);
         tecmo_asset_pack_store_u32(record + 36U, 16U);
-        tecmo_asset_pack_store_u32(record + 40U,
-                                   TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_SOURCE);
-        tecmo_asset_pack_store_u32(record + 44U,
-                                   TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_SIZE);
+        /* These are orientation base nametables. Live play reinterprets their
+           tile IDs through the IRQ-driven band mapping; descriptor CHR alone
+           is only the tipoff close-up. */
+        tecmo_asset_pack_store_u32(record + 40U, 1U);
+        tecmo_asset_pack_store_u32(record + 44U, 0U);
         tecmo_asset_pack_store_u32(record + 48U,
                                    expected->descriptor_fingerprint);
         tecmo_asset_pack_store_u32(record + 52U,
@@ -347,16 +378,16 @@ int tecmo_asset_pack_build_gameplay(
     if (rule_count != TECMO_GAMEPLAY_ASSET_RULE_COUNT ||
         validate_actor_pointer_records(
             payload + TECMO_ASSET_PACK_GAMEPLAY_ACTOR_RECORDS_OFFSET,
-            payload + TECMO_ASSET_PACK_GAMEPLAY_ACTOR_LAYOUT_OFFSET,
+            payload + TECMO_ASSET_PACK_GAMEPLAY_ACTOR_POINTERS_OFFSET,
             message, message_size) != 0) {
         return -1;
     }
     for (size_t index = 0U;
-         index < TECMO_GAMEPLAY_ASSET_DYNAMIC_SELECTOR_COUNT; ++index) {
+         index < TECMO_GAMEPLAY_ASSET_R2_SELECTOR_COUNT; ++index) {
         if (payload[TECMO_ASSET_PACK_GAMEPLAY_SELECTOR_OFFSET + index] !=
             (uint8_t)(0x40U + index)) {
             tecmo_asset_pack_set_message(message, message_size,
-                                         "TGPL-1 dynamic sprite selector table mismatch.");
+                                         "TGPL-1 sprite R2 selector table mismatch.");
             return -1;
         }
     }
@@ -368,26 +399,6 @@ int tecmo_asset_pack_build_gameplay(
                                          "TGPL-1 actor palette group contains an invalid color.");
             return -1;
         }
-    }
-
-    memcpy(payload + TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_OFFSET,
-           rom + (size_t)chr_offset + TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_SOURCE,
-           TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_SIZE);
-    memcpy(payload + TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_OFFSET,
-           rom + (size_t)chr_offset +
-               TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_SOURCE,
-           TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_SIZE);
-    if (tecmo_asset_pack_fnv1a32(
-            payload + TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_OFFSET,
-            TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_SIZE) !=
-            TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_FNV1A32 ||
-        tecmo_asset_pack_fnv1a32(
-            payload + TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_OFFSET,
-            TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_SIZE) !=
-            TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_FNV1A32) {
-        tecmo_asset_pack_set_message(message, message_size,
-                                     "TGPL-1 resolved CHR window fingerprint mismatch.");
-        return -1;
     }
 
     memcpy(payload, "TGPL", 4U);
@@ -424,79 +435,83 @@ int tecmo_asset_pack_build_gameplay(
     tecmo_asset_pack_store_u32(payload + 56U,
                                TECMO_ASSET_PACK_GAMEPLAY_ACTOR_RECORDS_SIZE);
     tecmo_asset_pack_store_u32(payload + 60U,
-                               TECMO_ASSET_PACK_GAMEPLAY_ACTOR_LAYOUT_OFFSET);
+                               TECMO_ASSET_PACK_GAMEPLAY_ACTOR_POINTERS_OFFSET);
     tecmo_asset_pack_store_u32(payload + 64U,
-                               TECMO_ASSET_PACK_GAMEPLAY_ACTOR_LAYOUT_SIZE);
+                               TECMO_ASSET_PACK_GAMEPLAY_ACTOR_POINTERS_SIZE);
     tecmo_asset_pack_store_u32(payload + 68U,
-                               TECMO_ASSET_PACK_GAMEPLAY_ACTOR_PALETTE_OFFSET);
+                               TECMO_ASSET_PACK_GAMEPLAY_ACTOR_POINTER_TAIL_OFFSET);
     tecmo_asset_pack_store_u32(payload + 72U,
-                               TECMO_ASSET_PACK_GAMEPLAY_ACTOR_PALETTE_SIZE);
+                               TECMO_ASSET_PACK_GAMEPLAY_ACTOR_POINTER_TAIL_SIZE);
     tecmo_asset_pack_store_u32(payload + 76U,
-                               TECMO_ASSET_PACK_GAMEPLAY_PALETTE_GROUPS_OFFSET);
+                               TECMO_ASSET_PACK_GAMEPLAY_ACTOR_PALETTE_OFFSET);
     tecmo_asset_pack_store_u32(payload + 80U,
-                               TECMO_ASSET_PACK_GAMEPLAY_PALETTE_GROUPS_SIZE);
+                               TECMO_ASSET_PACK_GAMEPLAY_ACTOR_PALETTE_SIZE);
     tecmo_asset_pack_store_u32(payload + 84U,
-                               TECMO_ASSET_PACK_GAMEPLAY_RULES_OFFSET);
+                               TECMO_ASSET_PACK_GAMEPLAY_ACTOR_PALETTE_POINTERS_OFFSET);
     tecmo_asset_pack_store_u32(payload + 88U,
-                               TECMO_ASSET_PACK_GAMEPLAY_RULES_SIZE);
+                               TECMO_ASSET_PACK_GAMEPLAY_ACTOR_PALETTE_POINTERS_SIZE);
     tecmo_asset_pack_store_u32(payload + 92U,
-                               TECMO_ASSET_PACK_GAMEPLAY_SELECTOR_OFFSET);
+                               TECMO_ASSET_PACK_GAMEPLAY_PALETTE_GROUPS_OFFSET);
     tecmo_asset_pack_store_u32(payload + 96U,
-                               TECMO_ASSET_PACK_GAMEPLAY_SELECTOR_SIZE);
+                               TECMO_ASSET_PACK_GAMEPLAY_PALETTE_GROUPS_SIZE);
     tecmo_asset_pack_store_u32(payload + 100U,
-                               TECMO_ASSET_PACK_GAMEPLAY_PERIOD_OFFSET);
+                               TECMO_ASSET_PACK_GAMEPLAY_RENDERER_OFFSET);
     tecmo_asset_pack_store_u32(payload + 104U,
-                               TECMO_ASSET_PACK_GAMEPLAY_PERIOD_SIZE);
+                               TECMO_ASSET_PACK_GAMEPLAY_RENDERER_SIZE);
     tecmo_asset_pack_store_u32(payload + 108U,
-                               TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_OFFSET);
+                               TECMO_ASSET_PACK_GAMEPLAY_RENDER_STAGING_OFFSET);
     tecmo_asset_pack_store_u32(payload + 112U,
-                               TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_SIZE);
+                               TECMO_ASSET_PACK_GAMEPLAY_RENDER_STAGING_SIZE);
     tecmo_asset_pack_store_u32(payload + 116U,
-                               TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_OFFSET);
+                               TECMO_ASSET_PACK_GAMEPLAY_SELECTOR_OFFSET);
     tecmo_asset_pack_store_u32(payload + 120U,
-                               TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_SIZE);
+                               TECMO_ASSET_PACK_GAMEPLAY_SELECTOR_SIZE);
     tecmo_asset_pack_store_u32(payload + 124U,
-                               TECMO_ASSET_PACK_GAMEPLAY_CHR_SIZE);
+                               TECMO_ASSET_PACK_GAMEPLAY_RULES_OFFSET);
     tecmo_asset_pack_store_u32(payload + 128U,
-                               TECMO_ASSET_PACK_GAMEPLAY_CHR_FNV1A32);
-    store_u64(payload + 132U, TECMO_ASSET_PACK_GAMEPLAY_CHR_FNV1A64);
+                               TECMO_ASSET_PACK_GAMEPLAY_RULES_SIZE);
     tecmo_asset_pack_store_u32(payload + 140U,
-                               TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_SOURCE);
-    tecmo_asset_pack_store_u32(payload + 144U,
-                               TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_SIZE);
-    tecmo_asset_pack_store_u32(payload + 148U,
-                               TECMO_ASSET_PACK_GAMEPLAY_BG_CHR_FNV1A32);
-    tecmo_asset_pack_store_u32(payload + 152U,
-                               TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_SOURCE);
-    tecmo_asset_pack_store_u32(payload + 156U,
-                               TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_SIZE);
-    tecmo_asset_pack_store_u32(payload + 160U,
-                               TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_FNV1A32);
-    tecmo_asset_pack_store_u16(payload + 164U,
-                               TECMO_GAMEPLAY_ASSET_POINTER_COUNT);
-    tecmo_asset_pack_store_u16(payload + 166U,
-                               TECMO_GAMEPLAY_ASSET_PALETTE_GROUP_COUNT);
-    tecmo_asset_pack_store_u16(payload + 168U,
-                               TECMO_GAMEPLAY_ASSET_DYNAMIC_SELECTOR_COUNT);
-    tecmo_asset_pack_store_u16(payload + 170U,
-                               TECMO_GAMEPLAY_ASSET_RULE_COUNT);
-    tecmo_asset_pack_store_u16(payload + 172U, 3U);
-    tecmo_asset_pack_store_u16(payload + 174U, 0U);
-    tecmo_asset_pack_store_u32(payload + 176U, 0x41472384U);
-    tecmo_asset_pack_store_u32(payload + 180U, 0xB13050B3U);
-    tecmo_asset_pack_store_u32(payload + 184U, 0x3D063225U);
-    tecmo_asset_pack_store_u32(payload + 188U, 0x740B4855U);
-    tecmo_asset_pack_store_u32(payload + 192U, 0x6E11429DU);
-    tecmo_asset_pack_store_u32(payload + 196U, 0x5041054FU);
-    tecmo_asset_pack_store_u32(payload + 200U, 0xE77E8F44U);
-    tecmo_asset_pack_store_u32(payload + 204U,
                                TECMO_ASSET_PACK_GAMEPLAY_EVENTS_OFFSET);
-    tecmo_asset_pack_store_u32(payload + 208U,
+    tecmo_asset_pack_store_u32(payload + 144U,
                                TECMO_ASSET_PACK_GAMEPLAY_EVENTS_SIZE);
-    tecmo_asset_pack_store_u32(payload + 212U, 0xC8FFCCEDU);
-    tecmo_asset_pack_store_u32(payload + 216U, 0xFA6E116AU);
-    tecmo_asset_pack_store_u32(payload + 220U, 0x23B7AD01U);
-    tecmo_asset_pack_store_u32(payload + 224U, 0x0000000FU);
+    tecmo_asset_pack_store_u32(payload + 148U,
+                               TECMO_ASSET_PACK_GAMEPLAY_LIVE_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 152U,
+                               TECMO_ASSET_PACK_GAMEPLAY_LIVE_SIZE);
+    tecmo_asset_pack_store_u32(payload + 156U,
+                               TECMO_ASSET_PACK_GAMEPLAY_CHR_SIZE);
+    tecmo_asset_pack_store_u32(payload + 160U,
+                               TECMO_ASSET_PACK_GAMEPLAY_CHR_FNV1A32);
+    store_u64(payload + 164U, TECMO_ASSET_PACK_GAMEPLAY_CHR_FNV1A64);
+    tecmo_asset_pack_store_u32(payload + 132U,
+                               TECMO_ASSET_PACK_GAMEPLAY_PERIOD_OFFSET);
+    tecmo_asset_pack_store_u32(payload + 136U,
+                               TECMO_ASSET_PACK_GAMEPLAY_PERIOD_SIZE);
+    tecmo_asset_pack_store_u16(payload + 172U,
+                               TECMO_GAMEPLAY_ASSET_POINTER_COUNT);
+    tecmo_asset_pack_store_u16(payload + 174U,
+                               TECMO_GAMEPLAY_ASSET_PALETTE_GROUP_COUNT);
+    tecmo_asset_pack_store_u16(payload + 176U,
+                               TECMO_GAMEPLAY_ASSET_R2_SELECTOR_COUNT);
+    tecmo_asset_pack_store_u16(payload + 178U,
+                               TECMO_GAMEPLAY_ASSET_RULE_COUNT);
+    tecmo_asset_pack_store_u16(payload + 180U,
+                               TECMO_GAMEPLAY_LIVE_BAND_COUNT);
+    tecmo_asset_pack_store_u16(payload + 182U, 0U);
+    tecmo_asset_pack_store_u32(payload + 184U, 0x41472384U);
+    tecmo_asset_pack_store_u32(payload + 188U, 0xABB3133DU);
+    tecmo_asset_pack_store_u32(payload + 192U, 0xDF79E8DBU);
+    tecmo_asset_pack_store_u32(payload + 196U, 0x55B90F03U);
+    tecmo_asset_pack_store_u32(payload + 200U, 0xFCB596AFU);
+    tecmo_asset_pack_store_u32(payload + 204U, 0x740B4855U);
+    tecmo_asset_pack_store_u32(payload + 208U, 0xD487D107U);
+    tecmo_asset_pack_store_u32(payload + 212U, 0xA93E123BU);
+    tecmo_asset_pack_store_u32(payload + 216U, 0x6E11429DU);
+    tecmo_asset_pack_store_u32(payload + 220U, 0x5041054FU);
+    tecmo_asset_pack_store_u32(payload + 224U, 0xE77E8F44U);
+    tecmo_asset_pack_store_u32(payload + 228U, 0xF4C8965CU);
+    tecmo_asset_pack_store_u32(payload + 232U, 0xDAAC4F68U);
+    tecmo_asset_pack_store_u32(payload + 236U, 0x0000001FU);
 
     if (tecmo_asset_pack_fnv1a32(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_FNV1A32) {
@@ -516,6 +531,7 @@ int tecmo_asset_pack_gameplay_self_test(char *message, size_t message_size)
     size_t rule_bytes = 0U;
     size_t period_bytes = 0U;
     size_t event_bytes = 0U;
+    size_t live_bytes = 0U;
     unsigned rules = 0U;
     for (size_t index = 0U; index < TECMO_GAMEPLAY_ASSET_SOURCE_COUNT; ++index) {
         const TecmoGameplayExpectedSource *source =
@@ -533,13 +549,18 @@ int tecmo_asset_pack_gameplay_self_test(char *message, size_t message_size)
             source->kind <= TECMO_GAMEPLAY_SOURCE_HALFTIME_BANNER) {
             event_bytes += source->byte_count;
         }
+        if (source->kind >= TECMO_GAMEPLAY_SOURCE_LIVE_ORIENTATION_SELECT &&
+            source->kind <= TECMO_GAMEPLAY_SOURCE_LIVE_BAND_INIT) {
+            live_bytes += source->byte_count;
+        }
     }
     if (rules != TECMO_GAMEPLAY_ASSET_RULE_COUNT ||
         rule_bytes != TECMO_ASSET_PACK_GAMEPLAY_RULES_SIZE ||
         period_bytes != TECMO_ASSET_PACK_GAMEPLAY_PERIOD_SIZE ||
         event_bytes != TECMO_ASSET_PACK_GAMEPLAY_EVENTS_SIZE ||
-        TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_OFFSET +
-                TECMO_ASSET_PACK_GAMEPLAY_SPRITE_CHR_SIZE !=
+        live_bytes != TECMO_ASSET_PACK_GAMEPLAY_LIVE_SIZE ||
+        TECMO_ASSET_PACK_GAMEPLAY_LIVE_OFFSET +
+                TECMO_ASSET_PACK_GAMEPLAY_LIVE_SIZE !=
             TECMO_ASSET_PACK_GAMEPLAY_SIZE) {
         tecmo_asset_pack_set_message(message, message_size,
                                      "TGPL-1 layout self-test failed.");
