@@ -23,21 +23,21 @@
       "audio or other extracted original assets",
       "absolute private local paths"
     ],
-    "local_data_boundary": "Use --root or TECMO_DECOMP_ROOT to point at a private local decompilation workspace. Keep that workspace outside this repository."
+    "local_data_boundary": "Normal GUI play passes the port project root and consumes the ignored ROM-derived asset pack. Use --root or TECMO_DECOMP_ROOT for explicit console development against a private decompilation workspace outside this repository."
   },
   "current_runtime": {
-    "entry_command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --play",
+    "entry_command": ".\\build\\tecmo_port_game.exe --root . --play",
     "backend": "win32 software framebuffer",
     "game_core": "portable C runtime state plus explicit memory arenas",
-    "asset_mode": "local development read-only scan/export tools; no committed proprietary data",
+    "asset_mode": "normal GUI play uses strict ignored ROM-derived asset-pack entries; loose decomp readers remain explicit console development tools",
     "known_status": "prototype launcher/menu, portable controls engine, reusable nametable screen renderer, first native Bank07 fixed-helper C layer, source-backed title screen mode, NBA license screen render target, Bank04 arena third-screen render target with captured background and scoreboard OAM, post-arena READY sweep and Warriors transition capture targets, Play Game progressive intro-output stepper, first-sprite debug proof, bank/table-switchable intro builder lab, CHR playground, roster viewer"
   },
   "local_desktop_shortcut": {
     "status": "active",
     "shortcut_name": "Tecmo Basketball Native Port.lnk",
     "generated_by": ".\\build.ps1",
-    "target": ".\\build\\tecmo_port.exe",
-    "arguments": "--play, with --root added automatically when a local decomp root is discoverable",
+    "target": ".\\build\\tecmo_port_game.exe",
+    "arguments": "--root <PORT_PROJECT_ROOT> --play (the absolute port root is always explicit; decomp discovery is not used)",
     "icon": ".\\build\\tecmo_port.ico",
     "icon_refresh_policy": "Every successful build regenerates the original TNB basketball icon and refreshes the Desktop shortcut.",
     "icon_policy": "Generated original project icon only; do not use copied Tecmo, NBA, ROM, or extracted game artwork.",
@@ -47,9 +47,9 @@
     {
       "id": "launcher_menu",
       "status": "active",
-      "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --play",
-      "description": "Starts directly at the native launcher menu.",
-      "expected_screen": "Launcher menu opens first with Title Screen, Intro Lab, CHR Playground, Play Game, Rosters, Quit."
+      "command": ".\\build\\tecmo_port_game.exe --root . --play",
+      "description": "Starts normal GUI play from the strict local asset pack without loose decomp roster data.",
+      "expected_screen": "The native TECMO/rabbit opening is presented first; the modern launcher menu remains debug-only."
     },
     {
       "id": "run_native_flow_test",

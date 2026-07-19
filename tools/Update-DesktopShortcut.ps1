@@ -1,7 +1,8 @@
 param(
     [string]$ExePath,
     [string]$ProjectRoot,
-    [string]$ShortcutName = "Tecmo Basketball Native Port.lnk"
+    [string]$ShortcutName = "Tecmo Basketball Native Port.lnk",
+    [string]$ShortcutPath
 )
 
 $ErrorActionPreference = "Stop"
@@ -126,34 +127,18 @@ function New-TecmoPortIcon {
     }
 }
 
-function Find-LocalDecompRoot {
-    if ($env:TECMO_DECOMP_ROOT -and (Test-Path $env:TECMO_DECOMP_ROOT)) {
-        return (Resolve-Path $env:TECMO_DECOMP_ROOT).Path
-    }
-
-    $ProjectsRoot = Split-Path -Parent $ProjectRoot
-    $Candidates = @(
-        (Join-Path $ProjectsRoot "disassem\tecmo-basketball-decompilation"),
-        (Join-Path $ProjectsRoot "tecmo-basketball-decompilation")
-    )
-    foreach ($Candidate in $Candidates) {
-        if (Test-Path $Candidate) {
-            return (Resolve-Path $Candidate).Path
-        }
-    }
-
-    return $null
-}
-
 New-TecmoPortIcon -Path $IconPath
 
-$Desktop = [Environment]::GetFolderPath("Desktop")
-$ShortcutPath = Join-Path $Desktop $ShortcutName
-$LocalDecompRoot = Find-LocalDecompRoot
-$Arguments = "--play"
-if ($LocalDecompRoot) {
-    $Arguments = "--root `"$LocalDecompRoot`" --play"
+if (!$ShortcutPath) {
+    $Desktop = [Environment]::GetFolderPath("Desktop")
+    $ShortcutPath = Join-Path $Desktop $ShortcutName
 }
+$ShortcutPath = [System.IO.Path]::GetFullPath($ShortcutPath)
+$ShortcutDirectory = Split-Path -Parent $ShortcutPath
+if (!(Test-Path -LiteralPath $ShortcutDirectory -PathType Container)) {
+    throw "Shortcut directory was not found: $ShortcutDirectory"
+}
+$Arguments = "--root `"$ProjectRoot`" --play"
 
 $Shell = New-Object -ComObject WScript.Shell
 $Shortcut = $Shell.CreateShortcut($ShortcutPath)
@@ -164,4 +149,4 @@ $Shortcut.IconLocation = "$IconPath,0"
 $Shortcut.Description = "Launch the local-only Tecmo Basketball native port prototype."
 $Shortcut.Save()
 
-Write-Host "Updated Desktop shortcut: $ShortcutPath"
+Write-Host "Updated shortcut: $ShortcutPath"

@@ -79,10 +79,14 @@ stack as a substitute for explicit runtime ownership.
 
 The Windows game target is `tecmo_port_game.exe`, linked with the GUI subsystem
 while retaining `mainCRTStartup` so it shares the console target's argument
-parsing. Normal Win32 play selects the native TECMO/rabbit intro immediately
-after runtime initialization and presents frame 0 before updating. The console
-`tecmo_port.exe` remains the CLI/test surface, including explicit access to the
-modern diagnostic menu.
+parsing. The generated shortcut explicitly supplies the port project root, and
+normal Win32 initialization permits an empty legacy roster so the original-game
+path uses strict ROM-derived asset-pack entries rather than loose decomp roster
+files. It selects the native TECMO/rabbit intro immediately after runtime
+initialization and presents frame 0 before updating. The console
+`tecmo_port.exe` remains the CLI/test surface, including explicit
+`--root <LOCAL_DECOMP_ROOT>` developer workflows and access to the modern
+diagnostic menu.
 
 ## Scripted Screens
 
@@ -414,8 +418,13 @@ Normal gates should stay close to:
 .\build\tecmo_port.exe --assetpack-test
 .\tools\Run-AssetPackTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-IntroSequenceTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
-.\tools\Run-Win32LaunchSmokeTest.ps1 -Build -DecompRoot <LOCAL_DECOMP_ROOT>
+.\tools\Run-Win32LaunchSmokeTest.ps1 -Build
 ```
+
+The Win32 smoke test creates and inspects an isolated shortcut, launches with
+the port root while an invalid decomp environment root is present, and removes
+the test shortcut afterward. Supplying `-DecompRoot <LOCAL_DECOMP_ROOT>` also
+exercises the explicit console `--root ... --flow-test` development path.
 
 When a feature becomes ROM-only, update tests so missing decomp roots, missing
 Lua logs, and missing loose capture files are expected to pass.

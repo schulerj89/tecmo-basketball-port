@@ -9,11 +9,15 @@ files, Lua captures, or emulator-shaped replay data.
 
 ## Current Product Surface
 
-The Desktop shortcut and `build\tecmo_port_game.exe --play` use the Windows GUI
-subsystem and boot directly into the native TECMO/rabbit opening. The same
-sources also build `build\tecmo_port.exe`, which retains the console subsystem
-for CLI tools and tests. The modern Play Game/Quit menu remains a debug/test
-surface only; normal Win32 play must not route through it.
+The Desktop shortcut uses the Windows GUI `build\tecmo_port_game.exe` with
+`--root <PORT_PROJECT_ROOT> --play` and boots directly into the native
+TECMO/rabbit opening. Normal Win32 initialization permits an empty legacy
+roster, so this path depends on the strict ROM-derived asset pack under the port
+root instead of loose decomp roster files. The same sources also build
+`build\tecmo_port.exe`, which retains the console subsystem and explicit
+`--root <LOCAL_DECOMP_ROOT>` workflows for CLI tools and tests. The modern Play
+Game/Quit menu remains a debug/test surface only; normal Win32 play must not
+route through it.
 
 Do not re-add Title Screen, Intro Lab, CHR Playground, Rosters, or the modern
 menu to normal play unless the user explicitly asks. Those paths can stay
@@ -33,7 +37,11 @@ Do not commit or paste original game data. Keep these local or ignored:
 - trace JSON files
 - screenshots derived from private local data unless they are intentionally safe docs screenshots
 
-Use `--root <LOCAL_DECOMP_ROOT>` or `TECMO_DECOMP_ROOT` for private local paths. Do not hard-code private paths into committed files.
+Use `--root <LOCAL_DECOMP_ROOT>` or `TECMO_DECOMP_ROOT` only for explicit
+private developer workflows. The generated normal-play shortcut must pass the
+port project root explicitly so an ambient decomp environment variable cannot
+become a runtime dependency. Do not hard-code private paths into committed
+files.
 
 ## Large Log Handling
 
@@ -398,12 +406,16 @@ Keep new opening-sequence components out of `tecmo_game.c` when possible. Add fo
 the thread stack. Win32 owns it through `VirtualAlloc`, while command-line test
 paths use heap allocation; every initialization attempt must be paired with
 `tecmo_runtime_shutdown` and the matching release. Do not compensate for asset
-growth by increasing the PE stack reserve. Exercise the shortcut-shaped startup
-path with:
+growth by increasing the PE stack reserve. Exercise the asset-pack-only,
+shortcut-shaped startup path with:
 
 ```powershell
-.\tools\Run-Win32LaunchSmokeTest.ps1 -Build -DecompRoot <LOCAL_DECOMP_ROOT>
+.\tools\Run-Win32LaunchSmokeTest.ps1 -Build
 ```
+
+Passing `-DecompRoot <LOCAL_DECOMP_ROOT>` additionally checks the existing
+explicit console `--root ... --flow-test` developer path; it does not change
+the GUI launch root.
 
 The smoke test requires `tecmo_port_game.exe` to have PE subsystem 2 and keeps
 `tecmo_port.exe` at subsystem 3. Win32 selects `TECMO_MODE_FIRST_SPRITE` after

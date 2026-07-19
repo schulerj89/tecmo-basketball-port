@@ -47,26 +47,32 @@ Set `TECMO_SKIP_SHORTCUT=1` before running `build.ps1` to skip shortcut generati
 Launch the current native port without a terminal window:
 
 ```powershell
-.\build\tecmo_port_game.exe --play
+.\build\tecmo_port_game.exe --root . --play
 ```
+
+The generated Desktop shortcut uses the absolute port project root in the same
+command. Normal play loads the strict ROM-derived `build\tecmo.assetpack` and
+does not require loose roster files from a decompilation checkout.
 
 The console build exposes the same windowed play path plus CLI diagnostics:
 
 ```powershell
-.\build\tecmo_port.exe --play
+.\build\tecmo_port.exe --root . --play
 ```
 
-Pass the private decomp path explicitly when needed:
+Pass a private decomp path only for explicit console development commands that
+still inspect loose reference data:
 
 ```powershell
-.\build\tecmo_port_game.exe --root <LOCAL_DECOMP_ROOT> --play
+.\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --flow-test
+.\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --roster CHICAGO
 ```
 
-Or set an environment variable:
+Or set an environment variable for those developer commands:
 
 ```powershell
 $env:TECMO_DECOMP_ROOT='<LOCAL_DECOMP_ROOT>'
-.\build\tecmo_port_game.exe --play
+.\build\tecmo_port.exe --flow-test
 ```
 
 ## Native Play
@@ -128,6 +134,16 @@ Run every active native flow test declared in `port_iteration.json`:
 
 Pass `-DecompRoot <LOCAL_DECOMP_ROOT>` if a helper script cannot discover your private local decomp workspace.
 
+Verify the GUI/console subsystem split and the complete generated-shortcut
+contract without requiring a decompilation checkout:
+
+```powershell
+.\tools\Run-Win32LaunchSmokeTest.ps1 -Build
+```
+
+Add `-DecompRoot <LOCAL_DECOMP_ROOT>` to that command to also exercise the
+explicit console developer flow; the GUI smoke launch still uses the port root.
+
 Build a private local asset pack from a local iNES image:
 
 ```powershell
@@ -136,7 +152,9 @@ Build a private local asset pack from a local iNES image:
 
 Generated `.assetpack` files are ignored local data. The default builder writes `system/manifest`, `system/source-map`, raw `prg/*` entries, raw `chr/*` entries, and reserves logical namespaces for later decomp-derived entries.
 
-The runtime prefers `TECMO_ASSETPACK` or `build\tecmo.assetpack` for CHR data, then falls back to the older local `build\baseline\Tiles.asm` path.
+The normal Desktop launch resolves native assets from `TECMO_ASSETPACK` or the
+port's `build\tecmo.assetpack`. Loose decomp fallbacks remain development-only
+for explicit console commands.
 
 ## Current Scope
 

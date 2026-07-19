@@ -242,8 +242,11 @@ int tecmo_run_win32_game(const char *project_root)
     tecmo_arena_init(&game_memory.permanent, permanent_block, permanent_size);
     tecmo_arena_init(&game_memory.transient, transient_block, transient_size);
 
-    if (!tecmo_runtime_init(runtime, &game_memory, project_root)) {
-        MessageBoxA(0, "Could not load local decomp roster data. Pass --root or set TECMO_DECOMP_ROOT.",
+    if (!tecmo_runtime_init_with_flags(runtime,
+                                       &game_memory,
+                                       project_root,
+                                       TECMO_RUNTIME_INIT_ALLOW_EMPTY_ROSTER)) {
+        MessageBoxA(0, "Could not initialize the native game runtime from the local asset pack.",
                     "Tecmo Port", MB_ICONERROR);
         goto cleanup;
     }
