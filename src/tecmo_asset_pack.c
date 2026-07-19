@@ -1451,7 +1451,7 @@ static int self_test_arena_sprite_groups(const char *pack_path,
         tecmo_asset_pack_read_u16(bytes + 6U) != 48U ||
         tecmo_asset_pack_read_u16(bytes + 8U) != 2U ||
         tecmo_asset_pack_read_u16(bytes + 10U) != 20U ||
-        tecmo_asset_pack_read_u32(bytes + 12U) != 71U ||
+        tecmo_asset_pack_read_u32(bytes + 12U) != 72U ||
         tecmo_asset_pack_read_u16(bytes + 16U) != 12U ||
         tecmo_asset_pack_read_u16(bytes + 18U) != 1U ||
         tecmo_asset_pack_read_u32(bytes + 20U) != 48U ||

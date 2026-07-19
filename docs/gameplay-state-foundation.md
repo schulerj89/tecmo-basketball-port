@@ -37,7 +37,8 @@ remains the separate NES A-release presentation gate.
 The compound scene loads `gameplay/core` TGPL-1 (23416 bytes,
 `2047CCE0`), `gameplay/court` TGCT-1 (6559 bytes, `ECAB7A93`),
 `gameplay/close-shots` TGCS-1 (3144 bytes, `DACDC976`),
-`gameplay/dunk-cutaway` TGDK-1 (20272 bytes, `E02F2D21`), `audio/music`
+`gameplay/dunk-cutaway` TGDK-1 (20272 bytes, `E02F2D21`),
+`gameplay/jump-shots` TGJS-1 (1648 bytes, `7587B099`), `audio/music`
 TMUS-1 (36784 bytes, `05C00ECB`), `audio/gameplay-sfx` TSFX-1 (2824
 bytes, `968A5DE6`), `audio/gameplay-dmc` TDMC-1 (2515 bytes,
 `AD70E6E8`), and the exact 262144-byte `chr/all` revision from one asset pack.
@@ -72,6 +73,17 @@ A9C5 at 87, and settlement at 132. Stage 0 is assigned at 27 and first visible a
 presentation, resumes at step 23 on frame 71, reaches step 31 on frame 79, and
 holds it through settlement.
 
+Ordinary-jump support is narrower and fails closed outside its evidence. The
+scene consumes the exact TGJS family-0/profile-0/direction-1 pose index 213 for
+the captured human away/right made slot. It preserves current-level NES B hold
+and release, actor `$0C->$0D->$0E->0` progression, Bank05 unsigned Q8.8
+gravity/integer-height floor clamp, recovery to idle pose 469 at frame 46,
+ball route `$01->$05->$17->$10->0`, and settlement at frame 87. Actor and ball
+lifetimes are independent. The release does not request DMC; only the proven
+route-10 ground/bounce condition requests `$B5AB` at frame 75. The ball's
+screen-space interpolation remains native geometry and is not claimed as the
+ROM launch solver.
+
 Bounded local original execution supplies the semantic correlation. Save-state
 slot 2 held numeric variant 0 through the live approach, entered its visible
 cutaway, and later triggered the Bank05 `$A9C5` DMC sequence at action frame 87.
@@ -93,12 +105,12 @@ Gameplay track 5 is queued at launch and qualifying restarts only when GAME
 MUSIC is enabled. Presentation track 6 is requested for halftime/final score
 presentation. The scene maps clock expiry to SFX 3, late-clock seconds to 14,
 violations to 6, and motion with a held ball to the proven `$B5AB`
-held-ball/dribble DMC clip. A made dunk and every resolved free throw, make or
-miss, request crowd response 11 followed by away-side 12 or home-side 13 when
-the clock is above 0:01. The same mailbox is last-write-wins, so the side result
-is consumed next; 0:00 and 0:01 retain 11. Made jump shots and layups continue
-to request only 11 pending separate caller-path integration. Neutral SFX 5 is
-kept as `BANK05_9FEC_CUE` and is requested only at the evidence-bounded
+held-ball/dribble DMC clip. A made dunk, the proven made jump, and every resolved
+free throw, make or miss, request crowd response 11 followed by away-side 12 or
+home-side 13 when the clock is above 0:01. The same mailbox is last-write-wins,
+so the side result is consumed next; 0:00 and 0:01 retain 11. Made layups
+continue to request only 11 pending separate caller-path integration. Neutral
+SFX 5 is kept as `BANK05_9FEC_CUE` and is requested only at the evidence-bounded
 violation, direct-foul, and period restart boundaries under the GAME MUSIC
 gate. Foul/violation and completed-period presentation boundaries clear music,
 tonal SFX, and DMC once before replacement audio. Their qualifying live returns
@@ -112,6 +124,10 @@ its result request through the live transition and queues neither track 5 nor
 `BANK05_9FEC_CUE`. Dunk action frame 87 queues A9C5 exactly once. The imported
 ABF5 and A8D6 clips are not queued, and the sequence names do not assert an
 impact or rim cue.
+
+The proven made-jump settlement uses that same central crowd/side-result helper.
+Its release requests no DMC; only the route-10 ground/bounce condition queues
+B5AB at action frame 75.
 
 ## ROM-derived anchors
 
@@ -159,8 +175,8 @@ decompilation at these CPU-address ranges:
 - Bank 05 `$B1D1-$B1E6` (FNV1a32 `CFCD9759`): above-0:01 clock gate and
   pre-handoff side-result request 12/13; `$B19D-$B1A4` (FNV1a32 `ED5EE105`)
   is the bounded result caller path. `$BA65-$BA9C` (FNV1a32 `35FB80C4`) and
-  `$B87C-$B888` (FNV1a32 `E903D8F9`) remain documented for later jump-shot
-  caller integration.
+  `$B87C-$B888` (FNV1a32 `E903D8F9`) supply the integrated jump-shot settlement
+  caller evidence.
 - Fixed `$EC06-$EC25` (FNV1a32 `F1BCC8E2`): clears active music, SFX, and DMC;
   bounded call sites are `$E58D`, `$E9A0`, `$E9DE`, and `$ECAF`.
 - Bank 05 `$856B-$85A7` and `$85F3-$8640`: variant-0 presentation trigger and
@@ -172,6 +188,12 @@ decompilation at these CPU-address ranges:
   recipe; fixed `$C711-$C73B` plus `$CAF5-$CBAE` supply selector dispatch.
 - Bank 06 `$B37C-$BC3B`: relative sprite emitter, side pointers, and all
   four-byte geometry records; fixed `$EB8D-$EC05` restores the court.
+- TGJS-1 owns the otherwise-unpacked Bank05 spans `$8469-$846A`,
+  `$8999-$89C0`, `$8D92-$8DD2`, `$9C29-$9C3F`, `$AD41-$AF21`,
+  `$B6E5-$B774`, `$B7C1-$B87B`, and `$BA65-$BAC0`. It depends on TGPL-1 for
+  actor dispatch/poses/results and TGCS-1 for dispatcher, launch-solver, Q8.8,
+  and route tables already covered there. The 32 normalized pose indices are
+  rederived from Bank05 `$8D3D/$8D5D` and have FNV-1a `A057A625`.
 
 The corresponding lifted sources include
 `decomp/lifted/bank03/C-0144_bank03_selection_value_table_8374_8378.asm`,
@@ -207,8 +229,15 @@ These are provenance only and are not runtime inputs.
   mirrored during rendering. Those live policies remain approximations. The
   older state-only rightward actor-9 observation remains provenance for the
   semantic event layer, not a universal animation label.
+- TGJS live playback proves only the human away/right
+  family-0/profile-0/direction-1 made slot. Its current-B transition, actor
+  Q8.8/state/recovery timing, ball route-state checkpoints, conditional bounce
+  DMC, and made-settlement order are exact within that context. Unsupported
+  profiles/directions, misses, and unknown horizontal launch geometry do not
+  inherit those frame checkpoints.
 - Actor starting layout, camera/orientation composition, movement and AI,
-  ordinary jump-shot timing, shot arc, make/contact policy, the distance policy
+  jump-ball screen interpolation, unsupported jump routes, general
+  make/contact policy, the distance policy
   selecting dunk/variant 0 versus layup/variant 2, live close-shot
   profile/direction selection and left-facing render mirroring, dynamic
   team/court palette selection, foul detection, free-throw
@@ -234,5 +263,5 @@ strict full-pack scene test and deterministic 640x480 start, ordinary-jump, and
 dunk checkpoints through frame 132. Run
 `tools\Run-GameplayDunkCutawayTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` for
 the strict TGDK payload/provenance/render/mutation/revision checks.
-`--gameplay-state-test`, the TGPL/TGCT/TGCS focused suites, and
+`--gameplay-state-test`, the TGPL/TGCT/TGCS/TGJS focused suites, and
 `Run-GameplayAudioTests.ps1` retain their lower-level coverage.

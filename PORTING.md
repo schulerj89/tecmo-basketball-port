@@ -676,7 +676,8 @@ committed exactly once before returning to the existing result rows.
 The compound scene strictly loads TGPL-1 `gameplay/core` (23416 bytes,
 `2047CCE0`), TGCT-1 `gameplay/court` (6559 bytes, `ECAB7A93`), TGCS-1
 `gameplay/close-shots` (3144 bytes, `DACDC976`), TGDK-1
-`gameplay/dunk-cutaway` (20272 bytes, `E02F2D21`), TMUS-1 `audio/music`,
+`gameplay/dunk-cutaway` (20272 bytes, `E02F2D21`), TGJS-1
+`gameplay/jump-shots` (1648 bytes, `7587B099`), TMUS-1 `audio/music`,
 TSFX-1, TDMC-1, and the exact `chr/all` revision from one asset-pack path. Exact-size
 reads, payload/CHR fingerprints, deep indexes, reserved bytes, and source-map
 provenance are hard requirements. Missing, malformed, oversized,
@@ -708,6 +709,22 @@ schedule is live 1-22, dispatch 23, black 24-27, cutaway 28-62, black/rebuild
 clears it. The exact bounded palette checkpoint is profile 1/uniform `$30`;
 dynamic matchup selection remains a native approximation.
 
+TGJS-1 adds only the Bank05 bytes not already owned by TGPL-1/TGCS-1:
+`$8469-$846A`, `$8999-$89C0`, `$8D92-$8DD2`, `$9C29-$9C3F`,
+`$AD41-$AF21`, `$B6E5-$B774`, `$B7C1-$B87B`, and `$BA65-$BAC0`.
+It depends on the exact same-pack TGPL/TGCS payloads, rederives the 32-entry
+family/profile/direction pose matrix from `$8D3D/$8D5D`, and validates every
+resolved TGPL pointer and pose record. Its live boundary is deliberately one
+captured made context: human-controlled away-side, facing right,
+family 0/profile 0/direction 1, pose index 213. NES B is tested as a current
+level rather than a release edge. Actor held/airborne/recovery states and Q8.8
+height end at frame 46 while the ball route remains active through settlement
+at frame 87. There is no release DMC; the route-10 ground/bounce conditions
+gate `$B5AB` at frame 75. Made settlement queues crowd 11 first, then writes
+side result 12/13 only while the clock is later than 0:01, matching the
+last-write-wins `$05B8` mailbox. Unknown contexts and deterministic miss
+branches are rejected without substituting the former synthetic schedule.
+
 Period completion follows fixed `$E59B->$E823`: regulation M:00 and divider 45
 are prepared before selecting the next banner, halftime, overtime, or final
 branch. Only a tied overtime restart at `$E601-$E60F` overwrites that duration
@@ -734,10 +751,11 @@ approximation. Timing resets
 per attempt and across scene launch/end.
 
 The exact boundary covers court/CHR/imported palette data and the embedded
-FCEUX RGB profile, actor-pose decoding, numeric
-close-shot steps, state/event timing, foul thresholds, period/halftime/final
-transitions, and audio programs/mappings. Actor/camera layout, movement/AI,
-ordinary jump timing, ball arc and make/contact policy, the trigger selecting
+FCEUX RGB profile, actor-pose decoding, numeric close-shot steps, the narrowed
+TGJS slot-0 actor/ball state timing and Q8.8 actor height, state/event timing,
+foul thresholds, period/halftime/final transitions, and audio programs/mappings.
+Actor/camera layout, movement/AI, jump-ball screen geometry, unsupported jump
+profiles/directions and miss routes, general make/contact policy, the trigger selecting
 dunk/variant 0 versus layup/variant 2, live close-shot profile/direction
 selection and left-facing mirroring, dynamic team/court palette selection,
 foul detection, free-throw lineup/aim/outcome/rebound and CPU
@@ -753,7 +771,8 @@ Test with
 scratch pack, logs, and PNGs remain under ignored `build\` output.
 The strict runtime checkpoints are `gameplay-start`,
 `gameplay-jump-frameN`, and `gameplay-dunk-frameN`; the focused runner
-covers meaningful interior frames plus the jump endpoint and dunk frames through
+couples jump release, apex, landing, recovery, ball-route/bounce, and settlement
+frames through 87 with meaningful dunk interior frames and settlement through
 132. Run `tools\Run-GameplayDunkCutawayTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`
 for the focused TGDK parser, provenance, render, mutation, and revision suite.
 The former `gameplay-close-shot-frameN` spelling remains an exact compatibility

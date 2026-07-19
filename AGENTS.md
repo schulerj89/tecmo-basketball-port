@@ -126,7 +126,8 @@ Hidden/debug screens are still useful through render-test modes. Common examples
 .\build\tecmo_port.exe --render-test-mode chr-playground build\chr_playground_test.png
 .\build\tecmo_port.exe --render-test-mode rosters build\rosters_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-start build\gameplay_start_test.png
-.\build\tecmo_port.exe --render-test-mode gameplay-jump-frame12 build\gameplay_jump_12_test.png
+.\build\tecmo_port.exe --render-test-mode gameplay-jump-frame75 build\gameplay_jump_75_test.png
+.\build\tecmo_port.exe --render-test-mode gameplay-jump-frame87 build\gameplay_jump_87_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-dunk-frame16 build\gameplay_dunk_16_test.png
 ```
 
@@ -598,8 +599,13 @@ command offsets `$007D/$00D7`, and Bank06 `$8B8E-$8B9D` maps those from base
 `$9F2E` to stream/dispatch pointers; those values are not frame timers. The
 native scene does not yet implement that positioning/script system. Its
 per-attempt observed-schedule counter resets at launch, after each attempt, and
-when the scene ends. Actor/camera layout, movement/AI,
-ordinary jump timing, ball arcs and make/contact rules, the distance policy
+when the scene ends. The ordinary-jump boundary now
+also includes the exact human away/right family-0/profile-0/direction-1 made
+slot: current-level NES B release, actor states `$0C/$0D/$0E/0`, Bank05 Q8.8
+gravity/clamp, recovery through frame 46, independent ball routes through frame
+87, the conditional frame-75 `$B5AB` DMC, and made-settlement mailbox ordering.
+Actor/camera layout, movement/AI, jump-ball screen geometry, unsupported jump
+directions/profiles and misses, general make/contact rules, the distance policy
 selecting dunk/variant 0 versus layup/variant 2, live close-shot
 profile/direction selection and left-facing render
 mirroring, dynamic team/court palette selection, foul detection, free-throw
@@ -631,7 +637,9 @@ material, not committed provenance or runtime input. See
 `tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 
 The scene must obtain TGPL-1 `gameplay/core`, TGCT-1 `gameplay/court`, TGCS-1
-`gameplay/close-shots`, TGDK-1 `gameplay/dunk-cutaway`, TMUS-1 `audio/music`, TSFX-1
+`gameplay/close-shots`, TGDK-1 `gameplay/dunk-cutaway`,
+TGJS-1 `gameplay/jump-shots` (1648 bytes,
+`7587B099`), TMUS-1 `audio/music`, TSFX-1
 `audio/gameplay-sfx`, TDMC-1 `audio/gameplay-dmc`, and `chr/all` from the same
 explicit pack. Exact-size reads, canonical fingerprints, deep bounds/reserved
 checks, CHR revision fingerprints, the music asset's selected pack path, and
@@ -655,6 +663,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/asset_pack/tecmo_asset_pack_gameplay_court.c`: strict TGCT-1 static-court importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_close_shots.c`: strict TGCS-1 numeric close-shot importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c`: strict TGDK-1 screen/palette/CHR/staged-sprite importer
+- `src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c`: strict TGJS-1 ordinary-jump importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_audio.c`: strict TSFX-1/TDMC-1 gameplay-audio importer
 - `src/asset_pack/tecmo_asset_pack_start_menu.c`: ROM-only TSGM-1 blue start-game menu importer
 - `src/asset_pack/tecmo_asset_pack_opening.c`: ROM-only TISC-1 TECMO/rabbit and NBA opening-screen importer

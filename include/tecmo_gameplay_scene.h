@@ -8,6 +8,7 @@
 #include "tecmo_gameplay_close_shots.h"
 #include "tecmo_gameplay_court.h"
 #include "tecmo_gameplay_dunk_cutaway.h"
+#include "tecmo_gameplay_jump_shots.h"
 #include "tecmo_gameplay_state.h"
 #include "tecmo_music.h"
 
@@ -89,6 +90,7 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayCourt court;
     TecmoGameplayCloseShotAssets close_shots;
     TecmoGameplayDunkCutawayAssets dunk_cutaway;
+    TecmoGameplayJumpShotAssets jump_shots;
     TecmoGameplayAudioAsset audio_asset;
     TecmoGameplayAudioPlayer audio_player;
     TecmoGameplayState state;
@@ -114,6 +116,21 @@ typedef struct TecmoGameplayScene {
     uint8_t close_shot_step;
     TecmoGameplayCloseShotProfile close_shot_profile;
     TecmoGameplayCloseShotDirection close_shot_direction;
+    uint16_t jump_actor_altitude_q8;
+    uint16_t jump_actor_velocity_q8;
+    uint16_t jump_ball_altitude_q8;
+    uint16_t jump_ball_bounce_q8;
+    uint8_t jump_actor_state;
+    uint8_t jump_ball_state;
+    uint8_t jump_phase_counter;
+    uint8_t shot_controller;
+    TecmoGameplayJumpShotFamily jump_family;
+    TecmoGameplayJumpShotProfile jump_profile;
+    TecmoGameplayJumpShotDirection jump_direction;
+    bool jump_oracle_active;
+    bool jump_b_released;
+    bool jump_made_cached;
+    bool jump_actor_landed;
     TecmoGameplaySceneShotKind shot_kind;
     TecmoGameplayPhase previous_phase;
     uint32_t frame;
@@ -122,7 +139,7 @@ typedef struct TecmoGameplayScene {
 /* Initialize exactly once before load/destroy. */
 void tecmo_gameplay_scene_init(TecmoGameplayScene *scene);
 
-/* Loads TGPL-1, TGCT-1, TGCS-1, TGDK-1, TSFX-1, and TDMC-1 from one local pack.
+/* Loads TGPL-1, TGCT-1, TGCS-1, TGDK-1, TGJS-1, TSFX-1, and TDMC-1 from one local pack.
    `asset_pack_path` may be NULL to use the strict runtime search order.
    Runtime data is never read from decompilation/capture paths. */
 bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
@@ -142,9 +159,10 @@ void tecmo_gameplay_scene_end(TecmoGameplayScene *scene);
 
 /* Draws the exact ROM-derived static court base and resolved ROM poses. Live
    close-shot playback is deliberately limited to TGCS profile 0/direction 0;
-   actor-facing horizontal mirroring is a native approximation, not a mapping
-   of the other ROM direction entries. HUD/presentation text is supplied by the
-   runtime overlay. */
+   ordinary jump-shot playback is deliberately limited to the proven TGJS
+   slot-0 made context. Actor mirroring and jump-ball geometry remain native
+   approximations, not mappings of unsupported ROM entries. HUD/presentation
+   text is supplied by the runtime overlay. */
 bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
                                TecmoFramebuffer *framebuffer,
                                int origin_x,

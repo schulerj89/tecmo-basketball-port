@@ -213,6 +213,7 @@ try {
         [pscustomobject]@{ id="gameplay/court"; size=6559; hash="ECAB7A93"; schema="tecmo.gameplay-court/TGCT-1" },
         [pscustomobject]@{ id="gameplay/close-shots"; size=3144; hash="DACDC976"; schema="tecmo.gameplay-close-shots/TGCS-1" },
         [pscustomobject]@{ id="gameplay/dunk-cutaway"; size=20272; hash="E02F2D21"; schema="tecmo.gameplay-dunk-cutaway/TGDK-1" },
+        [pscustomobject]@{ id="gameplay/jump-shots"; size=1648; hash="7587B099"; schema="tecmo.gameplay-jump-shots/TGJS-1" },
         [pscustomobject]@{ id="audio/music"; size=36784; hash="05C00ECB"; schema="tecmo.music/TMUS-1" },
         [pscustomobject]@{ id="audio/gameplay-sfx"; size=2824; hash="968A5DE6"; schema="tecmo.gameplay-audio/TSFX-1" },
         [pscustomobject]@{ id="audio/gameplay-dmc"; size=2515; hash="AD70E6E8"; schema="tecmo.gameplay-audio/TDMC-1" },
@@ -239,6 +240,24 @@ try {
         if ($Mapped.Count -ne 1 -or $Mapped[0].schema -ne $Spec.schema) {
             throw "Source-map provenance for '$($Spec.id)' is missing or malformed."
         }
+    }
+
+    $DunkLog = Join-Path $Scratch "dunk-cutaway-assets.log"
+    $DunkRun = Invoke-Logged -Command $Executable -Arguments @(
+        "--gameplay-dunk-cutaway-test", $PackPath
+    ) -LogPath $DunkLog
+    if ($DunkRun.exit_code -ne 0 -or
+        $DunkRun.tail -notmatch "TGDK-1 dunk-cutaway assets passed") {
+        throw "Strict dunk-cutaway asset test failed.`n$($DunkRun.tail)"
+    }
+
+    $JumpLog = Join-Path $Scratch "jump-shot-assets.log"
+    $JumpRun = Invoke-Logged -Command $Executable -Arguments @(
+        "--gameplay-jump-shots-test", $PackPath
+    ) -LogPath $JumpLog
+    if ($JumpRun.exit_code -ne 0 -or
+        $JumpRun.tail -notmatch "TGJS-1 jump-shot assets passed") {
+        throw "Strict jump-shot asset test failed.`n$($JumpRun.tail)"
     }
 
     $SceneLog = Join-Path $Scratch "scene-self-test.log"
@@ -290,6 +309,32 @@ try {
     Assert-SceneRejected -AssetPack $OversizedDunkPath `
         -Label "oversized-dunk-cutaway"
 
+    $MissingJumpPath = Join-Path $Scratch "missing-jump-shots.assetpack"
+    $MissingJump = [byte[]]$PackBytes.Clone()
+    $MissingJump[[int]$Entries["gameplay/jump-shots"].directory_offset] =
+        [byte][char]'x'
+    [IO.File]::WriteAllBytes($MissingJumpPath, $MissingJump)
+    Assert-SceneRejected -AssetPack $MissingJumpPath `
+        -Label "missing-jump-shots"
+
+    $MalformedJumpPath = Join-Path $Scratch "malformed-jump-shots.assetpack"
+    $MalformedJump = [byte[]]$PackBytes.Clone()
+    $MalformedJump[[int]$Entries["gameplay/jump-shots"].pack_offset] =
+        $MalformedJump[[int]$Entries["gameplay/jump-shots"].pack_offset] `
+            -bxor 1
+    [IO.File]::WriteAllBytes($MalformedJumpPath, $MalformedJump)
+    Assert-SceneRejected -AssetPack $MalformedJumpPath `
+        -Label "malformed-jump-shots"
+
+    $OversizedJumpPath = Join-Path $Scratch "oversized-jump-shots.assetpack"
+    $OversizedJump = [byte[]]$PackBytes.Clone()
+    [BitConverter]::GetBytes([uint64]1649).CopyTo(
+        $OversizedJump,
+        [int]$Entries["gameplay/jump-shots"].directory_offset + 92)
+    [IO.File]::WriteAllBytes($OversizedJumpPath, $OversizedJump)
+    Assert-SceneRejected -AssetPack $OversizedJumpPath `
+        -Label "oversized-jump-shots"
+
     $OversizedPath = Join-Path $Scratch "oversized-core.assetpack"
     $Oversized = [byte[]]$PackBytes.Clone()
     [BitConverter]::GetBytes([uint64]23417).CopyTo(
@@ -308,9 +353,20 @@ try {
     $RenderSpecs = @(
         [pscustomobject]@{ mode="gameplay-start"; state='gameplay-state frame=0 shot=none phase=live' },
         [pscustomobject]@{ mode="gameplay-jump-frame1"; state='gameplay-state frame=1 shot=jump phase=live' },
-        [pscustomobject]@{ mode="gameplay-jump-frame12"; state='gameplay-state frame=12 shot=jump phase=live' },
-        [pscustomobject]@{ mode="gameplay-jump-frame24"; state='gameplay-state frame=24 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-frame2"; state='gameplay-state frame=2 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-frame4"; state='gameplay-state frame=4 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-frame21"; state='gameplay-state frame=21 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-frame22"; state='gameplay-state frame=22 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-frame39"; state='gameplay-state frame=39 shot=jump phase=live' },
         [pscustomobject]@{ mode="gameplay-jump-frame40"; state='gameplay-state frame=40 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-frame45"; state='gameplay-state frame=45 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-frame46"; state='gameplay-state frame=46 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-frame72"; state='gameplay-state frame=72 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-frame73"; state='gameplay-state frame=73 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-frame74"; state='gameplay-state frame=74 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-frame75"; state='gameplay-state frame=75 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-frame86"; state='gameplay-state frame=86 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-frame87"; state='gameplay-state frame=87 shot=none phase=live' },
         [pscustomobject]@{ mode="gameplay-dunk-frame1"; state='gameplay-state frame=1 shot=dunk phase=live' },
         [pscustomobject]@{ mode="gameplay-dunk-frame8"; state='gameplay-state frame=8 shot=dunk phase=live' },
         [pscustomobject]@{ mode="gameplay-dunk-frame16"; state='gameplay-state frame=16 shot=dunk phase=live' },
@@ -330,7 +386,7 @@ try {
     }
     $VisualSentinels = @(
         $RenderHashes["gameplay-start"],
-        $RenderHashes["gameplay-jump-frame12"],
+        $RenderHashes["gameplay-jump-frame21"],
         $RenderHashes["gameplay-dunk-frame16"],
         $RenderHashes["gameplay-dunk-frame32"],
         $RenderHashes["gameplay-dunk-frame64"],
@@ -346,7 +402,7 @@ try {
 
     $global:LASTEXITCODE = 0
     Write-Output ("GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance " +
-        "scene controls shots dunk-cutaway frame87-dmc audio state " +
+        "scene controls TGDK TGJS shots dunk-cutaway frame75/frame87-dmc audio state " +
         "halftime/final render-determinism missing malformed oversized " +
         "chr-mismatch")
 } finally {

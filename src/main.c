@@ -399,7 +399,7 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     } else {
         return false;
     }
-    if ((jump && (checkpoint == 0U || checkpoint > 40U)) ||
+    if ((jump && (checkpoint == 0U || checkpoint > 87U)) ||
         (dunk && (checkpoint == 0U || checkpoint > 132U))) {
         return false;
     }
@@ -442,8 +442,10 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     return runtime->mode == TECMO_MODE_COURT &&
            runtime->gameplay_scene.active &&
            runtime->gameplay_scene.shot_kind ==
-               (dunk ? TECMO_GAMEPLAY_SCENE_SHOT_DUNK
-                     : TECMO_GAMEPLAY_SCENE_SHOT_JUMP);
+               (jump && checkpoint == 87U
+                    ? TECMO_GAMEPLAY_SCENE_SHOT_NONE
+                    : (dunk ? TECMO_GAMEPLAY_SCENE_SHOT_DUNK
+                            : TECMO_GAMEPLAY_SCENE_SHOT_JUMP));
 }
 
 int main(int argc, char **argv)
