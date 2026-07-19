@@ -344,11 +344,13 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
     runtime->mode_frame_counter = 0;
     if (mode == TECMO_MODE_MAIN_MENU) {
         runtime->normal_play_active = false;
+        runtime->start_menu_return_pending = false;
     }
     if (mode == TECMO_MODE_MAIN_MENU && runtime->selected_menu_item >= MAIN_MENU_COUNT) {
         runtime->selected_menu_item = MAIN_MENU_PLAY_GAME;
     }
     if (mode == TECMO_MODE_FIRST_SPRITE) {
+        runtime->start_menu_return_pending = false;
         runtime->intro_output_step = TECMO_INTRO_OUTPUT_TITLE_STEP;
         runtime->intro_handoff_complete = false;
         runtime->intro_next_screen = 0U;
@@ -359,6 +361,7 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
         runtime->title_confirmation_frame = 0U;
     }
     if (mode == TECMO_MODE_START_GAME_MENU) {
+        runtime->start_menu_return_pending = false;
         tecmo_start_game_menu_state_init(&runtime->start_game_menu_state);
     }
     if (mode == TECMO_MODE_PRESEASON_MENU) {
@@ -370,6 +373,55 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
     }
     runtime->previous_input = (TecmoInput){0};
     runtime->previous_player_two_input = (TecmoInput){0};
+}
+
+static void remember_start_game_menu_return(TecmoRuntime *runtime)
+{
+    const TecmoStartGameMenuState *state = &runtime->start_game_menu_state;
+
+    runtime->start_menu_return_pending = true;
+    runtime->start_menu_return_from_season = state->exit_from_season;
+    runtime->start_menu_return_root_selection = state->root_selection;
+    runtime->start_menu_return_season_selection = state->season_selection;
+}
+
+static bool return_to_start_game_menu(TecmoRuntime *runtime)
+{
+    bool from_season;
+    uint8_t root_selection;
+    uint8_t season_selection;
+
+    if (!runtime->start_menu_return_pending) {
+        return false;
+    }
+
+    from_season = runtime->start_menu_return_from_season;
+    root_selection = runtime->start_menu_return_root_selection;
+    season_selection = runtime->start_menu_return_season_selection;
+    if (root_selection >= TECMO_START_GAME_MENU_ROOT_COUNT) {
+        root_selection = 0U;
+    }
+    if (season_selection >= TECMO_START_GAME_MENU_SEASON_COUNT) {
+        season_selection = 0U;
+    }
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame =
+        runtime->start_game_menu_asset.stable_frame;
+    runtime->start_game_menu_state.root_selection = root_selection;
+    runtime->start_game_menu_state.direction_cooldown =
+        runtime->start_game_menu_asset.accepted_input_seed;
+    runtime->start_game_menu_state.cursor_delay =
+        runtime->start_game_menu_asset.cursor_commit_delay_frames;
+    if (from_season) {
+        runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_SEASON;
+        runtime->start_game_menu_state.slide_frame =
+            runtime->start_game_menu_asset.slide_frames;
+        runtime->start_game_menu_state.season_selection = season_selection;
+    } else {
+        runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
+    }
+    return true;
 }
 
 static void update_main_menu(TecmoRuntime *runtime, const TecmoControlFrame *controls)
@@ -421,8 +473,14 @@ static void update_start_game_menu(TecmoRuntime *runtime,
                                      &runtime->start_game_menu_asset,
                                      controls);
     if (action == TECMO_START_GAME_MENU_ACTION_PLAY_SETUP) {
+        if (runtime->normal_play_active) {
+            remember_start_game_menu_return(runtime);
+        }
         tecmo_runtime_set_mode(runtime, TECMO_MODE_PLAY_SETUP);
     } else if (action == TECMO_START_GAME_MENU_ACTION_ROSTERS) {
+        if (runtime->normal_play_active) {
+            remember_start_game_menu_return(runtime);
+        }
         tecmo_runtime_set_mode(runtime, TECMO_MODE_ROSTERS);
     } else if (action == TECMO_START_GAME_MENU_ACTION_PRESEASON) {
         tecmo_runtime_set_mode(runtime, TECMO_MODE_PRESEASON_MENU);
@@ -558,6 +616,10 @@ static void update_roster_selection(TecmoRuntime *runtime, const TecmoControlFra
         ++runtime->selected_player;
     }
     if (controls->pressed.cancel) {
+        if (runtime->normal_play_active) {
+            (void)return_to_start_game_menu(runtime);
+            return;
+        }
         tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
     }
     if (allow_start_game && controls->pressed.confirm) {
@@ -643,11 +705,13 @@ static void update_first_sprite_probe(TecmoRuntime *runtime, const TecmoControlF
         tecmo_runtime_set_mode(runtime, TECMO_MODE_TITLE_SCREEN);
     } else if (controls->pressed.cancel && !runtime->normal_play_active) {
         tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
-    } else if (controls->pressed.left &&
+    } else if (!runtime->normal_play_active &&
+               controls->pressed.left &&
                runtime->intro_output_step > 0U) {
         --runtime->intro_output_step;
         runtime->mode_frame_counter = 0;
-    } else if (controls->pressed.right &&
+    } else if (!runtime->normal_play_active &&
+               controls->pressed.right &&
                runtime->intro_output_step + 1U < TECMO_INTRO_OUTPUT_STEP_COUNT) {
         ++runtime->intro_output_step;
         runtime->mode_frame_counter = 0;

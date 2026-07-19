@@ -302,6 +302,13 @@ off once on frame 11. ALL STAR's `$8221` route remains an explicit handoff to
 `PLAY_SETUP`. PRESEASON now enters its native `$9966` submenu and does not run
 the later `$E481` fade prematurely.
 
+The ALL STAR/GAME START and TEAM DATA destinations are still bounded native
+placeholders. In normal play, B/Escape returns from them to the exact root or
+season page and selection that dispatched the route; a season return restores
+the fully slid-in page. If a placeholder has no recorded blue-menu origin,
+normal play ignores B/Escape instead of entering the modern diagnostic menu.
+Explicit debug/test placeholder routes keep their original modern-menu return.
+
 PRESEASON uses the strict `menu/preseason` TPRE-1 entry. Import composes the
 CONTROL, DIFFICULTY, and DIVISION overlays from Bank03 ROM records over the
 existing TSGM-1 screen, and resolves all four division team screens, palettes,

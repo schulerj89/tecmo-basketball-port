@@ -231,6 +231,12 @@ handoff on frame 11. ALL STAR (`$8221`) still crosses the explicit unported
 boundary to `PLAY_SETUP`. Root PRESEASON now enters the native Bank03 `$9966`
 path directly; it must not run `$E481` before that submenu returns.
 
+Until those ALL STAR/GAME START and TEAM DATA placeholders are replaced,
+normal-play B/Escape returns to the exact originating blue-menu page and
+selection. Season returns restore the fully slid-in second page. A normal-play
+placeholder reached without a recorded blue-menu route ignores B/Escape rather
+than exposing the modern menu; direct debug/test routes retain that menu return.
+
 PRESEASON is a strict ROM-only native scene backed by `menu/preseason` TPRE-1.
 It composes the 14-row CONTROL and DIVISION overlays and the eight-row
 DIFFICULTY overlay from Bank03's character map and menu records over TSGM-1's
@@ -399,5 +405,5 @@ path with:
 The smoke test requires `tecmo_port_game.exe` to have PE subsystem 2 and keeps
 `tecmo_port.exe` at subsystem 3. Win32 selects `TECMO_MODE_FIRST_SPRITE` after
 runtime initialization and presents native frame 0 before the first update.
-Original intro/title B input is ignored, so normal play cannot fall back into
-the modern menu.
+Original intro/title B input and intro Left/Right debug scrubbing are ignored,
+so normal play cannot fall back into the modern menu or skip opening steps.

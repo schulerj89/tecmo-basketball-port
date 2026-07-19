@@ -148,6 +148,57 @@ static bool flow_finish_start_menu_exit(TecmoRuntime *runtime,
     return flow_expect_mode(runtime, expected_mode, label, message, message_size);
 }
 
+static bool flow_expect_placeholder_return(TecmoRuntime *runtime,
+                                           bool from_season,
+                                           uint8_t root_selection,
+                                           uint8_t season_selection,
+                                           const char *label,
+                                           char *message,
+                                           size_t message_size)
+{
+    TecmoInput input;
+    const TecmoStartGameMenuAsset *asset = &runtime->start_game_menu_asset;
+
+    if (!runtime->normal_play_active || !runtime->start_menu_return_pending) {
+        set_flow_test_message(message, message_size,
+                              "normal placeholder did not retain its blue-menu route");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.cancel = true;
+    tecmo_runtime_update(runtime, &input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_START_GAME_MENU,
+                          label, message, message_size)) {
+        return false;
+    }
+    if (!runtime->normal_play_active || runtime->start_menu_return_pending ||
+        runtime->start_game_menu_state.frame != asset->stable_frame ||
+        runtime->start_game_menu_state.root_selection != root_selection ||
+        runtime->start_game_menu_state.direction_cooldown !=
+            asset->accepted_input_seed ||
+        runtime->start_game_menu_state.cursor_delay !=
+            asset->cursor_commit_delay_frames) {
+        set_flow_test_message(message, message_size,
+                              "placeholder return did not restore stable blue-menu state");
+        return false;
+    }
+    if (from_season) {
+        if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SEASON ||
+            runtime->start_game_menu_state.slide_frame != asset->slide_frames ||
+            runtime->start_game_menu_state.season_selection != season_selection) {
+            set_flow_test_message(message, message_size,
+                                  "placeholder return did not restore the season page");
+            return false;
+        }
+    } else if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
+               runtime->start_game_menu_state.slide_frame != 0U) {
+        set_flow_test_message(message, message_size,
+                              "placeholder return did not restore the root page");
+        return false;
+    }
+    return true;
+}
+
 static bool flow_finish_popup_setup(TecmoRuntime *runtime,
                                     TecmoStartGameMenuPhase popup_phase,
                                     const char *label,
@@ -1130,6 +1181,22 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     }
     memset(&input, 0, sizeof(input));
     flow_step(runtime, input);
+    input.right = true;
+    flow_step(runtime, input);
+    if (runtime->intro_output_step != FLOW_INTRO_LICENSE_STEP) {
+        set_flow_test_message(message, message_size,
+                              "debug intro RIGHT no longer advances the inspected step");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.left = true;
+    flow_step(runtime, input);
+    if (runtime->intro_output_step != FLOW_INTRO_TITLE_STEP) {
+        set_flow_test_message(message, message_size,
+                              "debug intro LEFT no longer rewinds the inspected step");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
     input.cancel = true;
     flow_step(runtime, input);
     if (runtime->mode != TECMO_MODE_MAIN_MENU) {
@@ -1138,6 +1205,27 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
         return false;
     }
     runtime->normal_play_active = true;
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_FIRST_SPRITE);
+    runtime->intro_output_step = FLOW_INTRO_LICENSE_STEP;
+    runtime->mode_frame_counter = 10U;
+    memset(&input, 0, sizeof(input));
+    input.left = true;
+    flow_step(runtime, input);
+    if (runtime->intro_output_step != FLOW_INTRO_LICENSE_STEP ||
+        runtime->mode_frame_counter != 12U) {
+        set_flow_test_message(message, message_size,
+                              "normal-play LEFT scrubbed or restarted the intro");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.right = true;
+    flow_step(runtime, input);
+    if (runtime->intro_output_step != FLOW_INTRO_LICENSE_STEP ||
+        runtime->mode_frame_counter != 14U) {
+        set_flow_test_message(message, message_size,
+                              "normal-play RIGHT scrubbed or restarted the intro");
+        return false;
+    }
     tecmo_runtime_set_mode(runtime, TECMO_MODE_FIRST_SPRITE);
     memset(&input, 0, sizeof(input));
     input.cancel = true;
@@ -1465,6 +1553,21 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     if (!flow_expect_mode(runtime, TECMO_MODE_PLAY_SETUP,
                           "root ALL STAR submenu-boundary dispatch",
                           message, message_size)) return false;
+    memset(&input, 0, sizeof(input));
+    input.confirm = true;
+    flow_step(runtime, input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_COURT,
+                          "normal ALL STAR placeholder court entry",
+                          message, message_size)) return false;
+    memset(&input, 0, sizeof(input));
+    input.cancel = true;
+    flow_step(runtime, input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_PLAY_SETUP,
+                          "normal ALL STAR court cancel",
+                          message, message_size)) return false;
+    if (!flow_expect_placeholder_return(runtime, false, 2U, 0U,
+                                        "normal ALL STAR blue-menu return",
+                                        message, message_size)) return false;
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 32U;
@@ -1498,6 +1601,9 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     if (!flow_finish_start_menu_exit(runtime, TECMO_MODE_ROSTERS, false,
                                      "root A team-data frame-eleven dispatch",
                                      message, message_size)) return false;
+    if (!flow_expect_placeholder_return(runtime, false, 3U, 0U,
+                                        "normal root TEAM DATA blue-menu return",
+                                        message, message_size)) return false;
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 32U;
@@ -1939,6 +2045,7 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     runtime->start_game_menu_state.frame = 64U;
     runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_SEASON;
     runtime->start_game_menu_state.slide_frame = 32U;
+    runtime->start_game_menu_state.root_selection = 1U;
     runtime->start_game_menu_state.season_selection = 2U;
     memset(&input, 0, sizeof(input));
     input.shoot = true;
@@ -1951,11 +2058,15 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     if (!flow_finish_start_menu_exit(runtime, TECMO_MODE_PLAY_SETUP, true,
                                      "season A+B GAME START frame-eleven dispatch",
                                      message, message_size)) return false;
+    if (!flow_expect_placeholder_return(runtime, true, 1U, 2U,
+                                        "normal season GAME START blue-menu return",
+                                        message, message_size)) return false;
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 64U;
     runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_SEASON;
     runtime->start_game_menu_state.slide_frame = 32U;
+    runtime->start_game_menu_state.root_selection = 1U;
     runtime->start_game_menu_state.season_selection = 5U;
     memset(&input, 0, sizeof(input));
     input.shoot = true;
@@ -1963,6 +2074,44 @@ bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t m
     if (!flow_finish_start_menu_exit(runtime, TECMO_MODE_ROSTERS, true,
                                      "season TEAM DATA frame-eleven dispatch",
                                      message, message_size)) return false;
+    if (!flow_expect_placeholder_return(runtime, true, 1U, 5U,
+                                        "normal season TEAM DATA blue-menu return",
+                                        message, message_size)) return false;
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_PLAY_SETUP);
+    memset(&input, 0, sizeof(input));
+    input.cancel = true;
+    tecmo_runtime_update(runtime, &input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_PLAY_SETUP,
+                          "normal PLAY SETUP without a return route",
+                          message, message_size)) return false;
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_ROSTERS);
+    memset(&input, 0, sizeof(input));
+    input.cancel = true;
+    tecmo_runtime_update(runtime, &input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_ROSTERS,
+                          "normal ROSTERS without a return route",
+                          message, message_size)) return false;
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_PLAY_SETUP);
+    memset(&input, 0, sizeof(input));
+    input.cancel = true;
+    tecmo_runtime_update(runtime, &input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_MAIN_MENU,
+                          "debug PLAY SETUP modern-menu return",
+                          message, message_size)) return false;
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_ROSTERS);
+    memset(&input, 0, sizeof(input));
+    input.cancel = true;
+    tecmo_runtime_update(runtime, &input);
+    if (!flow_expect_mode(runtime, TECMO_MODE_MAIN_MENU,
+                          "debug ROSTERS modern-menu return",
+                          message, message_size)) return false;
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
     memset(&input, 0, sizeof(input));

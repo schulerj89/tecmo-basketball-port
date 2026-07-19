@@ -92,6 +92,10 @@ typedef struct TecmoRuntime {
     char intro_trace_status[96];
     TecmoPlayMode mode;
     bool normal_play_active;
+    bool start_menu_return_pending;
+    bool start_menu_return_from_season;
+    uint8_t start_menu_return_root_selection;
+    uint8_t start_menu_return_season_selection;
     bool quit_requested;
     bool debug_overlay;
     bool title_probe_available;
