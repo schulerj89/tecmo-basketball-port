@@ -642,6 +642,13 @@ int main(int argc, char **argv)
             tecmo_gameplay_assets_destroy(&assets);
             return 1;
         }
+        pose_context.actor_slot_base = 0x03U;
+        if (tecmo_gameplay_assets_resolve_pose(
+                &assets, 16U, &pose_context, &pose)) {
+            printf("Gameplay asset test failed: non-ROM odd actor slot accepted\n");
+            tecmo_gameplay_assets_destroy(&assets);
+            return 1;
+        }
         pose_context.actor_slot_base = 0x01U;
         pose_context.actor_attributes = 0x04U;
         if (tecmo_gameplay_assets_resolve_pose(

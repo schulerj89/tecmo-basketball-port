@@ -1453,7 +1453,8 @@ static int append_gameplay_source_map_entry(
 {
     static const char *const roles[TECMO_GAMEPLAY_ASSET_SOURCE_COUNT] = {
         "actor-metasprite-records", "actor-pointer-table",
-        "actor-pointer-tail", "actor-palette-setup",
+        "actor-aeef-oam-data", "bank01-indexed-oam-renderer",
+        "actor-palette-setup",
         "actor-palette-pointers", "actor-palette-groups",
         "fixed-actor-renderer", "actor-render-staging",
         "sprite-r2-selector-table", "rule-setup", "rule-lookup",
@@ -1463,7 +1464,7 @@ static int append_gameplay_source_map_entry(
         "period-banner-pointers", "period-banner-strings",
         "scoreboard-violation-dispatch-and-text", "foul-overlay-and-text",
         "halftime-final-banner-loop-and-data",
-        "live-orientation-select", "live-orientation-screen-ids",
+        "live-orientation-select-and-dispatch", "live-orientation-screen-ids",
         "live-irq-arm", "live-irq-band-dispatch", "live-band-initializer"
     };
     const char *prefix = *first != 0 ? "" : ",\n";
@@ -1554,8 +1555,17 @@ static int append_gameplay_source_map_entry(
     }
     return tecmo_asset_pack_append_text(
         buffer, capacity, length,
-        "],\"live_background_contract\":{"
+        "],\"actor_oam_contract\":{"
+        "\"data_cpu_range\":[44783,45011],\"data_size\":229,"
+        "\"renderer_cpu_range\":[45012,45057],\"renderer_size\":46,"
+        "\"renderer_end\":\"includes branch displacement and RTS at $B001\","
+        "\"combined_fingerprint_fnv1a32\":\"2397C99B\"},"
+        "\"live_background_contract\":{"
         "\"orientation_screens\":[27,46],"
+        "\"orientation_dispatch_cpu_range\":[58679,58696],"
+        "\"orientation_dispatch\":\"selects $1B/$2E then calls $D92E\","
+        "\"irq_arm_cpu_range\":[52652,52688],"
+        "\"irq_arm\":\"complete $CDAC-$CDD0 path through RTS\","
         "\"band_start_scanlines\":[0,32,48,80,128,176],"
         "\"pre_asl_pairs\":[[91,92],[93,93],[94,95],[96,97],[98,99],[100,null]],"
         "\"final_r1\":\"explicit team/context selector ($0599)\","
@@ -1567,6 +1577,7 @@ static int append_gameplay_source_map_entry(
         "\"record_cpu_range\":[32768,42425],\"max_pieces\":15,"
         "\"dimensions\":\"low-nibble columns, high-nibble rows\","
         "\"tile\":\"(cell & 0x3E) + actor_slot_base\","
+        "\"actor_slot_base\":\"ROM-generatable $01/$41/$81/$C1\","
         "\"attributes\":\"(cell & 0x41) | actor_attributes\","
         "\"chr\":\"explicit MMC3 R2-R5 context\","
         "\"semantic_clip_names\":\"engine-state mapping pending\"}}");

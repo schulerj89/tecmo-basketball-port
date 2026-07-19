@@ -28,7 +28,7 @@ if (!$Scratch.StartsWith($BuildPrefix,
 }
 $PackPath = Join-Path $Scratch "gameplay.assetpack"
 $ExpectedOutput =
-    "TGPL-1 gameplay assets passed: orientation-bases=2 sources=30 pointers=1179 chr=F6F6E854 base-visual=37381BBD"
+    "TGPL-1 gameplay assets passed: orientation-bases=2 sources=31 pointers=1179 chr=F6F6E854 base-visual=37381BBD"
 $PreviousSkipShortcut = $env:TECMO_SKIP_SHORTCUT
 
 function Get-ShortTail {
@@ -156,8 +156,8 @@ try {
     $ChrEntry = Get-AssetPackEntry $PackBytes "chr/all"
     $SourceMapEntry = Get-AssetPackEntry $PackBytes "system/source-map"
     $Payload = Get-EntryBytes $PackBytes $GameplayEntry
-    if ($GameplayEntry.byte_count -ne 23379 -or
-        (Get-Fnv1a32 $Payload) -ne "185B25B1") {
+    if ($GameplayEntry.byte_count -ne 23416 -or
+        (Get-Fnv1a32 $Payload) -ne "2047CCE0") {
         throw "gameplay/core size or canonical fingerprint changed."
     }
     Invoke-GameplayAssetTest $PackPath $true
@@ -170,10 +170,10 @@ try {
     })
     if ($GameplayMap.Count -ne 1 -or
         $GameplayMap[0].schema -ne "tecmo.gameplay/TGPL-1" -or
-        $GameplayMap[0].size -ne 23379 -or
-        $GameplayMap[0].fingerprint_fnv1a32 -ne "185B25B1" -or
+        $GameplayMap[0].size -ne 23416 -or
+        $GameplayMap[0].fingerprint_fnv1a32 -ne "2047CCE0" -or
         @($GameplayMap[0].screens).Count -ne 2 -or
-        @($GameplayMap[0].source_spans).Count -ne 30 -or
+        @($GameplayMap[0].source_spans).Count -ne 31 -or
         @($GameplayMap[0].screens | Where-Object {
             $_.nametable_role -eq "live-orientation-base" -and
             $_.descriptor_chr_role -eq "tipoff-close-up-only"
@@ -188,6 +188,12 @@ try {
             "low-nibble columns, high-nibble rows" -or
         $GameplayMap[0].pose_contract.chr -ne
             "explicit MMC3 R2-R5 context" -or
+        (@($GameplayMap[0].actor_oam_contract.data_cpu_range) -join ",") -ne
+            "44783,45011" -or
+        (@($GameplayMap[0].actor_oam_contract.renderer_cpu_range) -join ",") -ne
+            "45012,45057" -or
+        $GameplayMap[0].actor_oam_contract.combined_fingerprint_fnv1a32 -ne
+            "2397C99B" -or
         @($GameplayMap[0].source_spans | Where-Object {
             $_.role -eq "scoreboard-violation-dispatch-and-text" -and
             $_.cpu_start -eq 0xBE87 -and $_.cpu_end -eq 0xBFA8
@@ -197,8 +203,14 @@ try {
             $_.cpu_start -eq 0xA5B9 -and $_.cpu_end -eq 0xAEEE
         }).Count -ne 1 -or
         @($GameplayMap[0].source_spans | Where-Object {
-            $_.role -eq "actor-pointer-tail" -and
-            $_.cpu_start -eq 0xAEEF -and $_.cpu_end -eq 0xAFFF
+            $_.role -eq "actor-aeef-oam-data" -and
+            $_.cpu_start -eq 0xAEEF -and $_.cpu_end -eq 0xAFD3 -and
+            $_.fingerprint_fnv1a32 -eq "133461D5"
+        }).Count -ne 1 -or
+        @($GameplayMap[0].source_spans | Where-Object {
+            $_.role -eq "bank01-indexed-oam-renderer" -and
+            $_.cpu_start -eq 0xAFD4 -and $_.cpu_end -eq 0xB001 -and
+            $_.fingerprint_fnv1a32 -eq "BBA0B94B"
         }).Count -ne 1 -or
         @($GameplayMap[0].source_spans | Where-Object {
             $_.role -eq "actor-palette-setup" -and
@@ -227,20 +239,38 @@ try {
         @($GameplayMap[0].source_spans | Where-Object {
             $_.role -eq "live-irq-band-dispatch" -and
             $_.cpu_start -eq 0xFE92 -and $_.cpu_end -eq 0xFEFD
-        }).Count -ne 1) {
+        }).Count -ne 1 -or
+        @($GameplayMap[0].source_spans | Where-Object {
+            $_.role -eq "live-orientation-select-and-dispatch" -and
+            $_.cpu_start -eq 0xE537 -and $_.cpu_end -eq 0xE548 -and
+            $_.fingerprint_fnv1a32 -eq "DB9972CE"
+        }).Count -ne 1 -or
+        @($GameplayMap[0].source_spans | Where-Object {
+            $_.role -eq "live-irq-arm" -and
+            $_.cpu_start -eq 0xCDAC -and $_.cpu_end -eq 0xCDD0 -and
+            $_.fingerprint_fnv1a32 -eq "4EE3C545"
+        }).Count -ne 1 -or
+        (@($GameplayMap[0].live_background_contract.orientation_dispatch_cpu_range) -join ",") -ne
+            "58679,58696" -or
+        (@($GameplayMap[0].live_background_contract.irq_arm_cpu_range) -join ",") -ne
+            "52652,52688" -or
+        $GameplayMap[0].pose_contract.actor_slot_base -ne
+            'ROM-generatable $01/$41/$81/$C1') {
         throw "TGPL-1 source-map provenance is incomplete or malformed."
     }
 
     $Mutations = @(
         @{ id="magic"; offset=0 },
         @{ id="declared-size"; offset=8 },
-        @{ id="header-reserved"; offset=228 },
+        @{ id="header-render-semantics"; offset=252 },
         @{ id="screen-record"; offset=256 + 24 },
         @{ id="source-record"; offset=384 + 16 },
-        @{ id="actor-pointer"; offset=16085 },
-        @{ id="period-data"; offset=22080 },
-        @{ id="event-data"; offset=22234 },
-        @{ id="live-data"; offset=23178 }
+        @{ id="actor-pointer"; offset=16117 },
+        @{ id="actor-aeef-data"; offset=18475 },
+        @{ id="bank01-oam-renderer"; offset=18704 },
+        @{ id="period-data"; offset=22114 },
+        @{ id="event-data"; offset=22268 },
+        @{ id="live-data"; offset=23212 }
     )
     foreach ($Mutation in $Mutations) {
         $Path = Join-Path $Scratch ("payload-" + $Mutation.id + ".assetpack")
@@ -253,7 +283,7 @@ try {
 
     $OversizedPath = Join-Path $Scratch "oversized.assetpack"
     $Oversized = [byte[]]$PackBytes.Clone()
-    [BitConverter]::GetBytes([uint64]23380).CopyTo(
+    [BitConverter]::GetBytes([uint64]23417).CopyTo(
         $Oversized, [int]$GameplayEntry.directory_offset + 92)
     [IO.File]::WriteAllBytes($OversizedPath, $Oversized)
     Invoke-GameplayAssetTest $OversizedPath $false
@@ -282,12 +312,17 @@ try {
         @{ id="screen-stream"; offset=$Prg + 1 * 0x4000 + (0xB5EB - 0x8000) },
         @{ id="actor-record"; offset=$Prg + 1 * 0x4000 },
         @{ id="actor-pointer"; offset=$Prg + 1 * 0x4000 + (0xA5B9 - 0x8000) },
+        @{ id="actor-aeef-data"; offset=$Prg + 1 * 0x4000 + (0xAEEF - 0x8000) },
+        @{ id="bank01-oam-renderer-start"; offset=$Prg + 1 * 0x4000 + (0xAFD4 - 0x8000) },
+        @{ id="bank01-oam-renderer-end"; offset=$Prg + 1 * 0x4000 + (0xB001 - 0x8000) },
         @{ id="actor-renderer"; offset=$Fixed + (0xD413 - 0xC000) },
         @{ id="shot-rule"; offset=$Prg + 5 * 0x4000 + (0x91BC - 0x8000) },
         @{ id="scoreboard"; offset=$Prg + 3 * 0x4000 + (0xBE87 - 0x8000) },
         @{ id="foul"; offset=$Prg + 2 * 0x4000 + (0xB0F8 - 0x8000) },
         @{ id="halftime"; offset=$Prg + 6 * 0x4000 + (0xBC3C - 0x8000) },
         @{ id="live-bands"; offset=$Fixed + (0xFE92 - 0xC000) },
+        @{ id="live-orientation-dispatch-end"; offset=$Fixed + (0xE548 - 0xC000) },
+        @{ id="live-irq-arm-end"; offset=$Fixed + (0xCDD0 - 0xC000) },
         @{ id="sprite-selector"; offset=$Fixed + (0xF24D - 0xC000) },
         @{ id="chr"; offset=$Chr + 0x10000 }
     )

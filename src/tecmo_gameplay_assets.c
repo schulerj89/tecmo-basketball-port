@@ -114,8 +114,8 @@ static bool validate_header(const uint8_t *payload, size_t payload_size)
            read_u32(payload + 56U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_RECORDS_SIZE &&
            read_u32(payload + 60U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_POINTERS_OFFSET &&
            read_u32(payload + 64U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_POINTERS_SIZE &&
-           read_u32(payload + 68U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_POINTER_TAIL_OFFSET &&
-           read_u32(payload + 72U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_POINTER_TAIL_SIZE &&
+           read_u32(payload + 68U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_AEEF_DATA_OFFSET &&
+           read_u32(payload + 72U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_AEEF_DATA_SIZE &&
            read_u32(payload + 76U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_PALETTE_OFFSET &&
            read_u32(payload + 80U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_PALETTE_SIZE &&
            read_u32(payload + 84U) == TECMO_ASSET_PACK_GAMEPLAY_ACTOR_PALETTE_POINTERS_OFFSET &&
@@ -147,7 +147,7 @@ static bool validate_header(const uint8_t *payload, size_t payload_size)
            read_u16(payload + 182U) == 0U &&
            read_u32(payload + 184U) == 0x41472384U &&
            read_u32(payload + 188U) == 0xABB3133DU &&
-           read_u32(payload + 192U) == 0xDF79E8DBU &&
+           read_u32(payload + 192U) == 0x133461D5U &&
            read_u32(payload + 196U) == 0x55B90F03U &&
            read_u32(payload + 200U) == 0xFCB596AFU &&
            read_u32(payload + 204U) == 0x740B4855U &&
@@ -157,10 +157,14 @@ static bool validate_header(const uint8_t *payload, size_t payload_size)
            read_u32(payload + 220U) == 0x5041054FU &&
            read_u32(payload + 224U) == 0xE77E8F44U &&
            read_u32(payload + 228U) == 0xF4C8965CU &&
-           read_u32(payload + 232U) == 0xDAAC4F68U &&
+           read_u32(payload + 232U) == 0x76401D85U &&
            read_u32(payload + 236U) == 0x0000001FU &&
-           bytes_are_zero(payload + 240U,
-                          TECMO_ASSET_PACK_GAMEPLAY_HEADER_SIZE - 240U);
+           read_u32(payload + 240U) ==
+               TECMO_ASSET_PACK_GAMEPLAY_BANK01_OAM_RENDERER_OFFSET &&
+           read_u32(payload + 244U) ==
+               TECMO_ASSET_PACK_GAMEPLAY_BANK01_OAM_RENDERER_SIZE &&
+           read_u32(payload + 248U) == 0xBBA0B94BU &&
+           read_u32(payload + 252U) == 0x2397C99BU;
 }
 
 static bool validate_screen_records(const uint8_t *payload,
@@ -300,7 +304,11 @@ bool tecmo_gameplay_assets_parse(TecmoGameplayAssets *assets,
         fnv1a32(payload + TECMO_ASSET_PACK_GAMEPLAY_EVENTS_OFFSET,
                 TECMO_ASSET_PACK_GAMEPLAY_EVENTS_SIZE) != 0xF4C8965CU ||
         fnv1a32(payload + TECMO_ASSET_PACK_GAMEPLAY_LIVE_OFFSET,
-                TECMO_ASSET_PACK_GAMEPLAY_LIVE_SIZE) != 0xDAAC4F68U) {
+                TECMO_ASSET_PACK_GAMEPLAY_LIVE_SIZE) != 0x76401D85U ||
+        fnv1a32(payload + TECMO_ASSET_PACK_GAMEPLAY_ACTOR_AEEF_DATA_OFFSET,
+                TECMO_ASSET_PACK_GAMEPLAY_ACTOR_AEEF_DATA_SIZE +
+                    TECMO_ASSET_PACK_GAMEPLAY_BANK01_OAM_RENDERER_SIZE) !=
+            0x2397C99BU) {
         return reject(assets, "TGPL-1 screen/source/actor contract rejected");
     }
     if (chr_size != TECMO_ASSET_PACK_GAMEPLAY_CHR_SIZE ||
@@ -466,7 +474,7 @@ bool tecmo_gameplay_assets_resolve_pose(
         !assets->available ||
         pointer_index >= TECMO_GAMEPLAY_ASSET_POINTER_COUNT ||
         context->palette_group >= TECMO_GAMEPLAY_ASSET_PALETTE_GROUP_COUNT ||
-        (context->actor_slot_base & 1U) == 0U ||
+        (context->actor_slot_base & 0x3FU) != 0x01U ||
         (context->actor_attributes & 0xFCU) != 0U) {
         return false;
     }
