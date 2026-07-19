@@ -121,21 +121,21 @@ try {
     }
 
     $Checkpoints = @(
-        @{ mode = "team-data-select"; hash = "A5AD7ACA359B812D2A17F9BA916D5EF8787B5376FA097879635C204DD16895C8"; status = "palette=3 render=1" },
-        @{ mode = "team-data-profile"; hash = "138EEA82EBB790E081A05EBB20D411B91F5831A08FF36342182BB75F6663EAB0"; status = "phase=TEAM PROFILE" },
-        @{ mode = "team-data-player-detail"; hash = "255FBFAA36B4EEC96B89390F97A9F32ABE69CD5A19E55B352467C23ED47637BB"; status = "phase=PLAYER DETAIL" },
+        @{ mode = "team-data-select"; hash = "C04A940E9BD78DC9D330AC9E41C2B6F03906A040CE52D442EB08BCE7FE4C7EB8"; status = "palette=3 render=1" },
+        @{ mode = "team-data-profile"; hash = "C07DD2AA74EB014BD7892B97F7EFBECBFC03C158C548D930C3684F946E392C55"; status = "phase=TEAM PROFILE" },
+        @{ mode = "team-data-player-detail"; hash = "0EEAA5599972BA5C58D6B8971DF9D6C55E8230F95E0862693DEEE560B292238B"; status = "phase=PLAYER DETAIL" },
         @{ mode = "team-data-entry-transition-frame0"; hash = "2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A"; status = "transition-frame=0 palette=4 render=0" },
         @{ mode = "team-data-entry-transition-frame4"; hash = "2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A"; status = "transition-frame=4 palette=4 render=1" },
-        @{ mode = "team-data-entry-transition-frame7"; hash = "3EBDAFA0CB536A9A24D37D4866666C7A04C7B4D645160FA4D372CBEFA5B5457D"; status = "transition-frame=7 palette=0 render=1" },
-        @{ mode = "team-data-entry-transition-frame19"; hash = "A749413AF069B7939F0FDD573DA4DB7DBE8B69123A7B8DC0F1A4207CE9232F5D"; status = "transition-frame=19 palette=3 render=1" },
+        @{ mode = "team-data-entry-transition-frame7"; hash = "1C94880CC9919AFC5C7AB1C482B24C586556F3479421F1B5BBD29DC8808AB34A"; status = "transition-frame=7 palette=0 render=1" },
+        @{ mode = "team-data-entry-transition-frame19"; hash = "C0F7882DC8C7D23A97B0864172B88446A886F9CC0C21005AEE9DE2DFA373DD07"; status = "transition-frame=19 palette=3 render=1" },
         @{ mode = "team-data-selector-profile-transition-frame10"; hash = "2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A"; status = "transition-frame=10 palette=4 render=0" },
         @{ mode = "team-data-selector-profile-transition-frame16"; hash = "2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A"; status = "transition-frame=16 palette=4 render=1" },
-        @{ mode = "team-data-selector-profile-transition-frame19"; hash = "763965FD001D34F8406C382D1A8D2EA0A6723410636ADF345552C9E58AEEB2DF"; status = "transition-frame=19 palette=0 render=1" },
-        @{ mode = "team-data-selector-profile-transition-frame31"; hash = "7D8BFF5F012DA94F1909289057CCB1F011CBA55E6CFD0A11BFDDFDC8A2397F5B"; status = "transition-frame=31 palette=3 render=1" },
+        @{ mode = "team-data-selector-profile-transition-frame19"; hash = "456FBF79F99EEA029F2CC19D9EE1CE1D0489E90995C92AB90ED232537E1D11DA"; status = "transition-frame=19 palette=0 render=1" },
+        @{ mode = "team-data-selector-profile-transition-frame31"; hash = "5E1258B43E47DBB71E3FAE28C91487A2BD0BAC2ECC4E7F2E6E360AC5FB428B64"; status = "transition-frame=31 palette=3 render=1" },
         @{ mode = "team-data-roster-detail-transition-frame15"; hash = "2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A"; status = "transition-frame=15 palette=4 render=1" },
-        @{ mode = "team-data-roster-detail-transition-frame18"; hash = "84730308277D403A9AE31F11672165EDDFC7D0225F99D5167338917CD41CBE27"; status = "transition-frame=18 palette=0 render=1" },
-        @{ mode = "team-data-roster-detail-transition-frame30"; hash = "255FBFAA36B4EEC96B89390F97A9F32ABE69CD5A19E55B352467C23ED47637BB"; status = "transition-frame=30 palette=3 render=1" },
-        @{ mode = "team-data-detail-roster-transition-frame31"; hash = "7D8BFF5F012DA94F1909289057CCB1F011CBA55E6CFD0A11BFDDFDC8A2397F5B"; status = "transition-frame=31 palette=3 render=1" }
+        @{ mode = "team-data-roster-detail-transition-frame18"; hash = "495F6050A1FE64A498B056AC602C9928E0A1A95AFE0D47722AFD33FABC56DAC7"; status = "transition-frame=18 palette=0 render=1" },
+        @{ mode = "team-data-roster-detail-transition-frame30"; hash = "0EEAA5599972BA5C58D6B8971DF9D6C55E8230F95E0862693DEEE560B292238B"; status = "transition-frame=30 palette=3 render=1" },
+        @{ mode = "team-data-detail-roster-transition-frame31"; hash = "5E1258B43E47DBB71E3FAE28C91487A2BD0BAC2ECC4E7F2E6E360AC5FB428B64"; status = "transition-frame=31 palette=3 render=1" }
     )
     foreach ($Checkpoint in $Checkpoints) {
         $Png = Join-Path $Scratch ($Checkpoint.mode + ".png")

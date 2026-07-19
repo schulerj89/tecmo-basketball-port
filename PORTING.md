@@ -384,6 +384,23 @@ season origin. Player detail is terminal and cannot launch gameplay.
 releasing A leaves TEAM DATA on the same profile/team/row with no transition or
 gameplay dispatch.
 
+## Native NES Color Profile
+
+The native renderer embeds the exact 192-byte `FCEUX.pal` RGB profile shipped
+with FCEUX 2.6.6 (FNV1a32 `9F872B25`) and never reads an emulator installation
+at runtime. This makes raw native frames use the same color interpretation as
+the local reference environment while preserving the ROM palette indexes in
+every asset. `--video-test` checks the full embedded profile, representative
+colors, and six-bit index masking. Changing this profile is a global visual
+contract change and requires deliberate regeneration of all colored PNG
+checkpoints.
+
+The post-arena finale uses three independently positioned horizontal bands.
+Bounded raw FCEUX comparison confirmed that its magenta underline remains after
+the progressive title text has moved away; that underline-only tail is not an
+unrendered asset. Intro regression coverage therefore includes title-write
+frames 192, 288, 384, and 448 in addition to the load and tail endpoints.
+
 Profile palettes are selected through Bank06 `$A3A5/$A3A9/$A3AD` and sourced
 from `$AC0B-$AC4A`; ATL uses `$AC0B-$AC1A` (FNV1a32 `34F6B8DC`). Logo cells
 come from Bank06 `$A2E4-$AC4A` layout/tile/attribute tables and Bank03 `$8017`

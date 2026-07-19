@@ -398,6 +398,10 @@ $FinaleRenderCases = @(
     [pscustomobject]@{ mode = "intro-finale-title-clean-frame0"; state = "intro-finale-state frame=306 scene=title phase=load local=0 palette=0 variant=0 loop=0 anchor=0,0 title=0 primary=0:0 secondary=0:0 sprites=0 black=0 hold=0"; visual = "black" },
     [pscustomobject]@{ mode = "intro-finale-title-clean-frame128"; state = "intro-finale-state frame=434 scene=title phase=title-preroll local=128 palette=0 variant=0 loop=0 anchor=0,0 title=0 primary=0:0 secondary=0:254 sprites=0 black=0 hold=0"; visual = "black" },
     [pscustomobject]@{ mode = "intro-finale-title-clean-frame129"; state = "intro-finale-state frame=435 scene=title phase=title-write local=129 palette=0 variant=0 loop=0 anchor=0,0 title=1 primary=0:2 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame192"; state = "intro-finale-state frame=498 scene=title phase=title-write local=192 palette=0 variant=0 loop=0 anchor=0,0 title=8 primary=0:128 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene"; hash = "D6589D1C0A83422C2423A9022438FDD2E4721E0937DC317D00DF944033DD51E3" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame288"; state = "intro-finale-state frame=594 scene=title phase=title-write local=288 palette=0 variant=0 loop=0 anchor=0,0 title=20 primary=1:64 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene"; hash = "251A685C63183C543C1B28EA295E0BAFE9BE72F06A971BA76EF35016E7EC5BE5" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame384"; state = "intro-finale-state frame=690 scene=title phase=title-write local=384 palette=0 variant=0 loop=0 anchor=0,0 title=32 primary=0:0 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene"; hash = "F89B63194E5B0565A333587AFD607457B3469B89D7F0251DF517F5779BB6FD60" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame448"; state = "intro-finale-state frame=754 scene=title phase=title-write local=448 palette=0 variant=0 loop=0 anchor=0,0 title=40 primary=0:128 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene"; hash = "B959E7DE6DBCE99BC41D755C770DFC801FE14792E21508FCAE9414B1CFA3554B" },
     [pscustomobject]@{ mode = "intro-finale-title-clean-frame473"; state = "intro-finale-state frame=779 scene=title phase=title-write local=473 palette=0 variant=0 loop=0 anchor=0,0 title=44 primary=0:178 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene" },
     [pscustomobject]@{ mode = "intro-finale-title-clean-frame474"; state = "intro-finale-state frame=780 scene=title phase=title-tail local=474 palette=0 variant=0 loop=0 anchor=0,0 title=44 primary=0:178 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene" },
     [pscustomobject]@{ mode = "intro-finale-title-clean-frame602"; state = "intro-finale-state frame=908 scene=title phase=dispatch-wait local=602 palette=0 variant=0 loop=0 anchor=0,0 title=44 primary=0:178 secondary=0:0 sprites=0 black=0 hold=0"; visual = "scene" },
@@ -1423,6 +1427,7 @@ try {
             $StateSeen = $StateLines.Count -eq 1 -and
                 $StateLines[0] -ceq [string]$RenderCase.state
             $VisualSeen = $false
+            $HashSeen = $true
             if ($RenderCreated) {
                 $Bitmap = [System.Drawing.Bitmap]::FromFile($RenderPath)
                 try {
@@ -1434,9 +1439,13 @@ try {
                 } finally {
                     $Bitmap.Dispose()
                 }
+                if ($RenderCase.PSObject.Properties.Name -contains "hash") {
+                    $HashSeen = (Get-FileHash -LiteralPath $RenderPath `
+                        -Algorithm SHA256).Hash -ceq [string]$RenderCase.hash
+                }
             }
             $ModePassed = $RenderExitCode -eq 0 -and $RenderCreated -and
-                $NativeSourceSeen -and $StateSeen -and $VisualSeen
+                $NativeSourceSeen -and $StateSeen -and $VisualSeen -and $HashSeen
             if (!$ModePassed) { $FinalePassed = $false }
             $FinaleOutputs.Add([pscustomobject]@{
                 mode = $RenderCase.mode
@@ -1446,6 +1455,7 @@ try {
                 native_source_seen = $NativeSourceSeen
                 state_seen = $StateSeen
                 visual_signature_seen = $VisualSeen
+                deterministic_hash_seen = $HashSeen
             })
         }
     } finally {
@@ -1817,13 +1827,13 @@ try {
             try {
                 # Final ROM registration: post ends at 429, the opening starts
                 # at 430, and the lower-band cream cap starts at 432.
-                $PostGrayLeft = Test-PixelRectColor $Bitmap 430 428 431 429 124 124 124
+                $PostGrayLeft = Test-PixelRectColor $Bitmap 430 428 431 429 116 116 116
                 $PostWhiteCenter = Test-PixelRectColor $Bitmap 432 428 433 429 252 252 252
-                $PostGrayRight = Test-PixelRectColor $Bitmap 434 428 435 429 124 124 124
+                $PostGrayRight = Test-PixelRectColor $Bitmap 434 428 435 429 116 116 116
                 $OpeningBlack = Test-PixelRectColor $Bitmap 424 430 441 431 0 0 0
-                $OpeningCreamLeft = Test-PixelRectColor $Bitmap 420 430 423 431 252 224 168
-                $OpeningCreamRight = Test-PixelRectColor $Bitmap 442 430 445 431 252 224 168
-                $CreamCap = Test-PixelRectColor $Bitmap 424 432 441 433 252 224 168
+                $OpeningCreamLeft = Test-PixelRectColor $Bitmap 420 430 423 431 252 216 168
+                $OpeningCreamRight = Test-PixelRectColor $Bitmap 442 430 445 431 252 216 168
+                $CreamCap = Test-PixelRectColor $Bitmap 424 432 441 433 252 216 168
             } finally {
                 $Bitmap.Dispose()
             }

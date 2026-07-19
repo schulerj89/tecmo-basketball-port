@@ -5,6 +5,7 @@
 #include "tecmo_bank07.h"
 #include "tecmo_game.h"
 #include "tecmo_intro_arena_scene.h"
+#include "tecmo_nes_video.h"
 
 #include <errno.h>
 #include <limits.h>
@@ -28,6 +29,7 @@ static void print_usage(const char *program)
     printf("  --flow-test             Run headless native menu/play/quit flow checks\n");
     printf("  --controls-test         Run portable held/pressed/released control-state checks\n");
     printf("  --bank07-test           Run fixed-bank helper C counterpart checks\n");
+    printf("  --video-test            Run embedded FCEUX 2.6.6 NES palette mapping checks\n");
     printf("  --music-test            Run strict TMUS parser/sequencer/synth checks\n");
     printf("  --team-management-test  Run strict TTMG parser and native STARTERS/PLAYBOOK checks\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
@@ -471,6 +473,16 @@ int main(int argc, char **argv)
         char message[128];
         if (!tecmo_bank07_self_test(message, sizeof(message))) {
             printf("Bank07 C helper test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--video-test") == 0) {
+        char message[160];
+        if (!tecmo_nes_video_self_test(message, sizeof(message))) {
+            printf("NES video test failed: %s\n", message);
             return 1;
         }
         printf("%s\n", message);

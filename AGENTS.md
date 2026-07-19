@@ -367,6 +367,21 @@ Missing, malformed, cross-pack, or out-of-range menu data must remain a native
 render failure; captures under `temp-videos` and FCEUX/Lua screenshots, logs,
 states, PPU/OAM dumps, and traces are verification material only.
 
+Native NES colors use the exact embedded 192-byte RGB profile distributed as
+`palettes/FCEUX.pal` with FCEUX 2.6.6 (FNV1a32 `9F872B25`). Runtime does not
+load that external file. This replaces the former generic lookup whose bright
+blue did not match the known FCEUX reference: NES color `$01` is now
+`#24188C`. Run `build\tecmo_port.exe --video-test` to verify the complete
+profile fingerprint, representative mappings, and six-bit index masking.
+
+A bounded local FCEUX pass across frames 1350-2550 confirmed that the
+post-arena CLIPPERS, BUCKS, PASS, and finale assets are present. The finale
+marquee intentionally scrolls its text independently of the magenta underline;
+the late underline-only frames are not missing glyph assets. Keep mid-write
+checkpoints 192, 288, 384, and 448 in the intro suite so future regressions
+cannot hide behind the existing blank/tail endpoints. Captured PNGs and state
+CSVs remain ignored verification material only.
+
 Opening music is native and ROM-only. The importer emits `audio/music` as the
 strict 36784-byte TMUS-1 payload (FNV1a32 `05C00ECB`) for requested music IDs
 5, 6, 7, and 8: gameplay, presentation, opening, and period stinger. It

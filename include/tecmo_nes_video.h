@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 uint32_t tecmo_nes_2c02_rgba(uint8_t color);
+bool tecmo_nes_video_self_test(char *message, size_t message_size);
 uint8_t tecmo_nes_attribute_palette_index(uint8_t attribute, int tile_row, int tile_col);
 
 void tecmo_draw_chr_tile_at_offset_ex(TecmoFramebuffer *fb,

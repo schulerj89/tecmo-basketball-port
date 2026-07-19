@@ -121,15 +121,15 @@ try {
     }
 
     $Checkpoints = @(
-        @{ mode="team-data-starters"; hash="066E5DE8B0C139BCB12FAC44172ADB1DE492700771D4F6860CC91FCEC7795863" },
-        @{ mode="team-data-starters-reset"; hash="3A3729F54600C1D87F3CD2439F923D48B753CC97D923313FB75CE4FDCD7ED9DD" },
-        @{ mode="team-data-starters-bench"; hash="E02B6DFAFB19096BD9D67065B85DC0821F574B9D8284CA014B972004F130065B" },
-        @{ mode="team-data-playbook"; hash="7D19D72463A75826A5DEB15652A3D37912C00B1E522F4D8CBAF499A6AD2AA8CD" },
-        @{ mode="team-data-playbook-replace-frame0"; hash="F5096D00FE3707A20BD08ADFAB66DD7E7CF8B3F34D924193D2B56503961C7DC5" },
-        @{ mode="team-data-playbook-replace-frame1"; hash="CA32B93E7A807706D85E7B2A9172561E170C7791E7E8374E851444F4B34205A7" },
-        @{ mode="team-data-playbook-replace-frame7"; hash="889CBE72F43D3865BBF1F220EDDB9D7365045EA93A880F3A034062CB74D41859" },
-        @{ mode="team-data-playbook-replace-frame8"; hash="EDD17EB70DDD6E4DC994EBFA9C6525A01B0ADFB1892E7DB8279712418D7836A7" },
-        @{ mode="team-data-playbook-reset"; hash="E85EC7C25C4FA0F4BB779553292ED4C3FB61506DE0C4767692564DF95E04E4AB" }
+        @{ mode="team-data-starters"; hash="883AB16DC973847014E52C4844924267ABB5C88D28E96BC9579057D772C79876" },
+        @{ mode="team-data-starters-reset"; hash="AB26EA9FB13B18B57587B9DB95978B8F978CB995783C67EDB42255937E5B5D17" },
+        @{ mode="team-data-starters-bench"; hash="1A27BFA8395ABAECEAA0E36135CAA6D9B5852971AE96F9466BD0C91BCBF985B9" },
+        @{ mode="team-data-playbook"; hash="4FE464B77D1C214C4021F70F8A2885D128FAF865B4B5DC6C818C6F823E0FCB34" },
+        @{ mode="team-data-playbook-replace-frame0"; hash="D48BE475A0F85032E80FD231DC06EA9E9487AAED2E358FDE374167F5DDDCBF97" },
+        @{ mode="team-data-playbook-replace-frame1"; hash="19F2BD6A6922C29AF1B0D148355FB501EDB720E89ADEFBB4116CDBD7CFC4D72F" },
+        @{ mode="team-data-playbook-replace-frame7"; hash="0954AF11A25756D22A78A5D2CA3FFEEE13C921290FEA138164376CAB5DBBA078" },
+        @{ mode="team-data-playbook-replace-frame8"; hash="1B7CA7E071AD9C6733265F028AA954CC91BC82A7ECC2B5C59FB11F5D2A1B4DFC" },
+        @{ mode="team-data-playbook-reset"; hash="DC6A469C9AE9AB6370CBAB61E2C61482C0248F97496746592074E8C5DC0BA9B3" }
     )
     foreach ($Checkpoint in $Checkpoints) {
         $Png = Join-Path $Scratch ($Checkpoint.mode + ".png")
