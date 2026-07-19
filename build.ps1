@@ -60,6 +60,7 @@ $Sources = @(
     "src\tecmo_gameplay_assets.c",
     "src\tecmo_gameplay_court.c",
     "src\tecmo_gameplay_close_shots.c",
+    "src\tecmo_gameplay_scene.c",
     "src\tecmo_gameplay_state.c",
     "src\tecmo_intro_stage.c",
     "src\tecmo_nes_video.c",

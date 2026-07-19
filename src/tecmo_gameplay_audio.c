@@ -541,10 +541,10 @@ static bool revision_tokens_match(uint32_t sfx_token, uint32_t dmc_token)
     return sfx_token == dmc_token;
 }
 
-bool tecmo_gameplay_audio_asset_load(TecmoGameplayAudioAsset *asset,
-                                     const char *project_root)
+bool tecmo_gameplay_audio_asset_load_from_pack(
+    TecmoGameplayAudioAsset *asset,
+    const char *asset_pack_path)
 {
-    char pack_path[1024];
     uint8_t *sfx_bytes = NULL;
     uint8_t *dmc_bytes = NULL;
     uint64_t sfx_count = 0U;
@@ -552,12 +552,12 @@ bool tecmo_gameplay_audio_asset_load(TecmoGameplayAudioAsset *asset,
     bool ok;
     if (asset == NULL) return false;
     memset(asset, 0, sizeof(*asset));
-    if (!select_asset_pack(project_root, pack_path, sizeof(pack_path)) ||
+    if (asset_pack_path == NULL || asset_pack_path[0] == '\0' ||
         tecmo_asset_pack_read_entry_exact(
-            pack_path, SFX_ENTRY_ID, TECMO_GAMEPLAY_SFX_PAYLOAD_SIZE,
+            asset_pack_path, SFX_ENTRY_ID, TECMO_GAMEPLAY_SFX_PAYLOAD_SIZE,
             &sfx_bytes, &sfx_count) != 0 ||
         tecmo_asset_pack_read_entry_exact(
-            pack_path, DMC_ENTRY_ID, TECMO_GAMEPLAY_DMC_PAYLOAD_SIZE,
+            asset_pack_path, DMC_ENTRY_ID, TECMO_GAMEPLAY_DMC_PAYLOAD_SIZE,
             &dmc_bytes, &dmc_count) != 0) {
         tecmo_asset_pack_free(sfx_bytes);
         tecmo_asset_pack_free(dmc_bytes);
@@ -582,6 +582,20 @@ bool tecmo_gameplay_audio_asset_load(TecmoGameplayAudioAsset *asset,
                    ok ? "TSFX-1/TDMC-1 native gameplay audio"
                       : "TSFX-1/TDMC-1 asset contract rejected");
     return ok;
+}
+
+bool tecmo_gameplay_audio_asset_load(TecmoGameplayAudioAsset *asset,
+                                     const char *project_root)
+{
+    char pack_path[1024];
+    if (asset == NULL) return false;
+    if (!select_asset_pack(project_root, pack_path, sizeof(pack_path))) {
+        memset(asset, 0, sizeof(*asset));
+        (void)snprintf(asset->status, sizeof(asset->status),
+                       "TSFX-1/TDMC-1 gameplay audio entries unavailable");
+        return false;
+    }
+    return tecmo_gameplay_audio_asset_load_from_pack(asset, pack_path);
 }
 
 void tecmo_gameplay_audio_asset_shutdown(TecmoGameplayAudioAsset *asset)

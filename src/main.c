@@ -8,6 +8,7 @@
 #include "tecmo_gameplay_assets.h"
 #include "tecmo_gameplay_court.h"
 #include "tecmo_gameplay_close_shots.h"
+#include "tecmo_gameplay_scene.h"
 #include "tecmo_gameplay_state.h"
 #include "tecmo_intro_arena_scene.h"
 #include "tecmo_nes_video.h"
@@ -40,6 +41,7 @@ static void print_usage(const char *program)
     printf("  --team-management-test  Run strict TTMG parser and native STARTERS/PLAYBOOK checks\n");
     printf("  --season-test           Run strict TSNS/TSAV season-management checks\n");
     printf("  --gameplay-state-test   Run deterministic gameplay clock/rules/shot-state checks\n");
+    printf("  --gameplay-scene-test PACK  Run native gameplay launch/input/shot checks\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
     printf("  --render-test-mode MODE PATH  Render boot-title, native start-game menu, intro scenes (arena through finale/title frameN), play, or probe modes to PNG\n");
@@ -557,6 +559,33 @@ int main(int argc, char **argv)
         char message[192];
         if (!tecmo_gameplay_state_self_test(message, sizeof(message))) {
             printf("Gameplay state test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-scene-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        TecmoMusicAsset music_asset;
+        TecmoMusicPlayer music_player;
+        char message[256];
+        bool passed;
+        memset(&music_asset, 0, sizeof(music_asset));
+        if (pack_path == NULL ||
+            !tecmo_music_asset_load(&music_asset, root)) {
+            printf("Gameplay scene test failed: %s\n",
+                   pack_path == NULL ? "PACK path required"
+                                     : music_asset.status);
+            tecmo_music_asset_shutdown(&music_asset);
+            return 1;
+        }
+        tecmo_music_player_init(&music_player, &music_asset);
+        passed = tecmo_gameplay_scene_self_test(
+            root, pack_path, &music_player, message, sizeof(message));
+        tecmo_music_asset_shutdown(&music_asset);
+        if (!passed) {
+            printf("Gameplay scene test failed: %s\n", message);
             return 1;
         }
         printf("%s\n", message);

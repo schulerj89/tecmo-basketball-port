@@ -32,6 +32,7 @@ set(TECMO_PORT_SOURCES
     src/tecmo_game.c
     src/tecmo_gameplay_assets.c
     src/tecmo_gameplay_court.c
+    src/tecmo_gameplay_scene.c
     src/tecmo_intro_arena.c
     src/tecmo_intro_arena_scene.c
     src/tecmo_intro_layout.c

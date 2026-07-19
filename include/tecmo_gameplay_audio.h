@@ -106,6 +106,11 @@ typedef struct TecmoGameplayAudioPlayer {
 
 bool tecmo_gameplay_audio_asset_load(TecmoGameplayAudioAsset *asset,
                                      const char *project_root);
+/* Strict explicit-pack variant used when a compound runtime contract must
+   prove that gameplay visuals and audio came from the same container. */
+bool tecmo_gameplay_audio_asset_load_from_pack(
+    TecmoGameplayAudioAsset *asset,
+    const char *asset_pack_path);
 void tecmo_gameplay_audio_asset_shutdown(TecmoGameplayAudioAsset *asset);
 void tecmo_gameplay_audio_player_init(TecmoGameplayAudioPlayer *player,
                                       const TecmoGameplayAudioAsset *asset,
