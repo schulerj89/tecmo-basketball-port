@@ -42,6 +42,14 @@ typedef enum TecmoGameplayCloseShotVariant {
     TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2 = 2
 } TecmoGameplayCloseShotVariant;
 
+/* High-level meaning derived from the exact supported numeric-variant map.
+   The TGCS-1 payload retains numeric ROM identities and stores no loose label. */
+typedef enum TecmoGameplayCloseShotSemanticKind {
+    TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_UNKNOWN = 0,
+    TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_DUNK,
+    TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_LAYUP
+} TecmoGameplayCloseShotSemanticKind;
+
 typedef enum TecmoGameplayCloseShotProfile {
     TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0 = 0,
     TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_1 = 1
@@ -60,6 +68,7 @@ typedef enum TecmoGameplayCloseShotDirection {
 
 typedef struct TecmoGameplayCloseShotVariantInfo {
     uint8_t numeric_variant;
+    TecmoGameplayCloseShotSemanticKind semantic_kind;
     uint8_t family_flags;
     uint8_t step_count;
     uint8_t pose_phase_count;

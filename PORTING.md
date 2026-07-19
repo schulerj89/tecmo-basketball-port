@@ -533,11 +533,14 @@ where the fingerprint begins two bytes earlier.
 
 `audio/gameplay-dmc` is the exact 2515-byte TDMC-1 payload (FNV1a32
 `AD70E6E8`). It stores three deduplicated fixed-bank source pools and five
-bounded clips matching Bank05 `$A8D6`, `$A9C5`, `$ABF5`, and `$B5AB`. The first
-three triggers retain address-based provenance names because their shot/rim/
-dunk meanings are not yet correlated. `$B5AB` is the supported held-ball/
-dribble event. All clips use exact rates 14/15, `$4015=1F`, no loop, no IRQ,
-and no direct `$4011` write.
+bounded clips matching Bank05 `$A8D6`, `$A9C5`, `$ABF5`, and `$B5AB`. `$B5AB`
+is held-ball/dribble. `$A9C5` is conservatively the dunk sequence and `$ABF5`
+the layup sequence: local slot 2 correlated numeric variant 0, its cutaway, and
+the later `$A9C5` trigger at action frame 87, while slot 1 correlated numeric
+variant 2 and `$ABF5` at action frame 34. These names cover the action sequence,
+not an impact or rim event, and the live scene does not queue either clip. The
+two `$A8D6` clips remain address-bound. All clips use exact rates 14/15,
+`$4015=1F`, no loop, no IRQ, and no direct `$4011` write.
 Accordingly, the native DMC delta counter remains latched across a clip
 retrigger, after the sample reader reaches end-of-clip, and when clear-all
 disables the reader. The held DAC value continues contributing to output until
@@ -561,7 +564,8 @@ evidence-bounded mappings are clock expiry to SFX 3, late-clock countdown to
 14, violation to 6, made shots/free throws to crowd response 11, and moving
 possession to the proven `$B5AB` held-ball/dribble DMC clip. ID 5 remains the
 neutral `BANK05_9FEC_CUE` at its gated foul/restart boundaries. Side-result
-12/13 and address-named DMC clips remain imported without invented live use.
+12/13, sequence-named A9C5/ABF5, and address-named A8D6 clips remain imported
+without invented live use.
 
 The importer validates the raw finale dispatch chain as `$851C` wait 50 ->
 `$83EA` wait 30 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 ->
@@ -661,8 +665,11 @@ variant 2 has the exact 16-step arc/longer-trajectory/contactable table. Their
 phase bytes and all 208 TGCS-stored profile/direction resolutions into TGPL pose
 data are ROM-derived. The live scene currently selects only profile 0/direction
 0 and mirrors actor-facing-left at render time; that selection and mirroring
-remain a native approximation. Numeric variant 1 is not exposed. These numeric
-families are not assigned an unproved dunk or layup label.
+remain a native approximation. Numeric variant 1 is not exposed. Bounded local
+original execution proves the high-level mapping variant 0 = dunk and variant
+2 = layup. TGCS-1 bytes, fingerprints, APIs, and source-map fields keep the
+numeric ROM identities; the semantic mapping is derived and validated by the
+loader rather than read from loose evidence.
 
 Period completion follows fixed `$E59B->$E823`: regulation M:00 and divider 45
 are prepared before selecting the next banner, halftime, overtime, or final
@@ -681,8 +688,9 @@ FCEUX RGB profile, actor-pose decoding, numeric
 close-shot steps, state/event timing, foul thresholds, period/halftime/final
 transitions, and audio programs/mappings. Actor/camera layout, movement/AI,
 ordinary jump timing, ball arc and make/contact policy, the trigger selecting
-numeric variant 0 versus 2, live close-shot profile/direction selection and
-left-facing mirroring, dynamic team/court palette selection, foul detection,
+dunk/variant 0 versus layup/variant 2, live close-shot profile/direction
+selection and left-facing mirroring, dynamic team/court palette selection,
+foul detection,
 free-throw aim/timing/outcome/rebound, and HUD typography remain explicit
 native approximations. Local original-frame comparisons found no
 unrendered or garbage cells and kept exact assets/poses stable, but camera,
@@ -691,7 +699,7 @@ Test with
 `tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`; its private
 scratch pack, logs, and PNGs remain under ignored `build\` output.
 The strict runtime checkpoints are `gameplay-start`,
-`gameplay-jump-frameN`, and `gameplay-close-shot-frameN`; the focused runner
+`gameplay-jump-frameN`, and `gameplay-dunk-frameN`; the focused runner
 covers meaningful interior frames plus the 40/32 endpoints.
 
 ## Migration Policy

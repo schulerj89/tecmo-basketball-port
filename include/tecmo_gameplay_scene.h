@@ -30,9 +30,9 @@ typedef enum TecmoGameplaySceneSource {
 typedef enum TecmoGameplaySceneShotKind {
     TECMO_GAMEPLAY_SCENE_SHOT_NONE = 0,
     TECMO_GAMEPLAY_SCENE_SHOT_JUMP,
-    /* Numeric ROM families; no unproven dunk/layup label. */
-    TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_0,
-    TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_2,
+    /* High-level meanings; scene-to-TGCS mapping preserves numeric provenance. */
+    TECMO_GAMEPLAY_SCENE_SHOT_DUNK,
+    TECMO_GAMEPLAY_SCENE_SHOT_LAYUP,
     TECMO_GAMEPLAY_SCENE_SHOT_KIND_COUNT
 } TecmoGameplaySceneShotKind;
 

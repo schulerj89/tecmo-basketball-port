@@ -29,7 +29,7 @@ if (!$Scratch.StartsWith($BuildPrefix,
 }
 $PackPath = Join-Path $Scratch "close-shots.assetpack"
 $ExpectedOutput =
-    "TGCS-1 close-shot assets passed: sources=13 variants=2 steps=48 poses=208 phases=0445C745 pose-sequence=BFDB4095"
+    "TGCS-1 close-shot assets passed: sources=13 variants=2 semantics=0:dunk,2:layup steps=48 poses=208 phases=0445C745 pose-sequence=BFDB4095"
 $PreviousSkipShortcut = $env:TECMO_SKIP_SHORTCUT
 
 function Get-ShortTail {
@@ -232,11 +232,15 @@ try {
             $Map.raw_aggregate.fingerprint_fnv1a32 -eq "9CDEB66F" -and
             $Map.phase_tables_fingerprint_fnv1a32 -eq "0445C745" -and
             $Map.supported_variants[0].numeric_id -eq 0 -and
+            $Map.supported_variants[0].semantic_kind -eq "dunk" -and
             $Map.supported_variants[0].step_count -eq 32 -and
             $Map.supported_variants[0].pose_phase_count -eq 7 -and
             $Map.supported_variants[1].numeric_id -eq 2 -and
+            $Map.supported_variants[1].semantic_kind -eq "layup" -and
             $Map.supported_variants[1].step_count -eq 16 -and
             $Map.supported_variants[1].pose_phase_count -eq 6 -and
+            $Map.semantic_mapping_contract -eq
+                "derived exact 0:dunk,2:layup map; local verification artifacts are excluded from pack provenance and runtime inputs" -and
             (@($Map.supported_variants[0].phase_table) -join ",") -eq
                 "1,2,3,3,3,4,4,4,4,4,4,4,4,4,4,4,6,6,6,6,6,6,6,5,5,5,5,5,5,5,5,5" -and
             (@($Map.supported_variants[1].phase_table) -join ",") -eq
@@ -297,6 +301,8 @@ try {
         @{ id="dependency-size"; offset=56 },
         @{ id="dependency-hash"; offset=60 },
         @{ id="header-reserved"; offset=112 },
+        @{ id="dunk-numeric-id"; offset=104 },
+        @{ id="layup-numeric-id"; offset=105 },
         @{ id="source-record-first"; offset=256 },
         @{ id="source-record-last"; offset=256 + 12 * 32 + 16 },
         @{ id="raw-source-first"; offset=672 },

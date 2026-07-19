@@ -36,13 +36,24 @@ scene becomes available. Missing, malformed, oversized, wrong-revision, or
 cross-pack dependencies fail closed without a partial frame.
 
 The two supported close-shot families retain their numeric ROM identities.
-Variant 0 has 32 exact steps in the direct/held-release family; variant 2 has
-16 exact steps in the arc/longer-trajectory/contactable family. Their phase
+Variant 0 is the dunk family and has 32 exact steps in the
+direct/held-release family; variant 2 is the layup family and has 16 exact
+steps in the arc/longer-trajectory/contactable family. Their phase
 tables and all 208 TGCS-stored profile/direction resolutions into TGPL pose data
 are exact assets. Live play currently selects only profile 0/direction 0 and
 mirrors actor-facing-left at render time; that narrower selection and mirroring
 are native approximations, not properties proved by the asset. Numeric variant
-1 remains unexposed. These names do not identify any family as a dunk or layup.
+1 remains unexposed. TGCS APIs and fields continue to expose numeric IDs; the
+loader derives and validates the exact 0=dunk, 2=layup semantic mapping without
+changing the 3144-byte payload or its `DACDC976` fingerprint.
+
+Bounded local original execution supplies the semantic correlation. Save-state
+slot 2 held numeric variant 0 through the live approach, entered its visible
+cutaway, and later triggered the Bank05 `$A9C5` DMC sequence at action frame 87.
+Slot 1 held numeric variant 2 and triggered `$ABF5` at action frame 34. These
+local save states, FCEUX/Lua traces, screenshots, and logs remain ignored
+verification evidence only; they are not committed source-map provenance,
+asset-pack inputs, or runtime dependencies.
 
 State timing is evidence-derived: game-clock divider 45, shot-clock reset 24
 with possession divider 50, an inclusive 31-update fixed expiry wait, 60-frame
@@ -60,8 +71,9 @@ violations to 6, made shots/free throws to crowd response 11, and motion with a
 held ball to the proven `$B5AB` held-ball/dribble DMC clip. Neutral SFX 5 is
 kept as `BANK05_9FEC_CUE` and is requested only at the evidence-bounded
 foul/restart boundaries under the GAME MUSIC gate. Imported side-result SFX
-12/13 and the remaining address-named DMC clips are not assigned invented live
-meanings.
+12/13, the conservative dunk-sequence A9C5 and layup-sequence ABF5 clips, and
+the two still-address-bound A8D6 clips are not queued by the live scene. The
+sequence names do not assert an impact or rim cue.
 
 ## ROM-derived anchors
 
@@ -130,15 +142,16 @@ These are provenance only and are not runtime inputs.
   semantic event layer, not a universal animation label.
 - Actor starting layout, camera/orientation composition, movement and AI,
   ordinary jump-shot timing, shot arc, make/contact policy, the distance policy
-  selecting numeric variant 0 versus 2, live close-shot profile/direction
-  selection and left-facing render mirroring, dynamic team/court palette
-  selection, foul detection, free-throw aim/timing/result/rebound behavior, and
+  selecting dunk/variant 0 versus layup/variant 2, live close-shot
+  profile/direction selection and left-facing render mirroring, dynamic
+  team/court palette selection, foul detection, free-throw
+  aim/timing/result/rebound behavior, and
   HUD typography are native approximations. The imported TGCT palette bytes and
   embedded FCEUX RGB profile are exact, but native selection does not yet
   reproduce all original matchup/state colors. The exact rules state consumes
   explicit outcomes without turning those scene policies into ROM-exact claims.
-- Local original-frame comparisons at gameplay start and ordinary-jump/numeric-
-  close checkpoints found no unrendered or garbage cells and kept exact assets
+- Local original-frame comparisons at gameplay start and ordinary-jump/dunk
+  checkpoints found no unrendered or garbage cells and kept exact assets
   and poses stable. Camera, spacing, HUD, and dynamic matchup palette selection
   remain visibly non-identical.
 - The module contains no proprietary ROM bytes, screenshots, traces, save
@@ -146,5 +159,5 @@ These are provenance only and are not runtime inputs.
 
 Run `tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` for the
 strict full-pack scene test and deterministic 640x480 start, ordinary-jump, and
-numeric-close checkpoints. `--gameplay-state-test`, the TGPL/TGCT/TGCS focused
+dunk checkpoints. `--gameplay-state-test`, the TGPL/TGCT/TGCS focused
 suites, and `Run-GameplayAudioTests.ps1` retain their lower-level coverage.

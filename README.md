@@ -106,7 +106,8 @@ accumulators are ported.
 During gameplay, directions move the owned actor, NES A passes on offense or
 switches defenders, and NES B starts a shot on offense or attempts a defensive
 steal/contact action. START and SELECT are inert. The current scene includes
-ordinary jump shots, the ROM's numeric close-shot variants 0 and 2, score and
+ordinary jump shots, the ROM's dunk (numeric variant 0) and layup (numeric
+variant 2) close-shot families, score and
 possession changes, shot-clock violations, fouls/free throws, period banners,
 halftime, overtime/final handling, crowd/gameplay audio, and result handoff.
 Static court/CHR/palette assets, the embedded FCEUX RGB profile, numeric
@@ -152,7 +153,7 @@ Render the normal menu or a focused intro frame:
 .\build\tecmo_port.exe --render-test-mode intro-arena-frame320 build\intro_arena_frame320_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-start build\gameplay_start_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-jump-frame12 build\gameplay_jump_12_test.png
-.\build\tecmo_port.exe --render-test-mode gameplay-close-shot-frame16 build\gameplay_close_16_test.png
+.\build\tecmo_port.exe --render-test-mode gameplay-dunk-frame16 build\gameplay_dunk_16_test.png
 ```
 
 Run every active screenshot test declared in `port_iteration.json`:

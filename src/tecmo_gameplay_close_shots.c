@@ -59,6 +59,23 @@ static bool range_ok(size_t offset, size_t count, size_t total)
     return offset <= total && count <= total - offset;
 }
 
+static bool semantic_kind_from_numeric(
+    uint8_t numeric_variant,
+    TecmoGameplayCloseShotSemanticKind *semantic_kind)
+{
+    if (semantic_kind == NULL) return false;
+    if (numeric_variant == 0U) {
+        *semantic_kind = TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_DUNK;
+        return true;
+    }
+    if (numeric_variant == 2U) {
+        *semantic_kind = TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_LAYUP;
+        return true;
+    }
+    *semantic_kind = TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_UNKNOWN;
+    return false;
+}
+
 static bool reject(TecmoGameplayCloseShotAssets *assets, const char *message)
 {
     free(assets->storage);
@@ -211,8 +228,17 @@ static bool validate_semantics(const uint8_t *payload)
         tecmo_gameplay_close_shot_expected_sources[12].payload_offset;
     size_t base_index = 0U;
     uint32_t resolved_hash = 2166136261U;
+    TecmoGameplayCloseShotSemanticKind variant0_kind;
+    TecmoGameplayCloseShotSemanticKind variant2_kind;
 
-    if (memcmp(variant0,
+    /* TGCS-1 keeps numeric IDs at bytes 104..105. Semantic names are derived
+       from this exact, fingerprinted ordering and never accepted from loose
+       metadata or capture files. */
+    if (!semantic_kind_from_numeric(payload[104U], &variant0_kind) ||
+        !semantic_kind_from_numeric(payload[105U], &variant2_kind) ||
+        variant0_kind != TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_DUNK ||
+        variant2_kind != TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_LAYUP ||
+        memcmp(variant0,
                tecmo_gameplay_close_shot_expected_variant0_phases,
                TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT0_STEP_COUNT) != 0 ||
         memcmp(variant2,
@@ -413,6 +439,10 @@ bool tecmo_gameplay_close_shots_get_variant_info(
     memset(info, 0, sizeof(*info));
     if (variant == TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0) {
         info->numeric_variant = 0U;
+        if (!semantic_kind_from_numeric(info->numeric_variant,
+                                        &info->semantic_kind)) {
+            return false;
+        }
         info->family_flags =
             TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_DIRECT |
             TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_HELD_RELEASE;
@@ -423,6 +453,10 @@ bool tecmo_gameplay_close_shots_get_variant_info(
     }
     if (variant == TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2) {
         info->numeric_variant = 2U;
+        if (!semantic_kind_from_numeric(info->numeric_variant,
+                                        &info->semantic_kind)) {
+            return false;
+        }
         info->family_flags =
             TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_ARC |
             TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_LONGER_TRAJECTORY |

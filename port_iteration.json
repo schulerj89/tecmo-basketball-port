@@ -30,7 +30,7 @@
     "backend": "win32 software framebuffer",
     "game_core": "portable C runtime state plus explicit memory arenas",
     "asset_mode": "normal GUI play uses strict ignored ROM-derived asset-pack entries; loose decomp readers remain explicit console development tools",
-    "known_status": "normal play boots the strict ROM-derived opening, title, blue menu, preseason/team-data/season flows, and native preseason or season gameplay; the live scene has strict court and complete pose-resolution assets plus numeric close-shot, music, SFX, DMC, rules-state, halftime/final, and result-handoff contracts, with documented native approximations still pending parity"
+    "known_status": "normal play boots the strict ROM-derived opening, title, blue menu, preseason/team-data/season flows, and native preseason or season gameplay; the live scene has strict court and complete pose-resolution assets plus mapped dunk/layup close-shot families, music, SFX, DMC, rules-state, halftime/final, and result-handoff contracts, with documented native approximations still pending parity"
   },
   "gameplay_boundary": {
     "status": "active-native-milestone",
@@ -49,7 +49,7 @@
     ],
     "controls": "directions move the owned actor; NES A passes or switches defender; NES B shoots or attempts defense; START/SELECT are inert; unassigned controllers cannot act",
     "exact_contracts": [
-      "ROM-derived court, CHR, imported TGCT palette bytes, embedded FCEUX RGB profile, all 208 TGCS-stored profile-direction resolutions into TGPL pose data, numeric close variants 0 and 2, and their 32/16 step tables",
+      "ROM-derived court, CHR, imported TGCT palette bytes, embedded FCEUX RGB profile, all 208 TGCS-stored profile-direction resolutions into TGPL pose data, numeric close variants 0 and 2, their proven dunk/layup mapping, and their 32/16 step tables",
       "deterministic clock, shot-clock, event, violation/foul presentation, period, halftime, overtime, final, and result state transitions",
       "ROM-derived track 5/6 programs, gameplay SFX mappings, held-ball/dribble DMC clip, mixer cadence, and source-map provenance",
       "season result identity validation and exact-once commit before gameplay ends"
@@ -59,7 +59,7 @@
       "movement and AI",
       "ordinary jump-shot timing",
       "shot arc, make, and contact policy",
-      "distance policy selecting numeric close variant 0 or 2",
+      "distance policy selecting dunk/variant 0 or layup/variant 2",
       "live close-shot selection limited to profile 0 and direction 0, with actor-facing-left mirrored at render time",
       "dynamic team and court palette selection for matchup and scene state",
       "foul detection",
@@ -69,7 +69,7 @@
     "render_modes": [
       "gameplay-start",
       "gameplay-jump-frameN",
-      "gameplay-close-shot-frameN"
+      "gameplay-dunk-frameN"
     ],
     "focused_test": ".\\tools\\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>",
     "local_output_policy": "asset packs, render checkpoints, logs, emulator evidence, and comparisons remain ignored under build or temp-videos and are never committed"
@@ -104,7 +104,7 @@
       "id": "run_gameplay_scene_test",
       "status": "active",
       "command": ".\\tools\\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>",
-      "description": "Builds an exact Rev1 full asset pack, runs the compound native gameplay scene self-test and rejection cases, then verifies deterministic 640x480 start, ordinary-jump, and numeric-close render checkpoints under ignored build scratch.",
+      "description": "Builds an exact Rev1 full asset pack, runs the compound native gameplay scene self-test and rejection cases, then verifies deterministic 640x480 start, ordinary-jump, and dunk render checkpoints under ignored build scratch.",
       "expected_output": "GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance scene controls shots audio state halftime/final render-determinism missing malformed oversized chr-mismatch"
     },
     {
@@ -886,7 +886,7 @@
     "title": "Gameplay parity expansion",
     "notes": [
       "Use bounded ROM/FCEUX evidence to replace one documented gameplay approximation at a time.",
-      "Keep numeric close variants identified only as 0 and 2 until a stronger semantic mapping is proved.",
+      "Preserve numeric TGCS variant identities while exposing the proven high-level mapping 0=dunk and 2=layup.",
       "Keep extracted assets, emulator evidence, render checkpoints, logs, and comparisons local and ignored.",
       "Retain strict same-pack provenance and fail-closed rendering while extending the live scene."
     ]

@@ -1262,7 +1262,7 @@ bool tecmo_gameplay_audio_self_test(const char *project_root,
             held_level != 64U && held_samples[0] == held_value &&
             held_samples[1] == held_value &&
             tecmo_gameplay_audio_queue_dmc_clip(
-                &dmc_control, TECMO_GAMEPLAY_DMC_BANK05_ABF5) &&
+                &dmc_control, TECMO_GAMEPLAY_DMC_LAYUP_SEQUENCE_ABF5) &&
             dmc_control.dmc.output_level == held_level;
     }
     tecmo_gameplay_audio_render_samples(&dmc_control, NULL, 64U);
@@ -1270,7 +1270,7 @@ bool tecmo_gameplay_audio_self_test(const char *project_root,
         uint8_t chained_level = dmc_control.dmc.output_level;
         dmc_continuity_ok = dmc_control.dmc.active &&
             tecmo_gameplay_audio_queue_dmc_clip(
-                &dmc_control, TECMO_GAMEPLAY_DMC_BANK05_A9C5) &&
+                &dmc_control, TECMO_GAMEPLAY_DMC_DUNK_SEQUENCE_A9C5) &&
             dmc_control.dmc.output_level == chained_level;
         tecmo_gameplay_audio_stop_all(&dmc_control);
         dmc_continuity_ok = dmc_continuity_ok &&
@@ -1280,7 +1280,7 @@ bool tecmo_gameplay_audio_self_test(const char *project_root,
     clear_ok = tecmo_gameplay_audio_queue_event(
                    &control, TECMO_GAMEPLAY_AUDIO_VIOLATION_CUE) &&
                tecmo_gameplay_audio_queue_dmc_clip(
-                   &control, TECMO_GAMEPLAY_DMC_BANK05_ABF5);
+                   &control, TECMO_GAMEPLAY_DMC_LAYUP_SEQUENCE_ABF5);
     tecmo_gameplay_audio_stop_all(&control);
     clear_ok = clear_ok && !control.sfx_pending && !control.sfx_playing &&
                !control.dmc.active && !music_b.playing &&

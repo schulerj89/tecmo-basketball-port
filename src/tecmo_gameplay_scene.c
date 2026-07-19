@@ -527,14 +527,14 @@ static uint16_t scene_jump_pose(uint16_t frame)
 
 static bool scene_shot_is_close(TecmoGameplaySceneShotKind kind)
 {
-    return kind == TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_0 ||
-           kind == TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_2;
+    return kind == TECMO_GAMEPLAY_SCENE_SHOT_DUNK ||
+           kind == TECMO_GAMEPLAY_SCENE_SHOT_LAYUP;
 }
 
 static TecmoGameplayCloseShotVariant scene_close_variant(
     TecmoGameplaySceneShotKind kind)
 {
-    return kind == TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_2
+    return kind == TECMO_GAMEPLAY_SCENE_SHOT_LAYUP
                ? TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2
                : TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0;
 }
@@ -588,8 +588,8 @@ static bool scene_start_shot_actor(TecmoGameplayScene *scene,
         /* The numeric ROM families and pose timing are exact. The distance
            threshold selecting between them remains a native scene policy. */
         scene->shot_kind = distance_x <= 24
-                               ? TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_0
-                               : TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_2;
+                               ? TECMO_GAMEPLAY_SCENE_SHOT_DUNK
+                               : TECMO_GAMEPLAY_SCENE_SHOT_LAYUP;
         /* Live TGCS support is intentionally narrowed to the exact numeric
            profile-0/direction-0 slice. Actor-facing mirroring is a native
            scene approximation; it is not a ROM direction-table mapping. */
@@ -1545,10 +1545,8 @@ const char *tecmo_gameplay_scene_shot_name(TecmoGameplaySceneShotKind kind)
     switch (kind) {
     case TECMO_GAMEPLAY_SCENE_SHOT_NONE: return "none";
     case TECMO_GAMEPLAY_SCENE_SHOT_JUMP: return "jump";
-    case TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_0:
-        return "close-variant0";
-    case TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_2:
-        return "close-variant2";
+    case TECMO_GAMEPLAY_SCENE_SHOT_DUNK: return "dunk";
+    case TECMO_GAMEPLAY_SCENE_SHOT_LAYUP: return "layup";
     case TECMO_GAMEPLAY_SCENE_SHOT_KIND_COUNT:
     default:
         return "invalid";
@@ -1626,7 +1624,7 @@ static bool scene_test_close_clock_collision(
     p1.held.cancel = true;
     p1.pressed.cancel = true;
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
-        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_0 ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_DUNK ||
         scene->close_shot_profile != TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0 ||
         scene->close_shot_direction !=
             TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0 ||
@@ -1923,7 +1921,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     p2.held.cancel = true;
     p2.pressed.cancel = true;
     if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
-        scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_0 ||
+        scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_DUNK ||
         scene.close_shot_step != 0U ||
         scene.close_shot_profile != TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0 ||
         scene.close_shot_direction !=
@@ -1934,7 +1932,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.actors[scene.shot_actor].pose_index != expected_pose ||
         !scene_test_draw_exact_step(&scene)) {
         scene_test_message(message, message_size,
-                           "NES B numeric close variant0 contract failed");
+                           "NES B dunk/TGCS variant-0 contract failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -1963,7 +1961,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
                    close_transition_serial ||
                !scene_test_draw_exact_step(&scene)))) {
             scene_test_message(message, message_size,
-                               "numeric close variant0 replay failed");
+                               "dunk/TGCS variant-0 replay failed");
             tecmo_gameplay_scene_destroy(&scene);
             return false;
         }
@@ -1976,7 +1974,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene_test_has_close_semantic_event(&scene.events) ||
         !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
-                           "numeric close variant0 settlement failed");
+                           "dunk/TGCS variant-0 settlement failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -1992,7 +1990,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     p2.held.cancel = true;
     p2.pressed.cancel = true;
     if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
-        scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_2 ||
+        scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_LAYUP ||
         scene.close_shot_step != 0U ||
         scene.close_shot_profile != TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0 ||
         scene.close_shot_direction !=
@@ -2003,7 +2001,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.actors[scene.shot_actor].pose_index != expected_pose ||
         !scene_test_draw_exact_step(&scene)) {
         scene_test_message(message, message_size,
-                           "NES B numeric close variant2 contract failed");
+                           "NES B layup/TGCS variant-2 contract failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -2024,7 +2022,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
                    close_transition_serial ||
                !scene_test_draw_exact_step(&scene)))) {
             scene_test_message(message, message_size,
-                               "numeric close variant2 replay failed");
+                               "layup/TGCS variant-2 replay failed");
             tecmo_gameplay_scene_destroy(&scene);
             return false;
         }
@@ -2037,7 +2035,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene_test_has_close_semantic_event(&scene.events) ||
         !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
-                           "numeric close variant2 settlement failed");
+                           "layup/TGCS variant-2 settlement failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }

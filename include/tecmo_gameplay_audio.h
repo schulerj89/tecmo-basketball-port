@@ -31,13 +31,13 @@ typedef enum TecmoGameplayAudioEvent {
     TECMO_GAMEPLAY_AUDIO_BANK05_9FEC_CUE = 8
 } TecmoGameplayAudioEvent;
 
-/* These four meanings remain intentionally tied to proven Bank05 trigger
-   provenance until bounded runtime correlation identifies the court action. */
+/* The A8D6 meanings remain address-bound. A9C5/ABF5 are sequence-level
+   correlations only: neither is claimed as an impact/rim cue or queued live. */
 typedef enum TecmoGameplayDmcClipId {
     TECMO_GAMEPLAY_DMC_BANK05_A8D6_SHORT = 0,
     TECMO_GAMEPLAY_DMC_BANK05_A8D6_LONG = 1,
-    TECMO_GAMEPLAY_DMC_BANK05_A9C5 = 2,
-    TECMO_GAMEPLAY_DMC_BANK05_ABF5 = 3,
+    TECMO_GAMEPLAY_DMC_DUNK_SEQUENCE_A9C5 = 2,
+    TECMO_GAMEPLAY_DMC_LAYUP_SEQUENCE_ABF5 = 3,
     TECMO_GAMEPLAY_DMC_HELD_BALL_DRIBBLE = 4
 } TecmoGameplayDmcClipId;
 

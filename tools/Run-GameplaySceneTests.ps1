@@ -285,11 +285,11 @@ try {
         [pscustomobject]@{ mode="gameplay-jump-frame12"; state='gameplay-state frame=12 shot=jump phase=live' },
         [pscustomobject]@{ mode="gameplay-jump-frame24"; state='gameplay-state frame=24 shot=jump phase=live' },
         [pscustomobject]@{ mode="gameplay-jump-frame40"; state='gameplay-state frame=40 shot=jump phase=live' },
-        [pscustomobject]@{ mode="gameplay-close-shot-frame1"; state='gameplay-state frame=1 shot=close-variant0 phase=live' },
-        [pscustomobject]@{ mode="gameplay-close-shot-frame8"; state='gameplay-state frame=8 shot=close-variant0 phase=live' },
-        [pscustomobject]@{ mode="gameplay-close-shot-frame16"; state='gameplay-state frame=16 shot=close-variant0 phase=live' },
-        [pscustomobject]@{ mode="gameplay-close-shot-frame24"; state='gameplay-state frame=24 shot=close-variant0 phase=live' },
-        [pscustomobject]@{ mode="gameplay-close-shot-frame32"; state='gameplay-state frame=32 shot=close-variant0 phase=live' }
+        [pscustomobject]@{ mode="gameplay-dunk-frame1"; state='gameplay-state frame=1 shot=dunk phase=live' },
+        [pscustomobject]@{ mode="gameplay-dunk-frame8"; state='gameplay-state frame=8 shot=dunk phase=live' },
+        [pscustomobject]@{ mode="gameplay-dunk-frame16"; state='gameplay-state frame=16 shot=dunk phase=live' },
+        [pscustomobject]@{ mode="gameplay-dunk-frame24"; state='gameplay-state frame=24 shot=dunk phase=live' },
+        [pscustomobject]@{ mode="gameplay-dunk-frame32"; state='gameplay-state frame=32 shot=dunk phase=live' }
     )
     $RenderHashes = @{}
     foreach ($Spec in $RenderSpecs) {
@@ -299,7 +299,7 @@ try {
     $VisualSentinels = @(
         $RenderHashes["gameplay-start"],
         $RenderHashes["gameplay-jump-frame12"],
-        $RenderHashes["gameplay-close-shot-frame16"]
+        $RenderHashes["gameplay-dunk-frame16"]
     ) | Select-Object -Unique
     if ($VisualSentinels.Count -ne 3) {
         throw "Gameplay start/jump/close visual sentinels collapsed together."

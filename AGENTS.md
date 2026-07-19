@@ -127,7 +127,7 @@ Hidden/debug screens are still useful through render-test modes. Common examples
 .\build\tecmo_port.exe --render-test-mode rosters build\rosters_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-start build\gameplay_start_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-jump-frame12 build\gameplay_jump_12_test.png
-.\build\tecmo_port.exe --render-test-mode gameplay-close-shot-frame16 build\gameplay_close_16_test.png
+.\build\tecmo_port.exe --render-test-mode gameplay-dunk-frame16 build\gameplay_dunk_16_test.png
 ```
 
 These are development tools, not main-menu entries.
@@ -478,10 +478,14 @@ FNV1a32 rather than a one-byte or inferred offset.
 `audio/gameplay-dmc` is TDMC-1: 2515 bytes / FNV1a32 `AD70E6E8`. It deduplicates
 the exact fixed-bank `$C080-$C280`, `$C440-$C710`, and `$C740-$CAF0` inclusive
 sample pools and exposes five bounded, non-looping, non-IRQ clips at rates 14
-or 15. Only Bank05 `$B5AB` is safely named held-ball/dribble. The `$A8D6`,
-`$A9C5`, and `$ABF5` clips must keep their provenance names until their shot,
-rim, dunk, or crowd meanings are proved. DMC advances independently of music
-and tonal SFX; no trigger writes `$4011`. GAME MUSIC gates future track 5 only,
+or 15. Bank05 `$B5AB` is held-ball/dribble. `$A9C5` is conservatively named
+the dunk sequence and `$ABF5` the layup sequence: bounded local slot-2 evidence
+correlates numeric variant 0, its cutaway, and the later `$A9C5` trigger at
+action frame 87; slot 1 correlates numeric variant 2 with `$ABF5` at action
+frame 34. These are sequence-level names, not impact/rim claims, and neither is
+queued by the live scene. The two `$A8D6` clips remain address-bound. DMC
+advances independently of music and tonal SFX; no trigger writes `$4011`.
+GAME MUSIC gates future track 5 only,
 and GAME SPEED has no path into audio cadence. `tecmo_gameplay_audio_stop_all`
 models the fixed clear-all path for music, SFX, and DMC. Because none of these
 triggers or the clear path writes `$4011`, the DMC delta counter/DAC level must
@@ -498,8 +502,8 @@ is enabled, and queues track 6 for halftime/final presentation. It maps clock
 expiry to SFX 3, the late-clock countdown to 14, violations to 6, made shots and
 free throws to crowd response 11, and moving possession to the proven `$B5AB`
 held-ball/dribble DMC clip. `BANK05_9FEC_CUE` remains neutral and is gated at
-the bounded foul/restart boundaries. Side-result 12/13 and the address-named
-DMC clips stay imported but do not receive invented scene meanings.
+the bounded foul/restart boundaries. Side-result 12/13, the sequence-named
+A9C5/ABF5 clips, and address-named A8D6 clips stay imported without live use.
 
 Finale provenance is the raw Bank04 chain `$851C` wait 50 -> `$83EA` wait 30
 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 -> `$FFFF`, loading
@@ -559,8 +563,9 @@ audio events, and returns final results. Proven timing/state anchors are fixed
 Halftime/final score dismissal comes from Bank06 `$BC3C-$BCF9`. State timing,
 event ordering, foul limits, explicit free-throw result accounting, and numeric
 close-shot step tables are evidence-derived. Actor/camera layout, movement/AI,
-ordinary jump timing, ball arcs and make/contact rules, numeric-variant trigger
-selection, live close-shot profile/direction selection and left-facing render
+ordinary jump timing, ball arcs and make/contact rules, the distance policy
+selecting dunk/variant 0 versus layup/variant 2, live close-shot
+profile/direction selection and left-facing render
 mirroring, dynamic team/court palette selection, foul detection, free-throw
 aim/timing/outcome/rebound, and HUD text are explicit native approximations.
 TGCS stores 208 exact profile/direction resolutions into TGPL pose data, but the
@@ -568,8 +573,11 @@ live scene currently selects only profile 0/direction 0 and mirrors
 actor-facing-left; the asset breadth must not be read as proof of that narrower
 live policy.
 The imported TGCT palette bytes and embedded FCEUX RGB profile are exact; that
-does not imply frame-identical matchup/state palette selection. Never name
-numeric variants 0/2 as a dunk or layup. See
+does not imply frame-identical matchup/state palette selection. The high-level
+mapping is proven as variant 0 = dunk and variant 2 = layup; low-level TGCS
+APIs and fields retain those numeric ROM identities. The local save states,
+FCEUX traces, and screenshots used for correlation remain ignored verification
+material, not committed provenance or runtime input. See
 `docs/gameplay-state-foundation.md`; verify state with
 `tecmo_port.exe --gameplay-state-test` and the compound scene with
 `tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.

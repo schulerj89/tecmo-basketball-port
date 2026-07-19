@@ -44,7 +44,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-scene-test PACK  Run native gameplay launch/input/shot checks\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render menus, intro scenes, or strict gameplay-start/jump-frameN/close-shot-frameN checkpoints to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render menus, intro scenes, or strict gameplay-start/jump-frameN/dunk-frameN checkpoints to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --build-assetpack ROM PATH  Build a private .assetpack from an iNES ROM only; no decomp/capture imports\n");
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
@@ -377,7 +377,7 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     unsigned checkpoint = 0U;
     unsigned update;
     bool jump = false;
-    bool close = false;
+    bool dunk = false;
 
     if (runtime == NULL || mode_name == NULL) return false;
     if (strcmp(mode_name, "gameplay-start") == 0) {
@@ -386,13 +386,13 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
                    mode_name, "gameplay-jump-frame", &checkpoint)) {
         jump = true;
     } else if (parse_render_frame_suffix(
-                   mode_name, "gameplay-close-shot-frame", &checkpoint)) {
-        close = true;
+                   mode_name, "gameplay-dunk-frame", &checkpoint)) {
+        dunk = true;
     } else {
         return false;
     }
     if ((jump && (checkpoint == 0U || checkpoint > 40U)) ||
-        (close && (checkpoint == 0U || checkpoint > 32U))) {
+        (dunk && (checkpoint == 0U || checkpoint > 32U))) {
         return false;
     }
 
@@ -411,9 +411,9 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
         return false;
     }
     tecmo_runtime_set_mode(runtime, TECMO_MODE_COURT);
-    if (!jump && !close) return true;
+    if (!jump && !dunk) return true;
 
-    if (close) {
+    if (dunk) {
         TecmoGameplaySceneActor *actor = &runtime->gameplay_scene.actors[0];
         actor->x = 205;
         actor->y = 160;
@@ -434,8 +434,8 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     return runtime->mode == TECMO_MODE_COURT &&
            runtime->gameplay_scene.active &&
            runtime->gameplay_scene.shot_kind ==
-               (close ? TECMO_GAMEPLAY_SCENE_SHOT_CLOSE_VARIANT_0
-                      : TECMO_GAMEPLAY_SCENE_SHOT_JUMP);
+               (dunk ? TECMO_GAMEPLAY_SCENE_SHOT_DUNK
+                     : TECMO_GAMEPLAY_SCENE_SHOT_JUMP);
 }
 
 int main(int argc, char **argv)
@@ -968,6 +968,8 @@ int main(int argc, char **argv)
                 &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0,
                 &variant_info) ||
             variant_info.numeric_variant != 0U ||
+            variant_info.semantic_kind !=
+                TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_DUNK ||
             variant_info.family_flags !=
                 (TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_DIRECT |
                  TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_HELD_RELEASE) ||
@@ -977,6 +979,8 @@ int main(int argc, char **argv)
                 &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2,
                 &variant_info) ||
             variant_info.numeric_variant != 2U ||
+            variant_info.semantic_kind !=
+                TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_LAYUP ||
             variant_info.family_flags !=
                 (TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_ARC |
                  TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_LONGER_TRAJECTORY |
@@ -991,7 +995,7 @@ int main(int argc, char **argv)
                 &assets, (TecmoGameplayCloseShotVariant)-1, &variant_info) ||
             tecmo_gameplay_close_shots_get_variant_info(
                 &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0, NULL)) {
-            printf("Close-shot asset test failed: numeric variant contract\n");
+            printf("Close-shot asset test failed: numeric/semantic variant contract\n");
             tecmo_gameplay_close_shots_destroy(&assets);
             return 1;
         }
@@ -1104,7 +1108,7 @@ int main(int argc, char **argv)
             tecmo_gameplay_close_shots_destroy(&assets);
             return 1;
         }
-        printf("TGCS-1 close-shot assets passed: sources=13 variants=2 steps=48 poses=208 phases=0445C745 pose-sequence=BFDB4095\n");
+        printf("TGCS-1 close-shot assets passed: sources=13 variants=2 semantics=0:dunk,2:layup steps=48 poses=208 phases=0445C745 pose-sequence=BFDB4095\n");
         tecmo_gameplay_close_shots_destroy(&assets);
         tecmo_gameplay_close_shots_destroy(&assets);
         return 0;
