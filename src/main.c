@@ -10,6 +10,7 @@
 #include "tecmo_gameplay_close_shots.h"
 #include "tecmo_gameplay_dunk_cutaway.h"
 #include "tecmo_gameplay_jump_shots.h"
+#include "tecmo_gameplay_shot_resolution.h"
 #include "tecmo_gameplay_scene.h"
 #include "tecmo_gameplay_state.h"
 #include "tecmo_intro_arena_scene.h"
@@ -55,6 +56,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-close-shots-test PACK  Validate strict TGCS-1 close-shot assets\n");
     printf("  --gameplay-dunk-cutaway-test PACK  Validate strict TGDK-1 dunk presentation assets\n");
     printf("  --gameplay-jump-shots-test PACK  Validate strict TGJS-1 jump-shot assets\n");
+    printf("  --gameplay-shot-resolution-test PACK  Validate strict TGSR-1 shot-resolution assets\n");
     printf("  --assetpack-list PACK  Print an asset-pack directory listing\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -1348,6 +1350,223 @@ jump_shot_test_cleanup:
         tecmo_gameplay_jump_shots_destroy(&assets);
         if (!ok) return 1;
         printf("TGJS-1 jump-shot assets passed: sources=8 poses=32 pose-matrix=A057A625 physics=Q8.8 dependencies=TGPL-1/TGCS-1\n");
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-shot-resolution-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        TecmoGameplayShotResolutionAssets assets;
+        const TecmoGameplayShotResolutionSourceSpan *settlement_source;
+        TecmoGameplayShotOutcome outcome = TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN;
+        TecmoGameplayShotRimRoute route;
+        TecmoGameplayShotSettlementDecision decision;
+        uint8_t *payload = NULL;
+        uint8_t *gameplay_core = NULL;
+        uint8_t *mutation = NULL;
+        uint8_t *core_mutation = NULL;
+        uint64_t payload_size = 0U;
+        uint64_t gameplay_core_size = 0U;
+        bool eligible = false;
+        bool ok = false;
+
+        tecmo_gameplay_shot_resolution_init(&assets);
+        if (tecmo_gameplay_shot_resolution_classify_terminal_outcome(
+                &assets, true, 0U, &outcome) ||
+            tecmo_gameplay_shot_resolution_resolve_rim_route(
+                &assets, 0U, &route) ||
+            tecmo_gameplay_shot_resolution_claimant_is_eligible(
+                &assets, 0, 0, 0U, 0U, &eligible) ||
+            tecmo_gameplay_shot_resolution_decide_claimant_settlement(
+                &assets, false,
+                TECMO_GAMEPLAY_SHOT_CLAIMANT_SAME_TEAM, &decision)) {
+            printf("Shot-resolution asset test failed: unavailable API accepted\n");
+            goto shot_resolution_test_cleanup;
+        }
+        if (pack_path == NULL ||
+            !tecmo_gameplay_shot_resolution_load(&assets, pack_path) ||
+            !tecmo_gameplay_shot_resolution_load(&assets, pack_path)) {
+            printf("Shot-resolution asset test failed: %s\n",
+                   pack_path != NULL ? assets.status : "PACK path required");
+            goto shot_resolution_test_cleanup;
+        }
+        settlement_source = tecmo_gameplay_shot_resolution_find_source(
+            &assets,
+            TECMO_GAMEPLAY_SHOT_RESOLUTION_SOURCE_CLAIMANT_SETTLEMENT);
+        if (settlement_source == NULL || settlement_source->bank != 5U ||
+            settlement_source->fixed_bank ||
+            settlement_source->cpu_start != 0xB87CU ||
+            settlement_source->cpu_end != 0xB8F5U ||
+            settlement_source->byte_count != 122U ||
+            settlement_source->fingerprint_fnv1a32 != 0x9E2F1F28U ||
+            settlement_source->fingerprint_fnv1a64 !=
+                0xC4F3A0BCC17BFCA8ULL ||
+            assets.claimant_count != 10U ||
+            assets.outcome_flag_mask != 0x80U ||
+            assets.route_selector_mask != 0x03U ||
+            assets.claimant_other_team_flag_mask != 0x10U ||
+            tecmo_gameplay_shot_resolution_find_source(
+                &assets,
+                (TecmoGameplayShotResolutionSourceKind)0) != NULL ||
+            tecmo_gameplay_shot_resolution_find_source(
+                &assets,
+                (TecmoGameplayShotResolutionSourceKind)5) != NULL) {
+            printf("Shot-resolution asset test failed: source/constants contract\n");
+            goto shot_resolution_test_cleanup;
+        }
+        if (tecmo_gameplay_shot_resolution_classify_terminal_outcome(
+                &assets, false, 0x80U, &outcome) ||
+            !tecmo_gameplay_shot_resolution_classify_terminal_outcome(
+                &assets, true, 0x00U, &outcome) ||
+            outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE ||
+            !tecmo_gameplay_shot_resolution_classify_terminal_outcome(
+                &assets, true, 0x80U, &outcome) ||
+            outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS ||
+            !tecmo_gameplay_shot_resolution_classify_terminal_outcome(
+                &assets, true, 0x7FU, &outcome) ||
+            outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE ||
+            !tecmo_gameplay_shot_resolution_classify_terminal_outcome(
+                &assets, true, 0xFFU, &outcome) ||
+            outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS) {
+            printf("Shot-resolution asset test failed: terminal polarity contract\n");
+            goto shot_resolution_test_cleanup;
+        }
+        {
+            static const uint16_t targets[4] = {
+                0xA708U, 0xA7A9U, 0xA8E9U, 0xA708U
+            };
+            for (unsigned selector = 0U; selector < 8U; ++selector) {
+                if (!tecmo_gameplay_shot_resolution_resolve_rim_route(
+                        &assets, (uint8_t)selector, &route) ||
+                    route.selector != (selector & 3U) ||
+                    route.source_target_cpu != targets[selector & 3U]) {
+                    printf("Shot-resolution asset test failed: rim route %u\n",
+                           selector);
+                    goto shot_resolution_test_cleanup;
+                }
+            }
+        }
+        if (!tecmo_gameplay_shot_resolution_claimant_is_eligible(
+                &assets, -11, -7, 0U, 39U, &eligible) || !eligible ||
+            !tecmo_gameplay_shot_resolution_claimant_is_eligible(
+                &assets, 10, 6, 12U, 71U, &eligible) || !eligible ||
+            !tecmo_gameplay_shot_resolution_claimant_is_eligible(
+                &assets, -12, 0, 0U, 0U, &eligible) || eligible ||
+            !tecmo_gameplay_shot_resolution_claimant_is_eligible(
+                &assets, 0, 7, 0U, 0U, &eligible) || eligible ||
+            !tecmo_gameplay_shot_resolution_claimant_is_eligible(
+                &assets, 0, 0, 0U, 40U, &eligible) || eligible ||
+            !tecmo_gameplay_shot_resolution_claimant_is_eligible(
+                &assets, 0, 0, 12U, 72U, &eligible) || eligible ||
+            !tecmo_gameplay_shot_resolution_claimant_is_eligible(
+                &assets, 0, 0, 12U, 11U, &eligible) || !eligible) {
+            printf("Shot-resolution asset test failed: claimant thresholds\n");
+            goto shot_resolution_test_cleanup;
+        }
+        if (!tecmo_gameplay_shot_resolution_decide_claimant_settlement(
+                &assets, true,
+                TECMO_GAMEPLAY_SHOT_CLAIMANT_SAME_TEAM, &decision) ||
+            decision.select_claimant || decision.change_possession ||
+            decision.replace_other_handler_with_previous ||
+            !tecmo_gameplay_shot_resolution_decide_claimant_settlement(
+                &assets, false,
+                TECMO_GAMEPLAY_SHOT_CLAIMANT_SAME_TEAM, &decision) ||
+            !decision.select_claimant || decision.change_possession ||
+            decision.replace_other_handler_with_previous ||
+            !tecmo_gameplay_shot_resolution_decide_claimant_settlement(
+                &assets, false,
+                TECMO_GAMEPLAY_SHOT_CLAIMANT_OTHER_TEAM, &decision) ||
+            !decision.select_claimant || !decision.change_possession ||
+            !decision.replace_other_handler_with_previous ||
+            tecmo_gameplay_shot_resolution_decide_claimant_settlement(
+                &assets, true,
+                TECMO_GAMEPLAY_SHOT_CLAIMANT_OTHER_TEAM, &decision)) {
+            printf("Shot-resolution asset test failed: claimant settlement\n");
+            goto shot_resolution_test_cleanup;
+        }
+
+        if (tecmo_asset_pack_read_entry_exact(
+                pack_path, "gameplay/shot-resolution", 384U,
+                &payload, &payload_size) != 0 ||
+            tecmo_asset_pack_read_entry_exact(
+                pack_path, "gameplay/core", 23416U,
+                &gameplay_core, &gameplay_core_size) != 0) {
+            printf("Shot-resolution asset test failed: dependencies unreadable\n");
+            goto shot_resolution_test_cleanup;
+        }
+        mutation = (uint8_t *)malloc((size_t)payload_size);
+        core_mutation = (uint8_t *)malloc((size_t)gameplay_core_size);
+        if (mutation == NULL || core_mutation == NULL) {
+            printf("Shot-resolution asset test failed: mutation allocation\n");
+            goto shot_resolution_test_cleanup;
+        }
+        memcpy(mutation, payload, (size_t)payload_size);
+        mutation[85U] = 1U;
+        if (tecmo_gameplay_shot_resolution_parse(
+                &assets, mutation, (size_t)payload_size,
+                gameplay_core, (size_t)gameplay_core_size)) {
+            printf("Shot-resolution asset test failed: header reserved accepted\n");
+            goto shot_resolution_test_cleanup;
+        }
+        memcpy(mutation, payload, (size_t)payload_size);
+        mutation[128U] ^= 1U;
+        if (tecmo_gameplay_shot_resolution_parse(
+                &assets, mutation, (size_t)payload_size,
+                gameplay_core, (size_t)gameplay_core_size)) {
+            printf("Shot-resolution asset test failed: source mutation accepted\n");
+            goto shot_resolution_test_cleanup;
+        }
+        memcpy(mutation, payload, (size_t)payload_size);
+        mutation[256U] ^= 1U;
+        if (tecmo_gameplay_shot_resolution_parse(
+                &assets, mutation, (size_t)payload_size,
+                gameplay_core, (size_t)gameplay_core_size)) {
+            printf("Shot-resolution asset test failed: metadata mutation accepted\n");
+            goto shot_resolution_test_cleanup;
+        }
+        memcpy(mutation, payload, (size_t)payload_size);
+        mutation[320U] ^= 1U;
+        if (tecmo_gameplay_shot_resolution_parse(
+                &assets, mutation, (size_t)payload_size,
+                gameplay_core, (size_t)gameplay_core_size)) {
+            printf("Shot-resolution asset test failed: route mutation accepted\n");
+            goto shot_resolution_test_cleanup;
+        }
+        memcpy(mutation, payload, (size_t)payload_size);
+        mutation[352U] = 1U;
+        if (tecmo_gameplay_shot_resolution_parse(
+                &assets, mutation, (size_t)payload_size,
+                gameplay_core, (size_t)gameplay_core_size)) {
+            printf("Shot-resolution asset test failed: padding mutation accepted\n");
+            goto shot_resolution_test_cleanup;
+        }
+        memcpy(core_mutation, gameplay_core, (size_t)gameplay_core_size);
+        core_mutation[128U] ^= 1U;
+        if (tecmo_gameplay_shot_resolution_parse(
+                &assets, payload, (size_t)payload_size,
+                core_mutation, (size_t)gameplay_core_size) ||
+            tecmo_gameplay_shot_resolution_parse(
+                &assets, payload, (size_t)payload_size - 1U,
+                gameplay_core, (size_t)gameplay_core_size) ||
+            tecmo_gameplay_shot_resolution_parse(
+                &assets, payload, (size_t)payload_size + 1U,
+                gameplay_core, (size_t)gameplay_core_size) ||
+            !tecmo_gameplay_shot_resolution_parse(
+                &assets, payload, (size_t)payload_size,
+                gameplay_core, (size_t)gameplay_core_size)) {
+            printf("Shot-resolution asset test failed: dependency/size/reparse contract\n");
+            goto shot_resolution_test_cleanup;
+        }
+        ok = true;
+
+shot_resolution_test_cleanup:
+        free(mutation);
+        free(core_mutation);
+        tecmo_asset_pack_free(payload);
+        tecmo_asset_pack_free(gameplay_core);
+        tecmo_gameplay_shot_resolution_destroy(&assets);
+        tecmo_gameplay_shot_resolution_destroy(&assets);
+        if (!ok) return 1;
+        printf("TGSR-1 shot resolution passed: sources=4 polarity=clear:make,set:miss routes=A708/A7A9/A8E9/A708 claimant=bounded settlement=team-driven\n");
         return 0;
     }
 

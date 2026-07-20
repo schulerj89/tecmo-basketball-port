@@ -1977,6 +1977,84 @@ static int append_gameplay_jump_shot_source_map_entry(
         (unsigned)TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_POSES_FNV1A32);
 }
 
+static int append_gameplay_shot_resolution_source_map_entry(
+    char *buffer,
+    size_t capacity,
+    size_t *length,
+    int *first,
+    const TecmoGameplayShotResolutionProvenance *p)
+{
+    static const char *const roles[
+        TECMO_GAMEPLAY_SHOT_RESOLUTION_SOURCE_COUNT] = {
+        "outcome-calculation-and-bit-helpers-$91BC-$943A",
+        "numeric-rim-route-dispatch-$A6EE-$A9D9",
+        "claimant-scan-and-proximity-$B73E-$B87B",
+        "claimant-driven-settlement-$B87C-$B8F5"
+    };
+    const char *prefix = *first != 0 ? "" : ",\n";
+
+    *first = 0;
+    if (tecmo_asset_pack_append_text(
+            buffer, capacity, length,
+            "%s"
+            "    {\"id\":\"%s\",\"kind\":\"gameplay-shot-resolution-native\","
+            "\"schema\":\"tecmo.gameplay-shot-resolution/TGSR-1\",\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"%08X\","
+            "\"fingerprint_fnv1a64\":\"%016llX\","
+            "\"dependencies\":[{\"entry\":\"%s\",\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"%08X\","
+            "\"reason\":\"same-revision gameplay contract\"}],"
+            "\"source_spans\":[",
+            prefix, TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_FNV1A32,
+            (unsigned long long)
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_FNV1A64,
+            TECMO_ASSET_PACK_GAMEPLAY_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_FNV1A32) != 0) {
+        return -1;
+    }
+    for (size_t index = 0U;
+         index < TECMO_GAMEPLAY_SHOT_RESOLUTION_SOURCE_COUNT; ++index) {
+        const TecmoGameplayShotResolutionExpectedSource *source =
+            &tecmo_gameplay_shot_resolution_expected_sources[index];
+        if (tecmo_asset_pack_append_text(
+                buffer, capacity, length,
+                "%s{\"role\":\"%s\",\"source_entry\":\"prg/bank05\","
+                "\"source_offset\":%llu,\"bank\":5,\"cpu_start\":%u,"
+                "\"cpu_end\":%u,\"size\":%u,"
+                "\"fingerprint_fnv1a32\":\"%08X\","
+                "\"fingerprint_fnv1a64\":\"%016llX\"}",
+                index == 0U ? "" : ",", roles[index],
+                (unsigned long long)p->source_offsets[index],
+                (unsigned)source->cpu_start,
+                (unsigned)((uint32_t)source->cpu_start +
+                           source->byte_count - 1U),
+                (unsigned)source->byte_count,
+                (unsigned)source->fingerprint_fnv1a32,
+                (unsigned long long)source->fingerprint_fnv1a64) != 0) {
+            return -1;
+        }
+    }
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "],\"outcome\":{\"terminal_context_required\":true,"
+        "\"flag_mask\":128,\"clear\":\"make\",\"set\":\"miss\","
+        "\"clear_helper_cpu\":37933,\"set_helper_cpu\":37940},"
+        "\"rim_routes\":{\"selector_mask\":3,"
+        "\"targets_cpu\":[42760,42921,43241,42760],"
+        "\"semantic_policy\":\"numeric/address-bound only\"},"
+        "\"claimant_thresholds\":{\"horizontal_delta\":[-11,10],"
+        "\"depth_delta\":[-7,6],"
+        "\"grounded_ball_altitude_max_inclusive\":39,"
+        "\"airborne_ball_above_claimant_max_inclusive\":59},"
+        "\"settlement\":{\"same_team\":\"select claimant without possession change\","
+        "\"other_team\":\"select claimant and change possession\"},"
+        "\"limits\":\"an address hit alone is not terminal; $9434 also occurs in nonterminal close animations; claimant is not labeled rebound, steal, block, or recovery\","
+        "\"runtime_inputs\":\"TGSR-1 plus same-pack TGPL-1; no decompilation, ASM, trace, capture, screenshot, log, dump, state, Lua, video, or ROM\"}");
+}
+
 char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    uint32_t trainer_bytes,
                                    uint32_t prg_banks,
@@ -2003,9 +2081,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoGameplayCloseShotProvenance *close_shot_provenance,
                                    const TecmoGameplayDunkProvenance *dunk_provenance,
                                    const TecmoGameplayJumpShotProvenance *jump_shot_provenance,
+                                   const TecmoGameplayShotResolutionProvenance *shot_resolution_provenance,
                                    size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 23U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 24U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -2243,7 +2322,11 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
         (jump_shot_provenance->source_offsets[0] != 0U &&
          append_gameplay_jump_shot_source_map_entry(
              source_map, capacity, &length, &first_logical,
-             jump_shot_provenance) != 0)) {
+             jump_shot_provenance) != 0) ||
+        (shot_resolution_provenance->source_offsets[0] != 0U &&
+         append_gameplay_shot_resolution_source_map_entry(
+             source_map, capacity, &length, &first_logical,
+             shot_resolution_provenance) != 0)) {
         free(source_map);
         return NULL;
     }

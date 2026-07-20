@@ -16,6 +16,7 @@ set(TECMO_PORT_SOURCES
     src/asset_pack/tecmo_asset_pack_gameplay_close_shots.c
     src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c
     src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c
+    src/asset_pack/tecmo_asset_pack_gameplay_shot_resolution.c
     src/asset_pack/tecmo_asset_pack_gameplay_audio.c
     src/asset_pack/tecmo_asset_pack_title.c
     src/asset_pack/tecmo_asset_pack_opening.c
@@ -43,6 +44,7 @@ set(TECMO_PORT_SOURCES
     src/tecmo_gameplay_close_shots.c
     src/tecmo_gameplay_dunk_cutaway.c
     src/tecmo_gameplay_jump_shots.c
+    src/tecmo_gameplay_shot_resolution.c
     src/tecmo_gameplay_audio.c
     src/tecmo_gameplay_scene.c
     src/tecmo_intro_arena.c
