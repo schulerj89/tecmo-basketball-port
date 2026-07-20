@@ -57,8 +57,10 @@ typedef struct TecmoGameplayPenaltyPresentation {
     uint8_t selector_max;
     /* Delay is internal to the shared screen-$22 routine before its C009 request. */
     uint8_t presentation_sfx_id;
+    /* Caller-qualified direct live restart only; TPNL encodes no route selector. */
     uint8_t live_restart_sfx_id;
     uint8_t live_restart_music_id;
+    bool live_restart_requires_game_music;
     uint16_t lead_in_frames;
     uint16_t maximum_wait_frames;
     uint16_t presentation_sfx_delay_frames;

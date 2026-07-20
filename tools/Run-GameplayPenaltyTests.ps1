@@ -257,6 +257,7 @@ try {
             $Map.presentations.foul.presentation_sfx_delay_frames -eq 16 -and
             $Map.presentations.foul.live_restart_sfx_id -eq 5 -and
             $Map.presentations.foul.live_restart_music_id -eq 5 -and
+            [bool]$Map.presentations.foul.live_restart_requires_game_music -and
             $Map.presentations.violation.five_seconds_selector -eq 3 -and
             $Map.presentations.violation.lead_in_frames -eq 4 -and
             $Map.presentations.violation.maximum_wait_frames -eq 120 -and
@@ -265,10 +266,23 @@ try {
             $Map.presentations.violation.presentation_sfx_delay_frames -eq 16 -and
             $Map.presentations.violation.live_restart_sfx_id -eq 5 -and
             $Map.presentations.violation.live_restart_music_id -eq 5 -and
+            [bool]$Map.presentations.violation.live_restart_requires_game_music -and
             $Map.presentations.release.initial_delay_frames -eq 4 -and
             $Map.presentations.release.poll_interval_frames -eq 1 -and
             $Map.presentations.release.nes_a_mask -eq 128 -and
-            $Map.presentations.release.controller_count -eq 2
+            $Map.presentations.release.controller_count -eq 2 -and
+            $Map.presentations.restart_route_semantics.qualification -eq
+                'caller precondition from exact live boundary; no route selector is encoded in TPNL-1' -and
+            [bool]$Map.presentations.restart_route_semantics.qualifying_direct_live_restart.requires_game_music -and
+            $Map.presentations.restart_route_semantics.qualifying_direct_live_restart.sfx_id -eq 5 -and
+            $Map.presentations.restart_route_semantics.qualifying_direct_live_restart.music_track_id -eq 5 -and
+            [bool]$Map.presentations.restart_route_semantics.foul_to_free_throws.requires_game_music -and
+            $null -eq $Map.presentations.restart_route_semantics.foul_to_free_throws.sfx_id -and
+            $Map.presentations.restart_route_semantics.foul_to_free_throws.music_track_id -eq 5 -and
+            $null -eq $Map.presentations.restart_route_semantics.final_free_throw_return.sfx_id -and
+            $null -eq $Map.presentations.restart_route_semantics.final_free_throw_return.music_track_id -and
+            $null -eq $Map.presentations.restart_route_semantics.game_music_disabled.sfx_id -and
+            $null -eq $Map.presentations.restart_route_semantics.game_music_disabled.music_track_id
         if ($MapOk) {
             for ($Index = 0; $Index -lt $ExpectedSpans.Count; ++$Index) {
                 $Expected = $ExpectedSpans[$Index]
@@ -319,8 +333,12 @@ try {
         @{ id="violation-cue-delay"; offset=654 },
         @{ id="foul-presentation"; offset=720 },
         @{ id="foul-presentation-cue"; offset=723 },
+        @{ id="foul-restart-music-gate"; offset=726 },
+        @{ id="foul-presentation-reserved"; offset=727 },
         @{ id="foul-presentation-cue-delay"; offset=734 },
         @{ id="violation-presentation"; offset=744 },
+        @{ id="violation-restart-music-gate"; offset=750 },
+        @{ id="violation-presentation-reserved"; offset=751 },
         @{ id="violation-presentation-cue-delay"; offset=758 }
     )) {
         Write-MutatedPackAndReject $PackBytes $PenaltyEntry `

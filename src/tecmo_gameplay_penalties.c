@@ -187,6 +187,19 @@ static bool validate_sources(const uint8_t *payload)
            TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_SOURCES_FNV1A32;
 }
 
+static bool validate_presentation_layout(const uint8_t *presentations)
+{
+    for (size_t index = 0U; index < PENALTY_PRESENTATION_COUNT; ++index) {
+        const uint8_t *record = presentations +
+            index * TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_PRESENTATION_STRIDE;
+        if (record[6U] != 1U || record[7U] != 0U ||
+            !bytes_are_zero(record + 16U, 8U)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool validate_semantics(const uint8_t *payload)
 {
     const uint8_t *rules = payload +
@@ -210,6 +223,7 @@ static bool validate_semantics(const uint8_t *payload)
            memcmp(presentations,
                   tecmo_gameplay_penalty_expected_presentations,
                   sizeof(tecmo_gameplay_penalty_expected_presentations)) == 0 &&
+           validate_presentation_layout(presentations) &&
            fnv1a32(rules,
                    TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_RULES_SIZE) ==
                TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_RULES_FNV1A32 &&
@@ -488,6 +502,7 @@ static void decode_presentation(const uint8_t *record,
     presentation->presentation_sfx_id = record[3U];
     presentation->live_restart_sfx_id = record[4U];
     presentation->live_restart_music_id = record[5U];
+    presentation->live_restart_requires_game_music = record[6U] != 0U;
     presentation->lead_in_frames = read_u16(record + 8U);
     presentation->maximum_wait_frames = read_u16(record + 10U);
     presentation->presentation_sfx_delay_frames = read_u16(record + 14U);
@@ -759,6 +774,7 @@ bool tecmo_gameplay_penalties_self_test(const char *asset_pack_path,
         presentation.presentation_sfx_delay_frames != 16U ||
         presentation.live_restart_sfx_id != 5U ||
         presentation.live_restart_music_id != 5U ||
+        !presentation.live_restart_requires_game_music ||
         !tecmo_gameplay_penalties_get_presentation(
             &assets, TECMO_GAMEPLAY_PENALTY_PRESENTATION_FOUL,
             0U, &presentation) ||
@@ -768,6 +784,7 @@ bool tecmo_gameplay_penalties_self_test(const char *asset_pack_path,
         presentation.presentation_sfx_delay_frames != 16U ||
         presentation.live_restart_sfx_id != 5U ||
         presentation.live_restart_music_id != 5U ||
+        !presentation.live_restart_requires_game_music ||
         presentation.release_button_mask != 0x80U ||
         presentation.controller_count != 2U ||
         tecmo_gameplay_penalties_get_violation(
