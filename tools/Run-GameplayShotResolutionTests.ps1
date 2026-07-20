@@ -164,7 +164,7 @@ function Write-WrongSizeAndReject {
 
 function Invoke-RejectedRomMutation {
     param([byte[]]$Original, [string]$Id, [int]$Offset,
-          [string]$ExpectedRange, [bool]$SharedWithJump = $false)
+          [string]$ExpectedRange)
     $MutatedRom = Join-Path $Scratch ("rom-" + $Id + ".nes")
     $MutatedPack = Join-Path $Scratch ("rom-" + $Id + ".assetpack")
     $Bytes = [byte[]]$Original.Clone()
@@ -173,11 +173,8 @@ function Invoke-RejectedRomMutation {
     $Output = @(& $Executable --build-assetpack `
         $MutatedRom $MutatedPack 2>&1)
     $Text = $Output -join [Environment]::NewLine
-    $SchemaOk = $Text -match "TGSR-1"
-    if ($SharedWithJump) { $SchemaOk = $SchemaOk -or $Text -match "TGJS-1" }
-    if ($LASTEXITCODE -eq 0 -or !$SchemaOk -or
-        (!$SharedWithJump -and
-         $Text -notmatch [regex]::Escape($ExpectedRange))) {
+    if ($LASTEXITCODE -eq 0 -or $Text -notmatch "TGSR-1" -or
+        $Text -notmatch [regex]::Escape($ExpectedRange)) {
         throw "Rev1 source mutation '$Id' was not rejected.`n$(Get-ShortTail $Output)"
     }
 }
@@ -325,9 +322,14 @@ try {
     for ($Index = 0; $Index -lt $ExpectedSpans.Count; ++$Index) {
         $Span = $ExpectedSpans[$Index]
         $Offset = $PrgOffset + 5 * 0x4000 + ($Span.start - 0x8000)
+        if ($Index -eq 2) {
+            # $B7AD is inside TGSR's $B73E-$B87B claimant span but outside
+            # TGCS's $B775-$B7AC and TGJS's $B7C1-$B87B spans.
+            $Offset = $PrgOffset + 5 * 0x4000 + (0xB7AD - 0x8000)
+        }
         $Range = '${0:X4}-${1:X4}' -f $Span.start, $Span.end
         Invoke-RejectedRomMutation $RomBytes ("source-{0}" -f $Index) `
-            $Offset $Range ($Index -eq 2)
+            $Offset $Range
     }
 
     Write-Host $ExpectedOutput
