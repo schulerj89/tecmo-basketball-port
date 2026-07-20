@@ -4,6 +4,7 @@
 
 #include "tecmo_asset_pack.h"
 #include "tecmo_asset_pack_util.h"
+#include "tecmo_gameplay_audio.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -2055,6 +2056,99 @@ static int append_gameplay_shot_resolution_source_map_entry(
         "\"runtime_inputs\":\"TGSR-1 plus same-pack TGPL-1; no decompilation, ASM, trace, capture, screenshot, log, dump, state, Lua, video, or ROM\"}");
 }
 
+static int append_gameplay_penalty_source_map_entry(
+    char *buffer,
+    size_t capacity,
+    size_t *length,
+    int *first,
+    const TecmoGameplayPenaltyProvenance *p)
+{
+    static const char *const roles[TECMO_GAMEPLAY_PENALTY_SOURCE_COUNT] = {
+        "foul-commit-metadata-$9571-$9649",
+        "foul-rules-and-presentation-$B0F8-$B398",
+        "foul-presentation-script-$E95E-$EA11",
+        "presentation-release-gate-$EA14-$EA2F",
+        "violation-presentation-script-$EC5B-$ED14",
+        "nes-a-release-helper-$D2B9-$D2CE",
+        "violation-selector-presentation-$BE87-$BFA8"
+    };
+    const char *prefix = *first != 0 ? "" : ",\n";
+
+    *first = 0;
+    if (tecmo_asset_pack_append_text(
+            buffer, capacity, length,
+            "%s"
+            "    {\"id\":\"%s\",\"kind\":\"gameplay-penalties-native\","
+            "\"schema\":\"tecmo.gameplay-penalties/TPNL-1\",\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"%08X\","
+            "\"revision_sha256\":\"076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4\","
+            "\"dependencies\":["
+            "{\"entry\":\"%s\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\",\"reason\":\"shared foul and violation presentation spans\"},"
+            "{\"entry\":\"%s\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\",\"reason\":\"strict gameplay cue vocabulary\"}],"
+            "\"source_spans\":[",
+            prefix, TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_FNV1A32,
+            TECMO_ASSET_PACK_GAMEPLAY_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_FNV1A32,
+            TECMO_ASSET_PACK_GAMEPLAY_SFX_ID,
+            (unsigned)TECMO_GAMEPLAY_SFX_PAYLOAD_SIZE,
+            (unsigned)TECMO_GAMEPLAY_SFX_PAYLOAD_FNV1A32) != 0) {
+        return -1;
+    }
+    for (size_t index = 0U;
+         index < TECMO_GAMEPLAY_PENALTY_SOURCE_COUNT; ++index) {
+        const TecmoGameplayPenaltyExpectedSource *source =
+            &tecmo_gameplay_penalty_expected_sources[index];
+        const char *source_entry = source->fixed_bank != 0U
+            ? "prg/fixed"
+            : NULL;
+        char bank_entry[16];
+        if (source_entry == NULL) {
+            (void)snprintf(bank_entry, sizeof(bank_entry),
+                           "prg/bank%02u", (unsigned)source->bank);
+            source_entry = bank_entry;
+        }
+        if (tecmo_asset_pack_append_text(
+                buffer, capacity, length,
+                "%s{\"role\":\"%s\",\"source_entry\":\"%s\","
+                "\"source_offset\":%llu,\"bank\":%u,"
+                "\"fixed_bank\":%s,\"cpu_start\":%u,\"cpu_end\":%u,"
+                "\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\"}",
+                index == 0U ? "" : ",", roles[index], source_entry,
+                (unsigned long long)p->source_offsets[index],
+                (unsigned)source->bank,
+                source->fixed_bank != 0U ? "true" : "false",
+                (unsigned)source->cpu_start,
+                (unsigned)((uint32_t)source->cpu_start +
+                           source->byte_count - 1U),
+                (unsigned)source->byte_count,
+                (unsigned)source->fingerprint) != 0) {
+            return -1;
+        }
+    }
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "],\"rules\":{"
+        "\"individual_foul_cap\":6,\"team_foul_cap\":5,"
+        "\"regulation_bonus_threshold\":5,\"overtime_bonus_threshold\":4,"
+        "\"offensive_primary_route_zero\":\"charging\","
+        "\"offensive_primary_nonzero_route\":\"pushing\","
+        "\"defensive_classes\":[\"blocking\",\"pushing\"],"
+        "\"two_attempt_saved_route_selectors\":[1,5,11,12,13,14,15,18],"
+        "\"one_attempt_current_route_selectors\":[8,9],"
+        "\"offensive_foul_attempts\":0,\"offensive_foul_turnover\":true},"
+        "\"presentations\":{"
+        "\"foul\":{\"lead_in_frames\":4,\"maximum_wait_frames\":160,\"entry_sfx_id\":0},"
+        "\"violation\":{\"selector_min\":1,\"selector_max\":7,"
+        "\"five_seconds_selector\":3,\"lead_in_frames\":4,"
+        "\"maximum_wait_frames\":120,\"entry_sfx_id\":6},"
+        "\"release\":{\"nes_a_mask\":128,\"controller_count\":2}},"
+        "\"selector_note\":\"numeric route selectors retain neutral ROM identities; no collision or foul detector is inferred\","
+        "\"runtime_inputs\":\"TPNL-1 plus same-pack TGPL-1 and TSFX-1; no decompilation, trace, capture, screenshot, video, log, dump, Lua output, ROM, or save state\"}");
+}
+
 char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    uint32_t trainer_bytes,
                                    uint32_t prg_banks,
@@ -2082,9 +2176,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoGameplayDunkProvenance *dunk_provenance,
                                    const TecmoGameplayJumpShotProvenance *jump_shot_provenance,
                                    const TecmoGameplayShotResolutionProvenance *shot_resolution_provenance,
+                                   const TecmoGameplayPenaltyProvenance *penalty_provenance,
                                    size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 24U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 25U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -2102,10 +2197,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
     int first = 1;
     int first_logical = 1;
 
-    if (entry_count > (SIZE_MAX - 65536U) / 384U) {
+    if (entry_count > (SIZE_MAX - 73728U) / 384U) {
         return NULL;
     }
-    capacity = 65536U + entry_count * 384U;
+    capacity = 73728U + entry_count * 384U;
     source_map = (char *)malloc(capacity);
     if (source_map == NULL) {
         return NULL;
@@ -2326,7 +2421,11 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
         (shot_resolution_provenance->source_offsets[0] != 0U &&
          append_gameplay_shot_resolution_source_map_entry(
              source_map, capacity, &length, &first_logical,
-             shot_resolution_provenance) != 0)) {
+             shot_resolution_provenance) != 0) ||
+        (penalty_provenance->source_offsets[0] != 0U &&
+         append_gameplay_penalty_source_map_entry(
+             source_map, capacity, &length, &first_logical,
+             penalty_provenance) != 0)) {
         free(source_map);
         return NULL;
     }

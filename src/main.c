@@ -11,6 +11,7 @@
 #include "tecmo_gameplay_dunk_cutaway.h"
 #include "tecmo_gameplay_jump_shots.h"
 #include "tecmo_gameplay_shot_resolution.h"
+#include "tecmo_gameplay_penalties.h"
 #include "tecmo_gameplay_scene.h"
 #include "tecmo_gameplay_state.h"
 #include "tecmo_intro_arena_scene.h"
@@ -57,6 +58,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-dunk-cutaway-test PACK  Validate strict TGDK-1 dunk presentation assets\n");
     printf("  --gameplay-jump-shots-test PACK  Validate strict TGJS-1 jump-shot assets\n");
     printf("  --gameplay-shot-resolution-test PACK  Validate strict TGSR-1 shot-resolution assets\n");
+    printf("  --gameplay-penalties-test PACK  Validate strict TPNL-1 penalty rules\n");
     printf("  --assetpack-list PACK  Print an asset-pack directory listing\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -640,6 +642,18 @@ int main(int argc, char **argv)
         char message[192];
         if (!tecmo_gameplay_state_self_test(message, sizeof(message))) {
             printf("Gameplay state test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-penalties-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        char message[256];
+        if (!tecmo_gameplay_penalties_self_test(
+                pack_path, message, sizeof(message))) {
+            printf("Penalty asset test failed: %s\n", message);
             return 1;
         }
         printf("%s\n", message);
