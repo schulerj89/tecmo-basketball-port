@@ -149,13 +149,13 @@ try {
         (@($SfxMap[0].native_contract.priority_masks) -join ",") -ne
             "16,32,64,128" -or
         $DmcMap[0].native_contract.clip_names.PSObject.Properties["2"].Value -ne
-            "dunk-sequence-a9c5" -or
+            "bank05-a9c5" -or
         $DmcMap[0].native_contract.clip_names.PSObject.Properties["3"].Value -ne
             "layup-sequence-abf5" -or
         (@($DmcMap[0].native_contract.unresolved_clip_ids) -join ",") -ne
-            "0,1" -or
-        $DmcMap[0].native_contract.sequence_name_boundary -ne
-            "action-sequence correlation only; not impact/rim and not queued by the live scene" -or
+            "0,1,2" -or
+        $DmcMap[0].native_contract.semantic_boundary -ne
+            "clip IDs 0, 1, and 2 remain address-bound and unresolved; ABF5 has sequence-level correlation only; no impact, rim, or exclusivity claim" -or
         $DmcMap[0].native_contract.delta_counter_persistence -ne
             "retrigger-end-and-clear" -or
         $DmcMap[0].native_contract.inactive_output -ne "held-dac-level" -or
@@ -176,9 +176,9 @@ try {
         $SfxSourceByRole["crowd-response-id-11"].fingerprint_fnv1a32 -ne "B7141C72" -or
         [int]$SfxSourceByRole["side-result-ids-12-13"].size -ne 22 -or
         $SfxSourceByRole["side-result-ids-12-13"].fingerprint_fnv1a32 -ne "CFCD9759" -or
-        [int]$DmcSourceByRole["dunk-sequence-a9c5-trigger"].cpu_address -ne 0xA9C5 -or
-        [int]$DmcSourceByRole["dunk-sequence-a9c5-trigger"].size -ne 21 -or
-        $DmcSourceByRole["dunk-sequence-a9c5-trigger"].fingerprint_fnv1a32 -ne "567D5B90" -or
+        [int]$DmcSourceByRole["bank05-a9c5-trigger"].cpu_address -ne 0xA9C5 -or
+        [int]$DmcSourceByRole["bank05-a9c5-trigger"].size -ne 21 -or
+        $DmcSourceByRole["bank05-a9c5-trigger"].fingerprint_fnv1a32 -ne "567D5B90" -or
         [int]$DmcSourceByRole["layup-sequence-abf5-trigger"].cpu_address -ne 0xABF5 -or
         [int]$DmcSourceByRole["layup-sequence-abf5-trigger"].size -ne 21 -or
         $DmcSourceByRole["layup-sequence-abf5-trigger"].fingerprint_fnv1a32 -ne "1C158FAB" -or
@@ -232,7 +232,7 @@ try {
         [pscustomobject]@{ id = "sfx-extension"; offset = $Prg + 4 * 0x4000 + 0x1D8B },
         [pscustomobject]@{ id = "dmc-pool"; offset = $Fixed + 0x80 },
         [pscustomobject]@{ id = "dmc-trigger"; offset = $Prg + 5 * 0x4000 + 0x28D6 },
-        [pscustomobject]@{ id = "dunk-sequence-a9c5"; offset = $Prg + 5 * 0x4000 + (0xA9C5 - 0x8000) },
+        [pscustomobject]@{ id = "bank05-a9c5"; offset = $Prg + 5 * 0x4000 + (0xA9C5 - 0x8000) },
         [pscustomobject]@{ id = "layup-sequence-abf5"; offset = $Prg + 5 * 0x4000 + (0xABF5 - 0x8000) },
         [pscustomobject]@{ id = "clock-buzzer-a"; offset = $Fixed + (0xE7DD - 0xC000) },
         [pscustomobject]@{ id = "countdown"; offset = $Fixed + (0xE865 - 0xC000) },

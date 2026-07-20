@@ -117,13 +117,18 @@ function Get-EntryBytes {
 }
 
 function Assert-SceneRejected {
-    param([string]$AssetPack, [string]$Label)
+    param(
+        [string]$AssetPack,
+        [string]$Label,
+        [string]$ExpectedStatus
+    )
     $Log = Join-Path $Scratch ("reject-{0}.log" -f $Label)
     $Run = Invoke-Logged -Command $Executable -Arguments @(
         "--root", $ProjectRoot, "--gameplay-scene-test", $AssetPack
     ) -LogPath $Log
     if ($Run.exit_code -eq 0 -or
-        $Run.tail -notmatch "Gameplay scene test failed") {
+        $Run.tail -notmatch "Gameplay scene test failed" -or
+        ($ExpectedStatus -and $Run.tail -notmatch $ExpectedStatus)) {
         throw "Gameplay scene accepted $Label fixture.`n$($Run.tail)"
     }
 }
@@ -214,6 +219,7 @@ try {
         [pscustomobject]@{ id="gameplay/close-shots"; size=3144; hash="DACDC976"; schema="tecmo.gameplay-close-shots/TGCS-1" },
         [pscustomobject]@{ id="gameplay/dunk-cutaway"; size=20272; hash="E02F2D21"; schema="tecmo.gameplay-dunk-cutaway/TGDK-1" },
         [pscustomobject]@{ id="gameplay/jump-shots"; size=1648; hash="7587B099"; schema="tecmo.gameplay-jump-shots/TGJS-1" },
+        [pscustomobject]@{ id="gameplay/shot-resolution"; size=384; hash="8486DB33"; schema="tecmo.gameplay-shot-resolution/TGSR-1" },
         [pscustomobject]@{ id="audio/music"; size=36784; hash="05C00ECB"; schema="tecmo.music/TMUS-1" },
         [pscustomobject]@{ id="audio/gameplay-sfx"; size=2824; hash="968A5DE6"; schema="tecmo.gameplay-audio/TSFX-1" },
         [pscustomobject]@{ id="audio/gameplay-dmc"; size=2515; hash="AD70E6E8"; schema="tecmo.gameplay-audio/TDMC-1" },
@@ -335,6 +341,49 @@ try {
     Assert-SceneRejected -AssetPack $OversizedJumpPath `
         -Label "oversized-jump-shots"
 
+    $MissingResolutionPath = Join-Path $Scratch "missing-shot-resolution.assetpack"
+    $MissingResolution = [byte[]]$PackBytes.Clone()
+    $MissingResolution[[int]$Entries["gameplay/shot-resolution"].directory_offset] =
+        [byte][char]'x'
+    [IO.File]::WriteAllBytes($MissingResolutionPath, $MissingResolution)
+    Assert-SceneRejected -AssetPack $MissingResolutionPath `
+        -Label "missing-shot-resolution" -ExpectedStatus "TGSR-1"
+
+    $MalformedResolutionPath = Join-Path $Scratch "malformed-shot-resolution.assetpack"
+    $MalformedResolution = [byte[]]$PackBytes.Clone()
+    $ResolutionOffset = [int]$Entries["gameplay/shot-resolution"].pack_offset
+    $MalformedResolution[$ResolutionOffset] =
+        $MalformedResolution[$ResolutionOffset] -bxor 1
+    [IO.File]::WriteAllBytes($MalformedResolutionPath, $MalformedResolution)
+    Assert-SceneRejected -AssetPack $MalformedResolutionPath `
+        -Label "malformed-shot-resolution" -ExpectedStatus "TGSR-1"
+
+    $OversizedResolutionPath = Join-Path $Scratch "oversized-shot-resolution.assetpack"
+    $OversizedResolution = [byte[]]$PackBytes.Clone()
+    [BitConverter]::GetBytes([uint64]385).CopyTo(
+        $OversizedResolution,
+        [int]$Entries["gameplay/shot-resolution"].directory_offset + 92)
+    [IO.File]::WriteAllBytes($OversizedResolutionPath, $OversizedResolution)
+    Assert-SceneRejected -AssetPack $OversizedResolutionPath `
+        -Label "oversized-shot-resolution" -ExpectedStatus "TGSR-1"
+
+    $WrongResolutionPath = Join-Path $Scratch "wrong-revision-shot-resolution.assetpack"
+    $WrongResolution = [byte[]]$PackBytes.Clone()
+    $WrongResolution[$ResolutionOffset + 80] =
+        $WrongResolution[$ResolutionOffset + 80] -bxor 1
+    [IO.File]::WriteAllBytes($WrongResolutionPath, $WrongResolution)
+    Assert-SceneRejected -AssetPack $WrongResolutionPath `
+        -Label "wrong-revision-shot-resolution" -ExpectedStatus "TGSR-1"
+
+    $CrossPackResolutionPath = Join-Path $Scratch "cross-pack-shot-resolution.assetpack"
+    $CrossPackResolution = [byte[]]$PackBytes.Clone()
+    $CoreOffset = [int]$Entries["gameplay/core"].pack_offset
+    $CrossPackResolution[$CoreOffset + 128] =
+        $CrossPackResolution[$CoreOffset + 128] -bxor 1
+    [IO.File]::WriteAllBytes($CrossPackResolutionPath, $CrossPackResolution)
+    Assert-SceneRejected -AssetPack $CrossPackResolutionPath `
+        -Label "cross-pack-shot-resolution" -ExpectedStatus "TGSR-1"
+
     $OversizedPath = Join-Path $Scratch "oversized-core.assetpack"
     $Oversized = [byte[]]$PackBytes.Clone()
     [BitConverter]::GetBytes([uint64]23417).CopyTo(
@@ -353,7 +402,7 @@ try {
     $RenderSpecs = @(
         [pscustomobject]@{ mode="gameplay-start"; state='gameplay-state frame=0 shot=none phase=live' },
         [pscustomobject]@{ mode="gameplay-jump-frame1"; state='gameplay-state frame=1 shot=jump phase=live' },
-        [pscustomobject]@{ mode="gameplay-jump-frame2"; state='gameplay-state frame=2 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-frame2"; state='gameplay-state frame=2 shot=jump phase=live score=0/2' },
         [pscustomobject]@{ mode="gameplay-jump-frame4"; state='gameplay-state frame=4 shot=jump phase=live' },
         [pscustomobject]@{ mode="gameplay-jump-frame21"; state='gameplay-state frame=21 shot=jump phase=live' },
         [pscustomobject]@{ mode="gameplay-jump-frame22"; state='gameplay-state frame=22 shot=jump phase=live' },
@@ -364,9 +413,9 @@ try {
         [pscustomobject]@{ mode="gameplay-jump-frame72"; state='gameplay-state frame=72 shot=jump phase=live' },
         [pscustomobject]@{ mode="gameplay-jump-frame73"; state='gameplay-state frame=73 shot=jump phase=live' },
         [pscustomobject]@{ mode="gameplay-jump-frame74"; state='gameplay-state frame=74 shot=jump phase=live' },
-        [pscustomobject]@{ mode="gameplay-jump-frame75"; state='gameplay-state frame=75 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-frame75"; state='gameplay-state frame=75 shot=jump phase=live score=0/2' },
         [pscustomobject]@{ mode="gameplay-jump-frame86"; state='gameplay-state frame=86 shot=jump phase=live' },
-        [pscustomobject]@{ mode="gameplay-jump-frame87"; state='gameplay-state frame=87 shot=none phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-frame87"; state='gameplay-state frame=87 shot=none phase=live score=0/2' },
         [pscustomobject]@{ mode="gameplay-dunk-frame1"; state='gameplay-state frame=1 shot=dunk phase=live' },
         [pscustomobject]@{ mode="gameplay-dunk-frame8"; state='gameplay-state frame=8 shot=dunk phase=live' },
         [pscustomobject]@{ mode="gameplay-dunk-frame16"; state='gameplay-state frame=16 shot=dunk phase=live' },
@@ -383,6 +432,19 @@ try {
     foreach ($Spec in $RenderSpecs) {
         $RenderHashes[$Spec.mode] = Invoke-RenderCheckpoint `
             -Mode $Spec.mode -ExpectedState $Spec.state
+    }
+    $ExpectedJumpHashes = @{
+        "gameplay-jump-frame2" =
+            "E27AFD10FAFFA2C25033B0ECBCC2EBE9AF568AFDB0D8CB95983EEF03B8B0B889"
+        "gameplay-jump-frame75" =
+            "0D1A8B95CCF234FF7D83AF93BC4854952AFF447A4B09F61B60CE9EB9530F9816"
+        "gameplay-jump-frame87" =
+            "FA11CB1F0EEF6DA63A3534F61CE9EFF69BC1EAF86C5AA92A588C06F4D4875357"
+    }
+    foreach ($Mode in $ExpectedJumpHashes.Keys) {
+        if ($RenderHashes[$Mode] -ne $ExpectedJumpHashes[$Mode]) {
+            throw "Gameplay jump-miss render hash changed at '$Mode'."
+        }
     }
     $VisualSentinels = @(
         $RenderHashes["gameplay-start"],
@@ -402,8 +464,8 @@ try {
 
     $global:LASTEXITCODE = 0
     Write-Output ("GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance " +
-        "scene controls TGDK TGJS shots dunk-cutaway frame75/frame87-dmc audio state " +
-        "halftime/final render-determinism missing malformed oversized " +
+        "scene controls TGDK TGJS TGSR jump-miss shots dunk-cutaway frame75/audio state " +
+        "halftime/final render-hashes/determinism missing malformed oversized " +
         "chr-mismatch")
 } finally {
     $env:TECMO_ASSETPACK = $PreviousPack

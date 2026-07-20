@@ -111,8 +111,12 @@ variant 2) close-shot families, score and
 possession changes, shot-clock violations, fouls/free throws, period banners,
 halftime, overtime/final handling, crowd/gameplay audio, and result handoff.
 Static court/CHR/palette assets, the embedded FCEUX RGB profile, numeric
-close-shot step tables, rules timing, and audio programs are ROM-derived. Actor
-layout, movement/AI, ordinary-jump timing, shot physics/results, dynamic
+close-shot step tables, the narrowed TGJS/TGSR slot-0 terminal miss and
+claimant decision, rules timing, and audio programs are ROM-derived. That jump
+keeps the score unchanged, hands possession to an approximate opposing actor,
+and uses the ROM-backed 11-then-12/13 result mailbox; zero-clock settlement
+retains the current side and crowd 11. Actor layout, movement/AI, other
+ordinary-jump profiles/outcomes, jump-ball geometry, general shot policy, dynamic
 team/court palette selection, live close-shot profile/direction choice and
 left-facing mirroring, contact/foul detection, free-throw lineup, aim, results,
 rebounds, CPU positioning/script behavior, and the temporary HUD typography
@@ -123,9 +127,17 @@ stores 208 exact TGCS profile/direction resolutions into TGPL pose data; live
 play currently selects only profile 0/direction 0.
 The dunk also uses the strict ROM-derived TGDK-1 cutaway: black transition,
 screen `$0B`, both side-specific seven-stage sprite streams, palette/CHR
-selection, live return, frame-87 A9C5 sequence audio, and frame-132 settlement.
-The current distance trigger, make/miss result, and dynamic uniform selection
-remain native policies.
+selection, live return, frame-87 address-bound A9C5 audio, and frame-132 settlement.
+The A9C5 clip remains address-bound and unresolved; its observation at that
+variant-0 checkpoint does not prove meaning or exclusivity. The current
+distance trigger, make/miss result, and dynamic uniform selection remain native
+policies.
+
+`gameplay/shot-resolution` TGSR-1 is a strict 384-byte same-pack dependency of
+the scene. `gameplay/penalties` TPNL-1 is a separate strict 768-byte pure rules
+foundation; the live scene's current synthetic contact/foul branches do not
+yet consume it. Generic jump makes, the longer +157-update claimant route, and
+semantic rebound/block/steal handling remain unsupported.
 
 Opening music plays from the strict ROM-derived semantic music asset. GAME
 MUSIC gates gameplay track 5 and the evidence-bounded restart cue; halftime and
@@ -150,6 +162,8 @@ through explicit render-test/debug paths for development work.
 .\build\tecmo_port.exe --bank07-test
 .\build\tecmo_port.exe --controls-test
 .\build\tecmo_port.exe --gameplay-state-test
+.\tools\Run-GameplayShotResolutionTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-GameplayPenaltyTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayDunkCutawayTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 ```

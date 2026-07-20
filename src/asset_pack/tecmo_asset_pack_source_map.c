@@ -1113,7 +1113,7 @@ static int append_gameplay_audio_source_map_entries(
         "{\"role\":\"dmc-pool-c440-c710\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":50240,\"size\":721,\"fingerprint_fnv1a32\":\"6ECC107C\"},"
         "{\"role\":\"dmc-pool-c740-caf0\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":51008,\"size\":945,\"fingerprint_fnv1a32\":\"F621FD7C\"},"
         "{\"role\":\"bank05-a8d6-trigger\",\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,\"bank\":5,\"cpu_address\":43222,\"size\":19,\"fingerprint_fnv1a32\":\"EE75A82E\"},"
-        "{\"role\":\"dunk-sequence-a9c5-trigger\",\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,\"bank\":5,\"cpu_address\":43461,\"size\":21,\"fingerprint_fnv1a32\":\"567D5B90\"},"
+        "{\"role\":\"bank05-a9c5-trigger\",\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,\"bank\":5,\"cpu_address\":43461,\"size\":21,\"fingerprint_fnv1a32\":\"567D5B90\"},"
         "{\"role\":\"layup-sequence-abf5-trigger\",\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,\"bank\":5,\"cpu_address\":44021,\"size\":21,\"fingerprint_fnv1a32\":\"1C158FAB\"},"
         "{\"role\":\"held-ball-dribble-trigger\",\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,\"bank\":5,\"cpu_address\":46507,\"size\":21,\"fingerprint_fnv1a32\":\"F6CEC8DB\"},"
         "{\"role\":\"gameplay-music-gate\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":60203,\"size\":11,\"fingerprint_fnv1a32\":\"181D6897\"},"
@@ -1131,11 +1131,11 @@ static int append_gameplay_audio_source_map_entries(
         "\"independent_from_music_and_sfx\":true,"
         "\"clip_names\":{\"0\":\"bank05-a8d6-short\","
         "\"1\":\"bank05-a8d6-long\","
-        "\"2\":\"dunk-sequence-a9c5\","
+        "\"2\":\"bank05-a9c5\","
         "\"3\":\"layup-sequence-abf5\","
         "\"4\":\"held-ball-dribble\"},"
-        "\"unresolved_clip_ids\":[0,1],"
-        "\"sequence_name_boundary\":\"action-sequence correlation only; not impact/rim and not queued by the live scene\"}}",
+        "\"unresolved_clip_ids\":[0,1,2],"
+        "\"semantic_boundary\":\"clip IDs 0, 1, and 2 remain address-bound and unresolved; ABF5 has sequence-level correlation only; no impact, rim, or exclusivity claim\"}}",
         TECMO_ASSET_PACK_GAMEPLAY_DMC_ID,
         (unsigned long long)p->dmc_pool_offsets[0],
         (unsigned long long)p->dmc_pool_offsets[1],
@@ -1883,7 +1883,7 @@ static int append_gameplay_dunk_source_map_entry(
         "\"initial_black\":[24,27],\"visible_cutaway\":[28,62],"
         "\"palette_black_with_staged_sprites\":63,\"sprites_cleared\":64,"
         "\"court_rebuild\":[66,70],\"live_return\":71,"
-        "\"route_resume\":75,\"dunk_sequence_dmc\":87,"
+        "\"route_resume\":75,\"a9c5_dmc\":87,"
         "\"action_resolution\":132},"
         "\"approximations\":\"native clear-lane trigger and make/miss policy; dynamic team uniform selection defaults to the bounded profile-1 U=$30 checkpoint\","
         "\"runtime_inputs\":\"TGDK-1 plus same-pack chr/all; no decompilation, capture, trace, screenshot, video, log, dump, Lua output, or save state\"}");
@@ -1905,7 +1905,7 @@ static int append_gameplay_jump_shot_source_map_entry(
         "route1-follow-release-$AD41-$AF21",
         "route10-$B6E5-$B774",
         "bounce-motion-collision-$B7C1-$B87B",
-        "made-settlement-$BA65-$BAC0"
+        "post-shot-settlement-$BA65-$BAC0"
     };
     const char *prefix = *first != 0 ? "" : ",\n";
 
@@ -1960,7 +1960,7 @@ static int append_gameplay_jump_shot_source_map_entry(
         "\"phase_seeds\":[48,49,4,5,86],"
         "\"ball_states\":[18,1,5,23,16,0],"
         "\"gravity_q8\":40,\"floor_wrap_clamp\":246,"
-        "\"bounce_decay_q8\":128,\"made_mask\":128,"
+        "\"bounce_decay_q8\":128,\"outcome_flag_mask\":128,"
         "\"crowd_sfx\":11,\"side_result_base\":12,"
         "\"fingerprint_fnv1a32\":\"%08X\"},"
         "\"pose_contract\":{\"source_cpu_ranges\":[[36157,36188],[36189,36220]],"
@@ -1969,7 +1969,7 @@ static int append_gameplay_jump_shot_source_map_entry(
         "\"layout\":\"family*16 + profile_bit*8 + direction\","
         "\"family_count\":2,\"profile_count\":2,\"direction_count\":8,"
         "\"pointer_count\":32,\"pointer_fingerprint_fnv1a32\":\"%08X\"},"
-        "\"behavior_boundary\":\"universal current-B release, actor state transitions, Q8.8 gravity/clamp, pose selection, conditional bounce DMC, and made-settlement ordering; slot-0 frame schedule and geometry remain explicitly context-bound\","
+        "\"behavior_boundary\":\"current-B release, actor state transitions, Q8.8 gravity/clamp, pose selection, conditional bounce DMC, terminal outcome flag, and post-shot settlement ordering; slot-0 frame schedule, terminal result, and geometry remain context-bound\","
         "\"runtime_inputs\":\"TGJS-1 plus same-pack TGPL-1/TGCS-1; no decompilation, trace, capture, screenshot, log, dump, state, Lua, or video\"}",
         (unsigned)TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_RAW_SIZE,
         (unsigned)TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_RAW_FNV1A32,

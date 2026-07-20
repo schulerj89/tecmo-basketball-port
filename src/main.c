@@ -435,6 +435,13 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
         runtime->gameplay_scene.ball_holder = 0U;
         runtime->gameplay_scene.ball_x_q8 = (int32_t)(actor->x + 7) * 256;
         runtime->gameplay_scene.ball_y_q8 = (int32_t)(actor->y - 18) * 256;
+    } else if (jump) {
+        if (!tecmo_gameplay_set_score(
+                &runtime->gameplay_scene.state,
+                TECMO_GAMEPLAY_TEAM_HOME, 2U)) {
+            return false;
+        }
+        runtime->gameplay_scene.action_serial = 1U;
     }
     memset(&input, 0, sizeof(input));
     input.cancel = true;
@@ -1174,7 +1181,7 @@ int main(int argc, char **argv)
         tecmo_gameplay_jump_shots_init(&assets);
         if (tecmo_gameplay_jump_shots_find_source(
                 &assets,
-                TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_MADE_SETTLEMENT) != NULL ||
+                TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_POST_SHOT_SETTLEMENT) != NULL ||
             tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
                 &assets, TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0,
                 TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_0,
@@ -1192,7 +1199,7 @@ int main(int argc, char **argv)
             goto jump_shot_test_cleanup;
         }
         settlement = tecmo_gameplay_jump_shots_find_source(
-            &assets, TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_MADE_SETTLEMENT);
+            &assets, TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_POST_SHOT_SETTLEMENT);
         if (settlement == NULL || settlement->bank != 5U ||
             settlement->fixed_bank || settlement->cpu_start != 0xBA65U ||
             settlement->cpu_end != 0xBAC0U ||
@@ -1213,7 +1220,7 @@ int main(int argc, char **argv)
             assets.constants.gravity_q8 != 0x0028U ||
             assets.constants.floor_wrap_clamp != 0xF6U ||
             assets.constants.bounce_decay_q8 != 0x0080U ||
-            assets.constants.made_mask != 0x80U ||
+            assets.constants.outcome_flag_mask != 0x80U ||
             assets.constants.crowd_sfx != 11U ||
             assets.constants.side_result_base != 12U) {
             printf("Jump-shot asset test failed: source/constants contract\n");

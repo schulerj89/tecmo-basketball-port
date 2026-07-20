@@ -9,6 +9,7 @@
 #include "tecmo_gameplay_court.h"
 #include "tecmo_gameplay_dunk_cutaway.h"
 #include "tecmo_gameplay_jump_shots.h"
+#include "tecmo_gameplay_shot_resolution.h"
 #include "tecmo_gameplay_state.h"
 #include "tecmo_music.h"
 
@@ -91,6 +92,7 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayCloseShotAssets close_shots;
     TecmoGameplayDunkCutawayAssets dunk_cutaway;
     TecmoGameplayJumpShotAssets jump_shots;
+    TecmoGameplayShotResolutionAssets shot_resolution;
     TecmoGameplayAudioAsset audio_asset;
     TecmoGameplayAudioPlayer audio_player;
     TecmoGameplayState state;
@@ -129,7 +131,7 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayJumpShotDirection jump_direction;
     bool jump_oracle_active;
     bool jump_b_released;
-    bool jump_made_cached;
+    TecmoGameplayShotOutcome jump_outcome;
     bool jump_actor_landed;
     TecmoGameplaySceneShotKind shot_kind;
     TecmoGameplayPhase previous_phase;
@@ -139,7 +141,8 @@ typedef struct TecmoGameplayScene {
 /* Initialize exactly once before load/destroy. */
 void tecmo_gameplay_scene_init(TecmoGameplayScene *scene);
 
-/* Loads TGPL-1, TGCT-1, TGCS-1, TGDK-1, TGJS-1, TSFX-1, and TDMC-1 from one local pack.
+/* Loads TGPL-1, TGCT-1, TGCS-1, TGDK-1, TGJS-1, TGSR-1, TSFX-1,
+   and TDMC-1 from one local pack.
    `asset_pack_path` may be NULL to use the strict runtime search order.
    Runtime data is never read from decompilation/capture paths. */
 bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
@@ -159,8 +162,8 @@ void tecmo_gameplay_scene_end(TecmoGameplayScene *scene);
 
 /* Draws the exact ROM-derived static court base and resolved ROM poses. Live
    close-shot playback is deliberately limited to TGCS profile 0/direction 0;
-   ordinary jump-shot playback is deliberately limited to the proven TGJS
-   slot-0 made context. Actor mirroring and jump-ball geometry remain native
+   ordinary jump-shot playback is deliberately limited to the proven TGJS/TGSR
+   slot-0 miss context. Actor mirroring and jump-ball geometry remain native
    approximations, not mappings of unsupported ROM entries. HUD/presentation
    text is supplied by the runtime overlay. */
 bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,

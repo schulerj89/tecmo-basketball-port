@@ -299,7 +299,8 @@ try {
             (@($Map.timing.court_rebuild) -join ",") -eq "66,70" -and
             $Map.timing.live_return -eq 71 -and
             $Map.timing.route_resume -eq 75 -and
-            $Map.timing.dunk_sequence_dmc -eq 87 -and
+            $Map.timing.a9c5_dmc -eq 87 -and
+            $null -eq $Map.timing.PSObject.Properties["dunk_sequence_dmc"] -and
             $Map.timing.action_resolution -eq 132 -and
             $Map.runtime_inputs -match "no decompilation"
     }

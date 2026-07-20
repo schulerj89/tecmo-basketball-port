@@ -195,7 +195,7 @@ static bool validate_header(const uint8_t *payload, size_t payload_size)
                TECMO_GAMEPLAY_DUNK_LIVE_RETURN_FRAME &&
            read_u16(payload + 150U) ==
                TECMO_GAMEPLAY_DUNK_ROUTE_RESUME_FRAME &&
-           read_u16(payload + 152U) == TECMO_GAMEPLAY_DUNK_DMC_FRAME &&
+           read_u16(payload + 152U) == TECMO_GAMEPLAY_DUNK_A9C5_FRAME &&
            read_u16(payload + 154U) == TECMO_GAMEPLAY_DUNK_RESOLVE_FRAME &&
            payload[156U] == TECMO_GAMEPLAY_DUNK_MAX_PIECES &&
            payload[157U] == 0x30U && payload[158U] == 1U &&

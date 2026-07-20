@@ -19,7 +19,7 @@ typedef enum TecmoGameplayJumpShotSourceKind {
     TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_ROUTE1_FOLLOW_RELEASE = 5,
     TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_ROUTE10 = 6,
     TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_BOUNCE_MOTION_COLLISION = 7,
-    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_MADE_SETTLEMENT = 8
+    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_POST_SHOT_SETTLEMENT = 8
 } TecmoGameplayJumpShotSourceKind;
 
 typedef enum TecmoGameplayJumpShotFamily {
@@ -62,7 +62,7 @@ typedef struct TecmoGameplayJumpShotConstants {
     uint8_t ball_state_route17;
     uint8_t ball_state_route10;
     uint8_t ball_state_neutral;
-    uint8_t made_mask;
+    uint8_t outcome_flag_mask;
     uint8_t crowd_sfx;
     uint8_t side_result_base;
     uint16_t gravity_q8;

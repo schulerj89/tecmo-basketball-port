@@ -38,7 +38,8 @@ The compound scene loads `gameplay/core` TGPL-1 (23416 bytes,
 `2047CCE0`), `gameplay/court` TGCT-1 (6559 bytes, `ECAB7A93`),
 `gameplay/close-shots` TGCS-1 (3144 bytes, `DACDC976`),
 `gameplay/dunk-cutaway` TGDK-1 (20272 bytes, `E02F2D21`),
-`gameplay/jump-shots` TGJS-1 (1648 bytes, `7587B099`), `audio/music`
+`gameplay/jump-shots` TGJS-1 (1648 bytes, `7587B099`),
+`gameplay/shot-resolution` TGSR-1 (384 bytes, `8486DB33`), `audio/music`
 TMUS-1 (36784 bytes, `05C00ECB`), `audio/gameplay-sfx` TSFX-1 (2824
 bytes, `968A5DE6`), `audio/gameplay-dmc` TDMC-1 (2515 bytes,
 `AD70E6E8`), and the exact 262144-byte `chr/all` revision from one asset pack.
@@ -46,6 +47,21 @@ Exact sizes, payload fingerprints, deep indexes, reserved bytes, source-map
 spans, CHR fingerprints, and the shared pack path are validated before the
 scene becomes available. Missing, malformed, oversized, wrong-revision, or
 cross-pack dependencies fail closed without a partial frame.
+
+TGSR-1 also has FNV1a64 `3DDF28659B192273` and requires exact same-pack
+TGPL-1. Its revision-fingerprinted sources are Bank05 `$91BC-$943A`,
+`$A6EE-$A9D9`, `$B73E-$B87B`, and `$B87C-$B8F5`. The safe native semantics
+are terminal outcome polarity, numeric rim-route selection, claimant
+thresholds, and claimant-driven handler/possession decisions. It does not name
+a rebound, block, steal, or generic make. Missing, malformed, wrong-sized,
+wrong-revision, or cross-pack TGSR data rejects the scene before availability.
+
+`gameplay/penalties` TPNL-1 is a separate strict 768-byte pure rules asset
+(FNV1a32 `980DDC76`) with same-pack TGPL-1 and TSFX-1 dependencies. It exposes
+bounded foul classification, violation, and presentation data without
+inferring contact, collision, possession, or route state. The scene's current
+deterministic contact/foul branches are implementation-owned and do not yet
+consume TPNL.
 
 The two supported close-shot families retain their numeric ROM identities.
 Variant 0 is the dunk family and has 32 exact steps in the
@@ -75,7 +91,7 @@ holds it through settlement.
 
 Ordinary-jump support is narrower and fails closed outside its evidence. The
 scene consumes the exact TGJS family-0/profile-0/direction-1 pose index 213 for
-the captured human away/right made slot. It preserves current-level NES B hold
+the captured human away/right terminal-miss slot. It preserves current-level NES B hold
 and release, actor `$0C->$0D->$0E->0` progression, Bank05 unsigned Q8.8
 height/velocity seed `$02E8`, gravity, frame-40 integer-height floor clamp,
 recovery to idle pose 469 at frame 46,
@@ -85,9 +101,22 @@ route-10 ground/bounce condition requests `$B5AB` at frame 75. The ball's
 screen-space interpolation remains native geometry and is not claimed as the
 ROM launch solver.
 
+The ordinary-jump gate still uses an explicitly native deterministic policy:
+its predicted-make branch is unsupported, while the one evidence-backed
+predicted-miss branch launches. Frame 1 stores UNKNOWN; current-B release at
+frame 2 passes TGJS's bit-7-set outcome flag through TGSR and requires MISS.
+At frame 87 the normal route requires TGSR's non-current, OTHER_TEAM claimant
+decision, awards zero points, queues crowd 11 followed by clock-gated side
+result 12/13, and gives possession to an explicitly approximate opposing
+actor. A simultaneous period expiry queues only crowd 11 and retains the
+current side. Outcome state clears after settlement and no rebound/block/steal
+stat event is synthesized.
+
 Bounded local original execution supplies the semantic correlation. Save-state
 slot 2 held numeric variant 0 through the live approach, entered its visible
-cutaway, and later triggered the Bank05 `$A9C5` DMC sequence at action frame 87.
+cutaway, and later triggered Bank05 `$A9C5` DMC at action frame 87. A9C5 remains
+address-bound and unresolved; this observation proves neither meaning nor
+exclusivity.
 Slot 1 held numeric variant 2 and triggered `$ABF5` at action frame 34. These
 local save states, FCEUX/Lua traces, screenshots, and logs remain ignored
 verification evidence only; they are not committed source-map provenance,
@@ -106,10 +135,11 @@ Gameplay track 5 is queued at launch and qualifying restarts only when GAME
 MUSIC is enabled. Presentation track 6 is requested for halftime/final score
 presentation. The scene maps clock expiry to SFX 3, late-clock seconds to 14,
 violations to 6, and motion with a held ball to the proven `$B5AB`
-held-ball/dribble DMC clip. A made dunk, the proven made jump, and every resolved
-free throw, make or miss, request crowd response 11 followed by away-side 12 or
-home-side 13 when the clock is above 0:01. The same mailbox is last-write-wins,
-so the side result is consumed next; 0:00 and 0:01 retain 11. Made layups
+held-ball/dribble DMC clip. A made dunk, the supported slot-0 jump miss, and
+every resolved free throw, make or miss, request crowd response 11 followed by
+away-side 12 or home-side 13 when the clock is above 0:01. The jump miss awards
+no points. The same mailbox is last-write-wins, so the side result is consumed
+next; 0:00 and 0:01 retain 11. Made layups
 continue to request only 11 pending separate caller-path integration. Neutral
 SFX 5 is kept as `BANK05_9FEC_CUE` and is requested only at the evidence-bounded
 violation, direct-foul, and period restart boundaries under the GAME MUSIC
@@ -122,13 +152,13 @@ track 5 at 26 and consumes it at 27, then changes the terminal result mailbox
 from `$0B` to `$0D` at 280 and consumes it at 281. It is live by 300 with no new
 music-track request or SFX ID 5 through 360. A final free throw therefore keeps
 its result request through the live transition and queues neither track 5 nor
-`BANK05_9FEC_CUE`. Dunk action frame 87 queues A9C5 exactly once. The imported
-ABF5 and A8D6 clips are not queued, and the sequence names do not assert an
-impact or rim cue.
+`BANK05_9FEC_CUE`. Dunk action frame 87 requests address-bound A9C5. Clip IDs
+0, 1, and 2 remain unresolved; ABF5 and A8D6 are not queued, and no clip name
+asserts an impact or rim cue.
 
-The proven made-jump settlement uses that same central crowd/side-result helper.
-Its release requests no DMC; only the route-10 ground/bounce condition queues
-B5AB at action frame 75.
+The supported jump-miss settlement uses that same central crowd/side-result
+helper independently of point accounting. Its release requests no DMC; only
+the route-10 ground/bounce condition queues B5AB at action frame 75.
 
 ## ROM-derived anchors
 
@@ -178,6 +208,15 @@ decompilation at these CPU-address ranges:
   is the bounded result caller path. `$BA65-$BA9C` (FNV1a32 `35FB80C4`) and
   `$B87C-$B888` (FNV1a32 `E903D8F9`) supply the integrated jump-shot settlement
   caller evidence.
+- TGSR-1 revision-locks Bank 05 `$91BC-$943A` (`4A0C68AC`),
+  `$A6EE-$A9D9` (`21A416FD`), `$B73E-$B87B` (`574FEE44`), and
+  `$B87C-$B8F5` (`9E2F1F28`) for terminal polarity, numeric rim dispatch,
+  claimant scanning, and claimant-driven settlement respectively.
+- TPNL-1 revision-locks Bank 05 `$9571-$9649`, Bank 02 `$B0F8-$B398`,
+  fixed `$E95E-$EA11`, `$EA14-$EA2F`, `$EC5B-$ED14`, and `$D2B9-$D2CE`,
+  Bank 03 `$BE87-$BFA8`, and Bank 04 `$BA1F-$BA3E`. These feed the pure
+  penalty asset/API only; they are not a claim that the live synthetic contact
+  branches use ROM classification.
 - Fixed `$EC06-$EC25` (FNV1a32 `F1BCC8E2`): clears active music, SFX, and DMC;
   bounded call sites are `$E58D`, `$E9A0`, `$E9DE`, and `$ECAF`.
 - Bank 05 `$856B-$85A7` and `$85F3-$8640`: variant-0 presentation trigger and
@@ -230,12 +269,14 @@ These are provenance only and are not runtime inputs.
   mirrored during rendering. Those live policies remain approximations. The
   older state-only rightward actor-9 observation remains provenance for the
   semantic event layer, not a universal animation label.
-- TGJS live playback proves only the human away/right
-  family-0/profile-0/direction-1 made slot. Its current-B transition, actor
-  Q8.8/state/recovery timing, ball route-state checkpoints, conditional bounce
-  DMC, and made-settlement order are exact within that context. Unsupported
-  profiles/directions, misses, and unknown horizontal launch geometry do not
-  inherit those frame checkpoints.
+- TGJS/TGSR live playback proves only the human away/right
+  family-0/profile-0/direction-1 terminal-miss slot. Its current-B transition,
+  actor Q8.8/state/recovery timing, ball route-state checkpoints, conditional
+  bounce DMC, MISS polarity, and one post-shot claimant settlement are exact
+  within that context. Unsupported profiles/directions/outcomes, generic
+  makes, the longer +157-update claimant route, and unknown horizontal launch
+  geometry do not inherit those frame checkpoints. No semantic rebound, block,
+  steal, or player-stat event is claimed.
 - Actor starting layout, camera/orientation composition, movement and AI,
   jump-ball screen interpolation, unsupported jump routes, general
   make/contact policy, the distance policy
@@ -264,5 +305,8 @@ strict full-pack scene test and deterministic 640x480 start, ordinary-jump, and
 dunk checkpoints through frame 132. Run
 `tools\Run-GameplayDunkCutawayTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` for
 the strict TGDK payload/provenance/render/mutation/revision checks.
-`--gameplay-state-test`, the TGPL/TGCT/TGCS/TGJS focused suites, and
-`Run-GameplayAudioTests.ps1` retain their lower-level coverage.
+`Run-GameplayShotResolutionTests.ps1` and `Run-GameplayPenaltyTests.ps1`
+validate the strict TGSR/TPNL parsers, same-pack dependencies, source mutation,
+and pure APIs. `--gameplay-state-test`, the TGPL/TGCT/TGCS/TGJS focused suites,
+the 74-entry full asset-pack regression, and `Run-GameplayAudioTests.ps1`
+retain their lower-level coverage.

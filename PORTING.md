@@ -539,13 +539,13 @@ clock gate passes; 11 remains at 0:00 or 0:01.
 `audio/gameplay-dmc` is the exact 2515-byte TDMC-1 payload (FNV1a32
 `AD70E6E8`). It stores three deduplicated fixed-bank source pools and five
 bounded clips matching Bank05 `$A8D6`, `$A9C5`, `$ABF5`, and `$B5AB`. `$B5AB`
-is held-ball/dribble. `$A9C5` is conservatively the dunk sequence and `$ABF5`
-the layup sequence: local slot 2 correlated numeric variant 0, its cutaway, and
-the later `$A9C5` trigger at action frame 87, while slot 1 correlated numeric
-variant 2 and `$ABF5` at action frame 34. These names cover the action sequence,
-not an impact or rim event. The live scene queues A9C5 exactly once at dunk
-action frame 87; ABF5 is not yet queued. The
-two `$A8D6` clips remain address-bound. All clips use exact rates 14/15,
+is held-ball/dribble. `$A9C5` and both `$A8D6` clips remain address-bound and
+unresolved. Local slot 2 observes numeric variant 0, its cutaway, and a later
+`$A9C5` trigger at action frame 87; this does not prove meaning or exclusivity.
+Slot 1 correlates numeric variant 2 with the `$ABF5` action sequence at frame
+34 without proving an impact/rim meaning. The live variant-0 presentation
+currently requests address-bound A9C5 at frame 87; ABF5 is not yet queued. All
+clips use exact rates 14/15,
 `$4015=1F`, no loop, no IRQ, and no direct `$4011` write.
 Accordingly, the native DMC delta counter remains latched across a clip
 retrigger, after the sample reader reaches end-of-clip, and when clear-all
@@ -583,11 +583,12 @@ gameplay track 5 at 26 and consumes it at 27, then changes the terminal result
 mailbox from `$0B` to `$0D` at 280 and consumes it at 281. It is live by 300
 with no new music-track request or SFX ID 5 through 360. The final result thus
 survives the live transition, which queues neither track 5 nor the neutral
-`BANK05_9FEC_CUE`. The proven made jump uses the same clock-gated
-11-then-12/13 mailbox ordering; layups alone retain crowd response 11 until
-their separate caller path is integrated.
+`BANK05_9FEC_CUE`. The supported slot-0 jump miss uses clock-gated
+11-then-12/13 mailbox ordering without awarding points; zero-clock settlement
+retains 11. Layups alone retain crowd response 11 until their separate caller
+path is integrated.
 SFX ID 5 remains gated at qualifying violation, direct-foul, and period restart
-boundaries. Dunk action frame 87 queues sequence-named A9C5. ABF5 and
+boundaries. Dunk action frame 87 requests address-bound A9C5. ABF5 and
 address-named A8D6 clips remain imported without invented live use.
 
 The importer validates the raw finale dispatch chain as `$851C` wait 50 ->
@@ -678,7 +679,8 @@ The compound scene strictly loads TGPL-1 `gameplay/core` (23416 bytes,
 `2047CCE0`), TGCT-1 `gameplay/court` (6559 bytes, `ECAB7A93`), TGCS-1
 `gameplay/close-shots` (3144 bytes, `DACDC976`), TGDK-1
 `gameplay/dunk-cutaway` (20272 bytes, `E02F2D21`), TGJS-1
-`gameplay/jump-shots` (1648 bytes, `7587B099`), TMUS-1 `audio/music`,
+`gameplay/jump-shots` (1648 bytes, `7587B099`), TGSR-1
+`gameplay/shot-resolution` (384 bytes, `8486DB33`), TMUS-1 `audio/music`,
 TSFX-1, TDMC-1, and the exact `chr/all` revision from one asset-pack path. Exact-size
 reads, payload/CHR fingerprints, deep indexes, reserved bytes, and source-map
 provenance are hard requirements. Missing, malformed, oversized,
@@ -716,16 +718,34 @@ TGJS-1 adds only the Bank05 bytes not already owned by TGPL-1/TGCS-1:
 It depends on the exact same-pack TGPL/TGCS payloads, rederives the 32-entry
 family/profile/direction pose matrix from `$8D3D/$8D5D`, and validates every
 resolved TGPL pointer and pose record. Its live boundary is deliberately one
-captured made context: human-controlled away-side, facing right,
+captured terminal-miss context: human-controlled away-side, facing right,
 family 0/profile 0/direction 1, pose index 213. NES B is tested as a current
 level rather than a release edge. Actor held/airborne/recovery states and Q8.8
 height/velocity both begin at `$02E8`; height clamps on frame 40 and actor
 recovery ends at frame 46 while the ball route remains active through
 settlement at frame 87. There is no release DMC; the route-10 ground/bounce conditions
-gate `$B5AB` at frame 75. Made settlement queues crowd 11 first, then writes
-side result 12/13 only while the clock is later than 0:01, matching the
-last-write-wins `$05B8` mailbox. Unknown contexts and deterministic miss
+gate `$B5AB` at frame 75. TGSR-1 classifies the TGJS terminal flag's set bit 7
+as MISS and supplies the non-current, other-team claimant handler/possession
+decision. Frame 87 awards zero points, queues crowd 11 and then side result
+12/13 only while the clock is later than 0:01, and hands possession to an
+explicitly approximate opposing actor. At period expiry it retains the current
+side and crowd 11. Unknown contexts, generic makes, and other native-policy
 branches are rejected without substituting the former synthetic schedule.
+
+TGSR-1 is 384 bytes with FNV1a32 `8486DB33` and FNV1a64
+`3DDF28659B192273`. Its importer revision-locks Bank05 `$91BC-$943A`
+(outcome calculation/bit helpers), `$A6EE-$A9D9` (numeric rim dispatch),
+`$B73E-$B87B` (claimant scan/proximity), and `$B87C-$B8F5` (claimant-driven
+settlement). Runtime requires its exact same-pack TGPL-1 dependency. Missing,
+malformed, undersized/oversized, wrong-revision, or cross-pack TGSR data rejects
+the scene before it becomes available; no capture, trace, ASM, decompilation,
+or ROM is a runtime input.
+
+TPNL-1 `gameplay/penalties` is a strict 768-byte pure rules foundation
+(FNV1a32 `980DDC76`) with same-pack TGPL-1 and TSFX-1 dependencies. It exposes
+bounded classification and presentation data without inferring contact,
+collision, possession, or route state. The live scene's deterministic
+contact/foul policy is still implementation-owned and is not wired to TPNL.
 
 Period completion follows fixed `$E59B->$E823`: regulation M:00 and divider 45
 are prepared before selecting the next banner, halftime, overtime, or final
@@ -754,10 +774,12 @@ per attempt and across scene launch/end.
 
 The exact boundary covers court/CHR/imported palette data and the embedded
 FCEUX RGB profile, actor-pose decoding, numeric close-shot steps, the narrowed
-TGJS slot-0 actor/ball state timing and Q8.8 actor height, state/event timing,
-foul thresholds, period/halftime/final transitions, and audio programs/mappings.
+TGJS/TGSR slot-0 miss actor/ball timing, Q8.8 actor height, terminal outcome,
+and one post-miss settlement, state/event timing, foul thresholds,
+period/halftime/final transitions, and audio programs/mappings.
 Actor/camera layout, movement/AI, jump-ball screen geometry, unsupported jump
-profiles/directions and miss routes, general make/contact policy, the trigger selecting
+profiles/directions/outcomes, generic makes, the longer +157-update claimant
+route, semantic rebounds/blocks/steals, general make/contact policy, the trigger selecting
 dunk/variant 0 versus layup/variant 2, live close-shot profile/direction
 selection and left-facing mirroring, dynamic team/court palette selection,
 foul detection, free-throw lineup/aim/outcome/rebound and CPU

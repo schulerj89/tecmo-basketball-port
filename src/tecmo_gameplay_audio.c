@@ -1270,7 +1270,7 @@ bool tecmo_gameplay_audio_self_test(const char *project_root,
         uint8_t chained_level = dmc_control.dmc.output_level;
         dmc_continuity_ok = dmc_control.dmc.active &&
             tecmo_gameplay_audio_queue_dmc_clip(
-                &dmc_control, TECMO_GAMEPLAY_DMC_DUNK_SEQUENCE_A9C5) &&
+                &dmc_control, TECMO_GAMEPLAY_DMC_BANK05_A9C5) &&
             dmc_control.dmc.output_level == chained_level;
         tecmo_gameplay_audio_stop_all(&dmc_control);
         dmc_continuity_ok = dmc_continuity_ok &&

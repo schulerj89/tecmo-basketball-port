@@ -548,7 +548,7 @@ int tecmo_asset_pack_build_gameplay_dunk_cutaway(
     tecmo_asset_pack_store_u16(payload + 150U,
                                TECMO_GAMEPLAY_DUNK_ROUTE_RESUME_FRAME);
     tecmo_asset_pack_store_u16(payload + 152U,
-                               TECMO_GAMEPLAY_DUNK_DMC_FRAME);
+                               TECMO_GAMEPLAY_DUNK_A9C5_FRAME);
     tecmo_asset_pack_store_u16(payload + 154U,
                                TECMO_GAMEPLAY_DUNK_RESOLVE_FRAME);
     payload[156U] = TECMO_GAMEPLAY_DUNK_MAX_PIECES;

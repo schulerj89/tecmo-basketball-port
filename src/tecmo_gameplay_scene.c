@@ -140,6 +140,7 @@ static void scene_release_owned(TecmoGameplayScene *scene)
     tecmo_gameplay_audio_asset_shutdown(&scene->audio_asset);
     tecmo_gameplay_dunk_cutaway_destroy(&scene->dunk_cutaway);
     tecmo_gameplay_jump_shots_destroy(&scene->jump_shots);
+    tecmo_gameplay_shot_resolution_destroy(&scene->shot_resolution);
     tecmo_gameplay_close_shots_destroy(&scene->close_shots);
     tecmo_gameplay_court_destroy(&scene->court);
     tecmo_gameplay_assets_destroy(&scene->assets);
@@ -150,6 +151,7 @@ static void scene_release_owned(TecmoGameplayScene *scene)
     tecmo_gameplay_close_shots_init(&scene->close_shots);
     tecmo_gameplay_dunk_cutaway_init(&scene->dunk_cutaway);
     tecmo_gameplay_jump_shots_init(&scene->jump_shots);
+    tecmo_gameplay_shot_resolution_init(&scene->shot_resolution);
     scene_set_status(scene, "gameplay scene initialized; assets not loaded");
 }
 
@@ -163,6 +165,7 @@ void tecmo_gameplay_scene_init(TecmoGameplayScene *scene)
     tecmo_gameplay_close_shots_init(&scene->close_shots);
     tecmo_gameplay_dunk_cutaway_init(&scene->dunk_cutaway);
     tecmo_gameplay_jump_shots_init(&scene->jump_shots);
+    tecmo_gameplay_shot_resolution_init(&scene->shot_resolution);
     scene_set_status(scene, "gameplay scene initialized; assets not loaded");
 }
 
@@ -182,6 +185,16 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
     if (!scene_select_asset_pack(selected, sizeof(selected), project_root,
                                  asset_pack_path)) {
         scene_set_status(scene, "gameplay asset pack unavailable");
+        return false;
+    }
+    /* TGSR performs its own exact same-pack TGPL dependency read. Load it
+       first so scene failures identify the shot-resolution boundary directly. */
+    if (!tecmo_gameplay_shot_resolution_load(&scene->shot_resolution,
+                                              selected)) {
+        (void)snprintf(failure, sizeof(failure), "%s",
+                       scene->shot_resolution.status);
+        scene_release_owned(scene);
+        scene_set_status(scene, failure);
         return false;
     }
     if (!tecmo_gameplay_assets_load(&scene->assets, selected)) {
@@ -247,7 +260,7 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
     }
     scene->available = true;
     scene_set_status(scene,
-                     "native gameplay ready: TGPL-1/TGCT-1/TGCS-1/TGDK-1/TGJS-1/TSFX-1/TDMC-1");
+                     "native gameplay ready: TGPL-1/TGCT-1/TGCS-1/TGDK-1/TGJS-1/TGSR-1/TSFX-1/TDMC-1");
     return true;
 }
 
@@ -278,7 +291,7 @@ static void scene_clear_jump_playback(TecmoGameplayScene *scene)
     scene->jump_direction = TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_0;
     scene->jump_oracle_active = false;
     scene->jump_b_released = false;
-    scene->jump_made_cached = false;
+    scene->jump_outcome = TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN;
     scene->jump_actor_landed = false;
 }
 
@@ -679,9 +692,9 @@ static bool scene_start_shot_actor(TecmoGameplayScene *scene,
             return false;
         }
     } else {
-        /* The exact ordinary-jump oracle is deliberately restricted to the
+        /* The exact ordinary-jump route is deliberately restricted to the
            one proven human, away-side, rightward family/profile/direction
-           context. Unknown directions and all miss paths remain unsupported
+           context. Unknown directions and all other outcomes remain unsupported
            instead of inheriting the old synthetic 40-frame schedule. */
         if (scene->launch.controller_team[controller] != actor->team ||
             actor->team != TECMO_GAMEPLAY_TEAM_AWAY ||
@@ -717,7 +730,9 @@ static bool scene_start_shot_actor(TecmoGameplayScene *scene,
     scene->ball_y_q8 = scene->shot_start_y_q8;
     scene->ball_holder = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     ++scene->action_serial;
-    if (!close && !scene_shot_will_score(scene)) {
+    /* The deterministic policy above is native-only. For this one ROM-proven
+       slot, admit its predicted-miss branch and reject predicted makes. */
+    if (!close && scene_shot_will_score(scene)) {
         --scene->action_serial;
         scene->shot_kind = TECMO_GAMEPLAY_SCENE_SHOT_NONE;
         scene->shot_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
@@ -731,7 +746,7 @@ static bool scene_start_shot_actor(TecmoGameplayScene *scene,
     actor->pose_index = initial_pose;
     if (!close) {
         scene->jump_oracle_active = true;
-        scene->jump_made_cached = true;
+        scene->jump_outcome = TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN;
         scene->jump_actor_state = scene->jump_shots.constants.actor_state_held;
         scene->jump_ball_state = scene->jump_shots.constants.ball_state_route1;
         scene->jump_phase_counter =
@@ -854,8 +869,8 @@ static bool scene_finish_shot(TecmoGameplayScene *scene,
         if (queue_side_result) {
             if (!scene_queue_result_audio(scene, shooting_team)) return false;
         } else {
-            /* The exact side-result ordering is proved for the dunk and the
-               captured made jump. Layups retain the crowd-only behavior. */
+            /* The exact side-result ordering is proved for the dunk. Layups
+               retain the crowd-only behavior. */
             (void)tecmo_gameplay_audio_queue_event(
                 &scene->audio_player, TECMO_GAMEPLAY_AUDIO_CROWD_RESPONSE);
         }
@@ -876,6 +891,57 @@ static bool scene_finish_shot(TecmoGameplayScene *scene,
     }
     return scene_handoff_possession(
         scene, next_team, scene_first_actor_for_team(next_team));
+}
+
+static bool scene_finish_jump_miss(TecmoGameplayScene *scene,
+                                   TecmoGameplaySceneActor *actor,
+                                   TecmoGameplayTeam shooting_team)
+{
+    TecmoGameplayShotSettlementDecision decision;
+    TecmoGameplayTeam next_team;
+    uint8_t claimant;
+    uint8_t shooting_actor;
+    bool period_expiry;
+    if (scene == NULL || actor == NULL ||
+        scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS) {
+        return false;
+    }
+
+    period_expiry = scene->state.phase ==
+        TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE;
+    shooting_actor = (uint8_t)(actor - scene->actors);
+    next_team = scene_other_team(shooting_team);
+    /* TGSR proves the claimant relation and handler decision, not the native
+       scene's actor geometry. Nearest opposing actor is an explicit temporary
+       claimant approximation. */
+    claimant = scene_nearest_actor_for_team(
+        scene, next_team, scene->shot_actor);
+    if (!period_expiry &&
+        (!tecmo_gameplay_shot_resolution_decide_claimant_settlement(
+             &scene->shot_resolution, false,
+             TECMO_GAMEPLAY_SHOT_CLAIMANT_OTHER_TEAM, &decision) ||
+         !decision.select_claimant ||
+         !decision.replace_other_handler_with_previous ||
+         !decision.change_possession)) {
+        return false;
+    }
+
+    actor->pose_index = TECMO_GAMEPLAY_JUMP_SLOT0_IDLE_POSE;
+    scene->shot_kind = TECMO_GAMEPLAY_SCENE_SHOT_NONE;
+    scene->shot_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    scene->close_shot_step = 0U;
+    scene->shot_frame = 0U;
+    scene->shot_duration = 0U;
+    scene_clear_jump_playback(scene);
+
+    if (period_expiry) {
+        /* The caller queues the post-miss result after state events, so the
+           zero-clock crowd request remains the final audio mailbox write. */
+        return scene_handoff_possession(
+            scene, scene->state.possession,
+            shooting_actor);
+    }
+    return scene_handoff_possession(scene, next_team, claimant);
 }
 
 static int32_t scene_lerp_q8(int32_t start, int32_t end,
@@ -925,6 +991,7 @@ static bool scene_update_jump_shot(
     const TecmoControlFrame *shooting_controls)
 {
     TecmoGameplaySceneActor *actor;
+    TecmoGameplayShotOutcome outcome;
     uint16_t next_frame;
     bool landed = false;
     if (!scene->jump_oracle_active ||
@@ -936,7 +1003,10 @@ static bool scene_update_jump_shot(
         scene->shot_controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT ||
         scene->launch.controller_team[scene->shot_controller] !=
             TECMO_GAMEPLAY_TEAM_AWAY ||
-        !scene->jump_made_cached) {
+        (!scene->jump_b_released &&
+         scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN) ||
+        (scene->jump_b_released &&
+         scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS)) {
         return false;
     }
     actor = &scene->actors[scene->shot_actor];
@@ -951,7 +1021,17 @@ static bool scene_update_jump_shot(
                        scene->jump_shots.constants.ball_state_route1;
         }
         if (scene->shot_frame != 1U) return false;
+        outcome = TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN;
+        if (scene->jump_shots.constants.outcome_flag_mask !=
+                scene->shot_resolution.outcome_flag_mask ||
+            !tecmo_gameplay_shot_resolution_classify_terminal_outcome(
+                &scene->shot_resolution, true,
+                scene->jump_shots.constants.outcome_flag_mask, &outcome) ||
+            outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS) {
+            return false;
+        }
         scene->jump_b_released = true;
+        scene->jump_outcome = outcome;
         scene->shot_frame = 2U;
         scene->jump_actor_state =
             scene->jump_shots.constants.actor_state_airborne;
@@ -1035,10 +1115,8 @@ static bool scene_update_jump_shot(
             scene->jump_shots.constants.ball_state_route10) {
         return false;
     }
-    scene->jump_ball_state = scene->jump_shots.constants.ball_state_neutral;
-    return scene_finish_shot(
-        scene, actor, (TecmoGameplayTeam)actor->team,
-        scene->jump_made_cached, true, TECMO_GAMEPLAY_JUMP_SLOT0_IDLE_POSE);
+    return scene_finish_jump_miss(
+        scene, actor, (TecmoGameplayTeam)actor->team);
 }
 
 static bool scene_update_shot(TecmoGameplayScene *scene,
@@ -1097,10 +1175,10 @@ static bool scene_update_shot(TecmoGameplayScene *scene,
     }
 
     if (shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_DUNK &&
-        scene->shot_frame == TECMO_GAMEPLAY_DUNK_DMC_FRAME) {
+        scene->shot_frame == TECMO_GAMEPLAY_DUNK_A9C5_FRAME) {
         (void)tecmo_gameplay_audio_queue_dmc_clip(
             &scene->audio_player,
-            TECMO_GAMEPLAY_DMC_DUNK_SEQUENCE_A9C5);
+            TECMO_GAMEPLAY_DMC_BANK05_A9C5);
     }
 
     if (scene->shot_frame < scene->shot_duration) return true;
@@ -1505,6 +1583,8 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
     bool restart_applied;
     bool restart_frame;
     bool free_throw_team_captured;
+    bool jump_miss_settled = false;
+    TecmoGameplayTeam jump_miss_shooting_team = TECMO_GAMEPLAY_TEAM_AWAY;
     size_t controller;
 
     if (scene == NULL ||
@@ -1565,14 +1645,24 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
     }
     if (scene_phase_allows_live_action(scene->state.phase) && !restart_frame) {
         if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
+            bool terminal_jump =
+                scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
+                scene->shot_frame + 1U == scene->shot_duration &&
+                scene->shot_actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT;
             const TecmoControlFrame *shooting_controls =
                 scene->shot_controller < TECMO_GAMEPLAY_CONTROLLER_COUNT
                     ? controls[scene->shot_controller]
                     : NULL;
+            if (terminal_jump) {
+                jump_miss_shooting_team =
+                    (TecmoGameplayTeam)scene->actors[scene->shot_actor].team;
+            }
             if (!scene_update_shot(scene, shooting_controls)) {
                 scene_set_status(scene, "shot animation update rejected");
                 return false;
             }
+            jump_miss_settled = terminal_jump &&
+                scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE;
         } else if (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE) {
             moving_holder = scene->ball_holder;
             if (moving_holder < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
@@ -1676,6 +1766,11 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
        during the settling action cannot overwrite the one-shot Bank05 $9FEC
        mailbox. Final free throws are deliberately not qualifying returns. */
     scene_process_phase_audio(scene, phase_before);
+    if (jump_miss_settled &&
+        !scene_queue_result_audio(scene, jump_miss_shooting_team)) {
+        scene_set_status(scene, "jump-miss result audio rejected");
+        return false;
+    }
     if (!scene_ownership_valid(scene)) {
         scene_set_status(scene, "gameplay ownership invariant rejected");
         return false;
@@ -2091,7 +2186,8 @@ static bool scene_test_jump_slot0_checkpoint(
     if (scene == NULL || frame < 3U || frame >= 87U ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
         scene->shot_frame != frame || !scene->jump_oracle_active ||
-        !scene->jump_made_cached || !scene->jump_b_released) {
+        scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS ||
+        !scene->jump_b_released) {
         return false;
     }
     switch (frame) {
@@ -2219,6 +2315,107 @@ static bool scene_test_close_clock_collision(
         !scene_test_close_semantic_chain_untouched(scene) ||
         scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         scene->actors[scene->ball_holder].team != scene->state.possession ||
+        !tecmo_gameplay_state_valid(&scene->state)) {
+        return false;
+    }
+    tecmo_gameplay_scene_end(scene);
+    return true;
+}
+
+static bool scene_test_jump_period_expiry(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *base_launch)
+{
+    TecmoGameplaySceneLaunch launch;
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    TecmoGameplayTeam possession_before;
+    uint16_t away_score_before;
+    uint16_t home_score_before;
+    uint8_t shooting_actor;
+
+    if (scene == NULL || base_launch == NULL) return false;
+    launch = *base_launch;
+    launch.game_music_enabled = false;
+    if (!tecmo_gameplay_scene_launch(scene, &launch) ||
+        !tecmo_gameplay_set_score(
+            &scene->state, TECMO_GAMEPLAY_TEAM_HOME, 2U)) {
+        return false;
+    }
+    shooting_actor = scene->ball_holder;
+    scene->actors[shooting_actor].x = 96;
+    scene->actors[shooting_actor].y = 180;
+    scene->actors[shooting_actor].facing_right = true;
+    scene_attach_ball(scene);
+    scene->action_serial = 1U;
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    p1.held.cancel = true;
+    p1.pressed.cancel = true;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+        scene->shot_frame != 1U || scene->action_serial != 2U ||
+        scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN) {
+        return false;
+    }
+    memset(&p1, 0, sizeof(p1));
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->shot_frame != 2U ||
+        scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS) {
+        return false;
+    }
+    while (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
+           scene->shot_frame < 86U) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) return false;
+    }
+    if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+        scene->shot_frame != 86U) {
+        return false;
+    }
+
+    away_score_before = scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY];
+    home_score_before = scene->state.score[TECMO_GAMEPLAY_TEAM_HOME];
+    possession_before = scene->state.possession;
+    scene->state.clock_minutes = 0U;
+    scene->state.clock_seconds = 1U;
+    scene->state.clock_divider = 1U;
+    scene->state.shot_clock = 12U;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        scene->shot_actor != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+        scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN ||
+        scene->state.phase !=
+            TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE ||
+        !scene->state.period_expiry_zero_action_observed ||
+        scene->state.possession != possession_before ||
+        scene->ball_holder != shooting_actor ||
+        scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY] != away_score_before ||
+        scene->state.score[TECMO_GAMEPLAY_TEAM_HOME] != home_score_before ||
+        scene->events.count != 2U ||
+        scene->events.events[0].kind != TECMO_GAMEPLAY_EVENT_SFX_REQUEST ||
+        scene->events.events[0].value != TECMO_GAMEPLAY_SFX_LATE_CLOCK_ID ||
+        scene->events.events[1].kind != TECMO_GAMEPLAY_EVENT_SFX_REQUEST ||
+        scene->events.events[1].value != TECMO_GAMEPLAY_SFX_EXPIRY_ID ||
+        !scene->audio_player.sfx_pending ||
+        scene->audio_player.pending_sfx_id != 11U ||
+        !tecmo_gameplay_state_valid(&scene->state)) {
+        return false;
+    }
+    tecmo_gameplay_audio_render_samples(&scene->audio_player, NULL, 1024U);
+    if (scene->audio_player.sfx_pending ||
+        scene->audio_player.current_sfx_id != 11U ||
+        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_BANNER ||
+        scene->state.banner != TECMO_GAMEPLAY_BANNER_SECOND_PERIOD ||
+        scene->state.period != 2U ||
+        scene->state.period_expiry_zero_action_observed ||
+        scene->state.clock_minutes != launch.regulation_minutes ||
+        scene->state.clock_seconds != 0U ||
+        scene->state.clock_divider != TECMO_GAMEPLAY_CLOCK_DIVIDER_FRAMES ||
+        scene->state.possession != possession_before ||
+        scene->ball_holder != shooting_actor ||
+        scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY] != away_score_before ||
+        scene->state.score[TECMO_GAMEPLAY_TEAM_HOME] != home_score_before ||
         !tecmo_gameplay_state_valid(&scene->state)) {
         return false;
     }
@@ -2394,6 +2591,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     uint16_t original_pose;
     uint16_t expected_pose;
     uint16_t away_score_before;
+    uint16_t home_score_before;
     uint8_t holder;
     uint8_t shot_actor;
     uint8_t failed_difficulty;
@@ -2420,6 +2618,16 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     if (!tecmo_gameplay_scene_load(&scene, project_root, asset_pack_path,
                                    music_player)) {
         scene_test_message(message, message_size, scene.status);
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    if (!scene.shot_resolution.available ||
+        scene.shot_resolution.outcome_flag_mask !=
+            scene.jump_shots.constants.outcome_flag_mask ||
+        scene.shot_resolution.gameplay_core_fingerprint !=
+            scene.jump_shots.gameplay_core_fingerprint) {
+        scene_test_message(message, message_size,
+                           "TGSR-1 scene dependency contract failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -2557,7 +2765,8 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     scene.actors[scene.ball_holder].x = 210;
     scene.actors[scene.ball_holder].y = 148;
     scene.actors[scene.ball_holder].facing_right = true;
-    /* The following dunk, layup, and jump checkpoints are deterministic makes. */
+    /* The following close-shot checkpoints are deterministic makes. The later
+       ordinary-jump checkpoint is the supported terminal miss. */
     scene.action_serial = 1U;
     scene_attach_ball(&scene);
     memset(&p1, 0, sizeof(p1));
@@ -2624,15 +2833,15 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
                 (scene.shot_frame == 71U && scene.close_shot_step != 23U) ||
                 (scene.shot_frame == 79U && scene.close_shot_step != 31U) ||
                 (scene.shot_frame == 86U && scene.audio_player.dmc.active) ||
-                (scene.shot_frame == TECMO_GAMEPLAY_DUNK_DMC_FRAME &&
+                (scene.shot_frame == TECMO_GAMEPLAY_DUNK_A9C5_FRAME &&
                  (!scene.audio_player.dmc.active ||
                   scene.audio_player.dmc.byte_index != 0U ||
                   scene.audio_player.dmc.byte_count !=
                       scene.audio_asset.dmc_clips[
-                          TECMO_GAMEPLAY_DMC_DUNK_SEQUENCE_A9C5].byte_count ||
+                          TECMO_GAMEPLAY_DMC_BANK05_A9C5].byte_count ||
                   scene.audio_player.dmc.pool_index !=
                       scene.audio_asset.dmc_clips[
-                          TECMO_GAMEPLAY_DMC_DUNK_SEQUENCE_A9C5].pool_index)) ||
+                          TECMO_GAMEPLAY_DMC_BANK05_A9C5].pool_index)) ||
                 (scene.shot_frame == 88U &&
                  scene.audio_player.dmc.byte_index != 1U)) {
                 scene_test_message(message, message_size,
@@ -2640,7 +2849,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
                 tecmo_gameplay_scene_destroy(&scene);
                 return false;
             }
-            if (scene.shot_frame == TECMO_GAMEPLAY_DUNK_DMC_FRAME) {
+            if (scene.shot_frame == TECMO_GAMEPLAY_DUNK_A9C5_FRAME) {
                 /* A later accidental requeue would reset this sentinel. */
                 scene.audio_player.dmc.byte_index = 1U;
             }
@@ -2762,19 +2971,21 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     memset(&p1, 0, sizeof(p1));
     p1.held.cancel = true;
     p1.pressed.cancel = true;
+    scene.action_serial = 0U;
     if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
         scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
-        scene.action_serial != 1U ||
+        scene.action_serial != 0U ||
         scene.ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
         scene_test_message(message, message_size,
-                           "unsupported jump-shot miss context was faked");
+                           "ordinary-jump predicted-make branch was accepted");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
 
-    /* The captured slot-0 oracle is the action-serial-1 made branch. Audio
-       from earlier close-shot coverage must not mask the no-release-DMC test. */
-    scene.action_serial = 0U;
+    /* Slot 0 follows the implementation-owned serial-2 predicted-miss branch.
+       Audio from earlier close-shot coverage must not mask the no-release-DMC
+       test. */
+    scene.action_serial = 1U;
     away_score_before = scene.state.score[TECMO_GAMEPLAY_TEAM_AWAY];
     tecmo_gameplay_audio_stop_all(&scene.audio_player);
     memset(&p1, 0, sizeof(p1));
@@ -2783,8 +2994,9 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
         scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
         scene.shot_frame != 1U || scene.shot_controller != 0U ||
-        scene.action_serial != 1U || !scene.jump_oracle_active ||
-        !scene.jump_made_cached || scene.jump_b_released ||
+        scene.action_serial != 2U || !scene.jump_oracle_active ||
+        scene.jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN ||
+        scene.jump_b_released ||
         scene.jump_actor_state != 0x0CU ||
         scene.jump_ball_state != 0x01U ||
         scene.jump_phase_counter != 0x31U ||
@@ -2801,6 +3013,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     p1.held.cancel = true;
     if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
         scene.shot_frame != 1U || scene.jump_b_released ||
+        scene.jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN ||
         scene.jump_actor_state != 0x0CU ||
         scene.jump_ball_state != 0x01U ||
         scene.jump_actor_altitude_q8 != 0x02E8U ||
@@ -2814,6 +3027,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     memset(&p1, 0, sizeof(p1));
     if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
         scene.shot_frame != 2U || !scene.jump_b_released ||
+        scene.jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS ||
         scene.jump_actor_state != 0x0DU ||
         scene.jump_ball_state != 0x05U ||
         scene.jump_phase_counter != 0x04U ||
@@ -2847,19 +3061,43 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     }
     if (scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
         scene.shot_actor != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
-        scene.state.score[TECMO_GAMEPLAY_TEAM_AWAY] !=
-            (uint16_t)(away_score_before + 3U) ||
+        scene.state.score[TECMO_GAMEPLAY_TEAM_AWAY] != away_score_before ||
         scene.state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
         scene.ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
-        scene.state.score[TECMO_GAMEPLAY_TEAM_AWAY] != 5U ||
+        scene.state.score[TECMO_GAMEPLAY_TEAM_AWAY] != 2U ||
+        scene.state.score[TECMO_GAMEPLAY_TEAM_HOME] != 2U ||
         scene.actors[scene.ball_holder].team != TECMO_GAMEPLAY_TEAM_HOME ||
         scene.controlled_actor[1] != scene.ball_holder ||
+        scene.state.shot_clock != TECMO_GAMEPLAY_SHOT_CLOCK_SECONDS ||
+        scene.state.clock_divider !=
+            TECMO_GAMEPLAY_POSSESSION_DIVIDER_FRAMES ||
         !scene.audio_player.sfx_pending ||
         scene.audio_player.pending_sfx_id != 12U ||
-        scene.jump_oracle_active || scene.jump_made_cached ||
+        scene.events.count != 0U || scene.jump_oracle_active ||
+        scene.jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN ||
         !tecmo_gameplay_state_valid(&scene.state)) {
+        char failure[192];
+        (void)snprintf(
+            failure, sizeof(failure),
+            "jump-shot settlement failed: shot=%u score=%u-%u possession=%u holder=%u clock=%u/%u sfx=%u/%u events=%u outcome=%u",
+            (unsigned)scene.shot_kind,
+            (unsigned)scene.state.score[TECMO_GAMEPLAY_TEAM_AWAY],
+            (unsigned)scene.state.score[TECMO_GAMEPLAY_TEAM_HOME],
+            (unsigned)scene.state.possession, (unsigned)scene.ball_holder,
+            (unsigned)scene.state.shot_clock,
+            (unsigned)scene.state.clock_divider,
+            scene.audio_player.sfx_pending ? 1U : 0U,
+            (unsigned)scene.audio_player.pending_sfx_id,
+            (unsigned)scene.events.count, (unsigned)scene.jump_outcome);
+        scene_test_message(message, message_size, failure);
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    tecmo_gameplay_audio_render_samples(&scene.audio_player, NULL, 1024U);
+    if (scene.audio_player.sfx_pending ||
+        scene.audio_player.current_sfx_id != 12U) {
         scene_test_message(message, message_size,
-                           "jump-shot settlement failed");
+                           "jump-miss side-result mailbox was not consumed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -3012,6 +3250,12 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
+    if (!scene_test_jump_period_expiry(&scene, &launch)) {
+        scene_test_message(message, message_size,
+                           "jump-miss period-expiry route failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
     if (!tecmo_gameplay_scene_launch(&scene, &launch)) {
         scene_test_message(message, message_size,
                            "period-expiry gameplay launch rejected");
@@ -3026,19 +3270,24 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     scene.actors[scene.ball_holder].y = 180;
     scene.actors[scene.ball_holder].facing_right = true;
     scene_attach_ball(&scene);
-    scene.action_serial = 0U;
+    scene.action_serial = 1U;
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
     p1.held.cancel = true;
     p1.pressed.cancel = true;
     if (!tecmo_gameplay_state_valid(&scene.state) ||
         !tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
-        scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP) {
+        scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+        scene.shot_frame != 1U || scene.action_serial != 2U ||
+        scene.jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN) {
         scene_test_message(message, message_size,
                            "period-expiry live shot setup failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
+    shot_actor = scene.shot_actor;
+    away_score_before = scene.state.score[TECMO_GAMEPLAY_TEAM_AWAY];
+    home_score_before = scene.state.score[TECMO_GAMEPLAY_TEAM_HOME];
     memset(&p1, 0, sizeof(p1));
     for (frame = 0U; frame < 96U &&
          scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE; ++frame) {
@@ -3052,10 +3301,15 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     if (scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
         scene.state.phase !=
             TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE ||
+        !scene.state.period_expiry_zero_action_observed ||
+        scene.state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene.state.score[TECMO_GAMEPLAY_TEAM_AWAY] != away_score_before ||
+        scene.state.score[TECMO_GAMEPLAY_TEAM_HOME] != home_score_before ||
+        scene.jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN ||
         !scene.audio_player.sfx_pending ||
         scene.audio_player.pending_sfx_id != 11U ||
-        scene.ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
-        scene.actors[scene.ball_holder].team != scene.state.possession ||
+        scene.ball_holder != shot_actor ||
+        scene.actors[scene.ball_holder].team != TECMO_GAMEPLAY_TEAM_AWAY ||
         !tecmo_gameplay_state_valid(&scene.state)) {
         char failure[192];
         (void)snprintf(
@@ -3073,6 +3327,13 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
             TECMO_GAMEPLAY_DMC_BANK05_A8D6_LONG) ||
         !tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
         scene.state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_BANNER ||
+        scene.state.period != 2U ||
+        scene.state.banner != TECMO_GAMEPLAY_BANNER_SECOND_PERIOD ||
+        scene.state.period_expiry_zero_action_observed ||
+        scene.state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene.state.score[TECMO_GAMEPLAY_TEAM_AWAY] != away_score_before ||
+        scene.state.score[TECMO_GAMEPLAY_TEAM_HOME] != home_score_before ||
+        scene.ball_holder != shot_actor ||
         scene.audio_player.sfx_pending || scene.audio_player.dmc.active ||
         scene.audio_player.music == NULL ||
         scene.audio_player.music->playing ||
@@ -3159,11 +3420,12 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
-    /* Keep the A-selected receiver inside the one proven TGJS slot-0 made
+    /* Keep the A-selected receiver inside the supported TGJS/TGSR slot-0 miss
        context so this test remains about A-before-B resolution. */
     scene.actors[1].x = 96;
     scene.actors[1].y = 180;
     scene.actors[1].facing_right = true;
+    scene.action_serial = 1U;
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
     p1.held.shoot = true;
@@ -3172,7 +3434,8 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     p1.pressed.cancel = true;
     if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
         scene.shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
-        scene.shot_actor != 1U) {
+        scene.shot_actor != 1U || scene.action_serial != 2U ||
+        scene.jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN) {
         scene_test_message(message, message_size,
                            "combined NES A+B resolution failed");
         tecmo_gameplay_scene_destroy(&scene);

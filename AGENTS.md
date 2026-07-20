@@ -486,13 +486,13 @@ last-write-wins, a qualifying result leaves 12/13 for the next audio tick; at
 `audio/gameplay-dmc` is TDMC-1: 2515 bytes / FNV1a32 `AD70E6E8`. It deduplicates
 the exact fixed-bank `$C080-$C280`, `$C440-$C710`, and `$C740-$CAF0` inclusive
 sample pools and exposes five bounded, non-looping, non-IRQ clips at rates 14
-or 15. Bank05 `$B5AB` is held-ball/dribble. `$A9C5` is conservatively named
-the dunk sequence and `$ABF5` the layup sequence: bounded local slot-2 evidence
-correlates numeric variant 0, its cutaway, and the later `$A9C5` trigger at
-action frame 87; slot 1 correlates numeric variant 2 with `$ABF5` at action
-frame 34. These are sequence-level names, not impact/rim claims. The live
-scene queues A9C5 exactly once at dunk action frame 87; ABF5 is not yet queued.
-The two `$A8D6` clips remain address-bound. DMC
+or 15. Bank05 `$B5AB` is held-ball/dribble. `$A9C5` and both `$A8D6` clips
+remain address-bound and unresolved. Bounded local slot-2 evidence observes
+numeric variant 0, its cutaway, and a later `$A9C5` trigger at action frame 87,
+but does not prove the clip's meaning or exclusivity. Slot 1 correlates numeric
+variant 2 with the `$ABF5` action sequence at frame 34 without proving an
+impact/rim meaning. The live variant-0 presentation currently requests the
+address-bound A9C5 clip at frame 87; ABF5 is not yet queued. DMC
 advances independently of music and tonal SFX; no trigger writes `$4011`.
 GAME MUSIC gates future track 5 only,
 and GAME SPEED has no path into audio cadence. `tecmo_gameplay_audio_stop_all`
@@ -525,12 +525,13 @@ at 26 and consumes it at 27, then changes the terminal result mailbox from
 music-track request or SFX ID 5 through 360. The final free-throw result
 therefore remains in the SFX mailbox across the live return, which queues
 neither track 5 nor `BANK05_9FEC_CUE`.
-The proven made jump follows the same clock-gated 11-then-12/13 mailbox ordering;
-layups alone remain bounded to crowd response 11 pending separate caller
+The supported slot-0 jump miss follows the clock-gated 11-then-12/13 mailbox
+ordering without awarding points; zero-clock settlement retains 11. Layups
+alone remain bounded to crowd response 11 pending separate caller
 integration. `BANK05_9FEC_CUE` remains neutral and is gated at the
 bounded violation, direct-foul, and period restart boundaries. Dunk action
-frame 87 queues sequence-named A9C5 exactly once. ABF5 and address-named A8D6
-clips stay imported without invented live use.
+frame 87 requests address-bound A9C5. ABF5 and address-named A8D6 clips stay
+imported without invented live use.
 
 Finale provenance is the raw Bank04 chain `$851C` wait 50 -> `$83EA` wait 30
 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 -> `$FFFF`, loading
@@ -601,13 +602,19 @@ command offsets `$007D/$00D7`, and Bank06 `$8B8E-$8B9D` maps those from base
 native scene does not yet implement that positioning/script system. Its
 per-attempt observed-schedule counter resets at launch, after each attempt, and
 when the scene ends. The ordinary-jump boundary now
-also includes the exact human away/right family-0/profile-0/direction-1 made
+also includes the exact human away/right family-0/profile-0/direction-1 miss
 slot: current-level NES B release, actor states `$0C/$0D/$0E/0`, Bank05 Q8.8
 height/velocity seed `$02E8`, gravity, frame-40 clamp, recovery through frame
 46, independent ball routes through frame
-87, the conditional frame-75 `$B5AB` DMC, and made-settlement mailbox ordering.
+87, the conditional frame-75 `$B5AB` DMC, and post-shot settlement mailbox
+ordering. TGSR-1 classifies TGJS's bit-7-set terminal flag as MISS and proves
+the non-current, other-team claimant handler/possession decision. Native play
+applies that one decision at frame 87, awards zero points, uses an explicitly
+approximate opposing actor, and queues crowd 11 followed by clock-gated side
+result 12/13. At period expiry it retains the current side and crowd 11.
 Actor/camera layout, movement/AI, jump-ball screen geometry, unsupported jump
-directions/profiles and misses, general make/contact rules, the distance policy
+directions/profiles and outcomes, generic makes, the longer +157-update claimant route,
+semantic rebounds/blocks/steals, general make/contact rules, the distance policy
 selecting dunk/variant 0 versus layup/variant 2, live close-shot
 profile/direction selection and left-facing render
 mirroring, dynamic team/court palette selection, foul detection, free-throw
@@ -641,13 +648,29 @@ material, not committed provenance or runtime input. See
 The scene must obtain TGPL-1 `gameplay/core`, TGCT-1 `gameplay/court`, TGCS-1
 `gameplay/close-shots`, TGDK-1 `gameplay/dunk-cutaway`,
 TGJS-1 `gameplay/jump-shots` (1648 bytes,
-`7587B099`), TMUS-1 `audio/music`, TSFX-1
+`7587B099`), TGSR-1 `gameplay/shot-resolution` (384 bytes, `8486DB33`),
+TMUS-1 `audio/music`, TSFX-1
 `audio/gameplay-sfx`, TDMC-1 `audio/gameplay-dmc`, and `chr/all` from the same
 explicit pack. Exact-size reads, canonical fingerprints, deep bounds/reserved
 checks, CHR revision fingerprints, the music asset's selected pack path, and
 source-map provenance fail closed before the scene is marked available. Drawing
 preflights every court cell and actor/ball pose so a rejected frame leaves the
 destination untouched.
+
+TGSR-1 is 384 bytes (FNV1a32 `8486DB33`, FNV1a64
+`3DDF28659B192273`) and revision-locks Bank05 `$91BC-$943A`, `$A6EE-$A9D9`,
+`$B73E-$B87B`, and `$B87C-$B8F5`. It requires exact same-pack TGPL-1;
+missing, malformed, wrong-sized, wrong-revision, and cross-pack dependencies
+reject the scene before availability. Its safe semantics are terminal outcome
+polarity, numeric rim routes, claimant thresholds, and handler/possession
+decisions; it does not label rebounds, blocks, steals, or generic makes.
+
+TPNL-1 `gameplay/penalties` is a separate strict 768-byte rules foundation
+(FNV1a32 `980DDC76`) with same-pack TGPL-1 and TSFX-1 dependencies. Its pure
+classification/presentation APIs do not infer collision or route state. The
+live scene's current deterministic contact/foul branches remain
+implementation-owned and do not yet consume TPNL; do not describe synthetic
+scene fouls as ROM-derived penalty classification.
 
 ## Runtime Architecture Notes
 

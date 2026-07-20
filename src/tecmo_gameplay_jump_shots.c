@@ -349,7 +349,7 @@ static void load_constants(TecmoGameplayJumpShotConstants *constants,
     constants->ball_state_route17 = bytes[15U];
     constants->ball_state_route10 = bytes[16U];
     constants->ball_state_neutral = bytes[17U];
-    constants->made_mask = bytes[18U];
+    constants->outcome_flag_mask = bytes[18U];
     constants->crowd_sfx = bytes[19U];
     constants->side_result_base = bytes[20U];
     constants->gravity_q8 = read_u16(bytes + 21U);

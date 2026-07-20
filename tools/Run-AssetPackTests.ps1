@@ -3711,7 +3711,7 @@ try {
                     "route1-follow-release-`$AD41-`$AF21",
                     "route10-`$B6E5-`$B774",
                     "bounce-motion-collision-`$B7C1-`$B87B",
-                    "made-settlement-`$BA65-`$BAC0"
+                    "post-shot-settlement-`$BA65-`$BAC0"
                 )
                 $JumpShotRoles = @($JumpShotSource.source_spans |
                     ForEach-Object { [string]$_.role })
@@ -3740,6 +3740,10 @@ try {
                         0xF6 -and
                     [int]$JumpShotSource.constants.bounce_decay_q8 -eq
                         0x80 -and
+                    [int]$JumpShotSource.constants.outcome_flag_mask -eq
+                        0x80 -and
+                    $null -eq
+                        $JumpShotSource.constants.PSObject.Properties["made_mask"] -and
                     $JumpShotSource.constants.fingerprint_fnv1a32 -eq
                         "C868CFE3" -and
                     [int]$JumpShotSource.pose_contract.pointer_count -eq 32 -and
@@ -3747,6 +3751,10 @@ try {
                         "069DDFDB" -and
                     $JumpShotSource.pose_contract.pointer_fingerprint_fnv1a32 -eq
                         "A057A625" -and
+                    $JumpShotSource.behavior_boundary -match
+                        "post-shot settlement" -and
+                    $JumpShotSource.behavior_boundary -notmatch
+                        "made-settlement" -and
                     $JumpShotSource.runtime_inputs -notmatch
                         "decompilation file|trace file|capture file"
                 Add-TestResult ([pscustomobject]@{

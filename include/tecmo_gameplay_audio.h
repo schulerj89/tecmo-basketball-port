@@ -31,13 +31,12 @@ typedef enum TecmoGameplayAudioEvent {
     TECMO_GAMEPLAY_AUDIO_BANK05_9FEC_CUE = 8
 } TecmoGameplayAudioEvent;
 
-/* The A8D6 meanings remain address-bound. A9C5/ABF5 are sequence-level
-   correlations only, not impact/rim claims. The live scene queues A9C5 only at
-   the ROM-observed dunk action frame 87; ABF5 remains imported but unused. */
+/* A8D6 and A9C5 remain address-bound. ABF5 has only a bounded sequence-level
+   correlation, not an impact/rim claim. */
 typedef enum TecmoGameplayDmcClipId {
     TECMO_GAMEPLAY_DMC_BANK05_A8D6_SHORT = 0,
     TECMO_GAMEPLAY_DMC_BANK05_A8D6_LONG = 1,
-    TECMO_GAMEPLAY_DMC_DUNK_SEQUENCE_A9C5 = 2,
+    TECMO_GAMEPLAY_DMC_BANK05_A9C5 = 2,
     TECMO_GAMEPLAY_DMC_LAYUP_SEQUENCE_ABF5 = 3,
     TECMO_GAMEPLAY_DMC_HELD_BALL_DRIBBLE = 4
 } TecmoGameplayDmcClipId;
