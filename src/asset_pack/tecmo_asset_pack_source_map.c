@@ -2070,7 +2070,8 @@ static int append_gameplay_penalty_source_map_entry(
         "presentation-release-gate-$EA14-$EA2F",
         "violation-presentation-script-$EC5B-$ED14",
         "nes-a-release-helper-$D2B9-$D2CE",
-        "violation-selector-presentation-$BE87-$BFA8"
+        "violation-selector-presentation-$BE87-$BFA8",
+        "shared-screen-$22-delayed-sfx6-request-$BA1F-$BA3E"
     };
     const char *prefix = *first != 0 ? "" : ",\n";
 
@@ -2082,9 +2083,10 @@ static int append_gameplay_penalty_source_map_entry(
             "\"schema\":\"tecmo.gameplay-penalties/TPNL-1\",\"size\":%u,"
             "\"fingerprint_fnv1a32\":\"%08X\","
             "\"revision_sha256\":\"076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4\","
+            "\"revision_sha256_verified\":true,"
             "\"dependencies\":["
             "{\"entry\":\"%s\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\",\"reason\":\"shared foul and violation presentation spans\"},"
-            "{\"entry\":\"%s\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\",\"reason\":\"strict gameplay cue vocabulary\"}],"
+            "{\"entry\":\"%s\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\",\"reason\":\"cue 6 vocabulary and C009/F2F6 queue semantics\"}],"
             "\"source_spans\":[",
             prefix, TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_ID,
             (unsigned)TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_SIZE,
@@ -2140,11 +2142,11 @@ static int append_gameplay_penalty_source_map_entry(
         "\"one_attempt_current_route_selectors\":[8,9],"
         "\"offensive_foul_attempts\":0,\"offensive_foul_turnover\":true},"
         "\"presentations\":{"
-        "\"foul\":{\"lead_in_frames\":4,\"maximum_wait_frames\":160,\"entry_sfx_id\":0},"
+        "\"foul\":{\"screen_selector\":34,\"lead_in_frames\":4,\"maximum_wait_frames\":160,\"presentation_sfx_id\":6,\"presentation_sfx_delay_frames\":16,\"live_restart_sfx_id\":5,\"live_restart_music_id\":5},"
         "\"violation\":{\"selector_min\":1,\"selector_max\":7,"
         "\"five_seconds_selector\":3,\"lead_in_frames\":4,"
-        "\"maximum_wait_frames\":120,\"entry_sfx_id\":6},"
-        "\"release\":{\"nes_a_mask\":128,\"controller_count\":2}},"
+        "\"maximum_wait_frames\":120,\"screen_selector\":34,\"presentation_sfx_id\":6,\"presentation_sfx_delay_frames\":16,\"live_restart_sfx_id\":5,\"live_restart_music_id\":5},"
+        "\"release\":{\"initial_delay_frames\":4,\"poll_interval_frames\":1,\"nes_a_mask\":128,\"controller_count\":2}},"
         "\"selector_note\":\"numeric route selectors retain neutral ROM identities; no collision or foul detector is inferred\","
         "\"runtime_inputs\":\"TPNL-1 plus same-pack TGPL-1 and TSFX-1; no decompilation, trace, capture, screenshot, video, log, dump, Lua output, ROM, or save state\"}");
 }

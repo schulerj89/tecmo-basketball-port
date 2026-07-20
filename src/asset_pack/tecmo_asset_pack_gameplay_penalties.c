@@ -11,6 +11,7 @@
 #define PENALTY_PRG_BANK_COUNT 8U
 #define PENALTY_FIXED_BANK 7U
 #define PENALTY_PRESENTATION_COUNT 2U
+#define PENALTY_REV1_ROM_SIZE 393232ULL
 
 static const uint8_t penalty_rev1_sha256[32] = {
     0x07U,0x6AU,0x6BU,0xEBU,0x27U,0x3FU,0xABU,0x39U,
@@ -35,7 +36,9 @@ const TecmoGameplayPenaltyExpectedSource
         {TECMO_GAMEPLAY_PENALTY_SOURCE_RELEASE_INPUT_HELPER,
          PENALTY_FIXED_BANK, 1U, 0xD2B9U, 22U, 0x0DDA3C9AU},
         {TECMO_GAMEPLAY_PENALTY_SOURCE_VIOLATION_SELECTOR_PRESENTATION,
-         3U, 0U, 0xBE87U, 290U, 0xC8FFCCEDU}
+         3U, 0U, 0xBE87U, 290U, 0xC8FFCCEDU},
+        {TECMO_GAMEPLAY_PENALTY_SOURCE_PRESENTATION_CUE_REQUEST,
+         4U, 0U, 0xBA1FU, 32U, 0xF56AD5D8U}
     };
 
 const uint8_t tecmo_gameplay_penalty_expected_rules[
@@ -69,7 +72,7 @@ const uint8_t tecmo_gameplay_penalty_expected_selectors[
 
 #define PENALTY_VIOLATION_RECORD(selector, five_seconds) \
     selector, selector, five_seconds, 2U, \
-    4U, 0U, 120U, 0U, 0x80U, 2U, 6U, 5U, 5U, 0U, 0U, 0U
+    4U, 0U, 120U, 0U, 0x80U, 2U, 6U, 5U, 5U, 0U, 16U, 0U
 
 const uint8_t tecmo_gameplay_penalty_expected_violations[
     TECMO_GAMEPLAY_PENALTY_VIOLATION_COUNT *
@@ -88,13 +91,144 @@ const uint8_t tecmo_gameplay_penalty_expected_violations[
 const uint8_t tecmo_gameplay_penalty_expected_presentations[
     PENALTY_PRESENTATION_COUNT *
         TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_PRESENTATION_STRIDE] = {
-    1U, 0U, 0U, 0U, 5U, 5U, 1U, 0U,
+    1U, 0U, 0U, 6U, 5U, 5U, 1U, 0U,
     4U, 0U, 160U, 0U, 0x80U, 2U,
-    0U,0U,0U,0U,0U,0U,0U,0U,0U,0U,
+    16U,0U,0U,0U,0U,0U,0U,0U,0U,0U,
     2U, 1U, 7U, 6U, 5U, 5U, 1U, 0U,
     4U, 0U, 120U, 0U, 0x80U, 2U,
-    0U,0U,0U,0U,0U,0U,0U,0U,0U,0U
+    16U,0U,0U,0U,0U,0U,0U,0U,0U,0U
 };
+
+static uint32_t sha256_rotate_right(uint32_t value, unsigned shift)
+{
+    return (value >> shift) | (value << (32U - shift));
+}
+
+static void sha256_transform(uint32_t state[8], const uint8_t block[64])
+{
+    static const uint32_t constants[64] = {
+        0x428A2F98U,0x71374491U,0xB5C0FBCFU,0xE9B5DBA5U,
+        0x3956C25BU,0x59F111F1U,0x923F82A4U,0xAB1C5ED5U,
+        0xD807AA98U,0x12835B01U,0x243185BEU,0x550C7DC3U,
+        0x72BE5D74U,0x80DEB1FEU,0x9BDC06A7U,0xC19BF174U,
+        0xE49B69C1U,0xEFBE4786U,0x0FC19DC6U,0x240CA1CCU,
+        0x2DE92C6FU,0x4A7484AAU,0x5CB0A9DCU,0x76F988DAU,
+        0x983E5152U,0xA831C66DU,0xB00327C8U,0xBF597FC7U,
+        0xC6E00BF3U,0xD5A79147U,0x06CA6351U,0x14292967U,
+        0x27B70A85U,0x2E1B2138U,0x4D2C6DFCU,0x53380D13U,
+        0x650A7354U,0x766A0ABBU,0x81C2C92EU,0x92722C85U,
+        0xA2BFE8A1U,0xA81A664BU,0xC24B8B70U,0xC76C51A3U,
+        0xD192E819U,0xD6990624U,0xF40E3585U,0x106AA070U,
+        0x19A4C116U,0x1E376C08U,0x2748774CU,0x34B0BCB5U,
+        0x391C0CB3U,0x4ED8AA4AU,0x5B9CCA4FU,0x682E6FF3U,
+        0x748F82EEU,0x78A5636FU,0x84C87814U,0x8CC70208U,
+        0x90BEFFFAU,0xA4506CEBU,0xBEF9A3F7U,0xC67178F2U
+    };
+    uint32_t words[64];
+    uint32_t a;
+    uint32_t b;
+    uint32_t c;
+    uint32_t d;
+    uint32_t e;
+    uint32_t f;
+    uint32_t g;
+    uint32_t h;
+    for (size_t index = 0U; index < 16U; ++index) {
+        size_t offset = index * 4U;
+        words[index] = ((uint32_t)block[offset] << 24U) |
+                       ((uint32_t)block[offset + 1U] << 16U) |
+                       ((uint32_t)block[offset + 2U] << 8U) |
+                       (uint32_t)block[offset + 3U];
+    }
+    for (size_t index = 16U; index < 64U; ++index) {
+        uint32_t prior = words[index - 15U];
+        uint32_t recent = words[index - 2U];
+        uint32_t sigma0 = sha256_rotate_right(prior, 7U) ^
+                          sha256_rotate_right(prior, 18U) ^ (prior >> 3U);
+        uint32_t sigma1 = sha256_rotate_right(recent, 17U) ^
+                          sha256_rotate_right(recent, 19U) ^ (recent >> 10U);
+        words[index] = words[index - 16U] + sigma0 +
+                       words[index - 7U] + sigma1;
+    }
+    a = state[0U];
+    b = state[1U];
+    c = state[2U];
+    d = state[3U];
+    e = state[4U];
+    f = state[5U];
+    g = state[6U];
+    h = state[7U];
+    for (size_t index = 0U; index < 64U; ++index) {
+        uint32_t choice = (e & f) ^ ((~e) & g);
+        uint32_t majority = (a & b) ^ (a & c) ^ (b & c);
+        uint32_t sum0 = sha256_rotate_right(a, 2U) ^
+                        sha256_rotate_right(a, 13U) ^
+                        sha256_rotate_right(a, 22U);
+        uint32_t sum1 = sha256_rotate_right(e, 6U) ^
+                        sha256_rotate_right(e, 11U) ^
+                        sha256_rotate_right(e, 25U);
+        uint32_t temp1 = h + sum1 + choice + constants[index] + words[index];
+        uint32_t temp2 = sum0 + majority;
+        h = g;
+        g = f;
+        f = e;
+        e = d + temp1;
+        d = c;
+        c = b;
+        b = a;
+        a = temp1 + temp2;
+    }
+    state[0U] += a;
+    state[1U] += b;
+    state[2U] += c;
+    state[3U] += d;
+    state[4U] += e;
+    state[5U] += f;
+    state[6U] += g;
+    state[7U] += h;
+}
+
+static bool sha256_digest(const uint8_t *bytes,
+                          size_t byte_count,
+                          uint8_t digest[32])
+{
+    uint32_t state[8] = {
+        0x6A09E667U,0xBB67AE85U,0x3C6EF372U,0xA54FF53AU,
+        0x510E527FU,0x9B05688CU,0x1F83D9ABU,0x5BE0CD19U
+    };
+    uint8_t tail[128];
+    size_t full_bytes = byte_count - byte_count % 64U;
+    size_t remainder = byte_count - full_bytes;
+    size_t padded_size;
+    uint64_t bit_count;
+    if (bytes == NULL || digest == NULL ||
+        (uint64_t)byte_count > UINT64_MAX / 8ULL) {
+        return false;
+    }
+    for (size_t offset = 0U; offset < full_bytes; offset += 64U) {
+        sha256_transform(state, bytes + offset);
+    }
+    memset(tail, 0, sizeof(tail));
+    memcpy(tail, bytes + full_bytes, remainder);
+    tail[remainder] = 0x80U;
+    padded_size = remainder < 56U ? 64U : 128U;
+    bit_count = (uint64_t)byte_count * 8ULL;
+    for (size_t index = 0U; index < 8U; ++index) {
+        tail[padded_size - 1U - index] =
+            (uint8_t)(bit_count >> (index * 8U));
+    }
+    sha256_transform(state, tail);
+    if (padded_size == 128U) {
+        sha256_transform(state, tail + 64U);
+    }
+    for (size_t index = 0U; index < 8U; ++index) {
+        digest[index * 4U] = (uint8_t)(state[index] >> 24U);
+        digest[index * 4U + 1U] = (uint8_t)(state[index] >> 16U);
+        digest[index * 4U + 2U] = (uint8_t)(state[index] >> 8U);
+        digest[index * 4U + 3U] = (uint8_t)state[index];
+    }
+    return true;
+}
 
 static bool range_ok(uint64_t offset, uint64_t count, uint64_t total)
 {
@@ -130,6 +264,13 @@ static int validate_semantic_anchors(const uint8_t *rom,
     static const uint8_t defensive_selector[] = {
         0xADU,0x78U,0x04U,0xF0U,0x04U,0xA9U,0x01U,0x85U,0x84U
     };
+    static const uint8_t screen22_dispatch[] = {
+        0xA9U,0x22U,0x20U,0x11U,0xC7U
+    };
+    static const uint8_t delayed_cue_request[] = {
+        0xA9U,0x10U,0x20U,0x00U,0xC0U,
+        0xA9U,0x06U,0x20U,0x09U,0xC0U
+    };
     static const uint8_t foul_wait[] = {0xA0U,0xA0U,0x20U,0x14U,0xEAU};
     static const uint8_t violation_wait[] = {0xA0U,0x78U,0x20U,0x14U,0xEAU};
     static const uint8_t release_gate[] = {
@@ -139,11 +280,16 @@ static int validate_semantic_anchors(const uint8_t *rom,
     static const uint8_t release_a[] = {0xA9U,0x80U,0xD0U,0x02U,0xA9U,0x40U};
     uint64_t bank05 = prg_offset + 5ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES;
     uint64_t bank02 = prg_offset + 2ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES;
+    uint64_t bank03 = prg_offset + 3ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES;
+    uint64_t bank04 = prg_offset + 4ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES;
     uint64_t fixed = prg_offset +
         (uint64_t)(prg_banks - 1U) * TECMO_ASSET_PACK_PRG_BANK_BYTES;
     uint64_t individual_offset = bank05 + (0x95BEU - 0x8000U);
     uint64_t offensive_offset = bank02 + (0xB148U - 0x8000U);
     uint64_t defensive_offset = bank02 + (0xB185U - 0x8000U);
+    uint64_t foul_screen_offset = fixed + (0xE96CU - 0xC000U);
+    uint64_t violation_screen_offset = bank03 + (0xBE9CU - 0x8000U);
+    uint64_t delayed_cue_offset = bank04 + (0xBA35U - 0x8000U);
     uint64_t foul_wait_offset = fixed + (0xE971U - 0xC000U);
     uint64_t violation_wait_offset = fixed + (0xECBAU - 0xC000U);
     uint64_t release_gate_offset = fixed + (0xEA14U - 0xC000U);
@@ -151,6 +297,11 @@ static int validate_semantic_anchors(const uint8_t *rom,
     if (!range_ok(individual_offset, sizeof(individual_cap), rom_size) ||
         !range_ok(offensive_offset, sizeof(offensive_selector), rom_size) ||
         !range_ok(defensive_offset, sizeof(defensive_selector), rom_size) ||
+        !range_ok(foul_screen_offset, sizeof(screen22_dispatch), rom_size) ||
+        !range_ok(violation_screen_offset,
+                  sizeof(screen22_dispatch), rom_size) ||
+        !range_ok(delayed_cue_offset,
+                  sizeof(delayed_cue_request), rom_size) ||
         !range_ok(foul_wait_offset, sizeof(foul_wait), rom_size) ||
         !range_ok(violation_wait_offset, sizeof(violation_wait), rom_size) ||
         !range_ok(release_gate_offset, sizeof(release_gate), rom_size) ||
@@ -161,6 +312,12 @@ static int validate_semantic_anchors(const uint8_t *rom,
                offensive_selector, sizeof(offensive_selector)) != 0 ||
         memcmp(rom + (size_t)defensive_offset,
                defensive_selector, sizeof(defensive_selector)) != 0 ||
+        memcmp(rom + (size_t)foul_screen_offset,
+               screen22_dispatch, sizeof(screen22_dispatch)) != 0 ||
+        memcmp(rom + (size_t)violation_screen_offset,
+               screen22_dispatch, sizeof(screen22_dispatch)) != 0 ||
+        memcmp(rom + (size_t)delayed_cue_offset,
+               delayed_cue_request, sizeof(delayed_cue_request)) != 0 ||
         memcmp(rom + (size_t)foul_wait_offset,
                foul_wait, sizeof(foul_wait)) != 0 ||
         memcmp(rom + (size_t)violation_wait_offset,
@@ -189,6 +346,7 @@ int tecmo_asset_pack_build_gameplay_penalties(
     char *message,
     size_t message_size)
 {
+    uint8_t input_sha256[32];
     if (rom == NULL || payload == NULL || provenance == NULL ||
         payload_size != TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_SIZE ||
         prg_banks != PENALTY_PRG_BANK_COUNT ||
@@ -235,6 +393,15 @@ int tecmo_asset_pack_build_gameplay_penalties(
     }
     if (validate_semantic_anchors(rom, rom_size, prg_offset, prg_banks,
                                   message, message_size) != 0) {
+        return -1;
+    }
+    if (rom_size != PENALTY_REV1_ROM_SIZE || rom_size > (uint64_t)SIZE_MAX ||
+        !sha256_digest(rom, (size_t)rom_size, input_sha256) ||
+        memcmp(input_sha256, penalty_rev1_sha256,
+               sizeof(input_sha256)) != 0) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TPNL-1 full-ROM SHA-256 mismatch for target Rev1.");
         return -1;
     }
 
@@ -333,10 +500,19 @@ int tecmo_asset_pack_build_gameplay_penalties(
 int tecmo_asset_pack_gameplay_penalties_self_test(char *message,
                                                   size_t message_size)
 {
+    static const uint8_t sha256_abc[32] = {
+        0xBAU,0x78U,0x16U,0xBFU,0x8FU,0x01U,0xCFU,0xEAU,
+        0x41U,0x41U,0x40U,0xDEU,0x5DU,0xAEU,0x22U,0x23U,
+        0xB0U,0x03U,0x61U,0xA3U,0x96U,0x17U,0x7AU,0x9CU,
+        0xB4U,0x10U,0xFFU,0x61U,0xF2U,0x00U,0x15U,0xADU
+    };
     uint8_t truncated_rom[16] = {0};
     uint8_t payload[TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_SIZE];
+    uint8_t digest[32];
     TecmoGameplayPenaltyProvenance provenance;
-    if (sizeof(tecmo_gameplay_penalty_expected_rules) !=
+    if (!sha256_digest((const uint8_t *)"abc", 3U, digest) ||
+        memcmp(digest, sha256_abc, sizeof(digest)) != 0 ||
+        sizeof(tecmo_gameplay_penalty_expected_rules) !=
             TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_RULES_SIZE ||
         sizeof(tecmo_gameplay_penalty_expected_classes) !=
             TECMO_GAMEPLAY_PENALTY_FOUL_CLASS_COUNT *

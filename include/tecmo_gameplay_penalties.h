@@ -7,7 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define TECMO_GAMEPLAY_PENALTY_SOURCE_COUNT 7U
+#define TECMO_GAMEPLAY_PENALTY_SOURCE_COUNT 8U
 #define TECMO_GAMEPLAY_PENALTY_FOUL_CLASS_COUNT 3U
 #define TECMO_GAMEPLAY_PENALTY_VIOLATION_COUNT 7U
 #define TECMO_GAMEPLAY_PENALTY_ACTOR_SLOT_COUNT 10U
@@ -19,7 +19,8 @@ typedef enum TecmoGameplayPenaltySourceKind {
     TECMO_GAMEPLAY_PENALTY_SOURCE_RELEASE_GATE = 4,
     TECMO_GAMEPLAY_PENALTY_SOURCE_VIOLATION_SCRIPT = 5,
     TECMO_GAMEPLAY_PENALTY_SOURCE_RELEASE_INPUT_HELPER = 6,
-    TECMO_GAMEPLAY_PENALTY_SOURCE_VIOLATION_SELECTOR_PRESENTATION = 7
+    TECMO_GAMEPLAY_PENALTY_SOURCE_VIOLATION_SELECTOR_PRESENTATION = 7,
+    TECMO_GAMEPLAY_PENALTY_SOURCE_PRESENTATION_CUE_REQUEST = 8
 } TecmoGameplayPenaltySourceKind;
 
 typedef enum TecmoGameplayFoulClass {
@@ -54,11 +55,13 @@ typedef struct TecmoGameplayPenaltyPresentation {
     TecmoGameplayPenaltyPresentationKind kind;
     uint8_t selector_min;
     uint8_t selector_max;
-    uint8_t entry_sfx_id;
+    /* Delay is internal to the shared screen-$22 routine before its C009 request. */
+    uint8_t presentation_sfx_id;
     uint8_t live_restart_sfx_id;
     uint8_t live_restart_music_id;
     uint16_t lead_in_frames;
     uint16_t maximum_wait_frames;
+    uint16_t presentation_sfx_delay_frames;
     uint8_t release_button_mask;
     uint8_t controller_count;
 } TecmoGameplayPenaltyPresentation;

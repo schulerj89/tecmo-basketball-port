@@ -174,7 +174,9 @@ static bool validate_sources(const uint8_t *payload)
             read_u32(record + 8U) != expected->byte_count ||
             read_u32(record + 12U) != expected->fingerprint ||
             read_u16(record + 16U) != (uint16_t)index ||
-            !bytes_are_zero(record + 18U, 14U)) {
+            !bytes_are_zero(
+                record + 18U,
+                TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_SOURCE_STRIDE - 18U)) {
             return false;
         }
     }
@@ -483,11 +485,12 @@ static void decode_presentation(const uint8_t *record,
         (TecmoGameplayPenaltyPresentationKind)record[0U];
     presentation->selector_min = record[1U];
     presentation->selector_max = record[2U];
-    presentation->entry_sfx_id = record[3U];
+    presentation->presentation_sfx_id = record[3U];
     presentation->live_restart_sfx_id = record[4U];
     presentation->live_restart_music_id = record[5U];
     presentation->lead_in_frames = read_u16(record + 8U);
     presentation->maximum_wait_frames = read_u16(record + 10U);
+    presentation->presentation_sfx_delay_frames = read_u16(record + 14U);
     presentation->release_button_mask = record[12U];
     presentation->controller_count = record[13U];
 }
@@ -543,7 +546,9 @@ bool tecmo_gameplay_penalties_get_violation(
         read_u16(record + 6U) != presentation->maximum_wait_frames ||
         record[8U] != presentation->release_button_mask ||
         record[9U] != presentation->controller_count ||
-        record[10U] != presentation->entry_sfx_id) {
+        record[10U] != presentation->presentation_sfx_id ||
+        read_u16(record + 14U) !=
+            presentation->presentation_sfx_delay_frames) {
         return false;
     }
     *violation = (TecmoGameplayViolation)record[1U];
@@ -587,6 +592,7 @@ bool tecmo_gameplay_penalties_self_test(const char *asset_pack_path,
     TecmoGameplayPenaltyPresentation presentation;
     TecmoGameplayViolation violation;
     const TecmoGameplayPenaltySourceSpan *rules_source;
+    const TecmoGameplayPenaltySourceSpan *cue_source;
     bool passed = false;
     tecmo_gameplay_penalties_init(&assets);
     memset(&context, 0, sizeof(context));
@@ -610,15 +616,22 @@ bool tecmo_gameplay_penalties_self_test(const char *asset_pack_path,
     }
     rules_source = tecmo_gameplay_penalties_find_source(
         &assets, TECMO_GAMEPLAY_PENALTY_SOURCE_FOUL_RULES_PRESENTATION);
+    cue_source = tecmo_gameplay_penalties_find_source(
+        &assets, TECMO_GAMEPLAY_PENALTY_SOURCE_PRESENTATION_CUE_REQUEST);
     if (rules_source == NULL || rules_source->bank != 2U ||
         rules_source->fixed_bank || rules_source->cpu_start != 0xB0F8U ||
         rules_source->cpu_end != 0xB398U ||
         rules_source->byte_count != 673U ||
         rules_source->fingerprint != 0xA06E397CU ||
+        cue_source == NULL || cue_source->bank != 4U ||
+        cue_source->fixed_bank || cue_source->cpu_start != 0xBA1FU ||
+        cue_source->cpu_end != 0xBA3EU ||
+        cue_source->byte_count != 32U ||
+        cue_source->fingerprint != 0xF56AD5D8U ||
         tecmo_gameplay_penalties_find_source(
             &assets, (TecmoGameplayPenaltySourceKind)0) != NULL ||
         tecmo_gameplay_penalties_find_source(
-            &assets, (TecmoGameplayPenaltySourceKind)8) != NULL) {
+            &assets, (TecmoGameplayPenaltySourceKind)9) != NULL) {
         (void)snprintf(message, message_size,
                        "source provenance contract failed");
         goto cleanup;
@@ -742,13 +755,21 @@ bool tecmo_gameplay_penalties_self_test(const char *asset_pack_path,
         presentation.maximum_wait_frames != 120U ||
         presentation.release_button_mask != 0x80U ||
         presentation.controller_count != 2U ||
-        presentation.entry_sfx_id != 6U ||
+        presentation.presentation_sfx_id != 6U ||
+        presentation.presentation_sfx_delay_frames != 16U ||
+        presentation.live_restart_sfx_id != 5U ||
+        presentation.live_restart_music_id != 5U ||
         !tecmo_gameplay_penalties_get_presentation(
             &assets, TECMO_GAMEPLAY_PENALTY_PRESENTATION_FOUL,
             0U, &presentation) ||
         presentation.lead_in_frames != 4U ||
         presentation.maximum_wait_frames != 160U ||
-        presentation.entry_sfx_id != 0U ||
+        presentation.presentation_sfx_id != 6U ||
+        presentation.presentation_sfx_delay_frames != 16U ||
+        presentation.live_restart_sfx_id != 5U ||
+        presentation.live_restart_music_id != 5U ||
+        presentation.release_button_mask != 0x80U ||
+        presentation.controller_count != 2U ||
         tecmo_gameplay_penalties_get_violation(
             &assets, 0U, &violation, &presentation) ||
         tecmo_gameplay_penalties_get_violation(
@@ -793,7 +814,7 @@ bool tecmo_gameplay_penalties_self_test(const char *asset_pack_path,
 
     (void)snprintf(
         message, message_size,
-        "TPNL-1 penalty assets passed: sources=7 classes=3 violations=7 caps=6/5 bonus=5/4 selectors=2FT:8,1FT:2");
+        "TPNL-1 penalty assets passed: sources=8 classes=3 violations=7 caps=6/5 bonus=5/4 selectors=2FT:8,1FT:2 cue=6@16");
     passed = true;
 
 cleanup:

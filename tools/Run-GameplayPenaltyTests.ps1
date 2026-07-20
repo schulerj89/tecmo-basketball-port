@@ -34,7 +34,7 @@ if (!$Scratch.StartsWith($BuildPrefix,
 }
 $PackPath = Join-Path $Scratch "penalties.assetpack"
 $ExpectedOutput =
-    "TPNL-1 penalty assets passed: sources=7 classes=3 violations=7 caps=6/5 bonus=5/4 selectors=2FT:8,1FT:2"
+    "TPNL-1 penalty assets passed: sources=8 classes=3 violations=7 caps=6/5 bonus=5/4 selectors=2FT:8,1FT:2 cue=6@16"
 $PreviousSkipShortcut = $env:TECMO_SKIP_SHORTCUT
 
 function Get-ShortTail {
@@ -191,7 +191,7 @@ try {
     $SourceMapEntry = Get-AssetPackEntry $PackBytes "system/source-map"
     $Payload = Get-EntryBytes $PackBytes $PenaltyEntry
     if ($PenaltyEntry.byte_count -ne 768 -or
-        (Get-Fnv1a32 $Payload) -ne "51B68D63") {
+        (Get-Fnv1a32 $Payload) -ne "980DDC76") {
         throw "gameplay/penalties size or canonical fingerprint changed."
     }
     Invoke-PenaltyAssetTest $PackPath $true
@@ -222,16 +222,18 @@ try {
         @{ bank=7; fixed=$true;  start=0xEA14; size=28;  hash="D9D3C9CE" },
         @{ bank=7; fixed=$true;  start=0xEC5B; size=186; hash="288C2162" },
         @{ bank=7; fixed=$true;  start=0xD2B9; size=22;  hash="0DDA3C9A" },
-        @{ bank=3; fixed=$false; start=0xBE87; size=290; hash="C8FFCCED" }
+        @{ bank=3; fixed=$false; start=0xBE87; size=290; hash="C8FFCCED" },
+        @{ bank=4; fixed=$false; start=0xBA1F; size=32;  hash="F56AD5D8" }
     )
     $MapOk = $PenaltyMaps.Count -eq 1
     if ($MapOk) {
         $Map = $PenaltyMaps[0]
         $MapOk = $Map.schema -eq "tecmo.gameplay-penalties/TPNL-1" -and
             $Map.size -eq 768 -and
-            $Map.fingerprint_fnv1a32 -eq "51B68D63" -and
+            $Map.fingerprint_fnv1a32 -eq "980DDC76" -and
             $Map.revision_sha256 -eq
                 "076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4" -and
+            [bool]$Map.revision_sha256_verified -and
             @($Map.dependencies).Count -eq 2 -and
             $Map.dependencies[0].entry -eq "gameplay/core" -and
             $Map.dependencies[0].size -eq 23416 -and
@@ -239,7 +241,7 @@ try {
             $Map.dependencies[1].entry -eq "audio/gameplay-sfx" -and
             $Map.dependencies[1].size -eq 2824 -and
             $Map.dependencies[1].fingerprint_fnv1a32 -eq "968A5DE6" -and
-            @($Map.source_spans).Count -eq 7 -and
+            @($Map.source_spans).Count -eq 8 -and
             $Map.rules.individual_foul_cap -eq 6 -and
             $Map.rules.team_foul_cap -eq 5 -and
             $Map.rules.regulation_bonus_threshold -eq 5 -and
@@ -250,10 +252,23 @@ try {
                 '8,9' -and
             $Map.presentations.foul.lead_in_frames -eq 4 -and
             $Map.presentations.foul.maximum_wait_frames -eq 160 -and
+            $Map.presentations.foul.screen_selector -eq 34 -and
+            $Map.presentations.foul.presentation_sfx_id -eq 6 -and
+            $Map.presentations.foul.presentation_sfx_delay_frames -eq 16 -and
+            $Map.presentations.foul.live_restart_sfx_id -eq 5 -and
+            $Map.presentations.foul.live_restart_music_id -eq 5 -and
             $Map.presentations.violation.five_seconds_selector -eq 3 -and
             $Map.presentations.violation.lead_in_frames -eq 4 -and
             $Map.presentations.violation.maximum_wait_frames -eq 120 -and
-            $Map.presentations.release.nes_a_mask -eq 128
+            $Map.presentations.violation.screen_selector -eq 34 -and
+            $Map.presentations.violation.presentation_sfx_id -eq 6 -and
+            $Map.presentations.violation.presentation_sfx_delay_frames -eq 16 -and
+            $Map.presentations.violation.live_restart_sfx_id -eq 5 -and
+            $Map.presentations.violation.live_restart_music_id -eq 5 -and
+            $Map.presentations.release.initial_delay_frames -eq 4 -and
+            $Map.presentations.release.poll_interval_frames -eq 1 -and
+            $Map.presentations.release.nes_a_mask -eq 128 -and
+            $Map.presentations.release.controller_count -eq 2
         if ($MapOk) {
             for ($Index = 0; $Index -lt $ExpectedSpans.Count; ++$Index) {
                 $Expected = $ExpectedSpans[$Index]
@@ -289,18 +304,24 @@ try {
         @{ id="magic"; offset=0 },
         @{ id="version"; offset=4 },
         @{ id="declared-size"; offset=8 },
+        @{ id="source-stride"; offset=14 },
         @{ id="core-dependency"; offset=64 },
         @{ id="sfx-dependency"; offset=76 },
         @{ id="revision"; offset=104 },
         @{ id="header-reserved"; offset=136 },
         @{ id="source-record"; offset=256 },
         @{ id="source-reserved"; offset=274 },
+        @{ id="shared-cue-source-record"; offset=452 },
         @{ id="rule-cap"; offset=480 },
         @{ id="foul-class"; offset=544 },
         @{ id="attempt-selector"; offset=592 },
         @{ id="five-second-selector"; offset=640 },
+        @{ id="violation-cue-delay"; offset=654 },
         @{ id="foul-presentation"; offset=720 },
-        @{ id="violation-presentation"; offset=744 }
+        @{ id="foul-presentation-cue"; offset=723 },
+        @{ id="foul-presentation-cue-delay"; offset=734 },
+        @{ id="violation-presentation"; offset=744 },
+        @{ id="violation-presentation-cue-delay"; offset=758 }
     )) {
         Write-MutatedPackAndReject $PackBytes $PenaltyEntry `
             $Mutation.id $Mutation.offset
@@ -356,6 +377,8 @@ try {
     }
 
     $RomBytes = [IO.File]::ReadAllBytes($RomPath)
+    Invoke-RejectedRomMutation $RomBytes "full-rom-header-reserved" 15 `
+        "full-ROM SHA-256 mismatch"
     $Trainer = if (($RomBytes[6] -band 4) -ne 0) { 512 } else { 0 }
     $Prg = 16 + $Trainer
     $RomMutationCount = 0
@@ -379,8 +402,9 @@ try {
     }
 
     Write-Host ("TPNL-1 focused tests passed: canonical, pure M01/M06/M07 " +
-        "rules, selector-3 timing, strict provenance, malformed/missing/" +
-        "wrong-sized/cross-pack dependencies, $RomMutationCount Rev1 mutations")
+        "rules, shared cue 6 at 16 frames, full-ROM SHA-256, strict " +
+        "provenance, malformed/missing/wrong-sized/cross-pack dependencies, " +
+        "$RomMutationCount source mutations")
     $global:LASTEXITCODE = 0
 } finally {
     $env:TECMO_SKIP_SHORTCUT = $PreviousSkipShortcut
