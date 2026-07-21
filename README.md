@@ -19,6 +19,26 @@ Do not use this project to distribute copyrighted game data, bypass ownership of
 
 The tooling expects any private decompilation or asset workspace to live outside this repository.
 
+## Current Status
+
+The port currently supports an end-to-end native path from the opening sequence
+through a completed preseason or season game. It is not yet a complete or
+frame-identical recreation of on-court gameplay.
+
+| Area | Current boundary |
+| --- | --- |
+| Opening and title | Supported: TECMO/rabbit, NBA license, arena, post-PASS finale, attract continuation, title, and title confirmation |
+| Blue start-game menu | Supported: root navigation, settings popups, season-page slide, input repeat/release behavior, fades, and return state |
+| Preseason | Supported through team selection, native game launch, completed result, and return to PRESEASON |
+| Season | Supported for TEAM CONTROL, schedule/playoffs, standings/programmed results, GAME START, persistent records, and one-time result commit |
+| Team Data | Supported for team profiles, rosters, player detail, STARTERS, and PLAYBOOK |
+| All Star | Partial: selectors work, but the route stops before game launch |
+| League Leaders | Partial: category navigation works; ranked player results remain unavailable until per-player season statistics are ported |
+| Gameplay | Playable full-game shell with movement, passing, defender switching, close shots, one verified ordinary-jump miss, fouls/free throws, clocks, periods, halftime, overtime/final, audio, and result handoff; much of the basketball simulation remains approximate |
+
+Normal play is asset-pack-only. It does not load decompilation files, Lua
+traces, screenshots, save states, dumps, or emulator captures at runtime.
+
 ## Build
 
 PowerShell with Visual Studio C++ tools installed:
@@ -33,6 +53,19 @@ The script locates Visual Studio via `vswhere` and builds:
 build\tecmo_port_game.exe  GUI game launch (no terminal window)
 build\tecmo_port.exe       console CLI and development tools
 ```
+
+The build creates the executables, but it cannot include proprietary game
+data. Before normal play on a fresh checkout, create the ignored local asset
+pack from a legally obtained Rev 1 ROM:
+
+```powershell
+.\build\tecmo_port.exe --build-assetpack <LOCAL_REV1_ROM.nes> .\build\tecmo.assetpack
+```
+
+The currently supported ROM is **Tecmo NBA Basketball (USA) (NES-BK)
+(Rev 1)** with SHA-256
+`076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4`.
+Wrong revisions and malformed inputs fail closed.
 
 Each successful build also refreshes a local Desktop shortcut named:
 
@@ -103,41 +136,46 @@ rows. ALL STAR still ends at its documented prelaunch boundary, and League
 Leaders does not fabricate ranked player results until per-player season
 accumulators are ported.
 
-During gameplay, directions move the owned actor, NES A passes on offense or
-switches defenders, and NES B starts a shot on offense or attempts a defensive
-steal/contact action. START and SELECT are inert. The current scene includes
-ordinary jump shots, the ROM's dunk (numeric variant 0) and layup (numeric
-variant 2) close-shot families, score and
-possession changes, shot-clock violations, fouls/free throws, period banners,
-halftime, overtime/final handling, crowd/gameplay audio, and result handoff.
-Static court/CHR/palette assets, the embedded FCEUX RGB profile, numeric
-close-shot step tables, the narrowed TGJS/TGSR slot-0 terminal miss and
-claimant decision, rules timing, and audio programs are ROM-derived. That jump
-keeps the score unchanged, hands possession to an approximate opposing actor,
-and uses the ROM-backed 11-then-12/13 result mailbox; zero-clock settlement
-retains the current side and crowd 11. Actor layout, movement/AI, other
-ordinary-jump profiles/outcomes, jump-ball geometry, general shot policy, dynamic
-team/court palette selection, live close-shot profile/direction choice and
-left-facing mirroring, contact/foul detection, free-throw lineup, aim, results,
-rebounds, CPU positioning/script behavior, and the temporary HUD typography
-remain native approximations. Human free throws already use the scoring team's
-current NES B level with no timeout; unassigned CPU sides use the bounded
-observed 125-update launch schedule. The strict pose asset
-stores 208 exact TGCS profile/direction resolutions into TGPL pose data; live
-play currently selects only profile 0/direction 0.
-The dunk also uses the strict ROM-derived TGDK-1 cutaway: black transition,
-screen `$0B`, both side-specific seven-stage sprite streams, palette/CHR
-selection, live return, frame-87 address-bound A9C5 audio, and frame-132 settlement.
-The A9C5 clip remains address-bound and unresolved; its observation at that
-variant-0 checkpoint does not prove meaning or exclusivity. The current
-distance trigger, make/miss result, and dynamic uniform selection remain native
-policies.
+### Gameplay that works today
 
-`gameplay/shot-resolution` TGSR-1 is a strict 384-byte same-pack dependency of
-the scene. `gameplay/penalties` TPNL-1 is a separate strict 768-byte pure rules
-foundation; the live scene's current synthetic contact/foul branches do not
-yet consume it. Generic jump makes, the longer +157-update claimant route, and
-semantic rebound/block/steal handling remain unsupported.
+- Directions move the owned actor.
+- NES A passes on offense and switches defenders on defense.
+- NES B starts an offensive shot or attempts the current defensive
+  steal/contact action. START and SELECT are inert during live play.
+- The close-shot system exposes the ROM's numeric variant 0 dunk family and
+  numeric variant 2 layup family. Their live distance trigger and make/miss
+  policy are still native approximations.
+- The dunk uses the strict ROM-derived TGDK-1 cutaway, including its black
+  transitions, screen `$0B`, seven staged sprite groups, return to live play,
+  address-bound A9C5 audio checkpoint, and frame-132 settlement.
+- Ordinary-jump support is deliberately narrow: only the captured human
+  away-side, right-facing family-0/profile-0/direction-1 terminal miss is
+  supported. It awards no points and changes possession at frame 87. Generic
+  jump makes and other profiles, directions, and outcomes are not implemented.
+- The scene advances the game and shot clocks, score, possession, shot-clock
+  violations, current native foul/free-throw flow, period banners, halftime,
+  overtime/final presentation, and preseason/season result handoff.
+- Human free throws launch from the scoring team's current NES B level and
+  have no timeout. CPU free throws use the bounded observed 125-update
+  schedule; lineup, aim, outcome, rebound, and CPU positioning remain
+  approximations.
+
+### ROM-derived versus approximate
+
+Strict ROM-derived data currently covers the static court, CHR and palette
+entries, embedded FCEUX RGB profile, actor pose data, numeric close-shot step
+tables, dunk cutaway, the one bounded jump-miss route and settlement decision,
+rules timing, and native music/SFX/DMC programs. Every required gameplay entry
+is loaded from the same revision-fingerprinted asset pack with exact-size and
+malformed-data checks.
+
+The actor and camera layout, movement and AI, jump-ball geometry, general shot
+selection and make/miss policy, dynamic matchup palettes and uniforms, live
+close-shot profile/direction selection, left-facing mirroring, contact/foul
+detection, free-throw simulation, rebounds, blocks, steals, per-player game
+statistics, and temporary HUD typography remain native approximations or are
+unsupported. `gameplay/penalties` TPNL-1 contains strict ROM-backed rule data,
+but the live scene's current contact/foul code does not consume it yet.
 
 Opening music plays from the strict ROM-derived semantic music asset. GAME
 MUSIC gates gameplay track 5 and the evidence-bounded restart cue; halftime and
@@ -213,7 +251,17 @@ Build a private local asset pack from a local iNES image:
 .\build\tecmo_port.exe --build-assetpack <LOCAL_ROM.nes> build\tecmo.assetpack
 ```
 
-Generated `.assetpack` files are ignored local data. The default builder writes `system/manifest`, `system/source-map`, raw `prg/*` entries, raw `chr/*` entries, and reserves logical namespaces for later decomp-derived entries.
+Generated `.assetpack` files are ignored local data. Every pack includes the
+manifest, sanitized source map, and raw PRG/CHR entries used by the strict
+logical assets.
+
+The current Rev 1 builder emits a 74-entry pack. In addition to the raw PRG and
+CHR entries, it contains strict logical assets for the opening, arena, finale,
+title, blue menu, preseason, Team Data, team management, season state, music,
+gameplay audio, court, poses, close shots, dunk presentation, the bounded jump
+route, shot-resolution rules, and penalty rules. These entries are derived
+directly from the local ROM during pack construction; decompilation files and
+captures are not pack inputs.
 
 The normal Desktop launch resolves native assets from `TECMO_ASSETPACK` or the
 port's `build\tecmo.assetpack`. Loose decomp fallbacks remain development-only
@@ -224,11 +272,12 @@ for explicit console commands.
 The project is actively porting the original game into native C modules. Current work includes:
 
 - a native Win32 runtime and software framebuffer
-- local private decomp/asset discovery tools
-- roster parsing from private local labels
+- a strict Rev 1 ROM-to-asset-pack pipeline for normal play
+- legacy private decomp/asset inspection tools for explicit developer commands
 - Bank07 fixed-helper C counterparts
-- the opening sequence path, including the TECMO/rabbit intro, NBA license screen, and arena transition
-- native preseason/season gameplay with strict court, pose, state, and audio assets
+- the native opening, title, blue menu, preseason, Team Data, and season paths
+- a playable but incomplete native gameplay scene with strict court, pose,
+  close-shot, dunk, jump-miss, rules, state, and audio assets
 - focused render-test modes for visual regression checks
 
 The public repo remains source-only. Local CHR, OAM, palette, nametable, roster, trace, screenshot, and emulator-capture outputs are generated under ignored paths and should not be committed.
@@ -239,7 +288,8 @@ This project is not embedding a NES CPU emulator. The intended path is a native 
 
 - translate verified routines into portable C modules
 - keep proprietary data outside the public repo
-- load private/local extracted data only at development time
+- build private ROM-derived data into an ignored local asset pack
+- keep decompilation files and captures limited to explicit development work
 - replace NES hardware dependencies with explicit platform layers
 
 Lower-level runtime and memory notes are kept in [AGENTS.md](AGENTS.md) for development agents.
