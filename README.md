@@ -34,7 +34,7 @@ frame-identical recreation of on-court gameplay.
 | Team Data | Supported for team profiles, rosters, player detail, STARTERS, and PLAYBOOK |
 | All Star | Partial: selectors work, but the route stops before game launch |
 | League Leaders | Partial: category navigation works; ranked player results remain unavailable until per-player season statistics are ported |
-| Gameplay | Playable full-game shell with movement, passing, defender switching, close shots, one verified ordinary-jump miss, fouls/free throws, clocks, periods, halftime, overtime/final, audio, and result handoff; much of the basketball simulation remains approximate |
+| Gameplay | Playable full-game shell with movement, passing, defender switching, close shots, one bounded ordinary-jump miss and three-point make context, fouls/free throws, clocks, periods, halftime, overtime/final, audio, and result handoff; much of the basketball simulation remains approximate |
 
 Normal play is asset-pack-only. It does not load decompilation files, Lua
 traces, screenshots, save states, dumps, or emulator captures at runtime.
@@ -154,7 +154,8 @@ accumulators are ported.
   possession at frame 87. The make classifies the ROM clear-bit result at frame
   19, applies three points at frame 85, and changes possession with crowd audio
   at frame 111. Other profiles, directions, and ordinary two-point makes remain
-  unsupported.
+  unsupported. Releasing B before the captured frame-8 hold completes is safely
+  normalized to the known frame-9 release transition.
 - The scene advances the game and shot clocks, score, possession, shot-clock
   violations, current native foul/free-throw flow, period banners, halftime,
   overtime/final presentation, and preseason/season result handoff.

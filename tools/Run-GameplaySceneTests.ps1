@@ -492,7 +492,7 @@ try {
 
     $global:LASTEXITCODE = 0
     Write-Output ("GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance " +
-        "scene controls TGDK TGJS TGSR jump-miss/jump-make shots dunk-cutaway frame75/audio state " +
+        "scene controls TGDK TGJS TGSR jump-miss/jump-make early-release/expiry shots dunk-cutaway frame75/audio state " +
         "halftime/final render-hashes/determinism missing malformed oversized " +
         "chr-mismatch")
 } finally {

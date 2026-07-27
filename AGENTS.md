@@ -620,7 +620,12 @@ landing/recovery at frames 59-65 because unrelated main-loop overruns held
 frames 38 and 53; native code does not reproduce those renderer stalls. Score
 and shot-clock reset remain the separately observed frame-85 checkpoint, while
 frame 111 hands possession over and queues crowd 11 only. The make ball arc and
-camera remain native approximations. TGSR-1 classifies TGJS's bit-7-set terminal flag as MISS and proves
+camera remain native approximations. An earlier B release is normalized to the
+captured frame-9 transition so normal input cannot strand the scene; no
+earlier-release ROM timing is claimed. If the period expires before frame 111,
+the frame-85 score is applied exactly once without an invalid shot-clock reset,
+then the settled action retains the shooting side/holder for the normal period
+banner transition. TGSR-1 classifies TGJS's bit-7-set terminal flag as MISS and proves
 the non-current, other-team claimant handler/possession decision. Native play
 applies that one decision at frame 87, awards zero points, uses an explicitly
 approximate opposing actor, and queues crowd 11 followed by clock-gated side

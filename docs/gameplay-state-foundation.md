@@ -123,7 +123,12 @@ because unrelated main-loop overruns held display frames 38 and 53; those are
 not native shot waits. Frame 85 awards three points and resets the shot clock
 to 24. Frame 111 changes possession and queues crowd 11 only. The observed
 ball checkpoints bound the route, but the current screen-space ball arc and
-camera remain native approximations.
+camera remain native approximations. If B releases before frame 8, native play
+normalizes directly to the bounded frame-9 release transition; this prevents a
+stalled scene without claiming unobserved early-release ROM timing. A period
+expiry before frame 111 applies the frame-85 basket once without resetting an
+expiry-state shot clock, retains the shooting holder on settlement, and lets
+the next state update enter the normal period banner.
 
 Bounded local original execution supplies the semantic correlation. Save-state
 slot 2 held numeric variant 0 through the live approach, entered its visible

@@ -746,7 +746,12 @@ non-shot main-loop overruns held display frames 38 and 53; those renderer
 stalls are intentionally not native shot waits. Three points and shot-clock 24
 apply at frame 85. Frame 111 changes possession and queues crowd response 11
 without side-result 12/13. Exact ball/camera motion between the captured
-checkpoints remains unproven and native-approximate. Unknown contexts,
+checkpoints remains unproven and native-approximate. Releasing B before frame
+8 is normalized to the captured frame-9 transition so ordinary input cannot
+strand the live scene; no earlier-release ROM timing is claimed. A period
+expiry before settlement applies the frame-85 score exactly once without an
+invalid possession/shot-clock reset, retains the shooting holder at frame 111,
+and then enters the normal settled-action period path. Unknown contexts,
 ordinary two-point makes, and other native-policy branches are rejected without
 substituting the former synthetic schedule.
 
