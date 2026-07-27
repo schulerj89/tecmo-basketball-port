@@ -130,6 +130,7 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayJumpShotProfile jump_profile;
     TecmoGameplayJumpShotDirection jump_direction;
     bool jump_oracle_active;
+    bool jump_make_route;
     bool jump_b_released;
     TecmoGameplayShotOutcome jump_outcome;
     bool jump_actor_landed;
@@ -163,7 +164,8 @@ void tecmo_gameplay_scene_end(TecmoGameplayScene *scene);
 /* Draws the exact ROM-derived static court base and resolved ROM poses. Live
    close-shot playback is deliberately limited to TGCS profile 0/direction 0;
    ordinary jump-shot playback is deliberately limited to the proven TGJS/TGSR
-   slot-0 miss context. Actor mirroring and jump-ball geometry remain native
+   away/right context's miss and three-point-make schedules. Actor mirroring,
+   the make ball/camera path, and jump-ball geometry remain native
    approximations, not mappings of unsupported ROM entries. HUD/presentation
    text is supplied by the runtime overlay. */
 bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,

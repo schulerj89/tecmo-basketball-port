@@ -385,6 +385,7 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     unsigned checkpoint = 0U;
     unsigned update;
     bool jump = false;
+    bool jump_make = false;
     bool dunk = false;
 
     if (runtime == NULL || mode_name == NULL) return false;
@@ -393,6 +394,10 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     } else if (parse_render_frame_suffix(
                    mode_name, "gameplay-jump-frame", &checkpoint)) {
         jump = true;
+    } else if (parse_render_frame_suffix(
+                   mode_name, "gameplay-jump-make-frame", &checkpoint)) {
+        jump = true;
+        jump_make = true;
     } else if (parse_render_frame_suffix(
                    mode_name, "gameplay-dunk-frame", &checkpoint)) {
         dunk = true;
@@ -403,7 +408,8 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     } else {
         return false;
     }
-    if ((jump && (checkpoint == 0U || checkpoint > 87U)) ||
+    if ((jump && (checkpoint == 0U ||
+                  checkpoint > (jump_make ? 111U : 87U))) ||
         (dunk && (checkpoint == 0U || checkpoint > 132U))) {
         return false;
     }
@@ -436,24 +442,35 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
         runtime->gameplay_scene.ball_x_q8 = (int32_t)(actor->x + 7) * 256;
         runtime->gameplay_scene.ball_y_q8 = (int32_t)(actor->y - 18) * 256;
     } else if (jump) {
-        if (!tecmo_gameplay_set_score(
-                &runtime->gameplay_scene.state,
-                TECMO_GAMEPLAY_TEAM_HOME, 2U)) {
-            return false;
+        if (jump_make) {
+            runtime->gameplay_scene.actors[0].y = 180;
+            runtime->gameplay_scene.actors[0].anchor_y = 180;
+            runtime->gameplay_scene.ball_y_q8 =
+                (int32_t)(180 - 18) * 256;
+            runtime->gameplay_scene.action_serial = 0U;
+        } else {
+            if (!tecmo_gameplay_set_score(
+                    &runtime->gameplay_scene.state,
+                    TECMO_GAMEPLAY_TEAM_HOME, 2U)) {
+                return false;
+            }
+            runtime->gameplay_scene.action_serial = 1U;
         }
-        runtime->gameplay_scene.action_serial = 1U;
     }
     memset(&input, 0, sizeof(input));
     input.cancel = true;
     tecmo_runtime_update(runtime, &input);
-    memset(&input, 0, sizeof(input));
     for (update = 1U; update < checkpoint; ++update) {
+        memset(&input, 0, sizeof(input));
+        if (jump_make && update < 8U) input.cancel = true;
         tecmo_runtime_update(runtime, &input);
     }
     return runtime->mode == TECMO_MODE_COURT &&
            runtime->gameplay_scene.active &&
            runtime->gameplay_scene.shot_kind ==
-               (jump && checkpoint == 87U
+               (jump &&
+                        ((!jump_make && checkpoint == 87U) ||
+                         (jump_make && checkpoint == 111U))
                     ? TECMO_GAMEPLAY_SCENE_SHOT_NONE
                     : (dunk ? TECMO_GAMEPLAY_SCENE_SHOT_DUNK
                             : TECMO_GAMEPLAY_SCENE_SHOT_JUMP));

@@ -416,6 +416,17 @@ try {
         [pscustomobject]@{ mode="gameplay-jump-frame75"; state='gameplay-state frame=75 shot=jump phase=live score=0/2' },
         [pscustomobject]@{ mode="gameplay-jump-frame86"; state='gameplay-state frame=86 shot=jump phase=live' },
         [pscustomobject]@{ mode="gameplay-jump-frame87"; state='gameplay-state frame=87 shot=none phase=live score=0/2' },
+        [pscustomobject]@{ mode="gameplay-jump-make-frame1"; state='gameplay-state frame=1 shot=jump phase=live score=0/0' },
+        [pscustomobject]@{ mode="gameplay-jump-make-frame5"; state='gameplay-state frame=5 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-make-frame9"; state='gameplay-state frame=9 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-make-frame19"; state='gameplay-state frame=19 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-make-frame20"; state='gameplay-state frame=20 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-make-frame39"; state='gameplay-state frame=39 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-make-frame57"; state='gameplay-state frame=57 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-make-frame63"; state='gameplay-state frame=63 shot=jump phase=live' },
+        [pscustomobject]@{ mode="gameplay-jump-make-frame85"; state='gameplay-state frame=85 shot=jump phase=live score=3/0' },
+        [pscustomobject]@{ mode="gameplay-jump-make-frame110"; state='gameplay-state frame=110 shot=jump phase=live score=3/0' },
+        [pscustomobject]@{ mode="gameplay-jump-make-frame111"; state='gameplay-state frame=111 shot=none phase=live score=3/0' },
         [pscustomobject]@{ mode="gameplay-dunk-frame1"; state='gameplay-state frame=1 shot=dunk phase=live' },
         [pscustomobject]@{ mode="gameplay-dunk-frame8"; state='gameplay-state frame=8 shot=dunk phase=live' },
         [pscustomobject]@{ mode="gameplay-dunk-frame16"; state='gameplay-state frame=16 shot=dunk phase=live' },
@@ -446,6 +457,23 @@ try {
             throw "Gameplay jump-miss render hash changed at '$Mode'."
         }
     }
+    $ExpectedJumpMakeHashes = @{
+        "gameplay-jump-make-frame9" =
+            "CDCEC11F13DCD6DDF229B71D313E239288D95BB0D0190727C82814BF7C134B8A"
+        "gameplay-jump-make-frame20" =
+            "EC76F90E2E5E8BF766DB74CFF614E415B005CBD61627F8FEB865D112CFF5FDFE"
+        "gameplay-jump-make-frame57" =
+            "894ADB352E60FCAC69E8F9D2B4A864F2DBB697488DEF26094CCBD40D327FC924"
+        "gameplay-jump-make-frame85" =
+            "155B61096B69A673D5520F27D3446ACE8745B794A5C4047BE03C86F1B68B34C5"
+        "gameplay-jump-make-frame111" =
+            "AE3E0FB82AEE2447E0FAFCBE091CF0D33DC39B3B8DA4D98DB49EBB2EB05637EF"
+    }
+    foreach ($Mode in $ExpectedJumpMakeHashes.Keys) {
+        if ($RenderHashes[$Mode] -ne $ExpectedJumpMakeHashes[$Mode]) {
+            throw "Gameplay jump-make render hash changed at '$Mode'."
+        }
+    }
     $VisualSentinels = @(
         $RenderHashes["gameplay-start"],
         $RenderHashes["gameplay-jump-frame21"],
@@ -464,7 +492,7 @@ try {
 
     $global:LASTEXITCODE = 0
     Write-Output ("GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance " +
-        "scene controls TGDK TGJS TGSR jump-miss shots dunk-cutaway frame75/audio state " +
+        "scene controls TGDK TGJS TGSR jump-miss/jump-make shots dunk-cutaway frame75/audio state " +
         "halftime/final render-hashes/determinism missing malformed oversized " +
         "chr-mismatch")
 } finally {

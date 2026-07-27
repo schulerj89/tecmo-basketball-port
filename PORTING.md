@@ -718,9 +718,10 @@ TGJS-1 adds only the Bank05 bytes not already owned by TGPL-1/TGCS-1:
 It depends on the exact same-pack TGPL/TGCS payloads, rederives the 32-entry
 family/profile/direction pose matrix from `$8D3D/$8D5D`, and validates every
 resolved TGPL pointer and pose record. Its live boundary is deliberately one
-captured terminal-miss context: human-controlled away-side, facing right,
-family 0/profile 0/direction 1, pose index 213. NES B is tested as a current
-level rather than a release edge. Actor held/airborne/recovery states and Q8.8
+captured human-controlled away-side, facing-right family-0/profile-0/direction-1
+context with bounded terminal-miss and three-point-make branches. NES B is
+tested as a current level rather than a release edge. The miss actor
+held/airborne/recovery states and Q8.8
 height/velocity both begin at `$02E8`; height clamps on frame 40 and actor
 recovery ends at frame 46 while the ball route remains active through
 settlement at frame 87. There is no release DMC; the route-10 ground/bounce conditions
@@ -729,8 +730,25 @@ as MISS and supplies the non-current, other-team claimant handler/possession
 decision. Frame 87 awards zero points, queues crowd 11 and then side result
 12/13 only while the clock is later than 0:01, and hands possession to an
 explicitly approximate opposing actor. At period expiry it retains the current
-side and crowd 11. Unknown contexts, generic makes, and other native-policy
-branches are rejected without substituting the former synthetic schedule.
+side and crowd 11.
+
+The make branch follows the bounded two-controller capture: B remains current
+through frames 1-8 and releases at 9; pose pointers are 325 (`$028A`) for
+frames 1-4, 1060 (`$0848`) for 5-8, 1061 (`$084A`) at 9, 213 (`$01AA`)
+through flight, and neutral 469 (`$03AA`). Prepared phases
+`31/21/11/01/32/22/12/02` occupy frames 10-17, held phase 34 is frame 18, and
+TGSR-1 classifies `$91BC->$933B->$942D`'s terminal bit-clear as MAKE at frame
+19. Q8.8 flight begins at 20 from velocity `$0308` under imported gravity
+`$0028`. Native uninterrupted physics lands at frame 57, uses recovery phases
+`56/46/36/26/16/06` through frame 62, and returns to neutral at 63. The
+original capture displayed those last boundaries at 59/64/65 because
+non-shot main-loop overruns held display frames 38 and 53; those renderer
+stalls are intentionally not native shot waits. Three points and shot-clock 24
+apply at frame 85. Frame 111 changes possession and queues crowd response 11
+without side-result 12/13. Exact ball/camera motion between the captured
+checkpoints remains unproven and native-approximate. Unknown contexts,
+ordinary two-point makes, and other native-policy branches are rejected without
+substituting the former synthetic schedule.
 
 TGSR-1 is 384 bytes with FNV1a32 `8486DB33` and FNV1a64
 `3DDF28659B192273`. Its importer revision-locks Bank05 `$91BC-$943A`
@@ -774,12 +792,13 @@ per attempt and across scene launch/end.
 
 The exact boundary covers court/CHR/imported palette data and the embedded
 FCEUX RGB profile, actor-pose decoding, numeric close-shot steps, the narrowed
-TGJS/TGSR slot-0 miss actor/ball timing, Q8.8 actor height, terminal outcome,
-and one post-miss settlement, state/event timing, foul thresholds,
+TGJS/TGSR miss actor/ball timing and three-point-make actor/result schedule,
+Q8.8 actor height, terminal outcomes, one post-miss settlement, state/event timing, foul thresholds,
 period/halftime/final transitions, and audio programs/mappings.
 Actor/camera layout, movement/AI, jump-ball screen geometry, unsupported jump
-profiles/directions/outcomes, generic makes, the longer +157-update claimant
-route, semantic rebounds/blocks/steals, general make/contact policy, the trigger selecting
+profiles/directions/outcomes, ordinary two-point makes, make ball/camera
+motion, the longer +157-update claimant route, semantic rebounds/blocks/steals,
+general make/contact policy, the trigger selecting
 dunk/variant 0 versus layup/variant 2, live close-shot profile/direction
 selection and left-facing mirroring, dynamic team/court palette selection,
 foul detection, free-throw lineup/aim/outcome/rebound and CPU
@@ -794,9 +813,10 @@ Test with
 `tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`; its private
 scratch pack, logs, and PNGs remain under ignored `build\` output.
 The strict runtime checkpoints are `gameplay-start`,
-`gameplay-jump-frameN`, and `gameplay-dunk-frameN`; the focused runner
-couples jump release, apex, landing, recovery, ball-route/bounce, and settlement
-frames through 87 with meaningful dunk interior frames and settlement through
+`gameplay-jump-frameN`, `gameplay-jump-make-frameN`, and
+`gameplay-dunk-frameN`; the focused runner preserves jump-miss hashes, couples
+jump-make gather/release/decision/flight/recovery/score/possession frames
+through 111, and covers meaningful dunk interior frames and settlement through
 132. Run `tools\Run-GameplayDunkCutawayTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`
 for the focused TGDK parser, provenance, render, mutation, and revision suite.
 The former `gameplay-close-shot-frameN` spelling remains an exact compatibility

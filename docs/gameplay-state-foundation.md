@@ -90,9 +90,10 @@ presentation, resumes at step 23 on frame 71, reaches step 31 on frame 79, and
 holds it through settlement.
 
 Ordinary-jump support is narrower and fails closed outside its evidence. The
-scene consumes the exact TGJS family-0/profile-0/direction-1 pose index 213 for
-the captured human away/right terminal-miss slot. It preserves current-level NES B hold
-and release, actor `$0C->$0D->$0E->0` progression, Bank05 unsigned Q8.8
+scene consumes the exact TGJS family-0/profile-0/direction-1 data for the
+captured human away/right terminal-miss and three-point-make branches. The miss
+preserves current-level NES B hold and release, actor `$0C->$0D->$0E->0`
+progression, Bank05 unsigned Q8.8
 height/velocity seed `$02E8`, gravity, frame-40 integer-height floor clamp,
 recovery to idle pose 469 at frame 46,
 ball route `$01->$05->$17->$10->0`, and settlement at frame 87. Actor and ball
@@ -101,9 +102,8 @@ route-10 ground/bounce condition requests `$B5AB` at frame 75. The ball's
 screen-space interpolation remains native geometry and is not claimed as the
 ROM launch solver.
 
-The ordinary-jump gate still uses an explicitly native deterministic policy:
-its predicted-make branch is unsupported, while the one evidence-backed
-predicted-miss branch launches. Frame 1 stores UNKNOWN; current-B release at
+The ordinary-jump gate still uses an explicitly native deterministic policy.
+Its predicted-miss branch stores UNKNOWN at frame 1; current-B release at
 frame 2 passes TGJS's bit-7-set outcome flag through TGSR and requires MISS.
 At frame 87 the normal route requires TGSR's non-current, OTHER_TEAM claimant
 decision, awards zero points, queues crowd 11 followed by clock-gated side
@@ -111,6 +111,19 @@ result 12/13, and gives possession to an explicitly approximate opposing
 actor. A simultaneous period expiry queues only crowd 11 and retains the
 current side. Outcome state clears after settlement and no rebound/block/steal
 stat event is synthesized.
+
+The three-point make uses the same strict TGJS/TGSR inputs without changing
+their formats or hashes. B stays current through frames 1-8 and releases at 9.
+Pose pointers are 325, 1060, 1061, 213, then neutral 469; the prepared phases
+are `31/21/11/01/32/22/12/02`. TGSR requires the terminal bit-clear MAKE at
+frame 19. Uninterrupted Q8.8 motion starts at frame 20 from `$0308` with
+gravity `$0028`, lands at native frame 57, recovers through frame 62, and is
+neutral at 63. The emulator capture displayed landing/recovery at 59-65 only
+because unrelated main-loop overruns held display frames 38 and 53; those are
+not native shot waits. Frame 85 awards three points and resets the shot clock
+to 24. Frame 111 changes possession and queues crowd 11 only. The observed
+ball checkpoints bound the route, but the current screen-space ball arc and
+camera remain native approximations.
 
 Bounded local original execution supplies the semantic correlation. Save-state
 slot 2 held numeric variant 0 through the live approach, entered its visible
@@ -135,12 +148,13 @@ Gameplay track 5 is queued at launch and qualifying restarts only when GAME
 MUSIC is enabled. Presentation track 6 is requested for halftime/final score
 presentation. The scene maps clock expiry to SFX 3, late-clock seconds to 14,
 violations to 6, and motion with a held ball to the proven `$B5AB`
-held-ball/dribble DMC clip. A made dunk, the supported slot-0 jump miss, and
+held-ball/dribble DMC clip. A made dunk, the supported jump miss, and
 every resolved free throw, make or miss, request crowd response 11 followed by
 away-side 12 or home-side 13 when the clock is above 0:01. The jump miss awards
 no points. The same mailbox is last-write-wins, so the side result is consumed
 next; 0:00 and 0:01 retain 11. Made layups
-continue to request only 11 pending separate caller-path integration. Neutral
+and the bounded three-point jump make request only 11 pending separate
+caller-path evidence. Neutral
 SFX 5 is kept as `BANK05_9FEC_CUE` and is requested only at the evidence-bounded
 violation, direct-foul, and period restart boundaries under the GAME MUSIC
 gate. Foul/violation and completed-period presentation boundaries clear music,
@@ -201,6 +215,10 @@ decompilation at these CPU-address ranges:
   progression `$86BB`, `$86DD`, `$8732`, `$8745`, result `$91BC-$943A`, ball
   path `$AF30-$B073`, and scoring `$B995-$BA3F`: numeric close-shot subtype 01
   and its surrounding shot machinery.
+- The bounded ordinary make executes Bank05 `$8C57` at current-B launch,
+  `$91BC->$933B->$942D` for terminal MAKE polarity, and Bank05 `$BA02` for the
+  observed three-point score application. `$9C79` is not treated as a
+  universal launch boundary.
 - Bank 05 `$AD01-$AD0E` (FNV1a32 `B7141C72`): result crowd-response request 11;
   `$8C7D-$8CE4` (FNV1a32 `00A4D185`) is its bounded close-shot caller path.
 - Bank 05 `$B1D1-$B1E6` (FNV1a32 `CFCD9759`): above-0:01 clock gate and
@@ -270,13 +288,14 @@ These are provenance only and are not runtime inputs.
   older state-only rightward actor-9 observation remains provenance for the
   semantic event layer, not a universal animation label.
 - TGJS/TGSR live playback proves only the human away/right
-  family-0/profile-0/direction-1 terminal-miss slot. Its current-B transition,
-  actor Q8.8/state/recovery timing, ball route-state checkpoints, conditional
-  bounce DMC, MISS polarity, and one post-shot claimant settlement are exact
-  within that context. Unsupported profiles/directions/outcomes, generic
-  makes, the longer +157-update claimant route, and unknown horizontal launch
-  geometry do not inherit those frame checkpoints. No semantic rebound, block,
-  steal, or player-stat event is claimed.
+  family-0/profile-0/direction-1 terminal-miss and three-point-make branches.
+  Current-B transitions, actor Q8.8/state/recovery timing, terminal polarity,
+  the miss ball-state/bounce DMC path and claimant settlement, plus make
+  score/possession/crowd checkpoints are exact within that context. Unsupported
+  profiles/directions/outcomes, ordinary two-point makes, the longer +157-update
+  claimant route, and make ball/camera geometry do not inherit those frame
+  checkpoints. No semantic rebound, block, steal, or player-stat event is
+  claimed.
 - Actor starting layout, camera/orientation composition, movement and AI,
   jump-ball screen interpolation, unsupported jump routes, general
   make/contact policy, the distance policy
@@ -301,8 +320,8 @@ These are provenance only and are not runtime inputs.
   states, dumps, or capture artifacts.
 
 Run `tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` for the
-strict full-pack scene test and deterministic 640x480 start, ordinary-jump, and
-dunk checkpoints through frame 132. Run
+strict full-pack scene test and deterministic 640x480 start, jump-miss through
+87, jump-make through 111, and dunk checkpoints through 132. Run
 `tools\Run-GameplayDunkCutawayTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` for
 the strict TGDK payload/provenance/render/mutation/revision checks.
 `Run-GameplayShotResolutionTests.ps1` and `Run-GameplayPenaltyTests.ps1`

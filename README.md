@@ -148,10 +148,13 @@ accumulators are ported.
 - The dunk uses the strict ROM-derived TGDK-1 cutaway, including its black
   transitions, screen `$0B`, seven staged sprite groups, return to live play,
   address-bound A9C5 audio checkpoint, and frame-132 settlement.
-- Ordinary-jump support is deliberately narrow: only the captured human
-  away-side, right-facing family-0/profile-0/direction-1 terminal miss is
-  supported. It awards no points and changes possession at frame 87. Generic
-  jump makes and other profiles, directions, and outcomes are not implemented.
+- Ordinary-jump support is deliberately narrow: the captured human away-side,
+  right-facing family-0/profile-0/direction-1 context supports its deterministic
+  miss and three-point make branches. The miss awards no points and changes
+  possession at frame 87. The make classifies the ROM clear-bit result at frame
+  19, applies three points at frame 85, and changes possession with crowd audio
+  at frame 111. Other profiles, directions, and ordinary two-point makes remain
+  unsupported.
 - The scene advances the game and shot clocks, score, possession, shot-clock
   violations, current native foul/free-throw flow, period banners, halftime,
   overtime/final presentation, and preseason/season result handoff.
@@ -164,10 +167,10 @@ accumulators are ported.
 
 Strict ROM-derived data currently covers the static court, CHR and palette
 entries, embedded FCEUX RGB profile, actor pose data, numeric close-shot step
-tables, dunk cutaway, the one bounded jump-miss route and settlement decision,
-rules timing, and native music/SFX/DMC programs. Every required gameplay entry
-is loaded from the same revision-fingerprinted asset pack with exact-size and
-malformed-data checks.
+tables, dunk cutaway, the bounded jump-miss route, the bounded three-point
+jump-make actor/result schedule, rules timing, and native music/SFX/DMC
+programs. Every required gameplay entry is loaded from the same
+revision-fingerprinted asset pack with exact-size and malformed-data checks.
 
 The actor and camera layout, movement and AI, jump-ball geometry, general shot
 selection and make/miss policy, dynamic matchup palettes and uniforms, live
@@ -214,6 +217,7 @@ Render the normal menu or a focused intro frame:
 .\build\tecmo_port.exe --render-test-mode intro-arena-frame320 build\intro_arena_frame320_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-start build\gameplay_start_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-jump-frame12 build\gameplay_jump_12_test.png
+.\build\tecmo_port.exe --render-test-mode gameplay-jump-make-frame85 build\gameplay_jump_make_85_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-dunk-frame16 build\gameplay_dunk_16_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-dunk-frame64 build\gameplay_dunk_64_test.png
 ```

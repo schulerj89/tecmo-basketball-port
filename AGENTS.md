@@ -128,6 +128,8 @@ Hidden/debug screens are still useful through render-test modes. Common examples
 .\build\tecmo_port.exe --render-test-mode gameplay-start build\gameplay_start_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-jump-frame75 build\gameplay_jump_75_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-jump-frame87 build\gameplay_jump_87_test.png
+.\build\tecmo_port.exe --render-test-mode gameplay-jump-make-frame85 build\gameplay_jump_make_85_test.png
+.\build\tecmo_port.exe --render-test-mode gameplay-jump-make-frame111 build\gameplay_jump_make_111_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-dunk-frame16 build\gameplay_dunk_16_test.png
 ```
 
@@ -607,13 +609,24 @@ slot: current-level NES B release, actor states `$0C/$0D/$0E/0`, Bank05 Q8.8
 height/velocity seed `$02E8`, gravity, frame-40 clamp, recovery through frame
 46, independent ball routes through frame
 87, the conditional frame-75 `$B5AB` DMC, and post-shot settlement mailbox
-ordering. TGSR-1 classifies TGJS's bit-7-set terminal flag as MISS and proves
+ordering. The same controlled family/profile/direction context also admits one
+captured deterministic three-point make. Current NES B remains held through
+frames 1-8 and releases at 9; pose pointers are 325 for frames 1-4, 1060 for
+5-8, 1061 at 9, 213 through flight, and 469 after recovery. TGSR-1 classifies
+the terminal clear-bit result as MAKE at frame 19. Uninterrupted Q8.8 motion
+starts at frame 20 with velocity `$0308` and gravity `$0028`, lands at native
+frame 57, recovers through 62, and becomes neutral at 63. The emulator displayed
+landing/recovery at frames 59-65 because unrelated main-loop overruns held
+frames 38 and 53; native code does not reproduce those renderer stalls. Score
+and shot-clock reset remain the separately observed frame-85 checkpoint, while
+frame 111 hands possession over and queues crowd 11 only. The make ball arc and
+camera remain native approximations. TGSR-1 classifies TGJS's bit-7-set terminal flag as MISS and proves
 the non-current, other-team claimant handler/possession decision. Native play
 applies that one decision at frame 87, awards zero points, uses an explicitly
 approximate opposing actor, and queues crowd 11 followed by clock-gated side
 result 12/13. At period expiry it retains the current side and crowd 11.
 Actor/camera layout, movement/AI, jump-ball screen geometry, unsupported jump
-directions/profiles and outcomes, generic makes, the longer +157-update claimant route,
+directions/profiles and outcomes, ordinary two-point makes, the longer +157-update claimant route,
 semantic rebounds/blocks/steals, general make/contact rules, the distance policy
 selecting dunk/variant 0 versus layup/variant 2, live close-shot
 profile/direction selection and left-facing render
