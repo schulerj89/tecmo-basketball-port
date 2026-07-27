@@ -53,6 +53,25 @@ Bad runtime dependencies:
   tests.
 - Replaying emulator-shaped logs as the primary game implementation.
 
+### Gameplay Research Tool Boundary
+
+The tracked gameplay laboratory under `tools/gameplay-lab` is explicitly
+outside the native product. It is a revision-locked research instrument that
+can read original-game RAM and mapper state, drive two complete controller
+tables, and record bounded local telemetry. Its first supported experiment is
+only an orientation-0, offense-side-0, MAN VS MAN ordinary jump shot using the
+previously proven coordinate and B-timing window. Unknown possessions,
+presentations, close routes, fouls, violations, mirrored movement, failed
+coordinate progress, and missing hook evidence abort instead of becoming
+generalized rules.
+
+The lab's TGLM-1 address map and TGLAB-1 output schema are provenance for
+research conclusions, not asset-pack entries. Captured CSV, hook events,
+screenshots, FM2, status, and emulator logs remain ignored under
+`temp-videos/gameplay-lab`. Neither the importer nor native runtime may consume
+them. Ported behavior still requires a separately justified ROM-derived asset
+contract and native C implementation.
+
 ## Runtime Boundary
 
 Runtime code should consume asset-pack entries as native assets and update C

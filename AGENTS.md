@@ -166,6 +166,34 @@ To avoid repeatedly parsing large raw watcher logs, distill the local-only arena
 
 This writes `build\intro_arena_capture.ndjson`, which the arena renderer loads before the raw watcher logs. The compact file is generated data from the private reference environment and must stay uncommitted.
 
+## Tracked Gameplay Laboratory
+
+`tools\gameplay-lab` is a developer-only, read-only FCEUX control and telemetry
+surface for one bounded Rev 1 MAN VS MAN ordinary jump shot. Its canonical
+`tecmo_rev1_map.lua` owns every address, mapper-aware hook, timing bound, and
+revision fingerprint. The PowerShell runner requires explicit local ROM/FCEUX
+paths (or its specifically named environment variables), rejects other FCEUX
+processes, validates the exact ROM and FCEUX 2.6.6 SHA256 fingerprints, runs
+hidden with redirected output, a hard timeout, an in-Lua tracked-text cap, and
+a polled 64 MiB whole-session limit covering logs, screenshots, and optional
+FM2. It writes only below ignored `temp-videos/gameplay-lab/<timestamp>`.
+
+After the proven power-on navigation and tip input, gameplay control is
+state/coordinate driven. The script proves live mode, two-player control,
+distinct teams, orientation/side, a stable selected holder and ball, clears a
+front threat only after observing defensive selection, pulses the shooter into
+the proven coordinate window, holds 12 neutral frames, then applies the
+captured B timing. It supplies complete neutral-or-active joypad tables for both
+ports every frame. It never changes RAM, uses cheats, or touches emulator
+state slots; every failure and normal exit neutralizes both pads and closes the
+runner-owned emulator.
+
+Telemetry, hook events, screenshots, logs, movies, and status files are local
+research evidence only. Native C and asset-pack import/runtime paths must never
+read them. Run `tools\gameplay-lab\Test-GameplayLab.ps1` for the committed
+static safety/schema gate; private smoke runs must pass the ROM and FCEUX paths
+as invocation arguments and inspect only compact status or short log tails.
+
 ## Asset Pack Direction
 
 Prefer moving local ROM-backed assets into an ignored `.assetpack` instead of making runtime code parse raw decomp files or emulator logs directly. Build the initial pack with:
