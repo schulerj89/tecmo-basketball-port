@@ -326,7 +326,7 @@ try {
 
     @(
         @{ id="magic"; offset=0 },
-        @{ id="header-reserved"; offset=85 },
+        @{ id="header-reserved"; offset=101 },
         @{ id="source"; offset=128 },
         @{ id="metadata"; offset=256 },
         @{ id="rim-rattle"; offset=285 },
@@ -339,8 +339,8 @@ try {
     }
     Write-MissingEntryAndReject $PackBytes $ResolutionEntry "tgsr"
     Write-MissingEntryAndReject $PackBytes $CoreEntry "core"
-    Write-WrongSizeAndReject $PackBytes $ResolutionEntry "short" 383
-    Write-WrongSizeAndReject $PackBytes $ResolutionEntry "oversized" 385
+    Write-WrongSizeAndReject $PackBytes $ResolutionEntry "short" 511
+    Write-WrongSizeAndReject $PackBytes $ResolutionEntry "oversized" 513
     Write-PayloadMutationAndReject $PackBytes $CoreEntry "cross-pack-core" 128
 
     $RomBytes = [IO.File]::ReadAllBytes($RomPath)

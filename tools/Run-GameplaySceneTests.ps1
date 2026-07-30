@@ -360,7 +360,7 @@ try {
 
     $OversizedResolutionPath = Join-Path $Scratch "oversized-shot-resolution.assetpack"
     $OversizedResolution = [byte[]]$PackBytes.Clone()
-    [BitConverter]::GetBytes([uint64]385).CopyTo(
+    [BitConverter]::GetBytes([uint64]513).CopyTo(
         $OversizedResolution,
         [int]$Entries["gameplay/shot-resolution"].directory_offset + 92)
     [IO.File]::WriteAllBytes($OversizedResolutionPath, $OversizedResolution)
