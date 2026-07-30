@@ -102,6 +102,24 @@ bool tecmo_gameplay_camera_state_initialize(
     TecmoGameplayCameraState *state);
 
 /*
+ * Production-only first-column priming. The pure $DE13 initializer remains
+ * unchanged at cursor $20; this mirrors the bounded $DDFB->$DF05 first
+ * prefetch and advances a freshly initialized live state to cursor $21.
+ * On failure, state is not changed.
+ */
+bool tecmo_gameplay_camera_state_prime_live(
+    const TecmoGameplayCameraAssets *assets,
+    TecmoGameplayCameraState *state);
+
+/*
+ * Strong live-scene invariants. This is deliberately stricter than the pure
+ * vector API so isolated follow tests may retain synthetic scroll/page seeds.
+ */
+bool tecmo_gameplay_camera_state_live_valid(
+    const TecmoGameplayCameraAssets *assets,
+    const TecmoGameplayCameraState *state);
+
+/*
  * Reproduces one fixed $E16E-$E2E6 follow update, including scroll carry,
  * nametable-page toggling, coarse-boundary stream direction/cursor changes,
  * cursor bounds, and the final action-route movement gate. On failure, state

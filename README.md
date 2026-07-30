@@ -34,7 +34,7 @@ frame-identical recreation of on-court gameplay.
 | Team Data | Supported for team profiles, rosters, player detail, STARTERS, and PLAYBOOK; accumulated player-stat fields remain `.000`/zero until per-player accumulators are ported |
 | All Star | Partial: selectors work, but the route stops before game launch |
 | League Leaders | Partial: category navigation works; ranked player results remain unavailable until per-player season statistics are ported |
-| Gameplay | Playable full-game shell with movement, passing, defender switching, close shots, one bounded ordinary-jump miss/three-point-make context, clocks, periods, halftime, overtime/final, audio, and result handoff; live foul/contact and free-throw outcomes, general shot selection, AI, and camera behavior remain approximate. Rim-rattle is diagnostic-only and is not selected by normal live misses |
+| Gameplay | Playable full-game shell with movement, passing, defender switching, a ROM-derived full-court horizontal camera/world renderer, close shots, one bounded ordinary-jump miss/three-point-make context, clocks, periods, halftime, overtime/final, audio, and result handoff; live foul/contact and free-throw outcomes, general shot selection, and AI remain approximate. Rim-rattle is diagnostic-only and is not selected by normal live misses |
 
 Normal play is asset-pack-only. It does not load decompilation files, Lua
 traces, screenshots, save states, dumps, or emulator captures at runtime.
@@ -165,20 +165,23 @@ accumulators are ported.
 - Live possession now synchronizes a strict ROM-derived binary offensive
   direction state through TGOR-1. Fresh launch is direction 0/AWAY; a real
   possession change toggles direction exactly once, while same-possession
-  period/foul restarts preserve it. This state does not yet scroll the court or
-  migrate actors/hoops into world coordinates.
+  period/foul restarts preserve it. TGOR now selects the live TGCP follow
+  direction and the `$00A0/$0260` world-space shot target. Possession changes
+  invalidate only camera thresholds/latching; they do not reset or teleport
+  the camera.
 - Human free throws launch from the scoring team's current NES B level and
   have no timeout. CPU free throws use the bounded observed 125-update
   schedule. The exact two-orientation raw lineup, shooter-dependent actor
   stream, pose indexes, and base actor-state seeds are available through the
-  strict TGFL-1 data foundation. Exact pure camera following and actor
+  strict TGFL-1 data foundation. Exact camera following and actor
   projection are available through TGCP-1. A test-only TGFL-1 -> TGCP-1
   composition now derives the orientation-1 free-throw lineup and proves its
   six visible and four neutral-offscreen slots at the bounded camera
-  checkpoint. TGCT-1 now also decodes the complete 768-by-240 court and slices
-  exact coarse/fine-scroll camera viewports in a strict pure API. These
-  foundations are not wired into live play yet. Live repositioning,
-  full-court scrolling, aim, outcome, rebound, and CPU positioning remain
+  checkpoint. Live play now loads TGCP-1 and TGCT-1 from the same canonical
+  pack, decodes the complete 768-by-240 court, follows the ball once per live
+  update, draws exact coarse/fine-scroll 32/33-column viewports, and projects
+  actors and the ball from coherent world coordinates. TGFL-1 free-throw
+  lineup mutation, aim, outcome, rebound, and CPU positioning remain
   unsupported or approximate.
 - Rebounds, blocks, and steals remain approximate or nonsemantic. The current
   scene can transfer possession and attempt defensive contact, but it does not
@@ -196,31 +199,44 @@ embedded FCEUX RGB profile, actor pose data, numeric close-shot step
 tables, dunk cutaway, the bounded ordinary-jump miss/three-point-make context,
 TGSR-3 shot resolution, its exact 1/2/3-point classifier and
 diagnostic-only rim-rattle prefix, the TGFL-1 raw free-throw lineup, the
-TGCP-1 pure horizontal camera/projector, TGOR-1 live possession-synchronized
+TGCP-1 horizontal camera/projector and production live prime/follow,
+TGOR-1 live possession-synchronized
 offensive direction and target selection, rules timing, and native
 music/SFX/DMC programs. Strict entries are loaded from the same
 revision-fingerprinted asset pack with exact-size and malformed-data checks.
 
-The actor and camera layout, movement and AI, jump-ball geometry, general shot
+The actor starting layout, movement policy and AI, jump-ball geometry, general shot
 selection and make/miss policy, dynamic matchup palettes and uniforms, live
 close-shot profile/direction selection, left-facing mirroring, contact/foul
 detection, free-throw simulation, rebounds, blocks, steals, per-player game
 statistics, and temporary HUD typography remain native approximations or are
 unsupported. `gameplay/penalties` TPNL-1 contains strict ROM-backed rule data,
 but the live scene's current contact/foul code does not consume it yet.
-Likewise, `gameplay/free-throw-lineup` TGFL-1 preserves raw world coordinates.
-`gameplay/camera-projection` TGCP-1 can project them exactly in a pure API, but
-neither asset is loaded by the live scene yet. `gameplay/court` TGCT-1 can now
-decode and slice the scrolling 768-pixel court, but the live scene still uses
-its static center viewport and screen-space actors; all actors, hoop math, AI,
-and camera ownership must migrate coherently to world coordinates. Offscreen
-projection uses a deterministic native sentinel (`visible=false`, X/Y zero)
-because the ROM branches before writing projected Y.
+Likewise, `gameplay/free-throw-lineup` TGFL-1 preserves raw world coordinates
+but is still test-only. The live scene now loads
+`gameplay/camera-projection` TGCP-1 and `gameplay/court` TGCT-1, primes the
+native cursor from `$20` to `$21`, seeds at camera `$0100`, decodes the
+768-pixel court, follows ball world X exactly once per live update, and clips
+the 32/33-column viewport within the 256-by-240 gameplay subview. Actors,
+anchors, ball Q8 coordinates, shot endpoints, proximity, passing, switching,
+and AI all share world X/Y; actor and ball rendering uses TGCP projection.
+Offscreen projection uses the deterministic native sentinel
+(`visible=false`, X/Y zero) because the ROM branches before writing projected
+Y.
 
-`gameplay/court-orientation` TGOR-1 is loaded by the live scene and owns only
+Ordinary movement uses the exact fixed-bank `$F106-$F1B0` trapezoid
+(171 bytes, FNV1a32 `CB1D4EAF`): page 0 clamps to
+`$00DF-floor(Y/2)`, page 1 is the interior, and page 2 clamps to
+`$0220+floor(Y/2)`. The current native policy applies that geometry
+unconditionally. Original dispatcher exceptions involving `$0478`, `$046E`,
+`$0588`, `$0463`, and `$0742` are not implemented and remain explicit parity
+work rather than inferred behavior.
+
+`gameplay/court-orientation` TGOR-1 is loaded by the live scene and owns
 the binary offensive direction, previous direction, tracked possession team,
-transition serial, and target X. It intentionally leaves TGCP-1/TGFL-1
-production wiring and full-court scrolling for the next slice.
+transition serial, and target X. Its direction and `$00A0/$0260` targets now
+drive TGCP and shot launch; target Y is the proven `$8F`. TGFL-1 production
+lineup integration remains a separate pending slice.
 
 The first two intro screens, TECMO/rabbit and NBA license, are silent. Strict
 opening music begins at the license-to-arena handoff. On the first START,

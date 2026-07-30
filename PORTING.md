@@ -777,7 +777,8 @@ PRESEASON row. Season results are matched to the pending ordinal/teams and
 committed exactly once before returning to the existing result rows.
 
 The compound scene strictly loads TGPL-1 `gameplay/core` (23416 bytes,
-`2047CCE0`), TGCT-1 `gameplay/court` (6559 bytes, `ECAB7A93`), TGOR-1
+`2047CCE0`), TGCT-1 `gameplay/court` (6559 bytes, `ECAB7A93`), TGCP-1
+`gameplay/camera-projection` (1344 bytes, `B3721B17`), TGOR-1
 `gameplay/court-orientation` (640 bytes, `F9152C0A`), TGCS-1
 `gameplay/close-shots` (3144 bytes, `DACDC976`), TGDK-1
 `gameplay/dunk-cutaway` (20272 bytes, `E02F2D21`), TGJS-1
@@ -934,9 +935,8 @@ not call `$88B0` for that slot. The API intentionally omits side-control inputs
 and therefore does not apply the conditional shooter script override or
 secondary raw phase `$15`.
 
-Do not load TGFL-1 into `TecmoGameplayScene` until the exact raw-world camera
-can be integrated with a scrolling full-court scene. This foundation proves no
-live lineup positioning,
+TGFL-1 remains test-only even though the live scene now has the exact
+raw-world camera and scrolling court. This foundation proves no live lineup positioning,
 aim, attempt decrement, outcome, rebound, or CPU positioning/script behavior.
 Run `tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath
 <LOCAL_ROM.nes>` for parser/API, provenance, mutation, revision, and dependency
@@ -971,16 +971,17 @@ shot path. `$035B` is save-before-toggle evidence only and has no direct
 reads. The only direct `$035A` stores are `$8FC4` and `$B8E0`; broad
 `STA $0300,X` is found only in fixed-bank cold boot at `$CC68`.
 
-TGOR-1 does not production-wire TGCP-1 or TGFL-1, scroll the court, or migrate
-actor/hoop coordinates. Exact-size and canonical payload checks, source
+TGOR-1 now supplies production TGCP follow direction and `$00A0/$0260`
+world-space shot targets; launch Y is the separately proven `$8F`. TGFL-1
+lineup ownership remains test-only. Exact-size and canonical payload checks, source
 records, bounds/reserved/padding checks, full-ROM SHA/FNV revision identity,
 same-pack dependencies, source-map provenance, missing/malformed/oversized and
 source-mutation failures are covered by
 `tools\Run-GameplayCourtOrientationTests.ps1 -Build -RomPath
 <LOCAL_ROM.nes>`.
 
-TGCP-1 `gameplay/camera-projection` now supplies that exact projection as a
-strict pure foundation without changing the live scene. Its 1344-byte payload
+TGCP-1 `gameplay/camera-projection` supplies that exact projection as a strict
+pure API and production live-scene dependency. Its 1344-byte payload
 has FNV1a32 `B3721B17`, requires exact same-pack TGPL-1 (`2047CCE0`) and
 TGCT-1 (`ECAB7A93`), and retains fixed-bank Rev1 initializer
 `$DE13-$DE2C` (`A5CF7665`), column streamer `$DF05-$DFFF` (`7BC5351D`),
@@ -1003,6 +1004,15 @@ parser failure and returns the deterministic native sentinel
 `visible=false, screen_x=0, screen_y=0`; fixed `$F1CB` branches before its Y
 calculation, so the zeros are not claimed as ROM-written coordinates. Invalid
 calls leave state/output untouched.
+
+Production launch preserves the pure `$DE13` cursor `$20`, applies one bounded
+`$DDFB->$DF05` first-column prime to cursor `$21`, seeds actor/anchor and ball
+world coordinates at camera `$0100`, then settles once after seeding. Every
+subsequent live update follows exactly once after all object/ball mutations,
+with ball world X, TGOR direction, and action route 0. Non-live phases, free
+throws, and TGDK black/cutaway frames freeze camera state; the first live-return
+update resumes it. Possession changes clear only threshold validity and the
+endpoint latch, never camera position.
 
 The focused runner also composes the assets without adding a production
 dependency: it independently loads TGFL-1 and TGCP-1, derives orientation 1,
@@ -1039,15 +1049,23 @@ interpretation to fixed `$DDCE`'s init ownership, `$DE13/$DE2D` initialization,
 the `$D5C5` macro builder, `$DDFB->$DF05` first prefetch, `$DF6A`'s `$60`-byte
 row walker, and `$E0E7` attribute handling.
 
-This closes pure full-court decoding and viewport selection but not live
-integration. The current scene still draws one static 256-by-240 middle
-viewport and stores actors, movement, hoop math, and AI in screen space. The
-explicit orientation ownership slice is now live through TGOR-1. The next safe
-slice is persistent camera state and a coherent scene-wide world-coordinate
-migration. The pure
-slicer does not emulate the ROM streamer's staged PPU prefetch/write ordering;
-it returns the canonical camera view. Until live migration, TGCP-1 and TGFL-1
-remain testable pure assets rather than scene dependencies. Run
+The live scene now decodes the 768-by-240 world and slices 32 columns when
+aligned or 33 when fine-scrolled. It draws through a 256-by-240 framebuffer
+subview so partial edge columns clip without writing adjacent margins. Actors,
+anchors, ball Q8 coordinates, shot start/end, movement, proximity, passing,
+switching, and AI use coherent world coordinates. TGCP applies jump altitude
+once to the actor and never again to the ball; offscreen objects are skipped.
+Draw preflight revalidates the camera/world, CHR offsets, palettes, and every
+pose before writing.
+
+Ordinary movement currently applies fixed `$F106-$F1B0` unconditionally
+(171 bytes, FNV1a32 `CB1D4EAF`): page-0 lower bound
+`$00DF-floor(Y/2)`, page-1 interior, and page-2 upper bound
+`$0220+floor(Y/2)`. Dispatcher exceptions involving `$0478`, `$046E`,
+`$0588`, `$0463`, and `$0742` are not implemented and must remain explicit
+parity work. The slicer does not emulate the ROM streamer's staged PPU
+prefetch/write ordering; it returns the canonical camera view. TGFL-1 remains
+a testable pure asset rather than a scene dependency. Run
 `tools\Run-GameplayCameraProjectionTests.ps1 -Build -RomPath
 <LOCAL_ROM.nes>` for revision, provenance, parser, mutation, dependency, camera,
 settle, exact one-step transitions, projection, and test-only TGFL composition
@@ -1088,9 +1106,9 @@ TGJS/TGSR miss actor/ball timing and three-point-make actor/result schedule,
 the state-`$15` one-to-four-pass prefix and canonical debug handoff, Q8.8 actor
 height, terminal outcomes, one post-miss settlement, state/event timing, foul thresholds,
 period/halftime/final transitions, and audio programs/mappings.
-Actor/camera layout, movement/AI, jump-ball screen geometry, unsupported jump
-profiles/directions/outcomes, ordinary two-point makes, make ball/camera
-motion, the longer +157-update claimant route, semantic rebounds/blocks/steals,
+Actor starting layout, movement policy/AI, jump-ball geometry, unsupported jump
+profiles/directions/outcomes, ordinary two-point makes, make ball motion, the
+longer +157-update claimant route, semantic rebounds/blocks/steals,
 general make/contact policy, the trigger selecting
 dunk/variant 0 versus layup/variant 2, live close-shot profile/direction
 selection and left-facing mirroring, dynamic team/court palette selection,
@@ -1101,8 +1119,8 @@ approximations. Local original-frame comparisons found no unrendered or garbage
 cells. After normalizing the small emulator RGB-output difference, the TGDK
 cutaway pixels match the local frame-24 black, frame-32 stage, frame-48 stage,
 and frame-64 black checkpoints exactly. The returned live court at frame 80
-remains visibly different because camera, spacing, HUD, and matchup palette
-selection are still native approximations.
+still differs in spacing, HUD, and matchup palette selection; camera/world
+projection is now strict within the supported horizontal slice.
 Test with
 `tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`; its private
 scratch pack, logs, and PNGs remain under ignored `build\` output.

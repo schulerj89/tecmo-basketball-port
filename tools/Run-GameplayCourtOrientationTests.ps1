@@ -252,7 +252,9 @@ try {
         $Mapped[0].state_contract.fresh_launch.tracked_possession -ne
             "away" -or
         $Mapped[0].evidence_limits -notmatch "no direct reads" -or
-        $Mapped[0].supported_boundary -notmatch "no TGCP/TGFL") {
+        $Mapped[0].supported_boundary -notmatch
+            "production target selection for TGCP" -or
+        $Mapped[0].supported_boundary -notmatch "no TGFL ownership") {
         throw "TGOR-1 source-map provenance or boundary changed."
     }
 

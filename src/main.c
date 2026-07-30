@@ -459,19 +459,41 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
 
     if (dunk) {
         TecmoGameplaySceneActor *actor = &runtime->gameplay_scene.actors[0];
-        actor->x = 205;
-        actor->y = 160;
-        actor->anchor_x = actor->x;
-        actor->anchor_y = actor->y;
+        TecmoGameplayCameraFollowInput camera_input;
+
+        actor->world_x = 0x00AEU;
+        actor->world_y = 160;
+        actor->anchor_world_x = actor->world_x;
+        actor->anchor_world_y = actor->world_y;
         actor->facing_right = true;
         runtime->gameplay_scene.ball_holder = 0U;
-        runtime->gameplay_scene.ball_x_q8 = (int32_t)(actor->x + 7) * 256;
-        runtime->gameplay_scene.ball_y_q8 = (int32_t)(actor->y - 18) * 256;
+        runtime->gameplay_scene.ball_world_x_q8 =
+            (int32_t)(actor->world_x + 7) * 256;
+        runtime->gameplay_scene.ball_world_y_q8 =
+            (int32_t)(actor->world_y - 18) * 256;
+        memset(&camera_input, 0, sizeof(camera_input));
+        camera_input.focus_world_x =
+            (uint16_t)(runtime->gameplay_scene.ball_world_x_q8 / 256);
+        camera_input.orientation =
+            runtime->gameplay_scene.orientation_state.current_direction;
+        runtime->gameplay_scene.camera_state.thresholds_valid = false;
+        runtime->gameplay_scene.camera_state.endpoint_latched = false;
+        if (!tecmo_gameplay_camera_settle(
+                &runtime->gameplay_scene.camera_assets,
+                &runtime->gameplay_scene.camera_state,
+                &camera_input)) {
+            return false;
+        }
     } else if (jump) {
+        TecmoGameplaySceneActor *actor = &runtime->gameplay_scene.actors[0];
+        actor->world_x = 0x013CU;
+        actor->anchor_world_x = actor->world_x;
+        runtime->gameplay_scene.ball_world_x_q8 =
+            (int32_t)(actor->world_x + 7) * 256;
         if (jump_make) {
-            runtime->gameplay_scene.actors[0].y = 180;
-            runtime->gameplay_scene.actors[0].anchor_y = 180;
-            runtime->gameplay_scene.ball_y_q8 =
+            actor->world_y = 180;
+            actor->anchor_world_y = 180;
+            runtime->gameplay_scene.ball_world_y_q8 =
                 (int32_t)(180 - 18) * 256;
             runtime->gameplay_scene.action_serial = 0U;
         } else {

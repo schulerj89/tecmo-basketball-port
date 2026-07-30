@@ -36,6 +36,7 @@ remains the separate NES A-release presentation gate.
 
 The compound scene loads `gameplay/core` TGPL-1 (23416 bytes,
 `2047CCE0`), `gameplay/court` TGCT-1 (6559 bytes, `ECAB7A93`),
+`gameplay/camera-projection` TGCP-1 (1344 bytes, `B3721B17`),
 `gameplay/court-orientation` TGOR-1 (640 bytes, `F9152C0A`),
 `gameplay/close-shots` TGCS-1 (3144 bytes, `DACDC976`),
 `gameplay/dunk-cutaway` TGDK-1 (20272 bytes, `E02F2D21`),
@@ -57,7 +58,9 @@ table `$BDEF-$BDF2` (`$00A0/$0260`). A fresh native launch uses direction 0
 and AWAY possession as a cold-start-aligned policy. Same-possession handoffs
 and restarts are no-ops; a real change atomically saves previous direction,
 XORs current direction, updates tracked team/target X, and increments a serial.
-TGCT-1 stays left-to-right. This does not scroll the court or migrate actors.
+TGCT-1 stays left-to-right. TGOR direction now drives the production camera
+follow and its `$00A0/$0260` target selects the world-space shot endpoint;
+launch Y is the separately proven `$8F`.
 
 Fixed `$E537-$E548/$E699` is only TGPL presentation-selector cross-check
 evidence: `$0758` is derived from `$04FC` bit 7 and IDs `$1B/$2E`; it does not
@@ -67,7 +70,7 @@ general team switch. `$035B` has no direct reads and is retained only as
 save-before-toggle evidence. Direct `$035A` stores are limited to `$8FC4` and
 `$B8E0`; broad `STA $0300,X` is limited to fixed-bank cold boot `$CC68`.
 
-`gameplay/camera-projection` TGCP-1 is a separate pure asset and is not a
+`gameplay/camera-projection` TGCP-1 is both a strict pure API and a
 compound-scene dependency. Its 1344-byte canonical payload
 (`B3721B17`) requires same-pack TGPL-1 and TGCT-1 and preserves the fixed-bank
 Rev1 camera initializer, streamed-column and attribute helpers, horizontal
@@ -78,7 +81,12 @@ high byte is zero, and for visible actors saturates
 native sentinel `visible=false` with X/Y zero because the ROM branches before
 projecting Y.
 Initialization/follow/settle also preserve scroll page, stream direction,
-layout cursor, cursor bounds, and action-route movement gates.
+layout cursor, cursor bounds, and action-route movement gates. Production
+launch leaves pure `$DE13` at cursor `$20`, applies one `$DDFB->$DF05` live
+prime to cursor `$21`, seeds world coordinates at camera `$0100`, then settles
+once. Each subsequent live update follows exactly once after all actor/ball
+mutations. Non-live/free-throw/TGDK cutaway updates freeze the camera and
+possession changes clear only thresholds/latching.
 
 The focused test-only TGFL-1 -> TGCP-1 module independently loads both assets,
 derives orientation 1/shooter 6/secondary 1, and consumes TGFL's exact ten
@@ -86,19 +94,25 @@ world X/Y values. Starting from the bounded capture-derived cursor `$21`, it
 proves 76 moving updates, an unchanged 77th update, transactional settle at
 camera `$0198`, and the exact six visible/four neutral-offscreen projections.
 Secondary slot 1 is also bounded frame evidence. This is integration
-verification only and does not make either asset a live-scene dependency.
+verification only and does not make TGFL-1 a live-scene dependency.
 Pure TGCP coverage separately exercises exact generic left/right steps,
 disabled and suppressed-route no-ops, page carry/borrow, continuing
 coarse-column changes, and direction reversals.
 
-TGCP-1 deliberately stops before live scene wiring. TGCT-1 now has a strict
-pure decoder for the complete 96-by-30-tile court (768-by-240 pixels) and a
-camera-positioned coarse/fine-scroll viewport slicer. The current renderer
-still draws one static 256-pixel viewport, however, and its actors, hoop math,
-AI, and movement remain screen-space approximations. Explicit orientation
-ownership is now live through TGOR-1; persistent camera state and a coherent
-scene-wide world-coordinate migration are still required before TGCP-1 and
-TGFL-1 can become live scene dependencies.
+The live scene decodes TGCT-1's complete 96-by-30-tile court (768-by-240
+pixels), slices a 32/33-column coarse/fine viewport at TGCP camera X, and clips
+both partial edge columns inside a 256-by-240 framebuffer subview. Actors,
+anchors, ball Q8 coordinates, shot endpoints, movement, proximity, passing,
+switching, and AI share world coordinates. TGCP projects actors and the ball;
+jump altitude is applied exactly once to the actor. TGFL-1 remains test-only.
+The canonical slicer does not claim the original staged PPU prefetch/write
+order.
+
+Ordinary movement currently owns the exact fixed `$F106-$F1B0` trapezoid
+unconditionally (171 bytes, FNV1a32 `CB1D4EAF`): page-0 lower bound
+`$00DF-floor(Y/2)`, page-1 interior, and page-2 upper bound
+`$0220+floor(Y/2)`. Dispatcher exceptions involving `$0478`, `$046E`,
+`$0588`, `$0463`, and `$0742` remain unimplemented.
 
 TGSR-3 also has FNV1a64 `5C5170460C8305A8` and requires exact same-pack
 TGPL-1. Its revision-fingerprinted sources are Bank05 `$91BC-$943A`,
@@ -171,8 +185,9 @@ recovery to idle pose 469 at frame 46,
 ball route `$01->$05->$17->$10->0`, and settlement at frame 87. Actor and ball
 lifetimes are independent. The release does not request DMC; only the proven
 route-10 ground/bounce condition requests `$B5AB` at frame 75. The ball's
-screen-space interpolation remains native geometry and is not claimed as the
-ROM launch solver.
+world-space interpolation remains native geometry and is not claimed as the
+ROM launch solver; its captured endpoint uses TGOR X and the proven launch Y
+`$8F`.
 
 The ordinary-jump gate still uses an explicitly native deterministic policy.
 Its predicted-miss branch stores UNKNOWN at frame 1; current-B release at
@@ -190,10 +205,11 @@ four passes. Frame 73 snaps the exact orientation-0 state to raw `(157,147)`,
 altitude `$38`, timer 4, and positive `$0040` velocity. The visible
 positive-first route proves a negative incoming horizontal sign, but no
 capture proves its exact magnitude; the deterministic diagnostic therefore
-uses `-1` as a sign-only sentinel. Rendering preserves the raw state but maps
-it relative to Bank05's source launch target `(160,143)` and the native shot
-endpoint `(224,123)`: the initial `(-3,+4)` delta appears at `(221,127)`
-beside the native hoop, not at center court. Each update moves one coordinate,
+uses `-1` as a sign-only sentinel. Rendering now preserves the raw world state
+directly against the TGOR orientation-0 endpoint `(160,143)`: the initial
+state `(157,147)` is the proven `(-3,+4)` offset beside that target. This
+intentionally replaces the former unproven screen endpoint `(224,123)`.
+Each update moves one coordinate,
 positive-first through raw X 161; frames 77, 81, and 85 reverse direction,
 reload the four-update timer, and queue the existing address-bound A8D6-short
 DMC clip. Frame 89 restores the diagnostic sentinel and selects exit
@@ -215,8 +231,9 @@ neutral at 63. The emulator capture displayed landing/recovery at 59-65 only
 because unrelated main-loop overruns held display frames 38 and 53; those are
 not native shot waits. Frame 85 awards three points and resets the shot clock
 to 24. Frame 111 changes possession and queues crowd 11 only. The observed
-ball checkpoints bound the route, but the current screen-space ball arc and
-camera remain native approximations. If B releases before frame 8, native play
+ball checkpoints bound the route; the current world-space ball arc remains a
+native approximation while its TGOR endpoint and TGCP camera projection are
+strict. If B releases before frame 8, native play
 normalizes directly to the bounded frame-9 release transition; this prevents a
 stalled scene without claiming unobserved early-release ROM timing. A period
 expiry before frame 111 applies the frame-85 basket once without resetting an
@@ -314,7 +331,7 @@ decompilation at these CPU-address ranges:
   `$976F-$985C`, and `$985D-$9918`, preserving raw world coordinates, the
   shooter-dependent stream skip, resolved nonshooter pose indexes, and base
   actor-state seeds. Visual lineup/repositioning remains outside the current
-  scene renderer pending the original camera/world projection.
+  scene even though production TGCP camera/world projection is now available.
 - Bank 05 `$8ABD-$8CE4`, table `$8CE5-$8D7C`, launch `$9C40-$9CC9`, actor
   progression `$86BB`, `$86DD`, `$8732`, `$8745`, result `$91BC-$943A`, ball
   path `$AF30-$B073`, and scoring `$B995-$BA3F`: numeric close-shot subtype 01
@@ -388,9 +405,10 @@ These are provenance only and are not runtime inputs.
   Unsupported or malformed choices fail without mutating state.
 - Free-throw controller ownership and the human current-B launch gate are
   supported. TGFL-1 strictly resolves the base raw lineup for both
-  orientations, but does not project or mutate the live scene. CPU play uses
-  the bounded observed 125-update launch schedule; original camera/world
-  projection, conditional positioning/script overrides, visual lineup timing,
+  orientations, but does not mutate the live scene. TGCP can project those
+  values in the focused integration test. CPU play uses
+  the bounded observed 125-update launch schedule; TGFL live lineup
+  application, conditional positioning/script overrides, visual lineup timing,
   aiming, made/missed policy, rebound behavior, and post-attempt possession
   remain unresolved. Only explicit made/missed results and settlement are
   modeled.
@@ -408,12 +426,12 @@ These are provenance only and are not runtime inputs.
   state-`$15` one-to-four-pass prefix is available through a deterministic
   debug/test API only; live selection remains unchanged. Unsupported
   profiles/directions/outcomes, ordinary two-point makes, the longer +157-update
-  claimant route, and make ball/camera geometry do not inherit those frame
+  claimant route, and make ball geometry do not inherit those frame
   checkpoints. TGSR-3 can classify an input coordinate as two points without
   supplying the missing action/flight/settlement schedule. No semantic rebound,
   block, steal, or player-stat event is claimed.
-- Actor starting layout, camera/orientation composition, movement and AI,
-  jump-ball screen interpolation, unsupported jump routes, general
+- Actor starting layout, unconditional ordinary-movement policy, AI,
+  jump-ball interpolation, unsupported jump routes, general
   make/contact policy, the distance policy
   selecting dunk/variant 0 versus layup/variant 2, live close-shot
   profile/direction selection and left-facing render mirroring, dynamic
@@ -431,8 +449,8 @@ These are provenance only and are not runtime inputs.
 - Local original-frame comparisons, after normalizing the small FCEUX screenshot
   RGB-output difference, matched the frame-24 black, frame-32 stage, frame-48
   stage, and frame-64 black cutaway pixels exactly. Returned live frame 80 still
-  differs because camera, spacing, HUD, and dynamic matchup palette selection
-  remain native approximations.
+  differs in spacing, HUD, and dynamic matchup palette selection; horizontal
+  camera/world projection is strict within the supported slice.
 - The module contains no proprietary ROM bytes, screenshots, traces, save
   states, dumps, or capture artifacts.
 
@@ -445,6 +463,6 @@ the strict TGDK payload/provenance/render/mutation/revision checks.
 `Run-GameplayFreeThrowLineupTests.ps1`, and
 `Run-GameplayCourtOrientationTests.ps1` validate the strict TGSR/TPNL/TGFL/TGOR
 parsers, same-pack dependencies, source mutation, and pure APIs.
-`--gameplay-state-test`, the TGPL/TGCT/TGCS/TGJS focused suites, the 77-entry
+`--gameplay-state-test`, the TGPL/TGCT/TGCP/TGCS/TGJS focused suites, the 78-entry
 full asset-pack regression, and `Run-GameplayAudioTests.ps1` retain their
 lower-level coverage.

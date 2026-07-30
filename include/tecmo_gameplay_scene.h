@@ -5,6 +5,7 @@
 #include "tecmo_framebuffer.h"
 #include "tecmo_gameplay_assets.h"
 #include "tecmo_gameplay_audio.h"
+#include "tecmo_gameplay_camera.h"
 #include "tecmo_gameplay_close_shots.h"
 #include "tecmo_gameplay_court.h"
 #include "tecmo_gameplay_court_orientation.h"
@@ -69,10 +70,10 @@ typedef struct TecmoGameplaySceneResult {
 } TecmoGameplaySceneResult;
 
 typedef struct TecmoGameplaySceneActor {
-    int16_t x;
-    int16_t y;
-    int16_t anchor_x;
-    int16_t anchor_y;
+    int16_t world_x;
+    int16_t world_y;
+    int16_t anchor_world_x;
+    int16_t anchor_world_y;
     uint16_t pose_index;
     uint8_t team;
     uint8_t roster_index;
@@ -90,6 +91,9 @@ typedef struct TecmoGameplayScene {
 
     TecmoGameplayAssets assets;
     TecmoGameplayCourt court;
+    TecmoGameplayCourtWorld court_world;
+    TecmoGameplayCameraAssets camera_assets;
+    TecmoGameplayCameraState camera_state;
     TecmoGameplayCourtOrientationAssets court_orientation;
     TecmoGameplayCourtOrientationState orientation_state;
     TecmoGameplayCloseShotAssets close_shots;
@@ -106,12 +110,13 @@ typedef struct TecmoGameplayScene {
     TecmoGameplaySceneActor actors[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     uint8_t controlled_actor[TECMO_GAMEPLAY_CONTROLLER_COUNT];
     uint8_t ball_holder;
-    int32_t ball_x_q8;
-    int32_t ball_y_q8;
-    int32_t shot_start_x_q8;
-    int32_t shot_start_y_q8;
-    int32_t shot_end_x_q8;
-    int32_t shot_end_y_q8;
+    int32_t ball_world_x_q8;
+    int32_t ball_world_y_q8;
+    int32_t shot_start_world_x_q8;
+    int32_t shot_start_world_y_q8;
+    int32_t shot_end_world_x_q8;
+    int32_t shot_end_world_y_q8;
+    uint32_t camera_follow_count;
     uint16_t shot_frame;
     uint16_t shot_duration;
     uint16_t action_serial;
@@ -149,7 +154,7 @@ typedef struct TecmoGameplayScene {
 /* Initialize exactly once before load/destroy. */
 void tecmo_gameplay_scene_init(TecmoGameplayScene *scene);
 
-/* Loads TGPL-1, TGCT-1, TGOR-1, TGCS-1, TGDK-1, TGJS-1, TGSR-3,
+/* Loads TGPL-1, TGCT-1, TGCP-1, TGOR-1, TGCS-1, TGDK-1, TGJS-1, TGSR-3,
    TSFX-1, and TDMC-1 from one local pack.
    `asset_pack_path` may be NULL to use the strict runtime search order.
    Runtime data is never read from decompilation/capture paths. */
@@ -174,7 +179,8 @@ void tecmo_gameplay_scene_end(TecmoGameplayScene *scene);
 bool tecmo_gameplay_scene_start_rim_rattle_debug(
     TecmoGameplayScene *scene);
 
-/* Draws the exact ROM-derived static court base and resolved ROM poses. Live
+/* Draws a TGCT-1 world slice at the persistent TGCP-1 camera and projects
+   resolved ROM poses through that same camera. Live
    close-shot playback is deliberately limited to TGCS profile 0/direction 0;
    ordinary jump-shot playback is deliberately limited to the proven TGJS/TGSR
    away/right context's miss and three-point-make schedules. Actor mirroring,

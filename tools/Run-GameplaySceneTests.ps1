@@ -216,6 +216,7 @@ try {
     $Specs = @(
         [pscustomobject]@{ id="gameplay/core"; size=23416; hash="2047CCE0"; schema="tecmo.gameplay/TGPL-1" },
         [pscustomobject]@{ id="gameplay/court"; size=6559; hash="ECAB7A93"; schema="tecmo.gameplay-court/TGCT-1" },
+        [pscustomobject]@{ id="gameplay/camera-projection"; size=1344; hash="B3721B17"; schema="tecmo.gameplay-camera/TGCP-1" },
         [pscustomobject]@{ id="gameplay/court-orientation"; size=640; hash="F9152C0A"; schema="tecmo.gameplay-court-orientation/TGOR-1" },
         [pscustomobject]@{ id="gameplay/close-shots"; size=3144; hash="DACDC976"; schema="tecmo.gameplay-close-shots/TGCS-1" },
         [pscustomobject]@{ id="gameplay/dunk-cutaway"; size=20272; hash="E02F2D21"; schema="tecmo.gameplay-dunk-cutaway/TGDK-1" },
@@ -247,6 +248,30 @@ try {
         if ($Mapped.Count -ne 1 -or $Mapped[0].schema -ne $Spec.schema) {
             throw "Source-map provenance for '$($Spec.id)' is missing or malformed."
         }
+    }
+    $CameraMaps = @($SourceMap.logical_entries | Where-Object {
+        $_.id -eq "gameplay/camera-projection"
+    })
+    $CourtMaps = @($SourceMap.logical_entries | Where-Object {
+        $_.id -eq "gameplay/court"
+    })
+    if ($CameraMaps.Count -ne 1 -or $CourtMaps.Count -ne 1 -or
+        ![bool]$CameraMaps[0].dependencies[0].same_pack_required -or
+        ![bool]$CameraMaps[0].dependencies[1].same_pack_required -or
+        $CameraMaps[0].state_contract.pure_initialize.layout_cursor -ne '$20' -or
+        $CameraMaps[0].state_contract.live_prime.layout_cursor -ne '$21' -or
+        $CameraMaps[0].live_runtime_contract.update -notmatch
+            "exactly one route-zero follow" -or
+        $CameraMaps[0].live_runtime_contract.viewport -notmatch
+            "32/33-column slice" -or
+        $CameraMaps[0].live_runtime_contract.shot_target.launch_y -ne 143 -or
+        $CameraMaps[0].ordinary_movement_geometry.cpu_start -ne 0xF106 -or
+        $CameraMaps[0].ordinary_movement_geometry.cpu_end -ne 0xF1B0 -or
+        $CameraMaps[0].ordinary_movement_geometry.fingerprint_fnv1a32 -ne
+            "CB1D4EAF" -or
+        $CourtMaps[0].native_contract.boundary -notmatch
+            "production camera-positioned live viewport") {
+        throw "Production TGCP-1/TGCT-1 scene provenance is incomplete."
     }
 
     $DunkLog = Join-Path $Scratch "dunk-cutaway-assets.log"
@@ -282,6 +307,65 @@ try {
         [byte][char]'x'
     [IO.File]::WriteAllBytes($MissingPath, $Missing)
     Assert-SceneRejected -AssetPack $MissingPath -Label "missing-court"
+
+    $MalformedCourtPath = Join-Path $Scratch "malformed-court.assetpack"
+    $MalformedCourt = [byte[]]$PackBytes.Clone()
+    $CourtOffset = [int]$Entries["gameplay/court"].pack_offset
+    $MalformedCourt[$CourtOffset] =
+        $MalformedCourt[$CourtOffset] -bxor 1
+    [IO.File]::WriteAllBytes($MalformedCourtPath, $MalformedCourt)
+    Assert-SceneRejected -AssetPack $MalformedCourtPath `
+        -Label "malformed-court" -ExpectedStatus "TGCT-1"
+
+    $OversizedCourtPath = Join-Path $Scratch "oversized-court.assetpack"
+    $OversizedCourt = [byte[]]$PackBytes.Clone()
+    [BitConverter]::GetBytes([uint64]6560).CopyTo(
+        $OversizedCourt,
+        [int]$Entries["gameplay/court"].directory_offset + 92)
+    [IO.File]::WriteAllBytes($OversizedCourtPath, $OversizedCourt)
+    Assert-SceneRejected -AssetPack $OversizedCourtPath `
+        -Label "oversized-court" -ExpectedStatus "TGCT-1"
+
+    $MissingCameraPath =
+        Join-Path $Scratch "missing-camera-projection.assetpack"
+    $MissingCamera = [byte[]]$PackBytes.Clone()
+    $MissingCamera[
+        [int]$Entries["gameplay/camera-projection"].directory_offset] =
+        [byte][char]'x'
+    [IO.File]::WriteAllBytes($MissingCameraPath, $MissingCamera)
+    Assert-SceneRejected -AssetPack $MissingCameraPath `
+        -Label "missing-camera-projection" -ExpectedStatus "TGCP-1"
+
+    $MalformedCameraPath =
+        Join-Path $Scratch "malformed-camera-projection.assetpack"
+    $MalformedCamera = [byte[]]$PackBytes.Clone()
+    $CameraOffset =
+        [int]$Entries["gameplay/camera-projection"].pack_offset
+    $MalformedCamera[$CameraOffset] =
+        $MalformedCamera[$CameraOffset] -bxor 1
+    [IO.File]::WriteAllBytes($MalformedCameraPath, $MalformedCamera)
+    Assert-SceneRejected -AssetPack $MalformedCameraPath `
+        -Label "malformed-camera-projection" `
+        -ExpectedStatus "TGCP-1 header/size/reserved contract rejected"
+
+    $OversizedCameraPath =
+        Join-Path $Scratch "oversized-camera-projection.assetpack"
+    $OversizedCamera = [byte[]]$PackBytes.Clone()
+    [BitConverter]::GetBytes([uint64]1345).CopyTo(
+        $OversizedCamera,
+        [int]$Entries["gameplay/camera-projection"].directory_offset + 92)
+    [IO.File]::WriteAllBytes($OversizedCameraPath, $OversizedCamera)
+    Assert-SceneRejected -AssetPack $OversizedCameraPath `
+        -Label "oversized-camera-projection" -ExpectedStatus "TGCP-1"
+
+    $CameraDependencyPath =
+        Join-Path $Scratch "camera-dependency-corrupt.assetpack"
+    $CameraDependency = [byte[]]$PackBytes.Clone()
+    $CameraDependency[$CameraOffset + 24] =
+        $CameraDependency[$CameraOffset + 24] -bxor 1
+    [IO.File]::WriteAllBytes($CameraDependencyPath, $CameraDependency)
+    Assert-SceneRejected -AssetPack $CameraDependencyPath `
+        -Label "camera-dependency-corrupt" -ExpectedStatus "TGCP-1"
 
     $MissingOrientationPath =
         Join-Path $Scratch "missing-court-orientation.assetpack"
@@ -483,11 +567,11 @@ try {
     }
     $ExpectedJumpHashes = @{
         "gameplay-jump-frame2" =
-            "E27AFD10FAFFA2C25033B0ECBCC2EBE9AF568AFDB0D8CB95983EEF03B8B0B889"
+            "AB92C28774FAC9ABED55B79AE83410DAC0ACEF8F53DB16DAE70BCDEA36FB0F4C"
         "gameplay-jump-frame75" =
-            "0D1A8B95CCF234FF7D83AF93BC4854952AFF447A4B09F61B60CE9EB9530F9816"
+            "7BA90B4B84B00E39933C80EDD9FF22130CF0A05931334655EEF9A0FBF5453283"
         "gameplay-jump-frame87" =
-            "FA11CB1F0EEF6DA63A3534F61CE9EFF69BC1EAF86C5AA92A588C06F4D4875357"
+            "52EE5F1364C001DD13BB8AED76F8595B97D6604EA99A7479A5FB7C5744EEF663"
     }
     foreach ($Mode in $ExpectedJumpHashes.Keys) {
         if ($RenderHashes[$Mode] -ne $ExpectedJumpHashes[$Mode]) {
@@ -496,46 +580,42 @@ try {
     }
     $ExpectedRattleHashes = @{
         "gameplay-jump-rattle-frame72" =
-            "2933A2F125245F26CFDCEC34896E7D64E6ACD8E3D5DC114F7C8D03C47B4EC422"
+            "899E1B2BF536E636CEC2F88FC4786555DFC108E2226B94DE7460FB804AD250BD"
         "gameplay-jump-rattle-frame73" =
-            "7B41BF815A74FEF1A06686F8F8CF84ACC624FD44C47CD836E2071C59D75FE802"
+            "03989C875F81FA76362CF348F945394E583FD5106D40660FD32CE0ECAEA06796"
         "gameplay-jump-rattle-frame74" =
-            "6699C45EA1EEE0BF8C3AC49D5C7C3613D6A0D15702F3BF1BE2A67118069827A6"
+            "9D4C88914894CF05B0A848B9A1A3672D6C190D7CFCC39C6FC3DE846801F2EA69"
         "gameplay-jump-rattle-frame77" =
-            "7E75126A6875202817B43D6ED53BBEC8EFE1DA8C15F2CBC0788DCF3E72AE0320"
+            "5554D57CBEE9A510DBFA0681CC46F76E8DBB6ABDF6F2D474A157B468B1D8718D"
+        "gameplay-jump-rattle-frame81" =
+            "D3BE64FED59EFAE8285DED65CC80B46BA1A65B97521CA8AB52158B9944B74612"
+        "gameplay-jump-rattle-frame85" =
+            "5554D57CBEE9A510DBFA0681CC46F76E8DBB6ABDF6F2D474A157B468B1D8718D"
+        "gameplay-jump-rattle-frame88" =
+            "C13D8C2A29DBF92098DED6421DC2E909253A121BC317A565E222B9F95C043C58"
         "gameplay-jump-rattle-frame89" =
-            "7B41BF815A74FEF1A06686F8F8CF84ACC624FD44C47CD836E2071C59D75FE802"
+            "D3BE64FED59EFAE8285DED65CC80B46BA1A65B97521CA8AB52158B9944B74612"
         "gameplay-jump-rattle-frame90" =
-            "8A96181AD8B32EAD402EF8D1BA6413C1984733DB0DBCE2F8C5A499F89FFD449E"
+            "1B3489661E56D96CE492D3C5231ECAC6CAC2CD033BF97281B3B48AE5E6A4B99D"
         "gameplay-jump-rattle-frame103" =
-            "E3D335499A087F2C7D38B8F688B5A4FE5A998D4116D3D728A8811F1202925D5B"
+            "56B9087FCC8C48B5C0BD15AA558B2BD8F7D63F722E1F9975AA0E00189000E881"
     }
     foreach ($Mode in $ExpectedRattleHashes.Keys) {
         if ($RenderHashes[$Mode] -ne $ExpectedRattleHashes[$Mode]) {
             throw "Gameplay rim-rattle render hash changed at '$Mode'."
         }
     }
-    if ($RenderHashes["gameplay-jump-rattle-frame73"] -ne
-            $RenderHashes["gameplay-jump-rattle-frame81"] -or
-        $RenderHashes["gameplay-jump-rattle-frame73"] -ne
-            $RenderHashes["gameplay-jump-rattle-frame89"] -or
-        $RenderHashes["gameplay-jump-rattle-frame77"] -ne
-            $RenderHashes["gameplay-jump-rattle-frame85"] -or
-        $RenderHashes["gameplay-jump-rattle-frame74"] -ne
-            $RenderHashes["gameplay-jump-rattle-frame88"]) {
-        throw "Gameplay rim-rattle four-pass position cycle diverged."
-    }
     $ExpectedJumpMakeHashes = @{
         "gameplay-jump-make-frame9" =
-            "CDCEC11F13DCD6DDF229B71D313E239288D95BB0D0190727C82814BF7C134B8A"
+            "C7F057C468EFEFC19F6AA82505FF113A8AFD237464EB15291968581740BD5729"
         "gameplay-jump-make-frame20" =
-            "EC76F90E2E5E8BF766DB74CFF614E415B005CBD61627F8FEB865D112CFF5FDFE"
+            "21FD5BCB165C1345ADD149948DB042E477D27EF00796FC08B9DA7140F47AB919"
         "gameplay-jump-make-frame57" =
-            "894ADB352E60FCAC69E8F9D2B4A864F2DBB697488DEF26094CCBD40D327FC924"
+            "71E1862754822071067873069B7D6C5440D549560156392E00FD2755965F76ED"
         "gameplay-jump-make-frame85" =
-            "155B61096B69A673D5520F27D3446ACE8745B794A5C4047BE03C86F1B68B34C5"
+            "87ACCBD092955AFA59FACF8D8BD439E7576101B9FC54DD80BC0FEBE4207C32B3"
         "gameplay-jump-make-frame111" =
-            "AE3E0FB82AEE2447E0FAFCBE091CF0D33DC39B3B8DA4D98DB49EBB2EB05637EF"
+            "17967AAC8CB3948FE61CDD231AF32920DE241D2298FBD08E1CEF0A19F79F83A0"
     }
     foreach ($Mode in $ExpectedJumpMakeHashes.Keys) {
         if ($RenderHashes[$Mode] -ne $ExpectedJumpMakeHashes[$Mode]) {
@@ -560,9 +640,9 @@ try {
 
     $global:LASTEXITCODE = 0
     Write-Output ("GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance " +
-        "scene controls TGDK TGJS TGSR-3 jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
+        "scene controls TGCP-1 full-world camera fine-scroll guarded-margins possession/freeze TGDK TGJS TGSR-3 jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
         "halftime/final render-hashes/determinism missing malformed oversized " +
-        "chr-mismatch")
+        "dependency-corrupt chr-mismatch")
 } finally {
     $env:TECMO_ASSETPACK = $PreviousPack
     $env:TECMO_SKIP_SHORTCUT = $PreviousSkipShortcut

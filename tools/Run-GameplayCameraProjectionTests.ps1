@@ -258,14 +258,19 @@ try {
             [bool]$Map.revision_source_fingerprints_verified -and
             @($Map.dependencies).Count -eq 2 -and
             $Map.dependencies[0].entry -eq "gameplay/core" -and
+            [bool]$Map.dependencies[0].same_pack_required -and
             $Map.dependencies[0].size -eq 23416 -and
             $Map.dependencies[0].fingerprint_fnv1a32 -eq "2047CCE0" -and
             $Map.dependencies[1].entry -eq "gameplay/court" -and
+            [bool]$Map.dependencies[1].same_pack_required -and
             $Map.dependencies[1].size -eq 6559 -and
             $Map.dependencies[1].fingerprint_fnv1a32 -eq "ECAB7A93" -and
             @($Map.source_spans).Count -eq 6 -and
             $Map.state_contract.camera_x -eq '$01:$00' -and
             $Map.state_contract.focus_world_x -eq '$F2:$7D' -and
+            $Map.state_contract.pure_initialize.layout_cursor -eq '$20' -and
+            $Map.state_contract.live_prime.layout_cursor -eq '$21' -and
+            [bool]$Map.state_contract.live_prime.single_use -and
             $Map.follow_contract.normal_speed_cap -eq 7 -and
             $Map.follow_contract.endpoint_speed_cap -eq 2 -and
             $Map.follow_contract.left_cursor_bound -eq 12 -and
@@ -278,8 +283,31 @@ try {
             $Map.projection_contract.screen_y -match "visible actors" -and
             $Map.projection_contract.orientation_transform -eq $false -and
             $Map.projection_contract.vertical_camera -eq $false -and
-            $Map.supported_boundary -match "no PPU commit" -and
-            $Map.supported_boundary -match "no .*live-scene mutation"
+            $Map.live_runtime_contract.update -match
+                "exactly one route-zero follow" -and
+            $Map.live_runtime_contract.freeze -match
+                "free throws.*TGDK" -and
+            $Map.live_runtime_contract.possession -match
+                "camera position is continuous" -and
+            $Map.live_runtime_contract.viewport -match
+                "32/33-column slice" -and
+            $Map.live_runtime_contract.shot_target.orientation_0_x -eq 160 -and
+            $Map.live_runtime_contract.shot_target.orientation_1_x -eq 608 -and
+            $Map.live_runtime_contract.shot_target.launch_y -eq 143 -and
+            $Map.ordinary_movement_geometry.source_entry -eq "prg/fixed" -and
+            $Map.ordinary_movement_geometry.source_offset -eq 127254 -and
+            $Map.ordinary_movement_geometry.bank -eq 7 -and
+            [bool]$Map.ordinary_movement_geometry.fixed_bank -and
+            $Map.ordinary_movement_geometry.cpu_start -eq 0xF106 -and
+            $Map.ordinary_movement_geometry.cpu_end -eq 0xF1B0 -and
+            $Map.ordinary_movement_geometry.size -eq 171 -and
+            $Map.ordinary_movement_geometry.fingerprint_fnv1a32 -eq
+                "CB1D4EAF" -and
+            (@($Map.ordinary_movement_geometry.dispatcher_exceptions_not_implemented) -join ',') -eq
+                '$0478,$046E,$0588,$0463,$0742' -and
+            $Map.supported_boundary -match "production live camera" -and
+            $Map.supported_boundary -match "no staged PPU" -and
+            $Map.supported_boundary -match "TGFL"
         if ($MapOk) {
             for ($Index = 0; $Index -lt $ExpectedSpans.Count; ++$Index) {
                 $Expected = $ExpectedSpans[$Index]
@@ -420,7 +448,8 @@ try {
 
     Write-Host ("TGCP-1 focused tests passed: direct exact Rev1 iNES/FNV/SHA, " +
         "six canonical fixed-bank spans, strict source map, camera follow/" +
-        "settle/projection goldens, TGFL-derived slot-3 integration, " +
+        "settle/projection goldens, live-prime/runtime/world/trapezoid provenance, " +
+        "TGFL-derived slot-3 integration, " +
         "missing/malformed/undersized/oversized/" +
         "cross-pack dependency rejection, $RomMutationCount source mutations")
     $global:LASTEXITCODE = 0

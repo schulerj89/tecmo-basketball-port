@@ -586,6 +586,51 @@ static bool camera_state_is_valid(const TecmoGameplayCameraState *state)
            state->stream_direction <= 1U;
 }
 
+bool tecmo_gameplay_camera_state_prime_live(
+    const TecmoGameplayCameraAssets *assets,
+    TecmoGameplayCameraState *state)
+{
+    TecmoGameplayCameraState primed;
+    if (assets == NULL || !assets->available ||
+        !camera_state_is_valid(state)) {
+        return false;
+    }
+    primed = *state;
+    if (primed.camera_x != 0x0100U || primed.scroll_x != 0U ||
+        primed.scroll_aux != 0U || primed.nametable_page != 0U ||
+        primed.aux != 0U || primed.stream_direction != 0U ||
+        primed.layout_cursor != 0x20U || primed.thresholds_valid ||
+        primed.endpoint_latched) {
+        return false;
+    }
+    /*
+     * Fixed $DDFB calls $DF05 once immediately after $DE13. With the initial
+     * rightward stream direction, that first prefetch advances $38 from $20
+     * to $21 while leaving the camera/scroll tuple unchanged.
+     */
+    primed.layout_cursor = 0x21U;
+    *state = primed;
+    return true;
+}
+
+bool tecmo_gameplay_camera_state_live_valid(
+    const TecmoGameplayCameraAssets *assets,
+    const TecmoGameplayCameraState *state)
+{
+    uint8_t expected_page;
+    if (assets == NULL || !assets->available ||
+        !camera_state_is_valid(state) ||
+        state->camera_x > 0x0200U ||
+        state->scroll_x != (uint8_t)state->camera_x ||
+        state->scroll_aux != 0U || state->aux != 0U ||
+        state->layout_cursor < 0x0BU || state->layout_cursor > 0x34U) {
+        return false;
+    }
+    expected_page = (uint8_t)(
+        (((state->camera_x >> 8U) ^ 1U) & 1U));
+    return state->nametable_page == expected_page;
+}
+
 static void stream_left(TecmoGameplayCameraState *state)
 {
     if (state->stream_direction == 0U) {
@@ -1000,6 +1045,26 @@ bool tecmo_gameplay_camera_self_test(
         state.thresholds_valid || state.endpoint_latched) {
         (void)snprintf(message, message_size,
                        "fixed $DE13 initializer golden failed");
+        goto cleanup;
+    }
+    if (!tecmo_gameplay_camera_state_prime_live(&assets, &state) ||
+        !camera_state_matches(&state, 0x0100U, 0x00U, 0U,
+                              0x21U, 0U) ||
+        !tecmo_gameplay_camera_state_live_valid(&assets, &state)) {
+        (void)snprintf(message, message_size,
+                       "fixed $DDFB->$DF05 live prime golden failed");
+        goto cleanup;
+    }
+    unchanged = state;
+    if (tecmo_gameplay_camera_state_prime_live(&assets, &state) ||
+        memcmp(&state, &unchanged, sizeof(state)) != 0) {
+        (void)snprintf(message, message_size,
+                       "live camera accepted a repeated prime");
+        goto cleanup;
+    }
+    if (!tecmo_gameplay_camera_state_initialize(&assets, &state)) {
+        (void)snprintf(message, message_size,
+                       "initializer after live prime failed");
         goto cleanup;
     }
     input.focus_world_x = 0x00FAU;

@@ -30,7 +30,7 @@
     "backend": "win32 software framebuffer",
     "game_core": "portable C runtime state plus explicit memory arenas",
     "asset_mode": "normal GUI play uses strict ignored ROM-derived asset-pack entries; loose decomp readers remain explicit console development tools",
-    "known_status": "normal play boots the strict ROM-derived opening, title, blue menu, preseason/team-data/season flows, and native preseason or season gameplay; the live scene has strict court, complete pose-resolution assets, and possession-synchronized binary offensive-direction ownership through TGOR-1, plus mapped dunk/layup close-shot families, music, SFX, DMC, rules-state, halftime/final, and result-handoff contracts, with documented camera/scroll/world-coordinate and other native approximations still pending parity"
+    "known_status": "normal play boots the strict ROM-derived opening, title, blue menu, preseason/team-data/season flows, and native preseason or season gameplay; the live scene has strict full-court TGCT/TGCP horizontal scrolling, coherent actor/ball/shot world coordinates, possession-synchronized TGOR direction/target ownership, complete pose-resolution assets, mapped dunk/layup close-shot families, music, SFX, DMC, rules-state, halftime/final, and result-handoff contracts, with documented movement-dispatch, AI, shot, free-throw, palette, HUD, and other approximations still pending parity"
   },
   "gameplay_boundary": {
     "status": "active-native-milestone",
@@ -41,6 +41,7 @@
     "strict_same_pack_entries": [
       "gameplay/core TGPL-1 23416 bytes FNV1a32 2047CCE0",
       "gameplay/court TGCT-1 6559 bytes FNV1a32 ECAB7A93",
+      "gameplay/camera-projection TGCP-1 1344 bytes FNV1a32 B3721B17",
       "gameplay/court-orientation TGOR-1 640 bytes FNV1a32 F9152C0A",
       "gameplay/close-shots TGCS-1 3144 bytes FNV1a32 DACDC976",
       "audio/music TMUS-1 36784 bytes FNV1a32 05C00ECB",
@@ -52,16 +53,19 @@
     "controls": "directions move the owned actor; NES A passes or switches defender; NES B shoots or attempts defense; START/SELECT are inert; unassigned controllers cannot act",
     "exact_contracts": [
       "ROM-derived court, CHR, imported TGCT palette bytes, embedded FCEUX RGB profile, all 208 TGCS-stored profile-direction resolutions into TGPL pose data, numeric close variants 0 and 2, their proven dunk/layup mapping, and their 32/16 step tables",
-      "TGCT-1 pure full-world decode expands the exact 96-by-30 tile and palette-index planes and slices canonical coarse/fine-scroll camera views for X 0..512; this boundary is exact but is not wired into the live scene",
-      "TGOR-1 live state owns current/previous binary offensive direction, tracked possession team, transition serial, and target X; fresh launch is direction 0/AWAY, real possession changes toggle exactly once, and same-possession handoffs and restarts preserve orientation",
+      "TGCT-1 full-world decode expands the exact 96-by-30 tile and palette-index planes; the live renderer slices 32/33 columns at TGCP camera X and clips fine-scroll edge columns inside its 256-by-240 subview",
+      "TGCP-1 preserves pure cursor-20 initialization, production cursor-21 prime, bounded launch settle, exactly one ball-world-X route-0 follow per live update, phase/cutaway freeze, and actor/ball projection",
+      "TGOR-1 live state owns current/previous binary offensive direction, tracked possession team, transition serial, and target X; it drives TGCP direction and world shot targets 00A0/0260 with launch Y 008F while possession changes preserve camera position",
+      "actors, anchors, ball Q8 coordinates, shot endpoints, movement, proximity, passing, switching, and AI use coherent world coordinates",
+      "ordinary movement uses the exact fixed F106-F1B0 trapezoid, 171 bytes FNV1a32 CB1D4EAF",
       "deterministic clock, shot-clock, event, violation/foul presentation, period, halftime, overtime, final, and result state transitions",
       "ROM-derived title stop frame 5 after five proven native yields, title confirmation SFX 10 frame 1, menu track 6 frame 127, and accepted blue-menu A-release SFX 8 through strict TFSX-1",
       "ROM-derived track 5/6 programs, gameplay SFX mappings, held-ball/dribble DMC clip, mixer cadence, and source-map provenance",
       "season result identity validation and exact-once commit before gameplay ends"
     ],
     "native_approximations": [
-      "live court/camera layout, scrolling, persistent camera state, and coherent world-coordinate migration for actors and hoop math",
-      "movement and AI",
+      "ordinary-movement dispatcher exceptions involving 0478/046E/0588/0463/0742; the proven trapezoid currently applies unconditionally",
+      "actor starting layout, movement policy, and AI",
       "ordinary jump-shot timing",
       "shot arc, make, and contact policy",
       "distance policy selecting dunk/variant 0 or layup/variant 2",
@@ -114,7 +118,7 @@
       "status": "active",
       "command": ".\\tools\\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>",
       "description": "Builds an exact Rev1 full asset pack, runs the compound native gameplay scene self-test and rejection cases, then verifies deterministic 640x480 start, ordinary-jump, and dunk render checkpoints under ignored build scratch.",
-      "expected_output": "GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance scene controls shots audio state halftime/final render-determinism missing malformed oversized chr-mismatch"
+      "expected_output": "GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance scene controls TGCP-1 full-world camera fine-scroll guarded-margins possession/freeze TGDK TGJS TGSR-3 jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state halftime/final render-hashes/determinism missing malformed oversized dependency-corrupt chr-mismatch"
     },
     {
       "id": "run_frontend_audio_test",
@@ -894,7 +898,7 @@
       "id": "M009",
       "status": "active",
       "title": "Gameplay parity expansion",
-      "done_when": "Bounded ROM evidence replaces the documented native approximations for ordinary jumps, persistent camera/full-court scrolling and actor/hoop world-coordinate motion, live close-shot profile/direction selection and mirroring, dynamic team/court palette selection, shot/contact/foul/free-throw behavior, and HUD composition while retaining TGOR-1 possession-synchronized orientation ownership."
+      "done_when": "Bounded ROM evidence replaces the remaining documented approximations for ordinary jumps, movement-dispatch exceptions, live close-shot profile/direction selection and mirroring, dynamic team/court palette selection, shot/contact/foul/free-throw behavior, and HUD composition while retaining TGCP/TGCT world-camera and TGOR possession-synchronized orientation ownership."
     }
   ],
   "next_engineering_step": {
@@ -902,6 +906,7 @@
     "title": "Gameplay parity expansion",
     "notes": [
       "Use bounded ROM/FCEUX evidence to replace one documented gameplay approximation at a time.",
+      "Keep the exact F106-F1B0 trapezoid but do not generalize its currently unimplemented 0478/046E/0588/0463/0742 dispatcher exceptions.",
       "Preserve numeric TGCS variant identities while exposing the proven high-level mapping 0=dunk and 2=layup.",
       "Keep extracted assets, emulator evidence, render checkpoints, logs, and comparisons local and ignored.",
       "Retain strict same-pack provenance and fail-closed rendering while extending the live scene."

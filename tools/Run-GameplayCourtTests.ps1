@@ -249,6 +249,7 @@ try {
         $CourtMap[0].fingerprint_fnv1a32 -ne "ECAB7A93" -or
         @($CourtMap[0].dependencies).Count -ne 1 -or
         $CourtMap[0].dependencies[0].entry -ne "chr/all" -or
+        ![bool]$CourtMap[0].dependencies[0].same_pack_required -or
         [uint64]$CourtMap[0].dependencies[0].source_offset -ne
             [uint64]$SourceMap.source.chr_offset -or
         [int]$CourtMap[0].dependencies[0].size -ne 262144 -or
@@ -293,7 +294,7 @@ try {
             'canonical camera view; does not emulate staged PPU prefetch/write ordering' -or
         $CourtMap[0].native_contract.live_palette_fingerprint_fnv1a32 -ne "B20C1E11" -or
         $CourtMap[0].native_contract.boundary -notmatch
-            "pure full-court decode and camera-positioned viewport slicing only" -or
+            "production camera-positioned live viewport slicing" -or
         $CourtMap[0].native_contract.runtime_inputs -notmatch "no decompilation") {
         throw "TGCT-1 source-map provenance is incomplete or malformed."
     }
