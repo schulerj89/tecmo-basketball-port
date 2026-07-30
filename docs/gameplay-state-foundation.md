@@ -123,15 +123,19 @@ stat event is synthesized.
 TGSR-2 adds a separate deterministic diagnostic for the proven state-`$15`
 prefix without changing the normal frame-87 miss. Its canonical source uses
 four passes. Frame 73 snaps the exact orientation-0 state to raw `(157,147)`,
-altitude `$38`, timer 4, and positive `$0040` velocity because the captured
-incoming X velocity `$FD2C` is negative. Rendering preserves that raw state
-but maps it relative to Bank05's source launch target `(160,143)` and the
-native shot endpoint `(224,123)`: the initial `(-3,+4)` delta appears at
-`(221,127)` beside the native hoop, not at center court. Each update moves one
-coordinate, positive-first through raw X 161; frames 77, 81, and 85 reverse
-direction, reload the four-update timer, and queue the existing address-bound
-A8D6-short DMC clip. Frame 89 restores `$FD2C` and selects exit render-script
-address `$BADD`. The observed raw selector `$71` satisfies `$A2DF`'s
+altitude `$38`, timer 4, and positive `$0040` velocity. The visible
+positive-first route proves a negative incoming horizontal sign, but no
+capture proves its exact magnitude; the deterministic diagnostic therefore
+uses `-1` as a sign-only sentinel. Rendering preserves the raw state but maps
+it relative to Bank05's source launch target `(160,143)` and the native shot
+endpoint `(224,123)`: the initial `(-3,+4)` delta appears at `(221,127)`
+beside the native hoop, not at center court. Each update moves one coordinate,
+positive-first through raw X 161; frames 77, 81, and 85 reverse direction,
+reload the four-update timer, and queue the existing address-bound A8D6-short
+DMC clip. Frame 89 restores the diagnostic sentinel and selects exit
+render-script address `$BADD`. The generic state API preserves and restores
+the caller-supplied horizontal and vertical values exactly. The observed raw
+selector `$71` satisfies `$A2DF`'s
 `>= $18` predicate, so this one diagnostic enters the existing state-`$10`
 timeline and settles at frame 103. The native API also tests one through four
 passes and orientation 1, but it does not implement the alternate state-`$05`

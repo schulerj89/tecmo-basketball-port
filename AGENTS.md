@@ -731,12 +731,15 @@ against TGSR-2; `$AD4E-$AD64` proves the BDEF/BDF1 loads and Y target `$8F`.
 `$A2DF` does not universally enter state `$10`: nonzero `$036F`
 or raw `$6A >= $18` selects that path; otherwise the original relaunches state
 `$05`. Only the deterministic `gameplay-jump-rattle-frameN` debug route uses
-the observed `$6A=$71`, captured negative incoming X velocity `$FD2C`, and
-canonical positive-first four passes before the state-`$10` handoff at frame
-89 and settlement at frame 103. Its raw orientation-0 snap `(157,147)` is
-rendered relative to the ROM launch target `(160,143)` and the native shot
-endpoint, so the ball remains beside the native hoop. Normal live misses
-retain their existing 87-frame path and do not use invented selection or RNG.
+the observed `$6A=$71` and a sign-only negative diagnostic sentinel to produce
+the visible positive-first four passes before the state-`$10` handoff at frame
+89 and settlement at frame 103. The incoming horizontal sign is proven;
+its exact magnitude is not. The generic state API preserves and restores
+whatever horizontal and vertical values its caller supplies. The raw
+orientation-0 snap `(157,147)` is rendered relative to the ROM launch target
+`(160,143)` and the native shot endpoint, so the ball remains beside the native
+hoop. Normal live misses retain their existing 87-frame path and do not use
+invented selection or RNG.
 
 TPNL-1 `gameplay/penalties` is a separate strict 768-byte rules foundation
 (FNV1a32 `980DDC76`) with same-pack TGPL-1 and TSFX-1 dependencies. Its pure

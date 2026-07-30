@@ -27,8 +27,9 @@
 #define TECMO_GAMEPLAY_JUMP_RATTLE_BEGIN_FRAME 73U
 #define TECMO_GAMEPLAY_JUMP_RATTLE_HANDOFF_FRAME 89U
 #define TECMO_GAMEPLAY_JUMP_RATTLE_FRAME_SHIFT 16U
-/* Captured side-0 incoming horizontal velocity $FD2C. */
-#define TECMO_GAMEPLAY_JUMP_RATTLE_CAPTURED_INCOMING_X_Q6 (-724)
+/* The visible side-0 route proves a negative incoming sign, not its exact
+   horizontal magnitude. Only the sign affects state-$15 setup. */
+#define TECMO_GAMEPLAY_JUMP_RATTLE_NEGATIVE_INCOMING_X_SENTINEL_Q6 (-1)
 /* Bank05 $AD4E launches at the side target selected by $BDEF-$BDF2,
    with the shared target Y loaded as $8F. */
 #define TECMO_GAMEPLAY_JUMP_RATTLE_SOURCE_TARGET_Y 0x008F
@@ -1458,7 +1459,8 @@ static bool scene_update_jump_miss(
             !tecmo_gameplay_shot_rim_rattle_begin(
                 &scene->shot_resolution, &scene->jump_rim_rattle,
                 0U, 3U, scene->jump_phase_counter,
-                TECMO_GAMEPLAY_JUMP_RATTLE_CAPTURED_INCOMING_X_Q6, 0)) {
+                TECMO_GAMEPLAY_JUMP_RATTLE_NEGATIVE_INCOMING_X_SENTINEL_Q6,
+                0)) {
             return false;
         }
         scene->jump_ball_state =
@@ -2775,7 +2777,7 @@ static bool scene_test_jump_rattle_checkpoint(
                rattle->passes_remaining == 0U &&
                rattle->animation_phase == 0U &&
                rattle->horizontal_velocity_q6 ==
-                   TECMO_GAMEPLAY_JUMP_RATTLE_CAPTURED_INCOMING_X_Q6 &&
+                   TECMO_GAMEPLAY_JUMP_RATTLE_NEGATIVE_INCOMING_X_SENTINEL_Q6 &&
                rattle->vertical_velocity_q6 == 0 &&
                rattle->render_script_address == 0xBADDU &&
                scene->jump_rim_rattle_audio_repeats == 3U;

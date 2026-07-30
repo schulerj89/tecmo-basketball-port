@@ -802,13 +802,15 @@ proves the BDEF/BDF1 loads and target Y `$8F`. The terminal convergence
 remains conditional: nonzero `$036F`
 or raw `$6A >= $18` enters `$A8E9`; the other branch requests the long A8D6
 clip, clears the miss flag, and relaunches state `$05`. Only the deterministic
-debug/test route uses observed `$6A=$71` and captured incoming X velocity
-`$FD2C`, producing a positive-first four-pass route, state `$10` at frame 89,
-and settlement at frame 103. The exact raw orientation-0 snap `(157,147)` is
-mapped relative to the ROM launch target `(160,143)` and the native shot
-endpoint; it therefore renders beside the hoop rather than as direct screen
-coordinates. Normal live `gameplay-jump-frameN` behavior and its frame-87
-settlement are unchanged; no selector or RNG is invented.
+debug/test route uses observed `$6A=$71` plus a sign-only negative sentinel,
+producing the visible positive-first four-pass route, state `$10` at frame 89,
+and settlement at frame 103. The incoming horizontal sign is proven, but its
+exact magnitude is not; the generic state API preserves and restores the
+caller's supplied horizontal and vertical values. The exact raw orientation-0
+snap `(157,147)` is mapped relative to the ROM launch target `(160,143)` and
+the native shot endpoint; it therefore renders beside the hoop rather than as
+direct screen coordinates. Normal live `gameplay-jump-frameN` behavior and
+its frame-87 settlement are unchanged; no selector or RNG is invented.
 
 TPNL-1 `gameplay/penalties` is a strict 768-byte pure rules foundation
 (FNV1a32 `980DDC76`) with same-pack TGPL-1 and TSFX-1 dependencies. It exposes
