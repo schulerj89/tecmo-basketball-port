@@ -83,7 +83,7 @@ FM2, status, and emulator logs remain ignored under
 them. Ported behavior still requires a separately justified ROM-derived asset
 contract and native C implementation.
 
-The current original-ROM two-point pilot stopped safely when an AI-controlled
+The first original-ROM two-point pilot stopped safely when an AI-controlled
 front defender could not be selected and cleared. The tracked driver now
 requires a next-frame `$91CB->$0309` store confirmation, permits at most six
 confirmed defensive stores across the entire pilot, and lets only the
@@ -98,8 +98,16 @@ missing or malformed. Its exact pending route orders point value 2 through
 `$003C`, slot position shooter `+(2,-1)`, altitude `$3900`, altitude velocity
 `$04EC`, raw H/V velocity bounds `$FF88..$FF8F`/`$001D..$0026`, 63 `$B100`
 entries, 26 state-08 updates, one +2 score commit, and SFX mailbox `$0B`
-throughout the same-frame actual swap. This upgrade has not been run as a
-successful pilot and does not extend native two-point support.
+throughout the same-frame actual swap.
+
+The first TGLM-4 launch exposed a Lua 5.1 60-upvalue compilation error in the
+status writer. The writer was split without changing its acceptance predicate
+or 63 emitted status keys, and the tracked script and map now pass the bundled
+32-bit Lua 5.1 parser. One final bounded launch still failed before creating
+`metadata.txt` or `status.txt`; FCEUX stdout/stderr were empty and the runner
+closed the emulator. The next research step is therefore the FCEUX/Lua startup
+boundary, not a coordinate, timing, or controller sweep. TGLM-4 has not
+produced a successful pilot and does not extend native two-point support.
 
 ## Runtime Boundary
 

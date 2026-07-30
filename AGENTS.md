@@ -219,8 +219,15 @@ target setup/solver, phase low nibble `$05`, close mode `$00`, target
 altitude `$3900`, altitude velocity `$04EC`, horizontal raw velocity
 `$FF88..$FF8F`, vertical `$001D..$0026`, 63 `$B100` entries, 26 state-08
 updates, one +2 score commit, and SFX mailbox `$0B` throughout the same-frame
-actual swap. This control upgrade has not produced
-a passed pilot; it is not evidence that an ordinary two-point make works.
+actual swap. Its first launch exposed a Lua 5.1 60-upvalue compilation error in
+status generation. The status writer was split without changing its acceptance
+predicate or 63 emitted keys, and both tracked Lua files pass the bundled
+32-bit Lua 5.1 parser. One final bounded launch still failed before
+`metadata.txt` or `status.txt` was created, with empty FCEUX output logs; the
+runner closed FCEUX. Do not retry through coordinate, delay, or controller
+sweeps. Diagnose the FCEUX/Lua startup boundary first. This control upgrade has
+not produced a passed pilot; it is not evidence that an ordinary two-point make
+works.
 
 Telemetry, hook events, screenshots, logs, movies, and status files are local
 research evidence only. Native C and asset-pack import/runtime paths must never

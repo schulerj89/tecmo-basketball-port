@@ -146,8 +146,13 @@ the original strict contact box (`abs(dx)<12`, `abs(dy)<7`). If an identified
 threat cannot be selected through observed defensive A edges, the experiment
 aborts instead of pretending the player can be controlled.
 
-The current original-ROM two-point pilot stopped at exactly that guard because
-an AI-controlled front defender could not be selected and cleared. TGLM-4 was
-added to investigate that blocker, but it has not yet produced a successful
-pilot. The earlier safe abort remains useful control evidence; no live native
-two-point schedule is claimed.
+The first original-ROM two-point pilot stopped at exactly that guard because an
+AI-controlled front defender could not be selected and cleared. TGLM-4 was
+added to investigate that blocker. Its first launch then exposed and fixed a
+Lua 5.1 60-upvalue compilation error in status generation; both tracked Lua
+files now pass the bundled 32-bit Lua 5.1 parser. A final bounded launch still
+failed before creating the startup sentinel, with empty FCEUX output logs, so
+the controller and timing contract have not been runtime-validated. Diagnose
+that FCEUX/Lua startup boundary before another pilot; do not compensate with
+coordinate, delay, or controller sweeps. No live native two-point schedule is
+claimed.
