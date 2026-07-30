@@ -1,6 +1,7 @@
 #include "asm_inventory.h"
 #include "png_writer.h"
 #include "tecmo_asset_pack.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.h"
 #include "tecmo_audio_output.h"
 #include "tecmo_bank07.h"
 #include "tecmo_game.h"
@@ -705,6 +706,24 @@ int main(int argc, char **argv)
         if (!tecmo_gameplay_free_throw_lineup_self_test(
                 pack_path, message, sizeof(message))) {
             printf("Free-throw lineup asset test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    /*
+     * Developer-only direct importer path used by the focused TGFL ROM
+     * mutation suite. Normal builds continue through --build-assetpack.
+     */
+    if (strcmp(
+            command,
+            "--gameplay-free-throw-lineup-source-test") == 0) {
+        const char *rom_path = index < argc ? argv[index] : NULL;
+        char message[256];
+        if (tecmo_asset_pack_gameplay_free_throw_lineup_source_test(
+                rom_path, message, sizeof(message)) != 0) {
+            printf("Free-throw lineup source test failed: %s\n", message);
             return 1;
         }
         printf("%s\n", message);

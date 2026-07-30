@@ -142,23 +142,30 @@ function Invoke-RejectedRomMutation {
         [byte[]]$Original,
         [string]$Id,
         [int]$Offset,
-        [string]$ExpectedText
+        [string]$ExpectedText,
+        [string]$ExpectedSchema = "TGFL-1",
+        [switch]$CombinedBuilder
     )
     $MutatedRom = Join-Path $Scratch ("rom-" + $Id + ".nes")
     $MutatedPack = Join-Path $Scratch ("rom-" + $Id + ".assetpack")
     $Bytes = [byte[]]$Original.Clone()
     $Bytes[$Offset] = $Bytes[$Offset] -bxor 1
     [IO.File]::WriteAllBytes($MutatedRom, $Bytes)
-    $Output = @(& $Executable --build-assetpack `
-        $MutatedRom $MutatedPack 2>&1)
+    if ($CombinedBuilder) {
+        $Output = @(& $Executable --build-assetpack `
+            $MutatedRom $MutatedPack 2>&1)
+    } else {
+        $Output = @(& $Executable `
+            --gameplay-free-throw-lineup-source-test $MutatedRom 2>&1)
+    }
     $ExitCode = $LASTEXITCODE
     if (Test-Path -LiteralPath $MutatedPack) {
         Remove-Item -LiteralPath $MutatedPack -Force
     }
     $Text = $Output -join [Environment]::NewLine
-    if ($ExitCode -eq 0 -or $Text -notmatch "TGFL-1" -or
+    if ($ExitCode -eq 0 -or $Text -notmatch [regex]::Escape($ExpectedSchema) -or
         $Text -notmatch [regex]::Escape($ExpectedText)) {
-        throw "Rev1 source mutation '$Id' was not rejected by TGFL-1.`n$(Get-ShortTail $Output)"
+        throw "Rev1 source mutation '$Id' was not rejected by $ExpectedSchema.`n$(Get-ShortTail $Output)"
     }
 }
 
@@ -182,6 +189,12 @@ try {
     }
     New-Item -ItemType Directory -Path $Scratch | Out-Null
 
+    $DirectOutput = @(& $Executable `
+        --gameplay-free-throw-lineup-source-test $RomPath 2>&1)
+    if ($LASTEXITCODE -ne 0 -or
+        ($DirectOutput -join [Environment]::NewLine) -notmatch "TGFL-1") {
+        throw "Direct Rev1 TGFL-1 source test failed.`n$(Get-ShortTail $DirectOutput)"
+    }
     $PackOutput = @(& $Executable --build-assetpack `
         $RomPath $PackPath 2>&1)
     if ($LASTEXITCODE -ne 0) {
@@ -346,8 +359,9 @@ try {
     }
 
     $RomBytes = [IO.File]::ReadAllBytes($RomPath)
+    # The normal combined builder preserves TPNL's earlier shared Rev1 gate.
     Invoke-RejectedRomMutation $RomBytes "full-rom-header-reserved" 15 `
-        "full-ROM FNV1a32 mismatch"
+        "full-ROM SHA-256 mismatch" "TPNL-1" -CombinedBuilder
     $Trainer = if (($RomBytes[6] -band 4) -ne 0) { 512 } else { 0 }
     $Prg = 16 + $Trainer
     $RomMutationCount = 0
@@ -371,7 +385,8 @@ try {
         }
     }
 
-    Write-Host ("TGFL-1 focused tests passed: canonical raw Bank06 spans, " +
+    Write-Host ("TGFL-1 focused tests passed: direct exact Rev1 iNES/FNV/SHA, " +
+        "canonical raw Bank06 spans, " +
         "both orientations, shooter-dependent stream skip, raw state seeds, " +
         "TGPL pose indexes 517..520, strict source map, missing/malformed/" +
         "undersized/oversized/cross-pack rejection, $RomMutationCount " +

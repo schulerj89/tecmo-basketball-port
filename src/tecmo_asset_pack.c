@@ -173,19 +173,19 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
         return -1;
     }
     if (enforce_finale_revision_fingerprints != 0 &&
-        tecmo_asset_pack_build_gameplay_free_throw_lineup(
-            rom, rom_size, prg_offset, prg_banks,
-            enforce_finale_revision_fingerprints,
-            free_throw_lineup_payload, sizeof(free_throw_lineup_payload),
-            free_throw_lineup_provenance, message, message_size) != 0) {
-        return -1;
-    }
-    if (enforce_finale_revision_fingerprints != 0 &&
         tecmo_asset_pack_build_gameplay_penalties(
             rom, rom_size, prg_offset, prg_banks,
             enforce_finale_revision_fingerprints,
             penalty_payload, sizeof(penalty_payload), penalty_provenance,
             message, message_size) != 0) {
+        return -1;
+    }
+    if (enforce_finale_revision_fingerprints != 0 &&
+        tecmo_asset_pack_build_gameplay_free_throw_lineup(
+            rom, rom_size, prg_offset, prg_banks,
+            enforce_finale_revision_fingerprints,
+            free_throw_lineup_payload, sizeof(free_throw_lineup_payload),
+            free_throw_lineup_provenance, message, message_size) != 0) {
         return -1;
     }
 

@@ -25,6 +25,9 @@ int tecmo_asset_pack_append_text(char *buffer,
 uint16_t tecmo_asset_pack_read_u16(const uint8_t *bytes);
 uint32_t tecmo_asset_pack_read_u32(const uint8_t *bytes);
 uint32_t tecmo_asset_pack_fnv1a32(const uint8_t *bytes, size_t byte_count);
+int tecmo_asset_pack_sha256_digest(const uint8_t *bytes,
+                                   size_t byte_count,
+                                   uint8_t digest[32]);
 void tecmo_asset_pack_store_u16(uint8_t *bytes, uint16_t value);
 void tecmo_asset_pack_store_u32(uint8_t *bytes, uint32_t value);
 uint8_t tecmo_asset_pack_imported_fade_color(uint8_t color, uint8_t reduction);

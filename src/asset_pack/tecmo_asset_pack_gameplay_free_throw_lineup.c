@@ -4,12 +4,19 @@
 #include "tecmo_asset_pack_import_layout.h"
 #include "tecmo_asset_pack_util.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #define FREE_THROW_LINEUP_BANK 6U
 #define FREE_THROW_LINEUP_PRG_BANK_COUNT 8U
+#define FREE_THROW_LINEUP_CHR_BANK_COUNT 32U
 #define FREE_THROW_LINEUP_REV1_ROM_SIZE 393232U
 #define FREE_THROW_LINEUP_REV1_ROM_FNV1A32 0x0650F5B0U
+
+static const uint8_t free_throw_lineup_rev1_ines_header[16] = {
+    'N','E','S',0x1AU,0x08U,0x20U,0x42U,0x00U,
+    0x00U,0x00U,0x00U,0x00U,0x00U,0x00U,0x00U,0x00U
+};
 
 static const uint8_t free_throw_lineup_rev1_sha256[32] = {
     0x07U,0x6AU,0x6BU,0xEBU,0x27U,0x3FU,0xABU,0x39U,
@@ -229,6 +236,58 @@ int tecmo_asset_pack_build_gameplay_free_throw_lineup(
         message, message_size,
         "Built strict ROM-derived TGFL-1 free-throw lineup asset.");
     return 0;
+}
+
+int tecmo_asset_pack_gameplay_free_throw_lineup_source_test(
+    const char *rom_path,
+    char *message,
+    size_t message_size)
+{
+    uint8_t *rom = NULL;
+    uint64_t rom_size = 0U;
+    uint64_t prg_offset = sizeof(free_throw_lineup_rev1_ines_header);
+    uint64_t prg_size =
+        (uint64_t)FREE_THROW_LINEUP_PRG_BANK_COUNT *
+        TECMO_ASSET_PACK_PRG_BANK_BYTES;
+    uint64_t chr_size =
+        (uint64_t)FREE_THROW_LINEUP_CHR_BANK_COUNT *
+        TECMO_ASSET_PACK_CHR_BANK_BYTES;
+    uint8_t payload[TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SIZE];
+    uint8_t input_sha256[32];
+    TecmoGameplayFreeThrowLineupProvenance provenance;
+    int result;
+    if (rom_path == NULL ||
+        tecmo_asset_pack_read_file(rom_path, &rom, &rom_size) != 0) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TGFL-1 direct source test could not read the ROM.");
+        return -1;
+    }
+    if (rom_size != FREE_THROW_LINEUP_REV1_ROM_SIZE ||
+        memcmp(rom, free_throw_lineup_rev1_ines_header,
+               sizeof(free_throw_lineup_rev1_ines_header)) != 0 ||
+        prg_offset + prg_size + chr_size != rom_size) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TGFL-1 direct source test requires the exact Rev1 iNES layout.");
+        free(rom);
+        return -1;
+    }
+    result = tecmo_asset_pack_build_gameplay_free_throw_lineup(
+        rom, rom_size, prg_offset, FREE_THROW_LINEUP_PRG_BANK_COUNT, 1,
+        payload, sizeof(payload), &provenance, message, message_size);
+    if (result == 0 &&
+        (tecmo_asset_pack_sha256_digest(
+             rom, (size_t)rom_size, input_sha256) != 0 ||
+         memcmp(input_sha256, free_throw_lineup_rev1_sha256,
+                sizeof(input_sha256)) != 0)) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TGFL-1 direct source test full-ROM SHA-256 mismatch.");
+        result = -1;
+    }
+    free(rom);
+    return result;
 }
 
 int tecmo_asset_pack_gameplay_free_throw_lineup_self_test(

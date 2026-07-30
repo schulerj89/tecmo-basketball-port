@@ -62,6 +62,11 @@ int tecmo_asset_pack_build_gameplay_free_throw_lineup(
     char *message,
     size_t message_size);
 
+int tecmo_asset_pack_gameplay_free_throw_lineup_source_test(
+    const char *rom_path,
+    char *message,
+    size_t message_size);
+
 int tecmo_asset_pack_gameplay_free_throw_lineup_self_test(
     char *message,
     size_t message_size);
