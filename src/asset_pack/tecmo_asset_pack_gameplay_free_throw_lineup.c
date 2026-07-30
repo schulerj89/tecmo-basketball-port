@@ -81,7 +81,7 @@ static int validate_table_relationships(const uint8_t *tables)
                     18U ||
             height_offset >
                 TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_TABLES_SIZE -
-                    17U) {
+                    18U) {
             return -1;
         }
     }
