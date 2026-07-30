@@ -854,11 +854,20 @@ bool tecmo_gameplay_free_throw_lineup_self_test(
                     if (!validate_derived_actor(
                             &assets, &lineup, orientation, shooter,
                             secondary, slot)) {
+                        const TecmoGameplayFreeThrowLineupActor *actor =
+                            &lineup.actors[slot];
                         (void)snprintf(
                             message, message_size,
-                            "rank/pose seed failed o=%u s=%u n=%u slot=%u",
+                            "rank/pose seed failed o=%u s=%u n=%u slot=%u "
+                            "x=%u y=%u dir=%u pair=%u stream=%u pose=%u",
                             (unsigned)orientation, (unsigned)shooter,
-                            (unsigned)secondary, (unsigned)slot);
+                            (unsigned)secondary, (unsigned)slot,
+                            (unsigned)actor->raw_world_x,
+                            (unsigned)actor->raw_world_y,
+                            (unsigned)actor->direction_index,
+                            (unsigned)actor->position_pair_index,
+                            (unsigned)actor->pose_stream_index,
+                            (unsigned)actor->pose_index);
                         goto cleanup;
                     }
                 }
