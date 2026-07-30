@@ -1052,6 +1052,14 @@ bool tecmo_gameplay_camera_self_test(
         goto cleanup;
     }
     if (!tecmo_gameplay_camera_project_actor(
+            &assets, &state, 0x0206U, 10U, 3U, &projection) ||
+        !projection.visible || projection.screen_x != 0x66U ||
+        projection.screen_y != 7U) {
+        (void)snprintf(message, message_size,
+                       "visible actor altitude subtraction failed");
+        goto cleanup;
+    }
+    if (!tecmo_gameplay_camera_project_actor(
             &assets, &state, 0x0090U, 0xFFU, 1U, &projection) ||
         projection.visible || projection.screen_x != 0U ||
         projection.screen_y != 0U) {
