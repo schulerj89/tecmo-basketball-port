@@ -330,7 +330,7 @@ departures. It holds palette stage 8 on exit frames 0-1, then stages 7/6/5 on
 PRESEASON's `$9966` route and ALL STAR's `$8221` route enter their native
 submenu construction directly and must not run `$E481` first.
 
-PRESEASON's B/Escape return uses its own direct path: it rebuilds the stable
+PRESEASON's B/X return uses its own direct path: it rebuilds the stable
 root on the PRESEASON row and resets menu settings to their initialized values.
 ALL STAR, TEAM DATA, and season-management destinations use the recorded return
 path, preserve committed MUSIC/SPEED/PERIOD values, and restore the exact root
@@ -982,6 +982,11 @@ The smoke test requires `tecmo_port_game.exe` to have PE subsystem 2 and keeps
 runtime initialization and presents native frame 0 before the first update.
 Original intro/title B input and intro Left/Right debug scrubbing are ignored,
 so normal play cannot fall back into the modern menu or skip opening steps.
+
+The global Win32 Player 1 keyboard mapping is arrows for directions, Z for
+NES A, X for NES B, Enter for START, and either Shift or Space for SELECT.
+Escape and Tab are deliberately unbound. Player 2 retains numpad
+8/2/4/6, 1, 3, 9, and 7 for directions, A, B, START, and SELECT.
 
 ### Roster and season-management boundary
 

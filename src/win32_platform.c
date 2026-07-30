@@ -2,6 +2,7 @@
 
 #include "tecmo_game.h"
 #include "tecmo_audio_output.h"
+#include "tecmo_win32_keys.h"
 
 #include <windows.h>
 
@@ -24,6 +25,7 @@ typedef struct Win32Backbuffer {
 static Win32Backbuffer g_backbuffer;
 static bool g_running;
 static TecmoControls g_controls[2];
+static TecmoWin32KeyboardState g_keyboard;
 
 static void win32_resize_backbuffer(Win32Backbuffer *buffer, int width, int height)
 {
@@ -68,98 +70,17 @@ static void win32_present_backbuffer(HWND window, Win32Backbuffer *buffer)
 
 static void win32_set_key(WPARAM key, bool down)
 {
-    TecmoControlButton button;
-    unsigned player_index = 0U;
+    TecmoWin32KeyBinding binding;
+    bool logical_down;
 
-    switch (key) {
-    case VK_NUMPAD8:
-        player_index = 1U;
-        button = TECMO_CONTROL_UP;
-        break;
-    case VK_NUMPAD2:
-        player_index = 1U;
-        button = TECMO_CONTROL_DOWN;
-        break;
-    case VK_NUMPAD4:
-        player_index = 1U;
-        button = TECMO_CONTROL_LEFT;
-        break;
-    case VK_NUMPAD6:
-        player_index = 1U;
-        button = TECMO_CONTROL_RIGHT;
-        break;
-    case VK_NUMPAD9:
-        player_index = 1U;
-        button = TECMO_CONTROL_CONFIRM;
-        break;
-    case VK_NUMPAD3:
-        player_index = 1U;
-        button = TECMO_CONTROL_CANCEL;
-        break;
-    case VK_NUMPAD1:
-        player_index = 1U;
-        button = TECMO_CONTROL_SHOOT;
-        break;
-    case VK_NUMPAD7:
-        player_index = 1U;
-        button = TECMO_CONTROL_TAB;
-        break;
-    case VK_UP:
-        button = TECMO_CONTROL_UP;
-        break;
-    case VK_DOWN:
-        button = TECMO_CONTROL_DOWN;
-        break;
-    case VK_LEFT:
-        button = TECMO_CONTROL_LEFT;
-        break;
-    case VK_RIGHT:
-        button = TECMO_CONTROL_RIGHT;
-        break;
-    case VK_RETURN:
-        button = TECMO_CONTROL_CONFIRM;
-        break;
-    case VK_ESCAPE:
-        button = TECMO_CONTROL_CANCEL;
-        break;
-    case VK_SPACE:
-        button = TECMO_CONTROL_SHOOT;
-        break;
-    case VK_TAB:
-        button = TECMO_CONTROL_TAB;
-        break;
-    case 'Q':
-        button = TECMO_CONTROL_BANK_PREV;
-        break;
-    case 'E':
-        button = TECMO_CONTROL_BANK_NEXT;
-        break;
-    case 'T':
-        button = TECMO_CONTROL_TABLE_TOGGLE;
-        break;
-    case 'S':
-        button = TECMO_CONTROL_SAVE;
-        break;
-    case 'R':
-        button = TECMO_CONTROL_PRESET_RABBIT;
-        break;
-    case 'M':
-        button = TECMO_CONTROL_PRESET_TECMO;
-        break;
-    case 'C':
-        button = TECMO_CONTROL_PRESET_COMPOSITE;
-        break;
-    case VK_BACK:
-    case VK_DELETE:
-        button = TECMO_CONTROL_REMOVE;
-        break;
-    case VK_F3:
-        button = TECMO_CONTROL_DEBUG_TOGGLE;
-        break;
-    default:
+    if (!tecmo_win32_keyboard_update(
+            &g_keyboard, (uint32_t)key, down, &binding, &logical_down) ||
+        binding.player_index >=
+            sizeof(g_controls) / sizeof(g_controls[0])) {
         return;
     }
-    tecmo_controls_set_button(&g_controls[player_index], button, down);
+    tecmo_controls_set_button(&g_controls[binding.player_index],
+                              binding.button, logical_down);
 }
 
 static LRESULT CALLBACK win32_window_proc(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
@@ -287,6 +208,7 @@ int tecmo_run_win32_game(const char *project_root)
     }
     tecmo_controls_init(&g_controls[0]);
     tecmo_controls_init(&g_controls[1]);
+    tecmo_win32_keyboard_init(&g_keyboard);
     (void)tecmo_audio_output_init(&audio_output, &runtime->music_player);
     (void)tecmo_audio_output_select_gameplay_player(
         &audio_output, &runtime->gameplay_scene.audio_player);

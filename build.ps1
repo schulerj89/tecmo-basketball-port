@@ -59,6 +59,7 @@ $Sources = @(
     "src\asset_pack\tecmo_asset_pack_writer.c",
     "src\tecmo_bank07.c",
     "src\tecmo_controls.c",
+    "src\tecmo_win32_keys.c",
     "src\tecmo_all_star_menu.c",
     "src\tecmo_music.c",
     "src\tecmo_gameplay_audio.c",

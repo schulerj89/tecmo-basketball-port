@@ -1291,7 +1291,7 @@ static void render_main_menu(const TecmoRuntime *runtime, TecmoFramebuffer *fb)
     draw_button(fb, 150, 186, 340, 42, "PLAY GAME", runtime->selected_menu_item == MAIN_MENU_PLAY_GAME);
     draw_button(fb, 150, 248, 340, 42, "QUIT", runtime->selected_menu_item == MAIN_MENU_QUIT);
 
-    draw_text(fb, 150, 364, "UP DOWN SELECT   ENTER CONFIRM   ESC QUIT", rgb(226, 228, 208), 1);
+    draw_text(fb, 150, 364, "UP DOWN SELECT   ENTER CONFIRM   X QUIT", rgb(226, 228, 208), 1);
     draw_text(fb, 82, 452, "NO ROM ASM OR EXTRACTED ASSETS ARE LOADED FROM THIS REPO", rgb(124, 148, 160), 1);
 }
 
@@ -1413,7 +1413,7 @@ static void render_roster_browser(const TecmoRuntime *runtime, TecmoFramebuffer 
                    team);
     draw_text(fb, 32, 72, line, rgb(238, 238, 214), 2);
     draw_text(fb, 32, 102,
-              play_setup ? "ARROWS SELECT   ENTER START PROTOTYPE   ESC MENU" : "ARROWS BROWSE ROSTERS   ESC MENU",
+              play_setup ? "ARROWS SELECT   ENTER START PROTOTYPE   X MENU" : "ARROWS BROWSE ROSTERS   X MENU",
               rgb(144, 176, 192),
               1);
 
@@ -2249,7 +2249,7 @@ void tecmo_render_first_sprite_probe(const TecmoRuntime *runtime, TecmoFramebuff
     rect(fb, 0, 0, fb->width, 58, rgb(18, 18, 34));
     draw_text(fb, 24, 20, "PLAY GAME - FIRST INTRO SPRITE PROBE", rgb(248, 248, 232), 2);
     draw_text(fb, 24, 66, "BANK07 RESET -> CC30 -> E41A -> BANK04 825D -> 88E8 -> 8988 -> C051/D861", rgb(142, 174, 190), 1);
-    draw_text(fb, 24, 84, "ENTER OR ESC RETURNS TO MENU", rgb(142, 174, 190), 1);
+    draw_text(fb, 24, 84, "ENTER OR X RETURNS TO MENU", rgb(142, 174, 190), 1);
 
     if (!runtime->title_probe_available || !runtime->intro_trace_available) {
         draw_centered_text(fb, 206, "LOCAL INTRO TRACE OR CHR DATA MISSING", rgb(252, 236, 170), 2);
@@ -2510,7 +2510,7 @@ static void draw_intro_output_header(TecmoFramebuffer *fb, uint8_t step)
                    (unsigned)step + 1U,
                    (unsigned)TECMO_INTRO_OUTPUT_STEP_COUNT);
     draw_text(fb, 24, 18, line, rgb(248, 248, 232), 2);
-    draw_text(fb, 24, 66, "LEFT RIGHT STEP   ENTER ESC MENU", rgb(142, 174, 190), 1);
+    draw_text(fb, 24, 66, "LEFT RIGHT STEP   ENTER X MENU", rgb(142, 174, 190), 1);
     draw_text(fb, 24, 82, "SOURCE ORDER VIEW - NOT THE FINAL COMPOSITE TITLE SCREEN", rgb(142, 174, 190), 1);
     draw_text(fb, 24, 106, intro_output_step_label(step), rgb(252, 236, 118), 1);
 }
@@ -3384,7 +3384,7 @@ static void render_chr_playground(const TecmoRuntime *runtime, TecmoFramebuffer 
                    (unsigned)(bank_count - 1U),
                    (unsigned)chr_table);
     draw_text(fb, 24, 18, line, rgb(248, 248, 232), 2);
-    draw_text(fb, 356, 40, "LR BANK UP DN TABLE TAB NEXT ENTER ESC", rgb(142, 174, 190), 1);
+    draw_text(fb, 306, 40, "LR BANK UP DN TABLE SHIFT SPACE NEXT ENTER X", rgb(142, 174, 190), 1);
 
     if (!runtime->title_probe_available) {
         draw_centered_text(fb, 212, "LOCAL CHR DATA UNAVAILABLE", rgb(252, 236, 170), 2);
@@ -3501,7 +3501,7 @@ static void render_intro_layout_lab(const TecmoRuntime *runtime, TecmoFramebuffe
                    (unsigned)(bank_count - 1U),
                    (unsigned)chr_table);
     draw_text(fb, 22, 18, line, rgb(248, 248, 232), 2);
-    draw_text(fb, 282, 40, "QE BANK T TABLE TAB FOCUS R RAB M TECMO C COMP", rgb(142, 174, 190), 1);
+    draw_text(fb, 234, 40, "QE BANK T TABLE SHIFT SPACE FOCUS R RAB M TECMO C COMP", rgb(142, 174, 190), 1);
 
     if (!runtime->title_probe_available) {
         draw_centered_text(fb, 212, "LOCAL CHR DATA UNAVAILABLE", rgb(252, 236, 170), 2);
@@ -3610,11 +3610,11 @@ static void render_intro_layout_lab(const TecmoRuntime *runtime, TecmoFramebuffe
                    runtime->intro_canvas_cell_y,
                    (unsigned)runtime->intro_placement_count);
     draw_text(fb, 30, 342, line, rgb(230, 232, 214), 1);
-    draw_text(fb, 30, 360, "ARROWS MOVE FOCUS  SPACE RECORD  S SAVE  BACKSPACE REMOVE  ENTER ESC MENU", rgb(142, 174, 190), 1);
+    draw_text(fb, 30, 360, "ARROWS MOVE FOCUS  Z RECORD  S SAVE  BACKSPACE REMOVE  ENTER X MENU", rgb(142, 174, 190), 1);
     draw_text(fb, 30, 378, runtime->intro_layout_status, runtime->intro_layout_dirty ? rgb(252, 236, 118) : rgb(142, 174, 190), 1);
 
     if (runtime->intro_placement_count == 0) {
-        draw_text(fb, 30, 406, "NO RECORDS YET  SPACE ADDS THE SELECTED TILE TO THE CANVAS", rgb(92, 116, 128), 1);
+        draw_text(fb, 30, 406, "NO RECORDS YET  Z ADDS THE SELECTED TILE TO THE CANVAS", rgb(92, 116, 128), 1);
     } else {
         size_t first = runtime->intro_placement_count > 8U ? runtime->intro_placement_count - 8U : 0U;
         draw_text(fb, 30, 400, "LOCAL PLACEMENT RECORDS", rgb(230, 232, 214), 1);

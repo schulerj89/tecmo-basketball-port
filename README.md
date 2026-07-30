@@ -117,8 +117,8 @@ only to console flow tests and explicit debug/render paths.
 Controls:
 
 ```text
-Player 1: arrows = directions, Space = NES A, Esc = NES B,
-Enter = START, Tab = SELECT
+Player 1: arrows = directions, Z = NES A, X = NES B,
+Enter = START, Shift or Space = SELECT
 Player 2: numpad 8/2/4/6 = directions, numpad 1 = NES A,
 numpad 3 = NES B, numpad 9 = START, numpad 7 = SELECT
 F3 = debug overlay

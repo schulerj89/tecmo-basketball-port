@@ -144,6 +144,12 @@ initialization and presents frame 0 before updating. The console
 `--root <LOCAL_DECOMP_ROOT>` developer workflows and access to the modern
 diagnostic menu.
 
+The Win32 Player 1 adapter maps arrows to directions, Z to NES A, X to NES B,
+Enter to START, and both Shift and Space to SELECT. Escape and Tab are
+unbound. Player 2 keeps numpad 8/2/4/6 for directions and numpad 1/3/9/7 for
+NES A/NES B/START/SELECT. This platform mapping is kept outside native game
+semantics and is exercised by the headless `--controls-test`.
+
 ## Scripted Screens
 
 Many opening screens are scripted. Port those scripts into native C concepts
@@ -364,7 +370,7 @@ stage 6 on 4-5, stage 5 on 6-7, black stage 4 on 8-10, and hand off once on
 frame 11. PRESEASON's `$9966` and ALL STAR's `$8221` routes enter their native
 submenu construction directly and do not run the later `$E481` fade first.
 
-PRESEASON's B/Escape return directly rebuilds the stable root on the PRESEASON
+PRESEASON's B/X return directly rebuilds the stable root on the PRESEASON
 row; it reinitializes MUSIC/SPEED/PERIOD and does not enable the shared neutral
 gate. ALL STAR, TEAM DATA, and season-management destinations use the recorded
 return path, preserve those committed settings, and restore the exact root or

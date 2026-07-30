@@ -125,8 +125,8 @@
       "id": "run_controls_test",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --controls-test",
-      "description": "Runs the portable controls engine checks for held, pressed, released, and named button mapping without opening a window.",
-      "expected_output": "CONTROLS SELF TEST PASS"
+      "description": "Runs the portable controls engine checks for held, pressed, and released state plus the exact Win32 Player 1 and Player 2 keyboard translation contract without opening a window.",
+      "expected_output": "CONTROLS SELF TEST PASS: held/pressed/released and Win32 keyboard mapping"
     },
     {
       "id": "trace_boot_first_screen",
@@ -167,7 +167,7 @@
       "id": "render_title_screen_runtime",
       "status": "active",
       "command": ".\\build\\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode title-screen build\\title_screen_runtime_test.png",
-      "description": "Renders the in-app Title Screen mode. When the ignored composite trace exists, it shows the local rabbit trace plus asset-backed TECMO splash; Enter opens the launcher and Esc quits at runtime.",
+      "description": "Renders the in-app Title Screen mode. When the ignored composite trace exists, it shows the local rabbit trace plus asset-backed TECMO splash; Enter opens the launcher and X quits at runtime.",
       "expected_artifact": "build/title_screen_runtime_test.png"
     },
     {
@@ -438,7 +438,7 @@
         "PNG dimensions are 640x480",
         "Frame is the default runtime boot screen before launcher input",
         "Enter advances from this mode to the launcher menu at runtime",
-        "Esc quits from this mode at runtime",
+        "X quits from this mode at runtime",
         "PNG remains in ignored build output"
       ]
     },
@@ -476,7 +476,7 @@
         "PNG dimensions are 640x480",
         "Frame is rendered through the native launcher Title Screen mode",
         "When build/intro_composite_trace.json exists, the frame shows the local rabbit trace plus asset-backed TECMO splash instead of the older title diagnostic",
-        "Enter opens the launcher and Esc quits from this mode at runtime",
+        "Enter opens the launcher and X quits from this mode at runtime",
         "PNG remains in ignored build output"
       ]
     },
@@ -516,8 +516,8 @@
         "Frame renders the selected local-only CHR sheet, defaulting to Bank 31 table 0",
         "Frame shows the source-tile cursor, canvas cursor, selected bank/table/tile, and placement-record instructions",
         "Runtime controls can switch bank with Q/E and table with T",
-        "Runtime controls can move the focused source tile or canvas cell with arrows and switch focus with Tab",
-        "Runtime controls can record the selected tile with Space, add the Bank 31/table 1 rabbit lookup candidate with R, add the visual TECMO 180-193 candidate with M, add the combined candidate with C, and save ignored local JSON with S",
+        "Runtime controls can move the focused source tile or canvas cell with arrows and switch focus with Shift or Space",
+        "Runtime controls can record the selected tile with Z, add the Bank 31/table 1 rabbit lookup candidate with R, add the visual TECMO 180-193 candidate with M, add the combined candidate with C, and save ignored local JSON with S",
         "PNG remains in ignored build output"
       ]
     },
@@ -613,7 +613,7 @@
         "PNG dimensions are 640x480",
         "Frame renders selected-bank/table tile IDs $080-$0AF from local CHR data, defaulting to Bank 31 table 0",
         "Frame shows assembled 2x2 title glyphs from the local glyph map using the selected CHR bank/table",
-        "Runtime controls can switch the selected CHR bank with Left/Right or Tab",
+        "Runtime controls can switch the selected CHR bank with Left/Right or Shift/Space",
         "Runtime controls can toggle CHR pattern table half with Up/Down",
         "PNG remains in ignored build output"
       ]
@@ -802,7 +802,7 @@
       "The native launcher exposes a Title Screen mode before the Play Game progressive intro-output mode so the title remains reachable from the menu.",
       "The native launcher exposes an Intro Lab builder that renders the selected local-only CHR sheet, lets the user place selected tiles onto a target canvas, shows local placement records, and can save ignored placement JSON.",
       "The native launcher exposes a CHR Playground that renders selected-bank/table tile IDs $080-$0AF or $180-$1AF and assembled title glyphs for number/letter verification.",
-      "Intro Lab and CHR Playground default to Bank 31 table 0 because that is the verified title glyph path. Intro Lab uses Q/E for bank, T for table, Tab for source/canvas focus, Space to record, R to add the Bank 31/table 1 rabbit head/upper lookup subset, M to add the visual TECMO 180-193 candidate, C to add the combined intro candidate, and S to save ignored placement JSON. CHR Playground keeps Left/Right/Tab bank switching and Up/Down table switching.",
+      "Intro Lab and CHR Playground default to Bank 31 table 0 because that is the verified title glyph path. Intro Lab uses Q/E for bank, T for table, Shift or Space for source/canvas focus, Z to record, R to add the Bank 31/table 1 rabbit head/upper lookup subset, M to add the visual TECMO 180-193 candidate, C to add the combined intro candidate, and S to save ignored placement JSON. CHR Playground keeps Left/Right/Shift/Space bank switching and Up/Down table switching.",
       "The --flow-test command now exercises menu-first startup, roster browsing, Play Game progressive output entry/cancel, watched RAM mode/menu bytes, and the quit menu path without opening a window.",
       "The current rabbit lookup path is Bank 04 L88E7 -> L8988 -> fixed $C051/$D861 through Bank 0 pointer table $A7DB. The seeded rabbit pass is selector $01, pointer entry $A7DD, stream pointer $A8C0, with 16 records. Its visible head/upper subset includes OAM tile lows $25, $27, $29, and $2B, which imply table-1 8x16 sprite pairs $124/$125, $126/$127, $128/$129, and $12A/$12B.",
       "The intro-c051-d861-model screenshot is gated by a native synthetic helper self-test and renders a read-only schematic of the fixed helper contract so the native model can be reviewed without committing decoded payload rows.",

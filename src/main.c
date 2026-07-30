@@ -23,6 +23,7 @@
 #include "tecmo_gameplay_state.h"
 #include "tecmo_intro_arena_scene.h"
 #include "tecmo_nes_video.h"
+#include "tecmo_win32_keys.h"
 
 #include <errno.h>
 #include <limits.h>
@@ -44,7 +45,7 @@ static void print_usage(const char *program)
     printf("  --roster [TEAM|--all]   Parse labeled Bank 02 roster records\n");
     printf("  --play                  Launch native playable prototype window\n");
     printf("  --flow-test             Run headless native menu/play/quit flow checks\n");
-    printf("  --controls-test         Run portable held/pressed/released control-state checks\n");
+    printf("  --controls-test         Run control-state and Win32 keyboard-mapping checks\n");
     printf("  --bank07-test           Run fixed-bank helper C counterpart checks\n");
     printf("  --video-test            Run embedded FCEUX 2.6.6 NES palette mapping checks\n");
     printf("  --music-test            Run strict TMUS parser/sequencer/synth checks\n");
@@ -858,7 +859,11 @@ int main(int argc, char **argv)
             printf("Controls test failed: %s\n", message);
             return 1;
         }
-        printf("%s\n", message);
+        if (!tecmo_win32_keys_self_test(message, sizeof(message))) {
+            printf("Win32 key translation test failed: %s\n", message);
+            return 1;
+        }
+        printf("CONTROLS SELF TEST PASS: held/pressed/released and Win32 keyboard mapping\n");
         return 0;
     }
 
@@ -3254,7 +3259,7 @@ shot_resolution_test_cleanup:
                 runtime->intro_placement_count = 1;
                 (void)snprintf(runtime->intro_layout_status,
                                sizeof(runtime->intro_layout_status),
-                               "SAMPLE RECORD  SPACE ADDS  S SAVES");
+                               "SAMPLE RECORD  Z ADDS  S SAVES");
             } else if (strcmp(mode_name, "intro-rabbit-preset") == 0) {
                 TecmoInput input;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_INTRO_PROBE);

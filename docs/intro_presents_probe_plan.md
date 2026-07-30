@@ -34,9 +34,9 @@ Intro Lab builder controls:
 
 - `Q/E`: switch CHR bank.
 - `T`: switch table 0/table 1.
-- `Tab`: switch focus between the source sheet and target canvas.
+- `Shift` or `Space`: switch focus between the source sheet and target canvas.
 - `Arrows`: move the focused source-tile cursor or canvas-cell cursor.
-- `Space`: record the selected tile at the selected canvas cell.
+- `Z`: record the selected tile at the selected canvas cell.
 - `R`: record the Bank 31/table 1 rabbit lookup candidate as 8x16 sprite pairs `$124-$12B`.
 - `M`: record the visual Bank 31/table 1 `TECMO` logo candidate tiles `$180-$193`.
 - `C`: record the current composite candidate with the rabbit lookup group placed beside the `TECMO` visual group.
@@ -81,7 +81,7 @@ The launcher has a `CHR Playground` button and a matching ignored screenshot tes
 .\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --render-test-mode chr-playground build\chr_playground_test.png
 ```
 
-The playground renders selected-bank/table tile IDs `$080-$0AF` or `$180-$1AF`, the assembled 2x2 title glyphs, and sample character-to-tile mappings so number/letter construction can be visually checked. Use Left/Right or Tab to switch banks and Up/Down to toggle table 0/table 1 in the running app.
+The playground renders selected-bank/table tile IDs `$080-$0AF` or `$180-$1AF`, the assembled 2x2 title glyphs, and sample character-to-tile mappings so number/letter construction can be visually checked. Use Left/Right or Shift/Space to switch banks and Up/Down to toggle table 0/table 1 in the running app.
 
 ## How To Point Out Tiles
 

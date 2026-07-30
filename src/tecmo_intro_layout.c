@@ -98,7 +98,7 @@ void tecmo_intro_layout_init(TecmoRuntime *runtime)
     runtime->intro_canvas_cell_y = 4;
     set_intro_layout_status(runtime->intro_layout_status,
                             sizeof(runtime->intro_layout_status),
-                            "SPACE RECORD  S SAVE  BACKSPACE REMOVE");
+                            "Z RECORD  S SAVE  BACKSPACE REMOVE");
 }
 
 int tecmo_intro_layout_save(TecmoRuntime *runtime)
