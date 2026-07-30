@@ -31,10 +31,10 @@ frame-identical recreation of on-court gameplay.
 | Blue start-game menu | Supported: root navigation, settings popups, season-page slide, input repeat/release behavior, fades, and return state |
 | Preseason | Supported through team selection, native game launch, completed result, and return to PRESEASON |
 | Season | Supported for TEAM CONTROL, schedule/playoffs, standings/programmed results, GAME START, persistent records, and one-time result commit |
-| Team Data | Supported for team profiles, rosters, player detail, STARTERS, and PLAYBOOK |
+| Team Data | Supported for team profiles, rosters, player detail, STARTERS, and PLAYBOOK; accumulated player-stat fields remain `.000`/zero until per-player accumulators are ported |
 | All Star | Partial: selectors work, but the route stops before game launch |
 | League Leaders | Partial: category navigation works; ranked player results remain unavailable until per-player season statistics are ported |
-| Gameplay | Playable full-game shell with movement, passing, defender switching, close shots, one bounded ordinary-jump miss and three-point make context, fouls/free throws, clocks, periods, halftime, overtime/final, audio, and result handoff; much of the basketball simulation remains approximate |
+| Gameplay | Playable full-game shell with movement, passing, defender switching, close shots, one bounded ordinary-jump miss/three-point-make context, clocks, periods, halftime, overtime/final, audio, and result handoff; live foul/contact and free-throw outcomes, general shot selection, AI, and camera behavior remain approximate. Rim-rattle is diagnostic-only and is not selected by normal live misses |
 
 Normal play is asset-pack-only. It does not load decompilation files, Lua
 traces, screenshots, save states, dumps, or emulator captures at runtime.
@@ -142,29 +142,21 @@ accumulators are ported.
 - NES A passes on offense and switches defenders on defense.
 - NES B starts an offensive shot or attempts the current defensive
   steal/contact action. START and SELECT are inert during live play.
-- The close-shot system exposes the ROM's numeric variant 0 dunk family and
-  numeric variant 2 layup family. Their live distance trigger and make/miss
-  policy are still native approximations.
-- The dunk uses the strict ROM-derived TGDK-1 cutaway, including its black
-  transitions, screen `$0B`, seven staged sprite groups, return to live play,
-  address-bound A9C5 audio checkpoint, and frame-132 settlement.
-- Ordinary-jump support is deliberately narrow: the captured human away-side,
-  right-facing family-0/profile-0/direction-1 context supports its deterministic
-  miss and three-point make branches. The miss awards no points and changes
-  possession at frame 87. The make classifies the ROM clear-bit result at frame
-  19, applies three points at frame 85, and changes possession with crowd audio
-  at frame 111. Other profiles, directions, and ordinary two-point makes remain
-  unsupported. Releasing B before the captured frame-8 hold completes is safely
-  normalized to the known frame-9 release transition.
-- The strict TGSR-2 asset and native state API now cover the behavior-verified
-  state-`$15` rim-rattle prefix: one to four four-update horizontal passes,
-  source-selected render-script addresses, velocity restoration, and the
-  repeat A8D6-short DMC request. The deterministic
-  `gameplay-jump-rattle-frameN` diagnostic demonstrates the observed `$6A=$71`
-  positive-first four-pass route through state `$10` and settlement at frame
-  103. Its exact raw coordinates are mapped relative to the ROM launch target
-  and native hoop endpoint. Normal live misses retain their existing frame-87
-  route; no invented selector or RNG has been added.
+- Dunks use the strict ROM-derived cutaway, including its black transitions,
+  staged sprite groups, return to live play, and supported audio/settlement
+  timing. Live trigger, profile/direction selection, and make/miss policy are
+  still native approximations.
+- Layups use bounded ROM-derived motion data, but their live trigger and outcome
+  policy remain approximate and their separate action/audio caller path is
+  incomplete.
+- Ordinary-jump support is deliberately limited to one captured
+  human-controlled, away-side, right-facing context with deterministic miss and
+  three-point-make branches. Other profiles, directions, and ordinary
+  two-point makes remain unsupported. An early B release is safely normalized
+  to the known supported release transition.
+- The strict TGSR-2 rim-rattle prefix is available only through a focused debug
+  diagnostic. Normal live misses retain the captured direct settlement route
+  and never select the rattle; no selector or RNG behavior has been invented.
 - The scene advances the game and shot clocks, score, possession, shot-clock
   violations, current native foul/free-throw flow, period banners, halftime,
   overtime/final presentation, and preseason/season result handoff.
@@ -172,15 +164,21 @@ accumulators are ported.
   have no timeout. CPU free throws use the bounded observed 125-update
   schedule; lineup, aim, outcome, rebound, and CPU positioning remain
   approximations.
+- Rebounds, blocks, and steals remain approximate or nonsemantic. The current
+  scene can transfer possession and attempt defensive contact, but it does not
+  claim the original game's selection or outcome logic for those events.
+
+See [PORTING.md](PORTING.md) and the
+[gameplay state foundation](docs/gameplay-state-foundation.md) for the internal
+asset contracts, provenance, and exact supported state boundaries.
 
 ### ROM-derived versus approximate
 
 Strict ROM-derived data currently covers the static court, CHR and palette
 entries, embedded FCEUX RGB profile, actor pose data, numeric close-shot step
-tables, dunk cutaway, the bounded jump-miss route, the bounded three-point
-jump-make actor/result schedule, the state-`$15` one-to-four-pass rim-rattle
-prefix, rules timing, and native music/SFX/DMC programs. Every required
-gameplay entry is loaded from the same
+tables, dunk cutaway, the bounded ordinary-jump miss/three-point-make context,
+TGSR-2 shot resolution and its diagnostic-only rim-rattle prefix, rules timing,
+and native music/SFX/DMC programs. Every required gameplay entry is loaded from the same
 revision-fingerprinted asset pack with exact-size and malformed-data checks.
 
 The actor and camera layout, movement and AI, jump-ball geometry, general shot
@@ -191,13 +189,14 @@ statistics, and temporary HUD typography remain native approximations or are
 unsupported. `gameplay/penalties` TPNL-1 contains strict ROM-backed rule data,
 but the live scene's current contact/foul code does not consume it yet.
 
-Opening music plays from the strict ROM-derived semantic music asset. GAME
-MUSIC gates gameplay track 5 and the evidence-bounded restart cue; halftime and
-final presentation request track 6. Crowd, violation, clock/countdown, and
-held-ball/dribble events use strict ROM-derived TSFX-1/TDMC-1 assets. GAME SPEED
-remains a stored gameplay setting and does not change menu or soundtrack tempo.
-The visible `SIC` left beside the speed popup is an authentic overlap from the
-original menu.
+The first two intro screens, TECMO/rabbit and NBA license, are silent. Strict
+opening music begins at the license-to-arena handoff. Title confirmation queues
+presentation/menu music as the blue menu is entered. Gameplay music,
+halftime/final presentation music, crowd responses, SFX, and DMC playback work
+in the native runtime, but nonlinear cycle-exact NES APU fidelity is not
+claimed. GAME MUSIC gates gameplay track 5 and its evidence-bounded restart
+cue; GAME SPEED does not change menu or soundtrack tempo. The visible `SIC`
+left beside the speed popup is an authentic overlap from the original menu.
 
 Older diagnostic screens and the modern Play Game/Quit menu remain available
 through explicit render-test/debug paths for development work.
@@ -205,20 +204,25 @@ through explicit render-test/debug paths for development work.
 ## Common Commands
 
 ```powershell
-.\build\tecmo_port.exe --summary
-.\build\tecmo_port.exe --banks
-.\build\tecmo_port.exe --chunks
-.\build\tecmo_port.exe --assets
-.\build\tecmo_port.exe --roster CHICAGO
-.\build\tecmo_port.exe --flow-test
+.\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --summary
+.\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --banks
+.\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --chunks
+.\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --assets
+.\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --roster CHICAGO
+.\build\tecmo_port.exe --root <LOCAL_DECOMP_ROOT> --flow-test
 .\build\tecmo_port.exe --bank07-test
 .\build\tecmo_port.exe --controls-test
 .\build\tecmo_port.exe --gameplay-state-test
+.\tools\gameplay-lab\Test-GameplayLab.ps1
 .\tools\Run-GameplayShotResolutionTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayPenaltyTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayDunkCutawayTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 ```
+
+The tracked gameplay-lab command above is a static safety/schema test. See its
+[README](tools/gameplay-lab/README.md) for private pilot instructions and
+required local inputs.
 
 Render the normal menu or a focused intro frame:
 
@@ -293,7 +297,8 @@ The project is actively porting the original game into native C modules. Current
 - Bank07 fixed-helper C counterparts
 - the native opening, title, blue menu, preseason, Team Data, and season paths
 - a playable but incomplete native gameplay scene with strict court, pose,
-  close-shot, dunk, jump-miss, rules, state, and audio assets
+  close-shot, dunk, bounded ordinary-jump miss/three-point-make, TGSR-2 shot
+  resolution, diagnostic-only rim-rattle, rules, state, and audio assets
 - focused render-test modes for visual regression checks
 
 The public repo remains source-only. Local CHR, OAM, palette, nametable, roster, trace, screenshot, and emulator-capture outputs are generated under ignored paths and should not be committed.

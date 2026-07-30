@@ -70,10 +70,11 @@ research conclusions, not asset-pack entries. They distinguish raw 16-bit
 altitude velocity (`$049A/$04A5`), horizontal velocity (`$04E7/$04F2`), and
 vertical velocity (`$04FD/$0508`). Accepted hooks snapshot direct
 object-slot-10 H/V and saved object H/V scratch (`$038D-$0390`) inside the
-callback before bounded queued emission. The saved words are scratch; at the
-`$A7A9` entry hook they can predate that routine's `JSR $A790`, so neither
-signed direction nor same-invocation ownership is inferred. Captured CSV, hook
-events, screenshots, FM2, status, and emulator logs remain ignored under
+callback before bounded queued emission. At the `$A7A9` entry hook, direct
+slot-10 H/V is entry-time evidence captured before `JSR $A790`; the saved words
+are scratch and can predate that call, so neither signed direction nor
+same-invocation ownership is inferred. Captured CSV, hook events, screenshots,
+FM2, status, and emulator logs remain ignored under
 `temp-videos/gameplay-lab`. Neither the importer nor native runtime may consume
 them. Ported behavior still requires a separately justified ROM-derived asset
 contract and native C implementation.
@@ -483,11 +484,12 @@ The seven-tile MUSIC overlay intentionally preserves the original visible
 `SIC` suffix from the underlying `GAME MUSIC` row. This overlap was confirmed
 against bounded emulator evidence and is not a text-composition defect.
 
-Native audio now begins at the opening. The ROM importer emits `audio/music`
-as TMUS-1, a strict semantic asset for music IDs 5 (gameplay), 6
-(presentation), 7 (opening), and 8 (pregame matchup stinger). The exact payload is 36784
-bytes / FNV1a32 `05C00ECB`, with 37 deduplicated voices, 75 imported pitch
-periods, and 2251 native instructions. Notes, rests, voices/envelopes, legato,
+Native audio now begins at the arena handoff in the opening sequence. The ROM
+importer emits `audio/music` as TMUS-1, a strict semantic asset for music IDs 5
+(gameplay), 6 (presentation), 7 (opening), and 8 (pregame matchup stinger).
+The exact payload is 36784 bytes / FNV1a32 `05C00ECB`, with 37 deduplicated
+voices, 75 imported pitch periods, and 2251 native instructions. Notes, rests,
+voices/envelopes, legato,
 signed pitch deltas, bounded loops, and resolved phrase calls/returns are C
 concepts at runtime. `$C0` retains one live loop counter per channel, matching
 the fixed engine rather than assigning persistent state per command. ROM
@@ -521,9 +523,10 @@ fixed `$E477` call, after title input completes and before the blue-menu root is
 built. Entering that mode through a generic runtime reset does not restart ID 6.
 The MUSIC setting only allows or rejects future ID-5 queues. OFF does not stop
 an active song, preview a choice, reject ID 6, or globally mute IDs 6-8. The
-current native synthesizer covers the
-two pulse voices, triangle, and noise with imported pitch/duty/envelope state;
-there is no DMC or claim of cycle-level nonlinear APU fidelity yet. Win32 feeds
+TMUS-1 music synthesizer covers two pulse voices, triangle, and noise with
+imported pitch/duty/envelope state; music does not use DMC. Gameplay DMC
+playback is the separate TDMC-1 path described below. Neither path claims
+nonlinear, cycle-exact NES APU mixing fidelity. Win32 feeds
 44.1 kHz mono 16-bit PCM through eight 1024-sample `waveOut` buffers. Scene
 handoffs preserve this queue rather than flushing it, so a track change can sit
 behind at most 8192 submitted samples (185.8 ms). A missing device or rejected
