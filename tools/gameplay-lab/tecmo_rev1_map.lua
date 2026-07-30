@@ -23,6 +23,7 @@ local map = {
         screen = 0x0087,
         p1_current = 0x0005,
         p2_current = 0x0006,
+        miss_variant_selector = 0x006A,
         shot_subtype = 0x0099,
         shot_flags = 0x00BA,
         offense_actor = 0x0308,
@@ -61,7 +62,8 @@ local map = {
         actor_altitude_hi = 0x048F,
         actor_velocity_lo = 0x049A,
         actor_velocity_hi = 0x04A5,
-        actor_team_role = 0x04B0
+        actor_team_role = 0x04B0,
+        object_slot10_state = 0x0478
     },
 
     hoops = {
@@ -74,6 +76,15 @@ local map = {
     -- the decompilation. Every gameplay hook below is rejected in other banks.
     bank05_raw = { [0x0A] = true, [0x0B] = true },
     bank06_raw = { [0x0C] = true, [0x0D] = true },
+    miss_variants = {
+        selector_mask = 0x03,
+        targets = {
+            [0] = 0xA708,
+            [1] = 0xA7A9,
+            [2] = 0xA8E9,
+            [3] = 0xA708
+        }
+    },
     hooks = {
         { address = 0x8C57, name = "ball_release", gate = "bank05" },
         { address = 0x8C7D, name = "close_launch", gate = "bank05" },
@@ -82,6 +93,10 @@ local map = {
         { address = 0x933B, name = "decision_anchor", gate = "bank05" },
         { address = 0x942D, name = "terminal_make_bit7_clear", gate = "bank05" },
         { address = 0x9434, name = "terminal_miss_bit7_set", gate = "bank05" },
+        { address = 0xA6EE, name = "miss_variant_dispatch", gate = "bank05" },
+        { address = 0xA708, name = "miss_variant_0_or_3", gate = "bank05" },
+        { address = 0xA7A9, name = "miss_variant_1", gate = "bank05" },
+        { address = 0xA8E9, name = "miss_variant_2", gate = "bank05" },
         { address = 0xBA02, name = "score_apply", gate = "bank05" },
         { address = 0xB87C, name = "settlement", gate = "bank05" },
         { address = 0x8FAD, name = "possession_handoff", gate = "bank05" },

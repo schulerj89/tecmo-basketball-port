@@ -138,6 +138,24 @@ Assert-Lab ($Map -match 'route_9c79_optional' -and
     '$9C79 became a universal pass requirement.'
 Assert-Lab ($Map -match '0x8C7D.*close_launch' -and $Lua -match 'close_launch_seen') `
     'Close-route detection is missing.'
+Assert-Lab ($Map -match '0xA6EE.*miss_variant_dispatch.*gate = "bank05"' -and
+    $Map -match '0xA708.*miss_variant_0_or_3.*gate = "bank05"' -and
+    $Map -match '0xA7A9.*miss_variant_1.*gate = "bank05"' -and
+    $Map -match '0xA8E9.*miss_variant_2.*gate = "bank05"') `
+    'Mapper-gated Bank05 miss-variant hooks are missing.'
+Assert-Lab ($Map -match 'miss_variant_selector = 0x006A' -and
+    $Map -match 'object_slot10_state = 0x0478' -and
+    $Map -match '\[0\] = 0xA708' -and $Map -match '\[1\] = 0xA7A9' -and
+    $Map -match '\[2\] = 0xA8E9' -and $Map -match '\[3\] = 0xA708') `
+    'Exact miss selector/state addresses or selector-to-target table are missing.'
+Assert-Lab ($Lua -match 'score0,score1,miss_selector_6a,miss_selector_low2,' -and
+    $Lua -match 'miss_selected_target,object_slot10_state_0478' -and
+    $Lua -match 'local miss_selector = rb\(R\.miss_variant_selector\)' -and
+    $Lua -match 'miss_selected_target = selected_miss_target\(miss_selector\)' -and
+    $Lua -match 'object_slot10_state = rb\(R\.object_slot10_state\)' -and
+    $Lua -match 'score\(0\), score\(1\), h\.miss_selector, h\.miss_selector_low2,' -and
+    $Lua -match 'h\.miss_selected_target, h\.object_slot10_state') `
+    'Miss dispatch evidence is not snapshotted at hook time and emitted from the bounded queue.'
 Assert-Lab ($Lua -match 'score_apply_seen and \(score0_delta == 2 or score0_delta == 3\)' -and
     $Lua -match 'score1_delta == 0' -and $Lua -match 'settlement_seen') `
     'Make/miss scoring and settlement criteria are incomplete.'
@@ -171,7 +189,7 @@ if ($Failures.Count -ne 0) {
     $Failures | ForEach-Object { Write-Error $_ }
     throw "$($Failures.Count) gameplay-lab static test(s) failed."
 }
-Write-Host 'GAMEPLAY LAB STATIC TEST PASS: read-only controller policy, exact revisions, bounded output, world schema, fail-closed shot evidence, neutral cleanup'
+Write-Host 'GAMEPLAY LAB STATIC TEST PASS: read-only controller policy, exact revisions, bounded output, world schema, miss-variant evidence, fail-closed shot evidence, neutral cleanup'
 
 if ($Smoke) {
     if (-not $RomPath -or -not $FceuxPath) {

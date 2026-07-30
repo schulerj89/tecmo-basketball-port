@@ -48,6 +48,13 @@ telemetry, Bank05 outcome hooks, focused shot detail, at most eight
 screenshots, and optional FM2. `tecmo_rev1_map.lua` is the only canonical
 address/hook map. The native C runtime does not read any laboratory output.
 
+Missed-shot telemetry includes mapper-gated Bank05 hooks at `$A6EE`, `$A708`,
+`$A7A9`, and `$A8E9`. Each queued hook event snapshots raw `$006A`, its low
+two-bit selector, the selected target address (`0/3 -> $A708`, `1 -> $A7A9`,
+`2 -> $A8E9`), and object-slot-10 state `$0478` at hook time. These fields
+identify numeric initial miss routes only; they do not assign rebound, rim, or
+bounce meaning. The existing event-row and tracked-text caps still apply.
+
 Current limits are intentional: Rev 1 and FCEUX 2.6.6 only; period 1;
 orientation 0; offense side 0; distinct MAN VS MAN teams; ordinary, non-close
 shot only; and the proven coordinate window `x=$0164..$0170`,

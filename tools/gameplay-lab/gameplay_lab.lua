@@ -73,7 +73,10 @@ emit(telemetry,
     "offense_actor,defense_actor,offense_side,defense_side,control0,control1,orientation," ..
     "ball_distance,nearest_defender,nearest_distance,front_defender,front_distance," ..
     "shot_subtype,shot_flags,close_mode,score0,score1" .. actor_fields .. "\n")
-emit(events, "lab_frame,emu_frame,name,address,raw_bank,pc,a,x,y,ba,offense_side,control0,control1,score0,score1\n")
+emit(events,
+    "lab_frame,emu_frame,name,address,raw_bank,pc,a,x,y,ba,offense_side," ..
+    "control0,control1,score0,score1,miss_selector_6a,miss_selector_low2," ..
+    "miss_selected_target,object_slot10_state_0478\n")
 emit(phases, "lab_frame,emu_frame,phase,reason\n")
 emit(detail,
     "lab_frame,shot_frame,phase,p1,p2,shooter,defender,nearest,front," ..
@@ -123,6 +126,9 @@ local function safe_frame()
     local ok, value = pcall(emu.framecount)
     if not ok or value == nil then return 0 end
     return value
+end
+local function selected_miss_target(selector)
+    return map.miss_variants.targets[AND(selector, map.miss_variants.selector_mask)]
 end
 local function distance(a, b)
     local dx, dy = a.x - b.x, a.y - b.y
@@ -260,10 +266,16 @@ local function register_hook(hook)
                 deferred_failure = "gameplay-lab event-row cap exceeded"
                 return
             end
+            local miss_selector = rb(R.miss_variant_selector)
             hook_queue[#hook_queue + 1] = {
                 name = hook.name, address = hook.address, bank = bank,
                 emu_frame = safe_frame(), pc = safe_register("pc"),
-                a = safe_register("a"), x = safe_register("x"), y = safe_register("y")
+                a = safe_register("a"), x = safe_register("x"), y = safe_register("y"),
+                shot_flags = rb(R.shot_flags),
+                miss_selector = miss_selector,
+                miss_selector_low2 = AND(miss_selector, map.miss_variants.selector_mask),
+                miss_selected_target = selected_miss_target(miss_selector),
+                object_slot10_state = rb(R.object_slot10_state)
             }
         end
     end)
@@ -278,10 +290,12 @@ local function flush_hooks()
             return
         end
         emit(events, string.format(
-            "%d,%d,%s,%04X,%02X,%04X,%02X,%02X,%02X,%02X,%d,%d,%d,%d,%d\n",
+            "%d,%d,%s,%04X,%02X,%04X,%02X,%02X,%02X,%02X,%d,%d,%d,%d,%d," ..
+            "%02X,%d,%04X,%02X\n",
             frame, h.emu_frame, h.name, h.address, h.bank, h.pc, h.a, h.x, h.y,
-            rb(R.shot_flags), rb(R.offense_side), rb(R.control0), rb(R.control1),
-            score(0), score(1)))
+            h.shot_flags, rb(R.offense_side), rb(R.control0), rb(R.control1),
+            score(0), score(1), h.miss_selector, h.miss_selector_low2,
+            h.miss_selected_target, h.object_slot10_state))
         if h.name == "ball_release" then
             release_seen = true
             save_screenshot("ball_release")
