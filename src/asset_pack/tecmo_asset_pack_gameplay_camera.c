@@ -36,7 +36,7 @@ const TecmoGameplayCameraExpectedSource
          TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIALIZE_FNV1A32,
          TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIALIZE_OFFSET},
         {TECMO_GAMEPLAY_CAMERA_SOURCE_STREAM_COLUMNS,
-         GAMEPLAY_CAMERA_FIXED_BANK, 1U, 0xDF05U, 249U,
+         GAMEPLAY_CAMERA_FIXED_BANK, 1U, 0xDF05U, 251U,
          TECMO_ASSET_PACK_GAMEPLAY_CAMERA_STREAM_FNV1A32,
          TECMO_ASSET_PACK_GAMEPLAY_CAMERA_STREAM_OFFSET},
         {TECMO_GAMEPLAY_CAMERA_SOURCE_ATTRIBUTE_QUADRANTS,
@@ -52,7 +52,7 @@ const TecmoGameplayCameraExpectedSource
          TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SETTLE_FNV1A32,
          TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SETTLE_OFFSET},
         {TECMO_GAMEPLAY_CAMERA_SOURCE_ACTOR_PROJECTION,
-         GAMEPLAY_CAMERA_FIXED_BANK, 1U, 0xF1CBU, 38U,
+         GAMEPLAY_CAMERA_FIXED_BANK, 1U, 0xF1CBU, 39U,
          TECMO_ASSET_PACK_GAMEPLAY_CAMERA_PROJECTION_FNV1A32,
          TECMO_ASSET_PACK_GAMEPLAY_CAMERA_PROJECTION_OFFSET}
     };
@@ -95,8 +95,16 @@ static int validate_source_relationships(const uint8_t *payload)
         0xB5U,0x73U,0x38U,0xE5U,0x00U,0x85U,0x09U,
         0xB5U,0xE8U,0xE5U,0x01U,0x85U,0x0AU,0xD0U
     };
+    static const uint8_t stream_terminal_table[] = {
+        0xA2U,0x60U,0x48U,0x08U
+    };
+    static const uint8_t projection_terminal_store[] = {
+        0xA9U,0x00U,0x85U,0x0BU
+    };
     const uint8_t *initialize = payload +
         TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIALIZE_OFFSET;
+    const uint8_t *stream = payload +
+        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_STREAM_OFFSET;
     const uint8_t *follow = payload +
         TECMO_ASSET_PACK_GAMEPLAY_CAMERA_FOLLOW_OFFSET;
     const uint8_t *settle = payload +
@@ -108,7 +116,11 @@ static int validate_source_relationships(const uint8_t *payload)
            memcmp(follow, follow_prefix, sizeof(follow_prefix)) == 0 &&
            memcmp(settle + 29U, settle_loop, sizeof(settle_loop)) == 0 &&
            memcmp(projection + 12U, projection_subtract,
-                  sizeof(projection_subtract)) == 0
+                  sizeof(projection_subtract)) == 0 &&
+           memcmp(stream + 247U, stream_terminal_table,
+                  sizeof(stream_terminal_table)) == 0 &&
+           memcmp(projection + 35U, projection_terminal_store,
+                  sizeof(projection_terminal_store)) == 0
         ? 0 : -1;
 }
 

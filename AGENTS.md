@@ -826,11 +826,11 @@ fails closed. Verify it with
 `tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 
 TGCP-1 `gameplay/camera-projection` is the strict 1344-byte pure gameplay
-camera foundation (FNV1a32 `6423B023`) and requires exact same-pack TGPL-1
+camera foundation (FNV1a32 `B3721B17`) and requires exact same-pack TGPL-1
 (`2047CCE0`) and TGCT-1 (`ECAB7A93`). It preserves fixed-bank Rev1 spans
-`$DE13-$DE2C` (`A5CF7665`), `$DF05-$DFFD` (`0F3761F5`),
+`$DE13-$DE2C` (`A5CF7665`), `$DF05-$DFFF` (`7BC5351D`),
 `$E0E7-$E13B` (`7FE800D4`), `$E168-$E2E6` (`19038AEA`),
-`$EB4F-$EB8C` (`AF5725C0`), and `$F1CB-$F1F0` (`24A58210`) behind
+`$EB4F-$EB8C` (`AF5725C0`), and `$F1CB-$F1F1` (`CB8BD081`) behind
 strict source records, zero padding/reserved bytes, full-ROM fingerprints, and
 sanitized source-map provenance.
 

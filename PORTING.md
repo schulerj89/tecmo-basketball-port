@@ -903,12 +903,12 @@ coverage.
 
 TGCP-1 `gameplay/camera-projection` now supplies that exact projection as a
 strict pure foundation without changing the live scene. Its 1344-byte payload
-has FNV1a32 `6423B023`, requires exact same-pack TGPL-1 (`2047CCE0`) and
+has FNV1a32 `B3721B17`, requires exact same-pack TGPL-1 (`2047CCE0`) and
 TGCT-1 (`ECAB7A93`), and retains fixed-bank Rev1 initializer
-`$DE13-$DE2C` (`A5CF7665`), column streamer `$DF05-$DFFD` (`0F3761F5`),
+`$DE13-$DE2C` (`A5CF7665`), column streamer `$DF05-$DFFF` (`7BC5351D`),
 attribute helper `$E0E7-$E13B` (`7FE800D4`), threshold/follow routine
 `$E168-$E2E6` (`19038AEA`), forced settle `$EB4F-$EB8C` (`AF5725C0`),
-and actor projector `$F1CB-$F1F0` (`24A58210`). Exact source records,
+and actor projector `$F1CB-$F1F1` (`CB8BD081`). Exact source records,
 descriptors, reserved bytes, alignment padding, raw/canonical fingerprints,
 full-ROM identity, and source-map provenance fail closed on malformed,
 wrong-sized, wrong-revision, mutated, or cross-pack data.

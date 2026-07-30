@@ -50,7 +50,7 @@ cross-pack dependencies fail closed without a partial frame.
 
 `gameplay/camera-projection` TGCP-1 is a separate pure asset and is not a
 compound-scene dependency. Its 1344-byte canonical payload
-(`6423B023`) requires same-pack TGPL-1 and TGCT-1 and preserves the fixed-bank
+(`B3721B17`) requires same-pack TGPL-1 and TGCT-1 and preserves the fixed-bank
 Rev1 camera initializer, streamed-column and attribute helpers, horizontal
 follow/threshold routine, forced settle, and actor projector. The exact pure
 projector computes `world_x-camera_x`, accepts X only when the subtraction

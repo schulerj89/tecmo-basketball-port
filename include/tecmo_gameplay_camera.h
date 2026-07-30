@@ -124,7 +124,7 @@ bool tecmo_gameplay_camera_settle(
     const TecmoGameplayCameraFollowInput *input);
 
 /*
- * Reproduces the coordinate prefix at fixed $F1CB-$F1F0. X is visible only
+ * Reproduces the coordinate prefix at fixed $F1CB-$F1F1. X is visible only
  * when the high byte of world_x-camera_x is zero. Y subtracts altitude and
  * saturates to zero on borrow. On failure, projection is not changed.
  */

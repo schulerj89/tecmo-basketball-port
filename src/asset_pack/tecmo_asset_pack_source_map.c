@@ -1692,11 +1692,11 @@ static int append_gameplay_camera_source_map_entry(
     static const char *const roles[
         TECMO_GAMEPLAY_CAMERA_SOURCE_COUNT] = {
         "camera-initialize-$DE13-$DE2C",
-        "direction-aware-column-streamer-$DF05-$DFFD",
+        "direction-aware-column-streamer-$DF05-$DFFF",
         "dynamic-attribute-helper-$E0E7-$E13B",
         "threshold-table-follow-and-route-gate-$E168-$E2E6",
         "forced-settle-$EB4F-$EB8C",
-        "actor-projector-$F1CB-$F1F0"
+        "actor-projector-$F1CB-$F1F1"
     };
     const char *prefix = *first != 0 ? "" : ",\n";
 

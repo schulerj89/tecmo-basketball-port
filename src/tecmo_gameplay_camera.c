@@ -251,8 +251,16 @@ static bool validate_opcode_relationships(const uint8_t *payload)
         0xB5U,0x73U,0x38U,0xE5U,0x00U,0x85U,0x09U,
         0xB5U,0xE8U,0xE5U,0x01U,0x85U,0x0AU,0xD0U
     };
+    static const uint8_t stream_terminal_table[] = {
+        0xA2U,0x60U,0x48U,0x08U
+    };
+    static const uint8_t projection_terminal_store[] = {
+        0xA9U,0x00U,0x85U,0x0BU
+    };
     const uint8_t *initialize = payload +
         TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIALIZE_OFFSET;
+    const uint8_t *stream = payload +
+        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_STREAM_OFFSET;
     const uint8_t *settle = payload +
         TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SETTLE_OFFSET;
     const uint8_t *projection = payload +
@@ -261,7 +269,11 @@ static bool validate_opcode_relationships(const uint8_t *payload)
                   sizeof(initialize_exact)) == 0 &&
            memcmp(settle + 29U, settle_loop, sizeof(settle_loop)) == 0 &&
            memcmp(projection + 12U, projection_subtract,
-                  sizeof(projection_subtract)) == 0;
+                  sizeof(projection_subtract)) == 0 &&
+           memcmp(stream + 247U, stream_terminal_table,
+                  sizeof(stream_terminal_table)) == 0 &&
+           memcmp(projection + 35U, projection_terminal_store,
+                  sizeof(projection_terminal_store)) == 0;
 }
 
 static bool validate_gameplay_core(const uint8_t *payload,

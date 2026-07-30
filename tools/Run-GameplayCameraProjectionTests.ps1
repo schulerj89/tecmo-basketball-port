@@ -209,7 +209,7 @@ try {
     $SourceMapEntry = Get-AssetPackEntry $PackBytes "system/source-map"
     $Payload = Get-EntryBytes $PackBytes $CameraEntry
     if ($CameraEntry.byte_count -ne 1344 -or
-        (Get-Fnv1a32 $Payload) -ne "6423B023") {
+        (Get-Fnv1a32 $Payload) -ne "B3721B17") {
         throw "gameplay/camera-projection size or fingerprint changed."
     }
     Invoke-CameraAssetTest $PackPath $true
@@ -226,11 +226,11 @@ try {
 
     $ExpectedSpans = @(
         @{ start=0xDE13; size=26;  hash="A5CF7665"; payload=448 },
-        @{ start=0xDF05; size=249; hash="0F3761F5"; payload=480 },
+        @{ start=0xDF05; size=251; hash="7BC5351D"; payload=480 },
         @{ start=0xE0E7; size=85;  hash="7FE800D4"; payload=736 },
         @{ start=0xE168; size=383; hash="19038AEA"; payload=832 },
         @{ start=0xEB4F; size=62;  hash="AF5725C0"; payload=1216 },
-        @{ start=0xF1CB; size=38;  hash="24A58210"; payload=1280 }
+        @{ start=0xF1CB; size=39;  hash="CB8BD081"; payload=1280 }
     )
     $SourceMap = ([Text.Encoding]::UTF8.GetString(
         (Get-EntryBytes $PackBytes $SourceMapEntry))) | ConvertFrom-Json
@@ -243,7 +243,7 @@ try {
         $MapOk =
             $Map.schema -eq "tecmo.gameplay-camera/TGCP-1" -and
             $Map.size -eq 1344 -and
-            $Map.fingerprint_fnv1a32 -eq "6423B023" -and
+            $Map.fingerprint_fnv1a32 -eq "B3721B17" -and
             $Map.revision_sha256_identity -eq
                 "076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4" -and
             $Map.revision_full_rom_fnv1a32 -eq "0650F5B0" -and
@@ -321,7 +321,7 @@ try {
         @{ id="initialize-source"; offset=448 },
         @{ id="initialize-padding"; offset=474 },
         @{ id="stream-source"; offset=480 },
-        @{ id="stream-padding"; offset=729 },
+        @{ id="stream-padding"; offset=731 },
         @{ id="attribute-source"; offset=736 },
         @{ id="attribute-padding"; offset=821 },
         @{ id="follow-source"; offset=832 },
@@ -329,7 +329,7 @@ try {
         @{ id="settle-source"; offset=1216 },
         @{ id="settle-padding"; offset=1278 },
         @{ id="projection-source"; offset=1280 },
-        @{ id="trailing-reserved"; offset=1318 }
+        @{ id="trailing-reserved"; offset=1319 }
     )) {
         Write-PayloadMutationAndReject $PackBytes $CameraEntry `
             $Mutation.id $Mutation.offset
