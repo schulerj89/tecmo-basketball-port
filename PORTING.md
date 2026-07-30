@@ -58,14 +58,16 @@ Bad runtime dependencies:
 The tracked gameplay laboratory under `tools/gameplay-lab` is explicitly
 outside the native product. It is a revision-locked research instrument that
 can read original-game RAM and mapper state, drive two complete controller
-tables, and record bounded local telemetry. Its first supported experiment is
-only an orientation-0, offense-side-0, MAN VS MAN ordinary jump shot using the
-previously proven coordinate and B-timing window. Unknown possessions,
+tables, and record bounded local telemetry. It has two closed orientation-0,
+offense-side-0 MAN VS MAN profiles: the unchanged three-point baseline and
+`ordinary_two_point_make`, which exposes only `x=$0108..$010F`,
+`y=$6C..$74` and requires point value 2, terminal MAKE, and score delta 2.
+Unknown possessions,
 presentations, close routes, fouls, violations, mirrored movement, failed
 coordinate progress, and missing hook evidence abort instead of becoming
 generalized rules.
 
-The lab's TGLM-2 address map and TGLAB-2 output schema are provenance for
+The lab's TGLM-3 address map and TGLAB-3 output schema are provenance for
 research conclusions, not asset-pack entries. They distinguish raw 16-bit
 altitude velocity (`$049A/$04A5`), horizontal velocity (`$04E7/$04F2`), and
 vertical velocity (`$04FD/$0508`). Accepted hooks snapshot direct
@@ -78,6 +80,10 @@ FM2, status, and emulator logs remain ignored under
 `temp-videos/gameplay-lab`. Neither the importer nor native runtime may consume
 them. Ported behavior still requires a separately justified ROM-derived asset
 contract and native C implementation.
+
+The current original-ROM two-point pilot stopped safely when an AI-controlled
+front defender could not be selected and cleared. That validates the
+fail-closed invariant only; it is not a passed two-point pilot.
 
 ## Runtime Boundary
 
@@ -709,8 +715,8 @@ The compound scene strictly loads TGPL-1 `gameplay/core` (23416 bytes,
 `2047CCE0`), TGCT-1 `gameplay/court` (6559 bytes, `ECAB7A93`), TGCS-1
 `gameplay/close-shots` (3144 bytes, `DACDC976`), TGDK-1
 `gameplay/dunk-cutaway` (20272 bytes, `E02F2D21`), TGJS-1
-`gameplay/jump-shots` (1648 bytes, `7587B099`), TGSR-2
-`gameplay/shot-resolution` (384 bytes, `CCA9DE06`), TMUS-1 `audio/music`,
+`gameplay/jump-shots` (1648 bytes, `7587B099`), TGSR-3
+`gameplay/shot-resolution` (512 bytes, `164DC568`), TMUS-1 `audio/music`,
 TSFX-1, TDMC-1, and the exact `chr/all` revision from one asset-pack path. Exact-size
 reads, payload/CHR fingerprints, deep indexes, reserved bytes, and source-map
 provenance are hard requirements. Missing, malformed, oversized,
@@ -755,7 +761,7 @@ held/airborne/recovery states and Q8.8
 height/velocity both begin at `$02E8`; height clamps on frame 40 and actor
 recovery ends at frame 46 while the ball route remains active through
 settlement at frame 87. There is no release DMC; the route-10 ground/bounce conditions
-gate `$B5AB` at frame 75. TGSR-2 classifies the TGJS terminal flag's set bit 7
+gate `$B5AB` at frame 75. TGSR-3 classifies the TGJS terminal flag's set bit 7
 as MISS and supplies the non-current, other-team claimant handler/possession
 decision. Frame 87 awards zero points, queues crowd 11 and then side result
 12/13 only while the clock is later than 0:01, and hands possession to an
@@ -767,7 +773,7 @@ through frames 1-8 and releases at 9; pose pointers are 325 (`$028A`) for
 frames 1-4, 1060 (`$0848`) for 5-8, 1061 (`$084A`) at 9, 213 (`$01AA`)
 through flight, and neutral 469 (`$03AA`). Prepared phases
 `31/21/11/01/32/22/12/02` occupy frames 10-17, held phase 34 is frame 18, and
-TGSR-2 classifies `$91BC->$933B->$942D`'s terminal bit-clear as MAKE at frame
+TGSR-3 classifies `$91BC->$933B->$942D`'s terminal bit-clear as MAKE at frame
 19. Q8.8 flight begins at 20 from velocity `$0308` under imported gravity
 `$0028`. Native uninterrupted physics lands at frame 57, uses recovery phases
 `56/46/36/26/16/06` through frame 62, and returns to neutral at 63. The
@@ -785,8 +791,8 @@ and then enters the normal settled-action period path. Unknown contexts,
 ordinary two-point makes, and other native-policy branches are rejected without
 substituting the former synthetic schedule.
 
-TGSR-2 is 384 bytes with FNV1a32 `CCA9DE06` and FNV1a64
-`9C4686F4DCD823A6`. Its importer revision-locks Bank05 `$91BC-$943A`
+TGSR-3 is 512 bytes with FNV1a32 `164DC568` and FNV1a64
+`5C5170460C8305A8`. Its importer revision-locks Bank05 `$91BC-$943A`
 (outcome calculation/bit helpers), `$A6EE-$A9D9` (numeric rim dispatch),
 `$B73E-$B87B` (claimant scan/proximity), and `$B87C-$B8F5` (claimant-driven
 settlement). Runtime requires its exact same-pack TGPL-1 dependency. Missing,
@@ -794,8 +800,19 @@ malformed, undersized/oversized, wrong-revision, or cross-pack TGSR data rejects
 the scene before it becomes available; no capture, trace, ASM, decompilation,
 or ROM is a runtime input.
 
-TGSR-2 reuses metadata bytes 29..63 for an exact state-`$15` rim-rattle
-contract without changing the 384-byte entry size or ID. It carries state
+TGSR-3 also carries the exact 124-byte Bank05 `$BEEF-$BF6A` arc boundary
+table (FNV1a32 `9EF1061B`, FNV1a64 `E8A0728513DD8BDB`). Its pure C API
+reproduces `$B995` point classification: nonzero shot-flag low bits yield 1;
+otherwise raw world X/Y and orientation 0/1 yield 2 or 3 through the original
+`$5B..$D6` Y range and low-byte subtraction/high-byte borrow. Same-pack
+TGPL-1 already revision-locks the classifier routine at `$B995-$BA3F`, so
+TGSR does not duplicate those bytes. This exact classifier is only a rules
+foundation. Live ordinary two-point makes remain unsupported pending a bounded
+make capture: `$AD4E->$B32C` is distance-dependent flight, so the captured
+three-point frame-85 score and frame-111 handoff cannot be inherited.
+
+TGSR-3 retains the exact state-`$15` rim-rattle contract in metadata bytes
+29..63. It carries state
 `$15`, orientation starts `$009D/$0263`, Y `$93`, horizontal magnitude
 `$0040`, altitude `$38`, timer 4, the one-to-four-pass derivation, repeat DMC
 length `$0A`, eight render-script selection addresses, and two exit
@@ -803,10 +820,11 @@ render-script addresses. Those addresses are source selection identities, not
 literal sprite or CHR IDs. The native state API saves incoming velocity, moves
 one coordinate per update, reverses after each four-update nonterminal pass,
 requests address-bound A8D6-short on each repeat, and restores velocity at the
-terminal boundary. Four primary plus three focused provenance spans cover
-`$A2DF-$A2F7`, `$AD4E-$AD64`, and `$BDF3-$BDF6` in addition to the primary
+terminal boundary. Four primary plus four focused provenance spans cover
+`$A2DF-$A2F7`, `$AD4E-$AD64`, `$BDF3-$BDF6`, and `$BEEF-$BF6A`
+in addition to the primary
 sources. The mapper obtains launch-target X from required same-pack TGCS-1
-`$BDEF-$BDF6` and cross-checks the snap bytes against TGSR-2; `$AD4E-$AD64`
+`$BDEF-$BDF6` and cross-checks the snap bytes against TGSR-3; `$AD4E-$AD64`
 proves the BDEF/BDF1 loads and target Y `$8F`. The terminal convergence
 remains conditional: nonzero `$036F`
 or raw `$6A >= $18` enters `$A8E9`; the other branch requests the long A8D6

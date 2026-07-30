@@ -39,7 +39,7 @@ The compound scene loads `gameplay/core` TGPL-1 (23416 bytes,
 `gameplay/close-shots` TGCS-1 (3144 bytes, `DACDC976`),
 `gameplay/dunk-cutaway` TGDK-1 (20272 bytes, `E02F2D21`),
 `gameplay/jump-shots` TGJS-1 (1648 bytes, `7587B099`),
-`gameplay/shot-resolution` TGSR-2 (384 bytes, `CCA9DE06`), `audio/music`
+`gameplay/shot-resolution` TGSR-3 (512 bytes, `164DC568`), `audio/music`
 TMUS-1 (36784 bytes, `05C00ECB`), `audio/gameplay-sfx` TSFX-1 (2824
 bytes, `968A5DE6`), `audio/gameplay-dmc` TDMC-1 (2515 bytes,
 `AD70E6E8`), and the exact 262144-byte `chr/all` revision from one asset pack.
@@ -48,11 +48,13 @@ spans, CHR fingerprints, and the shared pack path are validated before the
 scene becomes available. Missing, malformed, oversized, wrong-revision, or
 cross-pack dependencies fail closed without a partial frame.
 
-TGSR-2 also has FNV1a64 `9C4686F4DCD823A6` and requires exact same-pack
+TGSR-3 also has FNV1a64 `5C5170460C8305A8` and requires exact same-pack
 TGPL-1. Its revision-fingerprinted sources are Bank05 `$91BC-$943A`,
 `$A6EE-$A9D9`, `$B73E-$B87B`, and `$B87C-$B8F5`, plus focused state-`$15`
 convergence `$A2DF-$A2F7`, launch target `$AD4E-$AD64`, and orientation snap
-table `$BDF3-$BDF6` provenance: four primary plus three focused source spans.
+table `$BDF3-$BDF6`, plus the exact 124-byte point-arc boundary table
+`$BEEF-$BF6A` (`9EF1061B`, FNV1a64 `E8A0728513DD8BDB`): four primary
+plus four focused source spans.
 The safe native semantics are terminal outcome polarity, numeric
 rim-route selection, the state-`$15` one-to-four-pass horizontal rattle
 prefix, claimant thresholds, and claimant-driven handler/possession
@@ -63,6 +65,16 @@ connected to state `$10`. The alternate state-`$05` relaunch remains outside
 the native boundary. TGSR does not name a rebound, block, steal, or generic
 make. Missing, malformed, wrong-sized, wrong-revision, or cross-pack TGSR data
 rejects the scene before availability.
+
+The pure point-value API reproduces Bank05 `$B995`: shot-flag low bits select
+free throw value 1; otherwise raw world X/Y and orientation 0/1 select field
+goal 2 or three point 3 using the exact `$5B..$D6` Y range, carried arc table,
+and 6502 low-byte subtraction/high-byte borrow. The classifier routine bytes
+remain in same-pack TGPL-1's existing `$B995-$BA3F` source span rather than
+being duplicated. This exact rule does not enable live ordinary two-point
+makes. The `$AD4E->$B32C` flight is distance-dependent, so the captured
+three-point frame-85/frame-111 schedule remains rejected for that context
+until a bounded make capture proves its own timing.
 
 `gameplay/penalties` TPNL-1 is a separate strict 768-byte pure rules asset
 (FNV1a32 `980DDC76`) with same-pack TGPL-1 and TSFX-1 dependencies. It exposes
@@ -120,7 +132,7 @@ actor. A simultaneous period expiry queues only crowd 11 and retains the
 current side. Outcome state clears after settlement and no rebound/block/steal
 stat event is synthesized.
 
-TGSR-2 adds a separate deterministic diagnostic for the proven state-`$15`
+TGSR-3 adds a separate deterministic diagnostic for the proven state-`$15`
 prefix without changing the normal frame-87 miss. Its canonical source uses
 four passes. Frame 73 snaps the exact orientation-0 state to raw `(157,147)`,
 altitude `$38`, timer 4, and positive `$0040` velocity. The visible
@@ -262,13 +274,14 @@ decompilation at these CPU-address ranges:
   is the bounded result caller path. `$BA65-$BA9C` (FNV1a32 `35FB80C4`) and
   `$B87C-$B888` (FNV1a32 `E903D8F9`) supply the integrated jump-shot settlement
   caller evidence.
-- TGSR-2 revision-locks Bank 05 `$91BC-$943A` (`4A0C68AC`),
+- TGSR-3 revision-locks Bank 05 `$91BC-$943A` (`4A0C68AC`),
   `$A6EE-$A9D9` (`21A416FD`), `$B73E-$B87B` (`574FEE44`), and
   `$B87C-$B8F5` (`9E2F1F28`) for terminal polarity, numeric rim dispatch,
   claimant scanning, and claimant-driven settlement respectively. Focused
   provenance additionally locks `$A2DF-$A2F7` (`9D918043`),
-  `$AD4E-$AD64` (`AF1D6B17`), and `$BDF3-$BDF6` (`79F66DB3`) for the
-  conditional convergence, launch target program, and orientation snap table.
+  `$AD4E-$AD64` (`AF1D6B17`), `$BDF3-$BDF6` (`79F66DB3`), and
+  `$BEEF-$BF6A` (`9EF1061B`) for conditional convergence, launch target,
+  orientation snap, and point-arc table provenance.
   The X target table `$BDEF-$BDF2` is supplied by the required same-pack
   TGCS-1 `$BDEF-$BDF6` span and cross-checked against TGSR's snap data.
 - TPNL-1 revision-locks Bank 05 `$9571-$9649`, Bank 02 `$B0F8-$B398`,
@@ -337,8 +350,9 @@ These are provenance only and are not runtime inputs.
   debug/test API only; live selection remains unchanged. Unsupported
   profiles/directions/outcomes, ordinary two-point makes, the longer +157-update
   claimant route, and make ball/camera geometry do not inherit those frame
-  checkpoints. No semantic rebound, block, steal, or player-stat event is
-  claimed.
+  checkpoints. TGSR-3 can classify an input coordinate as two points without
+  supplying the missing action/flight/settlement schedule. No semantic rebound,
+  block, steal, or player-stat event is claimed.
 - Actor starting layout, camera/orientation composition, movement and AI,
   jump-ball screen interpolation, unsupported jump routes, general
   make/contact policy, the distance policy

@@ -75,10 +75,16 @@ static bool reject(TecmoGameplayShotResolutionAssets *assets,
     assets->claimant_other_team_flag_mask = 0U;
     assets->claimant_count = 0U;
     assets->gameplay_core_fingerprint = 0U;
+    assets->point_shot_flags_mask = 0U;
+    assets->point_y_min_inclusive = 0U;
+    assets->point_y_max_exclusive = 0U;
+    assets->point_orientation_count = 0U;
+    memset(assets->point_arc_boundary, 0,
+           sizeof(assets->point_arc_boundary));
     memset(&assets->rim_rattle, 0, sizeof(assets->rim_rattle));
     assets->available = false;
     (void)snprintf(assets->status, sizeof(assets->status), "%s",
-                   message != NULL ? message : "TGSR-2 rejected");
+                   message != NULL ? message : "TGSR-3 rejected");
     return false;
 }
 
@@ -140,13 +146,28 @@ static bool validate_header(const uint8_t *payload, size_t payload_size)
                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_ROUTES_FNV1A32 &&
            read_u64(payload + 60U) ==
                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_ROUTES_FNV1A64 &&
-           bytes_are_zero(payload + 68U, 12U) &&
-           read_u16(payload + 80U) == 0x942DU &&
-           read_u16(payload + 82U) == 0x9434U &&
-           payload[84U] == 1U &&
+           read_u32(payload + 68U) ==
+               TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_OFFSET &&
+           read_u32(payload + 72U) ==
+               TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_SIZE &&
+           read_u32(payload + 76U) ==
+               TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_FNV1A32 &&
+           read_u64(payload + 80U) ==
+               TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_FNV1A64 &&
+           read_u16(payload + 88U) ==
+               TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_CLASSIFIER_CPU &&
+           read_u16(payload + 90U) ==
+               TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_CLASSIFIER_END_CPU &&
+           payload[92U] == 0x03U &&
+           payload[93U] == 0x5BU &&
+           payload[94U] == 0xD7U &&
+           payload[95U] == 2U &&
+           read_u16(payload + 96U) == 0x942DU &&
+           read_u16(payload + 98U) == 0x9434U &&
+           payload[100U] == 1U &&
            bytes_are_zero(
-               payload + 85U,
-               TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_HEADER_SIZE - 85U);
+               payload + 101U,
+               TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_HEADER_SIZE - 101U);
 }
 
 static bool validate_sources(const uint8_t *payload)
@@ -186,6 +207,8 @@ static bool validate_semantics(const uint8_t *payload)
         TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_METADATA_OFFSET;
     const uint8_t *routes = payload +
         TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_ROUTE_OFFSET;
+    const uint8_t *point_arc = payload +
+        TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_OFFSET;
     if (memcmp(metadata,
                tecmo_gameplay_shot_resolution_expected_metadata,
                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_METADATA_SIZE) != 0 ||
@@ -208,6 +231,22 @@ static bool validate_semantics(const uint8_t *payload)
                 TECMO_GAMEPLAY_SHOT_RESOLUTION_RIM_ROUTE_COUNT *
                     TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_ROUTE_STRIDE) !=
             TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_ROUTES_FNV1A64 ||
+        fnv1a32(
+            point_arc,
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_SIZE) !=
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_FNV1A32 ||
+        fnv1a64(
+            point_arc,
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_SIZE) !=
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_FNV1A64 ||
+        point_arc[0U] != 0xF1U ||
+        point_arc[5U] != 0xFDU ||
+        point_arc[6U] != 0x00U ||
+        point_arc[60U] != 0x28U ||
+        point_arc[61U] != 0x27U ||
+        point_arc[99U] != 0x0EU ||
+        point_arc[100U] != 0x0DU ||
+        point_arc[123U] != 0xDEU ||
         !bytes_are_zero(
             payload + TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_PADDING_OFFSET,
             TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_PADDING_SIZE)) {
@@ -261,23 +300,23 @@ bool tecmo_gameplay_shot_resolution_parse(
     }
     tecmo_gameplay_shot_resolution_destroy(assets);
     if (payload == NULL || !validate_header(payload, payload_size)) {
-        return reject(assets, "TGSR-2 header/size/reserved contract rejected");
+        return reject(assets, "TGSR-3 header/size/reserved contract rejected");
     }
     if (fnv1a32(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_FNV1A32 ||
         fnv1a64(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_FNV1A64) {
-        return reject(assets, "TGSR-2 canonical payload fingerprint rejected");
+        return reject(assets, "TGSR-3 canonical payload fingerprint rejected");
     }
     if (!validate_sources(payload) || !validate_semantics(payload)) {
-        return reject(assets, "TGSR-2 source/semantic contract rejected");
+        return reject(assets, "TGSR-3 source/semantic contract rejected");
     }
     if (!validate_gameplay_core(gameplay_core, gameplay_core_size)) {
-        return reject(assets, "TGSR-2 same-pack TGPL-1 dependency rejected");
+        return reject(assets, "TGSR-3 same-pack TGPL-1 dependency rejected");
     }
 
     storage = (uint8_t *)malloc(payload_size);
-    if (storage == NULL) return reject(assets, "TGSR-2 allocation failed");
+    if (storage == NULL) return reject(assets, "TGSR-3 allocation failed");
     memcpy(storage, payload, payload_size);
     assets->storage = storage;
     assets->storage_size = payload_size;
@@ -310,6 +349,14 @@ bool tecmo_gameplay_shot_resolution_parse(
     }
     metadata = storage +
         TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_METADATA_OFFSET;
+    assets->point_shot_flags_mask = storage[92U];
+    assets->point_y_min_inclusive = storage[93U];
+    assets->point_y_max_exclusive = storage[94U];
+    assets->point_orientation_count = storage[95U];
+    memcpy(
+        assets->point_arc_boundary,
+        storage + TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_OFFSET,
+        sizeof(assets->point_arc_boundary));
     assets->outcome_flag_mask = metadata[0U];
     assets->route_selector_mask = metadata[4U];
     assets->claimant_thresholds.horizontal_min_inclusive =
@@ -356,7 +403,7 @@ bool tecmo_gameplay_shot_resolution_parse(
     assets->gameplay_core_fingerprint = TECMO_ASSET_PACK_GAMEPLAY_FNV1A32;
     assets->available = true;
     (void)snprintf(assets->status, sizeof(assets->status),
-                   "TGSR-2 gameplay shot-resolution assetpack");
+                   "TGSR-3 gameplay shot-resolution assetpack");
     return true;
 }
 
@@ -383,7 +430,7 @@ bool tecmo_gameplay_shot_resolution_load(
             &payload, &payload_size) != 0) {
         return reject(
             assets,
-            "TGSR-2 gameplay/shot-resolution entry missing or wrong-sized");
+            "TGSR-3 gameplay/shot-resolution entry missing or wrong-sized");
     }
     if (tecmo_asset_pack_read_entry_exact(
             asset_pack_path, TECMO_ASSET_PACK_GAMEPLAY_ID,
@@ -392,7 +439,7 @@ bool tecmo_gameplay_shot_resolution_load(
         tecmo_asset_pack_free(payload);
         return reject(
             assets,
-            "TGSR-2 gameplay/core dependency missing or wrong-sized");
+            "TGSR-3 gameplay/core dependency missing or wrong-sized");
     }
     loaded = tecmo_gameplay_shot_resolution_parse(
         assets, payload, (size_t)payload_size,
@@ -430,6 +477,86 @@ bool tecmo_gameplay_shot_resolution_classify_terminal_outcome(
     *outcome = (result_flags & assets->outcome_flag_mask) == 0U
         ? TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE
         : TECMO_GAMEPLAY_SHOT_OUTCOME_MISS;
+    return true;
+}
+
+static uint8_t subtract_with_6502_carry(
+    uint8_t lhs,
+    uint8_t rhs,
+    bool *carry)
+{
+    const uint16_t subtrahend =
+        (uint16_t)rhs + (*carry ? 0U : 1U);
+    const uint8_t result = (uint8_t)((uint16_t)lhs - subtrahend);
+    *carry = (uint16_t)lhs >= subtrahend;
+    return result;
+}
+
+bool tecmo_gameplay_shot_resolution_classify_point_value(
+    const TecmoGameplayShotResolutionAssets *assets,
+    uint16_t world_x,
+    uint8_t world_y,
+    uint8_t orientation,
+    uint8_t shot_flags,
+    uint8_t *point_value)
+{
+    uint8_t index;
+    uint8_t high_adjust;
+    uint8_t ignored;
+    bool carry;
+    if (assets == NULL || !assets->available || point_value == NULL ||
+        orientation >= assets->point_orientation_count ||
+        assets->point_orientation_count != 2U ||
+        assets->point_shot_flags_mask != 0x03U ||
+        assets->point_y_min_inclusive != 0x5BU ||
+        assets->point_y_max_exclusive != 0xD7U) {
+        return false;
+    }
+    if ((shot_flags & assets->point_shot_flags_mask) != 0U) {
+        *point_value = 1U;
+        return true;
+    }
+
+    *point_value = 2U;
+    if (world_y < assets->point_y_min_inclusive ||
+        world_y >= assets->point_y_max_exclusive) {
+        *point_value = 3U;
+        return true;
+    }
+    index = (uint8_t)(world_y - assets->point_y_min_inclusive);
+    if (index >= TECMO_GAMEPLAY_SHOT_POINT_ARC_COUNT) return false;
+
+    if (orientation == 0U) {
+        /* $B9B1-$B9D7: subtract the table byte and then the derived high
+           adjustment, preserving the exact 6502 borrow into the high byte. */
+        high_adjust =
+            index >= 0x06U && index < 0x6DU ? 1U : 0U;
+        carry = true;
+        ignored = subtract_with_6502_carry(
+            (uint8_t)world_x, assets->point_arc_boundary[index], &carry);
+        (void)ignored;
+        ignored = subtract_with_6502_carry(
+            (uint8_t)(world_x >> 8U), high_adjust, &carry);
+        (void)ignored;
+        if (carry) *point_value = 3U;
+    } else {
+        uint8_t boundary_low;
+        /* $B9D8-$B9FD first forms $FF-table[index], then compares world X
+           against the mirrored high-byte adjustment through the same borrow. */
+        high_adjust =
+            index >= 0x06U && index < 0x6EU ? 1U : 2U;
+        carry = true;
+        boundary_low = subtract_with_6502_carry(
+            0xFFU, assets->point_arc_boundary[index], &carry);
+        carry = true;
+        ignored = subtract_with_6502_carry(
+            (uint8_t)world_x, boundary_low, &carry);
+        (void)ignored;
+        ignored = subtract_with_6502_carry(
+            (uint8_t)(world_x >> 8U), high_adjust, &carry);
+        (void)ignored;
+        if (!carry) *point_value = 3U;
+    }
     return true;
 }
 

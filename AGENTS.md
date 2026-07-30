@@ -170,9 +170,13 @@ This writes `build\intro_arena_capture.ndjson`, which the arena renderer loads b
 ## Tracked Gameplay Laboratory
 
 `tools\gameplay-lab` is a developer-only, read-only FCEUX control and telemetry
-surface for one bounded Rev 1 MAN VS MAN ordinary jump shot. Its canonical
-TGLM-2 `tecmo_rev1_map.lua` owns every address, mapper-aware hook, timing bound,
-and revision fingerprint; recorder/status output uses TGLAB-2. Per-actor
+surface for two closed Rev 1 MAN VS MAN ordinary-jump profiles. The default
+three-point baseline retains its exact prior window and behavior; the
+`ordinary_two_point_make` profile exposes only `x=$0108..$010F`,
+`y=$6C..$74` and requires point value 2, terminal MAKE, and score delta 2.
+Its canonical TGLM-3 `tecmo_rev1_map.lua` owns every profile, address,
+mapper-aware hook, timing bound, and revision fingerprint; recorder/status
+output uses TGLAB-3. Per-actor
 altitude, horizontal, and vertical velocities are separate raw 16-bit fields.
 Accepted hooks snapshot direct object-slot-10 H/V and saved scratch H/V
 `$038D-$0390` in the callback before queued emission. Those saved fields are
@@ -193,6 +197,11 @@ captured B timing. It supplies complete neutral-or-active joypad tables for both
 ports every frame. It never changes RAM, uses cheats, or touches emulator
 state slots; every failure and normal exit neutralizes both pads and closes the
 runner-owned emulator.
+
+The first original-ROM run of the two-point profile stopped safely because the
+AI-controlled front defender could not be selected and cleared. This is a
+fail-closed pilot result, not evidence that the profile or an ordinary
+two-point make has passed.
 
 Telemetry, hook events, screenshots, logs, movies, and status files are local
 research evidence only. Native C and asset-pack import/runtime paths must never
@@ -647,7 +656,7 @@ height/velocity seed `$02E8`, gravity, frame-40 clamp, recovery through frame
 ordering. The same controlled family/profile/direction context also admits one
 captured deterministic three-point make. Current NES B remains held through
 frames 1-8 and releases at 9; pose pointers are 325 for frames 1-4, 1060 for
-5-8, 1061 at 9, 213 through flight, and 469 after recovery. TGSR-2 classifies
+5-8, 1061 at 9, 213 through flight, and 469 after recovery. TGSR-3 classifies
 the terminal clear-bit result as MAKE at frame 19. Uninterrupted Q8.8 motion
 starts at frame 20 with velocity `$0308` and gravity `$0028`, lands at native
 frame 57, recovers through 62, and becomes neutral at 63. The emulator displayed
@@ -660,7 +669,7 @@ captured frame-9 transition so normal input cannot strand the scene; no
 earlier-release ROM timing is claimed. If the period expires before frame 111,
 the frame-85 score is applied exactly once without an invalid shot-clock reset,
 then the settled action retains the shooting side/holder for the normal period
-banner transition. TGSR-2 classifies TGJS's bit-7-set terminal flag as MISS and proves
+banner transition. TGSR-3 classifies TGJS's bit-7-set terminal flag as MISS and proves
 the non-current, other-team claimant handler/possession decision. Native play
 applies that one decision at frame 87, awards zero points, uses an explicitly
 approximate opposing actor, and queues crowd 11 followed by clock-gated side
@@ -701,7 +710,7 @@ material, not committed provenance or runtime input. See
 The scene must obtain TGPL-1 `gameplay/core`, TGCT-1 `gameplay/court`, TGCS-1
 `gameplay/close-shots`, TGDK-1 `gameplay/dunk-cutaway`,
 TGJS-1 `gameplay/jump-shots` (1648 bytes,
-`7587B099`), TGSR-2 `gameplay/shot-resolution` (384 bytes, `CCA9DE06`),
+`7587B099`), TGSR-3 `gameplay/shot-resolution` (512 bytes, `164DC568`),
 TMUS-1 `audio/music`, TSFX-1
 `audio/gameplay-sfx`, TDMC-1 `audio/gameplay-dmc`, and `chr/all` from the same
 explicit pack. Exact-size reads, canonical fingerprints, deep bounds/reserved
@@ -710,15 +719,26 @@ source-map provenance fail closed before the scene is marked available. Drawing
 preflights every court cell and actor/ball pose so a rejected frame leaves the
 destination untouched.
 
-TGSR-2 is 384 bytes (FNV1a32 `CCA9DE06`, FNV1a64
-`9C4686F4DCD823A6`) and revision-locks Bank05 `$91BC-$943A`, `$A6EE-$A9D9`,
+TGSR-3 is 512 bytes (FNV1a32 `164DC568`, FNV1a64
+`5C5170460C8305A8`) and revision-locks Bank05 `$91BC-$943A`, `$A6EE-$A9D9`,
 `$B73E-$B87B`, and `$B87C-$B8F5`. It requires exact same-pack TGPL-1;
 missing, malformed, wrong-sized, wrong-revision, and cross-pack dependencies
 reject the scene before availability. Its safe semantics are terminal outcome
 polarity, numeric rim routes, claimant thresholds, and handler/possession
 decisions; it does not label rebounds, blocks, steals, or generic makes.
 
-TGSR-2 uses metadata bytes 29..63 for the strict state-`$15` rim-rattle
+TGSR-3 additionally carries the exact 124-byte Bank05 `$BEEF-$BF6A`
+three-point arc boundary table (FNV1a32 `9EF1061B`, FNV1a64
+`E8A0728513DD8BDB`). Its pure C API reproduces `$B995`'s free-throw/field-goal/
+three-point classification for raw world X/Y, orientation 0/1, and shot-flag
+low bits with the original low-byte subtraction and high-byte borrow. The
+classifier routine itself remains in same-pack TGPL-1's existing
+`$B995-$BA3F` source span; TGSR does not duplicate those bytes. This is a
+rules foundation only: live ordinary two-point makes remain rejected because
+the distance-dependent `$AD4E->$B32C` flight has not been captured, so the
+three-point frame-85/frame-111 checkpoints cannot be reused.
+
+TGSR-3 uses metadata bytes 29..63 for the strict state-`$15` rim-rattle
 contract. It imports orientation starts `$009D/$0263`, Y `$93`, velocity
 magnitude `$0040`, altitude `$38`, timer 4, pass derivation
 `(($53 & 3) + 1) << 4` with the low nibble preserved, repeat DMC length `$0A`,
@@ -729,10 +749,11 @@ API saves the incoming velocity, moves one coordinate per update for four
 updates per pass, reverses on each nonterminal pass, requests the existing
 address-bound A8D6-short DMC clip, and restores velocity on completion.
 Focused provenance adds `$A2DF-$A2F7` (`9D918043`), `$AD4E-$AD64`
-(`AF1D6B17`), and `$BDF3-$BDF6` (`79F66DB3`), for four primary plus three
-focused source spans. The debug mapper reads the X launch target from the
+(`AF1D6B17`), `$BDF3-$BDF6` (`79F66DB3`), and `$BEEF-$BF6A`
+(`9EF1061B`), for four primary plus four focused source spans. The debug mapper
+reads the X launch target from the
 required same-pack TGCS-1 `$BDEF-$BDF6` source and cross-checks its snap bytes
-against TGSR-2; `$AD4E-$AD64` proves the BDEF/BDF1 loads and Y target `$8F`.
+against TGSR-3; `$AD4E-$AD64` proves the BDEF/BDF1 loads and Y target `$8F`.
 `$A2DF` does not universally enter state `$10`: nonzero `$036F`
 or raw `$6A >= $18` selects that path; otherwise the original relaunches state
 `$05`. Only the deterministic `gameplay-jump-rattle-frameN` debug route uses

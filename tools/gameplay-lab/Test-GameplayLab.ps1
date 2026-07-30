@@ -62,12 +62,18 @@ Assert-Lab ($Runner -match 'StartsWith\(\$OutputPrefix' -and $Runner -match 'tem
 Assert-Lab ($Runner -match 'TECMO_GAMEPLAY_LAB_ROM_PATH' -and
     $Runner -match 'TECMO_GAMEPLAY_LAB_FCEUX_PATH') 'Explicit/named input path policy is missing.'
 
-Assert-Lab ($Map -match 'schema = "TGLM-2"' -and $Map -match 'schema_version = 2' -and
-    $Lua -match 'map\.schema == "TGLM-2" and map\.schema_version == 2' -and
-    $Lua -match 'schema=TGLAB-2\\nschema_version=2' -and
-    $Runner -match "schema = 'TGLAB-2'" -and $Runner -match "schema_version = '2'" -and
-    $Runner -match "map_schema = 'TGLM-2'") `
+Assert-Lab ($Map -match 'schema = "TGLM-3"' -and $Map -match 'schema_version = 3' -and
+    $Lua -match 'map\.schema == "TGLM-3" and map\.schema_version == 3' -and
+    $Lua -match 'schema=TGLAB-3\\nschema_version=3' -and
+    $Runner -match "schema = 'TGLAB-3'" -and $Runner -match "schema_version = '3'" -and
+    $Runner -match "map_schema = 'TGLM-3'") `
     'Map or telemetry schema/version is missing.'
+Assert-Lab ($Runner -match "ValidateSet\('three_point_baseline', 'ordinary_two_point_make'\)" -and
+    $Runner -match "\[string\]\`$Profile = 'three_point_baseline'" -and
+    $Runner -match 'TECMO_GAMEPLAY_LAB_PROFILE' -and
+    $Lua -match 'profile_name == "three_point_baseline"' -and
+    $Lua -match 'profile_name == "ordinary_two_point_make"') `
+    'Closed runner profile selection is missing.'
 foreach ($Cap in @('max_frames', 'phase_rows', 'event_rows', 'shot_detail_rows',
                     'screenshots', 'tracked_text_bytes')) {
     Assert-Lab ($Map -match [regex]::Escape($Cap)) "Cap '$Cap' is missing."
@@ -120,9 +126,9 @@ Assert-Lab ($Lua -match 'defense_A_edge' -and $Lua -match 'rb\(R\.defense_actor\
 Assert-Lab ($Lua -match 'offense_position_' -and $Lua -match 'no shooter coordinate progress') `
     'Coordinate-feedback positioning/progress deadline is missing.'
 
-Assert-Lab ($Map -match 'x_min = 0x0164' -and $Map -match 'x_max = 0x0170' -and
-    $Map -match 'y_min = 0x6C' -and $Map -match 'y_max = 0x74') `
-    'Proven shot window is missing.'
+Assert-Lab ($Map -match 'three_point_baseline = \{[\s\S]*?x_min = 0x0164, x_max = 0x0170,[\s\S]*?y_min = 0x6C, y_max = 0x74' -and
+    $Map -match 'ordinary_two_point_make = \{[\s\S]*?expected_point_value = 2,[\s\S]*?expected_make = true,[\s\S]*?expected_score_delta = 2,[\s\S]*?x_min = 0x0108, x_max = 0x010F,[\s\S]*?y_min = 0x6C, y_max = 0x74') `
+    'Closed three-point/two-point shot windows are missing.'
 Assert-Lab ($Map -match 'stable_frames = 12' -and $Map -match 'hold_b_frames = 8' -and
     $Map -match 'release_frame = 9') 'Stable/press/release schedule is missing.'
 Assert-Lab ($Lua -match 'shot hold entered close/foul/violation/control mismatch') `
@@ -137,6 +143,14 @@ Assert-Lab ($Lua -match 'rb\(R\.offense_actor\) ~= shot_actor') `
 Assert-Lab ($Map -match '0x8C57.*ball_release' -and $Map -match '0x8ABD.*shot_classifier' -and
     $Map -match '0x91BC.*shot_result' -and
     $Map -match '0x933B.*decision_anchor') 'Required shot evidence hooks are missing.'
+Assert-Lab ($Map -match 'point_value = 0x0398' -and
+    $Map -match '0xB995.*point_classifier_local.*gate = "bank05"' -and
+    $Map -match '0xB9D7.*two_point_return_local.*gate = "bank05"' -and
+    $Lua -match 'point_classifier_seen = true' -and
+    $Lua -match 'point_return_seen = true' -and
+    $Lua -match 'classified_point_value = h\.point_value' -and
+    $Lua -match 'classified_point_value == profile\.expected_point_value') `
+    'Mapper-aware point-classifier evidence is missing.'
 Assert-Lab ($Lua -match 'classifier_seen = true' -and
     $Lua -match 'release_seen and classifier_seen and result_seen') `
     'Post-armed classifier evidence is not required for pass.'
@@ -189,6 +203,16 @@ Assert-Lab ($Lua -match '%02X,%d,%04X,%02X,%04X,%04X,%04X,%04X\\n') `
 Assert-Lab ($Lua -match 'score_apply_seen and \(score0_delta == 2 or score0_delta == 3\)' -and
     $Lua -match 'score1_delta == 0' -and $Lua -match 'settlement_seen') `
     'Make/miss scoring and settlement criteria are incomplete.'
+Assert-Lab ($Lua -match 'score0_delta == profile\.expected_score_delta' -and
+    $Lua -match 'profile\.expected_make and point_evidence' -and
+    $Lua -match 'profile outcome mismatch' -and
+    $Lua -match 'point-classifier evidence mismatch') `
+    'Two-point make profile does not fail closed on point/outcome/score evidence.'
+Assert-Lab ($Lua -notmatch 'positioning_valid' -and
+    $Lua -notmatch 'offense_clear_front_' -and
+    $Lua -match 'offense_neutral_pulse' -and
+    $Lua -match 'front threat entered safety window') `
+    'Holder/front-threat/controller invariants were weakened.'
 Assert-Lab ($Lua -match 'local dx, dy = a\.x - b\.x, a\.y - b\.y' -and
     $Lua -match 'if \(-dx\) \* front_sign > 0' -and
     $Lua -match 'button = dx >= 0 and "left" or "right"' -and
@@ -219,7 +243,7 @@ if ($Failures.Count -ne 0) {
     $Failures | ForEach-Object { Write-Error $_ }
     throw "$($Failures.Count) gameplay-lab static test(s) failed."
 }
-Write-Host 'GAMEPLAY LAB STATIC TEST PASS: read-only controller policy, exact revisions, bounded output, raw velocity schema, miss-variant evidence, fail-closed shot evidence, neutral cleanup'
+Write-Host 'GAMEPLAY LAB STATIC TEST PASS: closed profiles, read-only controller policy, exact revisions, bounded output, point/velocity evidence, fail-closed shot evidence, neutral cleanup'
 
 if ($Smoke) {
     if (-not $RomPath -or -not $FceuxPath) {

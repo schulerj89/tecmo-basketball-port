@@ -8,8 +8,19 @@ local map_path = assert(os.getenv("TECMO_GAMEPLAY_LAB_MAP"),
 output_root = string.gsub(output_root, "\\", "/")
 map_path = string.gsub(map_path, "\\", "/")
 local map = assert(dofile(map_path))
-assert(map.schema == "TGLM-2" and map.schema_version == 2,
+assert(map.schema == "TGLM-3" and map.schema_version == 3,
     "unsupported gameplay-lab map")
+local profile_name = os.getenv("TECMO_GAMEPLAY_LAB_PROFILE") or
+    "three_point_baseline"
+local profile = map.profiles[profile_name]
+assert(profile ~= nil and
+       (profile_name == "three_point_baseline" or
+        profile_name == "ordinary_two_point_make"),
+    "unsupported gameplay-lab profile")
+local shot_window = {}
+for key, value in pairs(map.shot_policy) do shot_window[key] = value end
+for key, value in pairs(profile.shot_window) do shot_window[key] = value end
+map.shot_window = shot_window
 
 local max_frames = tonumber(os.getenv("TECMO_GAMEPLAY_LAB_MAX_FRAMES") or "6000") or 6000
 if max_frames < 3600 or max_frames > map.caps.max_frames then
@@ -56,7 +67,8 @@ local function emit(file, text)
     file:write(text)
 end
 
-emit(metadata, "schema=TGLAB-2\nschema_version=2\nmap_schema=" .. map.schema .. "\n")
+emit(metadata, "schema=TGLAB-3\nschema_version=3\nmap_schema=" .. map.schema .. "\n")
+emit(metadata, "profile=" .. profile_name .. "\n")
 emit(metadata, "script_sha256=" .. script_hash .. "\nmap_sha256=" .. map_hash .. "\n")
 emit(metadata, "rom_sha256=" .. rom_hash .. "\nfceux_sha256=" .. fceux_hash .. "\n")
 emit(metadata, "policy=read-only RAM; complete two-port joypads; one Rev1 orientation-0 shot\n")
@@ -76,7 +88,7 @@ emit(telemetry,
     "ball_distance,nearest_defender,nearest_distance,front_defender,front_distance," ..
     "shot_subtype,shot_flags,close_mode,score0,score1" .. actor_fields .. "\n")
 emit(events,
-    "lab_frame,emu_frame,name,address,raw_bank,pc,a,x,y,ba,offense_side," ..
+    "lab_frame,emu_frame,name,address,raw_bank,pc,a,x,y,ba,point_value_0398,offense_side," ..
     "control0,control1,score0,score1,miss_selector_6a,miss_selector_low2," ..
     "miss_selected_target,object_slot10_state_0478," ..
     "object_slot10_horizontal_velocity_04f1_04fc," ..
@@ -200,6 +212,8 @@ local decision_frame = -1
 local terminal_frame = -2
 local make_seen, miss_seen = false, false
 local release_seen, classifier_seen, result_seen, score_apply_seen = false, false, false, false
+local point_classifier_seen, point_return_seen = false, false
+local classified_point_value = -1
 local settlement_seen, handoff_seen, close_launch_seen = false, false, false
 local setup_control0, setup_control1 = -1, -1
 local input_control0, input_control1 = -1, -1
@@ -288,6 +302,7 @@ local function register_hook(hook)
                 emu_frame = safe_frame(), pc = safe_register("pc"),
                 a = safe_register("a"), x = safe_register("x"), y = safe_register("y"),
                 shot_flags = rb(R.shot_flags),
+                point_value = rb(R.point_value),
                 miss_selector = miss_selector,
                 miss_selector_low2 = AND(miss_selector, map.miss_variants.selector_mask),
                 miss_selected_target = selected_miss_target(miss_selector),
@@ -318,10 +333,10 @@ local function flush_hooks()
             return
         end
         emit(events, string.format(
-            "%d,%d,%s,%04X,%02X,%04X,%02X,%02X,%02X,%02X,%d,%d,%d,%d,%d," ..
+            "%d,%d,%s,%04X,%02X,%04X,%02X,%02X,%02X,%02X,%02X,%d,%d,%d,%d,%d," ..
             "%02X,%d,%04X,%02X,%04X,%04X,%04X,%04X\n",
             frame, h.emu_frame, h.name, h.address, h.bank, h.pc, h.a, h.x, h.y,
-            h.shot_flags, rb(R.offense_side), rb(R.control0), rb(R.control1),
+            h.shot_flags, h.point_value, rb(R.offense_side), rb(R.control0), rb(R.control1),
             score(0), score(1), h.miss_selector, h.miss_selector_low2,
             h.miss_selected_target, h.object_slot10_state,
             h.object_slot10_horizontal_velocity, h.object_slot10_vertical_velocity,
@@ -333,6 +348,11 @@ local function flush_hooks()
             classifier_seen = true
         elseif h.name == "shot_result" then
             result_seen = true
+        elseif h.name == "point_classifier_local" and shot_frame >= 0 then
+            point_classifier_seen = true
+        elseif h.name == "two_point_return_local" and shot_frame >= 0 then
+            point_return_seen = true
+            classified_point_value = h.point_value
         elseif h.name == "decision_anchor" then
             decision_frame = h.emu_frame
             decision_control0, decision_control1 = rb(R.control0), rb(R.control1)
@@ -459,6 +479,8 @@ local function write_status(state)
     local pass = false
     local score0_delta = pre_score0 < 0 and 0 or score(0) - pre_score0
     local score1_delta = pre_score1 < 0 and 0 or score(1) - pre_score1
+    local point_evidence = point_classifier_seen and point_return_seen and
+        classified_point_value == profile.expected_point_value
     if terminal_count == 1 and release_seen and classifier_seen and result_seen and
             setup_control0 == 0 and setup_control1 == 0 and
             input_control0 == 0 and input_control1 == 0 and
@@ -467,15 +489,24 @@ local function write_status(state)
             holder_proven and shot_window_proven and input_front == -1 and
             input_close_mode == 0 and not close_launch_seen and final_pads_neutral then
         if make_seen then
-            pass = score_apply_seen and (score0_delta == 2 or score0_delta == 3) and
-                score1_delta == 0 and (handoff_seen or rb(R.offense_side) ~= possession_at_input)
+            if profile.require_point_evidence then
+                pass = profile.expected_make and point_evidence and score_apply_seen and
+                    score0_delta == profile.expected_score_delta and score1_delta == 0 and
+                    (handoff_seen or rb(R.offense_side) ~= possession_at_input)
+            else
+                pass = score_apply_seen and (score0_delta == 2 or score0_delta == 3) and
+                    score1_delta == 0 and
+                    (handoff_seen or rb(R.offense_side) ~= possession_at_input)
+            end
         elseif miss_seen then
-            pass = score0_delta == 0 and score1_delta == 0 and settlement_seen
+            pass = not profile.expected_make and score0_delta == 0 and
+                score1_delta == 0 and settlement_seen
         end
     end
     local file = io.open(status_path, "w")
     if not file then return end
-    file:write("schema=TGLAB-2\nschema_version=2\nmap_schema=" .. map.schema .. "\n")
+    file:write("schema=TGLAB-3\nschema_version=3\nmap_schema=" .. map.schema .. "\n")
+    file:write("profile=" .. profile_name .. "\n")
     file:write("script_sha256=" .. script_hash .. "\nmap_sha256=" .. map_hash .. "\n")
     file:write("rom_sha256=" .. rom_hash .. "\nfceux_sha256=" .. fceux_hash .. "\n")
     file:write("state=" .. state .. "\nlab_frame=" .. frame .. "\nemu_frame=" .. safe_frame() .. "\n")
@@ -483,6 +514,10 @@ local function write_status(state)
     file:write("result=" .. result .. "\npilot_pass=" .. tostring(pass) .. "\n")
     file:write("terminal_count=" .. terminal_count .. "\nrelease_seen=" .. tostring(release_seen) .. "\n")
     file:write("classifier_seen=" .. tostring(classifier_seen) .. "\n")
+    file:write("point_classifier_seen=" .. tostring(point_classifier_seen) .. "\n")
+    file:write("point_return_seen=" .. tostring(point_return_seen) .. "\n")
+    file:write("classified_point_value=" .. classified_point_value .. "\n")
+    file:write("expected_point_value=" .. profile.expected_point_value .. "\n")
     file:write("result_seen=" .. tostring(result_seen) .. "\nscore_apply_seen=" .. tostring(score_apply_seen) .. "\n")
     file:write("settlement_seen=" .. tostring(settlement_seen) .. "\nhandoff_seen=" .. tostring(handoff_seen) .. "\n")
     file:write("setup_control_pair=" .. setup_control0 .. "," .. setup_control1 .. "\n")
@@ -832,13 +867,28 @@ while not stopped do
             if not release_seen or not classifier_seen or not result_seen or
                     terminal_frame ~= decision_frame then
                 fail("terminal lacked release/classifier/result/same-frame anchor evidence")
+            elseif profile.require_point_evidence and
+                    (not point_classifier_seen or not point_return_seen or
+                     classified_point_value ~= profile.expected_point_value) then
+                fail("point-classifier evidence mismatch")
+            elseif profile.expected_make and not make_seen then
+                fail("profile outcome mismatch")
             else
                 if tail_started < 0 then tail_started = frame end
                 local score0_delta, score1_delta = score(0) - pre_score0, score(1) - pre_score1
                 local settled = false
                 if make_seen then
-                    settled = score_apply_seen and (score0_delta == 2 or score0_delta == 3) and
-                        score1_delta == 0 and (handoff_seen or rb(R.offense_side) ~= possession_at_input)
+                    if profile.require_point_evidence then
+                        settled = score_apply_seen and
+                            score0_delta == profile.expected_score_delta and
+                            score1_delta == 0 and
+                            (handoff_seen or rb(R.offense_side) ~= possession_at_input)
+                    else
+                        settled = score_apply_seen and
+                            (score0_delta == 2 or score0_delta == 3) and
+                            score1_delta == 0 and
+                            (handoff_seen or rb(R.offense_side) ~= possession_at_input)
+                    end
                 else
                     settled = score0_delta == 0 and score1_delta == 0 and settlement_seen
                 end

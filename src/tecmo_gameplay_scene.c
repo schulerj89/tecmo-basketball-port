@@ -282,7 +282,7 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
     }
     scene->available = true;
     scene_set_status(scene,
-                     "native gameplay ready: TGPL-1/TGCT-1/TGCS-1/TGDK-1/TGJS-1/TGSR-2/TSFX-1/TDMC-1");
+                     "native gameplay ready: TGPL-1/TGCT-1/TGCS-1/TGDK-1/TGJS-1/TGSR-3/TSFX-1/TDMC-1");
     return true;
 }
 
@@ -3363,7 +3363,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.shot_resolution.gameplay_core_fingerprint !=
             scene.jump_shots.gameplay_core_fingerprint) {
         scene_test_message(message, message_size,
-                           "TGSR-2 scene dependency contract failed");
+                           "TGSR-3 scene dependency contract failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }

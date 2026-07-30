@@ -219,7 +219,7 @@ try {
         [pscustomobject]@{ id="gameplay/close-shots"; size=3144; hash="DACDC976"; schema="tecmo.gameplay-close-shots/TGCS-1" },
         [pscustomobject]@{ id="gameplay/dunk-cutaway"; size=20272; hash="E02F2D21"; schema="tecmo.gameplay-dunk-cutaway/TGDK-1" },
         [pscustomobject]@{ id="gameplay/jump-shots"; size=1648; hash="7587B099"; schema="tecmo.gameplay-jump-shots/TGJS-1" },
-        [pscustomobject]@{ id="gameplay/shot-resolution"; size=384; hash="CCA9DE06"; schema="tecmo.gameplay-shot-resolution/TGSR-2" },
+        [pscustomobject]@{ id="gameplay/shot-resolution"; size=512; hash="164DC568"; schema="tecmo.gameplay-shot-resolution/TGSR-3" },
         [pscustomobject]@{ id="audio/music"; size=36784; hash="05C00ECB"; schema="tecmo.music/TMUS-1" },
         [pscustomobject]@{ id="audio/gameplay-sfx"; size=2824; hash="968A5DE6"; schema="tecmo.gameplay-audio/TSFX-1" },
         [pscustomobject]@{ id="audio/gameplay-dmc"; size=2515; hash="AD70E6E8"; schema="tecmo.gameplay-audio/TDMC-1" },
@@ -347,7 +347,7 @@ try {
         [byte][char]'x'
     [IO.File]::WriteAllBytes($MissingResolutionPath, $MissingResolution)
     Assert-SceneRejected -AssetPack $MissingResolutionPath `
-        -Label "missing-shot-resolution" -ExpectedStatus "TGSR-2"
+        -Label "missing-shot-resolution" -ExpectedStatus "TGSR-3"
 
     $MalformedResolutionPath = Join-Path $Scratch "malformed-shot-resolution.assetpack"
     $MalformedResolution = [byte[]]$PackBytes.Clone()
@@ -356,7 +356,7 @@ try {
         $MalformedResolution[$ResolutionOffset] -bxor 1
     [IO.File]::WriteAllBytes($MalformedResolutionPath, $MalformedResolution)
     Assert-SceneRejected -AssetPack $MalformedResolutionPath `
-        -Label "malformed-shot-resolution" -ExpectedStatus "TGSR-2"
+        -Label "malformed-shot-resolution" -ExpectedStatus "TGSR-3"
 
     $OversizedResolutionPath = Join-Path $Scratch "oversized-shot-resolution.assetpack"
     $OversizedResolution = [byte[]]$PackBytes.Clone()
@@ -365,7 +365,7 @@ try {
         [int]$Entries["gameplay/shot-resolution"].directory_offset + 92)
     [IO.File]::WriteAllBytes($OversizedResolutionPath, $OversizedResolution)
     Assert-SceneRejected -AssetPack $OversizedResolutionPath `
-        -Label "oversized-shot-resolution" -ExpectedStatus "TGSR-2"
+        -Label "oversized-shot-resolution" -ExpectedStatus "TGSR-3"
 
     $WrongResolutionPath = Join-Path $Scratch "wrong-revision-shot-resolution.assetpack"
     $WrongResolution = [byte[]]$PackBytes.Clone()
@@ -373,7 +373,7 @@ try {
         $WrongResolution[$ResolutionOffset + 80] -bxor 1
     [IO.File]::WriteAllBytes($WrongResolutionPath, $WrongResolution)
     Assert-SceneRejected -AssetPack $WrongResolutionPath `
-        -Label "wrong-revision-shot-resolution" -ExpectedStatus "TGSR-2"
+        -Label "wrong-revision-shot-resolution" -ExpectedStatus "TGSR-3"
 
     $CrossPackResolutionPath = Join-Path $Scratch "cross-pack-shot-resolution.assetpack"
     $CrossPackResolution = [byte[]]$PackBytes.Clone()
@@ -382,7 +382,7 @@ try {
         $CrossPackResolution[$CoreOffset + 128] -bxor 1
     [IO.File]::WriteAllBytes($CrossPackResolutionPath, $CrossPackResolution)
     Assert-SceneRejected -AssetPack $CrossPackResolutionPath `
-        -Label "cross-pack-shot-resolution" -ExpectedStatus "TGSR-2"
+        -Label "cross-pack-shot-resolution" -ExpectedStatus "TGSR-3"
 
     $OversizedPath = Join-Path $Scratch "oversized-core.assetpack"
     $Oversized = [byte[]]$PackBytes.Clone()
@@ -535,7 +535,7 @@ try {
 
     $global:LASTEXITCODE = 0
     Write-Output ("GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance " +
-        "scene controls TGDK TGJS TGSR-2 jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
+        "scene controls TGDK TGJS TGSR-3 jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
         "halftime/final render-hashes/determinism missing malformed oversized " +
         "chr-mismatch")
 } finally {

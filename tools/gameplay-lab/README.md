@@ -1,11 +1,11 @@
 # Tracked Gameplay Laboratory
 
-This is a private developer diagnostic for one tightly bounded Tecmo NBA
-Basketball Rev 1 MAN VS MAN jump-shot experiment. It power-on navigates to a
-two-player game, watches the live world model, uses coordinate feedback to
-clear a front defender and place the ball holder in the already proven shot
-window, then performs the captured eight-frame B hold and frame-nine release.
-It is not a general gameplay AI.
+This is a private developer diagnostic with two closed Tecmo NBA Basketball
+Rev 1 MAN VS MAN jump-shot profiles. It power-on navigates to a two-player
+game, watches the live world model, uses coordinate feedback to clear a front
+defender and place the ball holder in the selected proven window, then performs
+the captured eight-frame B hold and frame-nine release. It is not a general
+gameplay AI.
 
 The driver supplies controller input only. It never changes game RAM, enables
 cheats, or loads an emulator state. Both controller tables are complete on
@@ -27,6 +27,21 @@ Run the private pilot by supplying both local files explicitly:
   -RequirePass
 ```
 
+The default `three_point_baseline` profile retains the original window and
+pass behavior. The only second profile is selected explicitly:
+
+```powershell
+.\tools\gameplay-lab\Run-GameplayLab.ps1 `
+  -Profile ordinary_two_point_make `
+  -RomPath <LOCAL_REV1_ROM.nes> `
+  -FceuxPath <LOCAL_FCEUX_2.6.6.exe>
+```
+
+That profile is fixed to `x=$0108..$010F`, `y=$6C..$74` and passes only with
+ordinary `$8C57` release, no `$8C7D` close launch, mapper-aware `$B995/$B9D7`
+point evidence equal to 2, terminal MAKE, and score delta 2. Arbitrary profile
+names, coordinates, delays, outcomes, or score deltas are not exposed.
+
 `TECMO_GAMEPLAY_LAB_ROM_PATH` and `TECMO_GAMEPLAY_LAB_FCEUX_PATH` are supported
 as clearly named alternatives. The runner revision-locks both binaries, rejects
 concurrent FCEUX, runs hidden with redirected logs by default, and imposes
@@ -46,8 +61,13 @@ loop stays top-level to avoid Lua 5.1's function-upvalue limit. The session cont
 compact status and phase files, per-frame actor/ball
 telemetry, Bank05 outcome hooks, focused shot detail, at most eight
 screenshots, and optional FM2. `tecmo_rev1_map.lua` is the only canonical
-address/hook map. Its current schema is TGLM-2, and the matching output schema
-is TGLAB-2. The native C runtime does not read any laboratory output.
+address/hook map. Its current schema is TGLM-3, and the matching output schema
+is TGLAB-3. The native C runtime does not read any laboratory output.
+
+Point telemetry snapshots RAM `$0398` in the bounded hook queue. Mapper-gated
+Bank05 `$B995` and `$B9D7` events prove classifier entry and the orientation-0
+two-point return; status records the selected closed profile, point evidence,
+expected point value, and observed value.
 
 Per-actor telemetry and focused shot detail preserve three distinct raw
 16-bit velocity words without signed interpretation: altitude velocity uses
@@ -71,11 +91,17 @@ existing event-row and tracked-text caps still apply.
 
 Current limits are intentional: Rev 1 and FCEUX 2.6.6 only; period 1;
 orientation 0; offense side 0; distinct MAN VS MAN teams; ordinary, non-close
-shot only; and the proven coordinate window `x=$0164..$0170`,
-`y=$6C..$74`. Mirrored movement, the defensive A-cycle order, general shot
+shot only. The default window is `x=$0164..$0170`, `y=$6C..$74`; the closed
+two-point profile uses `x=$0108..$010F`, `y=$6C..$74`. Mirrored movement, the
+defensive A-cycle order, general shot
 selection, close routes, fouls, violations, and arbitrary possession recovery
 are not inferred. An unsupported or unstable context aborts with neutral pads.
 The bot's front-threat policy uses a conservative `20x12` window, wider than
 the original strict contact box (`abs(dx)<12`, `abs(dy)<7`). If an identified
 threat cannot be selected through observed defensive A edges, the experiment
 aborts instead of pretending the player can be controlled.
+
+The current original-ROM two-point pilot stopped at exactly that guard because
+an AI-controlled front defender could not be selected and cleared. The safe
+abort is useful control evidence, but the two-point pilot has not passed and
+no live native two-point schedule is claimed.

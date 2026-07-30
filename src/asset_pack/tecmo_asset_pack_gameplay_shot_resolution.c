@@ -139,6 +139,50 @@ static uint16_t read_bank05_split_u16(const uint8_t *rom,
             prg_offset, (uint16_t)(high_cpu + index))] << 8U));
 }
 
+static int import_point_arc_table(
+    const uint8_t *rom,
+    uint64_t rom_size,
+    uint64_t prg_offset,
+    uint8_t *payload,
+    TecmoGameplayShotResolutionProvenance *provenance,
+    char *message,
+    size_t message_size)
+{
+    const uint64_t source_offset = bank05_cpu_offset(
+        prg_offset,
+        TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_CPU);
+    const uint8_t *source;
+    if (!range_ok(
+            source_offset,
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_SIZE,
+            rom_size)) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TGSR-3 point-arc table is outside the Rev1 ROM.");
+        return -1;
+    }
+    source = rom + (size_t)source_offset;
+    if (tecmo_asset_pack_fnv1a32(
+            source,
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_SIZE) !=
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_FNV1A32 ||
+        fnv1a64(
+            source,
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_SIZE) !=
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_FNV1A64) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TGSR-3 Bank05 $BEEF-$BF6A revision fingerprint mismatch.");
+        return -1;
+    }
+    memcpy(
+        payload + TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_OFFSET,
+        source,
+        TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_SIZE);
+    provenance->point_arc_table_offset = source_offset;
+    return 0;
+}
+
 static int validate_rim_rattle_contract(const uint8_t *rom,
                                         uint64_t rom_size,
                                         uint64_t prg_offset,
@@ -256,7 +300,7 @@ static int validate_rim_rattle_contract(const uint8_t *rom,
             prg_offset, 0xA8CBU)]) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGSR-2 rim-rattle source contract mismatch "
+            "TGSR-3 rim-rattle source contract mismatch "
             "($A2DF-$A2F7, $AD4E-$AD64, or $BDF3-$BDF6).");
         return -1;
     }
@@ -272,7 +316,7 @@ static int validate_rim_rattle_contract(const uint8_t *rom,
                 ((uint16_t)metadata[45U + index * 2U] << 8U))) {
             tecmo_asset_pack_set_message(
                 message, message_size,
-                "TGSR-2 rim-rattle render-script table mismatch.");
+                "TGSR-3 rim-rattle render-script table mismatch.");
             return -1;
         }
     }
@@ -288,7 +332,7 @@ static int validate_rim_rattle_contract(const uint8_t *rom,
                 ((uint16_t)metadata[61U + index * 2U] << 8U))) {
             tecmo_asset_pack_set_message(
                 message, message_size,
-                "TGSR-2 rim-rattle exit render-script table mismatch.");
+                "TGSR-3 rim-rattle exit render-script table mismatch.");
             return -1;
         }
     }
@@ -315,7 +359,7 @@ static int validate_rim_rattle_contract(const uint8_t *rom,
                        ((uint16_t)metadata[33U] << 8U))) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGSR-2 rim-rattle semantic relationship mismatch.");
+            "TGSR-3 rim-rattle semantic relationship mismatch.");
         return -1;
     }
     return 0;
@@ -397,7 +441,7 @@ static int validate_derived_contract(const uint8_t *rom,
         !range_ok(table_offset, 8U, rom_size)) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGSR-2 derived outcome/route/claimant contract mismatch.");
+            "TGSR-3 derived outcome/route/claimant contract mismatch.");
         return -1;
     }
 
@@ -416,7 +460,7 @@ static int validate_derived_contract(const uint8_t *rom,
                     5U] << 8U))) {
             tecmo_asset_pack_set_message(
                 message, message_size,
-                "TGSR-2 numeric rim-route target mismatch.");
+                "TGSR-3 numeric rim-route target mismatch.");
             return -1;
         }
         memcpy(record,
@@ -446,7 +490,7 @@ int tecmo_asset_pack_build_gameplay_shot_resolution(
         enforce_revision_fingerprints == 0) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGSR-2 import requires the exact Rev1 ROM contract.");
+            "TGSR-3 import requires the exact Rev1 ROM contract.");
         return -1;
     }
 
@@ -470,7 +514,7 @@ int tecmo_asset_pack_build_gameplay_shot_resolution(
             !range_ok(source_offset, expected->byte_count, rom_size)) {
             tecmo_asset_pack_set_message(
                 message, message_size,
-                "TGSR-2 source range is outside the Rev1 ROM.");
+                "TGSR-3 source range is outside the Rev1 ROM.");
             return -1;
         }
         fingerprint32 = tecmo_asset_pack_fnv1a32(
@@ -481,7 +525,7 @@ int tecmo_asset_pack_build_gameplay_shot_resolution(
             fingerprint64 != expected->fingerprint_fnv1a64) {
             tecmo_asset_pack_set_messagef(
                 message, message_size,
-                "TGSR-2 Bank05 $%04X-$%04X revision fingerprint mismatch.",
+                "TGSR-3 Bank05 $%04X-$%04X revision fingerprint mismatch.",
                 (unsigned)expected->cpu_start, (unsigned)cpu_end);
             return -1;
         }
@@ -505,6 +549,11 @@ int tecmo_asset_pack_build_gameplay_shot_resolution(
     provenance->rim_rattle_snap_table_offset = bank05_cpu_offset(
         prg_offset,
         TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_SNAP_CPU);
+    if (import_point_arc_table(
+            rom, rom_size, prg_offset, payload, provenance,
+            message, message_size) != 0) {
+        return -1;
+    }
 
     memcpy(payload +
                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_METADATA_OFFSET,
@@ -568,9 +617,31 @@ int tecmo_asset_pack_build_gameplay_shot_resolution(
     store_u64(
         payload + 60U,
         TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_ROUTES_FNV1A64);
-    tecmo_asset_pack_store_u16(payload + 80U, 0x942DU);
-    tecmo_asset_pack_store_u16(payload + 82U, 0x9434U);
-    payload[84U] = 1U;
+    tecmo_asset_pack_store_u32(
+        payload + 68U,
+        TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_OFFSET);
+    tecmo_asset_pack_store_u32(
+        payload + 72U,
+        TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_SIZE);
+    tecmo_asset_pack_store_u32(
+        payload + 76U,
+        TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_FNV1A32);
+    store_u64(
+        payload + 80U,
+        TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_FNV1A64);
+    tecmo_asset_pack_store_u16(
+        payload + 88U,
+        TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_CLASSIFIER_CPU);
+    tecmo_asset_pack_store_u16(
+        payload + 90U,
+        TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_CLASSIFIER_END_CPU);
+    payload[92U] = 0x03U;
+    payload[93U] = 0x5BU;
+    payload[94U] = 0xD7U;
+    payload[95U] = 2U;
+    tecmo_asset_pack_store_u16(payload + 96U, 0x942DU);
+    tecmo_asset_pack_store_u16(payload + 98U, 0x9434U);
+    payload[100U] = 1U;
 
     if (tecmo_asset_pack_fnv1a32(
             payload +
@@ -592,19 +663,29 @@ int tecmo_asset_pack_build_gameplay_shot_resolution(
             TECMO_GAMEPLAY_SHOT_RESOLUTION_RIM_ROUTE_COUNT *
                 TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_ROUTE_STRIDE) !=
             TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_ROUTES_FNV1A64 ||
+        tecmo_asset_pack_fnv1a32(
+            payload +
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_OFFSET,
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_SIZE) !=
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_FNV1A32 ||
+        fnv1a64(
+            payload +
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_OFFSET,
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_SIZE) !=
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_FNV1A64 ||
         tecmo_asset_pack_fnv1a32(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_FNV1A32 ||
         fnv1a64(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_FNV1A64) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGSR-2 canonical derived payload fingerprint mismatch.");
+            "TGSR-3 canonical derived payload fingerprint mismatch.");
         return -1;
     }
 
     tecmo_asset_pack_set_message(
         message, message_size,
-        "Built strict ROM-derived TGSR-2 shot-resolution asset.");
+        "Built strict ROM-derived TGSR-3 shot-resolution asset.");
     return 0;
 }
 
@@ -628,7 +709,7 @@ int tecmo_asset_pack_gameplay_shot_resolution_self_test(
             source->fingerprint_fnv1a64 == 0U) {
             tecmo_asset_pack_set_message(
                 message, message_size,
-                "TGSR-2 source layout self-test failed.");
+                "TGSR-3 source layout self-test failed.");
             return -1;
         }
         prior_end = end;
@@ -661,11 +742,11 @@ int tecmo_asset_pack_gameplay_shot_resolution_self_test(
                sizeof(tecmo_gameplay_shot_resolution_expected_routes)) != 0) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGSR-2 semantic layout self-test failed.");
+            "TGSR-3 semantic layout self-test failed.");
         return -1;
     }
     tecmo_asset_pack_set_message(
         message, message_size,
-        "TGSR-2 layout self-test passed.");
+        "TGSR-3 layout self-test passed.");
     return 0;
 }

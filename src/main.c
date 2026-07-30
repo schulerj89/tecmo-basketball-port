@@ -57,7 +57,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-close-shots-test PACK  Validate strict TGCS-1 close-shot assets\n");
     printf("  --gameplay-dunk-cutaway-test PACK  Validate strict TGDK-1 dunk presentation assets\n");
     printf("  --gameplay-jump-shots-test PACK  Validate strict TGJS-1 jump-shot assets\n");
-    printf("  --gameplay-shot-resolution-test PACK  Validate strict TGSR-2 shot-resolution assets\n");
+    printf("  --gameplay-shot-resolution-test PACK  Validate strict TGSR-3 shot-resolution assets\n");
     printf("  --gameplay-penalties-test PACK  Validate strict TPNL-1 penalty rules\n");
     printf("  --assetpack-list PACK  Print an asset-pack directory listing\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
@@ -1416,6 +1416,7 @@ jump_shot_test_cleanup:
         uint8_t *gameplay_core = NULL;
         uint8_t *mutation = NULL;
         uint8_t *core_mutation = NULL;
+        uint8_t point_value = 0U;
         uint64_t payload_size = 0U;
         uint64_t gameplay_core_size = 0U;
         bool eligible = false;
@@ -1432,7 +1433,9 @@ jump_shot_test_cleanup:
                 &assets, 0, 0, 0U, 0U, &eligible) ||
             tecmo_gameplay_shot_resolution_decide_claimant_settlement(
                 &assets, false,
-                TECMO_GAMEPLAY_SHOT_CLAIMANT_SAME_TEAM, &decision)) {
+                TECMO_GAMEPLAY_SHOT_CLAIMANT_SAME_TEAM, &decision) ||
+            tecmo_gameplay_shot_resolution_classify_point_value(
+                &assets, 0x0108U, 0x6CU, 0U, 0U, &point_value)) {
             printf("Shot-resolution asset test failed: unavailable API accepted\n");
             goto shot_resolution_test_cleanup;
         }
@@ -1458,6 +1461,12 @@ jump_shot_test_cleanup:
             assets.outcome_flag_mask != 0x80U ||
             assets.route_selector_mask != 0x03U ||
             assets.claimant_other_team_flag_mask != 0x10U ||
+            assets.point_shot_flags_mask != 0x03U ||
+            assets.point_y_min_inclusive != 0x5BU ||
+            assets.point_y_max_exclusive != 0xD7U ||
+            assets.point_orientation_count != 2U ||
+            assets.point_arc_boundary[0U] != 0xF1U ||
+            assets.point_arc_boundary[123U] != 0xDEU ||
             assets.rim_rattle.object_state != 0x15U ||
             assets.rim_rattle.orientation_start_x[0U] != 0x009DU ||
             assets.rim_rattle.orientation_start_x[1U] != 0x0263U ||
@@ -1484,6 +1493,87 @@ jump_shot_test_cleanup:
                 (TecmoGameplayShotResolutionSourceKind)5) != NULL) {
             printf("Shot-resolution asset test failed: source/constants contract\n");
             goto shot_resolution_test_cleanup;
+        }
+        if (!tecmo_gameplay_shot_resolution_classify_point_value(
+                &assets, 0U, 0U, 0U, 0x01U, &point_value) ||
+            point_value != 1U ||
+            !tecmo_gameplay_shot_resolution_classify_point_value(
+                &assets, 0xFFFFU, 0xFFU, 1U, 0xFEU, &point_value) ||
+            point_value != 1U ||
+            !tecmo_gameplay_shot_resolution_classify_point_value(
+                &assets, 0x0111U, 0x6CU, 0U, 0U, &point_value) ||
+            point_value != 2U ||
+            !tecmo_gameplay_shot_resolution_classify_point_value(
+                &assets, 0x0112U, 0x6CU, 0U, 0U, &point_value) ||
+            point_value != 3U ||
+            !tecmo_gameplay_shot_resolution_classify_point_value(
+                &assets, 0x01EDU, 0x6CU, 1U, 0U, &point_value) ||
+            point_value != 2U ||
+            !tecmo_gameplay_shot_resolution_classify_point_value(
+                &assets, 0x01ECU, 0x6CU, 1U, 0U, &point_value) ||
+            point_value != 3U ||
+            !tecmo_gameplay_shot_resolution_classify_point_value(
+                &assets, 0x0108U, 0x6CU, 0U, 0U, &point_value) ||
+            point_value != 2U ||
+            !tecmo_gameplay_shot_resolution_classify_point_value(
+                &assets, 0x01F6U, 0x6CU, 1U, 0U, &point_value) ||
+            point_value != 2U ||
+            !tecmo_gameplay_shot_resolution_classify_point_value(
+                &assets, 0x0164U, 0x6CU, 0U, 0U, &point_value) ||
+            point_value != 3U ||
+            !tecmo_gameplay_shot_resolution_classify_point_value(
+                &assets, 0x019AU, 0x6CU, 1U, 0U, &point_value) ||
+            point_value != 3U ||
+            !tecmo_gameplay_shot_resolution_classify_point_value(
+                &assets, 0U, 0x5AU, 0U, 0U, &point_value) ||
+            point_value != 3U ||
+            !tecmo_gameplay_shot_resolution_classify_point_value(
+                &assets, 0xFFFFU, 0xD7U, 1U, 0U, &point_value) ||
+            point_value != 3U ||
+            tecmo_gameplay_shot_resolution_classify_point_value(
+                &assets, 0U, 0x6CU, 2U, 0U, &point_value) ||
+            tecmo_gameplay_shot_resolution_classify_point_value(
+                &assets, 0U, 0x6CU, 0U, 0U, NULL)) {
+            printf("Shot-resolution asset test failed: B995 point classifier\n");
+            goto shot_resolution_test_cleanup;
+        }
+        for (unsigned arc_index = 0U;
+             arc_index < TECMO_GAMEPLAY_SHOT_POINT_ARC_COUNT;
+             ++arc_index) {
+            const uint8_t table_value =
+                assets.point_arc_boundary[arc_index];
+            const uint16_t orientation0_boundary = (uint16_t)(
+                ((arc_index >= 0x06U && arc_index < 0x6DU)
+                     ? 0x0100U
+                     : 0U) +
+                table_value);
+            const uint16_t orientation1_boundary = (uint16_t)(
+                ((arc_index >= 0x06U && arc_index < 0x6EU)
+                     ? 0x0100U
+                     : 0x0200U) +
+                (uint8_t)(0xFFU - table_value));
+            const uint8_t world_y = (uint8_t)(0x5BU + arc_index);
+            if (!tecmo_gameplay_shot_resolution_classify_point_value(
+                    &assets, (uint16_t)(orientation0_boundary - 1U),
+                    world_y, 0U, 0U, &point_value) ||
+                point_value != 2U ||
+                !tecmo_gameplay_shot_resolution_classify_point_value(
+                    &assets, orientation0_boundary,
+                    world_y, 0U, 0U, &point_value) ||
+                point_value != 3U ||
+                !tecmo_gameplay_shot_resolution_classify_point_value(
+                    &assets, (uint16_t)(orientation1_boundary - 1U),
+                    world_y, 1U, 0U, &point_value) ||
+                point_value != 3U ||
+                !tecmo_gameplay_shot_resolution_classify_point_value(
+                    &assets, orientation1_boundary,
+                    world_y, 1U, 0U, &point_value) ||
+                point_value != 2U) {
+                printf(
+                    "Shot-resolution asset test failed: B995 boundary %u\n",
+                    arc_index);
+                goto shot_resolution_test_cleanup;
+            }
         }
         if (tecmo_gameplay_shot_resolution_classify_terminal_outcome(
                 &assets, false, 0x80U, &outcome) ||
@@ -1628,7 +1718,7 @@ jump_shot_test_cleanup:
         }
 
         if (tecmo_asset_pack_read_entry_exact(
-                pack_path, "gameplay/shot-resolution", 384U,
+                pack_path, "gameplay/shot-resolution", 512U,
                 &payload, &payload_size) != 0 ||
             tecmo_asset_pack_read_entry_exact(
                 pack_path, "gameplay/core", 23416U,
@@ -1643,7 +1733,7 @@ jump_shot_test_cleanup:
             goto shot_resolution_test_cleanup;
         }
         memcpy(mutation, payload, (size_t)payload_size);
-        mutation[85U] = 1U;
+        mutation[101U] = 1U;
         if (tecmo_gameplay_shot_resolution_parse(
                 &assets, mutation, (size_t)payload_size,
                 gameplay_core, (size_t)gameplay_core_size)) {
@@ -1675,7 +1765,15 @@ jump_shot_test_cleanup:
             goto shot_resolution_test_cleanup;
         }
         memcpy(mutation, payload, (size_t)payload_size);
-        mutation[352U] = 1U;
+        mutation[352U] ^= 1U;
+        if (tecmo_gameplay_shot_resolution_parse(
+                &assets, mutation, (size_t)payload_size,
+                gameplay_core, (size_t)gameplay_core_size)) {
+            printf("Shot-resolution asset test failed: point-arc mutation accepted\n");
+            goto shot_resolution_test_cleanup;
+        }
+        memcpy(mutation, payload, (size_t)payload_size);
+        mutation[476U] = 1U;
         if (tecmo_gameplay_shot_resolution_parse(
                 &assets, mutation, (size_t)payload_size,
                 gameplay_core, (size_t)gameplay_core_size)) {
@@ -1709,7 +1807,7 @@ shot_resolution_test_cleanup:
         tecmo_gameplay_shot_resolution_destroy(&assets);
         tecmo_gameplay_shot_resolution_destroy(&assets);
         if (!ok) return 1;
-        printf("TGSR-2 shot resolution passed: source-spans=4+3-focused polarity=clear:make,set:miss routes=A708/A7A9/A8E9/A708 rim-rattle=1..4-pass claimant=bounded settlement=team-driven\n");
+        printf("TGSR-3 shot resolution passed: source-spans=4+4-focused point-value=B995/1,2,3 polarity=clear:make,set:miss routes=A708/A7A9/A8E9/A708 rim-rattle=1..4-pass claimant=bounded settlement=team-driven\n");
         return 0;
     }
 

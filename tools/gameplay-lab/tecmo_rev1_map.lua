@@ -1,9 +1,9 @@
 -- Canonical read-only address and hook map for the Rev 1 gameplay laboratory.
--- This module describes one bounded MAN VS MAN, orientation-0 shooting pilot.
+-- This module describes two closed MAN VS MAN, orientation-0 shooting pilots.
 
 local map = {
-    schema = "TGLM-2",
-    schema_version = 2,
+    schema = "TGLM-3",
+    schema_version = 3,
     rom_sha256 = "076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4",
     fceux_sha256 = "F89812F4E9506EF7090D9D0310D368ABD79BACA362B7BFC4A2E7E499754F2A1B",
     supported_orientation = 0,
@@ -37,6 +37,7 @@ local map = {
         minute = 0x0357,
         second = 0x0358,
         close_mode = 0x038C,
+        point_value = 0x0398,
         shot_clock = 0x058A,
         action_gate = 0x0587,
         foul_route = 0x05A1,
@@ -99,8 +100,11 @@ local map = {
         { address = 0x8ABD, name = "shot_classifier", gate = "bank05" },
         { address = 0x91BC, name = "shot_result", gate = "bank05" },
         { address = 0x933B, name = "decision_anchor", gate = "bank05" },
+        { address = 0x933D, name = "threshold_compare_local", gate = "bank05" },
         { address = 0x942D, name = "terminal_make_bit7_clear", gate = "bank05" },
         { address = 0x9434, name = "terminal_miss_bit7_set", gate = "bank05" },
+        { address = 0xB995, name = "point_classifier_local", gate = "bank05" },
+        { address = 0xB9D7, name = "two_point_return_local", gate = "bank05" },
         { address = 0xA6EE, name = "miss_variant_dispatch", gate = "bank05" },
         { address = 0xA708, name = "miss_variant_0_or_3", gate = "bank05" },
         { address = 0xA7A9, name = "miss_variant_1", gate = "bank05" },
@@ -115,11 +119,29 @@ local map = {
     },
 
     live = { mode = 0x5B, tip_mode = 0x16, screen = 0x0F, period = 1 },
-    shot_window = {
-        x_min = 0x0164,
-        x_max = 0x0170,
-        y_min = 0x6C,
-        y_max = 0x74,
+    profiles = {
+        three_point_baseline = {
+            expected_point_value = 3,
+            expected_make = false,
+            expected_score_delta = 0,
+            require_point_evidence = false,
+            shot_window = {
+                x_min = 0x0164, x_max = 0x0170,
+                y_min = 0x6C, y_max = 0x74
+            }
+        },
+        ordinary_two_point_make = {
+            expected_point_value = 2,
+            expected_make = true,
+            expected_score_delta = 2,
+            require_point_evidence = true,
+            shot_window = {
+                x_min = 0x0108, x_max = 0x010F,
+                y_min = 0x6C, y_max = 0x74
+            }
+        }
+    },
+    shot_policy = {
         stable_frames = 12,
         hold_b_frames = 8,
         release_frame = 9,

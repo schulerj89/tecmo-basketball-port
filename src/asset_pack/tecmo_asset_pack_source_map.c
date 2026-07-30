@@ -1999,7 +1999,7 @@ static int append_gameplay_shot_resolution_source_map_entry(
             buffer, capacity, length,
             "%s"
             "    {\"id\":\"%s\",\"kind\":\"gameplay-shot-resolution-native\","
-            "\"schema\":\"tecmo.gameplay-shot-resolution/TGSR-2\",\"size\":%u,"
+            "\"schema\":\"tecmo.gameplay-shot-resolution/TGSR-3\",\"size\":%u,"
             "\"fingerprint_fnv1a32\":\"%08X\","
             "\"fingerprint_fnv1a64\":\"%016llX\","
             "\"dependencies\":[{\"entry\":\"%s\",\"size\":%u,"
@@ -2054,6 +2054,11 @@ static int append_gameplay_shot_resolution_source_map_entry(
             "\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,"
             "\"bank\":5,\"cpu_start\":%u,\"cpu_end\":%u,\"size\":%u,"
             "\"fingerprint_fnv1a32\":\"%08X\","
+            "\"fingerprint_fnv1a64\":\"%016llX\"},"
+            "{\"role\":\"three-point-arc-boundary-table-$BEEF-$BF6A\","
+            "\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,"
+            "\"bank\":5,\"cpu_start\":%u,\"cpu_end\":%u,\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"%08X\","
             "\"fingerprint_fnv1a64\":\"%016llX\"}",
             (unsigned long long)p->convergence_predicate_offset,
             (unsigned)
@@ -2093,7 +2098,19 @@ static int append_gameplay_shot_resolution_source_map_entry(
             (unsigned)
                 TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_SNAP_FNV1A32,
             (unsigned long long)
-                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_SNAP_FNV1A64) !=
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_SNAP_FNV1A64,
+            (unsigned long long)p->point_arc_table_offset,
+            (unsigned)
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_CPU,
+            (unsigned)(
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_CPU +
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_SIZE - 1U),
+            (unsigned)
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_SIZE,
+            (unsigned)
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_FNV1A32,
+            (unsigned long long)
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_FNV1A64) !=
         0) {
         return -1;
     }
@@ -2102,6 +2119,16 @@ static int append_gameplay_shot_resolution_source_map_entry(
         "],\"outcome\":{\"terminal_context_required\":true,"
         "\"flag_mask\":128,\"clear\":\"make\",\"set\":\"miss\","
         "\"clear_helper_cpu\":37933,\"set_helper_cpu\":37940},"
+        "\"point_value\":{\"classifier_cpu\":47509,"
+        "\"classifier_end_cpu\":47679,"
+        "\"classifier_dependency\":\"same-pack TGPL-1 $B995-$BA3F\","
+        "\"shot_flags_low2_nonzero\":1,"
+        "\"field_goal\":2,\"three_point\":3,"
+        "\"y_min_inclusive\":91,\"y_max_exclusive\":215,"
+        "\"orientation_values\":[0,1],"
+        "\"arc_table_cpu_start\":48879,\"arc_table_cpu_end\":49002,"
+        "\"arithmetic\":\"6502 low-byte subtract with borrow into "
+        "orientation-specific high-byte adjustment\"},"
         "\"rim_routes\":{\"selector_mask\":3,"
         "\"targets_cpu\":[42760,42921,43241,42760],"
         "\"semantic_policy\":\"numeric/address-bound only\"},"
@@ -2130,7 +2157,7 @@ static int append_gameplay_shot_resolution_source_map_entry(
         "\"settlement\":{\"same_team\":\"select claimant without possession change\","
         "\"other_team\":\"select claimant and change possession\"},"
         "\"limits\":\"an address hit alone is not terminal; $9434 also occurs in nonterminal close animations; claimant is not labeled rebound, steal, block, or recovery\","
-        "\"runtime_inputs\":\"TGSR-2 plus same-pack TGPL-1; the debug screen "
+        "\"runtime_inputs\":\"TGSR-3 plus same-pack TGPL-1; the debug screen "
         "mapping additionally requires same-pack TGCS-1; no decompilation, "
         "ASM, trace, capture, screenshot, log, dump, state, Lua, video, or "
         "ROM\"}");

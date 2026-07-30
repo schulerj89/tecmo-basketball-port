@@ -2,6 +2,8 @@
 param(
     [string]$RomPath,
     [string]$FceuxPath,
+    [ValidateSet('three_point_baseline', 'ordinary_two_point_make')]
+    [string]$Profile = 'three_point_baseline',
     [ValidateRange(3600, 7200)]
     [int]$MaxFrames = 6000,
     [ValidateRange(30, 180)]
@@ -71,6 +73,7 @@ $MapHash = (Get-FileHash -LiteralPath $MapPath -Algorithm SHA256).Hash.ToUpperIn
 $Previous = @{}
 $EnvironmentNames = @(
     'TECMO_GAMEPLAY_LAB_OUTPUT', 'TECMO_GAMEPLAY_LAB_MAP',
+    'TECMO_GAMEPLAY_LAB_PROFILE',
     'TECMO_GAMEPLAY_LAB_MAX_FRAMES', 'TECMO_GAMEPLAY_LAB_RECORD_MOVIE',
     'TECMO_GAMEPLAY_LAB_SCRIPT_SHA256', 'TECMO_GAMEPLAY_LAB_MAP_SHA256',
     'TECMO_GAMEPLAY_LAB_ROM_SHA256', 'TECMO_GAMEPLAY_LAB_FCEUX_SHA256'
@@ -83,6 +86,7 @@ $Process = $null
 try {
     $env:TECMO_GAMEPLAY_LAB_OUTPUT = $SessionPath
     $env:TECMO_GAMEPLAY_LAB_MAP = $MapPath
+    $env:TECMO_GAMEPLAY_LAB_PROFILE = $Profile
     $env:TECMO_GAMEPLAY_LAB_MAX_FRAMES = [string]$MaxFrames
     $env:TECMO_GAMEPLAY_LAB_RECORD_MOVIE = if ($RecordMovie) { '1' } else { '0' }
     $env:TECMO_GAMEPLAY_LAB_SCRIPT_SHA256 = $ScriptHash
@@ -168,9 +172,10 @@ try {
         if ($Parts.Count -eq 2) { $Status[$Parts[0]] = $Parts[1] }
     }
     $ExpectedStatus = @{
-        schema = 'TGLAB-2'
-        schema_version = '2'
-        map_schema = 'TGLM-2'
+        schema = 'TGLAB-3'
+        schema_version = '3'
+        map_schema = 'TGLM-3'
+        profile = $Profile
         script_sha256 = $ScriptHash
         map_sha256 = $MapHash
         rom_sha256 = $RomHash
@@ -198,6 +203,7 @@ try {
         Session = $SessionPath
         Result = $Status['result']
         Pass = $Status['pilot_pass'] -eq 'true'
+        Profile = $Status['profile']
         StopReason = $Status['stop_reason']
         Frames = [int]$Status['lab_frame']
         OutputBytes = [long]$TotalOutputBytes

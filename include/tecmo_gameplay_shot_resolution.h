@@ -9,6 +9,7 @@
 #define TECMO_GAMEPLAY_SHOT_RESOLUTION_RIM_ROUTE_COUNT 4U
 #define TECMO_GAMEPLAY_SHOT_RIM_RATTLE_ORIENTATION_COUNT 2U
 #define TECMO_GAMEPLAY_SHOT_RIM_RATTLE_RENDER_SCRIPT_COUNT 8U
+#define TECMO_GAMEPLAY_SHOT_POINT_ARC_COUNT 124U
 
 typedef enum TecmoGameplayShotResolutionSourceKind {
     TECMO_GAMEPLAY_SHOT_RESOLUTION_SOURCE_OUTCOME_CALCULATION = 1,
@@ -125,6 +126,11 @@ typedef struct TecmoGameplayShotResolutionAssets {
     uint8_t claimant_other_team_flag_mask;
     uint8_t claimant_count;
     uint32_t gameplay_core_fingerprint;
+    uint8_t point_shot_flags_mask;
+    uint8_t point_y_min_inclusive;
+    uint8_t point_y_max_exclusive;
+    uint8_t point_orientation_count;
+    uint8_t point_arc_boundary[TECMO_GAMEPLAY_SHOT_POINT_ARC_COUNT];
     TecmoGameplayShotRimRattleContract rim_rattle;
 } TecmoGameplayShotResolutionAssets;
 
@@ -156,6 +162,17 @@ bool tecmo_gameplay_shot_resolution_classify_terminal_outcome(
     bool terminal_context,
     uint8_t result_flags,
     TecmoGameplayShotOutcome *outcome);
+
+/* Reproduces Bank05 $B995 using only raw world coordinates and the low two
+   shot-flag bits. The result is exactly 1 (free throw), 2 (field goal), or
+   3 (three point). Orientation is the original binary $035A value. */
+bool tecmo_gameplay_shot_resolution_classify_point_value(
+    const TecmoGameplayShotResolutionAssets *assets,
+    uint16_t world_x,
+    uint8_t world_y,
+    uint8_t orientation,
+    uint8_t shot_flags,
+    uint8_t *point_value);
 
 bool tecmo_gameplay_shot_resolution_resolve_rim_route(
     const TecmoGameplayShotResolutionAssets *assets,

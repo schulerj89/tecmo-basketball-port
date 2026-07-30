@@ -152,9 +152,11 @@ accumulators are ported.
 - Ordinary-jump support is deliberately limited to one captured
   human-controlled, away-side, right-facing context with deterministic miss and
   three-point-make branches. Other profiles, directions, and ordinary
-  two-point makes remain unsupported. An early B release is safely normalized
-  to the known supported release transition.
-- The strict TGSR-2 rim-rattle prefix is available only through a focused debug
+  two-point makes remain unsupported. The exact ROM point-value classifier is
+  now available as a strict pure-C foundation, but it does not supply the
+  missing two-point flight, scoring, or possession schedule. An early B release
+  is safely normalized to the known supported release transition.
+- The strict TGSR-3 rim-rattle prefix is available only through a focused debug
   diagnostic. Normal live misses retain the captured direct settlement route
   and never select the rattle; no selector or RNG behavior has been invented.
 - The scene advances the game and shot clocks, score, possession, shot-clock
@@ -177,7 +179,8 @@ asset contracts, provenance, and exact supported state boundaries.
 Strict ROM-derived data currently covers the static court, CHR and palette
 entries, embedded FCEUX RGB profile, actor pose data, numeric close-shot step
 tables, dunk cutaway, the bounded ordinary-jump miss/three-point-make context,
-TGSR-2 shot resolution and its diagnostic-only rim-rattle prefix, rules timing,
+TGSR-3 shot resolution, its exact 1/2/3-point classifier and
+diagnostic-only rim-rattle prefix, rules timing,
 and native music/SFX/DMC programs. Every required gameplay entry is loaded from the same
 revision-fingerprinted asset pack with exact-size and malformed-data checks.
 
@@ -297,8 +300,9 @@ The project is actively porting the original game into native C modules. Current
 - Bank07 fixed-helper C counterparts
 - the native opening, title, blue menu, preseason, Team Data, and season paths
 - a playable but incomplete native gameplay scene with strict court, pose,
-  close-shot, dunk, bounded ordinary-jump miss/three-point-make, TGSR-2 shot
-  resolution, diagnostic-only rim-rattle, rules, state, and audio assets
+  close-shot, dunk, bounded ordinary-jump miss/three-point-make, TGSR-3 shot
+  resolution/point classification, diagnostic-only rim-rattle, rules, state,
+  and audio assets
 - focused render-test modes for visual regression checks
 
 The public repo remains source-only. Local CHR, OAM, palette, nametable, roster, trace, screenshot, and emulator-capture outputs are generated under ignored paths and should not be committed.
