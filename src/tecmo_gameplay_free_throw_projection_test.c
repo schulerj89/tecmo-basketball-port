@@ -129,12 +129,13 @@ bool tecmo_gameplay_free_throw_projection_self_test(
     }
 
     if (!tecmo_gameplay_camera_state_initialize(
+            &camera_assets, &stepped) ||
+        !tecmo_gameplay_camera_state_prime_live(
             &camera_assets, &stepped)) {
         (void)snprintf(message, message_size,
-                       "TGCP initializer failed");
+                       "TGCP-2 live initializer failed");
         goto cleanup;
     }
-    stepped.layout_cursor = 0x21U;
     memset(&input, 0, sizeof(input));
     input.focus_world_x =
         lineup.actors[lineup.shooter_slot].raw_world_x;
@@ -151,9 +152,11 @@ bool tecmo_gameplay_free_throw_projection_self_test(
             goto cleanup;
         }
     }
-    if (!is_settled_checkpoint(&stepped)) {
+    if (!is_settled_checkpoint(&stepped) ||
+        !tecmo_gameplay_camera_state_live_valid(
+            &camera_assets, &stepped)) {
         (void)snprintf(message, message_size,
-                       "TGCP 76-update checkpoint failed");
+                       "TGCP-2 76-update checkpoint failed");
         goto cleanup;
     }
     unchanged_state = stepped;
@@ -161,23 +164,26 @@ bool tecmo_gameplay_free_throw_projection_self_test(
             &camera_assets, &stepped, &input) ||
         !states_equal(&stepped, &unchanged_state)) {
         (void)snprintf(message, message_size,
-                       "TGCP 77th update did not hold");
+                       "TGCP-2 77th update did not hold");
         goto cleanup;
     }
 
     if (!tecmo_gameplay_camera_state_initialize(
+            &camera_assets, &settled) ||
+        !tecmo_gameplay_camera_state_prime_live(
             &camera_assets, &settled)) {
         (void)snprintf(message, message_size,
-                       "TGCP settle initializer failed");
+                       "TGCP-2 settle initializer failed");
         goto cleanup;
     }
-    settled.layout_cursor = 0x21U;
     if (!tecmo_gameplay_camera_settle(
             &camera_assets, &settled, &input) ||
         !is_settled_checkpoint(&settled) ||
+        !tecmo_gameplay_camera_state_live_valid(
+            &camera_assets, &settled) ||
         !states_equal(&settled, &stepped)) {
         (void)snprintf(message, message_size,
-                       "TGCP transactional settle checkpoint failed");
+                       "TGCP-2 transactional settle checkpoint failed");
         goto cleanup;
     }
 
@@ -231,7 +237,7 @@ bool tecmo_gameplay_free_throw_projection_self_test(
 
     (void)snprintf(
         message, message_size,
-        "TGFL-1 -> TGCP-1 projection test passed: orientation=1 "
+        "TGFL-1 -> TGCP-2 projection test passed: orientation=1 "
         "shooter=6 secondary=1 camera=0198 visible=6");
     passed = true;
 

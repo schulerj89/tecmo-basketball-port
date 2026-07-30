@@ -154,7 +154,7 @@ typedef struct TecmoGameplayScene {
 /* Initialize exactly once before load/destroy. */
 void tecmo_gameplay_scene_init(TecmoGameplayScene *scene);
 
-/* Loads TGPL-1, TGCT-1, TGCP-1, TGOR-1, TGCS-1, TGDK-1, TGJS-1, TGSR-3,
+/* Loads TGPL-1, TGCT-1, TGCP-2, TGOR-1, TGCS-1, TGDK-1, TGJS-1, TGSR-3,
    TSFX-1, and TDMC-1 from one local pack.
    `asset_pack_path` may be NULL to use the strict runtime search order.
    Runtime data is never read from decompilation/capture paths. */
@@ -179,7 +179,7 @@ void tecmo_gameplay_scene_end(TecmoGameplayScene *scene);
 bool tecmo_gameplay_scene_start_rim_rattle_debug(
     TecmoGameplayScene *scene);
 
-/* Draws a TGCT-1 world slice at the persistent TGCP-1 camera and projects
+/* Draws a TGCT-1 world slice at the persistent TGCP-2 camera and projects
    resolved ROM poses through that same camera. Live
    close-shot playback is deliberately limited to TGCS profile 0/direction 0;
    ordinary jump-shot playback is deliberately limited to the proven TGJS/TGSR

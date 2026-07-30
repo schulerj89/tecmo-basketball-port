@@ -777,8 +777,8 @@ PRESEASON row. Season results are matched to the pending ordinal/teams and
 committed exactly once before returning to the existing result rows.
 
 The compound scene strictly loads TGPL-1 `gameplay/core` (23416 bytes,
-`2047CCE0`), TGCT-1 `gameplay/court` (6559 bytes, `ECAB7A93`), TGCP-1
-`gameplay/camera-projection` (1344 bytes, `B3721B17`), TGOR-1
+`2047CCE0`), TGCT-1 `gameplay/court` (6559 bytes, `ECAB7A93`), TGCP-2
+`gameplay/camera-projection` (1536 bytes, `53247856`), TGOR-1
 `gameplay/court-orientation` (640 bytes, `F9152C0A`), TGCS-1
 `gameplay/close-shots` (3144 bytes, `DACDC976`), TGDK-1
 `gameplay/dunk-cutaway` (20272 bytes, `E02F2D21`), TGJS-1
@@ -980,17 +980,19 @@ source-mutation failures are covered by
 `tools\Run-GameplayCourtOrientationTests.ps1 -Build -RomPath
 <LOCAL_ROM.nes>`.
 
-TGCP-1 `gameplay/camera-projection` supplies that exact projection as a strict
-pure API and production live-scene dependency. Its 1344-byte payload
-has FNV1a32 `B3721B17`, requires exact same-pack TGPL-1 (`2047CCE0`) and
+TGCP-2 `gameplay/camera-projection` supplies that exact projection as a strict
+pure API and production live-scene dependency. Its 1536-byte payload
+has FNV1a32 `53247856`, requires exact same-pack TGPL-1 (`2047CCE0`) and
 TGCT-1 (`ECAB7A93`), and retains fixed-bank Rev1 initializer
 `$DE13-$DE2C` (`A5CF7665`), column streamer `$DF05-$DFFF` (`7BC5351D`),
 attribute helper `$E0E7-$E13B` (`7FE800D4`), threshold/follow routine
 `$E168-$E2E6` (`19038AEA`), forced settle `$EB4F-$EB8C` (`AF5725C0`),
-and actor projector `$F1CB-$F1F1` (`CB8BD081`). Exact source records,
-descriptors, reserved bytes, alignment padding, raw/canonical fingerprints,
-full-ROM identity, and source-map provenance fail closed on malformed,
-wrong-sized, wrong-revision, mutated, or cross-pack data.
+actor projector `$F1CB-$F1F1` (`CB8BD081`), and movement clamp
+`$F106-$F1B0` (`CB1D4EAF`, SHA-256
+`0B97A9AAC4DF35E4EDF7979C6C0355852B9DE7398844B2679CFAB298F0C0CBA6`).
+Exact source records, descriptors, reserved bytes, alignment padding,
+raw/canonical fingerprints, full-ROM identity, and source-map provenance fail
+closed on malformed, wrong-sized, wrong-revision, mutated, or cross-pack data.
 
 The pure state API initializes camera X `$0100`, scroll/page zero, stream
 direction zero, and layout cursor `$20`. Follow updates reproduce orientation
@@ -1014,8 +1016,17 @@ throws, and TGDK black/cutaway frames freeze camera state; the first live-return
 update resumes it. Possession changes clear only threshold validity and the
 endpoint latch, never camera position.
 
+The production validator rejects states that the pure synthetic-test API may
+legitimately construct. It requires scroll low byte/page consistency and the
+reachable cursor relation: rightward states use
+`min((camera_x >> 3) + 1, $34)`, leftward states use
+`max((camera_x >> 3) - 1, $0B)`, and a latched threshold set must match one of
+the three exact ROM-derived threshold pairs. Direct live-prime settle goldens
+are `$0066/$0B` left and `$0198/$34` right; pure unprimed settle remains
+`$006E/$0B` and `$01A0/$34`.
+
 The focused runner also composes the assets without adding a production
-dependency: it independently loads TGFL-1 and TGCP-1, derives orientation 1,
+dependency: it independently loads TGFL-1 and TGCP-2, derives orientation 1,
 shooter slot 6, and secondary slot 1, then proves the exact ten raw X/Y values,
 76 moving updates from the capture-derived cursor `$21`, the unchanged 77th
 update, transactional settle at camera `$0198`, and visible slots

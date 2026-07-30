@@ -71,14 +71,14 @@ static void print_usage(const char *program)
     printf("  --gameplay-court-test PACK  Validate strict TGCT-1 static court assets\n");
     printf("  --gameplay-court-viewport-test PACK  Validate TGCT-1 full-court decode and viewport slicing\n");
     printf("  --gameplay-court-orientation-test PACK [ROM]  Validate strict TGOR-1 state and optional Rev1 source\n");
-    printf("  --gameplay-camera-projection-test PACK  Validate strict TGCP-1 camera/projector assets\n");
+    printf("  --gameplay-camera-projection-test PACK  Validate strict TGCP-2 camera/projector/clamp assets\n");
     printf("  --gameplay-close-shots-test PACK  Validate strict TGCS-1 close-shot assets\n");
     printf("  --gameplay-dunk-cutaway-test PACK  Validate strict TGDK-1 dunk presentation assets\n");
     printf("  --gameplay-jump-shots-test PACK  Validate strict TGJS-1 jump-shot assets\n");
     printf("  --gameplay-shot-resolution-test PACK  Validate strict TGSR-3 shot-resolution assets\n");
     printf("  --gameplay-penalties-test PACK  Validate strict TPNL-1 penalty rules\n");
     printf("  --gameplay-free-throw-lineup-test PACK  Validate strict TGFL-1 raw lineup assets\n");
-    printf("  --gameplay-free-throw-projection-test PACK  Validate test-only TGFL-1 to TGCP-1 composition\n");
+    printf("  --gameplay-free-throw-projection-test PACK  Validate test-only TGFL-1 to TGCP-2 composition\n");
     printf("  --assetpack-list PACK  Print an asset-pack directory listing\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");

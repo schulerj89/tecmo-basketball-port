@@ -762,7 +762,7 @@ material, not committed provenance or runtime input. See
 `tecmo_port.exe --gameplay-state-test` and the compound scene with
 `tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 
-The scene must obtain TGPL-1 `gameplay/core`, TGCT-1 `gameplay/court`, TGCP-1
+The scene must obtain TGPL-1 `gameplay/core`, TGCT-1 `gameplay/court`, TGCP-2
 `gameplay/camera-projection`, TGOR-1 `gameplay/court-orientation`, TGCS-1
 `gameplay/close-shots`, TGDK-1 `gameplay/dunk-cutaway`,
 TGJS-1 `gameplay/jump-shots` (1648 bytes,
@@ -887,15 +887,17 @@ The broad `STA $0300,X` initializer appears only at fixed-bank cold boot
 source mutations, transitions, scene handoff/restart integration, and provenance with
 `tools\Run-GameplayCourtOrientationTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 
-TGCP-1 `gameplay/camera-projection` is the strict 1344-byte gameplay camera
-foundation and live dependency (FNV1a32 `B3721B17`) and requires exact
+TGCP-2 `gameplay/camera-projection` is the strict 1536-byte gameplay camera
+foundation and live dependency (FNV1a32 `53247856`) and requires exact
 same-pack TGPL-1
 (`2047CCE0`) and TGCT-1 (`ECAB7A93`). It preserves fixed-bank Rev1 spans
 `$DE13-$DE2C` (`A5CF7665`), `$DF05-$DFFF` (`7BC5351D`),
 `$E0E7-$E13B` (`7FE800D4`), `$E168-$E2E6` (`19038AEA`),
-`$EB4F-$EB8C` (`AF5725C0`), and `$F1CB-$F1F1` (`CB8BD081`) behind
-strict source records, zero padding/reserved bytes, full-ROM fingerprints, and
-sanitized source-map provenance.
+`$EB4F-$EB8C` (`AF5725C0`), `$F1CB-$F1F1` (`CB8BD081`), and the actor
+movement clamp `$F106-$F1B0` (`CB1D4EAF`, SHA-256
+`0B97A9AAC4DF35E4EDF7979C6C0355852B9DE7398844B2679CFAB298F0C0CBA6`)
+behind strict source records, zero padding/reserved bytes, full-ROM
+fingerprints, and sanitized source-map provenance.
 
 The pure API initializes camera X `$0100`, scroll/page zero, direction zero,
 and layout cursor `$20`; reproduces threshold selection, bounded horizontal
@@ -915,9 +917,16 @@ route-0 follow after all actor and ball mutations, using ball world X and TGOR
 direction. Non-live phases, free throws, and TGDK black/cutaway frames freeze
 camera state; the first live-return update resumes it. A possession transition
 clears only threshold validity and the endpoint latch, never camera position.
+Production state validation additionally requires scroll/page consistency and
+the reachable direction/cursor relation: right cursor is
+`min((camera_x >> 3) + 1, $34)` and left cursor is
+`max((camera_x >> 3) - 1, $0B)`. A valid threshold latch must carry one of the
+three exact ROM-derived threshold pairs. The weaker pure-state validator remains
+available only so focused synthetic carry/borrow and direction-reversal tests
+can construct intermediate states; the live scene never accepts those states.
 
 `src/tecmo_gameplay_free_throw_projection_test.c` is test-only composition,
-not a production dependency. It independently loads TGFL-1 and TGCP-1 from the
+not a production dependency. It independently loads TGFL-1 and TGCP-2 from the
 same pack, derives orientation 1/shooter 6/secondary 1, and proves the bounded
 slot-3 checkpoint: capture-derived cursor `$21`, 76 moving camera updates,
 an unchanged 77th update, transactional settle at camera `$0198`, and six
@@ -943,7 +952,7 @@ the required 33rd fetch column. Contract tags, immutable metadata, and both
 world-plane fingerprints are revalidated on every slice. Invalid, unavailable,
 tampered, or out-of-range input leaves caller output untouched.
 
-`TecmoGameplayScene` loads TGCP-1 and TGCT-1 from its canonical pack, decodes
+`TecmoGameplayScene` loads TGCP-2 and TGCT-1 from its canonical pack, decodes
 the 768-by-240 world, slices 32 columns when aligned or 33 when fine-scrolled,
 and draws through a framebuffer subview so partial first/last columns cannot
 bleed into surrounding margins. Actors, anchors, ball Q8 coordinates, shot
@@ -953,7 +962,8 @@ actor, not the ball; offscreen objects are skipped. Draw preflight revalidates
 camera/world state, every tile/CHR reference, and all poses before writing.
 
 Ordinary movement currently applies the exact fixed-bank `$F106-$F1B0`
-trapezoid unconditionally (171 bytes, FNV1a32 `CB1D4EAF`): page-0 low bound
+trapezoid unconditionally from TGCP-2's seventh strict source span (171 bytes,
+FNV1a32 `CB1D4EAF`): page-0 low bound
 `$00DF-floor(Y/2)`, page-1 interior, page-2 high bound
 `$0220+floor(Y/2)`. Dispatcher exceptions involving `$0478`, `$046E`,
 `$0588`, `$0463`, and `$0742` are explicitly not implemented. Do not broaden
@@ -982,7 +992,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/asset_pack/tecmo_asset_pack_gameplay.c`: strict TGPL-1 gameplay-core importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_court.c`: strict TGCT-1 court importer and legacy center-nametable builder
 - `src/asset_pack/tecmo_asset_pack_gameplay_court_orientation.c`: strict TGOR-1 court-orientation importer
-- `src/asset_pack/tecmo_asset_pack_gameplay_camera.c`: strict TGCP-1 camera/projector importer
+- `src/asset_pack/tecmo_asset_pack_gameplay_camera.c`: strict TGCP-2 camera/projector/clamp importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_close_shots.c`: strict TGCS-1 numeric close-shot importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c`: strict TGDK-1 screen/palette/CHR/staged-sprite importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c`: strict TGJS-1 ordinary-jump importer
@@ -999,10 +1009,10 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/tecmo_intro_finale.c`: strict TFIN-1 loading, finale phases, title bands, and rendering
 - `src/tecmo_gameplay_scene.c`: native launch, input, state, animation, audio-event, result, and rendering integration
 - `src/tecmo_gameplay_dunk_cutaway.c`: strict TGDK-1 loader, palette resolver, stage scheduler, and OAM-priority renderer
-- `src/tecmo_gameplay_camera.c`: strict TGCP-1 parser and pure camera/projector state API
+- `src/tecmo_gameplay_camera.c`: strict TGCP-2 parser and pure/production camera/projector state APIs
 - `src/tecmo_gameplay_court.c`: strict TGCT-1 parser, full-world decoder, and camera-positioned viewport slicer
 - `src/tecmo_gameplay_court_orientation.c`: strict TGOR-1 parser and possession-synchronized orientation state API
-- `src/tecmo_gameplay_free_throw_projection_test.c`: test-only TGFL-1 -> TGCP-1 checkpoint composition
+- `src/tecmo_gameplay_free_throw_projection_test.c`: test-only TGFL-1 -> TGCP-2 checkpoint composition
 - `src/tecmo_gameplay_audio.c`: strict gameplay-audio loader, event sequencer, DMC decoder, and music/SFX mixer
 - `src/tecmo_frontend_audio.c`: strict frontend cue contract, stable playback checks, and shared SFX-engine adapter
 - `src/tecmo_start_game_menu.c`: strict TSGM-1 menu loading, update, transition, and rendering

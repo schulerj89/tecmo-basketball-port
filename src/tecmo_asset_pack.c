@@ -888,7 +888,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                 sizeof(gameplay_camera_payload), message, message_size) != 0) {
             tecmo_asset_pack_set_message(
                 message, message_size,
-                "Could not write strict TGCP-1 gameplay camera entry.");
+                "Could not write strict TGCP-2 gameplay camera entry.");
             return -1;
         }
         entry_info = tecmo_asset_pack_make_entry_info(

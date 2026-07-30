@@ -36,7 +36,7 @@ remains the separate NES A-release presentation gate.
 
 The compound scene loads `gameplay/core` TGPL-1 (23416 bytes,
 `2047CCE0`), `gameplay/court` TGCT-1 (6559 bytes, `ECAB7A93`),
-`gameplay/camera-projection` TGCP-1 (1344 bytes, `B3721B17`),
+`gameplay/camera-projection` TGCP-2 (1536 bytes, `53247856`),
 `gameplay/court-orientation` TGOR-1 (640 bytes, `F9152C0A`),
 `gameplay/close-shots` TGCS-1 (3144 bytes, `DACDC976`),
 `gameplay/dunk-cutaway` TGDK-1 (20272 bytes, `E02F2D21`),
@@ -70,11 +70,12 @@ general team switch. `$035B` has no direct reads and is retained only as
 save-before-toggle evidence. Direct `$035A` stores are limited to `$8FC4` and
 `$B8E0`; broad `STA $0300,X` is limited to fixed-bank cold boot `$CC68`.
 
-`gameplay/camera-projection` TGCP-1 is both a strict pure API and a
-compound-scene dependency. Its 1344-byte canonical payload
-(`B3721B17`) requires same-pack TGPL-1 and TGCT-1 and preserves the fixed-bank
+`gameplay/camera-projection` TGCP-2 is both a strict pure API and a
+compound-scene dependency. Its 1536-byte canonical payload
+(`53247856`) requires same-pack TGPL-1 and TGCT-1 and preserves the fixed-bank
 Rev1 camera initializer, streamed-column and attribute helpers, horizontal
-follow/threshold routine, forced settle, and actor projector. The exact pure
+follow/threshold routine, forced settle, actor projector, and the exact
+`$F106-$F1B0` movement clamp as a seventh source span. The exact pure
 projector computes `world_x-camera_x`, accepts X only when the subtraction
 high byte is zero, and for visible actors saturates
 `world_y-altitude` to zero on borrow. Offscreen actors return the deterministic
@@ -87,8 +88,11 @@ prime to cursor `$21`, seeds world coordinates at camera `$0100`, then settles
 once. Each subsequent live update follows exactly once after all actor/ball
 mutations. Non-live/free-throw/TGDK cutaway updates freeze the camera and
 possession changes clear only thresholds/latching.
+The production validator also enforces scroll/page coherence, the reachable
+direction/cursor relation, and the three exact threshold-pair states; the
+weaker validator is retained only for transactional synthetic API tests.
 
-The focused test-only TGFL-1 -> TGCP-1 module independently loads both assets,
+The focused test-only TGFL-1 -> TGCP-2 module independently loads both assets,
 derives orientation 1/shooter 6/secondary 1, and consumes TGFL's exact ten
 world X/Y values. Starting from the bounded capture-derived cursor `$21`, it
 proves 76 moving updates, an unchanged 77th update, transactional settle at

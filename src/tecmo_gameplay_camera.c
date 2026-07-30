@@ -23,6 +23,13 @@ static const uint8_t gameplay_camera_rev1_sha256[32] = {
     0xF2U,0xC2U,0xBDU,0xE1U,0xF9U,0x74U,0x75U,0xC4U
 };
 
+static const uint8_t gameplay_camera_actor_clamp_sha256[32] = {
+    0x0BU,0x97U,0xA9U,0xAAU,0xC4U,0xDFU,0x35U,0xE4U,
+    0xEDU,0xF7U,0x97U,0x9CU,0x6CU,0x03U,0x55U,0x85U,
+    0x2BU,0x9DU,0xE7U,0x39U,0x88U,0x44U,0xB2U,0x67U,
+    0x9CU,0xFAU,0xB2U,0x98U,0xF0U,0xC0U,0xCBU,0xA6U
+};
+
 static uint16_t read_u16(const uint8_t *bytes)
 {
     return (uint16_t)((uint16_t)bytes[0] |
@@ -71,12 +78,13 @@ static bool reject(TecmoGameplayCameraAssets *assets,
     assets->follow_routine = NULL;
     assets->forced_settle_routine = NULL;
     assets->actor_projection_routine = NULL;
+    assets->actor_clamp_routine = NULL;
     assets->gameplay_core_fingerprint = 0U;
     assets->gameplay_court_fingerprint = 0U;
     memset(assets->sources, 0, sizeof(assets->sources));
     assets->available = false;
     (void)snprintf(assets->status, sizeof(assets->status), "%s",
-                   message != NULL ? message : "TGCP-1 rejected");
+                   message != NULL ? message : "TGCP-2 rejected");
     return false;
 }
 
@@ -126,25 +134,64 @@ static bool validate_header(const uint8_t *payload,
         read_u32(payload + 40U) != GAMEPLAY_CAMERA_REV1_ROM_FNV1A32 ||
         memcmp(payload + 44U, gameplay_camera_rev1_sha256,
                sizeof(gameplay_camera_rev1_sha256)) != 0 ||
-        read_u16(payload + 148U) != 0x0100U ||
-        payload[150U] != 0U || payload[151U] != 0U ||
-        payload[152U] != 0U || payload[153U] != 0U ||
-        payload[154U] != 0U || payload[155U] != 0x20U ||
-        payload[156U] != 2U || payload[157U] != 7U ||
-        read_u16(payload + 158U) != GAMEPLAY_CAMERA_SETTLE_LIMIT ||
-        payload[160U] != 16U || payload[161U] != 8U ||
-        payload[162U] != 0U || payload[163U] != 1U ||
-        memcmp(payload + 164U, "\x50\xD8\x20\xA0\xE8\x04", 6U) != 0 ||
+        read_u16(
+            payload +
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_CAMERA_X_OFFSET) !=
+            0x0100U ||
+        payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_SCROLL_X_OFFSET] !=
+            0U ||
+        payload[
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_SCROLL_AUX_OFFSET] !=
+            0U ||
+        payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_PAGE_OFFSET] != 0U ||
+        payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_AUX_OFFSET] != 0U ||
+        payload[
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_DIRECTION_OFFSET] !=
+            0U ||
+        payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_CURSOR_OFFSET] !=
+            0x20U ||
+        payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ENDPOINT_SPEED_OFFSET] !=
+            2U ||
+        payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_GENERIC_SPEED_OFFSET] !=
+            7U ||
+        read_u16(
+            payload +
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SETTLE_LIMIT_OFFSET) !=
+            GAMEPLAY_CAMERA_SETTLE_LIMIT ||
+        payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_WORLD_X_WIDTH_OFFSET] !=
+            16U ||
+        payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_WORLD_Y_WIDTH_OFFSET] !=
+            8U ||
+        payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_VISIBLE_HIGH_OFFSET] != 0U ||
+        payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_Y_SATURATES_OFFSET] != 1U ||
+        memcmp(
+            payload + TECMO_ASSET_PACK_GAMEPLAY_CAMERA_THRESHOLDS_OFFSET,
+            "\x50\xD8\x20\xA0\xE8\x04", 6U) != 0 ||
         !bytes_are_zero(
-            payload + 170U,
-            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_HEADER_SIZE - 170U)) {
+            payload +
+                TECMO_ASSET_PACK_GAMEPLAY_CAMERA_PRE_SHA_RESERVED_OFFSET,
+            2U) ||
+        memcmp(
+            payload +
+                TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ACTOR_CLAMP_SHA256_OFFSET,
+            gameplay_camera_actor_clamp_sha256,
+            sizeof(gameplay_camera_actor_clamp_sha256)) != 0 ||
+        !bytes_are_zero(
+            payload +
+                TECMO_ASSET_PACK_GAMEPLAY_CAMERA_HEADER_RESERVED_OFFSET,
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_HEADER_SIZE -
+                TECMO_ASSET_PACK_GAMEPLAY_CAMERA_HEADER_RESERVED_OFFSET)) {
         return false;
     }
     for (size_t index = 0U;
          index < TECMO_GAMEPLAY_CAMERA_SOURCE_COUNT; ++index) {
         const TecmoGameplayCameraExpectedSource *expected =
             &tecmo_gameplay_camera_expected_sources[index];
-        const uint8_t *descriptor = payload + 76U + index * 12U;
+        const uint8_t *descriptor =
+            payload +
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_HEADER_DESCRIPTOR_OFFSET +
+            index *
+                TECMO_ASSET_PACK_GAMEPLAY_CAMERA_HEADER_DESCRIPTOR_STRIDE;
         if (read_u32(descriptor) != expected->payload_offset ||
             read_u32(descriptor + 4U) != expected->byte_count ||
             read_u32(descriptor + 8U) != expected->fingerprint) {
@@ -229,9 +276,16 @@ static bool validate_padding(const uint8_t *payload)
                payload +
                    TECMO_ASSET_PACK_GAMEPLAY_CAMERA_PROJECTION_OFFSET +
                    TECMO_ASSET_PACK_GAMEPLAY_CAMERA_PROJECTION_SIZE,
-               TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SIZE -
+               TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ACTOR_CLAMP_OFFSET -
                    (TECMO_ASSET_PACK_GAMEPLAY_CAMERA_PROJECTION_OFFSET +
-                    TECMO_ASSET_PACK_GAMEPLAY_CAMERA_PROJECTION_SIZE));
+                    TECMO_ASSET_PACK_GAMEPLAY_CAMERA_PROJECTION_SIZE)) &&
+           bytes_are_zero(
+               payload +
+                   TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ACTOR_CLAMP_OFFSET +
+                   TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ACTOR_CLAMP_SIZE,
+               TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SIZE -
+                   (TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ACTOR_CLAMP_OFFSET +
+                    TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ACTOR_CLAMP_SIZE));
 }
 
 static bool validate_opcode_relationships(const uint8_t *payload)
@@ -257,6 +311,17 @@ static bool validate_opcode_relationships(const uint8_t *payload)
     static const uint8_t projection_terminal_store[] = {
         0xA9U,0x00U,0x85U,0x0BU
     };
+    static const uint8_t actor_clamp_dispatch[] = {
+        0xB5U,0xE8U,0xF0U,0x05U,0xC9U,0x02U,0xF0U,0x43U,0x60U
+    };
+    static const uint8_t actor_clamp_left[] = {
+        0x98U,0x4AU,0x49U,0xFFU,0x18U,0x69U,0xE0U,0xD5U,
+        0x73U,0x90U,0xDBU,0x95U,0x73U
+    };
+    static const uint8_t actor_clamp_right[] = {
+        0x98U,0x4AU,0x18U,0x69U,0x20U,0xD5U,0x73U,0xB0U,
+        0x9BU,0x95U,0x73U
+    };
     const uint8_t *initialize = payload +
         TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIALIZE_OFFSET;
     const uint8_t *stream = payload +
@@ -265,6 +330,8 @@ static bool validate_opcode_relationships(const uint8_t *payload)
         TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SETTLE_OFFSET;
     const uint8_t *projection = payload +
         TECMO_ASSET_PACK_GAMEPLAY_CAMERA_PROJECTION_OFFSET;
+    const uint8_t *actor_clamp = payload +
+        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ACTOR_CLAMP_OFFSET;
     return memcmp(initialize, initialize_exact,
                   sizeof(initialize_exact)) == 0 &&
            memcmp(settle + 29U, settle_loop, sizeof(settle_loop)) == 0 &&
@@ -273,7 +340,13 @@ static bool validate_opcode_relationships(const uint8_t *payload)
            memcmp(stream + 247U, stream_terminal_table,
                   sizeof(stream_terminal_table)) == 0 &&
            memcmp(projection + 35U, projection_terminal_store,
-                  sizeof(projection_terminal_store)) == 0;
+                  sizeof(projection_terminal_store)) == 0 &&
+           memcmp(actor_clamp + 33U, actor_clamp_dispatch,
+                  sizeof(actor_clamp_dispatch)) == 0 &&
+           memcmp(actor_clamp + 67U, actor_clamp_left,
+                  sizeof(actor_clamp_left)) == 0 &&
+           memcmp(actor_clamp + 133U, actor_clamp_right,
+                  sizeof(actor_clamp_right)) == 0;
 }
 
 static bool validate_gameplay_core(const uint8_t *payload,
@@ -429,26 +502,26 @@ bool tecmo_gameplay_camera_assets_parse(
     tecmo_gameplay_camera_assets_destroy(assets);
     if (payload == NULL || !validate_header(payload, payload_size)) {
         return reject(
-            assets, "TGCP-1 header/size/reserved contract rejected");
+            assets, "TGCP-2 header/size/reserved contract rejected");
     }
     if (fnv1a32(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_CAMERA_FNV1A32) {
         return reject(
-            assets, "TGCP-1 canonical payload fingerprint rejected");
+            assets, "TGCP-2 canonical payload fingerprint rejected");
     }
     if (!validate_source_records(payload, payload_size) ||
         !validate_padding(payload) ||
         !validate_opcode_relationships(payload)) {
-        return reject(assets, "TGCP-1 source/opcode contract rejected");
+        return reject(assets, "TGCP-2 source/opcode contract rejected");
     }
     if (!validate_gameplay_core(gameplay_core, gameplay_core_size) ||
         !validate_gameplay_court(gameplay_court, gameplay_court_size)) {
         return reject(
-            assets, "TGCP-1 TGPL-1/TGCT-1 dependency contract rejected");
+            assets, "TGCP-2 TGPL-1/TGCT-1 dependency contract rejected");
     }
 
     storage = (uint8_t *)malloc(payload_size);
-    if (storage == NULL) return reject(assets, "TGCP-1 allocation failed");
+    if (storage == NULL) return reject(assets, "TGCP-2 allocation failed");
     memcpy(storage, payload, payload_size);
     assets->storage = storage;
     assets->storage_size = payload_size;
@@ -480,6 +553,8 @@ bool tecmo_gameplay_camera_assets_parse(
         TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SETTLE_OFFSET;
     assets->actor_projection_routine = storage +
         TECMO_ASSET_PACK_GAMEPLAY_CAMERA_PROJECTION_OFFSET;
+    assets->actor_clamp_routine = storage +
+        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ACTOR_CLAMP_OFFSET;
     assets->gameplay_core_fingerprint =
         TECMO_ASSET_PACK_GAMEPLAY_FNV1A32;
     assets->gameplay_court_fingerprint =
@@ -487,7 +562,7 @@ bool tecmo_gameplay_camera_assets_parse(
     assets->available = true;
     (void)snprintf(
         assets->status, sizeof(assets->status),
-        "TGCP-1 gameplay camera/projection assetpack");
+        "TGCP-2 gameplay camera/projection/clamp assetpack");
     return true;
 }
 
@@ -514,7 +589,7 @@ bool tecmo_gameplay_camera_assets_load(
             &payload, &payload_size) != 0) {
         return reject(
             assets,
-            "TGCP-1 gameplay/camera-projection entry missing or wrong-sized");
+            "TGCP-2 gameplay/camera-projection entry missing or wrong-sized");
     }
     if (tecmo_asset_pack_read_entry_exact(
             asset_pack_path, TECMO_ASSET_PACK_GAMEPLAY_ID,
@@ -523,7 +598,7 @@ bool tecmo_gameplay_camera_assets_load(
         tecmo_asset_pack_free(payload);
         return reject(
             assets,
-            "TGCP-1 gameplay/core dependency missing or wrong-sized");
+            "TGCP-2 gameplay/core dependency missing or wrong-sized");
     }
     if (tecmo_asset_pack_read_entry_exact(
             asset_pack_path, TECMO_ASSET_PACK_GAMEPLAY_COURT_ID,
@@ -533,7 +608,7 @@ bool tecmo_gameplay_camera_assets_load(
         tecmo_asset_pack_free(gameplay_core);
         return reject(
             assets,
-            "TGCP-1 gameplay/court dependency missing or wrong-sized");
+            "TGCP-2 gameplay/court dependency missing or wrong-sized");
     }
     loaded = tecmo_gameplay_camera_assets_parse(
         assets, payload, (size_t)payload_size,
@@ -569,13 +644,27 @@ bool tecmo_gameplay_camera_state_initialize(
         return false;
     }
     memset(&initialized, 0, sizeof(initialized));
-    initialized.camera_x = read_u16(assets->storage + 148U);
-    initialized.scroll_x = assets->storage[150U];
-    initialized.scroll_aux = assets->storage[151U];
-    initialized.nametable_page = assets->storage[152U];
-    initialized.aux = assets->storage[153U];
-    initialized.stream_direction = assets->storage[154U];
-    initialized.layout_cursor = assets->storage[155U];
+    initialized.camera_x = read_u16(
+        assets->storage +
+        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_CAMERA_X_OFFSET);
+    initialized.scroll_x =
+        assets->storage[
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_SCROLL_X_OFFSET];
+    initialized.scroll_aux =
+        assets->storage[
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_SCROLL_AUX_OFFSET];
+    initialized.nametable_page =
+        assets->storage[
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_PAGE_OFFSET];
+    initialized.aux =
+        assets->storage[
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_AUX_OFFSET];
+    initialized.stream_direction =
+        assets->storage[
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_DIRECTION_OFFSET];
+    initialized.layout_cursor =
+        assets->storage[
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_CURSOR_OFFSET];
     *state = initialized;
     return true;
 }
@@ -617,6 +706,10 @@ bool tecmo_gameplay_camera_state_live_valid(
     const TecmoGameplayCameraAssets *assets,
     const TecmoGameplayCameraState *state)
 {
+    const uint8_t *thresholds;
+    uint16_t coarse_camera;
+    uint16_t cursor_value;
+    uint8_t expected_cursor;
     uint8_t expected_page;
     if (assets == NULL || !assets->available ||
         !camera_state_is_valid(state) ||
@@ -626,9 +719,38 @@ bool tecmo_gameplay_camera_state_live_valid(
         state->layout_cursor < 0x0BU || state->layout_cursor > 0x34U) {
         return false;
     }
+    coarse_camera = state->camera_x >> 3U;
+    if (state->stream_direction == 0U) {
+        cursor_value = coarse_camera + 1U;
+        expected_cursor = cursor_value > 0x34U
+            ? 0x34U : (uint8_t)cursor_value;
+    } else {
+        cursor_value = coarse_camera == 0U ? 0U : coarse_camera - 1U;
+        expected_cursor = cursor_value < 0x0BU
+            ? 0x0BU : (uint8_t)cursor_value;
+    }
+    if (state->layout_cursor != expected_cursor ||
+        (!state->thresholds_valid && state->endpoint_latched)) {
+        return false;
+    }
     expected_page = (uint8_t)(
         (((state->camera_x >> 8U) ^ 1U) & 1U));
-    return state->nametable_page == expected_page;
+    if (state->nametable_page != expected_page ||
+        !state->thresholds_valid) {
+        return state->nametable_page == expected_page &&
+               !state->thresholds_valid;
+    }
+    thresholds =
+        assets->storage +
+        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_THRESHOLDS_OFFSET;
+    if (!state->endpoint_latched) {
+        return state->left_threshold == thresholds[0U] &&
+               state->right_threshold == thresholds[3U];
+    }
+    return (state->left_threshold == thresholds[1U] &&
+            state->right_threshold == thresholds[4U]) ||
+           (state->left_threshold == thresholds[2U] &&
+            state->right_threshold == thresholds[5U]);
 }
 
 static void stream_left(TecmoGameplayCameraState *state)
@@ -676,32 +798,64 @@ bool tecmo_gameplay_camera_follow(
         if (input->orientation == 0U) {
             if (next.endpoint_latched ||
                 input->focus_world_x < 0x0160U) {
-                next.left_threshold = assets->storage[165U];
-                next.right_threshold = assets->storage[168U];
-                maximum_step = assets->storage[156U];
+                next.left_threshold =
+                    assets->storage[
+                        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_THRESHOLDS_OFFSET +
+                        1U];
+                next.right_threshold =
+                    assets->storage[
+                        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_THRESHOLDS_OFFSET +
+                        4U];
+                maximum_step =
+                    assets->storage[
+                        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ENDPOINT_SPEED_OFFSET];
                 next.endpoint_latched = true;
             } else {
-                next.left_threshold = assets->storage[164U];
-                next.right_threshold = assets->storage[167U];
-                maximum_step = assets->storage[157U];
+                next.left_threshold =
+                    assets->storage[
+                        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_THRESHOLDS_OFFSET];
+                next.right_threshold =
+                    assets->storage[
+                        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_THRESHOLDS_OFFSET +
+                        3U];
+                maximum_step =
+                    assets->storage[
+                        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_GENERIC_SPEED_OFFSET];
             }
         } else {
             if (next.endpoint_latched ||
                 input->focus_world_x >= 0x01A0U) {
-                next.left_threshold = assets->storage[166U];
-                next.right_threshold = assets->storage[169U];
-                maximum_step = assets->storage[156U];
+                next.left_threshold =
+                    assets->storage[
+                        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_THRESHOLDS_OFFSET +
+                        2U];
+                next.right_threshold =
+                    assets->storage[
+                        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_THRESHOLDS_OFFSET +
+                        5U];
+                maximum_step =
+                    assets->storage[
+                        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ENDPOINT_SPEED_OFFSET];
                 next.endpoint_latched = true;
             } else {
-                next.left_threshold = assets->storage[164U];
-                next.right_threshold = assets->storage[167U];
-                maximum_step = assets->storage[157U];
+                next.left_threshold =
+                    assets->storage[
+                        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_THRESHOLDS_OFFSET];
+                next.right_threshold =
+                    assets->storage[
+                        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_THRESHOLDS_OFFSET +
+                        3U];
+                maximum_step =
+                    assets->storage[
+                        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_GENERIC_SPEED_OFFSET];
             }
         }
         next.thresholds_valid = true;
     } else {
         if (!next.thresholds_valid) return false;
-        maximum_step = assets->storage[157U];
+        maximum_step =
+            assets->storage[
+                TECMO_ASSET_PACK_GAMEPLAY_CAMERA_GENERIC_SPEED_OFFSET];
     }
 
     delta = (uint16_t)(input->focus_world_x - next.camera_x);
@@ -792,7 +946,9 @@ bool tecmo_gameplay_camera_settle(
     settled = *state;
     forced = *input;
     forced.action_route = 0U;
-    limit = read_u16(assets->storage + 158U);
+    limit = read_u16(
+        assets->storage +
+        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SETTLE_LIMIT_OFFSET);
     if (limit == 0U || limit > GAMEPLAY_CAMERA_SETTLE_LIMIT) return false;
     for (uint16_t update = 0U; update < limit; ++update) {
         uint8_t old_scroll = settled.scroll_x;
@@ -868,6 +1024,19 @@ static bool camera_states_equal(
            left->endpoint_latched == right->endpoint_latched;
 }
 
+static bool live_validation_matches_without_mutation(
+    const TecmoGameplayCameraAssets *assets,
+    TecmoGameplayCameraState *state,
+    bool expected)
+{
+    TecmoGameplayCameraState before;
+    bool actual;
+    if (state == NULL) return false;
+    before = *state;
+    actual = tecmo_gameplay_camera_state_live_valid(assets, state);
+    return actual == expected && camera_states_equal(state, &before);
+}
+
 static bool run_follow_vector(
     const TecmoGameplayCameraAssets *assets,
     TecmoGameplayCameraState initial,
@@ -898,6 +1067,8 @@ bool tecmo_gameplay_camera_self_test(
     TecmoGameplayCameraState state;
     TecmoGameplayCameraState unchanged;
     TecmoGameplayCameraState vector;
+    TecmoGameplayCameraState live_prime;
+    TecmoGameplayCameraState live_candidate;
     TecmoGameplayCameraFollowInput input;
     TecmoGameplayActorProjection projection;
     TecmoGameplayActorProjection projection_unchanged;
@@ -1055,11 +1226,133 @@ bool tecmo_gameplay_camera_self_test(
                        "fixed $DDFB->$DF05 live prime golden failed");
         goto cleanup;
     }
+    live_prime = state;
+    live_candidate = live_prime;
+    live_candidate.layout_cursor = 0x34U;
+    if (!live_validation_matches_without_mutation(
+            &assets, &live_candidate, false)) {
+        (void)snprintf(message, message_size,
+                       "live camera accepted impossible right cursor");
+        goto cleanup;
+    }
+    live_candidate = live_prime;
+    live_candidate.stream_direction = 1U;
+    live_candidate.layout_cursor = 0x0BU;
+    if (!live_validation_matches_without_mutation(
+            &assets, &live_candidate, false)) {
+        (void)snprintf(message, message_size,
+                       "live camera accepted impossible left cursor");
+        goto cleanup;
+    }
+    live_candidate = live_prime;
+    live_candidate.stream_direction = 1U;
+    live_candidate.layout_cursor = 0x21U;
+    if (!live_validation_matches_without_mutation(
+            &assets, &live_candidate, false)) {
+        (void)snprintf(message, message_size,
+                       "live camera accepted cursor/direction mismatch");
+        goto cleanup;
+    }
+    live_candidate = live_prime;
+    live_candidate.stream_direction = 1U;
+    live_candidate.layout_cursor = 0x1FU;
+    if (!live_validation_matches_without_mutation(
+            &assets, &live_candidate, true)) {
+        (void)snprintf(message, message_size,
+                       "live camera rejected reachable left relationship");
+        goto cleanup;
+    }
+    live_candidate = live_prime;
+    live_candidate.endpoint_latched = true;
+    if (!live_validation_matches_without_mutation(
+            &assets, &live_candidate, false)) {
+        (void)snprintf(message, message_size,
+                       "live camera accepted invalid latch without thresholds");
+        goto cleanup;
+    }
+    live_candidate = live_prime;
+    live_candidate.thresholds_valid = true;
+    live_candidate.left_threshold = 0x50U;
+    live_candidate.right_threshold = 0xA0U;
+    if (!live_validation_matches_without_mutation(
+            &assets, &live_candidate, true)) {
+        (void)snprintf(message, message_size,
+                       "live camera rejected generic threshold pair");
+        goto cleanup;
+    }
+    live_candidate.endpoint_latched = true;
+    if (!live_validation_matches_without_mutation(
+            &assets, &live_candidate, false)) {
+        (void)snprintf(message, message_size,
+                       "live camera accepted generic pair with endpoint latch");
+        goto cleanup;
+    }
+    live_candidate.left_threshold = 0xD8U;
+    live_candidate.right_threshold = 0xE8U;
+    if (!live_validation_matches_without_mutation(
+            &assets, &live_candidate, true)) {
+        (void)snprintf(message, message_size,
+                       "live camera rejected left endpoint threshold pair");
+        goto cleanup;
+    }
+    live_candidate.endpoint_latched = false;
+    if (!live_validation_matches_without_mutation(
+            &assets, &live_candidate, false)) {
+        (void)snprintf(message, message_size,
+                       "live camera accepted left pair without endpoint latch");
+        goto cleanup;
+    }
+    live_candidate.endpoint_latched = true;
+    live_candidate.left_threshold = 0x20U;
+    live_candidate.right_threshold = 0x04U;
+    if (!live_validation_matches_without_mutation(
+            &assets, &live_candidate, true)) {
+        (void)snprintf(message, message_size,
+                       "live camera rejected right endpoint threshold pair");
+        goto cleanup;
+    }
+    live_candidate.left_threshold = 0x21U;
+    if (!live_validation_matches_without_mutation(
+            &assets, &live_candidate, false)) {
+        (void)snprintf(message, message_size,
+                       "live camera accepted impossible threshold bytes");
+        goto cleanup;
+    }
     unchanged = state;
     if (tecmo_gameplay_camera_state_prime_live(&assets, &state) ||
         memcmp(&state, &unchanged, sizeof(state)) != 0) {
         (void)snprintf(message, message_size,
                        "live camera accepted a repeated prime");
+        goto cleanup;
+    }
+    state = live_prime;
+    input.focus_world_x = 0x00FAU;
+    input.orientation = 0U;
+    input.action_route = 0U;
+    input.camera_disabled = false;
+    if (!tecmo_gameplay_camera_settle(&assets, &state, &input) ||
+        !camera_state_matches(&state, 0x0066U, 0x66U, 1U,
+                              0x0BU, 1U) ||
+        state.left_threshold != 0xD8U ||
+        state.right_threshold != 0xE8U ||
+        !state.thresholds_valid || !state.endpoint_latched ||
+        !tecmo_gameplay_camera_state_live_valid(&assets, &state)) {
+        (void)snprintf(message, message_size,
+                       "live-primed left endpoint settle golden failed");
+        goto cleanup;
+    }
+    state = live_prime;
+    input.focus_world_x = 0x0206U;
+    input.orientation = 1U;
+    if (!tecmo_gameplay_camera_settle(&assets, &state, &input) ||
+        !camera_state_matches(&state, 0x0198U, 0x98U, 0U,
+                              0x34U, 0U) ||
+        state.left_threshold != 0x20U ||
+        state.right_threshold != 0x04U ||
+        !state.thresholds_valid || !state.endpoint_latched ||
+        !tecmo_gameplay_camera_state_live_valid(&assets, &state)) {
+        (void)snprintf(message, message_size,
+                       "live-primed right endpoint settle golden failed");
         goto cleanup;
     }
     if (!tecmo_gameplay_camera_state_initialize(&assets, &state)) {
@@ -1152,8 +1445,8 @@ bool tecmo_gameplay_camera_self_test(
 
     (void)snprintf(
         message, message_size,
-        "TGCP-1 gameplay camera self-test passed: init=0100 "
-        "bounded=006E/01A0 exact follow/page/reversal/routes");
+        "TGCP-2 gameplay camera self-test passed: init=0100 "
+        "pure=006E/01A0 live=0066/0198 strict-state/clamp");
     passed = true;
 
 cleanup:

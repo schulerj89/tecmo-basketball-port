@@ -5,7 +5,7 @@
 #include <stddef.h>
 
 /*
- * Test-only TGFL-1 -> TGCP-1 composition. This does not add either asset to
+ * Test-only TGFL-1 -> TGCP-2 composition. This does not add either asset to
  * the live gameplay scene or create a production dependency between them.
  */
 bool tecmo_gameplay_free_throw_projection_self_test(

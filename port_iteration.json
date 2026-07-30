@@ -41,7 +41,7 @@
     "strict_same_pack_entries": [
       "gameplay/core TGPL-1 23416 bytes FNV1a32 2047CCE0",
       "gameplay/court TGCT-1 6559 bytes FNV1a32 ECAB7A93",
-      "gameplay/camera-projection TGCP-1 1344 bytes FNV1a32 B3721B17",
+      "gameplay/camera-projection TGCP-2 1536 bytes FNV1a32 53247856",
       "gameplay/court-orientation TGOR-1 640 bytes FNV1a32 F9152C0A",
       "gameplay/close-shots TGCS-1 3144 bytes FNV1a32 DACDC976",
       "audio/music TMUS-1 36784 bytes FNV1a32 05C00ECB",
@@ -54,10 +54,10 @@
     "exact_contracts": [
       "ROM-derived court, CHR, imported TGCT palette bytes, embedded FCEUX RGB profile, all 208 TGCS-stored profile-direction resolutions into TGPL pose data, numeric close variants 0 and 2, their proven dunk/layup mapping, and their 32/16 step tables",
       "TGCT-1 full-world decode expands the exact 96-by-30 tile and palette-index planes; the live renderer slices 32/33 columns at TGCP camera X and clips fine-scroll edge columns inside its 256-by-240 subview",
-      "TGCP-1 preserves pure cursor-20 initialization, production cursor-21 prime, bounded launch settle, exactly one ball-world-X route-0 follow per live update, phase/cutaway freeze, and actor/ball projection",
+      "TGCP-2 preserves pure cursor-20 initialization, production cursor-21 prime, bounded launch settle, exactly one ball-world-X route-0 follow per live update, phase/cutaway freeze, actor/ball projection, strict F106-F1B0 clamp provenance, and reachable live cursor/page/threshold invariants",
       "TGOR-1 live state owns current/previous binary offensive direction, tracked possession team, transition serial, and target X; it drives TGCP direction and world shot targets 00A0/0260 with launch Y 008F while possession changes preserve camera position",
       "actors, anchors, ball Q8 coordinates, shot endpoints, movement, proximity, passing, switching, and AI use coherent world coordinates",
-      "ordinary movement uses the exact fixed F106-F1B0 trapezoid, 171 bytes FNV1a32 CB1D4EAF",
+      "ordinary movement uses TGCP-2's exact fixed F106-F1B0 trapezoid source, 171 bytes FNV1a32 CB1D4EAF SHA-256 0B97A9AAC4DF35E4EDF7979C6C0355852B9DE7398844B2679CFAB298F0C0CBA6",
       "deterministic clock, shot-clock, event, violation/foul presentation, period, halftime, overtime, final, and result state transitions",
       "ROM-derived title stop frame 5 after five proven native yields, title confirmation SFX 10 frame 1, menu track 6 frame 127, and accepted blue-menu A-release SFX 8 through strict TFSX-1",
       "ROM-derived track 5/6 programs, gameplay SFX mappings, held-ball/dribble DMC clip, mixer cadence, and source-map provenance",
@@ -118,7 +118,7 @@
       "status": "active",
       "command": ".\\tools\\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>",
       "description": "Builds an exact Rev1 full asset pack, runs the compound native gameplay scene self-test and rejection cases, then verifies deterministic 640x480 start, ordinary-jump, and dunk render checkpoints under ignored build scratch.",
-      "expected_output": "GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance scene controls TGCP-1 full-world camera fine-scroll guarded-margins possession/freeze TGDK TGJS TGSR-3 jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state halftime/final render-hashes/determinism missing malformed oversized dependency-corrupt chr-mismatch"
+      "expected_output": "GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance scene controls TGCP-2 full-world camera fine-scroll guarded-margins possession/freeze TGDK TGJS TGSR-3 jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state halftime/final render-hashes/determinism missing malformed oversized dependency-corrupt chr-mismatch"
     },
     {
       "id": "run_frontend_audio_test",

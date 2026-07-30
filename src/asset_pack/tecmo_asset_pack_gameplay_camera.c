@@ -28,6 +28,13 @@ static const uint8_t gameplay_camera_rev1_sha256[32] = {
     0xF2U,0xC2U,0xBDU,0xE1U,0xF9U,0x74U,0x75U,0xC4U
 };
 
+static const uint8_t gameplay_camera_actor_clamp_sha256[32] = {
+    0x0BU,0x97U,0xA9U,0xAAU,0xC4U,0xDFU,0x35U,0xE4U,
+    0xEDU,0xF7U,0x97U,0x9CU,0x6CU,0x03U,0x55U,0x85U,
+    0x2BU,0x9DU,0xE7U,0x39U,0x88U,0x44U,0xB2U,0x67U,
+    0x9CU,0xFAU,0xB2U,0x98U,0xF0U,0xC0U,0xCBU,0xA6U
+};
+
 const TecmoGameplayCameraExpectedSource
     tecmo_gameplay_camera_expected_sources[
         TECMO_GAMEPLAY_CAMERA_SOURCE_COUNT] = {
@@ -54,7 +61,11 @@ const TecmoGameplayCameraExpectedSource
         {TECMO_GAMEPLAY_CAMERA_SOURCE_ACTOR_PROJECTION,
          GAMEPLAY_CAMERA_FIXED_BANK, 1U, 0xF1CBU, 39U,
          TECMO_ASSET_PACK_GAMEPLAY_CAMERA_PROJECTION_FNV1A32,
-         TECMO_ASSET_PACK_GAMEPLAY_CAMERA_PROJECTION_OFFSET}
+         TECMO_ASSET_PACK_GAMEPLAY_CAMERA_PROJECTION_OFFSET},
+        {TECMO_GAMEPLAY_CAMERA_SOURCE_ACTOR_CLAMP,
+         GAMEPLAY_CAMERA_FIXED_BANK, 1U, 0xF106U, 171U,
+         TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ACTOR_CLAMP_FNV1A32,
+         TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ACTOR_CLAMP_OFFSET}
     };
 
 static int range_ok(uint64_t offset, uint64_t count, uint64_t total)
@@ -101,6 +112,17 @@ static int validate_source_relationships(const uint8_t *payload)
     static const uint8_t projection_terminal_store[] = {
         0xA9U,0x00U,0x85U,0x0BU
     };
+    static const uint8_t actor_clamp_dispatch[] = {
+        0xB5U,0xE8U,0xF0U,0x05U,0xC9U,0x02U,0xF0U,0x43U,0x60U
+    };
+    static const uint8_t actor_clamp_left[] = {
+        0x98U,0x4AU,0x49U,0xFFU,0x18U,0x69U,0xE0U,0xD5U,
+        0x73U,0x90U,0xDBU,0x95U,0x73U
+    };
+    static const uint8_t actor_clamp_right[] = {
+        0x98U,0x4AU,0x18U,0x69U,0x20U,0xD5U,0x73U,0xB0U,
+        0x9BU,0x95U,0x73U
+    };
     const uint8_t *initialize = payload +
         TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIALIZE_OFFSET;
     const uint8_t *stream = payload +
@@ -111,6 +133,8 @@ static int validate_source_relationships(const uint8_t *payload)
         TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SETTLE_OFFSET;
     const uint8_t *projection = payload +
         TECMO_ASSET_PACK_GAMEPLAY_CAMERA_PROJECTION_OFFSET;
+    const uint8_t *actor_clamp = payload +
+        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ACTOR_CLAMP_OFFSET;
     return memcmp(initialize, initialize_exact,
                   sizeof(initialize_exact)) == 0 &&
            memcmp(follow, follow_prefix, sizeof(follow_prefix)) == 0 &&
@@ -120,7 +144,13 @@ static int validate_source_relationships(const uint8_t *payload)
            memcmp(stream + 247U, stream_terminal_table,
                   sizeof(stream_terminal_table)) == 0 &&
            memcmp(projection + 35U, projection_terminal_store,
-                  sizeof(projection_terminal_store)) == 0
+                  sizeof(projection_terminal_store)) == 0 &&
+           memcmp(actor_clamp + 33U, actor_clamp_dispatch,
+                  sizeof(actor_clamp_dispatch)) == 0 &&
+           memcmp(actor_clamp + 67U, actor_clamp_left,
+                  sizeof(actor_clamp_left)) == 0 &&
+           memcmp(actor_clamp + 133U, actor_clamp_right,
+                  sizeof(actor_clamp_right)) == 0
         ? 0 : -1;
 }
 
@@ -143,7 +173,7 @@ int tecmo_asset_pack_build_gameplay_camera(
         rom_size != GAMEPLAY_CAMERA_REV1_ROM_SIZE) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGCP-1 import requires the exact Rev1 ROM fingerprint.");
+            "TGCP-2 import requires the exact Rev1 ROM fingerprint.");
         return -1;
     }
 
@@ -157,6 +187,7 @@ int tecmo_asset_pack_build_gameplay_camera(
             prg_offset, prg_banks, expected);
         uint32_t cpu_end =
             (uint32_t)expected->cpu_start + expected->byte_count - 1U;
+        uint8_t source_sha256[32];
         uint8_t *record = payload +
             TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SOURCES_OFFSET +
             index * TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SOURCE_STRIDE;
@@ -168,8 +199,19 @@ int tecmo_asset_pack_build_gameplay_camera(
                     expected->fingerprint) {
             tecmo_asset_pack_set_messagef(
                 message, message_size,
-                "TGCP-1 fixed $%04X-$%04X fingerprint mismatch.",
+                "TGCP-2 fixed $%04X-$%04X fingerprint mismatch.",
                 (unsigned)expected->cpu_start, (unsigned)cpu_end);
+            return -1;
+        }
+        if (expected->kind == TECMO_GAMEPLAY_CAMERA_SOURCE_ACTOR_CLAMP &&
+            (tecmo_asset_pack_sha256_digest(
+                 rom + (size_t)offset, expected->byte_count,
+                 source_sha256) != 0 ||
+             memcmp(source_sha256, gameplay_camera_actor_clamp_sha256,
+                    sizeof(source_sha256)) != 0)) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "TGCP-2 fixed $F106-$F1B0 SHA-256 mismatch.");
             return -1;
         }
         tecmo_asset_pack_store_u16(record, (uint16_t)expected->kind);
@@ -189,14 +231,14 @@ int tecmo_asset_pack_build_gameplay_camera(
     if (validate_source_relationships(payload) != 0) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGCP-1 camera opcode relationships rejected.");
+            "TGCP-2 camera/clamp opcode relationships rejected.");
         return -1;
     }
     if (tecmo_asset_pack_fnv1a32(rom, (size_t)rom_size) !=
             GAMEPLAY_CAMERA_REV1_ROM_FNV1A32) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGCP-1 full-ROM FNV1a32 mismatch for target Rev1.");
+            "TGCP-2 full-ROM FNV1a32 mismatch for target Rev1.");
         return -1;
     }
 
@@ -233,7 +275,11 @@ int tecmo_asset_pack_build_gameplay_camera(
          index < TECMO_GAMEPLAY_CAMERA_SOURCE_COUNT; ++index) {
         const TecmoGameplayCameraExpectedSource *expected =
             &tecmo_gameplay_camera_expected_sources[index];
-        uint8_t *descriptor = payload + 76U + index * 12U;
+        uint8_t *descriptor =
+            payload +
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_HEADER_DESCRIPTOR_OFFSET +
+            index *
+                TECMO_ASSET_PACK_GAMEPLAY_CAMERA_HEADER_DESCRIPTOR_STRIDE;
         tecmo_asset_pack_store_u32(
             descriptor, expected->payload_offset);
         tecmo_asset_pack_store_u32(
@@ -241,37 +287,48 @@ int tecmo_asset_pack_build_gameplay_camera(
         tecmo_asset_pack_store_u32(
             descriptor + 8U, expected->fingerprint);
     }
-    tecmo_asset_pack_store_u16(payload + 148U, 0x0100U);
-    payload[150U] = 0x00U; /* scroll_x */
-    payload[151U] = 0x00U; /* scroll_aux */
-    payload[152U] = 0x00U; /* nametable page */
-    payload[153U] = 0x00U; /* auxiliary state */
-    payload[154U] = 0x00U; /* initial stream direction */
-    payload[155U] = 0x20U; /* initial layout cursor */
-    payload[156U] = 2U;    /* endpoint raw speed 3 after DEX */
-    payload[157U] = 7U;    /* generic raw speed 8 after DEX */
     tecmo_asset_pack_store_u16(
-        payload + 158U, GAMEPLAY_CAMERA_FORCED_SETTLE_LIMIT);
-    payload[160U] = 16U;   /* world/camera X width */
-    payload[161U] = 8U;    /* world Y/altitude width */
-    payload[162U] = 0U;    /* visible subtraction high byte */
-    payload[163U] = 1U;    /* Y saturates on borrow */
-    memcpy(payload + 164U,
+        payload + TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_CAMERA_X_OFFSET,
+        0x0100U);
+    payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_SCROLL_X_OFFSET] =
+        0x00U;
+    payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_SCROLL_AUX_OFFSET] =
+        0x00U;
+    payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_PAGE_OFFSET] = 0x00U;
+    payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_AUX_OFFSET] = 0x00U;
+    payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_DIRECTION_OFFSET] =
+        0x00U;
+    payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_CURSOR_OFFSET] = 0x20U;
+    payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ENDPOINT_SPEED_OFFSET] = 2U;
+    payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_GENERIC_SPEED_OFFSET] = 7U;
+    tecmo_asset_pack_store_u16(
+        payload + TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SETTLE_LIMIT_OFFSET,
+        GAMEPLAY_CAMERA_FORCED_SETTLE_LIMIT);
+    payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_WORLD_X_WIDTH_OFFSET] = 16U;
+    payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_WORLD_Y_WIDTH_OFFSET] = 8U;
+    payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_VISIBLE_HIGH_OFFSET] = 0U;
+    payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_Y_SATURATES_OFFSET] = 1U;
+    memcpy(payload + TECMO_ASSET_PACK_GAMEPLAY_CAMERA_THRESHOLDS_OFFSET,
            payload + TECMO_ASSET_PACK_GAMEPLAY_CAMERA_FOLLOW_OFFSET,
            6U);
+    memcpy(
+        payload +
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ACTOR_CLAMP_SHA256_OFFSET,
+        gameplay_camera_actor_clamp_sha256,
+        sizeof(gameplay_camera_actor_clamp_sha256));
 
     if (TECMO_ASSET_PACK_GAMEPLAY_CAMERA_FNV1A32 != 0U &&
         tecmo_asset_pack_fnv1a32(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_CAMERA_FNV1A32) {
         tecmo_asset_pack_set_messagef(
             message, message_size,
-            "TGCP-1 canonical payload fingerprint mismatch (got %08X).",
+            "TGCP-2 canonical payload fingerprint mismatch (got %08X).",
             tecmo_asset_pack_fnv1a32(payload, payload_size));
         return -1;
     }
     tecmo_asset_pack_set_message(
         message, message_size,
-        "Built strict ROM-derived TGCP-1 gameplay camera asset.");
+        "Built strict ROM-derived TGCP-2 gameplay camera/clamp asset.");
     return 0;
 }
 
@@ -297,7 +354,7 @@ int tecmo_asset_pack_gameplay_camera_source_test(
         tecmo_asset_pack_read_file(rom_path, &rom, &rom_size) != 0) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGCP-1 direct source test could not read the ROM.");
+            "TGCP-2 direct source test could not read the ROM.");
         return -1;
     }
     if (rom_size != GAMEPLAY_CAMERA_REV1_ROM_SIZE ||
@@ -306,7 +363,7 @@ int tecmo_asset_pack_gameplay_camera_source_test(
         prg_offset + prg_size + chr_size != rom_size) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGCP-1 direct source test requires the exact Rev1 iNES layout.");
+            "TGCP-2 direct source test requires the exact Rev1 iNES layout.");
         free(rom);
         return -1;
     }
@@ -320,7 +377,7 @@ int tecmo_asset_pack_gameplay_camera_source_test(
                 sizeof(input_sha256)) != 0)) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGCP-1 direct source test full-ROM SHA-256 mismatch.");
+            "TGCP-2 direct source test full-ROM SHA-256 mismatch.");
         result = -1;
     }
     free(rom);
@@ -338,20 +395,49 @@ int tecmo_asset_pack_gameplay_camera_self_test(
             TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SOURCES_OFFSET +
                 TECMO_GAMEPLAY_CAMERA_SOURCE_COUNT *
                     TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SOURCE_STRIDE ||
+        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_HEADER_DESCRIPTOR_OFFSET +
+                TECMO_GAMEPLAY_CAMERA_SOURCE_COUNT *
+                    TECMO_ASSET_PACK_GAMEPLAY_CAMERA_HEADER_DESCRIPTOR_STRIDE >
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIAL_CAMERA_X_OFFSET ||
+        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_PRE_SHA_RESERVED_OFFSET + 2U !=
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ACTOR_CLAMP_SHA256_OFFSET ||
+        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ACTOR_CLAMP_SHA256_OFFSET + 32U !=
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_HEADER_RESERVED_OFFSET ||
+        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_HEADER_RESERVED_OFFSET >
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_HEADER_SIZE ||
+        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIALIZE_OFFSET +
+                TECMO_ASSET_PACK_GAMEPLAY_CAMERA_INITIALIZE_SIZE >
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_STREAM_OFFSET ||
+        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_STREAM_OFFSET +
+                TECMO_ASSET_PACK_GAMEPLAY_CAMERA_STREAM_SIZE >
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ATTRIBUTE_OFFSET ||
+        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ATTRIBUTE_OFFSET +
+                TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ATTRIBUTE_SIZE >
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_FOLLOW_OFFSET ||
+        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_FOLLOW_OFFSET +
+                TECMO_ASSET_PACK_GAMEPLAY_CAMERA_FOLLOW_SIZE >
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SETTLE_OFFSET ||
+        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SETTLE_OFFSET +
+                TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SETTLE_SIZE >
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_PROJECTION_OFFSET ||
         TECMO_ASSET_PACK_GAMEPLAY_CAMERA_PROJECTION_OFFSET +
                 TECMO_ASSET_PACK_GAMEPLAY_CAMERA_PROJECTION_SIZE >
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ACTOR_CLAMP_OFFSET ||
+        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ACTOR_CLAMP_OFFSET +
+                TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ACTOR_CLAMP_SIZE >
             TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SIZE ||
+        TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SIZE % 32U != 0U ||
         tecmo_asset_pack_build_gameplay_camera(
             truncated_rom, sizeof(truncated_rom), 16U,
             GAMEPLAY_CAMERA_PRG_BANK_COUNT, 1,
             payload, sizeof(payload), &provenance, NULL, 0U) == 0) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGCP-1 layout self-test failed.");
+            "TGCP-2 layout self-test failed.");
         return -1;
     }
     tecmo_asset_pack_set_message(
         message, message_size,
-        "TGCP-1 layout self-test passed.");
+        "TGCP-2 layout self-test passed.");
     return 0;
 }

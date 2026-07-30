@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define TECMO_GAMEPLAY_CAMERA_SOURCE_COUNT 6U
+#define TECMO_GAMEPLAY_CAMERA_SOURCE_COUNT 7U
 #define TECMO_GAMEPLAY_CAMERA_ORIENTATION_COUNT 2U
 
 typedef enum TecmoGameplayCameraSourceKind {
@@ -14,7 +14,8 @@ typedef enum TecmoGameplayCameraSourceKind {
     TECMO_GAMEPLAY_CAMERA_SOURCE_ATTRIBUTE_QUADRANTS = 3,
     TECMO_GAMEPLAY_CAMERA_SOURCE_FOLLOW = 4,
     TECMO_GAMEPLAY_CAMERA_SOURCE_FORCED_SETTLE = 5,
-    TECMO_GAMEPLAY_CAMERA_SOURCE_ACTOR_PROJECTION = 6
+    TECMO_GAMEPLAY_CAMERA_SOURCE_ACTOR_PROJECTION = 6,
+    TECMO_GAMEPLAY_CAMERA_SOURCE_ACTOR_CLAMP = 7
 } TecmoGameplayCameraSourceKind;
 
 typedef struct TecmoGameplayCameraSourceSpan {
@@ -42,6 +43,7 @@ typedef struct TecmoGameplayCameraAssets {
     const uint8_t *follow_routine;
     const uint8_t *forced_settle_routine;
     const uint8_t *actor_projection_routine;
+    const uint8_t *actor_clamp_routine;
     uint32_t gameplay_core_fingerprint;
     uint32_t gameplay_court_fingerprint;
 } TecmoGameplayCameraAssets;

@@ -174,10 +174,10 @@ accumulators are ported.
   schedule. The exact two-orientation raw lineup, shooter-dependent actor
   stream, pose indexes, and base actor-state seeds are available through the
   strict TGFL-1 data foundation. Exact camera following and actor
-  projection are available through TGCP-1. A test-only TGFL-1 -> TGCP-1
+  projection are available through TGCP-2. A test-only TGFL-1 -> TGCP-2
   composition now derives the orientation-1 free-throw lineup and proves its
   six visible and four neutral-offscreen slots at the bounded camera
-  checkpoint. Live play now loads TGCP-1 and TGCT-1 from the same canonical
+  checkpoint. Live play now loads TGCP-2 and TGCT-1 from the same canonical
   pack, decodes the complete 768-by-240 court, follows the ball once per live
   update, draws exact coarse/fine-scroll 32/33-column viewports, and projects
   actors and the ball from coherent world coordinates. TGFL-1 free-throw
@@ -199,7 +199,8 @@ embedded FCEUX RGB profile, actor pose data, numeric close-shot step
 tables, dunk cutaway, the bounded ordinary-jump miss/three-point-make context,
 TGSR-3 shot resolution, its exact 1/2/3-point classifier and
 diagnostic-only rim-rattle prefix, the TGFL-1 raw free-throw lineup, the
-TGCP-1 horizontal camera/projector and production live prime/follow,
+  TGCP-2 horizontal camera/projector, strict actor clamp, and production live
+  prime/follow,
 TGOR-1 live possession-synchronized
 offensive direction and target selection, rules timing, and native
 music/SFX/DMC programs. Strict entries are loaded from the same
@@ -214,7 +215,8 @@ unsupported. `gameplay/penalties` TPNL-1 contains strict ROM-backed rule data,
 but the live scene's current contact/foul code does not consume it yet.
 Likewise, `gameplay/free-throw-lineup` TGFL-1 preserves raw world coordinates
 but is still test-only. The live scene now loads
-`gameplay/camera-projection` TGCP-1 and `gameplay/court` TGCT-1, primes the
+`gameplay/camera-projection` TGCP-2 (1536 bytes, FNV1a32 `53247856`) and
+`gameplay/court` TGCT-1, primes the
 native cursor from `$20` to `$21`, seeds at camera `$0100`, decodes the
 768-pixel court, follows ball world X exactly once per live update, and clips
 the 32/33-column viewport within the 256-by-240 gameplay subview. Actors,
@@ -224,8 +226,8 @@ Offscreen projection uses the deterministic native sentinel
 (`visible=false`, X/Y zero) because the ROM branches before writing projected
 Y.
 
-Ordinary movement uses the exact fixed-bank `$F106-$F1B0` trapezoid
-(171 bytes, FNV1a32 `CB1D4EAF`): page 0 clamps to
+Ordinary movement uses TGCP-2's strict fixed-bank `$F106-$F1B0` trapezoid
+source (171 bytes, FNV1a32 `CB1D4EAF`): page 0 clamps to
 `$00DF-floor(Y/2)`, page 1 is the interior, and page 2 clamps to
 `$0220+floor(Y/2)`. The current native policy applies that geometry
 unconditionally. Original dispatcher exceptions involving `$0478`, `$046E`,

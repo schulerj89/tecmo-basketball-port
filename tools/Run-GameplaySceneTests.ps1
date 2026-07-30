@@ -216,7 +216,7 @@ try {
     $Specs = @(
         [pscustomobject]@{ id="gameplay/core"; size=23416; hash="2047CCE0"; schema="tecmo.gameplay/TGPL-1" },
         [pscustomobject]@{ id="gameplay/court"; size=6559; hash="ECAB7A93"; schema="tecmo.gameplay-court/TGCT-1" },
-        [pscustomobject]@{ id="gameplay/camera-projection"; size=1344; hash="B3721B17"; schema="tecmo.gameplay-camera/TGCP-1" },
+        [pscustomobject]@{ id="gameplay/camera-projection"; size=1536; hash="53247856"; schema="tecmo.gameplay-camera/TGCP-2" },
         [pscustomobject]@{ id="gameplay/court-orientation"; size=640; hash="F9152C0A"; schema="tecmo.gameplay-court-orientation/TGOR-1" },
         [pscustomobject]@{ id="gameplay/close-shots"; size=3144; hash="DACDC976"; schema="tecmo.gameplay-close-shots/TGCS-1" },
         [pscustomobject]@{ id="gameplay/dunk-cutaway"; size=20272; hash="E02F2D21"; schema="tecmo.gameplay-dunk-cutaway/TGDK-1" },
@@ -260,6 +260,11 @@ try {
         ![bool]$CameraMaps[0].dependencies[1].same_pack_required -or
         $CameraMaps[0].state_contract.pure_initialize.layout_cursor -ne '$20' -or
         $CameraMaps[0].state_contract.live_prime.layout_cursor -ne '$21' -or
+        @($CameraMaps[0].source_spans).Count -ne 7 -or
+        ![bool]$CameraMaps[0].ordinary_movement_geometry.strict_tgcp2_source -or
+        $CameraMaps[0].ordinary_movement_geometry.payload_offset -ne 1360 -or
+        $CameraMaps[0].ordinary_movement_geometry.fingerprint_sha256 -ne
+            "0B97A9AAC4DF35E4EDF7979C6C0355852B9DE7398844B2679CFAB298F0C0CBA6" -or
         $CameraMaps[0].live_runtime_contract.update -notmatch
             "exactly one route-zero follow" -or
         $CameraMaps[0].live_runtime_contract.viewport -notmatch
@@ -271,7 +276,7 @@ try {
             "CB1D4EAF" -or
         $CourtMaps[0].native_contract.boundary -notmatch
             "production camera-positioned live viewport") {
-        throw "Production TGCP-1/TGCT-1 scene provenance is incomplete."
+        throw "Production TGCP-2/TGCT-1 scene provenance is incomplete."
     }
 
     $DunkLog = Join-Path $Scratch "dunk-cutaway-assets.log"
@@ -334,7 +339,7 @@ try {
         [byte][char]'x'
     [IO.File]::WriteAllBytes($MissingCameraPath, $MissingCamera)
     Assert-SceneRejected -AssetPack $MissingCameraPath `
-        -Label "missing-camera-projection" -ExpectedStatus "TGCP-1"
+        -Label "missing-camera-projection" -ExpectedStatus "TGCP-2"
 
     $MalformedCameraPath =
         Join-Path $Scratch "malformed-camera-projection.assetpack"
@@ -346,17 +351,17 @@ try {
     [IO.File]::WriteAllBytes($MalformedCameraPath, $MalformedCamera)
     Assert-SceneRejected -AssetPack $MalformedCameraPath `
         -Label "malformed-camera-projection" `
-        -ExpectedStatus "TGCP-1 header/size/reserved contract rejected"
+        -ExpectedStatus "TGCP-2 header/size/reserved contract rejected"
 
     $OversizedCameraPath =
         Join-Path $Scratch "oversized-camera-projection.assetpack"
     $OversizedCamera = [byte[]]$PackBytes.Clone()
-    [BitConverter]::GetBytes([uint64]1345).CopyTo(
+    [BitConverter]::GetBytes([uint64]1537).CopyTo(
         $OversizedCamera,
         [int]$Entries["gameplay/camera-projection"].directory_offset + 92)
     [IO.File]::WriteAllBytes($OversizedCameraPath, $OversizedCamera)
     Assert-SceneRejected -AssetPack $OversizedCameraPath `
-        -Label "oversized-camera-projection" -ExpectedStatus "TGCP-1"
+        -Label "oversized-camera-projection" -ExpectedStatus "TGCP-2"
 
     $CameraDependencyPath =
         Join-Path $Scratch "camera-dependency-corrupt.assetpack"
@@ -365,7 +370,7 @@ try {
         $CameraDependency[$CameraOffset + 24] -bxor 1
     [IO.File]::WriteAllBytes($CameraDependencyPath, $CameraDependency)
     Assert-SceneRejected -AssetPack $CameraDependencyPath `
-        -Label "camera-dependency-corrupt" -ExpectedStatus "TGCP-1"
+        -Label "camera-dependency-corrupt" -ExpectedStatus "TGCP-2"
 
     $MissingOrientationPath =
         Join-Path $Scratch "missing-court-orientation.assetpack"
@@ -640,7 +645,7 @@ try {
 
     $global:LASTEXITCODE = 0
     Write-Output ("GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance " +
-        "scene controls TGCP-1 full-world camera fine-scroll guarded-margins possession/freeze TGDK TGJS TGSR-3 jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
+        "scene controls TGCP-2 full-world camera fine-scroll guarded-margins possession/freeze TGDK TGJS TGSR-3 jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
         "halftime/final render-hashes/determinism missing malformed oversized " +
         "dependency-corrupt chr-mismatch")
 } finally {

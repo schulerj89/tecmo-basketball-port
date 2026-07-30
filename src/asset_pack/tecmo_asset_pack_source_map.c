@@ -1869,8 +1869,11 @@ static int append_gameplay_camera_source_map_entry(
         "dynamic-attribute-helper-$E0E7-$E13B",
         "threshold-table-follow-and-route-gate-$E168-$E2E6",
         "forced-settle-$EB4F-$EB8C",
-        "actor-projector-$F1CB-$F1F1"
+        "actor-projector-$F1CB-$F1F1",
+        "ordinary-actor-dispatch-and-clamp-$F106-$F1B0"
     };
+    const TecmoGameplayCameraExpectedSource *actor_clamp =
+        &tecmo_gameplay_camera_expected_sources[6U];
     const char *prefix = *first != 0 ? "" : ",\n";
 
     *first = 0;
@@ -1878,7 +1881,7 @@ static int append_gameplay_camera_source_map_entry(
             buffer, capacity, length,
             "%s"
             "    {\"id\":\"%s\",\"kind\":\"gameplay-camera-projection-native\","
-            "\"schema\":\"tecmo.gameplay-camera/TGCP-1\",\"size\":%u,"
+            "\"schema\":\"tecmo.gameplay-camera/TGCP-2\",\"size\":%u,"
             "\"fingerprint_fnv1a32\":\"%08X\","
             "\"revision_sha256_identity\":\"076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4\","
             "\"revision_full_rom_fnv1a32\":\"0650F5B0\","
@@ -1913,7 +1916,7 @@ static int append_gameplay_camera_source_map_entry(
                 "%s{\"role\":\"%s\",\"source_entry\":\"prg/fixed\","
                 "\"source_offset\":%llu,\"bank\":%u,\"fixed_bank\":true,"
                 "\"cpu_start\":%u,\"cpu_end\":%u,\"size\":%u,"
-                "\"fingerprint_fnv1a32\":\"%08X\","
+                "\"fingerprint_fnv1a32\":\"%08X\"%s,"
                 "\"payload_offset\":%u}",
                 index == 0U ? "" : ",", roles[index],
                 (unsigned long long)p->source_offsets[index],
@@ -1923,6 +1926,9 @@ static int append_gameplay_camera_source_map_entry(
                            source->byte_count - 1U),
                 (unsigned)source->byte_count,
                 (unsigned)source->fingerprint,
+                index == 6U
+                    ? ",\"fingerprint_sha256\":\"0B97A9AAC4DF35E4EDF7979C6C0355852B9DE7398844B2679CFAB298F0C0CBA6\""
+                    : "",
                 (unsigned)source->payload_offset) != 0) {
             return -1;
         }
@@ -1954,6 +1960,12 @@ static int append_gameplay_camera_source_map_entry(
         "\"left_cursor_bound\":12,\"right_cursor_bound\":52,"
         "\"suppressed_action_routes\":[1,18,19],"
         "\"coarse_boundary\":\"scroll_x eight-pixel crossing updates layout cursor and stream direction; reversal advances three cursor units\","
+        "\"live_state_validator\":{\"right_cursor\":\"min((camera_x >> 3)+1,$34)\","
+        "\"left_cursor\":\"max((camera_x >> 3)-1,$0B)\","
+        "\"unlatched_thresholds\":[80,160],"
+        "\"left_endpoint_thresholds\":[216,232],"
+        "\"right_endpoint_thresholds\":[32,4],"
+        "\"thresholds_invalid_requires_latch_clear\":true},"
         "\"settle\":\"bounded transactional route-zero follow until scroll_x is unchanged; PPU commits excluded\"},"
         "\"projection_contract\":{"
         "\"screen_x\":\"low byte of world_x-camera_x when the high byte is zero\","
@@ -1962,7 +1974,7 @@ static int append_gameplay_camera_source_map_entry(
         "\"screen_y\":\"visible actors use max(0, raw_world_y-altitude)\","
         "\"orientation_transform\":false,\"vertical_camera\":false},"
         "\"live_runtime_contract\":{"
-        "\"asset_pack\":\"TGCP-1, TGCT-1, TGOR-1, TGPL-1, and chr/all resolve from one canonical pack\","
+        "\"asset_pack\":\"TGCP-2, TGCT-1, TGOR-1, TGPL-1, and chr/all resolve from one canonical pack\","
         "\"world_seed\":\"legacy screen X plus $0100; ball and every actor/anchor/shot endpoint use world coordinates\","
         "\"launch\":\"pure $DE13 init, one $DDFB->$DF05 live prime, world seed, then one bounded route-zero settle\","
         "\"update\":\"exactly one route-zero follow after all live object and ball mutations; focus is ball world X and orientation is TGOR current_direction\","
@@ -1973,10 +1985,14 @@ static int append_gameplay_camera_source_map_entry(
         "\"shot_target\":{\"orientation_0_x\":160,\"orientation_1_x\":608,"
         "\"launch_y\":143,\"endpoint_captured_once\":true}},"
         "\"ordinary_movement_geometry\":{"
-        "\"source_entry\":\"prg/fixed\",\"source_offset\":127254,"
-        "\"bank\":7,\"fixed_bank\":true,\"cpu_start\":61702,"
-        "\"cpu_end\":61872,\"size\":171,"
-        "\"fingerprint_fnv1a32\":\"CB1D4EAF\","
+        "\"strict_tgcp2_source\":true,"
+        "\"source_kind\":\"ordinary-actor-dispatch-and-clamp\","
+        "\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,"
+        "\"bank\":%u,\"fixed_bank\":true,\"cpu_start\":%u,"
+        "\"cpu_end\":%u,\"size\":%u,"
+        "\"fingerprint_fnv1a32\":\"%08X\","
+        "\"fingerprint_sha256\":\"0B97A9AAC4DF35E4EDF7979C6C0355852B9DE7398844B2679CFAB298F0C0CBA6\","
+        "\"payload_offset\":%u,"
         "\"closed_span\":\"$F106-$F1B0\","
         "\"page0_left\":\"$00DF-floor(world_y/2)\","
         "\"page1\":\"interior continuation\","
@@ -1984,7 +2000,15 @@ static int append_gameplay_camera_source_map_entry(
         "\"native_policy\":\"ordinary movement currently owns this trapezoid unconditionally\","
         "\"dispatcher_exceptions_not_implemented\":[\"$0478\",\"$046E\",\"$0588\",\"$0463\",\"$0742\"]},"
         "\"supported_boundary\":\"strict pure and production live camera state, full-court slicing, actor/ball projection, and clipped native composition; no staged PPU commit/prefetch ordering, TGFL free-throw positioning ownership, vertical camera, generalized movement-dispatch exceptions, HUD provenance, or capture-derived behavior\","
-        "\"runtime_inputs\":\"TGCP-1 plus same-pack TGPL-1 and TGCT-1; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}");
+        "\"runtime_inputs\":\"TGCP-2 plus same-pack TGPL-1 and TGCT-1; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}",
+        (unsigned long long)p->source_offsets[6U],
+        (unsigned)actor_clamp->bank,
+        (unsigned)actor_clamp->cpu_start,
+        (unsigned)((uint32_t)actor_clamp->cpu_start +
+                   actor_clamp->byte_count - 1U),
+        (unsigned)actor_clamp->byte_count,
+        (unsigned)actor_clamp->fingerprint,
+        (unsigned)actor_clamp->payload_offset);
 }
 
 static int append_gameplay_close_shot_source_map_entry(

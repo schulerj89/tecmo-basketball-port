@@ -3,6 +3,7 @@
 #endif
 
 #include "tecmo_gameplay_scene.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_camera.h"
 #include "tecmo_asset_pack.h"
 #include "tecmo_nes_video.h"
 
@@ -315,7 +316,7 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
     }
     scene->available = true;
     scene_set_status(scene,
-                     "native gameplay ready: TGPL-1/TGCT-1/TGCP-1/TGOR-1/TGCS-1/TGDK-1/TGJS-1/TGSR-3/TSFX-1/TDMC-1");
+                     "native gameplay ready: TGPL-1/TGCT-1/TGCP-2/TGOR-1/TGCS-1/TGDK-1/TGJS-1/TGSR-3/TSFX-1/TDMC-1");
     return true;
 }
 
@@ -3712,7 +3713,8 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         return false;
     }
     if (!scene.camera_assets.available ||
-        scene.camera_assets.storage_size != 1344U ||
+        scene.camera_assets.storage_size !=
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SIZE ||
         scene.camera_assets.gameplay_core_fingerprint != 0x2047CCE0U ||
         scene.camera_assets.gameplay_court_fingerprint != 0xECAB7A93U ||
         scene.court_world.contract_tag !=
@@ -3730,7 +3732,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.court_world.palette_indices_fingerprint !=
             TECMO_GAMEPLAY_COURT_WORLD_PALETTES_FNV1A32) {
         scene_test_message(message, message_size,
-                           "TGCP-1/TGCT-1 live dependency contract failed");
+                           "TGCP-2/TGCT-1 live dependency contract failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -3779,7 +3781,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
             &scene.camera_assets, &scene.camera_state)) {
         scene_test_message(
             message, message_size,
-            "TGCP-1 live prime/initial world-state contract failed");
+            "TGCP-2 live prime/initial world-state contract failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
