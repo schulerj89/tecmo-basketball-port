@@ -2264,6 +2264,85 @@ static int append_gameplay_penalty_source_map_entry(
         "\"runtime_inputs\":\"TPNL-1 plus same-pack TGPL-1 and TSFX-1; no decompilation, trace, capture, screenshot, video, log, dump, Lua output, ROM, or save state\"}");
 }
 
+static int append_gameplay_free_throw_lineup_source_map_entry(
+    char *buffer,
+    size_t capacity,
+    size_t *length,
+    int *first,
+    const TecmoGameplayFreeThrowLineupProvenance *p)
+{
+    static const char *const roles[
+        TECMO_GAMEPLAY_FREE_THROW_LINEUP_SOURCE_COUNT] = {
+        "pose-offset-lookup-$88B0-$88D9",
+        "round-lineup-seed-and-slot-order-$9621-$976E",
+        "free-throw-followup-lineup-seed-$976F-$985C",
+        "free-throw-lineup-pointers-coordinates-and-directions-$985D-$9918"
+    };
+    const char *prefix = *first != 0 ? "" : ",\n";
+
+    *first = 0;
+    if (tecmo_asset_pack_append_text(
+            buffer, capacity, length,
+            "%s"
+            "    {\"id\":\"%s\",\"kind\":\"gameplay-free-throw-lineup-native\","
+            "\"schema\":\"tecmo.gameplay-free-throw-lineup/TGFL-1\","
+            "\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\","
+            "\"revision_sha256_identity\":\"076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4\","
+            "\"revision_full_rom_fnv1a32\":\"0650F5B0\","
+            "\"revision_full_rom_fnv1a32_verified\":true,"
+            "\"revision_source_fingerprints_verified\":true,"
+            "\"dependencies\":[{\"entry\":\"%s\",\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"%08X\","
+            "\"reason\":\"validate raw even pose offsets as TGPL pointer indexes offset/2\"}],"
+            "\"source_spans\":[",
+            prefix,
+            TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_FNV1A32,
+            TECMO_ASSET_PACK_GAMEPLAY_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_FNV1A32) != 0) {
+        return -1;
+    }
+    for (size_t index = 0U;
+         index < TECMO_GAMEPLAY_FREE_THROW_LINEUP_SOURCE_COUNT; ++index) {
+        const TecmoGameplayFreeThrowLineupExpectedSource *source =
+            &tecmo_gameplay_free_throw_lineup_expected_sources[index];
+        if (tecmo_asset_pack_append_text(
+                buffer, capacity, length,
+                "%s{\"role\":\"%s\",\"source_entry\":\"prg/bank06\","
+                "\"source_offset\":%llu,\"bank\":6,\"fixed_bank\":false,"
+                "\"cpu_start\":%u,\"cpu_end\":%u,\"size\":%u,"
+                "\"fingerprint_fnv1a32\":\"%08X\","
+                "\"payload_offset\":%u}",
+                index == 0U ? "" : ",", roles[index],
+                (unsigned long long)p->source_offsets[index],
+                (unsigned)source->cpu_start,
+                (unsigned)((uint32_t)source->cpu_start +
+                           source->byte_count - 1U),
+                (unsigned)source->byte_count,
+                (unsigned)source->fingerprint,
+                (unsigned)source->payload_offset) != 0) {
+            return -1;
+        }
+    }
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "],\"lineup_contract\":{"
+        "\"orientations\":[0,1],\"actor_slots\":10,"
+        "\"coordinates\":\"raw 16-bit world X and raw 8-bit world Y; unclamped and unprojected\","
+        "\"pose_offset_units\":\"even byte offset\","
+        "\"pose_index_rule\":\"raw_pose_offset/2\","
+        "\"validated_pose_indexes\":[517,518,519,520],"
+        "\"shooter_pose\":\"preserved/undefined because $976F-$985C does not call $88B0 for the shooter\","
+        "\"stream_policy\":\"descending actor slots; shooter skip consumes neither coordinate pair nor pose-direction item\","
+        "\"base_nonshooter_state\":{\"raw_046E\":0,\"raw_057C\":1,\"raw_0458\":48,\"raw_0479\":193,\"raw_048F\":0},"
+        "\"base_shooter_state\":{\"raw_046E\":32,\"raw_057C\":1,\"raw_0458\":48,\"raw_0479\":65,\"raw_048F\":0},"
+        "\"control_overrides\":\"not encoded; secondary raw phase $15 and shooter script override require explicit side-control inputs\"},"
+        "\"supported_boundary\":\"pure raw lineup derivation only; no camera projection, live scene mutation, aim, attempt decrement, outcome, rebound, CPU script, or capture-derived behavior\","
+        "\"runtime_inputs\":\"TGFL-1 plus same-pack TGPL-1; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}");
+}
+
 char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    uint32_t trainer_bytes,
                                    uint32_t prg_banks,
@@ -2291,10 +2370,11 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoGameplayDunkProvenance *dunk_provenance,
                                    const TecmoGameplayJumpShotProvenance *jump_shot_provenance,
                                    const TecmoGameplayShotResolutionProvenance *shot_resolution_provenance,
-                                   const TecmoGameplayPenaltyProvenance *penalty_provenance,
-                                   size_t *source_map_size_out)
+    const TecmoGameplayPenaltyProvenance *penalty_provenance,
+    const TecmoGameplayFreeThrowLineupProvenance *free_throw_lineup_provenance,
+    size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 25U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 26U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -2540,7 +2620,11 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
         (penalty_provenance->source_offsets[0] != 0U &&
          append_gameplay_penalty_source_map_entry(
              source_map, capacity, &length, &first_logical,
-             penalty_provenance) != 0)) {
+             penalty_provenance) != 0) ||
+        (free_throw_lineup_provenance->source_offsets[0] != 0U &&
+         append_gameplay_free_throw_lineup_source_map_entry(
+             source_map, capacity, &length, &first_logical,
+             free_throw_lineup_provenance) != 0)) {
         free(source_map);
         return NULL;
     }

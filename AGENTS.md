@@ -92,6 +92,7 @@ out of unrelated commits unless the user explicitly asks to commit them.
 .\tools\Run-MusicTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayAudioTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-TeamDataTests.ps1 -RomPath <LOCAL_ROM.nes>
 .\tools\Run-TeamManagementTests.ps1 -RomPath <LOCAL_ROM.nes>
 .\tools\Run-SeasonTests.ps1 -RomPath <LOCAL_ROM.nes>
@@ -706,8 +707,8 @@ semantic rebounds/blocks/steals, general make/contact rules, the distance policy
 selecting dunk/variant 0 versus layup/variant 2, live close-shot
 profile/direction selection and left-facing render
 mirroring, dynamic team/court palette selection, foul detection, free-throw
-lineup/aim/outcome/rebound and CPU positioning/script behavior, and HUD text are
-explicit native approximations.
+camera projection/live lineup integration/aim/outcome/rebound and CPU
+positioning/script behavior, and HUD text are explicit native approximations.
 TGCS stores 208 exact profile/direction resolutions into TGPL pose data, but the
 live scene currently selects only profile 0/direction 0 and mirrors
 actor-facing-left; the asset breadth must not be read as proof of that narrower
@@ -800,6 +801,29 @@ live scene's current deterministic contact/foul branches remain
 implementation-owned and do not yet consume TPNL; do not describe synthetic
 scene fouls as ROM-derived penalty classification.
 
+TGFL-1 `gameplay/free-throw-lineup` is a strict 1216-byte pure lineup
+foundation (FNV1a32 `B17B9A3F`) with an exact same-pack TGPL-1 dependency.
+It stores the complete Rev1 Bank06 spans `$88B0-$88D9` (`AD834719`),
+`$9621-$976E` (`998D84B8`), `$976F-$985C` (`FB7680EF`), and
+`$985D-$9918` (`AFB31306`) behind exact source records, zero-reserved fields,
+the full-ROM revision fingerprint, and sanitized source-map provenance. Its
+pure API accepts orientation 0/1 plus explicit, distinct shooter and secondary
+slots and returns unclamped raw world coordinates, directions, state seeds,
+raw even pose offsets, and TGPL pointer indexes `offset/2` (`517..520`) for
+the nine non-shooters. Both descending streams skip the shooter without
+consuming an item. The shooter's raw position/direction/state seed is exact,
+but its pose is preserved/undefined because `$976F-$985C` does not call
+`$88B0` for that slot. The base API accepts no side-control flags and therefore
+does not invent the conditional shooter script override or secondary raw phase
+`$15`.
+
+TGFL-1 is not loaded by `TecmoGameplayScene` and does not project raw world
+coordinates through the approximate native camera. It proves no live
+positioning, aim, attempt decrement, outcome, rebound, or CPU script behavior.
+Missing, malformed, undersized/oversized, wrong-revision, and cross-pack data
+fails closed. Verify it with
+`tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
+
 ## Runtime Architecture Notes
 
 This is a native port, not an emulator wrapper. Current modules of interest:
@@ -817,6 +841,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/asset_pack/tecmo_asset_pack_gameplay_close_shots.c`: strict TGCS-1 numeric close-shot importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c`: strict TGDK-1 screen/palette/CHR/staged-sprite importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c`: strict TGJS-1 ordinary-jump importer
+- `src/asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.c`: strict TGFL-1 raw free-throw lineup importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_audio.c`: strict TSFX-1/TDMC-1 gameplay-audio importer
 - `src/asset_pack/tecmo_asset_pack_start_menu.c`: ROM-only TSGM-1 blue start-game menu importer
 - `src/asset_pack/tecmo_asset_pack_opening.c`: ROM-only TISC-1 TECMO/rabbit and NBA opening-screen importer

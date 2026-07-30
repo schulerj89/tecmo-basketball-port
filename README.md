@@ -164,8 +164,11 @@ accumulators are ported.
   overtime/final presentation, and preseason/season result handoff.
 - Human free throws launch from the scoring team's current NES B level and
   have no timeout. CPU free throws use the bounded observed 125-update
-  schedule; lineup, aim, outcome, rebound, and CPU positioning remain
-  approximations.
+  schedule. The exact two-orientation raw lineup, shooter-dependent actor
+  stream, pose indexes, and base actor-state seeds are available through the
+  strict TGFL-1 data foundation, but camera projection, live repositioning,
+  aim, outcome, rebound, and CPU positioning remain unsupported or
+  approximate.
 - Rebounds, blocks, and steals remain approximate or nonsemantic. The current
   scene can transfer possession and attempt defensive contact, but it does not
   claim the original game's selection or outcome logic for those events.
@@ -180,7 +183,7 @@ Strict ROM-derived data currently covers the static court, CHR and palette
 entries, embedded FCEUX RGB profile, actor pose data, numeric close-shot step
 tables, dunk cutaway, the bounded ordinary-jump miss/three-point-make context,
 TGSR-3 shot resolution, its exact 1/2/3-point classifier and
-diagnostic-only rim-rattle prefix, rules timing,
+diagnostic-only rim-rattle prefix, the TGFL-1 raw free-throw lineup, rules timing,
 and native music/SFX/DMC programs. Every required gameplay entry is loaded from the same
 revision-fingerprinted asset pack with exact-size and malformed-data checks.
 
@@ -191,6 +194,8 @@ detection, free-throw simulation, rebounds, blocks, steals, per-player game
 statistics, and temporary HUD typography remain native approximations or are
 unsupported. `gameplay/penalties` TPNL-1 contains strict ROM-backed rule data,
 but the live scene's current contact/foul code does not consume it yet.
+Likewise, `gameplay/free-throw-lineup` TGFL-1 preserves raw world coordinates
+and does not bypass the still-missing gameplay camera projection.
 
 The first two intro screens, TECMO/rabbit and NBA license, are silent. Strict
 opening music begins at the license-to-arena handoff. Title confirmation queues
@@ -219,6 +224,7 @@ through explicit render-test/debug paths for development work.
 .\tools\gameplay-lab\Test-GameplayLab.ps1
 .\tools\Run-GameplayShotResolutionTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayPenaltyTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayDunkCutawayTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 ```
@@ -278,13 +284,13 @@ Generated `.assetpack` files are ignored local data. Every pack includes the
 manifest, sanitized source map, and raw PRG/CHR entries used by the strict
 logical assets.
 
-The current Rev 1 builder emits a 74-entry pack. In addition to the raw PRG and
+The current Rev 1 builder emits a 75-entry pack. In addition to the raw PRG and
 CHR entries, it contains strict logical assets for the opening, arena, finale,
 title, blue menu, preseason, Team Data, team management, season state, music,
 gameplay audio, court, poses, close shots, dunk presentation, the bounded jump
-route, shot-resolution rules, and penalty rules. These entries are derived
-directly from the local ROM during pack construction; decompilation files and
-captures are not pack inputs.
+route, shot-resolution rules, penalty rules, and the raw free-throw lineup.
+These entries are derived directly from the local ROM during pack construction;
+decompilation files and captures are not pack inputs.
 
 The normal Desktop launch resolves native assets from `TECMO_ASSETPACK` or the
 port's `build\tecmo.assetpack`. Loose decomp fallbacks remain development-only

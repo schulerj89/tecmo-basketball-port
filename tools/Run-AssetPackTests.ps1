@@ -347,6 +347,7 @@ function Get-KnownLogicalAssetPackEntries {
         "gameplay/jump-shots",
         "gameplay/shot-resolution",
         "gameplay/penalties",
+        "gameplay/free-throw-lineup",
         "roster/table.tsv",
         "title/original-text.txt",
         "title/glyph-map.tsv",
@@ -404,6 +405,7 @@ function Get-ExpectedLogicalAssetPackEntries {
             "gameplay/jump-shots"
             "gameplay/shot-resolution"
             "gameplay/penalties"
+            "gameplay/free-throw-lineup"
         )
         capture_sources_present = @()
     }

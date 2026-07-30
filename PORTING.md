@@ -695,6 +695,7 @@ Normal gates should stay close to:
 .\tools\Run-MusicTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayAudioTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-IntroSequenceTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-TeamDataTests.ps1 -RomPath <LOCAL_ROM.nes>
 .\tools\Run-TeamManagementTests.ps1 -RomPath <LOCAL_ROM.nes>
@@ -869,6 +870,36 @@ bounded classification and presentation data without inferring contact,
 collision, possession, or route state. The live scene's deterministic
 contact/foul policy is still implementation-owned and is not wired to TPNL.
 
+TGFL-1 `gameplay/free-throw-lineup` is a strict ROM-only, pure lineup
+foundation that does not change the live scene. Its 1216-byte payload has
+FNV1a32 `B17B9A3F`, depends on exact same-pack TGPL-1, and retains the complete
+Rev1 Bank06 spans `$88B0-$88D9` (`AD834719`), `$9621-$976E` (`998D84B8`),
+`$976F-$985C` (`FB7680EF`), and `$985D-$9918` (`AFB31306`). Exact source
+records, zero-reserved fields, raw-section and canonical fingerprints, the
+full-ROM revision fingerprint, exact-size reads, and source-map provenance
+reject missing, malformed, undersized/oversized, wrong-revision, and
+cross-pack data.
+
+The pure resolver takes orientation 0/1 and explicit, distinct shooter and
+secondary slots. It reproduces the descending raw coordinate and
+pose-direction stream consumption, including the shooter-dependent skip,
+without clamping or projecting raw 16-bit world X and raw 8-bit world Y.
+For non-shooters, `$88B0`'s raw even pose byte offsets map to TGPL pointer
+indexes with `offset/2`; the validated set is `517..520`, not `1034..1040`.
+The exact base state seeds are raw `$046E/$057C/$0458/$0479/$048F =
+00/01/30/C1/00` for non-shooters and `20/01/30/41/00` for the shooter. The
+shooter pose remains preserved/undefined because the follow-up routine does
+not call `$88B0` for that slot. The API intentionally omits side-control inputs
+and therefore does not apply the conditional shooter script override or
+secondary raw phase `$15`.
+
+Do not load TGFL-1 into `TecmoGameplayScene` until exact raw-world/camera
+projection is available. This foundation proves no live lineup positioning,
+aim, attempt decrement, outcome, rebound, or CPU positioning/script behavior.
+Run `tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath
+<LOCAL_ROM.nes>` for parser/API, provenance, mutation, revision, and dependency
+coverage.
+
 Period completion follows fixed `$E59B->$E823`: regulation M:00 and divider 45
 are prepared before selecting the next banner, halftime, overtime, or final
 branch. Only a tied overtime restart at `$E601-$E60F` overwrites that duration
@@ -906,7 +937,8 @@ motion, the longer +157-update claimant route, semantic rebounds/blocks/steals,
 general make/contact policy, the trigger selecting
 dunk/variant 0 versus layup/variant 2, live close-shot profile/direction
 selection and left-facing mirroring, dynamic team/court palette selection,
-foul detection, free-throw lineup/aim/outcome/rebound and CPU
+foul detection, free-throw camera projection/live lineup
+integration/aim/outcome/rebound and CPU
 positioning/script behavior, and HUD typography remain explicit native
 approximations. Local original-frame comparisons found no unrendered or garbage
 cells. After normalizing the small emulator RGB-output difference, the TGDK

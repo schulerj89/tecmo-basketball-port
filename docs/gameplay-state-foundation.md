@@ -257,8 +257,12 @@ decompilation at these CPU-address ranges:
   offsets `$007D` or `$00D7`. These values are offsets, not frame timers.
 - Bank 06 `$8B8E-$8B9D`: maps the selected command offset from base `$9F2E` to
   its stream/dispatch pointer.
-- Bank 06 `$9621`, `$976F-$985C`: free-throw setup/lineup state boundary. The
-  visual lineup/repositioning remains outside the current scene renderer.
+- Bank 06 `$9621`, `$976F-$985C`: free-throw setup/lineup state boundary.
+  Strict TGFL-1 additionally covers `$88B0-$88D9`, `$9621-$976E`,
+  `$976F-$985C`, and `$985D-$9918`, preserving raw world coordinates, the
+  shooter-dependent stream skip, resolved nonshooter pose indexes, and base
+  actor-state seeds. Visual lineup/repositioning remains outside the current
+  scene renderer pending the original camera/world projection.
 - Bank 05 `$8ABD-$8CE4`, table `$8CE5-$8D7C`, launch `$9C40-$9CC9`, actor
   progression `$86BB`, `$86DD`, `$8732`, `$8745`, result `$91BC-$943A`, ball
   path `$AF30-$B073`, and scoring `$B995-$BA3F`: numeric close-shot subtype 01
@@ -331,10 +335,13 @@ These are provenance only and are not runtime inputs.
   possession, and selection of divider 45 versus 50 are caller-supplied.
   Unsupported or malformed choices fail without mutating state.
 - Free-throw controller ownership and the human current-B launch gate are
-  supported. CPU play uses the bounded observed 125-update launch schedule;
-  original positioning/script dispatch, visual lineup timing, aiming,
-  made/missed policy, rebound behavior, and post-attempt possession remain
-  unresolved. Only explicit made/missed results and settlement are modeled.
+  supported. TGFL-1 strictly resolves the base raw lineup for both
+  orientations, but does not project or mutate the live scene. CPU play uses
+  the bounded observed 125-update launch schedule; original camera/world
+  projection, conditional positioning/script overrides, visual lineup timing,
+  aiming, made/missed policy, rebound behavior, and post-attempt possession
+  remain unresolved. Only explicit made/missed results and settlement are
+  modeled.
 - The exact TGCS numeric step/phase tables and the selected TGPL pose resolution
   are consumed directly by the scene. TGCS exposes 208 exact resolutions, but
   live selection is limited to profile 0/direction 0 and actor-facing-left is
@@ -358,8 +365,9 @@ These are provenance only and are not runtime inputs.
   make/contact policy, the distance policy
   selecting dunk/variant 0 versus layup/variant 2, live close-shot
   profile/direction selection and left-facing render mirroring, dynamic
-  team/court palette selection, foul detection, free-throw
-  lineup/aim/result/rebound and CPU positioning/script behavior, and
+  team/court palette selection, foul detection, free-throw camera
+  projection/live lineup integration/aim/result/rebound and CPU
+  positioning/script behavior, and
   HUD typography are native approximations. The imported TGCT palette bytes and
   embedded FCEUX RGB profile are exact, but native selection does not yet
   reproduce all original matchup/state colors. The exact rules state consumes
@@ -381,8 +389,9 @@ strict full-pack scene test and deterministic 640x480 start, jump-miss through
 87, jump-make through 111, and dunk checkpoints through 132. Run
 `tools\Run-GameplayDunkCutawayTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` for
 the strict TGDK payload/provenance/render/mutation/revision checks.
-`Run-GameplayShotResolutionTests.ps1` and `Run-GameplayPenaltyTests.ps1`
-validate the strict TGSR/TPNL parsers, same-pack dependencies, source mutation,
-and pure APIs. `--gameplay-state-test`, the TGPL/TGCT/TGCS/TGJS focused suites,
-the 74-entry full asset-pack regression, and `Run-GameplayAudioTests.ps1`
-retain their lower-level coverage.
+`Run-GameplayShotResolutionTests.ps1`, `Run-GameplayPenaltyTests.ps1`, and
+`Run-GameplayFreeThrowLineupTests.ps1` validate the strict TGSR/TPNL/TGFL
+parsers, same-pack dependencies, source mutation, and pure APIs.
+`--gameplay-state-test`, the TGPL/TGCT/TGCS/TGJS focused suites, the 75-entry
+full asset-pack regression, and `Run-GameplayAudioTests.ps1` retain their
+lower-level coverage.
