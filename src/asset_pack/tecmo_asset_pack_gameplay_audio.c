@@ -69,6 +69,24 @@ static const SfxSource sfx_sources[TECMO_ASSET_PACK_GAMEPLAY_SFX_EFFECT_COUNT] =
     {14U, 0x8B6EU, 0x8B97U, 0xE3035B54U}
 };
 
+static const SfxSource frontend_sfx_sources[
+    TECMO_ASSET_PACK_FRONTEND_SFX_EFFECT_COUNT] = {
+    {8U, 0x8BF7U, 0x8C2AU, 0xAC9D4C1FU},
+    {10U, 0x8B97U, 0x8BF7U, 0x963DC35EU}
+};
+
+static const uint8_t frontend_audio_rev1_ines_header[16] = {
+    0x4EU, 0x45U, 0x53U, 0x1AU, 0x08U, 0x20U, 0x42U, 0x00U,
+    0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U
+};
+
+static const uint8_t frontend_audio_rev1_sha256[32] = {
+    0x07U, 0x6AU, 0x6BU, 0xEBU, 0x27U, 0x3FU, 0xABU, 0x39U,
+    0x19U, 0x8CU, 0x87U, 0xAEU, 0x6AU, 0xF6U, 0x9FU, 0x80U,
+    0xAAU, 0x54U, 0x8DU, 0x68U, 0x17U, 0x75U, 0x38U, 0x29U,
+    0xF2U, 0xC2U, 0xBDU, 0xE1U, 0xF9U, 0x74U, 0x75U, 0xC4U
+};
+
 static int range_valid(uint64_t offset, uint64_t count, uint64_t size)
 {
     return offset <= size && count <= size - offset;
@@ -198,7 +216,7 @@ static int parse_instruction(ImportedSfx *sfx, ImportedChannel *channel,
                 rom, bank04_offset, (uint16_t)(address + 1U + index));
         }
         if ((voice[2] != 0U && voice[2] != 0x05U &&
-             voice[2] != 0x0FU) ||
+             voice[2] != 0x0FU && voice[2] != 0x10U) ||
             (voice[1] & 0xE0U) != 0U)
             return -1;
         voice_index = add_voice(sfx, voice);
@@ -391,10 +409,11 @@ static int compile_channel(ImportedSfx *sfx, ImportedChannel *channel,
 }
 
 static int compile_effect(ImportedSfx *sfx, unsigned effect_index,
+                          const SfxSource *sources,
                           const uint8_t *rom, uint64_t bank04_offset,
                           char *message, size_t message_size)
 {
-    const SfxSource *source = &sfx_sources[effect_index];
+    const SfxSource *source = &sources[effect_index];
     uint16_t cursor = source->begin;
     uint16_t entries[TECMO_ASSET_PACK_GAMEPLAY_SFX_CHANNEL_COUNT];
     unsigned channel;
@@ -427,13 +446,16 @@ static size_t align4(size_t value)
     return (value + 3U) & ~(size_t)3U;
 }
 
-static int serialize_sfx(const ImportedSfx *sfx, const uint8_t *rom,
-                         uint64_t fixed_source, uint8_t **payload_out,
-                         size_t *payload_size_out)
+static int serialize_sfx(const ImportedSfx *sfx, const SfxSource *sources,
+                         unsigned effect_count, const char magic[4],
+                         const uint32_t semantic_fingerprints[5],
+                         const uint8_t frontend_metadata[20],
+                         const uint8_t *rom, uint64_t fixed_source,
+                         uint8_t **payload_out, size_t *payload_size_out)
 {
     size_t effect_offset = TECMO_ASSET_PACK_GAMEPLAY_SFX_HEADER_SIZE;
     size_t voice_offset = effect_offset +
-        TECMO_ASSET_PACK_GAMEPLAY_SFX_EFFECT_COUNT *
+        effect_count *
             TECMO_ASSET_PACK_GAMEPLAY_SFX_EFFECT_STRIDE;
     size_t pitch_offset = voice_offset +
         sfx->voice_count * TECMO_ASSET_PACK_GAMEPLAY_SFX_VOICE_STRIDE;
@@ -447,19 +469,18 @@ static int serialize_sfx(const ImportedSfx *sfx, const uint8_t *rom,
     unsigned effect_index;
     uint16_t index;
     if (payload == NULL || payload_size > UINT32_MAX) return -1;
-    memcpy(payload, "TSFX", 4U);
+    memcpy(payload, magic, 4U);
     tecmo_asset_pack_store_u16(payload + 4U, 1U);
     tecmo_asset_pack_store_u16(
         payload + 6U, TECMO_ASSET_PACK_GAMEPLAY_SFX_HEADER_SIZE);
     tecmo_asset_pack_store_u32(payload + 8U, (uint32_t)payload_size);
     tecmo_asset_pack_store_u32(payload + 12U, 0x0650F5B0U);
-    tecmo_asset_pack_store_u32(payload + 16U, 0x6283F255U);
-    tecmo_asset_pack_store_u32(payload + 20U, 0x548EED95U);
-    tecmo_asset_pack_store_u32(payload + 24U, 0x838408D4U);
-    tecmo_asset_pack_store_u32(payload + 28U, 0xFC6A0BC1U);
-    tecmo_asset_pack_store_u32(payload + 32U, 0x80402010U);
+    for (effect_index = 0U; effect_index < 5U; ++effect_index) {
+        tecmo_asset_pack_store_u32(payload + 16U + effect_index * 4U,
+                                   semantic_fingerprints[effect_index]);
+    }
     tecmo_asset_pack_store_u16(
-        payload + 36U, TECMO_ASSET_PACK_GAMEPLAY_SFX_EFFECT_COUNT);
+        payload + 36U, (uint16_t)effect_count);
     tecmo_asset_pack_store_u16(
         payload + 38U, TECMO_ASSET_PACK_GAMEPLAY_SFX_CHANNEL_COUNT);
     tecmo_asset_pack_store_u16(payload + 40U, sfx->voice_count);
@@ -487,12 +508,14 @@ static int serialize_sfx(const ImportedSfx *sfx, const uint8_t *rom,
     tecmo_asset_pack_store_u16(
         payload + 84U, TECMO_ASSET_PACK_GAMEPLAY_SFX_LOOP_STATE_COUNT);
     for (effect_index = 0U;
-         effect_index < TECMO_ASSET_PACK_GAMEPLAY_SFX_EFFECT_COUNT;
+         effect_index < effect_count;
          ++effect_index) {
         tecmo_asset_pack_store_u32(payload + 88U + effect_index * 4U,
-                                   sfx_sources[effect_index].fingerprint);
-        payload[116U + effect_index] = sfx_sources[effect_index].id;
+                                   sources[effect_index].fingerprint);
+        payload[116U + effect_index] = sources[effect_index].id;
     }
+    if (frontend_metadata != NULL)
+        memcpy(payload + 96U, frontend_metadata, 20U);
     for (index = 0U; index < sfx->voice_count; ++index) {
         memcpy(payload + voice_offset +
                            index * TECMO_ASSET_PACK_GAMEPLAY_SFX_VOICE_STRIDE,
@@ -506,16 +529,16 @@ static int serialize_sfx(const ImportedSfx *sfx, const uint8_t *rom,
                                    period);
     }
     for (effect_index = 0U;
-         effect_index < TECMO_ASSET_PACK_GAMEPLAY_SFX_EFFECT_COUNT;
+         effect_index < effect_count;
          ++effect_index) {
         uint8_t *effect = payload + effect_offset +
             effect_index * TECMO_ASSET_PACK_GAMEPLAY_SFX_EFFECT_STRIDE;
         unsigned channel_index;
-        effect[0] = sfx_sources[effect_index].id;
+        effect[0] = sources[effect_index].id;
         tecmo_asset_pack_store_u16(
             effect + 2U, TECMO_ASSET_PACK_GAMEPLAY_SFX_CHANNEL_COUNT);
         tecmo_asset_pack_store_u32(effect + 4U,
-                                   sfx_sources[effect_index].fingerprint);
+                                   sources[effect_index].fingerprint);
         for (channel_index = 0U;
              channel_index < TECMO_ASSET_PACK_GAMEPLAY_SFX_CHANNEL_COUNT;
              ++channel_index) {
@@ -805,7 +828,7 @@ int tecmo_asset_pack_build_gameplay_audio(
     if (sfx == NULL) return -1;
     for (index = 0U;
          index < TECMO_ASSET_PACK_GAMEPLAY_SFX_EFFECT_COUNT; ++index) {
-        if (compile_effect(sfx, index, rom, bank04_source, message,
+        if (compile_effect(sfx, index, sfx_sources, rom, bank04_source, message,
                            message_size) != 0) {
             tecmo_asset_pack_set_message(
                 message, message_size,
@@ -813,11 +836,20 @@ int tecmo_asset_pack_build_gameplay_audio(
             goto cleanup;
         }
     }
-    if (serialize_sfx(sfx, rom, fixed_source, sfx_payload_out,
+    {
+        static const uint32_t semantic_fingerprints[5] = {
+            0x6283F255U, 0x548EED95U, 0x838408D4U, 0xFC6A0BC1U,
+            0x80402010U
+        };
+        if (serialize_sfx(sfx, sfx_sources,
+                          TECMO_ASSET_PACK_GAMEPLAY_SFX_EFFECT_COUNT,
+                          "TSFX", semantic_fingerprints, NULL, rom,
+                          fixed_source, sfx_payload_out,
                       sfx_payload_size_out) != 0 ||
-        serialize_dmc(rom, fixed_source, dmc_payload_out,
-                      dmc_payload_size_out) != 0)
-        goto cleanup;
+            serialize_dmc(rom, fixed_source, dmc_payload_out,
+                          dmc_payload_size_out) != 0)
+            goto cleanup;
+    }
     provenance->sfx_directory_offset = bank04_source + 0x0AA4U;
     provenance->sfx_core_offset = bank04_source + 0x0AA4U;
     provenance->sfx_extension_offset = bank04_source + 0x1D8BU;
@@ -859,5 +891,188 @@ cleanup:
         *dmc_payload_size_out = 0U;
     }
     free(sfx);
+    return result;
+}
+
+int tecmo_asset_pack_build_frontend_audio(
+    const uint8_t *rom, uint64_t rom_size, uint64_t prg_offset,
+    uint32_t prg_banks, int enforce_revision_fingerprints,
+    uint8_t **payload_out, size_t *payload_size_out,
+    TecmoFrontendAudioProvenance *provenance,
+    char *message, size_t message_size)
+{
+    static const struct FingerprintRange {
+        uint8_t bank;
+        uint16_t cpu;
+        uint16_t size;
+        uint32_t fingerprint;
+        int fixed;
+    } ranges[] = {
+        {4U, 0x8AA4U, 32U, 0x6283F255U, 0},
+        {4U, 0x8BF7U, 51U, 0xAC9D4C1FU, 0},
+        {4U, 0x8B97U, 96U, 0x963DC35EU, 0},
+        {3U, 0x8056U, 32U, 0x4A97C61DU, 0},
+        {3U, 0x8076U, 27U, 0x0C902C97U, 0},
+        {0U, 0xC003U, 3U, 0x0F4103F2U, 1},
+        {0U, 0xD92EU, 119U, 0x105B38A7U, 1},
+        {0U, 0xDB25U, 99U, 0x5D98AB7AU, 1},
+        {0U, 0xE3FAU, 32U, 0xB8BA175BU, 1},
+        {0U, 0xC024U, 6U, 0xB4100BD2U, 1},
+        {0U, 0xCBAFU, 12U, 0xAB3677A6U, 1},
+        {0U, 0xEC06U, 32U, 0xF1BCC8E2U, 1},
+        {0U, 0xD768U, 43U, 0x68D40771U, 1},
+        {0U, 0xE477U, 42U, 0x71B4A4A8U, 1},
+        {0U, 0xF2F2U, 8U, 0x17DE7030U, 1}
+    };
+    static const uint32_t semantic_fingerprints[5] = {
+        0x6283F255U, 0x4A97C61DU, 0x0C902C97U, 0x68D40771U,
+        0xF1BCC8E2U
+    };
+    uint8_t metadata[20] = {
+        5U, 10U, 8U, 6U, 127U, 0U, 126U, 0U,
+        0x30U, 0x70U, 0xDEU, 0x17U,
+        0xA8U, 0xA4U, 0xB4U, 0x71U,
+        0x8AU, 0xA8U, 0x4CU, 0xCAU
+    };
+    ImportedSfx *sfx = NULL;
+    uint64_t bank04_source;
+    uint64_t fixed_source;
+    unsigned index;
+    int result = -1;
+    if (rom == NULL || payload_out == NULL || payload_size_out == NULL ||
+        provenance == NULL || prg_banks < 8U)
+        return -1;
+    *payload_out = NULL;
+    *payload_size_out = 0U;
+    memset(provenance, 0, sizeof(*provenance));
+    bank04_source = bank_offset(prg_offset, 4U, 0x8000U);
+    fixed_source = fixed_offset(prg_offset, prg_banks, 0xC000U);
+    if (!range_valid(bank04_source, TECMO_ASSET_PACK_PRG_BANK_BYTES,
+                     rom_size) ||
+        !range_valid(fixed_source, TECMO_ASSET_PACK_PRG_BANK_BYTES,
+                     rom_size))
+        return -1;
+    if (enforce_revision_fingerprints) {
+        for (index = 0U; index < sizeof(ranges) / sizeof(ranges[0]);
+             ++index) {
+            uint64_t source = ranges[index].fixed
+                ? fixed_source + ranges[index].cpu - 0xC000U
+                : bank_offset(prg_offset, ranges[index].bank,
+                              ranges[index].cpu);
+            if (!range_valid(source, ranges[index].size, rom_size) ||
+                tecmo_asset_pack_fnv1a32(
+                    rom + (size_t)source, ranges[index].size) !=
+                    ranges[index].fingerprint) {
+                tecmo_asset_pack_set_message(
+                    message, message_size,
+                    "Frontend audio revision fingerprint mismatch.");
+                return -1;
+            }
+        }
+    }
+    sfx = (ImportedSfx *)calloc(1U, sizeof(*sfx));
+    if (sfx == NULL) return -1;
+    for (index = 0U; index < TECMO_ASSET_PACK_FRONTEND_SFX_EFFECT_COUNT;
+         ++index) {
+        if (compile_effect(sfx, index, frontend_sfx_sources, rom,
+                           bank04_source, message, message_size) != 0) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Could not compile strict frontend SFX semantics.");
+            goto cleanup;
+        }
+    }
+    if (serialize_sfx(sfx, frontend_sfx_sources,
+                      TECMO_ASSET_PACK_FRONTEND_SFX_EFFECT_COUNT,
+                      "TFSX", semantic_fingerprints, metadata, rom,
+                      fixed_source, payload_out, payload_size_out) != 0)
+        goto cleanup;
+    provenance->sfx_directory_offset =
+        bank_offset(prg_offset, 4U, 0x8AA4U);
+    provenance->effect_offsets[0] =
+        bank_offset(prg_offset, 4U, 0x8BF7U);
+    provenance->effect_offsets[1] =
+        bank_offset(prg_offset, 4U, 0x8B97U);
+    provenance->title_setup_offset =
+        bank_offset(prg_offset, 3U, 0x8056U);
+    provenance->title_confirm_offset =
+        bank_offset(prg_offset, 3U, 0x8076U);
+    provenance->title_setup_bridge_offset = fixed_source + 0x0003U;
+    provenance->title_setup_transition_offset = fixed_source + 0x192EU;
+    provenance->title_setup_fade_offset = fixed_source + 0x1B25U;
+    provenance->frame_yield_helper_offset = fixed_source + 0x23FAU;
+    provenance->title_stop_bridge_offset = fixed_source + 0x0024U;
+    provenance->title_stop_dispatch_offset = fixed_source + 0x0BAFU;
+    provenance->title_stop_offset = fixed_source + 0x2C06U;
+    provenance->menu_accept_offset = fixed_source + 0x1768U;
+    provenance->menu_flow_offset = fixed_source + 0x2477U;
+    provenance->mailboxes_offset = fixed_source + 0x32F2U;
+    provenance->payload_size = (uint32_t)*payload_size_out;
+    provenance->payload_fingerprint = tecmo_asset_pack_fnv1a32(
+        *payload_out, *payload_size_out);
+    provenance->instruction_count = sfx->instruction_count;
+    provenance->voice_count = sfx->voice_count;
+    result = 0;
+
+cleanup:
+    if (result != 0) {
+        free(*payload_out);
+        *payload_out = NULL;
+        *payload_size_out = 0U;
+    }
+    free(sfx);
+    return result;
+}
+
+int tecmo_asset_pack_frontend_audio_source_test(
+    const char *rom_path, char *message, size_t message_size)
+{
+    const uint64_t expected_rom_size =
+        sizeof(frontend_audio_rev1_ines_header) +
+        8ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES +
+        32ULL * TECMO_ASSET_PACK_CHR_BANK_BYTES;
+    uint8_t *rom = NULL;
+    uint8_t *payload = NULL;
+    uint8_t input_sha256[32];
+    uint64_t rom_size = 0U;
+    size_t payload_size = 0U;
+    TecmoFrontendAudioProvenance provenance;
+    int result;
+    if (rom_path == NULL ||
+        tecmo_asset_pack_read_file(rom_path, &rom, &rom_size) != 0) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TFSX-1 direct source test could not read the ROM.");
+        return -1;
+    }
+    if (rom_size != expected_rom_size ||
+        memcmp(rom, frontend_audio_rev1_ines_header,
+               sizeof(frontend_audio_rev1_ines_header)) != 0) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TFSX-1 direct source test requires the exact Rev1 iNES layout.");
+        free(rom);
+        return -1;
+    }
+    result = tecmo_asset_pack_build_frontend_audio(
+        rom, rom_size, sizeof(frontend_audio_rev1_ines_header), 8U, 1,
+        &payload, &payload_size, &provenance, message, message_size);
+    if (result == 0 &&
+        (tecmo_asset_pack_sha256_digest(
+             rom, (size_t)rom_size, input_sha256) != 0 ||
+         memcmp(input_sha256, frontend_audio_rev1_sha256,
+                sizeof(input_sha256)) != 0)) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TFSX-1 direct source test full-ROM SHA-256 mismatch.");
+        result = -1;
+    }
+    if (result == 0) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "Built strict ROM-derived TFSX-1 frontend audio source.");
+    }
+    free(payload);
+    free(rom);
     return result;
 }

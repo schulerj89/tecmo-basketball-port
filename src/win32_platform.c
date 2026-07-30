@@ -210,6 +210,9 @@ int tecmo_run_win32_game(const char *project_root)
     tecmo_controls_init(&g_controls[1]);
     tecmo_win32_keyboard_init(&g_keyboard);
     (void)tecmo_audio_output_init(&audio_output, &runtime->music_player);
+    (void)tecmo_audio_output_select_frontend_player(
+        &audio_output, &runtime->frontend_audio_player,
+        &runtime->frontend_audio_asset);
     (void)tecmo_audio_output_select_gameplay_player(
         &audio_output, &runtime->gameplay_scene.audio_player);
     g_running = true;

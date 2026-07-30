@@ -4,6 +4,7 @@
 
 #include "tecmo_asset_pack_format.h"
 
+#include <ctype.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -307,6 +308,35 @@ int tecmo_asset_pack_read_entry_exact(const char *pack_path,
 {
     return read_entry(pack_path, entry_id, true, expected_byte_count,
                       bytes_out, byte_count);
+}
+
+int tecmo_asset_pack_canonicalize_path(const char *pack_path,
+                                       char *canonical_path,
+                                       size_t canonical_path_size)
+{
+    char resolved[4096];
+    FILE *file;
+    size_t length;
+    if (pack_path == NULL || pack_path[0] == '\0' ||
+        canonical_path == NULL || canonical_path_size == 0U) {
+        return -1;
+    }
+    file = fopen(pack_path, "rb");
+    if (file == NULL) return -1;
+    fclose(file);
+#ifdef _WIN32
+    if (_fullpath(resolved, pack_path, sizeof(resolved)) == NULL) return -1;
+    for (length = 0U; resolved[length] != '\0'; ++length) {
+        if (resolved[length] == '/') resolved[length] = '\\';
+        resolved[length] = (char)tolower((unsigned char)resolved[length]);
+    }
+#else
+    if (realpath(pack_path, resolved) == NULL) return -1;
+#endif
+    length = strlen(resolved);
+    if (length + 1U > canonical_path_size) return -1;
+    memcpy(canonical_path, resolved, length + 1U);
+    return 0;
 }
 
 void tecmo_asset_pack_free(void *buffer)

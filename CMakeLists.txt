@@ -38,6 +38,7 @@ set(TECMO_PORT_SOURCES
     src/tecmo_controls.c
     src/tecmo_all_star_menu.c
     src/tecmo_music.c
+    src/tecmo_frontend_audio.c
     src/tecmo_audio_output.c
     src/tecmo_flow_test.c
     src/tecmo_gameplay_state.c

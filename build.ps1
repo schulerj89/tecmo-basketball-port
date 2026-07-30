@@ -62,6 +62,7 @@ $Sources = @(
     "src\tecmo_win32_keys.c",
     "src\tecmo_all_star_menu.c",
     "src\tecmo_music.c",
+    "src\tecmo_frontend_audio.c",
     "src\tecmo_gameplay_audio.c",
     "src\tecmo_audio_output.c",
     "src\tecmo_flow_test.c",

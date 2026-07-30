@@ -27,6 +27,18 @@ typedef struct MusicTrackSource {
     uint32_t fingerprint;
 } MusicTrackSource;
 
+static const uint8_t music_rev1_ines_header[16] = {
+    0x4EU, 0x45U, 0x53U, 0x1AU, 0x08U, 0x20U, 0x42U, 0x00U,
+    0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U
+};
+
+static const uint8_t music_rev1_sha256[32] = {
+    0x07U, 0x6AU, 0x6BU, 0xEBU, 0x27U, 0x3FU, 0xABU, 0x39U,
+    0x19U, 0x8CU, 0x87U, 0xAEU, 0x6AU, 0xF6U, 0x9FU, 0x80U,
+    0xAAU, 0x54U, 0x8DU, 0x68U, 0x17U, 0x75U, 0x38U, 0x29U,
+    0xF2U, 0xC2U, 0xBDU, 0xE1U, 0xF9U, 0x74U, 0x75U, 0xC4U
+};
+
 typedef struct ImportedMusicInstruction {
     uint16_t address;
     uint16_t next_address;
@@ -714,5 +726,59 @@ cleanup:
         *payload_size_out = 0U;
     }
     free(music);
+    return result;
+}
+
+int tecmo_asset_pack_music_source_test(const char *rom_path,
+                                       char *message,
+                                       size_t message_size)
+{
+    const uint64_t expected_rom_size =
+        sizeof(music_rev1_ines_header) +
+        8ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES +
+        32ULL * TECMO_ASSET_PACK_CHR_BANK_BYTES;
+    uint8_t *rom = NULL;
+    uint8_t *payload = NULL;
+    uint8_t input_sha256[32];
+    uint64_t rom_size = 0U;
+    size_t payload_size = 0U;
+    TecmoMusicProvenance provenance;
+    int result;
+    if (rom_path == NULL ||
+        tecmo_asset_pack_read_file(rom_path, &rom, &rom_size) != 0) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TMUS-1 direct source test could not read the ROM.");
+        return -1;
+    }
+    if (rom_size != expected_rom_size ||
+        memcmp(rom, music_rev1_ines_header,
+               sizeof(music_rev1_ines_header)) != 0) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TMUS-1 direct source test requires the exact Rev1 iNES layout.");
+        free(rom);
+        return -1;
+    }
+    result = tecmo_asset_pack_build_music(
+        rom, rom_size, sizeof(music_rev1_ines_header), 8U, 1,
+        &payload, &payload_size, &provenance, message, message_size);
+    if (result == 0 &&
+        (tecmo_asset_pack_sha256_digest(
+             rom, (size_t)rom_size, input_sha256) != 0 ||
+         memcmp(input_sha256, music_rev1_sha256,
+                sizeof(input_sha256)) != 0)) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TMUS-1 direct source test full-ROM SHA-256 mismatch.");
+        result = -1;
+    }
+    if (result == 0) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "Built strict ROM-derived TMUS-1 music source.");
+    }
+    free(payload);
+    free(rom);
     return result;
 }

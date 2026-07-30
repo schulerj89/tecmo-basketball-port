@@ -36,6 +36,7 @@ char *tecmo_asset_pack_build_ines_source_map(
     const TecmoPreseasonMenuProvenance *preseason_provenance,
     const TecmoAllStarMenuProvenance *all_star_provenance,
     const TecmoMusicProvenance *music_provenance,
+    const TecmoFrontendAudioProvenance *frontend_audio_provenance,
     const TecmoGameplayAudioProvenance *gameplay_audio_provenance,
     const TecmoTeamDataProvenance *team_data_provenance,
     const TecmoTeamManagementProvenance *team_management_provenance,

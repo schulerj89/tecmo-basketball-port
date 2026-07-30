@@ -335,6 +335,7 @@ function Get-KnownLogicalAssetPackEntries {
         "menu/preseason",
         "menu/all-star",
         "audio/music",
+        "audio/frontend-sfx",
         "audio/gameplay-sfx",
         "audio/gameplay-dmc",
         "menu/team-data",
@@ -395,6 +396,7 @@ function Get-ExpectedLogicalAssetPackEntries {
             "menu/preseason"
             "menu/all-star"
             "audio/music"
+            "audio/frontend-sfx"
             "audio/gameplay-sfx"
             "audio/gameplay-dmc"
             "menu/team-data"

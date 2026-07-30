@@ -2,6 +2,7 @@
 #define TECMO_AUDIO_OUTPUT_H
 
 #include "tecmo_gameplay_audio.h"
+#include "tecmo_frontend_audio.h"
 #include "tecmo_music.h"
 
 #include <stdbool.h>
@@ -10,7 +11,8 @@
 typedef enum TecmoAudioOutputRenderSource {
     TECMO_AUDIO_OUTPUT_RENDER_SILENCE = 0,
     TECMO_AUDIO_OUTPUT_RENDER_MUSIC = 1,
-    TECMO_AUDIO_OUTPUT_RENDER_GAMEPLAY = 2
+    TECMO_AUDIO_OUTPUT_RENDER_GAMEPLAY = 2,
+    TECMO_AUDIO_OUTPUT_RENDER_FRONTEND = 3
 } TecmoAudioOutputRenderSource;
 
 typedef struct TecmoAudioOutput {
@@ -18,6 +20,8 @@ typedef struct TecmoAudioOutput {
     TecmoMusicPlayer *player;
     TecmoGameplayAudioPlayer *gameplay_player;
     const TecmoGameplayAudioAsset *gameplay_asset;
+    TecmoFrontendAudioPlayer *frontend_player;
+    const TecmoFrontendAudioAsset *frontend_asset;
     bool initialized;
     bool active;
     bool silent_fallback;
@@ -33,6 +37,10 @@ bool tecmo_audio_output_init(TecmoAudioOutput *output,
    detached on the next render and falls back to the original music player. */
 bool tecmo_audio_output_select_gameplay_player(
     TecmoAudioOutput *output, TecmoGameplayAudioPlayer *gameplay_player);
+bool tecmo_audio_output_select_frontend_player(
+    TecmoAudioOutput *output, TecmoFrontendAudioPlayer *frontend_player,
+    const TecmoFrontendAudioAsset *frontend_asset);
+void tecmo_audio_output_clear_frontend_player(TecmoAudioOutput *output);
 void tecmo_audio_output_clear_gameplay_player(TecmoAudioOutput *output);
 /* Device-independent render path used by both waveOut prefill and refill.
    A NULL sample sink still advances a valid selected source exactly once.

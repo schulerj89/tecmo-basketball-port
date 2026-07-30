@@ -223,8 +223,14 @@ transition serial, and target X. It intentionally leaves TGCP-1/TGFL-1
 production wiring and full-court scrolling for the next slice.
 
 The first two intro screens, TECMO/rabbit and NBA license, are silent. Strict
-opening music begins at the license-to-arena handoff. Title confirmation queues
-presentation/menu music as the blue menu is entered. Gameplay music,
+opening music begins at the license-to-arena handoff. On the first START,
+the title setup preserves opening audio through its five proven native yields,
+then hard-stops it on imported title frame 5. A fresh
+second START queues original SFX 10 once on confirmation frame 1; the title
+remains visible through frame 126, and frame 127 queues presentation/menu
+track 6 and enters the blue menu. Accepted Player 1 NES A releases on the blue
+menu queue original SFX 8; START, directions, B, PERIOD A+B, rejected chords,
+and held A do not. Gameplay music,
 halftime/final presentation music, crowd responses, SFX, and DMC playback work
 in the native runtime, but nonlinear cycle-exact NES APU fidelity is not
 claimed. GAME MUSIC gates gameplay track 5 and its evidence-bounded restart
@@ -246,6 +252,7 @@ through explicit render-test/debug paths for development work.
 .\build\tecmo_port.exe --bank07-test
 .\build\tecmo_port.exe --controls-test
 .\build\tecmo_port.exe --gameplay-state-test
+.\tools\Run-FrontendAudioTests.ps1 -Build -RomPath <LOCAL_ROM.nes> -DecompRoot <LOCAL_DECOMP_ROOT>
 .\tools\gameplay-lab\Test-GameplayLab.ps1
 .\tools\Run-GameplayShotResolutionTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayPenaltyTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
@@ -310,9 +317,9 @@ Generated `.assetpack` files are ignored local data. Every pack includes the
 manifest, sanitized source map, and raw PRG/CHR entries used by the strict
 logical assets.
 
-The current Rev 1 builder emits a 77-entry pack. In addition to the raw PRG and
+The current Rev 1 builder emits a 78-entry pack. In addition to the raw PRG and
 CHR entries, it contains strict logical assets for the opening, arena, finale,
-title, blue menu, preseason, Team Data, team management, season state, music,
+title, blue menu, frontend audio, preseason, Team Data, team management, season state, music,
 gameplay audio, court, live court-orientation state, poses, close shots, dunk
 presentation, the bounded jump route, shot-resolution rules, penalty rules,
 and the raw free-throw lineup.

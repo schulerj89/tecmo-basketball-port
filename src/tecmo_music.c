@@ -393,6 +393,7 @@ bool tecmo_music_asset_load_from_pack(TecmoMusicAsset *asset,
 {
     uint8_t *bytes = NULL;
     uint64_t count = 0U;
+    char canonical_path[1024];
     bool ok;
     int written;
     if (asset == NULL) return false;
@@ -402,9 +403,14 @@ bool tecmo_music_asset_load_from_pack(TecmoMusicAsset *asset,
                        "TMUS-1 audio/music entry unavailable");
         return false;
     }
+    if (tecmo_asset_pack_canonicalize_path(
+            asset_pack_path, canonical_path, sizeof(canonical_path)) != 0) {
+        (void)snprintf(asset->status, sizeof(asset->status),
+                       "TMUS-1 asset pack path unavailable");
+        return false;
+    }
     written = snprintf(asset->asset_pack_path,
-                       sizeof(asset->asset_pack_path), "%s",
-                       asset_pack_path);
+                       sizeof(asset->asset_pack_path), "%s", canonical_path);
     if (written < 0 || (size_t)written >= sizeof(asset->asset_pack_path)) {
         asset->asset_pack_path[0] = '\0';
         (void)snprintf(asset->status, sizeof(asset->status),
@@ -412,7 +418,7 @@ bool tecmo_music_asset_load_from_pack(TecmoMusicAsset *asset,
         return false;
     }
     if (
-        tecmo_asset_pack_read_entry_exact(asset_pack_path, MUSIC_ENTRY_ID,
+        tecmo_asset_pack_read_entry_exact(canonical_path, MUSIC_ENTRY_ID,
                                           TECMO_MUSIC_PAYLOAD_SIZE,
                                           &bytes, &count) != 0) {
         (void)snprintf(asset->status, sizeof(asset->status),

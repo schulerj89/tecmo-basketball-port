@@ -51,6 +51,33 @@ static void render_silence(int16_t *samples, size_t sample_count)
         memset(samples, 0, sample_count * sizeof(*samples));
 }
 
+void tecmo_audio_output_clear_frontend_player(TecmoAudioOutput *output)
+{
+    if (output == NULL) return;
+    output->frontend_player = NULL;
+    output->frontend_asset = NULL;
+}
+
+bool tecmo_audio_output_select_frontend_player(
+    TecmoAudioOutput *output, TecmoFrontendAudioPlayer *frontend_player,
+    const TecmoFrontendAudioAsset *frontend_asset)
+{
+    if (output == NULL || !output->initialized || output->player == NULL ||
+        output->player->asset == NULL || !output->player->asset->available ||
+        frontend_player == NULL || frontend_asset == NULL ||
+        !frontend_asset->sfx.available ||
+        !frontend_player->pack_identity_valid ||
+        frontend_player->asset != frontend_asset ||
+        frontend_player->sfx.asset != &frontend_asset->sfx ||
+        frontend_player->sfx.music != output->player ||
+        strcmp(frontend_asset->sfx.asset_pack_path,
+               output->player->asset->asset_pack_path) != 0)
+        return false;
+    output->frontend_player = frontend_player;
+    output->frontend_asset = frontend_asset;
+    return true;
+}
+
 void tecmo_audio_output_clear_gameplay_player(TecmoAudioOutput *output)
 {
     if (output == NULL) return;
@@ -77,11 +104,32 @@ TecmoAudioOutputRenderSource tecmo_audio_output_render_samples(
     TecmoAudioOutput *output, int16_t *samples, size_t sample_count)
 {
     TecmoGameplayAudioPlayer *gameplay_player;
+    TecmoFrontendAudioPlayer *frontend_player;
     if (sample_count > SIZE_MAX / sizeof(int16_t))
         return TECMO_AUDIO_OUTPUT_RENDER_SILENCE;
     if (output == NULL || !output->initialized) {
         render_silence(samples, sample_count);
         return TECMO_AUDIO_OUTPUT_RENDER_SILENCE;
+    }
+    frontend_player = output->frontend_player;
+    if (frontend_player != NULL) {
+        if (output->frontend_asset == NULL ||
+            !output->frontend_asset->sfx.available ||
+            !frontend_player->pack_identity_valid ||
+            frontend_player->asset != output->frontend_asset ||
+            frontend_player->sfx.asset !=
+                &output->frontend_asset->sfx ||
+            frontend_player->sfx.music != output->player ||
+            output->player == NULL || output->player->asset == NULL ||
+            !output->player->asset->available ||
+            strcmp(output->frontend_asset->sfx.asset_pack_path,
+                   output->player->asset->asset_pack_path) != 0) {
+            tecmo_audio_output_clear_frontend_player(output);
+        } else if (tecmo_frontend_audio_is_active(frontend_player)) {
+            tecmo_frontend_audio_render_samples(
+                frontend_player, samples, sample_count);
+            return TECMO_AUDIO_OUTPUT_RENDER_FRONTEND;
+        }
     }
     gameplay_player = output->gameplay_player;
     if (gameplay_player != NULL) {

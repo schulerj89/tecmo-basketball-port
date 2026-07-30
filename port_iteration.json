@@ -44,6 +44,7 @@
       "gameplay/court-orientation TGOR-1 640 bytes FNV1a32 F9152C0A",
       "gameplay/close-shots TGCS-1 3144 bytes FNV1a32 DACDC976",
       "audio/music TMUS-1 36784 bytes FNV1a32 05C00ECB",
+      "audio/frontend-sfx TFSX-1 1792 bytes FNV1a32 985DC7ED",
       "audio/gameplay-sfx TSFX-1 2824 bytes FNV1a32 968A5DE6",
       "audio/gameplay-dmc TDMC-1 2515 bytes FNV1a32 AD70E6E8",
       "chr/all 262144 bytes FNV1a32 F6F6E854 FNV1a64 96A64F53B240ABB4"
@@ -54,6 +55,7 @@
       "TGCT-1 pure full-world decode expands the exact 96-by-30 tile and palette-index planes and slices canonical coarse/fine-scroll camera views for X 0..512; this boundary is exact but is not wired into the live scene",
       "TGOR-1 live state owns current/previous binary offensive direction, tracked possession team, transition serial, and target X; fresh launch is direction 0/AWAY, real possession changes toggle exactly once, and same-possession handoffs and restarts preserve orientation",
       "deterministic clock, shot-clock, event, violation/foul presentation, period, halftime, overtime, final, and result state transitions",
+      "ROM-derived title stop frame 5 after five proven native yields, title confirmation SFX 10 frame 1, menu track 6 frame 127, and accepted blue-menu A-release SFX 8 through strict TFSX-1",
       "ROM-derived track 5/6 programs, gameplay SFX mappings, held-ball/dribble DMC clip, mixer cadence, and source-map provenance",
       "season result identity validation and exact-once commit before gameplay ends"
     ],
@@ -113,6 +115,13 @@
       "command": ".\\tools\\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>",
       "description": "Builds an exact Rev1 full asset pack, runs the compound native gameplay scene self-test and rejection cases, then verifies deterministic 640x480 start, ordinary-jump, and dunk render checkpoints under ignored build scratch.",
       "expected_output": "GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance scene controls shots audio state halftime/final render-determinism missing malformed oversized chr-mismatch"
+    },
+    {
+      "id": "run_frontend_audio_test",
+      "status": "active",
+      "command": ".\\tools\\Run-FrontendAudioTests.ps1 -Build -RomPath <LOCAL_ROM.nes> -DecompRoot <LOCAL_DECOMP_ROOT>",
+      "description": "Builds the strict TFSX-1 frontend cue asset, verifies the five-yield title stop, confirmation/menu timing, accepted-A-release semantics, canonical same-pack ownership, exact provenance, and isolated frontend importer source mutations.",
+      "expected_output": "FRONTEND AUDIO TEST PASS: TFSX-1 exact-provenance parser stable-PCM title-stop-frame5 SFX10 frame1 track6 frame127 accepted-A-release SFX8 same-pack malformed missing oversized dependency frontend-source-mutations"
     },
     {
       "id": "run_bank07_helper_test",

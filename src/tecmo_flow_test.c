@@ -2227,7 +2227,9 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
                                         size_t message_size)
 {
     TecmoInput input;
+    TecmoMusicPlayer title_music_before;
     TecmoMusicPlayer speed_music_before;
+    uint32_t menu_cue_before;
     uint8_t previous_intro_step;
     uint8_t expected_season_away = 0U;
     uint8_t expected_season_home = 0U;
@@ -2244,6 +2246,7 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
         return false;
     }
     if (!runtime->start_game_menu_asset.available ||
+        !runtime->frontend_audio_asset.sfx.available ||
         runtime->start_game_menu_asset.setting_cursor_x[0] != 47U ||
         runtime->start_game_menu_asset.setting_cursor_y[0] != 200U ||
         runtime->start_game_menu_asset.setting_cursor_x[1] != 47U ||
@@ -2481,9 +2484,32 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
     input.confirm = true;
     tecmo_runtime_update(runtime, &input);
     if (!flow_expect_mode(runtime, TECMO_MODE_TITLE_SCREEN, "first START title entry", message, message_size)) return false;
+    title_music_before = runtime->music_player;
+    for (size_t title_setup = 0U; title_setup < 4U; ++title_setup) {
+        tecmo_runtime_update(runtime, &input);
+    }
+    if (runtime->mode_frame_counter != 4U ||
+        memcmp(&title_music_before, &runtime->music_player,
+               sizeof(title_music_before)) != 0) {
+        set_flow_test_message(
+            message, message_size,
+            "title setup stopped or changed opening music before frame 5");
+        return false;
+    }
     tecmo_runtime_update(runtime, &input);
     if (runtime->title_confirming || runtime->title_start_armed) {
         set_flow_test_message(message, message_size, "held first START incorrectly retriggered the title");
+        return false;
+    }
+    if (runtime->mode_frame_counter != 5U ||
+        (runtime->music_asset.available &&
+        (runtime->music_player.playing ||
+         runtime->music_player.track_pending ||
+         runtime->music_player.current_track_id != 0U ||
+         runtime->music_player.pending_track_id != 0U))) {
+        set_flow_test_message(
+            message, message_size,
+            "title setup frame 5 did not hard-stop opening music");
         return false;
     }
     memset(&input, 0, sizeof(input));
@@ -2510,6 +2536,14 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
         set_flow_test_message(message, message_size, "second START did not begin title confirmation");
         return false;
     }
+    if (runtime->frontend_audio_player.title_confirm_queue_count != 1U ||
+        !runtime->frontend_audio_player.sfx.sfx_pending ||
+        runtime->frontend_audio_player.sfx.pending_sfx_id != 10U) {
+        set_flow_test_message(
+            message, message_size,
+            "second START did not queue frontend SFX 10 exactly once");
+        return false;
+    }
     memset(&input, 0, sizeof(input));
     for (size_t flash = 1U; flash < 126U; ++flash) tecmo_runtime_update(runtime, &input);
     if (runtime->mode != TECMO_MODE_TITLE_SCREEN || runtime->title_confirmation_frame != 126U) {
@@ -2517,10 +2551,10 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
         return false;
     }
     if (runtime->music_asset.available &&
-        (!runtime->music_player.track_pending ||
-         runtime->music_player.pending_track_id != TECMO_MUSIC_TRACK_OPENING)) {
+        (runtime->music_player.playing ||
+         runtime->music_player.track_pending)) {
         set_flow_test_message(message, message_size,
-                              "presentation music replaced track 7 before confirmation frame 127");
+                              "title music restarted before confirmation frame 127");
         return false;
     }
     tecmo_runtime_update(runtime, &input);
@@ -2550,6 +2584,12 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
                               "start-game menu did not become stable at frame 32");
         return false;
     }
+    if (runtime->frontend_audio_player.menu_accept_queue_count != 0U) {
+        set_flow_test_message(
+            message, message_size,
+            "blue-menu reveal incorrectly queued accepted-A SFX 8");
+        return false;
+    }
 
     memset(&input, 0, sizeof(input));
     input.confirm = true;
@@ -2567,6 +2607,12 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
     flow_step(runtime, input);
     if (runtime->start_game_menu_state.root_selection != 0U) {
         set_flow_test_message(message, message_size, "left/right changed root menu selection");
+        return false;
+    }
+    if (runtime->frontend_audio_player.menu_accept_queue_count != 0U) {
+        set_flow_test_message(
+            message, message_size,
+            "START or direction input incorrectly queued menu SFX 8");
         return false;
     }
     memset(&input, 0, sizeof(input));
@@ -2640,6 +2686,11 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
         set_flow_test_message(message, message_size, "root B was not ignored");
         return false;
     }
+    if (runtime->frontend_audio_player.menu_accept_queue_count != 0U) {
+        set_flow_test_message(message, message_size,
+                              "root B incorrectly queued menu SFX 8");
+        return false;
+    }
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 32U;
@@ -2656,6 +2707,12 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
         set_flow_test_message(message, message_size, "current button did not suppress root A-release grace");
         return false;
     }
+    if (runtime->frontend_audio_player.menu_accept_queue_count != 0U) {
+        set_flow_test_message(
+            message, message_size,
+            "suppressed A-release incorrectly queued menu SFX 8");
+        return false;
+    }
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 32U;
@@ -2666,6 +2723,14 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
     if (!flow_expect_mode(runtime, TECMO_MODE_PRESEASON_MENU,
                           "root PRESEASON submenu-boundary dispatch",
                           message, message_size)) return false;
+    if (runtime->frontend_audio_player.menu_accept_queue_count != 1U ||
+        !runtime->frontend_audio_player.sfx.sfx_pending ||
+        runtime->frontend_audio_player.sfx.pending_sfx_id != 8U) {
+        set_flow_test_message(
+            message, message_size,
+            "accepted root A-release did not queue menu SFX 8 exactly once");
+        return false;
+    }
     if (!flow_expect_preseason_native_path(runtime, message, message_size))
         return false;
 
@@ -2752,10 +2817,19 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
     runtime->start_game_menu_state.root_selection = 1U;
     memset(&input, 0, sizeof(input));
     input.shoot = true;
+    menu_cue_before =
+        runtime->frontend_audio_player.menu_accept_queue_count;
     flow_step(runtime, input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SEASON_SLIDE_IN ||
         runtime->start_game_menu_state.slide_frame != 0U) {
         set_flow_test_message(message, message_size, "season route did not start at slide frame zero");
+        return false;
+    }
+    if (runtime->frontend_audio_player.menu_accept_queue_count !=
+            menu_cue_before + 1U) {
+        set_flow_test_message(
+            message, message_size,
+            "accepted root-to-season A release did not queue SFX 8 once");
         return false;
     }
     memset(&input, 0, sizeof(input));
@@ -2776,6 +2850,8 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
         set_flow_test_message(message, message_size, "season slide did not end at frame 32");
         return false;
     }
+    menu_cue_before =
+        runtime->frontend_audio_player.menu_accept_queue_count;
     input.cancel = true;
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SEASON ||
@@ -2792,6 +2868,12 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
         runtime->start_game_menu_state.slide_frame != 32U ||
         runtime->start_game_menu_state.direction_cooldown != 5U) {
         set_flow_test_message(message, message_size, "season B did not begin exact reverse slide");
+        return false;
+    }
+    if (runtime->frontend_audio_player.menu_accept_queue_count !=
+            menu_cue_before) {
+        set_flow_test_message(message, message_size,
+                              "season B release incorrectly queued SFX 8");
         return false;
     }
     memset(&input, 0, sizeof(input));
@@ -2828,6 +2910,8 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
     runtime->start_game_menu_state.root_selection = 6U;
     memset(&input, 0, sizeof(input));
     input.shoot = true;
+    menu_cue_before =
+        runtime->frontend_audio_player.menu_accept_queue_count;
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_ROOT ||
         runtime->start_game_menu_state.direction_cooldown != 0U) {
@@ -2843,9 +2927,18 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
         set_flow_test_message(message, message_size, "GAME MUSIC did not begin native row setup");
         return false;
     }
+    if (runtime->frontend_audio_player.menu_accept_queue_count !=
+            menu_cue_before + 1U) {
+        set_flow_test_message(
+            message, message_size,
+            "accepted root GAME MUSIC A release did not queue SFX 8 once");
+        return false;
+    }
     if (!flow_finish_popup_setup(runtime, TECMO_START_GAME_MENU_MUSIC,
                                  "GAME MUSIC setup did not finish at frame six",
                                  message, message_size)) return false;
+    menu_cue_before =
+        runtime->frontend_audio_player.menu_accept_queue_count;
     input.shoot = true;
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_MUSIC ||
@@ -2859,6 +2952,13 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
         runtime->start_game_menu_state.music_value != 1U ||
         runtime->start_game_menu_state.direction_cooldown != 5U) {
         set_flow_test_message(message, message_size, "popup A release did not begin teardown");
+        return false;
+    }
+    if (runtime->frontend_audio_player.menu_accept_queue_count !=
+            menu_cue_before + 1U) {
+        set_flow_test_message(
+            message, message_size,
+            "accepted GAME MUSIC setting A release did not queue SFX 8 once");
         return false;
     }
     if (!flow_finish_popup_teardown(runtime, TECMO_START_GAME_MENU_MUSIC,
@@ -2893,12 +2993,20 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
     }
     memset(&input, 0, sizeof(input));
     for (size_t wait = 0U; wait < 7U; ++wait) tecmo_runtime_update(runtime, &input);
+    menu_cue_before =
+        runtime->frontend_audio_player.menu_accept_queue_count;
     input.cancel = true;
     flow_step(runtime, input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_POPUP_TEARDOWN ||
         runtime->start_game_menu_state.music_value != 1U ||
         runtime->start_game_menu_state.direction_cooldown != 5U) {
         set_flow_test_message(message, message_size, "GAME MUSIC B did not begin cancel teardown");
+        return false;
+    }
+    if (runtime->frontend_audio_player.menu_accept_queue_count !=
+            menu_cue_before) {
+        set_flow_test_message(message, message_size,
+                              "GAME MUSIC B incorrectly queued SFX 8");
         return false;
     }
     if (!flow_finish_popup_teardown(runtime, TECMO_START_GAME_MENU_MUSIC,
@@ -2928,16 +3036,69 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
     runtime->start_game_menu_state.root_selection = 4U;
     memset(&input, 0, sizeof(input));
     input.shoot = true;
+    menu_cue_before =
+        runtime->frontend_audio_player.menu_accept_queue_count;
     flow_step(runtime, input);
     if (!flow_finish_popup_setup(runtime, TECMO_START_GAME_MENU_SPEED,
                                  "GAME SPEED setup did not finish at frame eight",
                                  message, message_size)) return false;
+    if (runtime->frontend_audio_player.menu_accept_queue_count !=
+            menu_cue_before + 1U) {
+        set_flow_test_message(
+            message, message_size,
+            "accepted root GAME SPEED A release did not queue SFX 8 once");
+        return false;
+    }
     memset(&input, 0, sizeof(input));
     input.cancel = true;
+    menu_cue_before =
+        runtime->frontend_audio_player.menu_accept_queue_count;
     flow_step(runtime, input);
+    if (runtime->frontend_audio_player.menu_accept_queue_count !=
+            menu_cue_before) {
+        set_flow_test_message(message, message_size,
+                              "GAME SPEED B incorrectly queued SFX 8");
+        return false;
+    }
     if (!flow_finish_popup_teardown(runtime, TECMO_START_GAME_MENU_SPEED,
                                     "GAME SPEED teardown did not finish at frame eight",
                                     message, message_size)) return false;
+
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame = 32U;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_SPEED;
+    runtime->start_game_menu_state.setting_selection = 1U;
+    memset(&input, 0, sizeof(input));
+    input.shoot = true;
+    menu_cue_before =
+        runtime->frontend_audio_player.menu_accept_queue_count;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase !=
+            TECMO_START_GAME_MENU_SPEED ||
+        runtime->frontend_audio_player.menu_accept_queue_count !=
+            menu_cue_before) {
+        set_flow_test_message(
+            message, message_size,
+            "held GAME SPEED A activated or queued SFX 8");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->start_game_menu_state.phase !=
+            TECMO_START_GAME_MENU_POPUP_TEARDOWN ||
+        runtime->start_game_menu_state.speed_value != 1U ||
+        runtime->frontend_audio_player.menu_accept_queue_count !=
+            menu_cue_before + 1U) {
+        set_flow_test_message(
+            message, message_size,
+            "accepted GAME SPEED setting A release did not queue SFX 8 once");
+        return false;
+    }
+    if (!flow_finish_popup_teardown(
+            runtime, TECMO_START_GAME_MENU_SPEED,
+            "GAME SPEED accepted teardown did not finish",
+            message, message_size))
+        return false;
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 32U;
@@ -2945,13 +3106,30 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
     runtime->start_game_menu_state.root_selection = 5U;
     memset(&input, 0, sizeof(input));
     input.shoot = true;
+    menu_cue_before =
+        runtime->frontend_audio_player.menu_accept_queue_count;
     flow_step(runtime, input);
     if (!flow_finish_popup_setup(runtime, TECMO_START_GAME_MENU_PERIOD,
                                  "PERIOD setup did not preserve its extra frame",
                                  message, message_size)) return false;
+    if (runtime->frontend_audio_player.menu_accept_queue_count !=
+            menu_cue_before + 1U) {
+        set_flow_test_message(
+            message, message_size,
+            "accepted root PERIOD A release did not queue SFX 8 once");
+        return false;
+    }
     memset(&input, 0, sizeof(input));
     input.cancel = true;
+    menu_cue_before =
+        runtime->frontend_audio_player.menu_accept_queue_count;
     flow_step(runtime, input);
+    if (runtime->frontend_audio_player.menu_accept_queue_count !=
+            menu_cue_before) {
+        set_flow_test_message(message, message_size,
+                              "PERIOD B incorrectly queued SFX 8");
+        return false;
+    }
     if (!flow_finish_popup_teardown(runtime, TECMO_START_GAME_MENU_PERIOD,
                                     "PERIOD teardown did not finish at frame six",
                                     message, message_size)) return false;
@@ -2979,11 +3157,20 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
     input.shoot = true;
     input.cancel = true;
     speed_music_before = runtime->music_player;
+    menu_cue_before =
+        runtime->frontend_audio_player.menu_accept_queue_count;
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_SPEED ||
         runtime->start_game_menu_state.setting_selection != 0U ||
         runtime->start_game_menu_state.direction_cooldown != 7U) {
         set_flow_test_message(message, message_size, "SPEED A+B+Up+Down press was not direction-consumed");
+        return false;
+    }
+    if (runtime->frontend_audio_player.menu_accept_queue_count !=
+            menu_cue_before) {
+        set_flow_test_message(
+            message, message_size,
+            "held SPEED A+B+direction incorrectly queued SFX 8");
         return false;
     }
     memset(&input, 0, sizeof(input));
@@ -3016,6 +3203,13 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
         set_flow_test_message(message, message_size, "SPEED A+B release did not begin A-priority teardown");
         return false;
     }
+    if (runtime->frontend_audio_player.menu_accept_queue_count !=
+            menu_cue_before + 1U) {
+        set_flow_test_message(
+            message, message_size,
+            "SPEED A-priority release did not queue SFX 8 once");
+        return false;
+    }
     if (!flow_finish_popup_teardown(runtime, TECMO_START_GAME_MENU_SPEED,
                                     "SPEED A-priority teardown did not finish",
                                     message, message_size)) return false;
@@ -3025,6 +3219,8 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
     runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_PERIOD;
     runtime->start_game_menu_state.setting_selection = 1U;
     memset(&input, 0, sizeof(input));
+    menu_cue_before =
+        runtime->frontend_audio_player.menu_accept_queue_count;
     input.up = true;
     input.shoot = true;
     input.cancel = true;
@@ -3043,12 +3239,26 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
         set_flow_test_message(message, message_size, "held PERIOD A activated before release");
         return false;
     }
+    if (runtime->frontend_audio_player.menu_accept_queue_count !=
+            menu_cue_before) {
+        set_flow_test_message(
+            message, message_size,
+            "PERIOD direction or held A incorrectly queued SFX 8");
+        return false;
+    }
     memset(&input, 0, sizeof(input));
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_POPUP_TEARDOWN ||
         runtime->start_game_menu_state.period_index != 2U ||
         runtime->start_game_menu_state.direction_cooldown != 5U) {
         set_flow_test_message(message, message_size, "PERIOD A did not begin teardown after direction grace");
+        return false;
+    }
+    if (runtime->frontend_audio_player.menu_accept_queue_count !=
+            menu_cue_before + 1U) {
+        set_flow_test_message(
+            message, message_size,
+            "accepted PERIOD setting A release did not queue SFX 8 once");
         return false;
     }
     if (!flow_finish_popup_teardown(runtime, TECMO_START_GAME_MENU_PERIOD,
@@ -3060,6 +3270,8 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
     runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_PERIOD;
     runtime->start_game_menu_state.setting_selection = 3U;
     memset(&input, 0, sizeof(input));
+    menu_cue_before =
+        runtime->frontend_audio_player.menu_accept_queue_count;
     input.shoot = true;
     input.cancel = true;
     tecmo_runtime_update(runtime, &input);
@@ -3077,6 +3289,13 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
         set_flow_test_message(message, message_size, "PERIOD A+B release was not a consumed no-op");
         return false;
     }
+    if (runtime->frontend_audio_player.menu_accept_queue_count !=
+            menu_cue_before) {
+        set_flow_test_message(
+            message, message_size,
+            "PERIOD A+B no-op incorrectly queued SFX 8");
+        return false;
+    }
 
     tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
     runtime->start_game_menu_state.frame = 32U;
@@ -3084,12 +3303,21 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
     runtime->start_game_menu_state.setting_selection = 3U;
     runtime->previous_input.shoot = true;
     runtime->previous_input.cancel = true;
+    menu_cue_before =
+        runtime->frontend_audio_player.menu_accept_queue_count;
     memset(&input, 0, sizeof(input));
     tecmo_runtime_update(runtime, &input);
     if (runtime->start_game_menu_state.phase != TECMO_START_GAME_MENU_PERIOD ||
         runtime->start_game_menu_state.setting_selection != 3U ||
         runtime->start_game_menu_state.direction_cooldown != 5U) {
         set_flow_test_message(message, message_size, "PERIOD A+B release did not remain a consumed no-op");
+        return false;
+    }
+    if (runtime->frontend_audio_player.menu_accept_queue_count !=
+            menu_cue_before) {
+        set_flow_test_message(
+            message, message_size,
+            "PERIOD A+B release grace incorrectly queued SFX 8");
         return false;
     }
 
@@ -3175,7 +3403,16 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
     runtime->start_game_menu_state.season_selection = 0U;
     memset(&input, 0, sizeof(input));
     input.shoot = true;
+    menu_cue_before =
+        runtime->frontend_audio_player.menu_accept_queue_count;
     flow_step(runtime, input);
+    if (runtime->frontend_audio_player.menu_accept_queue_count !=
+            menu_cue_before + 1U) {
+        set_flow_test_message(
+            message, message_size,
+            "accepted season TEAM CONTROL A release did not queue SFX 8 once");
+        return false;
+    }
     if (!flow_finish_start_menu_exit(runtime, TECMO_MODE_SEASON_MENU, true,
                                      "season TEAM CONTROL frame-eleven dispatch",
                                      message, message_size)) return false;
@@ -3220,9 +3457,18 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
     memset(&input, 0, sizeof(input));
     input.shoot = true;
     input.cancel = true;
+    menu_cue_before =
+        runtime->frontend_audio_player.menu_accept_queue_count;
     flow_step(runtime, input);
     if (runtime->start_game_menu_state.season_selection != 2U) {
         set_flow_test_message(message, message_size, "season A+B release changed selection");
+        return false;
+    }
+    if (runtime->frontend_audio_player.menu_accept_queue_count !=
+            menu_cue_before + 1U) {
+        set_flow_test_message(
+            message, message_size,
+            "season A-priority release did not queue SFX 8 once");
         return false;
     }
     if (!flow_finish_start_menu_exit(runtime, TECMO_MODE_SEASON_MENU, true,

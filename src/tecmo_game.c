@@ -242,6 +242,11 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
     (void)tecmo_all_star_asset_load(&runtime->all_star_asset, project_root);
     (void)tecmo_music_asset_load(&runtime->music_asset, project_root);
     tecmo_music_player_init(&runtime->music_player, &runtime->music_asset);
+    (void)tecmo_frontend_audio_asset_load(
+        &runtime->frontend_audio_asset, project_root);
+    tecmo_frontend_audio_player_init(
+        &runtime->frontend_audio_player, &runtime->frontend_audio_asset,
+        &runtime->music_player);
     tecmo_gameplay_scene_init(&runtime->gameplay_scene);
     (void)tecmo_gameplay_scene_load(&runtime->gameplay_scene,
                                     project_root,
@@ -390,6 +395,7 @@ void tecmo_runtime_shutdown(TecmoRuntime *runtime)
         (void)tecmo_season_session_save(&runtime->season_session);
     }
     tecmo_gameplay_scene_destroy(&runtime->gameplay_scene);
+    tecmo_frontend_audio_asset_shutdown(&runtime->frontend_audio_asset);
     tecmo_music_asset_shutdown(&runtime->music_asset);
     tecmo_free_buffer(runtime->title_chr_bytes);
     runtime->title_chr_bytes = NULL;
@@ -569,9 +575,17 @@ static void update_main_menu(TecmoRuntime *runtime, const TecmoControlFrame *con
 
 static void update_title_screen(TecmoRuntime *runtime, const TecmoControlFrame *controls)
 {
+    if (runtime->frontend_audio_asset.sfx.available &&
+        runtime->mode_frame_counter ==
+            runtime->frontend_audio_asset.title_stop_frame) {
+        tecmo_music_stop(&runtime->music_player);
+    }
     if (runtime->title_confirming) {
         ++runtime->title_confirmation_frame;
-        if (runtime->title_confirmation_frame >= tecmo_title_confirmation_handoff_frame()) {
+        if (runtime->title_confirmation_frame >=
+            (runtime->frontend_audio_asset.sfx.available
+                 ? runtime->frontend_audio_asset.title_handoff_frame
+                 : tecmo_title_confirmation_handoff_frame())) {
             (void)tecmo_music_queue_track(&runtime->music_player,
                                           TECMO_MUSIC_TRACK_PRESENTATION);
             tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
@@ -585,6 +599,8 @@ static void update_title_screen(TecmoRuntime *runtime, const TecmoControlFrame *
         if (runtime->title_start_armed && controls->pressed.confirm) {
             runtime->title_confirming = true;
             runtime->title_confirmation_frame = 1U;
+            (void)tecmo_frontend_audio_queue_title_confirm(
+                &runtime->frontend_audio_player);
         }
     }
 }
@@ -595,6 +611,7 @@ static void update_start_game_menu(TecmoRuntime *runtime,
     uint8_t prior_music_value;
     TecmoStartGameMenuAction action;
 
+    runtime->start_game_menu_state.accepted_a_release = false;
     if (runtime->start_menu_input_neutral_gate) {
         /* update_players retains the held B frame after the mode change. Wait
            through its release and one event-free frame before this
@@ -608,6 +625,10 @@ static void update_start_game_menu(TecmoRuntime *runtime,
     action = tecmo_start_game_menu_update(&runtime->start_game_menu_state,
                                           &runtime->start_game_menu_asset,
                                           controls);
+    if (runtime->start_game_menu_state.accepted_a_release) {
+        (void)tecmo_frontend_audio_queue_menu_accept(
+            &runtime->frontend_audio_player);
+    }
     if (runtime->start_game_menu_state.music_value != prior_music_value) {
         tecmo_music_set_game_music_enabled(
             &runtime->music_player,

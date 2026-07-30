@@ -575,6 +575,7 @@ TecmoStartGameMenuAction tecmo_start_game_menu_update(
     bool direction_active;
     StartMenuSelectionAction action = START_MENU_SELECTION_NONE;
     if (state == NULL || asset == NULL || controls == NULL) return TECMO_START_GAME_MENU_ACTION_NONE;
+    state->accepted_a_release = false;
     ++state->frame;
     if (!asset->available) return TECMO_START_GAME_MENU_ACTION_NONE;
     if (state->cursor_delay > 0U) --state->cursor_delay;
@@ -641,6 +642,7 @@ TecmoStartGameMenuAction tecmo_start_game_menu_update(
         /* Root row X=0 has action mask $80: only a released A activates. */
         action = selection_action(controls, asset->root_input_mask);
         if (action == START_MENU_SELECTION_ACCEPT) {
+            state->accepted_a_release = true;
             begin_accepted_input_cooldown(state, asset);
             switch (asset->routes[state->root_selection]) {
             case 1U:
@@ -692,6 +694,7 @@ TecmoStartGameMenuAction tecmo_start_game_menu_update(
                 state->cursor_delay = 0U;
                 return TECMO_START_GAME_MENU_ACTION_NONE;
             }
+            state->accepted_a_release = true;
             if (state->season_selection == 5U) {
                 begin_exit(state, TECMO_START_GAME_MENU_ACTION_ROSTERS, true);
                 return TECMO_START_GAME_MENU_ACTION_NONE;
@@ -751,6 +754,7 @@ TecmoStartGameMenuAction tecmo_start_game_menu_update(
             begin_popup_teardown(state);
             return TECMO_START_GAME_MENU_ACTION_NONE;
         }
+        state->accepted_a_release = true;
         if (state->phase == TECMO_START_GAME_MENU_MUSIC)
             state->music_value = state->setting_selection;
         else if (state->phase == TECMO_START_GAME_MENU_SPEED)

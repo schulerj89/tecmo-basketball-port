@@ -27,6 +27,8 @@
 #define TECMO_ASSET_PACK_MUSIC_ID "audio/music"
 #define TECMO_ASSET_PACK_GAMEPLAY_SFX_ID "audio/gameplay-sfx"
 #define TECMO_ASSET_PACK_GAMEPLAY_DMC_ID "audio/gameplay-dmc"
+#define TECMO_ASSET_PACK_FRONTEND_SFX_ID "audio/frontend-sfx"
+#define TECMO_ASSET_PACK_FRONTEND_SFX_EFFECT_COUNT 2U
 #define TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_ID \
     "gameplay/shot-resolution"
 #define TECMO_ASSET_PACK_GAMEPLAY_AUDIO_BANK 4U

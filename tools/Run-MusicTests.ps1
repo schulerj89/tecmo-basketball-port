@@ -160,9 +160,14 @@ try {
         [pscustomobject]@{ id = "audio-engine"; offset = $FixedStart + (0xF2F2 - 0xC000) },
         [pscustomobject]@{ id = "period-table"; offset = $FixedStart + (0xF93B - 0xC000) }
     )
+    $SourceOutput = @(& $ExePath --music-source-test $RomPath 2>&1)
+    if ($LASTEXITCODE -ne 0 -or
+        ($SourceOutput -join [Environment]::NewLine).Trim() -ne
+            "Built strict ROM-derived TMUS-1 music source.") {
+        throw "Isolated TMUS source importer rejected Rev1.`n$(Get-ShortTail $SourceOutput)"
+    }
     foreach ($Spec in $MusicSourceMutations) {
         $MutatedRomPath = Join-Path $TestDir ("source-{0}.nes" -f $Spec.id)
-        $RejectedPackPath = Join-Path $TestDir ("source-{0}.assetpack" -f $Spec.id)
         [System.IO.File]::Copy($RomPath, $MutatedRomPath, $true)
         $File = [System.IO.File]::Open(
             $MutatedRomPath, [System.IO.FileMode]::Open,
@@ -176,15 +181,12 @@ try {
         } finally {
             $File.Dispose()
         }
-        $RejectOutput = @(& $ExePath --build-assetpack $MutatedRomPath $RejectedPackPath 2>&1)
+        $RejectOutput = @(& $ExePath --music-source-test $MutatedRomPath 2>&1)
         if ($LASTEXITCODE -eq 0 -or
             @($RejectOutput | Where-Object { $_ -match "music.*fingerprint" }).Count -eq 0) {
             throw "Music source mutation '$($Spec.id)' was not rejected.`n$(Get-ShortTail $RejectOutput)"
         }
         Remove-Item -LiteralPath $MutatedRomPath -Force
-        if (Test-Path -LiteralPath $RejectedPackPath) {
-            Remove-Item -LiteralPath $RejectedPackPath -Force
-        }
     }
 
     $global:LASTEXITCODE = 0

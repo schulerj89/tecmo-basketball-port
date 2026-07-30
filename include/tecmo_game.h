@@ -3,6 +3,7 @@
 
 #include "asm_inventory.h"
 #include "tecmo_controls.h"
+#include "tecmo_frontend_audio.h"
 #include "tecmo_all_star_menu.h"
 #include "tecmo_framebuffer.h"
 #include "tecmo_gameplay_scene.h"
@@ -90,6 +91,8 @@ typedef struct TecmoRuntime {
     uint8_t all_star_committed_difficulty;
     TecmoMusicAsset music_asset;
     TecmoMusicPlayer music_player;
+    TecmoFrontendAudioAsset frontend_audio_asset;
+    TecmoFrontendAudioPlayer frontend_audio_player;
     TecmoGameplayScene gameplay_scene;
     TecmoTeamDataAsset team_data_asset;
     TecmoTeamDataState team_data_state;

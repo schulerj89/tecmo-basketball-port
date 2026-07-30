@@ -32,4 +32,8 @@ int tecmo_asset_pack_build_music(const uint8_t *rom,
                                  char *message,
                                  size_t message_size);
 
+int tecmo_asset_pack_music_source_test(const char *rom_path,
+                                       char *message,
+                                       size_t message_size);
+
 #endif

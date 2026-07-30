@@ -130,6 +130,7 @@ typedef struct TecmoStartGameMenuState {
     uint8_t cursor_delay;
     TecmoStartGameMenuAction pending_action;
     bool exit_from_season;
+    bool accepted_a_release;
 } TecmoStartGameMenuState;
 
 bool tecmo_start_game_menu_asset_load(TecmoStartGameMenuAsset *asset,

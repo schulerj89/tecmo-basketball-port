@@ -14,6 +14,9 @@
 #define TECMO_GAMEPLAY_SFX_INSTRUCTION_COUNT 131U
 #define TECMO_GAMEPLAY_SFX_PAYLOAD_SIZE 2824U
 #define TECMO_GAMEPLAY_SFX_PAYLOAD_FNV1A32 0x968A5DE6U
+#define TECMO_SFX_MAX_EFFECT_COUNT 7U
+#define TECMO_SFX_MAX_VOICE_COUNT 32U
+#define TECMO_SFX_MAX_PITCH_COUNT 75U
 #define TECMO_GAMEPLAY_DMC_CLIP_COUNT 5U
 #define TECMO_GAMEPLAY_DMC_POOL_COUNT 3U
 #define TECMO_GAMEPLAY_DMC_DATA_SIZE 2179U
@@ -64,9 +67,9 @@ typedef struct TecmoGameplayDmcClip {
 
 typedef struct TecmoGameplayAudioAsset {
     bool available;
-    TecmoGameplaySfxEffect effects[TECMO_GAMEPLAY_SFX_EFFECT_COUNT];
-    TecmoMusicVoice voices[TECMO_GAMEPLAY_SFX_VOICE_COUNT];
-    uint16_t pitch_periods[TECMO_GAMEPLAY_SFX_PITCH_COUNT];
+    TecmoGameplaySfxEffect effects[TECMO_SFX_MAX_EFFECT_COUNT];
+    TecmoMusicVoice voices[TECMO_SFX_MAX_VOICE_COUNT];
+    uint16_t pitch_periods[TECMO_SFX_MAX_PITCH_COUNT];
     TecmoMusicInstruction *instructions;
     TecmoGameplayDmcPool dmc_pools[TECMO_GAMEPLAY_DMC_POOL_COUNT];
     TecmoGameplayDmcClip dmc_clips[TECMO_GAMEPLAY_DMC_CLIP_COUNT];
@@ -74,6 +77,11 @@ typedef struct TecmoGameplayAudioAsset {
     uint32_t revision_token;
     uint32_t sfx_payload_fingerprint;
     uint32_t dmc_payload_fingerprint;
+    uint32_t instruction_count;
+    uint16_t effect_count;
+    uint16_t voice_count;
+    uint16_t pitch_count;
+    char asset_pack_path[1024];
     char status[160];
 } TecmoGameplayAudioAsset;
 
@@ -111,12 +119,22 @@ bool tecmo_gameplay_audio_asset_load(TecmoGameplayAudioAsset *asset,
 bool tecmo_gameplay_audio_asset_load_from_pack(
     TecmoGameplayAudioAsset *asset,
     const char *asset_pack_path);
+bool tecmo_gameplay_audio_frontend_asset_load_from_pack(
+    TecmoGameplayAudioAsset *asset,
+    const char *asset_pack_path,
+    uint8_t metadata_out[20]);
+bool tecmo_gameplay_audio_frontend_asset_load(
+    TecmoGameplayAudioAsset *asset,
+    const char *project_root,
+    uint8_t metadata_out[20]);
 void tecmo_gameplay_audio_asset_shutdown(TecmoGameplayAudioAsset *asset);
 void tecmo_gameplay_audio_player_init(TecmoGameplayAudioPlayer *player,
                                       const TecmoGameplayAudioAsset *asset,
                                       TecmoMusicPlayer *music);
 bool tecmo_gameplay_audio_queue_event(TecmoGameplayAudioPlayer *player,
                                       TecmoGameplayAudioEvent event);
+bool tecmo_gameplay_audio_queue_sfx_id(TecmoGameplayAudioPlayer *player,
+                                       uint8_t sfx_id);
 bool tecmo_gameplay_audio_queue_dmc_clip(TecmoGameplayAudioPlayer *player,
                                          TecmoGameplayDmcClipId clip_id);
 bool tecmo_gameplay_audio_queue_game_music(TecmoGameplayAudioPlayer *player);

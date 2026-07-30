@@ -1151,6 +1151,66 @@ static int append_gameplay_audio_source_map_entries(
         p->dmc_payload_size, p->dmc_payload_fingerprint);
 }
 
+static int append_frontend_audio_source_map_entry(
+    char *buffer, size_t capacity, size_t *length, int *first,
+    const TecmoFrontendAudioProvenance *p)
+{
+    const char *prefix = *first != 0 ? "" : ",\n";
+    *first = 0;
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "%s"
+        "    {\"id\":\"%s\",\"kind\":\"native-frontend-sfx\","
+        "\"schema\":\"tecmo.frontend-audio/TFSX-1\","
+        "\"input_contract\":\"ines-only\",\"runtime_dependencies\":["
+        "{\"entry\":\"audio/music\",\"schema\":\"TMUS-1\","
+        "\"same_pack_required\":true}],\"sources\":["
+        "{\"role\":\"sfx-directory\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":35492,\"size\":32,\"fingerprint_fnv1a32\":\"6283F255\"},"
+        "{\"role\":\"accepted-menu-a-release-sfx-8\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":35831,\"size\":51,\"fingerprint_fnv1a32\":\"AC9D4C1F\"},"
+        "{\"role\":\"title-confirm-sfx-10\",\"source_entry\":\"prg/bank04\",\"source_offset\":%llu,\"bank\":4,\"cpu_address\":35735,\"size\":96,\"fingerprint_fnv1a32\":\"963DC35E\"},"
+        "{\"role\":\"title-setup\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":32854,\"size\":32,\"fingerprint_fnv1a32\":\"4A97C61D\"},"
+        "{\"role\":\"title-confirm-input-and-queue\",\"source_entry\":\"prg/bank03\",\"source_offset\":%llu,\"bank\":3,\"cpu_address\":32886,\"size\":27,\"fingerprint_fnv1a32\":\"0C902C97\"},"
+        "{\"role\":\"title-setup-transition-bridge\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":49155,\"size\":3,\"fingerprint_fnv1a32\":\"0F4103F2\"},"
+        "{\"role\":\"title-setup-three-yield-flow\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":55598,\"size\":119,\"fingerprint_fnv1a32\":\"105B38A7\"},"
+        "{\"role\":\"title-setup-zero-state-two-yield-flow\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":56101,\"size\":99,\"fingerprint_fnv1a32\":\"5D98AB7A\"},"
+        "{\"role\":\"task-frame-yield-helper\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":58362,\"size\":32,\"fingerprint_fnv1a32\":\"B8BA175B\"},"
+        "{\"role\":\"title-stop-bridge\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":49188,\"size\":6,\"fingerprint_fnv1a32\":\"B4100BD2\"},"
+        "{\"role\":\"title-stop-dispatch\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":52143,\"size\":12,\"fingerprint_fnv1a32\":\"AB3677A6\"},"
+        "{\"role\":\"title-stop-and-wait\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":60422,\"size\":32,\"fingerprint_fnv1a32\":\"F1BCC8E2\"},"
+        "{\"role\":\"menu-accepted-release-dispatch\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":55144,\"size\":43,\"fingerprint_fnv1a32\":\"68D40771\"},"
+        "{\"role\":\"menu-track-transition-flow\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":58487,\"size\":42,\"fingerprint_fnv1a32\":\"71B4A4A8\"},"
+        "{\"role\":\"audio-mailboxes\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":62194,\"size\":8,\"fingerprint_fnv1a32\":\"17DE7030\"}],"
+        "\"native_contract\":{\"payload_size\":%u,"
+        "\"payload_fingerprint_fnv1a32\":\"%08X\","
+        "\"effect_ids\":[8,10],\"instruction_count\":%u,"
+        "\"voice_count\":%u,\"channels\":[\"pulse1\",\"pulse2\",\"triangle\",\"noise\"],"
+        "\"title_stop_frame\":5,\"title_setup_yield_count\":5,"
+        "\"title_setup_yield_proof_fnv1a32\":\"CA4CA88A\","
+        "\"title_confirmation_cue_frame\":1,"
+        "\"title_handoff_frame\":127,\"title_animation_frames\":126,"
+        "\"menu_music_track\":6,"
+        "\"menu_cue_condition\":\"accepted-player1-a-release-only\","
+        "\"runtime_raw_pointer_or_opcode_dependency\":false}}",
+        prefix, TECMO_ASSET_PACK_FRONTEND_SFX_ID,
+        (unsigned long long)p->sfx_directory_offset,
+        (unsigned long long)p->effect_offsets[0],
+        (unsigned long long)p->effect_offsets[1],
+        (unsigned long long)p->title_setup_offset,
+        (unsigned long long)p->title_confirm_offset,
+        (unsigned long long)p->title_setup_bridge_offset,
+        (unsigned long long)p->title_setup_transition_offset,
+        (unsigned long long)p->title_setup_fade_offset,
+        (unsigned long long)p->frame_yield_helper_offset,
+        (unsigned long long)p->title_stop_bridge_offset,
+        (unsigned long long)p->title_stop_dispatch_offset,
+        (unsigned long long)p->title_stop_offset,
+        (unsigned long long)p->menu_accept_offset,
+        (unsigned long long)p->menu_flow_offset,
+        (unsigned long long)p->mailboxes_offset,
+        p->payload_size, p->payload_fingerprint, p->instruction_count,
+        (unsigned)p->voice_count);
+}
+
 static int append_team_data_source_map_entry(char *buffer,
                                              size_t capacity,
                                              size_t *length,
@@ -2576,6 +2636,7 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoPreseasonMenuProvenance *preseason_provenance,
                                    const TecmoAllStarMenuProvenance *all_star_provenance,
                                    const TecmoMusicProvenance *music_provenance,
+                                   const TecmoFrontendAudioProvenance *frontend_audio_provenance,
                                    const TecmoGameplayAudioProvenance *gameplay_audio_provenance,
                                    const TecmoTeamDataProvenance *team_data_provenance,
                                    const TecmoTeamManagementProvenance *team_management_provenance,
@@ -2592,7 +2653,7 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
     const TecmoGameplayFreeThrowLineupProvenance *free_throw_lineup_provenance,
     size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 28U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 29U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -2797,6 +2858,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
         (music_provenance->payload_size != 0U &&
          append_music_source_map_entry(source_map, capacity, &length,
                                        &first_logical, music_provenance) != 0) ||
+        (frontend_audio_provenance->payload_size != 0U &&
+         append_frontend_audio_source_map_entry(
+             source_map, capacity, &length, &first_logical,
+             frontend_audio_provenance) != 0) ||
         (gameplay_audio_provenance->sfx_payload_size != 0U &&
          append_gameplay_audio_source_map_entries(
              source_map, capacity, &length, &first_logical,

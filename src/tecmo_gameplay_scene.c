@@ -3,6 +3,7 @@
 #endif
 
 #include "tecmo_gameplay_scene.h"
+#include "tecmo_asset_pack.h"
 #include "tecmo_nes_video.h"
 
 #include <limits.h>
@@ -199,6 +200,7 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
                                const char *asset_pack_path,
                                TecmoMusicPlayer *music_player)
 {
+    char selected_candidate[1024];
     char selected[1024];
     char failure[192];
 
@@ -207,8 +209,11 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
         return false;
     }
     scene_release_owned(scene);
-    if (!scene_select_asset_pack(selected, sizeof(selected), project_root,
-                                 asset_pack_path)) {
+    if (!scene_select_asset_pack(
+            selected_candidate, sizeof(selected_candidate), project_root,
+            asset_pack_path) ||
+        tecmo_asset_pack_canonicalize_path(
+            selected_candidate, selected, sizeof(selected)) != 0) {
         scene_set_status(scene, "gameplay asset pack unavailable");
         return false;
     }

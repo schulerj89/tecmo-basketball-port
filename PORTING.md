@@ -554,9 +554,13 @@ the native license-to-arena frame-277 handoff; Bank04 `$826A` queues it one NMI
 before the first route pointer at `$82CF` enters arena routine `$88E8`. Its
 imported program ends after 2614 inclusive ticks (43.4950 seconds), measured
 from fixed `$F7EE` consuming queued ID 7 through the first NMI where active mask
-`$063E` clears. Confirmed title frame 127 then queues presentation ID 6 at the
-fixed `$E477` call, after title input completes and before the blue-menu root is
-built. Entering that mode through a generic runtime reset does not restart ID 6.
+`$063E` clears. The first START enters title setup, whose imported TFSX timing
+preserves the five proven `$E3FA` yields (`$D92E` supplies three and `$DB25`
+supplies two after Bank03 clears `$034E`) and hard-stops any remaining opening
+program on title frame 5. Confirmed title
+frame 127 then queues presentation ID 6 at fixed `$E477`, after title input
+completes and before the blue-menu root is built. Entering that mode through a
+generic runtime reset does not restart ID 6.
 The MUSIC setting only allows or rejects future ID-5 queues. OFF does not stop
 an active song, preview a choice, reject ID 6, or globally mute IDs 6-8. The
 TMUS-1 music synthesizer covers two pulse voices, triangle, and noise with
@@ -575,6 +579,35 @@ FCEUX/Lua output, captures, frames, screenshots, logs, states, dumps, and
 Bank06 `$A145-$A149` queues ID 8 with `A9 08 20 0C C0` (FNV1a32
 `1E564AC0`), providing a separate revision-checked source-map anchor for the
 pregame-matchup label.
+
+Frontend audio uses a distinct strict `audio/frontend-sfx` TFSX-1 entry
+(1792 bytes, FNV1a32 `985DC7ED`) while reusing the native TSFX semantic
+sequencer/mixer. It contains only original SFX 8 and 10, with 3 voices, 75
+periods, and 87 semantic instructions; runtime never reads ROM, ASM,
+decompilation, trace, capture, screenshot, state, dump, or raw opcode data.
+The imported metadata fixes the title stop at title-setup frame 5, SFX 10 at
+fresh confirmation frame 1, 126 visible animation frames, track 6 and menu
+handoff at frame 127, and SFX 8 on genuine accepted Player 1 A-release events
+inside the blue-menu state machine. Directional movement, START, B/cancel,
+held/repeat input, rejected chords, and the period A+B consume path are inert
+for that cue.
+
+The TFSX importer revision-locks the complete Bank04 directory, SFX 8
+`$8BF7-$8C29` (`AC9D4C1F`), SFX 10 `$8B97-$8BF6` (`963DC35E`), Bank03 title
+setup/confirmation `$8056-$8090`, transition bridge `$C003`, complete
+three-yield flow `$D92E-$D9A4`, complete zero-state two-yield flow
+`$DB25-$DB87`, frame-yield helper `$E3FA-$E419`, fixed stop bridges `$C024`
+and `$CBAF`, menu accept `$D768-$D792`, menu transition `$E477-$E4A0`, stop
+helper `$EC06-$EC25`, and audio mailboxes `$F2F2-$F2F9`. The five-yield source
+aggregate is `CA4CA88A`. Runtime canonicalizes the selected container path and
+accepts exact TFSX-1 plus exact TMUS-1 from that same canonical pack only. The
+focused
+`tools\Run-FrontendAudioTests.ps1` suite covers deterministic SFX PCM hashes,
+title/menu flow timing, accepted-release single-fire behavior, strict
+source-map provenance with exact roles/ranges/hashes, same-path alias
+acceptance, distinct-pack rejection, missing/malformed/oversized dependency
+rejection, and frontend-specific one-byte mutations of every bounded ROM
+source span.
 
 Gameplay audio is ROM-only and connected to the live scene. The importer emits
 two same-revision dependencies. `audio/gameplay-sfx` is the exact 2824-byte
@@ -693,6 +726,7 @@ Normal gates should stay close to:
 .\build\tecmo_port.exe --controls-test
 .\build\tecmo_port.exe --assetpack-test
 .\build\tecmo_port.exe --music-test
+.\build\tecmo_port.exe --frontend-audio-test
 .\build\tecmo_port.exe --gameplay-audio-test
 .\build\tecmo_port.exe --gameplay-state-test
 .\build\tecmo_port.exe --team-management-test

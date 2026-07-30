@@ -96,6 +96,13 @@ int tecmo_asset_pack_dump_directory(const char *pack_path,
                                     size_t buffer_size,
                                     size_t *required_size_out);
 
+/* Resolves an existing pack path to a stable absolute identity for compound
+   same-container contracts. On Windows, separators and case are normalized
+   because the native filesystem comparison is case-insensitive. */
+int tecmo_asset_pack_canonicalize_path(const char *pack_path,
+                                       char *canonical_path,
+                                       size_t canonical_path_size);
+
 int tecmo_asset_pack_self_test(char *message, size_t message_size);
 
 void tecmo_asset_pack_free(void *buffer);

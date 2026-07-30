@@ -21,6 +21,15 @@
 #define SFX_PITCH_OFFSET 576U
 #define SFX_INSTRUCTION_OFFSET 728U
 #define SFX_INSTRUCTION_STRIDE 16U
+#define FRONTEND_SFX_ENTRY_ID "audio/frontend-sfx"
+#define FRONTEND_SFX_PAYLOAD_SIZE 1792U
+#define FRONTEND_SFX_PAYLOAD_FNV1A32 0x985DC7EDU
+#define FRONTEND_SFX_EFFECT_COUNT 2U
+#define FRONTEND_SFX_VOICE_COUNT 3U
+#define FRONTEND_SFX_INSTRUCTION_COUNT 87U
+#define FRONTEND_SFX_VOICE_OFFSET 224U
+#define FRONTEND_SFX_PITCH_OFFSET 248U
+#define FRONTEND_SFX_INSTRUCTION_OFFSET 400U
 #define DMC_HEADER_SIZE 128U
 #define DMC_CLIP_OFFSET 128U
 #define DMC_CLIP_STRIDE 32U
@@ -126,7 +135,7 @@ static bool validate_walk(const TecmoGameplayAudioAsset *asset,
     if (depth > TECMO_MUSIC_CALL_DEPTH ||
         !instruction_in_channel(instruction_index, first, count))
         return false;
-    row_offset = (size_t)depth * TECMO_GAMEPLAY_SFX_INSTRUCTION_COUNT +
+    row_offset = (size_t)depth * asset->instruction_count +
                  instruction_index;
     if (visited[row_offset] != 0U) return true;
     visited[row_offset] = 1U;
@@ -165,6 +174,15 @@ static bool parse_sfx(TecmoGameplayAudioAsset *asset, const uint8_t *bytes,
         0xB7138F94U, 0x28EE1024U, 0x34460805U, 0x93E7AC2CU,
         0xB172920DU, 0xDC401221U, 0xE3035B54U
     };
+    static const uint8_t frontend_effect_ids[FRONTEND_SFX_EFFECT_COUNT] = {
+        8U, 10U
+    };
+    static const uint32_t frontend_effect_fingerprints[
+        FRONTEND_SFX_EFFECT_COUNT] = {0xAC9D4C1FU, 0x963DC35EU};
+    static const uint32_t frontend_semantic_fingerprints[5] = {
+        0x6283F255U, 0x4A97C61DU, 0x0C902C97U, 0x68D40771U,
+        0xF1BCC8E2U
+    };
     uint8_t *visited = NULL;
     uint8_t *reachable = NULL;
     uint32_t expected_first = 0U;
@@ -172,23 +190,50 @@ static bool parse_sfx(TecmoGameplayAudioAsset *asset, const uint8_t *bytes,
     unsigned effect_index;
     unsigned max_depth = 0U;
     bool ok = false;
+    bool frontend;
+    uint32_t payload_size;
+    uint32_t payload_fingerprint;
+    uint32_t instruction_count;
+    uint32_t voice_offset;
+    uint32_t pitch_offset;
+    uint32_t instruction_offset;
+    uint16_t effect_count;
+    uint16_t voice_count;
+    const uint8_t *expected_effect_ids;
+    const uint32_t *expected_effect_fingerprints;
+    if (asset == NULL || bytes == NULL || count < SFX_HEADER_SIZE)
+        return false;
+    frontend = memcmp(bytes, "TFSX", 4U) == 0;
+    payload_size = frontend ? FRONTEND_SFX_PAYLOAD_SIZE
+                            : TECMO_GAMEPLAY_SFX_PAYLOAD_SIZE;
+    payload_fingerprint = frontend ? FRONTEND_SFX_PAYLOAD_FNV1A32
+                                   : TECMO_GAMEPLAY_SFX_PAYLOAD_FNV1A32;
+    effect_count = frontend ? FRONTEND_SFX_EFFECT_COUNT
+                            : TECMO_GAMEPLAY_SFX_EFFECT_COUNT;
+    voice_count = frontend ? FRONTEND_SFX_VOICE_COUNT
+                           : TECMO_GAMEPLAY_SFX_VOICE_COUNT;
+    instruction_count = frontend ? FRONTEND_SFX_INSTRUCTION_COUNT
+                                 : TECMO_GAMEPLAY_SFX_INSTRUCTION_COUNT;
+    voice_offset = frontend ? FRONTEND_SFX_VOICE_OFFSET : SFX_VOICE_OFFSET;
+    pitch_offset = frontend ? FRONTEND_SFX_PITCH_OFFSET : SFX_PITCH_OFFSET;
+    instruction_offset = frontend ? FRONTEND_SFX_INSTRUCTION_OFFSET
+                                  : SFX_INSTRUCTION_OFFSET;
+    expected_effect_ids = frontend ? frontend_effect_ids : effect_ids;
+    expected_effect_fingerprints = frontend
+        ? frontend_effect_fingerprints : effect_fingerprints;
     if (asset == NULL || bytes == NULL ||
-        count != TECMO_GAMEPLAY_SFX_PAYLOAD_SIZE ||
+        count != payload_size ||
         (enforce_payload_fingerprint &&
          fnv1a32(bytes, (size_t)count) !=
-             TECMO_GAMEPLAY_SFX_PAYLOAD_FNV1A32) ||
-        memcmp(bytes, "TSFX", 4U) != 0 || read_u16(bytes + 4U) != 1U ||
+             payload_fingerprint) ||
+        memcmp(bytes, frontend ? "TFSX" : "TSFX", 4U) != 0 ||
+        read_u16(bytes + 4U) != 1U ||
         read_u16(bytes + 6U) != SFX_HEADER_SIZE ||
-        read_u32(bytes + 8U) != TECMO_GAMEPLAY_SFX_PAYLOAD_SIZE ||
+        read_u32(bytes + 8U) != payload_size ||
         read_u32(bytes + 12U) != 0x0650F5B0U ||
-        read_u32(bytes + 16U) != 0x6283F255U ||
-        read_u32(bytes + 20U) != 0x548EED95U ||
-        read_u32(bytes + 24U) != 0x838408D4U ||
-        read_u32(bytes + 28U) != 0xFC6A0BC1U ||
-        read_u32(bytes + 32U) != 0x80402010U ||
-        read_u16(bytes + 36U) != TECMO_GAMEPLAY_SFX_EFFECT_COUNT ||
+        read_u16(bytes + 36U) != effect_count ||
         read_u16(bytes + 38U) != TECMO_GAMEPLAY_SFX_CHANNEL_COUNT ||
-        read_u16(bytes + 40U) != TECMO_GAMEPLAY_SFX_VOICE_COUNT ||
+        read_u16(bytes + 40U) != voice_count ||
         read_u16(bytes + 42U) != TECMO_GAMEPLAY_SFX_PITCH_COUNT ||
         read_u16(bytes + 44U) != SFX_EFFECT_STRIDE ||
         read_u16(bytes + 46U) != SFX_VOICE_STRIDE ||
@@ -198,34 +243,62 @@ static bool parse_sfx(TecmoGameplayAudioAsset *asset, const uint8_t *bytes,
         read_u32(bytes + 56U) != TECMO_MUSIC_TICK_NUMERATOR ||
         read_u32(bytes + 60U) != TECMO_MUSIC_TICK_DENOMINATOR ||
         read_u32(bytes + 64U) != SFX_EFFECT_OFFSET ||
-        read_u32(bytes + 68U) != SFX_VOICE_OFFSET ||
-        read_u32(bytes + 72U) != SFX_PITCH_OFFSET ||
-        read_u32(bytes + 76U) != SFX_INSTRUCTION_OFFSET ||
-        read_u32(bytes + 80U) != TECMO_GAMEPLAY_SFX_INSTRUCTION_COUNT ||
+        read_u32(bytes + 68U) != voice_offset ||
+        read_u32(bytes + 72U) != pitch_offset ||
+        read_u32(bytes + 76U) != instruction_offset ||
+        read_u32(bytes + 80U) != instruction_count ||
         read_u16(bytes + 84U) != TECMO_MUSIC_LOOP_COUNT ||
         read_u16(bytes + 86U) != 0U)
         return false;
-    for (instruction_index = 123U; instruction_index < SFX_HEADER_SIZE;
-         ++instruction_index) {
+    if (frontend) {
+        for (effect_index = 0U; effect_index < 5U; ++effect_index) {
+            if (read_u32(bytes + 16U + effect_index * 4U) !=
+                frontend_semantic_fingerprints[effect_index])
+                return false;
+        }
+        if (bytes[96U] != 5U || bytes[97U] != 10U ||
+            bytes[98U] != 8U || bytes[99U] != 6U ||
+            read_u16(bytes + 100U) != 127U ||
+            read_u16(bytes + 102U) != 126U ||
+            read_u32(bytes + 104U) != 0x17DE7030U ||
+            read_u32(bytes + 108U) != 0x71B4A4A8U ||
+            read_u32(bytes + 112U) != 0xCA4CA88AU)
+            return false;
+    } else if (read_u32(bytes + 16U) != 0x6283F255U ||
+               read_u32(bytes + 20U) != 0x548EED95U ||
+               read_u32(bytes + 24U) != 0x838408D4U ||
+               read_u32(bytes + 28U) != 0xFC6A0BC1U ||
+               read_u32(bytes + 32U) != 0x80402010U) {
+        return false;
+    }
+    for (instruction_index = 116U + effect_count;
+         instruction_index < SFX_HEADER_SIZE; ++instruction_index) {
         if (bytes[instruction_index] != 0U) return false;
     }
     asset->revision_token = read_u32(bytes + 12U);
-    asset->sfx_payload_fingerprint = TECMO_GAMEPLAY_SFX_PAYLOAD_FNV1A32;
+    asset->sfx_payload_fingerprint = payload_fingerprint;
+    asset->effect_count = effect_count;
+    asset->voice_count = voice_count;
+    asset->pitch_count = TECMO_GAMEPLAY_SFX_PITCH_COUNT;
+    asset->instruction_count = instruction_count;
     asset->instructions = (TecmoMusicInstruction *)calloc(
-        TECMO_GAMEPLAY_SFX_INSTRUCTION_COUNT,
+        instruction_count,
         sizeof(*asset->instructions));
     if (asset->instructions == NULL) return false;
     for (effect_index = 0U;
-         effect_index < TECMO_GAMEPLAY_SFX_EFFECT_COUNT; ++effect_index) {
+         effect_index < effect_count; ++effect_index) {
         const uint8_t *source = bytes + SFX_EFFECT_OFFSET +
             effect_index * SFX_EFFECT_STRIDE;
         unsigned channel;
         if (read_u32(bytes + 88U + effect_index * 4U) !=
-                effect_fingerprints[effect_index] ||
-            bytes[116U + effect_index] != effect_ids[effect_index] ||
-            source[0] != effect_ids[effect_index] || source[1] != 0U ||
+                expected_effect_fingerprints[effect_index] ||
+            bytes[116U + effect_index] !=
+                expected_effect_ids[effect_index] ||
+            source[0] != expected_effect_ids[effect_index] ||
+            source[1] != 0U ||
             read_u16(source + 2U) != TECMO_GAMEPLAY_SFX_CHANNEL_COUNT ||
-            read_u32(source + 4U) != effect_fingerprints[effect_index])
+            read_u32(source + 4U) !=
+                expected_effect_fingerprints[effect_index])
             goto cleanup;
         for (instruction_index = 40U;
              instruction_index < SFX_EFFECT_STRIDE; ++instruction_index) {
@@ -239,7 +312,7 @@ static bool parse_sfx(TecmoGameplayAudioAsset *asset, const uint8_t *bytes,
             uint32_t channel_count = read_u32(source + 12U + channel * 8U);
             if (first != expected_first || channel_count == 0U ||
                 channel_count >
-                    TECMO_GAMEPLAY_SFX_INSTRUCTION_COUNT - expected_first)
+                    instruction_count - expected_first)
                 goto cleanup;
             asset->effects[effect_index].channels[channel]
                 .first_instruction = first;
@@ -248,10 +321,10 @@ static bool parse_sfx(TecmoGameplayAudioAsset *asset, const uint8_t *bytes,
             expected_first += channel_count;
         }
     }
-    if (expected_first != TECMO_GAMEPLAY_SFX_INSTRUCTION_COUNT) goto cleanup;
-    for (effect_index = 0U; effect_index < TECMO_GAMEPLAY_SFX_VOICE_COUNT;
+    if (expected_first != instruction_count) goto cleanup;
+    for (effect_index = 0U; effect_index < voice_count;
          ++effect_index) {
-        const uint8_t *source = bytes + SFX_VOICE_OFFSET +
+        const uint8_t *source = bytes + voice_offset +
             effect_index * SFX_VOICE_STRIDE;
         TecmoMusicVoice *voice = &asset->voices[effect_index];
         voice->duty_and_timing = source[0];
@@ -263,13 +336,13 @@ static bool parse_sfx(TecmoGameplayAudioAsset *asset, const uint8_t *bytes,
         voice->release = source[6];
         voice->peak_and_sustain_volume = source[7];
         if ((voice->sweep != 0U && voice->sweep != 0x05U &&
-             voice->sweep != 0x0FU) ||
+             voice->sweep != 0x0FU && voice->sweep != 0x10U) ||
             (voice->initial_volume & 0xE0U) != 0U)
             goto cleanup;
     }
     for (effect_index = 0U; effect_index < TECMO_GAMEPLAY_SFX_PITCH_COUNT;
          ++effect_index) {
-        uint16_t period = read_u16(bytes + SFX_PITCH_OFFSET +
+        uint16_t period = read_u16(bytes + pitch_offset +
                                    effect_index * 2U);
         if (period == 0U || period > 0x7FFU ||
             (effect_index > 0U &&
@@ -278,9 +351,9 @@ static bool parse_sfx(TecmoGameplayAudioAsset *asset, const uint8_t *bytes,
         asset->pitch_periods[effect_index] = period;
     }
     for (instruction_index = 0U;
-         instruction_index < TECMO_GAMEPLAY_SFX_INSTRUCTION_COUNT;
+         instruction_index < instruction_count;
          ++instruction_index) {
-        const uint8_t *source = bytes + SFX_INSTRUCTION_OFFSET +
+        const uint8_t *source = bytes + instruction_offset +
             instruction_index * SFX_INSTRUCTION_STRIDE;
         TecmoMusicInstruction *instruction =
             &asset->instructions[instruction_index];
@@ -297,12 +370,12 @@ static bool parse_sfx(TecmoGameplayAudioAsset *asset, const uint8_t *bytes,
     }
     visited = (uint8_t *)calloc(
         (TECMO_MUSIC_CALL_DEPTH + 1U) *
-            TECMO_GAMEPLAY_SFX_INSTRUCTION_COUNT,
+            instruction_count,
         1U);
-    reachable = (uint8_t *)calloc(TECMO_GAMEPLAY_SFX_INSTRUCTION_COUNT, 1U);
+    reachable = (uint8_t *)calloc(instruction_count, 1U);
     if (visited == NULL || reachable == NULL) goto cleanup;
     for (effect_index = 0U;
-         effect_index < TECMO_GAMEPLAY_SFX_EFFECT_COUNT; ++effect_index) {
+         effect_index < effect_count; ++effect_index) {
         unsigned channel;
         for (channel = 0U; channel < TECMO_GAMEPLAY_SFX_CHANNEL_COUNT;
              ++channel) {
@@ -342,7 +415,7 @@ static bool parse_sfx(TecmoGameplayAudioAsset *asset, const uint8_t *bytes,
                 case TECMO_MUSIC_SET_VOICE:
                     if (!has_next || has_target ||
                         instruction->value8 >=
-                            TECMO_GAMEPLAY_SFX_VOICE_COUNT ||
+                            voice_count ||
                         instruction->value16 != 0U ||
                         instruction->signed_value != 0 ||
                         instruction->loop_slot != UINT16_MAX)
@@ -407,7 +480,7 @@ static bool parse_sfx(TecmoGameplayAudioAsset *asset, const uint8_t *bytes,
     }
     if (max_depth != read_u16(bytes + 50U)) goto cleanup;
     for (instruction_index = 0U;
-         instruction_index < TECMO_GAMEPLAY_SFX_INSTRUCTION_COUNT;
+         instruction_index < instruction_count;
          ++instruction_index) {
         if (reachable[instruction_index] == 0U) goto cleanup;
     }
@@ -549,15 +622,18 @@ bool tecmo_gameplay_audio_asset_load_from_pack(
     uint8_t *dmc_bytes = NULL;
     uint64_t sfx_count = 0U;
     uint64_t dmc_count = 0U;
+    char canonical_path[1024];
     bool ok;
     if (asset == NULL) return false;
     memset(asset, 0, sizeof(*asset));
     if (asset_pack_path == NULL || asset_pack_path[0] == '\0' ||
+        tecmo_asset_pack_canonicalize_path(
+            asset_pack_path, canonical_path, sizeof(canonical_path)) != 0 ||
         tecmo_asset_pack_read_entry_exact(
-            asset_pack_path, SFX_ENTRY_ID, TECMO_GAMEPLAY_SFX_PAYLOAD_SIZE,
+            canonical_path, SFX_ENTRY_ID, TECMO_GAMEPLAY_SFX_PAYLOAD_SIZE,
             &sfx_bytes, &sfx_count) != 0 ||
         tecmo_asset_pack_read_entry_exact(
-            asset_pack_path, DMC_ENTRY_ID, TECMO_GAMEPLAY_DMC_PAYLOAD_SIZE,
+            canonical_path, DMC_ENTRY_ID, TECMO_GAMEPLAY_DMC_PAYLOAD_SIZE,
             &dmc_bytes, &dmc_count) != 0) {
         tecmo_asset_pack_free(sfx_bytes);
         tecmo_asset_pack_free(dmc_bytes);
@@ -578,9 +654,67 @@ bool tecmo_gameplay_audio_asset_load_from_pack(
         asset->dmc_data = NULL;
     }
     asset->available = ok;
+    if (ok) {
+        (void)snprintf(asset->asset_pack_path,
+                       sizeof(asset->asset_pack_path), "%s",
+                       canonical_path);
+    }
     (void)snprintf(asset->status, sizeof(asset->status), "%s",
                    ok ? "TSFX-1/TDMC-1 native gameplay audio"
                       : "TSFX-1/TDMC-1 asset contract rejected");
+    return ok;
+}
+
+bool tecmo_gameplay_audio_frontend_asset_load_from_pack(
+    TecmoGameplayAudioAsset *asset,
+    const char *asset_pack_path,
+    uint8_t metadata_out[20])
+{
+    uint8_t *sfx_bytes = NULL;
+    uint8_t *music_bytes = NULL;
+    uint64_t sfx_count = 0U;
+    uint64_t music_count = 0U;
+    char canonical_path[1024];
+    bool ok;
+    if (asset == NULL) return false;
+    memset(asset, 0, sizeof(*asset));
+    if (asset_pack_path == NULL || asset_pack_path[0] == '\0' ||
+        tecmo_asset_pack_canonicalize_path(
+            asset_pack_path, canonical_path, sizeof(canonical_path)) != 0 ||
+        tecmo_asset_pack_read_entry_exact(
+            canonical_path, FRONTEND_SFX_ENTRY_ID,
+            FRONTEND_SFX_PAYLOAD_SIZE, &sfx_bytes, &sfx_count) != 0 ||
+        tecmo_asset_pack_read_entry_exact(
+            canonical_path, "audio/music", TECMO_MUSIC_PAYLOAD_SIZE,
+            &music_bytes, &music_count) != 0) {
+        tecmo_asset_pack_free(sfx_bytes);
+        tecmo_asset_pack_free(music_bytes);
+        (void)snprintf(asset->status, sizeof(asset->status),
+                       "TFSX-1 frontend audio entry unavailable");
+        return false;
+    }
+    ok = music_count == TECMO_MUSIC_PAYLOAD_SIZE &&
+         fnv1a32(music_bytes, (size_t)music_count) ==
+             TECMO_MUSIC_PAYLOAD_FNV1A32 &&
+         read_u32(music_bytes + 12U) == 0x06F2A750U &&
+         parse_sfx(asset, sfx_bytes, sfx_count, true);
+    if (ok && metadata_out != NULL)
+        memcpy(metadata_out, sfx_bytes + 96U, 20U);
+    tecmo_asset_pack_free(sfx_bytes);
+    tecmo_asset_pack_free(music_bytes);
+    if (!ok) {
+        free(asset->instructions);
+        asset->instructions = NULL;
+    }
+    asset->available = ok;
+    if (ok) {
+        (void)snprintf(asset->asset_pack_path,
+                       sizeof(asset->asset_pack_path), "%s",
+                       canonical_path);
+    }
+    (void)snprintf(asset->status, sizeof(asset->status), "%s",
+                   ok ? "TFSX-1 native frontend audio"
+                      : "TFSX-1 frontend audio contract rejected");
     return ok;
 }
 
@@ -598,6 +732,23 @@ bool tecmo_gameplay_audio_asset_load(TecmoGameplayAudioAsset *asset,
     return tecmo_gameplay_audio_asset_load_from_pack(asset, pack_path);
 }
 
+bool tecmo_gameplay_audio_frontend_asset_load(
+    TecmoGameplayAudioAsset *asset,
+    const char *project_root,
+    uint8_t metadata_out[20])
+{
+    char pack_path[1024];
+    if (asset == NULL) return false;
+    if (!select_asset_pack(project_root, pack_path, sizeof(pack_path))) {
+        memset(asset, 0, sizeof(*asset));
+        (void)snprintf(asset->status, sizeof(asset->status),
+                       "TFSX-1 frontend audio entry unavailable");
+        return false;
+    }
+    return tecmo_gameplay_audio_frontend_asset_load_from_pack(
+        asset, pack_path, metadata_out);
+}
+
 void tecmo_gameplay_audio_asset_shutdown(TecmoGameplayAudioAsset *asset)
 {
     if (asset == NULL) return;
@@ -606,6 +757,7 @@ void tecmo_gameplay_audio_asset_shutdown(TecmoGameplayAudioAsset *asset)
     asset->instructions = NULL;
     asset->dmc_data = NULL;
     asset->available = false;
+    asset->asset_pack_path[0] = '\0';
 }
 
 void tecmo_gameplay_audio_player_init(TecmoGameplayAudioPlayer *player,
@@ -625,7 +777,7 @@ static const TecmoGameplaySfxEffect *find_effect(
 {
     unsigned index;
     if (asset == NULL || !asset->available) return NULL;
-    for (index = 0U; index < TECMO_GAMEPLAY_SFX_EFFECT_COUNT; ++index) {
+    for (index = 0U; index < asset->effect_count; ++index) {
         if (asset->effects[index].id == id) return &asset->effects[index];
     }
     return NULL;
@@ -747,7 +899,8 @@ static void update_period(TecmoGameplayAudioPlayer *player,
         return;
     }
     pitch_index = channel->note + (channel_index == 2U ? 12 : 0);
-    if (pitch_index < 0 || pitch_index >= TECMO_GAMEPLAY_SFX_PITCH_COUNT) {
+    if (pitch_index < 0 ||
+        (unsigned)pitch_index >= player->asset->pitch_count) {
         player->render_guard_failed = true;
         channel->note_on = false;
         return;
@@ -766,7 +919,7 @@ static void process_channel(TecmoGameplayAudioPlayer *player,
     unsigned guard;
     for (guard = 0U; guard < 4096U && channel->active; ++guard) {
         const TecmoMusicInstruction *instruction;
-        if (channel->pc >= TECMO_GAMEPLAY_SFX_INSTRUCTION_COUNT) break;
+        if (channel->pc >= player->asset->instruction_count) break;
         instruction = &player->asset->instructions[channel->pc];
         switch (instruction->type) {
         case TECMO_MUSIC_NOTE:
@@ -775,7 +928,7 @@ static void process_channel(TecmoGameplayAudioPlayer *player,
             channel->note_on = true;
             update_period(player, channel_index);
             if (!channel->legato_next && channel_index != 2U) {
-                if (channel->voice_index >= TECMO_GAMEPLAY_SFX_VOICE_COUNT)
+                if (channel->voice_index >= player->asset->voice_count)
                     break;
                 reset_envelope(
                     channel, &player->asset->voices[channel->voice_index]);
@@ -879,7 +1032,7 @@ static void sfx_tick(TecmoGameplayAudioPlayer *player)
             --channel->duration_ticks;
             if (channel->duration_ticks > 0U) {
                 if (channel_index != 2U &&
-                    channel->voice_index < TECMO_GAMEPLAY_SFX_VOICE_COUNT)
+                    channel->voice_index < player->asset->voice_count)
                     tick_envelope(
                         channel,
                         &player->asset->voices[channel->voice_index]);
@@ -903,7 +1056,7 @@ static double pulse_sample(TecmoGameplayAudioPlayer *player,
     const TecmoMusicVoice *voice;
     double frequency;
     if (!channel->active || !channel->note_on || channel->volume == 0U ||
-        channel->voice_index >= TECMO_GAMEPLAY_SFX_VOICE_COUNT)
+        channel->voice_index >= player->asset->voice_count)
         return 0.0;
     voice = &player->asset->voices[channel->voice_index];
     frequency = GAMEPLAY_AUDIO_CPU_CLOCK /
@@ -1044,6 +1197,15 @@ bool tecmo_gameplay_audio_queue_event(TecmoGameplayAudioPlayer *player,
     case TECMO_GAMEPLAY_AUDIO_BANK05_9FEC_CUE: sfx_id = 5U; break;
     default: return false;
     }
+    return tecmo_gameplay_audio_queue_sfx_id(player, sfx_id);
+}
+
+bool tecmo_gameplay_audio_queue_sfx_id(TecmoGameplayAudioPlayer *player,
+                                       uint8_t sfx_id)
+{
+    if (player == NULL || player->asset == NULL ||
+        !player->asset->available)
+        return false;
     if (find_effect(player->asset, sfx_id) == NULL) return false;
     player->pending_sfx_id = sfx_id;
     player->sfx_pending = true;

@@ -85,6 +85,7 @@ out of unrelated commits unless the user explicitly asks to commit them.
 .\build\tecmo_port.exe --bank07-test
 .\build\tecmo_port.exe --controls-test
 .\build\tecmo_port.exe --music-test
+.\build\tecmo_port.exe --frontend-audio-test
 .\build\tecmo_port.exe --gameplay-audio-test
 .\build\tecmo_port.exe --gameplay-state-test
 .\build\tecmo_port.exe --team-management-test
@@ -511,9 +512,12 @@ scenes are silent. Opening ID 7 is queued once at the native license-to-arena
 frame-277 handoff, matching Bank04 `$826A` immediately before the first arena
 route pointer at `$82CF` resolves to `$88E8`. Its imported program lasts exactly
 2614 native ticks (43.4950 seconds), inclusive from fixed `$F7EE` consuming the
-queued ID through the first NMI with active mask `$063E=0`. Presentation ID 6
-replaces it only on the confirmed title frame-127 handoff, matching fixed
-`$E477` after the title loop and before blue-menu root setup. Generic returns to
+queued ID through the first NMI with active mask `$063E=0`. Title setup clears
+`$034E`; fixed `$D92E` then contributes three calls to the `$E3FA` frame-yield
+helper and `$DB25` takes its zero-state path with two more. Strict TFSX timing
+therefore hard-stops any remaining opening program on native title frame 5.
+Presentation ID 6 then queues on confirmed title frame 127, matching
+fixed `$E477` after the title loop and before blue-menu root setup. Generic returns to
 the menu do not restart ID 6. GAME MUSIC only gates future ID-5 queues;
 accepting OFF does not preview, stop the current song, reject ID 6, or act as a
 global mute. The current synth implements the requested pulse 1,
@@ -531,6 +535,27 @@ Track 8's pregame-matchup label is anchored independently by Bank06
 `$A145-$A149` (`A9 08 20 0C C0`, FNV1a32 `1E564AC0`); importer and source-map
 validation must retain that queue-site fingerprint in addition to the Bank04
 track bytes.
+
+Frontend cues are a separate strict same-pack boundary. The builder emits
+`audio/frontend-sfx` as TFSX-1: 1792 bytes / FNV1a32 `985DC7ED`, containing
+only Bank04 effects 8 and 10, three deduplicated voices, 75 periods, and 87
+semantic instructions. The entry also carries the proven timing contract:
+title setup hard-stops opening audio on frame 5 after the exact five-yield
+path; fresh title confirmation frame 1 queues SFX 10; frames 1-126 retain the
+confirmation animation; frame 127 queues track 6 and hands off; an accepted
+Player 1 A-release in the blue menu queues SFX 8. START, directions, B/cancel,
+PERIOD A+B, rejected chords, held A, and repeat frames must not queue it.
+Revision spans include Bank03 `$8056-$8090`, Bank04's 32-byte SFX directory
+and exact `$8B97-$8C29` records, fixed `$C003`, complete `$D92E-$D9A4` and
+`$DB25-$DB87` routines, frame-yield helper `$E3FA-$E419`, `$C024`, `$CBAF`,
+`$D768-$D792`, `$E477-$E4A0`, `$EC06-$EC25`, and `$F2F2-$F2F9`. Runtime
+canonicalizes the pack identity and accepts exact size, header, metadata,
+padding, payload fingerprint, and TMUS-1 from that same container only; there
+is no loose or capture fallback. Run
+`tools\Run-FrontendAudioTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+-DecompRoot <LOCAL_DECOMP_ROOT>` for stable PCM, flow timing/input, malformed,
+missing, oversized, cross-pack dependency, exact source-map, and isolated
+frontend-importer ROM-mutation coverage.
 
 Gameplay audio is connected to the native live scene. `audio/gameplay-sfx` is
 TSFX-1: 2824 bytes / FNV1a32
@@ -938,7 +963,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c`: strict TGDK-1 screen/palette/CHR/staged-sprite importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c`: strict TGJS-1 ordinary-jump importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.c`: strict TGFL-1 raw free-throw lineup importer
-- `src/asset_pack/tecmo_asset_pack_gameplay_audio.c`: strict TSFX-1/TDMC-1 gameplay-audio importer
+- `src/asset_pack/tecmo_asset_pack_gameplay_audio.c`: strict TFSX-1 frontend and TSFX-1/TDMC-1 gameplay-audio importer
 - `src/asset_pack/tecmo_asset_pack_start_menu.c`: ROM-only TSGM-1 blue start-game menu importer
 - `src/asset_pack/tecmo_asset_pack_opening.c`: ROM-only TISC-1 TECMO/rabbit and NBA opening-screen importer
 - `src/asset_pack/tecmo_asset_pack_post_arena.c`: ROM-only READY/WARRIORS/CLIPPERS/BUCKS/PASS importers
@@ -955,6 +980,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/tecmo_gameplay_court_orientation.c`: strict TGOR-1 parser and possession-synchronized orientation state API
 - `src/tecmo_gameplay_free_throw_projection_test.c`: test-only TGFL-1 -> TGCP-1 checkpoint composition
 - `src/tecmo_gameplay_audio.c`: strict gameplay-audio loader, event sequencer, DMC decoder, and music/SFX mixer
+- `src/tecmo_frontend_audio.c`: strict frontend cue contract, stable playback checks, and shared SFX-engine adapter
 - `src/tecmo_start_game_menu.c`: strict TSGM-1 menu loading, update, transition, and rendering
 - `src/tecmo_intro_stage.c`: intro sprite staging and arena transition state model
 - `src/tecmo_bank07.c`: fixed-bank helper counterparts
