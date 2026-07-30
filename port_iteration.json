@@ -30,7 +30,7 @@
     "backend": "win32 software framebuffer",
     "game_core": "portable C runtime state plus explicit memory arenas",
     "asset_mode": "normal GUI play uses strict ignored ROM-derived asset-pack entries; loose decomp readers remain explicit console development tools",
-    "known_status": "normal play boots the strict ROM-derived opening, title, blue menu, preseason/team-data/season flows, and native preseason or season gameplay; the live scene has strict court and complete pose-resolution assets plus mapped dunk/layup close-shot families, music, SFX, DMC, rules-state, halftime/final, and result-handoff contracts, with documented native approximations still pending parity"
+    "known_status": "normal play boots the strict ROM-derived opening, title, blue menu, preseason/team-data/season flows, and native preseason or season gameplay; the live scene has strict court, complete pose-resolution assets, and possession-synchronized binary offensive-direction ownership through TGOR-1, plus mapped dunk/layup close-shot families, music, SFX, DMC, rules-state, halftime/final, and result-handoff contracts, with documented camera/scroll/world-coordinate and other native approximations still pending parity"
   },
   "gameplay_boundary": {
     "status": "active-native-milestone",
@@ -41,6 +41,7 @@
     "strict_same_pack_entries": [
       "gameplay/core TGPL-1 23416 bytes FNV1a32 2047CCE0",
       "gameplay/court TGCT-1 6559 bytes FNV1a32 ECAB7A93",
+      "gameplay/court-orientation TGOR-1 640 bytes FNV1a32 F9152C0A",
       "gameplay/close-shots TGCS-1 3144 bytes FNV1a32 DACDC976",
       "audio/music TMUS-1 36784 bytes FNV1a32 05C00ECB",
       "audio/gameplay-sfx TSFX-1 2824 bytes FNV1a32 968A5DE6",
@@ -51,12 +52,13 @@
     "exact_contracts": [
       "ROM-derived court, CHR, imported TGCT palette bytes, embedded FCEUX RGB profile, all 208 TGCS-stored profile-direction resolutions into TGPL pose data, numeric close variants 0 and 2, their proven dunk/layup mapping, and their 32/16 step tables",
       "TGCT-1 pure full-world decode expands the exact 96-by-30 tile and palette-index planes and slices canonical coarse/fine-scroll camera views for X 0..512; this boundary is exact but is not wired into the live scene",
+      "TGOR-1 live state owns current/previous binary offensive direction, tracked possession team, transition serial, and target X; fresh launch is direction 0/AWAY, real possession changes toggle exactly once, and same-possession handoffs and restarts preserve orientation",
       "deterministic clock, shot-clock, event, violation/foul presentation, period, halftime, overtime, final, and result state transitions",
       "ROM-derived track 5/6 programs, gameplay SFX mappings, held-ball/dribble DMC clip, mixer cadence, and source-map provenance",
       "season result identity validation and exact-once commit before gameplay ends"
     ],
     "native_approximations": [
-      "live court/camera layout, scrolling, orientation ownership, persistent camera state, and coherent world-coordinate migration for actors and hoop math",
+      "live court/camera layout, scrolling, persistent camera state, and coherent world-coordinate migration for actors and hoop math",
       "movement and AI",
       "ordinary jump-shot timing",
       "shot arc, make, and contact policy",
@@ -74,6 +76,7 @@
     ],
     "focused_tests": [
       ".\\tools\\Run-GameplayCourtTests.ps1 -Build -RomPath <LOCAL_ROM.nes>",
+      ".\\tools\\Run-GameplayCourtOrientationTests.ps1 -Build -RomPath <LOCAL_ROM.nes>",
       ".\\tools\\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>"
     ],
     "local_output_policy": "asset packs, render checkpoints, logs, emulator evidence, and comparisons remain ignored under build or temp-videos and are never committed"
@@ -882,7 +885,7 @@
       "id": "M009",
       "status": "active",
       "title": "Gameplay parity expansion",
-      "done_when": "Bounded ROM evidence replaces the documented native approximations for ordinary jumps, camera/actor motion, live close-shot profile/direction selection and mirroring, dynamic team/court palette selection, shot/contact/foul/free-throw behavior, and HUD composition."
+      "done_when": "Bounded ROM evidence replaces the documented native approximations for ordinary jumps, persistent camera/full-court scrolling and actor/hoop world-coordinate motion, live close-shot profile/direction selection and mirroring, dynamic team/court palette selection, shot/contact/foul/free-throw behavior, and HUD composition while retaining TGOR-1 possession-synchronized orientation ownership."
     }
   ],
   "next_engineering_step": {

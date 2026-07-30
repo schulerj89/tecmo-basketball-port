@@ -905,8 +905,8 @@ world-plane fingerprints are revalidated on every slice. Invalid, unavailable,
 tampered, or out-of-range input leaves caller output untouched.
 
 Do not load TGCP-1 or TGFL-1 into `TecmoGameplayScene` yet. TGOR-1 now supplies
-explicit live orientation ownership, but the full-court
-decoder/slicer is now available, but the current renderer still exposes one
+explicit live orientation ownership, while the full-court decoder/slicer is
+available but the current renderer still exposes one
 static 256-by-240 viewport and live actors/movement use clamped screen
 coordinates. Live wiring still requires persistent camera state and a coherent
 scene-wide world-coordinate migration.
