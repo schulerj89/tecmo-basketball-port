@@ -62,7 +62,11 @@ Assert-Lab ($Runner -match 'StartsWith\(\$OutputPrefix' -and $Runner -match 'tem
 Assert-Lab ($Runner -match 'TECMO_GAMEPLAY_LAB_ROM_PATH' -and
     $Runner -match 'TECMO_GAMEPLAY_LAB_FCEUX_PATH') 'Explicit/named input path policy is missing.'
 
-Assert-Lab ($Map -match 'schema = "TGLM-1"' -and $Lua -match 'schema=TGLAB-1') `
+Assert-Lab ($Map -match 'schema = "TGLM-2"' -and $Map -match 'schema_version = 2' -and
+    $Lua -match 'map\.schema == "TGLM-2" and map\.schema_version == 2' -and
+    $Lua -match 'schema=TGLAB-2\\nschema_version=2' -and
+    $Runner -match "schema = 'TGLAB-2'" -and $Runner -match "schema_version = '2'" -and
+    $Runner -match "map_schema = 'TGLM-2'") `
     'Map or telemetry schema/version is missing.'
 foreach ($Cap in @('max_frames', 'phase_rows', 'event_rows', 'shot_detail_rows',
                     'screenshots', 'tracked_text_bytes')) {
@@ -93,9 +97,19 @@ foreach ($Address in @('0x0308', '0x0309', '0x030A', '0x030B', '0x030C',
                        '0x030D', '0x0073', '0x00E8', '0x00F3', '0x046E',
                        '0x044D', '0x0442', '0x0463', '0x0458', '0x048F',
                        '0x0484', '0x04A5', '0x049A', '0x04B0', '0x0435',
-                       '0x042A')) {
+                       '0x042A', '0x04E7', '0x04F2', '0x04FD', '0x0508',
+                       '0x038D', '0x038E', '0x038F', '0x0390')) {
     Assert-Lab ($Map -match [regex]::Escape($Address)) "World-model address $Address is missing."
 }
+Assert-Lab ($Map -match 'actor_altitude_velocity_lo = 0x049A' -and
+    $Map -match 'actor_altitude_velocity_hi = 0x04A5' -and
+    $Map -notmatch '(?m)^\s*actor_velocity_(?:lo|hi)\s*=') `
+    '$049A/$04A5 are not named as actor altitude velocity.'
+Assert-Lab ($Lua -match 'a%d_altitude_velocity' -and
+    $Lua -match 'a%d_horizontal_velocity' -and $Lua -match 'a%d_vertical_velocity' -and
+    $Lua -match 'shooter_altitude_velocity,shooter_horizontal_velocity,shooter_vertical_velocity' -and
+    $Lua -match 'ball_altitude_velocity,ball_horizontal_velocity,ball_vertical_velocity') `
+    'Raw per-actor velocity fields are missing from telemetry or shot detail.'
 Assert-Lab ($Map -match 'x = 0x00A0, y = 0x94' -and
     $Map -match 'x = 0x0260, y = 0x94') 'Hoop coordinates are missing.'
 Assert-Lab ($Lua -match 'for i = 0, 10 do') 'All actor slots are not emitted.'
@@ -145,17 +159,33 @@ Assert-Lab ($Map -match '0xA6EE.*miss_variant_dispatch.*gate = "bank05"' -and
     'Mapper-gated Bank05 miss-variant hooks are missing.'
 Assert-Lab ($Map -match 'miss_variant_selector = 0x006A' -and
     $Map -match 'object_slot10_state = 0x0478' -and
+    $Map -match 'saved_object_horizontal_velocity_lo = 0x038D' -and
+    $Map -match 'saved_object_horizontal_velocity_hi = 0x038E' -and
+    $Map -match 'saved_object_vertical_velocity_lo = 0x038F' -and
+    $Map -match 'saved_object_vertical_velocity_hi = 0x0390' -and
     $Map -match '\[0\] = 0xA708' -and $Map -match '\[1\] = 0xA7A9' -and
     $Map -match '\[2\] = 0xA8E9' -and $Map -match '\[3\] = 0xA708') `
-    'Exact miss selector/state addresses or selector-to-target table are missing.'
+    'Exact miss selector/state/saved-velocity addresses or selector-to-target table are missing.'
 Assert-Lab ($Lua -match 'score0,score1,miss_selector_6a,miss_selector_low2,' -and
     $Lua -match 'miss_selected_target,object_slot10_state_0478' -and
+    $Lua -match 'object_slot10_horizontal_velocity_04f1_04fc' -and
+    $Lua -match 'object_slot10_vertical_velocity_0507_0512' -and
+    $Lua -match 'saved_object_horizontal_velocity_038d_038e' -and
+    $Lua -match 'saved_object_vertical_velocity_038f_0390' -and
     $Lua -match 'local miss_selector = rb\(R\.miss_variant_selector\)' -and
     $Lua -match 'miss_selected_target = selected_miss_target\(miss_selector\)' -and
     $Lua -match 'object_slot10_state = rb\(R\.object_slot10_state\)' -and
+    $Lua -match 'object_slot10_horizontal_velocity = word\(' -and
+    $Lua -match 'object_slot10_vertical_velocity = word\(' -and
+    $Lua -match 'saved_object_horizontal_velocity = word\(' -and
+    $Lua -match 'saved_object_vertical_velocity = word\(' -and
     $Lua -match 'score\(0\), score\(1\), h\.miss_selector, h\.miss_selector_low2,' -and
-    $Lua -match 'h\.miss_selected_target, h\.object_slot10_state') `
-    'Miss dispatch evidence is not snapshotted at hook time and emitted from the bounded queue.'
+    $Lua -match 'h\.miss_selected_target, h\.object_slot10_state,' -and
+    $Lua -match 'h\.object_slot10_horizontal_velocity, h\.object_slot10_vertical_velocity,' -and
+    $Lua -match 'h\.saved_object_horizontal_velocity, h\.saved_object_vertical_velocity') `
+    'Miss dispatch and velocity evidence is not snapshotted at hook time and emitted from the bounded queue.'
+Assert-Lab ($Lua -match '%02X,%d,%04X,%02X,%04X,%04X,%04X,%04X\\n') `
+    'Hook velocity snapshots are not emitted as raw four-digit hexadecimal words.'
 Assert-Lab ($Lua -match 'score_apply_seen and \(score0_delta == 2 or score0_delta == 3\)' -and
     $Lua -match 'score1_delta == 0' -and $Lua -match 'settlement_seen') `
     'Make/miss scoring and settlement criteria are incomplete.'
@@ -189,7 +219,7 @@ if ($Failures.Count -ne 0) {
     $Failures | ForEach-Object { Write-Error $_ }
     throw "$($Failures.Count) gameplay-lab static test(s) failed."
 }
-Write-Host 'GAMEPLAY LAB STATIC TEST PASS: read-only controller policy, exact revisions, bounded output, world schema, miss-variant evidence, fail-closed shot evidence, neutral cleanup'
+Write-Host 'GAMEPLAY LAB STATIC TEST PASS: read-only controller policy, exact revisions, bounded output, raw velocity schema, miss-variant evidence, fail-closed shot evidence, neutral cleanup'
 
 if ($Smoke) {
     if (-not $RomPath -or -not $FceuxPath) {

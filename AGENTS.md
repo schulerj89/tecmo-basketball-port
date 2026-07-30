@@ -171,8 +171,13 @@ This writes `build\intro_arena_capture.ndjson`, which the arena renderer loads b
 
 `tools\gameplay-lab` is a developer-only, read-only FCEUX control and telemetry
 surface for one bounded Rev 1 MAN VS MAN ordinary jump shot. Its canonical
-`tecmo_rev1_map.lua` owns every address, mapper-aware hook, timing bound, and
-revision fingerprint. The PowerShell runner requires explicit local ROM/FCEUX
+TGLM-2 `tecmo_rev1_map.lua` owns every address, mapper-aware hook, timing bound,
+and revision fingerprint; recorder/status output uses TGLAB-2. Per-actor
+altitude, horizontal, and vertical velocities are separate raw 16-bit fields.
+Accepted hooks snapshot direct object-slot-10 H/V and saved scratch H/V
+`$038D-$0390` in the callback before queued emission. Those saved fields are
+scratch and, at `$A7A9`, can predate its `JSR $A790`; do not infer signed
+direction or same-invocation ownership. The PowerShell runner requires explicit local ROM/FCEUX
 paths (or its specifically named environment variables), rejects other FCEUX
 processes, validates the exact ROM and FCEUX 2.6.6 SHA256 fingerprints, runs
 hidden with redirected output, a hard timeout, an in-Lua tracked-text cap, and

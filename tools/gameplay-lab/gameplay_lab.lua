@@ -8,7 +8,7 @@ local map_path = assert(os.getenv("TECMO_GAMEPLAY_LAB_MAP"),
 output_root = string.gsub(output_root, "\\", "/")
 map_path = string.gsub(map_path, "\\", "/")
 local map = assert(dofile(map_path))
-assert(map.schema == "TGLM-1" and map.schema_version == 1,
+assert(map.schema == "TGLM-2" and map.schema_version == 2,
     "unsupported gameplay-lab map")
 
 local max_frames = tonumber(os.getenv("TECMO_GAMEPLAY_LAB_MAX_FRAMES") or "6000") or 6000
@@ -56,7 +56,7 @@ local function emit(file, text)
     file:write(text)
 end
 
-emit(metadata, "schema=TGLAB-1\nschema_version=1\nmap_schema=" .. map.schema .. "\n")
+emit(metadata, "schema=TGLAB-2\nschema_version=2\nmap_schema=" .. map.schema .. "\n")
 emit(metadata, "script_sha256=" .. script_hash .. "\nmap_sha256=" .. map_hash .. "\n")
 emit(metadata, "rom_sha256=" .. rom_hash .. "\nfceux_sha256=" .. fceux_hash .. "\n")
 emit(metadata, "policy=read-only RAM; complete two-port joypads; one Rev1 orientation-0 shot\n")
@@ -65,8 +65,10 @@ metadata:close()
 local actor_fields = ""
 for i = 0, 10 do
     actor_fields = actor_fields .. string.format(
-        ",a%d_x,a%d_y,a%d_state,a%d_pose,a%d_facing,a%d_phase,a%d_altitude,a%d_velocity,a%d_team_role,a%d_contact,a%d_timer",
-        i, i, i, i, i, i, i, i, i, i, i)
+        ",a%d_x,a%d_y,a%d_state,a%d_pose,a%d_facing,a%d_phase,a%d_altitude," ..
+        "a%d_altitude_velocity,a%d_horizontal_velocity,a%d_vertical_velocity," ..
+        "a%d_team_role,a%d_contact,a%d_timer",
+        i, i, i, i, i, i, i, i, i, i, i, i, i)
 end
 emit(telemetry,
     "lab_frame,emu_frame,phase,action,p1,p2,mode,screen,period,minute,second,shot_clock," ..
@@ -76,12 +78,18 @@ emit(telemetry,
 emit(events,
     "lab_frame,emu_frame,name,address,raw_bank,pc,a,x,y,ba,offense_side," ..
     "control0,control1,score0,score1,miss_selector_6a,miss_selector_low2," ..
-    "miss_selected_target,object_slot10_state_0478\n")
+    "miss_selected_target,object_slot10_state_0478," ..
+    "object_slot10_horizontal_velocity_04f1_04fc," ..
+    "object_slot10_vertical_velocity_0507_0512," ..
+    "saved_object_horizontal_velocity_038d_038e," ..
+    "saved_object_vertical_velocity_038f_0390\n")
 emit(phases, "lab_frame,emu_frame,phase,reason\n")
 emit(detail,
     "lab_frame,shot_frame,phase,p1,p2,shooter,defender,nearest,front," ..
-    "shooter_x,shooter_y,shooter_state,shooter_pose,shooter_phase,shooter_altitude,shooter_velocity," ..
-    "ball_x,ball_y,ball_state,ball_pose,ball_phase,ball_altitude,ball_velocity," ..
+    "shooter_x,shooter_y,shooter_state,shooter_pose,shooter_phase,shooter_altitude," ..
+    "shooter_altitude_velocity,shooter_horizontal_velocity,shooter_vertical_velocity," ..
+    "ball_x,ball_y,ball_state,ball_pose,ball_phase,ball_altitude," ..
+    "ball_altitude_velocity,ball_horizontal_velocity,ball_vertical_velocity," ..
     "shot_subtype,shot_flags,close_mode,score0,score1\n")
 
 local R = map.ram
@@ -103,7 +111,15 @@ local function actor(index)
         facing = rb(R.actor_facing + index),
         phase = rb(R.actor_phase + index),
         altitude = rb(R.actor_altitude_lo + index) + 256 * rb(R.actor_altitude_hi + index),
-        velocity = rb(R.actor_velocity_lo + index) + 256 * rb(R.actor_velocity_hi + index),
+        altitude_velocity = word(
+            R.actor_altitude_velocity_lo + index,
+            R.actor_altitude_velocity_hi + index),
+        horizontal_velocity = word(
+            R.actor_horizontal_velocity_lo + index,
+            R.actor_horizontal_velocity_hi + index),
+        vertical_velocity = word(
+            R.actor_vertical_velocity_lo + index,
+            R.actor_vertical_velocity_hi + index),
         team_role = rb(R.actor_team_role + index),
         contact = rb(R.actor_contact + index),
         timer = rb(R.actor_timer + index)
@@ -275,7 +291,19 @@ local function register_hook(hook)
                 miss_selector = miss_selector,
                 miss_selector_low2 = AND(miss_selector, map.miss_variants.selector_mask),
                 miss_selected_target = selected_miss_target(miss_selector),
-                object_slot10_state = rb(R.object_slot10_state)
+                object_slot10_state = rb(R.object_slot10_state),
+                object_slot10_horizontal_velocity = word(
+                    R.actor_horizontal_velocity_lo + 10,
+                    R.actor_horizontal_velocity_hi + 10),
+                object_slot10_vertical_velocity = word(
+                    R.actor_vertical_velocity_lo + 10,
+                    R.actor_vertical_velocity_hi + 10),
+                saved_object_horizontal_velocity = word(
+                    R.saved_object_horizontal_velocity_lo,
+                    R.saved_object_horizontal_velocity_hi),
+                saved_object_vertical_velocity = word(
+                    R.saved_object_vertical_velocity_lo,
+                    R.saved_object_vertical_velocity_hi)
             }
         end
     end)
@@ -291,11 +319,13 @@ local function flush_hooks()
         end
         emit(events, string.format(
             "%d,%d,%s,%04X,%02X,%04X,%02X,%02X,%02X,%02X,%d,%d,%d,%d,%d," ..
-            "%02X,%d,%04X,%02X\n",
+            "%02X,%d,%04X,%02X,%04X,%04X,%04X,%04X\n",
             frame, h.emu_frame, h.name, h.address, h.bank, h.pc, h.a, h.x, h.y,
             h.shot_flags, rb(R.offense_side), rb(R.control0), rb(R.control1),
             score(0), score(1), h.miss_selector, h.miss_selector_low2,
-            h.miss_selected_target, h.object_slot10_state))
+            h.miss_selected_target, h.object_slot10_state,
+            h.object_slot10_horizontal_velocity, h.object_slot10_vertical_velocity,
+            h.saved_object_horizontal_velocity, h.saved_object_vertical_velocity))
         if h.name == "ball_release" then
             release_seen = true
             save_screenshot("ball_release")
@@ -399,8 +429,10 @@ local function write_telemetry()
         rb(R.shot_flags), rb(R.close_mode), score(0), score(1))
     for i = 0, 10 do
         local a = actor(i)
-        line = line .. string.format(",%d,%d,%02X,%04X,%02X,%02X,%04X,%04X,%02X,%02X,%02X",
-            a.x, a.y, a.state, a.pose, a.facing, a.phase, a.altitude, a.velocity,
+        line = line .. string.format(
+            ",%d,%d,%02X,%04X,%02X,%02X,%04X,%04X,%04X,%04X,%02X,%02X,%02X",
+            a.x, a.y, a.state, a.pose, a.facing, a.phase, a.altitude,
+            a.altitude_velocity, a.horizontal_velocity, a.vertical_velocity,
             a.team_role, a.contact, a.timer)
     end
     emit(telemetry, line .. "\n")
@@ -411,13 +443,15 @@ local function write_detail()
     detail_rows = detail_rows + 1
     local shooter, ball, nearest, _, front = scan_world()
     emit(detail, string.format(
-        "%d,%d,%s,%s,%s,%d,%d,%d,%d,%d,%d,%02X,%04X,%02X,%04X,%04X," ..
-        "%d,%d,%02X,%04X,%02X,%04X,%04X,%02X,%02X,%02X,%d,%d\n",
+        "%d,%d,%s,%s,%s,%d,%d,%d,%d,%d,%d,%02X,%04X,%02X,%04X,%04X,%04X,%04X," ..
+        "%d,%d,%02X,%04X,%02X,%04X,%04X,%04X,%04X,%02X,%02X,%02X,%d,%d\n",
         frame, frame - shot_frame, phase, pad_text(active_p1), pad_text(active_p2),
         shooter.index, rb(R.defense_actor), nearest, front,
         shooter.x, shooter.y, shooter.state, shooter.pose, shooter.phase,
-        shooter.altitude, shooter.velocity, ball.x, ball.y, ball.state, ball.pose,
-        ball.phase, ball.altitude, ball.velocity, rb(R.shot_subtype),
+        shooter.altitude, shooter.altitude_velocity, shooter.horizontal_velocity,
+        shooter.vertical_velocity, ball.x, ball.y, ball.state, ball.pose,
+        ball.phase, ball.altitude, ball.altitude_velocity, ball.horizontal_velocity,
+        ball.vertical_velocity, rb(R.shot_subtype),
         rb(R.shot_flags), rb(R.close_mode), score(0), score(1)))
 end
 
@@ -441,7 +475,7 @@ local function write_status(state)
     end
     local file = io.open(status_path, "w")
     if not file then return end
-    file:write("schema=TGLAB-1\nschema_version=1\nmap_schema=" .. map.schema .. "\n")
+    file:write("schema=TGLAB-2\nschema_version=2\nmap_schema=" .. map.schema .. "\n")
     file:write("script_sha256=" .. script_hash .. "\nmap_sha256=" .. map_hash .. "\n")
     file:write("rom_sha256=" .. rom_hash .. "\nfceux_sha256=" .. fceux_hash .. "\n")
     file:write("state=" .. state .. "\nlab_frame=" .. frame .. "\nemu_frame=" .. safe_frame() .. "\n")

@@ -46,14 +46,28 @@ loop stays top-level to avoid Lua 5.1's function-upvalue limit. The session cont
 compact status and phase files, per-frame actor/ball
 telemetry, Bank05 outcome hooks, focused shot detail, at most eight
 screenshots, and optional FM2. `tecmo_rev1_map.lua` is the only canonical
-address/hook map. The native C runtime does not read any laboratory output.
+address/hook map. Its current schema is TGLM-2, and the matching output schema
+is TGLAB-2. The native C runtime does not read any laboratory output.
+
+Per-actor telemetry and focused shot detail preserve three distinct raw
+16-bit velocity words without signed interpretation: altitude velocity uses
+the actor arrays at `$049A/$04A5`, horizontal velocity uses `$04E7/$04F2`,
+and vertical velocity uses `$04FD/$0508`. These names describe how the
+currently traced ROM routines use the arrays; the CSV values remain raw
+four-digit hexadecimal evidence.
 
 Missed-shot telemetry includes mapper-gated Bank05 hooks at `$A6EE`, `$A708`,
 `$A7A9`, and `$A8E9`. Each queued hook event snapshots raw `$006A`, its low
 two-bit selector, the selected target address (`0/3 -> $A708`, `1 -> $A7A9`,
-`2 -> $A8E9`), and object-slot-10 state `$0478` at hook time. These fields
-identify numeric initial miss routes only; they do not assign rebound, rim, or
-bounce meaning. The existing event-row and tracked-text caps still apply.
+`2 -> $A8E9`), object-slot-10 state `$0478`, direct object-slot-10 horizontal
+and vertical velocity, and the saved object velocity scratch words
+`$038D/$038E` and `$038F/$0390` at hook time. The callback queues those exact
+raw values so later event flushing cannot replace them with newer RAM. The
+saved fields are scratch storage: at the `$A7A9` entry hook they can predate
+the routine's `JSR $A790`, so they are not assumed to have been saved by that
+same route invocation. These fields identify numeric initial miss routes only;
+they do not assign rebound, rim, bounce, or signed-direction meaning. The
+existing event-row and tracked-text caps still apply.
 
 Current limits are intentional: Rev 1 and FCEUX 2.6.6 only; period 1;
 orientation 0; offense side 0; distinct MAN VS MAN teams; ordinary, non-close

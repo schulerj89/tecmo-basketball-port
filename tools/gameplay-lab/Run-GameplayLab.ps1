@@ -168,8 +168,9 @@ try {
         if ($Parts.Count -eq 2) { $Status[$Parts[0]] = $Parts[1] }
     }
     $ExpectedStatus = @{
-        schema = 'TGLAB-1'
-        schema_version = '1'
+        schema = 'TGLAB-2'
+        schema_version = '2'
+        map_schema = 'TGLM-2'
         script_sha256 = $ScriptHash
         map_sha256 = $MapHash
         rom_sha256 = $RomHash

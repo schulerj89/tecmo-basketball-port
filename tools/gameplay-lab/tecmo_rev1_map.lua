@@ -2,8 +2,8 @@
 -- This module describes one bounded MAN VS MAN, orientation-0 shooting pilot.
 
 local map = {
-    schema = "TGLM-1",
-    schema_version = 1,
+    schema = "TGLM-2",
+    schema_version = 2,
     rom_sha256 = "076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4",
     fceux_sha256 = "F89812F4E9506EF7090D9D0310D368ABD79BACA362B7BFC4A2E7E499754F2A1B",
     supported_orientation = 0,
@@ -60,10 +60,18 @@ local map = {
         actor_state = 0x046E,
         actor_altitude_lo = 0x0484,
         actor_altitude_hi = 0x048F,
-        actor_velocity_lo = 0x049A,
-        actor_velocity_hi = 0x04A5,
+        actor_altitude_velocity_lo = 0x049A,
+        actor_altitude_velocity_hi = 0x04A5,
         actor_team_role = 0x04B0,
-        object_slot10_state = 0x0478
+        actor_horizontal_velocity_lo = 0x04E7,
+        actor_horizontal_velocity_hi = 0x04F2,
+        actor_vertical_velocity_lo = 0x04FD,
+        actor_vertical_velocity_hi = 0x0508,
+        object_slot10_state = 0x0478,
+        saved_object_horizontal_velocity_lo = 0x038D,
+        saved_object_horizontal_velocity_hi = 0x038E,
+        saved_object_vertical_velocity_lo = 0x038F,
+        saved_object_vertical_velocity_hi = 0x0390
     },
 
     hoops = {

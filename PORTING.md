@@ -65,9 +65,15 @@ presentations, close routes, fouls, violations, mirrored movement, failed
 coordinate progress, and missing hook evidence abort instead of becoming
 generalized rules.
 
-The lab's TGLM-1 address map and TGLAB-1 output schema are provenance for
-research conclusions, not asset-pack entries. Captured CSV, hook events,
-screenshots, FM2, status, and emulator logs remain ignored under
+The lab's TGLM-2 address map and TGLAB-2 output schema are provenance for
+research conclusions, not asset-pack entries. They distinguish raw 16-bit
+altitude velocity (`$049A/$04A5`), horizontal velocity (`$04E7/$04F2`), and
+vertical velocity (`$04FD/$0508`). Accepted hooks snapshot direct
+object-slot-10 H/V and saved object H/V scratch (`$038D-$0390`) inside the
+callback before bounded queued emission. The saved words are scratch; at the
+`$A7A9` entry hook they can predate that routine's `JSR $A790`, so neither
+signed direction nor same-invocation ownership is inferred. Captured CSV, hook
+events, screenshots, FM2, status, and emulator logs remain ignored under
 `temp-videos/gameplay-lab`. Neither the importer nor native runtime may consume
 them. Ported behavior still requires a separately justified ROM-derived asset
 contract and native C implementation.
