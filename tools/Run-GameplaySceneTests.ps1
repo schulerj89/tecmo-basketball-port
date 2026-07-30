@@ -216,6 +216,7 @@ try {
     $Specs = @(
         [pscustomobject]@{ id="gameplay/core"; size=23416; hash="2047CCE0"; schema="tecmo.gameplay/TGPL-1" },
         [pscustomobject]@{ id="gameplay/court"; size=6559; hash="ECAB7A93"; schema="tecmo.gameplay-court/TGCT-1" },
+        [pscustomobject]@{ id="gameplay/court-orientation"; size=640; hash="F9152C0A"; schema="tecmo.gameplay-court-orientation/TGOR-1" },
         [pscustomobject]@{ id="gameplay/close-shots"; size=3144; hash="DACDC976"; schema="tecmo.gameplay-close-shots/TGCS-1" },
         [pscustomobject]@{ id="gameplay/dunk-cutaway"; size=20272; hash="E02F2D21"; schema="tecmo.gameplay-dunk-cutaway/TGDK-1" },
         [pscustomobject]@{ id="gameplay/jump-shots"; size=1648; hash="7587B099"; schema="tecmo.gameplay-jump-shots/TGJS-1" },
@@ -281,6 +282,30 @@ try {
         [byte][char]'x'
     [IO.File]::WriteAllBytes($MissingPath, $Missing)
     Assert-SceneRejected -AssetPack $MissingPath -Label "missing-court"
+
+    $MissingOrientationPath =
+        Join-Path $Scratch "missing-court-orientation.assetpack"
+    $MissingOrientation = [byte[]]$PackBytes.Clone()
+    $MissingOrientation[
+        [int]$Entries["gameplay/court-orientation"].directory_offset] =
+        [byte][char]'x'
+    [IO.File]::WriteAllBytes($MissingOrientationPath, $MissingOrientation)
+    Assert-SceneRejected -AssetPack $MissingOrientationPath `
+        -Label "missing-court-orientation" `
+        -ExpectedStatus "TGOR-1 gameplay/court-orientation entry missing or wrong-sized"
+
+    $MalformedOrientationPath =
+        Join-Path $Scratch "malformed-court-orientation.assetpack"
+    $MalformedOrientation = [byte[]]$PackBytes.Clone()
+    $OrientationOffset =
+        [int]$Entries["gameplay/court-orientation"].pack_offset
+    $MalformedOrientation[$OrientationOffset] =
+        $MalformedOrientation[$OrientationOffset] -bxor 1
+    [IO.File]::WriteAllBytes(
+        $MalformedOrientationPath, $MalformedOrientation)
+    Assert-SceneRejected -AssetPack $MalformedOrientationPath `
+        -Label "malformed-court-orientation" `
+        -ExpectedStatus "TGOR-1 header/size/reserved contract rejected"
 
     $MalformedPath = Join-Path $Scratch "malformed-close-shots.assetpack"
     $Malformed = [byte[]]$PackBytes.Clone()

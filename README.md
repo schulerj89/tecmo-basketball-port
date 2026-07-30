@@ -162,6 +162,11 @@ accumulators are ported.
 - The scene advances the game and shot clocks, score, possession, shot-clock
   violations, current native foul/free-throw flow, period banners, halftime,
   overtime/final presentation, and preseason/season result handoff.
+- Live possession now synchronizes a strict ROM-derived binary offensive
+  direction state through TGOR-1. Fresh launch is direction 0/AWAY; a real
+  possession change toggles direction exactly once, while same-possession
+  period/foul restarts preserve it. This state does not yet scroll the court or
+  migrate actors/hoops into world coordinates.
 - Human free throws launch from the scoring team's current NES B level and
   have no timeout. CPU free throws use the bounded observed 125-update
   schedule. The exact two-orientation raw lineup, shooter-dependent actor
@@ -191,7 +196,8 @@ embedded FCEUX RGB profile, actor pose data, numeric close-shot step
 tables, dunk cutaway, the bounded ordinary-jump miss/three-point-make context,
 TGSR-3 shot resolution, its exact 1/2/3-point classifier and
 diagnostic-only rim-rattle prefix, the TGFL-1 raw free-throw lineup, the
-TGCP-1 pure horizontal camera/projector, rules timing, and native
+TGCP-1 pure horizontal camera/projector, TGOR-1 live possession-synchronized
+offensive direction and target selection, rules timing, and native
 music/SFX/DMC programs. Strict entries are loaded from the same
 revision-fingerprinted asset pack with exact-size and malformed-data checks.
 
@@ -210,6 +216,11 @@ its static center viewport and screen-space actors; all actors, hoop math, AI,
 and camera ownership must migrate coherently to world coordinates. Offscreen
 projection uses a deterministic native sentinel (`visible=false`, X/Y zero)
 because the ROM branches before writing projected Y.
+
+`gameplay/court-orientation` TGOR-1 is loaded by the live scene and owns only
+the binary offensive direction, previous direction, tracked possession team,
+transition serial, and target X. It intentionally leaves TGCP-1/TGFL-1
+production wiring and full-court scrolling for the next slice.
 
 The first two intro screens, TECMO/rabbit and NBA license, are silent. Strict
 opening music begins at the license-to-arena handoff. Title confirmation queues
@@ -299,11 +310,12 @@ Generated `.assetpack` files are ignored local data. Every pack includes the
 manifest, sanitized source map, and raw PRG/CHR entries used by the strict
 logical assets.
 
-The current Rev 1 builder emits a 75-entry pack. In addition to the raw PRG and
+The current Rev 1 builder emits a 77-entry pack. In addition to the raw PRG and
 CHR entries, it contains strict logical assets for the opening, arena, finale,
 title, blue menu, preseason, Team Data, team management, season state, music,
-gameplay audio, court, poses, close shots, dunk presentation, the bounded jump
-route, shot-resolution rules, penalty rules, and the raw free-throw lineup.
+gameplay audio, court, live court-orientation state, poses, close shots, dunk
+presentation, the bounded jump route, shot-resolution rules, penalty rules,
+and the raw free-throw lineup.
 These entries are derived directly from the local ROM during pack construction;
 decompilation files and captures are not pack inputs.
 

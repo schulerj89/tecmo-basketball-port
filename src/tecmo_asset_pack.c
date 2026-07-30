@@ -10,6 +10,7 @@
 #include "asset_pack/tecmo_asset_pack_gameplay.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_camera.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_court.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_court_orientation.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_close_shots.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_jump_shots.h"
@@ -83,6 +84,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                           TecmoSeasonMenuProvenance *season_provenance,
                                           TecmoGameplayProvenance *gameplay_provenance,
                                           TecmoGameplayCourtProvenance *gameplay_court_provenance,
+                                          TecmoGameplayCourtOrientationProvenance *court_orientation_provenance,
                                           TecmoGameplayCameraProvenance *gameplay_camera_provenance,
                                           TecmoGameplayCloseShotProvenance *close_shot_provenance,
                                           TecmoGameplayDunkProvenance *dunk_provenance,
@@ -114,6 +116,8 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
     uint8_t season_payload[TECMO_ASSET_PACK_SEASON_SIZE];
     uint8_t gameplay_payload[TECMO_ASSET_PACK_GAMEPLAY_SIZE];
     uint8_t gameplay_court_payload[TECMO_ASSET_PACK_GAMEPLAY_COURT_SIZE];
+    uint8_t court_orientation_payload[
+        TECMO_ASSET_PACK_GAMEPLAY_COURT_ORIENTATION_SIZE];
     uint8_t gameplay_camera_payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SIZE];
     uint8_t close_shot_payload[
         TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_SIZE];
@@ -189,6 +193,14 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
             enforce_finale_revision_fingerprints,
             free_throw_lineup_payload, sizeof(free_throw_lineup_payload),
             free_throw_lineup_provenance, message, message_size) != 0) {
+        return -1;
+    }
+    if (enforce_finale_revision_fingerprints != 0 &&
+        tecmo_asset_pack_build_gameplay_court_orientation(
+            rom, rom_size, prg_offset, prg_banks,
+            enforce_finale_revision_fingerprints,
+            court_orientation_payload, sizeof(court_orientation_payload),
+            court_orientation_provenance, message, message_size) != 0) {
         return -1;
     }
 
@@ -818,6 +830,20 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                 "Could not write strict TGCT-1 gameplay court entry.");
             return -1;
         }
+        entry_info = tecmo_asset_pack_make_entry_info(
+            TECMO_ASSET_PACK_GAMEPLAY_COURT_ORIENTATION_ID,
+            TECMO_ASSET_PACK_TYPE_DATA, 5U, 0x8FADU,
+            court_orientation_provenance->source_offsets[0],
+            TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+        if (tecmo_asset_pack_builder_add_memory(
+                builder, &entry_info, court_orientation_payload,
+                sizeof(court_orientation_payload), message,
+                message_size) != 0) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Could not write strict TGOR-1 court-orientation entry.");
+            return -1;
+        }
         if (tecmo_asset_pack_build_gameplay_camera(
                 rom, rom_size, prg_offset, prg_banks,
                 enforce_finale_revision_fingerprints,
@@ -965,6 +991,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     TecmoSeasonMenuProvenance season_provenance;
     TecmoGameplayProvenance gameplay_provenance;
     TecmoGameplayCourtProvenance gameplay_court_provenance;
+    TecmoGameplayCourtOrientationProvenance court_orientation_provenance;
     TecmoGameplayCameraProvenance gameplay_camera_provenance;
     TecmoGameplayCloseShotProvenance close_shot_provenance;
     TecmoGameplayDunkProvenance dunk_provenance;
@@ -1146,6 +1173,8 @@ static int tecmo_asset_pack_build_from_ines_internal(
     memset(&gameplay_provenance, 0, sizeof(gameplay_provenance));
     memset(&gameplay_court_provenance, 0,
            sizeof(gameplay_court_provenance));
+    memset(&court_orientation_provenance, 0,
+           sizeof(court_orientation_provenance));
     memset(&gameplay_camera_provenance, 0,
            sizeof(gameplay_camera_provenance));
     memset(&close_shot_provenance, 0, sizeof(close_shot_provenance));
@@ -1180,6 +1209,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &season_provenance,
                                        &gameplay_provenance,
                                        &gameplay_court_provenance,
+                                       &court_orientation_provenance,
                                        &gameplay_camera_provenance,
                                        &close_shot_provenance,
                                        &dunk_provenance,
@@ -1215,6 +1245,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &season_provenance,
                                        &gameplay_provenance,
                                        &gameplay_court_provenance,
+                                       &court_orientation_provenance,
                                        &gameplay_camera_provenance,
                                        &close_shot_provenance,
                                        &dunk_provenance,
@@ -2291,6 +2322,10 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         goto cleanup;
     }
     if (tecmo_asset_pack_gameplay_court_self_test(message, message_size) != 0) {
+        goto cleanup;
+    }
+    if (tecmo_asset_pack_gameplay_court_orientation_self_test(
+            message, message_size) != 0) {
         goto cleanup;
     }
     if (tecmo_asset_pack_gameplay_camera_self_test(

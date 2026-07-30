@@ -737,7 +737,8 @@ PRESEASON row. Season results are matched to the pending ordinal/teams and
 committed exactly once before returning to the existing result rows.
 
 The compound scene strictly loads TGPL-1 `gameplay/core` (23416 bytes,
-`2047CCE0`), TGCT-1 `gameplay/court` (6559 bytes, `ECAB7A93`), TGCS-1
+`2047CCE0`), TGCT-1 `gameplay/court` (6559 bytes, `ECAB7A93`), TGOR-1
+`gameplay/court-orientation` (640 bytes, `F9152C0A`), TGCS-1
 `gameplay/close-shots` (3144 bytes, `DACDC976`), TGDK-1
 `gameplay/dunk-cutaway` (20272 bytes, `E02F2D21`), TGJS-1
 `gameplay/jump-shots` (1648 bytes, `7587B099`), TGSR-3
@@ -901,6 +902,43 @@ Run `tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath
 <LOCAL_ROM.nes>` for parser/API, provenance, mutation, revision, and dependency
 coverage.
 
+TGOR-1 `gameplay/court-orientation` closes the strict binary offensive-
+direction ownership slice and is loaded by `TecmoGameplayScene`. Its 640-byte
+payload has FNV1a32 `F9152C0A`, requires exact same-pack TGPL-1
+(`2047CCE0`) and TGSR-3 (`164DC568`), and revision-locks Bank05
+`$8FAD-$8FE7` (`7C94E5EA`) as the possession transition gate-and-swap,
+`$9042-$9053` (`CE6C9466`) as the slots-0..9 `$04B0` bit-`$10` toggle plus
+queue-`$17` operation, `$9054-$90AF` (`FE092D62`) as the absolute target-
+delta routine, and `$BDEF-$BDF2` (`A27B0F6F`) as target table
+`$00A0/$0260`. `$9042` is not generalized into a team-switch label.
+
+Fresh native launch initializes direction 0, previous direction 0, transition
+serial 0, target `$00A0`, and the existing initial AWAY possession. This is a
+cold-start-aligned native policy; original repeat-game initialization remains
+unproven. Same-possession handoff, period restart, and foul restart succeed
+without changing orientation state. On a real tracked possession change, the
+API transactionally saves current as previous, XORs current, updates the team
+and target X, and increments the serial. Scene handoff calls this sync even if
+the rules state already changed possession; invalid input rolls both states
+back. TGCT-1 stays in its canonical left-to-right orientation.
+
+The same-pack TGPL-1 cross-check at fixed `$E537-$E548` is presentation
+selection evidence only: it derives `$0758` from `$04FC` bit 7, the slot-10
+horizontal-velocity high byte/sign, and uses IDs `$1B/$2E` from
+`$E699-$E69A`. It does not own orientation. TGSR-3 `$B87C-$B8F5` is a
+conditional alternate claimant-settlement path rather than a universal post-
+shot path. `$035B` is save-before-toggle evidence only and has no direct
+reads. The only direct `$035A` stores are `$8FC4` and `$B8E0`; broad
+`STA $0300,X` is found only in fixed-bank cold boot at `$CC68`.
+
+TGOR-1 does not production-wire TGCP-1 or TGFL-1, scroll the court, or migrate
+actor/hoop coordinates. Exact-size and canonical payload checks, source
+records, bounds/reserved/padding checks, full-ROM SHA/FNV revision identity,
+same-pack dependencies, source-map provenance, missing/malformed/oversized and
+source-mutation failures are covered by
+`tools\Run-GameplayCourtOrientationTests.ps1 -Build -RomPath
+<LOCAL_ROM.nes>`.
+
 TGCP-1 `gameplay/camera-projection` now supplies that exact projection as a
 strict pure foundation without changing the live scene. Its 1344-byte payload
 has FNV1a32 `B3721B17`, requires exact same-pack TGPL-1 (`2047CCE0`) and
@@ -964,8 +1002,9 @@ row walker, and `$E0E7` attribute handling.
 This closes pure full-court decoding and viewport selection but not live
 integration. The current scene still draws one static 256-by-240 middle
 viewport and stores actors, movement, hoop math, and AI in screen space. The
-next safe slice is explicit orientation ownership followed by persistent
-camera state and a coherent scene-wide world-coordinate migration. The pure
+explicit orientation ownership slice is now live through TGOR-1. The next safe
+slice is persistent camera state and a coherent scene-wide world-coordinate
+migration. The pure
 slicer does not emulate the ROM streamer's staged PPU prefetch/write ordering;
 it returns the canonical camera view. Until live migration, TGCP-1 and TGFL-1
 remain testable pure assets rather than scene dependencies. Run

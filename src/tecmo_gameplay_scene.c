@@ -164,12 +164,14 @@ static void scene_release_owned(TecmoGameplayScene *scene)
     tecmo_gameplay_jump_shots_destroy(&scene->jump_shots);
     tecmo_gameplay_shot_resolution_destroy(&scene->shot_resolution);
     tecmo_gameplay_close_shots_destroy(&scene->close_shots);
+    tecmo_gameplay_court_orientation_destroy(&scene->court_orientation);
     tecmo_gameplay_court_destroy(&scene->court);
     tecmo_gameplay_assets_destroy(&scene->assets);
     memset(scene, 0, sizeof(*scene));
     scene->lifecycle_tag = TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG;
     tecmo_gameplay_assets_init(&scene->assets);
     tecmo_gameplay_court_init(&scene->court);
+    tecmo_gameplay_court_orientation_init(&scene->court_orientation);
     tecmo_gameplay_close_shots_init(&scene->close_shots);
     tecmo_gameplay_dunk_cutaway_init(&scene->dunk_cutaway);
     tecmo_gameplay_jump_shots_init(&scene->jump_shots);
@@ -184,6 +186,7 @@ void tecmo_gameplay_scene_init(TecmoGameplayScene *scene)
     scene->lifecycle_tag = TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG;
     tecmo_gameplay_assets_init(&scene->assets);
     tecmo_gameplay_court_init(&scene->court);
+    tecmo_gameplay_court_orientation_init(&scene->court_orientation);
     tecmo_gameplay_close_shots_init(&scene->close_shots);
     tecmo_gameplay_dunk_cutaway_init(&scene->dunk_cutaway);
     tecmo_gameplay_jump_shots_init(&scene->jump_shots);
@@ -227,6 +230,14 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
     }
     if (!tecmo_gameplay_court_load(&scene->court, selected)) {
         (void)snprintf(failure, sizeof(failure), "%s", scene->court.status);
+        scene_release_owned(scene);
+        scene_set_status(scene, failure);
+        return false;
+    }
+    if (!tecmo_gameplay_court_orientation_load(
+            &scene->court_orientation, selected)) {
+        (void)snprintf(failure, sizeof(failure), "%s",
+                       scene->court_orientation.status);
         scene_release_owned(scene);
         scene_set_status(scene, failure);
         return false;
@@ -282,7 +293,7 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
     }
     scene->available = true;
     scene_set_status(scene,
-                     "native gameplay ready: TGPL-1/TGCT-1/TGCS-1/TGDK-1/TGJS-1/TGSR-3/TSFX-1/TDMC-1");
+                     "native gameplay ready: TGPL-1/TGCT-1/TGOR-1/TGCS-1/TGDK-1/TGJS-1/TGSR-3/TSFX-1/TDMC-1");
     return true;
 }
 
@@ -395,6 +406,8 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
                                  const TecmoGameplaySceneLaunch *launch)
 {
     TecmoGameplayConfig config;
+    TecmoGameplayState initial_state;
+    TecmoGameplayCourtOrientationState initial_orientation;
     if (scene == NULL ||
         scene->lifecycle_tag != TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG ||
         !scene->available || !scene_launch_valid(launch) ||
@@ -404,11 +417,15 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
     scene->launch = *launch;
     memset(&scene->result, 0, sizeof(scene->result));
     tecmo_gameplay_events_clear(&scene->events);
-    if (!tecmo_gameplay_state_init(&scene->state, &config,
-                                   TECMO_GAMEPLAY_TEAM_AWAY)) {
+    if (!tecmo_gameplay_state_init(&initial_state, &config,
+                                   TECMO_GAMEPLAY_TEAM_AWAY) ||
+        !tecmo_gameplay_court_orientation_state_initialize(
+            &scene->court_orientation, &initial_orientation)) {
         scene_set_status(scene, "gameplay state initialization rejected");
         return false;
     }
+    scene->state = initial_state;
+    scene->orientation_state = initial_orientation;
     scene_initialize_actors(scene);
     scene->shot_kind = TECMO_GAMEPLAY_SCENE_SHOT_NONE;
     scene->shot_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
@@ -885,6 +902,8 @@ static bool scene_handoff_possession(TecmoGameplayScene *scene,
                                      TecmoGameplayTeam possession,
                                      uint8_t preferred_actor)
 {
+    TecmoGameplayState state_before;
+    TecmoGameplayCourtOrientationState orientation_before;
     uint8_t first = scene_first_actor_for_team(possession);
     uint8_t holder = preferred_actor;
     size_t controller;
@@ -897,11 +916,22 @@ static bool scene_handoff_possession(TecmoGameplayScene *scene,
         holder >= first + TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT) {
         holder = first;
     }
+    state_before = scene->state;
+    orientation_before = scene->orientation_state;
     if (scene->state.possession != possession &&
         !tecmo_gameplay_reset_possession(&scene->state, possession)) {
+        scene->state = state_before;
+        scene->orientation_state = orientation_before;
         return false;
     }
-    if (scene->state.possession != possession) return false;
+    if (scene->state.possession != possession ||
+        !tecmo_gameplay_court_orientation_synchronize(
+            &scene->court_orientation, &scene->orientation_state,
+            (uint8_t)possession)) {
+        scene->state = state_before;
+        scene->orientation_state = orientation_before;
+        return false;
+    }
     scene->ball_holder = holder;
     for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
          ++controller) {
@@ -1983,6 +2013,13 @@ static bool scene_phase_allows_live_action(TecmoGameplayPhase phase)
 static bool scene_ownership_valid(const TecmoGameplayScene *scene)
 {
     size_t controller;
+    if (scene == NULL ||
+        !tecmo_gameplay_court_orientation_state_valid(
+            &scene->court_orientation, &scene->orientation_state) ||
+        scene->orientation_state.tracked_possession_team !=
+            (uint8_t)scene->state.possession) {
+        return false;
+    }
     for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
          ++controller) {
         uint8_t team = scene->launch.controller_team[controller];
@@ -2187,7 +2224,9 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
             return false;
         }
         scene->free_throw_frame = 0U;
-        if (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
+        if ((scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE ||
+             scene->state.phase ==
+                 TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE) &&
             !scene_handoff_possession(
                 scene, scene->state.possession,
                 scene_first_actor_for_team(scene->state.possession))) {
@@ -3315,6 +3354,8 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     TecmoGameplayScene scene;
     TecmoGameplayScene missing_scene;
     TecmoGameplayScene rattle_before;
+    TecmoGameplayState gameplay_before;
+    TecmoGameplayCourtOrientationState orientation_before;
     TecmoGameplaySceneLaunch launch;
     TecmoGameplaySceneResult result;
     TecmoControlFrame p1;
@@ -3389,6 +3430,85 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     if (!tecmo_gameplay_scene_launch(&scene, &launch)) {
         scene_test_message(message, message_size,
                            "gameplay scene canonical launch rejected");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    if (!tecmo_gameplay_court_orientation_state_valid(
+            &scene.court_orientation, &scene.orientation_state) ||
+        scene.orientation_state.current_direction != 0U ||
+        scene.orientation_state.previous_direction != 0U ||
+        scene.orientation_state.tracked_possession_team !=
+            TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_AWAY ||
+        scene.orientation_state.transition_serial != 0U ||
+        scene.orientation_state.target_x != 0x00A0U) {
+        scene_test_message(message, message_size,
+                           "court-orientation fresh-launch contract failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    orientation_before = scene.orientation_state;
+    if (!scene_handoff_possession(
+            &scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+        memcmp(&scene.orientation_state, &orientation_before,
+               sizeof(orientation_before)) != 0 ||
+        !tecmo_gameplay_reset_possession(
+            &scene.state, TECMO_GAMEPLAY_TEAM_HOME) ||
+        !scene_handoff_possession(
+            &scene, TECMO_GAMEPLAY_TEAM_HOME,
+            TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT) ||
+        scene.orientation_state.current_direction != 1U ||
+        scene.orientation_state.previous_direction != 0U ||
+        scene.orientation_state.tracked_possession_team !=
+            TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_HOME ||
+        scene.orientation_state.transition_serial != 1U ||
+        scene.orientation_state.target_x != 0x0260U) {
+        scene_test_message(
+            message, message_size,
+            "court-orientation changed-first handoff contract failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    orientation_before = scene.orientation_state;
+    if (!scene_handoff_possession(
+            &scene, TECMO_GAMEPLAY_TEAM_HOME,
+            TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT) ||
+        memcmp(&scene.orientation_state, &orientation_before,
+               sizeof(orientation_before)) != 0 ||
+        !scene_handoff_possession(
+            &scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+        scene.orientation_state.current_direction != 0U ||
+        scene.orientation_state.previous_direction != 1U ||
+        scene.orientation_state.tracked_possession_team !=
+            TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_AWAY ||
+        scene.orientation_state.transition_serial != 2U ||
+        scene.orientation_state.target_x != 0x00A0U) {
+        scene_test_message(message, message_size,
+                           "court-orientation no-op/roundtrip contract failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    gameplay_before = scene.state;
+    orientation_before = scene.orientation_state;
+    if (scene_handoff_possession(
+            &scene, (TecmoGameplayTeam)TECMO_GAMEPLAY_TEAM_COUNT, 0U) ||
+        memcmp(&scene.state, &gameplay_before,
+               sizeof(gameplay_before)) != 0 ||
+        memcmp(&scene.orientation_state, &orientation_before,
+               sizeof(orientation_before)) != 0 ||
+        !scene_ownership_valid(&scene)) {
+        scene_test_message(message, message_size,
+                           "court-orientation invalid handoff mutated scene");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    if (!tecmo_gameplay_scene_launch(&scene, &launch) ||
+        scene.orientation_state.current_direction != 0U ||
+        scene.orientation_state.transition_serial != 0U ||
+        scene.orientation_state.tracked_possession_team !=
+            TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_AWAY) {
+        scene_test_message(
+            message, message_size,
+            "court-orientation restart launch contract failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }

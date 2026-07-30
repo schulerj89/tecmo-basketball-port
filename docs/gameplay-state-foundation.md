@@ -36,6 +36,7 @@ remains the separate NES A-release presentation gate.
 
 The compound scene loads `gameplay/core` TGPL-1 (23416 bytes,
 `2047CCE0`), `gameplay/court` TGCT-1 (6559 bytes, `ECAB7A93`),
+`gameplay/court-orientation` TGOR-1 (640 bytes, `F9152C0A`),
 `gameplay/close-shots` TGCS-1 (3144 bytes, `DACDC976`),
 `gameplay/dunk-cutaway` TGDK-1 (20272 bytes, `E02F2D21`),
 `gameplay/jump-shots` TGJS-1 (1648 bytes, `7587B099`),
@@ -47,6 +48,24 @@ Exact sizes, payload fingerprints, deep indexes, reserved bytes, source-map
 spans, CHR fingerprints, and the shared pack path are validated before the
 scene becomes available. Missing, malformed, oversized, wrong-revision, or
 cross-pack dependencies fail closed without a partial frame.
+
+TGOR-1 owns only the binary offensive-direction state synchronized with live
+possession. Its exact Bank05 sources are the possession transition gate-and-
+swap `$8FAD-$8FE7`, the slots-0..9 actor-role bit-`$10` toggle and queue-`$17`
+operation `$9042-$9053`, the target-delta routine `$9054-$90AF`, and target
+table `$BDEF-$BDF2` (`$00A0/$0260`). A fresh native launch uses direction 0
+and AWAY possession as a cold-start-aligned policy. Same-possession handoffs
+and restarts are no-ops; a real change atomically saves previous direction,
+XORs current direction, updates tracked team/target X, and increments a serial.
+TGCT-1 stays left-to-right. This does not scroll the court or migrate actors.
+
+Fixed `$E537-$E548/$E699` is only TGPL presentation-selector cross-check
+evidence: `$0758` is derived from `$04FC` bit 7 and IDs `$1B/$2E`; it does not
+own orientation. TGSR `$B87C-$B8F5` is a conditional alternate claimant
+settlement, not a universal post-shot routine. `$9042` is not described as a
+general team switch. `$035B` has no direct reads and is retained only as
+save-before-toggle evidence. Direct `$035A` stores are limited to `$8FC4` and
+`$B8E0`; broad `STA $0300,X` is limited to fixed-bank cold boot `$CC68`.
 
 `gameplay/camera-projection` TGCP-1 is a separate pure asset and is not a
 compound-scene dependency. Its 1344-byte canonical payload
@@ -77,9 +96,9 @@ pure decoder for the complete 96-by-30-tile court (768-by-240 pixels) and a
 camera-positioned coarse/fine-scroll viewport slicer. The current renderer
 still draws one static 256-pixel viewport, however, and its actors, hoop math,
 AI, and movement remain screen-space approximations. Explicit orientation
-ownership, persistent camera state, and a coherent scene-wide world-coordinate
-migration are still required before TGCP-1 and TGFL-1 can become live scene
-dependencies.
+ownership is now live through TGOR-1; persistent camera state and a coherent
+scene-wide world-coordinate migration are still required before TGCP-1 and
+TGFL-1 can become live scene dependencies.
 
 TGSR-3 also has FNV1a64 `5C5170460C8305A8` and requires exact same-pack
 TGPL-1. Its revision-fingerprinted sources are Bank05 `$91BC-$943A`,
@@ -422,9 +441,10 @@ strict full-pack scene test and deterministic 640x480 start, jump-miss through
 87, jump-make through 111, and dunk checkpoints through 132. Run
 `tools\Run-GameplayDunkCutawayTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` for
 the strict TGDK payload/provenance/render/mutation/revision checks.
-`Run-GameplayShotResolutionTests.ps1`, `Run-GameplayPenaltyTests.ps1`, and
-`Run-GameplayFreeThrowLineupTests.ps1` validate the strict TGSR/TPNL/TGFL
+`Run-GameplayShotResolutionTests.ps1`, `Run-GameplayPenaltyTests.ps1`,
+`Run-GameplayFreeThrowLineupTests.ps1`, and
+`Run-GameplayCourtOrientationTests.ps1` validate the strict TGSR/TPNL/TGFL/TGOR
 parsers, same-pack dependencies, source mutation, and pure APIs.
-`--gameplay-state-test`, the TGPL/TGCT/TGCS/TGJS focused suites, the 75-entry
+`--gameplay-state-test`, the TGPL/TGCT/TGCS/TGJS focused suites, the 77-entry
 full asset-pack regression, and `Run-GameplayAudioTests.ps1` retain their
 lower-level coverage.

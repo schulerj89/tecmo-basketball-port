@@ -2,6 +2,7 @@
 #include "png_writer.h"
 #include "tecmo_asset_pack.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_camera.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_court_orientation.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.h"
 #include "tecmo_audio_output.h"
 #include "tecmo_bank07.h"
@@ -10,6 +11,7 @@
 #include "tecmo_gameplay_assets.h"
 #include "tecmo_gameplay_camera.h"
 #include "tecmo_gameplay_court.h"
+#include "tecmo_gameplay_court_orientation.h"
 #include "tecmo_gameplay_close_shots.h"
 #include "tecmo_gameplay_dunk_cutaway.h"
 #include "tecmo_gameplay_jump_shots.h"
@@ -60,6 +62,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-assets-test PACK  Validate strict TGPL-1 gameplay assets\n");
     printf("  --gameplay-court-test PACK  Validate strict TGCT-1 static court assets\n");
     printf("  --gameplay-court-viewport-test PACK  Validate TGCT-1 full-court decode and viewport slicing\n");
+    printf("  --gameplay-court-orientation-test PACK [ROM]  Validate strict TGOR-1 state and optional Rev1 source\n");
     printf("  --gameplay-camera-projection-test PACK  Validate strict TGCP-1 camera/projector assets\n");
     printf("  --gameplay-close-shots-test PACK  Validate strict TGCS-1 close-shot assets\n");
     printf("  --gameplay-dunk-cutaway-test PACK  Validate strict TGDK-1 dunk presentation assets\n");
@@ -960,6 +963,25 @@ int main(int argc, char **argv)
         if (!tecmo_gameplay_free_throw_lineup_self_test(
                 pack_path, message, sizeof(message))) {
             printf("Free-throw lineup asset test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-court-orientation-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        const char *rom_path = index + 1 < argc ? argv[index + 1] : NULL;
+        char message[256];
+        if (rom_path != NULL &&
+            tecmo_asset_pack_gameplay_court_orientation_source_test(
+                rom_path, message, sizeof(message)) != 0) {
+            printf("Court-orientation source test failed: %s\n", message);
+            return 1;
+        }
+        if (!tecmo_gameplay_court_orientation_self_test(
+                pack_path, message, sizeof(message))) {
+            printf("Court-orientation asset test failed: %s\n", message);
             return 1;
         }
         printf("%s\n", message);

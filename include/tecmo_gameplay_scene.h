@@ -7,6 +7,7 @@
 #include "tecmo_gameplay_audio.h"
 #include "tecmo_gameplay_close_shots.h"
 #include "tecmo_gameplay_court.h"
+#include "tecmo_gameplay_court_orientation.h"
 #include "tecmo_gameplay_dunk_cutaway.h"
 #include "tecmo_gameplay_jump_shots.h"
 #include "tecmo_gameplay_shot_resolution.h"
@@ -89,6 +90,8 @@ typedef struct TecmoGameplayScene {
 
     TecmoGameplayAssets assets;
     TecmoGameplayCourt court;
+    TecmoGameplayCourtOrientationAssets court_orientation;
+    TecmoGameplayCourtOrientationState orientation_state;
     TecmoGameplayCloseShotAssets close_shots;
     TecmoGameplayDunkCutawayAssets dunk_cutaway;
     TecmoGameplayJumpShotAssets jump_shots;
@@ -146,8 +149,8 @@ typedef struct TecmoGameplayScene {
 /* Initialize exactly once before load/destroy. */
 void tecmo_gameplay_scene_init(TecmoGameplayScene *scene);
 
-/* Loads TGPL-1, TGCT-1, TGCS-1, TGDK-1, TGJS-1, TGSR-3, TSFX-1,
-   and TDMC-1 from one local pack.
+/* Loads TGPL-1, TGCT-1, TGOR-1, TGCS-1, TGDK-1, TGJS-1, TGSR-3,
+   TSFX-1, and TDMC-1 from one local pack.
    `asset_pack_path` may be NULL to use the strict runtime search order.
    Runtime data is never read from decompilation/capture paths. */
 bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,

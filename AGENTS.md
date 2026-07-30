@@ -92,6 +92,7 @@ out of unrelated commits unless the user explicitly asks to commit them.
 .\tools\Run-MusicTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayAudioTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-GameplayCourtOrientationTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-TeamDataTests.ps1 -RomPath <LOCAL_ROM.nes>
 .\tools\Run-TeamManagementTests.ps1 -RomPath <LOCAL_ROM.nes>
@@ -735,8 +736,8 @@ material, not committed provenance or runtime input. See
 `tecmo_port.exe --gameplay-state-test` and the compound scene with
 `tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 
-The scene must obtain TGPL-1 `gameplay/core`, TGCT-1 `gameplay/court`, TGCS-1
-`gameplay/close-shots`, TGDK-1 `gameplay/dunk-cutaway`,
+The scene must obtain TGPL-1 `gameplay/core`, TGCT-1 `gameplay/court`, TGOR-1
+`gameplay/court-orientation`, TGCS-1 `gameplay/close-shots`, TGDK-1 `gameplay/dunk-cutaway`,
 TGJS-1 `gameplay/jump-shots` (1648 bytes,
 `7587B099`), TGSR-3 `gameplay/shot-resolution` (512 bytes, `164DC568`),
 TMUS-1 `audio/music`, TSFX-1
@@ -825,6 +826,38 @@ Missing, malformed, undersized/oversized, wrong-revision, and cross-pack data
 fails closed. Verify it with
 `tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 
+TGOR-1 `gameplay/court-orientation` is the strict 640-byte live ownership
+foundation (FNV1a32 `F9152C0A`) and requires exact same-pack TGPL-1
+(`2047CCE0`) and TGSR-3 (`164DC568`). It preserves Bank05
+`$8FAD-$8FE7` (`7C94E5EA`) as the possession transition gate-and-swap,
+`$9042-$9053` (`CE6C9466`) as the exact slots-0..9 `$04B0` bit-`$10`
+toggle plus queue-`$17` operation, `$9054-$90AF` (`FE092D62`) as the
+absolute target-delta routine, and `$BDEF-$BDF2` (`A27B0F6F`) as X targets
+`$00A0/$0260`. Do not relabel `$9042` as a general team switch.
+
+The live state owns current and previous binary offensive direction, tracked
+possession team, transition serial, and target X. A fresh native launch uses
+direction 0 with the existing initial AWAY possession. This is a
+cold-start-aligned policy; repeat-game initialization in the original remains
+unproven. A same-possession handoff or period/foul restart is a successful
+no-op. A real possession change atomically saves the current direction, XORs
+it, updates the tracked team/target, and increments the serial; invalid input
+leaves output unchanged. Scene handoff always synchronizes TGOR even when the
+rules state changed possession first. TGCT-1 remains the unchanged canonical
+left-to-right court.
+
+TGPL-1 fixed `$E537-$E548` derives presentation selector `$0758` from
+`$04FC` bit 7 (slot-10 horizontal-velocity high byte/sign), with screen IDs
+`$1B/$2E` at `$E699`; it is cross-check evidence, not orientation ownership.
+TGSR-3 `$B87C-$B8F5` is a conditional alternate claimant-settlement path, not
+a universal post-shot path. `$035B` is only observed as save-before-toggle and
+has no direct reads; the only direct `$035A` stores are `$8FC4` and `$B8E0`.
+The broad `STA $0300,X` initializer appears only at fixed-bank cold boot
+`$CC68`. TGOR does not production-wire TGCP-1 or TGFL-1, scroll the court, or
+migrate actors/hoops. Verify the strict parser, source mutations, transitions,
+scene handoff/restart integration, and provenance with
+`tools\Run-GameplayCourtOrientationTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
+
 TGCP-1 `gameplay/camera-projection` is the strict 1344-byte pure gameplay
 camera foundation (FNV1a32 `B3721B17`) and requires exact same-pack TGPL-1
 (`2047CCE0`) and TGCT-1 (`ECAB7A93`). It preserves fixed-bank Rev1 spans
@@ -871,11 +904,12 @@ the required 33rd fetch column. Contract tags, immutable metadata, and both
 world-plane fingerprints are revalidated on every slice. Invalid, unavailable,
 tampered, or out-of-range input leaves caller output untouched.
 
-Do not load TGCP-1 or TGFL-1 into `TecmoGameplayScene` yet. The full-court
+Do not load TGCP-1 or TGFL-1 into `TecmoGameplayScene` yet. TGOR-1 now supplies
+explicit live orientation ownership, but the full-court
 decoder/slicer is now available, but the current renderer still exposes one
 static 256-by-240 viewport and live actors/movement use clamped screen
-coordinates. Live wiring still requires explicit orientation ownership,
-persistent camera state, and a coherent scene-wide world-coordinate migration.
+coordinates. Live wiring still requires persistent camera state and a coherent
+scene-wide world-coordinate migration.
 The pure slicer intentionally represents the canonical view rather than the
 original streamer's staged PPU-prefetch order. Verify the camera asset boundary
 with
@@ -898,6 +932,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/asset_pack/tecmo_asset_pack_finale.c`: ROM-only TFIN-1 post-PASS finale importer
 - `src/asset_pack/tecmo_asset_pack_gameplay.c`: strict TGPL-1 gameplay-core importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_court.c`: strict TGCT-1 court importer and legacy center-nametable builder
+- `src/asset_pack/tecmo_asset_pack_gameplay_court_orientation.c`: strict TGOR-1 court-orientation importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_camera.c`: strict TGCP-1 camera/projector importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_close_shots.c`: strict TGCS-1 numeric close-shot importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c`: strict TGDK-1 screen/palette/CHR/staged-sprite importer
@@ -917,6 +952,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/tecmo_gameplay_dunk_cutaway.c`: strict TGDK-1 loader, palette resolver, stage scheduler, and OAM-priority renderer
 - `src/tecmo_gameplay_camera.c`: strict TGCP-1 parser and pure camera/projector state API
 - `src/tecmo_gameplay_court.c`: strict TGCT-1 parser, full-world decoder, and camera-positioned viewport slicer
+- `src/tecmo_gameplay_court_orientation.c`: strict TGOR-1 parser and possession-synchronized orientation state API
 - `src/tecmo_gameplay_free_throw_projection_test.c`: test-only TGFL-1 -> TGCP-1 checkpoint composition
 - `src/tecmo_gameplay_audio.c`: strict gameplay-audio loader, event sequencer, DMC decoder, and music/SFX mixer
 - `src/tecmo_start_game_menu.c`: strict TSGM-1 menu loading, update, transition, and rendering

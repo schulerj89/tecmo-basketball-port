@@ -1694,6 +1694,105 @@ static int append_gameplay_court_source_map_entry(
         "\"runtime_inputs\":\"TGCT-1 plus same-pack chr/all; no decompilation, trace, capture, screenshot, dump, state, or video\"}}" );
 }
 
+static int append_gameplay_court_orientation_source_map_entry(
+    char *buffer,
+    size_t capacity,
+    size_t *length,
+    int *first,
+    const TecmoGameplayCourtOrientationProvenance *provenance)
+{
+    const char *prefix = *first != 0 ? "" : ",\n";
+    const TecmoGameplayCourtOrientationExpectedSource *gate =
+        &tecmo_gameplay_court_orientation_expected_sources[0U];
+    const TecmoGameplayCourtOrientationExpectedSource *role =
+        &tecmo_gameplay_court_orientation_expected_sources[1U];
+    const TecmoGameplayCourtOrientationExpectedSource *delta =
+        &tecmo_gameplay_court_orientation_expected_sources[2U];
+    const TecmoGameplayCourtOrientationExpectedSource *targets =
+        &tecmo_gameplay_court_orientation_expected_sources[3U];
+
+    *first = 0;
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "%s"
+        "    {\"id\":\"%s\",\"kind\":\"gameplay-court-orientation-state\","
+        "\"schema\":\"tecmo.gameplay-court-orientation/TGOR-1\","
+        "\"payload_size\":%u,\"payload_fingerprint_fnv1a32\":\"%08X\","
+        "\"dependencies\":["
+        "{\"id\":\"%s\",\"schema\":\"tecmo.gameplay/TGPL-1\","
+        "\"payload_size\":%u,\"payload_fingerprint_fnv1a32\":\"%08X\","
+        "\"evidence\":\"fixed $E537-$E548 derives $0758 from $04FC bit 7; "
+        "$E699-$E69A supplies screen IDs $1B/$2E; presentation selector only, "
+        "not orientation ownership\"},"
+        "{\"id\":\"%s\",\"schema\":\"tecmo.gameplay-shot-resolution/TGSR-3\","
+        "\"payload_size\":%u,\"payload_fingerprint_fnv1a32\":\"%08X\","
+        "\"evidence\":\"Bank05 $B87C-$B8F5 is a conditional alternate "
+        "claimant-settlement path, not a universal post-shot path\"}],"
+        "\"sources\":["
+        "{\"role\":\"possession-transition-gate-and-swap\","
+        "\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,"
+        "\"bank\":%u,\"cpu_start\":%u,\"cpu_end\":%u,\"size\":%u,"
+        "\"fingerprint_fnv1a32\":\"%08X\"},"
+        "{\"role\":\"actor-role-bit-toggle-and-queue\","
+        "\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,"
+        "\"bank\":%u,\"cpu_start\":%u,\"cpu_end\":%u,\"size\":%u,"
+        "\"fingerprint_fnv1a32\":\"%08X\","
+        "\"evidence\":\"toggles $04B0 bit $10 for slots 0..9 and queues $17; "
+        "this is not labeled a team switch\"},"
+        "{\"role\":\"orientation-target-absolute-delta\","
+        "\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,"
+        "\"bank\":%u,\"cpu_start\":%u,\"cpu_end\":%u,\"size\":%u,"
+        "\"fingerprint_fnv1a32\":\"%08X\","
+        "\"evidence\":\"uses $035A to select target X and Y target $94\"},"
+        "{\"role\":\"orientation-target-x-table\","
+        "\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,"
+        "\"bank\":%u,\"cpu_start\":%u,\"cpu_end\":%u,\"size\":%u,"
+        "\"fingerprint_fnv1a32\":\"%08X\",\"targets\":[160,608]}],"
+        "\"state_contract\":{\"directions\":[0,1],"
+        "\"fresh_launch\":{\"direction\":0,\"tracked_possession\":\"away\","
+        "\"policy\":\"cold-start-aligned; repeat-game initialization remains unproven\"},"
+        "\"same_possession\":\"successful no-op, including same-possession "
+        "period and foul restarts\","
+        "\"possession_change\":\"atomically save previous direction, XOR current "
+        "direction, update tracked team and target X, increment serial\","
+        "\"canonical_court\":\"TGCT-1 remains left-to-right and unchanged\"},"
+        "\"evidence_limits\":\"$035B is only save-before-toggle evidence and has "
+        "no direct reads; direct $035A stores occur at $8FC4 and $B8E0; broad "
+        "STA $0300,X occurs only in fixed-bank cold boot at $CC68\","
+        "\"supported_boundary\":\"strict binary offensive-direction ownership "
+        "and target selection only; no TGCP/TGFL production wiring, court "
+        "scrolling, actor migration, or hoop migration\","
+        "\"runtime_inputs\":\"TGOR-1 plus same-pack TGPL-1 and TGSR-3; no ROM, "
+        "decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua "
+        "output, or save state\"}",
+        prefix,
+        TECMO_ASSET_PACK_GAMEPLAY_COURT_ORIENTATION_ID,
+        TECMO_ASSET_PACK_GAMEPLAY_COURT_ORIENTATION_SIZE,
+        TECMO_ASSET_PACK_GAMEPLAY_COURT_ORIENTATION_FNV1A32,
+        TECMO_ASSET_PACK_GAMEPLAY_ID,
+        TECMO_ASSET_PACK_GAMEPLAY_SIZE,
+        TECMO_ASSET_PACK_GAMEPLAY_FNV1A32,
+        TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_ID,
+        TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_SIZE,
+        TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_FNV1A32,
+        (unsigned long long)provenance->source_offsets[0U],
+        (unsigned)gate->bank, (unsigned)gate->cpu_start,
+        (unsigned)(gate->cpu_start + gate->byte_count - 1U),
+        (unsigned)gate->byte_count, (unsigned)gate->fingerprint,
+        (unsigned long long)provenance->source_offsets[1U],
+        (unsigned)role->bank, (unsigned)role->cpu_start,
+        (unsigned)(role->cpu_start + role->byte_count - 1U),
+        (unsigned)role->byte_count, (unsigned)role->fingerprint,
+        (unsigned long long)provenance->source_offsets[2U],
+        (unsigned)delta->bank, (unsigned)delta->cpu_start,
+        (unsigned)(delta->cpu_start + delta->byte_count - 1U),
+        (unsigned)delta->byte_count, (unsigned)delta->fingerprint,
+        (unsigned long long)provenance->source_offsets[3U],
+        (unsigned)targets->bank, (unsigned)targets->cpu_start,
+        (unsigned)(targets->cpu_start + targets->byte_count - 1U),
+        (unsigned)targets->byte_count, (unsigned)targets->fingerprint);
+}
+
 static int append_gameplay_camera_source_map_entry(
     char *buffer,
     size_t capacity,
@@ -2483,6 +2582,7 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoSeasonMenuProvenance *season_provenance,
                                    const TecmoGameplayProvenance *gameplay_provenance,
                                    const TecmoGameplayCourtProvenance *gameplay_court_provenance,
+                                   const TecmoGameplayCourtOrientationProvenance *court_orientation_provenance,
                                    const TecmoGameplayCameraProvenance *gameplay_camera_provenance,
                                    const TecmoGameplayCloseShotProvenance *close_shot_provenance,
                                    const TecmoGameplayDunkProvenance *dunk_provenance,
@@ -2492,7 +2592,7 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
     const TecmoGameplayFreeThrowLineupProvenance *free_throw_lineup_provenance,
     size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 27U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 28U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -2719,6 +2819,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
          append_gameplay_court_source_map_entry(
              source_map, capacity, &length, &first_logical,
              gameplay_court_provenance) != 0) ||
+        (court_orientation_provenance->source_offsets[0] != 0U &&
+         append_gameplay_court_orientation_source_map_entry(
+             source_map, capacity, &length, &first_logical,
+             court_orientation_provenance) != 0) ||
         (gameplay_camera_provenance->source_offsets[0] != 0U &&
          append_gameplay_camera_source_map_entry(
              source_map, capacity, &length, &first_logical,
