@@ -289,6 +289,8 @@ try {
         [int]$CourtMap[0].native_contract.viewport_camera_x_max -ne 512 -or
         $CourtMap[0].native_contract.viewport -notmatch
             '32 columns when tile-aligned, otherwise 33' -or
+        $CourtMap[0].native_contract.viewport_ordering -notmatch
+            'canonical camera view; does not emulate staged PPU prefetch/write ordering' -or
         $CourtMap[0].native_contract.live_palette_fingerprint_fnv1a32 -ne "B20C1E11" -or
         $CourtMap[0].native_contract.boundary -notmatch
             "pure full-court decode and camera-positioned viewport slicing only" -or

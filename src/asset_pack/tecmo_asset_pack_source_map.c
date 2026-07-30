@@ -1687,6 +1687,7 @@ static int append_gameplay_court_source_map_entry(
         "\"viewport_width_pixels\":256,\"viewport_tile_stride\":33,"
         "\"viewport_camera_x_min\":0,\"viewport_camera_x_max\":512,"
         "\"viewport\":\"32 columns when tile-aligned, otherwise 33; unused aligned tail cells are zero\","
+        "\"viewport_ordering\":\"canonical camera view; does not emulate staged PPU prefetch/write ordering\","
         "\"live_palette_size\":16,"
         "\"live_palette_fingerprint_fnv1a32\":\"B20C1E11\","
         "\"boundary\":\"pure full-court decode and camera-positioned viewport slicing only; excludes live scene scrolling, players, ball, HUD, team overlays, animation, and captured live frames\","

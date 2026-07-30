@@ -72,12 +72,14 @@ Pure TGCP coverage separately exercises exact generic left/right steps,
 disabled and suppressed-route no-ops, page carry/borrow, continuing
 coarse-column changes, and direction reversals.
 
-TGCP-1 deliberately stops before live scene wiring. The imported TGCT court is
-96-by-30 tiles (768-by-240 pixels), whereas the current renderer draws one
-static 256-pixel viewport and its actors, hoop math, AI, and movement are
-screen-space approximations. A full-court decoder/slicer, explicit orientation
-owner, and coherent world-coordinate migration are required before TGCP-1 and
-TGFL-1 can become live scene dependencies.
+TGCP-1 deliberately stops before live scene wiring. TGCT-1 now has a strict
+pure decoder for the complete 96-by-30-tile court (768-by-240 pixels) and a
+camera-positioned coarse/fine-scroll viewport slicer. The current renderer
+still draws one static 256-pixel viewport, however, and its actors, hoop math,
+AI, and movement remain screen-space approximations. Explicit orientation
+ownership, persistent camera state, and a coherent scene-wide world-coordinate
+migration are still required before TGCP-1 and TGFL-1 can become live scene
+dependencies.
 
 TGSR-3 also has FNV1a64 `5C5170460C8305A8` and requires exact same-pack
 TGPL-1. Its revision-fingerprinted sources are Bank05 `$91BC-$943A`,

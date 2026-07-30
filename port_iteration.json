@@ -50,12 +50,13 @@
     "controls": "directions move the owned actor; NES A passes or switches defender; NES B shoots or attempts defense; START/SELECT are inert; unassigned controllers cannot act",
     "exact_contracts": [
       "ROM-derived court, CHR, imported TGCT palette bytes, embedded FCEUX RGB profile, all 208 TGCS-stored profile-direction resolutions into TGPL pose data, numeric close variants 0 and 2, their proven dunk/layup mapping, and their 32/16 step tables",
+      "TGCT-1 pure full-world decode expands the exact 96-by-30 tile and palette-index planes and slices canonical coarse/fine-scroll camera views for X 0..512; this boundary is exact but is not wired into the live scene",
       "deterministic clock, shot-clock, event, violation/foul presentation, period, halftime, overtime, final, and result state transitions",
       "ROM-derived track 5/6 programs, gameplay SFX mappings, held-ball/dribble DMC clip, mixer cadence, and source-map provenance",
       "season result identity validation and exact-once commit before gameplay ends"
     ],
     "native_approximations": [
-      "actor and camera layout",
+      "live court/camera layout, scrolling, orientation ownership, persistent camera state, and coherent world-coordinate migration for actors and hoop math",
       "movement and AI",
       "ordinary jump-shot timing",
       "shot arc, make, and contact policy",
@@ -71,7 +72,10 @@
       "gameplay-jump-frameN",
       "gameplay-dunk-frameN"
     ],
-    "focused_test": ".\\tools\\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>",
+    "focused_tests": [
+      ".\\tools\\Run-GameplayCourtTests.ps1 -Build -RomPath <LOCAL_ROM.nes>",
+      ".\\tools\\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>"
+    ],
     "local_output_policy": "asset packs, render checkpoints, logs, emulator evidence, and comparisons remain ignored under build or temp-videos and are never committed"
   },
   "local_desktop_shortcut": {
