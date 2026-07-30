@@ -167,7 +167,11 @@ accumulators are ported.
   schedule. The exact two-orientation raw lineup, shooter-dependent actor
   stream, pose indexes, and base actor-state seeds are available through the
   strict TGFL-1 data foundation. Exact pure camera following and actor
-  projection are available through TGCP-1, but live repositioning, full-court
+  projection are available through TGCP-1. A test-only TGFL-1 -> TGCP-1
+  composition now derives the orientation-1 free-throw lineup and proves its
+  six visible and four neutral-offscreen slots at the bounded camera
+  checkpoint. It does not wire either asset into live play. Live
+  repositioning, full-court
   scrolling, aim, outcome, rebound, and CPU positioning remain unsupported or
   approximate.
 - Rebounds, blocks, and steals remain approximate or nonsemantic. The current
@@ -200,7 +204,9 @@ Likewise, `gameplay/free-throw-lineup` TGFL-1 preserves raw world coordinates.
 `gameplay/camera-projection` TGCP-1 can project them exactly in a pure API, but
 neither asset is loaded by the live scene yet: its static 256-pixel court and
 screen-space actors cannot represent the ROM's scrolling 768-pixel court
-without a coherent world-coordinate migration.
+without a coherent world-coordinate migration. Offscreen projection uses a
+deterministic native sentinel (`visible=false`, X/Y zero) because the ROM
+branches before writing projected Y.
 
 The first two intro screens, TECMO/rabbit and NBA license, are silent. Strict
 opening music begins at the license-to-arena handoff. Title confirmation queues

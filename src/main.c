@@ -16,6 +16,7 @@
 #include "tecmo_gameplay_shot_resolution.h"
 #include "tecmo_gameplay_penalties.h"
 #include "tecmo_gameplay_free_throw_lineup.h"
+#include "tecmo_gameplay_free_throw_projection_test.h"
 #include "tecmo_gameplay_scene.h"
 #include "tecmo_gameplay_state.h"
 #include "tecmo_intro_arena_scene.h"
@@ -65,6 +66,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-shot-resolution-test PACK  Validate strict TGSR-3 shot-resolution assets\n");
     printf("  --gameplay-penalties-test PACK  Validate strict TPNL-1 penalty rules\n");
     printf("  --gameplay-free-throw-lineup-test PACK  Validate strict TGFL-1 raw lineup assets\n");
+    printf("  --gameplay-free-throw-projection-test PACK  Validate test-only TGFL-1 to TGCP-1 composition\n");
     printf("  --assetpack-list PACK  Print an asset-pack directory listing\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -721,6 +723,20 @@ int main(int argc, char **argv)
         if (!tecmo_gameplay_camera_self_test(
                 pack_path, message, sizeof(message))) {
             printf("Gameplay camera asset test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(
+            command,
+            "--gameplay-free-throw-projection-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        char message[256];
+        if (!tecmo_gameplay_free_throw_projection_self_test(
+                pack_path, message, sizeof(message))) {
+            printf("Free-throw projection test failed: %s\n", message);
             return 1;
         }
         printf("%s\n", message);

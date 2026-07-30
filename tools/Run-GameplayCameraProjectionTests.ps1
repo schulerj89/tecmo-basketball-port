@@ -213,6 +213,13 @@ try {
         throw "gameplay/camera-projection size or fingerprint changed."
     }
     Invoke-CameraAssetTest $PackPath $true
+    $IntegrationOutput = @(& $Executable `
+        --gameplay-free-throw-projection-test $PackPath 2>&1)
+    if ($LASTEXITCODE -ne 0 -or
+        ($IntegrationOutput -join [Environment]::NewLine) -notmatch
+            "^TGFL-1 -> TGCP-1 projection test passed") {
+        throw "TGFL-1 -> TGCP-1 integration test failed.`n$(Get-ShortTail $IntegrationOutput)"
+    }
 
     $ListOutput = @(& $Executable --assetpack-list $PackPath 2>&1)
     if ($LASTEXITCODE -ne 0 -or
@@ -266,6 +273,9 @@ try {
             (@($Map.follow_contract.suppressed_action_routes) -join ',') -eq
                 "1,18,19" -and
             $Map.projection_contract.visible -match "0..255 viewport" -and
+            $Map.projection_contract.offscreen_sentinel -match
+                "screen_x=0, screen_y=0" -and
+            $Map.projection_contract.screen_y -match "visible actors" -and
             $Map.projection_contract.orientation_transform -eq $false -and
             $Map.projection_contract.vertical_camera -eq $false -and
             $Map.supported_boundary -match "no PPU commit" -and
@@ -410,7 +420,8 @@ try {
 
     Write-Host ("TGCP-1 focused tests passed: direct exact Rev1 iNES/FNV/SHA, " +
         "six canonical fixed-bank spans, strict source map, camera follow/" +
-        "settle/projection goldens, missing/malformed/undersized/oversized/" +
+        "settle/projection goldens, TGFL-derived slot-3 integration, " +
+        "missing/malformed/undersized/oversized/" +
         "cross-pack dependency rejection, $RomMutationCount source mutations")
     $global:LASTEXITCODE = 0
 } finally {

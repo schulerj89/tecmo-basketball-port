@@ -780,9 +780,11 @@ bool tecmo_gameplay_camera_project_actor(
     memset(&projected, 0, sizeof(projected));
     delta = (uint16_t)(world_x - state->camera_x);
     projected.visible = (uint8_t)(delta >> 8U) == 0U;
-    if (projected.visible) projected.screen_x = (uint8_t)delta;
-    projected.screen_y = world_y >= altitude
-        ? (uint8_t)(world_y - altitude) : 0U;
+    if (projected.visible) {
+        projected.screen_x = (uint8_t)delta;
+        projected.screen_y = world_y >= altitude
+            ? (uint8_t)(world_y - altitude) : 0U;
+    }
     *projection = projected;
     return true;
 }
@@ -804,24 +806,53 @@ static bool camera_state_matches(
            state->layout_cursor == cursor;
 }
 
+static bool camera_states_equal(
+    const TecmoGameplayCameraState *left,
+    const TecmoGameplayCameraState *right)
+{
+    return left->camera_x == right->camera_x &&
+           left->scroll_x == right->scroll_x &&
+           left->scroll_aux == right->scroll_aux &&
+           left->nametable_page == right->nametable_page &&
+           left->aux == right->aux &&
+           left->stream_direction == right->stream_direction &&
+           left->layout_cursor == right->layout_cursor &&
+           left->left_threshold == right->left_threshold &&
+           left->right_threshold == right->right_threshold &&
+           left->thresholds_valid == right->thresholds_valid &&
+           left->endpoint_latched == right->endpoint_latched;
+}
+
+static bool run_follow_vector(
+    const TecmoGameplayCameraAssets *assets,
+    TecmoGameplayCameraState initial,
+    const TecmoGameplayCameraFollowInput *input,
+    uint16_t camera_x,
+    uint8_t scroll_x,
+    uint8_t page,
+    uint8_t cursor,
+    uint8_t direction)
+{
+    if (!tecmo_gameplay_camera_follow(assets, &initial, input)) {
+        return false;
+    }
+    return camera_state_matches(
+               &initial, camera_x, scroll_x, page, cursor, direction) &&
+           initial.left_threshold == 0x50U &&
+           initial.right_threshold == 0xA0U &&
+           initial.thresholds_valid &&
+           !initial.endpoint_latched;
+}
+
 bool tecmo_gameplay_camera_self_test(
     const char *asset_pack_path,
     char *message,
     size_t message_size)
 {
-    static const uint16_t lineup_x[10] = {
-        0x00F8U,0x0242U,0x0259U,0x0231U,0x0120U,
-        0x022EU,0x0206U,0x0245U,0x00DAU,0x0102U
-    };
-    static const bool lineup_visible[10] = {
-        false,true,true,true,false,true,true,true,false,false
-    };
-    static const uint8_t lineup_screen_x[10] = {
-        0U,0xAAU,0xC1U,0x99U,0U,0x96U,0x6EU,0xADU,0U,0U
-    };
     TecmoGameplayCameraAssets assets;
     TecmoGameplayCameraState state;
     TecmoGameplayCameraState unchanged;
+    TecmoGameplayCameraState vector;
     TecmoGameplayCameraFollowInput input;
     TecmoGameplayActorProjection projection;
     TecmoGameplayActorProjection projection_unchanged;
@@ -848,6 +879,120 @@ bool tecmo_gameplay_camera_self_test(
         goto cleanup;
     }
     storage_hash = fnv1a32(assets.storage, assets.storage_size);
+
+    memset(&input, 0, sizeof(input));
+    input.orientation = 0U;
+    input.focus_world_x = 0x01C0U;
+    memset(&vector, 0, sizeof(vector));
+    vector.camera_x = 0x0100U;
+    vector.scroll_x = 0x20U;
+    vector.layout_cursor = 0x20U;
+    if (!run_follow_vector(
+            &assets, vector, &input,
+            0x0107U, 0x27U, 0U, 0x20U, 0U)) {
+        (void)snprintf(message, message_size,
+                       "generic seven-pixel right follow failed");
+        goto cleanup;
+    }
+    input.focus_world_x = 0x0170U;
+    memset(&vector, 0, sizeof(vector));
+    vector.camera_x = 0x0200U;
+    vector.scroll_x = 0x27U;
+    vector.stream_direction = 1U;
+    vector.layout_cursor = 0x20U;
+    if (!run_follow_vector(
+            &assets, vector, &input,
+            0x01F9U, 0x20U, 0U, 0x20U, 1U)) {
+        (void)snprintf(message, message_size,
+                       "generic seven-pixel left follow failed");
+        goto cleanup;
+    }
+
+    input.focus_world_x = 0x01C0U;
+    memset(&vector, 0, sizeof(vector));
+    vector.camera_x = 0x0100U;
+    vector.scroll_x = 0xFCU;
+    vector.layout_cursor = 0x20U;
+    if (!run_follow_vector(
+            &assets, vector, &input,
+            0x0107U, 0x03U, 1U, 0x21U, 0U)) {
+        (void)snprintf(message, message_size,
+                       "right page-carry/coarse-column follow failed");
+        goto cleanup;
+    }
+    input.focus_world_x = 0x0170U;
+    memset(&vector, 0, sizeof(vector));
+    vector.camera_x = 0x0200U;
+    vector.scroll_x = 0x03U;
+    vector.stream_direction = 1U;
+    vector.layout_cursor = 0x20U;
+    if (!run_follow_vector(
+            &assets, vector, &input,
+            0x01F9U, 0xFCU, 1U, 0x1FU, 1U)) {
+        (void)snprintf(message, message_size,
+                       "left page-borrow/coarse-column follow failed");
+        goto cleanup;
+    }
+
+    input.focus_world_x = 0x01C0U;
+    memset(&vector, 0, sizeof(vector));
+    vector.camera_x = 0x0100U;
+    vector.scroll_x = 0x1CU;
+    vector.stream_direction = 1U;
+    vector.layout_cursor = 0x20U;
+    if (!run_follow_vector(
+            &assets, vector, &input,
+            0x0107U, 0x23U, 0U, 0x23U, 0U)) {
+        (void)snprintf(message, message_size,
+                       "right reversal three-column follow failed");
+        goto cleanup;
+    }
+    input.focus_world_x = 0x0170U;
+    memset(&vector, 0, sizeof(vector));
+    vector.camera_x = 0x0200U;
+    vector.scroll_x = 0x20U;
+    vector.layout_cursor = 0x20U;
+    if (!run_follow_vector(
+            &assets, vector, &input,
+            0x01F9U, 0x19U, 0U, 0x1DU, 1U)) {
+        (void)snprintf(message, message_size,
+                       "left reversal three-column follow failed");
+        goto cleanup;
+    }
+
+    memset(&vector, 0, sizeof(vector));
+    vector.camera_x = 0x0100U;
+    vector.scroll_x = 0x20U;
+    vector.layout_cursor = 0x20U;
+    unchanged = vector;
+    input.focus_world_x = 0x01C0U;
+    input.camera_disabled = true;
+    if (!tecmo_gameplay_camera_follow(&assets, &vector, &input) ||
+        !camera_states_equal(&vector, &unchanged)) {
+        (void)snprintf(message, message_size,
+                       "camera-disabled follow mutated state");
+        goto cleanup;
+    }
+    input.camera_disabled = false;
+    vector.left_threshold = 0x50U;
+    vector.right_threshold = 0xA0U;
+    vector.thresholds_valid = true;
+    for (uint8_t route_index = 0U; route_index < 3U; ++route_index) {
+        static const uint8_t suppressed_routes[3] = {
+            0x01U, 0x12U, 0x13U
+        };
+        unchanged = vector;
+        input.action_route = suppressed_routes[route_index];
+        if (!tecmo_gameplay_camera_follow(&assets, &vector, &input) ||
+            !camera_states_equal(&vector, &unchanged)) {
+            (void)snprintf(
+                message, message_size,
+                "suppressed route %u mutated camera state",
+                (unsigned)suppressed_routes[route_index]);
+            goto cleanup;
+        }
+    }
+    input.action_route = 0U;
 
     if (!tecmo_gameplay_camera_state_initialize(&assets, &state) ||
         !camera_state_matches(&state, 0x0100U, 0x00U, 0U,
@@ -898,40 +1043,20 @@ bool tecmo_gameplay_camera_self_test(
         goto cleanup;
     }
 
-    if (!tecmo_gameplay_camera_state_initialize(&assets, &state)) {
-        (void)snprintf(message, message_size,
-                       "post-preload initializer failed");
-        goto cleanup;
-    }
-    state.layout_cursor = 0x21U;
-    if (!tecmo_gameplay_camera_settle(&assets, &state, &input) ||
-        !camera_state_matches(&state, 0x0198U, 0x98U, 0U,
-                              0x34U, 0U)) {
-        (void)snprintf(message, message_size,
-                       "orientation-1 cursor-21 settle golden failed");
-        goto cleanup;
-    }
-    for (size_t slot = 0U; slot < 10U; ++slot) {
-        memset(&projection, 0xA5, sizeof(projection));
-        if (!tecmo_gameplay_camera_project_actor(
-                &assets, &state, lineup_x[slot], 0x94U, 0U,
-                &projection) ||
-            projection.visible != lineup_visible[slot] ||
-            projection.screen_x != lineup_screen_x[slot] ||
-            projection.screen_y != 0x94U) {
-            (void)snprintf(
-                message, message_size,
-                "slot-3 lineup projection failed at actor %u",
-                (unsigned)slot);
-            goto cleanup;
-        }
-    }
     if (!tecmo_gameplay_camera_project_actor(
             &assets, &state, 0x0206U, 10U, 11U, &projection) ||
-        !projection.visible || projection.screen_x != 0x6EU ||
+        !projection.visible || projection.screen_x != 0x66U ||
         projection.screen_y != 0U) {
         (void)snprintf(message, message_size,
                        "actor Y saturation golden failed");
+        goto cleanup;
+    }
+    if (!tecmo_gameplay_camera_project_actor(
+            &assets, &state, 0x0090U, 0xFFU, 1U, &projection) ||
+        projection.visible || projection.screen_x != 0U ||
+        projection.screen_y != 0U) {
+        (void)snprintf(message, message_size,
+                       "offscreen projection sentinel failed");
         goto cleanup;
     }
 
@@ -955,7 +1080,7 @@ bool tecmo_gameplay_camera_self_test(
     (void)snprintf(
         message, message_size,
         "TGCP-1 gameplay camera self-test passed: init=0100 "
-        "bounded=006E/01A0 preload=0198 visible=6");
+        "bounded=006E/01A0 exact follow/page/reversal/routes");
     passed = true;
 
 cleanup:

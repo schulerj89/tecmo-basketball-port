@@ -840,7 +840,20 @@ following, page toggles, and direction-aware coarse-column cursor updates;
 offers a transactional bounded forced settle; and projects actors with
 `screen_x = world_x - camera_x` only when the subtraction high byte is zero
 and `screen_y = max(0, world_y - altitude)`. Invalid input does not mutate
-state or output, while a valid offscreen projection returns `visible=false`.
+state or output. A valid offscreen projection returns the deterministic API
+sentinel `visible=false, screen_x=0, screen_y=0`; the ROM branches before its Y
+calculation, so zero is a native safety value rather than a claimed ROM write.
+
+`src/tecmo_gameplay_free_throw_projection_test.c` is test-only composition,
+not a production dependency. It independently loads TGFL-1 and TGCP-1 from the
+same pack, derives orientation 1/shooter 6/secondary 1, and proves the bounded
+slot-3 checkpoint: capture-derived cursor `$21`, 76 moving camera updates,
+an unchanged 77th update, transactional settle at camera `$0198`, and six
+visible/four neutral-offscreen actors with TGFL-derived X/Y. Secondary slot 1
+and cursor `$21` are bounded frame evidence; the remaining lineup coordinates
+come from TGFL-1. Pure TGCP tests separately cover exact seven-pixel left/right
+steps, disabled and routes `$01/$12/$13` no-ops, page carry/borrow, continuing
+coarse-column updates, and three-column direction reversals.
 
 Do not load TGCP-1 or TGFL-1 into `TecmoGameplayScene` yet. TGCT contains the
 full 48-by-15 macro-cell court, but the current renderer exposes one static
@@ -882,6 +895,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/tecmo_gameplay_scene.c`: native launch, input, state, animation, audio-event, result, and rendering integration
 - `src/tecmo_gameplay_dunk_cutaway.c`: strict TGDK-1 loader, palette resolver, stage scheduler, and OAM-priority renderer
 - `src/tecmo_gameplay_camera.c`: strict TGCP-1 parser and pure camera/projector state API
+- `src/tecmo_gameplay_free_throw_projection_test.c`: test-only TGFL-1 -> TGCP-1 checkpoint composition
 - `src/tecmo_gameplay_audio.c`: strict gameplay-audio loader, event sequencer, DMC decoder, and music/SFX mixer
 - `src/tecmo_start_game_menu.c`: strict TSGM-1 menu loading, update, transition, and rendering
 - `src/tecmo_intro_stage.c`: intro sprite staging and arena transition state model

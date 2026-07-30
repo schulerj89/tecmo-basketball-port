@@ -54,9 +54,23 @@ compound-scene dependency. Its 1344-byte canonical payload
 Rev1 camera initializer, streamed-column and attribute helpers, horizontal
 follow/threshold routine, forced settle, and actor projector. The exact pure
 projector computes `world_x-camera_x`, accepts X only when the subtraction
-high byte is zero, and saturates `world_y-altitude` to zero on borrow.
+high byte is zero, and for visible actors saturates
+`world_y-altitude` to zero on borrow. Offscreen actors return the deterministic
+native sentinel `visible=false` with X/Y zero because the ROM branches before
+projecting Y.
 Initialization/follow/settle also preserve scroll page, stream direction,
 layout cursor, cursor bounds, and action-route movement gates.
+
+The focused test-only TGFL-1 -> TGCP-1 module independently loads both assets,
+derives orientation 1/shooter 6/secondary 1, and consumes TGFL's exact ten
+world X/Y values. Starting from the bounded capture-derived cursor `$21`, it
+proves 76 moving updates, an unchanged 77th update, transactional settle at
+camera `$0198`, and the exact six visible/four neutral-offscreen projections.
+Secondary slot 1 is also bounded frame evidence. This is integration
+verification only and does not make either asset a live-scene dependency.
+Pure TGCP coverage separately exercises exact generic left/right steps,
+disabled and suppressed-route no-ops, page carry/borrow, continuing
+coarse-column changes, and direction reversals.
 
 TGCP-1 deliberately stops before live scene wiring. The imported TGCT court is
 96-by-30 tiles (768-by-240 pixels), whereas the current renderer draws one

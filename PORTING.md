@@ -920,8 +920,22 @@ scroll carry/borrow page toggles, direction reversal, and coarse-column cursor
 updates. Forced settle is bounded to 1024 iterations and transactional. Actor
 projection is the exact unsigned 16-bit subtraction: X is visible only when
 the difference high byte is zero; Y is unsigned `world_y-altitude` saturated
-to zero on borrow. Valid offscreen projection is not a parser failure, and
-invalid calls leave state/output untouched.
+to zero on borrow for visible actors. Valid offscreen projection is not a
+parser failure and returns the deterministic native sentinel
+`visible=false, screen_x=0, screen_y=0`; fixed `$F1CB` branches before its Y
+calculation, so the zeros are not claimed as ROM-written coordinates. Invalid
+calls leave state/output untouched.
+
+The focused runner also composes the assets without adding a production
+dependency: it independently loads TGFL-1 and TGCP-1, derives orientation 1,
+shooter slot 6, and secondary slot 1, then proves the exact ten raw X/Y values,
+76 moving updates from the capture-derived cursor `$21`, the unchanged 77th
+update, transactional settle at camera `$0198`, and visible slots
+1/2/3/5/6/7. The other four slots use the neutral offscreen sentinel.
+Secondary slot 1 and cursor `$21` remain explicitly bounded frame evidence.
+Pure TGCP tests independently cover seven-pixel left/right movement,
+camera-disabled and routes `$01/$12/$13` no-ops, page carry/borrow, continuing
+coarse cursor steps, and three-column direction reversals.
 
 This closes the pure projection question but not live integration. TGCT's raw
 court is 48-by-15 macro cells (96-by-30 tiles, 768-by-240 pixels), while the
@@ -933,7 +947,8 @@ to world coordinates. Until that migration, TGCP-1 and TGFL-1 remain testable
 pure assets rather than scene dependencies. Run
 `tools\Run-GameplayCameraProjectionTests.ps1 -Build -RomPath
 <LOCAL_ROM.nes>` for revision, provenance, parser, mutation, dependency, camera,
-settle, and projection coverage.
+settle, exact one-step transitions, projection, and test-only TGFL composition
+coverage.
 
 Period completion follows fixed `$E59B->$E823`: regulation M:00 and divider 45
 are prepared before selecting the next banner, halftime, overtime, or final

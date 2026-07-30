@@ -72,6 +72,7 @@ $Sources = @(
     "src\tecmo_gameplay_shot_resolution.c",
     "src\tecmo_gameplay_penalties.c",
     "src\tecmo_gameplay_free_throw_lineup.c",
+    "src\tecmo_gameplay_free_throw_projection_test.c",
     "src\tecmo_gameplay_scene.c",
     "src\tecmo_gameplay_state.c",
     "src\tecmo_intro_stage.c",

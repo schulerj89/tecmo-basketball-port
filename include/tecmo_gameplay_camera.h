@@ -125,8 +125,10 @@ bool tecmo_gameplay_camera_settle(
 
 /*
  * Reproduces the coordinate prefix at fixed $F1CB-$F1F1. X is visible only
- * when the high byte of world_x-camera_x is zero. Y subtracts altitude and
- * saturates to zero on borrow. On failure, projection is not changed.
+ * when the high byte of world_x-camera_x is zero. Offscreen actors return the
+ * deterministic API sentinel visible=false, screen_x=0, screen_y=0; the ROM
+ * branches before calculating Y in that case. Visible Y subtracts altitude
+ * and saturates to zero on borrow. On failure, projection is not changed.
  */
 bool tecmo_gameplay_camera_project_actor(
     const TecmoGameplayCameraAssets *assets,

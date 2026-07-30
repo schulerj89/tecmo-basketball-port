@@ -1780,7 +1780,8 @@ static int append_gameplay_camera_source_map_entry(
         "\"projection_contract\":{"
         "\"screen_x\":\"low byte of world_x-camera_x when the high byte is zero\","
         "\"visible\":\"world_x-camera_x is in the unsigned 0..255 viewport\","
-        "\"screen_y\":\"max(0, raw_world_y-altitude)\","
+        "\"offscreen_sentinel\":\"visible=false, screen_x=0, screen_y=0; ROM branches before Y projection\","
+        "\"screen_y\":\"visible actors use max(0, raw_world_y-altitude)\","
         "\"orientation_transform\":false,\"vertical_camera\":false},"
         "\"supported_boundary\":\"strict pure camera state, follow, settle, and actor projection only; no PPU commit, full-court slicing, live-scene mutation, orientation ownership, actor compositor, HUD, or capture-derived behavior\","
         "\"runtime_inputs\":\"TGCP-1 plus same-pack TGPL-1 and TGCT-1; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}");
