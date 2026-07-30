@@ -855,13 +855,34 @@ come from TGFL-1. Pure TGCP tests separately cover exact seven-pixel left/right
 steps, disabled and routes `$01/$12/$13` no-ops, page carry/borrow, continuing
 coarse-column updates, and three-column direction reversals.
 
-Do not load TGCP-1 or TGFL-1 into `TecmoGameplayScene` yet. TGCT contains the
-full 48-by-15 macro-cell court, but the current renderer exposes one static
-256-by-240 viewport and live actors/movement use clamped screen coordinates.
-Live wiring requires a strict 768-by-240 full-court decode/slicer, explicit
-orientation ownership, persistent camera state, and a coherent scene-wide
-world-coordinate migration. Verify the pure boundary with
+TGCT-1 now exposes that strict pure court boundary without changing its
+6559-byte payload or canonical `ECAB7A93` fingerprint. Its raw 15-by-48
+little-endian macro layout expands to caller-owned 96-by-30 tile and palette
+planes (768-by-240 pixels), with all 720 macro references checked. The exact
+world fingerprints are `6458B5E5` for tiles and `7F650645` for per-tile
+palette indexes; the full layout uses indexes 0..360 with 346 unique values.
+Decode also proves that camera X `$0100` reproduces TGCT-1's existing 32-by-30
+center tiles and its expanded attribute palettes row by row.
+
+The pure slicer accepts camera X 0..`$0200`, derives coarse tile and fine
+scroll, and returns a fixed 33-by-30 tile/palette buffer. Aligned views expose
+32 columns with a zero unused tail cell per row; fine-scrolled views expose
+the required 33rd fetch column. Contract tags, immutable metadata, and both
+world-plane fingerprints are revalidated on every slice. Invalid, unavailable,
+tampered, or out-of-range input leaves caller output untouched.
+
+Do not load TGCP-1 or TGFL-1 into `TecmoGameplayScene` yet. The full-court
+decoder/slicer is now available, but the current renderer still exposes one
+static 256-by-240 viewport and live actors/movement use clamped screen
+coordinates. Live wiring still requires explicit orientation ownership,
+persistent camera state, and a coherent scene-wide world-coordinate migration.
+The pure slicer intentionally represents the canonical view rather than the
+original streamer's staged PPU-prefetch order. Verify the camera asset boundary
+with
 `tools\Run-GameplayCameraProjectionTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
+Verify TGCT-1 world decode, camera 0/1/7/8/255/256/257/511/512 slices,
+transactional mutation rejection, provenance, and the unchanged legacy loader
+with `tools\Run-GameplayCourtTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 
 ## Runtime Architecture Notes
 
@@ -876,7 +897,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/asset_pack/tecmo_asset_pack_d9f6.c`: bounded D9F6 nametable decoder and edge-case self-test
 - `src/asset_pack/tecmo_asset_pack_finale.c`: ROM-only TFIN-1 post-PASS finale importer
 - `src/asset_pack/tecmo_asset_pack_gameplay.c`: strict TGPL-1 gameplay-core importer
-- `src/asset_pack/tecmo_asset_pack_gameplay_court.c`: strict TGCT-1 static-court importer
+- `src/asset_pack/tecmo_asset_pack_gameplay_court.c`: strict TGCT-1 court importer and legacy center-nametable builder
 - `src/asset_pack/tecmo_asset_pack_gameplay_camera.c`: strict TGCP-1 camera/projector importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_close_shots.c`: strict TGCS-1 numeric close-shot importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c`: strict TGDK-1 screen/palette/CHR/staged-sprite importer
@@ -895,6 +916,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/tecmo_gameplay_scene.c`: native launch, input, state, animation, audio-event, result, and rendering integration
 - `src/tecmo_gameplay_dunk_cutaway.c`: strict TGDK-1 loader, palette resolver, stage scheduler, and OAM-priority renderer
 - `src/tecmo_gameplay_camera.c`: strict TGCP-1 parser and pure camera/projector state API
+- `src/tecmo_gameplay_court.c`: strict TGCT-1 parser, full-world decoder, and camera-positioned viewport slicer
 - `src/tecmo_gameplay_free_throw_projection_test.c`: test-only TGFL-1 -> TGCP-1 checkpoint composition
 - `src/tecmo_gameplay_audio.c`: strict gameplay-audio loader, event sequencer, DMC decoder, and music/SFX mixer
 - `src/tecmo_start_game_menu.c`: strict TSGM-1 menu loading, update, transition, and rendering

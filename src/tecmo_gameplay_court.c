@@ -11,6 +11,11 @@
 #include <string.h>
 
 #define TECMO_GAMEPLAY_COURT_LIFECYCLE_TAG 0x54474354U
+#define TECMO_GAMEPLAY_COURT_FULL_MACRO_ROWS 15U
+#define TECMO_GAMEPLAY_COURT_FULL_MACRO_COLUMNS 48U
+#define TECMO_GAMEPLAY_COURT_LAYOUT_ROW_STRIDE 0x60U
+#define TECMO_GAMEPLAY_COURT_MAXIMUM_MACRO_INDEX 360U
+#define TECMO_GAMEPLAY_COURT_WORLD_UNIQUE_MACROS 346U
 
 static uint16_t read_u16(const uint8_t *bytes)
 {
@@ -393,4 +398,267 @@ const uint8_t *tecmo_gameplay_court_palette(
         *byte_count_out = TECMO_ASSET_PACK_GAMEPLAY_COURT_PALETTE_SIZE;
     }
     return court->palette;
+}
+
+static bool court_world_source_contract_valid(
+    const TecmoGameplayCourt *court)
+{
+    return court != NULL &&
+           court->lifecycle_tag == TECMO_GAMEPLAY_COURT_LIFECYCLE_TAG &&
+           court->available &&
+           court->storage != NULL &&
+           court->storage_size == TECMO_ASSET_PACK_GAMEPLAY_COURT_SIZE &&
+           court->nametable ==
+               court->storage +
+                   TECMO_ASSET_PACK_GAMEPLAY_COURT_NAMETABLE_OFFSET &&
+           court->palette ==
+               court->storage +
+                   TECMO_ASSET_PACK_GAMEPLAY_COURT_PALETTE_OFFSET &&
+           court->minimum_macro_index == 0U &&
+           court->maximum_macro_index == 360U &&
+           court->unique_macro_count == 130U &&
+           court->nametable_fingerprint ==
+               TECMO_ASSET_PACK_GAMEPLAY_COURT_NAMETABLE_FNV1A32 &&
+           court->palette_fingerprint ==
+               TECMO_ASSET_PACK_GAMEPLAY_COURT_PALETTE_FNV1A32 &&
+           court->chr_fingerprint32 ==
+               TECMO_ASSET_PACK_GAMEPLAY_COURT_CHR_FNV1A32 &&
+           court->chr_fingerprint64 ==
+               TECMO_ASSET_PACK_GAMEPLAY_COURT_CHR_FNV1A64 &&
+           fnv1a32(court->storage, court->storage_size) ==
+               TECMO_ASSET_PACK_GAMEPLAY_COURT_FNV1A32;
+}
+
+static uint8_t legacy_palette_index(const uint8_t *nametable,
+                                    size_t tile_row,
+                                    size_t tile_column)
+{
+    size_t attribute_offset =
+        960U + (tile_row / 4U) * 8U + tile_column / 4U;
+    unsigned shift = ((tile_row & 2U) != 0U ? 4U : 0U) +
+                     ((tile_column & 2U) != 0U ? 2U : 0U);
+    return (uint8_t)((nametable[attribute_offset] >> shift) & 3U);
+}
+
+bool tecmo_gameplay_court_decode_world(
+    const TecmoGameplayCourt *court,
+    TecmoGameplayCourtWorld *world_out)
+{
+    TecmoGameplayCourtWorld decoded;
+    bool seen[TECMO_GAMEPLAY_COURT_MAXIMUM_MACRO_INDEX + 1U] = {false};
+    const uint8_t *layout;
+    const uint8_t *macro_tiles;
+    const uint8_t *macro_attributes;
+    uint16_t minimum = UINT16_MAX;
+    uint16_t maximum = 0U;
+    uint16_t unique = 0U;
+
+    if (world_out == NULL || !court_world_source_contract_valid(court)) {
+        return false;
+    }
+
+    layout = court->storage +
+        tecmo_gameplay_court_expected_sources[4U].payload_offset;
+    macro_tiles = court->storage +
+        tecmo_gameplay_court_expected_sources[5U].payload_offset;
+    macro_attributes = court->storage +
+        tecmo_gameplay_court_expected_sources[6U].payload_offset;
+    memset(&decoded, 0, sizeof(decoded));
+
+    for (size_t macro_row = 0U;
+         macro_row < TECMO_GAMEPLAY_COURT_FULL_MACRO_ROWS; ++macro_row) {
+        for (size_t macro_column = 0U;
+             macro_column < TECMO_GAMEPLAY_COURT_FULL_MACRO_COLUMNS;
+             ++macro_column) {
+            size_t layout_offset =
+                macro_row * TECMO_GAMEPLAY_COURT_LAYOUT_ROW_STRIDE +
+                macro_column * 2U;
+            uint16_t macro_index;
+            size_t macro_tile_offset;
+            size_t tile_row;
+            size_t tile_column;
+            uint8_t palette_index;
+
+            if (!range_ok(layout_offset, 2U,
+                          tecmo_gameplay_court_expected_sources[4U].
+                              byte_count)) {
+                return false;
+            }
+            macro_index = read_u16(layout + layout_offset);
+            macro_tile_offset = (size_t)macro_index * 4U;
+            if (macro_index > TECMO_GAMEPLAY_COURT_MAXIMUM_MACRO_INDEX ||
+                !range_ok(
+                    macro_tile_offset, 4U,
+                    tecmo_gameplay_court_expected_sources[5U].byte_count) ||
+                macro_index >=
+                    tecmo_gameplay_court_expected_sources[6U].byte_count) {
+                return false;
+            }
+            if (!seen[macro_index]) {
+                seen[macro_index] = true;
+                ++unique;
+            }
+            if (macro_index < minimum) minimum = macro_index;
+            if (macro_index > maximum) maximum = macro_index;
+
+            tile_row = macro_row * 2U;
+            tile_column = macro_column * 2U;
+            palette_index =
+                (uint8_t)((macro_attributes[macro_index] & 0x0CU) >> 2U);
+            decoded.tiles[
+                tile_row * TECMO_GAMEPLAY_COURT_WORLD_WIDTH_TILES +
+                tile_column] = macro_tiles[macro_tile_offset];
+            decoded.tiles[
+                tile_row * TECMO_GAMEPLAY_COURT_WORLD_WIDTH_TILES +
+                tile_column + 1U] = macro_tiles[macro_tile_offset + 1U];
+            decoded.tiles[
+                (tile_row + 1U) *
+                    TECMO_GAMEPLAY_COURT_WORLD_WIDTH_TILES +
+                tile_column] = macro_tiles[macro_tile_offset + 2U];
+            decoded.tiles[
+                (tile_row + 1U) *
+                    TECMO_GAMEPLAY_COURT_WORLD_WIDTH_TILES +
+                tile_column + 1U] = macro_tiles[macro_tile_offset + 3U];
+            decoded.palette_indices[
+                tile_row * TECMO_GAMEPLAY_COURT_WORLD_WIDTH_TILES +
+                tile_column] = palette_index;
+            decoded.palette_indices[
+                tile_row * TECMO_GAMEPLAY_COURT_WORLD_WIDTH_TILES +
+                tile_column + 1U] = palette_index;
+            decoded.palette_indices[
+                (tile_row + 1U) *
+                    TECMO_GAMEPLAY_COURT_WORLD_WIDTH_TILES +
+                tile_column] = palette_index;
+            decoded.palette_indices[
+                (tile_row + 1U) *
+                    TECMO_GAMEPLAY_COURT_WORLD_WIDTH_TILES +
+                tile_column + 1U] = palette_index;
+        }
+    }
+
+    decoded.contract_tag = TECMO_GAMEPLAY_COURT_WORLD_CONTRACT_TAG;
+    decoded.width_tiles = TECMO_GAMEPLAY_COURT_WORLD_WIDTH_TILES;
+    decoded.height_tiles = TECMO_GAMEPLAY_COURT_WORLD_HEIGHT_TILES;
+    decoded.width_pixels = TECMO_GAMEPLAY_COURT_WORLD_WIDTH_PIXELS;
+    decoded.height_pixels = TECMO_GAMEPLAY_COURT_WORLD_HEIGHT_PIXELS;
+    decoded.minimum_macro_index = minimum;
+    decoded.maximum_macro_index = maximum;
+    decoded.unique_macro_count = unique;
+    decoded.tiles_fingerprint =
+        fnv1a32(decoded.tiles, sizeof(decoded.tiles));
+    decoded.palette_indices_fingerprint =
+        fnv1a32(decoded.palette_indices, sizeof(decoded.palette_indices));
+    if (minimum != 0U ||
+        maximum != TECMO_GAMEPLAY_COURT_MAXIMUM_MACRO_INDEX ||
+        unique != TECMO_GAMEPLAY_COURT_WORLD_UNIQUE_MACROS ||
+        decoded.tiles_fingerprint !=
+            TECMO_GAMEPLAY_COURT_WORLD_TILES_FNV1A32 ||
+        decoded.palette_indices_fingerprint !=
+            TECMO_GAMEPLAY_COURT_WORLD_PALETTES_FNV1A32) {
+        return false;
+    }
+
+    /* TGCT-1's existing nametable is the exact center viewport beginning at
+       world pixel X=$0100 (tile 32). Cross-check it independently so the
+       wider interpretation cannot silently drift from the shipped boundary. */
+    for (size_t row = 0U; row < TECMO_GAMEPLAY_COURT_HEIGHT; ++row) {
+        for (size_t column = 0U;
+             column < TECMO_GAMEPLAY_COURT_WIDTH; ++column) {
+            size_t world_offset =
+                row * TECMO_GAMEPLAY_COURT_WORLD_WIDTH_TILES +
+                32U + column;
+            size_t legacy_offset =
+                row * TECMO_GAMEPLAY_COURT_WIDTH + column;
+            if (decoded.tiles[world_offset] !=
+                    court->nametable[legacy_offset] ||
+                decoded.palette_indices[world_offset] !=
+                    legacy_palette_index(
+                        court->nametable, row, column)) {
+                return false;
+            }
+        }
+    }
+
+    *world_out = decoded;
+    return true;
+}
+
+static bool world_contract_valid(const TecmoGameplayCourtWorld *world)
+{
+    return world != NULL &&
+           world->contract_tag ==
+               TECMO_GAMEPLAY_COURT_WORLD_CONTRACT_TAG &&
+           world->width_tiles ==
+               TECMO_GAMEPLAY_COURT_WORLD_WIDTH_TILES &&
+           world->height_tiles ==
+               TECMO_GAMEPLAY_COURT_WORLD_HEIGHT_TILES &&
+           world->width_pixels ==
+               TECMO_GAMEPLAY_COURT_WORLD_WIDTH_PIXELS &&
+           world->height_pixels ==
+               TECMO_GAMEPLAY_COURT_WORLD_HEIGHT_PIXELS &&
+           world->minimum_macro_index == 0U &&
+           world->maximum_macro_index ==
+               TECMO_GAMEPLAY_COURT_MAXIMUM_MACRO_INDEX &&
+           world->unique_macro_count ==
+               TECMO_GAMEPLAY_COURT_WORLD_UNIQUE_MACROS &&
+           world->reserved == 0U &&
+           world->tiles_fingerprint ==
+               TECMO_GAMEPLAY_COURT_WORLD_TILES_FNV1A32 &&
+           world->palette_indices_fingerprint ==
+               TECMO_GAMEPLAY_COURT_WORLD_PALETTES_FNV1A32 &&
+           fnv1a32(world->tiles, sizeof(world->tiles)) ==
+               TECMO_GAMEPLAY_COURT_WORLD_TILES_FNV1A32 &&
+           fnv1a32(world->palette_indices,
+                   sizeof(world->palette_indices)) ==
+               TECMO_GAMEPLAY_COURT_WORLD_PALETTES_FNV1A32;
+}
+
+bool tecmo_gameplay_court_slice_viewport(
+    const TecmoGameplayCourtWorld *world,
+    uint16_t camera_x,
+    TecmoGameplayCourtViewport *viewport_out)
+{
+    TecmoGameplayCourtViewport viewport;
+    size_t first_tile_x;
+    size_t column_count;
+
+    if (viewport_out == NULL ||
+        camera_x > TECMO_GAMEPLAY_COURT_MAX_CAMERA_X ||
+        !world_contract_valid(world)) {
+        return false;
+    }
+
+    memset(&viewport, 0, sizeof(viewport));
+    first_tile_x = camera_x >> 3U;
+    viewport.camera_x = camera_x;
+    viewport.first_tile_x = (uint16_t)first_tile_x;
+    viewport.fine_scroll_x = (uint8_t)(camera_x & 7U);
+    viewport.column_count =
+        viewport.fine_scroll_x == 0U ? 32U : 33U;
+    viewport.tile_stride = TECMO_GAMEPLAY_COURT_VIEWPORT_TILE_STRIDE;
+    viewport.height_tiles = TECMO_GAMEPLAY_COURT_WORLD_HEIGHT_TILES;
+    column_count = viewport.column_count;
+
+    if (first_tile_x + column_count >
+        TECMO_GAMEPLAY_COURT_WORLD_WIDTH_TILES) {
+        return false;
+    }
+    for (size_t row = 0U;
+         row < TECMO_GAMEPLAY_COURT_WORLD_HEIGHT_TILES; ++row) {
+        size_t source_offset =
+            row * TECMO_GAMEPLAY_COURT_WORLD_WIDTH_TILES + first_tile_x;
+        size_t viewport_offset =
+            row * TECMO_GAMEPLAY_COURT_VIEWPORT_TILE_STRIDE;
+        memcpy(viewport.tiles + viewport_offset,
+               world->tiles + source_offset, column_count);
+        memcpy(viewport.palette_indices + viewport_offset,
+               world->palette_indices + source_offset, column_count);
+    }
+    viewport.tiles_fingerprint =
+        fnv1a32(viewport.tiles, sizeof(viewport.tiles));
+    viewport.palette_indices_fingerprint =
+        fnv1a32(viewport.palette_indices,
+                sizeof(viewport.palette_indices));
+    *viewport_out = viewport;
+    return true;
 }

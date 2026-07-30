@@ -170,10 +170,11 @@ accumulators are ported.
   projection are available through TGCP-1. A test-only TGFL-1 -> TGCP-1
   composition now derives the orientation-1 free-throw lineup and proves its
   six visible and four neutral-offscreen slots at the bounded camera
-  checkpoint. It does not wire either asset into live play. Live
-  repositioning, full-court
-  scrolling, aim, outcome, rebound, and CPU positioning remain unsupported or
-  approximate.
+  checkpoint. TGCT-1 now also decodes the complete 768-by-240 court and slices
+  exact coarse/fine-scroll camera viewports in a strict pure API. These
+  foundations are not wired into live play yet. Live repositioning,
+  full-court scrolling, aim, outcome, rebound, and CPU positioning remain
+  unsupported or approximate.
 - Rebounds, blocks, and steals remain approximate or nonsemantic. The current
   scene can transfer possession and attempt defensive contact, but it does not
   claim the original game's selection or outcome logic for those events.
@@ -184,8 +185,9 @@ asset contracts, provenance, and exact supported state boundaries.
 
 ### ROM-derived versus approximate
 
-Strict ROM-derived data currently covers the static court, CHR and palette
-entries, embedded FCEUX RGB profile, actor pose data, numeric close-shot step
+Strict ROM-derived data currently covers the complete 768-by-240 court decode,
+camera-positioned tile/palette viewport slicing, CHR and palette entries,
+embedded FCEUX RGB profile, actor pose data, numeric close-shot step
 tables, dunk cutaway, the bounded ordinary-jump miss/three-point-make context,
 TGSR-3 shot resolution, its exact 1/2/3-point classifier and
 diagnostic-only rim-rattle prefix, the TGFL-1 raw free-throw lineup, the
@@ -202,11 +204,12 @@ unsupported. `gameplay/penalties` TPNL-1 contains strict ROM-backed rule data,
 but the live scene's current contact/foul code does not consume it yet.
 Likewise, `gameplay/free-throw-lineup` TGFL-1 preserves raw world coordinates.
 `gameplay/camera-projection` TGCP-1 can project them exactly in a pure API, but
-neither asset is loaded by the live scene yet: its static 256-pixel court and
-screen-space actors cannot represent the ROM's scrolling 768-pixel court
-without a coherent world-coordinate migration. Offscreen projection uses a
-deterministic native sentinel (`visible=false`, X/Y zero) because the ROM
-branches before writing projected Y.
+neither asset is loaded by the live scene yet. `gameplay/court` TGCT-1 can now
+decode and slice the scrolling 768-pixel court, but the live scene still uses
+its static center viewport and screen-space actors; all actors, hoop math, AI,
+and camera ownership must migrate coherently to world coordinates. Offscreen
+projection uses a deterministic native sentinel (`visible=false`, X/Y zero)
+because the ROM branches before writing projected Y.
 
 The first two intro screens, TECMO/rabbit and NBA license, are silent. Strict
 opening music begins at the license-to-arena handoff. Title confirmation queues

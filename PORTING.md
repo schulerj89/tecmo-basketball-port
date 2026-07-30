@@ -937,17 +937,45 @@ Pure TGCP tests independently cover seven-pixel left/right movement,
 camera-disabled and routes `$01/$12/$13` no-ops, page carry/borrow, continuing
 coarse cursor steps, and three-column direction reversals.
 
-This closes the pure projection question but not live integration. TGCT's raw
-court is 48-by-15 macro cells (96-by-30 tiles, 768-by-240 pixels), while the
-current scene draws only a static 256-by-240 middle viewport and stores
-actors, movement, hoop math, and AI in screen space. The next safe slice is a
-strict full-court decoder/viewport slicer plus explicit orientation ownership;
-only then should persistent camera state and all live actors migrate together
-to world coordinates. Until that migration, TGCP-1 and TGFL-1 remain testable
-pure assets rather than scene dependencies. Run
+TGCT-1 now supplies the strict pure court boundary without changing the
+6559-byte payload, `ECAB7A93` canonical fingerprint, entry count, or raw
+source spans. The existing 15-row by 48-column little-endian macro layout
+expands left-to-right into caller-owned 96-by-30 tile and per-tile-palette
+planes (768-by-240 pixels). Decode bounds-checks all 720 macro references,
+derives macro-index min/max/unique 0/360/346, and requires the exact tile and
+palette-plane FNV1a32 values `6458B5E5` and `7F650645`. It independently
+cross-checks the 32 center columns at camera X `$0100` against the legacy 960
+tiles and palette indexes expanded from the existing 64 attribute bytes.
+
+The pure camera-positioned slicer accepts X 0..`$0200`. It reports
+`first_tile_x = camera_x >> 3`, `fine_scroll_x = camera_x & 7`, and returns
+fixed row-major 33-by-30 tile/palette planes: 32 columns for aligned cameras
+with a zero unused tail cell on every row, otherwise all 33 columns needed for
+fine scrolling. The caller-owned world carries a contract tag, immutable
+golden metadata, and plane fingerprints; the slicer recomputes and validates
+both hashes before assignment. Decode and slice are transactional on NULL,
+unavailable, corrupted, or out-of-range input.
+
+Validation evidence, not a new TGCT runtime span or dependency, ties this
+interpretation to fixed `$DDCE`'s init ownership, `$DE13/$DE2D` initialization,
+the `$D5C5` macro builder, `$DDFB->$DF05` first prefetch, `$DF6A`'s `$60`-byte
+row walker, and `$E0E7` attribute handling.
+
+This closes pure full-court decoding and viewport selection but not live
+integration. The current scene still draws one static 256-by-240 middle
+viewport and stores actors, movement, hoop math, and AI in screen space. The
+next safe slice is explicit orientation ownership followed by persistent
+camera state and a coherent scene-wide world-coordinate migration. The pure
+slicer does not emulate the ROM streamer's staged PPU prefetch/write ordering;
+it returns the canonical camera view. Until live migration, TGCP-1 and TGFL-1
+remain testable pure assets rather than scene dependencies. Run
 `tools\Run-GameplayCameraProjectionTests.ps1 -Build -RomPath
 <LOCAL_ROM.nes>` for revision, provenance, parser, mutation, dependency, camera,
 settle, exact one-step transitions, projection, and test-only TGFL composition
+coverage.
+Run `tools\Run-GameplayCourtTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` for the
+unchanged TGCT-1 loader golden plus full-world, fine-scroll viewport,
+transactional failure, provenance, malformed-pack, dependency, and Rev1 source
 coverage.
 
 Period completion follows fixed `$E59B->$E823`: regulation M:00 and divider 45

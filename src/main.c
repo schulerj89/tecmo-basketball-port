@@ -59,6 +59,7 @@ static void print_usage(const char *program)
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
     printf("  --gameplay-assets-test PACK  Validate strict TGPL-1 gameplay assets\n");
     printf("  --gameplay-court-test PACK  Validate strict TGCT-1 static court assets\n");
+    printf("  --gameplay-court-viewport-test PACK  Validate TGCT-1 full-court decode and viewport slicing\n");
     printf("  --gameplay-camera-projection-test PACK  Validate strict TGCP-1 camera/projector assets\n");
     printf("  --gameplay-close-shots-test PACK  Validate strict TGCS-1 close-shot assets\n");
     printf("  --gameplay-dunk-cutaway-test PACK  Validate strict TGDK-1 dunk presentation assets\n");
@@ -497,6 +498,254 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
                             : TECMO_GAMEPLAY_SCENE_SHOT_JUMP));
 }
 
+static bool bytes_equal_pattern(const void *bytes,
+                                size_t byte_count,
+                                uint8_t pattern)
+{
+    const uint8_t *values = (const uint8_t *)bytes;
+    for (size_t index = 0U; index < byte_count; ++index) {
+        if (values[index] != pattern) return false;
+    }
+    return true;
+}
+
+static int run_gameplay_court_viewport_test(const char *pack_path)
+{
+    static const struct {
+        uint16_t camera_x;
+        uint16_t first_tile_x;
+        uint8_t fine_scroll_x;
+        uint8_t column_count;
+        uint32_t tiles_fingerprint;
+        uint32_t palettes_fingerprint;
+    } checkpoints[] = {
+        {0U, 0U, 0U, 32U, 0x761E3E3AU, 0xA5392D9DU},
+        {1U, 0U, 1U, 33U, 0xCC377E43U, 0x90E0E4D1U},
+        {7U, 0U, 7U, 33U, 0xCC377E43U, 0x90E0E4D1U},
+        {8U, 1U, 0U, 32U, 0x47FE78F1U, 0x76873401U},
+        {255U, 31U, 7U, 33U, 0x6C6E3A2EU, 0x31996DC1U},
+        {256U, 32U, 0U, 32U, 0xD3122A2CU, 0x71C4B6FDU},
+        {257U, 32U, 1U, 33U, 0x2648F8EFU, 0xEBC10A89U},
+        {511U, 63U, 7U, 33U, 0xE8A99EA4U, 0xB9D18F41U},
+        {512U, 64U, 0U, 32U, 0x531D6A15U, 0x1F1CE3ADU}
+    };
+    TecmoGameplayCourt court;
+    TecmoGameplayCourt unavailable;
+    TecmoGameplayCourtWorld world;
+    TecmoGameplayCourtWorld reloaded_world;
+    TecmoGameplayCourtWorld corrupt_world;
+    TecmoGameplayCourtViewport viewport;
+    TecmoGameplayCourtViewport unchanged_viewport;
+    const uint8_t *legacy_nametable;
+    size_t legacy_size;
+    bool passed = true;
+
+    tecmo_gameplay_court_init(&court);
+    tecmo_gameplay_court_init(&unavailable);
+    memset(&world, 0xA5, sizeof(world));
+    if (pack_path == NULL ||
+        tecmo_gameplay_court_decode_world(NULL, &world) ||
+        !bytes_equal_pattern(&world, sizeof(world), 0xA5U) ||
+        tecmo_gameplay_court_decode_world(&unavailable, &world) ||
+        !bytes_equal_pattern(&world, sizeof(world), 0xA5U) ||
+        tecmo_gameplay_court_decode_world(&unavailable, NULL) ||
+        !tecmo_gameplay_court_load(&court, pack_path) ||
+        !tecmo_gameplay_court_decode_world(&court, &world)) {
+        passed = false;
+    }
+
+    if (passed &&
+        (world.contract_tag != TECMO_GAMEPLAY_COURT_WORLD_CONTRACT_TAG ||
+         world.width_tiles != TECMO_GAMEPLAY_COURT_WORLD_WIDTH_TILES ||
+         world.height_tiles != TECMO_GAMEPLAY_COURT_WORLD_HEIGHT_TILES ||
+         world.width_pixels != TECMO_GAMEPLAY_COURT_WORLD_WIDTH_PIXELS ||
+         world.height_pixels != TECMO_GAMEPLAY_COURT_WORLD_HEIGHT_PIXELS ||
+         world.minimum_macro_index != 0U ||
+         world.maximum_macro_index != 360U ||
+         world.unique_macro_count != 346U ||
+         world.reserved != 0U ||
+         world.tiles_fingerprint !=
+             TECMO_GAMEPLAY_COURT_WORLD_TILES_FNV1A32 ||
+         world.palette_indices_fingerprint !=
+             TECMO_GAMEPLAY_COURT_WORLD_PALETTES_FNV1A32)) {
+        passed = false;
+    }
+
+    if (passed) {
+        size_t storage_offset = 0U;
+        memset(&reloaded_world, 0xC3, sizeof(reloaded_world));
+        court.storage[storage_offset] ^= 1U;
+        if (tecmo_gameplay_court_decode_world(&court, &reloaded_world) ||
+            !bytes_equal_pattern(&reloaded_world,
+                                 sizeof(reloaded_world), 0xC3U)) {
+            passed = false;
+        }
+        court.storage[storage_offset] ^= 1U;
+    }
+    if (passed) {
+        uint16_t saved_unique_macro_count = court.unique_macro_count;
+        court.unique_macro_count = 129U;
+        if (tecmo_gameplay_court_decode_world(&court, &reloaded_world) ||
+            !bytes_equal_pattern(&reloaded_world,
+                                 sizeof(reloaded_world), 0xC3U)) {
+            passed = false;
+        }
+        court.unique_macro_count = saved_unique_macro_count;
+    }
+    if (passed &&
+        tecmo_gameplay_court_decode_world(&court, NULL)) {
+        passed = false;
+    }
+
+    for (size_t checkpoint = 0U;
+         passed && checkpoint < sizeof(checkpoints) / sizeof(checkpoints[0]);
+         ++checkpoint) {
+        const uint8_t fine_scroll_x =
+            checkpoints[checkpoint].fine_scroll_x;
+        if (!tecmo_gameplay_court_slice_viewport(
+                &world, checkpoints[checkpoint].camera_x, &viewport) ||
+            viewport.camera_x != checkpoints[checkpoint].camera_x ||
+            viewport.first_tile_x !=
+                checkpoints[checkpoint].first_tile_x ||
+            viewport.fine_scroll_x != fine_scroll_x ||
+            viewport.column_count !=
+                checkpoints[checkpoint].column_count ||
+            viewport.tile_stride !=
+                TECMO_GAMEPLAY_COURT_VIEWPORT_TILE_STRIDE ||
+            viewport.height_tiles !=
+                TECMO_GAMEPLAY_COURT_WORLD_HEIGHT_TILES ||
+            viewport.tiles_fingerprint !=
+                checkpoints[checkpoint].tiles_fingerprint ||
+            viewport.palette_indices_fingerprint !=
+                checkpoints[checkpoint].palettes_fingerprint) {
+            passed = false;
+            break;
+        }
+        if (fine_scroll_x == 0U) {
+            for (size_t row = 0U;
+                 row < TECMO_GAMEPLAY_COURT_WORLD_HEIGHT_TILES; ++row) {
+                size_t unused =
+                    row * TECMO_GAMEPLAY_COURT_VIEWPORT_TILE_STRIDE + 32U;
+                if (viewport.tiles[unused] != 0U ||
+                    viewport.palette_indices[unused] != 0U) {
+                    passed = false;
+                    break;
+                }
+            }
+        }
+    }
+
+    /* Camera $0100 must expose the already shipped center nametable,
+       including palette indexes expanded from its 64 attribute bytes. */
+    legacy_nametable =
+        tecmo_gameplay_court_nametable(&court, &legacy_size);
+    if (passed &&
+        (!tecmo_gameplay_court_slice_viewport(&world, 256U, &viewport) ||
+         legacy_nametable == NULL ||
+         legacy_size != TECMO_GAMEPLAY_COURT_NAMETABLE_SIZE)) {
+        passed = false;
+    }
+    for (size_t row = 0U;
+         passed && row < TECMO_GAMEPLAY_COURT_HEIGHT; ++row) {
+        for (size_t column = 0U;
+             column < TECMO_GAMEPLAY_COURT_WIDTH; ++column) {
+            size_t viewport_offset =
+                row * TECMO_GAMEPLAY_COURT_VIEWPORT_TILE_STRIDE + column;
+            size_t legacy_offset =
+                row * TECMO_GAMEPLAY_COURT_WIDTH + column;
+            size_t attribute_offset =
+                960U + (row / 4U) * 8U + column / 4U;
+            unsigned shift = ((row & 2U) != 0U ? 4U : 0U) +
+                             ((column & 2U) != 0U ? 2U : 0U);
+            uint8_t legacy_palette = (uint8_t)(
+                (legacy_nametable[attribute_offset] >> shift) & 3U);
+            if (viewport.tiles[viewport_offset] !=
+                    legacy_nametable[legacy_offset] ||
+                viewport.palette_indices[viewport_offset] !=
+                    legacy_palette) {
+                passed = false;
+                break;
+            }
+        }
+    }
+
+    memset(&unchanged_viewport, 0x5A, sizeof(unchanged_viewport));
+    if (passed &&
+        (tecmo_gameplay_court_slice_viewport(&world, 513U,
+                                             &unchanged_viewport) ||
+         !bytes_equal_pattern(&unchanged_viewport,
+                              sizeof(unchanged_viewport), 0x5AU) ||
+         tecmo_gameplay_court_slice_viewport(NULL, 0U,
+                                             &unchanged_viewport) ||
+         !bytes_equal_pattern(&unchanged_viewport,
+                              sizeof(unchanged_viewport), 0x5AU) ||
+         tecmo_gameplay_court_slice_viewport(&world, 0U, NULL))) {
+        passed = false;
+    }
+
+    if (passed) {
+        corrupt_world = world;
+        corrupt_world.contract_tag ^= 1U;
+        if (tecmo_gameplay_court_slice_viewport(
+                &corrupt_world, 0U, &unchanged_viewport) ||
+            !bytes_equal_pattern(&unchanged_viewport,
+                                 sizeof(unchanged_viewport), 0x5AU)) {
+            passed = false;
+        }
+    }
+    if (passed) {
+        corrupt_world = world;
+        corrupt_world.tiles[0U] ^= 1U;
+        if (tecmo_gameplay_court_slice_viewport(
+                &corrupt_world, 0U, &unchanged_viewport) ||
+            !bytes_equal_pattern(&unchanged_viewport,
+                                 sizeof(unchanged_viewport), 0x5AU)) {
+            passed = false;
+        }
+    }
+    if (passed) {
+        corrupt_world = world;
+        corrupt_world.palette_indices[
+            TECMO_GAMEPLAY_COURT_WORLD_TILE_COUNT - 1U] ^= 1U;
+        if (tecmo_gameplay_court_slice_viewport(
+                &corrupt_world, 0U, &unchanged_viewport) ||
+            !bytes_equal_pattern(&unchanged_viewport,
+                                 sizeof(unchanged_viewport), 0x5AU)) {
+            passed = false;
+        }
+    }
+    if (passed) {
+        corrupt_world = world;
+        corrupt_world.unique_macro_count = 345U;
+        if (tecmo_gameplay_court_slice_viewport(
+                &corrupt_world, 0U, &unchanged_viewport) ||
+            !bytes_equal_pattern(&unchanged_viewport,
+                                 sizeof(unchanged_viewport), 0x5AU)) {
+            passed = false;
+        }
+    }
+
+    if (passed &&
+        (!tecmo_gameplay_court_load(&court, pack_path) ||
+         !tecmo_gameplay_court_decode_world(&court, &reloaded_world) ||
+         memcmp(&world, &reloaded_world, sizeof(world)) != 0)) {
+        passed = false;
+    }
+
+    tecmo_gameplay_court_destroy(&unavailable);
+    tecmo_gameplay_court_destroy(&court);
+    if (!passed) {
+        printf("TGCT-1 full court viewport test failed\n");
+        return 1;
+    }
+    printf("TGCT-1 full court viewport passed: world=%ux%u tiles=%08X palettes=%08X cameras=%u max-x=%u\n",
+           (unsigned)world.width_tiles, (unsigned)world.height_tiles,
+           world.tiles_fingerprint, world.palette_indices_fingerprint,
+           (unsigned)(sizeof(checkpoints) / sizeof(checkpoints[0])),
+           (unsigned)TECMO_GAMEPLAY_COURT_MAX_CAMERA_X);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     const char *program = argc > 0 ? argv[0] : "tecmo_port";
@@ -875,6 +1124,11 @@ int main(int argc, char **argv)
                court.nametable_fingerprint, court.palette_fingerprint);
         tecmo_gameplay_court_destroy(&court);
         return 0;
+    }
+
+    if (strcmp(command, "--gameplay-court-viewport-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        return run_gameplay_court_viewport_test(pack_path);
     }
 
     if (strcmp(command, "--gameplay-assets-test") == 0) {

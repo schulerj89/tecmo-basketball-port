@@ -29,6 +29,8 @@ if (!$Scratch.StartsWith($BuildPrefix,
 $PackPath = Join-Path $Scratch "court.assetpack"
 $ExpectedOutput =
     "TGCT-1 gameplay court passed: size=1024 palette=16 min=0 max=360 unique=130 nametable=0CF54A0E palette-fnv=B20C1E11"
+$ExpectedViewportOutput =
+    "TGCT-1 full court viewport passed: world=96x30 tiles=6458B5E5 palettes=7F650645 cameras=9 max-x=512"
 $PreviousSkipShortcut = $env:TECMO_SKIP_SHORTCUT
 
 function Get-ShortTail {
@@ -107,6 +109,23 @@ function Invoke-GameplayCourtTest {
                   $_ -match "TGCT-1|Gameplay court"
               }).Count -eq 0) {
         throw "Malformed TGCT-1 pack was accepted.`n$(Get-ShortTail $Output)"
+    }
+
+    $ViewportOutput = @(
+        & $Executable --gameplay-court-viewport-test $AssetPack 2>&1
+    )
+    $ViewportExitCode = $LASTEXITCODE
+    if ($ExpectSuccess) {
+        if ($ViewportExitCode -ne 0 -or
+            ($ViewportOutput -join [Environment]::NewLine).Trim() -ne
+                $ExpectedViewportOutput) {
+            throw "TGCT-1 full-court viewport golden failed.`n$(Get-ShortTail $ViewportOutput)"
+        }
+    } elseif ($ViewportExitCode -eq 0 -or
+              @($ViewportOutput | Where-Object {
+                  $_ -match "TGCT-1|full court viewport"
+              }).Count -eq 0) {
+        throw "Malformed TGCT-1 pack reached full-court decode.`n$(Get-ShortTail $ViewportOutput)"
     }
 }
 
@@ -239,16 +258,40 @@ try {
         [int]$CourtMap[0].decoded_screen_contract.screen_id -ne 15 -or
         [int]$CourtMap[0].decoded_screen_contract.encoded_size -ne 201 -or
         $CourtMap[0].decoded_screen_contract.decoded_fingerprint_fnv1a32 -ne "483171E7" -or
+        $CourtMap[0].kind -ne "gameplay-court-world-foundation" -or
+        [int]$CourtMap[0].native_contract.legacy_viewport_width_tiles -ne 32 -or
+        [int]$CourtMap[0].native_contract.legacy_viewport_height_tiles -ne 30 -or
+        [int]$CourtMap[0].native_contract.world_width_tiles -ne 96 -or
+        [int]$CourtMap[0].native_contract.world_height_tiles -ne 30 -or
+        [int]$CourtMap[0].native_contract.world_width_pixels -ne 768 -or
+        [int]$CourtMap[0].native_contract.world_height_pixels -ne 240 -or
+        [int]$CourtMap[0].native_contract.macro_rows -ne 15 -or
+        [int]$CourtMap[0].native_contract.macro_columns -ne 48 -or
         [int]$CourtMap[0].native_contract.macro_index_min -ne 0 -or
         [int]$CourtMap[0].native_contract.macro_index_max -ne 360 -or
-        [int]$CourtMap[0].native_contract.unique_macro_indexes -ne 130 -or
+        [int]$CourtMap[0].native_contract.world_unique_macro_indexes -ne 346 -or
+        [int]$CourtMap[0].native_contract.world_tile_count -ne 2880 -or
+        $CourtMap[0].native_contract.world_tile_fingerprint_fnv1a32 -ne "6458B5E5" -or
+        $CourtMap[0].native_contract.world_palette_index_fingerprint_fnv1a32 -ne "7F650645" -or
+        [int]$CourtMap[0].native_contract.legacy_unique_macro_indexes -ne 130 -or
         $CourtMap[0].native_contract.initial_nametable_fill -notmatch
             'unused lower final-row' -or
-        $CourtMap[0].native_contract.nametable_fingerprint_fnv1a32 -ne "0CF54A0E" -or
-        $CourtMap[0].native_contract.tile_fingerprint_fnv1a32 -ne "D2F8364A" -or
-        $CourtMap[0].native_contract.attribute_fingerprint_fnv1a32 -ne "B54833D1" -or
+        $CourtMap[0].native_contract.world_layout -notmatch
+            'row\*0x60\+col\*2' -or
+        $CourtMap[0].native_contract.legacy_center_layout -notmatch
+            'row\*0x60\+0x20\+col\*2' -or
+        $CourtMap[0].native_contract.legacy_nametable_fingerprint_fnv1a32 -ne "0CF54A0E" -or
+        $CourtMap[0].native_contract.legacy_tile_fingerprint_fnv1a32 -ne "D2F8364A" -or
+        $CourtMap[0].native_contract.legacy_attribute_fingerprint_fnv1a32 -ne "B54833D1" -or
+        [int]$CourtMap[0].native_contract.viewport_width_pixels -ne 256 -or
+        [int]$CourtMap[0].native_contract.viewport_tile_stride -ne 33 -or
+        [int]$CourtMap[0].native_contract.viewport_camera_x_min -ne 0 -or
+        [int]$CourtMap[0].native_contract.viewport_camera_x_max -ne 512 -or
+        $CourtMap[0].native_contract.viewport -notmatch
+            '32 columns when tile-aligned, otherwise 33' -or
         $CourtMap[0].native_contract.live_palette_fingerprint_fnv1a32 -ne "B20C1E11" -or
-        $CourtMap[0].native_contract.boundary -notmatch "static court base only" -or
+        $CourtMap[0].native_contract.boundary -notmatch
+            "pure full-court decode and camera-positioned viewport slicing only" -or
         $CourtMap[0].native_contract.runtime_inputs -notmatch "no decompilation") {
         throw "TGCT-1 source-map provenance is incomplete or malformed."
     }
@@ -369,7 +412,7 @@ try {
     }
 
     $global:LASTEXITCODE = 0
-    Write-Host "TGCT-1 focused tests passed: canonical/rebuild, provenance, reload, exact-size, malformed, missing, cross-pack/FNV64, payload endpoints/interiors, Rev1 source endpoints/interiors"
+    Write-Host "TGCT-1 focused tests passed: canonical/rebuild, full-world decode, camera viewport slicing/fine scroll, legacy center cross-check, transactional mutation rejection, provenance, reload, exact-size, malformed, missing, cross-pack/FNV64, payload endpoints/interiors, Rev1 source endpoints/interiors"
 } finally {
     $env:TECMO_SKIP_SHORTCUT = $PreviousSkipShortcut
     if (Test-Path -LiteralPath $Scratch) {
