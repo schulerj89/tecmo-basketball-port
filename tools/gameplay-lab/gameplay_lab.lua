@@ -867,7 +867,7 @@ local function write_detail()
         rb(R.shot_flags), rb(R.close_mode), score(0), score(1)))
 end
 
-local function write_status(state)
+local function status_acceptance()
     local pass = false
     local score0_delta = pre_score0 < 0 and 0 or score(0) - pre_score0
     local score1_delta = pre_score1 < 0 and 0 or score(1) - pre_score1
@@ -897,8 +897,10 @@ local function write_status(state)
                 score1_delta == 0 and settlement_seen
         end
     end
-    local file = io.open(status_path, "w")
-    if not file then return end
+    return pass, timing_evidence
+end
+
+local function write_status_overview(file, state, pass, timing_evidence)
     file:write("schema=TGLAB-4\nschema_version=4\nmap_schema=" .. map.schema .. "\n")
     file:write("profile=" .. profile_name .. "\n")
     file:write("script_sha256=" .. script_hash .. "\nmap_sha256=" .. map_hash .. "\n")
@@ -915,6 +917,9 @@ local function write_status(state)
     file:write("result_seen=" .. tostring(result_seen) .. "\nscore_apply_seen=" .. tostring(score_apply_seen) .. "\n")
     file:write("settlement_seen=" .. tostring(settlement_seen) .. "\nhandoff_seen=" .. tostring(handoff_seen) .. "\n")
     file:write("timing_evidence_valid=" .. tostring(timing_evidence) .. "\n")
+end
+
+local function write_status_capture(file)
     file:write("defender_cycles_closed=" .. defender_cycles_closed .. "\n")
     file:write("defender_confirmed_stores=" .. defender_store_total .. "\n")
     file:write("defender_cycle_unique_actors=" .. switch_unique_count .. "\n")
@@ -973,6 +978,9 @@ local function write_status(state)
         timing_capture.swap_after_side .. "," ..
         timing_capture.swap_before_holder .. "," ..
         timing_capture.swap_after_holder .. "\n")
+end
+
+local function write_status_context(file)
     file:write("setup_control_pair=" .. setup_control0 .. "," .. setup_control1 .. "\n")
     file:write("input_control_pair=" .. input_control0 .. "," .. input_control1 .. "\n")
     file:write("decision_control_pair=" .. decision_control0 .. "," .. decision_control1 .. "\n")
@@ -991,6 +999,15 @@ local function write_status(state)
         "\ntracked_text_bytes=" .. tracked_text_bytes .. "\n")
     file:write("final_pads_neutral=" .. tostring(final_pads_neutral) .. "\n")
     file:write("stop_reason=" .. stop_reason .. "\n")
+end
+
+local function write_status(state)
+    local pass, timing_evidence = status_acceptance()
+    local file = io.open(status_path, "w")
+    if not file then return end
+    write_status_overview(file, state, pass, timing_evidence)
+    write_status_capture(file)
+    write_status_context(file)
     file:close()
 end
 
