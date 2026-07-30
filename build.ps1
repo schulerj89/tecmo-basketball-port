@@ -36,6 +36,7 @@ $Sources = @(
     "src\asset_pack\tecmo_asset_pack_gameplay_audio.c",
     "src\asset_pack\tecmo_asset_pack_gameplay.c",
     "src\asset_pack\tecmo_asset_pack_gameplay_court.c",
+    "src\asset_pack\tecmo_asset_pack_gameplay_camera.c",
     "src\asset_pack\tecmo_asset_pack_gameplay_close_shots.c",
     "src\asset_pack\tecmo_asset_pack_gameplay_dunk_cutaway.c",
     "src\asset_pack\tecmo_asset_pack_gameplay_jump_shots.c",
@@ -64,6 +65,7 @@ $Sources = @(
     "src\tecmo_flow_test.c",
     "src\tecmo_gameplay_assets.c",
     "src\tecmo_gameplay_court.c",
+    "src\tecmo_gameplay_camera.c",
     "src\tecmo_gameplay_close_shots.c",
     "src\tecmo_gameplay_dunk_cutaway.c",
     "src\tecmo_gameplay_jump_shots.c",
@@ -92,15 +94,29 @@ $Sources = @(
     "src\tecmo_game.c",
     "src\win32_platform.c"
 )
-$SourceArgs = $Sources -join " "
-$ObjectArgs = ($Sources | ForEach-Object {
+$CompileResponsePath = Join-Path $BuildDir "tecmo_compile.rsp"
+$ObjectResponsePath = Join-Path $BuildDir "tecmo_objects.rsp"
+$CompileArgs = @(
+    "/std:c11",
+    "/W4",
+    "/Iinclude",
+    "/c",
+    "/Fo:$ObjPrefix"
+) + $Sources
+$ObjectArgs = $Sources | ForEach-Object {
     $ObjectName = [System.IO.Path]::GetFileNameWithoutExtension($_) + ".obj"
     "`"$(Join-Path $ObjDir $ObjectName)`""
-}) -join " "
+}
+[System.IO.File]::WriteAllLines(
+    $CompileResponsePath, $CompileArgs,
+    [System.Text.Encoding]::ASCII)
+[System.IO.File]::WriteAllLines(
+    $ObjectResponsePath, $ObjectArgs,
+    [System.Text.Encoding]::ASCII)
 $BuildSteps = @(
-    "cl /nologo /std:c11 /W4 /I include /c /Fo:$ObjPrefix $SourceArgs",
-    "link /nologo /out:`"$ConsoleExePath`" $ObjectArgs user32.lib gdi32.lib winmm.lib",
-    "link /nologo /subsystem:windows /entry:mainCRTStartup /out:`"$GameExePath`" $ObjectArgs user32.lib gdi32.lib winmm.lib"
+    "cl /nologo @`"$CompileResponsePath`"",
+    "link /nologo /out:`"$ConsoleExePath`" @`"$ObjectResponsePath`" user32.lib gdi32.lib winmm.lib",
+    "link /nologo /subsystem:windows /entry:mainCRTStartup /out:`"$GameExePath`" @`"$ObjectResponsePath`" user32.lib gdi32.lib winmm.lib"
 )
 foreach ($BuildStep in $BuildSteps) {
     $Command = "call `"$VcVars`" >nul && cd /d `"$Root`" && $BuildStep"

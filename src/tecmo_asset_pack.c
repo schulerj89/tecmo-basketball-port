@@ -8,6 +8,7 @@
 #include "asset_pack/tecmo_asset_pack_finale.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_audio.h"
 #include "asset_pack/tecmo_asset_pack_gameplay.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_camera.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_court.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_close_shots.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.h"
@@ -82,6 +83,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                           TecmoSeasonMenuProvenance *season_provenance,
                                           TecmoGameplayProvenance *gameplay_provenance,
                                           TecmoGameplayCourtProvenance *gameplay_court_provenance,
+                                          TecmoGameplayCameraProvenance *gameplay_camera_provenance,
                                           TecmoGameplayCloseShotProvenance *close_shot_provenance,
                                           TecmoGameplayDunkProvenance *dunk_provenance,
                                           TecmoGameplayJumpShotProvenance *jump_shot_provenance,
@@ -112,6 +114,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
     uint8_t season_payload[TECMO_ASSET_PACK_SEASON_SIZE];
     uint8_t gameplay_payload[TECMO_ASSET_PACK_GAMEPLAY_SIZE];
     uint8_t gameplay_court_payload[TECMO_ASSET_PACK_GAMEPLAY_COURT_SIZE];
+    uint8_t gameplay_camera_payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SIZE];
     uint8_t close_shot_payload[
         TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_SIZE];
     uint8_t dunk_payload[TECMO_ASSET_PACK_GAMEPLAY_DUNK_SIZE];
@@ -815,6 +818,26 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                 "Could not write strict TGCT-1 gameplay court entry.");
             return -1;
         }
+        if (tecmo_asset_pack_build_gameplay_camera(
+                rom, rom_size, prg_offset, prg_banks,
+                enforce_finale_revision_fingerprints,
+                gameplay_camera_payload, sizeof(gameplay_camera_payload),
+                gameplay_camera_provenance, message, message_size) != 0) {
+            return -1;
+        }
+        entry_info = tecmo_asset_pack_make_entry_info(
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ID,
+            TECMO_ASSET_PACK_TYPE_DATA, 7U, 0xDE13U,
+            gameplay_camera_provenance->source_offsets[0],
+            TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+        if (tecmo_asset_pack_builder_add_memory(
+                builder, &entry_info, gameplay_camera_payload,
+                sizeof(gameplay_camera_payload), message, message_size) != 0) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Could not write strict TGCP-1 gameplay camera entry.");
+            return -1;
+        }
         entry_info = tecmo_asset_pack_make_entry_info(
             TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_ID,
             TECMO_ASSET_PACK_TYPE_DATA,
@@ -942,6 +965,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     TecmoSeasonMenuProvenance season_provenance;
     TecmoGameplayProvenance gameplay_provenance;
     TecmoGameplayCourtProvenance gameplay_court_provenance;
+    TecmoGameplayCameraProvenance gameplay_camera_provenance;
     TecmoGameplayCloseShotProvenance close_shot_provenance;
     TecmoGameplayDunkProvenance dunk_provenance;
     TecmoGameplayJumpShotProvenance jump_shot_provenance;
@@ -1122,6 +1146,8 @@ static int tecmo_asset_pack_build_from_ines_internal(
     memset(&gameplay_provenance, 0, sizeof(gameplay_provenance));
     memset(&gameplay_court_provenance, 0,
            sizeof(gameplay_court_provenance));
+    memset(&gameplay_camera_provenance, 0,
+           sizeof(gameplay_camera_provenance));
     memset(&close_shot_provenance, 0, sizeof(close_shot_provenance));
     memset(&dunk_provenance, 0, sizeof(dunk_provenance));
     memset(&jump_shot_provenance, 0, sizeof(jump_shot_provenance));
@@ -1154,6 +1180,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &season_provenance,
                                        &gameplay_provenance,
                                        &gameplay_court_provenance,
+                                       &gameplay_camera_provenance,
                                        &close_shot_provenance,
                                        &dunk_provenance,
                                        &jump_shot_provenance,
@@ -1188,6 +1215,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &season_provenance,
                                        &gameplay_provenance,
                                        &gameplay_court_provenance,
+                                       &gameplay_camera_provenance,
                                        &close_shot_provenance,
                                        &dunk_provenance,
                                        &jump_shot_provenance,
@@ -2263,6 +2291,10 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         goto cleanup;
     }
     if (tecmo_asset_pack_gameplay_court_self_test(message, message_size) != 0) {
+        goto cleanup;
+    }
+    if (tecmo_asset_pack_gameplay_camera_self_test(
+            message, message_size) != 0) {
         goto cleanup;
     }
     if (tecmo_asset_pack_gameplay_close_shots_self_test(

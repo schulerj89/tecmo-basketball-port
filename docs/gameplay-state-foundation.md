@@ -48,6 +48,23 @@ spans, CHR fingerprints, and the shared pack path are validated before the
 scene becomes available. Missing, malformed, oversized, wrong-revision, or
 cross-pack dependencies fail closed without a partial frame.
 
+`gameplay/camera-projection` TGCP-1 is a separate pure asset and is not a
+compound-scene dependency. Its 1344-byte canonical payload
+(`6423B023`) requires same-pack TGPL-1 and TGCT-1 and preserves the fixed-bank
+Rev1 camera initializer, streamed-column and attribute helpers, horizontal
+follow/threshold routine, forced settle, and actor projector. The exact pure
+projector computes `world_x-camera_x`, accepts X only when the subtraction
+high byte is zero, and saturates `world_y-altitude` to zero on borrow.
+Initialization/follow/settle also preserve scroll page, stream direction,
+layout cursor, cursor bounds, and action-route movement gates.
+
+TGCP-1 deliberately stops before live scene wiring. The imported TGCT court is
+96-by-30 tiles (768-by-240 pixels), whereas the current renderer draws one
+static 256-pixel viewport and its actors, hoop math, AI, and movement are
+screen-space approximations. A full-court decoder/slicer, explicit orientation
+owner, and coherent world-coordinate migration are required before TGCP-1 and
+TGFL-1 can become live scene dependencies.
+
 TGSR-3 also has FNV1a64 `5C5170460C8305A8` and requires exact same-pack
 TGPL-1. Its revision-fingerprinted sources are Bank05 `$91BC-$943A`,
 `$A6EE-$A9D9`, `$B73E-$B87B`, and `$B87C-$B8F5`, plus focused state-`$15`

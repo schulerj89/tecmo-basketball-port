@@ -706,8 +706,9 @@ directions/profiles and outcomes, ordinary two-point makes, the longer +157-upda
 semantic rebounds/blocks/steals, general make/contact rules, the distance policy
 selecting dunk/variant 0 versus layup/variant 2, live close-shot
 profile/direction selection and left-facing render
-mirroring, dynamic team/court palette selection, foul detection, free-throw
-camera projection/live lineup integration/aim/outcome/rebound and CPU
+mirroring, dynamic team/court palette selection, foul detection, live
+free-throw camera/full-court projection and lineup
+integration/aim/outcome/rebound and CPU
 positioning/script behavior, and HUD text are explicit native approximations.
 TGCS stores 208 exact profile/direction resolutions into TGPL pose data, but the
 live scene currently selects only profile 0/direction 0 and mirrors
@@ -824,6 +825,31 @@ Missing, malformed, undersized/oversized, wrong-revision, and cross-pack data
 fails closed. Verify it with
 `tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 
+TGCP-1 `gameplay/camera-projection` is the strict 1344-byte pure gameplay
+camera foundation (FNV1a32 `6423B023`) and requires exact same-pack TGPL-1
+(`2047CCE0`) and TGCT-1 (`ECAB7A93`). It preserves fixed-bank Rev1 spans
+`$DE13-$DE2C` (`A5CF7665`), `$DF05-$DFFD` (`0F3761F5`),
+`$E0E7-$E13B` (`7FE800D4`), `$E168-$E2E6` (`19038AEA`),
+`$EB4F-$EB8C` (`AF5725C0`), and `$F1CB-$F1F0` (`24A58210`) behind
+strict source records, zero padding/reserved bytes, full-ROM fingerprints, and
+sanitized source-map provenance.
+
+The pure API initializes camera X `$0100`, scroll/page zero, direction zero,
+and layout cursor `$20`; reproduces threshold selection, bounded horizontal
+following, page toggles, and direction-aware coarse-column cursor updates;
+offers a transactional bounded forced settle; and projects actors with
+`screen_x = world_x - camera_x` only when the subtraction high byte is zero
+and `screen_y = max(0, world_y - altitude)`. Invalid input does not mutate
+state or output, while a valid offscreen projection returns `visible=false`.
+
+Do not load TGCP-1 or TGFL-1 into `TecmoGameplayScene` yet. TGCT contains the
+full 48-by-15 macro-cell court, but the current renderer exposes one static
+256-by-240 viewport and live actors/movement use clamped screen coordinates.
+Live wiring requires a strict 768-by-240 full-court decode/slicer, explicit
+orientation ownership, persistent camera state, and a coherent scene-wide
+world-coordinate migration. Verify the pure boundary with
+`tools\Run-GameplayCameraProjectionTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
+
 ## Runtime Architecture Notes
 
 This is a native port, not an emulator wrapper. Current modules of interest:
@@ -838,6 +864,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/asset_pack/tecmo_asset_pack_finale.c`: ROM-only TFIN-1 post-PASS finale importer
 - `src/asset_pack/tecmo_asset_pack_gameplay.c`: strict TGPL-1 gameplay-core importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_court.c`: strict TGCT-1 static-court importer
+- `src/asset_pack/tecmo_asset_pack_gameplay_camera.c`: strict TGCP-1 camera/projector importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_close_shots.c`: strict TGCS-1 numeric close-shot importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c`: strict TGDK-1 screen/palette/CHR/staged-sprite importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c`: strict TGJS-1 ordinary-jump importer
@@ -854,6 +881,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/tecmo_intro_finale.c`: strict TFIN-1 loading, finale phases, title bands, and rendering
 - `src/tecmo_gameplay_scene.c`: native launch, input, state, animation, audio-event, result, and rendering integration
 - `src/tecmo_gameplay_dunk_cutaway.c`: strict TGDK-1 loader, palette resolver, stage scheduler, and OAM-priority renderer
+- `src/tecmo_gameplay_camera.c`: strict TGCP-1 parser and pure camera/projector state API
 - `src/tecmo_gameplay_audio.c`: strict gameplay-audio loader, event sequencer, DMC decoder, and music/SFX mixer
 - `src/tecmo_start_game_menu.c`: strict TSGM-1 menu loading, update, transition, and rendering
 - `src/tecmo_intro_stage.c`: intro sprite staging and arena transition state model

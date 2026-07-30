@@ -166,8 +166,9 @@ accumulators are ported.
   have no timeout. CPU free throws use the bounded observed 125-update
   schedule. The exact two-orientation raw lineup, shooter-dependent actor
   stream, pose indexes, and base actor-state seeds are available through the
-  strict TGFL-1 data foundation, but camera projection, live repositioning,
-  aim, outcome, rebound, and CPU positioning remain unsupported or
+  strict TGFL-1 data foundation. Exact pure camera following and actor
+  projection are available through TGCP-1, but live repositioning, full-court
+  scrolling, aim, outcome, rebound, and CPU positioning remain unsupported or
   approximate.
 - Rebounds, blocks, and steals remain approximate or nonsemantic. The current
   scene can transfer possession and attempt defensive contact, but it does not
@@ -183,8 +184,9 @@ Strict ROM-derived data currently covers the static court, CHR and palette
 entries, embedded FCEUX RGB profile, actor pose data, numeric close-shot step
 tables, dunk cutaway, the bounded ordinary-jump miss/three-point-make context,
 TGSR-3 shot resolution, its exact 1/2/3-point classifier and
-diagnostic-only rim-rattle prefix, the TGFL-1 raw free-throw lineup, rules timing,
-and native music/SFX/DMC programs. Every required gameplay entry is loaded from the same
+diagnostic-only rim-rattle prefix, the TGFL-1 raw free-throw lineup, the
+TGCP-1 pure horizontal camera/projector, rules timing, and native
+music/SFX/DMC programs. Strict entries are loaded from the same
 revision-fingerprinted asset pack with exact-size and malformed-data checks.
 
 The actor and camera layout, movement and AI, jump-ball geometry, general shot
@@ -194,8 +196,11 @@ detection, free-throw simulation, rebounds, blocks, steals, per-player game
 statistics, and temporary HUD typography remain native approximations or are
 unsupported. `gameplay/penalties` TPNL-1 contains strict ROM-backed rule data,
 but the live scene's current contact/foul code does not consume it yet.
-Likewise, `gameplay/free-throw-lineup` TGFL-1 preserves raw world coordinates
-and does not bypass the still-missing gameplay camera projection.
+Likewise, `gameplay/free-throw-lineup` TGFL-1 preserves raw world coordinates.
+`gameplay/camera-projection` TGCP-1 can project them exactly in a pure API, but
+neither asset is loaded by the live scene yet: its static 256-pixel court and
+screen-space actors cannot represent the ROM's scrolling 768-pixel court
+without a coherent world-coordinate migration.
 
 The first two intro screens, TECMO/rabbit and NBA license, are silent. Strict
 opening music begins at the license-to-arena handoff. Title confirmation queues
@@ -225,6 +230,7 @@ through explicit render-test/debug paths for development work.
 .\tools\Run-GameplayShotResolutionTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayPenaltyTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-GameplayCameraProjectionTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayDunkCutawayTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 ```

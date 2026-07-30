@@ -342,6 +342,7 @@ function Get-KnownLogicalAssetPackEntries {
         "menu/season",
         "gameplay/core",
         "gameplay/court",
+        "gameplay/camera-projection",
         "gameplay/close-shots",
         "gameplay/dunk-cutaway",
         "gameplay/jump-shots",
@@ -400,6 +401,7 @@ function Get-ExpectedLogicalAssetPackEntries {
             "menu/season"
             "gameplay/core"
             "gameplay/court"
+            "gameplay/camera-projection"
             "gameplay/close-shots"
             "gameplay/dunk-cutaway"
             "gameplay/jump-shots"

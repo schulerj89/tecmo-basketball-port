@@ -893,12 +893,47 @@ not call `$88B0` for that slot. The API intentionally omits side-control inputs
 and therefore does not apply the conditional shooter script override or
 secondary raw phase `$15`.
 
-Do not load TGFL-1 into `TecmoGameplayScene` until exact raw-world/camera
-projection is available. This foundation proves no live lineup positioning,
+Do not load TGFL-1 into `TecmoGameplayScene` until the exact raw-world camera
+can be integrated with a scrolling full-court scene. This foundation proves no
+live lineup positioning,
 aim, attempt decrement, outcome, rebound, or CPU positioning/script behavior.
 Run `tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath
 <LOCAL_ROM.nes>` for parser/API, provenance, mutation, revision, and dependency
 coverage.
+
+TGCP-1 `gameplay/camera-projection` now supplies that exact projection as a
+strict pure foundation without changing the live scene. Its 1344-byte payload
+has FNV1a32 `6423B023`, requires exact same-pack TGPL-1 (`2047CCE0`) and
+TGCT-1 (`ECAB7A93`), and retains fixed-bank Rev1 initializer
+`$DE13-$DE2C` (`A5CF7665`), column streamer `$DF05-$DFFD` (`0F3761F5`),
+attribute helper `$E0E7-$E13B` (`7FE800D4`), threshold/follow routine
+`$E168-$E2E6` (`19038AEA`), forced settle `$EB4F-$EB8C` (`AF5725C0`),
+and actor projector `$F1CB-$F1F0` (`24A58210`). Exact source records,
+descriptors, reserved bytes, alignment padding, raw/canonical fingerprints,
+full-ROM identity, and source-map provenance fail closed on malformed,
+wrong-sized, wrong-revision, mutated, or cross-pack data.
+
+The pure state API initializes camera X `$0100`, scroll/page zero, stream
+direction zero, and layout cursor `$20`. Follow updates reproduce orientation
+threshold selection, the endpoint/generic two/seven-pixel caps, cursor limits,
+scroll carry/borrow page toggles, direction reversal, and coarse-column cursor
+updates. Forced settle is bounded to 1024 iterations and transactional. Actor
+projection is the exact unsigned 16-bit subtraction: X is visible only when
+the difference high byte is zero; Y is unsigned `world_y-altitude` saturated
+to zero on borrow. Valid offscreen projection is not a parser failure, and
+invalid calls leave state/output untouched.
+
+This closes the pure projection question but not live integration. TGCT's raw
+court is 48-by-15 macro cells (96-by-30 tiles, 768-by-240 pixels), while the
+current scene draws only a static 256-by-240 middle viewport and stores
+actors, movement, hoop math, and AI in screen space. The next safe slice is a
+strict full-court decoder/viewport slicer plus explicit orientation ownership;
+only then should persistent camera state and all live actors migrate together
+to world coordinates. Until that migration, TGCP-1 and TGFL-1 remain testable
+pure assets rather than scene dependencies. Run
+`tools\Run-GameplayCameraProjectionTests.ps1 -Build -RomPath
+<LOCAL_ROM.nes>` for revision, provenance, parser, mutation, dependency, camera,
+settle, and projection coverage.
 
 Period completion follows fixed `$E59B->$E823`: regulation M:00 and divider 45
 are prepared before selecting the next banner, halftime, overtime, or final
@@ -937,8 +972,8 @@ motion, the longer +157-update claimant route, semantic rebounds/blocks/steals,
 general make/contact policy, the trigger selecting
 dunk/variant 0 versus layup/variant 2, live close-shot profile/direction
 selection and left-facing mirroring, dynamic team/court palette selection,
-foul detection, free-throw camera projection/live lineup
-integration/aim/outcome/rebound and CPU
+foul detection, live free-throw camera/full-court integration and lineup
+positioning/aim/outcome/rebound and CPU
 positioning/script behavior, and HUD typography remain explicit native
 approximations. Local original-frame comparisons found no unrendered or garbage
 cells. After normalizing the small emulator RGB-output difference, the TGDK

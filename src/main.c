@@ -1,12 +1,14 @@
 #include "asm_inventory.h"
 #include "png_writer.h"
 #include "tecmo_asset_pack.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_camera.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.h"
 #include "tecmo_audio_output.h"
 #include "tecmo_bank07.h"
 #include "tecmo_game.h"
 #include "tecmo_gameplay_audio.h"
 #include "tecmo_gameplay_assets.h"
+#include "tecmo_gameplay_camera.h"
 #include "tecmo_gameplay_court.h"
 #include "tecmo_gameplay_close_shots.h"
 #include "tecmo_gameplay_dunk_cutaway.h"
@@ -56,6 +58,7 @@ static void print_usage(const char *program)
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
     printf("  --gameplay-assets-test PACK  Validate strict TGPL-1 gameplay assets\n");
     printf("  --gameplay-court-test PACK  Validate strict TGCT-1 static court assets\n");
+    printf("  --gameplay-camera-projection-test PACK  Validate strict TGCP-1 camera/projector assets\n");
     printf("  --gameplay-close-shots-test PACK  Validate strict TGCS-1 close-shot assets\n");
     printf("  --gameplay-dunk-cutaway-test PACK  Validate strict TGDK-1 dunk presentation assets\n");
     printf("  --gameplay-jump-shots-test PACK  Validate strict TGJS-1 jump-shot assets\n");
@@ -706,6 +709,36 @@ int main(int argc, char **argv)
         if (!tecmo_gameplay_free_throw_lineup_self_test(
                 pack_path, message, sizeof(message))) {
             printf("Free-throw lineup asset test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-camera-projection-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        char message[256];
+        if (!tecmo_gameplay_camera_self_test(
+                pack_path, message, sizeof(message))) {
+            printf("Gameplay camera asset test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    /*
+     * Developer-only direct importer path used by the focused TGCP ROM
+     * mutation suite. Normal builds continue through --build-assetpack.
+     */
+    if (strcmp(
+            command,
+            "--gameplay-camera-projection-source-test") == 0) {
+        const char *rom_path = index < argc ? argv[index] : NULL;
+        char message[256];
+        if (tecmo_asset_pack_gameplay_camera_source_test(
+                rom_path, message, sizeof(message)) != 0) {
+            printf("Gameplay camera source test failed: %s\n", message);
             return 1;
         }
         printf("%s\n", message);

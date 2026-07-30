@@ -1682,6 +1682,110 @@ static int append_gameplay_court_source_map_entry(
         "\"runtime_inputs\":\"TGCT-1 plus same-pack chr/all; no decompilation, trace, capture, screenshot, dump, state, or video\"}}" );
 }
 
+static int append_gameplay_camera_source_map_entry(
+    char *buffer,
+    size_t capacity,
+    size_t *length,
+    int *first,
+    const TecmoGameplayCameraProvenance *p)
+{
+    static const char *const roles[
+        TECMO_GAMEPLAY_CAMERA_SOURCE_COUNT] = {
+        "camera-initialize-$DE13-$DE2C",
+        "direction-aware-column-streamer-$DF05-$DFFD",
+        "dynamic-attribute-helper-$E0E7-$E13B",
+        "threshold-table-follow-and-route-gate-$E168-$E2E6",
+        "forced-settle-$EB4F-$EB8C",
+        "actor-projector-$F1CB-$F1F0"
+    };
+    const char *prefix = *first != 0 ? "" : ",\n";
+
+    *first = 0;
+    if (tecmo_asset_pack_append_text(
+            buffer, capacity, length,
+            "%s"
+            "    {\"id\":\"%s\",\"kind\":\"gameplay-camera-projection-native\","
+            "\"schema\":\"tecmo.gameplay-camera/TGCP-1\",\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"%08X\","
+            "\"revision_sha256_identity\":\"076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4\","
+            "\"revision_full_rom_fnv1a32\":\"0650F5B0\","
+            "\"revision_full_rom_fnv1a32_verified\":true,"
+            "\"revision_source_fingerprints_verified\":true,"
+            "\"dependencies\":["
+            "{\"entry\":\"%s\",\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"%08X\","
+            "\"reason\":\"validate the downstream actor compositor and projection tail\"},"
+            "{\"entry\":\"%s\",\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"%08X\","
+            "\"reason\":\"bind camera streaming to the same strict court layout and macro sources\"}],"
+            "\"source_spans\":[",
+            prefix,
+            TECMO_ASSET_PACK_GAMEPLAY_CAMERA_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_CAMERA_FNV1A32,
+            TECMO_ASSET_PACK_GAMEPLAY_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_FNV1A32,
+            TECMO_ASSET_PACK_GAMEPLAY_COURT_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_COURT_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_COURT_FNV1A32) != 0) {
+        return -1;
+    }
+    for (size_t index = 0U;
+         index < TECMO_GAMEPLAY_CAMERA_SOURCE_COUNT; ++index) {
+        const TecmoGameplayCameraExpectedSource *source =
+            &tecmo_gameplay_camera_expected_sources[index];
+        if (tecmo_asset_pack_append_text(
+                buffer, capacity, length,
+                "%s{\"role\":\"%s\",\"source_entry\":\"prg/fixed\","
+                "\"source_offset\":%llu,\"bank\":%u,\"fixed_bank\":true,"
+                "\"cpu_start\":%u,\"cpu_end\":%u,\"size\":%u,"
+                "\"fingerprint_fnv1a32\":\"%08X\","
+                "\"payload_offset\":%u}",
+                index == 0U ? "" : ",", roles[index],
+                (unsigned long long)p->source_offsets[index],
+                (unsigned)source->bank,
+                (unsigned)source->cpu_start,
+                (unsigned)((uint32_t)source->cpu_start +
+                           source->byte_count - 1U),
+                (unsigned)source->byte_count,
+                (unsigned)source->fingerprint,
+                (unsigned)source->payload_offset) != 0) {
+            return -1;
+        }
+    }
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "],\"state_contract\":{"
+        "\"camera_x\":\"$01:$00\","
+        "\"scroll_x\":\"$0300\","
+        "\"scroll_aux\":\"$0301\","
+        "\"nametable_page\":\"$0302 bit 0\","
+        "\"aux\":\"$0303\","
+        "\"stream_direction\":\"$3B\","
+        "\"layout_cursor\":\"$38\","
+        "\"thresholds\":\"$06E3/$06E4\","
+        "\"endpoint_latch\":\"$05B6 bit 7\","
+        "\"focus_world_x\":\"$F2:$7D\"},"
+        "\"follow_contract\":{"
+        "\"camera_disabled\":\"$07DE nonzero preserves state\","
+        "\"orientation_zero_thresholds\":[216,232],"
+        "\"orientation_one_thresholds\":[32,4],"
+        "\"center_thresholds\":[80,160],"
+        "\"normal_speed_cap\":7,\"endpoint_speed_cap\":2,"
+        "\"left_cursor_bound\":12,\"right_cursor_bound\":52,"
+        "\"suppressed_action_routes\":[1,18,19],"
+        "\"coarse_boundary\":\"scroll_x eight-pixel crossing updates layout cursor and stream direction; reversal advances three cursor units\","
+        "\"settle\":\"bounded transactional route-zero follow until scroll_x is unchanged; PPU commits excluded\"},"
+        "\"projection_contract\":{"
+        "\"screen_x\":\"low byte of world_x-camera_x when the high byte is zero\","
+        "\"visible\":\"world_x-camera_x is in the unsigned 0..255 viewport\","
+        "\"screen_y\":\"max(0, raw_world_y-altitude)\","
+        "\"orientation_transform\":false,\"vertical_camera\":false},"
+        "\"supported_boundary\":\"strict pure camera state, follow, settle, and actor projection only; no PPU commit, full-court slicing, live-scene mutation, orientation ownership, actor compositor, HUD, or capture-derived behavior\","
+        "\"runtime_inputs\":\"TGCP-1 plus same-pack TGPL-1 and TGCT-1; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}");
+}
+
 static int append_gameplay_close_shot_source_map_entry(
     char *buffer,
     size_t capacity,
@@ -2366,6 +2470,7 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoSeasonMenuProvenance *season_provenance,
                                    const TecmoGameplayProvenance *gameplay_provenance,
                                    const TecmoGameplayCourtProvenance *gameplay_court_provenance,
+                                   const TecmoGameplayCameraProvenance *gameplay_camera_provenance,
                                    const TecmoGameplayCloseShotProvenance *close_shot_provenance,
                                    const TecmoGameplayDunkProvenance *dunk_provenance,
                                    const TecmoGameplayJumpShotProvenance *jump_shot_provenance,
@@ -2374,7 +2479,7 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
     const TecmoGameplayFreeThrowLineupProvenance *free_throw_lineup_provenance,
     size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 26U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 27U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -2392,10 +2497,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
     int first = 1;
     int first_logical = 1;
 
-    if (entry_count > (SIZE_MAX - 73728U) / 384U) {
+    if (entry_count > (SIZE_MAX - 98304U) / 512U) {
         return NULL;
     }
-    capacity = 73728U + entry_count * 384U;
+    capacity = 98304U + entry_count * 512U;
     source_map = (char *)malloc(capacity);
     if (source_map == NULL) {
         return NULL;
@@ -2601,6 +2706,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
          append_gameplay_court_source_map_entry(
              source_map, capacity, &length, &first_logical,
              gameplay_court_provenance) != 0) ||
+        (gameplay_camera_provenance->source_offsets[0] != 0U &&
+         append_gameplay_camera_source_map_entry(
+             source_map, capacity, &length, &first_logical,
+             gameplay_camera_provenance) != 0) ||
         (close_shot_provenance->source_offsets[0] != 0U &&
          append_gameplay_close_shot_source_map_entry(
              source_map, capacity, &length, &first_logical,
