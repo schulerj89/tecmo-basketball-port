@@ -2,8 +2,8 @@
 -- This module describes two closed MAN VS MAN, orientation-0 shooting pilots.
 
 local map = {
-    schema = "TGLM-3",
-    schema_version = 3,
+    schema = "TGLM-4",
+    schema_version = 4,
     rom_sha256 = "076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4",
     fceux_sha256 = "F89812F4E9506EF7090D9D0310D368ABD79BACA362B7BFC4A2E7E499754F2A1B",
     supported_orientation = 0,
@@ -72,7 +72,14 @@ local map = {
         saved_object_horizontal_velocity_lo = 0x038D,
         saved_object_horizontal_velocity_hi = 0x038E,
         saved_object_vertical_velocity_lo = 0x038F,
-        saved_object_vertical_velocity_hi = 0x0390
+        saved_object_vertical_velocity_hi = 0x0390,
+        flight_target_x_lo = 0x0094,
+        flight_target_x_hi = 0x0095,
+        flight_target_y_lo = 0x0096,
+        flight_target_y_hi = 0x0097,
+        object_slot10_count_lo = 0x051D,
+        object_slot10_count_hi = 0x0528,
+        sfx_mailbox = 0x05B8
     },
 
     hoops = {
@@ -96,6 +103,7 @@ local map = {
     },
     hooks = {
         { address = 0x8C57, name = "ball_release", gate = "bank05" },
+        { address = 0x8C78, name = "ordinary_direction_remap_ready", gate = "bank05" },
         { address = 0x8C7D, name = "close_launch", gate = "bank05" },
         { address = 0x8ABD, name = "shot_classifier", gate = "bank05" },
         { address = 0x91BC, name = "shot_result", gate = "bank05" },
@@ -109,9 +117,23 @@ local map = {
         { address = 0xA708, name = "miss_variant_0_or_3", gate = "bank05" },
         { address = 0xA7A9, name = "miss_variant_1", gate = "bank05" },
         { address = 0xA8E9, name = "miss_variant_2", gate = "bank05" },
+        { address = 0xAD4E, name = "flight_target_setup", gate = "bank05" },
+        { address = 0xAD50, name = "flight_target_slot10_selected", gate = "bank05" },
+        { address = 0xB32C, name = "target_motion_solver", gate = "bank05" },
+        { address = 0xAD68, name = "flight_target_ready", gate = "bank05" },
+        { address = 0xB100, name = "flight_state5_update", gate = "bank05" },
+        { address = 0xB139, name = "flight_state5_hold_return", gate = "bank05" },
+        { address = 0xB13E, name = "flight_state7_store_boundary", gate = "bank05" },
+        { address = 0xAB73, name = "result_state7_dispatch", gate = "bank05" },
+        { address = 0xAB36, name = "made_stat_update", gate = "bank05" },
         { address = 0xBA02, name = "score_apply", gate = "bank05" },
+        { address = 0xBA19, name = "score_committed", gate = "bank05" },
+        { address = 0xAC0A, name = "state08_route_boundary", gate = "bank05" },
+        { address = 0xAC6A, name = "state09_route_entry", gate = "bank05" },
         { address = 0xB87C, name = "settlement", gate = "bank05" },
-        { address = 0x8FAD, name = "possession_handoff", gate = "bank05" },
+        { address = 0x8FAD, name = "possession_transition_gate", gate = "bank05" },
+        { address = 0x8FB9, name = "possession_swap_entry", gate = "bank05" },
+        { address = 0x9042, name = "possession_swap_complete", gate = "bank05" },
         -- $9C79 is observed on one route only and is deliberately diagnostic,
         -- never a universal launch requirement.
         { address = 0x9C79, name = "route_9c79_optional", gate = "bank05" },
@@ -125,6 +147,8 @@ local map = {
             expected_make = false,
             expected_score_delta = 0,
             require_point_evidence = false,
+            require_timing_evidence = false,
+            allow_holder_passes = false,
             shot_window = {
                 x_min = 0x0164, x_max = 0x0170,
                 y_min = 0x6C, y_max = 0x74
@@ -135,6 +159,30 @@ local map = {
             expected_make = true,
             expected_score_delta = 2,
             require_point_evidence = true,
+            require_timing_evidence = true,
+            allow_holder_passes = true,
+            timing_contract = {
+                pre_remap_direction = 0x05,
+                post_remap_direction = 0x00,
+                launch_direction = 0x00,
+                launch_phase_low = 0x05,
+                launch_close_mode = 0x00,
+                target_x = 0x00A0,
+                target_y = 0x008F,
+                slot10_count = 0x3C,
+                slot10_x_offset = 2,
+                slot10_y_offset = -1,
+                slot10_altitude = 0x3900,
+                slot10_altitude_velocity = 0x04EC,
+                slot10_horizontal_velocity_min = 0xFF88,
+                slot10_horizontal_velocity_max = 0xFF8F,
+                slot10_vertical_velocity_min = 0x001D,
+                slot10_vertical_velocity_max = 0x0026,
+                flight_state5_updates = 63,
+                state08_route_updates = 26,
+                score_shot_clock = 0x18,
+                terminal_sfx_mailbox = 0x0B
+            },
             shot_window = {
                 x_min = 0x0108, x_max = 0x010F,
                 y_min = 0x6C, y_max = 0x74
@@ -154,7 +202,10 @@ local map = {
         acquire_deadline = 480,
         position_deadline = 720,
         resolve_deadline = 900,
-        tail_frames = 180
+        tail_frames = 180,
+        defender_store_cap = 6,
+        holder_transfer_cap = 4,
+        holder_transfer_deadline = 90
     },
 
     -- Authentic power-on timing proven for this revision and FCEUX build.

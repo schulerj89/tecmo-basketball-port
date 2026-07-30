@@ -171,12 +171,13 @@ This writes `build\intro_arena_capture.ndjson`, which the arena renderer loads b
 
 `tools\gameplay-lab` is a developer-only, read-only FCEUX control and telemetry
 surface for two closed Rev 1 MAN VS MAN ordinary-jump profiles. The default
-three-point baseline retains its exact prior window and behavior; the
+three-point baseline retains its exact prior window and acceptance contract;
+TGLM-4's shared hardened controller has not been smoke-tested against it. The
 `ordinary_two_point_make` profile exposes only `x=$0108..$010F`,
 `y=$6C..$74` and requires point value 2, terminal MAKE, and score delta 2.
-Its canonical TGLM-3 `tecmo_rev1_map.lua` owns every profile, address,
+Its canonical TGLM-4 `tecmo_rev1_map.lua` owns every profile, address,
 mapper-aware hook, timing bound, and revision fingerprint; recorder/status
-output uses TGLAB-3. Per-actor
+output uses TGLAB-4. Per-actor
 altitude, horizontal, and vertical velocities are separate raw 16-bit fields.
 Accepted hooks snapshot direct object-slot-10 H/V and saved scratch H/V
 `$038D-$0390` in the callback before queued emission. Those saved fields are
@@ -190,18 +191,36 @@ FM2. It writes only below ignored `temp-videos/gameplay-lab/<timestamp>`.
 
 After the proven power-on navigation and tip input, gameplay control is
 state/coordinate driven. The script proves live mode, two-player control,
-distinct teams, orientation/side, a stable selected holder and ball, clears a
-front threat only after observing defensive selection, pulses the shooter into
-the proven coordinate window, holds 12 neutral frames, then applies the
-captured B timing. It supplies complete neutral-or-active joypad tables for both
-ports every frame. It never changes RAM, uses cheats, or touches emulator
-state slots; every failure and normal exit neutralizes both pads and closes the
+distinct teams, orientation/side, and a stable selected holder and ball.
+Defensive A selection is accepted only after Bank06 `$91CB` pre-store evidence
+matches `$0309` on the next frame; a cycle closes only after a different actor
+and a return to its origin, with at most six confirmed stores in the entire
+pilot. Only the
+two-point profile may then pulse offense A once, observe a different holder,
+and rebuild the eight-frame holder proof, with at most four transfers. Movement
+holds one cardinal direction, admits only state 0 or its matching movement
+state, and uses a neutral readback gate before changing direction or controller.
+It holds 12 neutral frames in the proven window, then applies the captured B
+timing. It supplies complete neutral-or-active joypad tables for both ports
+every frame. It never changes RAM, uses cheats, or touches emulator state
+slots; every failure and normal exit neutralizes both pads and closes the
 runner-owned emulator.
 
 The first original-ROM run of the two-point profile stopped safely because the
-AI-controlled front defender could not be selected and cleared. This is a
-fail-closed pilot result, not evidence that the profile or an ordinary
-two-point make has passed.
+AI-controlled front defender could not be selected and cleared. TGLM-4 adds
+bounded cycle/pass/reacquisition control and hook-time timing snapshots for
+`$8C57/$8C78`, `$AD4E/$AD50/$B32C/$AD68`, `$B100` and its branch
+boundaries, result/score helpers, and `$8FB9/$9042` actual possession swap.
+The strict pending contract orders `$B995->$B9D7` point value 2 and
+`$91BC->$933B->$942D` MAKE before flight. It requires raw shooter direction
+`$05` before the ordinary-shot remap, raw direction `$00` afterward and at
+target setup/solver, phase low nibble `$05`, close mode `$00`, target
+`$00A0/$008F`, 16-bit slot count `$003C`, slot position shooter `+(2,-1)`,
+altitude `$3900`, altitude velocity `$04EC`, horizontal raw velocity
+`$FF88..$FF8F`, vertical `$001D..$0026`, 63 `$B100` entries, 26 state-08
+updates, one +2 score commit, and SFX mailbox `$0B` throughout the same-frame
+actual swap. This control upgrade has not produced
+a passed pilot; it is not evidence that an ordinary two-point make works.
 
 Telemetry, hook events, screenshots, logs, movies, and status files are local
 research evidence only. Native C and asset-pack import/runtime paths must never

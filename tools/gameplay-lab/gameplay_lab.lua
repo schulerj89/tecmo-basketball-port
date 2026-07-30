@@ -8,7 +8,7 @@ local map_path = assert(os.getenv("TECMO_GAMEPLAY_LAB_MAP"),
 output_root = string.gsub(output_root, "\\", "/")
 map_path = string.gsub(map_path, "\\", "/")
 local map = assert(dofile(map_path))
-assert(map.schema == "TGLM-3" and map.schema_version == 3,
+assert(map.schema == "TGLM-4" and map.schema_version == 4,
     "unsupported gameplay-lab map")
 local profile_name = os.getenv("TECMO_GAMEPLAY_LAB_PROFILE") or
     "three_point_baseline"
@@ -67,7 +67,7 @@ local function emit(file, text)
     file:write(text)
 end
 
-emit(metadata, "schema=TGLAB-3\nschema_version=3\nmap_schema=" .. map.schema .. "\n")
+emit(metadata, "schema=TGLAB-4\nschema_version=4\nmap_schema=" .. map.schema .. "\n")
 emit(metadata, "profile=" .. profile_name .. "\n")
 emit(metadata, "script_sha256=" .. script_hash .. "\nmap_sha256=" .. map_hash .. "\n")
 emit(metadata, "rom_sha256=" .. rom_hash .. "\nfceux_sha256=" .. fceux_hash .. "\n")
@@ -88,13 +88,19 @@ emit(telemetry,
     "ball_distance,nearest_defender,nearest_distance,front_defender,front_distance," ..
     "shot_subtype,shot_flags,close_mode,score0,score1" .. actor_fields .. "\n")
 emit(events,
-    "lab_frame,emu_frame,name,address,raw_bank,pc,a,x,y,ba,point_value_0398,offense_side," ..
-    "control0,control1,score0,score1,miss_selector_6a,miss_selector_low2," ..
+    "lab_frame,emu_frame,hook_order,name,address,raw_bank,mapper_select,mapper_bank6," ..
+    "mapper_bank7,pc,a,x,y,ba,point_value_0398,offense_actor,defense_actor," ..
+    "offense_side,defense_side,control0,control1,score0,score1,shot_clock,close_mode," ..
+    "shooter_facing,shooter_phase_low,shooter_x,shooter_y,state08_count," ..
+    "target_x_0094_0095,target_y_0096_0097,slot10_x,slot10_y," ..
+    "slot10_count_051d_0528," ..
+    "slot10_altitude_048e_0499,slot10_altitude_velocity_04a4_04af," ..
+    "miss_selector_6a,miss_selector_low2," ..
     "miss_selected_target,object_slot10_state_0478," ..
     "object_slot10_horizontal_velocity_04f1_04fc," ..
     "object_slot10_vertical_velocity_0507_0512," ..
     "saved_object_horizontal_velocity_038d_038e," ..
-    "saved_object_vertical_velocity_038f_0390\n")
+    "saved_object_vertical_velocity_038f_0390,sfx_mailbox_05b8\n")
 emit(phases, "lab_frame,emu_frame,phase,reason\n")
 emit(detail,
     "lab_frame,shot_frame,phase,p1,p2,shooter,defender,nearest,front," ..
@@ -165,6 +171,16 @@ end
 local function actor_side(a)
     return AND(a.team_role, 0x02) ~= 0 and 1 or 0
 end
+local function count_actor_state(value)
+    local count = 0
+    for i = 0, 10 do
+        if actor(i).state == value then count = count + 1 end
+    end
+    return count
+end
+local function controller_readback(port)
+    return rb(port == 1 and R.p1_current or R.p2_current)
+end
 
 local blank_pad = {
     A = false, B = false, up = false, down = false,
@@ -197,6 +213,11 @@ local function routed_pads(port, button)
     return p1, p2
 end
 
+local movement_states = {right = 1, left = 2, down = 4, up = 8}
+local function movement_state_valid(a, button)
+    return a.state == 0 or a.state == movement_states[button]
+end
+
 local frame = 0
 local phase = ""
 local phase_started = 0
@@ -222,19 +243,71 @@ local pre_score0, pre_score1 = -1, -1
 local shot_side, shot_actor, shot_frame = -1, -1, -1
 local possession_at_input = -1
 local holder_proven, shot_window_proven = false, false
+local proven_holder_actor = -1
 local input_front, input_close_mode = -2, -1
 local stable_holder = 0
 local stable_safe = 0
 local selected_threat = -1
 local switch_origin = -1
-local switch_pulse = false
-local switch_attempts = 0
-local move_pulse = false
+local switch_seen = {}
+local switch_unique_count = 0
+local switch_saw_different = false
+local switch_pending_actor = -1
+local switch_pending_frame = -1
+local switch_request_outstanding = false
+local switch_request_deadline = -1
+local defender_cycles_closed = 0
+local defender_store_total = 0
+local defender_passes = 0
+local holder_changes = 0
+local holder_seen = {}
+local pass_origin_holder = -1
+local pass_origin_side = -1
+local pass_score0, pass_score1 = -1, -1
+local pass_deadline = -1
+local pass_pulsed = false
+local reacquire_actor = -1
+local reacquire_stable = 0
+local held_direction = nil
+local held_direction_port = -1
+local held_direction_actor = -1
+local pending_direction = nil
+local movement_next_phase = nil
+local movement_next_reason = nil
 local progress_deadline = 0
 local best_distance = 99999
 local gameplay_frame = -1
 local root_seen = false
 local tail_started = -1
+local hook_order = 0
+local hook_first_order = {}
+local hook_first_frame = {}
+local hook_last_order = {}
+local hook_last_frame = {}
+local hook_seen_count = {}
+local release_emu_frame = -1
+local score_emu_frame = -1
+local handoff_emu_frame = -1
+local b100_entry_count = 0
+local timing_capture = {
+    target_x = -1, target_y = -1,
+    shooter_x = -1, shooter_y = -1,
+    slot10_x = -1, slot10_y = -1,
+    slot10_count = -1, slot10_altitude = -1,
+    slot10_altitude_velocity = -1,
+    slot10_horizontal_velocity = -1,
+    slot10_vertical_velocity = -1,
+    pre_remap_direction = -1, post_remap_direction = -1,
+    launch_direction = -1, launch_phase_low = -1, launch_close_mode = -1,
+    solver_direction = -1, solver_phase_low = -1, solver_close_mode = -1,
+    score_shot_clock = -1,
+    score_before0 = -1, score_before1 = -1,
+    score_after0 = -1, score_after1 = -1,
+    transition_mailbox = -1, swap_entry_mailbox = -1,
+    swap_complete_mailbox = -1,
+    swap_before_side = -1, swap_before_holder = -1,
+    swap_after_side = -1, swap_after_holder = -1
+}
 
 local function set_phase(next_phase, reason)
     if phase == next_phase then return end
@@ -247,6 +320,256 @@ local function set_phase(next_phase, reason)
     end
     emit(phases, string.format("%d,%d,%s,%s\n", frame, safe_frame(), phase,
         string.gsub(reason or "", ",", ";")))
+end
+
+local function reset_defender_cycle(threat, reason)
+    selected_threat = threat
+    switch_origin = rb(R.defense_actor)
+    switch_seen = {[switch_origin] = true}
+    switch_unique_count = 1
+    switch_saw_different = false
+    switch_pending_actor = -1
+    switch_pending_frame = -1
+    switch_request_outstanding = false
+    switch_request_deadline = -1
+    set_phase("select_defender", reason)
+end
+
+local function begin_movement_neutral(next_phase, reason)
+    movement_next_phase = next_phase
+    movement_next_reason = reason
+    set_phase("movement_neutral", "neutral gate before direction/controller change")
+end
+
+local slot10_timing_hooks = {
+    flight_target_slot10_selected = true,
+    target_motion_solver = true,
+    flight_target_ready = true,
+    flight_state5_update = true,
+    flight_state5_hold_return = true,
+    flight_state7_store_boundary = true,
+    result_state7_dispatch = true,
+    made_stat_update = true,
+    score_apply = true,
+    score_committed = true,
+    state08_route_boundary = true,
+    state09_route_entry = true
+}
+
+local function remember_timing_hook(h)
+    if shot_frame < 0 then return end
+    if slot10_timing_hooks[h.name] and h.x ~= 10 then return end
+    hook_seen_count[h.name] = (hook_seen_count[h.name] or 0) + 1
+    if hook_first_order[h.name] == nil then
+        hook_first_order[h.name] = h.order
+        hook_first_frame[h.name] = h.emu_frame
+    end
+    hook_last_order[h.name] = h.order
+    hook_last_frame[h.name] = h.emu_frame
+    if h.name == "ball_release" then
+        timing_capture.pre_remap_direction = h.shooter_facing
+    elseif h.name == "ordinary_direction_remap_ready" then
+        timing_capture.post_remap_direction = h.shooter_facing
+    elseif h.name == "flight_target_setup" then
+        timing_capture.launch_direction = h.shooter_facing
+        timing_capture.launch_phase_low = h.shooter_phase_low
+        timing_capture.launch_close_mode = h.close_mode
+    elseif h.name == "target_motion_solver" then
+        timing_capture.solver_direction = h.shooter_facing
+        timing_capture.solver_phase_low = h.shooter_phase_low
+        timing_capture.solver_close_mode = h.close_mode
+    elseif h.name == "flight_target_ready" then
+        timing_capture.target_x, timing_capture.target_y = h.target_x, h.target_y
+        timing_capture.shooter_x, timing_capture.shooter_y =
+            h.shooter_x, h.shooter_y
+        timing_capture.slot10_x, timing_capture.slot10_y =
+            h.object_slot10_x, h.object_slot10_y
+        timing_capture.slot10_count = h.object_slot10_count
+        timing_capture.slot10_altitude = h.object_slot10_altitude
+        timing_capture.slot10_altitude_velocity =
+            h.object_slot10_altitude_velocity
+        timing_capture.slot10_horizontal_velocity =
+            h.object_slot10_horizontal_velocity
+        timing_capture.slot10_vertical_velocity =
+            h.object_slot10_vertical_velocity
+    elseif h.name == "flight_state5_update" then
+        b100_entry_count = b100_entry_count + 1
+    elseif h.name == "made_stat_update" then
+        timing_capture.score_shot_clock = h.shot_clock
+    elseif h.name == "score_apply" then
+        timing_capture.score_before0, timing_capture.score_before1 =
+            h.score0, h.score1
+    elseif h.name == "score_committed" then
+        score_emu_frame = h.emu_frame
+        timing_capture.score_after0, timing_capture.score_after1 =
+            h.score0, h.score1
+    elseif h.name == "possession_transition_gate" then
+        timing_capture.transition_mailbox = h.sfx_mailbox
+    elseif h.name == "possession_swap_entry" then
+        timing_capture.swap_entry_mailbox = h.sfx_mailbox
+        timing_capture.swap_before_side = h.offense_side
+        timing_capture.swap_before_holder = h.offense_actor
+    elseif h.name == "possession_swap_complete" then
+        handoff_emu_frame = h.emu_frame
+        timing_capture.swap_complete_mailbox = h.sfx_mailbox
+        timing_capture.swap_after_side = h.offense_side
+        timing_capture.swap_after_holder = h.offense_actor
+    end
+end
+
+local function two_point_timing_evidence_valid()
+    if not profile.require_timing_evidence then return true end
+    local contract = profile.timing_contract
+    if contract == nil then return false end
+    local required = {
+        "shot_classifier", "point_classifier_local", "two_point_return_local",
+        "ball_release", "ordinary_direction_remap_ready",
+        "shot_result", "decision_anchor", "terminal_make_bit7_clear",
+        "flight_target_setup", "flight_target_slot10_selected",
+        "target_motion_solver", "flight_target_ready",
+        "flight_state5_update", "flight_state5_hold_return",
+        "flight_state7_store_boundary", "result_state7_dispatch",
+        "made_stat_update", "score_apply", "score_committed",
+        "state08_route_boundary", "state09_route_entry",
+        "possession_transition_gate", "possession_swap_entry",
+        "possession_swap_complete"
+    }
+    for _, name in ipairs(required) do
+        if hook_first_order[name] == nil then return false end
+    end
+    local ordered = hook_first_order.shot_classifier <
+        hook_first_order.point_classifier_local and
+        hook_first_order.point_classifier_local <
+            hook_first_order.two_point_return_local and
+        hook_first_order.two_point_return_local <
+            hook_first_order.ball_release and
+        hook_first_order.ball_release <
+            hook_first_order.ordinary_direction_remap_ready and
+        hook_first_order.ordinary_direction_remap_ready <
+            hook_first_order.shot_result and
+        hook_first_order.shot_result <
+            hook_first_order.decision_anchor and
+        hook_first_order.decision_anchor <
+            hook_first_order.terminal_make_bit7_clear and
+        hook_first_order.terminal_make_bit7_clear <
+            hook_first_order.flight_target_setup and
+        hook_first_order.flight_target_setup <
+            hook_first_order.flight_target_slot10_selected and
+        hook_first_order.flight_target_slot10_selected <
+        hook_first_order.target_motion_solver and
+        hook_first_order.target_motion_solver <
+            hook_first_order.flight_target_ready and
+        hook_first_order.flight_target_ready <
+            hook_first_order.flight_state5_update and
+        hook_last_order.flight_state5_update <
+            hook_first_order.flight_state5_hold_return and
+        hook_first_order.flight_state5_hold_return <
+            hook_first_order.flight_state7_store_boundary and
+        hook_first_order.flight_state7_store_boundary <
+            hook_first_order.result_state7_dispatch and
+        hook_first_order.result_state7_dispatch <
+            hook_first_order.made_stat_update and
+        hook_first_order.made_stat_update < hook_first_order.score_apply and
+        hook_first_order.score_apply < hook_first_order.score_committed and
+        hook_first_order.score_committed <
+            hook_first_order.state08_route_boundary and
+        hook_last_order.state08_route_boundary <
+            hook_first_order.state09_route_entry and
+        hook_first_order.state09_route_entry <
+            hook_first_order.possession_transition_gate and
+        hook_first_order.possession_transition_gate <
+            hook_first_order.possession_swap_entry and
+        hook_first_order.possession_swap_entry <
+            hook_first_order.possession_swap_complete
+    local snapshots =
+        timing_capture.pre_remap_direction ==
+            contract.pre_remap_direction and
+        timing_capture.post_remap_direction ==
+            contract.post_remap_direction and
+        timing_capture.launch_direction == contract.launch_direction and
+        timing_capture.launch_phase_low == contract.launch_phase_low and
+        timing_capture.launch_close_mode == contract.launch_close_mode and
+        timing_capture.solver_direction == contract.launch_direction and
+        timing_capture.solver_phase_low == contract.launch_phase_low and
+        timing_capture.solver_close_mode == contract.launch_close_mode and
+        timing_capture.target_x == contract.target_x and
+        timing_capture.target_y == contract.target_y and
+        timing_capture.slot10_count == contract.slot10_count and
+        timing_capture.slot10_altitude == contract.slot10_altitude and
+        timing_capture.slot10_altitude_velocity ==
+            contract.slot10_altitude_velocity and
+        timing_capture.slot10_x - timing_capture.shooter_x ==
+            contract.slot10_x_offset and
+        timing_capture.slot10_y - timing_capture.shooter_y ==
+            contract.slot10_y_offset and
+        timing_capture.slot10_horizontal_velocity >=
+            contract.slot10_horizontal_velocity_min and
+        timing_capture.slot10_horizontal_velocity <=
+            contract.slot10_horizontal_velocity_max and
+        timing_capture.slot10_vertical_velocity >=
+            contract.slot10_vertical_velocity_min and
+        timing_capture.slot10_vertical_velocity <=
+            contract.slot10_vertical_velocity_max and
+        timing_capture.score_shot_clock == contract.score_shot_clock and
+        timing_capture.transition_mailbox ==
+            contract.terminal_sfx_mailbox and
+        timing_capture.swap_entry_mailbox ==
+            contract.terminal_sfx_mailbox and
+        timing_capture.swap_complete_mailbox ==
+            contract.terminal_sfx_mailbox
+    local exact_counts =
+        hook_seen_count.shot_classifier == 1 and
+        hook_seen_count.point_classifier_local == 1 and
+        hook_seen_count.two_point_return_local == 1 and
+        hook_seen_count.ball_release == 1 and
+        hook_seen_count.ordinary_direction_remap_ready == 1 and
+        hook_seen_count.shot_result == 1 and
+        hook_seen_count.decision_anchor == 1 and
+        hook_seen_count.terminal_make_bit7_clear == 1 and
+        (hook_seen_count.terminal_miss_bit7_set or 0) == 0 and
+        (hook_seen_count.close_launch or 0) == 0 and
+        hook_seen_count.flight_target_setup == 1 and
+        hook_seen_count.flight_target_slot10_selected == 1 and
+        hook_seen_count.target_motion_solver == 1 and
+        hook_seen_count.flight_target_ready == 1 and
+        b100_entry_count == contract.flight_state5_updates and
+        hook_seen_count.flight_state5_hold_return == 1 and
+        hook_seen_count.flight_state7_store_boundary == 1 and
+        hook_seen_count.result_state7_dispatch == 1 and
+        hook_seen_count.made_stat_update == 1 and
+        hook_seen_count.score_apply == 1 and
+        hook_seen_count.score_committed == 1 and
+        hook_seen_count.state08_route_boundary ==
+            contract.state08_route_updates and
+        hook_seen_count.state09_route_entry == 1 and
+        hook_seen_count.possession_transition_gate == 1 and
+        hook_seen_count.possession_swap_entry == 1 and
+        hook_seen_count.possession_swap_complete == 1
+    local exact_frames =
+        hook_first_frame.shot_result == hook_first_frame.decision_anchor and
+        hook_first_frame.decision_anchor ==
+            hook_first_frame.terminal_make_bit7_clear and
+        hook_first_frame.state09_route_entry ==
+            hook_first_frame.possession_transition_gate and
+        hook_first_frame.possession_transition_gate ==
+            hook_first_frame.possession_swap_entry and
+        hook_first_frame.possession_swap_entry ==
+            hook_first_frame.possession_swap_complete
+    local exact_score = timing_capture.score_before0 == pre_score0 and
+        timing_capture.score_before1 == pre_score1 and
+        timing_capture.score_after0 - timing_capture.score_before0 ==
+            profile.expected_score_delta and
+        timing_capture.score_after1 == timing_capture.score_before1
+    local deltas = release_emu_frame >= 0 and score_emu_frame >= release_emu_frame and
+        handoff_emu_frame >= score_emu_frame
+    local actual_swap =
+        timing_capture.swap_before_side == possession_at_input and
+        timing_capture.swap_after_side == 1 - possession_at_input and
+        timing_capture.swap_before_holder >= 0 and
+        timing_capture.swap_after_holder >= 0 and
+        timing_capture.swap_before_holder ~= timing_capture.swap_after_holder
+    return ordered and snapshots and exact_counts and exact_frames and exact_score and
+        deltas and actual_swap
 end
 
 local function save_screenshot(label)
@@ -297,12 +620,56 @@ local function register_hook(hook)
                 return
             end
             local miss_selector = rb(R.miss_variant_selector)
+            local offense_actor = rb(R.offense_actor)
+            hook_order = hook_order + 1
+            local hook_a = safe_register("a")
+            local target_x = word(R.flight_target_x_lo, R.flight_target_x_hi)
+            local target_y = word(R.flight_target_y_lo, R.flight_target_y_hi)
             hook_queue[#hook_queue + 1] = {
                 name = hook.name, address = hook.address, bank = bank,
+                order = hook_order, lab_frame = frame,
                 emu_frame = safe_frame(), pc = safe_register("pc"),
-                a = safe_register("a"), x = safe_register("x"), y = safe_register("y"),
+                a = hook_a, x = safe_register("x"), y = safe_register("y"),
+                mapper_select = bank_select,
+                mapper_bank6 = bank_registers[7],
+                mapper_bank7 = bank_registers[8],
                 shot_flags = rb(R.shot_flags),
                 point_value = rb(R.point_value),
+                offense_actor = offense_actor,
+                defense_actor = rb(R.defense_actor),
+                offense_side = rb(R.offense_side),
+                defense_side = rb(R.defense_side),
+                control0 = rb(R.control0),
+                control1 = rb(R.control1),
+                score0 = score(0),
+                score1 = score(1),
+                shot_clock = rb(R.shot_clock),
+                close_mode = rb(R.close_mode),
+                shooter_facing = offense_actor <= 9 and
+                    rb(R.actor_facing + offense_actor) or 0xFF,
+                shooter_phase_low = offense_actor <= 9 and
+                    AND(rb(R.actor_phase + offense_actor), 0x0F) or 0xFF,
+                shooter_x = offense_actor <= 9 and
+                    word(R.actor_x_lo + offense_actor,
+                        R.actor_x_hi + offense_actor) or 0xFFFF,
+                shooter_y = offense_actor <= 9 and
+                    rb(R.actor_y + offense_actor) or 0xFF,
+                state08_count = count_actor_state(0x08),
+                target_x = target_x,
+                target_y = target_y,
+                object_slot10_x = word(
+                    R.actor_x_lo + 10,
+                    R.actor_x_hi + 10),
+                object_slot10_y = rb(R.actor_y + 10),
+                object_slot10_count = word(
+                    R.object_slot10_count_lo,
+                    R.object_slot10_count_hi),
+                object_slot10_altitude = word(
+                    R.actor_altitude_lo + 10,
+                    R.actor_altitude_hi + 10),
+                object_slot10_altitude_velocity = word(
+                    R.actor_altitude_velocity_lo + 10,
+                    R.actor_altitude_velocity_hi + 10),
                 miss_selector = miss_selector,
                 miss_selector_low2 = AND(miss_selector, map.miss_variants.selector_mask),
                 miss_selected_target = selected_miss_target(miss_selector),
@@ -318,8 +685,14 @@ local function register_hook(hook)
                     R.saved_object_horizontal_velocity_hi),
                 saved_object_vertical_velocity = word(
                     R.saved_object_vertical_velocity_lo,
-                    R.saved_object_vertical_velocity_hi)
+                    R.saved_object_vertical_velocity_hi),
+                sfx_mailbox = rb(R.sfx_mailbox)
             }
+            if hook.name == "defender_switch_store" and phase == "select_defender" and
+                    switch_request_outstanding and switch_pending_actor < 0 then
+                switch_pending_actor = hook_a
+                switch_pending_frame = safe_frame()
+            end
         end
     end)
 end
@@ -333,16 +706,26 @@ local function flush_hooks()
             return
         end
         emit(events, string.format(
-            "%d,%d,%s,%04X,%02X,%04X,%02X,%02X,%02X,%02X,%02X,%d,%d,%d,%d,%d," ..
-            "%02X,%d,%04X,%02X,%04X,%04X,%04X,%04X\n",
-            frame, h.emu_frame, h.name, h.address, h.bank, h.pc, h.a, h.x, h.y,
-            h.shot_flags, h.point_value, rb(R.offense_side), rb(R.control0), rb(R.control1),
-            score(0), score(1), h.miss_selector, h.miss_selector_low2,
+            "%d,%d,%d,%s,%04X,%02X,%02X,%02X,%02X,%04X,%02X,%02X,%02X,%02X," ..
+            "%02X,%d,%d,%d,%d,%d,%d,%d,%d,%d,%02X,%02X,%02X,%04X,%02X,%d," ..
+            "%04X,%04X,%04X,%02X,%04X,%04X,%04X,%02X,%d,%04X,%02X,%04X,%04X,%04X,%04X,%02X\n",
+            h.lab_frame, h.emu_frame, h.order, h.name, h.address, h.bank,
+            h.mapper_select, h.mapper_bank6, h.mapper_bank7, h.pc, h.a, h.x, h.y,
+            h.shot_flags, h.point_value, h.offense_actor, h.defense_actor,
+            h.offense_side, h.defense_side, h.control0, h.control1,
+            h.score0, h.score1, h.shot_clock, h.close_mode, h.shooter_facing,
+            h.shooter_phase_low, h.shooter_x, h.shooter_y, h.state08_count,
+            h.target_x, h.target_y, h.object_slot10_x, h.object_slot10_y,
+            h.object_slot10_count, h.object_slot10_altitude,
+            h.object_slot10_altitude_velocity, h.miss_selector, h.miss_selector_low2,
             h.miss_selected_target, h.object_slot10_state,
             h.object_slot10_horizontal_velocity, h.object_slot10_vertical_velocity,
-            h.saved_object_horizontal_velocity, h.saved_object_vertical_velocity))
+            h.saved_object_horizontal_velocity, h.saved_object_vertical_velocity,
+            h.sfx_mailbox))
+        remember_timing_hook(h)
         if h.name == "ball_release" then
             release_seen = true
+            release_emu_frame = h.emu_frame
             save_screenshot("ball_release")
         elseif h.name == "shot_classifier" and shot_frame >= 0 then
             classifier_seen = true
@@ -355,7 +738,7 @@ local function flush_hooks()
             classified_point_value = h.point_value
         elseif h.name == "decision_anchor" then
             decision_frame = h.emu_frame
-            decision_control0, decision_control1 = rb(R.control0), rb(R.control1)
+            decision_control0, decision_control1 = h.control0, h.control1
             save_screenshot("decision")
         elseif h.name == "terminal_make_bit7_clear" or h.name == "terminal_miss_bit7_set" then
             if h.emu_frame == decision_frame then
@@ -370,7 +753,7 @@ local function flush_hooks()
             save_screenshot("score_apply")
         elseif h.name == "settlement" and shot_frame >= 0 then
             settlement_seen = true
-        elseif h.name == "possession_handoff" and shot_frame >= 0 then
+        elseif h.name == "possession_swap_entry" and shot_frame >= 0 then
             handoff_seen = true
         elseif h.name == "close_launch" and shot_frame >= 0 then
             close_launch_seen = true
@@ -432,6 +815,15 @@ local function pre_action_valid(shooter, ball, ball_distance)
         rb(R.close_mode) == 0
 end
 
+local function movement_pre_action_valid(shooter, ball, ball_distance, button)
+    return live_base_valid() and rb(R.foul_route) == 0 and
+        rb(R.violation_route) == 0 and rb(R.action_gate) == 0 and
+        AND(rb(R.shot_flags), 0x40) == 0 and
+        actor_side(shooter) == rb(R.offense_side) and ball.state == 0 and
+        ball_distance <= map.shot_window.holder_distance and rb(R.close_mode) == 0 and
+        movement_state_valid(shooter, button)
+end
+
 local function write_telemetry()
     telemetry_rows = telemetry_rows + 1
     if telemetry_rows > max_frames then
@@ -481,6 +873,7 @@ local function write_status(state)
     local score1_delta = pre_score1 < 0 and 0 or score(1) - pre_score1
     local point_evidence = point_classifier_seen and point_return_seen and
         classified_point_value == profile.expected_point_value
+    local timing_evidence = two_point_timing_evidence_valid()
     if terminal_count == 1 and release_seen and classifier_seen and result_seen and
             setup_control0 == 0 and setup_control1 == 0 and
             input_control0 == 0 and input_control1 == 0 and
@@ -492,7 +885,8 @@ local function write_status(state)
             if profile.require_point_evidence then
                 pass = profile.expected_make and point_evidence and score_apply_seen and
                     score0_delta == profile.expected_score_delta and score1_delta == 0 and
-                    (handoff_seen or rb(R.offense_side) ~= possession_at_input)
+                    (handoff_seen or rb(R.offense_side) ~= possession_at_input) and
+                    timing_evidence
             else
                 pass = score_apply_seen and (score0_delta == 2 or score0_delta == 3) and
                     score1_delta == 0 and
@@ -505,7 +899,7 @@ local function write_status(state)
     end
     local file = io.open(status_path, "w")
     if not file then return end
-    file:write("schema=TGLAB-3\nschema_version=3\nmap_schema=" .. map.schema .. "\n")
+    file:write("schema=TGLAB-4\nschema_version=4\nmap_schema=" .. map.schema .. "\n")
     file:write("profile=" .. profile_name .. "\n")
     file:write("script_sha256=" .. script_hash .. "\nmap_sha256=" .. map_hash .. "\n")
     file:write("rom_sha256=" .. rom_hash .. "\nfceux_sha256=" .. fceux_hash .. "\n")
@@ -520,6 +914,65 @@ local function write_status(state)
     file:write("expected_point_value=" .. profile.expected_point_value .. "\n")
     file:write("result_seen=" .. tostring(result_seen) .. "\nscore_apply_seen=" .. tostring(score_apply_seen) .. "\n")
     file:write("settlement_seen=" .. tostring(settlement_seen) .. "\nhandoff_seen=" .. tostring(handoff_seen) .. "\n")
+    file:write("timing_evidence_valid=" .. tostring(timing_evidence) .. "\n")
+    file:write("defender_cycles_closed=" .. defender_cycles_closed .. "\n")
+    file:write("defender_confirmed_stores=" .. defender_store_total .. "\n")
+    file:write("defender_cycle_unique_actors=" .. switch_unique_count .. "\n")
+    file:write("holder_passes=" .. defender_passes .. "\nholder_changes=" .. holder_changes .. "\n")
+    file:write("b100_entry_count=" .. b100_entry_count .. "\n")
+    file:write("captured_target=" .. timing_capture.target_x .. "," ..
+        timing_capture.target_y .. "\n")
+    file:write("captured_shooter_position=" .. timing_capture.shooter_x .. "," ..
+        timing_capture.shooter_y .. "\n")
+    file:write("captured_slot10_position=" .. timing_capture.slot10_x .. "," ..
+        timing_capture.slot10_y .. "\n")
+    file:write("captured_slot10_count=" .. timing_capture.slot10_count .. "\n")
+    file:write("captured_slot10_altitude=" ..
+        timing_capture.slot10_altitude .. "\n")
+    file:write("captured_slot10_altitude_velocity=" ..
+        timing_capture.slot10_altitude_velocity .. "\n")
+    file:write("captured_slot10_horizontal_velocity=" ..
+        timing_capture.slot10_horizontal_velocity .. "\n")
+    file:write("captured_slot10_vertical_velocity=" ..
+        timing_capture.slot10_vertical_velocity .. "\n")
+    file:write("captured_pre_remap_direction=" ..
+        timing_capture.pre_remap_direction .. "\n")
+    file:write("captured_post_remap_direction=" ..
+        timing_capture.post_remap_direction .. "\n")
+    file:write("captured_launch_direction=" ..
+        timing_capture.launch_direction .. "\n")
+    file:write("captured_launch_phase_low=" ..
+        timing_capture.launch_phase_low .. "\n")
+    file:write("captured_launch_close_mode=" ..
+        timing_capture.launch_close_mode .. "\n")
+    file:write("captured_solver_direction=" ..
+        timing_capture.solver_direction .. "\n")
+    file:write("captured_solver_phase_low=" ..
+        timing_capture.solver_phase_low .. "\n")
+    file:write("captured_solver_close_mode=" ..
+        timing_capture.solver_close_mode .. "\n")
+    file:write("captured_score_shot_clock=" ..
+        timing_capture.score_shot_clock .. "\n")
+    file:write("captured_terminal_mailboxes=" ..
+        timing_capture.transition_mailbox .. "," ..
+        timing_capture.swap_entry_mailbox .. "," ..
+        timing_capture.swap_complete_mailbox .. "\n")
+    file:write("state08_route_updates=" ..
+        (hook_seen_count.state08_route_boundary or 0) .. "\n")
+    file:write("score_apply_snapshot=" .. timing_capture.score_before0 .. "," ..
+        timing_capture.score_before1 .. "\n")
+    file:write("score_commit_snapshot=" .. timing_capture.score_after0 .. "," ..
+        timing_capture.score_after1 .. "\n")
+    file:write("score_frame_delta=" ..
+        ((release_emu_frame < 0 or score_emu_frame < 0) and -1 or
+            score_emu_frame - release_emu_frame) .. "\n")
+    file:write("handoff_frame_delta=" ..
+        ((release_emu_frame < 0 or handoff_emu_frame < 0) and -1 or
+            handoff_emu_frame - release_emu_frame) .. "\n")
+    file:write("actual_swap=" .. timing_capture.swap_before_side .. "," ..
+        timing_capture.swap_after_side .. "," ..
+        timing_capture.swap_before_holder .. "," ..
+        timing_capture.swap_after_holder .. "\n")
     file:write("setup_control_pair=" .. setup_control0 .. "," .. setup_control1 .. "\n")
     file:write("input_control_pair=" .. input_control0 .. "," .. input_control1 .. "\n")
     file:write("decision_control_pair=" .. decision_control0 .. "," .. decision_control1 .. "\n")
@@ -673,14 +1126,16 @@ while not stopped do
             stable_holder = stable_holder + 1
             if stable_holder >= 8 then
                 holder_proven = true
+                proven_holder_actor = shooter.index
+                holder_seen[shooter.index] = true
                 if front >= 0 then
-                    selected_threat = front
-                    switch_attempts = 0
-                    set_phase("select_defender", "front threat requires controlled clearance")
+                    reset_defender_cycle(front,
+                        "front threat requires confirmed defensive cycle")
                 else
                     best_distance = 99999
                     progress_deadline = frame + map.shot_window.progress_deadline
-                    set_phase("position_shooter", "stable holder acquired")
+                    begin_movement_neutral("position_shooter",
+                        "stable holder acquired")
                 end
             end
         else
@@ -692,48 +1147,241 @@ while not stopped do
         end, error_text)
     elseif phase == "select_defender" then
         step_ok, step_failure = xpcall(function()
-        local shooter, _, _, _, front = scan_world()
-        if not live_base_valid() or rb(R.offense_side) ~= map.supported_offense_side then
+        local shooter, ball, _, _, front, _, ball_distance = scan_world()
+        if shooter.index ~= proven_holder_actor or
+                not pre_action_valid(shooter, ball, ball_distance) or
+                rb(R.offense_side) ~= map.supported_offense_side then
             fail("defender selection invariant mismatch")
-        elseif front < 0 then
+        elseif front < 0 and switch_pending_actor < 0 and
+                not switch_request_outstanding then
             best_distance = 99999
             progress_deadline = frame + map.shot_window.progress_deadline
-            set_phase("position_shooter", "threat cleared before selection")
+            begin_movement_neutral("position_shooter",
+                "threat cleared before selection")
+        elseif switch_pending_actor >= 0 then
+            if safe_frame() ~= switch_pending_frame + 1 or
+                    switch_pending_actor > 9 or
+                    rb(R.defense_actor) ~= switch_pending_actor then
+                fail("defender switch store did not commit on next frame")
+            else
+                local confirmed = switch_pending_actor
+                switch_pending_actor, switch_pending_frame = -1, -1
+                switch_request_outstanding = false
+                defender_store_total = defender_store_total + 1
+                if not switch_seen[confirmed] then
+                    switch_seen[confirmed] = true
+                    switch_unique_count = switch_unique_count + 1
+                end
+                if confirmed ~= switch_origin then switch_saw_different = true end
+                if defender_store_total > map.shot_window.defender_store_cap then
+                    fail("pilot exceeded confirmed defensive-store cap")
+                elseif front < 0 then
+                    best_distance = 99999
+                    progress_deadline =
+                        frame + map.shot_window.progress_deadline
+                    begin_movement_neutral("position_shooter",
+                        "threat cleared after confirmed store")
+                elseif front ~= selected_threat then
+                    reset_defender_cycle(front,
+                        "front threat identity changed after confirmed store")
+                elseif confirmed == selected_threat then
+                    best_distance = distance(shooter, actor(selected_threat))
+                    progress_deadline = frame + map.shot_window.progress_deadline
+                    begin_movement_neutral("move_defender", "threat selected by confirmed store")
+                elseif switch_saw_different and confirmed == switch_origin then
+                    defender_cycles_closed = defender_cycles_closed + 1
+                    if not profile.allow_holder_passes then
+                        fail("defensive cycle closed without selecting threat")
+                    elseif defender_passes >= map.shot_window.holder_transfer_cap then
+                        fail("holder transfer cap reached")
+                    else
+                        pass_origin_holder = rb(R.offense_actor)
+                        pass_origin_side = rb(R.offense_side)
+                        pass_score0, pass_score1 = score(0), score(1)
+                        pass_pulsed = false
+                        set_phase("pass_neutral",
+                            "threat absent from closed defensive cycle")
+                    end
+                elseif defender_store_total >= map.shot_window.defender_store_cap then
+                    fail("pilot reached confirmed defensive-store cap")
+                end
+            end
+        elseif switch_request_outstanding then
+            if frame > switch_request_deadline then
+                fail("defensive A store confirmation deadline")
+            else
+                last_action = "await_defender_store"
+            end
+        elseif front ~= selected_threat then
+            reset_defender_cycle(front, "front threat identity changed")
         elseif rb(R.defense_actor) == selected_threat then
             best_distance = distance(shooter, actor(selected_threat))
             progress_deadline = frame + map.shot_window.progress_deadline
-            move_pulse = false
-            set_phase("move_defender", "threat selected")
-        elseif switch_attempts >= 10 then
-            fail("defensive A-cycle could not select threat")
-        elseif not switch_pulse then
-            switch_origin = rb(R.defense_actor)
-            local port = rb(R.defense_side) + 1
-            local p1, p2 = routed_pads(port, "A")
-            apply_pads(p1, p2)
-            last_action = "defense_A_edge"
-            switch_pulse = true
-            switch_attempts = switch_attempts + 1
+            begin_movement_neutral("move_defender",
+                "threat already selected")
+        elseif defender_store_total >= map.shot_window.defender_store_cap then
+            fail("pilot reached confirmed defensive-store cap")
         else
-            switch_pulse = false
-            last_action = "observe_defense_selection"
-            if rb(R.defense_actor) == switch_origin then
-                -- One neutral observation frame is allowed; the next loop
-                -- emits another edge rather than assuming Bank06's cycle.
+            local port = rb(R.defense_side) + 1
+            if controller_readback(port) == 0 then
+                local p1, p2 = routed_pads(port, "A")
+                apply_pads(p1, p2)
+                last_action = "defense_A_confirmed_request"
+                switch_request_outstanding = true
+                switch_request_deadline = frame + map.shot_window.progress_deadline
+            else
+                last_action = "defense_neutral_gate"
             end
+        end
+        end, error_text)
+    elseif phase == "pass_neutral" then
+        step_ok, step_failure = xpcall(function()
+        local shooter, ball, _, _, _, _, ball_distance = scan_world()
+        if not live_base_valid() or rb(R.offense_side) ~= pass_origin_side or
+                rb(R.offense_actor) ~= pass_origin_holder or
+                score(0) ~= pass_score0 or score(1) ~= pass_score1 or
+                not pre_action_valid(shooter, ball, ball_distance) then
+            fail("holder pass neutral gate lost possession/score/safe route")
+        elseif controller_readback(1) == 0 and controller_readback(2) == 0 then
+            set_phase("pass_pulse", "both controller readbacks neutral")
+        else
+            last_action = "pass_neutral_gate"
+        end
+        end, error_text)
+    elseif phase == "pass_pulse" then
+        step_ok, step_failure = xpcall(function()
+        local shooter, ball, _, _, _, _, ball_distance = scan_world()
+        if pass_pulsed then
+            fail("offense pass pulse repeated")
+        elseif not live_base_valid() or rb(R.offense_side) ~= pass_origin_side or
+                rb(R.offense_actor) ~= pass_origin_holder or
+                score(0) ~= pass_score0 or score(1) ~= pass_score1 or
+                not pre_action_valid(shooter, ball, ball_distance) or
+                controller_readback(rb(R.offense_side) + 1) ~= 0 then
+            fail("holder pass pulse lost neutral safe context")
+        else
+            local p1, p2 = routed_pads(rb(R.offense_side) + 1, "A")
+            apply_pads(p1, p2)
+            last_action = "offense_A_single_pass"
+            pass_pulsed = true
+            pass_deadline = frame + map.shot_window.holder_transfer_deadline
+            set_phase("pass_wait_holder", "single offense A pulse emitted")
+        end
+        end, error_text)
+    elseif phase == "pass_wait_holder" then
+        step_ok, step_failure = xpcall(function()
+        local new_holder = rb(R.offense_actor)
+        if not live_base_valid() or rb(R.offense_side) ~= pass_origin_side then
+            fail("holder pass changed possession or live route")
+        elseif score(0) ~= pass_score0 or score(1) ~= pass_score1 then
+            fail("holder pass changed score")
+        elseif rb(R.foul_route) ~= 0 or rb(R.violation_route) ~= 0 or
+                rb(R.close_mode) ~= 0 then
+            fail("holder pass entered unsupported route")
+        elseif frame > pass_deadline then
+            fail("holder pass transfer deadline")
+        elseif new_holder ~= pass_origin_holder then
+            if new_holder > 9 or holder_seen[new_holder] then
+                fail("holder pass repeated or selected invalid holder")
+            else
+                defender_passes = defender_passes + 1
+                holder_changes = holder_changes + 1
+                holder_seen[new_holder] = true
+                reacquire_actor = new_holder
+                reacquire_stable = 0
+                holder_proven = false
+                proven_holder_actor = -1
+                stable_holder = 0
+                set_phase("reacquire_holder",
+                    "different holder observed after one pass")
+            end
+        else
+            last_action = "await_holder_transfer"
+        end
+        end, error_text)
+    elseif phase == "reacquire_holder" then
+        step_ok, step_failure = xpcall(function()
+        local shooter, ball, _, _, front, _, ball_distance = scan_world()
+        if not live_base_valid() or rb(R.offense_side) ~= pass_origin_side or
+                rb(R.offense_actor) ~= reacquire_actor then
+            fail("reacquire repeated holder or lost possession")
+        elseif score(0) ~= pass_score0 or score(1) ~= pass_score1 then
+            fail("reacquire changed score")
+        elseif rb(R.foul_route) ~= 0 or rb(R.violation_route) ~= 0 or
+                rb(R.close_mode) ~= 0 then
+            fail("reacquire entered unsupported route")
+        elseif frame > pass_deadline then
+            fail("reacquire stable-holder deadline")
+        elseif pre_action_valid(shooter, ball, ball_distance) then
+            reacquire_stable = reacquire_stable + 1
+            if reacquire_stable >= 8 then
+                holder_proven = true
+                proven_holder_actor = shooter.index
+                if front >= 0 then
+                    reset_defender_cycle(front,
+                        "reacquired holder has front threat")
+                else
+                    best_distance = 99999
+                    progress_deadline = frame + map.shot_window.progress_deadline
+                    begin_movement_neutral("position_shooter",
+                        "reacquired holder proven for eight frames")
+                end
+            end
+        else
+            reacquire_stable = 0
+            last_action = "await_stable_reacquired_holder"
+        end
+        end, error_text)
+    elseif phase == "movement_neutral" then
+        step_ok, step_failure = xpcall(function()
+        local shooter, ball, _, _, _, _, ball_distance = scan_world()
+        if shooter.index ~= proven_holder_actor or
+                not movement_pre_action_valid(shooter, ball, ball_distance,
+                    held_direction) or
+                rb(R.offense_side) ~= map.supported_offense_side then
+            fail("movement neutral gate lost live control")
+        elseif controller_readback(1) == 0 and controller_readback(2) == 0 and
+                shooter.state == 0 then
+            local next_phase, reason = movement_next_phase, movement_next_reason
+            movement_next_phase, movement_next_reason = nil, nil
+            held_direction = nil
+            held_direction_port = -1
+            held_direction_actor = -1
+            pending_direction = nil
+            if next_phase == "restart_defender_cycle" then
+                local _, _, _, _, front = scan_world()
+                if front >= 0 then
+                    reset_defender_cycle(front, reason)
+                else
+                    best_distance = 99999
+                    progress_deadline =
+                        frame + map.shot_window.progress_deadline
+                    set_phase("position_shooter",
+                        "front threat cleared during neutral gate")
+                end
+            else
+                set_phase(next_phase, reason)
+            end
+        else
+            last_action = "movement_neutral_gate"
         end
         end, error_text)
     elseif phase == "move_defender" then
         step_ok, step_failure = xpcall(function()
-        local shooter, _, _, _, front = scan_world()
+        local shooter, ball, _, _, front, _, ball_distance = scan_world()
         local defender = actor(selected_threat)
         local d, dx, dy = distance(shooter, defender)
-        if not live_base_valid() or rb(R.defense_actor) ~= selected_threat then
+        if shooter.index ~= proven_holder_actor or
+                not pre_action_valid(shooter, ball, ball_distance) or
+                rb(R.defense_actor) ~= selected_threat then
             fail("controlled defender changed during clearance")
         elseif front < 0 then
             best_distance = 99999
             progress_deadline = frame + map.shot_window.progress_deadline
-            set_phase("position_shooter", "front threat cleared")
+            begin_movement_neutral("position_shooter", "front threat cleared")
+        elseif front ~= selected_threat then
+            begin_movement_neutral("restart_defender_cycle",
+                "front threat identity changed during clearance")
         elseif frame > progress_deadline then
             fail("no defensive coordinate progress")
         else
@@ -741,64 +1389,95 @@ while not stopped do
                 best_distance = d
                 progress_deadline = frame + map.shot_window.progress_deadline
             end
-            if not move_pulse then
-                local button
-                if math.abs(dx) >= math.abs(dy) then
-                    button = dx >= 0 and "left" or "right"
-                else
-                    button = dy >= 0 and "up" or "down"
+            local button
+            if math.abs(dx) >= math.abs(dy) then
+                button = dx >= 0 and "left" or "right"
+            else
+                button = dy >= 0 and "up" or "down"
+            end
+            if not movement_state_valid(defender, held_direction or button) then
+                fail("defender entered non-direction-correlated movement state")
+            elseif pending_direction ~= nil then
+                if controller_readback(rb(R.defense_side) + 1) == 0 and
+                        defender.state == 0 then
+                    held_direction = nil
+                    held_direction_port = -1
+                    held_direction_actor = -1
+                    pending_direction = nil
                 end
+                last_action = "defense_direction_neutral_gate"
+            elseif held_direction ~= nil and held_direction ~= button then
+                pending_direction = button
+                last_action = "defense_direction_change_neutral"
+            elseif held_direction == nil and controller_readback(rb(R.defense_side) + 1) ~= 0 then
+                last_action = "defense_direction_neutral_gate"
+            else
+                held_direction = button
+                held_direction_port = rb(R.defense_side) + 1
+                held_direction_actor = selected_threat
                 local p1, p2 = routed_pads(rb(R.defense_side) + 1, button)
                 apply_pads(p1, p2)
-                last_action = "defense_away_" .. button
-                move_pulse = true
-            else
-                move_pulse = false
-                last_action = "defense_neutral_pulse"
+                last_action = "defense_away_held_" .. button
             end
         end
         end, error_text)
     elseif phase == "position_shooter" then
         step_ok, step_failure = xpcall(function()
         local shooter, ball, _, _, front, _, ball_distance = scan_world()
-        if not pre_action_valid(shooter, ball, ball_distance) then
-            fail("positioning lost holder or entered unsupported action")
+        local dx = 0
+        if shooter.x < map.shot_window.x_min then dx = map.shot_window.x_min - shooter.x
+        elseif shooter.x > map.shot_window.x_max then dx = map.shot_window.x_max - shooter.x end
+        local dy = 0
+        if shooter.y < map.shot_window.y_min then dy = map.shot_window.y_min - shooter.y
+        elseif shooter.y > map.shot_window.y_max then dy = map.shot_window.y_max - shooter.y end
+        local metric = math.abs(dx) + math.abs(dy)
+        local button = nil
+        if metric > 0 then
+            if math.abs(dx) >= math.abs(dy) then button = dx > 0 and "right" or "left"
+            else button = dy > 0 and "down" or "up" end
+        end
+        if shooter.index ~= proven_holder_actor or
+                not movement_pre_action_valid(shooter, ball, ball_distance,
+                held_direction or button) then
+            fail("positioning lost holder or entered unsupported movement state")
         elseif front >= 0 then
-            selected_threat = front
-            switch_attempts, switch_pulse = 0, false
-            set_phase("select_defender", "front threat entered safety window")
+            begin_movement_neutral("restart_defender_cycle",
+                "front threat entered safety window")
         elseif frame - phase_started > map.shot_window.position_deadline then
             fail("shooter positioning deadline")
+        elseif metric == 0 then
+            stable_safe = 0
+            begin_movement_neutral("stable_safe",
+                "shooter entered proven coordinate window")
+        elseif frame > progress_deadline then
+            fail("no shooter coordinate progress")
         else
-            local dx = 0
-            if shooter.x < map.shot_window.x_min then dx = map.shot_window.x_min - shooter.x
-            elseif shooter.x > map.shot_window.x_max then dx = map.shot_window.x_max - shooter.x end
-            local dy = 0
-            if shooter.y < map.shot_window.y_min then dy = map.shot_window.y_min - shooter.y
-            elseif shooter.y > map.shot_window.y_max then dy = map.shot_window.y_max - shooter.y end
-            local metric = math.abs(dx) + math.abs(dy)
-            if metric == 0 then
-                stable_safe = 0
-                set_phase("stable_safe", "shooter entered proven coordinate window")
-            elseif frame > progress_deadline then
-                fail("no shooter coordinate progress")
+            if metric < best_distance then
+                best_distance = metric
+                progress_deadline = frame + map.shot_window.progress_deadline
+            end
+            if pending_direction ~= nil then
+                if controller_readback(rb(R.offense_side) + 1) == 0 and
+                        shooter.state == 0 then
+                    held_direction = nil
+                    held_direction_port = -1
+                    held_direction_actor = -1
+                    pending_direction = nil
+                end
+                last_action = "offense_direction_neutral_gate"
+            elseif held_direction ~= nil and held_direction ~= button then
+                pending_direction = button
+                last_action = "offense_direction_change_neutral"
+            elseif held_direction == nil and
+                    controller_readback(rb(R.offense_side) + 1) ~= 0 then
+                last_action = "offense_direction_neutral_gate"
             else
-                if metric < best_distance then
-                    best_distance = metric
-                    progress_deadline = frame + map.shot_window.progress_deadline
-                end
-                if not move_pulse then
-                    local button
-                    if math.abs(dx) >= math.abs(dy) then button = dx > 0 and "right" or "left"
-                    else button = dy > 0 and "down" or "up" end
-                    local p1, p2 = routed_pads(rb(R.offense_side) + 1, button)
-                    apply_pads(p1, p2)
-                    last_action = "offense_position_" .. button
-                    move_pulse = true
-                else
-                    move_pulse = false
-                    last_action = "offense_neutral_pulse"
-                end
+                held_direction = button
+                held_direction_port = rb(R.offense_side) + 1
+                held_direction_actor = shooter.index
+                local p1, p2 = routed_pads(rb(R.offense_side) + 1, button)
+                apply_pads(p1, p2)
+                last_action = "offense_position_held_" .. button
             end
         end
         end, error_text)
@@ -808,12 +1487,12 @@ while not stopped do
         local in_window = shooter.x >= map.shot_window.x_min and
             shooter.x <= map.shot_window.x_max and shooter.y >= map.shot_window.y_min and
             shooter.y <= map.shot_window.y_max
-        if not pre_action_valid(shooter, ball, ball_distance) or not in_window then
+        if shooter.index ~= proven_holder_actor or
+                not pre_action_valid(shooter, ball, ball_distance) or not in_window then
             fail("stable-safe invariant changed")
         elseif front >= 0 then
-            selected_threat = front
-            switch_attempts, switch_pulse = 0, false
-            set_phase("select_defender", "front threat interrupted stable window")
+            reset_defender_cycle(front,
+                "front threat interrupted stable window")
         else
             stable_safe = stable_safe + 1
             if stable_safe >= map.shot_window.stable_frames then
@@ -882,7 +1561,8 @@ while not stopped do
                         settled = score_apply_seen and
                             score0_delta == profile.expected_score_delta and
                             score1_delta == 0 and
-                            (handoff_seen or rb(R.offense_side) ~= possession_at_input)
+                            (handoff_seen or rb(R.offense_side) ~= possession_at_input) and
+                            two_point_timing_evidence_valid()
                     else
                         settled = score_apply_seen and
                             (score0_delta == 2 or score0_delta == 3) and

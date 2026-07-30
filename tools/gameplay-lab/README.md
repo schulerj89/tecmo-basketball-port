@@ -61,13 +61,54 @@ loop stays top-level to avoid Lua 5.1's function-upvalue limit. The session cont
 compact status and phase files, per-frame actor/ball
 telemetry, Bank05 outcome hooks, focused shot detail, at most eight
 screenshots, and optional FM2. `tecmo_rev1_map.lua` is the only canonical
-address/hook map. Its current schema is TGLM-3, and the matching output schema
-is TGLAB-3. The native C runtime does not read any laboratory output.
+address/hook map. Its current schema is TGLM-4, and the matching output schema
+is TGLAB-4. The native C runtime does not read any laboratory output.
 
 Point telemetry snapshots RAM `$0398` in the bounded hook queue. Mapper-gated
 Bank05 `$B995` and `$B9D7` events prove classifier entry and the orientation-0
 two-point return; status records the selected closed profile, point evidence,
 expected point value, and observed value.
+
+TGLM-4 replaces blind defensive A retries with a confirmed transaction.
+Bank06 `$91CB` is a pre-store hook: the queued candidate must equal `$0309` on
+the next frame. The driver records the current cycle's unique selected
+defenders, succeeds when the front threat is selected, and recognizes a closed
+cycle only after seeing a different actor and returning to the origin. Six
+confirmed stores across the entire pilot is the hard cap. When the threat is
+absent from that closed cycle, only
+`ordinary_two_point_make` may neutralize both pads, emit one offense-A pulse,
+wait at most 90 frames for a different `$0308` holder, and rebuild the holder,
+ball, side, live-route, and score proof for eight stable frames. Repeated
+holders and more than four successful transfers abort.
+
+Controlled movement holds one cardinal input instead of alternating direction
+and neutral every frame. Right/Left/Down/Up admit only actor state
+`1/2/4/8` respectively (or state 0), controller readback must be neutral before
+a direction or controlled port changes, and the 90-frame progress deadline is
+reset only when the relevant coordinate metric improves.
+
+The timing event rows snapshot mapper select/register state, hook order/frame
+and CPU registers, target `$0094-$0097`, object-slot-10 count, altitude and
+velocities, state-08 count, selected actors/sides, and both scores inside the
+callback. Mapper-aware hooks cover the `$8C57/$8C78` direction remap,
+`$AD4E/$AD50`, generic target-motion helper `$B32C`, `$AD68`,
+`$B100/$B139/$B13E`, `$AB73/$AB36`,
+`$BA02/$BA19`, `$AC0A/$AC6A`, and the `$8FB9/$9042` actual possession
+swap. TGLAB-4 status reports cycle/pass/holder counts, target/slot evidence,
+`$B100` entry count, and score/handoff deltas. The two-point profile cannot
+pass without a complete ordered timing record; the default three-point
+baseline does not require this new evidence.
+
+The exact pending two-point route orders `$B995->$B9D7` point value 2 and
+`$91BC->$933B->$942D` MAKE before target flight. It requires raw shooter
+direction `$05` at `$8C57`, direction `$00` at `$8C78` and again at
+`$AD4E/$B32C`, phase low nibble `$05`, close mode `$00`, target
+`$00A0/$008F`, 16-bit slot-10 count `$003C`, slot position shooter `+(2,-1)`,
+altitude `$3900`, altitude velocity `$04EC`, raw H/V velocity bounds
+`$FF88..$FF8F`/`$001D..$0026`, exactly 63 `$B100` entries, one score delta of
+two, exactly 26 `$AC0A` state-08 updates, and SFX mailbox `$0B` throughout the
+same-frame `$8FAD->$8FB9->$9042` swap. Native C enum direction 1 is not
+treated as raw `$0463==1`.
 
 Per-actor telemetry and focused shot detail preserve three distinct raw
 16-bit velocity words without signed interpretation: altitude velocity uses
@@ -92,16 +133,21 @@ existing event-row and tracked-text caps still apply.
 Current limits are intentional: Rev 1 and FCEUX 2.6.6 only; period 1;
 orientation 0; offense side 0; distinct MAN VS MAN teams; ordinary, non-close
 shot only. The default window is `x=$0164..$0170`, `y=$6C..$74`; the closed
-two-point profile uses `x=$0108..$010F`, `y=$6C..$74`. Mirrored movement, the
-defensive A-cycle order, general shot
-selection, close routes, fouls, violations, and arbitrary possession recovery
-are not inferred. An unsupported or unstable context aborts with neutral pads.
+two-point profile uses `x=$0108..$010F`, `y=$6C..$74`. Mirrored movement,
+general defensive cycle order, general shot selection, close routes, fouls,
+violations, and arbitrary possession recovery are not inferred. The only
+recovery is the bounded cycle-closure pass transaction described above. An
+unsupported or unstable context aborts with neutral pads.
+The TGLM-4 controller changes are shared by both profiles; the three-point
+window and acceptance contract are unchanged, but its hardened controller has
+not yet received a new smoke run.
 The bot's front-threat policy uses a conservative `20x12` window, wider than
 the original strict contact box (`abs(dx)<12`, `abs(dy)<7`). If an identified
 threat cannot be selected through observed defensive A edges, the experiment
 aborts instead of pretending the player can be controlled.
 
 The current original-ROM two-point pilot stopped at exactly that guard because
-an AI-controlled front defender could not be selected and cleared. The safe
-abort is useful control evidence, but the two-point pilot has not passed and
-no live native two-point schedule is claimed.
+an AI-controlled front defender could not be selected and cleared. TGLM-4 was
+added to investigate that blocker, but it has not yet produced a successful
+pilot. The earlier safe abort remains useful control evidence; no live native
+two-point schedule is claimed.

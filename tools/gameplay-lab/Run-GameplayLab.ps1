@@ -168,13 +168,19 @@ try {
     }
     $Status = @{}
     foreach ($Line in Get-Content -LiteralPath $StatusPath) {
-        $Parts = $Line -split '=', 2
-        if ($Parts.Count -eq 2) { $Status[$Parts[0]] = $Parts[1] }
+        if ($Line -notmatch '^([a-z0-9_]+)=(.*)$') {
+            throw "Gameplay laboratory status contained a malformed row. Session: $SessionPath"
+        }
+        $Name = $Matches[1]
+        if ($Status.ContainsKey($Name)) {
+            throw "Gameplay laboratory status contained duplicate '$Name'. Session: $SessionPath"
+        }
+        $Status[$Name] = $Matches[2]
     }
     $ExpectedStatus = @{
-        schema = 'TGLAB-3'
-        schema_version = '3'
-        map_schema = 'TGLM-3'
+        schema = 'TGLAB-4'
+        schema_version = '4'
+        map_schema = 'TGLM-4'
         profile = $Profile
         script_sha256 = $ScriptHash
         map_sha256 = $MapHash
@@ -184,6 +190,95 @@ try {
     foreach ($Name in $ExpectedStatus.Keys) {
         if ($Status[$Name] -ne $ExpectedStatus[$Name]) {
             throw "Gameplay laboratory status provenance mismatch for '$Name'. Session: $SessionPath"
+        }
+    }
+    if ($Profile -eq 'ordinary_two_point_make') {
+        $RequiredTimingStatus = @(
+            'timing_evidence_valid', 'defender_cycles_closed',
+            'defender_confirmed_stores', 'defender_cycle_unique_actors',
+            'holder_passes', 'holder_changes', 'b100_entry_count',
+            'captured_target', 'captured_shooter_position',
+            'captured_slot10_position', 'captured_slot10_count',
+            'captured_slot10_altitude', 'captured_slot10_altitude_velocity',
+            'captured_slot10_horizontal_velocity',
+            'captured_slot10_vertical_velocity',
+            'captured_pre_remap_direction', 'captured_post_remap_direction',
+            'captured_launch_direction', 'captured_launch_phase_low',
+            'captured_launch_close_mode', 'captured_solver_direction',
+            'captured_solver_phase_low', 'captured_solver_close_mode',
+            'captured_score_shot_clock', 'state08_route_updates',
+            'captured_terminal_mailboxes',
+            'score_apply_snapshot', 'score_commit_snapshot',
+            'score_frame_delta', 'handoff_frame_delta', 'actual_swap'
+        )
+        foreach ($Name in $RequiredTimingStatus) {
+            if (-not $Status.ContainsKey($Name)) {
+                throw "Gameplay laboratory status omitted '$Name'. Session: $SessionPath"
+            }
+        }
+        foreach ($Name in @(
+            'defender_cycles_closed', 'defender_confirmed_stores',
+            'defender_cycle_unique_actors', 'holder_passes', 'holder_changes',
+            'b100_entry_count', 'captured_slot10_count',
+            'captured_slot10_altitude', 'captured_slot10_altitude_velocity',
+            'captured_slot10_horizontal_velocity',
+            'captured_slot10_vertical_velocity',
+            'captured_pre_remap_direction', 'captured_post_remap_direction',
+            'captured_launch_direction', 'captured_launch_phase_low',
+            'captured_launch_close_mode', 'captured_solver_direction',
+            'captured_solver_phase_low', 'captured_solver_close_mode',
+            'captured_score_shot_clock', 'state08_route_updates',
+            'score_frame_delta', 'handoff_frame_delta'
+        )) {
+            $Parsed = 0
+            if (-not [int]::TryParse($Status[$Name], [ref]$Parsed)) {
+                throw "Gameplay laboratory status '$Name' was malformed. Session: $SessionPath"
+            }
+        }
+        if ($Status['captured_target'] -notmatch '^-?\d+,-?\d+$' -or
+                $Status['captured_shooter_position'] -notmatch '^-?\d+,-?\d+$' -or
+                $Status['captured_slot10_position'] -notmatch '^-?\d+,-?\d+$' -or
+                $Status['score_apply_snapshot'] -notmatch '^-?\d+,-?\d+$' -or
+                $Status['score_commit_snapshot'] -notmatch '^-?\d+,-?\d+$' -or
+                $Status['captured_terminal_mailboxes'] -notmatch '^-?\d+,-?\d+,-?\d+$' -or
+                $Status['actual_swap'] -notmatch '^-?\d+,-?\d+,-?\d+,-?\d+$' -or
+                $Status['timing_evidence_valid'] -notin @('true', 'false')) {
+            throw "Gameplay laboratory timing status was malformed. Session: $SessionPath"
+        }
+        if ($Status['pilot_pass'] -eq 'true' -and
+                $Status['timing_evidence_valid'] -ne 'true') {
+            throw "Gameplay laboratory two-point pass lacked timing evidence. Session: $SessionPath"
+        }
+        if ($Status['pilot_pass'] -eq 'true') {
+            $ExactTimingStatus = @{
+                captured_target = '160,143'
+                captured_slot10_count = '60'
+                captured_slot10_altitude = '14592'
+                captured_slot10_altitude_velocity = '1260'
+                captured_pre_remap_direction = '5'
+                captured_post_remap_direction = '0'
+                captured_launch_direction = '0'
+                captured_launch_phase_low = '5'
+                captured_launch_close_mode = '0'
+                captured_solver_direction = '0'
+                captured_solver_phase_low = '5'
+                captured_solver_close_mode = '0'
+                captured_score_shot_clock = '24'
+                b100_entry_count = '63'
+                state08_route_updates = '26'
+                captured_terminal_mailboxes = '11,11,11'
+            }
+            foreach ($Name in $ExactTimingStatus.Keys) {
+                if ($Status[$Name] -ne $ExactTimingStatus[$Name]) {
+                    throw "Gameplay laboratory two-point pass violated exact '$Name'. Session: $SessionPath"
+                }
+            }
+            $HorizontalVelocity = [int]$Status['captured_slot10_horizontal_velocity']
+            $VerticalVelocity = [int]$Status['captured_slot10_vertical_velocity']
+            if ($HorizontalVelocity -lt 65416 -or $HorizontalVelocity -gt 65423 -or
+                    $VerticalVelocity -lt 29 -or $VerticalVelocity -gt 38) {
+                throw "Gameplay laboratory two-point pass violated exact velocity bounds. Session: $SessionPath"
+            }
         }
     }
     if ($Status['final_pads_neutral'] -ne 'true') {

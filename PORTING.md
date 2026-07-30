@@ -59,7 +59,9 @@ The tracked gameplay laboratory under `tools/gameplay-lab` is explicitly
 outside the native product. It is a revision-locked research instrument that
 can read original-game RAM and mapper state, drive two complete controller
 tables, and record bounded local telemetry. It has two closed orientation-0,
-offense-side-0 MAN VS MAN profiles: the unchanged three-point baseline and
+offense-side-0 MAN VS MAN profiles: the three-point baseline's unchanged
+window/acceptance contract (the shared TGLM-4 controller is not yet
+smoke-tested against it) and
 `ordinary_two_point_make`, which exposes only `x=$0108..$010F`,
 `y=$6C..$74` and requires point value 2, terminal MAKE, and score delta 2.
 Unknown possessions,
@@ -67,7 +69,7 @@ presentations, close routes, fouls, violations, mirrored movement, failed
 coordinate progress, and missing hook evidence abort instead of becoming
 generalized rules.
 
-The lab's TGLM-3 address map and TGLAB-3 output schema are provenance for
+The lab's TGLM-4 address map and TGLAB-4 output schema are provenance for
 research conclusions, not asset-pack entries. They distinguish raw 16-bit
 altitude velocity (`$049A/$04A5`), horizontal velocity (`$04E7/$04F2`), and
 vertical velocity (`$04FD/$0508`). Accepted hooks snapshot direct
@@ -82,8 +84,22 @@ them. Ported behavior still requires a separately justified ROM-derived asset
 contract and native C implementation.
 
 The current original-ROM two-point pilot stopped safely when an AI-controlled
-front defender could not be selected and cleared. That validates the
-fail-closed invariant only; it is not a passed two-point pilot.
+front defender could not be selected and cleared. The tracked driver now
+requires a next-frame `$91CB->$0309` store confirmation, permits at most six
+confirmed defensive stores across the entire pilot, and lets only the
+two-point profile attempt
+up to four one-pulse passes with eight-frame holder reacquisition. TGLAB-4 also
+captures target-motion, slot-10, scoring, and actual `$8FB9/$9042` swap evidence
+at hook time and fails the profile closed when required timing evidence is
+missing or malformed. Its exact pending route orders point value 2 through
+`$B995->$B9D7` and MAKE through `$91BC->$933B->$942D`, then requires the
+`$8C57/$8C78` raw-direction `$05->$00` remap, direction `$00`/phase-low
+`$05`/close `$00` at `$AD4E/$B32C`, target `$00A0/$008F`, 16-bit count
+`$003C`, slot position shooter `+(2,-1)`, altitude `$3900`, altitude velocity
+`$04EC`, raw H/V velocity bounds `$FF88..$FF8F`/`$001D..$0026`, 63 `$B100`
+entries, 26 state-08 updates, one +2 score commit, and SFX mailbox `$0B`
+throughout the same-frame actual swap. This upgrade has not been run as a
+successful pilot and does not extend native two-point support.
 
 ## Runtime Boundary
 
