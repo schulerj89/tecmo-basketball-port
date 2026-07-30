@@ -23,6 +23,15 @@
 #define TECMO_GAMEPLAY_CLOSE_DISTANCE_X 48
 #define TECMO_GAMEPLAY_DRIBBLE_CADENCE 24U
 #define TECMO_GAMEPLAY_JUMP_SLOT0_DURATION 87U
+#define TECMO_GAMEPLAY_JUMP_RATTLE_DURATION 103U
+#define TECMO_GAMEPLAY_JUMP_RATTLE_BEGIN_FRAME 73U
+#define TECMO_GAMEPLAY_JUMP_RATTLE_HANDOFF_FRAME 89U
+#define TECMO_GAMEPLAY_JUMP_RATTLE_FRAME_SHIFT 16U
+/* Captured side-0 incoming horizontal velocity $FD2C. */
+#define TECMO_GAMEPLAY_JUMP_RATTLE_CAPTURED_INCOMING_X_Q6 (-724)
+/* Bank05 $AD4E launches at the side target selected by $BDEF-$BDF2,
+   with the shared target Y loaded as $8F. */
+#define TECMO_GAMEPLAY_JUMP_RATTLE_SOURCE_TARGET_Y 0x008F
 #define TECMO_GAMEPLAY_JUMP_MAKE_DURATION 111U
 #define TECMO_GAMEPLAY_JUMP_MAKE_RELEASE_FRAME 9U
 #define TECMO_GAMEPLAY_JUMP_MAKE_DECISION_FRAME 19U
@@ -272,7 +281,7 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
     }
     scene->available = true;
     scene_set_status(scene,
-                     "native gameplay ready: TGPL-1/TGCT-1/TGCS-1/TGDK-1/TGJS-1/TGSR-1/TSFX-1/TDMC-1");
+                     "native gameplay ready: TGPL-1/TGCT-1/TGCS-1/TGDK-1/TGJS-1/TGSR-2/TSFX-1/TDMC-1");
     return true;
 }
 
@@ -306,6 +315,11 @@ static void scene_clear_jump_playback(TecmoGameplayScene *scene)
     scene->jump_b_released = false;
     scene->jump_outcome = TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN;
     scene->jump_actor_landed = false;
+    scene->jump_rim_rattle_debug = false;
+    scene->jump_rim_rattle_raw_selector = 0U;
+    scene->jump_rim_rattle_audio_repeats = 0U;
+    memset(&scene->jump_rim_rattle, 0,
+           sizeof(scene->jump_rim_rattle));
 }
 
 static bool scene_controller_team_valid(uint8_t team)
@@ -804,6 +818,45 @@ static bool scene_start_shot(TecmoGameplayScene *scene,
                                   scene->controlled_actor[controller]);
 }
 
+bool tecmo_gameplay_scene_start_rim_rattle_debug(
+    TecmoGameplayScene *scene)
+{
+    TecmoGameplayScene candidate;
+    uint8_t actor;
+    if (scene == NULL || !scene->available || !scene->active ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        scene->launch.controller_team[0U] != TECMO_GAMEPLAY_TEAM_AWAY) {
+        return false;
+    }
+    actor = scene->controlled_actor[0U];
+    if (actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->ball_holder != actor ||
+        scene->actors[actor].team != TECMO_GAMEPLAY_TEAM_AWAY ||
+        !scene->actors[actor].facing_right) {
+        return false;
+    }
+
+    /* This is an explicit deterministic diagnostic setup, not a live selector
+       or make/miss policy. Serial 2 is the already-covered native miss branch.
+       Shot setup has several fail-closed branches after it starts mutating
+       scene state, so stage the diagnostic in a shallow candidate. The setup
+       performs no allocation and owns no external writes. */
+    candidate = *scene;
+    candidate.action_serial = 1U;
+    if (!scene_start_shot_actor(&candidate, 0U, actor) ||
+        candidate.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+        candidate.jump_make_route ||
+        candidate.shot_duration != TECMO_GAMEPLAY_JUMP_SLOT0_DURATION) {
+        return false;
+    }
+    candidate.jump_rim_rattle_debug = true;
+    candidate.jump_rim_rattle_raw_selector = 0x71U;
+    candidate.shot_duration = TECMO_GAMEPLAY_JUMP_RATTLE_DURATION;
+    *scene = candidate;
+    return true;
+}
+
 static bool scene_shot_will_score(const TecmoGameplayScene *scene)
 {
     const TecmoGameplaySceneActor *actor;
@@ -1018,6 +1071,49 @@ static void scene_update_jump_ball_position(TecmoGameplayScene *scene)
         scene->ball_x_q8 = scene->shot_end_x_q8;
         scene->ball_y_q8 = scene->shot_end_y_q8;
     }
+}
+
+static bool scene_map_rim_rattle_ball_position(
+    TecmoGameplayScene *scene,
+    const TecmoGameplayShotRimRattle *rattle)
+{
+    const TecmoGameplayCloseShotSourceSpan *source;
+    uint16_t source_target_x;
+    uint16_t source_snap_x;
+    int32_t relative_x;
+    int32_t relative_y;
+    if (scene == NULL || rattle == NULL ||
+        rattle->orientation >=
+            TECMO_GAMEPLAY_SHOT_RIM_RATTLE_ORIENTATION_COUNT) {
+        return false;
+    }
+    source = tecmo_gameplay_close_shots_find_source(
+        &scene->close_shots,
+        TECMO_GAMEPLAY_CLOSE_SHOT_SOURCE_BANK05_BDEF_BDF6);
+    if (source == NULL || source->bytes == NULL ||
+        source->byte_count != 8U || source->cpu_start != 0xBDEFU ||
+        source->cpu_end != 0xBDF6U) {
+        return false;
+    }
+    source_target_x = (uint16_t)(
+        (uint16_t)source->bytes[rattle->orientation] |
+        ((uint16_t)source->bytes[2U + rattle->orientation] << 8U));
+    source_snap_x = (uint16_t)(
+        (uint16_t)source->bytes[4U + rattle->orientation] |
+        ((uint16_t)source->bytes[6U + rattle->orientation] << 8U));
+    if (source_snap_x !=
+            scene->shot_resolution.rim_rattle.orientation_start_x[
+                rattle->orientation] ||
+        scene->shot_resolution.rim_rattle.start_y !=
+            TECMO_GAMEPLAY_JUMP_RATTLE_SOURCE_TARGET_Y + 4U) {
+        return false;
+    }
+    relative_x = (int32_t)rattle->x - (int32_t)source_target_x;
+    relative_y = (int32_t)rattle->y -
+                 TECMO_GAMEPLAY_JUMP_RATTLE_SOURCE_TARGET_Y;
+    scene->ball_x_q8 = scene->shot_end_x_q8 + relative_x * 256;
+    scene->ball_y_q8 = scene->shot_end_y_q8 + relative_y * 256;
+    return true;
 }
 
 static void scene_update_jump_make_ball_position(TecmoGameplayScene *scene)
@@ -1253,11 +1349,18 @@ static bool scene_update_jump_miss(
     TecmoGameplaySceneActor *actor;
     TecmoGameplayShotOutcome outcome;
     uint16_t next_frame;
+    uint16_t route_frame;
     bool landed = false;
+    bool rattle_position_owned = false;
+    bool repeat_dmc = false;
+    bool rattle_completed = false;
     if (!scene->jump_oracle_active || scene->jump_make_route ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
         scene->shot_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
-        scene->shot_duration != TECMO_GAMEPLAY_JUMP_SLOT0_DURATION ||
+        scene->shot_duration !=
+            (scene->jump_rim_rattle_debug
+                 ? TECMO_GAMEPLAY_JUMP_RATTLE_DURATION
+                 : TECMO_GAMEPLAY_JUMP_SLOT0_DURATION) ||
         scene->shot_frame == 0U ||
         scene->shot_frame > scene->shot_duration ||
         scene->shot_controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT ||
@@ -1307,6 +1410,7 @@ static bool scene_update_jump_miss(
     next_frame = (uint16_t)(scene->shot_frame + 1U);
     if (next_frame > scene->shot_duration) return false;
     scene->shot_frame = next_frame;
+    route_frame = next_frame;
 
     if (next_frame >= 4U && next_frame <= 40U &&
         !scene->jump_actor_landed) {
@@ -1343,17 +1447,85 @@ static bool scene_update_jump_miss(
         actor->pose_index = TECMO_GAMEPLAY_JUMP_SLOT0_IDLE_POSE;
     }
 
-    if (next_frame == 5U) {
+    if (scene->jump_rim_rattle_debug &&
+        next_frame == TECMO_GAMEPLAY_JUMP_RATTLE_BEGIN_FRAME) {
+        TecmoGameplayShotRimRoute route;
+        if (!tecmo_gameplay_shot_resolution_resolve_rim_route(
+                &scene->shot_resolution,
+                scene->jump_rim_rattle_raw_selector, &route) ||
+            route.kind != TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A7A9 ||
+            route.source_target_cpu != 0xA7A9U ||
+            !tecmo_gameplay_shot_rim_rattle_begin(
+                &scene->shot_resolution, &scene->jump_rim_rattle,
+                0U, 3U, scene->jump_phase_counter,
+                TECMO_GAMEPLAY_JUMP_RATTLE_CAPTURED_INCOMING_X_Q6, 0)) {
+            return false;
+        }
+        scene->jump_ball_state =
+            scene->jump_rim_rattle.object_state;
+        scene->jump_ball_altitude_q8 =
+            (uint16_t)scene->jump_rim_rattle.altitude << 8U;
+        if (!scene_map_rim_rattle_ball_position(
+                scene, &scene->jump_rim_rattle)) {
+            return false;
+        }
+        route_frame = 0U;
+        rattle_position_owned = true;
+    } else if (scene->jump_rim_rattle_debug &&
+               scene->jump_rim_rattle.active) {
+        if (!tecmo_gameplay_shot_rim_rattle_step(
+                &scene->shot_resolution, &scene->jump_rim_rattle,
+                &repeat_dmc, &rattle_completed)) {
+            return false;
+        }
+        if (!scene_map_rim_rattle_ball_position(
+                scene, &scene->jump_rim_rattle)) {
+            return false;
+        }
+        scene->jump_ball_altitude_q8 =
+            (uint16_t)scene->jump_rim_rattle.altitude << 8U;
+        rattle_position_owned = true;
+        if (repeat_dmc) {
+            if (scene->shot_resolution.rim_rattle.repeat_dmc_length !=
+                    0x0AU ||
+                !tecmo_gameplay_audio_queue_dmc_clip(
+                    &scene->audio_player,
+                    TECMO_GAMEPLAY_DMC_BANK05_A8D6_SHORT)) {
+                return false;
+            }
+            ++scene->jump_rim_rattle_audio_repeats;
+        }
+        if (rattle_completed) {
+            /* The canonical diagnostic uses observed raw $6A=$71, so $A2DF's
+               raw-selector >= $18 predicate selects the existing state-$10
+               path. Other terminal predicates remain unsupported here. */
+            if (next_frame != TECMO_GAMEPLAY_JUMP_RATTLE_HANDOFF_FRAME ||
+                scene->jump_rim_rattle_raw_selector < 0x18U ||
+                scene->jump_rim_rattle.horizontal_velocity_q6 !=
+                    scene->jump_rim_rattle.saved_horizontal_velocity_q6 ||
+                scene->jump_rim_rattle.vertical_velocity_q6 !=
+                    scene->jump_rim_rattle.saved_vertical_velocity_q6) {
+                return false;
+            }
+            route_frame = TECMO_GAMEPLAY_JUMP_RATTLE_BEGIN_FRAME;
+        }
+    } else if (scene->jump_rim_rattle_debug &&
+               next_frame > TECMO_GAMEPLAY_JUMP_RATTLE_HANDOFF_FRAME) {
+        route_frame = (uint16_t)(
+            next_frame - TECMO_GAMEPLAY_JUMP_RATTLE_FRAME_SHIFT);
+    }
+
+    if (route_frame == 5U) {
         scene->jump_ball_state =
             scene->jump_shots.constants.ball_state_route17;
-    } else if (next_frame == 73U) {
+    } else if (route_frame == 73U) {
         scene->jump_ball_state =
             scene->jump_shots.constants.ball_state_route10;
-    } else if (next_frame == 74U) {
+    } else if (route_frame == 74U) {
         scene->jump_ball_altitude_q8 = 0U;
         scene->jump_ball_bounce_q8 =
             scene->jump_shots.constants.bounce_decay_q8;
-    } else if (next_frame == 75U) {
+    } else if (route_frame == 75U) {
         if (scene->jump_ball_state ==
                 scene->jump_shots.constants.ball_state_route10 &&
             scene->jump_ball_altitude_q8 == 0U &&
@@ -1366,7 +1538,9 @@ static bool scene_update_jump_miss(
                 scene->jump_shots.constants.bounce_decay_q8);
         }
     }
-    scene_update_jump_ball_position(scene);
+    if (!rattle_position_owned) {
+        scene_update_jump_ball_position(scene);
+    }
 
     if (next_frame < scene->shot_duration) return true;
     if (scene->jump_actor_state !=
@@ -2517,6 +2691,113 @@ static bool scene_test_jump_slot0_checkpoint(
     }
 }
 
+static bool scene_test_jump_rattle_checkpoint(
+    const TecmoGameplayScene *scene, uint16_t frame)
+{
+    const TecmoGameplayShotRimRattle *rattle;
+    if (scene == NULL || frame < 2U || frame >= 103U ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+        scene->shot_frame != frame || !scene->jump_oracle_active ||
+        !scene->jump_rim_rattle_debug ||
+        scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS) {
+        return false;
+    }
+    rattle = &scene->jump_rim_rattle;
+    switch (frame) {
+    case 72U:
+        return scene->jump_ball_state == 0x17U &&
+               !rattle->active && !rattle->complete;
+    case 73U:
+        return scene->jump_ball_state == 0x15U &&
+               scene->shot_end_x_q8 == TECMO_GAMEPLAY_HOOP_X * 256 &&
+               scene->shot_end_y_q8 ==
+                   (TECMO_GAMEPLAY_HOOP_Y - 5) * 256 &&
+               scene->ball_x_q8 == 221 * 256 &&
+               scene->ball_y_q8 == 127 * 256 &&
+               rattle->active && !rattle->complete &&
+               rattle->x == 0x009D && rattle->y == 0x0093 &&
+               rattle->horizontal_velocity_q6 == 0x0040 &&
+               rattle->vertical_velocity_q6 == 0 &&
+               rattle->timer_remaining == 4U &&
+               rattle->passes_remaining == 4U &&
+               rattle->animation_phase == 0x40U &&
+               rattle->render_script_address == 0xBAB9U &&
+               scene->jump_rim_rattle_audio_repeats == 0U;
+    case 74U:
+        return scene->jump_ball_state == 0x15U &&
+               scene->ball_x_q8 == 222 * 256 &&
+               scene->ball_y_q8 == 127 * 256 &&
+               rattle->x == 0x009E &&
+               rattle->timer_remaining == 3U &&
+               rattle->render_script_address == 0xBAB9U;
+    case 77U:
+        return scene->jump_ball_state == 0x15U &&
+               scene->ball_x_q8 == 225 * 256 &&
+               scene->ball_y_q8 == 127 * 256 &&
+               rattle->x == 0x00A1 &&
+               rattle->horizontal_velocity_q6 == -0x0040 &&
+               rattle->timer_remaining == 4U &&
+               rattle->passes_remaining == 3U &&
+               rattle->animation_phase == 0x30U &&
+               rattle->render_script_address == 0xBAB9U &&
+               scene->jump_rim_rattle_audio_repeats == 1U;
+    case 81U:
+        return scene->jump_ball_state == 0x15U &&
+               scene->ball_x_q8 == 221 * 256 &&
+               scene->ball_y_q8 == 127 * 256 &&
+               rattle->x == 0x009DU &&
+               rattle->horizontal_velocity_q6 == 0x0040 &&
+               rattle->passes_remaining == 2U &&
+               rattle->animation_phase == 0x20U &&
+               scene->jump_rim_rattle_audio_repeats == 2U;
+    case 85U:
+        return scene->jump_ball_state == 0x15U &&
+               scene->ball_x_q8 == 225 * 256 &&
+               scene->ball_y_q8 == 127 * 256 &&
+               rattle->x == 0x00A1 &&
+               rattle->horizontal_velocity_q6 == -0x0040 &&
+               rattle->passes_remaining == 1U &&
+               rattle->animation_phase == 0x10U &&
+               scene->jump_rim_rattle_audio_repeats == 3U;
+    case 88U:
+        return scene->jump_ball_state == 0x15U &&
+               scene->ball_x_q8 == 222 * 256 &&
+               scene->ball_y_q8 == 127 * 256 &&
+               rattle->x == 0x009EU &&
+               rattle->timer_remaining == 1U &&
+               rattle->render_script_address == 0xBAB9U;
+    case 89U:
+        return scene->jump_ball_state == 0x10U &&
+               scene->ball_x_q8 == 221 * 256 &&
+               scene->ball_y_q8 == 127 * 256 &&
+               !rattle->active && rattle->complete &&
+               rattle->x == 0x009DU &&
+               rattle->passes_remaining == 0U &&
+               rattle->animation_phase == 0U &&
+               rattle->horizontal_velocity_q6 ==
+                   TECMO_GAMEPLAY_JUMP_RATTLE_CAPTURED_INCOMING_X_Q6 &&
+               rattle->vertical_velocity_q6 == 0 &&
+               rattle->render_script_address == 0xBADDU &&
+               scene->jump_rim_rattle_audio_repeats == 3U;
+    case 90U:
+        return scene->jump_ball_state == 0x10U &&
+               scene->ball_x_q8 == TECMO_GAMEPLAY_HOOP_X * 256 &&
+               scene->ball_y_q8 ==
+                   (TECMO_GAMEPLAY_HOOP_Y - 5) * 256 &&
+               scene->jump_ball_altitude_q8 == 0U &&
+               scene->jump_ball_bounce_q8 == 0x0080U;
+    case 91U:
+        return scene->jump_ball_state == 0x10U &&
+               scene->jump_ball_bounce_q8 == 0U &&
+               scene->audio_player.dmc.active;
+    case 102U:
+        return scene->jump_ball_state == 0x10U &&
+               scene->jump_rim_rattle_audio_repeats == 3U;
+    default:
+        return true;
+    }
+}
+
 static bool scene_test_jump_make_checkpoint(
     const TecmoGameplayScene *scene, uint16_t frame)
 {
@@ -3031,6 +3312,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
 {
     TecmoGameplayScene scene;
     TecmoGameplayScene missing_scene;
+    TecmoGameplayScene rattle_before;
     TecmoGameplaySceneLaunch launch;
     TecmoGameplaySceneResult result;
     TecmoControlFrame p1;
@@ -3079,7 +3361,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.shot_resolution.gameplay_core_fingerprint !=
             scene.jump_shots.gameplay_core_fingerprint) {
         scene_test_message(message, message_size,
-                           "TGSR-1 scene dependency contract failed");
+                           "TGSR-2 scene dependency contract failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -3481,6 +3763,19 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
+    scene.actors[0].x = 210;
+    scene.actors[0].y = 128;
+    scene.actors[0].facing_right = true;
+    scene_attach_ball(&scene);
+    rattle_before = scene;
+    if (tecmo_gameplay_scene_start_rim_rattle_debug(&scene) ||
+        memcmp(&scene, &rattle_before, sizeof(scene)) != 0) {
+        scene_test_message(
+            message, message_size,
+            "rim-rattle rejected diagnostic mutated scene");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
     scene.actors[0].x = 96;
     scene.actors[0].y = 180;
     scene.actors[0].facing_right = true;
@@ -3627,6 +3922,62 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         !tecmo_gameplay_state_valid(&scene.state)) {
         scene_test_message(message, message_size,
                            "ordinary-jump early-release settlement failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    tecmo_gameplay_audio_stop_all(&scene.audio_player);
+    if (!scene_handoff_possession(
+            &scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U)) {
+        scene_test_message(message, message_size,
+                           "rim-rattle diagnostic reset failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    scene.actors[0].x = 96;
+    scene.actors[0].y = 180;
+    scene.actors[0].facing_right = true;
+    scene_attach_ball(&scene);
+    away_score_before = scene.state.score[TECMO_GAMEPLAY_TEAM_AWAY];
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    if (!tecmo_gameplay_scene_start_rim_rattle_debug(&scene) ||
+        scene.shot_frame != 1U ||
+        scene.shot_duration != TECMO_GAMEPLAY_JUMP_RATTLE_DURATION ||
+        !scene.jump_rim_rattle_debug ||
+        scene.jump_rim_rattle_raw_selector != 0x71U ||
+        scene.jump_rim_rattle_audio_repeats != 0U) {
+        scene_test_message(message, message_size,
+                           "rim-rattle diagnostic launch failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    for (frame = 2U; frame <= TECMO_GAMEPLAY_JUMP_RATTLE_DURATION;
+         ++frame) {
+        if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+            (frame < TECMO_GAMEPLAY_JUMP_RATTLE_DURATION &&
+             !scene_test_jump_rattle_checkpoint(
+                 &scene, (uint16_t)frame))) {
+            char failure[192];
+            (void)snprintf(failure, sizeof(failure),
+                           "rim-rattle checkpoint %u diverged",
+                           (unsigned)frame);
+            scene_test_message(message, message_size, failure);
+            tecmo_gameplay_scene_destroy(&scene);
+            return false;
+        }
+    }
+    if (scene.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        scene.state.score[TECMO_GAMEPLAY_TEAM_AWAY] !=
+            away_score_before ||
+        scene.state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene.state.shot_clock != TECMO_GAMEPLAY_SHOT_CLOCK_SECONDS ||
+        !scene.audio_player.sfx_pending ||
+        scene.audio_player.pending_sfx_id != 12U ||
+        scene.jump_rim_rattle_debug ||
+        scene.jump_rim_rattle_audio_repeats != 0U ||
+        !tecmo_gameplay_state_valid(&scene.state)) {
+        scene_test_message(message, message_size,
+                           "rim-rattle diagnostic settlement failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }

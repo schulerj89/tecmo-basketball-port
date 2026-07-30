@@ -1999,7 +1999,7 @@ static int append_gameplay_shot_resolution_source_map_entry(
             buffer, capacity, length,
             "%s"
             "    {\"id\":\"%s\",\"kind\":\"gameplay-shot-resolution-native\","
-            "\"schema\":\"tecmo.gameplay-shot-resolution/TGSR-1\",\"size\":%u,"
+            "\"schema\":\"tecmo.gameplay-shot-resolution/TGSR-2\",\"size\":%u,"
             "\"fingerprint_fnv1a32\":\"%08X\","
             "\"fingerprint_fnv1a64\":\"%016llX\","
             "\"dependencies\":[{\"entry\":\"%s\",\"size\":%u,"
@@ -2038,6 +2038,65 @@ static int append_gameplay_shot_resolution_source_map_entry(
             return -1;
         }
     }
+    if (tecmo_asset_pack_append_text(
+            buffer, capacity, length,
+            ",{\"role\":\"state15-convergence-predicate-$A2DF-$A2F7\","
+            "\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,"
+            "\"bank\":5,\"cpu_start\":%u,\"cpu_end\":%u,\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"%08X\","
+            "\"fingerprint_fnv1a64\":\"%016llX\"},"
+            "{\"role\":\"state15-launch-target-$AD4E-$AD64\","
+            "\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,"
+            "\"bank\":5,\"cpu_start\":%u,\"cpu_end\":%u,\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"%08X\","
+            "\"fingerprint_fnv1a64\":\"%016llX\"},"
+            "{\"role\":\"state15-orientation-snap-table-$BDF3-$BDF6\","
+            "\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,"
+            "\"bank\":5,\"cpu_start\":%u,\"cpu_end\":%u,\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"%08X\","
+            "\"fingerprint_fnv1a64\":\"%016llX\"}",
+            (unsigned long long)p->convergence_predicate_offset,
+            (unsigned)
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_CONVERGENCE_CPU,
+            (unsigned)(
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_CONVERGENCE_CPU +
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_CONVERGENCE_SIZE -
+                1U),
+            (unsigned)
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_CONVERGENCE_SIZE,
+            (unsigned)
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_CONVERGENCE_FNV1A32,
+            (unsigned long long)
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_CONVERGENCE_FNV1A64,
+            (unsigned long long)p->rim_rattle_launch_target_offset,
+            (unsigned)
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_TARGET_CPU,
+            (unsigned)(
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_TARGET_CPU +
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_TARGET_SIZE -
+                1U),
+            (unsigned)
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_TARGET_SIZE,
+            (unsigned)
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_TARGET_FNV1A32,
+            (unsigned long long)
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_TARGET_FNV1A64,
+            (unsigned long long)p->rim_rattle_snap_table_offset,
+            (unsigned)
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_SNAP_CPU,
+            (unsigned)(
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_SNAP_CPU +
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_SNAP_SIZE -
+                1U),
+            (unsigned)
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_SNAP_SIZE,
+            (unsigned)
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_SNAP_FNV1A32,
+            (unsigned long long)
+                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_SNAP_FNV1A64) !=
+        0) {
+        return -1;
+    }
     return tecmo_asset_pack_append_text(
         buffer, capacity, length,
         "],\"outcome\":{\"terminal_context_required\":true,"
@@ -2046,6 +2105,24 @@ static int append_gameplay_shot_resolution_source_map_entry(
         "\"rim_routes\":{\"selector_mask\":3,"
         "\"targets_cpu\":[42760,42921,43241,42760],"
         "\"semantic_policy\":\"numeric/address-bound only\"},"
+        "\"rim_rattle\":{\"object_state\":21,"
+        "\"orientation_start_x\":[157,611],\"start_y\":147,"
+        "\"source_launch_target_x\":[160,608],"
+        "\"source_launch_target_y\":143,"
+        "\"screen_mapping_policy\":\"retain raw TGSR state; apply raw minus "
+        "ROM launch target relative to the native shot endpoint\","
+        "\"target_x_dependency\":\"same-pack TGCS-1 $BDEF-$BDF6\","
+        "\"horizontal_velocity_q6\":64,\"coordinate_delta_per_update\":1,"
+        "\"altitude\":56,\"pass_timer_updates\":4,"
+        "\"pass_derivation\":\"((source & 3) + 1) << 4; preserve low nibble\","
+        "\"repeat_dmc_length\":10,"
+        "\"render_script_addresses\":[47801,47801,47807,47813,"
+        "47819,47819,47825,47831],"
+        "\"exit_render_script_addresses\":[47837,47873],"
+        "\"render_script_address_policy\":\"source-derived selection "
+        "addresses, not literal sprite or CHR IDs\","
+        "\"completion_policy\":\"restore saved velocity, then apply the "
+        "separate $A2DF predicate; state 10 is not universal\"},"
         "\"claimant_thresholds\":{\"horizontal_delta\":[-11,10],"
         "\"depth_delta\":[-7,6],"
         "\"grounded_ball_altitude_max_inclusive\":39,"
@@ -2053,7 +2130,10 @@ static int append_gameplay_shot_resolution_source_map_entry(
         "\"settlement\":{\"same_team\":\"select claimant without possession change\","
         "\"other_team\":\"select claimant and change possession\"},"
         "\"limits\":\"an address hit alone is not terminal; $9434 also occurs in nonterminal close animations; claimant is not labeled rebound, steal, block, or recovery\","
-        "\"runtime_inputs\":\"TGSR-1 plus same-pack TGPL-1; no decompilation, ASM, trace, capture, screenshot, log, dump, state, Lua, video, or ROM\"}");
+        "\"runtime_inputs\":\"TGSR-2 plus same-pack TGPL-1; the debug screen "
+        "mapping additionally requires same-pack TGCS-1; no decompilation, "
+        "ASM, trace, capture, screenshot, log, dump, state, Lua, video, or "
+        "ROM\"}");
 }
 
 static int append_gameplay_penalty_source_map_entry(

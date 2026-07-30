@@ -219,7 +219,7 @@ try {
         [pscustomobject]@{ id="gameplay/close-shots"; size=3144; hash="DACDC976"; schema="tecmo.gameplay-close-shots/TGCS-1" },
         [pscustomobject]@{ id="gameplay/dunk-cutaway"; size=20272; hash="E02F2D21"; schema="tecmo.gameplay-dunk-cutaway/TGDK-1" },
         [pscustomobject]@{ id="gameplay/jump-shots"; size=1648; hash="7587B099"; schema="tecmo.gameplay-jump-shots/TGJS-1" },
-        [pscustomobject]@{ id="gameplay/shot-resolution"; size=384; hash="8486DB33"; schema="tecmo.gameplay-shot-resolution/TGSR-1" },
+        [pscustomobject]@{ id="gameplay/shot-resolution"; size=384; hash="CCA9DE06"; schema="tecmo.gameplay-shot-resolution/TGSR-2" },
         [pscustomobject]@{ id="audio/music"; size=36784; hash="05C00ECB"; schema="tecmo.music/TMUS-1" },
         [pscustomobject]@{ id="audio/gameplay-sfx"; size=2824; hash="968A5DE6"; schema="tecmo.gameplay-audio/TSFX-1" },
         [pscustomobject]@{ id="audio/gameplay-dmc"; size=2515; hash="AD70E6E8"; schema="tecmo.gameplay-audio/TDMC-1" },
@@ -347,7 +347,7 @@ try {
         [byte][char]'x'
     [IO.File]::WriteAllBytes($MissingResolutionPath, $MissingResolution)
     Assert-SceneRejected -AssetPack $MissingResolutionPath `
-        -Label "missing-shot-resolution" -ExpectedStatus "TGSR-1"
+        -Label "missing-shot-resolution" -ExpectedStatus "TGSR-2"
 
     $MalformedResolutionPath = Join-Path $Scratch "malformed-shot-resolution.assetpack"
     $MalformedResolution = [byte[]]$PackBytes.Clone()
@@ -356,7 +356,7 @@ try {
         $MalformedResolution[$ResolutionOffset] -bxor 1
     [IO.File]::WriteAllBytes($MalformedResolutionPath, $MalformedResolution)
     Assert-SceneRejected -AssetPack $MalformedResolutionPath `
-        -Label "malformed-shot-resolution" -ExpectedStatus "TGSR-1"
+        -Label "malformed-shot-resolution" -ExpectedStatus "TGSR-2"
 
     $OversizedResolutionPath = Join-Path $Scratch "oversized-shot-resolution.assetpack"
     $OversizedResolution = [byte[]]$PackBytes.Clone()
@@ -365,7 +365,7 @@ try {
         [int]$Entries["gameplay/shot-resolution"].directory_offset + 92)
     [IO.File]::WriteAllBytes($OversizedResolutionPath, $OversizedResolution)
     Assert-SceneRejected -AssetPack $OversizedResolutionPath `
-        -Label "oversized-shot-resolution" -ExpectedStatus "TGSR-1"
+        -Label "oversized-shot-resolution" -ExpectedStatus "TGSR-2"
 
     $WrongResolutionPath = Join-Path $Scratch "wrong-revision-shot-resolution.assetpack"
     $WrongResolution = [byte[]]$PackBytes.Clone()
@@ -373,7 +373,7 @@ try {
         $WrongResolution[$ResolutionOffset + 80] -bxor 1
     [IO.File]::WriteAllBytes($WrongResolutionPath, $WrongResolution)
     Assert-SceneRejected -AssetPack $WrongResolutionPath `
-        -Label "wrong-revision-shot-resolution" -ExpectedStatus "TGSR-1"
+        -Label "wrong-revision-shot-resolution" -ExpectedStatus "TGSR-2"
 
     $CrossPackResolutionPath = Join-Path $Scratch "cross-pack-shot-resolution.assetpack"
     $CrossPackResolution = [byte[]]$PackBytes.Clone()
@@ -382,7 +382,7 @@ try {
         $CrossPackResolution[$CoreOffset + 128] -bxor 1
     [IO.File]::WriteAllBytes($CrossPackResolutionPath, $CrossPackResolution)
     Assert-SceneRejected -AssetPack $CrossPackResolutionPath `
-        -Label "cross-pack-shot-resolution" -ExpectedStatus "TGSR-1"
+        -Label "cross-pack-shot-resolution" -ExpectedStatus "TGSR-2"
 
     $OversizedPath = Join-Path $Scratch "oversized-core.assetpack"
     $Oversized = [byte[]]$PackBytes.Clone()
@@ -416,6 +416,18 @@ try {
         [pscustomobject]@{ mode="gameplay-jump-frame75"; state='gameplay-state frame=75 shot=jump phase=live score=0/2' },
         [pscustomobject]@{ mode="gameplay-jump-frame86"; state='gameplay-state frame=86 shot=jump phase=live' },
         [pscustomobject]@{ mode="gameplay-jump-frame87"; state='gameplay-state frame=87 shot=none phase=live score=0/2' },
+        [pscustomobject]@{ mode="gameplay-jump-rattle-frame72"; state='gameplay-state frame=72 shot=jump phase=live score=0/2' },
+        [pscustomobject]@{ mode="gameplay-jump-rattle-frame73"; state='gameplay-state frame=73 shot=jump phase=live score=0/2' },
+        [pscustomobject]@{ mode="gameplay-jump-rattle-frame74"; state='gameplay-state frame=74 shot=jump phase=live score=0/2' },
+        [pscustomobject]@{ mode="gameplay-jump-rattle-frame77"; state='gameplay-state frame=77 shot=jump phase=live score=0/2' },
+        [pscustomobject]@{ mode="gameplay-jump-rattle-frame81"; state='gameplay-state frame=81 shot=jump phase=live score=0/2' },
+        [pscustomobject]@{ mode="gameplay-jump-rattle-frame85"; state='gameplay-state frame=85 shot=jump phase=live score=0/2' },
+        [pscustomobject]@{ mode="gameplay-jump-rattle-frame88"; state='gameplay-state frame=88 shot=jump phase=live score=0/2' },
+        [pscustomobject]@{ mode="gameplay-jump-rattle-frame89"; state='gameplay-state frame=89 shot=jump phase=live score=0/2' },
+        [pscustomobject]@{ mode="gameplay-jump-rattle-frame90"; state='gameplay-state frame=90 shot=jump phase=live score=0/2' },
+        [pscustomobject]@{ mode="gameplay-jump-rattle-frame91"; state='gameplay-state frame=91 shot=jump phase=live score=0/2' },
+        [pscustomobject]@{ mode="gameplay-jump-rattle-frame102"; state='gameplay-state frame=102 shot=jump phase=live score=0/2' },
+        [pscustomobject]@{ mode="gameplay-jump-rattle-frame103"; state='gameplay-state frame=103 shot=none phase=live score=0/2' },
         [pscustomobject]@{ mode="gameplay-jump-make-frame1"; state='gameplay-state frame=1 shot=jump phase=live score=0/0' },
         [pscustomobject]@{ mode="gameplay-jump-make-frame5"; state='gameplay-state frame=5 shot=jump phase=live' },
         [pscustomobject]@{ mode="gameplay-jump-make-frame9"; state='gameplay-state frame=9 shot=jump phase=live' },
@@ -457,6 +469,37 @@ try {
             throw "Gameplay jump-miss render hash changed at '$Mode'."
         }
     }
+    $ExpectedRattleHashes = @{
+        "gameplay-jump-rattle-frame72" =
+            "2933A2F125245F26CFDCEC34896E7D64E6ACD8E3D5DC114F7C8D03C47B4EC422"
+        "gameplay-jump-rattle-frame73" =
+            "7B41BF815A74FEF1A06686F8F8CF84ACC624FD44C47CD836E2071C59D75FE802"
+        "gameplay-jump-rattle-frame74" =
+            "6699C45EA1EEE0BF8C3AC49D5C7C3613D6A0D15702F3BF1BE2A67118069827A6"
+        "gameplay-jump-rattle-frame77" =
+            "7E75126A6875202817B43D6ED53BBEC8EFE1DA8C15F2CBC0788DCF3E72AE0320"
+        "gameplay-jump-rattle-frame89" =
+            "7B41BF815A74FEF1A06686F8F8CF84ACC624FD44C47CD836E2071C59D75FE802"
+        "gameplay-jump-rattle-frame90" =
+            "8A96181AD8B32EAD402EF8D1BA6413C1984733DB0DBCE2F8C5A499F89FFD449E"
+        "gameplay-jump-rattle-frame103" =
+            "E3D335499A087F2C7D38B8F688B5A4FE5A998D4116D3D728A8811F1202925D5B"
+    }
+    foreach ($Mode in $ExpectedRattleHashes.Keys) {
+        if ($RenderHashes[$Mode] -ne $ExpectedRattleHashes[$Mode]) {
+            throw "Gameplay rim-rattle render hash changed at '$Mode'."
+        }
+    }
+    if ($RenderHashes["gameplay-jump-rattle-frame73"] -ne
+            $RenderHashes["gameplay-jump-rattle-frame81"] -or
+        $RenderHashes["gameplay-jump-rattle-frame73"] -ne
+            $RenderHashes["gameplay-jump-rattle-frame89"] -or
+        $RenderHashes["gameplay-jump-rattle-frame77"] -ne
+            $RenderHashes["gameplay-jump-rattle-frame85"] -or
+        $RenderHashes["gameplay-jump-rattle-frame74"] -ne
+            $RenderHashes["gameplay-jump-rattle-frame88"]) {
+        throw "Gameplay rim-rattle four-pass position cycle diverged."
+    }
     $ExpectedJumpMakeHashes = @{
         "gameplay-jump-make-frame9" =
             "CDCEC11F13DCD6DDF229B71D313E239288D95BB0D0190727C82814BF7C134B8A"
@@ -492,7 +535,7 @@ try {
 
     $global:LASTEXITCODE = 0
     Write-Output ("GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance " +
-        "scene controls TGDK TGJS TGSR jump-miss/jump-make early-release/expiry shots dunk-cutaway frame75/audio state " +
+        "scene controls TGDK TGJS TGSR-2 jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
         "halftime/final render-hashes/determinism missing malformed oversized " +
         "chr-mismatch")
 } finally {

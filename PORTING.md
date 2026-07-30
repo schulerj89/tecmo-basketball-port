@@ -608,7 +608,9 @@ retains 11. Layups alone retain crowd response 11 until their separate caller
 path is integrated.
 SFX ID 5 remains gated at qualifying violation, direct-foul, and period restart
 boundaries. Dunk action frame 87 requests address-bound A9C5. ABF5 and
-address-named A8D6 clips remain imported without invented live use.
+address-named A8D6 clips remain imported without invented live use; the
+deterministic state-`$15` diagnostic requests A8D6-short only at its proven
+nonterminal pass repeats.
 
 The importer validates the raw finale dispatch chain as `$851C` wait 50 ->
 `$83EA` wait 30 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 ->
@@ -698,8 +700,8 @@ The compound scene strictly loads TGPL-1 `gameplay/core` (23416 bytes,
 `2047CCE0`), TGCT-1 `gameplay/court` (6559 bytes, `ECAB7A93`), TGCS-1
 `gameplay/close-shots` (3144 bytes, `DACDC976`), TGDK-1
 `gameplay/dunk-cutaway` (20272 bytes, `E02F2D21`), TGJS-1
-`gameplay/jump-shots` (1648 bytes, `7587B099`), TGSR-1
-`gameplay/shot-resolution` (384 bytes, `8486DB33`), TMUS-1 `audio/music`,
+`gameplay/jump-shots` (1648 bytes, `7587B099`), TGSR-2
+`gameplay/shot-resolution` (384 bytes, `CCA9DE06`), TMUS-1 `audio/music`,
 TSFX-1, TDMC-1, and the exact `chr/all` revision from one asset-pack path. Exact-size
 reads, payload/CHR fingerprints, deep indexes, reserved bytes, and source-map
 provenance are hard requirements. Missing, malformed, oversized,
@@ -744,7 +746,7 @@ held/airborne/recovery states and Q8.8
 height/velocity both begin at `$02E8`; height clamps on frame 40 and actor
 recovery ends at frame 46 while the ball route remains active through
 settlement at frame 87. There is no release DMC; the route-10 ground/bounce conditions
-gate `$B5AB` at frame 75. TGSR-1 classifies the TGJS terminal flag's set bit 7
+gate `$B5AB` at frame 75. TGSR-2 classifies the TGJS terminal flag's set bit 7
 as MISS and supplies the non-current, other-team claimant handler/possession
 decision. Frame 87 awards zero points, queues crowd 11 and then side result
 12/13 only while the clock is later than 0:01, and hands possession to an
@@ -756,7 +758,7 @@ through frames 1-8 and releases at 9; pose pointers are 325 (`$028A`) for
 frames 1-4, 1060 (`$0848`) for 5-8, 1061 (`$084A`) at 9, 213 (`$01AA`)
 through flight, and neutral 469 (`$03AA`). Prepared phases
 `31/21/11/01/32/22/12/02` occupy frames 10-17, held phase 34 is frame 18, and
-TGSR-1 classifies `$91BC->$933B->$942D`'s terminal bit-clear as MAKE at frame
+TGSR-2 classifies `$91BC->$933B->$942D`'s terminal bit-clear as MAKE at frame
 19. Q8.8 flight begins at 20 from velocity `$0308` under imported gravity
 `$0028`. Native uninterrupted physics lands at frame 57, uses recovery phases
 `56/46/36/26/16/06` through frame 62, and returns to neutral at 63. The
@@ -774,14 +776,39 @@ and then enters the normal settled-action period path. Unknown contexts,
 ordinary two-point makes, and other native-policy branches are rejected without
 substituting the former synthetic schedule.
 
-TGSR-1 is 384 bytes with FNV1a32 `8486DB33` and FNV1a64
-`3DDF28659B192273`. Its importer revision-locks Bank05 `$91BC-$943A`
+TGSR-2 is 384 bytes with FNV1a32 `CCA9DE06` and FNV1a64
+`9C4686F4DCD823A6`. Its importer revision-locks Bank05 `$91BC-$943A`
 (outcome calculation/bit helpers), `$A6EE-$A9D9` (numeric rim dispatch),
 `$B73E-$B87B` (claimant scan/proximity), and `$B87C-$B8F5` (claimant-driven
 settlement). Runtime requires its exact same-pack TGPL-1 dependency. Missing,
 malformed, undersized/oversized, wrong-revision, or cross-pack TGSR data rejects
 the scene before it becomes available; no capture, trace, ASM, decompilation,
 or ROM is a runtime input.
+
+TGSR-2 reuses metadata bytes 29..63 for an exact state-`$15` rim-rattle
+contract without changing the 384-byte entry size or ID. It carries state
+`$15`, orientation starts `$009D/$0263`, Y `$93`, horizontal magnitude
+`$0040`, altitude `$38`, timer 4, the one-to-four-pass derivation, repeat DMC
+length `$0A`, eight render-script selection addresses, and two exit
+render-script addresses. Those addresses are source selection identities, not
+literal sprite or CHR IDs. The native state API saves incoming velocity, moves
+one coordinate per update, reverses after each four-update nonterminal pass,
+requests address-bound A8D6-short on each repeat, and restores velocity at the
+terminal boundary. Four primary plus three focused provenance spans cover
+`$A2DF-$A2F7`, `$AD4E-$AD64`, and `$BDF3-$BDF6` in addition to the primary
+sources. The mapper obtains launch-target X from required same-pack TGCS-1
+`$BDEF-$BDF6` and cross-checks the snap bytes against TGSR-2; `$AD4E-$AD64`
+proves the BDEF/BDF1 loads and target Y `$8F`. The terminal convergence
+remains conditional: nonzero `$036F`
+or raw `$6A >= $18` enters `$A8E9`; the other branch requests the long A8D6
+clip, clears the miss flag, and relaunches state `$05`. Only the deterministic
+debug/test route uses observed `$6A=$71` and captured incoming X velocity
+`$FD2C`, producing a positive-first four-pass route, state `$10` at frame 89,
+and settlement at frame 103. The exact raw orientation-0 snap `(157,147)` is
+mapped relative to the ROM launch target `(160,143)` and the native shot
+endpoint; it therefore renders beside the hoop rather than as direct screen
+coordinates. Normal live `gameplay-jump-frameN` behavior and its frame-87
+settlement are unchanged; no selector or RNG is invented.
 
 TPNL-1 `gameplay/penalties` is a strict 768-byte pure rules foundation
 (FNV1a32 `980DDC76`) with same-pack TGPL-1 and TSFX-1 dependencies. It exposes
@@ -817,7 +844,8 @@ per attempt and across scene launch/end.
 The exact boundary covers court/CHR/imported palette data and the embedded
 FCEUX RGB profile, actor-pose decoding, numeric close-shot steps, the narrowed
 TGJS/TGSR miss actor/ball timing and three-point-make actor/result schedule,
-Q8.8 actor height, terminal outcomes, one post-miss settlement, state/event timing, foul thresholds,
+the state-`$15` one-to-four-pass prefix and canonical debug handoff, Q8.8 actor
+height, terminal outcomes, one post-miss settlement, state/event timing, foul thresholds,
 period/halftime/final transitions, and audio programs/mappings.
 Actor/camera layout, movement/AI, jump-ball screen geometry, unsupported jump
 profiles/directions/outcomes, ordinary two-point makes, make ball/camera
@@ -837,7 +865,8 @@ Test with
 `tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`; its private
 scratch pack, logs, and PNGs remain under ignored `build\` output.
 The strict runtime checkpoints are `gameplay-start`,
-`gameplay-jump-frameN`, `gameplay-jump-make-frameN`, and
+`gameplay-jump-frameN`, `gameplay-jump-rattle-frameN`,
+`gameplay-jump-make-frameN`, and
 `gameplay-dunk-frameN`; the focused runner preserves jump-miss hashes, couples
 jump-make gather/release/decision/flight/recovery/score/possession frames
 through 111, and covers meaningful dunk interior frames and settlement through

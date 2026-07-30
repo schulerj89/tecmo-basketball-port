@@ -128,6 +128,7 @@ Hidden/debug screens are still useful through render-test modes. Common examples
 .\build\tecmo_port.exe --render-test-mode gameplay-start build\gameplay_start_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-jump-frame75 build\gameplay_jump_75_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-jump-frame87 build\gameplay_jump_87_test.png
+.\build\tecmo_port.exe --render-test-mode gameplay-jump-rattle-frame89 build\gameplay_jump_rattle_89_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-jump-make-frame85 build\gameplay_jump_make_85_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-jump-make-frame111 build\gameplay_jump_make_111_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-dunk-frame16 build\gameplay_dunk_16_test.png
@@ -561,7 +562,8 @@ alone remain bounded to crowd response 11 pending separate caller
 integration. `BANK05_9FEC_CUE` remains neutral and is gated at the
 bounded violation, direct-foul, and period restart boundaries. Dunk action
 frame 87 requests address-bound A9C5. ABF5 and address-named A8D6 clips stay
-imported without invented live use.
+imported without invented live use. The deterministic state-`$15` diagnostic
+requests A8D6-short only at its proven nonterminal pass repeats.
 
 Finale provenance is the raw Bank04 chain `$851C` wait 50 -> `$83EA` wait 30
 -> `$852E` wait 0 -> `$83AE` wait 75 -> `$8310` wait 1 -> `$FFFF`, loading
@@ -640,7 +642,7 @@ height/velocity seed `$02E8`, gravity, frame-40 clamp, recovery through frame
 ordering. The same controlled family/profile/direction context also admits one
 captured deterministic three-point make. Current NES B remains held through
 frames 1-8 and releases at 9; pose pointers are 325 for frames 1-4, 1060 for
-5-8, 1061 at 9, 213 through flight, and 469 after recovery. TGSR-1 classifies
+5-8, 1061 at 9, 213 through flight, and 469 after recovery. TGSR-2 classifies
 the terminal clear-bit result as MAKE at frame 19. Uninterrupted Q8.8 motion
 starts at frame 20 with velocity `$0308` and gravity `$0028`, lands at native
 frame 57, recovers through 62, and becomes neutral at 63. The emulator displayed
@@ -653,7 +655,7 @@ captured frame-9 transition so normal input cannot strand the scene; no
 earlier-release ROM timing is claimed. If the period expires before frame 111,
 the frame-85 score is applied exactly once without an invalid shot-clock reset,
 then the settled action retains the shooting side/holder for the normal period
-banner transition. TGSR-1 classifies TGJS's bit-7-set terminal flag as MISS and proves
+banner transition. TGSR-2 classifies TGJS's bit-7-set terminal flag as MISS and proves
 the non-current, other-team claimant handler/possession decision. Native play
 applies that one decision at frame 87, awards zero points, uses an explicitly
 approximate opposing actor, and queues crowd 11 followed by clock-gated side
@@ -694,7 +696,7 @@ material, not committed provenance or runtime input. See
 The scene must obtain TGPL-1 `gameplay/core`, TGCT-1 `gameplay/court`, TGCS-1
 `gameplay/close-shots`, TGDK-1 `gameplay/dunk-cutaway`,
 TGJS-1 `gameplay/jump-shots` (1648 bytes,
-`7587B099`), TGSR-1 `gameplay/shot-resolution` (384 bytes, `8486DB33`),
+`7587B099`), TGSR-2 `gameplay/shot-resolution` (384 bytes, `CCA9DE06`),
 TMUS-1 `audio/music`, TSFX-1
 `audio/gameplay-sfx`, TDMC-1 `audio/gameplay-dmc`, and `chr/all` from the same
 explicit pack. Exact-size reads, canonical fingerprints, deep bounds/reserved
@@ -703,13 +705,38 @@ source-map provenance fail closed before the scene is marked available. Drawing
 preflights every court cell and actor/ball pose so a rejected frame leaves the
 destination untouched.
 
-TGSR-1 is 384 bytes (FNV1a32 `8486DB33`, FNV1a64
-`3DDF28659B192273`) and revision-locks Bank05 `$91BC-$943A`, `$A6EE-$A9D9`,
+TGSR-2 is 384 bytes (FNV1a32 `CCA9DE06`, FNV1a64
+`9C4686F4DCD823A6`) and revision-locks Bank05 `$91BC-$943A`, `$A6EE-$A9D9`,
 `$B73E-$B87B`, and `$B87C-$B8F5`. It requires exact same-pack TGPL-1;
 missing, malformed, wrong-sized, wrong-revision, and cross-pack dependencies
 reject the scene before availability. Its safe semantics are terminal outcome
 polarity, numeric rim routes, claimant thresholds, and handler/possession
 decisions; it does not label rebounds, blocks, steals, or generic makes.
+
+TGSR-2 uses metadata bytes 29..63 for the strict state-`$15` rim-rattle
+contract. It imports orientation starts `$009D/$0263`, Y `$93`, velocity
+magnitude `$0040`, altitude `$38`, timer 4, pass derivation
+`(($53 & 3) + 1) << 4` with the low nibble preserved, repeat DMC length `$0A`,
+render-script selection addresses
+`$BAB9,$BAB9,$BABF,$BAC5,$BACB,$BACB,$BAD1,$BAD7`, and exits
+`$BADD/$BB01`. These addresses are not literal sprite or CHR IDs. The state
+API saves the incoming velocity, moves one coordinate per update for four
+updates per pass, reverses on each nonterminal pass, requests the existing
+address-bound A8D6-short DMC clip, and restores velocity on completion.
+Focused provenance adds `$A2DF-$A2F7` (`9D918043`), `$AD4E-$AD64`
+(`AF1D6B17`), and `$BDF3-$BDF6` (`79F66DB3`), for four primary plus three
+focused source spans. The debug mapper reads the X launch target from the
+required same-pack TGCS-1 `$BDEF-$BDF6` source and cross-checks its snap bytes
+against TGSR-2; `$AD4E-$AD64` proves the BDEF/BDF1 loads and Y target `$8F`.
+`$A2DF` does not universally enter state `$10`: nonzero `$036F`
+or raw `$6A >= $18` selects that path; otherwise the original relaunches state
+`$05`. Only the deterministic `gameplay-jump-rattle-frameN` debug route uses
+the observed `$6A=$71`, captured negative incoming X velocity `$FD2C`, and
+canonical positive-first four passes before the state-`$10` handoff at frame
+89 and settlement at frame 103. Its raw orientation-0 snap `(157,147)` is
+rendered relative to the ROM launch target `(160,143)` and the native shot
+endpoint, so the ball remains beside the native hoop. Normal live misses
+retain their existing 87-frame path and do not use invented selection or RNG.
 
 TPNL-1 `gameplay/penalties` is a separate strict 768-byte rules foundation
 (FNV1a32 `980DDC76`) with same-pack TGPL-1 and TSFX-1 dependencies. Its pure

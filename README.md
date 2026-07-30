@@ -156,6 +156,15 @@ accumulators are ported.
   at frame 111. Other profiles, directions, and ordinary two-point makes remain
   unsupported. Releasing B before the captured frame-8 hold completes is safely
   normalized to the known frame-9 release transition.
+- The strict TGSR-2 asset and native state API now cover the behavior-verified
+  state-`$15` rim-rattle prefix: one to four four-update horizontal passes,
+  source-selected render-script addresses, velocity restoration, and the
+  repeat A8D6-short DMC request. The deterministic
+  `gameplay-jump-rattle-frameN` diagnostic demonstrates the observed `$6A=$71`
+  positive-first four-pass route through state `$10` and settlement at frame
+  103. Its exact raw coordinates are mapped relative to the ROM launch target
+  and native hoop endpoint. Normal live misses retain their existing frame-87
+  route; no invented selector or RNG has been added.
 - The scene advances the game and shot clocks, score, possession, shot-clock
   violations, current native foul/free-throw flow, period banners, halftime,
   overtime/final presentation, and preseason/season result handoff.
@@ -169,8 +178,9 @@ accumulators are ported.
 Strict ROM-derived data currently covers the static court, CHR and palette
 entries, embedded FCEUX RGB profile, actor pose data, numeric close-shot step
 tables, dunk cutaway, the bounded jump-miss route, the bounded three-point
-jump-make actor/result schedule, rules timing, and native music/SFX/DMC
-programs. Every required gameplay entry is loaded from the same
+jump-make actor/result schedule, the state-`$15` one-to-four-pass rim-rattle
+prefix, rules timing, and native music/SFX/DMC programs. Every required
+gameplay entry is loaded from the same
 revision-fingerprinted asset pack with exact-size and malformed-data checks.
 
 The actor and camera layout, movement and AI, jump-ball geometry, general shot
@@ -218,6 +228,7 @@ Render the normal menu or a focused intro frame:
 .\build\tecmo_port.exe --render-test-mode intro-arena-frame320 build\intro_arena_frame320_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-start build\gameplay_start_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-jump-frame12 build\gameplay_jump_12_test.png
+.\build\tecmo_port.exe --render-test-mode gameplay-jump-rattle-frame89 build\gameplay_jump_rattle_89_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-jump-make-frame85 build\gameplay_jump_make_85_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-dunk-frame16 build\gameplay_dunk_16_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-dunk-frame64 build\gameplay_dunk_64_test.png

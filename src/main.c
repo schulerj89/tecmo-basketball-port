@@ -57,7 +57,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-close-shots-test PACK  Validate strict TGCS-1 close-shot assets\n");
     printf("  --gameplay-dunk-cutaway-test PACK  Validate strict TGDK-1 dunk presentation assets\n");
     printf("  --gameplay-jump-shots-test PACK  Validate strict TGJS-1 jump-shot assets\n");
-    printf("  --gameplay-shot-resolution-test PACK  Validate strict TGSR-1 shot-resolution assets\n");
+    printf("  --gameplay-shot-resolution-test PACK  Validate strict TGSR-2 shot-resolution assets\n");
     printf("  --gameplay-penalties-test PACK  Validate strict TPNL-1 penalty rules\n");
     printf("  --assetpack-list PACK  Print an asset-pack directory listing\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
@@ -386,6 +386,7 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     unsigned update;
     bool jump = false;
     bool jump_make = false;
+    bool jump_rattle = false;
     bool dunk = false;
 
     if (runtime == NULL || mode_name == NULL) return false;
@@ -399,6 +400,10 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
         jump = true;
         jump_make = true;
     } else if (parse_render_frame_suffix(
+                   mode_name, "gameplay-jump-rattle-frame", &checkpoint)) {
+        jump = true;
+        jump_rattle = true;
+    } else if (parse_render_frame_suffix(
                    mode_name, "gameplay-dunk-frame", &checkpoint)) {
         dunk = true;
     } else if (parse_render_frame_suffix(
@@ -409,7 +414,8 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
         return false;
     }
     if ((jump && (checkpoint == 0U ||
-                  checkpoint > (jump_make ? 111U : 87U))) ||
+                  checkpoint >
+                      (jump_make ? 111U : (jump_rattle ? 103U : 87U)))) ||
         (dunk && (checkpoint == 0U || checkpoint > 132U))) {
         return false;
     }
@@ -457,6 +463,11 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
             runtime->gameplay_scene.action_serial = 1U;
         }
     }
+    if (jump_rattle &&
+        !tecmo_gameplay_scene_start_rim_rattle_debug(
+            &runtime->gameplay_scene)) {
+        return false;
+    }
     memset(&input, 0, sizeof(input));
     input.cancel = true;
     tecmo_runtime_update(runtime, &input);
@@ -469,7 +480,9 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
            runtime->gameplay_scene.active &&
            runtime->gameplay_scene.shot_kind ==
                (jump &&
-                        ((!jump_make && checkpoint == 87U) ||
+                        ((!jump_make && !jump_rattle &&
+                          checkpoint == 87U) ||
+                         (jump_rattle && checkpoint == 103U) ||
                          (jump_make && checkpoint == 111U))
                     ? TECMO_GAMEPLAY_SCENE_SHOT_NONE
                     : (dunk ? TECMO_GAMEPLAY_SCENE_SHOT_DUNK
@@ -1397,6 +1410,7 @@ jump_shot_test_cleanup:
         const TecmoGameplayShotResolutionSourceSpan *settlement_source;
         TecmoGameplayShotOutcome outcome = TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN;
         TecmoGameplayShotRimRoute route;
+        TecmoGameplayShotRimRattle rattle;
         TecmoGameplayShotSettlementDecision decision;
         uint8_t *payload = NULL;
         uint8_t *gameplay_core = NULL;
@@ -1405,6 +1419,8 @@ jump_shot_test_cleanup:
         uint64_t payload_size = 0U;
         uint64_t gameplay_core_size = 0U;
         bool eligible = false;
+        bool repeat_dmc = false;
+        bool completed = false;
         bool ok = false;
 
         tecmo_gameplay_shot_resolution_init(&assets);
@@ -1442,6 +1458,24 @@ jump_shot_test_cleanup:
             assets.outcome_flag_mask != 0x80U ||
             assets.route_selector_mask != 0x03U ||
             assets.claimant_other_team_flag_mask != 0x10U ||
+            assets.rim_rattle.object_state != 0x15U ||
+            assets.rim_rattle.orientation_start_x[0U] != 0x009DU ||
+            assets.rim_rattle.orientation_start_x[1U] != 0x0263U ||
+            assets.rim_rattle.start_y != 0x93U ||
+            assets.rim_rattle.horizontal_velocity_q6 != 0x0040U ||
+            assets.rim_rattle.altitude != 0x38U ||
+            assets.rim_rattle.pass_timer_updates != 4U ||
+            assets.rim_rattle.pass_source_mask != 3U ||
+            assets.rim_rattle.pass_source_bias != 1U ||
+            assets.rim_rattle.pass_animation_shift != 4U ||
+            assets.rim_rattle.animation_low_mask != 0x0FU ||
+            assets.rim_rattle.repeat_dmc_length != 0x0AU ||
+            assets.rim_rattle.render_script_addresses[3U] != 0xBAC5U ||
+            assets.rim_rattle.render_script_addresses[7U] != 0xBAD7U ||
+            assets.rim_rattle.exit_render_script_addresses[0U] !=
+                0xBADDU ||
+            assets.rim_rattle.exit_render_script_addresses[1U] !=
+                0xBB01U ||
             tecmo_gameplay_shot_resolution_find_source(
                 &assets,
                 (TecmoGameplayShotResolutionSourceKind)0) != NULL ||
@@ -1482,6 +1516,77 @@ jump_shot_test_cleanup:
                     goto shot_resolution_test_cleanup;
                 }
             }
+        }
+        for (uint8_t source = 0U; source < 4U; ++source) {
+            unsigned repeat_count = 0U;
+            unsigned step_count =
+                (unsigned)(source + 1U) *
+                assets.rim_rattle.pass_timer_updates;
+            if (!tecmo_gameplay_shot_rim_rattle_begin(
+                    &assets, &rattle, 0U, source, 0x05U,
+                    0x0040, -0x0020) ||
+                rattle.passes_remaining != (uint8_t)(source + 1U) ||
+                rattle.animation_phase !=
+                    (uint8_t)(((source + 1U) << 4U) | 0x05U) ||
+                rattle.x != 0x009D || rattle.y != 0x0093 ||
+                rattle.horizontal_velocity_q6 != -0x0040 ||
+                rattle.vertical_velocity_q6 != 0 ||
+                rattle.render_script_address != 0xBAB9U) {
+                printf("Shot-resolution asset test failed: rim-rattle begin %u\n",
+                       (unsigned)source);
+                goto shot_resolution_test_cleanup;
+            }
+            for (unsigned step = 1U; step <= step_count; ++step) {
+                if (!tecmo_gameplay_shot_rim_rattle_step(
+                        &assets, &rattle, &repeat_dmc, &completed) ||
+                    (step < step_count && completed) ||
+                    (step == step_count && !completed)) {
+                    printf("Shot-resolution asset test failed: rim-rattle step %u/%u\n",
+                           step, step_count);
+                    goto shot_resolution_test_cleanup;
+                }
+                if (repeat_dmc) ++repeat_count;
+            }
+            if (!rattle.complete || rattle.active ||
+                rattle.object_state != 0U ||
+                rattle.horizontal_velocity_q6 != 0x0040 ||
+                rattle.vertical_velocity_q6 != -0x0020 ||
+                rattle.render_script_address != 0xBADDU ||
+                rattle.x !=
+                    ((source & 1U) == 0U ? 0x0099 : 0x009D) ||
+                repeat_count != source ||
+                tecmo_gameplay_shot_rim_rattle_step(
+                    &assets, &rattle, &repeat_dmc, &completed)) {
+                printf("Shot-resolution asset test failed: rim-rattle completion %u\n",
+                       (unsigned)source);
+                goto shot_resolution_test_cleanup;
+            }
+        }
+        if (!tecmo_gameplay_shot_rim_rattle_begin(
+                &assets, &rattle, 1U, 0U, 0U, -0x0040, 0) ||
+            rattle.x != 0x0263 ||
+            rattle.horizontal_velocity_q6 != 0x0040 ||
+            rattle.render_script_address != 0xBACBU) {
+            printf("Shot-resolution asset test failed: rim-rattle orientation\n");
+            goto shot_resolution_test_cleanup;
+        }
+        for (unsigned step = 0U; step < 4U; ++step) {
+            if (!tecmo_gameplay_shot_rim_rattle_step(
+                    &assets, &rattle, &repeat_dmc, &completed)) {
+                printf("Shot-resolution asset test failed: rim-rattle mirrored step\n");
+                goto shot_resolution_test_cleanup;
+            }
+        }
+        if (!completed || rattle.x != 0x0267 ||
+            rattle.horizontal_velocity_q6 != -0x0040 ||
+            rattle.render_script_address != 0xBB01U ||
+            tecmo_gameplay_shot_rim_rattle_begin(
+                &assets, &rattle, 2U, 0U, 0U, 0x0040, 0) ||
+            !tecmo_gameplay_shot_rim_rattle_begin(
+                &assets, &rattle, 0U, 0U, 0U, 0, 0) ||
+            rattle.horizontal_velocity_q6 != -0x0040) {
+            printf("Shot-resolution asset test failed: rim-rattle bounds\n");
+            goto shot_resolution_test_cleanup;
         }
         if (!tecmo_gameplay_shot_resolution_claimant_is_eligible(
                 &assets, -11, -7, 0U, 39U, &eligible) || !eligible ||
@@ -1604,7 +1709,7 @@ shot_resolution_test_cleanup:
         tecmo_gameplay_shot_resolution_destroy(&assets);
         tecmo_gameplay_shot_resolution_destroy(&assets);
         if (!ok) return 1;
-        printf("TGSR-1 shot resolution passed: sources=4 polarity=clear:make,set:miss routes=A708/A7A9/A8E9/A708 claimant=bounded settlement=team-driven\n");
+        printf("TGSR-2 shot resolution passed: source-spans=4+3-focused polarity=clear:make,set:miss routes=A708/A7A9/A8E9/A708 rim-rattle=1..4-pass claimant=bounded settlement=team-driven\n");
         return 0;
     }
 

@@ -19,7 +19,7 @@ if (!$RomPath -or !(Test-Path -LiteralPath $RomPath -PathType Leaf)) {
 $RomPath = (Resolve-Path -LiteralPath $RomPath).Path
 if ((Get-FileHash -Algorithm SHA256 -LiteralPath $RomPath).Hash -ne
     "076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4") {
-    throw "TGSR-1 tests require the exact supported Rev1 ROM revision."
+    throw "TGSR-2 tests require the exact supported Rev1 ROM revision."
 }
 
 $BuildDir = Join-Path $ProjectRoot "build"
@@ -34,7 +34,7 @@ if (!$Scratch.StartsWith($BuildPrefix,
 }
 $PackPath = Join-Path $Scratch "shot-resolution.assetpack"
 $ExpectedOutput =
-    "TGSR-1 shot resolution passed: sources=4 polarity=clear:make,set:miss routes=A708/A7A9/A8E9/A708 claimant=bounded settlement=team-driven"
+    "TGSR-2 shot resolution passed: source-spans=4+3-focused polarity=clear:make,set:miss routes=A708/A7A9/A8E9/A708 rim-rattle=1..4-pass claimant=bounded settlement=team-driven"
 $PreviousSkipShortcut = $env:TECMO_SKIP_SHORTCUT
 
 function Get-ShortTail {
@@ -121,13 +121,13 @@ function Invoke-ShotResolutionTest {
         if ($ExitCode -ne 0 -or
             ($Output -join [Environment]::NewLine).Trim() -ne
                 $ExpectedOutput) {
-            throw "TGSR-1 loader/API golden failed.`n$(Get-ShortTail $Output)"
+            throw "TGSR-2 loader/API golden failed.`n$(Get-ShortTail $Output)"
         }
     } elseif ($ExitCode -eq 0 -or
               @($Output | Where-Object {
-                  $_ -match "TGSR-1|Shot-resolution asset"
+                  $_ -match "TGSR-2|Shot-resolution asset"
               }).Count -eq 0) {
-        throw "Malformed TGSR-1 pack was accepted.`n$(Get-ShortTail $Output)"
+        throw "Malformed TGSR-2 pack was accepted.`n$(Get-ShortTail $Output)"
     }
 }
 
@@ -164,7 +164,7 @@ function Write-WrongSizeAndReject {
 
 function Invoke-RejectedRomMutation {
     param([byte[]]$Original, [string]$Id, [int]$Offset,
-          [string]$ExpectedRange)
+          [string]$ExpectedRange, [string]$ExpectedOwner = "TGSR-2")
     $MutatedRom = Join-Path $Scratch ("rom-" + $Id + ".nes")
     $MutatedPack = Join-Path $Scratch ("rom-" + $Id + ".assetpack")
     $Bytes = [byte[]]$Original.Clone()
@@ -173,7 +173,8 @@ function Invoke-RejectedRomMutation {
     $Output = @(& $Executable --build-assetpack `
         $MutatedRom $MutatedPack 2>&1)
     $Text = $Output -join [Environment]::NewLine
-    if ($LASTEXITCODE -eq 0 -or $Text -notmatch "TGSR-1" -or
+    if ($LASTEXITCODE -eq 0 -or
+        $Text -notmatch [regex]::Escape($ExpectedOwner) -or
         $Text -notmatch [regex]::Escape($ExpectedRange)) {
         throw "Rev1 source mutation '$Id' was not rejected.`n$(Get-ShortTail $Output)"
     }
@@ -202,7 +203,7 @@ try {
     $PackOutput = @(& $Executable --build-assetpack `
         $RomPath $PackPath 2>&1)
     if ($LASTEXITCODE -ne 0) {
-        throw "Rev1 TGSR-1 asset-pack build failed.`n$(Get-ShortTail $PackOutput)"
+        throw "Rev1 TGSR-2 asset-pack build failed.`n$(Get-ShortTail $PackOutput)"
     }
     $PackBytes = [IO.File]::ReadAllBytes($PackPath)
     $Directory = @(Get-AssetPackDirectory $PackBytes)
@@ -211,7 +212,7 @@ try {
     })
     if ($ResolutionEntries.Count -ne 1 -or
         @($Directory | Group-Object id | Where-Object Count -gt 1).Count -ne 0) {
-        throw "TGSR-1 entry registration is missing or duplicated."
+        throw "TGSR-2 entry registration is missing or duplicated."
     }
     $ResolutionEntry = $ResolutionEntries[0]
     $CoreEntry = @($Directory | Where-Object {
@@ -221,13 +222,13 @@ try {
         $_.id -eq "system/source-map"
     } | Select-Object -First 1)
     if ($CoreEntry.Count -ne 1 -or $SourceMapEntry.Count -ne 1) {
-        throw "TGSR-1 dependencies are missing from the pack."
+        throw "TGSR-2 dependencies are missing from the pack."
     }
     $Payload = Get-EntryBytes $PackBytes $ResolutionEntry
     if ($ResolutionEntry.byte_count -ne 384 -or
-        (Get-Fnv1a32 $Payload) -ne "8486DB33" -or
-        (Get-Fnv1a64 $Payload) -ne "3DDF28659B192273") {
-        throw "TGSR-1 canonical payload contract changed."
+        (Get-Fnv1a32 $Payload) -ne "CCA9DE06" -or
+        (Get-Fnv1a64 $Payload) -ne "9C4686F4DCD823A6") {
+        throw "TGSR-2 canonical payload contract changed."
     }
     Invoke-ShotResolutionTest $PackPath $true
 
@@ -238,7 +239,7 @@ try {
             $_ -match 'bank=5' -and $_ -match 'cpu=0x91BC' -and
             $_ -match 'bytes=384'
         }).Count -ne 1) {
-        throw "Asset-pack listing omitted the exact TGSR-1 entry.`n$(Get-ShortTail $ListOutput)"
+        throw "Asset-pack listing omitted the exact TGSR-2 entry.`n$(Get-ShortTail $ListOutput)"
     }
 
     $SourceMapText = [Text.Encoding]::UTF8.GetString(
@@ -251,19 +252,22 @@ try {
         @{ start=0x91BC; end=0x943A; size=639; f32="4A0C68AC"; f64="1AE095FB719E110C" },
         @{ start=0xA6EE; end=0xA9D9; size=748; f32="21A416FD"; f64="95A583E4DC801DFD" },
         @{ start=0xB73E; end=0xB87B; size=318; f32="574FEE44"; f64="B2E76E7A39990624" },
-        @{ start=0xB87C; end=0xB8F5; size=122; f32="9E2F1F28"; f64="C4F3A0BCC17BFCA8" }
+        @{ start=0xB87C; end=0xB8F5; size=122; f32="9E2F1F28"; f64="C4F3A0BCC17BFCA8" },
+        @{ start=0xA2DF; end=0xA2F7; size=25; f32="9D918043"; f64="B156545B031B1B23" },
+        @{ start=0xAD4E; end=0xAD64; size=23; f32="AF1D6B17"; f64="E14CD1782E18BC97" },
+        @{ start=0xBDF3; end=0xBDF6; size=4; f32="79F66DB3"; f64="59420E49CA612933" }
     )
     $MapOk = $Maps.Count -eq 1
     if ($MapOk) {
         $Map = $Maps[0]
         $MapOk = $Map.schema -eq
-                "tecmo.gameplay-shot-resolution/TGSR-1" -and
+                "tecmo.gameplay-shot-resolution/TGSR-2" -and
             [int]$Map.size -eq 384 -and
-            $Map.fingerprint_fnv1a32 -eq "8486DB33" -and
-            $Map.fingerprint_fnv1a64 -eq "3DDF28659B192273" -and
+            $Map.fingerprint_fnv1a32 -eq "CCA9DE06" -and
+            $Map.fingerprint_fnv1a64 -eq "9C4686F4DCD823A6" -and
             @($Map.dependencies).Count -eq 1 -and
             $Map.dependencies[0].entry -eq "gameplay/core" -and
-            @($Map.source_spans).Count -eq 4 -and
+            @($Map.source_spans).Count -eq 7 -and
             $Map.outcome.terminal_context_required -eq $true -and
             $Map.outcome.clear -eq "make" -and
             $Map.outcome.set -eq "miss" -and
@@ -273,6 +277,24 @@ try {
                 "-11,10" -and
             (@($Map.claimant_thresholds.depth_delta) -join ",") -eq
                 "-7,6" -and
+            [int]$Map.rim_rattle.object_state -eq 21 -and
+            (@($Map.rim_rattle.orientation_start_x) -join ",") -eq
+                "157,611" -and
+            (@($Map.rim_rattle.source_launch_target_x) -join ",") -eq
+                "160,608" -and
+            [int]$Map.rim_rattle.source_launch_target_y -eq 143 -and
+            $Map.rim_rattle.screen_mapping_policy -match
+                "native shot endpoint" -and
+            $Map.rim_rattle.target_x_dependency -match
+                "TGCS-1.*BDEF.*BDF6" -and
+            [int]$Map.rim_rattle.pass_timer_updates -eq 4 -and
+            [int]$Map.rim_rattle.repeat_dmc_length -eq 10 -and
+            (@($Map.rim_rattle.render_script_addresses) -join ",") -eq
+                "47801,47801,47807,47813,47819,47819,47825,47831" -and
+            $Map.rim_rattle.render_script_address_policy -match
+                "not literal sprite" -and
+            $Map.rim_rattle.completion_policy -match
+                "not universal" -and
             $Map.limits -match "not terminal" -and
             $Map.limits -match "not labeled rebound"
     }
@@ -292,7 +314,7 @@ try {
         }
     }
     if (!$MapOk) {
-        throw "TGSR-1 source-map provenance/semantic contract changed."
+        throw "TGSR-2 source-map provenance/semantic contract changed."
     }
 
     @(
@@ -300,6 +322,7 @@ try {
         @{ id="header-reserved"; offset=85 },
         @{ id="source"; offset=128 },
         @{ id="metadata"; offset=256 },
+        @{ id="rim-rattle"; offset=285 },
         @{ id="route"; offset=320 },
         @{ id="padding"; offset=352 }
     ) | ForEach-Object {
@@ -321,15 +344,28 @@ try {
     $PrgOffset = 16 + $Trainer
     for ($Index = 0; $Index -lt $ExpectedSpans.Count; ++$Index) {
         $Span = $ExpectedSpans[$Index]
-        $Offset = $PrgOffset + 5 * 0x4000 + ($Span.start - 0x8000)
+        $MutationCpu = $Span.start
         if ($Index -eq 2) {
             # $B7AD is inside TGSR's $B73E-$B87B claimant span but outside
             # TGCS's $B775-$B7AC and TGJS's $B7C1-$B87B spans.
-            $Offset = $PrgOffset + 5 * 0x4000 + (0xB7AD - 0x8000)
+            $MutationCpu = 0xB7AD
         }
+        $Offset = $PrgOffset + 5 * 0x4000 + ($MutationCpu - 0x8000)
         $Range = '${0:X4}-${1:X4}' -f $Span.start, $Span.end
+        $Owner = "TGSR-2"
+        if ($Index -eq 5) {
+            # The launch-target routine is already inside TGJS's larger
+            # revision span, so the compound builder rejects there first.
+            $Owner = "TGJS-1"
+            $Range = '$AD41-$AF21'
+        } elseif ($Index -eq 6) {
+            # The four-byte snap table is already inside TGCS's larger
+            # revision span, so the compound builder rejects there first.
+            $Owner = "TGCS-1"
+            $Range = '$BDEF-$BDF6'
+        }
         Invoke-RejectedRomMutation $RomBytes ("source-{0}" -f $Index) `
-            $Offset $Range
+            $Offset $Range $Owner
     }
 
     Write-Host $ExpectedOutput

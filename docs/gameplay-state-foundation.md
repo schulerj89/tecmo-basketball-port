@@ -39,7 +39,7 @@ The compound scene loads `gameplay/core` TGPL-1 (23416 bytes,
 `gameplay/close-shots` TGCS-1 (3144 bytes, `DACDC976`),
 `gameplay/dunk-cutaway` TGDK-1 (20272 bytes, `E02F2D21`),
 `gameplay/jump-shots` TGJS-1 (1648 bytes, `7587B099`),
-`gameplay/shot-resolution` TGSR-1 (384 bytes, `8486DB33`), `audio/music`
+`gameplay/shot-resolution` TGSR-2 (384 bytes, `CCA9DE06`), `audio/music`
 TMUS-1 (36784 bytes, `05C00ECB`), `audio/gameplay-sfx` TSFX-1 (2824
 bytes, `968A5DE6`), `audio/gameplay-dmc` TDMC-1 (2515 bytes,
 `AD70E6E8`), and the exact 262144-byte `chr/all` revision from one asset pack.
@@ -48,13 +48,21 @@ spans, CHR fingerprints, and the shared pack path are validated before the
 scene becomes available. Missing, malformed, oversized, wrong-revision, or
 cross-pack dependencies fail closed without a partial frame.
 
-TGSR-1 also has FNV1a64 `3DDF28659B192273` and requires exact same-pack
+TGSR-2 also has FNV1a64 `9C4686F4DCD823A6` and requires exact same-pack
 TGPL-1. Its revision-fingerprinted sources are Bank05 `$91BC-$943A`,
-`$A6EE-$A9D9`, `$B73E-$B87B`, and `$B87C-$B8F5`. The safe native semantics
-are terminal outcome polarity, numeric rim-route selection, claimant
-thresholds, and claimant-driven handler/possession decisions. It does not name
-a rebound, block, steal, or generic make. Missing, malformed, wrong-sized,
-wrong-revision, or cross-pack TGSR data rejects the scene before availability.
+`$A6EE-$A9D9`, `$B73E-$B87B`, and `$B87C-$B8F5`, plus focused state-`$15`
+convergence `$A2DF-$A2F7`, launch target `$AD4E-$AD64`, and orientation snap
+table `$BDF3-$BDF6` provenance: four primary plus three focused source spans.
+The safe native semantics are terminal outcome polarity, numeric
+rim-route selection, the state-`$15` one-to-four-pass horizontal rattle
+prefix, claimant thresholds, and claimant-driven handler/possession
+decisions. Its imported `$BAB9-$BAD7` values are render-script selection
+addresses, not literal sprite or CHR IDs. Completion restores the saved
+velocity before `$A2DF`; only the observed diagnostic `$6A=$71` route is
+connected to state `$10`. The alternate state-`$05` relaunch remains outside
+the native boundary. TGSR does not name a rebound, block, steal, or generic
+make. Missing, malformed, wrong-sized, wrong-revision, or cross-pack TGSR data
+rejects the scene before availability.
 
 `gameplay/penalties` TPNL-1 is a separate strict 768-byte pure rules asset
 (FNV1a32 `980DDC76`) with same-pack TGPL-1 and TSFX-1 dependencies. It exposes
@@ -112,8 +120,25 @@ actor. A simultaneous period expiry queues only crowd 11 and retains the
 current side. Outcome state clears after settlement and no rebound/block/steal
 stat event is synthesized.
 
-The three-point make uses the same strict TGJS/TGSR inputs without changing
-their formats or hashes. B stays current through frames 1-8 and releases at 9.
+TGSR-2 adds a separate deterministic diagnostic for the proven state-`$15`
+prefix without changing the normal frame-87 miss. Its canonical source uses
+four passes. Frame 73 snaps the exact orientation-0 state to raw `(157,147)`,
+altitude `$38`, timer 4, and positive `$0040` velocity because the captured
+incoming X velocity `$FD2C` is negative. Rendering preserves that raw state
+but maps it relative to Bank05's source launch target `(160,143)` and the
+native shot endpoint `(224,123)`: the initial `(-3,+4)` delta appears at
+`(221,127)` beside the native hoop, not at center court. Each update moves one
+coordinate, positive-first through raw X 161; frames 77, 81, and 85 reverse
+direction, reload the four-update timer, and queue the existing address-bound
+A8D6-short DMC clip. Frame 89 restores `$FD2C` and selects exit render-script
+address `$BADD`. The observed raw selector `$71` satisfies `$A2DF`'s
+`>= $18` predicate, so this one diagnostic enters the existing state-`$10`
+timeline and settles at frame 103. The native API also tests one through four
+passes and orientation 1, but it does not implement the alternate state-`$05`
+relaunch or make live selection random.
+
+The three-point make uses the same strict TGJS/TGSR runtime dependencies.
+B stays current through frames 1-8 and releases at 9.
 Pose pointers are 325, 1060, 1061, 213, then neutral 469; the prepared phases
 are `31/21/11/01/32/22/12/02`. TGSR requires the terminal bit-clear MAKE at
 frame 19. Uninterrupted Q8.8 motion starts at frame 20 from `$0308` with
@@ -171,9 +196,11 @@ track 5 at 26 and consumes it at 27, then changes the terminal result mailbox
 from `$0B` to `$0D` at 280 and consumes it at 281. It is live by 300 with no new
 music-track request or SFX ID 5 through 360. A final free throw therefore keeps
 its result request through the live transition and queues neither track 5 nor
-`BANK05_9FEC_CUE`. Dunk action frame 87 requests address-bound A9C5. Clip IDs
-0, 1, and 2 remain unresolved; ABF5 and A8D6 are not queued, and no clip name
-asserts an impact or rim cue.
+`BANK05_9FEC_CUE`. Dunk action frame 87 requests address-bound A9C5. The
+state-`$15` diagnostic queues address-bound A8D6-short only on nonterminal pass
+repeats. Normal live miss selection still queues neither A8D6 clip. Clip IDs
+0, 1, and 2 remain semantically unresolved, and no clip name asserts an impact
+or rim cue.
 
 The supported jump-miss settlement uses that same central crowd/side-result
 helper independently of point accounting. Its release requests no DMC; only
@@ -231,10 +258,15 @@ decompilation at these CPU-address ranges:
   is the bounded result caller path. `$BA65-$BA9C` (FNV1a32 `35FB80C4`) and
   `$B87C-$B888` (FNV1a32 `E903D8F9`) supply the integrated jump-shot settlement
   caller evidence.
-- TGSR-1 revision-locks Bank 05 `$91BC-$943A` (`4A0C68AC`),
+- TGSR-2 revision-locks Bank 05 `$91BC-$943A` (`4A0C68AC`),
   `$A6EE-$A9D9` (`21A416FD`), `$B73E-$B87B` (`574FEE44`), and
   `$B87C-$B8F5` (`9E2F1F28`) for terminal polarity, numeric rim dispatch,
-  claimant scanning, and claimant-driven settlement respectively.
+  claimant scanning, and claimant-driven settlement respectively. Focused
+  provenance additionally locks `$A2DF-$A2F7` (`9D918043`),
+  `$AD4E-$AD64` (`AF1D6B17`), and `$BDF3-$BDF6` (`79F66DB3`) for the
+  conditional convergence, launch target program, and orientation snap table.
+  The X target table `$BDEF-$BDF2` is supplied by the required same-pack
+  TGCS-1 `$BDEF-$BDF6` span and cross-checked against TGSR's snap data.
 - TPNL-1 revision-locks Bank 05 `$9571-$9649`, Bank 02 `$B0F8-$B398`,
   fixed `$E95E-$EA11`, `$EA14-$EA2F`, `$EC5B-$ED14`, and `$D2B9-$D2CE`,
   Bank 03 `$BE87-$BFA8`, and Bank 04 `$BA1F-$BA3E`. These feed the pure
@@ -296,7 +328,9 @@ These are provenance only and are not runtime inputs.
   family-0/profile-0/direction-1 terminal-miss and three-point-make branches.
   Current-B transitions, actor Q8.8/state/recovery timing, terminal polarity,
   the miss ball-state/bounce DMC path and claimant settlement, plus make
-  score/possession/crowd checkpoints are exact within that context. Unsupported
+  score/possession/crowd checkpoints are exact within that context. The
+  state-`$15` one-to-four-pass prefix is available through a deterministic
+  debug/test API only; live selection remains unchanged. Unsupported
   profiles/directions/outcomes, ordinary two-point makes, the longer +157-update
   claimant route, and make ball/camera geometry do not inherit those frame
   checkpoints. No semantic rebound, block, steal, or player-stat event is

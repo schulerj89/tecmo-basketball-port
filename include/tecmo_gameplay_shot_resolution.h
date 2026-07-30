@@ -7,6 +7,8 @@
 
 #define TECMO_GAMEPLAY_SHOT_RESOLUTION_SOURCE_COUNT 4U
 #define TECMO_GAMEPLAY_SHOT_RESOLUTION_RIM_ROUTE_COUNT 4U
+#define TECMO_GAMEPLAY_SHOT_RIM_RATTLE_ORIENTATION_COUNT 2U
+#define TECMO_GAMEPLAY_SHOT_RIM_RATTLE_RENDER_SCRIPT_COUNT 8U
 
 typedef enum TecmoGameplayShotResolutionSourceKind {
     TECMO_GAMEPLAY_SHOT_RESOLUTION_SOURCE_OUTCOME_CALCULATION = 1,
@@ -67,6 +69,46 @@ typedef struct TecmoGameplayShotSettlementDecision {
     bool change_possession;
 } TecmoGameplayShotSettlementDecision;
 
+/* The addresses select source render scripts; they are not sprite, tile, or
+   CHR identities. The fixed-point velocity uses six fractional bits, matching
+   the imported $0040 magnitude's one-coordinate-per-update motion. */
+typedef struct TecmoGameplayShotRimRattleContract {
+    uint8_t object_state;
+    uint16_t orientation_start_x[
+        TECMO_GAMEPLAY_SHOT_RIM_RATTLE_ORIENTATION_COUNT];
+    uint8_t start_y;
+    uint16_t horizontal_velocity_q6;
+    uint8_t altitude;
+    uint8_t pass_timer_updates;
+    uint8_t pass_source_mask;
+    uint8_t pass_source_bias;
+    uint8_t pass_animation_shift;
+    uint8_t animation_low_mask;
+    uint8_t repeat_dmc_length;
+    uint16_t render_script_addresses[
+        TECMO_GAMEPLAY_SHOT_RIM_RATTLE_RENDER_SCRIPT_COUNT];
+    uint16_t exit_render_script_addresses[
+        TECMO_GAMEPLAY_SHOT_RIM_RATTLE_ORIENTATION_COUNT];
+} TecmoGameplayShotRimRattleContract;
+
+typedef struct TecmoGameplayShotRimRattle {
+    bool active;
+    bool complete;
+    uint8_t object_state;
+    uint8_t orientation;
+    uint8_t timer_remaining;
+    uint8_t passes_remaining;
+    uint8_t animation_phase;
+    uint8_t altitude;
+    int16_t x;
+    int16_t y;
+    int16_t horizontal_velocity_q6;
+    int16_t vertical_velocity_q6;
+    int16_t saved_horizontal_velocity_q6;
+    int16_t saved_vertical_velocity_q6;
+    uint16_t render_script_address;
+} TecmoGameplayShotRimRattle;
+
 typedef struct TecmoGameplayShotResolutionAssets {
     uint32_t lifecycle_tag;
     bool available;
@@ -83,6 +125,7 @@ typedef struct TecmoGameplayShotResolutionAssets {
     uint8_t claimant_other_team_flag_mask;
     uint8_t claimant_count;
     uint32_t gameplay_core_fingerprint;
+    TecmoGameplayShotRimRattleContract rim_rattle;
 } TecmoGameplayShotResolutionAssets;
 
 void tecmo_gameplay_shot_resolution_init(
@@ -134,5 +177,23 @@ bool tecmo_gameplay_shot_resolution_decide_claimant_settlement(
     bool claimant_is_current_handler,
     TecmoGameplayShotClaimantTeamRelation relation,
     TecmoGameplayShotSettlementDecision *decision);
+
+/* Begins and advances only the behavior-verified state-$15 prefix. Completion
+   restores the incoming velocities and reports the orientation-specific exit
+   render-script address. The caller must apply the separately conditional
+   convergence result; completion does not universally imply state $10. */
+bool tecmo_gameplay_shot_rim_rattle_begin(
+    const TecmoGameplayShotResolutionAssets *assets,
+    TecmoGameplayShotRimRattle *rattle,
+    uint8_t orientation,
+    uint8_t pass_source,
+    uint8_t animation_phase,
+    int16_t incoming_horizontal_velocity_q6,
+    int16_t incoming_vertical_velocity_q6);
+bool tecmo_gameplay_shot_rim_rattle_step(
+    const TecmoGameplayShotResolutionAssets *assets,
+    TecmoGameplayShotRimRattle *rattle,
+    bool *repeat_dmc,
+    bool *completed);
 
 #endif

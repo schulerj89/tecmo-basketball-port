@@ -40,7 +40,26 @@ const uint8_t tecmo_gameplay_shot_resolution_expected_metadata[
         0xEEU, 0xA6U,
         0x3EU, 0xB7U,
         0x0EU, 0xB8U,
-        0x7CU, 0xB8U
+        0x7CU,
+        0x15U,
+        0x9DU, 0x00U,
+        0x63U, 0x02U,
+        0x93U,
+        0x40U, 0x00U,
+        0x38U,
+        0x04U,
+        0x03U, 0x01U, 0x04U, 0x0FU,
+        0x0AU,
+        0xB9U, 0xBAU,
+        0xB9U, 0xBAU,
+        0xBFU, 0xBAU,
+        0xC5U, 0xBAU,
+        0xCBU, 0xBAU,
+        0xCBU, 0xBAU,
+        0xD1U, 0xBAU,
+        0xD7U, 0xBAU,
+        0xDDU, 0xBAU,
+        0x01U, 0xBBU
     };
 
 const uint8_t tecmo_gameplay_shot_resolution_expected_routes[
@@ -96,6 +115,210 @@ static bool bytes_match(const uint8_t *rom,
     uint64_t offset = bank05_cpu_offset(prg_offset, cpu);
     return range_ok(offset, count, rom_size) &&
            memcmp(rom + (size_t)offset, expected, count) == 0;
+}
+
+static uint16_t read_bank05_u16(const uint8_t *rom,
+                                uint64_t prg_offset,
+                                uint16_t cpu)
+{
+    uint64_t offset = bank05_cpu_offset(prg_offset, cpu);
+    return (uint16_t)(rom[(size_t)offset] |
+                      ((uint16_t)rom[(size_t)offset + 1U] << 8U));
+}
+
+static uint16_t read_bank05_split_u16(const uint8_t *rom,
+                                      uint64_t prg_offset,
+                                      uint16_t low_cpu,
+                                      uint16_t high_cpu,
+                                      uint8_t index)
+{
+    return (uint16_t)(
+        rom[(size_t)bank05_cpu_offset(
+            prg_offset, (uint16_t)(low_cpu + index))] |
+        ((uint16_t)rom[(size_t)bank05_cpu_offset(
+            prg_offset, (uint16_t)(high_cpu + index))] << 8U));
+}
+
+static int validate_rim_rattle_contract(const uint8_t *rom,
+                                        uint64_t rom_size,
+                                        uint64_t prg_offset,
+                                        char *message,
+                                        size_t message_size)
+{
+    static const uint8_t pass_derivation[] = {
+        0xA5U, 0x53U, 0x29U, 0x03U, 0x18U, 0x69U, 0x01U,
+        0x0AU, 0x0AU, 0x0AU, 0x0AU
+    };
+    static const uint8_t velocity_pair[] = {
+        0xA9U, 0xFFU, 0x9DU, 0xF2U, 0x04U,
+        0xA9U, 0xC0U, 0x9DU, 0xE7U, 0x04U
+    };
+    static const uint8_t positive_velocity_pair[] = {
+        0xA9U, 0x00U, 0x9DU, 0xF2U, 0x04U,
+        0xA9U, 0x40U, 0x9DU, 0xE7U, 0x04U
+    };
+    static const uint8_t launch_target_program[] = {
+        0xA2U, 0x0AU, 0xACU, 0x5AU, 0x03U,
+        0xB9U, 0xEFU, 0xBDU, 0x85U, 0x94U,
+        0xB9U, 0xF1U, 0xBDU, 0x85U, 0x95U,
+        0xA9U, 0x00U, 0x85U, 0x97U,
+        0xA9U, 0x8FU, 0x85U, 0x96U
+    };
+    const uint8_t *metadata =
+        tecmo_gameplay_shot_resolution_expected_metadata;
+    uint64_t convergence_offset = bank05_cpu_offset(
+        prg_offset,
+        TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_CONVERGENCE_CPU);
+    uint64_t target_offset = bank05_cpu_offset(
+        prg_offset,
+        TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_TARGET_CPU);
+    uint64_t snap_offset = bank05_cpu_offset(
+        prg_offset,
+        TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_SNAP_CPU);
+
+    if (!range_ok(convergence_offset,
+                  TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_CONVERGENCE_SIZE,
+                  rom_size) ||
+        !range_ok(snap_offset,
+                  TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_SNAP_SIZE,
+                  rom_size) ||
+        !range_ok(target_offset,
+                  TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_TARGET_SIZE,
+                  rom_size) ||
+        tecmo_asset_pack_fnv1a32(
+            rom + (size_t)convergence_offset,
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_CONVERGENCE_SIZE) !=
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_CONVERGENCE_FNV1A32 ||
+        fnv1a64(
+            rom + (size_t)convergence_offset,
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_CONVERGENCE_SIZE) !=
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_CONVERGENCE_FNV1A64 ||
+        tecmo_asset_pack_fnv1a32(
+            rom + (size_t)target_offset,
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_TARGET_SIZE) !=
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_TARGET_FNV1A32 ||
+        fnv1a64(
+            rom + (size_t)target_offset,
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_TARGET_SIZE) !=
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_TARGET_FNV1A64 ||
+        tecmo_asset_pack_fnv1a32(
+            rom + (size_t)snap_offset,
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_SNAP_SIZE) !=
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_SNAP_FNV1A32 ||
+        fnv1a64(
+            rom + (size_t)snap_offset,
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_SNAP_SIZE) !=
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_SNAP_FNV1A64 ||
+        !bytes_match(rom, rom_size, prg_offset, 0xA7B4U,
+                     pass_derivation, sizeof(pass_derivation)) ||
+        !bytes_match(rom, rom_size, prg_offset, 0xA7DBU,
+                     velocity_pair, sizeof(velocity_pair)) ||
+        !bytes_match(rom, rom_size, prg_offset, 0xA7E8U,
+                     positive_velocity_pair,
+                     sizeof(positive_velocity_pair)) ||
+        !bytes_match(
+            rom, rom_size, prg_offset,
+            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_TARGET_CPU,
+            launch_target_program, sizeof(launch_target_program)) ||
+        metadata[29U] != rom[(size_t)bank05_cpu_offset(
+            prg_offset, 0xA80BU)] ||
+        (uint16_t)(
+            rom[(size_t)bank05_cpu_offset(prg_offset, 0xBDF3U)] |
+            ((uint16_t)rom[(size_t)bank05_cpu_offset(
+                 prg_offset, 0xBDF5U)] << 8U)) !=
+            (uint16_t)(metadata[30U] |
+                       ((uint16_t)metadata[31U] << 8U)) ||
+        (uint16_t)(
+            rom[(size_t)bank05_cpu_offset(prg_offset, 0xBDF4U)] |
+            ((uint16_t)rom[(size_t)bank05_cpu_offset(
+                 prg_offset, 0xBDF6U)] << 8U)) !=
+            (uint16_t)(metadata[32U] |
+                       ((uint16_t)metadata[33U] << 8U)) ||
+        metadata[34U] != rom[(size_t)bank05_cpu_offset(
+            prg_offset, 0xA7D3U)] ||
+        read_bank05_u16(rom, prg_offset, 0xA7E9U) != 0x9D00U ||
+        metadata[35U] != rom[(size_t)bank05_cpu_offset(
+            prg_offset, 0xA7EEU)] ||
+        metadata[36U] != rom[(size_t)bank05_cpu_offset(
+            prg_offset, 0xA7E9U)] ||
+        metadata[37U] != rom[(size_t)bank05_cpu_offset(
+            prg_offset, 0xA7F6U)] ||
+        metadata[38U] != rom[(size_t)bank05_cpu_offset(
+            prg_offset, 0xA7FBU)] ||
+        metadata[39U] != rom[(size_t)bank05_cpu_offset(
+            prg_offset, 0xA7B7U)] ||
+        metadata[40U] != rom[(size_t)bank05_cpu_offset(
+            prg_offset, 0xA7BAU)] ||
+        metadata[41U] != 4U ||
+        metadata[42U] != rom[(size_t)bank05_cpu_offset(
+            prg_offset, 0xA7B0U)] ||
+        metadata[43U] != rom[(size_t)bank05_cpu_offset(
+            prg_offset, 0xA8CBU)]) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TGSR-2 rim-rattle source contract mismatch "
+            "($A2DF-$A2F7, $AD4E-$AD64, or $BDF3-$BDF6).");
+        return -1;
+    }
+    for (size_t index = 0U;
+         index < TECMO_GAMEPLAY_SHOT_RIM_RATTLE_RENDER_SCRIPT_COUNT;
+         ++index) {
+        uint16_t address = (uint16_t)(
+            rom[(size_t)bank05_cpu_offset(prg_offset,
+                                         (uint16_t)(0xA827U + index))] |
+            ((uint16_t)rom[(size_t)bank05_cpu_offset(
+                 prg_offset, (uint16_t)(0xA82FU + index))] << 8U));
+        if (address != (uint16_t)(metadata[44U + index * 2U] |
+                ((uint16_t)metadata[45U + index * 2U] << 8U))) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "TGSR-2 rim-rattle render-script table mismatch.");
+            return -1;
+        }
+    }
+    for (size_t index = 0U;
+         index < TECMO_GAMEPLAY_SHOT_RIM_RATTLE_ORIENTATION_COUNT;
+         ++index) {
+        uint16_t address = (uint16_t)(
+            rom[(size_t)bank05_cpu_offset(prg_offset,
+                                         (uint16_t)(0xA8D2U + index))] |
+            ((uint16_t)rom[(size_t)bank05_cpu_offset(
+                 prg_offset, (uint16_t)(0xA8D4U + index))] << 8U));
+        if (address != (uint16_t)(metadata[60U + index * 2U] |
+                ((uint16_t)metadata[61U + index * 2U] << 8U))) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "TGSR-2 rim-rattle exit render-script table mismatch.");
+            return -1;
+        }
+    }
+    if ((uint8_t)((0U & metadata[39U]) + metadata[40U]) != 1U ||
+        (uint8_t)((3U & metadata[39U]) + metadata[40U]) != 4U ||
+        metadata[41U] >= 8U ||
+        metadata[42U] != 0x0FU ||
+        read_bank05_split_u16(
+            rom, prg_offset, 0xBDEFU, 0xBDF1U, 0U) !=
+            (uint16_t)(
+                (uint16_t)(metadata[30U] |
+                           ((uint16_t)metadata[31U] << 8U)) + 3U) ||
+        read_bank05_split_u16(
+            rom, prg_offset, 0xBDEFU, 0xBDF1U, 1U) + 3U !=
+            (uint16_t)(metadata[32U] |
+                       ((uint16_t)metadata[33U] << 8U)) ||
+        rom[(size_t)bank05_cpu_offset(prg_offset, 0xAD62U)] + 4U !=
+            metadata[34U] ||
+        (uint16_t)(0x10000U - (uint16_t)metadata[35U]) != 0xFFC0U ||
+        metadata[38U] == 0U || metadata[35U] == 0U ||
+        (uint16_t)(metadata[30U] |
+                   ((uint16_t)metadata[31U] << 8U)) >=
+            (uint16_t)(metadata[32U] |
+                       ((uint16_t)metadata[33U] << 8U))) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TGSR-2 rim-rattle semantic relationship mismatch.");
+        return -1;
+    }
+    return 0;
 }
 
 static int validate_derived_contract(const uint8_t *rom,
@@ -174,7 +397,7 @@ static int validate_derived_contract(const uint8_t *rom,
         !range_ok(table_offset, 8U, rom_size)) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGSR-1 derived outcome/route/claimant contract mismatch.");
+            "TGSR-2 derived outcome/route/claimant contract mismatch.");
         return -1;
     }
 
@@ -193,7 +416,7 @@ static int validate_derived_contract(const uint8_t *rom,
                     5U] << 8U))) {
             tecmo_asset_pack_set_message(
                 message, message_size,
-                "TGSR-1 numeric rim-route target mismatch.");
+                "TGSR-2 numeric rim-route target mismatch.");
             return -1;
         }
         memcpy(record,
@@ -223,7 +446,7 @@ int tecmo_asset_pack_build_gameplay_shot_resolution(
         enforce_revision_fingerprints == 0) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGSR-1 import requires the exact Rev1 ROM contract.");
+            "TGSR-2 import requires the exact Rev1 ROM contract.");
         return -1;
     }
 
@@ -247,7 +470,7 @@ int tecmo_asset_pack_build_gameplay_shot_resolution(
             !range_ok(source_offset, expected->byte_count, rom_size)) {
             tecmo_asset_pack_set_message(
                 message, message_size,
-                "TGSR-1 source range is outside the Rev1 ROM.");
+                "TGSR-2 source range is outside the Rev1 ROM.");
             return -1;
         }
         fingerprint32 = tecmo_asset_pack_fnv1a32(
@@ -258,7 +481,7 @@ int tecmo_asset_pack_build_gameplay_shot_resolution(
             fingerprint64 != expected->fingerprint_fnv1a64) {
             tecmo_asset_pack_set_messagef(
                 message, message_size,
-                "TGSR-1 Bank05 $%04X-$%04X revision fingerprint mismatch.",
+                "TGSR-2 Bank05 $%04X-$%04X revision fingerprint mismatch.",
                 (unsigned)expected->cpu_start, (unsigned)cpu_end);
             return -1;
         }
@@ -273,11 +496,24 @@ int tecmo_asset_pack_build_gameplay_shot_resolution(
         tecmo_asset_pack_store_u16(record + 24U, (uint16_t)index);
         provenance->source_offsets[index] = source_offset;
     }
+    provenance->convergence_predicate_offset = bank05_cpu_offset(
+        prg_offset,
+        TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_CONVERGENCE_CPU);
+    provenance->rim_rattle_launch_target_offset = bank05_cpu_offset(
+        prg_offset,
+        TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_TARGET_CPU);
+    provenance->rim_rattle_snap_table_offset = bank05_cpu_offset(
+        prg_offset,
+        TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_RATTLE_SNAP_CPU);
 
     memcpy(payload +
                TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_METADATA_OFFSET,
            tecmo_gameplay_shot_resolution_expected_metadata,
            TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_METADATA_SIZE);
+    if (validate_rim_rattle_contract(
+            rom, rom_size, prg_offset, message, message_size) != 0) {
+        return -1;
+    }
     if (validate_derived_contract(
             rom, rom_size, prg_offset,
             payload + TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_ROUTE_OFFSET,
@@ -362,13 +598,13 @@ int tecmo_asset_pack_build_gameplay_shot_resolution(
             TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_FNV1A64) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGSR-1 canonical derived payload fingerprint mismatch.");
+            "TGSR-2 canonical derived payload fingerprint mismatch.");
         return -1;
     }
 
     tecmo_asset_pack_set_message(
         message, message_size,
-        "Built strict ROM-derived TGSR-1 shot-resolution asset.");
+        "Built strict ROM-derived TGSR-2 shot-resolution asset.");
     return 0;
 }
 
@@ -392,7 +628,7 @@ int tecmo_asset_pack_gameplay_shot_resolution_self_test(
             source->fingerprint_fnv1a64 == 0U) {
             tecmo_asset_pack_set_message(
                 message, message_size,
-                "TGSR-1 source layout self-test failed.");
+                "TGSR-2 source layout self-test failed.");
             return -1;
         }
         prior_end = end;
@@ -409,6 +645,13 @@ int tecmo_asset_pack_gameplay_shot_resolution_self_test(
         tecmo_gameplay_shot_resolution_expected_metadata[9U] != 0x06U ||
         tecmo_gameplay_shot_resolution_expected_metadata[10U] != 0x27U ||
         tecmo_gameplay_shot_resolution_expected_metadata[11U] != 0x3BU ||
+        tecmo_gameplay_shot_resolution_expected_metadata[29U] != 0x15U ||
+        tecmo_gameplay_shot_resolution_expected_metadata[38U] != 0x04U ||
+        tecmo_gameplay_shot_resolution_expected_metadata[39U] != 0x03U ||
+        tecmo_gameplay_shot_resolution_expected_metadata[40U] != 0x01U ||
+        tecmo_gameplay_shot_resolution_expected_metadata[41U] != 0x04U ||
+        tecmo_gameplay_shot_resolution_expected_metadata[42U] != 0x0FU ||
+        tecmo_gameplay_shot_resolution_expected_metadata[43U] != 0x0AU ||
         memcmp(tecmo_gameplay_shot_resolution_expected_routes,
                (const uint8_t[]){
                    0U, 1U, 0U, 0U, 0x08U, 0xA7U, 0U, 0U,
@@ -418,11 +661,11 @@ int tecmo_asset_pack_gameplay_shot_resolution_self_test(
                sizeof(tecmo_gameplay_shot_resolution_expected_routes)) != 0) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGSR-1 semantic layout self-test failed.");
+            "TGSR-2 semantic layout self-test failed.");
         return -1;
     }
     tecmo_asset_pack_set_message(
         message, message_size,
-        "TGSR-1 layout self-test passed.");
+        "TGSR-2 layout self-test passed.");
     return 0;
 }

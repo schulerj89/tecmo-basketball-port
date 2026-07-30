@@ -75,9 +75,10 @@ static bool reject(TecmoGameplayShotResolutionAssets *assets,
     assets->claimant_other_team_flag_mask = 0U;
     assets->claimant_count = 0U;
     assets->gameplay_core_fingerprint = 0U;
+    memset(&assets->rim_rattle, 0, sizeof(assets->rim_rattle));
     assets->available = false;
     (void)snprintf(assets->status, sizeof(assets->status), "%s",
-                   message != NULL ? message : "TGSR-1 rejected");
+                   message != NULL ? message : "TGSR-2 rejected");
     return false;
 }
 
@@ -260,23 +261,23 @@ bool tecmo_gameplay_shot_resolution_parse(
     }
     tecmo_gameplay_shot_resolution_destroy(assets);
     if (payload == NULL || !validate_header(payload, payload_size)) {
-        return reject(assets, "TGSR-1 header/size/reserved contract rejected");
+        return reject(assets, "TGSR-2 header/size/reserved contract rejected");
     }
     if (fnv1a32(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_FNV1A32 ||
         fnv1a64(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_FNV1A64) {
-        return reject(assets, "TGSR-1 canonical payload fingerprint rejected");
+        return reject(assets, "TGSR-2 canonical payload fingerprint rejected");
     }
     if (!validate_sources(payload) || !validate_semantics(payload)) {
-        return reject(assets, "TGSR-1 source/semantic contract rejected");
+        return reject(assets, "TGSR-2 source/semantic contract rejected");
     }
     if (!validate_gameplay_core(gameplay_core, gameplay_core_size)) {
-        return reject(assets, "TGSR-1 same-pack TGPL-1 dependency rejected");
+        return reject(assets, "TGSR-2 same-pack TGPL-1 dependency rejected");
     }
 
     storage = (uint8_t *)malloc(payload_size);
-    if (storage == NULL) return reject(assets, "TGSR-1 allocation failed");
+    if (storage == NULL) return reject(assets, "TGSR-2 allocation failed");
     memcpy(storage, payload, payload_size);
     assets->storage = storage;
     assets->storage_size = payload_size;
@@ -325,10 +326,37 @@ bool tecmo_gameplay_shot_resolution_parse(
         airborne_ball_above_claimant_max_inclusive = metadata[11U];
     assets->claimant_other_team_flag_mask = metadata[12U];
     assets->claimant_count = metadata[13U];
+    assets->rim_rattle.object_state = metadata[29U];
+    assets->rim_rattle.orientation_start_x[0U] =
+        read_u16(metadata + 30U);
+    assets->rim_rattle.orientation_start_x[1U] =
+        read_u16(metadata + 32U);
+    assets->rim_rattle.start_y = metadata[34U];
+    assets->rim_rattle.horizontal_velocity_q6 =
+        read_u16(metadata + 35U);
+    assets->rim_rattle.altitude = metadata[37U];
+    assets->rim_rattle.pass_timer_updates = metadata[38U];
+    assets->rim_rattle.pass_source_mask = metadata[39U];
+    assets->rim_rattle.pass_source_bias = metadata[40U];
+    assets->rim_rattle.pass_animation_shift = metadata[41U];
+    assets->rim_rattle.animation_low_mask = metadata[42U];
+    assets->rim_rattle.repeat_dmc_length = metadata[43U];
+    for (size_t index = 0U;
+         index < TECMO_GAMEPLAY_SHOT_RIM_RATTLE_RENDER_SCRIPT_COUNT;
+         ++index) {
+        assets->rim_rattle.render_script_addresses[index] =
+            read_u16(metadata + 44U + index * 2U);
+    }
+    for (size_t index = 0U;
+         index < TECMO_GAMEPLAY_SHOT_RIM_RATTLE_ORIENTATION_COUNT;
+         ++index) {
+        assets->rim_rattle.exit_render_script_addresses[index] =
+            read_u16(metadata + 60U + index * 2U);
+    }
     assets->gameplay_core_fingerprint = TECMO_ASSET_PACK_GAMEPLAY_FNV1A32;
     assets->available = true;
     (void)snprintf(assets->status, sizeof(assets->status),
-                   "TGSR-1 gameplay shot-resolution assetpack");
+                   "TGSR-2 gameplay shot-resolution assetpack");
     return true;
 }
 
@@ -355,7 +383,7 @@ bool tecmo_gameplay_shot_resolution_load(
             &payload, &payload_size) != 0) {
         return reject(
             assets,
-            "TGSR-1 gameplay/shot-resolution entry missing or wrong-sized");
+            "TGSR-2 gameplay/shot-resolution entry missing or wrong-sized");
     }
     if (tecmo_asset_pack_read_entry_exact(
             asset_pack_path, TECMO_ASSET_PACK_GAMEPLAY_ID,
@@ -364,7 +392,7 @@ bool tecmo_gameplay_shot_resolution_load(
         tecmo_asset_pack_free(payload);
         return reject(
             assets,
-            "TGSR-1 gameplay/core dependency missing or wrong-sized");
+            "TGSR-2 gameplay/core dependency missing or wrong-sized");
     }
     loaded = tecmo_gameplay_shot_resolution_parse(
         assets, payload, (size_t)payload_size,
@@ -478,5 +506,156 @@ bool tecmo_gameplay_shot_resolution_decide_claimant_settlement(
         decision->replace_other_handler_with_previous = true;
         decision->change_possession = true;
     }
+    return true;
+}
+
+bool tecmo_gameplay_shot_rim_rattle_begin(
+    const TecmoGameplayShotResolutionAssets *assets,
+    TecmoGameplayShotRimRattle *rattle,
+    uint8_t orientation,
+    uint8_t pass_source,
+    uint8_t animation_phase,
+    int16_t incoming_horizontal_velocity_q6,
+    int16_t incoming_vertical_velocity_q6)
+{
+    const TecmoGameplayShotRimRattleContract *contract;
+    uint8_t pass_count;
+    if (assets == NULL || !assets->available || rattle == NULL ||
+        orientation >= TECMO_GAMEPLAY_SHOT_RIM_RATTLE_ORIENTATION_COUNT) {
+        return false;
+    }
+    contract = &assets->rim_rattle;
+    pass_count = (uint8_t)(
+        (pass_source & contract->pass_source_mask) +
+        contract->pass_source_bias);
+    if (contract->object_state != 0x15U ||
+        contract->horizontal_velocity_q6 != 0x0040U ||
+        contract->pass_timer_updates != 4U ||
+        contract->pass_animation_shift != 4U ||
+        pass_count == 0U || pass_count > 4U) {
+        return false;
+    }
+    memset(rattle, 0, sizeof(*rattle));
+    rattle->active = true;
+    rattle->object_state = contract->object_state;
+    rattle->orientation = orientation;
+    rattle->timer_remaining = contract->pass_timer_updates;
+    rattle->passes_remaining = pass_count;
+    rattle->animation_phase = (uint8_t)(
+        (uint8_t)(pass_count << contract->pass_animation_shift) |
+        (animation_phase & contract->animation_low_mask));
+    rattle->altitude = contract->altitude;
+    rattle->x = (int16_t)contract->orientation_start_x[orientation];
+    rattle->y = (int16_t)contract->start_y;
+    rattle->saved_horizontal_velocity_q6 =
+        incoming_horizontal_velocity_q6;
+    rattle->saved_vertical_velocity_q6 =
+        incoming_vertical_velocity_q6;
+    rattle->horizontal_velocity_q6 =
+        incoming_horizontal_velocity_q6 < 0
+            ? (int16_t)contract->horizontal_velocity_q6
+            : -(int16_t)contract->horizontal_velocity_q6;
+    rattle->vertical_velocity_q6 = 0;
+    rattle->render_script_address =
+        contract->render_script_addresses[(size_t)orientation * 4U];
+    return true;
+}
+
+bool tecmo_gameplay_shot_rim_rattle_step(
+    const TecmoGameplayShotResolutionAssets *assets,
+    TecmoGameplayShotRimRattle *rattle,
+    bool *repeat_dmc,
+    bool *completed)
+{
+    const TecmoGameplayShotRimRattleContract *contract;
+    size_t render_index;
+    uint8_t animation_high;
+    if (repeat_dmc != NULL) *repeat_dmc = false;
+    if (completed != NULL) *completed = false;
+    if (assets == NULL || !assets->available || rattle == NULL ||
+        repeat_dmc == NULL || completed == NULL || !rattle->active ||
+        rattle->complete ||
+        rattle->orientation >=
+            TECMO_GAMEPLAY_SHOT_RIM_RATTLE_ORIENTATION_COUNT ||
+        rattle->object_state != assets->rim_rattle.object_state ||
+        rattle->timer_remaining == 0U ||
+        rattle->timer_remaining >
+            assets->rim_rattle.pass_timer_updates ||
+        rattle->passes_remaining == 0U ||
+        rattle->passes_remaining > 4U ||
+        (uint8_t)(rattle->animation_phase >>
+                  assets->rim_rattle.pass_animation_shift) !=
+            rattle->passes_remaining ||
+        rattle->altitude != assets->rim_rattle.altitude ||
+        rattle->y != (int16_t)assets->rim_rattle.start_y ||
+        rattle->vertical_velocity_q6 != 0 ||
+        rattle->x <
+            (int16_t)(assets->rim_rattle.orientation_start_x[
+                          rattle->orientation] - 4U) ||
+        rattle->x >
+            (int16_t)(assets->rim_rattle.orientation_start_x[
+                          rattle->orientation] + 4U)) {
+        return false;
+    }
+    contract = &assets->rim_rattle;
+    if (rattle->horizontal_velocity_q6 ==
+            (int16_t)contract->horizontal_velocity_q6) {
+        ++rattle->x;
+    } else if (rattle->horizontal_velocity_q6 ==
+                   -(int16_t)contract->horizontal_velocity_q6) {
+        --rattle->x;
+    } else {
+        return false;
+    }
+    --rattle->timer_remaining;
+    if (rattle->timer_remaining == 0U) {
+        animation_high =
+            (uint8_t)(rattle->animation_phase & 0xF0U);
+        if (animation_high < 0x10U) return false;
+        animation_high = (uint8_t)(animation_high - 0x10U);
+        rattle->animation_phase = (uint8_t)(
+            animation_high |
+            (rattle->animation_phase & contract->animation_low_mask));
+        --rattle->passes_remaining;
+        if (rattle->passes_remaining == 0U) {
+            rattle->active = false;
+            rattle->complete = true;
+            rattle->object_state = 0U;
+            rattle->horizontal_velocity_q6 =
+                rattle->saved_horizontal_velocity_q6;
+            rattle->vertical_velocity_q6 =
+                rattle->saved_vertical_velocity_q6;
+            rattle->render_script_address =
+                contract->exit_render_script_addresses[
+                    rattle->orientation];
+            *completed = true;
+            return true;
+        }
+        rattle->timer_remaining = contract->pass_timer_updates;
+        rattle->horizontal_velocity_q6 =
+            (int16_t)-rattle->horizontal_velocity_q6;
+        rattle->vertical_velocity_q6 = 0;
+        rattle->render_script_address =
+            contract->render_script_addresses[
+                (size_t)rattle->orientation * 4U];
+        *repeat_dmc = true;
+        return true;
+    }
+
+    if (rattle->orientation == 0U) {
+        render_index = rattle->horizontal_velocity_q6 < 0
+            ? rattle->timer_remaining
+            : (size_t)(3U - rattle->timer_remaining);
+    } else {
+        render_index = rattle->horizontal_velocity_q6 < 0
+            ? (size_t)(7U - rattle->timer_remaining)
+            : (size_t)(rattle->timer_remaining + 4U);
+    }
+    if (render_index >=
+            TECMO_GAMEPLAY_SHOT_RIM_RATTLE_RENDER_SCRIPT_COUNT) {
+        return false;
+    }
+    rattle->render_script_address =
+        contract->render_script_addresses[render_index];
     return true;
 }
