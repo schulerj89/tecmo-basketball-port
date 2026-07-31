@@ -551,7 +551,7 @@ bool tecmo_gameplay_assets_build_live_background_context(
     TecmoGameplayLiveBackgroundContext *context)
 {
     if (assets == NULL || context == NULL || !assets->available ||
-        final_r1_selector < 0x3FU || final_r1_selector > 0x5AU) {
+        final_r1_selector < 0x40U || final_r1_selector > 0x5AU) {
         return false;
     }
     for (size_t band = 0U; band < TECMO_GAMEPLAY_LIVE_BAND_COUNT; ++band) {

@@ -215,7 +215,7 @@ try {
     $PackBytes = [IO.File]::ReadAllBytes($PackPath)
     $Specs = @(
         [pscustomobject]@{ id="gameplay/core"; size=23416; hash="2047CCE0"; schema="tecmo.gameplay/TGPL-1" },
-        [pscustomobject]@{ id="gameplay/pre-tip"; size=5376; hash="91FD7B32"; schema="tecmo.gameplay-pre-tip/TPTI-1" },
+        [pscustomobject]@{ id="gameplay/pre-tip"; size=5888; hash="99ADFE3D"; schema="tecmo.gameplay-pre-tip/TPTI-1" },
         [pscustomobject]@{ id="gameplay/court"; size=6559; hash="ECAB7A93"; schema="tecmo.gameplay-court/TGCT-1" },
         [pscustomobject]@{ id="gameplay/camera-projection"; size=1536; hash="53247856"; schema="tecmo.gameplay-camera/TGCP-2" },
         [pscustomobject]@{ id="gameplay/court-orientation"; size=640; hash="F9152C0A"; schema="tecmo.gameplay-court-orientation/TGOR-1" },

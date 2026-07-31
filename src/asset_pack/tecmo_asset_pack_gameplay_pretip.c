@@ -52,6 +52,12 @@ const TecmoGameplayPreTipExpectedSource
         {TECMO_GAMEPLAY_PRETIP_SOURCE_CHARACTER_MAP,6U,0U,0xA290U,63U,
          0xA482CC3DU,0x66FB75B9E18FD1FDULL,
          TECMO_ASSET_PACK_GAMEPLAY_PRETIP_CHARMAP_OFFSET},
+        {TECMO_GAMEPLAY_PRETIP_SOURCE_CHARACTER_TILES,6U,0U,0xAF05U,152U,
+         0xD541FFD5U,0xA1891DD2D3930395ULL,
+         TECMO_ASSET_PACK_GAMEPLAY_PRETIP_CHARACTER_TILES_OFFSET},
+        {TECMO_GAMEPLAY_PRETIP_SOURCE_TEXT_CHR_SELECTORS,6U,0U,0x9FA8U,10U,
+         0xCE41F776U,0xB68811BCD0FAF076ULL,
+         TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TEXT_CHR_SELECTORS_OFFSET},
         {TECMO_GAMEPLAY_PRETIP_SOURCE_CLOSEUP_ENTRY,4U,0U,0x86ABU,510U,
          0x5EF44845U,0xCB66AABD4429C9E5ULL,
          TECMO_ASSET_PACK_GAMEPLAY_PRETIP_CLOSEUP_ENTRY_OFFSET},
@@ -64,6 +70,9 @@ const TecmoGameplayPreTipExpectedSource
         {TECMO_GAMEPLAY_PRETIP_SOURCE_CLOSEUP_TIMING,4U,0U,0xAD82U,94U,
          0xC1C42D30U,0x3208F695BCBC76F0ULL,
          TECMO_ASSET_PACK_GAMEPLAY_PRETIP_CLOSEUP_TIMING_OFFSET},
+        {TECMO_GAMEPLAY_PRETIP_SOURCE_CLOSEUP_SPRITE_STAGING,7U,1U,
+         0xD861U,202U,0xA1491ACFU,0x40C7703A9FBB96CFULL,
+         TECMO_ASSET_PACK_GAMEPLAY_PRETIP_CLOSEUP_SPRITE_STAGING_OFFSET},
         {TECMO_GAMEPLAY_PRETIP_SOURCE_TIP_SETUP,5U,0U,0x985BU,52U,
          0xF372E57CU,0x096F86BBD7A42ABCULL,
          TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_SETUP_OFFSET},
@@ -272,7 +281,7 @@ int tecmo_asset_pack_build_gameplay_pretip(
     payload[173U] = 12U;   /* no-input close-up error sentinel */
     payload[174U] = 11U;   /* maximum measured timing error */
     payload[175U] = TECMO_GAMEPLAY_PRETIP_PHASE_COUNT;
-    payload[176U] = 0x8AU; /* minimum raw timing seed */
+    payload[176U] = 0x82U; /* minimum raw timing seed */
     payload[177U] = 0xC1U; /* maximum raw timing seed */
     payload[178U] = 4U;    /* first tip actor selector */
     payload[179U] = 9U;    /* second tip actor selector */
@@ -281,6 +290,13 @@ int tecmo_asset_pack_build_gameplay_pretip(
     payload[182U] = 10U;
     payload[183U] = 0x1AU;
     payload[184U] = 0x1AU; /* TWAR screen */
+    payload[185U] = TECMO_GAMEPLAY_PRETIP_GLYPH_COUNT;
+    payload[186U] = TECMO_GAMEPLAY_PRETIP_GLYPH_TILE_COUNT;
+    payload[187U] = 33U;   /* capture-bounded motion-loop start */
+    payload[188U] = 25U;   /* Bank04 $88 motion ceiling */
+    payload[189U] = TECMO_GAMEPLAY_PRETIP_AWAY_WINNER; /* tie policy */
+    payload[190U] = 0xC6U; /* Bank06 card-text background CHR r0 */
+    payload[191U] = 0xFAU; /* Bank06 card-text background CHR r1 */
 
     if (tecmo_asset_pack_fnv1a32(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_PRETIP_FNV1A32) {

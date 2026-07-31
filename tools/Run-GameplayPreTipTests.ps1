@@ -1,6 +1,7 @@
 param(
     [string]$ProjectRoot,
     [string]$RomPath,
+    [string]$ReferenceRoot,
     [switch]$Build
 )
 
@@ -107,24 +108,29 @@ if ($BuildPack.code -ne 0) {
 $PackBytes = [IO.File]::ReadAllBytes($Pack)
 $PreTip = Get-Entry $PackBytes "gameplay/pre-tip"
 $SourceMap = Get-Entry $PackBytes "system/source-map"
-if ($PreTip.size -ne 5376) { throw "TPTI-1 directory size changed." }
+if ($PreTip.size -ne 5888) { throw "TPTI-1 directory size changed." }
 $Payload = Get-EntryBytes $PackBytes $PreTip
-if ((Get-Fnv32 $Payload) -ne "91FD7B32" -or
+if ((Get-Fnv32 $Payload) -ne "99ADFE3D" -or
     [Text.Encoding]::ASCII.GetString($Payload, 0, 4) -ne "TPTI" -or
     [BitConverter]::ToUInt16($Payload, 4) -ne 1 -or
     [BitConverter]::ToUInt16($Payload, 6) -ne 256 -or
-    [BitConverter]::ToUInt32($Payload, 8) -ne 5376 -or
-    [BitConverter]::ToUInt16($Payload, 12) -ne 17 -or
+    [BitConverter]::ToUInt32($Payload, 8) -ne 5888 -or
+    [BitConverter]::ToUInt16($Payload, 12) -ne 20 -or
     [BitConverter]::ToUInt16($Payload, 14) -ne 32 -or
     [BitConverter]::ToUInt32($Payload, 16) -ne 256 -or
     $Payload[20] -ne 0x15 -or $Payload[21] -ne 0x3B -or
-    $Payload[22] -ne 0x7D -or $Payload[23] -ne 8) {
+    $Payload[22] -ne 0x7D -or $Payload[23] -ne 8 -or
+    $Payload[176] -ne 0x82 -or $Payload[177] -ne 0xC1 -or
+    $Payload[185] -ne 38 -or $Payload[186] -ne 4 -or
+    $Payload[187] -ne 33 -or $Payload[188] -ne 25 -or
+    $Payload[189] -ne 0 -or $Payload[190] -ne 0xC6 -or
+    $Payload[191] -ne 0xFA) {
     throw "TPTI-1 canonical header changed."
 }
-if (@($Payload[185..255] | Where-Object { $_ -ne 0 }).Count -ne 0) {
+if (@($Payload[192..255] | Where-Object { $_ -ne 0 }).Count -ne 0) {
     throw "TPTI-1 reserved header bytes are nonzero."
 }
-for ($Index = 0; $Index -lt 17; ++$Index) {
+for ($Index = 0; $Index -lt 20; ++$Index) {
     $Record = 256 + $Index * 32
     if ([BitConverter]::ToUInt16($Payload, $Record) -ne $Index + 1 -or
         @($Payload[($Record + 28)..($Record + 31)] |
@@ -141,9 +147,11 @@ $ExpectedRoles = @(
     "blank-screen-descriptor","blank-screen-stream","blank-screen-palette",
     "presentation-screen-wait-helpers","matchup-sequence-and-team-text",
     "mode-and-versus-strings","mode-string-pointer-table",
-    "character-to-tile-map","tipoff-closeup-entry",
+    "character-to-tile-map","character-16px-metatile-table",
+    "card-text-chr-selector-setup","tipoff-closeup-entry",
     "tipoff-closeup-palettes","tipoff-closeup-control",
-    "tipoff-closeup-timing","center-tip-object-setup",
+    "tipoff-closeup-timing","fixed-d861-sprite-staging",
+    "center-tip-object-setup",
     "center-tip-object-update","pregame-launch-bridge","live-handoff",
     "tipoff-orientation-select"
 )
@@ -156,7 +164,9 @@ if ($Mapped.Count -ne 1 -or
         $_.fingerprint_fnv1a64 -notmatch "^[0-9A-F]{16}$"
     }).Count -ne 0 -or
     $Mapped[0].native_contract.music -notmatch "track 8" -or
-    $Mapped[0].native_contract.cancel -notmatch "NES B" -or
+    $Mapped[0].native_contract.card_text -notmatch "2x2 metatiles" -or
+    $Mapped[0].native_contract.cancel -notmatch "bit 0" -or
+    $Mapped[0].native_contract.closeup_motion -notmatch "D861" -or
     $Mapped[0].native_contract.toss_cut_in -notmatch "nametable page 1" -or
     $Mapped[0].native_contract.ball_descent -notmatch "71..145") {
     throw "TPTI-1 source-map provenance is incomplete or malformed."
@@ -175,15 +185,19 @@ if ($Scene.code -ne 0 -or $Scene.text -notmatch "SELF TEST PASS") {
 
 $env:TECMO_ASSETPACK = $Pack
 $Modes = @(
-    [pscustomobject]@{ mode="gameplay-start"; phase="preseason"; frame=0; hash="F7D88436B94D9946CCB90FAA40460B0DA5D97EF3CFFFB9ADEE4D992686E20A07" },
-    [pscustomobject]@{ mode="gameplay-pretip-frame61"; phase="matchup"; frame=61; hash="0C9C5182A4E89DDDA82D255847D7EC1CABB2F50692129320A7B40CAD9D3CD91A" },
+    [pscustomobject]@{ mode="gameplay-start"; phase="preseason"; frame=0; hash="C40C940A6F8AA5FE36E3804022C993E1535AD1F1F14BE35C4F3F6C34C359347B" },
+    [pscustomobject]@{ mode="gameplay-pretip-frame61"; phase="matchup"; frame=61; hash="602FB70C5E9711268DF0BDFD5F255BD85AD0CDC1087EE8B31E8ADDCF12882D29" },
     [pscustomobject]@{ mode="gameplay-pretip-frame182"; phase="first-period"; frame=182; hash="2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A" },
-    [pscustomobject]@{ mode="gameplay-pretip-frame271"; phase="closeup"; frame=271; hash="2219FDA9C5AE15A0CBC5441FB11800DBF0C8195C18BF672E1F74D31AA0D502AB" },
+    [pscustomobject]@{ mode="gameplay-pretip-frame211"; phase="first-period"; frame=211; hash="79DC564FFB41E197C415DA1482EA4D0662FE1EF510BE40C9BD9C94D1B40C577B" },
+    [pscustomobject]@{ mode="gameplay-pretip-frame271"; phase="closeup"; frame=271; hash="A73F8C5E051EAE42462932DDE430FC50D1109BDAA1E7F96D2CE0EB22DAE36889" },
+    [pscustomobject]@{ mode="gameplay-pretip-frame300"; phase="closeup"; frame=300; hash="7D3227F3D2256DBFA036F3C7761EB03A41C467C330E8A4097EBBD68D20DC45E1" },
+    [pscustomobject]@{ mode="gameplay-pretip-frame330"; phase="closeup"; frame=330; hash="CF24E1A5BEFFB62DCA85304DBC739A11CABCAE50F112870669D7CCA4C2EBAC0B" },
     [pscustomobject]@{ mode="gameplay-pretip-frame481"; phase="ball-descent"; frame=481; hash="55D7AA6E15B95182992067230D2FFF7EF8453C51F50E879C5FE7D9BA5EC6461B" },
     [pscustomobject]@{ mode="gameplay-pretip-frame631"; phase="toss-closeup"; frame=631; hash="CDE4C17159C79207CA82281204547FD2794E81858A52A6FB312E937CEEDF162C" },
     [pscustomobject]@{ mode="gameplay-pretip-frame661"; phase="jump-contest"; frame=661; hash="0718185E3D996990F52DE481F9C99F9A8B68845FB837B5EAFEC90DBC390812AD" },
-    [pscustomobject]@{ mode="gameplay-live-start"; phase="live"; frame=691; hash="5C3F0F756B52895D3F30CB82A94F2C1CB3BD7FA618CE6C8684EE2E802CB730D0" }
+    [pscustomobject]@{ mode="gameplay-live-start"; phase="live"; frame=691; hash="6E709B5C008717196FAEA105F792C1C9745F4BABA09155BE963524842A139D7C" }
 )
+$RenderedHashes = @{}
 foreach ($Spec in $Modes) {
     $Hashes = @()
     for ($Pass = 0; $Pass -lt 2; ++$Pass) {
@@ -203,18 +217,122 @@ foreach ($Spec in $Modes) {
     if ($Hashes[0] -ne $Spec.hash) {
         throw "TPTI-1 render checkpoint '$($Spec.mode)' changed: $($Hashes[0])."
     }
+    $RenderedHashes[$Spec.mode] = $Hashes[0]
+}
+$CloseupHashCount = @(
+    @(
+        $RenderedHashes["gameplay-pretip-frame271"],
+        $RenderedHashes["gameplay-pretip-frame300"],
+        $RenderedHashes["gameplay-pretip-frame330"]
+    ) | Select-Object -Unique
+).Count
+if ($CloseupHashCount -ne 3) {
+    throw "TPTI-1 close-up checkpoints 271/300/330 are not distinct."
+}
+
+$ReferenceComparisonMessage = ""
+if (!$ReferenceRoot) {
+    $CandidateReferenceRoot = Join-Path `
+        (Split-Path -Parent $ProjectRoot) `
+        "tecmo-basketball-port\temp-videos\gameplay-audit"
+    if (Test-Path -LiteralPath $CandidateReferenceRoot -PathType Container) {
+        $ReferenceRoot = $CandidateReferenceRoot
+    }
+}
+if ($ReferenceRoot) {
+    $ReferenceRoot = (Resolve-Path -LiteralPath $ReferenceRoot).Path
+    Add-Type -AssemblyName System.Drawing
+    $Pairs = @(
+        [pscustomobject]@{ reference="tipoff_0450.png"; native="gameplay-pretip-frame211" },
+        [pscustomobject]@{ reference="tipoff_0510.png"; native="gameplay-pretip-frame271" },
+        [pscustomobject]@{ reference="tipoff_0540.png"; native="gameplay-pretip-frame300" },
+        [pscustomobject]@{ reference="tipoff_0570.png"; native="gameplay-pretip-frame330" }
+    )
+    $ComparisonPath = Join-Path $Scratch "reference-comparison.png"
+    $Comparison = New-Object Drawing.Bitmap 1024,1920
+    $Graphics = [Drawing.Graphics]::FromImage($Comparison)
+    $Graphics.InterpolationMode =
+        [Drawing.Drawing2D.InterpolationMode]::NearestNeighbor
+    $Graphics.PixelOffsetMode =
+        [Drawing.Drawing2D.PixelOffsetMode]::Half
+    try {
+        for ($PairIndex = 0; $PairIndex -lt $Pairs.Count; ++$PairIndex) {
+            $Pair = $Pairs[$PairIndex]
+            $ReferencePath = Join-Path $ReferenceRoot $Pair.reference
+            $NativePath = Join-Path $Scratch "$($Pair.native)-0.png"
+            if (!(Test-Path -LiteralPath $ReferencePath -PathType Leaf) -or
+                !(Test-Path -LiteralPath $NativePath -PathType Leaf)) {
+                throw "TPTI-1 reference comparison input is missing."
+            }
+            $Reference = [Drawing.Bitmap]::FromFile($ReferencePath)
+            $Native = [Drawing.Bitmap]::FromFile($NativePath)
+            try {
+                if ($Reference.Width -ne 256 -or $Reference.Height -ne 240 -or
+                    $Native.Width -ne 640 -or $Native.Height -ne 480) {
+                    throw "TPTI-1 reference comparison dimensions changed."
+                }
+                $Y = $PairIndex * 480
+                $Graphics.DrawImage(
+                    $Reference,
+                    (New-Object Drawing.Rectangle 0,$Y,512,480),
+                    0,0,256,240,[Drawing.GraphicsUnit]::Pixel)
+                $Graphics.DrawImage(
+                    $Native,
+                    (New-Object Drawing.Rectangle 512,$Y,512,480),
+                    64,0,512,480,[Drawing.GraphicsUnit]::Pixel)
+                if ($PairIndex -eq 0) {
+                    $MaskMismatch = 0
+                    $VisiblePixels = 0
+                    for ($YIndex = 0; $YIndex -lt 240; ++$YIndex) {
+                        for ($XIndex = 0; $XIndex -lt 256; ++$XIndex) {
+                            $ReferenceColor =
+                                $Reference.GetPixel($XIndex, $YIndex)
+                            $NativeColor =
+                                $Native.GetPixel(64 + $XIndex * 2,
+                                                 $YIndex * 2)
+                            $ReferenceVisible =
+                                $ReferenceColor.R -ne 0 -or
+                                $ReferenceColor.G -ne 0 -or
+                                $ReferenceColor.B -ne 0
+                            $NativeVisible =
+                                $NativeColor.R -ne 0 -or
+                                $NativeColor.G -ne 0 -or
+                                $NativeColor.B -ne 0
+                            if ($ReferenceVisible) { ++$VisiblePixels }
+                            if ($ReferenceVisible -ne $NativeVisible) {
+                                ++$MaskMismatch
+                            }
+                        }
+                    }
+                    if ($VisiblePixels -ne 703 -or $MaskMismatch -ne 0) {
+                        throw "Visible 1ST PERIOD frame no longer matches the reference mask."
+                    }
+                }
+            } finally {
+                $Reference.Dispose()
+                $Native.Dispose()
+            }
+        }
+        $Comparison.Save(
+            $ComparisonPath, [Drawing.Imaging.ImageFormat]::Png)
+        $ReferenceComparisonMessage =
+            " reference-comparison=$ComparisonPath"
+    } finally {
+        $Graphics.Dispose()
+        $Comparison.Dispose()
+    }
 }
 
 $Cases = @(
     [pscustomobject]@{ label="payload-mutation"; mutate={
-        param($Bytes) $Bytes[[int]$PreTip.pack_offset + 2944] =
-            $Bytes[[int]$PreTip.pack_offset + 2944] -bxor 1
+        param($Bytes) $Bytes[[int]$PreTip.pack_offset + 3040] =
+            $Bytes[[int]$PreTip.pack_offset + 3040] -bxor 1
     }},
     [pscustomobject]@{ label="reserved-byte"; mutate={
-        param($Bytes) $Bytes[[int]$PreTip.pack_offset + 185] = 1
+        param($Bytes) $Bytes[[int]$PreTip.pack_offset + 192] = 1
     }},
     [pscustomobject]@{ label="oversized-entry"; mutate={
-        param($Bytes) [BitConverter]::GetBytes([uint64]5377).CopyTo(
+        param($Bytes) [BitConverter]::GetBytes([uint64]5889).CopyTo(
             $Bytes, [int]$PreTip.directory_offset + 92)
     }},
     [pscustomobject]@{ label="missing-entry"; mutate={
@@ -269,7 +387,8 @@ $global:LASTEXITCODE = 0
 Write-Output ("TPTI-1 PRE-TIP TEST PASS: canonical/revision/FNV32+64/source-map " +
     "same-pack TGPL/TTDT/TMUS/TWAR/CHR missing/malformed/oversized/cross-pack " +
     "NES-B abort/freeze/track8-to-track5 scene integration and deterministic " +
-    "preseason/matchup/closeup/toss/jump/live renders")
+    "preseason/matchup/visible-1ST-PERIOD/distinct-closeup/toss/jump/live renders" +
+    $ReferenceComparisonMessage)
 } finally {
     if ($null -eq $PreviousPack) {
         Remove-Item Env:TECMO_ASSETPACK -ErrorAction SilentlyContinue

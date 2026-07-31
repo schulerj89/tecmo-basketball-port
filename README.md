@@ -34,7 +34,7 @@ frame-identical recreation of on-court gameplay.
 | Team Data | Supported for team profiles, rosters, player detail, STARTERS, and PLAYBOOK; accumulated player-stat fields remain `.000`/zero until per-player accumulators are ported |
 | All Star | Partial: selectors work, but the route stops before game launch |
 | League Leaders | Partial: category navigation works; ranked player results remain unavailable until per-player season statistics are ported |
-| Gameplay | Playable full-game shell with the original pre-tip presentation, movement, passing, defender switching, a ROM-derived full-court horizontal camera/world renderer, close shots, one bounded ordinary-jump miss/three-point-make context, clocks, periods, halftime, overtime/final, audio, and result handoff; tip winner/initial possession, live foul/contact and free-throw outcomes, general shot selection, and AI remain approximate. Rim-rattle is diagnostic-only and is not selected by normal live misses |
+| Gameplay | Playable full-game shell with a ROM-derived pre-tip presentation (exact cards and capture-bounded later staging), movement, passing, defender switching, a ROM-derived full-court horizontal camera/world renderer, close shots, one bounded ordinary-jump miss/three-point-make context, clocks, periods, halftime, overtime/final, audio, and result handoff; pre-tip claim settlement, live foul/contact and free-throw outcomes, general shot selection, and AI remain approximate. Rim-rattle is diagnostic-only and is not selected by normal live misses |
 
 Normal play is asset-pack-only. It does not load decompilation files, Lua
 traces, screenshots, save states, dumps, or emulator captures at runtime.
@@ -139,14 +139,16 @@ accumulators are ported.
 ### Gameplay that works today
 
 - Every preseason and season launch now enters the native pre-tip sequence:
-  the exact mode/matchup/`1ST PERIOD` card waits, referee/player close-up,
+  the exact mode/matchup/`1ST PERIOD` card waits and 16-pixel ROM lettering,
+  referee/player close-up,
   center-court setup, descending ball, page-1 toss cut-in, jump contest, and
-  live handoff. NES B cancels only during the three card phases; during the
+  live handoff. PRESEASON ignores NES B on the three cards; the regular-season
+  route may cancel there because it sets the ROM's `$69` bit-0 gate. During the
   close-up each controller's first held B samples its tip timing. The
   presentation freezes game/shot clocks, queues original track 8, and switches
   to gameplay track 5 only at the 691-frame live handoff when GAME MUSIC is
-  enabled. Tip winner and initial-possession selection remain deterministic
-  native approximations.
+  enabled. Lower error advances that side's contest and selects initial
+  possession; exact original claim/tie settlement remains approximate.
 - Directions move the owned actor.
 - NES A passes on offense and switches defenders on defense.
 - NES B starts an offensive shot or attempts the current defensive
@@ -205,8 +207,11 @@ asset contracts, provenance, and exact supported state boundaries.
 ### ROM-derived versus approximate
 
 Strict ROM-derived data currently covers the pre-tip source spans and
-card/cut-in/close-up assets, including the exact 61/121/61 card waits; the
-later timing forms a deterministic capture-aligned native 691-frame schedule.
+card/cut-in/close-up assets, including the exact 61/121/61 card waits, Bank06
+character mapping and 16-pixel 2-by-2 glyphs, the `$69` bit-0 cancellation
+gate, and Bank04/fixed-`$D861` close-up motion. The later phase durations and
+the 33-frame close-up motion anchor form a deterministic, capture-bounded
+native 691-frame schedule; those timings are not claimed as exact ROM timing.
 It also covers the complete 768-by-240 court decode,
 camera-positioned tile/palette viewport slicing, CHR and palette entries,
 embedded FCEUX RGB profile, actor pose data, numeric close-shot step
@@ -221,7 +226,7 @@ music/SFX/DMC programs. Strict entries are loaded from the same
 revision-fingerprinted asset pack with exact-size and malformed-data checks.
 
 The live actor starting layout, movement policy and AI, pre-tip actor geometry,
-tip winner/initial possession, general shot selection and make/miss policy,
+the exact original tip-claim settlement, general shot selection and make/miss policy,
 dynamic matchup palettes and uniforms, live
 close-shot profile/direction selection, left-facing mirroring, contact/foul
 detection, free-throw simulation, rebounds, blocks, steals, per-player game
@@ -271,6 +276,11 @@ cue; GAME SPEED does not change menu or soundtrack tempo. The visible `SIC`
 left beside the speed popup is an authentic overlap from the original menu.
 The pre-tip cards always queue the original matchup stinger (track 8);
 GAME MUSIC gates only the later track-5 live handoff.
+Close-up B samples retain the ROM's bounded error semantics. Smaller error
+launches the corresponding native contest interaction sooner and determines
+initial possession; equal errors choose away. That lower-error policy is
+ROM-supported, but the final claim/tie settlement remains an explicit native
+approximation.
 
 Older diagnostic screens and the modern Play Game/Quit menu remain available
 through explicit render-test/debug paths for development work.

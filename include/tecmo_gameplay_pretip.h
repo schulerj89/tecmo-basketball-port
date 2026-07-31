@@ -5,10 +5,15 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define TECMO_GAMEPLAY_PRETIP_SOURCE_COUNT 17U
+#define TECMO_GAMEPLAY_PRETIP_SOURCE_COUNT 20U
 #define TECMO_GAMEPLAY_PRETIP_SCREEN_ID 0x15U
 #define TECMO_GAMEPLAY_PRETIP_PHASE_COUNT 8U
 #define TECMO_GAMEPLAY_PRETIP_STATE_TAG 0x49545054U
+#define TECMO_GAMEPLAY_PRETIP_GLYPH_COUNT 38U
+#define TECMO_GAMEPLAY_PRETIP_GLYPH_TILE_COUNT 4U
+#define TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME UINT16_MAX
+#define TECMO_GAMEPLAY_PRETIP_AWAY_WINNER 0U
+#define TECMO_GAMEPLAY_PRETIP_HOME_WINNER 1U
 
 typedef enum TecmoGameplayPreTipSourceKind {
     TECMO_GAMEPLAY_PRETIP_SOURCE_SCREEN_DESCRIPTOR = 1,
@@ -19,15 +24,18 @@ typedef enum TecmoGameplayPreTipSourceKind {
     TECMO_GAMEPLAY_PRETIP_SOURCE_MODE_STRINGS = 6,
     TECMO_GAMEPLAY_PRETIP_SOURCE_MODE_POINTERS = 7,
     TECMO_GAMEPLAY_PRETIP_SOURCE_CHARACTER_MAP = 8,
-    TECMO_GAMEPLAY_PRETIP_SOURCE_CLOSEUP_ENTRY = 9,
-    TECMO_GAMEPLAY_PRETIP_SOURCE_CLOSEUP_PALETTE = 10,
-    TECMO_GAMEPLAY_PRETIP_SOURCE_CLOSEUP_CONTROL = 11,
-    TECMO_GAMEPLAY_PRETIP_SOURCE_CLOSEUP_TIMING = 12,
-    TECMO_GAMEPLAY_PRETIP_SOURCE_TIP_SETUP = 13,
-    TECMO_GAMEPLAY_PRETIP_SOURCE_TIP_UPDATE = 14,
-    TECMO_GAMEPLAY_PRETIP_SOURCE_LAUNCH_BRIDGE = 15,
-    TECMO_GAMEPLAY_PRETIP_SOURCE_LIVE_HANDOFF = 16,
-    TECMO_GAMEPLAY_PRETIP_SOURCE_ORIENTATION_SELECT = 17
+    TECMO_GAMEPLAY_PRETIP_SOURCE_CHARACTER_TILES = 9,
+    TECMO_GAMEPLAY_PRETIP_SOURCE_TEXT_CHR_SELECTORS = 10,
+    TECMO_GAMEPLAY_PRETIP_SOURCE_CLOSEUP_ENTRY = 11,
+    TECMO_GAMEPLAY_PRETIP_SOURCE_CLOSEUP_PALETTE = 12,
+    TECMO_GAMEPLAY_PRETIP_SOURCE_CLOSEUP_CONTROL = 13,
+    TECMO_GAMEPLAY_PRETIP_SOURCE_CLOSEUP_TIMING = 14,
+    TECMO_GAMEPLAY_PRETIP_SOURCE_CLOSEUP_SPRITE_STAGING = 15,
+    TECMO_GAMEPLAY_PRETIP_SOURCE_TIP_SETUP = 16,
+    TECMO_GAMEPLAY_PRETIP_SOURCE_TIP_UPDATE = 17,
+    TECMO_GAMEPLAY_PRETIP_SOURCE_LAUNCH_BRIDGE = 18,
+    TECMO_GAMEPLAY_PRETIP_SOURCE_LIVE_HANDOFF = 19,
+    TECMO_GAMEPLAY_PRETIP_SOURCE_ORIENTATION_SELECT = 20
 } TecmoGameplayPreTipSourceKind;
 
 typedef enum TecmoGameplayPreTipPhase {
@@ -62,7 +70,10 @@ typedef struct TecmoGameplayPreTipAssets {
     size_t storage_size;
     const uint8_t *nametables;
     const uint8_t *palette;
+    const uint8_t *character_map;
+    const uint8_t *character_tiles;
     uint8_t descriptor[7];
+    uint8_t card_chr_selector[2];
     uint16_t phase_frames[TECMO_GAMEPLAY_PRETIP_PHASE_COUNT];
     TecmoGameplayPreTipSourceSpan
         sources[TECMO_GAMEPLAY_PRETIP_SOURCE_COUNT];
@@ -81,8 +92,11 @@ typedef struct TecmoGameplayPreTipState {
     uint32_t total_frame;
     uint8_t away_tip_error;
     uint8_t home_tip_error;
+    uint16_t away_tip_sample_frame;
+    uint16_t home_tip_sample_frame;
     bool away_tip_sampled;
     bool home_tip_sampled;
+    bool card_cancel_enabled;
     bool aborted;
     bool live_handoff;
 } TecmoGameplayPreTipState;
@@ -93,12 +107,20 @@ bool tecmo_gameplay_pretip_load(TecmoGameplayPreTipAssets *assets,
                                 const char *asset_pack_path);
 bool tecmo_gameplay_pretip_state_initialize(
     const TecmoGameplayPreTipAssets *assets,
-    TecmoGameplayPreTipState *state);
+    TecmoGameplayPreTipState *state,
+    bool card_cancel_enabled);
+bool tecmo_gameplay_pretip_state_validate(
+    const TecmoGameplayPreTipAssets *assets,
+    const TecmoGameplayPreTipState *state);
 bool tecmo_gameplay_pretip_update(
     const TecmoGameplayPreTipAssets *assets,
     TecmoGameplayPreTipState *state,
     bool player_one_held_b,
     bool player_two_held_b);
+bool tecmo_gameplay_pretip_tip_winner(
+    const TecmoGameplayPreTipAssets *assets,
+    const TecmoGameplayPreTipState *state,
+    uint8_t *winner);
 bool tecmo_gameplay_pretip_is_presentation(
     const TecmoGameplayPreTipState *state);
 const char *tecmo_gameplay_pretip_phase_name(TecmoGameplayPreTipPhase phase);

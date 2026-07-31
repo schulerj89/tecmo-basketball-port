@@ -777,25 +777,34 @@ PRESEASON row. Season results are matched to the pending ordinal/teams and
 committed exactly once before returning to the existing result rows.
 
 Gameplay launch first runs the strict ROM-only `gameplay/pre-tip` TPTI-1
-boundary. Its 5376-byte payload has FNV1a32 `91FD7B32` and requires exact
-same-pack TGPL-1, TTDT-1, TMUS-1, TWAR-1, and `chr/all`. Seventeen
+boundary. Its 5888-byte payload has FNV1a32 `99ADFE3D` and requires exact
+same-pack TGPL-1, TTDT-1, TMUS-1, TWAR-1, and `chr/all`. Twenty
 revision-fingerprinted spans retain screen `$15`'s descriptor/stream/palette,
-Bank06 `$A0F4-$A24F` card waits/text flow, Bank04 `$86AB-$88A8` close-up,
-`$89DD-$8A2C` palette/control data, `$AC76-$ADDF` tip setup, Bank05's
-`$985B-$9A5F` tip update, and the fixed launch/live bridges. Exact size,
+Bank06 card waits/text flow, `$A290` character mapping, `$AF05` 16-pixel
+metatiles and `$C6/$FA` CHR setup, Bank04 `$86AB-$88A8` close-up,
+`$89DD-$8A2C` palette/control data, fixed `$D861-$D92A` sprite staging,
+`$AC76-$ADDF` tip setup, Bank05's `$985B-$9A5F` tip update, and the fixed
+launch/live bridges. Exact size,
 canonical FNV32/FNV64 values, full-ROM identity, zero-reserved/padding checks,
 dependency fingerprints, and sanitized source-map provenance fail closed.
 Runtime never reads ROM, ASM, decompilation, Lua, captures, screenshots, logs,
 states, traces, or dumps.
 
-The native schedule is exactly 691 updates:
-`61 + 121 + 61 + 208 + 30 + 120 + 60 + 30`. The first three values preserve
+The deterministic native schedule is 691 updates:
+`61 + 121 + 61 + 208 + 30 + 120 + 60 + 30`. Only the first three values preserve
 Bank06's inclusive `$3C/$78/$3C` card waits for the mode card, matchup, and
-`1ST PERIOD`. PRESEASON and `REGULAR SEASON` are the exact mode strings.
+`1ST PERIOD` exactly; the later phase durations are capture-bounded.
+PRESEASON and `REGULAR SEASON` are the exact mode strings. Card letters use
+Bank06's exact character mapping, `$AF05` 2-by-2 metatiles, `$C6/$FA` CHR
+selectors, and 16-pixel centered cell placement rather than TTDT's 8-pixel
+font.
 Matchup logos use the ROM layout anchors `(16,32)` and `(16,128)` while the
 separate city/team strings retain their original row positions. The 208-frame
 screen-`$1A` close-up includes bounded black entry/exit gates and reuses the
-strict TWAR-1 background/OAM/CHR contract. The center-court route then holds
+strict TWAR-1 background/OAM/CHR contract. Its capture-bounded phase frame 33
+starts the ROM-exact Bank04 `$88` motion steps: fixed `$D861` moves the OAM
+player left, nametable scroll moves the referee/player layer right, and NES
+OAM-Y displays one scanline below the stored value. The center-court route then holds
 black for 30 updates, descends the ball from approximately Y 71 to Y 145 over
 60 updates and holds it through the 120-update phase, holds black for the first
 30 updates of the toss transition, and renders TGPL-1 screen `$1B`
@@ -805,16 +814,25 @@ opposite phase. The final 30 updates show the jump contest. The court overlay
 draws exactly one away-team ROM logo, right/bottom aligned by its validated
 variable dimensions, without duplicating its embedded city/nickname lettering.
 
-Either controller's current NES B level cancels the entire route only during
-the three card phases; A, START, SELECT, and directions are ignored there.
+Bank06 `$A10A-$A124` checks current NES B only when `$69` bit 0 is set.
+Native PRESEASON clears that gate and ignores B during all three cards; the
+regular-season route sets it and either controller may cancel. A, START,
+SELECT, and directions are ignored there.
 During the close-up, each controller's first held B sample is retained, with
-the native target represented as `closeup_duration - 14`; subsequent B holds
+the `$F9` target represented by the capture-aligned
+`closeup_duration - 14`; subsequent B holds
 do not resample. B cannot cancel the close-up or any court/toss phase. The game
 clock, shot clock, rules, actors, AI, and live camera remain frozen until the
 frame-691 handoff. Track 8 queues at card entry, and enabled GAME MUSIC queues
-track 5 only at that handoff. Exact tip winner/initial-possession ownership is
-not yet isolated, so the native winner policy and pre-tip actor geometry remain
-explicit deterministic approximations.
+track 5 only at that handoff. Bank05 proves that the bounded error counts down
+to a launch gate, so lower error now starts that side's jump interaction sooner
+and selects its initial possession. The exact original claim/tie settlement is
+not yet isolated; equal errors choose away deterministically, and that tie
+policy plus pre-tip actor geometry remain explicit native approximations.
+Pre-tip state mutation is transactional: phase-frame bounds, accumulated total,
+sample flags/errors/sample frames, terminal-state coherence, and integer
+overflow are validated before commit, and malformed or unreachable states are
+rejected unchanged.
 
 The compound scene strictly loads TGPL-1 `gameplay/core` (23416 bytes,
 `2047CCE0`), TGCT-1 `gameplay/court` (6559 bytes, `ECAB7A93`), TGCP-2

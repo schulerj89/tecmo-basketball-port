@@ -2694,8 +2694,11 @@ static int append_gameplay_pretip_source_map_entry(
         "blank-screen-palette","presentation-screen-wait-helpers",
         "matchup-sequence-and-team-text","mode-and-versus-strings",
         "mode-string-pointer-table","character-to-tile-map",
+        "character-16px-metatile-table",
+        "card-text-chr-selector-setup",
         "tipoff-closeup-entry","tipoff-closeup-palettes",
         "tipoff-closeup-control","tipoff-closeup-timing",
+        "fixed-d861-sprite-staging",
         "center-tip-object-setup","center-tip-object-update",
         "pregame-launch-bridge","live-handoff",
         "tipoff-orientation-select"
@@ -2755,14 +2758,16 @@ static int append_gameplay_pretip_source_map_entry(
         "],\"native_contract\":{"
         "\"screen_id\":21,\"closeup_screen_id\":26,"
         "\"wait_frames\":[61,121,61],"
-        "\"cancel\":\"either controller held NES B aborts the entire card route; A, START, and directions are ignored\","
-        "\"tip_input\":\"first held B sample per controller records bounded error 0..11; no sample is 12\","
+        "\"card_text\":\"Bank06 character mapping plus AF05 2x2 metatiles at ROM 16-pixel cell positions\","
+        "\"cancel\":\"Bank06 $A10A-$A124 reads either controller NES B only when route byte $69 bit 0 is set; native preseason clears the gate and regular season sets it\","
+        "\"tip_input\":\"first held B sample per controller records bounded error 0..11 against the capture-aligned $F9 point; no sample is 12\","
         "\"phase_order\":[\"preseason\",\"matchup\",\"first-period\",\"closeup\",\"center-setup\",\"ball-descent\",\"toss-closeup\",\"jump-contest\",\"live\"],"
+        "\"closeup_motion\":\"Bank04 $88 and fixed $D861 move the sprite player left while nametable scroll moves the other figures right; the 33-frame phase anchor is capture-bounded\","
         "\"toss_cut_in\":\"TGPL-1 screen $1B nametable page 1; page 1 matches ball X 176..239 and hand X 67..159 geometry\","
         "\"ball_descent\":\"Y 71..145 over the first 60 of 120 frames, then held through the phase boundary\","
         "\"clock_rules_controls\":\"frozen until live handoff\","
         "\"music\":\"track 8 at card start; game-music track 5 only at live handoff\","
-        "\"winner_policy\":\"deterministic native approximation until exact winner/possession route is proven\","
+        "\"winner_policy\":\"ROM-supported lower-error launch priority drives the native jump interaction and initial possession; equal errors choose away deterministically, while exact original claim settlement remains unported\","
         "\"runtime_inputs\":\"TPTI-1 and exact same-pack dependencies only; no ROM, ASM, decompilation, Lua, trace, capture, screenshot, video, log, dump, or save state\"}}");
 }
 

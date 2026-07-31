@@ -728,8 +728,8 @@ the non-current, other-team claimant handler/possession decision. Native play
 applies that one decision at frame 87, awards zero points, uses an explicitly
 approximate opposing actor, and queues crowd 11 followed by clock-gated side
 result 12/13. At period expiry it retains the current side and crowd 11.
-Actor starting layout, movement policy/AI, pre-tip actor geometry and tip
-winner/initial possession, unsupported jump
+Actor starting layout, movement policy/AI, pre-tip actor geometry and exact
+tip-claim/tie settlement, unsupported jump
 directions/profiles and outcomes, ordinary two-point makes, the longer +157-update claimant route,
 semantic rebounds/blocks/steals, general make/contact rules, the distance policy
 selecting dunk/variant 0 versus layup/variant 2, live close-shot
@@ -740,9 +740,11 @@ integration/aim/outcome/rebound and CPU
 positioning/script behavior, and HUD text are explicit native approximations.
 
 Every gameplay launch now enters strict `gameplay/pre-tip` TPTI-1 before live
-updates. TPTI-1 is 5376 bytes / FNV1a32 `91FD7B32`, has 17 exact Rev1 source
+updates. TPTI-1 is 5888 bytes / FNV1a32 `99ADFE3D`, has 20 exact Rev1 source
 spans, and requires same-pack TGPL-1, TTDT-1, TMUS-1, TWAR-1, and `chr/all`.
-The first `61/121/61` card waits are ASM-exact. The later phases are
+The first `61/121/61` card waits, Bank06 character mapping, `$AF05` 2-by-2
+metatile glyphs, `$C6/$FA` text CHR selectors, and the 16-pixel cell positions
+are ASM-exact. The later phase durations are
 capture-bounded; together they form the deterministic capture-aligned native
 schedule `61/121/61/208/30/120/60/30 = 691` updates: mode card, matchup,
 first-period card, screen-`$1A` close-up, center black, court/ball descent, toss
@@ -755,17 +757,30 @@ The toss cut-in uses TGPL screen `$1B` nametable page 1; page 0 is the opposite
 phase, while page 1 matches the bounded ball X 176..239 and hand X 67..159
 geometry.
 
-Current-level NES B on either pad cancels only the three cards. In the
-close-up, each pad's first held B samples timing at
-`closeup_duration - 14`; it cannot cancel. Other inputs are inert throughout
+Bank06 `$A10A-$A124` permits current-level NES B cancellation only when `$69`
+bit 0 is set. Native PRESEASON clears that gate and ignores B on all three
+cards; the regular-season route sets it and either pad may cancel. In the
+close-up, each pad's first held B samples timing at the capture-aligned
+`closeup_duration - 14` representation of `$F9`; it cannot cancel. Other inputs are inert throughout
 the presentation. Rules, clock, shot clock, camera, and live updates stay
 frozen until the frame-691 handoff. Track 8 queues at entry and enabled GAME
-MUSIC queues track 5 only at handoff. The tip winner/initial possession and
-pre-tip actor geometry remain deterministic native approximations. Run
+MUSIC queues track 5 only at handoff. Bank04 `$88` plus fixed `$D861` moves
+the OAM player left while the nametable figures scroll right; the 33-frame
+phase anchor is capture-bounded, but the per-step projection and OAM-Y
+semantics are ROM-exact. Smaller recorded tip error starts that side's native
+jump interaction sooner and selects initial possession. Exact original
+claim/tie settlement is not isolated, so equal errors choose away
+deterministically and that settlement plus pre-tip actor geometry remain
+explicit approximations. State updates validate phase bounds, total-frame
+coherence, sample/error/sample-frame coherence, terminal flags, and overflow
+before committing a candidate state; rejection must leave the caller state
+unchanged. Run
 `tools\Run-GameplayPreTipTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` for the
 strict parser, dependency/provenance/mutation coverage, state/input/audio
-schedule, and deterministic render checkpoints. Ignored PNGs and reference
-frames remain local evidence only.
+schedule, and deterministic render checkpoints. When the local capture exists,
+the script also creates an ignored four-row reference/native comparison sheet
+and requires the visible `1ST PERIOD` mask to match exactly. Ignored PNGs and
+reference frames remain local evidence only.
 
 TGCS stores 208 exact profile/direction resolutions into TGPL pose data, but the
 live scene currently selects only profile 0/direction 0 and mirrors
