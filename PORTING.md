@@ -879,9 +879,9 @@ TGSR does not duplicate those bytes. This exact classifier is only a rules
 foundation. TGJS-2 exposes `$AD4E->$B32C->$B100` as a strict pure API with
 explicit raw launch inputs, but live ordinary two-point makes remain
 unsupported because exact `$AD6E` launch ownership is missing. The captured
-three-point score/handoff cannot be inherited. Although `$91BC`'s pure
-evaluator is understood and eight py65/ROM goldens agree. A live adapter would
-still need shooter/side/control/context/orientation; all ten actors' flags,
+three-point score/handoff cannot be inherited. `$91BC`'s pure evaluator is
+understood, and eight py65/ROM goldens agree. A live adapter would still need
+shooter/side/control/context/orientation; all ten actors' flags,
 matchups, and X/Y; ratings, property, motion, condition, difficulty, CPU
 adjustment, scores, and raw `$6A/$53`. Those inputs are unavailable, so the
 selector remains approximate and is not wired.
