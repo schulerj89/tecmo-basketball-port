@@ -728,7 +728,7 @@ the non-current, other-team claimant handler/possession decision. Native play
 applies that one decision at frame 87, awards zero points, uses an explicitly
 approximate opposing actor, and queues crowd 11 followed by clock-gated side
 result 12/13. At period expiry it retains the current side and crowd 11.
-Actor starting layout, movement policy/AI, pre-tip actor geometry and exact
+Actor starting layout, CPU locomotion/AI, pre-tip actor geometry and exact
 tip-claim/tie settlement, unsupported jump
 directions/profiles and outcomes, ordinary two-point makes, the longer +157-update claimant route,
 semantic rebounds/blocks/steals, general make/contact rules, the distance policy
@@ -808,7 +808,8 @@ material, not committed provenance or runtime input. See
 `tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 
 The scene must obtain TGPL-1 `gameplay/core`, TGCT-1 `gameplay/court`, TGCP-2
-`gameplay/camera-projection`, TGOR-1 `gameplay/court-orientation`, TGCS-1
+`gameplay/camera-projection`, TGMO-1 `gameplay/movement`, TGOR-1
+`gameplay/court-orientation`, TGCS-1
 `gameplay/close-shots`, TGDK-1 `gameplay/dunk-cutaway`,
 TGJS-2 `gameplay/jump-shots` (2776 bytes,
 `A66EE873`), TGSR-3 `gameplay/shot-resolution` (512 bytes, `164DC568`),
@@ -1057,18 +1058,54 @@ hashes
 These are native integration checkpoints, not emulator-frame or complete
 possession-choreography evidence.
 
-Ordinary movement currently applies the exact fixed-bank `$F106-$F1B0`
-trapezoid unconditionally from TGCP-2's seventh strict source span (171 bytes,
-FNV1a32 `CB1D4EAF`): page-0 low bound
-`$00DF-floor(Y/2)`, page-1 interior, page-2 high bound
-`$0220+floor(Y/2)`. Dispatcher exceptions involving `$0478`, `$046E`,
-`$0588`, `$0463`, and `$0742` are explicitly not implemented. Do not broaden
-that policy or describe it as the complete dispatcher until those conditions
-are proven. TGFL-1 positions are now a live dependency, while its pose/state
-and script overrides remain unconnected. The slicer intentionally represents
-the canonical view rather than the original streamer's staged PPU-prefetch
-order. Verify the camera/live boundary
-with
+TGMO-1 `gameplay/movement` is the strict 1664-byte ordinary controlled-player
+movement boundary (FNV1a32 `6C82A137`). It requires exact same-pack TGPL-1
+`2047CCE0`, TGCP-2 `53247856`, and TTDT-1 `812628F0`, and cross-checks its copy
+of the fixed clamp byte-for-byte against TGCP-2. Its seven revision-fingerprinted
+sources are Bank02 `$A89E-$A90D` (`0BD2CB61`), Bank04 `$ACE4-$AD25`
+(`36A1B92C`), Bank05 `$879B-$8866` (`E05FE645`), `$88F9-$89BC`
+(`613D0B4C`), `$8E58-$8F96` (`A32D3C92`), `$BF6C-$BFA7`
+(`71812CB0`), and fixed `$F106-$F1B0` (`CB1D4EAF`). Keep exact sizes,
+descriptors, source records, padding/reserved bytes, full-ROM SHA/FNV identity,
+canonical payload hash, provenance, and same-pack dependencies fail-closed.
+
+The pure transactional kernel uses direction bits right/left/down/up
+`1/2/4/8`, TTDT profile byte 0, and GAME SPEED adjustments `+5/-1/-6`.
+Movement amount is `max(8, adjusted_rating + (condition >> 4) - 6)`; the shared
+fractional accumulator is Q4. Diagonals use `amount-floor(amount/4)`, direction
+changes have one update of action-state latency, and vertical handlers compare
+against `$4A/$EC` before moving. Animation phase uses period 8, delay high
+nibble 3, and direction-transition high nibble 5. State validation must reject
+bad tags/coordinates/actions/directions/fractions/animation phases, out-of-range
+condition/speed, unreachable rating arithmetic, and overflow without mutating
+the caller. The exact pose-base-plus-animation-low-nibble resolver is available,
+but opponent-relative `$8F02` pose-half selection is not yet scene-wired.
+
+TGMO-1 applies fixed `$F106-$F1B0` as the full selected-actor dispatcher, not an
+unconditional scene clamp: it honors object state 4, action `$0F/$10`, the
+state-7/8 versus flags-bit-3 exemption, and the direction/state/flags conditions
+that set the boundary-violation latch around
+`$00DF-floor(Y/2)` / page-1 / `$0220+floor(Y/2)`. Ordinary live human control
+currently supplies object state 0 and flags 0, persists the latch, and uses the
+selected actor's current canonical coordinate. The latch is not yet connected
+to original reset/violation settlement. Contradictory axes are normalized to
+neutral on that axis as native integration policy. Fresh TTDT condition is seeded at launch,
+but fatigue evolution, walking pose-half/render binding, actor start placement
+and direction, the current fixed five-player roster-slot binding, and CPU
+movement/AI remain approximate or unsupported. Do not describe those as
+TGMO-derived.
+
+`--gameplay-movement-harness` is a deterministic console-only developer tool;
+it is never reachable from normal game flow and must not grow into an in-game
+debug mode. Verify the importer, seven source spans, parser/provenance/dependency
+mutations, state transactions, speed/diagonal/gate/clamp vectors, and scene
+handoff with
+`tools\Run-GameplayMovementTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
+
+TGFL-1 positions are now a live dependency, while its pose/state and script
+overrides remain unconnected. The slicer intentionally represents the canonical
+view rather than the original streamer's staged PPU-prefetch order. Verify the
+camera/live boundary with
 `tools\Run-GameplayCameraProjectionTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 Verify TGCT-1 world decode, camera 0/1/7/8/255/256/257/511/512 slices,
 transactional mutation rejection, provenance, and the unchanged legacy loader
@@ -1090,6 +1127,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/asset_pack/tecmo_asset_pack_gameplay_court.c`: strict TGCT-1 court importer and legacy center-nametable builder
 - `src/asset_pack/tecmo_asset_pack_gameplay_court_orientation.c`: strict TGOR-1 court-orientation importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_camera.c`: strict TGCP-2 camera/projector/clamp importer
+- `src/asset_pack/tecmo_asset_pack_gameplay_movement.c`: strict TGMO-1 controlled-movement importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_close_shots.c`: strict TGCS-1 numeric close-shot importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c`: strict TGDK-1 screen/palette/CHR/staged-sprite importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c`: strict TGJS-2 ordinary-jump importer
@@ -1107,6 +1145,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/tecmo_gameplay_scene.c`: native launch, input, state, animation, audio-event, result, and rendering integration
 - `src/tecmo_gameplay_dunk_cutaway.c`: strict TGDK-1 loader, palette resolver, stage scheduler, and OAM-priority renderer
 - `src/tecmo_gameplay_camera.c`: strict TGCP-2 parser and pure/production camera/projector state APIs
+- `src/tecmo_gameplay_movement.c`: strict TGMO-1 parser, transactional locomotion/clamp kernel, and developer-harness vectors
 - `src/tecmo_gameplay_court.c`: strict TGCT-1 parser, full-world decoder, and camera-positioned viewport slicer
 - `src/tecmo_gameplay_court_orientation.c`: strict TGOR-1 parser and possession-synchronized orientation state API
 - `src/tecmo_gameplay_free_throw_projection_test.c`: test-only TGFL-1 -> TGCP-2 checkpoint composition

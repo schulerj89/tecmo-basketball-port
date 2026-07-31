@@ -836,7 +836,8 @@ rejected unchanged.
 
 The compound scene strictly loads TGPL-1 `gameplay/core` (23416 bytes,
 `2047CCE0`), TGCT-1 `gameplay/court` (6559 bytes, `ECAB7A93`), TGCP-2
-`gameplay/camera-projection` (1536 bytes, `53247856`), TGOR-1
+`gameplay/camera-projection` (1536 bytes, `53247856`), TGMO-1
+`gameplay/movement` (1664 bytes, `6C82A137`), TGOR-1
 `gameplay/court-orientation` (640 bytes, `F9152C0A`), TGCS-1
 `gameplay/close-shots` (3144 bytes, `DACDC976`), TGDK-1
 `gameplay/dunk-cutaway` (20272 bytes, `E02F2D21`), TGJS-2
@@ -1191,15 +1192,50 @@ X `102`, `256`, and `408`; background-only RGBA FNV1a32 values are
 They are not emulator-frame hashes and do not elevate the native checkpoint
 placement or possession choreography to ROM-exact behavior.
 
-Ordinary movement currently applies fixed `$F106-$F1B0` unconditionally
-(171 bytes, FNV1a32 `CB1D4EAF`): page-0 lower bound
-`$00DF-floor(Y/2)`, page-1 interior, and page-2 upper bound
-`$0220+floor(Y/2)`. Dispatcher exceptions involving `$0478`, `$046E`,
-`$0588`, `$0463`, and `$0742` are not implemented and must remain explicit
-parity work. The slicer does not emulate the ROM streamer's staged PPU
+TGMO-1 `gameplay/movement` is the exact ordinary human-controlled locomotion
+boundary. Its 1664-byte payload has FNV1a32 `6C82A137`, requires exact same-pack
+TGPL-1 (`2047CCE0`), TGCP-2 (`53247856`), and TTDT-1 (`812628F0`), and
+byte-compares its clamp copy with TGCP-2. Seven Rev 1 spans are imported:
+Bank02 `$A89E-$A90D` (`0BD2CB61`), Bank04 `$ACE4-$AD25` (`36A1B92C`),
+Bank05 `$879B-$8866` (`E05FE645`), `$88F9-$89BC` (`613D0B4C`),
+`$8E58-$8F96` (`A32D3C92`), `$BF6C-$BFA7` (`71812CB0`), and fixed
+`$F106-$F1B0` (`CB1D4EAF`). Header constants, descriptors, source records,
+alignment padding, canonical payload fingerprint, full-ROM SHA/FNV identity,
+source-map provenance, and dependencies are strict and fail closed.
+
+The transactional C kernel retains direction bits right/left/down/up
+`1/2/4/8`, one-update action-state latency, Q4 fractional accumulation,
+`amount-floor(amount/4)` diagonal reduction, `$4A/$EC` compare-before-move
+vertical gates, and the period-8 movement animation state. Player amount uses
+TTDT profile byte 0, GAME SPEED `+5/-1/-6`, and
+`max(8, adjusted_rating + (condition >> 4) - 6)`. Malformed tags,
+coordinates, action/direction values, fractional or animation phases,
+condition/speed values, unreachable rating arithmetic, and overflow reject
+without committing. The pose-base plus animation-low-nibble lookup is exact;
+the opponent-relative `$8F02` pose-half choice and live walking-frame render
+binding are not yet ported.
+
+The fixed span is implemented as its selected-actor dispatcher rather than an
+unconditional clamp. Object state 4, action `$0F/$10`, the flags-bit-3
+exemption, and the exact conditions that set the boundary-violation latch are
+retained around page-0 `$00DF-floor(Y/2)`, page-1 interior, and page-2
+`$0220+floor(Y/2)`. The ordinary live adapter currently supplies object state
+0 and flags 0 and persists the latch, but violation settlement does not consume
+it and its original reset path is not yet ported. Fresh condition comes from
+TTDT; fatigue evolution is unported.
+Opposing directions on one axis are normalized to neutral as a native
+integration policy. Initial actor placement/direction and the current fixed
+five-player roster-slot binding, walking pose presentation, and all CPU
+movement/AI remain native integration or approximations, not TGMO claims. The
+deterministic `--gameplay-movement-harness` is console/test-only and never
+enters normal play.
+
+The slicer does not emulate the ROM streamer's staged PPU
 prefetch/write ordering; it returns the canonical camera view. TGFL-1 raw
 positions are a scene dependency, while its pure resolver and independent
 projection test remain available for focused validation. Run
+`tools\Run-GameplayMovementTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` for
+TGMO importer/parser/provenance/dependency/state/harness coverage. Run
 `tools\Run-GameplayCameraProjectionTests.ps1 -Build -RomPath
 <LOCAL_ROM.nes>` for revision, provenance, parser, mutation, dependency, camera,
 settle, exact one-step transitions, projection, and independent TGFL composition
@@ -1240,7 +1276,9 @@ TGJS/TGSR miss actor/ball timing and three-point-make actor/result schedule,
 the state-`$15` one-to-four-pass prefix and canonical debug handoff, Q8.8 actor
 height, terminal outcomes, one post-miss settlement, state/event timing, foul thresholds,
 period/halftime/final transitions, and audio programs/mappings.
-Actor starting layout, movement policy/AI, jump-ball geometry, unsupported jump
+Actor starting layout and fixed five-player roster-slot binding, CPU
+movement/AI, ordinary walking-pose binding, fatigue
+evolution, boundary-latch settlement, jump-ball geometry, unsupported jump
 profiles/directions/outcomes, ordinary two-point makes, make ball motion, the
 longer +157-update claimant route, semantic rebounds/blocks/steals,
 general make/contact policy, the trigger selecting

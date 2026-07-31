@@ -218,6 +218,7 @@ try {
         [pscustomobject]@{ id="gameplay/pre-tip"; size=5888; hash="99ADFE3D"; schema="tecmo.gameplay-pre-tip/TPTI-1" },
         [pscustomobject]@{ id="gameplay/court"; size=6559; hash="ECAB7A93"; schema="tecmo.gameplay-court/TGCT-1" },
         [pscustomobject]@{ id="gameplay/camera-projection"; size=1536; hash="53247856"; schema="tecmo.gameplay-camera/TGCP-2" },
+        [pscustomobject]@{ id="gameplay/movement"; size=1664; hash="6C82A137"; schema="tecmo.gameplay-movement/TGMO-1" },
         [pscustomobject]@{ id="gameplay/court-orientation"; size=640; hash="F9152C0A"; schema="tecmo.gameplay-court-orientation/TGOR-1" },
         [pscustomobject]@{ id="gameplay/free-throw-lineup"; size=1216; hash="B17B9A3F"; schema="tecmo.gameplay-free-throw-lineup/TGFL-1" },
         [pscustomobject]@{ id="gameplay/close-shots"; size=3144; hash="DACDC976"; schema="tecmo.gameplay-close-shots/TGCS-1" },
@@ -253,6 +254,9 @@ try {
     }
     $CameraMaps = @($SourceMap.logical_entries | Where-Object {
         $_.id -eq "gameplay/camera-projection"
+    })
+    $MovementMaps = @($SourceMap.logical_entries | Where-Object {
+        $_.id -eq "gameplay/movement"
     })
     $CourtMaps = @($SourceMap.logical_entries | Where-Object {
         $_.id -eq "gameplay/court"
@@ -326,6 +330,25 @@ try {
         $CourtMaps[0].native_contract.boundary -notmatch
             "production camera-positioned live viewport") {
         throw "Production TGCP-2/TGCT-1 scene provenance is incomplete."
+    }
+    if ($MovementMaps.Count -ne 1 -or
+        $MovementMaps[0].fingerprint_fnv1a32 -ne "6C82A137" -or
+        @($MovementMaps[0].dependencies).Count -ne 3 -or
+        @($MovementMaps[0].source_spans).Count -ne 7 -or
+        $MovementMaps[0].native_contract.direction_change_latency_updates -ne 1 -or
+        $MovementMaps[0].native_contract.movement_fractional_bits -ne 4 -or
+        $MovementMaps[0].native_contract.condition_formula -notmatch
+            "adjusted_rating" -or
+        (@($MovementMaps[0].native_contract.game_speed_adjustments) -join ',') -ne
+            '5,-1,-6' -or
+        ![bool]$MovementMaps[0].native_contract.transactional -or
+        ![bool]$MovementMaps[0].native_contract.overflow_rejected -or
+        $MovementMaps[0].live_adapter.scope -notmatch "user-controlled" -or
+        $MovementMaps[0].live_adapter.cpu_ai -notmatch "approximation" -or
+        $MovementMaps[0].live_adapter.roster_binding -notmatch "not yet bound" -or
+        ![bool]$MovementMaps[0].developer_harness.deterministic -or
+        [bool]$MovementMaps[0].developer_harness.normal_game_flow_exposed) {
+        throw "Production TGMO-1 movement provenance is incomplete."
     }
     if ($LineupMaps.Count -ne 1 -or
         $LineupMaps[0].live_scene_integration.orientation_source -notmatch
@@ -440,6 +463,33 @@ try {
     [IO.File]::WriteAllBytes($CameraDependencyPath, $CameraDependency)
     Assert-SceneRejected -AssetPack $CameraDependencyPath `
         -Label "camera-dependency-corrupt" -ExpectedStatus "TGCP-2"
+
+    $MissingMovementPath = Join-Path $Scratch "missing-movement.assetpack"
+    $MissingMovement = [byte[]]$PackBytes.Clone()
+    $MissingMovement[
+        [int]$Entries["gameplay/movement"].directory_offset] =
+        [byte][char]'x'
+    [IO.File]::WriteAllBytes($MissingMovementPath, $MissingMovement)
+    Assert-SceneRejected -AssetPack $MissingMovementPath `
+        -Label "missing-movement" -ExpectedStatus "TGMO-1"
+
+    $MovementOffset = [int]$Entries["gameplay/movement"].pack_offset
+    $MalformedMovementPath = Join-Path $Scratch "malformed-movement.assetpack"
+    $MalformedMovement = [byte[]]$PackBytes.Clone()
+    $MalformedMovement[$MovementOffset] =
+        $MalformedMovement[$MovementOffset] -bxor 1
+    [IO.File]::WriteAllBytes($MalformedMovementPath, $MalformedMovement)
+    Assert-SceneRejected -AssetPack $MalformedMovementPath `
+        -Label "malformed-movement" -ExpectedStatus "TGMO-1"
+
+    $OversizedMovementPath = Join-Path $Scratch "oversized-movement.assetpack"
+    $OversizedMovement = [byte[]]$PackBytes.Clone()
+    [BitConverter]::GetBytes([uint64]1665).CopyTo(
+        $OversizedMovement,
+        [int]$Entries["gameplay/movement"].directory_offset + 92)
+    [IO.File]::WriteAllBytes($OversizedMovementPath, $OversizedMovement)
+    Assert-SceneRejected -AssetPack $OversizedMovementPath `
+        -Label "oversized-movement" -ExpectedStatus "TGMO-1"
 
     $MissingOrientationPath =
         Join-Path $Scratch "missing-court-orientation.assetpack"
@@ -789,7 +839,7 @@ try {
 
     $global:LASTEXITCODE = 0
     Write-Output ("GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance " +
-        "scene controls TGCP-2 full-world camera fine-scroll guarded-margins actor-camera-projection/possession-slice-render/freeze TGFL-1 orientation-lineup TGDK TGJS TGSR-3 jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
+        "scene controls TGMO-1 controlled movement TGCP-2 full-world camera fine-scroll guarded-margins actor-camera-projection/possession-slice-render/freeze TGFL-1 orientation-lineup TGDK TGJS TGSR-3 jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
         "halftime/final render-hashes/determinism missing malformed oversized " +
         "dependency-corrupt chr-mismatch")
 } finally {

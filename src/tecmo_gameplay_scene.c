@@ -20,8 +20,8 @@
 #define TECMO_GAMEPLAY_INITIAL_CAMERA_X 0x0100
 #define TECMO_GAMEPLAY_LEFT_BOUNDARY_BASE 0x00DF
 #define TECMO_GAMEPLAY_RIGHT_BOUNDARY_BASE 0x0220
-#define TECMO_GAMEPLAY_MIN_Y 54
-#define TECMO_GAMEPLAY_MAX_Y 226
+#define TECMO_GAMEPLAY_MIN_Y TECMO_GAMEPLAY_COURT_WORLD_MIN_Y
+#define TECMO_GAMEPLAY_MAX_Y TECMO_GAMEPLAY_COURT_WORLD_MAX_Y
 #define TECMO_GAMEPLAY_CLOSE_DISTANCE_X 48
 #define TECMO_GAMEPLAY_DRIBBLE_CADENCE 24U
 #define TECMO_GAMEPLAY_JUMP_SLOT0_DURATION 87U
@@ -182,6 +182,7 @@ static void scene_release_owned(TecmoGameplayScene *scene)
     tecmo_gameplay_free_throw_lineup_destroy(
         &scene->free_throw_lineup_assets);
     tecmo_gameplay_court_orientation_destroy(&scene->court_orientation);
+    tecmo_gameplay_movement_assets_destroy(&scene->movement_assets);
     tecmo_gameplay_camera_assets_destroy(&scene->camera_assets);
     tecmo_gameplay_court_destroy(&scene->court);
     tecmo_gameplay_assets_destroy(&scene->assets);
@@ -190,6 +191,7 @@ static void scene_release_owned(TecmoGameplayScene *scene)
     tecmo_gameplay_assets_init(&scene->assets);
     tecmo_gameplay_court_init(&scene->court);
     tecmo_gameplay_camera_assets_init(&scene->camera_assets);
+    tecmo_gameplay_movement_assets_init(&scene->movement_assets);
     tecmo_gameplay_court_orientation_init(&scene->court_orientation);
     tecmo_gameplay_free_throw_lineup_init(
         &scene->free_throw_lineup_assets);
@@ -209,6 +211,7 @@ void tecmo_gameplay_scene_init(TecmoGameplayScene *scene)
     tecmo_gameplay_assets_init(&scene->assets);
     tecmo_gameplay_court_init(&scene->court);
     tecmo_gameplay_camera_assets_init(&scene->camera_assets);
+    tecmo_gameplay_movement_assets_init(&scene->movement_assets);
     tecmo_gameplay_court_orientation_init(&scene->court_orientation);
     tecmo_gameplay_free_throw_lineup_init(
         &scene->free_throw_lineup_assets);
@@ -305,6 +308,14 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
         scene_set_status(scene, failure);
         return false;
     }
+    if (!tecmo_gameplay_movement_assets_load(
+            &scene->movement_assets, selected)) {
+        (void)snprintf(failure, sizeof(failure), "%s",
+                       scene->movement_assets.status);
+        scene_release_owned(scene);
+        scene_set_status(scene, failure);
+        return false;
+    }
     if (!tecmo_gameplay_court_decode_world(&scene->court,
                                            &scene->court_world)) {
         scene_release_owned(scene);
@@ -378,7 +389,7 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
     }
     scene->available = true;
     scene_set_status(scene,
-                     "native gameplay ready: TPTI-1/TGPL-1/TTDT-1/TWAR-1/TMUS-1/TGCT-1/TGCP-2/TGOR-1/TGFL-1/TGCS-1/TGDK-1/TGJS-2/TGSR-3/TSFX-1/TDMC-1");
+                     "native gameplay ready: TPTI-1/TGPL-1/TTDT-1/TWAR-1/TMUS-1/TGCT-1/TGCP-2/TGMO-1/TGOR-1/TGFL-1/TGCS-1/TGDK-1/TGJS-2/TGSR-3/TSFX-1/TDMC-1");
     return true;
 }
 
@@ -461,7 +472,7 @@ static bool scene_launch_valid(const TecmoGameplaySceneLaunch *launch)
     return true;
 }
 
-static void scene_initialize_actors(TecmoGameplayScene *scene)
+static bool scene_initialize_actors(TecmoGameplayScene *scene)
 {
     /* Native approximate starting layout expressed once in canonical
        full-court coordinates. These are not claimed as ROM lineup seeds. */
@@ -472,9 +483,24 @@ static void scene_initialize_actors(TecmoGameplayScene *scene)
             {0x018B, 190}, {0x01A6, 169}, {0x01C2, 205},
             {0x01DE, 145}
     };
+    TecmoGameplaySceneActor
+        initialized[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    uint8_t controlled[TECMO_GAMEPLAY_CONTROLLER_COUNT];
+    TecmoGameplayCourtCoordinateQ8 ball_position;
     size_t actor;
+    if (scene == NULL || !scene->movement_assets.available ||
+        scene->pretip_team_data == NULL ||
+        !scene->pretip_team_data->available ||
+        scene->launch.speed_value >= TECMO_GAMEPLAY_MOVEMENT_SPEED_COUNT) {
+        return false;
+    }
+    memset(initialized, 0, sizeof(initialized));
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
-        TecmoGameplaySceneActor *item = &scene->actors[actor];
+        TecmoGameplaySceneActor *item = &initialized[actor];
+        const TecmoTeamDataPlayer *player;
+        TecmoGameplayMovementState movement;
+        uint8_t team_id;
+        int adjusted_rating;
         item->position = initial_positions[actor];
         item->anchor = initial_positions[actor];
         item->pose_index = TECMO_GAMEPLAY_POSE_NEUTRAL;
@@ -485,23 +511,55 @@ static void scene_initialize_actors(TecmoGameplayScene *scene)
             TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT);
         item->facing_right = item->team == TECMO_GAMEPLAY_TEAM_AWAY;
         item->active = true;
+        team_id = item->team == TECMO_GAMEPLAY_TEAM_AWAY
+                      ? scene->launch.away_team : scene->launch.home_team;
+        if (team_id >= TECMO_TEAM_DATA_TEAM_COUNT ||
+            item->roster_index >= TECMO_TEAM_DATA_PLAYERS_PER_TEAM) {
+            return false;
+        }
+        player = &scene->pretip_team_data->players[team_id]
+                                                   [item->roster_index];
+        adjusted_rating = (int)player->profile[0] +
+            scene->movement_assets.speed_adjustment[
+                scene->launch.speed_value];
+        if (player->condition_seed > 0x64U ||
+            adjusted_rating <
+                (int)scene->movement_assets.minimum_movement_amount ||
+            adjusted_rating > 0xFF ||
+            !tecmo_gameplay_movement_state_initialize(
+                &scene->movement_assets, &movement, &item->position,
+                item->facing_right ? 0U : 1U)) {
+            return false;
+        }
+        item->movement_action_state = movement.action_state;
+        item->movement_direction = movement.direction;
+        item->movement_fractional_accumulator =
+            movement.fractional_accumulator;
+        item->movement_animation_phase = movement.animation_phase;
+        item->condition = player->condition_seed;
+        item->movement_boundary_latched =
+            movement.boundary_violation_latched;
     }
     for (actor = 0U; actor < TECMO_GAMEPLAY_CONTROLLER_COUNT; ++actor) {
         if (scene->launch.controller_team[actor] == TECMO_GAMEPLAY_TEAM_AWAY) {
-            scene->controlled_actor[actor] = 0U;
+            controlled[actor] = 0U;
         } else if (scene->launch.controller_team[actor] ==
                    TECMO_GAMEPLAY_TEAM_HOME) {
-            scene->controlled_actor[actor] =
+            controlled[actor] =
                 TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT;
         } else {
-            scene->controlled_actor[actor] = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+            controlled[actor] = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
         }
     }
+    ball_position.x_q8 =
+        (int32_t)(initialized[0].position.x + 7) * 256;
+    ball_position.y_q8 =
+        (int32_t)(initialized[0].position.y - 18) * 256;
+    memcpy(scene->actors, initialized, sizeof(initialized));
+    memcpy(scene->controlled_actor, controlled, sizeof(controlled));
     scene->ball_holder = 0U;
-    scene->ball_position.x_q8 =
-        (int32_t)(scene->actors[0].position.x + 7) * 256;
-    scene->ball_position.y_q8 =
-        (int32_t)(scene->actors[0].position.y - 18) * 256;
+    scene->ball_position = ball_position;
+    return true;
 }
 
 static void scene_initialize_tip_actors(TecmoGameplayScene *scene)
@@ -581,7 +639,10 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
     scene->state = initial_state;
     scene->orientation_state = initial_orientation;
     scene->camera_state = initial_camera;
-    scene_initialize_actors(scene);
+    if (!scene_initialize_actors(scene)) {
+        scene_set_status(scene, "gameplay actor movement initialization rejected");
+        return false;
+    }
     if (!tecmo_gameplay_camera_settle_court(
             &scene->camera_assets, &scene->camera_state,
             &scene->ball_position,
@@ -632,7 +693,12 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
         scene->pretip_state.phase = TECMO_GAMEPLAY_PRETIP_LIVE;
         scene->pretip_state.phase_frame = 0U;
         scene->pretip_state.live_handoff = true;
-        scene_initialize_actors(scene);
+        if (!scene_initialize_actors(scene)) {
+            scene_set_status(scene,
+                             "self-test actor movement initialization rejected");
+            scene->active = false;
+            return false;
+        }
         if (launch->game_music_enabled &&
             !tecmo_gameplay_audio_queue_game_music(&scene->audio_player)) {
             scene_set_status(scene, "self-test live music handoff rejected");
@@ -761,14 +827,9 @@ static void scene_clamp_actor_world(TecmoGameplaySceneActor *actor)
         (int16_t)(TECMO_GAMEPLAY_LEFT_BOUNDARY_BASE - half_y);
     right_boundary =
         (int16_t)(TECMO_GAMEPLAY_RIGHT_BOUNDARY_BASE + half_y);
-    /*
-     * Fixed Bank07 $F127-$F1B0, within the closed $F106-$F1B0 span
-     * (171 bytes, FNV1a32 CB1D4EAF), forms the ordinary movement trapezoid:
-     * page 0 clamps low at $DF-floor(y/2), page 1 is the interior, and page 2
-     * clamps high at $20+floor(y/2). The still-unmapped dispatcher exceptions
-     * at $0478/$046E/$0588/$0463/$0742 are not generalized here; ordinary
-     * native movement unconditionally owns this geometry for now.
-     */
+    /* AI and presentation staging still use this scene-safety clamp. Human
+       controlled movement goes through TGMO-1, including the exact fixed-bank
+       dispatcher exclusions and primary-actor violation-latch rules. */
     if (actor->position.x < left_boundary) actor->position.x = left_boundary;
     if (actor->position.x > right_boundary) actor->position.x = right_boundary;
     if (actor->position.x > TECMO_GAMEPLAY_COURT_WORLD_MAX_X) {
@@ -776,32 +837,134 @@ static void scene_clamp_actor_world(TecmoGameplaySceneActor *actor)
     }
 }
 
-static void scene_move_controlled_actor(TecmoGameplayScene *scene,
+static bool scene_actor_movement_state(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplaySceneActor *actor,
+    TecmoGameplayMovementState *state_out)
+{
+    TecmoGameplayMovementState state;
+    const TecmoTeamDataPlayer *player;
+    uint8_t team_id;
+    int adjusted_rating;
+    if (scene == NULL || actor == NULL || state_out == NULL ||
+        !scene->movement_assets.available ||
+        scene->pretip_team_data == NULL ||
+        !scene->pretip_team_data->available ||
+        actor->team > TECMO_GAMEPLAY_TEAM_HOME ||
+        actor->roster_index >= TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
+        actor->condition > 0x64U ||
+        scene->launch.speed_value >= TECMO_GAMEPLAY_MOVEMENT_SPEED_COUNT) {
+        return false;
+    }
+    team_id = actor->team == TECMO_GAMEPLAY_TEAM_AWAY
+                  ? scene->launch.away_team : scene->launch.home_team;
+    if (team_id >= TECMO_TEAM_DATA_TEAM_COUNT) return false;
+    player = &scene->pretip_team_data->players[team_id]
+                                               [actor->roster_index];
+    adjusted_rating = (int)player->profile[0] +
+        scene->movement_assets.speed_adjustment[scene->launch.speed_value];
+    if (adjusted_rating <
+            (int)scene->movement_assets.minimum_movement_amount ||
+        adjusted_rating > 0xFF) {
+        return false;
+    }
+    memset(&state, 0, sizeof(state));
+    state.contract_tag = TECMO_GAMEPLAY_MOVEMENT_STATE_TAG;
+    state.position = actor->position;
+    state.action_state = actor->movement_action_state;
+    state.direction = actor->movement_direction;
+    state.fractional_accumulator =
+        actor->movement_fractional_accumulator;
+    state.animation_phase = actor->movement_animation_phase;
+    state.boundary_violation_latched =
+        actor->movement_boundary_latched;
+    if (!tecmo_gameplay_movement_state_valid(
+            &scene->movement_assets, &state)) {
+        return false;
+    }
+    *state_out = state;
+    return true;
+}
+
+static bool scene_move_controlled_actor(TecmoGameplayScene *scene,
                                         size_t controller,
                                         const TecmoControlFrame *controls)
 {
     uint8_t actor_index;
+    uint8_t team_id;
+    uint8_t direction_bits = TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
     TecmoGameplaySceneActor *actor;
-    if (controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT || controls == NULL ||
-        scene->launch.controller_team[controller] ==
+    const TecmoTeamDataPlayer *player;
+    TecmoGameplayMovementState movement;
+    TecmoGameplayMovementStepInput input;
+    if (scene == NULL || controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT) {
+        return false;
+    }
+    if (scene->launch.controller_team[controller] ==
             TECMO_GAMEPLAY_SCENE_NO_TEAM) {
-        return;
+        return scene->controlled_actor[controller] ==
+               TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     }
     actor_index = scene->controlled_actor[controller];
-    if (actor_index >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) return;
+    if (actor_index >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) return false;
     actor = &scene->actors[actor_index];
-    if (actor->team != scene->launch.controller_team[controller]) return;
-    if (controls->held.left) {
-        --actor->position.x;
+    if (!actor->active ||
+        actor->team != scene->launch.controller_team[controller] ||
+        actor->roster_index >= TECMO_TEAM_DATA_PLAYERS_PER_TEAM ||
+        scene->pretip_team_data == NULL ||
+        !scene->pretip_team_data->available ||
+        !scene_actor_movement_state(scene, actor, &movement)) {
+        return false;
+    }
+    team_id = actor->team == TECMO_GAMEPLAY_TEAM_AWAY
+                  ? scene->launch.away_team : scene->launch.home_team;
+    if (team_id >= TECMO_TEAM_DATA_TEAM_COUNT) return false;
+    player = &scene->pretip_team_data->players[team_id]
+                                               [actor->roster_index];
+    if (controls != NULL) {
+        if (controls->held.right && !controls->held.left) {
+            direction_bits |= TECMO_GAMEPLAY_MOVEMENT_INPUT_RIGHT;
+        } else if (controls->held.left && !controls->held.right) {
+            direction_bits |= TECMO_GAMEPLAY_MOVEMENT_INPUT_LEFT;
+        }
+        if (controls->held.down && !controls->held.up) {
+            direction_bits |= TECMO_GAMEPLAY_MOVEMENT_INPUT_DOWN;
+        } else if (controls->held.up && !controls->held.down) {
+            direction_bits |= TECMO_GAMEPLAY_MOVEMENT_INPUT_UP;
+        }
+    }
+    memset(&input, 0, sizeof(input));
+    input.held_direction_bits = direction_bits;
+    input.player_movement_rating = player->profile[0];
+    input.condition = actor->condition;
+    input.speed_value = scene->launch.speed_value;
+    /* Ordinary live control currently maps to the ROM's state-0 selected
+       actor path. TGMO retains the other dispatcher cases for later actions. */
+    input.global_object_state = 0U;
+    input.movement_flags = 0U;
+    input.primary_selected_actor = true;
+    if (!tecmo_gameplay_movement_step(
+            &scene->movement_assets, &movement, &input)) {
+        return false;
+    }
+    actor->position = movement.position;
+    actor->movement_action_state = movement.action_state;
+    actor->movement_direction = movement.direction;
+    actor->movement_fractional_accumulator =
+        movement.fractional_accumulator;
+    actor->movement_animation_phase = movement.animation_phase;
+    actor->movement_boundary_latched =
+        movement.boundary_violation_latched;
+    if (direction_bits == TECMO_GAMEPLAY_MOVEMENT_INPUT_RIGHT ||
+        direction_bits == TECMO_GAMEPLAY_MOVEMENT_INPUT_DOWN_RIGHT ||
+        direction_bits == TECMO_GAMEPLAY_MOVEMENT_INPUT_UP_RIGHT) {
+        actor->facing_right = true;
+    } else if (direction_bits == TECMO_GAMEPLAY_MOVEMENT_INPUT_LEFT ||
+               direction_bits == TECMO_GAMEPLAY_MOVEMENT_INPUT_DOWN_LEFT ||
+               direction_bits == TECMO_GAMEPLAY_MOVEMENT_INPUT_UP_LEFT) {
         actor->facing_right = false;
     }
-    if (controls->held.right) {
-        ++actor->position.x;
-        actor->facing_right = true;
-    }
-    if (controls->held.up) --actor->position.y;
-    if (controls->held.down) ++actor->position.y;
-    scene_clamp_actor_world(actor);
+    return true;
 }
 
 static uint8_t scene_first_actor_for_team(TecmoGameplayTeam team)
@@ -2771,10 +2934,12 @@ static bool scene_phase_allows_live_action(TecmoGameplayPhase phase)
 static bool scene_ownership_valid(const TecmoGameplayScene *scene)
 {
     TecmoGameplaySceneCourtCoordinates coordinates;
+    TecmoGameplayMovementState movement;
     size_t actor;
     size_t controller;
     if (scene == NULL ||
         !scene->camera_assets.available ||
+        !scene->movement_assets.available ||
         scene->court_world.contract_tag !=
             TECMO_GAMEPLAY_COURT_WORLD_CONTRACT_TAG ||
         scene->court_world.tiles_fingerprint !=
@@ -2799,7 +2964,9 @@ static bool scene_ownership_valid(const TecmoGameplayScene *scene)
         if (scene->actors[actor].active &&
             (!scene_actor_world_position_valid(&scene->actors[actor]) ||
              !scene_actor_coordinate_valid(
-                 &scene->actors[actor].anchor))) {
+                 &scene->actors[actor].anchor) ||
+             !scene_actor_movement_state(
+                 scene, &scene->actors[actor], &movement))) {
             return false;
         }
     }
@@ -2968,7 +3135,11 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
                              : TECMO_GAMEPLAY_TEAM_AWAY;
             holder = possession == TECMO_GAMEPLAY_TEAM_HOME
                          ? TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT : 0U;
-            scene_initialize_actors(scene);
+            if (!scene_initialize_actors(scene)) {
+                scene_set_status(
+                    scene, "pre-tip actor movement handoff rejected");
+                return false;
+            }
             if (!scene_handoff_possession(scene, possession, holder)) {
                 scene_set_status(scene, "pre-tip possession handoff rejected");
                 return false;
@@ -3081,8 +3252,12 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
             for (controller = 0U;
                  controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
                  ++controller) {
-                scene_move_controlled_actor(scene, controller,
-                                            controls[controller]);
+                if (!scene_move_controlled_actor(
+                        scene, controller, controls[controller])) {
+                    scene_set_status(
+                        scene, "controlled movement update rejected");
+                    return false;
+                }
             }
             for (controller = 0U;
                  controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
@@ -5237,6 +5412,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     uint8_t shot_actor;
     uint8_t failed_difficulty;
     int16_t x;
+    int16_t y;
     bool saw_coarse_crossing;
     bool saw_fine_scroll;
     bool saw_visibility_transition;
@@ -5803,10 +5979,10 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     boundary_actor.position.y = TECMO_GAMEPLAY_MIN_Y;
     boundary_actor.position.x = -1;
     scene_clamp_actor_world(&boundary_actor);
-    if (boundary_actor.position.x != 0x00C4 ||
+    if (boundary_actor.position.x != 0x00DF ||
         !scene_actor_world_position_valid(&boundary_actor)) {
         scene_test_message(message, message_size,
-                           "page-0 ordinary-movement boundary diverged");
+                           "page-0 scene-safety boundary diverged");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -5816,17 +5992,17 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     if (boundary_actor.position.x != 300 ||
         !scene_actor_world_position_valid(&boundary_actor)) {
         scene_test_message(message, message_size,
-                           "page-1 ordinary-movement interior diverged");
+                           "page-1 scene-safety interior diverged");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
     boundary_actor.position.y = TECMO_GAMEPLAY_MAX_Y;
     boundary_actor.position.x = TECMO_GAMEPLAY_COURT_WORLD_MAX_X;
     scene_clamp_actor_world(&boundary_actor);
-    if (boundary_actor.position.x != 0x0291 ||
+    if (boundary_actor.position.x != 0x0297 ||
         !scene_actor_world_position_valid(&boundary_actor)) {
         scene_test_message(message, message_size,
-                           "page-2 ordinary-movement boundary diverged");
+                           "page-2 scene-safety boundary diverged");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -6447,9 +6623,31 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     memset(&p1, 0, sizeof(p1));
     p1.held.right = true;
     if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+        scene.actors[scene.controlled_actor[0]].position.x != x ||
+        scene.actors[scene.controlled_actor[0]].movement_action_state !=
+            TECMO_GAMEPLAY_MOVEMENT_INPUT_RIGHT ||
+        !tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
         scene.actors[scene.controlled_actor[0]].position.x != x + 1) {
         scene_test_message(message, message_size,
-                           "directional movement contract failed");
+                           "TGMO directional latency/movement contract failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    x = scene.actors[scene.controlled_actor[0]].position.x;
+    y = scene.actors[scene.controlled_actor[0]].position.y;
+    memset(&p1, 0, sizeof(p1));
+    p1.held.left = true;
+    p1.held.right = true;
+    p1.held.up = true;
+    p1.held.down = true;
+    if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+        scene.actors[scene.controlled_actor[0]].position.x != x ||
+        scene.actors[scene.controlled_actor[0]].position.y != y ||
+        scene.actors[scene.controlled_actor[0]].movement_action_state !=
+            TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL) {
+        scene_test_message(
+            message, message_size,
+            "contradictory-axis neutral integration policy failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -7405,9 +7603,11 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     memset(&p1, 0, sizeof(p1));
     p1.held.right = true;
     if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+        scene.actors[scene.controlled_actor[0]].position.x != x ||
+        !tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
         scene.actors[scene.controlled_actor[0]].position.x != x + 1) {
         scene_test_message(message, message_size,
-                           "swapped controller movement failed");
+                           "swapped controller TGMO movement failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
@@ -7456,6 +7656,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     memset(&p2, 0, sizeof(p2));
     p2.held.right = true;
     if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+        !tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
         scene.audio_player.dmc.active) {
         scene_test_message(message, message_size,
                            "defender movement queued holder DMC");
@@ -7491,10 +7692,21 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
     p1.held.right = true;
-    if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
-        !scene.audio_player.dmc.active) {
-        scene_test_message(message, message_size,
-                           "human holder displacement missed holder DMC");
+    for (frame = 0U; frame <= TECMO_GAMEPLAY_DRIBBLE_CADENCE; ++frame) {
+        if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+            (frame < TECMO_GAMEPLAY_DRIBBLE_CADENCE &&
+             scene.audio_player.dmc.active)) {
+            scene_test_message(
+                message, message_size,
+                "human holder TGMO cadence queued an early DMC");
+            tecmo_gameplay_scene_destroy(&scene);
+            return false;
+        }
+    }
+    if (!scene.audio_player.dmc.active) {
+        scene_test_message(
+            message, message_size,
+            "human holder TGMO displacement missed cadence DMC");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }

@@ -5,6 +5,7 @@
 #include "tecmo_asset_pack_gameplay_audio.h"
 #include "tecmo_asset_pack_gameplay.h"
 #include "tecmo_asset_pack_gameplay_camera.h"
+#include "tecmo_asset_pack_gameplay_movement.h"
 #include "tecmo_asset_pack_gameplay_court.h"
 #include "tecmo_asset_pack_gameplay_court_orientation.h"
 #include "tecmo_asset_pack_gameplay_close_shots.h"
@@ -46,6 +47,7 @@ char *tecmo_asset_pack_build_ines_source_map(
     const TecmoGameplayCourtProvenance *gameplay_court_provenance,
     const TecmoGameplayCourtOrientationProvenance *court_orientation_provenance,
     const TecmoGameplayCameraProvenance *gameplay_camera_provenance,
+    const TecmoGameplayMovementProvenance *gameplay_movement_provenance,
     const TecmoGameplayCloseShotProvenance *close_shot_provenance,
     const TecmoGameplayDunkProvenance *dunk_provenance,
     const TecmoGameplayJumpShotProvenance *jump_shot_provenance,

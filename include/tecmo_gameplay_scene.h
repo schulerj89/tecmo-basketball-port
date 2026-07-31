@@ -12,6 +12,7 @@
 #include "tecmo_gameplay_dunk_cutaway.h"
 #include "tecmo_gameplay_free_throw_lineup.h"
 #include "tecmo_gameplay_jump_shots.h"
+#include "tecmo_gameplay_movement.h"
 #include "tecmo_gameplay_pretip.h"
 #include "tecmo_gameplay_shot_resolution.h"
 #include "tecmo_gameplay_state.h"
@@ -83,7 +84,13 @@ typedef struct TecmoGameplaySceneActor {
     uint16_t pose_index;
     uint8_t team;
     uint8_t roster_index;
+    uint8_t movement_action_state;
+    uint8_t movement_direction;
+    uint8_t movement_fractional_accumulator;
+    uint8_t movement_animation_phase;
+    uint8_t condition;
     bool facing_right;
+    bool movement_boundary_latched;
     bool active;
 } TecmoGameplaySceneActor;
 
@@ -144,6 +151,7 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayCourt court;
     TecmoGameplayCourtWorld court_world;
     TecmoGameplayCameraAssets camera_assets;
+    TecmoGameplayMovementAssets movement_assets;
     TecmoGameplayCameraState camera_state;
     TecmoGameplayCourtOrientationAssets court_orientation;
     TecmoGameplayCourtOrientationState orientation_state;
@@ -214,7 +222,7 @@ typedef struct TecmoGameplayScene {
 /* Initialize exactly once before load/destroy. */
 void tecmo_gameplay_scene_init(TecmoGameplayScene *scene);
 
-/* Loads TGPL-1, TGCT-1, TGCP-2, TGOR-1, TGFL-1, TGCS-1, TGDK-1, TGJS-2,
+/* Loads TGPL-1, TGCT-1, TGCP-2, TGMO-1, TGOR-1, TGFL-1, TGCS-1, TGDK-1, TGJS-2,
    TGSR-3, TSFX-1, and TDMC-1 from one local pack.
    `asset_pack_path` may be NULL to use the strict runtime search order.
    Runtime data is never read from decompilation/capture paths. */

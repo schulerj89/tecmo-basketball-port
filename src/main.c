@@ -3,6 +3,7 @@
 #include "tecmo_asset_pack.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_audio.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_camera.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_movement.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_court_orientation.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.h"
 #include "asset_pack/tecmo_asset_pack_music.h"
@@ -13,6 +14,7 @@
 #include "tecmo_gameplay_audio.h"
 #include "tecmo_gameplay_assets.h"
 #include "tecmo_gameplay_camera.h"
+#include "tecmo_gameplay_movement.h"
 #include "tecmo_gameplay_court.h"
 #include "tecmo_gameplay_court_orientation.h"
 #include "tecmo_gameplay_close_shots.h"
@@ -73,6 +75,8 @@ static void print_usage(const char *program)
     printf("  --gameplay-court-viewport-test PACK  Validate TGCT-1 full-court decode and viewport slicing\n");
     printf("  --gameplay-court-orientation-test PACK [ROM]  Validate strict TGOR-1 state and optional Rev1 source\n");
     printf("  --gameplay-camera-projection-test PACK  Validate strict TGCP-2 camera/projector/clamp assets\n");
+    printf("  --gameplay-movement-test PACK  Validate strict TGMO-1 controlled-player movement\n");
+    printf("  --gameplay-movement-harness PACK TEAM ROSTER X Y SPEED POSSESSION ORIENTATION INPUT FRAMES  Trace deterministic developer-only movement\n");
     printf("  --gameplay-close-shots-test PACK  Validate strict TGCS-1 close-shot assets\n");
     printf("  --gameplay-dunk-cutaway-test PACK  Validate strict TGDK-1 dunk presentation assets\n");
     printf("  --gameplay-jump-shots-test PACK  Validate strict TGJS-2 jump-shot assets\n");
@@ -339,6 +343,174 @@ static bool parse_render_frame_suffix(const char *mode_name,
     }
     *frame = (unsigned)value;
     return true;
+}
+
+static bool parse_u32_argument(const char *text,
+                               uint32_t maximum,
+                               uint32_t *value_out)
+{
+    char *end = NULL;
+    unsigned long value;
+    if (text == NULL || text[0] == '\0' || value_out == NULL) return false;
+    errno = 0;
+    value = strtoul(text, &end, 0);
+    if (errno != 0 || end == text || *end != '\0' ||
+        value > maximum) {
+        return false;
+    }
+    *value_out = (uint32_t)value;
+    return true;
+}
+
+static bool parse_movement_input(const char *text, uint8_t *input_out)
+{
+    static const struct MovementInputName {
+        const char *name;
+        uint8_t value;
+    } names[] = {
+        {"neutral", TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL},
+        {"right", TECMO_GAMEPLAY_MOVEMENT_INPUT_RIGHT},
+        {"left", TECMO_GAMEPLAY_MOVEMENT_INPUT_LEFT},
+        {"down", TECMO_GAMEPLAY_MOVEMENT_INPUT_DOWN},
+        {"down-right", TECMO_GAMEPLAY_MOVEMENT_INPUT_DOWN_RIGHT},
+        {"down-left", TECMO_GAMEPLAY_MOVEMENT_INPUT_DOWN_LEFT},
+        {"up", TECMO_GAMEPLAY_MOVEMENT_INPUT_UP},
+        {"up-right", TECMO_GAMEPLAY_MOVEMENT_INPUT_UP_RIGHT},
+        {"up-left", TECMO_GAMEPLAY_MOVEMENT_INPUT_UP_LEFT}
+    };
+    uint32_t numeric;
+    if (text == NULL || input_out == NULL) return false;
+    for (size_t index = 0U; index < sizeof(names) / sizeof(names[0]);
+         ++index) {
+        if (strcmp(text, names[index].name) == 0) {
+            *input_out = names[index].value;
+            return true;
+        }
+    }
+    if (!parse_u32_argument(text, 0x0FU, &numeric) ||
+        !tecmo_gameplay_movement_input_valid((uint8_t)numeric)) {
+        return false;
+    }
+    *input_out = (uint8_t)numeric;
+    return true;
+}
+
+static const char *movement_input_name(uint8_t input)
+{
+    switch (input) {
+    case TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL: return "neutral";
+    case TECMO_GAMEPLAY_MOVEMENT_INPUT_RIGHT: return "right";
+    case TECMO_GAMEPLAY_MOVEMENT_INPUT_LEFT: return "left";
+    case TECMO_GAMEPLAY_MOVEMENT_INPUT_DOWN: return "down";
+    case TECMO_GAMEPLAY_MOVEMENT_INPUT_DOWN_RIGHT: return "down-right";
+    case TECMO_GAMEPLAY_MOVEMENT_INPUT_DOWN_LEFT: return "down-left";
+    case TECMO_GAMEPLAY_MOVEMENT_INPUT_UP: return "up";
+    case TECMO_GAMEPLAY_MOVEMENT_INPUT_UP_RIGHT: return "up-right";
+    case TECMO_GAMEPLAY_MOVEMENT_INPUT_UP_LEFT: return "up-left";
+    default: return "invalid";
+    }
+}
+
+static int run_gameplay_movement_harness(int argc,
+                                         char **argv,
+                                         int index)
+{
+    const char *pack_path;
+    uint32_t team;
+    uint32_t roster;
+    uint32_t x;
+    uint32_t y;
+    uint32_t speed;
+    uint32_t possession;
+    uint32_t orientation;
+    uint32_t frames;
+    uint8_t held_input;
+    TecmoGameplayMovementAssets assets;
+    TecmoTeamDataAsset *team_data;
+    TecmoGameplayCourtCoordinate position;
+    TecmoGameplayMovementState state;
+    TecmoGameplayMovementStepInput input;
+    const TecmoTeamDataPlayer *player;
+
+    if (index + 9 >= argc) {
+        printf("Movement harness requires PACK TEAM ROSTER X Y SPEED POSSESSION ORIENTATION INPUT FRAMES\n");
+        return 2;
+    }
+    pack_path = argv[index];
+    if (!parse_u32_argument(argv[index + 1], 26U, &team) ||
+        !parse_u32_argument(argv[index + 2], 11U, &roster) ||
+        !parse_u32_argument(argv[index + 3],
+                            TECMO_GAMEPLAY_COURT_WORLD_MAX_X, &x) ||
+        !parse_u32_argument(argv[index + 4],
+                            TECMO_GAMEPLAY_COURT_WORLD_MAX_Y, &y) ||
+        !parse_u32_argument(argv[index + 5], 2U, &speed) ||
+        !parse_u32_argument(argv[index + 6], 1U, &possession) ||
+        !parse_u32_argument(argv[index + 7], 1U, &orientation) ||
+        !parse_movement_input(argv[index + 8], &held_input) ||
+        !parse_u32_argument(argv[index + 9], 4096U, &frames)) {
+        printf("Movement harness argument rejected\n");
+        return 2;
+    }
+
+    tecmo_gameplay_movement_assets_init(&assets);
+    team_data = (TecmoTeamDataAsset *)malloc(sizeof(*team_data));
+    if (team_data == NULL ||
+        !tecmo_gameplay_movement_assets_load(&assets, pack_path) ||
+        !tecmo_team_data_asset_load_from_pack(team_data, pack_path)) {
+        printf("Movement harness load failed: %s\n",
+               team_data == NULL ? "allocation failed" :
+               !assets.available ? assets.status : team_data->status);
+        free(team_data);
+        tecmo_gameplay_movement_assets_destroy(&assets);
+        return 1;
+    }
+    player = &team_data->players[team][roster];
+    position.x = (int16_t)x;
+    position.y = (int16_t)y;
+    if (!tecmo_gameplay_movement_state_initialize(
+            &assets, &state, &position,
+            orientation == 0U ? 0U : 1U)) {
+        printf("Movement harness initial state rejected\n");
+        free(team_data);
+        tecmo_gameplay_movement_assets_destroy(&assets);
+        return 1;
+    }
+    memset(&input, 0, sizeof(input));
+    input.held_direction_bits = held_input;
+    input.player_movement_rating = player->profile[0];
+    input.condition = player->condition_seed;
+    input.speed_value = (uint8_t)speed;
+    input.primary_selected_actor = true;
+
+    printf("TGMO-1 harness team=%u roster=%u player=\"%s\" rating=%u condition=%u speed=%u possession=%u orientation=%u input=%s frames=%u\n",
+           (unsigned)team, (unsigned)roster, player->name,
+           (unsigned)input.player_movement_rating,
+           (unsigned)input.condition, (unsigned)speed,
+           (unsigned)possession, (unsigned)orientation,
+           movement_input_name(held_input), (unsigned)frames);
+    printf("frame=0 x=%d y=%d action=%u direction=%u fraction=%u animation=%02X boundary=%u\n",
+           state.position.x, state.position.y,
+           (unsigned)state.action_state, (unsigned)state.direction,
+           (unsigned)state.fractional_accumulator,
+           (unsigned)state.animation_phase,
+           state.boundary_violation_latched ? 1U : 0U);
+    for (uint32_t frame = 1U; frame <= frames; ++frame) {
+        if (!tecmo_gameplay_movement_step(&assets, &state, &input)) {
+            printf("Movement harness step %u rejected\n", (unsigned)frame);
+            free(team_data);
+            tecmo_gameplay_movement_assets_destroy(&assets);
+            return 1;
+        }
+        printf("frame=%u x=%d y=%d action=%u direction=%u fraction=%u animation=%02X boundary=%u\n",
+               (unsigned)frame, state.position.x, state.position.y,
+               (unsigned)state.action_state, (unsigned)state.direction,
+               (unsigned)state.fractional_accumulator,
+               (unsigned)state.animation_phase,
+               state.boundary_violation_latched ? 1U : 0U);
+    }
+    free(team_data);
+    tecmo_gameplay_movement_assets_destroy(&assets);
+    return 0;
 }
 
 static bool parse_finale_render_mode(const char *mode_name,
@@ -1344,6 +1516,22 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (strcmp(command, "--gameplay-movement-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        char message[256];
+        if (!tecmo_gameplay_movement_self_test(
+                pack_path, message, sizeof(message))) {
+            printf("Gameplay movement test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-movement-harness") == 0) {
+        return run_gameplay_movement_harness(argc, argv, index);
+    }
+
     if (strcmp(
             command,
             "--gameplay-free-throw-projection-test") == 0) {
@@ -1370,6 +1558,19 @@ int main(int argc, char **argv)
         if (tecmo_asset_pack_gameplay_camera_source_test(
                 rom_path, message, sizeof(message)) != 0) {
             printf("Gameplay camera source test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    /* Developer-only isolated importer gate for the TGMO mutation suite. */
+    if (strcmp(command, "--gameplay-movement-source-test") == 0) {
+        const char *rom_path = index < argc ? argv[index] : NULL;
+        char message[256];
+        if (tecmo_asset_pack_gameplay_movement_source_test(
+                rom_path, message, sizeof(message)) != 0) {
+            printf("Gameplay movement source test failed: %s\n", message);
             return 1;
         }
         printf("%s\n", message);

@@ -37,6 +37,7 @@ remains the separate NES A-release presentation gate.
 The compound scene loads `gameplay/core` TGPL-1 (23416 bytes,
 `2047CCE0`), `gameplay/court` TGCT-1 (6559 bytes, `ECAB7A93`),
 `gameplay/camera-projection` TGCP-2 (1536 bytes, `53247856`),
+`gameplay/movement` TGMO-1 (1664 bytes, `6C82A137`),
 `gameplay/court-orientation` TGOR-1 (640 bytes, `F9152C0A`),
 `gameplay/close-shots` TGCS-1 (3144 bytes, `DACDC976`),
 `gameplay/dunk-cutaway` TGDK-1 (20272 bytes, `E02F2D21`),
@@ -153,11 +154,33 @@ left/center/right travel checkpoints use camera X
 are strict; the scene binding, checkpoint focus placement, and simplified
 possession choreography are native integration.
 
-Ordinary movement currently owns the exact fixed `$F106-$F1B0` trapezoid
-unconditionally (171 bytes, FNV1a32 `CB1D4EAF`): page-0 lower bound
-`$00DF-floor(Y/2)`, page-1 interior, and page-2 upper bound
-`$0220+floor(Y/2)`. Dispatcher exceptions involving `$0478`, `$046E`,
-`$0588`, `$0463`, and `$0742` remain unimplemented.
+`gameplay/movement` TGMO-1 carries seven exact spans: Bank02
+`$A89E-$A90D`, Bank04 `$ACE4-$AD25`, Bank05 `$879B-$8866`,
+`$88F9-$89BC`, `$8E58-$8F96`, `$BF6C-$BFA7`, and fixed
+`$F106-$F1B0`. Its canonical 1664-byte payload (`6C82A137`) requires exact
+same-pack TGPL-1, TGCP-2, and TTDT-1, and cross-checks the repeated clamp bytes
+against TGCP-2. The pure transactional state reproduces one-update direction
+latency, Q4 accumulation, TTDT profile-0 plus GAME SPEED `+5/-1/-6`, condition
+formula `max(8, adjusted_rating + (condition >> 4) - 6)`, diagonal
+`amount-floor(amount/4)`, `$4A/$EC` compare-before-move gates, and period-8
+animation phase. Invalid or unreachable state/input arithmetic rejects without
+mutation.
+
+The fixed span is now applied as the original selected-actor dispatcher. Object
+state 4, action `$0F/$10`, the flags-bit-3 exemption, and the conditions that
+set the boundary-violation latch surround page-0
+`$00DF-floor(Y/2)`, page-1 interior, and page-2
+`$0220+floor(Y/2)`. Ordinary live human control supplies object state 0 and
+flags 0 and persists the latch. The latch is not connected to violation
+settlement and its original reset path is unported. The exact
+pose-base/animation-low-nibble resolver is available, but
+opponent-relative pose-half selection and live walking animation rendering are
+not. Fresh TTDT condition is used without fatigue evolution. Opposing
+directions on one axis are normalized to neutral as a native integration
+policy. Starting placement/direction and fixed five-player roster-slot binding,
+CPU movement, and AI remain native integration or approximations. The
+deterministic CLI harness is developer-only and does not add an in-game debug
+route.
 
 TGSR-3 also has FNV1a64 `5C5170460C8305A8` and requires exact same-pack
 TGPL-1. Its revision-fingerprinted sources are Bank05 `$91BC-$943A`,
@@ -480,7 +503,9 @@ These are provenance only and are not runtime inputs.
   TGJS-2 can simulate distance flight from explicit raw inputs; neither owns
   live `$AD6E` launch inputs or admits the route. No semantic rebound,
   block, steal, or player-stat event is claimed.
-- Actor starting layout, unconditional ordinary-movement policy, AI,
+- Actor starting layout and fixed five-player roster-slot binding, CPU
+  movement/AI, walking-pose binding, fatigue and
+  boundary-latch settlement,
   jump-ball interpolation, unsupported jump routes, general
   make/contact policy, the distance policy
   selecting dunk/variant 0 versus layup/variant 2, live close-shot
@@ -514,6 +539,9 @@ the strict TGDK payload/provenance/render/mutation/revision checks.
 `Run-GameplayFreeThrowLineupTests.ps1`, and
 `Run-GameplayCourtOrientationTests.ps1` validate the strict TGSR/TPNL/TGFL/TGOR
 parsers, same-pack dependencies, source mutation, and pure APIs.
-`--gameplay-state-test`, the TGPL/TGCT/TGCP/TGCS/TGJS focused suites, the 79-entry
+`Run-GameplayMovementTests.ps1` validates TGMO's seven ROM spans, strict parser,
+same-pack dependencies, malformed state transactions, deterministic harness
+vectors, and live scene handoff without exposing an in-game debug path.
+`--gameplay-state-test`, the TGPL/TGCT/TGCP/TGMO/TGCS/TGJS focused suites, the 80-entry
 full asset-pack regression, and `Run-GameplayAudioTests.ps1` retain their
 lower-level coverage.

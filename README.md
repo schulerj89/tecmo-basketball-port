@@ -34,7 +34,7 @@ frame-identical recreation of on-court gameplay.
 | Team Data | Supported for team profiles, rosters, player detail, STARTERS, and PLAYBOOK; accumulated player-stat fields remain `.000`/zero until per-player accumulators are ported |
 | All Star | Partial: selectors work, but the route stops before game launch |
 | League Leaders | Partial: category navigation works; ranked player results remain unavailable until per-player season statistics are ported |
-| Gameplay | Playable full-game shell with a ROM-derived pre-tip presentation (exact cards and capture-bounded later staging), movement, passing, defender switching, a ROM-derived full-court horizontal camera/world renderer, close shots, one bounded ordinary-jump miss/three-point-make context, clocks, periods, halftime, overtime/final, audio, and result handoff; pre-tip claim settlement, live foul/contact and free-throw outcomes, general shot selection, and AI remain approximate. Rim-rattle is diagnostic-only and is not selected by normal live misses |
+| Gameplay | Playable full-game shell with a ROM-derived pre-tip presentation (exact cards and capture-bounded later staging), ROM-derived ordinary human movement, passing, defender switching, a ROM-derived full-court horizontal camera/world renderer, close shots, one bounded ordinary-jump miss/three-point-make context, clocks, periods, halftime, overtime/final, audio, and result handoff; pre-tip claim settlement, live foul/contact and free-throw outcomes, general shot selection, and CPU AI remain approximate. Rim-rattle is diagnostic-only and is not selected by normal live misses |
 
 Normal play is asset-pack-only. It does not load decompilation files, Lua
 traces, screenshots, save states, dumps, or emulator captures at runtime.
@@ -61,6 +61,10 @@ pack from a legally obtained Rev 1 ROM:
 ```powershell
 .\build\tecmo_port.exe --build-assetpack <LOCAL_REV1_ROM.nes> .\build\tecmo.assetpack
 ```
+
+Regenerate this ignored pack after pulling code that adds or changes a strict
+asset entry. A stale pack is deliberately rejected instead of being interpreted
+with the new schema.
 
 The currently supported ROM is **Tecmo NBA Basketball (USA) (NES-BK)
 (Rev 1)** with SHA-256
@@ -149,7 +153,12 @@ accumulators are ported.
   to gameplay track 5 only at the 691-frame live handoff when GAME MUSIC is
   enabled. Lower error advances that side's contest and selects initial
   possession; exact original claim/tie settlement remains approximate.
-- Directions move the owned actor.
+- Directions move the owned actor through strict TGMO-1 locomotion: the selected
+  player's ROM movement rating, GAME SPEED adjustment, condition term, Q4
+  subpixel accumulator, one-update direction-change latency, diagonal reduction,
+  vertical gates, animation phase, and fixed-bank court clamp are reproduced.
+  CPU AI and ordinary locomotion pose-half rendering are not part of that exact
+  boundary yet.
 - NES A passes on offense and switches defenders on defense.
 - NES B starts an offensive shot or attempts the current defensive
   steal/contact action. START and SELECT are inert during live play.
@@ -220,14 +229,15 @@ embedded FCEUX RGB profile, actor pose data, numeric close-shot step
 tables, dunk cutaway, the bounded ordinary-jump miss/three-point-make context,
 TGSR-3 shot resolution, its exact 1/2/3-point classifier and
 diagnostic-only rim-rattle prefix, the TGFL-1 raw free-throw lineup, the
-  TGCP-2 horizontal camera/projector, strict actor clamp, and production live
-  prime/follow,
+TGCP-2 horizontal camera/projector and production live prime/follow, TGMO-1
+controlled-player movement and strict actor dispatcher/clamp,
 TGOR-1 live possession-synchronized
 offensive direction and target selection, rules timing, and native
 music/SFX/DMC programs. Strict entries are loaded from the same
 revision-fingerprinted asset pack with exact-size and malformed-data checks.
 
-The live actor starting layout, movement policy and AI, pre-tip actor geometry,
+The live actor starting layout and current fixed five-player roster-slot
+binding, CPU movement/AI, pre-tip actor geometry,
 the exact original tip-claim settlement, general shot selection and make/miss policy,
 dynamic matchup palettes and uniforms, live
 close-shot profile/direction selection, left-facing mirroring, contact/foul
@@ -290,13 +300,26 @@ movement remain ROM-derived; this scene-level binding and its checkpoint
 placements are native integration, not a claim about complete ROM possession
 choreography.
 
-Ordinary movement uses TGCP-2's strict fixed-bank `$F106-$F1B0` trapezoid
-source (171 bytes, FNV1a32 `CB1D4EAF`): page 0 clamps to
-`$00DF-floor(Y/2)`, page 1 is the interior, and page 2 clamps to
-`$0220+floor(Y/2)`. The current native policy applies that geometry
-unconditionally. Original dispatcher exceptions involving `$0478`, `$046E`,
-`$0588`, `$0463`, and `$0742` are not implemented and remain explicit parity
-work rather than inferred behavior.
+Ordinary human-controlled movement now loads `gameplay/movement` TGMO-1 (1664
+bytes, FNV1a32 `6C82A137`) with seven exact Rev 1 spans: Bank02
+`$A89E-$A90D`, Bank04 `$ACE4-$AD25`, Bank05 `$879B-$8866`,
+`$88F9-$89BC`, `$8E58-$8F96`, `$BF6C-$BFA7`, and fixed
+`$F106-$F1B0`. It requires exact same-pack TGPL-1, TGCP-2, and TTDT-1.
+For ordinary noncontradictory input the live adapter uses TTDT profile byte 0,
+the current condition, and GAME SPEED adjustments `+5/-1/-6`; movement amount
+is `max(8, adjusted_rating + (condition >> 4) - 6)`. It preserves the ROM's
+Q4 accumulator, `amount-floor(amount/4)` diagonal step, one-update action
+latency, `$4A/$EC` compare-before-move Y gates, and animation phase.
+
+TGMO-1 also applies the original selected-actor dispatcher exclusions and
+violation-latch conditions around the `$00DF-floor(Y/2)` / page-1 /
+`$0220+floor(Y/2)` trapezoid. Ordinary live control currently supplies object
+state 0 and movement flags 0. The latch is retained in actor state but is not
+yet connected to original reset/violation settlement. Opposing directions on one live input
+axis are normalized to neutral as a native integration policy. Fatigue
+evolution, opponent-relative pose-half selection/ordinary walking render
+frames, CPU locomotion/AI, and the approximate starting layout, direction, and
+fixed five-player roster-slot binding remain outside the exact boundary.
 
 `gameplay/court-orientation` TGOR-1 is loaded by the live scene and owns
 the binary offensive direction, previous direction, tracked possession team,
@@ -348,10 +371,21 @@ through explicit render-test/debug paths for development work.
 .\tools\Run-GameplayPenaltyTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayCameraProjectionTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-GameplayMovementTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayPreTipTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayDunkCutawayTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 ```
+
+For a deterministic developer trace of one movement vector, build a private
+pack and run, for example:
+
+```powershell
+.\build\tecmo_port.exe --gameplay-movement-harness build\tecmo.assetpack 0 0 384 148 1 0 0 right 8
+```
+
+This is a console-only test harness. It is not an in-game debug mode or a route
+reachable from normal play.
 
 The tracked gameplay-lab command above is a static safety/schema test. See its
 [README](tools/gameplay-lab/README.md) for private pilot instructions and
@@ -413,10 +447,10 @@ Generated `.assetpack` files are ignored local data. Every pack includes the
 manifest, sanitized source map, and raw PRG/CHR entries used by the strict
 logical assets.
 
-The current Rev 1 builder emits a 79-entry pack. In addition to the raw PRG and
+The current Rev 1 builder emits an 80-entry pack. In addition to the raw PRG and
 CHR entries, it contains strict logical assets for the opening, arena, finale,
 title, blue menu, frontend audio, preseason, Team Data, team management, season state, music,
-gameplay audio, court, live court-orientation state, poses, close shots, dunk
+gameplay audio, court, live court-orientation state, controlled movement, poses, close shots, dunk
 presentation, the bounded jump route, shot-resolution rules, penalty rules,
 the raw free-throw lineup, and the complete pre-tip presentation contract.
 These entries are derived directly from the local ROM during pack construction;

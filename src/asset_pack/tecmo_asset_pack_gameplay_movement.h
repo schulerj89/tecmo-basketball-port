@@ -1,0 +1,83 @@
+#ifndef TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_H
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_H
+
+#include "tecmo_gameplay_movement.h"
+
+#include <stddef.h>
+#include <stdint.h>
+
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_ID "gameplay/movement"
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_VERSION 1U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_HEADER_SIZE 256U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_SOURCE_STRIDE 32U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_SOURCES_OFFSET 256U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_DESCRIPTOR_OFFSET 88U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_DESCRIPTOR_STRIDE 12U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_SPEEDS_OFFSET 176U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_DIRECTION_MAP_OFFSET 200U
+
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_PROFILE_OFFSET 480U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_PROFILE_SIZE 112U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_CONFIG_OFFSET 592U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_CONFIG_SIZE 66U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_DELTA_OFFSET 672U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_DELTA_SIZE 204U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_HANDLERS_OFFSET 880U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_HANDLERS_SIZE 196U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_INPUT_OFFSET 1088U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_INPUT_SIZE 319U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_MAP_OFFSET 1408U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_MAP_SIZE 60U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_CLAMP_OFFSET 1472U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_CLAMP_SIZE 171U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_SIZE 1664U
+
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_PROFILE_FNV1A32 0x0BD2CB61U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_CONFIG_FNV1A32 0x36A1B92CU
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_DELTA_FNV1A32 0xE05FE645U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_HANDLERS_FNV1A32 0x613D0B4CU
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_INPUT_FNV1A32 0xA32D3C92U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_MAP_FNV1A32 0x71812CB0U
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_CLAMP_FNV1A32 0xCB1D4EAFU
+
+#define TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_FNV1A32 0x6C82A137U
+
+typedef struct TecmoGameplayMovementExpectedSource {
+    TecmoGameplayMovementSourceKind kind;
+    uint8_t bank;
+    uint8_t fixed_bank;
+    uint16_t cpu_start;
+    uint32_t byte_count;
+    uint32_t fingerprint;
+    uint32_t payload_offset;
+} TecmoGameplayMovementExpectedSource;
+
+typedef struct TecmoGameplayMovementProvenance {
+    uint64_t source_offsets[TECMO_GAMEPLAY_MOVEMENT_SOURCE_COUNT];
+} TecmoGameplayMovementProvenance;
+
+extern const TecmoGameplayMovementExpectedSource
+    tecmo_gameplay_movement_expected_sources[
+        TECMO_GAMEPLAY_MOVEMENT_SOURCE_COUNT];
+
+int tecmo_asset_pack_build_gameplay_movement(
+    const uint8_t *rom,
+    uint64_t rom_size,
+    uint64_t prg_offset,
+    uint32_t prg_banks,
+    int enforce_revision_fingerprints,
+    uint8_t *payload,
+    size_t payload_size,
+    TecmoGameplayMovementProvenance *provenance,
+    char *message,
+    size_t message_size);
+
+int tecmo_asset_pack_gameplay_movement_source_test(
+    const char *rom_path,
+    char *message,
+    size_t message_size);
+int tecmo_asset_pack_gameplay_movement_self_test(
+    char *message,
+    size_t message_size);
+
+#endif
