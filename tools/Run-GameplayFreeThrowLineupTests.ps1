@@ -264,7 +264,22 @@ try {
             $Map.lineup_contract.base_nonshooter_state.raw_0479 -eq 193 -and
             $Map.lineup_contract.base_shooter_state.raw_046E -eq 32 -and
             $Map.lineup_contract.base_shooter_state.raw_0479 -eq 65 -and
-            $Map.supported_boundary -match "no camera projection" -and
+            $Map.live_scene_integration.orientation_source -match
+                "TGOR-1 current_direction" -and
+            $Map.live_scene_integration.position_binding -match
+                "exact TGFL-1 raw world X/Y" -and
+            $Map.live_scene_integration.camera_binding -match
+                "orientation 0 camera_x=102" -and
+            $Map.live_scene_integration.camera_binding -match
+                "orientation 1 camera_x=408" -and
+            $Map.live_scene_integration.render_binding -match
+                "combined TGCT-1 slice" -and
+            $Map.live_scene_integration.pose_binding -match
+                "preserves existing actor poses" -and
+            ![bool]$Map.live_scene_integration.integration_is_additional_rom_claim -and
+            $Map.supported_boundary -match "native live positioning" -and
+            $Map.supported_boundary -match "not additional ROM claims" -and
+            $Map.supported_boundary -match "no live pose-state override" -and
             $Map.supported_boundary -match "no .*attempt decrement"
         if ($MapOk) {
             for ($Index = 0; $Index -lt $ExpectedSpans.Count; ++$Index) {

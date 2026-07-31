@@ -70,8 +70,7 @@ static bool reject(TecmoGameplayCourtOrientationAssets *assets,
     assets->storage = NULL;
     assets->storage_size = 0U;
     memset(assets->sources, 0, sizeof(assets->sources));
-    memset(assets->target_x, 0, sizeof(assets->target_x));
-    assets->target_y = 0U;
+    memset(assets->hoops, 0, sizeof(assets->hoops));
     assets->actor_role_bit = 0U;
     assets->transition_queue_id = 0U;
     memset(assets->screen_id, 0, sizeof(assets->screen_id));
@@ -363,9 +362,10 @@ bool tecmo_gameplay_court_orientation_parse(
         source->fingerprint = expected->fingerprint;
         source->bytes = storage + expected->payload_offset;
     }
-    assets->target_x[0U] = read_u16(storage + 128U);
-    assets->target_x[1U] = read_u16(storage + 130U);
-    assets->target_y = storage[132U];
+    assets->hoops[0U].x = (int16_t)read_u16(storage + 128U);
+    assets->hoops[1U].x = (int16_t)read_u16(storage + 130U);
+    assets->hoops[0U].y = (int16_t)storage[132U];
+    assets->hoops[1U].y = (int16_t)storage[132U];
     assets->actor_role_bit = storage[135U];
     assets->transition_queue_id = storage[136U];
     assets->screen_id[0U] = storage[137U];
@@ -448,9 +448,12 @@ static bool assets_valid(
                TECMO_ASSET_PACK_GAMEPLAY_COURT_ORIENTATION_SIZE &&
            fnv1a32(assets->storage, assets->storage_size) ==
                TECMO_ASSET_PACK_GAMEPLAY_COURT_ORIENTATION_FNV1A32 &&
-           assets->target_x[0U] == 0x00A0U &&
-           assets->target_x[1U] == 0x0260U &&
-           assets->target_y == 0x94U &&
+           tecmo_gameplay_court_coordinate_valid(&assets->hoops[0U]) &&
+           tecmo_gameplay_court_coordinate_valid(&assets->hoops[1U]) &&
+           assets->hoops[0U].x == TECMO_GAMEPLAY_COURT_LEFT_HOOP_X &&
+           assets->hoops[1U].x == TECMO_GAMEPLAY_COURT_RIGHT_HOOP_X &&
+           assets->hoops[0U].y == TECMO_GAMEPLAY_COURT_HOOP_Y &&
+           assets->hoops[1U].y == TECMO_GAMEPLAY_COURT_HOOP_Y &&
            assets->actor_role_bit == 0x10U &&
            assets->transition_queue_id == 0x17U &&
            assets->screen_id[0U] == 0x1BU &&
@@ -486,7 +489,21 @@ bool tecmo_gameplay_court_orientation_target_x(
         target_x_out == NULL) {
         return false;
     }
-    *target_x_out = assets->target_x[direction];
+    *target_x_out = (uint16_t)assets->hoops[direction].x;
+    return true;
+}
+
+bool tecmo_gameplay_court_orientation_hoop(
+    const TecmoGameplayCourtOrientationAssets *assets,
+    uint8_t direction,
+    TecmoGameplayCourtCoordinate *hoop_out)
+{
+    if (!assets_valid(assets) ||
+        direction >= TECMO_GAMEPLAY_COURT_ORIENTATION_COUNT ||
+        hoop_out == NULL) {
+        return false;
+    }
+    *hoop_out = assets->hoops[direction];
     return true;
 }
 
@@ -498,7 +515,7 @@ bool tecmo_gameplay_court_orientation_state_initialize(
     if (!assets_valid(assets) || state_out == NULL) return false;
     memset(&state, 0, sizeof(state));
     state.contract_tag = TECMO_GAMEPLAY_COURT_ORIENTATION_STATE_TAG;
-    state.target_x = assets->target_x[0U];
+    state.offensive_hoop = assets->hoops[0U];
     state.current_direction = 0U;
     state.previous_direction = 0U;
     state.tracked_possession_team =
@@ -521,13 +538,17 @@ bool tecmo_gameplay_court_orientation_state_valid(
            state->tracked_possession_team <
                TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_COUNT &&
            state->reserved == 0U && state->reserved_padding == 0U &&
+           tecmo_gameplay_court_coordinate_valid(
+               &state->offensive_hoop) &&
            ((state->transition_serial == 0U &&
              state->previous_direction == state->current_direction) ||
             (state->transition_serial != 0U &&
              state->previous_direction ==
                  (uint8_t)(state->current_direction ^ 1U))) &&
-           state->target_x ==
-               assets->target_x[state->current_direction];
+           state->offensive_hoop.x ==
+               assets->hoops[state->current_direction].x &&
+           state->offensive_hoop.y ==
+               assets->hoops[state->current_direction].y;
 }
 
 bool tecmo_gameplay_court_orientation_synchronize(
@@ -547,7 +568,8 @@ bool tecmo_gameplay_court_orientation_synchronize(
     candidate.current_direction ^= 1U;
     candidate.tracked_possession_team = possession_team;
     ++candidate.transition_serial;
-    candidate.target_x = assets->target_x[candidate.current_direction];
+    candidate.offensive_hoop =
+        assets->hoops[candidate.current_direction];
     *state = candidate;
     return true;
 }
@@ -562,6 +584,9 @@ bool tecmo_gameplay_court_orientation_self_test(
     TecmoGameplayCourtOrientationState unchanged;
     const TecmoGameplayCourtOrientationSourceSpan *gate;
     const TecmoGameplayCourtOrientationSourceSpan *role;
+    TecmoGameplayCourtCoordinate hoop = {(int16_t)0x5A5A,
+                                         (int16_t)0x5A5A};
+    TecmoGameplayCourtCoordinate unchanged_hoop;
     uint16_t target = 0xA5A5U;
     uint32_t storage_hash;
     bool passed = false;
@@ -601,7 +626,15 @@ bool tecmo_gameplay_court_orientation_self_test(
         !tecmo_gameplay_court_orientation_target_x(
             &assets, 0U, &target) || target != 0x00A0U ||
         !tecmo_gameplay_court_orientation_target_x(
-            &assets, 1U, &target) || target != 0x0260U) {
+            &assets, 1U, &target) || target != 0x0260U ||
+        !tecmo_gameplay_court_orientation_hoop(
+            &assets, 0U, &hoop) ||
+        hoop.x != TECMO_GAMEPLAY_COURT_LEFT_HOOP_X ||
+        hoop.y != TECMO_GAMEPLAY_COURT_HOOP_Y ||
+        !tecmo_gameplay_court_orientation_hoop(
+            &assets, 1U, &hoop) ||
+        hoop.x != TECMO_GAMEPLAY_COURT_RIGHT_HOOP_X ||
+        hoop.y != TECMO_GAMEPLAY_COURT_HOOP_Y) {
         (void)snprintf(message, message_size,
                        "TGOR-1 source/target contract failed");
         goto cleanup;
@@ -613,7 +646,9 @@ bool tecmo_gameplay_court_orientation_self_test(
         state.current_direction != 0U || state.previous_direction != 0U ||
         state.tracked_possession_team !=
             TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_AWAY ||
-        state.transition_serial != 0U || state.target_x != 0x00A0U) {
+        state.transition_serial != 0U ||
+        state.offensive_hoop.x != TECMO_GAMEPLAY_COURT_LEFT_HOOP_X ||
+        state.offensive_hoop.y != TECMO_GAMEPLAY_COURT_HOOP_Y) {
         (void)snprintf(message, message_size,
                        "TGOR-1 initial state contract failed");
         goto cleanup;
@@ -629,18 +664,25 @@ bool tecmo_gameplay_court_orientation_self_test(
         state.current_direction != 1U || state.previous_direction != 0U ||
         state.tracked_possession_team !=
             TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_HOME ||
-        state.transition_serial != 1U || state.target_x != 0x0260U ||
+        state.transition_serial != 1U ||
+        state.offensive_hoop.x != TECMO_GAMEPLAY_COURT_RIGHT_HOOP_X ||
+        state.offensive_hoop.y != TECMO_GAMEPLAY_COURT_HOOP_Y ||
         !tecmo_gameplay_court_orientation_synchronize(
             &assets, &state,
             TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_AWAY) ||
         state.current_direction != 0U || state.previous_direction != 1U ||
-        state.transition_serial != 2U || state.target_x != 0x00A0U) {
+        state.transition_serial != 2U ||
+        state.offensive_hoop.x != TECMO_GAMEPLAY_COURT_LEFT_HOOP_X ||
+        state.offensive_hoop.y != TECMO_GAMEPLAY_COURT_HOOP_Y) {
         (void)snprintf(message, message_size,
                        "TGOR-1 transition contract failed");
         goto cleanup;
     }
     unchanged = state;
     target = 0xA5A5U;
+    hoop.x = (int16_t)0x5A5A;
+    hoop.y = (int16_t)0x5A5A;
+    unchanged_hoop = hoop;
     if (tecmo_gameplay_court_orientation_synchronize(
             &assets, &state, 2U) ||
         memcmp(&state, &unchanged, sizeof(state)) != 0 ||
@@ -648,12 +690,29 @@ bool tecmo_gameplay_court_orientation_self_test(
             &assets, 2U, &target) || target != 0xA5A5U ||
         tecmo_gameplay_court_orientation_target_x(
             &assets, 0U, NULL) ||
+        tecmo_gameplay_court_orientation_hoop(
+            &assets, 2U, &hoop) ||
+        memcmp(&hoop, &unchanged_hoop, sizeof(hoop)) != 0 ||
+        tecmo_gameplay_court_orientation_hoop(
+            &assets, 0U, NULL) ||
         tecmo_gameplay_court_orientation_state_initialize(
             &assets, NULL)) {
         (void)snprintf(message, message_size,
                        "TGOR-1 invalid input mutated output");
         goto cleanup;
     }
+    state.offensive_hoop.y =
+        (int16_t)(TECMO_GAMEPLAY_COURT_HOOP_Y - 1);
+    unchanged = state;
+    if (tecmo_gameplay_court_orientation_synchronize(
+            &assets, &state,
+            TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_HOME) ||
+        memcmp(&state, &unchanged, sizeof(state)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGOR-1 corrupt hoop state contract failed");
+        goto cleanup;
+    }
+    state.offensive_hoop = assets.hoops[0U];
     state.transition_serial = UINT32_MAX;
     unchanged = state;
     if (tecmo_gameplay_court_orientation_synchronize(

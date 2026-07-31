@@ -296,17 +296,54 @@ try {
             $Map.projection_contract.screen_y -match "visible actors" -and
             $Map.projection_contract.orientation_transform -eq $false -and
             $Map.projection_contract.vertical_camera -eq $false -and
+            $Map.live_runtime_contract.asset_pack -match "TGFL-1" -and
             $Map.live_runtime_contract.update -match
                 "exactly one route-zero follow" -and
             $Map.live_runtime_contract.freeze -match
-                "free throws.*TGDK" -and
+                "TGFL-1 typed forced settle.*TGDK" -and
             $Map.live_runtime_contract.possession -match
                 "camera position is continuous" -and
             $Map.live_runtime_contract.viewport -match
                 "32/33-column slice" -and
+            $Map.live_runtime_contract.court_slice -match
+                "TGOR possession/direction/transition serial" -and
+            $Map.live_runtime_contract.court_slice -match
+                "TGCP projection camera_x" -and
+            [bool]$Map.live_runtime_contract.court_frame.transactional -and
+            $Map.live_runtime_contract.court_frame.composition -match
+                "TGCT possession slice.*TGCP player/ball projection" -and
+            $Map.live_runtime_contract.court_frame.stationary_actor_x -match
+                "inverse signed camera_x delta" -and
+            $Map.live_runtime_contract.court_frame.stationary_actor_y -match
+                "unchanged by horizontal camera motion" -and
+            $Map.live_runtime_contract.court_frame.visibility_transition -match
+                "visible=false with zero X/Y" -and
+            (@($Map.live_runtime_contract.court_frame.covered_transitions) -join
+                ',') -eq
+                "fine-scroll,coarse-tile,possession-reversal,left-endpoint,right-endpoint" -and
+            ![bool]$Map.live_runtime_contract.court_frame.integration_is_additional_rom_claim -and
+            $Map.live_runtime_contract.coordinate_space.origin -match
+                "upper-left" -and
+            (@($Map.live_runtime_contract.coordinate_space.integer_bounds[0]) -join
+                ',') -eq "0,767" -and
+            (@($Map.live_runtime_contract.coordinate_space.integer_bounds[1]) -join
+                ',') -eq "0,239" -and
+            $Map.live_runtime_contract.coordinate_space.ball_fractional_bits -eq
+                8 -and
+            $Map.live_runtime_contract.coordinate_adapter.follow -match
+                "floor canonical Q8" -and
+            $Map.live_runtime_contract.coordinate_adapter.projection -match
+                "transactional TGCP projection adapters" -and
+            $Map.live_runtime_contract.coordinate_adapter.scene_snapshot -match
+                "ten player projections" -and
+            ![bool]$Map.live_runtime_contract.coordinate_adapter.adapter_is_additional_rom_claim -and
+            $Map.live_runtime_contract.projection -match
+                "one canonical scene snapshot" -and
             $Map.live_runtime_contract.shot_target.orientation_0_x -eq 160 -and
             $Map.live_runtime_contract.shot_target.orientation_1_x -eq 608 -and
+            $Map.live_runtime_contract.shot_target.hoop_y -eq 148 -and
             $Map.live_runtime_contract.shot_target.launch_y -eq 143 -and
+            [bool]$Map.live_runtime_contract.shot_target.hoop_and_flight_y_are_distinct -and
             [bool]$Map.ordinary_movement_geometry.strict_tgcp2_source -and
             $Map.ordinary_movement_geometry.source_kind -eq
                 "ordinary-actor-dispatch-and-clamp" -and
@@ -326,7 +363,10 @@ try {
                 '$0478,$046E,$0588,$0463,$0742' -and
             $Map.supported_boundary -match "production live camera" -and
             $Map.supported_boundary -match "no staged PPU" -and
-            $Map.supported_boundary -match "TGFL"
+            $Map.supported_boundary -match
+                "typed free-throw settle/projection of TGFL-1-owned coordinates" -and
+            $Map.supported_boundary -match
+                "does not own TGFL-1 positions"
         if ($MapOk) {
             for ($Index = 0; $Index -lt $ExpectedSpans.Count; ++$Index) {
                 $Expected = $ExpectedSpans[$Index]

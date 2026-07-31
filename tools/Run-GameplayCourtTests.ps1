@@ -292,6 +292,26 @@ try {
             '32 columns when tile-aligned, otherwise 33' -or
         $CourtMap[0].native_contract.viewport_ordering -notmatch
             'canonical camera view; does not emulate staged PPU prefetch/write ordering' -or
+        ![bool]$CourtMap[0].native_contract.scene_slice.transactional -or
+        $CourtMap[0].native_contract.scene_slice.possession_binding -notmatch
+            'TGOR tracked possession' -or
+        $CourtMap[0].native_contract.scene_slice.camera_binding -notmatch
+            'TGCP scene-projection camera_x' -or
+        $CourtMap[0].native_contract.scene_slice.actor_binding -notmatch
+            'combined transactional court frame' -or
+        [int]$CourtMap[0].native_contract.scene_slice.native_checkpoints.left_camera_x -ne
+            102 -or
+        [int]$CourtMap[0].native_contract.scene_slice.native_checkpoints.center_camera_x -ne
+            256 -or
+        [int]$CourtMap[0].native_contract.scene_slice.native_checkpoints.right_camera_x -ne
+            408 -or
+        $CourtMap[0].native_contract.scene_slice.native_checkpoints.left_render_fnv1a32 -ne
+            "4F52BCC1" -or
+        $CourtMap[0].native_contract.scene_slice.native_checkpoints.center_render_fnv1a32 -ne
+            "9CC9CD31" -or
+        $CourtMap[0].native_contract.scene_slice.native_checkpoints.right_render_fnv1a32 -ne
+            "033B45D5" -or
+        [bool]$CourtMap[0].native_contract.scene_slice.integration_is_additional_rom_claim -or
         $CourtMap[0].native_contract.live_palette_fingerprint_fnv1a32 -ne "B20C1E11" -or
         $CourtMap[0].native_contract.boundary -notmatch
             "production camera-positioned live viewport slicing" -or

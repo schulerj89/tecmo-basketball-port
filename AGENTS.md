@@ -896,12 +896,21 @@ but its pose is preserved/undefined because `$976F-$985C` does not call
 does not invent the conditional shooter script override or secondary raw phase
 `$15`.
 
-TGFL-1 is not loaded by `TecmoGameplayScene`; its test-only composition can use
-the exact TGCP projector, but the live free-throw sequence does not apply the
-lineup. It proves no live
-positioning, aim, attempt decrement, outcome, rebound, or CPU script behavior.
-Missing, malformed, undersized/oversized, wrong-revision, and cross-pack data
-fails closed. Verify it with
+`TecmoGameplayScene` now loads TGFL-1 as a strict same-pack dependency. On
+free-throw entry it uses the scoring-team possession synchronized through
+TGOR-1 to select orientation 0/1, copies all ten exact raw X/Y values into the
+canonical court positions and anchors, and performs one typed TGCP-2 settle on
+the shooter coordinate (`camera_x` `$0066/$0198`). The camera then remains
+frozen during the sequence and rendering consumes one coherent TGCT/TGCP
+frame. Shooter selection (current scoring holder, otherwise first scoring
+actor), secondary selection (assigned opposing actor, otherwise first opposing
+actor), held-ball attachment, and camera composition are native adapter policy,
+not additional ROM claims. Existing actor poses are preserved: do not claim
+that the live scene applies TGFL nonshooter pose/state fields or the omitted
+side-control script overrides. Aim, attempt decrement/outcome policy, rebound,
+and CPU positioning/scripts remain approximate or unsupported. Missing,
+malformed, undersized/oversized, wrong-revision, and cross-pack data fails
+closed. Verify it with
 `tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 
 TGOR-1 `gameplay/court-orientation` is the strict 640-byte live ownership
@@ -933,8 +942,9 @@ has no direct reads; the only direct `$035A` stores are `$8FC4` and `$B8E0`.
 The broad `STA $0300,X` initializer appears only at fixed-bank cold boot
 `$CC68`. TGOR now supplies production TGCP follow direction and
 `$00A0/$0260` world-space shot targets; launch Y is the separately proven
-`$8F`. TGFL-1 lineup ownership remains test-only. Verify the strict parser,
-source mutations, transitions, scene handoff/restart integration, and provenance with
+`$8F`. TGOR also selects the production TGFL-1 lineup orientation. Verify the
+strict parser, source mutations, transitions, scene handoff/restart
+integration, and provenance with
 `tools\Run-GameplayCourtOrientationTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 
 TGCP-2 `gameplay/camera-projection` is the strict 1536-byte gameplay camera
@@ -964,8 +974,9 @@ bounded `$DDFB->$DF05` first-column prime to cursor `$21`, seeds every
 actor/anchor and ball coordinate in world space at camera `$0100`, then settles
 once after seeding. Each subsequent live scene update performs exactly one
 route-0 follow after all actor and ball mutations, using ball world X and TGOR
-direction. Non-live phases, free throws, and TGDK black/cutaway frames freeze
-camera state; the first live-return update resumes it. A possession transition
+direction. Free-throw entry performs the documented TGFL-driven typed settle;
+subsequent free-throw updates and TGDK black/cutaway frames freeze camera state.
+The first live-return update resumes it. A possession transition
 clears only threshold validity and the endpoint latch, never camera position.
 Production state validation additionally requires scroll/page consistency and
 the reachable direction/cursor relation: right cursor is
@@ -975,9 +986,10 @@ three exact ROM-derived threshold pairs. The weaker pure-state validator remains
 available only so focused synthetic carry/borrow and direction-reversal tests
 can construct intermediate states; the live scene never accepts those states.
 
-`src/tecmo_gameplay_free_throw_projection_test.c` is test-only composition,
-not a production dependency. It independently loads TGFL-1 and TGCP-2 from the
-same pack, derives orientation 1/shooter 6/secondary 1, and proves the bounded
+`src/tecmo_gameplay_free_throw_projection_test.c` remains an independent
+test-only composition rather than the production scene adapter. It loads
+TGFL-1 and TGCP-2 from the same pack, derives orientation
+1/shooter 6/secondary 1, and proves the bounded
 slot-3 checkpoint: capture-derived cursor `$21`, 76 moving camera updates,
 an unchanged 77th update, transactional settle at camera `$0198`, and six
 visible/four neutral-offscreen actors with TGFL-derived X/Y. Secondary slot 1
@@ -1011,6 +1023,40 @@ coordinates. The TGCP projector applies jump altitude exactly once to the
 actor, not the ball; offscreen objects are skipped. Draw preflight revalidates
 camera/world state, every tile/CHR reference, and all poses before writing.
 
+Object state must use the shared full-court coordinate contract:
+`TecmoGameplayCourtCoordinate` is integer X `0..767`, Y `0..239` from the
+upper-left TGCT world origin; `TecmoGameplayCourtCoordinateQ8` is the same
+plane with eight fractional bits. Player positions/anchors, ball/shot
+positions, and TGOR hoop landmarks must not introduce local screen-space
+origins. TGOR's exact hoop anchors are `($00A0,$94)` and `($0260,$94)`;
+the separately proven ordinary flight endpoint Y is `$8F`. Keep the
+transactional `tecmo_gameplay_scene_court_coordinates` snapshot fail-closed
+and leave output unchanged on malformed state. Do not describe the
+approximate native player starting layout or pre-tip staging as ROM-exact.
+
+Production scene code must connect those types through the transactional TGCP
+adapters, not rebuild `focus_world_x` or cast raw X/Y locally. Launch and
+pre-tip handoff use `tecmo_gameplay_camera_settle_court`; the live update uses
+`tecmo_gameplay_camera_follow_court` exactly once after object mutation; draw
+uses one `tecmo_gameplay_scene_court_projection` snapshot for ten players and
+the ball. Keep the raw TGCP APIs intact for exact pure-vector tests. Q8 is
+validated and floored once at the adapter boundary, jump altitude is applied
+only to the shooter, and offscreen output remains the neutral TGCP sentinel.
+Do not describe the adapters themselves as ROM-derived behavior.
+
+Production live actor drawing must consume one
+`tecmo_gameplay_scene_court_frame`, not independently fetch a TGCT slice and
+TGCP projections. The combined transactional frame owns the TGOR-tagged
+viewport, all ten player projections, the ball projection, the scene frame,
+and camera-follow serial. Keep the viewport/projection camera X identical.
+For stationary visible actors, screen X must change by the inverse signed
+camera delta and screen Y must remain stable; visibility loss must produce
+the neutral zero-X/Y sentinel. Keep the native left/center/right background
+hashes
+`4F52BCC1`, `9CC9CD31`, and `033B45D5` at camera X `102`, `256`, and `408`.
+These are native integration checkpoints, not emulator-frame or complete
+possession-choreography evidence.
+
 Ordinary movement currently applies the exact fixed-bank `$F106-$F1B0`
 trapezoid unconditionally from TGCP-2's seventh strict source span (171 bytes,
 FNV1a32 `CB1D4EAF`): page-0 low bound
@@ -1018,7 +1064,8 @@ FNV1a32 `CB1D4EAF`): page-0 low bound
 `$0220+floor(Y/2)`. Dispatcher exceptions involving `$0478`, `$046E`,
 `$0588`, `$0463`, and `$0742` are explicitly not implemented. Do not broaden
 that policy or describe it as the complete dispatcher until those conditions
-are proven. TGFL-1 remains test-only, and the slicer intentionally represents
+are proven. TGFL-1 positions are now a live dependency, while its pose/state
+and script overrides remain unconnected. The slicer intentionally represents
 the canonical view rather than the original streamer's staged PPU-prefetch
 order. Verify the camera/live boundary
 with

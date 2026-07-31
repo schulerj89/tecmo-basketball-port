@@ -64,7 +64,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-pretip-test PACK  Validate strict TPTI-1 pre-tip assets/state\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render menus, intro scenes, or strict gameplay-start/pretip-frameN/live-start/jump-frameN/dunk-frameN checkpoints to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render menus, intro scenes, or strict gameplay-start/pretip-frameN/live-start/possession-left|center|right/free-throw-left|right/jump-frameN/dunk-frameN checkpoints to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --build-assetpack ROM PATH  Build a private .assetpack from an iNES ROM only; no decomp/capture imports\n");
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
@@ -79,7 +79,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-shot-resolution-test PACK  Validate strict TGSR-3 shot-resolution assets\n");
     printf("  --gameplay-penalties-test PACK  Validate strict TPNL-1 penalty rules\n");
     printf("  --gameplay-free-throw-lineup-test PACK  Validate strict TGFL-1 raw lineup assets\n");
-    printf("  --gameplay-free-throw-projection-test PACK  Validate test-only TGFL-1 to TGCP-2 composition\n");
+    printf("  --gameplay-free-throw-projection-test PACK  Validate pure TGFL-1 to TGCP-2 composition\n");
     printf("  --assetpack-list PACK  Print an asset-pack directory listing\n");
     printf("  --export-chr PATH       Export build\\baseline\\Tiles.asm to raw .chr bytes\n");
     printf("  --export-chr-png DIR    Export one PNG tile sheet per 8KB CHR bank\n");
@@ -411,6 +411,8 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     bool dunk = false;
     bool pretip_checkpoint = false;
     bool live_start = false;
+    int possession_slice = -1;
+    int free_throw_orientation = -1;
 
     if (runtime == NULL || mode_name == NULL) return false;
     if (strcmp(mode_name, "gameplay-start") == 0) {
@@ -422,6 +424,21 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     } else if (strcmp(mode_name, "gameplay-live-start") == 0) {
         checkpoint = 691U;
         live_start = true;
+    } else if (strcmp(mode_name, "gameplay-possession-left") == 0) {
+        checkpoint = 691U;
+        possession_slice = 0;
+    } else if (strcmp(mode_name, "gameplay-possession-center") == 0) {
+        checkpoint = 691U;
+        possession_slice = 1;
+    } else if (strcmp(mode_name, "gameplay-possession-right") == 0) {
+        checkpoint = 691U;
+        possession_slice = 2;
+    } else if (strcmp(mode_name, "gameplay-free-throw-left") == 0) {
+        checkpoint = 696U;
+        free_throw_orientation = 0;
+    } else if (strcmp(mode_name, "gameplay-free-throw-right") == 0) {
+        checkpoint = 696U;
+        free_throw_orientation = 1;
     } else if (parse_render_frame_suffix(
                    mode_name, "gameplay-jump-frame", &checkpoint)) {
         jump = true;
@@ -483,45 +500,178 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
                runtime->gameplay_scene.active &&
                !tecmo_gameplay_scene_in_pretip(
                    &runtime->gameplay_scene);
+    if (possession_slice >= 0) {
+        TecmoGameplayScene *scene = &runtime->gameplay_scene;
+        TecmoGameplaySceneActor *actor;
+        TecmoGameplaySceneCourtFrame court_frame;
+        uint8_t actor_index;
+        if (possession_slice == 1) {
+            return runtime->mode == TECMO_MODE_COURT &&
+                   scene->active &&
+                   tecmo_gameplay_scene_court_frame(
+                       scene, &court_frame) &&
+                   court_frame.slice.viewport.camera_x == 0x0100U &&
+                   court_frame.projection.camera_x == 0x0100U &&
+                   court_frame.slice.possession ==
+                       TECMO_GAMEPLAY_TEAM_AWAY &&
+                   court_frame.slice.direction == 0U;
+        }
+        actor_index =
+            possession_slice == 0
+                ? 0U
+                : TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT;
+        if (possession_slice == 2 &&
+            (!tecmo_gameplay_reset_possession(
+                 &scene->state, TECMO_GAMEPLAY_TEAM_HOME) ||
+             !tecmo_gameplay_court_orientation_synchronize(
+                 &scene->court_orientation, &scene->orientation_state,
+                 TECMO_GAMEPLAY_TEAM_HOME))) {
+            return false;
+        }
+        actor = &scene->actors[actor_index];
+        actor->position.x =
+            (int16_t)(possession_slice == 0 ? 0x00F3 : 0x020D);
+        actor->anchor = actor->position;
+        actor->facing_right = possession_slice == 0;
+        scene->ball_holder = actor_index;
+        scene->ball_position.x_q8 =
+            (int32_t)(actor->position.x +
+                      (actor->facing_right ? 7 : -7)) * 256;
+        scene->ball_position.y_q8 =
+            (int32_t)(actor->position.y - 17) * 256;
+        scene->camera_state.thresholds_valid = false;
+        scene->camera_state.endpoint_latched = false;
+        if (!tecmo_gameplay_camera_settle_court(
+                &scene->camera_assets, &scene->camera_state,
+                &scene->ball_position,
+                scene->orientation_state.current_direction, false) ||
+            !tecmo_gameplay_camera_state_live_valid(
+                &scene->camera_assets, &scene->camera_state)) {
+            return false;
+        }
+        return tecmo_gameplay_scene_court_frame(
+                   scene, &court_frame) &&
+               court_frame.slice.viewport.camera_x ==
+                   (uint16_t)(possession_slice == 0
+                                  ? 0x0066U
+                                  : 0x0198U) &&
+               court_frame.projection.camera_x ==
+                   court_frame.slice.viewport.camera_x &&
+               court_frame.slice.possession ==
+                   (uint8_t)(possession_slice == 0
+                                 ? TECMO_GAMEPLAY_TEAM_AWAY
+                                 : TECMO_GAMEPLAY_TEAM_HOME) &&
+               court_frame.slice.direction ==
+                   (uint8_t)(possession_slice == 0 ? 0U : 1U);
+    }
+    if (free_throw_orientation >= 0) {
+        TecmoGameplayScene *scene = &runtime->gameplay_scene;
+        TecmoGameplayFoulRequest request;
+        TecmoGameplayFreeThrowLineup lineup;
+        TecmoGameplaySceneCourtFrame court_frame;
+        TecmoControlFrame player_one;
+        TecmoControlFrame player_two;
+        uint8_t shooter =
+            free_throw_orientation == 0 ? 0U
+                                        : TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT;
+        uint8_t secondary =
+            free_throw_orientation == 0
+                ? TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT
+                : 0U;
+        uint16_t camera_x =
+            (uint16_t)(free_throw_orientation == 0 ? 0x0066U : 0x0198U);
+        size_t actor;
+        memset(&request, 0, sizeof(request));
+        request.fouling_team =
+            free_throw_orientation == 0 ? TECMO_GAMEPLAY_TEAM_HOME
+                                        : TECMO_GAMEPLAY_TEAM_AWAY;
+        request.free_throw_team =
+            free_throw_orientation == 0 ? TECMO_GAMEPLAY_TEAM_AWAY
+                                        : TECMO_GAMEPLAY_TEAM_HOME;
+        request.counter_effect = TECMO_GAMEPLAY_FOUL_COUNTER_BOTH;
+        request.free_throw_attempts = 2U;
+        if (!tecmo_gameplay_request_foul(&scene->state, &request)) {
+            return false;
+        }
+        memset(&player_one, 0, sizeof(player_one));
+        memset(&player_two, 0, sizeof(player_two));
+        for (update = 0U;
+             update < TECMO_GAMEPLAY_PRESENTATION_LEAD_IN_FRAMES;
+             ++update) {
+            if (!tecmo_gameplay_scene_update(
+                    scene, &player_one, &player_two) ||
+                scene->state.phase !=
+                    TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION) {
+                return false;
+            }
+        }
+        player_one.released.shoot = true;
+        if (!tecmo_gameplay_scene_update(
+                scene, &player_one, &player_two) ||
+            scene->frame != checkpoint ||
+            scene->state.phase !=
+                TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
+            !tecmo_gameplay_scene_free_throw_lineup(scene, &lineup) ||
+            !tecmo_gameplay_scene_court_frame(scene, &court_frame) ||
+            lineup.orientation != (uint8_t)free_throw_orientation ||
+            lineup.shooter_slot != shooter ||
+            lineup.secondary_slot != secondary ||
+            lineup.actors[shooter].raw_world_x !=
+                (uint16_t)(free_throw_orientation == 0 ? 250U : 518U) ||
+            lineup.actors[shooter].raw_world_y != 148U ||
+            court_frame.slice.direction !=
+                (uint8_t)free_throw_orientation ||
+            court_frame.slice.viewport.camera_x != camera_x ||
+            court_frame.projection.camera_x != camera_x) {
+            return false;
+        }
+        for (actor = 0U;
+             actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+            if (!lineup.actors[actor].position_defined ||
+                scene->actors[actor].position.x !=
+                    (int16_t)lineup.actors[actor].raw_world_x ||
+                scene->actors[actor].position.y !=
+                    (int16_t)lineup.actors[actor].raw_world_y) {
+                return false;
+            }
+        }
+        return runtime->mode == TECMO_MODE_COURT && scene->active;
+    }
     runtime->gameplay_scene.frame = 0U;
 
     if (dunk) {
         TecmoGameplaySceneActor *actor = &runtime->gameplay_scene.actors[0];
-        TecmoGameplayCameraFollowInput camera_input;
 
-        actor->world_x = 0x00AEU;
-        actor->world_y = 160;
-        actor->anchor_world_x = actor->world_x;
-        actor->anchor_world_y = actor->world_y;
+        actor->position.x = 0x00AEU;
+        actor->position.y = 160;
+        actor->anchor.x = actor->position.x;
+        actor->anchor.y = actor->position.y;
         actor->facing_right = true;
         runtime->gameplay_scene.ball_holder = 0U;
-        runtime->gameplay_scene.ball_world_x_q8 =
-            (int32_t)(actor->world_x + 7) * 256;
-        runtime->gameplay_scene.ball_world_y_q8 =
-            (int32_t)(actor->world_y - 18) * 256;
-        memset(&camera_input, 0, sizeof(camera_input));
-        camera_input.focus_world_x =
-            (uint16_t)(runtime->gameplay_scene.ball_world_x_q8 / 256);
-        camera_input.orientation =
-            runtime->gameplay_scene.orientation_state.current_direction;
+        runtime->gameplay_scene.ball_position.x_q8 =
+            (int32_t)(actor->position.x + 7) * 256;
+        runtime->gameplay_scene.ball_position.y_q8 =
+            (int32_t)(actor->position.y - 18) * 256;
         runtime->gameplay_scene.camera_state.thresholds_valid = false;
         runtime->gameplay_scene.camera_state.endpoint_latched = false;
-        if (!tecmo_gameplay_camera_settle(
+        if (!tecmo_gameplay_camera_settle_court(
                 &runtime->gameplay_scene.camera_assets,
                 &runtime->gameplay_scene.camera_state,
-                &camera_input)) {
+                &runtime->gameplay_scene.ball_position,
+                runtime->gameplay_scene.orientation_state.current_direction,
+                false)) {
             return false;
         }
     } else if (jump) {
         TecmoGameplaySceneActor *actor = &runtime->gameplay_scene.actors[0];
-        actor->world_x = 0x013CU;
-        actor->anchor_world_x = actor->world_x;
-        runtime->gameplay_scene.ball_world_x_q8 =
-            (int32_t)(actor->world_x + 7) * 256;
+        actor->position.x = 0x013CU;
+        actor->anchor.x = actor->position.x;
+        runtime->gameplay_scene.ball_position.x_q8 =
+            (int32_t)(actor->position.x + 7) * 256;
         if (jump_make) {
-            actor->world_y = 180;
-            actor->anchor_world_y = 180;
-            runtime->gameplay_scene.ball_world_y_q8 =
+            actor->position.y = 180;
+            actor->anchor.y = 180;
+            runtime->gameplay_scene.ball_position.y_q8 =
                 (int32_t)(180 - 18) * 256;
             runtime->gameplay_scene.action_serial = 0U;
         } else {
@@ -597,12 +747,96 @@ static int run_gameplay_court_viewport_test(const char *pack_path)
     TecmoGameplayCourtWorld corrupt_world;
     TecmoGameplayCourtViewport viewport;
     TecmoGameplayCourtViewport unchanged_viewport;
+    TecmoGameplayCourtCoordinate coordinate;
+    TecmoGameplayCourtCoordinate unchanged_coordinate;
+    TecmoGameplayCourtCoordinateQ8 coordinate_q8;
+    TecmoGameplayCourtCoordinateQ8 unchanged_coordinate_q8;
     const uint8_t *legacy_nametable;
     size_t legacy_size;
     bool passed = true;
 
     tecmo_gameplay_court_init(&court);
     tecmo_gameplay_court_init(&unavailable);
+
+    coordinate.x = TECMO_GAMEPLAY_COURT_WORLD_MAX_X;
+    coordinate.y = TECMO_GAMEPLAY_COURT_WORLD_MAX_Y;
+    coordinate_q8.x_q8 = -1;
+    coordinate_q8.y_q8 = -1;
+    if (tecmo_gameplay_court_coordinate_q8_valid(&coordinate_q8) ||
+        !tecmo_gameplay_court_coordinate_valid(&coordinate) ||
+        !tecmo_gameplay_court_coordinate_to_q8(
+            &coordinate, &coordinate_q8) ||
+        coordinate_q8.x_q8 !=
+            TECMO_GAMEPLAY_COURT_WORLD_MAX_X *
+                TECMO_GAMEPLAY_COURT_COORDINATE_Q8_SCALE ||
+        coordinate_q8.y_q8 !=
+            TECMO_GAMEPLAY_COURT_WORLD_MAX_Y *
+                TECMO_GAMEPLAY_COURT_COORDINATE_Q8_SCALE) {
+        passed = false;
+    }
+    coordinate_q8.x_q8 =
+        TECMO_GAMEPLAY_COURT_COORDINATE_Q8_MAX_X;
+    coordinate_q8.y_q8 =
+        TECMO_GAMEPLAY_COURT_COORDINATE_Q8_MAX_Y;
+    if (passed &&
+        (!tecmo_gameplay_court_coordinate_q8_valid(&coordinate_q8) ||
+         !tecmo_gameplay_court_coordinate_q8_floor(
+             &coordinate_q8, &coordinate) ||
+         coordinate.x != TECMO_GAMEPLAY_COURT_WORLD_MAX_X ||
+         coordinate.y != TECMO_GAMEPLAY_COURT_WORLD_MAX_Y)) {
+        passed = false;
+    }
+    unchanged_coordinate.x = 123;
+    unchanged_coordinate.y = 45;
+    unchanged_coordinate_q8.x_q8 = 12345;
+    unchanged_coordinate_q8.y_q8 = 23456;
+    coordinate.x = -1;
+    coordinate.y = 0;
+    if (passed &&
+        (tecmo_gameplay_court_coordinate_valid(&coordinate) ||
+         tecmo_gameplay_court_coordinate_to_q8(
+             &coordinate, &unchanged_coordinate_q8) ||
+         unchanged_coordinate_q8.x_q8 != 12345 ||
+         unchanged_coordinate_q8.y_q8 != 23456)) {
+        passed = false;
+    }
+    coordinate.x = 0;
+    coordinate.y =
+        (int16_t)(TECMO_GAMEPLAY_COURT_WORLD_MAX_Y + 1);
+    if (passed &&
+        (tecmo_gameplay_court_coordinate_valid(&coordinate) ||
+         tecmo_gameplay_court_coordinate_to_q8(
+             &coordinate, &unchanged_coordinate_q8) ||
+         unchanged_coordinate_q8.x_q8 != 12345 ||
+         unchanged_coordinate_q8.y_q8 != 23456)) {
+        passed = false;
+    }
+    coordinate_q8.x_q8 =
+        TECMO_GAMEPLAY_COURT_COORDINATE_Q8_MAX_X + 1;
+    coordinate_q8.y_q8 = 0;
+    if (passed &&
+        (tecmo_gameplay_court_coordinate_q8_valid(&coordinate_q8) ||
+         tecmo_gameplay_court_coordinate_q8_floor(
+             &coordinate_q8, &unchanged_coordinate) ||
+         unchanged_coordinate.x != 123 ||
+         unchanged_coordinate.y != 45 ||
+         tecmo_gameplay_court_coordinate_valid(NULL) ||
+         tecmo_gameplay_court_coordinate_q8_valid(NULL) ||
+         tecmo_gameplay_court_coordinate_to_q8(NULL, NULL) ||
+         tecmo_gameplay_court_coordinate_q8_floor(NULL, NULL))) {
+        passed = false;
+    }
+    coordinate_q8.x_q8 = 0;
+    coordinate_q8.y_q8 =
+        TECMO_GAMEPLAY_COURT_COORDINATE_Q8_MAX_Y + 1;
+    if (passed &&
+        (tecmo_gameplay_court_coordinate_q8_valid(&coordinate_q8) ||
+         tecmo_gameplay_court_coordinate_q8_floor(
+             &coordinate_q8, &unchanged_coordinate) ||
+         unchanged_coordinate.x != 123 ||
+         unchanged_coordinate.y != 45)) {
+        passed = false;
+    }
     memset(&world, 0xA5, sizeof(world));
     if (pack_path == NULL ||
         tecmo_gameplay_court_decode_world(NULL, &world) ||

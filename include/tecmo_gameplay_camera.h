@@ -1,6 +1,8 @@
 #ifndef TECMO_GAMEPLAY_CAMERA_H
 #define TECMO_GAMEPLAY_CAMERA_H
 
+#include "tecmo_gameplay_court.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -155,6 +157,38 @@ bool tecmo_gameplay_camera_project_actor(
     const TecmoGameplayCameraState *state,
     uint16_t world_x,
     uint8_t world_y,
+    uint8_t altitude,
+    TecmoGameplayActorProjection *projection);
+
+/*
+ * Native integration adapters over the exact raw TGCP APIs above. They
+ * validate the shared full-court coordinate contract, floor Q8 only at the
+ * TGCP boundary, and preserve the underlying transactional behavior. The
+ * adapter conversion is native plumbing, not an additional ROM claim.
+ */
+bool tecmo_gameplay_camera_follow_court(
+    const TecmoGameplayCameraAssets *assets,
+    TecmoGameplayCameraState *state,
+    const TecmoGameplayCourtCoordinateQ8 *focus,
+    uint8_t orientation,
+    uint8_t action_route,
+    bool camera_disabled);
+bool tecmo_gameplay_camera_settle_court(
+    const TecmoGameplayCameraAssets *assets,
+    TecmoGameplayCameraState *state,
+    const TecmoGameplayCourtCoordinateQ8 *focus,
+    uint8_t orientation,
+    bool camera_disabled);
+bool tecmo_gameplay_camera_project_court(
+    const TecmoGameplayCameraAssets *assets,
+    const TecmoGameplayCameraState *state,
+    const TecmoGameplayCourtCoordinate *coordinate,
+    uint8_t altitude,
+    TecmoGameplayActorProjection *projection);
+bool tecmo_gameplay_camera_project_court_q8(
+    const TecmoGameplayCameraAssets *assets,
+    const TecmoGameplayCameraState *state,
+    const TecmoGameplayCourtCoordinateQ8 *coordinate,
     uint8_t altitude,
     TecmoGameplayActorProjection *projection);
 

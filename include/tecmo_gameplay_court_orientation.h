@@ -1,6 +1,8 @@
 #ifndef TECMO_GAMEPLAY_COURT_ORIENTATION_H
 #define TECMO_GAMEPLAY_COURT_ORIENTATION_H
 
+#include "tecmo_gameplay_court.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -38,8 +40,8 @@ typedef struct TecmoGameplayCourtOrientationAssets {
     size_t storage_size;
     TecmoGameplayCourtOrientationSourceSpan
         sources[TECMO_GAMEPLAY_COURT_ORIENTATION_SOURCE_COUNT];
-    uint16_t target_x[TECMO_GAMEPLAY_COURT_ORIENTATION_COUNT];
-    uint8_t target_y;
+    TecmoGameplayCourtCoordinate
+        hoops[TECMO_GAMEPLAY_COURT_ORIENTATION_COUNT];
     uint8_t actor_role_bit;
     uint8_t transition_queue_id;
     uint8_t screen_id[TECMO_GAMEPLAY_COURT_ORIENTATION_COUNT];
@@ -50,12 +52,12 @@ typedef struct TecmoGameplayCourtOrientationAssets {
 typedef struct TecmoGameplayCourtOrientationState {
     uint32_t contract_tag;
     uint32_t transition_serial;
-    uint16_t target_x;
+    TecmoGameplayCourtCoordinate offensive_hoop;
     uint8_t current_direction;
     uint8_t previous_direction;
     uint8_t tracked_possession_team;
     uint8_t reserved;
-    uint16_t reserved_padding;
+    uint32_t reserved_padding;
 } TecmoGameplayCourtOrientationState;
 
 void tecmo_gameplay_court_orientation_init(
@@ -80,10 +82,16 @@ tecmo_gameplay_court_orientation_find_source(
     const TecmoGameplayCourtOrientationAssets *assets,
     TecmoGameplayCourtOrientationSourceKind kind);
 
+/* Retained for focused scalar provenance tests. Production scene code uses
+   the complete transactional hoop accessor below. */
 bool tecmo_gameplay_court_orientation_target_x(
     const TecmoGameplayCourtOrientationAssets *assets,
     uint8_t direction,
     uint16_t *target_x_out);
+bool tecmo_gameplay_court_orientation_hoop(
+    const TecmoGameplayCourtOrientationAssets *assets,
+    uint8_t direction,
+    TecmoGameplayCourtCoordinate *hoop_out);
 bool tecmo_gameplay_court_orientation_state_initialize(
     const TecmoGameplayCourtOrientationAssets *assets,
     TecmoGameplayCourtOrientationState *state_out);

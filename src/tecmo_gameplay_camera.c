@@ -990,6 +990,83 @@ bool tecmo_gameplay_camera_project_actor(
     return true;
 }
 
+static bool camera_court_follow_input(
+    const TecmoGameplayCourtCoordinateQ8 *focus,
+    uint8_t orientation,
+    uint8_t action_route,
+    bool camera_disabled,
+    TecmoGameplayCameraFollowInput *input_out)
+{
+    TecmoGameplayCourtCoordinate focus_pixel;
+    TecmoGameplayCameraFollowInput input;
+    if (input_out == NULL ||
+        !tecmo_gameplay_court_coordinate_q8_floor(
+            focus, &focus_pixel)) {
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.focus_world_x = (uint16_t)focus_pixel.x;
+    input.orientation = orientation;
+    input.action_route = action_route;
+    input.camera_disabled = camera_disabled;
+    *input_out = input;
+    return true;
+}
+
+bool tecmo_gameplay_camera_follow_court(
+    const TecmoGameplayCameraAssets *assets,
+    TecmoGameplayCameraState *state,
+    const TecmoGameplayCourtCoordinateQ8 *focus,
+    uint8_t orientation,
+    uint8_t action_route,
+    bool camera_disabled)
+{
+    TecmoGameplayCameraFollowInput input;
+    return camera_court_follow_input(
+               focus, orientation, action_route, camera_disabled, &input) &&
+           tecmo_gameplay_camera_follow(assets, state, &input);
+}
+
+bool tecmo_gameplay_camera_settle_court(
+    const TecmoGameplayCameraAssets *assets,
+    TecmoGameplayCameraState *state,
+    const TecmoGameplayCourtCoordinateQ8 *focus,
+    uint8_t orientation,
+    bool camera_disabled)
+{
+    TecmoGameplayCameraFollowInput input;
+    return camera_court_follow_input(
+               focus, orientation, 0U, camera_disabled, &input) &&
+           tecmo_gameplay_camera_settle(assets, state, &input);
+}
+
+bool tecmo_gameplay_camera_project_court(
+    const TecmoGameplayCameraAssets *assets,
+    const TecmoGameplayCameraState *state,
+    const TecmoGameplayCourtCoordinate *coordinate,
+    uint8_t altitude,
+    TecmoGameplayActorProjection *projection)
+{
+    if (!tecmo_gameplay_court_coordinate_valid(coordinate)) return false;
+    return tecmo_gameplay_camera_project_actor(
+        assets, state, (uint16_t)coordinate->x, (uint8_t)coordinate->y,
+        altitude, projection);
+}
+
+bool tecmo_gameplay_camera_project_court_q8(
+    const TecmoGameplayCameraAssets *assets,
+    const TecmoGameplayCameraState *state,
+    const TecmoGameplayCourtCoordinateQ8 *coordinate,
+    uint8_t altitude,
+    TecmoGameplayActorProjection *projection)
+{
+    TecmoGameplayCourtCoordinate coordinate_pixel;
+    return tecmo_gameplay_court_coordinate_q8_floor(
+               coordinate, &coordinate_pixel) &&
+           tecmo_gameplay_camera_project_court(
+               assets, state, &coordinate_pixel, altitude, projection);
+}
+
 static bool camera_state_matches(
     const TecmoGameplayCameraState *state,
     uint16_t camera_x,
@@ -1072,15 +1149,23 @@ bool tecmo_gameplay_camera_self_test(
     TecmoGameplayCameraFollowInput input;
     TecmoGameplayActorProjection projection;
     TecmoGameplayActorProjection projection_unchanged;
+    TecmoGameplayCourtCoordinate coordinate;
+    TecmoGameplayCourtCoordinateQ8 coordinate_q8;
     uint32_t storage_hash;
     bool passed = false;
     tecmo_gameplay_camera_assets_init(&assets);
     memset(&state, 0xA5, sizeof(state));
     unchanged = state;
     memset(&input, 0, sizeof(input));
+    coordinate_q8.x_q8 = 0x0100 * 256;
+    coordinate_q8.y_q8 = 120 * 256;
     if (tecmo_gameplay_camera_state_initialize(&assets, &state) ||
         tecmo_gameplay_camera_follow(&assets, &state, &input) ||
         tecmo_gameplay_camera_settle(&assets, &state, &input) ||
+        tecmo_gameplay_camera_follow_court(
+            &assets, &state, &coordinate_q8, 0U, 0U, false) ||
+        tecmo_gameplay_camera_settle_court(
+            &assets, &state, &coordinate_q8, 0U, false) ||
         memcmp(&state, &unchanged, sizeof(state)) != 0) {
         (void)snprintf(message, message_size,
                        "unavailable API accepted or mutated state");
@@ -1108,6 +1193,20 @@ bool tecmo_gameplay_camera_self_test(
             0x0107U, 0x27U, 0U, 0x20U, 0U)) {
         (void)snprintf(message, message_size,
                        "generic seven-pixel right follow failed");
+        goto cleanup;
+    }
+    coordinate_q8.x_q8 = 0x01C0 * 256 + 0xFF;
+    coordinate_q8.y_q8 = 120 * 256 + 0xFF;
+    memset(&vector, 0, sizeof(vector));
+    vector.camera_x = 0x0100U;
+    vector.scroll_x = 0x20U;
+    vector.layout_cursor = 0x20U;
+    if (!tecmo_gameplay_camera_follow_court(
+            &assets, &vector, &coordinate_q8, 0U, 0U, false) ||
+        !camera_state_matches(
+            &vector, 0x0107U, 0x27U, 0U, 0x20U, 0U)) {
+        (void)snprintf(message, message_size,
+                       "canonical Q8 follow adapter failed");
         goto cleanup;
     }
     input.focus_world_x = 0x0170U;
@@ -1355,6 +1454,17 @@ bool tecmo_gameplay_camera_self_test(
                        "live-primed right endpoint settle golden failed");
         goto cleanup;
     }
+    vector = state;
+    state = live_prime;
+    coordinate_q8.x_q8 = 0x0206 * 256 + 0xFF;
+    coordinate_q8.y_q8 = 120 * 256 + 0xFF;
+    if (!tecmo_gameplay_camera_settle_court(
+            &assets, &state, &coordinate_q8, 1U, false) ||
+        !camera_states_equal(&state, &vector)) {
+        (void)snprintf(message, message_size,
+                       "canonical Q8 settle adapter failed");
+        goto cleanup;
+    }
     if (!tecmo_gameplay_camera_state_initialize(&assets, &state)) {
         (void)snprintf(message, message_size,
                        "initializer after live prime failed");
@@ -1425,13 +1535,56 @@ bool tecmo_gameplay_camera_self_test(
                        "offscreen projection sentinel failed");
         goto cleanup;
     }
+    coordinate.x = 0x0206;
+    coordinate.y = 10;
+    if (!tecmo_gameplay_camera_project_court(
+            &assets, &state, &coordinate, 3U, &projection) ||
+        !projection.visible || projection.screen_x != 0x66U ||
+        projection.screen_y != 7U) {
+        (void)snprintf(message, message_size,
+                       "canonical integer projection adapter failed");
+        goto cleanup;
+    }
+    coordinate_q8.x_q8 = 0x0206 * 256 + 0xFF;
+    coordinate_q8.y_q8 = 10 * 256 + 0xFF;
+    if (!tecmo_gameplay_camera_project_court_q8(
+            &assets, &state, &coordinate_q8, 3U, &projection) ||
+        !projection.visible || projection.screen_x != 0x66U ||
+        projection.screen_y != 7U) {
+        (void)snprintf(message, message_size,
+                       "canonical Q8 projection adapter failed");
+        goto cleanup;
+    }
+    coordinate.x = 0x0090;
+    coordinate.y = TECMO_GAMEPLAY_COURT_WORLD_MAX_Y;
+    if (!tecmo_gameplay_camera_project_court(
+            &assets, &state, &coordinate, 1U, &projection) ||
+        projection.visible || projection.screen_x != 0U ||
+        projection.screen_y != 0U) {
+        (void)snprintf(message, message_size,
+                       "canonical offscreen projection sentinel failed");
+        goto cleanup;
+    }
 
     unchanged = state;
     memset(&projection, 0xA5, sizeof(projection));
     projection_unchanged = projection;
     input.orientation = 2U;
+    coordinate.x = -1;
+    coordinate.y = 0;
+    coordinate_q8.x_q8 =
+        TECMO_GAMEPLAY_COURT_COORDINATE_Q8_MAX_X + 1;
+    coordinate_q8.y_q8 = 0;
     if (tecmo_gameplay_camera_follow(&assets, &state, &input) ||
         tecmo_gameplay_camera_settle(&assets, &state, &input) ||
+        tecmo_gameplay_camera_follow_court(
+            &assets, &state, &coordinate_q8, 0U, 0U, false) ||
+        tecmo_gameplay_camera_settle_court(
+            &assets, &state, &coordinate_q8, 0U, false) ||
+        tecmo_gameplay_camera_project_court(
+            &assets, &state, &coordinate, 0U, &projection) ||
+        tecmo_gameplay_camera_project_court_q8(
+            &assets, &state, &coordinate_q8, 0U, &projection) ||
         tecmo_gameplay_camera_project_actor(
             &assets, &state, 0U, 0U, 0U, NULL) ||
         memcmp(&state, &unchanged, sizeof(state)) != 0 ||

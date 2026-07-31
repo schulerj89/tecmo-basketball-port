@@ -186,16 +186,18 @@ accumulators are ported.
   have no timeout. CPU free throws use the bounded observed 125-update
   schedule. The exact two-orientation raw lineup, shooter-dependent actor
   stream, pose indexes, and base actor-state seeds are available through the
-  strict TGFL-1 data foundation. Exact camera following and actor
-  projection are available through TGCP-2. A test-only TGFL-1 -> TGCP-2
-  composition now derives the orientation-1 free-throw lineup and proves its
-  six visible and four neutral-offscreen slots at the bounded camera
-  checkpoint. Live play now loads TGCP-2 and TGCT-1 from the same canonical
-  pack, decodes the complete 768-by-240 court, follows the ball once per live
-  update, draws exact coarse/fine-scroll 32/33-column viewports, and projects
-  actors and the ball from coherent world coordinates. TGFL-1 free-throw
-  lineup mutation, aim, outcome, rebound, and CPU positioning remain
-  unsupported or approximate.
+  strict TGFL-1 data foundation. The live scene now loads TGFL-1, selects its
+  orientation from possession-synchronized TGOR-1, copies all ten exact raw
+  positions into canonical court coordinates, settles TGCP-2 at camera
+  `$0066` or `$0198`, and renders the actors through the matching TGCT/TGCP
+  court frame. A focused independent TGFL-1 -> TGCP-2 checkpoint still proves
+  the bounded orientation-1 six-visible/four-offscreen projection. Live play
+  decodes the complete 768-by-240 court, follows the ball once per live update,
+  and draws exact coarse/fine-scroll 32/33-column viewports. Shooter/secondary
+  slot selection, held-ball attachment, and the camera composition are native
+  adapters rather than new ROM claims. TGFL pose/state overrides, aiming,
+  outcome, rebound, and CPU positioning/scripts remain unsupported or
+  approximate.
 - Rebounds, blocks, and steals remain approximate or nonsemantic. The current
   scene can transfer possession and attempt defensive contact, but it does not
   claim the original game's selection or outcome logic for those events.
@@ -234,7 +236,13 @@ statistics, and temporary HUD typography remain native approximations or are
 unsupported. `gameplay/penalties` TPNL-1 contains strict ROM-backed rule data,
 but the live scene's current contact/foul code does not consume it yet.
 Likewise, `gameplay/free-throw-lineup` TGFL-1 preserves raw world coordinates
-but is still test-only. The live scene now loads
+and now supplies the live free-throw positions for all ten actors in both
+orientations. The TGFL coordinate derivation is exact; selecting the shooter
+from the current scoring holder (with a first-team-slot fallback), selecting
+the secondary actor from opposing controller ownership, attaching the ball,
+and composing the one-time TGCP settle are native integration policies. The
+scene deliberately preserves existing actor poses instead of applying TGFL
+pose/state/script fields. The live scene also loads
 `gameplay/camera-projection` TGCP-2 (1536 bytes, FNV1a32 `53247856`) and
 `gameplay/court` TGCT-1, primes the
 native cursor from `$20` to `$21`, seeds at camera `$0100`, decodes the
@@ -246,6 +254,42 @@ Offscreen projection uses the deterministic native sentinel
 (`visible=false`, X/Y zero) because the ROM branches before writing projected
 Y.
 
+The shared `TecmoGameplayCourtCoordinate` contract fixes `(0,0)` at the
+upper-left of the complete 768-by-240 court, with X increasing right and Y
+increasing down. Player positions and anchors are integer pixels; ball and
+shot positions use Q8 in the same plane. TGOR exposes the ROM-backed hoop
+anchors as `(160,148)` and `(608,148)`. The ordinary flight endpoint
+`(hoop.x,143)` is deliberately separate. The transactional
+`tecmo_gameplay_scene_court_coordinates` snapshot returns all ten players,
+the ball, and both hoops and rejects out-of-court state without changing its
+caller-owned output. This makes the coordinate system canonical; it does not
+make the native approximate starting lineup ROM-exact.
+
+TGCP is connected through typed transactional adapters rather than
+scene-local scalar conversion. Launch and pre-tip handoff settle on the Q8
+ball, each live update follows it once, and
+`tecmo_gameplay_scene_court_projection` projects all ten players plus the ball
+at one camera X. Player anchors stay integer; the Q8 ball is validated and
+floored exactly once at the TGCP boundary. Offscreen objects retain TGCP's
+neutral `visible=false`, X/Y-zero sentinel, and jump altitude applies only to
+the shooting player. These adapters connect existing exact TGCP behavior;
+the type conversion itself is native plumbing, not new ROM behavior.
+
+Live actor drawing now consumes one transactional
+`tecmo_gameplay_scene_court_frame`. It combines the possession-aware
+`tecmo_gameplay_scene_court_slice` with all ten TGCP player projections and
+the ball projection at one camera X, plus the scene frame and camera-follow
+serial. For a stationary actor, each visible screen X change is exactly the
+inverse signed camera delta; screen Y is unchanged by horizontal camera
+motion. Fine-scroll, coarse-tile, possession-reversal, endpoint, and neutral
+offscreen transitions are covered. The native left, center, and right
+possession checkpoints render
+distinct frozen backgrounds at camera X `102`, `256`, and `408`
+(`4F52BCC1`, `9CC9CD31`, and `033B45D5`). TGCT decoding and TGCP camera
+movement remain ROM-derived; this scene-level binding and its checkpoint
+placements are native integration, not a claim about complete ROM possession
+choreography.
+
 Ordinary movement uses TGCP-2's strict fixed-bank `$F106-$F1B0` trapezoid
 source (171 bytes, FNV1a32 `CB1D4EAF`): page 0 clamps to
 `$00DF-floor(Y/2)`, page 1 is the interior, and page 2 clamps to
@@ -256,9 +300,10 @@ work rather than inferred behavior.
 
 `gameplay/court-orientation` TGOR-1 is loaded by the live scene and owns
 the binary offensive direction, previous direction, tracked possession team,
-transition serial, and target X. Its direction and `$00A0/$0260` targets now
-drive TGCP and shot launch; target Y is the proven `$8F`. TGFL-1 production
-lineup integration remains a separate pending slice.
+transition serial, and full offensive-hoop coordinate. Its direction and
+`($00A0,$94)/($0260,$94)` hoop anchors drive TGCP and shot launch; the
+separately proven flight target Y is `$8F`. That same direction selects the
+production TGFL-1 free-throw lineup and its `$0066/$0198` settled camera.
 
 The first two intro screens, TECMO/rabbit and NBA license, are silent. Strict
 opening music begins at the license-to-arena handoff. On the first START,
@@ -321,6 +366,9 @@ Render the normal menu or a focused intro frame:
 .\build\tecmo_port.exe --render-test-mode gameplay-start build\gameplay_start_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-pretip-frame631 build\gameplay_pretip_toss_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-live-start build\gameplay_live_start_test.png
+.\build\tecmo_port.exe --render-test-mode gameplay-possession-left build\gameplay_possession_left_test.png
+.\build\tecmo_port.exe --render-test-mode gameplay-possession-center build\gameplay_possession_center_test.png
+.\build\tecmo_port.exe --render-test-mode gameplay-possession-right build\gameplay_possession_right_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-jump-frame12 build\gameplay_jump_12_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-jump-rattle-frame89 build\gameplay_jump_rattle_89_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-jump-make-frame85 build\gameplay_jump_make_85_test.png

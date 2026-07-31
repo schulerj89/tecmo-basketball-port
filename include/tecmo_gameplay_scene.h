@@ -10,6 +10,7 @@
 #include "tecmo_gameplay_court.h"
 #include "tecmo_gameplay_court_orientation.h"
 #include "tecmo_gameplay_dunk_cutaway.h"
+#include "tecmo_gameplay_free_throw_lineup.h"
 #include "tecmo_gameplay_jump_shots.h"
 #include "tecmo_gameplay_pretip.h"
 #include "tecmo_gameplay_shot_resolution.h"
@@ -28,6 +29,10 @@
 #define TECMO_GAMEPLAY_SCENE_NO_TEAM 0xFFU
 #define TECMO_GAMEPLAY_SCENE_NES_WIDTH 256
 #define TECMO_GAMEPLAY_SCENE_NES_HEIGHT 240
+#define TECMO_GAMEPLAY_SCENE_COURT_COORDINATES_TAG 0x43434754U
+#define TECMO_GAMEPLAY_SCENE_COURT_PROJECTION_TAG 0x50534754U
+#define TECMO_GAMEPLAY_SCENE_COURT_SLICE_TAG 0x4C534754U
+#define TECMO_GAMEPLAY_SCENE_COURT_FRAME_TAG 0x46534754U
 
 /* The slot-3 trace spans 125 inclusive updates from CPU state-18 entry through
    launch. Native play uses that observed schedule until the original CPU
@@ -73,16 +78,59 @@ typedef struct TecmoGameplaySceneResult {
 } TecmoGameplaySceneResult;
 
 typedef struct TecmoGameplaySceneActor {
-    int16_t world_x;
-    int16_t world_y;
-    int16_t anchor_world_x;
-    int16_t anchor_world_y;
+    TecmoGameplayCourtCoordinate position;
+    TecmoGameplayCourtCoordinate anchor;
     uint16_t pose_index;
     uint8_t team;
     uint8_t roster_index;
     bool facing_right;
     bool active;
 } TecmoGameplaySceneActor;
+
+/* Transactional public snapshot of every live object in one full-court
+   coordinate plane. Player and hoop anchors are integer pixels; the ball
+   retains Q8 precision in that same plane. */
+typedef struct TecmoGameplaySceneCourtCoordinates {
+    uint32_t contract_tag;
+    TecmoGameplayCourtCoordinate
+        players[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplayCourtCoordinateQ8 ball;
+    TecmoGameplayCourtCoordinate
+        hoops[TECMO_GAMEPLAY_COURT_ORIENTATION_COUNT];
+} TecmoGameplaySceneCourtCoordinates;
+
+/* One transactional TGCP projection of the canonical scene coordinates.
+   Offscreen entries retain TGCP's neutral visible=false, X/Y-zero sentinel. */
+typedef struct TecmoGameplaySceneCourtProjection {
+    uint32_t contract_tag;
+    uint16_t camera_x;
+    uint16_t reserved;
+    TecmoGameplayActorProjection
+        players[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplayActorProjection ball;
+} TecmoGameplaySceneCourtProjection;
+
+/* One transactional possession-aware TGCT view. The viewport camera must
+   match the TGCP projection camera used for the same rendered frame. */
+typedef struct TecmoGameplaySceneCourtSlice {
+    uint32_t contract_tag;
+    uint32_t transition_serial;
+    uint8_t possession;
+    uint8_t direction;
+    uint16_t reserved;
+    TecmoGameplayCourtViewport viewport;
+} TecmoGameplaySceneCourtSlice;
+
+/* One camera-coherent live frame. Scene rendering consumes this combined
+   snapshot so the TGCT slice and every TGCP projection share one camera. */
+typedef struct TecmoGameplaySceneCourtFrame {
+    uint32_t contract_tag;
+    uint32_t scene_frame;
+    uint32_t camera_follow_count;
+    uint32_t reserved;
+    TecmoGameplaySceneCourtSlice slice;
+    TecmoGameplaySceneCourtProjection projection;
+} TecmoGameplaySceneCourtFrame;
 
 typedef struct TecmoGameplayScene {
     uint32_t lifecycle_tag;
@@ -99,6 +147,7 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayCameraState camera_state;
     TecmoGameplayCourtOrientationAssets court_orientation;
     TecmoGameplayCourtOrientationState orientation_state;
+    TecmoGameplayFreeThrowLineupAssets free_throw_lineup_assets;
     TecmoGameplayCloseShotAssets close_shots;
     TecmoGameplayDunkCutawayAssets dunk_cutaway;
     TecmoGameplayJumpShotAssets jump_shots;
@@ -117,17 +166,19 @@ typedef struct TecmoGameplayScene {
     TecmoGameplaySceneActor actors[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     uint8_t controlled_actor[TECMO_GAMEPLAY_CONTROLLER_COUNT];
     uint8_t ball_holder;
-    int32_t ball_world_x_q8;
-    int32_t ball_world_y_q8;
-    int32_t shot_start_world_x_q8;
-    int32_t shot_start_world_y_q8;
-    int32_t shot_end_world_x_q8;
-    int32_t shot_end_world_y_q8;
+    TecmoGameplayCourtCoordinateQ8 ball_position;
+    TecmoGameplayCourtCoordinateQ8 shot_start_position;
+    TecmoGameplayCourtCoordinateQ8 shot_end_position;
     uint32_t camera_follow_count;
     uint16_t shot_frame;
     uint16_t shot_duration;
     uint16_t action_serial;
     uint16_t free_throw_frame;
+    uint32_t free_throw_lineup_transition_serial;
+    uint8_t free_throw_lineup_orientation;
+    uint8_t free_throw_shooter;
+    uint8_t free_throw_secondary;
+    bool free_throw_lineup_active;
     uint8_t shot_points;
     uint8_t shot_actor;
     uint8_t close_shot_step;
@@ -163,8 +214,8 @@ typedef struct TecmoGameplayScene {
 /* Initialize exactly once before load/destroy. */
 void tecmo_gameplay_scene_init(TecmoGameplayScene *scene);
 
-/* Loads TGPL-1, TGCT-1, TGCP-2, TGOR-1, TGCS-1, TGDK-1, TGJS-2, TGSR-3,
-   TSFX-1, and TDMC-1 from one local pack.
+/* Loads TGPL-1, TGCT-1, TGCP-2, TGOR-1, TGFL-1, TGCS-1, TGDK-1, TGJS-2,
+   TGSR-3, TSFX-1, and TDMC-1 from one local pack.
    `asset_pack_path` may be NULL to use the strict runtime search order.
    Runtime data is never read from decompilation/capture paths. */
 bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
@@ -180,6 +231,23 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
                                  const TecmoControlFrame *player_two);
 bool tecmo_gameplay_scene_result(const TecmoGameplayScene *scene,
                                  TecmoGameplaySceneResult *result);
+bool tecmo_gameplay_scene_court_coordinates(
+    const TecmoGameplayScene *scene,
+    TecmoGameplaySceneCourtCoordinates *coordinates_out);
+bool tecmo_gameplay_scene_court_projection(
+    const TecmoGameplayScene *scene,
+    TecmoGameplaySceneCourtProjection *projection_out);
+bool tecmo_gameplay_scene_court_slice(
+    const TecmoGameplayScene *scene,
+    TecmoGameplaySceneCourtSlice *slice_out);
+bool tecmo_gameplay_scene_court_frame(
+    const TecmoGameplayScene *scene,
+    TecmoGameplaySceneCourtFrame *frame_out);
+/* Returns the exact TGFL-derived raw lineup currently bound to a live
+   free-throw sequence. Inactive or malformed bindings leave output unchanged. */
+bool tecmo_gameplay_scene_free_throw_lineup(
+    const TecmoGameplayScene *scene,
+    TecmoGameplayFreeThrowLineup *lineup_out);
 bool tecmo_gameplay_scene_consume_pretip_abort(TecmoGameplayScene *scene);
 bool tecmo_gameplay_scene_in_pretip(const TecmoGameplayScene *scene);
 void tecmo_gameplay_scene_end(TecmoGameplayScene *scene);

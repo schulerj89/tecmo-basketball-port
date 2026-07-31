@@ -219,6 +219,7 @@ try {
         [pscustomobject]@{ id="gameplay/court"; size=6559; hash="ECAB7A93"; schema="tecmo.gameplay-court/TGCT-1" },
         [pscustomobject]@{ id="gameplay/camera-projection"; size=1536; hash="53247856"; schema="tecmo.gameplay-camera/TGCP-2" },
         [pscustomobject]@{ id="gameplay/court-orientation"; size=640; hash="F9152C0A"; schema="tecmo.gameplay-court-orientation/TGOR-1" },
+        [pscustomobject]@{ id="gameplay/free-throw-lineup"; size=1216; hash="B17B9A3F"; schema="tecmo.gameplay-free-throw-lineup/TGFL-1" },
         [pscustomobject]@{ id="gameplay/close-shots"; size=3144; hash="DACDC976"; schema="tecmo.gameplay-close-shots/TGCS-1" },
         [pscustomobject]@{ id="gameplay/dunk-cutaway"; size=20272; hash="E02F2D21"; schema="tecmo.gameplay-dunk-cutaway/TGDK-1" },
         [pscustomobject]@{ id="gameplay/jump-shots"; size=2776; hash="A66EE873"; schema="tecmo.gameplay-jump-shots/TGJS-2" },
@@ -256,6 +257,9 @@ try {
     $CourtMaps = @($SourceMap.logical_entries | Where-Object {
         $_.id -eq "gameplay/court"
     })
+    $LineupMaps = @($SourceMap.logical_entries | Where-Object {
+        $_.id -eq "gameplay/free-throw-lineup"
+    })
     if ($CameraMaps.Count -ne 1 -or $CourtMaps.Count -ne 1 -or
         ![bool]$CameraMaps[0].dependencies[0].same_pack_required -or
         ![bool]$CameraMaps[0].dependencies[1].same_pack_required -or
@@ -266,18 +270,82 @@ try {
         $CameraMaps[0].ordinary_movement_geometry.payload_offset -ne 1360 -or
         $CameraMaps[0].ordinary_movement_geometry.fingerprint_sha256 -ne
             "0B97A9AAC4DF35E4EDF7979C6C0355852B9DE7398844B2679CFAB298F0C0CBA6" -or
+        $CameraMaps[0].live_runtime_contract.asset_pack -notmatch "TGFL-1" -or
         $CameraMaps[0].live_runtime_contract.update -notmatch
             "exactly one route-zero follow" -or
         $CameraMaps[0].live_runtime_contract.viewport -notmatch
             "32/33-column slice" -or
+        $CameraMaps[0].live_runtime_contract.court_slice -notmatch
+            "TGOR possession/direction/transition serial" -or
+        $CameraMaps[0].live_runtime_contract.court_slice -notmatch
+            "TGCP projection camera_x" -or
+        ![bool]$CameraMaps[0].live_runtime_contract.court_frame.transactional -or
+        $CameraMaps[0].live_runtime_contract.court_frame.stationary_actor_x -notmatch
+            "inverse signed camera_x delta" -or
+        $CameraMaps[0].live_runtime_contract.court_frame.stationary_actor_y -notmatch
+            "unchanged by horizontal camera motion" -or
+        $CameraMaps[0].live_runtime_contract.court_frame.visibility_transition -notmatch
+            "visible=false with zero X/Y" -or
+        [bool]$CameraMaps[0].live_runtime_contract.court_frame.integration_is_additional_rom_claim -or
+        $CameraMaps[0].live_runtime_contract.coordinate_space.origin -notmatch
+            "upper-left" -or
+        $CameraMaps[0].live_runtime_contract.coordinate_space.ball_fractional_bits -ne
+            8 -or
+        $CameraMaps[0].live_runtime_contract.coordinate_adapter.follow -notmatch
+            "floor canonical Q8" -or
+        $CameraMaps[0].live_runtime_contract.coordinate_adapter.projection -notmatch
+            "transactional TGCP projection adapters" -or
+        $CameraMaps[0].live_runtime_contract.coordinate_adapter.scene_snapshot -notmatch
+            "ten player projections" -or
+        [bool]$CameraMaps[0].live_runtime_contract.coordinate_adapter.adapter_is_additional_rom_claim -or
+        $CameraMaps[0].live_runtime_contract.projection -notmatch
+            "one canonical scene snapshot" -or
+        $CameraMaps[0].live_runtime_contract.shot_target.hoop_y -ne 148 -or
         $CameraMaps[0].live_runtime_contract.shot_target.launch_y -ne 143 -or
+        ![bool]$CameraMaps[0].live_runtime_contract.shot_target.hoop_and_flight_y_are_distinct -or
         $CameraMaps[0].ordinary_movement_geometry.cpu_start -ne 0xF106 -or
         $CameraMaps[0].ordinary_movement_geometry.cpu_end -ne 0xF1B0 -or
         $CameraMaps[0].ordinary_movement_geometry.fingerprint_fnv1a32 -ne
             "CB1D4EAF" -or
+        ![bool]$CourtMaps[0].native_contract.scene_slice.transactional -or
+        $CourtMaps[0].native_contract.scene_slice.actor_binding -notmatch
+            "combined transactional court frame" -or
+        [int]$CourtMaps[0].native_contract.scene_slice.native_checkpoints.left_camera_x -ne
+            102 -or
+        [int]$CourtMaps[0].native_contract.scene_slice.native_checkpoints.center_camera_x -ne
+            256 -or
+        [int]$CourtMaps[0].native_contract.scene_slice.native_checkpoints.right_camera_x -ne
+            408 -or
+        $CourtMaps[0].native_contract.scene_slice.native_checkpoints.left_render_fnv1a32 -ne
+            "4F52BCC1" -or
+        $CourtMaps[0].native_contract.scene_slice.native_checkpoints.center_render_fnv1a32 -ne
+            "9CC9CD31" -or
+        $CourtMaps[0].native_contract.scene_slice.native_checkpoints.right_render_fnv1a32 -ne
+            "033B45D5" -or
+        [bool]$CourtMaps[0].native_contract.scene_slice.integration_is_additional_rom_claim -or
         $CourtMaps[0].native_contract.boundary -notmatch
             "production camera-positioned live viewport") {
         throw "Production TGCP-2/TGCT-1 scene provenance is incomplete."
+    }
+    if ($LineupMaps.Count -ne 1 -or
+        $LineupMaps[0].live_scene_integration.orientation_source -notmatch
+            "TGOR-1 current_direction" -or
+        $LineupMaps[0].live_scene_integration.position_binding -notmatch
+            "exact TGFL-1 raw world X/Y" -or
+        $LineupMaps[0].live_scene_integration.camera_binding -notmatch
+            "orientation 0 camera_x=102" -or
+        $LineupMaps[0].live_scene_integration.camera_binding -notmatch
+            "orientation 1 camera_x=408" -or
+        $LineupMaps[0].live_scene_integration.render_binding -notmatch
+            "combined TGCT-1 slice" -or
+        $LineupMaps[0].live_scene_integration.pose_binding -notmatch
+            "preserves existing actor poses" -or
+        [bool]$LineupMaps[0].live_scene_integration.integration_is_additional_rom_claim -or
+        $LineupMaps[0].supported_boundary -notmatch
+            "native live positioning" -or
+        $LineupMaps[0].supported_boundary -notmatch
+            "no live pose-state override") {
+        throw "Production TGFL-1 scene provenance is incomplete."
     }
 
     $DunkLog = Join-Path $Scratch "dunk-cutaway-assets.log"
@@ -396,6 +464,38 @@ try {
     Assert-SceneRejected -AssetPack $MalformedOrientationPath `
         -Label "malformed-court-orientation" `
         -ExpectedStatus "TGOR-1 header/size/reserved contract rejected"
+
+    $MissingLineupPath =
+        Join-Path $Scratch "missing-free-throw-lineup.assetpack"
+    $MissingLineup = [byte[]]$PackBytes.Clone()
+    $MissingLineup[
+        [int]$Entries["gameplay/free-throw-lineup"].directory_offset] =
+        [byte][char]'x'
+    [IO.File]::WriteAllBytes($MissingLineupPath, $MissingLineup)
+    Assert-SceneRejected -AssetPack $MissingLineupPath `
+        -Label "missing-free-throw-lineup" -ExpectedStatus "TGFL-1"
+
+    $MalformedLineupPath =
+        Join-Path $Scratch "malformed-free-throw-lineup.assetpack"
+    $MalformedLineup = [byte[]]$PackBytes.Clone()
+    $LineupOffset =
+        [int]$Entries["gameplay/free-throw-lineup"].pack_offset
+    $MalformedLineup[$LineupOffset] =
+        $MalformedLineup[$LineupOffset] -bxor 1
+    [IO.File]::WriteAllBytes($MalformedLineupPath, $MalformedLineup)
+    Assert-SceneRejected -AssetPack $MalformedLineupPath `
+        -Label "malformed-free-throw-lineup" `
+        -ExpectedStatus "TGFL-1 header/size/reserved contract rejected"
+
+    $OversizedLineupPath =
+        Join-Path $Scratch "oversized-free-throw-lineup.assetpack"
+    $OversizedLineup = [byte[]]$PackBytes.Clone()
+    [BitConverter]::GetBytes([uint64]1217).CopyTo(
+        $OversizedLineup,
+        [int]$Entries["gameplay/free-throw-lineup"].directory_offset + 92)
+    [IO.File]::WriteAllBytes($OversizedLineupPath, $OversizedLineup)
+    Assert-SceneRejected -AssetPack $OversizedLineupPath `
+        -Label "oversized-free-throw-lineup" -ExpectedStatus "TGFL-1"
 
     $MalformedPath = Join-Path $Scratch "malformed-close-shots.assetpack"
     $Malformed = [byte[]]$PackBytes.Clone()
@@ -516,6 +616,11 @@ try {
     $env:TECMO_ASSETPACK = $PackPath
     $RenderSpecs = @(
         [pscustomobject]@{ mode="gameplay-start"; state='gameplay-state frame=0 shot=none phase=live' },
+        [pscustomobject]@{ mode="gameplay-possession-left"; state='gameplay-state frame=691 shot=none phase=live' },
+        [pscustomobject]@{ mode="gameplay-possession-center"; state='gameplay-state frame=691 shot=none phase=live' },
+        [pscustomobject]@{ mode="gameplay-possession-right"; state='gameplay-state frame=691 shot=none phase=live' },
+        [pscustomobject]@{ mode="gameplay-free-throw-left"; state='gameplay-state frame=696 shot=none phase=free-throw-sequence' },
+        [pscustomobject]@{ mode="gameplay-free-throw-right"; state='gameplay-state frame=696 shot=none phase=free-throw-sequence' },
         [pscustomobject]@{ mode="gameplay-jump-frame1"; state='gameplay-state frame=1 shot=jump phase=live' },
         [pscustomobject]@{ mode="gameplay-jump-frame2"; state='gameplay-state frame=2 shot=jump phase=live score=0/2' },
         [pscustomobject]@{ mode="gameplay-jump-frame4"; state='gameplay-state frame=4 shot=jump phase=live' },
@@ -570,6 +675,44 @@ try {
     foreach ($Spec in $RenderSpecs) {
         $RenderHashes[$Spec.mode] = Invoke-RenderCheckpoint `
             -Mode $Spec.mode -ExpectedState $Spec.state
+    }
+    $ExpectedPossessionSliceHashes = @{
+        "gameplay-possession-left" =
+            "0AE98FF6043E4A719F65095CBFFE24C8E2CF602D0D393E22EC3EF636FE851A71"
+        "gameplay-possession-center" =
+            "6E709B5C008717196FAEA105F792C1C9745F4BABA09155BE963524842A139D7C"
+        "gameplay-possession-right" =
+            "3BDB7F1A83B03A8475C9F9CCADF9327693AF139EF234283B7F2B581EC09A4AB5"
+    }
+    foreach ($Mode in $ExpectedPossessionSliceHashes.Keys) {
+        if ($RenderHashes[$Mode] -ne
+            $ExpectedPossessionSliceHashes[$Mode]) {
+            throw "Gameplay possession-slice render hash changed at '$Mode'."
+        }
+    }
+    $PossessionSliceVisuals = @(
+        $RenderHashes["gameplay-possession-left"],
+        $RenderHashes["gameplay-possession-center"],
+        $RenderHashes["gameplay-possession-right"]
+    ) | Select-Object -Unique
+    if ($PossessionSliceVisuals.Count -ne 3) {
+        throw "Gameplay possession-slice visuals collapsed together."
+    }
+    $ExpectedFreeThrowHashes = @{
+        "gameplay-free-throw-left" =
+            "A20D20AF625C2FBEE07C36B4E25914E0A10E2DF818446252275CA1291D5B61B2"
+        "gameplay-free-throw-right" =
+            "7563B19DAFC5C51EE367A8C300F9056D91160E5674679B3DC886E5CA1A312F92"
+    }
+    foreach ($Mode in $ExpectedFreeThrowHashes.Keys) {
+        if ($RenderHashes[$Mode] -ne
+            $ExpectedFreeThrowHashes[$Mode]) {
+            throw "Gameplay free-throw lineup render hash changed at '$Mode'."
+        }
+    }
+    if ($RenderHashes["gameplay-free-throw-left"] -eq
+        $RenderHashes["gameplay-free-throw-right"]) {
+        throw "Gameplay free-throw orientation visuals collapsed together."
     }
     $ExpectedJumpHashes = @{
         "gameplay-jump-frame2" =
@@ -646,7 +789,7 @@ try {
 
     $global:LASTEXITCODE = 0
     Write-Output ("GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance " +
-        "scene controls TGCP-2 full-world camera fine-scroll guarded-margins possession/freeze TGDK TGJS TGSR-3 jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
+        "scene controls TGCP-2 full-world camera fine-scroll guarded-margins actor-camera-projection/possession-slice-render/freeze TGFL-1 orientation-lineup TGDK TGJS TGSR-3 jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
         "halftime/final render-hashes/determinism missing malformed oversized " +
         "dependency-corrupt chr-mismatch")
 } finally {

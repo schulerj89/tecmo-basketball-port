@@ -17,6 +17,61 @@
 #define TECMO_GAMEPLAY_COURT_MAXIMUM_MACRO_INDEX 360U
 #define TECMO_GAMEPLAY_COURT_WORLD_UNIQUE_MACROS 346U
 
+bool tecmo_gameplay_court_coordinate_valid(
+    const TecmoGameplayCourtCoordinate *coordinate)
+{
+    return coordinate != NULL &&
+           coordinate->x >= TECMO_GAMEPLAY_COURT_WORLD_MIN_X &&
+           coordinate->x <= TECMO_GAMEPLAY_COURT_WORLD_MAX_X &&
+           coordinate->y >= TECMO_GAMEPLAY_COURT_WORLD_MIN_Y &&
+           coordinate->y <= TECMO_GAMEPLAY_COURT_WORLD_MAX_Y;
+}
+
+bool tecmo_gameplay_court_coordinate_q8_valid(
+    const TecmoGameplayCourtCoordinateQ8 *coordinate)
+{
+    return coordinate != NULL && coordinate->x_q8 >= 0 &&
+           coordinate->x_q8 <=
+               TECMO_GAMEPLAY_COURT_COORDINATE_Q8_MAX_X &&
+           coordinate->y_q8 >= 0 &&
+           coordinate->y_q8 <=
+               TECMO_GAMEPLAY_COURT_COORDINATE_Q8_MAX_Y;
+}
+
+bool tecmo_gameplay_court_coordinate_to_q8(
+    const TecmoGameplayCourtCoordinate *coordinate,
+    TecmoGameplayCourtCoordinateQ8 *coordinate_q8_out)
+{
+    TecmoGameplayCourtCoordinateQ8 converted;
+    if (!tecmo_gameplay_court_coordinate_valid(coordinate) ||
+        coordinate_q8_out == NULL) {
+        return false;
+    }
+    converted.x_q8 =
+        (int32_t)coordinate->x * TECMO_GAMEPLAY_COURT_COORDINATE_Q8_SCALE;
+    converted.y_q8 =
+        (int32_t)coordinate->y * TECMO_GAMEPLAY_COURT_COORDINATE_Q8_SCALE;
+    *coordinate_q8_out = converted;
+    return true;
+}
+
+bool tecmo_gameplay_court_coordinate_q8_floor(
+    const TecmoGameplayCourtCoordinateQ8 *coordinate,
+    TecmoGameplayCourtCoordinate *coordinate_out)
+{
+    TecmoGameplayCourtCoordinate converted;
+    if (!tecmo_gameplay_court_coordinate_q8_valid(coordinate) ||
+        coordinate_out == NULL) {
+        return false;
+    }
+    converted.x = (int16_t)(
+        coordinate->x_q8 / TECMO_GAMEPLAY_COURT_COORDINATE_Q8_SCALE);
+    converted.y = (int16_t)(
+        coordinate->y_q8 / TECMO_GAMEPLAY_COURT_COORDINATE_Q8_SCALE);
+    *coordinate_out = converted;
+    return true;
+}
+
 static uint16_t read_u16(const uint8_t *bytes)
 {
     return (uint16_t)((uint16_t)bytes[0] | ((uint16_t)bytes[1] << 8U));

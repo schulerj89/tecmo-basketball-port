@@ -251,10 +251,23 @@ try {
         $Mapped[0].state_contract.fresh_launch.direction -ne 0 -or
         $Mapped[0].state_contract.fresh_launch.tracked_possession -ne
             "away" -or
+        (@($Mapped[0].state_contract.fresh_launch.offensive_hoop) -join
+            ',') -ne "160,148" -or
+        (@($Mapped[0].state_contract.hoop_landmarks.left) -join
+            ',') -ne "160,148" -or
+        (@($Mapped[0].state_contract.hoop_landmarks.right) -join
+            ',') -ne "608,148" -or
+        $Mapped[0].state_contract.hoop_landmarks.coordinate_space -notmatch
+            "upper-left" -or
         $Mapped[0].evidence_limits -notmatch "no direct reads" -or
         $Mapped[0].supported_boundary -notmatch
-            "production target selection for TGCP" -or
-        $Mapped[0].supported_boundary -notmatch "no TGFL ownership") {
+            "production full-hoop selection for TGCP" -or
+        $Mapped[0].supported_boundary -notmatch
+            'flight Y=\$8F remains a separate endpoint' -or
+        $Mapped[0].supported_boundary -notmatch
+            "production TGFL-1 orientation selection" -or
+        $Mapped[0].supported_boundary -notmatch
+            "TGFL-1 remains the coordinate/pose-data owner") {
         throw "TGOR-1 source-map provenance or boundary changed."
     }
 

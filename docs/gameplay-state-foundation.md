@@ -86,19 +86,20 @@ layout cursor, cursor bounds, and action-route movement gates. Production
 launch leaves pure `$DE13` at cursor `$20`, applies one `$DDFB->$DF05` live
 prime to cursor `$21`, seeds world coordinates at camera `$0100`, then settles
 once. Each subsequent live update follows exactly once after all actor/ball
-mutations. Non-live/free-throw/TGDK cutaway updates freeze the camera and
-possession changes clear only thresholds/latching.
+mutations. Free-throw entry performs the TGFL-driven typed settle; subsequent
+free-throw and TGDK cutaway updates freeze the camera. Possession changes clear
+only thresholds/latching.
 The production validator also enforces scroll/page coherence, the reachable
 direction/cursor relation, and the three exact threshold-pair states; the
 weaker validator is retained only for transactional synthetic API tests.
 
-The focused test-only TGFL-1 -> TGCP-2 module independently loads both assets,
+The focused TGFL-1 -> TGCP-2 test module independently loads both assets,
 derives orientation 1/shooter 6/secondary 1, and consumes TGFL's exact ten
 world X/Y values. Starting from the bounded capture-derived cursor `$21`, it
 proves 76 moving updates, an unchanged 77th update, transactional settle at
 camera `$0198`, and the exact six visible/four neutral-offscreen projections.
-Secondary slot 1 is also bounded frame evidence. This is integration
-verification only and does not make TGFL-1 a live-scene dependency.
+Secondary slot 1 is also bounded frame evidence. This remains independent
+integration verification rather than the production scene adapter.
 Pure TGCP coverage separately exercises exact generic left/right steps,
 disabled and suppressed-route no-ops, page carry/borrow, continuing
 coarse-column changes, and direction reversals.
@@ -108,9 +109,49 @@ pixels), slices a 32/33-column coarse/fine viewport at TGCP camera X, and clips
 both partial edge columns inside a 256-by-240 framebuffer subview. Actors,
 anchors, ball Q8 coordinates, shot endpoints, movement, proximity, passing,
 switching, and AI share world coordinates. TGCP projects actors and the ball;
-jump altitude is applied exactly once to the actor. TGFL-1 remains test-only.
+jump altitude is applied exactly once to the actor. Live free-throw entry uses
+TGOR orientation to copy TGFL-1's exact ten raw positions into that coordinate
+plane, settles TGCP to `$0066/$0198`, and renders the coherent TGCT/TGCP frame.
+Shooter/secondary selection, ball attachment, and camera composition are native
+adapters; live actor poses remain preserved rather than taken from TGFL.
 The canonical slicer does not claim the original staged PPU prefetch/write
 order.
+
+The shared object-space type fixes `(0,0)` at the full TGCT court's
+upper-left, with integer bounds X `0..767` and Y `0..239`. Players and
+anchors use integer coordinates; the ball and shot endpoints use Q8 in the
+same plane. TGOR now carries complete left/right hoop landmarks
+`($00A0,$94)` and `($0260,$94)` rather than an X-only live target. Ordinary
+flight still terminates at the separately proven Y `$8F`. A transactional
+scene snapshot exposes all ten player coordinates, the ball, and both hoops;
+live validation and rendering reject invalid coordinates before consuming
+them. This contract does not promote the native approximate starting lineup
+or pre-tip staging to ROM evidence.
+
+Typed transactional adapters now connect that state to the existing TGCP raw
+contract. Q8 ball focus is validated and floored once for launch settle,
+pre-tip handoff settle, and the one post-mutation live follow. Integer player
+anchors and the Q8 ball route through TGCP projection adapters, producing one
+transactional scene projection snapshot at the current camera X. The snapshot
+contains ten player projections and one ball projection; offscreen values use
+TGCP's neutral sentinel. Shooter jump altitude is subtracted exactly once,
+while ball projection receives zero altitude. Raw TGCP routines and their
+goldens remain unchanged; these adapters are native integration plumbing, not
+new ROM semantics.
+
+The live renderer now consumes a transactional
+`tecmo_gameplay_scene_court_frame`. It combines the possession-aware TGCT
+slice, all ten TGCP player projections, and the ball projection with the
+scene frame and camera-follow serial. A mismatched viewport/projection camera
+X is rejected before drawing. Stationary actors shift by the inverse signed
+camera delta while visible, retain Y during horizontal motion, and use the
+neutral zero-X/Y sentinel outside the viewport. Sweeps cover fine scroll,
+coarse-tile crossings, possession reversal, and both endpoints. Native
+left/center/right travel checkpoints use camera X
+`102`/`256`/`408` and freeze background hashes
+`4F52BCC1`/`9CC9CD31`/`033B45D5`. The underlying TGCT slices and TGCP motion
+are strict; the scene binding, checkpoint focus placement, and simplified
+possession choreography are native integration.
 
 Ordinary movement currently owns the exact fixed `$F106-$F1B0` trapezoid
 unconditionally (171 bytes, FNV1a32 `CB1D4EAF`): page-0 lower bound
@@ -335,8 +376,9 @@ decompilation at these CPU-address ranges:
   Strict TGFL-1 additionally covers `$88B0-$88D9`, `$9621-$976E`,
   `$976F-$985C`, and `$985D-$9918`, preserving raw world coordinates, the
   shooter-dependent stream skip, resolved nonshooter pose indexes, and base
-  actor-state seeds. Visual lineup/repositioning remains outside the current
-  scene even though production TGCP camera/world projection is now available.
+  actor-state seeds. The current scene consumes the exact positions for both
+  orientations; it does not apply the pose/state or conditional script
+  overrides.
 - Bank 05 `$8ABD-$8CE4`, table `$8CE5-$8D7C`, launch `$9C40-$9CC9`, actor
   progression `$86BB`, `$86DD`, `$8732`, `$8745`, result `$91BC-$943A`, ball
   path `$AF30-$B073`, and scoring `$B995-$BA3F`: numeric close-shot subtype 01
@@ -412,13 +454,13 @@ These are provenance only and are not runtime inputs.
   Unsupported or malformed choices fail without mutating state.
 - Free-throw controller ownership and the human current-B launch gate are
   supported. TGFL-1 strictly resolves the base raw lineup for both
-  orientations, but does not mutate the live scene. TGCP can project those
-  values in the focused integration test. CPU play uses
-  the bounded observed 125-update launch schedule; TGFL live lineup
-  application, conditional positioning/script overrides, visual lineup timing,
-  aiming, made/missed policy, rebound behavior, and post-attempt possession
-  remain unresolved. Only explicit made/missed results and settlement are
-  modeled.
+  orientations, and live entry copies all ten exact positions into canonical
+  court coordinates before a typed TGCP settle and coherent TGCT/TGCP render.
+  CPU play uses the bounded observed 125-update launch schedule. Slot selection,
+  held-ball attachment, camera composition, and post-attempt possession are
+  native policies; conditional pose/state/script overrides, visual lineup
+  timing, aiming, and made/missed and rebound behavior remain unresolved. Only
+  explicit made/missed results and settlement are modeled.
 - The exact TGCS numeric step/phase tables and the selected TGPL pose resolution
   are consumed directly by the scene. TGCS exposes 208 exact resolutions, but
   live selection is limited to profile 0/direction 0 and actor-facing-left is
@@ -443,9 +485,9 @@ These are provenance only and are not runtime inputs.
   make/contact policy, the distance policy
   selecting dunk/variant 0 versus layup/variant 2, live close-shot
   profile/direction selection and left-facing render mirroring, dynamic
-  team/court palette selection, foul detection, free-throw camera
-  projection/live lineup integration/aim/result/rebound and CPU
-  positioning/script behavior, and
+  team/court palette selection, foul detection, free-throw slot selection,
+  held-ball/camera composition, aim/result/rebound and CPU positioning/script
+  behavior, and
   HUD typography are native approximations. The imported TGCT palette bytes and
   embedded FCEUX RGB profile are exact, but native selection does not yet
   reproduce all original matchup/state colors. The exact rules state consumes
@@ -464,13 +506,14 @@ These are provenance only and are not runtime inputs.
 
 Run `tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` for the
 strict full-pack scene test and deterministic 640x480 start, jump-miss through
-87, jump-make through 111, and dunk checkpoints through 132. Run
+87, jump-make through 111, dunk checkpoints through 132, and both
+orientation-specific free-throw lineup checkpoints. Run
 `tools\Run-GameplayDunkCutawayTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` for
 the strict TGDK payload/provenance/render/mutation/revision checks.
 `Run-GameplayShotResolutionTests.ps1`, `Run-GameplayPenaltyTests.ps1`,
 `Run-GameplayFreeThrowLineupTests.ps1`, and
 `Run-GameplayCourtOrientationTests.ps1` validate the strict TGSR/TPNL/TGFL/TGOR
 parsers, same-pack dependencies, source mutation, and pure APIs.
-`--gameplay-state-test`, the TGPL/TGCT/TGCP/TGCS/TGJS focused suites, the 78-entry
+`--gameplay-state-test`, the TGPL/TGCT/TGCP/TGCS/TGJS focused suites, the 79-entry
 full asset-pack regression, and `Run-GameplayAudioTests.ps1` retain their
 lower-level coverage.
