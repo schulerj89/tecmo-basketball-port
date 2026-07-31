@@ -316,7 +316,7 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
     }
     scene->available = true;
     scene_set_status(scene,
-                     "native gameplay ready: TGPL-1/TGCT-1/TGCP-2/TGOR-1/TGCS-1/TGDK-1/TGJS-1/TGSR-3/TSFX-1/TDMC-1");
+                     "native gameplay ready: TGPL-1/TGCT-1/TGCP-2/TGOR-1/TGCS-1/TGDK-1/TGJS-2/TGSR-3/TSFX-1/TDMC-1");
     return true;
 }
 
@@ -355,6 +355,8 @@ static void scene_clear_jump_playback(TecmoGameplayScene *scene)
     scene->jump_rim_rattle_audio_repeats = 0U;
     memset(&scene->jump_rim_rattle, 0,
            sizeof(scene->jump_rim_rattle));
+    memset(&scene->jump_made_settlement, 0,
+           sizeof(scene->jump_made_settlement));
 }
 
 static bool scene_controller_team_valid(uint8_t team)
@@ -896,7 +898,9 @@ static bool scene_start_shot_actor(TecmoGameplayScene *scene,
                                ? TECMO_GAMEPLAY_DUNK_RESOLVE_FRAME
                                : (close ? close_info.step_count
                                         : (predicted_make
-                                               ? TECMO_GAMEPLAY_JUMP_MAKE_DURATION
+                                               ? (uint16_t)(
+                                                     TECMO_GAMEPLAY_JUMP_MAKE_SCORE_FRAME +
+                                                     scene->jump_shots.constants.made_update_count)
                                                : TECMO_GAMEPLAY_JUMP_SLOT0_DURATION));
     if (predicted_make) initial_pose = TECMO_GAMEPLAY_JUMP_MAKE_GATHER_POSE;
     actor->pose_index = initial_pose;
@@ -1311,7 +1315,10 @@ static bool scene_finish_jump_make(TecmoGameplayScene *scene,
     bool period_expiry;
     if (scene == NULL || actor == NULL ||
         scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE ||
-        scene->shot_frame != TECMO_GAMEPLAY_JUMP_MAKE_DURATION ||
+        scene->shot_frame != (uint16_t)(
+            TECMO_GAMEPLAY_JUMP_MAKE_SCORE_FRAME +
+            scene->jump_made_settlement.updates) ||
+        !scene->jump_made_settlement.complete ||
         (scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE &&
          scene->state.phase !=
              TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE) ||
@@ -1365,7 +1372,9 @@ static bool scene_update_jump_make(
     if (!scene->jump_oracle_active || !scene->jump_make_route ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
         scene->shot_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
-        scene->shot_duration != TECMO_GAMEPLAY_JUMP_MAKE_DURATION ||
+        scene->shot_duration != (uint16_t)(
+            TECMO_GAMEPLAY_JUMP_MAKE_SCORE_FRAME +
+            scene->jump_shots.constants.made_update_count) ||
         scene->shot_frame == 0U ||
         scene->shot_frame > scene->shot_duration ||
         scene->shot_controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT ||
@@ -1471,12 +1480,15 @@ static bool scene_update_jump_make(
     scene_update_jump_make_ball_position(scene);
     if (next_frame == TECMO_GAMEPLAY_JUMP_MAKE_SCORE_FRAME) {
         TecmoGameplayState state_before = scene->state;
+        TecmoGameplayJumpShotMadeSettlement settlement;
         bool period_expiry = scene->state.phase ==
             TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE;
         if (scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE ||
             scene->shot_points != 3U ||
             (scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE &&
              !period_expiry) ||
+            !tecmo_gameplay_jump_shots_made_settlement_begin(
+                &scene->jump_shots, &settlement) ||
             !tecmo_gameplay_award_points(
                 &scene->state, (TecmoGameplayTeam)actor->team,
                 scene->shot_points) ||
@@ -1486,8 +1498,21 @@ static bool scene_update_jump_make(
             scene->state = state_before;
             return false;
         }
+        scene->jump_made_settlement = settlement;
+    } else if (next_frame > TECMO_GAMEPLAY_JUMP_MAKE_SCORE_FRAME) {
+        if (!tecmo_gameplay_jump_shots_made_settlement_step(
+                &scene->jump_shots, &scene->jump_made_settlement, false)) {
+            return false;
+        }
     }
-    if (next_frame < scene->shot_duration) return true;
+    if (!scene->jump_made_settlement.complete) return true;
+    if (scene->shot_duration != (uint16_t)(
+            TECMO_GAMEPLAY_JUMP_MAKE_SCORE_FRAME +
+            scene->jump_shots.constants.made_update_count) ||
+        scene->jump_made_settlement.updates !=
+            scene->jump_shots.constants.made_update_count) {
+        return false;
+    }
     return scene_finish_jump_make(
         scene, actor, (TecmoGameplayTeam)actor->team);
 }

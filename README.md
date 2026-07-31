@@ -152,9 +152,11 @@ accumulators are ported.
 - Ordinary-jump support is deliberately limited to one captured
   human-controlled, away-side, right-facing context with deterministic miss and
   three-point-make branches. Other profiles, directions, and ordinary
-  two-point makes remain unsupported. The exact ROM point-value classifier is
-  now available as a strict pure-C foundation, but it does not supply the
-  missing two-point flight, scoring, or possession schedule. An early B release
+  two-point makes remain unsupported. TGJS-2 adds a strict, test-only
+  explicit-input translation of the ROM distance-flight initializer/update;
+  the live scene still lacks the exact `$AD6E` launch inputs. The supported
+  three-point make derives its post-score handoff from the exact state-08
+  4-then-11x2 timer (26 updates). An early B release
   is safely normalized to the known supported release transition.
 - The strict TGSR-3 rim-rattle prefix is available only through a focused debug
   diagnostic. Normal live misses retain the captured direct settlement route

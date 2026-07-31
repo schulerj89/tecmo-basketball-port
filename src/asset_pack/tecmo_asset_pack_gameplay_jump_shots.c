@@ -15,22 +15,30 @@
 const TecmoGameplayJumpShotExpectedSource
     tecmo_gameplay_jump_shot_expected_sources[
         TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_COUNT] = {
+        {TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_SIGNED_MATH,
+         0x8001U, 346U, 640U, 0xCBB3D490U, 0x020C582871304B10ULL},
         {TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_FAMILY_BASES,
-         0x8469U, 2U, 512U, 0x01767E9DU},
+         0x8469U, 2U, 986U, 0x01767E9DU, 0x08327807B4EB54BDULL},
         {TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_ANIMATION_COUNTER,
-         0x8999U, 40U, 514U, 0xE2DEFE13U},
+         0x8999U, 40U, 988U, 0xE2DEFE13U, 0xE2979F63F2AAF493ULL},
         {TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_INITIAL_VELOCITY,
-         0x8D92U, 65U, 554U, 0x7C0668A1U},
+         0x8D92U, 65U, 1028U, 0x7C0668A1U, 0x194EDC2F273D57C1ULL},
         {TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_PHASE_DECREMENT,
-         0x9C29U, 23U, 619U, 0xE4D07131U},
+         0x9C29U, 23U, 1093U, 0xE4D07131U, 0x4FAA17D2F2F67AB1ULL},
+        {TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_MADE_STATE08,
+         0xAC0AU, 101U, 1116U, 0xC9988292U, 0xB1668A9378344092ULL},
         {TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_ROUTE1_FOLLOW_RELEASE,
-         0xAD41U, 481U, 642U, 0x5C57F1D9U},
+         0xAD41U, 481U, 1217U, 0x5C57F1D9U, 0x7AD524D4A60B9D79ULL},
         {TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_ROUTE10,
-         0xB6E5U, 144U, 1123U, 0x6AD67C6AU},
+         0xB6E5U, 144U, 1698U, 0x6AD67C6AU, 0xC4DDB2D7A58EF6AAULL},
         {TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_BOUNCE_MOTION_COLLISION,
-         0xB7C1U, 187U, 1267U, 0x7AC650D8U},
+         0xB7C1U, 187U, 1842U, 0x7AC650D8U, 0x7250F5AD6C31C3F8ULL},
         {TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_POST_SHOT_SETTLEMENT,
-         0xBA65U, 92U, 1454U, 0x130C585CU}
+         0xBA65U, 92U, 2029U, 0x130C585CU, 0x7B6E85314C686EFCULL},
+        {TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_DISTANCE_HELPERS,
+         0xBCA1U, 294U, 2121U, 0xD7E1452DU, 0x47ABD198D3743B8DULL},
+        {TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_DISTANCE_TABLE,
+         0xBDF7U, 256U, 2415U, 0x93FCF6CBU, 0x8407D4DA9578D56BULL}
     };
 
 const uint8_t tecmo_gameplay_jump_shot_expected_constants[
@@ -41,7 +49,8 @@ const uint8_t tecmo_gameplay_jump_shot_expected_constants[
         0x12U, 0x01U, 0x05U, 0x17U, 0x10U, 0x00U,
         0x80U, 0x0BU, 0x0CU,
         0x28U, 0x00U, 0xF6U, 0x80U, 0x00U,
-        0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U
+        0x08U, 0x04U, 0x02U, 0x0CU, 0x1AU, 0x05U,
+        0x07U, 0x3CU, 0x3CU, 0x09U, 0x00U, 0x00U, 0x00U, 0x00U
     };
 
 /* [family][profile bit][direction], normalized from the even byte offsets in
@@ -57,6 +66,23 @@ const uint16_t tecmo_gameplay_jump_shot_expected_pose_indices[
 static bool range_ok(uint64_t offset, uint64_t count, uint64_t total)
 {
     return offset <= total && count <= total - offset;
+}
+
+static uint64_t fnv1a64(const uint8_t *bytes, size_t count)
+{
+    uint64_t hash = 14695981039346656037ULL;
+    for (size_t index = 0U; index < count; ++index) {
+        hash ^= bytes[index];
+        hash *= 1099511628211ULL;
+    }
+    return hash;
+}
+
+static void store_u64(uint8_t *bytes, uint64_t value)
+{
+    for (unsigned index = 0U; index < 8U; ++index) {
+        bytes[index] = (uint8_t)(value >> (index * 8U));
+    }
 }
 
 static uint64_t bank05_cpu_offset(uint64_t prg_offset, uint16_t cpu)
@@ -81,7 +107,7 @@ static int validate_pose_source(const uint8_t *rom,
     if (!range_ok(low_offset, sizeof(source), rom_size)) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGJS-1 pose-selector dependency is outside the Rev1 ROM.");
+            "TGJS-2 pose-selector dependency is outside the Rev1 ROM.");
         return -1;
     }
     memcpy(source, rom + (size_t)low_offset, sizeof(source));
@@ -89,7 +115,7 @@ static int validate_pose_source(const uint8_t *rom,
             TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_POSE_SOURCE_FNV1A32) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGJS-1 pose-selector dependency fingerprint mismatch.");
+            "TGJS-2 pose-selector dependency fingerprint mismatch.");
         return -1;
     }
     for (size_t index = 0U;
@@ -101,7 +127,7 @@ static int validate_pose_source(const uint8_t *rom,
         if ((byte_offset & 1U) != 0U) {
             tecmo_asset_pack_set_message(
                 message, message_size,
-                "TGJS-1 pose-selector contains an odd pointer offset.");
+                "TGJS-2 pose-selector contains an odd pointer offset.");
             return -1;
         }
         pointer_index = (uint16_t)(byte_offset >> 1U);
@@ -110,7 +136,7 @@ static int validate_pose_source(const uint8_t *rom,
             pointer_index >= TECMO_GAMEPLAY_ASSET_POINTER_COUNT) {
             tecmo_asset_pack_set_messagef(
                 message, message_size,
-                "TGJS-1 pose selector %u mismatch (got %u).",
+                "TGJS-2 pose selector %u mismatch (got %u).",
                 (unsigned)index, (unsigned)pointer_index);
             return -1;
         }
@@ -121,7 +147,7 @@ static int validate_pose_source(const uint8_t *rom,
             TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_POSES_FNV1A32) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGJS-1 normalized pose-selector fingerprint mismatch.");
+            "TGJS-2 normalized pose-selector fingerprint mismatch.");
         return -1;
     }
     return 0;
@@ -145,7 +171,7 @@ int tecmo_asset_pack_build_gameplay_jump_shots(
         enforce_revision_fingerprints == 0) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGJS-1 import requires the exact Rev1 ROM contract.");
+            "TGJS-2 import requires the exact Rev1 ROM contract.");
         return -1;
     }
 
@@ -170,15 +196,18 @@ int tecmo_asset_pack_build_gameplay_jump_shots(
             expected->byte_count > payload_size - expected->payload_offset) {
             tecmo_asset_pack_set_message(
                 message, message_size,
-                "TGJS-1 source range is outside the Rev1 ROM or payload.");
+                "TGJS-2 source range is outside the Rev1 ROM or payload.");
             return -1;
         }
         fingerprint = tecmo_asset_pack_fnv1a32(
             rom + (size_t)source_offset, expected->byte_count);
-        if (fingerprint != expected->fingerprint) {
+        if (fingerprint != expected->fingerprint ||
+            fnv1a64(rom + (size_t)source_offset,
+                    expected->byte_count) !=
+                expected->fingerprint_fnv1a64) {
             tecmo_asset_pack_set_messagef(
                 message, message_size,
-                "TGJS-1 Bank05 $%04X-$%04X fingerprint mismatch (got %08X, expected %08X).",
+                "TGJS-2 Bank05 $%04X-$%04X fingerprint mismatch (got %08X, expected %08X).",
                 (unsigned)expected->cpu_start, (unsigned)cpu_end,
                 fingerprint, expected->fingerprint);
             return -1;
@@ -192,6 +221,7 @@ int tecmo_asset_pack_build_gameplay_jump_shots(
         tecmo_asset_pack_store_u32(record + 12U, expected->payload_offset);
         tecmo_asset_pack_store_u32(record + 16U, expected->fingerprint);
         tecmo_asset_pack_store_u16(record + 20U, (uint16_t)index);
+        store_u64(record + 22U, expected->fingerprint_fnv1a64);
         memcpy(payload + expected->payload_offset,
                rom + (size_t)source_offset, expected->byte_count);
         provenance->source_offsets[index] = source_offset;
@@ -273,13 +303,13 @@ int tecmo_asset_pack_build_gameplay_jump_shots(
             TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_FNV1A32) {
         tecmo_asset_pack_set_messagef(
             message, message_size,
-            "TGJS-1 canonical payload fingerprint mismatch (got %08X).",
+            "TGJS-2 canonical payload fingerprint mismatch (got %08X).",
             tecmo_asset_pack_fnv1a32(payload, payload_size));
         return -1;
     }
     tecmo_asset_pack_set_message(
         message, message_size,
-        "Built strict ROM-derived TGJS-1 jump-shot asset.");
+        "Built strict ROM-derived TGJS-2 jump-shot asset.");
     return 0;
 }
 
@@ -299,7 +329,7 @@ int tecmo_asset_pack_gameplay_jump_shots_self_test(char *message,
             source->payload_offset != expected_offset) {
             tecmo_asset_pack_set_message(
                 message, message_size,
-                "TGJS-1 source layout self-test failed.");
+                "TGJS-2 source layout self-test failed.");
             return -1;
         }
         expected_offset += source->byte_count;
@@ -311,7 +341,7 @@ int tecmo_asset_pack_gameplay_jump_shots_self_test(char *message,
                 TECMO_GAMEPLAY_ASSET_POINTER_COUNT) {
             tecmo_asset_pack_set_message(
                 message, message_size,
-                "TGJS-1 pose index exceeds the TGPL pointer contract.");
+                "TGJS-2 pose index exceeds the TGPL pointer contract.");
             return -1;
         }
         tecmo_asset_pack_store_u16(
@@ -337,10 +367,10 @@ int tecmo_asset_pack_gameplay_jump_shots_self_test(char *message,
             TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_POSES_FNV1A32) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGJS-1 semantic layout self-test failed.");
+            "TGJS-2 semantic layout self-test failed.");
         return -1;
     }
     tecmo_asset_pack_set_message(message, message_size,
-                                 "TGJS-1 layout self-test passed.");
+                                 "TGJS-2 layout self-test passed.");
     return 0;
 }

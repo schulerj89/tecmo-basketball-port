@@ -103,10 +103,10 @@ throughout the same-frame actual swap.
 The first TGLM-4 launch exposed a Lua 5.1 60-upvalue compilation error in the
 status writer. The writer was split without changing its acceptance predicate
 or 63 emitted status keys, and the tracked script and map now pass the bundled
-32-bit Lua 5.1 parser. One final bounded launch still failed before creating
-`metadata.txt` or `status.txt`; FCEUX stdout/stderr were empty and the runner
-closed the emulator. The next research step is therefore the FCEUX/Lua startup
-boundary, not a coordinate, timing, or controller sweep. TGLM-4 has not
+32-bit Lua 5.1 parser. A later bounded launch reached live setup but aborted at
+frame 4214's defensive-A store confirmation deadline before any shot. It
+supplied no `$B100`, state-08, or score evidence and closed FCEUX; do not widen
+that bounded failure into coordinate/timing/controller retries. TGLM-4 has not
 produced a successful pilot and does not extend native two-point support.
 
 ## Runtime Boundary
@@ -781,8 +781,8 @@ The compound scene strictly loads TGPL-1 `gameplay/core` (23416 bytes,
 `gameplay/camera-projection` (1536 bytes, `53247856`), TGOR-1
 `gameplay/court-orientation` (640 bytes, `F9152C0A`), TGCS-1
 `gameplay/close-shots` (3144 bytes, `DACDC976`), TGDK-1
-`gameplay/dunk-cutaway` (20272 bytes, `E02F2D21`), TGJS-1
-`gameplay/jump-shots` (1648 bytes, `7587B099`), TGSR-3
+`gameplay/dunk-cutaway` (20272 bytes, `E02F2D21`), TGJS-2
+`gameplay/jump-shots` (2776 bytes, `A66EE873`), TGSR-3
 `gameplay/shot-resolution` (512 bytes, `164DC568`), TMUS-1 `audio/music`,
 TSFX-1, TDMC-1, and the exact `chr/all` revision from one asset-pack path. Exact-size
 reads, payload/CHR fingerprints, deep indexes, reserved bytes, and source-map
@@ -815,9 +815,9 @@ schedule is live 1-22, dispatch 23, black 24-27, cutaway 28-62, black/rebuild
 clears it. The exact bounded palette checkpoint is profile 1/uniform `$30`;
 dynamic matchup selection remains a native approximation.
 
-TGJS-1 adds only the Bank05 bytes not already owned by TGPL-1/TGCS-1:
-`$8469-$846A`, `$8999-$89C0`, `$8D92-$8DD2`, `$9C29-$9C3F`,
-`$AD41-$AF21`, `$B6E5-$B774`, `$B7C1-$B87B`, and `$BA65-$BAC0`.
+TGJS-2 revision-locks the prior jump spans plus signed math
+`$8001-$815A`, made state 08/state 9 `$AC0A-$AC6E`, distance helpers
+`$BCA1-$BDC6`, and the logical lookup `$BDF7-$BEF6`.
 It depends on the exact same-pack TGPL/TGCS payloads, rederives the 32-entry
 family/profile/direction pose matrix from `$8D3D/$8D5D`, and validates every
 resolved TGPL pointer and pose record. Its live boundary is deliberately one
@@ -847,7 +847,9 @@ TGSR-3 classifies `$91BC->$933B->$942D`'s terminal bit-clear as MAKE at frame
 original capture displayed those last boundaries at 59/64/65 because
 non-shot main-loop overruns held display frames 38 and 53; those renderer
 stalls are intentionally not native shot waits. Three points and shot-clock 24
-apply at frame 85. Frame 111 changes possession and queues crowd response 11
+apply at frame 85. `$AC0A-$AC6E` then supplies the 4-update initial timer plus
+eleven 2-update stages; its state-9 completion after 26 updates owns the
+handoff. Frame 111 therefore changes possession and queues crowd response 11
 without side-result 12/13. Exact ball/camera motion between the captured
 checkpoints remains unproven and native-approximate. Releasing B before frame
 8 is normalized to the captured frame-9 transition so ordinary input cannot
@@ -874,9 +876,15 @@ otherwise raw world X/Y and orientation 0/1 yield 2 or 3 through the original
 `$5B..$D6` Y range and low-byte subtraction/high-byte borrow. Same-pack
 TGPL-1 already revision-locks the classifier routine at `$B995-$BA3F`, so
 TGSR does not duplicate those bytes. This exact classifier is only a rules
-foundation. Live ordinary two-point makes remain unsupported pending a bounded
-make capture: `$AD4E->$B32C` is distance-dependent flight, so the captured
-three-point frame-85 score and frame-111 handoff cannot be inherited.
+foundation. TGJS-2 exposes `$AD4E->$B32C->$B100` as a strict pure API with
+explicit raw launch inputs, but live ordinary two-point makes remain
+unsupported because exact `$AD6E` launch ownership is missing. The captured
+three-point score/handoff cannot be inherited. Although `$91BC`'s pure
+evaluator is understood and eight py65/ROM goldens agree. A live adapter would
+still need shooter/side/control/context/orientation; all ten actors' flags,
+matchups, and X/Y; ratings, property, motion, condition, difficulty, CPU
+adjustment, scores, and raw `$6A/$53`. Those inputs are unavailable, so the
+selector remains approximate and is not wired.
 
 TGSR-3 retains the exact state-`$15` rim-rattle contract in metadata bytes
 29..63. It carries state

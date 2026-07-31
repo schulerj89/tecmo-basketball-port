@@ -225,12 +225,12 @@ updates, one +2 score commit, and SFX mailbox `$0B` throughout the same-frame
 actual swap. Its first launch exposed a Lua 5.1 60-upvalue compilation error in
 status generation. The status writer was split without changing its acceptance
 predicate or 63 emitted keys, and both tracked Lua files pass the bundled
-32-bit Lua 5.1 parser. One final bounded launch still failed before
-`metadata.txt` or `status.txt` was created, with empty FCEUX output logs; the
-runner closed FCEUX. Do not retry through coordinate, delay, or controller
-sweeps. Diagnose the FCEUX/Lua startup boundary first. This control upgrade has
-not produced a passed pilot; it is not evidence that an ordinary two-point make
-works.
+32-bit Lua 5.1 parser. A later bounded launch reached live setup but aborted at
+frame 4214's defensive-A store confirmation deadline before any shot; it
+supplied no `$B100`, state-08, or score evidence and closed FCEUX. Do not widen
+this failure into coordinate/timing/controller retries. This control upgrade
+has not produced a passed pilot and is not evidence that an ordinary two-point
+make works.
 
 Telemetry, hook events, screenshots, logs, movies, and status files are local
 research evidence only. Native C and asset-pack import/runtime paths must never
@@ -765,8 +765,8 @@ material, not committed provenance or runtime input. See
 The scene must obtain TGPL-1 `gameplay/core`, TGCT-1 `gameplay/court`, TGCP-2
 `gameplay/camera-projection`, TGOR-1 `gameplay/court-orientation`, TGCS-1
 `gameplay/close-shots`, TGDK-1 `gameplay/dunk-cutaway`,
-TGJS-1 `gameplay/jump-shots` (1648 bytes,
-`7587B099`), TGSR-3 `gameplay/shot-resolution` (512 bytes, `164DC568`),
+TGJS-2 `gameplay/jump-shots` (2776 bytes,
+`A66EE873`), TGSR-3 `gameplay/shot-resolution` (512 bytes, `164DC568`),
 TMUS-1 `audio/music`, TSFX-1
 `audio/gameplay-sfx`, TDMC-1 `audio/gameplay-dmc`, and `chr/all` from the same
 explicit pack. Exact-size reads, canonical fingerprints, deep bounds/reserved
@@ -790,9 +790,14 @@ three-point classification for raw world X/Y, orientation 0/1, and shot-flag
 low bits with the original low-byte subtraction and high-byte borrow. The
 classifier routine itself remains in same-pack TGPL-1's existing
 `$B995-$BA3F` source span; TGSR does not duplicate those bytes. This is a
-rules foundation only: live ordinary two-point makes remain rejected because
-the distance-dependent `$AD4E->$B32C` flight has not been captured, so the
-three-point frame-85/frame-111 checkpoints cannot be reused.
+rules foundation only. TGJS-2 strictly translates
+`$AD4E->$B32C->$B100` when raw launch position, target, altitude, and context
+are supplied explicitly, including 16-bit wrap and the zero-count fail-closed
+case. Live ordinary two-point makes remain rejected because exact `$AD6E`
+launch inputs are not owned. The supported three-point route derives its
+frame-111 handoff from `$AC0A-$AC6E`'s 26-update state-08 timer after frame 85.
+The exact `$91BC` evaluator remains documentation-only because the live scene
+lacks its TTDT condition, matchup, motion, and RNG inputs.
 
 TGSR-3 uses metadata bytes 29..63 for the strict state-`$15` rim-rattle
 contract. It imports orientation starts `$009D/$0263`, Y `$93`, velocity
@@ -995,7 +1000,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/asset_pack/tecmo_asset_pack_gameplay_camera.c`: strict TGCP-2 camera/projector/clamp importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_close_shots.c`: strict TGCS-1 numeric close-shot importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c`: strict TGDK-1 screen/palette/CHR/staged-sprite importer
-- `src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c`: strict TGJS-1 ordinary-jump importer
+- `src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c`: strict TGJS-2 ordinary-jump importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.c`: strict TGFL-1 raw free-throw lineup importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_audio.c`: strict TFSX-1 frontend and TSFX-1/TDMC-1 gameplay-audio importer
 - `src/asset_pack/tecmo_asset_pack_start_menu.c`: ROM-only TSGM-1 blue start-game menu importer

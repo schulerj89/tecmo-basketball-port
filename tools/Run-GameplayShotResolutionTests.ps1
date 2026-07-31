@@ -364,13 +364,17 @@ try {
         if ($Index -eq 5) {
             # The launch-target routine is already inside TGJS's larger
             # revision span, so the compound builder rejects there first.
-            $Owner = "TGJS-1"
+            $Owner = "TGJS-2"
             $Range = '$AD41-$AF21'
         } elseif ($Index -eq 6) {
             # The four-byte snap table is already inside TGCS's larger
             # revision span, so the compound builder rejects there first.
             $Owner = "TGCS-1"
             $Range = '$BDEF-$BDF6'
+        } elseif ($Index -eq 7) {
+            # TGJS-2's logical distance table owns the overlapping prefix.
+            $Owner = "TGJS-2"
+            $Range = '$BDF7-$BEF6'
         }
         Invoke-RejectedRomMutation $RomBytes ("source-{0}" -f $Index) `
             $Offset $Range $Owner

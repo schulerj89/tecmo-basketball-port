@@ -146,6 +146,7 @@ typedef struct TecmoGameplayScene {
     uint8_t jump_rim_rattle_raw_selector;
     uint8_t jump_rim_rattle_audio_repeats;
     TecmoGameplayShotRimRattle jump_rim_rattle;
+    TecmoGameplayJumpShotMadeSettlement jump_made_settlement;
     TecmoGameplaySceneShotKind shot_kind;
     TecmoGameplayPhase previous_phase;
     uint32_t frame;
@@ -154,7 +155,7 @@ typedef struct TecmoGameplayScene {
 /* Initialize exactly once before load/destroy. */
 void tecmo_gameplay_scene_init(TecmoGameplayScene *scene);
 
-/* Loads TGPL-1, TGCT-1, TGCP-2, TGOR-1, TGCS-1, TGDK-1, TGJS-1, TGSR-3,
+/* Loads TGPL-1, TGCT-1, TGCP-2, TGOR-1, TGCS-1, TGDK-1, TGJS-2, TGSR-3,
    TSFX-1, and TDMC-1 from one local pack.
    `asset_pack_path` may be NULL to use the strict runtime search order.
    Runtime data is never read from decompilation/capture paths. */

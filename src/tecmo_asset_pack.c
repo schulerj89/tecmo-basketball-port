@@ -929,7 +929,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                 sizeof(jump_shot_payload), message, message_size) != 0) {
             tecmo_asset_pack_set_message(
                 message, message_size,
-                "Could not write strict TGJS-1 gameplay entry.");
+                "Could not write strict TGJS-2 gameplay entry.");
             return -1;
         }
         entry_info = tecmo_asset_pack_make_entry_info(

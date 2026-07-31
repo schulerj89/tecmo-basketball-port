@@ -40,7 +40,7 @@ The compound scene loads `gameplay/core` TGPL-1 (23416 bytes,
 `gameplay/court-orientation` TGOR-1 (640 bytes, `F9152C0A`),
 `gameplay/close-shots` TGCS-1 (3144 bytes, `DACDC976`),
 `gameplay/dunk-cutaway` TGDK-1 (20272 bytes, `E02F2D21`),
-`gameplay/jump-shots` TGJS-1 (1648 bytes, `7587B099`),
+`gameplay/jump-shots` TGJS-2 (2776 bytes, `A66EE873`),
 `gameplay/shot-resolution` TGSR-3 (512 bytes, `164DC568`), `audio/music`
 TMUS-1 (36784 bytes, `05C00ECB`), `audio/gameplay-sfx` TSFX-1 (2824
 bytes, `968A5DE6`), `audio/gameplay-dmc` TDMC-1 (2515 bytes,
@@ -142,9 +142,10 @@ goal 2 or three point 3 using the exact `$5B..$D6` Y range, carried arc table,
 and 6502 low-byte subtraction/high-byte borrow. The classifier routine bytes
 remain in same-pack TGPL-1's existing `$B995-$BA3F` source span rather than
 being duplicated. This exact rule does not enable live ordinary two-point
-makes. The `$AD4E->$B32C` flight is distance-dependent, so the captured
-three-point frame-85/frame-111 schedule remains rejected for that context
-until a bounded make capture proves its own timing.
+makes. TGJS-2 translates `$AD4E->$B32C->$B100` only when all raw launch
+inputs are explicit; exact `$AD6E` live ownership is still missing. The
+supported three-point route alone uses `$AC0A-$AC6E`'s state-08 timer, deriving
+handoff as frame 85 plus 26 updates.
 
 `gameplay/penalties` TPNL-1 is a separate strict 768-byte pure rules asset
 (FNV1a32 `980DDC76`) with same-pack TGPL-1 and TSFX-1 dependencies. It exposes
@@ -377,9 +378,11 @@ decompilation at these CPU-address ranges:
   recipe; fixed `$C711-$C73B` plus `$CAF5-$CBAE` supply selector dispatch.
 - Bank 06 `$B37C-$BC3B`: relative sprite emitter, side pointers, and all
   four-byte geometry records; fixed `$EB8D-$EC05` restores the court.
-- TGJS-1 owns the otherwise-unpacked Bank05 spans `$8469-$846A`,
-  `$8999-$89C0`, `$8D92-$8DD2`, `$9C29-$9C3F`, `$AD41-$AF21`,
-  `$B6E5-$B774`, `$B7C1-$B87B`, and `$BA65-$BAC0`. It depends on TGPL-1 for
+- TGJS-2 owns the otherwise-unpacked Bank05 spans `$8001-$815A`,
+  `$8469-$846A`,
+  `$8999-$89C0`, `$8D92-$8DD2`, `$9C29-$9C3F`, `$AC0A-$AC6E`,
+  `$AD41-$AF21`, `$B6E5-$B774`, `$B7C1-$B87B`, `$BA65-$BAC0`,
+  `$BCA1-$BDC6`, and `$BDF7-$BEF6`. It depends on TGPL-1 for
   actor dispatch/poses/results and TGCS-1 for dispatcher, launch-solver, Q8.8,
   and route tables already covered there. The 32 normalized pose indices are
   rederived from Bank05 `$8D3D/$8D5D` and have FNV-1a `A057A625`.
@@ -431,8 +434,9 @@ These are provenance only and are not runtime inputs.
   debug/test API only; live selection remains unchanged. Unsupported
   profiles/directions/outcomes, ordinary two-point makes, the longer +157-update
   claimant route, and make ball geometry do not inherit those frame
-  checkpoints. TGSR-3 can classify an input coordinate as two points without
-  supplying the missing action/flight/settlement schedule. No semantic rebound,
+  checkpoints. TGSR-3 can classify an input coordinate as two points and
+  TGJS-2 can simulate distance flight from explicit raw inputs; neither owns
+  live `$AD6E` launch inputs or admits the route. No semantic rebound,
   block, steal, or player-stat event is claimed.
 - Actor starting layout, unconditional ordinary-movement policy, AI,
   jump-ball interpolation, unsupported jump routes, general

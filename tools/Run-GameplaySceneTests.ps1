@@ -220,7 +220,7 @@ try {
         [pscustomobject]@{ id="gameplay/court-orientation"; size=640; hash="F9152C0A"; schema="tecmo.gameplay-court-orientation/TGOR-1" },
         [pscustomobject]@{ id="gameplay/close-shots"; size=3144; hash="DACDC976"; schema="tecmo.gameplay-close-shots/TGCS-1" },
         [pscustomobject]@{ id="gameplay/dunk-cutaway"; size=20272; hash="E02F2D21"; schema="tecmo.gameplay-dunk-cutaway/TGDK-1" },
-        [pscustomobject]@{ id="gameplay/jump-shots"; size=1648; hash="7587B099"; schema="tecmo.gameplay-jump-shots/TGJS-1" },
+        [pscustomobject]@{ id="gameplay/jump-shots"; size=2776; hash="A66EE873"; schema="tecmo.gameplay-jump-shots/TGJS-2" },
         [pscustomobject]@{ id="gameplay/shot-resolution"; size=512; hash="164DC568"; schema="tecmo.gameplay-shot-resolution/TGSR-3" },
         [pscustomobject]@{ id="audio/music"; size=36784; hash="05C00ECB"; schema="tecmo.music/TMUS-1" },
         [pscustomobject]@{ id="audio/gameplay-sfx"; size=2824; hash="968A5DE6"; schema="tecmo.gameplay-audio/TSFX-1" },
@@ -293,7 +293,7 @@ try {
         "--gameplay-jump-shots-test", $PackPath
     ) -LogPath $JumpLog
     if ($JumpRun.exit_code -ne 0 -or
-        $JumpRun.tail -notmatch "TGJS-1 jump-shot assets passed") {
+        $JumpRun.tail -notmatch "TGJS-2 jump-shot assets passed") {
         throw "Strict jump-shot asset test failed.`n$($JumpRun.tail)"
     }
 

@@ -2227,14 +2227,18 @@ static int append_gameplay_jump_shot_source_map_entry(
 {
     static const char *const roles[
         TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_COUNT] = {
+        "signed-multiply-division-$8001-$815A",
         "family-bases-$8469-$846A",
         "animation-counter-$8999-$89C0",
         "initial-velocity-derivation-$8D92-$8DD2",
         "phase-decrement-$9C29-$9C3F",
+        "made-state08-timer-and-state9-$AC0A-$AC6E",
         "route1-follow-release-$AD41-$AF21",
         "route10-$B6E5-$B774",
         "bounce-motion-collision-$B7C1-$B87B",
-        "post-shot-settlement-$BA65-$BAC0"
+        "post-shot-settlement-$BA65-$BAC0",
+        "distance-flight-helpers-$BCA1-$BDC6",
+        "distance-flight-lookup-$BDF7-$BEF6"
     };
     const char *prefix = *first != 0 ? "" : ",\n";
 
@@ -2243,11 +2247,11 @@ static int append_gameplay_jump_shot_source_map_entry(
             buffer, capacity, length,
             "%s"
             "    {\"id\":\"%s\",\"kind\":\"gameplay-jump-shots-native\","
-            "\"schema\":\"tecmo.gameplay-jump-shots/TGJS-1\",\"size\":%u,"
+            "\"schema\":\"tecmo.gameplay-jump-shots/TGJS-2\",\"size\":%u,"
             "\"fingerprint_fnv1a32\":\"%08X\","
             "\"dependencies\":["
             "{\"entry\":\"%s\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\",\"reason\":\"pose records and selector source\"},"
-            "{\"entry\":\"%s\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\",\"reason\":\"shared jump/close dispatcher and routes\"}],"
+            "{\"entry\":\"%s\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\",\"reason\":\"shared $AB36 made seed and $B100/$B32C/$B678 flight ownership\"}],"
             "\"source_spans\":[",
             prefix, TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_ID,
             (unsigned)TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_SIZE,
@@ -2269,14 +2273,16 @@ static int append_gameplay_jump_shot_source_map_entry(
                 "%s{\"role\":\"%s\",\"source_entry\":\"prg/bank05\","
                 "\"source_offset\":%llu,\"bank\":5,\"cpu_start\":%u,"
                 "\"cpu_end\":%u,\"size\":%u,"
-                "\"fingerprint_fnv1a32\":\"%08X\"}",
+                "\"fingerprint_fnv1a32\":\"%08X\","
+                "\"fingerprint_fnv1a64\":\"%016llX\"}",
                 index == 0U ? "" : ",", roles[index],
                 (unsigned long long)p->source_offsets[index],
                 (unsigned)source->cpu_start,
                 (unsigned)((uint32_t)source->cpu_start +
                            source->byte_count - 1U),
                 (unsigned)source->byte_count,
-                (unsigned)source->fingerprint) != 0) {
+                (unsigned)source->fingerprint,
+                (unsigned long long)source->fingerprint_fnv1a64) != 0) {
             return -1;
         }
     }
@@ -2291,6 +2297,10 @@ static int append_gameplay_jump_shot_source_map_entry(
         "\"gravity_q8\":40,\"floor_wrap_clamp\":246,"
         "\"bounce_decay_q8\":128,\"outcome_flag_mask\":128,"
         "\"crowd_sfx\":11,\"side_result_base\":12,"
+        "\"made_state\":8,\"made_timer\":[4,2],"
+        "\"made_terminal_stage\":12,\"made_updates\":26,"
+        "\"made_complete_state\":9,\"flight_states\":[5,7],"
+        "\"flight_count_limit\":60,\"flight_altitude_threshold\":60,"
         "\"fingerprint_fnv1a32\":\"%08X\"},"
         "\"pose_contract\":{\"source_cpu_ranges\":[[36157,36188],[36189,36220]],"
         "\"source_fingerprint_fnv1a32\":\"%08X\","
@@ -2298,8 +2308,8 @@ static int append_gameplay_jump_shot_source_map_entry(
         "\"layout\":\"family*16 + profile_bit*8 + direction\","
         "\"family_count\":2,\"profile_count\":2,\"direction_count\":8,"
         "\"pointer_count\":32,\"pointer_fingerprint_fnv1a32\":\"%08X\"},"
-        "\"behavior_boundary\":\"current-B release, actor state transitions, Q8.8 gravity/clamp, pose selection, conditional bounce DMC, terminal outcome flag, and post-shot settlement ordering; slot-0 frame schedule, terminal result, and geometry remain context-bound\","
-        "\"runtime_inputs\":\"TGJS-1 plus same-pack TGPL-1/TGCS-1; no decompilation, trace, capture, screenshot, log, dump, state, Lua, or video\"}",
+        "\"behavior_boundary\":\"current-B release, actor state transitions, explicit-input distance-flight initialization/update, Q8.8 gravity/clamp, pose selection, conditional bounce DMC, terminal outcome flag, state-08 26-update made settlement, and post-shot ordering; AD6E launch ownership, two-point admission, live outcome inputs, and contact remain unsupported\","
+        "\"runtime_inputs\":\"TGJS-2 plus same-pack TGPL-1/TGCS-1; no decompilation, trace, capture, screenshot, log, dump, state, Lua, or video\"}",
         (unsigned)TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_RAW_SIZE,
         (unsigned)TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_RAW_FNV1A32,
         (unsigned)TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_CONSTANTS_FNV1A32,

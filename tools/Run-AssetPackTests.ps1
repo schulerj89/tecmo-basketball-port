@@ -3712,31 +3712,37 @@ try {
                     Where-Object { $_.id -eq "gameplay/jump-shots" } |
                     Select-Object -First 1)
                 $ExpectedJumpShotRoles = @(
+                    "signed-multiply-division-`$8001-`$815A",
                     "family-bases-`$8469-`$846A",
                     "animation-counter-`$8999-`$89C0",
                     "initial-velocity-derivation-`$8D92-`$8DD2",
                     "phase-decrement-`$9C29-`$9C3F",
+                    "made-state08-timer-and-state9-`$AC0A-`$AC6E",
                     "route1-follow-release-`$AD41-`$AF21",
                     "route10-`$B6E5-`$B774",
                     "bounce-motion-collision-`$B7C1-`$B87B",
-                    "post-shot-settlement-`$BA65-`$BAC0"
+                    "post-shot-settlement-`$BA65-`$BAC0",
+                    "distance-flight-helpers-`$BCA1-`$BDC6",
+                    "distance-flight-lookup-`$BDF7-`$BEF6"
                 )
                 $JumpShotRoles = @($JumpShotSource.source_spans |
                     ForEach-Object { [string]$_.role })
                 $JumpShotDependencies = @($JumpShotSource.dependencies)
                 $JumpShotSourcePassed = $JumpShotSource.Count -eq 1 -and
                     $JumpShotSource.schema -eq
-                        "tecmo.gameplay-jump-shots/TGJS-1" -and
-                    [int]$JumpShotSource.size -eq 1648 -and
-                    $JumpShotSource.fingerprint_fnv1a32 -eq "7587B099" -and
+                        "tecmo.gameplay-jump-shots/TGJS-2" -and
+                    [int]$JumpShotSource.size -eq 2776 -and
+                    $JumpShotSource.fingerprint_fnv1a32 -eq "A66EE873" -and
                     (@(Compare-Object -ReferenceObject $ExpectedJumpShotRoles `
                         -DifferenceObject $JumpShotRoles)).Count -eq 0 -and
-                    @($JumpShotSource.source_spans).Count -eq 8 -and
+                    @($JumpShotSource.source_spans).Count -eq 12 -and
                     @($JumpShotSource.source_spans | Where-Object {
                         [int]$_.bank -ne 5 -or
                         [string]$_.source_entry -ne "prg/bank05" -or
                         [string]$_.fingerprint_fnv1a32 -notmatch
-                            '^[0-9A-F]{8}$'
+                            '^[0-9A-F]{8}$' -or
+                        [string]$_.fingerprint_fnv1a64 -notmatch
+                            '^[0-9A-F]{16}$'
                     }).Count -eq 0 -and
                     $JumpShotDependencies.Count -eq 2 -and
                     (@($JumpShotDependencies | ForEach-Object {
@@ -3750,19 +3756,17 @@ try {
                         0x80 -and
                     [int]$JumpShotSource.constants.outcome_flag_mask -eq
                         0x80 -and
-                    $null -eq
-                        $JumpShotSource.constants.PSObject.Properties["made_mask"] -and
                     $JumpShotSource.constants.fingerprint_fnv1a32 -eq
-                        "C868CFE3" -and
+                        "EC3032A0" -and
+                    [int]$JumpShotSource.constants.made_updates -eq 26 -and
+                    [int]$JumpShotSource.constants.made_complete_state -eq 9 -and
                     [int]$JumpShotSource.pose_contract.pointer_count -eq 32 -and
                     $JumpShotSource.pose_contract.source_fingerprint_fnv1a32 -eq
                         "069DDFDB" -and
                     $JumpShotSource.pose_contract.pointer_fingerprint_fnv1a32 -eq
                         "A057A625" -and
                     $JumpShotSource.behavior_boundary -match
-                        "post-shot settlement" -and
-                    $JumpShotSource.behavior_boundary -notmatch
-                        "made-settlement" -and
+                        "state-08 26-update made settlement" -and
                     $JumpShotSource.runtime_inputs -notmatch
                         "decompilation file|trace file|capture file"
                 Add-TestResult ([pscustomobject]@{
@@ -3770,7 +3774,7 @@ try {
                     passed = $JumpShotSourcePassed
                     schema_valid = $JumpShotSource.Count -eq 1 -and
                         $JumpShotSource.schema -eq
-                            "tecmo.gameplay-jump-shots/TGJS-1"
+                            "tecmo.gameplay-jump-shots/TGJS-2"
                     source_roles = $JumpShotRoles
                     dependency_entries = @($JumpShotDependencies |
                         ForEach-Object { [string]$_.entry })

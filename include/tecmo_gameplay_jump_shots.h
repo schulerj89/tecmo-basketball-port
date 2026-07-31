@@ -5,21 +5,25 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_COUNT 8U
+#define TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_COUNT 12U
 #define TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_COUNT 2U
 #define TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_COUNT 2U
 #define TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_COUNT 8U
 #define TECMO_GAMEPLAY_JUMP_SHOT_POSE_COUNT 32U
 
 typedef enum TecmoGameplayJumpShotSourceKind {
-    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_FAMILY_BASES = 1,
-    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_ANIMATION_COUNTER = 2,
-    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_INITIAL_VELOCITY = 3,
-    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_PHASE_DECREMENT = 4,
-    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_ROUTE1_FOLLOW_RELEASE = 5,
-    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_ROUTE10 = 6,
-    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_BOUNCE_MOTION_COLLISION = 7,
-    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_POST_SHOT_SETTLEMENT = 8
+    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_SIGNED_MATH = 1,
+    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_FAMILY_BASES = 2,
+    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_ANIMATION_COUNTER = 3,
+    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_INITIAL_VELOCITY = 4,
+    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_PHASE_DECREMENT = 5,
+    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_MADE_STATE08 = 6,
+    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_ROUTE1_FOLLOW_RELEASE = 7,
+    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_ROUTE10 = 8,
+    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_BOUNCE_MOTION_COLLISION = 9,
+    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_POST_SHOT_SETTLEMENT = 10,
+    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_DISTANCE_HELPERS = 11,
+    TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_DISTANCE_TABLE = 12
 } TecmoGameplayJumpShotSourceKind;
 
 typedef enum TecmoGameplayJumpShotFamily {
@@ -68,7 +72,36 @@ typedef struct TecmoGameplayJumpShotConstants {
     uint16_t gravity_q8;
     uint8_t floor_wrap_clamp;
     uint16_t bounce_decay_q8;
+    uint8_t made_state;
+    uint8_t made_initial_timer;
+    uint8_t made_repeat_timer;
+    uint8_t made_terminal_stage;
+    uint8_t made_update_count;
+    uint8_t flight_state;
+    uint8_t result_state;
+    uint8_t flight_count_limit;
+    uint8_t flight_result_altitude_threshold;
+    uint8_t made_complete_state;
 } TecmoGameplayJumpShotConstants;
+
+typedef struct TecmoGameplayJumpShotFlightState {
+    uint16_t world_x_q6;
+    uint16_t world_y_q6;
+    uint16_t velocity_x_q6;
+    uint16_t velocity_y_q6;
+    uint16_t altitude_q8;
+    uint16_t altitude_velocity_q8;
+    uint16_t remaining_updates;
+    uint8_t object_state;
+} TecmoGameplayJumpShotFlightState;
+
+typedef struct TecmoGameplayJumpShotMadeSettlement {
+    uint8_t state;
+    uint8_t timer;
+    uint8_t stage;
+    uint8_t updates;
+    bool complete;
+} TecmoGameplayJumpShotMadeSettlement;
 
 typedef struct TecmoGameplayJumpShotSourceSpan {
     TecmoGameplayJumpShotSourceKind kind;
@@ -78,6 +111,7 @@ typedef struct TecmoGameplayJumpShotSourceSpan {
     uint16_t cpu_end;
     uint32_t byte_count;
     uint32_t fingerprint;
+    uint64_t fingerprint_fnv1a64;
     const uint8_t *bytes;
 } TecmoGameplayJumpShotSourceSpan;
 
@@ -129,5 +163,28 @@ bool tecmo_gameplay_jump_shots_step_q8(
     uint16_t *altitude_q8,
     uint16_t *velocity_q8,
     bool *landed);
+
+/* Test-only translation of Bank05 $B100 using explicit raw state. It does not
+   derive the still-unproven $AD6E launch inputs. */
+bool tecmo_gameplay_jump_shots_step_distance_flight(
+    const TecmoGameplayJumpShotAssets *assets,
+    TecmoGameplayJumpShotFlightState *state);
+bool tecmo_gameplay_jump_shots_begin_distance_flight(
+    const TecmoGameplayJumpShotAssets *assets,
+    uint16_t start_x,
+    uint8_t start_y,
+    uint16_t target_x,
+    uint8_t target_y,
+    uint16_t start_altitude_q8,
+    uint8_t context,
+    TecmoGameplayJumpShotFlightState *state);
+
+bool tecmo_gameplay_jump_shots_made_settlement_begin(
+    const TecmoGameplayJumpShotAssets *assets,
+    TecmoGameplayJumpShotMadeSettlement *settlement);
+bool tecmo_gameplay_jump_shots_made_settlement_step(
+    const TecmoGameplayJumpShotAssets *assets,
+    TecmoGameplayJumpShotMadeSettlement *settlement,
+    bool stalled);
 
 #endif

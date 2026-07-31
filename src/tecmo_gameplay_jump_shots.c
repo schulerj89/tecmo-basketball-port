@@ -28,6 +28,25 @@ static uint32_t read_u32(const uint8_t *bytes)
            ((uint32_t)bytes[2] << 16U) | ((uint32_t)bytes[3] << 24U);
 }
 
+static uint64_t read_u64(const uint8_t *bytes)
+{
+    uint64_t value = 0U;
+    for (unsigned index = 0U; index < 8U; ++index) {
+        value |= (uint64_t)bytes[index] << (index * 8U);
+    }
+    return value;
+}
+
+static uint64_t fnv1a64(const uint8_t *bytes, size_t count)
+{
+    uint64_t hash = 14695981039346656037ULL;
+    for (size_t index = 0U; index < count; ++index) {
+        hash ^= bytes[index];
+        hash *= 1099511628211ULL;
+    }
+    return hash;
+}
+
 static uint32_t fnv1a32(const uint8_t *bytes, size_t count)
 {
     uint32_t hash = 2166136261U;
@@ -64,7 +83,7 @@ static bool reject(TecmoGameplayJumpShotAssets *assets,
     memset(assets->sources, 0, sizeof(assets->sources));
     assets->available = false;
     (void)snprintf(assets->status, sizeof(assets->status), "%s",
-                   message != NULL ? message : "TGJS-1 rejected");
+                   message != NULL ? message : "TGJS-2 rejected");
     return false;
 }
 
@@ -170,14 +189,18 @@ static bool validate_source_records(const uint8_t *payload,
             read_u32(record + 12U) != expected->payload_offset ||
             read_u32(record + 16U) != expected->fingerprint ||
             read_u16(record + 20U) != (uint16_t)index ||
-            !bytes_are_zero(record + 22U, 10U) ||
+            read_u64(record + 22U) != expected->fingerprint_fnv1a64 ||
+            !bytes_are_zero(record + 30U, 2U) ||
             expected->cpu_start < 0x8000U || cpu_end >= 0xC000U ||
             (index != 0U && expected->cpu_start <= prior_cpu_end) ||
             expected->payload_offset != prior_payload_end ||
             !range_ok(expected->payload_offset, expected->byte_count,
                       payload_size) ||
             fnv1a32(payload + expected->payload_offset,
-                    expected->byte_count) != expected->fingerprint) {
+                    expected->byte_count) != expected->fingerprint ||
+            fnv1a64(payload + expected->payload_offset,
+                    expected->byte_count) !=
+                expected->fingerprint_fnv1a64) {
             return false;
         }
         prior_cpu_end = cpu_end;
@@ -355,6 +378,16 @@ static void load_constants(TecmoGameplayJumpShotConstants *constants,
     constants->gravity_q8 = read_u16(bytes + 21U);
     constants->floor_wrap_clamp = bytes[23U];
     constants->bounce_decay_q8 = read_u16(bytes + 24U);
+    constants->made_state = bytes[26U];
+    constants->made_initial_timer = bytes[27U];
+    constants->made_repeat_timer = bytes[28U];
+    constants->made_terminal_stage = bytes[29U];
+    constants->made_update_count = bytes[30U];
+    constants->flight_state = bytes[31U];
+    constants->result_state = bytes[32U];
+    constants->flight_count_limit = bytes[33U];
+    constants->flight_result_altitude_threshold = bytes[34U];
+    constants->made_complete_state = bytes[35U];
 }
 
 bool tecmo_gameplay_jump_shots_parse(
@@ -373,12 +406,12 @@ bool tecmo_gameplay_jump_shots_parse(
     }
     tecmo_gameplay_jump_shots_destroy(assets);
     if (payload == NULL || !validate_header(payload, payload_size)) {
-        return reject(assets, "TGJS-1 header/size/reserved contract rejected");
+        return reject(assets, "TGJS-2 header/size/reserved contract rejected");
     }
     if (fnv1a32(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_FNV1A32) {
         return reject(assets,
-                      "TGJS-1 canonical payload fingerprint rejected");
+                      "TGJS-2 canonical payload fingerprint rejected");
     }
     if (!validate_source_records(payload, payload_size) ||
         !bytes_are_zero(
@@ -388,16 +421,16 @@ bool tecmo_gameplay_jump_shots_parse(
                 TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_RAW_SIZE) !=
             TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_RAW_FNV1A32 ||
         !validate_constants(payload)) {
-        return reject(assets, "TGJS-1 source/semantic contract rejected");
+        return reject(assets, "TGJS-2 source/semantic contract rejected");
     }
     if (!validate_dependencies_and_poses(
             payload, gameplay_core, gameplay_core_size,
             close_shots, close_shots_size)) {
         return reject(assets,
-                      "TGJS-1 same-pack TGPL-1/TGCS-1 dependencies rejected");
+                      "TGJS-2 same-pack TGPL-1/TGCS-1 dependencies rejected");
     }
     storage = (uint8_t *)malloc(payload_size);
-    if (storage == NULL) return reject(assets, "TGJS-1 allocation failed");
+    if (storage == NULL) return reject(assets, "TGJS-2 allocation failed");
     memcpy(storage, payload, payload_size);
     assets->storage = storage;
     assets->storage_size = payload_size;
@@ -414,6 +447,7 @@ bool tecmo_gameplay_jump_shots_parse(
                                      expected->byte_count - 1U);
         source->byte_count = expected->byte_count;
         source->fingerprint = expected->fingerprint;
+        source->fingerprint_fnv1a64 = expected->fingerprint_fnv1a64;
         source->bytes = storage + expected->payload_offset;
     }
     load_constants(
@@ -426,7 +460,7 @@ bool tecmo_gameplay_jump_shots_parse(
         TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_FNV1A32;
     assets->available = true;
     (void)snprintf(assets->status, sizeof(assets->status),
-                   "TGJS-1 gameplay jump-shot assetpack");
+                   "TGJS-2 gameplay jump-shot assetpack");
     return true;
 }
 
@@ -451,7 +485,7 @@ bool tecmo_gameplay_jump_shots_load(TecmoGameplayJumpShotAssets *assets,
             TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_SIZE,
             &payload, &payload_size) != 0) {
         return reject(assets,
-                      "TGJS-1 gameplay/jump-shots entry missing or wrong-sized");
+                      "TGJS-2 gameplay/jump-shots entry missing or wrong-sized");
     }
     if (tecmo_asset_pack_read_entry_exact(
             asset_pack_path, TECMO_ASSET_PACK_GAMEPLAY_ID,
@@ -459,7 +493,7 @@ bool tecmo_gameplay_jump_shots_load(TecmoGameplayJumpShotAssets *assets,
             &gameplay_core, &gameplay_core_size) != 0) {
         tecmo_asset_pack_free(payload);
         return reject(assets,
-                      "TGJS-1 gameplay/core dependency missing or wrong-sized");
+                      "TGJS-2 gameplay/core dependency missing or wrong-sized");
     }
     if (tecmo_asset_pack_read_entry_exact(
             asset_pack_path, TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_ID,
@@ -468,7 +502,7 @@ bool tecmo_gameplay_jump_shots_load(TecmoGameplayJumpShotAssets *assets,
         tecmo_asset_pack_free(payload);
         tecmo_asset_pack_free(gameplay_core);
         return reject(assets,
-                      "TGJS-1 gameplay/close-shots dependency missing or wrong-sized");
+                      "TGJS-2 gameplay/close-shots dependency missing or wrong-sized");
     }
     loaded = tecmo_gameplay_jump_shots_parse(
         assets, payload, (size_t)payload_size,
@@ -546,5 +580,180 @@ bool tecmo_gameplay_jump_shots_step_q8(
     }
     *altitude_q8 = next_altitude;
     *velocity_q8 = next_velocity;
+    return true;
+}
+
+bool tecmo_gameplay_jump_shots_step_distance_flight(
+    const TecmoGameplayJumpShotAssets *assets,
+    TecmoGameplayJumpShotFlightState *state)
+{
+    TecmoGameplayJumpShotFlightState next;
+    bool landed = false;
+    if (assets == NULL || !assets->available || state == NULL ||
+        state->object_state != assets->constants.flight_state ||
+        state->remaining_updates > assets->constants.flight_count_limit) {
+        return false;
+    }
+    next = *state;
+    if (next.remaining_updates == 0U) {
+        if ((next.altitude_q8 >> 8U) <
+            assets->constants.flight_result_altitude_threshold) {
+            next.object_state = assets->constants.result_state;
+            *state = next;
+            return true;
+        }
+    } else {
+        next.world_x_q6 =
+            (uint16_t)(next.world_x_q6 + next.velocity_x_q6);
+        next.world_y_q6 =
+            (uint16_t)(next.world_y_q6 + next.velocity_y_q6);
+        --next.remaining_updates;
+    }
+    if (!tecmo_gameplay_jump_shots_step_q8(
+            assets, &next.altitude_q8,
+            &next.altitude_velocity_q8, &landed)) {
+        return false;
+    }
+    *state = next;
+    return true;
+}
+
+bool tecmo_gameplay_jump_shots_begin_distance_flight(
+    const TecmoGameplayJumpShotAssets *assets,
+    uint16_t start_x,
+    uint8_t start_y,
+    uint16_t target_x,
+    uint8_t target_y,
+    uint16_t start_altitude_q8,
+    uint8_t context,
+    TecmoGameplayJumpShotFlightState *state)
+{
+    static const uint8_t altitude_bases[4] = {0x40U, 0x40U, 0x40U, 0xC8U};
+    const TecmoGameplayJumpShotSourceSpan *table;
+    TecmoGameplayJumpShotFlightState next;
+    int32_t dx;
+    int32_t dy;
+    uint32_t absolute_dx;
+    uint32_t count;
+    int altitude_delta;
+    int altitude_eighth;
+    uint8_t altitude_factor;
+    if (assets == NULL || !assets->available || state == NULL ||
+        context >= 4U) {
+        return false;
+    }
+    table = tecmo_gameplay_jump_shots_find_source(
+        assets, TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_DISTANCE_TABLE);
+    if (table == NULL || table->byte_count != 256U ||
+        table->bytes == NULL) {
+        return false;
+    }
+    dx = (int16_t)(target_x - start_x);
+    dy = (int16_t)((uint16_t)target_y - (uint16_t)start_y);
+    absolute_dx = target_x >= start_x
+        ? (uint32_t)(target_x - start_x)
+        : (uint32_t)(start_x - target_x);
+    count = table->bytes[start_y];
+    if (absolute_dx >= 0x20U) {
+        count = (uint16_t)((uint16_t)absolute_dx + (uint16_t)count);
+        count >>= 1U;
+    }
+    if (count > assets->constants.flight_count_limit) {
+        count = assets->constants.flight_count_limit;
+    }
+    if (count == 0U) return false;
+    altitude_delta = (int)(start_altitude_q8 >> 8U) -
+                     (int)altitude_bases[context];
+    altitude_eighth = altitude_delta >= 0
+        ? altitude_delta / 8
+        : -(((-altitude_delta) + 7) / 8);
+    altitude_factor = (uint8_t)(0x14 - altitude_eighth);
+    memset(&next, 0, sizeof(next));
+    next.world_x_q6 = (uint16_t)(start_x << 6U);
+    next.world_y_q6 = (uint16_t)((uint16_t)start_y << 6U);
+    next.velocity_x_q6 = (uint16_t)(
+        (int32_t)(int16_t)((uint16_t)dx << 6U) / (int32_t)count);
+    next.velocity_y_q6 = (uint16_t)(
+        (int32_t)(int16_t)((uint16_t)dy << 6U) / (int32_t)count);
+    next.altitude_q8 = start_altitude_q8;
+    next.altitude_velocity_q8 =
+        (uint16_t)(count * altitude_factor);
+    next.remaining_updates = (uint16_t)count;
+    next.object_state = assets->constants.flight_state;
+    *state = next;
+    return true;
+}
+
+bool tecmo_gameplay_jump_shots_made_settlement_begin(
+    const TecmoGameplayJumpShotAssets *assets,
+    TecmoGameplayJumpShotMadeSettlement *settlement)
+{
+    TecmoGameplayJumpShotMadeSettlement next;
+    if (assets == NULL || !assets->available || settlement == NULL ||
+        assets->constants.made_state == 0U ||
+        assets->constants.made_initial_timer == 0U ||
+        assets->constants.made_repeat_timer == 0U ||
+        assets->constants.made_terminal_stage == 0U ||
+        assets->constants.made_update_count == 0U) {
+        return false;
+    }
+    memset(&next, 0, sizeof(next));
+    next.state = assets->constants.made_state;
+    next.timer = assets->constants.made_initial_timer;
+    *settlement = next;
+    return true;
+}
+
+bool tecmo_gameplay_jump_shots_made_settlement_step(
+    const TecmoGameplayJumpShotAssets *assets,
+    TecmoGameplayJumpShotMadeSettlement *settlement,
+    bool stalled)
+{
+    TecmoGameplayJumpShotMadeSettlement next;
+    uint8_t expected_stage;
+    uint8_t expected_timer;
+    if (assets == NULL || !assets->available || settlement == NULL ||
+        settlement->state != assets->constants.made_state ||
+        settlement->complete ||
+        settlement->timer == 0U ||
+        settlement->stage >= assets->constants.made_terminal_stage ||
+        settlement->updates >= assets->constants.made_update_count) {
+        return false;
+    }
+    if (settlement->updates < assets->constants.made_initial_timer) {
+        expected_stage = 0U;
+        expected_timer = (uint8_t)(
+            assets->constants.made_initial_timer - settlement->updates);
+    } else {
+        uint8_t repeated = (uint8_t)(
+            settlement->updates - assets->constants.made_initial_timer);
+        expected_stage = (uint8_t)(1U +
+            repeated / assets->constants.made_repeat_timer);
+        expected_timer = (uint8_t)(
+            assets->constants.made_repeat_timer -
+            repeated % assets->constants.made_repeat_timer);
+    }
+    if (settlement->stage != expected_stage ||
+        settlement->timer != expected_timer) {
+        return false;
+    }
+    next = *settlement;
+    if (stalled) return true;
+    --next.timer;
+    ++next.updates;
+    if (next.timer == 0U) {
+        ++next.stage;
+        if (next.stage >= assets->constants.made_terminal_stage) {
+            next.complete = true;
+            next.state = assets->constants.made_complete_state;
+        } else {
+            next.timer = assets->constants.made_repeat_timer;
+        }
+    }
+    if (next.complete !=
+        (next.updates == assets->constants.made_update_count)) {
+        return false;
+    }
+    *settlement = next;
     return true;
 }

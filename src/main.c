@@ -74,7 +74,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-camera-projection-test PACK  Validate strict TGCP-2 camera/projector/clamp assets\n");
     printf("  --gameplay-close-shots-test PACK  Validate strict TGCS-1 close-shot assets\n");
     printf("  --gameplay-dunk-cutaway-test PACK  Validate strict TGDK-1 dunk presentation assets\n");
-    printf("  --gameplay-jump-shots-test PACK  Validate strict TGJS-1 jump-shot assets\n");
+    printf("  --gameplay-jump-shots-test PACK  Validate strict TGJS-2 jump-shot assets\n");
     printf("  --gameplay-shot-resolution-test PACK  Validate strict TGSR-3 shot-resolution assets\n");
     printf("  --gameplay-penalties-test PACK  Validate strict TPNL-1 penalty rules\n");
     printf("  --gameplay-free-throw-lineup-test PACK  Validate strict TGFL-1 raw lineup assets\n");
@@ -1645,6 +1645,8 @@ int main(int argc, char **argv)
         uint16_t pointer = 0U;
         uint16_t altitude = 0U;
         uint16_t velocity = 0x02E8U;
+        TecmoGameplayJumpShotFlightState flight;
+        TecmoGameplayJumpShotMadeSettlement made;
         bool landed = false;
         bool ok = false;
 
@@ -1678,7 +1680,7 @@ int main(int argc, char **argv)
             tecmo_gameplay_jump_shots_find_source(
                 &assets, (TecmoGameplayJumpShotSourceKind)0) != NULL ||
             tecmo_gameplay_jump_shots_find_source(
-                &assets, (TecmoGameplayJumpShotSourceKind)9) != NULL ||
+                &assets, (TecmoGameplayJumpShotSourceKind)13) != NULL ||
             assets.constants.nes_b_mask != 0x40U ||
             assets.constants.actor_state_gather != 0x1EU ||
             assets.constants.actor_state_prepared != 0x0BU ||
@@ -1692,7 +1694,11 @@ int main(int argc, char **argv)
             assets.constants.bounce_decay_q8 != 0x0080U ||
             assets.constants.outcome_flag_mask != 0x80U ||
             assets.constants.crowd_sfx != 11U ||
-            assets.constants.side_result_base != 12U) {
+            assets.constants.side_result_base != 12U ||
+            assets.constants.made_update_count != 26U ||
+            assets.constants.flight_count_limit != 60U ||
+            assets.constants.flight_result_altitude_threshold != 60U ||
+            assets.constants.made_complete_state != 9U) {
             printf("Jump-shot asset test failed: source/constants contract\n");
             goto jump_shot_test_cleanup;
         }
@@ -1756,9 +1762,131 @@ int main(int argc, char **argv)
             printf("Jump-shot asset test failed: Q8.8 clamp contract\n");
             goto jump_shot_test_cleanup;
         }
+        memset(&flight, 0xA5, sizeof(flight));
+        if (!tecmo_gameplay_jump_shots_begin_distance_flight(
+                &assets, 0x0108U, 0x70U, 0x00A0U, 0x8FU,
+                0x3900U, 0U, &flight) ||
+            flight.world_x_q6 != 0x4200U ||
+            flight.world_y_q6 != 0x1C00U ||
+            flight.velocity_x_q6 != 0xFF92U ||
+            flight.velocity_y_q6 != 0x0021U ||
+            flight.altitude_velocity_q8 != 0x04ECU ||
+            flight.remaining_updates != 60U ||
+            flight.object_state != 5U ||
+            !tecmo_gameplay_jump_shots_step_distance_flight(
+                &assets, &flight) ||
+            flight.world_x_q6 != 0x4192U ||
+            flight.world_y_q6 != 0x1C21U ||
+            flight.altitude_q8 != 0x3DC4U ||
+            flight.altitude_velocity_q8 != 0x04C4U ||
+            flight.remaining_updates != 59U) {
+            printf("Jump-shot asset test failed: distance flight contract\n");
+            goto jump_shot_test_cleanup;
+        }
+        if (!tecmo_gameplay_jump_shots_begin_distance_flight(
+                &assets, 0x0100U, 0x8FU, 0x0110U, 0x8FU,
+                0x4000U, 0U, &flight) ||
+            flight.remaining_updates != 26U ||
+            flight.velocity_x_q6 != 39U ||
+            flight.velocity_y_q6 != 0U ||
+            flight.altitude_velocity_q8 != 0x0208U ||
+            !tecmo_gameplay_jump_shots_begin_distance_flight(
+                &assets, 0x0100U, 0x8FU, 0x0110U, 0x8FU,
+                0x3900U, 3U, &flight) ||
+            flight.remaining_updates != 26U ||
+            flight.altitude_velocity_q8 != 0x03DCU) {
+            printf("Jump-shot asset test failed: distance initializer goldens\n");
+            goto jump_shot_test_cleanup;
+        }
+        if (!tecmo_gameplay_jump_shots_begin_distance_flight(
+                &assets, 0x0000U, 0x8FU, 0x0260U, 0x8FU,
+                0x4000U, 0U, &flight) ||
+            flight.remaining_updates != 60U ||
+            flight.velocity_x_q6 != 0xFE45U) {
+            printf("Jump-shot asset test failed: wide distance wrap golden\n");
+            goto jump_shot_test_cleanup;
+        }
+        if (!tecmo_gameplay_jump_shots_begin_distance_flight(
+                &assets, 0x0100U, 0x8FU, 0x0110U, 0x8FU,
+                0xFF00U, 0U, &flight) ||
+            flight.remaining_updates != 26U ||
+            flight.altitude_velocity_q8 != 0x19B2U) {
+            printf("Jump-shot asset test failed: altitude factor wrap golden\n");
+            goto jump_shot_test_cleanup;
+        }
+        memset(&flight, 0xA5, sizeof(flight));
+        {
+            TecmoGameplayJumpShotFlightState unchanged = flight;
+            if (tecmo_gameplay_jump_shots_begin_distance_flight(
+                    &assets, 0x0100U, 0xFEU, 0x0101U, 0xFEU,
+                    0x4000U, 0U, &flight) ||
+                memcmp(&flight, &unchanged, sizeof(flight)) != 0) {
+                printf("Jump-shot asset test failed: zero count accepted\n");
+                goto jump_shot_test_cleanup;
+            }
+        }
+        if (!tecmo_gameplay_jump_shots_begin_distance_flight(
+                &assets, 0x0100U, 0x8FU, 0x0110U, 0x8FU,
+                0x3900U, 3U, &flight)) {
+            goto jump_shot_test_cleanup;
+        }
+        flight.remaining_updates = 0U;
+        flight.altitude_q8 = 0x3C00U;
+        flight.altitude_velocity_q8 = 0U;
+        if (!tecmo_gameplay_jump_shots_step_distance_flight(
+                &assets, &flight) ||
+            flight.object_state != 5U || flight.altitude_q8 != 0x3BD8U ||
+            !tecmo_gameplay_jump_shots_step_distance_flight(
+                &assets, &flight) ||
+            flight.object_state != 7U || flight.altitude_q8 != 0x3BD8U) {
+            printf("Jump-shot asset test failed: distance terminal branch\n");
+            goto jump_shot_test_cleanup;
+        }
+        memset(&made, 0xA5, sizeof(made));
+        if (!tecmo_gameplay_jump_shots_made_settlement_begin(
+                &assets, &made)) {
+            printf("Jump-shot asset test failed: made settlement begin\n");
+            goto jump_shot_test_cleanup;
+        }
+        for (unsigned step = 0U; step < 26U; ++step) {
+            TecmoGameplayJumpShotMadeSettlement before = made;
+            if (step == 3U &&
+                (!tecmo_gameplay_jump_shots_made_settlement_step(
+                     &assets, &made, true) ||
+                 memcmp(&made, &before, sizeof(made)) != 0)) {
+                printf("Jump-shot asset test failed: made settlement stall\n");
+                goto jump_shot_test_cleanup;
+            }
+            if (!tecmo_gameplay_jump_shots_made_settlement_step(
+                    &assets, &made, false) ||
+                (step < 25U && made.complete)) {
+                printf("Jump-shot asset test failed: made settlement step %u\n",
+                       step + 1U);
+                goto jump_shot_test_cleanup;
+            }
+        }
+        if (!made.complete || made.state != 9U || made.stage != 12U ||
+            made.updates != 26U) {
+            printf("Jump-shot asset test failed: made settlement completion\n");
+            goto jump_shot_test_cleanup;
+        }
+        if (!tecmo_gameplay_jump_shots_made_settlement_begin(
+                &assets, &made)) {
+            goto jump_shot_test_cleanup;
+        }
+        ++made.stage;
+        {
+            TecmoGameplayJumpShotMadeSettlement corrupted = made;
+            if (tecmo_gameplay_jump_shots_made_settlement_step(
+                    &assets, &made, false) ||
+                memcmp(&made, &corrupted, sizeof(made)) != 0) {
+                printf("Jump-shot asset test failed: corrupt settlement accepted\n");
+                goto jump_shot_test_cleanup;
+            }
+        }
 
         if (tecmo_asset_pack_read_entry_exact(
-                pack_path, "gameplay/jump-shots", 1648U,
+                pack_path, "gameplay/jump-shots", 2776U,
                 &payload, &payload_size) != 0 ||
             tecmo_asset_pack_read_entry_exact(
                 pack_path, "gameplay/core", 23416U,
@@ -1786,7 +1914,7 @@ int main(int argc, char **argv)
             goto jump_shot_test_cleanup;
         }
         memcpy(payload_mutation, payload, (size_t)payload_size);
-        payload_mutation[1552U] ^= 1U;
+        payload_mutation[2672U] ^= 1U;
         if (tecmo_gameplay_jump_shots_parse(
                 &assets, payload_mutation, (size_t)payload_size,
                 gameplay_core, (size_t)gameplay_core_size,
@@ -1795,8 +1923,8 @@ int main(int argc, char **argv)
             goto jump_shot_test_cleanup;
         }
         memcpy(payload_mutation, payload, (size_t)payload_size);
-        payload_mutation[1584U] = 0xFFU;
-        payload_mutation[1585U] = 0x7FU;
+        payload_mutation[2712U] = 0xFFU;
+        payload_mutation[2713U] = 0x7FU;
         if (tecmo_gameplay_jump_shots_parse(
                 &assets, payload_mutation, (size_t)payload_size,
                 gameplay_core, (size_t)gameplay_core_size,
@@ -1840,7 +1968,7 @@ jump_shot_test_cleanup:
         tecmo_gameplay_jump_shots_destroy(&assets);
         tecmo_gameplay_jump_shots_destroy(&assets);
         if (!ok) return 1;
-        printf("TGJS-1 jump-shot assets passed: sources=8 poses=32 pose-matrix=A057A625 physics=Q8.8 dependencies=TGPL-1/TGCS-1\n");
+        printf("TGJS-2 jump-shot assets passed: sources=12 poses=32 pose-matrix=A057A625 distance-flight=explicit-input made-settlement=26 dependencies=TGPL-1/TGCS-1\n");
         return 0;
     }
 
