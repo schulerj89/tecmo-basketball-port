@@ -1,0 +1,69 @@
+#ifndef TECMO_ASSET_PACK_GAMEPLAY_PRETIP_H
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_H
+
+#include "tecmo_gameplay_pretip.h"
+
+#include <stddef.h>
+#include <stdint.h>
+
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_ID "gameplay/pre-tip"
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_VERSION 1U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_HEADER_SIZE 256U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_SOURCE_STRIDE 32U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_SOURCES_OFFSET 256U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_DESCRIPTOR_OFFSET 800U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_ENCODED_OFFSET 832U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_DECODED_OFFSET 864U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_PALETTE_OFFSET 2912U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_WAIT_OFFSET 2944U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_SEQUENCE_OFFSET 3008U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_STRINGS_OFFSET 3328U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_POINTERS_OFFSET 3392U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_CHARMAP_OFFSET 3424U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_CLOSEUP_ENTRY_OFFSET 3504U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_CLOSEUP_PALETTE_OFFSET 4032U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_CLOSEUP_CONTROL_OFFSET 4128U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_CLOSEUP_TIMING_OFFSET 4416U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_SETUP_OFFSET 4528U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_UPDATE_OFFSET 4608U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_LAUNCH_BRIDGE_OFFSET 4992U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_HANDOFF_OFFSET 5152U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_ORIENTATION_OFFSET 5280U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_SIZE 5376U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_FNV1A32 0x91FD7B32U
+
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TWAR_SIZE 21024U
+#define TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TWAR_FNV1A32 0x3B22C51BU
+
+typedef struct TecmoGameplayPreTipExpectedSource {
+    TecmoGameplayPreTipSourceKind kind;
+    uint8_t bank;
+    uint8_t fixed_bank;
+    uint16_t cpu_start;
+    uint32_t byte_count;
+    uint32_t fingerprint_fnv1a32;
+    uint64_t fingerprint_fnv1a64;
+    uint32_t payload_offset;
+} TecmoGameplayPreTipExpectedSource;
+
+typedef struct TecmoGameplayPreTipProvenance {
+    uint64_t source_offsets[TECMO_GAMEPLAY_PRETIP_SOURCE_COUNT];
+} TecmoGameplayPreTipProvenance;
+
+extern const TecmoGameplayPreTipExpectedSource
+    tecmo_gameplay_pretip_expected_sources[
+        TECMO_GAMEPLAY_PRETIP_SOURCE_COUNT];
+
+int tecmo_asset_pack_build_gameplay_pretip(
+    const uint8_t *rom,
+    uint64_t rom_size,
+    uint64_t prg_offset,
+    uint32_t prg_banks,
+    int enforce_revision_fingerprints,
+    uint8_t *payload,
+    size_t payload_size,
+    TecmoGameplayPreTipProvenance *provenance,
+    char *message,
+    size_t message_size);
+
+#endif

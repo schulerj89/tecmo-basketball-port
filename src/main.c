@@ -61,9 +61,10 @@ static void print_usage(const char *program)
     printf("  --season-test           Run strict TSNS/TSAV season-management checks\n");
     printf("  --gameplay-state-test   Run deterministic gameplay clock/rules/shot-state checks\n");
     printf("  --gameplay-scene-test PACK  Run native gameplay launch/input/shot checks\n");
+    printf("  --gameplay-pretip-test PACK  Validate strict TPTI-1 pre-tip assets/state\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render menus, intro scenes, or strict gameplay-start/jump-frameN/dunk-frameN checkpoints to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render menus, intro scenes, or strict gameplay-start/pretip-frameN/live-start/jump-frameN/dunk-frameN checkpoints to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --build-assetpack ROM PATH  Build a private .assetpack from an iNES ROM only; no decomp/capture imports\n");
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
@@ -408,10 +409,19 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     bool jump_make = false;
     bool jump_rattle = false;
     bool dunk = false;
+    bool pretip_checkpoint = false;
+    bool live_start = false;
 
     if (runtime == NULL || mode_name == NULL) return false;
     if (strcmp(mode_name, "gameplay-start") == 0) {
         checkpoint = 0U;
+        pretip_checkpoint = true;
+    } else if (parse_render_frame_suffix(
+                   mode_name, "gameplay-pretip-frame", &checkpoint)) {
+        pretip_checkpoint = true;
+    } else if (strcmp(mode_name, "gameplay-live-start") == 0) {
+        checkpoint = 691U;
+        live_start = true;
     } else if (parse_render_frame_suffix(
                    mode_name, "gameplay-jump-frame", &checkpoint)) {
         jump = true;
@@ -433,6 +443,7 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     } else {
         return false;
     }
+    if (pretip_checkpoint && checkpoint >= 691U) return false;
     if ((jump && (checkpoint == 0U ||
                   checkpoint >
                       (jump_make ? 111U : (jump_rattle ? 103U : 87U)))) ||
@@ -455,7 +466,24 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
         return false;
     }
     tecmo_runtime_set_mode(runtime, TECMO_MODE_COURT);
-    if (!jump && !dunk) return true;
+    if (pretip_checkpoint) {
+        memset(&input, 0, sizeof(input));
+        for (update = 0U; update < checkpoint; ++update)
+            tecmo_runtime_update(runtime, &input);
+        return runtime->mode == TECMO_MODE_COURT &&
+               runtime->gameplay_scene.active &&
+               tecmo_gameplay_scene_in_pretip(
+                   &runtime->gameplay_scene);
+    }
+    memset(&input, 0, sizeof(input));
+    for (update = 0U; update < 691U; ++update)
+        tecmo_runtime_update(runtime, &input);
+    if (live_start)
+        return runtime->mode == TECMO_MODE_COURT &&
+               runtime->gameplay_scene.active &&
+               !tecmo_gameplay_scene_in_pretip(
+                   &runtime->gameplay_scene);
+    runtime->gameplay_scene.frame = 0U;
 
     if (dunk) {
         TecmoGameplaySceneActor *actor = &runtime->gameplay_scene.actors[0];
@@ -1153,6 +1181,20 @@ int main(int argc, char **argv)
         tecmo_music_asset_shutdown(&music_asset);
         if (!passed) {
             printf("Gameplay scene test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-pretip-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        char message[256];
+        if (pack_path == NULL ||
+            !tecmo_gameplay_pretip_self_test(
+                pack_path, message, sizeof(message))) {
+            printf("Gameplay pre-tip test failed: %s\n",
+                   pack_path == NULL ? "PACK path required" : message);
             return 1;
         }
         printf("%s\n", message);
@@ -3166,7 +3208,7 @@ shot_resolution_test_cleanup:
                     arena_render_succeeded = tecmo_render_gameplay_scene(
                         runtime, &framebuffer);
                     result = arena_render_succeeded ? 0 : 1;
-                    printf("gameplay-state frame=%u shot=%s phase=%s score=%u/%u clock=%u:%02u period=%u overtime=%u shot-clock=%u\n",
+                    printf("gameplay-state frame=%u shot=%s phase=%s score=%u/%u clock=%u:%02u period=%u overtime=%u shot-clock=%u pretip=%s\n",
                            runtime->gameplay_scene.frame,
                            tecmo_gameplay_scene_shot_name(
                                runtime->gameplay_scene.shot_kind),
@@ -3180,7 +3222,9 @@ shot_resolution_test_cleanup:
                            (unsigned)runtime->gameplay_scene.state.clock_seconds,
                            (unsigned)runtime->gameplay_scene.state.period,
                            (unsigned)runtime->gameplay_scene.state.overtime_count,
-                           (unsigned)runtime->gameplay_scene.state.shot_clock);
+                           (unsigned)runtime->gameplay_scene.state.shot_clock,
+                           tecmo_gameplay_pretip_phase_name(
+                               runtime->gameplay_scene.pretip_state.phase));
                 }
                 render_runtime = false;
             } else if (strcmp(mode_name, "menu-overlay") == 0) {

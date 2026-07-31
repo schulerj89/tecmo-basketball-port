@@ -19,6 +19,7 @@ set(TECMO_PORT_SOURCES
     src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c
     src/asset_pack/tecmo_asset_pack_gameplay_shot_resolution.c
     src/asset_pack/tecmo_asset_pack_gameplay_penalties.c
+    src/asset_pack/tecmo_asset_pack_gameplay_pretip.c
     src/asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.c
     src/asset_pack/tecmo_asset_pack_gameplay_audio.c
     src/asset_pack/tecmo_asset_pack_title.c
@@ -51,6 +52,7 @@ set(TECMO_PORT_SOURCES
     src/tecmo_gameplay_jump_shots.c
     src/tecmo_gameplay_shot_resolution.c
     src/tecmo_gameplay_penalties.c
+    src/tecmo_gameplay_pretip.c
     src/tecmo_gameplay_free_throw_lineup.c
     src/tecmo_gameplay_free_throw_projection_test.c
     src/tecmo_gameplay_audio.c

@@ -1000,6 +1000,18 @@ static void update_court(TecmoRuntime *runtime,
                                      player_one, player_two)) {
         return;
     }
+    if (tecmo_gameplay_scene_consume_pretip_abort(
+            &runtime->gameplay_scene)) {
+        TecmoGameplaySceneSource source =
+            runtime->gameplay_scene.launch.source;
+        tecmo_gameplay_scene_end(&runtime->gameplay_scene);
+        if (source == TECMO_GAMEPLAY_SCENE_PRESEASON) {
+            tecmo_runtime_set_mode(runtime, TECMO_MODE_PRESEASON_MENU);
+        } else if (source == TECMO_GAMEPLAY_SCENE_SEASON) {
+            tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
+        }
+        return;
+    }
     if (!tecmo_gameplay_scene_result(&runtime->gameplay_scene, &result)) {
         return;
     }
@@ -1501,7 +1513,8 @@ bool tecmo_render_gameplay_scene(const TecmoRuntime *runtime,
                   rgb(248, 248, 232), 2);
         return false;
     }
-    if (tecmo_gameplay_scene_in_dunk_presentation(scene)) return true;
+    if (tecmo_gameplay_scene_in_dunk_presentation(scene) ||
+        tecmo_gameplay_scene_in_pretip(scene)) return true;
     if (!scene->active || !state->initialized) return true;
 
     /* Dynamic HUD glyph parity remains a separate ROM-asset boundary. These

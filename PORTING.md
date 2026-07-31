@@ -776,6 +776,46 @@ unassigned controllers cannot act. Preseason results return to the blue-menu
 PRESEASON row. Season results are matched to the pending ordinal/teams and
 committed exactly once before returning to the existing result rows.
 
+Gameplay launch first runs the strict ROM-only `gameplay/pre-tip` TPTI-1
+boundary. Its 5376-byte payload has FNV1a32 `91FD7B32` and requires exact
+same-pack TGPL-1, TTDT-1, TMUS-1, TWAR-1, and `chr/all`. Seventeen
+revision-fingerprinted spans retain screen `$15`'s descriptor/stream/palette,
+Bank06 `$A0F4-$A24F` card waits/text flow, Bank04 `$86AB-$88A8` close-up,
+`$89DD-$8A2C` palette/control data, `$AC76-$ADDF` tip setup, Bank05's
+`$985B-$9A5F` tip update, and the fixed launch/live bridges. Exact size,
+canonical FNV32/FNV64 values, full-ROM identity, zero-reserved/padding checks,
+dependency fingerprints, and sanitized source-map provenance fail closed.
+Runtime never reads ROM, ASM, decompilation, Lua, captures, screenshots, logs,
+states, traces, or dumps.
+
+The native schedule is exactly 691 updates:
+`61 + 121 + 61 + 208 + 30 + 120 + 60 + 30`. The first three values preserve
+Bank06's inclusive `$3C/$78/$3C` card waits for the mode card, matchup, and
+`1ST PERIOD`. PRESEASON and `REGULAR SEASON` are the exact mode strings.
+Matchup logos use the ROM layout anchors `(16,32)` and `(16,128)` while the
+separate city/team strings retain their original row positions. The 208-frame
+screen-`$1A` close-up includes bounded black entry/exit gates and reuses the
+strict TWAR-1 background/OAM/CHR contract. The center-court route then holds
+black for 30 updates, descends the ball from approximately Y 71 to Y 145 over
+60 updates and holds it through the 120-update phase, holds black for the first
+30 updates of the toss transition, and renders TGPL-1 screen `$1B`
+nametable page 1 for the final 30. Page 1 is required by the reference geometry:
+the ball occupies X 176..239 and the hands X 67..159; page 0 contains the
+opposite phase. The final 30 updates show the jump contest. The court overlay
+draws exactly one away-team ROM logo, right/bottom aligned by its validated
+variable dimensions, without duplicating its embedded city/nickname lettering.
+
+Either controller's current NES B level cancels the entire route only during
+the three card phases; A, START, SELECT, and directions are ignored there.
+During the close-up, each controller's first held B sample is retained, with
+the native target represented as `closeup_duration - 14`; subsequent B holds
+do not resample. B cannot cancel the close-up or any court/toss phase. The game
+clock, shot clock, rules, actors, AI, and live camera remain frozen until the
+frame-691 handoff. Track 8 queues at card entry, and enabled GAME MUSIC queues
+track 5 only at that handoff. Exact tip winner/initial-possession ownership is
+not yet isolated, so the native winner policy and pre-tip actor geometry remain
+explicit deterministic approximations.
+
 The compound scene strictly loads TGPL-1 `gameplay/core` (23416 bytes,
 `2047CCE0`), TGCT-1 `gameplay/court` (6559 bytes, `ECAB7A93`), TGCP-2
 `gameplay/camera-projection` (1536 bytes, `53247856`), TGOR-1

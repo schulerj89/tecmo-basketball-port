@@ -210,4 +210,15 @@ bool tecmo_gameplay_assets_resolve_live_orientation_tile(
     const TecmoGameplayLiveBackgroundContext *context,
     TecmoGameplayResolvedOrientationTile *tile);
 
+/* Resolves one static screen tile through the descriptor's direct R0/R1
+   pair, without live IRQ-band reinterpretation. This is the ROM-owned
+   pre-tip cut-in path for screen $1B. */
+bool tecmo_gameplay_assets_resolve_descriptor_tile(
+    const TecmoGameplayAssets *assets,
+    uint8_t screen_index,
+    uint8_t nametable_page,
+    uint8_t row,
+    uint8_t column,
+    TecmoGameplayResolvedOrientationTile *tile);
+
 #endif

@@ -2682,6 +2682,90 @@ static int append_gameplay_free_throw_lineup_source_map_entry(
         "\"runtime_inputs\":\"TGFL-1 plus same-pack TGPL-1; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}");
 }
 
+static int append_gameplay_pretip_source_map_entry(
+    char *buffer,
+    size_t capacity,
+    size_t *length,
+    int *first,
+    const TecmoGameplayPreTipProvenance *provenance)
+{
+    static const char *roles[TECMO_GAMEPLAY_PRETIP_SOURCE_COUNT] = {
+        "blank-screen-descriptor","blank-screen-stream",
+        "blank-screen-palette","presentation-screen-wait-helpers",
+        "matchup-sequence-and-team-text","mode-and-versus-strings",
+        "mode-string-pointer-table","character-to-tile-map",
+        "tipoff-closeup-entry","tipoff-closeup-palettes",
+        "tipoff-closeup-control","tipoff-closeup-timing",
+        "center-tip-object-setup","center-tip-object-update",
+        "pregame-launch-bridge","live-handoff",
+        "tipoff-orientation-select"
+    };
+    const char *prefix = *first != 0 ? "" : ",\n";
+    size_t index;
+    *first = 0;
+    if (tecmo_asset_pack_append_text(
+            buffer, capacity, length,
+            "%s    {\"id\":\"%s\",\"kind\":\"gameplay-pre-tip-presentation\","
+            "\"schema\":\"tecmo.gameplay-pre-tip/TPTI-1\","
+            "\"payload_size\":%u,\"payload_fingerprint_fnv1a32\":\"%08X\","
+            "\"dependencies\":["
+            "{\"entry\":\"gameplay/core\",\"schema\":\"tecmo.gameplay/TGPL-1\",\"size\":23416,\"fingerprint_fnv1a32\":\"2047CCE0\"},"
+            "{\"entry\":\"menu/team-data\",\"schema\":\"tecmo.team-data/TTDT-1\",\"size\":96372,\"fingerprint_fnv1a32\":\"812628F0\"},"
+            "{\"entry\":\"audio/music\",\"schema\":\"tecmo.music/TMUS-1\",\"size\":36784,\"fingerprint_fnv1a32\":\"05C00ECB\"},"
+            "{\"entry\":\"arena/intro/warriors-transition\",\"schema\":\"tecmo.intro.warriors/TWAR-1\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\"},"
+            "{\"entry\":\"chr/all\",\"size\":262144,\"fingerprint_fnv1a32\":\"F6F6E854\",\"fingerprint_fnv1a64\":\"96A64F53B240ABB4\"}],"
+            "\"sources\":[",
+            prefix, TECMO_ASSET_PACK_GAMEPLAY_PRETIP_ID,
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_SIZE,
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_FNV1A32,
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TWAR_SIZE,
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TWAR_FNV1A32) != 0) {
+        return -1;
+    }
+    for (index = 0U; index < TECMO_GAMEPLAY_PRETIP_SOURCE_COUNT; ++index) {
+        const TecmoGameplayPreTipExpectedSource *source =
+            &tecmo_gameplay_pretip_expected_sources[index];
+        const char *source_entry =
+            source->fixed_bank != 0U ? "prg/fixed" : NULL;
+        char bank_entry[16];
+        if (source_entry == NULL) {
+            (void)snprintf(bank_entry, sizeof(bank_entry),
+                           "prg/bank%02u", (unsigned)source->bank);
+            source_entry = bank_entry;
+        }
+        if (tecmo_asset_pack_append_text(
+                buffer, capacity, length,
+                "%s{\"role\":\"%s\",\"source_entry\":\"%s\","
+                "\"source_offset\":%llu,\"bank\":%u,\"fixed_bank\":%s,"
+                "\"cpu_address\":%u,\"size\":%u,"
+                "\"fingerprint_fnv1a32\":\"%08X\","
+                "\"fingerprint_fnv1a64\":\"%016llX\"}",
+                index == 0U ? "" : ",", roles[index], source_entry,
+                (unsigned long long)provenance->source_offsets[index],
+                (unsigned)source->bank,
+                source->fixed_bank != 0U ? "true" : "false",
+                (unsigned)source->cpu_start, (unsigned)source->byte_count,
+                (unsigned)source->fingerprint_fnv1a32,
+                (unsigned long long)source->fingerprint_fnv1a64) != 0) {
+            return -1;
+        }
+    }
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "],\"native_contract\":{"
+        "\"screen_id\":21,\"closeup_screen_id\":26,"
+        "\"wait_frames\":[61,121,61],"
+        "\"cancel\":\"either controller held NES B aborts the entire card route; A, START, and directions are ignored\","
+        "\"tip_input\":\"first held B sample per controller records bounded error 0..11; no sample is 12\","
+        "\"phase_order\":[\"preseason\",\"matchup\",\"first-period\",\"closeup\",\"center-setup\",\"ball-descent\",\"toss-closeup\",\"jump-contest\",\"live\"],"
+        "\"toss_cut_in\":\"TGPL-1 screen $1B nametable page 1; page 1 matches ball X 176..239 and hand X 67..159 geometry\","
+        "\"ball_descent\":\"Y 71..145 over the first 60 of 120 frames, then held through the phase boundary\","
+        "\"clock_rules_controls\":\"frozen until live handoff\","
+        "\"music\":\"track 8 at card start; game-music track 5 only at live handoff\","
+        "\"winner_policy\":\"deterministic native approximation until exact winner/possession route is proven\","
+        "\"runtime_inputs\":\"TPTI-1 and exact same-pack dependencies only; no ROM, ASM, decompilation, Lua, trace, capture, screenshot, video, log, dump, or save state\"}}");
+}
+
 char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    uint32_t trainer_bytes,
                                    uint32_t prg_banks,
@@ -2714,9 +2798,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoGameplayShotResolutionProvenance *shot_resolution_provenance,
     const TecmoGameplayPenaltyProvenance *penalty_provenance,
     const TecmoGameplayFreeThrowLineupProvenance *free_throw_lineup_provenance,
+    const TecmoGameplayPreTipProvenance *pretip_provenance,
     size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 29U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 30U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -2978,7 +3063,11 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
         (free_throw_lineup_provenance->source_offsets[0] != 0U &&
          append_gameplay_free_throw_lineup_source_map_entry(
              source_map, capacity, &length, &first_logical,
-             free_throw_lineup_provenance) != 0)) {
+             free_throw_lineup_provenance) != 0) ||
+        (pretip_provenance->source_offsets[0] != 0U &&
+         append_gameplay_pretip_source_map_entry(
+             source_map, capacity, &length, &first_logical,
+             pretip_provenance) != 0)) {
         free(source_map);
         return NULL;
     }

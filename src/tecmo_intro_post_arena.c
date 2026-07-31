@@ -685,6 +685,45 @@ bool tecmo_intro_warriors_asset_load(TecmoIntroWarriorsAsset *asset,
     return true;
 }
 
+bool tecmo_intro_warriors_asset_load_from_pack(
+    TecmoIntroWarriorsAsset *asset,
+    const char *asset_pack_path)
+{
+    uint8_t *bytes = NULL;
+    uint8_t *chr_bytes = NULL;
+    uint64_t byte_count = 0U;
+    uint64_t chr_byte_count = 0U;
+    bool loaded;
+    if (asset == NULL) return false;
+    memset(asset, 0, sizeof(*asset));
+    if (asset_pack_path == NULL ||
+        tecmo_asset_pack_read_entry_exact(
+            asset_pack_path, WARRIORS_ENTRY_ID, WARRIORS_PAYLOAD_SIZE,
+            &bytes, &byte_count) != 0 ||
+        tecmo_asset_pack_read_entry_exact(
+            asset_pack_path, "chr/all", 262144U,
+            &chr_bytes, &chr_byte_count) != 0) {
+        tecmo_asset_pack_free(bytes);
+        tecmo_asset_pack_free(chr_bytes);
+        set_status(asset->status, sizeof(asset->status),
+                   "TWAR-1 explicit-pack dependency unavailable");
+        return false;
+    }
+    loaded = parse_warriors(asset, bytes, byte_count) &&
+             validate_warriors_asset(asset, chr_byte_count);
+    tecmo_asset_pack_free(bytes);
+    tecmo_asset_pack_free(chr_bytes);
+    if (!loaded) {
+        set_status(asset->status, sizeof(asset->status),
+                   "TWAR-1 explicit asset rejected");
+        return false;
+    }
+    asset->available = true;
+    set_status(asset->status, sizeof(asset->status),
+               "TWAR-1 explicit assetpack");
+    return true;
+}
+
 bool tecmo_intro_clippers_asset_load(TecmoIntroClippersAsset *asset,
                                      const char *project_root)
 {

@@ -847,6 +847,38 @@ static bool flow_preseason_invalid_state_guards(TecmoRuntime *runtime,
     return true;
 }
 
+static bool flow_finish_gameplay_pretip(TecmoRuntime *runtime,
+                                        const char *label,
+                                        char *message,
+                                        size_t message_size)
+{
+    TecmoInput player_one = {0};
+    TecmoInput player_two = {0};
+    size_t frame;
+    if (runtime == NULL || runtime->mode != TECMO_MODE_COURT ||
+        !runtime->gameplay_scene.active ||
+        runtime->gameplay_scene.frame != 0U ||
+        !tecmo_gameplay_scene_in_pretip(&runtime->gameplay_scene)) {
+        set_flow_test_message(message, message_size,
+                              "gameplay pre-tip entry mismatch");
+        return false;
+    }
+    for (frame = 0U; frame < 691U; ++frame)
+        tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    if (runtime->mode != TECMO_MODE_COURT ||
+        !runtime->gameplay_scene.active ||
+        runtime->gameplay_scene.frame != 691U ||
+        tecmo_gameplay_scene_in_pretip(&runtime->gameplay_scene)) {
+        char failure[160];
+        (void)snprintf(failure, sizeof(failure),
+                       "%s pre-tip did not reach live frame 691",
+                       label != NULL ? label : "gameplay");
+        set_flow_test_message(message, message_size, failure);
+        return false;
+    }
+    return true;
+}
+
 static bool flow_expect_preseason_native_path(TecmoRuntime *runtime,
                                               char *message,
                                               size_t message_size)
@@ -1216,6 +1248,10 @@ static bool flow_expect_preseason_native_path(TecmoRuntime *runtime,
             return false;
         }
 
+        if (!flow_finish_gameplay_pretip(
+                runtime, "preseason", message, message_size)) {
+            return false;
+        }
         scene_frame = runtime->gameplay_scene.frame;
         player_one.confirm = true;
         tecmo_runtime_update_players(runtime, &player_one, &player_two);
@@ -3505,6 +3541,10 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
         return false;
     }
 
+    if (!flow_finish_gameplay_pretip(
+            runtime, "season", message, message_size)) {
+        return false;
+    }
     runtime->gameplay_scene.result.source = TECMO_GAMEPLAY_SCENE_SEASON;
     runtime->gameplay_scene.result.game_index = 0U;
     runtime->gameplay_scene.result.away_team = expected_season_away;

@@ -34,7 +34,7 @@ frame-identical recreation of on-court gameplay.
 | Team Data | Supported for team profiles, rosters, player detail, STARTERS, and PLAYBOOK; accumulated player-stat fields remain `.000`/zero until per-player accumulators are ported |
 | All Star | Partial: selectors work, but the route stops before game launch |
 | League Leaders | Partial: category navigation works; ranked player results remain unavailable until per-player season statistics are ported |
-| Gameplay | Playable full-game shell with movement, passing, defender switching, a ROM-derived full-court horizontal camera/world renderer, close shots, one bounded ordinary-jump miss/three-point-make context, clocks, periods, halftime, overtime/final, audio, and result handoff; live foul/contact and free-throw outcomes, general shot selection, and AI remain approximate. Rim-rattle is diagnostic-only and is not selected by normal live misses |
+| Gameplay | Playable full-game shell with the original pre-tip presentation, movement, passing, defender switching, a ROM-derived full-court horizontal camera/world renderer, close shots, one bounded ordinary-jump miss/three-point-make context, clocks, periods, halftime, overtime/final, audio, and result handoff; tip winner/initial possession, live foul/contact and free-throw outcomes, general shot selection, and AI remain approximate. Rim-rattle is diagnostic-only and is not selected by normal live misses |
 
 Normal play is asset-pack-only. It does not load decompilation files, Lua
 traces, screenshots, save states, dumps, or emulator captures at runtime.
@@ -138,6 +138,15 @@ accumulators are ported.
 
 ### Gameplay that works today
 
+- Every preseason and season launch now enters the native pre-tip sequence:
+  the exact mode/matchup/`1ST PERIOD` card waits, referee/player close-up,
+  center-court setup, descending ball, page-1 toss cut-in, jump contest, and
+  live handoff. NES B cancels only during the three card phases; during the
+  close-up each controller's first held B samples its tip timing. The
+  presentation freezes game/shot clocks, queues original track 8, and switches
+  to gameplay track 5 only at the 691-frame live handoff when GAME MUSIC is
+  enabled. Tip winner and initial-possession selection remain deterministic
+  native approximations.
 - Directions move the owned actor.
 - NES A passes on offense and switches defenders on defense.
 - NES B starts an offensive shot or attempts the current defensive
@@ -195,7 +204,10 @@ asset contracts, provenance, and exact supported state boundaries.
 
 ### ROM-derived versus approximate
 
-Strict ROM-derived data currently covers the complete 768-by-240 court decode,
+Strict ROM-derived data currently covers the pre-tip source spans and
+card/cut-in/close-up assets, including the exact 61/121/61 card waits; the
+later timing forms a deterministic capture-aligned native 691-frame schedule.
+It also covers the complete 768-by-240 court decode,
 camera-positioned tile/palette viewport slicing, CHR and palette entries,
 embedded FCEUX RGB profile, actor pose data, numeric close-shot step
 tables, dunk cutaway, the bounded ordinary-jump miss/three-point-make context,
@@ -208,8 +220,9 @@ offensive direction and target selection, rules timing, and native
 music/SFX/DMC programs. Strict entries are loaded from the same
 revision-fingerprinted asset pack with exact-size and malformed-data checks.
 
-The actor starting layout, movement policy and AI, jump-ball geometry, general shot
-selection and make/miss policy, dynamic matchup palettes and uniforms, live
+The live actor starting layout, movement policy and AI, pre-tip actor geometry,
+tip winner/initial possession, general shot selection and make/miss policy,
+dynamic matchup palettes and uniforms, live
 close-shot profile/direction selection, left-facing mirroring, contact/foul
 detection, free-throw simulation, rebounds, blocks, steals, per-player game
 statistics, and temporary HUD typography remain native approximations or are
@@ -256,6 +269,8 @@ in the native runtime, but nonlinear cycle-exact NES APU fidelity is not
 claimed. GAME MUSIC gates gameplay track 5 and its evidence-bounded restart
 cue; GAME SPEED does not change menu or soundtrack tempo. The visible `SIC`
 left beside the speed popup is an authentic overlap from the original menu.
+The pre-tip cards always queue the original matchup stinger (track 8);
+GAME MUSIC gates only the later track-5 live handoff.
 
 Older diagnostic screens and the modern Play Game/Quit menu remain available
 through explicit render-test/debug paths for development work.
@@ -278,6 +293,7 @@ through explicit render-test/debug paths for development work.
 .\tools\Run-GameplayPenaltyTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayCameraProjectionTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-GameplayPreTipTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayDunkCutawayTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 ```
@@ -293,6 +309,8 @@ Render the normal menu or a focused intro frame:
 .\build\tecmo_port.exe --render-test-mode intro-composite-preset build\intro_composite_preset_test.png
 .\build\tecmo_port.exe --render-test-mode intro-arena-frame320 build\intro_arena_frame320_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-start build\gameplay_start_test.png
+.\build\tecmo_port.exe --render-test-mode gameplay-pretip-frame631 build\gameplay_pretip_toss_test.png
+.\build\tecmo_port.exe --render-test-mode gameplay-live-start build\gameplay_live_start_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-jump-frame12 build\gameplay_jump_12_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-jump-rattle-frame89 build\gameplay_jump_rattle_89_test.png
 .\build\tecmo_port.exe --render-test-mode gameplay-jump-make-frame85 build\gameplay_jump_make_85_test.png
@@ -337,12 +355,12 @@ Generated `.assetpack` files are ignored local data. Every pack includes the
 manifest, sanitized source map, and raw PRG/CHR entries used by the strict
 logical assets.
 
-The current Rev 1 builder emits a 78-entry pack. In addition to the raw PRG and
+The current Rev 1 builder emits a 79-entry pack. In addition to the raw PRG and
 CHR entries, it contains strict logical assets for the opening, arena, finale,
 title, blue menu, frontend audio, preseason, Team Data, team management, season state, music,
 gameplay audio, court, live court-orientation state, poses, close shots, dunk
 presentation, the bounded jump route, shot-resolution rules, penalty rules,
-and the raw free-throw lineup.
+the raw free-throw lineup, and the complete pre-tip presentation contract.
 These entries are derived directly from the local ROM during pack construction;
 decompilation files and captures are not pack inputs.
 

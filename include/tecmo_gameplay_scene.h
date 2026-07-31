@@ -11,9 +11,12 @@
 #include "tecmo_gameplay_court_orientation.h"
 #include "tecmo_gameplay_dunk_cutaway.h"
 #include "tecmo_gameplay_jump_shots.h"
+#include "tecmo_gameplay_pretip.h"
 #include "tecmo_gameplay_shot_resolution.h"
 #include "tecmo_gameplay_state.h"
+#include "tecmo_intro_post_arena.h"
 #include "tecmo_music.h"
+#include "tecmo_team_data.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -100,6 +103,10 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayDunkCutawayAssets dunk_cutaway;
     TecmoGameplayJumpShotAssets jump_shots;
     TecmoGameplayShotResolutionAssets shot_resolution;
+    TecmoGameplayPreTipAssets pretip_assets;
+    TecmoGameplayPreTipState pretip_state;
+    TecmoIntroWarriorsAsset *pretip_closeup;
+    TecmoTeamDataAsset *pretip_team_data;
     TecmoGameplayAudioAsset audio_asset;
     TecmoGameplayAudioPlayer audio_player;
     TecmoGameplayState state;
@@ -149,6 +156,7 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayJumpShotMadeSettlement jump_made_settlement;
     TecmoGameplaySceneShotKind shot_kind;
     TecmoGameplayPhase previous_phase;
+    bool pretip_abort_pending;
     uint32_t frame;
 } TecmoGameplayScene;
 
@@ -172,6 +180,8 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
                                  const TecmoControlFrame *player_two);
 bool tecmo_gameplay_scene_result(const TecmoGameplayScene *scene,
                                  TecmoGameplaySceneResult *result);
+bool tecmo_gameplay_scene_consume_pretip_abort(TecmoGameplayScene *scene);
+bool tecmo_gameplay_scene_in_pretip(const TecmoGameplayScene *scene);
 void tecmo_gameplay_scene_end(TecmoGameplayScene *scene);
 
 /* Deterministic test/render route for the behavior-verified state-$15 prefix.

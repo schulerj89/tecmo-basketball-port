@@ -52,6 +52,11 @@
 #define TECMO_GAMEPLAY_JUMP_MAKE_RELEASE_POSE 1061U
 #define TECMO_GAMEPLAY_JUMP_MAKE_FLIGHT_POSE 213U
 #define TECMO_GAMEPLAY_SCENE_RENDER_FNV1A32 0x82031A59U
+#define TECMO_GAMEPLAY_PRETIP_DESCENT_START_Y 71
+#define TECMO_GAMEPLAY_PRETIP_DESCENT_END_Y 145
+#define TECMO_GAMEPLAY_PRETIP_DESCENT_MOVE_FRAMES 60U
+
+static bool scene_self_test_skip_pretip;
 
 static void scene_set_status(TecmoGameplayScene *scene, const char *status)
 {
@@ -166,6 +171,9 @@ static void scene_release_owned(TecmoGameplayScene *scene)
     tecmo_gameplay_dunk_cutaway_destroy(&scene->dunk_cutaway);
     tecmo_gameplay_jump_shots_destroy(&scene->jump_shots);
     tecmo_gameplay_shot_resolution_destroy(&scene->shot_resolution);
+    tecmo_gameplay_pretip_destroy(&scene->pretip_assets);
+    free(scene->pretip_closeup);
+    free(scene->pretip_team_data);
     tecmo_gameplay_close_shots_destroy(&scene->close_shots);
     tecmo_gameplay_court_orientation_destroy(&scene->court_orientation);
     tecmo_gameplay_camera_assets_destroy(&scene->camera_assets);
@@ -181,6 +189,7 @@ static void scene_release_owned(TecmoGameplayScene *scene)
     tecmo_gameplay_dunk_cutaway_init(&scene->dunk_cutaway);
     tecmo_gameplay_jump_shots_init(&scene->jump_shots);
     tecmo_gameplay_shot_resolution_init(&scene->shot_resolution);
+    tecmo_gameplay_pretip_init(&scene->pretip_assets);
     scene_set_status(scene, "gameplay scene initialized; assets not loaded");
 }
 
@@ -197,6 +206,7 @@ void tecmo_gameplay_scene_init(TecmoGameplayScene *scene)
     tecmo_gameplay_dunk_cutaway_init(&scene->dunk_cutaway);
     tecmo_gameplay_jump_shots_init(&scene->jump_shots);
     tecmo_gameplay_shot_resolution_init(&scene->shot_resolution);
+    tecmo_gameplay_pretip_init(&scene->pretip_assets);
     scene_set_status(scene, "gameplay scene initialized; assets not loaded");
 }
 
@@ -234,6 +244,36 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
     }
     if (!tecmo_gameplay_assets_load(&scene->assets, selected)) {
         (void)snprintf(failure, sizeof(failure), "%s", scene->assets.status);
+        scene_release_owned(scene);
+        scene_set_status(scene, failure);
+        return false;
+    }
+    if (!tecmo_gameplay_pretip_load(&scene->pretip_assets, selected)) {
+        (void)snprintf(failure, sizeof(failure), "%s",
+                       scene->pretip_assets.status);
+        scene_release_owned(scene);
+        scene_set_status(scene, failure);
+        return false;
+    }
+    scene->pretip_team_data =
+        (TecmoTeamDataAsset *)malloc(sizeof(*scene->pretip_team_data));
+    scene->pretip_closeup =
+        (TecmoIntroWarriorsAsset *)malloc(sizeof(*scene->pretip_closeup));
+    if (scene->pretip_team_data == NULL || scene->pretip_closeup == NULL ||
+        !tecmo_team_data_asset_load_from_pack(
+            scene->pretip_team_data, selected) ||
+        !tecmo_intro_warriors_asset_load_from_pack(
+            scene->pretip_closeup, selected)) {
+        (void)snprintf(
+            failure, sizeof(failure), "%s",
+            scene->pretip_team_data == NULL ||
+                    !scene->pretip_team_data->available
+                ? (scene->pretip_team_data != NULL
+                       ? scene->pretip_team_data->status
+                       : "TTDT-1 allocation failed")
+                : (scene->pretip_closeup != NULL
+                       ? scene->pretip_closeup->status
+                       : "TWAR-1 allocation failed"));
         scene_release_owned(scene);
         scene_set_status(scene, failure);
         return false;
@@ -316,7 +356,7 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
     }
     scene->available = true;
     scene_set_status(scene,
-                     "native gameplay ready: TGPL-1/TGCT-1/TGCP-2/TGOR-1/TGCS-1/TGDK-1/TGJS-2/TGSR-3/TSFX-1/TDMC-1");
+                     "native gameplay ready: TPTI-1/TGPL-1/TTDT-1/TWAR-1/TMUS-1/TGCT-1/TGCP-2/TGOR-1/TGCS-1/TGDK-1/TGJS-2/TGSR-3/TSFX-1/TDMC-1");
     return true;
 }
 
@@ -430,6 +470,43 @@ static void scene_initialize_actors(TecmoGameplayScene *scene)
         (int32_t)(scene->actors[0].world_y - 18) * 256;
 }
 
+static void scene_initialize_tip_actors(TecmoGameplayScene *scene)
+{
+    static const int16_t tip_x[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT] = {
+        320,344,360,368,376,448,424,408,400,392
+    };
+    static const int16_t tip_y[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT] = {
+        196,164,210,146,178,196,164,210,146,178
+    };
+    size_t actor;
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        scene->actors[actor].world_x = tip_x[actor];
+        scene->actors[actor].world_y = tip_y[actor];
+        scene->actors[actor].anchor_world_x = tip_x[actor];
+        scene->actors[actor].anchor_world_y = tip_y[actor];
+        scene->actors[actor].facing_right =
+            actor < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT;
+    }
+    scene->ball_holder = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    scene->ball_world_x_q8 = 384 * 256;
+    scene->ball_world_y_q8 = 92 * 256;
+}
+
+static int32_t scene_pretip_descent_ball_y_q8(uint16_t phase_frame)
+{
+    uint16_t clamped_frame =
+        phase_frame < TECMO_GAMEPLAY_PRETIP_DESCENT_MOVE_FRAMES
+            ? phase_frame
+            : TECMO_GAMEPLAY_PRETIP_DESCENT_MOVE_FRAMES;
+    uint32_t distance =
+        (uint32_t)(TECMO_GAMEPLAY_PRETIP_DESCENT_END_Y -
+                   TECMO_GAMEPLAY_PRETIP_DESCENT_START_Y);
+    uint32_t y = TECMO_GAMEPLAY_PRETIP_DESCENT_START_Y +
+                 (distance * clamped_frame) /
+                     TECMO_GAMEPLAY_PRETIP_DESCENT_MOVE_FRAMES;
+    return (int32_t)y * 256;
+}
+
 bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
                                  const TecmoGameplaySceneLaunch *launch)
 {
@@ -484,15 +561,37 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
     scene->camera_follow_count = 0U;
     scene->free_throw_frame = 0U;
     scene->previous_phase = scene->state.phase;
+    scene->pretip_abort_pending = false;
     scene->result_ready = false;
     scene->active = true;
+    if (!tecmo_gameplay_pretip_state_initialize(
+            &scene->pretip_assets, &scene->pretip_state)) {
+        scene_set_status(scene, "pre-tip state initialization rejected");
+        scene->active = false;
+        return false;
+    }
+    scene_initialize_tip_actors(scene);
     tecmo_gameplay_audio_stop_all(&scene->audio_player);
     tecmo_gameplay_audio_set_game_music_enabled(
         &scene->audio_player, launch->game_music_enabled);
-    if (launch->game_music_enabled) {
-        (void)tecmo_gameplay_audio_queue_game_music(&scene->audio_player);
+    if (!tecmo_gameplay_audio_queue_pregame_matchup_stinger(
+            &scene->audio_player)) {
+        scene_set_status(scene, "pre-tip track 8 queue rejected");
+        scene->active = false;
+        return false;
     }
-    scene_set_status(scene, "native gameplay active");
+    if (scene_self_test_skip_pretip) {
+        scene->pretip_state.phase = TECMO_GAMEPLAY_PRETIP_LIVE;
+        scene->pretip_state.live_handoff = true;
+        scene_initialize_actors(scene);
+        if (launch->game_music_enabled &&
+            !tecmo_gameplay_audio_queue_game_music(&scene->audio_player)) {
+            scene_set_status(scene, "self-test live music handoff rejected");
+            scene->active = false;
+            return false;
+        }
+    }
+    scene_set_status(scene, "native pre-tip active");
     return true;
 }
 
@@ -2274,9 +2373,69 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
     if (scene == NULL ||
         scene->lifecycle_tag != TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG ||
         !scene->available || !scene->active || scene->result_ready ||
-        !scene_ownership_valid(scene)) {
+        scene->pretip_abort_pending) {
         return false;
     }
+    if (tecmo_gameplay_pretip_is_presentation(&scene->pretip_state)) {
+        TecmoGameplayPreTipPhase prior_phase = scene->pretip_state.phase;
+        bool held_one = player_one != NULL && player_one->held.cancel;
+        bool held_two = player_two != NULL && player_two->held.cancel;
+        if (!tecmo_gameplay_pretip_update(
+                &scene->pretip_assets, &scene->pretip_state,
+                held_one, held_two)) {
+            scene_set_status(scene, "pre-tip update rejected");
+            return false;
+        }
+        if (scene->pretip_state.aborted) {
+            scene->pretip_abort_pending = true;
+            scene->active = false;
+            tecmo_gameplay_audio_stop_all(&scene->audio_player);
+            scene_set_status(scene, "pre-tip aborted by NES B");
+            return true;
+        }
+        if (scene->pretip_state.phase ==
+                TECMO_GAMEPLAY_PRETIP_BALL_DESCENT) {
+            scene->ball_world_y_q8 = scene_pretip_descent_ball_y_q8(
+                scene->pretip_state.phase_frame);
+        } else if (prior_phase == TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP) {
+            scene->ball_world_y_q8 =
+                (int32_t)(108U - scene->pretip_state.phase_frame) * 256;
+        } else if (prior_phase == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
+            uint16_t frame = scene->pretip_state.phase_frame;
+            uint16_t arc = frame <= 15U ? frame : (uint16_t)(30U - frame);
+            scene->actors[4].world_y =
+                (int16_t)(scene->actors[4].anchor_world_y - arc / 2U);
+            scene->actors[9].world_y =
+                (int16_t)(scene->actors[9].anchor_world_y - arc / 2U);
+            scene->ball_world_y_q8 =
+                (int32_t)(72U + frame) * 256;
+        }
+        ++scene->frame;
+        if (scene->pretip_state.live_handoff) {
+            TecmoGameplayCameraFollowInput handoff_camera;
+            scene_initialize_actors(scene);
+            memset(&handoff_camera, 0, sizeof(handoff_camera));
+            handoff_camera.focus_world_x =
+                (uint16_t)(scene->ball_world_x_q8 / 256);
+            handoff_camera.orientation =
+                scene->orientation_state.current_direction;
+            if (!tecmo_gameplay_camera_settle(
+                    &scene->camera_assets, &scene->camera_state,
+                    &handoff_camera)) {
+                scene_set_status(scene, "pre-tip live camera handoff rejected");
+                return false;
+            }
+            if (scene->launch.game_music_enabled &&
+                !tecmo_gameplay_audio_queue_game_music(
+                    &scene->audio_player)) {
+                scene_set_status(scene, "gameplay track 5 handoff rejected");
+                return false;
+            }
+            scene_set_status(scene, "native gameplay active");
+        }
+        return true;
+    }
+    if (!scene_ownership_valid(scene)) return false;
     controls[0] = player_one;
     controls[1] = player_two;
     tecmo_gameplay_frame_input_clear(&input);
@@ -2486,6 +2645,25 @@ bool tecmo_gameplay_scene_result(const TecmoGameplayScene *scene,
     return true;
 }
 
+bool tecmo_gameplay_scene_consume_pretip_abort(TecmoGameplayScene *scene)
+{
+    if (scene == NULL ||
+        scene->lifecycle_tag != TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG ||
+        !scene->pretip_abort_pending) {
+        return false;
+    }
+    scene->pretip_abort_pending = false;
+    return true;
+}
+
+bool tecmo_gameplay_scene_in_pretip(const TecmoGameplayScene *scene)
+{
+    return scene != NULL &&
+           scene->lifecycle_tag == TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG &&
+           scene->active &&
+           tecmo_gameplay_pretip_is_presentation(&scene->pretip_state);
+}
+
 void tecmo_gameplay_scene_end(TecmoGameplayScene *scene)
 {
     if (scene == NULL ||
@@ -2531,7 +2709,13 @@ static bool scene_build_background_context(
 {
     uint8_t selector;
     if (scene->launch.home_team >= TECMO_GAMEPLAY_TEAM_LIMIT) return false;
-    selector = (uint8_t)(0x40U + scene->launch.home_team);
+    /*
+     * The center-tip setup uses the neutral final R1 page. Team-specific
+     * selectors are not installed until the live handoff.
+     */
+    selector = tecmo_gameplay_scene_in_pretip(scene)
+                   ? 0x3FU
+                   : (uint8_t)(0x40U + scene->launch.home_team);
     return tecmo_gameplay_assets_build_live_background_context(
         &scene->assets, selector, context);
 }
@@ -2699,6 +2883,368 @@ static void scene_draw_pose(const TecmoGameplayScene *scene,
     }
 }
 
+static void scene_make_bg_palette(uint32_t rgba[4],
+                                  const uint8_t palette[16],
+                                  uint8_t index)
+{
+    size_t base = (size_t)(index & 3U) * 4U;
+    size_t color;
+    rgba[0] = tecmo_nes_2c02_rgba(palette[0]);
+    for (color = 1U; color < 4U; ++color)
+        rgba[color] = tecmo_nes_2c02_rgba(palette[base + color]);
+}
+
+static void scene_make_sprite_palette(uint32_t rgba[4],
+                                      const uint8_t palette[16],
+                                      uint8_t index)
+{
+    size_t base = (size_t)(index & 3U) * 4U;
+    size_t color;
+    rgba[0] = 0U;
+    for (color = 1U; color < 4U; ++color)
+        rgba[color] = tecmo_nes_2c02_rgba(palette[base + color]);
+}
+
+static bool scene_draw_pretip_cell(
+    const TecmoGameplayScene *scene,
+    TecmoFramebuffer *view,
+    const TecmoStartGameMenuCell *cell,
+    const uint8_t palette[16],
+    int palette_override,
+    int x,
+    int y,
+    int scale)
+{
+    uint32_t rgba[4];
+    uint8_t index;
+    if (cell == NULL || cell->chr_offset + 16U >
+            scene->assets.chr_storage_size) {
+        return false;
+    }
+    index = palette_override >= 0
+                ? (uint8_t)palette_override : cell->palette_index;
+    if (index > 3U) return false;
+    scene_make_bg_palette(rgba, palette, index);
+    tecmo_draw_chr_tile_at_offset_ex(
+        view, scene->assets.chr_storage, scene->assets.chr_storage_size,
+        cell->chr_offset, x * scale, y * scale, scale, rgba, false, false);
+    return true;
+}
+
+static bool scene_draw_pretip_text(
+    const TecmoGameplayScene *scene,
+    TecmoFramebuffer *view,
+    const char *text,
+    int x,
+    int y,
+    int scale,
+    const uint8_t palette[16],
+    int palette_index)
+{
+    size_t index;
+    if (text == NULL) return false;
+    for (index = 0U; text[index] != '\0'; ++index) {
+        unsigned c = (unsigned char)text[index];
+        if (c < 0x20U ||
+            c >= 0x20U + TECMO_TEAM_DATA_FONT_COUNT) continue;
+        if (!scene_draw_pretip_cell(
+                scene, view,
+                &scene->pretip_team_data->font[c - 0x20U],
+                palette, palette_index, x + (int)index * 8, y, scale)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool scene_draw_pretip_team(
+    const TecmoGameplayScene *scene,
+    TecmoFramebuffer *view,
+    uint8_t team_id,
+    int logo_x,
+    int logo_y,
+    int scale,
+    bool dim)
+{
+    const TecmoTeamDataTeam *team;
+    uint8_t logo_palette[16];
+    size_t index;
+    if (team_id >= TECMO_TEAM_DATA_REAL_TEAM_COUNT) return false;
+    team = &scene->pretip_team_data->teams[team_id];
+    if (team->logo_width == 0U || team->logo_height == 0U ||
+        team->logo_count == 0U ||
+        (size_t)team->logo_width * team->logo_height != team->logo_count ||
+        team->logo_count > TECMO_TEAM_DATA_LOGO_CELL_LIMIT ||
+        team->profile_palette_group >=
+            TECMO_TEAM_DATA_PROFILE_PALETTE_COUNT ||
+        logo_x < 0 || logo_y < 0 ||
+        (int)team->logo_width * 8 >
+            TECMO_GAMEPLAY_SCENE_NES_WIDTH - logo_x ||
+        (int)team->logo_height * 8 >
+            TECMO_GAMEPLAY_SCENE_NES_HEIGHT - logo_y) {
+        return false;
+    }
+    memcpy(logo_palette,
+           scene->pretip_team_data->profile_palettes[
+               team->profile_palette_group],
+           sizeof(logo_palette));
+    logo_palette[0] = 0x0FU;
+    if (dim) {
+        for (index = 1U; index < sizeof(logo_palette); ++index) {
+            logo_palette[index] = logo_palette[index] >= 0x10U
+                                      ? (uint8_t)(logo_palette[index] - 0x10U)
+                                      : 0x0FU;
+        }
+    }
+    for (index = 0U; index < team->logo_count; ++index) {
+        int column = (int)(index % team->logo_width);
+        int row = (int)(index / team->logo_width);
+        if (!scene_draw_pretip_cell(
+                scene, view, &scene->pretip_team_data->logos[team_id][index],
+                logo_palette, -1, logo_x + column * 8,
+                logo_y + row * 8, scale)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool scene_draw_pretip_template(const TecmoGameplayScene *scene,
+                                       TecmoFramebuffer *view,
+                                       int scale)
+{
+    (void)scene;
+    (void)scale;
+    /*
+     * Screen $15 is the ROM's blank dynamic-card nametable. Its visible
+     * backdrop is universal black; all card lettering is subsequently written
+     * by Bank06 $A125 rather than baked into the decoded nametable.
+     */
+    scene_fill_rect(view, 0, 0, view->width, view->height,
+                    tecmo_nes_2c02_rgba(0x0FU));
+    return true;
+}
+
+static bool scene_draw_pretip_closeup(const TecmoGameplayScene *scene,
+                                      TecmoFramebuffer *view,
+                                      int scale)
+{
+    size_t index;
+    if (scene->pretip_closeup == NULL ||
+        !scene->pretip_closeup->available) return false;
+    scene_fill_rect(view, 0, 0, view->width, view->height,
+                    tecmo_nes_2c02_rgba(
+                        scene->pretip_closeup->background_palette[0]));
+    for (index = 0U; index < 960U; ++index) {
+        const TecmoIntroWarriorsTile *cell =
+            &scene->pretip_closeup->pages[0][index];
+        uint32_t rgba[4];
+        scene_make_bg_palette(
+            rgba, scene->pretip_closeup->background_palette,
+            cell->palette_index);
+        tecmo_draw_chr_tile_at_offset_ex(
+            view, scene->assets.chr_storage,
+            scene->assets.chr_storage_size, cell->moving_chr_offset,
+            (int)(index % 32U) * 8 * scale,
+            (int)(index / 32U) * 8 * scale,
+            scale, rgba, false, false);
+    }
+    scene_fill_rect(view, 0, 42 * scale, view->width, 4 * scale,
+                    tecmo_nes_2c02_rgba(0x30U));
+    scene_fill_rect(view, 0, 162 * scale, view->width, 4 * scale,
+                    tecmo_nes_2c02_rgba(0x30U));
+    for (index = 0U; index < TECMO_INTRO_WARRIORS_PIECE_COUNT; ++index) {
+        const TecmoIntroWarriorsPiece *piece =
+            &scene->pretip_closeup->pieces[index];
+        uint32_t rgba[4];
+        bool flip_x = (piece->flags & 1U) != 0U;
+        bool flip_y = (piece->flags & 2U) != 0U;
+        uint32_t top = flip_y ? piece->bottom_chr_offset
+                              : piece->top_chr_offset;
+        uint32_t bottom = flip_y ? piece->top_chr_offset
+                                 : piece->bottom_chr_offset;
+        int x = (70 + piece->dx) * scale;
+        int y = (92 + piece->dy) * scale;
+        scene_make_sprite_palette(
+            rgba, scene->pretip_closeup->sprite_palette,
+            piece->palette_index);
+        tecmo_draw_chr_tile_at_offset_ex(
+            view, scene->assets.chr_storage,
+            scene->assets.chr_storage_size, top,
+            x, y, scale, rgba, flip_x, flip_y);
+        tecmo_draw_chr_tile_at_offset_ex(
+            view, scene->assets.chr_storage,
+            scene->assets.chr_storage_size, bottom,
+            x, y + 8 * scale, scale, rgba, flip_x, flip_y);
+    }
+    return true;
+}
+
+static int scene_centered_text_x(const char *text)
+{
+    size_t length = text != NULL ? strlen(text) : 0U;
+    return (int)(TECMO_GAMEPLAY_SCENE_NES_WIDTH -
+                 (int)(length * 8U)) / 2;
+}
+
+static void scene_make_pretip_card_palette(const TecmoGameplayScene *scene,
+                                           uint8_t palette[16],
+                                           bool dim)
+{
+    size_t index;
+    memcpy(palette, scene->pretip_assets.palette, 16U);
+    palette[0] = 0x0FU;
+    if (!dim) return;
+    for (index = 1U; index < 16U; ++index) {
+        palette[index] = palette[index] >= 0x10U
+                             ? (uint8_t)(palette[index] - 0x10U)
+                             : 0x0FU;
+    }
+}
+
+static bool scene_draw_pretip_cards(const TecmoGameplayScene *scene,
+                                    TecmoFramebuffer *framebuffer,
+                                    int origin_x,
+                                    int origin_y,
+                                    int scale)
+{
+    TecmoFramebuffer view;
+    TecmoGameplayPreTipPhase phase = scene->pretip_state.phase;
+    uint16_t phase_frame = scene->pretip_state.phase_frame;
+    uint8_t palette[16];
+    bool dim;
+    const TecmoTeamDataTeam *away;
+    const TecmoTeamDataTeam *home;
+    const char *mode_text;
+    if (!scene_framebuffer_subview(framebuffer, origin_x, origin_y,
+                                   scale, &view)) {
+        return false;
+    }
+    if (phase == TECMO_GAMEPLAY_PRETIP_CLOSEUP) {
+        if (phase_frame < 28U ||
+            phase_frame + 30U >= scene->pretip_assets.phase_frames[phase]) {
+            scene_fill_rect(&view, 0, 0, view.width, view.height,
+                            tecmo_nes_2c02_rgba(0x0FU));
+            return true;
+        }
+        return scene_draw_pretip_closeup(scene, &view, scale);
+    }
+    if (!scene_draw_pretip_template(scene, &view, scale)) return false;
+    if (phase == TECMO_GAMEPLAY_PRETIP_FIRST_PERIOD &&
+        phase_frame < 16U) {
+        return true;
+    }
+    dim = (phase == TECMO_GAMEPLAY_PRETIP_MATCHUP && phase_frame < 30U) ||
+          (phase == TECMO_GAMEPLAY_PRETIP_FIRST_PERIOD &&
+           phase_frame < 29U);
+    scene_make_pretip_card_palette(scene, palette, dim);
+    if (phase == TECMO_GAMEPLAY_PRETIP_PRESEASON) {
+        mode_text = scene->launch.source == TECMO_GAMEPLAY_SCENE_PRESEASON
+                        ? "PRESEASON" : "REGULAR SEASON";
+        return scene_draw_pretip_text(
+            scene, &view, mode_text, scene_centered_text_x(mode_text), 112,
+            scale, palette, 2);
+    }
+    if (phase == TECMO_GAMEPLAY_PRETIP_MATCHUP) {
+        away = &scene->pretip_team_data->teams[scene->launch.away_team];
+        home = &scene->pretip_team_data->teams[scene->launch.home_team];
+        return scene_draw_pretip_team(
+                   scene, &view, scene->launch.away_team,
+                   16, 32, scale, dim) &&
+               scene_draw_pretip_text(
+                   scene, &view, away->city,
+                   scene_centered_text_x(away->city), 80, scale, palette, 2) &&
+               scene_draw_pretip_text(
+                   scene, &view, away->nickname,
+                   scene_centered_text_x(away->nickname), 96, scale,
+                   palette, 2) &&
+               scene_draw_pretip_text(
+                   scene, &view, "VS", scene_centered_text_x("VS"), 144,
+                   scale, palette, 2) &&
+               scene_draw_pretip_team(
+                   scene, &view, scene->launch.home_team,
+                   16, 128, scale, dim) &&
+               scene_draw_pretip_text(
+                   scene, &view, home->city,
+                   scene_centered_text_x(home->city), 176, scale,
+                   palette, 2) &&
+               scene_draw_pretip_text(
+                   scene, &view, home->nickname,
+                   scene_centered_text_x(home->nickname), 192, scale,
+                   palette, 2);
+    }
+    return scene_draw_pretip_text(
+        scene, &view, "1ST PERIOD", scene_centered_text_x("1ST PERIOD"), 112,
+        scale, palette, 2);
+}
+
+static bool scene_draw_pretip_descriptor_screen(
+    const TecmoGameplayScene *scene,
+    TecmoFramebuffer *framebuffer,
+    int origin_x,
+    int origin_y,
+    int scale,
+    uint8_t screen_index,
+    uint8_t nametable_page)
+{
+    TecmoFramebuffer view;
+    const TecmoGameplayScreenAsset *screen;
+    unsigned row;
+    unsigned column;
+    if (screen_index >= TECMO_GAMEPLAY_ASSET_SCREEN_COUNT ||
+        !scene_framebuffer_subview(framebuffer, origin_x, origin_y,
+                                   scale, &view)) {
+        return false;
+    }
+    screen = &scene->assets.screens[screen_index];
+    scene_fill_rect(&view, 0, 0, view.width, view.height,
+                    tecmo_nes_2c02_rgba(screen->palette[0]));
+    for (row = 0U; row < 30U; ++row) {
+        for (column = 0U; column < 32U; ++column) {
+            TecmoGameplayResolvedOrientationTile tile;
+            uint32_t rgba[4];
+            size_t color;
+            if (!tecmo_gameplay_assets_resolve_descriptor_tile(
+                    &scene->assets, screen_index, nametable_page,
+                    (uint8_t)row, (uint8_t)column, &tile)) {
+                return false;
+            }
+            rgba[0] = tecmo_nes_2c02_rgba(screen->palette[0]);
+            for (color = 1U; color < 4U; ++color)
+                rgba[color] = tecmo_nes_2c02_rgba(tile.palette[color]);
+            tecmo_draw_chr_tile_at_offset_ex(
+                &view, scene->assets.chr_storage,
+                scene->assets.chr_storage_size, tile.chr_offset,
+                (int)column * 8 * scale, (int)row * 8 * scale,
+                scale, rgba, false, false);
+        }
+    }
+    return true;
+}
+
+static bool scene_draw_pretip_team_overlay(const TecmoGameplayScene *scene,
+                                           TecmoFramebuffer *view,
+                                           int scale)
+{
+    const TecmoTeamDataTeam *team;
+    int logo_x;
+    int logo_y;
+    if (scene->launch.away_team >= TECMO_TEAM_DATA_REAL_TEAM_COUNT)
+        return false;
+    team = &scene->pretip_team_data->teams[scene->launch.away_team];
+    if (team->logo_width == 0U || team->logo_height == 0U ||
+        team->logo_width > 32U || team->logo_height > 30U) {
+        return false;
+    }
+    logo_x = TECMO_GAMEPLAY_SCENE_NES_WIDTH -
+             (int)team->logo_width * 8;
+    logo_y = TECMO_GAMEPLAY_SCENE_NES_HEIGHT -
+             (int)team->logo_height * 8;
+    return scene_draw_pretip_team(
+        scene, view, scene->launch.away_team,
+        logo_x, logo_y, scale, false);
+}
+
 bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
                                TecmoFramebuffer *framebuffer,
                                int origin_x,
@@ -2729,6 +3275,33 @@ bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
             &scene->camera_assets, &scene->camera_state) ||
         !scene_framebuffer_valid(framebuffer, origin_x, origin_y, scale)) {
         return false;
+    }
+    if (tecmo_gameplay_scene_in_pretip(scene) &&
+        scene->pretip_state.phase <= TECMO_GAMEPLAY_PRETIP_CLOSEUP) {
+        return scene_draw_pretip_cards(
+            scene, framebuffer, origin_x, origin_y, scale);
+    }
+    if (tecmo_gameplay_scene_in_pretip(scene) &&
+        (scene->pretip_state.phase ==
+             TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP ||
+         (scene->pretip_state.phase ==
+              TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP &&
+          scene->pretip_state.phase_frame < 30U))) {
+        if (!scene_framebuffer_subview(framebuffer, origin_x, origin_y,
+                                       scale, &view)) {
+            return false;
+        }
+        scene_fill_rect(&view, 0, 0, view.width, view.height,
+                        tecmo_nes_2c02_rgba(0x0FU));
+        return true;
+    }
+    if (tecmo_gameplay_scene_in_pretip(scene) &&
+        scene->pretip_state.phase == TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP) {
+        /* TGPL screen $1B page 1 is the ROM phase with ball X 176..239
+           and hands X 67..159; page 0 is the preceding/opposite phase. */
+        if (scene->assets.screens[0].screen_id != 0x1BU) return false;
+        return scene_draw_pretip_descriptor_screen(
+            scene, framebuffer, origin_x, origin_y, scale, 0U, 1U);
     }
     memset(actor_projections, 0, sizeof(actor_projections));
     memset(&ball_projection, 0, sizeof(ball_projection));
@@ -2864,6 +3437,14 @@ bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
                         ball_projection.screen_x,
                         ball_projection.screen_y,
                         0, 0, scale, false);
+    }
+    if (tecmo_gameplay_scene_in_pretip(scene) &&
+        (scene->pretip_state.phase ==
+             TECMO_GAMEPLAY_PRETIP_BALL_DESCENT ||
+         scene->pretip_state.phase ==
+             TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) &&
+        !scene_draw_pretip_team_overlay(scene, &view, scale)) {
+        return false;
     }
     return true;
 }
@@ -3708,6 +4289,8 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     const size_t guarded_pixel_count =
         (size_t)guard_width * (size_t)guard_height;
 
+    scene_self_test_skip_pretip = false;
+
     tecmo_gameplay_scene_init(&missing_scene);
     if (tecmo_gameplay_scene_load(&missing_scene, project_root,
                                   "?:\\missing-gameplay.assetpack",
@@ -3780,6 +4363,140 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         return false;
     }
     launch.home_team = 1U;
+    if (!tecmo_gameplay_scene_launch(&scene, &launch)) {
+        scene_test_message(message, message_size,
+                           "gameplay pre-tip launch rejected");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    if (!tecmo_gameplay_scene_in_pretip(&scene) ||
+        scene.pretip_state.phase != TECMO_GAMEPLAY_PRETIP_PRESEASON ||
+        scene.state.clock_minutes != 2U || scene.state.clock_seconds != 0U ||
+        scene.state.shot_clock != 24U ||
+        !scene.audio_player.music->track_pending ||
+        scene.audio_player.music->pending_track_id !=
+            TECMO_MUSIC_TRACK_PREGAME_MATCHUP_STINGER) {
+        scene_test_message(message, message_size,
+                           "pre-tip freeze/track-8 launch contract failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    for (frame = 0U; frame < 481U; ++frame) {
+        if (!tecmo_gameplay_scene_update(&scene, &p1, &p2)) {
+            scene_test_message(message, message_size,
+                               "pre-tip descent entry update rejected");
+            tecmo_gameplay_scene_destroy(&scene);
+            return false;
+        }
+    }
+    if (scene.pretip_state.phase !=
+            TECMO_GAMEPLAY_PRETIP_BALL_DESCENT ||
+        scene.pretip_state.phase_frame != 0U ||
+        scene.pretip_state.total_frame != 481U ||
+        scene.ball_world_y_q8 !=
+            TECMO_GAMEPLAY_PRETIP_DESCENT_START_Y * 256 ||
+        scene.state.clock_minutes != 2U || scene.state.clock_seconds != 0U ||
+        scene.state.shot_clock != 24U) {
+        scene_test_message(message, message_size,
+                           "pre-tip descent entry/freeze contract failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    for (frame = 0U; frame < 30U; ++frame) {
+        if (!tecmo_gameplay_scene_update(&scene, &p1, &p2)) {
+            scene_test_message(message, message_size,
+                               "pre-tip descent midpoint update rejected");
+            tecmo_gameplay_scene_destroy(&scene);
+            return false;
+        }
+    }
+    if (scene.pretip_state.phase_frame != 30U ||
+        scene.ball_world_y_q8 < 107 * 256 ||
+        scene.ball_world_y_q8 > 109 * 256) {
+        scene_test_message(message, message_size,
+                           "pre-tip descent midpoint bounds failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    for (frame = 0U; frame < 30U; ++frame) {
+        if (!tecmo_gameplay_scene_update(&scene, &p1, &p2)) {
+            scene_test_message(message, message_size,
+                               "pre-tip descent endpoint update rejected");
+            tecmo_gameplay_scene_destroy(&scene);
+            return false;
+        }
+    }
+    if (scene.pretip_state.phase_frame != 60U ||
+        scene.ball_world_y_q8 !=
+            TECMO_GAMEPLAY_PRETIP_DESCENT_END_Y * 256) {
+        scene_test_message(message, message_size,
+                           "pre-tip descent endpoint clamp failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    for (frame = 0U; frame < 59U; ++frame) {
+        if (!tecmo_gameplay_scene_update(&scene, &p1, &p2)) {
+            scene_test_message(message, message_size,
+                               "pre-tip descent hold update rejected");
+            tecmo_gameplay_scene_destroy(&scene);
+            return false;
+        }
+    }
+    if (scene.pretip_state.phase_frame != 119U ||
+        scene.ball_world_y_q8 !=
+            TECMO_GAMEPLAY_PRETIP_DESCENT_END_Y * 256) {
+        scene_test_message(message, message_size,
+                           "pre-tip descent hold contract failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    for (frame = 600U; frame < 691U; ++frame) {
+        if (!tecmo_gameplay_scene_update(&scene, &p1, &p2)) {
+            scene_test_message(message, message_size,
+                               "pre-tip live handoff update rejected");
+            tecmo_gameplay_scene_destroy(&scene);
+            return false;
+        }
+    }
+    if (tecmo_gameplay_scene_in_pretip(&scene) ||
+        scene.pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE ||
+        !scene.pretip_state.live_handoff ||
+        scene.pretip_state.total_frame != 691U ||
+        scene.frame != 691U ||
+        scene.state.clock_minutes != 2U || scene.state.clock_seconds != 0U ||
+        scene.state.shot_clock != 24U ||
+        !scene.audio_player.music->track_pending ||
+        scene.audio_player.music->pending_track_id !=
+            TECMO_MUSIC_TRACK_GAMEPLAY) {
+        scene_test_message(message, message_size,
+                           "pre-tip 691-frame track-8-to-5 handoff failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    tecmo_gameplay_scene_end(&scene);
+    if (!tecmo_gameplay_scene_launch(&scene, &launch)) {
+        scene_test_message(message, message_size,
+                           "gameplay pre-tip abort relaunch rejected");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    p1.held.cancel = true;
+    if (!tecmo_gameplay_scene_update(&scene, &p1, &p2) ||
+        scene.active || !scene.pretip_abort_pending ||
+        !tecmo_gameplay_scene_consume_pretip_abort(&scene) ||
+        tecmo_gameplay_scene_consume_pretip_abort(&scene) ||
+        scene.result_ready ||
+        scene.state.clock_minutes != 2U || scene.state.clock_seconds != 0U ||
+        scene.state.shot_clock != 24U) {
+        scene_test_message(message, message_size,
+                           "pre-tip NES-B abort contract failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    tecmo_gameplay_scene_end(&scene);
+    scene_self_test_skip_pretip = true;
     if (!tecmo_gameplay_scene_launch(&scene, &launch)) {
         scene_test_message(message, message_size,
                            "gameplay scene canonical launch rejected");
@@ -5870,6 +6587,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     }
     tecmo_gameplay_scene_end(&scene);
     tecmo_gameplay_scene_destroy(&scene);
+    scene_self_test_skip_pretip = false;
     scene_test_message(message, message_size,
                        "GAMEPLAY SCENE SELF TEST PASS");
     return true;

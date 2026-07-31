@@ -246,6 +246,9 @@ typedef struct TecmoIntroPassState {
 bool tecmo_intro_ready_asset_load(TecmoIntroReadyAsset *asset, const char *project_root);
 bool tecmo_intro_warriors_asset_load(TecmoIntroWarriorsAsset *asset,
                                      const char *project_root);
+bool tecmo_intro_warriors_asset_load_from_pack(
+    TecmoIntroWarriorsAsset *asset,
+    const char *asset_pack_path);
 bool tecmo_intro_clippers_asset_load(TecmoIntroClippersAsset *asset,
                                      const char *project_root);
 bool tecmo_intro_bucks_asset_load(TecmoIntroBucksAsset *asset,

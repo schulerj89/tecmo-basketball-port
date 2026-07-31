@@ -159,6 +159,8 @@ typedef struct TecmoTeamDataState {
 
 bool tecmo_team_data_asset_load(TecmoTeamDataAsset *asset,
                                 const char *project_root);
+bool tecmo_team_data_asset_load_from_pack(TecmoTeamDataAsset *asset,
+                                          const char *asset_pack_path);
 bool tecmo_team_data_asset_chr_available(const TecmoTeamDataAsset *asset,
                                          const uint8_t *chr_bytes,
                                          uint64_t chr_byte_count);

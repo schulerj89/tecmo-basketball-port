@@ -13,6 +13,7 @@
 #include "tecmo_asset_pack_gameplay_shot_resolution.h"
 #include "tecmo_asset_pack_gameplay_penalties.h"
 #include "tecmo_asset_pack_gameplay_free_throw_lineup.h"
+#include "tecmo_asset_pack_gameplay_pretip.h"
 #include "tecmo_asset_pack_music.h"
 
 #include <stddef.h>
@@ -51,6 +52,7 @@ char *tecmo_asset_pack_build_ines_source_map(
     const TecmoGameplayShotResolutionProvenance *shot_resolution_provenance,
     const TecmoGameplayPenaltyProvenance *penalty_provenance,
     const TecmoGameplayFreeThrowLineupProvenance *free_throw_lineup_provenance,
+    const TecmoGameplayPreTipProvenance *pretip_provenance,
     size_t *source_map_size_out);
 
 #endif

@@ -500,6 +500,47 @@ bool tecmo_team_data_asset_load(TecmoTeamDataAsset *asset,
     return ok;
 }
 
+bool tecmo_team_data_asset_load_from_pack(TecmoTeamDataAsset *asset,
+                                          const char *asset_pack_path)
+{
+    uint8_t *payload = NULL;
+    uint8_t *chr = NULL;
+    uint64_t payload_count = 0U;
+    uint64_t chr_count = 0U;
+    bool ok;
+    if (asset == NULL) return false;
+    memset(asset, 0, sizeof(*asset));
+    if (asset_pack_path == NULL ||
+        tecmo_asset_pack_read_entry_exact(
+            asset_pack_path, TEAM_DATA_ENTRY_ID, TEAM_DATA_PAYLOAD_SIZE,
+            &payload, &payload_count) != 0 ||
+        tecmo_asset_pack_read_entry_exact(
+            asset_pack_path, "chr/all", TEAM_DATA_CHR_SIZE,
+            &chr, &chr_count) != 0) {
+        tecmo_asset_pack_free(payload);
+        tecmo_asset_pack_free(chr);
+        (void)snprintf(asset->status, sizeof(asset->status),
+                       "TTDT-1 explicit-pack dependency unavailable");
+        return false;
+    }
+    ok = fnv1a32(payload, payload_count) == TEAM_DATA_PAYLOAD_FNV1A32 &&
+         parse_payload(asset, payload, payload_count) &&
+         fnv1a32(chr, chr_count) == TEAM_DATA_CHR_FNV1A32 &&
+         fnv1a64(chr, chr_count) == TEAM_DATA_CHR_FNV1A64;
+    if (ok) {
+        asset->chr_fingerprint64 = TEAM_DATA_CHR_FNV1A64;
+        asset->available = true;
+        ok = tecmo_team_data_asset_chr_available(asset, chr, chr_count);
+    }
+    tecmo_asset_pack_free(payload);
+    tecmo_asset_pack_free(chr);
+    if (!ok) asset->available = false;
+    (void)snprintf(asset->status, sizeof(asset->status), "%s",
+                   ok ? "TTDT-1 explicit assetpack"
+                      : "TTDT-1 explicit asset contract rejected");
+    return ok;
+}
+
 bool tecmo_team_data_asset_chr_available(const TecmoTeamDataAsset *asset,
                                          const uint8_t *chr_bytes,
                                          uint64_t chr_byte_count)

@@ -16,6 +16,7 @@
 #include "asset_pack/tecmo_asset_pack_gameplay_jump_shots.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_shot_resolution.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_penalties.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_pretip.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.h"
 #include "asset_pack/tecmo_asset_pack_import_layout.h"
 #include "asset_pack/tecmo_asset_pack_music.h"
@@ -93,6 +94,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                           TecmoGameplayShotResolutionProvenance *shot_resolution_provenance,
                                           TecmoGameplayPenaltyProvenance *penalty_provenance,
                                           TecmoGameplayFreeThrowLineupProvenance *free_throw_lineup_provenance,
+                                          TecmoGameplayPreTipProvenance *pretip_provenance,
                                           char *message,
                                           size_t message_size)
 {
@@ -130,6 +132,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
     uint8_t penalty_payload[TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_SIZE];
     uint8_t free_throw_lineup_payload[
         TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SIZE];
+    uint8_t pretip_payload[TECMO_ASSET_PACK_GAMEPLAY_PRETIP_SIZE];
     uint64_t script_source_offset =
         prg_bank_cpu_source_offset(prg_offset,
                                    prg_banks,
@@ -202,6 +205,14 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
             enforce_finale_revision_fingerprints,
             court_orientation_payload, sizeof(court_orientation_payload),
             court_orientation_provenance, message, message_size) != 0) {
+        return -1;
+    }
+    if (enforce_finale_revision_fingerprints != 0 &&
+        tecmo_asset_pack_build_gameplay_pretip(
+            rom, rom_size, prg_offset, prg_banks,
+            enforce_finale_revision_fingerprints,
+            pretip_payload, sizeof(pretip_payload), pretip_provenance,
+            message, message_size) != 0) {
         return -1;
     }
 
@@ -837,6 +848,19 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                 "Could not write strict TGPL-1 gameplay entry.");
             return -1;
         }
+        entry_info = tecmo_asset_pack_make_entry_info(
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_ID,
+            TECMO_ASSET_PACK_TYPE_DATA, 6U, 0xA125U,
+            pretip_provenance->source_offsets[4],
+            TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+        if (tecmo_asset_pack_builder_add_memory(
+                builder, &entry_info, pretip_payload,
+                sizeof(pretip_payload), message, message_size) != 0) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Could not write strict TPTI-1 gameplay pre-tip entry.");
+            return -1;
+        }
         if (tecmo_asset_pack_build_gameplay_court(
                 rom, rom_size, prg_offset, prg_banks, chr_offset, chr_size,
                 enforce_finale_revision_fingerprints,
@@ -1027,6 +1051,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     TecmoGameplayShotResolutionProvenance shot_resolution_provenance;
     TecmoGameplayPenaltyProvenance penalty_provenance;
     TecmoGameplayFreeThrowLineupProvenance free_throw_lineup_provenance;
+    TecmoGameplayPreTipProvenance pretip_provenance;
     int manifest_length;
     int result = -1;
 
@@ -1214,6 +1239,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     memset(&penalty_provenance, 0, sizeof(penalty_provenance));
     memset(&free_throw_lineup_provenance, 0,
            sizeof(free_throw_lineup_provenance));
+    memset(&pretip_provenance, 0, sizeof(pretip_provenance));
     if (add_native_arena_intro_entries(builder,
                                        rom,
                                        rom_size,
@@ -1247,6 +1273,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &shot_resolution_provenance,
                                        &penalty_provenance,
                                        &free_throw_lineup_provenance,
+                                       &pretip_provenance,
                                        message,
                                        message_size) != 0) {
         goto cleanup;
@@ -1284,6 +1311,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &shot_resolution_provenance,
                                        &penalty_provenance,
                                        &free_throw_lineup_provenance,
+                                       &pretip_provenance,
                                        &source_map_size);
     if (source_map == NULL) {
         tecmo_asset_pack_set_message(message, message_size, "Could not build asset pack source map.");

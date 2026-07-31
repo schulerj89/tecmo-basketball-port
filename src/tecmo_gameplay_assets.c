@@ -551,7 +551,7 @@ bool tecmo_gameplay_assets_build_live_background_context(
     TecmoGameplayLiveBackgroundContext *context)
 {
     if (assets == NULL || context == NULL || !assets->available ||
-        final_r1_selector < 0x40U || final_r1_selector > 0x5AU) {
+        final_r1_selector < 0x3FU || final_r1_selector > 0x5AU) {
         return false;
     }
     for (size_t band = 0U; band < TECMO_GAMEPLAY_LIVE_BAND_COUNT; ++band) {
@@ -629,5 +629,51 @@ bool tecmo_gameplay_assets_resolve_live_orientation_tile(
     tile->chr_offset = chr_offset;
     tile->chr = assets->chr_storage + chr_offset;
     tile->palette = screen->palette + (size_t)palette_index * 4U;
+    return true;
+}
+
+bool tecmo_gameplay_assets_resolve_descriptor_tile(
+    const TecmoGameplayAssets *assets,
+    uint8_t screen_index,
+    uint8_t nametable_page,
+    uint8_t row,
+    uint8_t column,
+    TecmoGameplayResolvedOrientationTile *tile)
+{
+    const TecmoGameplayScreenAsset *screen;
+    size_t nametable;
+    size_t attribute;
+    unsigned shift;
+    uint8_t selector;
+    uint32_t chr_offset;
+    if (assets == NULL || tile == NULL || !assets->available ||
+        screen_index >= TECMO_GAMEPLAY_ASSET_SCREEN_COUNT ||
+        nametable_page >= 2U || row >= 30U || column >= 32U) {
+        return false;
+    }
+    screen = &assets->screens[screen_index];
+    nametable = (size_t)nametable_page * 1024U;
+    memset(tile, 0, sizeof(*tile));
+    tile->screen_id = screen->screen_id;
+    tile->nametable_page = nametable_page;
+    tile->row = row;
+    tile->column = column;
+    tile->tile_id =
+        screen->nametables[nametable + (size_t)row * 32U + column];
+    attribute = nametable + 0x3C0U + (size_t)(row / 4U) * 8U + column / 4U;
+    shift = ((row & 2U) != 0U ? 4U : 0U) +
+            ((column & 2U) != 0U ? 2U : 0U);
+    tile->palette_index =
+        (uint8_t)((screen->nametables[attribute] >> shift) & 3U);
+    selector = tile->tile_id < 0x80U
+                   ? (uint8_t)(screen->descriptor[0U] * 2U)
+                   : (uint8_t)(screen->descriptor[1U] * 2U);
+    tile->mmc3_bank = selector;
+    chr_offset = (uint32_t)selector * 1024U +
+                 (uint32_t)(tile->tile_id & 0x7FU) * 16U;
+    if (chr_offset + 16U > assets->chr_storage_size) return false;
+    tile->chr_offset = chr_offset;
+    tile->chr = assets->chr_storage + chr_offset;
+    tile->palette = screen->palette + (size_t)tile->palette_index * 4U;
     return true;
 }
