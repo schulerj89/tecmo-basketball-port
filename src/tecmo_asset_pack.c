@@ -10,6 +10,7 @@
 #include "asset_pack/tecmo_asset_pack_gameplay.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_camera.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_movement.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_cpu_steering.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_court.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_court_orientation.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_close_shots.h"
@@ -90,6 +91,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                           TecmoGameplayCourtOrientationProvenance *court_orientation_provenance,
                                           TecmoGameplayCameraProvenance *gameplay_camera_provenance,
                                           TecmoGameplayMovementProvenance *gameplay_movement_provenance,
+                                          TecmoGameplayCpuSteeringProvenance *cpu_steering_provenance,
                                           TecmoGameplayCloseShotProvenance *close_shot_provenance,
                                           TecmoGameplayDunkProvenance *dunk_provenance,
                                           TecmoGameplayJumpShotProvenance *jump_shot_provenance,
@@ -126,6 +128,8 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
     uint8_t gameplay_camera_payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SIZE];
     uint8_t gameplay_movement_payload[
         TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_SIZE];
+    uint8_t cpu_steering_payload[
+        TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_SIZE];
     uint8_t close_shot_payload[
         TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_SIZE];
     uint8_t dunk_payload[TECMO_ASSET_PACK_GAMEPLAY_DUNK_SIZE];
@@ -225,6 +229,14 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
             enforce_finale_revision_fingerprints,
             gameplay_movement_payload, sizeof(gameplay_movement_payload),
             gameplay_movement_provenance, message, message_size) != 0) {
+        return -1;
+    }
+    if (enforce_finale_revision_fingerprints != 0 &&
+        tecmo_asset_pack_build_gameplay_cpu_steering(
+            rom, rom_size, prg_offset, prg_banks,
+            enforce_finale_revision_fingerprints,
+            cpu_steering_payload, sizeof(cpu_steering_payload),
+            cpu_steering_provenance, message, message_size) != 0) {
         return -1;
     }
 
@@ -942,6 +954,20 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
             return -1;
         }
         entry_info = tecmo_asset_pack_make_entry_info(
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_ID,
+            TECMO_ASSET_PACK_TYPE_DATA, 6U, 0x8B90U,
+            cpu_steering_provenance->source_offsets[3],
+            TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+        if (tecmo_asset_pack_builder_add_memory(
+                builder, &entry_info, cpu_steering_payload,
+                sizeof(cpu_steering_payload), message,
+                message_size) != 0) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Could not write strict TGAI-1 CPU steering entry.");
+            return -1;
+        }
+        entry_info = tecmo_asset_pack_make_entry_info(
             TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_ID,
             TECMO_ASSET_PACK_TYPE_DATA,
             TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_BANK, 0x8542U,
@@ -1072,6 +1098,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     TecmoGameplayCourtOrientationProvenance court_orientation_provenance;
     TecmoGameplayCameraProvenance gameplay_camera_provenance;
     TecmoGameplayMovementProvenance gameplay_movement_provenance;
+    TecmoGameplayCpuSteeringProvenance cpu_steering_provenance;
     TecmoGameplayCloseShotProvenance close_shot_provenance;
     TecmoGameplayDunkProvenance dunk_provenance;
     TecmoGameplayJumpShotProvenance jump_shot_provenance;
@@ -1260,6 +1287,8 @@ static int tecmo_asset_pack_build_from_ines_internal(
            sizeof(gameplay_camera_provenance));
     memset(&gameplay_movement_provenance, 0,
            sizeof(gameplay_movement_provenance));
+    memset(&cpu_steering_provenance, 0,
+           sizeof(cpu_steering_provenance));
     memset(&close_shot_provenance, 0, sizeof(close_shot_provenance));
     memset(&dunk_provenance, 0, sizeof(dunk_provenance));
     memset(&jump_shot_provenance, 0, sizeof(jump_shot_provenance));
@@ -1297,6 +1326,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &court_orientation_provenance,
                                        &gameplay_camera_provenance,
                                        &gameplay_movement_provenance,
+                                       &cpu_steering_provenance,
                                        &close_shot_provenance,
                                        &dunk_provenance,
                                        &jump_shot_provenance,
@@ -1336,6 +1366,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &court_orientation_provenance,
                                        &gameplay_camera_provenance,
                                        &gameplay_movement_provenance,
+                                       &cpu_steering_provenance,
                                        &close_shot_provenance,
                                        &dunk_provenance,
                                        &jump_shot_provenance,
@@ -2423,6 +2454,10 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         goto cleanup;
     }
     if (tecmo_asset_pack_gameplay_movement_self_test(
+            message, message_size) != 0) {
+        goto cleanup;
+    }
+    if (tecmo_asset_pack_gameplay_cpu_steering_self_test(
             message, message_size) != 0) {
         goto cleanup;
     }

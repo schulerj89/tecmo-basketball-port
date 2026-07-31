@@ -346,6 +346,7 @@ function Get-KnownLogicalAssetPackEntries {
         "gameplay/court-orientation",
         "gameplay/camera-projection",
         "gameplay/movement",
+        "gameplay/cpu-steering",
         "gameplay/close-shots",
         "gameplay/dunk-cutaway",
         "gameplay/jump-shots",
@@ -409,6 +410,7 @@ function Get-ExpectedLogicalAssetPackEntries {
             "gameplay/court-orientation"
             "gameplay/camera-projection"
             "gameplay/movement"
+            "gameplay/cpu-steering"
             "gameplay/close-shots"
             "gameplay/dunk-cutaway"
             "gameplay/jump-shots"

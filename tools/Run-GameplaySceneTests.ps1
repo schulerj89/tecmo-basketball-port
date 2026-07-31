@@ -219,6 +219,7 @@ try {
         [pscustomobject]@{ id="gameplay/court"; size=6559; hash="ECAB7A93"; schema="tecmo.gameplay-court/TGCT-1" },
         [pscustomobject]@{ id="gameplay/camera-projection"; size=1536; hash="53247856"; schema="tecmo.gameplay-camera/TGCP-2" },
         [pscustomobject]@{ id="gameplay/movement"; size=1664; hash="6C82A137"; schema="tecmo.gameplay-movement/TGMO-1" },
+        [pscustomobject]@{ id="gameplay/cpu-steering"; size=7616; hash="D6C4DB35"; schema="tecmo.gameplay-cpu-steering/TGAI-1" },
         [pscustomobject]@{ id="gameplay/court-orientation"; size=640; hash="F9152C0A"; schema="tecmo.gameplay-court-orientation/TGOR-1" },
         [pscustomobject]@{ id="gameplay/free-throw-lineup"; size=1216; hash="B17B9A3F"; schema="tecmo.gameplay-free-throw-lineup/TGFL-1" },
         [pscustomobject]@{ id="gameplay/close-shots"; size=3144; hash="DACDC976"; schema="tecmo.gameplay-close-shots/TGCS-1" },

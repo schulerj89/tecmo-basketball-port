@@ -4,6 +4,7 @@
 #include "asset_pack/tecmo_asset_pack_gameplay_audio.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_camera.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_movement.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_cpu_steering.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_court_orientation.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.h"
 #include "asset_pack/tecmo_asset_pack_music.h"
@@ -15,6 +16,7 @@
 #include "tecmo_gameplay_assets.h"
 #include "tecmo_gameplay_camera.h"
 #include "tecmo_gameplay_movement.h"
+#include "tecmo_gameplay_cpu_steering.h"
 #include "tecmo_gameplay_court.h"
 #include "tecmo_gameplay_court_orientation.h"
 #include "tecmo_gameplay_close_shots.h"
@@ -77,6 +79,9 @@ static void print_usage(const char *program)
     printf("  --gameplay-camera-projection-test PACK  Validate strict TGCP-2 camera/projector/clamp assets\n");
     printf("  --gameplay-movement-test PACK  Validate strict TGMO-1 controlled-player movement\n");
     printf("  --gameplay-movement-harness PACK TEAM ROSTER X Y SPEED POSSESSION ORIENTATION INPUT FRAMES  Trace deterministic developer-only movement\n");
+    printf("  --gameplay-cpu-steering-test PACK  Validate isolated TGAI-1 command/direction evidence\n");
+    printf("  --gameplay-cpu-steering-inspect PACK OFFSET DX DY  Decode one command and exact direction vector (console only)\n");
+    printf("  --gameplay-cpu-steering-harness PACK ACTOR POSSESSION ORIENTATION HOLDER MATCHUP DIFFICULTY X0,Y0 ... X9,Y9  Evaluate one complete court snapshot (console only)\n");
     printf("  --gameplay-close-shots-test PACK  Validate strict TGCS-1 close-shot assets\n");
     printf("  --gameplay-dunk-cutaway-test PACK  Validate strict TGDK-1 dunk presentation assets\n");
     printf("  --gameplay-jump-shots-test PACK  Validate strict TGJS-2 jump-shot assets\n");
@@ -362,6 +367,49 @@ static bool parse_u32_argument(const char *text,
     return true;
 }
 
+static bool parse_i16_argument(const char *text, int16_t *value_out)
+{
+    char *end = NULL;
+    long value;
+    if (text == NULL || text[0] == '\0' || value_out == NULL) return false;
+    errno = 0;
+    value = strtol(text, &end, 0);
+    if (errno != 0 || end == text || *end != '\0' ||
+        value < INT16_MIN || value > INT16_MAX) {
+        return false;
+    }
+    *value_out = (int16_t)value;
+    return true;
+}
+
+static bool parse_court_coordinate_argument(
+    const char *text,
+    TecmoGameplayCourtCoordinate *coordinate_out)
+{
+    char *end = NULL;
+    char *depth_end = NULL;
+    long x;
+    long y;
+    if (text == NULL || text[0] == '\0' || coordinate_out == NULL) {
+        return false;
+    }
+    errno = 0;
+    x = strtol(text, &end, 0);
+    if (errno != 0 || end == text || *end != ',') return false;
+    errno = 0;
+    y = strtol(end + 1, &depth_end, 0);
+    if (errno != 0 || depth_end == end + 1 || *depth_end != '\0' ||
+        x < TECMO_GAMEPLAY_COURT_WORLD_MIN_X ||
+        x > TECMO_GAMEPLAY_COURT_WORLD_MAX_X ||
+        y < TECMO_GAMEPLAY_COURT_WORLD_MIN_Y ||
+        y > TECMO_GAMEPLAY_COURT_WORLD_MAX_Y) {
+        return false;
+    }
+    coordinate_out->x = (int16_t)x;
+    coordinate_out->y = (int16_t)y;
+    return true;
+}
+
 static bool parse_movement_input(const char *text, uint8_t *input_out)
 {
     static const struct MovementInputName {
@@ -510,6 +558,185 @@ static int run_gameplay_movement_harness(int argc,
     }
     free(team_data);
     tecmo_gameplay_movement_assets_destroy(&assets);
+    return 0;
+}
+
+static int run_gameplay_cpu_steering_inspect(int argc,
+                                             char **argv,
+                                             int index)
+{
+    TecmoGameplayCpuSteeringAssets assets;
+    TecmoGameplayCpuSteeringCommand command;
+    const char *pack_path;
+    uint32_t stream_offset;
+    int16_t horizontal_delta;
+    int16_t depth_delta;
+    uint8_t direction;
+    if (index + 3 >= argc) {
+        printf("CPU steering inspect requires PACK OFFSET DX DY\n");
+        return 2;
+    }
+    pack_path = argv[index];
+    if (!parse_u32_argument(
+            argv[index + 1],
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_PLAY_COMMANDS_SIZE -
+                TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE,
+            &stream_offset) ||
+        !parse_i16_argument(argv[index + 2], &horizontal_delta) ||
+        !parse_i16_argument(argv[index + 3], &depth_delta)) {
+        printf("CPU steering inspect argument rejected\n");
+        return 2;
+    }
+    tecmo_gameplay_cpu_steering_assets_init(&assets);
+    if (!tecmo_gameplay_cpu_steering_assets_load(&assets, pack_path)) {
+        printf("CPU steering inspect load failed: %s\n", assets.status);
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return 1;
+    }
+    if (!tecmo_gameplay_cpu_steering_decode_command(
+            &assets, (uint16_t)stream_offset, &command)) {
+        printf("CPU steering command offset rejected\n");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return 1;
+    }
+    if (!tecmo_gameplay_cpu_steering_direction_for_delta(
+            &assets, horizontal_delta, depth_delta, &direction)) {
+        printf("CPU steering zero/invalid direction vector rejected\n");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return 1;
+    }
+    printf("TGAI-1 offset=$%04X cpu=$%04X opcode=%u args=%02X,%02X,%02X,%02X handler=$%04X kind=%s\n",
+           (unsigned)command.stream_offset,
+           (unsigned)command.cpu_address,
+           (unsigned)command.opcode,
+           (unsigned)command.arguments[0],
+           (unsigned)command.arguments[1],
+           (unsigned)command.arguments[2],
+           (unsigned)command.arguments[3],
+           (unsigned)command.handler_cpu,
+           tecmo_gameplay_cpu_steering_command_kind_name(command.kind));
+    printf("delta=(%d,%d) direction=%u name=%s live=0\n",
+           horizontal_delta, depth_delta, (unsigned)direction,
+           tecmo_gameplay_cpu_steering_direction_name(direction));
+    tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+    return 0;
+}
+
+static int run_gameplay_cpu_steering_harness(int argc,
+                                             char **argv,
+                                             int index)
+{
+    const int required_argument_count =
+        7 + (int)TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT;
+    const char *pack_path;
+    uint32_t actor;
+    uint32_t possession;
+    uint32_t orientation;
+    uint32_t ball_holder;
+    uint32_t matchup_actor;
+    uint32_t difficulty;
+    TecmoGameplayCpuSteeringAssets assets;
+    TecmoGameplayCpuSteeringHarnessInput input;
+    TecmoGameplayCpuSteeringHarnessResult result;
+    size_t position_index;
+    if (argc - index != required_argument_count) {
+        printf("CPU steering harness requires PACK ACTOR POSSESSION ORIENTATION HOLDER MATCHUP DIFFICULTY X0,Y0 ... X9,Y9\n");
+        return 2;
+    }
+    pack_path = argv[index];
+    memset(&input, 0, sizeof(input));
+    input.contract_tag =
+        TECMO_GAMEPLAY_CPU_STEERING_HARNESS_INPUT_TAG;
+    if (!parse_u32_argument(
+            argv[index + 1],
+            TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT - 1U, &actor) ||
+        !parse_u32_argument(
+            argv[index + 2],
+            TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT - 1U, &possession) ||
+        !parse_u32_argument(
+            argv[index + 3],
+            TECMO_GAMEPLAY_CPU_STEERING_ORIENTATION_COUNT - 1U,
+            &orientation) ||
+        !parse_u32_argument(
+            argv[index + 4],
+            TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT - 1U, &ball_holder) ||
+        !parse_u32_argument(
+            argv[index + 5],
+            TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT - 1U, &matchup_actor) ||
+        !parse_u32_argument(
+            argv[index + 6],
+            TECMO_GAMEPLAY_CPU_STEERING_DIFFICULTY_COUNT - 1U,
+            &difficulty)) {
+        printf("CPU steering harness argument rejected\n");
+        return 2;
+    }
+    for (position_index = 0U;
+         position_index < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT;
+         ++position_index) {
+        if (!parse_court_coordinate_argument(
+                argv[index + 7 + (int)position_index],
+                &input.actor_position[position_index])) {
+            printf("CPU steering harness argument rejected\n");
+            return 2;
+        }
+    }
+    input.actor = (uint8_t)actor;
+    input.possession = (uint8_t)possession;
+    input.orientation = (uint8_t)orientation;
+    input.ball_holder = (uint8_t)ball_holder;
+    input.matchup_actor = (uint8_t)matchup_actor;
+    input.difficulty = (uint8_t)difficulty;
+
+    tecmo_gameplay_cpu_steering_assets_init(&assets);
+    if (!tecmo_gameplay_cpu_steering_assets_load(&assets, pack_path)) {
+        printf("CPU steering harness load failed: %s\n", assets.status);
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return 1;
+    }
+    if (!tecmo_gameplay_cpu_steering_harness_evaluate(
+            &assets, &input, &result)) {
+        printf("CPU steering harness state rejected\n");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return 1;
+    }
+    printf("TGAI-1 harness actor=%u team=%u possession=%u orientation=%u holder=%u matchup=%u difficulty=%u snapshot=%08X live=0\n",
+           (unsigned)result.actor, (unsigned)result.actor_team,
+           (unsigned)result.possession, (unsigned)result.orientation,
+           (unsigned)result.ball_holder, (unsigned)result.matchup_actor,
+           (unsigned)result.difficulty,
+           (unsigned)result.input_fingerprint);
+    printf("court=");
+    for (position_index = 0U;
+         position_index < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT;
+         ++position_index) {
+        printf("%s%u:(%d,%d)", position_index == 0U ? "" : ";",
+               (unsigned)position_index,
+               input.actor_position[position_index].x,
+               input.actor_position[position_index].y);
+    }
+    printf("\n");
+    printf("target=%s target_actor=",
+           tecmo_gameplay_cpu_steering_harness_target_kind_name(
+               result.target_kind));
+    if (result.target_actor == TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR) {
+        printf("none");
+    } else {
+        printf("%u", (unsigned)result.target_actor);
+    }
+    printf(" from=(%d,%d) to=(%d,%d) delta=(%d,%d) ",
+           result.actor_position.x, result.actor_position.y,
+           result.target_position.x, result.target_position.y,
+           result.horizontal_delta, result.depth_delta);
+    if (result.writes_direction) {
+        printf("direction=%u name=%s write=1 ",
+               (unsigned)result.direction,
+               tecmo_gameplay_cpu_steering_direction_name(
+                   result.direction));
+    } else {
+        printf("direction=keep name=keep write=0 ");
+    }
+    printf("target_policy=native-harness quantizer=rom-exact live=0\n");
+    tecmo_gameplay_cpu_steering_assets_destroy(&assets);
     return 0;
 }
 
@@ -1532,6 +1759,26 @@ int main(int argc, char **argv)
         return run_gameplay_movement_harness(argc, argv, index);
     }
 
+    if (strcmp(command, "--gameplay-cpu-steering-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        char message[256];
+        if (!tecmo_gameplay_cpu_steering_self_test(
+                pack_path, message, sizeof(message))) {
+            printf("Gameplay CPU steering test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-cpu-steering-inspect") == 0) {
+        return run_gameplay_cpu_steering_inspect(argc, argv, index);
+    }
+
+    if (strcmp(command, "--gameplay-cpu-steering-harness") == 0) {
+        return run_gameplay_cpu_steering_harness(argc, argv, index);
+    }
+
     if (strcmp(
             command,
             "--gameplay-free-throw-projection-test") == 0) {
@@ -1571,6 +1818,20 @@ int main(int argc, char **argv)
         if (tecmo_asset_pack_gameplay_movement_source_test(
                 rom_path, message, sizeof(message)) != 0) {
             printf("Gameplay movement source test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    /* Developer-only isolated importer gate for the TGAI mutation suite. */
+    if (strcmp(command, "--gameplay-cpu-steering-source-test") == 0) {
+        const char *rom_path = index < argc ? argv[index] : NULL;
+        char message[256];
+        if (tecmo_asset_pack_gameplay_cpu_steering_source_test(
+                rom_path, message, sizeof(message)) != 0) {
+            printf("Gameplay CPU steering source test failed: %s\n",
+                   message);
             return 1;
         }
         printf("%s\n", message);

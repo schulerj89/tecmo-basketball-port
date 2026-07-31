@@ -94,6 +94,7 @@ out of unrelated commits unless the user explicitly asks to commit them.
 .\tools\Run-GameplayAudioTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayCourtOrientationTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-GameplayCpuSteeringTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-TeamDataTests.ps1 -RomPath <LOCAL_ROM.nes>
 .\tools\Run-TeamManagementTests.ps1 -RomPath <LOCAL_ROM.nes>
@@ -821,6 +822,10 @@ source-map provenance fail closed before the scene is marked available. Drawing
 preflights every court cell and actor/ball pose so a rejected frame leaves the
 destination untouched.
 
+TGAI-1 is built into the same ROM-derived pack for isolated inspection, but it
+must remain absent from this production scene dependency set until the missing
+actor-link and command-advance inputs are owned transactionally.
+
 TGSR-3 is 512 bytes (FNV1a32 `164DC568`, FNV1a64
 `5C5170460C8305A8`) and revision-locks Bank05 `$91BC-$943A`, `$A6EE-$A9D9`,
 `$B73E-$B87B`, and `$B87C-$B8F5`. It requires exact same-pack TGPL-1;
@@ -1091,9 +1096,63 @@ selected actor's current canonical coordinate. The latch is not yet connected
 to original reset/violation settlement. Contradictory axes are normalized to
 neutral on that axis as native integration policy. Fresh TTDT condition is seeded at launch,
 but fatigue evolution, walking pose-half/render binding, actor start placement
-and direction, the current fixed five-player roster-slot binding, and CPU
+and direction, the current fixed five-player roster-slot binding, and live CPU
 movement/AI remain approximate or unsupported. Do not describe those as
-TGMO-derived.
+TGMO-derived. The separate TGAI-1 evidence asset below does not change that
+live status.
+
+TGAI-1 `gameplay/cpu-steering` is the strict, console/test-only CPU target and
+direction evidence boundary. It is 7616 bytes / FNV1a32 `D6C4DB35`, requires
+exact same-pack TGMO-1 (`6C82A137`), and retains Bank06 `$81F7-$82D3`
+(`23BB7271`), `$87AE-$88AF` (`F866B06C`), `$88DA-$8A95` (`9616E586`),
+`$8B90-$8BE0` (`9AD2BA91`), `$8BE1-$9237` (`344298FE`), `$9280-$9329`
+(`C82E6853`), `$938B-$9620` (`47818A62`), fixed `$C006-$C008`
+(`14B2472E`) and `$CBE0-$CBF6` (`41C5B5C8`), and Bank04 `$9F2E-$AC75`
+(`71331A96`). Keep exact sizes, full-ROM identity, descriptors, source records,
+zero padding/reserved bytes, handler table, command opcodes, canonical payload,
+provenance, and dependency fail-closed.
+
+Bank06 state 4 adds the actor-local `$0547/$0551` command offset to `$9F2E`.
+Fixed `$C006->$CBE0` maps Bank04, copies one five-byte record into `$C7-$CB`,
+restores the bank, and `$8B90` dispatches `$C7` through 24 exact handlers. The
+bounded Bank04 stream contains 680 aligned records and ends at `$AC75`; code
+resumes at `$AC76`. `$938B-$9620` is an exact formation-stream assignment path,
+not proof of every play-selection condition.
+
+The pure direction API reproduces the target-application guard at
+`$92D4-$92DD`, the target-minus-actor `$88DA-$899D` octant decision, and the
+`$8A8E` map. For court-reachable deltas, a 2:1 magnitude ratio is cardinal,
+inclusively; otherwise it is diagonal. The C API also preserves the 6502's
+wrapping 16-bit doubling at synthetic extremes. Direction codes `0..7` are
+right, left, down, down-right, down-left, up, up-right, up-left. The guard skips
+the `$92FE` jump to `$88DA` for zero delta and thereby retains the prior
+direction; the C API rejects that no-write vector without mutating output.
+Aligned command decode exposes raw fields, handler CPU, and a bounded
+handler-entry effect category only. Do not turn those categories into semantic
+play names.
+
+`--gameplay-cpu-steering-harness` is also deterministic and console-only. Its
+typed input is one selected actor, all ten canonical TGCT X/Y coordinates,
+possession, TGOR orientation, a possession-consistent ball holder, one explicit
+opposing linked/matchup actor, and difficulty `0..2`. Validate every coordinate
+and coherence field transactionally. Its printed canonical FNV1a32 snapshot
+must cover all ten coordinates and every context field. Holder target selection
+reuses the native scene's `48/48/40`-pixel hoop approach; other actors target
+the explicit caller-owned link. Never describe either choice or the link
+assignment as ROM-exact. Only the resulting nonzero TGAI octant is exact. A
+zero delta must report keep-direction/no-write rather than inventing a prior
+direction.
+
+TGAI-1 is not loaded by `TecmoGameplayScene`. Do not claim a complete CPU
+policy, shot/pass/steal choice, actor-link ownership, or live parity, and do
+not classify `$B081-$B32E` as ordinary targeting. Live integration must first
+own actor-local stream offsets, live linked/reference assignments, target
+fields, and command-advance transitions transactionally; only then should its
+exact direction feed TGMO. `--gameplay-cpu-steering-test`,
+`--gameplay-cpu-steering-inspect`, and `--gameplay-cpu-steering-harness` are
+console-only and must not become an in-game debug mode. Verify with
+`tools\Run-GameplayCpuSteeringTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` and
+see `docs/gameplay-cpu-steering.md`.
 
 `--gameplay-movement-harness` is a deterministic console-only developer tool;
 it is never reachable from normal game flow and must not grow into an in-game
@@ -1128,6 +1187,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/asset_pack/tecmo_asset_pack_gameplay_court_orientation.c`: strict TGOR-1 court-orientation importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_camera.c`: strict TGCP-2 camera/projector/clamp importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_movement.c`: strict TGMO-1 controlled-movement importer
+- `src/asset_pack/tecmo_asset_pack_gameplay_cpu_steering.c`: strict TGAI-1 CPU command/target/direction evidence importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_close_shots.c`: strict TGCS-1 numeric close-shot importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c`: strict TGDK-1 screen/palette/CHR/staged-sprite importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c`: strict TGJS-2 ordinary-jump importer
@@ -1146,6 +1206,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/tecmo_gameplay_dunk_cutaway.c`: strict TGDK-1 loader, palette resolver, stage scheduler, and OAM-priority renderer
 - `src/tecmo_gameplay_camera.c`: strict TGCP-2 parser and pure/production camera/projector state APIs
 - `src/tecmo_gameplay_movement.c`: strict TGMO-1 parser, transactional locomotion/clamp kernel, and developer-harness vectors
+- `src/tecmo_gameplay_cpu_steering.c`: strict TGAI-1 parser plus console-only command decode, full-snapshot harness, and direction quantizer
 - `src/tecmo_gameplay_court.c`: strict TGCT-1 parser, full-world decoder, and camera-positioned viewport slicer
 - `src/tecmo_gameplay_court_orientation.c`: strict TGOR-1 parser and possession-synchronized orientation state API
 - `src/tecmo_gameplay_free_throw_projection_test.c`: test-only TGFL-1 -> TGCP-2 checkpoint composition

@@ -2178,6 +2178,129 @@ static int append_gameplay_movement_source_map_entry(
         "\"runtime_inputs\":\"TGMO-1 plus same-pack TGPL-1, TGCP-2, and TTDT-1; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}");
 }
 
+static int append_gameplay_cpu_steering_source_map_entry(
+    char *buffer,
+    size_t capacity,
+    size_t *length,
+    int *first,
+    const TecmoGameplayCpuSteeringProvenance *provenance)
+{
+    static const char *const roles[
+        TECMO_GAMEPLAY_CPU_STEERING_SOURCE_COUNT] = {
+        "cpu-actor-loop-and-state-dispatch-$81F7-$82D3",
+        "actor-to-reference-octant-direction-$87AE-$88AF",
+        "target-delta-octant-direction-and-motion-$88DA-$8A95",
+        "bank04-command-fetch-and-24-way-dispatch-$8B90-$8BE0",
+        "command-handler-cluster-$8BE1-$9237",
+        "target-store-delta-zero-guard-and-direction-tail-$9280-$9329",
+        "court-cell-formation-stream-selector-$938B-$9620",
+        "fixed-C006-command-reader-trampoline-$C006-$C008",
+        "fixed-bank04-five-byte-command-reader-$CBE0-$CBF6",
+        "bank04-680-five-byte-command-records-$9F2E-$AC75"
+    };
+    const char *prefix = *first != 0 ? "" : ",\n";
+
+    *first = 0;
+    if (tecmo_asset_pack_append_text(
+            buffer, capacity, length,
+            "%s"
+            "    {\"id\":\"%s\",\"kind\":\"gameplay-cpu-steering-evidence\","
+            "\"schema\":\"tecmo.gameplay-cpu-steering/TGAI-1\",\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"%08X\","
+            "\"revision_sha256_identity\":\"076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4\","
+            "\"revision_full_rom_fnv1a32\":\"0650F5B0\","
+            "\"revision_full_rom_sha256_verified\":true,"
+            "\"revision_full_rom_fnv1a32_verified\":true,"
+            "\"revision_source_fingerprints_verified\":true,"
+            "\"dependency\":{\"entry\":\"%s\",\"same_pack_required\":true,"
+            "\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\","
+            "\"reason\":\"preserve the controlled/CPU actor direction-code and future locomotion boundary\"},"
+            "\"source_spans\":[",
+            prefix,
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_FNV1A32,
+            TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_FNV1A32) != 0) {
+        return -1;
+    }
+    for (size_t index = 0U;
+         index < TECMO_GAMEPLAY_CPU_STEERING_SOURCE_COUNT; ++index) {
+        const TecmoGameplayCpuSteeringExpectedSource *source =
+            &tecmo_gameplay_cpu_steering_expected_sources[index];
+        const char *source_entry = source->fixed_bank != 0U
+            ? "prg/fixed"
+            : (source->bank == 4U ? "prg/bank04" : "prg/bank06");
+        if (tecmo_asset_pack_append_text(
+                buffer, capacity, length,
+                "%s{\"role\":\"%s\",\"source_entry\":\"%s\","
+                "\"source_offset\":%llu,\"bank\":%u,"
+                "\"fixed_bank\":%s,\"cpu_start\":%u,\"cpu_end\":%u,"
+                "\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\","
+                "\"payload_offset\":%u}",
+                index == 0U ? "" : ",", roles[index], source_entry,
+                (unsigned long long)provenance->source_offsets[index],
+                (unsigned)source->bank,
+                source->fixed_bank != 0U ? "true" : "false",
+                (unsigned)source->cpu_start,
+                (unsigned)((uint32_t)source->cpu_start +
+                           source->byte_count - 1U),
+                (unsigned)source->byte_count,
+                (unsigned)source->fingerprint,
+                (unsigned)source->payload_offset) != 0) {
+            return -1;
+        }
+    }
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "],\"native_contract\":{"
+        "\"actor_slots\":10,\"script_state\":4,"
+        "\"command_transport\":{\"actor_offset_ram\":\"$0547/$0551\","
+        "\"bank04_cpu_base\":\"$9F2E\",\"fixed_trampoline\":\"$C006\","
+        "\"fixed_reader\":\"$CBE0-$CBF6\",\"mapped_bank\":4,"
+        "\"record_bytes\":5,\"destination_ram\":\"$C7-$CB\","
+        "\"record_count\":680,\"last_record_cpu\":\"$AC71\","
+        "\"code_resumes_cpu\":\"$AC76\"},"
+        "\"opcode_dispatch\":{\"count\":24,"
+        "\"handler_cpu\":[37088,37707,37504,36958,36858,36754,"
+        "36653,36626,36567,36805,36048,35904,36431,37157,"
+        "37190,37234,36997,35866,35866,35866,36914,35830,"
+        "35809,36722]},"
+        "\"direction_quantizer\":{\"cpu\":\"$92D4-$92DD; $92FE -> $88DA-$899D\","
+        "\"dominant_axis_ratio\":\"2:1 inclusive for court-reachable deltas; exact 16-bit doubling wrap retained\","
+        "\"octant_map\":[3,6,4,7,0,1,2,5],"
+        "\"direction_names\":[\"right\",\"left\",\"down\","
+        "\"down-right\",\"down-left\",\"up\",\"up-right\","
+        "\"up-left\"],\"zero_vector_keeps_prior_direction\":true},"
+        "\"exact_test_api\":[\"aligned command decode\","
+        "\"target-minus-actor direction quantization\"],"
+        "\"live_wired\":false,\"transactional\":true},"
+        "\"evidence_limits\":{"
+        "\"not_claimed\":[\"complete CPU play policy\","
+        "\"shot/pass/steal choice\",\"actor-link assignment\","
+        "\"script initialization outside the isolated formation selector\","
+        "\"speed/fatigue/collision integration\","
+        "\"candidate scan $B081-$B32E as ordinary movement targeting\"],"
+        "\"next_integration\":\"bind proven command inputs and actor-link state before replacing live approximate CPU movement\"},"
+        "\"developer_harness\":{\"deterministic\":true,"
+        "\"cli_only\":true,\"coordinate_slots\":10,"
+        "\"coordinate_space\":\"TGCT-1 canonical X=0..767 Y=0..239\","
+        "\"inputs\":[\"selected actor\",\"ten actor X/Y coordinates\","
+        "\"possession\",\"orientation\",\"ball holder\","
+        "\"opposing linked/matchup actor\",\"difficulty 0..2\"],"
+        "\"possession_holder_coherent\":true,"
+        "\"matchup_assignment_caller_owned\":true,"
+        "\"target_policy\":{\"rom_exact\":false,"
+        "\"holder\":\"native scene-style hoop approach\","
+        "\"other_actor\":\"explicit linked/matchup actor coordinate\"},"
+        "\"direction_quantizer_rom_exact\":true,"
+        "\"zero_vector\":\"preserve prior direction\","
+        "\"snapshot_fingerprint\":\"domain-separated canonical FNV1a32\","
+        "\"normal_game_flow_exposed\":false},"
+        "\"runtime_inputs\":\"TGAI-1 plus same-pack TGMO-1; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}");
+}
+
 static int append_gameplay_close_shot_source_map_entry(
     char *buffer,
     size_t capacity,
@@ -2975,6 +3098,7 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoGameplayCourtOrientationProvenance *court_orientation_provenance,
                                    const TecmoGameplayCameraProvenance *gameplay_camera_provenance,
                                    const TecmoGameplayMovementProvenance *gameplay_movement_provenance,
+                                   const TecmoGameplayCpuSteeringProvenance *cpu_steering_provenance,
                                    const TecmoGameplayCloseShotProvenance *close_shot_provenance,
                                    const TecmoGameplayDunkProvenance *dunk_provenance,
                                    const TecmoGameplayJumpShotProvenance *jump_shot_provenance,
@@ -2984,7 +3108,7 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
     const TecmoGameplayPreTipProvenance *pretip_provenance,
     size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 31U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 32U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -3227,6 +3351,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
          append_gameplay_movement_source_map_entry(
              source_map, capacity, &length, &first_logical,
              gameplay_movement_provenance) != 0) ||
+        (cpu_steering_provenance->source_offsets[0] != 0U &&
+         append_gameplay_cpu_steering_source_map_entry(
+             source_map, capacity, &length, &first_logical,
+             cpu_steering_provenance) != 0) ||
         (close_shot_provenance->source_offsets[0] != 0U &&
          append_gameplay_close_shot_source_map_entry(
              source_map, capacity, &length, &first_logical,

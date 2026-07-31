@@ -34,7 +34,7 @@ frame-identical recreation of on-court gameplay.
 | Team Data | Supported for team profiles, rosters, player detail, STARTERS, and PLAYBOOK; accumulated player-stat fields remain `.000`/zero until per-player accumulators are ported |
 | All Star | Partial: selectors work, but the route stops before game launch |
 | League Leaders | Partial: category navigation works; ranked player results remain unavailable until per-player season statistics are ported |
-| Gameplay | Playable full-game shell with a ROM-derived pre-tip presentation (exact cards and capture-bounded later staging), ROM-derived ordinary human movement, passing, defender switching, a ROM-derived full-court horizontal camera/world renderer, close shots, one bounded ordinary-jump miss/three-point-make context, clocks, periods, halftime, overtime/final, audio, and result handoff; pre-tip claim settlement, live foul/contact and free-throw outcomes, general shot selection, and CPU AI remain approximate. Rim-rattle is diagnostic-only and is not selected by normal live misses |
+| Gameplay | Playable full-game shell with a ROM-derived pre-tip presentation (exact cards and capture-bounded later staging), ROM-derived ordinary human movement, passing, defender switching, a ROM-derived full-court horizontal camera/world renderer, close shots, one bounded ordinary-jump miss/three-point-make context, clocks, periods, halftime, overtime/final, audio, and result handoff. The original CPU command transport, target handlers, and direction quantizer are now isolated in a strict test-only asset, but are not live-wired; pre-tip claim settlement, live foul/contact and free-throw outcomes, general shot selection, and live CPU AI remain approximate. Rim-rattle is diagnostic-only and is not selected by normal live misses |
 
 Normal play is asset-pack-only. It does not load decompilation files, Lua
 traces, screenshots, save states, dumps, or emulator captures at runtime.
@@ -157,8 +157,10 @@ accumulators are ported.
   player's ROM movement rating, GAME SPEED adjustment, condition term, Q4
   subpixel accumulator, one-update direction-change latency, diagonal reduction,
   vertical gates, animation phase, and fixed-bank court clamp are reproduced.
-  CPU AI and ordinary locomotion pose-half rendering are not part of that exact
-  boundary yet.
+  CPU locomotion and ordinary locomotion pose-half rendering are not part of
+  that live exact boundary yet. The original CPU command/target/direction
+  routines have a separate strict inspection boundary described below, but it
+  does not drive actors during normal play.
 - NES A passes on offense and switches defenders on defense.
 - NES B starts an offensive shot or attempts the current defensive
   steal/contact action. START and SELECT are inert during live play.
@@ -231,13 +233,15 @@ TGSR-3 shot resolution, its exact 1/2/3-point classifier and
 diagnostic-only rim-rattle prefix, the TGFL-1 raw free-throw lineup, the
 TGCP-2 horizontal camera/projector and production live prime/follow, TGMO-1
 controlled-player movement and strict actor dispatcher/clamp,
+the test-only TGAI-1 CPU command transport, target-handler graph, and direction
+quantizer,
 TGOR-1 live possession-synchronized
 offensive direction and target selection, rules timing, and native
 music/SFX/DMC programs. Strict entries are loaded from the same
 revision-fingerprinted asset pack with exact-size and malformed-data checks.
 
 The live actor starting layout and current fixed five-player roster-slot
-binding, CPU movement/AI, pre-tip actor geometry,
+binding, CPU command selection/movement/AI integration, pre-tip actor geometry,
 the exact original tip-claim settlement, general shot selection and make/miss policy,
 dynamic matchup palettes and uniforms, live
 close-shot profile/direction selection, left-facing mirroring, contact/foul
@@ -321,6 +325,39 @@ evolution, opponent-relative pose-half selection/ordinary walking render
 frames, CPU locomotion/AI, and the approximate starting layout, direction, and
 fixed five-player roster-slot binding remain outside the exact boundary.
 
+`gameplay/cpu-steering` TGAI-1 is a separate, test-only 7616-byte asset
+(FNV1a32 `D6C4DB35`). It preserves Bank06's ten-actor/state dispatcher,
+actor-to-reference and target-delta direction selectors, 24-way state-4
+command dispatch, target-application helpers, and formation-stream selector;
+fixed `$C006->$CBE0` temporarily maps Bank04 and copies one five-byte command
+from the exact 680-record `$9F2E-$AC75` stream into `$C7-$CB`. The pure API
+decodes only aligned records and reproduces the original inclusive 2:1
+dominant-axis octant choice over court-reachable deltas, including the 6502's
+16-bit doubling wrap at synthetic extremes. Direction codes `0..7` = right,
+left, down, down-right, down-left, up, up-right, up-left. It requires exact same-pack
+TGMO-1 and rejects malformed headers, handlers, source records, padding,
+commands, provenance, or dependencies.
+
+The deterministic `--gameplay-cpu-steering-harness` accepts one selected actor,
+all ten canonical X/Y coordinates, possession, TGOR orientation, a
+possession-consistent ball holder, an explicit opposing linked/matchup actor,
+and difficulty. It prints the complete court snapshot, a canonical FNV1a32
+input fingerprint, the selected target/delta, and the exact TGAI direction.
+Holder targeting reuses the native scene's `48/48/40`-pixel hoop approach;
+other actors target the supplied linked actor. That target choice and link are
+developer-harness policy, not reconstructed ROM behavior. Zero delta reports
+`direction=keep` without fabricating a prior direction.
+
+TGAI-1 does not yet choose a live actor command, bind the ROM's live
+linked-actor state, or replace the scene's approximate CPU movement. It also
+does not claim the nearby `$B081-$B32E` candidate scan as ordinary targeting,
+nor does it infer shot/pass/steal policy. Use the console-only commands
+`--gameplay-cpu-steering-test`, `--gameplay-cpu-steering-inspect`, and
+`--gameplay-cpu-steering-harness`, or run
+`tools\Run-GameplayCpuSteeringTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
+The exact call graph and remaining integration boundary are documented in the
+[CPU steering evidence note](docs/gameplay-cpu-steering.md).
+
 `gameplay/court-orientation` TGOR-1 is loaded by the live scene and owns
 the binary offensive direction, previous direction, tracked possession team,
 transition serial, and full offensive-hoop coordinate. Its direction and
@@ -372,6 +409,7 @@ through explicit render-test/debug paths for development work.
 .\tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayCameraProjectionTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayMovementTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-GameplayCpuSteeringTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayPreTipTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayDunkCutawayTests.ps1 -Build -RomPath <LOCAL_ROM.nes>

@@ -735,6 +735,7 @@ Normal gates should stay close to:
 .\tools\Run-MusicTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayAudioTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-GameplayCpuSteeringTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-IntroSequenceTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-TeamDataTests.ps1 -RomPath <LOCAL_ROM.nes>
@@ -848,6 +849,10 @@ reads, payload/CHR fingerprints, deep indexes, reserved bytes, and source-map
 provenance are hard requirements. Missing, malformed, oversized,
 wrong-revision, or cross-pack data fails before availability; a draw preflight
 prevents partial framebuffer updates.
+
+TGAI-1 is present in the same ROM-derived pack for isolated inspection but is
+deliberately absent from this production dependency list until its actor-link
+and command-advance inputs have typed native ownership.
 
 Numeric close variant 0 has the exact 32-step direct/held-release table and
 variant 2 has the exact 16-step arc/longer-trajectory/contactable table. Their
@@ -1225,10 +1230,63 @@ it and its original reset path is not yet ported. Fresh condition comes from
 TTDT; fatigue evolution is unported.
 Opposing directions on one axis are normalized to neutral as a native
 integration policy. Initial actor placement/direction and the current fixed
-five-player roster-slot binding, walking pose presentation, and all CPU
+five-player roster-slot binding, walking pose presentation, and live CPU
 movement/AI remain native integration or approximations, not TGMO claims. The
 deterministic `--gameplay-movement-harness` is console/test-only and never
 enters normal play.
+
+TGAI-1 `gameplay/cpu-steering` is the separate strict CPU target/direction
+evidence boundary; it is intentionally not a production scene dependency yet.
+Its 7616-byte payload has FNV1a32 `D6C4DB35`, requires exact same-pack TGMO-1,
+and retains ten Rev 1 spans: Bank06 `$81F7-$82D3` (`23BB7271`),
+`$87AE-$88AF` (`F866B06C`), `$88DA-$8A95` (`9616E586`),
+`$8B90-$8BE0` (`9AD2BA91`), `$8BE1-$9237` (`344298FE`),
+`$9280-$9329` (`C82E6853`), `$938B-$9620` (`47818A62`), fixed
+`$C006-$C008` (`14B2472E`) and `$CBE0-$CBF6` (`41C5B5C8`), plus Bank04
+`$9F2E-$AC75` (`71331A96`). Full-ROM identity, descriptors, source records,
+padding, handlers, commands, canonical payload, provenance, and dependency
+fingerprints fail closed.
+
+The exact state-4 transport adds the actor-local `$0547/$0551` offset to
+Bank04 `$9F2E`; fixed `$C006->$CBE0` maps Bank04, copies one five-byte record
+to `$C7-$CB`, restores the previous bank, and Bank06 dispatches `$C7` through
+24 handlers. The bounded Bank04 range contains 680 aligned records and code
+resumes at `$AC76`. Bank06 `$938B-$9620` proves a formation-stream assignment
+path into those actor offsets. It does not prove every play-selection input.
+
+The pure direction API reproduces `$88DA-$899D`'s target-minus-actor octant
+decision and `$8A8E` map. For court-reachable deltas, a magnitude ratio of 2:1,
+including equality, selects the dominant cardinal axis; otherwise the result is
+diagonal. The API also preserves the 6502's wrapping 16-bit doubling at
+synthetic extremes. Direction codes are `0..7` = right, left, down,
+down-right, down-left, up, up-right, up-left. The target-application guard at
+`$92D4-$92DD` keeps the prior direction by skipping the `$92FE` jump to
+`$88DA` on a zero vector; the C API returns false transactionally for that
+no-write case. Aligned command inspection
+reports raw opcode/arguments, exact handler CPU address, and only a bounded
+entry-effect category—not a semantic play name.
+
+The deterministic CLI-only steering harness accepts a selected actor, all ten
+TGCT canonical X/Y coordinates, possession, TGOR orientation, a
+possession-consistent holder, an explicit opposing linked/matchup actor, and
+difficulty `0..2`. It validates the complete snapshot transactionally and
+prints every coordinate plus a domain-separated canonical FNV1a32 fingerprint.
+The holder uses the scene-owned `48/48/40`-pixel hoop approach; other actors
+target the caller-owned link. Those target/link choices remain native harness
+policy. The resulting nonzero target delta alone consumes the exact TGAI
+octant quantizer; zero delta reports a successful keep-direction/no-write
+result.
+
+Do not use this asset to claim a complete CPU policy, shot/pass/steal choice,
+actor-link ownership, or collision/fatigue integration. In particular, the
+nearby `$B081-$B32E` candidate scan is excluded from ordinary movement
+targeting until its callers and outcomes are separately proven. The harness
+owns an explicit test link but does not reconstruct or persist the ROM's live
+`$06CB,X` assignment. Before live wiring, add typed ownership for actor command
+offsets, linked/reference assignments, target fields, and command-advance
+state; then feed the exact direction into TGMO transactionally. See
+`docs/gameplay-cpu-steering.md` and run
+`tools\Run-GameplayCpuSteeringTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 
 The slicer does not emulate the ROM streamer's staged PPU
 prefetch/write ordering; it returns the canonical camera view. TGFL-1 raw

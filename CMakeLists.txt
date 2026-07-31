@@ -13,8 +13,10 @@ set(TECMO_PORT_SOURCES
     src/asset_pack/tecmo_asset_pack_finale.c
     src/asset_pack/tecmo_asset_pack_gameplay.c
     src/asset_pack/tecmo_asset_pack_gameplay_court.c
+    src/asset_pack/tecmo_asset_pack_gameplay_court_orientation.c
     src/asset_pack/tecmo_asset_pack_gameplay_camera.c
     src/asset_pack/tecmo_asset_pack_gameplay_movement.c
+    src/asset_pack/tecmo_asset_pack_gameplay_cpu_steering.c
     src/asset_pack/tecmo_asset_pack_gameplay_close_shots.c
     src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c
     src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c
@@ -47,8 +49,10 @@ set(TECMO_PORT_SOURCES
     src/tecmo_game.c
     src/tecmo_gameplay_assets.c
     src/tecmo_gameplay_court.c
+    src/tecmo_gameplay_court_orientation.c
     src/tecmo_gameplay_camera.c
     src/tecmo_gameplay_movement.c
+    src/tecmo_gameplay_cpu_steering.c
     src/tecmo_gameplay_close_shots.c
     src/tecmo_gameplay_dunk_cutaway.c
     src/tecmo_gameplay_jump_shots.c
@@ -76,6 +80,7 @@ set(TECMO_PORT_SOURCES
     src/tecmo_team_data.c
     src/tecmo_team_management.c
     src/tecmo_title_screen.c
+    src/tecmo_win32_keys.c
 )
 
 function(configure_tecmo_target target_name)

@@ -51,6 +51,11 @@ spans, CHR fingerprints, and the shared pack path are validated before the
 scene becomes available. Missing, malformed, oversized, wrong-revision, or
 cross-pack dependencies fail closed without a partial frame.
 
+The same pack also contains test-only `gameplay/cpu-steering` TGAI-1, but the
+compound scene deliberately does not load it yet. Its actor-link and
+command-advance inputs are not owned by typed native state, so treating it as a
+live dependency would overstate the supported boundary.
+
 TGOR-1 owns only the binary offensive-direction state synchronized with live
 possession. Its exact Bank05 sources are the possession transition gate-and-
 swap `$8FAD-$8FE7`, the slots-0..9 actor-role bit-`$10` toggle and queue-`$17`
@@ -178,9 +183,40 @@ opponent-relative pose-half selection and live walking animation rendering are
 not. Fresh TTDT condition is used without fatigue evolution. Opposing
 directions on one axis are normalized to neutral as a native integration
 policy. Starting placement/direction and fixed five-player roster-slot binding,
-CPU movement, and AI remain native integration or approximations. The
+live CPU movement, and AI remain native integration or approximations. The
 deterministic CLI harness is developer-only and does not add an in-game debug
 route.
+
+`gameplay/cpu-steering` TGAI-1 separately isolates the ROM routines needed for
+the next CPU slice without changing live behavior. Its canonical 7616-byte
+payload (`D6C4DB35`) requires exact same-pack TGMO-1 and revision-locks Bank06
+`$81F7-$82D3`, `$87AE-$88AF`, `$88DA-$8A95`, `$8B90-$8BE0`,
+`$8BE1-$9237`, `$9280-$9329`, `$938B-$9620`, fixed `$C006-$C008` and
+`$CBE0-$CBF6`, and Bank04 `$9F2E-$AC75`. The state-4 path adds the actor's
+`$0547/$0551` offset to `$9F2E`; the fixed reader temporarily maps Bank04 and
+copies one five-byte record to `$C7-$CB`; Bank06 then dispatches its opcode
+through 24 exact handlers. The bounded stream has 680 aligned records, and
+Bank04 code resumes at `$AC76`.
+
+The pure direction API reproduces the `$92D4-$92DD` zero-delta guard, the
+court-range inclusive 2:1 dominant-axis octant decision, and direction map
+`3,6,4,7,0,1,2,5`, exposed as codes `0..7` = right, left, down, down-right,
+down-left, up, up-right, up-left. It also preserves the 6502's wrapping 16-bit
+doubling for synthetic extremes. The guard preserves the prior direction by
+skipping the `$92FE` jump to `$88DA` at zero; that no-write case rejects
+transactionally in C. The aligned record inspector reports handler entry
+effects only, not semantic play names. Complete play selection, actor-link
+ownership, shot/pass/steal policy, and the nearby `$B081-$B32E` candidate scan
+remain outside this evidence boundary. See `gameplay-cpu-steering.md`.
+
+The CLI-only steering harness adds a deterministic composition test without
+changing that live boundary. It validates all ten canonical coordinates,
+selected actor, possession, orientation, holder, explicit opposing
+linked/matchup actor, and difficulty, and fingerprints the complete input.
+Its holder hoop-approach or linked-actor target is native harness policy; the
+final nonzero octant alone is TGAI-exact. Unlike the raw quantizer API, a
+zero-delta harness evaluation succeeds with an explicit keep-direction/no-write
+result so no prior direction has to be fabricated.
 
 TGSR-3 also has FNV1a64 `5C5170460C8305A8` and requires exact same-pack
 TGPL-1. Its revision-fingerprinted sources are Bank05 `$91BC-$943A`,
@@ -503,8 +539,8 @@ These are provenance only and are not runtime inputs.
   TGJS-2 can simulate distance flight from explicit raw inputs; neither owns
   live `$AD6E` launch inputs or admits the route. No semantic rebound,
   block, steal, or player-stat event is claimed.
-- Actor starting layout and fixed five-player roster-slot binding, CPU
-  movement/AI, walking-pose binding, fatigue and
+- Actor starting layout and fixed five-player roster-slot binding, live CPU
+  command selection/movement/AI integration, walking-pose binding, fatigue and
   boundary-latch settlement,
   jump-ball interpolation, unsupported jump routes, general
   make/contact policy, the distance policy
