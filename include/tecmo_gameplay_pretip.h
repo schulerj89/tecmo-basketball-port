@@ -1,6 +1,8 @@
 #ifndef TECMO_GAMEPLAY_PRETIP_H
 #define TECMO_GAMEPLAY_PRETIP_H
 
+#include "tecmo_gameplay_court.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -11,6 +13,9 @@
 #define TECMO_GAMEPLAY_PRETIP_STATE_TAG 0x49545054U
 #define TECMO_GAMEPLAY_PRETIP_GLYPH_COUNT 38U
 #define TECMO_GAMEPLAY_PRETIP_GLYPH_TILE_COUNT 4U
+#define TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT 10U
+#define TECMO_GAMEPLAY_PRETIP_OBJECT_COUNT 11U
+#define TECMO_GAMEPLAY_PRETIP_LINEUP_TAG 0x4C545031U
 #define TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME UINT16_MAX
 #define TECMO_GAMEPLAY_PRETIP_AWAY_WINNER 0U
 #define TECMO_GAMEPLAY_PRETIP_HOME_WINNER 1U
@@ -85,6 +90,21 @@ typedef struct TecmoGameplayPreTipAssets {
     uint64_t chr_fingerprint64;
 } TecmoGameplayPreTipAssets;
 
+typedef struct TecmoGameplayPreTipLineup {
+    uint32_t contract_tag;
+    TecmoGameplayCourtCoordinate
+        players[TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT];
+    TecmoGameplayCourtCoordinate ball;
+    uint8_t player_states[TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT];
+    uint8_t player_sprite_slot_bases[TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT];
+    uint8_t player_facings[TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT];
+    uint16_t player_pose_indices[TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT];
+    uint8_t ball_state;
+    uint8_t ball_sprite_slot_base;
+    uint8_t ball_facing;
+    uint16_t ball_pose_index;
+} TecmoGameplayPreTipLineup;
+
 typedef struct TecmoGameplayPreTipState {
     uint32_t contract_tag;
     TecmoGameplayPreTipPhase phase;
@@ -105,6 +125,9 @@ void tecmo_gameplay_pretip_init(TecmoGameplayPreTipAssets *assets);
 void tecmo_gameplay_pretip_destroy(TecmoGameplayPreTipAssets *assets);
 bool tecmo_gameplay_pretip_load(TecmoGameplayPreTipAssets *assets,
                                 const char *asset_pack_path);
+bool tecmo_gameplay_pretip_tip_lineup(
+    const TecmoGameplayPreTipAssets *assets,
+    TecmoGameplayPreTipLineup *lineup);
 bool tecmo_gameplay_pretip_state_initialize(
     const TecmoGameplayPreTipAssets *assets,
     TecmoGameplayPreTipState *state,

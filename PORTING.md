@@ -828,9 +828,16 @@ clock, shot clock, rules, actors, AI, and live camera remain frozen until the
 frame-691 handoff. Track 8 queues at card entry, and enabled GAME MUSIC queues
 track 5 only at that handoff. Bank05 proves that the bounded error counts down
 to a launch gate, so lower error now starts that side's jump interaction sooner
-and selects its initial possession. The exact original claim/tie settlement is
-not yet isolated; equal errors choose away deterministically, and that tie
-policy plus pre-tip actor geometry remain explicit native approximations.
+and selects its initial possession. Bank04 `$AC8C-$ACD9` initializes object
+slots 0..10 from state `$AD82`, sprite-slot base `$AD8D`, facing `$AD98`,
+X-low `$ADA3`, X-high `$ADAE`, Y `$ADB9`, and facing-indexed pose tables
+`$ADC4/$ADCD`. TPTI-1 already fingerprints both containing spans; the
+transactional `tecmo_gameplay_pretip_tip_lineup` decoder supplies the complete
+setup for ten players and the ball to the canonical TGCT scene. The scene uses
+the exact coordinate, sprite-slot base, and selected standing pose without a
+second mirror. Raw object-state behavior, jump and ball interpolation, and the
+exact original claim/tie settlement are not thereby ported. Equal errors still choose away
+deterministically.
 Pre-tip state mutation is transactional: phase-frame bounds, accumulated total,
 sample flags/errors/sample frames, terminal-state coherence, and integer
 overflow are validated before commit, and malformed or unreachable states are
@@ -839,7 +846,8 @@ rejected unchanged.
 The compound scene strictly loads TGPL-1 `gameplay/core` (23416 bytes,
 `2047CCE0`), TGCT-1 `gameplay/court` (6559 bytes, `ECAB7A93`), TGCP-2
 `gameplay/camera-projection` (1536 bytes, `53247856`), TGMO-1
-`gameplay/movement` (1664 bytes, `6C82A137`), TGOR-1
+`gameplay/movement` (1664 bytes, `6C82A137`), TGAI-1
+`gameplay/cpu-steering` (7616 bytes, `D6C4DB35`), TGOR-1
 `gameplay/court-orientation` (640 bytes, `F9152C0A`), THUD-1
 `gameplay/hud` (864 bytes, `3D13AA89`), TGCS-1
 `gameplay/close-shots` (3144 bytes, `DACDC976`), TGDK-1
@@ -855,14 +863,16 @@ prevents partial framebuffer updates.
 Live actor palette binding follows the original byte path. Bank02
 `$A8AE-$A8C9` moves selected roster profile byte 2 bit 7 into `$04B0` bit 0;
 the second side adds bit 1. Fixed `$F1F2-$F24C` passes `$04B0 & 3` to the
-`$D413` compositor, so bit 0 selects the Bank01 `$B138/$B148` profile group
-and bits 0..1 select the correct away/home OAM subpalette. Fixed
-`$DEAB-$DEDF` selects away `$30`, Lakers-away `$38`, or the selected team's
-`$DC19-$DC35` home color. Bank01 `$B0ED-$B133` injects that color at offsets
-6, 7, and 9 and its `+ $10` six-bit light variant at offset 13. The scene uses
-this exact recipe for live actors and TGDK cutaways. Its fixed five roster
-slots remain native lineup policy, so do not describe starter selection as
-ROM-exact.
+`$D413` compositor. TGCT-1's exact `$F2E2-$F2F1` table supplies four
+live-court profile/side palettes, while fixed `$DEAB-$DEDF` selects first-side
+`$30`, Lakers first-side `$38`, or the selected team's `$DC19-$DC35`
+second-side color. The scene substitutes those colors at table entries
+3/7/11/15 and uses the resulting palette for the court, ball, and all players.
+Bank01 `$B0ED-$B133` with `$B138/$B148` is a separate exact pose/cutaway
+recipe: it injects the selected side color at offsets 6, 7, and 9 and its
+six-bit `+$10` variant at offset 13. TGDK uses that recipe. Fixed five-player
+roster slots remain native lineup policy, so do not describe starter selection
+as ROM-exact.
 
 THUD-1 owns the fixed live two-row scoreboard. Its exact Rev1 source spans are
 Bank01 `$BDF0-$BE1E` (writer and `$2041/$2057` destinations), Bank01
@@ -878,9 +888,10 @@ are reference-verified presentation bounds. The three-digit cap for the wider
 C score and the holder/shooter matchup fallback used to label a CPU-only side
 are native adapter policies and must remain documented as approximate.
 
-TGAI-1 is present in the same ROM-derived pack for isolated inspection but is
-deliberately absent from this production dependency list until its actor-link
-and command-advance inputs have typed native ownership.
+The TGAI-1 production binding owns a fixed opposing roster-slot link, target,
+direction result, immutable-snapshot fingerprint, and decision serial per
+actor. It carries an explicit no-command sentinel: the original actor-local
+command offsets and advance lifecycle are not inferred by loading the asset.
 
 Numeric close variant 0 has the exact 32-step direct/held-release table and
 variant 2 has the exact 16-step arc/longer-trajectory/contactable table. Their
@@ -1195,8 +1206,10 @@ flight retains its distinct proven endpoint Y `$8F`.
 players, the Q8 ball, and both hoops. Live ownership validation and draw
 preflight reject an invalid player, anchor, ball, active shot endpoint, or
 hoop before committing output or rendering. The coordinate convention and
-hoop values are exact within the cited TGCT/TGOR evidence; the initial player
-layout and pre-tip staging values remain native approximations.
+hoop values are exact within the cited TGCT/TGOR evidence. The static tip-off
+player coordinates and ball anchor are also exact within Bank04
+`$AC8C/$ADA3/$ADAE/$ADB9`; the post-handoff live layout and animated tip
+geometry remain native or capture-bounded.
 
 The existing TGCP raw APIs remain the exact evidence boundary. Thin
 transactional adapters now accept the canonical coordinate types:
@@ -1266,12 +1279,13 @@ TTDT; fatigue evolution is unported.
 Opposing directions on one axis are normalized to neutral as a native
 integration policy. Initial actor placement/direction and the current fixed
 five-player roster-slot binding, opponent-relative pose-half selection, and
-live CPU movement/AI remain native integration or approximations, not TGMO
-claims. The deterministic `--gameplay-movement-harness` is console/test-only
-and never enters normal play.
+CPU target selection/AI remain native integration or approximations. Ordinary
+CPU locomotion now uses the exact TGMO secondary-actor step after TGAI direction
+selection. The deterministic `--gameplay-movement-harness` is console/test-
+only and never enters normal play.
 
 TGAI-1 `gameplay/cpu-steering` is the separate strict CPU target/direction
-evidence boundary; it is intentionally not a production scene dependency yet.
+evidence boundary and a strict production scene dependency.
 Its 7616-byte payload has FNV1a32 `D6C4DB35`, requires exact same-pack TGMO-1,
 and retains ten Rev 1 spans: Bank06 `$81F7-$82D3` (`23BB7271`),
 `$87AE-$88AF` (`F866B06C`), `$88DA-$8A95` (`9616E586`),
@@ -1301,20 +1315,21 @@ no-write case. Aligned command inspection
 reports raw opcode/arguments, exact handler CPU address, and only a bounded
 entry-effect category—not a semantic play name.
 
-The deterministic CLI-only steering harness accepts a selected actor, all ten
+The deterministic steering evaluator accepts a selected actor, all ten
 TGCT canonical X/Y coordinates, possession, TGOR orientation, a
 possession-consistent holder, an explicit opposing linked/matchup actor, and
 difficulty `0..2`. It validates the complete snapshot transactionally and
 prints every coordinate plus a domain-separated canonical FNV1a32 fingerprint.
 The holder uses the scene-owned `48/48/40`-pixel hoop approach; other actors
-target the caller-owned link. Those target/link choices remain native harness
+target the caller/scene-owned link. Those target/link choices remain native
 policy. The resulting nonzero target delta alone consumes the exact TGAI
 octant quantizer; zero delta reports a successful keep-direction/no-write
 result.
 
 The separate deterministic
 `--gameplay-cpu-steering-movement-harness` composes this boundary with TGMO-1
-without exposing it to normal play. It adds explicit rating, condition, GAME
+without adding an in-game debug route. The live scene calls the same pure
+adapter directly. The CLI adds explicit rating, condition, GAME
 SPEED, and frame-count inputs, initializes a CPU actor facing its offensive
 hoop, and requires the selected snapshot coordinate to equal the transactional
 movement state on every step. Each nonzero exact TGAI direction is converted
@@ -1327,14 +1342,22 @@ held-input equivalent, so neutral is a native harness policy; the target/link,
 initial-facing, and profile inputs are likewise caller/native policy rather
 than reconstructed CPU command behavior.
 
+For live ordinary movement, the scene takes one immutable ten-actor snapshot
+after human input, evaluates every non-controlled actor from that snapshot,
+and commits all candidate actor/movement/target states together. The holder
+uses the orientation-aware `48/48/40` approach; every other actor uses its
+fixed opposing roster-slot link. Shot proximity/cadence remains a separate
+native approximation.
+
 Do not use this asset to claim a complete CPU policy, shot/pass/steal choice,
-actor-link ownership, or live collision/fatigue ownership. In particular, the
+ROM actor-link ownership, or live collision/fatigue ownership. In particular, the
 nearby `$B081-$B32E` candidate scan is excluded from ordinary movement
 targeting until its callers and outcomes are separately proven. The harness
-owns an explicit test link but does not reconstruct or persist the ROM's live
-`$06CB,X` assignment. Before live wiring, add typed ownership for actor command
-offsets, linked/reference assignments, target fields, and command-advance
-state; then connect the tested transactional adapter to scene-owned CPU state.
+and scene own explicit native links but do not reconstruct the ROM's live
+`$06CB,X` assignment. Live state keeps the ROM command offset absent and
+advance false rather than fabricating them. Replacing native targets with the
+formation/play command offsets, dynamic links/references, target fields, and
+command-advance transitions is the next CPU-policy slice.
 See
 `docs/gameplay-cpu-steering.md` and run
 `tools\Run-GameplayCpuSteeringTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
@@ -1385,15 +1408,15 @@ TGJS/TGSR miss actor/ball timing and three-point-make actor/result schedule,
 the state-`$15` one-to-four-pass prefix and canonical debug handoff, Q8.8 actor
 height, terminal outcomes, one post-miss settlement, state/event timing, foul thresholds,
 period/halftime/final transitions, and audio programs/mappings.
-Actor starting layout and fixed five-player roster-slot binding, CPU
+Post-handoff live actor layout and fixed five-player roster-slot binding, CPU
 movement/AI, ordinary walking-pose binding, fatigue
 evolution, boundary-latch settlement, jump-ball geometry, unsupported jump
 profiles/directions/outcomes, ordinary two-point makes, make ball motion, the
 longer +157-update claimant route, semantic rebounds/blocks/steals,
 general make/contact policy, the trigger selecting
 dunk/variant 0 versus layup/variant 2, live close-shot profile/direction
-selection and left-facing mirroring, dynamic court palette selection beyond
-the imported TGCT data,
+selection and left-facing mirroring, state-dependent palette transitions
+outside the exact live-court and cutaway contexts,
 foul detection, live free-throw camera/full-court integration and lineup
 positioning/aim/outcome/rebound and CPU
 positioning/script behavior, plus the HUD fixed-column and unassigned-CPU
@@ -1402,8 +1425,9 @@ team marks, and Bank02 name formatting are exact within the boundary above.
 Local original-frame comparisons found no unrendered or garbage
 cells. After normalizing the small emulator RGB-output difference, the TGDK
 cutaway pixels match the local frame-24 black, frame-32 stage, frame-48 stage,
-and frame-64 black checkpoints exactly. Live player colors use the exact
-profile-bit, side-bit, `$DEAB`, and `$DC19` matchup path described above. The
+and frame-64 black checkpoints exactly. Live court, ball, and player colors use
+the exact `$F2E2`, profile-bit, side-bit, `$DEAB`, and `$DC19` matchup path
+described above. The
 returned live court at frame 80 still differs in actor spacing; the bounded
 HUD glyph silhouettes now match the local score/clock/shot-clock reference,
 and camera/world projection is strict within the supported horizontal slice.

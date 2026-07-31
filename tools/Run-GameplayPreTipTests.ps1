@@ -150,7 +150,8 @@ $ExpectedRoles = @(
     "character-to-tile-map","character-16px-metatile-table",
     "card-text-chr-selector-setup","tipoff-closeup-entry",
     "tipoff-closeup-palettes","tipoff-closeup-control",
-    "tipoff-closeup-timing","fixed-d861-sprite-staging",
+    "tipoff-closeup-timing-and-lineup-tables",
+    "fixed-d861-sprite-staging",
     "center-tip-object-setup",
     "center-tip-object-update","pregame-launch-bridge","live-handoff",
     "tipoff-orientation-select"
@@ -166,6 +167,7 @@ if ($Mapped.Count -ne 1 -or
     $Mapped[0].native_contract.music -notmatch "track 8" -or
     $Mapped[0].native_contract.card_text -notmatch "2x2 metatiles" -or
     $Mapped[0].native_contract.cancel -notmatch "bit 0" -or
+    $Mapped[0].native_contract.tip_lineup -notmatch "AC8C" -or
     $Mapped[0].native_contract.closeup_motion -notmatch "D861" -or
     $Mapped[0].native_contract.toss_cut_in -notmatch "nametable page 1" -or
     $Mapped[0].native_contract.ball_descent -notmatch "71..145") {
@@ -192,10 +194,11 @@ $Modes = @(
     [pscustomobject]@{ mode="gameplay-pretip-frame271"; phase="closeup"; frame=271; hash="A73F8C5E051EAE42462932DDE430FC50D1109BDAA1E7F96D2CE0EB22DAE36889" },
     [pscustomobject]@{ mode="gameplay-pretip-frame300"; phase="closeup"; frame=300; hash="7D3227F3D2256DBFA036F3C7761EB03A41C467C330E8A4097EBBD68D20DC45E1" },
     [pscustomobject]@{ mode="gameplay-pretip-frame330"; phase="closeup"; frame=330; hash="CF24E1A5BEFFB62DCA85304DBC739A11CABCAE50F112870669D7CCA4C2EBAC0B" },
-    [pscustomobject]@{ mode="gameplay-pretip-frame481"; phase="ball-descent"; frame=481; hash="C58002F1937380E913FF11A61DA412B468E6305A2BB2E37E0BFE62E163417E16" },
+    [pscustomobject]@{ mode="gameplay-pretip-frame481"; phase="ball-descent"; frame=481; hash="E3BC3BB7DA3A9FB73CAEF76BD7BB7F31953C2D3110E95E91E9F1D9E40A076BA5" },
     [pscustomobject]@{ mode="gameplay-pretip-frame631"; phase="toss-closeup"; frame=631; hash="CDE4C17159C79207CA82281204547FD2794E81858A52A6FB312E937CEEDF162C" },
-    [pscustomobject]@{ mode="gameplay-pretip-frame661"; phase="jump-contest"; frame=661; hash="1F40F94DA4C8BEB79ABF9FF4A2B59091ED8760AC7EF1E94C2CC9E9FBA76E81AF" },
-    [pscustomobject]@{ mode="gameplay-live-start"; phase="live"; frame=691; hash="E108686E23DDF3B3793310ADCD0E74C840AF1D67D661B7313BAD0A4932EF676A" }
+    [pscustomobject]@{ mode="gameplay-pretip-frame661"; phase="jump-contest"; frame=661; hash="0AB2B11E7C3ABDC3D051E9D20A7BF7EE016E6A89DBA7D3408F136041AF7A3F50" },
+    [pscustomobject]@{ mode="gameplay-pretip-bulls-pacers"; phase="jump-contest"; frame=661; hash="1895247EED63FA65D78F46CBC9510C4ACF751A4CF4DB969C599E429CDFC09040" },
+    [pscustomobject]@{ mode="gameplay-live-start"; phase="live"; frame=691; hash="1F352C72F2C060E4C1FDDD5900011FCBDD0561542824FE47EBEF478BC3EE773D" }
 )
 $RenderedHashes = @{}
 foreach ($Spec in $Modes) {
@@ -246,10 +249,11 @@ if ($ReferenceRoot) {
         [pscustomobject]@{ reference="tipoff_0450.png"; native="gameplay-pretip-frame211" },
         [pscustomobject]@{ reference="tipoff_0510.png"; native="gameplay-pretip-frame271" },
         [pscustomobject]@{ reference="tipoff_0540.png"; native="gameplay-pretip-frame300" },
-        [pscustomobject]@{ reference="tipoff_0570.png"; native="gameplay-pretip-frame330" }
+        [pscustomobject]@{ reference="tipoff_0570.png"; native="gameplay-pretip-frame330" },
+        [pscustomobject]@{ reference="tipoff_0720.png"; native="gameplay-pretip-bulls-pacers" }
     )
     $ComparisonPath = Join-Path $Scratch "reference-comparison.png"
-    $Comparison = New-Object Drawing.Bitmap 1024,1920
+    $Comparison = New-Object Drawing.Bitmap 1024,($Pairs.Count * 480)
     $Graphics = [Drawing.Graphics]::FromImage($Comparison)
     $Graphics.InterpolationMode =
         [Drawing.Drawing2D.InterpolationMode]::NearestNeighbor

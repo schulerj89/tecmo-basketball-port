@@ -86,12 +86,12 @@ typedef struct TecmoGameplayCpuSteeringAssets {
     uint32_t movement_fingerprint;
 } TecmoGameplayCpuSteeringAssets;
 
-/* Developer-only composition policy for exercising the isolated TGAI
-   direction boundary with a complete canonical court snapshot. A linked
-   actor is the native port's explicit stand-in for the still-unowned ROM
-   $06CB,X assignment. Slots 0..4 are away/team 0 and slots 5..9 are
-   home/team 1, matching TecmoGameplayScene. This is not a reconstructed ROM
-   play selector. */
+/* Bounded native composition policy for exercising the isolated TGAI
+   direction boundary with a complete canonical court snapshot. The CLI and
+   live scene share it. A linked actor is the port's explicit stand-in for the
+   still-unreconstructed ROM $06CB,X assignment. Slots 0..4 are away/team 0
+   and slots 5..9 are home/team 1, matching TecmoGameplayScene. This is not a
+   reconstructed ROM play selector. */
 typedef enum TecmoGameplayCpuSteeringHarnessTargetKind {
     TECMO_GAMEPLAY_CPU_STEERING_HARNESS_LINKED_ACTOR = 0,
     TECMO_GAMEPLAY_CPU_STEERING_HARNESS_HOOP_APPROACH,
@@ -130,7 +130,7 @@ typedef struct TecmoGameplayCpuSteeringHarnessResult {
     bool writes_direction;
 } TecmoGameplayCpuSteeringHarnessResult;
 
-/* Console/test-only composition input. The selected actor's canonical
+/* Transactional CLI/live composition input. The selected actor's canonical
    coordinate must exactly match movement.position. TGAI selects the target
    and direction; the remaining fields are passed to the exact TGMO movement
    kernel as a secondary (non-player-selected) actor. */
@@ -206,12 +206,13 @@ bool tecmo_gameplay_cpu_steering_harness_evaluate(
 const char *tecmo_gameplay_cpu_steering_harness_target_kind_name(
     TecmoGameplayCpuSteeringHarnessTargetKind kind);
 
-/* Pure and transactional TGAI -> TGMO developer composition. A nonzero TGAI
+/* Pure and transactional TGAI -> TGMO composition. A nonzero TGAI
    result is inverted through TGMO's validated direction table and supplied
    as NES held-direction bits. TGAI's zero-vector no-write case has no NES
-   input equivalent, so this harness-owned boundary supplies neutral while
-   preserving TGMO's exact one-update action-state latency. This does not own
-   the live ROM command/link lifecycle and is not a scene dependency. */
+   input equivalent, so this adapter-owned boundary supplies neutral while
+   preserving TGMO's exact one-update action-state latency. The live scene
+   uses this API with scene-owned fixed opposing links. It still does not own
+   or claim the ROM command/link lifecycle. */
 bool tecmo_gameplay_cpu_steering_movement_step(
     const TecmoGameplayCpuSteeringAssets *steering_assets,
     const TecmoGameplayMovementAssets *movement_assets,

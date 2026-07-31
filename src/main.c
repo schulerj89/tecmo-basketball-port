@@ -70,7 +70,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-pretip-test PACK  Validate strict TPTI-1 pre-tip assets/state\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render menus, intro scenes, or strict gameplay-start/pretip-frameN/live-start/uniform-pacers/possession-left|center|right/free-throw-left|right/jump-frameN/dunk-frameN checkpoints to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render menus, intro scenes, or strict gameplay-start/pretip-frameN/pretip-bulls-pacers/live-start/cpu-steering-frameN/uniform-pacers/possession-left|center|right/free-throw-left|right/jump-frameN/dunk-frameN checkpoints to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --build-assetpack ROM PATH  Build a private .assetpack from an iNES ROM only; no decomp/capture imports\n");
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
@@ -619,7 +619,7 @@ static int run_gameplay_cpu_steering_inspect(int argc,
            (unsigned)command.arguments[3],
            (unsigned)command.handler_cpu,
            tecmo_gameplay_cpu_steering_command_kind_name(command.kind));
-    printf("delta=(%d,%d) direction=%u name=%s live=0\n",
+    printf("delta=(%d,%d) direction=%u name=%s normal_flow=0\n",
            horizontal_delta, depth_delta, (unsigned)direction,
            tecmo_gameplay_cpu_steering_direction_name(direction));
     tecmo_gameplay_cpu_steering_assets_destroy(&assets);
@@ -703,7 +703,7 @@ static int run_gameplay_cpu_steering_harness(int argc,
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return 1;
     }
-    printf("TGAI-1 harness actor=%u team=%u possession=%u orientation=%u holder=%u matchup=%u difficulty=%u snapshot=%08X live=0\n",
+    printf("TGAI-1 harness actor=%u team=%u possession=%u orientation=%u holder=%u matchup=%u difficulty=%u snapshot=%08X normal_flow=0\n",
            (unsigned)result.actor, (unsigned)result.actor_team,
            (unsigned)result.possession, (unsigned)result.orientation,
            (unsigned)result.ball_holder, (unsigned)result.matchup_actor,
@@ -739,7 +739,7 @@ static int run_gameplay_cpu_steering_harness(int argc,
     } else {
         printf("direction=keep name=keep write=0 ");
     }
-    printf("target_policy=native-harness quantizer=rom-exact live=0\n");
+    printf("target_policy=native-harness quantizer=rom-exact scene_adapter=1 normal_flow=0\n");
     tecmo_gameplay_cpu_steering_assets_destroy(&assets);
     return 0;
 }
@@ -852,7 +852,7 @@ static int run_gameplay_cpu_steering_movement_harness(
         return 1;
     }
 
-    printf("TGAI-TGMO harness actor=%u possession=%u orientation=%u holder=%u matchup=%u difficulty=%u rating=%u condition=%u speed=%u frames=%u target_policy=native-harness zero_input=native-neutral quantizer=rom-exact movement=rom-exact secondary=1 live=0\n",
+    printf("TGAI-TGMO harness actor=%u possession=%u orientation=%u holder=%u matchup=%u difficulty=%u rating=%u condition=%u speed=%u frames=%u target_policy=native-harness zero_input=native-neutral quantizer=rom-exact movement=rom-exact secondary=1 scene_adapter=1 normal_flow=0\n",
            (unsigned)actor, (unsigned)possession,
            (unsigned)orientation, (unsigned)ball_holder,
            (unsigned)matchup_actor, (unsigned)difficulty,
@@ -975,6 +975,7 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     bool dunk = false;
     bool pretip_checkpoint = false;
     bool live_start = false;
+    bool cpu_steering = false;
     int possession_slice = -1;
     int free_throw_orientation = -1;
 
@@ -982,12 +983,20 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     if (strcmp(mode_name, "gameplay-start") == 0) {
         checkpoint = 0U;
         pretip_checkpoint = true;
+    } else if (strcmp(mode_name, "gameplay-pretip-bulls-pacers") == 0) {
+        checkpoint = 661U;
+        away_team = 3U;
+        home_team = 10U;
+        pretip_checkpoint = true;
     } else if (parse_render_frame_suffix(
                    mode_name, "gameplay-pretip-frame", &checkpoint)) {
         pretip_checkpoint = true;
     } else if (strcmp(mode_name, "gameplay-live-start") == 0) {
         checkpoint = 691U;
         live_start = true;
+    } else if (parse_render_frame_suffix(
+                   mode_name, "gameplay-cpu-steering-frame", &checkpoint)) {
+        cpu_steering = true;
     } else if (strcmp(mode_name, "gameplay-uniform-pacers") == 0) {
         checkpoint = 691U;
         away_team = 3U;
@@ -1030,6 +1039,9 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
         return false;
     }
     if (pretip_checkpoint && checkpoint >= 691U) return false;
+    if (cpu_steering && (checkpoint == 0U || checkpoint > 240U)) {
+        return false;
+    }
     if ((jump && (checkpoint == 0U ||
                   checkpoint >
                       (jump_make ? 111U : (jump_rattle ? 103U : 87U)))) ||
@@ -1045,7 +1057,8 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     launch.difficulty = 1U;
     launch.control_mode = 1U;
     launch.speed_value = 1U;
-    launch.controller_team[0] = TECMO_GAMEPLAY_TEAM_AWAY;
+    launch.controller_team[0] = cpu_steering
+        ? TECMO_GAMEPLAY_TEAM_HOME : TECMO_GAMEPLAY_TEAM_AWAY;
     launch.controller_team[1] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
     launch.game_music_enabled = false;
     if (!tecmo_gameplay_scene_launch(&runtime->gameplay_scene, &launch)) {
@@ -1069,6 +1082,23 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
                runtime->gameplay_scene.active &&
                !tecmo_gameplay_scene_in_pretip(
                    &runtime->gameplay_scene);
+    if (cpu_steering) {
+        TecmoGameplayScene *scene = &runtime->gameplay_scene;
+        for (update = 0U; update < checkpoint; ++update) {
+            tecmo_runtime_update(runtime, &input);
+        }
+        return runtime->mode == TECMO_MODE_COURT && scene->active &&
+               scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+               scene->frame == 691U + checkpoint &&
+               scene->ball_holder == 0U &&
+               scene->actors[0].position.x < 0x0160 &&
+               scene->cpu_actors[0].decision_serial == checkpoint &&
+               scene->cpu_actors[0].target_valid &&
+               scene->cpu_actors[0].target_kind ==
+                   TECMO_GAMEPLAY_CPU_STEERING_HARNESS_HOOP_APPROACH &&
+               scene->cpu_actors[0].target_position.x == 208 &&
+               scene->cpu_actors[0].target_position.y == 148;
+    }
     if (possession_slice >= 0) {
         TecmoGameplayScene *scene = &runtime->gameplay_scene;
         TecmoGameplaySceneActor *actor;

@@ -326,12 +326,14 @@ try {
         [int]$CourtMaps[0].native_contract.scene_slice.native_checkpoints.right_camera_x -ne
             408 -or
         $CourtMaps[0].native_contract.scene_slice.native_checkpoints.left_render_fnv1a32 -ne
-            "4F52BCC1" -or
+            "770FAE95" -or
         $CourtMaps[0].native_contract.scene_slice.native_checkpoints.center_render_fnv1a32 -ne
-            "9CC9CD31" -or
+            "6E530421" -or
         $CourtMaps[0].native_contract.scene_slice.native_checkpoints.right_render_fnv1a32 -ne
-            "033B45D5" -or
+            "2DBDF155" -or
         [bool]$CourtMaps[0].native_contract.scene_slice.integration_is_additional_rom_claim -or
+        $CourtMaps[0].native_contract.live_palette_matchup -notmatch
+            "3/7/11/15" -or
         $CourtMaps[0].native_contract.boundary -notmatch
             "production camera-positioned live viewport") {
         throw "Production TGCP-2/TGCT-1 scene provenance is incomplete."
@@ -554,6 +556,36 @@ try {
     Assert-SceneRejected -AssetPack $OversizedMovementPath `
         -Label "oversized-movement" -ExpectedStatus "TGMO-1"
 
+    $MissingSteeringPath = Join-Path $Scratch "missing-cpu-steering.assetpack"
+    $MissingSteering = [byte[]]$PackBytes.Clone()
+    $MissingSteering[
+        [int]$Entries["gameplay/cpu-steering"].directory_offset] =
+        [byte][char]'x'
+    [IO.File]::WriteAllBytes($MissingSteeringPath, $MissingSteering)
+    Assert-SceneRejected -AssetPack $MissingSteeringPath `
+        -Label "missing-cpu-steering" -ExpectedStatus "TGAI-1"
+
+    $SteeringOffset =
+        [int]$Entries["gameplay/cpu-steering"].pack_offset
+    $MalformedSteeringPath =
+        Join-Path $Scratch "malformed-cpu-steering.assetpack"
+    $MalformedSteering = [byte[]]$PackBytes.Clone()
+    $MalformedSteering[$SteeringOffset] =
+        $MalformedSteering[$SteeringOffset] -bxor 1
+    [IO.File]::WriteAllBytes($MalformedSteeringPath, $MalformedSteering)
+    Assert-SceneRejected -AssetPack $MalformedSteeringPath `
+        -Label "malformed-cpu-steering" -ExpectedStatus "TGAI-1"
+
+    $OversizedSteeringPath =
+        Join-Path $Scratch "oversized-cpu-steering.assetpack"
+    $OversizedSteering = [byte[]]$PackBytes.Clone()
+    [BitConverter]::GetBytes([uint64]7617).CopyTo(
+        $OversizedSteering,
+        [int]$Entries["gameplay/cpu-steering"].directory_offset + 92)
+    [IO.File]::WriteAllBytes($OversizedSteeringPath, $OversizedSteering)
+    Assert-SceneRejected -AssetPack $OversizedSteeringPath `
+        -Label "oversized-cpu-steering" -ExpectedStatus "TGAI-1"
+
     $MissingOrientationPath =
         Join-Path $Scratch "missing-court-orientation.assetpack"
     $MissingOrientation = [byte[]]$PackBytes.Clone()
@@ -729,6 +761,7 @@ try {
     $env:TECMO_ASSETPACK = $PackPath
     $RenderSpecs = @(
         [pscustomobject]@{ mode="gameplay-start"; state='gameplay-state frame=0 shot=none phase=live' },
+        [pscustomobject]@{ mode="gameplay-cpu-steering-frame25"; state='gameplay-state frame=716 shot=none phase=live' },
         [pscustomobject]@{ mode="gameplay-possession-left"; state='gameplay-state frame=691 shot=none phase=live' },
         [pscustomobject]@{ mode="gameplay-possession-center"; state='gameplay-state frame=691 shot=none phase=live' },
         [pscustomobject]@{ mode="gameplay-possession-right"; state='gameplay-state frame=691 shot=none phase=live' },
@@ -790,13 +823,17 @@ try {
         $RenderHashes[$Spec.mode] = Invoke-RenderCheckpoint `
             -Mode $Spec.mode -ExpectedState $Spec.state
     }
+    if ($RenderHashes["gameplay-cpu-steering-frame25"] -ne
+            "5324398150F95ACAEF4F8EB2AF314A9DD23511D74B9CF3D753E483A916BF033D") {
+        throw "Gameplay live TGAI/TGMO movement render hash changed."
+    }
     $ExpectedPossessionSliceHashes = @{
         "gameplay-possession-left" =
-            "FBA54B928652EE320A17230FDB77A407CF937210F8C3D61898327A9140448A73"
+            "4F2F6D85D5DB3E601BC7B9614BE5FD7F4DE28653E6336962BF35E913A842C09A"
         "gameplay-possession-center" =
-            "E108686E23DDF3B3793310ADCD0E74C840AF1D67D661B7313BAD0A4932EF676A"
+            "1F352C72F2C060E4C1FDDD5900011FCBDD0561542824FE47EBEF478BC3EE773D"
         "gameplay-possession-right" =
-            "551C2117DCA918861C795DB74C25F6F5A070E3680D3DDDBD1BD7BB51943424D9"
+            "B09A54C5F64D61B39C8A28F797BD3F41ECB01AE6A07651C3A52EE697CAE943A2"
     }
     foreach ($Mode in $ExpectedPossessionSliceHashes.Keys) {
         if ($RenderHashes[$Mode] -ne
@@ -813,16 +850,16 @@ try {
         throw "Gameplay possession-slice visuals collapsed together."
     }
     if ($RenderHashes["gameplay-uniform-pacers"] -ne
-            "49951FA5261F3A9DF3EF10005FC5AA96088E7B3419445C4FE7715C8D6B5BA4CD" -or
+            "62BC6086E10E6840CE5BBDA998D458A214CB0D15D01E29961C3E553AC763F38F" -or
         $RenderHashes["gameplay-uniform-pacers"] -eq
             $RenderHashes["gameplay-possession-center"]) {
         throw "Gameplay home-team uniform-color visual contract changed."
     }
     $ExpectedFreeThrowHashes = @{
         "gameplay-free-throw-left" =
-            "AB82ED1637F9856EC91D16FEEDFE382B1B20572782FA92FCD2436F30FA208FC8"
+            "D6A4509CD79A55D84A0CF9D6EEF999E4A464379E1E78349E193BE2DEBB04A3C1"
         "gameplay-free-throw-right" =
-            "BA6A2EBCB4FDA056A919C6CEE4785EDADC37D50B1A4632D23C91C6B882F76B7B"
+            "6CB1E7796B3E5B08EACB2719C21D408B3EC271962E19C6A307F5728FC28FF51C"
     }
     foreach ($Mode in $ExpectedFreeThrowHashes.Keys) {
         if ($RenderHashes[$Mode] -ne
@@ -836,11 +873,11 @@ try {
     }
     $ExpectedJumpHashes = @{
         "gameplay-jump-frame2" =
-            "5130AF791E551EDAE37AF2FAC7E990E0298C951708E40C9ABEC17F4A49F474BC"
+            "9DB4D67E12D03E580E9CA8F2B4AE37C19625A63A715483E6966BC6EDF2AF9F98"
         "gameplay-jump-frame75" =
-            "1A049A1BC74BA6E91E4FACEFDE8B639D45CF65AC92AA2346FCFD3425E8D39899"
+            "5FB452DED76C0FC196FA95697E2AA31946EA3EA29597AF1AD75682AE78D6E069"
         "gameplay-jump-frame87" =
-            "79C041654E9A3CB505FF75825527827F9090FA315D6723C099DAD7DF1F66CA24"
+            "982E7AFC56E32FEAB2B390EE53E5F00F7CF251A581FD63C256D4EBC409847B39"
     }
     foreach ($Mode in $ExpectedJumpHashes.Keys) {
         if ($RenderHashes[$Mode] -ne $ExpectedJumpHashes[$Mode]) {
@@ -849,25 +886,25 @@ try {
     }
     $ExpectedRattleHashes = @{
         "gameplay-jump-rattle-frame72" =
-            "4723FB2768B7A675C5F59EDB2FBB9AF3ABEA5CEAE0FE31F8DCCBA7ED57528FB8"
+            "474000644294A6578E4BF94463CE5C05A8F59F51C15CADEE3B904E55E993254B"
         "gameplay-jump-rattle-frame73" =
-            "F66515F1EEC12ECB61F64E3E987583A224ADA23BFB16EF7E8982C71EE1393680"
+            "86D03D431E59C2B40848534B24E88E3DD2809A5868A17BDFE74686677A594293"
         "gameplay-jump-rattle-frame74" =
-            "A2B79531359FA8C5CC7A738EB22C772CAA675F0FD290B3A567C5B469B705820A"
+            "2E3D156490F8E51261F08C6F51E909D56EF224D53FC0878EA6BC7D91C65BB388"
         "gameplay-jump-rattle-frame77" =
-            "6AFFABF955994D13F93400AE1B5946BDCCE252118684BA9783600A6A5FBBCD24"
+            "5CC2AD8814F8B45A058D8DDC9D3838EDC18488D2438977EC22C554D3502224FE"
         "gameplay-jump-rattle-frame81" =
-            "6791A057AF28D58DA8014919793D45D7325D685EBD145CAA3EE754C95AF71243"
+            "A014A6570C2B7BB03C9F064B6B19291FCFEE26A637B26AF404FB8BEE07A73FAE"
         "gameplay-jump-rattle-frame85" =
-            "6AFFABF955994D13F93400AE1B5946BDCCE252118684BA9783600A6A5FBBCD24"
+            "5CC2AD8814F8B45A058D8DDC9D3838EDC18488D2438977EC22C554D3502224FE"
         "gameplay-jump-rattle-frame88" =
-            "4699CB472E5D8D65A7937607AECE7C4DA15278D51BB3DFF5F2BB268DB23A9EAF"
+            "B1054D36568683914784E3CB7AB9B8B63B79CDBCC9B2FDA5C5FEAC8815FF949C"
         "gameplay-jump-rattle-frame89" =
-            "6791A057AF28D58DA8014919793D45D7325D685EBD145CAA3EE754C95AF71243"
+            "A014A6570C2B7BB03C9F064B6B19291FCFEE26A637B26AF404FB8BEE07A73FAE"
         "gameplay-jump-rattle-frame90" =
-            "77328B1025FE5B0FB1DB7946A17CA8D8F6C171B6056A219D2BDED542BC4ED0D6"
+            "3D277864D67B1889BBD1756CAF4671A64D0709C4BED44DD0BD8E280CAA9ECA29"
         "gameplay-jump-rattle-frame103" =
-            "903E64E4A99DE67AB099BA11A29B3E3511F483144BC2815BF9D24BB5E8A8A42C"
+            "7E7DED62751E3F1FCC33F7BC340C799460A7998ADF84FF7B737F9EF18A849BCD"
     }
     foreach ($Mode in $ExpectedRattleHashes.Keys) {
         if ($RenderHashes[$Mode] -ne $ExpectedRattleHashes[$Mode]) {
@@ -876,15 +913,15 @@ try {
     }
     $ExpectedJumpMakeHashes = @{
         "gameplay-jump-make-frame9" =
-            "144C3F8AFC879BA2027D24D239E319F453DA265EC67096485005E3924C815F69"
+            "3E40AB3F1C8C08F3E0E60D759AB13EA97EC865DC8D0C349E60C28AF2B665E613"
         "gameplay-jump-make-frame20" =
-            "669F1F5A6A69F330095431A5AC2AEA90B7565E1C67E3C8259D7C1C3C0C3D1895"
+            "8D3717C069343463AF1E2B61234230D39FBB948093C236AC604C62458FF1FF22"
         "gameplay-jump-make-frame57" =
-            "3310460AFD1899EDA4AF6AFCED38477F25069380C4767F5333E97A0560713498"
+            "69F0ACBBFE36B58AE388F2BB1697331A259AC53E4666BDE9FB6D935BCDE5A304"
         "gameplay-jump-make-frame85" =
-            "1B34A5EB5F5842971B57FADDA480602F459DB1A97E3258AB1D0DA8EC7C96139D"
+            "6AB17C0EEAC3DBB31FA579A0E16833E7A8167D91AA9F0B54B2DBCE40046A2887"
         "gameplay-jump-make-frame111" =
-            "E70870725BF355E02A939C3F0978B3E8D3C683190CB000D7FA1A0FC337481BCA"
+            "AC6915F63024CA66DE3E115271F73AD8F710318ACC47759D961A7504D2C113E3"
     }
     foreach ($Mode in $ExpectedJumpMakeHashes.Keys) {
         if ($RenderHashes[$Mode] -ne $ExpectedJumpMakeHashes[$Mode]) {
@@ -909,7 +946,7 @@ try {
 
     $global:LASTEXITCODE = 0
     Write-Output ("GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance " +
-        "scene controls TGMO-1 controlled movement TGCP-2 full-world camera fine-scroll guarded-margins actor-camera-projection/possession-slice-render/freeze TGFL-1 orientation-lineup TGDK TGJS TGSR-3 jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
+        "scene controls TGMO-1 controlled movement TGAI-1/TGMO-1 transactional ordinary CPU movement TGCP-2 full-world camera fine-scroll guarded-margins actor-camera-projection/possession-slice-render/freeze TGFL-1 orientation-lineup TGDK TGJS TGSR-3 jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
         "halftime/final render-hashes/determinism missing malformed oversized " +
         "dependency-corrupt chr-mismatch")
 } finally {

@@ -112,7 +112,7 @@ function Invoke-SteeringTest {
     if ($ExpectSuccess) {
         if ($ExitCode -ne 0 -or
             $Text -notmatch
-                '^TGAI-1 CPU steering isolated: commands=680 handlers=24 directions=8 tgmo_adapter=1 live=0$') {
+                '^TGAI-1 CPU steering isolated: commands=680 handlers=24 directions=8 tgmo_adapter=1 scene_adapter=1 rom_policy=0$') {
             throw "TGAI-1 loader/vector goldens failed.`n$(Get-ShortTail $Output)"
         }
     } elseif ($ExitCode -eq 0 -or
@@ -162,7 +162,8 @@ function Invoke-Harness {
         if ($ExitCode -ne 0 -or
             $Text -notmatch '^TGAI-1 harness ' -or
             $Text -notmatch 'target_policy=native-harness ' -or
-            $Text -notmatch 'quantizer=rom-exact live=0$') {
+            $Text -notmatch
+                'quantizer=rom-exact scene_adapter=1 normal_flow=0$') {
             throw "CPU-steering harness vector failed.`n$(Get-ShortTail $Output)"
         }
     } elseif ($ExitCode -eq 0 -or
@@ -203,7 +204,8 @@ function Invoke-MovementHarness {
             $Text -notmatch 'target_policy=native-harness ' -or
             $Text -notmatch 'zero_input=native-neutral ' -or
             $Text -notmatch 'quantizer=rom-exact ' -or
-            $Text -notmatch 'movement=rom-exact secondary=1 live=0') {
+            $Text -notmatch
+                'movement=rom-exact secondary=1 scene_adapter=1 normal_flow=0') {
             throw ("CPU-steering movement harness vector failed.`n" +
                 "$(Get-ShortTail $Output)")
         }
@@ -347,9 +349,23 @@ try {
             ![bool]$Map.native_contract.live_wired -and
             [bool]$Map.native_contract.transactional -and
             $Map.evidence_limits.next_integration -match
-                'bind proven command inputs' -and
+                'replace bounded native targets' -and
             (@($Map.evidence_limits.not_claimed) -join '|') -match
                 'candidate scan \$B081-\$B32E' -and
+            [bool]$Map.live_scene_adapter.enabled -and
+            ![bool]$Map.live_scene_adapter.target_policy_rom_exact -and
+            $Map.live_scene_adapter.holder_target -eq
+                'orientation-aware 48/48/40 hoop approach' -and
+            $Map.live_scene_adapter.other_target -eq
+                'scene-owned fixed opposing roster matchup' -and
+            [bool]$Map.live_scene_adapter.immutable_ten_actor_snapshot -and
+            [bool]$Map.live_scene_adapter.transactional_actor_commit -and
+            $Map.live_scene_adapter.rom_command_offset -eq
+                'explicit no-command sentinel' -and
+            ![bool]$Map.live_scene_adapter.rom_command_advance_owned -and
+            [bool]$Map.live_scene_adapter.direction_quantizer_rom_exact -and
+            [bool]$Map.live_scene_adapter.movement_kernel_rom_exact -and
+            ![bool]$Map.live_scene_adapter.shot_choice_and_cadence_rom_exact -and
             [bool]$Map.developer_harness.deterministic -and
             [bool]$Map.developer_harness.cli_only -and
             $Map.developer_harness.coordinate_slots -eq 10 -and
@@ -379,7 +395,7 @@ try {
             $Map.developer_harness.movement_adapter.zero_vector_input -eq
                 'native neutral policy; TGAI no-write remains exact' -and
             [bool]$Map.developer_harness.movement_adapter.selected_actor_coordinate_reconciled_each_step -and
-            ![bool]$Map.developer_harness.movement_adapter.live_wired -and
+            [bool]$Map.developer_harness.movement_adapter.live_wired -and
             [bool]$Map.developer_harness.movement_adapter.transactional -and
             ![bool]$Map.developer_harness.normal_game_flow_exposed
         if ($MapOk) {
@@ -411,11 +427,12 @@ try {
 
     $First = Invoke-Inspect '0' '20' '10' `
         'offset=\$0000 cpu=\$9F2E opcode=4 args=0A,00,00,00 handler=\$8FFA kind=actor-target'
-    if ($First -notmatch 'delta=\(20,10\) direction=0 name=right live=0') {
+    if ($First -notmatch
+        'delta=\(20,10\) direction=0 name=right normal_flow=0') {
         throw "Inclusive 2:1 horizontal direction vector changed.`n$First"
     }
     $Diagonal = Invoke-Inspect '0' '19' '10' `
-        'delta=\(19,10\) direction=3 name=down-right live=0'
+        'delta=\(19,10\) direction=3 name=down-right normal_flow=0'
     $FreeThrowA = Invoke-Inspect '0x7D' '-10' '10' `
         'offset=\$007D cpu=\$9FAB opcode=3 args=08,00,00,00 handler=\$905E kind=control'
     if ($FreeThrowA -notmatch 'direction=4 name=down-left') {
@@ -432,7 +449,7 @@ try {
         throw "Last-command/dominant direction vector changed.`n$Last"
     }
     $WrappedExtreme = Invoke-Inspect '0' '-32768' '-32768' `
-        'delta=\(-32768,-32768\) direction=1 name=left live=0'
+        'delta=\(-32768,-32768\) direction=1 name=left normal_flow=0'
 
     foreach ($InvalidInspect in @(
         @('1', '1', '1', 'CPU steering command offset rejected'),
@@ -458,7 +475,7 @@ try {
         $CourtCoordinates
     if ($Linked -cne $LinkedRepeat -or
         $Linked -notmatch
-            '^TGAI-1 harness actor=5 team=1 possession=0 orientation=0 holder=0 matchup=0 difficulty=2 snapshot=15AEBE1B live=0' -or
+            '^TGAI-1 harness actor=5 team=1 possession=0 orientation=0 holder=0 matchup=0 difficulty=2 snapshot=15AEBE1B normal_flow=0' -or
         $Linked -notmatch
             'court=0:\(384,148\);1:\(420,120\);2:\(440,180\);3:\(360,100\);4:\(400,200\);5:\(500,160\);6:\(520,110\);7:\(540,190\);8:\(460,90\);9:\(480,210\)' -or
         $Linked -notmatch
@@ -469,7 +486,7 @@ try {
     $LeftHoop = Invoke-Harness '0' '0' '0' '0' '5' '0' `
         $CourtCoordinates
     if ($LeftHoop -notmatch
-            'snapshot=57B29369 live=0' -or
+            'snapshot=57B29369 normal_flow=0' -or
         $LeftHoop -notmatch
             'target=hoop-approach target_actor=none from=\(384,148\) to=\(208,148\) delta=\(-176,0\) direction=1 name=left write=1') {
         throw "Left-hoop/easy harness golden changed.`n$LeftHoop"
@@ -477,7 +494,7 @@ try {
     $RightHoop = Invoke-Harness '0' '0' '1' '0' '5' '2' `
         $CourtCoordinates
     if ($RightHoop -notmatch
-            'snapshot=34F66F76 live=0' -or
+            'snapshot=34F66F76 normal_flow=0' -or
         $RightHoop -notmatch
             'target=hoop-approach target_actor=none from=\(384,148\) to=\(568,148\) delta=\(184,0\) direction=0 name=right write=1') {
         throw "Right-hoop/hard harness golden changed.`n$RightHoop"
@@ -725,7 +742,7 @@ try {
         "direction codes, deterministic ten-coordinate/context harness, " +
         "transactional TGMO direction/movement composition, " +
         "strict provenance/dependency/parser/input mutations, " +
-        "$RomMutationCount ROM mutations, live wiring intentionally 0")
+        "$RomMutationCount ROM mutations, bounded live scene adapter enabled")
     $global:LASTEXITCODE = 0
 } finally {
     $env:TECMO_SKIP_SHORTCUT = $PreviousSkipShortcut

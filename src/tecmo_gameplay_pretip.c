@@ -4,6 +4,7 @@
 
 #include "asset_pack/tecmo_asset_pack_gameplay_pretip.h"
 #include "tecmo_asset_pack.h"
+#include "tecmo_gameplay_assets.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -423,6 +424,95 @@ static bool assets_valid(const TecmoGameplayPreTipAssets *assets)
     return true;
 }
 
+bool tecmo_gameplay_pretip_tip_lineup(
+    const TecmoGameplayPreTipAssets *assets,
+    TecmoGameplayPreTipLineup *lineup)
+{
+    static const uint8_t setup_signature[] = {
+        0xA2U,0x0AU,
+        0xBDU,0xA3U,0xADU,0x95U,0x73U,
+        0x9DU,0x5BU,0x05U,
+        0xBDU,0xAEU,0xADU,0x95U,0xE8U,
+        0x9DU,0x66U,0x05U,
+        0xBDU,0xB9U,0xADU,0x95U,0xF3U,
+        0x9DU,0x71U,0x05U,
+        0xBDU,0x8DU,0xADU,0x9DU,0x79U,0x04U,
+        0x8AU,0x9DU,0x6BU,0x07U,
+        0xA9U,0x08U,0x9DU,0x2AU,0x04U,
+        0xA9U,0x00U,0x9DU,0x58U,0x04U,
+        0x9DU,0x7CU,0x05U,
+        0xBDU,0x98U,0xADU,0x9DU,0x63U,0x04U,
+        0xA8U,
+        0xB9U,0xC4U,0xADU,0x9DU,0x42U,0x04U,
+        0xB9U,0xCDU,0xADU,0x9DU,0x4DU,0x04U,
+        0xBDU,0x82U,0xADU,0x9DU,0x6EU,0x04U,
+        0xCAU,0x10U,0xB5U
+    };
+    const size_t setup_offset = 0xAC8CU - 0xAC76U;
+    const size_t state_offset = 0U;
+    const size_t sprite_slot_offset = 0xAD8DU - 0xAD82U;
+    const size_t facing_offset = 0xAD98U - 0xAD82U;
+    const size_t x_low_offset = 0xADA3U - 0xAD82U;
+    const size_t x_high_offset = 0xADAEU - 0xAD82U;
+    const size_t y_offset = 0xADB9U - 0xAD82U;
+    const size_t pose_low_offset = 0xADC4U - 0xAD82U;
+    const size_t pose_high_offset = 0xADCDU - 0xAD82U;
+    const size_t pose_entry_count = 9U;
+    const uint8_t *control;
+    const uint8_t *tables;
+    TecmoGameplayPreTipLineup candidate;
+    size_t index;
+
+    if (!assets_valid(assets) || lineup == NULL) return false;
+    control = assets->storage +
+        TECMO_ASSET_PACK_GAMEPLAY_PRETIP_CLOSEUP_CONTROL_OFFSET;
+    tables = assets->storage +
+        TECMO_ASSET_PACK_GAMEPLAY_PRETIP_CLOSEUP_TIMING_OFFSET;
+    if (memcmp(control + setup_offset, setup_signature,
+               sizeof(setup_signature)) != 0) {
+        return false;
+    }
+    memset(&candidate, 0, sizeof(candidate));
+    candidate.contract_tag = TECMO_GAMEPLAY_PRETIP_LINEUP_TAG;
+    for (index = 0U; index < TECMO_GAMEPLAY_PRETIP_OBJECT_COUNT;
+         ++index) {
+        TecmoGameplayCourtCoordinate coordinate;
+        uint8_t sprite_slot_base = tables[sprite_slot_offset + index];
+        uint8_t facing = tables[facing_offset + index];
+        uint16_t raw_pose;
+        uint16_t pose_index;
+        coordinate.x = (int16_t)(
+            (uint16_t)tables[x_low_offset + index] |
+            ((uint16_t)tables[x_high_offset + index] << 8U));
+        coordinate.y = (int16_t)tables[y_offset + index];
+        if (!tecmo_gameplay_court_coordinate_valid(&coordinate) ||
+            (sprite_slot_base & 0x3FU) != 0x01U ||
+            facing >= pose_entry_count) {
+            return false;
+        }
+        raw_pose = (uint16_t)tables[pose_low_offset + facing] |
+                   ((uint16_t)tables[pose_high_offset + facing] << 8U);
+        if ((raw_pose & 1U) != 0U) return false;
+        pose_index = (uint16_t)(raw_pose >> 1U);
+        if (pose_index >= TECMO_GAMEPLAY_ASSET_POINTER_COUNT) return false;
+        if (index < TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT) {
+            candidate.players[index] = coordinate;
+            candidate.player_states[index] = tables[state_offset + index];
+            candidate.player_sprite_slot_bases[index] = sprite_slot_base;
+            candidate.player_facings[index] = facing;
+            candidate.player_pose_indices[index] = pose_index;
+        } else {
+            candidate.ball = coordinate;
+            candidate.ball_state = tables[state_offset + index];
+            candidate.ball_sprite_slot_base = sprite_slot_base;
+            candidate.ball_facing = facing;
+            candidate.ball_pose_index = pose_index;
+        }
+    }
+    *lineup = candidate;
+    return true;
+}
+
 static uint8_t tip_error_for_sample(uint16_t frame, uint16_t target)
 {
     unsigned delta = frame > target ? frame - target : target - frame;
@@ -644,6 +734,33 @@ bool tecmo_gameplay_pretip_self_test(const char *asset_pack_path,
     TecmoGameplayPreTipState cancel_state;
     TecmoGameplayPreTipState malformed;
     TecmoGameplayPreTipState sampled_state;
+    TecmoGameplayPreTipLineup lineup;
+    TecmoGameplayPreTipLineup unchanged_lineup;
+    TecmoGameplayPreTipLineup before_lineup;
+    static const TecmoGameplayCourtCoordinate expected_players[
+        TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT] = {
+            {528,144},{448,144},{362,112},{364,192},{392,144},
+            {176,144},{320,144},{408,112},{400,192},{372,144}
+    };
+    static const uint8_t expected_states[
+        TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT] = {
+            0x00U,0x00U,0x00U,0x00U,0x22U,
+            0x00U,0x00U,0x00U,0x00U,0x13U
+    };
+    static const uint8_t expected_sprite_slot_bases[
+        TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT] = {
+            0xC1U,0xC1U,0xC1U,0xC1U,0x41U,
+            0xC1U,0xC1U,0xC1U,0xC1U,0x81U
+    };
+    static const uint8_t expected_facings[
+        TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT] = {
+            1U,1U,2U,5U,1U,0U,0U,2U,5U,0U
+    };
+    static const uint16_t expected_pose_indices[
+        TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT] = {
+            517U,517U,520U,519U,517U,
+            518U,518U,520U,519U,518U
+    };
     unsigned frame;
     uint8_t winner = 0xFFU;
     bool ok;
@@ -653,7 +770,32 @@ bool tecmo_gameplay_pretip_self_test(const char *asset_pack_path,
     memset(&cancel_state, 0, sizeof(cancel_state));
     memset(&malformed, 0, sizeof(malformed));
     memset(&sampled_state, 0, sizeof(sampled_state));
+    memset(&lineup, 0, sizeof(lineup));
+    memset(&unchanged_lineup, 0xA5, sizeof(unchanged_lineup));
+    before_lineup = unchanged_lineup;
     ok = tecmo_gameplay_pretip_load(&assets, asset_pack_path) &&
+         tecmo_gameplay_pretip_tip_lineup(&assets, &lineup) &&
+         lineup.contract_tag == TECMO_GAMEPLAY_PRETIP_LINEUP_TAG &&
+         memcmp(lineup.players, expected_players,
+                sizeof(expected_players)) == 0 &&
+         lineup.ball.x == 384 && lineup.ball.y == 144 &&
+         memcmp(lineup.player_states, expected_states,
+                sizeof(expected_states)) == 0 &&
+         memcmp(lineup.player_sprite_slot_bases,
+                expected_sprite_slot_bases,
+                sizeof(expected_sprite_slot_bases)) == 0 &&
+         memcmp(lineup.player_facings, expected_facings,
+                sizeof(expected_facings)) == 0 &&
+         memcmp(lineup.player_pose_indices, expected_pose_indices,
+                sizeof(expected_pose_indices)) == 0 &&
+         lineup.ball_state == 0x1AU &&
+         lineup.ball_sprite_slot_base == 0xC1U &&
+         lineup.ball_facing == 8U &&
+         lineup.ball_pose_index == 64U &&
+         !tecmo_gameplay_pretip_tip_lineup(NULL, &unchanged_lineup) &&
+         memcmp(&unchanged_lineup, &before_lineup,
+                sizeof(unchanged_lineup)) == 0 &&
+         !tecmo_gameplay_pretip_tip_lineup(&assets, NULL) &&
          tecmo_gameplay_pretip_state_initialize(
              &assets, &state, false) &&
          tecmo_gameplay_pretip_state_initialize(

@@ -341,7 +341,7 @@ bool tecmo_gameplay_cpu_steering_assets_parse(
     assets->available = true;
     (void)snprintf(
         assets->status, sizeof(assets->status),
-        "TGAI-1 CPU steering evidence assetpack (not live-wired)");
+        "TGAI-1 CPU steering evidence assetpack (native live adapter ready)");
     return true;
 }
 
@@ -1272,7 +1272,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     tecmo_gameplay_cpu_steering_assets_destroy(&assets);
     (void)snprintf(
         message, message_size,
-        "TGAI-1 CPU steering isolated: commands=680 handlers=24 directions=8 tgmo_adapter=1 live=0");
+        "TGAI-1 CPU steering isolated: commands=680 handlers=24 directions=8 tgmo_adapter=1 scene_adapter=1 rom_policy=0");
     return true;
 
 malformed_harness_failure:

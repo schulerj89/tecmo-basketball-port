@@ -1651,7 +1651,8 @@ static int append_gameplay_source_map_entry(
         "\"actor_slot_base\":\"ROM-generatable $01/$41/$81/$C1\","
         "\"attributes\":\"(cell & 0x41) | actor_attributes\","
         "\"live_actor_attributes\":\"fixed $F1F2 supplies $04B0[actor] & $03: profile-group bit 0 plus team-side bit 1\","
-        "\"live_palette_recipe\":\"Bank01 $B0ED-$B133 selects $B138/$B148 with profile bit 0 and injects the side uniform color at offsets 6/7/9 plus its six-bit +$10 variant at offset 13\","
+        "\"pose_palette_recipe\":\"Bank01 $B0ED-$B133 selects $B138/$B148 with profile bit 0 and injects the side uniform color at offsets 6/7/9 plus its six-bit +$10 variant at offset 13\","
+        "\"live_palette_recipe\":\"fixed $F2E2-$F2F1 supplies four profile/side groups; fixed $DEAB-$DEDF supplies the selected matchup colors at group entries 3/7/11/15\","
         "\"chr\":\"explicit MMC3 R2-R5 context\","
         "\"semantic_clip_names\":\"engine-state mapping pending\"}}");
 }
@@ -1764,12 +1765,13 @@ static int append_gameplay_court_source_map_entry(
         "the TGCT viewport plus all TGCP player and ball projections\","
         "\"native_checkpoints\":{\"left_camera_x\":102,"
         "\"center_camera_x\":256,\"right_camera_x\":408,"
-        "\"left_render_fnv1a32\":\"4F52BCC1\","
-        "\"center_render_fnv1a32\":\"9CC9CD31\","
-        "\"right_render_fnv1a32\":\"033B45D5\"},"
+        "\"left_render_fnv1a32\":\"770FAE95\","
+        "\"center_render_fnv1a32\":\"6E530421\","
+        "\"right_render_fnv1a32\":\"2DBDF155\"},"
         "\"integration_is_additional_rom_claim\":false},"
         "\"live_palette_size\":16,"
         "\"live_palette_fingerprint_fnv1a32\":\"B20C1E11\","
+        "\"live_palette_matchup\":\"fixed $DEAB-$DEDF and team-data $DC19-$DC35 substitute entries 3/7/11/15\","
         "\"boundary\":\"strict full-court decode and production camera-positioned live viewport slicing; native framebuffer rendering clips 32/33 columns inside the 256x240 gameplay subview; TGFL-1 remains the separate owner of free-throw positions consumed by native scene composition; excludes staged PPU prefetch/write ordering, vertical camera, and capture-derived behavior\","
         "\"runtime_inputs\":\"TGCT-1 plus same-pack chr/all; no decompilation, trace, capture, screenshot, dump, state, or video\"}}" );
 }
@@ -2288,7 +2290,18 @@ static int append_gameplay_cpu_steering_source_map_entry(
         "\"script initialization outside the isolated formation selector\","
         "\"live speed/fatigue/collision ownership\","
         "\"candidate scan $B081-$B32E as ordinary movement targeting\"],"
-        "\"next_integration\":\"bind proven command inputs, actor-link state, and command advancement before production live CPU movement\"},"
+        "\"next_integration\":\"replace bounded native targets with proven command inputs, ROM actor-link assignments, and command advancement\"},"
+        "\"live_scene_adapter\":{\"enabled\":true,"
+        "\"target_policy_rom_exact\":false,"
+        "\"holder_target\":\"orientation-aware 48/48/40 hoop approach\","
+        "\"other_target\":\"scene-owned fixed opposing roster matchup\","
+        "\"immutable_ten_actor_snapshot\":true,"
+        "\"transactional_actor_commit\":true,"
+        "\"rom_command_offset\":\"explicit no-command sentinel\","
+        "\"rom_command_advance_owned\":false,"
+        "\"direction_quantizer_rom_exact\":true,"
+        "\"movement_kernel_rom_exact\":true,"
+        "\"shot_choice_and_cadence_rom_exact\":false},"
         "\"developer_harness\":{\"deterministic\":true,"
         "\"cli_only\":true,\"coordinate_slots\":10,"
         "\"coordinate_space\":\"TGCT-1 canonical X=0..767 Y=0..239\","
@@ -2311,7 +2324,7 @@ static int append_gameplay_cpu_steering_source_map_entry(
         "\"secondary_actor_path\":true,"
         "\"zero_vector_input\":\"native neutral policy; TGAI no-write remains exact\","
         "\"selected_actor_coordinate_reconciled_each_step\":true,"
-        "\"live_wired\":false,"
+        "\"live_wired\":true,"
         "\"transactional\":true},"
         "\"normal_game_flow_exposed\":false},"
         "\"runtime_inputs\":\"TGAI-1 plus same-pack TGMO-1; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}");
@@ -3098,7 +3111,8 @@ static int append_gameplay_pretip_source_map_entry(
         "character-16px-metatile-table",
         "card-text-chr-selector-setup",
         "tipoff-closeup-entry","tipoff-closeup-palettes",
-        "tipoff-closeup-control","tipoff-closeup-timing",
+        "tipoff-closeup-control",
+        "tipoff-closeup-timing-and-lineup-tables",
         "fixed-d861-sprite-staging",
         "center-tip-object-setup","center-tip-object-update",
         "pregame-launch-bridge","live-handoff",
@@ -3162,6 +3176,7 @@ static int append_gameplay_pretip_source_map_entry(
         "\"card_text\":\"Bank06 character mapping plus AF05 2x2 metatiles at ROM 16-pixel cell positions\","
         "\"cancel\":\"Bank06 $A10A-$A124 reads either controller NES B only when route byte $69 bit 0 is set; native preseason clears the gate and regular season sets it\","
         "\"tip_input\":\"first held B sample per controller records bounded error 0..11 against the capture-aligned $F9 point; no sample is 12\","
+        "\"tip_lineup\":\"Bank04 $AC8C-$ACD9 initializes object slots 0..10 from $ADA3/$ADAE/$ADB9; native play consumes the exact ten player coordinates and ball anchor\","
         "\"phase_order\":[\"preseason\",\"matchup\",\"first-period\",\"closeup\",\"center-setup\",\"ball-descent\",\"toss-closeup\",\"jump-contest\",\"live\"],"
         "\"closeup_motion\":\"Bank04 $88 and fixed $D861 move the sprite player left while nametable scroll moves the other figures right; the 33-frame phase anchor is capture-bounded\","
         "\"toss_cut_in\":\"TGPL-1 screen $1B nametable page 1; page 1 matches ball X 176..239 and hand X 67..159 geometry\","

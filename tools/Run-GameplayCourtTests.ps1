@@ -306,13 +306,14 @@ try {
         [int]$CourtMap[0].native_contract.scene_slice.native_checkpoints.right_camera_x -ne
             408 -or
         $CourtMap[0].native_contract.scene_slice.native_checkpoints.left_render_fnv1a32 -ne
-            "4F52BCC1" -or
+            "770FAE95" -or
         $CourtMap[0].native_contract.scene_slice.native_checkpoints.center_render_fnv1a32 -ne
-            "9CC9CD31" -or
+            "6E530421" -or
         $CourtMap[0].native_contract.scene_slice.native_checkpoints.right_render_fnv1a32 -ne
-            "033B45D5" -or
+            "2DBDF155" -or
         [bool]$CourtMap[0].native_contract.scene_slice.integration_is_additional_rom_claim -or
         $CourtMap[0].native_contract.live_palette_fingerprint_fnv1a32 -ne "B20C1E11" -or
+        $CourtMap[0].native_contract.live_palette_matchup -notmatch "3/7/11/15" -or
         $CourtMap[0].native_contract.boundary -notmatch
             "production camera-positioned live viewport slicing" -or
         $CourtMap[0].native_contract.runtime_inputs -notmatch "no decompilation") {

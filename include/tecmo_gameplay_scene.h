@@ -7,6 +7,7 @@
 #include "tecmo_gameplay_audio.h"
 #include "tecmo_gameplay_camera.h"
 #include "tecmo_gameplay_close_shots.h"
+#include "tecmo_gameplay_cpu_steering.h"
 #include "tecmo_gameplay_court.h"
 #include "tecmo_gameplay_court_orientation.h"
 #include "tecmo_gameplay_dunk_cutaway.h"
@@ -35,6 +36,8 @@
 #define TECMO_GAMEPLAY_SCENE_COURT_PROJECTION_TAG 0x50534754U
 #define TECMO_GAMEPLAY_SCENE_COURT_SLICE_TAG 0x4C534754U
 #define TECMO_GAMEPLAY_SCENE_COURT_FRAME_TAG 0x46534754U
+#define TECMO_GAMEPLAY_SCENE_CPU_ACTOR_TAG 0x41434754U
+#define TECMO_GAMEPLAY_SCENE_CPU_NO_COMMAND_OFFSET 0xFFFFU
 
 /* The slot-3 trace spans 125 inclusive updates from CPU state-18 entry through
    launch. Native play uses that observed schedule until the original CPU
@@ -83,6 +86,7 @@ typedef struct TecmoGameplaySceneActor {
     TecmoGameplayCourtCoordinate position;
     TecmoGameplayCourtCoordinate anchor;
     uint16_t pose_index;
+    uint8_t sprite_slot_base;
     uint8_t team;
     uint8_t roster_index;
     uint8_t movement_action_state;
@@ -91,9 +95,30 @@ typedef struct TecmoGameplaySceneActor {
     uint8_t movement_animation_phase;
     uint8_t condition;
     bool facing_right;
+    bool pose_orientation_encoded;
     bool movement_boundary_latched;
     bool active;
 } TecmoGameplaySceneActor;
+
+/* Scene-owned state at the bounded native TGAI -> TGMO integration seam.
+   command_offset remains the explicit no-command sentinel because the ROM
+   play-stream lifecycle is not reconstructed; linked_actor, target fields,
+   and decision_serial transactionally own the policy that replaces the old
+   anchor chase. */
+typedef struct TecmoGameplaySceneCpuActor {
+    uint32_t contract_tag;
+    uint32_t decision_serial;
+    uint32_t snapshot_fingerprint;
+    TecmoGameplayCourtCoordinate target_position;
+    uint16_t command_offset;
+    uint8_t linked_actor;
+    uint8_t target_kind;
+    uint8_t direction;
+    uint8_t held_direction_bits;
+    bool command_advance_pending;
+    bool target_valid;
+    bool writes_direction;
+} TecmoGameplaySceneCpuActor;
 
 /* Transactional public snapshot of every live object in one full-court
    coordinate plane. Player and hoop anchors are integer pixels; the ball
@@ -153,6 +178,7 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayCourtWorld court_world;
     TecmoGameplayCameraAssets camera_assets;
     TecmoGameplayMovementAssets movement_assets;
+    TecmoGameplayCpuSteeringAssets cpu_steering_assets;
     TecmoGameplayCameraState camera_state;
     TecmoGameplayCourtOrientationAssets court_orientation;
     TecmoGameplayCourtOrientationState orientation_state;
@@ -174,6 +200,8 @@ typedef struct TecmoGameplayScene {
     TecmoGameplaySceneResult result;
 
     TecmoGameplaySceneActor actors[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplaySceneCpuActor
+        cpu_actors[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     uint8_t controlled_actor[TECMO_GAMEPLAY_CONTROLLER_COUNT];
     uint8_t ball_holder;
     TecmoGameplayCourtCoordinateQ8 ball_position;
@@ -224,7 +252,7 @@ typedef struct TecmoGameplayScene {
 /* Initialize exactly once before load/destroy. */
 void tecmo_gameplay_scene_init(TecmoGameplayScene *scene);
 
-/* Loads TGPL-1, TGCT-1, TGCP-2, TGMO-1, TGOR-1, TGFL-1, THUD-1, TGCS-1,
+/* Loads TGPL-1, TGCT-1, TGCP-2, TGMO-1, TGAI-1, TGOR-1, TGFL-1, THUD-1, TGCS-1,
    TGDK-1, TGJS-2, TGSR-3, TSFX-1, and TDMC-1 from one local pack.
    `asset_pack_path` may be NULL to use the strict runtime search order.
    Runtime data is never read from decompilation/capture paths. */
