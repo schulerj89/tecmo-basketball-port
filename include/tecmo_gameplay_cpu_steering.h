@@ -2,6 +2,7 @@
 #define TECMO_GAMEPLAY_CPU_STEERING_H
 
 #include "tecmo_gameplay_court.h"
+#include "tecmo_gameplay_movement.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -21,6 +22,8 @@
 #define TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION 0xFFU
 #define TECMO_GAMEPLAY_CPU_STEERING_HARNESS_INPUT_TAG 0x48414754U
 #define TECMO_GAMEPLAY_CPU_STEERING_HARNESS_RESULT_TAG 0x52414754U
+#define TECMO_GAMEPLAY_CPU_STEERING_MOVEMENT_INPUT_TAG 0x494D4754U
+#define TECMO_GAMEPLAY_CPU_STEERING_MOVEMENT_RESULT_TAG 0x524D4754U
 
 typedef enum TecmoGameplayCpuSteeringSourceKind {
     TECMO_GAMEPLAY_CPU_STEERING_SOURCE_ACTOR_DISPATCH = 1,
@@ -127,6 +130,28 @@ typedef struct TecmoGameplayCpuSteeringHarnessResult {
     bool writes_direction;
 } TecmoGameplayCpuSteeringHarnessResult;
 
+/* Console/test-only composition input. The selected actor's canonical
+   coordinate must exactly match movement.position. TGAI selects the target
+   and direction; the remaining fields are passed to the exact TGMO movement
+   kernel as a secondary (non-player-selected) actor. */
+typedef struct TecmoGameplayCpuSteeringMovementInput {
+    uint32_t contract_tag;
+    TecmoGameplayCpuSteeringHarnessInput steering;
+    TecmoGameplayMovementState movement;
+    uint8_t player_movement_rating;
+    uint8_t condition;
+    uint8_t speed_value;
+    uint8_t global_object_state;
+    uint8_t movement_flags;
+} TecmoGameplayCpuSteeringMovementInput;
+
+typedef struct TecmoGameplayCpuSteeringMovementResult {
+    uint32_t contract_tag;
+    TecmoGameplayCpuSteeringHarnessResult steering;
+    TecmoGameplayMovementState movement;
+    uint8_t held_direction_bits;
+} TecmoGameplayCpuSteeringMovementResult;
+
 void tecmo_gameplay_cpu_steering_assets_init(
     TecmoGameplayCpuSteeringAssets *assets);
 void tecmo_gameplay_cpu_steering_assets_destroy(
@@ -180,6 +205,18 @@ bool tecmo_gameplay_cpu_steering_harness_evaluate(
     TecmoGameplayCpuSteeringHarnessResult *result_out);
 const char *tecmo_gameplay_cpu_steering_harness_target_kind_name(
     TecmoGameplayCpuSteeringHarnessTargetKind kind);
+
+/* Pure and transactional TGAI -> TGMO developer composition. A nonzero TGAI
+   result is inverted through TGMO's validated direction table and supplied
+   as NES held-direction bits. TGAI's zero-vector no-write case has no NES
+   input equivalent, so this harness-owned boundary supplies neutral while
+   preserving TGMO's exact one-update action-state latency. This does not own
+   the live ROM command/link lifecycle and is not a scene dependency. */
+bool tecmo_gameplay_cpu_steering_movement_step(
+    const TecmoGameplayCpuSteeringAssets *steering_assets,
+    const TecmoGameplayMovementAssets *movement_assets,
+    const TecmoGameplayCpuSteeringMovementInput *input,
+    TecmoGameplayCpuSteeringMovementResult *result_out);
 
 bool tecmo_gameplay_cpu_steering_self_test(
     const char *asset_pack_path,

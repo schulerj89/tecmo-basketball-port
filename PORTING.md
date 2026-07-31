@@ -1217,8 +1217,14 @@ TTDT profile byte 0, GAME SPEED `+5/-1/-6`, and
 coordinates, action/direction values, fractional or animation phases,
 condition/speed values, unreachable rating arithmetic, and overflow reject
 without committing. The pose-base plus animation-low-nibble lookup is exact;
-the opponent-relative `$8F02` pose-half choice and live walking-frame render
-binding are not yet ported.
+the live scene now uses it for initial and controlled-player court frames.
+Metasprite CHR selection follows the high two bits of the ROM-generatable
+`$01/$41/$81/$C1` slot and rebinds that R2-R5 selector to the pose record tag,
+so the `$C1` ball uses R5 instead of inheriting the old hardcoded R3 path. The
+scene currently chooses the primary pose-table half as a native integration
+policy; the opponent-relative `$8F02` half choice is not yet ported. Do not
+draw the matchup-card team logo in the on-court actor pass; it is presentation
+data and previously appeared as a false sprite attachment during the toss.
 
 The fixed span is implemented as its selected-actor dispatcher rather than an
 unconditional clamp. Object state 4, action `$0F/$10`, the flags-bit-3
@@ -1230,10 +1236,10 @@ it and its original reset path is not yet ported. Fresh condition comes from
 TTDT; fatigue evolution is unported.
 Opposing directions on one axis are normalized to neutral as a native
 integration policy. Initial actor placement/direction and the current fixed
-five-player roster-slot binding, walking pose presentation, and live CPU
-movement/AI remain native integration or approximations, not TGMO claims. The
-deterministic `--gameplay-movement-harness` is console/test-only and never
-enters normal play.
+five-player roster-slot binding, opponent-relative pose-half selection, and
+live CPU movement/AI remain native integration or approximations, not TGMO
+claims. The deterministic `--gameplay-movement-harness` is console/test-only
+and never enters normal play.
 
 TGAI-1 `gameplay/cpu-steering` is the separate strict CPU target/direction
 evidence boundary; it is intentionally not a production scene dependency yet.
@@ -1277,14 +1283,30 @@ policy. The resulting nonzero target delta alone consumes the exact TGAI
 octant quantizer; zero delta reports a successful keep-direction/no-write
 result.
 
+The separate deterministic
+`--gameplay-cpu-steering-movement-harness` composes this boundary with TGMO-1
+without exposing it to normal play. It adds explicit rating, condition, GAME
+SPEED, and frame-count inputs, initializes a CPU actor facing its offensive
+hoop, and requires the selected snapshot coordinate to equal the transactional
+movement state on every step. Each nonzero exact TGAI direction is converted
+through TGMO's validated direction map to NES held bits and passed to the
+secondary-actor TGMO kernel. The resulting coordinate is copied into the next
+ten-actor snapshot before direction selection repeats. Thus TGMO's
+one-update latency, Q4 accumulator, diagonal reduction, animation, and court
+clamp are exact within the composition. TGAI's zero-vector no-write has no NES
+held-input equivalent, so neutral is a native harness policy; the target/link,
+initial-facing, and profile inputs are likewise caller/native policy rather
+than reconstructed CPU command behavior.
+
 Do not use this asset to claim a complete CPU policy, shot/pass/steal choice,
-actor-link ownership, or collision/fatigue integration. In particular, the
+actor-link ownership, or live collision/fatigue ownership. In particular, the
 nearby `$B081-$B32E` candidate scan is excluded from ordinary movement
 targeting until its callers and outcomes are separately proven. The harness
 owns an explicit test link but does not reconstruct or persist the ROM's live
 `$06CB,X` assignment. Before live wiring, add typed ownership for actor command
 offsets, linked/reference assignments, target fields, and command-advance
-state; then feed the exact direction into TGMO transactionally. See
+state; then connect the tested transactional adapter to scene-owned CPU state.
+See
 `docs/gameplay-cpu-steering.md` and run
 `tools\Run-GameplayCpuSteeringTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 

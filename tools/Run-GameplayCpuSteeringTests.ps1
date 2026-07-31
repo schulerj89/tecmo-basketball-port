@@ -112,7 +112,7 @@ function Invoke-SteeringTest {
     if ($ExpectSuccess) {
         if ($ExitCode -ne 0 -or
             $Text -notmatch
-                '^TGAI-1 CPU steering isolated: commands=680 handlers=24 directions=8 live=0$') {
+                '^TGAI-1 CPU steering isolated: commands=680 handlers=24 directions=8 tgmo_adapter=1 live=0$') {
             throw "TGAI-1 loader/vector goldens failed.`n$(Get-ShortTail $Output)"
         }
     } elseif ($ExitCode -eq 0 -or
@@ -169,6 +169,49 @@ function Invoke-Harness {
               ($ExpectedFailure -and
                $Text -notmatch [regex]::Escape($ExpectedFailure))) {
         throw "Invalid CPU-steering harness input was accepted.`n$(Get-ShortTail $Output)"
+    }
+    return $Text
+}
+
+function Invoke-MovementHarness {
+    param(
+        [string]$Actor,
+        [string]$Possession,
+        [string]$Orientation,
+        [string]$Holder,
+        [string]$Matchup,
+        [string]$Difficulty,
+        [string]$Rating,
+        [string]$Condition,
+        [string]$Speed,
+        [string]$Frames,
+        [string[]]$Coordinates,
+        [bool]$ExpectSuccess = $true,
+        [string]$ExpectedFailure = ""
+    )
+    $Arguments = @(
+        "--gameplay-cpu-steering-movement-harness", $PackPath,
+        $Actor, $Possession, $Orientation, $Holder, $Matchup,
+        $Difficulty, $Rating, $Condition, $Speed, $Frames
+    ) + @($Coordinates)
+    $Output = @(& $Executable @Arguments 2>&1)
+    $ExitCode = $LASTEXITCODE
+    $Text = ($Output -join [Environment]::NewLine).Trim()
+    if ($ExpectSuccess) {
+        if ($ExitCode -ne 0 -or
+            $Text -notmatch '^TGAI-TGMO harness ' -or
+            $Text -notmatch 'target_policy=native-harness ' -or
+            $Text -notmatch 'zero_input=native-neutral ' -or
+            $Text -notmatch 'quantizer=rom-exact ' -or
+            $Text -notmatch 'movement=rom-exact secondary=1 live=0') {
+            throw ("CPU-steering movement harness vector failed.`n" +
+                "$(Get-ShortTail $Output)")
+        }
+    } elseif ($ExitCode -eq 0 -or
+              ($ExpectedFailure -and
+               $Text -notmatch [regex]::Escape($ExpectedFailure))) {
+        throw ("Invalid CPU-steering movement harness input was " +
+            "accepted.`n$(Get-ShortTail $Output)")
     }
     return $Text
 }
@@ -325,6 +368,19 @@ try {
                 'preserve prior direction' -and
             $Map.developer_harness.snapshot_fingerprint -eq
                 'domain-separated canonical FNV1a32' -and
+            $Map.developer_harness.movement_adapter.cli -eq
+                '--gameplay-cpu-steering-movement-harness' -and
+            $Map.developer_harness.movement_adapter.direction_to_input -eq
+                'exact same-pack TGMO direction identity' -and
+            $Map.developer_harness.movement_adapter.movement_kernel -eq
+                'exact TGMO-1 transactional step' -and
+            [bool]$Map.developer_harness.movement_adapter.one_update_latency_rom_exact -and
+            [bool]$Map.developer_harness.movement_adapter.secondary_actor_path -and
+            $Map.developer_harness.movement_adapter.zero_vector_input -eq
+                'native neutral policy; TGAI no-write remains exact' -and
+            [bool]$Map.developer_harness.movement_adapter.selected_actor_coordinate_reconciled_each_step -and
+            ![bool]$Map.developer_harness.movement_adapter.live_wired -and
+            [bool]$Map.developer_harness.movement_adapter.transactional -and
             ![bool]$Map.developer_harness.normal_game_flow_exposed
         if ($MapOk) {
             for ($Index = 0; $Index -lt $ExpectedSpans.Count; ++$Index) {
@@ -465,6 +521,75 @@ try {
         throw "Harness zero-vector keep-direction contract changed.`n$Zero"
     }
 
+    $Moved = Invoke-MovementHarness '5' '0' '0' '0' '0' '2' `
+        '20' '100' '1' '5' $CourtCoordinates
+    $MovedRepeat = Invoke-MovementHarness '5' '0' '0' '0' '0' '2' `
+        '20' '100' '1' '5' $CourtCoordinates
+    if ($Moved -cne $MovedRepeat -or
+        $Moved -notmatch
+            'frame=1 snapshot=15AEBE1B from=\(500,160\) target=\(384,148\) steering=left write=1 held=left x=500 y=160 action=2 direction=1 fraction=0 animation=50 boundary=0' -or
+        $Moved -notmatch
+            'frame=2 snapshot=15AEBE1B from=\(500,160\) target=\(384,148\) steering=left write=1 held=left x=499 y=160 action=2 direction=1 fraction=3 animation=40 boundary=0' -or
+        $Moved -notmatch
+            'frame=5 snapshot=C1689E4A from=\(497,160\) target=\(384,148\) steering=left write=1 held=left x=496 y=160 action=2 direction=1 fraction=12 animation=10 boundary=0') {
+        throw "TGAI-to-TGMO cardinal/latency golden changed.`n$Moved"
+    }
+
+    $DiagonalCoordinates = @($CourtCoordinates)
+    $DiagonalCoordinates[0] = '510,170'
+    $Diagonal = Invoke-MovementHarness '5' '0' '0' '0' '0' '1' `
+        '20' '100' '1' '4' $DiagonalCoordinates
+    if ($Diagonal -notmatch
+            'frame=1 snapshot=ADC902B2 from=\(500,160\) target=\(510,170\) steering=down-right write=1 held=down-right x=500 y=160 action=5 direction=3 fraction=0 animation=50 boundary=0' -or
+        $Diagonal -notmatch
+            'frame=3 snapshot=ADC902B2 from=\(500,160\) target=\(510,170\) steering=down-right write=1 held=down-right x=501 y=161 action=5 direction=3 fraction=14 animation=30 boundary=0') {
+        throw "TGAI-to-TGMO diagonal golden changed.`n$Diagonal"
+    }
+
+    $ZeroMovement = Invoke-MovementHarness '5' '0' '0' '0' '0' '1' `
+        '20' '100' '1' '2' $ZeroCoordinates
+    if ($ZeroMovement -notmatch
+            'frame=1 snapshot=BD6D2646 from=\(384,148\) target=\(384,148\) steering=keep write=0 held=neutral x=384 y=148 action=0 direction=1 fraction=0 animation=20 boundary=0' -or
+        $ZeroMovement -notmatch
+            'frame=2 snapshot=BD6D2646 from=\(384,148\) target=\(384,148\) steering=keep write=0 held=neutral x=384 y=148 action=0 direction=1 fraction=0 animation=10 boundary=0') {
+        throw "TGAI-to-TGMO zero-vector neutral golden changed.`n$ZeroMovement"
+    }
+
+    $BoundaryCoordinates = @($CourtCoordinates)
+    $BoundaryCoordinates[0] = '0,148'
+    $BoundaryCoordinates[5] = '149,148'
+    $Boundary = Invoke-MovementHarness '5' '0' '0' '0' '0' '1' `
+        '20' '100' '1' '3' $BoundaryCoordinates
+    if ($Boundary -notmatch
+            'frame=3 snapshot=2E289D43 from=\(149,148\) target=\(0,148\) steering=left write=1 held=left x=149 y=148 action=2 direction=1 fraction=6 animation=30 boundary=0') {
+        throw "TGAI-to-TGMO secondary-actor clamp golden changed.`n$Boundary"
+    }
+
+    Invoke-MovementHarness -Actor '5' -Possession '0' -Orientation '0' `
+        -Holder '0' -Matchup '0' -Difficulty '2' -Rating '20' `
+        -Condition '100' -Speed '1' -Frames '1' `
+        -Coordinates @($CourtCoordinates[0..8]) -ExpectSuccess $false `
+        -ExpectedFailure 'CPU steering movement harness requires' | Out-Null
+    foreach ($InvalidMovementScalar in @(
+        @{ rating='256'; condition='100'; speed='1'; frames='1'; holder='0'; matchup='0'; failure='argument rejected' },
+        @{ rating='20'; condition='101'; speed='1'; frames='1'; holder='0'; matchup='0'; failure='argument rejected' },
+        @{ rating='20'; condition='100'; speed='3'; frames='1'; holder='0'; matchup='0'; failure='argument rejected' },
+        @{ rating='20'; condition='100'; speed='1'; frames='4097'; holder='0'; matchup='0'; failure='argument rejected' },
+        @{ rating='0'; condition='100'; speed='2'; frames='1'; holder='0'; matchup='0'; failure='step 1 rejected' },
+        @{ rating='20'; condition='100'; speed='1'; frames='1'; holder='5'; matchup='0'; failure='step 1 rejected' },
+        @{ rating='20'; condition='100'; speed='1'; frames='1'; holder='0'; matchup='6'; failure='step 1 rejected' }
+    )) {
+        Invoke-MovementHarness -Actor '5' -Possession '0' `
+            -Orientation '0' -Holder $InvalidMovementScalar.holder `
+            -Matchup $InvalidMovementScalar.matchup -Difficulty '2' `
+            -Rating $InvalidMovementScalar.rating `
+            -Condition $InvalidMovementScalar.condition `
+            -Speed $InvalidMovementScalar.speed `
+            -Frames $InvalidMovementScalar.frames `
+            -Coordinates $CourtCoordinates -ExpectSuccess $false `
+            -ExpectedFailure $InvalidMovementScalar.failure | Out-Null
+    }
+
     Invoke-Harness -Actor '5' -Possession '0' -Orientation '0' `
         -Holder '0' -Matchup '0' -Difficulty '2' `
         -Coordinates @($CourtCoordinates[0..8]) -ExpectSuccess $false `
@@ -598,6 +723,7 @@ try {
     Write-Host ("TGAI-1 focused tests passed: exact Rev1 importer and ten " +
         "source spans, 680 aligned commands, 24 handlers, eight exact " +
         "direction codes, deterministic ten-coordinate/context harness, " +
+        "transactional TGMO direction/movement composition, " +
         "strict provenance/dependency/parser/input mutations, " +
         "$RomMutationCount ROM mutations, live wiring intentionally 0")
     $global:LASTEXITCODE = 0

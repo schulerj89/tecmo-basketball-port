@@ -14,7 +14,6 @@
 
 #define TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG 0x53434E31U
 #define TECMO_GAMEPLAY_TEAM_LIMIT 27U
-#define TECMO_GAMEPLAY_POSE_NEUTRAL 509U
 #define TECMO_GAMEPLAY_BALL_POSE 64U
 #define TECMO_GAMEPLAY_SHOT_TARGET_Y 0x008F
 #define TECMO_GAMEPLAY_INITIAL_CAMERA_X 0x0100
@@ -50,7 +49,7 @@
 #define TECMO_GAMEPLAY_JUMP_MAKE_TURN_POSE 1060U
 #define TECMO_GAMEPLAY_JUMP_MAKE_RELEASE_POSE 1061U
 #define TECMO_GAMEPLAY_JUMP_MAKE_FLIGHT_POSE 213U
-#define TECMO_GAMEPLAY_SCENE_RENDER_FNV1A32 0x82031A59U
+#define TECMO_GAMEPLAY_SCENE_RENDER_FNV1A32 0xB5095F19U
 #define TECMO_GAMEPLAY_SCENE_CENTER_SLICE_FNV1A32 0x9CC9CD31U
 #define TECMO_GAMEPLAY_SCENE_LEFT_SLICE_FNV1A32 0x4F52BCC1U
 #define TECMO_GAMEPLAY_SCENE_RIGHT_SLICE_FNV1A32 0x033B45D5U
@@ -472,6 +471,21 @@ static bool scene_launch_valid(const TecmoGameplaySceneLaunch *launch)
     return true;
 }
 
+static bool scene_movement_pose_index(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplayMovementState *movement,
+    uint16_t *pose_index_out)
+{
+    if (scene == NULL || movement == NULL || pose_index_out == NULL) {
+        return false;
+    }
+    /* The base-pointer and animation-phase calculation is exact TGMO-1.
+       The live scene uses the primary table half until the opponent-relative
+       $8F02 choice has enough native state to be wired without guessing. */
+    return tecmo_gameplay_movement_pose_index(
+        &scene->movement_assets, movement, false, pose_index_out);
+}
+
 static bool scene_initialize_actors(TecmoGameplayScene *scene)
 {
     /* Native approximate starting layout expressed once in canonical
@@ -499,11 +513,11 @@ static bool scene_initialize_actors(TecmoGameplayScene *scene)
         TecmoGameplaySceneActor *item = &initialized[actor];
         const TecmoTeamDataPlayer *player;
         TecmoGameplayMovementState movement;
+        uint16_t pose_index;
         uint8_t team_id;
         int adjusted_rating;
         item->position = initial_positions[actor];
         item->anchor = initial_positions[actor];
-        item->pose_index = TECMO_GAMEPLAY_POSE_NEUTRAL;
         item->team = actor < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT
                          ? TECMO_GAMEPLAY_TEAM_AWAY
                          : TECMO_GAMEPLAY_TEAM_HOME;
@@ -528,9 +542,11 @@ static bool scene_initialize_actors(TecmoGameplayScene *scene)
             adjusted_rating > 0xFF ||
             !tecmo_gameplay_movement_state_initialize(
                 &scene->movement_assets, &movement, &item->position,
-                item->facing_right ? 0U : 1U)) {
+                item->facing_right ? 0U : 1U) ||
+            !scene_movement_pose_index(scene, &movement, &pose_index)) {
             return false;
         }
+        item->pose_index = pose_index;
         item->movement_action_state = movement.action_state;
         item->movement_direction = movement.direction;
         item->movement_fractional_accumulator =
@@ -897,6 +913,7 @@ static bool scene_move_controlled_actor(TecmoGameplayScene *scene,
     const TecmoTeamDataPlayer *player;
     TecmoGameplayMovementState movement;
     TecmoGameplayMovementStepInput input;
+    uint16_t pose_index;
     if (scene == NULL || controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT) {
         return false;
     }
@@ -944,7 +961,8 @@ static bool scene_move_controlled_actor(TecmoGameplayScene *scene,
     input.movement_flags = 0U;
     input.primary_selected_actor = true;
     if (!tecmo_gameplay_movement_step(
-            &scene->movement_assets, &movement, &input)) {
+            &scene->movement_assets, &movement, &input) ||
+        !scene_movement_pose_index(scene, &movement, &pose_index)) {
         return false;
     }
     actor->position = movement.position;
@@ -955,6 +973,7 @@ static bool scene_move_controlled_actor(TecmoGameplayScene *scene,
     actor->movement_animation_phase = movement.animation_phase;
     actor->movement_boundary_latched =
         movement.boundary_violation_latched;
+    actor->pose_index = pose_index;
     if (direction_bits == TECMO_GAMEPLAY_MOVEMENT_INPUT_RIGHT ||
         direction_bits == TECMO_GAMEPLAY_MOVEMENT_INPUT_DOWN_RIGHT ||
         direction_bits == TECMO_GAMEPLAY_MOVEMENT_INPUT_UP_RIGHT) {
@@ -1141,7 +1160,7 @@ static bool scene_start_shot_actor(TecmoGameplayScene *scene,
     uint8_t classified_points;
     bool close;
     TecmoGameplayCloseShotVariantInfo close_info;
-    uint16_t initial_pose = TECMO_GAMEPLAY_POSE_NEUTRAL;
+    uint16_t initial_pose = 0U;
     bool predicted_make = false;
     if (controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
@@ -1446,10 +1465,15 @@ static bool scene_finish_shot(TecmoGameplayScene *scene,
                               TecmoGameplaySceneActor *actor,
                               TecmoGameplayTeam shooting_team,
                               bool made,
-                              bool queue_side_result,
-                              uint16_t idle_pose)
+                              bool queue_side_result)
 {
+    TecmoGameplayMovementState movement;
     TecmoGameplayTeam next_team;
+    uint16_t idle_pose;
+    if (!scene_actor_movement_state(scene, actor, &movement) ||
+        !scene_movement_pose_index(scene, &movement, &idle_pose)) {
+        return false;
+    }
     if (made) {
         if (!tecmo_gameplay_award_points(&scene->state, shooting_team,
                                          scene->shot_points)) {
@@ -2158,8 +2182,7 @@ static bool scene_update_shot(TecmoGameplayScene *scene,
     made = scene_shot_will_score(scene);
     return scene_finish_shot(
         scene, actor, shooting_team, made,
-        shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_DUNK,
-        TECMO_GAMEPLAY_POSE_NEUTRAL);
+        shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_DUNK);
 }
 
 static bool scene_try_defense_action(TecmoGameplayScene *scene,
@@ -3697,7 +3720,8 @@ static bool scene_resolve_pose(const TecmoGameplayScene *scene,
                                             &context, &first)) {
         return false;
     }
-    context.mmc3_r2_r5[1] = first.record_tag;
+    context.mmc3_r2_r5[(actor_slot_base >> 6U) & 0x03U] =
+        first.record_tag;
     return tecmo_gameplay_assets_resolve_pose(&scene->assets, pointer_index,
                                               &context, pose);
 }
@@ -4181,29 +4205,6 @@ static bool scene_draw_pretip_descriptor_screen(
     return true;
 }
 
-static bool scene_draw_pretip_team_overlay(const TecmoGameplayScene *scene,
-                                           TecmoFramebuffer *view,
-                                           int scale)
-{
-    const TecmoTeamDataTeam *team;
-    int logo_x;
-    int logo_y;
-    if (scene->launch.away_team >= TECMO_TEAM_DATA_REAL_TEAM_COUNT)
-        return false;
-    team = &scene->pretip_team_data->teams[scene->launch.away_team];
-    if (team->logo_width == 0U || team->logo_height == 0U ||
-        team->logo_width > 32U || team->logo_height > 30U) {
-        return false;
-    }
-    logo_x = TECMO_GAMEPLAY_SCENE_NES_WIDTH -
-             (int)team->logo_width * 8;
-    logo_y = TECMO_GAMEPLAY_SCENE_NES_HEIGHT -
-             (int)team->logo_height * 8;
-    return scene_draw_pretip_team(
-        scene, view, scene->launch.away_team,
-        logo_x, logo_y, scale, false);
-}
-
 bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
                                TecmoFramebuffer *framebuffer,
                                int origin_x,
@@ -4375,14 +4376,6 @@ bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
                         court_frame.projection.ball.screen_x,
                         court_frame.projection.ball.screen_y,
                         0, 0, scale, false);
-    }
-    if (tecmo_gameplay_scene_in_pretip(scene) &&
-        (scene->pretip_state.phase ==
-             TECMO_GAMEPLAY_PRETIP_BALL_DESCENT ||
-         scene->pretip_state.phase ==
-             TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) &&
-        !scene_draw_pretip_team_overlay(scene, &view, scale)) {
-        return false;
     }
     return true;
 }
@@ -5389,6 +5382,7 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
     TecmoGameplaySceneCourtFrame previous_court_frame;
     TecmoGameplaySceneCourtFrame unchanged_court_frame;
     TecmoGameplaySceneActor boundary_actor;
+    TecmoGameplayResolvedPose resolved_pose;
     TecmoGameplaySceneLaunch launch;
     TecmoGameplaySceneResult result;
     TecmoControlFrame p1;
@@ -5754,6 +5748,9 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene.camera_follow_count != 0U ||
         scene.actors[0].position.x != 0x0160 ||
         scene.actors[0].position.y != 198 ||
+        scene.actors[0].pose_index != 181U ||
+        scene.actors[TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT].pose_index !=
+            85U ||
         scene.ball_position.x_q8 != 0x0167 * 256 ||
         scene.ball_position.y_q8 != 180 * 256 ||
         !tecmo_gameplay_camera_state_live_valid(
@@ -5761,6 +5758,25 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene_test_message(
             message, message_size,
             "TGCP-2 live prime/initial world-state contract failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    if (!scene_resolve_pose(
+            &scene, scene.actors[0].pose_index, 0x41U,
+            TECMO_GAMEPLAY_TEAM_AWAY, &resolved_pose) ||
+        resolved_pose.record_tag != 0x25U ||
+        resolved_pose.mmc3_r2_r5[1] != 0x25U ||
+        resolved_pose.piece_count != 4U ||
+        !scene_resolve_pose(
+            &scene, TECMO_GAMEPLAY_BALL_POSE, 0xC1U,
+            TECMO_GAMEPLAY_TEAM_AWAY, &resolved_pose) ||
+        resolved_pose.record_tag != 0x81U ||
+        resolved_pose.mmc3_r2_r5[3] != 0x81U ||
+        resolved_pose.piece_count != 1U ||
+        resolved_pose.pieces[0].top_chr_offset != 0x20400U) {
+        scene_test_message(
+            message, message_size,
+            "court actor/ball pose CHR-slot binding failed");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }

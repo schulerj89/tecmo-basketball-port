@@ -1084,7 +1084,12 @@ nibble 3, and direction-transition high nibble 5. State validation must reject
 bad tags/coordinates/actions/directions/fractions/animation phases, out-of-range
 condition/speed, unreachable rating arithmetic, and overflow without mutating
 the caller. The exact pose-base-plus-animation-low-nibble resolver is available,
-but opponent-relative `$8F02` pose-half selection is not yet scene-wired.
+and the live scene uses it for initial and controlled-player court frames.
+Pose-record tags are rebound to the MMC3 R2-R5 selector addressed by the
+ROM-style `$01/$41/$81/$C1` slot; keep the ball's `$C1` path on R5. The scene
+deliberately uses the primary pose-table half until opponent-relative `$8F02`
+selection can be scene-wired from native state. Keep matchup-card team logos
+out of the on-court actor pass; they are not player metasprite components.
 
 TGMO-1 applies fixed `$F106-$F1B0` as the full selected-actor dispatcher, not an
 unconditional scene clamp: it honors object state 4, action `$0F/$10`, the
@@ -1143,14 +1148,30 @@ assignment as ROM-exact. Only the resulting nonzero TGAI octant is exact. A
 zero delta must report keep-direction/no-write rather than inventing a prior
 direction.
 
+`--gameplay-cpu-steering-movement-harness` is the console/test-only
+transactional composition boundary. Its typed input embeds the complete TGAI
+snapshot plus a valid TGMO movement state, rating, condition, GAME SPEED,
+object state, and movement flags. The selected actor coordinate must exactly
+match the TGMO state before every step. A nonzero exact TGAI direction must map
+through the validated same-pack TGMO direction table to its NES held-input
+bits, then advance the secondary-actor TGMO kernel with its exact one-update
+latency, accumulator, animation, and clamp behavior. The CLI must reconcile
+the resulting selected-actor coordinate into the next steering snapshot.
+TGAI's zero-vector no-write has no held-input equivalent; use neutral only as
+the explicitly documented native harness policy and retain TGMO latency. Keep
+this API transactional and cover all eight directions, cardinal/diagonal
+movement, zero-vector neutral, secondary clamp, snapshot re-evaluation, and
+malformed state/profile inputs.
+
 TGAI-1 is not loaded by `TecmoGameplayScene`. Do not claim a complete CPU
 policy, shot/pass/steal choice, actor-link ownership, or live parity, and do
 not classify `$B081-$B32E` as ordinary targeting. Live integration must first
 own actor-local stream offsets, live linked/reference assignments, target
-fields, and command-advance transitions transactionally; only then should its
-exact direction feed TGMO. `--gameplay-cpu-steering-test`,
-`--gameplay-cpu-steering-inspect`, and `--gameplay-cpu-steering-harness` are
-console-only and must not become an in-game debug mode. Verify with
+fields, and command-advance transitions transactionally; only then may the
+tested TGAI-to-TGMO adapter enter normal gameplay. `--gameplay-cpu-steering-test`,
+`--gameplay-cpu-steering-inspect`, `--gameplay-cpu-steering-harness`, and
+`--gameplay-cpu-steering-movement-harness` are console-only and must not
+become an in-game debug mode. Verify with
 `tools\Run-GameplayCpuSteeringTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` and
 see `docs/gameplay-cpu-steering.md`.
 
@@ -1206,7 +1227,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/tecmo_gameplay_dunk_cutaway.c`: strict TGDK-1 loader, palette resolver, stage scheduler, and OAM-priority renderer
 - `src/tecmo_gameplay_camera.c`: strict TGCP-2 parser and pure/production camera/projector state APIs
 - `src/tecmo_gameplay_movement.c`: strict TGMO-1 parser, transactional locomotion/clamp kernel, and developer-harness vectors
-- `src/tecmo_gameplay_cpu_steering.c`: strict TGAI-1 parser plus console-only command decode, full-snapshot harness, and direction quantizer
+- `src/tecmo_gameplay_cpu_steering.c`: strict TGAI-1 parser plus console-only command decode, full-snapshot harness, direction quantizer, and transactional TGMO movement adapter
 - `src/tecmo_gameplay_court.c`: strict TGCT-1 parser, full-world decoder, and camera-positioned viewport slicer
 - `src/tecmo_gameplay_court_orientation.c`: strict TGOR-1 parser and possession-synchronized orientation state API
 - `src/tecmo_gameplay_free_throw_projection_test.c`: test-only TGFL-1 -> TGCP-2 checkpoint composition

@@ -661,6 +661,100 @@ bool tecmo_gameplay_cpu_steering_harness_evaluate(
     return true;
 }
 
+static bool movement_input_for_direction(
+    const TecmoGameplayMovementAssets *assets,
+    uint8_t direction,
+    uint8_t *held_direction_bits_out)
+{
+    static const uint8_t inputs[
+        TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT] = {
+        TECMO_GAMEPLAY_MOVEMENT_INPUT_RIGHT,
+        TECMO_GAMEPLAY_MOVEMENT_INPUT_LEFT,
+        TECMO_GAMEPLAY_MOVEMENT_INPUT_DOWN,
+        TECMO_GAMEPLAY_MOVEMENT_INPUT_DOWN_RIGHT,
+        TECMO_GAMEPLAY_MOVEMENT_INPUT_DOWN_LEFT,
+        TECMO_GAMEPLAY_MOVEMENT_INPUT_UP,
+        TECMO_GAMEPLAY_MOVEMENT_INPUT_UP_RIGHT,
+        TECMO_GAMEPLAY_MOVEMENT_INPUT_UP_LEFT
+    };
+    uint8_t held_direction_bits;
+    if (assets == NULL || !assets->available ||
+        direction >= TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT ||
+        held_direction_bits_out == NULL) {
+        return false;
+    }
+    held_direction_bits = inputs[direction];
+    if (!tecmo_gameplay_movement_input_valid(held_direction_bits) ||
+        assets->direction_map[held_direction_bits] != direction) {
+        return false;
+    }
+    *held_direction_bits_out = held_direction_bits;
+    return true;
+}
+
+bool tecmo_gameplay_cpu_steering_movement_step(
+    const TecmoGameplayCpuSteeringAssets *steering_assets,
+    const TecmoGameplayMovementAssets *movement_assets,
+    const TecmoGameplayCpuSteeringMovementInput *input,
+    TecmoGameplayCpuSteeringMovementResult *result_out)
+{
+    TecmoGameplayCpuSteeringMovementResult result;
+    TecmoGameplayMovementStepInput movement_input;
+    const TecmoGameplayCourtCoordinate *selected_position;
+    if (steering_assets == NULL || !steering_assets->available ||
+        movement_assets == NULL || !movement_assets->available ||
+        steering_assets->movement_fingerprint !=
+            TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_FNV1A32 ||
+        input == NULL || result_out == NULL ||
+        input->contract_tag !=
+            TECMO_GAMEPLAY_CPU_STEERING_MOVEMENT_INPUT_TAG ||
+        !tecmo_gameplay_movement_state_valid(
+            movement_assets, &input->movement) ||
+        input->steering.actor >=
+            TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT) {
+        return false;
+    }
+    selected_position =
+        &input->steering.actor_position[input->steering.actor];
+    if (selected_position->x != input->movement.position.x ||
+        selected_position->y != input->movement.position.y) {
+        return false;
+    }
+
+    memset(&result, 0, sizeof(result));
+    result.contract_tag =
+        TECMO_GAMEPLAY_CPU_STEERING_MOVEMENT_RESULT_TAG;
+    if (!tecmo_gameplay_cpu_steering_harness_evaluate(
+            steering_assets, &input->steering, &result.steering)) {
+        return false;
+    }
+    result.held_direction_bits = TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
+    if (result.steering.writes_direction &&
+        !movement_input_for_direction(
+            movement_assets, result.steering.direction,
+            &result.held_direction_bits)) {
+        return false;
+    }
+
+    result.movement = input->movement;
+    memset(&movement_input, 0, sizeof(movement_input));
+    movement_input.held_direction_bits = result.held_direction_bits;
+    movement_input.player_movement_rating =
+        input->player_movement_rating;
+    movement_input.condition = input->condition;
+    movement_input.speed_value = input->speed_value;
+    movement_input.global_object_state = input->global_object_state;
+    movement_input.movement_flags = input->movement_flags;
+    /* Bank06's CPU loop excludes the two player-selected actors. */
+    movement_input.primary_selected_actor = false;
+    if (!tecmo_gameplay_movement_step(
+            movement_assets, &result.movement, &movement_input)) {
+        return false;
+    }
+    *result_out = result;
+    return true;
+}
+
 const char *tecmo_gameplay_cpu_steering_direction_name(uint8_t direction)
 {
     static const char *const names[8] = {
@@ -717,6 +811,205 @@ static bool harness_rejected_unchanged(
     return !tecmo_gameplay_cpu_steering_harness_evaluate(
                assets, input, &result) &&
            memcmp(&result, &before, sizeof(result)) == 0;
+}
+
+static bool movement_step_rejected_unchanged(
+    const TecmoGameplayCpuSteeringAssets *steering_assets,
+    const TecmoGameplayMovementAssets *movement_assets,
+    const TecmoGameplayCpuSteeringMovementInput *input)
+{
+    TecmoGameplayCpuSteeringMovementResult result;
+    TecmoGameplayCpuSteeringMovementResult before;
+    memset(&before, 0xA5, sizeof(before));
+    result = before;
+    return !tecmo_gameplay_cpu_steering_movement_step(
+               steering_assets, movement_assets, input, &result) &&
+           memcmp(&result, &before, sizeof(result)) == 0;
+}
+
+static bool movement_composition_self_test(
+    const char *asset_pack_path,
+    const TecmoGameplayCpuSteeringAssets *steering_assets,
+    char *message,
+    size_t message_size)
+{
+    static const int16_t vectors[
+        TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT][2] = {
+        {10,0},{-10,0},{0,10},{10,10},
+        {-10,10},{0,-10},{10,-10},{-10,-10}
+    };
+    static const uint8_t held_inputs[
+        TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT] = {
+        TECMO_GAMEPLAY_MOVEMENT_INPUT_RIGHT,
+        TECMO_GAMEPLAY_MOVEMENT_INPUT_LEFT,
+        TECMO_GAMEPLAY_MOVEMENT_INPUT_DOWN,
+        TECMO_GAMEPLAY_MOVEMENT_INPUT_DOWN_RIGHT,
+        TECMO_GAMEPLAY_MOVEMENT_INPUT_DOWN_LEFT,
+        TECMO_GAMEPLAY_MOVEMENT_INPUT_UP,
+        TECMO_GAMEPLAY_MOVEMENT_INPUT_UP_RIGHT,
+        TECMO_GAMEPLAY_MOVEMENT_INPUT_UP_LEFT
+    };
+    static const TecmoGameplayCourtCoordinate positions[
+        TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT] = {
+            {394,148},{420,120},{440,180},{360,100},{400,200},
+            {384,148},{520,110},{540,190},{460,90},{480,210}
+        };
+    TecmoGameplayMovementAssets movement_assets;
+    TecmoGameplayCpuSteeringMovementInput input;
+    TecmoGameplayCpuSteeringMovementInput malformed;
+    TecmoGameplayCpuSteeringMovementResult result;
+    TecmoGameplayCourtCoordinate start;
+    tecmo_gameplay_movement_assets_init(&movement_assets);
+    if (!tecmo_gameplay_movement_assets_load(
+            &movement_assets, asset_pack_path)) {
+        (void)snprintf(message, message_size, "%s",
+                       movement_assets.status);
+        tecmo_gameplay_movement_assets_destroy(&movement_assets);
+        return false;
+    }
+
+    memset(&input, 0, sizeof(input));
+    input.contract_tag =
+        TECMO_GAMEPLAY_CPU_STEERING_MOVEMENT_INPUT_TAG;
+    input.steering.contract_tag =
+        TECMO_GAMEPLAY_CPU_STEERING_HARNESS_INPUT_TAG;
+    memcpy(input.steering.actor_position, positions, sizeof(positions));
+    input.steering.actor = 5U;
+    input.steering.possession = 0U;
+    input.steering.ball_holder = 0U;
+    input.steering.matchup_actor = 0U;
+    input.steering.difficulty = 1U;
+    input.player_movement_rating = 20U;
+    input.condition = 100U;
+    input.speed_value = 1U;
+    start = input.steering.actor_position[input.steering.actor];
+
+    for (uint8_t direction = 0U;
+         direction < TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT;
+         ++direction) {
+        input.steering.actor_position[0U].x =
+            (int16_t)(start.x + vectors[direction][0]);
+        input.steering.actor_position[0U].y =
+            (int16_t)(start.y + vectors[direction][1]);
+        input.steering.actor_position[5U] = start;
+        if (!tecmo_gameplay_movement_state_initialize(
+                &movement_assets, &input.movement, &start, 0U) ||
+            !tecmo_gameplay_cpu_steering_movement_step(
+                steering_assets, &movement_assets, &input, &result) ||
+            result.contract_tag !=
+                TECMO_GAMEPLAY_CPU_STEERING_MOVEMENT_RESULT_TAG ||
+            !result.steering.writes_direction ||
+            result.steering.direction != direction ||
+            result.held_direction_bits != held_inputs[direction] ||
+            result.movement.position.x != start.x ||
+            result.movement.position.y != start.y ||
+            result.movement.action_state != held_inputs[direction] ||
+            result.movement.direction != direction) {
+            (void)snprintf(
+                message, message_size,
+                "TGAI-1 to TGMO-1 direction composition failed.");
+            tecmo_gameplay_movement_assets_destroy(&movement_assets);
+            return false;
+        }
+    }
+
+    input.steering.actor_position[0U].x = (int16_t)(start.x + 10);
+    input.steering.actor_position[0U].y = start.y;
+    input.steering.actor_position[5U] = start;
+    if (!tecmo_gameplay_movement_state_initialize(
+            &movement_assets, &input.movement, &start, 0U) ||
+        !tecmo_gameplay_cpu_steering_movement_step(
+            steering_assets, &movement_assets, &input, &result)) {
+        goto movement_vector_failure;
+    }
+    input.movement = result.movement;
+    input.steering.actor_position[5U] = result.movement.position;
+    if (!tecmo_gameplay_cpu_steering_movement_step(
+            steering_assets, &movement_assets, &input, &result) ||
+        result.movement.position.x != start.x + 1 ||
+        result.movement.position.y != start.y ||
+        result.movement.fractional_accumulator != 3U ||
+        result.movement.animation_phase != 0x40U) {
+        goto movement_vector_failure;
+    }
+
+    input.steering.actor_position[0U] = start;
+    input.steering.actor_position[5U] = start;
+    if (!tecmo_gameplay_movement_state_initialize(
+            &movement_assets, &input.movement, &start, 0U) ||
+        !tecmo_gameplay_cpu_steering_movement_step(
+            steering_assets, &movement_assets, &input, &result) ||
+        result.steering.writes_direction ||
+        result.steering.direction !=
+            TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION ||
+        result.held_direction_bits !=
+            TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL ||
+        result.movement.position.x != start.x ||
+        result.movement.position.y != start.y ||
+        result.movement.action_state !=
+            TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL) {
+        (void)snprintf(
+            message, message_size,
+            "TGAI-1 zero-vector neutral composition failed.");
+        tecmo_gameplay_movement_assets_destroy(&movement_assets);
+        return false;
+    }
+
+    malformed = input;
+    malformed.contract_tag ^= 1U;
+    if (!movement_step_rejected_unchanged(
+            steering_assets, &movement_assets, &malformed)) {
+        goto movement_transaction_failure;
+    }
+    malformed = input;
+    malformed.steering.contract_tag ^= 1U;
+    if (!movement_step_rejected_unchanged(
+            steering_assets, &movement_assets, &malformed)) {
+        goto movement_transaction_failure;
+    }
+    malformed = input;
+    ++malformed.steering.actor_position[5U].x;
+    if (!movement_step_rejected_unchanged(
+            steering_assets, &movement_assets, &malformed)) {
+        goto movement_transaction_failure;
+    }
+    malformed = input;
+    malformed.movement.contract_tag ^= 1U;
+    if (!movement_step_rejected_unchanged(
+            steering_assets, &movement_assets, &malformed)) {
+        goto movement_transaction_failure;
+    }
+    malformed = input;
+    malformed.condition = 101U;
+    if (!movement_step_rejected_unchanged(
+            steering_assets, &movement_assets, &malformed)) {
+        goto movement_transaction_failure;
+    }
+    malformed = input;
+    malformed.speed_value = TECMO_GAMEPLAY_MOVEMENT_SPEED_COUNT;
+    if (!movement_step_rejected_unchanged(
+            steering_assets, &movement_assets, &malformed) ||
+        !movement_step_rejected_unchanged(
+            steering_assets, &movement_assets, NULL) ||
+        tecmo_gameplay_cpu_steering_movement_step(
+            steering_assets, &movement_assets, &input, NULL)) {
+        goto movement_transaction_failure;
+    }
+    tecmo_gameplay_movement_assets_destroy(&movement_assets);
+    return true;
+
+movement_vector_failure:
+    (void)snprintf(message, message_size,
+                   "TGAI-1 to TGMO-1 movement vector failed.");
+    tecmo_gameplay_movement_assets_destroy(&movement_assets);
+    return false;
+
+movement_transaction_failure:
+    (void)snprintf(
+        message, message_size,
+        "TGAI-1 to TGMO-1 transactional rejection failed.");
+    tecmo_gameplay_movement_assets_destroy(&movement_assets);
+    return false;
 }
 
 bool tecmo_gameplay_cpu_steering_self_test(
@@ -971,10 +1264,15 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &harness_input, NULL)) {
         goto malformed_harness_failure;
     }
+    if (!movement_composition_self_test(
+            asset_pack_path, &assets, message, message_size)) {
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
     tecmo_gameplay_cpu_steering_assets_destroy(&assets);
     (void)snprintf(
         message, message_size,
-        "TGAI-1 CPU steering isolated: commands=680 handlers=24 directions=8 live=0");
+        "TGAI-1 CPU steering isolated: commands=680 handlers=24 directions=8 tgmo_adapter=1 live=0");
     return true;
 
 malformed_harness_failure:

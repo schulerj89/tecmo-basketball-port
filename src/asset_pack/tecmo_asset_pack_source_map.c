@@ -2214,7 +2214,7 @@ static int append_gameplay_cpu_steering_source_map_entry(
             "\"revision_source_fingerprints_verified\":true,"
             "\"dependency\":{\"entry\":\"%s\",\"same_pack_required\":true,"
             "\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\","
-            "\"reason\":\"preserve the controlled/CPU actor direction-code and future locomotion boundary\"},"
+            "\"reason\":\"preserve the controlled/CPU actor direction-code and console composition locomotion boundary\"},"
             "\"source_spans\":[",
             prefix,
             TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_ID,
@@ -2280,9 +2280,9 @@ static int append_gameplay_cpu_steering_source_map_entry(
         "\"not_claimed\":[\"complete CPU play policy\","
         "\"shot/pass/steal choice\",\"actor-link assignment\","
         "\"script initialization outside the isolated formation selector\","
-        "\"speed/fatigue/collision integration\","
+        "\"live speed/fatigue/collision ownership\","
         "\"candidate scan $B081-$B32E as ordinary movement targeting\"],"
-        "\"next_integration\":\"bind proven command inputs and actor-link state before replacing live approximate CPU movement\"},"
+        "\"next_integration\":\"bind proven command inputs, actor-link state, and command advancement before production live CPU movement\"},"
         "\"developer_harness\":{\"deterministic\":true,"
         "\"cli_only\":true,\"coordinate_slots\":10,"
         "\"coordinate_space\":\"TGCT-1 canonical X=0..767 Y=0..239\","
@@ -2297,6 +2297,16 @@ static int append_gameplay_cpu_steering_source_map_entry(
         "\"direction_quantizer_rom_exact\":true,"
         "\"zero_vector\":\"preserve prior direction\","
         "\"snapshot_fingerprint\":\"domain-separated canonical FNV1a32\","
+        "\"movement_adapter\":{"
+        "\"cli\":\"--gameplay-cpu-steering-movement-harness\","
+        "\"direction_to_input\":\"exact same-pack TGMO direction identity\","
+        "\"movement_kernel\":\"exact TGMO-1 transactional step\","
+        "\"one_update_latency_rom_exact\":true,"
+        "\"secondary_actor_path\":true,"
+        "\"zero_vector_input\":\"native neutral policy; TGAI no-write remains exact\","
+        "\"selected_actor_coordinate_reconciled_each_step\":true,"
+        "\"live_wired\":false,"
+        "\"transactional\":true},"
         "\"normal_game_flow_exposed\":false},"
         "\"runtime_inputs\":\"TGAI-1 plus same-pack TGMO-1; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}");
 }

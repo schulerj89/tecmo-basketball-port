@@ -192,10 +192,10 @@ $Modes = @(
     [pscustomobject]@{ mode="gameplay-pretip-frame271"; phase="closeup"; frame=271; hash="A73F8C5E051EAE42462932DDE430FC50D1109BDAA1E7F96D2CE0EB22DAE36889" },
     [pscustomobject]@{ mode="gameplay-pretip-frame300"; phase="closeup"; frame=300; hash="7D3227F3D2256DBFA036F3C7761EB03A41C467C330E8A4097EBBD68D20DC45E1" },
     [pscustomobject]@{ mode="gameplay-pretip-frame330"; phase="closeup"; frame=330; hash="CF24E1A5BEFFB62DCA85304DBC739A11CABCAE50F112870669D7CCA4C2EBAC0B" },
-    [pscustomobject]@{ mode="gameplay-pretip-frame481"; phase="ball-descent"; frame=481; hash="55D7AA6E15B95182992067230D2FFF7EF8453C51F50E879C5FE7D9BA5EC6461B" },
+    [pscustomobject]@{ mode="gameplay-pretip-frame481"; phase="ball-descent"; frame=481; hash="5E765CD287417077072953BF3EF4850556B4B56CC1671F797FCB8FFFE781CAEA" },
     [pscustomobject]@{ mode="gameplay-pretip-frame631"; phase="toss-closeup"; frame=631; hash="CDE4C17159C79207CA82281204547FD2794E81858A52A6FB312E937CEEDF162C" },
-    [pscustomobject]@{ mode="gameplay-pretip-frame661"; phase="jump-contest"; frame=661; hash="0718185E3D996990F52DE481F9C99F9A8B68845FB837B5EAFEC90DBC390812AD" },
-    [pscustomobject]@{ mode="gameplay-live-start"; phase="live"; frame=691; hash="6E709B5C008717196FAEA105F792C1C9745F4BABA09155BE963524842A139D7C" }
+    [pscustomobject]@{ mode="gameplay-pretip-frame661"; phase="jump-contest"; frame=661; hash="F385D7BA81A0B9B8D6337D52FEFF646BF940C686E4FE5DB695B7CDAA038F9591" },
+    [pscustomobject]@{ mode="gameplay-live-start"; phase="live"; frame=691; hash="D0200921F5A74D8C1FABB8CBE2EC314729FB9DF6B905C1CF8AECA4B8164CEAF1" }
 )
 $RenderedHashes = @{}
 foreach ($Spec in $Modes) {

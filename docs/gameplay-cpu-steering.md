@@ -1,9 +1,10 @@
 # CPU steering evidence boundary
 
 The native game still uses scene-owned approximate CPU movement. This note
-describes the exact Rev 1 routines now isolated behind `gameplay/cpu-steering`
-TGAI-1 so the next live integration can start from a fail-closed ROM boundary
-instead of another inferred chase algorithm.
+describes the exact Rev 1 routines isolated behind `gameplay/cpu-steering`
+TGAI-1 and the console-only transactional adapter that now feeds their
+direction identity into the existing TGMO locomotion kernel. The adapter is a
+verified integration seam, not a live CPU command-policy claim.
 
 ## Exact call graph
 
@@ -98,6 +99,9 @@ The console-only API provides:
 - a deterministic full-snapshot harness that validates all ten canonical
   actor coordinates plus selected actor, possession, orientation, ball holder,
   opposing linked/matchup actor, and difficulty;
+- a deterministic TGAI-to-TGMO movement harness that adds rating, condition,
+  GAME SPEED, and frame count, maps all eight direction identities to TGMO NES
+  held bits, and advances the selected CPU actor as a secondary actor;
 - transactional rejection for unaligned/out-of-range commands and zero or
   invalid raw direction vectors.
 
@@ -121,6 +125,25 @@ successful harness result with `write=0`/`direction=keep`, representing the
 ROM guard's no-write outcome without requiring the CLI to invent a prior
 direction.
 
+The movement harness requires the selected actor coordinate in the ten-actor
+snapshot to match its TGMO movement state before every transaction. A nonzero
+TGAI result is mapped through the validated same-pack TGMO direction table,
+not through a second inferred direction table. TGMO then owns the exact
+one-update action-state latency, movement-rating/GAME-SPEED/condition amount,
+Q4 fractional accumulation, diagonal reduction, animation phase, vertical
+gates, and secondary-actor court clamp. After a successful step, the CLI
+copies the resulting canonical coordinate into the next snapshot and
+re-evaluates the target and direction.
+
+The exactness boundary has one important seam: TGAI's zero-vector guard means
+"do not write direction," while TGMO consumes held controller-direction bits.
+There is no exact bit value implied by that guard. The console adapter supplies
+neutral as a native policy and still allows TGMO's one-update latency to run.
+The initial offensive-facing direction, explicit rating/condition values,
+holder hoop approach, and linked target also remain harness-owned inputs or
+policy. Neither the neutral choice nor those policies are presented as ROM CPU
+command behavior.
+
 Run:
 
 ```powershell
@@ -128,6 +151,7 @@ Run:
 .\build\tecmo_port.exe --gameplay-cpu-steering-test <PACK>
 .\build\tecmo_port.exe --gameplay-cpu-steering-inspect <PACK> <OFFSET> <DX> <DY>
 .\build\tecmo_port.exe --gameplay-cpu-steering-harness <PACK> <ACTOR> <POSSESSION> <ORIENTATION> <HOLDER> <MATCHUP> <DIFFICULTY> <X0,Y0> ... <X9,Y9>
+.\build\tecmo_port.exe --gameplay-cpu-steering-movement-harness <PACK> <ACTOR> <POSSESSION> <ORIENTATION> <HOLDER> <MATCHUP> <DIFFICULTY> <RATING> <CONDITION> <SPEED> <FRAMES> <X0,Y0> ... <X9,Y9>
 ```
 
 These commands are developer tooling only and never add an in-game debug mode.
@@ -136,15 +160,14 @@ These commands are developer tooling only and never add an in-game debug mode.
 
 TGAI-1 does not claim a complete CPU play policy. In particular, it does not
 identify the shot/pass/steal selector, reconstruct every actor-link assignment,
-port collision/fatigue/speed integration, or treat the nearby Bank06
+own live collision/fatigue/speed state, or treat the nearby Bank06
 `$B081-$B32E` candidate scan as ordinary movement targeting. Handler-effect
 names describe bounded entry behavior; they are not play names.
 
-The CLI harness now provides typed, transactional snapshot and linked-actor
-inputs for controlled experiments, but it owns neither live actor links nor a
-ROM command lifecycle. Before live CPU movement can consume TGAI safely, the
-scene still needs actor-local stream offsets, linked/reference assignments,
-target fields, and the state transitions that advance or replace a command.
-Only then should the exact direction result feed the existing TGMO locomotion
-kernel. Until that adapter is implemented and verified, normal gameplay
-intentionally keeps its current approximate CPU behavior.
+The CLI harnesses now provide typed, transactional snapshot, linked-actor, and
+TGMO composition inputs for controlled experiments, but they own neither live
+actor links nor a ROM command lifecycle. Before the tested adapter can enter
+normal gameplay, the scene still needs actor-local stream offsets,
+linked/reference assignments, target fields, and the state transitions that
+advance or replace a command. Normal gameplay intentionally keeps its current
+approximate CPU behavior until those owners exist.

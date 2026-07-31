@@ -177,10 +177,12 @@ set the boundary-violation latch surround page-0
 `$00DF-floor(Y/2)`, page-1 interior, and page-2
 `$0220+floor(Y/2)`. Ordinary live human control supplies object state 0 and
 flags 0 and persists the latch. The latch is not connected to violation
-settlement and its original reset path is unported. The exact
-pose-base/animation-low-nibble resolver is available, but
-opponent-relative pose-half selection and live walking animation rendering are
-not. Fresh TTDT condition is used without fatigue evolution. Opposing
+settlement and its original reset path is unported. Live initial and
+controlled-player rendering now consumes the exact
+pose-base/animation-low-nibble result and binds the record tag to its
+slot-selected MMC3 R2-R5 bank. Opponent-relative pose-half selection remains
+unported; the scene currently uses the primary half as an explicit native
+policy. Fresh TTDT condition is used without fatigue evolution. Opposing
 directions on one axis are normalized to neutral as a native integration
 policy. Starting placement/direction and fixed five-player roster-slot binding,
 live CPU movement, and AI remain native integration or approximations. The
@@ -578,6 +580,6 @@ parsers, same-pack dependencies, source mutation, and pure APIs.
 `Run-GameplayMovementTests.ps1` validates TGMO's seven ROM spans, strict parser,
 same-pack dependencies, malformed state transactions, deterministic harness
 vectors, and live scene handoff without exposing an in-game debug path.
-`--gameplay-state-test`, the TGPL/TGCT/TGCP/TGMO/TGCS/TGJS focused suites, the 80-entry
-full asset-pack regression, and `Run-GameplayAudioTests.ps1` retain their
-lower-level coverage.
+`--gameplay-state-test`, the TGPL/TGCT/TGCP/TGMO/TGAI/TGCS/TGJS focused
+suites, the 81-entry full asset-pack regression, and
+`Run-GameplayAudioTests.ps1` retain their lower-level coverage.

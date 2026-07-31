@@ -233,8 +233,8 @@ TGSR-3 shot resolution, its exact 1/2/3-point classifier and
 diagnostic-only rim-rattle prefix, the TGFL-1 raw free-throw lineup, the
 TGCP-2 horizontal camera/projector and production live prime/follow, TGMO-1
 controlled-player movement and strict actor dispatcher/clamp,
-the test-only TGAI-1 CPU command transport, target-handler graph, and direction
-quantizer,
+the test-only TGAI-1 CPU command transport, target-handler graph, direction
+quantizer, and transactional TGAI-to-TGMO movement adapter,
 TGOR-1 live possession-synchronized
 offensive direction and target selection, rules timing, and native
 music/SFX/DMC programs. Strict entries are loaded from the same
@@ -314,6 +314,17 @@ the current condition, and GAME SPEED adjustments `+5/-1/-6`; movement amount
 is `max(8, adjusted_rating + (condition >> 4) - 6)`. It preserves the ROM's
 Q4 accumulator, `amount-floor(amount/4)` diagonal step, one-update action
 latency, `$4A/$EC` compare-before-move Y gates, and animation phase.
+The live scene now feeds that exact direction/base plus animation-low-nibble
+state into TGMO-1's pose resolver for initial and controlled-player court
+frames. The metasprite renderer binds each record tag to the MMC3 R2-R5
+selector addressed by its `$0479`-style slot, including the ball's `$C1`/R5
+path; this replaces the unrelated close-shot-family pose 509 as the default
+court stance and removes the former hardcoded R3 binding. The scene currently
+selects TGMO's primary pose-table half as an explicit native policy; the
+opponent-relative `$8F02` half choice is still unported. The pre-tip court pass
+no longer composites the full matchup-card
+team logo over the actors; those logo tiles remain presentation-card assets,
+not player metasprite pieces.
 
 TGMO-1 also applies the original selected-actor dispatcher exclusions and
 violation-latch conditions around the `$00DF-floor(Y/2)` / page-1 /
@@ -321,9 +332,9 @@ violation-latch conditions around the `$00DF-floor(Y/2)` / page-1 /
 state 0 and movement flags 0. The latch is retained in actor state but is not
 yet connected to original reset/violation settlement. Opposing directions on one live input
 axis are normalized to neutral as a native integration policy. Fatigue
-evolution, opponent-relative pose-half selection/ordinary walking render
-frames, CPU locomotion/AI, and the approximate starting layout, direction, and
-fixed five-player roster-slot binding remain outside the exact boundary.
+evolution, opponent-relative pose-half selection, CPU locomotion/AI, and the
+approximate starting layout, direction, and fixed five-player roster-slot
+binding remain outside the exact boundary.
 
 `gameplay/cpu-steering` TGAI-1 is a separate, test-only 7616-byte asset
 (FNV1a32 `D6C4DB35`). It preserves Bank06's ten-actor/state dispatcher,
@@ -348,12 +359,27 @@ other actors target the supplied linked actor. That target choice and link are
 developer-harness policy, not reconstructed ROM behavior. Zero delta reports
 `direction=keep` without fabricating a prior direction.
 
+`--gameplay-cpu-steering-movement-harness` takes that same complete snapshot
+plus explicit movement rating, condition, GAME SPEED, and frame count. For a
+nonzero delta it converts the exact TGAI direction identity through TGMO's
+validated NES direction table and advances the selected CPU actor with the
+exact transactional TGMO kernel, including its one-update action latency, Q4
+accumulator, diagonal reduction, animation, and secondary-actor court clamp.
+After every step it writes the actor's resulting canonical coordinate back
+into the next snapshot before steering is evaluated again. TGAI's zero-vector
+no-write has no held-controller-bit equivalent, so the adapter supplies
+neutral as an explicitly native harness policy; TGMO latency still applies.
+The initial offensive-facing direction, zero-input choice, rating/condition
+inputs, and harness target/link policy are not claimed as reconstructed ROM
+CPU command behavior.
+
 TGAI-1 does not yet choose a live actor command, bind the ROM's live
 linked-actor state, or replace the scene's approximate CPU movement. It also
 does not claim the nearby `$B081-$B32E` candidate scan as ordinary targeting,
 nor does it infer shot/pass/steal policy. Use the console-only commands
-`--gameplay-cpu-steering-test`, `--gameplay-cpu-steering-inspect`, and
-`--gameplay-cpu-steering-harness`, or run
+`--gameplay-cpu-steering-test`, `--gameplay-cpu-steering-inspect`,
+`--gameplay-cpu-steering-harness`, and
+`--gameplay-cpu-steering-movement-harness`, or run
 `tools\Run-GameplayCpuSteeringTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 The exact call graph and remaining integration boundary are documented in the
 [CPU steering evidence note](docs/gameplay-cpu-steering.md).
@@ -485,7 +511,7 @@ Generated `.assetpack` files are ignored local data. Every pack includes the
 manifest, sanitized source map, and raw PRG/CHR entries used by the strict
 logical assets.
 
-The current Rev 1 builder emits an 80-entry pack. In addition to the raw PRG and
+The current Rev 1 builder emits an 81-entry pack. In addition to the raw PRG and
 CHR entries, it contains strict logical assets for the opening, arena, finale,
 title, blue menu, frontend audio, preseason, Team Data, team management, season state, music,
 gameplay audio, court, live court-orientation state, controlled movement, poses, close shots, dunk
