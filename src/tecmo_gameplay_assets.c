@@ -474,6 +474,8 @@ bool tecmo_gameplay_assets_resolve_pose(
         !assets->available ||
         pointer_index >= TECMO_GAMEPLAY_ASSET_POINTER_COUNT ||
         context->palette_group >= TECMO_GAMEPLAY_ASSET_PALETTE_GROUP_COUNT ||
+        (context->apply_uniform_color && context->uniform_color > 0x3FU) ||
+        (!context->apply_uniform_color && context->uniform_color != 0U) ||
         (context->actor_slot_base & 0x3FU) != 0x01U ||
         (context->actor_attributes & 0xFCU) != 0U) {
         return false;
@@ -501,8 +503,23 @@ bool tecmo_gameplay_assets_resolve_pose(
     pose->actor_slot_base = context->actor_slot_base;
     pose->actor_attributes = context->actor_attributes;
     pose->palette_group = context->palette_group;
+    pose->uniform_color = context->uniform_color;
+    pose->uniform_color_applied = context->apply_uniform_color;
     memcpy(pose->mmc3_r2_r5, context->mmc3_r2_r5,
            sizeof(pose->mmc3_r2_r5));
+    memcpy(pose->palette,
+           assets->actor_palette_groups +
+               (size_t)context->palette_group * sizeof(pose->palette),
+           sizeof(pose->palette));
+    if (context->apply_uniform_color) {
+        /* Bank01 $B0ED-$B133 copies $B138/$B148, then replaces the
+           three uniform entries and their light variant exactly this way. */
+        pose->palette[6U] = context->uniform_color;
+        pose->palette[7U] = context->uniform_color;
+        pose->palette[9U] = context->uniform_color;
+        pose->palette[13U] =
+            (uint8_t)((context->uniform_color + 0x10U) & 0x3FU);
+    }
     for (size_t cell = 0U; cell < cell_count; ++cell) {
         uint8_t cell_byte = record[4U + cell];
         uint8_t tile;
@@ -537,9 +554,9 @@ bool tecmo_gameplay_assets_resolve_pose(
         piece->bottom_chr_offset = top + 16U;
         piece->top_chr = assets->chr_storage + top;
         piece->bottom_chr = assets->chr_storage + top + 16U;
-        piece->palette = assets->actor_palette_groups +
-                         (size_t)context->palette_group * 16U +
-                         (size_t)piece->palette_index * 4U;
+        memcpy(piece->palette,
+               pose->palette + (size_t)piece->palette_index * 4U,
+               sizeof(piece->palette));
     }
     pose->piece_count = (uint8_t)output;
     return true;

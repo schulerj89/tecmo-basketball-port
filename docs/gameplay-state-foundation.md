@@ -39,6 +39,7 @@ The compound scene loads `gameplay/core` TGPL-1 (23416 bytes,
 `gameplay/camera-projection` TGCP-2 (1536 bytes, `53247856`),
 `gameplay/movement` TGMO-1 (1664 bytes, `6C82A137`),
 `gameplay/court-orientation` TGOR-1 (640 bytes, `F9152C0A`),
+`gameplay/hud` THUD-1 (864 bytes, `3D13AA89`),
 `gameplay/close-shots` TGCS-1 (3144 bytes, `DACDC976`),
 `gameplay/dunk-cutaway` TGDK-1 (20272 bytes, `E02F2D21`),
 `gameplay/jump-shots` TGJS-2 (2776 bytes, `A66EE873`),
@@ -50,6 +51,16 @@ Exact sizes, payload fingerprints, deep indexes, reserved bytes, source-map
 spans, CHR fingerprints, and the shared pack path are validated before the
 scene becomes available. Missing, malformed, oversized, wrong-revision, or
 cross-pack dependencies fail closed without a partial frame.
+
+THUD-1 retains Bank01 `$BDF0-$BECC` for the exact two team destinations and
+29 five-tile marks, plus Bank02 `$AF64-$B07B` for the exact character tables
+and first-initial/dot/nine-tile-surname formatter. Its 59-character mapping is
+required to match the same-pack TTDT-1 `$FA` CHR records. The live scene
+prepares both scoreboard rows before drawing and keeps them fixed across TGCP
+camera changes. The team destinations and mappings are ROM-exact; other field
+columns, colon `$16`, black backing, and live `$FA` binding are
+reference-verified. Three-digit score capping and the unassigned CPU-side
+holder/shooter matchup label are explicit native adapter policies.
 
 The same pack also contains test-only `gameplay/cpu-steering` TGAI-1, but the
 compound scene deliberately does not load it yet. Its actor-link and
@@ -548,21 +559,29 @@ These are provenance only and are not runtime inputs.
   make/contact policy, the distance policy
   selecting dunk/variant 0 versus layup/variant 2, live close-shot
   profile/direction selection and left-facing render mirroring, dynamic
-  team/court palette selection, foul detection, free-throw slot selection,
+  court palette selection beyond imported TGCT data, foul detection, free-throw slot selection,
   held-ball/camera composition, aim/result/rebound and CPU positioning/script
   behavior, and
-  HUD typography are native approximations. The imported TGCT palette bytes and
-  embedded FCEUX RGB profile are exact, but native selection does not yet
-  reproduce all original matchup/state colors. The exact rules state consumes
+  the HUD's fixed-column and unassigned-CPU actor-selection adapters are native
+  approximations. THUD-1's font, team marks, and Bank02 name formatting are
+  exact within the boundary above. Live player palette selection is
+  exact for the currently bound roster slots: profile byte 2 bit 7 and the side
+  bit reproduce `$04B0 & 3`, fixed `$DEAB/$DC19` supplies the matchup uniform
+  color, and Bank01 `$B0ED` applies the original palette recipe. The imported
+  TGCT palette bytes and embedded FCEUX RGB profile are also exact; other
+  state-dependent palette behavior remains outside this boundary. The exact rules state consumes
   explicit outcomes without turning those scene policies into ROM-exact claims.
-- The dunk cutaway uses the exact bounded profile-1/uniform-`$30` checkpoint;
-  selecting a different team profile/uniform remains unresolved. Its native
+- The dunk cutaway's standalone profile-1/uniform-`$30` checkpoint remains
+  exact, and production now supplies the selected roster profile bit and
+  matchup uniform color through the same live binding. Its native
   shot arc and deterministic make/miss policy continue behind/after the exact
   presentation and are not claimed as ROM behavior.
 - Local original-frame comparisons, after normalizing the small FCEUX screenshot
   RGB-output difference, matched the frame-24 black, frame-32 stage, frame-48
   stage, and frame-64 black cutaway pixels exactly. Returned live frame 80 still
-  differs in spacing, HUD, and dynamic matchup palette selection; horizontal
+  differs in actor spacing; the bounded score/clock/shot-clock glyph silhouettes
+  now match the local reference, and player matchup colors follow the exact ROM
+  selection path. Horizontal
   camera/world projection is strict within the supported slice.
 - The module contains no proprietary ROM bytes, screenshots, traces, save
   states, dumps, or capture artifacts.

@@ -220,6 +220,7 @@ try {
         [pscustomobject]@{ id="gameplay/camera-projection"; size=1536; hash="53247856"; schema="tecmo.gameplay-camera/TGCP-2" },
         [pscustomobject]@{ id="gameplay/movement"; size=1664; hash="6C82A137"; schema="tecmo.gameplay-movement/TGMO-1" },
         [pscustomobject]@{ id="gameplay/cpu-steering"; size=7616; hash="D6C4DB35"; schema="tecmo.gameplay-cpu-steering/TGAI-1" },
+        [pscustomobject]@{ id="gameplay/hud"; size=864; hash="3D13AA89"; schema="tecmo.gameplay-hud/THUD-1" },
         [pscustomobject]@{ id="gameplay/court-orientation"; size=640; hash="F9152C0A"; schema="tecmo.gameplay-court-orientation/TGOR-1" },
         [pscustomobject]@{ id="gameplay/free-throw-lineup"; size=1216; hash="B17B9A3F"; schema="tecmo.gameplay-free-throw-lineup/TGFL-1" },
         [pscustomobject]@{ id="gameplay/close-shots"; size=3144; hash="DACDC976"; schema="tecmo.gameplay-close-shots/TGCS-1" },
@@ -264,6 +265,9 @@ try {
     })
     $LineupMaps = @($SourceMap.logical_entries | Where-Object {
         $_.id -eq "gameplay/free-throw-lineup"
+    })
+    $HudMaps = @($SourceMap.logical_entries | Where-Object {
+        $_.id -eq "gameplay/hud"
     })
     if ($CameraMaps.Count -ne 1 -or $CourtMaps.Count -ne 1 -or
         ![bool]$CameraMaps[0].dependencies[0].same_pack_required -or
@@ -371,6 +375,39 @@ try {
             "no live pose-state override") {
         throw "Production TGFL-1 scene provenance is incomplete."
     }
+    if ($HudMaps.Count -ne 1 -or
+        $HudMaps[0].fingerprint_fnv1a32 -ne "3D13AA89" -or
+        @($HudMaps[0].dependencies).Count -ne 3 -or
+        (@($HudMaps[0].dependencies | ForEach-Object {
+            [string]$_.entry }) -join ',') -ne
+            'gameplay/core,menu/team-data,chr/all' -or
+        @($HudMaps[0].source_spans).Count -ne 3 -or
+        [int]$HudMaps[0].exact_contract.team_mark_rows -ne 29 -or
+        [int]$HudMaps[0].exact_contract.team_mark_width_tiles -ne 5 -or
+        [int]$HudMaps[0].exact_contract.font_chr_selector -ne 0xFA -or
+        $HudMaps[0].exact_contract.font_chr_dependency -notmatch
+            'TTDT-1.*\$FA' -or
+        $HudMaps[0].live_scene_integration.row_2 -notmatch 'clock' -or
+        $HudMaps[0].live_scene_integration.row_3 -notmatch
+            'selected player' -or
+        $HudMaps[0].live_scene_integration.placement_status -notmatch
+            'reference-verified' -or
+        $HudMaps[0].live_scene_integration.selected_cpu_actor_policy -notmatch
+            'native adapter' -or
+        $HudMaps[0].runtime_inputs -match
+            'decompilation file|capture file|screenshot file') {
+        throw "Production THUD-1 live HUD provenance is incomplete."
+    }
+
+    $HudLog = Join-Path $Scratch "gameplay-hud-assets.log"
+    $HudRun = Invoke-Logged -Command $Executable -Arguments @(
+        "--gameplay-hud-test", $PackPath
+    ) -LogPath $HudLog
+    if ($HudRun.exit_code -ne 0 -or
+        $HudRun.tail -notmatch
+            "THUD-1 strict gameplay HUD self-test passed") {
+        throw "Strict gameplay HUD asset test failed.`n$($HudRun.tail)"
+    }
 
     $DunkLog = Join-Path $Scratch "dunk-cutaway-assets.log"
     $DunkRun = Invoke-Logged -Command $Executable -Arguments @(
@@ -398,6 +435,31 @@ try {
         $SceneRun.tail.Trim() -ne "GAMEPLAY SCENE SELF TEST PASS") {
         throw "Native gameplay scene self-test failed.`n$($SceneRun.tail)"
     }
+
+    $MissingHudPath = Join-Path $Scratch "missing-gameplay-hud.assetpack"
+    $MissingHud = [byte[]]$PackBytes.Clone()
+    $MissingHud[[int]$Entries["gameplay/hud"].directory_offset] =
+        [byte][char]'x'
+    [IO.File]::WriteAllBytes($MissingHudPath, $MissingHud)
+    Assert-SceneRejected -AssetPack $MissingHudPath `
+        -Label "missing-gameplay-hud" -ExpectedStatus "THUD-1"
+
+    $HudOffset = [int]$Entries["gameplay/hud"].pack_offset
+    $MalformedHudPath = Join-Path $Scratch "malformed-gameplay-hud.assetpack"
+    $MalformedHud = [byte[]]$PackBytes.Clone()
+    $MalformedHud[$HudOffset] = $MalformedHud[$HudOffset] -bxor 1
+    [IO.File]::WriteAllBytes($MalformedHudPath, $MalformedHud)
+    Assert-SceneRejected -AssetPack $MalformedHudPath `
+        -Label "malformed-gameplay-hud" -ExpectedStatus "THUD-1"
+
+    $OversizedHudPath = Join-Path $Scratch "oversized-gameplay-hud.assetpack"
+    $OversizedHud = [byte[]]$PackBytes.Clone()
+    [BitConverter]::GetBytes([uint64]865).CopyTo(
+        $OversizedHud,
+        [int]$Entries["gameplay/hud"].directory_offset + 92)
+    [IO.File]::WriteAllBytes($OversizedHudPath, $OversizedHud)
+    Assert-SceneRejected -AssetPack $OversizedHudPath `
+        -Label "oversized-gameplay-hud" -ExpectedStatus "THUD-1"
 
     $MissingPath = Join-Path $Scratch "missing-court.assetpack"
     $Missing = [byte[]]$PackBytes.Clone()
@@ -670,6 +732,7 @@ try {
         [pscustomobject]@{ mode="gameplay-possession-left"; state='gameplay-state frame=691 shot=none phase=live' },
         [pscustomobject]@{ mode="gameplay-possession-center"; state='gameplay-state frame=691 shot=none phase=live' },
         [pscustomobject]@{ mode="gameplay-possession-right"; state='gameplay-state frame=691 shot=none phase=live' },
+        [pscustomobject]@{ mode="gameplay-uniform-pacers"; state='gameplay-state frame=691 shot=none phase=live' },
         [pscustomobject]@{ mode="gameplay-free-throw-left"; state='gameplay-state frame=696 shot=none phase=free-throw-sequence' },
         [pscustomobject]@{ mode="gameplay-free-throw-right"; state='gameplay-state frame=696 shot=none phase=free-throw-sequence' },
         [pscustomobject]@{ mode="gameplay-jump-frame1"; state='gameplay-state frame=1 shot=jump phase=live' },
@@ -729,11 +792,11 @@ try {
     }
     $ExpectedPossessionSliceHashes = @{
         "gameplay-possession-left" =
-            "04C0BEFEAF3C10B14174CF4067735E6A6E38160D5ABD3E34CEE926E58194A7A0"
+            "FBA54B928652EE320A17230FDB77A407CF937210F8C3D61898327A9140448A73"
         "gameplay-possession-center" =
-            "D0200921F5A74D8C1FABB8CBE2EC314729FB9DF6B905C1CF8AECA4B8164CEAF1"
+            "E108686E23DDF3B3793310ADCD0E74C840AF1D67D661B7313BAD0A4932EF676A"
         "gameplay-possession-right" =
-            "6335BD2574874D85C60F8AE10F1585F2CCD09DBEEC4DFC91FD9C0BC704A16012"
+            "551C2117DCA918861C795DB74C25F6F5A070E3680D3DDDBD1BD7BB51943424D9"
     }
     foreach ($Mode in $ExpectedPossessionSliceHashes.Keys) {
         if ($RenderHashes[$Mode] -ne
@@ -749,11 +812,17 @@ try {
     if ($PossessionSliceVisuals.Count -ne 3) {
         throw "Gameplay possession-slice visuals collapsed together."
     }
+    if ($RenderHashes["gameplay-uniform-pacers"] -ne
+            "49951FA5261F3A9DF3EF10005FC5AA96088E7B3419445C4FE7715C8D6B5BA4CD" -or
+        $RenderHashes["gameplay-uniform-pacers"] -eq
+            $RenderHashes["gameplay-possession-center"]) {
+        throw "Gameplay home-team uniform-color visual contract changed."
+    }
     $ExpectedFreeThrowHashes = @{
         "gameplay-free-throw-left" =
-            "70F2ED11D242627F640AC618AE9E1313F40C2DFF25BD0E8909751C7EBEB6FC9E"
+            "AB82ED1637F9856EC91D16FEEDFE382B1B20572782FA92FCD2436F30FA208FC8"
         "gameplay-free-throw-right" =
-            "C09AB2C5A0E0B79B8B36D31838DD692E2FC9F80CCD2B9F483EA8048CCB0BF8FA"
+            "BA6A2EBCB4FDA056A919C6CEE4785EDADC37D50B1A4632D23C91C6B882F76B7B"
     }
     foreach ($Mode in $ExpectedFreeThrowHashes.Keys) {
         if ($RenderHashes[$Mode] -ne
@@ -767,11 +836,11 @@ try {
     }
     $ExpectedJumpHashes = @{
         "gameplay-jump-frame2" =
-            "794F677F76ED6B1F0950B117963A087B591192B54C2D9B3595A919E1B3CBF8A7"
+            "5130AF791E551EDAE37AF2FAC7E990E0298C951708E40C9ABEC17F4A49F474BC"
         "gameplay-jump-frame75" =
-            "0EAB8A49B262F74610433EA632A58BF55EC73A8C562FFF25F23787DE340DDD48"
+            "1A049A1BC74BA6E91E4FACEFDE8B639D45CF65AC92AA2346FCFD3425E8D39899"
         "gameplay-jump-frame87" =
-            "FDC7170694585791E6EE7948B25FCFDC7EB3676418DBFDD9693BCD55F7BDA652"
+            "79C041654E9A3CB505FF75825527827F9090FA315D6723C099DAD7DF1F66CA24"
     }
     foreach ($Mode in $ExpectedJumpHashes.Keys) {
         if ($RenderHashes[$Mode] -ne $ExpectedJumpHashes[$Mode]) {
@@ -780,25 +849,25 @@ try {
     }
     $ExpectedRattleHashes = @{
         "gameplay-jump-rattle-frame72" =
-            "5AD63F81B1074D250E14C30DC7C345CF91ACC1591F9D66A8263DB8BF9A8BEEEA"
+            "4723FB2768B7A675C5F59EDB2FBB9AF3ABEA5CEAE0FE31F8DCCBA7ED57528FB8"
         "gameplay-jump-rattle-frame73" =
-            "67063EB1D6B702A994225B62D758F9CA21D2428268DCF0D7B381156AB38FF954"
+            "F66515F1EEC12ECB61F64E3E987583A224ADA23BFB16EF7E8982C71EE1393680"
         "gameplay-jump-rattle-frame74" =
-            "C449DEBE645053E7D04EFBEB677FBD9B166FB83D3BA852F52E3DEC4C95A1C593"
+            "A2B79531359FA8C5CC7A738EB22C772CAA675F0FD290B3A567C5B469B705820A"
         "gameplay-jump-rattle-frame77" =
-            "6650A34B106CD8C1D943BB78A154C967CB83AC6591ED934E77008D2ABD954C5E"
+            "6AFFABF955994D13F93400AE1B5946BDCCE252118684BA9783600A6A5FBBCD24"
         "gameplay-jump-rattle-frame81" =
-            "DB3FC1ABFD0348702A81AD6355D3E8CCCA6883B1C430C577742A89C8CC1DAD97"
+            "6791A057AF28D58DA8014919793D45D7325D685EBD145CAA3EE754C95AF71243"
         "gameplay-jump-rattle-frame85" =
-            "6650A34B106CD8C1D943BB78A154C967CB83AC6591ED934E77008D2ABD954C5E"
+            "6AFFABF955994D13F93400AE1B5946BDCCE252118684BA9783600A6A5FBBCD24"
         "gameplay-jump-rattle-frame88" =
-            "3C65CC5B236455B1B31107A6E02B6A73200689FD9E452A15A6053F91AAB0A6BF"
+            "4699CB472E5D8D65A7937607AECE7C4DA15278D51BB3DFF5F2BB268DB23A9EAF"
         "gameplay-jump-rattle-frame89" =
-            "DB3FC1ABFD0348702A81AD6355D3E8CCCA6883B1C430C577742A89C8CC1DAD97"
+            "6791A057AF28D58DA8014919793D45D7325D685EBD145CAA3EE754C95AF71243"
         "gameplay-jump-rattle-frame90" =
-            "59D41DDC64115569F382786465ADF1905BEFA117F1CD026A388F474E7CE11459"
+            "77328B1025FE5B0FB1DB7946A17CA8D8F6C171B6056A219D2BDED542BC4ED0D6"
         "gameplay-jump-rattle-frame103" =
-            "0FF0CC6FB5B6B397609B4653C4131296F37106E0088DC49D028EED70E40FBD80"
+            "903E64E4A99DE67AB099BA11A29B3E3511F483144BC2815BF9D24BB5E8A8A42C"
     }
     foreach ($Mode in $ExpectedRattleHashes.Keys) {
         if ($RenderHashes[$Mode] -ne $ExpectedRattleHashes[$Mode]) {
@@ -807,15 +876,15 @@ try {
     }
     $ExpectedJumpMakeHashes = @{
         "gameplay-jump-make-frame9" =
-            "6DACF228A052E30B7B6EB8B55E3406620E694C1023BFC89545F98759B30B19E5"
+            "144C3F8AFC879BA2027D24D239E319F453DA265EC67096485005E3924C815F69"
         "gameplay-jump-make-frame20" =
-            "482236D4A2277F638EB99CBD35CC3FB353478D896D39D9164A3227ECFCA4B17A"
+            "669F1F5A6A69F330095431A5AC2AEA90B7565E1C67E3C8259D7C1C3C0C3D1895"
         "gameplay-jump-make-frame57" =
-            "E93E31800C6279AF4D8BA0DC7EBF56EE126D802ABC12AF52FED43B049618F034"
+            "3310460AFD1899EDA4AF6AFCED38477F25069380C4767F5333E97A0560713498"
         "gameplay-jump-make-frame85" =
-            "BCD419207680FF48DD7135BA60ADBC8B836EFF92CD96C018F00F2A22B5688E90"
+            "1B34A5EB5F5842971B57FADDA480602F459DB1A97E3258AB1D0DA8EC7C96139D"
         "gameplay-jump-make-frame111" =
-            "FE6C0736FB1DEA439FEF764FC5019DFD3B63EE953D762BA909F22F961925C0DE"
+            "E70870725BF355E02A939C3F0978B3E8D3C683190CB000D7FA1A0FC337481BCA"
     }
     foreach ($Mode in $ExpectedJumpMakeHashes.Keys) {
         if ($RenderHashes[$Mode] -ne $ExpectedJumpMakeHashes[$Mode]) {

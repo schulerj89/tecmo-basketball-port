@@ -49,7 +49,7 @@
 #define TECMO_GAMEPLAY_JUMP_MAKE_TURN_POSE 1060U
 #define TECMO_GAMEPLAY_JUMP_MAKE_RELEASE_POSE 1061U
 #define TECMO_GAMEPLAY_JUMP_MAKE_FLIGHT_POSE 213U
-#define TECMO_GAMEPLAY_SCENE_RENDER_FNV1A32 0xB5095F19U
+#define TECMO_GAMEPLAY_SCENE_RENDER_FNV1A32 0xC46957D5U
 #define TECMO_GAMEPLAY_SCENE_CENTER_SLICE_FNV1A32 0x9CC9CD31U
 #define TECMO_GAMEPLAY_SCENE_LEFT_SLICE_FNV1A32 0x4F52BCC1U
 #define TECMO_GAMEPLAY_SCENE_RIGHT_SLICE_FNV1A32 0x033B45D5U
@@ -58,6 +58,38 @@
 #define TECMO_GAMEPLAY_PRETIP_DESCENT_START_Y 71
 #define TECMO_GAMEPLAY_PRETIP_DESCENT_END_Y 145
 #define TECMO_GAMEPLAY_PRETIP_DESCENT_MOVE_FRAMES 60U
+#define TECMO_GAMEPLAY_HUD_PRIMARY_ROW 2U
+#define TECMO_GAMEPLAY_HUD_SECONDARY_ROW 3U
+#define TECMO_GAMEPLAY_HUD_VISIBLE_ROW_COUNT 2U
+#define TECMO_GAMEPLAY_HUD_COLUMN_COUNT 32U
+#define TECMO_GAMEPLAY_HUD_AWAY_SCORE_COLUMN 6U
+#define TECMO_GAMEPLAY_HUD_CLOCK_COLUMN 13U
+#define TECMO_GAMEPLAY_HUD_HOME_SCORE_COLUMN 28U
+#define TECMO_GAMEPLAY_HUD_AWAY_SHOT_COLUMN 1U
+#define TECMO_GAMEPLAY_HUD_AWAY_PLAYER_COLUMN 4U
+#define TECMO_GAMEPLAY_HUD_HOME_SHOT_COLUMN 17U
+#define TECMO_GAMEPLAY_HUD_HOME_PLAYER_COLUMN 20U
+#define TECMO_GAMEPLAY_HUD_SCORE_WIDTH 3U
+#define TECMO_GAMEPLAY_HUD_CLOCK_MINUTE_WIDTH 2U
+#define TECMO_GAMEPLAY_HUD_CLOCK_SECOND_WIDTH 2U
+#define TECMO_GAMEPLAY_HUD_SHOT_WIDTH 2U
+#define TECMO_GAMEPLAY_HUD_PLAYER_WIDTH 11U
+#define TECMO_GAMEPLAY_HUD_SURNAME_WIDTH 9U
+#define TECMO_GAMEPLAY_HUD_COLON_TILE 0x16U
+
+typedef struct TecmoGameplayPreparedHud {
+    bool occupied[TECMO_GAMEPLAY_HUD_VISIBLE_ROW_COUNT]
+                 [TECMO_GAMEPLAY_HUD_COLUMN_COUNT];
+    bool chr_resolved[TECMO_GAMEPLAY_HUD_VISIBLE_ROW_COUNT]
+                     [TECMO_GAMEPLAY_HUD_COLUMN_COUNT];
+    uint8_t tiles[TECMO_GAMEPLAY_HUD_VISIBLE_ROW_COUNT]
+                 [TECMO_GAMEPLAY_HUD_COLUMN_COUNT];
+    uint32_t chr_offsets[TECMO_GAMEPLAY_HUD_VISIBLE_ROW_COUNT]
+                        [TECMO_GAMEPLAY_HUD_COLUMN_COUNT];
+} TecmoGameplayPreparedHud;
+
+static void scene_fill_rect(TecmoFramebuffer *framebuffer, int x, int y,
+                            int width, int height, uint32_t color);
 
 static bool scene_self_test_skip_pretip;
 
@@ -180,6 +212,7 @@ static void scene_release_owned(TecmoGameplayScene *scene)
     tecmo_gameplay_close_shots_destroy(&scene->close_shots);
     tecmo_gameplay_free_throw_lineup_destroy(
         &scene->free_throw_lineup_assets);
+    tecmo_gameplay_hud_assets_destroy(&scene->hud_assets);
     tecmo_gameplay_court_orientation_destroy(&scene->court_orientation);
     tecmo_gameplay_movement_assets_destroy(&scene->movement_assets);
     tecmo_gameplay_camera_assets_destroy(&scene->camera_assets);
@@ -194,6 +227,7 @@ static void scene_release_owned(TecmoGameplayScene *scene)
     tecmo_gameplay_court_orientation_init(&scene->court_orientation);
     tecmo_gameplay_free_throw_lineup_init(
         &scene->free_throw_lineup_assets);
+    tecmo_gameplay_hud_assets_init(&scene->hud_assets);
     tecmo_gameplay_close_shots_init(&scene->close_shots);
     tecmo_gameplay_dunk_cutaway_init(&scene->dunk_cutaway);
     tecmo_gameplay_jump_shots_init(&scene->jump_shots);
@@ -214,6 +248,7 @@ void tecmo_gameplay_scene_init(TecmoGameplayScene *scene)
     tecmo_gameplay_court_orientation_init(&scene->court_orientation);
     tecmo_gameplay_free_throw_lineup_init(
         &scene->free_throw_lineup_assets);
+    tecmo_gameplay_hud_assets_init(&scene->hud_assets);
     tecmo_gameplay_close_shots_init(&scene->close_shots);
     tecmo_gameplay_dunk_cutaway_init(&scene->dunk_cutaway);
     tecmo_gameplay_jump_shots_init(&scene->jump_shots);
@@ -333,6 +368,13 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
             &scene->free_throw_lineup_assets, selected)) {
         (void)snprintf(failure, sizeof(failure), "%s",
                        scene->free_throw_lineup_assets.status);
+        scene_release_owned(scene);
+        scene_set_status(scene, failure);
+        return false;
+    }
+    if (!tecmo_gameplay_hud_assets_load(&scene->hud_assets, selected)) {
+        (void)snprintf(failure, sizeof(failure), "%s",
+                       scene->hud_assets.status);
         scene_release_owned(scene);
         scene_set_status(scene, failure);
         return false;
@@ -3680,6 +3722,348 @@ static bool scene_background_tile_chr(
     return true;
 }
 
+static bool scene_hud_put_tile(TecmoGameplayPreparedHud *prepared,
+                               unsigned row, unsigned column,
+                               uint8_t tile)
+{
+    if (prepared == NULL ||
+        row >= TECMO_GAMEPLAY_HUD_VISIBLE_ROW_COUNT ||
+        column >= TECMO_GAMEPLAY_HUD_COLUMN_COUNT ||
+        prepared->occupied[row][column]) {
+        return false;
+    }
+    prepared->occupied[row][column] = true;
+    prepared->tiles[row][column] = tile;
+    return true;
+}
+
+static bool scene_hud_put_font_character(
+    const TecmoGameplayScene *scene,
+    TecmoGameplayPreparedHud *prepared,
+    unsigned row, unsigned column, unsigned char character)
+{
+    const TecmoStartGameMenuCell *font;
+    size_t font_index;
+    uint8_t tile;
+    if (scene == NULL || prepared == NULL ||
+        scene->pretip_team_data == NULL ||
+        !scene->pretip_team_data->available ||
+        character < TECMO_GAMEPLAY_HUD_FONT_FIRST ||
+        character >= TECMO_GAMEPLAY_HUD_FONT_FIRST +
+                         TECMO_GAMEPLAY_HUD_FONT_COUNT) {
+        return false;
+    }
+    font_index = character - TECMO_GAMEPLAY_HUD_FONT_FIRST;
+    tile = scene->hud_assets.font_tiles[font_index];
+    font = &scene->pretip_team_data->font[font_index];
+    if (font->tile_id != tile ||
+        font->chr_offset > scene->assets.chr_storage_size ||
+        scene->assets.chr_storage_size - font->chr_offset < 16U ||
+        !scene_hud_put_tile(prepared, row, column, tile)) {
+        return false;
+    }
+    prepared->chr_offsets[row][column] = font->chr_offset;
+    prepared->chr_resolved[row][column] = true;
+    return true;
+}
+
+static bool scene_hud_put_decimal(
+    const TecmoGameplayScene *scene,
+    TecmoGameplayPreparedHud *prepared,
+    unsigned row, unsigned column, unsigned width, unsigned value)
+{
+    unsigned digit_index;
+    if (scene == NULL || prepared == NULL || width == 0U ||
+        column > TECMO_GAMEPLAY_HUD_COLUMN_COUNT ||
+        width > TECMO_GAMEPLAY_HUD_COLUMN_COUNT - column) {
+        return false;
+    }
+    for (digit_index = 0U; digit_index < width; ++digit_index) {
+        unsigned destination = column + width - digit_index - 1U;
+        unsigned char character =
+            (unsigned char)('0' + (value % 10U));
+        if (!scene_hud_put_font_character(
+                scene, prepared, row, destination, character)) {
+            return false;
+        }
+        value /= 10U;
+    }
+    return value == 0U;
+}
+
+static bool scene_hud_actor_valid_for_team(
+    const TecmoGameplayScene *scene, uint8_t actor_index,
+    TecmoGameplayTeam team)
+{
+    return scene != NULL && team < TECMO_GAMEPLAY_TEAM_COUNT &&
+           actor_index < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
+           scene->actors[actor_index].active &&
+           scene->actors[actor_index].team == (uint8_t)team &&
+           scene->actors[actor_index].roster_index <
+               TECMO_TEAM_DATA_PLAYERS_PER_TEAM;
+}
+
+static bool scene_hud_selected_actor(const TecmoGameplayScene *scene,
+                                     TecmoGameplayTeam team,
+                                     uint8_t *actor_out)
+{
+    uint8_t reference = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    uint8_t candidate;
+    size_t controller;
+    if (scene == NULL || actor_out == NULL ||
+        team >= TECMO_GAMEPLAY_TEAM_COUNT) {
+        return false;
+    }
+    for (controller = 0U;
+         controller < TECMO_GAMEPLAY_CONTROLLER_COUNT; ++controller) {
+        if (scene->launch.controller_team[controller] == (uint8_t)team) {
+            candidate = scene->controlled_actor[controller];
+            if (!scene_hud_actor_valid_for_team(scene, candidate, team)) {
+                return false;
+            }
+            *actor_out = candidate;
+            return true;
+        }
+    }
+
+    if (scene->ball_holder < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
+        scene->actors[scene->ball_holder].active) {
+        reference = scene->ball_holder;
+    } else if (scene->shot_actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
+               scene->actors[scene->shot_actor].active) {
+        reference = scene->shot_actor;
+    }
+    if (reference < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+        candidate = (uint8_t)(
+            (uint8_t)team * TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT +
+            reference % TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT);
+    } else {
+        candidate = (uint8_t)(
+            (uint8_t)team * TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT);
+    }
+    if (!scene_hud_actor_valid_for_team(scene, candidate, team)) {
+        return false;
+    }
+    *actor_out = candidate;
+    return true;
+}
+
+static bool scene_hud_put_player_name(
+    const TecmoGameplayScene *scene,
+    TecmoGameplayPreparedHud *prepared,
+    unsigned column, const char name[21])
+{
+    size_t length = 0U;
+    size_t separator = SIZE_MAX;
+    size_t index;
+    if (scene == NULL || prepared == NULL || name == NULL ||
+        scene->hud_assets.font_tiles == NULL) {
+        return false;
+    }
+    while (length < 21U && name[length] != '\0') ++length;
+    if (length == 0U || length == 21U) return false;
+    for (index = 0U; index < length; ++index) {
+        if (name[index] == ' ') {
+            separator = index;
+            break;
+        }
+    }
+    if (separator == SIZE_MAX || separator + 1U >= length ||
+        !scene_hud_put_font_character(
+            scene, prepared, 1U, column, (unsigned char)name[0]) ||
+        !scene_hud_put_font_character(
+            scene, prepared, 1U, column + 1U, '.')) {
+        return false;
+    }
+    for (index = 0U; index < TECMO_GAMEPLAY_HUD_SURNAME_WIDTH; ++index) {
+        size_t source = separator + 1U + index;
+        unsigned char character;
+        if (source < length) {
+            character = (unsigned char)name[source];
+            if (character < TECMO_GAMEPLAY_HUD_FONT_FIRST ||
+                character >= TECMO_GAMEPLAY_HUD_FONT_FIRST +
+                                 TECMO_GAMEPLAY_HUD_FONT_COUNT) {
+                return false;
+            }
+        } else {
+            character = ' ';
+        }
+        /* Bank02 writes every in-range table value verbatim. The shared
+           TTDT font binding preserves even unused zero-valued punctuation. */
+        if (!scene_hud_put_font_character(
+                scene, prepared, 1U,
+                column + 2U + (unsigned)index, character)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool scene_prepare_live_hud(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplayLiveBackgroundContext *context,
+    TecmoGameplayPreparedHud *prepared_out)
+{
+    TecmoGameplayPreparedHud prepared;
+    uint8_t selected[TECMO_GAMEPLAY_TEAM_COUNT];
+    uint8_t team_ids[TECMO_GAMEPLAY_TEAM_COUNT];
+    size_t team;
+    unsigned row;
+    unsigned column;
+    if (scene == NULL || context == NULL || prepared_out == NULL ||
+        !scene->hud_assets.available ||
+        scene->hud_assets.team_label_tiles == NULL ||
+        scene->hud_assets.font_tiles == NULL ||
+        scene->pretip_team_data == NULL ||
+        !scene->pretip_team_data->available ||
+        scene->launch.away_team >= TECMO_GAMEPLAY_TEAM_LIMIT ||
+        scene->launch.home_team >= TECMO_GAMEPLAY_TEAM_LIMIT ||
+        !tecmo_gameplay_state_valid(&scene->state) ||
+        !scene_ownership_valid(scene)) {
+        return false;
+    }
+    team_ids[TECMO_GAMEPLAY_TEAM_AWAY] = scene->launch.away_team;
+    team_ids[TECMO_GAMEPLAY_TEAM_HOME] = scene->launch.home_team;
+    memset(&prepared, 0, sizeof(prepared));
+
+    for (team = 0U; team < TECMO_GAMEPLAY_TEAM_COUNT; ++team) {
+        uint8_t ppu_low = scene->hud_assets.team_ppu_low[team];
+        unsigned absolute_row = ppu_low >> 5U;
+        unsigned team_column = ppu_low & 0x1FU;
+        size_t tile_index;
+        if (absolute_row != TECMO_GAMEPLAY_HUD_PRIMARY_ROW ||
+            team_column > TECMO_GAMEPLAY_HUD_COLUMN_COUNT -
+                              TECMO_GAMEPLAY_HUD_TEAM_LABEL_WIDTH ||
+            !scene_hud_selected_actor(
+                scene, (TecmoGameplayTeam)team, &selected[team])) {
+            return false;
+        }
+        for (tile_index = 0U;
+             tile_index < TECMO_GAMEPLAY_HUD_TEAM_LABEL_WIDTH;
+             ++tile_index) {
+            if (!scene_hud_put_tile(
+                    &prepared, 0U,
+                    team_column + (unsigned)tile_index,
+                    scene->hud_assets.team_label_tiles[team_ids[team]]
+                                                       [tile_index])) {
+                return false;
+            }
+        }
+    }
+    if (!scene_hud_put_decimal(
+            scene, &prepared, 0U,
+            TECMO_GAMEPLAY_HUD_AWAY_SCORE_COLUMN,
+            TECMO_GAMEPLAY_HUD_SCORE_WIDTH,
+            scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY] > 999U
+                ? 999U
+                : scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY]) ||
+        !scene_hud_put_decimal(
+            scene, &prepared, 0U,
+            TECMO_GAMEPLAY_HUD_CLOCK_COLUMN,
+            TECMO_GAMEPLAY_HUD_CLOCK_MINUTE_WIDTH,
+            scene->state.clock_minutes > 99U
+                ? 99U : scene->state.clock_minutes) ||
+        !scene_hud_put_tile(
+            &prepared, 0U,
+            TECMO_GAMEPLAY_HUD_CLOCK_COLUMN +
+                TECMO_GAMEPLAY_HUD_CLOCK_MINUTE_WIDTH,
+            TECMO_GAMEPLAY_HUD_COLON_TILE) ||
+        !scene_hud_put_decimal(
+            scene, &prepared, 0U,
+            TECMO_GAMEPLAY_HUD_CLOCK_COLUMN +
+                TECMO_GAMEPLAY_HUD_CLOCK_MINUTE_WIDTH + 1U,
+            TECMO_GAMEPLAY_HUD_CLOCK_SECOND_WIDTH,
+            scene->state.clock_seconds) ||
+        !scene_hud_put_decimal(
+            scene, &prepared, 0U,
+            TECMO_GAMEPLAY_HUD_HOME_SCORE_COLUMN,
+            TECMO_GAMEPLAY_HUD_SCORE_WIDTH,
+            scene->state.score[TECMO_GAMEPLAY_TEAM_HOME] > 999U
+                ? 999U
+                : scene->state.score[TECMO_GAMEPLAY_TEAM_HOME]) ||
+        !scene_hud_put_decimal(
+            scene, &prepared, 1U,
+            TECMO_GAMEPLAY_HUD_AWAY_SHOT_COLUMN,
+            TECMO_GAMEPLAY_HUD_SHOT_WIDTH,
+            scene->state.shot_clock) ||
+        !scene_hud_put_decimal(
+            scene, &prepared, 1U,
+            TECMO_GAMEPLAY_HUD_HOME_SHOT_COLUMN,
+            TECMO_GAMEPLAY_HUD_SHOT_WIDTH,
+            scene->state.shot_clock) ||
+        !scene_hud_put_player_name(
+            scene, &prepared,
+            TECMO_GAMEPLAY_HUD_AWAY_PLAYER_COLUMN,
+            scene->pretip_team_data
+                ->players[scene->launch.away_team]
+                         [scene->actors[selected[TECMO_GAMEPLAY_TEAM_AWAY]]
+                              .roster_index]
+                .name) ||
+        !scene_hud_put_player_name(
+            scene, &prepared,
+            TECMO_GAMEPLAY_HUD_HOME_PLAYER_COLUMN,
+            scene->pretip_team_data
+                ->players[scene->launch.home_team]
+                         [scene->actors[selected[TECMO_GAMEPLAY_TEAM_HOME]]
+                              .roster_index]
+                .name)) {
+        return false;
+    }
+    for (row = 0U; row < TECMO_GAMEPLAY_HUD_VISIBLE_ROW_COUNT; ++row) {
+        for (column = 0U; column < TECMO_GAMEPLAY_HUD_COLUMN_COUNT;
+             ++column) {
+            if (prepared.occupied[row][column] &&
+                !prepared.chr_resolved[row][column] &&
+                !scene_background_tile_chr(
+                    scene, context,
+                    TECMO_GAMEPLAY_HUD_PRIMARY_ROW + row,
+                    prepared.tiles[row][column],
+                    &prepared.chr_offsets[row][column])) {
+                return false;
+            }
+        }
+    }
+    *prepared_out = prepared;
+    return true;
+}
+
+static void scene_draw_live_hud(
+    const TecmoGameplayScene *scene, TecmoFramebuffer *view,
+    const TecmoGameplayPreparedHud *prepared, int scale)
+{
+    uint32_t palette[4];
+    uint32_t backing;
+    unsigned row;
+    unsigned column;
+    size_t color;
+    palette[0] = tecmo_nes_2c02_rgba(scene->court.palette[0]);
+    backing = tecmo_nes_2c02_rgba(scene->court.palette[1]);
+    for (color = 1U; color < 4U; ++color) {
+        palette[color] = tecmo_nes_2c02_rgba(scene->court.palette[color]);
+    }
+    for (row = 0U; row < TECMO_GAMEPLAY_HUD_VISIBLE_ROW_COUNT; ++row) {
+        for (column = 0U; column < TECMO_GAMEPLAY_HUD_COLUMN_COUNT;
+             ++column) {
+            if (!prepared->occupied[row][column]) continue;
+            /* The captured live nametable presents every dynamic HUD cell on
+               the palette's black backing. Clear the replaced cell before
+               drawing because the shared CHR helper treats color zero as
+               transparent for sprite composition. */
+            scene_fill_rect(
+                view, (int)column * 8 * scale,
+                (int)(TECMO_GAMEPLAY_HUD_PRIMARY_ROW + row) * 8 * scale,
+                8 * scale, 8 * scale, backing);
+            tecmo_draw_chr_tile_at_offset_ex(
+                view, scene->assets.chr_storage,
+                scene->assets.chr_storage_size,
+                prepared->chr_offsets[row][column],
+                (int)column * 8 * scale,
+                (int)(TECMO_GAMEPLAY_HUD_PRIMARY_ROW + row) * 8 * scale,
+                scale, palette, false, false);
+        }
+    }
+}
+
 static bool scene_framebuffer_subview(
     TecmoFramebuffer *framebuffer,
     int origin_x,
@@ -3700,18 +4084,65 @@ static bool scene_framebuffer_subview(
     return true;
 }
 
+static bool scene_actor_palette_binding(const TecmoGameplayScene *scene,
+                                        size_t actor_index,
+                                        uint8_t *palette_group_out,
+                                        uint8_t *uniform_color_out)
+{
+    uint8_t uniform_colors[TECMO_GAMEPLAY_TEAM_COUNT];
+    uint8_t team_id;
+    uint8_t palette_group;
+    uint8_t uniform_color;
+    const TecmoGameplaySceneActor *actor;
+    const TecmoTeamDataPlayer *player;
+    if (scene == NULL || palette_group_out == NULL ||
+        uniform_color_out == NULL ||
+        scene->pretip_team_data == NULL ||
+        actor_index >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        !tecmo_team_data_resolve_gameplay_uniform_colors(
+            scene->pretip_team_data, scene->launch.away_team,
+            scene->launch.home_team, uniform_colors)) {
+        return false;
+    }
+    actor = &scene->actors[actor_index];
+    if (actor->team >= TECMO_GAMEPLAY_TEAM_COUNT ||
+        actor->roster_index >= TECMO_TEAM_DATA_PLAYERS_PER_TEAM) {
+        return false;
+    }
+    team_id = actor->team == TECMO_GAMEPLAY_TEAM_AWAY
+                  ? scene->launch.away_team : scene->launch.home_team;
+    if (team_id >= TECMO_TEAM_DATA_TEAM_COUNT) return false;
+    player = &scene->pretip_team_data->players[team_id][actor->roster_index];
+    /* Bank02 $A8AE-$A8C9 rotates profile byte 2 bit 7 into $04B0 bit 0.
+       Bank01 $B0ED then selects $B138/$B148 with that exact bit. */
+    palette_group = (uint8_t)((player->profile[2U] & 0x80U) >> 7U);
+    uniform_color = uniform_colors[actor->team];
+    if (palette_group >= TECMO_GAMEPLAY_ASSET_PALETTE_GROUP_COUNT ||
+        uniform_color > 0x3FU) {
+        return false;
+    }
+    *palette_group_out = palette_group;
+    *uniform_color_out = uniform_color;
+    return true;
+}
+
 static bool scene_resolve_pose(const TecmoGameplayScene *scene,
                                uint16_t pointer_index,
                                uint8_t actor_slot_base,
-                               uint8_t team,
+                               uint8_t actor_attributes,
+                               uint8_t palette_group,
+                               bool apply_uniform_color,
+                               uint8_t uniform_color,
                                TecmoGameplayResolvedPose *pose)
 {
     TecmoGameplayPoseContext context;
     TecmoGameplayResolvedPose first;
     memset(&context, 0, sizeof(context));
     context.actor_slot_base = actor_slot_base;
-    context.actor_attributes = 0U;
-    context.palette_group = team;
+    context.actor_attributes = actor_attributes;
+    context.palette_group = palette_group;
+    context.uniform_color = uniform_color;
+    context.apply_uniform_color = apply_uniform_color;
     context.mmc3_r2_r5[0] = 0x40U;
     context.mmc3_r2_r5[1] = 0x41U;
     context.mmc3_r2_r5[2] = 0x42U;
@@ -3724,6 +4155,29 @@ static bool scene_resolve_pose(const TecmoGameplayScene *scene,
         first.record_tag;
     return tecmo_gameplay_assets_resolve_pose(&scene->assets, pointer_index,
                                               &context, pose);
+}
+
+static bool scene_resolve_actor_pose(const TecmoGameplayScene *scene,
+                                     size_t actor_index,
+                                     TecmoGameplayResolvedPose *pose)
+{
+    uint8_t palette_group;
+    uint8_t uniform_color;
+    uint8_t actor_attributes;
+    const TecmoGameplaySceneActor *actor;
+    if (scene == NULL || actor_index >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+        return false;
+    }
+    actor = &scene->actors[actor_index];
+    if (actor->team >= TECMO_GAMEPLAY_TEAM_COUNT ||
+        !scene_actor_palette_binding(scene, actor_index, &palette_group,
+                                     &uniform_color)) {
+        return false;
+    }
+    actor_attributes = (uint8_t)(palette_group | (actor->team << 1U));
+    return scene_resolve_pose(scene, actor->pose_index, 0x41U,
+                              actor_attributes, palette_group, true,
+                              uniform_color, pose);
 }
 
 bool tecmo_gameplay_scene_in_dunk_presentation(
@@ -3761,9 +4215,13 @@ static bool scene_draw_dunk_presentation(
 {
     uint8_t stage;
     uint8_t side;
+    uint8_t palette_group;
+    uint8_t uniform_color;
     if (scene->shot_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         scene->actors[scene->shot_actor].team >=
-            TECMO_GAMEPLAY_DUNK_SIDE_COUNT) {
+            TECMO_GAMEPLAY_DUNK_SIDE_COUNT ||
+        !scene_actor_palette_binding(scene, scene->shot_actor,
+                                     &palette_group, &uniform_color)) {
         return false;
     }
     side = scene->actors[scene->shot_actor].team;
@@ -3774,7 +4232,8 @@ static bool scene_draw_dunk_presentation(
                tecmo_gameplay_dunk_cutaway_draw(
                    &scene->dunk_cutaway, scene->assets.chr_storage,
                    scene->assets.chr_storage_size, framebuffer,
-                   origin_x, origin_y, scale, side, 1U, 0x30U, stage);
+                   origin_x, origin_y, scale, side, palette_group,
+                   uniform_color, stage);
     }
     scene_fill_rect(framebuffer, origin_x, origin_y,
                     TECMO_GAMEPLAY_SCENE_NES_WIDTH * scale,
@@ -4215,9 +4674,11 @@ bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
     TecmoGameplayLiveBackgroundContext background_context;
     TecmoGameplaySceneCourtFrame court_frame;
     TecmoFramebuffer view;
+    TecmoGameplayPreparedHud prepared_hud;
     TecmoGameplayResolvedPose actor_poses[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     TecmoGameplayResolvedPose ball_pose;
     uint8_t order[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    bool draw_live_hud;
     unsigned row;
     unsigned column;
     size_t actor;
@@ -4281,6 +4742,8 @@ bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
             TECMO_GAMEPLAY_COURT_VIEWPORT_TILE_STRIDE) {
         return false;
     }
+    draw_live_hud = include_actors && scene->active &&
+                    !tecmo_gameplay_scene_in_pretip(scene);
     for (row = 0U; row < TECMO_GAMEPLAY_COURT_WORLD_HEIGHT_TILES; ++row) {
         for (column = 0U;
              column < court_frame.slice.viewport.column_count;
@@ -4299,17 +4762,21 @@ bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
             }
         }
     }
+    if (draw_live_hud &&
+        !scene_prepare_live_hud(
+            scene, &background_context, &prepared_hud)) {
+        return false;
+    }
     if (include_actors && scene->active) {
         for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
             order[actor] = (uint8_t)actor;
-            if (!scene_resolve_pose(scene, scene->actors[actor].pose_index,
-                                    0x41U, scene->actors[actor].team,
-                                    &actor_poses[actor])) {
+            if (!scene_resolve_actor_pose(scene, actor,
+                                          &actor_poses[actor])) {
                 return false;
             }
         }
         if (!scene_resolve_pose(scene, TECMO_GAMEPLAY_BALL_POSE, 0xC1U,
-                                0U, &ball_pose)) {
+                                0U, 0U, false, 0U, &ball_pose)) {
             return false;
         }
     }
@@ -4344,6 +4811,9 @@ bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
                 (int)row * 8 * scale,
                 scale, palette, false, false);
         }
+    }
+    if (draw_live_hud) {
+        scene_draw_live_hud(scene, &view, &prepared_hud, scale);
     }
     if (!include_actors || !scene->active) return true;
 
@@ -4399,6 +4869,145 @@ static void scene_test_message(char *message, size_t message_size,
     if (message != NULL && message_size > 0U) {
         (void)snprintf(message, message_size, "%s", text);
     }
+}
+
+static bool scene_test_live_hud_contract(
+    const TecmoGameplayScene *scene)
+{
+    TecmoGameplayLiveBackgroundContext context;
+    TecmoGameplayPreparedHud prepared;
+    TecmoGameplayPreparedHud dynamic_prepared;
+    TecmoGameplayScene dynamic;
+    size_t row;
+    size_t column;
+    size_t occupied[TECMO_GAMEPLAY_HUD_VISIBLE_ROW_COUNT] = {0U, 0U};
+    const uint8_t *font;
+    unsigned char selected_initial;
+    uint8_t selected_roster;
+    if (scene == NULL || !scene_build_background_context(scene, &context) ||
+        !scene_prepare_live_hud(scene, &context, &prepared)) {
+        return false;
+    }
+    font = scene->hud_assets.font_tiles;
+    for (row = 0U; row < TECMO_GAMEPLAY_HUD_VISIBLE_ROW_COUNT; ++row) {
+        for (column = 0U; column < TECMO_GAMEPLAY_HUD_COLUMN_COUNT;
+             ++column) {
+            if (!prepared.occupied[row][column]) continue;
+            ++occupied[row];
+            if (prepared.chr_offsets[row][column] >
+                    scene->assets.chr_storage_size ||
+                scene->assets.chr_storage_size -
+                        prepared.chr_offsets[row][column] < 16U) {
+                return false;
+            }
+        }
+    }
+    selected_roster = scene->actors[scene->controlled_actor[0U]].roster_index;
+    selected_initial = (unsigned char)
+        scene->pretip_team_data
+            ->players[scene->launch.away_team][selected_roster].name[0U];
+    if (occupied[0U] != 21U || occupied[1U] != 26U ||
+        memcmp(&prepared.tiles[0U][1U],
+               scene->hud_assets.team_label_tiles[scene->launch.away_team],
+               TECMO_GAMEPLAY_HUD_TEAM_LABEL_WIDTH) != 0 ||
+        memcmp(&prepared.tiles[0U][23U],
+               scene->hud_assets.team_label_tiles[scene->launch.home_team],
+               TECMO_GAMEPLAY_HUD_TEAM_LABEL_WIDTH) != 0 ||
+        prepared.tiles[0U][6U] !=
+            font['0' - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        prepared.tiles[0U][13U] !=
+            font['0' - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        prepared.tiles[0U][14U] !=
+            font['2' - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        prepared.tiles[0U][15U] != TECMO_GAMEPLAY_HUD_COLON_TILE ||
+        prepared.tiles[1U][1U] !=
+            font['2' - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        prepared.tiles[1U][2U] !=
+            font['4' - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        prepared.tiles[1U][4U] !=
+            font[selected_initial - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        prepared.tiles[1U][5U] !=
+            font['.' - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        prepared.chr_offsets[1U][4U] !=
+            scene->pretip_team_data->font[
+                selected_initial - TECMO_GAMEPLAY_HUD_FONT_FIRST]
+                .chr_offset) {
+        return false;
+    }
+
+    dynamic = *scene;
+    dynamic.state.score[TECMO_GAMEPLAY_TEAM_AWAY] = 123U;
+    dynamic.state.score[TECMO_GAMEPLAY_TEAM_HOME] = UINT16_MAX;
+    dynamic.state.clock_minutes = 1U;
+    dynamic.state.clock_seconds = 23U;
+    dynamic.state.shot_clock = 9U;
+    if (!scene_build_background_context(&dynamic, &context) ||
+        !scene_prepare_live_hud(
+            &dynamic, &context, &dynamic_prepared) ||
+        dynamic_prepared.tiles[0U][6U] !=
+            font['1' - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        dynamic_prepared.tiles[0U][7U] !=
+            font['2' - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        dynamic_prepared.tiles[0U][8U] !=
+            font['3' - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        dynamic_prepared.tiles[0U][13U] !=
+            font['0' - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        dynamic_prepared.tiles[0U][14U] !=
+            font['1' - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        dynamic_prepared.tiles[0U][16U] !=
+            font['2' - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        dynamic_prepared.tiles[0U][17U] !=
+            font['3' - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        dynamic_prepared.tiles[0U][28U] !=
+            font['9' - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        dynamic_prepared.tiles[0U][29U] !=
+            font['9' - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        dynamic_prepared.tiles[0U][30U] !=
+            font['9' - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        dynamic_prepared.tiles[1U][1U] !=
+            font['0' - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        dynamic_prepared.tiles[1U][2U] !=
+            font['9' - TECMO_GAMEPLAY_HUD_FONT_FIRST]) {
+        return false;
+    }
+
+    dynamic = *scene;
+    dynamic.ball_holder = 1U;
+    dynamic.controlled_actor[0U] = 1U;
+    if (!scene_attach_ball(&dynamic) ||
+        !scene_build_background_context(&dynamic, &context) ||
+        !scene_prepare_live_hud(
+            &dynamic, &context, &dynamic_prepared)) {
+        return false;
+    }
+    selected_roster = dynamic.actors[1U].roster_index;
+    selected_initial = (unsigned char)
+        dynamic.pretip_team_data
+            ->players[dynamic.launch.away_team][selected_roster].name[0U];
+    return dynamic_prepared.tiles[1U][4U] ==
+               font[selected_initial - TECMO_GAMEPLAY_HUD_FONT_FIRST] &&
+           dynamic_prepared.chr_offsets[1U][4U] ==
+               dynamic.pretip_team_data->font[
+                   selected_initial - TECMO_GAMEPLAY_HUD_FONT_FIRST]
+                   .chr_offset;
+}
+
+static bool scene_test_live_hud_equal(
+    const TecmoGameplayScene *left,
+    const TecmoGameplayScene *right)
+{
+    TecmoGameplayLiveBackgroundContext left_context;
+    TecmoGameplayLiveBackgroundContext right_context;
+    TecmoGameplayPreparedHud left_hud;
+    TecmoGameplayPreparedHud right_hud;
+    if (left == NULL || right == NULL ||
+        !scene_build_background_context(left, &left_context) ||
+        !scene_build_background_context(right, &right_context) ||
+        !scene_prepare_live_hud(left, &left_context, &left_hud) ||
+        !scene_prepare_live_hud(right, &right_context, &right_hud)) {
+        return false;
+    }
+    return memcmp(&left_hud, &right_hud, sizeof(left_hud)) == 0;
 }
 
 static bool scene_test_projection_is_neutral(
@@ -5761,17 +6370,45 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
-    if (!scene_resolve_pose(
-            &scene, scene.actors[0].pose_index, 0x41U,
-            TECMO_GAMEPLAY_TEAM_AWAY, &resolved_pose) ||
+    if (!scene_test_live_hud_contract(&scene)) {
+        scene_test_message(
+            message, message_size,
+            "THUD live score/player/clock projection contract failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    if (!scene_resolve_actor_pose(&scene, 0U, &resolved_pose) ||
         resolved_pose.record_tag != 0x25U ||
         resolved_pose.mmc3_r2_r5[1] != 0x25U ||
         resolved_pose.piece_count != 4U ||
+        resolved_pose.palette_group != 1U ||
+        resolved_pose.actor_attributes != 1U ||
+        resolved_pose.pieces[0].palette_index != 1U ||
+        !resolved_pose.uniform_color_applied ||
+        resolved_pose.uniform_color != 0x30U ||
+        memcmp(resolved_pose.palette,
+               "\x1B\x0F\x16\x26\x1B\x0F\x30\x30"
+               "\x1B\x30\x16\x26\x1B\x00\x26\x07", 16U) != 0 ||
+        !scene_resolve_actor_pose(
+            &scene, TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT,
+            &resolved_pose) ||
+        resolved_pose.palette_group != 1U ||
+        resolved_pose.actor_attributes != 3U ||
+        resolved_pose.pieces[0].palette_index != 3U ||
+        memcmp(resolved_pose.pieces[0].palette,
+               "\x1B\x3A\x26\x07", 4U) != 0 ||
+        !resolved_pose.uniform_color_applied ||
+        resolved_pose.uniform_color != 0x2AU ||
+        memcmp(resolved_pose.palette,
+               "\x1B\x0F\x16\x26\x1B\x0F\x2A\x2A"
+               "\x1B\x2A\x16\x26\x1B\x3A\x26\x07", 16U) != 0 ||
         !scene_resolve_pose(
-            &scene, TECMO_GAMEPLAY_BALL_POSE, 0xC1U,
-            TECMO_GAMEPLAY_TEAM_AWAY, &resolved_pose) ||
+            &scene, TECMO_GAMEPLAY_BALL_POSE, 0xC1U, 0U, 0U, false, 0U,
+            &resolved_pose) ||
         resolved_pose.record_tag != 0x81U ||
         resolved_pose.mmc3_r2_r5[3] != 0x81U ||
+        resolved_pose.uniform_color_applied ||
+        resolved_pose.uniform_color != 0U ||
         resolved_pose.piece_count != 1U ||
         resolved_pose.pieces[0].top_chr_offset != 0x20400U) {
         scene_test_message(
@@ -6232,6 +6869,14 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
+    if (!scene_test_live_hud_equal(&scene, &left_slice_probe) ||
+        !scene_test_live_hud_equal(&scene, &right_slice_probe)) {
+        scene_test_message(
+            message, message_size,
+            "live HUD changed across possession camera endpoints");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
 
     camera_probe = scene;
     memset(&p1, 0, sizeof(p1));
@@ -6586,6 +7231,19 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
         scene_test_message(
             message, message_size,
             "invalid live camera partially rendered");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    draw_probe = scene;
+    draw_probe.hud_assets.available = false;
+    if (tecmo_gameplay_scene_draw(
+            &draw_probe, &framebuffer, 0, 0, 1, true) ||
+        !scene_test_pixels_equal(
+            pixels, pixel_count, 0xA5A5A5A5U)) {
+        free(pixels);
+        scene_test_message(
+            message, message_size,
+            "unavailable THUD asset partially rendered live scene");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }

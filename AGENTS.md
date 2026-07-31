@@ -735,10 +735,23 @@ directions/profiles and outcomes, ordinary two-point makes, the longer +157-upda
 semantic rebounds/blocks/steals, general make/contact rules, the distance policy
 selecting dunk/variant 0 versus layup/variant 2, live close-shot
 profile/direction selection and left-facing render
-mirroring, dynamic team/court palette selection, foul detection, live
+mirroring, dynamic court palette selection beyond the imported TGCT data, foul detection, live
 free-throw camera/full-court projection and lineup
 integration/aim/outcome/rebound and CPU
-positioning/script behavior, and HUD text are explicit native approximations.
+positioning/script behavior, plus the HUD's fixed-column and unassigned-CPU
+actor-selection adapters are explicit native approximations. HUD typography is
+not: THUD-1 owns the exact Bank01 team marks, Bank02 character map, and Bank02
+initial/surname formatter.
+
+Live player palette selection is no longer part of that approximation list.
+Bank02 `$A8AE-$A8C9` rotates selected roster profile byte 2 bit 7 into
+`$04B0` bit 0, the second side adds bit 1, and fixed `$F1F2-$F24C` passes
+`$04B0 & 3` into the `$D413` OAM compositor. Bank01 `$B0ED-$B133` selects
+base group `$B138/$B148` with bit 0 and injects the bit-1 side's uniform
+color. Fixed `$DEAB-$DEDF` chooses away `$30`, Lakers-away `$38`, or the
+29-entry home table `$DC19-$DC35`. Production live actors and TGDK cutaways
+use this exact profile/side/color binding. The scene's fixed slots 0..4 lineup
+selection remains native policy; that does not make starter selection exact.
 
 Every gameplay launch now enters strict `gameplay/pre-tip` TPTI-1 before live
 updates. TPTI-1 is 5888 bytes / FNV1a32 `99ADFE3D`, has 20 exact Rev1 source
@@ -796,10 +809,12 @@ cutaway 28-62, black/rebuild 63-70, live return 71, A9C5 at 87, and action
 settlement at 132. Stage 0 is assigned at 27 and first visible at 28; later
 assignments at 32/37/42/47/52/57 are visible on those captured frames. Frame 63
 is black even though the last staged OAM remains, and frame 64 clears it.
-Profile 1 with uniform `$30` is the exact bounded checkpoint; dynamic matchup
-profile/uniform selection remains unresolved.
+Profile 1 with uniform `$30` remains the standalone exact bounded checkpoint.
+Production selection is now exact for the scene's currently bound roster slot:
+profile byte 2 bit 7 selects the group and fixed `$DEAB-$DEDF` plus
+`$DC19-$DC35` select the away/home uniform color.
 The imported TGCT palette bytes and embedded FCEUX RGB profile are exact; that
-does not imply frame-identical matchup/state palette selection. The high-level
+does not imply frame-identical non-player state palette selection. The high-level
 mapping is proven as variant 0 = dunk and variant 2 = layup; low-level TGCS
 APIs and fields retain those numeric ROM identities. The local save states,
 FCEUX traces, and screenshots used for correlation remain ignored verification
@@ -810,7 +825,7 @@ material, not committed provenance or runtime input. See
 
 The scene must obtain TGPL-1 `gameplay/core`, TGCT-1 `gameplay/court`, TGCP-2
 `gameplay/camera-projection`, TGMO-1 `gameplay/movement`, TGOR-1
-`gameplay/court-orientation`, TGCS-1
+`gameplay/court-orientation`, THUD-1 `gameplay/hud`, TGCS-1
 `gameplay/close-shots`, TGDK-1 `gameplay/dunk-cutaway`,
 TGJS-2 `gameplay/jump-shots` (2776 bytes,
 `A66EE873`), TGSR-3 `gameplay/shot-resolution` (512 bytes, `164DC568`),
@@ -821,6 +836,19 @@ checks, CHR revision fingerprints, the music asset's selected pack path, and
 source-map provenance fail closed before the scene is marked available. Drawing
 preflights every court cell and actor/ball pose so a rejected frame leaves the
 destination untouched.
+
+THUD-1 is 864 bytes / FNV1a32 `3D13AA89` and requires exact same-pack TGPL-1,
+TTDT-1, and `chr/all`. Its three exact Rev1 spans are Bank01 `$BDF0-$BE1E`,
+Bank01 `$BE1F-$BECC`, and Bank02 `$AF64-$B07B`. Preserve the exact 29x5 team
+marks, `$2041/$2057` destinations, `$20-$5A` character map, and
+initial-dot-nine-surname formatter. Every character tile must match TTDT-1's
+strict `$FA` CHR record. The scene owns the fixed two-row overlay and must
+preflight it before modifying the framebuffer; the score, clock, shot clocks,
+and selected-player labels must not move with TGCP. The non-team tile columns,
+colon `$16`, black backing, and live `$FA` top-row binding are reference-bounded
+presentation facts, not decoded placement routines. Three-digit score capping
+and the holder/shooter matchup fallback for an unassigned CPU side are native
+adapter policies. Do not call those policies ROM-exact.
 
 TGAI-1 is built into the same ROM-derived pack for isolated inspection, but it
 must remain absent from this production scene dependency set until the missing

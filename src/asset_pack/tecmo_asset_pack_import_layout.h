@@ -1185,7 +1185,8 @@ typedef struct TecmoTeamDataProvenance {
     uint64_t fixed_metatile_tiles_offset;
     uint64_t fixed_metatile_attribute_offset;
     uint64_t fixed_compositor_offset;
-    uint64_t fixed_portrait_selector_offset;
+    uint64_t fixed_home_uniform_colors_offset;
+    uint64_t fixed_gameplay_uniform_setup_offset;
     uint64_t descriptor_offsets[TECMO_ASSET_PACK_TEAM_DATA_SCREEN_COUNT];
     uint64_t stream_offsets[TECMO_ASSET_PACK_TEAM_DATA_SCREEN_COUNT];
     uint64_t stream_sizes[TECMO_ASSET_PACK_TEAM_DATA_SCREEN_COUNT];

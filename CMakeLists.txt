@@ -17,6 +17,7 @@ set(TECMO_PORT_SOURCES
     src/asset_pack/tecmo_asset_pack_gameplay_camera.c
     src/asset_pack/tecmo_asset_pack_gameplay_movement.c
     src/asset_pack/tecmo_asset_pack_gameplay_cpu_steering.c
+    src/asset_pack/tecmo_asset_pack_gameplay_hud.c
     src/asset_pack/tecmo_asset_pack_gameplay_close_shots.c
     src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c
     src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c
@@ -53,6 +54,7 @@ set(TECMO_PORT_SOURCES
     src/tecmo_gameplay_camera.c
     src/tecmo_gameplay_movement.c
     src/tecmo_gameplay_cpu_steering.c
+    src/tecmo_gameplay_hud.c
     src/tecmo_gameplay_close_shots.c
     src/tecmo_gameplay_dunk_cutaway.c
     src/tecmo_gameplay_jump_shots.c

@@ -5,6 +5,7 @@
 #include "asset_pack/tecmo_asset_pack_gameplay_camera.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_movement.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_cpu_steering.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_hud.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_court_orientation.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.h"
 #include "asset_pack/tecmo_asset_pack_music.h"
@@ -17,6 +18,7 @@
 #include "tecmo_gameplay_camera.h"
 #include "tecmo_gameplay_movement.h"
 #include "tecmo_gameplay_cpu_steering.h"
+#include "tecmo_gameplay_hud.h"
 #include "tecmo_gameplay_court.h"
 #include "tecmo_gameplay_court_orientation.h"
 #include "tecmo_gameplay_close_shots.h"
@@ -68,7 +70,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-pretip-test PACK  Validate strict TPTI-1 pre-tip assets/state\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render menus, intro scenes, or strict gameplay-start/pretip-frameN/live-start/possession-left|center|right/free-throw-left|right/jump-frameN/dunk-frameN checkpoints to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render menus, intro scenes, or strict gameplay-start/pretip-frameN/live-start/uniform-pacers/possession-left|center|right/free-throw-left|right/jump-frameN/dunk-frameN checkpoints to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --build-assetpack ROM PATH  Build a private .assetpack from an iNES ROM only; no decomp/capture imports\n");
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
@@ -80,6 +82,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-movement-test PACK  Validate strict TGMO-1 controlled-player movement\n");
     printf("  --gameplay-movement-harness PACK TEAM ROSTER X Y SPEED POSSESSION ORIENTATION INPUT FRAMES  Trace deterministic developer-only movement\n");
     printf("  --gameplay-cpu-steering-test PACK  Validate isolated TGAI-1 command/direction evidence\n");
+    printf("  --gameplay-hud-test PACK  Validate strict THUD-1 live scoreboard assets\n");
     printf("  --gameplay-cpu-steering-inspect PACK OFFSET DX DY  Decode one command and exact direction vector (console only)\n");
     printf("  --gameplay-cpu-steering-harness PACK ACTOR POSSESSION ORIENTATION HOLDER MATCHUP DIFFICULTY X0,Y0 ... X9,Y9  Evaluate one complete court snapshot (console only)\n");
     printf("  --gameplay-cpu-steering-movement-harness PACK ACTOR POSSESSION ORIENTATION HOLDER MATCHUP DIFFICULTY RATING CONDITION SPEED FRAMES X0,Y0 ... X9,Y9  Feed CPU direction into TGMO (console only)\n");
@@ -964,6 +967,8 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     TecmoInput input;
     unsigned checkpoint = 0U;
     unsigned update;
+    uint8_t away_team = 0U;
+    uint8_t home_team = 1U;
     bool jump = false;
     bool jump_make = false;
     bool jump_rattle = false;
@@ -982,6 +987,11 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
         pretip_checkpoint = true;
     } else if (strcmp(mode_name, "gameplay-live-start") == 0) {
         checkpoint = 691U;
+        live_start = true;
+    } else if (strcmp(mode_name, "gameplay-uniform-pacers") == 0) {
+        checkpoint = 691U;
+        away_team = 3U;
+        home_team = 10U;
         live_start = true;
     } else if (strcmp(mode_name, "gameplay-possession-left") == 0) {
         checkpoint = 691U;
@@ -1029,8 +1039,8 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
 
     memset(&launch, 0, sizeof(launch));
     launch.source = TECMO_GAMEPLAY_SCENE_PRESEASON;
-    launch.away_team = 0U;
-    launch.home_team = 1U;
+    launch.away_team = away_team;
+    launch.home_team = home_team;
     launch.regulation_minutes = 3U;
     launch.difficulty = 1U;
     launch.control_mode = 1U;
@@ -1931,6 +1941,18 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (strcmp(command, "--gameplay-hud-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        char message[256];
+        if (!tecmo_gameplay_hud_self_test(
+                pack_path, message, sizeof(message))) {
+            printf("Gameplay HUD asset test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
     if (strcmp(command, "--gameplay-cpu-steering-inspect") == 0) {
         return run_gameplay_cpu_steering_inspect(argc, argv, index);
     }
@@ -1999,6 +2021,19 @@ int main(int argc, char **argv)
                 rom_path, message, sizeof(message)) != 0) {
             printf("Gameplay CPU steering source test failed: %s\n",
                    message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    /* Developer-only isolated importer gate for the THUD mutation suite. */
+    if (strcmp(command, "--gameplay-hud-source-test") == 0) {
+        const char *rom_path = index < argc ? argv[index] : NULL;
+        char message[256];
+        if (tecmo_asset_pack_gameplay_hud_source_test(
+                rom_path, message, sizeof(message)) != 0) {
+            printf("Gameplay HUD source test failed: %s\n", message);
             return 1;
         }
         printf("%s\n", message);
@@ -2174,6 +2209,8 @@ int main(int argc, char **argv)
                 (uint8_t)(1U + (pointer % 4U) * 0x40U);
             pose_context.actor_attributes = (uint8_t)(pointer % 4U);
             pose_context.palette_group = (uint8_t)(pointer % 2U);
+            pose_context.uniform_color = (uint8_t)(pointer & 0x3FU);
+            pose_context.apply_uniform_color = true;
             pose_context.mmc3_r2_r5[0] = 0x40U;
             pose_context.mmc3_r2_r5[1] = 0x41U;
             pose_context.mmc3_r2_r5[2] = 0x42U;
@@ -2191,6 +2228,8 @@ int main(int argc, char **argv)
         pose_context.actor_slot_base = 0x01U;
         pose_context.actor_attributes = 0x02U;
         pose_context.palette_group = 0U;
+        pose_context.uniform_color = 0x2AU;
+        pose_context.apply_uniform_color = true;
         pose_context.mmc3_r2_r5[0] = 0x40U;
         pose_context.mmc3_r2_r5[1] = 0x41U;
         pose_context.mmc3_r2_r5[2] = 0x42U;
@@ -2206,11 +2245,16 @@ int main(int argc, char **argv)
             pose.pieces[0].palette_index != 2U ||
             pose.pieces[0].top_chr_offset != 0x10020U ||
             pose.pieces[0].bottom_chr_offset != 0x10030U ||
+            pose.uniform_color != 0x2AU ||
+            !pose.uniform_color_applied ||
+            memcmp(pose.palette,
+                   "\x1B\x0F\x26\x36\x1B\x0F\x2A\x2A"
+                   "\x1B\x2A\x26\x36\x1B\x3A\x37\x07", 16U) != 0 ||
             memcmp(pose.pieces[0].top_chr,
                    "\x00\x00\x00\x00\x00\x00\x80\x40"
                    "\x00\x00\x00\x00\x00\x00\x00\x80", 16U) != 0 ||
             memcmp(pose.pieces[0].palette,
-                   "\x1B\x01\x26\x36", 4U) != 0) {
+                   "\x1B\x2A\x26\x36", 4U) != 0) {
             printf("Gameplay asset test failed: $D413 pose golden mismatch\n");
             tecmo_gameplay_assets_destroy(&assets);
             return 1;
@@ -2234,6 +2278,22 @@ int main(int argc, char **argv)
         if (tecmo_gameplay_assets_resolve_pose(
                 &assets, 16U, &pose_context, &pose)) {
             printf("Gameplay asset test failed: invalid actor attributes accepted\n");
+            tecmo_gameplay_assets_destroy(&assets);
+            return 1;
+        }
+        pose_context.actor_attributes = 0x02U;
+        pose_context.uniform_color = 0x40U;
+        if (tecmo_gameplay_assets_resolve_pose(
+                &assets, 16U, &pose_context, &pose)) {
+            printf("Gameplay asset test failed: invalid uniform color accepted\n");
+            tecmo_gameplay_assets_destroy(&assets);
+            return 1;
+        }
+        pose_context.uniform_color = 0x2AU;
+        pose_context.apply_uniform_color = false;
+        if (tecmo_gameplay_assets_resolve_pose(
+                &assets, 16U, &pose_context, &pose)) {
+            printf("Gameplay asset test failed: inactive uniform color accepted\n");
             tecmo_gameplay_assets_destroy(&assets);
             return 1;
         }

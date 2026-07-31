@@ -28,6 +28,15 @@
 #define TEAM_DATA_PLAYER_PORTRAIT_OFFSET 40U
 #define TEAM_DATA_PROFILE_PALETTES_OFFSET 128U
 
+/* Fixed $DC19-$DC35, indexed by the selected home-team ID. */
+static const uint8_t team_data_home_uniform_colors[
+    TECMO_TEAM_DATA_TEAM_COUNT] = {
+        0x15U, 0x2AU, 0x2BU, 0x15U, 0x21U, 0x21U, 0x21U, 0x21U,
+        0x21U, 0x15U, 0x11U, 0x15U, 0x13U, 0x0FU, 0x2AU, 0x21U,
+        0x21U, 0x21U, 0x0FU, 0x15U, 0x13U, 0x0FU, 0x21U, 0x0FU,
+        0x2AU, 0x13U, 0x15U, 0x15U, 0x15U
+};
+
 typedef enum TeamDataButton {
     TEAM_DATA_BUTTON_RIGHT = 0x01,
     TEAM_DATA_BUTTON_LEFT = 0x02,
@@ -318,6 +327,10 @@ static bool parse_payload(TecmoTeamDataAsset *asset,
             return false;
     }
 
+    if (fnv1a32(team_data_home_uniform_colors,
+                sizeof(team_data_home_uniform_colors)) != 0x1451114FU) {
+        return false;
+    }
     for (size_t team = 0U; team < TECMO_TEAM_DATA_TEAM_COUNT; ++team) {
         const uint8_t *source = bytes + TEAM_DATA_TEAMS_OFFSET + team * 40U;
         TecmoTeamDataTeam *dest = &asset->teams[team];
@@ -335,7 +348,9 @@ static bool parse_payload(TecmoTeamDataAsset *asset,
         dest->logo_count = source[38U];
         dest->logo_x = (uint8_t)((source[39U] & 0x0FU) * 16U);
         dest->profile_palette_group = (uint8_t)(source[39U] >> 4U);
-        if (dest->conference > 1U) return false;
+        dest->home_uniform_color = team_data_home_uniform_colors[team];
+        if (dest->conference > 1U || dest->home_uniform_color > 0x3FU)
+            return false;
         if (dest->profile_palette_group >=
                 TECMO_TEAM_DATA_PROFILE_PALETTE_COUNT ||
             (dest->logo_x != 16U && dest->logo_x != 32U))
@@ -1273,6 +1288,27 @@ uint8_t tecmo_team_data_meter_fill_length(const uint8_t profile[6],
     default: value = (uint8_t)((profile[5] & 0x0FU) * 8U); break;
     }
     return (uint8_t)(value + 4U);
+}
+
+bool tecmo_team_data_resolve_gameplay_uniform_colors(
+    const TecmoTeamDataAsset *asset,
+    uint8_t away_team,
+    uint8_t home_team,
+    uint8_t uniform_colors[2])
+{
+    uint8_t resolved[2];
+    if (asset == NULL || !asset->available || uniform_colors == NULL ||
+        away_team >= TECMO_TEAM_DATA_TEAM_COUNT ||
+        home_team >= TECMO_TEAM_DATA_TEAM_COUNT ||
+        asset->teams[home_team].home_uniform_color > 0x3FU) {
+        return false;
+    }
+    /* Fixed $DEAB-$DEDF uses white for every away team except LAL. */
+    resolved[0U] = away_team == TECMO_TEAM_DATA_LAKERS_TEAM_ID
+                       ? 0x38U : 0x30U;
+    resolved[1U] = asset->teams[home_team].home_uniform_color;
+    memcpy(uniform_colors, resolved, sizeof(resolved));
+    return true;
 }
 
 static void draw_player_portrait(TecmoFramebuffer *view,

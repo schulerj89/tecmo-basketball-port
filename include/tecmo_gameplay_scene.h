@@ -11,6 +11,7 @@
 #include "tecmo_gameplay_court_orientation.h"
 #include "tecmo_gameplay_dunk_cutaway.h"
 #include "tecmo_gameplay_free_throw_lineup.h"
+#include "tecmo_gameplay_hud.h"
 #include "tecmo_gameplay_jump_shots.h"
 #include "tecmo_gameplay_movement.h"
 #include "tecmo_gameplay_pretip.h"
@@ -156,6 +157,7 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayCourtOrientationAssets court_orientation;
     TecmoGameplayCourtOrientationState orientation_state;
     TecmoGameplayFreeThrowLineupAssets free_throw_lineup_assets;
+    TecmoGameplayHudAssets hud_assets;
     TecmoGameplayCloseShotAssets close_shots;
     TecmoGameplayDunkCutawayAssets dunk_cutaway;
     TecmoGameplayJumpShotAssets jump_shots;
@@ -222,8 +224,8 @@ typedef struct TecmoGameplayScene {
 /* Initialize exactly once before load/destroy. */
 void tecmo_gameplay_scene_init(TecmoGameplayScene *scene);
 
-/* Loads TGPL-1, TGCT-1, TGCP-2, TGMO-1, TGOR-1, TGFL-1, TGCS-1, TGDK-1, TGJS-2,
-   TGSR-3, TSFX-1, and TDMC-1 from one local pack.
+/* Loads TGPL-1, TGCT-1, TGCP-2, TGMO-1, TGOR-1, TGFL-1, THUD-1, TGCS-1,
+   TGDK-1, TGJS-2, TGSR-3, TSFX-1, and TDMC-1 from one local pack.
    `asset_pack_path` may be NULL to use the strict runtime search order.
    Runtime data is never read from decompilation/capture paths. */
 bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
@@ -266,14 +268,15 @@ void tecmo_gameplay_scene_end(TecmoGameplayScene *scene);
 bool tecmo_gameplay_scene_start_rim_rattle_debug(
     TecmoGameplayScene *scene);
 
-/* Draws a TGCT-1 world slice at the persistent TGCP-2 camera and projects
-   resolved ROM poses through that same camera. Live
+/* Draws a TGCT-1 world slice at the persistent TGCP-2 camera, projects
+   resolved ROM poses through that same camera, and overlays THUD-1's fixed
+   live scoreboard rows whenever dynamic actors are included. Live
    close-shot playback is deliberately limited to TGCS profile 0/direction 0;
    ordinary jump-shot playback is deliberately limited to the proven TGJS/TGSR
    away/right context's miss and three-point-make schedules. Actor mirroring,
    the make ball/camera path, and jump-ball geometry remain native
-   approximations, not mappings of unsupported ROM entries. HUD/presentation
-   text is supplied by the runtime overlay. */
+   approximations, not mappings of unsupported ROM entries. Presentation
+   banners beyond the two live HUD rows are supplied by the runtime overlay. */
 bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
                                TecmoFramebuffer *framebuffer,
                                int origin_x,

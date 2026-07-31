@@ -34,7 +34,7 @@ frame-identical recreation of on-court gameplay.
 | Team Data | Supported for team profiles, rosters, player detail, STARTERS, and PLAYBOOK; accumulated player-stat fields remain `.000`/zero until per-player accumulators are ported |
 | All Star | Partial: selectors work, but the route stops before game launch |
 | League Leaders | Partial: category navigation works; ranked player results remain unavailable until per-player season statistics are ported |
-| Gameplay | Playable full-game shell with a ROM-derived pre-tip presentation (exact cards and capture-bounded later staging), ROM-derived ordinary human movement, passing, defender switching, a ROM-derived full-court horizontal camera/world renderer, close shots, one bounded ordinary-jump miss/three-point-make context, clocks, periods, halftime, overtime/final, audio, and result handoff. The original CPU command transport, target handlers, and direction quantizer are now isolated in a strict test-only asset, but are not live-wired; pre-tip claim settlement, live foul/contact and free-throw outcomes, general shot selection, and live CPU AI remain approximate. Rim-rattle is diagnostic-only and is not selected by normal live misses |
+| Gameplay | Playable full-game shell with a ROM-derived pre-tip presentation (exact cards and capture-bounded later staging), ROM-derived ordinary human movement, passing, defender switching, a ROM-derived full-court horizontal camera/world renderer and live two-row scoreboard, close shots, one bounded ordinary-jump miss/three-point-make context, clocks, periods, halftime, overtime/final, audio, and result handoff. The original CPU command transport, target handlers, and direction quantizer are now isolated in a strict test-only asset, but are not live-wired; pre-tip claim settlement, live foul/contact and free-throw outcomes, general shot selection, and live CPU AI remain approximate. Rim-rattle is diagnostic-only and is not selected by normal live misses |
 
 Normal play is asset-pack-only. It does not load decompilation files, Lua
 traces, screenshots, save states, dumps, or emulator captures at runtime.
@@ -236,18 +236,42 @@ controlled-player movement and strict actor dispatcher/clamp,
 the test-only TGAI-1 CPU command transport, target-handler graph, direction
 quantizer, and transactional TGAI-to-TGMO movement adapter,
 TGOR-1 live possession-synchronized
-offensive direction and target selection, rules timing, and native
+offensive direction and target selection, THUD-1 live team/score/clock/player
+lettering, the Bank01/Bank02/fixed-bank live
+player palette recipe and all 29 home-team uniform colors, rules timing, and native
 music/SFX/DMC programs. Strict entries are loaded from the same
 revision-fingerprinted asset pack with exact-size and malformed-data checks.
+
+Live player colors now follow the original matchup path. Profile byte 2 bit 7
+selects Bank01 palette group `$B138/$B148`; `$04B0 & 3` selects the away/home
+OAM palette pair; fixed `$DEAB-$DEDF` supplies away `$30` (or Lakers `$38`)
+and the selected home color from `$DC19-$DC35`; `$B0ED-$B133` injects that
+uniform color and its light variant. The current five roster slots are still a
+native lineup policy, but the profile and team colors applied to those slots
+are ROM-exact. The same binding is used by live play and dunk cutaways.
+
+The fixed live HUD is backed by strict `gameplay/hud` THUD-1 (864 bytes,
+FNV1a32 `3D13AA89`). Bank01 supplies the exact 29 five-tile team marks and
+their two PPU destinations; Bank02 supplies the exact score/name character map
+and first-initial-plus-nine-tile-surname formatter. Every mapped character is
+cross-checked against the same-pack TTDT-1 `$FA` CHR record before the scene is
+available. The score, clock, duplicated shot clock, and selected-player labels
+remain fixed while TGCP moves the court. Team-mark destinations and character
+mappings are ROM-exact; the other tile columns, colon tile, black backing, and
+live `$FA` top-row binding are reference-verified bounds. Capping the wider C
+score at three visible digits and choosing a CPU-side label from the current
+holder/shooter matchup are native adapter policies, not reconstructed ROM
+selection logic.
 
 The live actor starting layout and current fixed five-player roster-slot
 binding, CPU command selection/movement/AI integration, pre-tip actor geometry,
 the exact original tip-claim settlement, general shot selection and make/miss policy,
-dynamic matchup palettes and uniforms, live
-close-shot profile/direction selection, left-facing mirroring, contact/foul
+live close-shot profile/direction selection, left-facing mirroring, contact/foul
 detection, free-throw simulation, rebounds, blocks, steals, per-player game
-statistics, and temporary HUD typography remain native approximations or are
-unsupported. `gameplay/penalties` TPNL-1 contains strict ROM-backed rule data,
+statistics, and the HUD's non-controller actor-selection/fixed-column adapter
+remain native approximations or are unsupported. The HUD font, team marks, and
+Bank02 name formatting are no longer approximation placeholders.
+`gameplay/penalties` TPNL-1 contains strict ROM-backed rule data,
 but the live scene's current contact/foul code does not consume it yet.
 Likewise, `gameplay/free-throw-lineup` TGFL-1 preserves raw world coordinates
 and now supplies the live free-throw positions for all ten actors in both

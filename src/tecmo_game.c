@@ -1517,32 +1517,8 @@ bool tecmo_render_gameplay_scene(const TecmoRuntime *runtime,
         tecmo_gameplay_scene_in_pretip(scene)) return true;
     if (!scene->active || !state->initialized) return true;
 
-    /* Dynamic HUD glyph parity remains a separate ROM-asset boundary. These
-       labels expose only native scene state over the exact static court. */
-    if (state->overtime_count != 0U) {
-        (void)snprintf(line, sizeof(line),
-                       "A%02u %03u H%02u %03u  %u:%02u OT%u SH%02u",
-                       (unsigned)scene->launch.away_team,
-                       (unsigned)state->score[TECMO_GAMEPLAY_TEAM_AWAY],
-                       (unsigned)scene->launch.home_team,
-                       (unsigned)state->score[TECMO_GAMEPLAY_TEAM_HOME],
-                       (unsigned)state->clock_minutes,
-                       (unsigned)state->clock_seconds,
-                       (unsigned)state->overtime_count,
-                       (unsigned)state->shot_clock);
-    } else {
-        (void)snprintf(line, sizeof(line),
-                       "A%02u %03u H%02u %03u  %u:%02u P%u SH%02u",
-                       (unsigned)scene->launch.away_team,
-                       (unsigned)state->score[TECMO_GAMEPLAY_TEAM_AWAY],
-                       (unsigned)scene->launch.home_team,
-                       (unsigned)state->score[TECMO_GAMEPLAY_TEAM_HOME],
-                       (unsigned)state->clock_minutes,
-                       (unsigned)state->clock_seconds,
-                        (unsigned)(state->period > 4U ? 4U : state->period),
-                       (unsigned)state->shot_clock);
-    }
-    draw_text(fb, 82, 12, line, rgb(248, 248, 232), 1);
+    /* The fixed live score/player/clock rows are rendered inside the native
+       256x240 scene from THUD-1. This host-font layer is presentation-only. */
     if (state->phase == TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION) {
         (void)snprintf(line, sizeof(line), "VIOLATION: %s",
                        tecmo_gameplay_violation_name(state->violation));

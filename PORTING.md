@@ -478,8 +478,9 @@ origins. ATL therefore resolves to the exact E4-backed 10x6 tile/palette matrix
 at `(16,48)` (pair fingerprint `6F28E5C6`), rather than a capture-derived image.
 Bank02 supplies rosters, profiles, direct All-Star player pointers, and the
 `$AD5B` ability-bar algorithm. Bank03 `$8D5C/$A25C/$B432`, Bank00
-`$8001/$8071`, and fixed `$C42E/$CAF1/$D5C5/$DC19` supply portrait selection,
-layout, metatiles, attributes, and composition. Bank01 `$BF1F` supplies the
+`$8001/$8071`, and fixed `$C42E/$CAF1/$D5C5` supply portrait selection,
+layout, metatiles, attributes, and composition. Fixed `$DC19-$DC35` is instead
+the exact 29-entry home gameplay-uniform color table. Bank01 `$BF1F` supplies the
 condition seed/threshold path. Source-map provenance records each focused span,
 screen descriptor/stream/palette, fixed input/loader/fade helper, and full CHR;
 no capture, trace, video, screenshot, log, dump, save state, Lua output, or
@@ -839,7 +840,8 @@ The compound scene strictly loads TGPL-1 `gameplay/core` (23416 bytes,
 `2047CCE0`), TGCT-1 `gameplay/court` (6559 bytes, `ECAB7A93`), TGCP-2
 `gameplay/camera-projection` (1536 bytes, `53247856`), TGMO-1
 `gameplay/movement` (1664 bytes, `6C82A137`), TGOR-1
-`gameplay/court-orientation` (640 bytes, `F9152C0A`), TGCS-1
+`gameplay/court-orientation` (640 bytes, `F9152C0A`), THUD-1
+`gameplay/hud` (864 bytes, `3D13AA89`), TGCS-1
 `gameplay/close-shots` (3144 bytes, `DACDC976`), TGDK-1
 `gameplay/dunk-cutaway` (20272 bytes, `E02F2D21`), TGJS-2
 `gameplay/jump-shots` (2776 bytes, `A66EE873`), TGSR-3
@@ -849,6 +851,32 @@ reads, payload/CHR fingerprints, deep indexes, reserved bytes, and source-map
 provenance are hard requirements. Missing, malformed, oversized,
 wrong-revision, or cross-pack data fails before availability; a draw preflight
 prevents partial framebuffer updates.
+
+Live actor palette binding follows the original byte path. Bank02
+`$A8AE-$A8C9` moves selected roster profile byte 2 bit 7 into `$04B0` bit 0;
+the second side adds bit 1. Fixed `$F1F2-$F24C` passes `$04B0 & 3` to the
+`$D413` compositor, so bit 0 selects the Bank01 `$B138/$B148` profile group
+and bits 0..1 select the correct away/home OAM subpalette. Fixed
+`$DEAB-$DEDF` selects away `$30`, Lakers-away `$38`, or the selected team's
+`$DC19-$DC35` home color. Bank01 `$B0ED-$B133` injects that color at offsets
+6, 7, and 9 and its `+ $10` six-bit light variant at offset 13. The scene uses
+this exact recipe for live actors and TGDK cutaways. Its fixed five roster
+slots remain native lineup policy, so do not describe starter selection as
+ROM-exact.
+
+THUD-1 owns the fixed live two-row scoreboard. Its exact Rev1 source spans are
+Bank01 `$BDF0-$BE1E` (writer and `$2041/$2057` destinations), Bank01
+`$BE1F-$BECC` (29 offsets plus 29 five-tile team marks), and Bank02
+`$AF64-$B07B` (digit writers, character maps, and the initial-dot-surname
+formatter). The parser cross-checks all 59 Bank02 character tiles against the
+same-pack TTDT-1 `$FA` font records and exact `chr/all` offsets. Rendering is
+screen-fixed and is prepared transactionally before any framebuffer write, so
+TGCP camera movement cannot displace scores, clock, shot clocks, or player
+names. Team destinations and tile/name mappings are ROM-exact. The remaining
+columns, colon tile `$16`, black cell backing, and live `$FA` top-row binding
+are reference-verified presentation bounds. The three-digit cap for the wider
+C score and the holder/shooter matchup fallback used to label a CPU-only side
+are native adapter policies and must remain documented as approximate.
 
 TGAI-1 is present in the same ROM-derived pack for isolated inspection but is
 deliberately absent from this production dependency list until its actor-link
@@ -877,7 +905,8 @@ schedule is live 1-22, dispatch 23, black 24-27, cutaway 28-62, black/rebuild
 27 and becomes visible at 28; later assignments and first-visible frames are
 32/37/42/47/52/57. Frame 63 is black by palette with retained OAM, and frame 64
 clears it. The exact bounded palette checkpoint is profile 1/uniform `$30`;
-dynamic matchup selection remains a native approximation.
+production now supplies the exact selected roster profile bit and matchup
+uniform color. The fixed roster-slot lineup itself remains native policy.
 
 TGJS-2 revision-locks the prior jump spans plus signed math
 `$8001-$815A`, made state 08/state 9 `$AC0A-$AC6E`, distance helpers
@@ -1363,16 +1392,21 @@ profiles/directions/outcomes, ordinary two-point makes, make ball motion, the
 longer +157-update claimant route, semantic rebounds/blocks/steals,
 general make/contact policy, the trigger selecting
 dunk/variant 0 versus layup/variant 2, live close-shot profile/direction
-selection and left-facing mirroring, dynamic team/court palette selection,
+selection and left-facing mirroring, dynamic court palette selection beyond
+the imported TGCT data,
 foul detection, live free-throw camera/full-court integration and lineup
 positioning/aim/outcome/rebound and CPU
-positioning/script behavior, and HUD typography remain explicit native
-approximations. Local original-frame comparisons found no unrendered or garbage
+positioning/script behavior, plus the HUD fixed-column and unassigned-CPU
+actor-selection adapters remain explicit native approximations. THUD-1's font,
+team marks, and Bank02 name formatting are exact within the boundary above.
+Local original-frame comparisons found no unrendered or garbage
 cells. After normalizing the small emulator RGB-output difference, the TGDK
 cutaway pixels match the local frame-24 black, frame-32 stage, frame-48 stage,
-and frame-64 black checkpoints exactly. The returned live court at frame 80
-still differs in spacing, HUD, and matchup palette selection; camera/world
-projection is now strict within the supported horizontal slice.
+and frame-64 black checkpoints exactly. Live player colors use the exact
+profile-bit, side-bit, `$DEAB`, and `$DC19` matchup path described above. The
+returned live court at frame 80 still differs in actor spacing; the bounded
+HUD glyph silhouettes now match the local score/clock/shot-clock reference,
+and camera/world projection is strict within the supported horizontal slice.
 Test with
 `tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`; its private
 scratch pack, logs, and PNGs remain under ignored `build\` output.

@@ -336,7 +336,8 @@ int tecmo_asset_pack_build_team_data(const uint8_t *rom,
         {0U, 0xC42EU, 13U, 0xDB6A6AEEU},
         {0U, 0xCAF1U, 4U, 0x2D477AB7U},
         {0U, 0xD5C5U, 147U, 0x24E23095U},
-        {0U, 0xDC19U, 29U, 0x1451114FU}
+        {0U, 0xDC19U, 29U, 0x1451114FU},
+        {0U, 0xDEABU, 53U, 0xB2808BB3U}
     };
     static const uint32_t screen_banks[3] = {1U, 0U, 0U};
     static const uint32_t screen_cpus[3] = {0xBB55U, 0xB492U, 0x877DU};
@@ -889,7 +890,8 @@ int tecmo_asset_pack_build_team_data(const uint8_t *rom,
     provenance->fixed_metatile_tiles_offset = fixed_offsets[4];
     provenance->fixed_metatile_attribute_offset = fixed_offsets[5];
     provenance->fixed_compositor_offset = fixed_offsets[6];
-    provenance->fixed_portrait_selector_offset = fixed_offsets[7];
+    provenance->fixed_home_uniform_colors_offset = fixed_offsets[7];
+    provenance->fixed_gameplay_uniform_setup_offset = fixed_offsets[8];
 
     if (tecmo_asset_pack_fnv1a32(payload, payload_size) !=
         TECMO_ASSET_PACK_TEAM_DATA_FNV1A32) {

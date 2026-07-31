@@ -7,6 +7,7 @@
 #include "tecmo_asset_pack_gameplay_camera.h"
 #include "tecmo_asset_pack_gameplay_movement.h"
 #include "tecmo_asset_pack_gameplay_cpu_steering.h"
+#include "tecmo_asset_pack_gameplay_hud.h"
 #include "tecmo_asset_pack_gameplay_court.h"
 #include "tecmo_asset_pack_gameplay_court_orientation.h"
 #include "tecmo_asset_pack_gameplay_close_shots.h"
@@ -50,6 +51,7 @@ char *tecmo_asset_pack_build_ines_source_map(
     const TecmoGameplayCameraProvenance *gameplay_camera_provenance,
     const TecmoGameplayMovementProvenance *gameplay_movement_provenance,
     const TecmoGameplayCpuSteeringProvenance *cpu_steering_provenance,
+    const TecmoGameplayHudProvenance *gameplay_hud_provenance,
     const TecmoGameplayCloseShotProvenance *close_shot_provenance,
     const TecmoGameplayDunkProvenance *dunk_provenance,
     const TecmoGameplayJumpShotProvenance *jump_shot_provenance,

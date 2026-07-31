@@ -52,6 +52,8 @@ typedef struct TecmoGameplayPoseContext {
     uint8_t actor_slot_base;
     uint8_t actor_attributes;
     uint8_t palette_group;
+    uint8_t uniform_color;
+    bool apply_uniform_color;
     uint8_t mmc3_r2_r5[4];
 } TecmoGameplayPoseContext;
 
@@ -67,7 +69,7 @@ typedef struct TecmoGameplayResolvedPiece {
     uint32_t bottom_chr_offset;
     const uint8_t *top_chr;
     const uint8_t *bottom_chr;
-    const uint8_t *palette;
+    uint8_t palette[4];
 } TecmoGameplayResolvedPiece;
 
 typedef struct TecmoGameplayResolvedPose {
@@ -80,8 +82,11 @@ typedef struct TecmoGameplayResolvedPose {
     uint8_t actor_slot_base;
     uint8_t actor_attributes;
     uint8_t palette_group;
+    uint8_t uniform_color;
+    bool uniform_color_applied;
     uint8_t piece_count;
     uint8_t mmc3_r2_r5[4];
+    uint8_t palette[16];
     TecmoGameplayResolvedPiece pieces[TECMO_GAMEPLAY_RESOLVED_PIECE_MAX];
 } TecmoGameplayResolvedPose;
 

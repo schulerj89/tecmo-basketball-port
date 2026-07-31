@@ -20,6 +20,7 @@
 #define TECMO_TEAM_DATA_FONT_COUNT 59U
 #define TECMO_TEAM_DATA_PORTRAIT_CELL_COUNT 24U
 #define TECMO_TEAM_DATA_PROFILE_PALETTE_COUNT 4U
+#define TECMO_TEAM_DATA_LAKERS_TEAM_ID 12U
 
 typedef struct TecmoTeamDataCursor {
     int16_t dx;
@@ -48,6 +49,7 @@ typedef struct TecmoTeamDataTeam {
     uint8_t logo_count;
     uint8_t logo_x;
     uint8_t profile_palette_group;
+    uint8_t home_uniform_color;
 } TecmoTeamDataTeam;
 
 typedef struct TecmoTeamDataPlayer {
@@ -185,7 +187,15 @@ const char *tecmo_team_data_phase_name(TecmoTeamDataPhase phase);
 const char *tecmo_team_data_position_name(uint8_t roster_code);
 const char *tecmo_team_data_condition_name(uint8_t condition_value);
 uint8_t tecmo_team_data_meter_fill_length(const uint8_t profile[6],
-                                          size_t meter_index);
+                                           size_t meter_index);
+
+/* Resolves fixed $DEAB-$DEDF's exact away/home gameplay uniform colors.
+   Invalid input leaves uniform_colors unchanged. */
+bool tecmo_team_data_resolve_gameplay_uniform_colors(
+    const TecmoTeamDataAsset *asset,
+    uint8_t away_team,
+    uint8_t home_team,
+    uint8_t uniform_colors[2]);
 unsigned tecmo_team_data_transition_palette_stage(
     const TecmoTeamDataAsset *asset,
     const TecmoTeamDataState *state);

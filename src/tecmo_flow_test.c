@@ -1518,6 +1518,8 @@ static bool flow_expect_team_data_native_path(TecmoRuntime *runtime,
         TecmoFramebuffer framebuffer;
         uint32_t *pixels;
         uint8_t logo_pairs[TECMO_TEAM_DATA_LOGO_CELL_LIMIT * 2U];
+        uint8_t uniform_colors[TECMO_GAMEPLAY_TEAM_COUNT] = {0xA5U, 0xA5U};
+        uint8_t unchanged_uniform_colors[TECMO_GAMEPLAY_TEAM_COUNT];
         static const uint8_t atl_meter_lengths[6] = {
             80U, 58U, 94U, 84U, 55U, 20U
         };
@@ -1527,9 +1529,39 @@ static bool flow_expect_team_data_native_path(TecmoRuntime *runtime,
             atl->logo_count != 60U || atl->logo_x != 16U ||
             asset->logo_y != 48U || atl->logo_selector != 0xE4U ||
             atl->profile_palette_group != 1U ||
+            atl->home_uniform_color != 0x15U ||
+            asset->teams[1U].home_uniform_color != 0x2AU ||
             flow_fnv1a32(asset->profile_palettes[1], 16U) != 0x34F6B8DCU) {
             set_flow_test_message(message, message_size,
                                   "TEAM DATA ATL logo/palette contract mismatch");
+            return false;
+        }
+        if (!tecmo_team_data_resolve_gameplay_uniform_colors(
+                asset, 0U, 1U, uniform_colors) ||
+            uniform_colors[TECMO_GAMEPLAY_TEAM_AWAY] != 0x30U ||
+            uniform_colors[TECMO_GAMEPLAY_TEAM_HOME] != 0x2AU ||
+            !tecmo_team_data_resolve_gameplay_uniform_colors(
+                asset, TECMO_TEAM_DATA_LAKERS_TEAM_ID, 0U,
+                uniform_colors) ||
+            uniform_colors[TECMO_GAMEPLAY_TEAM_AWAY] != 0x38U ||
+            uniform_colors[TECMO_GAMEPLAY_TEAM_HOME] != 0x15U) {
+            set_flow_test_message(
+                message, message_size,
+                "TEAM DATA gameplay uniform-color contract mismatch");
+            return false;
+        }
+        uniform_colors[0U] = 0xA5U;
+        uniform_colors[1U] = 0xA5U;
+        memcpy(unchanged_uniform_colors, uniform_colors,
+               sizeof(uniform_colors));
+        if (tecmo_team_data_resolve_gameplay_uniform_colors(
+                asset, TECMO_TEAM_DATA_TEAM_COUNT, 0U,
+                uniform_colors) ||
+            memcmp(uniform_colors, unchanged_uniform_colors,
+                   sizeof(uniform_colors)) != 0) {
+            set_flow_test_message(
+                message, message_size,
+                "TEAM DATA invalid uniform-color lookup mutated output");
             return false;
         }
         for (size_t i = 0U; i < TECMO_TEAM_DATA_LOGO_CELL_LIMIT; ++i) {

@@ -347,6 +347,7 @@ function Get-KnownLogicalAssetPackEntries {
         "gameplay/camera-projection",
         "gameplay/movement",
         "gameplay/cpu-steering",
+        "gameplay/hud",
         "gameplay/close-shots",
         "gameplay/dunk-cutaway",
         "gameplay/jump-shots",
@@ -411,6 +412,7 @@ function Get-ExpectedLogicalAssetPackEntries {
             "gameplay/camera-projection"
             "gameplay/movement"
             "gameplay/cpu-steering"
+            "gameplay/hud"
             "gameplay/close-shots"
             "gameplay/dunk-cutaway"
             "gameplay/jump-shots"
@@ -4365,7 +4367,8 @@ try {
                     "fixed-screen-loader", "fixed-fade-flow",
                     "fixed-metatile-tiles", "fixed-metatile-attribute-helper",
                     "fixed-metatile-compositor",
-                    "fixed-portrait-selector-dispatch", "full-chr"
+                    "fixed-home-uniform-color-table",
+                    "fixed-gameplay-uniform-color-setup", "full-chr"
                 )
                 $TeamDataDependencies = @($TeamDataSource.runtime_dependencies)
                 $TeamDataChrDependency = @($TeamDataDependencies | Where-Object {
@@ -4420,9 +4423,13 @@ try {
                     Where-Object {
                         $_.role -eq "fixed-metatile-attribute-helper"
                     } | Select-Object -First 1)
-                $TeamDataFixedPortraitSelector = @($TeamDataSource.sources |
+                $TeamDataFixedHomeUniformColors = @($TeamDataSource.sources |
                     Where-Object {
-                        $_.role -eq "fixed-portrait-selector-dispatch"
+                        $_.role -eq "fixed-home-uniform-color-table"
+                    } | Select-Object -First 1)
+                $TeamDataFixedUniformSetup = @($TeamDataSource.sources |
+                    Where-Object {
+                        $_.role -eq "fixed-gameplay-uniform-color-setup"
                     } | Select-Object -First 1)
                 $TeamDataFullChr = @($TeamDataSource.sources | Where-Object {
                     $_.role -eq "full-chr"
@@ -4523,11 +4530,16 @@ try {
                         [uint64]($OpeningFixedStart + (0xD5C5 - 0xC000)) -and
                     $TeamDataFixedCompositor.fingerprint_fnv1a32 -eq
                         "24E23095" -and
-                    [int]$TeamDataFixedPortraitSelector.cpu_address -eq 0xDC19 -and
-                    [uint64]$TeamDataFixedPortraitSelector.source_offset -eq
+                    [int]$TeamDataFixedHomeUniformColors.cpu_address -eq 0xDC19 -and
+                    [uint64]$TeamDataFixedHomeUniformColors.source_offset -eq
                         [uint64]($OpeningFixedStart + (0xDC19 - 0xC000)) -and
-                    $TeamDataFixedPortraitSelector.fingerprint_fnv1a32 -eq
+                    $TeamDataFixedHomeUniformColors.fingerprint_fnv1a32 -eq
                         "1451114F" -and
+                    [int]$TeamDataFixedUniformSetup.cpu_address -eq 0xDEAB -and
+                    [uint64]$TeamDataFixedUniformSetup.source_offset -eq
+                        [uint64]($OpeningFixedStart + (0xDEAB - 0xC000)) -and
+                    $TeamDataFixedUniformSetup.fingerprint_fnv1a32 -eq
+                        "B2808BB3" -and
                     $TeamDataFullChr.Count -eq 1 -and
                     [uint64]$TeamDataFullChr.source_offset -eq
                         $TeamDataExpectedChrOffset -and
@@ -4539,6 +4551,14 @@ try {
                     [int]$TeamDataSource.native_contract.logo_cell_limit -eq 60 -and
                     [int]$TeamDataSource.native_contract.profile_palette_groups -eq
                         4 -and
+                    [int]$TeamDataSource.native_contract.gameplay_uniform_colors.home_table_entries -eq
+                        29 -and
+                    [int]$TeamDataSource.native_contract.gameplay_uniform_colors.away_default -eq
+                        0x30 -and
+                    [int]$TeamDataSource.native_contract.gameplay_uniform_colors.away_lakers -eq
+                        0x38 -and
+                    [int]$TeamDataSource.native_contract.gameplay_uniform_colors.lakers_team_id -eq
+                        12 -and
                     [int]$TeamDataSource.native_contract.player_stride -eq 184 -and
                     [int]$TeamDataSource.native_contract.portrait_cells -eq 24 -and
                     [int]$TeamDataSource.native_contract.entry_transition.render_on -eq

@@ -9,6 +9,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define TECMO_ASSET_PACK_SOURCE_MAP_BASE_CAPACITY 131072U
+
 static uint64_t source_map_prg_bank_cpu_source_offset(uint64_t prg_offset,
                                                        uint32_t prg_banks,
                                                        uint32_t bank,
@@ -1262,9 +1264,10 @@ static int append_team_data_source_map_entry(char *buffer,
         "{\"role\":\"fixed-metatile-tiles\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":50222,\"size\":13,\"fingerprint_fnv1a32\":\"DB6A6AEE\"},"
         "{\"role\":\"fixed-metatile-attribute-helper\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":51953,\"size\":4,\"fingerprint_fnv1a32\":\"2D477AB7\"},"
         "{\"role\":\"fixed-metatile-compositor\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":54725,\"size\":147,\"fingerprint_fnv1a32\":\"24E23095\"},"
-        "{\"role\":\"fixed-portrait-selector-dispatch\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":56345,\"size\":29,\"fingerprint_fnv1a32\":\"1451114F\"},"
+        "{\"role\":\"fixed-home-uniform-color-table\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":56345,\"size\":29,\"fingerprint_fnv1a32\":\"1451114F\"},"
+        "{\"role\":\"fixed-gameplay-uniform-color-setup\",\"source_entry\":\"prg/fixed\",\"source_offset\":%llu,\"cpu_address\":57003,\"size\":53,\"fingerprint_fnv1a32\":\"B2808BB3\"},"
         "{\"role\":\"full-chr\",\"source_entry\":\"chr/all\",\"source_offset\":%llu,\"size\":262144,\"fingerprint_fnv1a32\":\"F6F6E854\",\"fingerprint_fnv1a64\":\"96A64F53B240ABB4\"}],"
-        "\"native_contract\":{\"payload_size\":%u,\"payload_fingerprint_fnv1a32\":\"812628F0\",\"screens\":3,\"selector_entries\":29,\"teams\":29,\"real_team_logos\":27,\"logo_cell_limit\":60,\"profile_palette_groups\":4,\"players_per_team\":12,\"player_stride\":184,\"portrait_cells\":24,\"roster_rows\":6,\"roster_pages\":2,\"slide_frames\":32,\"slide_pixels_per_frame\":8,\"entry_transition\":{\"render_on\":4,\"first_visible\":7,\"palette_step\":4,\"stable\":20},\"selector_profile_transition\":{\"black\":8,\"render_off\":10,\"render_on\":16,\"first_visible\":19,\"palette_step\":4,\"stable\":32},\"roster_detail_transition\":{\"black\":8,\"render_off\":10,\"render_on\":15,\"first_visible\":18,\"palette_step\":4,\"stable\":31},\"profile_roster_transition\":\"oam-only-stable-next-frame\",\"all_star_name_mapping\":\"direct-player-pointer-to-real-roster-slot\",\"terminal\":\"player-detail-no-gameplay\"}}",
+        "\"native_contract\":{\"payload_size\":%u,\"payload_fingerprint_fnv1a32\":\"812628F0\",\"screens\":3,\"selector_entries\":29,\"teams\":29,\"real_team_logos\":27,\"logo_cell_limit\":60,\"profile_palette_groups\":4,\"players_per_team\":12,\"player_stride\":184,\"portrait_cells\":24,\"gameplay_uniform_colors\":{\"home_table_entries\":29,\"away_default\":48,\"away_lakers\":56,\"lakers_team_id\":12},\"roster_rows\":6,\"roster_pages\":2,\"slide_frames\":32,\"slide_pixels_per_frame\":8,\"entry_transition\":{\"render_on\":4,\"first_visible\":7,\"palette_step\":4,\"stable\":20},\"selector_profile_transition\":{\"black\":8,\"render_off\":10,\"render_on\":16,\"first_visible\":19,\"palette_step\":4,\"stable\":32},\"roster_detail_transition\":{\"black\":8,\"render_off\":10,\"render_on\":15,\"first_visible\":18,\"palette_step\":4,\"stable\":31},\"profile_roster_transition\":\"oam-only-stable-next-frame\",\"all_star_name_mapping\":\"direct-player-pointer-to-real-roster-slot\",\"terminal\":\"player-detail-no-gameplay\"}}",
         prefix, TECMO_ASSET_PACK_TEAM_DATA_ID,
         (unsigned long long)p->root_vector_offset,
         (unsigned long long)p->season_vector_offset,
@@ -1310,7 +1313,8 @@ static int append_team_data_source_map_entry(char *buffer,
         (unsigned long long)p->fixed_metatile_tiles_offset,
         (unsigned long long)p->fixed_metatile_attribute_offset,
         (unsigned long long)p->fixed_compositor_offset,
-        (unsigned long long)p->fixed_portrait_selector_offset,
+        (unsigned long long)p->fixed_home_uniform_colors_offset,
+        (unsigned long long)p->fixed_gameplay_uniform_setup_offset,
         (unsigned long long)p->chr_offset,
         (unsigned)TECMO_ASSET_PACK_TEAM_DATA_SIZE);
 }
@@ -1646,6 +1650,8 @@ static int append_gameplay_source_map_entry(
         "\"tile\":\"(cell & 0x3E) + actor_slot_base\","
         "\"actor_slot_base\":\"ROM-generatable $01/$41/$81/$C1\","
         "\"attributes\":\"(cell & 0x41) | actor_attributes\","
+        "\"live_actor_attributes\":\"fixed $F1F2 supplies $04B0[actor] & $03: profile-group bit 0 plus team-side bit 1\","
+        "\"live_palette_recipe\":\"Bank01 $B0ED-$B133 selects $B138/$B148 with profile bit 0 and injects the side uniform color at offsets 6/7/9 plus its six-bit +$10 variant at offset 13\","
         "\"chr\":\"explicit MMC3 R2-R5 context\","
         "\"semantic_clip_names\":\"engine-state mapping pending\"}}");
 }
@@ -2514,7 +2520,8 @@ static int append_gameplay_dunk_source_map_entry(
         "\"court_rebuild\":[66,70],\"live_return\":71,"
         "\"route_resume\":75,\"a9c5_dmc\":87,"
         "\"action_resolution\":132},"
-        "\"approximations\":\"native clear-lane trigger and make/miss policy; dynamic team uniform selection defaults to the bounded profile-1 U=$30 checkpoint\","
+        "\"approximations\":\"native clear-lane trigger and make/miss policy\","
+        "\"production_palette_binding\":\"scene-selected TTDT roster profile byte 2 bit 7 plus fixed $DEAB/$DC19 matchup uniform color; standalone API retains explicit profile/uniform inputs\","
         "\"runtime_inputs\":\"TGDK-1 plus same-pack chr/all; no decompilation, capture, trace, screenshot, video, log, dump, Lua output, or save state\"}");
 }
 
@@ -2992,6 +2999,90 @@ static int append_gameplay_free_throw_lineup_source_map_entry(
         "\"runtime_inputs\":\"TGFL-1 plus same-pack TGPL-1; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}");
 }
 
+static int append_gameplay_hud_source_map_entry(
+    char *buffer,
+    size_t capacity,
+    size_t *length,
+    int *first,
+    const TecmoGameplayHudProvenance *provenance)
+{
+    static const char *const roles[TECMO_GAMEPLAY_HUD_SOURCE_COUNT] = {
+        "team-mark-writer-and-ppu-destinations-$BDF0-$BE1E",
+        "team-mark-offsets-and-five-tile-rows-$BE1F-$BECC",
+        "score-digit-and-player-name-font-formatters-$AF64-$B07B"
+    };
+    const char *prefix = *first != 0 ? "" : ",\n";
+    size_t index;
+    *first = 0;
+    if (tecmo_asset_pack_append_text(
+            buffer, capacity, length,
+            "%s    {\"id\":\"%s\",\"kind\":\"gameplay-live-hud-native\","
+            "\"schema\":\"tecmo.gameplay-hud/THUD-1\","
+            "\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\","
+            "\"revision_sha256_identity\":\"076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4\","
+            "\"revision_full_rom_fnv1a32\":\"0650F5B0\","
+            "\"revision_full_rom_fnv1a32_verified\":true,"
+            "\"revision_source_fingerprints_verified\":true,"
+            "\"dependencies\":["
+            "{\"entry\":\"%s\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\"},"
+            "{\"entry\":\"menu/team-data\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\"},"
+            "{\"entry\":\"chr/all\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\",\"fingerprint_fnv1a64\":\"%016llX\"}],"
+            "\"source_spans\":[",
+            prefix, TECMO_ASSET_PACK_GAMEPLAY_HUD_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_HUD_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_HUD_FNV1A32,
+            TECMO_ASSET_PACK_GAMEPLAY_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_FNV1A32,
+            (unsigned)TECMO_ASSET_PACK_TEAM_DATA_SIZE,
+            (unsigned)TECMO_ASSET_PACK_TEAM_DATA_FNV1A32,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_CHR_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_CHR_FNV1A32,
+            (unsigned long long)TECMO_ASSET_PACK_GAMEPLAY_CHR_FNV1A64) != 0) {
+        return -1;
+    }
+    for (index = 0U; index < TECMO_GAMEPLAY_HUD_SOURCE_COUNT; ++index) {
+        const TecmoGameplayHudExpectedSource *source =
+            &tecmo_gameplay_hud_expected_sources[index];
+        char source_entry[16];
+        (void)snprintf(source_entry, sizeof(source_entry),
+                       "prg/bank%02u", (unsigned)source->bank);
+        if (tecmo_asset_pack_append_text(
+                buffer, capacity, length,
+                "%s{\"role\":\"%s\",\"source_entry\":\"%s\","
+                "\"source_offset\":%llu,\"bank\":%u,\"fixed_bank\":false,"
+                "\"cpu_start\":%u,\"cpu_end\":%u,\"size\":%u,"
+                "\"fingerprint_fnv1a32\":\"%08X\",\"payload_offset\":%u}",
+                index == 0U ? "" : ",", roles[index], source_entry,
+                (unsigned long long)provenance->source_offsets[index],
+                (unsigned)source->bank, (unsigned)source->cpu_start,
+                (unsigned)((uint32_t)source->cpu_start +
+                           source->byte_count - 1U),
+                (unsigned)source->byte_count,
+                (unsigned)source->fingerprint,
+                (unsigned)source->payload_offset) != 0) {
+            return -1;
+        }
+    }
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "],\"exact_contract\":{"
+        "\"team_mark_rows\":29,\"team_mark_width_tiles\":5,"
+        "\"team_mark_ppu_destinations\":[8257,8279],"
+        "\"font_ascii_first\":32,\"font_ascii_last\":90,"
+        "\"player_name_format\":\"first initial, dot, surname clipped/padded to nine tiles\","
+        "\"font_chr_selector\":250,"
+        "\"font_chr_dependency\":\"all 59 Bank02 character-map tiles must equal the same-pack TTDT-1 `$FA` font records and resolved chr/all offsets\"},"
+        "\"live_scene_integration\":{"
+        "\"fixed_rows\":[2,3],"
+        "\"row_2\":\"away team mark and score, clock, home team mark and score\","
+        "\"row_3\":\"shot clocks and one selected player per team\","
+        "\"placement_status\":\"team mark destinations and Bank02 tile mappings are ROM-exact; remaining tile columns, live `$FA` top-row binding, colon tile, and black cell backing are reference-verified presentation bounds\","
+        "\"selected_cpu_actor_policy\":\"native adapter uses holder or opposing same-position matchup when no controller owns that team\","
+        "\"score_display_policy\":\"native renderer caps the state model's wider score at three visible digits\"},"
+        "\"runtime_inputs\":\"THUD-1 plus same-pack TGPL-1, TTDT-1, and chr/all; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}");
+}
+
 static int append_gameplay_pretip_source_map_entry(
     char *buffer,
     size_t capacity,
@@ -3109,6 +3200,7 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoGameplayCameraProvenance *gameplay_camera_provenance,
                                    const TecmoGameplayMovementProvenance *gameplay_movement_provenance,
                                    const TecmoGameplayCpuSteeringProvenance *cpu_steering_provenance,
+                                   const TecmoGameplayHudProvenance *gameplay_hud_provenance,
                                    const TecmoGameplayCloseShotProvenance *close_shot_provenance,
                                    const TecmoGameplayDunkProvenance *dunk_provenance,
                                    const TecmoGameplayJumpShotProvenance *jump_shot_provenance,
@@ -3136,10 +3228,12 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
     int first = 1;
     int first_logical = 1;
 
-    if (entry_count > (SIZE_MAX - 98304U) / 512U) {
+    if (entry_count >
+        (SIZE_MAX - TECMO_ASSET_PACK_SOURCE_MAP_BASE_CAPACITY) / 512U) {
         return NULL;
     }
-    capacity = 98304U + entry_count * 512U;
+    capacity = TECMO_ASSET_PACK_SOURCE_MAP_BASE_CAPACITY +
+               entry_count * 512U;
     source_map = (char *)malloc(capacity);
     if (source_map == NULL) {
         return NULL;
@@ -3365,6 +3459,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
          append_gameplay_cpu_steering_source_map_entry(
              source_map, capacity, &length, &first_logical,
              cpu_steering_provenance) != 0) ||
+        (gameplay_hud_provenance->source_offsets[0] != 0U &&
+         append_gameplay_hud_source_map_entry(
+             source_map, capacity, &length, &first_logical,
+             gameplay_hud_provenance) != 0) ||
         (close_shot_provenance->source_offsets[0] != 0U &&
          append_gameplay_close_shot_source_map_entry(
              source_map, capacity, &length, &first_logical,
