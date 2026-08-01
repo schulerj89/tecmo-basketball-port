@@ -92,7 +92,6 @@ int tecmo_cli_run(int argc, char **argv)
     if (index < argc) {
         command = argv[index++];
     }
-    context.program = program;
     context.root = root;
     context.command = command;
     context.argc = argc;

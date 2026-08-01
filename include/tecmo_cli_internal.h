@@ -11,7 +11,6 @@ struct TecmoRuntime;
 typedef struct TecmoRuntime TecmoRuntime;
 
 typedef struct TecmoCliContext {
-    const char *program;
     const char *root;
     const char *command;
     int argc;
