@@ -346,6 +346,8 @@ function Get-KnownLogicalAssetPackEntries {
         "gameplay/court-orientation",
         "gameplay/camera-projection",
         "gameplay/movement",
+        "gameplay/ball-dribble",
+        "gameplay/fatigue",
         "gameplay/cpu-steering",
         "gameplay/hud",
         "gameplay/close-shots",
@@ -353,6 +355,7 @@ function Get-KnownLogicalAssetPackEntries {
         "gameplay/jump-shots",
         "gameplay/shot-resolution",
         "gameplay/penalties",
+        "gameplay/violation-referee",
         "gameplay/free-throw-lineup",
         "gameplay/pre-tip",
         "roster/table.tsv",
@@ -411,6 +414,8 @@ function Get-ExpectedLogicalAssetPackEntries {
             "gameplay/court-orientation"
             "gameplay/camera-projection"
             "gameplay/movement"
+            "gameplay/ball-dribble"
+            "gameplay/fatigue"
             "gameplay/cpu-steering"
             "gameplay/hud"
             "gameplay/close-shots"
@@ -418,6 +423,7 @@ function Get-ExpectedLogicalAssetPackEntries {
             "gameplay/jump-shots"
             "gameplay/shot-resolution"
             "gameplay/penalties"
+            "gameplay/violation-referee"
             "gameplay/free-throw-lineup"
             "gameplay/pre-tip"
         )

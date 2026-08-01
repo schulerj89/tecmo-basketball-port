@@ -360,7 +360,9 @@ try {
                 "0B97A9AAC4DF35E4EDF7979C6C0355852B9DE7398844B2679CFAB298F0C0CBA6" -and
             $Map.ordinary_movement_geometry.payload_offset -eq 1360 -and
             (@($Map.ordinary_movement_geometry.dispatcher_exceptions_not_implemented) -join ',') -eq
-                '$0478,$046E,$0588,$0463,$0742' -and
+                '$0478,$046E,$0588,$0463' -and
+            $Map.ordinary_movement_geometry.boundary_settlement -match
+                'TPNL-1 as OUT OF BOUNDS' -and
             $Map.supported_boundary -match "production live camera" -and
             $Map.supported_boundary -match "no staged PPU" -and
             $Map.supported_boundary -match

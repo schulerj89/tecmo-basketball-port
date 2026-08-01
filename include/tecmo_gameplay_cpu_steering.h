@@ -143,6 +143,9 @@ typedef struct TecmoGameplayCpuSteeringMovementInput {
     uint8_t speed_value;
     uint8_t global_object_state;
     uint8_t movement_flags;
+    /* True only for the current offensive primary/ball holder. CPU control
+       does not by itself make an actor secondary in Bank05's clamp route. */
+    bool primary_selected_actor;
 } TecmoGameplayCpuSteeringMovementInput;
 
 typedef struct TecmoGameplayCpuSteeringMovementResult {

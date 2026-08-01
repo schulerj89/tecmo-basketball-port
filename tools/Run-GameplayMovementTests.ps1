@@ -251,12 +251,18 @@ try {
             $Map.native_contract.vertical_compare_before_move.down -eq 236 -and
             [bool]$Map.native_contract.transactional -and
             [bool]$Map.native_contract.overflow_rejected -and
-            $Map.live_adapter.cpu_ai -match "approximation" -and
-            $Map.live_adapter.condition -match "fatigue evolution is not yet ported" -and
+            $Map.live_adapter.scope -match "TGAI-directed CPU" -and
+            $Map.live_adapter.condition -match "TGFT-1 evolves" -and
             $Map.live_adapter.starting_layout -match "approximation" -and
             $Map.live_adapter.roster_binding -match "not yet bound" -and
             $Map.live_adapter.boundary_latch_reset_and_settlement -match
-                "not yet ported" -and
+                "TPNL selector 1" -and
+            $Map.live_adapter.boundary_latch_reset_and_settlement -match
+                "other violation detection remains unported" -and
+            $Map.live_adapter.pose_half_selection -match '\$8F02' -and
+            $Map.live_adapter.matchup_link -match "native policy" -and
+            $Map.live_adapter.cpu_target_and_shot_policy -match
+                "approximation" -and
             [bool]$Map.developer_harness.deterministic -and
             ![bool]$Map.developer_harness.normal_game_flow_exposed
         if ($MapOk) {

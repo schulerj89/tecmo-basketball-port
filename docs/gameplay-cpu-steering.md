@@ -101,7 +101,8 @@ The core API, with CLI-only inspection wrappers, provides:
   opposing linked/matchup actor, and difficulty;
 - a deterministic TGAI-to-TGMO movement harness that adds rating, condition,
   GAME SPEED, and frame count, maps all eight direction identities to TGMO NES
-  held bits, and advances the selected CPU actor as a secondary actor;
+  held bits, and advances the selected CPU actor through the role-coherent
+  primary-holder or secondary-nonholder clamp path;
 - transactional rejection for unaligned/out-of-range commands and zero or
   invalid raw direction vectors.
 
@@ -132,9 +133,16 @@ TGAI result is mapped through the validated same-pack TGMO direction table,
 not through a second inferred direction table. TGMO then owns the exact
 one-update action-state latency, movement-rating/GAME-SPEED/condition amount,
 Q4 fractional accumulation, diagonal reduction, animation phase, vertical
-gates, and secondary-actor court clamp. After a successful step, the CLI
+gates, and the selected actor's primary-holder or secondary-nonholder court
+clamp. After a successful step, the CLI
 copies the resulting canonical coordinate into the next snapshot and
 re-evaluates the target and direction.
+
+For the live ball holder, the committed TGMO direction and animation phase also
+feed strict TGBD-1 held-ball geometry. This makes CPU and human holders share
+the same ROM-derived bounce phases and ground-contact sound trigger. TGBD's
+height and attachment tables are exact; the scene's fixed linked actor and its
+visible-Y-before-TGCP adapter remain native policy.
 
 The exactness boundary has one important seam: TGAI's zero-vector guard means
 "do not write direction," while TGMO consumes held controller-direction bits.
@@ -162,15 +170,17 @@ normal play calls the pure API directly.
 
 TGAI-1 does not claim a complete CPU play policy. In particular, it does not
 identify the shot/pass/steal selector, reconstruct every actor-link assignment,
-own live collision/fatigue/speed state, or treat the nearby Bank06
-`$B081-$B32E` candidate scan as ordinary movement targeting. Handler-effect
+own live collision/contact or speed-setting policy, or treat the nearby Bank06
+`$B081-$B32E` candidate scan as ordinary movement targeting. Fatigue evolution
+is owned separately by TGFT-1 and supplies condition to TGMO. Handler-effect
 names describe bounded entry behavior; they are not play names.
 
 The scene now owns a fixed opposing roster-slot link, target position,
 direction/write result, immutable-snapshot fingerprint, and monotonically
 advancing decision serial for each actor. All non-controlled candidates are
 evaluated from the same post-human-input snapshot and committed together, then
-their held direction is advanced through TGMO's secondary-actor path. The
+their held direction is advanced through TGMO. The offensive holder takes the
+primary path; every other actor takes the secondary path. The
 ball holder uses the orientation-aware `48/48/40` approach target; other actors
 use their fixed opposing link. Shot proximity and cadence remain separate
 native policy.

@@ -6,15 +6,19 @@
 #include "tecmo_gameplay_assets.h"
 #include "tecmo_gameplay_audio.h"
 #include "tecmo_gameplay_camera.h"
+#include "tecmo_gameplay_ball_dribble.h"
 #include "tecmo_gameplay_close_shots.h"
 #include "tecmo_gameplay_cpu_steering.h"
 #include "tecmo_gameplay_court.h"
 #include "tecmo_gameplay_court_orientation.h"
 #include "tecmo_gameplay_dunk_cutaway.h"
+#include "tecmo_gameplay_fatigue.h"
 #include "tecmo_gameplay_free_throw_lineup.h"
 #include "tecmo_gameplay_hud.h"
 #include "tecmo_gameplay_jump_shots.h"
 #include "tecmo_gameplay_movement.h"
+#include "tecmo_gameplay_penalties.h"
+#include "tecmo_gameplay_violation_referee.h"
 #include "tecmo_gameplay_pretip.h"
 #include "tecmo_gameplay_shot_resolution.h"
 #include "tecmo_gameplay_state.h"
@@ -178,7 +182,12 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayCourtWorld court_world;
     TecmoGameplayCameraAssets camera_assets;
     TecmoGameplayMovementAssets movement_assets;
+    TecmoGameplayBallDribbleAssets ball_dribble_assets;
     TecmoGameplayCpuSteeringAssets cpu_steering_assets;
+    TecmoGameplayPenaltyAssets penalty_assets;
+    TecmoGameplayViolationRefereeAssets violation_referee_assets;
+    TecmoGameplayFatigueAssets fatigue_assets;
+    TecmoGameplayFatigueState fatigue_state;
     TecmoGameplayCameraState camera_state;
     TecmoGameplayCourtOrientationAssets court_orientation;
     TecmoGameplayCourtOrientationState orientation_state;
@@ -226,9 +235,11 @@ typedef struct TecmoGameplayScene {
     uint16_t jump_actor_velocity_q8;
     uint16_t jump_ball_altitude_q8;
     uint16_t jump_ball_bounce_q8;
+    uint16_t jump_entry_pose_index;
     uint8_t jump_actor_state;
     uint8_t jump_ball_state;
     uint8_t jump_phase_counter;
+    uint8_t jump_pose_frame;
     uint8_t shot_controller;
     TecmoGameplayJumpShotFamily jump_family;
     TecmoGameplayJumpShotProfile jump_profile;
@@ -252,8 +263,8 @@ typedef struct TecmoGameplayScene {
 /* Initialize exactly once before load/destroy. */
 void tecmo_gameplay_scene_init(TecmoGameplayScene *scene);
 
-/* Loads TGPL-1, TGCT-1, TGCP-2, TGMO-1, TGAI-1, TGOR-1, TGFL-1, THUD-1, TGCS-1,
-   TGDK-1, TGJS-2, TGSR-3, TSFX-1, and TDMC-1 from one local pack.
+/* Loads TGPL-1, TGCT-1, TGCP-2, TGMO-1, TGBD-1, TGAI-1, TGFT-1, TPNL-1, TGOR-1, TGFL-1,
+   THUD-1, TGCS-1, TGDK-1, TGJS-2, TGSR-3, TSFX-1, and TDMC-1 from one pack.
    `asset_pack_path` may be NULL to use the strict runtime search order.
    Runtime data is never read from decompilation/capture paths. */
 bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,

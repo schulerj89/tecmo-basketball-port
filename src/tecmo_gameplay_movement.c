@@ -375,7 +375,7 @@ bool tecmo_gameplay_movement_assets_parse(
     assets->available = true;
     (void)snprintf(
         assets->status, sizeof(assets->status),
-        "TGMO-1 controlled-player movement assetpack");
+        "TGMO-1 ordinary actor movement assetpack");
     return true;
 }
 
@@ -802,6 +802,32 @@ bool tecmo_gameplay_movement_pose_index(
     return true;
 }
 
+bool tecmo_gameplay_movement_pose_half(
+    const TecmoGameplayMovementAssets *assets,
+    const TecmoGameplayMovementState *state,
+    const TecmoGameplayCourtCoordinate *linked_position,
+    bool *alternate_pose_half_out)
+{
+    int32_t delta;
+    bool alternate;
+    if (!tecmo_gameplay_movement_state_valid(assets, state) ||
+        linked_position == NULL || alternate_pose_half_out == NULL ||
+        !tecmo_gameplay_court_coordinate_valid(linked_position)) {
+        return false;
+    }
+    /* $9DF6-$9E63 first stores linked-minus-selected signed deltas. $8F02
+       tests Y for the two horizontal directions and X for the other six. */
+    if (state->direction < 2U) {
+        delta = (int32_t)linked_position->y - state->position.y;
+        alternate = delta >= 0;
+    } else {
+        delta = (int32_t)linked_position->x - state->position.x;
+        alternate = delta < 0;
+    }
+    *alternate_pose_half_out = alternate;
+    return true;
+}
+
 static bool movement_states_equal(const TecmoGameplayMovementState *left,
                                   const TecmoGameplayMovementState *right)
 {
@@ -834,6 +860,8 @@ bool tecmo_gameplay_movement_self_test(
     TecmoGameplayMovementClampResult clamp_before;
     TecmoGameplayMovementState malformed;
     TecmoGameplayMovementState edge;
+    TecmoGameplayCourtCoordinate linked;
+    bool alternate_pose_half;
     uint16_t pose_index;
     tecmo_gameplay_movement_assets_init(&assets);
     if (!tecmo_gameplay_movement_assets_load(&assets, asset_pack_path) ||
@@ -865,6 +893,52 @@ bool tecmo_gameplay_movement_self_test(
         pose_index != 181U) {
         (void)snprintf(message, message_size,
                        "TGMO-1 cardinal/latency vector failed.");
+        tecmo_gameplay_movement_assets_destroy(&assets);
+        return false;
+    }
+    linked = state.position;
+    alternate_pose_half = false;
+    if (!tecmo_gameplay_movement_pose_half(
+            &assets, &state, &linked, &alternate_pose_half) ||
+        !alternate_pose_half ||
+        !tecmo_gameplay_movement_pose_index(
+            &assets, &state, alternate_pose_half, &pose_index) ||
+        pose_index != 117U) {
+        (void)snprintf(message, message_size,
+                       "TGMO-1 horizontal pose-half vector failed.");
+        tecmo_gameplay_movement_assets_destroy(&assets);
+        return false;
+    }
+    --linked.y;
+    alternate_pose_half = true;
+    if (!tecmo_gameplay_movement_pose_half(
+            &assets, &state, &linked, &alternate_pose_half) ||
+        alternate_pose_half ||
+        !tecmo_gameplay_movement_state_initialize(
+            &assets, &edge, &start, 2U)) {
+        (void)snprintf(message, message_size,
+                       "TGMO-1 horizontal pose-half sign failed.");
+        tecmo_gameplay_movement_assets_destroy(&assets);
+        return false;
+    }
+    linked = edge.position;
+    --linked.x;
+    alternate_pose_half = false;
+    if (!tecmo_gameplay_movement_pose_half(
+            &assets, &edge, &linked, &alternate_pose_half) ||
+        !alternate_pose_half) {
+        (void)snprintf(message, message_size,
+                       "TGMO-1 vertical pose-half vector failed.");
+        tecmo_gameplay_movement_assets_destroy(&assets);
+        return false;
+    }
+    linked.x = edge.position.x;
+    alternate_pose_half = true;
+    if (!tecmo_gameplay_movement_pose_half(
+            &assets, &edge, &linked, &alternate_pose_half) ||
+        alternate_pose_half) {
+        (void)snprintf(message, message_size,
+                       "TGMO-1 vertical pose-half sign failed.");
         tecmo_gameplay_movement_assets_destroy(&assets);
         return false;
     }

@@ -31,10 +31,15 @@ use native approximations instead of the original game logic.
 - Ten court players, ball, hoops, possession changes, and camera projection
 - ROM-derived human locomotion plus TGAI-directed/TGMO-driven ordinary CPU
   movement, passing, and defender switching
-- Dunks, layups, a currently limited jump-shot path, and free-throw sequences
+- ROM-derived walking poses and held-ball bounce animation, fatigue
+  decay/bench recovery, and out-of-bounds turnover settlement
+- Dunks, layups, orientation-aware jump shots with entry, turn, release, and
+  airborne poses toward either basket, plus free-throw sequences
 - Game clock, shot clock, scoring, periods, halftime, overtime, final results,
   and return to the selected game mode
-- Original game font for team names, scores, clock, shot clocks, and selected
+- Original screen, lettering, palette fade, and selector-specific referee
+  animation for shot-clock and other violation presentations
+- Original game font for team names, scores, clock, jersey numbers, and selected
   players in the live HUD
 - ROM-derived matchup-specific court, player, ball, and uniform colors
 - Original music, sound effects, crowd responses, and sampled audio through the
@@ -46,7 +51,7 @@ The port is playable, but it is not yet a frame-identical recreation. The main
 remaining gameplay work includes:
 
 - Original CPU play-command selection, dynamic link assignments, and spacing
-- Complete shot selection and all jump-shot directions and outcomes
+- Complete ROM shot selection and the remaining jump-shot families and outcomes
 - Exact steals, blocks, rebounds, contact, fouls, and free-throw outcomes
 - Exact post-tip live spacing, starting lineups, and some possession interactions
 - Per-player game and season statistics

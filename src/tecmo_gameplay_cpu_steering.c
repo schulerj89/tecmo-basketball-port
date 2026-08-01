@@ -711,7 +711,9 @@ bool tecmo_gameplay_cpu_steering_movement_step(
         !tecmo_gameplay_movement_state_valid(
             movement_assets, &input->movement) ||
         input->steering.actor >=
-            TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT) {
+            TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        input->primary_selected_actor !=
+            (input->steering.actor == input->steering.ball_holder)) {
         return false;
     }
     selected_position =
@@ -745,8 +747,7 @@ bool tecmo_gameplay_cpu_steering_movement_step(
     movement_input.speed_value = input->speed_value;
     movement_input.global_object_state = input->global_object_state;
     movement_input.movement_flags = input->movement_flags;
-    /* Bank06's CPU loop excludes the two player-selected actors. */
-    movement_input.primary_selected_actor = false;
+    movement_input.primary_selected_actor = input->primary_selected_actor;
     if (!tecmo_gameplay_movement_step(
             movement_assets, &result.movement, &movement_input)) {
         return false;
@@ -975,6 +976,12 @@ static bool movement_composition_self_test(
     }
     malformed = input;
     malformed.movement.contract_tag ^= 1U;
+    if (!movement_step_rejected_unchanged(
+            steering_assets, &movement_assets, &malformed)) {
+        goto movement_transaction_failure;
+    }
+    malformed = input;
+    malformed.primary_selected_actor = true;
     if (!movement_step_rejected_unchanged(
             steering_assets, &movement_assets, &malformed)) {
         goto movement_transaction_failure;

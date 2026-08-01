@@ -2055,7 +2055,8 @@ static int append_gameplay_camera_source_map_entry(
         "\"page2_right\":\"$0220+floor(world_y/2)\","
         "\"native_policy\":\"TGCP-2 owns the shared trapezoid geometry; production user-controlled movement applies the TGMO-1 dispatcher policy\","
         "\"production_controlled_movement\":\"TGMO-1 exact dispatcher exclusions and violation-latch conditions\","
-        "\"dispatcher_exceptions_not_implemented\":[\"$0478\",\"$046E\",\"$0588\",\"$0463\",\"$0742\"]},"
+        "\"boundary_settlement\":\"selector $0742 value 1 is consumed through same-pack TPNL-1 as OUT OF BOUNDS\","
+        "\"dispatcher_exceptions_not_implemented\":[\"$0478\",\"$046E\",\"$0588\",\"$0463\"]},"
         "\"supported_boundary\":\"strict pure and production live camera state, full-court slicing, actor/ball projection, clipped native composition, and typed free-throw settle/projection of TGFL-1-owned coordinates; TGCP-2 does not own TGFL-1 positions or native scene slot policy; no staged PPU commit/prefetch ordering, vertical camera, generalized movement-dispatch exceptions, HUD provenance, or capture-derived behavior\","
         "\"runtime_inputs\":\"TGCP-2 plus same-pack TGPL-1 and TGCT-1; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}",
         (unsigned long long)p->source_offsets[6U],
@@ -2091,7 +2092,7 @@ static int append_gameplay_movement_source_map_entry(
     if (tecmo_asset_pack_append_text(
             buffer, capacity, length,
             "%s"
-            "    {\"id\":\"%s\",\"kind\":\"gameplay-controlled-movement-native\","
+            "    {\"id\":\"%s\",\"kind\":\"gameplay-ordinary-actor-movement-native\","
             "\"schema\":\"tecmo.gameplay-movement/TGMO-1\",\"size\":%u,"
             "\"fingerprint_fnv1a32\":\"%08X\","
             "\"revision_sha256_identity\":\"076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4\","
@@ -2171,19 +2172,171 @@ static int append_gameplay_movement_source_map_entry(
         "\"violation_latch_conditions_explicit\":true},"
         "\"transactional\":true,\"overflow_rejected\":true},"
         "\"live_adapter\":{"
-        "\"scope\":\"ordinary user-controlled player locomotion\","
+        "\"scope\":\"ordinary user-controlled and TGAI-directed CPU locomotion\","
         "\"rating\":\"TTDT-1 selected roster profile byte 0\","
-        "\"condition\":\"TTDT-1 fresh seed; fatigue evolution is not yet ported\","
+        "\"condition\":\"TGFT-1 evolves TTDT-1 fresh condition/capacity and supplies the next update\","
         "\"object_state\":0,\"movement_flags\":0,"
         "\"contradictory_axis_input\":\"normalized to neutral on that axis\","
         "\"starting_layout\":\"scene-owned approximation\","
         "\"roster_binding\":\"fixed scene slots 0..4; original starter selection is not yet bound\","
-        "\"boundary_latch_reset_and_settlement\":\"not yet ported\","
-        "\"pose_half_selection_and_actor_rendering\":\"still scene-owned approximation\","
-        "\"cpu_ai\":\"not part of TGMO-1 and remains native approximation\"},"
+        "\"boundary_latch_reset_and_settlement\":\"offensive primary latch consumes TPNL selector 1, clears the latch, and restarts with the other team; other violation detection remains unported\","
+        "\"pose_half_selection\":\"exact $8F02 signed comparison against the explicit linked actor\","
+        "\"matchup_link\":\"fixed opposing scene slot remains native policy\","
+        "\"cpu_target_and_shot_policy\":\"outside TGMO-1 and remains native approximation\"},"
         "\"developer_harness\":{\"deterministic\":true,"
         "\"normal_game_flow_exposed\":false},"
         "\"runtime_inputs\":\"TGMO-1 plus same-pack TGPL-1, TGCP-2, and TTDT-1; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}");
+}
+
+static int append_gameplay_ball_dribble_source_map_entry(
+    char *buffer,
+    size_t capacity,
+    size_t *length,
+    int *first,
+    const TecmoGameplayBallDribbleProvenance *provenance)
+{
+    static const char *const roles[
+        TECMO_GAMEPLAY_BALL_DRIBBLE_SOURCE_COUNT] = {
+        "held-ball-position-height-and-sound-routine-$B52E-$B5BF",
+        "direction-half-bounce-height-and-attachment-tables-$B5C0-$B677"
+    };
+    const char *prefix = *first != 0 ? "" : ",\n";
+    *first = 0;
+    if (tecmo_asset_pack_append_text(
+            buffer, capacity, length,
+            "%s"
+            "    {\"id\":\"%s\",\"kind\":\"gameplay-held-ball-dribble-native\","
+            "\"schema\":\"tecmo.gameplay-ball-dribble/TGBD-1\",\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"%08X\","
+            "\"revision_sha256_identity\":\"076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4\","
+            "\"revision_full_rom_fnv1a32\":\"0650F5B0\","
+            "\"dependencies\":["
+            "{\"entry\":\"%s\",\"same_pack_required\":true,"
+            "\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\"},"
+            "{\"entry\":\"%s\",\"same_pack_required\":true,"
+            "\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\"}],"
+            "\"source_spans\":[",
+            prefix, TECMO_ASSET_PACK_GAMEPLAY_BALL_DRIBBLE_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_BALL_DRIBBLE_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_BALL_DRIBBLE_FNV1A32,
+            TECMO_ASSET_PACK_GAMEPLAY_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_FNV1A32,
+            TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_FNV1A32) != 0) {
+        return -1;
+    }
+    for (size_t index = 0U;
+         index < TECMO_GAMEPLAY_BALL_DRIBBLE_SOURCE_COUNT; ++index) {
+        const TecmoGameplayBallDribbleExpectedSource *source =
+            &tecmo_gameplay_ball_dribble_expected_sources[index];
+        if (tecmo_asset_pack_append_text(
+                buffer, capacity, length,
+                "%s{\"role\":\"%s\",\"source_entry\":\"prg/bank05\","
+                "\"source_offset\":%llu,\"bank\":%u,"
+                "\"fixed_bank\":false,\"cpu_start\":%u,\"cpu_end\":%u,"
+                "\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\","
+                "\"payload_offset\":%u}",
+                index == 0U ? "" : ",", roles[index],
+                (unsigned long long)provenance->source_offsets[index],
+                (unsigned)source->bank,
+                (unsigned)source->cpu_start,
+                (unsigned)((uint32_t)source->cpu_start +
+                           source->byte_count - 1U),
+                (unsigned)source->byte_count,
+                (unsigned)source->fingerprint,
+                (unsigned)source->payload_offset) != 0) {
+            return -1;
+        }
+    }
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "],\"native_contract\":{"
+        "\"direction_count\":8,\"animation_phase_count\":8,"
+        "\"table_half_source\":\"exact TGMO $8F02 linked-actor comparison\","
+        "\"attachment\":\"signed X/Y offsets from $B648/$B658/$B668\","
+        "\"bounce_height\":\"$B5C8[half*64+direction*8+phase]\","
+        "\"sound_trigger\":\"animation low nibble 3 and high nibble 0\","
+        "\"transactional\":true},"
+        "\"live_adapter\":{"
+        "\"scope\":\"ordinary held ball for human and CPU possession\","
+        "\"altitude_projection\":\"exact height flattened into canonical visible Y before TGCP projection\","
+        "\"matchup_link\":\"fixed opposing scene slot remains native policy\","
+        "\"free_throw_and_shot_ball_routes\":\"remain separately owned\"},"
+        "\"runtime_inputs\":\"TGBD-1 plus same-pack TGPL-1 and TGMO-1; no ROM, decompilation, trace, capture, or save state\"}");
+}
+
+static int append_gameplay_fatigue_source_map_entry(
+    char *buffer,
+    size_t capacity,
+    size_t *length,
+    int *first,
+    const TecmoGameplayFatigueProvenance *provenance)
+{
+    static const char *const roles[TECMO_GAMEPLAY_FATIGUE_SOURCE_COUNT] = {
+        "difficulty-cadence-active-decay-and-bench-recovery-$B4E6-$B5C7",
+        "live-state-gate-and-Bank02-caller-$ED2F-$ED3E"
+    };
+    const char *prefix = *first != 0 ? "" : ",\n";
+    *first = 0;
+    if (tecmo_asset_pack_append_text(
+            buffer, capacity, length,
+            "%s"
+            "    {\"id\":\"%s\",\"kind\":\"gameplay-fatigue-native\","
+            "\"schema\":\"tecmo.gameplay-fatigue/TGFT-1\",\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"%08X\","
+            "\"revision_sha256_identity\":\"076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4\","
+            "\"revision_full_rom_fnv1a32\":\"0650F5B0\","
+            "\"dependency\":{\"entry\":\"%s\",\"same_pack_required\":true,"
+            "\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\"},"
+            "\"source_spans\":[",
+            prefix, TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_FNV1A32,
+            TECMO_ASSET_PACK_TEAM_DATA_ID,
+            (unsigned)TECMO_ASSET_PACK_TEAM_DATA_SIZE,
+            (unsigned)TECMO_ASSET_PACK_TEAM_DATA_FNV1A32) != 0) {
+        return -1;
+    }
+    for (size_t index = 0U;
+         index < TECMO_GAMEPLAY_FATIGUE_SOURCE_COUNT; ++index) {
+        const TecmoGameplayFatigueExpectedSource *source =
+            &tecmo_gameplay_fatigue_expected_sources[index];
+        if (tecmo_asset_pack_append_text(
+                buffer, capacity, length,
+                "%s{\"role\":\"%s\",\"source_entry\":\"%s\","
+                "\"source_offset\":%llu,\"bank\":%u,"
+                "\"fixed_bank\":%s,\"cpu_start\":%u,\"cpu_end\":%u,"
+                "\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\","
+                "\"payload_offset\":%u}",
+                index == 0U ? "" : ",", roles[index],
+                source->fixed_bank != 0U ? "prg/fixed" : "prg/bank02",
+                (unsigned long long)provenance->source_offsets[index],
+                (unsigned)source->bank,
+                source->fixed_bank != 0U ? "true" : "false",
+                (unsigned)source->cpu_start,
+                (unsigned)((uint32_t)source->cpu_start +
+                           source->byte_count - 1U),
+                (unsigned)source->byte_count,
+                (unsigned)source->fingerprint,
+                (unsigned)source->payload_offset) != 0) {
+            return -1;
+        }
+    }
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "],\"native_contract\":{"
+        "\"difficulty_cadence_reload\":[6,4,1],"
+        "\"active_decay\":\"countdown; capacity and condition decrement only at zero with the ROM >=10 guards\","
+        "\"bench_recovery\":\"condition +4 capped 100; capacity +4 capped at TTDT profile byte 3\","
+        "\"second_team_countdown_asymmetry_preserved\":true,"
+        "\"transactional_validation\":true},"
+        "\"live_adapter\":{"
+        "\"active_roster_binding\":\"scene slots 0..4; original starter selection remains unported\","
+        "\"tick_boundary\":\"once per native scene live-action update; exact 6502 intra-frame actor ordering is not claimed\","
+        "\"movement_condition\":\"synchronized into TGMO on the following scene update\"},"
+        "\"runtime_inputs\":\"TGFT-1 plus same-pack TTDT-1 only; no ROM, decompilation, trace, capture, or save state\"}");
 }
 
 static int append_gameplay_cpu_steering_source_map_entry(
@@ -2321,7 +2474,9 @@ static int append_gameplay_cpu_steering_source_map_entry(
         "\"direction_to_input\":\"exact same-pack TGMO direction identity\","
         "\"movement_kernel\":\"exact TGMO-1 transactional step\","
         "\"one_update_latency_rom_exact\":true,"
-        "\"secondary_actor_path\":true,"
+        "\"primary_holder_path\":true,"
+        "\"secondary_nonholder_path\":true,"
+        "\"role_coherent\":true,"
         "\"zero_vector_input\":\"native neutral policy; TGAI no-write remains exact\","
         "\"selected_actor_coordinate_reconciled_each_step\":true,"
         "\"live_wired\":true,"
@@ -2908,10 +3063,10 @@ static int append_gameplay_penalty_source_map_entry(
         "\"one_attempt_current_route_selectors\":[8,9],"
         "\"offensive_foul_attempts\":0,\"offensive_foul_turnover\":true},"
         "\"presentations\":{"
-        "\"foul\":{\"screen_selector\":34,\"lead_in_frames\":4,\"maximum_wait_frames\":160,\"presentation_sfx_id\":6,\"presentation_sfx_delay_frames\":16,\"live_restart_sfx_id\":5,\"live_restart_music_id\":5,\"live_restart_requires_game_music\":true},"
+        "\"foul\":{\"banked_dispatcher_selector\":34,\"lead_in_frames\":4,\"maximum_wait_frames\":160,\"presentation_sfx_id\":6,\"presentation_sfx_delay_frames\":16,\"live_restart_sfx_id\":5,\"live_restart_music_id\":5,\"live_restart_requires_game_music\":true},"
         "\"violation\":{\"selector_min\":1,\"selector_max\":7,"
         "\"five_seconds_selector\":3,\"lead_in_frames\":4,"
-        "\"maximum_wait_frames\":120,\"screen_selector\":34,\"presentation_sfx_id\":6,\"presentation_sfx_delay_frames\":16,\"live_restart_sfx_id\":5,\"live_restart_music_id\":5,\"live_restart_requires_game_music\":true},"
+        "\"maximum_wait_frames\":120,\"banked_dispatcher_selector\":34,\"screen_id\":5,\"presentation_sfx_id\":6,\"presentation_sfx_delay_frames\":16,\"live_restart_sfx_id\":5,\"live_restart_music_id\":5,\"live_restart_requires_game_music\":true},"
         "\"release\":{\"initial_delay_frames\":4,\"poll_interval_frames\":1,\"nes_a_mask\":128,\"controller_count\":2},"
         "\"restart_route_semantics\":{"
         "\"qualification\":\"caller precondition from exact live boundary; no route selector is encoded in TPNL-1\","
@@ -2921,6 +3076,109 @@ static int append_gameplay_penalty_source_map_entry(
         "\"game_music_disabled\":{\"sfx_id\":null,\"music_track_id\":null}}},"
         "\"selector_note\":\"numeric route selectors retain neutral ROM identities; no collision or foul detector is inferred\","
         "\"runtime_inputs\":\"TPNL-1 plus same-pack TGPL-1 and TSFX-1; no decompilation, trace, capture, screenshot, video, log, dump, Lua output, ROM, or save state\"}");
+}
+
+static int append_gameplay_violation_referee_source_map_entry(
+    char *buffer,
+    size_t capacity,
+    size_t *length,
+    int *first,
+    const TecmoGameplayViolationRefereeProvenance *p)
+{
+    static const char *const roles[
+        TECMO_GAMEPLAY_VIOLATION_REFEREE_SOURCE_COUNT] = {
+        "violation-screen-route-$BE87-$BEA0",
+        "violation-text-renderer-and-tables-$BEC7-$BFA8",
+        "bank06-character-map-$9AC8-$9B07",
+        "screen05-descriptor-$DCA8-$DCAE",
+        "screen05-compressed-stream-$B600-$B71F",
+        "screen05-background-palette-$B5F0-$B5FF",
+        "referee-controller-$BA1F-$BAF1",
+        "referee-sprite-palette-$BA06-$BA15",
+        "referee-sequence-pointers-and-lists-$B317-$B33E",
+        "referee-metasprite-pointers-and-records-$B33F-$BA05"
+    };
+    const char *prefix = *first != 0 ? "" : ",\n";
+    size_t index;
+
+    *first = 0;
+    if (tecmo_asset_pack_append_text(
+            buffer, capacity, length,
+            "%s"
+            "    {\"id\":\"%s\",\"kind\":\"gameplay-violation-referee-native\","
+            "\"schema\":\"tecmo.gameplay-violation-referee/TGVR-1\",\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"%08X\","
+            "\"revision_sha256\":\"076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4\","
+            "\"revision_sha256_verified\":true,"
+            "\"dependencies\":["
+            "{\"entry\":\"chr/all\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\",\"fingerprint_fnv1a64\":\"%016llX\",\"reason\":\"screen and 8x16 referee tiles\"},"
+            "{\"entry\":\"%s\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\",\"reason\":\"selector-to-violation presentation contract\"}],"
+            "\"source_spans\":[",
+            prefix,
+            TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_FNV1A32,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_CHR_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_CHR_FNV1A32,
+            (unsigned long long)
+                TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_CHR_FNV1A64,
+            TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_FNV1A32) != 0) {
+        return -1;
+    }
+    for (index = 0U;
+         index < TECMO_GAMEPLAY_VIOLATION_REFEREE_SOURCE_COUNT; ++index) {
+        const TecmoGameplayViolationRefereeExpectedSource *source =
+            &tecmo_gameplay_violation_referee_expected_sources[index];
+        const char *source_entry = source->fixed_bank != 0U
+            ? "prg/fixed" : NULL;
+        char bank_entry[16];
+        if (source_entry == NULL) {
+            (void)snprintf(bank_entry, sizeof(bank_entry),
+                           "prg/bank%02u", (unsigned)source->bank);
+            source_entry = bank_entry;
+        }
+        if (tecmo_asset_pack_append_text(
+                buffer, capacity, length,
+                "%s{\"role\":\"%s\",\"source_entry\":\"%s\","
+                "\"source_offset\":%llu,\"bank\":%u,"
+                "\"fixed_bank\":%s,\"cpu_start\":%u,\"cpu_end\":%u,"
+                "\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\","
+                "\"payload_offset\":%u}",
+                index == 0U ? "" : ",", roles[index], source_entry,
+                (unsigned long long)p->source_offsets[index],
+                (unsigned)source->bank,
+                source->fixed_bank != 0U ? "true" : "false",
+                (unsigned)source->cpu_start,
+                (unsigned)((uint32_t)source->cpu_start +
+                           source->byte_count - 1U),
+                (unsigned)source->byte_count,
+                (unsigned)source->fingerprint,
+                (unsigned)source->payload_offset) != 0) {
+            return -1;
+        }
+    }
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "],\"native_contract\":{"
+        "\"screen_id\":5,\"screen_loader\":\"fixed $D92E/$D9F6\","
+        "\"background_chr_selectors\":[202,250],"
+        "\"sprite_chr_selectors\":[202,113,114,115],"
+        "\"dispatcher_selector\":34,"
+        "\"initial_group\":0,\"initial_hold_frames\":16,"
+        "\"group_cadence_frames\":4,"
+        "\"shot_clock_selector\":5,"
+        "\"shot_clock_sequence_id\":3,"
+        "\"shot_clock_groups\":[9,10,10,10],"
+        "\"message\":\"SHOT CLOCK VIOLATION\","
+        "\"message_ppu_address\":8934,"
+        "\"presentation_sfx_id\":6,\"sfx_delay_frames\":16},"
+        "\"capture_bounded_alignment\":{"
+        "\"black_frames\":9,\"fade_step_frames\":4,"
+        "\"sequence_visible_start_frame\":23,"
+        "\"evidence\":\"local exact-Rev1 FCEUX frame probe; generic PPU-loader execution is not cycle-ported\"},"
+        "\"runtime_inputs\":\"TGVR-1 plus exact same-pack chr/all and TPNL-1; no ROM, ASM, decompilation, capture, screenshot, video, trace, log, dump, Lua output, or save state\"}");
 }
 
 static int append_gameplay_free_throw_lineup_source_map_entry(
@@ -3089,8 +3347,8 @@ static int append_gameplay_hud_source_map_entry(
         "\"live_scene_integration\":{"
         "\"fixed_rows\":[2,3],"
         "\"row_2\":\"away team mark and score, clock, home team mark and score\","
-        "\"row_3\":\"shot clocks and one selected player per team\","
-        "\"placement_status\":\"team mark destinations and Bank02 tile mappings are ROM-exact; remaining tile columns, live `$FA` top-row binding, colon tile, and black cell backing are reference-verified presentation bounds\","
+        "\"row_3\":\"BCD jersey number and one selected player per team; no shot clock or period label\","
+        "\"placement_status\":\"team mark destinations and Bank02 tile mappings are ROM-exact; complete two-row ownership, remaining blank columns, live `$FA` top-row binding, colon tile, and black cell backing are reference-verified presentation bounds\","
         "\"selected_cpu_actor_policy\":\"native adapter uses holder or opposing same-position matchup when no controller owns that team\","
         "\"score_display_policy\":\"native renderer caps the state model's wider score at three visible digits\"},"
         "\"runtime_inputs\":\"THUD-1 plus same-pack TGPL-1, TTDT-1, and chr/all; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}");
@@ -3214,6 +3472,8 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoGameplayCourtOrientationProvenance *court_orientation_provenance,
                                    const TecmoGameplayCameraProvenance *gameplay_camera_provenance,
                                    const TecmoGameplayMovementProvenance *gameplay_movement_provenance,
+                                   const TecmoGameplayBallDribbleProvenance *ball_dribble_provenance,
+                                   const TecmoGameplayFatigueProvenance *gameplay_fatigue_provenance,
                                    const TecmoGameplayCpuSteeringProvenance *cpu_steering_provenance,
                                    const TecmoGameplayHudProvenance *gameplay_hud_provenance,
                                    const TecmoGameplayCloseShotProvenance *close_shot_provenance,
@@ -3221,6 +3481,7 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoGameplayJumpShotProvenance *jump_shot_provenance,
                                    const TecmoGameplayShotResolutionProvenance *shot_resolution_provenance,
     const TecmoGameplayPenaltyProvenance *penalty_provenance,
+    const TecmoGameplayViolationRefereeProvenance *violation_referee_provenance,
     const TecmoGameplayFreeThrowLineupProvenance *free_throw_lineup_provenance,
     const TecmoGameplayPreTipProvenance *pretip_provenance,
     size_t *source_map_size_out)
@@ -3470,6 +3731,14 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
          append_gameplay_movement_source_map_entry(
              source_map, capacity, &length, &first_logical,
              gameplay_movement_provenance) != 0) ||
+        (ball_dribble_provenance->source_offsets[0] != 0U &&
+         append_gameplay_ball_dribble_source_map_entry(
+             source_map, capacity, &length, &first_logical,
+             ball_dribble_provenance) != 0) ||
+        (gameplay_fatigue_provenance->source_offsets[0] != 0U &&
+         append_gameplay_fatigue_source_map_entry(
+             source_map, capacity, &length, &first_logical,
+             gameplay_fatigue_provenance) != 0) ||
         (cpu_steering_provenance->source_offsets[0] != 0U &&
          append_gameplay_cpu_steering_source_map_entry(
              source_map, capacity, &length, &first_logical,
@@ -3498,6 +3767,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
          append_gameplay_penalty_source_map_entry(
              source_map, capacity, &length, &first_logical,
              penalty_provenance) != 0) ||
+        (violation_referee_provenance->source_offsets[0] != 0U &&
+         append_gameplay_violation_referee_source_map_entry(
+             source_map, capacity, &length, &first_logical,
+             violation_referee_provenance) != 0) ||
         (free_throw_lineup_provenance->source_offsets[0] != 0U &&
          append_gameplay_free_throw_lineup_source_map_entry(
              source_map, capacity, &length, &first_logical,

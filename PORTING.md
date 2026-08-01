@@ -736,6 +736,9 @@ Normal gates should stay close to:
 .\tools\Run-MusicTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayAudioTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-GameplayMovementTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-GameplayBallDribbleTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
+.\tools\Run-GameplayFatigueTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayCpuSteeringTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
 .\tools\Run-IntroSequenceTests.ps1 -Build -RomPath <LOCAL_ROM.nes>
@@ -881,9 +884,9 @@ Bank01 `$BDF0-$BE1E` (writer and `$2041/$2057` destinations), Bank01
 formatter). The parser cross-checks all 59 Bank02 character tiles against the
 same-pack TTDT-1 `$FA` font records and exact `chr/all` offsets. Rendering is
 screen-fixed and is prepared transactionally before any framebuffer write, so
-TGCP camera movement cannot displace scores, clock, shot clocks, or player
-names. Team destinations and tile/name mappings are ROM-exact. The remaining
-columns, colon tile `$16`, black cell backing, and live `$FA` top-row binding
+TGCP camera movement cannot displace scores, clock, jersey numbers, or player
+names. Team destinations and tile/name mappings are ROM-exact. The complete
+two-row ownership, remaining blank columns, colon tile `$16`, black cell backing, and live `$FA` top-row binding
 are reference-verified presentation bounds. The three-digit cap for the wider
 C score and the holder/shooter matchup fallback used to label a CPU-only side
 are native adapter policies and must remain documented as approximate.
@@ -924,9 +927,13 @@ TGJS-2 revision-locks the prior jump spans plus signed math
 `$BCA1-$BDC6`, and the logical lookup `$BDF7-$BEF6`.
 It depends on the exact same-pack TGPL/TGCS payloads, rederives the 32-entry
 family/profile/direction pose matrix from `$8D3D/$8D5D`, and validates every
-resolved TGPL pointer and pose record. Its live boundary is deliberately one
-captured human-controlled away-side, facing-right family-0/profile-0/direction-1
-context with bounded terminal-miss and three-point-make branches. NES B is
+resolved TGPL pointer and pose record. Its exact evidence boundary is
+deliberately one captured human-controlled away-side, facing-right
+family-0/profile-0/direction-1 context with bounded terminal-miss and
+three-point-make branches. Live scene policy reuses and horizontally mirrors
+that numeric route for either manually controlled team after transactionally
+resolving the actor's TGOR-owned offensive hoop. This supports both baskets but
+does not prove another TGJS direction or its native selector. NES B is
 tested as a current level rather than a release edge. The miss actor
 held/airborne/recovery states and Q8.8
 height/velocity both begin at `$02E8`; height clamps on frame 40 and actor
@@ -940,9 +947,10 @@ explicitly approximate opposing actor. At period expiry it retains the current
 side and crowd 11.
 
 The make branch follows the bounded two-controller capture: B remains current
-through frames 1-8 and releases at 9; pose pointers are 325 (`$028A`) for
-frames 1-4, 1060 (`$0848`) for 5-8, 1061 (`$084A`) at 9, 213 (`$01AA`)
-through flight, and neutral 469 (`$03AA`). Prepared phases
+through frames 1-8 and releases at 9. The already-selected entry pose 325
+(`$028A`) remains visible for frames 1-4, followed by 1060 (`$0848`) for 5-8,
+1061 (`$084A`) at 9, 213 (`$01AA`) through flight, and neutral 469 (`$03AA`).
+Prepared phases
 `31/21/11/01/32/22/12/02` occupy frames 10-17, held phase 34 is frame 18, and
 TGSR-3 classifies `$91BC->$933B->$942D`'s terminal bit-clear as MAKE at frame
 19. Q8.8 flight begins at 20 from velocity `$0308` under imported gravity
@@ -963,6 +971,26 @@ invalid possession/shot-clock reset, retains the shooting holder at frame 111,
 and then enters the normal settled-action period path. Unknown contexts,
 ordinary two-point makes, and other native-policy branches are rejected without
 substituting the former synthetic schedule.
+
+Bank05 `$83E9-$842B` plus `$8469-$847A` explains that visible windup more
+precisely than the capture alone. State `$1E` leaves the actor pose untouched
+during its first `30/20/10/00` phase cycle, then advances the facing index and
+selects the next raw pose from `$0846/$0848/.../$0854`; `$842C` eventually
+commits the `$01AA` airborne pose. This is why the bounded make and miss
+captures legitimately begin with different values (`$028A` and `$030A`) yet
+both continue through `$0848`, `$084A`, and `$01AA`.
+
+The live terminal-miss route still owns the separately bounded `$0C/$0D/$0E`
+physics and 87-frame ball settlement; the port does not claim that a complete
+state-`$1E/$0B` miss scheduler has been reconstructed. A separate visual
+adapter now preserves the shooter's actual post-movement entry pose for held-B
+pose ticks 1-4, uses 1060 for ticks 5-8, displays 1061 on B release, and changes
+to 213 on the following route update. Releasing B early therefore produces a
+compact entry/release/flight transition instead of inventing extra physics
+frames. The pose order is ASM-correlated and capture-bounded, while its
+composition with the shorter miss route and horizontal mirroring remains
+explicit native policy. Runtime still consumes only the validated asset pack;
+ASM and captures are verification inputs, never runtime dependencies.
 
 TGSR-3 is 512 bytes with FNV1a32 `164DC568` and FNV1a64
 `5C5170460C8305A8`. Its importer revision-locks Bank05 `$91BC-$943A`
@@ -1023,6 +1051,17 @@ TPNL-1 `gameplay/penalties` is a strict 768-byte pure rules foundation
 bounded classification and presentation data without inferring contact,
 collision, possession, or route state. The live scene's deterministic
 contact/foul policy is still implementation-owned and is not wired to TPNL.
+
+TGVR-1 `gameplay/violation-referee` is a strict 4752-byte ROM-only visual
+foundation (FNV1a32 `2EB08CF0`) with exact same-pack `chr/all` and TPNL-1
+dependencies. It decodes screen `$05`, maps the seven violation strings with
+Bank03's character table, and preserves all Bank04 referee metasprites and
+gesture lists. Shot clock selects `9,10,10,10`; out of bounds selects
+`3,4,5,5,5`. The controller consumes 44 frames before fixed `$EA14` begins its
+4+120-frame release path, making the native violation phase 168 frames. The
+nine-frame black loader interval and four-frame visible fade alignment are
+capture-bounded; the present immediate scene cue remains an audio approximation
+of Bank04's delayed SFX-6 request.
 
 TGFL-1 `gameplay/free-throw-lineup` is a strict ROM-only lineup foundation
 and live-scene dependency. Its pure resolver remains separate from scene
@@ -1094,8 +1133,12 @@ reads. The only direct `$035A` stores are `$8FC4` and `$B8E0`; broad
 `STA $0300,X` is found only in fixed-bank cold boot at `$CC68`.
 
 TGOR-1 now supplies production TGCP follow direction and `$00A0/$0260`
-world-space shot targets; launch Y is the separately proven `$8F`. TGOR-1
-also selects the production TGFL-1 lineup orientation. Exact-size and
+world-space shot targets; launch Y is the separately proven `$8F`. Shot launch
+rejects an inactive or non-possessing actor, mismatched rules/TGOR team state,
+or a target that differs from the validated orientation asset. Once resolved,
+the scene faces the actor toward that hoop, freezes the endpoint, and lets TGCP
+follow by at most its normal seven-pixel update cap. Facing/mirroring is native
+adapter policy. TGOR-1 also selects the production TGFL-1 lineup orientation. Exact-size and
 canonical payload checks, source records, bounds/reserved/padding checks,
 full-ROM SHA/FNV revision identity, same-pack dependencies, source-map
 provenance, missing/malformed/oversized and source-mutation failures are
@@ -1239,7 +1282,7 @@ X `102`, `256`, and `408`; background-only RGBA FNV1a32 values are
 They are not emulator-frame hashes and do not elevate the native checkpoint
 placement or possession choreography to ROM-exact behavior.
 
-TGMO-1 `gameplay/movement` is the exact ordinary human-controlled locomotion
+TGMO-1 `gameplay/movement` is the exact ordinary actor-locomotion
 boundary. Its 1664-byte payload has FNV1a32 `6C82A137`, requires exact same-pack
 TGPL-1 (`2047CCE0`), TGCP-2 (`53247856`), and TTDT-1 (`812628F0`), and
 byte-compares its clamp copy with TGCP-2. Seven Rev 1 spans are imported:
@@ -1253,18 +1296,20 @@ source-map provenance, and dependencies are strict and fail closed.
 The transactional C kernel retains direction bits right/left/down/up
 `1/2/4/8`, one-update action-state latency, Q4 fractional accumulation,
 `amount-floor(amount/4)` diagonal reduction, `$4A/$EC` compare-before-move
-vertical gates, and the period-8 movement animation state. Player amount uses
+vertical gates, and the period-8 movement animation state. Actor amount uses
 TTDT profile byte 0, GAME SPEED `+5/-1/-6`, and
 `max(8, adjusted_rating + (condition >> 4) - 6)`. Malformed tags,
 coordinates, action/direction values, fractional or animation phases,
 condition/speed values, unreachable rating arithmetic, and overflow reject
 without committing. The pose-base plus animation-low-nibble lookup is exact;
-the live scene now uses it for initial and controlled-player court frames.
+the live scene now uses it for initial, controlled-player, and TGAI-driven CPU
+court frames.
 Metasprite CHR selection follows the high two bits of the ROM-generatable
 `$01/$41/$81/$C1` slot and rebinds that R2-R5 selector to the pose record tag,
 so the `$C1` ball uses R5 instead of inheriting the old hardcoded R3 path. The
-scene currently chooses the primary pose-table half as a native integration
-policy; the opponent-relative `$8F02` half choice is not yet ported. Do not
+scene applies `$8F02`'s exact signed linked-minus-selected comparison to choose
+the primary or alternate half. Its fixed opposing roster-slot link remains
+scene policy, not reconstructed ROM matchup ownership. Do not
 draw the matchup-card team logo in the on-court actor pass; it is presentation
 data and previously appeared as a false sprite attachment during the toss.
 
@@ -1272,16 +1317,52 @@ The fixed span is implemented as its selected-actor dispatcher rather than an
 unconditional clamp. Object state 4, action `$0F/$10`, the flags-bit-3
 exemption, and the exact conditions that set the boundary-violation latch are
 retained around page-0 `$00DF-floor(Y/2)`, page-1 interior, and page-2
-`$0220+floor(Y/2)`. The ordinary live adapter currently supplies object state
-0 and flags 0 and persists the latch, but violation settlement does not consume
-it and its original reset path is not yet ported. Fresh condition comes from
-TTDT; fatigue evolution is unported.
+`$0220+floor(Y/2)`. The ordinary live adapter supplies object state 0 and flags
+0. Only the offensive primary/ball holder may raise the latch. Selector
+`$0742=1` is resolved through same-pack TPNL-1 as OUT OF BOUNDS, the latch is
+cleared, the exact 4+120-frame presentation is entered, and the existing rules
+state owns restart possession and shot-clock/divider reset. Other ROM violation
+detectors remain outside this slice.
+
+TGBD-1 `gameplay/ball-dribble` is the strict ordinary held-ball animation
+boundary. Its 608-byte payload has FNV1a32 `E2CE6BFF`, requires exact same-pack
+TGPL-1 (`2047CCE0`) and TGMO-1 (`6C82A137`), and imports Bank05
+`$B52E-$B5BF` (`DB540670`) plus `$B5C0-$B677` (`E9784D28`). The contiguous
+source fingerprint is `9579D729`. It retains the exact two-half,
+eight-direction, eight-phase height lookup, signed X/Y holder offsets, and the
+DMC trigger at animation low nibble 3 with high nibble 0. Header constants,
+descriptors, source records, alignment padding, canonical fingerprint,
+full-ROM identity, same-pack dependencies, table semantics, movement state,
+coordinate arithmetic, and output commits are strict and fail closed.
+
+During ordinary live possession, both human and CPU holders use the same TGBD
+resolver after their TGMO state advances. TGMO's neutral cadence therefore
+animates a stationary holder as well as a moving one. Active shots and free
+throws retain their separately owned ball routes. `$8F02`'s signed comparison
+is exact, but the opposing actor supplying that comparison is still a fixed
+scene-owned roster link. The native scene converts the exact height to visible
+canonical Y before TGCP projection; this flattening adapter and complete 6502
+caller scheduling are not claimed as exact ROM behavior. Deterministic render
+checkpoints `gameplay-ball-bounce-frame1` and `frame12` freeze visibly distinct
+high and low positions.
+
+TGFT-1 `gameplay/fatigue` is the strict fatigue-evolution boundary. Its
+512-byte payload has FNV1a32 `F80F170D`, requires exact same-pack TTDT-1
+(`812628F0`), and imports Bank02 `$B4E6-$B5C7` (`F61DFFF7`) plus fixed
+`$ED2F-$ED3E` (`09342B88`). It preserves difficulty cadence reloads `6/4/1`,
+active countdown/capacity/condition decay, bench recovery, and Rev1's distinct
+second-team recovery-countdown store. Maximum capacity comes from TTDT profile
+byte 3. The live scene ticks it once per live-action scene update and supplies
+the resulting condition to TGMO on the following update; exact 6502 intra-frame
+actor ordering is not claimed. Active lists remain the fixed scene roster slots
+`0..4`, so original starter selection and substitutions are still unported.
 Opposing directions on one axis are normalized to neutral as a native
-integration policy. Initial actor placement/direction and the current fixed
-five-player roster-slot binding, opponent-relative pose-half selection, and
-CPU target selection/AI remain native integration or approximations. Ordinary
-CPU locomotion now uses the exact TGMO secondary-actor step after TGAI direction
-selection. The deterministic `--gameplay-movement-harness` is console/test-
+integration policy. Initial actor placement/direction, the current fixed
+five-player roster-slot/matchup-link binding, and CPU target selection/AI remain
+native integration or approximations. Ordinary
+CPU locomotion now uses the exact TGMO step after TGAI direction selection;
+the offensive holder takes the primary clamp path and other actors take the
+secondary path. The deterministic `--gameplay-movement-harness` is console/test-
 only and never enters normal play.
 
 TGAI-1 `gameplay/cpu-steering` is the separate strict CPU target/direction
@@ -1334,7 +1415,8 @@ SPEED, and frame-count inputs, initializes a CPU actor facing its offensive
 hoop, and requires the selected snapshot coordinate to equal the transactional
 movement state on every step. Each nonzero exact TGAI direction is converted
 through TGMO's validated direction map to NES held bits and passed to the
-secondary-actor TGMO kernel. The resulting coordinate is copied into the next
+role-coherent TGMO kernel (primary for the holder, secondary otherwise). The
+resulting coordinate is copied into the next
 ten-actor snapshot before direction selection repeats. Thus TGMO's
 one-update latency, Q4 accumulator, diagonal reduction, animation, and court
 clamp are exact within the composition. TGAI's zero-vector no-write has no NES
@@ -1350,7 +1432,7 @@ fixed opposing roster-slot link. Shot proximity/cadence remains a separate
 native approximation.
 
 Do not use this asset to claim a complete CPU policy, shot/pass/steal choice,
-ROM actor-link ownership, or live collision/fatigue ownership. In particular, the
+ROM actor-link ownership, or live collision/contact ownership. In particular, the
 nearby `$B081-$B32E` candidate scan is excluded from ordinary movement
 targeting until its callers and outcomes are separately proven. The harness
 and scene own explicit native links but do not reconstruct the ROM's live
@@ -1368,6 +1450,10 @@ positions are a scene dependency, while its pure resolver and independent
 projection test remain available for focused validation. Run
 `tools\Run-GameplayMovementTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` for
 TGMO importer/parser/provenance/dependency/state/harness coverage. Run
+`tools\Run-GameplayBallDribbleTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` for
+TGBD importer/parser/provenance/dependency/table/phase/sound coverage. Run
+`tools\Run-GameplayFatigueTests.ps1 -Build -RomPath <LOCAL_ROM.nes>` for
+TGFT importer/parser/provenance/dependency/decay/recovery coverage. Run
 `tools\Run-GameplayCameraProjectionTests.ps1 -Build -RomPath
 <LOCAL_ROM.nes>` for revision, provenance, parser, mutation, dependency, camera,
 settle, exact one-step transitions, projection, and independent TGFL composition
@@ -1408,9 +1494,9 @@ TGJS/TGSR miss actor/ball timing and three-point-make actor/result schedule,
 the state-`$15` one-to-four-pass prefix and canonical debug handoff, Q8.8 actor
 height, terminal outcomes, one post-miss settlement, state/event timing, foul thresholds,
 period/halftime/final transitions, and audio programs/mappings.
-Post-handoff live actor layout and fixed five-player roster-slot binding, CPU
-movement/AI, ordinary walking-pose binding, fatigue
-evolution, boundary-latch settlement, jump-ball geometry, unsupported jump
+Post-handoff live actor layout and fixed five-player roster-slot/matchup-link
+binding, CPU target/shot policy, exact intra-frame fatigue call placement,
+jump-ball geometry, unsupported jump
 profiles/directions/outcomes, ordinary two-point makes, make ball motion, the
 longer +157-update claimant route, semantic rebounds/blocks/steals,
 general make/contact policy, the trigger selecting
@@ -1429,7 +1515,7 @@ and frame-64 black checkpoints exactly. Live court, ball, and player colors use
 the exact `$F2E2`, profile-bit, side-bit, `$DEAB`, and `$DC19` matchup path
 described above. The
 returned live court at frame 80 still differs in actor spacing; the bounded
-HUD glyph silhouettes now match the local score/clock/shot-clock reference,
+HUD glyph silhouettes now match the local score/clock/jersey-number reference,
 and camera/world projection is strict within the supported horizontal slice.
 Test with
 `tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`; its private

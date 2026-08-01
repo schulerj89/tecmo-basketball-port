@@ -166,6 +166,15 @@ bool tecmo_gameplay_movement_pose_index(
     bool alternate_pose_half,
     uint16_t *pose_index_out);
 
+/* Exact Bank05 $8F02 opponent-relative half selection. The caller owns the
+   matchup link; this routine owns only the signed coordinate comparison made
+   by the ROM and leaves output untouched on validation failure. */
+bool tecmo_gameplay_movement_pose_half(
+    const TecmoGameplayMovementAssets *assets,
+    const TecmoGameplayMovementState *state,
+    const TecmoGameplayCourtCoordinate *linked_position,
+    bool *alternate_pose_half_out);
+
 bool tecmo_gameplay_movement_self_test(
     const char *asset_pack_path,
     char *message,

@@ -252,7 +252,7 @@ try {
                 '8,9' -and
             $Map.presentations.foul.lead_in_frames -eq 4 -and
             $Map.presentations.foul.maximum_wait_frames -eq 160 -and
-            $Map.presentations.foul.screen_selector -eq 34 -and
+            $Map.presentations.foul.banked_dispatcher_selector -eq 34 -and
             $Map.presentations.foul.presentation_sfx_id -eq 6 -and
             $Map.presentations.foul.presentation_sfx_delay_frames -eq 16 -and
             $Map.presentations.foul.live_restart_sfx_id -eq 5 -and
@@ -261,7 +261,8 @@ try {
             $Map.presentations.violation.five_seconds_selector -eq 3 -and
             $Map.presentations.violation.lead_in_frames -eq 4 -and
             $Map.presentations.violation.maximum_wait_frames -eq 120 -and
-            $Map.presentations.violation.screen_selector -eq 34 -and
+            $Map.presentations.violation.banked_dispatcher_selector -eq 34 -and
+            $Map.presentations.violation.screen_id -eq 5 -and
             $Map.presentations.violation.presentation_sfx_id -eq 6 -and
             $Map.presentations.violation.presentation_sfx_delay_frames -eq 16 -and
             $Map.presentations.violation.live_restart_sfx_id -eq 5 -and

@@ -205,7 +205,7 @@ function Invoke-MovementHarness {
             $Text -notmatch 'zero_input=native-neutral ' -or
             $Text -notmatch 'quantizer=rom-exact ' -or
             $Text -notmatch
-                'movement=rom-exact secondary=1 scene_adapter=1 normal_flow=0') {
+                'movement=rom-exact primary=0 secondary=1 scene_adapter=1 normal_flow=0') {
             throw ("CPU-steering movement harness vector failed.`n" +
                 "$(Get-ShortTail $Output)")
         }
@@ -391,7 +391,9 @@ try {
             $Map.developer_harness.movement_adapter.movement_kernel -eq
                 'exact TGMO-1 transactional step' -and
             [bool]$Map.developer_harness.movement_adapter.one_update_latency_rom_exact -and
-            [bool]$Map.developer_harness.movement_adapter.secondary_actor_path -and
+            [bool]$Map.developer_harness.movement_adapter.primary_holder_path -and
+            [bool]$Map.developer_harness.movement_adapter.secondary_nonholder_path -and
+            [bool]$Map.developer_harness.movement_adapter.role_coherent -and
             $Map.developer_harness.movement_adapter.zero_vector_input -eq
                 'native neutral policy; TGAI no-write remains exact' -and
             [bool]$Map.developer_harness.movement_adapter.selected_actor_coordinate_reconciled_each_step -and

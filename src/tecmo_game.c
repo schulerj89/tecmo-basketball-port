@@ -1514,15 +1514,15 @@ bool tecmo_render_gameplay_scene(const TecmoRuntime *runtime,
         return false;
     }
     if (tecmo_gameplay_scene_in_dunk_presentation(scene) ||
-        tecmo_gameplay_scene_in_pretip(scene)) return true;
+        tecmo_gameplay_scene_in_pretip(scene) ||
+        state->phase == TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION) {
+        return true;
+    }
     if (!scene->active || !state->initialized) return true;
 
     /* The fixed live score/player/clock rows are rendered inside the native
        256x240 scene from THUD-1. This host-font layer is presentation-only. */
-    if (state->phase == TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION) {
-        (void)snprintf(line, sizeof(line), "VIOLATION: %s",
-                       tecmo_gameplay_violation_name(state->violation));
-    } else if (state->phase == TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
+    if (state->phase == TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
                state->phase == TECMO_GAMEPLAY_PHASE_FOUL_SETTLEMENT_REQUIRED) {
         (void)snprintf(line, sizeof(line), "FOUL - %u FREE THROWS",
                        (unsigned)state->free_throws.attempts_remaining);

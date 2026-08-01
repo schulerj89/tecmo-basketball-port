@@ -6,6 +6,8 @@
 #include "tecmo_asset_pack_gameplay.h"
 #include "tecmo_asset_pack_gameplay_camera.h"
 #include "tecmo_asset_pack_gameplay_movement.h"
+#include "tecmo_asset_pack_gameplay_ball_dribble.h"
+#include "tecmo_asset_pack_gameplay_fatigue.h"
 #include "tecmo_asset_pack_gameplay_cpu_steering.h"
 #include "tecmo_asset_pack_gameplay_hud.h"
 #include "tecmo_asset_pack_gameplay_court.h"
@@ -15,6 +17,7 @@
 #include "tecmo_asset_pack_gameplay_jump_shots.h"
 #include "tecmo_asset_pack_gameplay_shot_resolution.h"
 #include "tecmo_asset_pack_gameplay_penalties.h"
+#include "tecmo_asset_pack_gameplay_violation_referee.h"
 #include "tecmo_asset_pack_gameplay_free_throw_lineup.h"
 #include "tecmo_asset_pack_gameplay_pretip.h"
 #include "tecmo_asset_pack_music.h"
@@ -50,6 +53,8 @@ char *tecmo_asset_pack_build_ines_source_map(
     const TecmoGameplayCourtOrientationProvenance *court_orientation_provenance,
     const TecmoGameplayCameraProvenance *gameplay_camera_provenance,
     const TecmoGameplayMovementProvenance *gameplay_movement_provenance,
+    const TecmoGameplayBallDribbleProvenance *ball_dribble_provenance,
+    const TecmoGameplayFatigueProvenance *gameplay_fatigue_provenance,
     const TecmoGameplayCpuSteeringProvenance *cpu_steering_provenance,
     const TecmoGameplayHudProvenance *gameplay_hud_provenance,
     const TecmoGameplayCloseShotProvenance *close_shot_provenance,
@@ -57,6 +62,7 @@ char *tecmo_asset_pack_build_ines_source_map(
     const TecmoGameplayJumpShotProvenance *jump_shot_provenance,
     const TecmoGameplayShotResolutionProvenance *shot_resolution_provenance,
     const TecmoGameplayPenaltyProvenance *penalty_provenance,
+    const TecmoGameplayViolationRefereeProvenance *violation_referee_provenance,
     const TecmoGameplayFreeThrowLineupProvenance *free_throw_lineup_provenance,
     const TecmoGameplayPreTipProvenance *pretip_provenance,
     size_t *source_map_size_out);

@@ -10,6 +10,8 @@
 #include "asset_pack/tecmo_asset_pack_gameplay.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_camera.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_movement.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_ball_dribble.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_fatigue.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_cpu_steering.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_hud.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_court.h"
@@ -19,6 +21,7 @@
 #include "asset_pack/tecmo_asset_pack_gameplay_jump_shots.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_shot_resolution.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_penalties.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_violation_referee.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_pretip.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.h"
 #include "asset_pack/tecmo_asset_pack_import_layout.h"
@@ -92,6 +95,8 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                           TecmoGameplayCourtOrientationProvenance *court_orientation_provenance,
                                           TecmoGameplayCameraProvenance *gameplay_camera_provenance,
                                           TecmoGameplayMovementProvenance *gameplay_movement_provenance,
+                                          TecmoGameplayBallDribbleProvenance *ball_dribble_provenance,
+                                          TecmoGameplayFatigueProvenance *gameplay_fatigue_provenance,
                                           TecmoGameplayCpuSteeringProvenance *cpu_steering_provenance,
                                           TecmoGameplayHudProvenance *gameplay_hud_provenance,
                                           TecmoGameplayCloseShotProvenance *close_shot_provenance,
@@ -99,6 +104,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                           TecmoGameplayJumpShotProvenance *jump_shot_provenance,
                                           TecmoGameplayShotResolutionProvenance *shot_resolution_provenance,
                                           TecmoGameplayPenaltyProvenance *penalty_provenance,
+                                          TecmoGameplayViolationRefereeProvenance *violation_referee_provenance,
                                           TecmoGameplayFreeThrowLineupProvenance *free_throw_lineup_provenance,
                                           TecmoGameplayPreTipProvenance *pretip_provenance,
                                           char *message,
@@ -130,6 +136,10 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
     uint8_t gameplay_camera_payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SIZE];
     uint8_t gameplay_movement_payload[
         TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_SIZE];
+    uint8_t ball_dribble_payload[
+        TECMO_ASSET_PACK_GAMEPLAY_BALL_DRIBBLE_SIZE];
+    uint8_t gameplay_fatigue_payload[
+        TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SIZE];
     uint8_t cpu_steering_payload[
         TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_SIZE];
     uint8_t gameplay_hud_payload[TECMO_ASSET_PACK_GAMEPLAY_HUD_SIZE];
@@ -141,6 +151,8 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
     uint8_t shot_resolution_payload[
         TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_SIZE];
     uint8_t penalty_payload[TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_SIZE];
+    uint8_t violation_referee_payload[
+        TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_SIZE];
     uint8_t free_throw_lineup_payload[
         TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SIZE];
     uint8_t pretip_payload[TECMO_ASSET_PACK_GAMEPLAY_PRETIP_SIZE];
@@ -203,6 +215,14 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
         return -1;
     }
     if (enforce_finale_revision_fingerprints != 0 &&
+        tecmo_asset_pack_build_gameplay_violation_referee(
+            rom, rom_size, prg_offset, prg_banks, chr_offset, chr_size,
+            enforce_finale_revision_fingerprints,
+            violation_referee_payload, sizeof(violation_referee_payload),
+            violation_referee_provenance, message, message_size) != 0) {
+        return -1;
+    }
+    if (enforce_finale_revision_fingerprints != 0 &&
         tecmo_asset_pack_build_gameplay_free_throw_lineup(
             rom, rom_size, prg_offset, prg_banks,
             enforce_finale_revision_fingerprints,
@@ -232,6 +252,22 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
             enforce_finale_revision_fingerprints,
             gameplay_movement_payload, sizeof(gameplay_movement_payload),
             gameplay_movement_provenance, message, message_size) != 0) {
+        return -1;
+    }
+    if (enforce_finale_revision_fingerprints != 0 &&
+        tecmo_asset_pack_build_gameplay_fatigue(
+            rom, rom_size, prg_offset, prg_banks,
+            enforce_finale_revision_fingerprints,
+            gameplay_fatigue_payload, sizeof(gameplay_fatigue_payload),
+            gameplay_fatigue_provenance, message, message_size) != 0) {
+        return -1;
+    }
+    if (enforce_finale_revision_fingerprints != 0 &&
+        tecmo_asset_pack_build_gameplay_ball_dribble(
+            rom, rom_size, prg_offset, prg_banks,
+            enforce_finale_revision_fingerprints,
+            ball_dribble_payload, sizeof(ball_dribble_payload),
+            ball_dribble_provenance, message, message_size) != 0) {
         return -1;
     }
     if (enforce_finale_revision_fingerprints != 0 &&
@@ -965,6 +1001,34 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
             return -1;
         }
         entry_info = tecmo_asset_pack_make_entry_info(
+            TECMO_ASSET_PACK_GAMEPLAY_BALL_DRIBBLE_ID,
+            TECMO_ASSET_PACK_TYPE_DATA, 5U, 0xB52EU,
+            ball_dribble_provenance->source_offsets[0],
+            TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+        if (tecmo_asset_pack_builder_add_memory(
+                builder, &entry_info, ball_dribble_payload,
+                sizeof(ball_dribble_payload), message,
+                message_size) != 0) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Could not write strict TGBD-1 held-ball animation entry.");
+            return -1;
+        }
+        entry_info = tecmo_asset_pack_make_entry_info(
+            TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_ID,
+            TECMO_ASSET_PACK_TYPE_DATA, 2U, 0xB4E6U,
+            gameplay_fatigue_provenance->source_offsets[0],
+            TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+        if (tecmo_asset_pack_builder_add_memory(
+                builder, &entry_info, gameplay_fatigue_payload,
+                sizeof(gameplay_fatigue_payload), message,
+                message_size) != 0) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Could not write strict TGFT-1 gameplay fatigue entry.");
+            return -1;
+        }
+        entry_info = tecmo_asset_pack_make_entry_info(
             TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_ID,
             TECMO_ASSET_PACK_TYPE_DATA, 6U, 0x8B90U,
             cpu_steering_provenance->source_offsets[3],
@@ -1062,6 +1126,20 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
             return -1;
         }
         entry_info = tecmo_asset_pack_make_entry_info(
+            TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_ID,
+            TECMO_ASSET_PACK_TYPE_DATA, 4U, 0xBA1FU,
+            violation_referee_provenance->source_offsets[6U],
+            TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+        if (tecmo_asset_pack_builder_add_memory(
+                builder, &entry_info, violation_referee_payload,
+                sizeof(violation_referee_payload), message,
+                message_size) != 0) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Could not write strict TGVR-1 violation referee entry.");
+            return -1;
+        }
+        entry_info = tecmo_asset_pack_make_entry_info(
             TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_ID,
             TECMO_ASSET_PACK_TYPE_DATA, 6U, 0x88B0U,
             free_throw_lineup_provenance->source_offsets[0],
@@ -1123,6 +1201,8 @@ static int tecmo_asset_pack_build_from_ines_internal(
     TecmoGameplayCourtOrientationProvenance court_orientation_provenance;
     TecmoGameplayCameraProvenance gameplay_camera_provenance;
     TecmoGameplayMovementProvenance gameplay_movement_provenance;
+    TecmoGameplayBallDribbleProvenance ball_dribble_provenance;
+    TecmoGameplayFatigueProvenance gameplay_fatigue_provenance;
     TecmoGameplayCpuSteeringProvenance cpu_steering_provenance;
     TecmoGameplayHudProvenance gameplay_hud_provenance;
     TecmoGameplayCloseShotProvenance close_shot_provenance;
@@ -1130,6 +1210,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     TecmoGameplayJumpShotProvenance jump_shot_provenance;
     TecmoGameplayShotResolutionProvenance shot_resolution_provenance;
     TecmoGameplayPenaltyProvenance penalty_provenance;
+    TecmoGameplayViolationRefereeProvenance violation_referee_provenance;
     TecmoGameplayFreeThrowLineupProvenance free_throw_lineup_provenance;
     TecmoGameplayPreTipProvenance pretip_provenance;
     int manifest_length;
@@ -1313,6 +1394,10 @@ static int tecmo_asset_pack_build_from_ines_internal(
            sizeof(gameplay_camera_provenance));
     memset(&gameplay_movement_provenance, 0,
            sizeof(gameplay_movement_provenance));
+    memset(&ball_dribble_provenance, 0,
+           sizeof(ball_dribble_provenance));
+    memset(&gameplay_fatigue_provenance, 0,
+           sizeof(gameplay_fatigue_provenance));
     memset(&cpu_steering_provenance, 0,
            sizeof(cpu_steering_provenance));
     memset(&gameplay_hud_provenance, 0,
@@ -1323,6 +1408,8 @@ static int tecmo_asset_pack_build_from_ines_internal(
     memset(&shot_resolution_provenance, 0,
            sizeof(shot_resolution_provenance));
     memset(&penalty_provenance, 0, sizeof(penalty_provenance));
+    memset(&violation_referee_provenance, 0,
+           sizeof(violation_referee_provenance));
     memset(&free_throw_lineup_provenance, 0,
            sizeof(free_throw_lineup_provenance));
     memset(&pretip_provenance, 0, sizeof(pretip_provenance));
@@ -1354,6 +1441,8 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &court_orientation_provenance,
                                        &gameplay_camera_provenance,
                                        &gameplay_movement_provenance,
+                                       &ball_dribble_provenance,
+                                       &gameplay_fatigue_provenance,
                                        &cpu_steering_provenance,
                                        &gameplay_hud_provenance,
                                        &close_shot_provenance,
@@ -1361,6 +1450,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &jump_shot_provenance,
                                        &shot_resolution_provenance,
                                        &penalty_provenance,
+                                       &violation_referee_provenance,
                                        &free_throw_lineup_provenance,
                                        &pretip_provenance,
                                        message,
@@ -1395,6 +1485,8 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &court_orientation_provenance,
                                        &gameplay_camera_provenance,
                                        &gameplay_movement_provenance,
+                                       &ball_dribble_provenance,
+                                       &gameplay_fatigue_provenance,
                                        &cpu_steering_provenance,
                                        &gameplay_hud_provenance,
                                        &close_shot_provenance,
@@ -1402,6 +1494,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &jump_shot_provenance,
                                        &shot_resolution_provenance,
                                        &penalty_provenance,
+                                       &violation_referee_provenance,
                                        &free_throw_lineup_provenance,
                                        &pretip_provenance,
                                        &source_map_size);
@@ -2487,6 +2580,14 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
             message, message_size) != 0) {
         goto cleanup;
     }
+    if (tecmo_asset_pack_gameplay_ball_dribble_self_test(
+            message, message_size) != 0) {
+        goto cleanup;
+    }
+    if (tecmo_asset_pack_gameplay_fatigue_self_test(
+            message, message_size) != 0) {
+        goto cleanup;
+    }
     if (tecmo_asset_pack_gameplay_cpu_steering_self_test(
             message, message_size) != 0) {
         goto cleanup;
@@ -2512,6 +2613,10 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         goto cleanup;
     }
     if (tecmo_asset_pack_gameplay_penalties_self_test(
+            message, message_size) != 0) {
+        goto cleanup;
+    }
+    if (tecmo_asset_pack_gameplay_violation_referee_self_test(
             message, message_size) != 0) {
         goto cleanup;
     }

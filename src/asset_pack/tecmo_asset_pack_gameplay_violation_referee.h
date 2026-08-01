@@ -1,0 +1,95 @@
+#ifndef TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_H
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_H
+
+#include "tecmo_gameplay_violation_referee.h"
+
+#include <stddef.h>
+#include <stdint.h>
+
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_ID \
+    "gameplay/violation-referee"
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_VERSION 1U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_HEADER_SIZE 256U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_SOURCE_STRIDE 32U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_SOURCES_OFFSET 256U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_RAW_OFFSET 576U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_RAW_SIZE 2629U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_DECODED_OFFSET 3216U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_DECODED_SIZE 1024U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_MESSAGES_OFFSET 4240U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_MESSAGE_STRIDE 28U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_SEQUENCES_OFFSET 4448U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_SEQUENCE_STRIDE 12U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_GROUPS_OFFSET 4512U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_GROUP_STRIDE 16U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_SIZE 4752U
+
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_CHR_SIZE 262144U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_CHR_FNV1A32 \
+    0xF6F6E854U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_CHR_FNV1A64 \
+    0x96A64F53B240ABB4ULL
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_DESCRIPTOR_FNV1A32 \
+    0xBE949366U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_STREAM_FNV1A32 \
+    0x40107302U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_DECODED_FNV1A32 \
+    0xDCDAA434U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_BG_PALETTE_FNV1A32 \
+    0x3BC86315U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_SPRITE_PALETTE_FNV1A32 \
+    0xDE25EEF4U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_SOURCES_FNV1A32 \
+    0xC09CC2CAU
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_RAW_FNV1A32 \
+    0xDDBE8E76U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_MESSAGES_FNV1A32 \
+    0xE91A3DD7U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_SEQUENCES_FNV1A32 \
+    0xE9637EB7U
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_GROUPS_FNV1A32 \
+    0xF58510ACU
+#define TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_FNV1A32 0x2EB08CF0U
+
+typedef struct TecmoGameplayViolationRefereeExpectedSource {
+    TecmoGameplayViolationRefereeSourceKind kind;
+    uint8_t bank;
+    uint8_t fixed_bank;
+    uint16_t cpu_start;
+    uint32_t byte_count;
+    uint32_t payload_offset;
+    uint32_t fingerprint;
+} TecmoGameplayViolationRefereeExpectedSource;
+
+typedef struct TecmoGameplayViolationRefereeProvenance {
+    uint64_t source_offsets[TECMO_GAMEPLAY_VIOLATION_REFEREE_SOURCE_COUNT];
+    uint64_t chr_offset;
+} TecmoGameplayViolationRefereeProvenance;
+
+extern const TecmoGameplayViolationRefereeExpectedSource
+    tecmo_gameplay_violation_referee_expected_sources[
+        TECMO_GAMEPLAY_VIOLATION_REFEREE_SOURCE_COUNT];
+
+int tecmo_asset_pack_build_gameplay_violation_referee(
+    const uint8_t *rom,
+    uint64_t rom_size,
+    uint64_t prg_offset,
+    uint32_t prg_banks,
+    uint64_t chr_offset,
+    uint64_t chr_size,
+    int enforce_revision_fingerprints,
+    uint8_t *payload,
+    size_t payload_size,
+    TecmoGameplayViolationRefereeProvenance *provenance,
+    char *message,
+    size_t message_size);
+
+int tecmo_asset_pack_gameplay_violation_referee_source_test(
+    const char *rom_path,
+    char *message,
+    size_t message_size);
+int tecmo_asset_pack_gameplay_violation_referee_self_test(
+    char *message,
+    size_t message_size);
+
+#endif

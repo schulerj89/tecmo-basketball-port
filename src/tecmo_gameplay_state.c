@@ -830,7 +830,7 @@ static bool gameplay_update_impl(TecmoGameplayState *state,
     case TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION:
         ++state->phase_frame;
         if ((state->phase_frame >
-                 TECMO_GAMEPLAY_PRESENTATION_LEAD_IN_FRAMES &&
+                 TECMO_GAMEPLAY_VIOLATION_RELEASE_LEAD_IN_FRAMES &&
              a_released) ||
             state->phase_frame >=
                 TECMO_GAMEPLAY_VIOLATION_PRESENTATION_FRAMES) {
@@ -1704,10 +1704,13 @@ static bool gameplay_self_test_clock_and_periods(char *message,
         return false;
     }
     input.controllers[1].held.nes_start = true;
-    if (!gameplay_self_test_run_frames(&state, 4U, &input, &context,
-                                       &events) ||
+    if (!gameplay_self_test_run_frames(
+            &state, TECMO_GAMEPLAY_VIOLATION_RELEASE_LEAD_IN_FRAMES,
+            &input, &context, &events) ||
         state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
-        state.phase_frame != 4U || state.clock_divider != 45U) {
+        state.phase_frame !=
+            TECMO_GAMEPLAY_VIOLATION_RELEASE_LEAD_IN_FRAMES ||
+        state.clock_divider != 45U) {
         gameplay_self_test_message(message, message_size,
                                    "VIOLATION LEAD-IN/FROZEN CLOCK FAILED");
         return false;
@@ -2617,10 +2620,13 @@ static bool gameplay_self_test_violations(char *message,
                 &state, violation, TECMO_GAMEPLAY_TEAM_HOME) ||
             state.violation != violation ||
             strcmp(tecmo_gameplay_violation_name(violation), "INVALID") == 0 ||
-            !gameplay_self_test_run_frames(&state, 123U, &input, &context,
-                                           &events) ||
+            !gameplay_self_test_run_frames(
+                &state,
+                TECMO_GAMEPLAY_VIOLATION_PRESENTATION_FRAMES - 1U,
+                &input, &context, &events) ||
             state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
-            state.phase_frame != 123U ||
+            state.phase_frame !=
+                TECMO_GAMEPLAY_VIOLATION_PRESENTATION_FRAMES - 1U ||
             state.clock_divider != 17U || state.shot_clock != 11U ||
             !tecmo_gameplay_update(&state, &input, &context, &events) ||
             state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
@@ -2674,20 +2680,29 @@ static bool gameplay_self_test_violations(char *message,
     input.controllers[0].held.nes_start = true;
     input.controllers[0].held.dpad_right = true;
     input.controllers[1].released.dpad_left = true;
-    if (!gameplay_self_test_run_frames(&state, 3U, &input, &context,
+    if (!gameplay_self_test_run_frames(
+            &state,
+            TECMO_GAMEPLAY_VIOLATION_RELEASE_LEAD_IN_FRAMES - 2U,
+            &input, &context,
                                        &events) ||
         state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
-        state.phase_frame != 4U || state.clock_divider != 19U ||
-        state.shot_clock != 8U ||
-        !tecmo_gameplay_update(&state, &input, &context, &events) ||
-        state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
-        state.phase_frame != 5U) {
+        state.phase_frame !=
+            TECMO_GAMEPLAY_VIOLATION_RELEASE_LEAD_IN_FRAMES - 1U ||
+        state.clock_divider != 19U || state.shot_clock != 8U) {
         gameplay_self_test_message(message, message_size,
                                    "NON-RELEASE INPUT DISMISSED VIOLATION");
         return false;
     }
     tecmo_gameplay_frame_input_clear(&input);
     input.controllers[1].released.nes_a_pass_switch = true;
+    if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
+        state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+        state.phase_frame !=
+            TECMO_GAMEPLAY_VIOLATION_RELEASE_LEAD_IN_FRAMES) {
+        gameplay_self_test_message(message, message_size,
+                                   "BOUNDARY A RELEASE DISMISSED VIOLATION");
+        return false;
+    }
     if (!tecmo_gameplay_update(&state, &input, &context, &events) ||
         state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
         state.phase_frame != 0U ||
@@ -3082,10 +3097,10 @@ static bool gameplay_self_test_replay(uint64_t *result)
         if (frame == 3U) {
             input.controllers[0].held.nes_b_jump_steal_shot = true;
         }
-        if (frame == 45U) {
+        if (frame == 89U) {
             input.controllers[1].released.nes_a_pass_switch = true;
         }
-        if (frame == 85U) {
+        if (frame == 129U) {
             input.controllers[1].released.nes_a_pass_switch = true;
         }
 
@@ -3111,22 +3126,22 @@ static bool gameplay_self_test_replay(uint64_t *result)
                     TECMO_GAMEPLAY_TEAM_HOME)) {
                 return false;
             }
-        } else if (frame == 80U) {
+        } else if (frame == 124U) {
             if (!tecmo_gameplay_request_foul(&state, &foul_request)) {
                 return false;
             }
-        } else if (frame == 85U) {
+        } else if (frame == 129U) {
             if (!tecmo_gameplay_settle_foul_presentation(
                     &state, TECMO_GAMEPLAY_TEAM_AWAY,
                     TECMO_GAMEPLAY_POST_FOUL_SHOT_24_DIVIDER_45)) {
                 return false;
             }
-        } else if (frame == 90U) {
+        } else if (frame == 134U) {
             if (!tecmo_gameplay_record_free_throw_result(&state, true,
                                                           &events)) {
                 return false;
             }
-        } else if (frame == 95U) {
+        } else if (frame == 139U) {
             if (!tecmo_gameplay_record_free_throw_result(&state, false,
                                                           &events) ||
                 !tecmo_gameplay_settle_free_throws(
@@ -3134,12 +3149,12 @@ static bool gameplay_self_test_replay(uint64_t *result)
                     TECMO_GAMEPLAY_POST_FOUL_SHOT_24_DIVIDER_50)) {
                 return false;
             }
-        } else if (frame == 130U) {
+        } else if (frame == 174U) {
             if (!tecmo_gameplay_reset_possession(
                     &state, TECMO_GAMEPLAY_TEAM_HOME)) {
                 return false;
             }
-        } else if (frame == 160U) {
+        } else if (frame == 204U) {
             if (!tecmo_gameplay_award_points(
                     &state, TECMO_GAMEPLAY_TEAM_AWAY, 2U)) {
                 return false;
@@ -3165,7 +3180,7 @@ static bool gameplay_self_test_replay(uint64_t *result)
 
 bool tecmo_gameplay_state_self_test(char *message, size_t message_size)
 {
-    const uint64_t expected_replay_hash = UINT64_C(0xEAD5CA9E20C3F3C8);
+    const uint64_t expected_replay_hash = UINT64_C(0x7A204A525C79D21C);
     TecmoGameplayConfig config;
     TecmoGameplayState state;
     TecmoGameplayState before;
@@ -3206,10 +3221,19 @@ bool tecmo_gameplay_state_self_test(char *message, size_t message_size)
     }
 
     if (!gameplay_self_test_replay(&replay_a) ||
-        !gameplay_self_test_replay(&replay_b) ||
-        replay_a != expected_replay_hash || replay_a != replay_b) {
+        !gameplay_self_test_replay(&replay_b)) {
         gameplay_self_test_message(message, message_size,
-                                   "DETERMINISTIC REPLAY HASH FAILED");
+                                   "DETERMINISTIC REPLAY FAILED");
+        return false;
+    }
+    if (replay_a != expected_replay_hash || replay_a != replay_b) {
+        (void)snprintf(success, sizeof(success),
+                       "DETERMINISTIC REPLAY HASH FAILED "
+                       "expected=%016llX a=%016llX b=%016llX",
+                       (unsigned long long)expected_replay_hash,
+                       (unsigned long long)replay_a,
+                       (unsigned long long)replay_b);
+        gameplay_self_test_message(message, message_size, success);
         return false;
     }
 

@@ -4,10 +4,13 @@
 #include "asset_pack/tecmo_asset_pack_gameplay_audio.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_camera.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_movement.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_ball_dribble.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_fatigue.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_cpu_steering.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_hud.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_court_orientation.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_violation_referee.h"
 #include "asset_pack/tecmo_asset_pack_music.h"
 #include "tecmo_audio_output.h"
 #include "tecmo_bank07.h"
@@ -17,6 +20,8 @@
 #include "tecmo_gameplay_assets.h"
 #include "tecmo_gameplay_camera.h"
 #include "tecmo_gameplay_movement.h"
+#include "tecmo_gameplay_ball_dribble.h"
+#include "tecmo_gameplay_fatigue.h"
 #include "tecmo_gameplay_cpu_steering.h"
 #include "tecmo_gameplay_hud.h"
 #include "tecmo_gameplay_court.h"
@@ -26,6 +31,7 @@
 #include "tecmo_gameplay_jump_shots.h"
 #include "tecmo_gameplay_shot_resolution.h"
 #include "tecmo_gameplay_penalties.h"
+#include "tecmo_gameplay_violation_referee.h"
 #include "tecmo_gameplay_free_throw_lineup.h"
 #include "tecmo_gameplay_free_throw_projection_test.h"
 #include "tecmo_gameplay_scene.h"
@@ -70,7 +76,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-pretip-test PACK  Validate strict TPTI-1 pre-tip assets/state\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render menus, intro scenes, or strict gameplay-start/pretip-frameN/pretip-bulls-pacers/live-start/cpu-steering-frameN/uniform-pacers/possession-left|center|right/free-throw-left|right/jump-frameN/dunk-frameN checkpoints to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render menus, intro scenes, or strict gameplay-start/pretip-frameN/pretip-bulls-pacers/live-start/cpu-steering-frameN/shot-clock-violation-frameN/uniform-pacers/possession-left|center|right/free-throw-left|right/jump-frameN/dunk-frameN checkpoints to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --build-assetpack ROM PATH  Build a private .assetpack from an iNES ROM only; no decomp/capture imports\n");
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
@@ -79,7 +85,9 @@ static void print_usage(const char *program)
     printf("  --gameplay-court-viewport-test PACK  Validate TGCT-1 full-court decode and viewport slicing\n");
     printf("  --gameplay-court-orientation-test PACK [ROM]  Validate strict TGOR-1 state and optional Rev1 source\n");
     printf("  --gameplay-camera-projection-test PACK  Validate strict TGCP-2 camera/projector/clamp assets\n");
-    printf("  --gameplay-movement-test PACK  Validate strict TGMO-1 controlled-player movement\n");
+    printf("  --gameplay-movement-test PACK  Validate strict TGMO-1 ordinary actor movement\n");
+    printf("  --gameplay-ball-dribble-test PACK [ROM]  Validate strict TGBD-1 held-ball bounce\n");
+    printf("  --gameplay-fatigue-test PACK [ROM]  Validate strict TGFT-1 fatigue state and optional Rev1 source\n");
     printf("  --gameplay-movement-harness PACK TEAM ROSTER X Y SPEED POSSESSION ORIENTATION INPUT FRAMES  Trace deterministic developer-only movement\n");
     printf("  --gameplay-cpu-steering-test PACK  Validate isolated TGAI-1 command/direction evidence\n");
     printf("  --gameplay-hud-test PACK  Validate strict THUD-1 live scoreboard assets\n");
@@ -91,6 +99,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-jump-shots-test PACK  Validate strict TGJS-2 jump-shot assets\n");
     printf("  --gameplay-shot-resolution-test PACK  Validate strict TGSR-3 shot-resolution assets\n");
     printf("  --gameplay-penalties-test PACK  Validate strict TPNL-1 penalty rules\n");
+    printf("  --gameplay-violation-referee-test PACK [ROM]  Validate strict TGVR-1 referee cutaway and optional Rev1 source\n");
     printf("  --gameplay-free-throw-lineup-test PACK  Validate strict TGFL-1 raw lineup assets\n");
     printf("  --gameplay-free-throw-projection-test PACK  Validate pure TGFL-1 to TGCP-2 composition\n");
     printf("  --assetpack-list PACK  Print an asset-pack directory listing\n");
@@ -827,6 +836,7 @@ static int run_gameplay_cpu_steering_movement_harness(
     input.player_movement_rating = (uint8_t)rating;
     input.condition = (uint8_t)condition;
     input.speed_value = (uint8_t)speed;
+    input.primary_selected_actor = actor == ball_holder;
 
     tecmo_gameplay_cpu_steering_assets_init(&steering_assets);
     tecmo_gameplay_movement_assets_init(&movement_assets);
@@ -852,12 +862,14 @@ static int run_gameplay_cpu_steering_movement_harness(
         return 1;
     }
 
-    printf("TGAI-TGMO harness actor=%u possession=%u orientation=%u holder=%u matchup=%u difficulty=%u rating=%u condition=%u speed=%u frames=%u target_policy=native-harness zero_input=native-neutral quantizer=rom-exact movement=rom-exact secondary=1 scene_adapter=1 normal_flow=0\n",
+    printf("TGAI-TGMO harness actor=%u possession=%u orientation=%u holder=%u matchup=%u difficulty=%u rating=%u condition=%u speed=%u frames=%u target_policy=native-harness zero_input=native-neutral quantizer=rom-exact movement=rom-exact primary=%u secondary=%u scene_adapter=1 normal_flow=0\n",
            (unsigned)actor, (unsigned)possession,
            (unsigned)orientation, (unsigned)ball_holder,
            (unsigned)matchup_actor, (unsigned)difficulty,
            (unsigned)rating, (unsigned)condition, (unsigned)speed,
-           (unsigned)frames);
+           (unsigned)frames,
+           input.primary_selected_actor ? 1U : 0U,
+           input.primary_selected_actor ? 0U : 1U);
     printf("frame=0 x=%d y=%d action=%u direction=%u fraction=%u animation=%02X boundary=%u\n",
            input.movement.position.x, input.movement.position.y,
            (unsigned)input.movement.action_state,
@@ -975,7 +987,9 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     bool dunk = false;
     bool pretip_checkpoint = false;
     bool live_start = false;
+    bool ball_bounce = false;
     bool cpu_steering = false;
+    bool shot_clock_violation = false;
     int possession_slice = -1;
     int free_throw_orientation = -1;
 
@@ -995,8 +1009,15 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
         checkpoint = 691U;
         live_start = true;
     } else if (parse_render_frame_suffix(
+                   mode_name, "gameplay-ball-bounce-frame", &checkpoint)) {
+        ball_bounce = true;
+    } else if (parse_render_frame_suffix(
                    mode_name, "gameplay-cpu-steering-frame", &checkpoint)) {
         cpu_steering = true;
+    } else if (parse_render_frame_suffix(
+                   mode_name, "gameplay-shot-clock-violation-frame",
+                   &checkpoint)) {
+        shot_clock_violation = true;
     } else if (strcmp(mode_name, "gameplay-uniform-pacers") == 0) {
         checkpoint = 691U;
         away_team = 3U;
@@ -1039,7 +1060,14 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
         return false;
     }
     if (pretip_checkpoint && checkpoint >= 691U) return false;
+    if (ball_bounce && (checkpoint == 0U || checkpoint > 15U)) {
+        return false;
+    }
     if (cpu_steering && (checkpoint == 0U || checkpoint > 240U)) {
+        return false;
+    }
+    if (shot_clock_violation &&
+        checkpoint >= TECMO_GAMEPLAY_VIOLATION_PRESENTATION_FRAMES) {
         return false;
     }
     if ((jump && (checkpoint == 0U ||
@@ -1082,6 +1110,17 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
                runtime->gameplay_scene.active &&
                !tecmo_gameplay_scene_in_pretip(
                    &runtime->gameplay_scene);
+    if (ball_bounce) {
+        TecmoGameplayScene *scene = &runtime->gameplay_scene;
+        for (update = 0U; update < checkpoint; ++update) {
+            tecmo_runtime_update(runtime, &input);
+        }
+        return runtime->mode == TECMO_MODE_COURT && scene->active &&
+               scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
+               scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+               scene->frame == 691U + checkpoint &&
+               scene->ball_holder == 0U;
+    }
     if (cpu_steering) {
         TecmoGameplayScene *scene = &runtime->gameplay_scene;
         for (update = 0U; update < checkpoint; ++update) {
@@ -1098,6 +1137,28 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
                    TECMO_GAMEPLAY_CPU_STEERING_HARNESS_HOOP_APPROACH &&
                scene->cpu_actors[0].target_position.x == 208 &&
                scene->cpu_actors[0].target_position.y == 148;
+    }
+    if (shot_clock_violation) {
+        TecmoGameplayScene *scene = &runtime->gameplay_scene;
+        scene->state.shot_clock = 1U;
+        scene->state.clock_divider = 1U;
+        tecmo_runtime_update(runtime, &input);
+        if (runtime->mode != TECMO_MODE_COURT || !scene->active ||
+            scene->state.phase !=
+                TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+            scene->state.violation !=
+                TECMO_GAMEPLAY_VIOLATION_SHOT_CLOCK ||
+            scene->state.phase_frame != 0U) {
+            return false;
+        }
+        for (update = 0U; update < checkpoint; ++update) {
+            tecmo_runtime_update(runtime, &input);
+        }
+        return scene->state.phase ==
+                   TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION &&
+               scene->state.violation ==
+                   TECMO_GAMEPLAY_VIOLATION_SHOT_CLOCK &&
+               scene->state.phase_frame == checkpoint;
     }
     if (possession_slice >= 0) {
         TecmoGameplayScene *scene = &runtime->gameplay_scene;
@@ -1900,6 +1961,25 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (strcmp(command, "--gameplay-violation-referee-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        const char *rom_path = index + 1 < argc ? argv[index + 1] : NULL;
+        char message[256];
+        if (rom_path != NULL &&
+            tecmo_asset_pack_gameplay_violation_referee_source_test(
+                rom_path, message, sizeof(message)) != 0) {
+            printf("Violation referee source test failed: %s\n", message);
+            return 1;
+        }
+        if (!tecmo_gameplay_violation_referee_self_test(
+                pack_path, message, sizeof(message))) {
+            printf("Violation referee asset test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
     if (strcmp(command, "--gameplay-free-throw-lineup-test") == 0) {
         const char *pack_path = index < argc ? argv[index] : NULL;
         char message[256];
@@ -1949,6 +2029,45 @@ int main(int argc, char **argv)
         if (!tecmo_gameplay_movement_self_test(
                 pack_path, message, sizeof(message))) {
             printf("Gameplay movement test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-fatigue-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        const char *rom_path = index + 1 < argc ? argv[index + 1] : NULL;
+        char message[256];
+        if (rom_path != NULL &&
+            tecmo_asset_pack_gameplay_fatigue_source_test(
+                rom_path, message, sizeof(message)) != 0) {
+            printf("Gameplay fatigue source test failed: %s\n", message);
+            return 1;
+        }
+        if (!tecmo_gameplay_fatigue_self_test(
+                pack_path, message, sizeof(message))) {
+            printf("Gameplay fatigue test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-ball-dribble-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        const char *rom_path = index + 1 < argc ? argv[index + 1] : NULL;
+        char message[256];
+        if (rom_path != NULL &&
+            tecmo_asset_pack_gameplay_ball_dribble_source_test(
+                rom_path, message, sizeof(message)) != 0) {
+            printf("Gameplay ball-dribble source test failed: %s\n",
+                   message);
+            return 1;
+        }
+        if (!tecmo_gameplay_ball_dribble_self_test(
+                pack_path, message, sizeof(message))) {
+            printf("Gameplay ball-dribble test failed: %s\n", message);
             return 1;
         }
         printf("%s\n", message);
@@ -4161,7 +4280,7 @@ shot_resolution_test_cleanup:
                     arena_render_succeeded = tecmo_render_gameplay_scene(
                         runtime, &framebuffer);
                     result = arena_render_succeeded ? 0 : 1;
-                    printf("gameplay-state frame=%u shot=%s phase=%s score=%u/%u clock=%u:%02u period=%u overtime=%u shot-clock=%u pretip=%s\n",
+                    printf("gameplay-state frame=%u shot=%s phase=%s score=%u/%u clock=%u:%02u period=%u overtime=%u shot-clock=%u pretip=%s phase-frame=%u violation=%s\n",
                            runtime->gameplay_scene.frame,
                            tecmo_gameplay_scene_shot_name(
                                runtime->gameplay_scene.shot_kind),
@@ -4177,7 +4296,10 @@ shot_resolution_test_cleanup:
                            (unsigned)runtime->gameplay_scene.state.overtime_count,
                            (unsigned)runtime->gameplay_scene.state.shot_clock,
                            tecmo_gameplay_pretip_phase_name(
-                               runtime->gameplay_scene.pretip_state.phase));
+                               runtime->gameplay_scene.pretip_state.phase),
+                           (unsigned)runtime->gameplay_scene.state.phase_frame,
+                           tecmo_gameplay_violation_name(
+                               runtime->gameplay_scene.state.violation));
                 }
                 render_runtime = false;
             } else if (strcmp(mode_name, "menu-overlay") == 0) {
