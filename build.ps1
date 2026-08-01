@@ -97,6 +97,8 @@ $Sources = @(
     "src\tecmo_gameplay_scene_actors.c",
     "src\tecmo_gameplay_scene_shots.c",
     "src\tecmo_gameplay_scene_render.c",
+    "src\tecmo_gameplay_scene_court.c",
+    "src\tecmo_gameplay_scene_validation.c",
     "src\tecmo_gameplay_state.c",
     "src\tecmo_intro_stage.c",
     "src\tecmo_nes_video.c",

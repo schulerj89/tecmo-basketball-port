@@ -111,7 +111,7 @@ void scene_clamp_actor_world(TecmoGameplaySceneActor *actor)
     }
 }
 
-const TecmoTeamDataPlayer *scene_actor_player(
+static const TecmoTeamDataPlayer *scene_actor_player(
     const TecmoGameplayScene *scene,
     const TecmoGameplaySceneActor *actor)
 {
@@ -567,14 +567,14 @@ size_t scene_controller_for_team(const TecmoGameplayScene *scene,
     return TECMO_GAMEPLAY_CONTROLLER_COUNT;
 }
 
-bool scene_team_has_controller(const TecmoGameplayScene *scene,
+static bool scene_team_has_controller(const TecmoGameplayScene *scene,
                                       TecmoGameplayTeam team)
 {
     return scene_controller_for_team(scene, team) <
            TECMO_GAMEPLAY_CONTROLLER_COUNT;
 }
 
-bool scene_actor_is_controlled(const TecmoGameplayScene *scene,
+static bool scene_actor_is_controlled(const TecmoGameplayScene *scene,
                                       size_t actor)
 {
     size_t controller;
@@ -642,7 +642,7 @@ bool scene_cpu_actor_state_valid(
                cpu->held_direction_bits] == cpu->direction;
 }
 
-bool scene_cpu_result_coherent(
+static bool scene_cpu_result_coherent(
     const TecmoGameplayScene *scene,
     size_t actor,
     const TecmoGameplayCpuSteeringMovementResult *result)
@@ -675,7 +675,9 @@ bool scene_cpu_result_coherent(
            result->steering.target_actor == cpu->linked_actor;
 }
 
-bool scene_update_ai(TecmoGameplayScene *scene)
+bool scene_update_ai(
+    TecmoGameplayScene *scene,
+    TecmoGameplaySceneCpuShotRequest *shot_request_out)
 {
     TecmoGameplayCpuSteeringHarnessInput steering_snapshot;
     TecmoGameplaySceneActor
@@ -685,13 +687,16 @@ bool scene_update_ai(TecmoGameplayScene *scene)
     TecmoGameplayCourtCoordinateQ8 candidate_ball;
     TecmoGameplayBallDribbleFrame candidate_dribble;
     size_t actor;
-    if (scene == NULL || !scene->cpu_steering_assets.available ||
+    if (scene == NULL || shot_request_out == NULL ||
+        !scene->cpu_steering_assets.available ||
         !scene->movement_assets.available ||
         scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         scene->launch.difficulty >=
             TECMO_GAMEPLAY_CPU_STEERING_DIFFICULTY_COUNT) {
         return false;
     }
+    shot_request_out->requested = false;
+    shot_request_out->actor_index = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     memset(&steering_snapshot, 0, sizeof(steering_snapshot));
     steering_snapshot.contract_tag =
         TECMO_GAMEPLAY_CPU_STEERING_HARNESS_INPUT_TAG;
@@ -799,11 +804,11 @@ bool scene_update_ai(TecmoGameplayScene *scene)
                 TECMO_GAMEPLAY_CPU_STEERING_HARNESS_HOOP_APPROACH &&
             target_dx <= 2 && target_dy <= 2 &&
             scene->frame % shot_cadence == 0U) {
-            /* CPU close shots remain available. An unsupported ordinary-jump
-               context is simply not launched; it must not fall back to the
-               former synthetic schedule. */
-            (void)scene_start_shot_actor(scene, 0U,
-                                         scene->ball_holder);
+            /* CPU close shots remain available. Report the launch decision
+               to the scene orchestrator; actor policy must not depend on the
+               shot playback module. */
+            shot_request_out->requested = true;
+            shot_request_out->actor_index = scene->ball_holder;
         }
     }
     return true;

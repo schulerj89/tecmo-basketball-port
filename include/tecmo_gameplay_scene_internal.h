@@ -88,12 +88,16 @@ typedef struct TecmoGameplayPreparedHud {
                         [TECMO_GAMEPLAY_HUD_COLUMN_COUNT];
 } TecmoGameplayPreparedHud;
 
-/* Lifecycle/state helpers shared with the private scene modules. */
-void scene_clear_jump_playback(TecmoGameplayScene *scene);
-bool scene_queue_result_audio(TecmoGameplayScene *scene,
-                              TecmoGameplayTeam scoring_team);
-bool tecmo_gameplay_scene_ownership_valid(
+typedef struct TecmoGameplaySceneCpuShotRequest {
+    bool requested;
+    uint8_t actor_index;
+} TecmoGameplaySceneCpuShotRequest;
+
+/* Lower-layer court snapshot and invariant seams. */
+bool scene_court_controller_team_valid(uint8_t team);
+bool scene_court_free_throw_lineup_matches(
     const TecmoGameplayScene *scene);
+bool scene_ownership_valid(const TecmoGameplayScene *scene);
 
 /* Actor locomotion, ball attachment, and CPU adapter seam. */
 bool scene_movement_pose_index(
@@ -112,9 +116,6 @@ TecmoGameplayTeam scene_other_team(TecmoGameplayTeam team);
 bool scene_actor_coordinate_valid(const TecmoGameplayCourtCoordinate *coordinate);
 bool scene_actor_world_position_valid(const TecmoGameplaySceneActor *actor);
 void scene_clamp_actor_world(TecmoGameplaySceneActor *actor);
-const TecmoTeamDataPlayer *scene_actor_player(
-    const TecmoGameplayScene *scene,
-    const TecmoGameplaySceneActor *actor);
 bool scene_actor_movement_state(
     const TecmoGameplayScene *scene,
     const TecmoGameplaySceneActor *actor,
@@ -147,24 +148,17 @@ uint8_t scene_nearest_actor_for_team(const TecmoGameplayScene *scene,
 bool scene_pass_or_switch(TecmoGameplayScene *scene, size_t controller);
 size_t scene_controller_for_team(const TecmoGameplayScene *scene,
                                  TecmoGameplayTeam team);
-bool scene_team_has_controller(const TecmoGameplayScene *scene,
-                               TecmoGameplayTeam team);
-bool scene_actor_is_controlled(const TecmoGameplayScene *scene, size_t actor);
 bool scene_cpu_actor_state_valid(
     const TecmoGameplayScene *scene,
     size_t actor,
     const TecmoGameplaySceneCpuActor *cpu);
-bool scene_cpu_result_coherent(
-    const TecmoGameplayScene *scene,
-    size_t actor,
-    const TecmoGameplayCpuSteeringMovementResult *result);
-bool scene_update_ai(TecmoGameplayScene *scene);
+bool scene_update_ai(
+    TecmoGameplayScene *scene,
+    TecmoGameplaySceneCpuShotRequest *shot_request_out);
 bool scene_tick_fatigue(TecmoGameplayScene *scene);
 
 /* Shot/contact/possession orchestration seam. */
 bool scene_shot_is_close(TecmoGameplaySceneShotKind kind);
-TecmoGameplayCloseShotVariant scene_close_variant(
-    TecmoGameplaySceneShotKind kind);
 bool scene_close_pose_for_step(const TecmoGameplayScene *scene,
                                uint8_t step,
                                uint16_t *pose_index);
@@ -182,6 +176,9 @@ bool scene_update_jump_miss(
     const TecmoControlFrame *shooting_controls);
 bool scene_try_defense_action(TecmoGameplayScene *scene,
                               size_t controller);
+void scene_shot_clear_jump_playback(TecmoGameplayScene *scene);
+bool scene_shot_queue_result_audio(TecmoGameplayScene *scene,
+                                   TecmoGameplayTeam scoring_team);
 
 /* Rendering/pre-tip/HUD seam. */
 bool tecmo_gameplay_scene_render_build_background_context(

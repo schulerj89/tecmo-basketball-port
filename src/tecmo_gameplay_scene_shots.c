@@ -15,6 +15,61 @@
 
 static bool scene_shot_will_score(const TecmoGameplayScene *scene);
 
+void scene_shot_clear_jump_playback(TecmoGameplayScene *scene)
+{
+    if (scene == NULL) return;
+    scene->jump_actor_altitude_q8 = 0U;
+    scene->jump_actor_velocity_q8 = 0U;
+    scene->jump_ball_altitude_q8 = 0U;
+    scene->jump_ball_bounce_q8 = 0U;
+    scene->jump_entry_pose_index = 0U;
+    scene->jump_actor_state = 0U;
+    scene->jump_ball_state = 0U;
+    scene->jump_phase_counter = 0U;
+    scene->jump_pose_frame = 0U;
+    scene->shot_controller = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    scene->jump_family = TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0;
+    scene->jump_profile = TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_0;
+    scene->jump_direction = TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_0;
+    scene->jump_oracle_active = false;
+    scene->jump_make_route = false;
+    scene->jump_b_released = false;
+    scene->jump_outcome = TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN;
+    scene->jump_actor_landed = false;
+    scene->jump_rim_rattle_debug = false;
+    scene->jump_rim_rattle_raw_selector = 0U;
+    scene->jump_rim_rattle_audio_repeats = 0U;
+    memset(&scene->jump_rim_rattle, 0,
+           sizeof(scene->jump_rim_rattle));
+    memset(&scene->jump_made_settlement, 0,
+           sizeof(scene->jump_made_settlement));
+}
+
+bool scene_shot_queue_result_audio(TecmoGameplayScene *scene,
+                                   TecmoGameplayTeam shooting_team)
+{
+    TecmoGameplayAudioEvent side_result;
+    if (scene == NULL ||
+        (shooting_team != TECMO_GAMEPLAY_TEAM_AWAY &&
+         shooting_team != TECMO_GAMEPLAY_TEAM_HOME) ||
+        !tecmo_gameplay_audio_queue_event(
+            &scene->audio_player, TECMO_GAMEPLAY_AUDIO_CROWD_RESPONSE)) {
+        return false;
+    }
+
+    /* Bank05 $AD01 requests ID 11 first. $B1D1 then overwrites the same
+       one-byte mailbox with the pre-handoff shooting-side result when the
+       clock is above 0:01. Only the final request is consumed. */
+    if (scene->state.clock_minutes == 0U &&
+        scene->state.clock_seconds < 2U) {
+        return true;
+    }
+    side_result = shooting_team == TECMO_GAMEPLAY_TEAM_AWAY
+                      ? TECMO_GAMEPLAY_AUDIO_SIDE_RESULT_12
+                      : TECMO_GAMEPLAY_AUDIO_SIDE_RESULT_13;
+    return tecmo_gameplay_audio_queue_event(&scene->audio_player, side_result);
+}
+
 static bool scene_jump_pose_for_context(const TecmoGameplayScene *scene,
                                         uint16_t *pose_index)
 {
@@ -35,7 +90,7 @@ bool scene_shot_is_close(TecmoGameplaySceneShotKind kind)
            kind == TECMO_GAMEPLAY_SCENE_SHOT_LAYUP;
 }
 
-TecmoGameplayCloseShotVariant scene_close_variant(
+static TecmoGameplayCloseShotVariant scene_close_variant(
     TecmoGameplaySceneShotKind kind)
 {
     return kind == TECMO_GAMEPLAY_SCENE_SHOT_LAYUP
@@ -160,7 +215,7 @@ bool scene_start_shot_actor(TecmoGameplayScene *scene,
             approach_distance_x <= TECMO_GAMEPLAY_CLOSE_DISTANCE_X &&
             distance_y >= -64 && distance_y <= 80;
     if (close) {
-        scene_clear_jump_playback(scene);
+        scene_shot_clear_jump_playback(scene);
         /* The numeric ROM families and pose timing are exact. The distance
            threshold selecting between them remains a native scene policy. */
         scene->shot_kind = approach_distance_x <= 24
@@ -189,14 +244,14 @@ bool scene_start_shot_actor(TecmoGameplayScene *scene,
         }
         scene->shot_kind = TECMO_GAMEPLAY_SCENE_SHOT_JUMP;
         memset(&close_info, 0, sizeof(close_info));
-        scene_clear_jump_playback(scene);
+        scene_shot_clear_jump_playback(scene);
         scene->shot_controller = (uint8_t)controller;
         scene->jump_family = TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0;
         scene->jump_profile = TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_0;
         scene->jump_direction = TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_1;
         if (!scene_jump_pose_for_context(scene, &initial_pose)) {
             scene->shot_kind = TECMO_GAMEPLAY_SCENE_SHOT_NONE;
-            scene_clear_jump_playback(scene);
+            scene_shot_clear_jump_playback(scene);
             return false;
         }
     }
@@ -222,7 +277,7 @@ bool scene_start_shot_actor(TecmoGameplayScene *scene,
         scene->shot_duration = 0U;
         scene->ball_holder = actor_index;
         if (!scene_attach_ball(scene)) return false;
-        scene_clear_jump_playback(scene);
+        scene_shot_clear_jump_playback(scene);
         return false;
     }
     actor->facing_right = shot_facing_right;
@@ -480,7 +535,7 @@ static bool scene_finish_shot(TecmoGameplayScene *scene,
             return false;
         }
         if (queue_side_result) {
-            if (!scene_queue_result_audio(scene, shooting_team)) return false;
+            if (!scene_shot_queue_result_audio(scene, shooting_team)) return false;
         } else {
             /* The exact side-result ordering is proved for the dunk. Layups
                retain the crowd-only behavior. */
@@ -495,7 +550,7 @@ static bool scene_finish_shot(TecmoGameplayScene *scene,
     scene->close_shot_step = 0U;
     scene->shot_frame = 0U;
     scene->shot_duration = 0U;
-    scene_clear_jump_playback(scene);
+    scene_shot_clear_jump_playback(scene);
     if (scene->state.phase ==
             TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE) {
         return scene_handoff_possession(
@@ -545,7 +600,7 @@ static bool scene_finish_jump_miss(TecmoGameplayScene *scene,
     scene->close_shot_step = 0U;
     scene->shot_frame = 0U;
     scene->shot_duration = 0U;
-    scene_clear_jump_playback(scene);
+    scene_shot_clear_jump_playback(scene);
 
     if (period_expiry) {
         /* The caller queues the post-miss result after state events, so the
@@ -713,7 +768,7 @@ static bool scene_finish_jump_make(TecmoGameplayScene *scene,
     scene->close_shot_step = 0U;
     scene->shot_frame = 0U;
     scene->shot_duration = 0U;
-    scene_clear_jump_playback(scene);
+    scene_shot_clear_jump_playback(scene);
     if (period_expiry) {
         return scene_handoff_possession(
             scene, scene->state.possession, shooting_actor);

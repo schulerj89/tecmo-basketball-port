@@ -36,6 +36,14 @@ static bool scene_framebuffer_valid(const TecmoFramebuffer *framebuffer,
     return height == 0U || pitch <= SIZE_MAX / height;
 }
 
+bool tecmo_gameplay_scene_in_pretip(const TecmoGameplayScene *scene)
+{
+    return scene != NULL &&
+           scene->lifecycle_tag == TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG &&
+           scene->active &&
+           tecmo_gameplay_pretip_is_presentation(&scene->pretip_state);
+}
+
 bool tecmo_gameplay_scene_render_build_background_context(
     const TecmoGameplayScene *scene,
     TecmoGameplayLiveBackgroundContext *context)
@@ -302,8 +310,11 @@ bool tecmo_gameplay_scene_render_prepare_live_hud(
         !scene->pretip_team_data->available ||
         scene->launch.away_team >= TECMO_GAMEPLAY_TEAM_LIMIT ||
         scene->launch.home_team >= TECMO_GAMEPLAY_TEAM_LIMIT ||
-        !tecmo_gameplay_state_valid(&scene->state) ||
-        !tecmo_gameplay_scene_ownership_valid(scene)) {
+        !tecmo_gameplay_state_valid(&scene->state)) {
+        return false;
+    }
+    if (!tecmo_gameplay_scene_in_pretip(scene) &&
+        !scene_ownership_valid(scene)) {
         return false;
     }
     team_ids[TECMO_GAMEPLAY_TEAM_AWAY] = scene->launch.away_team;
@@ -1185,6 +1196,10 @@ bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
             scene->assets.chr_storage_size,
             framebuffer, origin_x, origin_y, scale,
             scene->state.violation, scene->state.phase_frame);
+    }
+    if (!tecmo_gameplay_scene_in_pretip(scene) &&
+        !scene_ownership_valid(scene)) {
+        return false;
     }
     if (!scene_framebuffer_subview(framebuffer, origin_x, origin_y,
                                    scale, &view) ||
