@@ -234,750 +234,778 @@ static bool scene_test_cpu_offense_all_difficulties(
     return true;
 }
 
-bool tecmo_gameplay_scene_test_state_flow(
-    TecmoGameplaySceneTestContext *test)
+static bool scene_test_violations_and_cpu_offense(
+    TecmoGameplayScene *scene,
+    TecmoGameplaySceneLaunch *launch_input,
+    TecmoControlFrame *p1_input,
+    TecmoControlFrame *p2_input,
+    char *message,
+    size_t message_size)
 {
-    TecmoGameplaySceneLaunch launch = test->launch;
-    TecmoControlFrame p1 = test->p1;
-    TecmoControlFrame p2 = test->p2;
-    char *message = test->message;
-    size_t message_size = test->message_size;
-    TecmoGameplaySceneResult result;
-    uint16_t away_score_before;
-    uint16_t home_score_before;
-    uint8_t shot_actor;
+    TecmoGameplaySceneLaunch launch = *launch_input;
+    TecmoControlFrame p1 = *p1_input;
+    TecmoControlFrame p2 = *p2_input;
     uint8_t failed_difficulty;
-    int16_t x;
-    int16_t cpu_holder_start_x;
     size_t frame;
-
-#define TEST_SCENE (*test->scene)
-    if (!tecmo_gameplay_scene_test_close_clock_collision(&TEST_SCENE, &launch)) {
+    if (!tecmo_gameplay_scene_test_close_clock_collision(scene, &launch)) {
         tecmo_gameplay_scene_test_message(
             message, message_size,
             "close-shot countdown/dual-expiry settlement failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     launch.controller_team[1] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
-    if (!tecmo_gameplay_scene_launch(&TEST_SCENE, &launch)) {
+    if (!tecmo_gameplay_scene_launch(scene, &launch)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "single-controller gameplay launch rejected");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    TEST_SCENE.fatigue_state.capacity[TECMO_GAMEPLAY_TEAM_AWAY][0U] = 10U;
-    TEST_SCENE.fatigue_state.countdown[TECMO_GAMEPLAY_TEAM_AWAY][0U] = 1U;
-    TEST_SCENE.fatigue_state.condition[TECMO_GAMEPLAY_TEAM_AWAY][0U] = 10U;
-    TEST_SCENE.actors[0U].condition = 10U;
+    scene->fatigue_state.capacity[TECMO_GAMEPLAY_TEAM_AWAY][0U] = 10U;
+    scene->fatigue_state.countdown[TECMO_GAMEPLAY_TEAM_AWAY][0U] = 1U;
+    scene->fatigue_state.condition[TECMO_GAMEPLAY_TEAM_AWAY][0U] = 10U;
+    scene->actors[0U].condition = 10U;
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.fatigue_state.capacity[TECMO_GAMEPLAY_TEAM_AWAY][0U] != 9U ||
-        TEST_SCENE.fatigue_state.countdown[TECMO_GAMEPLAY_TEAM_AWAY][0U] != 9U ||
-        TEST_SCENE.fatigue_state.condition[TECMO_GAMEPLAY_TEAM_AWAY][0U] != 9U ||
-        TEST_SCENE.actors[0U].condition != 9U) {
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->fatigue_state.capacity[TECMO_GAMEPLAY_TEAM_AWAY][0U] != 9U ||
+        scene->fatigue_state.countdown[TECMO_GAMEPLAY_TEAM_AWAY][0U] != 9U ||
+        scene->fatigue_state.condition[TECMO_GAMEPLAY_TEAM_AWAY][0U] != 9U ||
+        scene->actors[0U].condition != 9U) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "TGFT-1 live condition synchronization failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    TEST_SCENE.actors[0U].position.x = 149;
-    TEST_SCENE.actors[0U].position.y = 148;
-    TEST_SCENE.actors[0U].movement_fractional_accumulator = 15U;
+    scene->actors[0U].position.x = 149;
+    scene->actors[0U].position.y = 148;
+    scene->actors[0U].movement_fractional_accumulator = 15U;
     p1.held.left = true;
-    if (!scene_attach_ball(&TEST_SCENE) ||
-        !tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
-        TEST_SCENE.actors[0U].position.x != 149 ||
-        TEST_SCENE.actors[0U].movement_boundary_latched ||
-        TEST_SCENE.actors[0U].movement_action_state !=
+    if (!scene_attach_ball(scene) ||
+        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->actors[0U].position.x != 149 ||
+        scene->actors[0U].movement_boundary_latched ||
+        scene->actors[0U].movement_action_state !=
             TECMO_GAMEPLAY_MOVEMENT_INPUT_LEFT) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "TGMO out-of-bounds approach setup failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
-        TEST_SCENE.state.violation != TECMO_GAMEPLAY_VIOLATION_OUT_OF_BOUNDS ||
-        TEST_SCENE.state.restart_possession != TECMO_GAMEPLAY_TEAM_HOME ||
-        TEST_SCENE.actors[0U].position.x != 149 ||
-        TEST_SCENE.actors[0U].movement_boundary_latched ||
-        TEST_SCENE.ball_holder != 0U ||
-        !TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.pending_sfx_id != 6U) {
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+        scene->state.violation != TECMO_GAMEPLAY_VIOLATION_OUT_OF_BOUNDS ||
+        scene->state.restart_possession != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->actors[0U].position.x != 149 ||
+        scene->actors[0U].movement_boundary_latched ||
+        scene->ball_holder != 0U ||
+        !scene->audio_player.sfx_pending ||
+        scene->audio_player.pending_sfx_id != 6U) {
         char failure[384];
         (void)snprintf(
             failure, sizeof(failure),
             "TGMO/TPNL out-of-bounds entry failed: phase=%u violation=%u restart=%u x=%d latch=%u holder=%u sfx=%u/%u control=%u team=%u action=%u direction=%u shot=%u",
-            (unsigned)TEST_SCENE.state.phase,
-            (unsigned)TEST_SCENE.state.violation,
-            (unsigned)TEST_SCENE.state.restart_possession,
-            (int)TEST_SCENE.actors[0U].position.x,
-            TEST_SCENE.actors[0U].movement_boundary_latched ? 1U : 0U,
-            (unsigned)TEST_SCENE.ball_holder,
-            TEST_SCENE.audio_player.sfx_pending ? 1U : 0U,
-            (unsigned)TEST_SCENE.audio_player.pending_sfx_id,
-            (unsigned)TEST_SCENE.controlled_actor[0U],
-            (unsigned)TEST_SCENE.launch.controller_team[0U],
-            (unsigned)TEST_SCENE.actors[0U].movement_action_state,
-            (unsigned)TEST_SCENE.actors[0U].movement_direction,
-            (unsigned)TEST_SCENE.shot_kind);
+            (unsigned)scene->state.phase,
+            (unsigned)scene->state.violation,
+            (unsigned)scene->state.restart_possession,
+            (int)scene->actors[0U].position.x,
+            scene->actors[0U].movement_boundary_latched ? 1U : 0U,
+            (unsigned)scene->ball_holder,
+            scene->audio_player.sfx_pending ? 1U : 0U,
+            (unsigned)scene->audio_player.pending_sfx_id,
+            (unsigned)scene->controlled_actor[0U],
+            (unsigned)scene->launch.controller_team[0U],
+            (unsigned)scene->actors[0U].movement_action_state,
+            (unsigned)scene->actors[0U].movement_direction,
+            (unsigned)scene->shot_kind);
         tecmo_gameplay_scene_test_message(message, message_size, failure);
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     memset(&p1, 0, sizeof(p1));
     for (frame = 0U;
          frame < TECMO_GAMEPLAY_VIOLATION_RELEASE_LEAD_IN_FRAMES;
          ++frame) {
-        if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2)) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
             tecmo_gameplay_scene_test_message(message, message_size,
                                "out-of-bounds lead-in failed");
-            tecmo_gameplay_scene_destroy(&TEST_SCENE);
             return false;
         }
     }
     p1.released.shoot = true;
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
-        TEST_SCENE.state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
-        TEST_SCENE.state.shot_clock != TECMO_GAMEPLAY_SHOT_CLOCK_SECONDS ||
-        TEST_SCENE.state.clock_divider != TECMO_GAMEPLAY_POSSESSION_DIVIDER_FRAMES ||
-        TEST_SCENE.ball_holder != TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
-        TEST_SCENE.actors[0U].movement_boundary_latched) {
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->state.shot_clock != TECMO_GAMEPLAY_SHOT_CLOCK_SECONDS ||
+        scene->state.clock_divider != TECMO_GAMEPLAY_POSSESSION_DIVIDER_FRAMES ||
+        scene->ball_holder != TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
+        scene->actors[0U].movement_boundary_latched) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "out-of-bounds restart settlement failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_audio_stop_all(&TEST_SCENE.audio_player);
+    tecmo_gameplay_audio_stop_all(&scene->audio_player);
     if (!scene_handoff_possession(
-            &TEST_SCENE, TECMO_GAMEPLAY_TEAM_AWAY, 0U)) {
+            scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "out-of-bounds test possession reset failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    TEST_SCENE.state.shot_clock = 1U;
-    TEST_SCENE.state.clock_divider = 1U;
+    scene->state.shot_clock = 1U;
+    scene->state.clock_divider = 1U;
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
     if (!tecmo_gameplay_audio_queue_dmc_clip(
-            &TEST_SCENE.audio_player,
+            &scene->audio_player,
             TECMO_GAMEPLAY_DMC_BANK05_A8D6_LONG) ||
-        !tecmo_gameplay_state_valid(&TEST_SCENE.state) ||
-        !tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
-        !TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.pending_sfx_id != 6U ||
-        TEST_SCENE.audio_player.dmc.active ||
-        TEST_SCENE.audio_player.music == NULL ||
-        TEST_SCENE.audio_player.music->playing ||
-        TEST_SCENE.audio_player.music->track_pending) {
+        !tecmo_gameplay_state_valid(&scene->state) ||
+        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+        !scene->audio_player.sfx_pending ||
+        scene->audio_player.pending_sfx_id != 6U ||
+        scene->audio_player.dmc.active ||
+        scene->audio_player.music == NULL ||
+        scene->audio_player.music->playing ||
+        scene->audio_player.music->track_pending) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "shot-clock violation reset/cue ordering failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_audio_render_samples(&TEST_SCENE.audio_player, NULL, 1024U);
-    if (TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.current_sfx_id != 6U ||
+    tecmo_gameplay_audio_render_samples(&scene->audio_player, NULL, 1024U);
+    if (scene->audio_player.sfx_pending ||
+        scene->audio_player.current_sfx_id != 6U ||
         !tecmo_gameplay_audio_queue_dmc_clip(
-            &TEST_SCENE.audio_player,
+            &scene->audio_player,
             TECMO_GAMEPLAY_DMC_BANK05_A8D6_LONG)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "single violation cue consumption failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     for (frame = 0U;
          frame < TECMO_GAMEPLAY_VIOLATION_RELEASE_LEAD_IN_FRAMES;
          ++frame) {
-        if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-            TEST_SCENE.audio_player.sfx_pending) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->audio_player.sfx_pending) {
             tecmo_gameplay_scene_test_message(message, message_size,
                                "violation reset/cue repeated after entry");
-            tecmo_gameplay_scene_destroy(&TEST_SCENE);
             return false;
         }
     }
     p1.released.shoot = true;
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
-        TEST_SCENE.state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
-        TEST_SCENE.ball_holder < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
-        !TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.pending_sfx_id != 5U ||
-        !TEST_SCENE.audio_player.music->track_pending ||
-        TEST_SCENE.audio_player.music->pending_track_id !=
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->ball_holder < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
+        !scene->audio_player.sfx_pending ||
+        scene->audio_player.pending_sfx_id != 5U ||
+        !scene->audio_player.music->track_pending ||
+        scene->audio_player.music->pending_track_id !=
             TECMO_MUSIC_TRACK_GAMEPLAY ||
-        !tecmo_gameplay_state_valid(&TEST_SCENE.state)) {
+        !tecmo_gameplay_state_valid(&scene->state)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "violation restart holder synchronization failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_audio_render_samples(&TEST_SCENE.audio_player, NULL, 1024U);
-    if (TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.current_sfx_id != 5U ||
-        !TEST_SCENE.audio_player.music->playing ||
-        TEST_SCENE.audio_player.music->current_track_id !=
+    tecmo_gameplay_audio_render_samples(&scene->audio_player, NULL, 1024U);
+    if (scene->audio_player.sfx_pending ||
+        scene->audio_player.current_sfx_id != 5U ||
+        !scene->audio_player.music->playing ||
+        scene->audio_player.music->current_track_id !=
             TECMO_MUSIC_TRACK_GAMEPLAY) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "violation live-return audio restart failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     memset(&p1, 0, sizeof(p1));
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.audio_player.sfx_pending) {
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->audio_player.sfx_pending) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "violation restart cue repeated");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     /* Allow the exact fatigue path to reach TGMO's minimum Q4 rate while
        retaining a bound below the 24-second possession clock. */
     for (frame = 0U; frame < 600U &&
-         TEST_SCENE.shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE; ++frame) {
-        if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2)) {
+         scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
             tecmo_gameplay_scene_test_message(message, message_size,
                                "native offense update failed");
-            tecmo_gameplay_scene_destroy(&TEST_SCENE);
             return false;
         }
     }
-    if (TEST_SCENE.shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
-        TEST_SCENE.shot_actor < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT) {
+    if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        scene->shot_actor < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "native offense did not start a shot");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_scene_end(&TEST_SCENE);
+    tecmo_gameplay_scene_end(scene);
     if (!scene_test_cpu_offense_all_difficulties(
-            &TEST_SCENE, &launch, &failed_difficulty)) {
+            scene, &launch, &failed_difficulty)) {
         char failure[192];
         (void)snprintf(
             failure, sizeof(failure),
             "CPU offense stalled before a close shot at difficulty %u",
             (unsigned)failed_difficulty);
         tecmo_gameplay_scene_test_message(message, message_size, failure);
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
+    *launch_input = launch;
+    *p1_input = p1;
+    *p2_input = p2;
+    return true;
+}
 
+static bool scene_test_period_expiry_and_restart(
+    TecmoGameplayScene *scene,
+    TecmoGameplaySceneLaunch *launch_input,
+    TecmoControlFrame *p1_input,
+    TecmoControlFrame *p2_input,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplaySceneLaunch launch = *launch_input;
+    TecmoControlFrame p1 = *p1_input;
+    TecmoControlFrame p2 = *p2_input;
+    uint16_t away_score_before;
+    uint16_t home_score_before;
+    uint8_t shot_actor;
+    int16_t x;
+    size_t frame;
     launch.controller_team[0] = TECMO_GAMEPLAY_TEAM_AWAY;
     launch.controller_team[1] = TECMO_GAMEPLAY_TEAM_HOME;
-    if (!tecmo_gameplay_scene_test_combined_restart_is_inert(&TEST_SCENE, &launch, 1U) ||
-        !tecmo_gameplay_scene_test_combined_restart_is_inert(&TEST_SCENE, &launch, 3U)) {
+    if (!tecmo_gameplay_scene_test_combined_restart_is_inert(scene, &launch, 1U) ||
+        !tecmo_gameplay_scene_test_combined_restart_is_inert(scene, &launch, 3U)) {
         tecmo_gameplay_scene_test_message(
             message, message_size,
             "combined violation restart action suppression failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    if (!tecmo_gameplay_scene_test_jump_period_expiry(&TEST_SCENE, &launch)) {
+    if (!tecmo_gameplay_scene_test_jump_period_expiry(scene, &launch)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "jump-miss period-expiry route failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    if (!tecmo_gameplay_scene_test_jump_make_period_expiry(&TEST_SCENE, &launch, true) ||
-        !tecmo_gameplay_scene_test_jump_make_period_expiry(&TEST_SCENE, &launch, false)) {
+    if (!tecmo_gameplay_scene_test_jump_make_period_expiry(scene, &launch, true) ||
+        !tecmo_gameplay_scene_test_jump_make_period_expiry(scene, &launch, false)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "jump-make period-expiry route failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    if (!tecmo_gameplay_scene_launch(&TEST_SCENE, &launch)) {
+    if (!tecmo_gameplay_scene_launch(scene, &launch)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "period-expiry gameplay launch rejected");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    TEST_SCENE.state.clock_minutes = 0U;
-    TEST_SCENE.state.clock_seconds = 1U;
-    TEST_SCENE.state.clock_divider = 2U;
-    TEST_SCENE.state.shot_clock = 20U;
-    TEST_SCENE.actors[TEST_SCENE.ball_holder].position.x = 0x013CU;
-    TEST_SCENE.actors[TEST_SCENE.ball_holder].position.y = 180;
-    TEST_SCENE.actors[TEST_SCENE.ball_holder].facing_right = true;
-    scene_attach_ball(&TEST_SCENE);
-    TEST_SCENE.action_serial = 1U;
+    scene->state.clock_minutes = 0U;
+    scene->state.clock_seconds = 1U;
+    scene->state.clock_divider = 2U;
+    scene->state.shot_clock = 20U;
+    scene->actors[scene->ball_holder].position.x = 0x013CU;
+    scene->actors[scene->ball_holder].position.y = 180;
+    scene->actors[scene->ball_holder].facing_right = true;
+    scene_attach_ball(scene);
+    scene->action_serial = 1U;
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
     p1.held.cancel = true;
     p1.pressed.cancel = true;
-    if (!tecmo_gameplay_state_valid(&TEST_SCENE.state) ||
-        !tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
-        TEST_SCENE.shot_frame != 1U || TEST_SCENE.action_serial != 2U ||
-        TEST_SCENE.jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN) {
+    if (!tecmo_gameplay_state_valid(&scene->state) ||
+        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+        scene->shot_frame != 1U || scene->action_serial != 2U ||
+        scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "period-expiry live shot setup failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    shot_actor = TEST_SCENE.shot_actor;
-    away_score_before = TEST_SCENE.state.score[TECMO_GAMEPLAY_TEAM_AWAY];
-    home_score_before = TEST_SCENE.state.score[TECMO_GAMEPLAY_TEAM_HOME];
+    shot_actor = scene->shot_actor;
+    away_score_before = scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY];
+    home_score_before = scene->state.score[TECMO_GAMEPLAY_TEAM_HOME];
     memset(&p1, 0, sizeof(p1));
     for (frame = 0U; frame < 96U &&
-         TEST_SCENE.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE; ++frame) {
-        if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2)) {
+         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
             tecmo_gameplay_scene_test_message(message, message_size,
                                "period-expiry shot update failed");
-            tecmo_gameplay_scene_destroy(&TEST_SCENE);
             return false;
         }
     }
-    if (TEST_SCENE.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
-        TEST_SCENE.state.phase !=
+    if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        scene->state.phase !=
             TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE ||
-        !TEST_SCENE.state.period_expiry_zero_action_observed ||
-        TEST_SCENE.state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
-        TEST_SCENE.state.score[TECMO_GAMEPLAY_TEAM_AWAY] != away_score_before ||
-        TEST_SCENE.state.score[TECMO_GAMEPLAY_TEAM_HOME] != home_score_before ||
-        TEST_SCENE.jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN ||
-        !TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.pending_sfx_id != 11U ||
-        TEST_SCENE.ball_holder != shot_actor ||
-        TEST_SCENE.actors[TEST_SCENE.ball_holder].team != TECMO_GAMEPLAY_TEAM_AWAY ||
-        !tecmo_gameplay_state_valid(&TEST_SCENE.state)) {
+        !scene->state.period_expiry_zero_action_observed ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY] != away_score_before ||
+        scene->state.score[TECMO_GAMEPLAY_TEAM_HOME] != home_score_before ||
+        scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN ||
+        !scene->audio_player.sfx_pending ||
+        scene->audio_player.pending_sfx_id != 11U ||
+        scene->ball_holder != shot_actor ||
+        scene->actors[scene->ball_holder].team != TECMO_GAMEPLAY_TEAM_AWAY ||
+        !tecmo_gameplay_state_valid(&scene->state)) {
         char failure[192];
         (void)snprintf(
             failure, sizeof(failure),
             "period-expiry shot settlement diverged: shot=%u phase=%u holder=%u possession=%u valid=%u",
-            (unsigned)TEST_SCENE.shot_kind, (unsigned)TEST_SCENE.state.phase,
-            (unsigned)TEST_SCENE.ball_holder, (unsigned)TEST_SCENE.state.possession,
-            tecmo_gameplay_state_valid(&TEST_SCENE.state) ? 1U : 0U);
+            (unsigned)scene->shot_kind, (unsigned)scene->state.phase,
+            (unsigned)scene->ball_holder, (unsigned)scene->state.possession,
+            tecmo_gameplay_state_valid(&scene->state) ? 1U : 0U);
         tecmo_gameplay_scene_test_message(message, message_size, failure);
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     if (!tecmo_gameplay_audio_queue_dmc_clip(
-            &TEST_SCENE.audio_player,
+            &scene->audio_player,
             TECMO_GAMEPLAY_DMC_BANK05_A8D6_LONG) ||
-        !tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_BANNER ||
-        TEST_SCENE.state.period != 2U ||
-        TEST_SCENE.state.banner != TECMO_GAMEPLAY_BANNER_SECOND_PERIOD ||
-        TEST_SCENE.state.period_expiry_zero_action_observed ||
-        TEST_SCENE.state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
-        TEST_SCENE.state.score[TECMO_GAMEPLAY_TEAM_AWAY] != away_score_before ||
-        TEST_SCENE.state.score[TECMO_GAMEPLAY_TEAM_HOME] != home_score_before ||
-        TEST_SCENE.ball_holder != shot_actor ||
-        TEST_SCENE.audio_player.sfx_pending || TEST_SCENE.audio_player.dmc.active ||
-        TEST_SCENE.audio_player.music == NULL ||
-        TEST_SCENE.audio_player.music->playing ||
-        TEST_SCENE.audio_player.music->track_pending ||
-        !tecmo_gameplay_state_valid(&TEST_SCENE.state)) {
+        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_BANNER ||
+        scene->state.period != 2U ||
+        scene->state.banner != TECMO_GAMEPLAY_BANNER_SECOND_PERIOD ||
+        scene->state.period_expiry_zero_action_observed ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY] != away_score_before ||
+        scene->state.score[TECMO_GAMEPLAY_TEAM_HOME] != home_score_before ||
+        scene->ball_holder != shot_actor ||
+        scene->audio_player.sfx_pending || scene->audio_player.dmc.active ||
+        scene->audio_player.music == NULL ||
+        scene->audio_player.music->playing ||
+        scene->audio_player.music->track_pending ||
+        !tecmo_gameplay_state_valid(&scene->state)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "period-expiry audio reset transition failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     if (!tecmo_gameplay_audio_queue_dmc_clip(
-            &TEST_SCENE.audio_player,
+            &scene->audio_player,
             TECMO_GAMEPLAY_DMC_BANK05_A8D6_LONG)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "period exact-once DMC probe failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    TEST_SCENE.state.phase_frame = TECMO_GAMEPLAY_PERIOD_BANNER_FRAMES - 1U;
-    TEST_SCENE.ball_holder = 5U;
-    scene_attach_ball(&TEST_SCENE);
-    TEST_SCENE.action_serial = 3U;
-    x = TEST_SCENE.actors[0].position.x;
+    scene->state.phase_frame = TECMO_GAMEPLAY_PERIOD_BANNER_FRAMES - 1U;
+    scene->ball_holder = 5U;
+    scene_attach_ball(scene);
+    scene->action_serial = 3U;
+    x = scene->actors[0].position.x;
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
     p1.held.right = true;
     p1.held.cancel = true;
     p1.pressed.cancel = true;
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
-        TEST_SCENE.state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
-        TEST_SCENE.ball_holder != 0U || TEST_SCENE.controlled_actor[0] != 0U ||
-        TEST_SCENE.actors[0].position.x != x || TEST_SCENE.action_serial != 3U ||
-        TEST_SCENE.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
-        !TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.pending_sfx_id != 5U ||
-        !TEST_SCENE.audio_player.dmc.active ||
-        !TEST_SCENE.audio_player.music->track_pending ||
-        TEST_SCENE.audio_player.music->pending_track_id !=
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->ball_holder != 0U || scene->controlled_actor[0] != 0U ||
+        scene->actors[0].position.x != x || scene->action_serial != 3U ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        !scene->audio_player.sfx_pending ||
+        scene->audio_player.pending_sfx_id != 5U ||
+        !scene->audio_player.dmc.active ||
+        !scene->audio_player.music->track_pending ||
+        scene->audio_player.music->pending_track_id !=
             TECMO_MUSIC_TRACK_GAMEPLAY) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "period restart action suppression failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_audio_render_samples(&TEST_SCENE.audio_player, NULL, 1024U);
-    if (!TEST_SCENE.audio_player.music->playing ||
-        TEST_SCENE.audio_player.music->current_track_id !=
+    tecmo_gameplay_audio_render_samples(&scene->audio_player, NULL, 1024U);
+    if (!scene->audio_player.music->playing ||
+        scene->audio_player.music->current_track_id !=
             TECMO_MUSIC_TRACK_GAMEPLAY) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "period live-return music restart failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_scene_end(&TEST_SCENE);
+    tecmo_gameplay_scene_end(scene);
+    *launch_input = launch;
+    *p1_input = p1;
+    *p2_input = p2;
+    return true;
+}
 
+static bool scene_test_controller_policy(
+    TecmoGameplayScene *scene,
+    TecmoGameplaySceneLaunch *launch_input,
+    TecmoControlFrame *p1_input,
+    TecmoControlFrame *p2_input,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplaySceneLaunch launch = *launch_input;
+    TecmoControlFrame p1 = *p1_input;
+    TecmoControlFrame p2 = *p2_input;
+    int16_t x;
     launch.controller_team[0] = TECMO_GAMEPLAY_TEAM_HOME;
     launch.controller_team[1] = TECMO_GAMEPLAY_TEAM_AWAY;
-    if (!tecmo_gameplay_scene_launch(&TEST_SCENE, &launch) ||
-        TEST_SCENE.controlled_actor[0] < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
-        TEST_SCENE.controlled_actor[1] >= TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT) {
+    if (!tecmo_gameplay_scene_launch(scene, &launch) ||
+        scene->controlled_actor[0] < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
+        scene->controlled_actor[1] >= TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "swapped controller ownership mapping failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    x = TEST_SCENE.actors[TEST_SCENE.controlled_actor[0]].position.x;
+    x = scene->actors[scene->controlled_actor[0]].position.x;
     memset(&p1, 0, sizeof(p1));
     p1.held.right = true;
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.actors[TEST_SCENE.controlled_actor[0]].position.x != x ||
-        !tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.actors[TEST_SCENE.controlled_actor[0]].position.x != x + 1) {
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->actors[scene->controlled_actor[0]].position.x != x ||
+        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->actors[scene->controlled_actor[0]].position.x != x + 1) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "swapped controller TGMO movement failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_scene_end(&TEST_SCENE);
+    tecmo_gameplay_scene_end(scene);
 
     launch.controller_team[0] = TECMO_GAMEPLAY_TEAM_AWAY;
     launch.controller_team[1] = TECMO_GAMEPLAY_TEAM_HOME;
-    if (!tecmo_gameplay_scene_launch(&TEST_SCENE, &launch)) {
+    if (!tecmo_gameplay_scene_launch(scene, &launch)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "combined-button gameplay launch rejected");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     /* Keep the A-selected receiver inside the supported TGJS/TGSR slot-0 miss
        context so this test remains about A-before-B resolution. */
-    TEST_SCENE.actors[1].position.x = 0x013CU;
-    TEST_SCENE.actors[1].position.y = 180;
-    TEST_SCENE.actors[1].facing_right = true;
-    TEST_SCENE.action_serial = 1U;
+    scene->actors[1].position.x = 0x013CU;
+    scene->actors[1].position.y = 180;
+    scene->actors[1].facing_right = true;
+    scene->action_serial = 1U;
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
     p1.held.shoot = true;
     p1.pressed.shoot = true;
     p1.held.cancel = true;
     p1.pressed.cancel = true;
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
-        TEST_SCENE.shot_actor != 1U || TEST_SCENE.action_serial != 2U ||
-        TEST_SCENE.jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN) {
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        scene->shot_actor != 1U || scene->action_serial != 2U ||
+        scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "combined NES A+B resolution failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_scene_end(&TEST_SCENE);
+    tecmo_gameplay_scene_end(scene);
+    *launch_input = launch;
+    *p1_input = p1;
+    *p2_input = p2;
+    return true;
+}
 
+static bool scene_test_dribble_policy(
+    TecmoGameplayScene *scene,
+    TecmoGameplaySceneLaunch *launch_input,
+    TecmoControlFrame *p1_input,
+    TecmoControlFrame *p2_input,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplaySceneLaunch launch = *launch_input;
+    TecmoControlFrame p1 = *p1_input;
+    TecmoControlFrame p2 = *p2_input;
+    int16_t cpu_holder_start_x;
+    size_t frame;
     /* TGBD follows the actual holder's TGMO animation phase. Unrelated pad
        activity cannot trigger it; a stationary holder still dribbles. */
-    if (!tecmo_gameplay_scene_launch(&TEST_SCENE, &launch)) {
+    if (!tecmo_gameplay_scene_launch(scene, &launch)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "defender dribble-policy launch rejected");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
     p2.held.right = true;
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        !tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.audio_player.dmc.active) {
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->audio_player.dmc.active) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "defender movement queued holder DMC");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_scene_end(&TEST_SCENE);
+    tecmo_gameplay_scene_end(scene);
 
     launch.controller_team[1] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
-    if (!tecmo_gameplay_scene_launch(&TEST_SCENE, &launch)) {
+    if (!tecmo_gameplay_scene_launch(scene, &launch)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "NO_TEAM dribble-policy launch rejected");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     memset(&p2, 0, sizeof(p2));
     p2.held.right = true;
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.audio_player.dmc.active) {
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->audio_player.dmc.active) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "NO_TEAM pad movement queued holder DMC");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_scene_end(&TEST_SCENE);
+    tecmo_gameplay_scene_end(scene);
 
-    if (!tecmo_gameplay_scene_launch(&TEST_SCENE, &launch)) {
+    if (!tecmo_gameplay_scene_launch(scene, &launch)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "human holder dribble-policy launch rejected");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
     for (frame = 0U; frame <= 14U; ++frame) {
-        if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
             (frame < 14U &&
-             TEST_SCENE.audio_player.dmc.active)) {
+             scene->audio_player.dmc.active)) {
             tecmo_gameplay_scene_test_message(
                 message, message_size,
                 "human holder TGBD phase queued an early DMC");
-            tecmo_gameplay_scene_destroy(&TEST_SCENE);
             return false;
         }
         if ((frame == 0U &&
-             TEST_SCENE.ball_position.y_q8 != 176 * 256) ||
+             scene->ball_position.y_q8 != 176 * 256) ||
             (frame == 3U &&
-             TEST_SCENE.ball_position.y_q8 != 182 * 256) ||
+             scene->ball_position.y_q8 != 182 * 256) ||
             (frame == 7U &&
-             TEST_SCENE.ball_position.y_q8 != 191 * 256) ||
+             scene->ball_position.y_q8 != 191 * 256) ||
             (frame == 11U &&
-             TEST_SCENE.ball_position.y_q8 != 197 * 256)) {
+             scene->ball_position.y_q8 != 197 * 256)) {
             tecmo_gameplay_scene_test_message(
                 message, message_size,
                 "human holder TGBD visible bounce vector failed");
-            tecmo_gameplay_scene_destroy(&TEST_SCENE);
             return false;
         }
     }
-    if (!TEST_SCENE.audio_player.dmc.active) {
+    if (!scene->audio_player.dmc.active) {
         tecmo_gameplay_scene_test_message(
             message, message_size,
             "stationary human holder missed native TGBD phase DMC");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_scene_end(&TEST_SCENE);
+    tecmo_gameplay_scene_end(scene);
 
     launch.controller_team[0] = TECMO_GAMEPLAY_TEAM_HOME;
-    if (!tecmo_gameplay_scene_launch(&TEST_SCENE, &launch)) {
+    if (!tecmo_gameplay_scene_launch(scene, &launch)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "CPU holder dribble-policy launch rejected");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     memset(&p1, 0, sizeof(p1));
-    cpu_holder_start_x = TEST_SCENE.actors[TEST_SCENE.ball_holder].position.x;
+    cpu_holder_start_x = scene->actors[scene->ball_holder].position.x;
     for (frame = 0U; frame <= 17U; ++frame) {
-        if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
             (frame < 17U &&
-             TEST_SCENE.audio_player.dmc.active)) {
+             scene->audio_player.dmc.active)) {
             tecmo_gameplay_scene_test_message(
                 message, message_size,
                 "CPU holder TGBD phase queued an early DMC");
-            tecmo_gameplay_scene_destroy(&TEST_SCENE);
             return false;
         }
         if (frame == 0U &&
-            (TEST_SCENE.actors[0].position.x != cpu_holder_start_x ||
-             TEST_SCENE.actors[0].movement_action_state !=
+            (scene->actors[0].position.x != cpu_holder_start_x ||
+             scene->actors[0].movement_action_state !=
                  TECMO_GAMEPLAY_MOVEMENT_INPUT_LEFT ||
-             TEST_SCENE.cpu_actors[0].decision_serial != 1U ||
-             TEST_SCENE.cpu_actors[0].snapshot_fingerprint != 0xBD36E345U ||
-             TEST_SCENE.cpu_actors[0].target_kind !=
+             scene->cpu_actors[0].decision_serial != 1U ||
+             scene->cpu_actors[0].snapshot_fingerprint != 0xBD36E345U ||
+             scene->cpu_actors[0].target_kind !=
                  TECMO_GAMEPLAY_CPU_STEERING_HARNESS_HOOP_APPROACH ||
-             TEST_SCENE.cpu_actors[0].target_position.x != 208 ||
-             TEST_SCENE.cpu_actors[0].target_position.y != 148 ||
-             TEST_SCENE.cpu_actors[0].direction != 1U ||
-             TEST_SCENE.cpu_actors[0].held_direction_bits !=
+             scene->cpu_actors[0].target_position.x != 208 ||
+             scene->cpu_actors[0].target_position.y != 148 ||
+             scene->cpu_actors[0].direction != 1U ||
+             scene->cpu_actors[0].held_direction_bits !=
                  TECMO_GAMEPLAY_MOVEMENT_INPUT_LEFT ||
-             !TEST_SCENE.cpu_actors[0].writes_direction ||
-             TEST_SCENE.cpu_actors[1].decision_serial != 1U ||
-             TEST_SCENE.cpu_actors[1].target_kind !=
+             !scene->cpu_actors[0].writes_direction ||
+             scene->cpu_actors[1].decision_serial != 1U ||
+             scene->cpu_actors[1].target_kind !=
                  TECMO_GAMEPLAY_CPU_STEERING_HARNESS_LINKED_ACTOR ||
-             TEST_SCENE.cpu_actors[1].linked_actor != 6U ||
-             TEST_SCENE.cpu_actors[1].target_position.x != 395 ||
-             TEST_SCENE.cpu_actors[1].target_position.y != 190 ||
-             TEST_SCENE.cpu_actors[5].decision_serial != 0U)) {
+             scene->cpu_actors[1].linked_actor != 6U ||
+             scene->cpu_actors[1].target_position.x != 395 ||
+             scene->cpu_actors[1].target_position.y != 190 ||
+             scene->cpu_actors[5].decision_serial != 0U)) {
             tecmo_gameplay_scene_test_message(
                 message, message_size,
                 "live TGAI snapshot/target/TGMO-latency contract failed");
-            tecmo_gameplay_scene_destroy(&TEST_SCENE);
             return false;
         }
     }
-    if (!TEST_SCENE.audio_player.dmc.active ||
-        TEST_SCENE.actors[0].position.x >= cpu_holder_start_x ||
-        TEST_SCENE.cpu_actors[0].decision_serial !=
+    if (!scene->audio_player.dmc.active ||
+        scene->actors[0].position.x >= cpu_holder_start_x ||
+        scene->cpu_actors[0].decision_serial !=
             18U) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "CPU holder missed native TGBD phase DMC");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_scene_end(&TEST_SCENE);
+    tecmo_gameplay_scene_end(scene);
     launch.controller_team[0] = TECMO_GAMEPLAY_TEAM_AWAY;
     launch.controller_team[1] = TECMO_GAMEPLAY_TEAM_HOME;
+    *launch_input = launch;
+    *p1_input = p1;
+    *p2_input = p2;
+    return true;
+}
 
+static bool scene_test_music_and_steal_policy(
+    TecmoGameplayScene *scene,
+    TecmoGameplaySceneLaunch *launch_input,
+    TecmoControlFrame *p1_input,
+    TecmoControlFrame *p2_input,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplaySceneLaunch launch = *launch_input;
+    TecmoControlFrame p1 = *p1_input;
+    TecmoControlFrame p2 = *p2_input;
+    size_t frame;
     launch.game_music_enabled = false;
-    if (!tecmo_gameplay_scene_launch(&TEST_SCENE, &launch)) {
+    if (!tecmo_gameplay_scene_launch(scene, &launch)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "music-off restart launch rejected");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    TEST_SCENE.state.shot_clock = 1U;
-    TEST_SCENE.state.clock_divider = 1U;
+    scene->state.shot_clock = 1U;
+    scene->state.clock_divider = 1U;
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
-        !TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.pending_sfx_id != 6U) {
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+        !scene->audio_player.sfx_pending ||
+        scene->audio_player.pending_sfx_id != 6U) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "music-off violation entry failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_audio_render_samples(&TEST_SCENE.audio_player, NULL, 1024U);
-    if (TEST_SCENE.audio_player.sfx_pending) {
+    tecmo_gameplay_audio_render_samples(&scene->audio_player, NULL, 1024U);
+    if (scene->audio_player.sfx_pending) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "music-off violation cue was not consumed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     for (frame = 0U;
          frame < TECMO_GAMEPLAY_VIOLATION_RELEASE_LEAD_IN_FRAMES;
          ++frame) {
-        if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2)) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
             tecmo_gameplay_scene_test_message(message, message_size,
                                "music-off violation lead-in failed");
-            tecmo_gameplay_scene_destroy(&TEST_SCENE);
             return false;
         }
     }
     p1.released.shoot = true;
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
-        TEST_SCENE.audio_player.sfx_pending) {
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->audio_player.sfx_pending) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "music-off restart queued neutral cue");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_scene_end(&TEST_SCENE);
+    tecmo_gameplay_scene_end(scene);
     launch.game_music_enabled = true;
 
-    if (!tecmo_gameplay_scene_launch(&TEST_SCENE, &launch)) {
+    if (!tecmo_gameplay_scene_launch(scene, &launch)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "native steal-policy launch rejected");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    TEST_SCENE.actors[TEST_SCENE.controlled_actor[1]].position.x =
-        TEST_SCENE.actors[TEST_SCENE.ball_holder].position.x + 1;
-    TEST_SCENE.actors[TEST_SCENE.controlled_actor[1]].position.y =
-        TEST_SCENE.actors[TEST_SCENE.ball_holder].position.y;
-    TEST_SCENE.action_serial = 1U;
+    scene->actors[scene->controlled_actor[1]].position.x =
+        scene->actors[scene->ball_holder].position.x + 1;
+    scene->actors[scene->controlled_actor[1]].position.y =
+        scene->actors[scene->ball_holder].position.y;
+    scene->action_serial = 1U;
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
     p2.held.cancel = true;
     p2.pressed.cancel = true;
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.action_serial != 2U ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
-        TEST_SCENE.state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
-        TEST_SCENE.ball_holder != TEST_SCENE.controlled_actor[1]) {
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->action_serial != 2U ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->ball_holder != scene->controlled_actor[1]) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "native action-serial steal policy diverged");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_scene_end(&TEST_SCENE);
+    tecmo_gameplay_scene_end(scene);
+    *launch_input = launch;
+    *p1_input = p1;
+    *p2_input = p2;
+    return true;
+}
 
-    if (!tecmo_gameplay_scene_launch(&TEST_SCENE, &launch) ||
-        !scene_test_free_throw_lineup_unbound(&TEST_SCENE)) {
+static bool scene_test_foul_and_away_free_throws(
+    TecmoGameplayScene *scene,
+    TecmoGameplaySceneLaunch *launch_input,
+    TecmoControlFrame *p1_input,
+    TecmoControlFrame *p2_input,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplaySceneLaunch launch = *launch_input;
+    TecmoControlFrame p1 = *p1_input;
+    TecmoControlFrame p2 = *p2_input;
+    size_t frame;
+    if (!tecmo_gameplay_scene_launch(scene, &launch) ||
+        !scene_test_free_throw_lineup_unbound(scene)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "foul/free-throw gameplay launch rejected");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    TEST_SCENE.actors[TEST_SCENE.controlled_actor[1]].position.x =
-        TEST_SCENE.actors[TEST_SCENE.ball_holder].position.x + 1;
-    TEST_SCENE.actors[TEST_SCENE.controlled_actor[1]].position.y =
-        TEST_SCENE.actors[TEST_SCENE.ball_holder].position.y;
-    TEST_SCENE.action_serial = 3U;
+    scene->actors[scene->controlled_actor[1]].position.x =
+        scene->actors[scene->ball_holder].position.x + 1;
+    scene->actors[scene->controlled_actor[1]].position.y =
+        scene->actors[scene->ball_holder].position.y;
+    scene->action_serial = 3U;
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
     p2.held.cancel = true;
     p2.pressed.cancel = true;
     if (!tecmo_gameplay_audio_queue_dmc_clip(
-            &TEST_SCENE.audio_player,
+            &scene->audio_player,
             TECMO_GAMEPLAY_DMC_BANK05_A8D6_LONG) ||
-        !tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
-        TEST_SCENE.state.team_fouls[TECMO_GAMEPLAY_TEAM_HOME] != 1U ||
-        TEST_SCENE.state.individual_fouls[TECMO_GAMEPLAY_TEAM_HOME][0] != 1U ||
-        TEST_SCENE.action_serial != 4U ||
-        TEST_SCENE.audio_player.sfx_pending || TEST_SCENE.audio_player.dmc.active ||
-        TEST_SCENE.audio_player.music == NULL ||
-        TEST_SCENE.audio_player.music->playing ||
-        TEST_SCENE.audio_player.music->track_pending) {
+        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
+        scene->state.team_fouls[TECMO_GAMEPLAY_TEAM_HOME] != 1U ||
+        scene->state.individual_fouls[TECMO_GAMEPLAY_TEAM_HOME][0] != 1U ||
+        scene->action_serial != 4U ||
+        scene->audio_player.sfx_pending || scene->audio_player.dmc.active ||
+        scene->audio_player.music == NULL ||
+        scene->audio_player.music->playing ||
+        scene->audio_player.music->track_pending) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "foul entry audio reset/policy diverged");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     memset(&p2, 0, sizeof(p2));
     if (!tecmo_gameplay_audio_queue_dmc_clip(
-            &TEST_SCENE.audio_player,
+            &scene->audio_player,
             TECMO_GAMEPLAY_DMC_BANK05_A8D6_LONG)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "foul exact-once DMC probe failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     for (frame = 0U; frame < TECMO_GAMEPLAY_PRESENTATION_LEAD_IN_FRAMES;
          ++frame) {
-        if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-            !TEST_SCENE.audio_player.dmc.active) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            !scene->audio_player.dmc.active) {
             tecmo_gameplay_scene_test_message(message, message_size,
                                "foul audio reset repeated after entry");
-            tecmo_gameplay_scene_destroy(&TEST_SCENE);
             return false;
         }
     }
     p1.released.shoot = true;
     p1.held.cancel = true;
     p1.pressed.cancel = true;
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
-        TEST_SCENE.state.free_throws.attempts_remaining != 2U ||
-        TEST_SCENE.free_throw_frame != 0U || TEST_SCENE.audio_player.sfx_pending ||
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
+        scene->state.free_throws.attempts_remaining != 2U ||
+        scene->free_throw_frame != 0U || scene->audio_player.sfx_pending ||
         !scene_test_free_throw_lineup_bound(
-            &TEST_SCENE, 0U, 0U, 5U,
+            scene, 0U, 0U, 5U,
             TECMO_GAMEPLAY_FREE_THROW_ORIENTATION_0_CAMERA_X) ||
-        TEST_SCENE.audio_player.music == NULL ||
-        !TEST_SCENE.audio_player.music->track_pending ||
-        TEST_SCENE.audio_player.music->pending_track_id !=
+        scene->audio_player.music == NULL ||
+        !scene->audio_player.music->track_pending ||
+        scene->audio_player.music->pending_track_id !=
             TECMO_MUSIC_TRACK_GAMEPLAY) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "foul dismissal/free-throw handoff failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_audio_render_samples(&TEST_SCENE.audio_player, NULL, 1024U);
-    if (TEST_SCENE.audio_player.sfx_pending ||
-        !TEST_SCENE.audio_player.music->playing ||
-        TEST_SCENE.audio_player.music->current_track_id !=
+    tecmo_gameplay_audio_render_samples(&scene->audio_player, NULL, 1024U);
+    if (scene->audio_player.sfx_pending ||
+        !scene->audio_player.music->playing ||
+        scene->audio_player.music->current_track_id !=
             TECMO_MUSIC_TRACK_GAMEPLAY ||
-        TEST_SCENE.audio_player.music->track_pending) {
+        scene->audio_player.music->track_pending) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "free-throw setup music was not consumed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     /* Human attempts are owned by the scoring team's pad and have no timer.
@@ -1001,15 +1029,14 @@ bool tecmo_gameplay_scene_test_state_flow(
     p1.released.cancel = true;
     p2.held.cancel = true;
     p2.pressed.cancel = true;
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
-        TEST_SCENE.state.free_throws.attempts_remaining != 2U ||
-        TEST_SCENE.free_throw_frame != 0U || TEST_SCENE.action_serial != 4U ||
-        TEST_SCENE.audio_player.sfx_pending ||
-        !tecmo_gameplay_state_valid(&TEST_SCENE.state)) {
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
+        scene->state.free_throws.attempts_remaining != 2U ||
+        scene->free_throw_frame != 0U || scene->action_serial != 4U ||
+        scene->audio_player.sfx_pending ||
+        !tecmo_gameplay_state_valid(&scene->state)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "non-owner/free-throw non-B input launched");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     memset(&p1, 0, sizeof(p1));
@@ -1017,184 +1044,189 @@ bool tecmo_gameplay_scene_test_state_flow(
     for (frame = 0U;
          frame < TECMO_GAMEPLAY_FREE_THROW_CPU_OBSERVED_LAUNCH_UPDATES * 2U;
          ++frame) {
-        if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-            TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
-            TEST_SCENE.state.free_throws.attempts_remaining != 2U ||
-            TEST_SCENE.free_throw_frame != 0U || TEST_SCENE.action_serial != 4U ||
-            TEST_SCENE.audio_player.sfx_pending ||
-            !tecmo_gameplay_state_valid(&TEST_SCENE.state)) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
+            scene->state.free_throws.attempts_remaining != 2U ||
+            scene->free_throw_frame != 0U || scene->action_serial != 4U ||
+            scene->audio_player.sfx_pending ||
+            !tecmo_gameplay_state_valid(&scene->state)) {
             tecmo_gameplay_scene_test_message(message, message_size,
                                "human free throw gained a timer fallback");
-            tecmo_gameplay_scene_destroy(&TEST_SCENE);
             return false;
         }
     }
     p1.held.cancel = true;
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
-        TEST_SCENE.state.free_throws.attempts_remaining != 1U ||
-        TEST_SCENE.free_throw_frame != 0U || TEST_SCENE.action_serial != 5U ||
-        TEST_SCENE.state.score[TECMO_GAMEPLAY_TEAM_AWAY] != 1U ||
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
+        scene->state.free_throws.attempts_remaining != 1U ||
+        scene->free_throw_frame != 0U || scene->action_serial != 5U ||
+        scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY] != 1U ||
         !scene_test_free_throw_lineup_bound(
-            &TEST_SCENE, 0U, 0U, 5U,
+            scene, 0U, 0U, 5U,
             TECMO_GAMEPLAY_FREE_THROW_ORIENTATION_0_CAMERA_X) ||
-        !TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.pending_sfx_id != 12U ||
-        !tecmo_gameplay_state_valid(&TEST_SCENE.state)) {
+        !scene->audio_player.sfx_pending ||
+        scene->audio_player.pending_sfx_id != 12U ||
+        !tecmo_gameplay_state_valid(&scene->state)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "owned held-B free throw did not launch");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_audio_render_samples(&TEST_SCENE.audio_player, NULL, 1024U);
-    if (TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.current_sfx_id != 12U) {
+    tecmo_gameplay_audio_render_samples(&scene->audio_player, NULL, 1024U);
+    if (scene->audio_player.sfx_pending ||
+        scene->audio_player.current_sfx_id != 12U) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "made away free-throw mailbox was not side-result 12");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     memset(&p1, 0, sizeof(p1));
     p1.pressed.cancel = true;
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
-        TEST_SCENE.state.free_throws.attempts_remaining != 1U ||
-        TEST_SCENE.free_throw_frame != 0U || TEST_SCENE.action_serial != 5U ||
-        TEST_SCENE.state.score[TECMO_GAMEPLAY_TEAM_AWAY] != 1U ||
-        !tecmo_gameplay_state_valid(&TEST_SCENE.state)) {
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
+        scene->state.free_throws.attempts_remaining != 1U ||
+        scene->free_throw_frame != 0U || scene->action_serial != 5U ||
+        scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY] != 1U ||
+        !tecmo_gameplay_state_valid(&scene->state)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "pressed-only free throw input launched");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     memset(&p1, 0, sizeof(p1));
     p1.held.cancel = true;
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
-        TEST_SCENE.state.free_throws.attempts_remaining != 0U ||
-        TEST_SCENE.state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
-        TEST_SCENE.free_throw_frame != 0U || TEST_SCENE.action_serial != 6U ||
-        TEST_SCENE.state.score[TECMO_GAMEPLAY_TEAM_AWAY] != 2U ||
-        TEST_SCENE.ball_holder < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
-        TEST_SCENE.controlled_actor[1] != TEST_SCENE.ball_holder ||
-        !TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.pending_sfx_id != 12U ||
-        TEST_SCENE.audio_player.music == NULL ||
-        !TEST_SCENE.audio_player.music->playing ||
-        TEST_SCENE.audio_player.music->current_track_id !=
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.free_throws.attempts_remaining != 0U ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->free_throw_frame != 0U || scene->action_serial != 6U ||
+        scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY] != 2U ||
+        scene->ball_holder < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
+        scene->controlled_actor[1] != scene->ball_holder ||
+        !scene->audio_player.sfx_pending ||
+        scene->audio_player.pending_sfx_id != 12U ||
+        scene->audio_player.music == NULL ||
+        !scene->audio_player.music->playing ||
+        scene->audio_player.music->current_track_id !=
             TECMO_MUSIC_TRACK_GAMEPLAY ||
-        TEST_SCENE.audio_player.music->track_pending ||
-        !scene_test_free_throw_lineup_unbound(&TEST_SCENE) ||
-        !tecmo_gameplay_state_valid(&TEST_SCENE.state)) {
+        scene->audio_player.music->track_pending ||
+        !scene_test_free_throw_lineup_unbound(scene) ||
+        !tecmo_gameplay_state_valid(&scene->state)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "human free-throw settlement failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_audio_render_samples(&TEST_SCENE.audio_player, NULL, 1024U);
+    tecmo_gameplay_audio_render_samples(&scene->audio_player, NULL, 1024U);
     memset(&p1, 0, sizeof(p1));
-    if (TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.current_sfx_id != 12U ||
-        !TEST_SCENE.audio_player.music->playing ||
-        TEST_SCENE.audio_player.music->current_track_id !=
+    if (scene->audio_player.sfx_pending ||
+        scene->audio_player.current_sfx_id != 12U ||
+        !scene->audio_player.music->playing ||
+        scene->audio_player.music->current_track_id !=
             TECMO_MUSIC_TRACK_GAMEPLAY ||
-        TEST_SCENE.audio_player.music->track_pending ||
-        !tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.current_sfx_id != 12U ||
-        TEST_SCENE.audio_player.music->track_pending ||
-        TEST_SCENE.audio_player.music->current_track_id !=
+        scene->audio_player.music->track_pending ||
+        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->audio_player.sfx_pending ||
+        scene->audio_player.current_sfx_id != 12U ||
+        scene->audio_player.music->track_pending ||
+        scene->audio_player.music->current_track_id !=
             TECMO_MUSIC_TRACK_GAMEPLAY) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "final human free-throw audio repeated or missing");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    TEST_SCENE.free_throw_frame = 7U;
-    tecmo_gameplay_scene_end(&TEST_SCENE);
-    if (TEST_SCENE.free_throw_frame != 0U) {
+    scene->free_throw_frame = 7U;
+    tecmo_gameplay_scene_end(scene);
+    if (scene->free_throw_frame != 0U) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "free-throw timer survived scene end");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
+    *launch_input = launch;
+    *p1_input = p1;
+    *p2_input = p2;
+    return true;
+}
 
+static bool scene_test_home_and_cpu_free_throws(
+    TecmoGameplayScene *scene,
+    TecmoGameplaySceneLaunch *launch_input,
+    TecmoControlFrame *p1_input,
+    TecmoControlFrame *p2_input,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplaySceneLaunch launch = *launch_input;
+    TecmoControlFrame p1 = *p1_input;
+    TecmoControlFrame p2 = *p2_input;
+    size_t frame;
     /* Home ownership uses its assigned pad, independently of controller index. */
-    if (!tecmo_gameplay_scene_launch(&TEST_SCENE, &launch) ||
-        TEST_SCENE.free_throw_frame != 0U ||
+    if (!tecmo_gameplay_scene_launch(scene, &launch) ||
+        scene->free_throw_frame != 0U ||
         !scene_test_enter_free_throw_sequence(
-            &TEST_SCENE, TECMO_GAMEPLAY_TEAM_HOME, 1U)) {
+            scene, TECMO_GAMEPLAY_TEAM_HOME, 1U)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "home free-throw ownership setup failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
     p1.held.cancel = true;
     p2.pressed.cancel = true;
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
-        TEST_SCENE.state.free_throws.attempts_remaining != 1U ||
-        TEST_SCENE.action_serial != 0U || TEST_SCENE.free_throw_frame != 0U) {
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
+        scene->state.free_throws.attempts_remaining != 1U ||
+        scene->action_serial != 0U || scene->free_throw_frame != 0U) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "home free throw accepted the wrong pad/edge");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
     p2.held.cancel = true;
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
-        TEST_SCENE.state.free_throws.attempts_remaining != 0U ||
-        TEST_SCENE.state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
-        TEST_SCENE.state.score[TECMO_GAMEPLAY_TEAM_HOME] != 1U ||
-        TEST_SCENE.ball_holder >= TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
-        TEST_SCENE.controlled_actor[0] != TEST_SCENE.ball_holder ||
-        TEST_SCENE.action_serial != 1U || TEST_SCENE.free_throw_frame != 0U ||
-        !scene_test_free_throw_lineup_unbound(&TEST_SCENE) ||
-        !TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.pending_sfx_id != 13U ||
-        TEST_SCENE.audio_player.music == NULL ||
-        !TEST_SCENE.audio_player.music->playing ||
-        TEST_SCENE.audio_player.music->current_track_id !=
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.free_throws.attempts_remaining != 0U ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->state.score[TECMO_GAMEPLAY_TEAM_HOME] != 1U ||
+        scene->ball_holder >= TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
+        scene->controlled_actor[0] != scene->ball_holder ||
+        scene->action_serial != 1U || scene->free_throw_frame != 0U ||
+        !scene_test_free_throw_lineup_unbound(scene) ||
+        !scene->audio_player.sfx_pending ||
+        scene->audio_player.pending_sfx_id != 13U ||
+        scene->audio_player.music == NULL ||
+        !scene->audio_player.music->playing ||
+        scene->audio_player.music->current_track_id !=
             TECMO_MUSIC_TRACK_GAMEPLAY ||
-        TEST_SCENE.audio_player.music->track_pending ||
-        !tecmo_gameplay_state_valid(&TEST_SCENE.state)) {
+        scene->audio_player.music->track_pending ||
+        !tecmo_gameplay_state_valid(&scene->state)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "home owned held-B free throw failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_audio_render_samples(&TEST_SCENE.audio_player, NULL, 1024U);
+    tecmo_gameplay_audio_render_samples(&scene->audio_player, NULL, 1024U);
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
-    if (TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.current_sfx_id != 13U ||
-        TEST_SCENE.audio_player.music->track_pending ||
-        !tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.current_sfx_id != 13U ||
-        TEST_SCENE.audio_player.music->track_pending ||
-        TEST_SCENE.audio_player.music->current_track_id !=
+    if (scene->audio_player.sfx_pending ||
+        scene->audio_player.current_sfx_id != 13U ||
+        scene->audio_player.music->track_pending ||
+        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->audio_player.sfx_pending ||
+        scene->audio_player.current_sfx_id != 13U ||
+        scene->audio_player.music->track_pending ||
+        scene->audio_player.music->current_track_id !=
             TECMO_MUSIC_TRACK_GAMEPLAY) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "final home free-throw audio repeated or missing");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_scene_end(&TEST_SCENE);
+    tecmo_gameplay_scene_end(scene);
 
     /* With no controller assigned to the scoring side, use the observed
        125-update launch schedule and reset it for the following attempt. */
     launch.controller_team[1] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
-    if (!tecmo_gameplay_scene_launch(&TEST_SCENE, &launch) ||
+    if (!tecmo_gameplay_scene_launch(scene, &launch) ||
         !scene_test_enter_free_throw_sequence(
-            &TEST_SCENE, TECMO_GAMEPLAY_TEAM_HOME, 2U)) {
+            scene, TECMO_GAMEPLAY_TEAM_HOME, 2U)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "CPU free-throw timer setup failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     memset(&p1, 0, sizeof(p1));
@@ -1203,216 +1235,216 @@ bool tecmo_gameplay_scene_test_state_flow(
          frame + 1U <
              TECMO_GAMEPLAY_FREE_THROW_CPU_OBSERVED_LAUNCH_UPDATES;
          ++frame) {
-        if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-            TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
-            TEST_SCENE.state.free_throws.attempts_remaining != 2U ||
-            TEST_SCENE.free_throw_frame != frame + 1U ||
-            TEST_SCENE.action_serial != 0U || TEST_SCENE.audio_player.sfx_pending ||
-            !tecmo_gameplay_state_valid(&TEST_SCENE.state)) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
+            scene->state.free_throws.attempts_remaining != 2U ||
+            scene->free_throw_frame != frame + 1U ||
+            scene->action_serial != 0U || scene->audio_player.sfx_pending ||
+            !tecmo_gameplay_state_valid(&scene->state)) {
             tecmo_gameplay_scene_test_message(message, message_size,
                                "CPU free throw launched before observed schedule");
-            tecmo_gameplay_scene_destroy(&TEST_SCENE);
             return false;
         }
     }
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
-        TEST_SCENE.state.free_throws.attempts_remaining != 1U ||
-        TEST_SCENE.free_throw_frame != 0U || TEST_SCENE.action_serial != 1U ||
-        TEST_SCENE.state.score[TECMO_GAMEPLAY_TEAM_HOME] != 0U ||
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
+        scene->state.free_throws.attempts_remaining != 1U ||
+        scene->free_throw_frame != 0U || scene->action_serial != 1U ||
+        scene->state.score[TECMO_GAMEPLAY_TEAM_HOME] != 0U ||
         !scene_test_free_throw_lineup_bound(
-            &TEST_SCENE, 1U, 5U, 0U,
+            scene, 1U, 5U, 0U,
             TECMO_GAMEPLAY_FREE_THROW_ORIENTATION_1_CAMERA_X) ||
-        !TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.pending_sfx_id != 13U ||
-        !tecmo_gameplay_state_valid(&TEST_SCENE.state)) {
+        !scene->audio_player.sfx_pending ||
+        scene->audio_player.pending_sfx_id != 13U ||
+        !tecmo_gameplay_state_valid(&scene->state)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "CPU free throw missed observed launch update");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_audio_render_samples(&TEST_SCENE.audio_player, NULL, 1024U);
-    if (TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.current_sfx_id != 13U) {
+    tecmo_gameplay_audio_render_samples(&scene->audio_player, NULL, 1024U);
+    if (scene->audio_player.sfx_pending ||
+        scene->audio_player.current_sfx_id != 13U) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "missed home free-throw mailbox was not side-result 13");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.free_throws.attempts_remaining != 1U ||
-        TEST_SCENE.free_throw_frame != 1U || TEST_SCENE.action_serial != 1U) {
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.free_throws.attempts_remaining != 1U ||
+        scene->free_throw_frame != 1U || scene->action_serial != 1U) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "second CPU free-throw timer did not reset");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     for (frame = 1U;
          frame + 1U <
              TECMO_GAMEPLAY_FREE_THROW_CPU_OBSERVED_LAUNCH_UPDATES;
          ++frame) {
-        if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-            TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
-            TEST_SCENE.state.free_throws.attempts_remaining != 1U ||
-            TEST_SCENE.free_throw_frame != frame + 1U ||
-            TEST_SCENE.action_serial != 1U || TEST_SCENE.audio_player.sfx_pending) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
+            scene->state.free_throws.attempts_remaining != 1U ||
+            scene->free_throw_frame != frame + 1U ||
+            scene->action_serial != 1U || scene->audio_player.sfx_pending) {
             tecmo_gameplay_scene_test_message(message, message_size,
                                "second CPU free throw launched early");
-            tecmo_gameplay_scene_destroy(&TEST_SCENE);
             return false;
         }
     }
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
-        TEST_SCENE.state.free_throws.attempts_remaining != 0U ||
-        TEST_SCENE.state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
-        TEST_SCENE.state.score[TECMO_GAMEPLAY_TEAM_HOME] != 0U ||
-        TEST_SCENE.ball_holder >= TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
-        TEST_SCENE.controlled_actor[0] != TEST_SCENE.ball_holder ||
-        TEST_SCENE.free_throw_frame != 0U || TEST_SCENE.action_serial != 2U ||
-        !scene_test_free_throw_lineup_unbound(&TEST_SCENE) ||
-        !TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.pending_sfx_id != 13U ||
-        TEST_SCENE.audio_player.music == NULL ||
-        !TEST_SCENE.audio_player.music->playing ||
-        TEST_SCENE.audio_player.music->current_track_id !=
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.free_throws.attempts_remaining != 0U ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->state.score[TECMO_GAMEPLAY_TEAM_HOME] != 0U ||
+        scene->ball_holder >= TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
+        scene->controlled_actor[0] != scene->ball_holder ||
+        scene->free_throw_frame != 0U || scene->action_serial != 2U ||
+        !scene_test_free_throw_lineup_unbound(scene) ||
+        !scene->audio_player.sfx_pending ||
+        scene->audio_player.pending_sfx_id != 13U ||
+        scene->audio_player.music == NULL ||
+        !scene->audio_player.music->playing ||
+        scene->audio_player.music->current_track_id !=
             TECMO_MUSIC_TRACK_GAMEPLAY ||
-        TEST_SCENE.audio_player.music->track_pending ||
-        !tecmo_gameplay_state_valid(&TEST_SCENE.state)) {
+        scene->audio_player.music->track_pending ||
+        !tecmo_gameplay_state_valid(&scene->state)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "CPU free-throw settlement failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_audio_render_samples(&TEST_SCENE.audio_player, NULL, 1024U);
-    if (TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.current_sfx_id != 13U ||
-        !TEST_SCENE.audio_player.music->playing ||
-        TEST_SCENE.audio_player.music->current_track_id !=
+    tecmo_gameplay_audio_render_samples(&scene->audio_player, NULL, 1024U);
+    if (scene->audio_player.sfx_pending ||
+        scene->audio_player.current_sfx_id != 13U ||
+        !scene->audio_player.music->playing ||
+        scene->audio_player.music->current_track_id !=
             TECMO_MUSIC_TRACK_GAMEPLAY ||
-        TEST_SCENE.audio_player.music->track_pending ||
-        !tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.audio_player.sfx_pending ||
-        TEST_SCENE.audio_player.current_sfx_id != 13U ||
-        TEST_SCENE.audio_player.music->track_pending ||
-        TEST_SCENE.audio_player.music->current_track_id !=
+        scene->audio_player.music->track_pending ||
+        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->audio_player.sfx_pending ||
+        scene->audio_player.current_sfx_id != 13U ||
+        scene->audio_player.music->track_pending ||
+        scene->audio_player.music->current_track_id !=
             TECMO_MUSIC_TRACK_GAMEPLAY) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "final CPU free-throw audio repeated or missing");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_scene_end(&TEST_SCENE);
+    tecmo_gameplay_scene_end(scene);
     launch.controller_team[1] = TECMO_GAMEPLAY_TEAM_HOME;
+    *launch_input = launch;
+    *p1_input = p1;
+    *p2_input = p2;
+    return true;
+}
 
-    if (!tecmo_gameplay_scene_launch(&TEST_SCENE, &launch)) {
+static bool scene_test_halftime_and_final_result(
+    TecmoGameplayScene *scene,
+    TecmoGameplaySceneLaunch *launch_input,
+    TecmoControlFrame *p1_input,
+    TecmoControlFrame *p2_input,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplaySceneLaunch launch = *launch_input;
+    TecmoControlFrame p1 = *p1_input;
+    TecmoControlFrame p2 = *p2_input;
+    TecmoGameplaySceneResult result;
+    size_t frame;
+    if (!tecmo_gameplay_scene_launch(scene, &launch)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "halftime gameplay launch rejected");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    TEST_SCENE.state.period = 2U;
-    TEST_SCENE.state.clock_minutes = 0U;
-    TEST_SCENE.state.clock_seconds = 1U;
-    TEST_SCENE.state.clock_divider = 1U;
-    TEST_SCENE.state.shot_clock = 12U;
+    scene->state.period = 2U;
+    scene->state.clock_minutes = 0U;
+    scene->state.clock_seconds = 1U;
+    scene->state.clock_divider = 1U;
+    scene->state.shot_clock = 12U;
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
-    if (!tecmo_gameplay_state_valid(&TEST_SCENE.state) ||
-        !tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_FIXED_WAIT) {
+    if (!tecmo_gameplay_state_valid(&scene->state) ||
+        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_FIXED_WAIT) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "halftime expiry entry failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     for (frame = 0U; frame < 40U &&
-         TEST_SCENE.state.phase ==
+         scene->state.phase ==
              TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_FIXED_WAIT; ++frame) {
-        if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2)) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
             tecmo_gameplay_scene_test_message(message, message_size,
                                "halftime expiry wait failed");
-            tecmo_gameplay_scene_destroy(&TEST_SCENE);
             return false;
         }
     }
-    if (TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_HALFTIME_BANNER) {
+    if (scene->state.phase != TECMO_GAMEPLAY_PHASE_HALFTIME_BANNER) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "halftime banner transition failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     for (frame = 0U; frame < TECMO_GAMEPLAY_HALFTIME_BANNER_FRAMES &&
-         TEST_SCENE.state.phase == TECMO_GAMEPLAY_PHASE_HALFTIME_BANNER; ++frame) {
-        if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2)) {
+         scene->state.phase == TECMO_GAMEPLAY_PHASE_HALFTIME_BANNER; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
             tecmo_gameplay_scene_test_message(message, message_size,
                                "halftime banner update failed");
-            tecmo_gameplay_scene_destroy(&TEST_SCENE);
             return false;
         }
     }
-    if (TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_HALFTIME_SCORE_SCREEN ||
-        !TEST_SCENE.audio_player.music->track_pending ||
-        TEST_SCENE.audio_player.music->pending_track_id !=
+    if (scene->state.phase != TECMO_GAMEPLAY_PHASE_HALFTIME_SCORE_SCREEN ||
+        !scene->audio_player.music->track_pending ||
+        scene->audio_player.music->pending_track_id !=
             TECMO_MUSIC_TRACK_PRESENTATION) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "halftime score/music transition failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     p1.released.shoot = true;
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_BANNER ||
-        TEST_SCENE.state.banner != TECMO_GAMEPLAY_BANNER_THIRD_PERIOD) {
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_BANNER ||
+        scene->state.banner != TECMO_GAMEPLAY_BANNER_THIRD_PERIOD) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "halftime dismissal failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_scene_end(&TEST_SCENE);
+    tecmo_gameplay_scene_end(scene);
 
-    if (!tecmo_gameplay_scene_launch(&TEST_SCENE, &launch) ||
-        !tecmo_gameplay_set_score(&TEST_SCENE.state,
+    if (!tecmo_gameplay_scene_launch(scene, &launch) ||
+        !tecmo_gameplay_set_score(&scene->state,
                                   TECMO_GAMEPLAY_TEAM_AWAY, 4U) ||
-        !tecmo_gameplay_set_score(&TEST_SCENE.state,
+        !tecmo_gameplay_set_score(&scene->state,
                                   TECMO_GAMEPLAY_TEAM_HOME, 2U)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "final gameplay setup failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    TEST_SCENE.state.period = 4U;
-    TEST_SCENE.state.clock_minutes = 0U;
-    TEST_SCENE.state.clock_seconds = 1U;
-    TEST_SCENE.state.clock_divider = 1U;
-    TEST_SCENE.state.shot_clock = 12U;
+    scene->state.period = 4U;
+    scene->state.clock_minutes = 0U;
+    scene->state.clock_seconds = 1U;
+    scene->state.clock_divider = 1U;
+    scene->state.shot_clock = 12U;
     memset(&p1, 0, sizeof(p1));
-    if (!tecmo_gameplay_state_valid(&TEST_SCENE.state) ||
-        !tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2)) {
+    if (!tecmo_gameplay_state_valid(&scene->state) ||
+        !tecmo_gameplay_scene_update(scene, &p1, &p2)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "final expiry entry failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     for (frame = 0U; frame < 40U &&
-         TEST_SCENE.state.phase ==
+         scene->state.phase ==
              TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_FIXED_WAIT; ++frame) {
-        if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2)) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
             tecmo_gameplay_scene_test_message(message, message_size,
                                "final expiry wait failed");
-            tecmo_gameplay_scene_destroy(&TEST_SCENE);
             return false;
         }
     }
-    if (TEST_SCENE.state.phase != TECMO_GAMEPLAY_PHASE_FINAL_SCORE_SCREEN) {
+    if (scene->state.phase != TECMO_GAMEPLAY_PHASE_FINAL_SCORE_SCREEN) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "final score transition failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
     p1.released.shoot = true;
-    if (!tecmo_gameplay_scene_update(&TEST_SCENE, &p1, &p2) ||
-        !tecmo_gameplay_scene_result(&TEST_SCENE, &result) ||
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        !tecmo_gameplay_scene_result(scene, &result) ||
         result.source != launch.source ||
         result.game_index != launch.game_index ||
         result.away_team != launch.away_team ||
@@ -1420,12 +1452,45 @@ bool tecmo_gameplay_scene_test_state_flow(
         result.away_score != 4U || result.home_score != 2U) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "final result handoff failed");
-        tecmo_gameplay_scene_destroy(&TEST_SCENE);
         return false;
     }
-    tecmo_gameplay_scene_end(&TEST_SCENE);
-    tecmo_gameplay_scene_destroy(&TEST_SCENE);
-#undef TEST_SCENE
+    tecmo_gameplay_scene_end(scene);
+    *launch_input = launch;
+    *p1_input = p1;
+    *p2_input = p2;
+    return true;
+}
+
+bool tecmo_gameplay_scene_test_state_flow(
+    TecmoGameplaySceneTestContext *test)
+{
+    TecmoGameplayScene *scene = test->scene;
+    TecmoGameplaySceneLaunch launch = test->launch;
+    TecmoControlFrame p1 = test->p1;
+    TecmoControlFrame p2 = test->p2;
+    char *message = test->message;
+    size_t message_size = test->message_size;
+
+    if (!scene_test_violations_and_cpu_offense(
+            scene, &launch, &p1, &p2, message, message_size) ||
+        !scene_test_period_expiry_and_restart(
+            scene, &launch, &p1, &p2, message, message_size) ||
+        !scene_test_controller_policy(
+            scene, &launch, &p1, &p2, message, message_size) ||
+        !scene_test_dribble_policy(
+            scene, &launch, &p1, &p2, message, message_size) ||
+        !scene_test_music_and_steal_policy(
+            scene, &launch, &p1, &p2, message, message_size) ||
+        !scene_test_foul_and_away_free_throws(
+            scene, &launch, &p1, &p2, message, message_size) ||
+        !scene_test_home_and_cpu_free_throws(
+            scene, &launch, &p1, &p2, message, message_size) ||
+        !scene_test_halftime_and_final_result(
+            scene, &launch, &p1, &p2, message, message_size)) {
+        tecmo_gameplay_scene_destroy(scene);
+        return false;
+    }
+    tecmo_gameplay_scene_destroy(scene);
     test->launch = launch;
     test->p1 = p1;
     test->p2 = p2;
