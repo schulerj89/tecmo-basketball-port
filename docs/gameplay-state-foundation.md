@@ -198,8 +198,11 @@ set the boundary-violation latch surround page-0
 `$0220+floor(Y/2)`. Ordinary live control supplies object state 0 and flags 0.
 Only the offensive primary/ball holder can latch; selector `$0742=1` then
 resolves through strict TPNL-1 as OUT OF BOUNDS, clears the latch, and enters
-the existing violation/restart rules flow. Other violation detectors and their
-original call scheduling remain unported.
+the existing violation/restart rules flow. The deterministic
+`gameplay-out-of-bounds-frameN` renderer reaches that presentation by driving
+the holder across this production boundary rather than injecting a violation
+state. Other violation detectors and their original call scheduling remain
+unported.
 
 Initial, human-controlled, and TGAI-driven CPU rendering consumes the exact
 pose-base/animation-low-nibble result and binds the record tag to its
@@ -325,7 +328,9 @@ counterpart. It loads only exact same-pack `chr/all` and TPNL-1, decodes ROM
 screen `$05`, maps all seven Bank03 violation strings through the original
 character table, and retains Bank04's 15 referee metasprites and five gesture
 sequences. Shot-clock selector 5 uses the exact sequence `9,10,10,10`; it does
-not reuse the out-of-bounds pointing sequence `3,4,5,5,5`. The Bank04 group
+not reuse selector 1's out-of-bounds pointing sequence `3,4,5,5,5`. Focused
+render coverage requires the visible out-of-bounds groups 3, 4, and 5 to be
+distinct, then requires terminal group 5 to hold through the wait. The Bank04 group
 cadence and 44-frame controller duration are ROM-derived. Alignment of the
 generic screen loader to nine black frames, four-frame visible palette steps,
 and first selector-specific pose at phase frame 23 is capture-bounded because

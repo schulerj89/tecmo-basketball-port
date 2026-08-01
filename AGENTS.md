@@ -958,6 +958,12 @@ capture-bounded, and the scene's immediate SFX-6 request remains approximate
 relative to the ROM's delayed cue. Missing, malformed, wrong-sized, stale, or
 cross-pack data must fail closed.
 
+`gameplay-out-of-bounds-frameN` is the visible integration checkpoint. It must
+drive the live holder through TGMO's page-0 boundary, consume TPNL selector 1,
+and then draw TGVR's `OUT OF BOUNDS` screen; do not replace that production
+path with direct phase injection. Frames 23, 27, and 31 are distinct referee
+groups 3, 4, and 5, while frames 31, 39, and 80 retain group 5.
+
 TGFL-1 `gameplay/free-throw-lineup` is a strict 1216-byte pure lineup
 foundation (FNV1a32 `B17B9A3F`) with an exact same-pack TGPL-1 dependency.
 It stores the complete Rev1 Bank06 spans `$88B0-$88D9` (`AD834719`),

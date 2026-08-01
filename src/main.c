@@ -76,7 +76,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-pretip-test PACK  Validate strict TPTI-1 pre-tip assets/state\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render menus, intro scenes, or strict gameplay-start/pretip-frameN/pretip-bulls-pacers/live-start/cpu-steering-frameN/shot-clock-violation-frameN/uniform-pacers/possession-left|center|right/free-throw-left|right/jump-frameN/dunk-frameN checkpoints to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render menus, intro scenes, or strict gameplay-start/pretip-frameN/pretip-bulls-pacers/live-start/cpu-steering-frameN/shot-clock-violation-frameN/out-of-bounds-frameN/uniform-pacers/possession-left|center|right/free-throw-left|right/jump-frameN/dunk-frameN checkpoints to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --build-assetpack ROM PATH  Build a private .assetpack from an iNES ROM only; no decomp/capture imports\n");
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
@@ -990,6 +990,7 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     bool ball_bounce = false;
     bool cpu_steering = false;
     bool shot_clock_violation = false;
+    bool out_of_bounds_violation = false;
     int possession_slice = -1;
     int free_throw_orientation = -1;
 
@@ -1018,6 +1019,10 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
                    mode_name, "gameplay-shot-clock-violation-frame",
                    &checkpoint)) {
         shot_clock_violation = true;
+    } else if (parse_render_frame_suffix(
+                   mode_name, "gameplay-out-of-bounds-frame",
+                   &checkpoint)) {
+        out_of_bounds_violation = true;
     } else if (strcmp(mode_name, "gameplay-uniform-pacers") == 0) {
         checkpoint = 691U;
         away_team = 3U;
@@ -1066,7 +1071,7 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     if (cpu_steering && (checkpoint == 0U || checkpoint > 240U)) {
         return false;
     }
-    if (shot_clock_violation &&
+    if ((shot_clock_violation || out_of_bounds_violation) &&
         checkpoint >= TECMO_GAMEPLAY_VIOLATION_PRESENTATION_FRAMES) {
         return false;
     }
@@ -1158,6 +1163,47 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
                    TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION &&
                scene->state.violation ==
                    TECMO_GAMEPLAY_VIOLATION_SHOT_CLOCK &&
+               scene->state.phase_frame == checkpoint;
+    }
+    if (out_of_bounds_violation) {
+        TecmoGameplayScene *scene = &runtime->gameplay_scene;
+        TecmoGameplaySceneActor *holder = &scene->actors[0U];
+
+        /* Drive the production TGMO -> TPNL -> TGVR path instead of injecting
+           a violation phase. At Y=148, X=149 is the exact page-0 clamp. The
+           first held-left update takes TGMO's action-state latency; the second
+           attempts X=148, clamps back to 149, and raises selector $0742=1. */
+        holder->position.x = 149;
+        holder->position.y = 148;
+        holder->anchor = holder->position;
+        holder->movement_action_state =
+            TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
+        holder->movement_fractional_accumulator = 15U;
+        holder->movement_boundary_latched = false;
+        scene->ball_position.x_q8 = (int32_t)(holder->position.x + 7) * 256;
+        scene->ball_position.y_q8 = (int32_t)(holder->position.y - 17) * 256;
+        input.left = true;
+        tecmo_runtime_update(runtime, &input);
+        tecmo_runtime_update(runtime, &input);
+        if (runtime->mode != TECMO_MODE_COURT || !scene->active ||
+            scene->state.phase !=
+                TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+            scene->state.violation !=
+                TECMO_GAMEPLAY_VIOLATION_OUT_OF_BOUNDS ||
+            scene->state.restart_possession != TECMO_GAMEPLAY_TEAM_HOME ||
+            scene->state.phase_frame != 0U ||
+            holder->position.x != 149 || holder->movement_boundary_latched) {
+            return false;
+        }
+        memset(&input, 0, sizeof(input));
+        for (update = 0U; update < checkpoint; ++update) {
+            tecmo_runtime_update(runtime, &input);
+        }
+        return scene->state.phase ==
+                   TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION &&
+               scene->state.violation ==
+                   TECMO_GAMEPLAY_VIOLATION_OUT_OF_BOUNDS &&
+               scene->state.restart_possession == TECMO_GAMEPLAY_TEAM_HOME &&
                scene->state.phase_frame == checkpoint;
     }
     if (possession_slice >= 0) {

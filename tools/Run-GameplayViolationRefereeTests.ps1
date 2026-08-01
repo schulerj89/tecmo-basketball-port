@@ -126,24 +126,35 @@ function Write-MutatedPayloadAndReject {
 }
 
 function Invoke-Render {
-    param([int]$Frame)
-    $Mode = "gameplay-shot-clock-violation-frame$Frame"
+    param([ValidateSet("shot-clock", "out-of-bounds")]
+          [string]$Kind, [int]$Frame)
+    $Mode = if ($Kind -eq "shot-clock") {
+        "gameplay-shot-clock-violation-frame$Frame"
+    } else {
+        "gameplay-out-of-bounds-frame$Frame"
+    }
+    $ExpectedViolation = if ($Kind -eq "shot-clock") {
+        "SHOT CLOCK VIOLATION"
+    } else {
+        "OUT OF BOUNDS"
+    }
     $Hashes = @()
     for ($Pass = 0; $Pass -lt 2; ++$Pass) {
-        $Png = Join-Path $Scratch ("shot-clock-$Frame-$Pass.png")
+        $Png = Join-Path $Scratch ("$Kind-$Frame-$Pass.png")
         $Output = @(& $Executable --root $ProjectRoot `
             --render-test-mode $Mode $Png 2>&1)
         $Text = $Output -join [Environment]::NewLine
         if ($LASTEXITCODE -ne 0 -or
             !(Test-Path -LiteralPath $Png -PathType Leaf) -or
             $Text -notmatch "phase=violation-presentation" -or
-            $Text -notmatch "phase-frame=$Frame violation=SHOT CLOCK") {
-            throw "TGVR-1 render frame $Frame failed.`n$(Get-ShortTail $Output)"
+            $Text -notmatch
+                "phase-frame=$Frame violation=$ExpectedViolation") {
+            throw "TGVR-1 $Kind render frame $Frame failed.`n$(Get-ShortTail $Output)"
         }
         $Hashes += (Get-FileHash -LiteralPath $Png -Algorithm SHA256).Hash
     }
     if ($Hashes[0] -ne $Hashes[1]) {
-        throw "TGVR-1 render frame $Frame was nondeterministic."
+        throw "TGVR-1 $Kind render frame $Frame was nondeterministic."
     }
     return $Hashes[0]
 }
@@ -216,6 +227,13 @@ try {
         (@($Maps[0].native_contract.shot_clock_groups) -join ',') -ne
             '9,10,10,10' -or
         $Maps[0].native_contract.message -ne "SHOT CLOCK VIOLATION" -or
+        $Maps[0].native_contract.out_of_bounds_selector -ne 1 -or
+        $Maps[0].native_contract.out_of_bounds_sequence_id -ne 1 -or
+        (@($Maps[0].native_contract.out_of_bounds_groups) -join ',') -ne
+            '3,4,5,5,5' -or
+        $Maps[0].native_contract.out_of_bounds_message -ne "OUT OF BOUNDS" -or
+        $Maps[0].native_contract.live_out_of_bounds_trigger -notmatch
+            'TGMO-1.*TPNL-1 selector 1' -or
         $Maps[0].capture_bounded_alignment.black_frames -ne 9 -or
         $Maps[0].capture_bounded_alignment.sequence_visible_start_frame -ne
             23) {
@@ -291,20 +309,32 @@ try {
     }
 
     $env:TECMO_ASSETPACK = $PackPath
-    $RenderHashes = @{}
+    $ShotClockHashes = @{}
     foreach ($Frame in @(0, 9, 23, 27, 80)) {
-        $RenderHashes[$Frame] = Invoke-Render $Frame
+        $ShotClockHashes[$Frame] = Invoke-Render "shot-clock" $Frame
     }
-    if ($RenderHashes[23] -eq $RenderHashes[27] -or
-        $RenderHashes[9] -eq $RenderHashes[23] -or
-        $RenderHashes[0] -eq $RenderHashes[9]) {
+    if ($ShotClockHashes[23] -eq $ShotClockHashes[27] -or
+        $ShotClockHashes[9] -eq $ShotClockHashes[23] -or
+        $ShotClockHashes[0] -eq $ShotClockHashes[9]) {
         throw "TGVR-1 blackout/fade/group-9/group-10 visuals collapsed together."
+    }
+    $OutOfBoundsHashes = @{}
+    foreach ($Frame in @(0, 9, 23, 27, 31, 39, 80)) {
+        $OutOfBoundsHashes[$Frame] = Invoke-Render "out-of-bounds" $Frame
+    }
+    if ($OutOfBoundsHashes[23] -eq $OutOfBoundsHashes[27] -or
+        $OutOfBoundsHashes[27] -eq $OutOfBoundsHashes[31] -or
+        $OutOfBoundsHashes[31] -ne $OutOfBoundsHashes[39] -or
+        $OutOfBoundsHashes[39] -ne $OutOfBoundsHashes[80] -or
+        $OutOfBoundsHashes[23] -eq $ShotClockHashes[23]) {
+        throw "TGVR-1 out-of-bounds text/groups 3->4->5 did not remain distinct."
     }
 
     Write-Host (
         "TGVR-1 focused tests passed: exact screen 05, ROM text, " +
-        "shot-clock groups 9->10, 168-frame settlement, deterministic " +
-        "render checkpoints, strict provenance and fail-closed dependencies")
+        "shot-clock groups 9->10, live TGMO/TPNL out-of-bounds groups " +
+        "3->4->5, 168-frame settlement, deterministic render checkpoints, " +
+        "strict provenance and fail-closed dependencies")
     $global:LASTEXITCODE = 0
 } finally {
     $env:TECMO_ASSETPACK = $PreviousPack

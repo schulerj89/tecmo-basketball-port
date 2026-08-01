@@ -941,6 +941,36 @@ bool tecmo_gameplay_violation_referee_self_test(
                        "TGVR-1 shot-clock referee frames did not animate");
         goto cleanup;
     }
+    if (!tecmo_gameplay_violation_referee_draw(
+            &assets, chr, (size_t)chr_size, &framebuffer_a,
+            0, 0, 1, TECMO_GAMEPLAY_VIOLATION_OUT_OF_BOUNDS, 23U) ||
+        !tecmo_gameplay_violation_referee_draw(
+            &assets, chr, (size_t)chr_size, &framebuffer_b,
+            0, 0, 1, TECMO_GAMEPLAY_VIOLATION_OUT_OF_BOUNDS, 27U) ||
+        memcmp(pixels_a, pixels_b,
+               256U * 240U * sizeof(*pixels_a)) == 0) {
+        (void)snprintf(message, message_size,
+                       "TGVR-1 out-of-bounds groups 3 and 4 did not animate");
+        goto cleanup;
+    }
+    if (!tecmo_gameplay_violation_referee_draw(
+            &assets, chr, (size_t)chr_size, &framebuffer_a,
+            0, 0, 1, TECMO_GAMEPLAY_VIOLATION_OUT_OF_BOUNDS, 31U) ||
+        memcmp(pixels_a, pixels_b,
+               256U * 240U * sizeof(*pixels_a)) == 0) {
+        (void)snprintf(message, message_size,
+                       "TGVR-1 out-of-bounds groups 4 and 5 did not animate");
+        goto cleanup;
+    }
+    if (!tecmo_gameplay_violation_referee_draw(
+            &assets, chr, (size_t)chr_size, &framebuffer_b,
+            0, 0, 1, TECMO_GAMEPLAY_VIOLATION_OUT_OF_BOUNDS, 39U) ||
+        memcmp(pixels_a, pixels_b,
+               256U * 240U * sizeof(*pixels_a)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGVR-1 out-of-bounds terminal group 5 did not hold");
+        goto cleanup;
+    }
     ok = true;
     (void)snprintf(message, message_size,
                    "TGVR-1 native violation referee self-test passed");

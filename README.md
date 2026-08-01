@@ -32,13 +32,14 @@ use native approximations instead of the original game logic.
 - ROM-derived human locomotion plus TGAI-directed/TGMO-driven ordinary CPU
   movement, passing, and defender switching
 - ROM-derived walking poses and held-ball bounce animation, fatigue
-  decay/bench recovery, and out-of-bounds turnover settlement
+  decay/bench recovery, and out-of-bounds turnover settlement with its original
+  `OUT OF BOUNDS` referee-pointing sequence
 - Dunks, layups, orientation-aware jump shots with entry, turn, release, and
   airborne poses toward either basket, plus free-throw sequences
 - Game clock, shot clock, scoring, periods, halftime, overtime, final results,
   and return to the selected game mode
 - Original screen, lettering, palette fade, and selector-specific referee
-  animation for shot-clock and other violation presentations
+  animation for shot-clock and out-of-bounds presentations
 - Original game font for team names, scores, clock, jersey numbers, and selected
   players in the live HUD
 - ROM-derived matchup-specific court, player, ball, and uniform colors

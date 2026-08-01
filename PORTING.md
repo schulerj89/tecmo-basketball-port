@@ -1063,6 +1063,12 @@ nine-frame black loader interval and four-frame visible fade alignment are
 capture-bounded; the present immediate scene cue remains an audio approximation
 of Bank04's delayed SFX-6 request.
 
+The `gameplay-out-of-bounds-frameN` checkpoint reaches TGVR through the live
+TGMO primary-holder clamp and TPNL selector 1. Visible frames 23, 27, and 31
+prove the distinct ROM groups 3, 4, and 5; later checked frames retain group 5.
+This integration does not broaden the supported detector set beyond TGMO's
+documented boundary latch.
+
 TGFL-1 `gameplay/free-throw-lineup` is a strict ROM-only lineup foundation
 and live-scene dependency. Its pure resolver remains separate from scene
 mutation. The 1216-byte payload has
