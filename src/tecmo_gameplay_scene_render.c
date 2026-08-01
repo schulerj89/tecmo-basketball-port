@@ -1197,10 +1197,6 @@ bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
             framebuffer, origin_x, origin_y, scale,
             scene->state.violation, scene->state.phase_frame);
     }
-    if (!tecmo_gameplay_scene_in_pretip(scene) &&
-        !scene_ownership_valid(scene)) {
-        return false;
-    }
     if (!scene_framebuffer_subview(framebuffer, origin_x, origin_y,
                                    scale, &view) ||
         !scene_build_matchup_live_palette(scene, live_palette)) {

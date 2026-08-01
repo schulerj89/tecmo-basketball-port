@@ -1815,7 +1815,6 @@ static bool scene_prepare_live_hud(
     const TecmoGameplayLiveBackgroundContext *context,
     TecmoGameplayPreparedHud *prepared)
 {
-    if (!scene_ownership_valid(scene)) return false;
     return tecmo_gameplay_scene_render_prepare_live_hud(
         scene, context, prepared);
 }
@@ -4307,6 +4306,34 @@ bool tecmo_gameplay_scene_self_test(const char *project_root,
                        (unsigned)render_hash);
         free(pixels);
         scene_test_message(message, message_size, failure);
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    draw_probe = scene;
+    draw_probe.ball_holder = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    for (pixel = 0U; pixel < pixel_count; ++pixel) {
+        pixels[pixel] = 0xA5A5A5A5U;
+    }
+    if (!tecmo_gameplay_scene_draw(
+            &draw_probe, &framebuffer, 0, 0, 1, false)) {
+        free(pixels);
+        scene_test_message(
+            message, message_size,
+            "background-only draw rejected invalid live ownership");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    for (pixel = 0U; pixel < pixel_count; ++pixel) {
+        pixels[pixel] = 0xA5A5A5A5U;
+    }
+    if (tecmo_gameplay_scene_draw(
+            &draw_probe, &framebuffer, 0, 0, 1, true) ||
+        !scene_test_pixels_equal(
+            pixels, pixel_count, 0xA5A5A5A5U)) {
+        free(pixels);
+        scene_test_message(
+            message, message_size,
+            "live actor draw accepted invalid ownership or rendered partially");
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
