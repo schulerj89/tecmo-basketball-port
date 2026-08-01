@@ -73,6 +73,9 @@ set(TECMO_PORT_SOURCES
     src/tecmo_gameplay_free_throw_projection_test.c
     src/tecmo_gameplay_audio.c
     src/tecmo_gameplay_scene.c
+    src/tecmo_gameplay_scene_actors.c
+    src/tecmo_gameplay_scene_shots.c
+    src/tecmo_gameplay_scene_render.c
     src/tecmo_intro_arena.c
     src/tecmo_intro_arena_scene.c
     src/tecmo_intro_layout.c
