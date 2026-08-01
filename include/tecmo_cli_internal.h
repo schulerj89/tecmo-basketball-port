@@ -27,12 +27,15 @@ typedef struct TecmoCliRenderModeState {
     int result;
 } TecmoCliRenderModeState;
 
-enum { TECMO_CLI_NOT_HANDLED = -1 };
-
-void tecmo_cli_print_usage(const char *program);
+enum {
+    TECMO_CLI_NOT_HANDLED = -1,
+    TECMO_CLI_USAGE_REQUESTED = -2
+};
 
 int tecmo_cli_run_basic_commands(const TecmoCliContext *context);
 int tecmo_cli_run_audio_commands(const TecmoCliContext *context);
+int tecmo_cli_run_management_season_commands(
+    const TecmoCliContext *context);
 int tecmo_cli_run_gameplay_core_commands(const TecmoCliContext *context);
 int tecmo_cli_run_gameplay_commands(const TecmoCliContext *context);
 int tecmo_cli_run_gameplay_court_commands(const TecmoCliContext *context);

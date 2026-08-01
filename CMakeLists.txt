@@ -7,6 +7,7 @@ set(TECMO_PORT_SOURCES
     src/tecmo_cli.c
     src/tecmo_cli_basic.c
     src/tecmo_cli_audio.c
+    src/tecmo_cli_management_season.c
     src/tecmo_cli_gameplay_core.c
     src/tecmo_cli_support.c
     src/tecmo_cli_gameplay.c

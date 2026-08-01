@@ -1,50 +1,11 @@
-#include "asm_inventory.h"
-#include "png_writer.h"
-#include "tecmo_asset_pack.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_audio.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_camera.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_movement.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_ball_dribble.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_fatigue.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_cpu_steering.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_hud.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_court_orientation.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_backcourt.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_violation_referee.h"
-#include "asset_pack/tecmo_asset_pack_music.h"
-#include "tecmo_audio_output.h"
-#include "tecmo_bank07.h"
+#include "tecmo_controls.h"
+#include "tecmo_framebuffer.h"
 #include "tecmo_game.h"
-#include "tecmo_frontend_audio.h"
-#include "tecmo_gameplay_audio.h"
-#include "tecmo_gameplay_assets.h"
-#include "tecmo_gameplay_camera.h"
-#include "tecmo_gameplay_movement.h"
-#include "tecmo_gameplay_ball_dribble.h"
-#include "tecmo_gameplay_fatigue.h"
-#include "tecmo_gameplay_cpu_steering.h"
-#include "tecmo_gameplay_hud.h"
-#include "tecmo_gameplay_court.h"
-#include "tecmo_gameplay_court_orientation.h"
-#include "tecmo_gameplay_backcourt.h"
-#include "tecmo_gameplay_close_shots.h"
-#include "tecmo_gameplay_dunk_cutaway.h"
-#include "tecmo_gameplay_jump_shots.h"
-#include "tecmo_gameplay_shot_resolution.h"
-#include "tecmo_gameplay_penalties.h"
-#include "tecmo_gameplay_violation_referee.h"
-#include "tecmo_gameplay_free_throw_lineup.h"
-#include "tecmo_gameplay_free_throw_projection_test.h"
 #include "tecmo_gameplay_scene.h"
 #include "tecmo_gameplay_state.h"
-#include "tecmo_intro_arena_scene.h"
-#include "tecmo_nes_video.h"
-#include "tecmo_win32_keys.h"
+#include "tecmo_intro_layout.h"
+#include "tecmo_title_screen.h"
 
-#include <errno.h>
-#include <limits.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -62,9 +23,9 @@ static bool configure_gameplay_mode(TecmoRuntime *runtime, const char *mode_name
     bool render_runtime = true;
     int result = state->result;
 
-    *handled_out = strncmp(mode_name, "gameplay-", 9) == 0;
-    if (!*handled_out) return true;
+    *handled_out = false;
             if (strncmp(mode_name, "gameplay-", 9) == 0) {
+                *handled_out = true;
                 framebuffer.pixels = pixels;
                 framebuffer.width = width;
                 framebuffer.height = height;
@@ -400,9 +361,9 @@ static bool configure_render_probe_mode(TecmoRuntime *runtime, const char *mode_
     bool render_runtime = true;
     int result = state->result;
 
-    *handled_out = strncmp(mode_name, "title-confirm-frame", 19) == 0 || strncmp(mode_name, "title-attract-frame", 19) == 0 || strcmp(mode_name, "play-setup") == 0 || strcmp(mode_name, "title-screen") == 0 || strcmp(mode_name, "boot-title") == 0 || strcmp(mode_name, "intro-presents") == 0 || strcmp(mode_name, "intro-builder-sample") == 0 || strcmp(mode_name, "intro-rabbit-preset") == 0 || strcmp(mode_name, "intro-tecmo-preset") == 0 || strcmp(mode_name, "intro-composite-preset") == 0 || strcmp(mode_name, "intro-presents-table1") == 0 || strcmp(mode_name, "chr-playground") == 0 || strcmp(mode_name, "chr-playground-table1") == 0;
-    if (!*handled_out) return true;
+    *handled_out = false;
             if (strncmp(mode_name, "title-confirm-frame", 19) == 0) {
+                *handled_out = true;
                 unsigned frame;
                 if (!tecmo_cli_parse_render_frame_suffix(mode_name, "title-confirm-frame", &frame) || frame > 126U) {
                     printf("Unsupported render-test mode: %s\n", mode_name);
@@ -414,6 +375,7 @@ static bool configure_render_probe_mode(TecmoRuntime *runtime, const char *mode_
                     runtime->mode_frame_counter = TECMO_TITLE_START_LOAD_FRAMES + frame;
                 }
             } else if (strncmp(mode_name, "title-attract-frame", 19) == 0) {
+                *handled_out = true;
                 unsigned frame;
                 if (!tecmo_cli_parse_render_frame_suffix(mode_name, "title-attract-frame", &frame) || frame > 642U) {
                     printf("Unsupported render-test mode: %s\n", mode_name);
@@ -424,16 +386,21 @@ static bool configure_render_probe_mode(TecmoRuntime *runtime, const char *mode_
                     runtime->mode_frame_counter = frame;
                 }
             } else if (strcmp(mode_name, "play-setup") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_PLAY_SETUP);
             } else if (strcmp(mode_name, "title-screen") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_TITLE_SCREEN);
                 runtime->mode_frame_counter = 16U;
             } else if (strcmp(mode_name, "boot-title") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_TITLE_SCREEN);
                 runtime->mode_frame_counter = 16U;
             } else if (strcmp(mode_name, "intro-presents") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_INTRO_PROBE);
             } else if (strcmp(mode_name, "intro-builder-sample") == 0) {
+                *handled_out = true;
                 TecmoIntroPlacement *placement;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_INTRO_PROBE);
                 runtime->selected_chr_table = 1U;
@@ -459,6 +426,7 @@ static bool configure_render_probe_mode(TecmoRuntime *runtime, const char *mode_
                                sizeof(runtime->intro_layout_status),
                                "SAMPLE RECORD  Z ADDS  S SAVES");
             } else if (strcmp(mode_name, "intro-rabbit-preset") == 0) {
+                *handled_out = true;
                 TecmoInput input;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_INTRO_PROBE);
                 runtime->selected_chr_table = 1U;
@@ -475,6 +443,7 @@ static bool configure_render_probe_mode(TecmoRuntime *runtime, const char *mode_
                     tecmo_runtime_update(runtime, &released_input);
                 }
             } else if (strcmp(mode_name, "intro-tecmo-preset") == 0) {
+                *handled_out = true;
                 TecmoInput input;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_INTRO_PROBE);
                 runtime->selected_chr_table = 1U;
@@ -491,6 +460,7 @@ static bool configure_render_probe_mode(TecmoRuntime *runtime, const char *mode_
                     tecmo_runtime_update(runtime, &released_input);
                 }
             } else if (strcmp(mode_name, "intro-composite-preset") == 0) {
+                *handled_out = true;
                 TecmoInput input;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_INTRO_PROBE);
                 runtime->selected_chr_table = 1U;
@@ -505,16 +475,19 @@ static bool configure_render_probe_mode(TecmoRuntime *runtime, const char *mode_
                     tecmo_runtime_update(runtime, &released_input);
                 }
             } else if (strcmp(mode_name, "intro-presents-table1") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_INTRO_PROBE);
                 runtime->selected_chr_table = 1U;
             } else if (strcmp(mode_name, "chr-playground") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_CHR_PLAYGROUND);
             } else if (strcmp(mode_name, "chr-playground-table1") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_CHR_PLAYGROUND);
                 runtime->selected_chr_table = 1U;
             } else {
-                printf("Unsupported render-test mode: %s\n", mode_name);
-                render_runtime = false;
+                *handled_out = false;
+                return true;
             }
 
     state->arena_render_succeeded = arena_render_succeeded;

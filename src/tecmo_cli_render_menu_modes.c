@@ -1,146 +1,16 @@
-#include "asm_inventory.h"
-#include "png_writer.h"
-#include "tecmo_asset_pack.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_audio.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_camera.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_movement.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_ball_dribble.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_fatigue.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_cpu_steering.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_hud.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_court_orientation.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_backcourt.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.h"
-#include "asset_pack/tecmo_asset_pack_gameplay_violation_referee.h"
-#include "asset_pack/tecmo_asset_pack_music.h"
-#include "tecmo_audio_output.h"
-#include "tecmo_bank07.h"
+#include "tecmo_all_star_menu.h"
+#include "tecmo_framebuffer.h"
 #include "tecmo_game.h"
-#include "tecmo_frontend_audio.h"
-#include "tecmo_gameplay_audio.h"
-#include "tecmo_gameplay_assets.h"
-#include "tecmo_gameplay_camera.h"
-#include "tecmo_gameplay_movement.h"
-#include "tecmo_gameplay_ball_dribble.h"
-#include "tecmo_gameplay_fatigue.h"
-#include "tecmo_gameplay_cpu_steering.h"
-#include "tecmo_gameplay_hud.h"
-#include "tecmo_gameplay_court.h"
-#include "tecmo_gameplay_court_orientation.h"
-#include "tecmo_gameplay_backcourt.h"
-#include "tecmo_gameplay_close_shots.h"
-#include "tecmo_gameplay_dunk_cutaway.h"
-#include "tecmo_gameplay_jump_shots.h"
-#include "tecmo_gameplay_shot_resolution.h"
-#include "tecmo_gameplay_penalties.h"
-#include "tecmo_gameplay_violation_referee.h"
-#include "tecmo_gameplay_free_throw_lineup.h"
-#include "tecmo_gameplay_free_throw_projection_test.h"
-#include "tecmo_gameplay_scene.h"
-#include "tecmo_gameplay_state.h"
-#include "tecmo_intro_arena_scene.h"
-#include "tecmo_nes_video.h"
-#include "tecmo_win32_keys.h"
+#include "tecmo_preseason_menu.h"
+#include "tecmo_season_menu.h"
+#include "tecmo_start_game_menu.h"
+#include "tecmo_team_data.h"
+#include "tecmo_team_management.h"
 
-#include <errno.h>
-#include <limits.h>
-#include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "tecmo_cli_internal.h"
-
-static bool mode_has_prefix(const char *mode_name, const char *prefix)
-{
-    return strncmp(mode_name, prefix, strlen(prefix)) == 0;
-}
-
-static bool is_known_start_game_menu_mode(const char *mode_name)
-{
-    return strcmp(mode_name, "menu") == 0 ||
-           strcmp(mode_name, "start-game-menu") == 0 ||
-           mode_has_prefix(mode_name, "start-game-menu-frame") ||
-           mode_has_prefix(mode_name, "start-game-menu-cursor") ||
-           mode_has_prefix(mode_name, "start-game-menu-season-frame") ||
-           strcmp(mode_name, "start-game-menu-season") == 0 ||
-           mode_has_prefix(mode_name, "start-game-menu-music-setup-frame") ||
-           mode_has_prefix(mode_name, "start-game-menu-speed-setup-frame") ||
-           mode_has_prefix(mode_name, "start-game-menu-period-setup-frame") ||
-           mode_has_prefix(mode_name, "start-game-menu-music-teardown-frame") ||
-           mode_has_prefix(mode_name, "start-game-menu-speed-teardown-frame") ||
-           mode_has_prefix(mode_name, "start-game-menu-period-teardown-frame") ||
-           mode_has_prefix(mode_name, "start-game-menu-exit-root-frame") ||
-           mode_has_prefix(mode_name, "start-game-menu-exit-season-frame") ||
-           strcmp(mode_name, "start-game-menu-music") == 0 ||
-           strcmp(mode_name, "start-game-menu-speed") == 0 ||
-           strcmp(mode_name, "start-game-menu-period") == 0;
-}
-
-static bool is_known_preseason_mode(const char *mode_name)
-{
-    return strcmp(mode_name, "preseason-control") == 0 ||
-           mode_has_prefix(mode_name, "preseason-control-setup-frame") ||
-           strcmp(mode_name, "preseason-difficulty") == 0 ||
-           strcmp(mode_name, "preseason-division") == 0 ||
-           mode_has_prefix(mode_name, "preseason-team-entry-frame") ||
-           mode_has_prefix(mode_name, "preseason-p1-team-frame") ||
-           mode_has_prefix(mode_name, "preseason-team-exit-frame") ||
-           mode_has_prefix(mode_name, "preseason-p2-division-return-frame") ||
-           strcmp(mode_name, "preseason-p2-team") == 0 ||
-           mode_has_prefix(mode_name, "preseason-p2-team-frame") ||
-           strcmp(mode_name, "preseason-invalid-state") == 0;
-}
-
-static bool is_known_all_star_mode(const char *mode_name)
-{
-    return strcmp(mode_name, "all-star-control") == 0 ||
-           mode_has_prefix(mode_name, "all-star-control-setup-frame") ||
-           mode_has_prefix(mode_name, "all-star-control-teardown-frame") ||
-           strcmp(mode_name, "all-star-difficulty") == 0 ||
-           strcmp(mode_name, "all-star-team-east") == 0 ||
-           strcmp(mode_name, "all-star-team-west") == 0 ||
-           strcmp(mode_name, "all-star-invalid-state") == 0;
-}
-
-static bool is_known_team_data_mode(const char *mode_name)
-{
-    return strcmp(mode_name, "team-data-select") == 0 ||
-           strcmp(mode_name, "team-data-profile") == 0 ||
-           strcmp(mode_name, "team-data-starters") == 0 ||
-           strcmp(mode_name, "team-data-starters-reset") == 0 ||
-           strcmp(mode_name, "team-data-starters-bench") == 0 ||
-           strcmp(mode_name, "team-data-playbook") == 0 ||
-           strcmp(mode_name, "team-data-playbook-reset") == 0 ||
-           mode_has_prefix(mode_name, "team-data-playbook-replace-frame") ||
-           strcmp(mode_name, "team-data-roster-page1") == 0 ||
-           strcmp(mode_name, "team-data-roster-page2") == 0 ||
-           mode_has_prefix(mode_name, "team-data-roster-slide-frame") ||
-           strcmp(mode_name, "team-data-player-detail") == 0 ||
-           mode_has_prefix(mode_name, "team-data-entry-transition-frame") ||
-           mode_has_prefix(mode_name, "team-data-selector-profile-transition-frame") ||
-           mode_has_prefix(mode_name, "team-data-roster-detail-transition-frame") ||
-           mode_has_prefix(mode_name, "team-data-detail-roster-transition-frame") ||
-           strcmp(mode_name, "team-data-invalid-state") == 0;
-}
-
-static bool is_known_season_mode(const char *mode_name)
-{
-    return strcmp(mode_name, "season-team-control") == 0 ||
-           strcmp(mode_name, "season-schedule") == 0 ||
-           strcmp(mode_name, "season-schedule-popup") == 0 ||
-           strcmp(mode_name, "season-playoff") == 0 ||
-           strcmp(mode_name, "season-playoff-mid") == 0 ||
-           strcmp(mode_name, "season-playoff-east") == 0 ||
-           strcmp(mode_name, "season-standings-east") == 0 ||
-           strcmp(mode_name, "season-standings-west") == 0 ||
-           strcmp(mode_name, "season-standings-programmed") == 0 ||
-           strcmp(mode_name, "season-leaders-results") == 0 ||
-           mode_has_prefix(mode_name, "season-leaders") ||
-           strcmp(mode_name, "season-game-start") == 0 ||
-           strcmp(mode_name, "season-invalid-state") == 0;
-}
-
 
 static bool configure_start_game_menu_mode(TecmoRuntime *runtime, const char *mode_name, TecmoCliRenderModeState *state, bool *handled_out)
 {
@@ -148,15 +18,17 @@ static bool configure_start_game_menu_mode(TecmoRuntime *runtime, const char *mo
     bool render_runtime = true;
     int result = state->result;
 
-    *handled_out = is_known_start_game_menu_mode(mode_name);
-    if (!*handled_out) return true;
+    *handled_out = false;
             if (strcmp(mode_name, "menu") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_MAIN_MENU);
             } else if (strcmp(mode_name, "start-game-menu") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
                 runtime->start_game_menu_state.frame = 32U;
                 runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
             } else if (strncmp(mode_name, "start-game-menu-frame", 21) == 0) {
+                *handled_out = true;
                 unsigned frame;
                 if (!tecmo_cli_parse_render_frame_suffix(mode_name, "start-game-menu-frame", &frame) ||
                     frame > 32U) {
@@ -169,6 +41,7 @@ static bool configure_start_game_menu_mode(TecmoRuntime *runtime, const char *mo
                         ? TECMO_START_GAME_MENU_REVEAL : TECMO_START_GAME_MENU_ROOT;
                 }
             } else if (strncmp(mode_name, "start-game-menu-cursor", 22) == 0) {
+                *handled_out = true;
                 unsigned selection;
                 if (!tecmo_cli_parse_render_frame_suffix(mode_name, "start-game-menu-cursor", &selection) ||
                     selection >= TECMO_START_GAME_MENU_ROOT_COUNT) {
@@ -181,6 +54,7 @@ static bool configure_start_game_menu_mode(TecmoRuntime *runtime, const char *mo
                     runtime->start_game_menu_state.root_selection = (uint8_t)selection;
                 }
             } else if (strncmp(mode_name, "start-game-menu-season-frame", 28) == 0) {
+                *handled_out = true;
                 unsigned frame;
                 if (!tecmo_cli_parse_render_frame_suffix(mode_name, "start-game-menu-season-frame", &frame) ||
                     frame > 32U) {
@@ -200,6 +74,7 @@ static bool configure_start_game_menu_mode(TecmoRuntime *runtime, const char *mo
                         : (uint16_t)(runtime->start_game_menu_asset.accepted_input_seed - 1U);
                 }
             } else if (strcmp(mode_name, "start-game-menu-season") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
                 runtime->start_game_menu_state.frame = 64U;
                 runtime->start_game_menu_state.slide_frame = 32U;
@@ -207,6 +82,7 @@ static bool configure_start_game_menu_mode(TecmoRuntime *runtime, const char *mo
             } else if (strncmp(mode_name, "start-game-menu-music-setup-frame", 33) == 0 ||
                        strncmp(mode_name, "start-game-menu-speed-setup-frame", 33) == 0 ||
                        strncmp(mode_name, "start-game-menu-period-setup-frame", 34) == 0) {
+                *handled_out = true;
                 const char *prefix;
                 TecmoStartGameMenuPhase popup_phase;
                 size_t overlay_index;
@@ -256,6 +132,7 @@ static bool configure_start_game_menu_mode(TecmoRuntime *runtime, const char *mo
             } else if (strncmp(mode_name, "start-game-menu-music-teardown-frame", 36) == 0 ||
                        strncmp(mode_name, "start-game-menu-speed-teardown-frame", 36) == 0 ||
                        strncmp(mode_name, "start-game-menu-period-teardown-frame", 37) == 0) {
+                *handled_out = true;
                 const char *prefix;
                 TecmoStartGameMenuPhase popup_phase;
                 size_t overlay_index;
@@ -302,6 +179,7 @@ static bool configure_start_game_menu_mode(TecmoRuntime *runtime, const char *mo
                 }
             } else if (strncmp(mode_name, "start-game-menu-exit-root-frame", 31) == 0 ||
                        strncmp(mode_name, "start-game-menu-exit-season-frame", 33) == 0) {
+                *handled_out = true;
                 bool from_season = strncmp(mode_name,
                                            "start-game-menu-exit-season-frame", 33) == 0;
                 const char *prefix = from_season ? "start-game-menu-exit-season-frame"
@@ -330,6 +208,7 @@ static bool configure_start_game_menu_mode(TecmoRuntime *runtime, const char *mo
             } else if (strcmp(mode_name, "start-game-menu-music") == 0 ||
                        strcmp(mode_name, "start-game-menu-speed") == 0 ||
                        strcmp(mode_name, "start-game-menu-period") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
                 runtime->start_game_menu_state.frame = 32U;
                 if (strcmp(mode_name, "start-game-menu-music") == 0) {
@@ -362,14 +241,15 @@ static bool configure_preseason_mode(TecmoRuntime *runtime, const char *mode_nam
     bool render_runtime = true;
     int result = state->result;
 
-    *handled_out = is_known_preseason_mode(mode_name);
-    if (!*handled_out) return true;
+    *handled_out = false;
             if (strcmp(mode_name, "preseason-control") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_PRESEASON_MENU);
                 runtime->preseason_state.phase = TECMO_PRESEASON_CONTROL;
                 runtime->preseason_state.transition_frame =
                     runtime->preseason_asset.overlays[0].height;
             } else if (strncmp(mode_name, "preseason-control-setup-frame", 29) == 0) {
+                *handled_out = true;
                 unsigned frame;
                 unsigned overlay_height = runtime->preseason_asset.overlays[0].height;
                 if (!tecmo_cli_parse_render_frame_suffix(mode_name,
@@ -386,6 +266,7 @@ static bool configure_preseason_mode(TecmoRuntime *runtime, const char *mode_nam
                         runtime->preseason_asset.cursor_commit_delay_frames;
                 }
             } else if (strcmp(mode_name, "preseason-difficulty") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_PRESEASON_MENU);
                 runtime->preseason_state.phase = TECMO_PRESEASON_DIFFICULTY;
                 runtime->preseason_state.transition_frame =
@@ -393,12 +274,14 @@ static bool configure_preseason_mode(TecmoRuntime *runtime, const char *mode_nam
                 runtime->preseason_state.difficulty_selection = 1U;
                 runtime->preseason_state.committed_difficulty = 1U;
             } else if (strcmp(mode_name, "preseason-division") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_PRESEASON_MENU);
                 runtime->preseason_state.phase = TECMO_PRESEASON_DIVISION;
                 runtime->preseason_state.transition_frame =
                     runtime->preseason_asset.overlays[1].height;
                 runtime->preseason_state.control_selection = 2U;
             } else if (strncmp(mode_name, "preseason-team-entry-frame", 26) == 0) {
+                *handled_out = true;
                 unsigned frame;
                 unsigned ready = runtime->preseason_asset.team_input_ready_frames;
                 if (!tecmo_cli_parse_render_frame_suffix(mode_name,
@@ -418,6 +301,7 @@ static bool configure_preseason_mode(TecmoRuntime *runtime, const char *mode_nam
                         runtime->preseason_asset.cursor_commit_delay_frames;
                 }
             } else if (strncmp(mode_name, "preseason-p1-team-frame", 23) == 0) {
+                *handled_out = true;
                 unsigned frame;
                 if (!tecmo_cli_parse_render_frame_suffix(mode_name, "preseason-p1-team-frame",
                                                &frame) ||
@@ -434,6 +318,7 @@ static bool configure_preseason_mode(TecmoRuntime *runtime, const char *mode_nam
                     runtime->preseason_state.team_palette_frame = (uint8_t)frame;
                 }
             } else if (strncmp(mode_name, "preseason-team-exit-frame", 25) == 0) {
+                *handled_out = true;
                 unsigned frame;
                 if (!tecmo_cli_parse_render_frame_suffix(mode_name, "preseason-team-exit-frame",
                                                &frame) ||
@@ -449,6 +334,7 @@ static bool configure_preseason_mode(TecmoRuntime *runtime, const char *mode_nam
                         runtime->preseason_asset.team_palette_full_frames;
                 }
             } else if (strncmp(mode_name, "preseason-p2-division-return-frame", 34) == 0) {
+                *handled_out = true;
                 unsigned frame;
                 if (!tecmo_cli_parse_render_frame_suffix(mode_name,
                                                "preseason-p2-division-return-frame",
@@ -470,6 +356,7 @@ static bool configure_preseason_mode(TecmoRuntime *runtime, const char *mode_nam
                 }
             } else if (strcmp(mode_name, "preseason-p2-team") == 0 ||
                        strncmp(mode_name, "preseason-p2-team-frame", 23) == 0) {
+                *handled_out = true;
                 unsigned frame = runtime->preseason_asset.team_palette_full_frames;
                 if (strcmp(mode_name, "preseason-p2-team") != 0 &&
                     (!tecmo_cli_parse_render_frame_suffix(mode_name, "preseason-p2-team-frame",
@@ -490,6 +377,7 @@ static bool configure_preseason_mode(TecmoRuntime *runtime, const char *mode_nam
                     runtime->preseason_state.team_palette_frame = (uint8_t)frame;
                 }
             } else if (strcmp(mode_name, "preseason-invalid-state") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_PRESEASON_MENU);
                 runtime->preseason_state.active_player = 2U;
                 framebuffer.pixels = pixels;
@@ -519,13 +407,14 @@ static bool configure_all_star_mode(TecmoRuntime *runtime, const char *mode_name
     bool render_runtime = true;
     int result = state->result;
 
-    *handled_out = is_known_all_star_mode(mode_name);
-    if (!*handled_out) return true;
+    *handled_out = false;
             if (strcmp(mode_name, "all-star-control") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_ALL_STAR_MENU);
                 runtime->all_star_state.phase = TECMO_ALL_STAR_CONTROL;
                 runtime->all_star_state.transition_frame = 14U;
             } else if (strncmp(mode_name, "all-star-control-setup-frame", 28) == 0) {
+                *handled_out = true;
                 unsigned frame;
                 if (!tecmo_cli_parse_render_frame_suffix(mode_name,
                                                "all-star-control-setup-frame",
@@ -541,6 +430,7 @@ static bool configure_all_star_mode(TecmoRuntime *runtime, const char *mode_name
                         runtime->all_star_asset.cursor_commit_delay_frames;
                 }
             } else if (strncmp(mode_name, "all-star-control-teardown-frame", 31) == 0) {
+                *handled_out = true;
                 unsigned frame;
                 if (!tecmo_cli_parse_render_frame_suffix(
                         mode_name, "all-star-control-teardown-frame", &frame) ||
@@ -557,6 +447,7 @@ static bool configure_all_star_mode(TecmoRuntime *runtime, const char *mode_name
                         runtime->all_star_asset.cursor_commit_delay_frames;
                 }
             } else if (strcmp(mode_name, "all-star-difficulty") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_ALL_STAR_MENU);
                 runtime->all_star_state.phase = TECMO_ALL_STAR_DIFFICULTY;
                 runtime->all_star_state.transition_frame = 8U;
@@ -564,6 +455,7 @@ static bool configure_all_star_mode(TecmoRuntime *runtime, const char *mode_name
                 runtime->all_star_state.committed_difficulty = 1U;
             } else if (strcmp(mode_name, "all-star-team-east") == 0 ||
                        strcmp(mode_name, "all-star-team-west") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_ALL_STAR_MENU);
                 runtime->all_star_state.phase = TECMO_ALL_STAR_TEAM;
                 runtime->all_star_state.transition_frame = 6U;
@@ -572,6 +464,7 @@ static bool configure_all_star_mode(TecmoRuntime *runtime, const char *mode_name
                 runtime->all_star_state.team_selection =
                     strcmp(mode_name, "all-star-team-west") == 0 ? 1U : 0U;
             } else if (strcmp(mode_name, "all-star-invalid-state") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_ALL_STAR_MENU);
                 runtime->all_star_state.control_selection =
                     TECMO_ALL_STAR_CONTROL_COUNT;
@@ -604,12 +497,13 @@ static bool configure_team_data_mode(TecmoRuntime *runtime, const char *mode_nam
     bool render_runtime = true;
     int result = state->result;
 
-    *handled_out = is_known_team_data_mode(mode_name);
-    if (!*handled_out) return true;
+    *handled_out = false;
             if (strcmp(mode_name, "team-data-select") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
                 runtime->team_data_state.cursor_delay = 1U;
             } else if (strcmp(mode_name, "team-data-profile") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
                 runtime->team_data_state.phase = TECMO_TEAM_DATA_PROFILE;
                 runtime->team_data_state.team_id = 0U;
@@ -617,6 +511,7 @@ static bool configure_team_data_mode(TecmoRuntime *runtime, const char *mode_nam
             } else if (strcmp(mode_name, "team-data-starters") == 0 ||
                        strcmp(mode_name, "team-data-starters-reset") == 0 ||
                        strcmp(mode_name, "team-data-starters-bench") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
                 runtime->team_data_state.phase = TECMO_TEAM_DATA_STARTERS;
                 runtime->team_data_state.team_id = 0U;
@@ -633,6 +528,7 @@ static bool configure_team_data_mode(TecmoRuntime *runtime, const char *mode_nam
             } else if (strcmp(mode_name, "team-data-playbook") == 0 ||
                        strcmp(mode_name, "team-data-playbook-reset") == 0 ||
                        strncmp(mode_name, "team-data-playbook-replace-frame", 32) == 0) {
+                *handled_out = true;
                 unsigned frame = 0U;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
                 runtime->team_data_state.phase = TECMO_TEAM_DATA_PLAYBOOK;
@@ -664,6 +560,7 @@ static bool configure_team_data_mode(TecmoRuntime *runtime, const char *mode_nam
                 }
             } else if (strcmp(mode_name, "team-data-roster-page1") == 0 ||
                        strcmp(mode_name, "team-data-roster-page2") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
                 runtime->team_data_state.phase = TECMO_TEAM_DATA_ROSTER;
                 runtime->team_data_state.team_id = 0U;
@@ -671,6 +568,7 @@ static bool configure_team_data_mode(TecmoRuntime *runtime, const char *mode_nam
                     strcmp(mode_name, "team-data-roster-page2") == 0 ? 1U : 0U;
                 runtime->team_data_state.cursor_delay = 1U;
             } else if (strncmp(mode_name, "team-data-roster-slide-frame", 28) == 0) {
+                *handled_out = true;
                 unsigned frame;
                 if (!tecmo_cli_parse_render_frame_suffix(mode_name,
                                                "team-data-roster-slide-frame",
@@ -688,6 +586,7 @@ static bool configure_team_data_mode(TecmoRuntime *runtime, const char *mode_nam
                     runtime->team_data_state.slide_frame = (uint8_t)frame;
                 }
             } else if (strcmp(mode_name, "team-data-player-detail") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
                 runtime->team_data_state.phase = TECMO_TEAM_DATA_PLAYER_DETAIL;
                 runtime->team_data_state.team_id = 0U;
@@ -695,6 +594,7 @@ static bool configure_team_data_mode(TecmoRuntime *runtime, const char *mode_nam
                 runtime->team_data_state.cursor_delay = 1U;
             } else if (strncmp(mode_name,
                                "team-data-entry-transition-frame", 32) == 0) {
+                *handled_out = true;
                 unsigned frame;
                 if (!tecmo_cli_parse_render_frame_suffix(
                         mode_name, "team-data-entry-transition-frame", &frame) ||
@@ -711,6 +611,7 @@ static bool configure_team_data_mode(TecmoRuntime *runtime, const char *mode_nam
             } else if (strncmp(mode_name,
                                "team-data-selector-profile-transition-frame",
                                43) == 0) {
+                *handled_out = true;
                 unsigned frame;
                 if (!tecmo_cli_parse_render_frame_suffix(
                         mode_name,
@@ -732,6 +633,7 @@ static bool configure_team_data_mode(TecmoRuntime *runtime, const char *mode_nam
             } else if (strncmp(mode_name,
                                "team-data-roster-detail-transition-frame",
                                40) == 0) {
+                *handled_out = true;
                 unsigned frame;
                 if (!tecmo_cli_parse_render_frame_suffix(
                         mode_name,
@@ -752,6 +654,7 @@ static bool configure_team_data_mode(TecmoRuntime *runtime, const char *mode_nam
             } else if (strncmp(mode_name,
                                "team-data-detail-roster-transition-frame",
                                40) == 0) {
+                *handled_out = true;
                 unsigned frame;
                 if (!tecmo_cli_parse_render_frame_suffix(
                         mode_name,
@@ -771,6 +674,7 @@ static bool configure_team_data_mode(TecmoRuntime *runtime, const char *mode_nam
                     runtime->team_data_state.transition_frame = (uint8_t)frame;
                 }
             } else if (strcmp(mode_name, "team-data-invalid-state") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
                 runtime->team_data_state.team_id = TECMO_TEAM_DATA_TEAM_COUNT;
                 framebuffer.pixels = pixels;
@@ -803,15 +707,16 @@ static bool configure_season_mode(TecmoRuntime *runtime, const char *mode_name, 
     bool render_runtime = true;
     int result = state->result;
 
-    *handled_out = is_known_season_mode(mode_name);
-    if (!*handled_out) return true;
+    *handled_out = false;
             if (strcmp(mode_name, "season-team-control") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
                 tecmo_season_state_init(&runtime->season_state,
                                         TECMO_SEASON_ROUTE_TEAM_CONTROL,
                                         &runtime->season_session);
             } else if (strcmp(mode_name, "season-schedule") == 0 ||
                        strcmp(mode_name, "season-schedule-popup") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
                 tecmo_season_state_init(&runtime->season_state,
                                         TECMO_SEASON_ROUTE_SCHEDULE,
@@ -824,6 +729,7 @@ static bool configure_season_mode(TecmoRuntime *runtime, const char *mode_name, 
             } else if (strcmp(mode_name, "season-playoff") == 0 ||
                        strcmp(mode_name, "season-playoff-mid") == 0 ||
                        strcmp(mode_name, "season-playoff-east") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
                 tecmo_season_state_init(&runtime->season_state,
                                         TECMO_SEASON_ROUTE_SCHEDULE,
@@ -835,6 +741,7 @@ static bool configure_season_mode(TecmoRuntime *runtime, const char *mode_name, 
                     runtime->season_state.playoff_scroll = 252U;
             } else if (strcmp(mode_name, "season-standings-east") == 0 ||
                        strcmp(mode_name, "season-standings-west") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
                 tecmo_season_state_init(&runtime->season_state,
                                         TECMO_SEASON_ROUTE_STANDINGS,
@@ -842,18 +749,21 @@ static bool configure_season_mode(TecmoRuntime *runtime, const char *mode_name, 
                 runtime->season_state.standings_page =
                     strcmp(mode_name, "season-standings-west") == 0 ? 1U : 0U;
             } else if (strcmp(mode_name, "season-standings-programmed") == 0) {
+                *handled_out = true;
                 runtime->season_session.season_type = TECMO_SEASON_PROGRAMMED;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
                 tecmo_season_state_init(&runtime->season_state,
                                         TECMO_SEASON_ROUTE_STANDINGS,
                                         &runtime->season_session);
             } else if (strcmp(mode_name, "season-leaders-results") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
                 tecmo_season_state_init(&runtime->season_state,
                                         TECMO_SEASON_ROUTE_LEADERS,
                                         &runtime->season_session);
                 runtime->season_state.leaders_results = true;
             } else if (strncmp(mode_name, "season-leaders", 14) == 0) {
+                *handled_out = true;
                 unsigned category = 0U;
                 if (mode_name[14] != '\0' &&
                     (!tecmo_cli_parse_render_frame_suffix(mode_name, "season-leaders",
@@ -868,6 +778,7 @@ static bool configure_season_mode(TecmoRuntime *runtime, const char *mode_name, 
                     runtime->season_state.leader_category = (uint8_t)category;
                 }
             } else if (strcmp(mode_name, "season-game-start") == 0) {
+                *handled_out = true;
                 TecmoControlFrame no_input;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
                 tecmo_season_state_init(&runtime->season_state,
@@ -879,6 +790,7 @@ static bool configure_season_mode(TecmoRuntime *runtime, const char *mode_name, 
                                           &runtime->season_session,
                                           &no_input);
             } else if (strcmp(mode_name, "season-invalid-state") == 0) {
+                *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
                 tecmo_season_state_init(&runtime->season_state,
                                         TECMO_SEASON_ROUTE_TEAM_CONTROL,
