@@ -93,6 +93,11 @@ set(TECMO_PORT_SOURCES
     src/tecmo_gameplay_free_throw_projection_test.c
     src/tecmo_gameplay_audio.c
     src/tecmo_gameplay_scene.c
+    src/tecmo_gameplay_scene_test_pretip.c
+    src/tecmo_gameplay_scene_test_render_contract.c
+    src/tecmo_gameplay_scene_test_shot_clock.c
+    src/tecmo_gameplay_scene_test_state_flow.c
+    src/tecmo_gameplay_scene_test_orchestrator.c
     src/tecmo_gameplay_scene_actors.c
     src/tecmo_gameplay_scene_shots.c
     src/tecmo_gameplay_scene_render.c
