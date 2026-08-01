@@ -953,6 +953,12 @@ static bool scene_update_jump_make(
         scene, actor, (TecmoGameplayTeam)actor->team);
 }
 
+static bool scene_update_jump_miss_rim_rattle(
+    TecmoGameplayScene *scene,
+    uint16_t next_frame,
+    uint16_t *route_frame,
+    bool *rattle_position_owned);
+
 bool scene_update_jump_miss(
     TecmoGameplayScene *scene,
     const TecmoControlFrame *shooting_controls)
@@ -963,8 +969,6 @@ bool scene_update_jump_miss(
     uint16_t route_frame;
     bool landed = false;
     bool rattle_position_owned = false;
-    bool repeat_dmc = false;
-    bool rattle_completed = false;
     if (!scene->jump_oracle_active || scene->jump_make_route ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
         scene->shot_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
@@ -1101,73 +1105,9 @@ bool scene_update_jump_miss(
         scene->jump_pose_frame = 0U;
     }
 
-    if (scene->jump_rim_rattle_debug &&
-        next_frame == TECMO_GAMEPLAY_JUMP_RATTLE_BEGIN_FRAME) {
-        TecmoGameplayShotRimRoute route;
-        if (!tecmo_gameplay_shot_resolution_resolve_rim_route(
-                &scene->shot_resolution,
-                scene->jump_rim_rattle_raw_selector, &route) ||
-            route.kind != TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A7A9 ||
-            route.source_target_cpu != 0xA7A9U ||
-            !tecmo_gameplay_shot_rim_rattle_begin(
-                &scene->shot_resolution, &scene->jump_rim_rattle,
-                0U, 3U, scene->jump_phase_counter,
-                TECMO_GAMEPLAY_JUMP_RATTLE_NEGATIVE_INCOMING_X_SENTINEL_Q6,
-                0)) {
-            return false;
-        }
-        scene->jump_ball_state =
-            scene->jump_rim_rattle.object_state;
-        scene->jump_ball_altitude_q8 =
-            (uint16_t)scene->jump_rim_rattle.altitude << 8U;
-        if (!scene_map_rim_rattle_ball_position(
-                scene, &scene->jump_rim_rattle)) {
-            return false;
-        }
-        route_frame = 0U;
-        rattle_position_owned = true;
-    } else if (scene->jump_rim_rattle_debug &&
-               scene->jump_rim_rattle.active) {
-        if (!tecmo_gameplay_shot_rim_rattle_step(
-                &scene->shot_resolution, &scene->jump_rim_rattle,
-                &repeat_dmc, &rattle_completed)) {
-            return false;
-        }
-        if (!scene_map_rim_rattle_ball_position(
-                scene, &scene->jump_rim_rattle)) {
-            return false;
-        }
-        scene->jump_ball_altitude_q8 =
-            (uint16_t)scene->jump_rim_rattle.altitude << 8U;
-        rattle_position_owned = true;
-        if (repeat_dmc) {
-            if (scene->shot_resolution.rim_rattle.repeat_dmc_length !=
-                    0x0AU ||
-                !tecmo_gameplay_audio_queue_dmc_clip(
-                    &scene->audio_player,
-                    TECMO_GAMEPLAY_DMC_BANK05_A8D6_SHORT)) {
-                return false;
-            }
-            ++scene->jump_rim_rattle_audio_repeats;
-        }
-        if (rattle_completed) {
-            /* The canonical diagnostic uses observed raw $6A=$71, so $A2DF's
-               raw-selector >= $18 predicate selects the existing state-$10
-               path. Other terminal predicates remain unsupported here. */
-            if (next_frame != TECMO_GAMEPLAY_JUMP_RATTLE_HANDOFF_FRAME ||
-                scene->jump_rim_rattle_raw_selector < 0x18U ||
-                scene->jump_rim_rattle.horizontal_velocity_q6 !=
-                    scene->jump_rim_rattle.saved_horizontal_velocity_q6 ||
-                scene->jump_rim_rattle.vertical_velocity_q6 !=
-                    scene->jump_rim_rattle.saved_vertical_velocity_q6) {
-                return false;
-            }
-            route_frame = TECMO_GAMEPLAY_JUMP_RATTLE_BEGIN_FRAME;
-        }
-    } else if (scene->jump_rim_rattle_debug &&
-               next_frame > TECMO_GAMEPLAY_JUMP_RATTLE_HANDOFF_FRAME) {
-        route_frame = (uint16_t)(
-            next_frame - TECMO_GAMEPLAY_JUMP_RATTLE_FRAME_SHIFT);
+    if (!scene_update_jump_miss_rim_rattle(
+            scene, next_frame, &route_frame, &rattle_position_owned)) {
+        return false;
     }
 
     if (route_frame == 5U) {
@@ -1206,6 +1146,86 @@ bool scene_update_jump_miss(
     }
     return scene_finish_jump_miss(
         scene, actor, (TecmoGameplayTeam)actor->team);
+}
+
+static bool scene_update_jump_miss_rim_rattle(
+    TecmoGameplayScene *scene,
+    uint16_t next_frame,
+    uint16_t *route_frame,
+    bool *rattle_position_owned)
+{
+    bool repeat_dmc = false;
+    bool rattle_completed = false;
+
+    if (scene->jump_rim_rattle_debug &&
+        next_frame == TECMO_GAMEPLAY_JUMP_RATTLE_BEGIN_FRAME) {
+        TecmoGameplayShotRimRoute route;
+        if (!tecmo_gameplay_shot_resolution_resolve_rim_route(
+                &scene->shot_resolution,
+                scene->jump_rim_rattle_raw_selector, &route) ||
+            route.kind != TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A7A9 ||
+            route.source_target_cpu != 0xA7A9U ||
+            !tecmo_gameplay_shot_rim_rattle_begin(
+                &scene->shot_resolution, &scene->jump_rim_rattle,
+                0U, 3U, scene->jump_phase_counter,
+                TECMO_GAMEPLAY_JUMP_RATTLE_NEGATIVE_INCOMING_X_SENTINEL_Q6,
+                0)) {
+            return false;
+        }
+        scene->jump_ball_state =
+            scene->jump_rim_rattle.object_state;
+        scene->jump_ball_altitude_q8 =
+            (uint16_t)scene->jump_rim_rattle.altitude << 8U;
+        if (!scene_map_rim_rattle_ball_position(
+                scene, &scene->jump_rim_rattle)) {
+            return false;
+        }
+        *route_frame = 0U;
+        *rattle_position_owned = true;
+    } else if (scene->jump_rim_rattle_debug &&
+               scene->jump_rim_rattle.active) {
+        if (!tecmo_gameplay_shot_rim_rattle_step(
+                &scene->shot_resolution, &scene->jump_rim_rattle,
+                &repeat_dmc, &rattle_completed)) {
+            return false;
+        }
+        if (!scene_map_rim_rattle_ball_position(
+                scene, &scene->jump_rim_rattle)) {
+            return false;
+        }
+        scene->jump_ball_altitude_q8 =
+            (uint16_t)scene->jump_rim_rattle.altitude << 8U;
+        *rattle_position_owned = true;
+        if (repeat_dmc) {
+            if (scene->shot_resolution.rim_rattle.repeat_dmc_length !=
+                    0x0AU ||
+                !tecmo_gameplay_audio_queue_dmc_clip(
+                    &scene->audio_player,
+                    TECMO_GAMEPLAY_DMC_BANK05_A8D6_SHORT)) {
+                return false;
+            }
+            ++scene->jump_rim_rattle_audio_repeats;
+        }
+        if (rattle_completed) {
+            /* The canonical diagnostic uses observed raw $6A=$71, so $A2DF's
+               raw-selector >= $18 predicate selects the existing state-$10
+               path. Other terminal predicates remain unsupported here. */
+            if (next_frame != TECMO_GAMEPLAY_JUMP_RATTLE_HANDOFF_FRAME ||
+                scene->jump_rim_rattle_raw_selector < 0x18U ||
+                scene->jump_rim_rattle.horizontal_velocity_q6 !=
+                    scene->jump_rim_rattle.saved_horizontal_velocity_q6 ||
+                scene->jump_rim_rattle.vertical_velocity_q6 !=
+                    scene->jump_rim_rattle.saved_vertical_velocity_q6) {
+                return false;
+            }
+            *route_frame = TECMO_GAMEPLAY_JUMP_RATTLE_BEGIN_FRAME;
+        }
+    } else if (scene->jump_rim_rattle_debug &&
+               next_frame > TECMO_GAMEPLAY_JUMP_RATTLE_HANDOFF_FRAME) {
+        *route_frame = (uint16_t)(
+            next_frame - TECMO_GAMEPLAY_JUMP_RATTLE_FRAME_SHIFT);
+    }
+    return true;
 }
 
 static bool scene_update_jump_shot(
