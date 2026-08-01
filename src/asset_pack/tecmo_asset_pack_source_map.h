@@ -12,6 +12,7 @@
 #include "tecmo_asset_pack_gameplay_hud.h"
 #include "tecmo_asset_pack_gameplay_court.h"
 #include "tecmo_asset_pack_gameplay_court_orientation.h"
+#include "tecmo_asset_pack_gameplay_backcourt.h"
 #include "tecmo_asset_pack_gameplay_close_shots.h"
 #include "tecmo_asset_pack_gameplay_dunk_cutaway.h"
 #include "tecmo_asset_pack_gameplay_jump_shots.h"
@@ -51,6 +52,7 @@ char *tecmo_asset_pack_build_ines_source_map(
     const TecmoGameplayProvenance *gameplay_provenance,
     const TecmoGameplayCourtProvenance *gameplay_court_provenance,
     const TecmoGameplayCourtOrientationProvenance *court_orientation_provenance,
+    const TecmoGameplayBackcourtProvenance *backcourt_provenance,
     const TecmoGameplayCameraProvenance *gameplay_camera_provenance,
     const TecmoGameplayMovementProvenance *gameplay_movement_provenance,
     const TecmoGameplayBallDribbleProvenance *ball_dribble_provenance,

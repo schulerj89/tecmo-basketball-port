@@ -1066,8 +1066,28 @@ of Bank04's delayed SFX-6 request.
 The `gameplay-out-of-bounds-frameN` checkpoint reaches TGVR through the live
 TGMO primary-holder clamp and TPNL selector 1. Visible frames 23, 27, and 31
 prove the distinct ROM groups 3, 4, and 5; later checked frames retain group 5.
-This integration does not broaden the supported detector set beyond TGMO's
-documented boundary latch.
+This path remains limited to TGMO's documented boundary latch.
+
+TGBC-1 adds the separate strict live backcourt detector. Its 512-byte payload
+(`2C7BAF1D`) imports Bank05 `$970B-$9786` (`C137674F`), pins the complete Rev1
+ROM identity, and requires exact same-pack TGOR-1 (`F9152C0A`) and TPNL-1
+(`980DDC76`). `$971F-$9786` is implemented exactly for ordinary object state
+zero: `$0588` bit 4 records frontcourt progress, orientation 0 establishes at
+ball X `<=375` and returns at X `>=386`, orientation 1 establishes at X `>=392`
+and returns at X `<=383`, and the violation stores selector 2. The C step keeps
+the 6502 unsigned 16-bit subtraction, high-byte sign branch, and low-byte
+`$0A/$F8` comparisons. The selector-4 ten-second prefix at `$970B-$971E` is
+retained as provenance but is not implemented by TGBC-1.
+
+Production samples the TGBD-attached held-ball coordinate once after ordinary
+human and CPU movement, resets the detector at the scene possession-handoff
+boundary, resolves BACKCOURT through TPNL, and uses TGVR's exact shared
+`3,4,5,5,5` pointing sequence and ROM lettering. This sample/reset scheduling
+is a bounded native adapter, not a claim of exact 6502 intra-frame caller
+ordering. The referee controller/groups are exact; the existing nine-frame
+blackout/fade alignment remains capture-bounded. The deterministic
+`gameplay-backcourt-frameN` checkpoint drives that live route and shows
+distinct groups at frames 23, 27, and 31.
 
 TGFL-1 `gameplay/free-throw-lineup` is a strict ROM-only lineup foundation
 and live-scene dependency. Its pure resolver remains separate from scene

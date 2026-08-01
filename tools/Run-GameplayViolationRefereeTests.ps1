@@ -234,6 +234,13 @@ try {
         $Maps[0].native_contract.out_of_bounds_message -ne "OUT OF BOUNDS" -or
         $Maps[0].native_contract.live_out_of_bounds_trigger -notmatch
             'TGMO-1.*TPNL-1 selector 1' -or
+        $Maps[0].native_contract.backcourt_selector -ne 2 -or
+        $Maps[0].native_contract.backcourt_sequence_id -ne 1 -or
+        (@($Maps[0].native_contract.backcourt_groups) -join ',') -ne
+            '3,4,5,5,5' -or
+        $Maps[0].native_contract.backcourt_message -ne "BACKCOURT" -or
+        $Maps[0].native_contract.live_backcourt_trigger -notmatch
+            'TGBC-1.*TPNL-1 selector 2' -or
         $Maps[0].capture_bounded_alignment.black_frames -ne 9 -or
         $Maps[0].capture_bounded_alignment.sequence_visible_start_frame -ne
             23) {
@@ -332,8 +339,9 @@ try {
 
     Write-Host (
         "TGVR-1 focused tests passed: exact screen 05, ROM text, " +
-        "shot-clock groups 9->10, live TGMO/TPNL out-of-bounds groups " +
-        "3->4->5, 168-frame settlement, deterministic render checkpoints, " +
+        "shot-clock groups 9->10, live TGMO/TPNL out-of-bounds and " +
+        "TGBC/TPNL backcourt groups 3->4->5, 168-frame settlement, " +
+        "deterministic render checkpoints, " +
         "strict provenance and fail-closed dependencies")
     $global:LASTEXITCODE = 0
 } finally {

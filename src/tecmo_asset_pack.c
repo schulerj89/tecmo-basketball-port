@@ -16,6 +16,7 @@
 #include "asset_pack/tecmo_asset_pack_gameplay_hud.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_court.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_court_orientation.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_backcourt.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_close_shots.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_jump_shots.h"
@@ -93,6 +94,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                           TecmoGameplayProvenance *gameplay_provenance,
                                           TecmoGameplayCourtProvenance *gameplay_court_provenance,
                                           TecmoGameplayCourtOrientationProvenance *court_orientation_provenance,
+                                          TecmoGameplayBackcourtProvenance *backcourt_provenance,
                                           TecmoGameplayCameraProvenance *gameplay_camera_provenance,
                                           TecmoGameplayMovementProvenance *gameplay_movement_provenance,
                                           TecmoGameplayBallDribbleProvenance *ball_dribble_provenance,
@@ -133,6 +135,8 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
     uint8_t gameplay_court_payload[TECMO_ASSET_PACK_GAMEPLAY_COURT_SIZE];
     uint8_t court_orientation_payload[
         TECMO_ASSET_PACK_GAMEPLAY_COURT_ORIENTATION_SIZE];
+    uint8_t backcourt_payload[
+        TECMO_ASSET_PACK_GAMEPLAY_BACKCOURT_SIZE];
     uint8_t gameplay_camera_payload[TECMO_ASSET_PACK_GAMEPLAY_CAMERA_SIZE];
     uint8_t gameplay_movement_payload[
         TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_SIZE];
@@ -236,6 +240,14 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
             enforce_finale_revision_fingerprints,
             court_orientation_payload, sizeof(court_orientation_payload),
             court_orientation_provenance, message, message_size) != 0) {
+        return -1;
+    }
+    if (enforce_finale_revision_fingerprints != 0 &&
+        tecmo_asset_pack_build_gameplay_backcourt(
+            rom, rom_size, prg_offset, prg_banks,
+            enforce_finale_revision_fingerprints,
+            backcourt_payload, sizeof(backcourt_payload),
+            backcourt_provenance, message, message_size) != 0) {
         return -1;
     }
     if (enforce_finale_revision_fingerprints != 0 &&
@@ -966,6 +978,19 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                 "Could not write strict TGOR-1 court-orientation entry.");
             return -1;
         }
+        entry_info = tecmo_asset_pack_make_entry_info(
+            TECMO_ASSET_PACK_GAMEPLAY_BACKCOURT_ID,
+            TECMO_ASSET_PACK_TYPE_DATA, 5U, 0x970BU,
+            backcourt_provenance->source_offsets[0U],
+            TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+        if (tecmo_asset_pack_builder_add_memory(
+                builder, &entry_info, backcourt_payload,
+                sizeof(backcourt_payload), message, message_size) != 0) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Could not write strict TGBC-1 gameplay backcourt entry.");
+            return -1;
+        }
         if (tecmo_asset_pack_build_gameplay_camera(
                 rom, rom_size, prg_offset, prg_banks,
                 enforce_finale_revision_fingerprints,
@@ -1199,6 +1224,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     TecmoGameplayProvenance gameplay_provenance;
     TecmoGameplayCourtProvenance gameplay_court_provenance;
     TecmoGameplayCourtOrientationProvenance court_orientation_provenance;
+    TecmoGameplayBackcourtProvenance backcourt_provenance;
     TecmoGameplayCameraProvenance gameplay_camera_provenance;
     TecmoGameplayMovementProvenance gameplay_movement_provenance;
     TecmoGameplayBallDribbleProvenance ball_dribble_provenance;
@@ -1390,6 +1416,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
            sizeof(gameplay_court_provenance));
     memset(&court_orientation_provenance, 0,
            sizeof(court_orientation_provenance));
+    memset(&backcourt_provenance, 0, sizeof(backcourt_provenance));
     memset(&gameplay_camera_provenance, 0,
            sizeof(gameplay_camera_provenance));
     memset(&gameplay_movement_provenance, 0,
@@ -1439,6 +1466,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &gameplay_provenance,
                                        &gameplay_court_provenance,
                                        &court_orientation_provenance,
+                                       &backcourt_provenance,
                                        &gameplay_camera_provenance,
                                        &gameplay_movement_provenance,
                                        &ball_dribble_provenance,
@@ -1483,6 +1511,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &gameplay_provenance,
                                        &gameplay_court_provenance,
                                        &court_orientation_provenance,
+                                       &backcourt_provenance,
                                        &gameplay_camera_provenance,
                                        &gameplay_movement_provenance,
                                        &ball_dribble_provenance,
@@ -2569,6 +2598,10 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         goto cleanup;
     }
     if (tecmo_asset_pack_gameplay_court_orientation_self_test(
+            message, message_size) != 0) {
+        goto cleanup;
+    }
+    if (tecmo_asset_pack_gameplay_backcourt_self_test(
             message, message_size) != 0) {
         goto cleanup;
     }

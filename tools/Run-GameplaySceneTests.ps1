@@ -224,6 +224,7 @@ try {
         [pscustomobject]@{ id="gameplay/cpu-steering"; size=7616; hash="D6C4DB35"; schema="tecmo.gameplay-cpu-steering/TGAI-1" },
         [pscustomobject]@{ id="gameplay/hud"; size=864; hash="3D13AA89"; schema="tecmo.gameplay-hud/THUD-1" },
         [pscustomobject]@{ id="gameplay/court-orientation"; size=640; hash="F9152C0A"; schema="tecmo.gameplay-court-orientation/TGOR-1" },
+        [pscustomobject]@{ id="gameplay/backcourt"; size=512; hash="2C7BAF1D"; schema="tecmo.gameplay-backcourt/TGBC-1" },
         [pscustomobject]@{ id="gameplay/free-throw-lineup"; size=1216; hash="B17B9A3F"; schema="tecmo.gameplay-free-throw-lineup/TGFL-1" },
         [pscustomobject]@{ id="gameplay/close-shots"; size=3144; hash="DACDC976"; schema="tecmo.gameplay-close-shots/TGCS-1" },
         [pscustomobject]@{ id="gameplay/dunk-cutaway"; size=20272; hash="E02F2D21"; schema="tecmo.gameplay-dunk-cutaway/TGDK-1" },
@@ -767,6 +768,37 @@ try {
         -Label "malformed-court-orientation" `
         -ExpectedStatus "TGOR-1 header/size/reserved contract rejected"
 
+    $MissingBackcourtPath = Join-Path $Scratch "missing-backcourt.assetpack"
+    $MissingBackcourt = [byte[]]$PackBytes.Clone()
+    $MissingBackcourt[
+        [int]$Entries["gameplay/backcourt"].directory_offset] =
+        [byte][char]'x'
+    [IO.File]::WriteAllBytes($MissingBackcourtPath, $MissingBackcourt)
+    Assert-SceneRejected -AssetPack $MissingBackcourtPath `
+        -Label "missing-backcourt" -ExpectedStatus "TGBC-1"
+
+    $MalformedBackcourtPath =
+        Join-Path $Scratch "malformed-backcourt.assetpack"
+    $MalformedBackcourt = [byte[]]$PackBytes.Clone()
+    $BackcourtOffset = [int]$Entries["gameplay/backcourt"].pack_offset
+    $MalformedBackcourt[$BackcourtOffset] =
+        $MalformedBackcourt[$BackcourtOffset] -bxor 1
+    [IO.File]::WriteAllBytes(
+        $MalformedBackcourtPath, $MalformedBackcourt)
+    Assert-SceneRejected -AssetPack $MalformedBackcourtPath `
+        -Label "malformed-backcourt" -ExpectedStatus "TGBC-1"
+
+    $OversizedBackcourtPath =
+        Join-Path $Scratch "oversized-backcourt.assetpack"
+    $OversizedBackcourt = [byte[]]$PackBytes.Clone()
+    [BitConverter]::GetBytes([uint64]513).CopyTo(
+        $OversizedBackcourt,
+        [int]$Entries["gameplay/backcourt"].directory_offset + 92)
+    [IO.File]::WriteAllBytes(
+        $OversizedBackcourtPath, $OversizedBackcourt)
+    Assert-SceneRejected -AssetPack $OversizedBackcourtPath `
+        -Label "oversized-backcourt" -ExpectedStatus "TGBC-1"
+
     $MissingLineupPath =
         Join-Path $Scratch "missing-free-throw-lineup.assetpack"
     $MissingLineup = [byte[]]$PackBytes.Clone()
@@ -1165,7 +1197,7 @@ try {
 
     $global:LASTEXITCODE = 0
     Write-Output ("GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance " +
-        "scene controls THUD-1 clean jersey/name HUD TGMO-1 human/CPU walking poses TGBD-1 held-ball bounce/sound TGFT-1 fatigue TPNL-1 out-of-bounds settlement TGVR-1 native shot-clock referee TGAI-1/TGMO-1 transactional ordinary CPU movement TGCP-2 full-world camera fine-scroll guarded-margins actor-camera-projection/possession-slice-render/freeze TGFL-1 orientation-lineup TGOR two-basket shot ownership TGDK TGJS TGSR-3 jump entry/turn/release/flight poses jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
+        "scene controls THUD-1 clean jersey/name HUD TGMO-1 human/CPU walking poses TGBD-1 held-ball bounce/sound TGFT-1 fatigue TPNL-1 out-of-bounds settlement TGBC-1 live backcourt settlement TGVR-1 native violation referee TGAI-1/TGMO-1 transactional ordinary CPU movement TGCP-2 full-world camera fine-scroll guarded-margins actor-camera-projection/possession-slice-render/freeze TGFL-1 orientation-lineup TGOR two-basket shot ownership TGDK TGJS TGSR-3 jump entry/turn/release/flight poses jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
         "halftime/final render-hashes/determinism missing malformed oversized " +
         "dependency-corrupt chr-mismatch")
 } finally {

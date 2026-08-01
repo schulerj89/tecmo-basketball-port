@@ -964,6 +964,26 @@ and then draw TGVR's `OUT OF BOUNDS` screen; do not replace that production
 path with direct phase injection. Frames 23, 27, and 31 are distinct referee
 groups 3, 4, and 5, while frames 31, 39, and 80 retain group 5.
 
+TGBC-1 `gameplay/backcourt` is the independent strict 512-byte live detector
+(FNV1a32 `2C7BAF1D`). It retains Bank05 `$970B-$9786` (`C137674F`) behind the
+exact Rev1 fingerprint and requires same-pack TGOR-1 and TPNL-1. The ported
+span is `$971F-$9786`: `$0478` must be zero, `$0588` bit 4 is the frontcourt
+latch, and selector `$0742=2` is BACKCOURT. Orientation 0 establishes at ball
+X `<=375` and calls the return at X `>=386`; orientation 1 establishes at X
+`>=392` and calls it at X `<=383`. Preserve the original 16-bit subtract,
+high-byte sign test, and low-byte compare rather than replacing them with an
+unbounded distance heuristic. The preceding selector-4 ten-second test at
+`$970B-$971E` is evidence only and remains unported.
+
+The scene samples the attached held ball once after ordinary human and CPU
+movement, resets its latch on each scene possession handoff, resolves selector
+2 through TPNL, and renders TGVR sequence `3,4,5,5,5` with the ROM `BACKCOURT`
+message. That scene scheduling/reset adapter is the best bounded integration;
+exact 6502 intra-frame caller ordering is not claimed. TGVR's group controller
+is exact, while the existing nine-frame blackout/fade alignment remains
+capture-bounded. `gameplay-backcourt-frameN` must reach the production path,
+not inject a violation; frames 23, 27, and 31 visibly prove groups 3, 4, and 5.
+
 TGFL-1 `gameplay/free-throw-lineup` is a strict 1216-byte pure lineup
 foundation (FNV1a32 `B17B9A3F`) with an exact same-pack TGPL-1 dependency.
 It stores the complete Rev1 Bank06 spans `$88B0-$88D9` (`AD834719`),
@@ -1330,6 +1350,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/asset_pack/tecmo_asset_pack_gameplay.c`: strict TGPL-1 gameplay-core importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_court.c`: strict TGCT-1 court importer and legacy center-nametable builder
 - `src/asset_pack/tecmo_asset_pack_gameplay_court_orientation.c`: strict TGOR-1 court-orientation importer
+- `src/asset_pack/tecmo_asset_pack_gameplay_backcourt.c`: strict TGBC-1 live backcourt-detector importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_camera.c`: strict TGCP-2 camera/projector/clamp importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_movement.c`: strict TGMO-1 ordinary-actor movement importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_ball_dribble.c`: strict TGBD-1 held-ball animation importer
@@ -1358,6 +1379,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/tecmo_gameplay_cpu_steering.c`: strict TGAI-1 parser plus console-only command inspection, shared full-snapshot direction evaluator, and transactional live/CLI TGMO movement adapter
 - `src/tecmo_gameplay_court.c`: strict TGCT-1 parser, full-world decoder, and camera-positioned viewport slicer
 - `src/tecmo_gameplay_court_orientation.c`: strict TGOR-1 parser and possession-synchronized orientation state API
+- `src/tecmo_gameplay_backcourt.c`: strict TGBC-1 parser and transactional frontcourt/return detector
 - `src/tecmo_gameplay_free_throw_projection_test.c`: test-only TGFL-1 -> TGCP-2 checkpoint composition
 - `src/tecmo_gameplay_audio.c`: strict gameplay-audio loader, event sequencer, DMC decoder, and music/SFX mixer
 - `src/tecmo_frontend_audio.c`: strict frontend cue contract, stable playback checks, and shared SFX-engine adapter

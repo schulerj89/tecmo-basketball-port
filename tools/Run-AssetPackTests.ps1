@@ -344,6 +344,7 @@ function Get-KnownLogicalAssetPackEntries {
         "gameplay/core",
         "gameplay/court",
         "gameplay/court-orientation",
+        "gameplay/backcourt",
         "gameplay/camera-projection",
         "gameplay/movement",
         "gameplay/ball-dribble",
@@ -412,6 +413,7 @@ function Get-ExpectedLogicalAssetPackEntries {
             "gameplay/core"
             "gameplay/court"
             "gameplay/court-orientation"
+            "gameplay/backcourt"
             "gameplay/camera-projection"
             "gameplay/movement"
             "gameplay/ball-dribble"

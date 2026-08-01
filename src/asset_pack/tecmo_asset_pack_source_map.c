@@ -1883,6 +1883,65 @@ static int append_gameplay_court_orientation_source_map_entry(
         (unsigned)targets->byte_count, (unsigned)targets->fingerprint);
 }
 
+static int append_gameplay_backcourt_source_map_entry(
+    char *buffer,
+    size_t capacity,
+    size_t *length,
+    int *first,
+    const TecmoGameplayBackcourtProvenance *provenance)
+{
+    const TecmoGameplayBackcourtExpectedSource *source =
+        &tecmo_gameplay_backcourt_expected_sources[0U];
+    const char *prefix = *first != 0 ? "" : ",\n";
+    *first = 0;
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "%s"
+        "    {\"id\":\"%s\",\"kind\":\"gameplay-backcourt-native\","
+        "\"schema\":\"tecmo.gameplay-backcourt/TGBC-1\",\"size\":%u,"
+        "\"fingerprint_fnv1a32\":\"%08X\","
+        "\"revision_sha256\":\"076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4\","
+        "\"dependencies\":["
+        "{\"entry\":\"%s\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\","
+        "\"reason\":\"possession-owned offensive orientation\"},"
+        "{\"entry\":\"%s\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\","
+        "\"reason\":\"selector 2 BACKCOURT presentation and restart\"}],"
+        "\"source_spans\":[{\"role\":\"ten-second-prefix-and-live-backcourt-detector-$970B-$9786\","
+        "\"source_entry\":\"prg/bank05\",\"source_offset\":%llu,"
+        "\"bank\":%u,\"fixed_bank\":false,\"cpu_start\":%u,"
+        "\"cpu_end\":%u,\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\","
+        "\"payload_offset\":%u}],"
+        "\"native_contract\":{\"implemented_span\":\"$971F-$9786\","
+        "\"global_object_state\":0,\"frontcourt_progress_mask\":16,"
+        "\"violation_selector\":2,"
+        "\"orientation_0\":{\"establish_max_x\":375,\"return_min_x\":386},"
+        "\"orientation_1\":{\"establish_min_x\":392,\"return_max_x\":383},"
+        "\"arithmetic\":\"exact unsigned 16-bit 6502 subtract, high-byte sign and low-byte compare\","
+        "\"transactional_validation\":true},"
+        "\"excluded\":\"the selector-4 ten-second test at $970B-$971E remains source evidence only\","
+        "\"live_adapter\":{\"sample\":\"attached held-ball canonical X after all ordinary actor movement\","
+        "\"reset\":\"every possession handoff\","
+        "\"presentation\":\"same-pack TPNL-1 and TGVR-1 BACKCOURT referee route\"},"
+        "\"runtime_inputs\":\"TGBC-1 plus same-pack TGOR-1 and TPNL-1; no ROM, decompilation, trace, capture, or save state\"}",
+        prefix,
+        TECMO_ASSET_PACK_GAMEPLAY_BACKCOURT_ID,
+        (unsigned)TECMO_ASSET_PACK_GAMEPLAY_BACKCOURT_SIZE,
+        (unsigned)TECMO_ASSET_PACK_GAMEPLAY_BACKCOURT_FNV1A32,
+        TECMO_ASSET_PACK_GAMEPLAY_COURT_ORIENTATION_ID,
+        (unsigned)TECMO_ASSET_PACK_GAMEPLAY_COURT_ORIENTATION_SIZE,
+        (unsigned)TECMO_ASSET_PACK_GAMEPLAY_COURT_ORIENTATION_FNV1A32,
+        TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_ID,
+        (unsigned)TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_SIZE,
+        (unsigned)TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_FNV1A32,
+        (unsigned long long)provenance->source_offsets[0U],
+        (unsigned)source->bank,
+        (unsigned)source->cpu_start,
+        (unsigned)((uint32_t)source->cpu_start + source->byte_count - 1U),
+        (unsigned)source->byte_count,
+        (unsigned)source->fingerprint,
+        (unsigned)source->payload_offset);
+}
+
 static int append_gameplay_camera_source_map_entry(
     char *buffer,
     size_t capacity,
@@ -2056,7 +2115,8 @@ static int append_gameplay_camera_source_map_entry(
         "\"native_policy\":\"TGCP-2 owns the shared trapezoid geometry; production user-controlled movement applies the TGMO-1 dispatcher policy\","
         "\"production_controlled_movement\":\"TGMO-1 exact dispatcher exclusions and violation-latch conditions\","
         "\"boundary_settlement\":\"selector $0742 value 1 is consumed through same-pack TPNL-1 as OUT OF BOUNDS\","
-        "\"dispatcher_exceptions_not_implemented\":[\"$0478\",\"$046E\",\"$0588\",\"$0463\"]},"
+        "\"dispatcher_exceptions_not_implemented\":[\"$0478\",\"$046E\",\"$0463\"],"
+        "\"backcourt_progress_bit\":\"$0588 bit 4 is independently owned by strict TGBC-1\"},"
         "\"supported_boundary\":\"strict pure and production live camera state, full-court slicing, actor/ball projection, clipped native composition, and typed free-throw settle/projection of TGFL-1-owned coordinates; TGCP-2 does not own TGFL-1 positions or native scene slot policy; no staged PPU commit/prefetch ordering, vertical camera, generalized movement-dispatch exceptions, HUD provenance, or capture-derived behavior\","
         "\"runtime_inputs\":\"TGCP-2 plus same-pack TGPL-1 and TGCT-1; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}",
         (unsigned long long)p->source_offsets[6U],
@@ -3179,6 +3239,12 @@ static int append_gameplay_violation_referee_source_map_entry(
         "\"out_of_bounds_message\":\"OUT OF BOUNDS\","
         "\"out_of_bounds_message_ppu_address\":8937,"
         "\"live_out_of_bounds_trigger\":\"TGMO-1 fixed $F10C-$F1B0 primary-holder boundary latch consumed through TPNL-1 selector 1\","
+        "\"backcourt_selector\":2,"
+        "\"backcourt_sequence_id\":1,"
+        "\"backcourt_groups\":[3,4,5,5,5],"
+        "\"backcourt_message\":\"BACKCOURT\","
+        "\"backcourt_message_ppu_address\":8939,"
+        "\"live_backcourt_trigger\":\"TGBC-1 Bank05 $971F-$9786 frontcourt latch and return detector consumed through TPNL-1 selector 2\","
         "\"presentation_sfx_id\":6,\"sfx_delay_frames\":16},"
         "\"capture_bounded_alignment\":{"
         "\"black_frames\":9,\"fade_step_frames\":4,"
@@ -3476,6 +3542,7 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoGameplayProvenance *gameplay_provenance,
                                    const TecmoGameplayCourtProvenance *gameplay_court_provenance,
                                    const TecmoGameplayCourtOrientationProvenance *court_orientation_provenance,
+                                   const TecmoGameplayBackcourtProvenance *backcourt_provenance,
                                    const TecmoGameplayCameraProvenance *gameplay_camera_provenance,
                                    const TecmoGameplayMovementProvenance *gameplay_movement_provenance,
                                    const TecmoGameplayBallDribbleProvenance *ball_dribble_provenance,
@@ -3492,7 +3559,7 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
     const TecmoGameplayPreTipProvenance *pretip_provenance,
     size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 32U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 33U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -3729,6 +3796,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
          append_gameplay_court_orientation_source_map_entry(
              source_map, capacity, &length, &first_logical,
              court_orientation_provenance) != 0) ||
+        (backcourt_provenance->source_offsets[0] != 0U &&
+         append_gameplay_backcourt_source_map_entry(
+             source_map, capacity, &length, &first_logical,
+             backcourt_provenance) != 0) ||
         (gameplay_camera_provenance->source_offsets[0] != 0U &&
          append_gameplay_camera_source_map_entry(
              source_map, capacity, &length, &first_logical,

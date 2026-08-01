@@ -14,6 +14,7 @@ set(TECMO_PORT_SOURCES
     src/asset_pack/tecmo_asset_pack_gameplay.c
     src/asset_pack/tecmo_asset_pack_gameplay_court.c
     src/asset_pack/tecmo_asset_pack_gameplay_court_orientation.c
+    src/asset_pack/tecmo_asset_pack_gameplay_backcourt.c
     src/asset_pack/tecmo_asset_pack_gameplay_camera.c
     src/asset_pack/tecmo_asset_pack_gameplay_movement.c
     src/asset_pack/tecmo_asset_pack_gameplay_ball_dribble.c
@@ -54,6 +55,7 @@ set(TECMO_PORT_SOURCES
     src/tecmo_gameplay_assets.c
     src/tecmo_gameplay_court.c
     src/tecmo_gameplay_court_orientation.c
+    src/tecmo_gameplay_backcourt.c
     src/tecmo_gameplay_camera.c
     src/tecmo_gameplay_movement.c
     src/tecmo_gameplay_ball_dribble.c

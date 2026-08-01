@@ -9,6 +9,7 @@
 #include "asset_pack/tecmo_asset_pack_gameplay_cpu_steering.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_hud.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_court_orientation.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_backcourt.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_violation_referee.h"
 #include "asset_pack/tecmo_asset_pack_music.h"
@@ -26,6 +27,7 @@
 #include "tecmo_gameplay_hud.h"
 #include "tecmo_gameplay_court.h"
 #include "tecmo_gameplay_court_orientation.h"
+#include "tecmo_gameplay_backcourt.h"
 #include "tecmo_gameplay_close_shots.h"
 #include "tecmo_gameplay_dunk_cutaway.h"
 #include "tecmo_gameplay_jump_shots.h"
@@ -76,7 +78,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-pretip-test PACK  Validate strict TPTI-1 pre-tip assets/state\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render menus, intro scenes, or strict gameplay-start/pretip-frameN/pretip-bulls-pacers/live-start/cpu-steering-frameN/shot-clock-violation-frameN/out-of-bounds-frameN/uniform-pacers/possession-left|center|right/free-throw-left|right/jump-frameN/dunk-frameN checkpoints to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render menus, intro scenes, or strict gameplay-start/pretip-frameN/pretip-bulls-pacers/live-start/cpu-steering-frameN/shot-clock-violation-frameN/out-of-bounds-frameN/backcourt-frameN/uniform-pacers/possession-left|center|right/free-throw-left|right/jump-frameN/dunk-frameN checkpoints to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --build-assetpack ROM PATH  Build a private .assetpack from an iNES ROM only; no decomp/capture imports\n");
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
@@ -84,6 +86,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-court-test PACK  Validate strict TGCT-1 static court assets\n");
     printf("  --gameplay-court-viewport-test PACK  Validate TGCT-1 full-court decode and viewport slicing\n");
     printf("  --gameplay-court-orientation-test PACK [ROM]  Validate strict TGOR-1 state and optional Rev1 source\n");
+    printf("  --gameplay-backcourt-test PACK [ROM]  Validate strict TGBC-1 detector and optional Rev1 source\n");
     printf("  --gameplay-camera-projection-test PACK  Validate strict TGCP-2 camera/projector/clamp assets\n");
     printf("  --gameplay-movement-test PACK  Validate strict TGMO-1 ordinary actor movement\n");
     printf("  --gameplay-ball-dribble-test PACK [ROM]  Validate strict TGBD-1 held-ball bounce\n");
@@ -991,6 +994,7 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     bool cpu_steering = false;
     bool shot_clock_violation = false;
     bool out_of_bounds_violation = false;
+    bool backcourt_violation = false;
     int possession_slice = -1;
     int free_throw_orientation = -1;
 
@@ -1023,6 +1027,10 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
                    mode_name, "gameplay-out-of-bounds-frame",
                    &checkpoint)) {
         out_of_bounds_violation = true;
+    } else if (parse_render_frame_suffix(
+                   mode_name, "gameplay-backcourt-frame",
+                   &checkpoint)) {
+        backcourt_violation = true;
     } else if (strcmp(mode_name, "gameplay-uniform-pacers") == 0) {
         checkpoint = 691U;
         away_team = 3U;
@@ -1071,7 +1079,8 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
     if (cpu_steering && (checkpoint == 0U || checkpoint > 240U)) {
         return false;
     }
-    if ((shot_clock_violation || out_of_bounds_violation) &&
+    if ((shot_clock_violation || out_of_bounds_violation ||
+         backcourt_violation) &&
         checkpoint >= TECMO_GAMEPLAY_VIOLATION_PRESENTATION_FRAMES) {
         return false;
     }
@@ -1203,6 +1212,53 @@ static bool setup_gameplay_render_checkpoint(TecmoRuntime *runtime,
                    TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION &&
                scene->state.violation ==
                    TECMO_GAMEPLAY_VIOLATION_OUT_OF_BOUNDS &&
+               scene->state.restart_possession == TECMO_GAMEPLAY_TEAM_HOME &&
+               scene->state.phase_frame == checkpoint;
+    }
+    if (backcourt_violation) {
+        TecmoGameplayScene *scene = &runtime->gameplay_scene;
+        TecmoGameplaySceneActor *holder = &scene->actors[0U];
+
+        /* Drive the production held-ball -> TGBC -> TPNL -> TGVR route.
+           Orientation 0 establishes frontcourt with ball X<=375, preserves
+           the original eight-pixel neutral band, then calls BACKCOURT at
+           ball X>=386. These idle checkpoints account for the resolved +6
+           TGBD attachment at this animation phase. */
+        holder->position.x = 368;
+        holder->position.y = 148;
+        holder->anchor = holder->position;
+        holder->facing_right = true;
+        holder->movement_action_state =
+            TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
+        holder->movement_fractional_accumulator = 0U;
+        holder->movement_boundary_latched = false;
+        scene->ball_position.x_q8 = 375 * 256;
+        scene->ball_position.y_q8 = 131 * 256;
+        tecmo_runtime_update(runtime, &input);
+        if (runtime->mode != TECMO_MODE_COURT || !scene->active ||
+            scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+            scene->backcourt_state.frontcourt_established != 1U) {
+            return false;
+        }
+        holder->position.x = 380;
+        holder->anchor = holder->position;
+        scene->ball_position.x_q8 = 386 * 256;
+        scene->ball_position.y_q8 = 131 * 256;
+        tecmo_runtime_update(runtime, &input);
+        if (scene->state.phase !=
+                TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+            scene->state.violation != TECMO_GAMEPLAY_VIOLATION_BACKCOURT ||
+            scene->state.restart_possession != TECMO_GAMEPLAY_TEAM_HOME ||
+            scene->state.phase_frame != 0U) {
+            return false;
+        }
+        for (update = 0U; update < checkpoint; ++update) {
+            tecmo_runtime_update(runtime, &input);
+        }
+        return scene->state.phase ==
+                   TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION &&
+               scene->state.violation ==
+                   TECMO_GAMEPLAY_VIOLATION_BACKCOURT &&
                scene->state.restart_possession == TECMO_GAMEPLAY_TEAM_HOME &&
                scene->state.phase_frame == checkpoint;
     }
@@ -2051,6 +2107,25 @@ int main(int argc, char **argv)
         if (!tecmo_gameplay_court_orientation_self_test(
                 pack_path, message, sizeof(message))) {
             printf("Court-orientation asset test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-backcourt-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        const char *rom_path = index + 1 < argc ? argv[index + 1] : NULL;
+        char message[256];
+        if (rom_path != NULL &&
+            tecmo_asset_pack_gameplay_backcourt_source_test(
+                rom_path, message, sizeof(message)) != 0) {
+            printf("Backcourt source test failed: %s\n", message);
+            return 1;
+        }
+        if (!tecmo_gameplay_backcourt_self_test(
+                pack_path, message, sizeof(message))) {
+            printf("Backcourt asset test failed: %s\n", message);
             return 1;
         }
         printf("%s\n", message);

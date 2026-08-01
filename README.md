@@ -32,14 +32,14 @@ use native approximations instead of the original game logic.
 - ROM-derived human locomotion plus TGAI-directed/TGMO-driven ordinary CPU
   movement, passing, and defender switching
 - ROM-derived walking poses and held-ball bounce animation, fatigue
-  decay/bench recovery, and out-of-bounds turnover settlement with its original
-  `OUT OF BOUNDS` referee-pointing sequence
+  decay/bench recovery, plus out-of-bounds and backcourt turnover settlement
+  with the original referee-pointing sequences
 - Dunks, layups, orientation-aware jump shots with entry, turn, release, and
   airborne poses toward either basket, plus free-throw sequences
 - Game clock, shot clock, scoring, periods, halftime, overtime, final results,
   and return to the selected game mode
 - Original screen, lettering, palette fade, and selector-specific referee
-  animation for shot-clock and out-of-bounds presentations
+  animation for shot-clock, out-of-bounds, and backcourt presentations
 - Original game font for team names, scores, clock, jersey numbers, and selected
   players in the live HUD
 - ROM-derived matchup-specific court, player, ball, and uniform colors
@@ -126,6 +126,7 @@ The focused gameplay and native-flow checks are:
 
 ```powershell
 .\tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_REV1_ROM.nes>
+.\tools\Run-GameplayBackcourtTests.ps1 -Build -RomPath <LOCAL_REV1_ROM.nes>
 .\tools\Run-NativeFlowTests.ps1 -Build
 .\tools\Run-Win32LaunchSmokeTest.ps1 -Build
 ```

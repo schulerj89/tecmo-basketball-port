@@ -201,8 +201,23 @@ resolves through strict TPNL-1 as OUT OF BOUNDS, clears the latch, and enters
 the existing violation/restart rules flow. The deterministic
 `gameplay-out-of-bounds-frameN` renderer reaches that presentation by driving
 the holder across this production boundary rather than injecting a violation
-state. Other violation detectors and their original call scheduling remain
-unported.
+state.
+
+Backcourt is owned independently by strict TGBC-1, not TGMO. The 512-byte
+payload (`2C7BAF1D`) imports Bank05 `$970B-$9786` (`C137674F`) and depends on
+same-pack TGOR-1 and TPNL-1. The exact `$971F-$9786` ordinary live detector uses
+object state zero, `$0588` bit 4, the current orientation, and the 16-bit ball
+X. Orientation 0 establishes at X `<=375` and violates on a return to X
+`>=386`; orientation 1 establishes at X `>=392` and violates on a return to X
+`<=383`. The transactional C step retains the ROM subtract/high-sign/low-byte
+comparisons. The preceding selector-4 ten-second path remains unported.
+
+The scene samples the attached held ball after ordinary movement and resets
+the latch at its possession-handoff boundary. That scheduling is a bounded
+adapter rather than exact caller-order proof. Selector 2 enters the existing
+TPNL/TGVR flow, showing the ROM `BACKCOURT` text and exact `3,4,5,5,5`
+referee-group sequence; the screen blackout/fade alignment is still
+capture-bounded. `gameplay-backcourt-frameN` exercises this production path.
 
 Initial, human-controlled, and TGAI-driven CPU rendering consumes the exact
 pose-base/animation-low-nibble result and binds the record tag to its

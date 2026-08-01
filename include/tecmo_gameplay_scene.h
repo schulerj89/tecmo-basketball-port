@@ -7,6 +7,7 @@
 #include "tecmo_gameplay_audio.h"
 #include "tecmo_gameplay_camera.h"
 #include "tecmo_gameplay_ball_dribble.h"
+#include "tecmo_gameplay_backcourt.h"
 #include "tecmo_gameplay_close_shots.h"
 #include "tecmo_gameplay_cpu_steering.h"
 #include "tecmo_gameplay_court.h"
@@ -186,6 +187,8 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayCpuSteeringAssets cpu_steering_assets;
     TecmoGameplayPenaltyAssets penalty_assets;
     TecmoGameplayViolationRefereeAssets violation_referee_assets;
+    TecmoGameplayBackcourtAssets backcourt_assets;
+    TecmoGameplayBackcourtState backcourt_state;
     TecmoGameplayFatigueAssets fatigue_assets;
     TecmoGameplayFatigueState fatigue_state;
     TecmoGameplayCameraState camera_state;
