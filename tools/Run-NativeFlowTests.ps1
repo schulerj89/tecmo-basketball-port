@@ -129,6 +129,81 @@ foreach ($Test in $Tests) {
     })
 }
 
+function Invoke-CliBoundaryCase {
+    param(
+        [string]$Label,
+        [string[]]$Arguments,
+        [int]$ExpectedExitCode,
+        [string]$ExpectedPattern
+    )
+
+    $Output = @(& $ExePath @Arguments 2>&1)
+    $ExitCode = $LASTEXITCODE
+    $Text = ($Output -join [Environment]::NewLine)
+    if ($ExitCode -ne $ExpectedExitCode -or
+        $Text -notmatch $ExpectedPattern) {
+        throw "CLI boundary '$Label' failed (exit $ExitCode)."
+    }
+    Write-Host "CLI boundary passed: $Label"
+}
+
+Invoke-CliBoundaryCase "default-summary" @(
+    "--summary"
+) 0 '^Tecmo Basketball C port inventory'
+Invoke-CliBoundaryCase "representative-family-dispatch" @(
+    "--controls-test"
+) 0 '^CONTROLS SELF TEST PASS:'
+Invoke-CliBoundaryCase "missing-root-argument" @(
+    "--root"
+) 2 '^Usage:'
+Invoke-CliBoundaryCase "unknown-command" @(
+    "--definitely-unknown"
+) 2 '^Usage:'
+Invoke-CliBoundaryCase "missing-required-pack" @(
+    "--assetpack-list"
+) 2 '^Usage:'
+Invoke-CliBoundaryCase "numeric-render-suffix" @(
+    "--root", $LocalDecompRoot, "--render-test-mode",
+    "intro-arena-clean-frame0"
+) 0 '^intro-capture-status kind=arena'
+Invoke-CliBoundaryCase "render-suffix-missing-number" @(
+    "--root", $LocalDecompRoot, "--render-test-mode",
+    "intro-arena-clean-frame"
+) 1 '^Unsupported render-test mode:'
+Invoke-CliBoundaryCase "render-suffix-trailing-character" @(
+    "--root", $LocalDecompRoot, "--render-test-mode",
+    "intro-arena-clean-frame1x"
+) 1 '^Unsupported render-test mode:'
+Invoke-CliBoundaryCase "render-suffix-overflow" @(
+    "--root", $LocalDecompRoot, "--render-test-mode",
+    "intro-arena-clean-frame184467440737095516160"
+) 1 '^Unsupported render-test mode:'
+Invoke-CliBoundaryCase "unknown-start-game-menu-prefix" @(
+    "--root", $LocalDecompRoot, "--render-test-mode",
+    "start-game-menu-unknown"
+) 1 '^Unsupported render-test mode:'
+Invoke-CliBoundaryCase "unknown-preseason-prefix" @(
+    "--root", $LocalDecompRoot, "--render-test-mode",
+    "preseason-unknown"
+) 1 '^Unsupported render-test mode:'
+Invoke-CliBoundaryCase "unknown-all-star-prefix" @(
+    "--root", $LocalDecompRoot, "--render-test-mode",
+    "all-star-unknown"
+) 1 '^Unsupported render-test mode:'
+Invoke-CliBoundaryCase "unknown-team-data-prefix" @(
+    "--root", $LocalDecompRoot, "--render-test-mode",
+    "team-data-unknown"
+) 1 '^Unsupported render-test mode:'
+Invoke-CliBoundaryCase "unknown-season-prefix" @(
+    "--root", $LocalDecompRoot, "--render-test-mode",
+    "season-unknown"
+) 1 '^Unsupported render-test mode:'
+Invoke-CliBoundaryCase "signed-court-coordinate" @(
+    "--gameplay-cpu-steering-harness", "__cli-parser-boundary-pack__", "0", "0",
+    "0", "0", "0", "0", "+1,+0", "+1,+0", "+1,+0", "+1,+0",
+    "+1,+0", "+1,+0", "+1,+0", "+1,+0", "+1,+0", "+1,+0"
+) 1 '^CPU steering harness load failed'
+
 $Report = [pscustomobject]@{
     schema_version = 1
     generated_by = "tools/Run-NativeFlowTests.ps1"

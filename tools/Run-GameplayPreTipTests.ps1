@@ -198,7 +198,7 @@ $Modes = @(
     [pscustomobject]@{ mode="gameplay-pretip-frame631"; phase="toss-closeup"; frame=631; hash="CDE4C17159C79207CA82281204547FD2794E81858A52A6FB312E937CEEDF162C" },
     [pscustomobject]@{ mode="gameplay-pretip-frame661"; phase="jump-contest"; frame=661; hash="0AB2B11E7C3ABDC3D051E9D20A7BF7EE016E6A89DBA7D3408F136041AF7A3F50" },
     [pscustomobject]@{ mode="gameplay-pretip-bulls-pacers"; phase="jump-contest"; frame=661; hash="1895247EED63FA65D78F46CBC9510C4ACF751A4CF4DB969C599E429CDFC09040" },
-    [pscustomobject]@{ mode="gameplay-live-start"; phase="live"; frame=691; hash="1F352C72F2C060E4C1FDDD5900011FCBDD0561542824FE47EBEF478BC3EE773D" }
+    [pscustomobject]@{ mode="gameplay-live-start"; phase="live"; frame=691; hash="551C75645BBA1B1543CCA93A9A98BB2664E9872F38B8581B11AB144D3249C7BA" }
 )
 $RenderedHashes = @{}
 foreach ($Spec in $Modes) {

@@ -4,6 +4,26 @@ project(tecmo_basketball_c_port LANGUAGES C)
 
 set(TECMO_PORT_SOURCES
     src/main.c
+    src/tecmo_cli.c
+    src/tecmo_cli_basic.c
+    src/tecmo_cli_audio.c
+    src/tecmo_cli_management_season.c
+    src/tecmo_cli_gameplay_core.c
+    src/tecmo_cli_support.c
+    src/tecmo_cli_gameplay.c
+    src/tecmo_cli_gameplay_court.c
+    src/tecmo_cli_gameplay_assets.c
+    src/tecmo_cli_gameplay_asset_contract.c
+    src/tecmo_cli_gameplay_shots.c
+    src/tecmo_cli_gameplay_shot_resolution.c
+    src/tecmo_cli_render_support.c
+    src/tecmo_cli_render_gameplay_checkpoint.c
+    src/tecmo_cli_render_diagnostics.c
+    src/tecmo_cli_render_modes.c
+    src/tecmo_cli_render_menu_modes.c
+    src/tecmo_cli_render_scene_modes.c
+    src/tecmo_cli_render.c
+    src/tecmo_cli_assets.c
     src/asm_inventory.c
     src/png_writer.c
     src/tecmo_asset_pack.c
