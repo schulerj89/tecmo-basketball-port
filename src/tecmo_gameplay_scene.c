@@ -1347,177 +1347,146 @@ static bool scene_follow_live_camera_once(TecmoGameplayScene *scene)
     return true;
 }
 
-bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
-                                 const TecmoControlFrame *player_one,
-                                 const TecmoControlFrame *player_two)
+static bool scene_update_pretip_frame(
+    TecmoGameplayScene *scene,
+    const TecmoControlFrame *player_one,
+    const TecmoControlFrame *player_two)
 {
-    TecmoGameplayFrameInput input;
-    TecmoGameplayLiveContext live_context;
-    const TecmoControlFrame *controls[TECMO_GAMEPLAY_CONTROLLER_COUNT];
-    TecmoGameplayPhase phase_before;
-    TecmoGameplayTeam captured_free_throw_team = TECMO_GAMEPLAY_TEAM_AWAY;
-    bool restart_applied;
-    bool restart_frame;
-    bool free_throw_team_captured;
-    bool jump_miss_settled = false;
-    bool boundary_settled = false;
-    TecmoGameplayTeam jump_miss_shooting_team = TECMO_GAMEPLAY_TEAM_AWAY;
-    TecmoGameplaySceneCpuShotRequest cpu_shot_request = {
-        false, TECMO_GAMEPLAY_SCENE_NO_ACTOR
-    };
-    size_t controller;
+    TecmoGameplayPreTipPhase prior_phase = scene->pretip_state.phase;
+    bool held_one = player_one != NULL && player_one->held.cancel;
+    bool held_two = player_two != NULL && player_two->held.cancel;
+    bool pretip_away_held = held_one;
+    bool pretip_home_held = held_two;
 
-    if (scene == NULL ||
-        scene->lifecycle_tag != TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG ||
-        !scene->available || !scene->active || scene->result_ready ||
-        scene->pretip_abort_pending) {
+    if (prior_phase == TECMO_GAMEPLAY_PRETIP_CLOSEUP) {
+        pretip_away_held =
+            (scene->launch.controller_team[0] ==
+                 TECMO_GAMEPLAY_TEAM_AWAY && held_one) ||
+            (scene->launch.controller_team[1] ==
+                 TECMO_GAMEPLAY_TEAM_AWAY && held_two);
+        pretip_home_held =
+            (scene->launch.controller_team[0] ==
+                 TECMO_GAMEPLAY_TEAM_HOME && held_one) ||
+            (scene->launch.controller_team[1] ==
+                 TECMO_GAMEPLAY_TEAM_HOME && held_two);
+    }
+    if (!tecmo_gameplay_pretip_update(
+            &scene->pretip_assets, &scene->pretip_state,
+            pretip_away_held, pretip_home_held)) {
+        scene_set_status(scene, "pre-tip update rejected");
         return false;
     }
-    if (!tecmo_gameplay_pretip_state_validate(
-            &scene->pretip_assets, &scene->pretip_state)) {
-        scene_set_status(scene, "pre-tip state contract rejected");
-        return false;
-    }
-    if (tecmo_gameplay_pretip_is_presentation(&scene->pretip_state)) {
-        TecmoGameplayPreTipPhase prior_phase = scene->pretip_state.phase;
-        bool held_one = player_one != NULL && player_one->held.cancel;
-        bool held_two = player_two != NULL && player_two->held.cancel;
-        bool pretip_away_held = held_one;
-        bool pretip_home_held = held_two;
-        if (prior_phase == TECMO_GAMEPLAY_PRETIP_CLOSEUP) {
-            pretip_away_held =
-                (scene->launch.controller_team[0] ==
-                     TECMO_GAMEPLAY_TEAM_AWAY && held_one) ||
-                (scene->launch.controller_team[1] ==
-                     TECMO_GAMEPLAY_TEAM_AWAY && held_two);
-            pretip_home_held =
-                (scene->launch.controller_team[0] ==
-                     TECMO_GAMEPLAY_TEAM_HOME && held_one) ||
-                (scene->launch.controller_team[1] ==
-                     TECMO_GAMEPLAY_TEAM_HOME && held_two);
-        }
-        if (!tecmo_gameplay_pretip_update(
-                &scene->pretip_assets, &scene->pretip_state,
-                pretip_away_held, pretip_home_held)) {
-            scene_set_status(scene, "pre-tip update rejected");
-            return false;
-        }
-        if (scene->pretip_state.aborted) {
-            scene->pretip_abort_pending = true;
-            scene->active = false;
-            tecmo_gameplay_audio_stop_all(&scene->audio_player);
-            scene_set_status(scene, "pre-tip aborted by NES B");
-            return true;
-        }
-        if (scene->pretip_state.phase ==
-                TECMO_GAMEPLAY_PRETIP_BALL_DESCENT) {
-            scene->ball_position.y_q8 = scene_pretip_descent_ball_y_q8(
-                scene->pretip_state.phase_frame);
-        } else if (prior_phase == TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP) {
-            scene->ball_position.y_q8 =
-                (int32_t)(108U - scene->pretip_state.phase_frame) * 256;
-        } else if (prior_phase == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
-            uint16_t frame = scene->pretip_state.phase_frame;
-            uint16_t away_arc = scene_pretip_jump_arc(
-                frame, scene->pretip_state.away_tip_error);
-            uint16_t home_arc = scene_pretip_jump_arc(
-                frame, scene->pretip_state.home_tip_error);
-            uint8_t winner;
-            scene->actors[4].position.y =
-                (int16_t)(scene->actors[4].anchor.y - away_arc / 2U);
-            scene->actors[9].position.y =
-                (int16_t)(scene->actors[9].anchor.y - home_arc / 2U);
-            scene->ball_position.y_q8 =
-                (int32_t)(72U + frame) * 256;
-            if (tecmo_gameplay_pretip_tip_winner(
-                    &scene->pretip_assets, &scene->pretip_state, &winner)) {
-                uint8_t error =
-                    winner == TECMO_GAMEPLAY_PRETIP_HOME_WINNER
-                        ? scene->pretip_state.home_tip_error
-                        : scene->pretip_state.away_tip_error;
-                uint16_t contact = (uint16_t)error + 8U;
-                uint16_t travel = frame > contact
-                                      ? (uint16_t)(frame - contact) : 0U;
-                if (travel > 8U) travel = 8U;
-                scene->ball_position.x_q8 =
-                    (int32_t)(384 +
-                        (winner == TECMO_GAMEPLAY_PRETIP_HOME_WINNER
-                             ? (int)travel : -(int)travel)) * 256;
-            }
-        }
-        ++scene->frame;
-        if (scene->pretip_state.live_handoff) {
-            TecmoGameplayTeam possession;
-            uint8_t winner;
-            uint8_t holder;
-            if (!tecmo_gameplay_pretip_tip_winner(
-                    &scene->pretip_assets, &scene->pretip_state, &winner)) {
-                scene_set_status(scene, "pre-tip winner handoff rejected");
-                return false;
-            }
-            possession = winner == TECMO_GAMEPLAY_PRETIP_HOME_WINNER
-                             ? TECMO_GAMEPLAY_TEAM_HOME
-                             : TECMO_GAMEPLAY_TEAM_AWAY;
-            holder = possession == TECMO_GAMEPLAY_TEAM_HOME
-                         ? TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT : 0U;
-            if (!scene_initialize_actors(scene)) {
-                scene_set_status(
-                    scene, "pre-tip actor movement handoff rejected");
-                return false;
-            }
-            if (!scene_handoff_possession(scene, possession, holder)) {
-                scene_set_status(scene, "pre-tip possession handoff rejected");
-                return false;
-            }
-            if (!tecmo_gameplay_camera_settle_court(
-                    &scene->camera_assets, &scene->camera_state,
-                    &scene->ball_position,
-                    scene->orientation_state.current_direction, false)) {
-                scene_set_status(scene, "pre-tip live camera handoff rejected");
-                return false;
-            }
-            if (scene->launch.game_music_enabled &&
-                !tecmo_gameplay_audio_queue_game_music(
-                    &scene->audio_player)) {
-                scene_set_status(scene, "gameplay track 5 handoff rejected");
-                return false;
-            }
-            scene_set_status(scene, "native gameplay active");
-        }
-        {
-            TecmoGameplaySceneCourtCoordinates coordinates;
-            if (!tecmo_gameplay_scene_court_coordinates(
-                    scene, &coordinates)) {
-                scene_set_status(scene, "pre-tip court coordinates rejected");
-                return false;
-            }
-        }
+    if (scene->pretip_state.aborted) {
+        scene->pretip_abort_pending = true;
+        scene->active = false;
+        tecmo_gameplay_audio_stop_all(&scene->audio_player);
+        scene_set_status(scene, "pre-tip aborted by NES B");
         return true;
     }
-    if (!scene_ownership_valid(scene)) return false;
-    controls[0] = player_one;
-    controls[1] = player_two;
-    tecmo_gameplay_frame_input_clear(&input);
-    scene_pad_from_controls(&input.controllers[0], player_one);
-    scene_pad_from_controls(&input.controllers[1], player_two);
-    tecmo_gameplay_live_context_default(&live_context);
-    if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
-        live_context.period_expiry =
-            TECMO_GAMEPLAY_EXPIRY_ALLOWED_LIVE_ACTION;
-        live_context.shot_clock_violation_exempt = true;
-    } else if (scene->state.phase ==
-               TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE) {
-        live_context.period_expiry =
-            TECMO_GAMEPLAY_EXPIRY_ALLOWED_LIVE_ACTION_SETTLED;
+    if (scene->pretip_state.phase ==
+            TECMO_GAMEPLAY_PRETIP_BALL_DESCENT) {
+        scene->ball_position.y_q8 = scene_pretip_descent_ball_y_q8(
+            scene->pretip_state.phase_frame);
+    } else if (prior_phase == TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP) {
+        scene->ball_position.y_q8 =
+            (int32_t)(108U - scene->pretip_state.phase_frame) * 256;
+    } else if (prior_phase == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
+        uint16_t frame = scene->pretip_state.phase_frame;
+        uint16_t away_arc = scene_pretip_jump_arc(
+            frame, scene->pretip_state.away_tip_error);
+        uint16_t home_arc = scene_pretip_jump_arc(
+            frame, scene->pretip_state.home_tip_error);
+        uint8_t winner;
+        scene->actors[4].position.y =
+            (int16_t)(scene->actors[4].anchor.y - away_arc / 2U);
+        scene->actors[9].position.y =
+            (int16_t)(scene->actors[9].anchor.y - home_arc / 2U);
+        scene->ball_position.y_q8 = (int32_t)(72U + frame) * 256;
+        if (tecmo_gameplay_pretip_tip_winner(
+                &scene->pretip_assets, &scene->pretip_state, &winner)) {
+            uint8_t error =
+                winner == TECMO_GAMEPLAY_PRETIP_HOME_WINNER
+                    ? scene->pretip_state.home_tip_error
+                    : scene->pretip_state.away_tip_error;
+            uint16_t contact = (uint16_t)error + 8U;
+            uint16_t travel = frame > contact
+                                  ? (uint16_t)(frame - contact) : 0U;
+            if (travel > 8U) travel = 8U;
+            scene->ball_position.x_q8 =
+                (int32_t)(384 +
+                    (winner == TECMO_GAMEPLAY_PRETIP_HOME_WINNER
+                         ? (int)travel : -(int)travel)) * 256;
+        }
     }
+    ++scene->frame;
+    if (scene->pretip_state.live_handoff) {
+        TecmoGameplayTeam possession;
+        uint8_t winner;
+        uint8_t holder;
+        if (!tecmo_gameplay_pretip_tip_winner(
+                &scene->pretip_assets, &scene->pretip_state, &winner)) {
+            scene_set_status(scene, "pre-tip winner handoff rejected");
+            return false;
+        }
+        possession = winner == TECMO_GAMEPLAY_PRETIP_HOME_WINNER
+                         ? TECMO_GAMEPLAY_TEAM_HOME
+                         : TECMO_GAMEPLAY_TEAM_AWAY;
+        holder = possession == TECMO_GAMEPLAY_TEAM_HOME
+                     ? TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT : 0U;
+        if (!scene_initialize_actors(scene)) {
+            scene_set_status(
+                scene, "pre-tip actor movement handoff rejected");
+            return false;
+        }
+        if (!scene_handoff_possession(scene, possession, holder)) {
+            scene_set_status(scene, "pre-tip possession handoff rejected");
+            return false;
+        }
+        if (!tecmo_gameplay_camera_settle_court(
+                &scene->camera_assets, &scene->camera_state,
+                &scene->ball_position,
+                scene->orientation_state.current_direction, false)) {
+            scene_set_status(scene, "pre-tip live camera handoff rejected");
+            return false;
+        }
+        if (scene->launch.game_music_enabled &&
+            !tecmo_gameplay_audio_queue_game_music(
+                &scene->audio_player)) {
+            scene_set_status(scene, "gameplay track 5 handoff rejected");
+            return false;
+        }
+        scene_set_status(scene, "native gameplay active");
+    }
+    {
+        TecmoGameplaySceneCourtCoordinates coordinates;
+        if (!tecmo_gameplay_scene_court_coordinates(scene, &coordinates)) {
+            scene_set_status(scene, "pre-tip court coordinates rejected");
+            return false;
+        }
+    }
+    return true;
+}
 
-    phase_before = scene->state.phase;
-    free_throw_team_captured =
+static bool scene_advance_state_and_restarts(
+    TecmoGameplayScene *scene,
+    const TecmoGameplayFrameInput *input,
+    const TecmoGameplayLiveContext *live_context,
+    TecmoGameplayPhase *phase_before_out,
+    bool *free_throw_team_captured_out,
+    TecmoGameplayTeam *captured_free_throw_team_out,
+    bool *restart_frame_out)
+{
+    TecmoGameplayPhase phase_before = scene->state.phase;
+    TecmoGameplayTeam captured_free_throw_team =
+        TECMO_GAMEPLAY_TEAM_AWAY;
+    bool free_throw_team_captured =
         phase_before == TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE;
+    bool restart_applied;
+
     if (free_throw_team_captured) {
         captured_free_throw_team = scene->state.free_throws.scoring_team;
     }
-    if (!tecmo_gameplay_update(&scene->state, &input, &live_context,
+    if (!tecmo_gameplay_update(&scene->state, input, live_context,
                                &scene->events)) {
         scene_set_status(scene, "gameplay state update rejected");
         return false;
@@ -1526,7 +1495,6 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
         scene_set_status(scene, "gameplay restart event rejected");
         return false;
     }
-    restart_frame = restart_applied;
     if (phase_before == TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION &&
         scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
         !restart_applied) {
@@ -1543,142 +1511,163 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
     }
     if (phase_before == TECMO_GAMEPLAY_PHASE_PERIOD_BANNER &&
         scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE) {
-        restart_frame = true;
+        restart_applied = true;
     }
-    if (scene_phase_allows_live_action(scene->state.phase) && !restart_frame) {
-        if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
-            bool terminal_jump_miss =
-                scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
-                !scene->jump_make_route &&
-                scene->shot_frame + 1U == scene->shot_duration &&
-                scene->shot_actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT;
-            const TecmoControlFrame *shooting_controls =
-                scene->shot_controller < TECMO_GAMEPLAY_CONTROLLER_COUNT
-                    ? controls[scene->shot_controller]
-                    : NULL;
-            if (terminal_jump_miss) {
-                jump_miss_shooting_team =
-                    (TecmoGameplayTeam)scene->actors[scene->shot_actor].team;
-            }
-            if (!scene_update_shot(scene, shooting_controls)) {
-                scene_set_status(scene, "shot animation update rejected");
-                return false;
-            }
-            jump_miss_settled = terminal_jump_miss &&
-                scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE;
-        } else if (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE) {
-            for (controller = 0U;
-                 controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
-                 ++controller) {
-                if (!scene_move_controlled_actor(
-                        scene, controller, controls[controller])) {
-                    scene_set_status(
-                        scene, "controlled movement update rejected");
-                    return false;
-                }
-            }
-            if (!scene_settle_boundary_latch(
-                    scene, &boundary_settled)) {
+    *phase_before_out = phase_before;
+    *free_throw_team_captured_out = free_throw_team_captured;
+    *captured_free_throw_team_out = captured_free_throw_team;
+    *restart_frame_out = restart_applied;
+    return true;
+}
+
+static bool scene_update_live_action_ordered(
+    TecmoGameplayScene *scene,
+    const TecmoControlFrame *controls[TECMO_GAMEPLAY_CONTROLLER_COUNT],
+    TecmoGameplaySceneCpuShotRequest *cpu_shot_request,
+    bool *jump_miss_settled_out,
+    TecmoGameplayTeam *jump_miss_shooting_team_out)
+{
+    bool boundary_settled = false;
+    size_t controller;
+
+    if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
+        bool terminal_jump_miss =
+            scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
+            !scene->jump_make_route &&
+            scene->shot_frame + 1U == scene->shot_duration &&
+            scene->shot_actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT;
+        const TecmoControlFrame *shooting_controls =
+            scene->shot_controller < TECMO_GAMEPLAY_CONTROLLER_COUNT
+                ? controls[scene->shot_controller]
+                : NULL;
+        if (terminal_jump_miss) {
+            *jump_miss_shooting_team_out =
+                (TecmoGameplayTeam)scene->actors[scene->shot_actor].team;
+        }
+        if (!scene_update_shot(scene, shooting_controls)) {
+            scene_set_status(scene, "shot animation update rejected");
+            return false;
+        }
+        *jump_miss_settled_out = terminal_jump_miss &&
+            scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE;
+    } else if (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE) {
+        for (controller = 0U;
+             controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
+             ++controller) {
+            if (!scene_move_controlled_actor(
+                    scene, controller, controls[controller])) {
                 scene_set_status(
-                    scene, "out-of-bounds settlement rejected");
+                    scene, "controlled movement update rejected");
                 return false;
             }
-            for (controller = 0U;
-                 controller < TECMO_GAMEPLAY_CONTROLLER_COUNT &&
-                     !boundary_settled;
-                 ++controller) {
-                if (scene_controls_pressed_a(controls[controller])) {
-                    if (!scene_pass_or_switch(scene, controller)) {
-                        scene_set_status(
-                            scene, "pass ball coordinate rejected");
-                        return false;
-                    }
-                }
-            }
-            for (controller = 0U;
-                 controller < TECMO_GAMEPLAY_CONTROLLER_COUNT &&
-                     !boundary_settled;
-                 ++controller) {
-                if (scene_controls_pressed_b(controls[controller]) &&
-                    controls[controller] != NULL &&
-                    controls[controller]->held.cancel &&
-                    scene->launch.controller_team[controller] ==
-                        scene->state.possession &&
-                    scene_start_shot(scene, controller)) {
-                    break;
-                }
-            }
-            if (!boundary_settled &&
-                scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
-                for (controller = 0U;
-                     controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
-                     ++controller) {
-                    if (!scene_controls_pressed_b(controls[controller]) ||
-                        scene->launch.controller_team[controller] ==
-                            TECMO_GAMEPLAY_SCENE_NO_TEAM ||
-                        scene->launch.controller_team[controller] ==
-                            scene->state.possession) {
-                        continue;
-                    }
-                    if (scene_try_defense_action(scene, controller)) continue;
-                    scene_set_status(scene, "defensive action rejected");
-                    return false;
-                }
-            }
-            if (!boundary_settled &&
-                scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
-                !scene_update_ai(scene, &cpu_shot_request)) {
-                scene_set_status(scene, "native offense update rejected");
-                return false;
-            }
-            if (!boundary_settled && cpu_shot_request.requested) {
-                /* CPU policy reports the same launch decision as before; the
-                   orchestrator owns the transition into shot playback. */
-                (void)scene_start_shot_actor(
-                    scene, 0U, cpu_shot_request.actor_index);
-            }
-            if (!boundary_settled &&
-                scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
-                !scene_settle_boundary_latch(
-                    scene, &boundary_settled)) {
-                scene_set_status(
-                    scene, "CPU out-of-bounds settlement rejected");
-                return false;
-            }
-            if (!boundary_settled &&
-                scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
-                TecmoGameplayBallDribbleFrame dribble = {0};
-                if (!scene_attach_ball(scene)) {
+        }
+        if (!scene_settle_boundary_latch(scene, &boundary_settled)) {
+            scene_set_status(
+                scene, "out-of-bounds settlement rejected");
+            return false;
+        }
+        for (controller = 0U;
+             controller < TECMO_GAMEPLAY_CONTROLLER_COUNT &&
+                 !boundary_settled;
+             ++controller) {
+            if (scene_controls_pressed_a(controls[controller])) {
+                if (!scene_pass_or_switch(scene, controller)) {
                     scene_set_status(
-                        scene, "held ball coordinate rejected");
+                        scene, "pass ball coordinate rejected");
                     return false;
-                }
-                if (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
-                    !scene_settle_backcourt(
-                        scene, &boundary_settled)) {
-                    scene_set_status(
-                        scene, "backcourt settlement rejected");
-                    return false;
-                }
-                if (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
-                    !boundary_settled &&
-                    !scene_live_ball_frame_for_actors(
-                        scene, scene->actors, scene->ball_holder,
-                        &dribble)) {
-                    scene_set_status(
-                        scene, "held ball animation rejected");
-                    return false;
-                }
-                if (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
-                    !boundary_settled && dribble.sound_trigger) {
-                    (void)tecmo_gameplay_audio_queue_event(
-                        &scene->audio_player,
-                        TECMO_GAMEPLAY_AUDIO_HELD_BALL_DRIBBLE);
                 }
             }
         }
+        for (controller = 0U;
+             controller < TECMO_GAMEPLAY_CONTROLLER_COUNT &&
+                 !boundary_settled;
+             ++controller) {
+            if (scene_controls_pressed_b(controls[controller]) &&
+                controls[controller] != NULL &&
+                controls[controller]->held.cancel &&
+                scene->launch.controller_team[controller] ==
+                    scene->state.possession &&
+                scene_start_shot(scene, controller)) {
+                break;
+            }
+        }
+        if (!boundary_settled &&
+            scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
+            for (controller = 0U;
+                 controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
+                 ++controller) {
+                if (!scene_controls_pressed_b(controls[controller]) ||
+                    scene->launch.controller_team[controller] ==
+                        TECMO_GAMEPLAY_SCENE_NO_TEAM ||
+                    scene->launch.controller_team[controller] ==
+                        scene->state.possession) {
+                    continue;
+                }
+                if (scene_try_defense_action(scene, controller)) continue;
+                scene_set_status(scene, "defensive action rejected");
+                return false;
+            }
+        }
+        if (!boundary_settled &&
+            scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+            !scene_update_ai(scene, cpu_shot_request)) {
+            scene_set_status(scene, "native offense update rejected");
+            return false;
+        }
+        if (!boundary_settled && cpu_shot_request->requested) {
+            /* CPU policy reports the same launch decision as before; the
+               orchestrator owns the transition into shot playback. */
+            (void)scene_start_shot_actor(
+                scene, 0U, cpu_shot_request->actor_index);
+        }
+        if (!boundary_settled &&
+            scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+            !scene_settle_boundary_latch(scene, &boundary_settled)) {
+            scene_set_status(
+                scene, "CPU out-of-bounds settlement rejected");
+            return false;
+        }
+        if (!boundary_settled &&
+            scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
+            TecmoGameplayBallDribbleFrame dribble = {0};
+            if (!scene_attach_ball(scene)) {
+                scene_set_status(
+                    scene, "held ball coordinate rejected");
+                return false;
+            }
+            if (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
+                !scene_settle_backcourt(scene, &boundary_settled)) {
+                scene_set_status(
+                    scene, "backcourt settlement rejected");
+                return false;
+            }
+            if (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
+                !boundary_settled &&
+                !scene_live_ball_frame_for_actors(
+                    scene, scene->actors, scene->ball_holder,
+                    &dribble)) {
+                scene_set_status(
+                    scene, "held ball animation rejected");
+                return false;
+            }
+            if (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
+                !boundary_settled && dribble.sound_trigger) {
+                (void)tecmo_gameplay_audio_queue_event(
+                    &scene->audio_player,
+                    TECMO_GAMEPLAY_AUDIO_HELD_BALL_DRIBBLE);
+            }
+        }
     }
+    return true;
+}
 
+static bool scene_update_post_action_phases(
+    TecmoGameplayScene *scene,
+    TecmoGameplayPhase phase_before,
+    bool restart_frame,
+    const TecmoControlFrame *player_one,
+    const TecmoControlFrame *player_two)
+{
     if (scene_phase_allows_live_action(phase_before) && !restart_frame &&
         !scene_tick_fatigue(scene)) {
         scene_set_status(scene, "gameplay fatigue update rejected");
@@ -1700,6 +1689,17 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
         scene_set_status(scene, "free-throw settlement rejected");
         return false;
     }
+    return true;
+}
+
+static bool scene_dispatch_update_audio(
+    TecmoGameplayScene *scene,
+    TecmoGameplayPhase phase_before,
+    bool free_throw_team_captured,
+    TecmoGameplayTeam captured_free_throw_team,
+    bool jump_miss_settled,
+    TecmoGameplayTeam jump_miss_shooting_team)
+{
     /* Fixed $EC06-style phase clears happen once, before a replacement event
        or cue can populate the native mailboxes. */
     scene_apply_phase_audio_reset(scene, phase_before);
@@ -1713,8 +1713,82 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
        mailbox. Final free throws are deliberately not qualifying returns. */
     scene_process_phase_audio(scene, phase_before);
     if (jump_miss_settled &&
-                !scene_shot_queue_result_audio(scene, jump_miss_shooting_team)) {
+        !scene_shot_queue_result_audio(scene, jump_miss_shooting_team)) {
         scene_set_status(scene, "jump-miss result audio rejected");
+        return false;
+    }
+    return true;
+}
+
+bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
+                                 const TecmoControlFrame *player_one,
+                                 const TecmoControlFrame *player_two)
+{
+    TecmoGameplayFrameInput input;
+    TecmoGameplayLiveContext live_context;
+    const TecmoControlFrame *controls[TECMO_GAMEPLAY_CONTROLLER_COUNT];
+    TecmoGameplayPhase phase_before;
+    TecmoGameplayTeam captured_free_throw_team = TECMO_GAMEPLAY_TEAM_AWAY;
+    bool restart_frame;
+    bool free_throw_team_captured;
+    bool jump_miss_settled = false;
+    TecmoGameplayTeam jump_miss_shooting_team = TECMO_GAMEPLAY_TEAM_AWAY;
+    TecmoGameplaySceneCpuShotRequest cpu_shot_request = {
+        false, TECMO_GAMEPLAY_SCENE_NO_ACTOR
+    };
+
+    if (scene == NULL ||
+        scene->lifecycle_tag != TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG ||
+        !scene->available || !scene->active || scene->result_ready ||
+        scene->pretip_abort_pending) {
+        return false;
+    }
+    if (!tecmo_gameplay_pretip_state_validate(
+            &scene->pretip_assets, &scene->pretip_state)) {
+        scene_set_status(scene, "pre-tip state contract rejected");
+        return false;
+    }
+    if (tecmo_gameplay_pretip_is_presentation(&scene->pretip_state)) {
+        return scene_update_pretip_frame(scene, player_one, player_two);
+    }
+    if (!scene_ownership_valid(scene)) return false;
+    controls[0] = player_one;
+    controls[1] = player_two;
+    tecmo_gameplay_frame_input_clear(&input);
+    scene_pad_from_controls(&input.controllers[0], player_one);
+    scene_pad_from_controls(&input.controllers[1], player_two);
+    tecmo_gameplay_live_context_default(&live_context);
+    if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
+        live_context.period_expiry =
+            TECMO_GAMEPLAY_EXPIRY_ALLOWED_LIVE_ACTION;
+        live_context.shot_clock_violation_exempt = true;
+    } else if (scene->state.phase ==
+               TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE) {
+        live_context.period_expiry =
+            TECMO_GAMEPLAY_EXPIRY_ALLOWED_LIVE_ACTION_SETTLED;
+    }
+
+    if (!scene_advance_state_and_restarts(
+            scene, &input, &live_context, &phase_before,
+            &free_throw_team_captured, &captured_free_throw_team,
+            &restart_frame)) {
+        return false;
+    }
+    if (scene_phase_allows_live_action(scene->state.phase) &&
+        !restart_frame &&
+        !scene_update_live_action_ordered(
+            scene, controls, &cpu_shot_request, &jump_miss_settled,
+            &jump_miss_shooting_team)) {
+        return false;
+    }
+    if (!scene_update_post_action_phases(
+            scene, phase_before, restart_frame, player_one, player_two)) {
+        return false;
+    }
+    if (!scene_dispatch_update_audio(
+            scene, phase_before, free_throw_team_captured,
+            captured_free_throw_team, jump_miss_settled,
+            jump_miss_shooting_team)) {
         return false;
     }
     if (!scene_follow_live_camera_once(scene)) {
@@ -1729,7 +1803,6 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
     ++scene->frame;
     return true;
 }
-
 bool tecmo_gameplay_scene_result(const TecmoGameplayScene *scene,
                                  TecmoGameplaySceneResult *result)
 {
