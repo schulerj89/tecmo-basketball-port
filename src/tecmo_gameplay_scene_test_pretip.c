@@ -407,6 +407,33 @@ static size_t scene_test_pretip_actor_pixel_changes(
     return changes;
 }
 
+static bool scene_test_pretip_jumper_order(
+    const TecmoGameplayScene *scene,
+    uint8_t *left_actor_out,
+    uint8_t *right_actor_out)
+{
+    uint8_t first;
+    uint8_t second;
+    if (scene == NULL || left_actor_out == NULL || right_actor_out == NULL) {
+        return false;
+    }
+    first = scene->pretip_jumper_actor[0U];
+    second = scene->pretip_jumper_actor[1U];
+    if (first >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        second >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT || first == second ||
+        scene->actors[first].anchor.x == scene->actors[second].anchor.x) {
+        return false;
+    }
+    if (scene->actors[first].anchor.x < scene->actors[second].anchor.x) {
+        *left_actor_out = first;
+        *right_actor_out = second;
+    } else {
+        *left_actor_out = second;
+        *right_actor_out = first;
+    }
+    return true;
+}
+
 static bool scene_test_run_late_human_tip(
     TecmoGameplayScene *scene,
     const TecmoGameplaySceneLaunch *launch)
@@ -459,6 +486,138 @@ static bool scene_test_run_late_human_tip(
     return true;
 }
 
+static bool tecmo_gameplay_scene_test_pretip_anchor_facing_regression(
+    TecmoGameplaySceneTestContext *test,
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *launch)
+{
+    TecmoGameplayPreTipState state_before;
+    TecmoGameplaySceneActor actors_before[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplaySceneActor failed_actors[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    uint8_t away_actor;
+    uint8_t home_actor;
+    uint8_t left_actor;
+    uint8_t right_actor;
+    int16_t away_x;
+    int16_t home_x;
+    uint32_t frame_before;
+    uint32_t failed_frame;
+    size_t frame;
+
+    if (test == NULL || scene == NULL || launch == NULL ||
+        !tecmo_gameplay_scene_launch(scene, launch)) {
+        tecmo_gameplay_scene_test_message(
+            test != NULL ? test->message : NULL,
+            test != NULL ? test->message_size : 0U,
+            "pre-tip anchor-facing regression launch rejected");
+        return false;
+    }
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    for (frame = 0U; frame < 660U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) goto failed;
+    }
+    away_actor = scene->pretip_jumper_actor[0U];
+    home_actor = scene->pretip_jumper_actor[1U];
+    if (away_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        home_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        away_actor == home_actor) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "pre-tip anchor-facing regression mapping was malformed");
+        goto failed;
+    }
+    away_x = scene->actors[away_actor].anchor.x;
+    home_x = scene->actors[home_actor].anchor.x;
+    if (away_x == home_x) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "pre-tip anchor-facing regression setup was equal");
+        goto failed;
+    }
+
+    state_before = scene->pretip_state;
+    memcpy(actors_before, scene->actors, sizeof(actors_before));
+    frame_before = scene->frame;
+    scene->actors[home_actor].anchor.x = away_x;
+    scene->actors[home_actor].position.x = away_x;
+    if (tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "equal tip jumper anchors were accepted");
+        goto failed;
+    }
+    memcpy(failed_actors, scene->actors, sizeof(failed_actors));
+    failed_frame = scene->frame;
+    failed_actors[home_actor].anchor = actors_before[home_actor].anchor;
+    failed_actors[home_actor].position = actors_before[home_actor].position;
+    memcpy(scene->actors, actors_before, sizeof(actors_before));
+    scene->pretip_state = state_before;
+    scene->frame = frame_before;
+    if (memcmp(failed_actors, actors_before, sizeof(failed_actors)) != 0 ||
+        failed_frame != frame_before) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "equal tip jumper anchor rejection was not transactional");
+        goto failed;
+    }
+
+    /* Swap the team-to-position mapping to prove the helper follows actual
+       anchors rather than assuming Away is the left jumper. */
+    scene->actors[away_actor].anchor.x = home_x;
+    scene->actors[away_actor].position.x = home_x;
+    scene->actors[home_actor].anchor.x = away_x;
+    scene->actors[home_actor].position.x = away_x;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
+        scene->pretip_state.phase_frame != 0U ||
+        !scene_test_pretip_jumper_order(
+            scene, &left_actor, &right_actor) ||
+        !scene->actors[left_actor].facing_right ||
+        scene->actors[right_actor].facing_right ||
+        scene->actors[away_actor].pose_orientation_encoded ||
+        scene->actors[home_actor].pose_orientation_encoded) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "crossed team-to-position tip facing was not inward");
+        goto failed;
+    }
+    for (frame = 0U;
+         frame < TECMO_GAMEPLAY_PRETIP_PRESENTATION_FRAMES; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) goto failed;
+    }
+    if (tecmo_gameplay_scene_in_pretip(scene) ||
+        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE ||
+        scene->pretip_jump_active) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "crossed tip mapping did not land into LIVE");
+        goto failed;
+    }
+    for (frame = 0U; frame < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++frame) {
+        bool expected_facing;
+        if (!scene_goal_facing_right_for_team(
+                scene, (TecmoGameplayTeam)scene->actors[frame].team,
+                &expected_facing) ||
+            scene->actors[frame].facing_right != expected_facing) {
+            tecmo_gameplay_scene_test_message(
+                test->message, test->message_size,
+                "crossed tip landing did not restore TGOR facing");
+            goto failed;
+        }
+    }
+    tecmo_gameplay_scene_end(scene);
+    return true;
+
+failed:
+    tecmo_gameplay_scene_end(scene);
+    return false;
+}
+
 static bool tecmo_gameplay_scene_test_pretip_jump_presentation(
     TecmoGameplaySceneTestContext *test,
     TecmoGameplayScene *scene,
@@ -502,6 +661,8 @@ static bool tecmo_gameplay_scene_test_pretip_jump_presentation(
     TecmoControlFrame p2;
     uint8_t away_actor;
     uint8_t home_actor;
+    uint8_t left_actor;
+    uint8_t right_actor;
     uint16_t setup_action_serial;
     uint32_t setup_camera_follow_count;
     uint8_t setup_shot_actor;
@@ -565,10 +726,10 @@ static bool tecmo_gameplay_scene_test_pretip_jump_presentation(
         scene->pretip_jumper_actor[1U] != home_actor ||
         scene->actors[away_actor].team != TECMO_GAMEPLAY_TEAM_AWAY ||
         scene->actors[home_actor].team != TECMO_GAMEPLAY_TEAM_HOME ||
-        scene->actors[away_actor].facing_right !=
-            setup_actors[away_actor].facing_right ||
-        scene->actors[home_actor].facing_right !=
-            setup_actors[home_actor].facing_right ||
+        !scene_test_pretip_jumper_order(
+            scene, &left_actor, &right_actor) ||
+        !scene->actors[left_actor].facing_right ||
+        scene->actors[right_actor].facing_right ||
         scene->actors[away_actor].pose_index != stage_poses[0U] ||
         scene->actors[home_actor].pose_index != stage_poses[0U] ||
         scene->actors[away_actor].pose_orientation_encoded ||
@@ -656,13 +817,28 @@ static bool tecmo_gameplay_scene_test_pretip_jump_presentation(
                 "pre-tip jumper stage pose/anchor/projected-Y contract failed");
             goto cleanup;
         }
-        if (stage_frames[stage] == TECMO_GAMEPLAY_PRETIP_JUMP_CONTACT_FRAME ||
-            stage_frames[stage] == TECMO_GAMEPLAY_PRETIP_JUMP_LAND_FIRST_FRAME) {
-            if (scene->actors[away_actor].pose_orientation_encoded ||
-                scene->actors[home_actor].pose_orientation_encoded) {
+        if (!scene->actors[left_actor].facing_right ||
+            scene->actors[right_actor].facing_right ||
+            scene->actors[away_actor].pose_orientation_encoded ||
+            scene->actors[home_actor].pose_orientation_encoded) {
+            tecmo_gameplay_scene_test_message(
+                test->message, test->message_size,
+                "generic tip action pose inward-facing contract failed");
+            goto cleanup;
+        }
+        for (frame = 0U; frame < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++frame) {
+            if ((uint8_t)frame == away_actor ||
+                (uint8_t)frame == home_actor) {
+                continue;
+            }
+            if (scene->actors[frame].facing_right !=
+                    setup_actors[frame].facing_right ||
+                scene->actors[frame].pose_orientation_encoded !=
+                    setup_actors[frame].pose_orientation_encoded ||
+                scene->actors[frame].pose_index != setup_actors[frame].pose_index) {
                 tecmo_gameplay_scene_test_message(
                     test->message, test->message_size,
-                    "generic tip action pose unexpectedly suppressed mirroring");
+                    "standing tip pose orientation was changed by jump action");
                 goto cleanup;
             }
         }
@@ -787,6 +963,18 @@ static bool tecmo_gameplay_scene_test_pretip_jump_presentation(
             test->message, test->message_size,
             "no-sample tip landing/live handoff contract failed");
         goto cleanup;
+    }
+    for (frame = 0U; frame < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++frame) {
+        bool expected_facing;
+        if (!scene_goal_facing_right_for_team(
+                scene, (TecmoGameplayTeam)scene->actors[frame].team,
+                &expected_facing) ||
+            scene->actors[frame].facing_right != expected_facing) {
+            tecmo_gameplay_scene_test_message(
+                test->message, test->message_size,
+                "pre-tip landing did not restore TGOR goal facing");
+            goto cleanup;
+        }
     }
     tecmo_gameplay_scene_end(scene);
     if (!scene_test_run_late_human_tip(scene, launch)) goto cleanup;
@@ -1012,6 +1200,19 @@ static bool tecmo_gameplay_scene_test_pretip_normal_home_handoff(
         tecmo_gameplay_scene_destroy(scene);
         return false;
     }
+    for (frame = 0U; frame < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++frame) {
+        bool expected_facing;
+        if (!scene_goal_facing_right_for_team(
+                scene, (TecmoGameplayTeam)scene->actors[frame].team,
+                &expected_facing) ||
+            scene->actors[frame].facing_right != expected_facing) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "Home tip landing did not restore TGOR facing");
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+    }
     tecmo_gameplay_scene_end(scene);
     return true;
 }
@@ -1233,6 +1434,8 @@ bool tecmo_gameplay_scene_test_pretip(
         !tecmo_gameplay_scene_test_pretip_descent_live(
             test, scene, &p1, &p2) ||
         !tecmo_gameplay_scene_test_pretip_normal_home_handoff(
+            test, scene, &launch) ||
+        !tecmo_gameplay_scene_test_pretip_anchor_facing_regression(
             test, scene, &launch) ||
         !tecmo_gameplay_scene_test_pretip_jump_presentation(
             test, scene, &launch) ||

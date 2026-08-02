@@ -710,6 +710,55 @@ static bool scene_pretip_jumper_mapping_valid(
                scene->pretip_jumper_actor[1U];
 }
 
+static bool scene_pretip_jumper_order(
+    const TecmoGameplayScene *scene,
+    size_t *left_jumper_out,
+    size_t *right_jumper_out)
+{
+    const TecmoGameplaySceneActor *first;
+    const TecmoGameplaySceneActor *second;
+    int16_t first_x;
+    int16_t second_x;
+    if (scene == NULL || left_jumper_out == NULL ||
+        right_jumper_out == NULL || !scene_pretip_jumper_mapping_valid(scene)) {
+        return false;
+    }
+    first = &scene->actors[scene->pretip_jumper_actor[0U]];
+    second = &scene->actors[scene->pretip_jumper_actor[1U]];
+    if (!first->active || !second->active ||
+        !scene_actor_coordinate_valid(&first->anchor) ||
+        !scene_actor_coordinate_valid(&second->anchor)) {
+        return false;
+    }
+    first_x = first->anchor.x;
+    second_x = second->anchor.x;
+    if (first_x == second_x) return false;
+    if (first_x < second_x) {
+        *left_jumper_out = 0U;
+        *right_jumper_out = 1U;
+    } else {
+        *left_jumper_out = 1U;
+        *right_jumper_out = 0U;
+    }
+    return true;
+}
+
+static bool scene_pretip_jumper_inward_facing(
+    const TecmoGameplayScene *scene,
+    bool facing_right_out[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT])
+{
+    size_t left_jumper;
+    size_t right_jumper;
+    if (facing_right_out == NULL ||
+        !scene_pretip_jumper_order(
+            scene, &left_jumper, &right_jumper)) {
+        return false;
+    }
+    facing_right_out[left_jumper] = true;
+    facing_right_out[right_jumper] = false;
+    return true;
+}
+
 static uint16_t scene_pretip_jump_altitude_q8(uint16_t phase_frame)
 {
     const uint32_t maximum = TECMO_GAMEPLAY_PRETIP_JUMP_MAX_ALTITUDE_Q8;
@@ -757,12 +806,13 @@ static bool scene_pretip_apply_jump_frame(
     TecmoGameplayScene *scene,
     uint16_t phase_frame)
 {
+    bool inward_facing[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
     uint16_t pose_index;
     size_t jumper;
     if (scene == NULL ||
         scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
         phase_frame >= TECMO_GAMEPLAY_PRETIP_JUMP_DURATION ||
-        !scene_pretip_jumper_mapping_valid(scene)) {
+        !scene_pretip_jumper_inward_facing(scene, inward_facing)) {
         return false;
     }
     pose_index = scene_pretip_jump_pose(phase_frame);
@@ -772,9 +822,10 @@ static bool scene_pretip_apply_jump_frame(
             scene->pretip_jumper_actor[jumper]];
         actor->position = actor->anchor;
         actor->pose_index = pose_index;
-        /* The Bank04 standing pointers are already orientation encoded, but
-           these generic TGJS-derived action pointers are not. Let the common
-           renderer mirror according to the preserved actor-facing flag. */
+        /* Generic TGJS-derived action pointers are not orientation encoded.
+           Resolve the two actual jumper anchors so their action silhouettes
+           face inward, independent of team/array order. */
+        actor->facing_right = inward_facing[jumper];
         actor->pose_orientation_encoded = false;
         scene->pretip_jumper_altitude_q8[jumper] =
             scene_pretip_jump_altitude_q8(phase_frame);
@@ -785,14 +836,33 @@ static bool scene_pretip_apply_jump_frame(
 
 static bool scene_pretip_land_jump(TecmoGameplayScene *scene)
 {
+    bool goal_facing[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
+    size_t left_jumper;
+    size_t right_jumper;
     size_t jumper;
-    if (!scene_pretip_jumper_mapping_valid(scene)) return false;
+    if (!scene_pretip_jumper_order(
+            scene, &left_jumper, &right_jumper)) {
+        return false;
+    }
+    (void)left_jumper;
+    (void)right_jumper;
+    for (jumper = 0U; jumper < TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT;
+         ++jumper) {
+        TecmoGameplaySceneActor *actor = &scene->actors[
+            scene->pretip_jumper_actor[jumper]];
+        if (!scene_goal_facing_right_for_team(
+                scene, (TecmoGameplayTeam)actor->team,
+                &goal_facing[jumper])) {
+            return false;
+        }
+    }
     for (jumper = 0U; jumper < TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT;
          ++jumper) {
         TecmoGameplaySceneActor *actor = &scene->actors[
             scene->pretip_jumper_actor[jumper]];
         actor->position = actor->anchor;
         actor->pose_index = scene->pretip_jumper_standing_pose[jumper];
+        actor->facing_right = goal_facing[jumper];
         actor->pose_orientation_encoded = true;
         scene->pretip_jumper_altitude_q8[jumper] = 0U;
     }

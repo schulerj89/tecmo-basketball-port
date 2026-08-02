@@ -229,8 +229,12 @@ static bool gameplay_checkpoint_report_tipoff_proof(
     TecmoGameplaySceneCourtFrame court_frame;
     uint8_t away_actor;
     uint8_t home_actor;
+    uint8_t left_actor;
+    uint8_t right_actor;
     const TecmoGameplaySceneActor *away;
     const TecmoGameplaySceneActor *home;
+    const TecmoGameplaySceneActor *left;
+    const TecmoGameplaySceneActor *right;
     if (scene == NULL || !scene->active ||
         !tecmo_gameplay_scene_court_frame(scene, &court_frame)) {
         return false;
@@ -245,6 +249,16 @@ static bool gameplay_checkpoint_report_tipoff_proof(
     }
     away = &scene->actors[away_actor];
     home = &scene->actors[home_actor];
+    if (away->anchor.x == home->anchor.x) return false;
+    if (away->anchor.x < home->anchor.x) {
+        left_actor = away_actor;
+        right_actor = home_actor;
+    } else {
+        left_actor = home_actor;
+        right_actor = away_actor;
+    }
+    left = &scene->actors[left_actor];
+    right = &scene->actors[right_actor];
     if (tecmo_gameplay_scene_in_pretip(scene) &&
         (!court_frame.projection.players[away_actor].visible ||
          !court_frame.projection.players[home_actor].visible)) {
@@ -254,9 +268,12 @@ static bool gameplay_checkpoint_report_tipoff_proof(
         "tipoff-proof frame=%u pretip=%s pretip-frame=%u contest-frame=%u "
         "away-actor=%u away-world-y=%d away-screen-y=%u away-visible=%u "
         "away-pose=%u away-altitude-q8=%u away-facing-right=%u "
-        "away-pose-encoded=%u home-actor=%u home-world-y=%d "
+        "away-pose-encoded=%u away-anchor-x=%d home-actor=%u "
+        "home-world-y=%d "
         "home-screen-y=%u home-visible=%u home-pose=%u "
         "home-altitude-q8=%u home-facing-right=%u home-pose-encoded=%u "
+        "home-anchor-x=%d left-actor=%u left-facing-right=%u "
+        "right-actor=%u right-facing-right=%u "
         "away-sampled=%u away-sample-frame=%u away-error=%u "
         "home-sampled=%u possession=%u direction=%u hoop-x=%d "
         "ball-x-q8=%ld ball-y-q8=%ld camera-x=%u fine-scroll=%u "
@@ -272,6 +289,7 @@ static bool gameplay_checkpoint_report_tipoff_proof(
         (unsigned)scene->pretip_jumper_altitude_q8[0U],
         away->facing_right ? 1U : 0U,
         away->pose_orientation_encoded ? 1U : 0U,
+        (int)away->anchor.x,
         (unsigned)home_actor, (int)home->position.y,
         (unsigned)court_frame.projection.players[home_actor].screen_y,
         court_frame.projection.players[home_actor].visible ? 1U : 0U,
@@ -279,6 +297,11 @@ static bool gameplay_checkpoint_report_tipoff_proof(
         (unsigned)scene->pretip_jumper_altitude_q8[1U],
         home->facing_right ? 1U : 0U,
         home->pose_orientation_encoded ? 1U : 0U,
+        (int)home->anchor.x,
+        (unsigned)left_actor,
+        left->facing_right ? 1U : 0U,
+        (unsigned)right_actor,
+        right->facing_right ? 1U : 0U,
         scene->pretip_state.away_tip_sampled ? 1U : 0U,
         (unsigned)scene->pretip_state.away_tip_sample_frame,
         (unsigned)scene->pretip_state.away_tip_error,

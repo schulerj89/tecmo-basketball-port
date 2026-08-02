@@ -608,8 +608,20 @@ function Assert-TipoffDiagnostic {
                 [int]$Diagnostic.'home-altitude-q8' -or
             [int]$Diagnostic.'away-pose' -ne
                 [int]$Diagnostic.'home-pose' -or
-            [int]$Diagnostic.'away-facing-right' -ne 0 -or
-            [int]$Diagnostic.'home-facing-right' -ne 1 -or
+            [int]$Diagnostic.'away-pose-encoded' -ne 0 -or
+            [int]$Diagnostic.'home-pose-encoded' -ne 0 -or
+            [int]$Diagnostic.'left-facing-right' -ne 1 -or
+            [int]$Diagnostic.'right-facing-right' -ne 0 -or
+            ([int]$Diagnostic.'left-actor' -eq
+                [int]$Diagnostic.'away-actor' -and
+             [int]$Diagnostic.'away-anchor-x' -ge
+                [int]$Diagnostic.'home-anchor-x') -or
+            ([int]$Diagnostic.'left-actor' -eq
+                [int]$Diagnostic.'home-actor' -and
+             [int]$Diagnostic.'home-anchor-x' -ge
+                [int]$Diagnostic.'away-anchor-x') -or
+            [int]$Diagnostic.'left-actor' -eq
+                [int]$Diagnostic.'right-actor' -or
             [int]$Diagnostic.'camera-x' -ne 256) {
             throw "Visible center-camera tip presentation contract failed at frame $Frame."
         }
@@ -1175,6 +1187,8 @@ $SummaryLines = @(
     "shortcut audit: $ShortcutScriptPath SHA256=$ShortcutScriptSha256; GUI launch is tecmo_port_game.exe --root <project> --play; no native capture option",
     "output: 640x480; active view x=$ActiveLeft..$ActiveRight; both host margins verified black",
     "sheets: full-resolution contact cells 640x480 at 1:1 for selected frames $($ContactFrames -join ','); left/right edge crops 64x480 at 1:1 for every $ProofFrameCount frame",
+    "orientation: every JUMP_CONTEST diagnostic anchor-orders the mapped active jumpers; left-facing-right=1/right-facing-right=0 with generic action poses, and LIVE restores TGOR goal-facing",
+    "inward-facing contact: frame $($ProofFirstFrame + 26) ($($StageLabels[$ProofFirstFrame + 26])) is included as a full-resolution 640x480 contact cell",
     "contact sheet: $ContactSheetPath",
     "left edge sheet: $LeftEdgeSheetPath",
     "right edge sheet: $RightEdgeSheetPath",
@@ -1256,6 +1270,7 @@ $Manifest = [pscustomobject][ordered]@{
         left_host_margin_nonblack_pixels = 0
         right_host_margin_nonblack_pixels = 0
         contact_sheet_frames = $ContactFrames
+        inward_facing_contact_frame = $ProofFirstFrame + 26
         edge_sheet_frame_count = $ProofFrameCount
     }
     input_script = [pscustomobject][ordered]@{
@@ -1271,7 +1286,8 @@ $Manifest = [pscustomobject][ordered]@{
         home_tip_sampled = $false
     }
     assertions = @(
-        "both TPTI jumper actors 4 and 9 are visible, symmetric, and center-camera in every contest frame $ProofFirstFrame..$JumpContestLastFrame",
+        "both TPTI jumper actors 4 and 9 are visible, symmetric, center-camera, and anchor-ordered in every contest frame $ProofFirstFrame..$JumpContestLastFrame",
+        "every JUMP_CONTEST diagnostic asserts generic action poses with left-facing-right=1/right-facing-right=0; the LIVE handoff restores TGOR goal-facing",
         "both jumper screen Y, altitude, and pose follow the crouch/takeoff/rise/apex/fall/landing stages, including exact boundary diagnostics",
         "contest-frame equals min(phase-frame,$ContestInputClockCap) during contest and remains $ContestInputClockCap in LIVE",
         "pre-tip camera remains at source-backed center x=0x0100 through the contest",
@@ -1290,7 +1306,7 @@ $Manifest = [pscustomobject][ordered]@{
         verify_path = $FacingVerifyPath
         sha256 = (Get-FileHash -LiteralPath $FacingPath -Algorithm SHA256).Hash
         deterministic_passes = 2
-        validated_contract = "fresh TGOR: Away attacks/faces left; Home attacks/faces right; explicit action overrides remain authoritative"
+        validated_contract = "fresh TGOR: Away attacks/faces left; Home attacks/faces right; explicit JUMP_CONTEST inward action override is anchor-ordered and LIVE restores TGOR"
     }
     video = [pscustomobject][ordered]@{
         status = $VideoStatus
@@ -1324,6 +1340,7 @@ $Manifest = [pscustomobject][ordered]@{
             "tipoff-proof runtime diagnostics in per-frame logs",
             "determinism-pass-2 PNG frame set",
             "both active-view edge contact sheets",
+            "anchor-ordered inward-facing contest diagnostics",
             "away-left live-facing checkpoint")
         presentation_artifacts = @("MP4 encoded at the exact native cadence")
         video_acceptance_proof = $false
