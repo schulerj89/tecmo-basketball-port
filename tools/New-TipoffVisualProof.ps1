@@ -27,6 +27,7 @@ $OutputWidth = 640
 $OutputHeight = 480
 $ActiveLeft = 64
 $ActiveRight = 575
+$EdgeBandWidth = 64
 $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
 if (!$ProjectRoot) {
@@ -755,8 +756,8 @@ function New-StageContactSheet {
     param([object[]]$Frames, [string]$Path)
     $Selected = @(661,665,669,673,676,680,686,690,691,695)
     $Columns = 5
-    $CellWidth = 320
-    $ImageHeight = 240
+    $CellWidth = $OutputWidth
+    $ImageHeight = $OutputHeight
     $LabelHeight = 28
     $HeaderHeight = 68
     $Rows = [int][Math]::Ceiling($Selected.Count / [double]$Columns)
@@ -778,7 +779,7 @@ function New-StageContactSheet {
         $Graphics.PixelOffsetMode =
             [Drawing.Drawing2D.PixelOffsetMode]::Half
         $Graphics.DrawString(
-            "TIP-OFF CONTACT SHEET | logical frames 661-695 | 35 contiguous",
+            "TIP-OFF CONTACT SHEET | full-resolution 640x480 cells | logical frames 661-695 | 35 contiguous",
             $TitleFont, [Drawing.Brushes]::White, 8, 8)
         $Graphics.DrawString(
             "native cadence $NativeFrameRateText (~$([Math]::Round($NativeFrameRateHz, 6)) fps) | MP4 presentation only; PNG/diagnostics are acceptance evidence",
@@ -814,9 +815,9 @@ function New-StageContactSheet {
 function New-ActiveEdgeSheet {
     param([object[]]$Frames, [string]$Side, [string]$Path)
     $Columns = 7
-    $CropWidth = 64
-    $DrawWidth = 128
-    $DrawHeight = 480
+    $CropWidth = $EdgeBandWidth
+    $DrawWidth = $CropWidth
+    $DrawHeight = $OutputHeight
     $LabelHeight = 24
     $HeaderHeight = 68
     $Rows = [int][Math]::Ceiling($Frames.Count / [double]$Columns)
@@ -838,7 +839,7 @@ function New-ActiveEdgeSheet {
         $Graphics.PixelOffsetMode =
             [Drawing.Drawing2D.PixelOffsetMode]::Half
         $Graphics.DrawString(
-            "TIP-OFF $($Side.ToUpperInvariant()) EDGE | every logical frame 661-695",
+            "TIP-OFF $($Side.ToUpperInvariant()) EDGE | full-resolution 64x480 crops | every logical frame 661-695",
             $TitleFont, [Drawing.Brushes]::White, 8, 8)
         $Graphics.DrawString(
             "native cadence $NativeFrameRateText (~$([Math]::Round($NativeFrameRateHz, 6)) fps) | contiguous PNG edge evidence",
@@ -1110,6 +1111,7 @@ $SummaryLines = @(
     "input source SHA256: $CheckpointSourceSha256",
     "shortcut audit: $ShortcutScriptPath SHA256=$ShortcutScriptSha256; GUI launch is tecmo_port_game.exe --root <project> --play; no native capture option",
     "output: 640x480; active view x=$ActiveLeft..$ActiveRight; both host margins verified black",
+    "sheets: full-resolution contact cells 640x480 at 1:1; left/right edge crops 64x480 at 1:1",
     "contact sheet: $ContactSheetPath",
     "left edge sheet: $LeftEdgeSheetPath",
     "right edge sheet: $RightEdgeSheetPath",
@@ -1184,6 +1186,9 @@ $Manifest = [pscustomobject][ordered]@{
         native_frame_duration_seconds = $NativeFrameDurationSeconds
         production_path = "TecmoGameplayScene launch/update/render via gameplay-tipoff-proof-frameN"
         capture_model = "logical-frame CLI checkpoint replay; not wall-clock Win32 capture"
+        full_resolution_sheets = $true
+        contact_sheet_cell = "640x480 at 1:1"
+        edge_sheet_crop = "64x480 at 1:1"
         deterministic_passes = 2
         left_host_margin_nonblack_pixels = 0
         right_host_margin_nonblack_pixels = 0
