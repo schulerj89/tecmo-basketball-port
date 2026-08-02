@@ -175,19 +175,26 @@ own live collision/contact or speed-setting policy, or treat the nearby Bank06
 is owned separately by TGFT-1 and supplies condition to TGMO. Handler-effect
 names describe bounded entry behavior; they are not play names.
 
-The scene now owns a fixed opposing roster-slot link, target position,
-direction/write result, immutable-snapshot fingerprint, and monotonically
-advancing decision serial for each actor. All non-controlled candidates are
-evaluated from the same post-human-input snapshot and committed together, then
-their held direction is advanced through TGMO. The offensive holder takes the
-primary path; every other actor takes the secondary path. The
-ball holder uses the orientation-aware `48/48/40` approach target; other actors
-use their fixed opposing link. Shot proximity and cadence remain separate
-native policy.
+The scene now owns a fixed opposing roster-slot link, an explicit target
+position, direction/write result, immutable-snapshot fingerprint, and
+monotonically advancing decision serial for each actor. All non-controlled
+candidates are evaluated from the same post-human-input snapshot and committed
+together, then their held direction is advanced through TGMO. The offensive
+holder takes the primary path; every other actor takes the secondary path.
+
+The ball holder uses the orientation-aware `48/48/40` hoop approach. Offensive
+non-holders use five scene-owned formation points (`256,148`; `288,112`;
+`288,184`; `352,96`; `352,200`) and mirror X as `767-X` for the other
+orientation. Defenders target a point 32 pixels goal-side of their linked
+offensive actor, with per-slot court-depth splits `0,-10,10,-14,14`. The fixed
+link remains pose/facing and defender-reference metadata instead of forcing two
+actors onto one coordinate. All of these target choices are explicit native
+approximations; only the resulting TGAI octant and TGMO movement step are
+ROM-exact. Shot proximity and cadence remain separate native policy.
 
 The live state deliberately carries a no-command sentinel and no pending
 advance. It does not fabricate actor-local ROM stream offsets or claim that a
-fixed roster matchup reconstructs `$06CB,X`. Replacing these native targets
-with the original formation/play command offsets, dynamic reference/link
+fixed roster matchup reconstructs `$06CB,X`. Replacing these native explicit
+targets with the original formation/play command offsets, dynamic reference/link
 assignments, target fields, and command-advance transitions is the next CPU
 policy slice.

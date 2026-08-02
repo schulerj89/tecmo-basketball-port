@@ -823,24 +823,32 @@ Bank06 `$A10A-$A124` checks current NES B only when `$69` bit 0 is set.
 Native PRESEASON clears that gate and ignores B during all three cards; the
 regular-season route sets it and either controller may cancel. A, START,
 SELECT, and directions are ignored there.
-During the close-up, each controller's first held B sample is retained, with
-the `$F9` target represented by the capture-aligned
-`closeup_duration - 14`; subsequent B holds
-do not resample. B cannot cancel the close-up or any court/toss phase. The game
-clock, shot clock, rules, actors, AI, and live camera remain frozen until the
-frame-691 handoff. Track 8 queues at card entry, and enabled GAME MUSIC queues
-track 5 only at that handoff. Bank05 proves that the bounded error counts down
-to a launch gate, so lower error now starts that side's jump interaction sooner
-and selects its initial possession. Bank04 `$AC8C-$ACD9` initializes object
-slots 0..10 from state `$AD82`, sprite-slot base `$AD8D`, facing `$AD98`,
+Tip contest input has separate Bank05 evidence. Within the exact
+`$985B-$988E` setup span (`F372E57C`), `$985E-$986A` is a 13-byte
+current-level NES B read/latch with FNV1a32 `423816F1` and FNV1a64
+`032F8A7A4F4439D1`; the later gate tests actor height and a countdown before
+consuming the latch. The exact `$98E1-$9A5F` update span also reads current B
+at `$9920`. These reads prove the button and held-level semantics, but not the
+complete original winner/claim settlement.
+
+The native scene therefore accepts each team's first held B during all 30
+visible `JUMP_CONTEST` updates, after routing controllers by assigned team.
+Contest frame 0 is the native timing target, error is capped at 11, no sample
+is 12, lower error wins, and equal errors choose away. A hold carried into the
+phase samples frame 0; an edge without a held level does not. This deterministic
+window and timing policy are explicit native approximations. B cannot sample a
+tip during the close-up or court/toss phases and cannot cancel those phases.
+The game clock, shot clock, rules, actors, AI, and live camera remain frozen
+until the frame-691 handoff. Track 8 queues at card entry, and enabled GAME
+MUSIC queues track 5 only at that handoff. Bank04 `$AC8C-$ACD9` initializes
+object slots 0..10 from state `$AD82`, sprite-slot base `$AD8D`, facing `$AD98`,
 X-low `$ADA3`, X-high `$ADAE`, Y `$ADB9`, and facing-indexed pose tables
 `$ADC4/$ADCD`. TPTI-1 already fingerprints both containing spans; the
 transactional `tecmo_gameplay_pretip_tip_lineup` decoder supplies the complete
 setup for ten players and the ball to the canonical TGCT scene. The scene uses
 the exact coordinate, sprite-slot base, and selected standing pose without a
 second mirror. Raw object-state behavior, jump and ball interpolation, and the
-exact original claim/tie settlement are not thereby ported. Equal errors still choose away
-deterministically.
+exact original winner/claim settlement are not thereby ported.
 Pre-tip state mutation is transactional: phase-frame bounds, accumulated total,
 sample flags/errors/sample frames, terminal-state coherence, and integer
 overflow are validated before commit, and malformed or unreachable states are
@@ -891,10 +899,13 @@ are reference-verified presentation bounds. The three-digit cap for the wider
 C score and the holder/shooter matchup fallback used to label a CPU-only side
 are native adapter policies and must remain documented as approximate.
 
-The TGAI-1 production binding owns a fixed opposing roster-slot link, target,
-direction result, immutable-snapshot fingerprint, and decision serial per
-actor. It carries an explicit no-command sentinel: the original actor-local
-command offsets and advance lifecycle are not inferred by loading the asset.
+The TGAI-1 production binding owns a fixed opposing roster-slot link, an
+explicit target coordinate, direction result, immutable-snapshot fingerprint,
+and decision serial per actor. The link remains pose/facing and defensive
+reference metadata; it is no longer treated as the non-holder's implicit target
+coordinate. The binding carries an explicit no-command sentinel: the original
+actor-local command offsets and advance lifecycle are not inferred by loading
+the asset.
 
 Numeric close variant 0 has the exact 32-step direct/held-release table and
 variant 2 has the exact 16-step arc/longer-trajectory/contactable table. Their
@@ -1385,11 +1396,17 @@ actor ordering is not claimed. Active lists remain the fixed scene roster slots
 Opposing directions on one axis are normalized to neutral as a native
 integration policy. Initial actor placement/direction, the current fixed
 five-player roster-slot/matchup-link binding, and CPU target selection/AI remain
-native integration or approximations. Ordinary
-CPU locomotion now uses the exact TGMO step after TGAI direction selection;
-the offensive holder takes the primary clamp path and other actors take the
-secondary path. The deterministic `--gameplay-movement-harness` is console/test-
-only and never enters normal play.
+native integration or approximations. The holder keeps the orientation-aware
+hoop approach. Offensive non-holders use five deterministic formation points
+`(256,148)`, `(288,112)`, `(288,184)`, `(352,96)`, and `(352,200)`, mirrored as
+`767-X` for the other orientation. Defenders use their linked offensive actor's
+immutable snapshot coordinate with a 32-pixel offset toward the attacked hoop
+and roster depth splits `0,-10,10,-14,14`. This restores meaningful spacing
+without claiming the original formation/play lifecycle. Ordinary CPU locomotion
+uses the exact TGMO step after TGAI direction selection; the offensive holder
+takes the primary clamp path and other actors take the secondary path. The
+deterministic `--gameplay-movement-harness` is console/test-only and never
+enters normal play.
 
 TGAI-1 `gameplay/cpu-steering` is the separate strict CPU target/direction
 evidence boundary and a strict production scene dependency.

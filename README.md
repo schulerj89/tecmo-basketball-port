@@ -60,8 +60,9 @@ remaining gameplay work includes:
 
 Human movement, the tip-off formation, and several presentation systems are
 ROM-derived. Ordinary CPU actors now use the exact ROM octant quantizer and
-movement kernel, but their hoop/matchup target policy and shot timing remain
-native approximations until the original play-command lifecycle is ported.
+movement kernel, but their hoop/formation/marking target policy and shot timing
+remain native approximations until the original play-command lifecycle is
+ported.
 
 ## Controls
 
@@ -72,6 +73,10 @@ native approximations until the original play-command lifecycle is ported.
 | NES B: shoot / defensive action | X | Numpad 3 |
 | START | Enter | Numpad 9 |
 | SELECT | Shift or Space | Numpad 7 |
+
+During the visible opening jump contest, hold NES B (`X` for Player 1 or
+Numpad 3 for Player 2) to contest the tip. The first held frame in that
+30-frame window is used; earlier input wins and equal timing favors away.
 
 `F3` toggles the development overlay.
 

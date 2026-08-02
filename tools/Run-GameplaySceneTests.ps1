@@ -1043,9 +1043,9 @@ try {
     }
     $ExpectedBallBounceHashes = @{
         "gameplay-ball-bounce-frame1" =
-            "DC90C57210181E8D7130F1095B4F991C0C5419FC27D110704CC778629C75F8FA"
+            "97F43E66690D71BE9936E64282FE6B4F6FAA7622B15FF2C7C34BD9DB17FDD192"
         "gameplay-ball-bounce-frame12" =
-            "1900E620F5A85DCD97888296346DE7ED7DB3373FAD6A98B90308BEE31F882CA0"
+            "C02189CFD60B6932BA690EB05EE0CB8E458D13CE823C33649C67D53A869C9D5D"
     }
     foreach ($Mode in $ExpectedBallBounceHashes.Keys) {
         if ($RenderHashes[$Mode] -ne $ExpectedBallBounceHashes[$Mode]) {
@@ -1057,7 +1057,7 @@ try {
         throw "Gameplay held-ball high/low bounce visuals collapsed together."
     }
     if ($RenderHashes["gameplay-cpu-steering-frame25"] -ne
-            "284FB8F1B13F2824FDE98927144017F155210F8874B28E8B8DEBB4E9707F4D66") {
+            "0516BA79273F7E1AF13C43105A567E41285E6BBBE7A847F7C3A838976A36B40A") {
         throw "Gameplay live TGAI/TGMO movement render hash changed."
     }
     $ExpectedPossessionSliceHashes = @{

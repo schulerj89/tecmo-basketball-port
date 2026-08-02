@@ -156,6 +156,10 @@ $ExpectedRoles = @(
     "center-tip-object-update","pregame-launch-bridge","live-handoff",
     "tipoff-orientation-select"
 )
+$TipSetupSource = @($Mapped[0].sources | Where-Object {
+    $_.role -eq "center-tip-object-setup"
+})
+$TipInputSource = $Mapped[0].native_contract.tip_input_source
 if ($Mapped.Count -ne 1 -or
     $Mapped[0].schema -ne "tecmo.gameplay-pre-tip/TPTI-1" -or
     @($Mapped[0].dependencies).Count -ne 5 -or
@@ -170,7 +174,25 @@ if ($Mapped.Count -ne 1 -or
     $Mapped[0].native_contract.tip_lineup -notmatch "AC8C" -or
     $Mapped[0].native_contract.closeup_motion -notmatch "D861" -or
     $Mapped[0].native_contract.toss_cut_in -notmatch "nametable page 1" -or
-    $Mapped[0].native_contract.ball_descent -notmatch "71..145") {
+    $Mapped[0].native_contract.ball_descent -notmatch "71..145" -or
+    $TipSetupSource.Count -ne 1 -or
+    $TipInputSource.source_entry -ne "prg/bank05" -or
+    [uint64]$TipInputSource.source_offset -ne
+        ([uint64]$TipSetupSource[0].source_offset + 3) -or
+    [int]$TipInputSource.bank -ne 5 -or
+    [int]$TipInputSource.cpu_start -ne 0x985E -or
+    [int]$TipInputSource.cpu_end -ne 0x986A -or
+    [int]$TipInputSource.size -ne 13 -or
+    $TipInputSource.fingerprint_fnv1a32 -ne "423816F1" -or
+    $TipInputSource.fingerprint_fnv1a64 -ne "032F8A7A4F4439D1" -or
+    -not [bool]$TipInputSource.rom_exact -or
+    $TipInputSource.proves -notmatch "current-level NES B mask" -or
+    $TipInputSource.does_not_prove -notmatch "winner settlement" -or
+    $Mapped[0].native_contract.tip_input -notmatch
+        "30 native jump-contest updates" -or
+    $Mapped[0].native_contract.tip_input -notmatch "target frame 0" -or
+    $Mapped[0].native_contract.winner_policy -notmatch
+        "exact original winner.*unported") {
     throw "TPTI-1 source-map provenance is incomplete or malformed."
 }
 
