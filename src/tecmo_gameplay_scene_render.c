@@ -98,6 +98,16 @@ static bool scene_background_tile_chr(
     return true;
 }
 
+static bool scene_should_draw_live_hud(
+    const TecmoGameplayScene *scene,
+    bool include_actors)
+{
+    if (scene == NULL || !include_actors || !scene->active) return false;
+    if (!tecmo_gameplay_scene_in_pretip(scene)) return true;
+    return scene->pretip_state.phase == TECMO_GAMEPLAY_PRETIP_BALL_DESCENT ||
+           scene->pretip_state.phase == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST;
+}
+
 static bool scene_hud_put_tile(TecmoGameplayPreparedHud *prepared,
                                unsigned row, unsigned column,
                                uint8_t tile)
@@ -304,11 +314,14 @@ bool tecmo_gameplay_scene_render_prepare_live_hud(
     unsigned row;
     unsigned column;
     if (scene == NULL || context == NULL || prepared_out == NULL ||
+        !scene->active ||
         !scene->hud_assets.available ||
         scene->hud_assets.team_label_tiles == NULL ||
         scene->hud_assets.font_tiles == NULL ||
         scene->pretip_team_data == NULL ||
         !scene->pretip_team_data->available ||
+        !tecmo_gameplay_pretip_state_validate(
+            &scene->pretip_assets, &scene->pretip_state) ||
         scene->launch.away_team >= TECMO_GAMEPLAY_TEAM_LIMIT ||
         scene->launch.home_team >= TECMO_GAMEPLAY_TEAM_LIMIT ||
         !tecmo_gameplay_state_valid(&scene->state)) {
@@ -1255,8 +1268,7 @@ bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
             TECMO_GAMEPLAY_COURT_VIEWPORT_TILE_STRIDE) {
         return false;
     }
-    draw_live_hud = include_actors && scene->active &&
-                    !tecmo_gameplay_scene_in_pretip(scene);
+    draw_live_hud = scene_should_draw_live_hud(scene, include_actors);
     for (row = 0U; row < TECMO_GAMEPLAY_COURT_WORLD_HEIGHT_TILES; ++row) {
         for (column = 0U;
              column < court_frame.slice.viewport.column_count;

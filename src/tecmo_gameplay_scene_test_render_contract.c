@@ -61,8 +61,11 @@ static bool scene_test_live_hud_contract(
     size_t occupied[TECMO_GAMEPLAY_HUD_VISIBLE_ROW_COUNT] = {0U, 0U};
     const uint8_t *font;
     unsigned char selected_initial;
+    unsigned char selected_home_initial;
     uint8_t selected_roster;
+    uint8_t selected_home_roster;
     uint8_t selected_number_bcd;
+    uint8_t selected_home_number_bcd;
     if (scene == NULL || !scene_build_background_context(scene, &context) ||
         !scene_prepare_live_hud(scene, &context, &prepared)) {
         return false;
@@ -87,8 +90,23 @@ static bool scene_test_live_hud_contract(
             ->players[scene->launch.away_team][selected_roster].name[0U];
     selected_number_bcd = scene->pretip_team_data
         ->players[scene->launch.away_team][selected_roster].attributes[1U];
+    if (scene->controlled_actor[1U] >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->actors[scene->controlled_actor[1U]].team !=
+            TECMO_GAMEPLAY_TEAM_HOME) {
+        return false;
+    }
+    selected_home_roster =
+        scene->actors[scene->controlled_actor[1U]].roster_index;
+    selected_home_initial = (unsigned char)
+        scene->pretip_team_data
+            ->players[scene->launch.home_team][selected_home_roster].name[0U];
+    selected_home_number_bcd = scene->pretip_team_data
+        ->players[scene->launch.home_team][selected_home_roster]
+            .attributes[1U];
     if ((selected_number_bcd >> 4U) > 9U ||
         (selected_number_bcd & 0x0FU) > 9U ||
+        (selected_home_number_bcd >> 4U) > 9U ||
+        (selected_home_number_bcd & 0x0FU) > 9U ||
         occupied[0U] != TECMO_GAMEPLAY_HUD_COLUMN_COUNT ||
         occupied[1U] != TECMO_GAMEPLAY_HUD_COLUMN_COUNT ||
         memcmp(&prepared.tiles[0U][1U],
@@ -117,6 +135,20 @@ static bool scene_test_live_hud_contract(
         prepared.chr_offsets[1U][4U] !=
             scene->pretip_team_data->font[
                 selected_initial - TECMO_GAMEPLAY_HUD_FONT_FIRST]
+                .chr_offset ||
+        prepared.tiles[1U][17U] !=
+            font['0' + (selected_home_number_bcd >> 4U) -
+                 TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        prepared.tiles[1U][18U] !=
+            font['0' + (selected_home_number_bcd & 0x0FU) -
+                 TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        prepared.tiles[1U][20U] !=
+            font[selected_home_initial - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        prepared.tiles[1U][21U] !=
+            font['.' - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
+        prepared.chr_offsets[1U][20U] !=
+            scene->pretip_team_data->font[
+                selected_home_initial - TECMO_GAMEPLAY_HUD_FONT_FIRST]
                 .chr_offset ||
         prepared.tiles[1U][15U] !=
             font[' ' - TECMO_GAMEPLAY_HUD_FONT_FIRST] ||
@@ -409,6 +441,67 @@ static bool scene_test_outer_margin_equal(const uint32_t *pixels,
                           y >= origin_y && y < origin_y + view_height;
             if (!inside && pixels[(size_t)y * (size_t)pitch + (size_t)x] !=
                                expected) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+static bool scene_test_rendered_hud_matches(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplayPreparedHud *prepared,
+    const uint32_t *pixels,
+    int pitch)
+{
+    uint32_t expected[TECMO_GAMEPLAY_SCENE_NES_WIDTH * 16];
+    TecmoFramebuffer expected_framebuffer;
+    uint8_t uniform_colors[TECMO_GAMEPLAY_TEAM_COUNT];
+    uint32_t palette[4];
+    unsigned row;
+    unsigned column;
+    int y;
+    int x;
+    if (scene == NULL || prepared == NULL || pixels == NULL ||
+        pitch < TECMO_GAMEPLAY_SCENE_NES_WIDTH ||
+        scene->assets.chr_storage == NULL ||
+        !tecmo_team_data_resolve_gameplay_uniform_colors(
+            scene->pretip_team_data, scene->launch.away_team,
+            scene->launch.home_team, uniform_colors)) {
+        return false;
+    }
+    palette[0] = tecmo_nes_2c02_rgba(0x16U);
+    palette[1] = tecmo_nes_2c02_rgba(0x0FU);
+    palette[2] = tecmo_nes_2c02_rgba(0x27U);
+    palette[3] = tecmo_nes_2c02_rgba(
+        uniform_colors[TECMO_GAMEPLAY_TEAM_AWAY]);
+    expected_framebuffer.pixels = expected;
+    expected_framebuffer.width = TECMO_GAMEPLAY_SCENE_NES_WIDTH;
+    expected_framebuffer.height = 16;
+    expected_framebuffer.pitch_pixels = TECMO_GAMEPLAY_SCENE_NES_WIDTH;
+    for (y = 0; y < expected_framebuffer.height; ++y) {
+        for (x = 0; x < expected_framebuffer.width; ++x) {
+            expected[(size_t)y * TECMO_GAMEPLAY_SCENE_NES_WIDTH +
+                     (size_t)x] = palette[1];
+        }
+    }
+    for (row = 0U; row < TECMO_GAMEPLAY_HUD_VISIBLE_ROW_COUNT; ++row) {
+        for (column = 0U; column < TECMO_GAMEPLAY_HUD_COLUMN_COUNT;
+             ++column) {
+            if (!prepared->occupied[row][column]) return false;
+            tecmo_draw_chr_tile_at_offset_ex(
+                &expected_framebuffer, scene->assets.chr_storage,
+                scene->assets.chr_storage_size,
+                prepared->chr_offsets[row][column],
+                (int)column * 8, (int)row * 8, 1, palette, false, false);
+        }
+    }
+    for (y = 0; y < expected_framebuffer.height; ++y) {
+        for (x = 0; x < expected_framebuffer.width; ++x) {
+            if (pixels[(size_t)(TECMO_GAMEPLAY_HUD_PRIMARY_ROW * 8 + y) *
+                       (size_t)pitch + (size_t)x] !=
+                expected[(size_t)y * TECMO_GAMEPLAY_SCENE_NES_WIDTH +
+                         (size_t)x]) {
                 return false;
             }
         }
@@ -1540,6 +1633,232 @@ done:
     return true;
 }
 
+static bool scene_test_pretip_hud_phase_contract(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *launch,
+    char *message,
+    size_t message_size)
+{
+    typedef struct ScenePreTipHudProbe {
+        uint32_t total_frame;
+        TecmoGameplayPreTipPhase phase;
+        bool expect_hud;
+        bool expect_black;
+        uint8_t away_team;
+        uint8_t home_team;
+        const char *name;
+    } ScenePreTipHudProbe;
+    static const ScenePreTipHudProbe probes[] = {
+        {0U, TECMO_GAMEPLAY_PRETIP_PRESEASON, false, false, 0U, 1U,
+         "preseason card"},
+        {61U, TECMO_GAMEPLAY_PRETIP_MATCHUP, false, false, 0U, 1U,
+         "matchup card"},
+        {271U, TECMO_GAMEPLAY_PRETIP_CLOSEUP, false, false, 0U, 1U,
+         "close-up"},
+        {451U, TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP, false, true, 0U,
+         1U, "center-court setup"},
+        {481U, TECMO_GAMEPLAY_PRETIP_BALL_DESCENT, true, false, 3U, 10U,
+         "ball descent"},
+        {601U, TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP, false, true, 0U, 1U,
+         "toss black"},
+        {631U, TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP, false, false, 0U, 1U,
+         "toss close-up"},
+        {661U, TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST, true, false, 3U, 10U,
+         "jump contest"},
+        {691U, TECMO_GAMEPLAY_PRETIP_LIVE, true, false, 3U, 10U,
+         "first live frame"}
+    };
+    const size_t pixel_count =
+        (size_t)TECMO_GAMEPLAY_SCENE_NES_WIDTH *
+        TECMO_GAMEPLAY_SCENE_NES_HEIGHT;
+    const uint32_t sentinel = 0xA5A5A5A5U;
+    const int guard_width = TECMO_GAMEPLAY_SCENE_NES_WIDTH + 24;
+    const int guard_height = TECMO_GAMEPLAY_SCENE_NES_HEIGHT + 20;
+    const int guard_origin_x = 12;
+    const int guard_origin_y = 10;
+    const size_t guard_pixel_count =
+        (size_t)guard_width * (size_t)guard_height;
+    uint32_t *with_actors = NULL;
+    uint32_t *without_actors = NULL;
+    uint32_t *guarded = NULL;
+    TecmoFramebuffer actor_framebuffer;
+    TecmoFramebuffer background_framebuffer;
+    TecmoFramebuffer guarded_framebuffer;
+    TecmoGameplaySceneLaunch probe_launch;
+    TecmoGameplayLiveBackgroundContext context;
+    TecmoGameplayPreparedHud prepared;
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    size_t probe_index;
+    uint32_t frame;
+    char failure_buffer[192] = {0};
+    const char *failure = NULL;
+
+    if (scene == NULL || launch == NULL) {
+        failure = "pre-tip HUD phase probe input was null";
+        goto done;
+    }
+    with_actors = (uint32_t *)malloc(pixel_count * sizeof(*with_actors));
+    without_actors =
+        (uint32_t *)malloc(pixel_count * sizeof(*without_actors));
+    guarded = (uint32_t *)malloc(guard_pixel_count * sizeof(*guarded));
+    if (with_actors == NULL || without_actors == NULL || guarded == NULL) {
+        failure = "pre-tip HUD phase probe allocation failed";
+        goto done;
+    }
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    actor_framebuffer.pixels = with_actors;
+    actor_framebuffer.width = TECMO_GAMEPLAY_SCENE_NES_WIDTH;
+    actor_framebuffer.height = TECMO_GAMEPLAY_SCENE_NES_HEIGHT;
+    actor_framebuffer.pitch_pixels = TECMO_GAMEPLAY_SCENE_NES_WIDTH;
+    background_framebuffer.pixels = without_actors;
+    background_framebuffer.width = TECMO_GAMEPLAY_SCENE_NES_WIDTH;
+    background_framebuffer.height = TECMO_GAMEPLAY_SCENE_NES_HEIGHT;
+    background_framebuffer.pitch_pixels = TECMO_GAMEPLAY_SCENE_NES_WIDTH;
+    guarded_framebuffer.pixels = guarded;
+    guarded_framebuffer.width = guard_width;
+    guarded_framebuffer.height = guard_height;
+    guarded_framebuffer.pitch_pixels = guard_width;
+
+    for (probe_index = 0U;
+         probe_index < sizeof(probes) / sizeof(probes[0]); ++probe_index) {
+        const ScenePreTipHudProbe *probe = &probes[probe_index];
+        probe_launch = *launch;
+        probe_launch.away_team = probe->away_team;
+        probe_launch.home_team = probe->home_team;
+        tecmo_gameplay_scene_test_set_skip_pretip(false);
+        if (!tecmo_gameplay_scene_launch(scene, &probe_launch)) {
+            failure = "pre-tip HUD phase probe launch rejected";
+            goto done;
+        }
+        for (frame = 0U; frame < probe->total_frame; ++frame) {
+            if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+                failure = "pre-tip HUD phase probe update rejected";
+                goto done;
+            }
+        }
+        if (scene->pretip_state.phase != probe->phase ||
+            scene->pretip_state.total_frame != probe->total_frame) {
+            failure = "pre-tip HUD phase probe reached the wrong phase";
+            goto done;
+        }
+        memset(with_actors, 0, pixel_count * sizeof(*with_actors));
+        memset(without_actors, 0, pixel_count * sizeof(*without_actors));
+        if (!tecmo_gameplay_scene_draw(
+                scene, &actor_framebuffer, 0, 0, 1, true) ||
+            !tecmo_gameplay_scene_draw(
+                scene, &background_framebuffer, 0, 0, 1, false)) {
+            failure = "pre-tip HUD phase probe render rejected";
+            goto done;
+        }
+        if (probe->expect_hud) {
+            if (!scene_build_background_context(scene, &context) ||
+                !scene_prepare_live_hud(scene, &context, &prepared) ||
+                !prepared.occupied[0U][0U] ||
+                !prepared.occupied[0U][TECMO_GAMEPLAY_HUD_COLUMN_COUNT - 1U] ||
+                !prepared.occupied[1U][0U] ||
+                !prepared.occupied[1U][TECMO_GAMEPLAY_HUD_COLUMN_COUNT - 1U] ||
+                !scene_test_live_hud_contract(scene) ||
+                !scene_test_rendered_hud_matches(
+                    scene, &prepared, with_actors,
+                    TECMO_GAMEPLAY_SCENE_NES_WIDTH)) {
+                (void)snprintf(
+                    failure_buffer, sizeof(failure_buffer),
+                    "court pre-tip phase did not draw THUD: %s",
+                    probe->name);
+                failure = failure_buffer;
+                goto done;
+            }
+            if (probe_index == 4U) {
+                memset(guarded, 0xA5, guard_pixel_count * sizeof(*guarded));
+                if (!tecmo_gameplay_scene_draw(
+                        scene, &guarded_framebuffer,
+                        guard_origin_x, guard_origin_y, 1, true) ||
+                    !scene_test_outer_margin_equal(
+                        guarded, guard_width, guard_height, guard_width,
+                        guard_origin_x, guard_origin_y,
+                        TECMO_GAMEPLAY_SCENE_NES_WIDTH,
+                        TECMO_GAMEPLAY_SCENE_NES_HEIGHT, sentinel)) {
+                    failure = "pre-tip HUD phase draw escaped framebuffer margins";
+                    goto done;
+                }
+            }
+        } else if (memcmp(with_actors, without_actors,
+                          pixel_count * sizeof(*with_actors)) != 0 ||
+                   (probe->expect_black &&
+                    !scene_test_pixels_equal(
+                        with_actors, pixel_count,
+                        tecmo_nes_2c02_rgba(0x0FU)))) {
+            (void)snprintf(
+                failure_buffer, sizeof(failure_buffer),
+                "non-court pre-tip phase composition changed: %s",
+                probe->name);
+            failure = failure_buffer;
+            goto done;
+        }
+    }
+
+    probe_launch = *launch;
+    probe_launch.away_team = 3U;
+    probe_launch.home_team = 10U;
+    tecmo_gameplay_scene_test_set_skip_pretip(true);
+    if (!tecmo_gameplay_scene_launch(scene, &probe_launch)) {
+        failure = "pre-tip HUD malformed-state probe launch rejected";
+        goto done;
+    }
+    if (!scene_build_background_context(scene, &context) ||
+        !scene_prepare_live_hud(scene, &context, &prepared)) {
+        failure = "live HUD data was not ready for identity probe";
+        goto done;
+    }
+    {
+        TecmoGameplayScene inactive = *scene;
+        TecmoGameplayScene malformed = *scene;
+        TecmoGameplayPreparedHud unchanged;
+        inactive.active = false;
+        memset(&unchanged, 0xA5, sizeof(unchanged));
+        prepared = unchanged;
+        if (scene_prepare_live_hud(
+                &inactive, &context, &prepared) ||
+            memcmp(&prepared, &unchanged, sizeof(prepared)) != 0) {
+            failure = "inactive HUD preparation was not fail-closed";
+            goto done;
+        }
+        malformed.pretip_state.contract_tag ^= 1U;
+        prepared = unchanged;
+        if (scene_prepare_live_hud(
+                &malformed, &context, &prepared) ||
+            memcmp(&prepared, &unchanged, sizeof(prepared)) != 0) {
+            failure = "malformed pre-tip HUD preparation was not fail-closed";
+            goto done;
+        }
+        memset(with_actors, sentinel, pixel_count * sizeof(*with_actors));
+        if (tecmo_gameplay_scene_draw(
+                &malformed, &actor_framebuffer, 0, 0, 1, true) ||
+            !scene_test_pixels_equal(with_actors, pixel_count, sentinel)) {
+            failure = "malformed pre-tip HUD render partially modified output";
+            goto done;
+        }
+    }
+
+done:
+    free(with_actors);
+    free(without_actors);
+    free(guarded);
+    tecmo_gameplay_scene_test_set_skip_pretip(true);
+    if (failure == NULL && scene != NULL && launch != NULL) {
+        tecmo_gameplay_scene_end(scene);
+        if (!tecmo_gameplay_scene_launch(scene, launch))
+            failure = "pre-tip HUD phase probe restore launch rejected";
+    }
+    if (failure != NULL) {
+        tecmo_gameplay_scene_test_message(message, message_size, failure);
+        return false;
+    }
+    return true;
+}
+
 static bool scene_test_render_hashes(
     const TecmoGameplayScene *scene,
     const TecmoGameplayScene *left_slice_probe,
@@ -1848,7 +2167,9 @@ bool tecmo_gameplay_scene_test_render_contract(
         !scene_test_background_selector_contract(
             scene, message, message_size) ||
         !scene_test_pretip_logo_contract(
-            scene, message, message_size)) {
+            scene, message, message_size) ||
+        !scene_test_pretip_hud_phase_contract(
+            scene, &launch, message, message_size)) {
         tecmo_gameplay_scene_destroy(scene);
         return false;
     }
