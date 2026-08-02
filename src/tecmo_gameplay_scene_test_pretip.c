@@ -486,6 +486,281 @@ static bool scene_test_run_late_human_tip(
     return true;
 }
 
+static bool scene_test_run_cpu_to_contest(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *launch,
+    TecmoControlFrame *p1,
+    TecmoControlFrame *p2)
+{
+    size_t frame;
+    if (scene == NULL || launch == NULL || p1 == NULL || p2 == NULL ||
+        !tecmo_gameplay_scene_launch(scene, launch)) {
+        return false;
+    }
+    memset(p1, 0, sizeof(*p1));
+    memset(p2, 0, sizeof(*p2));
+    for (frame = 0U; frame < 661U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, p1, p2) ||
+            scene->pretip_state.away_tip_sampled ||
+            scene->pretip_state.home_tip_sampled) {
+            return false;
+        }
+    }
+    return scene->pretip_state.phase ==
+               TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST &&
+           scene->pretip_state.phase_frame == 0U &&
+           scene->pretip_state.contest_frame == 0U &&
+           !scene->pretip_state.away_tip_sampled &&
+           !scene->pretip_state.home_tip_sampled &&
+           scene->pretip_jump_active;
+}
+
+static bool scene_test_run_cpu_to_decision(
+    TecmoGameplayScene *scene,
+    TecmoControlFrame *p1,
+    TecmoControlFrame *p2)
+{
+    if (scene == NULL || p1 == NULL || p2 == NULL ||
+        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
+        return false;
+    }
+    while (scene->pretip_state.contest_frame <=
+           TECMO_GAMEPLAY_PRETIP_CPU_SAMPLE_FRAME) {
+        if (!tecmo_gameplay_scene_update(scene, p1, p2)) return false;
+    }
+    return scene->pretip_state.away_tip_sampled &&
+           scene->pretip_state.home_tip_sampled &&
+           scene->pretip_state.contest_frame >
+               TECMO_GAMEPLAY_PRETIP_CPU_SAMPLE_FRAME;
+}
+
+static bool scene_test_run_cpu_to_live(
+    TecmoGameplayScene *scene,
+    TecmoControlFrame *p1,
+    TecmoControlFrame *p2,
+    TecmoGameplayTeam expected_possession)
+{
+    size_t guard = 0U;
+    if (scene == NULL || p1 == NULL || p2 == NULL) return false;
+    while (scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE &&
+           guard < TECMO_GAMEPLAY_PRETIP_PRESENTATION_FRAMES) {
+        if (!tecmo_gameplay_scene_update(scene, p1, p2)) return false;
+        ++guard;
+    }
+    return scene->pretip_state.phase == TECMO_GAMEPLAY_PRETIP_LIVE &&
+           scene->pretip_state.live_handoff &&
+           scene->state.possession == expected_possession &&
+           !scene->pretip_jump_active &&
+           scene->pretip_jumper_altitude_q8[0U] == 0U &&
+           scene->pretip_jumper_altitude_q8[1U] == 0U;
+}
+
+static bool tecmo_gameplay_scene_test_pretip_cpu_decision_regression(
+    TecmoGameplaySceneTestContext *test,
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *launch)
+{
+    TecmoGameplaySceneLaunch cpu_launch;
+    TecmoGameplaySceneCourtProjection initial_projection;
+    TecmoGameplaySceneCourtProjection rising_projection;
+    TecmoGameplaySceneActor malformed_actors[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplayPreTipState malformed_state;
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    uint8_t away_actor;
+    uint8_t home_actor;
+    uint8_t winner;
+    uint16_t initial_away_pose;
+    uint16_t initial_home_pose;
+    uint32_t frame_before;
+    size_t frame;
+    const char *failure =
+        "pre-tip CPU decision regression failed";
+
+    if (test == NULL || scene == NULL || launch == NULL) return false;
+    cpu_launch = *launch;
+    cpu_launch.source = TECMO_GAMEPLAY_SCENE_PRESEASON;
+    cpu_launch.game_music_enabled = false;
+
+    /* Away human versus Home CPU.  The human sample is earlier, while the
+       unassigned Home side gets the deterministic automatic approximation. */
+    cpu_launch.controller_team[0U] = TECMO_GAMEPLAY_TEAM_AWAY;
+    cpu_launch.controller_team[1U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    if (!scene_test_run_cpu_to_contest(scene, &cpu_launch, &p1, &p2)) {
+        failure = "pre-tip Away-human/Home-CPU contest entry failed";
+        goto failed;
+    }
+    away_actor = scene->pretip_jumper_actor[0U];
+    home_actor = scene->pretip_jumper_actor[1U];
+    if (away_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        home_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        away_actor == home_actor ||
+        !tecmo_gameplay_scene_court_projection(scene, &initial_projection) ||
+        !initial_projection.players[away_actor].visible ||
+        !initial_projection.players[home_actor].visible) {
+        failure = "pre-tip CPU visual contest setup was invalid";
+        goto failed;
+    }
+    initial_away_pose = scene->actors[away_actor].pose_index;
+    initial_home_pose = scene->actors[home_actor].pose_index;
+    if (initial_away_pose != TECMO_GAMEPLAY_JUMP_MAKE_GATHER_POSE ||
+        initial_home_pose != TECMO_GAMEPLAY_JUMP_MAKE_GATHER_POSE ||
+        scene->pretip_jumper_altitude_q8[0U] != 0U ||
+        scene->pretip_jumper_altitude_q8[1U] != 0U) {
+        failure = "pre-tip CPU visual contest did not start at gather";
+        goto failed;
+    }
+    p1.held.cancel = true;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+        failure = "pre-tip Away-human sample update failed";
+        goto failed;
+    }
+    p1.held.cancel = false;
+    if (!scene->pretip_state.away_tip_sampled ||
+        scene->pretip_state.away_tip_sample_frame != 0U ||
+        scene->pretip_state.away_tip_error != 0U ||
+        scene->pretip_state.home_tip_sampled) {
+        failure = "pre-tip Away-human input did not retain priority";
+        goto failed;
+    }
+    if (!scene_test_run_cpu_to_decision(scene, &p1, &p2) ||
+        !scene->pretip_state.away_tip_sampled ||
+        scene->pretip_state.away_tip_sample_frame != 0U ||
+        scene->pretip_state.home_tip_sample_frame !=
+            TECMO_GAMEPLAY_PRETIP_CPU_SAMPLE_FRAME ||
+        scene->pretip_state.home_tip_error !=
+            TECMO_GAMEPLAY_PRETIP_CPU_SAMPLE_FRAME ||
+        !tecmo_gameplay_pretip_tip_winner(
+            &scene->pretip_assets, &scene->pretip_state, &winner) ||
+        winner != TECMO_GAMEPLAY_PRETIP_AWAY_WINNER ||
+        !tecmo_gameplay_scene_court_projection(scene, &rising_projection) ||
+        scene->actors[away_actor].pose_index !=
+            TECMO_GAMEPLAY_JUMP_TURN_POSE ||
+        scene->actors[home_actor].pose_index !=
+            TECMO_GAMEPLAY_JUMP_TURN_POSE ||
+        scene->pretip_jumper_altitude_q8[0U] == 0U ||
+        scene->pretip_jumper_altitude_q8[0U] !=
+            scene->pretip_jumper_altitude_q8[1U] ||
+        !rising_projection.players[away_actor].visible ||
+        !rising_projection.players[home_actor].visible ||
+        rising_projection.players[away_actor].screen_y >=
+            initial_projection.players[away_actor].screen_y ||
+        rising_projection.players[home_actor].screen_y >=
+            initial_projection.players[home_actor].screen_y ||
+        scene->actors[away_actor].pose_index == initial_away_pose ||
+        scene->actors[home_actor].pose_index == initial_home_pose) {
+        failure = "pre-tip Away-human/Home-CPU decision or arc failed";
+        goto failed;
+    }
+    if (!scene_test_run_cpu_to_live(
+            scene, &p1, &p2, TECMO_GAMEPLAY_TEAM_AWAY)) {
+        failure = "pre-tip Away-human/Home-CPU handoff failed";
+        goto failed;
+    }
+    tecmo_gameplay_scene_end(scene);
+
+    /* Home human versus Away CPU uses the reversed controller orientation. */
+    cpu_launch.controller_team[0U] = TECMO_GAMEPLAY_TEAM_HOME;
+    cpu_launch.controller_team[1U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    if (!scene_test_run_cpu_to_contest(scene, &cpu_launch, &p1, &p2)) {
+        failure = "pre-tip Home-human/Away-CPU contest entry failed";
+        goto failed;
+    }
+    p1.held.cancel = true;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+        failure = "pre-tip Home-human sample update failed";
+        goto failed;
+    }
+    p1.held.cancel = false;
+    if (!scene->pretip_state.home_tip_sampled ||
+        scene->pretip_state.home_tip_sample_frame != 0U ||
+        scene->pretip_state.home_tip_error != 0U ||
+        scene->pretip_state.away_tip_sampled ||
+        !scene_test_run_cpu_to_decision(scene, &p1, &p2) ||
+        scene->pretip_state.away_tip_sample_frame !=
+            TECMO_GAMEPLAY_PRETIP_CPU_SAMPLE_FRAME ||
+        scene->pretip_state.away_tip_error !=
+            TECMO_GAMEPLAY_PRETIP_CPU_SAMPLE_FRAME ||
+        !tecmo_gameplay_pretip_tip_winner(
+            &scene->pretip_assets, &scene->pretip_state, &winner) ||
+        winner != TECMO_GAMEPLAY_PRETIP_HOME_WINNER ||
+        !scene_test_run_cpu_to_live(
+            scene, &p1, &p2, TECMO_GAMEPLAY_TEAM_HOME)) {
+        failure = "pre-tip Home-human/Away-CPU routing or handoff failed";
+        goto failed;
+    }
+    tecmo_gameplay_scene_end(scene);
+
+    /* CPU versus CPU must make both decisions in the same visible contest. */
+    cpu_launch.controller_team[0U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    cpu_launch.controller_team[1U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    if (!scene_test_run_cpu_to_contest(scene, &cpu_launch, &p1, &p2) ||
+        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->pretip_state.away_tip_sampled ||
+        scene->pretip_state.home_tip_sampled ||
+        !scene_test_run_cpu_to_decision(scene, &p1, &p2) ||
+        scene->pretip_state.away_tip_sample_frame !=
+            TECMO_GAMEPLAY_PRETIP_CPU_SAMPLE_FRAME ||
+        scene->pretip_state.home_tip_sample_frame !=
+            TECMO_GAMEPLAY_PRETIP_CPU_SAMPLE_FRAME ||
+        scene->pretip_state.away_tip_error !=
+            TECMO_GAMEPLAY_PRETIP_CPU_SAMPLE_FRAME ||
+        scene->pretip_state.home_tip_error !=
+            TECMO_GAMEPLAY_PRETIP_CPU_SAMPLE_FRAME ||
+        !tecmo_gameplay_pretip_tip_winner(
+            &scene->pretip_assets, &scene->pretip_state, &winner) ||
+        winner != TECMO_GAMEPLAY_PRETIP_AWAY_WINNER ||
+        !scene_test_run_cpu_to_live(
+            scene, &p1, &p2, TECMO_GAMEPLAY_TEAM_AWAY)) {
+        failure = "pre-tip CPU-versus-CPU decision or handoff failed";
+        goto failed;
+    }
+    tecmo_gameplay_scene_end(scene);
+
+    /* At the exact CPU decision frame, an invalid state must fail closed
+       before the automatic path can record either sample. */
+    if (!scene_test_run_cpu_to_contest(scene, &cpu_launch, &p1, &p2)) {
+        failure = "pre-tip malformed-state setup failed";
+        goto failed;
+    }
+    for (frame = 0U;
+         frame < TECMO_GAMEPLAY_PRETIP_CPU_SAMPLE_FRAME; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+            failure = "pre-tip malformed-state decision setup failed";
+            goto failed;
+        }
+    }
+    malformed_state = scene->pretip_state;
+    memcpy(malformed_actors, scene->actors, sizeof(malformed_actors));
+    frame_before = scene->frame;
+    scene->pretip_state.phase_frame =
+        TECMO_GAMEPLAY_PRETIP_PRESENTATION_FRAMES;
+    malformed_state.phase_frame =
+        TECMO_GAMEPLAY_PRETIP_PRESENTATION_FRAMES;
+    if (tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        memcmp(&scene->pretip_state, &malformed_state,
+               sizeof(malformed_state)) != 0 ||
+        memcmp(scene->actors, malformed_actors,
+               sizeof(malformed_actors)) != 0 ||
+        scene->frame != frame_before ||
+        scene->pretip_state.away_tip_sampled ||
+        scene->pretip_state.home_tip_sampled) {
+        failure = "pre-tip malformed state was not fail-closed";
+        goto failed;
+    }
+    tecmo_gameplay_scene_end(scene);
+    return true;
+
+failed:
+    tecmo_gameplay_scene_test_message(
+        test != NULL ? test->message : NULL,
+        test != NULL ? test->message_size : 0U,
+        failure);
+    tecmo_gameplay_scene_end(scene);
+    return false;
+}
+
 static bool tecmo_gameplay_scene_test_pretip_anchor_facing_regression(
     TecmoGameplaySceneTestContext *test,
     TecmoGameplayScene *scene,
@@ -1438,6 +1713,8 @@ bool tecmo_gameplay_scene_test_pretip(
         !tecmo_gameplay_scene_test_pretip_anchor_facing_regression(
             test, scene, &launch) ||
         !tecmo_gameplay_scene_test_pretip_jump_presentation(
+            test, scene, &launch) ||
+        !tecmo_gameplay_scene_test_pretip_cpu_decision_regression(
             test, scene, &launch) ||
         !tecmo_gameplay_scene_test_pretip_abort_and_timing(
             test, scene, &launch, &p1, &p2)) {

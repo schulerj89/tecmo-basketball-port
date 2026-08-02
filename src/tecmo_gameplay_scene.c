@@ -1555,6 +1555,25 @@ static bool scene_follow_live_camera_once(TecmoGameplayScene *scene)
     return true;
 }
 
+static bool scene_pretip_cpu_should_sample(
+    const TecmoGameplayScene *scene,
+    TecmoGameplayTeam team)
+{
+    if (scene == NULL ||
+        (team != TECMO_GAMEPLAY_TEAM_AWAY &&
+         team != TECMO_GAMEPLAY_TEAM_HOME) ||
+        !scene_launch_valid(&scene->launch) ||
+        !tecmo_gameplay_pretip_state_validate(
+            &scene->pretip_assets, &scene->pretip_state) ||
+        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
+        scene->pretip_state.contest_frame !=
+            TECMO_GAMEPLAY_PRETIP_CPU_SAMPLE_FRAME) {
+        return false;
+    }
+    return scene_controller_for_team(scene, team) >=
+           TECMO_GAMEPLAY_CONTROLLER_COUNT;
+}
+
 static bool scene_update_pretip_frame(
     TecmoGameplayScene *scene,
     const TecmoControlFrame *player_one,
@@ -1582,6 +1601,18 @@ static bool scene_update_pretip_frame(
                  TECMO_GAMEPLAY_TEAM_HOME && held_one) ||
             (scene->launch.controller_team[1] ==
                  TECMO_GAMEPLAY_TEAM_HOME && held_two);
+        /* A team-routed human level always wins this decision seam.  Only a
+           team with no assigned controller receives the fixed-frame CPU
+           approximation; the presentation arc below remains unconditional
+           for both selected jumpers. */
+        if (!pretip_away_held) {
+            pretip_away_held = scene_pretip_cpu_should_sample(
+                scene, TECMO_GAMEPLAY_TEAM_AWAY);
+        }
+        if (!pretip_home_held) {
+            pretip_home_held = scene_pretip_cpu_should_sample(
+                scene, TECMO_GAMEPLAY_TEAM_HOME);
+        }
     }
     if (!tecmo_gameplay_pretip_update(
             &scene->pretip_assets, &scene->pretip_state,
