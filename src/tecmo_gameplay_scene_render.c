@@ -49,22 +49,23 @@ bool tecmo_gameplay_scene_render_build_background_context(
     TecmoGameplayLiveBackgroundContext *context)
 {
     bool pretip;
-    if (scene->launch.home_team >= TECMO_GAMEPLAY_TEAM_LIMIT) return false;
-    /*
-     * The center-tip setup uses the neutral final R1 page. Team-specific
-     * selectors are not installed until the live handoff.
-     */
-    pretip = tecmo_gameplay_scene_in_pretip(scene);
-    if (!tecmo_gameplay_assets_build_live_background_context(
-            &scene->assets,
-            pretip ? 0x40U
-                   : (uint8_t)(0x40U + scene->launch.home_team),
-            context)) {
+    uint8_t final_r1_selector;
+    if (scene == NULL || context == NULL ||
+        scene->launch.away_team >= TECMO_GAMEPLAY_TEAM_LIMIT ||
+        scene->launch.home_team >= TECMO_GAMEPLAY_TEAM_LIMIT) {
         return false;
     }
-    if (pretip)
-        context->pre_asl_r1[TECMO_GAMEPLAY_LIVE_BAND_COUNT - 1U] = 0x3FU;
-    return true;
+    /*
+     * TGPL's final live-band R1 selector is the pre-ASL team selector
+     * ($40 + team id). During the pre-tip jump-contest the away team is
+     * still the live court's team binding; after handoff the home team is
+     * selected by the ordinary live path.
+     */
+    pretip = tecmo_gameplay_scene_in_pretip(scene);
+    final_r1_selector = (uint8_t)(0x40U +
+        (pretip ? scene->launch.away_team : scene->launch.home_team));
+    return tecmo_gameplay_assets_build_live_background_context(
+        &scene->assets, final_r1_selector, context);
 }
 
 static bool scene_background_tile_chr(
@@ -771,8 +772,9 @@ static bool scene_draw_pretip_cell(
 {
     uint32_t rgba[4];
     uint8_t index;
-    if (cell == NULL || cell->chr_offset + 16U >
-            scene->assets.chr_storage_size) {
+    if (scene == NULL || view == NULL || cell == NULL || palette == NULL ||
+        scale <= 0 || cell->chr_offset > scene->assets.chr_storage_size ||
+        scene->assets.chr_storage_size - cell->chr_offset < 16U) {
         return false;
     }
     index = palette_override >= 0
@@ -851,6 +853,45 @@ static bool scene_draw_pretip_text(
     return true;
 }
 
+static bool scene_validate_pretip_team(
+    const TecmoGameplayScene *scene,
+    uint8_t team_id,
+    int logo_x,
+    int logo_y,
+    int scale)
+{
+    const TecmoTeamDataTeam *team;
+    size_t index;
+    if (scene == NULL || scene->pretip_team_data == NULL ||
+        !scene->pretip_team_data->available ||
+        team_id >= TECMO_TEAM_DATA_REAL_TEAM_COUNT || scale <= 0 ||
+        logo_x < 0 || logo_y < 0) {
+        return false;
+    }
+    team = &scene->pretip_team_data->teams[team_id];
+    if (team->logo_width == 0U || team->logo_height == 0U ||
+        team->logo_count == 0U ||
+        (size_t)team->logo_width * team->logo_height != team->logo_count ||
+        team->logo_count > TECMO_TEAM_DATA_LOGO_CELL_LIMIT ||
+        team->profile_palette_group >= TECMO_TEAM_DATA_PROFILE_PALETTE_COUNT ||
+        (int)team->logo_width * 8 >
+            TECMO_GAMEPLAY_SCENE_NES_WIDTH - logo_x ||
+        (int)team->logo_height * 8 >
+            TECMO_GAMEPLAY_SCENE_NES_HEIGHT - logo_y) {
+        return false;
+    }
+    for (index = 0U; index < team->logo_count; ++index) {
+        const TecmoStartGameMenuCell *cell =
+            &scene->pretip_team_data->logos[team_id][index];
+        if (cell->chr_offset > scene->assets.chr_storage_size ||
+            scene->assets.chr_storage_size - cell->chr_offset < 16U ||
+            cell->palette_index > 3U) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool scene_draw_pretip_team(
     const TecmoGameplayScene *scene,
     TecmoFramebuffer *view,
@@ -863,21 +904,11 @@ static bool scene_draw_pretip_team(
     const TecmoTeamDataTeam *team;
     uint8_t logo_palette[16];
     size_t index;
-    if (team_id >= TECMO_TEAM_DATA_REAL_TEAM_COUNT) return false;
-    team = &scene->pretip_team_data->teams[team_id];
-    if (team->logo_width == 0U || team->logo_height == 0U ||
-        team->logo_count == 0U ||
-        (size_t)team->logo_width * team->logo_height != team->logo_count ||
-        team->logo_count > TECMO_TEAM_DATA_LOGO_CELL_LIMIT ||
-        team->profile_palette_group >=
-            TECMO_TEAM_DATA_PROFILE_PALETTE_COUNT ||
-        logo_x < 0 || logo_y < 0 ||
-        (int)team->logo_width * 8 >
-            TECMO_GAMEPLAY_SCENE_NES_WIDTH - logo_x ||
-        (int)team->logo_height * 8 >
-            TECMO_GAMEPLAY_SCENE_NES_HEIGHT - logo_y) {
+    if (!scene_validate_pretip_team(
+            scene, team_id, logo_x, logo_y, scale)) {
         return false;
     }
+    team = &scene->pretip_team_data->teams[team_id];
     memcpy(logo_palette,
            scene->pretip_team_data->profile_palettes[
                team->profile_palette_group],
@@ -1034,6 +1065,13 @@ static bool scene_draw_pretip_cards(const TecmoGameplayScene *scene,
         }
         return scene_draw_pretip_closeup(
             scene, &view, scale, phase_frame);
+    }
+    if (phase == TECMO_GAMEPLAY_PRETIP_MATCHUP &&
+        (!scene_validate_pretip_team(
+             scene, scene->launch.away_team, 16, 32, scale) ||
+         !scene_validate_pretip_team(
+             scene, scene->launch.home_team, 16, 128, scale))) {
+        return false;
     }
     if (!scene_draw_pretip_template(scene, &view, scale)) return false;
     if (phase == TECMO_GAMEPLAY_PRETIP_FIRST_PERIOD &&

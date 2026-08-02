@@ -212,6 +212,111 @@ static bool scene_test_live_hud_equal(
     return memcmp(&left_hud, &right_hud, sizeof(left_hud)) == 0;
 }
 
+static bool scene_test_background_selector_contract(
+    const TecmoGameplayScene *scene,
+    char *message,
+    size_t message_size)
+{
+    static const uint8_t team_probes[] = {
+        0U, 3U, 10U, TECMO_TEAM_DATA_LAKERS_TEAM_ID,
+        TECMO_GAMEPLAY_TEAM_LIMIT - 1U
+    };
+    TecmoGameplayScene probe;
+    TecmoGameplayLiveBackgroundContext context;
+    TecmoGameplayLiveBackgroundContext unchanged;
+    size_t index;
+    if (scene == NULL) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size, "background selector scene was null");
+        return false;
+    }
+
+    probe = *scene;
+    probe.active = true;
+    probe.pretip_state.contract_tag = TECMO_GAMEPLAY_PRETIP_STATE_TAG;
+    probe.pretip_state.phase = TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST;
+    probe.pretip_state.aborted = false;
+    probe.pretip_state.live_handoff = false;
+    for (index = 0U; index < sizeof(team_probes); ++index) {
+        uint8_t expected = (uint8_t)(0x40U + team_probes[index]);
+        probe.launch.away_team = team_probes[index];
+        probe.launch.home_team = team_probes[index] == 0U ? 1U : 0U;
+        memset(&context, 0xA5, sizeof(context));
+        if (!scene_build_background_context(&probe, &context) ||
+            context.pre_asl_r1[TECMO_GAMEPLAY_LIVE_BAND_COUNT - 1U] !=
+                expected ||
+            context.pre_asl_r1[TECMO_GAMEPLAY_LIVE_BAND_COUNT - 1U] ==
+                0x3FU) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "pre-tip final R1 away-team selector contract failed");
+            return false;
+        }
+    }
+
+    probe = *scene;
+    probe.active = true;
+    probe.pretip_state.contract_tag = TECMO_GAMEPLAY_PRETIP_STATE_TAG;
+    probe.pretip_state.phase = TECMO_GAMEPLAY_PRETIP_LIVE;
+    probe.pretip_state.aborted = false;
+    probe.pretip_state.live_handoff = true;
+    probe.launch.away_team = 3U;
+    for (index = 0U; index < sizeof(team_probes); ++index) {
+        probe.launch.home_team = team_probes[index];
+        memset(&context, 0xA5, sizeof(context));
+        if (!scene_build_background_context(&probe, &context) ||
+            context.pre_asl_r1[TECMO_GAMEPLAY_LIVE_BAND_COUNT - 1U] !=
+                (uint8_t)(0x40U + team_probes[index])) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "non-tip final R1 home-team selector contract changed");
+            return false;
+        }
+    }
+
+    memset(&context, 0xA5, sizeof(context));
+    unchanged = context;
+    probe = *scene;
+    probe.pretip_state.contract_tag = TECMO_GAMEPLAY_PRETIP_STATE_TAG;
+    probe.pretip_state.phase = TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST;
+    probe.pretip_state.aborted = false;
+    probe.pretip_state.live_handoff = false;
+    probe.launch.away_team = TECMO_GAMEPLAY_TEAM_LIMIT;
+    if (scene_build_background_context(&probe, &context) ||
+        memcmp(&context, &unchanged, sizeof(context)) != 0) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "malformed pre-tip away team was accepted or mutated output");
+        return false;
+    }
+    probe = *scene;
+    probe.launch.home_team = TECMO_GAMEPLAY_TEAM_LIMIT;
+    memset(&context, 0xA5, sizeof(context));
+    unchanged = context;
+    if (scene_build_background_context(&probe, &context) ||
+        memcmp(&context, &unchanged, sizeof(context)) != 0) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "malformed non-tip home team was accepted or mutated output");
+        return false;
+    }
+    memset(&context, 0xA5, sizeof(context));
+    unchanged = context;
+    if (scene_build_background_context(NULL, &context) ||
+        memcmp(&context, &unchanged, sizeof(context)) != 0 ||
+        scene_build_background_context(scene, NULL) ||
+        tecmo_gameplay_assets_build_live_background_context(
+            &scene->assets, 0x3FU, &context) ||
+        tecmo_gameplay_assets_build_live_background_context(
+            &scene->assets, 0x5BU, &context)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "malformed live selector input was accepted or mutated output");
+        return false;
+    }
+    return true;
+}
+
 static bool scene_test_projection_is_neutral(
     const TecmoGameplayActorProjection *projection)
 {
@@ -1192,6 +1297,118 @@ typedef struct TecmoGameplaySceneTestRenderBuffers {
     TecmoFramebuffer framebuffer;
 } TecmoGameplaySceneTestRenderBuffers;
 
+static bool scene_test_pretip_logo_contract(
+    const TecmoGameplayScene *scene,
+    char *message,
+    size_t message_size)
+{
+    const int width = TECMO_GAMEPLAY_SCENE_NES_WIDTH + 24;
+    const int height = TECMO_GAMEPLAY_SCENE_NES_HEIGHT + 20;
+    const int origin_x = 12;
+    const int origin_y = 10;
+    const size_t pixel_count = (size_t)width * (size_t)height;
+    const uint32_t sentinel = 0xA5A5A5A5U;
+    TecmoGameplayScene probe;
+    TecmoTeamDataAsset *team_data = NULL;
+    TecmoFramebuffer framebuffer;
+    uint32_t *pixels = NULL;
+    size_t pixel;
+    const char *failure = NULL;
+
+    if (scene == NULL || scene->pretip_team_data == NULL) {
+        failure = "pre-tip logo data was unavailable";
+        goto done;
+    }
+    team_data = (TecmoTeamDataAsset *)malloc(sizeof(*team_data));
+    pixels = (uint32_t *)malloc(pixel_count * sizeof(*pixels));
+    if (team_data == NULL || pixels == NULL) {
+        failure = "pre-tip logo contract allocation failed";
+        goto done;
+    }
+    *team_data = *scene->pretip_team_data;
+    probe = *scene;
+    probe.active = true;
+    probe.pretip_team_data = team_data;
+    probe.launch.away_team = 3U;
+    probe.launch.home_team = 10U;
+    probe.pretip_state.contract_tag = TECMO_GAMEPLAY_PRETIP_STATE_TAG;
+    probe.pretip_state.phase = TECMO_GAMEPLAY_PRETIP_MATCHUP;
+    probe.pretip_state.phase_frame = 30U;
+    probe.pretip_state.aborted = false;
+    probe.pretip_state.live_handoff = false;
+    framebuffer.pixels = pixels;
+    framebuffer.width = width;
+    framebuffer.height = height;
+    framebuffer.pitch_pixels = width;
+
+    /* The renderer must accept both compact and full 10x6 TTDT logos. */
+    team_data->teams[3U].logo_width = 1U;
+    team_data->teams[3U].logo_height = 1U;
+    team_data->teams[3U].logo_count = 1U;
+    team_data->teams[10U].logo_width = 2U;
+    team_data->teams[10U].logo_height = 2U;
+    team_data->teams[10U].logo_count = 4U;
+    for (pixel = 0U; pixel < pixel_count; ++pixel) pixels[pixel] = sentinel;
+    if (!tecmo_gameplay_scene_draw(
+            &probe, &framebuffer, origin_x, origin_y, 1, false) ||
+        !scene_test_outer_margin_equal(
+            pixels, width, height, width, origin_x, origin_y,
+            TECMO_GAMEPLAY_SCENE_NES_WIDTH,
+            TECMO_GAMEPLAY_SCENE_NES_HEIGHT, sentinel) ||
+        scene_test_pixels_equal(pixels, pixel_count, sentinel)) {
+        failure = "variable TTDT logo dimensions rendered incorrectly";
+        goto done;
+    }
+
+    team_data->teams[3U].logo_width = 10U;
+    team_data->teams[3U].logo_height = 6U;
+    team_data->teams[3U].logo_count = 60U;
+    team_data->teams[10U].logo_width = 1U;
+    team_data->teams[10U].logo_height = 1U;
+    team_data->teams[10U].logo_count = 1U;
+    for (pixel = 0U; pixel < pixel_count; ++pixel) pixels[pixel] = sentinel;
+    if (!tecmo_gameplay_scene_draw(
+            &probe, &framebuffer, origin_x, origin_y, 1, false) ||
+        !scene_test_outer_margin_equal(
+            pixels, width, height, width, origin_x, origin_y,
+            TECMO_GAMEPLAY_SCENE_NES_WIDTH,
+            TECMO_GAMEPLAY_SCENE_NES_HEIGHT, sentinel) ||
+        scene_test_pixels_equal(pixels, pixel_count, sentinel)) {
+        failure = "10x6 TTDT logo rendered incorrectly";
+        goto done;
+    }
+
+    /* A malformed logo must be rejected before the card template touches the
+       destination framebuffer. */
+    team_data->teams[3U].logo_width = 3U;
+    team_data->teams[3U].logo_height = 2U;
+    team_data->teams[3U].logo_count = 5U;
+    for (pixel = 0U; pixel < pixel_count; ++pixel) pixels[pixel] = sentinel;
+    if (tecmo_gameplay_scene_draw(
+            &probe, &framebuffer, origin_x, origin_y, 1, false) ||
+        !scene_test_pixels_equal(pixels, pixel_count, sentinel)) {
+        failure = "malformed TTDT logo was accepted or partially rendered";
+        goto done;
+    }
+    probe.launch.home_team = TECMO_GAMEPLAY_TEAM_LIMIT;
+    for (pixel = 0U; pixel < pixel_count; ++pixel) pixels[pixel] = sentinel;
+    if (tecmo_gameplay_scene_draw(
+            &probe, &framebuffer, origin_x, origin_y, 1, false) ||
+        !scene_test_pixels_equal(pixels, pixel_count, sentinel)) {
+        failure = "malformed pre-tip team id was accepted or partially rendered";
+        goto done;
+    }
+
+done:
+    free(pixels);
+    free(team_data);
+    if (failure != NULL) {
+        tecmo_gameplay_scene_test_message(message, message_size, failure);
+        return false;
+    }
+    return true;
+}
+
 static bool scene_test_render_hashes(
     const TecmoGameplayScene *scene,
     const TecmoGameplayScene *left_slice_probe,
@@ -1496,7 +1713,11 @@ bool tecmo_gameplay_scene_test_render_contract(
             scene, &fine_scroll_probe, &p1, &p2,
             message, message_size) ||
         !scene_test_orientation_contract(
-            scene, &launch, message, message_size)) {
+            scene, &launch, message, message_size) ||
+        !scene_test_background_selector_contract(
+            scene, message, message_size) ||
+        !scene_test_pretip_logo_contract(
+            scene, message, message_size)) {
         tecmo_gameplay_scene_destroy(scene);
         return false;
     }

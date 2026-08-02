@@ -218,10 +218,10 @@ $Modes = @(
     [pscustomobject]@{ mode="gameplay-pretip-frame271"; phase="closeup"; frame=271; hash="A73F8C5E051EAE42462932DDE430FC50D1109BDAA1E7F96D2CE0EB22DAE36889" },
     [pscustomobject]@{ mode="gameplay-pretip-frame300"; phase="closeup"; frame=300; hash="7D3227F3D2256DBFA036F3C7761EB03A41C467C330E8A4097EBBD68D20DC45E1" },
     [pscustomobject]@{ mode="gameplay-pretip-frame330"; phase="closeup"; frame=330; hash="CF24E1A5BEFFB62DCA85304DBC739A11CABCAE50F112870669D7CCA4C2EBAC0B" },
-    [pscustomobject]@{ mode="gameplay-pretip-frame481"; phase="ball-descent"; frame=481; hash="E3BC3BB7DA3A9FB73CAEF76BD7BB7F31953C2D3110E95E91E9F1D9E40A076BA5" },
+    [pscustomobject]@{ mode="gameplay-pretip-frame481"; phase="ball-descent"; frame=481; hash="682A75767388E9275CB1B0C79E2CD40B7F31B73CDE9849D1BD1B8C9B34C4F0C8" },
     [pscustomobject]@{ mode="gameplay-pretip-frame631"; phase="toss-closeup"; frame=631; hash="CDE4C17159C79207CA82281204547FD2794E81858A52A6FB312E937CEEDF162C" },
-    [pscustomobject]@{ mode="gameplay-pretip-frame661"; phase="jump-contest"; frame=661; hash="0AB2B11E7C3ABDC3D051E9D20A7BF7EE016E6A89DBA7D3408F136041AF7A3F50" },
-    [pscustomobject]@{ mode="gameplay-pretip-bulls-pacers"; phase="jump-contest"; frame=661; hash="1895247EED63FA65D78F46CBC9510C4ACF751A4CF4DB969C599E429CDFC09040" },
+    [pscustomobject]@{ mode="gameplay-pretip-frame661"; phase="jump-contest"; frame=661; hash="84F130B311C8620F57F747B6213882B11150F6AB4963B45FA902F5D4471947E7" },
+    [pscustomobject]@{ mode="gameplay-pretip-bulls-pacers"; phase="jump-contest"; frame=661; hash="9DFFAFEE4E3B1D2A4AC4E901BF2F4F7746E8E5D20622998F6BDD9F5C7238F2E2" },
     [pscustomobject]@{ mode="gameplay-live-start"; phase="live"; frame=691; hash="551C75645BBA1B1543CCA93A9A98BB2664E9872F38B8581B11AB144D3249C7BA" }
 )
 $RenderedHashes = @{}
