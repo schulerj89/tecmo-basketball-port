@@ -20,6 +20,10 @@
 #define TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME UINT16_MAX
 #define TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES 30U
 #define TECMO_GAMEPLAY_PRETIP_PRESENTATION_FRAMES 60U
+/* The original automatic-path timing is not proven by the bounded source
+   spans.  The native scene therefore uses one deterministic, visible-window
+   CPU decision frame as an explicit approximation. */
+#define TECMO_GAMEPLAY_PRETIP_CPU_SAMPLE_FRAME 8U
 #define TECMO_GAMEPLAY_PRETIP_AWAY_WINNER 0U
 #define TECMO_GAMEPLAY_PRETIP_HOME_WINNER 1U
 

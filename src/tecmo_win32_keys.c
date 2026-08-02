@@ -126,6 +126,30 @@ void tecmo_win32_keyboard_init(TecmoWin32KeyboardState *state)
     }
 }
 
+static bool keyboard_logical_button_down(
+    const TecmoWin32KeyboardState *state,
+    unsigned player_index,
+    TecmoControlButton button)
+{
+    if (state == NULL || player_index >= TECMO_WIN32_CONTROLLER_COUNT ||
+        button >= TECMO_CONTROL_COUNT) {
+        return false;
+    }
+    for (uint32_t candidate = 0U;
+         candidate < TECMO_WIN32_TRACKED_KEY_COUNT;
+         ++candidate) {
+        TecmoWin32KeyBinding candidate_binding;
+
+        if (state->physical_down[candidate] &&
+            tecmo_win32_translate_key(candidate, &candidate_binding) &&
+            candidate_binding.player_index == player_index &&
+            candidate_binding.button == button) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool tecmo_win32_keyboard_update(TecmoWin32KeyboardState *state,
                                  uint32_t virtual_key,
                                  bool physical_down,
@@ -133,7 +157,8 @@ bool tecmo_win32_keyboard_update(TecmoWin32KeyboardState *state,
                                  bool *logical_down_out)
 {
     TecmoWin32KeyBinding binding;
-    bool logical_down = false;
+    bool logical_was_down;
+    bool logical_down;
 
     if (state == NULL ||
         binding_out == NULL ||
@@ -143,24 +168,69 @@ bool tecmo_win32_keyboard_update(TecmoWin32KeyboardState *state,
         return false;
     }
 
+    logical_was_down = keyboard_logical_button_down(
+        state, binding.player_index, binding.button);
     state->physical_down[virtual_key] = physical_down;
-    for (uint32_t candidate = 0U;
-         candidate < TECMO_WIN32_TRACKED_KEY_COUNT;
-         ++candidate) {
-        TecmoWin32KeyBinding candidate_binding;
-
-        if (state->physical_down[candidate] &&
-            tecmo_win32_translate_key(candidate, &candidate_binding) &&
-            candidate_binding.player_index == binding.player_index &&
-            candidate_binding.button == binding.button) {
-            logical_down = true;
-            break;
-        }
+    logical_down = keyboard_logical_button_down(
+        state, binding.player_index, binding.button);
+    if (!logical_was_down && logical_down) {
+        state->pending_press[binding.player_index][binding.button] = true;
     }
 
     *binding_out = binding;
     *logical_down_out = logical_down;
     return true;
+}
+
+void tecmo_win32_keyboard_begin_controls_frame(
+    TecmoWin32KeyboardState *state,
+    TecmoControls *controls,
+    size_t control_count)
+{
+    size_t active_count;
+    size_t player;
+    unsigned button;
+
+    if (state == NULL || controls == NULL) return;
+    active_count = control_count < TECMO_WIN32_CONTROLLER_COUNT
+                       ? control_count
+                       : TECMO_WIN32_CONTROLLER_COUNT;
+    for (player = 0U; player < active_count; ++player) {
+        for (button = 0U; button < TECMO_CONTROL_COUNT; ++button) {
+            if (state->pending_press[player][button]) {
+                tecmo_controls_set_button(
+                    &controls[player], (TecmoControlButton)button, true);
+            }
+        }
+        tecmo_controls_begin_frame(&controls[player]);
+    }
+}
+
+void tecmo_win32_keyboard_end_controls_frame(
+    TecmoWin32KeyboardState *state,
+    TecmoControls *controls,
+    size_t control_count)
+{
+    size_t active_count;
+    size_t player;
+    unsigned button;
+
+    if (state == NULL || controls == NULL) return;
+    active_count = control_count < TECMO_WIN32_CONTROLLER_COUNT
+                       ? control_count
+                       : TECMO_WIN32_CONTROLLER_COUNT;
+    for (player = 0U; player < active_count; ++player) {
+        for (button = 0U; button < TECMO_CONTROL_COUNT; ++button) {
+            if (state->pending_press[player][button]) {
+                tecmo_controls_set_button(
+                    &controls[player], (TecmoControlButton)button,
+                    keyboard_logical_button_down(
+                        state, (unsigned)player,
+                        (TecmoControlButton)button));
+                state->pending_press[player][button] = false;
+            }
+        }
+    }
 }
 
 static bool expect_binding(uint32_t virtual_key,
@@ -206,6 +276,7 @@ bool tecmo_win32_keys_self_test(char *message, size_t message_size)
         {TECMO_WIN32_VK_NUMPAD7, TECMO_CONTROL_TAB}
     };
     TecmoWin32KeyBinding sentinel = {7U, TECMO_CONTROL_DEBUG_TOGGLE};
+    TecmoControls controls;
     TecmoWin32KeyboardState keyboard;
     bool logical_down = false;
 
@@ -235,9 +306,12 @@ bool tecmo_win32_keys_self_test(char *message, size_t message_size)
         sentinel.button != TECMO_CONTROL_DEBUG_TOGGLE ||
         tecmo_win32_translate_key(TECMO_WIN32_VK_TAB, &sentinel) ||
         sentinel.player_index != 7U ||
+        sentinel.button != TECMO_CONTROL_DEBUG_TOGGLE ||
+        tecmo_win32_translate_key('B', &sentinel) ||
+        sentinel.player_index != 7U ||
         sentinel.button != TECMO_CONTROL_DEBUG_TOGGLE) {
         set_test_message(message, message_size,
-                         "LEGACY ESCAPE OR TAB KEY REMAINS BOUND");
+                         "PHYSICAL B OR LEGACY ESCAPE/TAB KEY REMAINS BOUND");
         return false;
     }
     if (tecmo_win32_translate_key('Z', NULL)) {
@@ -275,6 +349,63 @@ bool tecmo_win32_keys_self_test(char *message, size_t message_size)
                          "SHIFT SPACE ALIAS HOLD CONTRACT FAILED");
         return false;
     }
+
+    tecmo_win32_keyboard_init(&keyboard);
+    if (tecmo_win32_keyboard_update(
+            &keyboard, 'B', true, &sentinel, &logical_down) ||
+        logical_down ||
+        tecmo_win32_keyboard_update(
+            &keyboard, 'V', true, &sentinel, &logical_down) ||
+        logical_down ||
+        !tecmo_win32_keyboard_update(
+            &keyboard, 'X', true, &sentinel, &logical_down) ||
+        sentinel.player_index != 0U ||
+        sentinel.button != TECMO_CONTROL_CANCEL ||
+        !logical_down ||
+        tecmo_win32_keyboard_update(
+            &keyboard, 'B', false, &sentinel, &logical_down) ||
+        !tecmo_win32_keyboard_update(
+            &keyboard, 'X', false, &sentinel, &logical_down) ||
+        logical_down) {
+        set_test_message(message, message_size,
+                         "PHYSICAL B MUST REMAIN UNMAPPED BESIDE X");
+        return false;
+    }
+
+    tecmo_controls_init(&controls);
+    tecmo_win32_keyboard_init(&keyboard);
+    if (!tecmo_win32_keyboard_update(
+            &keyboard, 'X', true, &sentinel, &logical_down) ||
+        !logical_down ||
+        !tecmo_win32_keyboard_update(
+            &keyboard, 'X', false, &sentinel, &logical_down) ||
+        logical_down || controls.current.cancel ||
+        !keyboard.pending_press[0U][TECMO_CONTROL_CANCEL]) {
+        set_test_message(message, message_size,
+                         "FAST WIN32 X PRESS WAS NOT QUEUED");
+        return false;
+    }
+    tecmo_win32_keyboard_begin_controls_frame(&keyboard, &controls, 1U);
+    if (!tecmo_controls_held(&controls)->cancel) {
+        set_test_message(message, message_size,
+                         "FAST WIN32 X PRESS WAS NOT ONE FRAME");
+        return false;
+    }
+    tecmo_win32_keyboard_end_controls_frame(&keyboard, &controls, 1U);
+    if (controls.current.cancel ||
+        keyboard.pending_press[0U][TECMO_CONTROL_CANCEL]) {
+        set_test_message(message, message_size,
+                         "FAST WIN32 X PRESS WAS NOT RESTORED");
+        return false;
+    }
+    tecmo_win32_keyboard_begin_controls_frame(&keyboard, &controls, 1U);
+    if (tecmo_controls_held(&controls)->cancel ||
+        !tecmo_controls_released(&controls, TECMO_CONTROL_CANCEL)) {
+        set_test_message(message, message_size,
+                         "FAST WIN32 X PRESS REMAINED HELD");
+        return false;
+    }
+    tecmo_win32_keyboard_end_controls_frame(&keyboard, &controls, 1U);
 
     set_test_message(message, message_size, "WIN32 KEY SELF TEST PASS");
     return true;

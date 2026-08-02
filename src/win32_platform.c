@@ -260,14 +260,18 @@ int tecmo_run_win32_game(const char *project_root)
                 (LONGLONG)TECMO_MUSIC_TICK_NUMERATOR;
         }
 
-        tecmo_controls_begin_frame(&g_controls[0]);
-        tecmo_controls_begin_frame(&g_controls[1]);
+        tecmo_win32_keyboard_begin_controls_frame(
+            &g_keyboard, g_controls,
+            sizeof(g_controls) / sizeof(g_controls[0]));
         runtime->frame_seconds = (float)(
             (double)TECMO_MUSIC_TICK_DENOMINATOR /
             (double)TECMO_MUSIC_TICK_NUMERATOR);
         tecmo_runtime_update_players(runtime,
                                      tecmo_controls_held(&g_controls[0]),
                                      tecmo_controls_held(&g_controls[1]));
+        tecmo_win32_keyboard_end_controls_frame(
+            &g_keyboard, g_controls,
+            sizeof(g_controls) / sizeof(g_controls[0]));
         if (runtime->quit_requested) {
             g_running = false;
             continue;

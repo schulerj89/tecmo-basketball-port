@@ -145,10 +145,18 @@ initialization and presents frame 0 before updating. The console
 diagnostic menu.
 
 The Win32 Player 1 adapter maps arrows to directions, Z to NES A, X to NES B,
-Enter to START, and both Shift and Space to SELECT. Escape and Tab are
-unbound. Player 2 keeps numpad 8/2/4/6 for directions and numpad 1/3/9/7 for
-NES A/NES B/START/SELECT. This platform mapping is kept outside native game
-semantics and is exercised by the headless `--controls-test`.
+Enter to START, and both Shift and Space to SELECT. The literal physical B
+key, Escape, and Tab are unbound. Player 2 keeps numpad 8/2/4/6 for
+directions and numpad 1/3/9/7 for NES A/NES B/START/SELECT. This platform
+mapping is kept outside native game semantics and is exercised by the headless
+`--controls-test`. The PC event bridge retains one bounded pending logical
+press per mapped controller/button, so a mapped down/up pair drained between
+60 Hz updates is presented for one update while a physically held key remains
+held. This is PC event-queue robustness, not ROM-exact input timing. The
+bridge's `tecmo_win32_keyboard_begin_controls_frame` and
+`tecmo_win32_keyboard_end_controls_frame` calls must bracket exactly one
+`tecmo_runtime_update_players` call: begin exposes the effective current input,
+and end restores the physical levels and clears the one-update pulse.
 
 ## Scripted Screens
 

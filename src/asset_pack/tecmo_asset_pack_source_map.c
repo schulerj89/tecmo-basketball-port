@@ -3520,9 +3520,9 @@ static int append_gameplay_pretip_source_map_entry(
         "\"fingerprint_fnv1a32\":\"423816F1\","
         "\"fingerprint_fnv1a64\":\"032F8A7A4F4439D1\","
         "\"rom_exact\":true,"
-        "\"proves\":\"current-level NES B mask $40 is read and latched before the later height/countdown gate\","
-        "\"does_not_prove\":\"winner settlement\"},"
-        "\"tip_input\":\"the first 30 native jump-contest updates accept the first held NES B level routed by team; target frame 0, capped error 0..11, no-sample error 12, and tie-away settlement are explicit native approximations\","
+        "\"proves\":\"current-level NES B mask $40 is read and latched before the later height/countdown gate; the exact Bank05 $98E1 lda $030C,Y / beq L9920 branch sends nonzero through $04A5,X/L9360/L9354/L9936 and zero to the held-B test at $05,Y & $40, supporting but not proving an automatic/CPU-selector interpretation\","
+        "\"does_not_prove\":\"winner settlement, caller/state identity, exact CPU/human or automatic/CPU-selector meaning of $030C,Y, or original CPU timing/decision cadence\"},"
+        "\"tip_input\":\"the first 30 native jump-contest updates accept the first held NES B level routed by team; target frame 0, capped error 0..11, no-sample error 12, and tie-away settlement are explicit native approximations; an unassigned team receives one deterministic CPU decision at contest frame 8 inside that visible window as an evidence-informed approximation, not a claim of exact automatic-path timing\","
         "\"winner_query_gate\":\"rejects before jump-contest without mutating caller output; accepted during jump-contest and live\","
         "\"tip_lineup\":\"Bank04 $AC8C-$ACD9 initializes object slots 0..10 from $ADA3/$ADAE/$ADB9; native play consumes the exact ten player coordinates and ball anchor\","
         "\"tip_jumper_selectors\":[4,9],"
@@ -3533,7 +3533,7 @@ static int append_gameplay_pretip_source_map_entry(
         "\"ball_descent\":\"Y 71..145 over the first 60 of 120 frames, then held through the phase boundary\","
         "\"clock_rules_controls\":\"frozen until live handoff\","
         "\"music\":\"track 8 at card start; game-music track 5 only at live handoff\","
-        "\"winner_policy\":\"native lower-error contest timing drives jump interaction and initial possession; equal errors choose away deterministically, while exact original winner and claim settlement remain unported\","
+        "\"winner_policy\":\"native lower-error contest timing drives jump interaction and initial possession; an unassigned team samples at fixed contest frame 8 as an explicit CPU approximation, equal errors choose away deterministically, while exact original winner, claim settlement, the inferred CPU/human selector meaning of the $030C,Y branch, and original timing remain unported\","
         "\"runtime_inputs\":\"TPTI-1 and exact same-pack dependencies only; no ROM, ASM, decompilation, Lua, trace, capture, screenshot, video, log, dump, or save state\"}}",
         (unsigned long long)(
             provenance->source_offsets[
