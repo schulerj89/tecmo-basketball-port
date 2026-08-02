@@ -88,9 +88,12 @@ typedef struct TecmoGameplayCpuSteeringAssets {
 
 /* Bounded native composition policy for exercising the isolated TGAI
    direction boundary with a complete canonical court snapshot. The CLI and
-   live scene share it. A linked actor is the port's explicit stand-in for the
-   still-unreconstructed ROM $06CB,X assignment. Slots 0..4 are away/team 0
-   and slots 5..9 are home/team 1, matching TecmoGameplayScene. This is not a
+   live scene share it. A fixed linked actor is matchup/pose and
+   defender-reference metadata: it is the port's explicit stand-in for the
+   still-unreconstructed ROM $06CB,X assignment, not a non-holder's live
+   target coordinate. Non-holder live targets are explicit canonical
+   coordinates supplied by the native policy. Slots 0..4 are away/team 0 and
+   slots 5..9 are home/team 1, matching TecmoGameplayScene. This is not a
    reconstructed ROM play selector. */
 typedef enum TecmoGameplayCpuSteeringHarnessTargetKind {
     TECMO_GAMEPLAY_CPU_STEERING_HARNESS_LINKED_ACTOR = 0,
@@ -109,8 +112,11 @@ typedef struct TecmoGameplayCpuSteeringHarnessInput {
     uint8_t ball_holder;
     uint8_t matchup_actor;
     uint8_t difficulty;
-    /* Optional native-policy target. When false, preserve the existing
-       holder-hoop or linked-actor target selection used by the CLI/tests. */
+    /* When false, preserve the existing harness selection: the holder uses
+       the hoop-approach target and a non-holder uses the linked-actor
+       coordinate. The live scene sets this true for every non-holder so its
+       live target is an explicit native-policy coordinate; the fixed
+       matchup/pose/defender reference remains matchup_actor. */
     bool has_explicit_target;
     TecmoGameplayCourtCoordinate explicit_target;
 } TecmoGameplayCpuSteeringHarnessInput;
@@ -127,6 +133,8 @@ typedef struct TecmoGameplayCpuSteeringHarnessResult {
     uint8_t possession;
     uint8_t orientation;
     uint8_t ball_holder;
+    /* Fixed matchup/pose/defender-reference metadata; this does not replace
+       the non-holder's explicit live target coordinate. */
     uint8_t matchup_actor;
     uint8_t difficulty;
     uint8_t target_actor;

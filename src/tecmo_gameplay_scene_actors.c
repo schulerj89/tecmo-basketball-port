@@ -648,6 +648,33 @@ static bool scene_cpu_policy_target(
         target_x = (int32_t)linked->x + goal_side * 32;
         target_y = (int32_t)linked->y +
             defender_depth_split[item->roster_index];
+        /* Keep the bounded native policy from collapsing a boundary defender
+           onto its fixed link. If the goal-side point is outside the shaped
+           court, use the same 32-pixel distance on the court side. The final
+           full-world bounds clamp below remains the safety check. */
+        {
+            bool goal_side_outside =
+                target_x < TECMO_GAMEPLAY_COURT_WORLD_MIN_X ||
+                target_x > TECMO_GAMEPLAY_COURT_WORLD_MAX_X;
+            int32_t boundary_y = target_y;
+            if (boundary_y < TECMO_GAMEPLAY_COURT_WORLD_MIN_Y) {
+                boundary_y = TECMO_GAMEPLAY_COURT_WORLD_MIN_Y;
+            } else if (boundary_y > TECMO_GAMEPLAY_COURT_WORLD_MAX_Y) {
+                boundary_y = TECMO_GAMEPLAY_COURT_WORLD_MAX_Y;
+            }
+            if (!goal_side_outside) {
+                int32_t half_y = boundary_y / 2;
+                int32_t left_boundary =
+                    TECMO_GAMEPLAY_LEFT_BOUNDARY_BASE - half_y;
+                int32_t right_boundary =
+                    TECMO_GAMEPLAY_RIGHT_BOUNDARY_BASE + half_y;
+                goal_side_outside = target_x < left_boundary ||
+                    target_x > right_boundary;
+            }
+            if (goal_side_outside) {
+                target_x = (int32_t)linked->x - goal_side * 32;
+            }
+        }
     }
     if (target_x < TECMO_GAMEPLAY_COURT_WORLD_MIN_X) {
         target_x = TECMO_GAMEPLAY_COURT_WORLD_MIN_X;
