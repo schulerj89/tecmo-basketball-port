@@ -856,7 +856,7 @@ static bool scene_test_cpu_target_snapshot(
     int32_t expected_x;
     int32_t expected_y;
     int32_t goal_side;
-    if (scene == NULL || snapshot == NULL || message == NULL ||
+    if (scene == NULL || snapshot == NULL ||
         actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         orientation >= TECMO_GAMEPLAY_COURT_ORIENTATION_COUNT) {
         return false;
@@ -982,23 +982,36 @@ static bool scene_test_cpu_formation_regression(
     {
         TecmoGameplayCourtCoordinate linked_snapshot =
             scene->actors[0U].position;
+        TecmoGameplayCourtCoordinate split_link_snapshot;
         int16_t expected_target_x;
+        int16_t expected_split_target_x;
         char failure[192];
         scene->actors[0U].position.x = (int16_t)(
             TECMO_GAMEPLAY_LEFT_BOUNDARY_BASE - linked_snapshot.y / 2);
         scene->actors[0U].anchor = scene->actors[0U].position;
         linked_snapshot = scene->actors[0U].position;
         expected_target_x = (int16_t)(linked_snapshot.x + 32);
+        scene->actors[1U].position.x = TECMO_GAMEPLAY_LEFT_BOUNDARY_BASE;
+        scene->actors[1U].position.y = TECMO_GAMEPLAY_COURT_WORLD_MIN_Y;
+        scene->actors[1U].anchor = scene->actors[1U].position;
+        split_link_snapshot = scene->actors[1U].position;
+        expected_split_target_x = (int16_t)(split_link_snapshot.x + 32);
         if (!scene_attach_ball(scene) ||
             !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
             scene->cpu_actors[5U].target_position.x != expected_target_x ||
-            scene->cpu_actors[5U].target_position.y != linked_snapshot.y) {
+            scene->cpu_actors[5U].target_position.y != linked_snapshot.y ||
+            scene->cpu_actors[6U].target_position.x !=
+                expected_split_target_x ||
+            scene->cpu_actors[6U].target_position.y !=
+                TECMO_GAMEPLAY_COURT_WORLD_MIN_Y) {
             (void)snprintf(
                 failure, sizeof(failure),
-                "CPU defender boundary fallback failed: orientation=0 target=(%d,%d) linked=(%d,%d)",
+                "CPU defender boundary fallback failed: orientation=0 target=(%d,%d) linked=(%d,%d) split-target=(%d,%d)",
                 (int)scene->cpu_actors[5U].target_position.x,
                 (int)scene->cpu_actors[5U].target_position.y,
-                (int)linked_snapshot.x, (int)linked_snapshot.y);
+                (int)linked_snapshot.x, (int)linked_snapshot.y,
+                (int)scene->cpu_actors[6U].target_position.x,
+                (int)scene->cpu_actors[6U].target_position.y);
             tecmo_gameplay_scene_test_message(message, message_size, failure);
             return false;
         }

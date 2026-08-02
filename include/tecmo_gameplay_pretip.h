@@ -142,6 +142,9 @@ bool tecmo_gameplay_pretip_update(
     TecmoGameplayPreTipState *state,
     bool player_one_or_away_held_b,
     bool player_two_or_home_held_b);
+/* Rejects every phase before JUMP_CONTEST without changing winner. During
+   JUMP_CONTEST and LIVE, returns the native approximate lower-error/tie-away
+   contest result. */
 bool tecmo_gameplay_pretip_tip_winner(
     const TecmoGameplayPreTipAssets *assets,
     const TecmoGameplayPreTipState *state,

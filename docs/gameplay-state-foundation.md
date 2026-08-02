@@ -70,10 +70,12 @@ reference-verified. Three-digit score capping and the unassigned CPU-side
 holder/shooter matchup label are explicit native adapter policies.
 
 TGAI-1 is now a strict compound-scene dependency. The live adapter owns a
-fixed opposing roster-slot link, target snapshot, direction result, and
-decision serial for each actor. Its explicit no-command sentinel is important:
-the ROM play-command offset/link/advance lifecycle remains unported and is not
-silently implied by the live dependency.
+fixed opposing roster-slot link, explicit target snapshot, direction result,
+and decision serial for each actor. The link remains matchup/pose and defender-
+reference metadata; it is not the non-holder's implicit movement target. Its
+explicit no-command sentinel is important: the ROM play-command offset/link/
+advance lifecycle remains unported and is not silently implied by the live
+dependency.
 
 TGOR-1 owns only the binary offensive-direction state synchronized with live
 possession. Its exact Bank05 sources are the possession transition gate-and-
@@ -291,13 +293,16 @@ zero-delta harness evaluation succeeds with an explicit keep-direction/no-write
 result so no prior direction has to be fabricated.
 
 For each ordinary live update, the scene captures one immutable post-human-
-input snapshot of all ten canonical coordinates. Every non-controlled actor
-uses a scene-owned fixed opposing roster-slot link; the ball holder instead
-uses the orientation-aware `48/48/40`-pixel hoop approach. TGAI supplies the
-exact nonzero octant, and TGMO supplies exact latency, accumulation, animation,
-and role-coherent clamp behavior: primary for the offensive holder and
-secondary for every other actor. Candidate actor/movement/target
-states commit together so loop order cannot alter this frame's targets. The
+input snapshot of all ten canonical coordinates. The ball holder uses the
+orientation-aware `48/48/40`-pixel hoop approach, offensive non-holders use
+mirrored per-slot formation coordinates, and defenders use explicit goal-side
+offsets from their fixed linked opponent. A goal-side target outside the shaped
+court uses an equal inward offset before final validation. Those target choices
+are native approximations. TGAI supplies the exact nonzero octant, and TGMO
+supplies exact latency, accumulation, animation, and role-coherent clamp behavior: primary
+for the offensive holder and secondary for every other actor. Candidate actor/
+movement/target states commit together so loop order cannot alter this frame's
+targets. The
 fixed link, holder approach, zero-vector neutral bridge, object state/flags,
 and shot proximity/cadence remain native policy. No ROM command offset or
 advance is fabricated: live state carries an explicit no-command sentinel.

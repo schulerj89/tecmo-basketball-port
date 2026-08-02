@@ -838,6 +838,9 @@ is 12, lower error wins, and equal errors choose away. A hold carried into the
 phase samples frame 0; an edge without a held level does not. This deterministic
 window and timing policy are explicit native approximations. B cannot sample a
 tip during the close-up or court/toss phases and cannot cancel those phases.
+The public winner query rejects every phase before `JUMP_CONTEST` without
+changing caller-owned output; it is available during `JUMP_CONTEST` and after
+the live handoff.
 The game clock, shot clock, rules, actors, AI, and live camera remain frozen
 until the frame-691 handoff. Track 8 queues at card entry, and enabled GAME
 MUSIC queues track 5 only at that handoff. Bank04 `$AC8C-$ACD9` initializes
@@ -1401,9 +1404,11 @@ hoop approach. Offensive non-holders use five deterministic formation points
 `(256,148)`, `(288,112)`, `(288,184)`, `(352,96)`, and `(352,200)`, mirrored as
 `767-X` for the other orientation. Defenders use their linked offensive actor's
 immutable snapshot coordinate with a 32-pixel offset toward the attacked hoop
-and roster depth splits `0,-10,10,-14,14`. This restores meaningful spacing
-without claiming the original formation/play lifecycle. Ordinary CPU locomotion
-uses the exact TGMO step after TGAI direction selection; the offensive holder
+and roster depth splits `0,-10,10,-14,14`. If that goal-side offset crosses the
+shaped court boundary at the target depth, the adapter uses the equal 32-pixel
+offset toward the court before final validation. This restores meaningful
+spacing without claiming the original formation/play lifecycle. Ordinary CPU
+locomotion uses the exact TGMO step after TGAI direction selection; the offensive holder
 takes the primary clamp path and other actors take the secondary path. The
 deterministic `--gameplay-movement-harness` is console/test-only and never
 enters normal play.
@@ -1441,11 +1446,13 @@ entry-effect category—not a semantic play name.
 
 The deterministic steering evaluator accepts a selected actor, all ten
 TGCT canonical X/Y coordinates, possession, TGOR orientation, a
-possession-consistent holder, an explicit opposing linked/matchup actor, and
-difficulty `0..2`. It validates the complete snapshot transactionally and
-prints every coordinate plus a domain-separated canonical FNV1a32 fingerprint.
-The holder uses the scene-owned `48/48/40`-pixel hoop approach; other actors
-target the caller/scene-owned link. Those target/link choices remain native
+possession-consistent holder, an explicit opposing linked/matchup actor,
+difficulty `0..2`, and an optional validated explicit target coordinate. It
+validates the complete snapshot transactionally and prints every coordinate
+plus a domain-separated canonical FNV1a32 fingerprint. Without an override,
+the holder uses the scene-owned `48/48/40`-pixel hoop approach and other actors
+target the caller-owned link. The live scene supplies explicit formation and
+marking coordinates for non-holders. Those target/link choices remain native
 policy. The resulting nonzero target delta alone consumes the exact TGAI
 octant quantizer; zero delta reports a successful keep-direction/no-write
 result.

@@ -367,6 +367,8 @@ try {
                 '-32,32' -and
             (@($Map.live_scene_adapter.defender_depth_split) -join ',') -eq
                 '0,-10,10,-14,14' -and
+            $Map.live_scene_adapter.defender_out_of_bounds_fallback -eq
+                'equal 32-pixel offset toward court side before final validation' -and
             $Map.live_scene_adapter.fixed_opposing_link_use -match
                 'not an implicit target coordinate' -and
             [bool]$Map.live_scene_adapter.immutable_ten_actor_snapshot -and

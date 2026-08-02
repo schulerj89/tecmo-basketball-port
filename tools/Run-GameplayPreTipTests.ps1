@@ -191,6 +191,8 @@ if ($Mapped.Count -ne 1 -or
     $Mapped[0].native_contract.tip_input -notmatch
         "30 native jump-contest updates" -or
     $Mapped[0].native_contract.tip_input -notmatch "target frame 0" -or
+    $Mapped[0].native_contract.winner_query_gate -notmatch
+        "rejects before jump-contest.*caller output" -or
     $Mapped[0].native_contract.winner_policy -notmatch
         "exact original winner.*unported") {
     throw "TPTI-1 source-map provenance is incomplete or malformed."

@@ -186,7 +186,9 @@ The ball holder uses the orientation-aware `48/48/40` hoop approach. Offensive
 non-holders use five scene-owned formation points (`256,148`; `288,112`;
 `288,184`; `352,96`; `352,200`) and mirror X as `767-X` for the other
 orientation. Defenders target a point 32 pixels goal-side of their linked
-offensive actor, with per-slot court-depth splits `0,-10,10,-14,14`. The fixed
+offensive actor, with per-slot court-depth splits `0,-10,10,-14,14`. When the
+goal-side candidate leaves the shaped court at that depth, the adapter uses the
+equal 32-pixel offset toward the court before its final bounds check. The fixed
 link remains pose/facing and defender-reference metadata instead of forcing two
 actors onto one coordinate. All of these target choices are explicit native
 approximations; only the resulting TGAI octant and TGMO movement step are
