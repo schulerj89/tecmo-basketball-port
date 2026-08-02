@@ -262,6 +262,98 @@ static bool tecmo_gameplay_scene_test_pretip_contest_input_regression(
     return true;
 }
 
+static bool tecmo_gameplay_scene_test_pretip_real_time_presentation_regression(
+    TecmoGameplaySceneTestContext *test,
+    TecmoGameplayScene *scene)
+{
+    static const uint64_t native_hz_num = 39375000ULL;
+    static const uint64_t native_hz_den = 655171ULL;
+    TecmoGameplaySceneLaunch launch;
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    size_t frame;
+
+    memset(&launch, 0, sizeof(launch));
+    launch.source = TECMO_GAMEPLAY_SCENE_PRESEASON;
+    launch.away_team = 0U;
+    launch.home_team = 1U;
+    launch.regulation_minutes = 2U;
+    launch.difficulty = 1U;
+    launch.control_mode = 1U;
+    launch.speed_value = 1U;
+    launch.controller_team[0U] = TECMO_GAMEPLAY_TEAM_AWAY;
+    launch.controller_team[1U] = TECMO_GAMEPLAY_TEAM_HOME;
+    launch.game_music_enabled = false;
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    if (!tecmo_gameplay_scene_launch(scene, &launch)) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "real-time tip presentation regression launch rejected");
+        return false;
+    }
+    for (frame = 0U; frame < 661U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+            tecmo_gameplay_scene_test_message(
+                test->message, test->message_size,
+                "real-time tip presentation contest entry rejected");
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+    }
+    for (frame = 0U; frame < 30U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+            tecmo_gameplay_scene_test_message(
+                test->message, test->message_size,
+                "real-time tip presentation contest update rejected");
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+    }
+    if ((uint64_t)TECMO_GAMEPLAY_PRETIP_PRESENTATION_FRAMES *
+            native_hz_den * 4U < 3U * native_hz_num ||
+        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
+        scene->pretip_state.phase_frame != 30U ||
+        scene->pretip_state.contest_frame !=
+            TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES ||
+        !scene->pretip_jump_active) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "real-time tip presentation ended with the 30-frame contest "
+            "at 60.1 Hz");
+        tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    p1.held.cancel = true;
+    for (frame = 0U;
+         frame < TECMO_GAMEPLAY_PRETIP_PRESENTATION_FRAMES -
+                     TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES;
+         ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+            tecmo_gameplay_scene_test_message(
+                test->message, test->message_size,
+                "real-time tip presentation live handoff rejected");
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+    }
+    if (tecmo_gameplay_scene_in_pretip(scene) ||
+        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE ||
+        !scene->pretip_state.live_handoff ||
+        scene->pretip_state.contest_frame !=
+            TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES ||
+        scene->pretip_state.total_frame != 721U ||
+        scene->frame != 721U || scene->pretip_jump_active) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "real-time tip presentation did not hand off coherently");
+        tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    tecmo_gameplay_scene_end(scene);
+    return true;
+}
+
 static bool scene_test_pretip_draw_logical_resolution(
     const TecmoGameplayScene *scene,
     uint32_t *pixels,
@@ -336,17 +428,32 @@ static bool scene_test_run_late_human_tip(
     }
     p1.held.cancel = true;
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
-        tecmo_gameplay_scene_in_pretip(scene) ||
-        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE ||
-        !scene->pretip_state.live_handoff ||
+        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
+        scene->pretip_state.phase_frame != 30U ||
+        scene->pretip_state.contest_frame !=
+            TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES ||
         !scene->pretip_state.away_tip_sampled ||
         scene->pretip_state.away_tip_sample_frame != 29U ||
         scene->pretip_state.away_tip_error != 11U ||
         scene->pretip_state.home_tip_sampled ||
+        !scene->pretip_jump_active) {
+        return false;
+    }
+    p1.held.cancel = false;
+    for (frame = 0U;
+         frame < TECMO_GAMEPLAY_PRETIP_PRESENTATION_FRAMES -
+                     TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES;
+         ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) return false;
+    }
+    if (tecmo_gameplay_scene_in_pretip(scene) ||
+        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE ||
+        !scene->pretip_state.live_handoff ||
         scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
         scene->ball_holder != 0U || scene->pretip_jump_active ||
         scene->pretip_jumper_altitude_q8[0U] != 0U ||
-        scene->pretip_jumper_altitude_q8[1U] != 0U) {
+        scene->pretip_jumper_altitude_q8[1U] != 0U ||
+        scene->frame != 721U) {
         return false;
     }
     return true;
@@ -358,13 +465,13 @@ static bool tecmo_gameplay_scene_test_pretip_jump_presentation(
     const TecmoGameplaySceneLaunch *launch)
 {
     static const uint16_t stage_frames[] = {
-        0U, 4U, 8U, 12U, 16U, 20U, 24U, 25U, 29U
+        0U, 7U, 15U, 25U, 26U, 35U, 51U, 52U, 59U
     };
     static const uint16_t stage_poses[] = {
         TECMO_GAMEPLAY_JUMP_MAKE_GATHER_POSE,
+        TECMO_GAMEPLAY_JUMP_MAKE_GATHER_POSE,
         TECMO_GAMEPLAY_JUMP_TURN_POSE,
         TECMO_GAMEPLAY_JUMP_RELEASE_POSE,
-        TECMO_GAMEPLAY_JUMP_FLIGHT_POSE,
         TECMO_GAMEPLAY_JUMP_FLIGHT_POSE,
         TECMO_GAMEPLAY_JUMP_FLIGHT_POSE,
         TECMO_GAMEPLAY_JUMP_FLIGHT_POSE,
@@ -372,7 +479,7 @@ static bool tecmo_gameplay_scene_test_pretip_jump_presentation(
         TECMO_GAMEPLAY_JUMP_SLOT0_IDLE_POSE
     };
     static const uint16_t stage_altitudes_q8[] = {
-        0U, 768U, 3840U, 6144U, 5462U, 2731U, 0U, 0U, 0U
+        0U, 0U, 2730U, 6144U, 6144U, 6144U, 0U, 0U, 0U
     };
     const size_t pixel_count =
         (size_t)TECMO_GAMEPLAY_SCENE_NES_WIDTH *
@@ -451,6 +558,8 @@ static bool tecmo_gameplay_scene_test_pretip_jump_presentation(
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
         scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
         scene->pretip_state.phase_frame != 0U ||
+        scene->pretip_state.contest_frame != 0U ||
+        scene->pretip_state.total_frame != 661U ||
         away_actor != 4U || home_actor != 9U ||
         scene->pretip_jumper_actor[0U] != away_actor ||
         scene->pretip_jumper_actor[1U] != home_actor ||
@@ -497,6 +606,13 @@ static bool tecmo_gameplay_scene_test_pretip_jump_presentation(
         if (scene->pretip_state.phase !=
                 TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
             scene->pretip_state.phase_frame != stage_frames[stage] ||
+            scene->pretip_state.contest_frame !=
+                (stage_frames[stage] <
+                         TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES
+                     ? stage_frames[stage]
+                     : TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES) ||
+            scene->pretip_state.total_frame !=
+                661U + stage_frames[stage] ||
             scene->pretip_jumper_altitude_q8[0U] !=
                 stage_altitudes_q8[stage] ||
             scene->pretip_jumper_altitude_q8[1U] !=
@@ -655,6 +771,12 @@ static bool tecmo_gameplay_scene_test_pretip_jump_presentation(
     }
     if (scene->pretip_state.away_tip_sampled ||
         scene->pretip_state.home_tip_sampled ||
+        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE ||
+        !scene->pretip_state.live_handoff ||
+        scene->pretip_state.contest_frame !=
+            TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES ||
+        scene->pretip_state.total_frame != 721U ||
+        scene->frame != 721U ||
         scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
         scene->ball_holder != 0U || scene->pretip_jump_active ||
         scene->pretip_jumper_altitude_q8[0U] != 0U ||
@@ -675,11 +797,11 @@ static bool tecmo_gameplay_scene_test_pretip_jump_presentation(
         memcmp(late_first_actors, scene->actors,
                sizeof(late_first_actors)) != 0 ||
         memcmp(&setup_state, &scene->state, sizeof(setup_state)) != 0 ||
-        scene->frame != 691U || scene->ball_holder != 0U ||
+        scene->frame != 721U || scene->ball_holder != 0U ||
         scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY) {
         tecmo_gameplay_scene_test_message(
             test->message, test->message_size,
-            "human late-sample frame-691 checkpoint was nondeterministic");
+            "human late-sample frame-721 checkpoint was nondeterministic");
         goto cleanup;
     }
     ok = true;
@@ -770,7 +892,7 @@ static bool tecmo_gameplay_scene_test_pretip_descent_live(
         tecmo_gameplay_scene_destroy(scene);
         return false;
     }
-    for (frame = 600U; frame < 691U; ++frame) {
+    for (frame = 600U; frame < 721U; ++frame) {
         if (!tecmo_gameplay_scene_update(scene, p1, p2)) {
             tecmo_gameplay_scene_test_message(message, message_size,
                                "pre-tip live handoff update rejected");
@@ -781,8 +903,8 @@ static bool tecmo_gameplay_scene_test_pretip_descent_live(
     if (tecmo_gameplay_scene_in_pretip(scene) ||
         scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE ||
         !scene->pretip_state.live_handoff ||
-        scene->pretip_state.total_frame != 691U ||
-        scene->frame != 691U ||
+        scene->pretip_state.total_frame != 721U ||
+        scene->frame != 721U ||
         scene->state.clock_minutes != 2U || scene->state.clock_seconds != 0U ||
         scene->state.shot_clock != 24U ||
         scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
@@ -791,7 +913,7 @@ static bool tecmo_gameplay_scene_test_pretip_descent_live(
         scene->audio_player.music->pending_track_id !=
             TECMO_MUSIC_TRACK_GAMEPLAY) {
         tecmo_gameplay_scene_test_message(message, message_size,
-                           "pre-tip 691-frame track-8-to-5 handoff failed");
+                           "pre-tip 721-frame track-8-to-5 handoff failed");
         tecmo_gameplay_scene_destroy(scene);
         return false;
     }
@@ -860,7 +982,7 @@ static bool tecmo_gameplay_scene_test_pretip_normal_home_handoff(
         return false;
     }
     p1.held.cancel = false;
-    for (frame = 663U; frame < 691U; ++frame) {
+    for (frame = 663U; frame < 721U; ++frame) {
         if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
             tecmo_gameplay_scene_test_message(
                 message, message_size,
@@ -872,6 +994,13 @@ static bool tecmo_gameplay_scene_test_pretip_normal_home_handoff(
     if (tecmo_gameplay_scene_in_pretip(scene) ||
         scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE ||
         !scene->pretip_state.live_handoff ||
+        scene->pretip_state.contest_frame !=
+            TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES ||
+        scene->pretip_state.total_frame != 721U ||
+        scene->frame != 721U ||
+        scene->pretip_jump_active ||
+        scene->pretip_jumper_altitude_q8[0U] != 0U ||
+        scene->pretip_jumper_altitude_q8[1U] != 0U ||
         scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
         scene->ball_holder != TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
         scene->orientation_state.current_direction != 1U ||
@@ -997,7 +1126,7 @@ static bool tecmo_gameplay_scene_test_pretip_abort_and_timing(
         tecmo_gameplay_scene_destroy(scene);
         return false;
     }
-    for (frame = 664U; frame < 691U; ++frame) {
+    for (frame = 664U; frame < 721U; ++frame) {
         p1->held.cancel = true;
         if (!tecmo_gameplay_scene_update(scene, p1, p2)) {
             tecmo_gameplay_scene_test_message(message, message_size,
@@ -1007,7 +1136,11 @@ static bool tecmo_gameplay_scene_test_pretip_abort_and_timing(
         }
     }
     p1->held.cancel = false;
-    if (scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
+    if (scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE ||
+        !scene->pretip_state.live_handoff ||
+        scene->pretip_state.total_frame != 721U ||
+        scene->frame != 721U ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
         scene->ball_holder != TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
         scene->orientation_state.current_direction != 1U) {
         tecmo_gameplay_scene_test_message(message, message_size,
@@ -1093,6 +1226,8 @@ bool tecmo_gameplay_scene_test_pretip(
     if (!tecmo_gameplay_scene_test_pretip_load(test, scene) ||
         !tecmo_gameplay_scene_test_pretip_contest_input_regression(
             test, scene) ||
+        !tecmo_gameplay_scene_test_pretip_real_time_presentation_regression(
+            test, scene) ||
         !tecmo_gameplay_scene_test_pretip_initial_launch(
             test, scene, &launch, &p1, &p2, &tip_lineup) ||
         !tecmo_gameplay_scene_test_pretip_descent_live(
@@ -1153,7 +1288,7 @@ bool tecmo_gameplay_scene_test_pretip_human_checkpoint(
     if (!scene_test_run_late_human_tip(&scene, &launch) ||
         memcmp(first_actors, scene.actors, sizeof(first_actors)) != 0 ||
         memcmp(&first_state, &scene.state, sizeof(first_state)) != 0 ||
-        scene.frame != 691U || scene.state.possession !=
+        scene.frame != 721U || scene.state.possession !=
             TECMO_GAMEPLAY_TEAM_AWAY || scene.ball_holder != 0U ||
         scene.pretip_state.away_tip_sample_frame != 29U ||
         scene.pretip_state.away_tip_error != 11U ||
@@ -1167,7 +1302,7 @@ bool tecmo_gameplay_scene_test_pretip_human_checkpoint(
     }
     tecmo_gameplay_scene_test_message(
         message, message_size,
-        "TPTI-1 human checkpoint PASS frame=691 late-sample=29");
+        "TPTI-1 human checkpoint PASS frame=721 late-sample=29");
     tecmo_gameplay_scene_end(&scene);
     tecmo_gameplay_scene_destroy(&scene);
     return true;

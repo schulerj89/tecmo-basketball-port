@@ -901,11 +901,16 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
     if (scene_self_test_skip_pretip) {
         size_t phase;
         scene->pretip_state.total_frame = 0U;
-        for (phase = 0U; phase < TECMO_GAMEPLAY_PRETIP_PHASE_COUNT; ++phase)
+        for (phase = 0U; phase < TECMO_GAMEPLAY_PRETIP_PHASE_COUNT; ++phase) {
             scene->pretip_state.total_frame +=
-                scene->pretip_assets.phase_frames[phase];
+                phase == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST
+                    ? TECMO_GAMEPLAY_PRETIP_PRESENTATION_FRAMES
+                    : scene->pretip_assets.phase_frames[phase];
+        }
         scene->pretip_state.phase = TECMO_GAMEPLAY_PRETIP_LIVE;
         scene->pretip_state.phase_frame = 0U;
+        scene->pretip_state.contest_frame = scene->pretip_assets.phase_frames[
+            TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST];
         scene->pretip_state.live_handoff = true;
         if (!scene_initialize_actors(scene)) {
             scene_set_status(scene,

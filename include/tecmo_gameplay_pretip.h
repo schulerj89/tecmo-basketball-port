@@ -18,6 +18,8 @@
 #define TECMO_GAMEPLAY_PRETIP_OBJECT_COUNT 11U
 #define TECMO_GAMEPLAY_PRETIP_LINEUP_TAG 0x4C545031U
 #define TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME UINT16_MAX
+#define TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES 30U
+#define TECMO_GAMEPLAY_PRETIP_PRESENTATION_FRAMES 60U
 #define TECMO_GAMEPLAY_PRETIP_AWAY_WINNER 0U
 #define TECMO_GAMEPLAY_PRETIP_HOME_WINNER 1U
 
@@ -111,7 +113,10 @@ typedef struct TecmoGameplayPreTipLineup {
 typedef struct TecmoGameplayPreTipState {
     uint32_t contract_tag;
     TecmoGameplayPreTipPhase phase;
+    /* The scene-facing contest presentation clock. */
     uint16_t phase_frame;
+    /* The native input clock remains the bounded 30-frame TPTI window. */
+    uint16_t contest_frame;
     uint32_t total_frame;
     uint8_t away_tip_error;
     uint8_t home_tip_error;
@@ -139,7 +144,9 @@ bool tecmo_gameplay_pretip_state_validate(
     const TecmoGameplayPreTipAssets *assets,
     const TecmoGameplayPreTipState *state);
 /* Card phases consume raw P1/P2 held-B levels for cancellation. During
-   JUMP_CONTEST, callers must pass team-routed away/home held-B levels. */
+   JUMP_CONTEST, callers must pass team-routed away/home held-B levels. The
+   contest samples only the first 30 updates; the remaining presentation
+   frames are a native readability approximation. */
 bool tecmo_gameplay_pretip_update(
     const TecmoGameplayPreTipAssets *assets,
     TecmoGameplayPreTipState *state,

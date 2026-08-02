@@ -854,6 +854,8 @@ static bool flow_finish_gameplay_pretip(TecmoRuntime *runtime,
 {
     TecmoInput player_one = {0};
     TecmoInput player_two = {0};
+    const size_t expected_handoff_frame =
+        661U + TECMO_GAMEPLAY_PRETIP_PRESENTATION_FRAMES;
     size_t frame;
     if (runtime == NULL || runtime->mode != TECMO_MODE_COURT ||
         !runtime->gameplay_scene.active ||
@@ -863,16 +865,17 @@ static bool flow_finish_gameplay_pretip(TecmoRuntime *runtime,
                               "gameplay pre-tip entry mismatch");
         return false;
     }
-    for (frame = 0U; frame < 691U; ++frame)
+    for (frame = 0U; frame < expected_handoff_frame; ++frame)
         tecmo_runtime_update_players(runtime, &player_one, &player_two);
     if (runtime->mode != TECMO_MODE_COURT ||
         !runtime->gameplay_scene.active ||
-        runtime->gameplay_scene.frame != 691U ||
+        runtime->gameplay_scene.frame != expected_handoff_frame ||
         tecmo_gameplay_scene_in_pretip(&runtime->gameplay_scene)) {
         char failure[160];
         (void)snprintf(failure, sizeof(failure),
-                       "%s pre-tip did not reach live frame 691",
-                       label != NULL ? label : "gameplay");
+                       "%s pre-tip did not reach live handoff frame %zu",
+                       label != NULL ? label : "gameplay",
+                       expected_handoff_frame);
         set_flow_test_message(message, message_size, failure);
         return false;
     }

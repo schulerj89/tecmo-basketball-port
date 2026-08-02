@@ -795,8 +795,10 @@ dependency fingerprints, and sanitized source-map provenance fail closed.
 Runtime never reads ROM, ASM, decompilation, Lua, captures, screenshots, logs,
 states, traces, or dumps.
 
-The deterministic native schedule is 691 updates:
-`61 + 121 + 61 + 208 + 30 + 120 + 60 + 30`. Only the first three values preserve
+The asset-backed pre-tip schedule reaches contest entry at 661 updates:
+`61 + 121 + 61 + 208 + 30 + 120 + 60`. The TPTI contest input window remains
+30 updates, while the native visual contest schedule is 60 updates, so the
+live handoff occurs at total frame 721. Only the first three values preserve
 Bank06's inclusive `$3C/$78/$3C` card waits for the mode card, matchup, and
 `1ST PERIOD` exactly; the later phase durations are capture-bounded.
 PRESEASON and `REGULAR SEASON` are the exact mode strings. Card letters use
@@ -813,9 +815,9 @@ OAM-Y displays one scanline below the stored value. The center-court route then 
 black for 30 updates, descends the ball from approximately Y 71 to Y 145 over
 60 updates and holds it through the 120-update phase, holds black for the first
 30 updates of the toss transition, and renders TGPL-1 screen `$1B`
-nametable page 1 for the final 30. Page 1 is required by the reference geometry:
+nametable page 1 for the final 60. Page 1 is required by the reference geometry:
 the ball occupies X 176..239 and the hands X 67..159; page 0 contains the
-opposite phase. The final 30 updates show the jump contest. The final live-
+opposite phase. The final 60 updates show the jump contest. The final live-
 background band uses the validated pre-ASL R1 selector `$40 + away_team` during
 pre-tip, then `$40 + home_team` after live handoff. `$3F` is outside the
 accepted `$40..$5A` team-selector range and resolves high-bit final-band tiles
@@ -836,8 +838,9 @@ consuming the latch. The exact `$98E1-$9A5F` update span also reads current B
 at `$9920`. These reads prove the button and held-level semantics, but not the
 complete original winner/claim settlement.
 
-The native scene therefore accepts each team's first held B during all 30
-visible `JUMP_CONTEST` updates, after routing controllers by assigned team.
+The native scene therefore accepts each team's first held B during the first
+30 `JUMP_CONTEST` input updates, after routing controllers by assigned team;
+the selected jumpers remain visible for the full 60-update presentation.
 Contest frame 0 is the native timing target, error is capped at 11, no sample
 is 12, lower error wins, and equal errors choose away. A hold carried into the
 phase samples frame 0; an edge without a held level does not. This deterministic
@@ -847,7 +850,7 @@ The public winner query rejects every phase before `JUMP_CONTEST` without
 changing caller-owned output; it is available during `JUMP_CONTEST` and after
 the live handoff.
 The game clock, shot clock, rules, actors, AI, and live camera remain frozen
-until the frame-691 handoff. Track 8 queues at card entry, and enabled GAME
+until the frame-721 handoff. Track 8 queues at card entry, and enabled GAME
 MUSIC queues track 5 only at that handoff. Bank04 `$AC8C-$ACD9` initializes
 object slots 0..10 from state `$AD82`, sprite-slot base `$AD8D`, facing `$AD98`,
 X-low `$ADA3`, X-high `$ADAE`, Y `$ADB9`, and facing-indexed pose tables
@@ -857,7 +860,7 @@ setup for ten players and the ball to the canonical TGCT scene. TPTI header
 selectors 178/179 preserve the Bank04-selected jumper identities `(4,9)`
 (away/home); the scene consumes those selectors rather than assuming actor
 slots. The scene uses the exact coordinate, sprite-slot base, and selected
-standing pose without a second mirror. During the 30 contest updates, both
+standing pose without a second mirror. During the 60 presentation updates, both
 selected actors use a deterministic native presentation schedule: crouch,
 takeoff, rise/reach, apex/contact, fall, then land. Pose pointers are drawn from
 the existing bounded ordinary-jump pose vocabulary (325/1060/1061/213/469),
@@ -867,13 +870,13 @@ native approximations; they are independent of timing error, so late/no input
 cannot truncate landing. Generic action poses use the validated actor-facing
 mirror path; the orientation-encoded flag is restored only for the Bank04
 standing pose at landing. The landing step restores both tip anchors and poses
-before the frame-691 live handoff. Raw object-state behavior, exact original
+before the frame-721 live handoff. Raw object-state behavior, exact original
 winner/claim settlement, and a complete original jump trajectory are not thereby
 ported.
 The fixed pre-tip lineup retains TGCP's source-backed initial center camera X
 `$0100`; it must not inherit the live ball/goal pre-settle, because doing so can
 place one Bank04-selected jumper outside the 256-pixel projection window. The
-frame-691 handoff still settles transactionally around the awarded possession,
+frame-721 handoff still settles transactionally around the awarded possession,
 so this fixed presentation viewport does not replace live camera behavior.
 `tools/New-TipoffVisualProof.ps1` gates this integration from a clean commit: it
 builds a Rev1 asset pack, double-renders every production-path frame 661..695
