@@ -95,6 +95,7 @@ typedef struct TecmoGameplayCpuSteeringAssets {
 typedef enum TecmoGameplayCpuSteeringHarnessTargetKind {
     TECMO_GAMEPLAY_CPU_STEERING_HARNESS_LINKED_ACTOR = 0,
     TECMO_GAMEPLAY_CPU_STEERING_HARNESS_HOOP_APPROACH,
+    TECMO_GAMEPLAY_CPU_STEERING_HARNESS_EXPLICIT_TARGET,
     TECMO_GAMEPLAY_CPU_STEERING_HARNESS_TARGET_KIND_COUNT
 } TecmoGameplayCpuSteeringHarnessTargetKind;
 
@@ -108,6 +109,10 @@ typedef struct TecmoGameplayCpuSteeringHarnessInput {
     uint8_t ball_holder;
     uint8_t matchup_actor;
     uint8_t difficulty;
+    /* Optional native-policy target. When false, preserve the existing
+       holder-hoop or linked-actor target selection used by the CLI/tests. */
+    bool has_explicit_target;
+    TecmoGameplayCourtCoordinate explicit_target;
 } TecmoGameplayCpuSteeringHarnessInput;
 
 typedef struct TecmoGameplayCpuSteeringHarnessResult {
@@ -197,11 +202,12 @@ const char *tecmo_gameplay_cpu_steering_command_kind_name(
     TecmoGameplayCpuSteeringCommandKind kind);
 
 /* Pure and transactional. Every one of the ten coordinates is validated and
-   included in input_fingerprint. The selected target is implementation-owned:
-   the holder uses the current native hoop-approach policy; every other actor
-   uses its explicit opposing linked/matchup actor. Only the final octant is
-   ROM-exact. A zero delta succeeds with writes_direction=false, mirroring the
-   ROM gate that preserves the caller's prior direction. */
+   included in input_fingerprint. A caller may set has_explicit_target and
+   provide a validated canonical coordinate; otherwise the holder uses the
+   current native hoop-approach policy and every other actor uses its explicit
+   opposing linked/matchup actor. Only the final octant is ROM-exact. A zero
+   delta succeeds with writes_direction=false, mirroring the ROM gate that
+   preserves the caller's prior direction. */
 bool tecmo_gameplay_cpu_steering_harness_evaluate(
     const TecmoGameplayCpuSteeringAssets *assets,
     const TecmoGameplayCpuSteeringHarnessInput *input,

@@ -804,13 +804,13 @@ static bool scene_test_dribble_policy(
              scene->cpu_actors[0].held_direction_bits !=
                  TECMO_GAMEPLAY_MOVEMENT_INPUT_LEFT ||
              !scene->cpu_actors[0].writes_direction ||
-             scene->cpu_actors[1].decision_serial != 1U ||
-             scene->cpu_actors[1].target_kind !=
-                 TECMO_GAMEPLAY_CPU_STEERING_HARNESS_LINKED_ACTOR ||
-             scene->cpu_actors[1].linked_actor != 6U ||
-             scene->cpu_actors[1].target_position.x != 395 ||
-             scene->cpu_actors[1].target_position.y != 190 ||
-             scene->cpu_actors[5].decision_serial != 0U)) {
+            scene->cpu_actors[1].decision_serial != 1U ||
+            scene->cpu_actors[1].target_kind !=
+                 TECMO_GAMEPLAY_CPU_STEERING_HARNESS_EXPLICIT_TARGET ||
+            scene->cpu_actors[1].linked_actor != 6U ||
+            scene->cpu_actors[1].target_position.x != 288 ||
+            scene->cpu_actors[1].target_position.y != 112 ||
+            scene->cpu_actors[5].decision_serial != 0U)) {
             tecmo_gameplay_scene_test_message(
                 message, message_size,
                 "live TGAI snapshot/target/TGMO-latency contract failed");
@@ -823,6 +823,217 @@ static bool scene_test_dribble_policy(
             18U) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "CPU holder missed native TGBD phase DMC");
+        return false;
+    }
+    tecmo_gameplay_scene_end(scene);
+    launch.controller_team[0] = TECMO_GAMEPLAY_TEAM_AWAY;
+    launch.controller_team[1] = TECMO_GAMEPLAY_TEAM_HOME;
+    *launch_input = launch;
+    *p1_input = p1;
+    *p2_input = p2;
+    return true;
+}
+
+static bool scene_test_cpu_formation_regression(
+    TecmoGameplayScene *scene,
+    TecmoGameplaySceneLaunch *launch_input,
+    TecmoControlFrame *p1_input,
+    TecmoControlFrame *p2_input,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplaySceneLaunch launch = *launch_input;
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    TecmoGameplayCpuSteeringHarnessInput zero_input;
+    TecmoGameplayCpuSteeringHarnessResult zero_result;
+    TecmoGameplayCourtCoordinate linked_position;
+    TecmoGameplayCourtCoordinate initial_positions[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    uint16_t equal_streak[TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT] = {0};
+    uint16_t longest_equal_streak[
+        TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT] = {0};
+    bool meaningful_move[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT] = {0};
+    size_t meaningful_count = 0U;
+    size_t frame;
+    size_t actor;
+    size_t pair;
+
+    if (scene == NULL || launch_input == NULL || p1_input == NULL ||
+        p2_input == NULL) {
+        return false;
+    }
+    launch.controller_team[0] = TECMO_GAMEPLAY_TEAM_AWAY;
+    launch.controller_team[1] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    launch.game_music_enabled = false;
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    if (!tecmo_gameplay_scene_launch(scene, &launch) ||
+        scene->ball_holder != 0U || scene->controlled_actor[0] != 0U) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size, "CPU formation regression launch rejected");
+        return false;
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        initial_positions[actor] = scene->actors[actor].position;
+    }
+
+    for (frame = 0U; frame < 160U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "CPU formation regression live update rejected");
+            return false;
+        }
+        if (scene->actors[0].position.x != initial_positions[0].x ||
+            scene->actors[0].position.y != initial_positions[0].y) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "CPU policy moved the neutral human-controlled actor");
+            return false;
+        }
+        for (actor = 1U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT;
+             ++actor) {
+            int32_t dx = (int32_t)scene->actors[actor].position.x -
+                         initial_positions[actor].x;
+            int32_t dy = (int32_t)scene->actors[actor].position.y -
+                         initial_positions[actor].y;
+            const TecmoGameplaySceneCpuActor *cpu =
+                &scene->cpu_actors[actor];
+            uint8_t expected_link = actor <
+                TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT
+                    ? (uint8_t)(actor +
+                        TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT)
+                    : (uint8_t)(actor -
+                        TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT);
+            if (dx < 0) dx = -dx;
+            if (dy < 0) dy = -dy;
+            if (dx + dy >= 12 && !meaningful_move[actor]) {
+                meaningful_move[actor] = true;
+                ++meaningful_count;
+            }
+            if (cpu->decision_serial != frame + 1U || !cpu->target_valid ||
+                cpu->linked_actor != expected_link ||
+                cpu->target_kind >=
+                    TECMO_GAMEPLAY_CPU_STEERING_HARNESS_TARGET_KIND_COUNT ||
+                !tecmo_gameplay_court_coordinate_valid(
+                    &cpu->target_position) ||
+                !tecmo_gameplay_movement_input_valid(
+                    cpu->held_direction_bits) ||
+                (!cpu->writes_direction &&
+                 (cpu->direction !=
+                      TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION ||
+                  cpu->held_direction_bits !=
+                      TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL)) ||
+                (cpu->writes_direction &&
+                 cpu->direction >=
+                     TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT)) {
+                tecmo_gameplay_scene_test_message(
+                    message, message_size,
+                    "CPU formation target metadata lost coherence");
+                return false;
+            }
+        }
+        for (pair = 0U; pair < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT;
+             ++pair) {
+            size_t away = pair;
+            size_t home = pair + TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT;
+            bool equal = scene->actors[away].position.x ==
+                             scene->actors[home].position.x &&
+                         scene->actors[away].position.y ==
+                             scene->actors[home].position.y;
+            bool neutral = !scene->cpu_actors[home].writes_direction &&
+                scene->cpu_actors[home].held_direction_bits ==
+                    TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
+            if (away != 0U) {
+                neutral = neutral &&
+                    !scene->cpu_actors[away].writes_direction &&
+                    scene->cpu_actors[away].held_direction_bits ==
+                        TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
+            }
+            if (equal && neutral) {
+                ++equal_streak[pair];
+                if (equal_streak[pair] > longest_equal_streak[pair]) {
+                    longest_equal_streak[pair] = equal_streak[pair];
+                }
+            } else {
+                equal_streak[pair] = 0U;
+            }
+        }
+    }
+    if (scene->orientation_state.current_direction != 0U ||
+        scene->cpu_actors[5U].target_kind !=
+            TECMO_GAMEPLAY_CPU_STEERING_HARNESS_EXPLICIT_TARGET ||
+        scene->cpu_actors[5U].linked_actor != 0U ||
+        scene->cpu_actors[5U].target_position.x !=
+            initial_positions[0U].x - 32) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "CPU defender orientation-0 goal-side split failed");
+        return false;
+    }
+    if (meaningful_count < 3U) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "CPU formation regression did not move multiple actors");
+        return false;
+    }
+    for (pair = 0U; pair < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT;
+         ++pair) {
+        if (longest_equal_streak[pair] >= 12U) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "CPU fixed pair entered a sustained neutral collapse plateau");
+            return false;
+        }
+    }
+
+    memset(&zero_input, 0, sizeof(zero_input));
+    zero_input.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_HARNESS_INPUT_TAG;
+    zero_input.actor = 5U;
+    zero_input.possession = (uint8_t)scene->state.possession;
+    zero_input.orientation = scene->orientation_state.current_direction;
+    zero_input.ball_holder = scene->ball_holder;
+    zero_input.matchup_actor = 0U;
+    zero_input.difficulty = scene->launch.difficulty;
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        zero_input.actor_position[actor] = scene->actors[actor].position;
+    }
+    zero_input.actor_position[5U] = zero_input.actor_position[0U];
+    if (!tecmo_gameplay_cpu_steering_harness_evaluate(
+            &scene->cpu_steering_assets, &zero_input, &zero_result) ||
+        zero_result.horizontal_delta != 0 ||
+        zero_result.depth_delta != 0 || zero_result.writes_direction ||
+        zero_result.direction != TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION ||
+        zero_result.target_kind !=
+            TECMO_GAMEPLAY_CPU_STEERING_HARNESS_LINKED_ACTOR) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size, "CPU zero-vector no-write seam regressed");
+        return false;
+    }
+    tecmo_gameplay_scene_end(scene);
+    launch.controller_team[0] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    launch.controller_team[1] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    if (!tecmo_gameplay_scene_launch(scene, &launch) ||
+        !scene_handoff_possession(
+            scene, TECMO_GAMEPLAY_TEAM_HOME, 5U)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "CPU defender orientation-1 setup rejected");
+        return false;
+    }
+    linked_position = scene->actors[5U].position;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->orientation_state.current_direction != 1U ||
+        scene->cpu_actors[0U].target_kind !=
+            TECMO_GAMEPLAY_CPU_STEERING_HARNESS_EXPLICIT_TARGET ||
+        scene->cpu_actors[0U].linked_actor != 5U ||
+        scene->cpu_actors[0U].target_position.x !=
+            linked_position.x + 32) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "CPU defender orientation-1 goal-side split failed");
         return false;
     }
     tecmo_gameplay_scene_end(scene);
@@ -1478,6 +1689,8 @@ bool tecmo_gameplay_scene_test_state_flow(
         !scene_test_controller_policy(
             scene, &launch, &p1, &p2, message, message_size) ||
         !scene_test_dribble_policy(
+            scene, &launch, &p1, &p2, message, message_size) ||
+        !scene_test_cpu_formation_regression(
             scene, &launch, &p1, &p2, message, message_size) ||
         !scene_test_music_and_steal_policy(
             scene, &launch, &p1, &p2, message, message_size) ||
