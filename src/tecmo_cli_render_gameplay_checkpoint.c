@@ -515,14 +515,16 @@ static bool run_gameplay_violation_checkpoint(
         /* Drive the production held-ball -> TGBC -> TPNL -> TGVR route.
            Orientation 0 establishes frontcourt with ball X<=375, preserves
            the original eight-pixel neutral band, then calls BACKCOURT at
-           ball X>=386. These idle checkpoints account for the resolved +6
-           TGBD attachment at this animation phase. */
-        holder->position.x = 368;
+           ball X>=386. Away attacks left in fresh TGOR, so retain that goal
+           facing and account for the resolved -4 TGBD attachment. */
+        holder->position.x = 379;
         holder->position.y = 148;
         holder->anchor = holder->position;
-        /* Deliberate diagnostic horizontal-facing override: this checkpoint
-           positions the held ball in the frontcourt band before TGBC/TGVR. */
-        holder->facing_right = true;
+        if (!gameplay_checkpoint_goal_facing_right(
+                scene, holder->team, &holder->facing_right) ||
+            holder->facing_right) {
+            return false;
+        }
         holder->movement_action_state =
             TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
         holder->movement_fractional_accumulator = 0U;
@@ -535,7 +537,7 @@ static bool run_gameplay_violation_checkpoint(
             scene->backcourt_state.frontcourt_established != 1U) {
             return false;
         }
-        holder->position.x = 380;
+        holder->position.x = 390;
         holder->anchor = holder->position;
         scene->ball_position.x_q8 = 386 * 256;
         scene->ball_position.y_q8 = 131 * 256;
