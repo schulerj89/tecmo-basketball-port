@@ -876,6 +876,19 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
         scene->active = false;
         return false;
     }
+    if (!scene_self_test_skip_pretip) {
+        /* TPTI's fixed center-court lineup spans both sides of the 0x0100
+           TGCP launch viewport. Do not let the live ball/goal attachment
+           pre-settle move that presentation camera before the tip. The live
+           handoff below settles again around the awarded possession. */
+        scene->camera_state = initial_camera;
+        if (!tecmo_gameplay_camera_state_live_valid(
+                &scene->camera_assets, &scene->camera_state)) {
+            scene_set_status(scene, "pre-tip center camera initialization rejected");
+            scene->active = false;
+            return false;
+        }
+    }
     tecmo_gameplay_audio_stop_all(&scene->audio_player);
     tecmo_gameplay_audio_set_game_music_enabled(
         &scene->audio_player, launch->game_music_enabled);

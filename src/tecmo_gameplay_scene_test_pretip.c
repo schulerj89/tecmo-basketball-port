@@ -470,10 +470,13 @@ static bool tecmo_gameplay_scene_test_pretip_jump_presentation(
         goto cleanup;
     }
     if (!tecmo_gameplay_scene_court_projection(
-            scene, &baseline_projection)) {
+            scene, &baseline_projection) ||
+        baseline_projection.camera_x != 0x0100U ||
+        !baseline_projection.players[away_actor].visible ||
+        !baseline_projection.players[home_actor].visible) {
         tecmo_gameplay_scene_test_message(
             test->message, test->message_size,
-            "pre-tip jump baseline projection rejected");
+            "pre-tip center camera/jumper visibility contract failed");
         goto cleanup;
     }
     background_pixels = (uint32_t *)malloc(pixel_count * sizeof(uint32_t));

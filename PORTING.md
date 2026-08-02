@@ -870,6 +870,18 @@ standing pose at landing. The landing step restores both tip anchors and poses
 before the frame-691 live handoff. Raw object-state behavior, exact original
 winner/claim settlement, and a complete original jump trajectory are not thereby
 ported.
+The fixed pre-tip lineup retains TGCP's source-backed initial center camera X
+`$0100`; it must not inherit the live ball/goal pre-settle, because doing so can
+place one Bank04-selected jumper outside the 256-pixel projection window. The
+frame-691 handoff still settles transactionally around the awarded possession,
+so this fixed presentation viewport does not replace live camera behavior.
+`tools/New-TipoffVisualProof.ps1` gates this integration from a clean commit: it
+builds a Rev1 asset pack, double-renders every production-path frame 661..695
+while Away holds B throughout `JUMP_CONTEST`, checks both jumpers' projected
+pose/Y/visibility and both host margins, renders the Away-left-facing checkpoint,
+and emits numbered PNGs, all-frame active-edge sheets, a stage contact sheet, an
+optional ffmpeg MP4, and a hash/command/runtime-state manifest beneath ignored
+`build/proof/` output.
 Pre-tip state mutation is transactional: phase-frame bounds, accumulated total,
 sample flags/errors/sample frames, terminal-state coherence, and integer
 overflow are validated before commit, and malformed or unreachable states are
