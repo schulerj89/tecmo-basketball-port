@@ -14,8 +14,59 @@ $ExpectedRomSha256 =
 $ExpectedTptiFnv32 = "99ADFE3D"
 $ExpectedTptiBytes = 5888
 $ProofFirstFrame = 661
-$ProofLastFrame = 695
+$JumpContestFrameCount = 60
+$JumpContestLastFrame = $ProofFirstFrame + $JumpContestFrameCount - 1
+$LiveHandoffFrame = $JumpContestLastFrame + 1
+$LiveContinuityFrameCount = 5
+$ProofLastFrame = $LiveHandoffFrame + $LiveContinuityFrameCount - 1
 $ProofFrameCount = $ProofLastFrame - $ProofFirstFrame + 1
+$ContestInputClockCap = 30
+$ProofFrameRangeText = "${ProofFirstFrame}-${ProofLastFrame}"
+$ProofFirstFrameName = "tipoff-{0:D4}.png" -f $ProofFirstFrame
+$ProofLastFrameName = "tipoff-{0:D4}.png" -f $ProofLastFrame
+$ContactFrames = @(
+    $ProofFirstFrame,
+    ($ProofFirstFrame + 7),
+    ($ProofFirstFrame + 8),
+    ($ProofFirstFrame + 15),
+    ($ProofFirstFrame + 16),
+    ($ProofFirstFrame + 25),
+    ($ProofFirstFrame + 26),
+    ($ProofFirstFrame + 35),
+    ($ProofFirstFrame + 36),
+    ($ProofFirstFrame + 51),
+    ($ProofFirstFrame + 52),
+    $JumpContestLastFrame,
+    $LiveHandoffFrame,
+    $ProofLastFrame)
+$StageLabels = @{
+    $ProofFirstFrame = "crouch-start"
+    ($ProofFirstFrame + 7) = "crouch-end"
+    ($ProofFirstFrame + 8) = "takeoff"
+    ($ProofFirstFrame + 15) = "takeoff-end"
+    ($ProofFirstFrame + 16) = "rise"
+    ($ProofFirstFrame + 25) = "rise-end"
+    ($ProofFirstFrame + 26) = "contact-apex-start"
+    ($ProofFirstFrame + 35) = "apex-end"
+    ($ProofFirstFrame + 36) = "fall"
+    ($ProofFirstFrame + 51) = "fall-end"
+    ($ProofFirstFrame + 52) = "landing"
+    $JumpContestLastFrame = "settled"
+    $LiveHandoffFrame = "live-handoff"
+    $ProofLastFrame = "live-continuity"
+}
+$StageExpectations = @(
+    [pscustomobject]@{ frame=$ProofFirstFrame; y=144; altitude=0; pose=325 },
+    [pscustomobject]@{ frame=$ProofFirstFrame + 7; y=144; altitude=0; pose=325 },
+    [pscustomobject]@{ frame=$ProofFirstFrame + 15; y=134; altitude=2730; pose=1060 },
+    [pscustomobject]@{ frame=$ProofFirstFrame + 25; y=120; altitude=6144; pose=1061 },
+    [pscustomobject]@{ frame=$ProofFirstFrame + 26; y=120; altitude=6144; pose=213 },
+    [pscustomobject]@{ frame=$ProofFirstFrame + 35; y=120; altitude=6144; pose=213 },
+    [pscustomobject]@{ frame=$ProofFirstFrame + 36; y=122; altitude=5760; pose=213 },
+    [pscustomobject]@{ frame=$ProofFirstFrame + 51; y=144; altitude=0; pose=213 },
+    [pscustomobject]@{ frame=$ProofFirstFrame + 52; y=144; altitude=0; pose=469 },
+    [pscustomobject]@{ frame=$JumpContestLastFrame; y=144; altitude=0; pose=469 }
+)
 $NativeFrameRateNumerator = [int64]39375000
 $NativeFrameRateDenominator = [int64]655171
 $NativeFrameRateHz = [double]$NativeFrameRateNumerator /
@@ -526,21 +577,11 @@ function Convert-TipoffDiagnostic {
 
 function Get-StageLabel {
     param([int]$Frame)
-    $Labels = @{
-        661 = "staging-crouch"
-        665 = "takeoff"
-        669 = "rising"
-        673 = "apex-contact"
-        676 = "apex-hold"
-        680 = "falling"
-        686 = "landing"
-        690 = "settled"
-        691 = "live-handoff"
-        695 = "live-continuity"
+    if ($StageLabels.ContainsKey($Frame)) { return $StageLabels[$Frame] }
+    if ($Frame -le $JumpContestLastFrame) {
+        return "jump-contest-$($Frame - $ProofFirstFrame)"
     }
-    if ($Labels.ContainsKey($Frame)) { return $Labels[$Frame] }
-    if ($Frame -le 690) { return "jump-contest-$($Frame - 661)" }
-    return "live-$($Frame - 691)"
+    return "live-$($Frame - $LiveHandoffFrame)"
 }
 
 function Assert-TipoffDiagnostic {
@@ -551,9 +592,12 @@ function Assert-TipoffDiagnostic {
         [int]$Diagnostic.'home-sampled' -ne 0) {
         throw "Tip-off actor/input identity contract failed at frame $Frame."
     }
-    if ($Frame -le 690) {
+    if ($Frame -ge $ProofFirstFrame -and $Frame -le $JumpContestLastFrame) {
+        $ExpectedContestFrame = [Math]::Min(
+            [int]$Diagnostic.'pretip-frame', $ContestInputClockCap)
         if ($Diagnostic.pretip -ne "jump-contest" -or
-            [int]$Diagnostic.'pretip-frame' -ne ($Frame - 661) -or
+            [int]$Diagnostic.'pretip-frame' -ne ($Frame - $ProofFirstFrame) -or
+            [int]$Diagnostic.'contest-frame' -ne $ExpectedContestFrame -or
             [int]$Diagnostic.'away-visible' -ne 1 -or
             [int]$Diagnostic.'home-visible' -ne 1 -or
             [int]$Diagnostic.'away-world-y' -ne 144 -or
@@ -562,18 +606,25 @@ function Assert-TipoffDiagnostic {
                 [int]$Diagnostic.'home-screen-y' -or
             [int]$Diagnostic.'away-altitude-q8' -ne
                 [int]$Diagnostic.'home-altitude-q8' -or
+            [int]$Diagnostic.'away-pose' -ne
+                [int]$Diagnostic.'home-pose' -or
             [int]$Diagnostic.'away-facing-right' -ne 0 -or
             [int]$Diagnostic.'home-facing-right' -ne 1 -or
             [int]$Diagnostic.'camera-x' -ne 256) {
             throw "Visible center-camera tip presentation contract failed at frame $Frame."
         }
-    } elseif ($Diagnostic.pretip -ne "live" -or
-        [int]$Diagnostic.possession -ne 0 -or
-        [int]$Diagnostic.direction -ne 0 -or
-        [int]$Diagnostic.'hoop-x' -ne 160) {
-        throw "Away-left live handoff contract failed at frame $Frame."
+    } elseif ($Frame -ge $LiveHandoffFrame) {
+        if ($Diagnostic.pretip -ne "live" -or
+            [int]$Diagnostic.'contest-frame' -ne $ContestInputClockCap -or
+            [int]$Diagnostic.possession -ne 0 -or
+            [int]$Diagnostic.direction -ne 0 -or
+            [int]$Diagnostic.'hoop-x' -ne 160) {
+            throw "Away-left live handoff contract failed at frame $Frame."
+        }
+    } else {
+        throw "Tip-off diagnostic frame is outside the proof range at frame $Frame."
     }
-    if ($Frame -eq 661) {
+    if ($Frame -eq $ProofFirstFrame) {
         if ([int]$Diagnostic.'away-sampled' -ne 0) {
             throw "Away input was sampled before the first contest update."
         }
@@ -685,21 +736,15 @@ try {
     }
     Assert-ContiguousFrameFiles -Root $VerifyRoot -Label "Second-pass frame directory"
 
-    $StageExpectations = @(
-        [pscustomobject]@{ frame=661; y=144; altitude=0; pose=325 },
-        [pscustomobject]@{ frame=665; y=141; altitude=768; pose=1060 },
-        [pscustomobject]@{ frame=669; y=129; altitude=3840; pose=1061 },
-        [pscustomobject]@{ frame=673; y=120; altitude=6144; pose=213 },
-        [pscustomobject]@{ frame=676; y=120; altitude=6144; pose=213 },
-        [pscustomobject]@{ frame=680; y=131; altitude=3414; pose=213 },
-        [pscustomobject]@{ frame=686; y=144; altitude=0; pose=469 },
-        [pscustomobject]@{ frame=690; y=144; altitude=0; pose=469 }
-    )
     foreach ($Expected in $StageExpectations) {
         $Actual = @($ProofFrames | Where-Object frame -eq $Expected.frame)[0]
+        if ($null -eq $Actual) {
+            throw "Missing exact stage checkpoint frame $($Expected.frame)."
+        }
         if ([int]$Actual.runtime.'away-screen-y' -ne $Expected.y -or
             [int]$Actual.runtime.'home-screen-y' -ne $Expected.y -or
             [int]$Actual.runtime.'away-altitude-q8' -ne $Expected.altitude -or
+            [int]$Actual.runtime.'home-altitude-q8' -ne $Expected.altitude -or
             [int]$Actual.runtime.'away-pose' -ne $Expected.pose -or
             [int]$Actual.runtime.'home-pose' -ne $Expected.pose) {
             throw "Visible jump stage '$($Actual.stage)' changed."
@@ -733,7 +778,7 @@ try {
     }
     if ($FacingRun.code -ne 0 -or $FacingVerifyRun.code -ne 0 -or
         $FacingRun.text -notmatch
-            "gameplay-state frame=691 shot=none phase=live" -or
+            "gameplay-state frame=$LiveHandoffFrame shot=none phase=live" -or
         (Get-FileHash -LiteralPath $FacingPath -Algorithm SHA256).Hash -ne
             (Get-FileHash -LiteralPath $FacingVerifyPath -Algorithm SHA256).Hash) {
         throw "Away-left facing proof checkpoint failed or was nondeterministic."
@@ -754,7 +799,11 @@ try {
 
 function New-StageContactSheet {
     param([object[]]$Frames, [string]$Path)
-    $Selected = @(661,665,669,673,676,680,686,690,691,695)
+    $Selected = @($ContactFrames)
+    if ($Selected.Count -eq 0 -or
+        (@($Selected | Sort-Object -Unique).Count -ne $Selected.Count)) {
+        throw "Contact-sheet stage selection is empty or duplicated."
+    }
     $Columns = 5
     $CellWidth = $OutputWidth
     $ImageHeight = $OutputHeight
@@ -779,13 +828,16 @@ function New-StageContactSheet {
         $Graphics.PixelOffsetMode =
             [Drawing.Drawing2D.PixelOffsetMode]::Half
         $Graphics.DrawString(
-            "TIP-OFF CONTACT SHEET | full-resolution 640x480 cells | logical frames 661-695 | 35 contiguous",
+            "TIP-OFF CONTACT SHEET | full-resolution 640x480 cells | logical frames $ProofFrameRangeText | $ProofFrameCount contiguous",
             $TitleFont, [Drawing.Brushes]::White, 8, 8)
         $Graphics.DrawString(
-            "native cadence $NativeFrameRateText (~$([Math]::Round($NativeFrameRateHz, 6)) fps) | MP4 presentation only; PNG/diagnostics are acceptance evidence",
+            "native cadence $NativeFrameRateText (~$([Math]::Round($NativeFrameRateHz, 6)) fps) | selected stage boundaries; MP4 presentation only",
             $Font, [Drawing.Brushes]::White, 8, 38)
         for ($Index = 0; $Index -lt $Selected.Count; ++$Index) {
             $Frame = @($Frames | Where-Object frame -eq $Selected[$Index])[0]
+            if ($null -eq $Frame) {
+                throw "Contact-sheet frame $($Selected[$Index]) was not rendered."
+            }
             $Column = $Index % $Columns
             $Row = [int][Math]::Floor($Index / $Columns)
             $X = $Column * $CellWidth
@@ -814,6 +866,15 @@ function New-StageContactSheet {
 
 function New-ActiveEdgeSheet {
     param([object[]]$Frames, [string]$Side, [string]$Path)
+    if ($Frames.Count -ne $ProofFrameCount) {
+        throw "$Side edge sheet received $($Frames.Count) frames; expected $ProofFrameCount."
+    }
+    for ($FrameIndex = 0; $FrameIndex -lt $ProofFrameCount; ++$FrameIndex) {
+        $ExpectedFrame = $ProofFirstFrame + $FrameIndex
+        if ([int]$Frames[$FrameIndex].frame -ne $ExpectedFrame) {
+            throw "$Side edge sheet frame sequence is not contiguous at $ExpectedFrame."
+        }
+    }
     $Columns = 7
     $CropWidth = $EdgeBandWidth
     $DrawWidth = $CropWidth
@@ -839,7 +900,7 @@ function New-ActiveEdgeSheet {
         $Graphics.PixelOffsetMode =
             [Drawing.Drawing2D.PixelOffsetMode]::Half
         $Graphics.DrawString(
-            "TIP-OFF $($Side.ToUpperInvariant()) EDGE | full-resolution 64x480 crops | every logical frame 661-695",
+            "TIP-OFF $($Side.ToUpperInvariant()) EDGE | full-resolution 64x480 crops | every logical frame $ProofFrameRangeText ($ProofFrameCount frames)",
             $TitleFont, [Drawing.Brushes]::White, 8, 8)
         $Graphics.DrawString(
             "native cadence $NativeFrameRateText (~$([Math]::Round($NativeFrameRateHz, 6)) fps) | contiguous PNG edge evidence",
@@ -974,7 +1035,9 @@ if ($FfmpegVersionMatches.Count -ne 1 -or
 }
 $FfmpegVersion = $FfmpegVersionMatches[0]
 $FfprobeVersion = $FfprobeVersionMatches[0]
-$VideoPath = Join-Path $OutputRoot "tipoff-sequence-661-695.mp4"
+$VideoFileName = "tipoff-sequence-{0:D4}-{1:D4}.mp4" -f `
+    $ProofFirstFrame, $ProofLastFrame
+$VideoPath = Join-Path $OutputRoot $VideoFileName
 $InputPattern = Join-Path $FramesRoot "tipoff-%04d.png"
 $FfmpegLog = Join-Path $LogsRoot "ffmpeg.log"
 $FfprobeLog = Join-Path $LogsRoot "ffprobe.log"
@@ -1105,13 +1168,13 @@ $SummaryLines = @(
     "asset pack: $($PackIdentity.canonical_path)",
     "asset pack SHA256: $PackSha256 ($($PackItem.Length) bytes; $($PackIdentity.entry_count) entries)",
     "asset pack canonical entries: gameplay/pre-tip=$TptiPayloadLength bytes/$TptiFnv32; chr/all=$($ChrIdentity.bytes) bytes/$($ChrIdentity.fnv1a32)",
-    "frames: $ProofFirstFrame-$ProofLastFrame ($ProofFrameCount contiguous frames, deterministic double render)",
+    "frames: $ProofFrameRangeText ($ProofFrameCount contiguous frames; contest=$ProofFirstFrame-$JumpContestLastFrame ($JumpContestFrameCount updates), live=$LiveHandoffFrame-$ProofLastFrame ($LiveContinuityFrameCount updates); deterministic double render)",
     "native cadence: $NativeFrameRateText fps ($NativeFrameRateDisplay Hz; frame period $NativeFrameDurationSeconds seconds)",
-    "input: P1 controls Away; held B on every production update while phase is jump-contest; source=$CheckpointSourcePath",
+    "input: P1 controls Away; held B on every production update while phase is jump-contest (input clock cap $ContestInputClockCap); source=$CheckpointSourcePath",
     "input source SHA256: $CheckpointSourceSha256",
     "shortcut audit: $ShortcutScriptPath SHA256=$ShortcutScriptSha256; GUI launch is tecmo_port_game.exe --root <project> --play; no native capture option",
     "output: 640x480; active view x=$ActiveLeft..$ActiveRight; both host margins verified black",
-    "sheets: full-resolution contact cells 640x480 at 1:1; left/right edge crops 64x480 at 1:1",
+    "sheets: full-resolution contact cells 640x480 at 1:1 for selected frames $($ContactFrames -join ','); left/right edge crops 64x480 at 1:1 for every $ProofFrameCount frame",
     "contact sheet: $ContactSheetPath",
     "left edge sheet: $LeftEdgeSheetPath",
     "right edge sheet: $RightEdgeSheetPath",
@@ -1119,7 +1182,7 @@ $SummaryLines = @(
     "video: $VideoPath",
     "video status: $VideoStatus; presentation artifact only; never acceptance proof",
     "approximation/evidence: each PNG is a production-path CLI checkpoint replayed from a clean scene launch to its logical frame; the CLI does not capture wall-clock Win32 frames",
-    "approximation/evidence: PNG numbering, runtime diagnostics, both edge sheets, and deterministic pass 2 are acceptance evidence; MP4 only presents the same contiguous frames at the exact rational cadence",
+    "approximation/evidence: PNG numbering $ProofFirstFrameName through $ProofLastFrameName, runtime diagnostics, both all-frame edge sheets, and deterministic pass 2 are acceptance evidence; MP4 only presents the same contiguous frames at the exact rational cadence",
     "approximation/evidence: later pre-tip trajectory/winner policy remains capture-bounded/native-approximate per PORTING.md; this proof does not claim ROM-exact timing",
     "command build: $BuildCommand",
     "command asset-pack: $AssetPackCommand",
@@ -1192,6 +1255,8 @@ $Manifest = [pscustomobject][ordered]@{
         deterministic_passes = 2
         left_host_margin_nonblack_pixels = 0
         right_host_margin_nonblack_pixels = 0
+        contact_sheet_frames = $ContactFrames
+        edge_sheet_frame_count = $ProofFrameCount
     }
     input_script = [pscustomobject][ordered]@{
         generator_path = $ScriptPath
@@ -1199,22 +1264,24 @@ $Manifest = [pscustomobject][ordered]@{
         native_checkpoint_source_path = $CheckpointSourcePath
         native_checkpoint_source_sha256 = $CheckpointSourceSha256
         controller_1_team = "Away"
-        schedule = "neutral before contest; held B via input.cancel on every production update while phase is jump-contest; neutral after live handoff"
-        input_semantics = "P1/Away receives the held B/cancel input; Home is not sampled; frame N is reached by replaying updates 0..N-1 from a clean scene launch"
+        schedule = "neutral before frame $ProofFirstFrame; held B via input.cancel on every production update while phase is jump-contest frames $ProofFirstFrame..$JumpContestLastFrame; neutral after live handoff frame $LiveHandoffFrame"
+        input_semantics = "P1/Away receives the held B/cancel input during the first $ContestInputClockCap input-clock updates (the visual contest remains $JumpContestFrameCount updates); Home is not sampled; frame N is reached by replaying updates 0..N-1 from a clean scene launch"
         observed_away_sample_frame = 0
         observed_away_tip_error = 0
         home_tip_sampled = $false
     }
     assertions = @(
-        "both TPTI jumper actors 4 and 9 are visible in every contest frame",
-        "both jumper screen Y and pose follow crouch/takeoff/rise/apex/fall/landing stages",
-        "pre-tip camera remains at source-backed center x=0x0100",
-        "live handoff awards Away possession and preserves its left goal orientation",
-        "all 35 first-pass PNGs exactly match independently rendered second-pass PNGs",
-        "both frame directories contain exactly tipoff-0661.png through tipoff-0695.png with consistent 640x480 dimensions",
+        "both TPTI jumper actors 4 and 9 are visible, symmetric, and center-camera in every contest frame $ProofFirstFrame..$JumpContestLastFrame",
+        "both jumper screen Y, altitude, and pose follow the crouch/takeoff/rise/apex/fall/landing stages, including exact boundary diagnostics",
+        "contest-frame equals min(phase-frame,$ContestInputClockCap) during contest and remains $ContestInputClockCap in LIVE",
+        "pre-tip camera remains at source-backed center x=0x0100 through the contest",
+        "live handoff at gameplay-state frame $LiveHandoffFrame awards Away possession and preserves its left goal orientation",
+        "all $ProofFrameCount first-pass PNGs exactly match independently rendered second-pass PNGs",
+        "both frame directories contain exactly $ProofFirstFrameName through $ProofLastFrameName with consistent 640x480 dimensions",
+        "both active-view edge sheets represent every one of the $ProofFrameCount contiguous logical frames",
         "all output pixels outside active view x=64..575 are black on both edges",
         "gameplay-facing-away-left checkpoint validates active actors against team goal mapping",
-        "MP4 frame count/rate/dimensions are ffprobe-validated and the MP4 is not an acceptance artifact"
+        "MP4 $VideoFileName frame count/rate/dimensions are ffprobe-validated and the MP4 is not an acceptance artifact"
     )
     frames = $ProofFrames
     facing_checkpoint = [pscustomobject][ordered]@{
