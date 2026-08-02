@@ -538,11 +538,30 @@ if ($FfmpegPath) {
     $FfmpegPath = (Resolve-Path -LiteralPath $FfmpegPath).Path
     $VideoPath = Join-Path $OutputRoot "tipoff-sequence-661-695.mp4"
     $InputPattern = Join-Path $FramesRoot "tipoff-%04d.png"
-    & $FfmpegPath -hide_banner -loglevel info -y -framerate 10 `
-        -start_number $ProofFirstFrame -i $InputPattern -frames:v `
-        ($ProofLastFrame - $ProofFirstFrame + 1) -c:v libx264 `
-        -preset medium -crf 18 -pix_fmt yuv420p $VideoPath *> $FfmpegLog
-    if ($LASTEXITCODE -ne 0 -or
+    $FfmpegArguments =
+        "-hide_banner -loglevel info -y -framerate 10 " +
+        "-start_number $ProofFirstFrame -i `"$InputPattern`" " +
+        "-frames:v $($ProofLastFrame - $ProofFirstFrame + 1) " +
+        "-c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p " +
+        "`"$VideoPath`""
+    $StartInfo = New-Object Diagnostics.ProcessStartInfo
+    $StartInfo.FileName = $FfmpegPath
+    $StartInfo.Arguments = $FfmpegArguments
+    $StartInfo.UseShellExecute = $false
+    $StartInfo.CreateNoWindow = $true
+    $StartInfo.RedirectStandardOutput = $true
+    $StartInfo.RedirectStandardError = $true
+    $FfmpegProcess = New-Object Diagnostics.Process
+    $FfmpegProcess.StartInfo = $StartInfo
+    [void]$FfmpegProcess.Start()
+    $FfmpegOutput = $FfmpegProcess.StandardOutput.ReadToEnd()
+    $FfmpegError = $FfmpegProcess.StandardError.ReadToEnd()
+    $FfmpegProcess.WaitForExit()
+    $FfmpegExitCode = $FfmpegProcess.ExitCode
+    $FfmpegProcess.Dispose()
+    [IO.File]::WriteAllText(
+        $FfmpegLog, $FfmpegOutput + $FfmpegError, $Utf8NoBom)
+    if ($FfmpegExitCode -ne 0 -or
         !(Test-Path -LiteralPath $VideoPath -PathType Leaf)) {
         throw "ffmpeg proof encoding failed.`n$((Get-Content -LiteralPath $FfmpegLog -Tail 50) -join [Environment]::NewLine)"
     }
