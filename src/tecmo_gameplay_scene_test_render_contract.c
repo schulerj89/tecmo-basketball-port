@@ -1640,8 +1640,8 @@ static bool scene_test_pretip_hud_phase_contract(
     size_t message_size)
 {
     typedef struct ScenePreTipHudProbe {
-        uint32_t total_frame;
         TecmoGameplayPreTipPhase phase;
+        uint16_t phase_frame;
         bool expect_hud;
         bool expect_black;
         uint8_t away_team;
@@ -1649,23 +1649,23 @@ static bool scene_test_pretip_hud_phase_contract(
         const char *name;
     } ScenePreTipHudProbe;
     static const ScenePreTipHudProbe probes[] = {
-        {0U, TECMO_GAMEPLAY_PRETIP_PRESEASON, false, false, 0U, 1U,
+        {TECMO_GAMEPLAY_PRETIP_PRESEASON, 0U, false, false, 0U, 1U,
          "preseason card"},
-        {61U, TECMO_GAMEPLAY_PRETIP_MATCHUP, false, false, 0U, 1U,
+        {TECMO_GAMEPLAY_PRETIP_MATCHUP, 0U, false, false, 0U, 1U,
          "matchup card"},
-        {271U, TECMO_GAMEPLAY_PRETIP_CLOSEUP, false, false, 0U, 1U,
+        {TECMO_GAMEPLAY_PRETIP_CLOSEUP, 28U, false, false, 0U, 1U,
          "close-up"},
-        {451U, TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP, false, true, 0U,
+        {TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP, 0U, false, true, 0U,
          1U, "center-court setup"},
-        {481U, TECMO_GAMEPLAY_PRETIP_BALL_DESCENT, true, false, 3U, 10U,
+        {TECMO_GAMEPLAY_PRETIP_BALL_DESCENT, 0U, true, false, 3U, 10U,
          "ball descent"},
-        {601U, TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP, false, true, 0U, 1U,
+        {TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP, 0U, false, true, 0U, 1U,
          "toss black"},
-        {631U, TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP, false, false, 0U, 1U,
+        {TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP, 30U, false, false, 0U, 1U,
          "toss close-up"},
-        {661U, TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST, true, false, 3U, 10U,
+        {TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST, 0U, true, false, 3U, 10U,
          "jump contest"},
-        {691U, TECMO_GAMEPLAY_PRETIP_LIVE, true, false, 3U, 10U,
+        {TECMO_GAMEPLAY_PRETIP_LIVE, 0U, true, false, 3U, 10U,
          "first live frame"}
     };
     const size_t pixel_count =
@@ -1690,6 +1690,7 @@ static bool scene_test_pretip_hud_phase_contract(
     TecmoControlFrame p1;
     TecmoControlFrame p2;
     size_t probe_index;
+    uint32_t probe_total_frame;
     uint32_t frame;
     char failure_buffer[192] = {0};
     const char *failure = NULL;
@@ -1724,6 +1725,33 @@ static bool scene_test_pretip_hud_phase_contract(
     for (probe_index = 0U;
          probe_index < sizeof(probes) / sizeof(probes[0]); ++probe_index) {
         const ScenePreTipHudProbe *probe = &probes[probe_index];
+        uint64_t expected_total = 0U;
+        size_t phase_index;
+        if (probe->phase > TECMO_GAMEPLAY_PRETIP_LIVE) {
+            failure = "pre-tip HUD phase probe phase was invalid";
+            goto done;
+        }
+        for (phase_index = 0U; phase_index < (size_t)probe->phase;
+             ++phase_index) {
+            expected_total += scene->pretip_assets.phase_frames[phase_index];
+        }
+        if (probe->phase < TECMO_GAMEPLAY_PRETIP_LIVE) {
+            uint16_t duration =
+                scene->pretip_assets.phase_frames[probe->phase];
+            if (probe->phase_frame >= duration) {
+                failure = "pre-tip HUD phase probe frame was invalid";
+                goto done;
+            }
+            expected_total += probe->phase_frame;
+        } else if (probe->phase_frame != 0U) {
+            failure = "pre-tip HUD LIVE phase frame was invalid";
+            goto done;
+        }
+        if (expected_total > UINT32_MAX) {
+            failure = "pre-tip HUD phase probe total overflowed";
+            goto done;
+        }
+        probe_total_frame = (uint32_t)expected_total;
         probe_launch = *launch;
         probe_launch.away_team = probe->away_team;
         probe_launch.home_team = probe->home_team;
@@ -1732,14 +1760,15 @@ static bool scene_test_pretip_hud_phase_contract(
             failure = "pre-tip HUD phase probe launch rejected";
             goto done;
         }
-        for (frame = 0U; frame < probe->total_frame; ++frame) {
+        for (frame = 0U; frame < probe_total_frame; ++frame) {
             if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
                 failure = "pre-tip HUD phase probe update rejected";
                 goto done;
             }
         }
         if (scene->pretip_state.phase != probe->phase ||
-            scene->pretip_state.total_frame != probe->total_frame) {
+            scene->pretip_state.phase_frame != probe->phase_frame ||
+            scene->pretip_state.total_frame != probe_total_frame) {
             failure = "pre-tip HUD phase probe reached the wrong phase";
             goto done;
         }
@@ -1770,7 +1799,7 @@ static bool scene_test_pretip_hud_phase_contract(
                 failure = failure_buffer;
                 goto done;
             }
-            if (probe_index == 4U) {
+            if (probe->phase == TECMO_GAMEPLAY_PRETIP_BALL_DESCENT) {
                 memset(guarded, 0xA5, guard_pixel_count * sizeof(*guarded));
                 if (!tecmo_gameplay_scene_draw(
                         scene, &guarded_framebuffer,
