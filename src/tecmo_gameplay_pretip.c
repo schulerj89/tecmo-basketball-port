@@ -687,7 +687,7 @@ bool tecmo_gameplay_pretip_tip_winner(
     uint8_t *winner)
 {
     if (winner == NULL || !state_valid(assets, state) || state->aborted ||
-        state->phase <= TECMO_GAMEPLAY_PRETIP_CLOSEUP) {
+        state->phase < TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
         return false;
     }
     *winner = state->home_tip_error < state->away_tip_error
@@ -729,6 +729,105 @@ static bool update_rejects_unchanged(
     return !tecmo_gameplay_pretip_update(
                assets, state, false, false) &&
            memcmp(&before, state, sizeof(before)) == 0;
+}
+
+static bool tip_winner_gate_regression(
+    const TecmoGameplayPreTipAssets *assets,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplayPreTipState precontest;
+    TecmoGameplayPreTipState equal_errors;
+    TecmoGameplayPreTipState home_sample;
+    TecmoGameplayPreTipState before;
+    uint8_t winner;
+    unsigned frame;
+
+    if (!tecmo_gameplay_pretip_state_initialize(
+            assets, &precontest, false)) {
+        if (message != NULL && message_size > 0U)
+            (void)snprintf(message, message_size,
+                           "TPTI-1 winner gate regression failed: "
+                           "pre-contest setup initialization");
+        return false;
+    }
+    for (frame = 0U; frame < 451U; ++frame) {
+        if (!tecmo_gameplay_pretip_update(
+                assets, &precontest, false, false)) {
+            if (message != NULL && message_size > 0U)
+                (void)snprintf(message, message_size,
+                               "TPTI-1 winner gate regression failed: "
+                               "pre-contest setup advance");
+            return false;
+        }
+    }
+    if (precontest.phase != TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP ||
+        precontest.phase_frame != 0U) {
+        if (message != NULL && message_size > 0U)
+            (void)snprintf(message, message_size,
+                           "TPTI-1 winner gate regression failed: "
+                           "intermediate phase setup");
+        return false;
+    }
+    before = precontest;
+    winner = 0xA5U;
+    if (tecmo_gameplay_pretip_tip_winner(
+            assets, &precontest, &winner) || winner != 0xA5U ||
+        memcmp(&before, &precontest, sizeof(before)) != 0) {
+        if (message != NULL && message_size > 0U)
+            (void)snprintf(message, message_size,
+                           "TPTI-1 winner gate regression failed: "
+                           "pre-contest winner accepted or output mutated");
+        return false;
+    }
+
+    if (!tecmo_gameplay_pretip_state_initialize(
+            assets, &equal_errors, false) ||
+        !tecmo_gameplay_pretip_state_initialize(
+            assets, &home_sample, false)) {
+        if (message != NULL && message_size > 0U)
+            (void)snprintf(message, message_size,
+                           "TPTI-1 winner gate regression failed: "
+                           "contest setup initialization");
+        return false;
+    }
+    for (frame = 0U; frame < 661U; ++frame) {
+        if (!tecmo_gameplay_pretip_update(
+                assets, &equal_errors, false, false) ||
+            !tecmo_gameplay_pretip_update(
+                assets, &home_sample, false, false)) {
+            if (message != NULL && message_size > 0U)
+                (void)snprintf(message, message_size,
+                               "TPTI-1 winner gate regression failed: "
+                               "contest setup advance");
+            return false;
+        }
+    }
+    winner = 0xA5U;
+    if (!tecmo_gameplay_pretip_update(
+            assets, &equal_errors, true, true) ||
+        !tecmo_gameplay_pretip_tip_winner(
+            assets, &equal_errors, &winner) ||
+        winner != TECMO_GAMEPLAY_PRETIP_AWAY_WINNER) {
+        if (message != NULL && message_size > 0U)
+            (void)snprintf(message, message_size,
+                           "TPTI-1 winner gate regression failed: "
+                           "equal-error contest did not settle Away");
+        return false;
+    }
+    winner = TECMO_GAMEPLAY_PRETIP_AWAY_WINNER;
+    if (!tecmo_gameplay_pretip_update(
+            assets, &home_sample, false, true) ||
+        !tecmo_gameplay_pretip_tip_winner(
+            assets, &home_sample, &winner) ||
+        winner != TECMO_GAMEPLAY_PRETIP_HOME_WINNER) {
+        if (message != NULL && message_size > 0U)
+            (void)snprintf(message, message_size,
+                           "TPTI-1 winner gate regression failed: "
+                           "valid Home sample did not win");
+        return false;
+    }
+    return true;
 }
 
 bool tecmo_gameplay_pretip_self_test(const char *asset_pack_path,
@@ -773,6 +872,7 @@ bool tecmo_gameplay_pretip_self_test(const char *asset_pack_path,
     unsigned frame;
     uint8_t winner = 0xFFU;
     bool ok;
+    if (message != NULL && message_size > 0U) message[0] = '\0';
     tecmo_gameplay_pretip_init(&assets);
     memset(&state, 0, sizeof(state));
     memset(&preseason_b_state, 0, sizeof(preseason_b_state));
@@ -825,6 +925,11 @@ bool tecmo_gameplay_pretip_self_test(const char *asset_pack_path,
          cancel_state.phase_frame == 0U &&
          cancel_state.total_frame == 0U &&
          update_rejects_unchanged(&assets, &cancel_state);
+
+    if (ok && !tip_winner_gate_regression(
+                  &assets, message, message_size)) {
+        ok = false;
+    }
 
     if (ok) {
         malformed = state;
@@ -978,10 +1083,12 @@ bool tecmo_gameplay_pretip_self_test(const char *asset_pack_path,
     } else {
         ok = false;
     }
-    if (message != NULL && message_size > 0U)
-        (void)snprintf(message, message_size, "%s",
-                       ok ? "TPTI-1 pre-tip self-test passed"
-                          : "TPTI-1 pre-tip state/transaction self-test failed");
+    if (message != NULL && message_size > 0U && ok)
+        (void)snprintf(message, message_size,
+                       "TPTI-1 pre-tip self-test passed");
+    else if (message != NULL && message_size > 0U && message[0] == '\0')
+        (void)snprintf(message, message_size,
+                       "TPTI-1 pre-tip state/transaction self-test failed");
     tecmo_gameplay_pretip_destroy(&assets);
     return ok;
 }
