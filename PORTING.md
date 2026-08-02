@@ -815,9 +815,14 @@ black for 30 updates, descends the ball from approximately Y 71 to Y 145 over
 30 updates of the toss transition, and renders TGPL-1 screen `$1B`
 nametable page 1 for the final 30. Page 1 is required by the reference geometry:
 the ball occupies X 176..239 and the hands X 67..159; page 0 contains the
-opposite phase. The final 30 updates show the jump contest. The court overlay
-draws exactly one away-team ROM logo, right/bottom aligned by its validated
-variable dimensions, without duplicating its embedded city/nickname lettering.
+opposite phase. The final 30 updates show the jump contest. The final live-
+background band uses the validated pre-ASL R1 selector `$40 + away_team` during
+pre-tip, then `$40 + home_team` after live handoff. `$3F` is outside the
+accepted `$40..$5A` team-selector range and resolves high-bit final-band tiles
+through unrelated CHR data, which caused the former oversized lower-right
+graphic. The corrected pre-tip band draws exactly one away-team ROM logo,
+right/bottom aligned by its validated variable dimensions, without hiding or
+duplicating its embedded city/nickname lettering.
 
 Bank06 `$A10A-$A124` checks current NES B only when `$69` bit 0 is set.
 Native PRESEASON clears that gate and ignores B during all three cards; the
@@ -1190,8 +1195,14 @@ world-space shot targets; launch Y is the separately proven `$8F`. Shot launch
 rejects an inactive or non-possessing actor, mismatched rules/TGOR team state,
 or a target that differs from the validated orientation asset. Once resolved,
 the scene faces the actor toward that hoop, freezes the endpoint, and lets TGCP
-follow by at most its normal seven-pixel update cap. Facing/mirroring is native
-adapter policy. TGOR-1 also selects the production TGFL-1 lineup orientation. Exact-size and
+follow by at most its normal seven-pixel update cap. Base actor facing also
+comes from the validated team-to-goal mapping: the tracked possession team owns
+`current_direction`, the other team owns its XOR-1 direction, a left hoop means
+`facing_right=false`, and a right hoop means `facing_right=true`. Possession
+handoff rebases active actors transactionally; deliberate horizontal movement
+and supported shot actions are the only native overrides. This mapping remains
+native adapter policy rather than a newly claimed ROM animation selector.
+TGOR-1 also selects the production TGFL-1 lineup orientation. Exact-size and
 canonical payload checks, source records, bounds/reserved/padding checks,
 full-ROM SHA/FNV revision identity, same-pack dependencies, source-map
 provenance, missing/malformed/oversized and source-mutation failures are
