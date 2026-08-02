@@ -3522,7 +3522,7 @@ static int append_gameplay_pretip_source_map_entry(
         "\"rom_exact\":true,"
         "\"proves\":\"current-level NES B mask $40 is read and latched before the later height/countdown gate\","
         "\"does_not_prove\":\"winner settlement\"},"
-        "\"tip_input\":\"all 30 native jump-contest updates accept the first held NES B level routed by team; target frame 0, capped error 0..11, no-sample error 12, and tie-away settlement are explicit native approximations\","
+        "\"tip_input\":\"the first 30 native jump-contest updates accept the first held NES B level routed by team; target frame 0, capped error 0..11, no-sample error 12, and tie-away settlement are explicit native approximations\","
         "\"winner_query_gate\":\"rejects before jump-contest without mutating caller output; accepted during jump-contest and live\","
         "\"tip_lineup\":\"Bank04 $AC8C-$ACD9 initializes object slots 0..10 from $ADA3/$ADAE/$ADB9; native play consumes the exact ten player coordinates and ball anchor\","
         "\"tip_jumper_selectors\":[4,9],"

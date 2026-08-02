@@ -815,7 +815,7 @@ OAM-Y displays one scanline below the stored value. The center-court route then 
 black for 30 updates, descends the ball from approximately Y 71 to Y 145 over
 60 updates and holds it through the 120-update phase, holds black for the first
 30 updates of the toss transition, and renders TGPL-1 screen `$1B`
-nametable page 1 for the final 60. Page 1 is required by the reference geometry:
+nametable page 1 for the final 30. Page 1 is required by the reference geometry:
 the ball occupies X 176..239 and the hands X 67..159; page 0 contains the
 opposite phase. The final 60 updates show the jump contest. The final live-
 background band uses the validated pre-ASL R1 selector `$40 + away_team` during
@@ -879,7 +879,7 @@ place one Bank04-selected jumper outside the 256-pixel projection window. The
 frame-721 handoff still settles transactionally around the awarded possession,
 so this fixed presentation viewport does not replace live camera behavior.
 `tools/New-TipoffVisualProof.ps1` gates this integration from a clean commit: it
-builds a Rev1 asset pack, double-renders every production-path frame 661..695
+builds a Rev1 asset pack, double-renders every production-path frame 661..725
 while Away holds B throughout `JUMP_CONTEST`, checks both jumpers' projected
 pose/Y/visibility and both host margins, renders the Away-left-facing checkpoint,
 and emits numbered PNGs, all-frame active-edge sheets, a stage contact sheet, an
@@ -934,6 +934,10 @@ two-row ownership, remaining blank columns, colon tile `$16`, black cell backing
 are reference-verified presentation bounds. The three-digit cap for the wider
 C score and the holder/shooter matchup fallback used to label a CPU-only side
 are native adapter policies and must remain documented as approximate.
+The native scene draws this real game-information HUD during the court-visible
+`BALL_DESCENT` and `JUMP_CONTEST` phases and throughout live play. It remains
+suppressed for matchup cards, close-ups, black setup, and the toss cut-in so
+those authored full-screen compositions are not overwritten.
 
 The TGAI-1 production binding owns a fixed opposing roster-slot link, an
 explicit target coordinate, direction result, immutable-snapshot fingerprint,

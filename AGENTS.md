@@ -780,11 +780,12 @@ updates. TPTI-1 is 5888 bytes / FNV1a32 `99ADFE3D`, has 20 exact Rev1 source
 spans, and requires same-pack TGPL-1, TTDT-1, TMUS-1, TWAR-1, and `chr/all`.
 The first `61/121/61` card waits, Bank06 character mapping, `$AF05` 2-by-2
 metatile glyphs, `$C6/$FA` text CHR selectors, and the 16-pixel cell positions
-are ASM-exact. The later phase durations are
-capture-bounded; together they form the deterministic capture-aligned native
-schedule `61/121/61/208/30/120/60/30 = 691` updates: mode card, matchup,
-first-period card, screen-`$1A` close-up, center black, court/ball descent, toss
-transition/cut-in, contest, then live. Matchup logos are anchored
+are ASM-exact. The later phase durations are capture-bounded. The asset-backed
+schedule reaches contest entry after `61/121/61/208/30/120/60 = 661` updates;
+the TPTI input window remains 30 updates, while the native readability
+presentation lasts 60, so live begins at frame 721. The phases are mode card,
+matchup, first-period card, screen-`$1A` close-up, center black, court/ball
+descent, toss transition/cut-in, contest, then live. Matchup logos are anchored
 at `(16,32)` and `(16,128)`. The court overlay draws only one away-team ROM
 logo and right/bottom-aligns it from validated dimensions; do not add separate
 city/nickname text because that lettering is already in the logo cells.
@@ -797,15 +798,16 @@ Bank06 `$A10A-$A124` permits current-level NES B cancellation only when `$69`
 bit 0 is set. Native PRESEASON clears that gate and ignores B on all three
 cards; the regular-season route sets it and either pad may cancel. Exact
 Bank05 `$985E-$986A` proves a current-level NES B mask/read/latch in the tip
-machinery, but not the original timing or winner settlement. During all 30
-visible `JUMP_CONTEST` updates, the native scene routes pads by assigned team
-and retains that team's first held B sample. Frame 0 is the native timing
+machinery, but not the original timing or winner settlement. During the first
+30 `JUMP_CONTEST` updates, the native scene routes pads by assigned team and
+retains that team's first held B sample; the selected jumpers remain visible
+through the complete 60-update presentation. Frame 0 is the native timing
 target, error caps at 11, no sample is 12, lower error wins, and equal errors
 choose away; this complete timing/winner policy is an explicit approximation.
 B cannot sample a tip in the close-up, court, or toss phases and cannot cancel
 those phases. Winner queries fail closed before `JUMP_CONTEST` without changing
 caller-owned output. Other inputs are inert throughout the presentation. Rules,
-clock, shot clock, camera, and live updates stay frozen until the frame-691
+clock, shot clock, camera, and live updates stay frozen until the frame-721
 handoff. Track 8 queues at entry and enabled GAME MUSIC queues track 5 only at
 handoff. Bank04 `$88` plus fixed `$D861` moves the OAM player left while the
 nametable figures scroll right; the 33-frame phase anchor is capture-bounded,

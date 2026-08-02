@@ -607,9 +607,13 @@ static bool state_valid(const TecmoGameplayPreTipAssets *assets,
     if ((state->phase < TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST &&
          state->contest_frame != 0U) ||
         (state->phase == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST &&
-         (state->contest_frame >
-              assets->phase_frames[TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST] ||
-          state->contest_frame > state->phase_frame)) ||
+         state->contest_frame !=
+             (state->phase_frame <
+                      assets->phase_frames[
+                          TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST]
+                  ? state->phase_frame
+                  : assets->phase_frames[
+                        TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST])) ||
         (state->phase >= TECMO_GAMEPLAY_PRETIP_LIVE &&
          state->contest_frame !=
              assets->phase_frames[TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST])) {
@@ -1080,6 +1084,11 @@ bool tecmo_gameplay_pretip_self_test(const char *asset_pack_path,
     if (ok) {
         malformed = sampled_state;
         malformed.contest_frame = malformed.phase_frame + 1U;
+        ok = update_rejects_unchanged(&assets, &malformed);
+    }
+    if (ok) {
+        malformed = sampled_state;
+        --malformed.contest_frame;
         ok = update_rejects_unchanged(&assets, &malformed);
     }
     if (ok) state = sampled_state;

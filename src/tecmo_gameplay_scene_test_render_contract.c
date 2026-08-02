@@ -1733,11 +1733,16 @@ static bool scene_test_pretip_hud_phase_contract(
         }
         for (phase_index = 0U; phase_index < (size_t)probe->phase;
              ++phase_index) {
-            expected_total += scene->pretip_assets.phase_frames[phase_index];
+            expected_total +=
+                phase_index == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST
+                    ? TECMO_GAMEPLAY_PRETIP_PRESENTATION_FRAMES
+                    : scene->pretip_assets.phase_frames[phase_index];
         }
         if (probe->phase < TECMO_GAMEPLAY_PRETIP_LIVE) {
             uint16_t duration =
-                scene->pretip_assets.phase_frames[probe->phase];
+                probe->phase == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST
+                    ? TECMO_GAMEPLAY_PRETIP_PRESENTATION_FRAMES
+                    : scene->pretip_assets.phase_frames[probe->phase];
             if (probe->phase_frame >= duration) {
                 failure = "pre-tip HUD phase probe frame was invalid";
                 goto done;
