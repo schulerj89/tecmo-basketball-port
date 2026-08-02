@@ -768,7 +768,7 @@ static bool scene_pretip_apply_jump_frame(
         actor->pose_index = pose_index;
         /* The Bank04 standing pointers are already orientation encoded, but
            these generic TGJS-derived action pointers are not. Let the common
-           renderer mirror the home jumper from its actor-facing flag. */
+           renderer mirror according to the preserved actor-facing flag. */
         actor->pose_orientation_encoded = false;
         scene->pretip_jumper_altitude_q8[jumper] =
             scene_pretip_jump_altitude_q8(phase_frame);

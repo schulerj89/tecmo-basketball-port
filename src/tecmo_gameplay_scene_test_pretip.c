@@ -249,7 +249,7 @@ static bool tecmo_gameplay_scene_test_pretip_contest_input_regression(
     return true;
 }
 
-static bool scene_test_pretip_draw_full_resolution(
+static bool scene_test_pretip_draw_logical_resolution(
     const TecmoGameplayScene *scene,
     uint32_t *pixels,
     bool include_actors)
@@ -389,7 +389,7 @@ static bool tecmo_gameplay_scene_test_pretip_jump_presentation(
     uint8_t setup_ball_holder;
     size_t frame;
     size_t stage;
-    bool full_resolution_contact_checked = false;
+    bool logical_resolution_contact_checked = false;
     bool ok = false;
 
     if (test == NULL || scene == NULL || launch == NULL ||
@@ -468,7 +468,7 @@ static bool tecmo_gameplay_scene_test_pretip_jump_presentation(
     if (background_pixels == NULL || actor_pixels == NULL) {
         tecmo_gameplay_scene_test_message(
             test->message, test->message_size,
-            "full-resolution tip frame allocation failed");
+            "native logical-resolution tip frame allocation failed");
         goto cleanup;
     }
     for (stage = 0U; stage < sizeof(stage_frames) / sizeof(stage_frames[0]);
@@ -546,9 +546,9 @@ static bool tecmo_gameplay_scene_test_pretip_jump_presentation(
                     TECMO_GAMEPLAY_JUMP_FLIGHT_POSE ||
                 contact_home_pose.pointer_index !=
                     TECMO_GAMEPLAY_JUMP_FLIGHT_POSE ||
-                !scene_test_pretip_draw_full_resolution(
+                !scene_test_pretip_draw_logical_resolution(
                     scene, background_pixels, false) ||
-                !scene_test_pretip_draw_full_resolution(
+                !scene_test_pretip_draw_logical_resolution(
                     scene, actor_pixels, true) ||
                 scene_test_pretip_actor_pixel_changes(
                     actor_pixels, background_pixels,
@@ -558,16 +558,16 @@ static bool tecmo_gameplay_scene_test_pretip_jump_presentation(
                     &projection.players[home_actor]) == 0U) {
                 tecmo_gameplay_scene_test_message(
                     test->message, test->message_size,
-                    "full-resolution generic tip action frame was not readable");
+                    "native logical-resolution generic tip action frame was not readable");
                 goto cleanup;
             }
-            full_resolution_contact_checked = true;
+            logical_resolution_contact_checked = true;
         }
     }
-    if (!full_resolution_contact_checked ||
-        !scene_test_pretip_draw_full_resolution(
+    if (!logical_resolution_contact_checked ||
+        !scene_test_pretip_draw_logical_resolution(
             scene, background_pixels, false) ||
-        !scene_test_pretip_draw_full_resolution(
+        !scene_test_pretip_draw_logical_resolution(
             scene, actor_pixels, true) ||
         scene_test_pretip_actor_pixel_changes(
             actor_pixels, background_pixels,
@@ -577,7 +577,7 @@ static bool tecmo_gameplay_scene_test_pretip_jump_presentation(
             &projection.players[home_actor]) == 0U) {
         tecmo_gameplay_scene_test_message(
             test->message, test->message_size,
-            "full-resolution landed tip actors were not readable");
+            "native logical-resolution landed tip actors were not readable");
         goto cleanup;
     }
     {
@@ -593,7 +593,7 @@ static bool tecmo_gameplay_scene_test_pretip_jump_presentation(
             home_pose.pointer_index != TECMO_GAMEPLAY_JUMP_SLOT0_IDLE_POSE) {
             tecmo_gameplay_scene_test_message(
                 test->message, test->message_size,
-                "full-resolution generic tip pose resolution failed");
+                "native logical-resolution generic tip pose resolution failed");
             goto cleanup;
         }
     }
