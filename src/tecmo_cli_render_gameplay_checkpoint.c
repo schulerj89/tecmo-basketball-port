@@ -27,6 +27,7 @@ typedef struct TecmoCliGameplayCheckpointConfig {
     bool dunk;
     bool pretip_checkpoint;
     bool live_start;
+    bool facing_checkpoint;
     bool ball_bounce;
     bool cpu_steering;
     bool shot_clock_violation;
@@ -35,6 +36,28 @@ typedef struct TecmoCliGameplayCheckpointConfig {
     int possession_slice;
     int free_throw_orientation;
 } TecmoCliGameplayCheckpointConfig;
+
+static bool gameplay_checkpoint_goal_facing_right(
+    const TecmoGameplayScene *scene,
+    uint8_t team,
+    bool *facing_right_out)
+{
+    TecmoGameplayCourtCoordinate hoop;
+    if (scene == NULL || facing_right_out == NULL ||
+        !tecmo_gameplay_court_orientation_team_hoop(
+            &scene->court_orientation, &scene->orientation_state,
+            team, &hoop)) {
+        return false;
+    }
+    if (hoop.x == TECMO_GAMEPLAY_COURT_LEFT_HOOP_X) {
+        *facing_right_out = false;
+    } else if (hoop.x == TECMO_GAMEPLAY_COURT_RIGHT_HOOP_X) {
+        *facing_right_out = true;
+    } else {
+        return false;
+    }
+    return true;
+}
 
 static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCliGameplayCheckpointConfig *config)
 {
@@ -47,6 +70,7 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     bool dunk = false;
     bool pretip_checkpoint = false;
     bool live_start = false;
+    bool facing_checkpoint = false;
     bool ball_bounce = false;
     bool cpu_steering = false;
     bool shot_clock_violation = false;
@@ -70,6 +94,10 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     } else if (strcmp(mode_name, "gameplay-live-start") == 0) {
         checkpoint = 691U;
         live_start = true;
+    } else if (strcmp(mode_name, "gameplay-facing-away-left") == 0) {
+        checkpoint = 691U;
+        live_start = true;
+        facing_checkpoint = true;
     } else if (tecmo_cli_parse_render_frame_suffix(
                    mode_name, "gameplay-ball-bounce-frame", &checkpoint)) {
         ball_bounce = true;
@@ -158,6 +186,7 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     config->dunk = dunk;
     config->pretip_checkpoint = pretip_checkpoint;
     config->live_start = live_start;
+    config->facing_checkpoint = facing_checkpoint;
     config->ball_bounce = ball_bounce;
     config->cpu_steering = cpu_steering;
     config->shot_clock_violation = shot_clock_violation;
@@ -246,6 +275,45 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
                scene->cpu_actors[0].target_position.y == 148;
     }
     return true;
+}
+
+static bool run_gameplay_facing_checkpoint(
+    const TecmoRuntime *runtime,
+    const TecmoCliGameplayCheckpointConfig *config)
+{
+    const TecmoGameplayScene *scene;
+    TecmoGameplaySceneCourtFrame court_frame;
+    size_t actor;
+    size_t visible_away = 0U;
+    (void)config;
+    if (runtime == NULL || !runtime->gameplay_scene.active) return false;
+    scene = &runtime->gameplay_scene;
+    if (scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->orientation_state.current_direction != 0U ||
+        scene->orientation_state.tracked_possession_team !=
+            TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->orientation_state.offensive_hoop.x !=
+            TECMO_GAMEPLAY_COURT_LEFT_HOOP_X ||
+        scene->orientation_state.offensive_hoop.y !=
+            TECMO_GAMEPLAY_COURT_HOOP_Y ||
+        !tecmo_gameplay_scene_court_frame(scene, &court_frame)) {
+        return false;
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        const TecmoGameplaySceneActor *item = &scene->actors[actor];
+        bool expected_facing;
+        if (!item->active ||
+            !gameplay_checkpoint_goal_facing_right(
+                scene, item->team, &expected_facing) ||
+            item->facing_right != expected_facing) {
+            return false;
+        }
+        if (item->team == TECMO_GAMEPLAY_TEAM_AWAY &&
+            court_frame.projection.players[actor].visible) {
+            ++visible_away;
+        }
+    }
+    return visible_away > 0U;
 }
 
 static bool run_gameplay_violation_checkpoint(
@@ -340,6 +408,8 @@ static bool run_gameplay_violation_checkpoint(
         holder->position.x = 368;
         holder->position.y = 148;
         holder->anchor = holder->position;
+        /* Deliberate diagnostic horizontal-facing override: this checkpoint
+           positions the held ball in the frontcourt band before TGBC/TGVR. */
         holder->facing_right = true;
         holder->movement_action_state =
             TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
@@ -399,8 +469,8 @@ static bool run_gameplay_camera_checkpoint(
                    scene->active &&
                    tecmo_gameplay_scene_court_frame(
                        scene, &court_frame) &&
-                   court_frame.slice.viewport.camera_x == 0x0100U &&
-                   court_frame.projection.camera_x == 0x0100U &&
+                    court_frame.slice.viewport.camera_x == 0x0084U &&
+                    court_frame.projection.camera_x == 0x0084U &&
                    court_frame.slice.possession ==
                        TECMO_GAMEPLAY_TEAM_AWAY &&
                    court_frame.slice.direction == 0U;
@@ -421,7 +491,10 @@ static bool run_gameplay_camera_checkpoint(
         actor->position.x =
             (int16_t)(possession_slice == 0 ? 0x00F3 : 0x020D);
         actor->anchor = actor->position;
-        actor->facing_right = possession_slice == 0;
+        if (!gameplay_checkpoint_goal_facing_right(
+                scene, actor->team, &actor->facing_right)) {
+            return false;
+        }
         scene->ball_holder = actor_index;
         scene->ball_position.x_q8 =
             (int32_t)(actor->position.x +
@@ -548,6 +621,8 @@ static bool run_gameplay_shot_checkpoint(TecmoRuntime *runtime, const TecmoCliGa
         actor->position.y = 160;
         actor->anchor.x = actor->position.x;
         actor->anchor.y = actor->position.y;
+        /* Deliberate shot checkpoint setup; launch immediately replaces this
+           with the validated offensive-hoop facing override. */
         actor->facing_right = true;
         runtime->gameplay_scene.ball_holder = 0U;
         runtime->gameplay_scene.ball_position.x_q8 =
@@ -585,10 +660,15 @@ static bool run_gameplay_shot_checkpoint(TecmoRuntime *runtime, const TecmoCliGa
             runtime->gameplay_scene.action_serial = 1U;
         }
     }
-    if (jump_rattle &&
-        !tecmo_gameplay_scene_start_rim_rattle_debug(
-            &runtime->gameplay_scene)) {
-        return false;
+    if (jump_rattle) {
+        /* Explicit diagnostic selector setup; the production shot launch
+           immediately resolves the actual offensive-hoop facing. */
+        runtime->gameplay_scene.actors[0].facing_right = true;
+        runtime->gameplay_scene.actors[0].movement_direction = 0U;
+        if (!tecmo_gameplay_scene_start_rim_rattle_debug(
+                &runtime->gameplay_scene)) {
+            return false;
+        }
     }
     memset(&input, 0, sizeof(input));
     input.cancel = true;
@@ -624,7 +704,10 @@ bool tecmo_cli_setup_gameplay_render_checkpoint(TecmoRuntime *runtime, const cha
     if (!run_gameplay_checkpoint_preflight(runtime, &config, &done)) {
         return false;
     }
-    if (done) return true;
+    if (done) {
+        return !config.facing_checkpoint ||
+               run_gameplay_facing_checkpoint(runtime, &config);
+    }
     if (!run_gameplay_violation_checkpoint(runtime, &config, &handled)) {
         return false;
     }

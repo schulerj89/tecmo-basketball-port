@@ -92,6 +92,14 @@ bool tecmo_gameplay_court_orientation_hoop(
     const TecmoGameplayCourtOrientationAssets *assets,
     uint8_t direction,
     TecmoGameplayCourtCoordinate *hoop_out);
+/* Resolve the offensive hoop owned by a team from the validated TGOR state.
+   The opposite team owns the opposite direction; callers never infer this
+   from actor slot or screen position. */
+bool tecmo_gameplay_court_orientation_team_hoop(
+    const TecmoGameplayCourtOrientationAssets *assets,
+    const TecmoGameplayCourtOrientationState *state,
+    uint8_t team,
+    TecmoGameplayCourtCoordinate *hoop_out);
 bool tecmo_gameplay_court_orientation_state_initialize(
     const TecmoGameplayCourtOrientationAssets *assets,
     TecmoGameplayCourtOrientationState *state_out);

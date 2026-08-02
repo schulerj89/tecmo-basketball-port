@@ -1347,9 +1347,10 @@ bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
         uint8_t index = order[actor];
         if (!court_frame.projection.players[index].visible) continue;
-        /* Actor-facing horizontal mirroring is an implementation-owned scene
-           approximation. Live close shots still resolve only the explicitly
-           supported TGCS profile-0/direction-0 slice. */
+        /* facing_right is the effective actor orientation: TGOR supplies the
+           goal-derived baseline, while only deliberate horizontal movement
+           and shot actions override it. Encoded tip/action poses retain their
+           source orientation and therefore bypass this native mirror. */
         scene_draw_pose(scene, &view, &actor_poses[index],
                         court_frame.projection.players[index].screen_x,
                         court_frame.projection.players[index].screen_y,

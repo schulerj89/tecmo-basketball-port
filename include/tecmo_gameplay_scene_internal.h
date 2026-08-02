@@ -13,7 +13,7 @@
 #define TECMO_GAMEPLAY_TEAM_LIMIT 27U
 #define TECMO_GAMEPLAY_BALL_POSE 64U
 #define TECMO_GAMEPLAY_SHOT_TARGET_Y 0x008F
-#define TECMO_GAMEPLAY_INITIAL_CAMERA_X 0x0100
+#define TECMO_GAMEPLAY_INITIAL_CAMERA_X 0x0084
 #define TECMO_GAMEPLAY_LEFT_BOUNDARY_BASE 0x00DF
 #define TECMO_GAMEPLAY_RIGHT_BOUNDARY_BASE 0x0220
 #define TECMO_GAMEPLAY_MIN_Y TECMO_GAMEPLAY_COURT_WORLD_MIN_Y
@@ -50,8 +50,8 @@
 #define TECMO_GAMEPLAY_JUMP_TURN_POSE 1060U
 #define TECMO_GAMEPLAY_JUMP_RELEASE_POSE 1061U
 #define TECMO_GAMEPLAY_JUMP_FLIGHT_POSE 213U
-#define TECMO_GAMEPLAY_SCENE_RENDER_FNV1A32 0x0A600DF9U
-#define TECMO_GAMEPLAY_SCENE_CENTER_SLICE_FNV1A32 0x6E530421U
+#define TECMO_GAMEPLAY_SCENE_RENDER_FNV1A32 0xC6ADE241U
+#define TECMO_GAMEPLAY_SCENE_CENTER_SLICE_FNV1A32 0xAA4B4E7DU
 #define TECMO_GAMEPLAY_SCENE_LEFT_SLICE_FNV1A32 0x770FAE95U
 #define TECMO_GAMEPLAY_SCENE_RIGHT_SLICE_FNV1A32 0x2DBDF155U
 #define TECMO_GAMEPLAY_FREE_THROW_ORIENTATION_0_CAMERA_X 0x0066U
@@ -126,6 +126,14 @@ bool scene_actor_movement_pose_index(
     const TecmoGameplayMovementState *movement,
     uint16_t *pose_index_out);
 TecmoGameplayTeam scene_other_team(TecmoGameplayTeam team);
+bool scene_goal_facing_right_for_team(
+    const TecmoGameplayScene *scene,
+    TecmoGameplayTeam team,
+    bool *facing_right_out);
+bool scene_apply_goal_facing(
+    const TecmoGameplayScene *scene,
+    TecmoGameplaySceneActor
+        actors[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT]);
 bool scene_actor_coordinate_valid(const TecmoGameplayCourtCoordinate *coordinate);
 bool scene_actor_world_position_valid(const TecmoGameplaySceneActor *actor);
 void scene_clamp_actor_world(TecmoGameplaySceneActor *actor);
@@ -144,6 +152,12 @@ bool scene_move_controlled_actor(TecmoGameplayScene *scene,
                                  const TecmoControlFrame *controls);
 uint8_t scene_first_actor_for_team(TecmoGameplayTeam team);
 bool scene_attach_ball(TecmoGameplayScene *scene);
+bool scene_ball_position_for_actors(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplaySceneActor
+        actors[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT],
+    uint8_t holder_index,
+    TecmoGameplayCourtCoordinateQ8 *position_out);
 bool scene_attached_ball_position(
     const TecmoGameplaySceneActor *holder,
     TecmoGameplayCourtCoordinateQ8 *position_out);

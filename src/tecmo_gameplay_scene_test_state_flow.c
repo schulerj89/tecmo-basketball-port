@@ -752,13 +752,13 @@ static bool scene_test_dribble_policy(
             return false;
         }
         if ((frame == 0U &&
-             scene->ball_position.y_q8 != 176 * 256) ||
+             scene->ball_position.y_q8 != 181 * 256) ||
             (frame == 3U &&
              scene->ball_position.y_q8 != 182 * 256) ||
             (frame == 7U &&
-             scene->ball_position.y_q8 != 191 * 256) ||
+             scene->ball_position.y_q8 != 187 * 256) ||
             (frame == 11U &&
-             scene->ball_position.y_q8 != 197 * 256)) {
+             scene->ball_position.y_q8 != 199 * 256)) {
             tecmo_gameplay_scene_test_message(
                 message, message_size,
                 "human holder TGBD visible bounce vector failed");

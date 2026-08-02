@@ -950,6 +950,7 @@ try {
     $env:TECMO_ASSETPACK = $PackPath
     $RenderSpecs = @(
         [pscustomobject]@{ mode="gameplay-start"; state='gameplay-state frame=0 shot=none phase=live' },
+        [pscustomobject]@{ mode="gameplay-facing-away-left"; state='gameplay-state frame=691 shot=none phase=live' },
         [pscustomobject]@{ mode="gameplay-ball-bounce-frame1"; state='gameplay-state frame=692 shot=none phase=live' },
         [pscustomobject]@{ mode="gameplay-ball-bounce-frame12"; state='gameplay-state frame=703 shot=none phase=live' },
         [pscustomobject]@{ mode="gameplay-cpu-steering-frame25"; state='gameplay-state frame=716 shot=none phase=live' },
@@ -1037,15 +1038,19 @@ try {
             throw "Gameplay shot-clock referee render hash changed at '$Mode'."
         }
     }
+    if ($RenderHashes["gameplay-facing-away-left"] -ne
+            "035822A9CE0F26ED964799A7B92B6E3A234BDA6F5CEBF851CA8388FD39E8FE11") {
+        throw "Gameplay Away-left facing checkpoint render hash changed."
+    }
     if ($RenderHashes["gameplay-shot-clock-violation-frame23"] -eq
         $RenderHashes["gameplay-shot-clock-violation-frame27"]) {
         throw "Gameplay shot-clock referee gesture frames collapsed together."
     }
     $ExpectedBallBounceHashes = @{
         "gameplay-ball-bounce-frame1" =
-            "97F43E66690D71BE9936E64282FE6B4F6FAA7622B15FF2C7C34BD9DB17FDD192"
+            "A7C850F9E0A7FAC693EEDE7FA280BE4F937452AFC4467F78000F52057741A841"
         "gameplay-ball-bounce-frame12" =
-            "C02189CFD60B6932BA690EB05EE0CB8E458D13CE823C33649C67D53A869C9D5D"
+            "0305A764479D303958929D5484E41319489E4AD0C34DC3E3F3DEDD8DF0085224"
     }
     foreach ($Mode in $ExpectedBallBounceHashes.Keys) {
         if ($RenderHashes[$Mode] -ne $ExpectedBallBounceHashes[$Mode]) {
@@ -1057,16 +1062,16 @@ try {
         throw "Gameplay held-ball high/low bounce visuals collapsed together."
     }
     if ($RenderHashes["gameplay-cpu-steering-frame25"] -ne
-            "0516BA79273F7E1AF13C43105A567E41285E6BBBE7A847F7C3A838976A36B40A") {
+            "CBE9626654C3FE4415FFBD531958AB72D0EB8065A8D0B82C0DC979F6D3372857") {
         throw "Gameplay live TGAI/TGMO movement render hash changed."
     }
     $ExpectedPossessionSliceHashes = @{
         "gameplay-possession-left" =
-            "7E056F11F60F7F91FE76ED80CCD8BBE755FE8D728484F81E000E27C705206D98"
+            "9DB14D81EF96C1B855C36412FF1C1353FED73074CCE18492D91EA014FF2345F9"
         "gameplay-possession-center" =
-            "551C75645BBA1B1543CCA93A9A98BB2664E9872F38B8581B11AB144D3249C7BA"
+            "035822A9CE0F26ED964799A7B92B6E3A234BDA6F5CEBF851CA8388FD39E8FE11"
         "gameplay-possession-right" =
-            "9A20D97B42D2538E7D2427F288D2062F75A42314DBEE8E80D52ED0492CAB4B13"
+            "1086E9E478F87DE654785E8D7A30ECFFD0BED5775BDB11994B6D8F6D517A4C6D"
     }
     foreach ($Mode in $ExpectedPossessionSliceHashes.Keys) {
         if ($RenderHashes[$Mode] -ne
@@ -1083,16 +1088,16 @@ try {
         throw "Gameplay possession-slice visuals collapsed together."
     }
     if ($RenderHashes["gameplay-uniform-pacers"] -ne
-            "16341141736309490F088653D2243CB03D1C2D96A10211A8257DA39386FD5B67" -or
+            "2812BF9860D4DD2C36E208E1598FECDCDEB03A35144BA9DB04E4D970F03A698F" -or
         $RenderHashes["gameplay-uniform-pacers"] -eq
             $RenderHashes["gameplay-possession-center"]) {
         throw "Gameplay home-team uniform-color visual contract changed."
     }
     $ExpectedFreeThrowHashes = @{
         "gameplay-free-throw-left" =
-            "0CB75CE0563AEC747C28A9CEE056745927DF77A3DDB34F6895C6CEEF62A0FFCC"
+            "5258B29877586ED011D2F24A4816D35D3E458909BE7B6DBBAF0332579D358667"
         "gameplay-free-throw-right" =
-            "9D50A6436112E43B258441D0EB458FBB031C4EAF5DD416A20A70E0ED1296EDA0"
+            "7AE0368DD0FF4B1D447802C8776679ABD0A64D722C9CF3025028228AD7A3ECFE"
     }
     foreach ($Mode in $ExpectedFreeThrowHashes.Keys) {
         if ($RenderHashes[$Mode] -ne
@@ -1106,15 +1111,15 @@ try {
     }
     $ExpectedJumpHashes = @{
         "gameplay-jump-frame1" =
-            "BBC8C929448EE294EF2F5A9748F3F95576CB9B415130A4967FE4CC79D4BBE47C"
+            "E11287F5A12D4B36CD0DD64F9648CE75CE7619157D269AFB297DA36E1F4880CC"
         "gameplay-jump-frame2" =
-            "29C3680467EC86D54AB8B2252131A8E3D28DCC8F97DB36B175634337B9912086"
+            "19363DB84358B3A9B46A855483E0C160430E55729CE8E6E5E213C982F34C81F9"
         "gameplay-jump-frame4" =
-            "EF3630448FB6D4770DE2B517AA855B0B9BB0ED3AF39A479C22E69B9E4719FA3F"
+            "6FCE03555EFC35E0D777447281003B9676C8793EE2AA57E15EE60A5FECE1850F"
         "gameplay-jump-frame75" =
-            "C913F99EC084B5172BF27DF181601F4F7C16CEDEE4E5C2CB9ADF1A670A4A5DA9"
+            "52D9C48844FF805773DD7E8941EB3A16331E0EE793E7577C67D9E12A9D41A7F7"
         "gameplay-jump-frame87" =
-            "886EF1A25F8752186841D621D7E62C459AB5548D44C6168636BEACAA50E27210"
+            "8819AFEDB1AEC021D862C77C9D467DEEF6829DCBF69A3C9082E2FF3A3D98465B"
     }
     foreach ($Mode in $ExpectedJumpHashes.Keys) {
         if ($RenderHashes[$Mode] -ne $ExpectedJumpHashes[$Mode]) {
@@ -1133,11 +1138,11 @@ try {
     }
     $ExpectedRattleHashes = @{
         "gameplay-jump-rattle-frame72" =
-            "AD8D166A201750AB9E46AFF6BD98887D84D24A6AF6394EF4A8F959B8F3DE524C"
+            "F948D379E8E240CEEA1084E2D321CF36BF61B221B6CE7920FEEAF75C5986F2E3"
         "gameplay-jump-rattle-frame73" =
-            "6B8639F36F4DE5698BB05A8D8A1F9DF685B3F64E441E36A72D5FD257F861C11B"
+            "77ADFE0625341E3154734349E9763CBB0EA286401493CA76FDE9F489F93098DF"
         "gameplay-jump-rattle-frame74" =
-            "9E37107A6C5D0869C53CD2666D547DE071AA8F6D1B815E499F3EF0614C50CBDB"
+            "F4DEEE824B865AB583FF59EFCD1DF65E25102777643066A3A5BA824F75B26838"
         "gameplay-jump-rattle-frame77" =
             "C0FF558A8FEC8C160C99DA6AFC527339A9FB077CBD26D593825ED23A4CC45B4E"
         "gameplay-jump-rattle-frame81" =
@@ -1151,7 +1156,7 @@ try {
         "gameplay-jump-rattle-frame90" =
             "C7EBE100F7879ABF73B351DC027AC7CF4BDBA4CDBD50CDDA05A239409AA6F606"
         "gameplay-jump-rattle-frame103" =
-            "C8A72672B851721B7B86141AD05218A50EB0718A247BC7AE3581927EB02DE926"
+            "D51F37D8B9D34D6972E43DD2D358FFA6194C148B12A4F101BDA3C6F46C4853C9"
     }
     foreach ($Mode in $ExpectedRattleHashes.Keys) {
         if ($RenderHashes[$Mode] -ne $ExpectedRattleHashes[$Mode]) {
@@ -1162,15 +1167,15 @@ try {
     }
     $ExpectedJumpMakeHashes = @{
         "gameplay-jump-make-frame9" =
-            "3DA2AFF8690B6BC6C2013D668EB3B9D11B24AE3DB8B9DB1FFA973C4B6F3A99EA"
+            "34AF5C70DF40366EE51607FF96C7A58D98B631001073B4A622E2DAE7E4A3A062"
         "gameplay-jump-make-frame20" =
-            "4BF9936C940455E83D563BA1E5D067919BF8023D6D1621E53CE93A31B994E897"
+            "78029C07D9013502057ECEBF32E1CC650E253864B5F2D4DB68289F9CEA5B7CA8"
         "gameplay-jump-make-frame57" =
-            "886E1AE0B39ADF08CDFA4B5F6FEA072A560B4A7FD0BE899BE703CAA626ED0234"
+            "4195C87544C079E64D2176B70F00A01041595145359EF50E448258C50457E8DE"
         "gameplay-jump-make-frame85" =
             "1426465CFB07A5CA1E8447C1484713F27AD94E4323BFA221153323FD14DA80CE"
         "gameplay-jump-make-frame111" =
-            "3946EF7CEE0F7F5B8CCA5CCCF1F33F62ED85E5F8DA2D7816D0BE1040DEA53798"
+            "7B357709F5082BEF738B6F6CB0C62C725EDCE6B8010690521804A32F4838FB96"
     }
     foreach ($Mode in $ExpectedJumpMakeHashes.Keys) {
         if ($RenderHashes[$Mode] -ne $ExpectedJumpMakeHashes[$Mode]) {

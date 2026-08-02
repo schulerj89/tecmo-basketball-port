@@ -455,24 +455,24 @@ static bool scene_test_initial_world_state(
     size_t message_size)
 {
     if (scene->camera_state.camera_x != TECMO_GAMEPLAY_INITIAL_CAMERA_X ||
-        scene->camera_state.scroll_x != 0U ||
+        scene->camera_state.scroll_x != TECMO_GAMEPLAY_INITIAL_CAMERA_X ||
         scene->camera_state.scroll_aux != 0U ||
-        scene->camera_state.nametable_page != 0U ||
+        scene->camera_state.nametable_page != 1U ||
         scene->camera_state.aux != 0U ||
-        scene->camera_state.stream_direction != 0U ||
-        scene->camera_state.layout_cursor != 0x21U ||
-        scene->camera_state.left_threshold != 0x50U ||
-        scene->camera_state.right_threshold != 0xA0U ||
+        scene->camera_state.stream_direction != 1U ||
+        scene->camera_state.layout_cursor != 0x0FU ||
+        scene->camera_state.left_threshold != 0xD8U ||
+        scene->camera_state.right_threshold != 0xE8U ||
         !scene->camera_state.thresholds_valid ||
-        scene->camera_state.endpoint_latched ||
+        !scene->camera_state.endpoint_latched ||
         scene->camera_follow_count != 0U ||
         scene->actors[0].position.x != 0x0160 ||
         scene->actors[0].position.y != 198 ||
-        scene->actors[0].pose_index != 117U ||
+        scene->actors[0].pose_index != 149U ||
         scene->actors[TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT].pose_index !=
-            85U ||
-        scene->ball_position.x_q8 != 0x0166 * 256 ||
-        scene->ball_position.y_q8 != 176 * 256 ||
+            181U ||
+        scene->ball_position.x_q8 != 348 * 256 ||
+        scene->ball_position.y_q8 != 181 * 256 ||
         !tecmo_gameplay_camera_state_live_valid(
             &scene->camera_assets, &scene->camera_state)) {
         tecmo_gameplay_scene_test_message(
@@ -514,6 +514,7 @@ static bool scene_test_backcourt(
     backcourt_probe.actors[0U].anchor =
         backcourt_probe.actors[0U].position;
     backcourt_probe.actors[0U].facing_right = true;
+    backcourt_probe.actors[0U].movement_direction = 0U;
     backcourt_probe.actors[0U].movement_action_state =
         TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
     backcourt_probe.actors[0U].movement_fractional_accumulator = 0U;
@@ -557,6 +558,7 @@ static bool scene_test_backcourt(
     backcourt_probe.actors[holder].anchor =
         backcourt_probe.actors[holder].position;
     backcourt_probe.actors[holder].facing_right = false;
+    backcourt_probe.actors[holder].movement_direction = 1U;
     backcourt_probe.actors[holder].movement_action_state =
         TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
     backcourt_probe.actors[holder].movement_fractional_accumulator = 0U;
@@ -659,8 +661,8 @@ static bool scene_test_transactional_snapshots(
             TECMO_GAMEPLAY_SCENE_COURT_COORDINATES_TAG ||
         coordinates.players[0].x != 0x0160 ||
         coordinates.players[0].y != 198 ||
-        coordinates.ball.x_q8 != 0x0166 * 256 ||
-        coordinates.ball.y_q8 != 176 * 256 ||
+        coordinates.ball.x_q8 != 348 * 256 ||
+        coordinates.ball.y_q8 != 181 * 256 ||
         coordinates.hoops[0].x !=
             TECMO_GAMEPLAY_COURT_LEFT_HOOP_X ||
         coordinates.hoops[0].y != TECMO_GAMEPLAY_COURT_HOOP_Y ||
@@ -680,11 +682,11 @@ static bool scene_test_transactional_snapshots(
         court_projection.camera_x != TECMO_GAMEPLAY_INITIAL_CAMERA_X ||
         court_projection.reserved != 0U ||
         !court_projection.players[0].visible ||
-        court_projection.players[0].screen_x != 0x60U ||
+        court_projection.players[0].screen_x != 0xDCU ||
         court_projection.players[0].screen_y != 198U ||
         !court_projection.ball.visible ||
-        court_projection.ball.screen_x != 0x66U ||
-        court_projection.ball.screen_y != 176U) {
+        court_projection.ball.screen_x != 0xD8U ||
+        court_projection.ball.screen_y != 181U) {
         tecmo_gameplay_scene_test_message(
             message, message_size,
             "canonical TGCP scene projection snapshot failed");
@@ -698,11 +700,10 @@ static bool scene_test_transactional_snapshots(
         court_slice.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
         court_slice.direction != 0U ||
         court_slice.reserved != 0U ||
-        court_slice.viewport.camera_x !=
-            TECMO_GAMEPLAY_INITIAL_CAMERA_X ||
-        court_slice.viewport.first_tile_x != 0x20U ||
-        court_slice.viewport.fine_scroll_x != 0U ||
-        court_slice.viewport.column_count != 32U ||
+        court_slice.viewport.camera_x != TECMO_GAMEPLAY_INITIAL_CAMERA_X ||
+        court_slice.viewport.first_tile_x != 0x10U ||
+        court_slice.viewport.fine_scroll_x != 4U ||
+        court_slice.viewport.column_count != 33U ||
         court_slice.viewport.camera_x != court_projection.camera_x) {
         tecmo_gameplay_scene_test_message(
             message, message_size,
@@ -799,9 +800,9 @@ static bool scene_test_transactional_snapshots(
     if (!tecmo_gameplay_scene_court_projection(
             scene, &court_projection) ||
         !court_projection.players[0].visible ||
-        court_projection.players[0].screen_x != 0x60U ||
+        court_projection.players[0].screen_x != 0xDCU ||
         court_projection.players[0].screen_y != 188U ||
-        court_projection.ball.screen_y != 176U) {
+        court_projection.ball.screen_y != 181U) {
         tecmo_gameplay_scene_test_message(
             message, message_size,
             "canonical TGCP jump-altitude projection failed");
@@ -894,20 +895,20 @@ static bool scene_test_bounds_and_projection(
     if (!tecmo_gameplay_camera_project_actor(
             &scene->camera_assets, &scene->camera_state,
             0x0100U, 100U, 10U, &projection) ||
-        !projection.visible || projection.screen_x != 0U ||
+        !projection.visible || projection.screen_x != 0x7CU ||
         projection.screen_y != 90U ||
         !tecmo_gameplay_camera_project_actor(
             &scene->camera_assets, &scene->camera_state,
-            0x01FFU, 100U, 0U, &projection) ||
+            0x0183U, 100U, 0U, &projection) ||
         !projection.visible || projection.screen_x != 0xFFU ||
         !tecmo_gameplay_camera_project_actor(
             &scene->camera_assets, &scene->camera_state,
-            0x00FFU, 100U, 0U, &projection) ||
+            0x0083U, 100U, 0U, &projection) ||
         projection.visible || projection.screen_x != 0U ||
         projection.screen_y != 0U ||
         !tecmo_gameplay_camera_project_actor(
             &scene->camera_assets, &scene->camera_state,
-            0x0200U, 100U, 0U, &projection) ||
+            0x0184U, 100U, 0U, &projection) ||
         projection.visible || projection.screen_x != 0U ||
         projection.screen_y != 0U) {
         tecmo_gameplay_scene_test_message(message, message_size,
@@ -945,6 +946,8 @@ static bool scene_test_camera_endpoint_sweep(
 
     probe->actors[probe->ball_holder].position.x = holder_x;
     probe->actors[probe->ball_holder].facing_right = facing_right;
+    probe->actors[probe->ball_holder].movement_direction =
+        facing_right ? 0U : 1U;
     if (!scene_attach_ball(probe) ||
         !tecmo_gameplay_scene_court_frame(
             probe, &previous_court_frame)) {
@@ -1028,7 +1031,7 @@ static bool scene_test_camera_sweeps(
 
     *left_probe = *scene;
     if (!scene_test_camera_endpoint_sweep(
-            left_probe, 0x00F3U, true, TECMO_GAMEPLAY_TEAM_AWAY, 0U,
+            left_probe, 0x00F3U, false, TECMO_GAMEPLAY_TEAM_AWAY, 0U,
             0U, 0x0066U, 0x0CU, 6U, 33U,
             "left-possession ball placement failed",
             "left-possession camera follow failed",
@@ -1060,7 +1063,7 @@ static bool scene_test_camera_sweeps(
         return false;
     }
     if (!scene_test_camera_endpoint_sweep(
-            right_probe, 0x020DU, false, TECMO_GAMEPLAY_TEAM_HOME, 1U,
+            right_probe, 0x020DU, true, TECMO_GAMEPLAY_TEAM_HOME, 1U,
             1U, 0x0198U, 0x33U, 0U, 32U,
             "right-possession ball placement failed",
             "right-possession camera follow failed",
@@ -1098,9 +1101,9 @@ static bool scene_test_camera_continuity(
     scene_attach_ball(&camera_probe);
     if (!tecmo_gameplay_scene_update(&camera_probe, p1, p2) ||
         camera_probe.camera_follow_count != 1U ||
-        camera_probe.camera_state.camera_x != 0x0107U ||
-        camera_probe.camera_state.scroll_x != 0x07U ||
-        camera_probe.camera_state.layout_cursor != 0x21U ||
+        camera_probe.camera_state.camera_x != 0x0086U ||
+        camera_probe.camera_state.scroll_x != 0x86U ||
+        camera_probe.camera_state.layout_cursor != 0x0FU ||
         !camera_probe.camera_state.thresholds_valid ||
         !tecmo_gameplay_camera_state_live_valid(
             &camera_probe.camera_assets, &camera_probe.camera_state)) {
@@ -1199,6 +1202,12 @@ static bool scene_test_orientation_contract(
 {
     TecmoGameplayState gameplay_before;
     TecmoGameplayCourtOrientationState orientation_before;
+    TecmoGameplayScene orientation_probe;
+    TecmoControlFrame neutral;
+    TecmoControlFrame horizontal;
+    TecmoGameplayCourtCoordinateQ8 attached_ball;
+    bool facing_right;
+    size_t actor;
     if (!tecmo_gameplay_court_orientation_state_valid(
             &scene->court_orientation, &scene->orientation_state) ||
         scene->orientation_state.current_direction != 0U ||
@@ -1212,6 +1221,98 @@ static bool scene_test_orientation_contract(
             TECMO_GAMEPLAY_COURT_HOOP_Y) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "court-orientation fresh-launch contract failed");
+        return false;
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        bool expected_facing;
+        if (!scene_goal_facing_right_for_team(
+            scene, (TecmoGameplayTeam)scene->actors[actor].team,
+                &expected_facing) ||
+            scene->actors[actor].facing_right != expected_facing ||
+            (scene->actors[actor].team == TECMO_GAMEPLAY_TEAM_AWAY
+                ? scene->actors[actor].facing_right
+                : !scene->actors[actor].facing_right)) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "fresh Away-left/Home-right facing matrix failed");
+            return false;
+        }
+    }
+    orientation_probe = *scene;
+    facing_right = true;
+    orientation_probe.orientation_state.offensive_hoop.y =
+        (int16_t)(TECMO_GAMEPLAY_COURT_HOOP_Y - 1);
+    if (scene_goal_facing_right_for_team(
+            &orientation_probe, TECMO_GAMEPLAY_TEAM_AWAY,
+            &facing_right) || !facing_right) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "malformed orientation facing was not fail-closed");
+        return false;
+    }
+    orientation_probe = *scene;
+    facing_right = true;
+    orientation_probe.orientation_state.tracked_possession_team = 2U;
+    if (scene_goal_facing_right_for_team(
+            &orientation_probe, TECMO_GAMEPLAY_TEAM_AWAY,
+            &facing_right) || !facing_right ||
+        scene_goal_facing_right_for_team(
+            scene, (TecmoGameplayTeam)TECMO_GAMEPLAY_TEAM_COUNT,
+            &facing_right)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "malformed team/orientation facing was not fail-closed");
+        return false;
+    }
+    orientation_probe = *scene;
+    orientation_probe.orientation_state.current_direction = 1U;
+    orientation_probe.orientation_state.previous_direction = 0U;
+    orientation_probe.orientation_state.transition_serial = 1U;
+    orientation_probe.orientation_state.tracked_possession_team =
+        TECMO_GAMEPLAY_TEAM_AWAY;
+    orientation_probe.orientation_state.offensive_hoop =
+        scene->court_orientation.hoops[1U];
+    if (!scene_goal_facing_right_for_team(
+            &orientation_probe, TECMO_GAMEPLAY_TEAM_AWAY,
+            &facing_right) || !facing_right ||
+        !scene_goal_facing_right_for_team(
+            &orientation_probe, TECMO_GAMEPLAY_TEAM_HOME,
+            &facing_right) || facing_right) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "crossed team/direction facing matrix failed");
+        return false;
+    }
+    memset(&neutral, 0, sizeof(neutral));
+    if (!scene_handoff_possession(
+            scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+        !scene_move_controlled_actor(scene, 0U, &neutral) ||
+        scene->actors[0U].facing_right ||
+        !scene_attached_ball_position(
+            &scene->actors[0U], &attached_ball) ||
+        attached_ball.x_q8 !=
+            (int32_t)(scene->actors[0U].position.x - 7) * 256) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "neutral movement changed Away goal-facing baseline");
+        return false;
+    }
+    memset(&horizontal, 0, sizeof(horizontal));
+    horizontal.held.right = true;
+    if (!scene_move_controlled_actor(scene, 0U, &horizontal) ||
+        !scene->actors[0U].facing_right ||
+        !scene_attached_ball_position(
+            &scene->actors[0U], &attached_ball) ||
+        attached_ball.x_q8 !=
+            (int32_t)(scene->actors[0U].position.x + 7) * 256 ||
+        !scene_move_controlled_actor(scene, 0U, &neutral) ||
+        !scene->actors[0U].facing_right ||
+        !scene_handoff_possession(
+            scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+        scene->actors[0U].facing_right) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "Away horizontal facing override/reset matrix failed");
         return false;
     }
     orientation_before = scene->orientation_state;
@@ -1236,6 +1337,36 @@ static bool scene_test_orientation_contract(
         tecmo_gameplay_scene_test_message(
             message, message_size,
             "court-orientation changed-first handoff contract failed");
+        return false;
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        bool expected_facing;
+        if (!scene_goal_facing_right_for_team(
+                scene, (TecmoGameplayTeam)scene->actors[actor].team,
+                &expected_facing) ||
+            scene->actors[actor].facing_right != expected_facing ||
+            (scene->actors[actor].team == TECMO_GAMEPLAY_TEAM_AWAY
+                ? scene->actors[actor].facing_right
+                : !scene->actors[actor].facing_right)) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "Home-right/Away-left possession transition facing failed");
+            return false;
+        }
+    }
+    memset(&horizontal, 0, sizeof(horizontal));
+    horizontal.held.left = true;
+    if (!scene_move_controlled_actor(scene, 1U, &horizontal) ||
+        scene->actors[TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT].facing_right ||
+        !scene_move_controlled_actor(scene, 1U, &neutral) ||
+        scene->actors[TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT].facing_right ||
+        !scene_handoff_possession(
+            scene, TECMO_GAMEPLAY_TEAM_HOME,
+            TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT) ||
+        !scene->actors[TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT].facing_right) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "Home horizontal facing override/reset matrix failed");
         return false;
     }
     orientation_before = scene->orientation_state;
@@ -1278,9 +1409,9 @@ static bool scene_test_orientation_contract(
         scene->orientation_state.tracked_possession_team !=
             TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_AWAY ||
         scene->camera_state.camera_x != TECMO_GAMEPLAY_INITIAL_CAMERA_X ||
-        scene->camera_state.layout_cursor != 0x21U ||
+        scene->camera_state.layout_cursor != 0x0FU ||
         !scene->camera_state.thresholds_valid ||
-        scene->camera_state.endpoint_latched ||
+        !scene->camera_state.endpoint_latched ||
         scene->camera_follow_count != 0U) {
         tecmo_gameplay_scene_test_message(
             message, message_size,
@@ -1581,9 +1712,9 @@ static bool scene_test_framebuffer_fail_closed(
     if (!tecmo_gameplay_court_slice_viewport(
             &fine_scroll_probe->court_world,
             fine_scroll_probe->camera_state.camera_x, &viewport) ||
-        viewport.camera_x != 0x0107U ||
-        viewport.first_tile_x != 0x20U ||
-        viewport.fine_scroll_x != 7U ||
+        viewport.camera_x != 0x0086U ||
+        viewport.first_tile_x != 0x10U ||
+        viewport.fine_scroll_x != 6U ||
         viewport.column_count != 33U ||
         !tecmo_gameplay_scene_draw(
             fine_scroll_probe, &guarded_framebuffer,

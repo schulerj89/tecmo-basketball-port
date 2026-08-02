@@ -60,6 +60,56 @@ TecmoGameplayTeam scene_other_team(TecmoGameplayTeam team)
                : TECMO_GAMEPLAY_TEAM_AWAY;
 }
 
+bool scene_goal_facing_right_for_team(
+    const TecmoGameplayScene *scene,
+    TecmoGameplayTeam team,
+    bool *facing_right_out)
+{
+    TecmoGameplayCourtCoordinate hoop;
+    bool facing_right;
+    if (scene == NULL || facing_right_out == NULL ||
+        (team != TECMO_GAMEPLAY_TEAM_AWAY &&
+         team != TECMO_GAMEPLAY_TEAM_HOME) ||
+        !tecmo_gameplay_court_orientation_team_hoop(
+            &scene->court_orientation, &scene->orientation_state,
+            (uint8_t)team, &hoop)) {
+        return false;
+    }
+    if (hoop.x == TECMO_GAMEPLAY_COURT_LEFT_HOOP_X) {
+        facing_right = false;
+    } else if (hoop.x == TECMO_GAMEPLAY_COURT_RIGHT_HOOP_X) {
+        facing_right = true;
+    } else {
+        return false;
+    }
+    *facing_right_out = facing_right;
+    return true;
+}
+
+bool scene_apply_goal_facing(
+    const TecmoGameplayScene *scene,
+    TecmoGameplaySceneActor
+        actors[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT])
+{
+    bool facing_right[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    size_t actor;
+    if (scene == NULL || actors == NULL) return false;
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        if (!actors[actor].active) continue;
+        if (!scene_goal_facing_right_for_team(
+                scene, (TecmoGameplayTeam)actors[actor].team,
+                &facing_right[actor])) {
+            return false;
+        }
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        if (actors[actor].active) {
+            actors[actor].facing_right = facing_right[actor];
+        }
+    }
+    return true;
+}
+
 bool scene_actor_coordinate_valid(
     const TecmoGameplayCourtCoordinate *coordinate)
 {
@@ -196,6 +246,36 @@ bool scene_live_ball_frame_for_actors(
                &movement, &actors[linked_actor].position, frame_out);
 }
 
+bool scene_ball_position_for_actors(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplaySceneActor
+        actors[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT],
+    uint8_t holder_index,
+    TecmoGameplayCourtCoordinateQ8 *position_out)
+{
+    TecmoGameplayCourtCoordinateQ8 attached;
+    TecmoGameplayBallDribbleFrame dribble;
+    if (scene == NULL || actors == NULL || position_out == NULL ||
+        holder_index >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        !actors[holder_index].active) {
+        return false;
+    }
+    if (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
+        scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
+        if (!scene_live_ball_frame_for_actors(
+                scene, actors, holder_index, &dribble) ||
+            !tecmo_gameplay_court_coordinate_to_q8(
+                &dribble.visible_position, &attached)) {
+            return false;
+        }
+    } else if (!scene_attached_ball_position(
+                   &actors[holder_index], &attached)) {
+        return false;
+    }
+    *position_out = attached;
+    return true;
+}
+
 static bool scene_actor_apply_movement(
     const TecmoGameplayScene *scene,
     TecmoGameplaySceneActor
@@ -226,6 +306,10 @@ static bool scene_actor_apply_movement(
     actor->movement_boundary_latched =
         movement->boundary_violation_latched;
     actor->pose_index = pose_index;
+    /* TGMO supplies locomotion/pose state; only an actual horizontal held
+       direction is an explicit movement-facing override. Neutral and
+       vertical-only input preserve the goal baseline (or the last deliberate
+       horizontal override). */
     if ((held_direction_bits & TECMO_GAMEPLAY_MOVEMENT_INPUT_RIGHT) != 0U) {
         actor->facing_right = true;
     } else if ((held_direction_bits &
@@ -325,25 +409,15 @@ bool scene_attached_ball_position(
 
 bool scene_attach_ball(TecmoGameplayScene *scene)
 {
-    TecmoGameplayCourtCoordinateQ8 attached;
-    TecmoGameplayBallDribbleFrame dribble;
     if (scene == NULL ||
         scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
         return false;
     }
-    if (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
-        scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
-        if (!scene_live_ball_frame_for_actors(
-                scene, scene->actors, scene->ball_holder, &dribble) ||
-            !tecmo_gameplay_court_coordinate_to_q8(
-                &dribble.visible_position, &attached)) {
-            return false;
-        }
-    } else if (!scene_attached_ball_position(
-                   &scene->actors[scene->ball_holder], &attached)) {
+    if (!scene_ball_position_for_actors(
+            scene, scene->actors, scene->ball_holder,
+            &scene->ball_position)) {
         return false;
     }
-    scene->ball_position = attached;
     return true;
 }
 
@@ -530,9 +604,13 @@ uint8_t scene_nearest_actor_for_team(const TecmoGameplayScene *scene,
 }
 
 bool scene_pass_or_switch(TecmoGameplayScene *scene,
-                                 size_t controller)
+                                  size_t controller)
 {
     TecmoGameplayTeam team;
+    TecmoGameplaySceneActor
+        candidate_actors[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplayCourtCoordinateQ8 candidate_ball;
+    bool facing_right;
     if (controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT ||
         scene->launch.controller_team[controller] ==
             TECMO_GAMEPLAY_SCENE_NO_TEAM) {
@@ -543,9 +621,27 @@ bool scene_pass_or_switch(TecmoGameplayScene *scene,
         scene->ball_holder < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
         uint8_t next = scene_next_teammate(scene, scene->ball_holder);
         if (next < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+            /* A pass is an action boundary: the new holder starts from the
+               validated attack-facing baseline, then movement/shot actions
+               may deliberately override it. Stage both facing and ball
+               attachment before committing the holder switch. */
+            if (!scene_goal_facing_right_for_team(
+                    scene, team, &facing_right)) {
+                return false;
+            }
+            memcpy(candidate_actors, scene->actors,
+                   sizeof(candidate_actors));
+            candidate_actors[next].facing_right = facing_right;
+            if (!scene_ball_position_for_actors(
+                    scene, candidate_actors, next, &candidate_ball)) {
+                return false;
+            }
+            memcpy(scene->actors, candidate_actors,
+                   sizeof(candidate_actors));
             scene->ball_holder = next;
             scene->controlled_actor[controller] = next;
-            return scene_attach_ball(scene);
+            scene->ball_position = candidate_ball;
+            return true;
         }
     } else {
         scene->controlled_actor[controller] =

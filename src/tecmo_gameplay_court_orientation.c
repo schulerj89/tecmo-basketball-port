@@ -507,6 +507,29 @@ bool tecmo_gameplay_court_orientation_hoop(
     return true;
 }
 
+bool tecmo_gameplay_court_orientation_team_hoop(
+    const TecmoGameplayCourtOrientationAssets *assets,
+    const TecmoGameplayCourtOrientationState *state,
+    uint8_t team,
+    TecmoGameplayCourtCoordinate *hoop_out)
+{
+    TecmoGameplayCourtCoordinate hoop;
+    uint8_t direction;
+    if (!tecmo_gameplay_court_orientation_state_valid(assets, state) ||
+        team >= TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_COUNT ||
+        hoop_out == NULL) {
+        return false;
+    }
+    direction = state->current_direction;
+    if (team != state->tracked_possession_team) direction ^= 1U;
+    if (!tecmo_gameplay_court_orientation_hoop(
+            assets, direction, &hoop)) {
+        return false;
+    }
+    *hoop_out = hoop;
+    return true;
+}
+
 bool tecmo_gameplay_court_orientation_state_initialize(
     const TecmoGameplayCourtOrientationAssets *assets,
     TecmoGameplayCourtOrientationState *state_out)
@@ -582,11 +605,15 @@ bool tecmo_gameplay_court_orientation_self_test(
     TecmoGameplayCourtOrientationAssets assets;
     TecmoGameplayCourtOrientationState state;
     TecmoGameplayCourtOrientationState unchanged;
+    TecmoGameplayCourtOrientationState crossed;
     const TecmoGameplayCourtOrientationSourceSpan *gate;
     const TecmoGameplayCourtOrientationSourceSpan *role;
     TecmoGameplayCourtCoordinate hoop = {(int16_t)0x5A5A,
                                          (int16_t)0x5A5A};
     TecmoGameplayCourtCoordinate unchanged_hoop;
+    TecmoGameplayCourtCoordinate team_hoop = {(int16_t)0x5A5A,
+                                              (int16_t)0x5A5A};
+    TecmoGameplayCourtCoordinate unchanged_team_hoop;
     uint16_t target = 0xA5A5U;
     uint32_t storage_hash;
     bool passed = false;
@@ -648,7 +675,17 @@ bool tecmo_gameplay_court_orientation_self_test(
             TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_AWAY ||
         state.transition_serial != 0U ||
         state.offensive_hoop.x != TECMO_GAMEPLAY_COURT_LEFT_HOOP_X ||
-        state.offensive_hoop.y != TECMO_GAMEPLAY_COURT_HOOP_Y) {
+        state.offensive_hoop.y != TECMO_GAMEPLAY_COURT_HOOP_Y ||
+        !tecmo_gameplay_court_orientation_team_hoop(
+            &assets, &state,
+            TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_AWAY, &team_hoop) ||
+        team_hoop.x != TECMO_GAMEPLAY_COURT_LEFT_HOOP_X ||
+        team_hoop.y != TECMO_GAMEPLAY_COURT_HOOP_Y ||
+        !tecmo_gameplay_court_orientation_team_hoop(
+            &assets, &state,
+            TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_HOME, &team_hoop) ||
+        team_hoop.x != TECMO_GAMEPLAY_COURT_RIGHT_HOOP_X ||
+        team_hoop.y != TECMO_GAMEPLAY_COURT_HOOP_Y) {
         (void)snprintf(message, message_size,
                        "TGOR-1 initial state contract failed");
         goto cleanup;
@@ -667,6 +704,14 @@ bool tecmo_gameplay_court_orientation_self_test(
         state.transition_serial != 1U ||
         state.offensive_hoop.x != TECMO_GAMEPLAY_COURT_RIGHT_HOOP_X ||
         state.offensive_hoop.y != TECMO_GAMEPLAY_COURT_HOOP_Y ||
+        !tecmo_gameplay_court_orientation_team_hoop(
+            &assets, &state,
+            TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_HOME, &team_hoop) ||
+        team_hoop.x != TECMO_GAMEPLAY_COURT_RIGHT_HOOP_X ||
+        !tecmo_gameplay_court_orientation_team_hoop(
+            &assets, &state,
+            TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_AWAY, &team_hoop) ||
+        team_hoop.x != TECMO_GAMEPLAY_COURT_LEFT_HOOP_X ||
         !tecmo_gameplay_court_orientation_synchronize(
             &assets, &state,
             TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_AWAY) ||
@@ -678,11 +723,38 @@ bool tecmo_gameplay_court_orientation_self_test(
                        "TGOR-1 transition contract failed");
         goto cleanup;
     }
+    /* The native state contract does not encode a team enum into a direction.
+       Exercise the crossed case explicitly: Away may own direction 1 and
+       Home then owns direction 0. */
+    crossed = state;
+    crossed.current_direction = 1U;
+    crossed.previous_direction = 0U;
+    crossed.transition_serial = 1U;
+    crossed.tracked_possession_team =
+        TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_AWAY;
+    crossed.offensive_hoop = assets.hoops[1U];
+    if (!tecmo_gameplay_court_orientation_state_valid(
+            &assets, &crossed) ||
+        !tecmo_gameplay_court_orientation_team_hoop(
+            &assets, &crossed,
+            TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_AWAY, &team_hoop) ||
+        team_hoop.x != TECMO_GAMEPLAY_COURT_RIGHT_HOOP_X ||
+        !tecmo_gameplay_court_orientation_team_hoop(
+            &assets, &crossed,
+            TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_HOME, &team_hoop) ||
+        team_hoop.x != TECMO_GAMEPLAY_COURT_LEFT_HOOP_X) {
+        (void)snprintf(message, message_size,
+                       "TGOR-1 crossed team/direction matrix failed");
+        goto cleanup;
+    }
     unchanged = state;
     target = 0xA5A5U;
     hoop.x = (int16_t)0x5A5A;
     hoop.y = (int16_t)0x5A5A;
     unchanged_hoop = hoop;
+    team_hoop.x = (int16_t)0x6B6B;
+    team_hoop.y = (int16_t)0x6B6B;
+    unchanged_team_hoop = team_hoop;
     if (tecmo_gameplay_court_orientation_synchronize(
             &assets, &state, 2U) ||
         memcmp(&state, &unchanged, sizeof(state)) != 0 ||
@@ -695,6 +767,12 @@ bool tecmo_gameplay_court_orientation_self_test(
         memcmp(&hoop, &unchanged_hoop, sizeof(hoop)) != 0 ||
         tecmo_gameplay_court_orientation_hoop(
             &assets, 0U, NULL) ||
+        tecmo_gameplay_court_orientation_team_hoop(
+            &assets, &state, 2U, &team_hoop) ||
+        memcmp(&team_hoop, &unchanged_team_hoop,
+               sizeof(team_hoop)) != 0 ||
+        tecmo_gameplay_court_orientation_team_hoop(
+            &assets, &state, 0U, NULL) ||
         tecmo_gameplay_court_orientation_state_initialize(
             &assets, NULL)) {
         (void)snprintf(message, message_size,

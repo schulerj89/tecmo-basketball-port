@@ -925,6 +925,10 @@ static bool scene_test_shot_clock_jump_targeting(
     TecmoControlFrame p1 = run->p1;
     TecmoControlFrame p2 = run->p2;
     TecmoGameplayScene rattle_before;
+    TecmoGameplaySceneActor rejected_actor_before;
+    TecmoGameplayCourtCoordinateQ8 rejected_ball_before;
+    uint8_t rejected_holder_before;
+    uint32_t rejected_action_serial_before;
     TecmoGameplayCameraState camera_before;
 
     scene->actors[scene->ball_holder].position.x = 0x013CU;
@@ -983,6 +987,21 @@ static bool scene_test_shot_clock_jump_targeting(
     scene->actors[scene->ball_holder].position.y = 0x0070;
     scene->action_serial = 1U;
     scene_attach_ball(scene);
+    rejected_holder_before = scene->ball_holder;
+    rejected_actor_before = scene->actors[rejected_holder_before];
+    rejected_ball_before = scene->ball_position;
+    rejected_action_serial_before = scene->action_serial;
+    if (scene_start_shot_actor(
+            scene, 0U, rejected_holder_before) ||
+        memcmp(&scene->actors[rejected_holder_before],
+               &rejected_actor_before, sizeof(rejected_actor_before)) != 0 ||
+        scene->ball_holder != rejected_holder_before ||
+        scene->ball_position.x_q8 != rejected_ball_before.x_q8 ||
+        scene->ball_position.y_q8 != rejected_ball_before.y_q8 ||
+        scene->action_serial != rejected_action_serial_before) {
+        return scene_test_shot_clock_fail(
+            run, "ordinary two-point make rejection was not transactional");
+    }
     memset(&p1, 0, sizeof(p1));
     p1.held.cancel = true;
     p1.pressed.cancel = true;

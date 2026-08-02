@@ -280,6 +280,9 @@ bool scene_start_shot_actor(TecmoGameplayScene *scene,
         scene_shot_clear_jump_playback(scene);
         return false;
     }
+    /* A supported shot is a deliberate action override. Keep this assignment
+       after the unsupported predicted-make gate so rejection is transactional
+       for the actor's facing and attached-ball side. */
     actor->facing_right = shot_facing_right;
     scene->shot_duration = scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_DUNK
                                ? TECMO_GAMEPLAY_DUNK_RESOLVE_FRAME
@@ -414,6 +417,9 @@ bool scene_handoff_possession(TecmoGameplayScene *scene,
     TecmoGameplayBackcourtState backcourt_before;
     TecmoGameplayBackcourtState backcourt_reset;
     TecmoGameplayCourtCoordinateQ8 ball_before;
+    TecmoGameplayCourtCoordinateQ8 candidate_ball;
+    TecmoGameplaySceneActor
+        candidate_actors[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     uint8_t controlled_before[TECMO_GAMEPLAY_CONTROLLER_COUNT];
     uint8_t holder_before;
     uint8_t first = scene_first_actor_for_team(possession);
@@ -454,22 +460,12 @@ bool scene_handoff_possession(TecmoGameplayScene *scene,
         scene->orientation_state = orientation_before;
         return false;
     }
-    if (scene->orientation_state.transition_serial !=
-        orientation_before.transition_serial) {
-        /* Preserve camera position/stream ownership across possession. The
-           next single live follow recomputes direction-specific thresholds
-           and may establish the opposite endpoint latch. */
-        scene->camera_state.thresholds_valid = false;
-        scene->camera_state.endpoint_latched = false;
-    }
-    scene->ball_holder = holder;
-    for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
-         ++controller) {
-        if (scene->launch.controller_team[controller] == possession) {
-            scene->controlled_actor[controller] = holder;
-        }
-    }
-    if (!scene_attach_ball(scene)) {
+    memcpy(candidate_actors, scene->actors, sizeof(candidate_actors));
+    /* Possession changes establish a fresh effective baseline for every
+       actor. Any later horizontal movement or shot pose can override it. */
+    if (!scene_apply_goal_facing(scene, candidate_actors) ||
+        !scene_ball_position_for_actors(
+            scene, candidate_actors, holder, &candidate_ball)) {
         scene->state = state_before;
         scene->orientation_state = orientation_before;
         scene->camera_state = camera_before;
@@ -480,6 +476,23 @@ bool scene_handoff_possession(TecmoGameplayScene *scene,
                sizeof(controlled_before));
         return false;
     }
+    if (scene->orientation_state.transition_serial !=
+        orientation_before.transition_serial) {
+        /* Preserve camera position/stream ownership across possession. The
+           next single live follow recomputes direction-specific thresholds
+           and may establish the opposite endpoint latch. */
+        scene->camera_state.thresholds_valid = false;
+        scene->camera_state.endpoint_latched = false;
+    }
+    memcpy(scene->actors, candidate_actors, sizeof(candidate_actors));
+    scene->ball_holder = holder;
+    for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
+         ++controller) {
+        if (scene->launch.controller_team[controller] == possession) {
+            scene->controlled_actor[controller] = holder;
+        }
+    }
+    scene->ball_position = candidate_ball;
     scene->backcourt_state = backcourt_reset;
     return true;
 }

@@ -191,6 +191,19 @@ static bool tecmo_gameplay_scene_test_pretip_initial_launch(
             tecmo_gameplay_scene_destroy(scene);
             return false;
         }
+        {
+            bool expected_facing;
+            if (!scene_goal_facing_right_for_team(
+                    scene, (TecmoGameplayTeam)scene->actors[frame].team,
+                    &expected_facing) ||
+                scene->actors[frame].facing_right != expected_facing) {
+                tecmo_gameplay_scene_test_message(
+                    message, message_size,
+                    "pre-tip encoded pose retained invalid goal facing");
+                tecmo_gameplay_scene_destroy(scene);
+                return false;
+            }
+        }
     }
     p1->held.cancel = true;
     if (!tecmo_gameplay_scene_update(scene, p1, p2) ||

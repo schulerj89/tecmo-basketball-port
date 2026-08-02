@@ -556,7 +556,13 @@ static bool scene_initialize_actors(TecmoGameplayScene *scene)
         item->roster_index = (uint8_t)(actor %
             TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT);
         item->sprite_slot_base = 0x41U;
-        item->facing_right = item->team == TECMO_GAMEPLAY_TEAM_AWAY;
+        /* Base actor facing is owned by TGOR's team-to-goal mapping. Fresh
+           TGOR starts Away on the left goal, so Away actors face left. */
+        if (!scene_goal_facing_right_for_team(
+                scene, (TecmoGameplayTeam)item->team,
+                &item->facing_right)) {
+            return false;
+        }
         item->pose_orientation_encoded = false;
         item->active = true;
         linked_actor = actor < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT
@@ -1053,12 +1059,14 @@ static bool scene_apply_free_throw_lineup(
         candidate_actors[actor].position = coordinate;
         candidate_actors[actor].anchor = coordinate;
     }
-    /*
-     * TGFL does not define the shooter's pose. Keep the existing pose and use
-     * only the binary hoop direction for the native held-ball attachment.
-     */
-    candidate_actors[shooter].facing_right =
-        scene->orientation_state.current_direction != 0U;
+    /* TGFL does not define the shooter's pose. Preserve its pose family while
+       deriving effective facing from the validated scoring team's goal for
+       native held-ball attachment. */
+    if (!scene_goal_facing_right_for_team(
+            scene, (TecmoGameplayTeam)candidate_actors[shooter].team,
+            &candidate_actors[shooter].facing_right)) {
+        return false;
+    }
     if (!scene_attached_ball_position(
             &candidate_actors[shooter], &candidate_ball) ||
         !tecmo_gameplay_court_coordinate_to_q8(
