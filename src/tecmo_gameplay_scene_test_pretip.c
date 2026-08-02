@@ -357,6 +357,94 @@ static bool tecmo_gameplay_scene_test_pretip_descent_live(
     return true;
 }
 
+static bool tecmo_gameplay_scene_test_pretip_normal_home_handoff(
+    TecmoGameplaySceneTestContext *test,
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *launch)
+{
+    char *message = test->message;
+    size_t message_size = test->message_size;
+    TecmoGameplaySceneLaunch normal = *launch;
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    size_t frame;
+
+    normal.controller_team[0] = TECMO_GAMEPLAY_TEAM_AWAY;
+    normal.controller_team[1] = TECMO_GAMEPLAY_TEAM_HOME;
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    if (!tecmo_gameplay_scene_launch(scene, &normal) ||
+        scene->launch.controller_team[0] != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->launch.controller_team[1] != TECMO_GAMEPLAY_TEAM_HOME) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "pre-tip normal assignment Home handoff launch rejected");
+        tecmo_gameplay_scene_destroy(scene);
+        return false;
+    }
+    for (frame = 0U; frame < 661U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "pre-tip normal assignment contest entry rejected");
+            tecmo_gameplay_scene_destroy(scene);
+            return false;
+        }
+    }
+    p2.held.cancel = true;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        !scene->pretip_state.home_tip_sampled ||
+        scene->pretip_state.home_tip_sample_frame != 0U ||
+        scene->pretip_state.home_tip_error != 0U ||
+        scene->pretip_state.away_tip_sampled) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "pre-tip normal assignment Home controller routing failed");
+        tecmo_gameplay_scene_destroy(scene);
+        return false;
+    }
+    p2.held.cancel = false;
+    p1.held.cancel = true;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        !scene->pretip_state.home_tip_sampled ||
+        scene->pretip_state.home_tip_sample_frame != 0U ||
+        !scene->pretip_state.away_tip_sampled ||
+        scene->pretip_state.away_tip_sample_frame != 1U ||
+        scene->pretip_state.away_tip_error != 1U) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "pre-tip normal assignment later Away sample failed");
+        tecmo_gameplay_scene_destroy(scene);
+        return false;
+    }
+    p1.held.cancel = false;
+    for (frame = 663U; frame < 691U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "pre-tip normal assignment live handoff rejected");
+            tecmo_gameplay_scene_destroy(scene);
+            return false;
+        }
+    }
+    if (tecmo_gameplay_scene_in_pretip(scene) ||
+        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE ||
+        !scene->pretip_state.live_handoff ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->ball_holder != TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
+        scene->orientation_state.current_direction != 1U ||
+        scene->pretip_state.home_tip_error != 0U ||
+        scene->pretip_state.away_tip_error != 1U) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "pre-tip normal assignment Home possession handoff failed");
+        tecmo_gameplay_scene_destroy(scene);
+        return false;
+    }
+    tecmo_gameplay_scene_end(scene);
+    return true;
+}
+
 static bool tecmo_gameplay_scene_test_pretip_abort_and_timing(
     TecmoGameplaySceneTestContext *test,
     TecmoGameplayScene *scene,
@@ -567,6 +655,8 @@ bool tecmo_gameplay_scene_test_pretip(
             test, scene, &launch, &p1, &p2, &tip_lineup) ||
         !tecmo_gameplay_scene_test_pretip_descent_live(
             test, scene, &p1, &p2) ||
+        !tecmo_gameplay_scene_test_pretip_normal_home_handoff(
+            test, scene, &launch) ||
         !tecmo_gameplay_scene_test_pretip_abort_and_timing(
             test, scene, &launch, &p1, &p2)) {
         return false;
