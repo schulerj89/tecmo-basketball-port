@@ -213,6 +213,42 @@ static bool tecmo_gameplay_scene_test_pretip_initial_launch(
     return true;
 }
 
+static bool tecmo_gameplay_scene_test_pretip_contest_input_regression(
+    TecmoGameplaySceneTestContext *test,
+    TecmoGameplayScene *scene)
+{
+    TecmoGameplayPreTipState state;
+    size_t frame;
+    if (!tecmo_gameplay_pretip_state_initialize(
+            &scene->pretip_assets, &state, false)) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "pre-tip contest regression state initialization failed");
+        return false;
+    }
+    for (frame = 0U; frame < 661U; ++frame) {
+        if (!tecmo_gameplay_pretip_update(
+                &scene->pretip_assets, &state, false, false)) {
+            tecmo_gameplay_scene_test_message(
+                test->message, test->message_size,
+                "pre-tip contest regression advance failed");
+            return false;
+        }
+    }
+    if (state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
+        state.phase_frame != 0U ||
+        !tecmo_gameplay_pretip_update(
+            &scene->pretip_assets, &state, false, true) ||
+        !state.home_tip_sampled || state.home_tip_sample_frame != 0U ||
+        state.home_tip_error != 0U) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "pre-tip JUMP_CONTEST held Home B regression failed");
+        return false;
+    }
+    return true;
+}
+
 static bool tecmo_gameplay_scene_test_pretip_descent_live(
     TecmoGameplaySceneTestContext *test,
     TecmoGameplayScene *scene,
@@ -372,17 +408,67 @@ static bool tecmo_gameplay_scene_test_pretip_abort_and_timing(
             return false;
         }
     }
-    p1->held.cancel = true;
+    p1->held.cancel = false;
+    p1->released.cancel = true;
     if (!tecmo_gameplay_scene_update(scene, p1, p2) ||
-        !scene->pretip_state.home_tip_sampled ||
-        scene->pretip_state.home_tip_error != 0U) {
+        scene->pretip_state.home_tip_sampled ||
+        scene->pretip_state.away_tip_sampled ||
+        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_CLOSEUP ||
+        scene->pretip_state.phase_frame != 195U) {
         tecmo_gameplay_scene_test_message(message, message_size,
-                           "pre-tip home timing sample rejected");
+                           "pre-tip close-up B/release ignore failed");
         tecmo_gameplay_scene_destroy(scene);
         return false;
     }
     p1->held.cancel = false;
-    for (frame = 438U; frame < 691U; ++frame) {
+    p1->released.cancel = false;
+    for (frame = 438U; frame < 661U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, p1, p2)) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size, "pre-tip contest entry rejected");
+            tecmo_gameplay_scene_destroy(scene);
+            return false;
+        }
+    }
+    p1->held.cancel = false;
+    p2->held.cancel = true;
+    if (!tecmo_gameplay_scene_update(scene, p1, p2) ||
+        scene->pretip_state.home_tip_sampled ||
+        scene->pretip_state.home_tip_sample_frame !=
+            TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME ||
+        scene->pretip_state.away_tip_sampled) {
+        tecmo_gameplay_scene_test_message(message, message_size,
+                           "pre-tip unassigned contest input was accepted");
+        tecmo_gameplay_scene_destroy(scene);
+        return false;
+    }
+    p2->held.cancel = false;
+    p1->pressed.cancel = true;
+    if (!tecmo_gameplay_scene_update(scene, p1, p2) ||
+        scene->pretip_state.home_tip_sampled ||
+        scene->pretip_state.home_tip_sample_frame !=
+            TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME ||
+        scene->pretip_state.away_tip_sampled) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "pre-tip pressed-only contest input was accepted");
+        tecmo_gameplay_scene_destroy(scene);
+        return false;
+    }
+    p1->pressed.cancel = false;
+    p1->held.cancel = true;
+    if (!tecmo_gameplay_scene_update(scene, p1, p2) ||
+        !scene->pretip_state.home_tip_sampled ||
+        scene->pretip_state.home_tip_sample_frame != 2U ||
+        scene->pretip_state.home_tip_error != 2U ||
+        scene->pretip_state.away_tip_sampled) {
+        tecmo_gameplay_scene_test_message(message, message_size,
+                           "pre-tip home contest timing sample rejected");
+        tecmo_gameplay_scene_destroy(scene);
+        return false;
+    }
+    for (frame = 664U; frame < 691U; ++frame) {
+        p1->held.cancel = true;
         if (!tecmo_gameplay_scene_update(scene, p1, p2)) {
             tecmo_gameplay_scene_test_message(message, message_size,
                                "pre-tip timing handoff rejected");
@@ -390,6 +476,7 @@ static bool tecmo_gameplay_scene_test_pretip_abort_and_timing(
             return false;
         }
     }
+    p1->held.cancel = false;
     if (scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
         scene->ball_holder != TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
         scene->orientation_state.current_direction != 1U) {
@@ -398,6 +485,67 @@ static bool tecmo_gameplay_scene_test_pretip_abort_and_timing(
         tecmo_gameplay_scene_destroy(scene);
         return false;
     }
+    tecmo_gameplay_scene_end(scene);
+
+    launch->controller_team[0] = TECMO_GAMEPLAY_TEAM_HOME;
+    launch->controller_team[1] = TECMO_GAMEPLAY_TEAM_AWAY;
+    if (!tecmo_gameplay_scene_launch(scene, launch)) {
+        tecmo_gameplay_scene_test_message(message, message_size,
+                           "pre-tip reversed-assignment launch rejected");
+        tecmo_gameplay_scene_destroy(scene);
+        return false;
+    }
+    for (frame = 0U; frame < 661U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, p1, p2)) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "pre-tip reversed-assignment contest entry rejected");
+            tecmo_gameplay_scene_destroy(scene);
+            return false;
+        }
+    }
+    p1->held.cancel = true;
+    if (!tecmo_gameplay_scene_update(scene, p1, p2) ||
+        !scene->pretip_state.home_tip_sampled ||
+        scene->pretip_state.away_tip_sampled ||
+        scene->pretip_state.home_tip_sample_frame != 0U) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "pre-tip reversed Home controller routing failed");
+        tecmo_gameplay_scene_destroy(scene);
+        return false;
+    }
+    p1->held.cancel = false;
+    tecmo_gameplay_scene_end(scene);
+
+    if (!tecmo_gameplay_scene_launch(scene, launch)) {
+        tecmo_gameplay_scene_test_message(message, message_size,
+                           "pre-tip reversed-away launch rejected");
+        tecmo_gameplay_scene_destroy(scene);
+        return false;
+    }
+    for (frame = 0U; frame < 661U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, p1, p2)) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "pre-tip reversed-away contest entry rejected");
+            tecmo_gameplay_scene_destroy(scene);
+            return false;
+        }
+    }
+    p1->held.cancel = false;
+    p2->held.cancel = true;
+    if (!tecmo_gameplay_scene_update(scene, p1, p2) ||
+        !scene->pretip_state.away_tip_sampled ||
+        scene->pretip_state.home_tip_sampled ||
+        scene->pretip_state.away_tip_sample_frame != 0U) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "pre-tip reversed Away controller routing failed");
+        tecmo_gameplay_scene_destroy(scene);
+        return false;
+    }
+    p2->held.cancel = false;
     tecmo_gameplay_scene_end(scene);
     return true;
 }
@@ -413,6 +561,8 @@ bool tecmo_gameplay_scene_test_pretip(
 
     tecmo_gameplay_scene_test_set_skip_pretip(false);
     if (!tecmo_gameplay_scene_test_pretip_load(test, scene) ||
+        !tecmo_gameplay_scene_test_pretip_contest_input_regression(
+            test, scene) ||
         !tecmo_gameplay_scene_test_pretip_initial_launch(
             test, scene, &launch, &p1, &p2, &tip_lineup) ||
         !tecmo_gameplay_scene_test_pretip_descent_live(

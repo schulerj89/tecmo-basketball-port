@@ -328,6 +328,10 @@ if ($ReferenceRoot) {
 }
 
 $Cases = @(
+    [pscustomobject]@{ label="tip-input-subspan"; mutate={
+        param($Bytes) $Bytes[[int]$PreTip.pack_offset + 5091] =
+            $Bytes[[int]$PreTip.pack_offset + 5091] -bxor 1
+    }},
     [pscustomobject]@{ label="payload-mutation"; mutate={
         param($Bytes) $Bytes[[int]$PreTip.pack_offset + 3040] =
             $Bytes[[int]$PreTip.pack_offset + 3040] -bxor 1
