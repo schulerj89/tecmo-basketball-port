@@ -10,6 +10,7 @@
 #include "tecmo_gameplay_scene.h"
 #include "tecmo_gameplay_state.h"
 #include "tecmo_gameplay_violation_referee.h"
+#include "tecmo_win32_keys.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,7 +26,6 @@
     (TECMO_CLI_PRETIP_LIVE_START_FRAME + 4U)
 #define TECMO_CLI_FREE_THROW_CHECKPOINT_FRAME \
     (TECMO_CLI_PRETIP_LIVE_START_FRAME + 5U)
-
 
 typedef struct TecmoCliGameplayCheckpointConfig {
     unsigned checkpoint;
@@ -47,6 +47,218 @@ typedef struct TecmoCliGameplayCheckpointConfig {
     int possession_slice;
     int free_throw_orientation;
 } TecmoCliGameplayCheckpointConfig;
+
+typedef struct TecmoCliTipoffInputEvidence {
+    bool raw_x_down;
+    bool raw_x_up;
+    bool raw_x_down_logical;
+    bool raw_x_up_logical;
+    bool fast_x_effective_cancel;
+    bool fast_x_effective_pressed;
+    bool fast_x_post_bridge_cancel;
+    bool current_effective_cancel;
+    bool current_effective_pressed;
+    bool current_effective_released;
+    bool literal_b_mapped;
+    bool bridge_used;
+    uint32_t fast_x_pulse_frame;
+    unsigned bridge_begin_count;
+    unsigned bridge_end_count;
+    unsigned bridge_update_players_count;
+} TecmoCliTipoffInputEvidence;
+
+static bool gameplay_checkpoint_hud_player(
+    const TecmoGameplayScene *scene,
+    TecmoGameplayTeam team,
+    uint8_t *actor_out,
+    const TecmoTeamDataPlayer **player_out)
+{
+    uint8_t candidate = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    uint8_t reference = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    uint8_t team_id;
+    size_t controller;
+
+    if (scene == NULL || actor_out == NULL || player_out == NULL ||
+        (team != TECMO_GAMEPLAY_TEAM_AWAY &&
+         team != TECMO_GAMEPLAY_TEAM_HOME) ||
+        scene->pretip_team_data == NULL ||
+        !scene->pretip_team_data->available) {
+        return false;
+    }
+    for (controller = 0U;
+         controller < TECMO_GAMEPLAY_CONTROLLER_COUNT; ++controller) {
+        if (scene->launch.controller_team[controller] == (uint8_t)team) {
+            candidate = scene->controlled_actor[controller];
+            break;
+        }
+    }
+    if (candidate == TECMO_GAMEPLAY_SCENE_NO_ACTOR) {
+        if (scene->ball_holder < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
+            scene->actors[scene->ball_holder].active) {
+            reference = scene->ball_holder;
+        } else if (scene->shot_actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
+                   scene->actors[scene->shot_actor].active) {
+            reference = scene->shot_actor;
+        }
+        candidate = (uint8_t)((uint8_t)team *
+                              TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT +
+                              (reference < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT
+                                   ? reference %
+                                         TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT
+                                   : 0U));
+    }
+    if (candidate >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        !scene->actors[candidate].active ||
+        scene->actors[candidate].team != (uint8_t)team ||
+        scene->actors[candidate].roster_index >=
+            TECMO_TEAM_DATA_PLAYERS_PER_TEAM) {
+        return false;
+    }
+    team_id = team == TECMO_GAMEPLAY_TEAM_AWAY
+                  ? scene->launch.away_team : scene->launch.home_team;
+    if (team_id >= TECMO_TEAM_DATA_TEAM_COUNT) return false;
+    *actor_out = candidate;
+    *player_out = &scene->pretip_team_data->players[team_id][
+        scene->actors[candidate].roster_index];
+    return (*player_out)->name[0] != '\0';
+}
+
+static bool gameplay_checkpoint_compact_name(
+    const char source[21], char compact[21])
+{
+    size_t index;
+
+    if (source == NULL || compact == NULL) return false;
+    for (index = 0U; index + 1U < 21U && source[index] != '\0'; ++index)
+        compact[index] = source[index] == ' ' ? '_' : source[index];
+    if (index == 0U || index >= 21U || source[index] != '\0') return false;
+    compact[index] = '\0';
+    return true;
+}
+
+static bool gameplay_checkpoint_run_fast_x_bridge(
+    TecmoRuntime *runtime,
+    TecmoWin32KeyboardState *keyboard,
+    TecmoControls *controls,
+    TecmoCliTipoffInputEvidence *evidence)
+{
+    TecmoWin32KeyBinding binding;
+    const TecmoInput *player_one;
+    const TecmoInput *player_two;
+    bool logical_down;
+    uint32_t frame_before;
+    size_t control_count = TECMO_GAMEPLAY_CONTROLLER_COUNT;
+
+    if (runtime == NULL || keyboard == NULL || controls == NULL ||
+        evidence == NULL ||
+        tecmo_win32_translate_key((uint32_t)'B', &binding)) {
+        return false;
+    }
+    evidence->literal_b_mapped = false;
+    if (!tecmo_win32_keyboard_update(
+            keyboard, (uint32_t)'X', true, &binding, &logical_down) ||
+        binding.player_index != 0U || binding.button != TECMO_CONTROL_CANCEL ||
+        !logical_down) {
+        return false;
+    }
+    evidence->raw_x_down = true;
+    evidence->raw_x_down_logical = logical_down;
+    tecmo_controls_set_button(
+        &controls[binding.player_index], binding.button, logical_down);
+    if (!tecmo_win32_keyboard_update(
+            keyboard, (uint32_t)'X', false, &binding, &logical_down) ||
+        binding.player_index != 0U || binding.button != TECMO_CONTROL_CANCEL ||
+        logical_down) {
+        return false;
+    }
+    evidence->raw_x_up = true;
+    evidence->raw_x_up_logical = logical_down;
+    tecmo_controls_set_button(
+        &controls[binding.player_index], binding.button, logical_down);
+
+    tecmo_win32_keyboard_begin_controls_frame(
+        keyboard, controls, control_count);
+    ++evidence->bridge_begin_count;
+    player_one = tecmo_controls_held(&controls[0U]);
+    player_two = tecmo_controls_held(&controls[1U]);
+    if (player_one == NULL || player_two == NULL) {
+        tecmo_win32_keyboard_end_controls_frame(
+            keyboard, controls, control_count);
+        ++evidence->bridge_end_count;
+        return false;
+    }
+    evidence->fast_x_effective_cancel = player_one->cancel;
+    evidence->fast_x_effective_pressed = tecmo_controls_pressed(
+        &controls[0U], TECMO_CONTROL_CANCEL);
+    evidence->current_effective_cancel = player_one->cancel;
+    evidence->current_effective_pressed =
+        evidence->fast_x_effective_pressed;
+    evidence->current_effective_released = tecmo_controls_released(
+        &controls[0U], TECMO_CONTROL_CANCEL);
+    if (!evidence->fast_x_effective_cancel ||
+        !evidence->fast_x_effective_pressed ||
+        player_two->cancel) {
+        tecmo_win32_keyboard_end_controls_frame(
+            keyboard, controls, control_count);
+        ++evidence->bridge_end_count;
+        return false;
+    }
+    frame_before = runtime->gameplay_scene.frame;
+    tecmo_runtime_update_players(runtime, player_one, player_two);
+    ++evidence->bridge_update_players_count;
+    tecmo_win32_keyboard_end_controls_frame(
+        keyboard, controls, control_count);
+    ++evidence->bridge_end_count;
+    player_one = tecmo_controls_held(&controls[0U]);
+    if (player_one == NULL || player_one->cancel ||
+        runtime->gameplay_scene.frame != frame_before + 1U) {
+        return false;
+    }
+    evidence->fast_x_post_bridge_cancel = player_one->cancel;
+    evidence->fast_x_pulse_frame = runtime->gameplay_scene.frame;
+    evidence->bridge_used = true;
+    return true;
+}
+
+static bool gameplay_checkpoint_run_adapter_update(
+    TecmoRuntime *runtime,
+    TecmoWin32KeyboardState *keyboard,
+    TecmoControls *controls,
+    TecmoCliTipoffInputEvidence *evidence)
+{
+    const TecmoInput *player_one;
+    const TecmoInput *player_two;
+    uint32_t frame_before;
+    size_t control_count = TECMO_GAMEPLAY_CONTROLLER_COUNT;
+
+    if (runtime == NULL || keyboard == NULL || controls == NULL ||
+        evidence == NULL) {
+        return false;
+    }
+    frame_before = runtime->gameplay_scene.frame;
+    tecmo_win32_keyboard_begin_controls_frame(
+        keyboard, controls, control_count);
+    ++evidence->bridge_begin_count;
+    player_one = tecmo_controls_held(&controls[0U]);
+    player_two = tecmo_controls_held(&controls[1U]);
+    if (player_one == NULL || player_two == NULL || player_two->cancel) {
+        tecmo_win32_keyboard_end_controls_frame(
+            keyboard, controls, control_count);
+        ++evidence->bridge_end_count;
+        return false;
+    }
+    evidence->current_effective_cancel = player_one->cancel;
+    evidence->current_effective_pressed = tecmo_controls_pressed(
+        &controls[0U], TECMO_CONTROL_CANCEL);
+    evidence->current_effective_released = tecmo_controls_released(
+        &controls[0U], TECMO_CONTROL_CANCEL);
+    tecmo_runtime_update_players(runtime, player_one, player_two);
+    ++evidence->bridge_update_players_count;
+    tecmo_win32_keyboard_end_controls_frame(
+        keyboard, controls, control_count);
+    ++evidence->bridge_end_count;
+    return runtime->gameplay_scene.frame == frame_before + 1U;
+}
 
 static bool gameplay_checkpoint_goal_facing_right(
     const TecmoGameplayScene *scene,
@@ -224,19 +436,38 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
 }
 
 static bool gameplay_checkpoint_report_tipoff_proof(
-    const TecmoGameplayScene *scene)
+    const TecmoGameplayScene *scene,
+    const TecmoCliTipoffInputEvidence *input_evidence)
 {
     TecmoGameplaySceneCourtFrame court_frame;
+    const TecmoTeamDataPlayer *away_hud_player;
+    const TecmoTeamDataPlayer *home_hud_player;
+    char away_hud_name[21];
+    char home_hud_name[21];
     uint8_t away_actor;
     uint8_t home_actor;
+    uint8_t away_hud_actor;
+    uint8_t home_hud_actor;
     uint8_t left_actor;
     uint8_t right_actor;
     const TecmoGameplaySceneActor *away;
     const TecmoGameplaySceneActor *home;
     const TecmoGameplaySceneActor *left;
     const TecmoGameplaySceneActor *right;
-    if (scene == NULL || !scene->active ||
+    if (scene == NULL || input_evidence == NULL || !scene->active ||
         !tecmo_gameplay_scene_court_frame(scene, &court_frame)) {
+        return false;
+    }
+    if (!gameplay_checkpoint_hud_player(
+            scene, TECMO_GAMEPLAY_TEAM_AWAY,
+            &away_hud_actor, &away_hud_player) ||
+        !gameplay_checkpoint_hud_player(
+            scene, TECMO_GAMEPLAY_TEAM_HOME,
+            &home_hud_actor, &home_hud_player) ||
+        !gameplay_checkpoint_compact_name(
+            away_hud_player->name, away_hud_name) ||
+        !gameplay_checkpoint_compact_name(
+            home_hud_player->name, home_hud_name)) {
         return false;
     }
     away_actor = scene->pretip_jumper_actor[0U];
@@ -264,6 +495,12 @@ static bool gameplay_checkpoint_report_tipoff_proof(
          !court_frame.projection.players[home_actor].visible)) {
         return false;
     }
+    if (!tecmo_gameplay_scene_in_pretip(scene) &&
+        (away->facing_right ||
+         scene->pretip_jumper_altitude_q8[0U] != 0U ||
+         scene->pretip_jumper_altitude_q8[1U] != 0U)) {
+        return false;
+    }
     printf(
         "tipoff-proof frame=%u pretip=%s pretip-frame=%u contest-frame=%u "
         "away-actor=%u away-world-y=%d away-screen-y=%u away-visible=%u "
@@ -275,9 +512,25 @@ static bool gameplay_checkpoint_report_tipoff_proof(
         "home-anchor-x=%d left-actor=%u left-facing-right=%u "
         "right-actor=%u right-facing-right=%u "
         "away-sampled=%u away-sample-frame=%u away-error=%u "
-        "home-sampled=%u possession=%u direction=%u hoop-x=%d "
+        "home-sampled=%u home-sample-frame=%u home-error=%u "
+        "hud-ready=1 hud-away-actor=%u hud-home-actor=%u "
+        "hud-away-name=%s hud-home-name=%s "
+        "input-adapter=win32-keyboard-controls input-raw-x-down=%u "
+        "input-raw-x-up=%u input-raw-x-down-logical=%u "
+        "input-raw-x-up-logical=%u input-fast-x-effective-cancel=%u "
+        "input-fast-x-effective-pressed=%u "
+        "input-fast-x-post-bridge-cancel=%u "
+        "input-current-effective-cancel=%u "
+        "input-current-effective-pressed=%u "
+        "input-current-effective-released=%u "
+        "input-fast-x-pulse-frame=%u "
+        "input-fast-x-bridge=%u input-literal-b-mapped=%u "
+        "input-bridge-begin=%u "
+        "input-bridge-end=%u input-bridge-update-players=%u "
+        "input-direct-cancel=0 "
+        "possession=%u direction=%u hoop-x=%d "
         "ball-x-q8=%ld ball-y-q8=%ld camera-x=%u fine-scroll=%u "
-        "input=p1-away-held-b-during-jump-contest\n",
+        "input=physical-X-fast-pulse-p1-away\n",
         scene->frame,
         tecmo_gameplay_pretip_phase_name(scene->pretip_state.phase),
         (unsigned)scene->pretip_state.phase_frame,
@@ -306,6 +559,28 @@ static bool gameplay_checkpoint_report_tipoff_proof(
         (unsigned)scene->pretip_state.away_tip_sample_frame,
         (unsigned)scene->pretip_state.away_tip_error,
         scene->pretip_state.home_tip_sampled ? 1U : 0U,
+        (unsigned)scene->pretip_state.home_tip_sample_frame,
+        (unsigned)scene->pretip_state.home_tip_error,
+        (unsigned)away_hud_actor,
+        (unsigned)home_hud_actor,
+        away_hud_name,
+        home_hud_name,
+        input_evidence->raw_x_down ? 1U : 0U,
+        input_evidence->raw_x_up ? 1U : 0U,
+        input_evidence->raw_x_down_logical ? 1U : 0U,
+        input_evidence->raw_x_up_logical ? 1U : 0U,
+        input_evidence->fast_x_effective_cancel ? 1U : 0U,
+        input_evidence->fast_x_effective_pressed ? 1U : 0U,
+        input_evidence->fast_x_post_bridge_cancel ? 1U : 0U,
+        input_evidence->current_effective_cancel ? 1U : 0U,
+        input_evidence->current_effective_pressed ? 1U : 0U,
+        input_evidence->current_effective_released ? 1U : 0U,
+        (unsigned)input_evidence->fast_x_pulse_frame,
+        input_evidence->bridge_used ? 1U : 0U,
+        input_evidence->literal_b_mapped ? 1U : 0U,
+        input_evidence->bridge_begin_count,
+        input_evidence->bridge_end_count,
+        input_evidence->bridge_update_players_count,
         (unsigned)scene->state.possession,
         (unsigned)scene->orientation_state.current_direction,
         (int)scene->orientation_state.offensive_hoop.x,
@@ -320,6 +595,9 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
 {
     TecmoGameplaySceneLaunch launch;
     TecmoInput input;
+    TecmoWin32KeyboardState keyboard;
+    TecmoControls controls[TECMO_GAMEPLAY_CONTROLLER_COUNT];
+    TecmoCliTipoffInputEvidence input_evidence;
     unsigned update;
     const unsigned checkpoint = config->checkpoint;
     const uint8_t away_team = config->away_team;
@@ -329,8 +607,20 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
     const bool tipoff_proof = config->tipoff_proof;
     const bool ball_bounce = config->ball_bounce;
     const bool cpu_steering = config->cpu_steering;
+    const int possession_slice = config->possession_slice;
+    const int free_throw_orientation = config->free_throw_orientation;
+    const unsigned first_contest_update =
+        TECMO_CLI_PRETIP_CONTEST_START_FRAME + 1U;
+    const unsigned home_cpu_sample_frame =
+        TECMO_CLI_PRETIP_CONTEST_START_FRAME +
+        TECMO_GAMEPLAY_PRETIP_CPU_SAMPLE_FRAME + 1U;
+    const bool away_live_adapter = !cpu_steering && !pretip_checkpoint;
 
     *done_out = false;
+    memset(&keyboard, 0, sizeof(keyboard));
+    memset(controls, 0, sizeof(controls));
+    memset(&input_evidence, 0, sizeof(input_evidence));
+    input_evidence.fast_x_pulse_frame = 0xFFFFFFFFU;
     memset(&launch, 0, sizeof(launch));
     launch.source = TECMO_GAMEPLAY_SCENE_PRESEASON;
     launch.away_team = away_team;
@@ -347,36 +637,111 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
         return false;
     }
     tecmo_runtime_set_mode(runtime, TECMO_MODE_COURT);
-    if (tipoff_proof) {
+    if (away_live_adapter) {
         TecmoGameplayScene *scene = &runtime->gameplay_scene;
-        for (update = 0U; update < checkpoint; ++update) {
-            memset(&input, 0, sizeof(input));
-            if (tecmo_gameplay_scene_in_pretip(scene) &&
-                scene->pretip_state.phase ==
-                    TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
-                input.cancel = true;
+        const unsigned adapter_updates = tipoff_proof || live_start
+            ? checkpoint : TECMO_CLI_PRETIP_LIVE_START_FRAME;
+        tecmo_win32_keyboard_init(&keyboard);
+        tecmo_controls_init(&controls[0U]);
+        tecmo_controls_init(&controls[1U]);
+        {
+            TecmoWin32KeyBinding binding;
+            if (tecmo_win32_translate_key((uint32_t)'B', &binding)) {
+                return false;
             }
-            tecmo_runtime_update(runtime, &input);
+            input_evidence.literal_b_mapped = false;
         }
-        *done_out = true;
-        if (runtime->mode != TECMO_MODE_COURT || !scene->active ||
-            scene->frame != checkpoint ||
-            (checkpoint < TECMO_CLI_PRETIP_LIVE_START_FRAME) !=
-                tecmo_gameplay_scene_in_pretip(scene) ||
-            (checkpoint == TECMO_CLI_PRETIP_CONTEST_START_FRAME &&
-             (scene->pretip_state.away_tip_sampled ||
-              scene->pretip_state.home_tip_sampled)) ||
-            (checkpoint > TECMO_CLI_PRETIP_CONTEST_START_FRAME &&
-             (!scene->pretip_state.away_tip_sampled ||
-              scene->pretip_state.away_tip_sample_frame != 0U ||
-              scene->pretip_state.away_tip_error != 0U ||
-              scene->pretip_state.home_tip_sampled)) ||
-            (checkpoint >= TECMO_CLI_PRETIP_LIVE_START_FRAME &&
-             (scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
-              scene->ball_holder != 0U))) {
-            return false;
+        for (update = 0U; update < adapter_updates; ++update) {
+            if (!input_evidence.bridge_used &&
+                scene->frame == TECMO_CLI_PRETIP_CONTEST_START_FRAME &&
+                scene->pretip_state.phase ==
+                    TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST &&
+                scene->pretip_state.phase_frame == 0U) {
+                if (!gameplay_checkpoint_run_fast_x_bridge(
+                    runtime, &keyboard, controls, &input_evidence)) {
+                    return false;
+                }
+            } else if (!gameplay_checkpoint_run_adapter_update(
+                           runtime, &keyboard, controls, &input_evidence)) {
+                return false;
+            }
         }
-        return gameplay_checkpoint_report_tipoff_proof(scene);
+        if (tipoff_proof) {
+            *done_out = true;
+            if (runtime->mode != TECMO_MODE_COURT || !scene->active ||
+                scene->frame != checkpoint ||
+                (checkpoint < TECMO_CLI_PRETIP_LIVE_START_FRAME) !=
+                    tecmo_gameplay_scene_in_pretip(scene) ||
+                (checkpoint == TECMO_CLI_PRETIP_CONTEST_START_FRAME &&
+                 (input_evidence.bridge_used ||
+                  scene->pretip_state.away_tip_sampled ||
+                  scene->pretip_state.home_tip_sampled)) ||
+                (checkpoint >= first_contest_update &&
+                 (!input_evidence.bridge_used ||
+                  input_evidence.bridge_begin_count != checkpoint ||
+                  input_evidence.bridge_end_count != checkpoint ||
+                  input_evidence.bridge_update_players_count != checkpoint ||
+                  !input_evidence.raw_x_down ||
+                  !input_evidence.raw_x_up ||
+                  !input_evidence.raw_x_down_logical ||
+                  input_evidence.raw_x_up_logical ||
+                  !input_evidence.fast_x_effective_cancel ||
+                  !input_evidence.fast_x_effective_pressed ||
+                  input_evidence.fast_x_post_bridge_cancel ||
+                  input_evidence.fast_x_pulse_frame !=
+                      first_contest_update ||
+                  input_evidence.literal_b_mapped ||
+                  !scene->pretip_state.away_tip_sampled ||
+                  scene->pretip_state.away_tip_sample_frame != 0U ||
+                  scene->pretip_state.away_tip_error != 0U)) ||
+                (checkpoint < first_contest_update &&
+                 (input_evidence.bridge_used ||
+                  input_evidence.raw_x_down ||
+                  input_evidence.raw_x_up ||
+                  input_evidence.bridge_begin_count != checkpoint ||
+                  input_evidence.bridge_end_count != checkpoint ||
+                  input_evidence.bridge_update_players_count != checkpoint ||
+                  input_evidence.fast_x_pulse_frame != 0xFFFFFFFFU)) ||
+                (checkpoint < home_cpu_sample_frame &&
+                 scene->pretip_state.home_tip_sampled) ||
+                (checkpoint >= home_cpu_sample_frame &&
+                 (!scene->pretip_state.home_tip_sampled ||
+                  scene->pretip_state.home_tip_sample_frame !=
+                      TECMO_GAMEPLAY_PRETIP_CPU_SAMPLE_FRAME ||
+                  scene->pretip_state.home_tip_error !=
+                      TECMO_GAMEPLAY_PRETIP_CPU_SAMPLE_FRAME)) ||
+                (checkpoint >= TECMO_CLI_PRETIP_LIVE_START_FRAME &&
+                 (scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+                  scene->ball_holder != 0U))) {
+                return false;
+            }
+            return gameplay_checkpoint_report_tipoff_proof(
+                scene, &input_evidence);
+        }
+        if (live_start) {
+            *done_out = true;
+            return runtime->mode == TECMO_MODE_COURT && scene->active &&
+                   !tecmo_gameplay_scene_in_pretip(scene) &&
+                   scene->state.possession == TECMO_GAMEPLAY_TEAM_AWAY &&
+                   scene->ball_holder == 0U;
+        }
+        if (ball_bounce) {
+            for (update = 0U; update < checkpoint; ++update) {
+                memset(&input, 0, sizeof(input));
+                tecmo_runtime_update(runtime, &input);
+            }
+            *done_out = true;
+            return runtime->mode == TECMO_MODE_COURT && scene->active &&
+                   scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
+                   scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+                   scene->frame == TECMO_CLI_PRETIP_LIVE_START_FRAME +
+                       checkpoint &&
+                   scene->ball_holder == 0U;
+        }
+        if (possession_slice >= 0 || free_throw_orientation >= 0) {
+            return true;
+        }
+        return true;
     }
     if (pretip_checkpoint) {
         memset(&input, 0, sizeof(input));

@@ -21,6 +21,11 @@ $LiveContinuityFrameCount = 5
 $ProofLastFrame = $LiveHandoffFrame + $LiveContinuityFrameCount - 1
 $ProofFrameCount = $ProofLastFrame - $ProofFirstFrame + 1
 $ContestInputClockCap = 30
+$CpuSampleFrame = 8
+$AwaySampleLogicalFrame = $ProofFirstFrame + 1
+$HomeSampleLogicalFrame = $ProofFirstFrame + $CpuSampleFrame + 1
+$NoSampleFrame = 65535
+$UnsampledTipError = 12
 $ProofFrameRangeText = "${ProofFirstFrame}-${ProofLastFrame}"
 $ProofFirstFrameName = "tipoff-{0:D4}.png" -f $ProofFirstFrame
 $ProofLastFrameName = "tipoff-{0:D4}.png" -f $ProofLastFrame
@@ -589,9 +594,81 @@ function Assert-TipoffDiagnostic {
     if ([int]$Diagnostic.frame -ne $Frame -or
         [int]$Diagnostic.'away-actor' -ne 4 -or
         [int]$Diagnostic.'home-actor' -ne 9 -or
-        [int]$Diagnostic.'home-sampled' -ne 0) {
+        [int]$Diagnostic.'hud-ready' -ne 1 -or
+        [int]$Diagnostic.'hud-away-actor' -ne 0 -or
+        [int]$Diagnostic.'hud-home-actor' -ne 5 -or
+        [string]::IsNullOrWhiteSpace($Diagnostic.'hud-away-name') -or
+        [string]::IsNullOrWhiteSpace($Diagnostic.'hud-home-name') -or
+        $Diagnostic.'input-adapter' -ne "win32-keyboard-controls" -or
+        [int]$Diagnostic.'input-literal-b-mapped' -ne 0 -or
+        [int]$Diagnostic.'input-direct-cancel' -ne 0 -or
+        [int]$Diagnostic.'input-bridge-begin' -ne $Frame -or
+        [int]$Diagnostic.'input-bridge-end' -ne $Frame -or
+        [int]$Diagnostic.'input-bridge-update-players' -ne $Frame) {
         throw "Tip-off actor/input identity contract failed at frame $Frame."
     }
+
+    $PulseExpected = $Frame -ge $AwaySampleLogicalFrame
+    $ExpectedPulseFrame = if ($PulseExpected) {
+        [uint64]$AwaySampleLogicalFrame
+    } else {
+        [uint64]4294967295
+    }
+    if ([int]$Diagnostic.'input-fast-x-bridge' -ne
+            ($(if ($PulseExpected) { 1 } else { 0 })) -or
+        [int]$Diagnostic.'input-raw-x-down' -ne
+            ($(if ($PulseExpected) { 1 } else { 0 })) -or
+        [int]$Diagnostic.'input-raw-x-up' -ne
+            ($(if ($PulseExpected) { 1 } else { 0 })) -or
+        [int]$Diagnostic.'input-raw-x-down-logical' -ne
+            ($(if ($PulseExpected) { 1 } else { 0 })) -or
+        [int]$Diagnostic.'input-raw-x-up-logical' -ne 0 -or
+        [int]$Diagnostic.'input-fast-x-effective-cancel' -ne
+            ($(if ($PulseExpected) { 1 } else { 0 })) -or
+        [int]$Diagnostic.'input-fast-x-effective-pressed' -ne
+            ($(if ($PulseExpected) { 1 } else { 0 })) -or
+        [int]$Diagnostic.'input-fast-x-post-bridge-cancel' -ne 0 -or
+        [uint64]$Diagnostic.'input-fast-x-pulse-frame' -ne
+            $ExpectedPulseFrame) {
+        throw "Production Win32 X bridge evidence failed at frame $Frame."
+    }
+    $ExpectedCurrentHeld = if ($Frame -eq $AwaySampleLogicalFrame) { 1 } else { 0 }
+    $ExpectedCurrentPressed = $ExpectedCurrentHeld
+    $ExpectedCurrentReleased = if ($Frame -eq ($AwaySampleLogicalFrame + 1)) { 1 } else { 0 }
+    if ([int]$Diagnostic.'input-current-effective-cancel' -ne
+            $ExpectedCurrentHeld -or
+        [int]$Diagnostic.'input-current-effective-pressed' -ne
+            $ExpectedCurrentPressed -or
+        [int]$Diagnostic.'input-current-effective-released' -ne
+            $ExpectedCurrentReleased) {
+        throw "Per-tick effective input edge evidence failed at frame $Frame."
+    }
+
+    $AwaySampleExpected = $Frame -ge $AwaySampleLogicalFrame
+    if ($AwaySampleExpected) {
+        if ([int]$Diagnostic.'away-sampled' -ne 1 -or
+            [int]$Diagnostic.'away-sample-frame' -ne 0 -or
+            [int]$Diagnostic.'away-error' -ne 0) {
+            throw "Away assigned-human sample contract failed at frame $Frame."
+        }
+    } elseif ([int]$Diagnostic.'away-sampled' -ne 0 -or
+        [int]$Diagnostic.'away-sample-frame' -ne $NoSampleFrame -or
+        [int]$Diagnostic.'away-error' -ne $UnsampledTipError) {
+        throw "Away sample occurred before the first contest update at frame $Frame."
+    }
+    $HomeSampleExpected = $Frame -ge $HomeSampleLogicalFrame
+    if ($HomeSampleExpected) {
+        if ([int]$Diagnostic.'home-sampled' -ne 1 -or
+            [int]$Diagnostic.'home-sample-frame' -ne $CpuSampleFrame -or
+            [int]$Diagnostic.'home-error' -ne $CpuSampleFrame) {
+            throw "Home CPU sample-frame-$CpuSampleFrame contract failed at frame $Frame."
+        }
+    } elseif ([int]$Diagnostic.'home-sampled' -ne 0 -or
+        [int]$Diagnostic.'home-sample-frame' -ne $NoSampleFrame -or
+        [int]$Diagnostic.'home-error' -ne $UnsampledTipError) {
+        throw "Home CPU sampled before logical frame $HomeSampleLogicalFrame."
+    }
+
     if ($Frame -ge $ProofFirstFrame -and $Frame -le $JumpContestLastFrame) {
         $ExpectedContestFrame = [Math]::Min(
             [int]$Diagnostic.'pretip-frame', $ContestInputClockCap)
@@ -630,20 +707,14 @@ function Assert-TipoffDiagnostic {
             [int]$Diagnostic.'contest-frame' -ne $ContestInputClockCap -or
             [int]$Diagnostic.possession -ne 0 -or
             [int]$Diagnostic.direction -ne 0 -or
-            [int]$Diagnostic.'hoop-x' -ne 160) {
+            [int]$Diagnostic.'hoop-x' -ne 160 -or
+            [int]$Diagnostic.'away-facing-right' -ne 0 -or
+            [int]$Diagnostic.'away-altitude-q8' -ne 0 -or
+            [int]$Diagnostic.'home-altitude-q8' -ne 0) {
             throw "Away-left live handoff contract failed at frame $Frame."
         }
     } else {
         throw "Tip-off diagnostic frame is outside the proof range at frame $Frame."
-    }
-    if ($Frame -eq $ProofFirstFrame) {
-        if ([int]$Diagnostic.'away-sampled' -ne 0) {
-            throw "Away input was sampled before the first contest update."
-        }
-    } elseif ([int]$Diagnostic.'away-sampled' -ne 1 -or
-        [int]$Diagnostic.'away-sample-frame' -ne 0 -or
-        [int]$Diagnostic.'away-error' -ne 0) {
-        throw "Production held-B tip input contract failed at frame $Frame."
     }
 }
 
@@ -1182,7 +1253,8 @@ $SummaryLines = @(
     "asset pack canonical entries: gameplay/pre-tip=$TptiPayloadLength bytes/$TptiFnv32; chr/all=$($ChrIdentity.bytes) bytes/$($ChrIdentity.fnv1a32)",
     "frames: $ProofFrameRangeText ($ProofFrameCount contiguous frames; contest=$ProofFirstFrame-$JumpContestLastFrame ($JumpContestFrameCount updates), live=$LiveHandoffFrame-$ProofLastFrame ($LiveContinuityFrameCount updates); deterministic double render)",
     "native cadence: $NativeFrameRateText fps ($NativeFrameRateDisplay Hz; frame period $NativeFrameDurationSeconds seconds)",
-    "input: P1 controls Away; held B on every production update while phase is jump-contest (input clock cap $ContestInputClockCap); source=$CheckpointSourcePath",
+    "input: P1/Away physical X down+up is translated by the production TecmoWin32KeyboardState/TecmoControls adapter at the first visible JUMP_CONTEST update; exactly one bridged tecmo_runtime_update_players call carries the fast pulse, literal B remains unmapped, and no direct TecmoInput.cancel is used; source=$CheckpointSourcePath",
+    "input samples: Away assigned human samples at contest frame 0 on logical frame $AwaySampleLogicalFrame; unassigned Home CPU samples at contest frame $CpuSampleFrame on logical frame $HomeSampleLogicalFrame",
     "input source SHA256: $CheckpointSourceSha256",
     "shortcut audit: $ShortcutScriptPath SHA256=$ShortcutScriptSha256; GUI launch is tecmo_port_game.exe --root <project> --play; no native capture option",
     "output: 640x480; active view x=$ActiveLeft..$ActiveRight; both host margins verified black",
@@ -1279,22 +1351,27 @@ $Manifest = [pscustomobject][ordered]@{
         native_checkpoint_source_path = $CheckpointSourcePath
         native_checkpoint_source_sha256 = $CheckpointSourceSha256
         controller_1_team = "Away"
-        schedule = "neutral before frame $ProofFirstFrame; held B via input.cancel on every production update while phase is jump-contest frames $ProofFirstFrame..$JumpContestLastFrame; neutral after live handoff frame $LiveHandoffFrame"
-        input_semantics = "P1/Away receives the held B/cancel input during the first $ContestInputClockCap input-clock updates (the visual contest remains $JumpContestFrameCount updates); Home is not sampled; frame N is reached by replaying updates 0..N-1 from a clean scene launch"
+        schedule = "neutral through logical frame $ProofFirstFrame; physical X down+up is bridged between ticks at the first visible JUMP_CONTEST update (logical frame $AwaySampleLogicalFrame), then neutral adapter ticks through live handoff frame $LiveHandoffFrame"
+        input_semantics = "P1/Away uses the production TecmoWin32KeyboardState/TecmoControls fast-X bridge with literal physical B unmapped; one tecmo_runtime_update_players call is bracketed by begin/end per replay tick, with no direct TecmoInput.cancel assignment; Away human samples contest frame 0 and Home CPU samples contest frame $CpuSampleFrame"
         observed_away_sample_frame = 0
         observed_away_tip_error = 0
-        home_tip_sampled = $false
+        observed_home_sample_frame = $CpuSampleFrame
+        observed_home_tip_error = $CpuSampleFrame
+        home_tip_sampled = $true
     }
     assertions = @(
-        "both TPTI jumper actors 4 and 9 are visible, symmetric, center-camera, and anchor-ordered in every contest frame $ProofFirstFrame..$JumpContestLastFrame",
-        "every JUMP_CONTEST diagnostic asserts generic action poses with left-facing-right=1/right-facing-right=0; the LIVE handoff restores TGOR goal-facing",
+        "all $ProofFrameCount contiguous logical frames $ProofFirstFrame..$ProofLastFrame are rendered, including $JumpContestFrameCount contest frames and $LiveContinuityFrameCount live-handoff continuity frames",
+        "the first visible JUMP_CONTEST update uses the real fast-X Win32 keyboard/control bridge, literal B is unmapped, direct TecmoInput.cancel is zero, and begin/end bracket exactly one tecmo_runtime_update_players call per tick",
+        "Away assigned human samples at contest frame 0/logical frame $AwaySampleLogicalFrame and unassigned Home CPU samples at contest frame $CpuSampleFrame/logical frame $HomeSampleLogicalFrame",
+        "both TPTI jumper actors 4 and 9 are visible, symmetric, center-camera, and anchor-ordered in every contest frame $ProofFirstFrame..$JumpContestLastFrame; current HUD player names are present",
+        "every JUMP_CONTEST diagnostic asserts inward generic action facing with left-facing-right=1/right-facing-right=0; the LIVE handoff restores TGOR goal-facing with Away left",
         "both jumper screen Y, altitude, and pose follow the crouch/takeoff/rise/apex/fall/landing stages, including exact boundary diagnostics",
         "contest-frame equals min(phase-frame,$ContestInputClockCap) during contest and remains $ContestInputClockCap in LIVE",
         "pre-tip camera remains at source-backed center x=0x0100 through the contest",
         "live handoff at gameplay-state frame $LiveHandoffFrame awards Away possession and preserves its left goal orientation",
         "all $ProofFrameCount first-pass PNGs exactly match independently rendered second-pass PNGs",
         "both frame directories contain exactly $ProofFirstFrameName through $ProofLastFrameName with consistent 640x480 dimensions",
-        "both active-view edge sheets represent every one of the $ProofFrameCount contiguous logical frames",
+        "both active-view left and right edge sheets represent every one of the $ProofFrameCount contiguous logical frames",
         "all output pixels outside active view x=64..575 are black on both edges",
         "gameplay-facing-away-left checkpoint validates active actors against team goal mapping",
         "MP4 $VideoFileName frame count/rate/dimensions are ffprobe-validated and the MP4 is not an acceptance artifact"
