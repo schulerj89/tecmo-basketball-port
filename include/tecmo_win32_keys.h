@@ -40,9 +40,11 @@ typedef struct TecmoWin32KeyBinding {
 } TecmoWin32KeyBinding;
 
 #define TECMO_WIN32_TRACKED_KEY_COUNT 256U
+#define TECMO_WIN32_CONTROLLER_COUNT 2U
 
 typedef struct TecmoWin32KeyboardState {
     bool physical_down[TECMO_WIN32_TRACKED_KEY_COUNT];
+    bool pending_press[TECMO_WIN32_CONTROLLER_COUNT][TECMO_CONTROL_COUNT];
 } TecmoWin32KeyboardState;
 
 bool tecmo_win32_translate_key(uint32_t virtual_key,
@@ -53,6 +55,16 @@ bool tecmo_win32_keyboard_update(TecmoWin32KeyboardState *state,
                                  bool physical_down,
                                  TecmoWin32KeyBinding *binding_out,
                                  bool *logical_down_out);
+/* Bracket exactly one runtime update: begin exposes pending pulses through
+   controls->current, and end restores the physical levels and clears them. */
+void tecmo_win32_keyboard_begin_controls_frame(
+    TecmoWin32KeyboardState *state,
+    TecmoControls *controls,
+    size_t control_count);
+void tecmo_win32_keyboard_end_controls_frame(
+    TecmoWin32KeyboardState *state,
+    TecmoControls *controls,
+    size_t control_count);
 bool tecmo_win32_keys_self_test(char *message, size_t message_size);
 
 #endif

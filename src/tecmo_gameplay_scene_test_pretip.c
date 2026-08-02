@@ -3,6 +3,8 @@
 #endif
 
 #include "tecmo_gameplay_scene_test_internal.h"
+#include "tecmo_game.h"
+#include "tecmo_win32_keys.h"
 
 #include <limits.h>
 #include <stdio.h>
@@ -1726,6 +1728,306 @@ bool tecmo_gameplay_scene_test_pretip(
     return true;
 }
 
+typedef struct TecmoWin32TipHarness {
+    TecmoRuntime *runtime;
+    TecmoGameMemory memory;
+    TecmoControls controls[TECMO_GAMEPLAY_CONTROLLER_COUNT];
+    TecmoWin32KeyboardState keyboard;
+    bool scene_initialized;
+} TecmoWin32TipHarness;
+
+static void scene_test_win32_tip_harness_destroy(
+    TecmoWin32TipHarness *harness)
+{
+    if (harness == NULL) return;
+    if (harness->scene_initialized && harness->runtime != NULL) {
+        tecmo_gameplay_scene_destroy(&harness->runtime->gameplay_scene);
+    }
+    free(harness->runtime);
+    memset(harness, 0, sizeof(*harness));
+}
+
+static bool scene_test_win32_tip_harness_init(
+    TecmoWin32TipHarness *harness,
+    const char *project_root,
+    const char *asset_pack_path,
+    TecmoMusicPlayer *music_player,
+    const TecmoGameplaySceneLaunch *launch)
+{
+    if (harness == NULL || project_root == NULL || asset_pack_path == NULL ||
+        music_player == NULL || launch == NULL) {
+        return false;
+    }
+    memset(harness, 0, sizeof(*harness));
+    harness->runtime = (TecmoRuntime *)calloc(1U, sizeof(*harness->runtime));
+    if (harness->runtime == NULL) return false;
+    harness->runtime->memory = &harness->memory;
+    harness->runtime->mode = TECMO_MODE_COURT;
+    harness->runtime->frame_seconds = (float)(
+        (double)TECMO_MUSIC_TICK_DENOMINATOR /
+        (double)TECMO_MUSIC_TICK_NUMERATOR);
+    tecmo_controls_init(&harness->controls[0U]);
+    tecmo_controls_init(&harness->controls[1U]);
+    tecmo_win32_keyboard_init(&harness->keyboard);
+    tecmo_gameplay_scene_init(&harness->runtime->gameplay_scene);
+    harness->scene_initialized = true;
+    if (!tecmo_gameplay_scene_load(
+            &harness->runtime->gameplay_scene,
+            project_root, asset_pack_path, music_player) ||
+        !tecmo_gameplay_scene_launch(
+            &harness->runtime->gameplay_scene, launch)) {
+        scene_test_win32_tip_harness_destroy(harness);
+        return false;
+    }
+    harness->runtime->mode = TECMO_MODE_COURT;
+    return true;
+}
+
+static bool scene_test_win32_tip_harness_relaunch(
+    TecmoWin32TipHarness *harness,
+    const TecmoGameplaySceneLaunch *launch)
+{
+    TecmoGameplayScene *scene;
+    if (harness == NULL || harness->runtime == NULL || launch == NULL) {
+        return false;
+    }
+    scene = &harness->runtime->gameplay_scene;
+    tecmo_gameplay_scene_end(scene);
+    harness->runtime->previous_input = (TecmoInput){0};
+    harness->runtime->previous_player_two_input = (TecmoInput){0};
+    tecmo_controls_init(&harness->controls[0U]);
+    tecmo_controls_init(&harness->controls[1U]);
+    tecmo_win32_keyboard_init(&harness->keyboard);
+    harness->runtime->mode = TECMO_MODE_COURT;
+    return tecmo_gameplay_scene_launch(scene, launch);
+}
+
+static bool scene_test_win32_tip_key(
+    TecmoWin32TipHarness *harness,
+    uint32_t virtual_key,
+    bool physical_down,
+    bool mapped)
+{
+    TecmoWin32KeyBinding binding;
+    bool logical_down = false;
+    if (harness == NULL || harness->runtime == NULL ||
+        !tecmo_win32_keyboard_update(
+            &harness->keyboard, virtual_key, physical_down,
+            &binding, &logical_down)) {
+        return !mapped;
+    }
+    if (!mapped || binding.player_index >= TECMO_GAMEPLAY_CONTROLLER_COUNT) {
+        return false;
+    }
+    tecmo_controls_set_button(
+        &harness->controls[binding.player_index], binding.button,
+        logical_down);
+    return true;
+}
+
+static bool scene_test_win32_tip_update_observe(
+    TecmoWin32TipHarness *harness,
+    bool *player_one_cancel_out,
+    bool *player_one_released_cancel_out)
+{
+    TecmoGameplayScene *scene;
+    const TecmoInput *player_one;
+    const TecmoInput *player_two;
+    uint32_t frame_before;
+    if (harness == NULL || harness->runtime == NULL) return false;
+    scene = &harness->runtime->gameplay_scene;
+    frame_before = scene->frame;
+    tecmo_win32_keyboard_begin_controls_frame(
+        &harness->keyboard, harness->controls,
+        sizeof(harness->controls) / sizeof(harness->controls[0]));
+    player_one = tecmo_controls_held(&harness->controls[0U]);
+    player_two = tecmo_controls_held(&harness->controls[1U]);
+    if (player_one == NULL || player_two == NULL) {
+        tecmo_win32_keyboard_end_controls_frame(
+            &harness->keyboard, harness->controls,
+            sizeof(harness->controls) / sizeof(harness->controls[0]));
+        return false;
+    }
+    if (player_one_cancel_out != NULL) {
+        *player_one_cancel_out = player_one->cancel;
+    }
+    if (player_one_released_cancel_out != NULL) {
+        *player_one_released_cancel_out =
+            tecmo_controls_released(
+                &harness->controls[0U], TECMO_CONTROL_CANCEL);
+    }
+    tecmo_runtime_update_players(
+        harness->runtime, player_one, player_two);
+    tecmo_win32_keyboard_end_controls_frame(
+        &harness->keyboard, harness->controls,
+        sizeof(harness->controls) / sizeof(harness->controls[0]));
+    return scene->active && scene->frame == frame_before + 1U;
+}
+
+static bool scene_test_win32_tip_update(TecmoWin32TipHarness *harness)
+{
+    return scene_test_win32_tip_update_observe(harness, NULL, NULL);
+}
+
+static bool scene_test_win32_tip_advance(
+    TecmoWin32TipHarness *harness,
+    size_t update_count)
+{
+    size_t frame;
+    for (frame = 0U; frame < update_count; ++frame) {
+        if (!scene_test_win32_tip_update(harness)) return false;
+    }
+    return true;
+}
+
+static bool scene_test_win32_tip_advance_to_contest(
+    TecmoWin32TipHarness *harness,
+    size_t update_count)
+{
+    if (!scene_test_win32_tip_advance(harness, update_count)) return false;
+    return harness->runtime->gameplay_scene.pretip_state.phase ==
+               TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST &&
+           harness->runtime->gameplay_scene.pretip_state.phase_frame == 0U &&
+           harness->runtime->gameplay_scene.pretip_jump_active;
+}
+
+static bool scene_test_run_win32_x_tip(
+    const char *project_root,
+    const char *asset_pack_path,
+    TecmoMusicPlayer *music_player,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplaySceneLaunch launch;
+    TecmoWin32KeyBinding binding = {99U, TECMO_CONTROL_DEBUG_TOGGLE};
+    TecmoWin32TipHarness harness;
+    TecmoGameplayScene *scene;
+    const char *failure = "Win32 X tip path failed";
+    bool ok = false;
+    bool effective_cancel = false;
+    bool released_cancel = false;
+
+    memset(&harness, 0, sizeof(harness));
+    memset(&launch, 0, sizeof(launch));
+    launch.source = TECMO_GAMEPLAY_SCENE_PRESEASON;
+    launch.away_team = 0U;
+    launch.home_team = 1U;
+    launch.regulation_minutes = 2U;
+    launch.difficulty = 1U;
+    launch.control_mode = 1U;
+    launch.speed_value = 1U;
+    launch.controller_team[0U] = TECMO_GAMEPLAY_TEAM_AWAY;
+    launch.controller_team[1U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    launch.game_music_enabled = false;
+
+    if (!tecmo_win32_translate_key('X', &binding) ||
+        binding.player_index != 0U || binding.button != TECMO_CONTROL_CANCEL ||
+        tecmo_win32_translate_key('B', &binding) ||
+        !scene_test_win32_tip_harness_init(
+            &harness, project_root, asset_pack_path, music_player, &launch)) {
+        failure = "Win32 X/B translation or tip harness initialization failed";
+        goto cleanup;
+    }
+    scene = &harness.runtime->gameplay_scene;
+
+    /* An unrelated key and the literal B must not manufacture Player 1 NES B. */
+    if (!scene_test_win32_tip_key(&harness, 'B', true, false) ||
+        !scene_test_win32_tip_key(&harness, 'V', true, false) ||
+        harness.controls[0U].current.cancel ||
+        !scene_test_win32_tip_advance_to_contest(&harness, 661U) ||
+        !scene_test_win32_tip_key(&harness, 'X', true, true) ||
+        !harness.controls[0U].current.cancel ||
+        !scene_test_win32_tip_update(&harness) ||
+        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
+        scene->pretip_state.phase_frame != 1U ||
+        !scene->pretip_jump_active ||
+        !scene->pretip_state.away_tip_sampled ||
+        scene->pretip_state.away_tip_sample_frame != 0U ||
+        scene->pretip_state.away_tip_error != 0U ||
+        scene->pretip_state.home_tip_sampled) {
+        failure = "assigned Away team did not sample held X at visible contest frame 0";
+        goto cleanup;
+    }
+
+    /* An unmapped physical B cannot cancel an already-held X alias. */
+    if (!scene_test_win32_tip_key(&harness, 'B', true, false) ||
+        !harness.controls[0U].current.cancel ||
+        !scene_test_win32_tip_update(&harness) ||
+        !scene_test_win32_tip_key(&harness, 'B', false, false) ||
+        !harness.controls[0U].current.cancel ||
+        !scene_test_win32_tip_update(&harness) ||
+        !scene_test_win32_tip_key(&harness, 'X', false, true) ||
+        harness.controls[0U].current.cancel ||
+        !scene_test_win32_tip_update(&harness)) {
+        failure = "physical B interfered with the held-X keyboard state";
+        goto cleanup;
+    }
+
+    /* A mapped X down/up pair drained before the next update must still
+       reach one visible contest frame, then release without sticking. */
+    if (!scene_test_win32_tip_harness_relaunch(&harness, &launch) ||
+        !scene_test_win32_tip_advance_to_contest(&harness, 661U) ||
+        !scene_test_win32_tip_key(&harness, 'X', true, true) ||
+        !scene_test_win32_tip_key(&harness, 'X', false, true) ||
+        harness.controls[0U].current.cancel ||
+        !scene_test_win32_tip_update_observe(
+            &harness, &effective_cancel, NULL) ||
+        !effective_cancel ||
+        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
+        scene->pretip_state.phase_frame != 1U ||
+        !scene->pretip_jump_active ||
+        !scene->pretip_state.away_tip_sampled ||
+        scene->pretip_state.away_tip_sample_frame != 0U ||
+        !scene_test_win32_tip_update_observe(
+            &harness, &effective_cancel, &released_cancel) ||
+        effective_cancel || !released_cancel ||
+        scene->pretip_state.phase_frame != 2U ||
+        !scene->pretip_state.away_tip_sampled ||
+        scene->pretip_state.away_tip_sample_frame != 0U) {
+        failure = "fast X down/up before the update did not pulse one contest frame";
+        goto cleanup;
+    }
+
+    /* Pressing X before contest and releasing it before the first contest
+       update must not create a stale tip sample. */
+    if (!scene_test_win32_tip_harness_relaunch(&harness, &launch) ||
+        !scene_test_win32_tip_advance(&harness, 660U) ||
+        scene->pretip_state.phase == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
+        !scene_test_win32_tip_key(&harness, 'X', true, true) ||
+        !scene_test_win32_tip_update(&harness) ||
+        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
+        scene->pretip_state.phase_frame != 0U ||
+        scene->pretip_state.away_tip_sampled ||
+        !scene_test_win32_tip_key(&harness, 'X', false, true) ||
+        !scene_test_win32_tip_update(&harness) ||
+        scene->pretip_state.away_tip_sampled ||
+        scene->pretip_state.home_tip_sampled) {
+        failure = "X released before contest was incorrectly sampled";
+        goto cleanup;
+    }
+
+    /* Player 1's X must not act for an unassigned controller. */
+    launch.controller_team[0U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    launch.controller_team[1U] = TECMO_GAMEPLAY_TEAM_HOME;
+    if (!scene_test_win32_tip_harness_relaunch(&harness, &launch) ||
+        !scene_test_win32_tip_advance_to_contest(&harness, 661U) ||
+        !scene_test_win32_tip_key(&harness, 'X', true, true) ||
+        !scene_test_win32_tip_update(&harness) ||
+        scene->pretip_state.away_tip_sampled ||
+        scene->pretip_state.home_tip_sampled) {
+        failure = "unassigned Player 1 X incorrectly sampled the tip";
+        goto cleanup;
+    }
+    ok = true;
+
+cleanup:
+    if (!ok) {
+        tecmo_gameplay_scene_test_message(message, message_size, failure);
+    }
+    scene_test_win32_tip_harness_destroy(&harness);
+    return ok;
+}
+
 bool tecmo_gameplay_scene_test_pretip_human_checkpoint(
     const char *project_root,
     const char *asset_pack_path,
@@ -1780,10 +2082,16 @@ bool tecmo_gameplay_scene_test_pretip_human_checkpoint(
         tecmo_gameplay_scene_destroy(&scene);
         return false;
     }
+    tecmo_gameplay_scene_end(&scene);
+    if (!scene_test_run_win32_x_tip(
+            project_root, asset_pack_path, music_player,
+            message, message_size)) {
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
     tecmo_gameplay_scene_test_message(
         message, message_size,
-        "TPTI-1 human checkpoint PASS frame=721 late-sample=29");
-    tecmo_gameplay_scene_end(&scene);
+        "TPTI-1 human checkpoint PASS frame=721 late-sample=29 win32-X=assigned-Away-frame-0 fast-X=one-frame B-unmapped");
     tecmo_gameplay_scene_destroy(&scene);
     return true;
 }

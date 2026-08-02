@@ -77,6 +77,11 @@ ported.
 During the visible opening jump contest, hold NES B (`X` for Player 1 or
 Numpad 3 for Player 2) to contest the tip. The first held frame in that
 30-frame window is used; earlier input wins and equal timing favors away.
+Player 1's literal physical `B` key is intentionally unbound; `X` is the
+Player 1 keyboard key for NES B/CANCEL.
+The PC event bridge preserves a one-update fast tap if Windows delivers X's
+down/up pair between game ticks; this is PC event-queue robustness, not
+ROM-exact input timing.
 
 `F3` toggles the development overlay.
 
