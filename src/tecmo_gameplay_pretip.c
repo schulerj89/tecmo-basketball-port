@@ -410,7 +410,17 @@ static bool assets_valid(const TecmoGameplayPreTipAssets *assets)
         assets->card_chr_selector[0] != 0xC6U ||
         assets->card_chr_selector[1] != 0xFAU ||
         fnv1a32(assets->storage, assets->storage_size) !=
-            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_FNV1A32) {
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_FNV1A32 ||
+        fnv1a32(
+            assets->storage +
+                TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_INPUT_OFFSET,
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_INPUT_SIZE) !=
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_INPUT_FNV1A32 ||
+        fnv1a64(
+            assets->storage +
+                TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_INPUT_OFFSET,
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_INPUT_SIZE) !=
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_INPUT_FNV1A64) {
         return false;
     }
     for (index = 0U; index < TECMO_GAMEPLAY_PRETIP_PHASE_COUNT; ++index) {
@@ -513,30 +523,29 @@ bool tecmo_gameplay_pretip_tip_lineup(
     return true;
 }
 
-static uint8_t tip_error_for_sample(uint16_t frame, uint16_t target)
+/* Native policy, not ROM-exact: contest frame 0 is the target, a first held
+   sample at frame N has error min(N, 11), and no sample has error 12. */
+static uint8_t tip_error_for_sample(uint16_t frame)
 {
-    unsigned delta = frame > target ? frame - target : target - frame;
-    if (delta > 11U) delta = 11U;
-    return (uint8_t)delta;
+    return frame < 11U ? (uint8_t)frame : 11U;
 }
 
 static bool tip_sample_valid(bool sampled, uint8_t error,
                              uint16_t sample_frame,
                              TecmoGameplayPreTipPhase phase,
                              uint16_t phase_frame,
-                             uint16_t closeup_duration)
+                             uint16_t contest_duration)
 {
-    uint16_t target = (uint16_t)(closeup_duration - 14U);
     if (!sampled) {
         return error == 12U &&
                sample_frame == TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME;
     }
-    if (phase < TECMO_GAMEPLAY_PRETIP_CLOSEUP ||
-        sample_frame >= closeup_duration ||
-        error != tip_error_for_sample(sample_frame, target)) {
+    if (phase < TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
+        sample_frame >= contest_duration ||
+        error != tip_error_for_sample(sample_frame)) {
         return false;
     }
-    return phase != TECMO_GAMEPLAY_PRETIP_CLOSEUP ||
+    return phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
            sample_frame < phase_frame;
 }
 
@@ -570,11 +579,11 @@ static bool state_valid(const TecmoGameplayPreTipAssets *assets,
         !tip_sample_valid(
             state->away_tip_sampled, state->away_tip_error,
             state->away_tip_sample_frame, state->phase, state->phase_frame,
-            assets->phase_frames[TECMO_GAMEPLAY_PRETIP_CLOSEUP]) ||
+            assets->phase_frames[TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST]) ||
         !tip_sample_valid(
             state->home_tip_sampled, state->home_tip_error,
             state->home_tip_sample_frame, state->phase, state->phase_frame,
-            assets->phase_frames[TECMO_GAMEPLAY_PRETIP_CLOSEUP])) {
+            assets->phase_frames[TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST])) {
         return false;
     }
     if (state->aborted) {
@@ -613,21 +622,21 @@ bool tecmo_gameplay_pretip_state_initialize(
     return true;
 }
 
-static void sample_tip(bool held, uint16_t phase_frame, uint16_t target,
+static void sample_tip(bool held, uint16_t phase_frame,
                        bool *sampled, uint8_t *error,
                        uint16_t *sample_frame)
 {
     if (!held || *sampled) return;
     *sampled = true;
-    *error = tip_error_for_sample(phase_frame, target);
+    *error = tip_error_for_sample(phase_frame);
     *sample_frame = phase_frame;
 }
 
 bool tecmo_gameplay_pretip_update(
     const TecmoGameplayPreTipAssets *assets,
     TecmoGameplayPreTipState *state,
-    bool player_one_held_b,
-    bool player_two_held_b)
+    bool player_one_or_away_held_b,
+    bool player_two_or_home_held_b)
 {
     TecmoGameplayPreTipState candidate;
     uint16_t duration;
@@ -639,19 +648,17 @@ bool tecmo_gameplay_pretip_update(
     candidate = *state;
     if (candidate.card_cancel_enabled &&
         candidate.phase <= TECMO_GAMEPLAY_PRETIP_FIRST_PERIOD &&
-        (player_one_held_b || player_two_held_b)) {
+        (player_one_or_away_held_b || player_two_or_home_held_b)) {
         candidate.aborted = true;
         if (!state_valid(assets, &candidate)) return false;
         *state = candidate;
         return true;
     }
-    if (candidate.phase == TECMO_GAMEPLAY_PRETIP_CLOSEUP) {
-        uint16_t target = (uint16_t)(
-            assets->phase_frames[TECMO_GAMEPLAY_PRETIP_CLOSEUP] - 14U);
-        sample_tip(player_one_held_b, candidate.phase_frame, target,
+    if (candidate.phase == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
+        sample_tip(player_one_or_away_held_b, candidate.phase_frame,
                    &candidate.away_tip_sampled, &candidate.away_tip_error,
                    &candidate.away_tip_sample_frame);
-        sample_tip(player_two_held_b, candidate.phase_frame, target,
+        sample_tip(player_two_or_home_held_b, candidate.phase_frame,
                    &candidate.home_tip_sampled, &candidate.home_tip_error,
                    &candidate.home_tip_sample_frame);
     }
@@ -680,7 +687,7 @@ bool tecmo_gameplay_pretip_tip_winner(
     uint8_t *winner)
 {
     if (winner == NULL || !state_valid(assets, state) || state->aborted ||
-        state->phase <= TECMO_GAMEPLAY_PRETIP_CLOSEUP) {
+        state->phase < TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
         return false;
     }
     *winner = state->home_tip_error < state->away_tip_error
@@ -724,6 +731,105 @@ static bool update_rejects_unchanged(
            memcmp(&before, state, sizeof(before)) == 0;
 }
 
+static bool tip_winner_gate_regression(
+    const TecmoGameplayPreTipAssets *assets,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplayPreTipState precontest;
+    TecmoGameplayPreTipState equal_errors;
+    TecmoGameplayPreTipState home_sample;
+    TecmoGameplayPreTipState before;
+    uint8_t winner;
+    unsigned frame;
+
+    if (!tecmo_gameplay_pretip_state_initialize(
+            assets, &precontest, false)) {
+        if (message != NULL && message_size > 0U)
+            (void)snprintf(message, message_size,
+                           "TPTI-1 winner gate regression failed: "
+                           "pre-contest setup initialization");
+        return false;
+    }
+    for (frame = 0U; frame < 451U; ++frame) {
+        if (!tecmo_gameplay_pretip_update(
+                assets, &precontest, false, false)) {
+            if (message != NULL && message_size > 0U)
+                (void)snprintf(message, message_size,
+                               "TPTI-1 winner gate regression failed: "
+                               "pre-contest setup advance");
+            return false;
+        }
+    }
+    if (precontest.phase != TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP ||
+        precontest.phase_frame != 0U) {
+        if (message != NULL && message_size > 0U)
+            (void)snprintf(message, message_size,
+                           "TPTI-1 winner gate regression failed: "
+                           "intermediate phase setup");
+        return false;
+    }
+    before = precontest;
+    winner = 0xA5U;
+    if (tecmo_gameplay_pretip_tip_winner(
+            assets, &precontest, &winner) || winner != 0xA5U ||
+        memcmp(&before, &precontest, sizeof(before)) != 0) {
+        if (message != NULL && message_size > 0U)
+            (void)snprintf(message, message_size,
+                           "TPTI-1 winner gate regression failed: "
+                           "pre-contest winner accepted or output mutated");
+        return false;
+    }
+
+    if (!tecmo_gameplay_pretip_state_initialize(
+            assets, &equal_errors, false) ||
+        !tecmo_gameplay_pretip_state_initialize(
+            assets, &home_sample, false)) {
+        if (message != NULL && message_size > 0U)
+            (void)snprintf(message, message_size,
+                           "TPTI-1 winner gate regression failed: "
+                           "contest setup initialization");
+        return false;
+    }
+    for (frame = 0U; frame < 661U; ++frame) {
+        if (!tecmo_gameplay_pretip_update(
+                assets, &equal_errors, false, false) ||
+            !tecmo_gameplay_pretip_update(
+                assets, &home_sample, false, false)) {
+            if (message != NULL && message_size > 0U)
+                (void)snprintf(message, message_size,
+                               "TPTI-1 winner gate regression failed: "
+                               "contest setup advance");
+            return false;
+        }
+    }
+    winner = 0xA5U;
+    if (!tecmo_gameplay_pretip_update(
+            assets, &equal_errors, true, true) ||
+        !tecmo_gameplay_pretip_tip_winner(
+            assets, &equal_errors, &winner) ||
+        winner != TECMO_GAMEPLAY_PRETIP_AWAY_WINNER) {
+        if (message != NULL && message_size > 0U)
+            (void)snprintf(message, message_size,
+                           "TPTI-1 winner gate regression failed: "
+                           "equal-error contest did not settle Away");
+        return false;
+    }
+    winner = TECMO_GAMEPLAY_PRETIP_AWAY_WINNER;
+    if (!tecmo_gameplay_pretip_update(
+            assets, &home_sample, false, true) ||
+        !tecmo_gameplay_pretip_tip_winner(
+            assets, &home_sample, &winner) ||
+        winner != TECMO_GAMEPLAY_PRETIP_HOME_WINNER) {
+        if (message != NULL && message_size > 0U)
+            (void)snprintf(message, message_size,
+                           "TPTI-1 winner gate regression failed: "
+                           "valid Home sample did not win");
+        return false;
+    }
+    return true;
+}
+
 bool tecmo_gameplay_pretip_self_test(const char *asset_pack_path,
                                      char *message,
                                      size_t message_size)
@@ -734,6 +840,8 @@ bool tecmo_gameplay_pretip_self_test(const char *asset_pack_path,
     TecmoGameplayPreTipState cancel_state;
     TecmoGameplayPreTipState malformed;
     TecmoGameplayPreTipState sampled_state;
+    TecmoGameplayPreTipState last_state;
+    TecmoGameplayPreTipState boundary_state;
     TecmoGameplayPreTipLineup lineup;
     TecmoGameplayPreTipLineup unchanged_lineup;
     TecmoGameplayPreTipLineup before_lineup;
@@ -764,12 +872,15 @@ bool tecmo_gameplay_pretip_self_test(const char *asset_pack_path,
     unsigned frame;
     uint8_t winner = 0xFFU;
     bool ok;
+    if (message != NULL && message_size > 0U) message[0] = '\0';
     tecmo_gameplay_pretip_init(&assets);
     memset(&state, 0, sizeof(state));
     memset(&preseason_b_state, 0, sizeof(preseason_b_state));
     memset(&cancel_state, 0, sizeof(cancel_state));
     memset(&malformed, 0, sizeof(malformed));
     memset(&sampled_state, 0, sizeof(sampled_state));
+    memset(&last_state, 0, sizeof(last_state));
+    memset(&boundary_state, 0, sizeof(boundary_state));
     memset(&lineup, 0, sizeof(lineup));
     memset(&unchanged_lineup, 0xA5, sizeof(unchanged_lineup));
     before_lineup = unchanged_lineup;
@@ -814,6 +925,11 @@ bool tecmo_gameplay_pretip_self_test(const char *asset_pack_path,
          cancel_state.phase_frame == 0U &&
          cancel_state.total_frame == 0U &&
          update_rejects_unchanged(&assets, &cancel_state);
+
+    if (ok && !tip_winner_gate_regression(
+                  &assets, message, message_size)) {
+        ok = false;
+    }
 
     if (ok) {
         malformed = state;
@@ -867,9 +983,8 @@ bool tecmo_gameplay_pretip_self_test(const char *asset_pack_path,
          state.phase_frame == 194U &&
          tecmo_gameplay_pretip_update(
              &assets, &state, false, true) &&
-         state.home_tip_sampled && !state.away_tip_sampled &&
-         state.home_tip_sample_frame == 194U &&
-         state.home_tip_error == 0U && state.away_tip_error == 12U;
+         !state.home_tip_sampled && !state.away_tip_sampled &&
+         state.phase_frame == 195U && state.away_tip_error == 12U;
     if (ok) {
         malformed = state;
         malformed.home_tip_error = 1U;
@@ -879,22 +994,37 @@ bool tecmo_gameplay_pretip_self_test(const char *asset_pack_path,
         malformed = state;
         malformed.home_tip_sample_frame = malformed.phase_frame;
         malformed.home_tip_error = tip_error_for_sample(
-            malformed.home_tip_sample_frame,
-            (uint16_t)(assets.phase_frames[
-                TECMO_GAMEPLAY_PRETIP_CLOSEUP] - 14U));
+            malformed.home_tip_sample_frame);
         ok = update_rejects_unchanged(&assets, &malformed);
     }
     sampled_state = state;
-    for (frame = 438U; ok && frame < 451U; ++frame)
+    for (frame = 438U; ok && frame < 661U; ++frame)
         ok = tecmo_gameplay_pretip_update(
             &assets, &sampled_state, false, false);
     ok = ok &&
-         sampled_state.phase ==
-             TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP &&
+         sampled_state.phase == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST &&
+         sampled_state.phase_frame == 0U &&
+         tecmo_gameplay_pretip_update(
+             &assets, &sampled_state, false, true) &&
+         sampled_state.home_tip_sampled &&
+         sampled_state.home_tip_sample_frame == 0U &&
+         sampled_state.home_tip_error == 0U &&
+         tecmo_gameplay_pretip_update(
+             &assets, &sampled_state, false, true) &&
+         sampled_state.home_tip_sample_frame == 0U &&
+         sampled_state.home_tip_error == 0U &&
          tecmo_gameplay_pretip_tip_winner(
              &assets, &sampled_state, &winner) &&
          winner == TECMO_GAMEPLAY_PRETIP_HOME_WINNER;
-    for (frame = 438U; ok && frame < 691U; ++frame)
+    if (ok) {
+        malformed = sampled_state;
+        malformed.home_tip_sample_frame = malformed.phase_frame;
+        malformed.home_tip_error = tip_error_for_sample(
+            malformed.home_tip_sample_frame);
+        ok = update_rejects_unchanged(&assets, &malformed);
+    }
+    if (ok) state = sampled_state;
+    for (frame = 663U; ok && frame < 691U; ++frame)
         ok = tecmo_gameplay_pretip_update(
             &assets, &state, false, false);
     ok = ok && state.phase == TECMO_GAMEPLAY_PRETIP_LIVE &&
@@ -903,10 +1033,62 @@ bool tecmo_gameplay_pretip_self_test(const char *asset_pack_path,
              &assets, &state, &winner) &&
          winner == TECMO_GAMEPLAY_PRETIP_HOME_WINNER &&
          update_rejects_unchanged(&assets, &state);
-    if (message != NULL && message_size > 0U)
-        (void)snprintf(message, message_size, "%s",
-                       ok ? "TPTI-1 pre-tip self-test passed"
-                          : "TPTI-1 pre-tip state/transaction self-test failed");
+    if (ok) {
+        malformed = state;
+        ok = !tecmo_gameplay_pretip_update(
+                 &assets, &state, true, true) &&
+             memcmp(&malformed, &state, sizeof(state)) == 0;
+    }
+    if (ok && tecmo_gameplay_pretip_state_initialize(
+                  &assets, &last_state, false)) {
+        for (frame = 0U; ok && frame < 661U; ++frame)
+            ok = tecmo_gameplay_pretip_update(
+                &assets, &last_state, false, false);
+        for (frame = 0U; ok && frame < 29U; ++frame)
+            ok = tecmo_gameplay_pretip_update(
+                &assets, &last_state, false, false);
+        ok = ok && last_state.phase ==
+                 TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST &&
+             last_state.phase_frame == 29U &&
+             tecmo_gameplay_pretip_update(
+                 &assets, &last_state, false, true) &&
+             last_state.phase == TECMO_GAMEPLAY_PRETIP_LIVE &&
+             last_state.home_tip_sampled &&
+             last_state.home_tip_sample_frame == 29U &&
+             last_state.home_tip_error == 11U &&
+             tecmo_gameplay_pretip_tip_winner(
+                 &assets, &last_state, &winner) &&
+             winner == TECMO_GAMEPLAY_PRETIP_HOME_WINNER;
+    } else {
+        ok = false;
+    }
+    if (ok && tecmo_gameplay_pretip_state_initialize(
+                  &assets, &boundary_state, false)) {
+        for (frame = 0U; ok && frame < 660U; ++frame)
+            ok = tecmo_gameplay_pretip_update(
+                &assets, &boundary_state, false, false);
+        ok = ok && boundary_state.phase ==
+                 TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP &&
+             boundary_state.phase_frame == 59U &&
+             tecmo_gameplay_pretip_update(
+                 &assets, &boundary_state, false, true) &&
+             boundary_state.phase == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST &&
+             boundary_state.phase_frame == 0U &&
+             !boundary_state.home_tip_sampled &&
+             tecmo_gameplay_pretip_update(
+                 &assets, &boundary_state, false, true) &&
+             boundary_state.home_tip_sampled &&
+             boundary_state.home_tip_sample_frame == 0U &&
+             boundary_state.home_tip_error == 0U;
+    } else {
+        ok = false;
+    }
+    if (message != NULL && message_size > 0U && ok)
+        (void)snprintf(message, message_size,
+                       "TPTI-1 pre-tip self-test passed");
+    else if (message != NULL && message_size > 0U && message[0] == '\0')
+        (void)snprintf(message, message_size,
+                       "TPTI-1 pre-tip state/transaction self-test failed");
     tecmo_gameplay_pretip_destroy(&assets);
     return ok;
 }

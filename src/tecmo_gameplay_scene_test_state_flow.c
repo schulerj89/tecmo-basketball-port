@@ -804,13 +804,13 @@ static bool scene_test_dribble_policy(
              scene->cpu_actors[0].held_direction_bits !=
                  TECMO_GAMEPLAY_MOVEMENT_INPUT_LEFT ||
              !scene->cpu_actors[0].writes_direction ||
-             scene->cpu_actors[1].decision_serial != 1U ||
-             scene->cpu_actors[1].target_kind !=
-                 TECMO_GAMEPLAY_CPU_STEERING_HARNESS_LINKED_ACTOR ||
-             scene->cpu_actors[1].linked_actor != 6U ||
-             scene->cpu_actors[1].target_position.x != 395 ||
-             scene->cpu_actors[1].target_position.y != 190 ||
-             scene->cpu_actors[5].decision_serial != 0U)) {
+            scene->cpu_actors[1].decision_serial != 1U ||
+            scene->cpu_actors[1].target_kind !=
+                 TECMO_GAMEPLAY_CPU_STEERING_HARNESS_EXPLICIT_TARGET ||
+            scene->cpu_actors[1].linked_actor != 6U ||
+            scene->cpu_actors[1].target_position.x != 288 ||
+            scene->cpu_actors[1].target_position.y != 112 ||
+            scene->cpu_actors[5].decision_serial != 0U)) {
             tecmo_gameplay_scene_test_message(
                 message, message_size,
                 "live TGAI snapshot/target/TGMO-latency contract failed");
@@ -824,6 +824,470 @@ static bool scene_test_dribble_policy(
         tecmo_gameplay_scene_test_message(message, message_size,
                            "CPU holder missed native TGBD phase DMC");
         return false;
+    }
+    tecmo_gameplay_scene_end(scene);
+    launch.controller_team[0] = TECMO_GAMEPLAY_TEAM_AWAY;
+    launch.controller_team[1] = TECMO_GAMEPLAY_TEAM_HOME;
+    *launch_input = launch;
+    *p1_input = p1;
+    *p2_input = p2;
+    return true;
+}
+
+static bool scene_test_cpu_target_snapshot(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplayCourtCoordinate
+        snapshot[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT],
+    size_t actor,
+    uint8_t orientation,
+    char *message,
+    size_t message_size)
+{
+    static const TecmoGameplayCourtCoordinate formation_targets[5] = {
+        {256, 148}, {288, 112}, {288, 184}, {352, 96}, {352, 200}
+    };
+    static const int8_t defender_depth_split[5] = {
+        0, -10, 10, -14, 14
+    };
+    const TecmoGameplaySceneActor *item;
+    const TecmoGameplaySceneCpuActor *cpu;
+    const TecmoGameplayCourtCoordinate *linked;
+    uint8_t linked_actor;
+    int32_t expected_x;
+    int32_t expected_y;
+    int32_t goal_side;
+    if (scene == NULL || snapshot == NULL ||
+        actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        orientation >= TECMO_GAMEPLAY_COURT_ORIENTATION_COUNT) {
+        return false;
+    }
+    item = &scene->actors[actor];
+    cpu = &scene->cpu_actors[actor];
+    linked_actor = cpu->linked_actor;
+    if (item->roster_index >= TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
+        linked_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        linked_actor == actor) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "CPU formation snapshot target metadata setup failed");
+        return false;
+    }
+    linked = &snapshot[linked_actor];
+    if (item->team == (uint8_t)scene->state.possession) {
+        expected_x = orientation == 0U
+            ? formation_targets[item->roster_index].x
+            : TECMO_GAMEPLAY_COURT_WORLD_MAX_X -
+                formation_targets[item->roster_index].x;
+        expected_y = formation_targets[item->roster_index].y;
+    } else {
+        goal_side = orientation == 0U ? -1 : 1;
+        expected_x = (int32_t)linked->x + goal_side * 32;
+        expected_y = (int32_t)linked->y +
+            defender_depth_split[item->roster_index];
+        {
+            int32_t boundary_y = expected_y;
+            bool goal_side_outside =
+                expected_x < TECMO_GAMEPLAY_COURT_WORLD_MIN_X ||
+                expected_x > TECMO_GAMEPLAY_COURT_WORLD_MAX_X;
+            if (boundary_y < TECMO_GAMEPLAY_COURT_WORLD_MIN_Y) {
+                boundary_y = TECMO_GAMEPLAY_COURT_WORLD_MIN_Y;
+            } else if (boundary_y > TECMO_GAMEPLAY_COURT_WORLD_MAX_Y) {
+                boundary_y = TECMO_GAMEPLAY_COURT_WORLD_MAX_Y;
+            }
+            if (!goal_side_outside &&
+                (expected_x <
+                     TECMO_GAMEPLAY_LEFT_BOUNDARY_BASE - boundary_y / 2 ||
+                 expected_x >
+                     TECMO_GAMEPLAY_RIGHT_BOUNDARY_BASE + boundary_y / 2)) {
+                goal_side_outside = true;
+            }
+            if (goal_side_outside) {
+                expected_x = (int32_t)linked->x - goal_side * 32;
+            }
+        }
+    }
+    if (expected_x < TECMO_GAMEPLAY_COURT_WORLD_MIN_X) {
+        expected_x = TECMO_GAMEPLAY_COURT_WORLD_MIN_X;
+    } else if (expected_x > TECMO_GAMEPLAY_COURT_WORLD_MAX_X) {
+        expected_x = TECMO_GAMEPLAY_COURT_WORLD_MAX_X;
+    }
+    if (expected_y < TECMO_GAMEPLAY_COURT_WORLD_MIN_Y) {
+        expected_y = TECMO_GAMEPLAY_COURT_WORLD_MIN_Y;
+    } else if (expected_y > TECMO_GAMEPLAY_COURT_WORLD_MAX_Y) {
+        expected_y = TECMO_GAMEPLAY_COURT_WORLD_MAX_Y;
+    }
+    if (!cpu->target_valid ||
+        cpu->target_kind !=
+            TECMO_GAMEPLAY_CPU_STEERING_HARNESS_EXPLICIT_TARGET ||
+        cpu->target_position.x != (int16_t)expected_x ||
+        cpu->target_position.y != (int16_t)expected_y) {
+        char failure[256];
+        (void)snprintf(
+            failure, sizeof(failure),
+            "CPU formation target snapshot mismatch: orientation=%u actor=%u expected=(%d,%d) actual=(%d,%d) linked=(%d,%d)",
+            (unsigned)orientation, (unsigned)actor, (int)expected_x,
+            (int)expected_y, (int)cpu->target_position.x,
+            (int)cpu->target_position.y, (int)linked->x, (int)linked->y);
+        tecmo_gameplay_scene_test_message(message, message_size, failure);
+        return false;
+    }
+    return true;
+}
+
+static bool scene_test_cpu_formation_regression(
+    TecmoGameplayScene *scene,
+    TecmoGameplaySceneLaunch *launch_input,
+    TecmoControlFrame *p1_input,
+    TecmoControlFrame *p2_input,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplaySceneLaunch launch = *launch_input;
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    TecmoGameplayCpuSteeringHarnessInput zero_input;
+    TecmoGameplayCpuSteeringHarnessResult zero_result;
+    TecmoGameplayCourtCoordinate initial_positions[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplayCourtCoordinate pre_update_positions[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    uint16_t equal_streak[TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT] = {0};
+    uint16_t longest_equal_streak[
+        TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT] = {0};
+    bool meaningful_move[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT] = {0};
+    size_t meaningful_count = 0U;
+    size_t frame;
+    size_t actor;
+    size_t pair;
+
+    if (scene == NULL || launch_input == NULL || p1_input == NULL ||
+        p2_input == NULL) {
+        return false;
+    }
+    launch.controller_team[0] = TECMO_GAMEPLAY_TEAM_AWAY;
+    launch.controller_team[1] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    launch.game_music_enabled = false;
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    if (!tecmo_gameplay_scene_launch(scene, &launch) ||
+        scene->ball_holder != 0U || scene->controlled_actor[0] != 0U) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size, "CPU formation regression launch rejected");
+        return false;
+    }
+
+    /* A defender at the attacked boundary must keep a real 32-pixel target
+       delta. Capture the linked coordinate before the update so this seam
+       cannot accidentally validate against a post-movement actor position. */
+    {
+        TecmoGameplayCourtCoordinate linked_snapshot =
+            scene->actors[0U].position;
+        TecmoGameplayCourtCoordinate split_link_snapshot;
+        int16_t expected_target_x;
+        int16_t expected_split_target_x;
+        char failure[192];
+        scene->actors[0U].position.x = (int16_t)(
+            TECMO_GAMEPLAY_LEFT_BOUNDARY_BASE - linked_snapshot.y / 2);
+        scene->actors[0U].anchor = scene->actors[0U].position;
+        linked_snapshot = scene->actors[0U].position;
+        expected_target_x = (int16_t)(linked_snapshot.x + 32);
+        scene->actors[1U].position.x = TECMO_GAMEPLAY_LEFT_BOUNDARY_BASE;
+        scene->actors[1U].position.y = TECMO_GAMEPLAY_COURT_WORLD_MIN_Y;
+        scene->actors[1U].anchor = scene->actors[1U].position;
+        split_link_snapshot = scene->actors[1U].position;
+        expected_split_target_x = (int16_t)(split_link_snapshot.x + 32);
+        if (!scene_attach_ball(scene) ||
+            !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->cpu_actors[5U].target_position.x != expected_target_x ||
+            scene->cpu_actors[5U].target_position.y != linked_snapshot.y ||
+            scene->cpu_actors[6U].target_position.x !=
+                expected_split_target_x ||
+            scene->cpu_actors[6U].target_position.y !=
+                TECMO_GAMEPLAY_COURT_WORLD_MIN_Y) {
+            (void)snprintf(
+                failure, sizeof(failure),
+                "CPU defender boundary fallback failed: orientation=0 target=(%d,%d) linked=(%d,%d) split-target=(%d,%d)",
+                (int)scene->cpu_actors[5U].target_position.x,
+                (int)scene->cpu_actors[5U].target_position.y,
+                (int)linked_snapshot.x, (int)linked_snapshot.y,
+                (int)scene->cpu_actors[6U].target_position.x,
+                (int)scene->cpu_actors[6U].target_position.y);
+            tecmo_gameplay_scene_test_message(message, message_size, failure);
+            return false;
+        }
+    }
+    tecmo_gameplay_scene_end(scene);
+
+    launch.controller_team[0] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    launch.controller_team[1] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    if (!tecmo_gameplay_scene_launch(scene, &launch) ||
+        !scene_handoff_possession(scene, TECMO_GAMEPLAY_TEAM_HOME, 5U)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "CPU defender orientation-1 boundary setup rejected");
+        return false;
+    }
+    {
+        TecmoGameplayCourtCoordinate linked_snapshot =
+            scene->actors[5U].position;
+        int16_t expected_target_x;
+        char failure[192];
+        scene->actors[5U].position.x = (int16_t)(
+            TECMO_GAMEPLAY_RIGHT_BOUNDARY_BASE + linked_snapshot.y / 2);
+        scene->actors[5U].anchor = scene->actors[5U].position;
+        linked_snapshot = scene->actors[5U].position;
+        expected_target_x = (int16_t)(linked_snapshot.x - 32);
+        if (!scene_attach_ball(scene) ||
+            !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->cpu_actors[0U].target_position.x != expected_target_x ||
+            scene->cpu_actors[0U].target_position.y != linked_snapshot.y) {
+            (void)snprintf(
+                failure, sizeof(failure),
+                "CPU defender boundary fallback failed: orientation=1 target=(%d,%d) linked=(%d,%d)",
+                (int)scene->cpu_actors[0U].target_position.x,
+                (int)scene->cpu_actors[0U].target_position.y,
+                (int)linked_snapshot.x, (int)linked_snapshot.y);
+            tecmo_gameplay_scene_test_message(message, message_size, failure);
+            return false;
+        }
+    }
+    tecmo_gameplay_scene_end(scene);
+
+    launch.controller_team[0] = TECMO_GAMEPLAY_TEAM_AWAY;
+    launch.controller_team[1] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    if (!tecmo_gameplay_scene_launch(scene, &launch) ||
+        scene->ball_holder != 0U || scene->controlled_actor[0] != 0U) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "CPU formation regression relaunch rejected");
+        return false;
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        initial_positions[actor] = scene->actors[actor].position;
+    }
+
+    for (frame = 0U; frame < 160U; ++frame) {
+        for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+            pre_update_positions[actor] = scene->actors[actor].position;
+        }
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "CPU formation regression live update rejected");
+            return false;
+        }
+        if (scene->actors[0].position.x != initial_positions[0].x ||
+            scene->actors[0].position.y != initial_positions[0].y) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "CPU policy moved the neutral human-controlled actor");
+            return false;
+        }
+        for (actor = 1U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT;
+             ++actor) {
+            int32_t dx = (int32_t)scene->actors[actor].position.x -
+                         initial_positions[actor].x;
+            int32_t dy = (int32_t)scene->actors[actor].position.y -
+                         initial_positions[actor].y;
+            const TecmoGameplaySceneCpuActor *cpu =
+                &scene->cpu_actors[actor];
+            uint8_t expected_link = actor <
+                TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT
+                    ? (uint8_t)(actor +
+                        TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT)
+                    : (uint8_t)(actor -
+                        TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT);
+            if (dx < 0) dx = -dx;
+            if (dy < 0) dy = -dy;
+            if (dx + dy >= 12 && !meaningful_move[actor]) {
+                meaningful_move[actor] = true;
+                ++meaningful_count;
+            }
+            if (cpu->decision_serial != frame + 1U || !cpu->target_valid ||
+                cpu->linked_actor != expected_link ||
+                cpu->target_kind >=
+                    TECMO_GAMEPLAY_CPU_STEERING_HARNESS_TARGET_KIND_COUNT ||
+                !tecmo_gameplay_court_coordinate_valid(
+                    &cpu->target_position) ||
+                !tecmo_gameplay_movement_input_valid(
+                    cpu->held_direction_bits) ||
+                (!cpu->writes_direction &&
+                 (cpu->direction !=
+                      TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION ||
+                  cpu->held_direction_bits !=
+                      TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL)) ||
+                (cpu->writes_direction &&
+                 cpu->direction >=
+                     TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT)) {
+                tecmo_gameplay_scene_test_message(
+                    message, message_size,
+                    "CPU formation target metadata lost coherence");
+                return false;
+            }
+            if (!scene_test_cpu_target_snapshot(
+                    scene, pre_update_positions, actor, 0U,
+                    message, message_size)) {
+                return false;
+            }
+        }
+        for (pair = 0U; pair < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT;
+             ++pair) {
+            size_t away = pair;
+            size_t home = pair + TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT;
+            bool equal = scene->actors[away].position.x ==
+                             scene->actors[home].position.x &&
+                         scene->actors[away].position.y ==
+                             scene->actors[home].position.y;
+            bool neutral = !scene->cpu_actors[home].writes_direction &&
+                scene->cpu_actors[home].held_direction_bits ==
+                    TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
+            if (away != 0U) {
+                neutral = neutral &&
+                    !scene->cpu_actors[away].writes_direction &&
+                    scene->cpu_actors[away].held_direction_bits ==
+                        TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
+            }
+            if (equal && neutral) {
+                ++equal_streak[pair];
+                if (equal_streak[pair] > longest_equal_streak[pair]) {
+                    longest_equal_streak[pair] = equal_streak[pair];
+                }
+            } else {
+                equal_streak[pair] = 0U;
+            }
+        }
+    }
+    if (!scene_handoff_possession(
+            scene, TECMO_GAMEPLAY_TEAM_AWAY, 1U)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "CPU orientation-0 formation-slot-0 setup rejected");
+        return false;
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        pre_update_positions[actor] = scene->actors[actor].position;
+    }
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "CPU orientation-0 formation-slot-0 update rejected");
+        return false;
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        if (actor != 1U &&
+            !scene_test_cpu_target_snapshot(
+                scene, pre_update_positions, actor, 0U,
+                message, message_size)) {
+            return false;
+        }
+    }
+    if (scene->orientation_state.current_direction != 0U ||
+        scene->cpu_actors[5U].target_kind !=
+            TECMO_GAMEPLAY_CPU_STEERING_HARNESS_EXPLICIT_TARGET ||
+        scene->cpu_actors[5U].linked_actor != 0U ||
+        scene->cpu_actors[5U].target_position.x !=
+            initial_positions[0U].x - 32) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "CPU defender orientation-0 goal-side split failed");
+        return false;
+    }
+    if (meaningful_count < 3U) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "CPU formation regression did not move multiple actors");
+        return false;
+    }
+    for (pair = 0U; pair < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT;
+         ++pair) {
+        if (longest_equal_streak[pair] >= 12U) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "CPU fixed pair entered a sustained neutral collapse plateau");
+            return false;
+        }
+    }
+
+    memset(&zero_input, 0, sizeof(zero_input));
+    zero_input.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_HARNESS_INPUT_TAG;
+    zero_input.actor = 5U;
+    zero_input.possession = (uint8_t)scene->state.possession;
+    zero_input.orientation = scene->orientation_state.current_direction;
+    zero_input.ball_holder = scene->ball_holder;
+    zero_input.matchup_actor = 0U;
+    zero_input.difficulty = scene->launch.difficulty;
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        zero_input.actor_position[actor] = scene->actors[actor].position;
+    }
+    zero_input.actor_position[5U] = zero_input.actor_position[0U];
+    if (!tecmo_gameplay_cpu_steering_harness_evaluate(
+            &scene->cpu_steering_assets, &zero_input, &zero_result) ||
+        zero_result.horizontal_delta != 0 ||
+        zero_result.depth_delta != 0 || zero_result.writes_direction ||
+        zero_result.direction != TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION ||
+        zero_result.target_kind !=
+            TECMO_GAMEPLAY_CPU_STEERING_HARNESS_LINKED_ACTOR) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size, "CPU zero-vector no-write seam regressed");
+        return false;
+    }
+    tecmo_gameplay_scene_end(scene);
+    launch.controller_team[0] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    launch.controller_team[1] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    if (!tecmo_gameplay_scene_launch(scene, &launch) ||
+        !scene_handoff_possession(
+            scene, TECMO_GAMEPLAY_TEAM_HOME, 5U)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "CPU defender orientation-1 setup rejected");
+        return false;
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        pre_update_positions[actor] = scene->actors[actor].position;
+    }
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->orientation_state.current_direction != 1U ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "CPU orientation-1 formation update rejected");
+        return false;
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        if (actor != 5U &&
+            !scene_test_cpu_target_snapshot(
+                scene, pre_update_positions, actor, 1U,
+                message, message_size)) {
+            return false;
+        }
+    }
+    if (!scene_handoff_possession(
+            scene, TECMO_GAMEPLAY_TEAM_HOME, 6U)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "CPU orientation-1 formation-slot-0 setup rejected");
+        return false;
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        pre_update_positions[actor] = scene->actors[actor].position;
+    }
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->orientation_state.current_direction != 1U ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "CPU orientation-1 formation-slot-0 update rejected");
+        return false;
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        if (actor != 6U &&
+            !scene_test_cpu_target_snapshot(
+                scene, pre_update_positions, actor, 1U,
+                message, message_size)) {
+            return false;
+        }
     }
     tecmo_gameplay_scene_end(scene);
     launch.controller_team[0] = TECMO_GAMEPLAY_TEAM_AWAY;
@@ -1478,6 +1942,8 @@ bool tecmo_gameplay_scene_test_state_flow(
         !scene_test_controller_policy(
             scene, &launch, &p1, &p2, message, message_size) ||
         !scene_test_dribble_policy(
+            scene, &launch, &p1, &p2, message, message_size) ||
+        !scene_test_cpu_formation_regression(
             scene, &launch, &p1, &p2, message, message_size) ||
         !scene_test_music_and_steal_policy(
             scene, &launch, &p1, &p2, message, message_size) ||

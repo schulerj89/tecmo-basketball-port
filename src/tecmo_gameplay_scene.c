@@ -1355,10 +1355,15 @@ static bool scene_update_pretip_frame(
     TecmoGameplayPreTipPhase prior_phase = scene->pretip_state.phase;
     bool held_one = player_one != NULL && player_one->held.cancel;
     bool held_two = player_two != NULL && player_two->held.cancel;
-    bool pretip_away_held = held_one;
-    bool pretip_home_held = held_two;
+    bool pretip_away_held = false;
+    bool pretip_home_held = false;
 
-    if (prior_phase == TECMO_GAMEPLAY_PRETIP_CLOSEUP) {
+    if (prior_phase <= TECMO_GAMEPLAY_PRETIP_FIRST_PERIOD) {
+        /* Card cancellation consumes the raw pad levels. */
+        pretip_away_held = held_one;
+        pretip_home_held = held_two;
+    } else if (prior_phase == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
+        /* Contest B is team-routed; an unassigned pad contributes nothing. */
         pretip_away_held =
             (scene->launch.controller_team[0] ==
                  TECMO_GAMEPLAY_TEAM_AWAY && held_one) ||

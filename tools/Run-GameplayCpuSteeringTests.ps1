@@ -357,7 +357,20 @@ try {
             $Map.live_scene_adapter.holder_target -eq
                 'orientation-aware 48/48/40 hoop approach' -and
             $Map.live_scene_adapter.other_target -eq
-                'scene-owned fixed opposing roster matchup' -and
+                'scene-owned explicit native coordinate' -and
+            (@($Map.live_scene_adapter.offense_formation_orientation_0 |
+                ForEach-Object { @($_) -join ',' }) -join '|') -eq
+                '256,148|288,112|288,184|352,96|352,200' -and
+            $Map.live_scene_adapter.offense_formation_orientation_1 -eq
+                'X mirrored as 767-X' -and
+            (@($Map.live_scene_adapter.defender_goal_side_x_by_orientation) -join ',') -eq
+                '-32,32' -and
+            (@($Map.live_scene_adapter.defender_depth_split) -join ',') -eq
+                '0,-10,10,-14,14' -and
+            $Map.live_scene_adapter.defender_out_of_bounds_fallback -eq
+                'equal 32-pixel offset toward court side before final validation' -and
+            $Map.live_scene_adapter.fixed_opposing_link_use -match
+                'not an implicit target coordinate' -and
             [bool]$Map.live_scene_adapter.immutable_ten_actor_snapshot -and
             [bool]$Map.live_scene_adapter.transactional_actor_commit -and
             $Map.live_scene_adapter.rom_command_offset -eq
@@ -371,14 +384,16 @@ try {
             $Map.developer_harness.coordinate_slots -eq 10 -and
             $Map.developer_harness.coordinate_space -eq
                 'TGCT-1 canonical X=0..767 Y=0..239' -and
-            @($Map.developer_harness.inputs).Count -eq 7 -and
+            @($Map.developer_harness.inputs).Count -eq 8 -and
             [bool]$Map.developer_harness.possession_holder_coherent -and
             [bool]$Map.developer_harness.matchup_assignment_caller_owned -and
             ![bool]$Map.developer_harness.target_policy.rom_exact -and
             $Map.developer_harness.target_policy.holder -eq
                 'native scene-style hoop approach' -and
-            $Map.developer_harness.target_policy.other_actor -eq
+            $Map.developer_harness.target_policy.other_actor_default -eq
                 'explicit linked/matchup actor coordinate' -and
+            $Map.developer_harness.target_policy.explicit_override -match
+                'live scene uses this for non-holders' -and
             [bool]$Map.developer_harness.direction_quantizer_rom_exact -and
             $Map.developer_harness.zero_vector -eq
                 'preserve prior direction' -and

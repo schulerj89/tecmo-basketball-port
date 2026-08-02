@@ -795,16 +795,21 @@ geometry.
 
 Bank06 `$A10A-$A124` permits current-level NES B cancellation only when `$69`
 bit 0 is set. Native PRESEASON clears that gate and ignores B on all three
-cards; the regular-season route sets it and either pad may cancel. In the
-close-up, each pad's first held B samples timing at the capture-aligned
-`closeup_duration - 14` representation of `$F9`; it cannot cancel. Other inputs are inert throughout
-the presentation. Rules, clock, shot clock, camera, and live updates stay
-frozen until the frame-691 handoff. Track 8 queues at entry and enabled GAME
-MUSIC queues track 5 only at handoff. Bank04 `$88` plus fixed `$D861` moves
-the OAM player left while the nametable figures scroll right; the 33-frame
-phase anchor is capture-bounded, but the per-step projection and OAM-Y
-semantics are ROM-exact. Smaller recorded tip error starts that side's native
-jump interaction sooner and selects initial possession. Bank04
+cards; the regular-season route sets it and either pad may cancel. Exact
+Bank05 `$985E-$986A` proves a current-level NES B mask/read/latch in the tip
+machinery, but not the original timing or winner settlement. During all 30
+visible `JUMP_CONTEST` updates, the native scene routes pads by assigned team
+and retains that team's first held B sample. Frame 0 is the native timing
+target, error caps at 11, no sample is 12, lower error wins, and equal errors
+choose away; this complete timing/winner policy is an explicit approximation.
+B cannot sample a tip in the close-up, court, or toss phases and cannot cancel
+those phases. Winner queries fail closed before `JUMP_CONTEST` without changing
+caller-owned output. Other inputs are inert throughout the presentation. Rules,
+clock, shot clock, camera, and live updates stay frozen until the frame-691
+handoff. Track 8 queues at entry and enabled GAME MUSIC queues track 5 only at
+handoff. Bank04 `$88` plus fixed `$D861` moves the OAM player left while the
+nametable figures scroll right; the 33-frame phase anchor is capture-bounded,
+but the per-step projection and OAM-Y semantics are ROM-exact. Bank04
 `$AC8C-$ACD9` initializes object slots 0..10 from state `$AD82`, sprite-slot
 base `$AD8D`, facing `$AD98`, X-low `$ADA3`, X-high `$ADAE`, Y `$ADB9`, and
 facing-indexed pose tables `$ADC4/$ADCD`. TPTI-1 retains those bytes across
@@ -884,9 +889,13 @@ and the holder/shooter matchup fallback for an unassigned CPU side are native
 adapter policies. Do not call those policies ROM-exact.
 
 TGAI-1 is a production scene dependency for bounded ordinary CPU movement.
-The scene owns a fixed opposing roster-slot link, target result, snapshot
-fingerprint, and decision serial, while an explicit no-command sentinel keeps
-the still-unported ROM command/advance lifecycle out of the exactness claim.
+The scene owns a fixed opposing roster-slot link, explicit target result,
+snapshot fingerprint, and decision serial. The link remains matchup/pose and
+defender-reference metadata; non-holder movement consumes scene-owned explicit
+formation/marking coordinates. A defender goal-side target outside the shaped
+court uses the equal 32-pixel court-side offset before final validation. An
+explicit no-command sentinel keeps the still-unported ROM command/advance
+lifecycle out of the exactness claim.
 
 TGSR-3 is 512 bytes (FNV1a32 `164DC568`, FNV1a64
 `5C5170460C8305A8`) and revision-locks Bank05 `$91BC-$943A`, `$A6EE-$A9D9`,
@@ -1273,12 +1282,15 @@ play names.
 `--gameplay-cpu-steering-harness` is also deterministic and console-only. Its
 typed input is one selected actor, all ten canonical TGCT X/Y coordinates,
 possession, TGOR orientation, a possession-consistent ball holder, one explicit
-opposing linked/matchup actor, and difficulty `0..2`. Validate every coordinate
-and coherence field transactionally. Its printed canonical FNV1a32 snapshot
-must cover all ten coordinates and every context field. Holder target selection
-reuses the native scene's `48/48/40`-pixel hoop approach; other actors target
-the explicit caller-owned link. Never describe either choice or the link
-assignment as ROM-exact. Only the resulting nonzero TGAI octant is exact. A
+opposing linked/matchup actor, difficulty `0..2`, and an optional validated
+explicit target coordinate. Validate every coordinate and coherence field
+transactionally. Its printed canonical FNV1a32 snapshot must cover all ten
+coordinates and every context field, domain-separating the optional target when
+present. Without an override, holder target selection reuses the native scene's
+`48/48/40`-pixel hoop approach and other actors target the caller-owned link.
+The live scene supplies explicit formation/marking coordinates for non-holders.
+Never describe these choices or the link assignment as ROM-exact. Only the
+resulting nonzero TGAI octant is exact. A
 zero delta must report keep-direction/no-write rather than inventing a prior
 direction.
 

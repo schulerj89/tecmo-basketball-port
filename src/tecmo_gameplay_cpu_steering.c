@@ -559,6 +559,14 @@ static uint32_t harness_input_fingerprint(
         hash = harness_hash_u16(
             hash, (uint16_t)input->actor_position[actor].y);
     }
+    if (input->has_explicit_target) {
+        /* Keep the legacy CLI/test fingerprint stable when the optional
+           native-policy target is not supplied, while domain-separating the
+           caller-owned coordinate when it is present. */
+        hash = harness_hash_byte(hash, 'X');
+        hash = harness_hash_u16(hash, (uint16_t)input->explicit_target.x);
+        hash = harness_hash_u16(hash, (uint16_t)input->explicit_target.y);
+    }
     return hash;
 }
 
@@ -592,7 +600,8 @@ static bool harness_input_valid(
             return false;
         }
     }
-    return true;
+    return !input->has_explicit_target ||
+           tecmo_gameplay_court_coordinate_valid(&input->explicit_target);
 }
 
 bool tecmo_gameplay_cpu_steering_harness_evaluate(
@@ -623,7 +632,12 @@ bool tecmo_gameplay_cpu_steering_harness_evaluate(
     result.actor_position = input->actor_position[input->actor];
     result.direction = TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
 
-    if (input->actor == input->ball_holder) {
+    if (input->has_explicit_target) {
+        result.target_kind =
+            TECMO_GAMEPLAY_CPU_STEERING_HARNESS_EXPLICIT_TARGET;
+        result.target_actor = input->matchup_actor;
+        result.target_position = input->explicit_target;
+    } else if (input->actor == input->ball_holder) {
         int16_t approach = approach_by_difficulty[input->difficulty];
         result.target_kind =
             TECMO_GAMEPLAY_CPU_STEERING_HARNESS_HOOP_APPROACH;
@@ -782,7 +796,7 @@ const char *tecmo_gameplay_cpu_steering_harness_target_kind_name(
     TecmoGameplayCpuSteeringHarnessTargetKind kind)
 {
     static const char *const names[] = {
-        "linked-actor","hoop-approach"
+        "linked-actor","hoop-approach","explicit-coordinate"
     };
     return (unsigned)kind < sizeof(names) / sizeof(names[0])
         ? names[(unsigned)kind]
@@ -1193,6 +1207,33 @@ bool tecmo_gameplay_cpu_steering_self_test(
         return false;
     }
 
+    harness_input.actor = 5U;
+    harness_input.possession = 0U;
+    harness_input.orientation = 0U;
+    harness_input.ball_holder = 0U;
+    harness_input.matchup_actor = 0U;
+    harness_input.difficulty = 1U;
+    harness_input.has_explicit_target = true;
+    harness_input.explicit_target.x = 600;
+    harness_input.explicit_target.y = 148;
+    if (!tecmo_gameplay_cpu_steering_harness_evaluate(
+            &assets, &harness_input, &harness_result) ||
+        harness_result.input_fingerprint == baseline_fingerprint ||
+        harness_result.target_kind !=
+            TECMO_GAMEPLAY_CPU_STEERING_HARNESS_EXPLICIT_TARGET ||
+        harness_result.target_actor != 0U ||
+        harness_result.target_position.x != 600 ||
+        harness_result.target_position.y != 148 ||
+        harness_result.horizontal_delta != 100 ||
+        harness_result.depth_delta != -12 ||
+        harness_result.direction != 0U ||
+        !harness_result.writes_direction) {
+        (void)snprintf(message, message_size,
+                       "TGAI-1 explicit target vector failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+
     memset(&harness_input, 0, sizeof(harness_input));
     harness_input.contract_tag =
         TECMO_GAMEPLAY_CPU_STEERING_HARNESS_INPUT_TAG;
@@ -1265,6 +1306,12 @@ bool tecmo_gameplay_cpu_steering_self_test(
     malformed_input = harness_input;
     malformed_input.difficulty =
         TECMO_GAMEPLAY_CPU_STEERING_DIFFICULTY_COUNT;
+    if (!harness_rejected_unchanged(&assets, &malformed_input))
+        goto malformed_harness_failure;
+    malformed_input = harness_input;
+    malformed_input.has_explicit_target = true;
+    malformed_input.explicit_target.x =
+        TECMO_GAMEPLAY_COURT_WORLD_MAX_X + 1;
     if (!harness_rejected_unchanged(&assets, &malformed_input) ||
         !harness_rejected_unchanged(&assets, NULL) ||
         tecmo_gameplay_cpu_steering_harness_evaluate(

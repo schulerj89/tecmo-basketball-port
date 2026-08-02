@@ -589,6 +589,108 @@ static bool scene_actor_is_controlled(const TecmoGameplayScene *scene,
     return false;
 }
 
+/* Native, non-ROM-exact target policy for ordinary CPU locomotion. Offensive
+   non-holders use mirrored per-slot formation points. Defenders retain their
+   opposing roster-slot link for pose/facing, but stand goal-side of the linked
+   offensive snapshot with a small slot-specific depth split so the fixed
+   pairs cannot collapse onto one coordinate. */
+static bool scene_cpu_policy_target(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplayCpuSteeringHarnessInput *snapshot,
+    size_t actor,
+    TecmoGameplayCourtCoordinate *target_out)
+{
+    static const TecmoGameplayCourtCoordinate formation_targets[5] = {
+        {256, 148}, {288, 112}, {288, 184}, {352, 96}, {352, 200}
+    };
+    static const int8_t defender_depth_split[5] = {
+        0, -10, 10, -14, 14
+    };
+    const TecmoGameplaySceneActor *item;
+    uint8_t linked_actor;
+    int32_t target_x;
+    int32_t target_y;
+    int32_t goal_side;
+    if (scene == NULL || snapshot == NULL || target_out == NULL ||
+        actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->state.possession > TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->orientation_state.current_direction >=
+            TECMO_GAMEPLAY_COURT_ORIENTATION_COUNT) {
+        return false;
+    }
+    item = &scene->actors[actor];
+    linked_actor = scene->cpu_actors[actor].linked_actor;
+    if (item->team > TECMO_GAMEPLAY_TEAM_HOME ||
+        item->roster_index >= TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
+        linked_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        linked_actor == actor ||
+        !tecmo_gameplay_court_coordinate_valid(
+            &snapshot->actor_position[linked_actor])) {
+        return false;
+    }
+
+    if (item->team == (uint8_t)scene->state.possession) {
+        const TecmoGameplayCourtCoordinate *formation =
+            &formation_targets[item->roster_index];
+        target_x = scene->orientation_state.current_direction == 0U
+            ? formation->x
+            : TECMO_GAMEPLAY_COURT_WORLD_MAX_X - formation->x;
+        target_y = formation->y;
+    } else {
+        const TecmoGameplayCourtCoordinate *linked =
+            &snapshot->actor_position[linked_actor];
+        /* Orientation is the attacking side: orientation 0 attacks left,
+           so its defender's goal-side offset decreases X; orientation 1
+           attacks right, so its defender's goal-side offset increases X. */
+        goal_side = scene->orientation_state.current_direction == 0U
+            ? -1
+            : 1;
+        target_x = (int32_t)linked->x + goal_side * 32;
+        target_y = (int32_t)linked->y +
+            defender_depth_split[item->roster_index];
+        /* Keep the bounded native policy from collapsing a boundary defender
+           onto its fixed link. If the goal-side point is outside the shaped
+           court, use the same 32-pixel distance on the court side. The final
+           full-world bounds clamp below remains the safety check. */
+        {
+            bool goal_side_outside =
+                target_x < TECMO_GAMEPLAY_COURT_WORLD_MIN_X ||
+                target_x > TECMO_GAMEPLAY_COURT_WORLD_MAX_X;
+            int32_t boundary_y = target_y;
+            if (boundary_y < TECMO_GAMEPLAY_COURT_WORLD_MIN_Y) {
+                boundary_y = TECMO_GAMEPLAY_COURT_WORLD_MIN_Y;
+            } else if (boundary_y > TECMO_GAMEPLAY_COURT_WORLD_MAX_Y) {
+                boundary_y = TECMO_GAMEPLAY_COURT_WORLD_MAX_Y;
+            }
+            if (!goal_side_outside) {
+                int32_t half_y = boundary_y / 2;
+                int32_t left_boundary =
+                    TECMO_GAMEPLAY_LEFT_BOUNDARY_BASE - half_y;
+                int32_t right_boundary =
+                    TECMO_GAMEPLAY_RIGHT_BOUNDARY_BASE + half_y;
+                goal_side_outside = target_x < left_boundary ||
+                    target_x > right_boundary;
+            }
+            if (goal_side_outside) {
+                target_x = (int32_t)linked->x - goal_side * 32;
+            }
+        }
+    }
+    if (target_x < TECMO_GAMEPLAY_COURT_WORLD_MIN_X) {
+        target_x = TECMO_GAMEPLAY_COURT_WORLD_MIN_X;
+    } else if (target_x > TECMO_GAMEPLAY_COURT_WORLD_MAX_X) {
+        target_x = TECMO_GAMEPLAY_COURT_WORLD_MAX_X;
+    }
+    if (target_y < TECMO_GAMEPLAY_COURT_WORLD_MIN_Y) {
+        target_y = TECMO_GAMEPLAY_COURT_WORLD_MIN_Y;
+    } else if (target_y > TECMO_GAMEPLAY_COURT_WORLD_MAX_Y) {
+        target_y = TECMO_GAMEPLAY_COURT_WORLD_MAX_Y;
+    }
+    target_out->x = (int16_t)target_x;
+    target_out->y = (int16_t)target_y;
+    return tecmo_gameplay_court_coordinate_valid(target_out);
+}
+
 bool scene_cpu_actor_state_valid(
     const TecmoGameplayScene *scene,
     size_t actor,
@@ -671,7 +773,7 @@ static bool scene_cpu_result_coherent(
                    TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     }
     return result->steering.target_kind ==
-               TECMO_GAMEPLAY_CPU_STEERING_HARNESS_LINKED_ACTOR &&
+               TECMO_GAMEPLAY_CPU_STEERING_HARNESS_EXPLICIT_TARGET &&
            result->steering.target_actor == cpu->linked_actor;
 }
 
@@ -742,6 +844,13 @@ bool scene_update_ai(
         input.steering = steering_snapshot;
         input.steering.actor = (uint8_t)actor;
         input.steering.matchup_actor = cpu->linked_actor;
+        if (actor != scene->ball_holder &&
+            !scene_cpu_policy_target(
+                scene, &steering_snapshot, actor,
+                &input.steering.explicit_target)) {
+            return false;
+        }
+        input.steering.has_explicit_target = actor != scene->ball_holder;
         if (!scene_actor_movement_state(
                 scene, &scene->actors[actor], &input.movement)) {
             return false;

@@ -88,13 +88,17 @@ typedef struct TecmoGameplayCpuSteeringAssets {
 
 /* Bounded native composition policy for exercising the isolated TGAI
    direction boundary with a complete canonical court snapshot. The CLI and
-   live scene share it. A linked actor is the port's explicit stand-in for the
-   still-unreconstructed ROM $06CB,X assignment. Slots 0..4 are away/team 0
-   and slots 5..9 are home/team 1, matching TecmoGameplayScene. This is not a
+   live scene share it. A fixed linked actor is matchup/pose and
+   defender-reference metadata: it is the port's explicit stand-in for the
+   still-unreconstructed ROM $06CB,X assignment, not a non-holder's live
+   target coordinate. Non-holder live targets are explicit canonical
+   coordinates supplied by the native policy. Slots 0..4 are away/team 0 and
+   slots 5..9 are home/team 1, matching TecmoGameplayScene. This is not a
    reconstructed ROM play selector. */
 typedef enum TecmoGameplayCpuSteeringHarnessTargetKind {
     TECMO_GAMEPLAY_CPU_STEERING_HARNESS_LINKED_ACTOR = 0,
     TECMO_GAMEPLAY_CPU_STEERING_HARNESS_HOOP_APPROACH,
+    TECMO_GAMEPLAY_CPU_STEERING_HARNESS_EXPLICIT_TARGET,
     TECMO_GAMEPLAY_CPU_STEERING_HARNESS_TARGET_KIND_COUNT
 } TecmoGameplayCpuSteeringHarnessTargetKind;
 
@@ -108,6 +112,13 @@ typedef struct TecmoGameplayCpuSteeringHarnessInput {
     uint8_t ball_holder;
     uint8_t matchup_actor;
     uint8_t difficulty;
+    /* When false, preserve the existing harness selection: the holder uses
+       the hoop-approach target and a non-holder uses the linked-actor
+       coordinate. The live scene sets this true for every non-holder so its
+       live target is an explicit native-policy coordinate; the fixed
+       matchup/pose/defender reference remains matchup_actor. */
+    bool has_explicit_target;
+    TecmoGameplayCourtCoordinate explicit_target;
 } TecmoGameplayCpuSteeringHarnessInput;
 
 typedef struct TecmoGameplayCpuSteeringHarnessResult {
@@ -122,6 +133,8 @@ typedef struct TecmoGameplayCpuSteeringHarnessResult {
     uint8_t possession;
     uint8_t orientation;
     uint8_t ball_holder;
+    /* Fixed matchup/pose/defender-reference metadata; this does not replace
+       the non-holder's explicit live target coordinate. */
     uint8_t matchup_actor;
     uint8_t difficulty;
     uint8_t target_actor;
@@ -197,11 +210,12 @@ const char *tecmo_gameplay_cpu_steering_command_kind_name(
     TecmoGameplayCpuSteeringCommandKind kind);
 
 /* Pure and transactional. Every one of the ten coordinates is validated and
-   included in input_fingerprint. The selected target is implementation-owned:
-   the holder uses the current native hoop-approach policy; every other actor
-   uses its explicit opposing linked/matchup actor. Only the final octant is
-   ROM-exact. A zero delta succeeds with writes_direction=false, mirroring the
-   ROM gate that preserves the caller's prior direction. */
+   included in input_fingerprint. A caller may set has_explicit_target and
+   provide a validated canonical coordinate; otherwise the holder uses the
+   current native hoop-approach policy and every other actor uses its explicit
+   opposing linked/matchup actor. Only the final octant is ROM-exact. A zero
+   delta succeeds with writes_direction=false, mirroring the ROM gate that
+   preserves the caller's prior direction. */
 bool tecmo_gameplay_cpu_steering_harness_evaluate(
     const TecmoGameplayCpuSteeringAssets *assets,
     const TecmoGameplayCpuSteeringHarnessInput *input,

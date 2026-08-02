@@ -198,6 +198,19 @@ int tecmo_asset_pack_build_gameplay_pretip(
                rom + (size_t)offset, expected->byte_count);
         provenance->source_offsets[index] = offset;
     }
+    if (tecmo_asset_pack_fnv1a32(
+            payload + TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_INPUT_OFFSET,
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_INPUT_SIZE) !=
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_INPUT_FNV1A32 ||
+        fnv1a64(
+            payload + TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_INPUT_OFFSET,
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_INPUT_SIZE) !=
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_INPUT_FNV1A64) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TPTI-1 Bank05 $985E-$986A tip-input subspan rejected.");
+        return -1;
+    }
     if (memcmp(payload + TECMO_ASSET_PACK_GAMEPLAY_PRETIP_DESCRIPTOR_OFFSET,
                "\x3B\x7D\xEB\x84\x5A\x83\x00", 7U) != 0 ||
         tecmo_asset_pack_decode_d9f6_stream(
@@ -277,8 +290,8 @@ int tecmo_asset_pack_build_gameplay_pretip(
             tecmo_asset_pack_store_u16(payload + 156U + index * 2U,
                                        frames[index]);
     }
-    payload[172U] = 0x40U; /* controller bit sampled by $A10A */
-    payload[173U] = 12U;   /* no-input close-up error sentinel */
+    payload[172U] = 0x40U; /* current-level NES B input mask */
+    payload[173U] = 12U;   /* no-input contest error sentinel */
     payload[174U] = 11U;   /* maximum measured timing error */
     payload[175U] = TECMO_GAMEPLAY_PRETIP_PHASE_COUNT;
     payload[176U] = 0x82U; /* minimum raw timing seed */
