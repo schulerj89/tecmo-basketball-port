@@ -848,10 +848,23 @@ object slots 0..10 from state `$AD82`, sprite-slot base `$AD8D`, facing `$AD98`,
 X-low `$ADA3`, X-high `$ADAE`, Y `$ADB9`, and facing-indexed pose tables
 `$ADC4/$ADCD`. TPTI-1 already fingerprints both containing spans; the
 transactional `tecmo_gameplay_pretip_tip_lineup` decoder supplies the complete
-setup for ten players and the ball to the canonical TGCT scene. The scene uses
-the exact coordinate, sprite-slot base, and selected standing pose without a
-second mirror. Raw object-state behavior, jump and ball interpolation, and the
-exact original winner/claim settlement are not thereby ported.
+setup for ten players and the ball to the canonical TGCT scene. TPTI header
+selectors 178/179 preserve the Bank04-selected jumper identities `(4,9)`
+(away/home); the scene consumes those selectors rather than assuming actor
+slots. The scene uses the exact coordinate, sprite-slot base, and selected
+standing pose without a second mirror. During the 30 contest updates, both
+selected actors use a deterministic native presentation schedule: crouch,
+takeoff, rise/reach, apex/contact, fall, then land. Pose pointers are drawn from
+the existing bounded ordinary-jump pose vocabulary (325/1060/1061/213/469),
+and TGCP applies a native 24-pixel maximum projected altitude while canonical
+actor Y remains at its exact anchor. This jump trajectory and pose timing are
+native approximations; they are independent of timing error, so late/no input
+cannot truncate landing. Generic action poses use the validated actor-facing
+mirror path; the orientation-encoded flag is restored only for the Bank04
+standing pose at landing. The landing step restores both tip anchors and poses
+before the frame-691 live handoff. Raw object-state behavior, exact original
+winner/claim settlement, and a complete original jump trajectory are not thereby
+ported.
 Pre-tip state mutation is transactional: phase-frame bounds, accumulated total,
 sample flags/errors/sample frames, terminal-state coherence, and integer
 overflow are validated before commit, and malformed or unreachable states are

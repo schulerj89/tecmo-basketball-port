@@ -249,6 +249,432 @@ static bool tecmo_gameplay_scene_test_pretip_contest_input_regression(
     return true;
 }
 
+static bool scene_test_pretip_draw_full_resolution(
+    const TecmoGameplayScene *scene,
+    uint32_t *pixels,
+    bool include_actors)
+{
+    TecmoFramebuffer framebuffer;
+    if (scene == NULL || pixels == NULL) return false;
+    framebuffer.pixels = pixels;
+    framebuffer.width = TECMO_GAMEPLAY_SCENE_NES_WIDTH;
+    framebuffer.height = TECMO_GAMEPLAY_SCENE_NES_HEIGHT;
+    framebuffer.pitch_pixels = TECMO_GAMEPLAY_SCENE_NES_WIDTH;
+    return tecmo_gameplay_scene_draw(
+        scene, &framebuffer, 0, 0, 1, include_actors);
+}
+
+static size_t scene_test_pretip_actor_pixel_changes(
+    const uint32_t *with_actors,
+    const uint32_t *without_actors,
+    const TecmoGameplayActorProjection *projection)
+{
+    int left;
+    int top;
+    int right;
+    int bottom;
+    int x;
+    int y;
+    size_t changes = 0U;
+    if (with_actors == NULL || without_actors == NULL ||
+        projection == NULL || !projection->visible) {
+        return 0U;
+    }
+    left = (int)projection->screen_x - 24;
+    top = (int)projection->screen_y - 32;
+    right = (int)projection->screen_x + 24;
+    bottom = (int)projection->screen_y + 32;
+    if (left < 0) left = 0;
+    if (top < 0) top = 0;
+    if (right >= TECMO_GAMEPLAY_SCENE_NES_WIDTH) {
+        right = TECMO_GAMEPLAY_SCENE_NES_WIDTH - 1;
+    }
+    if (bottom >= TECMO_GAMEPLAY_SCENE_NES_HEIGHT) {
+        bottom = TECMO_GAMEPLAY_SCENE_NES_HEIGHT - 1;
+    }
+    for (y = top; y <= bottom; ++y) {
+        for (x = left; x <= right; ++x) {
+            size_t pixel = (size_t)y * TECMO_GAMEPLAY_SCENE_NES_WIDTH +
+                           (size_t)x;
+            if (with_actors[pixel] != without_actors[pixel]) ++changes;
+        }
+    }
+    return changes;
+}
+
+static bool scene_test_run_late_human_tip(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *launch)
+{
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    size_t frame;
+    if (scene == NULL || launch == NULL ||
+        !tecmo_gameplay_scene_launch(scene, launch)) {
+        return false;
+    }
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    for (frame = 0U; frame < 661U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) return false;
+    }
+    for (frame = 0U; frame < 29U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) return false;
+    }
+    p1.held.cancel = true;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        tecmo_gameplay_scene_in_pretip(scene) ||
+        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE ||
+        !scene->pretip_state.live_handoff ||
+        !scene->pretip_state.away_tip_sampled ||
+        scene->pretip_state.away_tip_sample_frame != 29U ||
+        scene->pretip_state.away_tip_error != 11U ||
+        scene->pretip_state.home_tip_sampled ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->ball_holder != 0U || scene->pretip_jump_active ||
+        scene->pretip_jumper_altitude_q8[0U] != 0U ||
+        scene->pretip_jumper_altitude_q8[1U] != 0U) {
+        return false;
+    }
+    return true;
+}
+
+static bool tecmo_gameplay_scene_test_pretip_jump_presentation(
+    TecmoGameplaySceneTestContext *test,
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *launch)
+{
+    static const uint16_t stage_frames[] = {
+        0U, 4U, 8U, 12U, 16U, 20U, 24U, 25U, 29U
+    };
+    static const uint16_t stage_poses[] = {
+        TECMO_GAMEPLAY_JUMP_MAKE_GATHER_POSE,
+        TECMO_GAMEPLAY_JUMP_TURN_POSE,
+        TECMO_GAMEPLAY_JUMP_RELEASE_POSE,
+        TECMO_GAMEPLAY_JUMP_FLIGHT_POSE,
+        TECMO_GAMEPLAY_JUMP_FLIGHT_POSE,
+        TECMO_GAMEPLAY_JUMP_FLIGHT_POSE,
+        TECMO_GAMEPLAY_JUMP_FLIGHT_POSE,
+        TECMO_GAMEPLAY_JUMP_SLOT0_IDLE_POSE,
+        TECMO_GAMEPLAY_JUMP_SLOT0_IDLE_POSE
+    };
+    static const uint16_t stage_altitudes_q8[] = {
+        0U, 768U, 3840U, 6144U, 5462U, 2731U, 0U, 0U, 0U
+    };
+    const size_t pixel_count =
+        (size_t)TECMO_GAMEPLAY_SCENE_NES_WIDTH *
+        TECMO_GAMEPLAY_SCENE_NES_HEIGHT;
+    TecmoGameplaySceneActor setup_actors[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplaySceneCpuActor setup_cpu_actors[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplayState setup_state;
+    TecmoGameplayCameraState setup_camera;
+    TecmoGameplaySceneCourtProjection baseline_projection;
+    TecmoGameplaySceneCourtProjection projection;
+    TecmoGameplaySceneCourtCoordinates coordinates;
+    TecmoGameplaySceneCourtProjection sentinel_projection;
+    TecmoGameplaySceneActor late_first_actors[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    uint32_t *background_pixels = NULL;
+    uint32_t *actor_pixels = NULL;
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    uint8_t away_actor;
+    uint8_t home_actor;
+    uint16_t setup_action_serial;
+    uint32_t setup_camera_follow_count;
+    uint8_t setup_shot_actor;
+    TecmoGameplaySceneShotKind setup_shot_kind;
+    uint8_t setup_ball_holder;
+    size_t frame;
+    size_t stage;
+    bool full_resolution_contact_checked = false;
+    bool ok = false;
+
+    if (test == NULL || scene == NULL || launch == NULL ||
+        !tecmo_gameplay_scene_launch(scene, launch)) {
+        tecmo_gameplay_scene_test_message(
+            test != NULL ? test->message : NULL,
+            test != NULL ? test->message_size : 0U,
+            "pre-tip jump presentation launch rejected");
+        return false;
+    }
+    away_actor = scene->pretip_assets.tip_actor_indices[0U];
+    home_actor = scene->pretip_assets.tip_actor_indices[1U];
+    memcpy(setup_actors, scene->actors, sizeof(setup_actors));
+    memcpy(setup_cpu_actors, scene->cpu_actors, sizeof(setup_cpu_actors));
+    setup_state = scene->state;
+    setup_camera = scene->camera_state;
+    setup_action_serial = scene->action_serial;
+    setup_camera_follow_count = scene->camera_follow_count;
+    setup_shot_actor = scene->shot_actor;
+    setup_shot_kind = scene->shot_kind;
+    setup_ball_holder = scene->ball_holder;
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    for (frame = 0U; frame < 660U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) goto cleanup;
+    }
+    if (memcmp(setup_actors, scene->actors, sizeof(setup_actors)) != 0 ||
+        memcmp(setup_cpu_actors, scene->cpu_actors,
+               sizeof(setup_cpu_actors)) != 0 ||
+        memcmp(&setup_state, &scene->state, sizeof(setup_state)) != 0 ||
+        memcmp(&setup_camera, &scene->camera_state,
+               sizeof(setup_camera)) != 0 ||
+        setup_action_serial != scene->action_serial ||
+        setup_camera_follow_count != scene->camera_follow_count ||
+        setup_shot_actor != scene->shot_actor ||
+        setup_shot_kind != scene->shot_kind ||
+        setup_ball_holder != scene->ball_holder ||
+        scene->pretip_jump_active ||
+        scene->pretip_jumper_altitude_q8[0U] != 0U ||
+        scene->pretip_jumper_altitude_q8[1U] != 0U) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "pre-tip non-contest mutation leaked into jump presentation");
+        goto cleanup;
+    }
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
+        scene->pretip_state.phase_frame != 0U ||
+        away_actor != 4U || home_actor != 9U ||
+        scene->pretip_jumper_actor[0U] != away_actor ||
+        scene->pretip_jumper_actor[1U] != home_actor ||
+        scene->actors[away_actor].team != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->actors[home_actor].team != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->actors[away_actor].facing_right !=
+            setup_actors[away_actor].facing_right ||
+        scene->actors[home_actor].facing_right !=
+            setup_actors[home_actor].facing_right ||
+        scene->actors[away_actor].pose_index != stage_poses[0U] ||
+        scene->actors[home_actor].pose_index != stage_poses[0U] ||
+        scene->actors[away_actor].pose_orientation_encoded ||
+        scene->actors[home_actor].pose_orientation_encoded) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "pre-tip jumper identity or action-pose orientation contract failed");
+        goto cleanup;
+    }
+    if (!tecmo_gameplay_scene_court_projection(
+            scene, &baseline_projection)) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "pre-tip jump baseline projection rejected");
+        goto cleanup;
+    }
+    background_pixels = (uint32_t *)malloc(pixel_count * sizeof(uint32_t));
+    actor_pixels = (uint32_t *)malloc(pixel_count * sizeof(uint32_t));
+    if (background_pixels == NULL || actor_pixels == NULL) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "full-resolution tip frame allocation failed");
+        goto cleanup;
+    }
+    for (stage = 0U; stage < sizeof(stage_frames) / sizeof(stage_frames[0]);
+         ++stage) {
+        while (scene->pretip_state.phase ==
+                   TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST &&
+               scene->pretip_state.phase_frame < stage_frames[stage]) {
+            if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) goto cleanup;
+        }
+        if (scene->pretip_state.phase !=
+                TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
+            scene->pretip_state.phase_frame != stage_frames[stage] ||
+            scene->pretip_jumper_altitude_q8[0U] !=
+                stage_altitudes_q8[stage] ||
+            scene->pretip_jumper_altitude_q8[1U] !=
+                stage_altitudes_q8[stage] ||
+            scene->actors[away_actor].pose_index != stage_poses[stage] ||
+            scene->actors[home_actor].pose_index != stage_poses[stage] ||
+            scene->actors[away_actor].position.x !=
+                scene->actors[away_actor].anchor.x ||
+            scene->actors[away_actor].position.y !=
+                scene->actors[away_actor].anchor.y ||
+            scene->actors[home_actor].position.x !=
+                scene->actors[home_actor].anchor.x ||
+            scene->actors[home_actor].position.y !=
+                scene->actors[home_actor].anchor.y ||
+            !tecmo_gameplay_scene_court_projection(scene, &projection) ||
+            !tecmo_gameplay_scene_court_coordinates(scene, &coordinates) ||
+            !projection.players[away_actor].visible ||
+            !projection.players[home_actor].visible ||
+            projection.players[away_actor].screen_x !=
+                baseline_projection.players[away_actor].screen_x ||
+            projection.players[home_actor].screen_x !=
+                baseline_projection.players[home_actor].screen_x ||
+            projection.players[away_actor].screen_y !=
+                (uint8_t)(baseline_projection.players[away_actor].screen_y -
+                    stage_altitudes_q8[stage] /
+                        TECMO_GAMEPLAY_COURT_COORDINATE_Q8_SCALE) ||
+            projection.players[home_actor].screen_y !=
+                (uint8_t)(baseline_projection.players[home_actor].screen_y -
+                    stage_altitudes_q8[stage] /
+                        TECMO_GAMEPLAY_COURT_COORDINATE_Q8_SCALE) ||
+            coordinates.players[away_actor].x !=
+                scene->actors[away_actor].anchor.x ||
+            coordinates.players[away_actor].y !=
+                scene->actors[away_actor].anchor.y ||
+            coordinates.players[home_actor].x !=
+                scene->actors[home_actor].anchor.x ||
+            coordinates.players[home_actor].y !=
+                scene->actors[home_actor].anchor.y) {
+            tecmo_gameplay_scene_test_message(
+                test->message, test->message_size,
+                "pre-tip jumper stage pose/anchor/projected-Y contract failed");
+            goto cleanup;
+        }
+        if (stage_frames[stage] == TECMO_GAMEPLAY_PRETIP_JUMP_CONTACT_FRAME ||
+            stage_frames[stage] == TECMO_GAMEPLAY_PRETIP_JUMP_LAND_FIRST_FRAME) {
+            if (scene->actors[away_actor].pose_orientation_encoded ||
+                scene->actors[home_actor].pose_orientation_encoded) {
+                tecmo_gameplay_scene_test_message(
+                    test->message, test->message_size,
+                    "generic tip action pose unexpectedly suppressed mirroring");
+                goto cleanup;
+            }
+        }
+        if (stage_frames[stage] ==
+                TECMO_GAMEPLAY_PRETIP_JUMP_CONTACT_FRAME) {
+            TecmoGameplayResolvedPose contact_away_pose;
+            TecmoGameplayResolvedPose contact_home_pose;
+            if (!tecmo_gameplay_scene_render_resolve_actor_pose(
+                    scene, away_actor, &contact_away_pose) ||
+                !tecmo_gameplay_scene_render_resolve_actor_pose(
+                    scene, home_actor, &contact_home_pose) ||
+                contact_away_pose.pointer_index !=
+                    TECMO_GAMEPLAY_JUMP_FLIGHT_POSE ||
+                contact_home_pose.pointer_index !=
+                    TECMO_GAMEPLAY_JUMP_FLIGHT_POSE ||
+                !scene_test_pretip_draw_full_resolution(
+                    scene, background_pixels, false) ||
+                !scene_test_pretip_draw_full_resolution(
+                    scene, actor_pixels, true) ||
+                scene_test_pretip_actor_pixel_changes(
+                    actor_pixels, background_pixels,
+                    &projection.players[away_actor]) == 0U ||
+                scene_test_pretip_actor_pixel_changes(
+                    actor_pixels, background_pixels,
+                    &projection.players[home_actor]) == 0U) {
+                tecmo_gameplay_scene_test_message(
+                    test->message, test->message_size,
+                    "full-resolution generic tip action frame was not readable");
+                goto cleanup;
+            }
+            full_resolution_contact_checked = true;
+        }
+    }
+    if (!full_resolution_contact_checked ||
+        !scene_test_pretip_draw_full_resolution(
+            scene, background_pixels, false) ||
+        !scene_test_pretip_draw_full_resolution(
+            scene, actor_pixels, true) ||
+        scene_test_pretip_actor_pixel_changes(
+            actor_pixels, background_pixels,
+            &projection.players[away_actor]) == 0U ||
+        scene_test_pretip_actor_pixel_changes(
+            actor_pixels, background_pixels,
+            &projection.players[home_actor]) == 0U) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "full-resolution landed tip actors were not readable");
+        goto cleanup;
+    }
+    {
+        TecmoGameplayResolvedPose away_pose;
+        TecmoGameplayResolvedPose home_pose;
+        if (scene->actors[away_actor].pose_index !=
+                TECMO_GAMEPLAY_JUMP_SLOT0_IDLE_POSE ||
+            !tecmo_gameplay_scene_render_resolve_actor_pose(
+                scene, away_actor, &away_pose) ||
+            !tecmo_gameplay_scene_render_resolve_actor_pose(
+                scene, home_actor, &home_pose) ||
+            away_pose.pointer_index != TECMO_GAMEPLAY_JUMP_SLOT0_IDLE_POSE ||
+            home_pose.pointer_index != TECMO_GAMEPLAY_JUMP_SLOT0_IDLE_POSE) {
+            tecmo_gameplay_scene_test_message(
+                test->message, test->message_size,
+                "full-resolution generic tip pose resolution failed");
+            goto cleanup;
+        }
+    }
+    scene->pretip_jumper_actor[0U] = home_actor;
+    memset(&sentinel_projection, 0xA5, sizeof(sentinel_projection));
+    projection = sentinel_projection;
+    if (tecmo_gameplay_scene_court_projection(scene, &projection) ||
+        memcmp(&projection, &sentinel_projection,
+               sizeof(projection)) != 0) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "malformed tip jumper mapping was not rejected");
+        goto cleanup;
+    }
+    scene->pretip_jumper_actor[0U] = away_actor;
+    scene->pretip_state.phase = TECMO_GAMEPLAY_PRETIP_LIVE;
+    projection = sentinel_projection;
+    if (tecmo_gameplay_scene_court_projection(scene, &projection) ||
+        memcmp(&projection, &sentinel_projection,
+               sizeof(projection)) != 0) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "malformed active tip phase was not rejected");
+        goto cleanup;
+    }
+    scene->pretip_state.phase = TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST;
+    scene->pretip_state.phase_frame =
+        TECMO_GAMEPLAY_PRETIP_JUMP_DURATION;
+    projection = sentinel_projection;
+    if (tecmo_gameplay_scene_court_projection(scene, &projection) ||
+        memcmp(&projection, &sentinel_projection,
+               sizeof(projection)) != 0) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "malformed tip phase frame was not rejected");
+        goto cleanup;
+    }
+    scene->pretip_state.phase_frame =
+        TECMO_GAMEPLAY_PRETIP_JUMP_DURATION - 1U;
+    while (scene->pretip_state.phase ==
+               TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) goto cleanup;
+    }
+    if (scene->pretip_state.away_tip_sampled ||
+        scene->pretip_state.home_tip_sampled ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->ball_holder != 0U || scene->pretip_jump_active ||
+        scene->pretip_jumper_altitude_q8[0U] != 0U ||
+        scene->pretip_jumper_altitude_q8[1U] != 0U ||
+        !scene_actor_world_position_valid(&scene->actors[away_actor]) ||
+        !scene_actor_world_position_valid(&scene->actors[home_actor])) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "no-sample tip landing/live handoff contract failed");
+        goto cleanup;
+    }
+    tecmo_gameplay_scene_end(scene);
+    if (!scene_test_run_late_human_tip(scene, launch)) goto cleanup;
+    memcpy(late_first_actors, scene->actors, sizeof(late_first_actors));
+    setup_state = scene->state;
+    tecmo_gameplay_scene_end(scene);
+    if (!scene_test_run_late_human_tip(scene, launch) ||
+        memcmp(late_first_actors, scene->actors,
+               sizeof(late_first_actors)) != 0 ||
+        memcmp(&setup_state, &scene->state, sizeof(setup_state)) != 0 ||
+        scene->frame != 691U || scene->ball_holder != 0U ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "human late-sample frame-691 checkpoint was nondeterministic");
+        goto cleanup;
+    }
+    ok = true;
+
+cleanup:
+    free(background_pixels);
+    free(actor_pixels);
+    tecmo_gameplay_scene_end(scene);
+    return ok;
+}
+
 static bool tecmo_gameplay_scene_test_pretip_descent_live(
     TecmoGameplaySceneTestContext *test,
     TecmoGameplayScene *scene,
@@ -657,6 +1083,8 @@ bool tecmo_gameplay_scene_test_pretip(
             test, scene, &p1, &p2) ||
         !tecmo_gameplay_scene_test_pretip_normal_home_handoff(
             test, scene, &launch) ||
+        !tecmo_gameplay_scene_test_pretip_jump_presentation(
+            test, scene, &launch) ||
         !tecmo_gameplay_scene_test_pretip_abort_and_timing(
             test, scene, &launch, &p1, &p2)) {
         return false;
@@ -664,5 +1092,67 @@ bool tecmo_gameplay_scene_test_pretip(
     test->launch = launch;
     test->p1 = p1;
     test->p2 = p2;
+    return true;
+}
+
+bool tecmo_gameplay_scene_test_pretip_human_checkpoint(
+    const char *project_root,
+    const char *asset_pack_path,
+    TecmoMusicPlayer *music_player,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplayScene scene;
+    TecmoGameplaySceneLaunch launch;
+    TecmoGameplaySceneActor first_actors[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplayState first_state;
+    memset(&scene, 0, sizeof(scene));
+    memset(&launch, 0, sizeof(launch));
+    tecmo_gameplay_scene_init(&scene);
+    tecmo_gameplay_scene_test_set_skip_pretip(false);
+    launch.source = TECMO_GAMEPLAY_SCENE_PRESEASON;
+    launch.away_team = 0U;
+    launch.home_team = 1U;
+    launch.regulation_minutes = 2U;
+    launch.difficulty = 1U;
+    launch.control_mode = 1U;
+    launch.speed_value = 1U;
+    launch.controller_team[0U] = TECMO_GAMEPLAY_TEAM_AWAY;
+    launch.controller_team[1U] = TECMO_GAMEPLAY_TEAM_HOME;
+    launch.game_music_enabled = false;
+    if (!tecmo_gameplay_scene_load(
+            &scene, project_root, asset_pack_path, music_player) ||
+        !scene_test_run_late_human_tip(&scene, &launch)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            scene.status[0] != '\0' ? scene.status
+                                     : "TPTI human checkpoint route failed");
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    memcpy(first_actors, scene.actors, sizeof(first_actors));
+    first_state = scene.state;
+    tecmo_gameplay_scene_end(&scene);
+    if (!scene_test_run_late_human_tip(&scene, &launch) ||
+        memcmp(first_actors, scene.actors, sizeof(first_actors)) != 0 ||
+        memcmp(&first_state, &scene.state, sizeof(first_state)) != 0 ||
+        scene.frame != 691U || scene.state.possession !=
+            TECMO_GAMEPLAY_TEAM_AWAY || scene.ball_holder != 0U ||
+        scene.pretip_state.away_tip_sample_frame != 29U ||
+        scene.pretip_state.away_tip_error != 11U ||
+        scene.pretip_jump_active) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "TPTI human checkpoint was nondeterministic or did not land");
+        tecmo_gameplay_scene_end(&scene);
+        tecmo_gameplay_scene_destroy(&scene);
+        return false;
+    }
+    tecmo_gameplay_scene_test_message(
+        message, message_size,
+        "TPTI-1 human checkpoint PASS frame=691 late-sample=29");
+    tecmo_gameplay_scene_end(&scene);
+    tecmo_gameplay_scene_destroy(&scene);
     return true;
 }

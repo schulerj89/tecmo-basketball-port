@@ -44,6 +44,12 @@ uint32_t tecmo_gameplay_scene_test_pixels_fnv1a32(
 
 bool tecmo_gameplay_scene_test_pretip(
     TecmoGameplaySceneTestContext *test);
+bool tecmo_gameplay_scene_test_pretip_human_checkpoint(
+    const char *project_root,
+    const char *asset_pack_path,
+    TecmoMusicPlayer *music_player,
+    char *message,
+    size_t message_size);
 bool tecmo_gameplay_scene_test_render_contract(
     TecmoGameplaySceneTestContext *test);
 bool tecmo_gameplay_scene_test_shot_clock(

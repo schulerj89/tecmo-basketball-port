@@ -3525,6 +3525,8 @@ static int append_gameplay_pretip_source_map_entry(
         "\"tip_input\":\"all 30 native jump-contest updates accept the first held NES B level routed by team; target frame 0, capped error 0..11, no-sample error 12, and tie-away settlement are explicit native approximations\","
         "\"winner_query_gate\":\"rejects before jump-contest without mutating caller output; accepted during jump-contest and live\","
         "\"tip_lineup\":\"Bank04 $AC8C-$ACD9 initializes object slots 0..10 from $ADA3/$ADAE/$ADB9; native play consumes the exact ten player coordinates and ball anchor\","
+        "\"tip_jumper_selectors\":[4,9],"
+        "\"tip_animation\":\"both TPTI-selected actors use a native 30-frame crouch/takeoff/rise/apex/contact/fall/land presentation; generic action poses use actor-facing mirroring, pose and projected altitude are native approximations, while anchors and live handoff remain transactional\","
         "\"phase_order\":[\"preseason\",\"matchup\",\"first-period\",\"closeup\",\"center-setup\",\"ball-descent\",\"toss-closeup\",\"jump-contest\",\"live\"],"
         "\"closeup_motion\":\"Bank04 $88 and fixed $D861 move the sprite player left while nametable scroll moves the other figures right; the 33-frame phase anchor is capture-bounded\","
         "\"toss_cut_in\":\"TGPL-1 screen $1B nametable page 1; page 1 matches ball X 176..239 and hand X 67..159 geometry\","

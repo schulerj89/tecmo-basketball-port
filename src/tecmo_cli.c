@@ -31,6 +31,7 @@ static void print_usage(const char *program)
     printf("  --season-test           Run strict TSNS/TSAV season-management checks\n");
     printf("  --gameplay-state-test   Run deterministic gameplay clock/rules/shot-state checks\n");
     printf("  --gameplay-scene-test PACK  Run native gameplay launch/input/shot checks\n");
+    printf("  --gameplay-pretip-human-checkpoint PACK  Run deterministic held-B tip handoff through frame 691\n");
     printf("  --gameplay-pretip-test PACK  Validate strict TPTI-1 pre-tip assets/state\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");

@@ -202,6 +202,12 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayShotResolutionAssets shot_resolution;
     TecmoGameplayPreTipAssets pretip_assets;
     TecmoGameplayPreTipState pretip_state;
+    uint8_t pretip_jumper_actor[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
+    uint16_t pretip_jumper_standing_pose[
+        TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
+    uint16_t pretip_jumper_altitude_q8[
+        TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
+    bool pretip_jump_active;
     TecmoIntroWarriorsAsset *pretip_closeup;
     TecmoTeamDataAsset *pretip_team_data;
     TecmoGameplayAudioAsset audio_asset;

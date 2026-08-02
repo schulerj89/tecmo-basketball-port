@@ -88,6 +88,8 @@ static bool reject(TecmoGameplayPreTipAssets *assets, const char *message)
     memset(assets->descriptor, 0, sizeof(assets->descriptor));
     memset(assets->card_chr_selector, 0,
            sizeof(assets->card_chr_selector));
+    memset(assets->tip_actor_indices, 0,
+           sizeof(assets->tip_actor_indices));
     memset(assets->phase_frames, 0, sizeof(assets->phase_frames));
     memset(assets->sources, 0, sizeof(assets->sources));
     assets->gameplay_core_fingerprint = 0U;
@@ -172,7 +174,10 @@ static bool validate_header(const uint8_t *payload, size_t size)
         payload[174U] != 11U ||
         payload[175U] != TECMO_GAMEPLAY_PRETIP_PHASE_COUNT ||
         payload[176U] != 0x82U || payload[177U] != 0xC1U ||
-        payload[178U] != 4U || payload[179U] != 9U ||
+        payload[TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_AWAY_ACTOR_OFFSET] !=
+            4U ||
+        payload[TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_HOME_ACTOR_OFFSET] !=
+            9U ||
         payload[180U] != 0U || payload[181U] != 1U ||
         payload[182U] != 10U || payload[183U] != 0x1AU ||
         payload[184U] != 0x1AU ||
@@ -307,6 +312,10 @@ static bool parse(TecmoGameplayPreTipAssets *assets,
            storage + TECMO_ASSET_PACK_GAMEPLAY_PRETIP_DESCRIPTOR_OFFSET, 7U);
     assets->card_chr_selector[0] = storage[190U];
     assets->card_chr_selector[1] = storage[191U];
+    assets->tip_actor_indices[0U] = storage[
+        TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_AWAY_ACTOR_OFFSET];
+    assets->tip_actor_indices[1U] = storage[
+        TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_HOME_ACTOR_OFFSET];
     assets->nametables =
         storage + TECMO_ASSET_PACK_GAMEPLAY_PRETIP_DECODED_OFFSET;
     assets->palette =
@@ -409,6 +418,16 @@ static bool assets_valid(const TecmoGameplayPreTipAssets *assets)
             TECMO_ASSET_PACK_GAMEPLAY_PRETIP_CHARACTER_TILES_OFFSET ||
         assets->card_chr_selector[0] != 0xC6U ||
         assets->card_chr_selector[1] != 0xFAU ||
+        assets->tip_actor_indices[0U] != assets->storage[
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_AWAY_ACTOR_OFFSET] ||
+        assets->tip_actor_indices[1U] != assets->storage[
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_HOME_ACTOR_OFFSET] ||
+        assets->tip_actor_indices[0U] >=
+            TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT / 2U ||
+        assets->tip_actor_indices[1U] <
+            TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT / 2U ||
+        assets->tip_actor_indices[1U] >= TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT ||
+        assets->tip_actor_indices[0U] == assets->tip_actor_indices[1U] ||
         fnv1a32(assets->storage, assets->storage_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_PRETIP_FNV1A32 ||
         fnv1a32(
@@ -885,6 +904,8 @@ bool tecmo_gameplay_pretip_self_test(const char *asset_pack_path,
     memset(&unchanged_lineup, 0xA5, sizeof(unchanged_lineup));
     before_lineup = unchanged_lineup;
     ok = tecmo_gameplay_pretip_load(&assets, asset_pack_path) &&
+         assets.tip_actor_indices[0U] == 4U &&
+         assets.tip_actor_indices[1U] == 9U &&
          tecmo_gameplay_pretip_tip_lineup(&assets, &lineup) &&
          lineup.contract_tag == TECMO_GAMEPLAY_PRETIP_LINEUP_TAG &&
          memcmp(lineup.players, expected_players,

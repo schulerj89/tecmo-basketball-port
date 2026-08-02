@@ -28,6 +28,52 @@ static bool scene_camera_states_equal(
            left->endpoint_latched == right->endpoint_latched;
 }
 
+static bool scene_pretip_projection_altitude(
+    const TecmoGameplayScene *scene,
+    size_t actor_index,
+    uint8_t *altitude_out)
+{
+    size_t jumper;
+    if (scene == NULL || altitude_out == NULL ||
+        actor_index >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+        return false;
+    }
+    *altitude_out = 0U;
+    if (!scene->pretip_jump_active) return true;
+    if (scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
+        scene->pretip_state.phase_frame >=
+            TECMO_GAMEPLAY_PRETIP_JUMP_DURATION) {
+        return false;
+    }
+    for (jumper = 0U; jumper < TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT;
+         ++jumper) {
+        uint8_t jumper_actor = scene->pretip_jumper_actor[jumper];
+        const TecmoGameplaySceneActor *actor;
+        if (jumper_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+            (jumper == 0U && jumper_actor >=
+                TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT) ||
+            (jumper == 1U && jumper_actor <
+                TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT) ||
+            (jumper > 0U && jumper_actor ==
+                scene->pretip_jumper_actor[0U]) ||
+            scene->pretip_jumper_altitude_q8[jumper] >
+                TECMO_GAMEPLAY_PRETIP_JUMP_MAX_ALTITUDE_Q8) {
+            return false;
+        }
+        actor = &scene->actors[jumper_actor];
+        if (actor->position.x != actor->anchor.x ||
+            actor->position.y != actor->anchor.y) {
+            return false;
+        }
+        if (jumper_actor == actor_index) {
+            *altitude_out = (uint8_t)(
+                scene->pretip_jumper_altitude_q8[jumper] /
+                TECMO_GAMEPLAY_COURT_COORDINATE_Q8_SCALE);
+        }
+    }
+    return true;
+}
+
 bool scene_court_controller_team_valid(uint8_t team)
 {
     return team == TECMO_GAMEPLAY_TEAM_AWAY ||
@@ -233,6 +279,9 @@ bool tecmo_gameplay_scene_court_projection(
             altitude =
                 (uint8_t)(scene->jump_actor_altitude_q8 /
                           TECMO_GAMEPLAY_COURT_COORDINATE_Q8_SCALE);
+        } else if (!scene_pretip_projection_altitude(
+                       scene, actor, &altitude)) {
+            return false;
         }
         if (!tecmo_gameplay_camera_project_court(
                 &scene->camera_assets, &scene->camera_state,

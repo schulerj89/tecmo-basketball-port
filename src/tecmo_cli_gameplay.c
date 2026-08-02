@@ -10,6 +10,7 @@
 #include "tecmo_gameplay_movement.h"
 #include "tecmo_gameplay_pretip.h"
 #include "tecmo_gameplay_scene.h"
+#include "tecmo_gameplay_scene_test_internal.h"
 #include "tecmo_intro_arena_scene.h"
 #include "tecmo_music.h"
 #include "tecmo_team_data.h"
@@ -631,6 +632,34 @@ int tecmo_cli_run_gameplay_commands(const TecmoCliContext *context)
         tecmo_music_asset_shutdown(&music_asset);
         if (!passed) {
             printf("Gameplay scene test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-pretip-human-checkpoint") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        TecmoMusicAsset music_asset;
+        TecmoMusicPlayer music_player;
+        char message[256];
+        bool passed;
+        memset(&music_asset, 0, sizeof(music_asset));
+        if (pack_path == NULL ||
+            !tecmo_music_asset_load_from_pack(&music_asset, pack_path)) {
+            printf("Gameplay pre-tip human checkpoint failed: %s\n",
+                   pack_path == NULL ? "PACK path required"
+                                     : music_asset.status);
+            tecmo_music_asset_shutdown(&music_asset);
+            return 1;
+        }
+        tecmo_music_player_init(&music_player, &music_asset);
+        passed = tecmo_gameplay_scene_test_pretip_human_checkpoint(
+            root, pack_path, &music_player, message, sizeof(message));
+        tecmo_music_asset_shutdown(&music_asset);
+        if (!passed) {
+            printf("Gameplay pre-tip human checkpoint failed: %s\n",
+                   message);
             return 1;
         }
         printf("%s\n", message);

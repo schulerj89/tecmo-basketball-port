@@ -296,8 +296,10 @@ int tecmo_asset_pack_build_gameplay_pretip(
     payload[175U] = TECMO_GAMEPLAY_PRETIP_PHASE_COUNT;
     payload[176U] = 0x82U; /* minimum raw timing seed */
     payload[177U] = 0xC1U; /* maximum raw timing seed */
-    payload[178U] = 4U;    /* first tip actor selector */
-    payload[179U] = 9U;    /* second tip actor selector */
+    payload[TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_AWAY_ACTOR_OFFSET] =
+        4U; /* Bank04-selected away tip actor */
+    payload[TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_HOME_ACTOR_OFFSET] =
+        9U; /* Bank04-selected home tip actor */
     payload[180U] = 0U;
     payload[181U] = 1U;
     payload[182U] = 10U;

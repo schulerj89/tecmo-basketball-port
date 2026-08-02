@@ -14,6 +14,7 @@
 #define TECMO_GAMEPLAY_PRETIP_GLYPH_COUNT 38U
 #define TECMO_GAMEPLAY_PRETIP_GLYPH_TILE_COUNT 4U
 #define TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT 10U
+#define TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT 2U
 #define TECMO_GAMEPLAY_PRETIP_OBJECT_COUNT 11U
 #define TECMO_GAMEPLAY_PRETIP_LINEUP_TAG 0x4C545031U
 #define TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME UINT16_MAX
@@ -79,6 +80,8 @@ typedef struct TecmoGameplayPreTipAssets {
     const uint8_t *character_tiles;
     uint8_t descriptor[7];
     uint8_t card_chr_selector[2];
+    /* TPTI header bytes 178/179: Bank04-selected away/home tip actors. */
+    uint8_t tip_actor_indices[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
     uint16_t phase_frames[TECMO_GAMEPLAY_PRETIP_PHASE_COUNT];
     TecmoGameplayPreTipSourceSpan
         sources[TECMO_GAMEPLAY_PRETIP_SOURCE_COUNT];

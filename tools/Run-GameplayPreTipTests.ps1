@@ -121,6 +121,7 @@ if ((Get-Fnv32 $Payload) -ne "99ADFE3D" -or
     $Payload[20] -ne 0x15 -or $Payload[21] -ne 0x3B -or
     $Payload[22] -ne 0x7D -or $Payload[23] -ne 8 -or
     $Payload[176] -ne 0x82 -or $Payload[177] -ne 0xC1 -or
+    $Payload[178] -ne 4 -or $Payload[179] -ne 9 -or
     $Payload[185] -ne 38 -or $Payload[186] -ne 4 -or
     $Payload[187] -ne 33 -or $Payload[188] -ne 25 -or
     $Payload[189] -ne 0 -or $Payload[190] -ne 0xC6 -or
@@ -175,6 +176,11 @@ if ($Mapped.Count -ne 1 -or
     $Mapped[0].native_contract.closeup_motion -notmatch "D861" -or
     $Mapped[0].native_contract.toss_cut_in -notmatch "nametable page 1" -or
     $Mapped[0].native_contract.ball_descent -notmatch "71..145" -or
+    $Mapped[0].native_contract.tip_jumper_selectors.Count -ne 2 -or
+    $Mapped[0].native_contract.tip_jumper_selectors[0] -ne 4 -or
+    $Mapped[0].native_contract.tip_jumper_selectors[1] -ne 9 -or
+    $Mapped[0].native_contract.tip_animation -notmatch
+        "native 30-frame.*projected altitude" -or
     $TipSetupSource.Count -ne 1 -or
     $TipInputSource.source_entry -ne "prg/bank05" -or
     [uint64]$TipInputSource.source_offset -ne
@@ -208,6 +214,13 @@ $Scene = Invoke-Native -Arguments @("--gameplay-scene-test", $Pack) `
 if ($Scene.code -ne 0 -or $Scene.text -notmatch "SELF TEST PASS") {
     throw "TPTI-1 scene integration failed.`n$($Scene.tail)"
 }
+$Human = Invoke-Native -Arguments @(
+    "--gameplay-pretip-human-checkpoint", $Pack
+) -LogName "human-checkpoint.log"
+if ($Human.code -ne 0 -or
+    $Human.text -notmatch "TPTI-1 human checkpoint PASS frame=691 late-sample=29") {
+    throw "TPTI-1 human-input frame-691 checkpoint failed.`n$($Human.tail)"
+}
 
 $env:TECMO_ASSETPACK = $Pack
 $Modes = @(
@@ -220,8 +233,13 @@ $Modes = @(
     [pscustomobject]@{ mode="gameplay-pretip-frame330"; phase="closeup"; frame=330; hash="CF24E1A5BEFFB62DCA85304DBC739A11CABCAE50F112870669D7CCA4C2EBAC0B" },
     [pscustomobject]@{ mode="gameplay-pretip-frame481"; phase="ball-descent"; frame=481; hash="682A75767388E9275CB1B0C79E2CD40B7F31B73CDE9849D1BD1B8C9B34C4F0C8" },
     [pscustomobject]@{ mode="gameplay-pretip-frame631"; phase="toss-closeup"; frame=631; hash="CDE4C17159C79207CA82281204547FD2794E81858A52A6FB312E937CEEDF162C" },
-    [pscustomobject]@{ mode="gameplay-pretip-frame661"; phase="jump-contest"; frame=661; hash="84F130B311C8620F57F747B6213882B11150F6AB4963B45FA902F5D4471947E7" },
-    [pscustomobject]@{ mode="gameplay-pretip-bulls-pacers"; phase="jump-contest"; frame=661; hash="9DFFAFEE4E3B1D2A4AC4E901BF2F4F7746E8E5D20622998F6BDD9F5C7238F2E2" },
+    [pscustomobject]@{ mode="gameplay-pretip-frame661"; phase="jump-contest"; frame=661; hash="0479F20F96A5FC0FA4BEE9DC6829BACD4AF52861F562F0FB3B4642D12F56D9A4" },
+    [pscustomobject]@{ mode="gameplay-pretip-frame662"; phase="jump-contest"; frame=662; hash="3CE0E9907A623D06F8B5E8701A2E118CD8EAAC950FF99478377902607C826A66" },
+    [pscustomobject]@{ mode="gameplay-pretip-frame670"; phase="jump-contest"; frame=670; hash="8A7007352FD4F35447D2E52C099DD94EBA7AF38DDE69D73CD68E1E7BD2C06C08" },
+    [pscustomobject]@{ mode="gameplay-pretip-frame675"; phase="jump-contest"; frame=675; hash="26128027921D32E709AFF71743BFE465AA24E5F85DF087F1E8F32DBD155DCE9C" },
+    [pscustomobject]@{ mode="gameplay-pretip-frame680"; phase="jump-contest"; frame=680; hash="67A02ED78B20D53FE3F41FEEEE8CDAA13C73131BF396041F620EF934BEC2323E" },
+    [pscustomobject]@{ mode="gameplay-pretip-frame690"; phase="jump-contest"; frame=690; hash="0C043C886F3969B4ACC18B1DE5A60FC517794E265ED33A5215A89253AC09B055" },
+    [pscustomobject]@{ mode="gameplay-pretip-bulls-pacers"; phase="jump-contest"; frame=661; hash="746BF864C9E11CB5A5DBB509E01D43A5647AF59C4380627D11EA716B5E16A670" },
     [pscustomobject]@{ mode="gameplay-live-start"; phase="live"; frame=691; hash="551C75645BBA1B1543CCA93A9A98BB2664E9872F38B8581B11AB144D3249C7BA" }
 )
 $RenderedHashes = @{}
