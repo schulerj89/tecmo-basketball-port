@@ -250,7 +250,8 @@ function Get-Fnv32 {
 
 function Get-AssetPackPayload {
     param([byte[]]$Bytes, $Entry)
-    if ($Entry.size -gt [uint64][int]::MaxValue) {
+    if ($Entry.offset -gt [uint64][int]::MaxValue -or
+        $Entry.size -gt [uint64][int]::MaxValue) {
         throw "Asset-pack entry '$($Entry.id)' is too large to inspect."
     }
     $Payload = New-Object byte[] ([int]$Entry.size)
@@ -282,7 +283,8 @@ function Get-AssetPackIdentity {
     $Count = [uint64][BitConverter]::ToUInt32($Bytes, 16)
     $Directory = [BitConverter]::ToUInt64($Bytes, 20)
     $DataOffset = [BitConverter]::ToUInt64($Bytes, 28)
-    if ($Directory -gt [uint64]$Bytes.Length -or
+    if ($Directory -lt [uint64]40 -or
+        $Directory -gt [uint64]$Bytes.Length -or
         $DataOffset -gt [uint64]$Bytes.Length) {
         throw "Asset-pack directory/data offset is outside the pack."
     }
@@ -421,7 +423,6 @@ if ([int]$ChrIdentity.bytes -ne 262144 -or
     throw "Canonical chr/all asset identity changed."
 }
 $PackSha256 = $PackIdentity.sha256
-$PackBytes = $PackIdentity.bytes
 
 Add-Type -AssemblyName System.Drawing
 
