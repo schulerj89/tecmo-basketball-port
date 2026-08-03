@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T11:10:44Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T11:15:54Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,7 +8,7 @@ Generated from committed JSON at `2026-08-03T11:10:44Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 15, `pushed` 5, `scoped` 2, `sol_review` 1
+- Task states: `backlog` 15, `pushed` 5, `scoped` 2, `sol_accepted` 1
 - Fidelity classifications: `incomplete` 24
 
 ## Rounds
@@ -29,7 +29,7 @@ Generated from committed JSON at `2026-08-03T11:10:44Z`. This dashboard reports 
 |---:|---|---|---|---|---|---|---:|---|---|
 | 100 | R0-CTRL-001 | orchestration | R0 | pushed | S-MASTER-001 | codex/master-finish-orchestration | 2 | coordination_validated | pushed |
 | 100 | R0A-INV-001 | orchestration | R0A | pushed | S-MASTER-001 | codex/master-finish-orchestration | 2 | coordination_validated | pushed |
-| 100 | R1-CPU-PLAY-LIFECYCLE | gameplay_behavior | R1 | sol_review | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 0 | passed | not_ready |
+| 100 | R1-CPU-PLAY-LIFECYCLE | gameplay_behavior | R1 | sol_accepted | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | not_ready |
 | 100 | R2-SHOTS-OUTCOMES | gameplay_behavior | R2 | backlog | - | - | 0 | pending | not_ready |
 | 100 | R3-PLAYER-STATS-LEADERS | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 100 | R4-FRONTEND-INTRO-TITLE | frontend | R4 | backlog | - | - | 0 | pending | not_ready |
