@@ -233,7 +233,7 @@ def task_docs_candidates(repo_root: Path, task: dict[str, Any]) -> list[Path]:
 
 
 def tasks_may_share_sequential_context(first: dict[str, Any], second: dict[str, Any]) -> bool:
-    """Allow exact branch/worktree reuse only for an explicit same-Sol sequence."""
+    """Allow exact branch/worktree reuse only for an explicit frozen same-Sol sequence."""
     same_sol = (
         first["sol_orchestrator_session_id"] is not None
         and first["sol_orchestrator_session_id"] == second["sol_orchestrator_session_id"]
@@ -246,9 +246,16 @@ def tasks_may_share_sequential_context(first: dict[str, Any], second: dict[str, 
         first["state"] in WRITABLE_OR_REVIEW_TASK_STATES
         and second["state"] in WRITABLE_OR_REVIEW_TASK_STATES
     )
+    frozen_delivery_handoff = (
+        first["state"] == "ready_for_round_staging"
+        and first["task_id"] in second["dependencies"]
+    ) or (
+        second["state"] == "ready_for_round_staging"
+        and second["task_id"] in first["dependencies"]
+    )
     return (
         same_sol
-        and first["round_id"] == second["round_id"]
+        and (first["round_id"] == second["round_id"] or frozen_delivery_handoff)
         and dependency_ordered
         and not concurrently_writable
     )
@@ -1441,6 +1448,19 @@ def command_self_test(args: argparse.Namespace) -> int:
         "state": "in_progress", "dependencies": ["A"],
     }
     expect(tasks_may_share_sequential_context(prior_task, next_task), "same-Sol sequential context reuse")
+    delivery_task = copy.deepcopy(prior_task)
+    delivery_task["round_id"] = "R1A"
+    delivery_task["state"] = "ready_for_round_staging"
+    expect(
+        tasks_may_share_sequential_context(delivery_task, next_task),
+        "frozen delivery-subround handoff context reuse",
+    )
+    unfrozen_cross_round = copy.deepcopy(delivery_task)
+    unfrozen_cross_round["state"] = "sol_accepted"
+    expect(
+        not tasks_may_share_sequential_context(unfrozen_cross_round, next_task),
+        "unfrozen cross-round context rejection",
+    )
     concurrent_task = copy.deepcopy(prior_task)
     concurrent_task["state"] = "sol_review"
     expect(

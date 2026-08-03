@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T17:52:20Z",
+  "updated_at": "2026-08-03T18:04:17Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -11,23 +11,21 @@
   },
   "capacity": {
     "active_domain_orchestrators": 4,
-    "cleared_for_creation": 0,
+    "cleared_for_creation": 2,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
     "unallocated_target_slots": 0,
-    "unallocated_monitoring_slots": 4
+    "unallocated_monitoring_slots": 2
   },
   "lanes": [
     {
       "lane_id": "LANE-R1-GAMEPLAY-FOUNDATION",
-      "title": "Round 1 gameplay foundation",
+      "title": "Round 1 tip-off continuation",
       "domain": "gameplay_foundation",
       "round_ids": [
         "R1"
       ],
       "task_ids": [
-        "R1-CPU-PLAY-LIFECYCLE",
-        "R1-LIVE-FOUNDATION",
         "R1-TIP-FIDELITY"
       ],
       "readiness": "active",
@@ -41,15 +39,15 @@
         "OWN-R1-TIP"
       ],
       "blockers": [],
-      "next_gate": "CPU+LIVE remain clean on Round 1 staging at 222d75cf. TIP read-only trace now proves the dedicated Bank05 slot-10 $A214/$A25F/$A274 ball path and rejects shared actor $8642; worker is tightening telemetry/full case matrix. No rescope or writable TIP lineage until Sol accepts the complete evidence report.",
-      "updated_at": "2026-08-03T17:35:22Z"
+      "next_gate": "TIP continues independently from accepted CPU+LIVE base 222d75cf under the existing domain Sol and projectless evidence worker. It no longer gates the R1A CPU+LIVE delivery subround.",
+      "updated_at": "2026-08-03T18:04:17Z"
     },
     {
       "lane_id": "LANE-R3-SEASON-DATA-FOUNDATION",
-      "title": "Round 3 season and data foundation",
+      "title": "Round 3A accepted season and data foundation",
       "domain": "season_data",
       "round_ids": [
-        "R3"
+        "R3A"
       ],
       "task_ids": [
         "R3-SEASON-DATA-FOUNDATION"
@@ -65,8 +63,56 @@
         "OWN-R3-SEASON-DATA-FOUNDATION"
       ],
       "blockers": [],
-      "next_gate": "Bounded R3 foundation lane is complete: terminal f536a193 is staging-ready; claim released; all Lunas and the Sol orchestrator are completed/unpinned; branches/worktrees remain preserved for master-owned future Round 3 staging.",
-      "updated_at": "2026-08-03T16:55:12Z"
+      "next_gate": "Accepted season/data foundation is frozen at f536a193. Its separate R3A Integration QA lane is cleared for creation and no longer waits for downstream statistics, save, management, or All-Star tasks.",
+      "updated_at": "2026-08-03T18:04:17Z"
+    },
+    {
+      "lane_id": "LANE-R1A-INTEGRATION-QA",
+      "title": "Round 1A CPU and LIVE Integration QA",
+      "domain": "integration",
+      "round_ids": [
+        "R1A"
+      ],
+      "task_ids": [
+        "R1A-INTEGRATION-QA"
+      ],
+      "readiness": "cleared_for_creation",
+      "dependency_status": "ready",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": null,
+      "base_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
+      "branch": "codex/r1a-cpu-live-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1a-cpu-live-integration-qa-sol",
+      "ownership_claim_ids": [
+        "OWN-R1A-INTEGRATION-QA"
+      ],
+      "blockers": [],
+      "next_gate": "Create and pin the reserved top-level gpt-5.6-sol/max Integration QA orchestrator at exact clean staging SHA 222d75cf; product paths remain read-only and only the registered QA docs folder is writable.",
+      "updated_at": "2026-08-03T18:04:17Z"
+    },
+    {
+      "lane_id": "LANE-R3A-INTEGRATION-QA",
+      "title": "Round 3A Season Data Integration QA",
+      "domain": "integration",
+      "round_ids": [
+        "R3A"
+      ],
+      "task_ids": [
+        "R3A-INTEGRATION-QA"
+      ],
+      "readiness": "cleared_for_creation",
+      "dependency_status": "ready",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": null,
+      "base_sha": "f536a19398803742e1a3dc5bb33d8a6ee2968a24",
+      "branch": "codex/r3a-season-data-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3a-season-data-integration-qa-sol",
+      "ownership_claim_ids": [
+        "OWN-R3A-INTEGRATION-QA"
+      ],
+      "blockers": [],
+      "next_gate": "Create and pin the reserved top-level gpt-5.6-sol/max Integration QA orchestrator at exact clean staging SHA f536a193; product paths remain read-only and only the registered QA docs folder is writable.",
+      "updated_at": "2026-08-03T18:04:17Z"
     },
     {
       "lane_id": "LANE-R4-FRONTEND-INTRO-TITLE",
@@ -137,8 +183,8 @@
         "OWN-R2-SHOTS-OUTCOMES"
       ],
       "blockers": [],
-      "next_gate": "One exact projectless read-only Luna Max evidence/native-gap auditor 019fc8a8-186e-7be2-aab3-0aae3da3a2fa is active/pinned with null Git scope. Sol must personally reconcile/accept it, then register one persistent writable lineage; excluded TIP/shared boundaries remain frozen.",
-      "updated_at": "2026-08-03T17:24:47Z"
+      "next_gate": "Evidence auditor 019fc8a8-186e-7be2-aab3-0aae3da3a2fa is accepted/completed/unpinned. One persistent writable Luna 019fc8cb-3d2c-7171-bbe8-534028387b6e is active/pinned on the isolated codex/r2-shots-outcomes-luna worktree and must preserve accepted LIVE far-shot deferral.",
+      "updated_at": "2026-08-03T18:03:10Z"
     }
   ]
 }

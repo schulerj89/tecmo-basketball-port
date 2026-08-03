@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T17:52:20Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T17:57:57Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,7 +8,7 @@ Generated from committed JSON at `2026-08-03T17:52:20Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 13, `in_progress` 3, `pushed` 5, `ready_for_round_staging` 3, `sol_accepted` 1
+- Task states: `backlog` 13, `in_progress` 3, `pushed` 5, `ready_for_round_staging` 3, `scoped` 2, `sol_accepted` 1
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
@@ -16,17 +16,19 @@ Generated from committed JSON at `2026-08-03T17:52:20Z`. This dashboard reports 
 - Single master authority: `True`
 - Second-master policy: `recovery_replacement_only`
 - Active domain Sols: `4`
-- Cleared for creation: `0`
+- Cleared for creation: `2`
 - Target active domain Sols: `4`
 - Monitoring limit: `8`
 
 | Lane | Domain | Readiness | Dependencies | Tasks | Sol | Branch | Next gate |
 |---|---|---|---|---|---|---|---|
-| LANE-R1-GAMEPLAY-FOUNDATION | gameplay_foundation | active | sequentially_active | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | CPU+LIVE remain clean on Round 1 staging at 222d75cf. TIP read-only trace now proves the dedicated Bank05 slot-10 $A214/$A25F/$A274 ball path and rejects shared actor $8642; worker is tightening telemetry/full case matrix. No rescope or writable TIP lineage until Sol accepts the complete evidence report. |
-| LANE-R3-SEASON-DATA-FOUNDATION | season_data | complete | complete | R3-SEASON-DATA-FOUNDATION | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | Bounded R3 foundation lane is complete: terminal f536a193 is staging-ready; claim released; all Lunas and the Sol orchestrator are completed/unpinned; branches/worktrees remain preserved for master-owned future Round 3 staging. |
+| LANE-R1-GAMEPLAY-FOUNDATION | gameplay_foundation | active | sequentially_active | R1-TIP-FIDELITY | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | TIP continues independently from accepted CPU+LIVE base 222d75cf under the existing domain Sol and projectless evidence worker. It no longer gates the R1A CPU+LIVE delivery subround. |
+| LANE-R3-SEASON-DATA-FOUNDATION | season_data | complete | complete | R3-SEASON-DATA-FOUNDATION | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | Accepted season/data foundation is frozen at f536a193. Its separate R3A Integration QA lane is cleared for creation and no longer waits for downstream statistics, save, management, or All-Star tasks. |
+| LANE-R1A-INTEGRATION-QA | integration | cleared_for_creation | ready | R1A-INTEGRATION-QA | reserved by master | codex/r1a-cpu-live-integration-qa-sol | Create and pin the reserved top-level gpt-5.6-sol/max Integration QA orchestrator at exact clean staging SHA 222d75cf; product paths remain read-only and only the registered QA docs folder is writable. |
+| LANE-R3A-INTEGRATION-QA | integration | cleared_for_creation | ready | R3A-INTEGRATION-QA | reserved by master | codex/r3a-season-data-integration-qa-sol | Create and pin the reserved top-level gpt-5.6-sol/max Integration QA orchestrator at exact clean staging SHA f536a193; product paths remain read-only and only the registered QA docs folder is writable. |
 | LANE-R4-FRONTEND-INTRO-TITLE | frontend | active | ready | R4-FRONTEND-INTRO-TITLE | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | Native hardening plus accepted three-commit finale lineage are integrated cleanly at a40dc3f; combined /W4 build, 28/28 suite, 47 masks, 11 color cases, repeats, source/ASM and visual gates pass. Accepted finale worker is completed/unpinned. Reuse held proof worker against a40dc3f for corrected production replay, media inspection, and independent QA before domain acceptance. |
 | LANE-R4-AUDIO-FOUNDATION | audio | active | ready | R4-AUDIO-FOUNDATION | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | Isolated OWN-R4-AUDIO-FOUNDATION is Sol-accepted and ff-only integrated cleanly at e120c30e after decisive independent QA PASS and final Sol build/Music/Frontend/Gameplay suites. Await accepted writer/QA unpin confirmations, then master records staging readiness; broader cross-domain ACC-AUDIO remains deferred. |
-| LANE-R2-SHOTS-OUTCOMES | gameplay_behavior | active | ready | R2-SHOTS-OUTCOMES | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | One exact projectless read-only Luna Max evidence/native-gap auditor 019fc8a8-186e-7be2-aab3-0aae3da3a2fa is active/pinned with null Git scope. Sol must personally reconcile/accept it, then register one persistent writable lineage; excluded TIP/shared boundaries remain frozen. |
+| LANE-R2-SHOTS-OUTCOMES | gameplay_behavior | active | ready | R2-SHOTS-OUTCOMES | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | Evidence auditor 019fc8a8-186e-7be2-aab3-0aae3da3a2fa is accepted/completed/unpinned. One persistent writable Luna 019fc8cb-3d2c-7171-bbe8-534028387b6e is active/pinned on the isolated codex/r2-shots-outcomes-luna worktree and must preserve accepted LIVE far-shot deferral. |
 
 ## Rounds
 
@@ -34,9 +36,11 @@ Generated from committed JSON at `2026-08-03T17:52:20Z`. This dashboard reports 
 |---|---|---|---:|---|---|---|
 | R0 | pushed | 63b29b04b1ab | 1 | codex/master-finish-orchestration | coordination_only | succeeded |
 | R0A | pushed | 7090d2c62201 | 4 | codex/master-finish-orchestration | coordination_only | succeeded |
-| R1 | in_progress | 6d8f9c7a99a7 | 3 | codex/round-1-gameplay-foundation-staging | pending | not_attempted |
+| R1A | staging | 6d8f9c7a99a7 | 3 | codex/round-1-gameplay-foundation-staging | pending | not_attempted |
+| R1 | in_progress | 222d75cfafa9 | 1 | codex/round-1-tip-staging | pending | not_attempted |
 | R2 | in_progress | 7090d2c62201 | 5 | codex/round-2-gameplay-mechanics-staging | pending | not_attempted |
-| R3 | in_progress | 6d8f9c7a99a7 | 5 | codex/round-3-season-data-staging | pending | not_attempted |
+| R3A | staging | 6d8f9c7a99a7 | 2 | codex/round-3-season-data-staging | pending | not_attempted |
+| R3 | in_progress | 6d8f9c7a99a7 | 4 | codex/round-3-season-completion-staging | pending | not_attempted |
 | R4 | planned | 6d8f9c7a99a7 | 4 | codex/round-4-frontend-audio-staging | pending | not_attempted |
 | R5 | planned | 7090d2c62201 | 3 | codex/round-5-release-staging | pending | not_attempted |
 
@@ -46,16 +50,18 @@ Generated from committed JSON at `2026-08-03T17:52:20Z`. This dashboard reports 
 |---:|---|---|---|---|---|---|---:|---|---|
 | 100 | R0-CTRL-001 | orchestration | R0 | pushed | S-MASTER-001 | codex/master-finish-orchestration | 2 | coordination_validated | pushed |
 | 100 | R0A-INV-001 | orchestration | R0A | pushed | S-MASTER-001 | codex/master-finish-orchestration | 2 | coordination_validated | pushed |
-| 100 | R1-CPU-PLAY-LIFECYCLE | gameplay_behavior | R1 | ready_for_round_staging | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | staged |
+| 100 | R1-CPU-PLAY-LIFECYCLE | gameplay_behavior | R1A | ready_for_round_staging | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | staged |
+| 100 | R1A-INTEGRATION-QA | integration | R1A | scoped | - | codex/r1a-cpu-live-integration-qa-sol | 0 | pending | not_ready |
 | 100 | R2-SHOTS-OUTCOMES | gameplay_behavior | R2 | in_progress | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | 0 | in_progress | not_ready |
 | 100 | R3-PLAYER-STATS-LEADERS | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
-| 100 | R3-SEASON-DATA-FOUNDATION | season_data | R3 | ready_for_round_staging | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | 7 | passed | staged |
+| 100 | R3-SEASON-DATA-FOUNDATION | season_data | R3A | ready_for_round_staging | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | 7 | passed | staged |
+| 100 | R3A-INTEGRATION-QA | integration | R3A | scoped | - | codex/r3a-season-data-integration-qa-sol | 0 | pending | not_ready |
 | 100 | R4-FRONTEND-INTRO-TITLE | frontend | R4 | in_progress | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | 8 | in_progress | not_ready |
 | 100 | R5-ASSET-BUILD-PROVENANCE | assets_build | R5 | backlog | - | - | 0 | pending | not_ready |
 | 99 | R0A-ADOPT-CPU-TIP | gameplay_behavior | R0A | pushed | S-SOL-CPU-TIP-LEGACY | codex/cpu-tipoff-behavior | 1 | historical_sol_accepted | pushed |
 | 99 | R4-AUDIO-FOUNDATION | audio | R4 | sol_accepted | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | 10 | passed | not_ready |
 | 98 | R0A-ADOPT-TIP-VIS | gameplay_presentation | R0A | pushed | S-SOL-TIP-VIS-LEGACY | codex/tipoff-visual-orientation | 6 | historical_sol_accepted | pushed |
-| 98 | R1-LIVE-FOUNDATION | gameplay_behavior | R1 | ready_for_round_staging | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 3 | passed | staged |
+| 98 | R1-LIVE-FOUNDATION | gameplay_behavior | R1A | ready_for_round_staging | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 3 | passed | staged |
 | 98 | R2-DEFENSE-CONTACT | gameplay_behavior | R2 | backlog | - | - | 0 | pending | not_ready |
 | 98 | R3-SEASON-PROGRESSION-SAVE | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 98 | R4-MENUS-UI | frontend | R4 | backlog | - | - | 0 | pending | not_ready |
@@ -74,7 +80,7 @@ Generated from committed JSON at `2026-08-03T17:52:20Z`. This dashboard reports 
 
 | Session | Role | Model/thinking | Status | Pin | Tasks | Branch | Worktree | Last good |
 |---|---|---|---|---|---|---|---|---|
-| S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 813a4c4b5b1e |
+| S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | b4cebb2259c7 |
 | S-SOL-R1-GAMEPLAY-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | codex/r1-gameplay-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r1-gameplay-foundation-sol | 222d75cfafa9 |
 | S-SOL-R4-FRONTEND-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R4-FRONTEND-INTRO-TITLE | codex/r4-frontend-intro-title-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r4-frontend-intro-title-sol | a40dc3f9976d |
 | S-SOL-R4-AUDIO-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R4-AUDIO-FOUNDATION | codex/r4-audio-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r4-audio-foundation-sol | e120c30ee882 |
@@ -88,6 +94,8 @@ Generated from committed JSON at `2026-08-03T17:52:20Z`. This dashboard reports 
 | OWN-R4-FRONTEND-INTRO-TITLE | R4-FRONTEND-INTRO-TITLE | R4 | exclusive | include/tecmo_intro_*.h<br>src/tecmo_intro_*.c<br>include/tecmo_title_screen.h<br>src/tecmo_title_screen.c<br>src/asset_pack/tecmo_asset_pack_opening.c<br>src/asset_pack/tecmo_asset_pack_opening.h<br>src/asset_pack/tecmo_asset_pack_arena.c<br>src/asset_pack/tecmo_asset_pack_arena.h<br>src/asset_pack/tecmo_asset_pack_finale.c<br>src/asset_pack/tecmo_asset_pack_finale.h<br>src/asset_pack/tecmo_asset_pack_post_arena.c<br>src/asset_pack/tecmo_asset_pack_post_arena.h<br>src/asset_pack/tecmo_asset_pack_d9f6.c<br>src/asset_pack/tecmo_asset_pack_d9f6.h<br>src/asset_pack/tecmo_asset_pack_title.c<br>src/asset_pack/tecmo_asset_pack_title.h<br>tools/Run-IntroSequenceTests.ps1<br>tools/New-IntroLayoutDraft.ps1<br>tools/Import-IntroArenaCapture.ps1<br>tools/Find-Intro*.ps1<br>tools/Find-NesReferenceIntro.ps1<br>tools/Find-Title*.ps1<br>tools/emu_intro_*.lua<br>docs/finish-tasks/R4-frontend-intro-title/**<br>src/tecmo_cli_render_scene_modes.c | R4-frontend-intro-title |
 | OWN-R4-AUDIO-FOUNDATION | R4-AUDIO-FOUNDATION | R4 | exclusive | include/tecmo_audio_output.h<br>include/tecmo_frontend_audio.h<br>include/tecmo_gameplay_audio.h<br>include/tecmo_music.h<br>src/tecmo_audio_output.c<br>src/tecmo_frontend_audio.c<br>src/tecmo_gameplay_audio.c<br>src/tecmo_music.c<br>src/tecmo_cli_audio.c<br>src/asset_pack/tecmo_asset_pack_music.c<br>src/asset_pack/tecmo_asset_pack_music.h<br>src/asset_pack/tecmo_asset_pack_gameplay_audio.c<br>src/asset_pack/tecmo_asset_pack_gameplay_audio.h<br>tools/Run-MusicTests.ps1<br>tools/Run-GameplayAudioTests.ps1<br>tools/Run-FrontendAudioTests.ps1<br>docs/finish-tasks/R4-audio-foundation/** | R4-audio-foundation |
 | OWN-R2-SHOTS-OUTCOMES | R2-SHOTS-OUTCOMES | R2 | exclusive | include/tecmo_gameplay_close_shots.h<br>include/tecmo_gameplay_jump_shots.h<br>include/tecmo_gameplay_dunk_cutaway.h<br>include/tecmo_gameplay_shot_resolution.h<br>include/tecmo_gameplay_scene.h<br>include/tecmo_gameplay_scene_internal.h<br>src/tecmo_gameplay_close_shots.c<br>src/tecmo_gameplay_jump_shots.c<br>src/tecmo_gameplay_dunk_cutaway.c<br>src/tecmo_gameplay_shot_resolution.c<br>src/tecmo_gameplay_scene_shots.c<br>src/tecmo_gameplay_scene_validation.c<br>src/tecmo_gameplay_scene_test_internal.h<br>src/tecmo_gameplay_scene_test_orchestrator.c<br>src/tecmo_gameplay_scene_test_state_flow.c<br>src/tecmo_cli_gameplay_shots.c<br>src/tecmo_cli_gameplay_shot_resolution.c<br>src/asset_pack/tecmo_asset_pack_gameplay_close_shots.c<br>src/asset_pack/tecmo_asset_pack_gameplay_close_shots.h<br>src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c<br>src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.h<br>src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c<br>src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.h<br>src/asset_pack/tecmo_asset_pack_gameplay_shot_resolution.c<br>src/asset_pack/tecmo_asset_pack_gameplay_shot_resolution.h<br>tools/Run-GameplayCloseShotTests.ps1<br>tools/Run-GameplayShotResolutionTests.ps1<br>docs/finish-tasks/R2-shots-outcomes/** | R2-shots-outcomes |
+| OWN-R1A-INTEGRATION-QA | R1A-INTEGRATION-QA | R1A | exclusive | docs/finish-tasks/R1A-cpu-live-integration-qa/** | R1A-integration-qa |
+| OWN-R3A-INTEGRATION-QA | R3A-INTEGRATION-QA | R3A | exclusive | docs/finish-tasks/R3A-season-data-integration-qa/** | R3A-integration-qa |
 
 ## External Blockers
 

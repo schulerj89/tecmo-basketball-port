@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T17:22:51Z",
+  "updated_at": "2026-08-03T17:57:57Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -118,19 +118,19 @@
       "updated_at": "2026-08-03T05:30:16Z"
     },
     {
-      "round_id": "R1",
-      "title": "Critical gameplay foundation and exact-policy recovery",
-      "status": "in_progress",
+      "round_id": "R1A",
+      "title": "Incremental CPU and LIVE gameplay-foundation delivery",
+      "status": "staging",
       "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "scope": [
-        "Original CPU play-command lifecycle",
-        "Roster-bound live foundation",
-        "Remaining exact tip-off behavior"
+        "Accepted original CPU play-command lifecycle",
+        "Accepted roster-bound LIVE foundation",
+        "Dedicated combined Integration QA and incremental main push"
       ],
       "included_task_ids": [
         "R1-CPU-PLAY-LIFECYCLE",
         "R1-LIVE-FOUNDATION",
-        "R1-TIP-FIDELITY"
+        "R1A-INTEGRATION-QA"
       ],
       "staging_branch": "codex/round-1-gameplay-foundation-staging",
       "sol_orchestrator_session_ids": [
@@ -140,6 +140,55 @@
       "merge_order": [
         "R1-CPU-PLAY-LIFECYCLE",
         "R1-LIVE-FOUNDATION",
+        "R1A-INTEGRATION-QA"
+      ],
+      "combined_qa": {
+        "required": true,
+        "status": "pending",
+        "accepted_sha": null,
+        "report_path": null,
+        "signed_by_session_id": null,
+        "notes": "User authorized incremental delivery so accepted CPU+LIVE do not sit behind TIP. Staging is clean at 222d75cf; create a dedicated Sol Max Integration QA orchestrator and push only after its exact signed report."
+      },
+      "acceptance": {
+        "status": "pending",
+        "accepted_at": null,
+        "accepted_sha": null,
+        "criteria": [
+          "CPU and LIVE domain tasks retain exact Sol acceptance and documentation",
+          "Dedicated combined suite, rebuild, production smoke, and gameplay proof pass on exact staging",
+          "Integration QA reports no cross-slice regression and signs the final docs-only tip"
+        ]
+      },
+      "main_integration": {
+        "pre_main_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
+        "merge_commits": [],
+        "post_main_sha": null,
+        "remote_main_before_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
+        "push_sha": null,
+        "push_result": "not_attempted",
+        "pushed_at": null
+      },
+      "created_at": "2026-08-03T17:57:57Z",
+      "updated_at": "2026-08-03T17:57:57Z"
+    },
+    {
+      "round_id": "R1",
+      "title": "Tip-off fidelity continuation",
+      "status": "in_progress",
+      "base_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
+      "scope": [
+        "Remaining exact tip-off behavior"
+      ],
+      "included_task_ids": [
+        "R1-TIP-FIDELITY"
+      ],
+      "staging_branch": "codex/round-1-tip-staging",
+      "sol_orchestrator_session_ids": [
+        "S-SOL-R1-GAMEPLAY-001"
+      ],
+      "integration_qa_session_id": null,
+      "merge_order": [
         "R1-TIP-FIDELITY"
       ],
       "combined_qa": {
@@ -148,16 +197,16 @@
         "accepted_sha": null,
         "report_path": null,
         "signed_by_session_id": null,
-        "notes": "Accepted CPU+LIVE are physically staged, clean, and ordered on codex/round-1-gameplay-foundation-staging at 222d75cf. TIP remains in_progress on the authoritative R1 domain branch. After TIP acceptance/staging, create the dedicated Sol Max Round 1 Integration QA orchestrator for combined suites and production proof; main/origin stay 6d8f9c7 until sign-off."
+        "notes": "TIP remains in_progress from accepted domain base 222d75cf. CPU+LIVE moved to authorized delivery subround R1A; after its push, rebase this round's main/staging metadata to the new main without rewriting TIP history."
       },
       "acceptance": {
         "status": "pending",
         "accepted_at": null,
         "accepted_sha": null,
         "criteria": [
-          "Every domain task has Sol sign-off and complete task docs",
-          "No writable ownership overlap",
-          "Dedicated combined suite and production visual proof pass"
+          "TIP task has Sol sign-off and complete task docs",
+          "Original human and automatic timing, claim, trajectory, orientation, and handoff proof pass",
+          "Dedicated integration QA signs the TIP staging SHA"
         ]
       },
       "main_integration": {
@@ -170,7 +219,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T17:06:52Z"
+      "updated_at": "2026-08-03T17:57:57Z"
     },
     {
       "round_id": "R2",
@@ -234,8 +283,61 @@
       "updated_at": "2026-08-03T17:22:51Z"
     },
     {
+      "round_id": "R3A",
+      "title": "Incremental season/data foundation delivery",
+      "status": "staging",
+      "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
+      "scope": [
+        "Accepted real-team/player identity and All-Star source mapping foundation",
+        "Accepted schedule, standings-query, leader-ranking seam, and transactional TSAV-1 hardening",
+        "Dedicated combined Integration QA and incremental main push"
+      ],
+      "included_task_ids": [
+        "R3-SEASON-DATA-FOUNDATION",
+        "R3A-INTEGRATION-QA"
+      ],
+      "staging_branch": "codex/round-3-season-data-staging",
+      "sol_orchestrator_session_ids": [
+        "S-SOL-R3-SEASON-DATA-001"
+      ],
+      "integration_qa_session_id": null,
+      "merge_order": [
+        "R3-SEASON-DATA-FOUNDATION",
+        "R3A-INTEGRATION-QA"
+      ],
+      "combined_qa": {
+        "required": true,
+        "status": "pending",
+        "accepted_sha": null,
+        "report_path": null,
+        "signed_by_session_id": null,
+        "notes": "User authorized incremental delivery so the accepted season/data foundation does not sit behind downstream statistics, save, management, and All-Star tasks. Staging is clean at f536a193; dedicated Sol Max Integration QA is required before push."
+      },
+      "acceptance": {
+        "status": "pending",
+        "accepted_at": null,
+        "accepted_sha": null,
+        "criteria": [
+          "Season/data foundation retains exact Sol and independent QA acceptance",
+          "Dedicated build, asset-pack, team-data, season-flow, rollback, and production-path proof pass",
+          "Integration QA signs the final docs-only staging tip without claiming deferred downstream features"
+        ]
+      },
+      "main_integration": {
+        "pre_main_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
+        "merge_commits": [],
+        "post_main_sha": null,
+        "remote_main_before_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
+        "push_sha": null,
+        "push_result": "not_attempted",
+        "pushed_at": null
+      },
+      "created_at": "2026-08-03T17:57:57Z",
+      "updated_at": "2026-08-03T17:57:57Z"
+    },
+    {
       "round_id": "R3",
-      "title": "Season, management, player/team data, statistics, leaders, and All-Star",
+      "title": "Season/statistics/management completion",
       "status": "in_progress",
       "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "scope": [
@@ -245,19 +347,15 @@
         "All-Star end-to-end"
       ],
       "included_task_ids": [
-        "R3-SEASON-DATA-FOUNDATION",
         "R3-PLAYER-STATS-LEADERS",
         "R3-SEASON-PROGRESSION-SAVE",
         "R3-TEAM-MGMT-DATA",
         "R3-ALLSTAR"
       ],
-      "staging_branch": "codex/round-3-season-data-staging",
-      "sol_orchestrator_session_ids": [
-        "S-SOL-R3-SEASON-DATA-001"
-      ],
+      "staging_branch": "codex/round-3-season-completion-staging",
+      "sol_orchestrator_session_ids": [],
       "integration_qa_session_id": null,
       "merge_order": [
-        "R3-SEASON-DATA-FOUNDATION",
         "R3-PLAYER-STATS-LEADERS",
         "R3-SEASON-PROGRESSION-SAVE",
         "R3-TEAM-MGMT-DATA",
@@ -269,7 +367,7 @@
         "accepted_sha": null,
         "report_path": null,
         "signed_by_session_id": null,
-        "notes": "Accepted season/data foundation is physically staged and clean on codex/round-3-season-data-staging at f536a193. Player stats/leaders, progression/save, management/data, and All-Star remain dependency-gated; dedicated full-round Sol integration QA is not yet eligible."
+        "notes": "The accepted foundation moved to authorized delivery subround R3A. Player stats/leaders, progression/save, management/data, and All-Star remain dependency-gated here; after R3A pushes, refresh this round base/staging metadata to the new main."
       },
       "acceptance": {
         "status": "pending",
@@ -291,7 +389,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T17:06:52Z"
+      "updated_at": "2026-08-03T17:57:57Z"
     },
     {
       "round_id": "R4",

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T17:10:20Z",
+  "updated_at": "2026-08-03T17:57:57Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -125,7 +125,7 @@
     {
       "claim_id": "OWN-R1-CPU-PLAY",
       "task_id": "R1-CPU-PLAY-LIFECYCLE",
-      "round_id": "R1",
+      "round_id": "R1A",
       "session_id": "S-SOL-R1-GAMEPLAY-001",
       "mode": "exclusive",
       "writable_globs": [
@@ -151,7 +151,7 @@
     {
       "claim_id": "OWN-R1-LIVE",
       "task_id": "R1-LIVE-FOUNDATION",
-      "round_id": "R1",
+      "round_id": "R1A",
       "session_id": "S-SOL-R1-GAMEPLAY-001",
       "mode": "exclusive",
       "writable_globs": [
@@ -233,7 +233,7 @@
     {
       "claim_id": "OWN-R3-SEASON-DATA-FOUNDATION",
       "task_id": "R3-SEASON-DATA-FOUNDATION",
-      "round_id": "R3",
+      "round_id": "R3A",
       "session_id": "S-SOL-R3-SEASON-DATA-001",
       "mode": "exclusive",
       "writable_globs": [
@@ -395,6 +395,44 @@
       "claimed_at": "2026-08-03T17:06:38Z",
       "released_at": null,
       "notes": "Reserved by the master before creation, then transferred to registered/pinned S-SOL-R2-SHOTS-001 at exact clean base 222d75cf. Existing shot-family engines, settlement scene module, exact semantic shot packs, focused CLIs/tests, bounded scene contracts, and task docs only. Active R1 TIP/render, CPU/LIVE implementations, defense/contact, rules/restarts, clocks/lineups, audio, CMake/build lists, global source-map/import-layout, game/flow, Win32, main, and unrelated product paths are excluded; any required boundary must be reported for explicit rescope."
+    },
+    {
+      "claim_id": "OWN-R1A-INTEGRATION-QA",
+      "task_id": "R1A-INTEGRATION-QA",
+      "round_id": "R1A",
+      "session_id": "S-MASTER-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R1A-cpu-live-integration-qa/**"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R1A-cpu-live-integration-qa/README.md",
+        "docs/finish-tasks/R1A-cpu-live-integration-qa/PROOF.md"
+      ],
+      "concurrency_group": "R1A-integration-qa",
+      "active": true,
+      "claimed_at": "2026-08-03T17:57:57Z",
+      "released_at": null,
+      "notes": "Master reservation before Integration QA Sol creation. Product/source paths are read-only; ignored proof output is allowed. Transfer this docs-only claim to the exact created Sol session before execution."
+    },
+    {
+      "claim_id": "OWN-R3A-INTEGRATION-QA",
+      "task_id": "R3A-INTEGRATION-QA",
+      "round_id": "R3A",
+      "session_id": "S-MASTER-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R3A-season-data-integration-qa/**"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R3A-season-data-integration-qa/README.md",
+        "docs/finish-tasks/R3A-season-data-integration-qa/PROOF.md"
+      ],
+      "concurrency_group": "R3A-integration-qa",
+      "active": true,
+      "claimed_at": "2026-08-03T17:57:57Z",
+      "released_at": null,
+      "notes": "Master reservation before Integration QA Sol creation. Product/source paths are read-only; ignored proof output is allowed. Transfer this docs-only claim to the exact created Sol session before execution."
     }
   ],
   "shared_boundaries": [
@@ -413,16 +451,27 @@
     },
     {
       "boundary_id": "BOUNDARY-R1-SCENE",
-      "round_id": "R1",
+      "round_id": "R1A",
       "writable_glob": "src/tecmo_gameplay_scene.c",
       "policy": "designated_task",
       "designated_task_id": "R1-LIVE-FOUNDATION",
       "ordered_task_ids": [
         "R1-CPU-PLAY-LIFECYCLE",
+        "R1-LIVE-FOUNDATION"
+      ],
+      "notes": "CPU/LIVE shared scene and handoff work is frozen in delivery subround R1A. Later TIP discoveries requiring this accepted boundary must receive a fresh explicit sequential rescope; no active session may improvise edits."
+    },
+    {
+      "boundary_id": "BOUNDARY-R1A-TO-R1-TIP-LINEAGE",
+      "round_id": "R1",
+      "writable_glob": "src/tecmo_gameplay_scene.c",
+      "policy": "sequential",
+      "designated_task_id": null,
+      "ordered_task_ids": [
         "R1-LIVE-FOUNDATION",
         "R1-TIP-FIDELITY"
       ],
-      "notes": "CPU or tip discoveries that require shared scene/handoff changes are implemented and reviewed sequentially under the live-foundation task; no second session may edit this file."
+      "notes": "The accepted LIVE tip and active TIP continuation intentionally share one preserved domain branch/worktree in strict order. LIVE is immutable and staged in R1A; TIP may not edit the accepted scene boundary without a fresh explicit rescope. This record authorizes lineage reuse only, not overlapping mutation."
     },
     {
       "boundary_id": "BOUNDARY-R2-SHOTS-SCENE-CONTRACT",
@@ -459,13 +508,20 @@
       "declared_at": "2026-08-03T04:47:45Z"
     },
     {
-      "round_id": "R1",
+      "round_id": "R1A",
       "ordered_task_ids": [
         "R1-CPU-PLAY-LIFECYCLE",
         "R1-LIVE-FOUNDATION",
+        "R1A-INTEGRATION-QA"
+      ],
+      "declared_at": "2026-08-03T17:57:57Z"
+    },
+    {
+      "round_id": "R1",
+      "ordered_task_ids": [
         "R1-TIP-FIDELITY"
       ],
-      "declared_at": "2026-08-03T04:47:45Z"
+      "declared_at": "2026-08-03T17:57:57Z"
     },
     {
       "round_id": "R2",
@@ -479,15 +535,22 @@
       "declared_at": "2026-08-03T04:47:45Z"
     },
     {
-      "round_id": "R3",
+      "round_id": "R3A",
       "ordered_task_ids": [
         "R3-SEASON-DATA-FOUNDATION",
+        "R3A-INTEGRATION-QA"
+      ],
+      "declared_at": "2026-08-03T17:57:57Z"
+    },
+    {
+      "round_id": "R3",
+      "ordered_task_ids": [
         "R3-PLAYER-STATS-LEADERS",
         "R3-SEASON-PROGRESSION-SAVE",
         "R3-TEAM-MGMT-DATA",
         "R3-ALLSTAR"
       ],
-      "declared_at": "2026-08-03T14:50:16Z"
+      "declared_at": "2026-08-03T17:57:57Z"
     },
     {
       "round_id": "R4",

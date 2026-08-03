@@ -137,6 +137,14 @@ it. Rounds are dependency-aware. Concurrent tasks must have disjoint writable
 ownership. Shared boundaries are sequential or owned by a designated boundary
 task.
 
+An accepted, dependency-safe slice must not sit behind unrelated unfinished
+work. The master may split it into a letter-suffixed delivery subround (for
+example `R1A`) when the user authorizes incremental delivery. A subround freezes
+its own exact task set, staging SHA, merge order, Integration QA Sol, acceptance
+record, and one non-force main push. Remaining work stays in the parent round
+with fresh base and staging metadata after the subround push. No product task is
+duplicated across rounds and no subround bypasses Integration QA.
+
 ## Task Lifecycle
 
 The canonical state machine is `state/state-machine.json`:
@@ -186,7 +194,8 @@ master does not rerun product tests.
 
 ## Round Merge and Push Gate
 
-1. Freeze the round task set, merge order, expected parents, and staging branch.
+1. Freeze the round or authorized delivery-subround task set, merge order,
+   expected parents, and staging branch.
 2. Verify remote `origin/main` has not advanced unexpectedly.
 3. Merge only signed Sol-accepted domain commits in declared order.
 4. Create a dedicated top-level Sol Max Round Integration QA orchestrator on
@@ -194,9 +203,9 @@ master does not rerun product tests.
 5. Require its signed full-suite/rebuild/video/frame/audio/cross-domain report.
 6. Move the round to `ready_for_main` only after that report is committed and
    its accepted staging SHA is exact.
-7. Fast-forward or merge the complete round into `main`; never cherry-pick an
-   unsigned fragment.
-8. Push `origin/main` once for the accepted round, without force.
+7. Fast-forward or merge the complete frozen round/subround into `main`; never
+   cherry-pick an unsigned fragment.
+8. Push `origin/main` once for the accepted round/subround, without force.
 9. Record pre-main SHA, merge commits, post-main SHA, remote SHA, push result,
    and acceptance timestamp.
 
