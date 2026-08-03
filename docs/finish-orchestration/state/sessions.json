@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T17:10:30Z",
+  "updated_at": "2026-08-03T17:22:51Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -201,8 +201,8 @@
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T17:10:20Z",
       "completed_at": null,
-      "updated_at": "2026-08-03T17:10:30Z",
-      "notes": "Created once and pinned after reservation checkpoint e82392c and exact clean branch/worktree creation at accepted CPU+LIVE base 222d75cf. It owns only OWN-R2-SHOTS-OUTCOMES, may create only top-level Luna Max workers, must report clean takeover before worker creation, and cannot touch active TIP, staging, main, or excluded boundaries. No creation fault/retry."
+      "updated_at": "2026-08-03T17:22:51Z",
+      "notes": "Clean takeover accepted at exact branch/worktree/HEAD/base 222d75cf after full AGENTS/PORTING, accepted CPU/LIVE, ownership/dependency, canonical ROM, original source, native contract, and transactional-gap audit. Task is in_progress. Sol may create exactly one projectless read-only Luna Max evidence/native-gap audit, then must personally reconcile it before any persistent writable lineage. Active TIP, staging, main, and excluded boundaries remain frozen; no creation fault or product mutation."
     },
     {
       "session_id": "S-SOL-CPU-TIP-LEGACY",

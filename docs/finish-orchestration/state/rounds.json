@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T17:10:30Z",
+  "updated_at": "2026-08-03T17:22:51Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -209,7 +209,7 @@
         "accepted_sha": null,
         "report_path": null,
         "signed_by_session_id": null,
-        "notes": "R2 shots/outcomes Sol 019fc89a-de0d-7b61-9364-3cf96ff8dba8 is created/pinned at exact accepted CPU+LIVE base 222d75cf and awaits its clean takeover gate. No Round 2 commit is staged yet; defense, rules, clock/lineups, presentation, and dedicated full-round integration QA remain pending."
+        "notes": "Shots/outcomes Sol clean takeover is accepted at exact base 222d75cf and the task is in_progress. Initial read-only evidence/native-gap Luna audit is authorized; no R2 product commit is staged yet. Defense, rules, clock/lineups, presentation, and full-round integration QA remain pending."
       },
       "acceptance": {
         "status": "pending",
@@ -231,7 +231,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T17:10:30Z"
+      "updated_at": "2026-08-03T17:22:51Z"
     },
     {
       "round_id": "R3",

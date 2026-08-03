@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T17:10:30Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T17:22:51Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,7 +8,7 @@ Generated from committed JSON at `2026-08-03T17:10:30Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `assigned` 1, `backlog` 13, `in_progress` 3, `pushed` 5, `ready_for_round_staging` 3
+- Task states: `backlog` 13, `in_progress` 4, `pushed` 5, `ready_for_round_staging` 3
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
@@ -26,7 +26,7 @@ Generated from committed JSON at `2026-08-03T17:10:30Z`. This dashboard reports 
 | LANE-R3-SEASON-DATA-FOUNDATION | season_data | complete | complete | R3-SEASON-DATA-FOUNDATION | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | Bounded R3 foundation lane is complete: terminal f536a193 is staging-ready; claim released; all Lunas and the Sol orchestrator are completed/unpinned; branches/worktrees remain preserved for master-owned future Round 3 staging. |
 | LANE-R4-FRONTEND-INTRO-TITLE | frontend | active | ready | R4-FRONTEND-INTRO-TITLE | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | Native hardening is integrated at 761e061f. Same finale worker is correcting capture/native +8 scanline mapping, page1 short-route cadence, and three-band title renderer before its first commit; held proof worker revises only after finale integration. |
 | LANE-R4-AUDIO-FOUNDATION | audio | active | ready | R4-AUDIO-FOUNDATION | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | Human listening is approved. Writer proof-gate chain now tops at clean ad82eb9; the same detached QA lineage is actively verifying exact vector/order/RIFF/event/run2/base-clean assertions. Same-writer terminal docs and final QA precede Sol acceptance/integration. |
-| LANE-R2-SHOTS-OUTCOMES | gameplay_behavior | active | ready | R2-SHOTS-OUTCOMES | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | Registered/pinned Sol thread 019fc89a-de0d-7b61-9364-3cf96ff8dba8 must complete governing-file, exact base/worktree/cleanliness, accepted CPU/LIVE docs, and collision gates, then report assigned -> in_progress before any Luna creation or mutation. |
+| LANE-R2-SHOTS-OUTCOMES | gameplay_behavior | active | ready | R2-SHOTS-OUTCOMES | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | Clean takeover accepted and task in_progress. Sol may create/pin exactly one projectless read-only Luna Max evidence/native-gap audit, reconcile it personally, then register one persistent writable lineage only after the evidence gate; excluded TIP/shared boundaries remain frozen. |
 
 ## Rounds
 
@@ -47,7 +47,7 @@ Generated from committed JSON at `2026-08-03T17:10:30Z`. This dashboard reports 
 | 100 | R0-CTRL-001 | orchestration | R0 | pushed | S-MASTER-001 | codex/master-finish-orchestration | 2 | coordination_validated | pushed |
 | 100 | R0A-INV-001 | orchestration | R0A | pushed | S-MASTER-001 | codex/master-finish-orchestration | 2 | coordination_validated | pushed |
 | 100 | R1-CPU-PLAY-LIFECYCLE | gameplay_behavior | R1 | ready_for_round_staging | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | staged |
-| 100 | R2-SHOTS-OUTCOMES | gameplay_behavior | R2 | assigned | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | 0 | pending | not_ready |
+| 100 | R2-SHOTS-OUTCOMES | gameplay_behavior | R2 | in_progress | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | 0 | in_progress | not_ready |
 | 100 | R3-PLAYER-STATS-LEADERS | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 100 | R3-SEASON-DATA-FOUNDATION | season_data | R3 | ready_for_round_staging | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | 7 | passed | staged |
 | 100 | R4-FRONTEND-INTRO-TITLE | frontend | R4 | in_progress | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | 0 | in_progress | not_ready |
