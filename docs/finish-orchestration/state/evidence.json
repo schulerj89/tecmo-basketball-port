@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T19:24:36Z",
+  "updated_at": "2026-08-03T22:04:10Z",
   "records": [
     {
       "evidence_id": "EVID-R0-BASE",
@@ -307,6 +307,46 @@
       "proof_locations": ["C:/Users/joshs/Projects/tecmo-basketball-port-r4a-audio-integration-qa-sol/build/proof/r4-audio-foundation/proof-manifest.txt"],
       "local_private": true,
       "created_at": "2026-08-03T19:24:36Z"
+    },
+    {
+      "evidence_id": "EVID-R1-TIP-SOURCE-MECHANICS",
+      "task_ids": ["R1-TIP-FIDELITY"],
+      "kind": "asm",
+      "title": "Rev1 tip input capture, automatic jump, dedicated ball claim, and live-loop seams",
+      "classification": "exact_source_pinned",
+      "confidence": "high",
+      "rom": {"revision":"Tecmo NBA Basketball USA Rev1","sha256":"076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4","fnv1a32":"0650F5B0"},
+      "asm": {"bank":"Bank04 and Bank05","address":"$86E1-$8817, $839F, $985E, $9C7F, $A214, $A274-$A2D5, $E537-$E56E","table_or_routine":"B-level capture/error, automatic/opposing jumper paths, actor jump commit, dedicated slot-10 claim path, possession write, and first recurring running-loop observation"},
+      "original_reference": {"kind":"trace","identity":"Mapper-gated FCEUX 2.6.6 human, simultaneous, automatic-both-unassigned, and human-vs-CPU cases plus accepted private manifests","timestamp_or_frame":"accepted terminal research and implementation evidence 2026-08-03"},
+      "description": "Canonical Rev1 evidence source-pins the paired NES-B capture/error storage, automatic and opposing jump paths, actor jump commit, dedicated slot-10 dispatcher and higher-candidate claim path, possession store ordering, and the first observed recurring live-loop entry. The accepted implementation expands strict TPTI-2 and applies a bounded transactional native bridge without a runtime ROM, decompilation, Lua, or capture dependency.",
+      "what_it_proves": "The accepted native TIP implementation is grounded in the correct original capture, automatic, jump, claim, and handoff seams and rejects the shared-actor $8642 and later/general $98E1 false friends.",
+      "limits": "Original single-winner tie settlement, selector-to-team/receiver ownership, TTDT-to-$7C48 player mapping, complete original close-up/trajectory composition, and ROM-exact native frame-721 timing remain incomplete.",
+      "runtime_locations": ["include/tecmo_gameplay_pretip.h","src/tecmo_gameplay_pretip.c","src/tecmo_gameplay_scene.c","src/asset_pack/tecmo_asset_pack_gameplay_pretip.c","src/asset_pack/tecmo_asset_pack_source_map.c"],
+      "test_locations": ["src/tecmo_gameplay_scene_test_pretip.c","src/tecmo_gameplay_scene_test_render_contract.c","tools/Run-GameplayPreTipTests.ps1","tools/Run-GameplaySceneTests.ps1"],
+      "doc_locations": ["docs/finish-tasks/R1-tip-fidelity/EVIDENCE.md","docs/finish-tasks/R1-tip-fidelity/IMPLEMENTATION.md"],
+      "proof_locations": ["C:/Users/joshs/Documents/Codex/2026-08-03/top-level-read-only-research-role/work/tip_evidence_manifest.json"],
+      "local_private": true,
+      "created_at": "2026-08-03T22:04:10Z"
+    },
+    {
+      "evidence_id": "EVID-R1-TIP-TERMINAL-PROOF",
+      "task_ids": ["R1-TIP-FIDELITY"],
+      "kind": "proof_manifest",
+      "title": "R1 TIP terminal deterministic production proof and independent acceptance",
+      "classification": "native_faithful",
+      "confidence": "high",
+      "rom": null,
+      "asm": null,
+      "original_reference": {"kind":"document","identity":"Sol manifest AAD8EF7AF9F075E5EA1F64B91C6F363A9E2959444D893F6D0C4A760368D11438 and independent manifest 051002DF73166C914DB236BAB1313800917C849D47026EDF1AAD30C70F4D6DEC","timestamp_or_frame":"native frames 661-725; accepted 2026-08-03T21:56:19Z"},
+      "description": "Sol and independent QA accepted signed chain a37e102 through e21f9a6. Warning-clean console/Win32 build, focused TPTI-2, broad scene, explicit Win32 smoke, two independent deterministic 65x2-frame 640x480 proof runs, 138 clean logs, manifest/media audits, and full-resolution/original-reference visual review passed with terminal P0/P1/P2 zero.",
+      "what_it_proves": "The accepted native contest visibly captures input, presents two inward-facing jumpers and a coherent arc, applies the bounded claim bridge transactionally, and hands off at the preserved native 721-update contract with clean LIVE continuity through frame 725.",
+      "limits": "The proof establishes the accepted native presentation and state handoff, not emulator-perfect visual parity or original frame-721 timing. Original close-up/post-claim trajectory, tie settlement, selector/receiver mapping, and TTDT player mapping remain incomplete. Current-main integration QA and push are still pending.",
+      "runtime_locations": ["src/tecmo_gameplay_pretip.c","src/tecmo_gameplay_scene.c","src/tecmo_gameplay_scene_render.c","src/tecmo_flow_test.c","src/tecmo_gameplay_live_proof.c"],
+      "test_locations": ["tools/Run-GameplayPreTipTests.ps1","tools/Run-GameplaySceneTests.ps1","tools/New-TipoffVisualProof.ps1","tools/Run-Win32LaunchSmokeTest.ps1"],
+      "doc_locations": ["docs/finish-tasks/R1-tip-fidelity/PROOF.md","docs/finish-tasks/R1-tip-fidelity/TESTS.md","docs/finish-tasks/R1-tip-fidelity/LINEAGE.md","docs/finish-tasks/R1-tip-fidelity/MERGE.md"],
+      "proof_locations": ["C:/Users/joshs/Projects/tecmo-basketball-port-r1-tip-fidelity-luna/build/proof/tipoff-visual-orientation-a37e10207455/proof-manifest.json","C:/Users/joshs/Projects/tecmo-basketball-port-r1-tip-fidelity-luna/build/proof/qa-tipoff-b678beffeacd/proof-manifest.json"],
+      "local_private": true,
+      "created_at": "2026-08-03T22:04:10Z"
     }
   ]
 }

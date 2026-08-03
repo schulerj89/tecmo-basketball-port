@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T21:51:56Z",
+  "updated_at": "2026-08-03T22:04:10Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,12 +10,12 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 3,
+    "active_domain_orchestrators": 2,
     "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
-    "unallocated_target_slots": 1,
-    "unallocated_monitoring_slots": 5
+    "unallocated_target_slots": 2,
+    "unallocated_monitoring_slots": 6
   },
   "lanes": [
     {
@@ -28,8 +28,8 @@
       "task_ids": [
         "R1-TIP-FIDELITY"
       ],
-      "readiness": "active",
-      "dependency_status": "sequentially_active",
+      "readiness": "complete",
+      "dependency_status": "complete",
       "reservation_owner_session_id": "S-MASTER-001",
       "orchestrator_session_id": "S-SOL-R1-GAMEPLAY-001",
       "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
@@ -39,8 +39,8 @@
         "OWN-R1-TIP"
       ],
       "blockers": [],
-      "next_gate": "Docs-only chain 1b1bf23->e21f9a6 closes the independent-QA status P2 and mapper/diagnostic wording precision. Same projectless QA is verifying exact clean e21; Sol integration remains held pending final P0/P1/P2 closure.",
-      "updated_at": "2026-08-03T21:51:56Z"
+      "next_gate": "Terminal signed TIP domain tip e21f9a6 is Sol/independent accepted with P0/P1/P2 zero and ready for incremental round staging. Create dedicated current-main integration QA; do not fast-forward divergent main directly or fold uncommitted shots work into the candidate.",
+      "updated_at": "2026-08-03T22:04:10Z"
     },
     {
       "lane_id": "LANE-R3-SEASON-DATA-FOUNDATION",

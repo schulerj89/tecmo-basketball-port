@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T21:02:40Z",
+  "updated_at": "2026-08-03T22:04:10Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -197,7 +197,7 @@
         "accepted_sha": null,
         "report_path": null,
         "signed_by_session_id": null,
-        "notes": "TIP remains in_progress from accepted domain base 222d75cf. CPU+LIVE moved to authorized delivery subround R1A; after its push, rebase this round's main/staging metadata to the new main without rewriting TIP history."
+        "notes": "TIP domain tip e21f9a6 is ready_for_round_staging after exact signed-lineage, ownership, documentation, Sol-proof, and independent P0/P1/P2-zero acceptance. CPU+LIVE and subsequent accepted domains are already on current main edf16ca. Dedicated incremental integration QA must deliberately reconcile e21f9a6 with current main before any push; the local active preview is not an acceptance artifact."
       },
       "acceptance": {
         "status": "pending",
@@ -210,16 +210,16 @@
         ]
       },
       "main_integration": {
-        "pre_main_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
+        "pre_main_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
         "merge_commits": [],
         "post_main_sha": null,
-        "remote_main_before_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
+        "remote_main_before_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
         "push_sha": null,
         "push_result": "not_attempted",
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T17:57:57Z"
+      "updated_at": "2026-08-03T22:04:10Z"
     },
     {
       "round_id": "R2",

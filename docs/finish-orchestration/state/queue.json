@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T21:51:56Z",
+  "updated_at": "2026-08-03T22:04:10Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -1110,7 +1110,7 @@
       "round_id": "R1",
       "priority": 96,
       "coordination_only": false,
-      "state": "luna_revision",
+      "state": "ready_for_round_staging",
       "dependencies": [
         "R0A-ADOPT-CPU-TIP",
         "R0A-ADOPT-TIP-VIS",
@@ -1128,14 +1128,22 @@
         "019fc89b-05fb-7193-aef0-e483f9306279",
         "019fc8ea-543c-7c11-8cae-64f39cec735f"
       ],
-      "result_commits": [],
-      "evidence_ids": [],
+      "result_commits": [
+        "a37e10207455933be3930e90c55b10b669cb0ef3",
+        "b678beffeacd745fe438e78d323357dc6f86af95",
+        "1b1bf23b3c48947d988c9231870f9827f88cc5a6",
+        "e21f9a6621df5527544be1de4d0dc60382539c60"
+      ],
+      "evidence_ids": [
+        "EVID-R1-TIP-SOURCE-MECHANICS",
+        "EVID-R1-TIP-TERMINAL-PROOF"
+      ],
       "blocker_ids": [],
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-tasks/R1-tip-fidelity",
       "qa": {
-        "status": "in_progress",
-        "sol_signoff": false,
+        "status": "passed",
+        "sol_signoff": true,
         "integration_signoff": false,
         "test_records": [
           "2026-08-03T17:04:11Z authoritative R1 Sol confirmed clean exact-base TIP takeover at domain HEAD 222d75cfafa9153db1eb44492bf557f11b1a9091 with OWN-R1-TIP active, no TIP worker/mutation, and CPU/LIVE immutable staging-ready. Personal read-only evidence/native/history inventory began before any Luna creation.",
@@ -1150,26 +1158,28 @@
           "2026-08-03T21:14:41Z Sol personally accepted the first clean formal TIP proof at a37e102 on its first attempt: manifest AAD8EF7AF9F075E5EA1F64B91C6F363A9E2959444D893F6D0C4A760368D11438; two deterministic 65-frame 640x480 passes, 138 clean logs, exact TPTI-2 identity, clean frame-721 Away holder-0 LIVE handoff, and full-resolution visual review. Original close-up/post-claim trajectory, tie settlement, TTDT/player mapping, and selector-to-team/receiver mapping remain explicitly approximate/incomplete.",
           "2026-08-03T21:21:44Z docs-only closure b678beffeacd745fe438e78d323357dc6f86af95 was committed clean over a37e102 with exactly eight R1-tip-fidelity docs changed. Existing projectless research Luna 019fc89b was retitled `Tecmo R1 TIP Fidelity — Independent Terminal QA — Luna Max`, repinned without creating a task, and began terminal read-only QA turn 019fc980-4691-7de1-8352-ae94a4c27508 at exact b678bef.",
           "2026-08-03T21:41:51Z independent terminal QA at clean b678bef passed implementation/static evidence, warning-clean build, focused/broad/Win32 gates, ownership, formal proof/media, and visual/original-reference review with P0/P1=0. It returned one grouped P2 because all eight task docs still call independent QA pending. Fresh QA manifest 051002DF73166C914DB236BAB1313800917C849D47026EDF1AAD30C70F4D6DEC contains two exact 65-frame 640x480 passes and byte-identical accepted artifacts.",
-          "2026-08-03T21:51:56Z same implementation Luna produced docs-only 1b1bf23b3c48947d988c9231870f9827f88cc5a6 over b678bef (all eight task docs) then precision correction e21f9a6621df5527544be1de4d0dc60382539c60 (PROOF.md and LINEAGE.md only). Branch is clean/diff-check clean; product/test/script/proof bytes are unchanged. e21 separates original mapper-gated E56E from native frame-721 state evidence and separates Sol count3 from worker count1 diagnostics. Same pinned projectless QA is verifying exact clean e21."
+          "2026-08-03T21:51:56Z same implementation Luna produced docs-only 1b1bf23b3c48947d988c9231870f9827f88cc5a6 over b678bef (all eight task docs) then precision correction e21f9a6621df5527544be1de4d0dc60382539c60 (PROOF.md and LINEAGE.md only). Branch is clean/diff-check clean; product/test/script/proof bytes are unchanged. e21 separates original mapper-gated E56E from native frame-721 state evidence and separates Sol count3 from worker count1 diagnostics. Same pinned projectless QA is verifying exact clean e21.",
+          "2026-08-03T21:56:19Z same independent terminal QA accepted exact clean e21f9a6621df5527544be1de4d0dc60382539c60 and the complete signed four-commit chain with P0/P1/P2 all zero. It confirmed ownership, documentation, evidence classifications, proof-manifest continuity, diff-check, and clean status; no source or proof revision remains.",
+          "2026-08-03T22:04:10Z authoritative Sol accepted and ff-only integrated the exact TIP chain into codex/r1-gameplay-foundation-sol. Master verified signed ancestry, clean/equal Sol and worker tips/tree 036d859776f687ff6364f173715553b9393b9624, all 24 paths inside OWN-R1-TIP, complete eight-file task docs, unchanged main/origin edf16ca and Round 1 staging 222d75cf, then advanced the task to ready_for_round_staging without rerunning product QA."
         ],
         "proof_manifests": [
           "build/proof/tipoff-visual-orientation-a37e10207455/proof-manifest.json",
           "build/proof/qa-tipoff-b678beffeacd/proof-manifest.json"
         ],
-        "notes": "Product/static/build/focused/broad/Win32/formal proof/media/visual QA passed at b678bef with P0/P1 zero. Docs-only correction chain 1b1bf23->e21f9a6 closes the grouped P2 plus mapper/diagnostic precision. Product/test/script/proof bytes remain frozen; same projectless QA is verifying exact clean e21 before Sol integration."
+        "notes": "Terminal TIP domain chain e21f9a6 is personally Sol-accepted and independently QA-accepted with P0/P1/P2 zero. Warning-clean build, focused TPTI-2, broad gameplay scene, Win32 smoke, deterministic 65x2 frame proof, media audit, original-reference comparison, ownership, documentation, and clean-lineage gates pass. Tie settlement, selector/receiver ownership, TTDT mapping, complete original trajectory/close-up, and ROM-exact frame-721 timing remain explicitly incomplete; dedicated current-main integration QA is still required."
       },
       "merge": {
-        "staging_branch": "codex/round-1-gameplay-foundation-staging",
+        "staging_branch": "codex/round-1-tip-staging",
         "merge_order": 3,
-        "status": "not_ready",
+        "status": "ready",
         "merge_commit": null,
-        "main_pre_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
+        "main_pre_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
         "main_post_sha": null,
         "push_sha": null,
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T21:51:56Z",
+      "updated_at": "2026-08-03T22:04:10Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -1212,6 +1222,27 @@
           "from_state": "sol_review",
           "to_state": "luna_revision",
           "reason": "Independent execution/media QA passed with P0/P1 zero but returned one grouped P2: all eight task docs still present the completed QA as pending. Same implementation Luna may revise only those docs before same-QA verification."
+        },
+        {
+          "timestamp": "2026-08-03T21:56:19Z",
+          "actor_session_id": "S-SOL-R1-GAMEPLAY-001",
+          "from_state": "luna_revision",
+          "to_state": "sol_review",
+          "reason": "Same independent terminal QA verified exact clean e21f9a6621df5527544be1de4d0dc60382539c60 and the complete four-commit TIP chain with P0/P1/P2 all zero; no product, test, proof, scope, documentation, or classification finding remains."
+        },
+        {
+          "timestamp": "2026-08-03T21:58:02Z",
+          "actor_session_id": "S-SOL-R1-GAMEPLAY-001",
+          "from_state": "sol_review",
+          "to_state": "sol_accepted",
+          "reason": "Authoritative Sol personally accepted terminal TIP chain a37e102 through e21f9a6 and integrated it ff-only into the registered clean domain branch from exact parent 222d75cf; worker and Sol tips/trees match and main/staging remain untouched."
+        },
+        {
+          "timestamp": "2026-08-03T22:04:10Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "sol_accepted",
+          "to_state": "ready_for_round_staging",
+          "reason": "Master verified documented Sol and independent P0/P1/P2-zero signoff, complete eight-file task contract, exact signed four-commit lineage, clean/equal Sol and worker tips, 24-path ownership compliance, diff-check, and unchanged main/origin/staging. Product QA was not rerun. Release the TIP claim and advance to dedicated incremental integration QA."
         }
       ]
     },
@@ -1443,7 +1474,9 @@
         "019fc912-a957-79f0-89a3-7e2e2d10db24",
         "019fc957-a425-70f3-83b9-1e63dfdba40e"
       ],
-      "result_commits": ["1536ae31e7016f6e9adbddb7868e2d40e51c1085"],
+      "result_commits": [
+        "1536ae31e7016f6e9adbddb7868e2d40e51c1085"
+      ],
       "evidence_ids": [],
       "blocker_ids": [],
       "replacement_task_id": null,
@@ -2202,7 +2235,9 @@
         "22199fb5a0b6a51641319ae5c61cc093e0a79444",
         "e120c30ee882fe07b37496e2742ac83f1d16ff3a"
       ],
-      "evidence_ids": ["EVID-R4A-INTEGRATION-QA"],
+      "evidence_ids": [
+        "EVID-R4A-INTEGRATION-QA"
+      ],
       "blocker_ids": [
         "BLOCK-R4-AUDIO-LISTENING-001"
       ],
@@ -2864,7 +2899,9 @@
         "0f06fd1102986c90fce65db251bf0c1806bd0c98",
         "bcacd5b6963f4db1a92c8db9b9770413505a0e98"
       ],
-      "evidence_ids": ["EVID-R4A-INTEGRATION-QA"],
+      "evidence_ids": [
+        "EVID-R4A-INTEGRATION-QA"
+      ],
       "blocker_ids": [],
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-tasks/R4A-audio-integration-qa",
@@ -2877,7 +2914,9 @@
           "2026-08-03T19:09:43Z after authorized R3A advanced main/origin to dd096cb, R4A Sol verified zero overlap and created integration-only merge 0f06fd1 with parents e120c30 and dd096cb. Combined warning-clean audio suites and regenerated deterministic 23-vector/4,331,648-sample proof plus independent verifier pass; same Luna final audit and signed report commit remain.",
           "2026-08-03T19:24:36Z terminal signed child bcacd5b passed same-Luna P0/P1/P2-zero closure. Report SHA FFCF6675EE4391DC82B55E1A0C6DD527C5B8A608A3EE0058408DA5BD661C37B4; combined proof root 5BC06D6E893BC9DA40215626CE714CDFF66F70FA58F192D5E488C490FC40A97D; original exact-candidate proof root 932AA1FE62BE3CC144C643A489353D2309434B81B5D8A4C6F1CB2CAE0F1B8FC5. Master fast-forwarded/non-force pushed and verified main/origin/remote exact bcacd5b."
         ],
-        "proof_manifests": ["build/proof/r4-audio-foundation/proof-manifest.txt"],
+        "proof_manifests": [
+          "build/proof/r4-audio-foundation/proof-manifest.txt"
+        ],
         "notes": "Dedicated R4A Integration QA is terminally accepted at signed bcacd5b with P0/P1/P2 zero. Main/origin/remote are synchronized at that exact SHA; broader cross-domain cue routing and full ACC-AUDIO remain explicitly deferred."
       },
       "merge": {
@@ -2980,15 +3019,24 @@
       "priority": 100,
       "coordination_only": false,
       "state": "pushed",
-      "dependencies": ["R4-FRONTEND-INTRO-TITLE"],
-      "ownership_claim_ids": ["OWN-R4B-INTEGRATION-QA"],
+      "dependencies": [
+        "R4-FRONTEND-INTRO-TITLE"
+      ],
+      "ownership_claim_ids": [
+        "OWN-R4B-INTEGRATION-QA"
+      ],
       "base_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
       "expected_parent_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
       "branch": "codex/r4b-frontend-integration-qa-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4b-frontend-integration-qa-sol",
       "sol_orchestrator_session_id": "S-SOL-R4B-INTEGRATION-QA-001",
-      "reported_luna_worker_session_ids": ["019fc941-51c3-72a0-b24e-8554691124f1"],
-      "result_commits": ["6b5d43546128408de8ab246d22f1b48322714183", "edf16ca9059158452798dbe5667f5e64ef444e39"],
+      "reported_luna_worker_session_ids": [
+        "019fc941-51c3-72a0-b24e-8554691124f1"
+      ],
+      "result_commits": [
+        "6b5d43546128408de8ab246d22f1b48322714183",
+        "edf16ca9059158452798dbe5667f5e64ef444e39"
+      ],
       "evidence_ids": [],
       "blocker_ids": [],
       "replacement_task_id": null,

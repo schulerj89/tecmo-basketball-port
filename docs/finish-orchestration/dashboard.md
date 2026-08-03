@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T21:51:56Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T22:04:10Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,21 +8,21 @@ Generated from committed JSON at `2026-08-03T21:51:56Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 12, `in_progress` 2, `luna_revision` 1, `pushed` 14
+- Task states: `backlog` 12, `in_progress` 2, `pushed` 14, `ready_for_round_staging` 1
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
 
 - Single master authority: `True`
 - Second-master policy: `recovery_replacement_only`
-- Active domain Sols: `3`
+- Active domain Sols: `2`
 - Cleared for creation: `0`
 - Target active domain Sols: `4`
 - Monitoring limit: `8`
 
 | Lane | Domain | Readiness | Dependencies | Tasks | Sol | Branch | Next gate |
 |---|---|---|---|---|---|---|---|
-| LANE-R1-GAMEPLAY-FOUNDATION | gameplay_foundation | active | sequentially_active | R1-TIP-FIDELITY | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | Docs-only chain 1b1bf23->e21f9a6 closes the independent-QA status P2 and mapper/diagnostic wording precision. Same projectless QA is verifying exact clean e21; Sol integration remains held pending final P0/P1/P2 closure. |
+| LANE-R1-GAMEPLAY-FOUNDATION | gameplay_foundation | complete | complete | R1-TIP-FIDELITY | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | Terminal signed TIP domain tip e21f9a6 is Sol/independent accepted with P0/P1/P2 zero and ready for incremental round staging. Create dedicated current-main integration QA; do not fast-forward divergent main directly or fold uncommitted shots work into the candidate. |
 | LANE-R3-SEASON-DATA-FOUNDATION | season_data | complete | complete | R3-SEASON-DATA-FOUNDATION | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | Accepted season/data foundation is frozen at f536a193. Its separate R3A Integration QA lane is cleared for creation and no longer waits for downstream statistics, save, management, or All-Star tasks. |
 | LANE-R1A-INTEGRATION-QA | integration | complete | complete | R1A-INTEGRATION-QA | S-SOL-R1A-INTEGRATION-QA-001 | codex/r1a-cpu-live-integration-qa-sol | Complete: signed terminal R1A report 819b0e5 passed same-Luna P0/P1/P2-zero closure and was master signature/ancestry/diff checked, fast-forwarded, non-force pushed, and remote-verified. CPU and LIVE native C are now on main; TIP continues separately. |
 | LANE-R3A-INTEGRATION-QA | integration | complete | complete | R3A-INTEGRATION-QA | S-SOL-R3A-INTEGRATION-QA-001 | codex/r3a-season-data-integration-qa-sol | Complete: signed dd096cb passed dedicated R3A Integration QA and was non-force pushed to main/origin. Integration Sol may be unpinned after this durable master record; downstream R3 features must start from then-current main and retain documented deferrals. |
@@ -74,7 +74,7 @@ Generated from committed JSON at `2026-08-03T21:51:56Z`. This dashboard reports 
 | 98 | R4-MENUS-UI | frontend | R4 | backlog | - | - | 0 | pending | not_ready |
 | 98 | R5-PARITY-GAP-CLOSURE | integration | R5 | backlog | - | - | 0 | pending | not_ready |
 | 97 | R0A-ADOPT-AWAY-FACING | gameplay_presentation | R0A | pushed | S-SOL-AWAY-FACING-LEGACY | codex/away-facing-left-only | 2 | historical_sol_accepted | pushed |
-| 96 | R1-TIP-FIDELITY | gameplay_behavior | R1 | luna_revision | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 0 | in_progress | not_ready |
+| 96 | R1-TIP-FIDELITY | gameplay_behavior | R1 | ready_for_round_staging | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | ready |
 | 96 | R2-RULES-RESTARTS | gameplay_behavior | R2 | backlog | - | - | 0 | pending | not_ready |
 | 96 | R3-TEAM-MGMT-DATA | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 96 | R4-AUDIO | audio | R4 | backlog | - | - | 0 | pending | not_ready |
@@ -88,7 +88,7 @@ Generated from committed JSON at `2026-08-03T21:51:56Z`. This dashboard reports 
 | Session | Role | Model/thinking | Status | Pin | Tasks | Branch | Worktree | Last good |
 |---|---|---|---|---|---|---|---|---|
 | S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 5b8a13b30620 |
-| S-SOL-R1-GAMEPLAY-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | codex/r1-gameplay-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r1-gameplay-foundation-sol | 222d75cfafa9 |
+| S-SOL-R1-GAMEPLAY-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | codex/r1-gameplay-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r1-gameplay-foundation-sol | e21f9a6621df |
 | S-SOL-R2-SHOTS-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R2-SHOTS-OUTCOMES | codex/r2-shots-outcomes-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2-shots-outcomes-sol | 222d75cfafa9 |
 | S-SOL-R2-CLOCK-LINEUPS-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R2-CLOCK-LINEUPS-FATIGUE | codex/r2-clock-lineups-fatigue-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2-clock-lineups-fatigue-sol | 1536ae31e701 |
 
@@ -96,7 +96,6 @@ Generated from committed JSON at `2026-08-03T21:51:56Z`. This dashboard reports 
 
 | Claim | Task | Round | Mode | Writable globs | Concurrency group |
 |---|---|---|---|---|---|
-| OWN-R1-CPU-PLAY | R1-CPU-PLAY-LIFECYCLE | R1A | exclusive | include/tecmo_gameplay_cpu_*.h<br>src/tecmo_gameplay_cpu_*.c<br>src/asset_pack/tecmo_asset_pack_gameplay_cpu_*.c<br>src/asset_pack/tecmo_asset_pack_gameplay_cpu_*.h<br>tools/Run-GameplayCpuSteeringTests.ps1<br>tools/gameplay-lab/**<br>docs/finish-tasks/R1-cpu-play-lifecycle/** | R1-gameplay-foundation |
 | OWN-R1-TIP | R1-TIP-FIDELITY | R1 | exclusive | include/tecmo_gameplay_pretip.h<br>src/tecmo_gameplay_pretip.c<br>src/tecmo_flow_test.c<br>src/tecmo_gameplay_live_proof.c<br>src/tecmo_gameplay_scene_render.c<br>src/tecmo_gameplay_scene_test_pretip.c<br>src/tecmo_gameplay_scene_test_render_contract.c<br>src/tecmo_cli.c<br>src/tecmo_cli_render_gameplay_checkpoint.c<br>src/tecmo_asset_pack.c<br>src/tecmo_win32_keys.c<br>src/asset_pack/tecmo_asset_pack_gameplay_pretip.c<br>src/asset_pack/tecmo_asset_pack_gameplay_pretip.h<br>src/asset_pack/tecmo_asset_pack_source_map.c<br>src/tecmo_gameplay_scene.c<br>tools/New-TipoffVisualProof.ps1<br>tools/Run-GameplayPreTipTests.ps1<br>tools/Run-GameplaySceneTests.ps1<br>docs/finish-tasks/R1-tip-fidelity/** | R1-gameplay-foundation |
 | OWN-R2-SHOTS-OUTCOMES | R2-SHOTS-OUTCOMES | R2 | exclusive | include/tecmo_gameplay_close_shots.h<br>include/tecmo_gameplay_jump_shots.h<br>include/tecmo_gameplay_dunk_cutaway.h<br>include/tecmo_gameplay_shot_resolution.h<br>include/tecmo_gameplay_scene.h<br>include/tecmo_gameplay_scene_internal.h<br>src/tecmo_gameplay_close_shots.c<br>src/tecmo_gameplay_jump_shots.c<br>src/tecmo_gameplay_dunk_cutaway.c<br>src/tecmo_gameplay_shot_resolution.c<br>src/tecmo_gameplay_scene_shots.c<br>src/tecmo_gameplay_scene_validation.c<br>src/tecmo_gameplay_scene_test_internal.h<br>src/tecmo_gameplay_scene_test_orchestrator.c<br>src/tecmo_gameplay_scene_test_state_flow.c<br>src/tecmo_cli_gameplay_shots.c<br>src/tecmo_cli_gameplay_shot_resolution.c<br>src/asset_pack/tecmo_asset_pack_gameplay_close_shots.c<br>src/asset_pack/tecmo_asset_pack_gameplay_close_shots.h<br>src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c<br>src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.h<br>src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c<br>src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.h<br>src/asset_pack/tecmo_asset_pack_gameplay_shot_resolution.c<br>src/asset_pack/tecmo_asset_pack_gameplay_shot_resolution.h<br>tools/Run-GameplayCloseShotTests.ps1<br>tools/Run-GameplayShotResolutionTests.ps1<br>docs/finish-tasks/R2-shots-outcomes/** | R2-shots-outcomes |
 | OWN-R2-CLOCK-LINEUPS-FATIGUE | R2-CLOCK-LINEUPS-FATIGUE | R2 | exclusive | include/tecmo_gameplay_state.h<br>include/tecmo_gameplay_free_throw_lineup.h<br>include/tecmo_gameplay_fatigue.h<br>include/tecmo_gameplay_free_throw_projection_test.h<br>src/tecmo_gameplay_state.c<br>src/tecmo_gameplay_free_throw_lineup.c<br>src/tecmo_gameplay_fatigue.c<br>src/tecmo_gameplay_free_throw_projection_test.c<br>src/tecmo_gameplay_scene_test_shot_clock.c<br>src/asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.c<br>src/asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.h<br>src/asset_pack/tecmo_asset_pack_gameplay_fatigue.c<br>src/asset_pack/tecmo_asset_pack_gameplay_fatigue.h<br>tools/Run-GameplayFreeThrowLineupTests.ps1<br>tools/Run-GameplayFatigueTests.ps1<br>docs/finish-tasks/R2-clock-lineups-fatigue/** | R2-clock-lineups-fatigue |
@@ -124,7 +123,7 @@ Generated from committed JSON at `2026-08-03T21:51:56Z`. This dashboard reports 
 | ACC-CPU-POLICY: CPU play selection, formation, movement, spacing, links, matchups, switching, decisions, and shot timing are complete | gameplay_behavior | incomplete | pending | R0A-ADOPT-CPU-TIP, R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION | EVID-ADOPT-CPU-KERNEL |
 | ACC-MOTION-ANIMATION: Directional poses, dribble, pass, jump, shot, defense, contact, foul, free-throw, rebound, block, and steal animations are complete | gameplay_presentation | incomplete | pending | R0A-ADOPT-TIP-VIS, R0A-ADOPT-AWAY-FACING, R2-GAMEPLAY-PRESENTATION | EVID-ADOPT-TIP-VIS-PROOF, EVID-ADOPT-AWAY-PROOF |
 | ACC-SHOTS: Shot selection, launch, resolution, supported outcomes, layups, dunks, and jump shots are complete | gameplay_behavior | incomplete | pending | R2-SHOTS-OUTCOMES |  |
-| ACC-TIPOFF: Tip-off input, visible jump, presentation, claim, tie, and live handoff are complete | gameplay_behavior | incomplete | pending | R0A-ADOPT-CPU-TIP, R0A-ADOPT-TIP-VIS, R1-TIP-FIDELITY | EVID-ADOPT-TIP-INPUT, EVID-ADOPT-TIP-VIS-PROOF |
+| ACC-TIPOFF: Tip-off input, visible jump, presentation, claim, tie, and live handoff are complete | gameplay_behavior | incomplete | pending | R0A-ADOPT-CPU-TIP, R0A-ADOPT-TIP-VIS, R1-TIP-FIDELITY | EVID-ADOPT-TIP-INPUT, EVID-ADOPT-TIP-VIS-PROOF, EVID-R1-TIP-SOURCE-MECHANICS, EVID-R1-TIP-TERMINAL-PROOF |
 | ACC-CLOCK-PERIODS: Game clock, shot clock, periods, halftime, overtime, scoring, and final-game flow are complete | gameplay_behavior | incomplete | pending | R2-CLOCK-LINEUPS-FATIGUE, R3-SEASON-PROGRESSION-SAVE |  |
 | ACC-RULES-POSSESSION: Possession, violations, contact, fouls, referee, restarts, and free throws are complete | gameplay_behavior | incomplete | pending | R2-DEFENSE-CONTACT, R2-RULES-RESTARTS |  |
 | ACC-LINEUPS-FATIGUE: Substitutions, active lineups, matchup ownership, and fatigue affect live play correctly | gameplay_behavior | incomplete | pending | R1-LIVE-FOUNDATION, R2-CLOCK-LINEUPS-FATIGUE, R3-TEAM-MGMT-DATA |  |
