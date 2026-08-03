@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T18:57:26Z",
+  "updated_at": "2026-08-03T19:00:02Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,8 +10,8 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 5,
-    "cleared_for_creation": 1,
+    "active_domain_orchestrators": 6,
+    "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
     "unallocated_target_slots": 0,
@@ -135,8 +135,8 @@
         "OWN-R4-FRONTEND-INTRO-TITLE"
       ],
       "blockers": [],
-      "next_gate": "Recovery Sol confirmed clean takeover at a40dc3f after predecessor systemError and inherited/re-pinned sole proof worker at candidate 776db08. Personally complete stable-commit proof/media review, same-worker corrections, integration, independent QA, and terminal docs before domain acceptance.",
-      "updated_at": "2026-08-03T18:38:12Z"
+      "next_gate": "Recovery Sol integrated accepted proof replay at clean 0a3fc57f and created one independent recovery QA Luna. Canonical /W4 28-test suite passes, but standalone asset-pack self-test exposed a narrow owned finale synthetic-fixture gating regression; correct it within ownership, rerun all gates, and close independent P0/P1/P2 before terminal acceptance.",
+      "updated_at": "2026-08-03T19:00:02Z"
     },
     {
       "lane_id": "LANE-R4-AUDIO-FOUNDATION",
@@ -220,10 +220,10 @@
       "task_ids": [
         "R2-CLOCK-LINEUPS-FATIGUE"
       ],
-      "readiness": "cleared_for_creation",
+      "readiness": "active",
       "dependency_status": "ready",
       "reservation_owner_session_id": "S-MASTER-001",
-      "orchestrator_session_id": null,
+      "orchestrator_session_id": "S-SOL-R2-CLOCK-LINEUPS-001",
       "base_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
       "branch": "codex/r2-clock-lineups-fatigue-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-clock-lineups-fatigue-sol",
@@ -231,8 +231,8 @@
         "OWN-R2-CLOCK-LINEUPS-FATIGUE"
       ],
       "blockers": [],
-      "next_gate": "Create exactly one pinned gpt-5.6-sol/max domain orchestrator after this collision-free reservation is committed. Sol must begin read-only evidence/native inventory, create only top-level Luna Max workers, and request any shared scene/core rescope before mutation.",
-      "updated_at": "2026-08-03T18:57:26Z"
+      "next_gate": "Pinned Sol 019fc8ff-4ec4-7b20-86c6-9c9614f9194c begins clean takeover, full governing-file/evidence/native inventory, then creates only bounded top-level Luna Max workers. Shared scene/core changes require explicit sequential rescope; main remains master-owned.",
+      "updated_at": "2026-08-03T19:00:02Z"
     }
   ]
 }

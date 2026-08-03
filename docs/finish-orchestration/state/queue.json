@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T18:57:26Z",
+  "updated_at": "2026-08-03T19:00:02Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -1333,7 +1333,7 @@
       "round_id": "R2",
       "priority": 94,
       "coordination_only": false,
-      "state": "scoped",
+      "state": "assigned",
       "dependencies": [
         "R1-LIVE-FOUNDATION"
       ],
@@ -1344,7 +1344,7 @@
       "expected_parent_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
       "branch": "codex/r2-clock-lineups-fatigue-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-clock-lineups-fatigue-sol",
-      "sol_orchestrator_session_id": null,
+      "sol_orchestrator_session_id": "S-SOL-R2-CLOCK-LINEUPS-001",
       "reported_luna_worker_session_ids": [],
       "result_commits": [],
       "evidence_ids": [],
@@ -1370,7 +1370,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T18:57:26Z",
+      "updated_at": "2026-08-03T19:00:02Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -1385,6 +1385,13 @@
           "from_state": "backlog",
           "to_state": "scoped",
           "reason": "Reserve a collision-free dedicated gameplay-state, clock-test, free-throw-lineup, fatigue, focused-runner, and task-doc boundary at exact accepted CPU+LIVE base 222d75cf before creating the fourth active domain Sol; all shared scene/core paths remain excluded."
+        },
+        {
+          "timestamp": "2026-08-03T19:00:02Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "scoped",
+          "to_state": "assigned",
+          "reason": "Created and pinned the collision-cleared gpt-5.6-sol/max domain orchestrator 019fc8ff-4ec4-7b20-86c6-9c9614f9194c once; transferred OWN-R2-CLOCK-LINEUPS-FATIGUE and retained exact clean-base takeover before any worker or product mutation."
         }
       ]
     },
@@ -1852,7 +1859,8 @@
         "019fc826-7a1d-7261-9ade-9feee073badd",
         "019fc843-9845-74e2-a7b8-f4386bbad5fa",
         "019fc845-74e2-70d3-ad7e-dcee727a66c4",
-        "019fc848-b87f-7e32-8954-51097efa933a"
+        "019fc848-b87f-7e32-8954-51097efa933a",
+        "019fc8f8-44b5-7a93-835b-1c75f69ab506"
       ],
       "result_commits": [
         "f1e7005115f98d0ef189639a2364e740246b6d8c",
@@ -1862,7 +1870,9 @@
         "6000a0504e8a640c17698411103090d105f21245",
         "e97f2d2498bf96ee7a552e71e9f87d1eadce8456",
         "3e7496608b5ab1e6c9e8de593a62d2279be34b40",
-        "a40dc3f9976d40444d91255f31a29959f5b23be3"
+        "a40dc3f9976d40444d91255f31a29959f5b23be3",
+        "1b51c471dcc5ed6117e4b3f55621782ad89fd039",
+        "0a3fc57f0a382378e89b8eca747ce6d3c1644dba"
       ],
       "evidence_ids": [],
       "blocker_ids": [],
@@ -1885,10 +1895,11 @@
           "2026-08-03 native hardening Sol ACCEPTED ordered lineage f1e7005115f98d0ef189639a2364e740246b6d8c -> 175b28e5dba1b0020cae09958a473ba496b015e2 -> a0b11042e5c479d5b6a5c738e8d51b532439b073. Personal QA passed /W4 build, arena/asset-pack/full intro suites, valid-root flow, four malformed fail-closed no-PNG probes, diff/ownership checks, and full-resolution frame inspection. Accepted TATR/TATL/TASG/CHR identity and 540-frame alignment effects; dynamic palette remains deferred. Integrated first into the Sol branch by no-ff merge 761e061fdea1fcb07c367d406b785337e7366919; worker completed/unpinned, main untouched.",
           "2026-08-03T17:04:11Z finale worker remains active/pinned and uncommitted at exact base 6d8f9c7 while Sol branch stays clean at accepted hardening merge 761e061f. Sol pixel-mask reconciliation blocked two pre-commit errors: FCEUX proof PNG native coordinate requires exact +8 scanline mapping (title y129/y147, captions y26), and screen-$20 short route is page1 with setup 6..13, every-frame ball pairs 14..29, dispatch 30..57, black 58. Correct title bands are 0..144 primary, 144..152 secondary, 152..240 primary, initial page0/preroll +1/ordinary renderer. Same worker is revising; proof worker remains held.",
           "2026-08-03T17:33:02Z frontend Sol remains clean at integrated hardening tip 761e061f; finale Luna active/pinned/uncommitted. Personal original/native capture audit reached zero binary-mask differences across sampled opening/short/selector/staged/title checkpoints after +8 crop normalization, page1 repeat/phase, and OAM+1. Stricter NES-index comparison still rejects opening/staged cap stages 7/11/15/19, selector caps 8/12/16/20/special25, Bulls $DC19+03=$15 BG+sprite slot9 override, and title page1-negative mutation. Same worker revises runtime/importer/tests/docs; proof worker remains held.",
-          "2026-08-03T17:52:20Z Sol ACCEPTED finale worker chain 6000a0504e8a640c17698411103090d105f21245 -> e97f2d2498bf96ee7a552e71e9f87d1eadce8456 -> 3e7496608b5ab1e6c9e8de593a62d2279be34b40 and integrated it second after hardening by no-ff merge a40dc3f9976d40444d91255f31a29959f5b23be3. Combined /W4 build, 28/28 suite, 47 masks, 11 color cases, deterministic repeats, source/ASM and ten-frame visual audit pass; report SHA F78A1F47A0C23975E2BE3FBAF3150B8EF0DC7E441CF8F1ED27DBBF76478EDAD0. Worker completed/unpinned; proof replay and independent QA remain."
+          "2026-08-03T17:52:20Z Sol ACCEPTED finale worker chain 6000a0504e8a640c17698411103090d105f21245 -> e97f2d2498bf96ee7a552e71e9f87d1eadce8456 -> 3e7496608b5ab1e6c9e8de593a62d2279be34b40 and integrated it second after hardening by no-ff merge a40dc3f9976d40444d91255f31a29959f5b23be3. Combined /W4 build, 28/28 suite, 47 masks, 11 color cases, deterministic repeats, source/ASM and ten-frame visual audit pass; report SHA F78A1F47A0C23975E2BE3FBAF3150B8EF0DC7E441CF8F1ED27DBBF76478EDAD0. Worker completed/unpinned; proof replay and independent QA remain.",
+          "2026-08-03T19:00:02Z recovery Sol accepted proof worker terminal 1b51c471 and merged it by no-ff commit 0a3fc57f over accepted a40dc3f. Personal canonical /W4 28-test suite and production replay boundaries pass; one projectless independent QA Luna 019fc8f8 is active/pinned. Standalone --assetpack-test exposed an owned finale importer synthetic-fixture gating regression, so terminal acceptance is withheld pending correction and full rerun."
         ],
         "proof_manifests": [],
-        "notes": "Native hardening and finale fidelity remain cleanly integrated at a40dc3f. Original Sol entered systemError before proof acceptance and was replaced/unpinned only after recovery takeover. Recovery Sol inherits sole proof worker candidate 776db08 and must personally finish stable-commit proof/video/frame/contact-sheet review, same-worker correction, integration, and independent QA before domain acceptance."
+        "notes": "Native hardening, finale fidelity, and corrected proof replay are cleanly integrated at 0a3fc57f after predecessor recovery. The replacement Sol owns the discovered finale-importer synthetic-fixture gate regression and is reusing the sole independent QA lineage; no terminal signoff until canonical plus standalone suites, proof, and P0/P1/P2 closure all pass."
       },
       "merge": {
         "staging_branch": "codex/round-4-frontend-audio-staging",
@@ -1901,7 +1912,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T18:38:12Z",
+      "updated_at": "2026-08-03T19:00:02Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",

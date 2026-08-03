@@ -405,7 +405,7 @@
       "claim_id": "OWN-R2-CLOCK-LINEUPS-FATIGUE",
       "task_id": "R2-CLOCK-LINEUPS-FATIGUE",
       "round_id": "R2",
-      "session_id": "S-MASTER-001",
+      "session_id": "S-SOL-R2-CLOCK-LINEUPS-001",
       "mode": "exclusive",
       "writable_globs": [
         "include/tecmo_gameplay_state.h",
@@ -437,7 +437,7 @@
       "active": true,
       "claimed_at": "2026-08-03T18:57:26Z",
       "released_at": null,
-      "notes": "Master reservation created before any Sol session. Scope is limited to existing gameplay state, free-throw-lineup, fatigue, projection-test, shot-clock test, dedicated semantic-pack modules, focused runners, and task docs. Active TIP, shots/outcomes, defense/contact, rules/restarts, scene/core/shared headers, CMake/build, source-map/import-layout, game/flow, Win32, main, and unrelated paths are excluded. Any cross-boundary need must be reported for sequential rescope."
+      "notes": "Reserved by master at checkpoint bb423f8 before session creation, then transferred to pinned Sol S-SOL-R2-CLOCK-LINEUPS-001 after exact branch/worktree/base creation. Scope is limited to existing gameplay state, free-throw-lineup, fatigue, projection-test, shot-clock test, dedicated semantic-pack modules, focused runners, and task docs. Active TIP, shots/outcomes, defense/contact, rules/restarts, scene/core/shared headers, CMake/build, source-map/import-layout, game/flow, Win32, main, and unrelated paths are excluded. Any cross-boundary need must be reported for sequential rescope."
     },
     {
       "claim_id": "OWN-R1A-INTEGRATION-QA",

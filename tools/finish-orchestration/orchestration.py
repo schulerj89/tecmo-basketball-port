@@ -1004,7 +1004,17 @@ def validate_git_lineage(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         if not git_is_ancestor(repo_root, task["base_sha"], branch_tip):
             result.error(f"lineage: task {task_id} branch tip does not descend from base")
         try:
-            commits = git_output(repo_root, "rev-list", "--reverse", f"{task['base_sha']}..{task['branch']}").splitlines()
+            # Integration branches may merge a newly advanced main as a second
+            # parent.  Expected-parent validation follows the task branch's
+            # first-parent delivery line so unrelated commits brought in by
+            # that merge are not mistaken for the task's first commit.
+            commits = git_output(
+                repo_root,
+                "rev-list",
+                "--first-parent",
+                "--reverse",
+                f"{task['base_sha']}..{task['branch']}",
+            ).splitlines()
         except RuntimeError as exc:
             result.error(f"lineage: task {task_id}: {exc}")
             commits = []
