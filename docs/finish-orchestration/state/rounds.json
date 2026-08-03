@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T10:23:50Z",
+  "updated_at": "2026-08-03T10:34:18Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -37,7 +37,7 @@
       "merge_order":["R1-CPU-PLAY-LIFECYCLE","R1-LIVE-FOUNDATION","R1-TIP-FIDELITY"],
       "combined_qa":{"required":true,"status":"pending","accepted_sha":null,"report_path":null,"signed_by_session_id":null,"notes":"A dedicated Sol Max integration-QA orchestrator is required after domain staging."},
       "acceptance":{"status":"pending","accepted_at":null,"accepted_sha":null,"criteria":["Every domain task has Sol sign-off and complete task docs","No writable ownership overlap","Dedicated combined suite and production visual proof pass"]},
-      "main_integration":{"pre_main_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","merge_commits":[],"post_main_sha":null,"remote_main_before_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","push_sha":null,"push_result":"not_attempted","pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T10:23:50Z"
+      "main_integration":{"pre_main_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","merge_commits":[],"post_main_sha":null,"remote_main_before_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","push_sha":null,"push_result":"not_attempted","pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T10:34:18Z"
     },
     {
       "round_id":"R2","title":"Gameplay mechanics, rules, animation, and presentation","status":"planned","base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00",

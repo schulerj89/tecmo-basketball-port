@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T10:23:50Z",
+  "updated_at": "2026-08-03T10:34:18Z",
   "records": [
     {
       "evidence_id": "EVID-R0-BASE",
@@ -207,6 +207,26 @@
       "proof_locations": ["C:/Users/joshs/Projects/tecmo-basketball-port-r1-cpu-play-lifecycle-luna/temp-videos/gameplay-lab/cpu-lifecycle/20260803-051716/manifest.json"],
       "local_private": true,
       "created_at": "2026-08-03T10:23:50Z"
+    },
+    {
+      "evidence_id": "EVID-R1-CPU-FORMAL-PROOF",
+      "task_ids": ["R1-CPU-PLAY-LIFECYCLE"],
+      "kind": "proof_manifest",
+      "title": "Clean-commit CPU lifecycle formal proof",
+      "classification": "exact_source_pinned",
+      "confidence": "high",
+      "rom": null,
+      "asm": {"bank":"Bank06","address":"$8B90, $8BA2, $8BAE, and $8FD9","table_or_routine":"CPU play-command fetch, opcode copy, dispatch, and lifecycle-event hooks"},
+      "original_reference": {"kind":"trace","identity":"canonical local Rev 1 formal source trace with manifest-pinned ROM, FCEUX, pack, script, and tool identities","timestamp_or_frame":"clean formal run 20260803-053244"},
+      "description": "Sol personally verified PASS at clean worker HEAD 8be7a9f9a11d43e68b090a98af122758885931fd, parent db5a043244361b3e9bbab2e154c7f14e4a4a5014: status pass, final=head, clean flags true, no pending fields, personal inspection complete, 102 files, 100 artifacts, 36 logs, 33,650,575 bytes, and draft/formal key hashes identical.",
+      "what_it_proves": "The committed isolated CPU lifecycle implementation, source-trace proof, exact-cadence videos, native regression frames, documentation, and warning-clean/Win32 gates are reproducible from the reviewed clean worker commit.",
+      "limits": "Independent read-only QA is still active, so this is not final CPU Sol acceptance. Native Hawks-Celtics imagery remains deterministic regression evidence only and does not prove one-to-one original parity or LIVE scene integration.",
+      "runtime_locations": ["include/tecmo_gameplay_cpu_steering.h", "src/tecmo_gameplay_cpu_steering.c", "src/asset_pack/tecmo_asset_pack_gameplay_cpu_steering.c"],
+      "test_locations": ["tools/Run-GameplayCpuSteeringTests.ps1", "tools/gameplay-lab"],
+      "doc_locations": ["docs/finish-tasks/R1-cpu-play-lifecycle"],
+      "proof_locations": ["C:/Users/joshs/Projects/tecmo-basketball-port-r1-cpu-play-lifecycle-luna/temp-videos/gameplay-lab/cpu-lifecycle/20260803-053244/manifest.json"],
+      "local_private": true,
+      "created_at": "2026-08-03T10:34:18Z"
     }
   ]
 }
