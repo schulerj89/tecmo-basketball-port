@@ -120,17 +120,36 @@ function Invoke-PackIdentityGate([string]$MusicPack, [string]$GameplayPack,
 
 function Get-ProofEventRecords([string]$EventsPath) {
     $Records = @()
+    $Header = "format=TECMAUDIOPROOF-1|sample_rate=44100|channels=1|bits=16|byte_order=little|records=fixed-fields"
+    $RecordFields = @(
+        "format", "vector", "name", "start", "count", "queue", "source",
+        "termination", "music_ticks", "music_acc", "music_playing", "sfx_id",
+        "sfx_playing", "dmc_active", "dmc_level", "pcm_fnv"
+    )
     $RequiredFields = @(
         "format", "vector", "name", "start", "count", "queue", "source",
         "termination", "music_ticks", "music_acc", "music_playing", "sfx_id",
         "sfx_playing", "dmc_active", "dmc_level", "pcm_fnv"
     )
-    foreach ($Line in [IO.File]::ReadLines($EventsPath)) {
-        if ($Line -notmatch "\|vector=") { continue }
+    $Lines = @([IO.File]::ReadAllLines($EventsPath))
+    if ($Lines.Count -ne $ExpectedProofVectors.Count + 1 -or
+        $Lines[0] -ne $Header) {
+        throw "Audio proof event metadata header or line count is not exact."
+    }
+    for ($LineIndex = 1; $LineIndex -lt $Lines.Count; ++$LineIndex) {
+        $Line = $Lines[$LineIndex]
+        $Parts = $Line -split "\|"
+        if ($Parts.Count -ne $RecordFields.Count) {
+            throw "Audio proof event line $LineIndex is not a fixed-field vector record."
+        }
         $Fields = @{}
-        foreach ($Part in ($Line -split "\|")) {
+        for ($FieldIndex = 0; $FieldIndex -lt $Parts.Count; ++$FieldIndex) {
+            $Part = $Parts[$FieldIndex]
             $Pair = $Part -split "=", 2
-            if ($Pair.Count -eq 2) { $Fields[$Pair[0]] = $Pair[1] }
+            if ($Pair.Count -ne 2 -or $Pair[0] -ne $RecordFields[$FieldIndex]) {
+                throw "Audio proof event line $LineIndex is not a fixed-field vector record."
+            }
+            $Fields[$Pair[0]] = $Pair[1]
         }
         foreach ($Field in $RequiredFields) {
             if (!$Fields.ContainsKey($Field)) {
@@ -157,6 +176,9 @@ function Get-ProofEventRecords([string]$EventsPath) {
             dmc_level = [int]$Fields.dmc_level
             pcm_fnv = ([string]$Fields.pcm_fnv).Trim().ToUpperInvariant()
         }
+    }
+    if ($Records.Count -ne $ExpectedProofVectors.Count) {
+        throw "Audio proof event vector record count is not exact."
     }
     return $Records
 }
@@ -232,6 +254,55 @@ function Assert-ProofEventRecords([object[]]$Rows, [uint64]$WavSamples,
     }
     if ($NextStart -ne $WavSamples) {
         throw "$Label audio proof coverage ($NextStart samples) does not equal WAV data ($WavSamples samples)."
+    }
+}
+
+function Get-ProofPcmFnv1a32([byte[]]$Wav, [int64]$Start, [int64]$Count,
+                             [string]$Label) {
+    if ($Start -lt 0 -or $Count -le 0) {
+        throw "$Label audio proof PCM slice is not positive and nonnegative."
+    }
+    [uint64]$MaxUInt64 = [uint64]::MaxValue
+    [uint64]$StartValue = [uint64]$Start
+    [uint64]$CountValue = [uint64]$Count
+    if ($StartValue -gt (($MaxUInt64 - [uint64]44) / [uint64]2)) {
+        throw "$Label audio proof PCM slice start arithmetic overflowed."
+    }
+    if ($CountValue -gt ($MaxUInt64 / [uint64]2)) {
+        throw "$Label audio proof PCM slice count arithmetic overflowed."
+    }
+    [uint64]$ByteStart = [uint64]44 + ($StartValue * [uint64]2)
+    [uint64]$ByteCount = $CountValue * [uint64]2
+    [uint64]$WavLength = [uint64]$Wav.Length
+    if ($ByteStart -gt $WavLength) {
+        throw "$Label audio proof PCM slice starts beyond the WAV."
+    }
+    [uint64]$Remaining = $WavLength - $ByteStart
+    if ($ByteCount -gt $Remaining) {
+        throw "$Label audio proof PCM slice exceeds the WAV data."
+    }
+    [uint64]$End = $ByteStart + $ByteCount
+    [uint64]$Hash = [uint64]2166136261
+    [uint64]$Prime = [uint64]16777619
+    [uint64]$Modulo = [uint64]4294967296
+    for ([uint64]$Offset = $ByteStart; $Offset -lt $End; ++$Offset) {
+        [uint64]$Mixed = [uint64]$Hash -bxor [uint64]$Wav[[int]$Offset]
+        $Hash = [uint64](($Mixed * $Prime) % $Modulo)
+    }
+    return $Hash.ToString("X8", [Globalization.CultureInfo]::InvariantCulture)
+}
+
+function Assert-ProofPcmFingerprints([object[]]$Rows, [byte[]]$Wav,
+                                      [string]$Label) {
+    for ($Index = 0; $Index -lt $Rows.Count; ++$Index) {
+        $Row = $Rows[$Index]
+        $ExpectedVector = $ExpectedProofVectors[$Index]
+        $Computed = Get-ProofPcmFnv1a32 $Wav $Row.start $Row.count `
+            "$Label vector $Index '$($Row.name)'"
+        if ($Computed -ne $Row.pcm_fnv -or
+            $Computed -ne $ExpectedVector.PcmFnv) {
+            throw "$Label audio proof PCM FNV drifted for vector $Index '$($Row.name)'."
+        }
     }
 }
 
@@ -390,6 +461,8 @@ function Invoke-AudioProof([string]$PackPath) {
     $Rows2 = @(Get-ProofEventRecords $EventsPath2)
     Assert-ProofEventRecords $Rows $WavInfo.samples "Run1"
     Assert-ProofEventRecords $Rows2 $WavInfo2.samples "Run2"
+    Assert-ProofPcmFingerprints $Rows $WavInfo.bytes_data "Run1"
+    Assert-ProofPcmFingerprints $Rows2 $WavInfo2.bytes_data "Run2"
     $EvidenceDir = Join-Path $ProofRoot "waveform"
     $EvidenceDir2 = Join-Path $EvidenceDir "run2"
     [void](New-Item -ItemType Directory -Force -Path $EvidenceDir, $EvidenceDir2)
