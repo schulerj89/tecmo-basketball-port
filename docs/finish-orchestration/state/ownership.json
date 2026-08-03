@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T18:51:52Z",
+  "updated_at": "2026-08-03T18:57:26Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -400,6 +400,44 @@
       "claimed_at": "2026-08-03T17:06:38Z",
       "released_at": null,
       "notes": "Reserved by the master before creation, then transferred to registered/pinned S-SOL-R2-SHOTS-001 at exact clean base 222d75cf. Existing shot-family engines, settlement scene module, exact semantic shot packs, focused CLIs/tests, bounded scene contracts, and task docs only. Active R1 TIP/render, CPU/LIVE implementations, defense/contact, rules/restarts, clocks/lineups, audio, CMake/build lists, global source-map/import-layout, game/flow, Win32, main, and unrelated product paths are excluded; any required boundary must be reported for explicit rescope."
+    },
+    {
+      "claim_id": "OWN-R2-CLOCK-LINEUPS-FATIGUE",
+      "task_id": "R2-CLOCK-LINEUPS-FATIGUE",
+      "round_id": "R2",
+      "session_id": "S-MASTER-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "include/tecmo_gameplay_state.h",
+        "include/tecmo_gameplay_free_throw_lineup.h",
+        "include/tecmo_gameplay_fatigue.h",
+        "include/tecmo_gameplay_free_throw_projection_test.h",
+        "src/tecmo_gameplay_state.c",
+        "src/tecmo_gameplay_free_throw_lineup.c",
+        "src/tecmo_gameplay_fatigue.c",
+        "src/tecmo_gameplay_free_throw_projection_test.c",
+        "src/tecmo_gameplay_scene_test_shot_clock.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.h",
+        "src/asset_pack/tecmo_asset_pack_gameplay_fatigue.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_fatigue.h",
+        "tools/Run-GameplayFreeThrowLineupTests.ps1",
+        "tools/Run-GameplayFatigueTests.ps1",
+        "docs/finish-tasks/R2-clock-lineups-fatigue/**"
+      ],
+      "planned_paths": [
+        "include/tecmo_gameplay_state.h",
+        "src/tecmo_gameplay_state.c",
+        "src/tecmo_gameplay_free_throw_lineup.c",
+        "src/tecmo_gameplay_fatigue.c",
+        "src/tecmo_gameplay_scene_test_shot_clock.c",
+        "docs/finish-tasks/R2-clock-lineups-fatigue/README.md"
+      ],
+      "concurrency_group": "R2-clock-lineups-fatigue",
+      "active": true,
+      "claimed_at": "2026-08-03T18:57:26Z",
+      "released_at": null,
+      "notes": "Master reservation created before any Sol session. Scope is limited to existing gameplay state, free-throw-lineup, fatigue, projection-test, shot-clock test, dedicated semantic-pack modules, focused runners, and task docs. Active TIP, shots/outcomes, defense/contact, rules/restarts, scene/core/shared headers, CMake/build, source-map/import-layout, game/flow, Win32, main, and unrelated paths are excluded. Any cross-boundary need must be reported for sequential rescope."
     },
     {
       "claim_id": "OWN-R1A-INTEGRATION-QA",

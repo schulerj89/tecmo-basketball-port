@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T18:45:20Z",
+  "updated_at": "2026-08-03T18:57:26Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -11,11 +11,11 @@
   },
   "capacity": {
     "active_domain_orchestrators": 5,
-    "cleared_for_creation": 0,
+    "cleared_for_creation": 1,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
     "unallocated_target_slots": 0,
-    "unallocated_monitoring_slots": 3
+    "unallocated_monitoring_slots": 2
   },
   "lanes": [
     {
@@ -209,6 +209,30 @@
       "blockers": [],
       "next_gate": "Evidence auditor 019fc8a8-186e-7be2-aab3-0aae3da3a2fa is accepted/completed/unpinned. One persistent writable Luna 019fc8cb-3d2c-7171-bbe8-534028387b6e is active/pinned on the isolated codex/r2-shots-outcomes-luna worktree and must preserve accepted LIVE far-shot deferral.",
       "updated_at": "2026-08-03T18:03:10Z"
+    },
+    {
+      "lane_id": "LANE-R2-CLOCK-LINEUPS-FATIGUE",
+      "title": "Round 2 clocks, lineups, and fatigue",
+      "domain": "gameplay_behavior",
+      "round_ids": [
+        "R2"
+      ],
+      "task_ids": [
+        "R2-CLOCK-LINEUPS-FATIGUE"
+      ],
+      "readiness": "cleared_for_creation",
+      "dependency_status": "ready",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": null,
+      "base_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
+      "branch": "codex/r2-clock-lineups-fatigue-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-clock-lineups-fatigue-sol",
+      "ownership_claim_ids": [
+        "OWN-R2-CLOCK-LINEUPS-FATIGUE"
+      ],
+      "blockers": [],
+      "next_gate": "Create exactly one pinned gpt-5.6-sol/max domain orchestrator after this collision-free reservation is committed. Sol must begin read-only evidence/native inventory, create only top-level Luna Max workers, and request any shared scene/core rescope before mutation.",
+      "updated_at": "2026-08-03T18:57:26Z"
     }
   ]
 }

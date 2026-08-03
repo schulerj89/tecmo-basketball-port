@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T18:51:52Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T18:57:26Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,7 +8,7 @@ Generated from committed JSON at `2026-08-03T18:51:52Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 13, `in_progress` 5, `pushed` 7, `ready_for_round_staging` 3
+- Task states: `backlog` 12, `in_progress` 5, `pushed` 7, `ready_for_round_staging` 3, `scoped` 1
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
@@ -16,7 +16,7 @@ Generated from committed JSON at `2026-08-03T18:51:52Z`. This dashboard reports 
 - Single master authority: `True`
 - Second-master policy: `recovery_replacement_only`
 - Active domain Sols: `5`
-- Cleared for creation: `0`
+- Cleared for creation: `1`
 - Target active domain Sols: `4`
 - Monitoring limit: `8`
 
@@ -30,6 +30,7 @@ Generated from committed JSON at `2026-08-03T18:51:52Z`. This dashboard reports 
 | LANE-R4-AUDIO-FOUNDATION | audio | complete | complete | R4-AUDIO-FOUNDATION | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | Isolated audio foundation is terminally accepted, writer/QA/domain Sol are completed/unpinned, and exact e120c30 is physically staged. Its separate R4A Integration QA lane is cleared; broader cross-domain ACC-AUDIO remains deferred in parent R4. |
 | LANE-R4A-INTEGRATION-QA | integration | active | ready | R4A-INTEGRATION-QA | S-SOL-R4A-INTEGRATION-QA-001 | codex/r4a-audio-integration-qa-sol | Integration Sol personally completes clean build and Music/Frontend/Gameplay suites, proof/event/WAV/waveform/provenance audit, objective inspection, honest external listening attribution, independent Luna P0/P1/P2 closure, and signed docs-only commit. |
 | LANE-R2-SHOTS-OUTCOMES | gameplay_behavior | active | ready | R2-SHOTS-OUTCOMES | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | Evidence auditor 019fc8a8-186e-7be2-aab3-0aae3da3a2fa is accepted/completed/unpinned. One persistent writable Luna 019fc8cb-3d2c-7171-bbe8-534028387b6e is active/pinned on the isolated codex/r2-shots-outcomes-luna worktree and must preserve accepted LIVE far-shot deferral. |
+| LANE-R2-CLOCK-LINEUPS-FATIGUE | gameplay_behavior | cleared_for_creation | ready | R2-CLOCK-LINEUPS-FATIGUE | reserved by master | codex/r2-clock-lineups-fatigue-sol | Create exactly one pinned gpt-5.6-sol/max domain orchestrator after this collision-free reservation is committed. Sol must begin read-only evidence/native inventory, create only top-level Luna Max workers, and request any shared scene/core rescope before mutation. |
 
 ## Rounds
 
@@ -75,7 +76,7 @@ Generated from committed JSON at `2026-08-03T18:51:52Z`. This dashboard reports 
 | 96 | R3-TEAM-MGMT-DATA | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 96 | R4-AUDIO | audio | R4 | backlog | - | - | 0 | pending | not_ready |
 | 96 | R5-E2E-RELEASE-QA | integration | R5 | backlog | - | - | 0 | pending | not_ready |
-| 94 | R2-CLOCK-LINEUPS-FATIGUE | gameplay_behavior | R2 | backlog | - | - | 0 | pending | not_ready |
+| 94 | R2-CLOCK-LINEUPS-FATIGUE | gameplay_behavior | R2 | scoped | - | codex/r2-clock-lineups-fatigue-sol | 0 | pending | not_ready |
 | 94 | R3-ALLSTAR | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 92 | R2-GAMEPLAY-PRESENTATION | gameplay_presentation | R2 | backlog | - | - | 0 | pending | not_ready |
 
@@ -97,6 +98,7 @@ Generated from committed JSON at `2026-08-03T18:51:52Z`. This dashboard reports 
 | OWN-R1-TIP | R1-TIP-FIDELITY | R1 | exclusive | include/tecmo_gameplay_pretip.h<br>src/tecmo_gameplay_pretip.c<br>src/tecmo_gameplay_scene_render.c<br>src/tecmo_gameplay_scene_test_pretip.c<br>src/tecmo_gameplay_scene_test_render_contract.c<br>src/tecmo_cli_render_gameplay_checkpoint.c<br>src/tecmo_win32_keys.c<br>src/asset_pack/tecmo_asset_pack_gameplay_pretip.c<br>src/asset_pack/tecmo_asset_pack_gameplay_pretip.h<br>src/asset_pack/tecmo_asset_pack_source_map.c<br>src/tecmo_gameplay_scene.c<br>tools/New-TipoffVisualProof.ps1<br>tools/Run-GameplayPreTipTests.ps1<br>tools/Run-GameplaySceneTests.ps1<br>docs/finish-tasks/R1-tip-fidelity/** | R1-gameplay-foundation |
 | OWN-R4-FRONTEND-INTRO-TITLE | R4-FRONTEND-INTRO-TITLE | R4 | exclusive | include/tecmo_intro_*.h<br>src/tecmo_intro_*.c<br>include/tecmo_title_screen.h<br>src/tecmo_title_screen.c<br>src/asset_pack/tecmo_asset_pack_opening.c<br>src/asset_pack/tecmo_asset_pack_opening.h<br>src/asset_pack/tecmo_asset_pack_arena.c<br>src/asset_pack/tecmo_asset_pack_arena.h<br>src/asset_pack/tecmo_asset_pack_finale.c<br>src/asset_pack/tecmo_asset_pack_finale.h<br>src/asset_pack/tecmo_asset_pack_post_arena.c<br>src/asset_pack/tecmo_asset_pack_post_arena.h<br>src/asset_pack/tecmo_asset_pack_d9f6.c<br>src/asset_pack/tecmo_asset_pack_d9f6.h<br>src/asset_pack/tecmo_asset_pack_title.c<br>src/asset_pack/tecmo_asset_pack_title.h<br>tools/Run-IntroSequenceTests.ps1<br>tools/New-IntroLayoutDraft.ps1<br>tools/Import-IntroArenaCapture.ps1<br>tools/Find-Intro*.ps1<br>tools/Find-NesReferenceIntro.ps1<br>tools/Find-Title*.ps1<br>tools/emu_intro_*.lua<br>docs/finish-tasks/R4-frontend-intro-title/**<br>src/tecmo_cli_render_scene_modes.c | R4-frontend-intro-title |
 | OWN-R2-SHOTS-OUTCOMES | R2-SHOTS-OUTCOMES | R2 | exclusive | include/tecmo_gameplay_close_shots.h<br>include/tecmo_gameplay_jump_shots.h<br>include/tecmo_gameplay_dunk_cutaway.h<br>include/tecmo_gameplay_shot_resolution.h<br>include/tecmo_gameplay_scene.h<br>include/tecmo_gameplay_scene_internal.h<br>src/tecmo_gameplay_close_shots.c<br>src/tecmo_gameplay_jump_shots.c<br>src/tecmo_gameplay_dunk_cutaway.c<br>src/tecmo_gameplay_shot_resolution.c<br>src/tecmo_gameplay_scene_shots.c<br>src/tecmo_gameplay_scene_validation.c<br>src/tecmo_gameplay_scene_test_internal.h<br>src/tecmo_gameplay_scene_test_orchestrator.c<br>src/tecmo_gameplay_scene_test_state_flow.c<br>src/tecmo_cli_gameplay_shots.c<br>src/tecmo_cli_gameplay_shot_resolution.c<br>src/asset_pack/tecmo_asset_pack_gameplay_close_shots.c<br>src/asset_pack/tecmo_asset_pack_gameplay_close_shots.h<br>src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c<br>src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.h<br>src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c<br>src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.h<br>src/asset_pack/tecmo_asset_pack_gameplay_shot_resolution.c<br>src/asset_pack/tecmo_asset_pack_gameplay_shot_resolution.h<br>tools/Run-GameplayCloseShotTests.ps1<br>tools/Run-GameplayShotResolutionTests.ps1<br>docs/finish-tasks/R2-shots-outcomes/** | R2-shots-outcomes |
+| OWN-R2-CLOCK-LINEUPS-FATIGUE | R2-CLOCK-LINEUPS-FATIGUE | R2 | exclusive | include/tecmo_gameplay_state.h<br>include/tecmo_gameplay_free_throw_lineup.h<br>include/tecmo_gameplay_fatigue.h<br>include/tecmo_gameplay_free_throw_projection_test.h<br>src/tecmo_gameplay_state.c<br>src/tecmo_gameplay_free_throw_lineup.c<br>src/tecmo_gameplay_fatigue.c<br>src/tecmo_gameplay_free_throw_projection_test.c<br>src/tecmo_gameplay_scene_test_shot_clock.c<br>src/asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.c<br>src/asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.h<br>src/asset_pack/tecmo_asset_pack_gameplay_fatigue.c<br>src/asset_pack/tecmo_asset_pack_gameplay_fatigue.h<br>tools/Run-GameplayFreeThrowLineupTests.ps1<br>tools/Run-GameplayFatigueTests.ps1<br>docs/finish-tasks/R2-clock-lineups-fatigue/** | R2-clock-lineups-fatigue |
 | OWN-R1A-INTEGRATION-QA | R1A-INTEGRATION-QA | R1A | exclusive | docs/finish-tasks/R1A-cpu-live-integration-qa/** | R1A-integration-qa |
 | OWN-R4A-INTEGRATION-QA | R4A-INTEGRATION-QA | R4A | exclusive | docs/finish-tasks/R4A-audio-integration-qa/** | R4A-integration-qa |
 
