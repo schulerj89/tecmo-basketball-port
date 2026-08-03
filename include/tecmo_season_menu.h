@@ -19,6 +19,9 @@
 #define TECMO_SEASON_LEADER_SCREEN_COUNT 7U
 #define TECMO_SEASON_LEADER_SCREEN_CELLS 960U
 #define TECMO_SEASON_POPUP_CELL_COUNT 496U
+#define TECMO_SEASON_NO_RAW_INDEX 0xFFFFU
+#define TECMO_SEASON_NO_TEAM 0xFFU
+#define TECMO_SEASON_STANDINGS_MAX_DIVISION_TEAMS 7U
 
 typedef struct TecmoSeasonPopupOverlay {
     uint16_t cell_start;
@@ -117,6 +120,41 @@ typedef struct TecmoSeasonSession {
     char status[160];
 } TecmoSeasonSession;
 
+/* A logical season ordinal is distinct from the source schedule's raw index. */
+typedef struct TecmoSeasonScheduleRecord {
+    uint16_t logical_ordinal;
+    uint16_t raw_index;
+    uint8_t away_team;
+    uint8_t home_team;
+} TecmoSeasonScheduleRecord;
+
+typedef struct TecmoSeasonProgress {
+    uint8_t season_type;
+    uint16_t logical_ordinal;
+    uint16_t total_games;
+    uint16_t completed_games;
+    uint16_t remaining_games;
+    uint16_t next_raw_index;
+    uint8_t next_away_team;
+    uint8_t next_home_team;
+    bool complete;
+} TecmoSeasonProgress;
+
+/* Native policy: exact winning ratio by cross multiplication (no display
+ * truncation), then wins, then the source division/display order.  The
+ * original standings tie policy is not claimed. */
+typedef struct TecmoSeasonStandingsRow {
+    uint8_t team_id;
+    uint8_t division;
+    uint8_t source_order;
+    uint16_t wins;
+    uint16_t losses;
+    uint16_t games_played;
+    uint32_t winning_ratio_numerator;
+    uint32_t winning_ratio_denominator;
+    uint16_t games_behind_half;
+} TecmoSeasonStandingsRow;
+
 typedef enum TecmoSeasonPhase {
     TECMO_SEASON_TEAM_CONTROL,
     TECMO_SEASON_SCHEDULE,
@@ -201,6 +239,24 @@ bool tecmo_season_schedule_raw_index(const TecmoSeasonAsset *asset,
                                      uint8_t season_type,
                                      uint16_t ordinal,
                                      uint16_t *raw_index);
+bool tecmo_season_game_count(const TecmoSeasonAsset *asset,
+                             uint8_t season_type,
+                             uint16_t *game_count);
+bool tecmo_season_schedule_record(const TecmoSeasonAsset *asset,
+                                  uint8_t season_type,
+                                  uint16_t ordinal,
+                                  TecmoSeasonScheduleRecord *record);
+bool tecmo_season_next_progress(const TecmoSeasonAsset *asset,
+                                const TecmoSeasonSession *session,
+                                TecmoSeasonProgress *progress);
+bool tecmo_season_build_standings_rows(
+    const TecmoSeasonAsset *asset,
+    const TecmoSeasonSession *session,
+    uint8_t division,
+    TecmoSeasonStandingsRow *rows,
+    size_t row_capacity,
+    size_t *row_count);
+const char *tecmo_season_standings_policy(void);
 bool tecmo_season_commit_game_result(TecmoSeasonState *state,
                                      const TecmoSeasonAsset *asset,
                                      TecmoSeasonSession *session,
