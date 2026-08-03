@@ -1,35 +1,58 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T04:18:18Z",
+  "updated_at": "2026-08-03T04:47:45Z",
   "claims": [
     {
-      "claim_id": "OWN-R0-CTRL",
-      "task_id": "R0-CTRL-001",
-      "round_id": "R0",
-      "session_id": "S-MASTER-001",
-      "mode": "exclusive",
-      "writable_globs": [
-        "docs/finish-orchestration/**",
-        "tools/finish-orchestration/**"
-      ],
-      "planned_paths": [
-        "docs/finish-orchestration/MASTER_PLAN.md",
-        "tools/finish-orchestration/orchestration.py"
-      ],
-      "concurrency_group": "R0-control-plane",
-      "active": true,
-      "claimed_at": "2026-08-03T04:18:18Z",
-      "released_at": null,
-      "notes": "Coordination-only ownership. No product source or product test files."
+      "claim_id":"OWN-R0-CTRL","task_id":"R0-CTRL-001","round_id":"R0","session_id":"S-MASTER-001","mode":"exclusive",
+      "writable_globs":["docs/finish-orchestration/**","tools/finish-orchestration/**"],
+      "planned_paths":["docs/finish-orchestration/MASTER_PLAN.md","tools/finish-orchestration/orchestration.py"],
+      "concurrency_group":"R0-control-plane","active":false,"claimed_at":"2026-08-03T04:18:18Z","released_at":"2026-08-03T04:39:00Z",
+      "notes":"Coordination-only ownership released after the verified Round 0 push."
+    },
+    {
+      "claim_id":"OWN-R0A-INV","task_id":"R0A-INV-001","round_id":"R0A","session_id":"S-MASTER-001","mode":"exclusive",
+      "writable_globs":["docs/finish-orchestration/**","docs/finish-tasks/**","tools/finish-orchestration/**"],
+      "planned_paths":["docs/finish-orchestration/state/inventory.json","docs/finish-tasks/R0A-inventory/README.md","docs/finish-orchestration/dashboard.md"],
+      "concurrency_group":"R0A-inventory","active":true,"claimed_at":"2026-08-03T04:47:45Z","released_at":null,
+      "notes":"Coordination-only inventory/adoption ownership; no product source or product test files."
+    },
+    {
+      "claim_id":"OWN-R0A-HIST-CPU-TIP","task_id":"R0A-ADOPT-CPU-TIP","round_id":"R0A","session_id":"S-SOL-CPU-TIP-LEGACY","mode":"shared_sequential",
+      "writable_globs":["include/tecmo_gameplay_cpu_steering.h","include/tecmo_gameplay_pretip.h","src/tecmo_gameplay_cpu_steering.c","src/tecmo_gameplay_pretip.c","src/tecmo_gameplay_scene*.c","src/asset_pack/tecmo_asset_pack_gameplay_pretip.c","src/asset_pack/tecmo_asset_pack_source_map.c","README.md","PORTING.md","AGENTS.md"],
+      "planned_paths":["src/tecmo_gameplay_scene_actors.c","src/tecmo_gameplay_scene_test_pretip.c"],
+      "concurrency_group":"historical-sequential-product","active":false,"claimed_at":"2026-08-02T01:24:21Z","released_at":"2026-08-02T15:18:42Z",
+      "notes":"Reconstructed historical ownership. Work is already represented in main; claim is inactive and must not be reused."
+    },
+    {
+      "claim_id":"OWN-R0A-HIST-TIP-VIS","task_id":"R0A-ADOPT-TIP-VIS","round_id":"R0A","session_id":"S-SOL-TIP-VIS-LEGACY","mode":"shared_sequential",
+      "writable_globs":["include/tecmo_gameplay_pretip.h","src/tecmo_gameplay_pretip.c","src/tecmo_gameplay_scene*.c","src/tecmo_win32_keys.c","src/asset_pack/tecmo_asset_pack_gameplay_pretip.c","src/asset_pack/tecmo_asset_pack_source_map.c","tools/New-TipoffVisualProof.ps1","tools/Run-GameplayPreTipTests.ps1","README.md","PORTING.md","AGENTS.md"],
+      "planned_paths":["src/tecmo_gameplay_scene_render.c","src/tecmo_cli_render_gameplay_checkpoint.c"],
+      "concurrency_group":"historical-sequential-product","active":false,"claimed_at":"2026-08-02T03:25:25Z","released_at":"2026-08-02T23:44:52Z",
+      "notes":"Reconstructed historical sequential/shared-boundary ownership. Already represented in main."
+    },
+    {
+      "claim_id":"OWN-R0A-HIST-AWAY","task_id":"R0A-ADOPT-AWAY-FACING","round_id":"R0A","session_id":"S-SOL-AWAY-FACING-LEGACY","mode":"exclusive",
+      "writable_globs":["src/tecmo_gameplay_scene_render.c","src/tecmo_gameplay_scene_test_render_contract.c","PORTING.md"],
+      "planned_paths":["src/tecmo_gameplay_scene_render.c","src/tecmo_gameplay_scene_test_render_contract.c"],
+      "concurrency_group":"historical-away-facing","active":false,"claimed_at":"2026-08-02T23:57:34Z","released_at":"2026-08-03T01:56:31Z",
+      "notes":"Reconstructed focused historical ownership. Worktree/branch were removed after proof preservation."
     }
   ],
-  "shared_boundaries": [],
-  "merge_orders": [
+  "shared_boundaries": [
     {
-      "round_id": "R0",
-      "ordered_task_ids": ["R0-CTRL-001"],
-      "declared_at": "2026-08-03T04:18:18Z"
+      "boundary_id":"BOUNDARY-R0A-HIST-SCENE","round_id":"R0A","writable_glob":"src/tecmo_gameplay_scene*.c","policy":"sequential","designated_task_id":null,
+      "ordered_task_ids":["R0A-ADOPT-CPU-TIP","R0A-ADOPT-TIP-VIS","R0A-ADOPT-AWAY-FACING"],
+      "notes":"Historical work was integrated sequentially. Future rounds must create new non-overlapping claims rather than reuse this record."
     }
+  ],
+  "merge_orders": [
+    {"round_id":"R0","ordered_task_ids":["R0-CTRL-001"],"declared_at":"2026-08-03T04:18:18Z"},
+    {"round_id":"R0A","ordered_task_ids":["R0A-INV-001","R0A-ADOPT-CPU-TIP","R0A-ADOPT-TIP-VIS","R0A-ADOPT-AWAY-FACING"],"declared_at":"2026-08-03T04:47:45Z"},
+    {"round_id":"R1","ordered_task_ids":["R1-CPU-PLAY-LIFECYCLE","R1-LIVE-FOUNDATION","R1-TIP-FIDELITY"],"declared_at":"2026-08-03T04:47:45Z"},
+    {"round_id":"R2","ordered_task_ids":["R2-SHOTS-OUTCOMES","R2-DEFENSE-CONTACT","R2-RULES-RESTARTS","R2-CLOCK-LINEUPS-FATIGUE","R2-GAMEPLAY-PRESENTATION"],"declared_at":"2026-08-03T04:47:45Z"},
+    {"round_id":"R3","ordered_task_ids":["R3-PLAYER-STATS-LEADERS","R3-SEASON-PROGRESSION-SAVE","R3-TEAM-MGMT-DATA","R3-ALLSTAR"],"declared_at":"2026-08-03T04:47:45Z"},
+    {"round_id":"R4","ordered_task_ids":["R4-FRONTEND-INTRO-TITLE","R4-MENUS-UI","R4-AUDIO"],"declared_at":"2026-08-03T04:47:45Z"},
+    {"round_id":"R5","ordered_task_ids":["R5-ASSET-BUILD-PROVENANCE","R5-PARITY-GAP-CLOSURE","R5-E2E-RELEASE-QA"],"declared_at":"2026-08-03T04:47:45Z"}
   ],
   "policy": {
     "claim_required_before_session_creation": true,

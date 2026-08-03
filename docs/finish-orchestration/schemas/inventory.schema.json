@@ -49,32 +49,41 @@
     },
     "worktree": {
       "type": "object", "additionalProperties": false,
-      "required": ["path", "branch", "head_sha", "dirty", "owner_session_id", "status", "observed_at"],
+      "required": ["path", "branch", "head_sha", "dirty", "dirty_paths", "owner_session_id", "status", "observed_at"],
       "properties": {
         "path": { "type": "string", "minLength": 1 }, "branch": { "type": "string", "minLength": 1 },
         "head_sha": { "$ref": "#/$defs/sha" }, "dirty": { "type": "boolean" },
+        "dirty_paths": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
         "owner_session_id": { "$ref": "#/$defs/nullableString" }, "status": { "type": "string", "minLength": 1 },
         "observed_at": { "type": "string", "format": "date-time" }
       }
     },
     "branch": {
       "type": "object", "additionalProperties": false,
-      "required": ["name", "tip_sha", "base_sha", "worktree", "task_id", "status", "observed_at"],
+      "required": ["name", "tip_sha", "base_sha", "worktree", "task_id", "status", "merge_base_sha", "ancestor_of_main", "descendant_of_main", "ahead_of_main", "behind_main", "disposition", "notes", "observed_at"],
       "properties": {
         "name": { "type": "string", "minLength": 1 }, "tip_sha": { "$ref": "#/$defs/sha" },
         "base_sha": { "$ref": "#/$defs/nullableSha" }, "worktree": { "$ref": "#/$defs/nullableString" },
         "task_id": { "$ref": "#/$defs/nullableString" }, "status": { "type": "string", "minLength": 1 },
+        "merge_base_sha": { "$ref": "#/$defs/sha" },
+        "ancestor_of_main": { "type": "boolean" }, "descendant_of_main": { "type": "boolean" },
+        "ahead_of_main": { "type": "integer", "minimum": 0 }, "behind_main": { "type": "integer", "minimum": 0 },
+        "disposition": { "type": "string", "enum": ["active_master", "integrated", "patch_integrated", "superseded", "safety", "preserve_dirty", "candidate_review"] },
+        "notes": { "type": "string" },
         "observed_at": { "type": "string", "format": "date-time" }
       }
     },
     "commit": {
       "type": "object", "additionalProperties": false,
-      "required": ["sha", "subject", "branch", "task_id", "review_status", "documentation_paths", "observed_at"],
+      "required": ["sha", "parents", "subject", "branch", "task_id", "review_status", "documentation_paths", "source_thread_ids", "notes", "observed_at"],
       "properties": {
-        "sha": { "$ref": "#/$defs/sha" }, "subject": { "type": "string", "minLength": 1 },
+        "sha": { "$ref": "#/$defs/sha" }, "parents": { "type": "array", "items": { "$ref": "#/$defs/sha" } },
+        "subject": { "type": "string", "minLength": 1 },
         "branch": { "$ref": "#/$defs/nullableString" }, "task_id": { "$ref": "#/$defs/nullableString" },
         "review_status": { "type": "string", "minLength": 1 },
         "documentation_paths": { "type": "array", "items": { "type": "string" } },
+        "source_thread_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "notes": { "type": "string" },
         "observed_at": { "type": "string", "format": "date-time" }
       }
     },
@@ -83,9 +92,15 @@
       "required": ["proof_id", "task_id", "kind", "path", "tracked", "manifest_path", "fingerprint", "status", "observed_at"],
       "properties": {
         "proof_id": { "type": "string", "minLength": 1 }, "task_id": { "$ref": "#/$defs/nullableString" },
-        "kind": { "type": "string", "enum": ["video", "frame", "contact_sheet", "audio", "waveform", "manifest", "log"] },
+        "kind": { "type": "string", "enum": ["video", "frame", "contact_sheet", "audio", "waveform", "manifest", "log", "proof_set"] },
         "path": { "type": "string", "minLength": 1 }, "tracked": { "type": "boolean" },
         "manifest_path": { "$ref": "#/$defs/nullableString" }, "fingerprint": { "$ref": "#/$defs/nullableString" },
+        "worktree": { "$ref": "#/$defs/nullableString" },
+        "file_count": { "type": "integer", "minimum": 0 }, "total_bytes": { "type": "integer", "minimum": 0 },
+        "png_count": { "type": "integer", "minimum": 0 }, "video_count": { "type": "integer", "minimum": 0 },
+        "audio_count": { "type": "integer", "minimum": 0 },
+        "manifest_paths": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "notes": { "type": "string" },
         "status": { "type": "string", "minLength": 1 }, "observed_at": { "type": "string", "format": "date-time" }
       }
     }

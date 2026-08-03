@@ -4,12 +4,13 @@
   "title": "Tecmo finish sessions",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "updated_at", "master_session_id", "sessions"],
+  "required": ["schema_version", "updated_at", "master_session_id", "sessions", "reported_luna_workers"],
   "properties": {
     "schema_version": { "const": 1 },
     "updated_at": { "type": "string", "format": "date-time" },
     "master_session_id": { "type": "string", "minLength": 1 },
-    "sessions": { "type": "array", "items": { "$ref": "#/$defs/session" } }
+    "sessions": { "type": "array", "items": { "$ref": "#/$defs/session" } },
+    "reported_luna_workers": { "type": "array", "items": { "$ref": "#/$defs/reportedWorker" } }
   },
   "$defs": {
     "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
@@ -30,8 +31,8 @@
         "pin_state": { "type": "string", "enum": ["pinned", "unpinned"] },
         "round_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
         "task_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
-        "worktree": { "type": "string", "minLength": 1 },
-        "branch": { "type": "string", "minLength": 1 },
+        "worktree": { "$ref": "#/$defs/nullableString" },
+        "branch": { "$ref": "#/$defs/nullableString" },
         "base_sha": { "$ref": "#/$defs/sha" },
         "last_good_sha": { "$ref": "#/$defs/sha" },
         "reports_to_session_id": { "$ref": "#/$defs/nullableString" },
@@ -51,7 +52,43 @@
         },
         "created_at": { "type": "string", "format": "date-time" },
         "completed_at": { "$ref": "#/$defs/nullableDate" },
-        "updated_at": { "type": "string", "format": "date-time" }
+        "updated_at": { "type": "string", "format": "date-time" },
+        "notes": { "type": "string" }
+      }
+    },
+    "reportedWorker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["worker_id", "thread_id", "title", "model", "thinking", "status", "pin_state", "reported_by_session_id", "round_ids", "task_ids", "worktree", "branch", "base_sha", "last_good_sha", "contribution", "recovery_lineage", "failure", "observed_at"],
+      "properties": {
+        "worker_id": { "type": "string", "minLength": 1 },
+        "thread_id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "model": { "const": "gpt-5.6-luna" },
+        "thinking": { "const": "max" },
+        "status": { "type": "string", "enum": ["active", "idle", "completed", "failed", "replaced", "blocked"] },
+        "pin_state": { "type": "string", "enum": ["pinned", "unpinned"] },
+        "reported_by_session_id": { "type": "string", "minLength": 1 },
+        "round_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "task_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "worktree": { "$ref": "#/$defs/nullableString" },
+        "branch": { "$ref": "#/$defs/nullableString" },
+        "base_sha": { "anyOf": [{ "$ref": "#/$defs/sha" }, { "type": "null" }] },
+        "last_good_sha": { "anyOf": [{ "$ref": "#/$defs/sha" }, { "type": "null" }] },
+        "contribution": { "type": "string", "minLength": 1 },
+        "recovery_lineage": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "failure": {
+          "type": "object", "additionalProperties": false,
+          "required": ["count", "raw_error_signatures", "retry_worker_ids", "replacement_worker_id", "takeover_confirmed_at"],
+          "properties": {
+            "count": { "type": "integer", "minimum": 0 },
+            "raw_error_signatures": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "retry_worker_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+            "replacement_worker_id": { "$ref": "#/$defs/nullableString" },
+            "takeover_confirmed_at": { "$ref": "#/$defs/nullableDate" }
+          }
+        },
+        "observed_at": { "type": "string", "format": "date-time" }
       }
     }
   }

@@ -409,6 +409,7 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
     tasks = queue["tasks"]
     round_rows = rounds["rounds"]
     session_rows = sessions["sessions"]
+    worker_rows = sessions["reported_luna_workers"]
     claims = ownership["claims"]
     evidence_rows = evidence["records"]
     blocker_rows = blockers["blockers"]
@@ -419,10 +420,13 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         (round_rows, "round_id", "round id"),
         (session_rows, "session_id", "session id"),
         (session_rows, "thread_id", "thread id"),
+        (worker_rows, "worker_id", "reported Luna worker id"),
+        (worker_rows, "thread_id", "reported Luna thread id"),
         (claims, "claim_id", "ownership claim id"),
         (evidence_rows, "evidence_id", "evidence id"),
         (blocker_rows, "blocker_id", "blocker id"),
         (criteria, "criterion_id", "acceptance criterion id"),
+        (inventory["threads"], "thread_id", "inventory thread id"),
         (inventory["worktrees"], "path", "inventory worktree path"),
         (inventory["branches"], "name", "inventory branch"),
         (inventory["commits"], "sha", "inventory commit"),
@@ -433,6 +437,7 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
     task_by_id = {row["task_id"]: row for row in tasks}
     round_by_id = {row["round_id"]: row for row in round_rows}
     session_by_id = {row["session_id"]: row for row in session_rows}
+    worker_by_id = {row["worker_id"]: row for row in worker_rows}
     claim_by_id = {row["claim_id"]: row for row in claims}
     evidence_by_id = {row["evidence_id"]: row for row in evidence_rows}
     blocker_by_id = {row["blocker_id"]: row for row in blocker_rows}
@@ -441,6 +446,10 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         result.error("master_session_id does not reference a registered session")
     elif session_by_id[sessions["master_session_id"]]["role"] != "master":
         result.error("master_session_id does not reference a master role")
+    session_thread_ids = {row["thread_id"] for row in session_rows}
+    for worker in worker_rows:
+        if worker["thread_id"] in session_thread_ids:
+            result.error(f"reported Luna thread {worker['thread_id']} duplicates a registered Sol/master thread")
 
     active_task_branches: dict[str, str] = {}
     active_task_worktrees: dict[str, str] = {}
@@ -450,8 +459,11 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
             result.error(f"task {task_id}: undeclared state {task['state']}")
         if task["round_id"] not in round_by_id:
             result.error(f"task {task_id}: unknown round {task['round_id']}")
-        if task["sol_orchestrator_session_id"] not in session_by_id:
-            result.error(f"task {task_id}: unknown Sol session {task['sol_orchestrator_session_id']}")
+        sol_session_id = task["sol_orchestrator_session_id"]
+        if sol_session_id is not None and sol_session_id not in session_by_id:
+            result.error(f"task {task_id}: unknown Sol session {sol_session_id}")
+        if task["state"] in ACTIVE_TASK_STATES and sol_session_id is None:
+            result.error(f"task {task_id}: active task has no assigned Sol orchestrator")
         for dependency in task["dependencies"]:
             if dependency not in task_by_id:
                 result.error(f"task {task_id}: unknown dependency {dependency}")
@@ -505,11 +517,11 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
             result.error(f"task {task_id}: current state {task['state']} does not match audit tail {previous}")
 
         for worker_id in task["reported_luna_worker_session_ids"]:
-            worker = session_by_id.get(worker_id)
+            worker = worker_by_id.get(worker_id)
             if not worker:
                 result.error(f"task {task_id}: reported Luna session {worker_id} is not registered")
-            elif worker["role"] != "luna_worker":
-                result.error(f"task {task_id}: reported Luna session {worker_id} is not a Luna worker")
+            elif worker["reported_by_session_id"] != sol_session_id:
+                result.error(f"task {task_id}: reported Luna session {worker_id} belongs to another Sol orchestrator")
 
         if task["state"] in FINAL_OR_LATE_STATES and not task["coordination_only"]:
             if not task["qa"]["sol_signoff"]:
@@ -523,6 +535,9 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
                 result.error(f"task {task_id}: pushed state lacks complete merge/push record")
 
         if task["state"] in ACTIVE_TASK_STATES:
+            if not task["branch"] or not task["worktree"]:
+                result.error(f"task {task_id}: active task requires a branch and worktree")
+                continue
             branch_key = task["branch"].casefold()
             worktree_key = canonical_worktree(task["worktree"])
             if branch_key in active_task_branches:
@@ -562,9 +577,15 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         for round_id in session["round_ids"]:
             if round_id not in round_by_id:
                 result.error(f"session {session_id}: unknown round {round_id}")
-        for related in session["reported_luna_lineage"] + session["recovery_lineage"]:
+        for related in session["reported_luna_lineage"]:
+            worker = worker_by_id.get(related)
+            if not worker:
+                result.error(f"session {session_id}: unknown reported Luna lineage {related}")
+            elif worker["reported_by_session_id"] != session_id:
+                result.error(f"session {session_id}: Luna lineage {related} reports to another Sol")
+        for related in session["recovery_lineage"]:
             if related not in session_by_id:
-                result.error(f"session {session_id}: unknown lineage session {related}")
+                result.error(f"session {session_id}: unknown recovery lineage session {related}")
         for field in ("reports_to_session_id", "parent_session_id"):
             related = session[field]
             if related and related not in session_by_id:
@@ -572,6 +593,9 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         if session["failure"]["count"] != len(session["failure"]["raw_error_signatures"]):
             result.error(f"session {session_id}: failure count does not equal recorded raw signatures")
         if session["status"] in ACTIVE_SESSION_STATES:
+            if not session["branch"] or not session["worktree"]:
+                result.error(f"session {session_id}: active session requires a branch and worktree")
+                continue
             branch_key = session["branch"].casefold()
             worktree_key = canonical_worktree(session["worktree"])
             if branch_key in active_session_branches:
@@ -580,6 +604,29 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
                 result.error(f"active sessions {active_session_worktrees[worktree_key]} and {session_id} share worktree {session['worktree']}")
             active_session_branches[branch_key] = session_id
             active_session_worktrees[worktree_key] = session_id
+
+    for worker in worker_rows:
+        worker_id = worker["worker_id"]
+        if worker["model"] != "gpt-5.6-luna" or worker["thinking"] != "max":
+            result.error(f"reported worker {worker_id}: must use gpt-5.6-luna thinking=max")
+        if "tecmo" not in worker["title"].casefold() or "luna" not in worker["title"].casefold():
+            result.error(f"reported worker {worker_id}: title must contain Tecmo and Luna")
+        reporter = session_by_id.get(worker["reported_by_session_id"])
+        if not reporter or reporter["role"] not in {"domain_orchestrator", "integration_orchestrator"}:
+            result.error(f"reported worker {worker_id}: reporter is not a registered Sol orchestrator")
+        for task_id in worker["task_ids"]:
+            if task_id not in task_by_id:
+                result.error(f"reported worker {worker_id}: unknown task {task_id}")
+        for round_id in worker["round_ids"]:
+            if round_id not in round_by_id:
+                result.error(f"reported worker {worker_id}: unknown round {round_id}")
+        for related in worker["recovery_lineage"]:
+            if related not in worker_by_id:
+                result.error(f"reported worker {worker_id}: unknown worker recovery lineage {related}")
+        if worker["status"] in ACTIVE_SESSION_STATES and worker["pin_state"] != "pinned":
+            result.error(f"reported worker {worker_id}: active/idle/blocked worker must be pinned")
+        if worker["failure"]["count"] != len(worker["failure"]["raw_error_signatures"]):
+            result.error(f"reported worker {worker_id}: failure count does not equal recorded signatures")
 
     for claim in claims:
         claim_id = claim["claim_id"]
@@ -739,6 +786,23 @@ def validate_git_lineage(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         for field in ("base_sha", "expected_parent_sha"):
             if not git_commit_exists(repo_root, task[field]):
                 result.error(f"lineage: task {task_id} {field} {task[field]} does not exist")
+        for commit in task["result_commits"]:
+            if not git_commit_exists(repo_root, commit):
+                result.error(f"lineage: task {task_id} result commit {commit} does not exist")
+            elif not git_is_ancestor(repo_root, task["base_sha"], commit):
+                result.error(f"lineage: task {task_id} result commit {commit} does not descend from base")
+
+        if task["state"] == "pushed":
+            main_tip = git_output(repo_root, "rev-parse", "main")
+            for commit in task["result_commits"]:
+                if git_commit_exists(repo_root, commit) and not git_is_ancestor(repo_root, commit, main_tip):
+                    result.error(f"lineage: pushed task {task_id} result commit {commit} is not on main")
+            continue
+        if task["state"] in {"backlog", "scoped", "failed", "replaced"}:
+            continue
+        if not task["branch"] or not task["worktree"]:
+            result.error(f"lineage: active task {task_id} has no branch/worktree")
+            continue
         try:
             branch_tip = git_output(repo_root, "rev-parse", f"refs/heads/{task['branch']}")
         except RuntimeError as exc:
@@ -758,11 +822,7 @@ def validate_git_lineage(repo_root: Path, state: dict[str, Any]) -> CheckResult:
                     f"lineage: task {task_id} first branch commit {commits[0]} does not have expected parent {task['expected_parent_sha']}"
                 )
         for commit in task["result_commits"]:
-            if not git_commit_exists(repo_root, commit):
-                result.error(f"lineage: task {task_id} result commit {commit} does not exist")
-            elif not git_is_ancestor(repo_root, task["base_sha"], commit):
-                result.error(f"lineage: task {task_id} result commit {commit} does not descend from base")
-            elif not git_is_ancestor(repo_root, commit, branch_tip):
+            if git_commit_exists(repo_root, commit) and not git_is_ancestor(repo_root, commit, branch_tip):
                 result.error(f"lineage: task {task_id} result commit {commit} is not on its branch")
         worktree = worktrees.get(canonical_worktree(task["worktree"]))
         if not worktree:
@@ -776,6 +836,9 @@ def validate_git_lineage(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         if session["status"] not in ACTIVE_SESSION_STATES:
             continue
         session_id = session["session_id"]
+        if not session["worktree"] or not session["branch"]:
+            result.error(f"lineage: active session {session_id} has no branch/worktree")
+            continue
         worktree = worktrees.get(canonical_worktree(session["worktree"]))
         if not worktree:
             result.error(f"lineage: active session {session_id} worktree is not registered")
@@ -835,6 +898,7 @@ def status_text(state: dict[str, Any]) -> str:
         "Task states: " + (", ".join(f"{key}={value}" for key, value in sorted(counts.items())) or "none"),
         "Rounds: " + ", ".join(f"{row['round_id']}={row['status']}" for row in rounds["rounds"]),
         f"Active sessions: {len(active_sessions)}",
+        f"Reported Luna workers: {len(sessions['reported_luna_workers'])}",
         f"Open external blockers: {sum(row['status'] == 'open' for row in blockers['blockers'])}",
         "Acceptance: " + ", ".join(f"{key}={value}" for key, value in sorted(classifications.items())),
     ]
@@ -900,7 +964,7 @@ def dashboard_text(state: dict[str, Any], generated_at: str) -> str:
                 markdown_escape(value)
                 for value in (
                     task["priority"], task["task_id"], task["domain"], task["round_id"], task["state"],
-                    task["sol_orchestrator_session_id"], task["branch"], len(task["result_commits"]),
+                    task["sol_orchestrator_session_id"] or "-", task["branch"] or "-", len(task["result_commits"]),
                     task["qa"]["status"], task["merge"]["status"],
                 )
             ) + " |"
@@ -922,7 +986,7 @@ def dashboard_text(state: dict[str, Any], generated_at: str) -> str:
                 for value in (
                     session["session_id"], session["role"], f"{session['model']}/{session['thinking']}",
                     session["status"], session["pin_state"], ", ".join(session["task_ids"]),
-                    session["branch"], session["worktree"], session["last_good_sha"][:12],
+                    session["branch"] or "-", session["worktree"] or "-", session["last_good_sha"][:12],
                 )
             ) + " |"
         )
@@ -1120,11 +1184,30 @@ def command_self_test(args: argparse.Namespace) -> int:
         expect(any("does not continue prior state" in message for message in audit_result.errors), "audit-chain rejection")
 
         overlap_claims = copy.deepcopy(actual_state["ownership"])
-        second_claim = copy.deepcopy(overlap_claims["claims"][0])
-        second_claim["claim_id"] = "SELF-TEST-OVERLAP"
-        second_claim["task_id"] = "SELF-TEST-OTHER"
-        second_claim["session_id"] = "SELF-TEST-SESSION"
-        overlap_claims["claims"].append(second_claim)
+        first_claim = copy.deepcopy(overlap_claims["claims"][0])
+        first_claim.update(
+            {
+                "claim_id": "SELF-TEST-OVERLAP-A",
+                "task_id": "SELF-TEST-TASK-A",
+                "round_id": "SELF-TEST-ROUND",
+                "session_id": "SELF-TEST-SESSION-A",
+                "writable_globs": ["src/**"],
+                "planned_paths": ["src/tecmo_gameplay_scene.c"],
+                "active": True,
+                "released_at": None,
+            }
+        )
+        second_claim = copy.deepcopy(first_claim)
+        second_claim.update(
+            {
+                "claim_id": "SELF-TEST-OVERLAP-B",
+                "task_id": "SELF-TEST-TASK-B",
+                "session_id": "SELF-TEST-SESSION-B",
+                "writable_globs": ["src/tecmo_gameplay_scene*.c"],
+            }
+        )
+        overlap_claims["claims"] = [first_claim, second_claim]
+        overlap_claims["shared_boundaries"] = []
         expect(bool(ownership_overlaps(args.repo_root, overlap_claims)), "ownership-overlap rejection")
 
         invalid_queue = copy.deepcopy(actual_state["queue"])

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T04:35:00Z",
+  "updated_at": "2026-08-03T04:47:45Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -11,25 +11,17 @@
       "round_id": "R0",
       "priority": 100,
       "coordination_only": true,
-      "state": "ready_for_main",
+      "state": "pushed",
       "dependencies": [],
-      "ownership_claim_ids": [
-        "OWN-R0-CTRL"
-      ],
+      "ownership_claim_ids": ["OWN-R0-CTRL"],
       "base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
       "expected_parent_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
       "branch": "codex/master-finish-orchestration",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator",
       "sol_orchestrator_session_id": "S-MASTER-001",
       "reported_luna_worker_session_ids": [],
-      "result_commits": [
-        "2bdfac614a3179fa100de236bddf4a46f5080383"
-      ],
-      "evidence_ids": [
-        "EVID-R0-BASE",
-        "EVID-R0-POLICY",
-        "EVID-R0-VALIDATION"
-      ],
+      "result_commits": ["2bdfac614a3179fa100de236bddf4a46f5080383", "7090d2c62201ce3d330df20043a6e80fd0bdef00"],
+      "evidence_ids": ["EVID-R0-BASE", "EVID-R0-POLICY", "EVID-R0-VALIDATION"],
       "blocker_ids": [],
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-orchestration",
@@ -38,91 +30,185 @@
         "sol_signoff": true,
         "integration_signoff": true,
         "test_records": [
-          "tools/finish-orchestration/Test-ControlPlane.ps1: PASS at 2bdfac614a3179fa100de236bddf4a46f5080383",
+          "tools/finish-orchestration/Test-ControlPlane.ps1: PASS",
           "Allowed in_progress -> sol_review transition dry-run: PASS",
           "Forbidden in_progress -> pushed transition rejection: PASS",
           "Python and PowerShell syntax parsing: PASS"
         ],
         "proof_manifests": [],
-        "notes": "Round 0 permits master-owned coordination validators only; no product QA."
+        "notes": "Round 0 permitted master-owned coordination validators only; no product QA was performed."
       },
       "merge": {
         "staging_branch": "codex/master-finish-orchestration",
         "merge_order": 1,
-        "status": "ready",
+        "status": "pushed",
         "merge_commit": null,
         "main_pre_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
-        "main_post_sha": null,
-        "push_sha": null,
-        "pushed_at": null
+        "main_post_sha": "7090d2c62201ce3d330df20043a6e80fd0bdef00",
+        "push_sha": "7090d2c62201ce3d330df20043a6e80fd0bdef00",
+        "pushed_at": "2026-08-03T04:39:00Z"
       },
       "created_at": "2026-08-03T04:18:18Z",
-      "updated_at": "2026-08-03T04:35:00Z",
+      "updated_at": "2026-08-03T04:47:45Z",
       "audit": [
-        {
-          "timestamp": "2026-08-03T04:18:18Z",
-          "actor_session_id": "S-MASTER-001",
-          "from_state": null,
-          "to_state": "backlog",
-          "reason": "Initialize the committed Round 0 control-plane task."
-        },
-        {
-          "timestamp": "2026-08-03T04:18:18Z",
-          "actor_session_id": "S-MASTER-001",
-          "from_state": "backlog",
-          "to_state": "scoped",
-          "reason": "Scope is limited to durable orchestration state, schemas, validators, and documentation."
-        },
-        {
-          "timestamp": "2026-08-03T04:18:18Z",
-          "actor_session_id": "S-MASTER-001",
-          "from_state": "scoped",
-          "to_state": "assigned",
-          "reason": "Assign coordination-only work to the master with exclusive control-plane ownership."
-        },
-        {
-          "timestamp": "2026-08-03T04:18:18Z",
-          "actor_session_id": "S-MASTER-001",
-          "from_state": "assigned",
-          "to_state": "in_progress",
-          "reason": "Persistent worktree and branch were created from the exact main base."
-        },
-        {
-          "timestamp": "2026-08-03T04:35:00Z",
-          "actor_session_id": "S-MASTER-001",
-          "from_state": "in_progress",
-          "to_state": "sol_review",
-          "reason": "Master reviewed the coordination-only implementation and validator coverage."
-        },
-        {
-          "timestamp": "2026-08-03T04:35:00Z",
-          "actor_session_id": "S-MASTER-001",
-          "from_state": "sol_review",
-          "to_state": "sol_accepted",
-          "reason": "Coordination validators, failure probes, syntax checks, lineage, and dashboard gate passed."
-        },
-        {
-          "timestamp": "2026-08-03T04:35:00Z",
-          "actor_session_id": "S-MASTER-001",
-          "from_state": "sol_accepted",
-          "to_state": "ready_for_round_staging",
-          "reason": "The exact control-plane commit is frozen for administrative staging."
-        },
-        {
-          "timestamp": "2026-08-03T04:35:00Z",
-          "actor_session_id": "S-MASTER-001",
-          "from_state": "ready_for_round_staging",
-          "to_state": "combined_qa",
-          "reason": "Round 0 uses the documented coordination-only combined validation exception."
-        },
-        {
-          "timestamp": "2026-08-03T04:35:00Z",
-          "actor_session_id": "S-MASTER-001",
-          "from_state": "combined_qa",
-          "to_state": "ready_for_main",
-          "reason": "All administrative acceptance gates passed; no product QA was performed."
-        }
+        {"timestamp":"2026-08-03T04:18:18Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Initialize the committed Round 0 control-plane task."},
+        {"timestamp":"2026-08-03T04:18:18Z","actor_session_id":"S-MASTER-001","from_state":"backlog","to_state":"scoped","reason":"Limit scope to durable orchestration state, schemas, validators, and documentation."},
+        {"timestamp":"2026-08-03T04:18:18Z","actor_session_id":"S-MASTER-001","from_state":"scoped","to_state":"assigned","reason":"Assign coordination-only work to the master with exclusive control-plane ownership."},
+        {"timestamp":"2026-08-03T04:18:18Z","actor_session_id":"S-MASTER-001","from_state":"assigned","to_state":"in_progress","reason":"Create the persistent worktree and branch from the exact main base."},
+        {"timestamp":"2026-08-03T04:35:00Z","actor_session_id":"S-MASTER-001","from_state":"in_progress","to_state":"sol_review","reason":"Master reviewed coordination-only implementation and validator coverage."},
+        {"timestamp":"2026-08-03T04:35:00Z","actor_session_id":"S-MASTER-001","from_state":"sol_review","to_state":"sol_accepted","reason":"Coordination validators, failure probes, syntax checks, lineage, and dashboard gate passed."},
+        {"timestamp":"2026-08-03T04:35:00Z","actor_session_id":"S-MASTER-001","from_state":"sol_accepted","to_state":"ready_for_round_staging","reason":"Freeze the exact control-plane commit for administrative staging."},
+        {"timestamp":"2026-08-03T04:35:00Z","actor_session_id":"S-MASTER-001","from_state":"ready_for_round_staging","to_state":"combined_qa","reason":"Use the documented coordination-only combined-validation exception."},
+        {"timestamp":"2026-08-03T04:35:00Z","actor_session_id":"S-MASTER-001","from_state":"combined_qa","to_state":"ready_for_main","reason":"All administrative acceptance gates passed; no product QA was performed."},
+        {"timestamp":"2026-08-03T04:39:00Z","actor_session_id":"S-MASTER-001","from_state":"ready_for_main","to_state":"merged","reason":"Fast-forward main from the verified immutable base to the accepted control-plane history."},
+        {"timestamp":"2026-08-03T04:39:00Z","actor_session_id":"S-MASTER-001","from_state":"merged","to_state":"pushed","reason":"Non-force push succeeded and local main equals origin/main at 7090d2c6."}
       ]
-    }
+    },
+    {
+      "task_id": "R0A-INV-001",
+      "title": "Inventory and adopt pre-control-plane Tecmo work",
+      "domain": "orchestration",
+      "round_id": "R0A",
+      "priority": 100,
+      "coordination_only": true,
+      "state": "in_progress",
+      "dependencies": ["R0-CTRL-001"],
+      "ownership_claim_ids": ["OWN-R0A-INV"],
+      "base_sha": "7090d2c62201ce3d330df20043a6e80fd0bdef00",
+      "expected_parent_sha": "7090d2c62201ce3d330df20043a6e80fd0bdef00",
+      "branch": "codex/master-finish-orchestration",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator",
+      "sol_orchestrator_session_id": "S-MASTER-001",
+      "reported_luna_worker_session_ids": [],
+      "result_commits": [],
+      "evidence_ids": ["EVID-R0A-INVENTORY"],
+      "blocker_ids": [],
+      "replacement_task_id": null,
+      "task_docs_path": "docs/finish-tasks/R0A-inventory",
+      "qa": {"status":"coordination_in_progress","sol_signoff":false,"integration_signoff":false,"test_records":[],"proof_manifests":[],"notes":"Only schema/state/ownership/Git inventory checks are permitted; no product QA."},
+      "merge": {"staging_branch":"codex/master-finish-orchestration","merge_order":1,"status":"not_ready","merge_commit":null,"main_pre_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","main_post_sha":null,"push_sha":null,"pushed_at":null},
+      "created_at": "2026-08-03T04:47:45Z",
+      "updated_at": "2026-08-03T04:47:45Z",
+      "audit": [
+        {"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Create the required post-control-plane inventory task."},
+        {"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":"backlog","to_state":"scoped","reason":"Scope to sessions, Git lineage, proof sets, source-declared gaps, acceptance mapping, and backlog."},
+        {"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":"scoped","to_state":"assigned","reason":"Assign coordination-only inventory work to the master."},
+        {"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":"assigned","to_state":"in_progress","reason":"Begin the repository, thread, worktree, branch, commit, proof, and gap snapshot."}
+      ]
+    },
+    {
+      "task_id": "R0A-ADOPT-CPU-TIP",
+      "title": "Adopt integrated CPU movement and visible tip-input work",
+      "domain": "gameplay_behavior",
+      "round_id": "R0A",
+      "priority": 99,
+      "coordination_only": false,
+      "state": "pushed",
+      "dependencies": ["R0-CTRL-001"],
+      "ownership_claim_ids": ["OWN-R0A-HIST-CPU-TIP"],
+      "base_sha": "1885d17f9dbc9773159f5d967cc8e5208f296f9f",
+      "expected_parent_sha": "1885d17f9dbc9773159f5d967cc8e5208f296f9f",
+      "branch": "codex/cpu-tipoff-behavior",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-cpu-tipoff",
+      "sol_orchestrator_session_id": "S-SOL-CPU-TIP-LEGACY",
+      "reported_luna_worker_session_ids": ["019fc01c-730d-71c2-8a73-529db70b6163","019fc01c-7881-7e11-8132-ae9fdb3b9a0f","019fc028-f47e-7193-9766-8286894dcff7","019fc028-f829-7270-b147-f25620ec9cfb","019fc041-15d4-7e32-a3c7-911d225f3744","019fc041-1b0e-7370-88ed-6c0186e16176","019fc04b-106b-7fe0-8ba5-56928f288f0e","019fc04e-e8c6-7de1-8892-c5b675afb117"],
+      "result_commits": ["11ed80cd5fd8733ed1c176ed897dfe9b1ae28402"],
+      "evidence_ids": ["EVID-ADOPT-CPU-KERNEL", "EVID-ADOPT-TIP-INPUT"],
+      "blocker_ids": [], "replacement_task_id": null,
+      "task_docs_path": "docs/finish-tasks/adopted-cpu-tipoff",
+      "qa": {"status":"historical_sol_accepted","sol_signoff":true,"integration_signoff":true,"test_records":["Sol report: 27/27 Run-*Tests.ps1 passed","Sol report: Win32 launch smoke passed","Sol report: warning-clean GUI/CLI builds and private gates available"],"proof_manifests":[],"notes":"Historical pushed work is adopted without rerunning product QA. Broader CPU/tip acceptance remains incomplete."},
+      "merge": {"staging_branch":"codex/tipoff-visual-orientation","merge_order":2,"status":"pushed","merge_commit":"2ea4a952f1a9a5f8467ca03fccd8cff6e6605fd5","main_pre_sha":"1885d17f9dbc9773159f5d967cc8e5208f296f9f","main_post_sha":"1caa64531ec53c657fed6a87a047631f76d93e64","push_sha":"1caa64531ec53c657fed6a87a047631f76d93e64","pushed_at":"2026-08-02T15:18:42Z"},
+      "created_at":"2026-08-02T01:24:21Z","updated_at":"2026-08-03T04:47:45Z",
+      "audit": [
+        {"timestamp":"2026-08-02T01:24:21Z","actor_session_id":"S-SOL-CPU-TIP-LEGACY","from_state":null,"to_state":"backlog","reason":"Historical Sol task began before the finish control plane existed."},
+        {"timestamp":"2026-08-02T01:24:21Z","actor_session_id":"S-SOL-CPU-TIP-LEGACY","from_state":"backlog","to_state":"scoped","reason":"Bound scope to CPU movement and tip input."},
+        {"timestamp":"2026-08-02T01:24:21Z","actor_session_id":"S-SOL-CPU-TIP-LEGACY","from_state":"scoped","to_state":"assigned","reason":"Sol accepted orchestration ownership."},
+        {"timestamp":"2026-08-02T01:24:21Z","actor_session_id":"S-SOL-CPU-TIP-LEGACY","from_state":"assigned","to_state":"in_progress","reason":"Evidence and implementation rounds started."},
+        {"timestamp":"2026-08-02T03:19:25Z","actor_session_id":"S-SOL-CPU-TIP-LEGACY","from_state":"in_progress","to_state":"sol_review","reason":"Sol reviewed four rounds of evidence, implementation, revisions, tests, and live frames."},
+        {"timestamp":"2026-08-02T03:19:25Z","actor_session_id":"S-SOL-CPU-TIP-LEGACY","from_state":"sol_review","to_state":"sol_accepted","reason":"Sol signed branch head 11ed80cd."},
+        {"timestamp":"2026-08-02T03:19:25Z","actor_session_id":"S-SOL-CPU-TIP-LEGACY","from_state":"sol_accepted","to_state":"ready_for_round_staging","reason":"Reviewed branch was ready for visual integration."},
+        {"timestamp":"2026-08-02T15:18:42Z","actor_session_id":"S-SOL-TIP-VIS-LEGACY","from_state":"ready_for_round_staging","to_state":"combined_qa","reason":"CPU/tip commits were staged with the tip visual branch and its combined suite/proof."},
+        {"timestamp":"2026-08-02T15:18:42Z","actor_session_id":"S-SOL-TIP-VIS-LEGACY","from_state":"combined_qa","to_state":"ready_for_main","reason":"Historical visual Sol accepted the combined branch."},
+        {"timestamp":"2026-08-02T15:18:42Z","actor_session_id":"S-SOL-TIP-VIS-LEGACY","from_state":"ready_for_main","to_state":"merged","reason":"Historical main fast-forward contained the accepted CPU/tip commits."},
+        {"timestamp":"2026-08-02T15:18:42Z","actor_session_id":"S-SOL-TIP-VIS-LEGACY","from_state":"merged","to_state":"pushed","reason":"Historical non-force main push made the work an ancestor of current main."}
+      ]
+    },
+    {
+      "task_id": "R0A-ADOPT-TIP-VIS",
+      "title": "Adopt integrated tip visual, HUD, facing, input, and proof work",
+      "domain": "gameplay_presentation",
+      "round_id": "R0A", "priority": 98, "coordination_only": false, "state": "pushed",
+      "dependencies": ["R0-CTRL-001", "R0A-ADOPT-CPU-TIP"],
+      "ownership_claim_ids": ["OWN-R0A-HIST-TIP-VIS"],
+      "base_sha": "1885d17f9dbc9773159f5d967cc8e5208f296f9f", "expected_parent_sha": "1885d17f9dbc9773159f5d967cc8e5208f296f9f",
+      "branch": "codex/tipoff-visual-orientation", "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-tipoff-visual-proof",
+      "sol_orchestrator_session_id": "S-SOL-TIP-VIS-LEGACY",
+      "reported_luna_worker_session_ids": ["019fc08f-ed6c-7ea0-970a-5f201afa68b3","019fc08f-f31e-7e51-beac-761780fc2bca","019fc08f-f833-7893-86c6-8b8176dc0ca9","019fc08f-fdb0-7d00-9088-e95f8c0e79e7","019fc3da-1baf-76a3-9e27-b69ba3d443e8","019fc3da-271f-7fb0-89dd-c55a42d6dadd","019fc3da-271f-7fb0-89dd-c53d25270b7b","019fc3da-dd56-70e3-a1eb-79573d2fe83e","019fc42f-80cf-72a2-aa2b-c670f2ea33dc","019fc471-8e41-7ea3-bd33-6486e0d52dff","019fc471-d299-7710-8490-93b3d50ef2cd","019fc48f-badc-7611-b3ed-21a826d38876","019fc4b6-9c4f-71e0-80c1-6081cc3f1e60","019fc3da-4258-77c0-beb4-52393ea69238","019fc3da-66da-77c2-abc9-28301a1acf7d","019fc3da-cede-7883-86ab-9dc900901ab5","019fc3da-d635-73b1-9d8b-fdc4ef456cbf","019fc48f-ba7d-7ca2-a7f9-712ea4dec73d"],
+      "result_commits": ["1caa64531ec53c657fed6a87a047631f76d93e64","f6e1f3a8a56d58f2331377b2658166b3654347c7","6e5d6492a500fe3e42967156c6ba81f8dbb34b55","494428a941918b5b948ef8b798f4cb782ca66b56","8ebf564d03b6bf9780dfc0df55907d5843624734","9979b136ef62530be78808101feb7f0d561b2dbd"],
+      "evidence_ids": ["EVID-ADOPT-TIP-INPUT", "EVID-ADOPT-TIP-VIS-PROOF"], "blocker_ids": [], "replacement_task_id": null,
+      "task_docs_path": "docs/finish-tasks/adopted-tipoff-visuals",
+      "qa": {"status":"historical_sol_accepted","sol_signoff":true,"integration_signoff":true,"test_records":["Sol report: 27/27 Run-*Tests.ps1 passed","Sol report: focused controls, pre-tip, scene, camera, orientation and render checks passed","Sol report: warning-clean rebuild and Win32 launch smoke passed"],"proof_manifests":["build/proof/tipoff-main-9979b13/proof-manifest.json"],"notes":"Sol personally inspected full-resolution frames, edge sheets, contact sheet, MP4, and deployed GUI. Exact trajectory/CPU frame remains approximate."},
+      "merge": {"staging_branch":"codex/tipoff-input-cpu-proof","merge_order":3,"status":"pushed","merge_commit":"9979b136ef62530be78808101feb7f0d561b2dbd","main_pre_sha":"f6e1f3a8a56d58f2331377b2658166b3654347c7","main_post_sha":"9979b136ef62530be78808101feb7f0d561b2dbd","push_sha":"9979b136ef62530be78808101feb7f0d561b2dbd","pushed_at":"2026-08-02T23:44:52Z"},
+      "created_at":"2026-08-02T03:25:25Z","updated_at":"2026-08-03T04:47:45Z",
+      "audit": [
+        {"timestamp":"2026-08-02T03:25:25Z","actor_session_id":"S-SOL-TIP-VIS-LEGACY","from_state":null,"to_state":"backlog","reason":"Historical Sol visual task began before the finish control plane existed."},
+        {"timestamp":"2026-08-02T03:25:25Z","actor_session_id":"S-SOL-TIP-VIS-LEGACY","from_state":"backlog","to_state":"scoped","reason":"Bound scope to tip presentation, edges, facing, HUD, input, and proof."},
+        {"timestamp":"2026-08-02T03:25:25Z","actor_session_id":"S-SOL-TIP-VIS-LEGACY","from_state":"scoped","to_state":"assigned","reason":"Sol accepted orchestration ownership."},
+        {"timestamp":"2026-08-02T03:25:25Z","actor_session_id":"S-SOL-TIP-VIS-LEGACY","from_state":"assigned","to_state":"in_progress","reason":"Evidence, implementation, proof, and review rounds started."},
+        {"timestamp":"2026-08-02T23:44:52Z","actor_session_id":"S-SOL-TIP-VIS-LEGACY","from_state":"in_progress","to_state":"sol_review","reason":"Sol reviewed final input/CPU/proof commits and full-resolution artifacts."},
+        {"timestamp":"2026-08-02T23:44:52Z","actor_session_id":"S-SOL-TIP-VIS-LEGACY","from_state":"sol_review","to_state":"sol_accepted","reason":"Sol signed the complete historical tip-off patch set."},
+        {"timestamp":"2026-08-02T23:44:52Z","actor_session_id":"S-SOL-TIP-VIS-LEGACY","from_state":"sol_accepted","to_state":"ready_for_round_staging","reason":"Accepted commits were frozen for historical staging."},
+        {"timestamp":"2026-08-02T23:44:52Z","actor_session_id":"S-SOL-TIP-VIS-LEGACY","from_state":"ready_for_round_staging","to_state":"combined_qa","reason":"Combined suite, rebuild, smoke, and production proof passed under the Sol."},
+        {"timestamp":"2026-08-02T23:44:52Z","actor_session_id":"S-SOL-TIP-VIS-LEGACY","from_state":"combined_qa","to_state":"ready_for_main","reason":"Sol accepted merge 9979b136 for main."},
+        {"timestamp":"2026-08-02T23:44:52Z","actor_session_id":"S-SOL-TIP-VIS-LEGACY","from_state":"ready_for_main","to_state":"merged","reason":"Historical merge combined tip input/CPU proof into main."},
+        {"timestamp":"2026-08-02T23:44:52Z","actor_session_id":"S-SOL-TIP-VIS-LEGACY","from_state":"merged","to_state":"pushed","reason":"Historical main push succeeded at 9979b136."}
+      ]
+    },
+    {
+      "task_id":"R0A-ADOPT-AWAY-FACING","title":"Adopt integrated goal-relative Away-left render fix","domain":"gameplay_presentation","round_id":"R0A","priority":97,"coordination_only":false,"state":"pushed",
+      "dependencies":["R0-CTRL-001","R0A-ADOPT-TIP-VIS"],"ownership_claim_ids":["OWN-R0A-HIST-AWAY"],
+      "base_sha":"9979b136ef62530be78808101feb7f0d561b2dbd","expected_parent_sha":"9979b136ef62530be78808101feb7f0d561b2dbd","branch":"codex/away-facing-left-only","worktree":"C:/Users/joshs/Projects/tecmo-basketball-port-away-facing-left",
+      "sol_orchestrator_session_id":"S-SOL-AWAY-FACING-LEGACY","reported_luna_worker_session_ids":["019fc4f0-7a8e-7113-b682-ff1c0055f91a"],
+      "result_commits":["f26da5889f16bba5aa7b62eabf25932ff732c437","63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e"],"evidence_ids":["EVID-ADOPT-AWAY-ASM","EVID-ADOPT-AWAY-PROOF"],"blocker_ids":[],"replacement_task_id":null,"task_docs_path":"docs/finish-tasks/adopted-away-facing",
+      "qa":{"status":"historical_sol_accepted","sol_signoff":true,"integration_signoff":true,"test_records":["Sol report: all 27 top-level suites passed","Sol report: focused render/orientation/scene/pre-tip/movement checks passed","Sol report: warning-clean build and Win32 launch smoke passed"],"proof_manifests":["build/proof/away-facing-left-only/manifest.json","build/proof/away-facing-left-luna/manifest.json"],"notes":"Sol personally inspected original frame/OAM, full-resolution before/after frames, crops, contact sheet, MP4, and deployed build."},
+      "merge":{"staging_branch":"codex/away-facing-left-only","merge_order":4,"status":"pushed","merge_commit":null,"main_pre_sha":"9979b136ef62530be78808101feb7f0d561b2dbd","main_post_sha":"63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e","push_sha":"63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e","pushed_at":"2026-08-03T01:56:31Z"},
+      "created_at":"2026-08-02T23:57:34Z","updated_at":"2026-08-03T04:47:45Z",
+      "audit":[
+        {"timestamp":"2026-08-02T23:57:34Z","actor_session_id":"S-SOL-AWAY-FACING-LEGACY","from_state":null,"to_state":"backlog","reason":"Historical focused facing task began."},
+        {"timestamp":"2026-08-02T23:57:34Z","actor_session_id":"S-SOL-AWAY-FACING-LEGACY","from_state":"backlog","to_state":"scoped","reason":"Scope limited to goal-left Away rendered polarity."},
+        {"timestamp":"2026-08-02T23:57:34Z","actor_session_id":"S-SOL-AWAY-FACING-LEGACY","from_state":"scoped","to_state":"assigned","reason":"Sol accepted orchestration ownership."},
+        {"timestamp":"2026-08-02T23:57:34Z","actor_session_id":"S-SOL-AWAY-FACING-LEGACY","from_state":"assigned","to_state":"in_progress","reason":"Evidence, isolated worker, implementation, tests, and proof began."},
+        {"timestamp":"2026-08-03T01:50:29Z","actor_session_id":"S-SOL-AWAY-FACING-LEGACY","from_state":"in_progress","to_state":"sol_review","reason":"Sol reviewed renderer patch, OAM evidence, tests, and full-resolution proof."},
+        {"timestamp":"2026-08-03T01:50:29Z","actor_session_id":"S-SOL-AWAY-FACING-LEGACY","from_state":"sol_review","to_state":"sol_accepted","reason":"Sol signed f26da588 and final documentation."},
+        {"timestamp":"2026-08-03T01:50:29Z","actor_session_id":"S-SOL-AWAY-FACING-LEGACY","from_state":"sol_accepted","to_state":"ready_for_round_staging","reason":"Focused branch was frozen for historical main integration."},
+        {"timestamp":"2026-08-03T01:50:29Z","actor_session_id":"S-SOL-AWAY-FACING-LEGACY","from_state":"ready_for_round_staging","to_state":"combined_qa","reason":"Sol's full matrix and production proof served as the focused combined gate."},
+        {"timestamp":"2026-08-03T01:50:29Z","actor_session_id":"S-SOL-AWAY-FACING-LEGACY","from_state":"combined_qa","to_state":"ready_for_main","reason":"Focused change was accepted for main."},
+        {"timestamp":"2026-08-03T01:56:31Z","actor_session_id":"S-SOL-AWAY-FACING-LEGACY","from_state":"ready_for_main","to_state":"merged","reason":"Historical main fast-forward included the accepted facing fix and docs."},
+        {"timestamp":"2026-08-03T01:56:31Z","actor_session_id":"S-SOL-AWAY-FACING-LEGACY","from_state":"merged","to_state":"pushed","reason":"Historical non-force main push succeeded at 63b29b04."}
+      ]
+    },
+
+    {"task_id":"R1-CPU-PLAY-LIFECYCLE","title":"Port original CPU play-command, link, spacing, matchup, switching, decision, and shot-timing lifecycle","domain":"gameplay_behavior","round_id":"R1","priority":100,"coordination_only":false,"state":"backlog","dependencies":["R0A-ADOPT-CPU-TIP"],"ownership_claim_ids":[],"base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","expected_parent_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","branch":null,"worktree":null,"sol_orchestrator_session_id":null,"reported_luna_worker_session_ids":[],"result_commits":[],"evidence_ids":[],"blocker_ids":[],"replacement_task_id":null,"task_docs_path":"docs/finish-tasks/R1-cpu-play-lifecycle","qa":{"status":"pending","sol_signoff":false,"integration_signoff":false,"test_records":[],"proof_manifests":[],"notes":"Must replace/document current high-level native formation and marking approximation."},"merge":{"staging_branch":"codex/round-1-gameplay-foundation-staging","merge_order":1,"status":"not_ready","merge_commit":null,"main_pre_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","main_post_sha":null,"push_sha":null,"pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z","audit":[{"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"README, PORTING, source maps, and accepted Sol report identify the original high-level CPU lifecycle as unfinished."}]},
+    {"task_id":"R1-LIVE-FOUNDATION","title":"Complete starting-lineup binding, post-tip spacing, links, matchups, switching, possession, and live input foundation","domain":"gameplay_behavior","round_id":"R1","priority":98,"coordination_only":false,"state":"backlog","dependencies":["R0A-ADOPT-CPU-TIP","R0A-ADOPT-TIP-VIS","R0A-ADOPT-AWAY-FACING"],"ownership_claim_ids":[],"base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","expected_parent_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","branch":null,"worktree":null,"sol_orchestrator_session_id":null,"reported_luna_worker_session_ids":[],"result_commits":[],"evidence_ids":[],"blocker_ids":[],"replacement_task_id":null,"task_docs_path":"docs/finish-tasks/R1-live-foundation","qa":{"status":"pending","sol_signoff":false,"integration_signoff":false,"test_records":[],"proof_manifests":[],"notes":"Source map still says fixed scene slots 0..4 and original starters not bound."},"merge":{"staging_branch":"codex/round-1-gameplay-foundation-staging","merge_order":2,"status":"not_ready","merge_commit":null,"main_pre_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","main_post_sha":null,"push_sha":null,"pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z","audit":[{"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Inventory identifies starter binding and post-tip live foundation as source-declared approximations."}]},
+    {"task_id":"R1-TIP-FIDELITY","title":"Resolve original tip winner, claim, automatic path, trajectory, timing, and live handoff fidelity","domain":"gameplay_behavior","round_id":"R1","priority":96,"coordination_only":false,"state":"backlog","dependencies":["R0A-ADOPT-CPU-TIP","R0A-ADOPT-TIP-VIS"],"ownership_claim_ids":[],"base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","expected_parent_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","branch":null,"worktree":null,"sol_orchestrator_session_id":null,"reported_luna_worker_session_ids":[],"result_commits":[],"evidence_ids":[],"blocker_ids":[],"replacement_task_id":null,"task_docs_path":"docs/finish-tasks/R1-tip-fidelity","qa":{"status":"pending","sol_signoff":false,"integration_signoff":false,"test_records":[],"proof_manifests":[],"notes":"Preserve accepted input/presentation while replacing or explicitly accepting remaining native policy."},"merge":{"staging_branch":"codex/round-1-gameplay-foundation-staging","merge_order":3,"status":"not_ready","merge_commit":null,"main_pre_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","main_post_sha":null,"push_sha":null,"pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z","audit":[{"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Accepted Sols explicitly retain native jump and winner/CPU timing approximations."}]},
+
+    {"task_id":"R2-SHOTS-OUTCOMES","title":"Complete shot selection, all jump-shot families, layups, dunks, arcs, make/miss/contact, scoring, and settlement outcomes","domain":"gameplay_behavior","round_id":"R2","priority":100,"coordination_only":false,"state":"backlog","dependencies":["R1-CPU-PLAY-LIFECYCLE","R1-LIVE-FOUNDATION"],"ownership_claim_ids":[],"base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","expected_parent_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","branch":null,"worktree":null,"sol_orchestrator_session_id":null,"reported_luna_worker_session_ids":[],"result_commits":[],"evidence_ids":[],"blocker_ids":[],"replacement_task_id":null,"task_docs_path":"docs/finish-tasks/R2-shots-outcomes","qa":{"status":"pending","sol_signoff":false,"integration_signoff":false,"test_records":[],"proof_manifests":[],"notes":"Requires an explicit shot/outcome matrix and production proof for every supported branch."},"merge":{"staging_branch":"codex/round-2-gameplay-mechanics-staging","merge_order":1,"status":"not_ready","merge_commit":null,"main_pre_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","main_post_sha":null,"push_sha":null,"pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z","audit":[{"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"README/source maps explicitly identify shot choice, families, arcs, contact, and outcomes as incomplete or approximate."}]},
+    {"task_id":"R2-DEFENSE-CONTACT","title":"Complete defense, steals, blocks, rebounds, contact, matchup reactions, and supported outcomes","domain":"gameplay_behavior","round_id":"R2","priority":98,"coordination_only":false,"state":"backlog","dependencies":["R1-CPU-PLAY-LIFECYCLE","R1-LIVE-FOUNDATION"],"ownership_claim_ids":[],"base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","expected_parent_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","branch":null,"worktree":null,"sol_orchestrator_session_id":null,"reported_luna_worker_session_ids":[],"result_commits":[],"evidence_ids":[],"blocker_ids":[],"replacement_task_id":null,"task_docs_path":"docs/finish-tasks/R2-defense-contact","qa":{"status":"pending","sol_signoff":false,"integration_signoff":false,"test_records":[],"proof_manifests":[],"notes":"Must cover human/CPU, both orientations, failure gates, and original reference action timing."},"merge":{"staging_branch":"codex/round-2-gameplay-mechanics-staging","merge_order":2,"status":"not_ready","merge_commit":null,"main_pre_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","main_post_sha":null,"push_sha":null,"pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z","audit":[{"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Definition of finished and README identify exact steals, blocks, rebounds, and contact as remaining work."}]},
+    {"task_id":"R2-RULES-RESTARTS","title":"Complete fouls, free throws, violations, referee sequences, possession settlement, and restarts","domain":"gameplay_behavior","round_id":"R2","priority":96,"coordination_only":false,"state":"backlog","dependencies":["R2-SHOTS-OUTCOMES","R2-DEFENSE-CONTACT"],"ownership_claim_ids":[],"base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","expected_parent_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","branch":null,"worktree":null,"sol_orchestrator_session_id":null,"reported_luna_worker_session_ids":[],"result_commits":[],"evidence_ids":[],"blocker_ids":[],"replacement_task_id":null,"task_docs_path":"docs/finish-tasks/R2-rules-restarts","qa":{"status":"pending","sol_signoff":false,"integration_signoff":false,"test_records":[],"proof_manifests":[],"notes":"Existing violation/referee contracts are partial; free-throw aim/outcome/rebound and foul detection remain approximate."},"merge":{"staging_branch":"codex/round-2-gameplay-mechanics-staging","merge_order":3,"status":"not_ready","merge_commit":null,"main_pre_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","main_post_sha":null,"push_sha":null,"pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z","audit":[{"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"PORTING/source maps call foul and free-throw behavior approximate and list unsupported terminal predicates."}]},
+    {"task_id":"R2-CLOCK-LINEUPS-FATIGUE","title":"Verify and complete clocks, periods, halftime, overtime, final flow, substitutions, lineups, and fatigue integration","domain":"gameplay_behavior","round_id":"R2","priority":94,"coordination_only":false,"state":"backlog","dependencies":["R1-LIVE-FOUNDATION"],"ownership_claim_ids":[],"base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","expected_parent_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","branch":null,"worktree":null,"sol_orchestrator_session_id":null,"reported_luna_worker_session_ids":[],"result_commits":[],"evidence_ids":[],"blocker_ids":[],"replacement_task_id":null,"task_docs_path":"docs/finish-tasks/R2-clock-lineups-fatigue","qa":{"status":"pending","sol_signoff":false,"integration_signoff":false,"test_records":[],"proof_manifests":[],"notes":"Compilation/playability claims require complete scenario matrix and production proof."},"merge":{"staging_branch":"codex/round-2-gameplay-mechanics-staging","merge_order":4,"status":"not_ready","merge_commit":null,"main_pre_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","main_post_sha":null,"push_sha":null,"pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z","audit":[{"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Definition of finished requires full period/overtime/lineup/fatigue behavior beyond existing focused claims."}]},
+    {"task_id":"R2-GAMEPLAY-PRESENTATION","title":"Complete directional/action animation matrix, court, camera, HUD, clipping, sprite ordering, cutaways, and edge fidelity","domain":"gameplay_presentation","round_id":"R2","priority":92,"coordination_only":false,"state":"backlog","dependencies":["R0A-ADOPT-TIP-VIS","R0A-ADOPT-AWAY-FACING","R2-SHOTS-OUTCOMES","R2-DEFENSE-CONTACT","R2-RULES-RESTARTS"],"ownership_claim_ids":[],"base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","expected_parent_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","branch":null,"worktree":null,"sol_orchestrator_session_id":null,"reported_luna_worker_session_ids":[],"result_commits":[],"evidence_ids":[],"blocker_ids":[],"replacement_task_id":null,"task_docs_path":"docs/finish-tasks/R2-gameplay-presentation","qa":{"status":"pending","sol_signoff":false,"integration_signoff":false,"test_records":[],"proof_manifests":[],"notes":"Accepted tip/Away proof covers only narrow contexts; every action family and screen edge still needs reference proof."},"merge":{"staging_branch":"codex/round-2-gameplay-mechanics-staging","merge_order":5,"status":"not_ready","merge_commit":null,"main_pre_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","main_post_sha":null,"push_sha":null,"pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z","audit":[{"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Definition of finished requires the full motion/presentation matrix; historical fixes are narrow, not global acceptance."}]},
+
+    {"task_id":"R3-PLAYER-STATS-LEADERS","title":"Implement per-player game/season statistics and real ranked League Leaders data","domain":"season_data","round_id":"R3","priority":100,"coordination_only":false,"state":"backlog","dependencies":["R2-SHOTS-OUTCOMES","R2-RULES-RESTARTS","R2-CLOCK-LINEUPS-FATIGUE"],"ownership_claim_ids":[],"base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","expected_parent_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","branch":null,"worktree":null,"sol_orchestrator_session_id":null,"reported_luna_worker_session_ids":[],"result_commits":[],"evidence_ids":[],"blocker_ids":[],"replacement_task_id":null,"task_docs_path":"docs/finish-tasks/R3-player-stats-leaders","qa":{"status":"pending","sol_signoff":false,"integration_signoff":false,"test_records":[],"proof_manifests":[],"notes":"README and season renderer explicitly show PLAYER RESULTS UNAVAILABLE and no TSAV accumulators."},"merge":{"staging_branch":"codex/round-3-season-data-staging","merge_order":1,"status":"not_ready","merge_commit":null,"main_pre_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","main_post_sha":null,"push_sha":null,"pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z","audit":[{"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"README and PORTING explicitly identify per-player stats and ranked leaders as unimplemented."}]},
+    {"task_id":"R3-SEASON-PROGRESSION-SAVE","title":"Complete preseason/season schedule, standings, completed-game/season progression, playoffs, save/load, and result persistence","domain":"season_data","round_id":"R3","priority":98,"coordination_only":false,"state":"backlog","dependencies":["R2-CLOCK-LINEUPS-FATIGUE","R3-PLAYER-STATS-LEADERS"],"ownership_claim_ids":[],"base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","expected_parent_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","branch":null,"worktree":null,"sol_orchestrator_session_id":null,"reported_luna_worker_session_ids":[],"result_commits":[],"evidence_ids":[],"blocker_ids":[],"replacement_task_id":null,"task_docs_path":"docs/finish-tasks/R3-season-progression-save","qa":{"status":"pending","sol_signoff":false,"integration_signoff":false,"test_records":[],"proof_manifests":[],"notes":"Requires deterministic full-season simulation, malformed-save rejection, and end-state proof."},"merge":{"staging_branch":"codex/round-3-season-data-staging","merge_order":2,"status":"not_ready","merge_commit":null,"main_pre_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","main_post_sha":null,"push_sha":null,"pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z","audit":[{"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Existing playable progression claims require full-season/save acceptance and stat integration."}]},
+    {"task_id":"R3-TEAM-MGMT-DATA","title":"Complete team management, starters/playbook, substitutions, roster/player/team data wiring, arrow alignment, and text cleanup","domain":"season_data","round_id":"R3","priority":96,"coordination_only":false,"state":"backlog","dependencies":["R1-LIVE-FOUNDATION","R3-PLAYER-STATS-LEADERS"],"ownership_claim_ids":[],"base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","expected_parent_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","branch":null,"worktree":null,"sol_orchestrator_session_id":null,"reported_luna_worker_session_ids":[],"result_commits":[],"evidence_ids":[],"blocker_ids":[],"replacement_task_id":null,"task_docs_path":"docs/finish-tasks/R3-team-management-data","qa":{"status":"pending","sol_signoff":false,"integration_signoff":false,"test_records":[],"proof_manifests":[],"notes":"Includes requested red-arrow alignment and removal of extra zeros/periods on player information."},"merge":{"staging_branch":"codex/round-3-season-data-staging","merge_order":3,"status":"not_ready","merge_commit":null,"main_pre_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","main_post_sha":null,"push_sha":null,"pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z","audit":[{"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Definition of finished explicitly requires management/data wiring and page-specific visual/text corrections."}]},
+    {"task_id":"R3-ALLSTAR","title":"Implement All-Star game launch, gameplay/roster integration, result return, and reference-fidelity selectors","domain":"season_data","round_id":"R3","priority":94,"coordination_only":false,"state":"backlog","dependencies":["R3-TEAM-MGMT-DATA","R2-CLOCK-LINEUPS-FATIGUE"],"ownership_claim_ids":[],"base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","expected_parent_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","branch":null,"worktree":null,"sol_orchestrator_session_id":null,"reported_luna_worker_session_ids":[],"result_commits":[],"evidence_ids":[],"blocker_ids":[],"replacement_task_id":null,"task_docs_path":"docs/finish-tasks/R3-allstar","qa":{"status":"pending","sol_signoff":false,"integration_signoff":false,"test_records":[],"proof_manifests":[],"notes":"README explicitly states selectors exist but All-Star launch is not implemented."},"merge":{"staging_branch":"codex/round-3-season-data-staging","merge_order":4,"status":"not_ready","merge_commit":null,"main_pre_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","main_post_sha":null,"push_sha":null,"pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z","audit":[{"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"README explicitly identifies All-Star game launch as unimplemented."}]},
+
+    {"task_id":"R4-FRONTEND-INTRO-TITLE","title":"Tighten opening, TECMO/rabbit, license, arena, finale, title, attract, and start timing/animation to original references","domain":"frontend","round_id":"R4","priority":100,"coordination_only":false,"state":"backlog","dependencies":[],"ownership_claim_ids":[],"base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","expected_parent_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","branch":null,"worktree":null,"sol_orchestrator_session_id":null,"reported_luna_worker_session_ids":[],"result_commits":[],"evidence_ids":[],"blocker_ids":[],"replacement_task_id":null,"task_docs_path":"docs/finish-tasks/R4-frontend-intro-title","qa":{"status":"pending","sol_signoff":false,"integration_signoff":false,"test_records":[],"proof_manifests":[],"notes":"Requires deterministic original/native video, numbered frames, contact sheets, and timing evidence."},"merge":{"staging_branch":"codex/round-4-frontend-audio-staging","merge_order":1,"status":"not_ready","merge_commit":null,"main_pre_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","main_post_sha":null,"push_sha":null,"pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z","audit":[{"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Definition of finished requires original-reference frontend timing beyond current playability."}]},
+    {"task_id":"R4-MENUS-UI","title":"Complete all menu transitions, input behavior, selectors, overlays, data UI details, and visual fidelity","domain":"frontend","round_id":"R4","priority":98,"coordination_only":false,"state":"backlog","dependencies":["R3-SEASON-PROGRESSION-SAVE","R3-TEAM-MGMT-DATA","R3-ALLSTAR","R4-FRONTEND-INTRO-TITLE"],"ownership_claim_ids":[],"base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","expected_parent_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","branch":null,"worktree":null,"sol_orchestrator_session_id":null,"reported_luna_worker_session_ids":[],"result_commits":[],"evidence_ids":[],"blocker_ids":[],"replacement_task_id":null,"task_docs_path":"docs/finish-tasks/R4-menus-ui","qa":{"status":"pending","sol_signoff":false,"integration_signoff":false,"test_records":[],"proof_manifests":[],"notes":"Must cover every mode transition and page, not only render-test hashes."},"merge":{"staging_branch":"codex/round-4-frontend-audio-staging","merge_order":2,"status":"not_ready","merge_commit":null,"main_pre_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","main_post_sha":null,"push_sha":null,"pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z","audit":[{"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Definition of finished requires complete menu transitions and UI details across all wired modes."}]},
+    {"task_id":"R4-AUDIO","title":"Complete and prove opening/menu/gameplay/halftime/final music, SFX, samples, cue routing, mixing, and device behavior","domain":"audio","round_id":"R4","priority":96,"coordination_only":false,"state":"backlog","dependencies":["R2-CLOCK-LINEUPS-FATIGUE","R2-GAMEPLAY-PRESENTATION","R4-FRONTEND-INTRO-TITLE"],"ownership_claim_ids":[],"base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","expected_parent_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","branch":null,"worktree":null,"sol_orchestrator_session_id":null,"reported_luna_worker_session_ids":[],"result_commits":[],"evidence_ids":[],"blocker_ids":[],"replacement_task_id":null,"task_docs_path":"docs/finish-tasks/R4-audio","qa":{"status":"pending","sol_signoff":false,"integration_signoff":false,"test_records":[],"proof_manifests":[],"notes":"Inventory found no audio capture/waveform/listening-proof set; this task must create one."},"merge":{"staging_branch":"codex/round-4-frontend-audio-staging","merge_order":3,"status":"not_ready","merge_commit":null,"main_pre_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","main_post_sha":null,"push_sha":null,"pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z","audit":[{"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Existing audio code/tests lack the required production capture, waveform/event evidence, and Sol listening notes."}]},
+
+    {"task_id":"R5-ASSET-BUILD-PROVENANCE","title":"Prove deterministic asset-pack/executable rebuild, strict validators, native runtime ownership, and clean legal/provenance boundary","domain":"assets_build","round_id":"R5","priority":100,"coordination_only":false,"state":"backlog","dependencies":["R3-SEASON-PROGRESSION-SAVE","R4-FRONTEND-INTRO-TITLE","R4-MENUS-UI","R4-AUDIO"],"ownership_claim_ids":[],"base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","expected_parent_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","branch":null,"worktree":null,"sol_orchestrator_session_id":null,"reported_luna_worker_session_ids":[],"result_commits":[],"evidence_ids":[],"blocker_ids":[],"replacement_task_id":null,"task_docs_path":"docs/finish-tasks/R5-asset-build-provenance","qa":{"status":"pending","sol_signoff":false,"integration_signoff":false,"test_records":[],"proof_manifests":[],"notes":"Requires clean checkout rebuild hashes, repeated pack fingerprint, mutations, tracked-artifact audit, and no private runtime dependency."},"merge":{"staging_branch":"codex/round-5-release-staging","merge_order":1,"status":"not_ready","merge_commit":null,"main_pre_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","main_post_sha":null,"push_sha":null,"pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z","audit":[{"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Definition of finished requires final deterministic rebuild and legal/provenance sign-off."}]},
+    {"task_id":"R5-PARITY-GAP-CLOSURE","title":"Run full fidelity matrix audit and close every remaining incomplete or unjustified approximation","domain":"integration","round_id":"R5","priority":98,"coordination_only":false,"state":"backlog","dependencies":["R1-CPU-PLAY-LIFECYCLE","R1-LIVE-FOUNDATION","R1-TIP-FIDELITY","R2-SHOTS-OUTCOMES","R2-DEFENSE-CONTACT","R2-RULES-RESTARTS","R2-CLOCK-LINEUPS-FATIGUE","R2-GAMEPLAY-PRESENTATION","R3-PLAYER-STATS-LEADERS","R3-SEASON-PROGRESSION-SAVE","R3-TEAM-MGMT-DATA","R3-ALLSTAR","R4-FRONTEND-INTRO-TITLE","R4-MENUS-UI","R4-AUDIO","R5-ASSET-BUILD-PROVENANCE"],"ownership_claim_ids":[],"base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","expected_parent_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","branch":null,"worktree":null,"sol_orchestrator_session_id":null,"reported_luna_worker_session_ids":[],"result_commits":[],"evidence_ids":[],"blocker_ids":[],"replacement_task_id":null,"task_docs_path":"docs/finish-tasks/R5-parity-gap-closure","qa":{"status":"pending","sol_signoff":false,"integration_signoff":false,"test_records":[],"proof_manifests":[],"notes":"No criterion may remain incomplete or approximate without explicit accepted justification."},"merge":{"staging_branch":"codex/round-5-release-staging","merge_order":2,"status":"not_ready","merge_commit":null,"main_pre_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","main_post_sha":null,"push_sha":null,"pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z","audit":[{"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Final inventory reconciliation is required after all domain rounds before release QA."}]},
+    {"task_id":"R5-E2E-RELEASE-QA","title":"Complete dedicated integration QA: full rebuild/suites, full game/season, smoke, and end-to-end original-reference visual/audio proof","domain":"integration","round_id":"R5","priority":96,"coordination_only":false,"state":"backlog","dependencies":["R5-PARITY-GAP-CLOSURE"],"ownership_claim_ids":[],"base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","expected_parent_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","branch":null,"worktree":null,"sol_orchestrator_session_id":null,"reported_luna_worker_session_ids":[],"result_commits":[],"evidence_ids":[],"blocker_ids":[],"replacement_task_id":null,"task_docs_path":"docs/finish-tasks/R5-e2e-release-qa","qa":{"status":"pending","sol_signoff":false,"integration_signoff":false,"test_records":[],"proof_manifests":[],"notes":"Must be owned and signed by a dedicated Sol Max integration orchestrator on the exact final staging SHA."},"merge":{"staging_branch":"codex/round-5-release-staging","merge_order":3,"status":"not_ready","merge_commit":null,"main_pre_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","main_post_sha":null,"push_sha":null,"pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z","audit":[{"timestamp":"2026-08-03T04:47:45Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Definition of finished requires dedicated combined release QA and end-to-end proof."}]}
   ]
 }

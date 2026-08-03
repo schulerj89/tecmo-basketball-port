@@ -1,23 +1,23 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T04:35:00Z",
+  "updated_at": "2026-08-03T04:47:45Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
       "session_id": "S-MASTER-001",
       "thread_id": "019fc5d4-f360-78b3-b2a6-c8bae92df690",
-      "title": "Tecmo R0 Master Finish Orchestrator — Sol Max",
+      "title": "Tecmo R0 Master Finish Orchestrator - Sol Max",
       "role": "master",
       "model": "gpt-5.6-sol",
       "thinking": "max",
       "status": "active",
       "pin_state": "pinned",
-      "round_ids": ["R0"],
-      "task_ids": ["R0-CTRL-001"],
+      "round_ids": ["R0", "R0A"],
+      "task_ids": ["R0-CTRL-001", "R0A-INV-001"],
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator",
       "branch": "codex/master-finish-orchestration",
       "base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
-      "last_good_sha": "2bdfac614a3179fa100de236bddf4a46f5080383",
+      "last_good_sha": "7090d2c62201ce3d330df20043a6e80fd0bdef00",
       "reports_to_session_id": null,
       "parent_session_id": null,
       "reported_luna_lineage": [],
@@ -31,7 +31,214 @@
       },
       "created_at": "2026-08-03T04:18:18Z",
       "completed_at": null,
-      "updated_at": "2026-08-03T04:35:00Z"
+      "updated_at": "2026-08-03T04:47:45Z",
+      "notes": "Master owns coordination state, round integration, and main pushes; no product implementation or product QA."
+    },
+    {
+      "session_id": "S-SOL-CPU-TIP-LEGACY",
+      "thread_id": "019fc012-6da0-7410-8600-a6b89b402424",
+      "title": "Tecmo CPU Logic + Tip-Off - Sol Max Orchestrator",
+      "role": "domain_orchestrator",
+      "model": "gpt-5.6-sol",
+      "thinking": "max",
+      "status": "completed",
+      "pin_state": "unpinned",
+      "round_ids": ["R0A"],
+      "task_ids": ["R0A-ADOPT-CPU-TIP"],
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-cpu-tipoff",
+      "branch": "codex/cpu-tipoff-behavior",
+      "base_sha": "1885d17f9dbc9773159f5d967cc8e5208f296f9f",
+      "last_good_sha": "11ed80cd5fd8733ed1c176ed897dfe9b1ae28402",
+      "reports_to_session_id": "S-MASTER-001",
+      "parent_session_id": null,
+      "reported_luna_lineage": [
+        "019fc01c-730d-71c2-8a73-529db70b6163",
+        "019fc01c-7881-7e11-8132-ae9fdb3b9a0f",
+        "019fc028-f47e-7193-9766-8286894dcff7",
+        "019fc028-f829-7270-b147-f25620ec9cfb",
+        "019fc041-15d4-7e32-a3c7-911d225f3744",
+        "019fc041-1b0e-7370-88ed-6c0186e16176",
+        "019fc04b-106b-7fe0-8ba5-56928f288f0e",
+        "019fc04e-e8c6-7de1-8892-c5b675afb117"
+      ],
+      "recovery_lineage": [],
+      "failure": {
+        "count": 0,
+        "raw_error_signatures": [],
+        "retry_session_ids": [],
+        "replacement_session_id": null,
+        "takeover_confirmed_at": null
+      },
+      "created_at": "2026-08-02T01:24:21Z",
+      "completed_at": "2026-08-02T03:19:25Z",
+      "updated_at": "2026-08-03T04:47:45Z",
+      "notes": "Adopted from its structured final report; its branch is an ancestor of current main."
+    },
+    {
+      "session_id": "S-SOL-TIP-VIS-LEGACY",
+      "thread_id": "019fc081-44bd-7422-baac-3030f5356dba",
+      "title": "Tecmo Tip-Off Visuals + Facing - Sol Max Orchestrator",
+      "role": "domain_orchestrator",
+      "model": "gpt-5.6-sol",
+      "thinking": "max",
+      "status": "completed",
+      "pin_state": "unpinned",
+      "round_ids": ["R0A"],
+      "task_ids": ["R0A-ADOPT-TIP-VIS"],
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-tipoff-visual-proof",
+      "branch": "codex/tipoff-visual-orientation",
+      "base_sha": "1885d17f9dbc9773159f5d967cc8e5208f296f9f",
+      "last_good_sha": "9979b136ef62530be78808101feb7f0d561b2dbd",
+      "reports_to_session_id": "S-MASTER-001",
+      "parent_session_id": null,
+      "reported_luna_lineage": [
+        "019fc08f-ed6c-7ea0-970a-5f201afa68b3",
+        "019fc08f-f31e-7e51-beac-761780fc2bca",
+        "019fc08f-f833-7893-86c6-8b8176dc0ca9",
+        "019fc08f-fdb0-7d00-9088-e95f8c0e79e7",
+        "019fc3da-1baf-76a3-9e27-b69ba3d443e8",
+        "019fc3da-271f-7fb0-89dd-c55a42d6dadd",
+        "019fc3da-271f-7fb0-89dd-c53d25270b7b",
+        "019fc3da-dd56-70e3-a1eb-79573d2fe83e",
+        "019fc42f-80cf-72a2-aa2b-c670f2ea33dc",
+        "019fc471-8e41-7ea3-bd33-6486e0d52dff",
+        "019fc471-d299-7710-8490-93b3d50ef2cd",
+        "019fc48f-badc-7611-b3ed-21a826d38876",
+        "019fc4b6-9c4f-71e0-80c1-6081cc3f1e60",
+        "019fc3da-4258-77c0-beb4-52393ea69238",
+        "019fc3da-66da-77c2-abc9-28301a1acf7d",
+        "019fc3da-cede-7883-86ab-9dc900901ab5",
+        "019fc3da-d635-73b1-9d8b-fdc4ef456cbf",
+        "019fc48f-ba7d-7ca2-a7f9-712ea4dec73d"
+      ],
+      "recovery_lineage": [],
+      "failure": {
+        "count": 1,
+        "raw_error_signatures": ["{detail: bad request} task-control fault; the same Sol thread later completed without losing committed work"],
+        "retry_session_ids": [],
+        "replacement_session_id": null,
+        "takeover_confirmed_at": null
+      },
+      "created_at": "2026-08-02T03:25:25Z",
+      "completed_at": "2026-08-02T23:44:52Z",
+      "updated_at": "2026-08-03T04:47:45Z",
+      "notes": "Partial duplicate IDs 019fc3da-680b and 019fc3da-2784 were reported without full identifiers and are retained in the adoption document, not invented as sessions."
+    },
+    {
+      "session_id": "S-SOL-AWAY-FACING-LEGACY",
+      "thread_id": "019fc4e9-55c8-7d62-904f-30d0974d9c6f",
+      "title": "Tecmo Away Facing Left Only - Sol Max",
+      "role": "domain_orchestrator",
+      "model": "gpt-5.6-sol",
+      "thinking": "max",
+      "status": "completed",
+      "pin_state": "unpinned",
+      "round_ids": ["R0A"],
+      "task_ids": ["R0A-ADOPT-AWAY-FACING"],
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-away-facing-left",
+      "branch": "codex/away-facing-left-only",
+      "base_sha": "9979b136ef62530be78808101feb7f0d561b2dbd",
+      "last_good_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
+      "reports_to_session_id": "S-MASTER-001",
+      "parent_session_id": null,
+      "reported_luna_lineage": ["019fc4f0-7a8e-7113-b682-ff1c0055f91a"],
+      "recovery_lineage": [],
+      "failure": {
+        "count": 0,
+        "raw_error_signatures": [],
+        "retry_session_ids": [],
+        "replacement_session_id": null,
+        "takeover_confirmed_at": null
+      },
+      "created_at": "2026-08-02T23:57:34Z",
+      "completed_at": "2026-08-03T02:19:48Z",
+      "updated_at": "2026-08-03T04:47:45Z",
+      "notes": "Its two task worktrees/branches were removed only after proof was preserved; the recorded paths are historical."
+    }
+  ],
+  "reported_luna_workers": [
+    {
+      "worker_id": "019fc01c-730d-71c2-8a73-529db70b6163", "thread_id": "019fc01c-730d-71c2-8a73-529db70b6163", "title": "Tecmo CPU/Tip Evidence Worker 1 - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-CPU-TIP-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-CPU-TIP"], "worktree": null, "branch": null, "base_sha": "1885d17f9dbc9773159f5d967cc8e5208f296f9f", "last_good_sha": null, "contribution": "Sol-reported bounded CPU or tip evidence audit; master did not inspect this worker thread.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc01c-7881-7e11-8132-ae9fdb3b9a0f", "thread_id": "019fc01c-7881-7e11-8132-ae9fdb3b9a0f", "title": "Tecmo CPU/Tip Evidence Worker 2 - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-CPU-TIP-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-CPU-TIP"], "worktree": null, "branch": null, "base_sha": "1885d17f9dbc9773159f5d967cc8e5208f296f9f", "last_good_sha": null, "contribution": "Sol-reported bounded CPU or tip evidence audit; master did not inspect this worker thread.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc028-f47e-7193-9766-8286894dcff7", "thread_id": "019fc028-f47e-7193-9766-8286894dcff7", "title": "Tecmo CPU Implementation Worker - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-CPU-TIP-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-CPU-TIP"], "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-cpu-worker", "branch": "codex/cpu-tipoff-cpu-worker", "base_sha": "1885d17f9dbc9773159f5d967cc8e5208f296f9f", "last_good_sha": "70f50bc618d9b1d0343a2d668230eab96c95cb5c", "contribution": "Sol-reported isolated native CPU formation/marking policy implementation and regressions.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc028-f829-7270-b147-f25620ec9cfb", "thread_id": "019fc028-f829-7270-b147-f25620ec9cfb", "title": "Tecmo Tip Input Implementation Worker - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-CPU-TIP-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-CPU-TIP"], "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-tip-worker", "branch": "codex/cpu-tipoff-tip-worker", "base_sha": "1885d17f9dbc9773159f5d967cc8e5208f296f9f", "last_good_sha": "921a018174be5c4bd67fc6c3b144b8cdebd8c144", "contribution": "Sol-reported isolated visible-contest held-B routing implementation and regressions.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc041-15d4-7e32-a3c7-911d225f3744", "thread_id": "019fc041-15d4-7e32-a3c7-911d225f3744", "title": "Tecmo CPU Independent Review - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-CPU-TIP-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-CPU-TIP"], "worktree": null, "branch": null, "base_sha": "1885d17f9dbc9773159f5d967cc8e5208f296f9f", "last_good_sha": null, "contribution": "Sol-reported independent CPU review that identified the shaped-court boundary hardening need.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc041-1b0e-7370-88ed-6c0186e16176", "thread_id": "019fc041-1b0e-7370-88ed-6c0186e16176", "title": "Tecmo Tip Independent Review - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-CPU-TIP-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-CPU-TIP"], "worktree": null, "branch": null, "base_sha": "1885d17f9dbc9773159f5d967cc8e5208f296f9f", "last_good_sha": null, "contribution": "Sol-reported independent tip review that identified the premature winner-gate hardening need.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc04b-106b-7fe0-8ba5-56928f288f0e", "thread_id": "019fc04b-106b-7fe0-8ba5-56928f288f0e", "title": "Tecmo Tip Winner Gate Correction - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-CPU-TIP-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-CPU-TIP"], "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-tip-review-fix", "branch": "codex/cpu-tipoff-review-fix", "base_sha": "f4c03eb236a9005fca69460419b7a8df5f2f5480", "last_good_sha": "c0ad64297cae31bf6a8768c536488d4c84ac533f", "contribution": "Sol-reported pre-contest winner rejection and normal Home handoff correction.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc04e-e8c6-7de1-8892-c5b675afb117", "thread_id": "019fc04e-e8c6-7de1-8892-c5b675afb117", "title": "Tecmo CPU Boundary Policy Correction - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-CPU-TIP-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-CPU-TIP"], "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-cpu-review-fix", "branch": "codex/cpu-tipoff-cpu-review-fix", "base_sha": "f4c03eb236a9005fca69460419b7a8df5f2f5480", "last_good_sha": "ec7cf01790aab416ff3b8ea32229a218cba6f73a", "contribution": "Sol-reported shaped-court seam reflection and five-slot boundary matrix correction.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+
+    {
+      "worker_id": "019fc08f-ed6c-7ea0-970a-5f201afa68b3", "thread_id": "019fc08f-ed6c-7ea0-970a-5f201afa68b3", "title": "Tecmo Tip Jump Evidence Worker - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-TIP-VIS-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-TIP-VIS"], "worktree": null, "branch": null, "base_sha": "1885d17f9dbc9773159f5d967cc8e5208f296f9f", "last_good_sha": null, "contribution": "Sol-reported tip jumper/source evidence and implementation proposal.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc08f-f31e-7e51-beac-761780fc2bca", "thread_id": "019fc08f-f31e-7e51-beac-761780fc2bca", "title": "Tecmo Tip Edge Diagnosis Worker - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-TIP-VIS-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-TIP-VIS"], "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-tipoff-edge-worker", "branch": "codex/tipoff-right-edge", "base_sha": "2ea4a952f1a9a5f8467ca03fccd8cff6e6605fd5", "last_good_sha": "40e8508b174b4bd90b53ef7d8c65623e2ca0ee79", "contribution": "Sol-reported invalid background selector diagnosis and focused edge correction.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc08f-f833-7893-86c6-8b8176dc0ca9", "thread_id": "019fc08f-f833-7893-86c6-8b8176dc0ca9", "title": "Tecmo Goal Facing Worker - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-TIP-VIS-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-TIP-VIS"], "worktree": null, "branch": "codex/tipoff-facing", "base_sha": "2ea4a952f1a9a5f8467ca03fccd8cff6e6605fd5", "last_good_sha": "879f94f05bfde00de29d8e2f960ea63463d921a2", "contribution": "Sol-reported goal-derived facing implementation and regression design.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc08f-fdb0-7d00-9088-e95f8c0e79e7", "thread_id": "019fc08f-fdb0-7d00-9088-e95f8c0e79e7", "title": "Tecmo Tip Visual Independent Review - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-TIP-VIS-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-TIP-VIS"], "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-tipoff-proof-review", "branch": "codex/tipoff-proof-review", "base_sha": "1885d17f9dbc9773159f5d967cc8e5208f296f9f", "last_good_sha": "2ea4a952f1a9a5f8467ca03fccd8cff6e6605fd5", "contribution": "Sol-reported independent review of source, frames, edge sheets, video, and backcourt paths.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc3da-1baf-76a3-9e27-b69ba3d443e8", "thread_id": "019fc3da-1baf-76a3-9e27-b69ba3d443e8", "title": "Tecmo Real-Time Jump Timing Worker - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-TIP-VIS-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-TIP-VIS"], "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-jump-timing-worker", "branch": "codex/tipoff-jump-timing", "base_sha": "1caa64531ec53c657fed6a87a047631f76d93e64", "last_good_sha": "9e8ed0178ad2f61cee076f2e3ac319df5b26fe10", "contribution": "Sol-reported readable 60-update native presentation timing correction.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc3da-271f-7fb0-89dd-c55a42d6dadd", "thread_id": "019fc3da-271f-7fb0-89dd-c55a42d6dadd", "title": "Tecmo Pre-Tip HUD Worker - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-TIP-VIS-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-TIP-VIS"], "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-pretip-hud-worker", "branch": "codex/pretip-live-hud", "base_sha": "1caa64531ec53c657fed6a87a047631f76d93e64", "last_good_sha": "dbcd28bad70de120341817841379dd41b304db10", "contribution": "Sol-reported real gameplay HUD gating and schedule-driven proof correction.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc3da-271f-7fb0-89dd-c53d25270b7b", "thread_id": "019fc3da-271f-7fb0-89dd-c53d25270b7b", "title": "Tecmo Tip Proof Tooling Worker - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-TIP-VIS-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-TIP-VIS"], "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-realtime-proof-tooling", "branch": "codex/tipoff-realtime-proof-tooling", "base_sha": "1caa64531ec53c657fed6a87a047631f76d93e64", "last_good_sha": "ae34e4418ce6ae3de06bdbf2db6e463034787dc8", "contribution": "Sol-reported real-cadence proof generation, full-resolution sheets, and edge diagnostics.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc3da-dd56-70e3-a1eb-79573d2fe83e", "thread_id": "019fc3da-dd56-70e3-a1eb-79573d2fe83e", "title": "Tecmo Tip Real-Time Independent Review - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-TIP-VIS-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-TIP-VIS"], "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-realtime-proof-review", "branch": "codex/tipoff-realtime-proof-review", "base_sha": "1caa64531ec53c657fed6a87a047631f76d93e64", "last_good_sha": "1caa64531ec53c657fed6a87a047631f76d93e64", "contribution": "Sol-reported independent review of the full-resolution real-time proof and remaining defects.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc42f-80cf-72a2-aa2b-c670f2ea33dc", "thread_id": "019fc42f-80cf-72a2-aa2b-c670f2ea33dc", "title": "Tecmo Position-Derived Facing Worker - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-TIP-VIS-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-TIP-VIS"], "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-tipoff-facing-worker", "branch": "codex/tipoff-inward-facing", "base_sha": "f2c74d67d885c583360472551f5067ca31047fde", "last_good_sha": "9034e6dd4907338d84ad2005ff3bdf3895586168", "contribution": "Sol-reported position-derived inward contest facing and TGOR restoration hardening.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc471-8e41-7ea3-bd33-6486e0d52dff", "thread_id": "019fc471-8e41-7ea3-bd33-6486e0d52dff", "title": "Tecmo Tip Input End-to-End Worker - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-TIP-VIS-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-TIP-VIS"], "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-tip-input-e2e-worker", "branch": "codex/tip-input-e2e-worker", "base_sha": "f6e1f3a8a56d58f2331377b2658166b3654347c7", "last_good_sha": "f6e1f3a8a56d58f2331377b2658166b3654347c7", "contribution": "Sol-reported fast physical-X/Win32 bridge investigation; worktree has preserved uncommitted files and must not be cleaned.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc471-d299-7710-8490-93b3d50ef2cd", "thread_id": "019fc471-d299-7710-8490-93b3d50ef2cd", "title": "Tecmo CPU Tip Decision Worker - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-TIP-VIS-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-TIP-VIS"], "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-tip-cpu-decision-worker", "branch": "codex/tip-cpu-decision-worker", "base_sha": "f6e1f3a8a56d58f2331377b2658166b3654347c7", "last_good_sha": "e864a21abbf3a4e7d883111fc34dd20c48197d8e", "contribution": "Sol-reported deterministic unassigned-team frame-8 sample approximation and tests.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc48f-badc-7611-b3ed-21a826d38876", "thread_id": "019fc48f-badc-7611-b3ed-21a826d38876", "title": "Tecmo Tip Production Visual Proof - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-TIP-VIS-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-TIP-VIS"], "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-tip-proof-runtime-worker", "branch": "codex/tip-proof-runtime-worker", "base_sha": "494428a941918b5b948ef8b798f4cb782ca66b56", "last_good_sha": "8ebf564d03b6bf9780dfc0df55907d5843624734", "contribution": "Sol-reported production adapter proof and canonical 65-frame manifest generation.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc4b6-9c4f-71e0-80c1-6081cc3f1e60", "thread_id": "019fc4b6-9c4f-71e0-80c1-6081cc3f1e60", "title": "Tecmo Tip Final Independent Review - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-TIP-VIS-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-TIP-VIS"], "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-tip-final-input-review", "branch": "codex/tip-final-input-review", "base_sha": "8ebf564d03b6bf9780dfc0df55907d5843624734", "last_good_sha": "8ebf564d03b6bf9780dfc0df55907d5843624734", "contribution": "Sol-reported final independent input/CPU/visual review of commit 8ebf564d.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc3da-4258-77c0-beb4-52393ea69238", "thread_id": "019fc3da-4258-77c0-beb4-52393ea69238", "title": "Tecmo Tip Duplicate Task - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "replaced", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-TIP-VIS-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-TIP-VIS"], "worktree": null, "branch": null, "base_sha": null, "last_good_sha": null, "contribution": "Sol reported this as duplicate/raced; no integrated code.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc3da-66da-77c2-abc9-28301a1acf7d", "thread_id": "019fc3da-66da-77c2-abc9-28301a1acf7d", "title": "Tecmo Tip Duplicate Task - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "replaced", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-TIP-VIS-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-TIP-VIS"], "worktree": null, "branch": null, "base_sha": null, "last_good_sha": null, "contribution": "Sol reported this as duplicate/raced; no integrated code.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc3da-cede-7883-86ab-9dc900901ab5", "thread_id": "019fc3da-cede-7883-86ab-9dc900901ab5", "title": "Tecmo Tip Duplicate Task - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "replaced", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-TIP-VIS-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-TIP-VIS"], "worktree": null, "branch": null, "base_sha": null, "last_good_sha": null, "contribution": "Sol reported this as duplicate/raced; no integrated code.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc3da-d635-73b1-9d8b-fdc4ef456cbf", "thread_id": "019fc3da-d635-73b1-9d8b-fdc4ef456cbf", "title": "Tecmo Tip Duplicate Task - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "replaced", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-TIP-VIS-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-TIP-VIS"], "worktree": null, "branch": null, "base_sha": null, "last_good_sha": null, "contribution": "Sol reported this as duplicate/raced; no integrated code.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "worker_id": "019fc48f-ba7d-7ca2-a7f9-712ea4dec73d", "thread_id": "019fc48f-ba7d-7ca2-a7f9-712ea4dec73d", "title": "Tecmo Tip Proof Duplicate Task - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "replaced", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-TIP-VIS-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-TIP-VIS"], "worktree": null, "branch": null, "base_sha": "494428a941918b5b948ef8b798f4cb782ca66b56", "last_good_sha": null, "contribution": "Recent thread inventory shows a raced duplicate of the canonical proof worker; no unique integrated commit.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": "019fc48f-badc-7611-b3ed-21a826d38876", "takeover_confirmed_at": "2026-08-02T23:44:52Z"}, "observed_at": "2026-08-03T04:47:45Z"
+    },
+
+    {
+      "worker_id": "019fc4f0-7a8e-7113-b682-ff1c0055f91a", "thread_id": "019fc4f0-7a8e-7113-b682-ff1c0055f91a", "title": "Tecmo Away Facing Left Sprite Fix - Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-AWAY-FACING-LEGACY", "round_ids": ["R0A"], "task_ids": ["R0A-ADOPT-AWAY-FACING"], "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-away-facing-left-luna", "branch": "codex/away-facing-left-luna", "base_sha": "9979b136ef62530be78808101feb7f0d561b2dbd", "last_good_sha": "b96f9cb0437e63a4e613f6afedadb62848c1320b", "contribution": "Sol-reported focused compositor polarity fix, rendered-pixel tests, and before/after proof; worktree later removed after preservation.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T04:47:45Z"
     }
   ]
 }

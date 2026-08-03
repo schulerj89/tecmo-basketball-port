@@ -1,50 +1,79 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T04:35:00Z",
+  "updated_at": "2026-08-03T04:47:45Z",
   "rounds": [
     {
       "round_id": "R0",
       "title": "Control-plane administrative gate",
-      "status": "ready_for_main",
+      "status": "pushed",
       "base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
-      "scope": [
-        "Durable orchestration documentation, JSON state, schemas, validators, and dashboard"
-      ],
+      "scope": ["Durable orchestration documentation, JSON state, schemas, validators, and dashboard"],
       "included_task_ids": ["R0-CTRL-001"],
       "staging_branch": "codex/master-finish-orchestration",
       "sol_orchestrator_session_ids": [],
       "integration_qa_session_id": null,
       "merge_order": ["R0-CTRL-001"],
-      "combined_qa": {
-        "required": false,
-        "status": "coordination_only",
-        "accepted_sha": "2bdfac614a3179fa100de236bddf4a46f5080383",
-        "report_path": "docs/finish-orchestration/dashboard.md",
-        "signed_by_session_id": "S-MASTER-001",
-        "notes": "Only control-plane/schema/ownership/lineage validators are allowed for the administrative commit."
-      },
-      "acceptance": {
-        "status": "accepted",
-        "accepted_at": "2026-08-03T04:35:00Z",
-        "accepted_sha": "2bdfac614a3179fa100de236bddf4a46f5080383",
-        "criteria": [
-          "All state JSON validates against its schema",
-          "State transition and audit replay validation passes",
-          "Duplicate, ownership-overlap, registry-collision, dependency, and lineage validation passes",
-          "Human-readable dashboard is generated from committed JSON"
-        ]
-      },
-      "main_integration": {
-        "pre_main_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
-        "merge_commits": [],
-        "post_main_sha": null,
-        "remote_main_before_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
-        "push_sha": null,
-        "push_result": "not_attempted",
-        "pushed_at": null
-      },
+      "combined_qa": {"required":false,"status":"coordination_only","accepted_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","report_path":"docs/finish-orchestration/dashboard.md","signed_by_session_id":"S-MASTER-001","notes":"Only control-plane/schema/ownership/lineage validators were allowed; no product QA."},
+      "acceptance": {"status":"accepted","accepted_at":"2026-08-03T04:35:00Z","accepted_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","criteria":["All state JSON validates against its schema","State transition and audit replay validation passes","Duplicate, ownership-overlap, registry-collision, dependency, and lineage validation passes","Human-readable dashboard is generated from committed JSON"]},
+      "main_integration": {"pre_main_sha":"63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e","merge_commits":["2bdfac614a3179fa100de236bddf4a46f5080383","7090d2c62201ce3d330df20043a6e80fd0bdef00"],"post_main_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","remote_main_before_sha":"63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e","push_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","push_result":"succeeded","pushed_at":"2026-08-03T04:39:00Z"},
       "created_at": "2026-08-03T04:18:18Z",
-      "updated_at": "2026-08-03T04:35:00Z"
+      "updated_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "round_id":"R0A","title":"Current-state inventory and historical Sol adoption","status":"in_progress","base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00",
+      "scope":["Inventory all known Tecmo sessions, branches, worktrees, relevant commits and proof sets","Adopt already-integrated Sol work without duplicating product tasks","Map source-declared gaps into a dependency-aware R1-R5 queue"],
+      "included_task_ids":["R0A-INV-001","R0A-ADOPT-CPU-TIP","R0A-ADOPT-TIP-VIS","R0A-ADOPT-AWAY-FACING"],
+      "staging_branch":"codex/master-finish-orchestration","sol_orchestrator_session_ids":["S-SOL-CPU-TIP-LEGACY","S-SOL-TIP-VIS-LEGACY","S-SOL-AWAY-FACING-LEGACY"],"integration_qa_session_id":null,
+      "merge_order":["R0A-INV-001","R0A-ADOPT-CPU-TIP","R0A-ADOPT-TIP-VIS","R0A-ADOPT-AWAY-FACING"],
+      "combined_qa":{"required":false,"status":"pending","accepted_sha":null,"report_path":"docs/finish-tasks/R0A-inventory/README.md","signed_by_session_id":null,"notes":"Administrative inventory validates coordination state and Git lineage only; historical product QA is trusted from the adopted Sol reports."},
+      "acceptance":{"status":"pending","accepted_at":null,"accepted_sha":null,"criteria":["Inventory sources are complete and unresolved_items is empty","All known Sol/Luna lineage and bad-request/duplicate records are durable","Every live worktree and local branch has a disposition","Every discovered completion gap maps to a backlog task and acceptance criterion","All coordination validators pass"]},
+      "main_integration":{"pre_main_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","merge_commits":[],"post_main_sha":null,"remote_main_before_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","push_sha":null,"push_result":"not_attempted","pushed_at":null},
+      "created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z"
+    },
+    {
+      "round_id":"R1","title":"Critical gameplay foundation and exact-policy recovery","status":"planned","base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00",
+      "scope":["Original CPU play-command lifecycle","Roster-bound live foundation","Remaining exact tip-off behavior"],
+      "included_task_ids":["R1-CPU-PLAY-LIFECYCLE","R1-LIVE-FOUNDATION","R1-TIP-FIDELITY"],"staging_branch":"codex/round-1-gameplay-foundation-staging","sol_orchestrator_session_ids":[],"integration_qa_session_id":null,
+      "merge_order":["R1-CPU-PLAY-LIFECYCLE","R1-LIVE-FOUNDATION","R1-TIP-FIDELITY"],
+      "combined_qa":{"required":true,"status":"pending","accepted_sha":null,"report_path":null,"signed_by_session_id":null,"notes":"A dedicated Sol Max integration-QA orchestrator is required after domain staging."},
+      "acceptance":{"status":"pending","accepted_at":null,"accepted_sha":null,"criteria":["Every domain task has Sol sign-off and complete task docs","No writable ownership overlap","Dedicated combined suite and production visual proof pass"]},
+      "main_integration":{"pre_main_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","merge_commits":[],"post_main_sha":null,"remote_main_before_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","push_sha":null,"push_result":"not_attempted","pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z"
+    },
+    {
+      "round_id":"R2","title":"Gameplay mechanics, rules, animation, and presentation","status":"planned","base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00",
+      "scope":["Shots and all outcomes","Defense/contact/rebounds","Rules/free throws/restarts","Clock/lineups/fatigue","Full action/presentation matrix"],
+      "included_task_ids":["R2-SHOTS-OUTCOMES","R2-DEFENSE-CONTACT","R2-RULES-RESTARTS","R2-CLOCK-LINEUPS-FATIGUE","R2-GAMEPLAY-PRESENTATION"],"staging_branch":"codex/round-2-gameplay-mechanics-staging","sol_orchestrator_session_ids":[],"integration_qa_session_id":null,
+      "merge_order":["R2-SHOTS-OUTCOMES","R2-DEFENSE-CONTACT","R2-RULES-RESTARTS","R2-CLOCK-LINEUPS-FATIGUE","R2-GAMEPLAY-PRESENTATION"],
+      "combined_qa":{"required":true,"status":"pending","accepted_sha":null,"report_path":null,"signed_by_session_id":null,"notes":"Dedicated Sol Max integration QA must sign the complete mechanics and action proof matrix."},
+      "acceptance":{"status":"pending","accepted_at":null,"accepted_sha":null,"criteria":["Every supported mechanic/outcome has deterministic tests","Every user-visible action has original/native video and numbered frames","Cross-domain score/possession/animation regressions pass"]},
+      "main_integration":{"pre_main_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","merge_commits":[],"post_main_sha":null,"remote_main_before_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","push_sha":null,"push_result":"not_attempted","pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z"
+    },
+    {
+      "round_id":"R3","title":"Season, management, player/team data, statistics, leaders, and All-Star","status":"planned","base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00",
+      "scope":["Per-player statistics and leaders","Full season/save progression","Management/data wiring and page fixes","All-Star end-to-end"],
+      "included_task_ids":["R3-PLAYER-STATS-LEADERS","R3-SEASON-PROGRESSION-SAVE","R3-TEAM-MGMT-DATA","R3-ALLSTAR"],"staging_branch":"codex/round-3-season-data-staging","sol_orchestrator_session_ids":[],"integration_qa_session_id":null,
+      "merge_order":["R3-PLAYER-STATS-LEADERS","R3-SEASON-PROGRESSION-SAVE","R3-TEAM-MGMT-DATA","R3-ALLSTAR"],
+      "combined_qa":{"required":true,"status":"pending","accepted_sha":null,"report_path":null,"signed_by_session_id":null,"notes":"Dedicated Sol Max integration QA must complete a full deterministic season and UI proof."},
+      "acceptance":{"status":"pending","accepted_at":null,"accepted_sha":null,"criteria":["Stats accumulate and persist into leaders/data pages","Preseason, season, playoffs, final season, save/load, management and All-Star flows complete","Original/native page proof covers all selectors and requested text/alignment fixes"]},
+      "main_integration":{"pre_main_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","merge_commits":[],"post_main_sha":null,"remote_main_before_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","push_sha":null,"push_result":"not_attempted","pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z"
+    },
+    {
+      "round_id":"R4","title":"Frontend, menu fidelity, music, and sound","status":"planned","base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00",
+      "scope":["Opening/title/attract timing and animation fidelity","All menu/UI transitions and details","Complete music/SFX/sample/device proof"],
+      "included_task_ids":["R4-FRONTEND-INTRO-TITLE","R4-MENUS-UI","R4-AUDIO"],"staging_branch":"codex/round-4-frontend-audio-staging","sol_orchestrator_session_ids":[],"integration_qa_session_id":null,
+      "merge_order":["R4-FRONTEND-INTRO-TITLE","R4-MENUS-UI","R4-AUDIO"],
+      "combined_qa":{"required":true,"status":"pending","accepted_sha":null,"report_path":null,"signed_by_session_id":null,"notes":"Dedicated Sol Max integration QA must sign end-to-end frontend video/frame/audio comparison."},
+      "acceptance":{"status":"pending","accepted_at":null,"accepted_sha":null,"criteria":["Original/native frontend timing and UI comparisons pass","All audio cues/mixing/device cases pass","Audio capture, waveform/event evidence, and Sol listening notes exist"]},
+      "main_integration":{"pre_main_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","merge_commits":[],"post_main_sha":null,"remote_main_before_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","push_sha":null,"push_result":"not_attempted","pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z"
+    },
+    {
+      "round_id":"R5","title":"Parity closure, deterministic rebuild, end-to-end QA, and release readiness","status":"planned","base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00",
+      "scope":["Deterministic asset/executable rebuild and provenance audit","Close all remaining fidelity gaps","Full game/season and end-to-end original-reference integration QA"],
+      "included_task_ids":["R5-ASSET-BUILD-PROVENANCE","R5-PARITY-GAP-CLOSURE","R5-E2E-RELEASE-QA"],"staging_branch":"codex/round-5-release-staging","sol_orchestrator_session_ids":[],"integration_qa_session_id":null,
+      "merge_order":["R5-ASSET-BUILD-PROVENANCE","R5-PARITY-GAP-CLOSURE","R5-E2E-RELEASE-QA"],
+      "combined_qa":{"required":true,"status":"pending","accepted_sha":null,"report_path":null,"signed_by_session_id":null,"notes":"A dedicated final Sol Max integration orchestrator must sign the exact release staging SHA."},
+      "acceptance":{"status":"pending","accepted_at":null,"accepted_sha":null,"criteria":["No acceptance criterion remains incomplete","All approximations are explicitly justified and accepted","Clean rebuild, every suite, full game, full season, smoke, and end-to-end visual/audio proof pass","Repository contains no prohibited artifacts and main equals origin/main"]},
+      "main_integration":{"pre_main_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","merge_commits":[],"post_main_sha":null,"remote_main_before_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","push_sha":null,"push_result":"not_attempted","pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z"
     }
   ]
 }
