@@ -55,10 +55,26 @@ current committed branch HEAD rather than the pre-docs script HEAD.
 
 ## Terminal proof identities
 
-The final ignored manifest under `build/proof/r4-audio-foundation` records the
-current terminal `proof_generation_head`, base SHA, private ROM revision/SHA,
-pack SHA, semantic pack fingerprints, vector count, sample format, and both-run
-artifact/waveform hashes. The stable artifact identities are:
+The final ignored root manifest is
+`build/proof/r4-audio-foundation/proof-manifest.txt`. It records the current
+terminal `proof_generation_head`, base SHA, private ROM revision/SHA, pack SHA,
+semantic pack fingerprints, vector count, sample format, and both-run
+artifact/waveform hashes. The independently verified 22199fb terminal-candidate
+checkpoint recorded:
+
+```text
+proof_generation_head=22199fb5a0b6a51641319ae5c61cc093e0a79444
+root script-manifest SHA256=CA3CB4AE84297085FE415B989A6D2AD9DCD44BCC3BAA73AD887A688041D23996
+```
+
+This is the verified 22199fb terminal-candidate checkpoint. The current
+docs-only Revision-D correction changes HEAD, so its post-commit root manifest
+has a different SHA solely because `proof_generation_head` changes. Stable
+WAV/events/CLI-manifest/CSV/SVG identities remain the same. The final exact
+Revision-D HEAD and root-manifest SHA are recorded by the regenerated ignored
+manifest and Sol handoff after commit; no self-reference is asserted here.
+
+The stable artifact identities are:
 
 - WAV, 8,663,340 bytes, 4,331,648 samples: `57573ABE791F4277AF6DCFC6E7AE22C7A7F319BC64554B0D7FDD8F16AFBC5D6B`
 - events, 8,656 bytes: `3E8FB445B0774F847A529B2BC9670F81862F7C6C04B77AEFE7AB7D7D024674AA`

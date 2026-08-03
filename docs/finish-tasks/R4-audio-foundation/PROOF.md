@@ -52,13 +52,22 @@ the proof records 23 exact vectors. Across the PCM data, the observed facts are
 minimum/maximum `-24079/20927`, mean `-1571.905066`, zero full-scale clipping,
 and maximum adjacent delta `24865`.
 
-The ignored script manifest records the exact current committed HEAD as
-`proof_generation_head` after the terminal documentation commit. It also
-records base SHA, private Rev1 ROM SHA/revision, pack SHA, semantic fingerprints,
-vector count, sample format, and both-run artifact/waveform hashes. The SHA of
-the terminal docs commit is intentionally not copied into these docs because
-that would be a false self-reference; the ignored manifest and Sol handoff are
-the authoritative post-commit record.
+The ignored root script manifest is
+`build/proof/r4-audio-foundation/proof-manifest.txt`. The independently verified
+22199fb terminal-candidate checkpoint recorded:
+
+```text
+proof_generation_head=22199fb5a0b6a51641319ae5c61cc093e0a79444
+root script-manifest SHA256=CA3CB4AE84297085FE415B989A6D2AD9DCD44BCC3BAA73AD887A688041D23996
+```
+
+That is a verified 22199fb terminal-candidate checkpoint, not a claim about the
+Revision-D commit. This docs-only correction changes HEAD, so its post-commit
+root manifest necessarily has a different SHA solely because
+`proof_generation_head` changes. The stable WAV/events/CLI-manifest/CSV/SVG
+identities remain the same. The final exact Revision-D HEAD and root-manifest
+SHA are supplied by the regenerated ignored manifest and Sol handoff after the
+commit; no self-reference is fabricated here.
 
 ## Timestamp guide
 

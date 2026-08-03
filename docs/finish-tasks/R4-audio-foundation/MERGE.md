@@ -26,10 +26,15 @@ ad82eb9ba34316b568b3ca33c80949657a973893
 ```
 
 Revision C adds script commit
-`96471e42f79669379df0a573e8e82be037e559fb`, followed by the separate terminal
-documentation record. The documentation record is described as the branch
-HEAD after its commit; its exact SHA is intentionally not embedded in these
-docs and is supplied by the post-commit ignored proof manifest and Sol handoff.
+`96471e42f79669379df0a573e8e82be037e559fb`, followed by
+`9ac09214dfb167e6545d3e0422dbf2f2e7cfcad3` for the seven terminal documents
+and `22199fb5a0b6a51641319ae5c61cc093e0a79444` for lineage/checkpoint and
+gameplay/frontend-against-music same-pack precision corrections.
+
+Revision D is the current bounded four-document correction and is described as
+the branch HEAD after its commit. Its own exact SHA is intentionally not
+embedded in these docs; it is supplied by the regenerated post-commit ignored
+proof manifest and Sol handoff.
 
 ## Sol-side procedure
 

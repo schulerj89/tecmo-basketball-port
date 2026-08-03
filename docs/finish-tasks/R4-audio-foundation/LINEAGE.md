@@ -62,10 +62,15 @@ Revision C then adds:
 
 7. `96471e42f79669379df0a573e8e82be037e559fb` — exact event-header/fixed-line
    enforcement and checked per-vector WAV PCM FNV-1a32 validation.
-8. The terminal documentation record is the branch HEAD after this separate
-   seven-document commit. Its exact SHA is deliberately not written into its
-   own commit; after commit, the ignored proof manifest’s
-   `proof_generation_head` and the Sol handoff record the exact SHA.
+8. `9ac09214dfb167e6545d3e0422dbf2f2e7cfcad3` — seven terminal finish
+   documents.
+9. `22199fb5a0b6a51641319ae5c61cc093e0a79444` — lineage/checkpoint and
+   gameplay/frontend-against-music same-pack precision corrections.
+
+Revision D is the current documentation correction: it is the branch HEAD after
+its bounded four-document commit. Its own exact SHA is necessarily not written
+into its own commit; the regenerated ignored proof manifest’s
+`proof_generation_head` and the Sol handoff supply it after commit.
 
 The Revision-C script commit was made while the worktree and tracked/index
 state were clean. The documentation commit is likewise required to be clean
