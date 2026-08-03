@@ -47,3 +47,41 @@ TDMC `AD70E6E8`, command/vector count, and `44100Hz_mono_s16le` format.
 The generated artifacts are private/ignored build evidence only. No WAV,
 event record, waveform, ROM, decoded payload, or trace is committed.
 
+## Source, waveform, and listening notes
+
+Source note: the run used the exact local-private Rev1 ROM and a validated
+semantic asset pack. The script-level manifest records the base SHA, committed
+proof-generation HEAD, ROM revision/SHA, pack SHA, and semantic pack
+fingerprints without recording an absolute path. The C proof command itself
+opened no audio device and declared no runtime ROM artifact.
+
+Waveform note: both generated runs were byte-identical. The WAV is a fixed
+44.1 kHz mono signed 16-bit little-endian capture; CSV/SVG are deterministic
+inspection aids derived from the fixed event sample ranges. These artifacts
+remain ignored under `build/proof/r4-audio-foundation/`.
+
+Listening disposition: this worker records no personal subjective listening
+acceptance. `[PENDING — independent QA Luna]` Add the exact QA task ID and
+findings when supplied. `[PENDING — Sol personal listening]` Add Sol’s honest
+listening observations and disposition when supplied. Until then, automated
+proof is complete but Sol acceptance remains pending.
+
+## Complete audible approximations and deferred differences
+
+- Native C output is deterministic, but it is not a nonlinear or cycle-exact
+  NES APU mixer.
+- DMC timing/rate, reader bit order, IRQ behavior, and cycle phase are not
+  claimed to be cycle-exact; held-DAC/retrigger/stop continuity is a native
+  contract only.
+- DMC clip IDs 0/1/2 remain address-bound and unresolved. ABF5 has
+  sequence-level bounded correlation only; there is no impact, rim, or
+  exclusivity claim.
+- Gameplay effect 5 remains neutral/unresolved.
+- Gameplay effect 6 remains bounded-correlation only.
+- Cross-domain cue routing and full game integration are deferred because cue
+  call sites and shared integration boundaries were explicitly excluded.
+  Consequently broader ACC-AUDIO is incomplete even though the isolated R4
+  foundation is exact/high-confidence where fingerprinted.
+- No hardware listening session or claim of original device behavior is part of
+  this automated proof; the later QA/Sol observations above remain required for
+  final acceptance.

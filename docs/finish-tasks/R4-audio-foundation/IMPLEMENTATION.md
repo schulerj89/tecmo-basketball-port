@@ -66,4 +66,3 @@ explicit output directory. It emits a deterministic 44.1 kHz mono signed
 16-bit little-endian WAV, fixed-format event/state records, and a path-free
 semantic manifest. The gameplay suite runs it twice, compares bytes and
 SHA-256, and creates ignored CSV/SVG waveform evidence.
-

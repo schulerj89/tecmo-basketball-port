@@ -1,6 +1,6 @@
 # R4 audio foundation
 
-Status: implementation and proof gates complete on `codex/r4-audio-foundation-luna`.
+Status: implementation and proof gates complete; Sol acceptance is pending.
 
 This task delivers the native C audio foundation for music, gameplay SFX/DMC,
 frontend SFX, and the Win32 waveOut fallback transaction policy. Runtime code
@@ -17,6 +17,11 @@ consumes validated semantic asset-pack entries; it does not read a ROM.
   TMUS-1, TSFX-1, TDMC-1, and TFSX-1.
 - A hidden developer proof command and deterministic PowerShell evidence gate.
 - The seven-document finish contract in this directory.
+
+Fidelity classification is recorded in [EVIDENCE.md](EVIDENCE.md). The
+isolated R4 foundation is exact/high-confidence where its native semantic
+contracts are fingerprinted; broader ACC-AUDIO remains incomplete because
+cross-domain cue routing and full game integration are outside this task.
 
 ## Non-goals
 
@@ -35,11 +40,13 @@ No ROM, decoded payload, WAV, capture, trace, save state, or other proprietary
 artifact is tracked. The expected parent/base is
 `6d8f9c7a99a7ce188f1a523247d3a9b9093860fb`.
 
-The implementation worker used worktree
+The authoritative orchestrator is task
+`019fc822-bdfa-7ab1-8b35-e7d9aa58969d`, gpt-5.6-sol/max. The writable worker is
+task `019fc839-7677-7d93-abff-4aa427e7c6b3`, titled
+“Tecmo R4 Audio Foundation — Implementation and Revisions — Luna Max”,
+gpt-5.6-luna/max. It used worktree
 `C:\Users\joshs\Projects\tecmo-basketball-port-r4-audio-foundation-luna`
-and branch `codex/r4-audio-foundation-luna`. The authoritative Sol task and
-writer lineage ID visible to this worker is
-`019fc822-bdfa-7ab1-8b35-e7d9aa58969d`.
+and branch `codex/r4-audio-foundation-luna`.
 
 ## Contract map
 
@@ -49,4 +56,3 @@ writer lineage ID visible to this worker is
 - [TESTS.md](TESTS.md) — commands and exact final results.
 - [PROOF.md](PROOF.md) — ignored deterministic proof manifest and hashes.
 - [MERGE.md](MERGE.md) — ordered commits and handoff instructions.
-

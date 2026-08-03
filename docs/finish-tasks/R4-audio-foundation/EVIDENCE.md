@@ -50,3 +50,24 @@ state behavior. It does not establish a nonlinear, cycle-exact NES APU mixer,
 exact DMC reader bit/cycle phase, or original game-wide cue routing. Those
 limits are part of the contract.
 
+## Fidelity classification
+
+These classifications describe the evidence and implementation boundary; they
+do not replace the pending Sol acceptance decision.
+
+| Criterion | Classification | Boundary |
+| --- | --- | --- |
+| TMUS-1, TSFX-1, TDMC-1, and TFSX-1 semantic extraction | R4 isolated foundation: exact/high-confidence | Exact serialized sizes, FNV fingerprints, counts, parser postconditions, and Rev1 source gates are enforced. |
+| 44.1 kHz native-player cadence/state transitions | R4 isolated foundation: exact/high-confidence within native contract | The checked `39375000/655171` accumulator, queues, termination, mailbox, override, held-DAC, and retry semantics are deterministic and tested. |
+| Output transaction/fallback behavior | R4 isolated foundation: exact/high-confidence | The portable seam covers accepted/rejected initial/refill transactions, valid borrowed aliases, invalidation detachment, and frozen fallback; real device failures are not simulated by a hardware driver. |
+| Same-pack music/gameplay/frontend selection | R4 isolated foundation: exact/high-confidence | Canonical aliases accept; byte-identical distinct containers reject and preserve prior selection. |
+| Bounded malformed-source and arithmetic rejection | R4 isolated foundation: exact/high-confidence | Checked public offsets, minimum bank counts, declared-PRG bank ranges, isolated gameplay mutation diagnostics, and direct-builder tests are covered. |
+| NES APU nonlinear/cycle-exact mixing | Approximation/deferred | Native C synthesis is deterministic but is not claimed to reproduce nonlinear or cycle-exact NES APU mixing. |
+| DMC reader bit/cycle phase | Approximation/deferred | Rate, byte, DAC, retrigger, end, and stop continuity are modeled; original reader phase/IRQ/cycle behavior is not claimed. |
+| DMC clip identity | Bounded/partial | IDs 0/1/2 remain address-bound and unresolved; ABF5 has sequence-level correlation only, with no impact/rim/exclusivity claim. |
+| Gameplay effect 5 | Neutral/unresolved | No stronger audible semantic claim is made. |
+| Gameplay effect 6 | Bounded-correlation only | The observed bounded correlation is retained without overclaiming cue identity. |
+| Cross-domain cue routing and full game integration | Incomplete/deferred | Excluded call sites and shared integration boundaries remain outside R4 ownership; broader ACC-AUDIO is not complete. |
+
+The complete audible approximation/deferred-difference list, source/waveform
+notes, and listening disposition slots are kept in [PROOF.md](PROOF.md).

@@ -48,4 +48,3 @@ The final run also exercised:
 
 No real audio device is required by the portable output transaction seam or
 the hidden proof command.
-
