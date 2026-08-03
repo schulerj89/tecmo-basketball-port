@@ -218,10 +218,13 @@ Parent/base: `6d8f9c7a99a7ce188f1a523247d3a9b9093860fb`.
 Code/test implementation commit: `6000a0504e8a640c17698411103090d105f21245`
 (`R4 finale: align Rev1 route timing and color provenance`).
 
-The durable-evidence document is committed as the next ordered worker
-commit; its exact SHA is reported by the worker after commit creation. The
-final documentation verification update records that predecessor SHA in
-this section. The document does not retain an unresolved SHA placeholder.
+Durable-evidence document commit: `e97f2d2498bf96ee7a552e71e9f87d1eadce8456`
+(`R4 finale: record fidelity evidence and proof manifest`).
+
+This final documentation verification update is the next ordered commit in
+the worker lineage; its exact SHA is reported in the worker handoff. The
+document intentionally does not self-reference that content-addressed SHA,
+and contains no unresolved merge-SHA placeholder.
 
 Sol merge command after review:
 
