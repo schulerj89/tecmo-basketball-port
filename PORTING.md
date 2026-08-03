@@ -959,12 +959,24 @@ Numeric close variant 0 has the exact 32-step direct/held-release table and
 variant 2 has the exact 16-step arc/longer-trajectory/contactable table. Their
 phase bytes and all 208 TGCS-stored profile/direction resolutions into TGPL pose
 data are ROM-derived. The live scene currently selects only profile 0/direction
-0 and mirrors actor-facing-left at render time; that selection and mirroring
-remain a native approximation. Numeric variant 1 is not exposed. Bounded local
-original execution proves the high-level mapping variant 0 = dunk and variant
-2 = layup. TGCS-1 bytes, fingerprints, APIs, and source-map fields keep the
-numeric ROM identities; the semantic mapping is derived and validated by the
-loader rather than read from loose evidence.
+0; that selection remains a native approximation. Resolved uniform pose-cell
+polarity is preserved from the fixed `$D413/$D498` compositor and `$D503`
+`AND #$41`, then compared with effective facing only while that facing equals
+the actor's assigned TGOR goal baseline. Deliberate movement/action overrides,
+mixed poses, pre-tip presentation, and encoded tip/action poses retain the
+former orientation path; eligible uniform poses mirror only when authored and
+goal polarity differ. Fresh orientation-0
+examples are Bank05 `$8F47/$8F57` raw `$012A` -> pose 149 -> `$A6E3/$884E`
+-> four resolved `$41` attributes (Away-left), versus raw `$016A` -> pose 181
+-> `$A723/$8702` -> four resolved `$03` attributes (Home-right). The captured
+original frame/OAM independently confirms the visible Away-left bit-$40
+polarity; it does not claim a native pose-149 identity. `$40` is the
+horizontal-flip bit, not an intrinsic left meaning for arbitrary art.
+Numeric variant 1 is not exposed. Bounded local original execution proves the
+high-level mapping variant 0 = dunk and variant 2 = layup. TGCS-1 bytes,
+fingerprints, APIs, and source-map fields keep the numeric ROM identities; the
+semantic mapping is derived and validated by the loader rather than read from
+loose evidence.
 
 TGDK-1 is the complete strict native dunk presentation boundary. Its importer
 revision-checks Bank05 trigger/clear-lane code, fixed dispatch/selector/restore

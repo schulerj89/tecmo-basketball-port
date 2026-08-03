@@ -751,6 +751,71 @@ static void scene_draw_pose(const TecmoGameplayScene *scene,
     }
 }
 
+static bool scene_pose_authored_facing_right(
+    const TecmoGameplayResolvedPose *pose,
+    bool *facing_right_out)
+{
+    bool authored_flip;
+    size_t piece;
+    if (pose == NULL || facing_right_out == NULL ||
+        pose->piece_count == 0U) {
+        return false;
+    }
+    authored_flip = pose->pieces[0U].flip_horizontal;
+    for (piece = 1U; piece < pose->piece_count; ++piece) {
+        if (pose->pieces[piece].flip_horizontal != authored_flip) {
+            /* Mixed cell polarity is already encoded in the fixed OAM
+               attributes; preserve the pre-fix scene decision. */
+            return false;
+        }
+    }
+    /* Rev1 fixed compositor $D413/$D498 and $D503 AND #$41 preserve the
+       pose-cell horizontal-flip bit ($40). For a uniform pose eligible for
+       goal-baseline reconciliation, compare that authored polarity with the
+       assigned TGOR facing. The captured orientation-0 frame independently
+       confirms the visible Away-left bit-$40 polarity; it does not establish
+       a native pose-149 identity. $40 is not an intrinsic left meaning for
+       arbitrary art. */
+    *facing_right_out = !authored_flip;
+    return true;
+}
+
+static bool scene_actor_needs_goal_mirror(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplaySceneActor *actor,
+    const TecmoGameplayResolvedPose *pose)
+{
+    bool authored_facing_right;
+    bool goal_facing_right;
+    if (scene == NULL || actor == NULL || pose == NULL ||
+        actor->pose_orientation_encoded) {
+        return false;
+    }
+    /* Pre-tip jump contestants use an inward, scene-authored generic pose;
+       retain that presentation path exactly. */
+    if (tecmo_gameplay_scene_in_pretip(scene)) {
+        return !actor->facing_right;
+    }
+    /* A movement/action facing that differs from the actor's assigned TGOR
+       goal is an explicit override. Preserve the former renderer decision
+       for that override; only reconcile a pose whose effective facing still
+       equals its team goal baseline. */
+    if (!scene_goal_facing_right_for_team(
+            scene, (TecmoGameplayTeam)actor->team,
+            &goal_facing_right) ||
+        actor->facing_right != goal_facing_right) {
+        return !actor->facing_right;
+    }
+    /* For actors still on their TGOR goal baseline, mirror only when that
+       desired direction differs from this resolved pose's authored OAM
+       polarity, never by team index. Ambiguous mixed poses retain the former
+       decision for zero unrelated change. */
+    if (!scene_pose_authored_facing_right(pose, &authored_facing_right)) {
+        return !actor->facing_right;
+    }
+    return actor->facing_right != authored_facing_right;
+}
+
 static void scene_make_bg_palette(uint32_t rgba[4],
                                   const uint8_t palette[16],
                                   uint8_t index)
@@ -1359,16 +1424,17 @@ bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
         uint8_t index = order[actor];
         if (!court_frame.projection.players[index].visible) continue;
-        /* facing_right is the effective actor orientation: TGOR supplies the
-           goal-derived baseline, while only deliberate horizontal movement
-           and shot actions override it. Encoded tip/action poses retain their
-           source orientation and therefore bypass this native mirror. */
+        /* TGPL pose-cell OAM carries authored polarity per resolved pose.
+           TGOR supplies the desired baseline; only actors still on that
+           baseline reconcile it. Movement/action overrides, pre-tip, mixed,
+           and encoded poses retain their prior orientation path. */
         scene_draw_pose(scene, &view, &actor_poses[index],
                         court_frame.projection.players[index].screen_x,
                         court_frame.projection.players[index].screen_y,
                         0, 0, scale,
-                        !scene->actors[index].pose_orientation_encoded &&
-                        !scene->actors[index].facing_right);
+                        scene_actor_needs_goal_mirror(
+                            scene, &scene->actors[index],
+                            &actor_poses[index]));
     }
     if (court_frame.projection.ball.visible) {
         scene_draw_pose(scene, &view, &ball_pose,

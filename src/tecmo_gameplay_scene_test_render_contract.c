@@ -9,6 +9,181 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define TECMO_GAMEPLAY_ORIENTATION_AWAY_LEFT_RENDER_FNV1A32 0xCA583099U
+#define TECMO_GAMEPLAY_ORIENTATION_HOME_RIGHT_RENDER_FNV1A32 0xE9C1B855U
+#define TECMO_GAMEPLAY_ORIENTATION_AWAY_RIGHT_RENDER_FNV1A32 0xCE574BC1U
+#define TECMO_GAMEPLAY_ORIENTATION_HOME_MOVEMENT_OVERRIDE_RENDER_FNV1A32 \
+    0x2BFA5B95U
+#define TECMO_GAMEPLAY_ORIENTATION_HOME_RIGHT_BASELINE_REGION_FNV1A32 \
+    0x47119A68U
+
+static bool scene_test_pose_region(
+    const TecmoGameplayActorProjection *projection,
+    const TecmoGameplayResolvedPose *pose,
+    int *x_out,
+    int *y_out,
+    int *width_out,
+    int *height_out)
+{
+    int min_x;
+    int min_y;
+    int max_x;
+    int max_y;
+    size_t piece;
+    if (projection == NULL || pose == NULL || x_out == NULL ||
+        y_out == NULL || width_out == NULL || height_out == NULL ||
+        !projection->visible || pose->piece_count == 0U) {
+        return false;
+    }
+    min_x = (int)projection->screen_x;
+    min_y = (int)projection->screen_y;
+    max_x = min_x + 8;
+    max_y = min_y + 16;
+    for (piece = 0U; piece < pose->piece_count; ++piece) {
+        int piece_x = (int)projection->screen_x + pose->pieces[piece].dx;
+        int piece_y = (int)projection->screen_y + pose->pieces[piece].dy;
+        if (piece_x < min_x) min_x = piece_x;
+        if (piece_y < min_y) min_y = piece_y;
+        if (piece_x + 8 > max_x) max_x = piece_x + 8;
+        if (piece_y + 16 > max_y) max_y = piece_y + 16;
+    }
+    if (min_x < 0 || min_y < 0 || max_x > TECMO_GAMEPLAY_SCENE_NES_WIDTH ||
+        max_y > TECMO_GAMEPLAY_SCENE_NES_HEIGHT || max_x <= min_x ||
+        max_y <= min_y) {
+        return false;
+    }
+    *x_out = min_x;
+    *y_out = min_y;
+    *width_out = max_x - min_x;
+    *height_out = max_y - min_y;
+    return true;
+}
+
+static uint32_t scene_test_actor_region_fnv1a32(
+    const uint32_t *frame,
+    const uint32_t *background,
+    int x,
+    int y,
+    int width,
+    int height)
+{
+    uint32_t hash = 2166136261U;
+    int row;
+    int column;
+    if (frame == NULL || background == NULL || x < 0 || y < 0 ||
+        width <= 0 || height <= 0 ||
+        x + width > TECMO_GAMEPLAY_SCENE_NES_WIDTH ||
+        y + height > TECMO_GAMEPLAY_SCENE_NES_HEIGHT) {
+        return 0U;
+    }
+    for (row = 0; row < height; ++row) {
+        for (column = 0; column < width; ++column) {
+            size_t offset = (size_t)(y + row) *
+                TECMO_GAMEPLAY_SCENE_NES_WIDTH + (size_t)(x + column);
+            uint32_t value = frame[offset] == background[offset]
+                                 ? 0U : frame[offset];
+            unsigned shift;
+            for (shift = 0U; shift < 32U; shift += 8U) {
+                hash ^= (value >> shift) & 0xFFU;
+                hash *= 16777619U;
+            }
+        }
+    }
+    return hash;
+}
+
+static bool scene_test_pixels_equal_region(
+    const uint32_t *left,
+    const uint32_t *right,
+    int x,
+    int y,
+    int width,
+    int height)
+{
+    int row;
+    if (left == NULL || right == NULL || x < 0 || y < 0 ||
+        width <= 0 || height <= 0 ||
+        x + width > TECMO_GAMEPLAY_SCENE_NES_WIDTH ||
+        y + height > TECMO_GAMEPLAY_SCENE_NES_HEIGHT) {
+        return false;
+    }
+    for (row = 0; row < height; ++row) {
+        size_t offset = (size_t)(y + row) *
+            TECMO_GAMEPLAY_SCENE_NES_WIDTH + (size_t)x;
+        if (memcmp(left + offset, right + offset,
+                   (size_t)width * sizeof(*left)) != 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool scene_test_actor_mirror_pixels(
+    const uint32_t *left_frame,
+    const uint32_t *left_background,
+    const uint32_t *right_frame,
+    const uint32_t *right_background,
+    const TecmoGameplayActorProjection *left_projection,
+    const TecmoGameplayActorProjection *right_projection,
+    const TecmoGameplayResolvedPose *pose,
+    bool *asymmetric_out)
+{
+    bool saw_visible = false;
+    bool saw_asymmetric = false;
+    size_t piece;
+    if (left_frame == NULL || left_background == NULL ||
+        right_frame == NULL || right_background == NULL ||
+        left_projection == NULL || right_projection == NULL || pose == NULL ||
+        asymmetric_out == NULL || !left_projection->visible ||
+        !right_projection->visible || pose->piece_count == 0U) {
+        return false;
+    }
+    for (piece = 0U; piece < pose->piece_count; ++piece) {
+        int left_x = (int)left_projection->screen_x + pose->pieces[piece].dx;
+        int left_y = (int)left_projection->screen_y + pose->pieces[piece].dy;
+        int right_x = (int)right_projection->screen_x -
+                      pose->pieces[piece].dx - 8;
+        int right_y = (int)right_projection->screen_y + pose->pieces[piece].dy;
+        int row;
+        int column;
+        if (left_x < 0 || left_y < 0 || right_x < 0 || right_y < 0 ||
+            left_x + 8 > TECMO_GAMEPLAY_SCENE_NES_WIDTH ||
+            right_x + 8 > TECMO_GAMEPLAY_SCENE_NES_WIDTH ||
+            left_y + 16 > TECMO_GAMEPLAY_SCENE_NES_HEIGHT ||
+            right_y + 16 > TECMO_GAMEPLAY_SCENE_NES_HEIGHT) {
+            return false;
+        }
+        for (row = 0; row < 16; ++row) {
+            for (column = 0; column < 8; ++column) {
+                size_t left_offset = (size_t)(left_y + row) *
+                    TECMO_GAMEPLAY_SCENE_NES_WIDTH +
+                    (size_t)(left_x + 7 - column);
+                size_t right_offset = (size_t)(right_y + row) *
+                    TECMO_GAMEPLAY_SCENE_NES_WIDTH +
+                    (size_t)(right_x + column);
+                size_t left_mirror_offset = (size_t)(left_y + row) *
+                    TECMO_GAMEPLAY_SCENE_NES_WIDTH +
+                    (size_t)(left_x + column);
+                bool left_visible =
+                    left_frame[left_offset] != left_background[left_offset];
+                bool right_visible =
+                    right_frame[right_offset] !=
+                    right_background[right_offset];
+                bool left_mirror_visible =
+                    left_frame[left_mirror_offset] !=
+                    left_background[left_mirror_offset];
+                if (left_visible != right_visible) return false;
+                saw_visible = saw_visible || left_visible;
+                if (left_visible != left_mirror_visible) {
+                    saw_asymmetric = true;
+                }
+            }
+        }
+    }
+    *asymmetric_out = saw_asymmetric;
+    return saw_visible && saw_asymmetric;
+}
+
 static bool scene_build_background_context(
     const TecmoGameplayScene *scene,
     TecmoGameplayLiveBackgroundContext *context)
@@ -1893,6 +2068,394 @@ done:
     return true;
 }
 
+static bool scene_test_render_orientation_pixels(
+    const TecmoGameplayScene *scene,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplayScene home_right;
+    TecmoGameplayScene away_right;
+    TecmoGameplayScene left_sprite_probe;
+    TecmoGameplayScene right_sprite_probe;
+    TecmoGameplayScene home_probe;
+    TecmoGameplayScene home_baseline;
+    TecmoGameplayScene home_movement_override;
+    TecmoGameplayScene encoded_action;
+    TecmoGameplaySceneCourtFrame left_court_frame;
+    TecmoGameplaySceneCourtFrame right_court_frame;
+    TecmoGameplayResolvedPose away_pose;
+    TecmoGameplayResolvedPose home_pose;
+    TecmoGameplayResolvedPose encoded_pose;
+    TecmoControlFrame horizontal;
+    TecmoFramebuffer framebuffer;
+    uint32_t *pixels = NULL;
+    uint32_t *left_frame = NULL;
+    uint32_t *left_background = NULL;
+    uint32_t *right_frame = NULL;
+    uint32_t *right_background = NULL;
+    uint32_t hashes[4U];
+    uint32_t home_region_hash;
+    bool asymmetric = false;
+    bool encoded_pixels_unchanged;
+    bool home_baseline_pixels_unchanged;
+    bool ok = false;
+    const char *failure = NULL;
+    char failure_message[256];
+    size_t actor;
+    const size_t pixel_count =
+        (size_t)TECMO_GAMEPLAY_SCENE_NES_WIDTH *
+        TECMO_GAMEPLAY_SCENE_NES_HEIGHT;
+    int home_region_x;
+    int home_region_y;
+    int home_region_width;
+    int home_region_height;
+
+    if (scene == NULL) {
+        failure = "orientation render scene was null";
+        goto done;
+    }
+    pixels = (uint32_t *)malloc(pixel_count * sizeof(*pixels));
+    left_frame = (uint32_t *)malloc(pixel_count * sizeof(*left_frame));
+    left_background = (uint32_t *)malloc(
+        pixel_count * sizeof(*left_background));
+    right_frame = (uint32_t *)malloc(pixel_count * sizeof(*right_frame));
+    right_background = (uint32_t *)malloc(
+        pixel_count * sizeof(*right_background));
+    if (pixels == NULL || left_frame == NULL || left_background == NULL ||
+        right_frame == NULL || right_background == NULL) {
+        failure = "orientation render test allocation failed";
+        goto done;
+    }
+    framebuffer.pixels = pixels;
+    framebuffer.width = TECMO_GAMEPLAY_SCENE_NES_WIDTH;
+    framebuffer.height = TECMO_GAMEPLAY_SCENE_NES_HEIGHT;
+    framebuffer.pitch_pixels = TECMO_GAMEPLAY_SCENE_NES_WIDTH;
+
+    if (!tecmo_gameplay_scene_draw(
+            scene, &framebuffer, 0, 0, 1, true)) {
+        failure = "Away-left orientation render probe was rejected";
+        goto done;
+    }
+    hashes[0U] = tecmo_gameplay_scene_test_pixels_fnv1a32(
+        pixels, pixel_count);
+
+    home_right = *scene;
+    if (!scene_handoff_possession(
+            &home_right, TECMO_GAMEPLAY_TEAM_HOME,
+            TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT)) {
+        failure = "Home-right orientation render setup was rejected";
+        goto done;
+    }
+    if (!tecmo_gameplay_scene_draw(
+            &home_right, &framebuffer, 0, 0, 1, true)) {
+        failure = "Home-right orientation render probe was rejected";
+        goto done;
+    }
+    hashes[1U] = tecmo_gameplay_scene_test_pixels_fnv1a32(
+        pixels, pixel_count);
+
+    /* Exercise the crossed TGOR matrix used by the production goal accessor:
+       Away may own direction 1, which requires a right-facing Away roster. */
+    away_right = *scene;
+    away_right.orientation_state.current_direction = 1U;
+    away_right.orientation_state.previous_direction = 0U;
+    away_right.orientation_state.transition_serial = 1U;
+    away_right.orientation_state.tracked_possession_team =
+        TECMO_GAMEPLAY_TEAM_AWAY;
+    away_right.orientation_state.offensive_hoop =
+        away_right.court_orientation.hoops[1U];
+    away_right.state.possession = TECMO_GAMEPLAY_TEAM_AWAY;
+    if (!scene_apply_goal_facing(&away_right, away_right.actors) ||
+        !scene_attach_ball(&away_right)) {
+        failure = "Away-right crossed orientation render setup was rejected";
+        goto done;
+    }
+    if (!tecmo_gameplay_scene_draw(
+            &away_right, &framebuffer, 0, 0, 1, true)) {
+        failure = "Away-right orientation render probe was rejected";
+        goto done;
+    }
+    hashes[2U] = tecmo_gameplay_scene_test_pixels_fnv1a32(
+        pixels, pixel_count);
+
+    /* Controller 1 owns the Home actor. Its assigned goal is right, so a
+       held-left input is a deliberate facing override and must retain the
+       former renderer pixels. */
+    home_movement_override = home_right;
+    memset(&horizontal, 0, sizeof(horizontal));
+    horizontal.held.left = true;
+    if (!scene_move_controlled_actor(
+            &home_movement_override, 1U, &horizontal) ||
+        home_movement_override.actors[
+            TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT].facing_right) {
+        failure = "explicit Home-left movement orientation render setup failed";
+        goto done;
+    }
+    if (!tecmo_gameplay_scene_draw(
+            &home_movement_override, &framebuffer, 0, 0, 1, true)) {
+        failure = "explicit Home-left movement orientation render probe was rejected";
+        goto done;
+    }
+    hashes[3U] = tecmo_gameplay_scene_test_pixels_fnv1a32(
+        pixels, pixel_count);
+
+    /* The fixed Rev1 $D413/$D498 compositor and $D503 AND #$41 preserve OAM
+       bit $40. Bank05 $8F47/$8F57 raw $012A selects pose 149 at $A6E3/$884E
+       with raw cells $64/$68/$66/$6A and four resolved $41 attributes; the
+       captured original frame 4100 independently confirms the visible
+       Away-left bit-$40 polarity, without claiming native pose-149 identity.
+       Raw $016A selects pose 181 at $A723/$8702 with
+       raw cells $24/$26/$28/$2A and four resolved $03 attributes (Home-right).
+       The bit is a horizontal-flip bit, not an intrinsic left meaning for
+       arbitrary art. */
+    if (!scene_resolve_actor_pose(scene, 0U, &away_pose) ||
+        !scene_resolve_actor_pose(scene, 5U, &home_pose) ||
+        scene->actors[0U].pose_index != 149U ||
+        scene->actors[5U].pose_index != 181U ||
+        away_pose.pointer_cpu != 0xA6E3U ||
+        away_pose.record_cpu != 0x884EU ||
+        home_pose.pointer_cpu != 0xA723U ||
+        home_pose.record_cpu != 0x8702U ||
+        away_pose.piece_count != 4U || home_pose.piece_count != 4U) {
+        failure = "orientation source pose records did not resolve as expected";
+        goto done;
+    }
+    for (actor = 0U; actor < 4U; ++actor) {
+        if (away_pose.pieces[actor].oam_attributes != 0x41U ||
+            home_pose.pieces[actor].oam_attributes != 0x03U) {
+            failure = "orientation source OAM flip polarity changed";
+            goto done;
+        }
+    }
+
+    /* Render full and background-only production frames so the assertion
+       below compares actor pixels, not merely actor-facing booleans. Stage
+       every unprobed actor at world x=0, the projection's invisible sentinel,
+       and keep the Home HUD selection anchor at the valid right boundary.
+       Toggle only the probed actor's assigned TGOR goal; the crossed TGOR
+       scene above supplies the right-facing production baseline. */
+    left_sprite_probe = *scene;
+    right_sprite_probe = away_right;
+    left_sprite_probe.ball_position.x_q8 = 0;
+    left_sprite_probe.ball_position.y_q8 = 0;
+    right_sprite_probe.ball_position.x_q8 = 0;
+    right_sprite_probe.ball_position.y_q8 = 0;
+    for (actor = 1U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        if (actor == TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT) {
+            /* Keep the HUD's Home selection valid, but stage it at the
+               valid right boundary outside the viewport. */
+            left_sprite_probe.actors[actor].position.x = 663;
+            left_sprite_probe.actors[actor].position.y = 239;
+            left_sprite_probe.actors[actor].anchor =
+                left_sprite_probe.actors[actor].position;
+            right_sprite_probe.actors[actor].position =
+                left_sprite_probe.actors[actor].position;
+            right_sprite_probe.actors[actor].anchor =
+                right_sprite_probe.actors[actor].position;
+        } else {
+            left_sprite_probe.actors[actor].position.x = 0;
+            left_sprite_probe.actors[actor].anchor =
+                left_sprite_probe.actors[actor].position;
+            left_sprite_probe.actors[actor].active = false;
+            right_sprite_probe.actors[actor].position.x = 0;
+            right_sprite_probe.actors[actor].anchor =
+                right_sprite_probe.actors[actor].position;
+            right_sprite_probe.actors[actor].active = false;
+        }
+    }
+    if (!tecmo_gameplay_scene_draw(
+            &left_sprite_probe, &framebuffer, 0, 0, 1, true)) {
+        failure = "Away-left actor-pixel frame was rejected";
+        goto done;
+    }
+    memcpy(left_frame, pixels, pixel_count * sizeof(*pixels));
+    if (!tecmo_gameplay_scene_draw(
+            &left_sprite_probe, &framebuffer, 0, 0, 1, false)) {
+        failure = "Away-left actor-pixel background was rejected";
+        goto done;
+    }
+    memcpy(left_background, pixels, pixel_count * sizeof(*pixels));
+    if (!tecmo_gameplay_scene_draw(
+            &right_sprite_probe, &framebuffer, 0, 0, 1, true)) {
+        failure = "Away-right actor-pixel frame was rejected";
+        goto done;
+    }
+    memcpy(right_frame, pixels, pixel_count * sizeof(*pixels));
+    if (!tecmo_gameplay_scene_draw(
+            &right_sprite_probe, &framebuffer, 0, 0, 1, false)) {
+        failure = "Away-right actor-pixel background was rejected";
+        goto done;
+    }
+    memcpy(right_background, pixels, pixel_count * sizeof(*pixels));
+    if (!tecmo_gameplay_scene_court_frame(
+            &left_sprite_probe, &left_court_frame)) {
+        failure = "Away-left actor projection probe was rejected";
+        goto done;
+    }
+    if (!tecmo_gameplay_scene_court_frame(
+            &right_sprite_probe, &right_court_frame)) {
+        failure = "Away-right actor projection probe was rejected";
+        goto done;
+    }
+    if (!scene_test_actor_mirror_pixels(
+            left_frame, left_background, right_frame, right_background,
+            &left_court_frame.projection.players[0U],
+            &right_court_frame.projection.players[0U], &away_pose,
+            &asymmetric)) {
+        failure = "Away actor pixels were not an asymmetric horizontal mirror";
+        goto done;
+    }
+    if (!asymmetric) {
+        failure = "Away actor pixel relation was unexpectedly symmetric";
+        goto done;
+    }
+    /* Isolate Home by staging every Away actor outside the visible projection. The
+       region hash below therefore cannot include an overlapping Away pixel. */
+    home_probe = home_right;
+    home_probe.ball_position.x_q8 = 0;
+    home_probe.ball_position.y_q8 = 0;
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        if (actor == TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT) continue;
+        if (actor == 0U) {
+            /* The Away controller's HUD selection must remain valid; keep
+               that one non-probed anchor at the valid offscreen boundary. */
+            home_probe.actors[actor].position.x = 663;
+            home_probe.actors[actor].position.y = 239;
+            home_probe.actors[actor].anchor =
+                home_probe.actors[actor].position;
+        } else {
+            home_probe.actors[actor].position.x = 0;
+            home_probe.actors[actor].anchor =
+                home_probe.actors[actor].position;
+            home_probe.actors[actor].active = false;
+        }
+    }
+    if (!tecmo_gameplay_scene_draw(
+            &home_probe, &framebuffer, 0, 0, 1, true)) {
+        failure = "Home baseline full frame was rejected";
+        goto done;
+    }
+    memcpy(left_frame, pixels, pixel_count * sizeof(*pixels));
+    if (!tecmo_gameplay_scene_draw(
+            &home_probe, &framebuffer, 0, 0, 1, false) ||
+        !tecmo_gameplay_scene_court_frame(&home_probe, &left_court_frame)) {
+        failure = "Home baseline background or projection was rejected";
+        goto done;
+    }
+    memcpy(left_background, pixels, pixel_count * sizeof(*pixels));
+    if (!scene_test_pose_region(
+            &left_court_frame.projection.players[5U], &home_pose,
+            &home_region_x, &home_region_y, &home_region_width,
+            &home_region_height)) {
+        failure = "Home actor pixel baseline region was invalid";
+        goto done;
+    }
+    home_region_hash = scene_test_actor_region_fnv1a32(
+        left_frame, left_background, home_region_x, home_region_y,
+        home_region_width, home_region_height);
+
+    /* The former renderer's Home-right decision was no mirror. Use an
+       orientation-encoded bypass as a local no-mirror oracle and compare the
+       complete isolated Home region byte-for-byte, including its background. */
+    home_baseline = home_probe;
+    home_baseline.actors[TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT]
+        .pose_orientation_encoded = true;
+    if (!tecmo_gameplay_scene_draw(
+            &home_baseline, &framebuffer, 0, 0, 1, true)) {
+        failure = "Home pre-fix baseline frame was rejected";
+        goto done;
+    }
+    memcpy(right_frame, pixels, pixel_count * sizeof(*pixels));
+    if (!tecmo_gameplay_scene_draw(
+            &home_baseline, &framebuffer, 0, 0, 1, false)) {
+        failure = "Home pre-fix baseline background was rejected";
+        goto done;
+    }
+    memcpy(right_background, pixels, pixel_count * sizeof(*pixels));
+    home_baseline_pixels_unchanged =
+        scene_test_pixels_equal_region(
+            left_frame, right_frame, home_region_x, home_region_y,
+            home_region_width, home_region_height) &&
+        scene_test_pixels_equal_region(
+            left_background, right_background, home_region_x, home_region_y,
+            home_region_width, home_region_height);
+    if (!home_baseline_pixels_unchanged) {
+        failure = "Home actor crop changed from the former no-mirror baseline";
+        goto done;
+    }
+
+    /* A real orientation-encoded lineup/action pose bypasses the generic
+       scene mirror. Toggling the desired facing must leave its pixels byte
+       identical because its source pointer already encodes orientation. */
+    encoded_action = *scene;
+    encoded_action.actors[0U].pose_index =
+        scene->pretip_jumper_standing_pose[0U];
+    encoded_action.actors[0U].pose_orientation_encoded = true;
+    if (encoded_action.actors[0U].pose_index == 0U ||
+        !scene_resolve_actor_pose(&encoded_action, 0U, &encoded_pose)) {
+        failure = "encoded action pose did not resolve";
+        goto done;
+    }
+    encoded_action.actors[0U].facing_right = false;
+    if (!tecmo_gameplay_scene_draw(
+            &encoded_action, &framebuffer, 0, 0, 1, true)) {
+        failure = "encoded action left override render was rejected";
+        goto done;
+    }
+    memcpy(right_frame, pixels, pixel_count * sizeof(*pixels));
+    encoded_action.actors[0U].facing_right = true;
+    if (!tecmo_gameplay_scene_draw(
+            &encoded_action, &framebuffer, 0, 0, 1, true)) {
+        failure = "encoded action right override render was rejected";
+        goto done;
+    }
+    encoded_pixels_unchanged = memcmp(
+        right_frame, pixels, pixel_count * sizeof(*pixels)) == 0;
+    if (!encoded_pixels_unchanged) {
+        failure = "encoded action override was mirrored by the generic path";
+        goto done;
+    }
+
+    if (hashes[0U] != TECMO_GAMEPLAY_ORIENTATION_AWAY_LEFT_RENDER_FNV1A32 ||
+        hashes[1U] != TECMO_GAMEPLAY_ORIENTATION_HOME_RIGHT_RENDER_FNV1A32 ||
+        hashes[2U] != TECMO_GAMEPLAY_ORIENTATION_AWAY_RIGHT_RENDER_FNV1A32 ||
+        hashes[3U] !=
+            TECMO_GAMEPLAY_ORIENTATION_HOME_MOVEMENT_OVERRIDE_RENDER_FNV1A32 ||
+        hashes[0U] == hashes[1U] || hashes[0U] == hashes[2U] ||
+        hashes[0U] == hashes[3U]) {
+        (void)snprintf(
+            failure_message, sizeof(failure_message),
+            "orientation render pixels changed: away-left=%08X "
+            "home-right=%08X away-right=%08X home-movement-override=%08X",
+            (unsigned)hashes[0U], (unsigned)hashes[1U],
+            (unsigned)hashes[2U], (unsigned)hashes[3U]);
+        failure = failure_message;
+        goto done;
+    }
+    if (home_region_hash !=
+        TECMO_GAMEPLAY_ORIENTATION_HOME_RIGHT_BASELINE_REGION_FNV1A32) {
+        (void)snprintf(
+            failure_message, sizeof(failure_message),
+            "Home actor pixels changed from the pre-fix baseline: %08X",
+            (unsigned)home_region_hash);
+        failure = failure_message;
+        goto done;
+    }
+    ok = true;
+
+done:
+    free(right_background);
+    free(right_frame);
+    free(left_background);
+    free(left_frame);
+    free(pixels);
+    if (!ok) {
+        if (failure == NULL) failure = "orientation render contract failed";
+        tecmo_gameplay_scene_test_message(message, message_size, failure);
+    }
+    return ok;
+}
+
 static bool scene_test_render_hashes(
     const TecmoGameplayScene *scene,
     const TecmoGameplayScene *left_slice_probe,
@@ -1990,6 +2553,11 @@ static bool scene_test_render_hashes(
                        (unsigned)render_hash);
         free(pixels);
         tecmo_gameplay_scene_test_message(message, message_size, failure);
+        return false;
+    }
+    if (!scene_test_render_orientation_pixels(
+            scene, message, message_size)) {
+        free(pixels);
         return false;
     }
     buffers->pixels = pixels;

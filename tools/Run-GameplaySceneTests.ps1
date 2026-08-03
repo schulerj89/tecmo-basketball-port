@@ -1039,7 +1039,7 @@ try {
         }
     }
     if ($RenderHashes["gameplay-facing-away-left"] -ne
-            "035822A9CE0F26ED964799A7B92B6E3A234BDA6F5CEBF851CA8388FD39E8FE11") {
+            "DDE21802E85DD14AC85F8792CBB9694C0833E5DC103A1C567891B1501F6FA783") {
         throw "Gameplay Away-left facing checkpoint render hash changed."
     }
     if ($RenderHashes["gameplay-shot-clock-violation-frame23"] -eq
@@ -1048,9 +1048,9 @@ try {
     }
     $ExpectedBallBounceHashes = @{
         "gameplay-ball-bounce-frame1" =
-            "A7C850F9E0A7FAC693EEDE7FA280BE4F937452AFC4467F78000F52057741A841"
+            "E17E2A8C503E781EEB37C58C358BD1E95AF04A2928912AC37EE73018B0C86E38"
         "gameplay-ball-bounce-frame12" =
-            "0305A764479D303958929D5484E41319489E4AD0C34DC3E3F3DEDD8DF0085224"
+            "C34BD467F85941DCC76610310C0C6F0BE9DF17EDBFF75CA277BFA229F69BBB55"
     }
     foreach ($Mode in $ExpectedBallBounceHashes.Keys) {
         if ($RenderHashes[$Mode] -ne $ExpectedBallBounceHashes[$Mode]) {
@@ -1062,16 +1062,16 @@ try {
         throw "Gameplay held-ball high/low bounce visuals collapsed together."
     }
     if ($RenderHashes["gameplay-cpu-steering-frame25"] -ne
-            "CBE9626654C3FE4415FFBD531958AB72D0EB8065A8D0B82C0DC979F6D3372857") {
+            "92A3C0009457A688A70A563CE87DE8692C26E3343FB717C3075B63C868260031") {
         throw "Gameplay live TGAI/TGMO movement render hash changed."
     }
     $ExpectedPossessionSliceHashes = @{
         "gameplay-possession-left" =
-            "9DB14D81EF96C1B855C36412FF1C1353FED73074CCE18492D91EA014FF2345F9"
+            "1BF6DB46DDC2984DB6363F46D11C05182301C3D9A965158E16D1D43119189ADF"
         "gameplay-possession-center" =
-            "035822A9CE0F26ED964799A7B92B6E3A234BDA6F5CEBF851CA8388FD39E8FE11"
+            "DDE21802E85DD14AC85F8792CBB9694C0833E5DC103A1C567891B1501F6FA783"
         "gameplay-possession-right" =
-            "1086E9E478F87DE654785E8D7A30ECFFD0BED5775BDB11994B6D8F6D517A4C6D"
+            "80F417E33D3423727A95EBD34004EB54EA72FCE723512F1E7A682A98C120845F"
     }
     foreach ($Mode in $ExpectedPossessionSliceHashes.Keys) {
         if ($RenderHashes[$Mode] -ne
@@ -1088,16 +1088,16 @@ try {
         throw "Gameplay possession-slice visuals collapsed together."
     }
     if ($RenderHashes["gameplay-uniform-pacers"] -ne
-            "2812BF9860D4DD2C36E208E1598FECDCDEB03A35144BA9DB04E4D970F03A698F" -or
+            "6CFC130D0A472BCB7877F1B48037BC1DD2DC7BB16D0460692060C699BE2C917A" -or
         $RenderHashes["gameplay-uniform-pacers"] -eq
             $RenderHashes["gameplay-possession-center"]) {
         throw "Gameplay home-team uniform-color visual contract changed."
     }
     $ExpectedFreeThrowHashes = @{
         "gameplay-free-throw-left" =
-            "5258B29877586ED011D2F24A4816D35D3E458909BE7B6DBBAF0332579D358667"
+            "1A51687E4F98A4CAA79D20A21DF6BD4DB395E3127A4BF257FEDBF75A3373C8FA"
         "gameplay-free-throw-right" =
-            "7AE0368DD0FF4B1D447802C8776679ABD0A64D722C9CF3025028228AD7A3ECFE"
+            "F47ADE68F027309A74744376D0DE0B2CBA180314D21F752BC27F93839F39815A"
     }
     foreach ($Mode in $ExpectedFreeThrowHashes.Keys) {
         if ($RenderHashes[$Mode] -ne
@@ -1111,9 +1111,9 @@ try {
     }
     $ExpectedJumpHashes = @{
         "gameplay-jump-frame1" =
-            "E11287F5A12D4B36CD0DD64F9648CE75CE7619157D269AFB297DA36E1F4880CC"
+            "BF4025503519EAF464B63FEBF26AD0FA48D3029AAC8E69D2BD6D68FB79099A90"
         "gameplay-jump-frame2" =
-            "19363DB84358B3A9B46A855483E0C160430E55729CE8E6E5E213C982F34C81F9"
+            "B34B55015ED2AD20A2F4F5FDA3FA531EC359D3C53FA11E6A9353307B377BC24F"
         "gameplay-jump-frame4" =
             "6FCE03555EFC35E0D777447281003B9676C8793EE2AA57E15EE60A5FECE1850F"
         "gameplay-jump-frame75" =

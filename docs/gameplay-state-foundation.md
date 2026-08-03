@@ -363,12 +363,24 @@ Variant 0 is the dunk family and has 32 exact steps in the
 direct/held-release family; variant 2 is the layup family and has 16 exact
 steps in the arc/longer-trajectory/contactable family. Their phase
 tables and all 208 TGCS-stored profile/direction resolutions into TGPL pose data
-are exact assets. Live play currently selects only profile 0/direction 0 and
-mirrors actor-facing-left at render time; that narrower selection and mirroring
-are native approximations, not properties proved by the asset. Numeric variant
-1 remains unexposed. TGCS APIs and fields continue to expose numeric IDs; the
-loader derives and validates the exact 0=dunk, 2=layup semantic mapping without
-changing the 3144-byte payload or its `DACDC976` fingerprint.
+are exact assets. Live play currently selects only profile 0/direction 0; that
+narrower selection remains a native approximation, not a property proved by the
+asset. Resolved uniform pose-cell polarity is preserved from fixed
+`$D413/$D498` and `$D503` `AND #$41`, then compared with effective facing only
+while that facing equals the actor's assigned TGOR goal baseline. Deliberate
+movement/action overrides, mixed poses, pre-tip presentation, and encoded
+tip/action poses retain the former orientation path; eligible uniform poses
+mirror only when authored and goal polarity differ. Fresh orientation-0 cases
+are Bank05 `$8F47/$8F57` raw `$012A` -> pose
+149 -> `$A6E3/$884E` -> four resolved `$41` attributes (Away-left), versus raw
+`$016A` -> pose 181 -> `$A723/$8702` -> four resolved `$03` attributes
+(Home-right). The captured original frame/OAM independently confirms the visible
+Away-left bit-$40 polarity; it does not claim a native pose-149 identity. `$40`
+is the horizontal-flip bit, not an intrinsic left meaning for arbitrary art.
+Numeric variant 1 remains unexposed. TGCS APIs and fields continue to expose
+numeric IDs; the loader derives and validates the
+exact 0=dunk, 2=layup semantic mapping without changing the 3144-byte payload
+or its `DACDC976` fingerprint.
 
 The dunk family now crosses into the strict TGDK-1 presentation. The importer
 decodes screen `$0B` into both bounded 960-cell backgrounds, resolves the exact
@@ -660,7 +672,7 @@ These are provenance only and are not runtime inputs.
   jump-ball interpolation, unsupported jump routes, general
   make/contact policy, the distance policy
   selecting dunk/variant 0 versus layup/variant 2, live close-shot
-  profile/direction selection and left-facing render mirroring,
+  profile/direction selection and other close-shot policies,
   state-dependent palette transitions outside the exact live-court and
   cutaway contexts, foul detection, free-throw slot selection,
   held-ball/camera composition, aim/result/rebound and CPU positioning/script
