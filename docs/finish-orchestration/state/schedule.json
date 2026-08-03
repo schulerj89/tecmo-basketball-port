@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T16:04:02Z",
+  "updated_at": "2026-08-03T16:27:29Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -33,8 +33,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1-gameplay-foundation-sol",
       "ownership_claim_ids": ["OWN-R1-LIVE", "OWN-R1-TIP"],
       "blockers": [],
-      "next_gate": "Same-Luna LIVE revision for boundary-direction semantics, sustained running-clock coverage, and evidence/docs accuracy; then Sol acceptance, sequential TIP, and Round 1 integration QA.",
-      "updated_at": "2026-08-03T15:19:45Z"
+      "next_gate": "Repinned independent QA Luna audits exact terminal LIVE chain ad0f005->e2333db8->6a16422b, including clean -RequirePass proof and Win32 smoke; then same-worker corrections if needed, Sol acceptance/ff-only LIVE integration, sequential TIP execution, and Round 1 integration QA.",
+      "updated_at": "2026-08-03T16:27:29Z"
     },
     {
       "lane_id": "LANE-R3-SEASON-DATA-FOUNDATION",
@@ -51,8 +51,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3-season-data-foundation-sol",
       "ownership_claim_ids": ["OWN-R3-SEASON-DATA-FOUNDATION"],
       "blockers": [],
-      "next_gate": "Same pinned Luna revises committed tip 3431112 for stale completed-season type-reset state, source-proven 82/42/26/82 W+L limits, and games-behind zero-floor coverage; then Sol personal build/harness/frame proof, independent QA, and domain acceptance.",
-      "updated_at": "2026-08-03T16:04:02Z"
+      "next_gate": "Independent pinned read-only QA Luna 019fc869-9412-7d72-8534-f81c1d63275b audits immutable candidate 15946f58 after the green Sol personal build/harness/frame gate; then same-worker evidence-doc closure, Sol acceptance, and ff-only Sol-branch integration.",
+      "updated_at": "2026-08-03T16:17:05Z"
     },
     {
       "lane_id": "LANE-R4-FRONTEND-INTRO-TITLE",
@@ -69,8 +69,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4-frontend-intro-title-sol",
       "ownership_claim_ids": ["OWN-R4-FRONTEND-INTRO-TITLE"],
       "blockers": [],
-      "next_gate": "Finale/title fidelity and native contract-hardening Lunas remain active. Production replay is pinned at Sol review on fee87cfd but must receive a same-worker proof revision after the corrected finale/reset boundary lands; then sequential Sol integration, visual/source review, independent QA, and domain acceptance.",
-      "updated_at": "2026-08-03T15:57:39Z"
+      "next_gate": "Native hardening is Sol-accepted/integrated first at 761e061f and its worker is unpinned. Finale/title fidelity remains active; then the pinned proof worker revises fee87cfd against the corrected integrated boundary before remaining Sol review, independent QA, and domain acceptance.",
+      "updated_at": "2026-08-03T16:23:03Z"
     },
     {
       "lane_id": "LANE-R4-AUDIO-FOUNDATION",
@@ -86,9 +86,9 @@
       "branch": "codex/r4-audio-foundation-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4-audio-foundation-sol",
       "ownership_claim_ids": ["OWN-R4-AUDIO-FOUNDATION"],
-      "blockers": [],
-      "next_gate": "Writable Luna 019fc839-7677-7d93-abff-4aa427e7c6b3 implementation and deterministic audio proof, then Sol review/listening, revisions, independent QA, and domain acceptance.",
-      "updated_at": "2026-08-03T15:24:43Z"
+      "blockers": ["BLOCK-R4-AUDIO-LISTENING-001"],
+      "next_gate": "Independent pinned Luna 019fc86b-1cc0-7f01-9abb-fa3e23598703 audits detached candidate 51790b83 while implementation continues. Final acceptance additionally requires user listening sign-off or explicit authorization of objective waveform/spectrum/event evidence as the substitute via S-BLOCKERS-001.",
+      "updated_at": "2026-08-03T16:27:29Z"
     }
   ]
 }

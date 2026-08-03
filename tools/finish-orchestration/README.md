@@ -7,9 +7,12 @@ These scripts operate only on coordination metadata in
   replays task transitions, detects duplicate IDs and registry collisions,
   checks dependencies/references/recovery policy, validates accepted task docs
   in each task's registered worktree (with a repository-root fallback), and
-  detects ownership overlap.
+  detects ownership overlap. The one prescribed projectless emergency-blocker
+  role is validated separately for its exact title, Luna/high tier, and lack of
+  Git context.
 - `Verify-Lineage.ps1` verifies expected bases/parents, branch ancestry, result
-  commits, and live worktree/branch registration.
+  commits, live worktree/branch registration, and detached read-only QA
+  worktrees pinned to their exact reviewed commit.
 - `Show-ControlPlane.ps1` prints status or generates/checks the Markdown
   dashboard.
 - `Invoke-TaskTransition.ps1` applies one permitted audited queue transition.

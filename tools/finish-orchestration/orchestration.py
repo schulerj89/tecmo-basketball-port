@@ -721,11 +721,14 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         elif role == "emergency_blocker":
             if session["model"] != "gpt-5.6-luna" or session["thinking"] != "high":
                 result.error(f"session {session_id}: blocker role must use gpt-5.6-luna thinking=high")
-        if "tecmo" not in session["title"].casefold():
-            result.error(f"session {session_id}: title does not contain Tecmo")
-        expected_tier = "sol" if session["model"] == "gpt-5.6-sol" else "luna"
-        if expected_tier not in session["title"].casefold():
-            result.error(f"session {session_id}: title does not contain model tier {expected_tier}")
+            if session["title"] != "Blockers we need help with":
+                result.error(f"session {session_id}: blocker role must use the exact emergency title")
+        else:
+            if "tecmo" not in session["title"].casefold():
+                result.error(f"session {session_id}: title does not contain Tecmo")
+            expected_tier = "sol" if session["model"] == "gpt-5.6-sol" else "luna"
+            if expected_tier not in session["title"].casefold():
+                result.error(f"session {session_id}: title does not contain model tier {expected_tier}")
         if session["status"] in ACTIVE_SESSION_STATES and session["pin_state"] != "pinned":
             result.error(f"session {session_id}: active/idle/blocked session must be pinned")
         for task_id in session["task_ids"]:
@@ -750,6 +753,10 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         if session["failure"]["count"] != len(session["failure"]["raw_error_signatures"]):
             result.error(f"session {session_id}: failure count does not equal recorded raw signatures")
         if session["status"] in ACTIVE_SESSION_STATES:
+            if role == "emergency_blocker":
+                if session["branch"] or session["worktree"]:
+                    result.error(f"session {session_id}: emergency blocker must remain projectless")
+                continue
             if not session["branch"] or not session["worktree"]:
                 result.error(f"session {session_id}: active session requires a branch and worktree")
                 continue
@@ -786,25 +793,26 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
             result.error(f"reported worker {worker_id}: failure count does not equal recorded signatures")
         has_branch = worker["branch"] is not None
         has_worktree = worker["worktree"] is not None
-        if worker["status"] in ACTIVE_SESSION_STATES and has_branch != has_worktree:
-            result.error(f"reported worker {worker_id}: branch and worktree must either both be set or both be null")
-        if worker["status"] in ACTIVE_SESSION_STATES and has_branch and has_worktree:
+        if worker["status"] in ACTIVE_SESSION_STATES and has_branch and not has_worktree:
+            result.error(f"reported worker {worker_id}: a branch requires a registered worktree")
+        if worker["status"] in ACTIVE_SESSION_STATES and has_worktree:
             if worker["base_sha"] is None or worker["last_good_sha"] is None:
-                result.error(f"reported worker {worker_id}: active writable context requires base_sha and last_good_sha")
-            branch_key = worker["branch"].casefold()
+                result.error(f"reported worker {worker_id}: active Git context requires base_sha and last_good_sha")
             worktree_key = canonical_worktree(worker["worktree"])
-            if branch_key in active_session_branches:
-                result.error(
-                    f"reported worker {worker_id} shares branch {worker['branch']} with active context "
-                    f"{active_session_branches[branch_key]}"
-                )
             if worktree_key in active_session_worktrees:
                 result.error(
                     f"reported worker {worker_id} shares worktree {worker['worktree']} with active context "
                     f"{active_session_worktrees[worktree_key]}"
                 )
-            active_session_branches[branch_key] = worker_id
             active_session_worktrees[worktree_key] = worker_id
+            if has_branch:
+                branch_key = worker["branch"].casefold()
+                if branch_key in active_session_branches:
+                    result.error(
+                        f"reported worker {worker_id} shares branch {worker['branch']} with active context "
+                        f"{active_session_branches[branch_key]}"
+                    )
+                active_session_branches[branch_key] = worker_id
 
     for claim in claims:
         claim_id = claim["claim_id"]
@@ -1014,6 +1022,10 @@ def validate_git_lineage(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         if session["status"] not in ACTIVE_SESSION_STATES:
             continue
         session_id = session["session_id"]
+        if session["role"] == "emergency_blocker":
+            if session["branch"] or session["worktree"]:
+                result.error(f"lineage: emergency blocker {session_id} must remain projectless")
+            continue
         if not session["worktree"] or not session["branch"]:
             result.error(f"lineage: active session {session_id} has no branch/worktree")
             continue
@@ -1028,15 +1040,33 @@ def validate_git_lineage(repo_root: Path, state: dict[str, Any]) -> CheckResult:
             result.error(f"lineage: session {session_id} last_good_sha does not exist")
 
     for worker in sessions["reported_luna_workers"]:
-        if worker["status"] not in ACTIVE_SESSION_STATES or not worker["branch"] or not worker["worktree"]:
+        if worker["status"] not in ACTIVE_SESSION_STATES or not worker["worktree"]:
             continue
         worker_id = worker["worker_id"]
         if worker["base_sha"] is None or worker["last_good_sha"] is None:
-            result.error(f"lineage: active writable worker {worker_id} lacks base/last-good SHA")
+            result.error(f"lineage: active Git worker {worker_id} lacks base/last-good SHA")
             continue
         for label, sha in (("base_sha", worker["base_sha"]), ("last_good_sha", worker["last_good_sha"])):
             if not git_commit_exists(repo_root, sha):
                 result.error(f"lineage: worker {worker_id} {label} {sha} does not exist")
+        worktree = worktrees.get(canonical_worktree(worker["worktree"]))
+        if not worktree:
+            result.error(f"lineage: worker {worker_id} worktree is not registered")
+            continue
+        if not worker["branch"]:
+            actual_branch = worktree.get("branch", "").removeprefix("refs/heads/")
+            if actual_branch:
+                result.error(f"lineage: detached worker {worker_id} unexpectedly has branch {actual_branch}")
+            actual_head = worktree.get("HEAD")
+            if actual_head != worker["last_good_sha"]:
+                result.error(
+                    f"lineage: detached worker {worker_id} HEAD {actual_head} "
+                    f"does not equal last-good {worker['last_good_sha']}"
+                )
+            if git_commit_exists(repo_root, worker["base_sha"]) and git_commit_exists(repo_root, worker["last_good_sha"]):
+                if not git_is_ancestor(repo_root, worker["base_sha"], worker["last_good_sha"]):
+                    result.error(f"lineage: detached worker {worker_id} target does not descend from base")
+            continue
         try:
             branch_tip = git_output(repo_root, "rev-parse", f"refs/heads/{worker['branch']}")
         except RuntimeError as exc:
@@ -1056,10 +1086,6 @@ def validate_git_lineage(repo_root: Path, state: dict[str, Any]) -> CheckResult:
                     f"lineage: worker {worker_id} first branch commit {commits[0]} "
                     f"does not have base parent {worker['base_sha']}"
                 )
-        worktree = worktrees.get(canonical_worktree(worker["worktree"]))
-        if not worktree:
-            result.error(f"lineage: worker {worker_id} worktree is not registered")
-            continue
         actual_branch = worktree.get("branch", "").removeprefix("refs/heads/")
         if actual_branch != worker["branch"]:
             result.error(f"lineage: worker {worker_id} is on {actual_branch}, expected {worker['branch']}")
