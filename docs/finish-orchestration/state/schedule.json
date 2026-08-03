@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T22:04:10Z",
+  "updated_at": "2026-08-03T22:15:15Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -231,8 +231,8 @@
         "OWN-R2-SHOTS-OUTCOMES"
       ],
       "blockers": [],
-      "next_gate": "All bound jump/contact/close matrices pass. Same persistent Luna must finish deep exact/native timelines, deterministic Q8 ball binding, representative corruption/rollback matrices, and diagnostics before Sol may authorize a first commit; shared exclusions remain untouched.",
-      "updated_at": "2026-08-03T21:48:46Z"
+      "next_gate": "Scene and bound route matrices are green, but first commit remains held. Same Luna must remove temporary R2DIAG output, enforce exact-make frames 1-8 unreleased polarity with a bytewise corruption probe, and finish focused suites, terminal production matrices, and docs; source_map.c and scene.c remain zero-diff exclusions.",
+      "updated_at": "2026-08-03T22:15:15Z"
     },
     {
       "lane_id": "LANE-R2-CLOCK-LINEUPS-FATIGUE",
