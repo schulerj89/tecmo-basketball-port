@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T20:17:37Z",
+  "updated_at": "2026-08-03T20:23:27Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -1369,7 +1369,8 @@
           "2026-08-03T19:05:21Z Sol confirmed pinned clean takeover at exact branch/worktree/base/merge-base 222d75cf, read complete AGENTS/PORTING, and created three pinned projectless read-only Luna Max audits for clocks/periods, lineups/substitutions, and fatigue/native coupling with no writable allocation.",
           "2026-08-03T20:01:46Z Sol reports all three read-only audits complete/idle/pinned and evidence reconciliation accepted: native-faithful clock/period core with one LIVE-only reset defect; exact fatigue retained values 5/3/0 and reachable active countdown 0->255; exact TGFL base resolver with caller-tail overrides as a separate pure API; ungrounded LIVE substitutions excluded. Sole writable Luna is active on its isolated branch; state/TGFT staged/fail-closed patches remain uncommitted under Sol review.",
           "2026-08-03T20:06:56Z sole writable lineage is exactly 019fc912-a957-79f0-89a3-7e2e2d10db24, Tecmo R2 Clocks Lineups Fatigue Implementation — Luna Max, gpt-5.6-luna/max, created once at 2026-08-03T19:21:11Z, pinned/active on codex/r2-clock-lineups-fatigue-luna and its registered worktree at exact base/last-good 222d75cf with zero creation/retry/replacement fault. Exact 16-path writable scope matches OWN-R2-CLOCK-LINEUPS-FATIGUE.",
-          "2026-08-03T20:11:16Z writable Luna produced cryptographically signed implementation commit 6c87dbed170c8ca2ba68e29671f7cfebf5adb60a. Required lineage/evidence/approximation docs, Sol stable-commit review, proof, and independent QA remain pending; no Sol merge or main action."
+          "2026-08-03T20:11:16Z writable Luna produced cryptographically signed implementation commit 6c87dbed170c8ca2ba68e29671f7cfebf5adb60a. Required lineage/evidence/approximation docs, Sol stable-commit review, proof, and independent QA remain pending; no Sol merge or main action.",
+          "2026-08-03T20:23:27Z signed linear worker chain now ends at 97277cbecf685a9f8ac8e29dde1a6de61f0e2db8 after implementation 6c87dbed and docs 540ae0ba. Sol verified good SSH signatures, clean worker tree, ownership-only paths, and durable capture of all three accepted research reports. The three read-only Lunas were unpinned with exact API confirmations; sole writable Luna remains pinned for Sol QA/revisions."
         ],
         "proof_manifests": [],
         "notes": "Evidence is reconciled and a sole persistent writable Luna is implementing the owned state/TGFT/TGFL contracts. No commit is accepted yet. LIVE-only reset and any substitution/shared-boundary needs must be bounded-rescoped rather than invented; terminal acceptance still requires Sol QA/proof and independent Luna closure."
@@ -1385,7 +1386,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T20:11:16Z",
+      "updated_at": "2026-08-03T20:23:27Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
