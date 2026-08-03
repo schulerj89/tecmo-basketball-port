@@ -148,7 +148,7 @@
         "accepted_sha": null,
         "report_path": null,
         "signed_by_session_id": null,
-        "notes": "User authorized incremental delivery so accepted CPU+LIVE do not sit behind TIP. Dedicated pinned Sol Max Integration QA session S-SOL-R1A-INTEGRATION-QA-001 is active on exact clean 222d75cf; push only after its exact signed docs-only tip and terminal report."
+        "notes": "User authorized incremental delivery so accepted CPU+LIVE do not sit behind TIP. Dedicated Integration QA has valid frozen and first-reconciliation evidence at f98fea3; because R4A later advanced main to bcacd5b, the same Sol/Luna must reconcile and re-prove that exact current main before a signed fast-forwardable terminal report."
       },
       "acceptance": {
         "status": "pending",
@@ -170,7 +170,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T17:57:57Z",
-      "updated_at": "2026-08-03T18:10:36Z"
+      "updated_at": "2026-08-03T19:32:58Z"
     },
     {
       "round_id": "R1",

@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T19:24:36Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T19:32:58Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -24,12 +24,12 @@ Generated from committed JSON at `2026-08-03T19:24:36Z`. This dashboard reports 
 |---|---|---|---|---|---|---|---|
 | LANE-R1-GAMEPLAY-FOUNDATION | gameplay_foundation | active | sequentially_active | R1-TIP-FIDELITY | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | TIP continues independently from accepted CPU+LIVE base 222d75cf under the existing domain Sol and projectless evidence worker. It no longer gates the R1A CPU+LIVE delivery subround. |
 | LANE-R3-SEASON-DATA-FOUNDATION | season_data | complete | complete | R3-SEASON-DATA-FOUNDATION | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | Accepted season/data foundation is frozen at f536a193. Its separate R3A Integration QA lane is cleared for creation and no longer waits for downstream statistics, save, management, or All-Star tasks. |
-| LANE-R1A-INTEGRATION-QA | integration | active | ready | R1A-INTEGRATION-QA | S-SOL-R1A-INTEGRATION-QA-001 | codex/r1a-cpu-live-integration-qa-sol | Frozen 222d75 proof has same-Luna P0/P1/P2 closure under explicit controls. Merge current main dd096 into only the R1A integration branch, rerun full combined build/suites/RequirePass proof, reuse the same Luna for terminal read-only review, then sign a fast-forwardable report commit. |
+| LANE-R1A-INTEGRATION-QA | integration | active | ready | R1A-INTEGRATION-QA | S-SOL-R1A-INTEGRATION-QA-001 | codex/r1a-cpu-live-integration-qa-sol | First reconciliation/proof at f98fea3 is valid but no longer fast-forwardable after R4A advanced main to bcacd5b. Explicitly reconcile bcacd5b into only the R1A branch after zero-overlap verification, rerun full combined proof, reuse the same Luna, and sign a true fast-forward handoff. |
 | LANE-R3A-INTEGRATION-QA | integration | complete | complete | R3A-INTEGRATION-QA | S-SOL-R3A-INTEGRATION-QA-001 | codex/r3a-season-data-integration-qa-sol | Complete: signed dd096cb passed dedicated R3A Integration QA and was non-force pushed to main/origin. Integration Sol may be unpinned after this durable master record; downstream R3 features must start from then-current main and retain documented deferrals. |
 | LANE-R4-FRONTEND-INTRO-TITLE | frontend | active | ready | R4-FRONTEND-INTRO-TITLE | S-SOL-R4-FRONTEND-RECOVERY-001 | codex/r4-frontend-intro-title-sol | Independent QA is NOT CLEAR at 0a3fc57f: correct synthetic-only fingerprint handling without weakening strict public import, enforce canonical 262144-byte/FNV1a64 finale chr/all identity on first and later checks, add standalone/corrupted-CHR regressions, rerun full proof, and close the same QA Luna at P0/P1/P2 zero. |
 | LANE-R4-AUDIO-FOUNDATION | audio | complete | complete | R4-AUDIO-FOUNDATION | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | Complete: accepted audio foundation and signed R4A Integration QA report are pushed on main/origin at bcacd5b. Broader cross-domain cue routing/full ACC-AUDIO remains deferred in parent R4. |
-| LANE-R4A-INTEGRATION-QA | integration | complete | complete | R4A-INTEGRATION-QA | S-SOL-R4A-INTEGRATION-QA-001 | codex/r4a-audio-integration-qa-sol | Complete: same-Luna P0/P1/P2-zero closure and signed report bcacd5b were master-verified, fast-forwarded, non-force pushed, and remote-verified. Luna unpinned; completed Sol awaits master unpin after durable record. |
-| LANE-R2-SHOTS-OUTCOMES | gameplay_behavior | active | ready | R2-SHOTS-OUTCOMES | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | One persistent writable Luna remains active/pinned with owned-only uncommitted corrections; Sol has accepted scene-self-test progress and claimant/rattle/transactional design. Complete loader transactions, deep validation, exhaustive tests/docs, stable commit, proof, and independent terminal QA while preserving LIVE far-shot deferral. |
+| LANE-R4A-INTEGRATION-QA | integration | complete | complete | R4A-INTEGRATION-QA | S-SOL-R4A-INTEGRATION-QA-001 | codex/r4a-audio-integration-qa-sol | Complete: same-Luna P0/P1/P2-zero closure and signed report bcacd5b were master-verified, fast-forwarded, non-force pushed, and remote-verified. Luna and Sol are completed/unpinned; branches/worktrees are preserved. |
+| LANE-R2-SHOTS-OUTCOMES | gameplay_behavior | active | ready | R2-SHOTS-OUTCOMES | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | One persistent writable Luna remains active/pinned with owned-only uncommitted corrections. Complete loader transactions, deep validation, exhaustive tests/docs, stable commit, proof, and independent terminal QA while preserving LIVE far-shot deferral. Source-map stays excluded during active TIP ownership; document numeric-1 pose-only approximation versus unchanged exact TGCS metadata and stale wording honestly. |
 | LANE-R2-CLOCK-LINEUPS-FATIGUE | gameplay_behavior | active | ready | R2-CLOCK-LINEUPS-FATIGUE | S-SOL-R2-CLOCK-LINEUPS-001 | codex/r2-clock-lineups-fatigue-sol | Pinned Sol confirmed clean takeover and complete governing-file read. Three projectless read-only Luna Max audits cover clocks/periods, lineups/substitutions, and fatigue/native coupling while Sol performs authoritative inventory; reconcile reports before a single persistent writable lineage and request any shared scene/core rescope explicitly. |
 
 ## Rounds
@@ -54,7 +54,7 @@ Generated from committed JSON at `2026-08-03T19:24:36Z`. This dashboard reports 
 | 100 | R0-CTRL-001 | orchestration | R0 | pushed | S-MASTER-001 | codex/master-finish-orchestration | 2 | coordination_validated | pushed |
 | 100 | R0A-INV-001 | orchestration | R0A | pushed | S-MASTER-001 | codex/master-finish-orchestration | 2 | coordination_validated | pushed |
 | 100 | R1-CPU-PLAY-LIFECYCLE | gameplay_behavior | R1A | ready_for_round_staging | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | staged |
-| 100 | R1A-INTEGRATION-QA | integration | R1A | in_progress | S-SOL-R1A-INTEGRATION-QA-001 | codex/r1a-cpu-live-integration-qa-sol | 0 | pending | not_ready |
+| 100 | R1A-INTEGRATION-QA | integration | R1A | in_progress | S-SOL-R1A-INTEGRATION-QA-001 | codex/r1a-cpu-live-integration-qa-sol | 1 | pending | not_ready |
 | 100 | R2-SHOTS-OUTCOMES | gameplay_behavior | R2 | in_progress | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | 0 | in_progress | not_ready |
 | 100 | R3-PLAYER-STATS-LEADERS | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 100 | R3-SEASON-DATA-FOUNDATION | season_data | R3A | pushed | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | 7 | passed | pushed |
@@ -86,10 +86,11 @@ Generated from committed JSON at `2026-08-03T19:24:36Z`. This dashboard reports 
 |---|---|---|---|---|---|---|---|---|
 | S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 5b8a13b30620 |
 | S-SOL-R1-GAMEPLAY-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | codex/r1-gameplay-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r1-gameplay-foundation-sol | 222d75cfafa9 |
-| S-SOL-R1A-INTEGRATION-QA-001 | integration_orchestrator | gpt-5.6-sol/max | active | pinned | R1A-INTEGRATION-QA | codex/r1a-cpu-live-integration-qa-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r1a-cpu-live-integration-qa-sol | 222d75cfafa9 |
+| S-SOL-R1A-INTEGRATION-QA-001 | integration_orchestrator | gpt-5.6-sol/max | active | pinned | R1A-INTEGRATION-QA | codex/r1a-cpu-live-integration-qa-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r1a-cpu-live-integration-qa-sol | f98fea320bf2 |
 | S-SOL-R4-FRONTEND-RECOVERY-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R4-FRONTEND-INTRO-TITLE | codex/r4-frontend-intro-title-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r4-frontend-intro-title-sol | 0a3fc57f0a38 |
 | S-SOL-R2-SHOTS-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R2-SHOTS-OUTCOMES | codex/r2-shots-outcomes-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2-shots-outcomes-sol | 222d75cfafa9 |
 | S-SOL-R2-CLOCK-LINEUPS-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R2-CLOCK-LINEUPS-FATIGUE | codex/r2-clock-lineups-fatigue-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2-clock-lineups-fatigue-sol | 222d75cfafa9 |
+| S-SOL-GITHUB-SIGNING-001 | security_operator | gpt-5.6-sol/high | active | pinned |  | - | - | bcacd5b6963f |
 
 ## Active Ownership
 

@@ -76,6 +76,10 @@ every orchestrator and worker before work begins.
 - Sol orchestrators own Luna assignment, retry, revision, review, tests, proof,
   merge into their domain branch, and lineage reporting.
 - Internal collaboration/sub-agent tools are prohibited for this program.
+- A user-authorized account/security setup may use one bounded projectless
+  `gpt-5.6-sol`, thinking `high`, security operator. It reports directly to the
+  master, owns no product round/task/branch/worktree, never receives product
+  implementation authority, and is unpinned after its setup result is recorded.
 - Every active task is pinned and clearly titled with Tecmo, round, domain/task,
   role, and model tier.
 - Session identifiers, worktrees, branches, pin state, lineage, failure counts,

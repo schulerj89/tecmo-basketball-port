@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T19:24:36Z",
+  "updated_at": "2026-08-03T19:40:53Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -144,7 +144,7 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1a-cpu-live-integration-qa-sol",
       "branch": "codex/r1a-cpu-live-integration-qa-sol",
       "base_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
-      "last_good_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
+      "last_good_sha": "f98fea320bf2340e0c6c9b226cfe6caa63196dd7",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
       "reported_luna_lineage": ["019fc8d6-7a77-79d0-a352-767a228ef478"],
@@ -152,8 +152,8 @@
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T18:10:36Z",
       "completed_at": null,
-      "updated_at": "2026-08-03T19:12:26Z",
-      "notes": "Dedicated R1A Integration QA remains active/pinned at frozen candidate 222d75cf with one projectless Luna. Same-Luna disposition closed the four generic proof-harness hardening observations and one historical-doc wording item as non-evidence-invalidating after exact compensating ancestry/final-clean/manifest-identity/scratch controls; open candidate P0/P1/P2 are all zero. Sol is now reconciling authorized current main dd096 into its integration branch only, then will rerun the full merged-tip build/suites/RequirePass proof and reuse the same Luna before signed acceptance. Main remains untouched."
+      "updated_at": "2026-08-03T19:32:58Z",
+      "notes": "Dedicated R1A Integration QA remains active/pinned with one projectless Luna. Same-Luna disposition closed the generic harness/document observations as non-evidence-invalidating. Sol produced and proved first reconciliation merge f98fea3 over accepted CPU+LIVE and dd096; after master delivered R4A audio at bcacd5b, master explicitly authorized one further zero-overlap/non-destructive integration-branch reconciliation, full fresh proof, and same-Luna terminal review. Main remains master-owned."
     },
     {
       "session_id": "S-SOL-R3A-INTEGRATION-QA-001",
@@ -188,7 +188,7 @@
       "model": "gpt-5.6-sol",
       "thinking": "max",
       "status": "completed",
-      "pin_state": "pinned",
+      "pin_state": "unpinned",
       "round_ids": ["R4A"],
       "task_ids": ["R4A-INTEGRATION-QA"],
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4a-audio-integration-qa-sol",
@@ -202,8 +202,8 @@
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T18:27:06Z",
       "completed_at": "2026-08-03T19:24:36Z",
-      "updated_at": "2026-08-03T19:24:36Z",
-      "notes": "Created and pinned once as the dedicated R4A audio Integration QA Sol. It reconciled accepted audio e120c30 with then-current main dd096cb at zero path overlap, passed combined personal and same-Luna P0/P1/P2-zero review, and signed terminal report child bcacd5b with report SHA FFCF6675EE4391DC82B55E1A0C6DD527C5B8A608A3EE0058408DA5BD661C37B4. Master verified lineage/scope/remote preconditions, fast-forwarded, and non-force pushed main/origin/remote to bcacd5b. The Luna is unpinned; this completed Sol remains pinned only until the durable control-plane delivery record is committed."
+      "updated_at": "2026-08-03T19:32:58Z",
+      "notes": "Created and pinned once as the dedicated R4A audio Integration QA Sol. It reconciled accepted audio e120c30 with then-current main dd096cb at zero path overlap, passed combined personal and same-Luna P0/P1/P2-zero review, and signed terminal report child bcacd5b with report SHA FFCF6675EE4391DC82B55E1A0C6DD527C5B8A608A3EE0058408DA5BD661C37B4. Master verified lineage/scope/remote preconditions, fast-forwarded, and non-force pushed main/origin/remote to bcacd5b. Luna and Sol are now completed/unpinned; branches/worktrees remain preserved."
     },
     {
       "session_id": "S-SOL-R4-FRONTEND-001",
@@ -450,6 +450,37 @@
       "completed_at": "2026-08-03T02:19:48Z",
       "updated_at": "2026-08-03T04:47:45Z",
       "notes": "Its two task worktrees/branches were removed only after proof was preserved; the recorded paths are historical."
+    },
+    {
+      "session_id": "S-SOL-GITHUB-SIGNING-001",
+      "thread_id": "019fc921-b79f-7aa3-9aa1-0c9dd01fe067",
+      "title": "Tecmo GitHub Commit Signing Setup — Security Operator — Sol High",
+      "role": "security_operator",
+      "model": "gpt-5.6-sol",
+      "thinking": "high",
+      "status": "active",
+      "pin_state": "pinned",
+      "round_ids": [],
+      "task_ids": [],
+      "worktree": null,
+      "branch": null,
+      "base_sha": "bcacd5b6963f4db1a92c8db9b9770413505a0e98",
+      "last_good_sha": "bcacd5b6963f4db1a92c8db9b9770413505a0e98",
+      "reports_to_session_id": "S-MASTER-001",
+      "parent_session_id": null,
+      "reported_luna_lineage": [],
+      "recovery_lineage": [],
+      "failure": {
+        "count": 0,
+        "raw_error_signatures": [],
+        "retry_session_ids": [],
+        "replacement_session_id": null,
+        "takeover_confirmed_at": null
+      },
+      "created_at": "2026-08-03T19:37:37Z",
+      "completed_at": null,
+      "updated_at": "2026-08-03T19:40:53Z",
+      "notes": "User-authorized projectless Sol High security operator. It found the existing RSA public key at C:/Users/joshs/.ssh/id_rsa.pub with fingerprint SHA256:L/fBxE6/8x0E9W2UiVtyTLQ9mfI5AJDzdQYefIsj4fA, is registering only that public key through the authenticated GitHub browser session, and must not mutate repository refs/files or rewrite commits. GitHub Mobile sudo authorization is pending."
     },
     {
       "session_id": "S-BLOCKERS-001",

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T19:24:36Z",
+  "updated_at": "2026-08-03T19:32:58Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -87,8 +87,8 @@
         "OWN-R1A-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Frozen 222d75 proof has same-Luna P0/P1/P2 closure under explicit controls. Merge current main dd096 into only the R1A integration branch, rerun full combined build/suites/RequirePass proof, reuse the same Luna for terminal read-only review, then sign a fast-forwardable report commit.",
-      "updated_at": "2026-08-03T19:12:26Z"
+      "next_gate": "First reconciliation/proof at f98fea3 is valid but no longer fast-forwardable after R4A advanced main to bcacd5b. Explicitly reconcile bcacd5b into only the R1A branch after zero-overlap verification, rerun full combined proof, reuse the same Luna, and sign a true fast-forward handoff.",
+      "updated_at": "2026-08-03T19:32:58Z"
     },
     {
       "lane_id": "LANE-R3A-INTEGRATION-QA",
@@ -183,8 +183,8 @@
         "OWN-R4A-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Complete: same-Luna P0/P1/P2-zero closure and signed report bcacd5b were master-verified, fast-forwarded, non-force pushed, and remote-verified. Luna unpinned; completed Sol awaits master unpin after durable record.",
-      "updated_at": "2026-08-03T19:24:36Z"
+      "next_gate": "Complete: same-Luna P0/P1/P2-zero closure and signed report bcacd5b were master-verified, fast-forwarded, non-force pushed, and remote-verified. Luna and Sol are completed/unpinned; branches/worktrees are preserved.",
+      "updated_at": "2026-08-03T19:32:58Z"
     },
     {
       "lane_id": "LANE-R2-SHOTS-OUTCOMES",
@@ -207,8 +207,8 @@
         "OWN-R2-SHOTS-OUTCOMES"
       ],
       "blockers": [],
-      "next_gate": "One persistent writable Luna remains active/pinned with owned-only uncommitted corrections; Sol has accepted scene-self-test progress and claimant/rattle/transactional design. Complete loader transactions, deep validation, exhaustive tests/docs, stable commit, proof, and independent terminal QA while preserving LIVE far-shot deferral.",
-      "updated_at": "2026-08-03T19:10:41Z"
+      "next_gate": "One persistent writable Luna remains active/pinned with owned-only uncommitted corrections. Complete loader transactions, deep validation, exhaustive tests/docs, stable commit, proof, and independent terminal QA while preserving LIVE far-shot deferral. Source-map stays excluded during active TIP ownership; document numeric-1 pose-only approximation versus unchanged exact TGCS metadata and stale wording honestly.",
+      "updated_at": "2026-08-03T19:32:58Z"
     },
     {
       "lane_id": "LANE-R2-CLOCK-LINEUPS-FATIGUE",

@@ -722,6 +722,11 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         if role in {"master", "domain_orchestrator", "integration_orchestrator"}:
             if session["model"] != "gpt-5.6-sol" or session["thinking"] != "max":
                 result.error(f"session {session_id}: Sol role must use gpt-5.6-sol thinking=max")
+        elif role == "security_operator":
+            if session["model"] != "gpt-5.6-sol" or session["thinking"] != "high":
+                result.error(f"session {session_id}: security operator must use gpt-5.6-sol thinking=high")
+            if session["round_ids"] or session["task_ids"]:
+                result.error(f"session {session_id}: security operator must remain outside product rounds/tasks")
         elif role == "luna_worker":
             if session["model"] != "gpt-5.6-luna" or session["thinking"] != "max":
                 result.error(f"session {session_id}: worker must use gpt-5.6-luna thinking=max")
@@ -760,9 +765,9 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         if session["failure"]["count"] != len(session["failure"]["raw_error_signatures"]):
             result.error(f"session {session_id}: failure count does not equal recorded raw signatures")
         if session["status"] in ACTIVE_SESSION_STATES:
-            if role == "emergency_blocker":
+            if role in {"emergency_blocker", "security_operator"}:
                 if session["branch"] or session["worktree"]:
-                    result.error(f"session {session_id}: emergency blocker must remain projectless")
+                    result.error(f"session {session_id}: projectless operator role must not own a branch/worktree")
                 continue
             if not session["branch"] or not session["worktree"]:
                 result.error(f"session {session_id}: active session requires a branch and worktree")
@@ -1039,9 +1044,9 @@ def validate_git_lineage(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         if session["status"] not in ACTIVE_SESSION_STATES:
             continue
         session_id = session["session_id"]
-        if session["role"] == "emergency_blocker":
+        if session["role"] in {"emergency_blocker", "security_operator"}:
             if session["branch"] or session["worktree"]:
-                result.error(f"lineage: emergency blocker {session_id} must remain projectless")
+                result.error(f"lineage: projectless operator {session_id} must remain projectless")
             continue
         if not session["worktree"] or not session["branch"]:
             result.error(f"lineage: active session {session_id} has no branch/worktree")
