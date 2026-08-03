@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T06:15:12Z",
+  "updated_at": "2026-08-03T06:17:57Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -97,8 +97,8 @@
       },
       "created_at": "2026-08-03T05:34:46Z",
       "completed_at": null,
-      "updated_at": "2026-08-03T06:15:12Z",
-      "notes": "Authoritative Round 1 Sol after duplicate-launch recovery. It confirmed the collision boundary clean and created the exact branch/worktree at the exact main base. It reports two read-only Luna Max research sessions and one pinned writable implementation Luna for the CPU lifecycle gate. Trace/QA research is Sol-accepted and unpinned; original-stream research remains pinned. The writable Luna was independently collision-cleared before creation and is confined to OWN-R1-CPU-PLAY."
+      "updated_at": "2026-08-03T06:17:57Z",
+      "notes": "Authoritative Round 1 Sol after duplicate-launch recovery. It confirmed the collision boundary clean and created the exact branch/worktree at the exact main base. Both read-only CPU research Lunas are completed, Sol-accepted with explicit scope corrections, and unpinned. The single pinned writable implementation Luna was independently collision-cleared before creation and is confined to OWN-R1-CPU-PLAY."
     },
     {
       "session_id": "S-SOL-CPU-TIP-LEGACY",
@@ -224,7 +224,7 @@
   ],
   "reported_luna_workers": [
     {
-      "worker_id": "019fc628-0649-7c53-8153-31f8cb75c30d", "thread_id": "019fc628-0649-7c53-8153-31f8cb75c30d", "title": "Tecmo R1 CPU Lifecycle — Original Stream Research — Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "active", "pin_state": "pinned", "reported_by_session_id": "S-SOL-R1-GAMEPLAY-001", "round_ids": ["R1"], "task_ids": ["R1-CPU-PLAY-LIFECYCLE"], "worktree": null, "branch": null, "base_sha": null, "last_good_sha": null, "contribution": "Sol-reported read-only original play-stream lifecycle and evidence research against authoritative reference SHA 6d8f9c7a99a7ce188f1a523247d3a9b9093860fb; no worker branch, worktree, edit, or commit exists.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T05:50:25Z"
+      "worker_id": "019fc628-0649-7c53-8153-31f8cb75c30d", "thread_id": "019fc628-0649-7c53-8153-31f8cb75c30d", "title": "Tecmo R1 CPU Lifecycle — Original Stream Research — Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-R1-GAMEPLAY-001", "round_ids": ["R1"], "task_ids": ["R1-CPU-PLAY-LIFECYCLE"], "worktree": null, "branch": null, "base_sha": null, "last_good_sha": null, "contribution": "Completed read-only at 2026-08-03T06:15:02Z with no repository mutation or commit and zero bad-request faults. Sol accepted exact transport/corpus/handler/formation/link/switch/target findings after personally rechecking the cited ROM spans, while clarifying that Bank06 proves a CPU-side shot-request predicate but neither a direct stream shot opcode nor downstream release/make/miss semantics. Findings were forwarded to the writable implementation Luna; unpin confirmed.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T06:17:57Z"
     },
     {
       "worker_id": "019fc628-0b32-7e83-b969-b41990b36e9b", "thread_id": "019fc628-0b32-7e83-b969-b41990b36e9b", "title": "Tecmo R1 CPU Lifecycle — Trace and QA Research — Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "completed", "pin_state": "unpinned", "reported_by_session_id": "S-SOL-R1-GAMEPLAY-001", "round_ids": ["R1"], "task_ids": ["R1-CPU-PLAY-LIFECYCLE"], "worktree": null, "branch": null, "base_sha": null, "last_good_sha": null, "contribution": "Completed read-only at 2026-08-03T06:13:10Z with no repository mutation or commit and zero bad-request faults. Sol accepted its canonical ROM/Bank05 selector, corrected link, mapper-hook/watch, deterministic-scenario, and honest classification findings, while rejecting its out-of-scope new semantic-pack/source-map proposal because that boundary is LIVE-owned. Findings were forwarded to the writable implementation Luna; unpin confirmed.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T06:15:12Z"
