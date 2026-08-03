@@ -714,6 +714,18 @@ static bool scene_test_launch(
                            "gameplay scene canonical launch rejected");
         return false;
     }
+    if (scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE ||
+        !scene->pretip_state.live_handoff ||
+        scene->pretip_state.total_frame != 721U ||
+        scene->pretip_state.contest_frame !=
+            TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES ||
+        !tecmo_gameplay_pretip_state_validate(
+            &scene->pretip_assets, &scene->pretip_state)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "skip-PRETIP valid-state regression failed");
+        return false;
+    }
     return true;
 }
 
@@ -1941,11 +1953,19 @@ static bool scene_test_pretip_hud_phase_contract(
             goto done;
         }
         for (frame = 0U; frame < probe_total_frame; ++frame) {
+            /* The LIVE probe needs a real team-routed human sample during
+               the bounded contest window.  Earlier phases ignore B, and the
+               separate no-input regression owns the fail-closed stall. */
+            p1.held.cancel =
+                probe->phase == TECMO_GAMEPLAY_PRETIP_LIVE &&
+                scene->pretip_state.phase ==
+                    TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST;
             if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
                 failure = "pre-tip HUD phase probe update rejected";
                 goto done;
             }
         }
+        p1.held.cancel = false;
         if (scene->pretip_state.phase != probe->phase ||
             scene->pretip_state.phase_frame != probe->phase_frame ||
             scene->pretip_state.total_frame != probe_total_frame) {

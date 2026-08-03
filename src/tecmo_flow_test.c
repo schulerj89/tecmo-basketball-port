@@ -865,8 +865,13 @@ static bool flow_finish_gameplay_pretip(TecmoRuntime *runtime,
                               "gameplay pre-tip entry mismatch");
         return false;
     }
-    for (frame = 0U; frame < expected_handoff_frame; ++frame)
+    for (frame = 0U; frame < expected_handoff_frame; ++frame) {
+        player_one.cancel = false;
+        if (runtime->gameplay_scene.pretip_state.phase ==
+            TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST)
+            player_one.cancel = true;
         tecmo_runtime_update_players(runtime, &player_one, &player_two);
+    }
     if (runtime->mode != TECMO_MODE_COURT ||
         !runtime->gameplay_scene.active ||
         runtime->gameplay_scene.frame != expected_handoff_frame ||

@@ -32,7 +32,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-state-test   Run deterministic gameplay clock/rules/shot-state checks\n");
     printf("  --gameplay-scene-test PACK  Run native gameplay launch/input/shot checks\n");
     printf("  --gameplay-pretip-human-checkpoint PACK  Run deterministic held-B tip handoff through native frame 721\n");
-    printf("  --gameplay-pretip-test PACK  Validate strict TPTI-1 pre-tip assets/state\n");
+    printf("  --gameplay-pretip-test PACK  Validate strict TPTI-2 pre-tip assets/state\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
     printf("  --render-test-mode MODE PATH  Render menus, intro scenes, or strict gameplay-start/pretip-frameN/pretip-bulls-pacers/tipoff-proof-frameN/live-start/facing-away-left/cpu-steering-frameN/shot-clock-violation-frameN/out-of-bounds-frameN/backcourt-frameN/uniform-pacers/possession-left|center|right/free-throw-left|right/jump-frameN/dunk-frameN checkpoints to PNG\n");

@@ -848,7 +848,7 @@ try {
     $PackBytes = [IO.File]::ReadAllBytes($PackPath)
     $Specs = @(
         [pscustomobject]@{ id="gameplay/core"; size=23416; hash="2047CCE0"; schema="tecmo.gameplay/TGPL-1" },
-        [pscustomobject]@{ id="gameplay/pre-tip"; size=5888; hash="99ADFE3D"; schema="tecmo.gameplay-pre-tip/TPTI-1" },
+        [pscustomobject]@{ id="gameplay/pre-tip"; size=7680; hash="28910BC1"; schema="tecmo.gameplay-pre-tip/TPTI-2" },
         [pscustomobject]@{ id="gameplay/court"; size=6559; hash="ECAB7A93"; schema="tecmo.gameplay-court/TGCT-1" },
         [pscustomobject]@{ id="gameplay/camera-projection"; size=1536; hash="53247856"; schema="tecmo.gameplay-camera/TGCP-2" },
         [pscustomobject]@{ id="gameplay/movement"; size=1664; hash="6C82A137"; schema="tecmo.gameplay-movement/TGMO-1" },
@@ -870,6 +870,22 @@ try {
         [pscustomobject]@{ id="audio/gameplay-dmc"; size=2515; hash="AD70E6E8"; schema="tecmo.gameplay-audio/TDMC-1" },
         [pscustomobject]@{ id="chr/all"; size=262144; hash="F6F6E854"; schema=$null }
     )
+    $SourceMapEntry = Get-AssetPackEntry $PackBytes "system/source-map"
+    $SourceMapText = [Text.Encoding]::UTF8.GetString(
+        (Get-EntryBytes $PackBytes $SourceMapEntry))
+    $SourceMap = $SourceMapText | ConvertFrom-Json
+    $PreTipStaleEntry = Get-AssetPackEntry $PackBytes "gameplay/pre-tip"
+    $PreTipStaleMap = @($SourceMap.logical_entries | Where-Object {
+        $_.id -eq "gameplay/pre-tip"
+    })
+    if ($PreTipStaleEntry.byte_count -eq 5888 -or
+        (Get-Fnv1a32 (Get-EntryBytes $PackBytes $PreTipStaleEntry)) -eq
+            "99ADFE3D" -or
+        ($PreTipStaleMap.Count -eq 1 -and
+         $PreTipStaleMap[0].schema -eq
+             "tecmo.gameplay-pre-tip/TPTI-1")) {
+        throw "Named stale-TPTI-1 metadata rejection failed."
+    }
     $Entries = @{}
     foreach ($Spec in $Specs) {
         $Entry = Get-AssetPackEntry $PackBytes $Spec.id
@@ -880,10 +896,6 @@ try {
         }
         $Entries[$Spec.id] = $Entry
     }
-    $SourceMapEntry = Get-AssetPackEntry $PackBytes "system/source-map"
-    $SourceMapText = [Text.Encoding]::UTF8.GetString(
-        (Get-EntryBytes $PackBytes $SourceMapEntry))
-    $SourceMap = $SourceMapText | ConvertFrom-Json
     foreach ($Spec in @($Specs | Where-Object { $_.schema })) {
         $Mapped = @($SourceMap.logical_entries | Where-Object {
             $_.id -eq $Spec.id

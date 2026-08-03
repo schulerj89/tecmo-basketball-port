@@ -941,7 +941,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                 sizeof(pretip_payload), message, message_size) != 0) {
             tecmo_asset_pack_set_message(
                 message, message_size,
-                "Could not write strict TPTI-1 gameplay pre-tip entry.");
+                "Could not write strict TPTI-2 gameplay pre-tip entry.");
             return -1;
         }
         if (tecmo_asset_pack_build_gameplay_court(
