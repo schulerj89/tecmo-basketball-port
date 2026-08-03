@@ -4,7 +4,7 @@
 
 | Role | ID | Exact title | Model/creation metadata |
 |---|---|---|---|
-| Authoritative Sol | `019fc8ff-4ec4-7b20-86c6-9c9614f9194c` | `Tecmo R2 Clocks Lineups Fatigue Domain Orchestrator — Sol Max` | gpt-5.6-sol/max; terminal QA and production proof remain Sol-owned. |
+| Authoritative Sol | `019fc8ff-4ec4-7b20-86c6-9c9614f9194c` | `Tecmo R2 Clocks Lineups Fatigue Domain Orchestrator — Sol Max` | gpt-5.6-sol/max; completed personal terminal QA and production proof; independent QA remains pending. |
 | Writable implementation/revision Luna | `019fc912-a957-79f0-89a3-7e2e2d10db24` | `Tecmo R2 Clocks Lineups Fatigue Implementation — Luna Max` | gpt-5.6-luna/max; created_at `2026-08-03T19:21:11.000Z`; pinned=true during work; one successful creation, no fault, retry, or replacement. |
 
 Writable registry details: branch
@@ -22,7 +22,8 @@ are distinct from that broader authorized scope.
 
 These three reports were personally accepted as the evidence inputs for this
 worker. Their findings are summarized again in `EVIDENCE.md` and
-`APPROXIMATIONS.md` so the reports may be unpinned after this docs commit.
+`APPROXIMATIONS.md`; the source reports were unpinned after those findings were
+durably captured.
 
 | ID | Exact title | Role and accepted finding |
 |---|---|---|
@@ -62,7 +63,24 @@ No additional task or subagent was created by this writable worker.
 - Base/expected parent: `222d75cfafa9153db1eb44492bf557f11b1a9091`.
 - Implementation/tests: `6c87dbed170c8ca2ba68e29671f7cfebf5adb60a`.
 - Documentation commit: `540ae0ba47ef44d6096781ffd0c276012e683221`.
-  Sol may record its merge/QA identity here during handoff.
+- Documentation metadata correction: `97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`.
+
+All three commits report Good Git signatures for `jaystar524@gmail.com` with
+RSA key fingerprint `SHA256:L/fBxE6/8x0E9W2UiVtyTLQ9mfI5AJDzdQYefIsj4fA`.
+Sol fast-forwarded the signed lineage into
+`codex/r2-clock-lineups-fatigue-sol` at
+`97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`.
+
+## Sol QA and proof state
+
+Sol's exact QA results, environment-precondition diagnosis, draft LIVE proof,
+and deterministic proof manifest are recorded in `PROOF.md` and `TESTS.md`.
+The task-specific proof root is
+`C:\Users\joshs\Projects\tecmo-basketball-port-r2-clock-lineups-fatigue-sol\build\r2-clock-lineups-fatigue-proof-20260803T203000Z`,
+with manifest SHA-256
+`12DBA6C5D5D0C64C131DA35575CACBAAEA2D257198D57FC7C0B9D2DC11B043E1`.
+Independent QA task identity/outcome and the terminal accepted SHA remain
+pending until the independent QA/final revision.
 
 No merge, rebase, push, or main/staging mutation was performed in this worker
 lane.

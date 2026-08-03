@@ -77,5 +77,6 @@ evidence basis for this lane:
 - `019fc902-0bed-7d82-aa29-acaff4d9d04e` — `Tecmo R2 Fatigue Native Audit — Luna Max`: cadence `6/4/1`, unreachable post-step cadence `6`, `0 -> 255` wrap, threshold/cap/recovery behavior, and strict object/transaction requirements.
 
 These findings are also recorded in `LINEAGE.md` and the complete matrix in
-`EVIDENCE.md`. Audio is N/A; no visual or audio proof is claimed for this
-non-visible API/state lane.
+`EVIDENCE.md`. The three source reports are now unpinned; their accepted
+findings remain durable in this task record. Audio is N/A. Sol's separate
+bounded visual proof does not establish unported API presentation semantics.

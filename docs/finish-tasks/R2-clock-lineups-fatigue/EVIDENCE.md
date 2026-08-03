@@ -30,9 +30,10 @@ ownership, or scene selection.
 | Live substitution caller/eligibility/timing | `incomplete` | Pause/substitution labels/data do not prove a live caller, eligibility rule, or timing owner. | No live substitution integration or policy was invented. | Requires scene ownership and directly affected callers/tests. |
 | Fixed-scene active lists | `incomplete` | Production scene’s current active lists/actor bindings are fixed at the scene boundary. | TGFT accepts caller-provided unique 2x5 lists but does not derive or replace them. | Production active-list ownership is deferred. |
 | Builder transactions | `native_faithful` | Owned TGFL/TGFT import builders. | Payload/provenance stage and commit once; all ROM/payload/provenance pair overlaps reject without writes. TGFL enforces full canonical Rev1 SHA-256 inside the builder. | Sentinel failure tests and canonical focused runners. |
-| Visual/audio output | `incomplete` | No visual/audio evidence was required for non-visible API/state changes. | No visual/audio claim is made. | Audio N/A; production visual proof is Sol-owned. |
+| Visual/audio output | `incomplete` | No visual/audio semantics are claimed for these non-visible API/state changes. | No period, halftime, final, audio, or unported presentation semantics are added. | Audio N/A; Sol's bounded shot-clock/free-throw visual proof is recorded separately and does not expand this row. |
 
-The personally accepted read-only audit findings are durable here: the clock
+The personally accepted read-only audit findings are durable here and the
+three source reports are now unpinned: the clock
 audit established exact event ordering, tied-OT retention, symmetric score
 screen requirements, and the writable-object-only alias boundary; the lineup
 audit established that pause/substitution labels/data do not prove a live
@@ -42,5 +43,7 @@ fatigue audit established the cadence-6 post-step invariant, required the
 transactional checks.
 
 All runtime modules remain independent of the ROM/decomp/capture inputs. The
-ROM is only an input to the focused source/build runners. Audio and visuals are
-N/A for this matrix.
+ROM is only an input to the focused source/build runners. Audio is N/A for this
+matrix. Sol's separate production proof covers only the bounded render cases
+listed in `PROOF.md`; it is not evidence for period/halftime/final render
+semantics.

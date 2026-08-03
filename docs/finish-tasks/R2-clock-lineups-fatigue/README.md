@@ -6,6 +6,11 @@ resolution. The implementation commit is
 `6c87dbed170c8ca2ba68e29671f7cfebf5adb60a` on
 `codex/r2-clock-lineups-fatigue-luna`.
 
+Sol fast-forwarded the signed worker lineage through
+`97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`. Sol's personal QA and the
+task-specific deterministic production proof are recorded in `PROOF.md` and
+`TESTS.md`; independent QA and the terminal accepted SHA remain pending.
+
 The worker lane is complete and remains bounded to the owned modules. The
 production gameplay scene still supplies its own actor slots, active flags,
 roster indexes, starter arrays, and validation. Live substitution integration
@@ -23,11 +28,12 @@ capture, save state, or proprietary payload is committed.
 - [IMPLEMENTATION.md](IMPLEMENTATION.md) — changed functions and contracts.
 - [LINEAGE.md](LINEAGE.md) — research and revision lineage.
 - [TESTS.md](TESTS.md) — commands and observed results.
-- [PROOF.md](PROOF.md) — Sol-owned production-proof placeholders.
+- [PROOF.md](PROOF.md) — Sol QA and deterministic production proof.
 - [OBSERVATIONS.md](OBSERVATIONS.md) — bounded observations.
 - [APPROXIMATIONS.md](APPROXIMATIONS.md) — exclusions and later rescope.
 - [MERGE.md](MERGE.md) — fast-forward-only handoff to Sol.
 
-Audio and visuals are N/A for these non-visible validation/API changes. The
-clock tests assert event vectors and state transitions; they do not claim an
-audio or visual proof run.
+Audio is N/A for the owned semantics. The clock tests assert event vectors and
+state transitions; they do not claim period/halftime/final visual semantics.
+Sol's separate proof records bounded shot-clock/violation and free-throw
+orientation renders only.

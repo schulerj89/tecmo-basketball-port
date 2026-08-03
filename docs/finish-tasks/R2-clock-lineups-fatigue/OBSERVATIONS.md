@@ -31,3 +31,24 @@
   internally; the payload schemas and fingerprints remain unchanged.
 - The focused runners use the canonical Rev1 ROM only as test input. Runtime
   modules remain independent of ROM, decompilation, and capture files.
+
+## Sol bounded visual observations
+
+These observations belong only to Sol's deterministic production proof and do
+not expand the state/API behavior classifications:
+
+1. Frame 0 is intentionally blank before the violation referee appears.
+2. Frames 9 through 27 show a clean referee entrance and distinct gesture
+   progression; frame 27 is the settled raised-hand pose.
+3. Frames 27 through 80 remain visually settled while the presentation timer
+   advances.
+4. Left/right free-throw screens are distinct mirrored court orientations;
+   shooter, lane actors, benches, basket, ball, and HUD are visibly placed.
+5. No clipping, HUD overlap, corrupt pixels, missing actors, or orientation
+   collapse was observed.
+6. No period/halftime/final render mode is owned here. Those mechanics are
+   state/event-only in this scope and are proved by gameplay-state vectors plus
+   scene regression, not a new visual-semantic claim.
+
+Audio is N/A because this boundary changes no audio semantics. Independent QA
+and terminal acceptance remain pending.

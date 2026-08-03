@@ -33,6 +33,55 @@ dependency/size/strict-object cases, both orientations, all base placements,
 and the self-test’s 720 policy
 vectors plus `0xFF` predicate check.
 
+## Sol personal QA and production proof
+
+After fast-forwarding the signed lineage at
+`97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`, Sol reran the broader exact-Rev1
+QA set. Build, gameplay-state, asset-pack, TGFL, TGFT, camera projection,
+penalty, violation-referee, and scene tests passed. The asset-pack run passed
+86 entries with validated pack size `1,401,618` and SHA-256
+`695EEB2D0101C5422B01790BD8D6B2A7607E758F396F429C2D2424AC6A26DE07`.
+Camera projection reported 21 source mutations; penalty reported 24; TGFL
+reported 12 selected source mutations.
+
+The first `Run-NativeFlowTests.ps1` invocation stopped at
+`numeric-render-suffix` because `TECMO_ASSETPACK` was not set. Direct
+isolation passed with a valid pack, and the rerun with `TECMO_ASSETPACK` set to
+the exact validated 86-entry pack passed all flow and CLI boundary cases. This
+was an environment-precondition diagnosis, not a product failure and not an
+unqualified first-attempt pass.
+
+`Run-GameplaySceneTests.ps1` without `-RequirePass` passed; its R1 branch/base
+gates were intentionally inapplicable. Draft LIVE proof root:
+`build/live-proof-20260803T202541324Z`; manifest SHA-256
+`BC13A03D759EBE5003A3E56C7256D4EE40791DA2E7CC0D2E2379B57DCC3C321B`; 255
+files, two native videos, 14 frames, and a 1920x1440 contact sheet.
+
+The task-specific deterministic proof is rooted at
+`C:\Users\joshs\Projects\tecmo-basketball-port-r2-clock-lineups-fatigue-sol\build\r2-clock-lineups-fatigue-proof-20260803T203000Z`.
+Its manifest SHA-256 is
+`12DBA6C5D5D0C64C131DA35575CACBAAEA2D257198D57FC7C0B9D2DC11B043E1`;
+the inventory is 97 hashed artifacts plus the manifest (98 files,
+110,862,262 bytes); and the commands SHA-256 is
+`3DE73EA26802C39B7354362D2D580929D5372028AF42A4B8776BE42E223A2F3B`.
+The proof contains 81 numbered 640x480 shot-clock/violation frames and the
+native MP4 `shot-clock-violation-native.mp4` (15,769 bytes, SHA-256
+`AD682F67F0EF43C2BDD08D1FE80E4F2146A83E211FEA9B2459AAB9E005683FFE`).
+ffprobe reported width 640, height 480, both frame rates
+`39375000/655171`, time base `1/39375000`, and 81 frames; decoded framemd5
+also contained exactly 81 frames. The all-81 sheet SHA-256 is
+`3D09097FD2AFA88CFD6F2026CB349EFD6C63B5749C9E12EAA659A5DEFE5BEF43`, the
+key-frame sheet SHA-256 is
+`D8411BB3FBA473434D4825DB29332CB741A14BBA74E145ED460C29FDAD218450`, and
+the labeled left/right free-throw sheet SHA-256 is
+`A91ABB866BB81A6384C680707E8CFA9C6118CD6B9E01279968456111B7931BFF`.
+Separate re-renders matched every selected SHA byte-for-byte, and the two
+free-throw orientation hashes were distinct.
+
+Independent QA remains pending, and no terminal accepted SHA is claimed until
+that QA and the final revision. Audio is N/A; the bounded visual proof does
+not establish period/halftime/final render semantics.
+
 ## Review corrections represented in the final run
 
 An earlier TGFL focused attempt exposed that the builder’s newly required
@@ -41,6 +90,6 @@ messages to the full-ROM SHA message. The owned runner was updated to assert
 that stronger contract; the final run passed. This was a test-contract
 correction, not a product failure.
 
-No production scene integration, Win32 visual capture, or audio proof was run
-by this worker. Those are Sol-owned; visuals/audio are N/A for this API/state
-lane.
+The worker did not run or own Sol's production proof. Sol-owned visual output
+is limited to the bounded proof cases above; it does not alter the API/state
+behavior classifications or establish audio semantics.
