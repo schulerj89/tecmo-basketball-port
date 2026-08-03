@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T22:34:04Z",
+  "updated_at": "2026-08-03T23:03:22Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -231,8 +231,8 @@
         "OWN-R2-SHOTS-OUTCOMES"
       ],
       "blockers": [],
-      "next_gate": "First commit remains held. Same Luna must close exact selector 0/3/2/1 miss schedules, ordinary approximate make, numeric0/1/2 close make+miss settlement, route-bound active-tail duration/JUMP base-frame invariants, and coordinated corruption probes, then pass Sol warning-clean, focused, full-scene, and native-proof gates. source_map.c and scene.c remain zero-diff exclusions.",
-      "updated_at": "2026-08-03T22:34:04Z"
+      "next_gate": "Terminal matrices and direct bound scene self-test are green with production diagnostics removed, but the patch remains uncommitted. Same Luna must finish task docs/reproducible proof preparation; Sol must run warning-clean, focused, full-scene, and native visual proof; then one independent terminal Luna must close findings before acceptance. source_map.c and scene.c remain zero-diff exclusions.",
+      "updated_at": "2026-08-03T23:03:22Z"
     },
     {
       "lane_id": "LANE-R2-CLOCK-LINEUPS-FATIGUE",
