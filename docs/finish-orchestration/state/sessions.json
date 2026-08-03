@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T22:09:43Z",
+  "updated_at": "2026-08-03T22:11:25Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -72,8 +72,8 @@
       "role": "domain_orchestrator",
       "model": "gpt-5.6-sol",
       "thinking": "max",
-      "status": "active",
-      "pin_state": "pinned",
+      "status": "completed",
+      "pin_state": "unpinned",
       "round_ids": ["R1A", "R1"],
       "task_ids": ["R1-CPU-PLAY-LIFECYCLE", "R1-LIVE-FOUNDATION", "R1-TIP-FIDELITY"],
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1-gameplay-foundation-sol",
@@ -101,9 +101,9 @@
         "takeover_confirmed_at": "2026-08-03T05:36:28Z"
       },
       "created_at": "2026-08-03T05:34:46Z",
-      "completed_at": null,
-      "updated_at": "2026-08-03T22:04:10Z",
-      "notes": "CPU+LIVE are delivered on main. TIP terminal signed chain a37e102->b678bef->1b1bf23->e21f9a6 passed personal Sol and same-Luna independent QA with P0/P1/P2 zero and was ff-only integrated into this clean domain branch. Master verified the complete handoff and advanced TIP to ready_for_round_staging; dedicated current-main integration QA remains separate and tie/player-map/full-trajectory limits remain explicit."
+      "completed_at": "2026-08-03T22:11:25Z",
+      "updated_at": "2026-08-03T22:11:25Z",
+      "notes": "CPU+LIVE are delivered on main. TIP terminal signed chain a37e102->b678bef->1b1bf23->e21f9a6 passed personal Sol and same-Luna independent QA with P0/P1/P2 zero and was ff-only integrated into this clean domain branch. Master verified the complete handoff, advanced TIP to ready_for_round_staging, released and unpinned both TIP Lunas, then completed/unpinned this domain Sol at 2026-08-03T22:11:25Z. Dedicated current-main integration QA remains separate and tie/player-map/full-trajectory limits remain explicit."
     },
     {
       "session_id": "S-SOL-R3-SEASON-DATA-001",

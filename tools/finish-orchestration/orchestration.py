@@ -1544,7 +1544,16 @@ def command_self_test(args: argparse.Namespace) -> int:
         )
 
         worker_collision_state = copy.deepcopy(actual_state)
-        collision_worker = worker_collision_state["sessions"]["reported_luna_workers"][0]
+        active_reporter_ids = {
+            row["session_id"]
+            for row in worker_collision_state["sessions"]["sessions"]
+            if row["status"] == "active"
+        }
+        collision_worker = next(
+            row
+            for row in worker_collision_state["sessions"]["reported_luna_workers"]
+            if row["reported_by_session_id"] in active_reporter_ids
+        )
         collision_worker.update(
             {
                 "status": "active",

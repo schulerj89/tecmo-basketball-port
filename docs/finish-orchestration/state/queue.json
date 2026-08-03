@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T22:09:43Z",
+  "updated_at": "2026-08-03T22:11:25Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -1161,7 +1161,8 @@
           "2026-08-03T21:51:56Z same implementation Luna produced docs-only 1b1bf23b3c48947d988c9231870f9827f88cc5a6 over b678bef (all eight task docs) then precision correction e21f9a6621df5527544be1de4d0dc60382539c60 (PROOF.md and LINEAGE.md only). Branch is clean/diff-check clean; product/test/script/proof bytes are unchanged. e21 separates original mapper-gated E56E from native frame-721 state evidence and separates Sol count3 from worker count1 diagnostics. Same pinned projectless QA is verifying exact clean e21.",
           "2026-08-03T21:56:19Z same independent terminal QA accepted exact clean e21f9a6621df5527544be1de4d0dc60382539c60 and the complete signed four-commit chain with P0/P1/P2 all zero. It confirmed ownership, documentation, evidence classifications, proof-manifest continuity, diff-check, and clean status; no source or proof revision remains.",
           "2026-08-03T22:04:10Z authoritative Sol accepted and ff-only integrated the exact TIP chain into codex/r1-gameplay-foundation-sol. Master verified signed ancestry, clean/equal Sol and worker tips/tree 036d859776f687ff6364f173715553b9393b9624, all 24 paths inside OWN-R1-TIP, complete eight-file task docs, unchanged main/origin edf16ca and Round 1 staging 222d75cf, then advanced the task to ready_for_round_staging without rerunning product QA.",
-          "2026-08-03T22:09:43Z after signed durable master checkpoint e120be6fbf11c5b64b7cf1ba5070b296a24548c6, implementation Luna 019fc8ea-543c-7c11-8cae-64f39cec735f and independent QA Luna 019fc89b-05fb-7193-aef0-e483f9306279 were both unpinned successfully. Their exact branches/worktrees, projectless history, and proof artifacts remain preserved; neither task was archived or deleted."
+          "2026-08-03T22:09:43Z after signed durable master checkpoint e120be6fbf11c5b64b7cf1ba5070b296a24548c6, implementation Luna 019fc8ea-543c-7c11-8cae-64f39cec735f and independent QA Luna 019fc89b-05fb-7193-aef0-e483f9306279 were both unpinned successfully. Their exact branches/worktrees, projectless history, and proof artifacts remain preserved; neither task was archived or deleted.",
+          "2026-08-03T22:11:25Z completed R1 domain Sol 019fc61e-0f2a-7fb0-a76e-e4676808c959 was unpinned after the signed acceptance and worker-release records. Its clean e21f9a6 branch/worktree and all lineage remain preserved; dedicated current-main integration QA is master-owned and separate."
         ],
         "proof_manifests": [
           "build/proof/tipoff-visual-orientation-a37e10207455/proof-manifest.json",
@@ -1180,7 +1181,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T22:09:43Z",
+      "updated_at": "2026-08-03T22:11:25Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",

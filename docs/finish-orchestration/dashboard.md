@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T22:09:43Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T22:11:25Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -88,7 +88,6 @@ Generated from committed JSON at `2026-08-03T22:09:43Z`. This dashboard reports 
 | Session | Role | Model/thinking | Status | Pin | Tasks | Branch | Worktree | Last good |
 |---|---|---|---|---|---|---|---|---|
 | S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 5b8a13b30620 |
-| S-SOL-R1-GAMEPLAY-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | codex/r1-gameplay-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r1-gameplay-foundation-sol | e21f9a6621df |
 | S-SOL-R2-SHOTS-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R2-SHOTS-OUTCOMES | codex/r2-shots-outcomes-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2-shots-outcomes-sol | 222d75cfafa9 |
 | S-SOL-R2-CLOCK-LINEUPS-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R2-CLOCK-LINEUPS-FATIGUE | codex/r2-clock-lineups-fatigue-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2-clock-lineups-fatigue-sol | 1536ae31e701 |
 
