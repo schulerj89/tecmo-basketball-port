@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T17:22:51Z",
+  "updated_at": "2026-08-03T17:24:09Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -113,8 +113,8 @@
         "OWN-R4-AUDIO-FOUNDATION"
       ],
       "blockers": [],
-      "next_gate": "Human listening is approved. Writer proof-gate chain now tops at clean ad82eb9; the same detached QA lineage is actively verifying exact vector/order/RIFF/event/run2/base-clean assertions. Same-writer terminal docs and final QA precede Sol acceptance/integration.",
-      "updated_at": "2026-08-03T17:06:09Z"
+      "next_gate": "Revised-tip QA conditionally passes clean ad82eb9 with no runtime/product defect. Same writer performs Revision C: correct >=8 docs/proof/lineage/handoff plus exact event-header and per-WAV-slice FNV assertions; same pinned QA then verifies the terminal tip before Sol acceptance/integration.",
+      "updated_at": "2026-08-03T17:24:09Z"
     },
     {
       "lane_id": "LANE-R2-SHOTS-OUTCOMES",
