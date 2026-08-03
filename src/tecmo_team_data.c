@@ -37,6 +37,19 @@ static const uint8_t team_data_home_uniform_colors[
         0x2AU, 0x13U, 0x15U, 0x15U, 0x15U
 };
 
+/* Canonical TTDT source_team/source_player mappings for the two selector-only
+ * All-Star entries.  These are identity data, not season statistics. */
+static const uint8_t team_data_all_star_source_teams[2][
+    TECMO_TEAM_DATA_PLAYERS_PER_TEAM] = {
+    {12U, 21U, 8U, 25U, 23U, 25U, 8U, 20U, 20U, 12U, 9U, 6U},
+    {7U, 3U, 3U, 19U, 17U, 4U, 26U, 7U, 7U, 1U, 0U, 4U}
+};
+static const uint8_t team_data_all_star_source_players[2][
+    TECMO_TEAM_DATA_PLAYERS_PER_TEAM] = {
+    {1U, 1U, 2U, 3U, 4U, 0U, 0U, 1U, 6U, 2U, 4U, 4U},
+    {0U, 1U, 2U, 3U, 4U, 0U, 0U, 1U, 2U, 2U, 3U, 4U}
+};
+
 typedef enum TeamDataButton {
     TEAM_DATA_BUTTON_RIGHT = 0x01,
     TEAM_DATA_BUTTON_LEFT = 0x02,
@@ -192,14 +205,6 @@ static bool parse_payload(TecmoTeamDataAsset *asset,
 {
     static const uint8_t r0[3] = {0xFAU, 0xFAU, 0xCCU};
     static const uint8_t r1[3] = {0xFAU, 0xFAU, 0xFAU};
-    static const uint8_t all_star_source_teams[2][12] = {
-        {12U, 21U, 8U, 25U, 23U, 25U, 8U, 20U, 20U, 12U, 9U, 6U},
-        {7U, 3U, 3U, 19U, 17U, 4U, 26U, 7U, 7U, 1U, 0U, 4U}
-    };
-    static const uint8_t all_star_source_players[2][12] = {
-        {1U, 1U, 2U, 3U, 4U, 0U, 0U, 1U, 6U, 2U, 4U, 4U},
-        {0U, 1U, 2U, 3U, 4U, 0U, 0U, 1U, 2U, 2U, 3U, 4U}
-    };
     bool seen_teams[TECMO_TEAM_DATA_TEAM_COUNT] = {false};
 
     if (bytes == NULL || count != TEAM_DATA_PAYLOAD_SIZE ||
@@ -439,9 +444,10 @@ static bool parse_payload(TecmoTeamDataAsset *asset,
                 return false;
             if (team >= 27U) {
                 size_t all_star = team - 27U;
-                if (dest->source_team != all_star_source_teams[all_star][player] ||
+                if (dest->source_team !=
+                        team_data_all_star_source_teams[all_star][player] ||
                     dest->source_player !=
-                        all_star_source_players[all_star][player])
+                        team_data_all_star_source_players[all_star][player])
                     return false;
             }
         }
@@ -481,6 +487,389 @@ static bool parse_payload(TecmoTeamDataAsset *asset,
     return true;
 }
 
+uint16_t tecmo_team_data_player_key(uint8_t canonical_team,
+                                    uint8_t canonical_player)
+{
+    if (canonical_team >= TECMO_TEAM_DATA_REAL_TEAM_COUNT ||
+        canonical_player >= TECMO_TEAM_DATA_PLAYERS_PER_TEAM)
+        return TECMO_TEAM_DATA_PLAYER_KEY_INVALID;
+    return (uint16_t)((size_t)canonical_team *
+                      TECMO_TEAM_DATA_PLAYERS_PER_TEAM + canonical_player);
+}
+
+bool tecmo_team_data_player_key_valid(uint16_t canonical_key)
+{
+    return canonical_key < TECMO_TEAM_DATA_PLAYER_KEY_COUNT;
+}
+
+static bool identity_for_selector_slot(const TecmoTeamDataAsset *asset,
+                                       uint8_t selector_index,
+                                       uint8_t roster_slot,
+                                       TecmoTeamDataPlayerIdentity *identity)
+{
+    uint8_t selector_team;
+    const TecmoTeamDataPlayer *player;
+    uint16_t key;
+    if (asset == NULL || !asset->available || identity == NULL ||
+        selector_index >= TECMO_TEAM_DATA_SELECTOR_COUNT ||
+        roster_slot >= TECMO_TEAM_DATA_PLAYERS_PER_TEAM)
+        return false;
+    selector_team = asset->selectors[selector_index].team_id;
+    if (selector_team >= TECMO_TEAM_DATA_TEAM_COUNT) return false;
+    player = &asset->players[selector_team][roster_slot];
+    if (player->source_team >= TECMO_TEAM_DATA_REAL_TEAM_COUNT ||
+        player->source_player >= TECMO_TEAM_DATA_PLAYERS_PER_TEAM)
+        return false;
+    if (selector_team < TECMO_TEAM_DATA_REAL_TEAM_COUNT &&
+        (player->source_team != selector_team ||
+         player->source_player != roster_slot))
+        return false;
+    if (selector_team >= TECMO_TEAM_DATA_REAL_TEAM_COUNT) {
+        size_t all_star = selector_team - TECMO_TEAM_DATA_REAL_TEAM_COUNT;
+        if (player->source_team !=
+                team_data_all_star_source_teams[all_star][roster_slot] ||
+            player->source_player !=
+                team_data_all_star_source_players[all_star][roster_slot])
+            return false;
+    }
+    key = tecmo_team_data_player_key(player->source_team,
+                                     player->source_player);
+    if (!tecmo_team_data_player_key_valid(key)) return false;
+    identity->selector_index = selector_index;
+    identity->selector_team = selector_team;
+    identity->roster_slot = roster_slot;
+    identity->canonical_team = player->source_team;
+    identity->canonical_player = player->source_player;
+    identity->canonical_key = key;
+    return true;
+}
+
+bool tecmo_team_data_identity_contract_valid(
+    const TecmoTeamDataAsset *asset)
+{
+    bool seen_selector_team[TECMO_TEAM_DATA_TEAM_COUNT] = {false};
+    bool seen_canonical_key[TECMO_TEAM_DATA_PLAYER_KEY_COUNT] = {false};
+    size_t canonical_count = 0U;
+    if (asset == NULL || !asset->available) return false;
+    for (uint8_t selector = 0U;
+         selector < TECMO_TEAM_DATA_SELECTOR_COUNT; ++selector) {
+        uint8_t selector_team = asset->selectors[selector].team_id;
+        if (selector_team >= TECMO_TEAM_DATA_TEAM_COUNT ||
+            seen_selector_team[selector_team])
+            return false;
+        seen_selector_team[selector_team] = true;
+        for (uint8_t slot = 0U;
+             slot < TECMO_TEAM_DATA_PLAYERS_PER_TEAM; ++slot) {
+            TecmoTeamDataPlayerIdentity identity;
+            if (!identity_for_selector_slot(asset, selector, slot,
+                                             &identity))
+                return false;
+            if (selector_team < TECMO_TEAM_DATA_REAL_TEAM_COUNT) {
+                if (seen_canonical_key[identity.canonical_key]) return false;
+                seen_canonical_key[identity.canonical_key] = true;
+                ++canonical_count;
+            }
+        }
+    }
+    if (canonical_count != TECMO_TEAM_DATA_PLAYER_KEY_COUNT) return false;
+    for (size_t team = 0U; team < TECMO_TEAM_DATA_REAL_TEAM_COUNT; ++team)
+        for (size_t player = 0U;
+             player < TECMO_TEAM_DATA_PLAYERS_PER_TEAM; ++player)
+            if (!seen_canonical_key[tecmo_team_data_player_key(
+                    (uint8_t)team, (uint8_t)player)])
+                return false;
+    return true;
+}
+
+bool tecmo_team_data_resolve_player_identity(
+    const TecmoTeamDataAsset *asset,
+    uint8_t selector_index,
+    uint8_t roster_slot,
+    TecmoTeamDataPlayerIdentity *identity)
+{
+    TecmoTeamDataPlayerIdentity resolved;
+    if (identity == NULL || !tecmo_team_data_identity_contract_valid(asset) ||
+        !identity_for_selector_slot(asset, selector_index, roster_slot,
+                                     &resolved))
+        return false;
+    *identity = resolved;
+    return true;
+}
+
+const char *tecmo_team_data_stat_category_name(
+    TecmoTeamDataStatCategory category)
+{
+    static const char *const names[TECMO_TEAM_DATA_STAT_CATEGORY_COUNT] = {
+        "FIELD GOALS", "BLOCKED SHOTS", "REBOUNDS", "TOTAL POINTS",
+        "STEALS", "3 POINT SHOTS", "FREE THROWS"
+    };
+    return (unsigned)category < TECMO_TEAM_DATA_STAT_CATEGORY_COUNT
+               ? names[category]
+               : "UNAVAILABLE";
+}
+
+static bool metric_ranks_higher(const TecmoTeamDataStatCandidate *candidate,
+                                const TecmoTeamDataStatCandidate *other)
+{
+    if (candidate->metric.primary != other->metric.primary)
+        return candidate->metric.primary > other->metric.primary;
+    if (candidate->metric.secondary != other->metric.secondary)
+        return candidate->metric.secondary > other->metric.secondary;
+    /* Bank00's later scan candidate replaces an exact equal pair. */
+    return candidate->canonical_key > other->canonical_key;
+}
+
+bool tecmo_team_data_rank_leaders(
+    const TecmoTeamDataAsset *asset,
+    TecmoTeamDataStatCategory category,
+    const TecmoTeamDataStatCandidate *candidates,
+    size_t candidate_count,
+    TecmoTeamDataLeaderEntry *results,
+    size_t result_capacity,
+    size_t *result_count)
+{
+    const TecmoTeamDataStatCandidate *by_key[
+        TECMO_TEAM_DATA_PLAYER_KEY_COUNT] = {0};
+    TecmoTeamDataLeaderEntry ranked[TECMO_TEAM_DATA_LEADER_RESULT_COUNT];
+    bool seen[TECMO_TEAM_DATA_PLAYER_KEY_COUNT] = {false};
+    size_t ranked_count = 0U;
+    if (result_count == NULL || results == NULL || candidates == NULL ||
+        (unsigned)category >= TECMO_TEAM_DATA_STAT_CATEGORY_COUNT ||
+        !tecmo_team_data_identity_contract_valid(asset) ||
+        candidate_count != TECMO_TEAM_DATA_PLAYER_KEY_COUNT ||
+        result_capacity == 0U ||
+        result_capacity > TECMO_TEAM_DATA_LEADER_RESULT_COUNT)
+        return false;
+    for (size_t i = 0U; i < candidate_count; ++i) {
+        uint16_t key = candidates[i].canonical_key;
+        if (!tecmo_team_data_player_key_valid(key) || seen[key]) return false;
+        seen[key] = true;
+        by_key[key] = &candidates[i];
+    }
+    for (size_t key = 0U; key < TECMO_TEAM_DATA_PLAYER_KEY_COUNT; ++key) {
+        const TecmoTeamDataStatCandidate *candidate = by_key[key];
+        if (candidate == NULL || !candidate->available ||
+            !candidate->eligible)
+            continue;
+        if (ranked_count == result_capacity) {
+            TecmoTeamDataStatCandidate last;
+            last.canonical_key = ranked[result_capacity - 1U]
+                                     .identity.canonical_key;
+            last.available = true;
+            last.eligible = true;
+            last.metric = ranked[result_capacity - 1U].metric;
+            if (!metric_ranks_higher(candidate, &last)) continue;
+        }
+        {
+            size_t position = ranked_count < result_capacity
+                                  ? ranked_count : result_capacity - 1U;
+            while (position > 0U) {
+                TecmoTeamDataStatCandidate prior;
+                prior.canonical_key = ranked[position - 1U].identity.canonical_key;
+                prior.available = true;
+                prior.eligible = true;
+                prior.metric = ranked[position - 1U].metric;
+                if (!metric_ranks_higher(candidate, &prior)) break;
+                if (position < result_capacity)
+                    ranked[position] = ranked[position - 1U];
+                --position;
+            }
+            if (position < result_capacity) {
+                TecmoTeamDataPlayerIdentity identity;
+                uint8_t canonical_team = (uint8_t)(key /
+                    TECMO_TEAM_DATA_PLAYERS_PER_TEAM);
+                uint8_t canonical_player = (uint8_t)(key %
+                    TECMO_TEAM_DATA_PLAYERS_PER_TEAM);
+                uint8_t selector_index = 0U;
+                bool found_selector = false;
+                for (uint8_t selector = 0U;
+                     selector < TECMO_TEAM_DATA_SELECTOR_COUNT; ++selector)
+                    if (asset->selectors[selector].team_id == canonical_team) {
+                        selector_index = selector;
+                        found_selector = true;
+                        break;
+                    }
+                if (!found_selector || !identity_for_selector_slot(
+                        asset, selector_index, canonical_player, &identity))
+                    return false;
+                ranked[position].identity = identity;
+                ranked[position].metric = candidate->metric;
+                if (ranked_count < result_capacity) ++ranked_count;
+            }
+        }
+    }
+    memcpy(results, ranked, ranked_count * sizeof(*results));
+    *result_count = ranked_count;
+    return true;
+}
+
+bool tecmo_team_data_self_test(char *message, size_t message_size)
+{
+    TecmoTeamDataAsset asset;
+    TecmoTeamDataStatCandidate candidates[TECMO_TEAM_DATA_PLAYER_KEY_COUNT];
+    TecmoTeamDataLeaderEntry results[TECMO_TEAM_DATA_LEADER_RESULT_COUNT];
+    size_t result_count = 0U;
+
+    memset(&asset, 0, sizeof(asset));
+    asset.available = true;
+    for (uint8_t selector = 0U;
+         selector < TECMO_TEAM_DATA_SELECTOR_COUNT; ++selector) {
+        asset.selectors[selector].team_id = selector;
+        for (uint8_t player = 0U;
+             player < TECMO_TEAM_DATA_PLAYERS_PER_TEAM; ++player) {
+            TecmoTeamDataPlayer *dest = &asset.players[selector][player];
+            if (selector < TECMO_TEAM_DATA_REAL_TEAM_COUNT) {
+                dest->source_team = selector;
+                dest->source_player = player;
+            } else {
+                size_t all_star = selector - TECMO_TEAM_DATA_REAL_TEAM_COUNT;
+                dest->source_team =
+                    team_data_all_star_source_teams[all_star][player];
+                dest->source_player =
+                    team_data_all_star_source_players[all_star][player];
+            }
+        }
+    }
+    if (!tecmo_team_data_identity_contract_valid(&asset)) {
+        (void)snprintf(message, message_size,
+                       "TTDT identity contract self-test failed.");
+        return false;
+    }
+    for (uint8_t team = 0U; team < TECMO_TEAM_DATA_REAL_TEAM_COUNT; ++team)
+        for (uint8_t player = 0U;
+             player < TECMO_TEAM_DATA_PLAYERS_PER_TEAM; ++player) {
+            TecmoTeamDataPlayerIdentity identity;
+            if (!tecmo_team_data_resolve_player_identity(
+                    &asset, team, player, &identity) ||
+                identity.canonical_key != tecmo_team_data_player_key(
+                    team, player)) {
+                (void)snprintf(message, message_size,
+                               "TTDT real identity self-test failed.");
+                return false;
+            }
+        }
+    for (uint8_t selector = TECMO_TEAM_DATA_REAL_TEAM_COUNT;
+         selector < TECMO_TEAM_DATA_SELECTOR_COUNT; ++selector) {
+        TecmoTeamDataPlayerIdentity identity;
+        size_t all_star = selector - TECMO_TEAM_DATA_REAL_TEAM_COUNT;
+        if (!tecmo_team_data_resolve_player_identity(
+                &asset, selector, 0U, &identity) ||
+            identity.canonical_team !=
+                team_data_all_star_source_teams[all_star][0U] ||
+            identity.canonical_player !=
+                team_data_all_star_source_players[all_star][0U]) {
+            (void)snprintf(message, message_size,
+                           "TTDT All-Star identity self-test failed.");
+            return false;
+        }
+    }
+
+    for (size_t key = 0U; key < TECMO_TEAM_DATA_PLAYER_KEY_COUNT; ++key) {
+        candidates[key].canonical_key = (uint16_t)key;
+        candidates[key].available = true;
+        candidates[key].eligible = true;
+        candidates[key].metric.primary = 1000U - key;
+        candidates[key].metric.secondary = 0U;
+    }
+    if (!tecmo_team_data_rank_leaders(
+            &asset, TECMO_TEAM_DATA_STAT_TOTAL_POINTS, candidates,
+            TECMO_TEAM_DATA_PLAYER_KEY_COUNT, results, 2U, &result_count) ||
+        result_count != 2U || results[0].identity.canonical_key != 0U ||
+        results[1].identity.canonical_key != 1U) {
+        (void)snprintf(message, message_size,
+                       "TTDT full ranking insertion self-test failed.");
+        return false;
+    }
+    candidates[0U].available = false;
+    candidates[1U].eligible = false;
+    if (!tecmo_team_data_rank_leaders(
+            &asset, TECMO_TEAM_DATA_STAT_TOTAL_POINTS, candidates,
+            TECMO_TEAM_DATA_PLAYER_KEY_COUNT, results,
+            TECMO_TEAM_DATA_LEADER_RESULT_COUNT, &result_count) ||
+        result_count != TECMO_TEAM_DATA_LEADER_RESULT_COUNT ||
+        results[0].identity.canonical_key != 2U ||
+        results[17].identity.canonical_key != 19U) {
+        (void)snprintf(message, message_size,
+                       "TTDT unavailable metric self-test failed.");
+        return false;
+    }
+    candidates[0U].available = true;
+    candidates[1U].eligible = true;
+    for (size_t key = 0U; key < TECMO_TEAM_DATA_PLAYER_KEY_COUNT; ++key)
+        if (candidates[key].canonical_key != key ||
+            !candidates[key].available || !candidates[key].eligible ||
+            candidates[key].metric.primary != 1000U - key ||
+            candidates[key].metric.secondary != 0U) {
+            (void)snprintf(message, message_size,
+                           "TTDT candidate nonmutation self-test failed.");
+            return false;
+        }
+    if (tecmo_team_data_rank_leaders(
+            &asset, (TecmoTeamDataStatCategory)99, candidates,
+            TECMO_TEAM_DATA_PLAYER_KEY_COUNT, results, 2U, &result_count)) {
+        (void)snprintf(message, message_size,
+                       "TTDT invalid category self-test failed.");
+        return false;
+    }
+    {
+        uint16_t original_key = candidates[0U].canonical_key;
+        candidates[0U].canonical_key = TECMO_TEAM_DATA_PLAYER_KEY_INVALID;
+        if (tecmo_team_data_rank_leaders(
+                &asset, TECMO_TEAM_DATA_STAT_TOTAL_POINTS, candidates,
+                TECMO_TEAM_DATA_PLAYER_KEY_COUNT, results, 2U,
+                &result_count)) {
+            (void)snprintf(message, message_size,
+                           "TTDT invalid candidate self-test failed.");
+            return false;
+        }
+        candidates[0U].canonical_key = original_key;
+    }
+
+    for (size_t key = 0U; key < TECMO_TEAM_DATA_PLAYER_KEY_COUNT; ++key) {
+        candidates[key].metric.primary = 7U;
+        candidates[key].metric.secondary = 4U;
+    }
+    if (!tecmo_team_data_rank_leaders(
+            &asset, TECMO_TEAM_DATA_STAT_FIELD_GOALS, candidates,
+            TECMO_TEAM_DATA_PLAYER_KEY_COUNT, results, 2U, &result_count) ||
+        result_count != 2U || results[0].identity.canonical_key != 323U ||
+        results[1].identity.canonical_key != 322U) {
+        (void)snprintf(message, message_size,
+                       "TTDT exact-tie replacement self-test failed.");
+        return false;
+    }
+    if (!tecmo_team_data_rank_leaders(
+            &asset, TECMO_TEAM_DATA_STAT_REBOUNDS, candidates,
+            TECMO_TEAM_DATA_PLAYER_KEY_COUNT, results,
+            TECMO_TEAM_DATA_LEADER_RESULT_COUNT, &result_count) ||
+        result_count != TECMO_TEAM_DATA_LEADER_RESULT_COUNT) {
+        (void)snprintf(message, message_size,
+                       "TTDT 18-result self-test failed.");
+        return false;
+    }
+    for (size_t i = 1U; i < result_count; ++i)
+        if (results[i - 1U].identity.canonical_key <=
+            results[i].identity.canonical_key) {
+            (void)snprintf(message, message_size,
+                           "TTDT result uniqueness self-test failed.");
+            return false;
+    }
+    asset.players[TECMO_TEAM_DATA_REAL_TEAM_COUNT][0U].source_team = 0U;
+    {
+        TecmoTeamDataPlayerIdentity rejected_identity;
+    if (tecmo_team_data_identity_contract_valid(&asset) ||
+        tecmo_team_data_resolve_player_identity(&asset,
+            TECMO_TEAM_DATA_REAL_TEAM_COUNT, 0U, &rejected_identity)) {
+        (void)snprintf(message, message_size,
+                       "TTDT mutated All-Star mapping was accepted.");
+        return false;
+    }
+    }
+    (void)snprintf(message, message_size,
+                   "TTDT identity/ranking self-test passed.");
+    return true;
+}
+
 bool tecmo_team_data_asset_load(TecmoTeamDataAsset *asset,
                                 const char *project_root)
 {
@@ -504,7 +893,8 @@ bool tecmo_team_data_asset_load(TecmoTeamDataAsset *asset,
     if (ok) {
         asset->chr_fingerprint64 = fnv1a64(chr, chr_count);
         asset->available = true;
-        ok = tecmo_team_data_asset_chr_available(asset, chr, chr_count);
+        ok = tecmo_team_data_identity_contract_valid(asset) &&
+             tecmo_team_data_asset_chr_available(asset, chr, chr_count);
     }
     if (!ok) asset->available = false;
     tecmo_asset_pack_free(payload);
@@ -545,7 +935,8 @@ bool tecmo_team_data_asset_load_from_pack(TecmoTeamDataAsset *asset,
     if (ok) {
         asset->chr_fingerprint64 = TEAM_DATA_CHR_FNV1A64;
         asset->available = true;
-        ok = tecmo_team_data_asset_chr_available(asset, chr, chr_count);
+        ok = tecmo_team_data_identity_contract_valid(asset) &&
+             tecmo_team_data_asset_chr_available(asset, chr, chr_count);
     }
     tecmo_asset_pack_free(payload);
     tecmo_asset_pack_free(chr);

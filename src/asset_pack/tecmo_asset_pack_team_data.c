@@ -2,6 +2,7 @@
 
 #include "tecmo_asset_pack_d9f6.h"
 #include "tecmo_asset_pack_util.h"
+#include "tecmo_team_data.h"
 
 #include <stdbool.h>
 #include <string.h>
@@ -266,6 +267,7 @@ static int build_cursor(const uint8_t record[5],
 int tecmo_asset_pack_team_data_self_test(char *message, size_t message_size)
 {
     uint8_t cursor[TECMO_ASSET_PACK_TEAM_DATA_CURSOR_STRIDE];
+    char identity_message[160];
     const uint8_t good[5] = {0x11U, 0xFFU, 0U, 0x30U, 0x24U};
     const uint8_t bad[5] = {0x10U, 0U, 0U, 0U, 0U};
     memset(cursor, 0, sizeof(cursor));
@@ -275,6 +277,13 @@ int tecmo_asset_pack_team_data_self_test(char *message, size_t message_size)
         build_cursor(bad, cursor, NULL, 0U) == 0) {
         tecmo_asset_pack_set_message(message, message_size,
                                      "TTDT-1 cursor bounds self-test failed.");
+        return -1;
+    }
+    if (!tecmo_team_data_self_test(identity_message,
+                                   sizeof(identity_message))) {
+        tecmo_asset_pack_set_messagef(
+            message, message_size, "TTDT runtime identity test: %s",
+            identity_message);
         return -1;
     }
     tecmo_asset_pack_set_message(message, message_size,
