@@ -135,8 +135,8 @@
         "OWN-R4-FRONTEND-INTRO-TITLE"
       ],
       "blockers": [],
-      "next_gate": "Recovery Sol integrated accepted proof replay at clean 0a3fc57f and created one independent recovery QA Luna. Canonical /W4 28-test suite passes, but standalone asset-pack self-test exposed a narrow owned finale synthetic-fixture gating regression; correct it within ownership, rerun all gates, and close independent P0/P1/P2 before terminal acceptance.",
-      "updated_at": "2026-08-03T19:00:02Z"
+      "next_gate": "Independent QA is NOT CLEAR at 0a3fc57f: correct synthetic-only fingerprint handling without weakening strict public import, enforce canonical 262144-byte/FNV1a64 finale chr/all identity on first and later checks, add standalone/corrupted-CHR regressions, rerun full proof, and close the same QA Luna at P0/P1/P2 zero.",
+      "updated_at": "2026-08-03T19:16:14Z"
     },
     {
       "lane_id": "LANE-R4-AUDIO-FOUNDATION",
