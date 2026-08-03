@@ -137,6 +137,47 @@ close-shot sequence, and no blank or corrupt frame. The documented original
 versus native team/view/resolution/input/timing differences remain; this is
 reference-only and makes no parity claim.
 
-Independent QA has not yet accepted the two-commit chain. The complete raw
-fault/revision history is in [LINEAGE.md](LINEAGE.md), and the historical
-precommit plus formal records are in [PROOF.md](PROOF.md).
+## Independent terminal QA
+
+Reused and repinned QA Luna `019fc765-8d36-7be2-b273-d5e617520061`, **Tecmo
+R1 LIVE Foundation — Native Integration and QA Audit — Luna Max**,
+`gpt-5.6-luna/max`, with projectless/null Git fields, independently verified
+the exact chain
+`ad0f005673692b04772bce3c3b4d3ac4b2624731` ->
+`e2333db8fd0ad21c036d0016574c1551929fbb5c` ->
+`6a16422b02e6354bfaf67f731e7a0e5b05906a17`, clean exact 26-path scope, and
+the five-file docs-only closure structure. Warning-clean build, CPU
+`680/24/17`, movement with seven ROM mutations, exact flow, all four suites
+with clean `-Build -RequirePass`, Win32 production smoke, and final Git clean
+all passed.
+
+QA proof root:
+`C:\Users\joshs\Projects\tecmo-basketball-port-r1-live-foundation-luna\build\live-proof-independent-qa-20260803-f`;
+manifest SHA256
+`A7E1D408FA273481B58B605A3D189E52BD5F2A8ADD99FF59900601B9ABD6CE00`, size
+`571810`. It was `TGLP-1`/`PASS`, base `ad0f005673692b04772bce3c3b4d3ac4b2624731`,
+current/final `6a16422b02e6354bfaf67f731e7a0e5b05906a17`, clean/RequirePass/
+build_requested/build_warning_clean/suites_complete all true. UTC start/draft/
+completed: `2026-08-03T16:26:25.9376325Z`, `2026-08-03T16:26:35.7451611Z`,
+`2026-08-03T16:26:46.4144995Z`.
+
+QA validated the canonical ROM/pack and TGAI/TGMO fingerprints, 189 nonempty
+logs, 254 inventory entries, 14 frames, matching `1920x1440` contacts
+(`F8380481C46C9836773F8970775F785B5FE1D0FE8E059DA066E0D6D37C8F8A9C`), and
+matching `640x480` videos (`B8653E4D0DB44AEA437BE9BFB8C545D38B82821809195B956807B5204E087595`),
+each with 7/7 stored/decoded frames, rate `39375000/655171`, and timebase
+`1/39375000`. The original `768x896` contact/SHA
+`2EE377C3A97A2C415ED223A4E81C468230BCC6E4A987BABFC7F622E928B22B37` validated.
+Visual QA found expected PRESEASON/title, six coherent court frames,
+nonblank handoff/deferred/shot frames, intact HUD/court/sprites, and no
+clipping, corrupt textures, or unexpected overlays. Original/native
+differences remain reference-only with no parity claim. Source/ABI/pack
+boundaries and exact/inferred/approximate/incomplete labels were accepted;
+TIP, shots, accepted CPU, and Win32 sources were unchanged.
+
+QA verdict: implementation accepted, `P0=0`, `P1=0`, `P2=2` docs-only;
+verdict `2026-08-03T16:39:11Z`, consolidated report
+`2026-08-03T16:40:49Z`. The two docs corrections in this commit are required
+before terminal chain acceptance; final Sol merge is not claimed. Full QA
+lineage and read-only diagnostics are in [LINEAGE.md](LINEAGE.md), with the
+complete proof record in [PROOF.md](PROOF.md).

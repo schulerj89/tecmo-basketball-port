@@ -96,6 +96,53 @@ These predecessors were read-only and completed before the writable worker; neit
    corrupt frame; the documented original/native differences and no-parity
    classification remain unchanged.
 
+20. Independent terminal QA reused QA Luna
+   `019fc765-8d36-7be2-b273-d5e617520061`, exact title **Tecmo R1 LIVE
+   Foundation — Native Integration and QA Audit — Luna Max**,
+   `gpt-5.6-luna/max`, with projectless/null Git fields, and repinned it
+   `true` for this QA pass. Implementation Luna
+   `019fc78a-69e1-7892-82ed-d14a39d37728` remains pinned `true`. QA targeted
+   the exact clean chain
+   `ad0f005673692b04772bce3c3b4d3ac4b2624731` ->
+   `e2333db8fd0ad21c036d0016574c1551929fbb5c` ->
+   `6a16422b02e6354bfaf67f731e7a0e5b05906a17`, with exact 26-path and
+   five-file docs structure. Independent warning-clean build, CPU `680/24/17`,
+   movement including seven ROM mutations, exact flow, all four scene suites
+   and clean `-Build -RequirePass`, Win32 production smoke, and final Git clean
+   all passed. QA proof root:
+   `C:\Users\joshs\Projects\tecmo-basketball-port-r1-live-foundation-luna\build\live-proof-independent-qa-20260803-f`;
+   manifest path is the root's `PROOF-MANIFEST.json`, SHA256
+   `A7E1D408FA273481B58B605A3D189E52BD5F2A8ADD99FF59900601B9ABD6CE00`, size
+   `571810`. It reported `TGLP-1`/`PASS`, base `ad0f005673692b04772bce3c3b4d3ac4b2624731`,
+   current/final `6a16422b02e6354bfaf67f731e7a0e5b05906a17`, correct branch,
+   and clean/RequirePass/build_requested/build_warning_clean/suites_complete
+   all true. Start/draft/completed UTC were
+   `2026-08-03T16:26:25.9376325Z`, `2026-08-03T16:26:35.7451611Z`, and
+   `2026-08-03T16:26:46.4144995Z`. QA revalidated ROM `393232` /
+   `076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4`,
+   pack `695EEB2D0101C5422B01790BD8D6B2A7607E758F396F429C2D2424AC6A26DE07`,
+   TGAI `7616/D6C4DB35`, TGMO `1664/6C82A137`, 189 nonempty logs, 254
+   inventory entries, 14 frames, two contacts, and two videos; each video was
+   `7/7` stored/decoded. Contacts were `1920x1440` with SHA
+   `F8380481C46C9836773F8970775F785B5FE1D0FE8E059DA066E0D6D37C8F8A9C`;
+   videos were `640x480` with SHA
+   `B8653E4D0DB44AEA437BE9BFB8C545D38B82821809195B956807B5204E087595`, exact
+   rate `39375000/655171`, and timebase `1/39375000`. Original contact
+   `768x896` / SHA
+   `2EE377C3A97A2C415ED223A4E81C468230BCC6E4A987BABFC7F622E928B22B37`
+   validated. Visual QA found expected PRESEASON plus six coherent court
+   frames, nonblank handoff/deferred/shot frames, intact HUD/court/sprites,
+   and no clipping, corrupt textures, or unexpected overlays. The comparison
+   remains reference-only with no parity claim because teams, camera,
+   resolution, schedule, and timing differ. QA accepted source/ABI/pack
+   boundaries, retained all exact/inferred/approximate/incomplete labels,
+   verified no runtime ROM/decomp dependency, and confirmed TIP, shots,
+   accepted CPU, and Win32 sources unchanged. Verdict completed
+   `2026-08-03T16:39:11Z`; consolidated report completed
+   `2026-08-03T16:40:49Z`: implementation accepted, `P0=0`, `P1=0`,
+   `P2=2` docs-only. The two corrections in this commit are required before
+   terminal chain acceptance; final Sol merge is not claimed.
+
 ## Sol read-only diagnostic note
 
 The following diagnostics were read-only Sol review observations and are
@@ -118,6 +165,20 @@ separate from worker implementation faults:
 - One initial negative-regression summary treated the 13 string entries as
   objects with `.name`/`.status` and emitted 13 blank `=` rows. Direct string
   enumeration recovered all 13 names.
+- QA's one raw `rg` filename error was recovered with explicit paths and
+  `rg --files`.
+- QA's one PowerShell source-inspection interpolation parse error involving
+  `$p:$s` was recovered with explicit variables; the exact parser line was not
+  retained.
+- QA's earlier read-only `No app terminal session is attached to this thread
+  yet.` and `Unexpected identifier native_matchup_actor` diagnostics remain
+  recorded in the predecessor lineage. QA made no tracked edits or commits.
+- The build updated the existing desktop shortcut, and smoke used an ignored
+  temporary shortcut; neither was a tracked repository mutation.
+- Sol message composition produced `functions.exec ReferenceError: p is not
+  defined` twice from an unescaped `${p}` in JavaScript template strings while
+  reporting/sending the revision. Both were retried with safe composition; no
+  mutation and no bad-request fault occurred.
 - No mutation or bad-request fault occurred.
 
 ## Diagnostic and fault ledger (raw signatures/counts/recovery)
@@ -170,9 +231,11 @@ The full wrapper runs that were successful at the suite level but rejected as pr
 ## Current status
 
 The exact chain is first commit
-`e2333db8fd0ad21c036d0016574c1551929fbb5c` (implementation/docs/proven), this
-docs-only formal closure commit, independent QA acceptance, then ff-only merge
-into Sol. The formal proof is accepted PASS; independent QA has not yet
-happened. Literal `{detail: bad request}` remains count `0`, and no product,
-test, build, wrapper, TIP, CPU, Win32, main, or other non-doc path was changed
-for this closure.
+`e2333db8fd0ad21c036d0016574c1551929fbb5c` (implementation/docs/proven),
+formal closure `6a16422b02e6354bfaf67f731e7a0e5b05906a17`, this docs-only QA
+correction commit, same-QA final docs verification, then ff-only merge into
+Sol. Formal proof is accepted PASS; QA review completed with `P0=0`, `P1=0`,
+`P2=2` docs-only, and final verification of this correction is pending.
+Literal `{detail: bad request}` remains count `0`, and no product, test, build,
+wrapper, TIP, CPU, Win32, main, or other non-doc path was changed for this
+closure.

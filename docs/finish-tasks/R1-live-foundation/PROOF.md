@@ -50,7 +50,7 @@ first worker commit:
   native-video hash
   `B8653E4D0DB44AEA437BE9BFB8C545D38B82821809195B956807B5204E087595`,
   `7/7` stored/decoded frames per video, and exact cadence/timebase.
-- `Run-Win32LaunchSmoke.ps1 -Build`: PASS for GUI/console subsystems,
+- `tools\Run-Win32LaunchSmokeTest.ps1 -Build`: PASS for GUI/console subsystems,
   project-root arguments, working directory/icon, roster-independent startup,
   lifetime, and clean shutdown. This script and platform code are excluded
   from this slice.
@@ -121,6 +121,66 @@ handoff/movement/pass/switch/deferred/close-shot sequence, and no blank or
 corrupt frame. The original-versus-native team, camera/view, resolution,
 input-schedule, and frame-timing differences remain explicit; the comparison
 is reference-only and makes no parity claim.
+
+## Independent terminal QA
+
+The independent terminal QA was performed by reused and repinned QA Luna
+`019fc765-8d36-7be2-b273-d5e617520061`, exact title **Tecmo R1 LIVE Foundation
+— Native Integration and QA Audit — Luna Max**, model/reasoning
+`gpt-5.6-luna/max`, with projectless/null Git fields and `pinned=true` for
+this QA pass. QA Luna remains `pinned=true` pending verification of this
+docs-only commit; Implementation Luna remains `pinned=true`.
+
+QA verified the exact clean chain
+`ad0f005673692b04772bce3c3b4d3ac4b2624731` ->
+`e2333db8fd0ad21c036d0016574c1551929fbb5c` ->
+`6a16422b02e6354bfaf67f731e7a0e5b05906a17`, including the exact 26-path
+implementation/docs structure and five-file docs-only formal closure.
+Independent warning-clean build, CPU `680/24/17`, movement including seven
+ROM mutations, exact flow, all four scene suites with clean
+`-Build -RequirePass`, Win32 production smoke, and final Git clean all passed.
+
+The QA proof root was
+`C:\Users\joshs\Projects\tecmo-basketball-port-r1-live-foundation-luna\build\live-proof-independent-qa-20260803-f`;
+manifest:
+`C:\Users\joshs\Projects\tecmo-basketball-port-r1-live-foundation-luna\build\live-proof-independent-qa-20260803-f\PROOF-MANIFEST.json`;
+SHA256
+`A7E1D408FA273481B58B605A3D189E52BD5F2A8ADD99FF59900601B9ABD6CE00`;
+size `571810`. It reported `TGLP-1`/`PASS`, base
+`ad0f005673692b04772bce3c3b4d3ac4b2624731`, current/final
+`6a16422b02e6354bfaf67f731e7a0e5b05906a17`, correct branch, and clean,
+RequirePass, build_requested, build_warning_clean, and suites_complete all
+true. Start/draft/completed UTC were
+`2026-08-03T16:26:25.9376325Z`, `2026-08-03T16:26:35.7451611Z`, and
+`2026-08-03T16:26:46.4144995Z`.
+
+QA revalidated ROM length/SHA `393232` /
+`076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C`, pack
+SHA `695EEB2D0101C5422B01790BD8D6B2A7607E758F396F429C2D2424AC6A26DE07`,
+TGAI `7616/D6C4DB35`, and TGMO `1664/6C82A137`. It validated 189 nonempty
+logs, 254 inventory entries, 14 frames, two contacts, and two videos; each
+video had 7/7 stored/decoded frames. Contact SHA was
+`F8380481C46C9836773F8970775F785B5FE1D0FE8E059DA066E0D6D37C8F8A9C` at
+`1920x1440`; video SHA was
+`B8653E4D0DB44AEA437BE9BFB8C545D38B82821809195B956807B5204E087595` at
+`640x480`, with exact rate `39375000/655171` and timebase
+`1/39375000`. The original reference was validated, including contact
+`768x896` with SHA
+`2EE377C3A97A2C415ED223A4E81C468230BCC6E4A987BABFC7F622E928B22B37`.
+
+Visual QA saw the expected PRESEASON/title plus six coherent court frames,
+nonblank handoff/deferred/shot frames, intact HUD/court/sprites, and no
+clipping, corrupt textures, or unexpected overlays. The comparison remains
+reference-only with no parity claim because teams, camera/view, resolution,
+input schedule, and frame timing differ. QA accepted the source/ABI/pack
+boundary, retained all exact/inferred/approximate/incomplete labels, and
+verified no runtime ROM/decomp dependency; TIP, shots, accepted CPU, and
+Win32 sources remained unchanged.
+
+The QA verdict completed at `2026-08-03T16:39:11Z`; the consolidated report
+completed at `2026-08-03T16:40:49Z`: implementation accepted, `P0=0`, `P1=0`,
+and `P2=2` docs-only. These two documentation corrections are the required
+terminal-chain follow-up; final Sol merge is not claimed.
 
 ## Inputs and fingerprints
 
@@ -259,8 +319,9 @@ PNG/video dimensions, mismatched repeat hashes/counts, invalid source maps,
 and missing/empty inventory artifacts. It also retains the full scene negative
 matrix and unchanged four-suite orchestration.
 
-The draft is not final acceptance. Remaining limits are original Bank05
-dynamic matchup/candidate semantics, original first running-clock RAM snapshot,
+The historical precommit draft alone is not final acceptance; it is superseded
+by the formal `PASS` record above. Remaining limits are original Bank05 dynamic
+matchup/candidate semantics, original first running-clock RAM snapshot,
 caller-derived shot workspaces/RNG, and unsupported jump/far/controller-
 dependent shots, which remain explicit deferred/non-launch classifications.
 The native adapter follows a referenced actor's current coordinate on every
