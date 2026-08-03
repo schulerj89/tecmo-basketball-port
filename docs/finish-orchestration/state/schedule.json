@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T16:55:12Z",
+  "updated_at": "2026-08-03T17:06:09Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -11,19 +11,25 @@
   },
   "capacity": {
     "active_domain_orchestrators": 3,
-    "cleared_for_creation": 0,
+    "cleared_for_creation": 1,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
-    "unallocated_target_slots": 1,
-    "unallocated_monitoring_slots": 5
+    "unallocated_target_slots": 0,
+    "unallocated_monitoring_slots": 4
   },
   "lanes": [
     {
       "lane_id": "LANE-R1-GAMEPLAY-FOUNDATION",
       "title": "Round 1 gameplay foundation",
       "domain": "gameplay_foundation",
-      "round_ids": ["R1"],
-      "task_ids": ["R1-CPU-PLAY-LIFECYCLE", "R1-LIVE-FOUNDATION", "R1-TIP-FIDELITY"],
+      "round_ids": [
+        "R1"
+      ],
+      "task_ids": [
+        "R1-CPU-PLAY-LIFECYCLE",
+        "R1-LIVE-FOUNDATION",
+        "R1-TIP-FIDELITY"
+      ],
       "readiness": "active",
       "dependency_status": "sequentially_active",
       "reservation_owner_session_id": "S-MASTER-001",
@@ -31,17 +37,23 @@
       "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "branch": "codex/r1-gameplay-foundation-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1-gameplay-foundation-sol",
-      "ownership_claim_ids": ["OWN-R1-TIP"],
+      "ownership_claim_ids": [
+        "OWN-R1-TIP"
+      ],
       "blockers": [],
-      "next_gate": "CPU and LIVE are staging-ready and their claims/workers released. TIP is sequentially assigned from exact domain base 222d75cf; authoritative Sol must confirm clean takeover before TIP mutation/Luna creation, then proceed through evidence, implementation, proof, independent QA, and Round 1 staging.",
-      "updated_at": "2026-08-03T16:55:12Z"
+      "next_gate": "CPU and LIVE are now physically present on clean Round 1 staging at 222d75cf. TIP is in_progress on the authoritative domain branch; after TIP acceptance it must be staged, then a dedicated Sol Max Round 1 Integration QA orchestrator signs combined suites/proof before master main integration/push.",
+      "updated_at": "2026-08-03T17:06:09Z"
     },
     {
       "lane_id": "LANE-R3-SEASON-DATA-FOUNDATION",
       "title": "Round 3 season and data foundation",
       "domain": "season_data",
-      "round_ids": ["R3"],
-      "task_ids": ["R3-SEASON-DATA-FOUNDATION"],
+      "round_ids": [
+        "R3"
+      ],
+      "task_ids": [
+        "R3-SEASON-DATA-FOUNDATION"
+      ],
       "readiness": "complete",
       "dependency_status": "complete",
       "reservation_owner_session_id": "S-MASTER-001",
@@ -49,7 +61,9 @@
       "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "branch": "codex/r3-season-data-foundation-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3-season-data-foundation-sol",
-      "ownership_claim_ids": ["OWN-R3-SEASON-DATA-FOUNDATION"],
+      "ownership_claim_ids": [
+        "OWN-R3-SEASON-DATA-FOUNDATION"
+      ],
       "blockers": [],
       "next_gate": "Bounded R3 foundation lane is complete: terminal f536a193 is staging-ready; claim released; all Lunas and the Sol orchestrator are completed/unpinned; branches/worktrees remain preserved for master-owned future Round 3 staging.",
       "updated_at": "2026-08-03T16:55:12Z"
@@ -58,8 +72,12 @@
       "lane_id": "LANE-R4-FRONTEND-INTRO-TITLE",
       "title": "Round 4 frontend intro and title",
       "domain": "frontend",
-      "round_ids": ["R4"],
-      "task_ids": ["R4-FRONTEND-INTRO-TITLE"],
+      "round_ids": [
+        "R4"
+      ],
+      "task_ids": [
+        "R4-FRONTEND-INTRO-TITLE"
+      ],
       "readiness": "active",
       "dependency_status": "ready",
       "reservation_owner_session_id": "S-MASTER-001",
@@ -67,17 +85,23 @@
       "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "branch": "codex/r4-frontend-intro-title-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4-frontend-intro-title-sol",
-      "ownership_claim_ids": ["OWN-R4-FRONTEND-INTRO-TITLE"],
+      "ownership_claim_ids": [
+        "OWN-R4-FRONTEND-INTRO-TITLE"
+      ],
       "blockers": [],
-      "next_gate": "Native hardening is Sol-accepted/integrated first at 761e061f and its worker is unpinned. Finale/title fidelity remains active; then the pinned proof worker revises fee87cfd against the corrected integrated boundary before remaining Sol review, independent QA, and domain acceptance.",
-      "updated_at": "2026-08-03T16:23:03Z"
+      "next_gate": "Native hardening is integrated at 761e061f. Same finale worker is correcting capture/native +8 scanline mapping, page1 short-route cadence, and three-band title renderer before its first commit; held proof worker revises only after finale integration.",
+      "updated_at": "2026-08-03T17:06:09Z"
     },
     {
       "lane_id": "LANE-R4-AUDIO-FOUNDATION",
       "title": "Round 4 audio foundation",
       "domain": "audio",
-      "round_ids": ["R4"],
-      "task_ids": ["R4-AUDIO-FOUNDATION"],
+      "round_ids": [
+        "R4"
+      ],
+      "task_ids": [
+        "R4-AUDIO-FOUNDATION"
+      ],
       "readiness": "active",
       "dependency_status": "ready",
       "reservation_owner_session_id": "S-MASTER-001",
@@ -85,10 +109,36 @@
       "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "branch": "codex/r4-audio-foundation-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4-audio-foundation-sol",
-      "ownership_claim_ids": ["OWN-R4-AUDIO-FOUNDATION"],
+      "ownership_claim_ids": [
+        "OWN-R4-AUDIO-FOUNDATION"
+      ],
       "blockers": [],
-      "next_gate": "Human listening is approved. Same writer adds the initial QA-requested order/vector/RIFF/event/run2/provenance proof assertions; same detached QA lineage, now clean at 4ddb1bf3, performs revised-tip verification; then Sol completes terminal acceptance/integration.",
-      "updated_at": "2026-08-03T16:43:46Z"
+      "next_gate": "Human listening is approved. Writer proof-gate chain now tops at clean ad82eb9; the same detached QA lineage is actively verifying exact vector/order/RIFF/event/run2/base-clean assertions. Same-writer terminal docs and final QA precede Sol acceptance/integration.",
+      "updated_at": "2026-08-03T17:06:09Z"
+    },
+    {
+      "lane_id": "LANE-R2-SHOTS-OUTCOMES",
+      "title": "Round 2 shots and outcomes",
+      "domain": "gameplay_behavior",
+      "round_ids": [
+        "R2"
+      ],
+      "task_ids": [
+        "R2-SHOTS-OUTCOMES"
+      ],
+      "readiness": "cleared_for_creation",
+      "dependency_status": "ready",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": null,
+      "base_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
+      "branch": "codex/r2-shots-outcomes-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-shots-outcomes-sol",
+      "ownership_claim_ids": [
+        "OWN-R2-SHOTS-OUTCOMES"
+      ],
+      "blockers": [],
+      "next_gate": "Create and pin one registered Sol Max orchestrator at exact accepted CPU+LIVE base 222d75cf, transfer the reserved claim, and require Sol-managed Luna evidence/audit/implementation/proof/independent-QA lineages without touching active TIP or other domains.",
+      "updated_at": "2026-08-03T17:06:09Z"
     }
   ]
 }
