@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T23:23:45Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T23:38:12Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,15 +8,15 @@ Generated from committed JSON at `2026-08-03T23:23:45Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 12, `in_progress` 2, `pushed` 14, `ready_for_round_staging` 1
+- Task states: `backlog` 11, `in_progress` 1, `pushed` 14, `ready_for_round_staging` 2, `scoped` 3
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
 
 - Single master authority: `True`
 - Second-master policy: `recovery_replacement_only`
-- Active domain Sols: `2`
-- Cleared for creation: `0`
+- Active domain Sols: `1`
+- Cleared for creation: `3`
 - Target active domain Sols: `4`
 - Monitoring limit: `8`
 
@@ -31,7 +31,10 @@ Generated from committed JSON at `2026-08-03T23:23:45Z`. This dashboard reports 
 | LANE-R4A-INTEGRATION-QA | integration | complete | complete | R4A-INTEGRATION-QA | S-SOL-R4A-INTEGRATION-QA-001 | codex/r4a-audio-integration-qa-sol | Complete: same-Luna P0/P1/P2-zero closure and signed report bcacd5b were master-verified, fast-forwarded, non-force pushed, and remote-verified. Luna and Sol are completed/unpinned; branches/worktrees are preserved. |
 | LANE-R4B-INTEGRATION-QA | integration | complete | complete | R4B-INTEGRATION-QA | S-SOL-R4B-INTEGRATION-QA-001 | codex/r4b-frontend-integration-qa-sol | Complete: signed terminal edf16ca passed combined P0/P1/P2-zero QA and was fast-forwarded/non-force pushed to main; preserved branches/worktrees remain available for audit. |
 | LANE-R2-SHOTS-OUTCOMES | gameplay_behavior | active | ready | R2-SHOTS-OUTCOMES | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | Code revision resumed before commit: gate A7A9 rattle selection after evaluation on MISS, enforce the deep-state invariant, correct the make helper, and pass a bound production terminal-settlement regression. Only then may docs/proof preparation, full Sol QA, and independent terminal QA resume. source_map.c and scene.c remain zero-diff exclusions. |
-| LANE-R2-CLOCK-LINEUPS-FATIGUE | gameplay_behavior | active | ready | R2-CLOCK-LINEUPS-FATIGUE | S-SOL-R2-CLOCK-LINEUPS-001 | codex/r2-clock-lineups-fatigue-sol | Evidence reconciliation is complete and one persistent writable Luna is active on state/TGFT/TGFL patches. Sol must finish live review, bounded rescope for the LIVE reset/substitution seams, stable commits, personal QA/proof, and independent Luna closure before handoff. |
+| LANE-R2-CLOCK-LINEUPS-FATIGUE | gameplay_behavior | complete | complete | R2-CLOCK-LINEUPS-FATIGUE | S-SOL-R2-CLOCK-LINEUPS-001 | codex/r2-clock-lineups-fatigue-sol | Terminal signed domain tip ed4e56fc595894c692ffca84ae3b35f129317049 is accepted and frozen for the dedicated R2A current-main integration lane. Domain ownership is released; the accepted Sol may retire after durable control-plane closure. |
+| LANE-R1B-TIP-INTEGRATION-QA | integration_qa | cleared_for_creation | ready | R1B-TIP-INTEGRATION-QA | reserved by master | codex/r1b-tip-integration-qa-sol | Create and pin the exact Sol Max orchestrator, transfer the reserved claim, verify the clean edf16ca takeover, and reconcile immutable staging e21f9a6 on the branch only. |
+| LANE-R2A-CLOCK-LINEUPS-INTEGRATION-QA | integration_qa | cleared_for_creation | ready | R2A-CLOCK-LINEUPS-INTEGRATION-QA | reserved by master | codex/r2a-clocks-integration-qa-sol | Create and pin the exact Sol Max orchestrator, transfer the reserved claim, verify the clean edf16ca takeover, and reconcile immutable staging ed4e56f on the branch only. |
+| LANE-R2-DEFENSE-CONTACT | gameplay_behavior | cleared_for_creation | ready | R2-DEFENSE-CONTACT | reserved by master | codex/r2-defense-contact-sol | Create and pin the exact Sol Max orchestrator. Begin read-only evidence/native-gap and ownership audit under the docs-only claim; no product writes or writable Luna until master grants an exact collision-free scope that preserves the active Shots shared-scene boundary. |
 
 ## Rounds
 
@@ -47,6 +50,8 @@ Generated from committed JSON at `2026-08-03T23:23:45Z`. This dashboard reports 
 | R4A | pushed | 6d8f9c7a99a7 | 2 | codex/round-4a-audio-foundation-staging | accepted | succeeded |
 | R4 | planned | 6d8f9c7a99a7 | 3 | codex/round-4-frontend-audio-staging | pending | not_attempted |
 | R4B | pushed | 819b0e5eabca | 1 | codex/round-4b-frontend-intro-title-staging | accepted | succeeded |
+| R1B | planned | edf16ca90591 | 1 | codex/round-1b-tip-fidelity-staging | pending | not_attempted |
+| R2A | planned | edf16ca90591 | 1 | codex/round-2a-clock-lineups-fatigue-staging | pending | not_attempted |
 | R5 | planned | 7090d2c62201 | 3 | codex/round-5-release-staging | pending | not_attempted |
 
 ## Queue
@@ -57,7 +62,9 @@ Generated from committed JSON at `2026-08-03T23:23:45Z`. This dashboard reports 
 | 100 | R0A-INV-001 | orchestration | R0A | pushed | S-MASTER-001 | codex/master-finish-orchestration | 2 | coordination_validated | pushed |
 | 100 | R1-CPU-PLAY-LIFECYCLE | gameplay_behavior | R1A | pushed | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | pushed |
 | 100 | R1A-INTEGRATION-QA | integration | R1A | pushed | S-SOL-R1A-INTEGRATION-QA-001 | codex/r1a-cpu-live-integration-qa-sol | 3 | passed | pushed |
+| 100 | R1B-TIP-INTEGRATION-QA | integration | R1B | scoped | - | codex/r1b-tip-integration-qa-sol | 0 | pending | not_ready |
 | 100 | R2-SHOTS-OUTCOMES | gameplay_behavior | R2 | in_progress | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | 0 | in_progress | not_ready |
+| 100 | R2A-CLOCK-LINEUPS-INTEGRATION-QA | integration | R2A | scoped | - | codex/r2a-clocks-integration-qa-sol | 0 | pending | not_ready |
 | 100 | R3-PLAYER-STATS-LEADERS | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 100 | R3-SEASON-DATA-FOUNDATION | season_data | R3A | pushed | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | 7 | passed | pushed |
 | 100 | R3A-INTEGRATION-QA | integration | R3A | pushed | S-SOL-R3A-INTEGRATION-QA-001 | codex/r3a-season-data-integration-qa-sol | 1 | passed | pushed |
@@ -69,7 +76,7 @@ Generated from committed JSON at `2026-08-03T23:23:45Z`. This dashboard reports 
 | 99 | R4-AUDIO-FOUNDATION | audio | R4A | pushed | S-SOL-R4-AUDIO-001 | codex/round-4a-audio-foundation-staging | 10 | passed | pushed |
 | 98 | R0A-ADOPT-TIP-VIS | gameplay_presentation | R0A | pushed | S-SOL-TIP-VIS-LEGACY | codex/tipoff-visual-orientation | 6 | historical_sol_accepted | pushed |
 | 98 | R1-LIVE-FOUNDATION | gameplay_behavior | R1A | pushed | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 3 | passed | pushed |
-| 98 | R2-DEFENSE-CONTACT | gameplay_behavior | R2 | backlog | - | - | 0 | pending | not_ready |
+| 98 | R2-DEFENSE-CONTACT | gameplay_behavior | R2 | scoped | - | codex/r2-defense-contact-sol | 0 | pending | not_ready |
 | 98 | R3-SEASON-PROGRESSION-SAVE | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 98 | R4-MENUS-UI | frontend | R4 | backlog | - | - | 0 | pending | not_ready |
 | 98 | R5-PARITY-GAP-CLOSURE | integration | R5 | backlog | - | - | 0 | pending | not_ready |
@@ -79,7 +86,7 @@ Generated from committed JSON at `2026-08-03T23:23:45Z`. This dashboard reports 
 | 96 | R3-TEAM-MGMT-DATA | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 96 | R4-AUDIO | audio | R4 | backlog | - | - | 0 | pending | not_ready |
 | 96 | R5-E2E-RELEASE-QA | integration | R5 | backlog | - | - | 0 | pending | not_ready |
-| 94 | R2-CLOCK-LINEUPS-FATIGUE | gameplay_behavior | R2 | in_progress | S-SOL-R2-CLOCK-LINEUPS-001 | codex/r2-clock-lineups-fatigue-sol | 1 | in_progress | not_ready |
+| 94 | R2-CLOCK-LINEUPS-FATIGUE | gameplay_behavior | R2 | ready_for_round_staging | S-SOL-R2-CLOCK-LINEUPS-001 | codex/r2-clock-lineups-fatigue-sol | 7 | passed | ready |
 | 94 | R3-ALLSTAR | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 92 | R2-GAMEPLAY-PRESENTATION | gameplay_presentation | R2 | backlog | - | - | 0 | pending | not_ready |
 
@@ -95,9 +102,10 @@ Generated from committed JSON at `2026-08-03T23:23:45Z`. This dashboard reports 
 
 | Claim | Task | Round | Mode | Writable globs | Concurrency group |
 |---|---|---|---|---|---|
-| OWN-R1-TIP | R1-TIP-FIDELITY | R1 | exclusive | include/tecmo_gameplay_pretip.h<br>src/tecmo_gameplay_pretip.c<br>src/tecmo_flow_test.c<br>src/tecmo_gameplay_live_proof.c<br>src/tecmo_gameplay_scene_render.c<br>src/tecmo_gameplay_scene_test_pretip.c<br>src/tecmo_gameplay_scene_test_render_contract.c<br>src/tecmo_cli.c<br>src/tecmo_cli_render_gameplay_checkpoint.c<br>src/tecmo_asset_pack.c<br>src/tecmo_win32_keys.c<br>src/asset_pack/tecmo_asset_pack_gameplay_pretip.c<br>src/asset_pack/tecmo_asset_pack_gameplay_pretip.h<br>src/asset_pack/tecmo_asset_pack_source_map.c<br>src/tecmo_gameplay_scene.c<br>tools/New-TipoffVisualProof.ps1<br>tools/Run-GameplayPreTipTests.ps1<br>tools/Run-GameplaySceneTests.ps1<br>docs/finish-tasks/R1-tip-fidelity/** | R1-gameplay-foundation |
 | OWN-R2-SHOTS-OUTCOMES | R2-SHOTS-OUTCOMES | R2 | exclusive | include/tecmo_gameplay_close_shots.h<br>include/tecmo_gameplay_jump_shots.h<br>include/tecmo_gameplay_dunk_cutaway.h<br>include/tecmo_gameplay_shot_resolution.h<br>include/tecmo_gameplay_scene.h<br>include/tecmo_gameplay_scene_internal.h<br>src/tecmo_gameplay_close_shots.c<br>src/tecmo_gameplay_jump_shots.c<br>src/tecmo_gameplay_dunk_cutaway.c<br>src/tecmo_gameplay_shot_resolution.c<br>src/tecmo_gameplay_scene_shots.c<br>src/tecmo_gameplay_scene_validation.c<br>src/tecmo_gameplay_scene_test_internal.h<br>src/tecmo_gameplay_scene_test_orchestrator.c<br>src/tecmo_gameplay_scene_test_state_flow.c<br>src/tecmo_cli_gameplay_shots.c<br>src/tecmo_cli_gameplay_shot_resolution.c<br>src/asset_pack/tecmo_asset_pack_gameplay_close_shots.c<br>src/asset_pack/tecmo_asset_pack_gameplay_close_shots.h<br>src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c<br>src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.h<br>src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c<br>src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.h<br>src/asset_pack/tecmo_asset_pack_gameplay_shot_resolution.c<br>src/asset_pack/tecmo_asset_pack_gameplay_shot_resolution.h<br>tools/Run-GameplayCloseShotTests.ps1<br>tools/Run-GameplayShotResolutionTests.ps1<br>docs/finish-tasks/R2-shots-outcomes/** | R2-shots-outcomes |
-| OWN-R2-CLOCK-LINEUPS-FATIGUE | R2-CLOCK-LINEUPS-FATIGUE | R2 | exclusive | include/tecmo_gameplay_state.h<br>include/tecmo_gameplay_free_throw_lineup.h<br>include/tecmo_gameplay_fatigue.h<br>include/tecmo_gameplay_free_throw_projection_test.h<br>src/tecmo_gameplay_state.c<br>src/tecmo_gameplay_free_throw_lineup.c<br>src/tecmo_gameplay_fatigue.c<br>src/tecmo_gameplay_free_throw_projection_test.c<br>src/tecmo_gameplay_scene_test_shot_clock.c<br>src/asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.c<br>src/asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.h<br>src/asset_pack/tecmo_asset_pack_gameplay_fatigue.c<br>src/asset_pack/tecmo_asset_pack_gameplay_fatigue.h<br>tools/Run-GameplayFreeThrowLineupTests.ps1<br>tools/Run-GameplayFatigueTests.ps1<br>docs/finish-tasks/R2-clock-lineups-fatigue/** | R2-clock-lineups-fatigue |
+| OWN-R1B-TIP-INTEGRATION-QA | R1B-TIP-INTEGRATION-QA | R1B | exclusive | docs/finish-tasks/R1B-tip-integration-qa/** | R1B-tip-integration-qa |
+| OWN-R2A-CLOCK-LINEUPS-INTEGRATION-QA | R2A-CLOCK-LINEUPS-INTEGRATION-QA | R2A | exclusive | docs/finish-tasks/R2A-clock-lineups-fatigue-integration-qa/** | R2A-clock-lineups-fatigue-integration-qa |
+| OWN-R2-DEFENSE-CONTACT | R2-DEFENSE-CONTACT | R2 | exclusive | docs/finish-tasks/R2-defense-contact/** | R2-defense-contact |
 
 ## External Blockers
 

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T22:04:10Z",
+  "updated_at": "2026-08-03T23:38:12Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -236,7 +236,7 @@
         "docs/finish-tasks/R1-tip-fidelity/README.md"
       ],
       "concurrency_group": "R1-gameplay-foundation",
-      "active": true,
+      "active": false,
       "claimed_at": "2026-08-03T05:30:16Z",
       "released_at": "2026-08-03T22:04:10Z",
       "notes": "Pretip, rendering, input, proof, and existing TPTI semantic-pack paths were exclusive to TIP, including the precisely recorded sequential shared-file and fixture-only rescopes. Terminal signed chain a37e102 through e21f9a6 is clean, ownership-compliant, personally Sol-accepted, independently QA-accepted with P0/P1/P2 zero, and ff-only integrated into the domain branch. Master released this claim only after verifying exact ancestry, equal worker/Sol tips and tree, 24-path scope, eight-file task docs, diff-check, and unchanged main/origin/staging. Later integration work must consume e21f9a6 read-only through a separately owned current-main integration lane."
@@ -440,10 +440,10 @@
         "docs/finish-tasks/R2-clock-lineups-fatigue/README.md"
       ],
       "concurrency_group": "R2-clock-lineups-fatigue",
-      "active": true,
+      "active": false,
       "claimed_at": "2026-08-03T18:57:26Z",
-      "released_at": null,
-      "notes": "Reserved by master at checkpoint bb423f8 before session creation, then transferred to pinned Sol S-SOL-R2-CLOCK-LINEUPS-001 after exact branch/worktree/base creation. Scope is limited to existing gameplay state, free-throw-lineup, fatigue, projection-test, shot-clock test, dedicated semantic-pack modules, focused runners, and task docs. Active TIP, shots/outcomes, defense/contact, rules/restarts, scene/core/shared headers, CMake/build, source-map/import-layout, game/flow, Win32, main, and unrelated paths are excluded. Any cross-boundary need must be reported for sequential rescope."
+      "released_at": "2026-08-03T23:38:12Z",
+      "notes": "Released after terminal signed domain acceptance at ed4e56fc595894c692ffca84ae3b35f129317049, independent P0/P1/P2/P3-zero closure, durable handoff, and worker/QA unpins. A dedicated R2A integration lane consumes the immutable accepted tip read-only and owns only its integration report plus a signed branch-only reconciliation merge."
     },
     {
       "claim_id": "OWN-R1A-INTEGRATION-QA",
@@ -519,6 +519,64 @@
       "claimed_at": "2026-08-03T19:48:51Z",
       "released_at": "2026-08-03T21:02:40Z",
       "notes": "Released after signed merge 6b5d435 and signed terminal report edf16ca passed personal and independent P0/P1/P2-zero combined QA, master fast-forwarded/pushed main to exact edf16ca, and both Luna/Sol were unpinned. The unsigned immutable frontend candidate remained explicitly anchored by exact SHA/tree/report digest; branches/worktrees are preserved."
+    },
+    {
+      "claim_id": "OWN-R1B-TIP-INTEGRATION-QA",
+      "task_id": "R1B-TIP-INTEGRATION-QA",
+      "round_id": "R1B",
+      "session_id": "S-MASTER-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R1B-tip-integration-qa/**"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R1B-tip-integration-qa/README.md",
+        "docs/finish-tasks/R1B-tip-integration-qa/PROOF.md"
+      ],
+      "concurrency_group": "R1B-tip-integration-qa",
+      "active": true,
+      "claimed_at": "2026-08-03T23:38:12Z",
+      "released_at": null,
+      "notes": "Master reservation before Sol creation. The immutable accepted TIP tip e21f9a6621df5527544be1de4d0dc60382539c60 and current-main product paths are read-only except for one deliberate signed branch-only reconciliation merge. This claim owns only R1B task docs; main integration and push remain master-only."
+    },
+    {
+      "claim_id": "OWN-R2A-CLOCK-LINEUPS-INTEGRATION-QA",
+      "task_id": "R2A-CLOCK-LINEUPS-INTEGRATION-QA",
+      "round_id": "R2A",
+      "session_id": "S-MASTER-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R2A-clock-lineups-fatigue-integration-qa/**"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R2A-clock-lineups-fatigue-integration-qa/README.md",
+        "docs/finish-tasks/R2A-clock-lineups-fatigue-integration-qa/PROOF.md"
+      ],
+      "concurrency_group": "R2A-clock-lineups-fatigue-integration-qa",
+      "active": true,
+      "claimed_at": "2026-08-03T23:38:12Z",
+      "released_at": null,
+      "notes": "Master reservation before Sol creation. The immutable accepted clocks/lineups/fatigue tip ed4e56fc595894c692ffca84ae3b35f129317049 and current-main product paths are read-only except for one deliberate signed branch-only reconciliation merge. This claim owns only R2A task docs; main integration and push remain master-only."
+    },
+    {
+      "claim_id": "OWN-R2-DEFENSE-CONTACT",
+      "task_id": "R2-DEFENSE-CONTACT",
+      "round_id": "R2",
+      "session_id": "S-MASTER-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R2-defense-contact/**"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R2-defense-contact/README.md",
+        "docs/finish-tasks/R2-defense-contact/EVIDENCE.md",
+        "docs/finish-tasks/R2-defense-contact/SCOPE.md"
+      ],
+      "concurrency_group": "R2-defense-contact",
+      "active": true,
+      "claimed_at": "2026-08-03T23:38:12Z",
+      "released_at": null,
+      "notes": "Master reservation before Sol creation. Initial authority is docs-only evidence and native-gap audit. Product writable scope is withheld until the Sol proposes an exact collision-free path set and master explicitly grants it. R2 Shots retains first ownership of the shared scene contract; concurrent shared-file edits are forbidden."
     }
   ],
   "shared_boundaries": [
@@ -676,6 +734,20 @@
         "R4B-INTEGRATION-QA"
       ],
       "declared_at": "2026-08-03T19:48:51Z"
+    },
+    {
+      "round_id": "R1B",
+      "ordered_task_ids": [
+        "R1B-TIP-INTEGRATION-QA"
+      ],
+      "declared_at": "2026-08-03T23:38:12Z"
+    },
+    {
+      "round_id": "R2A",
+      "ordered_task_ids": [
+        "R2A-CLOCK-LINEUPS-INTEGRATION-QA"
+      ],
+      "declared_at": "2026-08-03T23:38:12Z"
     },
     {
       "round_id": "R4",

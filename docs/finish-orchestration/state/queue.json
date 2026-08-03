@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T23:23:45Z",
+  "updated_at": "2026-08-03T23:38:12Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -1353,16 +1353,18 @@
       "round_id": "R2",
       "priority": 98,
       "coordination_only": false,
-      "state": "backlog",
+      "state": "scoped",
       "dependencies": [
         "R1-CPU-PLAY-LIFECYCLE",
         "R1-LIVE-FOUNDATION"
       ],
-      "ownership_claim_ids": [],
-      "base_sha": "7090d2c62201ce3d330df20043a6e80fd0bdef00",
-      "expected_parent_sha": "7090d2c62201ce3d330df20043a6e80fd0bdef00",
-      "branch": null,
-      "worktree": null,
+      "ownership_claim_ids": [
+        "OWN-R2-DEFENSE-CONTACT"
+      ],
+      "base_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
+      "expected_parent_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
+      "branch": "codex/r2-defense-contact-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-defense-contact-sol",
       "sol_orchestrator_session_id": null,
       "reported_luna_worker_session_ids": [],
       "result_commits": [],
@@ -1383,13 +1385,13 @@
         "merge_order": 2,
         "status": "not_ready",
         "merge_commit": null,
-        "main_pre_sha": "7090d2c62201ce3d330df20043a6e80fd0bdef00",
+        "main_pre_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
         "main_post_sha": null,
         "push_sha": null,
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T04:47:45Z",
+      "updated_at": "2026-08-03T23:38:12Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -1397,6 +1399,13 @@
           "from_state": null,
           "to_state": "backlog",
           "reason": "Definition of finished and README identify exact steals, blocks, rebounds, and contact as remaining work."
+        },
+        {
+          "timestamp": "2026-08-03T23:38:12Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "backlog",
+          "to_state": "scoped",
+          "reason": "CPU and LIVE dependencies are pushed. Reserve a docs-only evidence/native-gap phase at current main edf16ca while Shots retains the sequential shared scene contract; no Defense product edit is authorized until Sol returns an exact collision-free ownership proposal."
         }
       ]
     },
@@ -1461,7 +1470,7 @@
       "round_id": "R2",
       "priority": 94,
       "coordination_only": false,
-      "state": "in_progress",
+      "state": "ready_for_round_staging",
       "dependencies": [
         "R1-LIVE-FOUNDATION"
       ],
@@ -1481,15 +1490,21 @@
         "019fc957-a425-70f3-83b9-1e63dfdba40e"
       ],
       "result_commits": [
-        "1536ae31e7016f6e9adbddb7868e2d40e51c1085"
+        "6c87dbed170c8ca2ba68e29671f7cfebf5adb60a",
+        "540ae0ba47ef44d6096781ffd0c276012e683221",
+        "97277cbecf685a9f8ac8e29dde1a6de61f0e2db8",
+        "1536ae31e7016f6e9adbddb7868e2d40e51c1085",
+        "bf0ea4b40ac3d4cfd79a0391e4fad2acc30082be",
+        "1567f284ff48a2334fb6a9bd82d00aadf0cdb373",
+        "ed4e56fc595894c692ffca84ae3b35f129317049"
       ],
       "evidence_ids": [],
       "blocker_ids": [],
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-tasks/R2-clock-lineups-fatigue",
       "qa": {
-        "status": "in_progress",
-        "sol_signoff": false,
+        "status": "passed",
+        "sol_signoff": true,
         "integration_signoff": false,
         "test_records": [
           "2026-08-03T19:05:21Z Sol confirmed pinned clean takeover at exact branch/worktree/base/merge-base 222d75cf, read complete AGENTS/PORTING, and created three pinned projectless read-only Luna Max audits for clocks/periods, lineups/substitutions, and fatigue/native coupling with no writable allocation.",
@@ -1497,23 +1512,26 @@
           "2026-08-03T20:06:56Z sole writable lineage is exactly 019fc912-a957-79f0-89a3-7e2e2d10db24, Tecmo R2 Clocks Lineups Fatigue Implementation — Luna Max, gpt-5.6-luna/max, created once at 2026-08-03T19:21:11Z, pinned/active on codex/r2-clock-lineups-fatigue-luna and its registered worktree at exact base/last-good 222d75cf with zero creation/retry/replacement fault. Exact 16-path writable scope matches OWN-R2-CLOCK-LINEUPS-FATIGUE.",
           "2026-08-03T20:11:16Z writable Luna produced cryptographically signed implementation commit 6c87dbed170c8ca2ba68e29671f7cfebf5adb60a. Required lineage/evidence/approximation docs, Sol stable-commit review, proof, and independent QA remain pending; no Sol merge or main action.",
           "2026-08-03T20:23:27Z signed linear worker chain now ends at 97277cbecf685a9f8ac8e29dde1a6de61f0e2db8 after implementation 6c87dbed and docs 540ae0ba. Sol verified good SSH signatures, clean worker tree, ownership-only paths, and durable capture of all three accepted research reports. The three read-only Lunas were unpinned with exact API confirmations; sole writable Luna remains pinned for Sol QA/revisions.",
-          "2026-08-03T21:02:40Z frozen signed candidate 1536ae31e7016f6e9adbddb7868e2d40e51c1085 passed independent integrity/proof audit (4 signed commits, 18 owned paths, 97 artifacts) but sole pinned QA Luna 019fc957-a425-70f3-83b9-1e63dfdba40e returned FAIL with P0/P1=0 and two P2 hardening gaps: overlap-safe transactional public state mutators and destructor protection against storage overlapping its containing asset object. Three P3 record corrections also remain. Same implementation Luna is revising; QA will be reused."
+          "2026-08-03T21:02:40Z frozen signed candidate 1536ae31e7016f6e9adbddb7868e2d40e51c1085 passed independent integrity/proof audit (4 signed commits, 18 owned paths, 97 artifacts) but sole pinned QA Luna 019fc957-a425-70f3-83b9-1e63dfdba40e returned FAIL with P0/P1=0 and two P2 hardening gaps: overlap-safe transactional public state mutators and destructor protection against storage overlapping its containing asset object. Three P3 record corrections also remain. Same implementation Luna is revising; QA will be reused.",
+          "2026-08-03T23:38:12Z master accepted the terminal seven-commit Good-signed lineage through ed4e56fc after Sol personal warning-clean/state/asset-pack/TGFL/TGFT/TGCP/TPNL/TGVR/NativeFlow/scene QA, deterministic v2 proof manifest 1FA074FB90D87AF48A3FB78DB50E8B96A78C7F653EC9EFA76BF581B8FC0F51C3 with 97 verified artifacts, and reused independent Luna final P0/P1/P2/P3-zero closure. Domain branch is clean; dynamic substitutions and later scene bridge remain explicitly deferred."
         ],
-        "proof_manifests": [],
-        "notes": "Frozen candidate 1536ae is integrity/proof-clean but not terminally accepted: independent QA found two real P2 overlap/transaction/destructor hardening gaps and three P3 evidence corrections, with no P0/P1. Same persistent implementation Luna is making bounded owned-path fixes; the same independent QA Luna remains pinned for v2. LIVE-only reset and ungrounded substitutions remain explicitly bounded/deferred."
+        "proof_manifests": [
+          "build/r2-clock-lineups-fatigue-proof-v2-20260803T212500Z/proof-manifest.json"
+        ],
+        "notes": "Terminal signed ed4e56fc is Sol-accepted and independently accepted with P0/P1/P2/P3 zero. Product/proof source bf0ea4b and the docs-only descendants are bound in the committed record. Exact clocks/TGFT/TGFL semantics and fixed-slot bridge are accepted within scope; dynamic substitutions and broader scene ownership remain deferred. Current-main integration requires dedicated R2A QA."
       },
       "merge": {
-        "staging_branch": "codex/round-2-gameplay-mechanics-staging",
-        "merge_order": 4,
-        "status": "not_ready",
+        "staging_branch": "codex/round-2a-clock-lineups-fatigue-staging",
+        "merge_order": 1,
+        "status": "ready",
         "merge_commit": null,
-        "main_pre_sha": "7090d2c62201ce3d330df20043a6e80fd0bdef00",
+        "main_pre_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
         "main_post_sha": null,
         "push_sha": null,
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T21:02:40Z",
+      "updated_at": "2026-08-03T23:38:12Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -1542,6 +1560,27 @@
           "from_state": "assigned",
           "to_state": "in_progress",
           "reason": "Sol confirmed pinned clean takeover at exact 222d75cf branch/worktree/base/merge-base, completed the full AGENTS/PORTING read, began personal native/evidence inventory, and created three bounded projectless read-only Luna Max audits with no product mutation."
+        },
+        {
+          "timestamp": "2026-08-03T23:38:09Z",
+          "actor_session_id": "S-SOL-R2-CLOCK-LINEUPS-001",
+          "from_state": "in_progress",
+          "to_state": "sol_review",
+          "reason": "Terminal Good-signed seven-commit lineage, remediated product source, deterministic v2 proof, complete docs, and reused independent QA entered final Sol reconciliation."
+        },
+        {
+          "timestamp": "2026-08-03T23:38:10Z",
+          "actor_session_id": "S-SOL-R2-CLOCK-LINEUPS-001",
+          "from_state": "sol_review",
+          "to_state": "sol_accepted",
+          "reason": "Sol and independent QA accepted exact clean ed4e56fc with no remaining P0/P1/P2/P3 finding and honest dynamic-substitution/scene deferrals."
+        },
+        {
+          "timestamp": "2026-08-03T23:38:11Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "sol_accepted",
+          "to_state": "ready_for_round_staging",
+          "reason": "Master verified the reported terminal lineage, signatures, clean domain branch, proof identity, accepted QA closure, and created immutable R2A staging ref ed4e56fc for dedicated current-main integration QA."
         }
       ]
     },
@@ -3152,6 +3191,80 @@
           "to_state": "pushed",
           "reason": "Non-force push succeeded; local main, origin/main, and live remote main all reverified exact edf16ca."
         }
+      ]
+    },
+    {
+      "task_id": "R1B-TIP-INTEGRATION-QA",
+      "title": "Integrate accepted R1 TIP fidelity with current main and sign combined QA",
+      "domain": "integration",
+      "round_id": "R1B",
+      "priority": 100,
+      "coordination_only": false,
+      "state": "scoped",
+      "dependencies": ["R1-TIP-FIDELITY"],
+      "ownership_claim_ids": ["OWN-R1B-TIP-INTEGRATION-QA"],
+      "base_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
+      "expected_parent_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
+      "branch": "codex/r1b-tip-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1b-tip-integration-qa-sol",
+      "sol_orchestrator_session_id": null,
+      "reported_luna_worker_session_ids": [],
+      "result_commits": [],
+      "evidence_ids": ["EVID-R1-TIP-SOURCE-MECHANICS", "EVID-R1-TIP-TERMINAL-PROOF"],
+      "blocker_ids": [],
+      "replacement_task_id": null,
+      "task_docs_path": "docs/finish-tasks/R1B-tip-integration-qa",
+      "qa": {
+        "status": "pending",
+        "sol_signoff": false,
+        "integration_signoff": false,
+        "test_records": ["2026-08-03T23:38:12Z master froze accepted TIP staging at e21f9a6621df5527544be1de4d0dc60382539c60 and created an isolated clean integration worktree from current main edf16ca; dedicated signed non-ff reconciliation and combined QA are required."],
+        "proof_manifests": [],
+        "notes": "Candidate e21f9a6 is immutable input. Integration Sol may write only its task docs after a deliberate signed branch-only merge; main/push remain master-owned."
+      },
+      "merge": {"staging_branch":"codex/round-1b-tip-fidelity-staging","merge_order":1,"status":"not_ready","merge_commit":null,"main_pre_sha":"edf16ca9059158452798dbe5667f5e64ef444e39","main_post_sha":null,"push_sha":null,"pushed_at":null},
+      "created_at": "2026-08-03T23:38:12Z",
+      "updated_at": "2026-08-03T23:38:12Z",
+      "audit": [
+        {"timestamp":"2026-08-03T23:38:11Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Incremental delivery policy requires accepted TIP code to reach current main without waiting for the rest of Round 2."},
+        {"timestamp":"2026-08-03T23:38:12Z","actor_session_id":"S-MASTER-001","from_state":"backlog","to_state":"scoped","reason":"Reserved exact docs-only Integration QA ownership, immutable e21f9a6 staging, and a clean edf16ca-based worktree before Sol creation."}
+      ]
+    },
+    {
+      "task_id": "R2A-CLOCK-LINEUPS-INTEGRATION-QA",
+      "title": "Integrate accepted clocks, lineups, and fatigue foundation with current main and sign combined QA",
+      "domain": "integration",
+      "round_id": "R2A",
+      "priority": 100,
+      "coordination_only": false,
+      "state": "scoped",
+      "dependencies": ["R2-CLOCK-LINEUPS-FATIGUE"],
+      "ownership_claim_ids": ["OWN-R2A-CLOCK-LINEUPS-INTEGRATION-QA"],
+      "base_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
+      "expected_parent_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
+      "branch": "codex/r2a-clocks-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2a-clocks-integration-qa-sol",
+      "sol_orchestrator_session_id": null,
+      "reported_luna_worker_session_ids": [],
+      "result_commits": [],
+      "evidence_ids": [],
+      "blocker_ids": [],
+      "replacement_task_id": null,
+      "task_docs_path": "docs/finish-tasks/R2A-clock-lineups-fatigue-integration-qa",
+      "qa": {
+        "status": "pending",
+        "sol_signoff": false,
+        "integration_signoff": false,
+        "test_records": ["2026-08-03T23:38:12Z master accepted terminal domain tip ed4e56fc, froze it as R2A staging, and created an isolated clean integration worktree from current main edf16ca; dedicated signed reconciliation and combined QA are required."],
+        "proof_manifests": ["build/r2-clock-lineups-fatigue-proof-v2-20260803T212500Z/proof-manifest.json"],
+        "notes": "Candidate ed4e56fc is immutable input. Integration Sol may write only its task docs after a deliberate signed branch-only merge; main/push remain master-owned."
+      },
+      "merge": {"staging_branch":"codex/round-2a-clock-lineups-fatigue-staging","merge_order":1,"status":"not_ready","merge_commit":null,"main_pre_sha":"edf16ca9059158452798dbe5667f5e64ef444e39","main_post_sha":null,"push_sha":null,"pushed_at":null},
+      "created_at": "2026-08-03T23:38:12Z",
+      "updated_at": "2026-08-03T23:38:12Z",
+      "audit": [
+        {"timestamp":"2026-08-03T23:38:11Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Incremental delivery policy requires accepted clocks/lineups/fatigue code to reach current main without waiting for all Round 2 mechanics."},
+        {"timestamp":"2026-08-03T23:38:12Z","actor_session_id":"S-MASTER-001","from_state":"backlog","to_state":"scoped","reason":"Reserved exact docs-only Integration QA ownership, immutable ed4e56fc staging, and a clean edf16ca-based worktree before Sol creation."}
       ]
     }
   ]
