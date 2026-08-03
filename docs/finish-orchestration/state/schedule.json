@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T15:19:45Z",
+  "updated_at": "2026-08-03T15:24:43Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -51,8 +51,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3-season-data-foundation-sol",
       "ownership_claim_ids": ["OWN-R3-SEASON-DATA-FOUNDATION"],
       "blockers": [],
-      "next_gate": "Create one isolated writable Luna lineage for the Sol-accepted bounded data contract, then Sol review, product QA, independent QA, and domain acceptance.",
-      "updated_at": "2026-08-03T15:19:45Z"
+      "next_gate": "Writable Luna 019fc836-d254-78a0-b3a6-c4003278c2a5 implementation commit, then Sol source/diff review, product QA, same-worker revision if needed, independent QA, and domain acceptance.",
+      "updated_at": "2026-08-03T15:24:43Z"
     },
     {
       "lane_id": "LANE-R4-FRONTEND-INTRO-TITLE",
@@ -87,8 +87,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4-audio-foundation-sol",
       "ownership_claim_ids": ["OWN-R4-AUDIO-FOUNDATION"],
       "blockers": [],
-      "next_gate": "Sol-managed Luna research, implementation, waveform/listening proof, independent QA, and domain acceptance.",
-      "updated_at": "2026-08-03T15:00:08Z"
+      "next_gate": "Writable Luna 019fc839-7677-7d93-abff-4aa427e7c6b3 implementation and deterministic audio proof, then Sol review/listening, revisions, independent QA, and domain acceptance.",
+      "updated_at": "2026-08-03T15:24:43Z"
     }
   ]
 }
