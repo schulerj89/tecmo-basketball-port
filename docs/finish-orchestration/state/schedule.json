@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T15:57:39Z",
+  "updated_at": "2026-08-03T16:04:02Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -51,8 +51,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3-season-data-foundation-sol",
       "ownership_claim_ids": ["OWN-R3-SEASON-DATA-FOUNDATION"],
       "blockers": [],
-      "next_gate": "Writable Luna 019fc836-d254-78a0-b3a6-c4003278c2a5 implementation commit, then Sol source/diff review, product QA, same-worker revision if needed, independent QA, and domain acceptance.",
-      "updated_at": "2026-08-03T15:24:43Z"
+      "next_gate": "Same pinned Luna revises committed tip 3431112 for stale completed-season type-reset state, source-proven 82/42/26/82 W+L limits, and games-behind zero-floor coverage; then Sol personal build/harness/frame proof, independent QA, and domain acceptance.",
+      "updated_at": "2026-08-03T16:04:02Z"
     },
     {
       "lane_id": "LANE-R4-FRONTEND-INTRO-TITLE",
