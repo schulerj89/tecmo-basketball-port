@@ -81,6 +81,17 @@ every orchestrator and worker before work begins.
 - Session identifiers, worktrees, branches, pin state, lineage, failure counts,
   replacement lineage, and last-good SHAs are committed in `state/sessions.json`.
 
+## Scheduling Capacity
+
+`state/schedule.json` is the durable lane and capacity registry. The normal
+target is four concurrently active domain Sol orchestrators, with at most eight
+Sol targets in a single master monitoring call. A lane is created only after
+dependencies, base SHA, branch, worktree, and exclusive ownership are reserved.
+The master may raise or lower the target based on proven writable overlap or
+external limits, but must record the reason. A second concurrent master is
+forbidden because it would split queue, merge, and push authority; another Sol
+may replace the master only through the documented recovery path.
+
 ## Full Subsystem Inventory Method
 
 Round 0 inventory is evidence-driven and never trusts titles or previews.

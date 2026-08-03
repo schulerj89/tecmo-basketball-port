@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T12:42:27Z",
+  "updated_at": "2026-08-03T14:50:16Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -49,22 +49,22 @@
       "main_integration":{"pre_main_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","merge_commits":[],"post_main_sha":null,"remote_main_before_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","push_sha":null,"push_result":"not_attempted","pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z"
     },
     {
-      "round_id":"R3","title":"Season, management, player/team data, statistics, leaders, and All-Star","status":"planned","base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00",
+      "round_id":"R3","title":"Season, management, player/team data, statistics, leaders, and All-Star","status":"planned","base_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "scope":["Per-player statistics and leaders","Full season/save progression","Management/data wiring and page fixes","All-Star end-to-end"],
-      "included_task_ids":["R3-PLAYER-STATS-LEADERS","R3-SEASON-PROGRESSION-SAVE","R3-TEAM-MGMT-DATA","R3-ALLSTAR"],"staging_branch":"codex/round-3-season-data-staging","sol_orchestrator_session_ids":[],"integration_qa_session_id":null,
-      "merge_order":["R3-PLAYER-STATS-LEADERS","R3-SEASON-PROGRESSION-SAVE","R3-TEAM-MGMT-DATA","R3-ALLSTAR"],
+      "included_task_ids":["R3-SEASON-DATA-FOUNDATION","R3-PLAYER-STATS-LEADERS","R3-SEASON-PROGRESSION-SAVE","R3-TEAM-MGMT-DATA","R3-ALLSTAR"],"staging_branch":"codex/round-3-season-data-staging","sol_orchestrator_session_ids":[],"integration_qa_session_id":null,
+      "merge_order":["R3-SEASON-DATA-FOUNDATION","R3-PLAYER-STATS-LEADERS","R3-SEASON-PROGRESSION-SAVE","R3-TEAM-MGMT-DATA","R3-ALLSTAR"],
       "combined_qa":{"required":true,"status":"pending","accepted_sha":null,"report_path":null,"signed_by_session_id":null,"notes":"Dedicated Sol Max integration QA must complete a full deterministic season and UI proof."},
       "acceptance":{"status":"pending","accepted_at":null,"accepted_sha":null,"criteria":["Stats accumulate and persist into leaders/data pages","Preseason, season, playoffs, final season, save/load, management and All-Star flows complete","Original/native page proof covers all selectors and requested text/alignment fixes"]},
-      "main_integration":{"pre_main_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","merge_commits":[],"post_main_sha":null,"remote_main_before_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","push_sha":null,"push_result":"not_attempted","pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z"
+      "main_integration":{"pre_main_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","merge_commits":[],"post_main_sha":null,"remote_main_before_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","push_sha":null,"push_result":"not_attempted","pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T14:50:16Z"
     },
     {
-      "round_id":"R4","title":"Frontend, menu fidelity, music, and sound","status":"planned","base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00",
+      "round_id":"R4","title":"Frontend, menu fidelity, music, and sound","status":"planned","base_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "scope":["Opening/title/attract timing and animation fidelity","All menu/UI transitions and details","Complete music/SFX/sample/device proof"],
-      "included_task_ids":["R4-FRONTEND-INTRO-TITLE","R4-MENUS-UI","R4-AUDIO"],"staging_branch":"codex/round-4-frontend-audio-staging","sol_orchestrator_session_ids":[],"integration_qa_session_id":null,
-      "merge_order":["R4-FRONTEND-INTRO-TITLE","R4-MENUS-UI","R4-AUDIO"],
+      "included_task_ids":["R4-FRONTEND-INTRO-TITLE","R4-AUDIO-FOUNDATION","R4-MENUS-UI","R4-AUDIO"],"staging_branch":"codex/round-4-frontend-audio-staging","sol_orchestrator_session_ids":[],"integration_qa_session_id":null,
+      "merge_order":["R4-FRONTEND-INTRO-TITLE","R4-AUDIO-FOUNDATION","R4-MENUS-UI","R4-AUDIO"],
       "combined_qa":{"required":true,"status":"pending","accepted_sha":null,"report_path":null,"signed_by_session_id":null,"notes":"Dedicated Sol Max integration QA must sign end-to-end frontend video/frame/audio comparison."},
       "acceptance":{"status":"pending","accepted_at":null,"accepted_sha":null,"criteria":["Original/native frontend timing and UI comparisons pass","All audio cues/mixing/device cases pass","Audio capture, waveform/event evidence, and Sol listening notes exist"]},
-      "main_integration":{"pre_main_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","merge_commits":[],"post_main_sha":null,"remote_main_before_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","push_sha":null,"push_result":"not_attempted","pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z"
+      "main_integration":{"pre_main_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","merge_commits":[],"post_main_sha":null,"remote_main_before_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","push_sha":null,"push_result":"not_attempted","pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T14:50:16Z"
     },
     {
       "round_id":"R5","title":"Parity closure, deterministic rebuild, end-to-end QA, and release readiness","status":"planned","base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00",

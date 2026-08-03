@@ -37,6 +37,7 @@ STATE_SCHEMA_MAP = {
     "ownership.json": "ownership.schema.json",
     "queue.json": "queue.schema.json",
     "rounds.json": "rounds.schema.json",
+    "schedule.json": "schedule.schema.json",
     "sessions.json": "sessions.schema.json",
     "state-machine.json": "state-machine.schema.json",
 }
@@ -431,6 +432,7 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
     blockers = state["blockers"]
     acceptance = state["acceptance"]
     inventory = state["inventory"]
+    schedule = state["schedule"]
 
     states = set(machine["states"])
     if machine["initial_state"] not in states:
@@ -456,6 +458,7 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
     evidence_rows = evidence["records"]
     blocker_rows = blockers["blockers"]
     criteria = acceptance["criteria"]
+    lane_rows = schedule["lanes"]
 
     for records, key, label in (
         (tasks, "task_id", "task id"),
@@ -473,6 +476,7 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         (inventory["branches"], "name", "inventory branch"),
         (inventory["commits"], "sha", "inventory commit"),
         (inventory["proof_artifacts"], "proof_id", "inventory proof id"),
+        (lane_rows, "lane_id", "schedule lane id"),
     ):
         check_unique(records, key, label, result)
 
@@ -483,6 +487,83 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
     claim_by_id = {row["claim_id"]: row for row in claims}
     evidence_by_id = {row["evidence_id"]: row for row in evidence_rows}
     blocker_by_id = {row["blocker_id"]: row for row in blocker_rows}
+
+    if schedule["master_session_id"] != sessions["master_session_id"]:
+        result.error("schedule master_session_id differs from sessions master_session_id")
+    active_lane_count = sum(row["readiness"] == "active" for row in lane_rows)
+    cleared_lane_count = sum(row["readiness"] == "cleared_for_creation" for row in lane_rows)
+    policy_target = schedule["policy"]["target_active_domain_orchestrators"]
+    monitoring_limit = schedule["policy"]["max_monitored_sol_orchestrators"]
+    capacity = schedule["capacity"]
+    expected_target_slots = max(0, policy_target - active_lane_count - cleared_lane_count)
+    expected_monitoring_slots = max(0, monitoring_limit - active_lane_count - cleared_lane_count)
+    if capacity["active_domain_orchestrators"] != active_lane_count:
+        result.error("schedule capacity active_domain_orchestrators does not match active lanes")
+    if capacity["cleared_for_creation"] != cleared_lane_count:
+        result.error("schedule capacity cleared_for_creation does not match cleared lanes")
+    if capacity["target_active_domain_orchestrators"] != policy_target:
+        result.error("schedule capacity target differs from policy target")
+    if capacity["monitoring_limit"] != monitoring_limit:
+        result.error("schedule capacity monitoring limit differs from policy")
+    if capacity["unallocated_target_slots"] != expected_target_slots:
+        result.error("schedule capacity unallocated_target_slots is stale")
+    if capacity["unallocated_monitoring_slots"] != expected_monitoring_slots:
+        result.error("schedule capacity unallocated_monitoring_slots is stale")
+    if active_lane_count + cleared_lane_count > monitoring_limit:
+        result.error("schedule active and cleared lanes exceed monitoring capacity")
+
+    lane_branches: dict[str, str] = {}
+    lane_worktrees: dict[str, str] = {}
+    for lane in lane_rows:
+        lane_id = lane["lane_id"]
+        for round_id in lane["round_ids"]:
+            if round_id not in round_by_id:
+                result.error(f"schedule lane {lane_id}: unknown round {round_id}")
+        for task_id in lane["task_ids"]:
+            if task_id not in task_by_id:
+                result.error(f"schedule lane {lane_id}: unknown task {task_id}")
+            elif task_by_id[task_id]["round_id"] not in lane["round_ids"]:
+                result.error(f"schedule lane {lane_id}: task {task_id} is outside the lane rounds")
+        reservation_owner = lane["reservation_owner_session_id"]
+        if reservation_owner not in session_by_id:
+            result.error(f"schedule lane {lane_id}: unknown reservation owner {reservation_owner}")
+        orchestrator_id = lane["orchestrator_session_id"]
+        orchestrator = session_by_id.get(orchestrator_id) if orchestrator_id else None
+        if orchestrator_id and not orchestrator:
+            result.error(f"schedule lane {lane_id}: unknown orchestrator {orchestrator_id}")
+        elif orchestrator and orchestrator["role"] not in {"domain_orchestrator", "integration_orchestrator"}:
+            result.error(f"schedule lane {lane_id}: assigned orchestrator is not a Sol orchestrator role")
+        if lane["readiness"] == "active":
+            if not orchestrator:
+                result.error(f"schedule lane {lane_id}: active lane has no orchestrator")
+            elif orchestrator["status"] not in ACTIVE_SESSION_STATES:
+                result.error(f"schedule lane {lane_id}: active lane orchestrator is not active/idle/blocked")
+        if lane["readiness"] == "cleared_for_creation" and orchestrator_id is not None:
+            result.error(f"schedule lane {lane_id}: cleared-for-creation lane already has an orchestrator")
+        if (lane["branch"] is None) != (lane["worktree"] is None):
+            result.error(f"schedule lane {lane_id}: branch and worktree must both be set or both be null")
+        if lane["branch"]:
+            branch_key = lane["branch"].casefold()
+            if branch_key in lane_branches:
+                result.error(f"schedule lanes {lane_branches[branch_key]} and {lane_id} share branch {lane['branch']}")
+            lane_branches[branch_key] = lane_id
+        if lane["worktree"]:
+            worktree_key = canonical_worktree(lane["worktree"])
+            if worktree_key in lane_worktrees:
+                result.error(f"schedule lanes {lane_worktrees[worktree_key]} and {lane_id} share worktree {lane['worktree']}")
+            lane_worktrees[worktree_key] = lane_id
+        expected_claim_session = orchestrator_id if lane["readiness"] == "active" else reservation_owner
+        for claim_id in lane["ownership_claim_ids"]:
+            claim = claim_by_id.get(claim_id)
+            if not claim:
+                result.error(f"schedule lane {lane_id}: unknown ownership claim {claim_id}")
+                continue
+            if claim["task_id"] not in lane["task_ids"]:
+                result.error(f"schedule lane {lane_id}: claim {claim_id} belongs to a task outside the lane")
+            if lane["readiness"] in {"active", "cleared_for_creation"} and not claim["active"]:
+                result.error(f"schedule lane {lane_id}: active/cleared claim {claim_id} is not active")
+            if lane["readiness"] in {"active", "cleared_for_creation"} and claim["session_id"] != expected_claim_session:
+                result.error(f"schedule lane {lane_id}: claim {claim_id} is not held by the expected session")
 
     if sessions["master_session_id"] not in session_by_id:
         result.error("master_session_id does not reference a registered session")
@@ -1023,6 +1104,7 @@ def status_text(state: dict[str, Any]) -> str:
     sessions = state["sessions"]
     acceptance = state["acceptance"]
     blockers = state["blockers"]
+    schedule = state["schedule"]
     counts = collections.Counter(task["state"] for task in queue["tasks"])
     classifications = collections.Counter(row["classification"] for row in acceptance["criteria"])
     active_sessions = [row for row in sessions["sessions"] if row["status"] in ACTIVE_SESSION_STATES]
@@ -1034,6 +1116,10 @@ def status_text(state: dict[str, Any]) -> str:
         f"Active sessions: {len(active_sessions)}",
         f"Reported Luna workers: {len(sessions['reported_luna_workers'])}",
         f"Open external blockers: {sum(row['status'] == 'open' for row in blockers['blockers'])}",
+        f"Sol lane capacity: active={schedule['capacity']['active_domain_orchestrators']}, "
+        f"cleared={schedule['capacity']['cleared_for_creation']}, "
+        f"target={schedule['capacity']['target_active_domain_orchestrators']}, "
+        f"monitoring_limit={schedule['capacity']['monitoring_limit']}",
         "Acceptance: " + ", ".join(f"{key}={value}" for key, value in sorted(classifications.items())),
     ]
     return "\n".join(lines)
@@ -1047,6 +1133,7 @@ def dashboard_text(state: dict[str, Any], generated_at: str) -> str:
     blockers = state["blockers"]
     acceptance = state["acceptance"]
     inventory = state["inventory"]
+    schedule = state["schedule"]
     task_counts = collections.Counter(task["state"] for task in queue["tasks"])
     classification_counts = collections.Counter(row["classification"] for row in acceptance["criteria"])
 
@@ -1064,11 +1151,37 @@ def dashboard_text(state: dict[str, Any], generated_at: str) -> str:
         "- Task states: " + (", ".join(f"`{key}` {value}" for key, value in sorted(task_counts.items())) or "none"),
         "- Fidelity classifications: " + ", ".join(f"`{key}` {value}" for key, value in sorted(classification_counts.items())),
         "",
+        "## Sol Orchestration Capacity",
+        "",
+        f"- Single master authority: `{schedule['policy']['single_master_authority']}`",
+        f"- Second-master policy: `{schedule['policy']['second_master_policy']}`",
+        f"- Active domain Sols: `{schedule['capacity']['active_domain_orchestrators']}`",
+        f"- Cleared for creation: `{schedule['capacity']['cleared_for_creation']}`",
+        f"- Target active domain Sols: `{schedule['capacity']['target_active_domain_orchestrators']}`",
+        f"- Monitoring limit: `{schedule['capacity']['monitoring_limit']}`",
+        "",
+        "| Lane | Domain | Readiness | Dependencies | Tasks | Sol | Branch | Next gate |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for lane in schedule["lanes"]:
+        lines.append(
+            "| " + " | ".join(
+                markdown_escape(value)
+                for value in (
+                    lane["lane_id"], lane["domain"], lane["readiness"], lane["dependency_status"],
+                    ", ".join(lane["task_ids"]), lane["orchestrator_session_id"] or "reserved by master",
+                    lane["branch"] or "-", lane["next_gate"],
+                )
+            ) + " |"
+        )
+
+    lines.extend([
+        "",
         "## Rounds",
         "",
         "| Round | Status | Base | Tasks | Staging | Combined QA | Push |",
         "|---|---|---|---:|---|---|---|",
-    ]
+    ])
     for row in rounds["rounds"]:
         lines.append(
             "| " + " | ".join(
@@ -1328,7 +1441,7 @@ def command_self_test(args: argparse.Namespace) -> int:
     expect(bool(detect_dependency_cycles(sample_tasks)), "dependency cycle detector")
     expect(set(STATE_SCHEMA_MAP) == {
         "acceptance.json", "blockers.json", "evidence.json", "inventory.json", "ownership.json",
-        "queue.json", "rounds.json", "sessions.json", "state-machine.json"
+        "queue.json", "rounds.json", "schedule.json", "sessions.json", "state-machine.json"
     }, "state/schema registry")
     with tempfile.TemporaryDirectory(prefix="tecmo-doc-root-selftest-") as temp_root:
         fixture_root = Path(temp_root)

@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T12:42:27Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T14:50:16Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,8 +8,24 @@ Generated from committed JSON at `2026-08-03T12:42:27Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 15, `luna_revision` 1, `pushed` 5, `ready_for_round_staging` 1, `scoped` 1
+- Task states: `backlog` 14, `luna_revision` 1, `pushed` 5, `ready_for_round_staging` 1, `scoped` 4
 - Fidelity classifications: `incomplete` 24
+
+## Sol Orchestration Capacity
+
+- Single master authority: `True`
+- Second-master policy: `recovery_replacement_only`
+- Active domain Sols: `1`
+- Cleared for creation: `3`
+- Target active domain Sols: `4`
+- Monitoring limit: `8`
+
+| Lane | Domain | Readiness | Dependencies | Tasks | Sol | Branch | Next gate |
+|---|---|---|---|---|---|---|---|
+| LANE-R1-GAMEPLAY-FOUNDATION | gameplay_foundation | active | sequentially_active | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | Sol acceptance of LIVE, then sequential TIP execution and Round 1 integration QA. |
+| LANE-R3-SEASON-DATA-FOUNDATION | season_data | cleared_for_creation | ready | R3-SEASON-DATA-FOUNDATION | reserved by master | codex/r3-season-data-foundation-sol | Create and pin the registered Sol Max orchestrator, then transfer the reserved claim and assign the task. |
+| LANE-R4-FRONTEND-INTRO-TITLE | frontend | cleared_for_creation | ready | R4-FRONTEND-INTRO-TITLE | reserved by master | codex/r4-frontend-intro-title-sol | Create and pin the registered Sol Max orchestrator, then transfer the reserved claim and assign the task. |
+| LANE-R4-AUDIO-FOUNDATION | audio | cleared_for_creation | ready | R4-AUDIO-FOUNDATION | reserved by master | codex/r4-audio-foundation-sol | Create and pin the registered Sol Max orchestrator, then transfer the reserved claim and assign the task. |
 
 ## Rounds
 
@@ -19,8 +35,8 @@ Generated from committed JSON at `2026-08-03T12:42:27Z`. This dashboard reports 
 | R0A | pushed | 7090d2c62201 | 4 | codex/master-finish-orchestration | coordination_only | succeeded |
 | R1 | in_progress | 6d8f9c7a99a7 | 3 | codex/round-1-gameplay-foundation-staging | pending | not_attempted |
 | R2 | planned | 7090d2c62201 | 5 | codex/round-2-gameplay-mechanics-staging | pending | not_attempted |
-| R3 | planned | 7090d2c62201 | 4 | codex/round-3-season-data-staging | pending | not_attempted |
-| R4 | planned | 7090d2c62201 | 3 | codex/round-4-frontend-audio-staging | pending | not_attempted |
+| R3 | planned | 6d8f9c7a99a7 | 5 | codex/round-3-season-data-staging | pending | not_attempted |
+| R4 | planned | 6d8f9c7a99a7 | 4 | codex/round-4-frontend-audio-staging | pending | not_attempted |
 | R5 | planned | 7090d2c62201 | 3 | codex/round-5-release-staging | pending | not_attempted |
 
 ## Queue
@@ -32,9 +48,11 @@ Generated from committed JSON at `2026-08-03T12:42:27Z`. This dashboard reports 
 | 100 | R1-CPU-PLAY-LIFECYCLE | gameplay_behavior | R1 | ready_for_round_staging | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | not_ready |
 | 100 | R2-SHOTS-OUTCOMES | gameplay_behavior | R2 | backlog | - | - | 0 | pending | not_ready |
 | 100 | R3-PLAYER-STATS-LEADERS | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
-| 100 | R4-FRONTEND-INTRO-TITLE | frontend | R4 | backlog | - | - | 0 | pending | not_ready |
+| 100 | R3-SEASON-DATA-FOUNDATION | season_data | R3 | scoped | - | codex/r3-season-data-foundation-sol | 0 | pending | not_ready |
+| 100 | R4-FRONTEND-INTRO-TITLE | frontend | R4 | scoped | - | codex/r4-frontend-intro-title-sol | 0 | pending | not_ready |
 | 100 | R5-ASSET-BUILD-PROVENANCE | assets_build | R5 | backlog | - | - | 0 | pending | not_ready |
 | 99 | R0A-ADOPT-CPU-TIP | gameplay_behavior | R0A | pushed | S-SOL-CPU-TIP-LEGACY | codex/cpu-tipoff-behavior | 1 | historical_sol_accepted | pushed |
+| 99 | R4-AUDIO-FOUNDATION | audio | R4 | scoped | - | codex/r4-audio-foundation-sol | 0 | pending | not_ready |
 | 98 | R0A-ADOPT-TIP-VIS | gameplay_presentation | R0A | pushed | S-SOL-TIP-VIS-LEGACY | codex/tipoff-visual-orientation | 6 | historical_sol_accepted | pushed |
 | 98 | R1-LIVE-FOUNDATION | gameplay_behavior | R1 | luna_revision | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 0 | luna_revision | not_ready |
 | 98 | R2-DEFENSE-CONTACT | gameplay_behavior | R2 | backlog | - | - | 0 | pending | not_ready |
@@ -64,6 +82,9 @@ Generated from committed JSON at `2026-08-03T12:42:27Z`. This dashboard reports 
 |---|---|---|---|---|---|
 | OWN-R1-LIVE | R1-LIVE-FOUNDATION | R1 | exclusive | CMakeLists.txt<br>include/tecmo_gameplay_scene.h<br>include/tecmo_gameplay_scene_internal.h<br>include/tecmo_gameplay_state.h<br>include/tecmo_gameplay_movement.h<br>include/tecmo_gameplay_live_*.h<br>src/tecmo_gameplay_scene.c<br>src/tecmo_gameplay_scene_actors.c<br>src/tecmo_gameplay_scene_validation.c<br>src/tecmo_gameplay_scene_test_internal.h<br>src/tecmo_gameplay_scene_test_orchestrator.c<br>src/tecmo_gameplay_scene_test_state_flow.c<br>src/tecmo_gameplay_state.c<br>src/tecmo_gameplay_movement.c<br>src/tecmo_gameplay_live_*.c<br>src/tecmo_cli_gameplay_core.c<br>src/asset_pack/tecmo_asset_pack_gameplay_movement.c<br>src/asset_pack/tecmo_asset_pack_gameplay_movement.h<br>src/asset_pack/tecmo_asset_pack_source_map.c<br>src/asset_pack/tecmo_asset_pack_source_map.h<br>src/asset_pack/tecmo_asset_pack_import_layout.h<br>tools/Run-GameplayMovementTests.ps1<br>tools/Run-GameplaySceneTests.ps1<br>docs/finish-tasks/R1-live-foundation/**<br>src/tecmo_game.c<br>src/tecmo_flow_test.c<br>build.ps1 | R1-gameplay-foundation |
 | OWN-R1-TIP | R1-TIP-FIDELITY | R1 | exclusive | include/tecmo_gameplay_pretip.h<br>src/tecmo_gameplay_pretip.c<br>src/tecmo_gameplay_scene_render.c<br>src/tecmo_gameplay_scene_test_pretip.c<br>src/tecmo_gameplay_scene_test_render_contract.c<br>src/tecmo_cli_render_gameplay_checkpoint.c<br>src/tecmo_win32_keys.c<br>src/asset_pack/tecmo_asset_pack_gameplay_pretip.c<br>src/asset_pack/tecmo_asset_pack_gameplay_pretip.h<br>tools/New-TipoffVisualProof.ps1<br>tools/Run-GameplayPreTipTests.ps1<br>docs/finish-tasks/R1-tip-fidelity/** | R1-gameplay-foundation |
+| OWN-R3-SEASON-DATA-FOUNDATION | R3-SEASON-DATA-FOUNDATION | R3 | exclusive | include/tecmo_team_data.h<br>src/tecmo_team_data.c<br>include/tecmo_season_menu.h<br>src/tecmo_season_menu.c<br>src/asset_pack/tecmo_asset_pack_team_data.c<br>src/asset_pack/tecmo_asset_pack_team_data.h<br>src/asset_pack/tecmo_asset_pack_season.c<br>src/asset_pack/tecmo_asset_pack_season.h<br>tools/Run-TeamDataTests.ps1<br>tools/Run-SeasonTests.ps1<br>docs/finish-tasks/R3-season-data-foundation/** | R3-season-data-foundation |
+| OWN-R4-FRONTEND-INTRO-TITLE | R4-FRONTEND-INTRO-TITLE | R4 | exclusive | include/tecmo_intro_*.h<br>src/tecmo_intro_*.c<br>include/tecmo_title_screen.h<br>src/tecmo_title_screen.c<br>src/asset_pack/tecmo_asset_pack_opening.c<br>src/asset_pack/tecmo_asset_pack_opening.h<br>src/asset_pack/tecmo_asset_pack_arena.c<br>src/asset_pack/tecmo_asset_pack_arena.h<br>src/asset_pack/tecmo_asset_pack_finale.c<br>src/asset_pack/tecmo_asset_pack_finale.h<br>src/asset_pack/tecmo_asset_pack_post_arena.c<br>src/asset_pack/tecmo_asset_pack_post_arena.h<br>src/asset_pack/tecmo_asset_pack_d9f6.c<br>src/asset_pack/tecmo_asset_pack_d9f6.h<br>src/asset_pack/tecmo_asset_pack_title.c<br>src/asset_pack/tecmo_asset_pack_title.h<br>tools/Run-IntroSequenceTests.ps1<br>tools/New-IntroLayoutDraft.ps1<br>tools/Import-IntroArenaCapture.ps1<br>tools/Find-Intro*.ps1<br>tools/Find-NesReferenceIntro.ps1<br>tools/Find-Title*.ps1<br>tools/emu_intro_*.lua<br>docs/finish-tasks/R4-frontend-intro-title/** | R4-frontend-intro-title |
+| OWN-R4-AUDIO-FOUNDATION | R4-AUDIO-FOUNDATION | R4 | exclusive | include/tecmo_audio_output.h<br>include/tecmo_frontend_audio.h<br>include/tecmo_gameplay_audio.h<br>include/tecmo_music.h<br>src/tecmo_audio_output.c<br>src/tecmo_frontend_audio.c<br>src/tecmo_gameplay_audio.c<br>src/tecmo_music.c<br>src/tecmo_cli_audio.c<br>src/asset_pack/tecmo_asset_pack_music.c<br>src/asset_pack/tecmo_asset_pack_music.h<br>src/asset_pack/tecmo_asset_pack_gameplay_audio.c<br>src/asset_pack/tecmo_asset_pack_gameplay_audio.h<br>tools/Run-MusicTests.ps1<br>tools/Run-GameplayAudioTests.ps1<br>tools/Run-FrontendAudioTests.ps1<br>docs/finish-tasks/R4-audio-foundation/** | R4-audio-foundation |
 
 ## External Blockers
 

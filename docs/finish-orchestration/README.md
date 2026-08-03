@@ -3,6 +3,10 @@
 Authoritative state is under `state/`; schemas are under `schemas/`; repository
 tools are under `tools/finish-orchestration/`.
 
+`state/schedule.json` is the explicit capacity/readiness view for parallel Sol
+domain lanes. It preserves one master authority while showing active, reserved,
+dependency-blocked, and completed lanes before thread creation.
+
 From the repository root:
 
 ```powershell

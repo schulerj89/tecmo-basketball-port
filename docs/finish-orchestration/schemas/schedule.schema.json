@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schedule.schema.json",
+  "title": "Tecmo finish orchestration capacity and lane schedule",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "updated_at", "master_session_id", "policy", "capacity", "lanes"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "master_session_id": { "type": "string", "minLength": 1 },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["single_master_authority", "second_master_policy", "claim_reservation_required_before_creation", "target_active_domain_orchestrators", "max_monitored_sol_orchestrators"],
+      "properties": {
+        "single_master_authority": { "const": true },
+        "second_master_policy": { "const": "recovery_replacement_only" },
+        "claim_reservation_required_before_creation": { "const": true },
+        "target_active_domain_orchestrators": { "type": "integer", "minimum": 1 },
+        "max_monitored_sol_orchestrators": { "type": "integer", "minimum": 1, "maximum": 8 }
+      }
+    },
+    "capacity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["active_domain_orchestrators", "cleared_for_creation", "target_active_domain_orchestrators", "monitoring_limit", "unallocated_target_slots", "unallocated_monitoring_slots"],
+      "properties": {
+        "active_domain_orchestrators": { "type": "integer", "minimum": 0 },
+        "cleared_for_creation": { "type": "integer", "minimum": 0 },
+        "target_active_domain_orchestrators": { "type": "integer", "minimum": 1 },
+        "monitoring_limit": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "unallocated_target_slots": { "type": "integer", "minimum": 0 },
+        "unallocated_monitoring_slots": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "lanes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/lane" }
+    }
+  },
+  "$defs": {
+    "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "nullableString": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+    "lane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lane_id", "title", "domain", "round_ids", "task_ids", "readiness", "dependency_status", "reservation_owner_session_id", "orchestrator_session_id", "base_sha", "branch", "worktree", "ownership_claim_ids", "blockers", "next_gate", "updated_at"],
+      "properties": {
+        "lane_id": { "type": "string", "pattern": "^LANE-[A-Z0-9-]+$" },
+        "title": { "type": "string", "minLength": 1 },
+        "domain": { "type": "string", "minLength": 1 },
+        "round_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } },
+        "task_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } },
+        "readiness": { "type": "string", "enum": ["active", "cleared_for_creation", "waiting_on_dependency", "blocked", "complete"] },
+        "dependency_status": { "type": "string", "enum": ["ready", "sequentially_active", "blocked", "complete"] },
+        "reservation_owner_session_id": { "type": "string", "minLength": 1 },
+        "orchestrator_session_id": { "$ref": "#/$defs/nullableString" },
+        "base_sha": { "$ref": "#/$defs/sha" },
+        "branch": { "$ref": "#/$defs/nullableString" },
+        "worktree": { "$ref": "#/$defs/nullableString" },
+        "ownership_claim_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } },
+        "blockers": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "next_gate": { "type": "string", "minLength": 1 },
+        "updated_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}
