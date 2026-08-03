@@ -6,6 +6,15 @@ This document supersedes the earlier Luna proof document in fee87cfd831b82a75ffa
 
 The source implementation remains the provisionally accepted commit 853e46ac3151cc80fdc432b9784e40e80f0edf1c, whose parent is the required base 6d8f9c7a99a7ce188f1a523247d3a9b9093860fb. This revision changes only this durable proof document on the registered Luna branch. All generated proof is ignored staging evidence.
 
+## Recovery and takeover record
+
+- Failed predecessor Sol task: 019fc822-b4cc-7122-815e-6c63e03d9235.
+- Raw predecessor task status: systemError.
+- Preserved last-good Sol commit: a40dc3f9976d40444d91255f31a29959f5b23be3.
+- Replacement Sol task: 019fc8e8-190e-7912-937f-482a325dfa52.
+- Takeover was confirmed from the exact clean branch codex/r4-frontend-intro-title-sol at base 6d8f9c7a99a7ce188f1a523247d3a9b9093860fb. main and origin-main remain master-owned at 6d8f9c7a99a7ce188f1a523247d3a9b9093860fb.
+- This exact Luna worktree and branch, codex/r4-frontend-intro-title-proof-luna, were reused and re-pinned. All committed proof lineage and ignored proof artifacts were preserved; no source or generated artifact was rewritten for this recovery documentation pass.
+
 ## Scope
 
 This worker owns exactly two tracked paths:
@@ -63,9 +72,13 @@ The complete first neutral-input cycle has these inclusive rendered ranges:
 
 The corrected state samples include N=1507 step 13/local 51, N=1508 step 14/local 0, N=2508 step 14/local 1000, N=2509 step 15/local 0/attract 1, N=3150 step 15/local 641/attract 1, N=3151 step 6/local 0, and N=4096 step 8/local 535. The last sample is inside the next cycle's arena route and demonstrates that the safe maximum still follows the normal state machine.
 
+The finale local range 0..1000 in this production boundary table is cumulative scene-local finale progression for step 14. It is distinct from the production global frame range 1508..2508. The internal observation table below further partitions that local progression into opening, loop, selector, staged-group, and title subroutes.
+
 ### Finale internal map
 
 The finale route is step 14 and has these production internals:
+
+In this internal observation table, a finale range written as 0..1000 means scene-local cumulative finale progression. It is not a production global frame number; the corresponding production global frames are 1508..2508.
 
 | Internal route | Frames | Global range | Local range | Selected state observations |
 | --- | ---: | ---: | ---: | --- |
@@ -288,7 +301,7 @@ Thirty-three numbered boundary frames were extracted from the encoded video. The
 Pixel comparison of sampled extracted frames found maximum channel delta 1 on non-black frames, with exact black/title-reset endpoints.
 ## Contact sheets and visual review
 
-Numbered full-resolution range sheets cover all source frames in 64-frame ranges, with the final 3136..3151 sheet containing 16 frames. There are 50 numbered range sheets plus a boundary sheet. The range-sheet hash manifest is:
+Numbered full-resolution range sheets cover all source frames in 64-frame ranges, with the final 3136..3151 sheet containing 16 frames. There are 50 numbered range sheets plus a boundary sheet. The contact-sheet hash manifest has 51 entries: 50 numbered range sheets plus the boundary sheet. The range-sheet hash manifest is:
 
     build/proof-v2/manifests/contact-sheets-sha256-v2.txt
     bytes 4446
@@ -318,7 +331,9 @@ The corrected encoded-video boundary sheet is also 1298x612:
 
 The worker personally inspected full-resolution source frames at route boundaries and representative finale, attract, and reset points, including N=410, 1372, 1455, 1508, 1515, 1530, 1590, 1640, 1680, 1800, 1892, 2000, 2200, 2300, 2400, 2508, 2509, 2800, 3150, and 3151. The worker also inspected the corrected video boundary sheet and encoded-video extracts at N=410, 1372, 1891, 2200, and 3150. No crop, debug overlay, jump, or stale frame was observed.
 
-### Sol personal review
+### Preserved failed-predecessor Sol visual and manifest review
+
+The following visual and manifest observations are preserved from failed predecessor Sol task 019fc822-b4cc-7122-815e-6c63e03d9235. They remain truthful historical review of the same proof-v2 artifacts, but are explicitly not the replacement Sol's recovery review.
 
 Sol personally reviewed original-size range sheets for:
 
@@ -359,6 +374,29 @@ Sol independently confirmed:
 
 This review is intentionally attributed to Sol. The production video is silent with no audio because audio is excluded from this ownership, and it must not be read as input proof.
 
+### Replacement Sol personal recovery re-review
+
+Replacement Sol task 019fc8e8-190e-7912-937f-482a325dfa52 re-reviewed the preserved proof-v2 artifacts after takeover. This was a documentation recovery review; it did not invent, regenerate, or replace proof payloads.
+
+Replacement Sol parsed the consolidated manifest and confirmed SHA-256 D1AD002A59ADB4BFC7CD83614EF26620A10D642CBB1AEF47FEA1CFBE61906FCB. The manifest's video PSNR y, u, and v values are explicit JSON strings "inf", not null.
+
+The recovery re-review independently rehashed all 3152 numbered frames and validated exact contiguous names 0000..3151. Every PNG was confirmed 640x480, 8-bit RGBA, and all contiguous state rows were checked with zero mismatches. The proof-count checks were exact:
+
+- Artifact manifest: 22/22.
+- Contact-sheet hash entries: 51/51, consisting of 50 numbered range sheets plus the boundary sheet.
+- Selected frames: 89/89.
+- Extracted-video frames: 33/33.
+- Strict parser: 9/9 expected outcomes.
+- Production/direct parity: 25/25.
+- Boundary rows: 33/33.
+- Deterministic pairs, including N=4096: all exact.
+
+Replacement Sol's fresh ffprobe confirmed one video stream, H.264 High 4:4:4 Predictive, yuv444p, 640x480, 60/1, 3152 frames, duration 52.533333 seconds, and no audio. A fresh full-sequence normalized yuv444p comparison reported y=inf, u=inf, v=inf, average=inf, min=inf, and max=inf.
+
+Replacement Sol personally inspected the source and encoded boundary sheets, the corrected range sheets spanning opening, license, arena, team-cards, finale, title, attract, and reset, and full-resolution source frames 0410, 1372, 1519, 1606, 1676, 1800, 2051, 2200, 2380, 2800, and 3150. Encoded extracted frames 2200 and 3150 were also inspected. The recovery review observed continuous fades and motion, clean black handoffs, readable complete imagery, and no debug overlay, stale frame, crop, or route jump. The finale sequence flows SUNS -> SPURS -> selector -> BULLS -> title write/hold/retract -> attract logo cycles -> black reset.
+
+This replacement review is attributed to Sol task 019fc8e8-190e-7912-937f-482a325dfa52. The production video remains intentionally silent and is not input proof.
+
 ## Consolidated manifest
 
 The proof-v2 consolidated manifest records the integrated staging HEAD, canonical ROM hash, boundary map, all principal artifact paths, and the corrected PSNR strings. Its final corrected hash is:
@@ -395,12 +433,14 @@ The ignored proof paths used in this revision are all below build/proof-v2, nota
 - Worker branch: codex/r4-frontend-intro-title-proof-luna.
 - Source implementation commit: 853e46ac3151cc80fdc432b9784e40e80f0edf1c.
 - Superseded prior proof-document commit: fee87cfd831b82a75ffa8abccaabbfe8e9022115. Do not cherry-pick it for the corrected proof.
+- Prior corrected proof-document commit: 776db08ee45d694390e0d8133cdcd4934bdca3d4.
 - Corrected integrated staging commit: a40dc3f9976d40444d91255f31a29959f5b23be3.
-- This documentation revision is committed after fee87cfd; the final documentation commit SHA is reported in the worker handoff.
+- The exact documentation-tip SHA for this recovery revision is supplied in the signed Sol handoff after the commit; a commit cannot self-record its own SHA. The source and prior documentation lineage are recorded here.
 - Only src/tecmo_cli_render_scene_modes.c and this document may be included in the worker lineage.
 
-If Sol's branch already contains the source implementation, cherry-pick only the final documentation commit reported in the worker handoff. Otherwise the exact integration command is:
+After Sol accepts the preserved proof branch, preserve its lineage by merging the final proof branch into the exact clean Sol branch with --no-ff:
 
-    git cherry-pick 853e46ac3151cc80fdc432b9784e40e80f0edf1c <FINAL_DOCUMENTATION_COMMIT_SHA>
+    git switch codex/r4-frontend-intro-title-sol
+    git merge --no-ff codex/r4-frontend-intro-title-proof-luna
 
-Do not merge, rebase, force-reset, or push from the Luna worker worktree.
+The final exact merge SHA is left to the signed Sol handoff. Do not mutate main or origin-main; both remain master-owned at 6d8f9c7a99a7ce188f1a523247d3a9b9093860fb. Do not merge, rebase, force-reset, or push from the Luna worker worktree.
