@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T14:50:16Z",
+  "updated_at": "2026-08-03T15:00:08Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -51,7 +51,7 @@
     {
       "round_id":"R3","title":"Season, management, player/team data, statistics, leaders, and All-Star","status":"planned","base_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "scope":["Per-player statistics and leaders","Full season/save progression","Management/data wiring and page fixes","All-Star end-to-end"],
-      "included_task_ids":["R3-SEASON-DATA-FOUNDATION","R3-PLAYER-STATS-LEADERS","R3-SEASON-PROGRESSION-SAVE","R3-TEAM-MGMT-DATA","R3-ALLSTAR"],"staging_branch":"codex/round-3-season-data-staging","sol_orchestrator_session_ids":[],"integration_qa_session_id":null,
+      "included_task_ids":["R3-SEASON-DATA-FOUNDATION","R3-PLAYER-STATS-LEADERS","R3-SEASON-PROGRESSION-SAVE","R3-TEAM-MGMT-DATA","R3-ALLSTAR"],"staging_branch":"codex/round-3-season-data-staging","sol_orchestrator_session_ids":["S-SOL-R3-SEASON-DATA-001"],"integration_qa_session_id":null,
       "merge_order":["R3-SEASON-DATA-FOUNDATION","R3-PLAYER-STATS-LEADERS","R3-SEASON-PROGRESSION-SAVE","R3-TEAM-MGMT-DATA","R3-ALLSTAR"],
       "combined_qa":{"required":true,"status":"pending","accepted_sha":null,"report_path":null,"signed_by_session_id":null,"notes":"Dedicated Sol Max integration QA must complete a full deterministic season and UI proof."},
       "acceptance":{"status":"pending","accepted_at":null,"accepted_sha":null,"criteria":["Stats accumulate and persist into leaders/data pages","Preseason, season, playoffs, final season, save/load, management and All-Star flows complete","Original/native page proof covers all selectors and requested text/alignment fixes"]},
@@ -60,7 +60,7 @@
     {
       "round_id":"R4","title":"Frontend, menu fidelity, music, and sound","status":"planned","base_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "scope":["Opening/title/attract timing and animation fidelity","All menu/UI transitions and details","Complete music/SFX/sample/device proof"],
-      "included_task_ids":["R4-FRONTEND-INTRO-TITLE","R4-AUDIO-FOUNDATION","R4-MENUS-UI","R4-AUDIO"],"staging_branch":"codex/round-4-frontend-audio-staging","sol_orchestrator_session_ids":[],"integration_qa_session_id":null,
+      "included_task_ids":["R4-FRONTEND-INTRO-TITLE","R4-AUDIO-FOUNDATION","R4-MENUS-UI","R4-AUDIO"],"staging_branch":"codex/round-4-frontend-audio-staging","sol_orchestrator_session_ids":["S-SOL-R4-FRONTEND-001","S-SOL-R4-AUDIO-001"],"integration_qa_session_id":null,
       "merge_order":["R4-FRONTEND-INTRO-TITLE","R4-AUDIO-FOUNDATION","R4-MENUS-UI","R4-AUDIO"],
       "combined_qa":{"required":true,"status":"pending","accepted_sha":null,"report_path":null,"signed_by_session_id":null,"notes":"Dedicated Sol Max integration QA must sign end-to-end frontend video/frame/audio comparison."},
       "acceptance":{"status":"pending","accepted_at":null,"accepted_sha":null,"criteria":["Original/native frontend timing and UI comparisons pass","All audio cues/mixing/device cases pass","Audio capture, waveform/event evidence, and Sol listening notes exist"]},

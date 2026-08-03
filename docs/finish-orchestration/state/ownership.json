@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T14:50:16Z",
+  "updated_at": "2026-08-03T15:00:08Z",
   "claims": [
     {
       "claim_id":"OWN-R0-CTRL","task_id":"R0-CTRL-001","round_id":"R0","session_id":"S-MASTER-001","mode":"exclusive",
@@ -59,25 +59,25 @@
       "notes":"Pretip, rendering, input, and proof paths are disjoint from CPU/live paths; shared handoff edits go through OWN-R1-LIVE sequentially."
     },
     {
-      "claim_id":"OWN-R3-SEASON-DATA-FOUNDATION","task_id":"R3-SEASON-DATA-FOUNDATION","round_id":"R3","session_id":"S-MASTER-001","mode":"exclusive",
+      "claim_id":"OWN-R3-SEASON-DATA-FOUNDATION","task_id":"R3-SEASON-DATA-FOUNDATION","round_id":"R3","session_id":"S-SOL-R3-SEASON-DATA-001","mode":"exclusive",
       "writable_globs":["include/tecmo_team_data.h","src/tecmo_team_data.c","include/tecmo_season_menu.h","src/tecmo_season_menu.c","src/asset_pack/tecmo_asset_pack_team_data.c","src/asset_pack/tecmo_asset_pack_team_data.h","src/asset_pack/tecmo_asset_pack_season.c","src/asset_pack/tecmo_asset_pack_season.h","tools/Run-TeamDataTests.ps1","tools/Run-SeasonTests.ps1","docs/finish-tasks/R3-season-data-foundation/**"],
       "planned_paths":["include/tecmo_team_data.h","src/tecmo_team_data.c","include/tecmo_season_menu.h","src/tecmo_season_menu.c","docs/finish-tasks/R3-season-data-foundation/README.md"],
       "concurrency_group":"R3-season-data-foundation","active":true,"claimed_at":"2026-08-03T14:50:16Z","released_at":null,
-      "notes":"Master reservation before Sol creation. Existing compiled team-data and season-menu modules only; active LIVE team-management/launch files, build lists, source-map/import-layout, All-Star, and cross-domain product call sites are excluded. Transfer to the registered R3 Sol after creation."
+      "notes":"Reserved by the master before session creation, then transferred to registered/pinned S-SOL-R3-SEASON-DATA-001. Existing compiled team-data and season-menu modules only; active LIVE team-management/launch files, build lists, source-map/import-layout, All-Star, and cross-domain product call sites are excluded."
     },
     {
-      "claim_id":"OWN-R4-FRONTEND-INTRO-TITLE","task_id":"R4-FRONTEND-INTRO-TITLE","round_id":"R4","session_id":"S-MASTER-001","mode":"exclusive",
+      "claim_id":"OWN-R4-FRONTEND-INTRO-TITLE","task_id":"R4-FRONTEND-INTRO-TITLE","round_id":"R4","session_id":"S-SOL-R4-FRONTEND-001","mode":"exclusive",
       "writable_globs":["include/tecmo_intro_*.h","src/tecmo_intro_*.c","include/tecmo_title_screen.h","src/tecmo_title_screen.c","src/asset_pack/tecmo_asset_pack_opening.c","src/asset_pack/tecmo_asset_pack_opening.h","src/asset_pack/tecmo_asset_pack_arena.c","src/asset_pack/tecmo_asset_pack_arena.h","src/asset_pack/tecmo_asset_pack_finale.c","src/asset_pack/tecmo_asset_pack_finale.h","src/asset_pack/tecmo_asset_pack_post_arena.c","src/asset_pack/tecmo_asset_pack_post_arena.h","src/asset_pack/tecmo_asset_pack_d9f6.c","src/asset_pack/tecmo_asset_pack_d9f6.h","src/asset_pack/tecmo_asset_pack_title.c","src/asset_pack/tecmo_asset_pack_title.h","tools/Run-IntroSequenceTests.ps1","tools/New-IntroLayoutDraft.ps1","tools/Import-IntroArenaCapture.ps1","tools/Find-Intro*.ps1","tools/Find-NesReferenceIntro.ps1","tools/Find-Title*.ps1","tools/emu_intro_*.lua","docs/finish-tasks/R4-frontend-intro-title/**"],
       "planned_paths":["src/tecmo_intro_stage.c","src/tecmo_title_screen.c","tools/Run-IntroSequenceTests.ps1","docs/finish-tasks/R4-frontend-intro-title/README.md"],
       "concurrency_group":"R4-frontend-intro-title","active":true,"claimed_at":"2026-08-03T14:50:16Z","released_at":null,
-      "notes":"Master reservation before Sol creation. Intro/title native modules, their existing semantic asset families, focused research/test tools, and task docs only; audio, menus, build lists, source-map/import-layout, Win32, and gameplay paths are excluded. Transfer to the registered R4 frontend Sol after creation."
+      "notes":"Reserved by the master before session creation, then transferred to registered/pinned S-SOL-R4-FRONTEND-001. Intro/title native modules, their existing semantic asset families, focused research/test tools, and task docs only; audio, menus, build lists, source-map/import-layout, Win32, and gameplay paths are excluded."
     },
     {
-      "claim_id":"OWN-R4-AUDIO-FOUNDATION","task_id":"R4-AUDIO-FOUNDATION","round_id":"R4","session_id":"S-MASTER-001","mode":"exclusive",
+      "claim_id":"OWN-R4-AUDIO-FOUNDATION","task_id":"R4-AUDIO-FOUNDATION","round_id":"R4","session_id":"S-SOL-R4-AUDIO-001","mode":"exclusive",
       "writable_globs":["include/tecmo_audio_output.h","include/tecmo_frontend_audio.h","include/tecmo_gameplay_audio.h","include/tecmo_music.h","src/tecmo_audio_output.c","src/tecmo_frontend_audio.c","src/tecmo_gameplay_audio.c","src/tecmo_music.c","src/tecmo_cli_audio.c","src/asset_pack/tecmo_asset_pack_music.c","src/asset_pack/tecmo_asset_pack_music.h","src/asset_pack/tecmo_asset_pack_gameplay_audio.c","src/asset_pack/tecmo_asset_pack_gameplay_audio.h","tools/Run-MusicTests.ps1","tools/Run-GameplayAudioTests.ps1","tools/Run-FrontendAudioTests.ps1","docs/finish-tasks/R4-audio-foundation/**"],
       "planned_paths":["src/tecmo_music.c","src/tecmo_gameplay_audio.c","src/tecmo_frontend_audio.c","src/tecmo_audio_output.c","docs/finish-tasks/R4-audio-foundation/README.md"],
       "concurrency_group":"R4-audio-foundation","active":true,"claimed_at":"2026-08-03T14:50:16Z","released_at":null,
-      "notes":"Master reservation before Sol creation. Existing compiled audio engines, semantic audio assets, CLI probe, focused tests, and task docs only; cue call sites, build lists, source-map/import-layout, Win32/device platform code, and gameplay/frontend modules are excluded. Transfer to the registered R4 audio Sol after creation."
+      "notes":"Reserved by the master before session creation, then transferred to registered/pinned S-SOL-R4-AUDIO-001. Existing compiled audio engines, semantic audio assets, CLI probe, focused tests, and task docs only; cue call sites, build lists, source-map/import-layout, Win32/device platform code, and gameplay/frontend modules are excluded."
     }
   ],
   "shared_boundaries": [

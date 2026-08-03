@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T14:50:16Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T15:00:09Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,24 +8,24 @@ Generated from committed JSON at `2026-08-03T14:50:16Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 14, `luna_revision` 1, `pushed` 5, `ready_for_round_staging` 1, `scoped` 4
+- Task states: `backlog` 14, `in_progress` 3, `luna_revision` 1, `pushed` 5, `ready_for_round_staging` 1, `scoped` 1
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
 
 - Single master authority: `True`
 - Second-master policy: `recovery_replacement_only`
-- Active domain Sols: `1`
-- Cleared for creation: `3`
+- Active domain Sols: `4`
+- Cleared for creation: `0`
 - Target active domain Sols: `4`
 - Monitoring limit: `8`
 
 | Lane | Domain | Readiness | Dependencies | Tasks | Sol | Branch | Next gate |
 |---|---|---|---|---|---|---|---|
 | LANE-R1-GAMEPLAY-FOUNDATION | gameplay_foundation | active | sequentially_active | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | Sol acceptance of LIVE, then sequential TIP execution and Round 1 integration QA. |
-| LANE-R3-SEASON-DATA-FOUNDATION | season_data | cleared_for_creation | ready | R3-SEASON-DATA-FOUNDATION | reserved by master | codex/r3-season-data-foundation-sol | Create and pin the registered Sol Max orchestrator, then transfer the reserved claim and assign the task. |
-| LANE-R4-FRONTEND-INTRO-TITLE | frontend | cleared_for_creation | ready | R4-FRONTEND-INTRO-TITLE | reserved by master | codex/r4-frontend-intro-title-sol | Create and pin the registered Sol Max orchestrator, then transfer the reserved claim and assign the task. |
-| LANE-R4-AUDIO-FOUNDATION | audio | cleared_for_creation | ready | R4-AUDIO-FOUNDATION | reserved by master | codex/r4-audio-foundation-sol | Create and pin the registered Sol Max orchestrator, then transfer the reserved claim and assign the task. |
+| LANE-R3-SEASON-DATA-FOUNDATION | season_data | active | ready | R3-SEASON-DATA-FOUNDATION | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | Sol-managed Luna research, implementation, proof, independent QA, and domain acceptance. |
+| LANE-R4-FRONTEND-INTRO-TITLE | frontend | active | ready | R4-FRONTEND-INTRO-TITLE | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | Sol-managed Luna research, implementation, production-path visual proof, independent QA, and domain acceptance. |
+| LANE-R4-AUDIO-FOUNDATION | audio | active | ready | R4-AUDIO-FOUNDATION | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | Sol-managed Luna research, implementation, waveform/listening proof, independent QA, and domain acceptance. |
 
 ## Rounds
 
@@ -48,11 +48,11 @@ Generated from committed JSON at `2026-08-03T14:50:16Z`. This dashboard reports 
 | 100 | R1-CPU-PLAY-LIFECYCLE | gameplay_behavior | R1 | ready_for_round_staging | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | not_ready |
 | 100 | R2-SHOTS-OUTCOMES | gameplay_behavior | R2 | backlog | - | - | 0 | pending | not_ready |
 | 100 | R3-PLAYER-STATS-LEADERS | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
-| 100 | R3-SEASON-DATA-FOUNDATION | season_data | R3 | scoped | - | codex/r3-season-data-foundation-sol | 0 | pending | not_ready |
-| 100 | R4-FRONTEND-INTRO-TITLE | frontend | R4 | scoped | - | codex/r4-frontend-intro-title-sol | 0 | pending | not_ready |
+| 100 | R3-SEASON-DATA-FOUNDATION | season_data | R3 | in_progress | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | 0 | in_progress | not_ready |
+| 100 | R4-FRONTEND-INTRO-TITLE | frontend | R4 | in_progress | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | 0 | in_progress | not_ready |
 | 100 | R5-ASSET-BUILD-PROVENANCE | assets_build | R5 | backlog | - | - | 0 | pending | not_ready |
 | 99 | R0A-ADOPT-CPU-TIP | gameplay_behavior | R0A | pushed | S-SOL-CPU-TIP-LEGACY | codex/cpu-tipoff-behavior | 1 | historical_sol_accepted | pushed |
-| 99 | R4-AUDIO-FOUNDATION | audio | R4 | scoped | - | codex/r4-audio-foundation-sol | 0 | pending | not_ready |
+| 99 | R4-AUDIO-FOUNDATION | audio | R4 | in_progress | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | 0 | in_progress | not_ready |
 | 98 | R0A-ADOPT-TIP-VIS | gameplay_presentation | R0A | pushed | S-SOL-TIP-VIS-LEGACY | codex/tipoff-visual-orientation | 6 | historical_sol_accepted | pushed |
 | 98 | R1-LIVE-FOUNDATION | gameplay_behavior | R1 | luna_revision | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 0 | luna_revision | not_ready |
 | 98 | R2-DEFENSE-CONTACT | gameplay_behavior | R2 | backlog | - | - | 0 | pending | not_ready |
@@ -73,8 +73,11 @@ Generated from committed JSON at `2026-08-03T14:50:16Z`. This dashboard reports 
 
 | Session | Role | Model/thinking | Status | Pin | Tasks | Branch | Worktree | Last good |
 |---|---|---|---|---|---|---|---|---|
-| S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 5a3fea5c00dc |
+| S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 4c0fdda099ee |
 | S-SOL-R1-GAMEPLAY-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | codex/r1-gameplay-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r1-gameplay-foundation-sol | ad0f00567369 |
+| S-SOL-R3-SEASON-DATA-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R3-SEASON-DATA-FOUNDATION | codex/r3-season-data-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r3-season-data-foundation-sol | 6d8f9c7a99a7 |
+| S-SOL-R4-FRONTEND-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R4-FRONTEND-INTRO-TITLE | codex/r4-frontend-intro-title-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r4-frontend-intro-title-sol | 6d8f9c7a99a7 |
+| S-SOL-R4-AUDIO-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R4-AUDIO-FOUNDATION | codex/r4-audio-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r4-audio-foundation-sol | 6d8f9c7a99a7 |
 
 ## Active Ownership
 
