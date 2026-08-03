@@ -1014,7 +1014,7 @@ def command_dashboard(args: argparse.Namespace) -> int:
         return print_result(result, "dashboard preflight")
     _, _, dashboard_path = orchestration_paths(args.repo_root)
     generated_at = args.generated_at or state["queue"]["updated_at"]
-    content = dashboard_text(state, generated_at) + "\n"
+    content = dashboard_text(state, generated_at).rstrip() + "\n"
     if args.check:
         if not dashboard_path.is_file() or dashboard_path.read_text(encoding="utf-8") != content:
             print(f"ERROR: dashboard is stale: {dashboard_path}")

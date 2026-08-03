@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T04:18:18Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T04:35:00Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,26 +8,26 @@ Generated from committed JSON at `2026-08-03T04:18:18Z`. This dashboard reports 
 - Inventory: `framework_only`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `in_progress` 1
+- Task states: `ready_for_main` 1
 - Fidelity classifications: `incomplete` 24
 
 ## Rounds
 
 | Round | Status | Base | Tasks | Staging | Combined QA | Push |
 |---|---|---|---:|---|---|---|
-| R0 | in_progress | 63b29b04b1ab | 1 | codex/master-finish-orchestration | coordination_only | not_attempted |
+| R0 | ready_for_main | 63b29b04b1ab | 1 | codex/master-finish-orchestration | coordination_only | not_attempted |
 
 ## Queue
 
 | Priority | Task | Domain | Round | State | Sol session | Branch | Result commits | QA | Merge |
 |---:|---|---|---|---|---|---|---:|---|---|
-| 100 | R0-CTRL-001 | orchestration | R0 | in_progress | S-MASTER-001 | codex/master-finish-orchestration | 0 | coordination_validation_pending | not_ready |
+| 100 | R0-CTRL-001 | orchestration | R0 | ready_for_main | S-MASTER-001 | codex/master-finish-orchestration | 1 | coordination_validated | ready |
 
 ## Active Sessions
 
 | Session | Role | Model/thinking | Status | Pin | Tasks | Branch | Worktree | Last good |
 |---|---|---|---|---|---|---|---|---|
-| S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 63b29b04b1ab |
+| S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 2bdfac614a31 |
 
 ## Active Ownership
 
@@ -71,4 +71,3 @@ No external blockers are recorded.
 ## Recovery
 
 Read `MASTER_PLAN.md`, validate all state, verify Git lineage, then contact only active Sol orchestrators registered above.
-

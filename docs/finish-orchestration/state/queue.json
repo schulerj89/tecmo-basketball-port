@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T04:18:18Z",
+  "updated_at": "2026-08-03T04:35:00Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -11,32 +11,45 @@
       "round_id": "R0",
       "priority": 100,
       "coordination_only": true,
-      "state": "in_progress",
+      "state": "ready_for_main",
       "dependencies": [],
-      "ownership_claim_ids": ["OWN-R0-CTRL"],
+      "ownership_claim_ids": [
+        "OWN-R0-CTRL"
+      ],
       "base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
       "expected_parent_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
       "branch": "codex/master-finish-orchestration",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator",
       "sol_orchestrator_session_id": "S-MASTER-001",
       "reported_luna_worker_session_ids": [],
-      "result_commits": [],
-      "evidence_ids": ["EVID-R0-BASE", "EVID-R0-POLICY"],
+      "result_commits": [
+        "2bdfac614a3179fa100de236bddf4a46f5080383"
+      ],
+      "evidence_ids": [
+        "EVID-R0-BASE",
+        "EVID-R0-POLICY",
+        "EVID-R0-VALIDATION"
+      ],
       "blocker_ids": [],
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-orchestration",
       "qa": {
-        "status": "coordination_validation_pending",
-        "sol_signoff": false,
-        "integration_signoff": false,
-        "test_records": [],
+        "status": "coordination_validated",
+        "sol_signoff": true,
+        "integration_signoff": true,
+        "test_records": [
+          "tools/finish-orchestration/Test-ControlPlane.ps1: PASS at 2bdfac614a3179fa100de236bddf4a46f5080383",
+          "Allowed in_progress -> sol_review transition dry-run: PASS",
+          "Forbidden in_progress -> pushed transition rejection: PASS",
+          "Python and PowerShell syntax parsing: PASS"
+        ],
         "proof_manifests": [],
         "notes": "Round 0 permits master-owned coordination validators only; no product QA."
       },
       "merge": {
         "staging_branch": "codex/master-finish-orchestration",
         "merge_order": 1,
-        "status": "not_ready",
+        "status": "ready",
         "merge_commit": null,
         "main_pre_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
         "main_post_sha": null,
@@ -44,7 +57,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:18:18Z",
-      "updated_at": "2026-08-03T04:18:18Z",
+      "updated_at": "2026-08-03T04:35:00Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:18:18Z",
@@ -73,6 +86,41 @@
           "from_state": "assigned",
           "to_state": "in_progress",
           "reason": "Persistent worktree and branch were created from the exact main base."
+        },
+        {
+          "timestamp": "2026-08-03T04:35:00Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "in_progress",
+          "to_state": "sol_review",
+          "reason": "Master reviewed the coordination-only implementation and validator coverage."
+        },
+        {
+          "timestamp": "2026-08-03T04:35:00Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "sol_review",
+          "to_state": "sol_accepted",
+          "reason": "Coordination validators, failure probes, syntax checks, lineage, and dashboard gate passed."
+        },
+        {
+          "timestamp": "2026-08-03T04:35:00Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "sol_accepted",
+          "to_state": "ready_for_round_staging",
+          "reason": "The exact control-plane commit is frozen for administrative staging."
+        },
+        {
+          "timestamp": "2026-08-03T04:35:00Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "ready_for_round_staging",
+          "to_state": "combined_qa",
+          "reason": "Round 0 uses the documented coordination-only combined validation exception."
+        },
+        {
+          "timestamp": "2026-08-03T04:35:00Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "combined_qa",
+          "to_state": "ready_for_main",
+          "reason": "All administrative acceptance gates passed; no product QA was performed."
         }
       ]
     }

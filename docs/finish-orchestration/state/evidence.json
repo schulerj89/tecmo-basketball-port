@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T04:18:18Z",
+  "updated_at": "2026-08-03T04:35:00Z",
   "records": [
     {
       "evidence_id": "EVID-R0-BASE",
@@ -41,6 +41,32 @@
       "proof_locations": [],
       "local_private": false,
       "created_at": "2026-08-03T04:18:18Z"
+    },
+    {
+      "evidence_id": "EVID-R0-VALIDATION",
+      "task_ids": ["R0-CTRL-001"],
+      "kind": "other",
+      "title": "Round 0 coordination validation gate",
+      "classification": "exact_source_pinned",
+      "confidence": "exact",
+      "rom": null,
+      "asm": null,
+      "original_reference": null,
+      "description": "The committed control plane passed JSON Schema, semantic, state-audit, duplicate, dependency, ownership-overlap, Git lineage, dashboard-freshness, syntax, and transition-edge checks.",
+      "what_it_proves": "The Round 0 coordination mechanism is internally consistent and recoverable at commit 2bdfac614a3179fa100de236bddf4a46f5080383.",
+      "limits": "These are coordination checks only. No gameplay, render, audio, asset-pack, build, smoke, or other product test was run by the master.",
+      "runtime_locations": [],
+      "test_locations": [
+        "tools/finish-orchestration/Test-ControlPlane.ps1",
+        "tools/finish-orchestration/Validate-ControlPlane.ps1",
+        "tools/finish-orchestration/Verify-Lineage.ps1"
+      ],
+      "doc_locations": [
+        "docs/finish-orchestration/dashboard.md"
+      ],
+      "proof_locations": [],
+      "local_private": false,
+      "created_at": "2026-08-03T04:35:00Z"
     }
   ]
 }
