@@ -4,6 +4,7 @@
 #include "tecmo_asset_pack_util.h"
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
 
 #define SEASON_BANK 3U
@@ -32,6 +33,11 @@ typedef struct SeasonScreenSource {
 static bool range_ok(uint64_t offset, uint64_t size, uint64_t total)
 {
     return offset <= total && size <= total - offset;
+}
+
+static bool season_chr_range_ok(uint64_t offset, uint64_t size)
+{
+    return range_ok(offset, size, TECMO_ASSET_PACK_SEASON_CHR_SIZE);
 }
 
 static uint64_t bank_cpu_offset(uint64_t prg_offset,
@@ -108,7 +114,7 @@ static int build_cursor(const uint8_t source[5], uint8_t destination[16])
     if (source[0] != 0x11U || source[3] != 0x30U || source[4] != 0x24U)
         return -1;
     top = (uint32_t)source[3] * 1024U + (uint32_t)source[4] * 16U;
-    if (top + 32U > TECMO_ASSET_PACK_SEASON_CHR_SIZE) return -1;
+    if (!season_chr_range_ok((uint64_t)top, 32U)) return -1;
     tecmo_asset_pack_store_u16(
         destination, (uint16_t)(int16_t)(int8_t)source[1]);
     tecmo_asset_pack_store_u16(
@@ -315,6 +321,11 @@ int tecmo_asset_pack_season_self_test(char *message, size_t message_size)
     uint8_t cursor[16] = {0};
     if (TECMO_ASSET_PACK_SEASON_SIZE != 104732U ||
         TECMO_ASSET_PACK_SEASON_SCHEDULE_COUNT != 27U * 82U / 2U ||
+        !season_chr_range_ok(
+            TECMO_ASSET_PACK_SEASON_CHR_SIZE - 32U, 32U) ||
+        season_chr_range_ok(
+            TECMO_ASSET_PACK_SEASON_CHR_SIZE - 31U, 32U) ||
+        season_chr_range_ok(UINT32_MAX, 16U) ||
         build_cursor(cursor_source, cursor) != 0 ||
         tecmo_asset_pack_read_u32(cursor + 4U) != 0xC240U ||
         tecmo_asset_pack_read_u32(cursor + 8U) != 0xC250U) {
@@ -412,8 +423,17 @@ int tecmo_asset_pack_build_season_menu(const uint8_t *rom,
         return -1;
     }
     memset(provenance, 0, sizeof(*provenance));
-    chr_offset = prg_offset +
-                 (uint64_t)prg_banks * TECMO_ASSET_PACK_PRG_BANK_BYTES;
+    {
+        uint64_t prg_span =
+            (uint64_t)prg_banks * TECMO_ASSET_PACK_PRG_BANK_BYTES;
+        if (prg_offset > UINT64_MAX - prg_span) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "TSNS-1 CHR offset arithmetic overflow was rejected.");
+            return -1;
+        }
+        chr_offset = prg_offset + prg_span;
+    }
     if (!range_ok(chr_offset, chr_size, rom_size) ||
         (enforce_revision_fingerprints != 0 &&
          tecmo_asset_pack_fnv1a32(rom + (size_t)chr_offset,

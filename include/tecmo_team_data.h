@@ -21,6 +21,55 @@
 #define TECMO_TEAM_DATA_PORTRAIT_CELL_COUNT 24U
 #define TECMO_TEAM_DATA_PROFILE_PALETTE_COUNT 4U
 #define TECMO_TEAM_DATA_LAKERS_TEAM_ID 12U
+#define TECMO_TEAM_DATA_PLAYER_KEY_COUNT \
+    (TECMO_TEAM_DATA_REAL_TEAM_COUNT * TECMO_TEAM_DATA_PLAYERS_PER_TEAM)
+#define TECMO_TEAM_DATA_PLAYER_KEY_INVALID 0xFFFFU
+#define TECMO_TEAM_DATA_LEADER_RESULT_COUNT 18U
+#define TECMO_TEAM_DATA_STAT_CATEGORY_COUNT 7U
+
+/* The category names are the seven source-backed Bank00 leader labels.  The
+ * values are navigation/catalog identity only; they do not imply that TSAV-1
+ * or TTDT-1 stores mutable season accumulators. */
+typedef enum TecmoTeamDataStatCategory {
+    TECMO_TEAM_DATA_STAT_FIELD_GOALS = 0,
+    TECMO_TEAM_DATA_STAT_BLOCKED_SHOTS,
+    TECMO_TEAM_DATA_STAT_REBOUNDS,
+    TECMO_TEAM_DATA_STAT_TOTAL_POINTS,
+    TECMO_TEAM_DATA_STAT_STEALS,
+    TECMO_TEAM_DATA_STAT_THREE_POINT_SHOTS,
+    TECMO_TEAM_DATA_STAT_FREE_THROWS
+} TecmoTeamDataStatCategory;
+
+/* A canonical key is team-major and roster-slot-minor: [0, 323] maps exactly
+ * to the 27 real teams x 12 roster slots.  Selector identity is retained in
+ * TecmoTeamDataPlayerIdentity for callers that need the 29-entry UI model. */
+typedef struct TecmoTeamDataPlayerIdentity {
+    uint8_t selector_index;
+    uint8_t selector_team;
+    uint8_t roster_slot;
+    uint8_t canonical_team;
+    uint8_t canonical_player;
+    uint16_t canonical_key;
+} TecmoTeamDataPlayerIdentity;
+
+typedef struct TecmoTeamDataMetricPair {
+    uint64_t primary;
+    uint64_t secondary;
+} TecmoTeamDataMetricPair;
+
+/* This is deliberately caller-owned and ephemeral.  available/eligible are
+ * explicit so an unavailable metric is never confused with a zero statistic. */
+typedef struct TecmoTeamDataStatCandidate {
+    uint16_t canonical_key;
+    bool available;
+    bool eligible;
+    TecmoTeamDataMetricPair metric;
+} TecmoTeamDataStatCandidate;
+
+typedef struct TecmoTeamDataLeaderEntry {
+    TecmoTeamDataPlayerIdentity identity;
+    TecmoTeamDataMetricPair metric;
+} TecmoTeamDataLeaderEntry;
 
 typedef struct TecmoTeamDataCursor {
     int16_t dx;
@@ -188,6 +237,28 @@ const char *tecmo_team_data_position_name(uint8_t roster_code);
 const char *tecmo_team_data_condition_name(uint8_t condition_value);
 uint8_t tecmo_team_data_meter_fill_length(const uint8_t profile[6],
                                            size_t meter_index);
+
+uint16_t tecmo_team_data_player_key(uint8_t canonical_team,
+                                    uint8_t canonical_player);
+bool tecmo_team_data_player_key_valid(uint16_t canonical_key);
+bool tecmo_team_data_identity_contract_valid(
+    const TecmoTeamDataAsset *asset);
+bool tecmo_team_data_resolve_player_identity(
+    const TecmoTeamDataAsset *asset,
+    uint8_t selector_index,
+    uint8_t roster_slot,
+    TecmoTeamDataPlayerIdentity *identity);
+const char *tecmo_team_data_stat_category_name(
+    TecmoTeamDataStatCategory category);
+bool tecmo_team_data_rank_leaders(
+    const TecmoTeamDataAsset *asset,
+    TecmoTeamDataStatCategory category,
+    const TecmoTeamDataStatCandidate *candidates,
+    size_t candidate_count,
+    TecmoTeamDataLeaderEntry *results,
+    size_t result_capacity,
+    size_t *result_count);
+bool tecmo_team_data_self_test(char *message, size_t message_size);
 
 /* Resolves fixed $DEAB-$DEDF's exact away/home gameplay uniform colors.
    Invalid input leaves uniform_colors unchanged. */
