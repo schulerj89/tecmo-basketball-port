@@ -2,12 +2,15 @@
 
 Sol accepted implementation commit
 `a37e10207455933be3930e90c55b10b669cb0ef3` and its clean-commit formal proof.
+Independent terminal QA passed the frozen product/proof at
+`b678beffeacd745fe438e78d323357dc6f86af95` with `P0=0`, `P1=0`, and one
+grouped docs-only `P2`; the same QA task must verify this revised doc tip
+before terminal acceptance.
 The post-rescope gates all exited `0`: `build.ps1` built console+Win32 with no
 warning lines; `Run-Win32LaunchSmokeTest.ps1` passed explicit console flow and
 GUI/console production smoke; `Run-GameplayPreTipTests.ps1` passed; and
 `Run-GameplaySceneTests.ps1 -Build` passed with historical LIVE PROOF DRAFT at
-`build/live-proof-20260803T205847090Z`. Independent QA and Sol-branch
-integration remain pending.
+`build/live-proof-20260803T205847090Z`. Sol-branch integration remains pending.
 
 ## Focused commands passed
 
@@ -117,6 +120,7 @@ Unaffected checkpoints verified unchanged include pretip 675 and 712, proof
   P1/Away input during `JUMP_CONTEST`, clear it otherwise, and preserve the
   real 721-update handoff. The wrapper was run without `-RequirePass`, so its
   manifest is intentionally `DRAFT`.
-- Production Win32 launch smoke and formal visual inspection passed. Independent
-  QA and Sol-branch integration remain pending. No test suite was deleted or
-  weakened.
+- Production Win32 launch smoke, formal visual inspection, and independent QA
+  of the frozen product/proof passed. The same QA task must verify this revised
+  doc tip before terminal acceptance; Sol-branch integration remains pending.
+  No test suite was deleted or weakened.

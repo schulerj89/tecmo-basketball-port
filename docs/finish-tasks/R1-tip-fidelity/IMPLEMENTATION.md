@@ -4,10 +4,11 @@
 
 Sol accepted the source/ABI/pack/test review for the first TIP implementation
 commit `a37e10207455933be3930e90c55b10b669cb0ef3` and accepted its clean-commit
-formal proof. The post-rescope build, explicit console-flow and GUI/console
-Win32 smoke, focused pre-tip harness, and broad scene suite all passed. The
-latest historical broad DRAFT is `build/live-proof-20260803T205847090Z`;
-independent QA and Sol-branch integration remain pending.
+formal proof. Independent terminal QA passed the frozen product/proof at
+`b678beffeacd745fe438e78d323357dc6f86af95` with `P0=0`, `P1=0`, and one
+grouped docs-only `P2`; the same QA task must verify this revised doc tip
+before terminal acceptance. The latest historical broad DRAFT is
+`build/live-proof-20260803T205847090Z`; Sol-branch integration remains pending.
 
 ## TPTI-2 payload contract
 

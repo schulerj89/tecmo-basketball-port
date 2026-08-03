@@ -80,5 +80,8 @@ console and Win32 targets with no warning lines;
 `Run-Win32LaunchSmokeTest.ps1` passed explicit console flow plus GUI/console
 production smoke; `Run-GameplayPreTipTests.ps1` passed; and
 `Run-GameplaySceneTests.ps1 -Build` passed with LIVE PROOF DRAFT at
-`build/live-proof-20260803T205847090Z`. Independent QA and Sol-branch
-integration remain pending.
+`build/live-proof-20260803T205847090Z`. Independent terminal QA passed the
+frozen product/proof at `b678beffeacd745fe438e78d323357dc6f86af95` with
+`P0=0`, `P1=0`, and one grouped docs-only `P2`; the same QA task must verify
+this revised doc tip before terminal acceptance. Sol-branch integration remains
+pending.

@@ -2,15 +2,25 @@
 
 Status: first TIP implementation commit
 `a37e10207455933be3930e90c55b10b669cb0ef3` and its clean-commit formal proof
-are accepted by Sol. Independent QA and Sol-branch integration remain pending;
-do not merge or push this branch.
+are accepted by Sol. Independent terminal QA passed the frozen product/proof at
+`b678beffeacd745fe438e78d323357dc6f86af95` with `P0=0`, `P1=0`, and one
+grouped docs-only `P2`; the same QA task must verify this revised doc tip
+before terminal acceptance. Sol-branch integration remains pending; do not
+merge or push this branch.
+
+The accepted chain is `222d75cfafa9153db1eb44492bf557f11b1a9091` ->
+`a37e10207455933be3930e90c55b10b669cb0ef3` ->
+`b678beffeacd745fe438e78d323357dc6f86af95`. This correction is the terminal
+docs-only closure commit; its exact SHA is reported in Git/worker output and
+is not self-embedded here.
 
 ## Review gate
 
 Sol reviewed and accepted the source/ABI/pack/test surface and clean-commit
 formal proof. The post-rescope build, explicit console-flow and GUI/console
-Win32 smoke, focused pre-tip, and broad scene gates passed. Independent QA and
-Sol-branch integration remain pending.
+Win32 smoke, focused pre-tip, and broad scene gates passed. Independent
+terminal QA passed the frozen product/proof with only the docs-only P2 above;
+revised-doc verification and Sol-branch integration remain pending.
 
 The durable clearances permit only two fixture edits beyond the original
 boundary: `src/tecmo_gameplay_live_proof.c::live_proof_advance_pretip` supplies
@@ -19,8 +29,9 @@ P1/Away held-B during `JUMP_CONTEST` and clears it otherwise, while
 that phase inside its existing 721-iteration loop, keeps P2 neutral, and
 preserves both callers and post-handoff assertions. No other function or line
 in either file may be included. The broad wrapper, Win32 launch smoke, and
-formal clean-commit proof pass; independent QA and Sol-branch integration
-remain separate pending gates.
+formal clean-commit proof pass; independent terminal QA passed the frozen
+product/proof with only the docs-only P2 above. Revised-doc verification and
+Sol-branch integration remain separate pending gates.
 
 ## Historical pre-commit handoff
 
@@ -43,4 +54,7 @@ remain separate pending gates.
 Formal `New-TipoffVisualProof.ps1` passed on the first attempt at
 `build\proof\tipoff-visual-orientation-a37e10207455`; see `PROOF.md` for the
 manifest, inventory, artifact hashes, runtime observations, and visual review.
-Independent QA and Sol-branch integration remain pending.
+Independent terminal QA passed the frozen product/proof at `b678beff` with
+`P0=0`, `P1=0`, and one grouped docs-only `P2`; the same QA task must verify
+this revised doc tip before terminal acceptance. Sol-branch integration remains
+pending.

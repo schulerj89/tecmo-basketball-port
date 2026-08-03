@@ -1,8 +1,11 @@
 # R1 TIP fidelity
 
-Status: Sol accepted the first TIP implementation commit `a37e10207455933be3930e90c55b10b669cb0ef3`,
-including its clean-commit formal proof. Final TIP closure remains pending
-independent QA and Sol-branch integration.
+Status: Sol accepted the first TIP implementation commit
+`a37e10207455933be3930e90c55b10b669cb0ef3`, including its clean-commit formal
+proof. Independent terminal QA passed the frozen product/proof at
+`b678beffeacd745fe438e78d323357dc6f86af95` with `P0=0`, `P1=0`, and one
+grouped docs-only `P2`; the same QA task must verify this revised doc tip before
+terminal acceptance. Sol-branch integration remains pending.
 
 Worker branch: `codex/r1-tip-fidelity-luna`
 Worker worktree:
@@ -33,8 +36,9 @@ console-flow and GUI/console production Win32 launch smoke, and broad
 `Run-GameplaySceneTests.ps1` suite pass. The first formal proof passed on its
 first attempt at
 `build\proof\tipoff-visual-orientation-a37e10207455`; its manifest and full
-visual/runtime evidence are recorded in `PROOF.md`. Independent QA and
-Sol-branch integration remain pending. `src/tecmo_gameplay_live_proof.c` contains only the durably authorized
+visual/runtime evidence are recorded in `PROOF.md`. The frozen product/proof
+then passed independent terminal QA with only the docs-only P2 above.
+`src/tecmo_gameplay_live_proof.c` contains only the durably authorized
 fixture change in `live_proof_advance_pretip`: P1/Away held-B is applied during
 `JUMP_CONTEST` and cleared in every other phase. The separate
 `src/tecmo_flow_test.c` change is likewise limited to

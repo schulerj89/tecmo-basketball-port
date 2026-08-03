@@ -4,9 +4,11 @@
 
 Sol accepted the source, ABI, asset-pack, and test review for the first TIP
 implementation commit `a37e10207455933be3930e90c55b10b669cb0ef3`, and accepted
-its clean-commit formal proof. The post-rescope build, Win32 smoke, focused
-pre-tip, and broad scene gates pass. Independent QA and Sol-branch integration
-remain pending.
+its clean-commit formal proof. Independent terminal QA passed the frozen
+product/proof at `b678beffeacd745fe438e78d323357dc6f86af95` with `P0=0`,
+`P1=0`, and one grouped docs-only `P2`; the same QA task must verify this
+revised doc tip before terminal acceptance. Sol-branch integration remains
+pending.
 
 ## Worker boundary
 
@@ -80,5 +82,5 @@ path is part of this patch.
 - No generated screenshots, video, contact sheets, logs, proof manifests, ROM
   bytes, or build output are committed. Focused scratch remains ignored.
 - Formal `New-TipoffVisualProof.ps1` passed at the exact implementation commit.
-  Independent QA and Sol-branch integration remain outside this worker's
-  closure and are still pending.
+  Independent QA has passed the frozen product/proof; only revised-doc
+  verification and Sol-branch integration remain outside this worker's closure.

@@ -2,7 +2,16 @@
 
 Status: Sol accepted source/ABI/pack/test review and clean-commit formal proof
 for implementation commit `a37e10207455933be3930e90c55b10b669cb0ef3`.
-Independent QA and Sol-branch integration remain pending.
+Independent terminal QA passed the frozen product/proof at
+`b678beffeacd745fe438e78d323357dc6f86af95` with `P0=0`, `P1=0`, and one
+grouped docs-only `P2`; the same QA task must verify this revised doc tip
+before terminal acceptance. Sol-branch integration remains pending.
+
+Accepted chain: `222d75cfafa9153db1eb44492bf557f11b1a9091` ->
+`a37e10207455933be3930e90c55b10b669cb0ef3` ->
+`b678beffeacd745fe438e78d323357dc6f86af95`. This correction is the terminal
+docs-only closure commit; its exact SHA is reported in Git/worker output and
+is intentionally not self-embedded here.
 
 ## Lineage
 
@@ -195,8 +204,10 @@ exact `os error 2` and `os error 123` signatures.
   `Run-GameplaySceneTests.ps1 -Build` passed with LIVE PROOF DRAFT at
   `build/live-proof-20260803T205847090Z`. This is the accepted source/ABI/
   pack/test review point for the first implementation commit. Clean-commit
-  formal proof passed afterward; independent QA and Sol-branch integration
-  remain pending.
+  formal proof passed afterward; independent terminal QA passed the frozen
+  product/proof with `P0=0`, `P1=0`, and one docs-only `P2`. The same QA task
+  must verify this revised doc tip before terminal acceptance; Sol-branch
+  integration remains pending.
 
 ## Formal proof closure
 
@@ -251,8 +262,9 @@ deterministic twice.
 
 The MP4 is presentation-only, never acceptance proof: `98,535` bytes, SHA-256
 `4215BBF4733E71D2FFE8EC2D6C16DDF60AF187B7FE1585141320B34BEB8D4C20`,
-`640x480`, `65` decoded/stored frames, average and real rate
-`39375000/655171`, duration `1.081552s` versus expected
+`640x480`, `65` decoded/stored frames,
+`avg_frame_rate=39375000/655171`, `r_frame_rate=39375000/655171`, duration
+`1.081552s` versus expected
 `1.0815521269841271s`; ffmpeg SHA-256
 `D1E2A156261ECC675081943197A85F08F2868784A0AF499171EDE89353EDAD31` and
 ffprobe SHA-256
@@ -280,6 +292,72 @@ snap, or host-margin leakage. Private original-reference sheets were
 arc and frame-721 handoff; visual trajectory/camera composition is approximate,
 and TTDT/`$7C48` trajectory plus original tie settlement and selector-to-team/
 receiver mapping remain incomplete. Frame 721 is not ROM-exact.
+
+## Independent terminal QA lineage and closure
+
+Independent QA task `019fc89b-05fb-7193-aef0-e483f9306279` was exactly
+retitled `Tecmo R1 TIP Fidelity — Independent Terminal QA — Luna Max`, using
+`gpt-5.6-luna thinking=max`, projectless; branch/worktree/base/last-good/
+writable fields remained null. Repin ran from
+`2026-08-03T21:19:44.948Z` through `2026-08-03T21:19:45.419Z`; QA turn
+`019fc980-4691-7de1-8352-ae94a4c27508` started at
+`2026-08-03T21:20:54Z`. QA-start was not separately captured; final audit was
+`2026-08-03T21:34:50.1732492Z`.
+
+At `b678beffeacd745fe438e78d323357dc6f86af95`, QA verdict was
+`REVISE docs-only`, `P0=0`, `P1=0`, with one grouped current-status/closure
+`P2`. Frozen implementation, static evidence, builds, focused/broad/Win32
+tests, formal proof, media, and ownership all passed. This docs-only revision
+addresses that P2; the same QA task must verify the revised doc tip before
+terminal acceptance, and Sol-branch integration remains pending.
+QA reran the warning-clean build, focused TPTI-2 harness, broad scene suite,
+Win32 smoke, and formal proof; all exited `0`.
+
+QA proof root was `build\proof\qa-tipoff-b678beffeacd`, generated UTC
+`2026-08-03T21:26:21.3756164Z`, schema `tecmo.tipoff-realtime-proof/2`,
+manifest commit `b678beffeacd745fe438e78d323357dc6f86af95`, manifest SHA-256
+`051002DF73166C914DB236BAB1313800917C849D47026EDF1AAD30C70F4D6DEC`, and
+summary SHA-256
+`BE54A3110C61CCCA11502535D446C87D23A43C0105B72C22F724B8AB4C47CFBF`.
+The QA executable was `1,981,952` bytes with SHA-256
+`EF06845CE7622ED310BE4CDA9DAB84437662F2F60A333E0F8D2372B5A8001CFE`.
+The pack was `1,406,713` bytes/`86` entries with SHA-256
+`A16D873CCBBDEBEFB19F101D34569F6F1CE280943A47221956D3B036BA89FEC4`;
+TPTI-2 was `7,680` bytes/FNV32 `28910BC1`/FNV64 `7EA1596E8DFAC0C1`.
+
+QA found `65` contiguous `0661..0725` frames, deterministic pass 2, all
+`640x480`, `138` nonempty clean logs, and no incomplete marker. Artifact hashes
+matched the accepted a37e proof byte-for-byte despite a different executable
+hash; no cause is inferred. Contact/edge/facing/MP4 hashes were respectively
+`4D29B5323D21B0C0CEACE359AFE6AB55E5EE1A7B54C783629769426D31B5EB95`,
+`4785DD027E8180A145517C824BC4AABEEA064EA39273450E316B3CC39BDB051A`,
+`7E8FF07AB0CF4D1FC3EDDCF582A8F2F82F359EAE03B5729593ADAF62E3B5BBB0`,
+`DDE21802E85DD14AC85F8792CBB9694C0833E5DC103A1C567891B1501F6FA783`, and
+`4215BBF4733E71D2FFE8EC2D6C16DDF60AF187B7FE1585141320B34BEB8D4C20`.
+ffprobe reported `width=640 height=480 nb_read_frames=65`,
+`avg_frame_rate=39375000/655171`, `r_frame_rate=39375000/655171`, and
+`duration=1.081552`. Visual review covered frames `661`, `662`, `683`, `687`,
+`696`, `720`, `721`, `725`, contact/edge/facing sheets, and the three current
+original sheets without corruption, clipping, or margin leakage. Native
+full-court `640x480` arc remains approximate versus the original `256x224`
+close-up/longer path; tie, selector/receiver, TTDT/`$7C48`, and ROM-exact
+frame-721 timing remain incomplete.
+
+### QA-only diagnostics
+
+| Count | Raw signature / purpose | Cause and recovery | State impact |
+|---:|---|---|---|
+| 1 | `CreateProcess ... The directory name is invalid. (os error 267)` | QA corrected the process path and retried. | No mutation. |
+| 1 | PowerShell `||` `ParserError` | QA replaced the unsupported separator with PowerShell-compatible control flow. | No mutation; bad-request count `0`. |
+| 1 | Malformed `rg` regex with an unrecognized escape | QA corrected the regex escaping. | No mutation. |
+| 65 | Accepted-frame comparison falsely reported `MISSING` because it read a nonexistent pass property. | QA switched to frame-plus-SHA fields; all `65x2` comparisons matched. | No mutation. |
+| 1 | Image inventory `InvalidCastFromStringToInteger` on `away-left-facing` | QA corrected the inventory regex. | No mutation. |
+
+### Sol read-only post-QA tree diagnostic
+
+| Count | Raw signature / purpose | Cause and recovery | State impact |
+|---:|---|---|---|
+| 3 | `fatal: ambiguous argument 'dAByAGUAZQA=': unknown revision or path not in the working tree. Use '--' to separate paths from revisions...` | Unquoted `^{tree}` was interpreted by PowerShell; quoted revisions recovered the exact tree hashes. | No mutation; literal bad-request count `0`. |
 
 ### Commit-audit diagnostic
 
