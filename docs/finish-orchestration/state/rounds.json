@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T19:24:36Z",
+  "updated_at": "2026-08-03T19:55:43Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -120,7 +120,7 @@
     {
       "round_id": "R1A",
       "title": "Incremental CPU and LIVE gameplay-foundation delivery",
-      "status": "combined_qa",
+      "status": "pushed",
       "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "scope": [
         "Accepted original CPU play-command lifecycle",
@@ -144,16 +144,16 @@
       ],
       "combined_qa": {
         "required": true,
-        "status": "in_progress",
-        "accepted_sha": null,
-        "report_path": null,
-        "signed_by_session_id": null,
-        "notes": "User authorized incremental delivery so accepted CPU+LIVE do not sit behind TIP. Dedicated Integration QA has valid frozen and first-reconciliation evidence at f98fea3; because R4A later advanced main to bcacd5b, the same Sol/Luna must reconcile and re-prove that exact current main before a signed fast-forwardable terminal report."
+        "status": "accepted",
+        "accepted_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
+        "report_path": "docs/finish-tasks/R1A-cpu-live-integration-qa/README.md",
+        "signed_by_session_id": "S-SOL-R1A-INTEGRATION-QA-001",
+        "notes": "Signed terminal 819b0e5 reconciles accepted CPU+LIVE with R3A and R4A current main, passed personal and same-Luna P0/P1/P2-zero combined QA, and was master-verified and pushed incrementally without waiting for TIP."
       },
       "acceptance": {
-        "status": "pending",
-        "accepted_at": null,
-        "accepted_sha": null,
+        "status": "accepted",
+        "accepted_at": "2026-08-03T19:54:00Z",
+        "accepted_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
         "criteria": [
           "CPU and LIVE domain tasks retain exact Sol acceptance and documentation",
           "Dedicated combined suite, rebuild, production smoke, and gameplay proof pass on exact staging",
@@ -161,16 +161,16 @@
         ]
       },
       "main_integration": {
-        "pre_main_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
-        "merge_commits": [],
-        "post_main_sha": null,
-        "remote_main_before_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
-        "push_sha": null,
-        "push_result": "not_attempted",
-        "pushed_at": null
+        "pre_main_sha": "bcacd5b6963f4db1a92c8db9b9770413505a0e98",
+        "merge_commits": ["819b0e5eabca11683786e45474ca60329dff7f5f"],
+        "post_main_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
+        "remote_main_before_sha": "bcacd5b6963f4db1a92c8db9b9770413505a0e98",
+        "push_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
+        "push_result": "succeeded",
+        "pushed_at": "2026-08-03T19:54:00Z"
       },
       "created_at": "2026-08-03T17:57:57Z",
-      "updated_at": "2026-08-03T19:32:58Z"
+      "updated_at": "2026-08-03T19:55:43Z"
     },
     {
       "round_id": "R1",
@@ -504,6 +504,54 @@
       },
       "created_at": "2026-08-03T04:47:45Z",
       "updated_at": "2026-08-03T18:38:12Z"
+    },
+    {
+      "round_id": "R4B",
+      "title": "Frontend intro/title incremental integration delivery",
+      "status": "planned",
+      "base_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
+      "scope": [
+        "Freeze accepted frontend/title candidate 757283ed",
+        "Reconcile its non-overlapping 19-path delta with current main 819b0e5",
+        "Run dedicated combined build, frontend, direct self-test/flow, cross-domain smoke, deterministic proof, and independent QA",
+        "Produce one signed fast-forwardable terminal report for master-only push"
+      ],
+      "included_task_ids": ["R4B-INTEGRATION-QA"],
+      "staging_branch": "codex/round-4b-frontend-intro-title-staging",
+      "sol_orchestrator_session_ids": ["S-SOL-R4-FRONTEND-RECOVERY-001"],
+      "integration_qa_session_id": null,
+      "merge_order": ["R4B-INTEGRATION-QA"],
+      "combined_qa": {
+        "required": true,
+        "status": "pending",
+        "accepted_sha": null,
+        "report_path": null,
+        "signed_by_session_id": null,
+        "notes": "Dedicated Sol Max Integration QA must reconcile immutable frontend 757283ed with current accepted main 819b0e5 and obtain same-Luna P0/P1/P2 closure before master integration."
+      },
+      "acceptance": {
+        "status": "pending",
+        "accepted_at": null,
+        "accepted_sha": null,
+        "criteria": [
+          "Both current main 819b0e5 and frontend candidate 757283ed are ancestors of the terminal integration commit",
+          "Combined warning-clean build, canonical intro suite, direct assetpack/arena/flow tests, and cross-domain smoke pass",
+          "Frontend deterministic frame/video proof remains exact after reconciliation",
+          "Independent Luna and Integration Sol close P0/P1/P2 at zero with a signed docs-only terminal report",
+          "Terminal commit is a true fast-forward descendant of then-current main and contains no prohibited artifacts"
+        ]
+      },
+      "main_integration": {
+        "pre_main_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
+        "merge_commits": [],
+        "post_main_sha": null,
+        "remote_main_before_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
+        "push_sha": null,
+        "push_result": "not_attempted",
+        "pushed_at": null
+      },
+      "created_at": "2026-08-03T19:48:51Z",
+      "updated_at": "2026-08-03T19:55:43Z"
     },
     {
       "round_id": "R5",

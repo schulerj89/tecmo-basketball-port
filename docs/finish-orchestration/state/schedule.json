@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T19:43:14Z",
+  "updated_at": "2026-08-03T19:55:43Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,12 +10,12 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 5,
-    "cleared_for_creation": 0,
+    "active_domain_orchestrators": 3,
+    "cleared_for_creation": 1,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
     "unallocated_target_slots": 0,
-    "unallocated_monitoring_slots": 3
+    "unallocated_monitoring_slots": 4
   },
   "lanes": [
     {
@@ -76,8 +76,8 @@
       "task_ids": [
         "R1A-INTEGRATION-QA"
       ],
-      "readiness": "active",
-      "dependency_status": "ready",
+      "readiness": "complete",
+      "dependency_status": "complete",
       "reservation_owner_session_id": "S-MASTER-001",
       "orchestrator_session_id": "S-SOL-R1A-INTEGRATION-QA-001",
       "base_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
@@ -87,8 +87,8 @@
         "OWN-R1A-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "First reconciliation/proof at f98fea3 is valid but no longer fast-forwardable after R4A advanced main to bcacd5b. Explicitly reconcile bcacd5b into only the R1A branch after zero-overlap verification, rerun full combined proof, reuse the same Luna, and sign a true fast-forward handoff.",
-      "updated_at": "2026-08-03T19:32:58Z"
+      "next_gate": "Complete: signed terminal R1A report 819b0e5 passed same-Luna P0/P1/P2-zero closure and was master signature/ancestry/diff checked, fast-forwarded, non-force pushed, and remote-verified. CPU and LIVE native C are now on main; TIP continues separately.",
+      "updated_at": "2026-08-03T19:55:43Z"
     },
     {
       "lane_id": "LANE-R3A-INTEGRATION-QA",
@@ -124,8 +124,8 @@
       "task_ids": [
         "R4-FRONTEND-INTRO-TITLE"
       ],
-      "readiness": "active",
-      "dependency_status": "ready",
+      "readiness": "complete",
+      "dependency_status": "complete",
       "reservation_owner_session_id": "S-MASTER-001",
       "orchestrator_session_id": "S-SOL-R4-FRONTEND-RECOVERY-001",
       "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
@@ -135,8 +135,8 @@
         "OWN-R4-FRONTEND-INTRO-TITLE"
       ],
       "blockers": [],
-      "next_gate": "Independent QA is NOT CLEAR at 0a3fc57f: correct synthetic-only fingerprint handling without weakening strict public import, enforce canonical 262144-byte/FNV1a64 finale chr/all identity on first and later checks, add standalone/corrupted-CHR regressions, rerun full proof, and close the same QA Luna at P0/P1/P2 zero.",
-      "updated_at": "2026-08-03T19:16:14Z"
+      "next_gate": "Complete at frozen accepted candidate 757283ed with replacement-Sol and same-Luna P0/P1/P2-zero closure. Dedicated R4B integration is reserved against current main 819b0e5; domain branch and proof stay immutable.",
+      "updated_at": "2026-08-03T19:55:43Z"
     },
     {
       "lane_id": "LANE-R4-AUDIO-FOUNDATION",
@@ -185,6 +185,30 @@
       "blockers": [],
       "next_gate": "Complete: same-Luna P0/P1/P2-zero closure and signed report bcacd5b were master-verified, fast-forwarded, non-force pushed, and remote-verified. Luna and Sol are completed/unpinned; branches/worktrees are preserved.",
       "updated_at": "2026-08-03T19:32:58Z"
+    },
+    {
+      "lane_id": "LANE-R4B-INTEGRATION-QA",
+      "title": "Round 4B Frontend Intro and Title Integration QA",
+      "domain": "integration",
+      "round_ids": [
+        "R4B"
+      ],
+      "task_ids": [
+        "R4B-INTEGRATION-QA"
+      ],
+      "readiness": "cleared_for_creation",
+      "dependency_status": "ready",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": null,
+      "base_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
+      "branch": null,
+      "worktree": null,
+      "ownership_claim_ids": [
+        "OWN-R4B-INTEGRATION-QA"
+      ],
+      "blockers": [],
+      "next_gate": "Create frozen staging at 757283ed and an isolated Integration QA branch/worktree at current main 819b0e5, then create/pin one dedicated Sol Max orchestrator under the reserved docs-only claim.",
+      "updated_at": "2026-08-03T19:55:43Z"
     },
     {
       "lane_id": "LANE-R2-SHOTS-OUTCOMES",

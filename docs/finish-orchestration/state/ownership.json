@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T19:43:14Z",
+  "updated_at": "2026-08-03T19:55:43Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -455,10 +455,10 @@
         "docs/finish-tasks/R1A-cpu-live-integration-qa/PROOF.md"
       ],
       "concurrency_group": "R1A-integration-qa",
-      "active": true,
+      "active": false,
       "claimed_at": "2026-08-03T17:57:57Z",
-      "released_at": null,
-      "notes": "Transferred from the master reservation to pinned Integration QA Sol S-SOL-R1A-INTEGRATION-QA-001 after exact branch/worktree collision and clean-head verification. Product/source paths remain read-only; ignored proof output is allowed."
+      "released_at": "2026-08-03T19:55:43Z",
+      "notes": "Released after signed terminal R1A report 819b0e5 passed same-Luna P0/P1/P2-zero closure, master signature/ancestry/diff checks, fast-forward integration, successful non-force origin/main push, and remote verification. Product/source paths remained read-only to this docs claim; branches/worktrees are preserved."
     },
     {
       "claim_id": "OWN-R3A-INTEGRATION-QA",
@@ -497,6 +497,24 @@
       "claimed_at": "2026-08-03T18:21:12Z",
       "released_at": "2026-08-03T19:24:36Z",
       "notes": "Released after signed terminal report bcacd5b passed combined P0/P1/P2-zero review, master fast-forward/non-force push, and Luna unpin. Product paths remained read-only to this claim; branches/worktrees are preserved."
+    },
+    {
+      "claim_id": "OWN-R4B-INTEGRATION-QA",
+      "task_id": "R4B-INTEGRATION-QA",
+      "round_id": "R4B",
+      "session_id": "S-MASTER-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R4B-frontend-integration-qa/**"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R4B-frontend-integration-qa/README.md"
+      ],
+      "concurrency_group": "R4B-frontend-integration-qa",
+      "active": true,
+      "claimed_at": "2026-08-03T19:48:51Z",
+      "released_at": null,
+      "notes": "Reserved by master before creating dedicated R4B Integration QA. The accepted frontend candidate 757283ed and then-current main are immutable inputs; only the dedicated R4B report path is writable outside ignored proof output. Ownership transfers to the Integration QA Sol only after exact staging/branch/worktree collision and clean-head checks."
     }
   ],
   "shared_boundaries": [
@@ -647,6 +665,13 @@
         "R4A-INTEGRATION-QA"
       ],
       "declared_at": "2026-08-03T18:21:12Z"
+    },
+    {
+      "round_id": "R4B",
+      "ordered_task_ids": [
+        "R4B-INTEGRATION-QA"
+      ],
+      "declared_at": "2026-08-03T19:48:51Z"
     },
     {
       "round_id": "R4",

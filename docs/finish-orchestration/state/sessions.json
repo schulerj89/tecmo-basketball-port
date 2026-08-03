@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T19:40:53Z",
+  "updated_at": "2026-08-03T19:55:43Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -137,23 +137,23 @@
       "role": "integration_orchestrator",
       "model": "gpt-5.6-sol",
       "thinking": "max",
-      "status": "active",
+      "status": "completed",
       "pin_state": "pinned",
       "round_ids": ["R1A"],
       "task_ids": ["R1A-INTEGRATION-QA"],
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1a-cpu-live-integration-qa-sol",
       "branch": "codex/r1a-cpu-live-integration-qa-sol",
       "base_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
-      "last_good_sha": "f98fea320bf2340e0c6c9b226cfe6caa63196dd7",
+      "last_good_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
       "reported_luna_lineage": ["019fc8d6-7a77-79d0-a352-767a228ef478"],
       "recovery_lineage": [],
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T18:10:36Z",
-      "completed_at": null,
-      "updated_at": "2026-08-03T19:32:58Z",
-      "notes": "Dedicated R1A Integration QA remains active/pinned with one projectless Luna. Same-Luna disposition closed the generic harness/document observations as non-evidence-invalidating. Sol produced and proved first reconciliation merge f98fea3 over accepted CPU+LIVE and dd096; after master delivered R4A audio at bcacd5b, master explicitly authorized one further zero-overlap/non-destructive integration-branch reconciliation, full fresh proof, and same-Luna terminal review. Main remains master-owned."
+      "completed_at": "2026-08-03T19:54:00Z",
+      "updated_at": "2026-08-03T19:55:43Z",
+      "notes": "Terminally accepted signed report 819b0e5 over merged candidate 351f446 closed same-Luna P0/P1/P2 at zero after full CPU/LIVE/R3A/R4A combined proof. Master verified SSH signature, exact ancestry and diff, fast-forwarded current main from bcacd5b, non-force pushed, and verified local/tracking/live remote exact 819b0e5. Sol remains pinned only until this durable master closure is committed; branch/worktree are preserved."
     },
     {
       "session_id": "S-SOL-R3A-INTEGRATION-QA-001",
@@ -237,23 +237,23 @@
       "role": "domain_orchestrator",
       "model": "gpt-5.6-sol",
       "thinking": "max",
-      "status": "active",
+      "status": "completed",
       "pin_state": "pinned",
       "round_ids": ["R4"],
       "task_ids": ["R4-FRONTEND-INTRO-TITLE"],
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4-frontend-intro-title-sol",
       "branch": "codex/r4-frontend-intro-title-sol",
       "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
-      "last_good_sha": "0a3fc57f0a382378e89b8eca747ce6d3c1644dba",
+      "last_good_sha": "757283edba5f87c2998b16e06bd1831e54ba04b5",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
       "reported_luna_lineage": ["019fc825-dc43-7540-bd16-be55a3eb85ac", "019fc826-7a1d-7261-9ade-9feee073badd", "019fc843-9845-74e2-a7b8-f4386bbad5fa", "019fc845-74e2-70d3-ad7e-dcee727a66c4", "019fc848-b87f-7e32-8954-51097efa933a", "019fc8f8-44b5-7a93-835b-1c75f69ab506"],
       "recovery_lineage": ["S-SOL-R4-FRONTEND-001"],
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":"2026-08-03T18:37:33Z"},
       "created_at": "2026-08-03T18:34:42Z",
-      "completed_at": null,
-      "updated_at": "2026-08-03T19:16:14Z",
-      "notes": "Master-created/pinned recovery Sol after predecessor systemError. It accepted and merged the corrected inherited proof lineage into clean domain tip 0a3fc57f, then created/pinned exactly one projectless independent recovery QA Luna 019fc8f8-44b5-7a93-835b-1c75f69ab506. Personal canonical 28-test /W4 suite and production replay boundaries pass. Independent QA is NOT CLEAR: the private synthetic builder must bypass only absent revision fingerprints while public import stays strict, and finale chr/all must enforce canonical 262144-byte/FNV1a64 identity on first and later checks. The Sol owns bounded correction/regressions/rerun; terminal acceptance and main integration remain withheld."
+      "completed_at": "2026-08-03T19:48:51Z",
+      "updated_at": "2026-08-03T19:48:51Z",
+      "notes": "Master-created/pinned recovery Sol after predecessor systemError. It accepted inherited hardening/finale/proof work, corrected the synthetic fixture and canonical finale CHR contract in c518f90/d120735, and signed terminal report commit 757283ed. Personal /W4, 29-test suite, direct self-tests/flow, 3152-frame proof, ownership, visual inspection, and same-Luna terminal audit all pass with P0/P1/P2 zero. Main/origin remain bcacd5b; dedicated R4B Integration QA is required. Sol is completed and remains pinned only until this durable checkpoint and staging takeover are confirmed."
     },
     {
       "session_id": "S-SOL-R4-AUDIO-001",
@@ -458,8 +458,8 @@
       "role": "security_operator",
       "model": "gpt-5.6-sol",
       "thinking": "high",
-      "status": "active",
-      "pin_state": "pinned",
+      "status": "completed",
+      "pin_state": "unpinned",
       "round_ids": [],
       "task_ids": [],
       "worktree": null,
@@ -469,7 +469,7 @@
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
       "reported_luna_lineage": [],
-      "recovery_lineage": [],
+      "recovery_lineage": ["S-SOL-GITHUB-SIGNING-DUPLICATE-001"],
       "failure": {
         "count": 0,
         "raw_error_signatures": [],
@@ -478,9 +478,40 @@
         "takeover_confirmed_at": null
       },
       "created_at": "2026-08-03T19:37:37Z",
-      "completed_at": null,
-      "updated_at": "2026-08-03T19:40:53Z",
-      "notes": "User-authorized projectless Sol High security operator. It found the existing RSA public key at C:/Users/joshs/.ssh/id_rsa.pub with fingerprint SHA256:L/fBxE6/8x0E9W2UiVtyTLQ9mfI5AJDzdQYefIsj4fA, is registering only that public key through the authenticated GitHub browser session, and must not mutate repository refs/files or rewrite commits. GitHub Mobile sudo authorization is pending."
+      "completed_at": "2026-08-03T19:51:52Z",
+      "updated_at": "2026-08-03T19:51:52Z",
+      "notes": "User-authorized projectless Sol High security operator reused existing RSA-3072 public key C:/Users/joshs/.ssh/id_rsa.pub, fingerprint SHA256:L/fBxE6/8x0E9W2UiVtyTLQ9mfI5AJDzdQYefIsj4fA. After reconciling a duplicate sibling's shared setup, GitHub Mobile code 99 succeeded and the key was added as signing key id 1088966. Global SSH signing/allowed-signers configuration is validated; local verify-commit and GitHub API both report bcacd5b and 0f06fd1 valid/Verified. No commit/ref/repository/remote mutation or private-key exposure. Completed and unpinned."
+    },
+    {
+      "session_id": "S-SOL-GITHUB-SIGNING-DUPLICATE-001",
+      "thread_id": "019fc921-b928-7b60-ad67-e241a07733fe",
+      "title": "Tecmo GitHub Commit Signing Setup Duplicate — Replaced Sol High",
+      "role": "security_operator",
+      "model": "gpt-5.6-sol",
+      "thinking": "high",
+      "status": "replaced",
+      "pin_state": "unpinned",
+      "round_ids": [],
+      "task_ids": [],
+      "worktree": null,
+      "branch": null,
+      "base_sha": "bcacd5b6963f4db1a92c8db9b9770413505a0e98",
+      "last_good_sha": "bcacd5b6963f4db1a92c8db9b9770413505a0e98",
+      "reports_to_session_id": "S-MASTER-001",
+      "parent_session_id": null,
+      "reported_luna_lineage": [],
+      "recovery_lineage": ["S-SOL-GITHUB-SIGNING-001"],
+      "failure": {
+        "count": 1,
+        "raw_error_signatures": ["Duplicate top-level security task was created for the same assignment and began the same GitHub signing-key flow"],
+        "retry_session_ids": [],
+        "replacement_session_id": "S-SOL-GITHUB-SIGNING-001",
+        "takeover_confirmed_at": "2026-08-03T19:47:43Z"
+      },
+      "created_at": "2026-08-03T19:37:38Z",
+      "completed_at": "2026-08-03T19:47:43Z",
+      "updated_at": "2026-08-03T19:51:52Z",
+      "notes": "Unintended duplicate discovered by master registry inspection. Before stop it created the public allowed_signers mapping and matching global Git signing values, but GitHub sudo never succeeded. Master ordered immediate stop; it closed its browser flow, reported exact shared state, remained idle, and was unpinned. Authoritative sibling revalidated all state, closed stale flows, completed GitHub registration, and preserved no repository mutation."
     },
     {
       "session_id": "S-BLOCKERS-001",
@@ -525,13 +556,13 @@
       "worker_id":"019fc902-0bed-7d82-aa29-acaff4d9d04e","thread_id":"019fc902-0bed-7d82-aa29-acaff4d9d04e","title":"Tecmo R2 Fatigue Native Audit — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R2-CLOCK-LINEUPS-001","round_ids":["R2"],"task_ids":["R2-CLOCK-LINEUPS-FATIGUE"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Collision-free projectless read-only TGFT/native fatigue and active/bench coupling audit. Explicitly non-delegating with no Git/filesystem mutation.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T19:05:21Z"
     },
     {
-      "worker_id":"019fc8f8-44b5-7a93-835b-1c75f69ab506","thread_id":"019fc8f8-44b5-7a93-835b-1c75f69ab506","title":"Tecmo R4 Frontend Intro Title — Independent Recovery QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R4-FRONTEND-RECOVERY-001","round_ids":["R4"],"task_ids":["R4-FRONTEND-INTRO-TITLE"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Created once at 2026-08-03T18:52:21Z as the sole projectless/null-Git independent recovery QA lineage against frozen reference 0a3fc57f. Creation/pin succeeded first attempt with no duplicate/retry/replacement. Initial independent result is NOT CLEAR: confirmed the synthetic-mode Rev1 fingerprint P1 and canonical finale chr/all identity P2; it remains pinned for read-only verification of the same Sol's bounded revision.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T19:16:14Z"
+      "worker_id":"019fc8f8-44b5-7a93-835b-1c75f69ab506","thread_id":"019fc8f8-44b5-7a93-835b-1c75f69ab506","title":"Tecmo R4 Frontend Intro Title — Independent Recovery QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R4-FRONTEND-RECOVERY-001","round_ids":["R4"],"task_ids":["R4-FRONTEND-INTRO-TITLE"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Created once at 2026-08-03T18:52:21Z as the sole projectless/null-Git independent recovery QA lineage. It first found synthetic-mode fingerprint P1 and canonical finale CHR identity P2 at 0a3fc57f, then independently accepted the corrected clean 757283ed terminal candidate with no actionable P0/P1/P2 findings. Sol reports unpin after durable closure; no fault/retry/replacement.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T19:48:51Z"
     },
     {
       "worker_id":"019fc8e2-b17a-7f92-a9d6-9b7db43e74e3","thread_id":"019fc8e2-b17a-7f92-a9d6-9b7db43e74e3","title":"Tecmo R4A Audio Integration — Independent Audit Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R4A-INTEGRATION-QA-001","round_ids":["R4A"],"task_ids":["R4A-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Sole projectless/null-Git independent auditor. It verified the combined e120c30+dd096cb lineage, exact audio proof/event/FNV/RIFF/waveform identities, zero path overlap, clean report correction, and terminal bcacd5b at P0/P1/P2 zero. No fault/retry/replacement; Sol confirmed pin=false at 2026-08-03T19:24:36.112Z.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T19:24:36Z"
     },
     {
-      "worker_id":"019fc8d6-7a77-79d0-a352-767a228ef478","thread_id":"019fc8d6-7a77-79d0-a352-767a228ef478","title":"Tecmo R1A CPU+LIVE Integration — Independent QA and Proof Audit — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R1A-INTEGRATION-QA-001","round_ids":["R1A"],"task_ids":["R1A-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Sole projectless independent QA/proof lineage. It independently matched the personal 254-file/189-log/13-negative proof, CPU formal identity and 680/24/17 gate, movement/flow/season/Win32 checks, then classified all reusable harness/document observations as non-evidence-invalidating under explicit compensating controls with candidate P0/P1/P2 zero. It remains pinned for final review after Sol merges current main dd096 into the integration branch and regenerates proof.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T19:12:26Z"
+      "worker_id":"019fc8d6-7a77-79d0-a352-767a228ef478","thread_id":"019fc8d6-7a77-79d0-a352-767a228ef478","title":"Tecmo R1A CPU+LIVE Integration — Independent QA and Proof Audit — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R1A-INTEGRATION-QA-001","round_ids":["R1A"],"task_ids":["R1A-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Sole projectless independent QA/proof lineage reused through terminal closure. It independently validated the final 254-file/189-log/13-negative proof, CPU formal identity and 680/24/17 gate, movement/flow/season/audio/Win32 checks, combined current-main reconciliation, and signed report at candidate P0/P1/P2 zero. Completed/idle and successfully unpinned only after the durable Sol acceptance commit; no fault/retry/replacement.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T19:54:00Z"
     },
     {
       "worker_id":"019fc8d7-50f8-77f1-b379-8bcc33280ae5","thread_id":"019fc8d7-50f8-77f1-b379-8bcc33280ae5","title":"Tecmo R3A Season Data Integration — Independent QA Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R3A-INTEGRATION-QA-001","round_ids":["R3A"],"task_ids":["R3A-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Sole projectless read-only independent QA lineage accepted frozen f536a193 with candidate P0/P1/P2 all zero and no fault/retry/replacement. Completed at 2026-08-03T18:34:35Z; unpinned successfully at 2026-08-03T18:43:13Z only after durable signed acceptance commit dd096cb. No Git allocation, mutation, archive, merge, or push.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T18:43:13Z"
@@ -558,7 +589,7 @@
       "worker_id":"019fc848-b87f-7e32-8954-51097efa933a","thread_id":"019fc848-b87f-7e32-8954-51097efa933a","title":"Tecmo R4 Frontend Intro Title — Native Contract Hardening — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R4-FRONTEND-RECOVERY-001","round_ids":["R4"],"task_ids":["R4-FRONTEND-INTRO-TITLE"],"worktree":"C:/Users/joshs/Projects/tecmo-basketball-port-r4-frontend-intro-title-native-hardening-luna","branch":"codex/r4-frontend-intro-title-native-hardening-luna","base_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","last_good_sha":"a0b11042e5c479d5b6a5c738e8d51b532439b073","contribution":"Created once at 2026-08-03T15:40:36Z as the exclusive native contract-hardening lineage. Sol accepted ordered commits f1e7005115f98d0ef189639a2364e740246b6d8c, 175b28e5dba1b0020cae09958a473ba496b015e2, and metadata correction a0b11042e5c479d5b6a5c738e8d51b532439b073. Personal QA passed /W4 build, arena/asset-pack/full intro suites, valid-root flow, four fail-closed malformed probes with no PNG, diff/ownership checks, and full-resolution frame inspection. Accepted effects are TATR two-half validation, TATL palette bounds, transactional TATL/TASG invalidation, canonical 256 KiB CHR FNV gate, and shared 540-frame legacy route alignment; dynamic palette remains honestly deferred. Integrated first into the Sol branch by no-ff merge 761e061fdea1fcb07c367d406b785337e7366919, then completed/unpinned with branch/worktree preserved. No bad-request/session fault or push occurred.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T16:23:03Z"
     },
     {
-      "worker_id":"019fc845-74e2-70d3-ad7e-dcee727a66c4","thread_id":"019fc845-74e2-70d3-ad7e-dcee727a66c4","title":"Tecmo R4 Frontend Intro Title — Production Proof Replay — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R4-FRONTEND-RECOVERY-001","round_ids":["R4"],"task_ids":["R4-FRONTEND-INTRO-TITLE"],"worktree":"C:/Users/joshs/Projects/tecmo-basketball-port-r4-frontend-intro-title-proof-luna","branch":"codex/r4-frontend-intro-title-proof-luna","base_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","last_good_sha":"776db08ee45d694390e0d8133cdcd4934bdca3d4","contribution":"Sole inherited proof lineage, clean at ordered candidate 853e46ac->fee87cfd->776db08 after complete 0..3151 replay work. Failed predecessor reached substantial but nonterminal parser/overlap/determinism/lossless-video review before systemError. Recovery Sol confirmed and re-pinned this same worker; 776db08 remains candidate pending replacement Sol stable-commit/source/doc/manifest/video/frame/contact-sheet review and any same-worker correction. No main integration or duplicate proof worker.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":"2026-08-03T18:37:33Z"},"observed_at":"2026-08-03T18:37:33Z"
+      "worker_id":"019fc845-74e2-70d3-ad7e-dcee727a66c4","thread_id":"019fc845-74e2-70d3-ad7e-dcee727a66c4","title":"Tecmo R4 Frontend Intro Title — Production Proof Replay — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R4-FRONTEND-RECOVERY-001","round_ids":["R4"],"task_ids":["R4-FRONTEND-INTRO-TITLE"],"worktree":"C:/Users/joshs/Projects/tecmo-basketball-port-r4-frontend-intro-title-proof-luna","branch":"codex/r4-frontend-intro-title-proof-luna","base_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","last_good_sha":"1b51c471dcc5ed6117e4b3f55621782ad89fd039","contribution":"Inherited proof lineage accepted at terminal worker tip 1b51c471 and integrated by proof merge 0a3fc57f. Replacement Sol personally reviewed source/docs/manifest/all frames/video, and the terminal independent QA found no proof-source issue. Sol reports this worker completed/unpinned after durable 757283ed domain acceptance; branch/worktree preserved.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":"2026-08-03T18:37:33Z"},"observed_at":"2026-08-03T19:48:51Z"
     },
     {
       "worker_id":"019fc843-9845-74e2-a7b8-f4386bbad5fa","thread_id":"019fc843-9845-74e2-a7b8-f4386bbad5fa","title":"Tecmo R4 Frontend Intro Title — Finale Fidelity Implementation — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R4-FRONTEND-RECOVERY-001","round_ids":["R4"],"task_ids":["R4-FRONTEND-INTRO-TITLE"],"worktree":"C:/Users/joshs/Projects/tecmo-basketball-port-r4-frontend-intro-title-finale-luna","branch":"codex/r4-frontend-intro-title-finale-luna","base_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","last_good_sha":"3e7496608b5ab1e6c9e8de593a62d2279be34b40","contribution":"Sol accepted ordered worker lineage 6000a0504e8a640c17698411103090d105f21245 -> e97f2d2498bf96ee7a552e71e9f87d1eadce8456 -> 3e7496608b5ab1e6c9e8de593a62d2279be34b40 after source/ASM/visual review, 28/28 suite, 47 exact masks, 11 color checkpoints, repeats, and report F78A1F47.... It was integrated second after hardening by no-ff merge a40dc3f9976d40444d91255f31a29959f5b23be3. Worker branch remains clean; completed/unpinned after durable report with no session/bad-request fault.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T17:52:20Z"
