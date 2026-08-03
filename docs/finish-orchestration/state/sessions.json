@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T19:55:43Z",
+  "updated_at": "2026-08-03T20:01:46Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -138,7 +138,7 @@
       "model": "gpt-5.6-sol",
       "thinking": "max",
       "status": "completed",
-      "pin_state": "pinned",
+      "pin_state": "unpinned",
       "round_ids": ["R1A"],
       "task_ids": ["R1A-INTEGRATION-QA"],
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1a-cpu-live-integration-qa-sol",
@@ -152,8 +152,8 @@
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T18:10:36Z",
       "completed_at": "2026-08-03T19:54:00Z",
-      "updated_at": "2026-08-03T19:55:43Z",
-      "notes": "Terminally accepted signed report 819b0e5 over merged candidate 351f446 closed same-Luna P0/P1/P2 at zero after full CPU/LIVE/R3A/R4A combined proof. Master verified SSH signature, exact ancestry and diff, fast-forwarded current main from bcacd5b, non-force pushed, and verified local/tracking/live remote exact 819b0e5. Sol remains pinned only until this durable master closure is committed; branch/worktree are preserved."
+      "updated_at": "2026-08-03T20:01:46Z",
+      "notes": "Terminally accepted signed report 819b0e5 over merged candidate 351f446 closed same-Luna P0/P1/P2 at zero after full CPU/LIVE/R3A/R4A combined proof. Master verified SSH signature, exact ancestry and diff, fast-forwarded current main from bcacd5b, non-force pushed, and verified local/tracking/live remote exact 819b0e5. After durable control commit f4aaf30, master unpinned this completed Sol; branch/worktree are preserved."
     },
     {
       "session_id": "S-SOL-R3A-INTEGRATION-QA-001",
@@ -238,7 +238,7 @@
       "model": "gpt-5.6-sol",
       "thinking": "max",
       "status": "completed",
-      "pin_state": "pinned",
+      "pin_state": "unpinned",
       "round_ids": ["R4"],
       "task_ids": ["R4-FRONTEND-INTRO-TITLE"],
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4-frontend-intro-title-sol",
@@ -252,8 +252,8 @@
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":"2026-08-03T18:37:33Z"},
       "created_at": "2026-08-03T18:34:42Z",
       "completed_at": "2026-08-03T19:48:51Z",
-      "updated_at": "2026-08-03T19:48:51Z",
-      "notes": "Master-created/pinned recovery Sol after predecessor systemError. It accepted inherited hardening/finale/proof work, corrected the synthetic fixture and canonical finale CHR contract in c518f90/d120735, and signed terminal report commit 757283ed. Personal /W4, 29-test suite, direct self-tests/flow, 3152-frame proof, ownership, visual inspection, and same-Luna terminal audit all pass with P0/P1/P2 zero. Main/origin remain bcacd5b; dedicated R4B Integration QA is required. Sol is completed and remains pinned only until this durable checkpoint and staging takeover are confirmed."
+      "updated_at": "2026-08-03T20:01:46Z",
+      "notes": "Master-created/pinned recovery Sol after predecessor systemError. It accepted inherited hardening/finale/proof work, corrected the synthetic fixture and canonical finale CHR contract in c518f90/d120735, and signed terminal report commit 757283ed. Personal /W4, 29-test suite, direct self-tests/flow, 3152-frame proof, ownership, visual inspection, and same-Luna terminal audit all pass with P0/P1/P2 zero. Master froze exact R4B staging, created the isolated integration lane at current main 819b0e5, then unpinned this completed recovery Sol; branch/worktree remain preserved."
     },
     {
       "session_id": "S-SOL-R4-AUDIO-001",
@@ -367,8 +367,8 @@
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T19:00:02Z",
       "completed_at": null,
-      "updated_at": "2026-08-03T19:05:21Z",
-      "notes": "Created and pinned once after durable collision-free reservation bb423f8. Sol confirmed exact clean branch/worktree/base/merge-base, read AGENTS.md and PORTING.md completely, and began authoritative native/evidence inventory. It created/pinned three collision-free projectless Luna Max read-only audits for clocks/periods, lineups/substitutions, and fatigue/native coupling. Owns only the registered dedicated paths; shared scene/core rescope must be reported and main remains untouched."
+      "updated_at": "2026-08-03T20:01:46Z",
+      "notes": "Created and pinned once after durable collision-free reservation bb423f8. Three projectless Luna Max audits are now complete/idle/pinned and Sol-accepted: clock/period core is native-faithful with one LIVE reset defect; fatigue exact retained values are 5/3/0 with active 0->255 behavior; TGFL base resolution is exact while caller-tail overrides are a separate pure API; ungrounded substitutions stay excluded. One persistent writable Luna is active on its isolated branch with state/TGFT fail-closed patches under live review. No commit is accepted; shared rescope must be explicit and main remains untouched."
     },
     {
       "session_id": "S-SOL-TIP-VIS-LEGACY",
@@ -450,6 +450,31 @@
       "completed_at": "2026-08-03T02:19:48Z",
       "updated_at": "2026-08-03T04:47:45Z",
       "notes": "Its two task worktrees/branches were removed only after proof was preserved; the recorded paths are historical."
+    },
+    {
+      "session_id": "S-SOL-R4B-INTEGRATION-QA-001",
+      "thread_id": "019fc937-b56b-7fa2-9f5d-e54743113c76",
+      "title": "Tecmo R4B Frontend Intro Title Integration QA — Sol Max",
+      "role": "integration_orchestrator",
+      "model": "gpt-5.6-sol",
+      "thinking": "max",
+      "status": "active",
+      "pin_state": "pinned",
+      "round_ids": ["R4B"],
+      "task_ids": ["R4B-INTEGRATION-QA"],
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4b-frontend-integration-qa-sol",
+      "branch": "codex/r4b-frontend-integration-qa-sol",
+      "base_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
+      "last_good_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
+      "reports_to_session_id": "S-MASTER-001",
+      "parent_session_id": null,
+      "reported_luna_lineage": [],
+      "recovery_lineage": [],
+      "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
+      "created_at": "2026-08-03T20:01:45Z",
+      "completed_at": null,
+      "updated_at": "2026-08-03T20:01:46Z",
+      "notes": "Created/pinned once after exact control reservation, candidate-staging freeze at 757283ed, clean branch/worktree creation at current main 819b0e5, and zero 75-vs-19 path overlap. It exclusively owns the R4B report path, may create only top-level Luna Max QA workers, must personally run combined QA/proof, sign a fast-forwardable terminal report, and stop before main/push."
     },
     {
       "session_id": "S-SOL-GITHUB-SIGNING-001",

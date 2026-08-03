@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T19:55:43Z",
+  "updated_at": "2026-08-03T20:01:46Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -310,10 +310,10 @@
         "src/tecmo_cli_render_scene_modes.c"
       ],
       "concurrency_group": "R4-frontend-intro-title",
-      "active": true,
+      "active": false,
       "claimed_at": "2026-08-03T14:50:16Z",
-      "released_at": null,
-      "notes": "Reserved by master, initially transferred to S-SOL-R4-FRONTEND-001, then transferred intact to pinned recovery S-SOL-R4-FRONTEND-RECOVERY-001 after predecessor systemError and exact clean a40dc3f takeover confirmation. Scope remains intro/title native modules, existing semantic asset families, focused tools/docs, plus the 2026-08-03T15:32:25Z src/tecmo_cli_render_scene_modes.c proof rescope only. Audio, menus, build lists, source-map/import-layout, Win32, game, and gameplay remain excluded."
+      "released_at": "2026-08-03T20:01:46Z",
+      "notes": "Released only after replacement-Sol and same-Luna terminal acceptance at 757283ed, master froze exact staging ref codex/round-4b-frontend-intro-title-staging, created the isolated R4B integration worktree at current main 819b0e5, and unpinned the completed recovery Sol. Domain branch/worktree and proof remain preserved and immutable for R4B."
     },
     {
       "claim_id": "OWN-R4-AUDIO-FOUNDATION",
@@ -502,7 +502,7 @@
       "claim_id": "OWN-R4B-INTEGRATION-QA",
       "task_id": "R4B-INTEGRATION-QA",
       "round_id": "R4B",
-      "session_id": "S-MASTER-001",
+      "session_id": "S-SOL-R4B-INTEGRATION-QA-001",
       "mode": "exclusive",
       "writable_globs": [
         "docs/finish-tasks/R4B-frontend-integration-qa/**"
@@ -514,7 +514,7 @@
       "active": true,
       "claimed_at": "2026-08-03T19:48:51Z",
       "released_at": null,
-      "notes": "Reserved by master before creating dedicated R4B Integration QA. The accepted frontend candidate 757283ed and then-current main are immutable inputs; only the dedicated R4B report path is writable outside ignored proof output. Ownership transfers to the Integration QA Sol only after exact staging/branch/worktree collision and clean-head checks."
+      "notes": "Transferred from master reservation to pinned Integration QA Sol S-SOL-R4B-INTEGRATION-QA-001 after exact staging/branch/worktree collision and clean-head verification. Accepted frontend 757283ed and current main 819b0e5 are immutable inputs; only the dedicated R4B report path is writable outside ignored proof output."
     }
   ],
   "shared_boundaries": [

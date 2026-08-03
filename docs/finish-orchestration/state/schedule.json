@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T19:55:43Z",
+  "updated_at": "2026-08-03T20:01:46Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,8 +10,8 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 3,
-    "cleared_for_creation": 1,
+    "active_domain_orchestrators": 4,
+    "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
     "unallocated_target_slots": 0,
@@ -196,19 +196,19 @@
       "task_ids": [
         "R4B-INTEGRATION-QA"
       ],
-      "readiness": "cleared_for_creation",
+      "readiness": "active",
       "dependency_status": "ready",
       "reservation_owner_session_id": "S-MASTER-001",
-      "orchestrator_session_id": null,
+      "orchestrator_session_id": "S-SOL-R4B-INTEGRATION-QA-001",
       "base_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
-      "branch": null,
-      "worktree": null,
+      "branch": "codex/r4b-frontend-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4b-frontend-integration-qa-sol",
       "ownership_claim_ids": [
         "OWN-R4B-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Create frozen staging at 757283ed and an isolated Integration QA branch/worktree at current main 819b0e5, then create/pin one dedicated Sol Max orchestrator under the reserved docs-only claim.",
-      "updated_at": "2026-08-03T19:55:43Z"
+      "next_gate": "Dedicated pinned R4B Sol must recheck immutable inputs, create one independent Luna Max QA lineage, deliberately signed-merge frontend 757283ed into current-main base 819b0e5, run combined proof, and return a signed fast-forwardable handoff without touching main.",
+      "updated_at": "2026-08-03T20:01:46Z"
     },
     {
       "lane_id": "LANE-R2-SHOTS-OUTCOMES",
@@ -255,8 +255,8 @@
         "OWN-R2-CLOCK-LINEUPS-FATIGUE"
       ],
       "blockers": [],
-      "next_gate": "Pinned Sol confirmed clean takeover and complete governing-file read. Three projectless read-only Luna Max audits cover clocks/periods, lineups/substitutions, and fatigue/native coupling while Sol performs authoritative inventory; reconcile reports before a single persistent writable lineage and request any shared scene/core rescope explicitly.",
-      "updated_at": "2026-08-03T19:05:21Z"
+      "next_gate": "Evidence reconciliation is complete and one persistent writable Luna is active on state/TGFT/TGFL patches. Sol must finish live review, bounded rescope for the LIVE reset/substitution seams, stable commits, personal QA/proof, and independent Luna closure before handoff.",
+      "updated_at": "2026-08-03T20:01:46Z"
     }
   ]
 }

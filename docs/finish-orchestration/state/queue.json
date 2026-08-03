@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T19:55:43Z",
+  "updated_at": "2026-08-03T20:01:46Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -1173,10 +1173,11 @@
           "2026-08-03T17:22:51Z authoritative R2 Sol clean takeover accepted: exact branch/worktree/HEAD/base/expected parent 222d75cf, clean unique registry, main/origin 6d8f9c7, R1/R3 staging clean, active claims disjoint, root AGENTS/PORTING and accepted CPU/LIVE docs fully read, canonical Rev1 ROM 393232 bytes/SHA-256 076A6BEB... exact, original/native shot evidence/gaps explicitly classified, and zero Luna/product mutation.",
           "2026-08-03T17:24:47Z R2 Sol created/pinned exactly one projectless read-only gpt-5.6-luna/max evidence/native-gap auditor 019fc8a8-186e-7be2-aab3-0aae3da3a2fa on first attempt under master checkpoint 701594a. Git/base/worktree/branch/writable fields are null; immutable reference is 222d75cf; no bad-request/retry/replacement/product mutation.",
           "2026-08-03T19:10:41Z Sol reports owned-only uncommitted corrections for source-order all-actor claimant SAME/OTHER settlement, exact 16-update A7A9 rattle with separately classified bridge, strict no-claimant failure, 38-step approximate jump physics, NULL/scene/audio transactional guards, and passing existing scene self-test. Loader transactions, deep validation, exhaustive tests/docs/proof remain.",
-          "2026-08-03T19:32:58Z master chose rescope option A: global src/asset_pack/tecmo_asset_pack_source_map.c remains excluded because active R1 TIP exclusively owns that sequential shared boundary. R2 must document unchanged TGCS-1 exact/complete-semantics metadata versus pose-only numeric-1 native-approximate runtime exposure and record `intentionally unexposed` as a known stale wording/incomplete metadata boundary; no source-map edit or completion overclaim."
+          "2026-08-03T19:32:58Z master chose rescope option A: global src/asset_pack/tecmo_asset_pack_source_map.c remains excluded because active R1 TIP exclusively owns that sequential shared boundary. R2 must document unchanged TGCS-1 exact/complete-semantics metadata versus pose-only numeric-1 native-approximate runtime exposure and record `intentionally unexposed` as a known stale wording/incomplete metadata boundary; no source-map edit or completion overclaim.",
+          "2026-08-03T20:01:46Z master deferred the requested one-line src/tecmo_gameplay_scene.c shot-name case because active TIP concurrently owns that exact shared file. The correct future neutral string `numeric-1` is accepted; R2 must keep scene.c read-only, continue owned work, and record the public-name helper returning `invalid` as a specific integration follow-up until sequential ownership transfers."
         ],
         "proof_manifests": [],
-        "notes": "R2 Shots/Outcomes is in_progress under its authoritative Sol from accepted CPU+LIVE base 222d75cf. Research is accepted/unpinned and one persistent writable Luna is revising the owned implementation. Scene self-test progress is green, but no code commit/proof/independent QA is accepted yet. The active TIP-owned source-map boundary stays excluded; R2 must document the numeric-1 runtime/metadata distinction honestly."
+        "notes": "R2 Shots/Outcomes is in_progress under its authoritative Sol from accepted CPU+LIVE base 222d75cf. Research is accepted/unpinned and one persistent writable Luna is revising the owned implementation. Scene self-test progress is green, but no code commit/proof/independent QA is accepted yet. Active TIP-owned source-map and scene.c boundaries stay excluded; R2 must document both the numeric-1 runtime/metadata distinction and the deferred neutral public-name case honestly."
       },
       "merge": {
         "staging_branch": "codex/round-2-gameplay-mechanics-staging",
@@ -1189,7 +1190,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T19:10:41Z",
+      "updated_at": "2026-08-03T20:01:46Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -1363,10 +1364,11 @@
         "sol_signoff": false,
         "integration_signoff": false,
         "test_records": [
-          "2026-08-03T19:05:21Z Sol confirmed pinned clean takeover at exact branch/worktree/base/merge-base 222d75cf, read complete AGENTS/PORTING, and created three pinned projectless read-only Luna Max audits for clocks/periods, lineups/substitutions, and fatigue/native coupling with no writable allocation."
+          "2026-08-03T19:05:21Z Sol confirmed pinned clean takeover at exact branch/worktree/base/merge-base 222d75cf, read complete AGENTS/PORTING, and created three pinned projectless read-only Luna Max audits for clocks/periods, lineups/substitutions, and fatigue/native coupling with no writable allocation.",
+          "2026-08-03T20:01:46Z Sol reports all three read-only audits complete/idle/pinned and evidence reconciliation accepted: native-faithful clock/period core with one LIVE-only reset defect; exact fatigue retained values 5/3/0 and reachable active countdown 0->255; exact TGFL base resolver with caller-tail overrides as a separate pure API; ungrounded LIVE substitutions excluded. Sole writable Luna is active on its isolated branch; state/TGFT staged/fail-closed patches remain uncommitted under Sol review."
         ],
         "proof_manifests": [],
-        "notes": "Compilation/playability claims require complete scenario matrix and production proof. Master reserved a collision-free dedicated-module boundary at exact accepted CPU+LIVE base 222d75cf before Sol creation; shared scene/core changes remain excluded pending explicit sequential rescope."
+        "notes": "Evidence is reconciled and a sole persistent writable Luna is implementing the owned state/TGFT/TGFL contracts. No commit is accepted yet. LIVE-only reset and any substitution/shared-boundary needs must be bounded-rescoped rather than invented; terminal acceptance still requires Sol QA/proof and independent Luna closure."
       },
       "merge": {
         "staging_branch": "codex/round-2-gameplay-mechanics-staging",
@@ -1379,7 +1381,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T19:05:21Z",
+      "updated_at": "2026-08-03T20:01:46Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -2856,14 +2858,14 @@
       "round_id": "R4B",
       "priority": 100,
       "coordination_only": false,
-      "state": "scoped",
+      "state": "in_progress",
       "dependencies": ["R4-FRONTEND-INTRO-TITLE"],
       "ownership_claim_ids": ["OWN-R4B-INTEGRATION-QA"],
       "base_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
       "expected_parent_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
-      "branch": null,
-      "worktree": null,
-      "sol_orchestrator_session_id": null,
+      "branch": "codex/r4b-frontend-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4b-frontend-integration-qa-sol",
+      "sol_orchestrator_session_id": "S-SOL-R4B-INTEGRATION-QA-001",
       "reported_luna_worker_session_ids": [],
       "result_commits": [],
       "evidence_ids": [],
@@ -2893,7 +2895,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T19:48:51Z",
-      "updated_at": "2026-08-03T19:55:43Z",
+      "updated_at": "2026-08-03T20:01:46Z",
       "audit": [
         {
           "timestamp": "2026-08-03T19:48:51Z",
@@ -2908,6 +2910,20 @@
           "from_state": "backlog",
           "to_state": "scoped",
           "reason": "Reserve exact docs-only Integration QA ownership and current-main reconciliation context before branch/worktree and Sol creation."
+        },
+        {
+          "timestamp": "2026-08-03T20:01:45Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "scoped",
+          "to_state": "assigned",
+          "reason": "Created frozen candidate staging at 757283ed, isolated clean branch/worktree at current main 819b0e5, and pinned dedicated R4B Integration QA Sol after collision and zero-overlap checks; transferred docs-only ownership."
+        },
+        {
+          "timestamp": "2026-08-03T20:01:46Z",
+          "actor_session_id": "S-SOL-R4B-INTEGRATION-QA-001",
+          "from_state": "assigned",
+          "to_state": "in_progress",
+          "reason": "Dedicated Sol Max Integration QA began the clean takeover and accepted immutable-input reconciliation contract; main remains master-owned."
         }
       ]
     }

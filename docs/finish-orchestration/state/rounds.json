@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T19:55:43Z",
+  "updated_at": "2026-08-03T20:01:46Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -508,7 +508,7 @@
     {
       "round_id": "R4B",
       "title": "Frontend intro/title incremental integration delivery",
-      "status": "planned",
+      "status": "combined_qa",
       "base_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
       "scope": [
         "Freeze accepted frontend/title candidate 757283ed",
@@ -518,12 +518,15 @@
       ],
       "included_task_ids": ["R4B-INTEGRATION-QA"],
       "staging_branch": "codex/round-4b-frontend-intro-title-staging",
-      "sol_orchestrator_session_ids": ["S-SOL-R4-FRONTEND-RECOVERY-001"],
-      "integration_qa_session_id": null,
+      "sol_orchestrator_session_ids": [
+        "S-SOL-R4-FRONTEND-RECOVERY-001",
+        "S-SOL-R4B-INTEGRATION-QA-001"
+      ],
+      "integration_qa_session_id": "S-SOL-R4B-INTEGRATION-QA-001",
       "merge_order": ["R4B-INTEGRATION-QA"],
       "combined_qa": {
         "required": true,
-        "status": "pending",
+        "status": "in_progress",
         "accepted_sha": null,
         "report_path": null,
         "signed_by_session_id": null,
@@ -551,7 +554,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T19:48:51Z",
-      "updated_at": "2026-08-03T19:55:43Z"
+      "updated_at": "2026-08-03T20:01:46Z"
     },
     {
       "round_id": "R5",
