@@ -680,6 +680,27 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
             result.error(f"reported worker {worker_id}: active/idle/blocked worker must be pinned")
         if worker["failure"]["count"] != len(worker["failure"]["raw_error_signatures"]):
             result.error(f"reported worker {worker_id}: failure count does not equal recorded signatures")
+        has_branch = worker["branch"] is not None
+        has_worktree = worker["worktree"] is not None
+        if worker["status"] in ACTIVE_SESSION_STATES and has_branch != has_worktree:
+            result.error(f"reported worker {worker_id}: branch and worktree must either both be set or both be null")
+        if worker["status"] in ACTIVE_SESSION_STATES and has_branch and has_worktree:
+            if worker["base_sha"] is None or worker["last_good_sha"] is None:
+                result.error(f"reported worker {worker_id}: active writable context requires base_sha and last_good_sha")
+            branch_key = worker["branch"].casefold()
+            worktree_key = canonical_worktree(worker["worktree"])
+            if branch_key in active_session_branches:
+                result.error(
+                    f"reported worker {worker_id} shares branch {worker['branch']} with active context "
+                    f"{active_session_branches[branch_key]}"
+                )
+            if worktree_key in active_session_worktrees:
+                result.error(
+                    f"reported worker {worker_id} shares worktree {worker['worktree']} with active context "
+                    f"{active_session_worktrees[worktree_key]}"
+                )
+            active_session_branches[branch_key] = worker_id
+            active_session_worktrees[worktree_key] = worker_id
 
     for claim in claims:
         claim_id = claim["claim_id"]
@@ -901,6 +922,43 @@ def validate_git_lineage(repo_root: Path, state: dict[str, Any]) -> CheckResult:
             result.error(f"lineage: active session {session_id} is on {actual_branch}, expected {session['branch']}")
         if not git_commit_exists(repo_root, session["last_good_sha"]):
             result.error(f"lineage: session {session_id} last_good_sha does not exist")
+
+    for worker in sessions["reported_luna_workers"]:
+        if worker["status"] not in ACTIVE_SESSION_STATES or not worker["branch"] or not worker["worktree"]:
+            continue
+        worker_id = worker["worker_id"]
+        if worker["base_sha"] is None or worker["last_good_sha"] is None:
+            result.error(f"lineage: active writable worker {worker_id} lacks base/last-good SHA")
+            continue
+        for label, sha in (("base_sha", worker["base_sha"]), ("last_good_sha", worker["last_good_sha"])):
+            if not git_commit_exists(repo_root, sha):
+                result.error(f"lineage: worker {worker_id} {label} {sha} does not exist")
+        try:
+            branch_tip = git_output(repo_root, "rev-parse", f"refs/heads/{worker['branch']}")
+        except RuntimeError as exc:
+            result.error(f"lineage: worker {worker_id}: {exc}")
+            continue
+        if not git_is_ancestor(repo_root, worker["base_sha"], branch_tip):
+            result.error(f"lineage: worker {worker_id} branch tip does not descend from base")
+        if git_commit_exists(repo_root, worker["last_good_sha"]) and not git_is_ancestor(
+            repo_root, worker["last_good_sha"], branch_tip
+        ):
+            result.error(f"lineage: worker {worker_id} last-good commit is not on its branch")
+        commits = git_output(repo_root, "rev-list", "--reverse", f"{worker['base_sha']}..{worker['branch']}").splitlines()
+        if commits:
+            parents = git_output(repo_root, "show", "-s", "--format=%P", commits[0]).split()
+            if worker["base_sha"] not in parents:
+                result.error(
+                    f"lineage: worker {worker_id} first branch commit {commits[0]} "
+                    f"does not have base parent {worker['base_sha']}"
+                )
+        worktree = worktrees.get(canonical_worktree(worker["worktree"]))
+        if not worktree:
+            result.error(f"lineage: worker {worker_id} worktree is not registered")
+            continue
+        actual_branch = worktree.get("branch", "").removeprefix("refs/heads/")
+        if actual_branch != worker["branch"]:
+            result.error(f"lineage: worker {worker_id} is on {actual_branch}, expected {worker['branch']}")
 
     return result
 
@@ -1273,6 +1331,24 @@ def command_self_test(args: argparse.Namespace) -> int:
         expect(
             any("unsatisfied dependency R0A-ADOPT-CPU-TIP" in message for message in dependency_result.errors),
             "active-task dependency gate",
+        )
+
+        worker_collision_state = copy.deepcopy(actual_state)
+        collision_worker = worker_collision_state["sessions"]["reported_luna_workers"][0]
+        collision_worker.update(
+            {
+                "status": "active",
+                "pin_state": "pinned",
+                "branch": "codex/master-finish-orchestration",
+                "worktree": str(args.repo_root),
+                "base_sha": worker_collision_state["queue"]["program_base_sha"],
+                "last_good_sha": worker_collision_state["queue"]["program_base_sha"],
+            }
+        )
+        worker_collision_result = validate_semantics(args.repo_root, worker_collision_state)
+        expect(
+            any("shares branch" in message for message in worker_collision_result.errors),
+            "reported-worker active-context collision rejection",
         )
 
         overlap_claims = copy.deepcopy(actual_state["ownership"])

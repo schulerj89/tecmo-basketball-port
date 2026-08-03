@@ -148,7 +148,9 @@ new state. The transition tool rejects an unpermitted edge.
 5. Validators reject duplicate task/session/thread/worktree/branch IDs,
    dependency cycles, missing references, glob overlap, and active registry
    collisions. A task cannot enter an active execution state until every
-   dependency has reached Sol acceptance or a later state.
+   dependency has reached Sol acceptance or a later state. Reported writable
+   Luna contexts participate in the same branch/worktree collision and Git
+   lineage checks as Sol/master contexts; read-only Lunas keep both fields null.
 6. One Sol may reuse one exact domain branch/worktree for explicitly
    dependency-ordered tasks in the same round only after the earlier task has
    left every writable, revision, review, or blocked state. Ownership claims
