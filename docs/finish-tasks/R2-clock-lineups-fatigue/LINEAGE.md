@@ -61,8 +61,8 @@ No additional task or subagent was created by this writable worker.
 
 - Base/expected parent: `222d75cfafa9153db1eb44492bf557f11b1a9091`.
 - Implementation/tests: `6c87dbed170c8ca2ba68e29671f7cfebf5adb60a`.
-- Documentation commit: to be recorded in this file after the docs-only
-  commit; Sol may record its merge/QA identity here during handoff.
+- Documentation commit: `540ae0ba47ef44d6096781ffd0c276012e683221`.
+  Sol may record its merge/QA identity here during handoff.
 
 No merge, rebase, push, or main/staging mutation was performed in this worker
 lane.
