@@ -695,8 +695,8 @@ bool tecmo_intro_finale_asset_load(TecmoIntroFinaleAsset *asset,
                    "TFIN-1 chr/all contract rejected");
         return false;
     }
-    asset->chr_byte_count = chr_byte_count;
-    asset->chr_fingerprint = fnv1a64(chr_bytes, chr_byte_count);
+    asset->chr_byte_count = TECMO_INTRO_FINALE_CHR_BYTE_COUNT;
+    asset->chr_fingerprint = TECMO_INTRO_FINALE_CHR_FNV1A64;
     free(chr_bytes);
     asset->available = true;
     (void)snprintf(asset->status, sizeof(asset->status),
@@ -708,12 +708,19 @@ bool tecmo_intro_finale_asset_chr_available(const TecmoIntroFinaleAsset *asset,
                                             const uint8_t *chr_bytes,
                                             uint64_t chr_byte_count)
 {
+    uint64_t chr_fingerprint;
+
     if (asset == NULL || chr_bytes == NULL || chr_byte_count == 0U) {
+        return false;
+    }
+    chr_fingerprint = fnv1a64(chr_bytes, chr_byte_count);
+    if (chr_byte_count != TECMO_INTRO_FINALE_CHR_BYTE_COUNT ||
+        chr_fingerprint != TECMO_INTRO_FINALE_CHR_FNV1A64) {
         return false;
     }
     if (asset->chr_byte_count != 0U &&
         (asset->chr_byte_count != chr_byte_count ||
-         asset->chr_fingerprint != fnv1a64(chr_bytes, chr_byte_count))) {
+         asset->chr_fingerprint != chr_fingerprint)) {
         return false;
     }
     for (size_t screen = 0U; screen < TECMO_INTRO_FINALE_SCREEN_COUNT; ++screen) {

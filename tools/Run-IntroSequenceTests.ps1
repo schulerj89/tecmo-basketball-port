@@ -606,6 +606,28 @@ try {
         error = if ($ListPassed) { $null } else { "ROM-only test asset pack is missing native arena entries or contains capture entries" }
     })
 
+    $AssetSelfTestOutput = & $ExePath --assetpack-test 2>&1
+    $AssetSelfTestExitCode = $LASTEXITCODE
+    $AssetSelfTestText = (@($AssetSelfTestOutput) |
+        ForEach-Object { [string]$_ }) -join "`n"
+    $AssetSelfTestMessageSeen =
+        $AssetSelfTestText -match "Asset pack self-test passed\."
+    $AssetSelfTestPassed = $AssetSelfTestExitCode -eq 0 -and
+        $AssetSelfTestMessageSeen
+    if (!$AssetSelfTestPassed) {
+        ++$Failures
+    }
+    $Results.Add([pscustomobject]@{
+        id = "intro-assetpack-self-test"
+        command = ".\build\tecmo_port.exe --assetpack-test"
+        passed = $AssetSelfTestPassed
+        skipped = $false
+        exit_code = $AssetSelfTestExitCode
+        pass_message_seen = $AssetSelfTestMessageSeen
+        raw_output_persisted = $false
+        error = if ($AssetSelfTestPassed) { $null } else { "asset-pack synthetic self-test failed" }
+    })
+
     $PreviousAssetPack = $env:TECMO_ASSETPACK
     $TitleRenderPassed = $ListPassed
     $TitleRenderOutputs = New-Object System.Collections.Generic.List[object]
@@ -1989,7 +2011,8 @@ try {
             "bad-semantic-gate", "bad-semantic-caption-ref", "bad-semantic-extra-glyph",
             "bad-semantic-staged-team-color", "bad-semantic-reserved",
             "bad-title-initial-page", "bad-band-reserved",
-            "bad-title-baseline-cell", "bad-title-baseline-chr")) {
+            "bad-title-baseline-cell", "bad-title-baseline-chr",
+            "bad-chr-fingerprint")) {
             $CasePack = Join-Path $OutputDir "finale-$NegativeCase.assetpack"
             $CaseRender = Join-Path $OutputDir "finale-$NegativeCase.png"
             [byte[]]$CaseBytes = [System.IO.File]::ReadAllBytes($AssetPackPath)
@@ -2059,6 +2082,11 @@ try {
                 $BaselineCell = 4 * 1920 + 960 + 18 * 32
                 [System.BitConverter]::GetBytes([uint32]262144).CopyTo(
                     $CaseBytes, $PayloadOffset + $ScreensOffset + $BaselineCell * 6 + 2)
+            } elseif ($NegativeCase -eq "bad-chr-fingerprint") {
+                $ChrPayloadOffset = Get-AssetPackEntryPayloadOffset `
+                    -Bytes $CaseBytes -EntryId "chr/all"
+                $CaseBytes[$ChrPayloadOffset] =
+                    [byte]($CaseBytes[$ChrPayloadOffset] -bxor 1)
             } elseif ($NegativeCase -eq "bad-route-screen-order") {
                 $RoutesOffset = [System.BitConverter]::ToUInt32($CaseBytes, $PayloadOffset + 64)
                 $CaseBytes[$PayloadOffset + $RoutesOffset] = 1
@@ -2133,9 +2161,14 @@ try {
                 --render-test-mode intro-finale-opening-clean-frame0 $CaseRender 2>&1
             $CaseExitCode = $LASTEXITCODE
             $CaseText = (@($CaseOutput) | ForEach-Object { [string]$_ }) -join "`n"
+            $ExpectedSourceStatus = if ($NegativeCase -eq "bad-chr-fingerprint") {
+                $CaseText -match "intro-finale-render-source finale=0 chr=[01] schema=TFIN-1"
+            } else {
+                $CaseText -match "intro-finale-render-source finale=0 chr=1 schema=TFIN-1"
+            }
             $Rejected = $CaseExitCode -eq 1 -and
                 !(Test-Path -LiteralPath $CaseRender) -and
-                $CaseText -match "intro-finale-render-source finale=0 chr=1 schema=TFIN-1"
+                $ExpectedSourceStatus
             if (!$Rejected) { $FinaleNegativePassed = $false }
             $FinaleNegativeResults.Add([pscustomobject]@{
                 id = $NegativeCase

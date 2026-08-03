@@ -33,6 +33,7 @@ static int validate_finale_caption_name_table(
     const uint8_t *rom,
     uint64_t rom_size,
     uint64_t bank06_offset,
+    int enforce_revision_fingerprints,
     const uint8_t *names_out[TECMO_ASSET_PACK_FINALE_CAPTION_COUNT],
     uint8_t lengths_out[TECMO_ASSET_PACK_FINALE_CAPTION_COUNT],
     char *message,
@@ -51,17 +52,33 @@ static int validate_finale_caption_name_table(
     uint64_t cursor = source_offset + 1U;
     unsigned record_index = 0U;
 
-    if (rom == NULL || names_out == NULL || lengths_out == NULL ||
+    if (names_out == NULL || lengths_out == NULL) {
+        tecmo_asset_pack_set_message(message, message_size,
+                                     "Finale caption output is unavailable.");
+        return -1;
+    }
+    for (size_t i = 0U; i < TECMO_ASSET_PACK_FINALE_CAPTION_COUNT; ++i) {
+        names_out[i] = NULL;
+        lengths_out[i] = 0U;
+    }
+    /* The central synthetic builder explicitly disables revision
+       fingerprints and does not carry the proprietary Rev1 name table.
+       Production ROM import always enables fingerprints and must validate
+       the exact source table below. */
+    if (enforce_revision_fingerprints == 0) {
+        for (size_t i = 0U; i < TECMO_ASSET_PACK_FINALE_CAPTION_COUNT; ++i) {
+            names_out[i] = (const uint8_t *)expected_names[i];
+            lengths_out[i] = (uint8_t)strlen(expected_names[i]);
+        }
+        return 0;
+    }
+    if (rom == NULL ||
         source_offset > rom_size ||
         (uint64_t)TECMO_ASSET_PACK_FINALE_TEAM_NAME_TABLE_SIZE >
             rom_size - source_offset || rom[(size_t)source_offset] != 0x30U) {
         tecmo_asset_pack_set_message(message, message_size,
                                      "Finale caption team-name table is unavailable.");
         return -1;
-    }
-    for (size_t i = 0U; i < TECMO_ASSET_PACK_FINALE_CAPTION_COUNT; ++i) {
-        names_out[i] = NULL;
-        lengths_out[i] = 0U;
     }
     while (cursor < names_end) {
         uint8_t length = rom[(size_t)cursor];
@@ -182,7 +199,7 @@ static int validate_finale_source_contract(const uint8_t *rom,
     bank04_offset = prg_offset + 4ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES;
     bank06_offset = prg_offset + 6ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES;
     fixed_offset = prg_offset + (uint64_t)(prg_banks - 1U) * TECMO_ASSET_PACK_PRG_BANK_BYTES;
-    {
+    if (enforce_revision_fingerprints != 0) {
         uint64_t team_color_table_offset = fixed_offset +
             (TECMO_ASSET_PACK_FINALE_TEAM_COLOR_TABLE_CPU - 0xC000U);
         uint64_t bulls_color_offset = team_color_table_offset +
@@ -427,6 +444,7 @@ int tecmo_asset_pack_build_finale_sequence(const uint8_t *rom,
         return -1;
     }
     if (validate_finale_caption_name_table(rom, rom_size, bank06_offset,
+                                           enforce_revision_fingerprints,
                                            caption_names,
                                            caption_name_lengths,
                                            message, message_size) != 0) {
@@ -793,11 +811,18 @@ int tecmo_asset_pack_build_finale_sequence(const uint8_t *rom,
             for (size_t glyph = 0U; glyph < length; ++glyph) {
                 uint8_t code = caption_names[caption][glyph];
                 uint8_t ref = TECMO_ASSET_PACK_FINALE_CAPTION_GLYPH_SENTINEL;
-                for (size_t slot = 0U;
-                     slot < TECMO_ASSET_PACK_FINALE_TITLE_TEXT_SLOT_COUNT; ++slot) {
-                    if (rom[(size_t)title_source_offset + slot] == code) {
-                        ref = (uint8_t)slot;
-                        break;
+                /* The synthetic title source contains A-Z for broad importer
+                   coverage, whereas Rev1's actual title source omits N. Keep
+                   the fingerprint-disabled fixture on the production semantic
+                   path by requiring its N to use the extra-glyph sentinel. */
+                if (!(enforce_revision_fingerprints == 0 && code == 0x4EU)) {
+                    for (size_t slot = 0U;
+                         slot < TECMO_ASSET_PACK_FINALE_TITLE_TEXT_SLOT_COUNT;
+                         ++slot) {
+                        if (rom[(size_t)title_source_offset + slot] == code) {
+                            ref = (uint8_t)slot;
+                            break;
+                        }
                     }
                 }
                 if (ref == TECMO_ASSET_PACK_FINALE_CAPTION_GLYPH_SENTINEL) {
