@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T23:03:22Z",
+  "updated_at": "2026-08-03T23:23:45Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -231,8 +231,8 @@
         "OWN-R2-SHOTS-OUTCOMES"
       ],
       "blockers": [],
-      "next_gate": "Terminal matrices and direct bound scene self-test are green with production diagnostics removed, but the patch remains uncommitted. Same Luna must finish task docs/reproducible proof preparation; Sol must run warning-clean, focused, full-scene, and native visual proof; then one independent terminal Luna must close findings before acceptance. source_map.c and scene.c remain zero-diff exclusions.",
-      "updated_at": "2026-08-03T23:03:22Z"
+      "next_gate": "Code revision resumed before commit: gate A7A9 rattle selection after evaluation on MISS, enforce the deep-state invariant, correct the make helper, and pass a bound production terminal-settlement regression. Only then may docs/proof preparation, full Sol QA, and independent terminal QA resume. source_map.c and scene.c remain zero-diff exclusions.",
+      "updated_at": "2026-08-03T23:23:45Z"
     },
     {
       "lane_id": "LANE-R2-CLOCK-LINEUPS-FATIGUE",

@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T23:03:22Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T23:23:45Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -30,7 +30,7 @@ Generated from committed JSON at `2026-08-03T23:03:22Z`. This dashboard reports 
 | LANE-R4-AUDIO-FOUNDATION | audio | complete | complete | R4-AUDIO-FOUNDATION | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | Complete: accepted audio foundation and signed R4A Integration QA report are pushed on main/origin at bcacd5b. Broader cross-domain cue routing/full ACC-AUDIO remains deferred in parent R4. |
 | LANE-R4A-INTEGRATION-QA | integration | complete | complete | R4A-INTEGRATION-QA | S-SOL-R4A-INTEGRATION-QA-001 | codex/r4a-audio-integration-qa-sol | Complete: same-Luna P0/P1/P2-zero closure and signed report bcacd5b were master-verified, fast-forwarded, non-force pushed, and remote-verified. Luna and Sol are completed/unpinned; branches/worktrees are preserved. |
 | LANE-R4B-INTEGRATION-QA | integration | complete | complete | R4B-INTEGRATION-QA | S-SOL-R4B-INTEGRATION-QA-001 | codex/r4b-frontend-integration-qa-sol | Complete: signed terminal edf16ca passed combined P0/P1/P2-zero QA and was fast-forwarded/non-force pushed to main; preserved branches/worktrees remain available for audit. |
-| LANE-R2-SHOTS-OUTCOMES | gameplay_behavior | active | ready | R2-SHOTS-OUTCOMES | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | Terminal matrices and direct bound scene self-test are green with production diagnostics removed, but the patch remains uncommitted. Same Luna must finish task docs/reproducible proof preparation; Sol must run warning-clean, focused, full-scene, and native visual proof; then one independent terminal Luna must close findings before acceptance. source_map.c and scene.c remain zero-diff exclusions. |
+| LANE-R2-SHOTS-OUTCOMES | gameplay_behavior | active | ready | R2-SHOTS-OUTCOMES | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | Code revision resumed before commit: gate A7A9 rattle selection after evaluation on MISS, enforce the deep-state invariant, correct the make helper, and pass a bound production terminal-settlement regression. Only then may docs/proof preparation, full Sol QA, and independent terminal QA resume. source_map.c and scene.c remain zero-diff exclusions. |
 | LANE-R2-CLOCK-LINEUPS-FATIGUE | gameplay_behavior | active | ready | R2-CLOCK-LINEUPS-FATIGUE | S-SOL-R2-CLOCK-LINEUPS-001 | codex/r2-clock-lineups-fatigue-sol | Evidence reconciliation is complete and one persistent writable Luna is active on state/TGFT/TGFL patches. Sol must finish live review, bounded rescope for the LIVE reset/substitution seams, stable commits, personal QA/proof, and independent Luna closure before handoff. |
 
 ## Rounds
