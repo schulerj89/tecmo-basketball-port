@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T21:48:46Z",
+  "updated_at": "2026-08-03T21:51:56Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -39,8 +39,8 @@
         "OWN-R1-TIP"
       ],
       "blockers": [],
-      "next_gate": "Independent TIP execution/media QA passed at b678bef with P0/P1 zero; same implementation Luna is correcting one grouped P2 across exactly eight task docs. Same projectless QA must verify the revised docs-only tip before Sol integration.",
-      "updated_at": "2026-08-03T21:41:51Z"
+      "next_gate": "Docs-only chain 1b1bf23->e21f9a6 closes the independent-QA status P2 and mapper/diagnostic wording precision. Same projectless QA is verifying exact clean e21; Sol integration remains held pending final P0/P1/P2 closure.",
+      "updated_at": "2026-08-03T21:51:56Z"
     },
     {
       "lane_id": "LANE-R3-SEASON-DATA-FOUNDATION",
