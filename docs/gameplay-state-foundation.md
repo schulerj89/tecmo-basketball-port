@@ -646,10 +646,12 @@ These are provenance only and are not runtime inputs.
   explicit made/missed results and settlement are modeled.
 - The exact TGCS numeric step/phase tables and the selected TGPL pose resolution
   are consumed directly by the scene. TGCS exposes 208 exact resolutions, but
-  live selection is limited to profile 0/direction 0 and actor-facing-left is
-  mirrored during rendering. Those live policies remain approximations. The
-  older state-only rightward actor-9 observation remains provenance for the
-  semantic event layer, not a universal animation label.
+  live selection is limited to profile 0/direction 0. Eligible baseline-facing
+  uniform poses reconcile their authored cell polarity with the actor's TGOR
+  goal; explicit movement/action overrides retain their prior facing path. That
+  live selection policy remains approximate. The older state-only rightward
+  actor-9 observation remains provenance for the semantic event layer, not a
+  universal animation label.
 - TGJS/TGSR exact playback proves only the human away/right
   family-0/profile-0/direction-1 terminal-miss and three-point-make branches.
   Live shots reuse/mirror that numeric route toward the transactionally
