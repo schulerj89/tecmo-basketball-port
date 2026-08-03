@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T18:12:32Z",
+  "updated_at": "2026-08-03T18:17:05Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -87,8 +87,8 @@
         "OWN-R1A-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Pinned Integration QA Sol 019fc8d2-0d1e-78d2-a506-58a5da24db16 is active at exact clean 222d75cf. It personally owns combined build/suite/smoke/media review and may write only its signed QA docs; master will push only after terminal acceptance.",
-      "updated_at": "2026-08-03T18:10:36Z"
+      "next_gate": "Pinned Integration QA Sol 019fc8d2-0d1e-78d2-a506-58a5da24db16 and its sole pinned projectless Luna 019fc8d6-7a77-79d0-a352-767a228ef478 are auditing exact 222d75cf. Sol personally owns combined build/suite/smoke/media review and may write only signed QA docs; master pushes only after terminal acceptance.",
+      "updated_at": "2026-08-03T18:15:27Z"
     },
     {
       "lane_id": "LANE-R3A-INTEGRATION-QA",
@@ -111,8 +111,8 @@
         "OWN-R3A-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Pinned Integration QA Sol 019fc8d2-986a-7643-978f-099070876dfb is active at exact clean f536a193. It personally owns combined build/team-data/season/frame/provenance review and may write only its signed QA docs; master will push only after terminal acceptance.",
-      "updated_at": "2026-08-03T18:11:12Z"
+      "next_gate": "Pinned Integration QA Sol 019fc8d2-986a-7643-978f-099070876dfb and its sole pinned projectless Luna 019fc8d7-50f8-77f1-b379-8bcc33280ae5 are auditing exact f536a193. Sol personally owns combined build/team-data/season/frame/provenance review and may write only signed QA docs; master pushes only after terminal acceptance.",
+      "updated_at": "2026-08-03T18:16:22Z"
     },
     {
       "lane_id": "LANE-R4-FRONTEND-INTRO-TITLE",
