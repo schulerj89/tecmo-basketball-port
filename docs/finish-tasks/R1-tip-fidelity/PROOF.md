@@ -202,7 +202,9 @@ and internally consistent:
 - exact video/frame counts and cadence;
 - manifest SHA256 values for frames, contact sheets, and video;
 - base/final binary SHA, ordinary TPTI-2 payload FNV32/FNV64, ROM identity, input route, resolution, and timestamps;
-- mapper/state evidence for every claimed frame-721 handoff;
+- Native frame-721 acceptance uses bounded validated native state/scene
+  evidence. Mapper-gated `$E56E` evidence is limited to original-reference
+  recurring-loop/handoff semantics; no native mapper claim is made.
 - clean tracked-tree status and clean command/log capture;
 - original-reference comparison for unchanged and intentionally changed checkpoints;
 - no missing frame, log, video, metadata, stale output, wrong dimension, cadence, or hash accepted.

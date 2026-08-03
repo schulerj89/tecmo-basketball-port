@@ -359,6 +359,12 @@ frame-721 timing remain incomplete.
 |---:|---|---|---|
 | 3 | `fatal: ambiguous argument 'dAByAGUAZQA=': unknown revision or path not in the working tree. Use '--' to separate paths from revisions...` | Unquoted `^{tree}` was interpreted by PowerShell; quoted revisions recovered the exact tree hashes. | No mutation; literal bad-request count `0`. |
 
+### Worker implementation-docs-turn tree diagnostic
+
+| Count | Raw signature / purpose | Cause and recovery | State impact |
+|---:|---|---|---|
+| 1 | `fatal: ambiguous argument 'dAByAGUAZQA=': unknown revision or path not in the working tree. Use '--' to separate paths from revisions...` | The worker's pre-edit `HEAD^{tree}` was unquoted under PowerShell. Recovery used the quoted revision syntax. | No mutation; literal bad-request count `0`. |
+
 ### Commit-audit diagnostic
 
 | Count | Raw signature / purpose | Cause and recovery | State impact |
