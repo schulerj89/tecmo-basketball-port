@@ -94,7 +94,10 @@ bool tecmo_gameplay_fatigue_state_valid(
     const TecmoGameplayFatigueAssets *assets,
     const TecmoGameplayFatigueState *state);
 /* Exact Bank02 $B4E9 active decay and bench recovery, including the original
-   second-team countdown-store asymmetry. Failed validation is transactional. */
+   second-team countdown-store asymmetry. A cadence-triggering active step
+   intentionally preserves the byte wrap 0 -> 255. Failed validation is
+   transactional; the public post-step cadence boundary rejects only the
+   unreachable reload value 6. */
 bool tecmo_gameplay_fatigue_step(
     const TecmoGameplayFatigueAssets *assets,
     TecmoGameplayFatigueState *state,
