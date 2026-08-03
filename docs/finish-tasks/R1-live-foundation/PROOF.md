@@ -1,12 +1,10 @@
 # R1 LIVE foundation proof record
 
-This is the actual worker draft record, not a fill-in template. It is a
-reproducible `DRAFT` because the recorded worker capture was made from a dirty
-worktree. The worker did not run or claim `-RequirePass`; the independent Sol
-precommit gate is recorded below, and the clean formal proof remains a later
-closure step.
+This is the actual worker proof record, not a fill-in template. The earlier
+dirty-worktree capture is preserved as historical `DRAFT` precommit evidence;
+the formal clean `-RequirePass` result below supersedes it for acceptance.
 
-## Accepted draft root and manifest
+## Historical precommit draft root and manifest
 
 - Proof root:
   `C:\Users\joshs\Projects\tecmo-basketball-port-r1-live-foundation-luna\build\live-proof-edge-review-20260803-c`
@@ -27,7 +25,7 @@ closure step.
   `2026-08-03T15:55:53.9010715Z`, final draft record
   `2026-08-03T15:56:04.5344981Z`.
 
-## Sol precommit gate
+## Historical Sol precommit gate
 
 Sol independently reran and accepted the implementation/proof gate before this
 first worker commit:
@@ -57,8 +55,72 @@ first worker commit:
   lifetime, and clean shutdown. This script and platform code are excluded
   from this slice.
 
-This is an independent precommit gate, not a clean `-RequirePass` result. The
-worker's own draft manifest remains honestly `DRAFT` with its final SHA pending.
+This was an independent precommit gate, not a clean `-RequirePass` result. The
+worker's own draft manifest remains historical `DRAFT` evidence with its final
+SHA pending.
+
+## Formal Sol PASS
+
+Sol ran the formal proof command:
+
+```text
+.\tools\Run-GameplaySceneTests.ps1 -Build -RequirePass -ProjectRoot . -RomPath [canonical Rev1 ROM] -OriginalReferenceManifestPath [accepted CPU 20260803-053244 proof-manifest.json] -ProofRootPath build\live-proof-formal-20260803-e
+```
+
+The command exited `0`. All four scene suites passed and the LIVE proof
+reported `PASS`.
+
+- Proof root:
+  `C:\Users\joshs\Projects\tecmo-basketball-port-r1-live-foundation-luna\build\live-proof-formal-20260803-e`
+- Manifest:
+  `C:\Users\joshs\Projects\tecmo-basketball-port-r1-live-foundation-luna\build\live-proof-formal-20260803-e\PROOF-MANIFEST.json`
+- Manifest SHA256:
+  `C465080ECD2D00D5FF905A63537AEBDC62DC5ABE7524B8E08492132417BC546F`
+- Generated UTC start: `2026-08-03T16:16:40.0145168Z`.
+- Finished UTC: `2026-08-03T16:17:00.2029423Z`.
+- Schema: `TGLP-1`; status: `PASS`.
+- Base SHA:
+  `ad0f005673692b04772bce3c3b4d3ac4b2624731`.
+- Current and final SHA:
+  `e2333db8fd0ad21c036d0016574c1551929fbb5c`.
+- Branch: `codex/r1-live-foundation-luna`; clean=`true`; require_pass=`true`;
+  build_requested=`true`; build_warning_clean=`true`; suites_complete=`true`.
+- Canonical Rev1 ROM: length `393232`, SHA256
+  `076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4`.
+- Preserved pack SHA256:
+  `695EEB2D0101C5422B01790BD8D6B2A7607E758F396F429C2D2424AC6A26DE07`.
+- TGAI: `7616` bytes, FNV-1a32 `D6C4DB35`; TGMO: `1664` bytes, FNV-1a32
+  `6C82A137`.
+- The accepted original CPU formal manifest was validated.
+- Required logs: `189/189` nonempty. Artifact inventory:
+  `254/254` paths, byte counts, and SHA256 values independently checked, with
+  zero mismatch.
+- Frames: `14/14` paths and SHA256 values correct.
+- Contact sheets: two `1920x1440` images, independently hash-equal at
+  `F8380481C46C9836773F8970775F785B5FE1D0FE8E059DA066E0D6D37C8F8A9C`.
+- Native videos: two `640x480` MP4s, independently hash-equal at
+  `B8653E4D0DB44AEA437BE9BFB8C545D38B82821809195B956807B5204E087595`.
+  Independent ffprobe on each reported
+  `r_frame_rate=avg_frame_rate=39375000/655171`,
+  `time_base=1/39375000`, and `nb_frames=nb_read_frames=7`.
+- The build log contained zero warning matches, and the formal worktree
+  remained clean after proof completion.
+- All 13 named negative regressions remained listed and passed:
+  `dirty RequirePass rejects before PASS`; `wrong-branch RequirePass rejects
+  before PASS`; `non-ancestral-base RequirePass rejects before PASS`; `stale
+  ROM SHA rejects`; `stale asset-pack SHA rejects`; `stale contact-sheet
+  IHDR/metadata rejects (1920x960 is invalid for seven frames)`; `stale video
+  rate rejects`; `stale video frame-count rejects`; `stale video time-base
+  rejects`; `missing/malformed/cross-pack proof inputs reject`;
+  `artifact-inventory missing path rejects`; `artifact-inventory byte mismatch
+  rejects`; and `artifact-inventory SHA mismatch rejects`.
+
+Sol visually reinspected the formal contact sheet and shot frame: stable ten
+actors, the expected PRESEASON/title presentation, coherent
+handoff/movement/pass/switch/deferred/close-shot sequence, and no blank or
+corrupt frame. The original-versus-native team, camera/view, resolution,
+input-schedule, and frame-timing differences remain explicit; the comparison
+is reference-only and makes no parity claim.
 
 ## Inputs and fingerprints
 

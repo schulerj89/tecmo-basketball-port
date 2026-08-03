@@ -1,7 +1,7 @@
 # Builds and tests
 
-All worker results are provisional; Sol owns the independent clean build,
-Win32 smoke, proof rerun, visual review, and QA.
+The worker's precommit results remain historical evidence. Sol's formal proof
+is now PASS; independent QA and ff-only merge are still pending.
 
 ## Warning-clean build
 
@@ -49,7 +49,7 @@ PASS. The accepted original manifest was:
 C:\Users\joshs\Projects\tecmo-basketball-port-r1-cpu-play-lifecycle-luna\temp-videos\gameplay-lab\cpu-lifecycle\20260803-053244\proof-manifest.json
 ```
 
-The preserved draft root is:
+The historical precommit draft root is:
 
 ```text
 C:\Users\joshs\Projects\tecmo-basketball-port-r1-live-foundation-luna\build\live-proof-edge-review-20260803-c
@@ -69,7 +69,7 @@ scene-level edge/corner inert `scene_update_ai` transaction and 120 neutral
 bound running-clock updates with roster, condition, ownership, and exact-once
 shot-launch checks.
 
-## Sol precommit gate (independent)
+## Historical Sol precommit gate (independent)
 
 Sol's personal precommit rerun passed the bounded implementation/proof gate:
 
@@ -95,7 +95,48 @@ Sol's personal precommit rerun passed the bounded implementation/proof gate:
   project-root arguments, working directory/icon, roster-independent startup,
   lifetime, and clean shutdown.
 
-The worker did not run clean `-RequirePass` in this turn, and independent QA
-closure remains pending. The complete raw fault/revision history is in
-[LINEAGE.md](LINEAGE.md), and the actual worker draft record is in
-[PROOF.md](PROOF.md).
+## Formal proof PASS
+
+Sol ran the exact formal command:
+
+```text
+.\tools\Run-GameplaySceneTests.ps1 -Build -RequirePass -ProjectRoot . -RomPath [canonical Rev1 ROM] -OriginalReferenceManifestPath [accepted CPU 20260803-053244 proof-manifest.json] -ProofRootPath build\live-proof-formal-20260803-e
+```
+
+It exited `0`; all four scene suites passed and LIVE PROOF reported `PASS`.
+The formal root is
+`C:\Users\joshs\Projects\tecmo-basketball-port-r1-live-foundation-luna\build\live-proof-formal-20260803-e`;
+the manifest SHA256 is
+`C465080ECD2D00D5FF905A63537AEBDC62DC5ABE7524B8E08492132417BC546F`.
+Schema/status are `TGLP-1`/`PASS`; base is
+`ad0f005673692b04772bce3c3b4d3ac4b2624731`; current/final is
+`e2333db8fd0ad21c036d0016574c1551929fbb5c`; branch is correct; clean,
+require_pass, build_requested, build_warning_clean, and suites_complete are
+all true. Generated UTC start/finish were
+`2026-08-03T16:16:40.0145168Z` and `2026-08-03T16:17:00.2029423Z`.
+
+The canonical ROM was length `393232`, SHA256
+`076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4`; the
+pack SHA256 was
+`695EEB2D0101C5422B01790BD8D6B2A7607E758F396F429C2D2424AC6A26DE07`;
+TGAI was `7616/D6C4DB35` and TGMO was `1664/6C82A137`; the accepted original
+manifest validated. Logs were `189/189` nonempty and inventory was `254/254`
+with independently checked paths/bytes/SHA and zero mismatch. Frames were
+`14/14`; two `1920x1440` contacts matched at
+`F8380481C46C9836773F8970775F785B5FE1D0FE8E059DA066E0D6D37C8F8A9C`; two
+`640x480` MP4s matched at
+`B8653E4D0DB44AEA437BE9BFB8C545D38B82821809195B956807B5204E087595` and each
+ffprobe reported `r_frame_rate=avg_frame_rate=39375000/655171`,
+`time_base=1/39375000`, `nb_frames=nb_read_frames=7`. The build log had zero
+warning matches and the formal worktree remained clean. All 13 named negative
+regressions remained listed and passed.
+
+Sol's formal visual reinspection found stable ten-actor state, expected
+PRESEASON/title presentation, coherent handoff/movement/pass/switch/deferred/
+close-shot sequence, and no blank or corrupt frame. The documented original
+versus native team/view/resolution/input/timing differences remain; this is
+reference-only and makes no parity claim.
+
+Independent QA has not yet accepted the two-commit chain. The complete raw
+fault/revision history is in [LINEAGE.md](LINEAGE.md), and the historical
+precommit plus formal records are in [PROOF.md](PROOF.md).

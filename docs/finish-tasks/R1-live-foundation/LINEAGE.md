@@ -66,6 +66,36 @@ These predecessors were read-only and completed before the writable worker; neit
    worker did not run `-RequirePass`; that clean formal proof and closure QA
    remain later steps.
 
+19. Sol's formal-proof decision was ACCEPTED. The exact command was
+   `.\tools\Run-GameplaySceneTests.ps1 -Build -RequirePass -ProjectRoot . -RomPath [canonical Rev1 ROM] -OriginalReferenceManifestPath [accepted CPU 20260803-053244 proof-manifest.json] -ProofRootPath build\live-proof-formal-20260803-e` It exited `0`; all four scene suites and LIVE PROOF passed. Formal root:
+   `C:\Users\joshs\Projects\tecmo-basketball-port-r1-live-foundation-luna\build\live-proof-formal-20260803-e`; manifest SHA256
+   `C465080ECD2D00D5FF905A63537AEBDC62DC5ABE7524B8E08492132417BC546F`;
+   generated UTC `2026-08-03T16:16:40.0145168Z`, finished UTC
+   `2026-08-03T16:17:00.2029423Z`; schema/status `TGLP-1`/`PASS`; base
+   `ad0f005673692b04772bce3c3b4d3ac4b2624731`; current/final
+   `e2333db8fd0ad21c036d0016574c1551929fbb5c`; correct branch; clean,
+   require_pass, build_requested, build_warning_clean, and suites_complete
+   all true. Canonical ROM length/SHA were `393232` /
+   `076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4`;
+   pack SHA256 was
+   `695EEB2D0101C5422B01790BD8D6B2A7607E758F396F429C2D2424AC6A26DE07`;
+   TGAI was `7616/D6C4DB35` and TGMO `1664/6C82A137`; the accepted original
+   manifest validated. Logs were `189/189` nonempty, inventory `254/254`
+   with independent path/byte/SHA checks and zero mismatch, and frames
+   `14/14` with correct path/SHA. Both contacts were `1920x1440` and matched
+   at `F8380481C46C9836773F8970775F785B5FE1D0FE8E059DA066E0D6D37C8F8A9C`;
+   both `640x480` MP4s matched at
+   `B8653E4D0DB44AEA437BE9BFB8C545D38B82821809195B956807B5204E087595` and
+   each independently probed as
+   `r_frame_rate=avg_frame_rate=39375000/655171`,
+   `time_base=1/39375000`, `nb_frames=nb_read_frames=7`. The build log had
+   zero warning matches and the formal worktree remained clean. All 13 named
+   negative regressions remained listed and passed. Sol's visual reinspection
+   found stable ten actors, expected PRESEASON/title and coherent
+   handoff/movement/pass/switch/deferred/close-shot sequence, and no blank or
+   corrupt frame; the documented original/native differences and no-parity
+   classification remain unchanged.
+
 ## Sol read-only diagnostic note
 
 The following diagnostics were read-only Sol review observations and are
@@ -80,6 +110,14 @@ separate from worker implementation faults:
   warnings.
 - One canonical-repo orchestration `rg` used the wrong worktree and was
   recovered in the master-orchestrator worktree.
+- One initial independent inventory helper used `return ,$bad` on an empty
+  PowerShell array, producing a misleading `Count=1` for both inventory and
+  logs while printing no failing entry. A corrected generic `List` counter
+  reported inventory `BAD=0` and logs `BAD=0/EMPTY=0`; no artifact mismatch
+  existed.
+- One initial negative-regression summary treated the 13 string entries as
+  objects with `.name`/`.status` and emitted 13 blank `=` rows. Direct string
+  enumeration recovered all 13 names.
 - No mutation or bad-request fault occurred.
 
 ## Diagnostic and fault ledger (raw signatures/counts/recovery)
@@ -131,8 +169,10 @@ The full wrapper runs that were successful at the suite level but rejected as pr
 
 ## Current status
 
-This record is the handoff for the first reviewed implementation/docs commit.
-The worker did not run clean `-RequirePass` in this turn. The next bounded
-sequence is a clean `-Build -RequirePass` proof at that commit, then a
-docs-only closure commit recording the formal proof/lineage and independent
-QA, followed by QA continuity checks and an ff-only merge into Sol.
+The exact chain is first commit
+`e2333db8fd0ad21c036d0016574c1551929fbb5c` (implementation/docs/proven), this
+docs-only formal closure commit, independent QA acceptance, then ff-only merge
+into Sol. The formal proof is accepted PASS; independent QA has not yet
+happened. Literal `{detail: bad request}` remains count `0`, and no product,
+test, build, wrapper, TIP, CPU, Win32, main, or other non-doc path was changed
+for this closure.
