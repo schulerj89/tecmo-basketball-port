@@ -9,6 +9,185 @@
 
 #include "tecmo_cli_internal.h"
 
+static bool validate_close_parse_reload_rollback(
+    TecmoGameplayCloseShotAssets *assets,
+    const char *pack_path)
+{
+    uint8_t *payload = NULL;
+    uint8_t *gameplay_core = NULL;
+    uint8_t *mutation = NULL;
+    uint8_t *committed_storage = NULL;
+    uint64_t payload_size = 0U;
+    uint64_t gameplay_core_size = 0U;
+    TecmoGameplayCloseShotAssets committed;
+    bool ok = false;
+
+    if (assets == NULL || pack_path == NULL ||
+        tecmo_asset_pack_read_entry_exact(
+            pack_path, "gameplay/close-shots", 3144U,
+            &payload, &payload_size) != 0 ||
+        tecmo_asset_pack_read_entry_exact(
+            pack_path, "gameplay/core", 23416U,
+            &gameplay_core, &gameplay_core_size) != 0 ||
+        payload_size != 3144U || assets->storage == NULL) {
+        goto cleanup;
+    }
+    mutation = (uint8_t *)malloc((size_t)payload_size);
+    committed_storage = (uint8_t *)malloc(assets->storage_size);
+    if (mutation == NULL || committed_storage == NULL) goto cleanup;
+    committed = *assets;
+    memcpy(committed_storage, assets->storage, assets->storage_size);
+    memcpy(mutation, payload, (size_t)payload_size);
+    mutation[128U] ^= 1U;
+    if (tecmo_gameplay_close_shots_parse(
+            assets, mutation, (size_t)payload_size,
+            gameplay_core, (size_t)gameplay_core_size) ||
+        memcmp(assets, &committed, sizeof(committed)) != 0 ||
+        memcmp(assets->storage, committed_storage,
+               assets->storage_size) != 0) {
+        goto cleanup;
+    }
+    ok = true;
+
+cleanup:
+    free(committed_storage);
+    free(mutation);
+    tecmo_asset_pack_free(payload);
+    tecmo_asset_pack_free(gameplay_core);
+    return ok;
+}
+
+static bool validate_close_load_reload_rollback(
+    TecmoGameplayCloseShotAssets *assets)
+{
+    TecmoGameplayCloseShotAssets committed;
+    TecmoGameplayCloseShotAssets fresh;
+    uint8_t *committed_storage = NULL;
+    bool ok = false;
+    const char *missing_path = NULL;
+
+    if (assets == NULL || !assets->available || assets->storage == NULL) {
+        return false;
+    }
+    committed = *assets;
+    committed_storage = (uint8_t *)malloc(assets->storage_size);
+    if (committed_storage == NULL) return false;
+    memcpy(committed_storage, assets->storage, assets->storage_size);
+    if (tecmo_gameplay_close_shots_load(assets, missing_path) ||
+        memcmp(assets, &committed, sizeof(committed)) != 0 ||
+        memcmp(assets->storage, committed_storage,
+               assets->storage_size) != 0) {
+        goto cleanup;
+    }
+    tecmo_gameplay_close_shots_init(&fresh);
+    if (tecmo_gameplay_close_shots_load(&fresh, missing_path) ||
+        fresh.available || strcmp(
+            fresh.status,
+            "TGCS-1 gameplay/close-shots entry missing or wrong-sized") != 0) {
+        tecmo_gameplay_close_shots_destroy(&fresh);
+        goto cleanup;
+    }
+    tecmo_gameplay_close_shots_destroy(&fresh);
+    ok = true;
+
+cleanup:
+    free(committed_storage);
+    return ok;
+}
+
+static bool validate_jump_parse_reload_rollback(
+    TecmoGameplayJumpShotAssets *assets,
+    const char *pack_path)
+{
+    uint8_t *payload = NULL;
+    uint8_t *gameplay_core = NULL;
+    uint8_t *close_shots = NULL;
+    uint8_t *mutation = NULL;
+    uint8_t *committed_storage = NULL;
+    uint64_t payload_size = 0U;
+    uint64_t gameplay_core_size = 0U;
+    uint64_t close_shots_size = 0U;
+    TecmoGameplayJumpShotAssets committed;
+    bool ok = false;
+
+    if (assets == NULL || pack_path == NULL ||
+        tecmo_asset_pack_read_entry_exact(
+            pack_path, "gameplay/jump-shots", 2776U,
+            &payload, &payload_size) != 0 ||
+        tecmo_asset_pack_read_entry_exact(
+            pack_path, "gameplay/core", 23416U,
+            &gameplay_core, &gameplay_core_size) != 0 ||
+        tecmo_asset_pack_read_entry_exact(
+            pack_path, "gameplay/close-shots", 3144U,
+            &close_shots, &close_shots_size) != 0 ||
+        assets->storage == NULL) {
+        goto cleanup;
+    }
+    mutation = (uint8_t *)malloc((size_t)payload_size);
+    committed_storage = (uint8_t *)malloc(assets->storage_size);
+    if (mutation == NULL || committed_storage == NULL) goto cleanup;
+    committed = *assets;
+    memcpy(committed_storage, assets->storage, assets->storage_size);
+    memcpy(mutation, payload, (size_t)payload_size);
+    mutation[2672U] ^= 1U;
+    if (tecmo_gameplay_jump_shots_parse(
+            assets, mutation, (size_t)payload_size,
+            gameplay_core, (size_t)gameplay_core_size,
+            close_shots, (size_t)close_shots_size) ||
+        memcmp(assets, &committed, sizeof(committed)) != 0 ||
+        memcmp(assets->storage, committed_storage,
+               assets->storage_size) != 0) {
+        goto cleanup;
+    }
+    ok = true;
+
+cleanup:
+    free(committed_storage);
+    free(mutation);
+    tecmo_asset_pack_free(payload);
+    tecmo_asset_pack_free(gameplay_core);
+    tecmo_asset_pack_free(close_shots);
+    return ok;
+}
+
+static bool validate_jump_load_reload_rollback(
+    TecmoGameplayJumpShotAssets *assets)
+{
+    TecmoGameplayJumpShotAssets committed;
+    TecmoGameplayJumpShotAssets fresh;
+    uint8_t *committed_storage = NULL;
+    bool ok = false;
+    const char *missing_path = NULL;
+
+    if (assets == NULL || !assets->available || assets->storage == NULL) {
+        return false;
+    }
+    committed = *assets;
+    committed_storage = (uint8_t *)malloc(assets->storage_size);
+    if (committed_storage == NULL) return false;
+    memcpy(committed_storage, assets->storage, assets->storage_size);
+    if (tecmo_gameplay_jump_shots_load(assets, missing_path) ||
+        memcmp(assets, &committed, sizeof(committed)) != 0 ||
+        memcmp(assets->storage, committed_storage,
+               assets->storage_size) != 0) {
+        goto cleanup;
+    }
+    tecmo_gameplay_jump_shots_init(&fresh);
+    if (tecmo_gameplay_jump_shots_load(&fresh, missing_path) ||
+        fresh.available || strcmp(
+            fresh.status,
+            "TGJS-2 gameplay/jump-shots entry missing or wrong-sized") != 0) {
+        tecmo_gameplay_jump_shots_destroy(&fresh);
+        goto cleanup;
+    }
+    tecmo_gameplay_jump_shots_destroy(&fresh);
+    ok = true;
+
+cleanup:
+    free(committed_storage);
+    return ok;
+}
+
 int tecmo_cli_run_gameplay_close_shots_command(const TecmoCliContext *context)
 {
     const char *command;
@@ -37,6 +216,21 @@ int tecmo_cli_run_gameplay_close_shots_command(const TecmoCliContext *context)
         uint8_t phase = 0U;
         uint16_t pointer = 0U;
         tecmo_gameplay_close_shots_init(&assets);
+        {
+            TecmoGameplayCloseShotAssets fresh_parse;
+            tecmo_gameplay_close_shots_init(&fresh_parse);
+            if (tecmo_gameplay_close_shots_parse(
+                    &fresh_parse, NULL, 0U, NULL, 0U) ||
+                fresh_parse.available || fresh_parse.storage != NULL ||
+                strcmp(fresh_parse.status,
+                       "TGCS-1 header/size/reserved contract rejected") != 0) {
+                printf("Close-shot asset test failed: fresh parse diagnostic\n");
+                tecmo_gameplay_close_shots_destroy(&fresh_parse);
+                tecmo_gameplay_close_shots_destroy(&assets);
+                return 1;
+            }
+            tecmo_gameplay_close_shots_destroy(&fresh_parse);
+        }
         if (tecmo_gameplay_close_shots_get_variant_info(
                 &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0,
                 &variant_info) ||
@@ -63,6 +257,12 @@ int tecmo_cli_run_gameplay_close_shots_command(const TecmoCliContext *context)
         if (!tecmo_gameplay_close_shots_load(&assets, pack_path)) {
             printf("Close-shot asset test failed: reload contract: %s\n",
                    assets.status);
+            tecmo_gameplay_close_shots_destroy(&assets);
+            return 1;
+        }
+        if (!validate_close_parse_reload_rollback(&assets, pack_path) ||
+            !validate_close_load_reload_rollback(&assets)) {
+            printf("Close-shot asset test failed: valid-to-invalid parse/load rollback\n");
             tecmo_gameplay_close_shots_destroy(&assets);
             return 1;
         }
@@ -104,8 +304,15 @@ int tecmo_cli_run_gameplay_close_shots_command(const TecmoCliContext *context)
                  TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_CONTACTABLE) ||
             variant_info.step_count != 16U ||
             variant_info.pose_phase_count != 6U ||
-            tecmo_gameplay_close_shots_get_variant_info(
-                &assets, (TecmoGameplayCloseShotVariant)1, &variant_info) ||
+            !tecmo_gameplay_close_shots_get_variant_info(
+                &assets, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_1, &variant_info) ||
+            variant_info.numeric_variant != 1U ||
+            variant_info.semantic_kind !=
+                TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_UNKNOWN ||
+            variant_info.family_flags !=
+                TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_UNPROVEN_NUMERIC ||
+            variant_info.step_count != 0U ||
+            variant_info.pose_phase_count != 0U ||
             tecmo_gameplay_close_shots_get_variant_info(
                 &assets, (TecmoGameplayCloseShotVariant)3, &variant_info) ||
             tecmo_gameplay_close_shots_get_variant_info(
@@ -225,7 +432,67 @@ int tecmo_cli_run_gameplay_close_shots_command(const TecmoCliContext *context)
             tecmo_gameplay_close_shots_destroy(&assets);
             return 1;
         }
-        printf("TGCS-1 close-shot assets passed: sources=13 variants=2 semantics=0:dunk,2:layup steps=48 poses=208 phases=0445C745 pose-sequence=BFDB4095\n");
+        {
+            static const uint16_t expected_numeric1[8] = {
+                755U, 723U, 739U, 747U, 731U, 707U, 763U, 715U
+            };
+            TecmoGameplayCloseShotVariant selected;
+            for (unsigned direction = 0U; direction < 8U; ++direction) {
+                if (!tecmo_gameplay_close_shots_resolve_numeric_variant1_pose_pointer_index(
+                        &assets,
+                        (TecmoGameplayCloseShotDirection)direction,
+                        &pointer) ||
+                    pointer != expected_numeric1[direction]) {
+                    printf("Close-shot asset test failed: numeric-1 pose %u\n",
+                           direction);
+                    tecmo_gameplay_close_shots_destroy(&assets);
+                    return 1;
+                }
+            }
+            if (!tecmo_gameplay_close_shots_select_numeric_variant(
+                    0, 0, true, &selected) ||
+                selected != TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_1 ||
+                !tecmo_gameplay_close_shots_select_numeric_variant(
+                    32, 0, false, &selected) ||
+                selected != TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2 ||
+                !tecmo_gameplay_close_shots_select_numeric_variant(
+                    24, 80, false, &selected) ||
+                selected != TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0 ||
+                tecmo_gameplay_close_shots_select_numeric_variant(
+                    -9, 0, false, &selected) ||
+                tecmo_gameplay_close_shots_select_numeric_variant(
+                    49, 0, false, &selected) ||
+                tecmo_gameplay_close_shots_select_numeric_variant(
+                    0, -65, false, &selected) ||
+                tecmo_gameplay_close_shots_select_numeric_variant(
+                    0, 81, false, &selected) ||
+                tecmo_gameplay_close_shots_select_numeric_variant(
+                    0, 0, false, NULL)) {
+                printf("Close-shot asset test failed: neutral selector bounds\n");
+                tecmo_gameplay_close_shots_destroy(&assets);
+                return 1;
+            }
+            selected = TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2;
+            if (tecmo_gameplay_close_shots_select_numeric_variant(
+                    -9, 0, false, &selected) ||
+                selected != TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2) {
+                printf("Close-shot asset test failed: neutral selector output rollback\n");
+                tecmo_gameplay_close_shots_destroy(&assets);
+                return 1;
+            }
+            pointer = 0xBEEFU;
+            if (tecmo_gameplay_close_shots_resolve_numeric_variant1_pose_pointer_index(
+                    &assets, (TecmoGameplayCloseShotDirection)8, &pointer) ||
+                pointer != 0xBEEFU ||
+                tecmo_gameplay_close_shots_resolve_numeric_variant1_pose_pointer_index(
+                    NULL, TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0, &pointer) ||
+                pointer != 0xBEEFU) {
+                printf("Close-shot asset test failed: numeric-1 pose output rollback\n");
+                tecmo_gameplay_close_shots_destroy(&assets);
+                return 1;
+            }
+        }
+        printf("TGCS-1 close-shot assets passed: sources=13 source-complete-semantics=0:dunk,2:layup (2 families) native-numeric-identities=3 (numeric-1 pose-only; full trajectory incomplete) steps=48 poses=208 phases=0445C745 pose-sequence=BFDB4095\n");
         tecmo_gameplay_close_shots_destroy(&assets);
         tecmo_gameplay_close_shots_destroy(&assets);
         return 0;
@@ -418,6 +685,7 @@ static bool validate_jump_shot_dependencies(
     uint8_t *close_shots = NULL;
     uint8_t *payload_mutation = NULL;
     uint8_t *core_mutation = NULL;
+    uint8_t *committed_storage = NULL;
     uint64_t payload_size = 0U;
     uint64_t gameplay_core_size = 0U;
     uint64_t close_shots_size = 0U;
@@ -440,15 +708,26 @@ static bool validate_jump_shot_dependencies(
             printf("Jump-shot asset test failed: mutation allocation\n");
             goto dependency_cleanup;
         }
+        committed_storage = (uint8_t *)malloc(assets->storage_size);
+        if (committed_storage == NULL) {
+            printf("Jump-shot asset test failed: committed snapshot allocation\n");
+            goto dependency_cleanup;
+        }
+        memcpy(committed_storage, assets->storage, assets->storage_size);
+        {
+            TecmoGameplayJumpShotAssets committed = assets[0];
         memcpy(payload_mutation, payload, (size_t)payload_size);
         payload_mutation[88U] = 1U;
         if (tecmo_gameplay_jump_shots_parse(
                 assets, payload_mutation, (size_t)payload_size,
                 gameplay_core, (size_t)gameplay_core_size,
-                close_shots, (size_t)close_shots_size) || assets->available ||
-            assets->storage != NULL) {
+                close_shots, (size_t)close_shots_size) ||
+            memcmp(assets, &committed, sizeof(committed)) != 0 ||
+            memcmp(assets->storage, committed_storage,
+                   assets->storage_size) != 0) {
             printf("Jump-shot asset test failed: reserved mutation accepted\n");
             goto dependency_cleanup;
+        }
         }
         memcpy(payload_mutation, payload, (size_t)payload_size);
         payload_mutation[2672U] ^= 1U;
@@ -497,6 +776,7 @@ static bool validate_jump_shot_dependencies(
     ok = true;
 
 dependency_cleanup:
+    free(committed_storage);
     free(payload_mutation);
     free(core_mutation);
     tecmo_asset_pack_free(payload);
@@ -529,6 +809,21 @@ int tecmo_cli_run_gameplay_jump_shots_command(const TecmoCliContext *context)
         bool ok = false;
 
         tecmo_gameplay_jump_shots_init(&assets);
+        {
+            TecmoGameplayJumpShotAssets fresh_parse;
+            tecmo_gameplay_jump_shots_init(&fresh_parse);
+            if (tecmo_gameplay_jump_shots_parse(
+                    &fresh_parse, NULL, 0U, NULL, 0U, NULL, 0U) ||
+                fresh_parse.available || fresh_parse.storage != NULL ||
+                strcmp(fresh_parse.status,
+                       "TGJS-2 header/size/reserved contract rejected") != 0) {
+                printf("Jump-shot asset test failed: fresh parse diagnostic\n");
+                tecmo_gameplay_jump_shots_destroy(&fresh_parse);
+                tecmo_gameplay_jump_shots_destroy(&assets);
+                return 1;
+            }
+            tecmo_gameplay_jump_shots_destroy(&fresh_parse);
+        }
         if (tecmo_gameplay_jump_shots_find_source(
                 &assets,
                 TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_POST_SHOT_SETTLEMENT) != NULL ||
@@ -546,6 +841,11 @@ int tecmo_cli_run_gameplay_jump_shots_command(const TecmoCliContext *context)
             !tecmo_gameplay_jump_shots_load(&assets, pack_path)) {
             printf("Jump-shot asset test failed: %s\n",
                    pack_path != NULL ? assets.status : "PACK path required");
+            goto jump_shot_test_cleanup;
+        }
+        if (!validate_jump_parse_reload_rollback(&assets, pack_path) ||
+            !validate_jump_load_reload_rollback(&assets)) {
+            printf("Jump-shot asset test failed: valid-to-invalid parse/load rollback\n");
             goto jump_shot_test_cleanup;
         }
         settlement = tecmo_gameplay_jump_shots_find_source(

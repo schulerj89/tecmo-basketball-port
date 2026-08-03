@@ -31,6 +31,20 @@
    with the shared target Y loaded as $8F. */
 #define TECMO_GAMEPLAY_JUMP_RATTLE_SOURCE_TARGET_Y 0x008F
 #define TECMO_GAMEPLAY_JUMP_MAKE_DURATION 111U
+#define TECMO_GAMEPLAY_JUMP_APPROX_MAKE_DURATION 64U
+#define TECMO_GAMEPLAY_JUMP_APPROX_MAKE_RELEASE_FRAME 6U
+/* The shared TGJS Q8 step with initial velocity $0308 requires 38 updates
+   to reach the floor: approximate frames 7..44 inclusive.  Recovery then
+   decrements the proven phase seed five times (45..49) and neutralizes on
+   the sixth following frame (50). */
+#define TECMO_GAMEPLAY_JUMP_APPROX_MAKE_LAND_FRAME 44U
+#define TECMO_GAMEPLAY_JUMP_APPROX_MAKE_RECOVERY_START_FRAME 45U
+#define TECMO_GAMEPLAY_JUMP_APPROX_MAKE_RECOVERY_LAST_FRAME 49U
+#define TECMO_GAMEPLAY_JUMP_APPROX_MAKE_NEUTRAL_FRAME 50U
+/* The ball-arrival/score point is a bounded native approximation.  It is
+   deliberately after actor neutralization so the terminal predicate remains
+   physically consistent rather than requiring a grounded actor in mid-flight. */
+#define TECMO_GAMEPLAY_JUMP_APPROX_MAKE_SCORE_FRAME 56U
 #define TECMO_GAMEPLAY_JUMP_MAKE_RELEASE_FRAME 9U
 #define TECMO_GAMEPLAY_JUMP_MAKE_DECISION_FRAME 19U
 #define TECMO_GAMEPLAY_JUMP_MAKE_FLIGHT_FRAME 20U
@@ -50,6 +64,9 @@
 #define TECMO_GAMEPLAY_JUMP_TURN_POSE 1060U
 #define TECMO_GAMEPLAY_JUMP_RELEASE_POSE 1061U
 #define TECMO_GAMEPLAY_JUMP_FLIGHT_POSE 213U
+#define TECMO_GAMEPLAY_CLOSE_NUMERIC_1_DURATION 24U
+#define TECMO_GAMEPLAY_SHOT_RIM_TAIL_RATTLE_UPDATES 16U
+#define TECMO_GAMEPLAY_SHOT_RIM_TAIL_GROUND_UPDATE 1U
 #define TECMO_GAMEPLAY_SCENE_RENDER_FNV1A32 0xCA583099U
 #define TECMO_GAMEPLAY_SCENE_CENTER_SLICE_FNV1A32 0xAA4B4E7DU
 #define TECMO_GAMEPLAY_SCENE_LEFT_SLICE_FNV1A32 0x770FAE95U
@@ -115,6 +132,10 @@ bool scene_court_controller_team_valid(uint8_t team);
 bool scene_court_free_throw_lineup_matches(
     const TecmoGameplayScene *scene);
 bool scene_ownership_valid(const TecmoGameplayScene *scene);
+/* Legacy/direct render adapters intentionally do not carry a starter
+   binding.  Their shot boundary still uses the deep owned shot-state
+   invariants; bound production callers use scene_ownership_valid(). */
+bool scene_shot_state_valid(const TecmoGameplayScene *scene);
 
 /* Actor locomotion, ball attachment, and CPU adapter seam. */
 bool scene_movement_pose_index(
@@ -159,6 +180,34 @@ bool scene_move_controlled_actor(TecmoGameplayScene *scene,
                                  const TecmoControlFrame *controls);
 uint8_t scene_first_actor_for_team(TecmoGameplayTeam team);
 bool scene_attach_ball(TecmoGameplayScene *scene);
+
+/* Stable TGSR sample input retained at the shot boundary.  The native
+   substitution preserves the accepted low-byte sample stream and adds
+   identity-preserving FNV steps for every nonzero upper frame byte, so all
+   captured frame bits remain fail-closed without changing ordinary frames. */
+uint32_t scene_shot_stable_sample_from_inputs(
+    int16_t actor_x,
+    int16_t actor_y,
+    uint8_t point_value,
+    int16_t target_delta_x,
+    int16_t target_delta_y,
+    uint8_t actor_team,
+    uint8_t actor_roster_index,
+    uint32_t launch_frame);
+uint32_t scene_shot_context_signature(
+    uint32_t stable_sample,
+    bool contact_context,
+    bool contest_context);
+bool scene_shot_captured_rattle_orientation(
+    const TecmoGameplayScene *scene,
+    uint8_t *orientation_out);
+
+/* Neutral bounded source substitution for close numeric-2 reachability in
+   vertical sectors whose physical close approach is necessarily <=24. */
+int16_t scene_close_variant_selection_approach(
+    int approach_distance_x,
+    TecmoGameplayShotDirectionSlot direction,
+    uint32_t stable_sample);
 bool scene_ball_position_for_actors(
     const TecmoGameplayScene *scene,
     const TecmoGameplaySceneActor
@@ -202,6 +251,10 @@ bool scene_shot_is_close(TecmoGameplaySceneShotKind kind);
 bool scene_close_pose_for_step(const TecmoGameplayScene *scene,
                                uint8_t step,
                                uint16_t *pose_index);
+uint8_t scene_shot_family_for_context(
+    int16_t target_delta_x,
+    int16_t target_delta_y,
+    uint32_t stable_sample);
 bool scene_start_shot_actor(TecmoGameplayScene *scene,
                             size_t controller,
                             uint8_t actor_index);

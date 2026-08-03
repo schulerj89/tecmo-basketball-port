@@ -1,6 +1,7 @@
 #include "tecmo_asset_pack.h"
 #include "tecmo_gameplay_shot_resolution.h"
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -113,6 +114,185 @@ static bool validate_shot_resolution_point_contract(
     return true;
 }
 
+static bool validate_shot_resolution_direction_and_evaluator(
+    TecmoGameplayShotResolutionAssets *assets)
+{
+    static const struct {
+        int16_t x;
+        int16_t y;
+        TecmoGameplayShotDirectionSlot direction;
+    } cases[] = {
+        {1, 0, TECMO_GAMEPLAY_SHOT_DIRECTION_RIGHT},
+        {-1, 0, TECMO_GAMEPLAY_SHOT_DIRECTION_LEFT},
+        {0, 1, TECMO_GAMEPLAY_SHOT_DIRECTION_DOWN},
+        {0, -1, TECMO_GAMEPLAY_SHOT_DIRECTION_UP},
+        {4, 1, TECMO_GAMEPLAY_SHOT_DIRECTION_RIGHT},
+        {-4, 1, TECMO_GAMEPLAY_SHOT_DIRECTION_LEFT},
+        {4, -1, TECMO_GAMEPLAY_SHOT_DIRECTION_RIGHT},
+        {-4, -1, TECMO_GAMEPLAY_SHOT_DIRECTION_LEFT},
+        {3, 1, TECMO_GAMEPLAY_SHOT_DIRECTION_DOWN_RIGHT},
+        {-3, 1, TECMO_GAMEPLAY_SHOT_DIRECTION_DOWN_LEFT},
+        {3, -1, TECMO_GAMEPLAY_SHOT_DIRECTION_UP_RIGHT},
+        {-3, -1, TECMO_GAMEPLAY_SHOT_DIRECTION_UP_LEFT},
+        {1, 4, TECMO_GAMEPLAY_SHOT_DIRECTION_DOWN},
+        {-1, 4, TECMO_GAMEPLAY_SHOT_DIRECTION_DOWN},
+        {1, -4, TECMO_GAMEPLAY_SHOT_DIRECTION_UP},
+        {-1, -4, TECMO_GAMEPLAY_SHOT_DIRECTION_UP},
+        {INT16_MIN, 1, TECMO_GAMEPLAY_SHOT_DIRECTION_LEFT},
+        {1, INT16_MIN, TECMO_GAMEPLAY_SHOT_DIRECTION_UP}
+    };
+    TecmoGameplayShotDirectionSlot direction;
+    TecmoGameplayShotEvaluationInput input;
+    TecmoGameplayShotEvaluation evaluation;
+    TecmoGameplayShotEvaluation repeated;
+    uint8_t profile;
+    size_t index;
+
+    /* Public inputs are target-minus-actor.  The four equality cases above
+       prove the source actor-minus-target inversion and inclusive 4:1 axis
+       boundary; the INT16_MIN cases prove widened absolute-value handling. */
+    for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); ++index) {
+        if (!tecmo_gameplay_shot_resolution_direction_for_delta(
+                cases[index].x, cases[index].y, &direction) ||
+            direction != cases[index].direction) {
+            printf("Shot-resolution asset test failed: direction case %u\n",
+                   (unsigned)index);
+            return false;
+        }
+    }
+    direction = TECMO_GAMEPLAY_SHOT_DIRECTION_UP_LEFT;
+    if (tecmo_gameplay_shot_resolution_direction_for_delta(0, 0, &direction) ||
+        direction != TECMO_GAMEPLAY_SHOT_DIRECTION_UP_LEFT ||
+        tecmo_gameplay_shot_resolution_direction_for_delta(1, 1, NULL) ||
+        !tecmo_gameplay_shot_profile_from_profile_byte2(0U, &profile) ||
+        profile != 0U ||
+        !tecmo_gameplay_shot_profile_from_profile_byte2(0x20U, &profile) ||
+        profile != 1U ||
+        !tecmo_gameplay_shot_profile_from_profile_byte2(0xFFU, &profile) ||
+        profile != 1U ||
+        tecmo_gameplay_shot_profile_from_profile_byte2(0U, NULL)) {
+        printf("Shot-resolution asset test failed: direction/profile bounds\n");
+        return false;
+    }
+
+    memset(&input, 0, sizeof(input));
+    input.player_rating = 80U;
+    input.point_value = 3U;
+    input.horizontal_distance = -156;
+    input.vertical_distance = -1;
+    input.family = 0U;
+    input.profile = 0U;
+    input.direction = 1U;
+    input.stable_sample = 99U;
+    if (!tecmo_gameplay_shot_resolution_evaluate(
+            assets, &input, &evaluation) ||
+        evaluation.schedule !=
+            TECMO_GAMEPLAY_SHOT_SCHEDULE_EXACT_THREE_POINT ||
+        evaluation.outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS ||
+        evaluation.make_probability < 5U ||
+        evaluation.make_probability > 95U ||
+        !tecmo_gameplay_shot_resolution_evaluate(
+            assets, &input, &repeated) ||
+        memcmp(&evaluation, &repeated, sizeof(evaluation)) != 0) {
+        printf("Shot-resolution asset test failed: exact deterministic evaluator\n");
+        return false;
+    }
+    input.point_value = 2U;
+    input.direction = 0U;
+    input.stable_sample = 0U;
+    if (!tecmo_gameplay_shot_resolution_evaluate(
+            assets, &input, &evaluation) ||
+        evaluation.schedule !=
+            TECMO_GAMEPLAY_SHOT_SCHEDULE_NATIVE_APPROXIMATION ||
+        evaluation.outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE) {
+        printf("Shot-resolution asset test failed: ordinary two-point make\n");
+        return false;
+    }
+    input.point_value = 1U;
+    input.close_context = false;
+    input.numeric_variant = 0U;
+    input.stable_sample = 0U;
+    if (!tecmo_gameplay_shot_resolution_evaluate(
+            assets, &input, &evaluation) ||
+        evaluation.point_value != 1U ||
+        evaluation.schedule !=
+            TECMO_GAMEPLAY_SHOT_SCHEDULE_NATIVE_APPROXIMATION) {
+        printf("Shot-resolution asset test failed: one-point evaluator\n");
+        return false;
+    }
+    input.close_context = true;
+    input.numeric_variant = 1U;
+    input.contact_context = true;
+    input.contest_context = true;
+    if (!tecmo_gameplay_shot_resolution_evaluate(
+            assets, &input, &evaluation) ||
+        evaluation.schedule !=
+            TECMO_GAMEPLAY_SHOT_SCHEDULE_CLOSE_NUMERIC_1 ||
+        !evaluation.contact_context || !evaluation.contest_context ||
+        evaluation.make_probability < 5U ||
+        evaluation.make_probability > 95U) {
+        printf("Shot-resolution asset test failed: close/contact evaluator\n");
+        return false;
+    }
+    {
+        TecmoGameplayShotEvaluation unchanged = evaluation;
+        input.contact_context = true;
+        input.contest_context = false;
+        if (tecmo_gameplay_shot_resolution_evaluate(
+                assets, &input, &evaluation) ||
+            memcmp(&evaluation, &unchanged, sizeof(evaluation)) != 0) {
+            printf("Shot-resolution asset test failed: contact/contest invariant\n");
+            return false;
+        }
+        input.contact_context = true;
+        input.contest_context = true;
+    }
+    {
+        TecmoGameplayShotEvaluation unchanged = evaluation;
+        input.point_value = 0U;
+        if (tecmo_gameplay_shot_resolution_evaluate(
+                assets, &input, &evaluation) ||
+            memcmp(&evaluation, &unchanged, sizeof(evaluation)) != 0) {
+            printf("Shot-resolution asset test failed: point-zero rollback\n");
+            return false;
+        }
+    }
+    {
+        TecmoGameplayShotEvaluation unchanged = evaluation;
+        input.point_value = 2U;
+        input.close_context = false;
+        input.numeric_variant = 1U;
+        if (tecmo_gameplay_shot_resolution_evaluate(
+                assets, &input, &evaluation) ||
+            memcmp(&evaluation, &unchanged, sizeof(evaluation)) != 0) {
+            printf("Shot-resolution asset test failed: non-close numeric invariant\n");
+            return false;
+        }
+        input.close_context = true;
+        input.numeric_variant = 3U;
+        unchanged = evaluation;
+        if (tecmo_gameplay_shot_resolution_evaluate(
+                assets, &input, &evaluation) ||
+            memcmp(&evaluation, &unchanged, sizeof(evaluation)) != 0) {
+            printf("Shot-resolution asset test failed: typed numeric bound\n");
+            return false;
+        }
+        input.numeric_variant = 0U;
+    }
+    input.point_value = 2U;
+    input.family = 2U;
+    {
+        TecmoGameplayShotEvaluation unchanged = evaluation;
+        if (tecmo_gameplay_shot_resolution_evaluate(
+                assets, &input, &evaluation) ||
+            memcmp(&evaluation, &unchanged, sizeof(evaluation)) != 0) {
+        printf("Shot-resolution asset test failed: family bound accepted\n");
+        return false;
+        }
+    }
+    return true;
+}
+
 static bool validate_shot_resolution_rim_contract(
     TecmoGameplayShotResolutionAssets *assets)
 {
@@ -126,10 +306,17 @@ static bool validate_shot_resolution_rim_contract(
             static const uint16_t targets[4] = {
                 0xA708U, 0xA7A9U, 0xA8E9U, 0xA708U
             };
+            static const TecmoGameplayShotRimRouteKind kinds[4] = {
+                TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A708,
+                TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A7A9,
+                TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A8E9,
+                TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A708
+            };
             for (unsigned selector = 0U; selector < 8U; ++selector) {
                 if (!tecmo_gameplay_shot_resolution_resolve_rim_route(
                         assets, (uint8_t)selector, &route) ||
                     route.selector != (selector & 3U) ||
+                    route.kind != kinds[selector & 3U] ||
                     route.source_target_cpu != targets[selector & 3U]) {
                     printf("Shot-resolution asset test failed: rim route %u\n",
                            selector);
@@ -199,14 +386,45 @@ static bool validate_shot_resolution_rim_contract(
         }
         if (!completed || rattle.x != 0x0267 ||
             rattle.horizontal_velocity_q6 != -0x0040 ||
-            rattle.render_script_address != 0xBB01U ||
-            tecmo_gameplay_shot_rim_rattle_begin(
-                assets, &rattle, 2U, 0U, 0U, 0x0040, 0) ||
-            !tecmo_gameplay_shot_rim_rattle_begin(
-                assets, &rattle, 0U, 0U, 0U, 0, 0) ||
-            rattle.horizontal_velocity_q6 != -0x0040) {
+            rattle.render_script_address != 0xBB01U) {
             printf("Shot-resolution asset test failed: rim-rattle bounds\n");
             return false;
+        }
+        {
+            TecmoGameplayShotRimRattle before_invalid = rattle;
+            TecmoGameplayShotResolutionAssets malformed = *assets;
+            if (tecmo_gameplay_shot_rim_rattle_begin(
+                    assets, &rattle, 2U, 0U, 0U, 0x0040, 0) ||
+                memcmp(&rattle, &before_invalid, sizeof(rattle)) != 0) {
+                printf("Shot-resolution asset test failed: rattle orientation rollback\n");
+                return false;
+            }
+            malformed.rim_rattle.object_state = 0U;
+            if (tecmo_gameplay_shot_rim_rattle_begin(
+                    &malformed, &rattle, 0U, 0U, 0U, 0, 0) ||
+                memcmp(&rattle, &before_invalid, sizeof(rattle)) != 0) {
+                printf("Shot-resolution asset test failed: rattle contract rollback\n");
+                return false;
+            }
+        }
+        if (!tecmo_gameplay_shot_rim_rattle_begin(
+                assets, &rattle, 0U, 0U, 0U, 0, 0)) {
+            printf("Shot-resolution asset test failed: late-rattle setup\n");
+            return false;
+        }
+        {
+            TecmoGameplayShotRimRattle corrupted;
+            bool repeat_before = true;
+            bool completed_before = true;
+            rattle.timer_remaining = 0U;
+            corrupted = rattle;
+            if (tecmo_gameplay_shot_rim_rattle_step(
+                    assets, &rattle, &repeat_before, &completed_before) ||
+                memcmp(&rattle, &corrupted, sizeof(rattle)) != 0 ||
+                repeat_before != true || completed_before != true) {
+                printf("Shot-resolution asset test failed: rattle late rejection\n");
+                return false;
+            }
         }
         if (!tecmo_gameplay_shot_resolution_claimant_is_eligible(
                 assets, -11, -7, 0U, 39U, &eligible) || !eligible ||
@@ -257,6 +475,7 @@ static bool validate_shot_resolution_dependencies(
     uint8_t *gameplay_core = NULL;
     uint8_t *mutation = NULL;
     uint8_t *core_mutation = NULL;
+    uint8_t *committed_storage = NULL;
     uint64_t payload_size = 0U;
     uint64_t gameplay_core_size = 0U;
     bool ok = false;
@@ -275,13 +494,25 @@ static bool validate_shot_resolution_dependencies(
             printf("Shot-resolution asset test failed: mutation allocation\n");
             goto dependency_cleanup;
         }
+        committed_storage = (uint8_t *)malloc(assets->storage_size);
+        if (committed_storage == NULL) {
+            printf("Shot-resolution asset test failed: committed snapshot allocation\n");
+            goto dependency_cleanup;
+        }
+        memcpy(committed_storage, assets->storage, assets->storage_size);
+        {
+            TecmoGameplayShotResolutionAssets committed = assets[0];
         memcpy(mutation, payload, (size_t)payload_size);
         mutation[101U] = 1U;
         if (tecmo_gameplay_shot_resolution_parse(
                 assets, mutation, (size_t)payload_size,
-                gameplay_core, (size_t)gameplay_core_size)) {
+                gameplay_core, (size_t)gameplay_core_size) ||
+            memcmp(assets, &committed, sizeof(committed)) != 0 ||
+            memcmp(assets->storage, committed_storage,
+                   assets->storage_size) != 0) {
             printf("Shot-resolution asset test failed: header reserved accepted\n");
             goto dependency_cleanup;
+        }
         }
         memcpy(mutation, payload, (size_t)payload_size);
         mutation[128U] ^= 1U;
@@ -343,10 +574,97 @@ static bool validate_shot_resolution_dependencies(
     ok = true;
 
 dependency_cleanup:
+    free(committed_storage);
     free(mutation);
     free(core_mutation);
     tecmo_asset_pack_free(payload);
     tecmo_asset_pack_free(gameplay_core);
+    return ok;
+}
+
+static bool validate_shot_resolution_parse_reload_rollback(
+    TecmoGameplayShotResolutionAssets *assets,
+    const char *pack_path)
+{
+    uint8_t *payload = NULL;
+    uint8_t *gameplay_core = NULL;
+    uint8_t *mutation = NULL;
+    uint8_t *committed_storage = NULL;
+    uint64_t payload_size = 0U;
+    uint64_t gameplay_core_size = 0U;
+    TecmoGameplayShotResolutionAssets committed;
+    bool ok = false;
+
+    if (assets == NULL || pack_path == NULL ||
+        tecmo_asset_pack_read_entry_exact(
+            pack_path, "gameplay/shot-resolution", 512U,
+            &payload, &payload_size) != 0 ||
+        tecmo_asset_pack_read_entry_exact(
+            pack_path, "gameplay/core", 23416U,
+            &gameplay_core, &gameplay_core_size) != 0 ||
+        assets->storage == NULL) {
+        goto cleanup;
+    }
+    mutation = (uint8_t *)malloc((size_t)payload_size);
+    committed_storage = (uint8_t *)malloc(assets->storage_size);
+    if (mutation == NULL || committed_storage == NULL) goto cleanup;
+    committed = *assets;
+    memcpy(committed_storage, assets->storage, assets->storage_size);
+    memcpy(mutation, payload, (size_t)payload_size);
+    mutation[101U] = 1U;
+    if (tecmo_gameplay_shot_resolution_parse(
+            assets, mutation, (size_t)payload_size,
+            gameplay_core, (size_t)gameplay_core_size) ||
+        memcmp(assets, &committed, sizeof(committed)) != 0 ||
+        memcmp(assets->storage, committed_storage,
+               assets->storage_size) != 0) {
+        goto cleanup;
+    }
+    ok = true;
+
+cleanup:
+    free(committed_storage);
+    free(mutation);
+    tecmo_asset_pack_free(payload);
+    tecmo_asset_pack_free(gameplay_core);
+    return ok;
+}
+
+static bool validate_shot_resolution_load_reload_rollback(
+    TecmoGameplayShotResolutionAssets *assets)
+{
+    TecmoGameplayShotResolutionAssets committed;
+    TecmoGameplayShotResolutionAssets fresh;
+    uint8_t *committed_storage = NULL;
+    bool ok = false;
+    const char *missing_path = NULL;
+
+    if (assets == NULL || !assets->available || assets->storage == NULL) {
+        return false;
+    }
+    committed = *assets;
+    committed_storage = (uint8_t *)malloc(assets->storage_size);
+    if (committed_storage == NULL) return false;
+    memcpy(committed_storage, assets->storage, assets->storage_size);
+    if (tecmo_gameplay_shot_resolution_load(assets, missing_path) ||
+        memcmp(assets, &committed, sizeof(committed)) != 0 ||
+        memcmp(assets->storage, committed_storage,
+               assets->storage_size) != 0) {
+        goto cleanup;
+    }
+    tecmo_gameplay_shot_resolution_init(&fresh);
+    if (tecmo_gameplay_shot_resolution_load(&fresh, missing_path) ||
+        fresh.available || strcmp(
+            fresh.status,
+            "TGSR-3 gameplay/shot-resolution entry missing or wrong-sized") != 0) {
+        tecmo_gameplay_shot_resolution_destroy(&fresh);
+        goto cleanup;
+    }
+    tecmo_gameplay_shot_resolution_destroy(&fresh);
+    ok = true;
+
+cleanup:
+    free(committed_storage);
     return ok;
 }
 
@@ -374,6 +692,21 @@ int tecmo_cli_run_gameplay_shot_resolution_command(const TecmoCliContext *contex
         bool ok = false;
 
         tecmo_gameplay_shot_resolution_init(&assets);
+        {
+            TecmoGameplayShotResolutionAssets fresh_parse;
+            tecmo_gameplay_shot_resolution_init(&fresh_parse);
+            if (tecmo_gameplay_shot_resolution_parse(
+                    &fresh_parse, NULL, 0U, NULL, 0U) ||
+                fresh_parse.available || fresh_parse.storage != NULL ||
+                strcmp(fresh_parse.status,
+                       "TGSR-3 header/size/reserved contract rejected") != 0) {
+                printf("Shot-resolution asset test failed: fresh parse diagnostic\n");
+                tecmo_gameplay_shot_resolution_destroy(&fresh_parse);
+                tecmo_gameplay_shot_resolution_destroy(&assets);
+                return 1;
+            }
+            tecmo_gameplay_shot_resolution_destroy(&fresh_parse);
+        }
         if (tecmo_gameplay_shot_resolution_classify_terminal_outcome(
                 &assets, true, 0U, &outcome) ||
             tecmo_gameplay_shot_resolution_resolve_rim_route(
@@ -446,8 +779,17 @@ int tecmo_cli_run_gameplay_shot_resolution_command(const TecmoCliContext *contex
         if (!validate_shot_resolution_point_contract(&assets)) {
             goto shot_resolution_test_cleanup;
         }
+        if (!validate_shot_resolution_direction_and_evaluator(&assets)) {
+            goto shot_resolution_test_cleanup;
+        }
 
         if (!validate_shot_resolution_rim_contract(&assets)) {
+            goto shot_resolution_test_cleanup;
+        }
+        if (!validate_shot_resolution_parse_reload_rollback(
+                &assets, pack_path) ||
+            !validate_shot_resolution_load_reload_rollback(&assets)) {
+            printf("Shot-resolution asset test failed: valid-to-invalid parse/load rollback\n");
             goto shot_resolution_test_cleanup;
         }
 

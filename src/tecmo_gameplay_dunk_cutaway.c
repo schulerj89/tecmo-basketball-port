@@ -76,21 +76,29 @@ static bool range_ok(size_t offset, size_t count, size_t total)
     return offset <= total && count <= total - offset;
 }
 
-static bool reject(TecmoGameplayDunkCutawayAssets *assets,
-                   const char *message)
+static bool reject(
+    TecmoGameplayDunkCutawayAssets *candidate,
+    TecmoGameplayDunkCutawayAssets *destination,
+    const char *message)
 {
-    free(assets->storage);
-    assets->storage = NULL;
-    assets->storage_size = 0U;
-    memset(assets->sources, 0, sizeof(assets->sources));
-    memset(assets->cells, 0, sizeof(assets->cells));
-    memset(assets->stages, 0, sizeof(assets->stages));
-    memset(assets->records, 0, sizeof(assets->records));
-    assets->reference_palette = NULL;
-    assets->chr_fingerprint = 0U;
-    assets->available = false;
-    (void)snprintf(assets->status, sizeof(assets->status), "%s",
+    bool publish_fresh_status = destination != NULL &&
+        !destination->available && destination->storage == NULL;
+    free(candidate->storage);
+    candidate->storage = NULL;
+    candidate->storage_size = 0U;
+    memset(candidate->sources, 0, sizeof(candidate->sources));
+    memset(candidate->cells, 0, sizeof(candidate->cells));
+    memset(candidate->stages, 0, sizeof(candidate->stages));
+    memset(candidate->records, 0, sizeof(candidate->records));
+    candidate->reference_palette = NULL;
+    candidate->chr_fingerprint = 0U;
+    candidate->available = false;
+    (void)snprintf(candidate->status, sizeof(candidate->status), "%s",
                    message != NULL ? message : "TGDK-1 rejected");
+    if (publish_fresh_status) {
+        (void)snprintf(destination->status, sizeof(destination->status), "%s",
+                       candidate->status);
+    }
     return false;
 }
 
@@ -366,26 +374,33 @@ bool tecmo_gameplay_dunk_cutaway_parse(
     const uint8_t *chr,
     size_t chr_size)
 {
+    TecmoGameplayDunkCutawayAssets candidate;
+    TecmoGameplayDunkCutawayAssets previous;
     uint8_t *storage;
     size_t index;
     if (assets == NULL ||
         assets->lifecycle_tag != TECMO_GAMEPLAY_DUNK_LIFECYCLE_TAG) {
         return false;
     }
-    tecmo_gameplay_dunk_cutaway_destroy(assets);
+    /* TGDK owns pointer-rich records into its private storage.  Populate a
+       candidate and swap it only after the deep record/CHR walk succeeds. */
+    tecmo_gameplay_dunk_cutaway_init(&candidate);
     if (payload == NULL || !validate_header(payload, payload_size)) {
-        return reject(assets, "TGDK-1 header/size/reserved contract rejected");
+        return reject(&candidate, assets,
+                      "TGDK-1 header/size/reserved contract rejected");
     }
     if (fnv1a32(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_DUNK_FNV1A32) {
-        return reject(assets, "TGDK-1 canonical payload fingerprint rejected");
+        return reject(&candidate, assets,
+                      "TGDK-1 canonical payload fingerprint rejected");
     }
     if (!validate_sources(payload, payload_size) ||
         !bytes_are_zero(
             payload + TECMO_ASSET_PACK_GAMEPLAY_DUNK_PADDING_OFFSET,
             TECMO_ASSET_PACK_GAMEPLAY_DUNK_PADDING_SIZE) ||
         !validate_cells_and_stages(payload, payload_size)) {
-        return reject(assets, "TGDK-1 source/cell/stage contract rejected");
+        return reject(&candidate, assets,
+                      "TGDK-1 source/cell/stage contract rejected");
     }
     if (chr == NULL || chr_size != TECMO_ASSET_PACK_GAMEPLAY_DUNK_CHR_SIZE ||
         fnv1a32(chr, chr_size) !=
@@ -396,17 +411,20 @@ bool tecmo_gameplay_dunk_cutaway_parse(
             TECMO_ASSET_PACK_GAMEPLAY_DUNK_SIDE0_CHR_FNV1A32 ||
         fnv1a32(chr + 0x04U * 1024U, 4U * 1024U) !=
             TECMO_ASSET_PACK_GAMEPLAY_DUNK_SIDE1_BG_CHR_FNV1A32) {
-        return reject(assets, "TGDK-1 same-pack chr/all dependency rejected");
+        return reject(&candidate, assets,
+                      "TGDK-1 same-pack chr/all dependency rejected");
     }
     storage = (uint8_t *)malloc(payload_size);
-    if (storage == NULL) return reject(assets, "TGDK-1 allocation failed");
+    if (storage == NULL) {
+        return reject(&candidate, assets, "TGDK-1 allocation failed");
+    }
     memcpy(storage, payload, payload_size);
-    assets->storage = storage;
-    assets->storage_size = payload_size;
+    candidate.storage = storage;
+    candidate.storage_size = payload_size;
     for (index = 0U; index < TECMO_GAMEPLAY_DUNK_SOURCE_COUNT; ++index) {
         const TecmoGameplayDunkExpectedSource *expected =
             &tecmo_gameplay_dunk_expected_sources[index];
-        TecmoGameplayDunkSourceSpan *source = &assets->sources[index];
+        TecmoGameplayDunkSourceSpan *source = &candidate.sources[index];
         source->kind = expected->kind;
         source->bank = expected->bank;
         source->cpu_start = expected->cpu_start;
@@ -420,30 +438,34 @@ bool tecmo_gameplay_dunk_cutaway_parse(
         const uint8_t *cell = storage +
             TECMO_ASSET_PACK_GAMEPLAY_DUNK_CELLS_OFFSET +
             index * TECMO_ASSET_PACK_GAMEPLAY_DUNK_CELL_STRIDE;
-        assets->cells[index].chr_offset = read_u32(cell);
-        assets->cells[index].palette_index = cell[4U];
+        candidate.cells[index].chr_offset = read_u32(cell);
+        candidate.cells[index].palette_index = cell[4U];
     }
     for (index = 0U; index < TECMO_GAMEPLAY_DUNK_STAGE_COUNT; ++index) {
         const uint8_t *stage = storage +
             TECMO_ASSET_PACK_GAMEPLAY_DUNK_STAGES_OFFSET +
             index * TECMO_ASSET_PACK_GAMEPLAY_DUNK_STAGE_STRIDE;
-        assets->stages[index].assignment_frame = read_u16(stage);
-        assets->stages[index].visible_frame = read_u16(stage + 2U);
-        assets->stages[index].anchor_y = stage[4U];
-        assets->stages[index].anchor_x[0U] = stage[5U];
-        assets->stages[index].anchor_x[1U] = stage[6U];
-        assets->stages[index].sprite_chr_page = stage[7U];
-        assets->stages[index].record_slot = stage[8U];
+        candidate.stages[index].assignment_frame = read_u16(stage);
+        candidate.stages[index].visible_frame = read_u16(stage + 2U);
+        candidate.stages[index].anchor_y = stage[4U];
+        candidate.stages[index].anchor_x[0U] = stage[5U];
+        candidate.stages[index].anchor_x[1U] = stage[6U];
+        candidate.stages[index].sprite_chr_page = stage[7U];
+        candidate.stages[index].record_slot = stage[8U];
     }
-    if (!load_records(assets)) {
-        return reject(assets, "TGDK-1 deep pointer/count/CHR contract rejected");
+    if (!load_records(&candidate)) {
+        return reject(&candidate, assets,
+                      "TGDK-1 deep pointer/count/CHR contract rejected");
     }
-    assets->reference_palette = storage +
+    candidate.reference_palette = storage +
         TECMO_ASSET_PACK_GAMEPLAY_DUNK_PALETTE_OFFSET;
-    assets->chr_fingerprint = TECMO_ASSET_PACK_GAMEPLAY_DUNK_CHR_FNV1A32;
-    assets->available = true;
-    (void)snprintf(assets->status, sizeof(assets->status),
+    candidate.chr_fingerprint = TECMO_ASSET_PACK_GAMEPLAY_DUNK_CHR_FNV1A32;
+    candidate.available = true;
+    (void)snprintf(candidate.status, sizeof(candidate.status),
                    "TGDK-1 native dunk cutaway assetpack");
+    previous = *assets;
+    *assets = candidate;
+    free(previous.storage);
     return true;
 }
 
@@ -460,21 +482,27 @@ bool tecmo_gameplay_dunk_cutaway_load(
         assets->lifecycle_tag != TECMO_GAMEPLAY_DUNK_LIFECYCLE_TAG) {
         return false;
     }
-    tecmo_gameplay_dunk_cutaway_destroy(assets);
     if (asset_pack_path == NULL ||
         tecmo_asset_pack_read_entry_exact(
             asset_pack_path, TECMO_ASSET_PACK_GAMEPLAY_DUNK_ID,
             TECMO_ASSET_PACK_GAMEPLAY_DUNK_SIZE,
             &payload, &payload_size) != 0) {
-        return reject(assets,
-                      "TGDK-1 gameplay/dunk-cutaway missing or wrong-sized");
+        if (!assets->available) {
+            (void)snprintf(assets->status, sizeof(assets->status),
+                           "TGDK-1 gameplay/dunk-cutaway missing or wrong-sized");
+        }
+        return false;
     }
     if (tecmo_asset_pack_read_entry_exact(
             asset_pack_path, "chr/all",
             TECMO_ASSET_PACK_GAMEPLAY_DUNK_CHR_SIZE,
             &chr, &chr_size) != 0) {
         tecmo_asset_pack_free(payload);
-        return reject(assets, "TGDK-1 chr/all missing or wrong-sized");
+        if (!assets->available) {
+            (void)snprintf(assets->status, sizeof(assets->status),
+                           "TGDK-1 chr/all missing or wrong-sized");
+        }
+        return false;
     }
     loaded = tecmo_gameplay_dunk_cutaway_parse(
         assets, payload, (size_t)payload_size, chr, (size_t)chr_size);
@@ -693,6 +721,89 @@ static bool self_test_reject(TecmoGameplayDunkCutawayAssets *assets,
     return false;
 }
 
+static bool self_test_parse_reload_rollback(
+    TecmoGameplayDunkCutawayAssets *assets,
+    const char *asset_pack_path,
+    const uint8_t *chr,
+    size_t chr_size)
+{
+    uint8_t *payload = NULL;
+    uint8_t *mutation = NULL;
+    uint8_t *committed_storage = NULL;
+    uint64_t payload_size = 0U;
+    TecmoGameplayDunkCutawayAssets committed;
+    bool ok = false;
+
+    if (assets == NULL || asset_pack_path == NULL || chr == NULL ||
+        tecmo_asset_pack_read_entry_exact(
+            asset_pack_path, "gameplay/dunk-cutaway",
+            TECMO_ASSET_PACK_GAMEPLAY_DUNK_SIZE,
+            &payload, &payload_size) != 0 ||
+        payload_size != TECMO_ASSET_PACK_GAMEPLAY_DUNK_SIZE ||
+        assets->storage == NULL) {
+        goto cleanup;
+    }
+    mutation = (uint8_t *)malloc((size_t)payload_size);
+    committed_storage = (uint8_t *)malloc(assets->storage_size);
+    if (mutation == NULL || committed_storage == NULL) goto cleanup;
+    committed = *assets;
+    memcpy(committed_storage, assets->storage, assets->storage_size);
+    memcpy(mutation, payload, (size_t)payload_size);
+    mutation[0U] ^= 1U;
+    if (tecmo_gameplay_dunk_cutaway_parse(
+            assets, mutation, (size_t)payload_size, chr, chr_size) ||
+        memcmp(assets, &committed, sizeof(committed)) != 0 ||
+        memcmp(assets->storage, committed_storage,
+               assets->storage_size) != 0) {
+        goto cleanup;
+    }
+    ok = true;
+
+cleanup:
+    free(committed_storage);
+    free(mutation);
+    tecmo_asset_pack_free(payload);
+    return ok;
+}
+
+static bool self_test_load_reload_rollback(
+    TecmoGameplayDunkCutawayAssets *assets)
+{
+    TecmoGameplayDunkCutawayAssets committed;
+    TecmoGameplayDunkCutawayAssets fresh;
+    uint8_t *committed_storage = NULL;
+    bool ok = false;
+    const char *missing_path = NULL;
+
+    if (assets == NULL || !assets->available || assets->storage == NULL) {
+        return false;
+    }
+    committed = *assets;
+    committed_storage = (uint8_t *)malloc(assets->storage_size);
+    if (committed_storage == NULL) return false;
+    memcpy(committed_storage, assets->storage, assets->storage_size);
+    if (tecmo_gameplay_dunk_cutaway_load(assets, missing_path) ||
+        memcmp(assets, &committed, sizeof(committed)) != 0 ||
+        memcmp(assets->storage, committed_storage,
+               assets->storage_size) != 0) {
+        goto cleanup;
+    }
+    tecmo_gameplay_dunk_cutaway_init(&fresh);
+    if (tecmo_gameplay_dunk_cutaway_load(&fresh, missing_path) ||
+        fresh.available || strcmp(
+            fresh.status,
+            "TGDK-1 gameplay/dunk-cutaway missing or wrong-sized") != 0) {
+        tecmo_gameplay_dunk_cutaway_destroy(&fresh);
+        goto cleanup;
+    }
+    tecmo_gameplay_dunk_cutaway_destroy(&fresh);
+    ok = true;
+
+cleanup:
+    free(committed_storage);
+    return ok;
+}
+
 bool tecmo_gameplay_dunk_cutaway_self_test(
     const char *asset_pack_path,
     char *message,
@@ -714,9 +825,25 @@ bool tecmo_gameplay_dunk_cutaway_self_test(
     size_t side;
     size_t stage;
     size_t frame;
+    TecmoGameplayDunkCutawayAssets fresh_parse;
     const size_t pixel_count = 256U * 240U;
 
     tecmo_gameplay_dunk_cutaway_init(&assets);
+    tecmo_gameplay_dunk_cutaway_init(&fresh_parse);
+    if (tecmo_gameplay_dunk_cutaway_parse(
+            &fresh_parse, NULL, 0U, NULL, 0U) ||
+        fresh_parse.available || fresh_parse.storage != NULL ||
+        strcmp(fresh_parse.status,
+               "TGDK-1 header/size/reserved contract rejected") != 0) {
+        tecmo_gameplay_dunk_cutaway_destroy(&fresh_parse);
+        tecmo_gameplay_dunk_cutaway_destroy(&assets);
+        if (message != NULL && message_size != 0U) {
+            (void)snprintf(message, message_size,
+                           "TGDK-1 fresh parse diagnostic failed");
+        }
+        return false;
+    }
+    tecmo_gameplay_dunk_cutaway_destroy(&fresh_parse);
     if (tecmo_gameplay_dunk_cutaway_stage_for_frame(
             &assets, TECMO_GAMEPLAY_DUNK_FIRST_VISIBLE_FRAME,
             &stage_index) ||
@@ -737,6 +864,17 @@ bool tecmo_gameplay_dunk_cutaway_self_test(
         chr_size != TECMO_ASSET_PACK_GAMEPLAY_DUNK_CHR_SIZE) {
         return self_test_reject(&assets, chr, pixels, message, message_size,
                                 "TGDK-1 self-test chr/all read failed");
+    }
+    if (!self_test_parse_reload_rollback(
+            &assets, asset_pack_path, chr, (size_t)chr_size)) {
+        return self_test_reject(
+            &assets, chr, pixels, message, message_size,
+            "TGDK-1 valid-to-invalid parse rollback failed");
+    }
+    if (!self_test_load_reload_rollback(&assets)) {
+        return self_test_reject(
+            &assets, chr, pixels, message, message_size,
+            "TGDK-1 valid-to-invalid load rollback failed");
     }
     if (assets.storage_size != TECMO_ASSET_PACK_GAMEPLAY_DUNK_SIZE ||
         fnv1a32(assets.storage, assets.storage_size) !=
