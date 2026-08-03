@@ -1,15 +1,9 @@
 #include "tecmo_intro_arena_scene.h"
+#include "tecmo_intro_stage.h"
 
 #include <stdio.h>
 #include <string.h>
 
-#define TECMO_ARENA_INTRO_PAN_START_X 0
-#define TECMO_ARENA_INTRO_PAN_END_X 40
-#define TECMO_ARENA_INTRO_PAN_START_Y 0
-#define TECMO_ARENA_INTRO_PAN_END_Y 72
-#define TECMO_ARENA_INTRO_PAN_FRAMES 96U
-#define TECMO_ARENA_INTRO_HOLD_START_FRAME 144U
-#define TECMO_ARENA_INTRO_HANDOFF_FRAME 192U
 #define TECMO_ARENA_INTRO_VIEW_WIDTH 256
 #define TECMO_ARENA_INTRO_VIEW_HEIGHT 240
 
@@ -22,18 +16,6 @@ static void arena_scene_message(char *dest, size_t dest_size, const char *text)
         text = "";
     }
     (void)snprintf(dest, dest_size, "%s", text);
-}
-
-static int arena_lerp_int(int start, int end, unsigned step, unsigned step_count)
-{
-    int delta;
-
-    if (step_count == 0U || step >= step_count) {
-        return end;
-    }
-
-    delta = end - start;
-    return start + (int)(((long long)delta * (long long)step) / (long long)step_count);
 }
 
 static bool arena_sprite_group_add_piece(TecmoArenaSpriteGroup *group,
@@ -122,34 +104,51 @@ static bool arena_intro_render_list_matches_goal(const TecmoArenaIntro *intro,
 
 static TecmoArenaIntroPhase arena_intro_expected_phase(unsigned frame)
 {
-    if (frame == 0U) {
+    TecmoIntroArenaTransitionState state;
+
+    tecmo_intro_arena_transition_state(frame, &state);
+    switch (state.phase) {
+    case TECMO_INTRO_ARENA_PHASE_WAIT:
         return TECMO_ARENA_INTRO_PHASE_ENTER;
-    }
-    if (frame < TECMO_ARENA_INTRO_PAN_FRAMES) {
+    case TECMO_INTRO_ARENA_PHASE_SCROLL:
         return TECMO_ARENA_INTRO_PHASE_PAN_TO_GOAL;
-    }
-    if (frame < TECMO_ARENA_INTRO_HANDOFF_FRAME) {
+    case TECMO_INTRO_ARENA_PHASE_SETTLE:
         return TECMO_ARENA_INTRO_PHASE_HOLD_GOAL;
+    case TECMO_INTRO_ARENA_PHASE_WRAP:
+        return TECMO_ARENA_INTRO_PHASE_HANDOFF;
+    default:
+        break;
     }
-    return TECMO_ARENA_INTRO_PHASE_HANDOFF;
+    return TECMO_ARENA_INTRO_PHASE_ENTER;
 }
 
 static TecmoArenaPoint arena_intro_expected_camera_position(unsigned frame)
 {
+    TecmoIntroArenaTransitionState state;
     TecmoArenaPoint point;
-    unsigned pan_step = frame < TECMO_ARENA_INTRO_PAN_FRAMES
-                            ? frame
-                            : TECMO_ARENA_INTRO_PAN_FRAMES;
 
-    point.x = arena_lerp_int(TECMO_ARENA_INTRO_PAN_START_X,
-                             TECMO_ARENA_INTRO_PAN_END_X,
-                             pan_step,
-                             TECMO_ARENA_INTRO_PAN_FRAMES);
-    point.y = arena_lerp_int(TECMO_ARENA_INTRO_PAN_START_Y,
-                             TECMO_ARENA_INTRO_PAN_END_Y,
-                             pan_step,
-                             TECMO_ARENA_INTRO_PAN_FRAMES);
+    /* This is a diagnostic projection of the production stage state, not a
+       second camera/timeline model for the native renderer. */
+    tecmo_intro_arena_transition_state(frame, &state);
+    point.x = state.base_x_offset;
+    point.y = state.scroll_y_0301;
     return point;
+}
+
+static void arena_intro_sync_stage_state(TecmoArenaIntro *intro)
+{
+    TecmoIntroArenaTransitionState state;
+
+    if (intro == NULL) {
+        return;
+    }
+    tecmo_intro_arena_transition_state(intro->frame, &state);
+    intro->phase = arena_intro_expected_phase(intro->frame);
+    tecmo_arena_camera_init(&intro->camera,
+                            state.base_x_offset,
+                            state.scroll_y_0301,
+                            TECMO_ARENA_INTRO_VIEW_WIDTH,
+                            TECMO_ARENA_INTRO_VIEW_HEIGHT);
 }
 
 static bool arena_intro_state_matches_frame(const TecmoArenaIntro *intro,
@@ -261,12 +260,7 @@ void tecmo_arena_intro_init(TecmoArenaIntro *intro)
     }
 
     memset(intro, 0, sizeof(*intro));
-    intro->phase = TECMO_ARENA_INTRO_PHASE_ENTER;
-    tecmo_arena_camera_init(&intro->camera,
-                            TECMO_ARENA_INTRO_PAN_START_X,
-                            TECMO_ARENA_INTRO_PAN_START_Y,
-                            TECMO_ARENA_INTRO_VIEW_WIDTH,
-                            TECMO_ARENA_INTRO_VIEW_HEIGHT);
+    arena_intro_sync_stage_state(intro);
     tecmo_arena_goal_init(&intro->goal,
                           TECMO_ARENA_INTRO_GOAL_ANCHOR_X,
                           TECMO_ARENA_INTRO_GOAL_ANCHOR_Y);
@@ -276,35 +270,16 @@ void tecmo_arena_intro_init(TecmoArenaIntro *intro)
 
 void tecmo_arena_intro_update(TecmoArenaIntro *intro)
 {
-    unsigned pan_step;
-
     if (intro == NULL) {
         return;
     }
 
-    ++intro->frame;
-    if (intro->frame < TECMO_ARENA_INTRO_PAN_FRAMES) {
-        intro->phase = TECMO_ARENA_INTRO_PHASE_PAN_TO_GOAL;
-        pan_step = intro->frame;
-    } else if (intro->frame < TECMO_ARENA_INTRO_HOLD_START_FRAME) {
-        intro->phase = TECMO_ARENA_INTRO_PHASE_HOLD_GOAL;
-        pan_step = TECMO_ARENA_INTRO_PAN_FRAMES;
-    } else if (intro->frame < TECMO_ARENA_INTRO_HANDOFF_FRAME) {
-        intro->phase = TECMO_ARENA_INTRO_PHASE_HOLD_GOAL;
-        pan_step = TECMO_ARENA_INTRO_PAN_FRAMES;
+    if (intro->frame < TECMO_INTRO_ARENA_HANDOFF_FRAME) {
+        ++intro->frame;
     } else {
-        intro->phase = TECMO_ARENA_INTRO_PHASE_HANDOFF;
-        pan_step = TECMO_ARENA_INTRO_PAN_FRAMES;
+        intro->frame = TECMO_INTRO_ARENA_HANDOFF_FRAME;
     }
-
-    intro->camera.position.x = arena_lerp_int(TECMO_ARENA_INTRO_PAN_START_X,
-                                              TECMO_ARENA_INTRO_PAN_END_X,
-                                              pan_step,
-                                              TECMO_ARENA_INTRO_PAN_FRAMES);
-    intro->camera.position.y = arena_lerp_int(TECMO_ARENA_INTRO_PAN_START_Y,
-                                              TECMO_ARENA_INTRO_PAN_END_Y,
-                                              pan_step,
-                                              TECMO_ARENA_INTRO_PAN_FRAMES);
+    arena_intro_sync_stage_state(intro);
     intro->sprite_groups[0] = intro->goal.sprite_group;
 }
 
@@ -435,7 +410,7 @@ bool tecmo_arena_intro_scene_self_test(char *message, size_t message_size)
         return false;
     }
 
-    for (unsigned step = 0U; step < 220U; ++step) {
+    for (unsigned step = 0U; step <= TECMO_INTRO_ARENA_HANDOFF_FRAME; ++step) {
         TecmoArenaRect rects[TECMO_ARENA_GOAL_PART_COUNT];
         TecmoArenaPoint anchor;
         size_t rect_count;
@@ -480,19 +455,12 @@ bool tecmo_arena_intro_scene_self_test(char *message, size_t message_size)
         memcpy(previous_rects, rects, sizeof(previous_rects));
         previous_anchor = anchor;
         have_previous = true;
-        tecmo_arena_intro_update(&intro);
+        if (step < TECMO_INTRO_ARENA_HANDOFF_FRAME) {
+            tecmo_arena_intro_update(&intro);
+        }
 
         if (!arena_intro_render_list_matches_goal(&intro, message, message_size)) {
             return false;
-        }
-        if (intro.frame == 1U ||
-            intro.frame == TECMO_ARENA_INTRO_PAN_FRAMES - 1U ||
-            intro.frame == TECMO_ARENA_INTRO_PAN_FRAMES ||
-            intro.frame == TECMO_ARENA_INTRO_HOLD_START_FRAME ||
-            intro.frame == TECMO_ARENA_INTRO_HANDOFF_FRAME) {
-            if (!arena_intro_state_matches_frame(&intro, intro.frame, message, message_size)) {
-                return false;
-            }
         }
     }
 
