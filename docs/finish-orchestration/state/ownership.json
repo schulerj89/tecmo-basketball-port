@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T18:29:07Z",
+  "updated_at": "2026-08-03T18:38:12Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -270,7 +270,7 @@
       "claim_id": "OWN-R4-FRONTEND-INTRO-TITLE",
       "task_id": "R4-FRONTEND-INTRO-TITLE",
       "round_id": "R4",
-      "session_id": "S-SOL-R4-FRONTEND-001",
+      "session_id": "S-SOL-R4-FRONTEND-RECOVERY-001",
       "mode": "exclusive",
       "writable_globs": [
         "include/tecmo_intro_*.h",
@@ -310,7 +310,7 @@
       "active": true,
       "claimed_at": "2026-08-03T14:50:16Z",
       "released_at": null,
-      "notes": "Reserved by the master before session creation, then transferred to registered/pinned S-SOL-R4-FRONTEND-001. Intro/title native modules, their existing semantic asset families, focused research/test tools, and task docs only. Exact rescope granted 2026-08-03T15:32:25Z for src/tecmo_cli_render_scene_modes.c solely to add an intro-production-clean-frame<N> checkpoint that initializes TECMO_MODE_FIRST_SPRITE and advances/renders the real update path. Collision audit found no active claim, dirty worktree, or post-base ref touching the file. Audio, menus, build lists, source-map/import-layout, Win32, game, and gameplay paths remain excluded."
+      "notes": "Reserved by master, initially transferred to S-SOL-R4-FRONTEND-001, then transferred intact to pinned recovery S-SOL-R4-FRONTEND-RECOVERY-001 after predecessor systemError and exact clean a40dc3f takeover confirmation. Scope remains intro/title native modules, existing semantic asset families, focused tools/docs, plus the 2026-08-03T15:32:25Z src/tecmo_cli_render_scene_modes.c proof rescope only. Audio, menus, build lists, source-map/import-layout, Win32, game, and gameplay remain excluded."
     },
     {
       "claim_id": "OWN-R4-AUDIO-FOUNDATION",
