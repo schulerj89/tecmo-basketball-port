@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T21:31:46Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T21:41:51Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,7 +8,7 @@ Generated from committed JSON at `2026-08-03T21:31:46Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 12, `in_progress` 2, `pushed` 14, `sol_review` 1
+- Task states: `backlog` 12, `in_progress` 2, `luna_revision` 1, `pushed` 14
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
@@ -22,7 +22,7 @@ Generated from committed JSON at `2026-08-03T21:31:46Z`. This dashboard reports 
 
 | Lane | Domain | Readiness | Dependencies | Tasks | Sol | Branch | Next gate |
 |---|---|---|---|---|---|---|---|
-| LANE-R1-GAMEPLAY-FOUNDATION | gameplay_foundation | active | sequentially_active | R1-TIP-FIDELITY | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | Terminal TIP worker chain b678bef has passed Sol product/formal proof review. Reused projectless Luna is running terminal independent QA; after P0/P1/P2 closure the Sol may integrate ff-only into its domain branch and return an incremental main-integration handoff. |
+| LANE-R1-GAMEPLAY-FOUNDATION | gameplay_foundation | active | sequentially_active | R1-TIP-FIDELITY | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | Independent TIP execution/media QA passed at b678bef with P0/P1 zero; same implementation Luna is correcting one grouped P2 across exactly eight task docs. Same projectless QA must verify the revised docs-only tip before Sol integration. |
 | LANE-R3-SEASON-DATA-FOUNDATION | season_data | complete | complete | R3-SEASON-DATA-FOUNDATION | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | Accepted season/data foundation is frozen at f536a193. Its separate R3A Integration QA lane is cleared for creation and no longer waits for downstream statistics, save, management, or All-Star tasks. |
 | LANE-R1A-INTEGRATION-QA | integration | complete | complete | R1A-INTEGRATION-QA | S-SOL-R1A-INTEGRATION-QA-001 | codex/r1a-cpu-live-integration-qa-sol | Complete: signed terminal R1A report 819b0e5 passed same-Luna P0/P1/P2-zero closure and was master signature/ancestry/diff checked, fast-forwarded, non-force pushed, and remote-verified. CPU and LIVE native C are now on main; TIP continues separately. |
 | LANE-R3A-INTEGRATION-QA | integration | complete | complete | R3A-INTEGRATION-QA | S-SOL-R3A-INTEGRATION-QA-001 | codex/r3a-season-data-integration-qa-sol | Complete: signed dd096cb passed dedicated R3A Integration QA and was non-force pushed to main/origin. Integration Sol may be unpinned after this durable master record; downstream R3 features must start from then-current main and retain documented deferrals. |
@@ -74,7 +74,7 @@ Generated from committed JSON at `2026-08-03T21:31:46Z`. This dashboard reports 
 | 98 | R4-MENUS-UI | frontend | R4 | backlog | - | - | 0 | pending | not_ready |
 | 98 | R5-PARITY-GAP-CLOSURE | integration | R5 | backlog | - | - | 0 | pending | not_ready |
 | 97 | R0A-ADOPT-AWAY-FACING | gameplay_presentation | R0A | pushed | S-SOL-AWAY-FACING-LEGACY | codex/away-facing-left-only | 2 | historical_sol_accepted | pushed |
-| 96 | R1-TIP-FIDELITY | gameplay_behavior | R1 | sol_review | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 0 | in_progress | not_ready |
+| 96 | R1-TIP-FIDELITY | gameplay_behavior | R1 | luna_revision | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 0 | in_progress | not_ready |
 | 96 | R2-RULES-RESTARTS | gameplay_behavior | R2 | backlog | - | - | 0 | pending | not_ready |
 | 96 | R3-TEAM-MGMT-DATA | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 96 | R4-AUDIO | audio | R4 | backlog | - | - | 0 | pending | not_ready |

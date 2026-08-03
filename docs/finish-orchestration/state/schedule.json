@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T21:31:46Z",
+  "updated_at": "2026-08-03T21:41:51Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -39,8 +39,8 @@
         "OWN-R1-TIP"
       ],
       "blockers": [],
-      "next_gate": "Terminal TIP worker chain b678bef has passed Sol product/formal proof review. Reused projectless Luna is running terminal independent QA; after P0/P1/P2 closure the Sol may integrate ff-only into its domain branch and return an incremental main-integration handoff.",
-      "updated_at": "2026-08-03T21:21:44Z"
+      "next_gate": "Independent TIP execution/media QA passed at b678bef with P0/P1 zero; same implementation Luna is correcting one grouped P2 across exactly eight task docs. Same projectless QA must verify the revised docs-only tip before Sol integration.",
+      "updated_at": "2026-08-03T21:41:51Z"
     },
     {
       "lane_id": "LANE-R3-SEASON-DATA-FOUNDATION",
