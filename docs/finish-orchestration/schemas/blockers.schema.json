@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "blockers.schema.json",
+  "title": "Tecmo finish external blockers",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "updated_at", "emergency_thread_id", "emergency_session_id", "blockers", "policy"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "emergency_thread_id": { "$ref": "#/$defs/nullableString" },
+    "emergency_session_id": { "$ref": "#/$defs/nullableString" },
+    "blockers": { "type": "array", "items": { "$ref": "#/$defs/blocker" } },
+    "policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["thread_title", "model", "thinking", "implementation_forbidden", "allowed_categories"],
+      "properties": {
+        "thread_title": { "const": "Blockers we need help with" },
+        "model": { "const": "gpt-5.6-luna" },
+        "thinking": { "const": "high" },
+        "implementation_forbidden": { "const": true },
+        "allowed_categories": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } }
+      }
+    }
+  },
+  "$defs": {
+    "nullableString": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+    "nullableDate": { "anyOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }] },
+    "blocker": {
+      "type": "object", "additionalProperties": false,
+      "required": ["blocker_id", "task_id", "category", "status", "evidence", "attempts", "why_internal_resolution_is_impossible", "required_user_action", "impact", "opened_at", "resolved_at"],
+      "properties": {
+        "blocker_id": { "type": "string", "minLength": 1 },
+        "task_id": { "type": "string", "minLength": 1 },
+        "category": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["open", "resolved"] },
+        "evidence": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "attempts": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "why_internal_resolution_is_impossible": { "type": "string", "minLength": 1 },
+        "required_user_action": { "type": "string", "minLength": 1 },
+        "impact": { "type": "string", "minLength": 1 },
+        "opened_at": { "type": "string", "format": "date-time" },
+        "resolved_at": { "$ref": "#/$defs/nullableDate" }
+      }
+    }
+  }
+}

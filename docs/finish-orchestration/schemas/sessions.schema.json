@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sessions.schema.json",
+  "title": "Tecmo finish sessions",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "updated_at", "master_session_id", "sessions"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "master_session_id": { "type": "string", "minLength": 1 },
+    "sessions": { "type": "array", "items": { "$ref": "#/$defs/session" } }
+  },
+  "$defs": {
+    "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "nullableDate": { "anyOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }] },
+    "nullableString": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session_id", "thread_id", "title", "role", "model", "thinking", "status", "pin_state", "round_ids", "task_ids", "worktree", "branch", "base_sha", "last_good_sha", "reports_to_session_id", "parent_session_id", "reported_luna_lineage", "recovery_lineage", "failure", "created_at", "completed_at", "updated_at"],
+      "properties": {
+        "session_id": { "type": "string", "minLength": 1 },
+        "thread_id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "role": { "type": "string", "enum": ["master", "domain_orchestrator", "integration_orchestrator", "luna_worker", "emergency_blocker"] },
+        "model": { "type": "string", "enum": ["gpt-5.6-sol", "gpt-5.6-luna"] },
+        "thinking": { "type": "string", "enum": ["high", "max"] },
+        "status": { "type": "string", "enum": ["active", "idle", "completed", "failed", "replaced", "blocked"] },
+        "pin_state": { "type": "string", "enum": ["pinned", "unpinned"] },
+        "round_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "task_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "worktree": { "type": "string", "minLength": 1 },
+        "branch": { "type": "string", "minLength": 1 },
+        "base_sha": { "$ref": "#/$defs/sha" },
+        "last_good_sha": { "$ref": "#/$defs/sha" },
+        "reports_to_session_id": { "$ref": "#/$defs/nullableString" },
+        "parent_session_id": { "$ref": "#/$defs/nullableString" },
+        "reported_luna_lineage": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "recovery_lineage": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "failure": {
+          "type": "object", "additionalProperties": false,
+          "required": ["count", "raw_error_signatures", "retry_session_ids", "replacement_session_id", "takeover_confirmed_at"],
+          "properties": {
+            "count": { "type": "integer", "minimum": 0 },
+            "raw_error_signatures": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "retry_session_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+            "replacement_session_id": { "$ref": "#/$defs/nullableString" },
+            "takeover_confirmed_at": { "$ref": "#/$defs/nullableDate" }
+          }
+        },
+        "created_at": { "type": "string", "format": "date-time" },
+        "completed_at": { "$ref": "#/$defs/nullableDate" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

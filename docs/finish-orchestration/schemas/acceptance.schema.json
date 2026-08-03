@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "acceptance.schema.json",
+  "title": "Tecmo finish acceptance matrix",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "updated_at", "allowed_classifications", "project_status", "criteria"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "allowed_classifications": {
+      "type": "array", "minItems": 4, "uniqueItems": true,
+      "items": { "type": "string", "enum": ["exact_source_pinned", "native_faithful", "native_approximation_with_justification", "incomplete"] }
+    },
+    "project_status": { "type": "string", "enum": ["incomplete", "complete"] },
+    "criteria": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/criterion" } }
+  },
+  "$defs": {
+    "nullableString": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+    "nullableDate": { "anyOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }] },
+    "criterion": {
+      "type": "object", "additionalProperties": false,
+      "required": ["criterion_id", "domain", "title", "classification", "status", "task_ids", "evidence_ids", "required_tests", "required_proof", "justification", "accepted_by_session_id", "accepted_at"],
+      "properties": {
+        "criterion_id": { "type": "string", "pattern": "^ACC-[A-Z0-9-]+$" },
+        "domain": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "classification": { "type": "string", "enum": ["exact_source_pinned", "native_faithful", "native_approximation_with_justification", "incomplete"] },
+        "status": { "type": "string", "enum": ["pending", "in_progress", "accepted", "rejected"] },
+        "task_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "evidence_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "required_tests": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "required_proof": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "justification": { "$ref": "#/$defs/nullableString" },
+        "accepted_by_session_id": { "$ref": "#/$defs/nullableString" },
+        "accepted_at": { "$ref": "#/$defs/nullableDate" }
+      }
+    }
+  }
+}

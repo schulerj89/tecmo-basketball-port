@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "evidence.schema.json",
+  "title": "Tecmo finish evidence index",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "updated_at", "records"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "records": { "type": "array", "items": { "$ref": "#/$defs/record" } }
+  },
+  "$defs": {
+    "nullableString": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+    "rom": {
+      "type": "object", "additionalProperties": false,
+      "required": ["revision", "sha256", "fnv1a32"],
+      "properties": {
+        "revision": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9A-Fa-f]{64}$" },
+        "fnv1a32": { "type": "string", "pattern": "^[0-9A-Fa-f]{8}$" }
+      }
+    },
+    "asm": {
+      "type": "object", "additionalProperties": false,
+      "required": ["bank", "address", "table_or_routine"],
+      "properties": {
+        "bank": { "type": "string", "minLength": 1 },
+        "address": { "type": "string", "minLength": 1 },
+        "table_or_routine": { "type": "string", "minLength": 1 }
+      }
+    },
+    "reference": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "identity", "timestamp_or_frame"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["frame", "video", "audio", "trace", "document"] },
+        "identity": { "type": "string", "minLength": 1 },
+        "timestamp_or_frame": { "type": "string", "minLength": 1 }
+      }
+    },
+    "record": {
+      "type": "object", "additionalProperties": false,
+      "required": ["evidence_id", "task_ids", "kind", "title", "classification", "confidence", "rom", "asm", "original_reference", "description", "what_it_proves", "limits", "runtime_locations", "test_locations", "doc_locations", "proof_locations", "local_private", "created_at"],
+      "properties": {
+        "evidence_id": { "type": "string", "minLength": 1 },
+        "task_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "kind": { "type": "string", "enum": ["git_lineage", "repository_policy", "asm", "rom_table", "original_frame", "original_video", "original_audio", "runtime_test", "proof_manifest", "provenance", "other"] },
+        "title": { "type": "string", "minLength": 1 },
+        "classification": { "type": "string", "enum": ["exact_source_pinned", "native_faithful", "native_approximation_with_justification", "incomplete"] },
+        "confidence": { "type": "string", "enum": ["exact", "high", "medium", "low"] },
+        "rom": { "anyOf": [{ "$ref": "#/$defs/rom" }, { "type": "null" }] },
+        "asm": { "anyOf": [{ "$ref": "#/$defs/asm" }, { "type": "null" }] },
+        "original_reference": { "anyOf": [{ "$ref": "#/$defs/reference" }, { "type": "null" }] },
+        "description": { "type": "string", "minLength": 1 },
+        "what_it_proves": { "type": "string", "minLength": 1 },
+        "limits": { "type": "string", "minLength": 1 },
+        "runtime_locations": { "type": "array", "items": { "type": "string" } },
+        "test_locations": { "type": "array", "items": { "type": "string" } },
+        "doc_locations": { "type": "array", "items": { "type": "string" } },
+        "proof_locations": { "type": "array", "items": { "type": "string" } },
+        "local_private": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

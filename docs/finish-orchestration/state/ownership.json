@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-08-03T04:18:18Z",
+  "claims": [
+    {
+      "claim_id": "OWN-R0-CTRL",
+      "task_id": "R0-CTRL-001",
+      "round_id": "R0",
+      "session_id": "S-MASTER-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-orchestration/**",
+        "tools/finish-orchestration/**"
+      ],
+      "planned_paths": [
+        "docs/finish-orchestration/MASTER_PLAN.md",
+        "tools/finish-orchestration/orchestration.py"
+      ],
+      "concurrency_group": "R0-control-plane",
+      "active": true,
+      "claimed_at": "2026-08-03T04:18:18Z",
+      "released_at": null,
+      "notes": "Coordination-only ownership. No product source or product test files."
+    }
+  ],
+  "shared_boundaries": [],
+  "merge_orders": [
+    {
+      "round_id": "R0",
+      "ordered_task_ids": ["R0-CTRL-001"],
+      "declared_at": "2026-08-03T04:18:18Z"
+    }
+  ],
+  "policy": {
+    "claim_required_before_session_creation": true,
+    "concurrent_overlap_forbidden": true,
+    "shared_files_require_sequential_or_designated_owner": true,
+    "conflicts_returned_for_rescope": true
+  }
+}

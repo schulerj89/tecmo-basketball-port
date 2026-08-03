@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-08-03T04:18:18Z",
+  "emergency_thread_id": null,
+  "emergency_session_id": null,
+  "blockers": [],
+  "policy": {
+    "thread_title": "Blockers we need help with",
+    "model": "gpt-5.6-luna",
+    "thinking": "high",
+    "implementation_forbidden": true,
+    "allowed_categories": [
+      "legally_supplied_reference_missing",
+      "credential_missing",
+      "material_product_decision",
+      "external_service_unavailable",
+      "external_hardware_unavailable"
+    ]
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-08-03T04:18:18Z",
+  "initial_state": "backlog",
+  "states": [
+    "backlog",
+    "scoped",
+    "assigned",
+    "in_progress",
+    "sol_review",
+    "luna_revision",
+    "sol_accepted",
+    "ready_for_round_staging",
+    "combined_qa",
+    "ready_for_main",
+    "merged",
+    "pushed",
+    "blocked",
+    "replaced",
+    "failed",
+    "reopened"
+  ],
+  "terminal_states": [
+    "pushed",
+    "replaced"
+  ],
+  "transitions": [
+    { "from": "backlog", "to": ["scoped", "blocked", "failed"] },
+    { "from": "scoped", "to": ["assigned", "backlog", "blocked", "replaced", "failed"] },
+    { "from": "assigned", "to": ["in_progress", "scoped", "blocked", "replaced", "failed"] },
+    { "from": "in_progress", "to": ["sol_review", "blocked", "replaced", "failed"] },
+    { "from": "sol_review", "to": ["luna_revision", "sol_accepted", "blocked", "replaced", "failed"] },
+    { "from": "luna_revision", "to": ["sol_review", "blocked", "replaced", "failed"] },
+    { "from": "sol_accepted", "to": ["ready_for_round_staging", "reopened", "blocked", "replaced"] },
+    { "from": "ready_for_round_staging", "to": ["combined_qa", "reopened", "blocked"] },
+    { "from": "combined_qa", "to": ["ready_for_main", "reopened", "blocked", "failed"] },
+    { "from": "ready_for_main", "to": ["merged", "reopened", "blocked"] },
+    { "from": "merged", "to": ["pushed", "reopened", "blocked"] },
+    { "from": "pushed", "to": ["reopened"] },
+    { "from": "blocked", "to": ["scoped", "assigned", "in_progress", "sol_review", "combined_qa", "ready_for_main", "replaced", "failed"] },
+    { "from": "failed", "to": ["reopened", "replaced"] },
+    { "from": "replaced", "to": [] },
+    { "from": "reopened", "to": ["scoped", "assigned", "in_progress", "blocked", "replaced", "failed"] }
+  ],
+  "audit_required_fields": [
+    "timestamp",
+    "actor_session_id",
+    "from_state",
+    "to_state",
+    "reason"
+  ],
+  "reopen_requires_reason": true,
+  "replacement_requires_task_id": true
+}

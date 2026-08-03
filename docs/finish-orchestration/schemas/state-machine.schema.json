@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "state-machine.schema.json",
+  "title": "Tecmo finish orchestration task state machine",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "updated_at", "initial_state", "states", "terminal_states", "transitions", "audit_required_fields", "reopen_requires_reason", "replacement_requires_task_id"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "initial_state": { "type": "string", "minLength": 1 },
+    "states": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "terminal_states": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "transitions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to"],
+        "properties": {
+          "from": { "type": "string", "minLength": 1 },
+          "to": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "audit_required_fields": { "type": "array", "minItems": 5, "uniqueItems": true, "items": { "type": "string" } },
+    "reopen_requires_reason": { "type": "boolean" },
+    "replacement_requires_task_id": { "type": "boolean" }
+  }
+}

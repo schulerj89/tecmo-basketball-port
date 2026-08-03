@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "inventory.schema.json",
+  "title": "Tecmo finish repository/session inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "updated_at", "inventory_status", "snapshot_base_sha", "snapshot_started_at", "snapshot_completed_at", "required_sources", "repositories", "threads", "worktrees", "branches", "commits", "proof_artifacts", "unresolved_items"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "inventory_status": { "type": "string", "enum": ["framework_only", "in_progress", "complete"] },
+    "snapshot_base_sha": { "$ref": "#/$defs/sha" },
+    "snapshot_started_at": { "$ref": "#/$defs/nullableDate" },
+    "snapshot_completed_at": { "$ref": "#/$defs/nullableDate" },
+    "required_sources": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } },
+    "repositories": { "type": "array", "items": { "$ref": "#/$defs/repository" } },
+    "threads": { "type": "array", "items": { "$ref": "#/$defs/thread" } },
+    "worktrees": { "type": "array", "items": { "$ref": "#/$defs/worktree" } },
+    "branches": { "type": "array", "items": { "$ref": "#/$defs/branch" } },
+    "commits": { "type": "array", "items": { "$ref": "#/$defs/commit" } },
+    "proof_artifacts": { "type": "array", "items": { "$ref": "#/$defs/proof" } },
+    "unresolved_items": { "type": "array", "items": { "type": "string" } }
+  },
+  "$defs": {
+    "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "nullableSha": { "anyOf": [{ "$ref": "#/$defs/sha" }, { "type": "null" }] },
+    "nullableDate": { "anyOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }] },
+    "nullableString": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+    "repository": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "remote", "main_sha", "origin_main_sha", "observed_at"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 }, "remote": { "type": "string", "minLength": 1 },
+        "main_sha": { "$ref": "#/$defs/sha" }, "origin_main_sha": { "$ref": "#/$defs/sha" },
+        "observed_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "thread": {
+      "type": "object", "additionalProperties": false,
+      "required": ["thread_id", "title", "role", "model", "thinking", "status", "session_id", "actual_branch", "actual_worktree", "report_status", "observed_at"],
+      "properties": {
+        "thread_id": { "type": "string", "minLength": 1 }, "title": { "type": "string", "minLength": 1 },
+        "role": { "type": "string", "minLength": 1 }, "model": { "type": "string", "minLength": 1 },
+        "thinking": { "type": "string", "minLength": 1 }, "status": { "type": "string", "minLength": 1 },
+        "session_id": { "$ref": "#/$defs/nullableString" }, "actual_branch": { "$ref": "#/$defs/nullableString" },
+        "actual_worktree": { "$ref": "#/$defs/nullableString" }, "report_status": { "type": "string", "minLength": 1 },
+        "observed_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "worktree": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "branch", "head_sha", "dirty", "owner_session_id", "status", "observed_at"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 }, "branch": { "type": "string", "minLength": 1 },
+        "head_sha": { "$ref": "#/$defs/sha" }, "dirty": { "type": "boolean" },
+        "owner_session_id": { "$ref": "#/$defs/nullableString" }, "status": { "type": "string", "minLength": 1 },
+        "observed_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "branch": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "tip_sha", "base_sha", "worktree", "task_id", "status", "observed_at"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 }, "tip_sha": { "$ref": "#/$defs/sha" },
+        "base_sha": { "$ref": "#/$defs/nullableSha" }, "worktree": { "$ref": "#/$defs/nullableString" },
+        "task_id": { "$ref": "#/$defs/nullableString" }, "status": { "type": "string", "minLength": 1 },
+        "observed_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "commit": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sha", "subject", "branch", "task_id", "review_status", "documentation_paths", "observed_at"],
+      "properties": {
+        "sha": { "$ref": "#/$defs/sha" }, "subject": { "type": "string", "minLength": 1 },
+        "branch": { "$ref": "#/$defs/nullableString" }, "task_id": { "$ref": "#/$defs/nullableString" },
+        "review_status": { "type": "string", "minLength": 1 },
+        "documentation_paths": { "type": "array", "items": { "type": "string" } },
+        "observed_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "proof": {
+      "type": "object", "additionalProperties": false,
+      "required": ["proof_id", "task_id", "kind", "path", "tracked", "manifest_path", "fingerprint", "status", "observed_at"],
+      "properties": {
+        "proof_id": { "type": "string", "minLength": 1 }, "task_id": { "$ref": "#/$defs/nullableString" },
+        "kind": { "type": "string", "enum": ["video", "frame", "contact_sheet", "audio", "waveform", "manifest", "log"] },
+        "path": { "type": "string", "minLength": 1 }, "tracked": { "type": "boolean" },
+        "manifest_path": { "$ref": "#/$defs/nullableString" }, "fingerprint": { "$ref": "#/$defs/nullableString" },
+        "status": { "type": "string", "minLength": 1 }, "observed_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

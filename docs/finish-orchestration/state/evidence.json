@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-08-03T04:18:18Z",
+  "records": [
+    {
+      "evidence_id": "EVID-R0-BASE",
+      "task_ids": ["R0-CTRL-001"],
+      "kind": "git_lineage",
+      "title": "Round 0 exact repository base",
+      "classification": "exact_source_pinned",
+      "confidence": "exact",
+      "rom": null,
+      "asm": null,
+      "original_reference": null,
+      "description": "main and origin/main both resolved to the recorded SHA before the master worktree was created; the source checkout was clean on an equivalent branch.",
+      "what_it_proves": "The control-plane branch starts from the requested immutable base.",
+      "limits": "It makes no product-fidelity claim.",
+      "runtime_locations": [],
+      "test_locations": ["tools/finish-orchestration/Verify-Lineage.ps1"],
+      "doc_locations": ["docs/finish-orchestration/MASTER_PLAN.md"],
+      "proof_locations": [],
+      "local_private": false,
+      "created_at": "2026-08-03T04:18:18Z"
+    },
+    {
+      "evidence_id": "EVID-R0-POLICY",
+      "task_ids": ["R0-CTRL-001"],
+      "kind": "repository_policy",
+      "title": "Native-C and evidence boundary",
+      "classification": "exact_source_pinned",
+      "confidence": "exact",
+      "rom": null,
+      "asm": null,
+      "original_reference": null,
+      "description": "Repository AGENTS.md and PORTING.md were read in full before control-plane changes.",
+      "what_it_proves": "The orchestration rules preserve the repository's native-C, semantic-asset-pack, and private-evidence boundary.",
+      "limits": "It does not certify that all existing product code complies; that is inventoried and tested by Sol orchestrators.",
+      "runtime_locations": [],
+      "test_locations": [],
+      "doc_locations": ["AGENTS.md", "PORTING.md", "docs/finish-orchestration/MASTER_PLAN.md"],
+      "proof_locations": [],
+      "local_private": false,
+      "created_at": "2026-08-03T04:18:18Z"
+    }
+  ]
+}
