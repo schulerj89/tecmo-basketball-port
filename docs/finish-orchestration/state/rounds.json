@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T17:57:57Z",
+  "updated_at": "2026-08-03T18:12:32Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -120,7 +120,7 @@
     {
       "round_id": "R1A",
       "title": "Incremental CPU and LIVE gameplay-foundation delivery",
-      "status": "staging",
+      "status": "combined_qa",
       "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "scope": [
         "Accepted original CPU play-command lifecycle",
@@ -136,7 +136,7 @@
       "sol_orchestrator_session_ids": [
         "S-SOL-R1-GAMEPLAY-001"
       ],
-      "integration_qa_session_id": null,
+      "integration_qa_session_id": "S-SOL-R1A-INTEGRATION-QA-001",
       "merge_order": [
         "R1-CPU-PLAY-LIFECYCLE",
         "R1-LIVE-FOUNDATION",
@@ -144,11 +144,11 @@
       ],
       "combined_qa": {
         "required": true,
-        "status": "pending",
+        "status": "in_progress",
         "accepted_sha": null,
         "report_path": null,
         "signed_by_session_id": null,
-        "notes": "User authorized incremental delivery so accepted CPU+LIVE do not sit behind TIP. Staging is clean at 222d75cf; create a dedicated Sol Max Integration QA orchestrator and push only after its exact signed report."
+        "notes": "User authorized incremental delivery so accepted CPU+LIVE do not sit behind TIP. Dedicated pinned Sol Max Integration QA session S-SOL-R1A-INTEGRATION-QA-001 is active on exact clean 222d75cf; push only after its exact signed docs-only tip and terminal report."
       },
       "acceptance": {
         "status": "pending",
@@ -170,7 +170,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T17:57:57Z",
-      "updated_at": "2026-08-03T17:57:57Z"
+      "updated_at": "2026-08-03T18:10:36Z"
     },
     {
       "round_id": "R1",
@@ -285,7 +285,7 @@
     {
       "round_id": "R3A",
       "title": "Incremental season/data foundation delivery",
-      "status": "staging",
+      "status": "combined_qa",
       "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "scope": [
         "Accepted real-team/player identity and All-Star source mapping foundation",
@@ -300,18 +300,18 @@
       "sol_orchestrator_session_ids": [
         "S-SOL-R3-SEASON-DATA-001"
       ],
-      "integration_qa_session_id": null,
+      "integration_qa_session_id": "S-SOL-R3A-INTEGRATION-QA-001",
       "merge_order": [
         "R3-SEASON-DATA-FOUNDATION",
         "R3A-INTEGRATION-QA"
       ],
       "combined_qa": {
         "required": true,
-        "status": "pending",
+        "status": "in_progress",
         "accepted_sha": null,
         "report_path": null,
         "signed_by_session_id": null,
-        "notes": "User authorized incremental delivery so the accepted season/data foundation does not sit behind downstream statistics, save, management, and All-Star tasks. Staging is clean at f536a193; dedicated Sol Max Integration QA is required before push."
+        "notes": "User authorized incremental delivery so the accepted season/data foundation does not sit behind downstream statistics, save, management, and All-Star tasks. Dedicated pinned Sol Max Integration QA session S-SOL-R3A-INTEGRATION-QA-001 is active on exact clean f536a193; push only after its exact signed docs-only tip and terminal report."
       },
       "acceptance": {
         "status": "pending",
@@ -333,7 +333,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T17:57:57Z",
-      "updated_at": "2026-08-03T17:57:57Z"
+      "updated_at": "2026-08-03T18:11:12Z"
     },
     {
       "round_id": "R3",

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T17:57:57Z",
+  "updated_at": "2026-08-03T18:12:32Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -400,7 +400,7 @@
       "claim_id": "OWN-R1A-INTEGRATION-QA",
       "task_id": "R1A-INTEGRATION-QA",
       "round_id": "R1A",
-      "session_id": "S-MASTER-001",
+      "session_id": "S-SOL-R1A-INTEGRATION-QA-001",
       "mode": "exclusive",
       "writable_globs": [
         "docs/finish-tasks/R1A-cpu-live-integration-qa/**"
@@ -413,13 +413,13 @@
       "active": true,
       "claimed_at": "2026-08-03T17:57:57Z",
       "released_at": null,
-      "notes": "Master reservation before Integration QA Sol creation. Product/source paths are read-only; ignored proof output is allowed. Transfer this docs-only claim to the exact created Sol session before execution."
+      "notes": "Transferred from the master reservation to pinned Integration QA Sol S-SOL-R1A-INTEGRATION-QA-001 after exact branch/worktree collision and clean-head verification. Product/source paths remain read-only; ignored proof output is allowed."
     },
     {
       "claim_id": "OWN-R3A-INTEGRATION-QA",
       "task_id": "R3A-INTEGRATION-QA",
       "round_id": "R3A",
-      "session_id": "S-MASTER-001",
+      "session_id": "S-SOL-R3A-INTEGRATION-QA-001",
       "mode": "exclusive",
       "writable_globs": [
         "docs/finish-tasks/R3A-season-data-integration-qa/**"
@@ -432,7 +432,7 @@
       "active": true,
       "claimed_at": "2026-08-03T17:57:57Z",
       "released_at": null,
-      "notes": "Master reservation before Integration QA Sol creation. Product/source paths are read-only; ignored proof output is allowed. Transfer this docs-only claim to the exact created Sol session before execution."
+      "notes": "Transferred from the master reservation to pinned Integration QA Sol S-SOL-R3A-INTEGRATION-QA-001 after exact branch/worktree collision and clean-head verification. Product/source paths remain read-only; ignored proof output is allowed."
     }
   ],
   "shared_boundaries": [

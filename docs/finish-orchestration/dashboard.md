@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T17:57:57Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T18:12:32Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,15 +8,15 @@ Generated from committed JSON at `2026-08-03T17:57:57Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 13, `in_progress` 3, `pushed` 5, `ready_for_round_staging` 3, `scoped` 2, `sol_accepted` 1
+- Task states: `backlog` 13, `in_progress` 5, `pushed` 5, `ready_for_round_staging` 3, `sol_accepted` 1
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
 
 - Single master authority: `True`
 - Second-master policy: `recovery_replacement_only`
-- Active domain Sols: `4`
-- Cleared for creation: `2`
+- Active domain Sols: `6`
+- Cleared for creation: `0`
 - Target active domain Sols: `4`
 - Monitoring limit: `8`
 
@@ -24,8 +24,8 @@ Generated from committed JSON at `2026-08-03T17:57:57Z`. This dashboard reports 
 |---|---|---|---|---|---|---|---|
 | LANE-R1-GAMEPLAY-FOUNDATION | gameplay_foundation | active | sequentially_active | R1-TIP-FIDELITY | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | TIP continues independently from accepted CPU+LIVE base 222d75cf under the existing domain Sol and projectless evidence worker. It no longer gates the R1A CPU+LIVE delivery subround. |
 | LANE-R3-SEASON-DATA-FOUNDATION | season_data | complete | complete | R3-SEASON-DATA-FOUNDATION | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | Accepted season/data foundation is frozen at f536a193. Its separate R3A Integration QA lane is cleared for creation and no longer waits for downstream statistics, save, management, or All-Star tasks. |
-| LANE-R1A-INTEGRATION-QA | integration | cleared_for_creation | ready | R1A-INTEGRATION-QA | reserved by master | codex/r1a-cpu-live-integration-qa-sol | Create and pin the reserved top-level gpt-5.6-sol/max Integration QA orchestrator at exact clean staging SHA 222d75cf; product paths remain read-only and only the registered QA docs folder is writable. |
-| LANE-R3A-INTEGRATION-QA | integration | cleared_for_creation | ready | R3A-INTEGRATION-QA | reserved by master | codex/r3a-season-data-integration-qa-sol | Create and pin the reserved top-level gpt-5.6-sol/max Integration QA orchestrator at exact clean staging SHA f536a193; product paths remain read-only and only the registered QA docs folder is writable. |
+| LANE-R1A-INTEGRATION-QA | integration | active | ready | R1A-INTEGRATION-QA | S-SOL-R1A-INTEGRATION-QA-001 | codex/r1a-cpu-live-integration-qa-sol | Pinned Integration QA Sol 019fc8d2-0d1e-78d2-a506-58a5da24db16 is active at exact clean 222d75cf. It personally owns combined build/suite/smoke/media review and may write only its signed QA docs; master will push only after terminal acceptance. |
+| LANE-R3A-INTEGRATION-QA | integration | active | ready | R3A-INTEGRATION-QA | S-SOL-R3A-INTEGRATION-QA-001 | codex/r3a-season-data-integration-qa-sol | Pinned Integration QA Sol 019fc8d2-986a-7643-978f-099070876dfb is active at exact clean f536a193. It personally owns combined build/team-data/season/frame/provenance review and may write only its signed QA docs; master will push only after terminal acceptance. |
 | LANE-R4-FRONTEND-INTRO-TITLE | frontend | active | ready | R4-FRONTEND-INTRO-TITLE | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | Native hardening plus accepted three-commit finale lineage are integrated cleanly at a40dc3f; combined /W4 build, 28/28 suite, 47 masks, 11 color cases, repeats, source/ASM and visual gates pass. Accepted finale worker is completed/unpinned. Reuse held proof worker against a40dc3f for corrected production replay, media inspection, and independent QA before domain acceptance. |
 | LANE-R4-AUDIO-FOUNDATION | audio | active | ready | R4-AUDIO-FOUNDATION | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | Isolated OWN-R4-AUDIO-FOUNDATION is Sol-accepted and ff-only integrated cleanly at e120c30e after decisive independent QA PASS and final Sol build/Music/Frontend/Gameplay suites. Await accepted writer/QA unpin confirmations, then master records staging readiness; broader cross-domain ACC-AUDIO remains deferred. |
 | LANE-R2-SHOTS-OUTCOMES | gameplay_behavior | active | ready | R2-SHOTS-OUTCOMES | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | Evidence auditor 019fc8a8-186e-7be2-aab3-0aae3da3a2fa is accepted/completed/unpinned. One persistent writable Luna 019fc8cb-3d2c-7171-bbe8-534028387b6e is active/pinned on the isolated codex/r2-shots-outcomes-luna worktree and must preserve accepted LIVE far-shot deferral. |
@@ -36,10 +36,10 @@ Generated from committed JSON at `2026-08-03T17:57:57Z`. This dashboard reports 
 |---|---|---|---:|---|---|---|
 | R0 | pushed | 63b29b04b1ab | 1 | codex/master-finish-orchestration | coordination_only | succeeded |
 | R0A | pushed | 7090d2c62201 | 4 | codex/master-finish-orchestration | coordination_only | succeeded |
-| R1A | staging | 6d8f9c7a99a7 | 3 | codex/round-1-gameplay-foundation-staging | pending | not_attempted |
+| R1A | combined_qa | 6d8f9c7a99a7 | 3 | codex/round-1-gameplay-foundation-staging | in_progress | not_attempted |
 | R1 | in_progress | 222d75cfafa9 | 1 | codex/round-1-tip-staging | pending | not_attempted |
 | R2 | in_progress | 7090d2c62201 | 5 | codex/round-2-gameplay-mechanics-staging | pending | not_attempted |
-| R3A | staging | 6d8f9c7a99a7 | 2 | codex/round-3-season-data-staging | pending | not_attempted |
+| R3A | combined_qa | 6d8f9c7a99a7 | 2 | codex/round-3-season-data-staging | in_progress | not_attempted |
 | R3 | in_progress | 6d8f9c7a99a7 | 4 | codex/round-3-season-completion-staging | pending | not_attempted |
 | R4 | planned | 6d8f9c7a99a7 | 4 | codex/round-4-frontend-audio-staging | pending | not_attempted |
 | R5 | planned | 7090d2c62201 | 3 | codex/round-5-release-staging | pending | not_attempted |
@@ -51,11 +51,11 @@ Generated from committed JSON at `2026-08-03T17:57:57Z`. This dashboard reports 
 | 100 | R0-CTRL-001 | orchestration | R0 | pushed | S-MASTER-001 | codex/master-finish-orchestration | 2 | coordination_validated | pushed |
 | 100 | R0A-INV-001 | orchestration | R0A | pushed | S-MASTER-001 | codex/master-finish-orchestration | 2 | coordination_validated | pushed |
 | 100 | R1-CPU-PLAY-LIFECYCLE | gameplay_behavior | R1A | ready_for_round_staging | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | staged |
-| 100 | R1A-INTEGRATION-QA | integration | R1A | scoped | - | codex/r1a-cpu-live-integration-qa-sol | 0 | pending | not_ready |
+| 100 | R1A-INTEGRATION-QA | integration | R1A | in_progress | S-SOL-R1A-INTEGRATION-QA-001 | codex/r1a-cpu-live-integration-qa-sol | 0 | pending | not_ready |
 | 100 | R2-SHOTS-OUTCOMES | gameplay_behavior | R2 | in_progress | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | 0 | in_progress | not_ready |
 | 100 | R3-PLAYER-STATS-LEADERS | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 100 | R3-SEASON-DATA-FOUNDATION | season_data | R3A | ready_for_round_staging | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | 7 | passed | staged |
-| 100 | R3A-INTEGRATION-QA | integration | R3A | scoped | - | codex/r3a-season-data-integration-qa-sol | 0 | pending | not_ready |
+| 100 | R3A-INTEGRATION-QA | integration | R3A | in_progress | S-SOL-R3A-INTEGRATION-QA-001 | codex/r3a-season-data-integration-qa-sol | 0 | pending | not_ready |
 | 100 | R4-FRONTEND-INTRO-TITLE | frontend | R4 | in_progress | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | 8 | in_progress | not_ready |
 | 100 | R5-ASSET-BUILD-PROVENANCE | assets_build | R5 | backlog | - | - | 0 | pending | not_ready |
 | 99 | R0A-ADOPT-CPU-TIP | gameplay_behavior | R0A | pushed | S-SOL-CPU-TIP-LEGACY | codex/cpu-tipoff-behavior | 1 | historical_sol_accepted | pushed |
@@ -80,8 +80,10 @@ Generated from committed JSON at `2026-08-03T17:57:57Z`. This dashboard reports 
 
 | Session | Role | Model/thinking | Status | Pin | Tasks | Branch | Worktree | Last good |
 |---|---|---|---|---|---|---|---|---|
-| S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | b4cebb2259c7 |
+| S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 289a75740665 |
 | S-SOL-R1-GAMEPLAY-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | codex/r1-gameplay-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r1-gameplay-foundation-sol | 222d75cfafa9 |
+| S-SOL-R1A-INTEGRATION-QA-001 | integration_orchestrator | gpt-5.6-sol/max | active | pinned | R1A-INTEGRATION-QA | codex/r1a-cpu-live-integration-qa-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r1a-cpu-live-integration-qa-sol | 222d75cfafa9 |
+| S-SOL-R3A-INTEGRATION-QA-001 | integration_orchestrator | gpt-5.6-sol/max | active | pinned | R3A-INTEGRATION-QA | codex/r3a-season-data-integration-qa-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r3a-season-data-integration-qa-sol | f536a1939880 |
 | S-SOL-R4-FRONTEND-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R4-FRONTEND-INTRO-TITLE | codex/r4-frontend-intro-title-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r4-frontend-intro-title-sol | a40dc3f9976d |
 | S-SOL-R4-AUDIO-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R4-AUDIO-FOUNDATION | codex/r4-audio-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r4-audio-foundation-sol | e120c30ee882 |
 | S-SOL-R2-SHOTS-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R2-SHOTS-OUTCOMES | codex/r2-shots-outcomes-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2-shots-outcomes-sol | 222d75cfafa9 |

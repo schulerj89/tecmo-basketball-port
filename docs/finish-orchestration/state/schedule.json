@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T18:04:17Z",
+  "updated_at": "2026-08-03T18:12:32Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,8 +10,8 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 4,
-    "cleared_for_creation": 2,
+    "active_domain_orchestrators": 6,
+    "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
     "unallocated_target_slots": 0,
@@ -76,10 +76,10 @@
       "task_ids": [
         "R1A-INTEGRATION-QA"
       ],
-      "readiness": "cleared_for_creation",
+      "readiness": "active",
       "dependency_status": "ready",
       "reservation_owner_session_id": "S-MASTER-001",
-      "orchestrator_session_id": null,
+      "orchestrator_session_id": "S-SOL-R1A-INTEGRATION-QA-001",
       "base_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
       "branch": "codex/r1a-cpu-live-integration-qa-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1a-cpu-live-integration-qa-sol",
@@ -87,8 +87,8 @@
         "OWN-R1A-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Create and pin the reserved top-level gpt-5.6-sol/max Integration QA orchestrator at exact clean staging SHA 222d75cf; product paths remain read-only and only the registered QA docs folder is writable.",
-      "updated_at": "2026-08-03T18:04:17Z"
+      "next_gate": "Pinned Integration QA Sol 019fc8d2-0d1e-78d2-a506-58a5da24db16 is active at exact clean 222d75cf. It personally owns combined build/suite/smoke/media review and may write only its signed QA docs; master will push only after terminal acceptance.",
+      "updated_at": "2026-08-03T18:10:36Z"
     },
     {
       "lane_id": "LANE-R3A-INTEGRATION-QA",
@@ -100,10 +100,10 @@
       "task_ids": [
         "R3A-INTEGRATION-QA"
       ],
-      "readiness": "cleared_for_creation",
+      "readiness": "active",
       "dependency_status": "ready",
       "reservation_owner_session_id": "S-MASTER-001",
-      "orchestrator_session_id": null,
+      "orchestrator_session_id": "S-SOL-R3A-INTEGRATION-QA-001",
       "base_sha": "f536a19398803742e1a3dc5bb33d8a6ee2968a24",
       "branch": "codex/r3a-season-data-integration-qa-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3a-season-data-integration-qa-sol",
@@ -111,8 +111,8 @@
         "OWN-R3A-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Create and pin the reserved top-level gpt-5.6-sol/max Integration QA orchestrator at exact clean staging SHA f536a193; product paths remain read-only and only the registered QA docs folder is writable.",
-      "updated_at": "2026-08-03T18:04:17Z"
+      "next_gate": "Pinned Integration QA Sol 019fc8d2-986a-7643-978f-099070876dfb is active at exact clean f536a193. It personally owns combined build/team-data/season/frame/provenance review and may write only its signed QA docs; master will push only after terminal acceptance.",
+      "updated_at": "2026-08-03T18:11:12Z"
     },
     {
       "lane_id": "LANE-R4-FRONTEND-INTRO-TITLE",
