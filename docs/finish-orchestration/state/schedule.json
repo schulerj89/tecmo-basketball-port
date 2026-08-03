@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T16:43:46Z",
+  "updated_at": "2026-08-03T16:51:17Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -33,8 +33,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1-gameplay-foundation-sol",
       "ownership_claim_ids": ["OWN-R1-LIVE", "OWN-R1-TIP"],
       "blockers": [],
-      "next_gate": "Independent QA accepts LIVE code/proof with P0=0/P1=0. Same implementation Luna corrects exactly two P2 PROOF.md items plus QA lineage; same QA Luna verifies final doc tip; then Sol accepts/integrates ff-only and reports unpins before TIP activation.",
-      "updated_at": "2026-08-03T16:40:36Z"
+      "next_gate": "LIVE terminal 222d75cf is Sol/QA accepted and ff-only integrated with P0/P1/P2=0. Unpin the accepted implementation and QA Lunas, advance LIVE to staging-ready, then activate TIP sequentially from exact domain HEAD 222d75cf.",
+      "updated_at": "2026-08-03T16:51:17Z"
     },
     {
       "lane_id": "LANE-R3-SEASON-DATA-FOUNDATION",
@@ -51,8 +51,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3-season-data-foundation-sol",
       "ownership_claim_ids": ["OWN-R3-SEASON-DATA-FOUNDATION"],
       "blockers": [],
-      "next_gate": "Code candidate 15946f58 is Sol- and independent-QA-accepted with no findings. Same implementation Luna makes README-only evidence closure; same QA Luna reviews final doc tip; then Sol accepts/integrates ff-only and reports exact lineage/unpins.",
-      "updated_at": "2026-08-03T16:39:17Z"
+      "next_gate": "R3 foundation terminal f536a193 is accepted, ff-only integrated, staging-ready, and all reported Lunas are unpinned. Commit this durable record, then complete/unpin the bounded R3 Sol orchestrator while preserving branches/worktrees for later round staging.",
+      "updated_at": "2026-08-03T16:51:17Z"
     },
     {
       "lane_id": "LANE-R4-FRONTEND-INTRO-TITLE",
