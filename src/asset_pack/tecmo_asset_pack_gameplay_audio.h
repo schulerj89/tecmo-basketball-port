@@ -76,4 +76,9 @@ int tecmo_asset_pack_frontend_audio_source_test(
     char *message,
     size_t message_size);
 
+int tecmo_asset_pack_gameplay_audio_source_test(
+    const char *rom_path,
+    char *message,
+    size_t message_size);
+
 #endif

@@ -5,6 +5,7 @@
 
 #include <limits.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 
 enum MusicInstructionType {
@@ -82,6 +83,53 @@ static const MusicTrackSource music_tracks[TECMO_ASSET_PACK_MUSIC_TRACK_COUNT] =
 static int range_valid(uint64_t offset, uint64_t count, uint64_t size)
 {
     return offset <= size && count <= size - offset;
+}
+
+static int checked_add_u64(uint64_t left, uint64_t right, uint64_t *result)
+{
+    if (result == NULL || right > UINT64_MAX - left) return 0;
+    *result = left + right;
+    return 1;
+}
+
+static int checked_mul_u64(uint64_t left, uint64_t right, uint64_t *result)
+{
+    if (result == NULL || (left != 0U && right > UINT64_MAX / left))
+        return 0;
+    *result = left * right;
+    return 1;
+}
+
+static int prg_layout_valid(uint64_t prg_offset, uint32_t prg_banks,
+                            uint32_t minimum_banks, uint64_t rom_size)
+{
+    uint64_t prg_bytes;
+    uint64_t end;
+    return prg_banks >= minimum_banks &&
+           checked_mul_u64(prg_banks, TECMO_ASSET_PACK_PRG_BANK_BYTES,
+                           &prg_bytes) &&
+           checked_add_u64(prg_offset, prg_bytes, &end) &&
+           range_valid(prg_offset, prg_bytes, rom_size);
+}
+
+static int prg_bank_range_valid(uint64_t prg_offset, uint32_t prg_banks,
+                                uint32_t bank, uint64_t count,
+                                uint64_t rom_size)
+{
+    uint64_t prg_bytes;
+    uint64_t prg_end;
+    uint64_t bank_delta;
+    uint64_t bank_start;
+    if (bank >= prg_banks ||
+        !checked_mul_u64(prg_banks, TECMO_ASSET_PACK_PRG_BANK_BYTES,
+                         &prg_bytes) ||
+        !checked_add_u64(prg_offset, prg_bytes, &prg_end) ||
+        !checked_mul_u64(bank, TECMO_ASSET_PACK_PRG_BANK_BYTES,
+                         &bank_delta) ||
+        !checked_add_u64(prg_offset, bank_delta, &bank_start))
+        return 0;
+    return range_valid(bank_start, count, prg_end) &&
+           range_valid(bank_start, count, rom_size);
 }
 
 static uint64_t bank_offset(uint64_t prg_offset, uint32_t bank, uint16_t address)
@@ -658,12 +706,16 @@ int tecmo_asset_pack_build_music(const uint8_t *rom,
     *payload_out = NULL;
     *payload_size_out = 0U;
     memset(provenance, 0, sizeof(*provenance));
+    if (!prg_layout_valid(prg_offset, prg_banks, 8U, rom_size)) return -1;
     bank04_source = bank_offset(prg_offset, 4U, 0x8000U);
     bank06_source = bank_offset(prg_offset, 6U, 0x8000U);
     fixed_source = fixed_offset(prg_offset, prg_banks, 0xC000U);
-    if (!range_valid(bank04_source, TECMO_ASSET_PACK_PRG_BANK_BYTES, rom_size) ||
-        !range_valid(bank06_source, TECMO_ASSET_PACK_PRG_BANK_BYTES, rom_size) ||
-        !range_valid(fixed_source, TECMO_ASSET_PACK_PRG_BANK_BYTES, rom_size))
+    if (!prg_bank_range_valid(prg_offset, prg_banks, 4U,
+                              TECMO_ASSET_PACK_PRG_BANK_BYTES, rom_size) ||
+        !prg_bank_range_valid(prg_offset, prg_banks, 6U,
+                              TECMO_ASSET_PACK_PRG_BANK_BYTES, rom_size) ||
+        !prg_bank_range_valid(prg_offset, prg_banks, prg_banks - 1U,
+                              TECMO_ASSET_PACK_PRG_BANK_BYTES, rom_size))
         return -1;
     if (enforce_revision_fingerprints &&
         validate_revision(rom, bank04_source, bank06_source, fixed_source,
@@ -695,6 +747,16 @@ int tecmo_asset_pack_build_music(const uint8_t *rom,
     if (serialize_music(music, rom, fixed_source,
                         payload_out, payload_size_out) != 0)
         goto cleanup;
+    if (enforce_revision_fingerprints &&
+        (*payload_size_out != 36784U ||
+         tecmo_asset_pack_fnv1a32(*payload_out, *payload_size_out) !=
+             0x05C00ECBU ||
+         music->instruction_count != 2251U || music->voice_count != 37U)) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "Rev1 TMUS-1 serialized postconditions mismatch.");
+        goto cleanup;
+    }
 
     provenance->source_offset = bank04_source + 0x0AA4U;
     provenance->directory_offset = bank04_source + 0x0CD0U;
@@ -739,10 +801,13 @@ int tecmo_asset_pack_music_source_test(const char *rom_path,
         32ULL * TECMO_ASSET_PACK_CHR_BANK_BYTES;
     uint8_t *rom = NULL;
     uint8_t *payload = NULL;
+    uint8_t *invalid_payload = NULL;
     uint8_t input_sha256[32];
     uint64_t rom_size = 0U;
     size_t payload_size = 0U;
+    size_t invalid_payload_size = 0U;
     TecmoMusicProvenance provenance;
+    TecmoMusicProvenance invalid_provenance;
     int result;
     if (rom_path == NULL ||
         tecmo_asset_pack_read_file(rom_path, &rom, &rom_size) != 0) {
@@ -760,6 +825,49 @@ int tecmo_asset_pack_music_source_test(const char *rom_path,
         free(rom);
         return -1;
     }
+    memset(&invalid_provenance, 0, sizeof(invalid_provenance));
+    if (tecmo_asset_pack_build_music(
+            rom, rom_size, UINT64_MAX, 8U, 1,
+            &invalid_payload, &invalid_payload_size, &invalid_provenance,
+            message, message_size) == 0 || invalid_payload != NULL ||
+        invalid_payload_size != 0U) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TMUS-1 direct builder offset guard accepted an invalid layout.");
+        free(invalid_payload);
+        free(rom);
+        return -1;
+    }
+    free(invalid_payload);
+    invalid_payload = NULL;
+    invalid_payload_size = 0U;
+    if (tecmo_asset_pack_build_music(
+            rom, rom_size, sizeof(music_rev1_ines_header), 0U, 1,
+            &invalid_payload, &invalid_payload_size, &invalid_provenance,
+            message, message_size) == 0 || invalid_payload != NULL ||
+        invalid_payload_size != 0U) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TMUS-1 direct builder zero-bank guard accepted an invalid layout.");
+        free(invalid_payload);
+        free(rom);
+        return -1;
+    }
+    invalid_payload = NULL;
+    invalid_payload_size = 0U;
+    if (tecmo_asset_pack_build_music(
+            rom, rom_size, sizeof(music_rev1_ines_header), 7U, 1,
+            &invalid_payload, &invalid_payload_size, &invalid_provenance,
+            message, message_size) == 0 || invalid_payload != NULL ||
+        invalid_payload_size != 0U) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TMUS-1 direct builder undersized-bank guard accepted an invalid layout.");
+        free(invalid_payload);
+        free(rom);
+        return -1;
+    }
+    free(invalid_payload);
     result = tecmo_asset_pack_build_music(
         rom, rom_size, sizeof(music_rev1_ines_header), 8U, 1,
         &payload, &payload_size, &provenance, message, message_size);

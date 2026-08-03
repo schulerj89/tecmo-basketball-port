@@ -7,6 +7,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 typedef enum TecmoAudioOutputRenderSource {
     TECMO_AUDIO_OUTPUT_RENDER_SILENCE = 0,
