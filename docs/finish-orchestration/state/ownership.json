@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T11:18:38Z",
+  "updated_at": "2026-08-03T11:19:59Z",
   "claims": [
     {
       "claim_id":"OWN-R0-CTRL","task_id":"R0-CTRL-001","round_id":"R0","session_id":"S-MASTER-001","mode":"exclusive",
@@ -49,7 +49,7 @@
       "writable_globs":["CMakeLists.txt","include/tecmo_gameplay_scene.h","include/tecmo_gameplay_scene_internal.h","include/tecmo_gameplay_state.h","include/tecmo_gameplay_movement.h","include/tecmo_gameplay_live_*.h","src/tecmo_gameplay_scene.c","src/tecmo_gameplay_scene_actors.c","src/tecmo_gameplay_scene_validation.c","src/tecmo_gameplay_scene_test_internal.h","src/tecmo_gameplay_scene_test_orchestrator.c","src/tecmo_gameplay_scene_test_state_flow.c","src/tecmo_gameplay_state.c","src/tecmo_gameplay_movement.c","src/tecmo_gameplay_live_*.c","src/tecmo_cli_gameplay_core.c","src/asset_pack/tecmo_asset_pack_gameplay_movement.c","src/asset_pack/tecmo_asset_pack_gameplay_movement.h","src/asset_pack/tecmo_asset_pack_source_map.c","src/asset_pack/tecmo_asset_pack_source_map.h","src/asset_pack/tecmo_asset_pack_import_layout.h","tools/Run-GameplayMovementTests.ps1","tools/Run-GameplaySceneTests.ps1","docs/finish-tasks/R1-live-foundation/**"],
       "planned_paths":["src/tecmo_gameplay_scene.c","src/tecmo_gameplay_scene_actors.c","src/tecmo_gameplay_state.c","docs/finish-tasks/R1-live-foundation/README.md"],
       "concurrency_group":"R1-gameplay-foundation","active":true,"claimed_at":"2026-08-03T05:30:16Z","released_at":null,
-      "notes":"Designated owner for every shared scene/build/source-map boundary used by the same sequential Round 1 Sol."
+      "notes":"Activated for the sequential LIVE assignment at exact parent ad0f005; this Sol exclusively owns every shared scene/build/source-map boundary. TIP remains held."
     },
     {
       "claim_id":"OWN-R1-TIP","task_id":"R1-TIP-FIDELITY","round_id":"R1","session_id":"S-SOL-R1-GAMEPLAY-001","mode":"exclusive",
