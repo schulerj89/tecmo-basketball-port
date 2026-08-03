@@ -28,14 +28,17 @@ exploit.
 - Exact base/parent: `6d8f9c7a99a7ce188f1a523247d3a9b9093860fb`
 - Control-plane durable checkpoint: `3364e8b`; the reconciled audits and this
   writable lineage were durably registered there.
+- Writer-chain/4ddb correction checkpoint: `ca0e48a`; it records the writer
+  chain and the restored exact eight-bank public compatibility contract.
 - Listening disposition checkpoint: `232e57e`; external human signoff resolved
   `BLOCK-R4-AUDIO-LISTENING-001` and completed/unpinned `S-BLOCKERS-001`.
 - Earlier ruling/limitation checkpoint: `94acc9f`; it is retained as the
   honest pre-signoff limitation record, not as a claim of Sol auditory review.
 
 No ROM, payload, capture, trace, WAV, proof event file, or other proprietary
-artifact was created in tracked history. No merge, rebase, push, fork, or
-additional worker task was performed by this lineage.
+artifact was created in tracked history. No unregistered child, subagent, fork,
+or additional worker task existed beyond the exact registered top-level tasks
+listed above; the lineage did not perform a merge, rebase, or push.
 
 ## Ordered commit lineage
 

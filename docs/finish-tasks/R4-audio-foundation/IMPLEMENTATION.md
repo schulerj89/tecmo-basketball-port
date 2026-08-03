@@ -46,9 +46,10 @@ voices; TSFX 2,824 / `968A5DE6` / 131 instructions / 14 voices; and TDMC 2,515
   including NULL-sink tests.
 - `tecmo_music_queue_opening_once` latches only after a successful queue; a
   genuinely missing/null asset can fail and then retry with the valid asset.
-- Gameplay/music selection requires canonical same-pack identity. The hidden
-  real-pack identity gate accepts a canonical alias and rejects a byte-identical
-  distinct canonical container while preserving selection state.
+- Gameplay and frontend selections against music require canonical same-pack
+  identity. The hidden real-pack identity gate accepts a canonical alias and
+  rejects a byte-identical distinct canonical container while preserving
+  selection state.
 
 The native model preserves TMUS IDs 5–8, TFSX 8/10, TSFX 3/5/6/11/12/13/14,
 last-write-wins mailboxes, matching-channel SFX override while music advances,
