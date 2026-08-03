@@ -4,7 +4,7 @@
 
 | Role | ID | Exact title | Model/creation metadata |
 |---|---|---|---|
-| Authoritative Sol | `019fc8ff-4ec4-7b20-86c6-9c9614f9194c` | `Tecmo R2 Clocks Lineups Fatigue Domain Orchestrator — Sol Max` | gpt-5.6-sol/max; completed v1 personal terminal QA/proof; v2 QA/proof and independent re-audit remain pending. |
+| Authoritative Sol | `019fc8ff-4ec4-7b20-86c6-9c9614f9194c` | `Tecmo R2 Clocks Lineups Fatigue Domain Orchestrator — Sol Max` | gpt-5.6-sol/max; completed v1 and v2 personal terminal QA/proof; independent re-audit and terminal accepted SHA remain pending. |
 | Writable implementation/revision Luna | `019fc912-a957-79f0-89a3-7e2e2d10db24` | `Tecmo R2 Clocks Lineups Fatigue Implementation — Luna Max` | gpt-5.6-luna/max; created_at `2026-08-03T19:21:11.000Z`; pinned=true during work; one successful creation, no fault, retry, or replacement. |
 
 Writable registry details: branch
@@ -48,7 +48,12 @@ The v1 proof manifest SHA-256
 `12DBA6C5D5D0C64C131DA35575CACBAAEA2D257198D57FC7C0B9D2DC11B043E1` is
 bound to proof-source HEAD `97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`.
 The frozen candidate `1536ae31e7016f6e9adbddb7868e2d40e51c1085` is its
-docs-only descendant; no v2 proof was regenerated.
+docs-only descendant. The v2 proof manifest SHA-256
+`1FA074FB90D87AF48A3FB78DB50E8B96A78C7F653EC9EFA76BF581B8FC0F51C3` is
+bound to product/proof-source HEAD
+`bf0ea4b40ac3d4cfd79a0391e4fad2acc30082be`. The forthcoming independent
+re-audit candidate is a docs-only descendant of that v2 HEAD, not an
+artifact-integrity mismatch.
 
 ## Implementation revisions
 
@@ -78,6 +83,9 @@ docs-only descendant; no v2 proof was regenerated.
    state/event outputs transactionally, added exact/partial alias and failure
    vectors, and hardened TGFT/TGFL destructor frees against bounded corrupt
    in-object storage without claiming arbitrary invalid-pointer detection.
+9. Sol personally completed v2 QA/proof at the remediation HEAD; all v2
+   render artifacts matched v1 byte-for-byte, while independent re-audit and
+   terminal acceptance remain pending.
 
 ## Commits
 
@@ -85,25 +93,51 @@ docs-only descendant; no v2 proof was regenerated.
 - Implementation/tests: `6c87dbed170c8ca2ba68e29671f7cfebf5adb60a`.
 - Documentation commit: `540ae0ba47ef44d6096781ffd0c276012e683221`.
 - Documentation metadata correction: `97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`.
+- Signed remediation: `bf0ea4b40ac3d4cfd79a0391e4fad2acc30082be`.
 
-All three commits report Good Git signatures for `jaystar524@gmail.com` with
+All four commits report Good Git signatures for `jaystar524@gmail.com` with
 RSA key fingerprint `SHA256:L/fBxE6/8x0E9W2UiVtyTLQ9mfI5AJDzdQYefIsj4fA`.
-Sol fast-forwarded the signed lineage into
+Sol fast-forwarded the original signed lineage into
 `codex/r2-clock-lineups-fatigue-sol` at
-`97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`.
+`97277cbecf685a9f8ac8e29dde1a6de61f0e2db8` and accepted the remediation
+`bf0ea4b40ac3d4cfd79a0391e4fad2acc30082be` by ff-only integration.
 
 ## Sol QA and proof state
 
-Sol's exact QA results, environment-precondition diagnosis, draft LIVE proof,
-and deterministic proof manifest are recorded in `PROOF.md` and `TESTS.md`.
-The task-specific proof root is
+Sol's v1 exact QA results, environment-precondition diagnosis, draft LIVE
+proof, and deterministic proof manifest are recorded in `PROOF.md` and
+`TESTS.md`. The v1 task-specific proof root is
 `C:\Users\joshs\Projects\tecmo-basketball-port-r2-clock-lineups-fatigue-sol\build\r2-clock-lineups-fatigue-proof-20260803T203000Z`,
 with manifest SHA-256
 `12DBA6C5D5D0C64C131DA35575CACBAAEA2D257198D57FC7C0B9D2DC11B043E1`.
 That manifest remains v1 proof-source evidence for HEAD
-`97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`, not v2
-proof for this remediation. Sol v2 QA/proof, independent re-audit, and the
-terminal accepted SHA remain pending.
+`97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`.
+
+Sol's v2 QA passed at exact product/proof-source HEAD
+`bf0ea4b40ac3d4cfd79a0391e4fad2acc30082be`: warning-free build with
+`TECMO_SKIP_SHORTCUT=1`, gameplay replay `7A204A525C79D21C`, asset-pack,
+TGFL, TGFT, TGCP-2, TPNL-1, TGVR-1, full AssetPackTests, NativeFlowTests with
+the exact validated pack, and GameplaySceneTests without `-RequirePass`.
+The v2 LIVE draft is `build/live-proof-20260803T212356578Z` with 255 files
+and manifest SHA-256
+`4C522B29A0D82D5313F01D2C4436A46EF87635E4406DAD93527D18DD894A745E`.
+
+The v2 deterministic proof root is
+`C:\Users\joshs\Projects\tecmo-basketball-port-r2-clock-lineups-fatigue-sol\build\r2-clock-lineups-fatigue-proof-v2-20260803T212500Z`,
+schema `tecmo.r2-clock-lineups-fatigue.proof/v2`, with manifest SHA-256
+`1FA074FB90D87AF48A3FB78DB50E8B96A78C7F653EC9EFA76BF581B8FC0F51C3`,
+98 files totaling `110,863,737` bytes, and `COMMANDS.txt` SHA-256
+`F4A61AFB876319DB37ED3A25992A0DDF62FFE6131A93D7304E0DC7C6890B66E4`.
+The 81 shot-clock frames, both free-throw PNGs, MP4, and all three sheets
+are byte-identical to v1; selected frame and orientation rerenders also
+matched byte-for-byte. Audio is N/A and no period/halftime/final render
+ownership is claimed.
+
+The v2 manifest is bound to `bf0ea4b40ac3d4cfd79a0391e4fad2acc30082be`.
+The forthcoming independent re-audit candidate will be a docs-only
+descendant of that HEAD, not an artifact-integrity mismatch. Independent
+re-audit remains pending and pinned; the terminal accepted SHA remains
+pending.
 
 No merge, rebase, push, or main/staging mutation was performed in this worker
 lane.

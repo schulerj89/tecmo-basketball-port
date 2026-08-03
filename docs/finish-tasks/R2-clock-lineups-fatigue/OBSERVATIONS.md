@@ -50,8 +50,11 @@ not expand the state/API behavior classifications:
    state/event-only in this scope and are proved by gameplay-state vectors plus
    scene regression, not a new visual-semantic claim.
 
-Audio is N/A because this boundary changes no audio semantics. These are v1
-proof-source observations bound to HEAD
-`97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`; no v2 proof was regenerated.
-The independent QA task's historical P2-only FAIL remains pending re-audit,
-and terminal acceptance remains pending.
+Audio is N/A because this boundary changes no audio semantics. These v1
+observations are bound to proof-source HEAD
+`97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`; Sol's v2 proof at
+`bf0ea4b40ac3d4cfd79a0391e4fad2acc30082be` re-inspected the same bounded
+observations and all v2 render artifacts matched v1 byte-for-byte. No period,
+halftime, or final render ownership is claimed. The independent QA task's
+historical P2-only FAIL remains pending re-audit, and terminal acceptance
+remains pending.

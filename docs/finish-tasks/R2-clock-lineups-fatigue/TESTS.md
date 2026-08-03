@@ -78,11 +78,67 @@ the labeled left/right free-throw sheet SHA-256 is
 Separate re-renders matched every selected SHA byte-for-byte, and the two
 free-throw orientation hashes were distinct.
 
-The manifest and render proof above are bound to proof-source HEAD
-`97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`; they are not v2 proof for the
-frozen independent-QA candidate or this remediation. No v2 Sol QA/proof was
-regenerated. Audio is N/A; the bounded visual proof does not establish
-period/halftime/final render semantics.
+The manifest and render proof above are v1 evidence bound to proof-source HEAD
+`97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`. Audio is N/A; the bounded visual
+proof does not establish period/halftime/final render semantics. Sol's v2
+proof at the remediation HEAD is recorded below.
+
+## Sol v2 personal QA and production proof
+
+Sol's v2 QA/proof-source HEAD was the exact signed remediation commit
+`bf0ea4b40ac3d4cfd79a0391e4fad2acc30082be`. The build used
+`TECMO_SKIP_SHORTCUT=1` and was warning-free.
+
+| Command/result | v2 result |
+|---|---|
+| `build.ps1` with `TECMO_SKIP_SHORTCUT=1` | PASS; both executables built warning-free. |
+| `build\tecmo_port.exe --gameplay-state-test` | PASS; replay `7A204A525C79D21C`. |
+| `build\tecmo_port.exe --assetpack-test` | PASS. |
+| Exact Rev1 TGFL focused runner | PASS; 12 selected source mutations. |
+| Exact Rev1 TGFT focused runner | PASS. |
+| Exact Rev1 TGCP-2 camera runner | PASS; 21 mutations. |
+| Exact Rev1 TPNL-1 penalty runner | PASS; 24 mutations. |
+| Exact Rev1 TGVR-1 violation/referee runner | PASS. |
+| Full AssetPackTests | PASS; 86 entries; pack `1,401,618` bytes; SHA-256 `695EEB2D0101C5422B01790BD8D6B2A7607E758F396F429C2D2424AC6A26DE07`. |
+| NativeFlowTests with exact validated pack | PASS; all CLI boundaries; no initial v2 precondition failure. |
+| GameplaySceneTests without `-RequirePass` | PASS; R1 branch/base gates intentionally inapplicable. |
+
+The v2 LIVE draft root is `build/live-proof-20260803T212356578Z`, with 255
+files and manifest SHA-256
+`4C522B29A0D82D5313F01D2C4436A46EF87635E4406DAD93527D18DD894A745E`.
+Tracked status and diff-check were clean.
+
+The task-specific v2 proof root is
+`C:\Users\joshs\Projects\tecmo-basketball-port-r2-clock-lineups-fatigue-sol\build\r2-clock-lineups-fatigue-proof-v2-20260803T212500Z`.
+It uses schema `tecmo.r2-clock-lineups-fatigue.proof/v2`, is bound to
+`bf0ea4b40ac3d4cfd79a0391e4fad2acc30082be`, and has:
+
+- `PROOF-MANIFEST.json`, 33,453 bytes, SHA-256
+  `1FA074FB90D87AF48A3FB78DB50E8B96A78C7F653EC9EFA76BF581B8FC0F51C3`;
+- 97 hashed artifacts plus the manifest, 98 files, totaling `110,863,737`
+  bytes;
+- `COMMANDS.txt` SHA-256
+  `F4A61AFB876319DB37ED3A25992A0DDF62FFE6131A93D7304E0DC7C6890B66E4`;
+- 81 `shot-clock-frames/frame-0000.png` through
+  `frame-0080.png` renders, with modes
+  `gameplay-shot-clock-violation-frame0..80`;
+- the 15,769-byte MP4 with SHA-256
+  `AD682F67F0EF43C2BDD08D1FE80E4F2146A83E211FEA9B2459AAB9E005683FFE`;
+- ffprobe `640x480`, rates `39375000/655171`, time base `1/39375000`, and
+  81 frames/read frames, with decoded framemd5 count 81;
+- all-frame sheet SHA-256
+  `3D09097FD2AFA88CFD6F2026CB349EFD6C63B5749C9E12EAA659A5DEFE5BEF43`;
+- key-frame sheet SHA-256
+  `D8411BB3FBA473434D4825DB29332CB741A14BBA74E145ED460C29FDAD218450`;
+- labeled free-throw sheet SHA-256
+  `A91ABB866BB81A6384C680707E8CFA9C6118CD6B9E01279968456111B7931BFF`.
+
+All v2 shot-clock/free-throw PNGs, the MP4, and all three sheets are
+byte-identical to v1. Selected shot frames 0, 9, 23, 27, 80 and both
+free-throw sides were independently rerendered byte-identically; left/right
+hashes remain distinct. Sol re-inspected the v2 keyframes and free-throw
+sheet with the same bounded clean observations; audio is N/A and no period,
+halftime, or final render ownership is claimed.
 
 ## Independent QA historical result
 
@@ -96,9 +152,9 @@ four linear Good-signed commits, 18 allowed changed paths, clean/diff-check,
 and proof inventory/hash validation passed. The QA task remains pinned for
 re-audit.
 
-## Remediation verification
+## Remediation verification and acceptance state
 
-This revision adds no new production proof. The owned remediation verified:
+The owned remediation verification remains:
 
 | Command | Result |
 |---|---|
@@ -108,9 +164,10 @@ This revision adds no new production proof. The owned remediation verified:
 | `.\tools\Run-GameplayFatigueTests.ps1` with exact Rev1 | Exit 0; `TGFT-1 fatigue tests passed.` |
 | `.\tools\Run-GameplayFreeThrowLineupTests.ps1` with exact Rev1 | Exit 0; `TGFL-1 focused tests passed` with 12 selected source mutations. |
 
-Independent re-audit, v2 Sol QA/proof, and the terminal accepted SHA remain
-pending. Do not interpret these remediation tests as regenerated production
-render proof.
+The independent re-audit remains pending and the QA task remains pinned. The
+terminal accepted SHA also remains pending. The v2 Sol proof above is bound to
+the remediation HEAD; the forthcoming independent candidate is a docs-only
+descendant and does not alter that artifact binding.
 
 ## Review corrections represented in the final run
 
