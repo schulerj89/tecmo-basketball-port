@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T18:12:32Z",
+  "updated_at": "2026-08-03T18:21:12Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -392,30 +392,80 @@
       "updated_at": "2026-08-03T17:57:57Z"
     },
     {
+      "round_id": "R4A",
+      "title": "Incremental isolated audio-foundation delivery",
+      "status": "staging",
+      "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
+      "scope": [
+        "Accepted native music, frontend-audio, gameplay-audio, and output-engine foundation",
+        "Accepted deterministic WAV/event/waveform/provenance proof and human listening signoff",
+        "Dedicated Integration QA and incremental main push"
+      ],
+      "included_task_ids": [
+        "R4-AUDIO-FOUNDATION",
+        "R4A-INTEGRATION-QA"
+      ],
+      "staging_branch": "codex/round-4a-audio-foundation-staging",
+      "sol_orchestrator_session_ids": [
+        "S-SOL-R4-AUDIO-001"
+      ],
+      "integration_qa_session_id": null,
+      "merge_order": [
+        "R4-AUDIO-FOUNDATION",
+        "R4A-INTEGRATION-QA"
+      ],
+      "combined_qa": {
+        "required": true,
+        "status": "pending",
+        "accepted_sha": null,
+        "report_path": null,
+        "signed_by_session_id": null,
+        "notes": "Accepted audio foundation is clean and physically staged at e120c30. Create a dedicated Sol Max Integration QA orchestrator; push only after its exact signed docs-only tip and honest deferred cross-domain boundary review."
+      },
+      "acceptance": {
+        "status": "pending",
+        "accepted_at": null,
+        "accepted_sha": null,
+        "criteria": [
+          "Audio foundation retains exact domain Sol and independent QA acceptance",
+          "Dedicated clean build and Music/Frontend/Gameplay suites pass on exact staging",
+          "Integration QA signs proof/event/WAV/waveform/provenance and listening-attribution review without claiming deferred cue routing"
+        ]
+      },
+      "main_integration": {
+        "pre_main_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
+        "merge_commits": [],
+        "post_main_sha": null,
+        "remote_main_before_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
+        "push_sha": null,
+        "push_result": "not_attempted",
+        "pushed_at": null
+      },
+      "created_at": "2026-08-03T18:21:12Z",
+      "updated_at": "2026-08-03T18:21:12Z"
+    },
+    {
       "round_id": "R4",
-      "title": "Frontend, menu fidelity, music, and sound",
+      "title": "Frontend, menu fidelity, remaining cue routing, and sound completion",
       "status": "planned",
       "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "scope": [
         "Opening/title/attract timing and animation fidelity",
         "All menu/UI transitions and details",
-        "Complete music/SFX/sample/device proof"
+        "Remaining cross-domain cue routing and complete audio integration"
       ],
       "included_task_ids": [
         "R4-FRONTEND-INTRO-TITLE",
-        "R4-AUDIO-FOUNDATION",
         "R4-MENUS-UI",
         "R4-AUDIO"
       ],
       "staging_branch": "codex/round-4-frontend-audio-staging",
       "sol_orchestrator_session_ids": [
-        "S-SOL-R4-FRONTEND-001",
-        "S-SOL-R4-AUDIO-001"
+        "S-SOL-R4-FRONTEND-001"
       ],
       "integration_qa_session_id": null,
       "merge_order": [
         "R4-FRONTEND-INTRO-TITLE",
-        "R4-AUDIO-FOUNDATION",
         "R4-MENUS-UI",
         "R4-AUDIO"
       ],
@@ -425,7 +475,7 @@
         "accepted_sha": null,
         "report_path": null,
         "signed_by_session_id": null,
-        "notes": "Dedicated Sol Max integration QA must sign end-to-end frontend video/frame/audio comparison."
+        "notes": "Audio foundation moved to authorized delivery subround R4A. Dedicated Sol Max integration QA must later sign the remaining frontend/menu/cue-routing end-to-end comparison."
       },
       "acceptance": {
         "status": "pending",
@@ -433,8 +483,8 @@
         "accepted_sha": null,
         "criteria": [
           "Original/native frontend timing and UI comparisons pass",
-          "All audio cues/mixing/device cases pass",
-          "Audio capture, waveform/event evidence, and Sol listening notes exist"
+          "Remaining menus and cross-domain audio cue call sites pass",
+          "End-to-end frontend/audio integration proof passes on the then-current main"
         ]
       },
       "main_integration": {
@@ -447,7 +497,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T14:50:16Z"
+      "updated_at": "2026-08-03T18:21:12Z"
     },
     {
       "round_id": "R5",

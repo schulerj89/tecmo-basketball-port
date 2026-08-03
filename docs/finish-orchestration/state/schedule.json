@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T18:17:05Z",
+  "updated_at": "2026-08-03T18:21:12Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,8 +10,8 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 6,
-    "cleared_for_creation": 0,
+    "active_domain_orchestrators": 5,
+    "cleared_for_creation": 1,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
     "unallocated_target_slots": 0,
@@ -140,16 +140,16 @@
     },
     {
       "lane_id": "LANE-R4-AUDIO-FOUNDATION",
-      "title": "Round 4 audio foundation",
+      "title": "Round 4A accepted audio foundation",
       "domain": "audio",
       "round_ids": [
-        "R4"
+        "R4A"
       ],
       "task_ids": [
         "R4-AUDIO-FOUNDATION"
       ],
-      "readiness": "active",
-      "dependency_status": "ready",
+      "readiness": "complete",
+      "dependency_status": "complete",
       "reservation_owner_session_id": "S-MASTER-001",
       "orchestrator_session_id": "S-SOL-R4-AUDIO-001",
       "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
@@ -159,8 +159,32 @@
         "OWN-R4-AUDIO-FOUNDATION"
       ],
       "blockers": [],
-      "next_gate": "Isolated OWN-R4-AUDIO-FOUNDATION is Sol-accepted and ff-only integrated cleanly at e120c30e after decisive independent QA PASS and final Sol build/Music/Frontend/Gameplay suites. Await accepted writer/QA unpin confirmations, then master records staging readiness; broader cross-domain ACC-AUDIO remains deferred.",
-      "updated_at": "2026-08-03T17:52:20Z"
+      "next_gate": "Isolated audio foundation is terminally accepted, writer/QA/domain Sol are completed/unpinned, and exact e120c30 is physically staged. Its separate R4A Integration QA lane is cleared; broader cross-domain ACC-AUDIO remains deferred in parent R4.",
+      "updated_at": "2026-08-03T18:21:12Z"
+    },
+    {
+      "lane_id": "LANE-R4A-INTEGRATION-QA",
+      "title": "Round 4A Audio Foundation Integration QA",
+      "domain": "integration",
+      "round_ids": [
+        "R4A"
+      ],
+      "task_ids": [
+        "R4A-INTEGRATION-QA"
+      ],
+      "readiness": "cleared_for_creation",
+      "dependency_status": "ready",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": null,
+      "base_sha": "e120c30ee882fe07b37496e2742ac83f1d16ff3a",
+      "branch": "codex/r4a-audio-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4a-audio-integration-qa-sol",
+      "ownership_claim_ids": [
+        "OWN-R4A-INTEGRATION-QA"
+      ],
+      "blockers": [],
+      "next_gate": "Create and pin the reserved top-level gpt-5.6-sol/max Integration QA orchestrator at exact clean staged SHA e120c30; frozen product paths are read-only and only the registered QA docs folder is writable.",
+      "updated_at": "2026-08-03T18:21:12Z"
     },
     {
       "lane_id": "LANE-R2-SHOTS-OUTCOMES",

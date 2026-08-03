@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T18:12:32Z",
+  "updated_at": "2026-08-03T18:21:12Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -311,7 +311,7 @@
     {
       "claim_id": "OWN-R4-AUDIO-FOUNDATION",
       "task_id": "R4-AUDIO-FOUNDATION",
-      "round_id": "R4",
+      "round_id": "R4A",
       "session_id": "S-SOL-R4-AUDIO-001",
       "mode": "exclusive",
       "writable_globs": [
@@ -341,10 +341,10 @@
         "docs/finish-tasks/R4-audio-foundation/README.md"
       ],
       "concurrency_group": "R4-audio-foundation",
-      "active": true,
+      "active": false,
       "claimed_at": "2026-08-03T14:50:16Z",
-      "released_at": null,
-      "notes": "Reserved by the master before session creation, then transferred to registered/pinned S-SOL-R4-AUDIO-001. Existing compiled audio engines, semantic audio assets, CLI probe, focused tests, and task docs only; cue call sites, build lists, source-map/import-layout, Win32/device platform code, and gameplay/frontend modules are excluded."
+      "released_at": "2026-08-03T18:21:12Z",
+      "notes": "Released after exact terminal e120c30 acceptance, writer/QA unpins, domain Sol unpin, and clean physical R4A staging. Existing compiled audio engines, semantic audio assets, CLI probe, focused tests, and task docs form the frozen delivery slice; cue call sites, build lists, source-map/import-layout, Win32/device platform code, and gameplay/frontend modules remain excluded."
     },
     {
       "claim_id": "OWN-R2-SHOTS-OUTCOMES",
@@ -433,6 +433,25 @@
       "claimed_at": "2026-08-03T17:57:57Z",
       "released_at": null,
       "notes": "Transferred from the master reservation to pinned Integration QA Sol S-SOL-R3A-INTEGRATION-QA-001 after exact branch/worktree collision and clean-head verification. Product/source paths remain read-only; ignored proof output is allowed."
+    },
+    {
+      "claim_id": "OWN-R4A-INTEGRATION-QA",
+      "task_id": "R4A-INTEGRATION-QA",
+      "round_id": "R4A",
+      "session_id": "S-MASTER-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R4A-audio-integration-qa/**"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R4A-audio-integration-qa/README.md",
+        "docs/finish-tasks/R4A-audio-integration-qa/PROOF.md"
+      ],
+      "concurrency_group": "R4A-integration-qa",
+      "active": true,
+      "claimed_at": "2026-08-03T18:21:12Z",
+      "released_at": null,
+      "notes": "Master reservation before the dedicated R4A Integration QA Sol creation. Frozen product/source paths are read-only; only signed QA docs are tracked writable and ignored proof output is allowed."
     }
   ],
   "shared_boundaries": [
@@ -553,10 +572,17 @@
       "declared_at": "2026-08-03T17:57:57Z"
     },
     {
+      "round_id": "R4A",
+      "ordered_task_ids": [
+        "R4-AUDIO-FOUNDATION",
+        "R4A-INTEGRATION-QA"
+      ],
+      "declared_at": "2026-08-03T18:21:12Z"
+    },
+    {
       "round_id": "R4",
       "ordered_task_ids": [
         "R4-FRONTEND-INTRO-TITLE",
-        "R4-AUDIO-FOUNDATION",
         "R4-MENUS-UI",
         "R4-AUDIO"
       ],
