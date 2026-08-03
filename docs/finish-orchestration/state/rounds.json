@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T12:13:31Z",
+  "updated_at": "2026-08-03T12:42:27Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -35,9 +35,9 @@
       "scope":["Original CPU play-command lifecycle","Roster-bound live foundation","Remaining exact tip-off behavior"],
       "included_task_ids":["R1-CPU-PLAY-LIFECYCLE","R1-LIVE-FOUNDATION","R1-TIP-FIDELITY"],"staging_branch":"codex/round-1-gameplay-foundation-staging","sol_orchestrator_session_ids":["S-SOL-R1-GAMEPLAY-001"],"integration_qa_session_id":null,
       "merge_order":["R1-CPU-PLAY-LIFECYCLE","R1-LIVE-FOUNDATION","R1-TIP-FIDELITY"],
-      "combined_qa":{"required":true,"status":"pending","accepted_sha":null,"report_path":null,"signed_by_session_id":null,"notes":"A dedicated Sol Max integration-QA orchestrator is required after domain staging."},
+      "combined_qa":{"required":true,"status":"pending","accepted_sha":null,"report_path":null,"signed_by_session_id":null,"notes":"CPU is ready for round staging. LIVE is in same-worker luna_revision after Sol rejected render-suite removal and required legacy compatibility plus PRETIP-safe synchronization; TIP remains held. A dedicated Sol Max integration-QA orchestrator is required after all three domain slices are staged."},
       "acceptance":{"status":"pending","accepted_at":null,"accepted_sha":null,"criteria":["Every domain task has Sol sign-off and complete task docs","No writable ownership overlap","Dedicated combined suite and production visual proof pass"]},
-      "main_integration":{"pre_main_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","merge_commits":[],"post_main_sha":null,"remote_main_before_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","push_sha":null,"push_result":"not_attempted","pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T12:13:31Z"
+      "main_integration":{"pre_main_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","merge_commits":[],"post_main_sha":null,"remote_main_before_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","push_sha":null,"push_result":"not_attempted","pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T12:42:27Z"
     },
     {
       "round_id":"R2","title":"Gameplay mechanics, rules, animation, and presentation","status":"planned","base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00",
