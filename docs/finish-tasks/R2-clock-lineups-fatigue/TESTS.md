@@ -149,8 +149,25 @@ Read-only independent QA task
 `1536ae31e7016f6e9adbddb7868e2d40e51c1085`. Its initial verdict was `FAIL`
 due to P2 only, with explicitly no P0/P1. Exact branch/HEAD/base/merge-base,
 four linear Good-signed commits, 18 allowed changed paths, clean/diff-check,
-and proof inventory/hash validation passed. The QA task remains pinned for
-re-audit.
+and proof inventory/hash validation passed. The closure re-audit froze
+`1567f284ff48a2334fb6a9bd82d00aadf0cdb373` and returned `PASS`, with no
+remaining actionable findings and no P0/P1. The public-state mutator and
+TGFT/TGFL destruction/replacement P2 findings are resolved within the
+documented bounded contract; arbitrary invalid-pointer detection remains
+explicitly unclaimed. P3 fixed-slot bridge, physical-frame/render-mode, and
+proof-source/candidate identity findings are resolved.
+
+The re-audit integrity check passed exact branch/HEAD/base/merge-base, clean
+status/diff-check, six linear first-parent commits with no merges, six Good
+signatures for `jaystar524@gmail.com` with fingerprint
+`SHA256:L/fBxE6/8x0E9W2UiVtyTLQ9mfI5AJDzdQYefIsj4fA`, exactly 18 authorized
+changed paths, and six-doc-only delta
+`bf0ea4b40ac3d4cfd79a0391e4fad2acc30082be..1567f284ff48a2334fb6a9bd82d00aadf0cdb373`.
+All 97 manifest artifacts matched paths, sizes, and hashes with no missing or
+extra files. The auditor did not rerun product tests or personally visually
+accept frames; Sol's v2 execution and visual acceptance remain authoritative.
+The QA task remains pinned only until Sol performs and durably captures a
+closure-doc consistency recheck.
 
 ## Remediation verification and acceptance state
 
@@ -164,10 +181,12 @@ The owned remediation verification remains:
 | `.\tools\Run-GameplayFatigueTests.ps1` with exact Rev1 | Exit 0; `TGFT-1 fatigue tests passed.` |
 | `.\tools\Run-GameplayFreeThrowLineupTests.ps1` with exact Rev1 | Exit 0; `TGFL-1 focused tests passed` with 12 selected source mutations. |
 
-The independent re-audit remains pending and the QA task remains pinned. The
-terminal accepted SHA also remains pending. The v2 Sol proof above is bound to
-the remediation HEAD; the forthcoming independent candidate is a docs-only
-descendant and does not alter that artifact binding.
+The independent re-audit passed. The v2 Sol proof above remains bound to the
+product/proof-source HEAD; dynamic substitutions and production active-lineup
+ownership remain `incomplete`, and no exact visual/audio semantics claim is
+added. The final accepted SHA is the Good-signed closure descendant reported
+externally by its git object/handoff rather than a self-referential value in
+this commit.
 
 ## Review corrections represented in the final run
 

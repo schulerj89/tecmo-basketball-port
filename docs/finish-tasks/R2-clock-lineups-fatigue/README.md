@@ -11,10 +11,12 @@ Sol fast-forwarded the original signed worker lineage through
 Good-signed remediation commit
 `bf0ea4b40ac3d4cfd79a0391e4fad2acc30082be` by fast-forward-only integration.
 The v1 and v2 personal QA/proof records are in `PROOF.md` and `TESTS.md`.
-Independent QA froze candidate `1536ae31e7016f6e9adbddb7868e2d40e51c1085`
-with a historical P2 FAIL; its re-audit remains pending. The forthcoming
-independent-re-audit candidate will be a docs-only descendant of the v2
-proof-source HEAD, which does not invalidate artifacts bound to that HEAD.
+Independent QA initially froze candidate
+`1536ae31e7016f6e9adbddb7868e2d40e51c1085` with a historical P2 FAIL, then
+passed the closure candidate `1567f284ff48a2334fb6a9bd82d00aadf0cdb373` with
+no remaining actionable findings and no P0/P1. The auditor did not rerun
+product tests or personally visually accept frames; Sol's v2 execution and
+visual acceptance remain the authoritative records.
 
 The worker lane is complete and remains bounded to the owned modules. The
 production gameplay scene still supplies its own actor slots, active flags,
@@ -42,4 +44,9 @@ Audio is N/A for the owned semantics. The clock tests assert event vectors and
 state transitions; they do not claim period/halftime/final visual semantics.
 The v1 and v2 Sol proofs record bounded shot-clock/violation and free-throw
 orientation renders only; neither claims period, halftime, or final render
-ownership. Terminal acceptance remains pending.
+ownership. Dynamic substitutions and production active-lineup ownership remain
+incomplete, and no exact visual/audio semantics claim is added. The QA task
+remains pinned only until Sol completes the closure-doc consistency recheck
+and durably captures it; the final accepted SHA is the Good-signed closure
+descendant reported externally by its git object/handoff, not a self-referential
+value in this commit.

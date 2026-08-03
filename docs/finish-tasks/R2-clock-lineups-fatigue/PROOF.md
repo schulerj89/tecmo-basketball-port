@@ -44,7 +44,45 @@ changed paths, clean status/diff-check, and proof inventory/hash validation.
 The P2 remediation in signed commit
 `bf0ea4b40ac3d4cfd79a0391e4fad2acc30082be` addresses the public state
 transaction boundaries and TGFT/TGFL corrupt-destructor safety. The
-independent QA task remains pinned for re-audit.
+independent QA task then performed the closure re-audit described below.
+
+### Independent re-audit result
+
+The same independent QA task
+`019fc957-a425-70f3-83b9-1e63dfdba40e` — `Tecmo R2 Clocks Lineups Fatigue
+Independent QA — Luna Max` — re-audited frozen candidate
+`1567f284ff48a2334fb6a9bd82d00aadf0cdb373` with
+`gpt-5.6-luna/max`, projectless/null-Git, created at
+`2026-08-03T20:36:31Z`. Its verdict was `PASS`: no remaining actionable
+findings and no P0/P1.
+
+The historical P2 public-state mutator alias/rollback issue is resolved. The
+historical P2 TGFT/TGFL destruction/replacement issue is resolved within the
+documented bounded contract; portable C still does not claim arbitrary
+invalid-pointer detection. P3 fixed-slot bridge wording, physical-frame and
+render-mode wording, and proof-source/candidate identity are all resolved.
+
+Read-only integrity passed for the exact branch/HEAD/base/merge-base, clean
+status/diff-check, six linear first-parent commits with no merges, and all six
+Good signatures for `jaystar524@gmail.com` with RSA fingerprint
+`SHA256:L/fBxE6/8x0E9W2UiVtyTLQ9mfI5AJDzdQYefIsj4fA`. Exactly 18 authorized
+paths were changed; `bf0ea4b40ac3d4cfd79a0391e4fad2acc30082be` through
+`1567f284ff48a2334fb6a9bd82d00aadf0cdb373` changed six task docs only.
+
+The proof inventory matched all 97 manifest artifacts, including paths, sizes,
+and hashes, with no missing or extra files. The audit confirmed the 81-frame
+contracts, deterministic rerender hashes, distinct free-throw orientations,
+video/ffprobe/decoded-frame contracts, no audio stream, and the draft LIVE
+manifest SHA-256
+`4C522B29A0D82D5313F01D2C4436A46EF87635E4406DAD93527D18DD894A745E`.
+The independent auditor did not rerun product tests and did not personally
+visually accept frames; Sol's v2 execution and visual acceptance remain the
+authoritative records in this document.
+
+The remaining bounded boundary is dynamic substitutions and production
+active-lineup ownership, which remain `incomplete`. No exact visual or audio
+semantics claim is added. The QA task remains pinned only until Sol performs a
+closure-doc consistency recheck and durably captures that result.
 
 ## Sol v1 personal QA and proof-source
 
@@ -193,15 +231,20 @@ or orientation collapse. Audio is N/A. No period, halftime, or final render
 ownership claim is made.
 
 The v2 manifest is bound to product/proof-source HEAD
-`bf0ea4b40ac3d4cfd79a0391e4fad2acc30082be`. The forthcoming independent
-re-audit candidate will be a docs-only descendant of that HEAD; this does not
-constitute an artifact-integrity mismatch or change the v2 proof binding.
+`bf0ea4b40ac3d4cfd79a0391e4fad2acc30082be`. The independent re-audit
+candidate is the docs-only descendant
+`1567f284ff48a2334fb6a9bd82d00aadf0cdb373`; this does not constitute an
+artifact-integrity mismatch or change the v2 proof binding.
 
-## Acceptance still pending
+## Closure state
 
-Independent re-audit of `019fc957-a425-70f3-83b9-1e63dfdba40e` remains
-pending, and the task remains pinned. The terminal accepted SHA also remains
-pending. No independent re-audit PASS or terminal acceptance is inferred here.
+Independent re-audit of
+`019fc957-a425-70f3-83b9-1e63dfdba40e` passed with no remaining actionable
+findings and no P0/P1. The QA task remains pinned only until Sol completes the
+closure-doc consistency recheck and durably captures it. The final accepted
+SHA is the Good-signed closure descendant reported externally by its git
+object/handoff; this document does not make an impossible self-referential
+SHA claim.
 
 Ignored build outputs, raw ROM/decomp/capture material, and proof-only payloads
 remain outside the committed product. The exact visual observations are

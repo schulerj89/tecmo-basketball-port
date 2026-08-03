@@ -4,7 +4,7 @@
 
 | Role | ID | Exact title | Model/creation metadata |
 |---|---|---|---|
-| Authoritative Sol | `019fc8ff-4ec4-7b20-86c6-9c9614f9194c` | `Tecmo R2 Clocks Lineups Fatigue Domain Orchestrator — Sol Max` | gpt-5.6-sol/max; completed v1 and v2 personal terminal QA/proof; independent re-audit and terminal accepted SHA remain pending. |
+| Authoritative Sol | `019fc8ff-4ec4-7b20-86c6-9c9614f9194c` | `Tecmo R2 Clocks Lineups Fatigue Domain Orchestrator — Sol Max` | gpt-5.6-sol/max; completed v1 and v2 personal terminal QA/proof; independent re-audit PASS; QA remains pinned only until Sol completes the closure-doc consistency recheck. |
 | Writable implementation/revision Luna | `019fc912-a957-79f0-89a3-7e2e2d10db24` | `Tecmo R2 Clocks Lineups Fatigue Implementation — Luna Max` | gpt-5.6-luna/max; created_at `2026-08-03T19:21:11.000Z`; pinned=true during work; one successful creation, no fault, retry, or replacement. |
 
 Writable registry details: branch
@@ -35,14 +35,19 @@ No additional task or subagent was created by this writable worker.
 
 ## Independent QA lineage
 
-| Field | Accepted historical value |
+| Field | Accepted historical/closure value |
 |---|---|
 | Task | `019fc957-a425-70f3-83b9-1e63dfdba40e` — `Tecmo R2 Clocks Lineups Fatigue Independent QA — Luna Max` |
 | Model/creation | `gpt-5.6-luna/max`; projectless/null-Git; created_at epoch `1785789391` = `2026-08-03T20:36:31Z` |
-| Frozen candidate | `1536ae31e7016f6e9adbddb7868e2d40e51c1085` |
+| Historical frozen candidate | `1536ae31e7016f6e9adbddb7868e2d40e51c1085` |
 | Initial verdict | `FAIL` due to P2 only; explicitly no P0/P1 |
-| Read-only integrity | Exact branch/HEAD/base/merge-base, four linear Good-signed commits, 18 allowed changed paths, clean/diff-check, and proof inventory/hash validation all passed. |
-| Task state | Read-only QA remains pinned for independent re-audit. |
+| Re-audit candidate/verdict | `1567f284ff48a2334fb6a9bd82d00aadf0cdb373`; `PASS`, no remaining actionable findings, no P0/P1 |
+| Resolved findings | Public-state mutator alias/rollback P2; TGFT/TGFL destruction/replacement P2 within the bounded contract; P3 fixed-slot bridge, physical-frame/render-mode, and proof-source/candidate identity wording. |
+| Integrity | Exact branch/HEAD/base/merge-base; clean status/diff-check; six linear first-parent commits, no merges; all six Good-signed by `jaystar524@gmail.com` with RSA fingerprint `SHA256:L/fBxE6/8x0E9W2UiVtyTLQ9mfI5AJDzdQYefIsj4fA`; exactly 18 authorized changed paths. |
+| Closure delta | `bf0ea4b40ac3d4cfd79a0391e4fad2acc30082be..1567f284ff48a2334fb6a9bd82d00aadf0cdb373` changed six task docs only. |
+| Proof integrity | All 97 manifest artifacts matched paths, sizes, and hashes with no missing or extras; 81-frame, rerender, free-throw orientation, video/ffprobe/decoded-frame, no-audio, and draft LIVE manifest contracts matched the recorded Sol proof. |
+| Auditor limits | The independent auditor did not rerun product tests or personally visually accept frames; Sol's v2 execution and visual acceptance remain authoritative. |
+| Task state | QA remains pinned only until Sol performs a closure-doc consistency recheck and durably captures it. |
 
 The v1 proof manifest SHA-256
 `12DBA6C5D5D0C64C131DA35575CACBAAEA2D257198D57FC7C0B9D2DC11B043E1` is
@@ -51,9 +56,10 @@ The frozen candidate `1536ae31e7016f6e9adbddb7868e2d40e51c1085` is its
 docs-only descendant. The v2 proof manifest SHA-256
 `1FA074FB90D87AF48A3FB78DB50E8B96A78C7F653EC9EFA76BF581B8FC0F51C3` is
 bound to product/proof-source HEAD
-`bf0ea4b40ac3d4cfd79a0391e4fad2acc30082be`. The forthcoming independent
-re-audit candidate is a docs-only descendant of that v2 HEAD, not an
-artifact-integrity mismatch.
+`bf0ea4b40ac3d4cfd79a0391e4fad2acc30082be`; the re-audit candidate is its
+docs-only descendant, not an artifact-integrity mismatch. The final accepted
+SHA is the Good-signed closure descendant reported externally by its git
+object/handoff, not a self-referential value in this record.
 
 ## Implementation revisions
 
@@ -84,8 +90,9 @@ artifact-integrity mismatch.
    vectors, and hardened TGFT/TGFL destructor frees against bounded corrupt
    in-object storage without claiming arbitrary invalid-pointer detection.
 9. Sol personally completed v2 QA/proof at the remediation HEAD; all v2
-   render artifacts matched v1 byte-for-byte, while independent re-audit and
-   terminal acceptance remain pending.
+   render artifacts matched v1 byte-for-byte. The independent re-audit passed
+   with no remaining actionable findings and no P0/P1; QA remains pinned only
+   until Sol completes the closure-doc consistency recheck.
 
 ## Commits
 
@@ -134,10 +141,13 @@ matched byte-for-byte. Audio is N/A and no period/halftime/final render
 ownership is claimed.
 
 The v2 manifest is bound to `bf0ea4b40ac3d4cfd79a0391e4fad2acc30082be`.
-The forthcoming independent re-audit candidate will be a docs-only
-descendant of that HEAD, not an artifact-integrity mismatch. Independent
-re-audit remains pending and pinned; the terminal accepted SHA remains
-pending.
+The independent re-audit passed with no remaining actionable findings and no
+P0/P1. Dynamic substitutions and production active-lineup ownership remain
+`incomplete`; no exact visual/audio semantics claim is added. The QA task
+remains pinned only until Sol completes and durably captures the closure-doc
+consistency recheck. The final accepted SHA is the Good-signed closure
+descendant reported externally by its git object/handoff, not a
+self-referential value in this record.
 
 No merge, rebase, push, or main/staging mutation was performed in this worker
 lane.

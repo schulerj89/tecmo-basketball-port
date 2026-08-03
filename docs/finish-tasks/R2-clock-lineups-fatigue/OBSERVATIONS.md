@@ -56,5 +56,11 @@ observations are bound to proof-source HEAD
 `bf0ea4b40ac3d4cfd79a0391e4fad2acc30082be` re-inspected the same bounded
 observations and all v2 render artifacts matched v1 byte-for-byte. No period,
 halftime, or final render ownership is claimed. The independent QA task's
-historical P2-only FAIL remains pending re-audit, and terminal acceptance
-remains pending.
+historical P2-only FAIL was resolved by the closure re-audit at
+`1567f284ff48a2334fb6a9bd82d00aadf0cdb373`, which passed with no remaining
+actionable findings and no P0/P1. The auditor did not rerun product tests or
+personally visually accept frames; Sol's v2 execution and visual acceptance
+remain authoritative. Dynamic substitutions and production active-lineup
+ownership remain incomplete, and no exact visual/audio semantics claim is
+added. QA remains pinned only until Sol captures the closure-doc consistency
+recheck.
