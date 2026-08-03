@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T17:36:52Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T17:47:36Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -25,7 +25,7 @@ Generated from committed JSON at `2026-08-03T17:36:52Z`. This dashboard reports 
 | LANE-R1-GAMEPLAY-FOUNDATION | gameplay_foundation | active | sequentially_active | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | CPU+LIVE remain clean on Round 1 staging at 222d75cf. TIP read-only trace now proves the dedicated Bank05 slot-10 $A214/$A25F/$A274 ball path and rejects shared actor $8642; worker is tightening telemetry/full case matrix. No rescope or writable TIP lineage until Sol accepts the complete evidence report. |
 | LANE-R3-SEASON-DATA-FOUNDATION | season_data | complete | complete | R3-SEASON-DATA-FOUNDATION | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | Bounded R3 foundation lane is complete: terminal f536a193 is staging-ready; claim released; all Lunas and the Sol orchestrator are completed/unpinned; branches/worktrees remain preserved for master-owned future Round 3 staging. |
 | LANE-R4-FRONTEND-INTRO-TITLE | frontend | active | ready | R4-FRONTEND-INTRO-TITLE | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | Sampled original/native geometry and binary masks are now exact after normalization, but same uncommitted finale worker must correct exact NES palette caps, Bulls BG+sprite slot9 override, and title page1-negative mutation. Then Sol runs full suite/source/docs review and integrates finale second; held proof worker follows. |
-| LANE-R4-AUDIO-FOUNDATION | audio | active | ready | R4-AUDIO-FOUNDATION | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | Revision C is a clean terminal candidate at exact 22199fb: 17 owned paths, build plus Music/Frontend/Gameplay suites, proof identities, seven-document contract, and Sol source/docs review pass. Same pinned detached QA is active at 22199fb for final independent verification; acceptance, ff-only writer-to-Sol integration, and final integrated-tip QA follow only after its verdict. |
+| LANE-R4-AUDIO-FOUNDATION | audio | active | ready | R4-AUDIO-FOUNDATION | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | Revision D is clean at exact e120c30e with only LINEAGE/MERGE/PROOF/TESTS changed; build/all three suites and regenerated proof SHA 932AA1FE62BE3CC144C643A489353D2309434B81B5D8A4C6F1CB2CAE0F1B8FC5 pass. Same pinned detached QA is active at e120 for the decisive docs gate before Sol acceptance/ff-only integration. |
 | LANE-R2-SHOTS-OUTCOMES | gameplay_behavior | active | ready | R2-SHOTS-OUTCOMES | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | One exact projectless read-only Luna Max evidence/native-gap auditor 019fc8a8-186e-7be2-aab3-0aae3da3a2fa is active/pinned with null Git scope. Sol must personally reconcile/accept it, then register one persistent writable lineage; excluded TIP/shared boundaries remain frozen. |
 
 ## Rounds

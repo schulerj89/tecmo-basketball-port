@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T17:36:52Z",
+  "updated_at": "2026-08-03T17:47:36Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -113,8 +113,8 @@
         "OWN-R4-AUDIO-FOUNDATION"
       ],
       "blockers": [],
-      "next_gate": "Revision C is a clean terminal candidate at exact 22199fb: 17 owned paths, build plus Music/Frontend/Gameplay suites, proof identities, seven-document contract, and Sol source/docs review pass. Same pinned detached QA is active at 22199fb for final independent verification; acceptance, ff-only writer-to-Sol integration, and final integrated-tip QA follow only after its verdict.",
-      "updated_at": "2026-08-03T17:36:52Z"
+      "next_gate": "Revision D is clean at exact e120c30e with only LINEAGE/MERGE/PROOF/TESTS changed; build/all three suites and regenerated proof SHA 932AA1FE62BE3CC144C643A489353D2309434B81B5D8A4C6F1CB2CAE0F1B8FC5 pass. Same pinned detached QA is active at e120 for the decisive docs gate before Sol acceptance/ff-only integration.",
+      "updated_at": "2026-08-03T17:47:36Z"
     },
     {
       "lane_id": "LANE-R2-SHOTS-OUTCOMES",
