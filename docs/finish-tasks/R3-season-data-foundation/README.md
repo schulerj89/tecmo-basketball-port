@@ -5,8 +5,9 @@
 This Luna lineage implements the strongest bounded native-C foundation supported
 by the accepted Rev1 evidence. It adds canonical TTDT player identity, a
 caller-owned metric/ranking seam, immutable TSNS schedule/progression queries,
-an explicit native standings policy, transactional TSAV-1 session mutations,
-runtime state coherence checks, and owned CHR boundary hardening.
+an explicit native standings policy, transactional TSAV-1 session mutations
+with proven per-mode record bounds, runtime state coherence checks, and owned
+CHR boundary hardening.
 
 It does not implement downstream gameplay statistics, persistent season
 accumulators, leader-result population, progression UI, team management,
@@ -22,7 +23,7 @@ The evidence basis is the canonical Rev1 ROM, SHA-256
 | Area | Exact evidence | Confidence and boundary |
 | --- | --- | --- |
 | TTDT identity | Bank02 contains 27 real teams x 12 roster slots and 29 selector/profile entries, including West/East. Existing `source_team/source_player` mappings are authoritative for selector resolution. | High for identity/key resolution. The runtime also validates the canonical West/East tables and rejects mutated valid-range mappings. |
-| TSNS schedule | Bank03 `$B52F-$BDD4` contains 1107 two-byte records. Lower six bits are team IDs; proven filtered counts are `1107/567/351/1107`, with per-team appearances `82/42/26/82`. | High for the bounded schedule contract. Reserved-bit, range, self-match, count, and per-team coherence failures are closed. |
+| TSNS schedule | Bank03 `$B52F-$BDD4` contains 1107 two-byte records. Lower six bits are team IDs; proven filtered counts are `1107/567/351/1107`, with per-team appearances `82/42/26/82`. | High for the bounded schedule contract. Reserved-bit, range, self-match, count, per-team coherence, and mode-specific per-team record bounds are closed. |
 | Leader catalog/ranking | Bank00 labels are exactly `FIELD GOALS`, `BLOCKED SHOTS`, `REBOUNDS`, `TOTAL POINTS`, `STEALS`, `3 POINT SHOTS`, `FREE THROWS`. `$B0CC-$B17F` proves 27x12 scanning, 18 unique results, primary descending then secondary, and later-scan replacement for exact equal pairs. `$B430-$B4AF` renders rows. | High for the ranking seam. Accumulator storage/lifecycle, gameplay updates, exact per-byte meanings, and original result-commit behavior remain unproven. |
 
 ## Implemented contracts
@@ -60,7 +61,9 @@ validated pending record only after persistence succeeds.
 `tecmo_season_build_standings_rows` provides renderer-ready rows. The native
 policy is exact winning-ratio comparison by 64-bit cross multiplication (no
 display truncation), then wins, then source division/display order. Games
-behind are stored in half-game units. The original tie policy is not claimed.
+behind are stored in unsigned half-game units; if an arbitrary programmed
+record would produce a negative distance, the exported value floors at zero.
+The original tie policy is not claimed.
 
 ### Transaction and state hardening
 
@@ -69,10 +72,19 @@ commit now persist a candidate TSAV-1 session and install it only on success.
 On failure, live season gameplay fields and pending state remain unchanged;
 the live session retains an I/O diagnostic. Runtime validation occurs before
 frame increment and requires a coherent schedule/session/division contract.
+The native TSAV/runtime contract shares the proven per-team W+L targets
+`82/42/26/82` for regular/reduced/short/programmed modes. Parse, save,
+session validation, result commit, and editor mutation all enforce the active
+mode target. A successful type reset also clears stale completion, result
+history, pending identity, and game-boundary flags.
+
 When a result is pending, its index and away/home teams must resolve to the
-current `TecmoSeasonScheduleRecord`, and the launch gate remains closed until
-the commit succeeds. The existing 13-pixel game-start image is retained while
-the diagnostic state correctly reports `launch-blocked=1`.
+current `TecmoSeasonScheduleRecord`. `game_launch_blocked` is an in-flight,
+pending-result, and relaunch lock—not a block on the initial launch:
+preparation emits one `LAUNCH_GAME` action while the flag is true, no session
+progression occurs until a validated result is persisted, and commit then
+clears the flag. The existing 13-pixel game-start image is retained while the
+diagnostic state correctly reports `launch-blocked=1`.
 
 TSNS CHR availability now revalidates every imported cell/cursor range after
 asset mutation using overflow-safe arithmetic. The owned importer rejects CHR
@@ -89,6 +101,7 @@ range arithmetic overflow and has exact boundary tests.
   All-Star tables are shared by parser and runtime validation; schedule
   pending-record validation is exact; persistence failures roll back; and the
   prepared result remains launch-blocked until commit.
+- Revision commit: `0c2bf410f8d86d3a5bbb3af75d699be86de8a780` (`Harden season targets and reset lifecycle`): mode-specific TSAV/runtime W+L targets, completed-session reset coherence, boundary regressions, and the unsigned games-behind floor contract.
 
 ## Reproducible proof manifest
 
@@ -106,18 +119,20 @@ unit was added.
 .\build\tecmo_port.exe --season-test
   Season management self-test passed.
 
-.\tools\Run-TeamDataTests.ps1 -ProjectRoot . -SkipBuild
+.\tools\Run-TeamDataTests.ps1 -ProjectRoot .
   TEAM DATA TEST PASS ... 15 pixel checkpoints
 
-.\tools\Run-SeasonTests.ps1 -ProjectRoot . -SkipBuild
+.\tools\Run-SeasonTests.ps1 -ProjectRoot .
   SEASON TEST PASS ... 13 pixel checkpoints
 ```
 
 The self-tests additionally prove all four schedule counts and completion
 sentinels, zero-game standings, exact-ratio/wins ordering, odd half-game
-distance, strict TSAV parsing, invalid pending no-mutation, team-control/reset/
-editor/result rollback, and importer CHR boundaries. `git diff --check` was
-clean before the implementation commit.
+distance, zero-floor games-behind behavior, strict TSAV parsing, exact and
+over-limit `82/42/26/82` mode boundaries, completed-session reset recovery,
+invalid pending no-mutation, team-control/reset/editor/result rollback, and
+importer CHR boundaries. `git diff --check` was clean before the revision
+commit.
 
 ## Visual observations
 
@@ -134,7 +149,8 @@ payload was added. The leaders results view continues to show
 - Native standings are an explicit documented policy, not a reconstruction of
   unproven original tie parity.
 - TSAV-1 remains a native port save and is not original SRAM compatibility.
-- Game launch remains a guarded boundary pending a validated native result;
+- Game launch emits once at the prepared boundary while
+  `game_launch_blocked=1` holds the in-flight/pending-result/relaunch lock;
   gameplay, management, progression presentation, and All-Star integration
   remain downstream work.
 - The importer work is limited to owned CHR/range hardening and tests; the
@@ -143,7 +159,10 @@ payload was added. The leaders results view continues to show
 ## Merge instruction
 
 The primary implementation unit is commit
-`75119657dda1db7d97083dafddc4498548ac7ab3`; Sol can cherry-pick that
-commit onto the expected parent/lineage. The documentation follow-up commit is
-reported separately in the final handoff so the exact repository tip can be
-verified without claiming that a commit can contain its own SHA-256 identity.
+`75119657dda1db7d97083dafddc4498548ac7ab3`; the first documentation follow-up
+is `3431112e1ddcc66cf771106818f31bd1b5a5e4e6`; and this revision is
+`0c2bf410f8d86d3a5bbb3af75d699be86de8a780`. Sol can cherry-pick those commits
+in order onto the expected parent/lineage. The current documentation revision
+commit is reported separately in the final handoff so the exact repository tip
+can be verified without claiming that a commit can contain its own SHA-256
+identity.
