@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T17:06:52Z",
+  "updated_at": "2026-08-03T17:10:30Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -175,7 +175,7 @@
     {
       "round_id": "R2",
       "title": "Gameplay mechanics, rules, animation, and presentation",
-      "status": "planned",
+      "status": "in_progress",
       "base_sha": "7090d2c62201ce3d330df20043a6e80fd0bdef00",
       "scope": [
         "Shots and all outcomes",
@@ -192,7 +192,9 @@
         "R2-GAMEPLAY-PRESENTATION"
       ],
       "staging_branch": "codex/round-2-gameplay-mechanics-staging",
-      "sol_orchestrator_session_ids": [],
+      "sol_orchestrator_session_ids": [
+        "S-SOL-R2-SHOTS-001"
+      ],
       "integration_qa_session_id": null,
       "merge_order": [
         "R2-SHOTS-OUTCOMES",
@@ -207,7 +209,7 @@
         "accepted_sha": null,
         "report_path": null,
         "signed_by_session_id": null,
-        "notes": "Shots/outcomes lane is reserved from accepted CPU+LIVE base 222d75cf and cleared for a fourth Sol orchestrator. No Round 2 domain commit is staged yet; combined QA remains pending all declared tasks."
+        "notes": "R2 shots/outcomes Sol 019fc89a-de0d-7b61-9364-3cf96ff8dba8 is created/pinned at exact accepted CPU+LIVE base 222d75cf and awaits its clean takeover gate. No Round 2 commit is staged yet; defense, rules, clock/lineups, presentation, and dedicated full-round integration QA remain pending."
       },
       "acceptance": {
         "status": "pending",
@@ -229,7 +231,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T17:06:52Z"
+      "updated_at": "2026-08-03T17:10:30Z"
     },
     {
       "round_id": "R3",

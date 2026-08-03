@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T17:06:09Z",
+  "updated_at": "2026-08-03T17:10:30Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,8 +10,8 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 3,
-    "cleared_for_creation": 1,
+    "active_domain_orchestrators": 4,
+    "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
     "unallocated_target_slots": 0,
@@ -41,8 +41,8 @@
         "OWN-R1-TIP"
       ],
       "blockers": [],
-      "next_gate": "CPU and LIVE are now physically present on clean Round 1 staging at 222d75cf. TIP is in_progress on the authoritative domain branch; after TIP acceptance it must be staged, then a dedicated Sol Max Round 1 Integration QA orchestrator signs combined suites/proof before master main integration/push.",
-      "updated_at": "2026-08-03T17:06:09Z"
+      "next_gate": "CPU+LIVE remain clean on Round 1 staging at 222d75cf. TIP is in_progress; one exact projectless read-only original claim/automatic/timing Luna 019fc89b-05fb-7193-aef0-e483f9306279 is active/pinned while the Sol reconciles evidence. No writable TIP worker or excluded scene/source-map mutation before research acceptance/rescope.",
+      "updated_at": "2026-08-03T17:10:30Z"
     },
     {
       "lane_id": "LANE-R3-SEASON-DATA-FOUNDATION",
@@ -126,10 +126,10 @@
       "task_ids": [
         "R2-SHOTS-OUTCOMES"
       ],
-      "readiness": "cleared_for_creation",
+      "readiness": "active",
       "dependency_status": "ready",
       "reservation_owner_session_id": "S-MASTER-001",
-      "orchestrator_session_id": null,
+      "orchestrator_session_id": "S-SOL-R2-SHOTS-001",
       "base_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
       "branch": "codex/r2-shots-outcomes-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-shots-outcomes-sol",
@@ -137,8 +137,8 @@
         "OWN-R2-SHOTS-OUTCOMES"
       ],
       "blockers": [],
-      "next_gate": "Create and pin one registered Sol Max orchestrator at exact accepted CPU+LIVE base 222d75cf, transfer the reserved claim, and require Sol-managed Luna evidence/audit/implementation/proof/independent-QA lineages without touching active TIP or other domains.",
-      "updated_at": "2026-08-03T17:06:09Z"
+      "next_gate": "Registered/pinned Sol thread 019fc89a-de0d-7b61-9364-3cf96ff8dba8 must complete governing-file, exact base/worktree/cleanliness, accepted CPU/LIVE docs, and collision gates, then report assigned -> in_progress before any Luna creation or mutation.",
+      "updated_at": "2026-08-03T17:10:30Z"
     }
   ]
 }

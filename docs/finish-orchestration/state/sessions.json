@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T17:08:22Z",
+  "updated_at": "2026-08-03T17:10:30Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -88,7 +88,8 @@
         "019fc63f-dada-7de2-bae3-9e809126ccbe",
         "019fc761-e213-7713-96a1-846a05fed558",
         "019fc765-8d36-7be2-b273-d5e617520061",
-        "019fc78a-69e1-7892-82ed-d14a39d37728"
+        "019fc78a-69e1-7892-82ed-d14a39d37728",
+        "019fc89b-05fb-7193-aef0-e483f9306279"
       ],
       "recovery_lineage": ["S-SOL-R1-GAMEPLAY-DUP-001"],
       "failure": {
@@ -100,8 +101,8 @@
       },
       "created_at": "2026-08-03T05:34:46Z",
       "completed_at": null,
-      "updated_at": "2026-08-03T17:08:22Z",
-      "notes": "Authoritative Round 1 Sol after duplicate-launch recovery. CPU and LIVE are accepted, integrated in the domain branch, and now physically staged on clean Round 1 staging at 222d75cf. Accepted LIVE workers are unpinned and ownership released. R1-TIP-FIDELITY clean takeover is confirmed and the task is in_progress under exclusive OWN-R1-TIP; personal read-only reconciliation precedes Luna creation. Master owns staging/main/push."
+      "updated_at": "2026-08-03T17:10:30Z",
+      "notes": "CPU and LIVE are accepted and physically staged cleanly at 222d75cf. TIP is in_progress under exclusive OWN-R1-TIP. The Sol created/pinned exactly one projectless read-only gpt-5.6-luna/max research task 019fc89b-05fb-7193-aef0-e483f9306279 on first attempt for original claim/automatic/timing evidence while continuing personal reconciliation; no writable TIP worker or tracked mutation exists. Master owns staging/main/push."
     },
     {
       "session_id": "S-SOL-R3-SEASON-DATA-001",
@@ -177,6 +178,31 @@
       "completed_at": null,
       "updated_at": "2026-08-03T17:08:22Z",
       "notes": "Human listening is approved. Writer proof-gate lineage is clean through f9499e43 and TMUS7 correction ad82eb9; Sol personally verified strengthened vector/order/RIFF/event/run2/base-clean assertions, dirty-index rejection, all suites, ownership, and unchanged proof hashes. Same detached pinned QA lineage is active at exact ad82eb9 for revised-tip verification; terminal docs/final QA precede Sol integration. Master owns main."
+    },
+    {
+      "session_id": "S-SOL-R2-SHOTS-001",
+      "thread_id": "019fc89a-de0d-7b61-9364-3cf96ff8dba8",
+      "title": "Tecmo R2 Shots Outcomes Domain Orchestrator — Sol Max",
+      "role": "domain_orchestrator",
+      "model": "gpt-5.6-sol",
+      "thinking": "max",
+      "status": "active",
+      "pin_state": "pinned",
+      "round_ids": ["R2"],
+      "task_ids": ["R2-SHOTS-OUTCOMES"],
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-shots-outcomes-sol",
+      "branch": "codex/r2-shots-outcomes-sol",
+      "base_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
+      "last_good_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
+      "reports_to_session_id": "S-MASTER-001",
+      "parent_session_id": null,
+      "reported_luna_lineage": [],
+      "recovery_lineage": [],
+      "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
+      "created_at": "2026-08-03T17:10:20Z",
+      "completed_at": null,
+      "updated_at": "2026-08-03T17:10:30Z",
+      "notes": "Created once and pinned after reservation checkpoint e82392c and exact clean branch/worktree creation at accepted CPU+LIVE base 222d75cf. It owns only OWN-R2-SHOTS-OUTCOMES, may create only top-level Luna Max workers, must report clean takeover before worker creation, and cannot touch active TIP, staging, main, or excluded boundaries. No creation fault/retry."
     },
     {
       "session_id": "S-SOL-CPU-TIP-LEGACY",
@@ -332,6 +358,9 @@
     }
   ],
   "reported_luna_workers": [
+    {
+      "worker_id":"019fc89b-05fb-7193-aef0-e483f9306279","thread_id":"019fc89b-05fb-7193-aef0-e483f9306279","title":"Tecmo R1 TIP Fidelity — Original Claim, Automatic Path, and Timing Research — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R1-GAMEPLAY-001","round_ids":["R1"],"task_ids":["R1-TIP-FIDELITY"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Created successfully once at 2026-08-03T17:10:30Z as the sole projectless read-only original claim/automatic path/timing research task, referencing immutable domain SHA 222d75cf. It may use private ROM/FCEUX evidence only in its projectless output, has no writable paths or Git allocation, reports only to the R1 Sol, and remains active/pinned. One harmless post-create list_threads truncation warning was corrected by exact-title reaffirmation; zero bad-request/retry or repository mutation.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T17:10:30Z"
+    },
     {
       "worker_id":"019fc86b-1cc0-7f01-9abb-fa3e23598703","thread_id":"019fc86b-1cc0-7f01-9abb-fa3e23598703","title":"Tecmo R4 Audio Foundation — Independent QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R4-AUDIO-001","round_ids":["R4"],"task_ids":["R4-AUDIO-FOUNDATION"],"worktree":"C:/Users/joshs/Projects/tecmo-basketball-port-r4-audio-foundation-qa","branch":null,"base_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","last_good_sha":"ad82eb9ba34316b568b3ca33c80949657a973893","contribution":"Initial QA found no blocking runtime/product defect and requested exact proof-gate hardening. Sol verified the same detached worktree clean at 4ddb1bf3, then at writer commits f9499e43503e69cbbe2f16774d73a4964a34adfc and ad82eb9ba34316b568b3ca33c80949657a973893; it is now active/pinned on exact clean detached ad82eb9 for revised-tip QA of 23-vector order/state/FNV, contiguous RIFF/data coverage, event fields, two-run waveform equality, and base/clean provenance. No creation/session fault or tracked mutation is reported.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T17:08:22Z"
     },

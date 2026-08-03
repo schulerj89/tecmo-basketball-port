@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T17:06:38Z",
+  "updated_at": "2026-08-03T17:10:20Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -350,7 +350,7 @@
       "claim_id": "OWN-R2-SHOTS-OUTCOMES",
       "task_id": "R2-SHOTS-OUTCOMES",
       "round_id": "R2",
-      "session_id": "S-MASTER-001",
+      "session_id": "S-SOL-R2-SHOTS-001",
       "mode": "exclusive",
       "writable_globs": [
         "include/tecmo_gameplay_close_shots.h",
@@ -394,7 +394,7 @@
       "active": true,
       "claimed_at": "2026-08-03T17:06:38Z",
       "released_at": null,
-      "notes": "Master reservation before Sol creation at accepted CPU+LIVE base 222d75cf. Existing shot-family engines, settlement scene module, exact semantic shot packs, focused CLIs/tests, bounded scene contracts, and task docs only. Active R1 TIP/render, CPU/LIVE implementations, defense/contact, rules/restarts, clocks/lineups, audio, CMake/build lists, global source-map/import-layout, game/flow, Win32, main, and unrelated product paths are excluded; any required boundary must be reported for explicit rescope."
+      "notes": "Reserved by the master before creation, then transferred to registered/pinned S-SOL-R2-SHOTS-001 at exact clean base 222d75cf. Existing shot-family engines, settlement scene module, exact semantic shot packs, focused CLIs/tests, bounded scene contracts, and task docs only. Active R1 TIP/render, CPU/LIVE implementations, defense/contact, rules/restarts, clocks/lineups, audio, CMake/build lists, global source-map/import-layout, game/flow, Win32, main, and unrelated product paths are excluded; any required boundary must be reported for explicit rescope."
     }
   ],
   "shared_boundaries": [

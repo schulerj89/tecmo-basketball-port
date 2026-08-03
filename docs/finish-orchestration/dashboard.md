@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T17:05:45Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T17:10:30Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,25 +8,25 @@ Generated from committed JSON at `2026-08-03T17:05:45Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 13, `in_progress` 3, `pushed` 5, `ready_for_round_staging` 3, `scoped` 1
+- Task states: `assigned` 1, `backlog` 13, `in_progress` 3, `pushed` 5, `ready_for_round_staging` 3
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
 
 - Single master authority: `True`
 - Second-master policy: `recovery_replacement_only`
-- Active domain Sols: `3`
-- Cleared for creation: `1`
+- Active domain Sols: `4`
+- Cleared for creation: `0`
 - Target active domain Sols: `4`
 - Monitoring limit: `8`
 
 | Lane | Domain | Readiness | Dependencies | Tasks | Sol | Branch | Next gate |
 |---|---|---|---|---|---|---|---|
-| LANE-R1-GAMEPLAY-FOUNDATION | gameplay_foundation | active | sequentially_active | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | CPU and LIVE are now physically present on clean Round 1 staging at 222d75cf. TIP is in_progress on the authoritative domain branch; after TIP acceptance it must be staged, then a dedicated Sol Max Round 1 Integration QA orchestrator signs combined suites/proof before master main integration/push. |
+| LANE-R1-GAMEPLAY-FOUNDATION | gameplay_foundation | active | sequentially_active | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | CPU+LIVE remain clean on Round 1 staging at 222d75cf. TIP is in_progress; one exact projectless read-only original claim/automatic/timing Luna 019fc89b-05fb-7193-aef0-e483f9306279 is active/pinned while the Sol reconciles evidence. No writable TIP worker or excluded scene/source-map mutation before research acceptance/rescope. |
 | LANE-R3-SEASON-DATA-FOUNDATION | season_data | complete | complete | R3-SEASON-DATA-FOUNDATION | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | Bounded R3 foundation lane is complete: terminal f536a193 is staging-ready; claim released; all Lunas and the Sol orchestrator are completed/unpinned; branches/worktrees remain preserved for master-owned future Round 3 staging. |
 | LANE-R4-FRONTEND-INTRO-TITLE | frontend | active | ready | R4-FRONTEND-INTRO-TITLE | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | Native hardening is integrated at 761e061f. Same finale worker is correcting capture/native +8 scanline mapping, page1 short-route cadence, and three-band title renderer before its first commit; held proof worker revises only after finale integration. |
 | LANE-R4-AUDIO-FOUNDATION | audio | active | ready | R4-AUDIO-FOUNDATION | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | Human listening is approved. Writer proof-gate chain now tops at clean ad82eb9; the same detached QA lineage is actively verifying exact vector/order/RIFF/event/run2/base-clean assertions. Same-writer terminal docs and final QA precede Sol acceptance/integration. |
-| LANE-R2-SHOTS-OUTCOMES | gameplay_behavior | cleared_for_creation | ready | R2-SHOTS-OUTCOMES | reserved by master | codex/r2-shots-outcomes-sol | Create and pin one registered Sol Max orchestrator at exact accepted CPU+LIVE base 222d75cf, transfer the reserved claim, and require Sol-managed Luna evidence/audit/implementation/proof/independent-QA lineages without touching active TIP or other domains. |
+| LANE-R2-SHOTS-OUTCOMES | gameplay_behavior | active | ready | R2-SHOTS-OUTCOMES | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | Registered/pinned Sol thread 019fc89a-de0d-7b61-9364-3cf96ff8dba8 must complete governing-file, exact base/worktree/cleanliness, accepted CPU/LIVE docs, and collision gates, then report assigned -> in_progress before any Luna creation or mutation. |
 
 ## Rounds
 
@@ -35,7 +35,7 @@ Generated from committed JSON at `2026-08-03T17:05:45Z`. This dashboard reports 
 | R0 | pushed | 63b29b04b1ab | 1 | codex/master-finish-orchestration | coordination_only | succeeded |
 | R0A | pushed | 7090d2c62201 | 4 | codex/master-finish-orchestration | coordination_only | succeeded |
 | R1 | in_progress | 6d8f9c7a99a7 | 3 | codex/round-1-gameplay-foundation-staging | pending | not_attempted |
-| R2 | planned | 7090d2c62201 | 5 | codex/round-2-gameplay-mechanics-staging | pending | not_attempted |
+| R2 | in_progress | 7090d2c62201 | 5 | codex/round-2-gameplay-mechanics-staging | pending | not_attempted |
 | R3 | in_progress | 6d8f9c7a99a7 | 5 | codex/round-3-season-data-staging | pending | not_attempted |
 | R4 | planned | 6d8f9c7a99a7 | 4 | codex/round-4-frontend-audio-staging | pending | not_attempted |
 | R5 | planned | 7090d2c62201 | 3 | codex/round-5-release-staging | pending | not_attempted |
@@ -47,7 +47,7 @@ Generated from committed JSON at `2026-08-03T17:05:45Z`. This dashboard reports 
 | 100 | R0-CTRL-001 | orchestration | R0 | pushed | S-MASTER-001 | codex/master-finish-orchestration | 2 | coordination_validated | pushed |
 | 100 | R0A-INV-001 | orchestration | R0A | pushed | S-MASTER-001 | codex/master-finish-orchestration | 2 | coordination_validated | pushed |
 | 100 | R1-CPU-PLAY-LIFECYCLE | gameplay_behavior | R1 | ready_for_round_staging | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | staged |
-| 100 | R2-SHOTS-OUTCOMES | gameplay_behavior | R2 | scoped | - | codex/r2-shots-outcomes-sol | 0 | pending | not_ready |
+| 100 | R2-SHOTS-OUTCOMES | gameplay_behavior | R2 | assigned | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | 0 | pending | not_ready |
 | 100 | R3-PLAYER-STATS-LEADERS | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 100 | R3-SEASON-DATA-FOUNDATION | season_data | R3 | ready_for_round_staging | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | 7 | passed | staged |
 | 100 | R4-FRONTEND-INTRO-TITLE | frontend | R4 | in_progress | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | 0 | in_progress | not_ready |
@@ -78,6 +78,7 @@ Generated from committed JSON at `2026-08-03T17:05:45Z`. This dashboard reports 
 | S-SOL-R1-GAMEPLAY-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | codex/r1-gameplay-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r1-gameplay-foundation-sol | 222d75cfafa9 |
 | S-SOL-R4-FRONTEND-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R4-FRONTEND-INTRO-TITLE | codex/r4-frontend-intro-title-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r4-frontend-intro-title-sol | 761e061fdea1 |
 | S-SOL-R4-AUDIO-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R4-AUDIO-FOUNDATION | codex/r4-audio-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r4-audio-foundation-sol | 6d8f9c7a99a7 |
+| S-SOL-R2-SHOTS-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R2-SHOTS-OUTCOMES | codex/r2-shots-outcomes-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2-shots-outcomes-sol | 222d75cfafa9 |
 
 ## Active Ownership
 
