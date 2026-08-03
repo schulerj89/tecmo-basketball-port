@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T12:06:22Z",
+  "updated_at": "2026-08-03T12:08:09Z",
   "records": [
     {
       "evidence_id": "EVID-R0-BASE",
@@ -238,15 +238,35 @@
       "rom": null,
       "asm": {"bank":"Bank04","address":"$AC76-$AC8B, $ADE0-$ADF3, $AE65-$AE6C, and $AC76-$ADDF","table_or_routine":"team selection, team_id*5 helper, SRAM starter copy, and live actor setup"},
       "original_reference": {"kind":"trace","identity":"Sol-personally verified canonical Rev1 ROM SHA256 076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4 plus byte-span SHA256 fingerprints","timestamp_or_frame":"R1 LIVE preimplementation evidence inventory"},
-      "description": "Bank04 $AC76-$AC8B loads team IDs $0765/$0766 and calls $ADE0 for destination offsets 0/5. $ADE0-$ADF3 calls $AE65 and copies exactly five starter indices from SRAM $6023+team*5 into live slots $7B2E+side*5. $AE65-$AE6C computes team_id*5; $AC76-$ADDF is the exact actor setup/start-table neighborhood.",
+      "description": "Bank04 $AC76-$AC8B loads team IDs $0765/$0766 and calls $ADE0 for destination offsets 0/5. $ADE0-$ADF3 calls $AE65 and copies exactly five starter indices from SRAM $6023+team*5 into live slots $7B2E+side*5. $AE65-$AE6C computes team_id*5; $AC76-$ADDF is the exact actor setup/start-table neighborhood. Direct staged-entry-to-native-actor-slot binding is intentionally classified native-faithful/inferred.",
       "what_it_proves": "The original exactly stages five validated starter indices per team from $6023+team*5 into live roster storage $7B2E-$7B37. Propagating the native management session by value through gameplay launch and binding those staged indices to native actor slots is native-faithful/inferred, not directly proven by the ROM.",
-      "limits": "Direct staged-index-to-native-actor-slot binding is not exact; implementation, production-path regressions, runtime proof, post-tip spacing replacement, and final Sol/QA acceptance remain pending. Bank06 formation evidence source-pins 46 of 48 theoretical rows; unproven rows must remain honest.",
+      "limits": "Direct staged-index-to-native-actor-slot binding, exact first-running-clock RAM snapshot, $7953 semantics, and full dynamic possession/matchup outcomes remain unproven. Implementation, production-path regressions, runtime proof, post-tip spacing replacement, and final Sol/QA acceptance remain pending. Bank06 formation evidence source-pins 46 of 48 theoretical rows; unproven rows must remain honest.",
       "runtime_locations": ["src/tecmo_game.c","src/tecmo_gameplay_scene.c","src/tecmo_gameplay_scene_actors.c"],
       "test_locations": ["src/tecmo_flow_test.c","tools/Run-GameplayMovementTests.ps1","tools/Run-GameplaySceneTests.ps1"],
       "doc_locations": ["docs/finish-tasks/R1-live-foundation"],
       "proof_locations": [],
       "local_private": false,
       "created_at": "2026-08-03T12:02:15Z"
+    },
+    {
+      "evidence_id": "EVID-R1-LIVE-FORMATION-HANDOFF",
+      "task_ids": ["R1-LIVE-FOUNDATION"],
+      "kind": "asm",
+      "title": "Original formation selector and bounded live handoff evidence",
+      "classification": "exact_source_pinned",
+      "confidence": "high",
+      "rom": null,
+      "asm": {"bank":"Bank05 and Bank06","address":"Bank06 $8B90-$8BE0, $8BE1-$9237, $938B-$9620; Bank05 $8F97-$918F","table_or_routine":"live setup consumers, formation selector, and bounded transition/swap scanning"},
+      "original_reference": {"kind":"trace","identity":"Accepted corrected read-only report against canonical Rev1 ROM SHA256 076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4","timestamp_or_frame":"R1 LIVE original-evidence acceptance"},
+      "description": "Corrected FNV-1a values are 9AD2BA91 for Bank06 $8B90-$8BE0 (81 bytes) and 344298FE for $8BE1-$9237 (1623 bytes). The operand is $9E48,X. Bank06 $938B-$9620 source-pins 46 of 48 theoretical formation rows; Bank05 $8F97-$918F provides bounded transition/swap/scanning evidence. Ellipsized fixed-span SHA claims were withdrawn.",
+      "what_it_proves": "The native LIVE task must replace the current initial-spacing approximation with the source-pinned startup/formation subset, preserve $0308/$0309 as actor selectors, and keep unproven dynamic behavior explicitly deferred.",
+      "limits": "Exact first-running-clock RAM state, $7953 semantics, staged-entry-to-native-actor binding, two theoretical formation rows, and full dynamic possession/matchup outcomes remain unproven.",
+      "runtime_locations": ["src/tecmo_gameplay_scene.c","src/tecmo_gameplay_scene_actors.c","src/tecmo_gameplay_state.c","src/tecmo_gameplay_movement.c"],
+      "test_locations": ["tools/Run-GameplayMovementTests.ps1","tools/Run-GameplaySceneTests.ps1"],
+      "doc_locations": ["docs/finish-tasks/R1-live-foundation"],
+      "proof_locations": [],
+      "local_private": false,
+      "created_at": "2026-08-03T12:08:09Z"
     }
   ]
 }
