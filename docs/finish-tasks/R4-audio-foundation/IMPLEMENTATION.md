@@ -1,68 +1,86 @@
-# Implementation contract
+# R4 Audio Foundation implementation contract
 
-## Transaction and routing behavior
+Revision C is a terminal proof/documentation revision on top of the native
+audio implementation. The worktree is
+`C:\Users\joshs\Projects\tecmo-basketball-port-r4-audio-foundation-luna`,
+branch `codex/r4-audio-foundation-luna`, based exactly on
+`6d8f9c7a99a7ce188f1a523247d3a9b9093860fb`. Sol acceptance is pending.
 
-`src/tecmo_audio_output.c` now owns a portable checkpoint seam for the same
-borrowed mutable state used by Win32 waveOut:
+## Owned runtime APIs
 
-- `checkpoint_capture()` snapshots music, valid selected gameplay, and valid
-  selected frontend players, with pointer-alias protection.
-- Initialization snapshots once before the eight-buffer prefill. A prepare or
-  initial write failure restores that complete initial player checkpoint before
-  entering silent fallback.
-- Each service refill snapshots independently. Accepted writes commit; a
-  rejected write restores only that refill. Previously accepted headers remain
-  queued and drainable; shutdown owns reset/unprepare/close.
-- Routing fields are never restored by a player checkpoint. If validation
-  detaches an invalid gameplay/frontend selection, the pointers remain detached
-  after a rejected refill while mutable music/player state rolls back.
-- `gameplay_source_is_valid()` is rechecked at render time, so a path or asset
-  mutation after selection cannot continue rendering through the gameplay path.
+| Area | Owned implementation and contract |
+| --- | --- |
+| Output | `tecmo_audio_output_init`, `tecmo_audio_output_render_samples`, service/refill helpers, backend lifecycle, routing validation, and portable transaction self-tests in `src/tecmo_audio_output.c` / `include/tecmo_audio_output.h`. |
+| Music | `tecmo_music_player_*`, `tecmo_music_queue_track`, `tecmo_music_queue_opening_once`, direct renderer guards, cadence/loop/termination state in `src/tecmo_music.c` / `include/tecmo_music.h`. |
+| Frontend audio | `tecmo_frontend_audio_*`, TFSX-1 parser/player, direct renderer guards, source and same-pack dependency checks in `src/tecmo_frontend_audio.c` / `include/tecmo_frontend_audio.h`. |
+| Gameplay audio | `tecmo_gameplay_audio_*`, TSFX-1/TDMC-1 parser/player, DMC relational/queue checks, direct renderer guards, and source validation in `src/tecmo_gameplay_audio.c` / `include/tecmo_gameplay_audio.h`. |
+| Pack import | `tecmo_asset_pack_build_music`, `tecmo_asset_pack_build_gameplay_audio`, and `tecmo_asset_pack_build_frontend_audio`, with checked public offsets, exact Rev1 postconditions, and the `>=8` PRG-bank compatibility contract. |
+| CLI/proof | Hidden developer-only audio identity/proof commands in `src/tecmo_cli_audio.c`; no shared CLI help or call-site changes. |
 
-`tecmo_audio_output_select_gameplay_player()` and the frontend equivalent
-require canonical asset-pack identity and preserve an existing selection on
-rejection. The hidden `--audio-pack-identity-test` command independently loads
-music from path A and gameplay from path B, uses a device-free initialized
-`TecmoAudioOutput`, and proves canonical aliases accept while distinct
-byte-identical containers reject and preserve the selected route.
+The importer arithmetic validates declared PRG size and bank count before fixed
+bank computation, checks addition/multiplication in public-offset paths, and
+fails without output on malformed, zero-bank, undersized-bank, or UINT64_MAX
+builder inputs. Canonical postconditions are TMUS 36,784 bytes / `05C00ECB` /
+2,251 instructions / 37 voices; TFSX 1,792 / `985DC7ED` / 87 instructions / 3
+voices; TSFX 2,824 / `968A5DE6` / 131 instructions / 14 voices; and TDMC 2,515
+/ `AD70E6E8` with five clips and three pools.
 
-## Direct render and queue contracts
+## Output transactions and player behavior
 
-- `tecmo_music_render_samples()`,
-  `tecmo_gameplay_audio_render_samples()`,
-  `tecmo_frontend_audio_render_samples()`, and the output renderer reject a
-  count greater than `SIZE_MAX / sizeof(int16_t)` before touching the sink or
-  advancing state. The self-tests cover sentinel and `NULL` sinks.
-- `tecmo_music_queue_opening_once()` latches only after a successful queue.
-  The self-test first uses a genuinely missing/null asset, then retries the
-  valid asset.
-- Gameplay event mapping is exhaustive for IDs 3, 5, 6, 11, 12, 13, and 14;
-  unknown events reject. DMC queue/render relational checks use subtraction
-  form for pool/data bounds and preserve the held DAC level across end,
-  retrigger, and stop-all.
+- Initialization snapshots the initial music-player state before the eight
+  prefill renders. A prepare/write failure resets the backend and restores the
+  complete initial state.
+- Each accepted service refill commits its snapshot of every advancing borrowed
+  source: music plus the selected gameplay/frontend source, including the
+  frontend embedded-SFX alias. A rejected refill restores player state while
+  leaving previously accepted refills queued and drainable.
+- Validation can detach invalid borrowed pointers; rollback restores mutable
+  player state, not the routing object or invalid pointers. A test explicitly
+  invalidates a previously selected gameplay source and verifies rollback plus
+  detached routing.
+- The portable private seam covers failed prepare, initial write, and refill
+  equivalents without a real device; successful submission advances and failed
+  submission freezes.
+- Every public direct renderer guards `sample_count` against
+  `SIZE_MAX/sizeof(int16_t)` before touching a destination or advancing state,
+  including NULL-sink tests.
+- `tecmo_music_queue_opening_once` latches only after a successful queue; a
+  genuinely missing/null asset can fail and then retry with the valid asset.
+- Gameplay/music selection requires canonical same-pack identity. The hidden
+  real-pack identity gate accepts a canonical alias and rejects a byte-identical
+  distinct canonical container while preserving selection state.
 
-## Importers
+The native model preserves TMUS IDs 5–8, TFSX 8/10, TSFX 3/5/6/11/12/13/14,
+last-write-wins mailboxes, matching-channel SFX override while music advances,
+future-track-5 game-music gating, clean track 7/8 termination, and DAC/output
+continuity through retrigger/end/clear. It does not claim nonlinear/cycle-exact
+NES APU mixing or DMC reader phase.
 
-`src/asset_pack/tecmo_asset_pack_music.c` uses a minimum declared PRG count of
-7 for Bank06; the gameplay importer uses 6 for Bank05; frontend uses 5 for
-Bank04. Checked add/multiply helpers and declared-PRG bank-range checks run
-before source pointers. Direct source tests reject `UINT64_MAX`, zero-bank,
-and importer-specific undersized-bank layouts. Enforced Rev1 builds assert the
-exact TMUS/TSFX/TDMC/TFSX serialized sizes, FNV fingerprints, instruction
-counts, and voice counts listed in [EVIDENCE.md](EVIDENCE.md).
+## Importer and proof tools
 
-`tecmo_asset_pack_gameplay_audio_source_test()` is deliberately gameplay-only:
-it verifies exact Rev1 layout, runs only the gameplay importer, checks TSFX and
-TDMC postconditions, then checks the full ROM SHA for canonical identity. The
-owned gameplay suite distinguishes gameplay-local revision failures from
-full-ROM-SHA-only failures.
+`--gameplay-audio-source-test ROM` requires the exact Rev1 layout and full SHA,
+then calls only the gameplay-audio importer and validates TSFX/TDMC outputs.
+Gameplay-owned mutations fail through gameplay revision/source validation before
+the final full-ROM SHA path; the Bank06 `$A145` music-owned mutation is kept in
+broad asset-pack coverage because it is intentionally outside that isolated
+gate.
 
-## Proof exporter
+The hidden `--audio-pack-identity-test MUSIC_PACK GAMEPLAY_PACK EXPECTATION`
+command initializes both players and a device-free output object, then tests
+canonical alias acceptance and distinct-container rejection. The hidden
+`--audio-proof PACK OUTPUT_DIR` command emits deterministic private evidence:
+44.1 kHz mono 16-bit little-endian WAV, fixed event/state records, and a
+semantic manifest. `Run-GameplayAudioTests.ps1` runs it twice, requires golden
+full-file identities, exact event header/field order, vector state/order/coverage,
+per-vector WAV-slice FNV-1a32, exact RIFF layout, two-run waveform identity,
+repository provenance, and path-free ASCII/LF manifest output.
 
-`src/tecmo_cli_audio.c` contains the hidden developer-only
-`--audio-proof PACK OUTPUT_DIR` command. It loads validated semantic pack
-entries, initializes players without opening a device, and writes only to the
-explicit output directory. It emits a deterministic 44.1 kHz mono signed
-16-bit little-endian WAV, fixed-format event/state records, and a path-free
-semantic manifest. The gameplay suite runs it twice, compares bytes and
-SHA-256, and creates ignored CSV/SVG waveform evidence.
+Generated pack, WAV, event, waveform, and manifest files remain ignored under
+`build`; no generated evidence is part of the runtime or tracked history.
+
+## Explicit boundaries
+
+No cue call sites, shared source-map/import-layout, CMake/build, Win32/device
+platform, root README, PORTING, or AGENTS file was modified. Cross-domain cue
+routing and full ACC-AUDIO integration are deferred. The implementation is a
+native semantic port with exact-high declared contracts, not an emulator wrapper.
