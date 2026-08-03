@@ -109,6 +109,8 @@ typedef enum TecmoSeasonSaveStatus {
 } TecmoSeasonSaveStatus;
 
 typedef struct TecmoSeasonSession {
+    /* Native TSAV/runtime validation caps wins+losses per team at the
+     * proven mode targets: regular/reduced/short/programmed = 82/42/26/82. */
     uint8_t season_type;
     uint8_t team_control[TECMO_SEASON_TEAM_COUNT];
     uint8_t wins[TECMO_SEASON_TEAM_COUNT];
@@ -141,7 +143,9 @@ typedef struct TecmoSeasonProgress {
 } TecmoSeasonProgress;
 
 /* Native policy: exact winning ratio by cross multiplication (no display
- * truncation), then wins, then the source division/display order.  The
+ * truncation), then wins, then the source division/display order.  Games
+ * behind are exported as unsigned half-game units and floor at zero when an
+ * arbitrary programmed record would otherwise produce a negative value.  The
  * original standings tie policy is not claimed. */
 typedef struct TecmoSeasonStandingsRow {
     uint8_t team_id;
