@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T18:45:20Z",
+  "updated_at": "2026-08-03T18:51:06Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -163,7 +163,7 @@
       "model": "gpt-5.6-sol",
       "thinking": "max",
       "status": "completed",
-      "pin_state": "pinned",
+      "pin_state": "unpinned",
       "round_ids": ["R3A"],
       "task_ids": ["R3A-INTEGRATION-QA"],
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3a-season-data-integration-qa-sol",
@@ -177,8 +177,8 @@
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T18:11:12Z",
       "completed_at": "2026-08-03T18:43:13Z",
-      "updated_at": "2026-08-03T18:45:20Z",
-      "notes": "Terminally accepted exact product candidate f536a193 with P0/P1/P2 zero after personal warning-clean build, asset-pack/season/15-of-15/13-of-13 suites, source/provenance/rollback review, frame/contact proof, and sole independent Luna acceptance. Signed docs-only commit dd096cb and report SHA AD621872... were verified by master; staging/local main were fast-forwarded and origin/main non-force pushed to exact dd096cb. Luna completed/unpinned; Sol remains pinned only until this durable master integration record is committed, then will be unpinned."
+      "updated_at": "2026-08-03T18:51:06Z",
+      "notes": "Terminally accepted exact product candidate f536a193 with P0/P1/P2 zero after personal warning-clean build, asset-pack/season/15-of-15/13-of-13 suites, source/provenance/rollback review, frame/contact proof, and sole independent Luna acceptance. Signed docs-only commit dd096cb and report SHA AD621872... were verified by master; staging/local main were fast-forwarded and origin/main non-force pushed to exact dd096cb. Luna completed/unpinned. After durable master delivery checkpoint 422de5b, the completed Sol was acknowledged and unpinned at 2026-08-03T18:51:06Z; branches/worktrees remain preserved."
     },
     {
       "session_id": "S-SOL-R4A-INTEGRATION-QA-001",

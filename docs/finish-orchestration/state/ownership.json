@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T18:45:20Z",
+  "updated_at": "2026-08-03T18:51:52Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -218,6 +218,7 @@
         "src/tecmo_gameplay_scene.c",
         "tools/New-TipoffVisualProof.ps1",
         "tools/Run-GameplayPreTipTests.ps1",
+        "tools/Run-GameplaySceneTests.ps1",
         "docs/finish-tasks/R1-tip-fidelity/**"
       ],
       "planned_paths": [
@@ -232,7 +233,7 @@
       "active": true,
       "claimed_at": "2026-08-03T05:30:16Z",
       "released_at": null,
-      "notes": "Pretip, rendering, input, proof, and existing TPTI semantic-pack paths are exclusive to TIP. Master granted the exact 2026-08-03T18:29:07Z sequential rescope for src/tecmo_gameplay_scene.c and src/asset_pack/tecmo_asset_pack_source_map.c only after LIVE was accepted, frozen in R1A, and its claim released. No other CPU/LIVE, shots, build, platform, or source-map header/import-layout path is writable."
+      "notes": "Pretip, rendering, input, proof, and existing TPTI semantic-pack paths are exclusive to TIP. Master granted the exact 2026-08-03T18:29:07Z sequential rescope for src/tecmo_gameplay_scene.c and src/asset_pack/tecmo_asset_pack_source_map.c only after LIVE was accepted, frozen in R1A, and its claim released. At 2026-08-03T18:51:52Z master additionally granted only tools/Run-GameplaySceneTests.ps1 so the strict asset-pack table can replace the stale TPTI-1 size/hash/schema row with TPTI-2 and add a named stale-metadata negative; all existing suite logic must remain intact. No other CPU/LIVE, shots, build, platform, or source-map header/import-layout path is writable."
     },
     {
       "claim_id": "OWN-R3-SEASON-DATA-FOUNDATION",
@@ -507,6 +508,18 @@
         "R1-TIP-FIDELITY"
       ],
       "notes": "LIVE source-map changes are accepted and frozen in R1A. Master granted TIP the exact sequential source-map C-file rescope at 2026-08-03T18:29:07Z solely to extend existing TPTI roles/spans/classifications; source-map header, import layout, new asset families, and runtime ROM dependencies remain excluded."
+    },
+    {
+      "boundary_id": "BOUNDARY-R1-LIVE-TO-TIP-SCENE-WRAPPER",
+      "round_id": "R1",
+      "writable_glob": "tools/Run-GameplaySceneTests.ps1",
+      "policy": "sequential",
+      "designated_task_id": "R1-TIP-FIDELITY",
+      "ordered_task_ids": [
+        "R1-LIVE-FOUNDATION",
+        "R1-TIP-FIDELITY"
+      ],
+      "notes": "LIVE wrapper ownership is released and its accepted suite remains frozen. TIP may update only the strict gameplay/pre-tip asset specification from TPTI-1 to the accepted TPTI-2 result and add a named stale-TPTI-1 negative; removal, weakening, or unrelated wrapper changes are prohibited."
     },
     {
       "boundary_id": "BOUNDARY-R2-SHOTS-SCENE-CONTRACT",
