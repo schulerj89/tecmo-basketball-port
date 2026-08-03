@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T15:41:16Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T15:57:39Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -24,7 +24,7 @@ Generated from committed JSON at `2026-08-03T15:41:16Z`. This dashboard reports 
 |---|---|---|---|---|---|---|---|
 | LANE-R1-GAMEPLAY-FOUNDATION | gameplay_foundation | active | sequentially_active | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | Same-Luna LIVE revision for boundary-direction semantics, sustained running-clock coverage, and evidence/docs accuracy; then Sol acceptance, sequential TIP, and Round 1 integration QA. |
 | LANE-R3-SEASON-DATA-FOUNDATION | season_data | active | ready | R3-SEASON-DATA-FOUNDATION | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | Writable Luna 019fc836-d254-78a0-b3a6-c4003278c2a5 implementation commit, then Sol source/diff review, product QA, same-worker revision if needed, independent QA, and domain acceptance. |
-| LANE-R4-FRONTEND-INTRO-TITLE | frontend | active | ready | R4-FRONTEND-INTRO-TITLE | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | Three non-overlapping writable Lunas: 019fc843-9845-74e2-a7b8-f4386bbad5fa finale/title fidelity, 019fc845-74e2-70d3-ad7e-dcee727a66c4 one-file production replay, and 019fc848-b87f-7e32-8954-51097efa933a bounded native contract hardening; then sequential Sol integration, visual/source review, revisions, independent QA, and domain acceptance. |
+| LANE-R4-FRONTEND-INTRO-TITLE | frontend | active | ready | R4-FRONTEND-INTRO-TITLE | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | Finale/title fidelity and native contract-hardening Lunas remain active. Production replay is pinned at Sol review on fee87cfd but must receive a same-worker proof revision after the corrected finale/reset boundary lands; then sequential Sol integration, visual/source review, independent QA, and domain acceptance. |
 | LANE-R4-AUDIO-FOUNDATION | audio | active | ready | R4-AUDIO-FOUNDATION | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | Writable Luna 019fc839-7677-7d93-abff-4aa427e7c6b3 implementation and deterministic audio proof, then Sol review/listening, revisions, independent QA, and domain acceptance. |
 
 ## Rounds
