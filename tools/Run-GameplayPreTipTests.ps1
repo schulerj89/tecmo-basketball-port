@@ -19,7 +19,7 @@ $ExpectedRomSha256 =
     "076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4"
 if ((Get-FileHash -LiteralPath $RomPath -Algorithm SHA256).Hash -ne
     $ExpectedRomSha256) {
-    throw "TPTI-1 tests require the supported Rev1 ROM fingerprint."
+    throw "TPTI-2 tests require the supported Rev1 ROM fingerprint."
 }
 
 $Scratch = Join-Path $ProjectRoot "build\gameplay-pretip-tests"
@@ -69,6 +69,18 @@ function Get-Fnv32 {
     return $Hash.ToString("X8")
 }
 
+Add-Type -AssemblyName System.Numerics
+function Get-Fnv64 {
+    param([byte[]]$Bytes)
+    $Modulus = [System.Numerics.BigInteger]::One -shl 64
+    $Hash = [System.Numerics.BigInteger]::Parse("14695981039346656037")
+    $Prime = [System.Numerics.BigInteger]::Parse("1099511628211")
+    foreach ($Byte in $Bytes) {
+        $Hash = (($Hash -bxor [System.Numerics.BigInteger]$Byte) * $Prime) % $Modulus
+    }
+    return $Hash.ToString("X16")
+}
+
 function Get-EntryBytes {
     param([byte[]]$Bytes, $Entry)
     $Result = New-Object byte[] ([int]$Entry.size)
@@ -92,8 +104,8 @@ function Assert-Rejected {
     param([string]$Pack, [string]$Label)
     $Run = Invoke-Native -Arguments @("--gameplay-pretip-test", $Pack) `
                          -LogName "$Label.log"
-    if ($Run.code -eq 0 -or $Run.text -notmatch "TPTI-1") {
-        throw "Malformed TPTI-1 pack '$Label' was accepted.`n$($Run.tail)"
+    if ($Run.code -eq 0 -or $Run.text -notmatch "TPTI-2") {
+        throw "Malformed TPTI-2 pack '$Label' was accepted.`n$($Run.tail)"
     }
 }
 
@@ -103,21 +115,22 @@ $Pack = Join-Path $Scratch "tecmo.assetpack"
 $BuildPack = Invoke-Native -Arguments @("--build-assetpack", $RomPath, $Pack) `
                            -LogName "pack-build.log"
 if ($BuildPack.code -ne 0) {
-    throw "TPTI-1 pack build failed.`n$($BuildPack.tail)"
+    throw "TPTI-2 pack build failed.`n$($BuildPack.tail)"
 }
 $PackBytes = [IO.File]::ReadAllBytes($Pack)
 $PreTip = Get-Entry $PackBytes "gameplay/pre-tip"
 $SourceMap = Get-Entry $PackBytes "system/source-map"
-if ($PreTip.size -ne 5888) { throw "TPTI-1 directory size changed." }
+if ($PreTip.size -ne 7680) { throw "TPTI-2 directory size changed." }
 $Payload = Get-EntryBytes $PackBytes $PreTip
-if ((Get-Fnv32 $Payload) -ne "99ADFE3D" -or
+if ((Get-Fnv32 $Payload) -ne "28910BC1" -or
+    (Get-Fnv64 $Payload) -ne "7EA1596E8DFAC0C1" -or
     [Text.Encoding]::ASCII.GetString($Payload, 0, 4) -ne "TPTI" -or
-    [BitConverter]::ToUInt16($Payload, 4) -ne 1 -or
-    [BitConverter]::ToUInt16($Payload, 6) -ne 256 -or
-    [BitConverter]::ToUInt32($Payload, 8) -ne 5888 -or
-    [BitConverter]::ToUInt16($Payload, 12) -ne 20 -or
+    [BitConverter]::ToUInt16($Payload, 4) -ne 2 -or
+    [BitConverter]::ToUInt16($Payload, 6) -ne 512 -or
+    [BitConverter]::ToUInt32($Payload, 8) -ne 7680 -or
+    [BitConverter]::ToUInt16($Payload, 12) -ne 29 -or
     [BitConverter]::ToUInt16($Payload, 14) -ne 32 -or
-    [BitConverter]::ToUInt32($Payload, 16) -ne 256 -or
+    [BitConverter]::ToUInt32($Payload, 16) -ne 512 -or
     $Payload[20] -ne 0x15 -or $Payload[21] -ne 0x3B -or
     $Payload[22] -ne 0x7D -or $Payload[23] -ne 8 -or
     $Payload[176] -ne 0x82 -or $Payload[177] -ne 0xC1 -or
@@ -125,20 +138,42 @@ if ((Get-Fnv32 $Payload) -ne "99ADFE3D" -or
     $Payload[185] -ne 38 -or $Payload[186] -ne 4 -or
     $Payload[187] -ne 33 -or $Payload[188] -ne 25 -or
     $Payload[189] -ne 0 -or $Payload[190] -ne 0xC6 -or
-    $Payload[191] -ne 0xFA) {
-    throw "TPTI-1 canonical header changed."
+    $Payload[191] -ne 0xFA -or
+    [BitConverter]::ToUInt16($Payload, 192) -ne 6 -or
+    [BitConverter]::ToUInt16($Payload, 194) -ne 2 -or
+    [BitConverter]::ToUInt32($Payload, 196) -ne 6560 -or
+    [BitConverter]::ToUInt32($Payload, 200) -ne 96 -or
+    [BitConverter]::ToUInt32($Payload, 204) -ne 7008 -or
+    [BitConverter]::ToUInt32($Payload, 220) -ne 2776 -or
+    [BitConverter]::ToUInt32($Payload, 224) -ne
+        [Convert]::ToUInt32("A66EE873", 16) -or
+    [BitConverter]::ToUInt16($Payload, 228) -ne 2 -or
+    [BitConverter]::ToUInt16($Payload, 230) -ne 256 -or
+    [BitConverter]::ToUInt32($Payload, 232) -ne
+        [Convert]::ToUInt32("3572752A", 16) -or
+    [BitConverter]::ToUInt64($Payload, 236) -ne
+        [Convert]::ToUInt64("A52B415F53DA85CA", 16)) {
+    throw "TPTI-2 canonical header changed."
 }
-if (@($Payload[192..255] | Where-Object { $_ -ne 0 }).Count -ne 0) {
-    throw "TPTI-1 reserved header bytes are nonzero."
+if (@($Payload[208..219] | Where-Object { $_ -ne 0 }).Count -ne 0 -or
+    @($Payload[244..511] | Where-Object { $_ -ne 0 }).Count -ne 0) {
+    throw "TPTI-2 reserved header bytes are nonzero."
 }
-for ($Index = 0; $Index -lt 20; ++$Index) {
-    $Record = 256 + $Index * 32
+for ($Index = 0; $Index -lt 29; ++$Index) {
+    $Record = 512 + $Index * 32
     if ([BitConverter]::ToUInt16($Payload, $Record) -ne $Index + 1 -or
         @($Payload[($Record + 28)..($Record + 31)] |
             Where-Object { $_ -ne 0 }).Count -ne 0 -or
-        [BitConverter]::ToUInt64($Payload, $Record + 16) -eq 0) {
-        throw "TPTI-1 source record $Index is malformed."
+        [BitConverter]::ToUInt64($Payload, $Record + 16) -eq 0 -or
+        [BitConverter]::ToUInt32($Payload, $Record + 24) -ge 7680) {
+        throw "TPTI-2 source record $Index is malformed."
     }
+}
+if ([BitConverter]::ToUInt32($Payload, 512 + 20 * 32 + 24) -ne 4502 -or
+    [BitConverter]::ToUInt32($Payload, 512 + 24 * 32 + 24) -ne 5699 -or
+    [BitConverter]::ToUInt32($Payload, 512 + 21 * 32 + 24) -ne 7008 -or
+    @($Payload[6656..7007] | Where-Object { $_ -ne 0 }).Count -ne 0) {
+    throw "TPTI-2 exact-source overlap/padding contract changed."
 }
 $MapText = [Text.Encoding]::UTF8.GetString(
     (Get-EntryBytes $PackBytes $SourceMap))
@@ -153,17 +188,25 @@ $ExpectedRoles = @(
     "tipoff-closeup-palettes","tipoff-closeup-control",
     "tipoff-closeup-timing-and-lineup-tables",
     "fixed-d861-sprite-staging",
-    "center-tip-object-setup",
-    "center-tip-object-update","pregame-launch-bridge","live-handoff",
-    "tipoff-orientation-select"
+    "center-tip-object-setup","later-general-collision-settlement",
+    "pregame-launch-bridge","live-handoff",
+    "tipoff-orientation-e537-e542-ordering",
+    "b04-capture-error-exact-overlap","shared-actor-dispatcher",
+    "automatic-actor-path","opposing-actor-dispatcher",
+    "opposing-selected-actor-path","actor-jump-commit-state-0b",
+    "slot10-claim-commit-state-17","e56e-one-byte-hook-anchor",
+    "cd96-cdab-rng-mix"
 )
 $TipSetupSource = @($Mapped[0].sources | Where-Object {
     $_.role -eq "center-tip-object-setup"
 })
 $TipInputSource = $Mapped[0].native_contract.tip_input_source
 if ($Mapped.Count -ne 1 -or
-    $Mapped[0].schema -ne "tecmo.gameplay-pre-tip/TPTI-1" -or
-    @($Mapped[0].dependencies).Count -ne 5 -or
+    $Mapped[0].schema -ne "tecmo.gameplay-pre-tip/TPTI-2" -or
+    @($Mapped[0].dependencies).Count -ne 6 -or
+    $Mapped[0].payload_size -ne 7680 -or
+    $Mapped[0].payload_fingerprint_fnv1a32 -ne "28910BC1" -or
+    $Mapped[0].payload_fingerprint_fnv1a64 -ne "7EA1596E8DFAC0C1" -or
     (@($Mapped[0].sources.role) -join ",") -ne ($ExpectedRoles -join ",") -or
     @($Mapped[0].sources | Where-Object {
         $_.fingerprint_fnv1a32 -notmatch "^[0-9A-F]{8}$" -or
@@ -192,34 +235,35 @@ if ($Mapped.Count -ne 1 -or
     $TipInputSource.fingerprint_fnv1a32 -ne "423816F1" -or
     $TipInputSource.fingerprint_fnv1a64 -ne "032F8A7A4F4439D1" -or
     -not [bool]$TipInputSource.rom_exact -or
-    $TipInputSource.proves -notmatch "current-level NES B mask" -or
-    $TipInputSource.does_not_prove -notmatch "winner settlement" -or
+    $TipInputSource.proves -notmatch "985E.*986A.*current-B" -or
+    $TipInputSource.proves -match "98E1|030C" -or
+    $TipInputSource.does_not_prove -notmatch "98E1.*030C" -or
     $Mapped[0].native_contract.tip_input -notmatch
         "30 native jump-contest updates" -or
     $Mapped[0].native_contract.tip_input -notmatch "target frame 0" -or
     $Mapped[0].native_contract.winner_query_gate -notmatch
-        "rejects before jump-contest.*caller output" -or
+        "rejects before jump-contest.*resolved.*nondeferred.*nonstalled" -or
     $Mapped[0].native_contract.winner_policy -notmatch
-        "exact original winner.*unported") {
-    throw "TPTI-1 source-map provenance is incomplete or malformed."
+        "selector_00.*team ownership.*incomplete") {
+    throw "TPTI-2 source-map provenance is incomplete or malformed."
 }
 
 $Self = Invoke-Native -Arguments @("--gameplay-pretip-test", $Pack) `
                       -LogName "self-test.log"
 if ($Self.code -ne 0 -or $Self.text -notmatch "self-test passed") {
-    throw "TPTI-1 self-test failed.`n$($Self.tail)"
+    throw "TPTI-2 self-test failed.`n$($Self.tail)"
 }
 $Scene = Invoke-Native -Arguments @("--gameplay-scene-test", $Pack) `
                        -LogName "scene-test.log"
 if ($Scene.code -ne 0 -or $Scene.text -notmatch "SELF TEST PASS") {
-    throw "TPTI-1 scene integration failed.`n$($Scene.tail)"
+    throw "TPTI-2 scene integration failed.`n$($Scene.tail)"
 }
 $Human = Invoke-Native -Arguments @(
     "--gameplay-pretip-human-checkpoint", $Pack
 ) -LogName "human-checkpoint.log"
 if ($Human.code -ne 0 -or
-    $Human.text -notmatch "TPTI-1 human checkpoint PASS frame=721 late-sample=29") {
-    throw "TPTI-1 human-input frame-721 checkpoint failed.`n$($Human.tail)"
+    $Human.text -notmatch "TPTI-2 human checkpoint PASS frame=721 late-sample=29") {
+    throw "TPTI-2 human-input frame-721 checkpoint failed.`n$($Human.tail)"
 }
 
 $env:TECMO_ASSETPACK = $Pack
@@ -237,19 +281,19 @@ $Modes = @(
     [pscustomobject]@{ mode="gameplay-pretip-frame662"; phase="jump-contest"; frame=662; hash="CBDA2DBAC7598E4AB9DCA0910A58193FE777510D7A4AC6A1FFD3539175375615" },
     [pscustomobject]@{ mode="gameplay-pretip-frame670"; phase="jump-contest"; frame=670; hash="736BB0330B3AD6762279392E2ADB22A7CA6026879D67B0DA6105E0238C132B8C" },
     [pscustomobject]@{ mode="gameplay-pretip-frame675"; phase="jump-contest"; frame=675; hash="AABD4E07F26AB3A38A602491F105682F066B0473DA3E79727254698191B3F2A6" },
-    [pscustomobject]@{ mode="gameplay-pretip-frame680"; phase="jump-contest"; frame=680; hash="C323C49D63D9615C84F2F3743C79FFF32A1FE15479848899BC2729A057688CB7" },
-    [pscustomobject]@{ mode="gameplay-pretip-frame690"; phase="jump-contest"; frame=690; hash="EF7A09D5D37B098B346A1CBF53D4F822ADD23B53E0D0283143E39F1CF2399CEE" },
-    [pscustomobject]@{ mode="gameplay-pretip-frame696"; phase="jump-contest"; frame=696; hash="3A7048CF6BB7E8ADD411703D17C9B287EAEE83F436825C7BEAC111EEC84F4F6A" },
+    [pscustomobject]@{ mode="gameplay-pretip-frame680"; phase="jump-contest"; frame=680; hash="A707A2C6D82DD2E2B2BAC3B5ABC7F790A95E13CC5BC825EEDEA330A5A9C1445C" },
+    [pscustomobject]@{ mode="gameplay-pretip-frame690"; phase="jump-contest"; frame=690; hash="5272AFDC75E669C16B537D93D4CA96BCBC7DF283C835EE99D353CF31F5D6E43E" },
+    [pscustomobject]@{ mode="gameplay-pretip-frame696"; phase="jump-contest"; frame=696; hash="4C4861E2992E0A431560B2F7AA0D7EFDDE47B6DEE96E772F931D93401EEDF86C" },
     [pscustomobject]@{ mode="gameplay-pretip-frame712"; phase="jump-contest"; frame=712; hash="27D24A4A710EAAFB907D13753A6AD4D8CA86E3ED65A4FC63DEC9E2DF7018F45D" },
     [pscustomobject]@{ mode="gameplay-pretip-frame720"; phase="jump-contest"; frame=720; hash="7F4CCED39202E6C213C811299D1DB0474DE54D657CDEC7A5A445B4F63E3FC1CC" },
     [pscustomobject]@{ mode="gameplay-pretip-bulls-pacers"; phase="jump-contest"; frame=661; hash="D35724DAD5420A3C09BDA51DEE8D2319CB33F88D103C77E3BD2BB84A053CDED6" },
     [pscustomobject]@{ mode="gameplay-tipoff-proof-frame661"; phase="jump-contest"; frame=661; hash="D35724DAD5420A3C09BDA51DEE8D2319CB33F88D103C77E3BD2BB84A053CDED6" },
     [pscustomobject]@{ mode="gameplay-tipoff-proof-frame668"; phase="jump-contest"; frame=668; hash="54CBFF1AE02235C66933397A0E09ACCD32FE3F68B1D26EEF2F5988156D4F121E" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame676"; phase="jump-contest"; frame=676; hash="F90E2328044DC6F56D705E654CAEAE4CC80D6330D12EB846B14E7931DB703053" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame686"; phase="jump-contest"; frame=686; hash="5915FE0073906193E619B3CC516D25C1B8D18F05FD84C6CFC103A90DCCA68059" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame687"; phase="jump-contest"; frame=687; hash="B2C594027F608B436099F31BDDF2D40D819385B7678C148BC147377D77EE0BCD" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame696"; phase="jump-contest"; frame=696; hash="BA2C0FE1DBE66F5BC60E4222BE860E1AC2A156388F36C20DD707607952188984" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame697"; phase="jump-contest"; frame=697; hash="5B70E59F52D1FE542B30F0D61D2BF2C6604A227DB2897D89B4C3A33334A7F014" },
+    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame676"; phase="jump-contest"; frame=676; hash="32F27C33BF01C9D07A8DAAA748FC05875F7DF3E6D82595E883B5DFE747335ED4" },
+    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame686"; phase="jump-contest"; frame=686; hash="AD2AB7FCB8FBE1637C7EECA3D7C3FA14D1B57A35041778714EA471574E275D2E" },
+    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame687"; phase="jump-contest"; frame=687; hash="33A3F3254F9928DBE81020FDF743E09BB9DC8B3E11B86370276F5C57FA989C2D" },
+    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame696"; phase="jump-contest"; frame=696; hash="50B1264222C7797F2648414E70A13B232558D5BA03EEC378FD51CB1778288031" },
+    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame697"; phase="jump-contest"; frame=697; hash="EAFD4442CDC8C7DB0CEB028BA5A3BA38B7A846AFCC7CC1A1C98DED7994626690" },
     [pscustomobject]@{ mode="gameplay-tipoff-proof-frame712"; phase="jump-contest"; frame=712; hash="EF3DCC397A8D67ACD43DBD31FFC14B5568B544765FA11888759C16A8CC0BE7BE" },
     [pscustomobject]@{ mode="gameplay-tipoff-proof-frame713"; phase="jump-contest"; frame=713; hash="98877067298F8870047AC911BC56EE9676DA6360C87CEF2001FBD8761BF85007" },
     [pscustomobject]@{ mode="gameplay-tipoff-proof-frame720"; phase="jump-contest"; frame=720; hash="05AECDA2CD1CF9E0444CFC030C6F8A2C7E27128FCA53A84E4669B395E72F4607" },
@@ -267,15 +311,15 @@ foreach ($Spec in $Modes) {
         ) -LogName "$($Spec.mode)-$Pass.log"
         if ($Run.code -ne 0 -or !(Test-Path -LiteralPath $Png) -or
             $Run.text -notmatch "frame=$($Spec.frame).*clock=3:00.*pretip=$($Spec.phase)") {
-            throw "TPTI-1 render checkpoint '$($Spec.mode)' failed.`n$($Run.tail)"
+            throw "TPTI-2 render checkpoint '$($Spec.mode)' failed.`n$($Run.tail)"
         }
         $Hashes += (Get-FileHash -LiteralPath $Png -Algorithm SHA256).Hash
     }
     if ($Hashes[0] -ne $Hashes[1]) {
-        throw "TPTI-1 render checkpoint '$($Spec.mode)' is nondeterministic."
+        throw "TPTI-2 render checkpoint '$($Spec.mode)' is nondeterministic."
     }
     if ($Hashes[0] -ne $Spec.hash) {
-        throw "TPTI-1 render checkpoint '$($Spec.mode)' changed: $($Hashes[0])."
+        throw "TPTI-2 render checkpoint '$($Spec.mode)' changed: $($Hashes[0])."
     }
     $RenderedHashes[$Spec.mode] = $Hashes[0]
 }
@@ -287,7 +331,7 @@ $CloseupHashCount = @(
     ) | Select-Object -Unique
 ).Count
 if ($CloseupHashCount -ne 3) {
-    throw "TPTI-1 close-up checkpoints 271/300/330 are not distinct."
+    throw "TPTI-2 close-up checkpoints 271/300/330 are not distinct."
 }
 
 $ReferenceComparisonMessage = ""
@@ -323,14 +367,14 @@ if ($ReferenceRoot) {
             $NativePath = Join-Path $Scratch "$($Pair.native)-0.png"
             if (!(Test-Path -LiteralPath $ReferencePath -PathType Leaf) -or
                 !(Test-Path -LiteralPath $NativePath -PathType Leaf)) {
-                throw "TPTI-1 reference comparison input is missing."
+                throw "TPTI-2 reference comparison input is missing."
             }
             $Reference = [Drawing.Bitmap]::FromFile($ReferencePath)
             $Native = [Drawing.Bitmap]::FromFile($NativePath)
             try {
                 if ($Reference.Width -ne 256 -or $Reference.Height -ne 240 -or
                     $Native.Width -ne 640 -or $Native.Height -ne 480) {
-                    throw "TPTI-1 reference comparison dimensions changed."
+                    throw "TPTI-2 reference comparison dimensions changed."
                 }
                 $Y = $PairIndex * 480
                 $Graphics.DrawImage(
@@ -386,18 +430,54 @@ if ($ReferenceRoot) {
 
 $Cases = @(
     [pscustomobject]@{ label="tip-input-subspan"; mutate={
-        param($Bytes) $Bytes[[int]$PreTip.pack_offset + 5091] =
-            $Bytes[[int]$PreTip.pack_offset + 5091] -bxor 1
+        param($Bytes) $Bytes[[int]$PreTip.pack_offset + 5699] =
+            $Bytes[[int]$PreTip.pack_offset + 5699] -bxor 1
     }},
     [pscustomobject]@{ label="payload-mutation"; mutate={
         param($Bytes) $Bytes[[int]$PreTip.pack_offset + 3040] =
             $Bytes[[int]$PreTip.pack_offset + 3040] -bxor 1
     }},
     [pscustomobject]@{ label="reserved-byte"; mutate={
-        param($Bytes) $Bytes[[int]$PreTip.pack_offset + 192] = 1
+        param($Bytes) $Bytes[[int]$PreTip.pack_offset + 208] = 1
+    }},
+    [pscustomobject]@{ label="wrong-padding"; mutate={
+        param($Bytes) $Bytes[[int]$PreTip.pack_offset + 6688] = 1
+    }},
+    [pscustomobject]@{ label="stale-tpti1-header"; mutate={
+        param($Bytes)
+        [BitConverter]::GetBytes([uint16]1).CopyTo(
+            $Bytes, [int]$PreTip.pack_offset + 4)
+        [BitConverter]::GetBytes([uint16]256).CopyTo(
+            $Bytes, [int]$PreTip.pack_offset + 6)
+        [BitConverter]::GetBytes([uint32]5888).CopyTo(
+            $Bytes, [int]$PreTip.pack_offset + 8)
+    }},
+    [pscustomobject]@{ label="source-alias"; mutate={
+        param($Bytes) [BitConverter]::GetBytes([uint32]4502).CopyTo(
+            $Bytes, [int]$PreTip.pack_offset + 512 + 21 * 32 + 24)
+    }},
+    [pscustomobject]@{ label="source-bounds"; mutate={
+        param($Bytes) [BitConverter]::GetBytes([uint32]7680).CopyTo(
+            $Bytes, [int]$PreTip.pack_offset + 512 + 21 * 32 + 24)
+    }},
+    [pscustomobject]@{ label="mechanics-a2d1-non-hook"; mutate={
+        param($Bytes) [BitConverter]::GetBytes([uint16]0xA2D1).CopyTo(
+            $Bytes, [int]$PreTip.pack_offset + 6560 + 22)
+    }},
+    [pscustomobject]@{ label="false-friend-8642"; mutate={
+        param($Bytes) [BitConverter]::GetBytes([uint16]0x8642).CopyTo(
+            $Bytes, [int]$PreTip.pack_offset + 512 + 21 * 32 + 4)
+    }},
+    [pscustomobject]@{ label="orientation-e537-e542-ordering"; mutate={
+        param($Bytes) [BitConverter]::GetBytes([uint16]0xE56D).CopyTo(
+            $Bytes, [int]$PreTip.pack_offset + 512 + 19 * 32 + 6)
+    }},
+    [pscustomobject]@{ label="recurring-e56e-count"; mutate={
+        param($Bytes) [BitConverter]::GetBytes([uint16]2).CopyTo(
+            $Bytes, [int]$PreTip.pack_offset + 6560 + 30)
     }},
     [pscustomobject]@{ label="oversized-entry"; mutate={
-        param($Bytes) [BitConverter]::GetBytes([uint64]5889).CopyTo(
+        param($Bytes) [BitConverter]::GetBytes([uint64]7681).CopyTo(
             $Bytes, [int]$PreTip.directory_offset + 92)
     }},
     [pscustomobject]@{ label="missing-entry"; mutate={
@@ -422,6 +502,11 @@ $Cases = @(
         $Bytes[[int]$Closeup.pack_offset] =
             $Bytes[[int]$Closeup.pack_offset] -bxor 1
     }},
+    [pscustomobject]@{ label="cross-pack-jump-shots"; mutate={
+        param($Bytes) $JumpShots = Get-Entry $Bytes "gameplay/jump-shots"
+        $Bytes[[int]$JumpShots.pack_offset] =
+            $Bytes[[int]$JumpShots.pack_offset] -bxor 1
+    }},
     [pscustomobject]@{ label="cross-pack-chr"; mutate={
         param($Bytes) $Chr = Get-Entry $Bytes "chr/all"
         $Bytes[[int]$Chr.pack_offset] = $Bytes[[int]$Chr.pack_offset] -bxor 1
@@ -444,13 +529,15 @@ $MutatedPack = Join-Path $Scratch "mutated.assetpack"
 $Mutation = Invoke-Native -Arguments @(
     "--build-assetpack", $MutatedRom, $MutatedPack
 ) -LogName "rom-mutation.log"
-if ($Mutation.code -eq 0 -or $Mutation.text -notmatch "TPTI-1|Rev1") {
-    throw "TPTI-1 Rev1 source mutation was accepted."
+if ($Mutation.code -eq 0 -or $Mutation.text -notmatch "TPTI-2|Rev1") {
+    throw "TPTI-2 Rev1 source mutation was accepted."
 }
 
 $global:LASTEXITCODE = 0
-Write-Output ("TPTI-1 PRE-TIP TEST PASS: canonical/revision/FNV32+64/source-map " +
-    "same-pack TGPL/TTDT/TMUS/TWAR/CHR missing/malformed/oversized/cross-pack " +
+Write-Output ("TPTI-2 PRE-TIP TEST PASS: canonical/revision/FNV32+64/source-map " +
+    "same-pack TGPL/TTDT/TMUS/TWAR/TGJS-2/CHR missing/malformed/oversized/cross-pack " +
+    "stale-TPTI-1 header, 8642-false-friend, A2D1-non-hook, E537-E542-ordering, " +
+    "recurring-E56E-count, overlap/bounds/padding, " +
     "NES-B abort/freeze/track8-to-track5 scene integration and deterministic " +
     "preseason/matchup/visible-1ST-PERIOD/distinct-closeup/toss/jump/live renders" +
     $ReferenceComparisonMessage)

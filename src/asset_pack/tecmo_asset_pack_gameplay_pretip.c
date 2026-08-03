@@ -25,6 +25,48 @@ static const uint8_t pretip_rev1_sha256[32] = {
     0xF2U,0xC2U,0xBDU,0xE1U,0xF9U,0x74U,0x75U,0xC4U
 };
 
+static void build_mechanics_block(uint8_t *block)
+{
+    if (block == NULL) return;
+    memset(block, 0, TECMO_GAMEPLAY_PRETIP_TPM2_SIZE);
+    memcpy(block, "TPM2", 4U);
+    tecmo_asset_pack_store_u16(block + 4U,
+                               TECMO_GAMEPLAY_PRETIP_TPM2_VERSION);
+    tecmo_asset_pack_store_u16(block + 6U,
+                               TECMO_GAMEPLAY_PRETIP_TPM2_SIZE);
+    block[8U] = TECMO_GAMEPLAY_PRETIP_INPUT_MASK;
+    block[9U] = TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_ERROR;
+    block[10U] = TECMO_GAMEPLAY_PRETIP_MAX_SAMPLE_ERROR;
+    block[11U] = TECMO_GAMEPLAY_PRETIP_AUTO_THRESHOLD_BASE;
+    block[12U] = TECMO_GAMEPLAY_PRETIP_AUTO_THRESHOLD_MASK;
+    block[13U] = TECMO_GAMEPLAY_PRETIP_AUTO_THRESHOLD_SHIFT;
+    block[14U] = TECMO_GAMEPLAY_PRETIP_CLAIM_BALL_HIGH_MIN;
+    block[15U] = TECMO_GAMEPLAY_PRETIP_CLAIM_BALL_MINUS_JUMPER_LIMIT;
+    block[16U] = TECMO_GAMEPLAY_PRETIP_ACTOR_JUMP_COMMIT_STATE;
+    block[17U] = TECMO_GAMEPLAY_PRETIP_SLOT10_CLAIM_COMMIT_STATE;
+    tecmo_asset_pack_store_u16(block + 18U, 0x0380U);
+    tecmo_asset_pack_store_u16(block + 20U, 0x037FU);
+    tecmo_asset_pack_store_u16(block + 22U, 0xA2D5U);
+    tecmo_asset_pack_store_u16(block + 24U, 0xCD96U);
+    tecmo_asset_pack_store_u16(block + 26U, 22U);
+    tecmo_asset_pack_store_u16(block + 28U, 0xE56EU);
+    tecmo_asset_pack_store_u16(block + 30U, 1U);
+    block[32U] = TECMO_GAMEPLAY_PRETIP_SOURCE_CAPTURE_ERROR;
+    block[33U] = TECMO_GAMEPLAY_PRETIP_SOURCE_ACTOR_DISPATCHER;
+    block[34U] = TECMO_GAMEPLAY_PRETIP_SOURCE_AUTOMATIC_ACTOR_PATH;
+    block[35U] = TECMO_GAMEPLAY_PRETIP_SOURCE_OPPOSING_DISPATCHER;
+    block[36U] = TECMO_GAMEPLAY_PRETIP_SOURCE_OPPOSING_ACTOR_PATH;
+    block[37U] = TECMO_GAMEPLAY_PRETIP_SOURCE_JUMP_COMMIT;
+    block[38U] = TECMO_GAMEPLAY_PRETIP_SOURCE_SLOT10_CLAIM;
+    block[39U] = TECMO_GAMEPLAY_PRETIP_SOURCE_E56E_HOOK_ANCHOR;
+    block[40U] = TECMO_GAMEPLAY_PRETIP_SOURCE_RNG_MIX;
+    block[41U] = 0x5AU; /* deterministic native bridge $53 seed */
+    block[42U] = 0U;    /* deterministic native bridge $6A seed */
+    block[43U] = 0U;    /* equality remains deferred, never tie-away */
+    block[44U] = TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_0380_SEED;
+    block[45U] = TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_037F_SEED;
+}
+
 const TecmoGameplayPreTipExpectedSource
     tecmo_gameplay_pretip_expected_sources[
         TECMO_GAMEPLAY_PRETIP_SOURCE_COUNT] = {
@@ -76,7 +118,8 @@ const TecmoGameplayPreTipExpectedSource
         {TECMO_GAMEPLAY_PRETIP_SOURCE_TIP_SETUP,5U,0U,0x985BU,52U,
          0xF372E57CU,0x096F86BBD7A42ABCULL,
          TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_SETUP_OFFSET},
-        {TECMO_GAMEPLAY_PRETIP_SOURCE_TIP_UPDATE,5U,0U,0x98E1U,383U,
+        {TECMO_GAMEPLAY_PRETIP_SOURCE_LATER_GENERAL_COLLISION_SETTLEMENT,
+         5U,0U,0x98E1U,383U,
          0x0A2F945AU,0x6CB90FF6825E2A5AULL,
          TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_UPDATE_OFFSET},
         {TECMO_GAMEPLAY_PRETIP_SOURCE_LAUNCH_BRIDGE,7U,1U,0xE4A5U,146U,
@@ -85,12 +128,69 @@ const TecmoGameplayPreTipExpectedSource
         {TECMO_GAMEPLAY_PRETIP_SOURCE_LIVE_HANDOFF,7U,1U,0xEB8DU,121U,
          0x32E920E6U,0x379F98E049CAED86ULL,
          TECMO_ASSET_PACK_GAMEPLAY_PRETIP_HANDOFF_OFFSET},
-        {TECMO_GAMEPLAY_PRETIP_SOURCE_ORIENTATION_SELECT,7U,1U,0xE537U,55U,
-         0x6A825BFEU,0x3BE988E7D163A2FEULL,
-         TECMO_ASSET_PACK_GAMEPLAY_PRETIP_ORIENTATION_OFFSET}
+        {TECMO_GAMEPLAY_PRETIP_SOURCE_ORIENTATION_ORDERING,7U,1U,0xE537U,12U,
+         0x23EB540BU,0xF47061919680B38BULL,
+         TECMO_ASSET_PACK_GAMEPLAY_PRETIP_ORIENTATION_OFFSET},
+        {TECMO_GAMEPLAY_PRETIP_SOURCE_CAPTURE_ERROR,4U,0U,0x86E1U,311U,
+         0xF62D7C02U,0x3940397C1774CFE2ULL,
+         TECMO_ASSET_PACK_GAMEPLAY_PRETIP_CAPTURE_ERROR_OFFSET},
+        {TECMO_GAMEPLAY_PRETIP_SOURCE_ACTOR_DISPATCHER,5U,0U,0x8351U,78U,
+         0x49B11D9AU,0xA90A6C174BE0F15AULL,
+         TECMO_ASSET_PACK_GAMEPLAY_PRETIP_ACTOR_DISPATCHER_OFFSET},
+        {TECMO_GAMEPLAY_PRETIP_SOURCE_AUTOMATIC_ACTOR_PATH,5U,0U,0x839FU,100U,
+         0x39E37AD9U,0x7591953DB1443C99ULL,
+         TECMO_ASSET_PACK_GAMEPLAY_PRETIP_AUTOMATIC_ACTOR_OFFSET},
+        {TECMO_GAMEPLAY_PRETIP_SOURCE_OPPOSING_DISPATCHER,5U,0U,0x9824U,44U,
+         0x40A15F8AU,0x115114FC51CF97EAULL,
+         TECMO_ASSET_PACK_GAMEPLAY_PRETIP_OPPOSING_DISPATCHER_OFFSET},
+        {TECMO_GAMEPLAY_PRETIP_SOURCE_OPPOSING_ACTOR_PATH,5U,0U,0x985EU,49U,
+         0x1A6CF134U,0x3EE3400C4DD54BB4ULL,
+         TECMO_ASSET_PACK_GAMEPLAY_PRETIP_OPPOSING_ACTOR_OFFSET},
+        {TECMO_GAMEPLAY_PRETIP_SOURCE_JUMP_COMMIT,5U,0U,0x9C79U,80U,
+         0x76854C2BU,0x12DAA5698409484BULL,
+         TECMO_ASSET_PACK_GAMEPLAY_PRETIP_JUMP_COMMIT_OFFSET},
+        {TECMO_GAMEPLAY_PRETIP_SOURCE_SLOT10_CLAIM,5U,0U,0xA214U,203U,
+         0xED30348DU,0x0E50CF92E469E26DULL,
+         TECMO_ASSET_PACK_GAMEPLAY_PRETIP_SLOT10_CLAIM_OFFSET},
+        {TECMO_GAMEPLAY_PRETIP_SOURCE_E56E_HOOK_ANCHOR,7U,1U,0xE56EU,1U,
+         0xAC0BD104U,0xAF64244C860266E4ULL,
+         TECMO_ASSET_PACK_GAMEPLAY_PRETIP_E56E_HOOK_OFFSET},
+        {TECMO_GAMEPLAY_PRETIP_SOURCE_RNG_MIX,7U,1U,0xCD96U,22U,
+         0x299318D0U,0xFB37A5940B9FFA10ULL,
+         TECMO_ASSET_PACK_GAMEPLAY_PRETIP_RNG_MIX_OFFSET}
     };
 
 static uint64_t fnv1a64(const uint8_t *bytes, size_t count)
+{
+    uint64_t hash = 14695981039346656037ULL;
+    size_t index;
+    for (index = 0U; index < count; ++index) {
+        hash ^= bytes[index];
+        hash *= 1099511628211ULL;
+    }
+    return hash;
+}
+
+static bool source_span_contains(size_t outer_offset, size_t outer_size,
+                                 size_t inner_offset, size_t inner_size)
+{
+    return inner_offset >= outer_offset &&
+           inner_offset - outer_offset <= outer_size &&
+           inner_size <= outer_size - (inner_offset - outer_offset);
+}
+
+static uint32_t full_payload_fingerprint32(const uint8_t *bytes, size_t count)
+{
+    uint32_t hash = 2166136261U;
+    size_t index;
+    for (index = 0U; index < count; ++index) {
+        hash ^= bytes[index];
+        hash *= 16777619U;
+    }
+    return hash;
+}
+
+static uint64_t full_payload_fingerprint64(const uint8_t *bytes, size_t count)
 {
     uint64_t hash = 14695981039346656037ULL;
     size_t index;
@@ -153,7 +253,7 @@ int tecmo_asset_pack_build_gameplay_pretip(
         memcmp(sha256, pretip_rev1_sha256, sizeof(sha256)) != 0) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TPTI-1 import requires the exact Rev1 ROM fingerprint.");
+            "TPTI-2 import requires the exact Rev1 ROM fingerprint.");
         return -1;
     }
     memset(payload, 0, payload_size);
@@ -179,7 +279,7 @@ int tecmo_asset_pack_build_gameplay_pretip(
                       payload_size)) {
             tecmo_asset_pack_set_messagef(
                 message, message_size,
-                "TPTI-1 Bank%02u $%04X source fingerprint rejected.",
+                "TPTI-2 Bank%02u $%04X source fingerprint rejected.",
                 (unsigned)expected->bank, (unsigned)expected->cpu_start);
             return -1;
         }
@@ -208,7 +308,7 @@ int tecmo_asset_pack_build_gameplay_pretip(
             TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_INPUT_FNV1A64) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TPTI-1 Bank05 $985E-$986A tip-input subspan rejected.");
+            "TPTI-2 Bank05 $985E-$986A exact input subspan rejected.");
         return -1;
     }
     if (memcmp(payload + TECMO_ASSET_PACK_GAMEPLAY_PRETIP_DESCRIPTOR_OFFSET,
@@ -230,9 +330,24 @@ int tecmo_asset_pack_build_gameplay_pretip(
             PRETIP_DECODED_SIZE) != 0xD1B369CF288E21A5ULL) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TPTI-1 screen $15 decode/descriptor contract rejected.");
+            "TPTI-2 screen $15 decode/descriptor contract rejected.");
         return -1;
     }
+
+    if (!source_span_contains(
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_CLOSEUP_ENTRY_OFFSET, 510U,
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_CAPTURE_ERROR_OFFSET, 311U) ||
+        !source_span_contains(
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_SETUP_OFFSET, 52U,
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_OPPOSING_ACTOR_OFFSET, 49U)) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TPTI-2 declared source containment contract rejected.");
+        return -1;
+    }
+
+    build_mechanics_block(
+        payload + TECMO_ASSET_PACK_GAMEPLAY_PRETIP_MECHANICS_OFFSET);
 
     memcpy(payload, "TPTI", 4U);
     tecmo_asset_pack_store_u16(
@@ -290,9 +405,9 @@ int tecmo_asset_pack_build_gameplay_pretip(
             tecmo_asset_pack_store_u16(payload + 156U + index * 2U,
                                        frames[index]);
     }
-    payload[172U] = 0x40U; /* current-level NES B input mask */
-    payload[173U] = 12U;   /* no-input contest error sentinel */
-    payload[174U] = 11U;   /* maximum measured timing error */
+    payload[172U] = TECMO_GAMEPLAY_PRETIP_INPUT_MASK;
+    payload[173U] = TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_ERROR;
+    payload[174U] = TECMO_GAMEPLAY_PRETIP_MAX_SAMPLE_ERROR;
     payload[175U] = TECMO_GAMEPLAY_PRETIP_PHASE_COUNT;
     payload[176U] = 0x82U; /* minimum raw timing seed */
     payload[177U] = 0xC1U; /* maximum raw timing seed */
@@ -309,20 +424,60 @@ int tecmo_asset_pack_build_gameplay_pretip(
     payload[186U] = TECMO_GAMEPLAY_PRETIP_GLYPH_TILE_COUNT;
     payload[187U] = 33U;   /* capture-bounded motion-loop start */
     payload[188U] = 25U;   /* Bank04 $88 motion ceiling */
-    payload[189U] = TECMO_GAMEPLAY_PRETIP_AWAY_WINNER; /* tie policy */
+    payload[189U] = 0U;    /* equality is deferred, never a tie winner */
     payload[190U] = 0xC6U; /* Bank06 card-text background CHR r0 */
     payload[191U] = 0xFAU; /* Bank06 card-text background CHR r1 */
 
-    if (tecmo_asset_pack_fnv1a32(payload, payload_size) !=
-            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_FNV1A32) {
+    tecmo_asset_pack_store_u16(
+        payload + 192U, TECMO_ASSET_PACK_GAMEPLAY_PRETIP_DEPENDENCY_COUNT);
+    tecmo_asset_pack_store_u16(
+        payload + 194U, TECMO_GAMEPLAY_PRETIP_TPM2_VERSION);
+    tecmo_asset_pack_store_u32(
+        payload + TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TPM2_OFFSET_FIELD,
+        TECMO_ASSET_PACK_GAMEPLAY_PRETIP_MECHANICS_OFFSET);
+    tecmo_asset_pack_store_u32(
+        payload + TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TPM2_SIZE_FIELD,
+        TECMO_ASSET_PACK_GAMEPLAY_PRETIP_MECHANICS_SIZE);
+    tecmo_asset_pack_store_u32(
+        payload + TECMO_ASSET_PACK_GAMEPLAY_PRETIP_EXACT_SOURCE_BASE_FIELD,
+        TECMO_ASSET_PACK_GAMEPLAY_PRETIP_EXACT_SOURCE_OFFSET);
+    tecmo_asset_pack_store_u32(
+        payload + TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TGJS_SIZE_OFFSET,
+        TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TGJS_SIZE);
+    tecmo_asset_pack_store_u32(
+        payload + TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TGJS_FNV32_OFFSET,
+        TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TGJS_FNV1A32);
+    tecmo_asset_pack_store_u16(
+        payload + TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TGJS_VERSION_OFFSET,
+        TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TGJS_VERSION);
+    tecmo_asset_pack_store_u16(
+        payload + TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TGJS_HEADER_OFFSET,
+        TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TGJS_HEADER_SIZE);
+    tecmo_asset_pack_store_u32(
+        payload + 232U,
+        tecmo_asset_pack_fnv1a32(
+            payload + TECMO_ASSET_PACK_GAMEPLAY_PRETIP_MECHANICS_OFFSET,
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_MECHANICS_SIZE));
+    store_u64(
+        payload + 236U,
+        fnv1a64(
+            payload + TECMO_ASSET_PACK_GAMEPLAY_PRETIP_MECHANICS_OFFSET,
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_MECHANICS_SIZE));
+
+    if (full_payload_fingerprint32(payload, payload_size) !=
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_FNV1A32 ||
+        full_payload_fingerprint64(payload, payload_size) !=
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_FNV1A64) {
         tecmo_asset_pack_set_messagef(
             message, message_size,
-            "TPTI-1 canonical payload fingerprint mismatch (got %08X).",
-            tecmo_asset_pack_fnv1a32(payload, payload_size));
+            "TPTI-2 ordinary full-payload fingerprint mismatch "
+            "(got %08X/%016llX).",
+            full_payload_fingerprint32(payload, payload_size),
+            (unsigned long long)full_payload_fingerprint64(payload, payload_size));
         return -1;
     }
     tecmo_asset_pack_set_message(
         message, message_size,
-        "Built strict ROM-derived TPTI-1 pre-tip asset.");
+        "Built strict ROM-derived TPTI-2 pre-tip asset.");
     return 0;
 }
