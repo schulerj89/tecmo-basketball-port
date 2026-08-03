@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T18:21:12Z",
+  "updated_at": "2026-08-03T18:29:07Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -394,7 +394,7 @@
     {
       "round_id": "R4A",
       "title": "Incremental isolated audio-foundation delivery",
-      "status": "staging",
+      "status": "combined_qa",
       "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "scope": [
         "Accepted native music, frontend-audio, gameplay-audio, and output-engine foundation",
@@ -409,18 +409,18 @@
       "sol_orchestrator_session_ids": [
         "S-SOL-R4-AUDIO-001"
       ],
-      "integration_qa_session_id": null,
+      "integration_qa_session_id": "S-SOL-R4A-INTEGRATION-QA-001",
       "merge_order": [
         "R4-AUDIO-FOUNDATION",
         "R4A-INTEGRATION-QA"
       ],
       "combined_qa": {
         "required": true,
-        "status": "pending",
+        "status": "in_progress",
         "accepted_sha": null,
         "report_path": null,
         "signed_by_session_id": null,
-        "notes": "Accepted audio foundation is clean and physically staged at e120c30. Create a dedicated Sol Max Integration QA orchestrator; push only after its exact signed docs-only tip and honest deferred cross-domain boundary review."
+        "notes": "Accepted audio foundation is clean and physically staged at e120c30. Dedicated Sol Max Integration QA is active with one projectless Luna Max independent auditor; push only after the exact signed docs-only tip and honest deferred cross-domain boundary review."
       },
       "acceptance": {
         "status": "pending",
@@ -442,7 +442,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T18:21:12Z",
-      "updated_at": "2026-08-03T18:21:12Z"
+      "updated_at": "2026-08-03T18:29:07Z"
     },
     {
       "round_id": "R4",
