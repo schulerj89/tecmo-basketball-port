@@ -56,7 +56,7 @@ Generated from committed JSON at `2026-08-03T11:21:55Z`. This dashboard reports 
 | Session | Role | Model/thinking | Status | Pin | Tasks | Branch | Worktree | Last good |
 |---|---|---|---|---|---|---|---|---|
 | S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 5a3fea5c00dc |
-| S-SOL-R1-GAMEPLAY-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | codex/r1-gameplay-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r1-gameplay-foundation-sol | 6d8f9c7a99a7 |
+| S-SOL-R1-GAMEPLAY-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | codex/r1-gameplay-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r1-gameplay-foundation-sol | ad0f00567369 |
 
 ## Active Ownership
 
