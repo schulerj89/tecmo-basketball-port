@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T21:21:44Z",
+  "updated_at": "2026-08-03T21:31:46Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -1249,10 +1249,11 @@
           "2026-08-03T20:33:56Z Sol personally reviewed the current 14-owned-file patch and returned further terminal rim-settlement, pose/state rollback, per-case output rollback, production 2x2x8/contact-matrix, and transactional-audio revisions. The same Luna has applied selected-pose persistence/use and audio fail-closed changes and is deepening validation/tests. Interim focused TGCS/TGSR runners and a freshly compiled canonical-pack scene self-test pass; excluded source_map.c and scene.c remain untouched. No commit or QA Luna.",
           "2026-08-03T20:45:53Z Sol found that candidate validation recomputed launch deltas from the mutable current shooter position, conflicting with captured launch geometry and no-claimant fixtures. Same Luna is revising it plus missing bound-production jump 2x2x8/close profile-direction matrices, deeper exact make/miss timelines, and diagnostics. Master reaffirmed that source-map option A and scene.c deferral are exclusions, not rescope grants; both files must remain untouched. No commit or QA Luna.",
           "2026-08-03T20:51:15Z same Luna corrected production selectors to immutable captured actor launch geometry plus TGOR hoop Y while retaining shot-target Y for evaluator vertical distance. Sol found remaining R2DIAG and one one-point fixture still using mutable position and returned them with exhaustive matrix/timeline work. Sol also regenerated ignored original shoot-once proof at build/r2-original-proof/20260803-155020 against canonical ROM/FCEUX: pilot pass, $942D make, $BA02 score apply, 0-0 to 3-0, FM2, 379-frame trace, and numbered full-res screenshots. Excluded shared files remain zero-diff; no commit or QA Luna.",
-          "2026-08-03T21:02:40Z Sol reproduced the complementary deterministic original miss at build/r2-original-proof/20260803-155720: canonical ROM/FCEUX, pilot pass, $91BC->$933B->$9434 miss polarity, no $BA02, $B87C settlement, score 0-0, 32-frame full-res contact sheet and H.264 video with continuous release/arc/rim-tail/claimant transition. Worker full build/scene gate is green, but acceptance remains gated on exhaustive bound selector matrices and deep exact-route validation."
+          "2026-08-03T21:02:40Z Sol reproduced the complementary deterministic original miss at build/r2-original-proof/20260803-155720: canonical ROM/FCEUX, pilot pass, $91BC->$933B->$9434 miss polarity, no $BA02, $B87C settlement, score 0-0, 32-frame full-res contact sheet and H.264 video with continuous release/arc/rim-tail/claimant transition. Worker full build/scene gate is green, but acceptance remains gated on exhaustive bound selector matrices and deep exact-route validation.",
+          "2026-08-03T21:31:46Z direction-case-5 failure was isolated to a fixture actor coordinate that was rectangle-valid but outside the perspective court boundary; the owned fixture was corrected. Sol still withheld commit approval and returned the same Luna to bind every launch-frame byte in the stable sample, derive close/jump kind from immutable captured geometry plus stable bit, require exact Q8 launch/endpoints, add validator-backed exact make/miss timelines with rollback corruptions, complete the bound close 2x8x3 matrix, and rebuild the one-point settlement fixture from coherent derived state. Both excluded shared files remain untouched."
         ],
         "proof_manifests": [],
-        "notes": "R2 Shots/Outcomes remains in active same-Luna revision from accepted CPU+LIVE base 222d75cf. Production validation now uses captured launch geometry/TGOR hoop Y, but diagnostic probes and one fixture still need the same correction alongside exhaustive matrices/timelines/rollback before commit. Active TIP-owned source-map and scene.c remain zero-diff and excluded. Fresh ignored deterministic original make and miss proofs are healthy but nonterminal; no independent QA is accepted yet."
+        "notes": "R2 Shots/Outcomes remains pre-commit in the same Luna lineage. The direction-5 failure was fixture-only, but Sol found deeper immutable-launch/stable-sample, derived-kind, exact-Q8, validator-timeline, rollback, exhaustive close 2x8x3, and coherent one-point settlement requirements. Active TIP-owned source-map and scene.c remain zero-diff/excluded. Original make/miss proofs are healthy but nonterminal; no independent QA yet."
       },
       "merge": {
         "staging_branch": "codex/round-2-gameplay-mechanics-staging",
@@ -1265,7 +1266,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T21:02:40Z",
+      "updated_at": "2026-08-03T21:31:46Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",

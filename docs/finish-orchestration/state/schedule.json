@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T21:21:44Z",
+  "updated_at": "2026-08-03T21:31:46Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -231,8 +231,8 @@
         "OWN-R2-SHOTS-OUTCOMES"
       ],
       "blockers": [],
-      "next_gate": "Same persistent Luna must persist the TGJS-selected family/profile/direction pose instead of hardcoded 213, close compatibility/rim-tail/orientation fixtures, retain exact exclusions, then deliver a stable owned-only commit for Sol proof and independent terminal QA.",
-      "updated_at": "2026-08-03T20:17:37Z"
+      "next_gate": "Same persistent Luna must close immutable stable-sample/derived-kind/exact-Q8 validation, exact make/miss rollback timelines, exhaustive bound close 2x8x3 coverage, and coherent point-1 settlement before any commit; excluded shared files remain untouched.",
+      "updated_at": "2026-08-03T21:31:46Z"
     },
     {
       "lane_id": "LANE-R2-CLOCK-LINEUPS-FATIGUE",
