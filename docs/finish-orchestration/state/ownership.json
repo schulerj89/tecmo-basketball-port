@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T15:32:25Z",
+  "updated_at": "2026-08-03T16:55:12Z",
   "claims": [
     {
       "claim_id":"OWN-R0-CTRL","task_id":"R0-CTRL-001","round_id":"R0","session_id":"S-MASTER-001","mode":"exclusive",
@@ -48,8 +48,8 @@
       "claim_id":"OWN-R1-LIVE","task_id":"R1-LIVE-FOUNDATION","round_id":"R1","session_id":"S-SOL-R1-GAMEPLAY-001","mode":"exclusive",
       "writable_globs":["CMakeLists.txt","include/tecmo_gameplay_scene.h","include/tecmo_gameplay_scene_internal.h","include/tecmo_gameplay_state.h","include/tecmo_gameplay_movement.h","include/tecmo_gameplay_live_*.h","src/tecmo_gameplay_scene.c","src/tecmo_gameplay_scene_actors.c","src/tecmo_gameplay_scene_validation.c","src/tecmo_gameplay_scene_test_internal.h","src/tecmo_gameplay_scene_test_orchestrator.c","src/tecmo_gameplay_scene_test_state_flow.c","src/tecmo_gameplay_state.c","src/tecmo_gameplay_movement.c","src/tecmo_gameplay_live_*.c","src/tecmo_cli_gameplay_core.c","src/asset_pack/tecmo_asset_pack_gameplay_movement.c","src/asset_pack/tecmo_asset_pack_gameplay_movement.h","src/asset_pack/tecmo_asset_pack_source_map.c","src/asset_pack/tecmo_asset_pack_source_map.h","src/asset_pack/tecmo_asset_pack_import_layout.h","tools/Run-GameplayMovementTests.ps1","tools/Run-GameplaySceneTests.ps1","docs/finish-tasks/R1-live-foundation/**","src/tecmo_game.c","src/tecmo_flow_test.c","build.ps1"],
       "planned_paths":["src/tecmo_gameplay_scene.c","src/tecmo_gameplay_scene_actors.c","src/tecmo_gameplay_state.c","docs/finish-tasks/R1-live-foundation/README.md","src/tecmo_game.c","src/tecmo_flow_test.c","build.ps1"],
-      "concurrency_group":"R1-gameplay-foundation","active":true,"claimed_at":"2026-08-03T05:30:16Z","released_at":null,
-      "notes":"Sequential LIVE claim at exact parent ad0f005. Rescope granted 2026-08-03T12:02:15Z for exactly src/tecmo_game.c starter propagation, src/tecmo_flow_test.c production-path regressions, and build.ps1 LIVE translation-unit inclusion. No shots/TIP/CPU/Win32/render/gameplay-lab/control path is added."
+      "concurrency_group":"R1-gameplay-foundation","active":false,"claimed_at":"2026-08-03T05:30:16Z","released_at":"2026-08-03T16:55:12Z",
+      "notes":"Accepted LIVE chain is preserved at domain tip 222d75cfafa9153db1eb44492bf557f11b1a9091 and staging-ready. Claim released only after Sol/QA acceptance, ff-only domain integration, durable master checkpoint cf3b3a2, accepted Luna unpins, and clean-tree reconfirmation. Sequential TIP claim remains active and disjoint."
     },
     {
       "claim_id":"OWN-R1-TIP","task_id":"R1-TIP-FIDELITY","round_id":"R1","session_id":"S-SOL-R1-GAMEPLAY-001","mode":"exclusive",
@@ -62,8 +62,8 @@
       "claim_id":"OWN-R3-SEASON-DATA-FOUNDATION","task_id":"R3-SEASON-DATA-FOUNDATION","round_id":"R3","session_id":"S-SOL-R3-SEASON-DATA-001","mode":"exclusive",
       "writable_globs":["include/tecmo_team_data.h","src/tecmo_team_data.c","include/tecmo_season_menu.h","src/tecmo_season_menu.c","src/asset_pack/tecmo_asset_pack_team_data.c","src/asset_pack/tecmo_asset_pack_team_data.h","src/asset_pack/tecmo_asset_pack_season.c","src/asset_pack/tecmo_asset_pack_season.h","tools/Run-TeamDataTests.ps1","tools/Run-SeasonTests.ps1","docs/finish-tasks/R3-season-data-foundation/**"],
       "planned_paths":["include/tecmo_team_data.h","src/tecmo_team_data.c","include/tecmo_season_menu.h","src/tecmo_season_menu.c","docs/finish-tasks/R3-season-data-foundation/README.md"],
-      "concurrency_group":"R3-season-data-foundation","active":true,"claimed_at":"2026-08-03T14:50:16Z","released_at":null,
-      "notes":"Reserved by the master before session creation, then transferred to registered/pinned S-SOL-R3-SEASON-DATA-001. Existing compiled team-data and season-menu modules only; active LIVE team-management/launch files, build lists, source-map/import-layout, All-Star, and cross-domain product call sites are excluded."
+      "concurrency_group":"R3-season-data-foundation","active":false,"claimed_at":"2026-08-03T14:50:16Z","released_at":"2026-08-03T16:53:56Z",
+      "notes":"Exact accepted seven-commit slice is preserved at domain tip f536a19398803742e1a3dc5bb33d8a6ee2968a24 and ready for later round staging. Claim released only after Sol/QA acceptance, ff-only domain integration, all Luna unpins, durable master record cf3b3a2, and bounded Sol completion/unpin."
     },
     {
       "claim_id":"OWN-R4-FRONTEND-INTRO-TITLE","task_id":"R4-FRONTEND-INTRO-TITLE","round_id":"R4","session_id":"S-SOL-R4-FRONTEND-001","mode":"exclusive",

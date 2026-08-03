@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T16:51:17Z",
+  "updated_at": "2026-08-03T16:55:12Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,12 +10,12 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 4,
+    "active_domain_orchestrators": 3,
     "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
-    "unallocated_target_slots": 0,
-    "unallocated_monitoring_slots": 4
+    "unallocated_target_slots": 1,
+    "unallocated_monitoring_slots": 5
   },
   "lanes": [
     {
@@ -31,10 +31,10 @@
       "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "branch": "codex/r1-gameplay-foundation-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1-gameplay-foundation-sol",
-      "ownership_claim_ids": ["OWN-R1-LIVE", "OWN-R1-TIP"],
+      "ownership_claim_ids": ["OWN-R1-TIP"],
       "blockers": [],
-      "next_gate": "LIVE terminal 222d75cf is Sol/QA accepted and ff-only integrated with P0/P1/P2=0. Unpin the accepted implementation and QA Lunas, advance LIVE to staging-ready, then activate TIP sequentially from exact domain HEAD 222d75cf.",
-      "updated_at": "2026-08-03T16:51:17Z"
+      "next_gate": "CPU and LIVE are staging-ready and their claims/workers released. TIP is sequentially assigned from exact domain base 222d75cf; authoritative Sol must confirm clean takeover before TIP mutation/Luna creation, then proceed through evidence, implementation, proof, independent QA, and Round 1 staging.",
+      "updated_at": "2026-08-03T16:55:12Z"
     },
     {
       "lane_id": "LANE-R3-SEASON-DATA-FOUNDATION",
@@ -42,8 +42,8 @@
       "domain": "season_data",
       "round_ids": ["R3"],
       "task_ids": ["R3-SEASON-DATA-FOUNDATION"],
-      "readiness": "active",
-      "dependency_status": "ready",
+      "readiness": "complete",
+      "dependency_status": "complete",
       "reservation_owner_session_id": "S-MASTER-001",
       "orchestrator_session_id": "S-SOL-R3-SEASON-DATA-001",
       "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
@@ -51,8 +51,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3-season-data-foundation-sol",
       "ownership_claim_ids": ["OWN-R3-SEASON-DATA-FOUNDATION"],
       "blockers": [],
-      "next_gate": "R3 foundation terminal f536a193 is accepted, ff-only integrated, staging-ready, and all reported Lunas are unpinned. Commit this durable record, then complete/unpin the bounded R3 Sol orchestrator while preserving branches/worktrees for later round staging.",
-      "updated_at": "2026-08-03T16:51:17Z"
+      "next_gate": "Bounded R3 foundation lane is complete: terminal f536a193 is staging-ready; claim released; all Lunas and the Sol orchestrator are completed/unpinned; branches/worktrees remain preserved for master-owned future Round 3 staging.",
+      "updated_at": "2026-08-03T16:55:12Z"
     },
     {
       "lane_id": "LANE-R4-FRONTEND-INTRO-TITLE",
