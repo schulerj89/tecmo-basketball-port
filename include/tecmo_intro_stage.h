@@ -32,6 +32,20 @@ typedef enum TecmoIntroArenaPhase {
     TECMO_INTRO_ARENA_PHASE_WRAP
 } TecmoIntroArenaPhase;
 
+/*
+ * Bank04 $88E7 waits #$96 before the first $892C tick. Each subsequent
+ * $892C iteration is sampled two frames later; the $C4th tick reaches
+ * $8983 at frame 540. The public constants make that frame convention
+ * available to every native-facing self-test without a second timeline.
+ */
+#define TECMO_INTRO_ARENA_WAIT_FRAMES 0x96U
+#define TECMO_INTRO_ARENA_SCROLL_WRAP_TICK 0xC4U
+#define TECMO_INTRO_ARENA_FRAME_STEP 2U
+#define TECMO_INTRO_ARENA_HANDOFF_FRAME \
+    (TECMO_INTRO_ARENA_WAIT_FRAMES + \
+     ((TECMO_INTRO_ARENA_SCROLL_WRAP_TICK - 1U) * \
+      TECMO_INTRO_ARENA_FRAME_STEP))
+
 #define TECMO_INTRO_ARENA_EMIT_PASS_COUNT 2U
 
 typedef struct TecmoIntroArenaEmitPassState {

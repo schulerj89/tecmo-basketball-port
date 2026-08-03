@@ -125,6 +125,80 @@ function Test-PixelRectHasNonBlack {
     return $false
 }
 
+function Get-NativeRowNonBlackBounds {
+    param(
+        [System.Drawing.Bitmap]$Bitmap,
+        [int]$NativeY
+    )
+
+    $Left = 256
+    $Right = -1
+    for ($NativeX = 0; $NativeX -lt 256; ++$NativeX) {
+        $Pixel = $Bitmap.GetPixel(64 + $NativeX * 2, $NativeY * 2)
+        if ($Pixel.R -ne 0 -or $Pixel.G -ne 0 -or $Pixel.B -ne 0) {
+            if ($NativeX -lt $Left) { $Left = $NativeX }
+            if ($NativeX -gt $Right) { $Right = $NativeX }
+        }
+    }
+    if ($Right -lt 0) { return "none" }
+    return "$Left,$Right"
+}
+
+function Get-NativeColorBounds {
+    param(
+        [System.Drawing.Bitmap]$Bitmap,
+        [int]$NativeLeft,
+        [int]$NativeTop,
+        [int]$NativeRight,
+        [int]$NativeBottom,
+        [int]$Red,
+        [int]$Green,
+        [int]$Blue
+    )
+
+    $Left = 256
+    $Top = 240
+    $Right = -1
+    $Bottom = -1
+    for ($NativeY = $NativeTop; $NativeY -le $NativeBottom; ++$NativeY) {
+        for ($NativeX = $NativeLeft; $NativeX -le $NativeRight; ++$NativeX) {
+            $Pixel = $Bitmap.GetPixel(64 + $NativeX * 2, $NativeY * 2)
+            if ($Pixel.R -eq $Red -and $Pixel.G -eq $Green -and $Pixel.B -eq $Blue) {
+                if ($NativeX -lt $Left) { $Left = $NativeX }
+                if ($NativeY -lt $Top) { $Top = $NativeY }
+                if ($NativeX -gt $Right) { $Right = $NativeX }
+                if ($NativeY -gt $Bottom) { $Bottom = $NativeY }
+            }
+        }
+    }
+    if ($Right -lt 0) { return "none" }
+    return "$Left,$Right,$Top,$Bottom"
+}
+
+function Get-NativeColorCount {
+    param(
+        [System.Drawing.Bitmap]$Bitmap,
+        [int]$NativeLeft,
+        [int]$NativeTop,
+        [int]$NativeRight,
+        [int]$NativeBottom,
+        [int]$Red,
+        [int]$Green,
+        [int]$Blue
+    )
+
+    $Count = 0
+    for ($NativeY = $NativeTop; $NativeY -le $NativeBottom; ++$NativeY) {
+        for ($NativeX = $NativeLeft; $NativeX -le $NativeRight; ++$NativeX) {
+            $Pixel = $Bitmap.GetPixel(64 + $NativeX * 2, $NativeY * 2)
+            if ($Pixel.R -eq $Red -and $Pixel.G -eq $Green -and $Pixel.B -eq $Blue) {
+                ++$Count
+            }
+        }
+    }
+    return $Count
+}
+
 function Compare-NativeViewportMask {
     param(
         [System.Drawing.Bitmap]$HostBitmap,
@@ -379,40 +453,67 @@ $PostArenaRenderCases = @(
     [pscustomobject]@{ mode = "intro-pass-clean-frame52"; state = "intro-pass-state frame=52 phase=handoff palette=4 x=200 scroll=200 first=18 second=25 sprites=0 black=1 handoff=1 next_route=851C"; visual = "black" }
 )
 $FinaleRenderCases = @(
-    [pscustomobject]@{ mode = "intro-finale-opening-clean-frame0"; state = "intro-finale-state frame=0 scene=opening-screen phase=load local=0 palette=0 variant=0 loop=0 anchor=0,0 title=0 primary=0:0 secondary=0:0 sprites=0 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-opening-clean-frame50"; state = "intro-finale-state frame=50 scene=opening-screen phase=dispatch-wait local=50 palette=0 variant=0 loop=0 anchor=0,0 title=0 primary=0:0 secondary=0:0 sprites=0 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-short-clean-frame0"; state = "intro-finale-state frame=51 scene=short-sprite-loop phase=load local=0 palette=0 variant=0 loop=0 anchor=0,0 title=0 primary=0:0 secondary=0:0 sprites=0 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-short-clean-frame1"; state = "intro-finale-state frame=52 scene=short-sprite-loop phase=short-loop local=1 palette=0 variant=0 loop=0 anchor=142,70 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-short-clean-frame16"; state = "intro-finale-state frame=67 scene=short-sprite-loop phase=short-loop local=16 palette=0 variant=0 loop=7 anchor=142,240 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-short-clean-frame17"; state = "intro-finale-state frame=68 scene=short-sprite-loop phase=dispatch-wait local=17 palette=0 variant=0 loop=7 anchor=142,240 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-short-clean-frame46"; state = "intro-finale-state frame=97 scene=short-sprite-loop phase=dispatch-wait local=46 palette=0 variant=0 loop=7 anchor=142,240 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame0"; state = "intro-finale-state frame=98 scene=selector-transition phase=load local=0 palette=0 variant=1 loop=0 anchor=0,84 title=0 primary=0:0 secondary=0:0 sprites=0 black=1 hold=0"; visual = "black" },
-    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame10"; state = "intro-finale-state frame=108 scene=selector-transition phase=first-move local=10 palette=0 variant=1 loop=0 anchor=96,84 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame26"; state = "intro-finale-state frame=124 scene=selector-transition phase=hold local=26 palette=3 variant=1 loop=0 anchor=232,84 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame27"; state = "intro-finale-state frame=125 scene=selector-transition phase=second-move local=27 palette=4 variant=1 loop=0 anchor=208,84 title=0 primary=0:248 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame51"; state = "intro-finale-state frame=149 scene=selector-transition phase=second-move local=51 palette=4 variant=1 loop=0 anchor=16,84 title=0 primary=0:56 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-staged-clean-frame0"; state = "intro-finale-state frame=150 scene=staged-group phase=load local=0 palette=0 variant=0 loop=0 anchor=48,44 title=0 primary=0:0 secondary=0:0 sprites=0 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-staged-clean-frame1"; state = "intro-finale-state frame=151 scene=staged-group phase=staged-wait local=1 palette=0 variant=0 loop=0 anchor=48,44 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-staged-clean-frame81"; state = "intro-finale-state frame=231 scene=staged-group phase=dispatch-wait local=81 palette=0 variant=0 loop=0 anchor=48,44 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-staged-clean-frame155"; state = "intro-finale-state frame=305 scene=staged-group phase=dispatch-wait local=155 palette=0 variant=0 loop=0 anchor=48,44 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-title-clean-frame0"; state = "intro-finale-state frame=306 scene=title phase=load local=0 palette=0 variant=0 loop=0 anchor=0,0 title=0 primary=0:0 secondary=0:0 sprites=0 black=0 hold=0"; visual = "black" },
-    [pscustomobject]@{ mode = "intro-finale-title-clean-frame128"; state = "intro-finale-state frame=434 scene=title phase=title-preroll local=128 palette=0 variant=0 loop=0 anchor=0,0 title=0 primary=0:0 secondary=0:254 sprites=0 black=0 hold=0"; visual = "black" },
-    [pscustomobject]@{ mode = "intro-finale-title-clean-frame129"; state = "intro-finale-state frame=435 scene=title phase=title-write local=129 palette=0 variant=0 loop=0 anchor=0,0 title=1 primary=0:2 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-title-clean-frame192"; state = "intro-finale-state frame=498 scene=title phase=title-write local=192 palette=0 variant=0 loop=0 anchor=0,0 title=8 primary=0:128 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene"; hash = "D6589D1C0A83422C2423A9022438FDD2E4721E0937DC317D00DF944033DD51E3" },
-    [pscustomobject]@{ mode = "intro-finale-title-clean-frame288"; state = "intro-finale-state frame=594 scene=title phase=title-write local=288 palette=0 variant=0 loop=0 anchor=0,0 title=20 primary=1:64 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene"; hash = "251A685C63183C543C1B28EA295E0BAFE9BE72F06A971BA76EF35016E7EC5BE5" },
-    [pscustomobject]@{ mode = "intro-finale-title-clean-frame384"; state = "intro-finale-state frame=690 scene=title phase=title-write local=384 palette=0 variant=0 loop=0 anchor=0,0 title=32 primary=0:0 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene"; hash = "F89B63194E5B0565A333587AFD607457B3469B89D7F0251DF517F5779BB6FD60" },
-    [pscustomobject]@{ mode = "intro-finale-title-clean-frame448"; state = "intro-finale-state frame=754 scene=title phase=title-write local=448 palette=0 variant=0 loop=0 anchor=0,0 title=40 primary=0:128 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene"; hash = "B959E7DE6DBCE99BC41D755C770DFC801FE14792E21508FCAE9414B1CFA3554B" },
-    [pscustomobject]@{ mode = "intro-finale-title-clean-frame473"; state = "intro-finale-state frame=779 scene=title phase=title-write local=473 palette=0 variant=0 loop=0 anchor=0,0 title=44 primary=0:178 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-title-clean-frame474"; state = "intro-finale-state frame=780 scene=title phase=title-tail local=474 palette=0 variant=0 loop=0 anchor=0,0 title=44 primary=0:178 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-title-clean-frame602"; state = "intro-finale-state frame=908 scene=title phase=dispatch-wait local=602 palette=0 variant=0 loop=0 anchor=0,0 title=44 primary=0:178 secondary=0:0 sprites=0 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-hold-clean-frame0"; state = "intro-finale-state frame=909 scene=terminator-hold phase=terminator-hold local=0 palette=0 variant=0 loop=0 anchor=0,0 title=44 primary=0:178 secondary=0:0 sprites=0 black=0 hold=1"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-hold-clean-frame1024"; state = "intro-finale-state frame=1933 scene=terminator-hold phase=terminator-hold local=1024 palette=0 variant=0 loop=0 anchor=0,0 title=44 primary=0:178 secondary=0:0 sprites=0 black=0 hold=1"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-opening-frame1"; state = "intro-finale-state frame=1 scene=opening-screen phase=dispatch-wait local=1 palette=0 variant=0 loop=0 anchor=0,0 title=0 primary=0:0 secondary=0:0 sprites=0 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-short-frame1"; state = "intro-finale-state frame=52 scene=short-sprite-loop phase=short-loop local=1 palette=0 variant=0 loop=0 anchor=142,70 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-reverse-frame27"; state = "intro-finale-state frame=125 scene=selector-transition phase=second-move local=27 palette=4 variant=1 loop=0 anchor=208,84 title=0 primary=0:248 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-staged-frame1"; state = "intro-finale-state frame=151 scene=staged-group phase=staged-wait local=1 palette=0 variant=0 loop=0 anchor=48,44 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-title-frame473"; state = "intro-finale-state frame=779 scene=title phase=title-write local=473 palette=0 variant=0 loop=0 anchor=0,0 title=44 primary=0:178 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene" },
-    [pscustomobject]@{ mode = "intro-finale-hold-frame0"; state = "intro-finale-state frame=909 scene=terminator-hold phase=terminator-hold local=0 palette=0 variant=0 loop=0 anchor=0,0 title=44 primary=0:178 secondary=0:0 sprites=0 black=0 hold=1"; visual = "scene" }
+    [pscustomobject]@{ mode = "intro-finale-opening-clean-frame0"; state = "intro-finale-state frame=0 scene=opening-screen phase=load local=0 palette=0 variant=0 loop=0 anchor=0,0 title=0 primary=0:0 secondary=0:0 sprites=0 black=1 hold=0"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-finale-opening-clean-frame6"; state = "intro-finale-state frame=6 scene=opening-screen phase=black local=6 palette=0 variant=0 loop=0 anchor=0,0 title=0 primary=0:0 secondary=0:0 sprites=0 black=1 hold=0"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-finale-opening-clean-frame7"; state = "intro-finale-state frame=7 scene=opening-screen phase=dispatch-wait local=7 palette=0 variant=0 loop=0 anchor=0,0 title=0 primary=0:0 secondary=0:0 sprites=0 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-opening-clean-frame82"; state = "intro-finale-state frame=82 scene=opening-screen phase=dispatch-wait local=82 palette=0 variant=0 loop=0 anchor=0,0 title=0 primary=0:0 secondary=0:0 sprites=0 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-opening-clean-frame83"; state = "intro-finale-state frame=83 scene=opening-screen phase=dispatch-wait local=83 palette=0 variant=0 loop=0 anchor=0,0 title=0 primary=0:0 secondary=0:0 sprites=0 black=1 hold=0"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame0"; state = "intro-finale-state frame=84 scene=short-sprite-loop phase=load local=0 palette=0 variant=0 loop=0 anchor=0,0 title=0 primary=1:0 secondary=0:0 sprites=0 black=1 hold=0"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame5"; state = "intro-finale-state frame=89 scene=short-sprite-loop phase=black local=5 palette=0 variant=0 loop=0 anchor=0,0 title=0 primary=1:0 secondary=0:0 sprites=0 black=1 hold=0"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame6"; state = "intro-finale-state frame=90 scene=short-sprite-loop phase=short-loop local=6 palette=0 variant=0 loop=0 anchor=142,70 title=0 primary=1:0 secondary=0:0 sprites=0 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame7"; state = "intro-finale-state frame=91 scene=short-sprite-loop phase=short-loop local=7 palette=0 variant=0 loop=0 anchor=142,70 title=0 primary=1:0 secondary=0:0 sprites=0 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame13"; state = "intro-finale-state frame=97 scene=short-sprite-loop phase=short-loop local=13 palette=0 variant=0 loop=0 anchor=142,70 title=0 primary=1:0 secondary=0:0 sprites=0 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame14"; state = "intro-finale-state frame=98 scene=short-sprite-loop phase=short-loop local=14 palette=0 variant=0 loop=0 anchor=142,70 title=0 primary=1:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame15"; state = "intro-finale-state frame=99 scene=short-sprite-loop phase=short-loop local=15 palette=0 variant=0 loop=0 anchor=142,70 title=0 primary=1:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame17"; state = "intro-finale-state frame=101 scene=short-sprite-loop phase=short-loop local=17 palette=0 variant=0 loop=1 anchor=142,70 title=0 primary=1:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame18"; state = "intro-finale-state frame=102 scene=short-sprite-loop phase=short-loop local=18 palette=0 variant=0 loop=2 anchor=142,128 title=0 primary=1:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame21"; state = "intro-finale-state frame=105 scene=short-sprite-loop phase=short-loop local=21 palette=0 variant=0 loop=3 anchor=142,128 title=0 primary=1:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame22"; state = "intro-finale-state frame=106 scene=short-sprite-loop phase=short-loop local=22 palette=0 variant=0 loop=4 anchor=142,190 title=0 primary=1:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame25"; state = "intro-finale-state frame=109 scene=short-sprite-loop phase=short-loop local=25 palette=0 variant=0 loop=5 anchor=142,190 title=0 primary=1:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame26"; state = "intro-finale-state frame=110 scene=short-sprite-loop phase=short-loop local=26 palette=0 variant=0 loop=6 anchor=142,240 title=0 primary=1:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame27"; state = "intro-finale-state frame=111 scene=short-sprite-loop phase=short-loop local=27 palette=0 variant=0 loop=6 anchor=142,240 title=0 primary=1:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame28"; state = "intro-finale-state frame=112 scene=short-sprite-loop phase=dispatch-wait local=28 palette=0 variant=0 loop=7 anchor=142,240 title=0 primary=1:0 secondary=0:0 sprites=0 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame29"; state = "intro-finale-state frame=113 scene=short-sprite-loop phase=dispatch-wait local=29 palette=0 variant=0 loop=7 anchor=142,240 title=0 primary=1:0 secondary=0:0 sprites=0 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame30"; state = "intro-finale-state frame=114 scene=short-sprite-loop phase=dispatch-wait local=30 palette=0 variant=0 loop=7 anchor=142,240 title=0 primary=1:0 secondary=0:0 sprites=0 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame57"; state = "intro-finale-state frame=141 scene=short-sprite-loop phase=dispatch-wait local=57 palette=0 variant=0 loop=7 anchor=142,240 title=0 primary=1:0 secondary=0:0 sprites=0 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-short-clean-frame58"; state = "intro-finale-state frame=142 scene=short-sprite-loop phase=dispatch-wait local=58 palette=0 variant=0 loop=7 anchor=142,240 title=0 primary=1:0 secondary=0:0 sprites=0 black=1 hold=0"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame0"; state = "intro-finale-state frame=143 scene=selector-transition phase=load local=0 palette=0 variant=1 loop=0 anchor=0,84 title=0 primary=0:0 secondary=0:0 sprites=0 black=1 hold=0"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame7"; state = "intro-finale-state frame=150 scene=selector-transition phase=first-move local=7 palette=0 variant=1 loop=0 anchor=112,84 title=0 primary=0:0 secondary=0:0 sprites=0 black=1 hold=0"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame8"; state = "intro-finale-state frame=151 scene=selector-transition phase=first-move local=8 palette=0 variant=1 loop=0 anchor=104,84 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame11"; state = "intro-finale-state frame=154 scene=selector-transition phase=first-move local=11 palette=0 variant=1 loop=0 anchor=80,84 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame12"; state = "intro-finale-state frame=155 scene=selector-transition phase=first-move local=12 palette=1 variant=1 loop=0 anchor=72,84 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame15"; state = "intro-finale-state frame=158 scene=selector-transition phase=first-move local=15 palette=1 variant=1 loop=0 anchor=48,84 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame16"; state = "intro-finale-state frame=159 scene=selector-transition phase=first-move local=16 palette=2 variant=1 loop=0 anchor=40,84 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame19"; state = "intro-finale-state frame=162 scene=selector-transition phase=first-move local=19 palette=2 variant=1 loop=0 anchor=16,84 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame20"; state = "intro-finale-state frame=163 scene=selector-transition phase=first-move local=20 palette=3 variant=1 loop=0 anchor=8,84 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame23"; state = "intro-finale-state frame=166 scene=selector-transition phase=first-move local=23 palette=3 variant=1 loop=0 anchor=240,84 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame24"; state = "intro-finale-state frame=167 scene=selector-transition phase=black local=24 palette=3 variant=1 loop=0 anchor=232,84 title=0 primary=0:0 secondary=0:0 sprites=0 black=1 hold=0"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame25"; state = "intro-finale-state frame=168 scene=selector-transition phase=hold local=25 palette=4 variant=1 loop=0 anchor=232,84 title=0 primary=1:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame26"; state = "intro-finale-state frame=169 scene=selector-transition phase=second-move local=26 palette=4 variant=1 loop=0 anchor=208,84 title=0 primary=1:248 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame27"; state = "intro-finale-state frame=170 scene=selector-transition phase=second-move local=27 palette=4 variant=1 loop=0 anchor=200,84 title=0 primary=1:240 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame49"; state = "intro-finale-state frame=192 scene=selector-transition phase=second-move local=49 palette=4 variant=1 loop=0 anchor=24,84 title=0 primary=1:64 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame50"; state = "intro-finale-state frame=193 scene=selector-transition phase=second-move local=50 palette=4 variant=1 loop=0 anchor=16,84 title=0 primary=1:56 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-reverse-clean-frame51"; state = "intro-finale-state frame=194 scene=selector-transition phase=second-move local=51 palette=4 variant=1 loop=0 anchor=8,84 title=0 primary=1:48 secondary=0:0 sprites=0 black=1 hold=0"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-finale-staged-clean-frame0"; state = "intro-finale-state frame=195 scene=staged-group phase=load local=0 palette=0 variant=0 loop=0 anchor=48,44 title=0 primary=0:0 secondary=0:0 sprites=0 black=1 hold=0"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-finale-staged-clean-frame6"; state = "intro-finale-state frame=201 scene=staged-group phase=black local=6 palette=0 variant=0 loop=0 anchor=48,44 title=0 primary=0:0 secondary=0:0 sprites=0 black=1 hold=0"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-finale-staged-clean-frame7"; state = "intro-finale-state frame=202 scene=staged-group phase=staged-wait local=7 palette=0 variant=0 loop=0 anchor=48,44 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-staged-clean-frame29"; state = "intro-finale-state frame=224 scene=staged-group phase=staged-wait local=29 palette=0 variant=0 loop=0 anchor=48,44 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-staged-clean-frame188"; state = "intro-finale-state frame=383 scene=staged-group phase=dispatch-wait local=188 palette=0 variant=0 loop=0 anchor=48,44 title=0 primary=0:0 secondary=0:0 sprites=1 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame0"; state = "intro-finale-state frame=384 scene=title phase=load local=0 palette=0 variant=0 loop=0 anchor=0,0 title=0 primary=0:0 secondary=0:0 sprites=0 black=1 hold=0"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame14"; state = "intro-finale-state frame=398 scene=title phase=black local=14 palette=0 variant=0 loop=0 anchor=0,0 title=0 primary=0:0 secondary=0:0 sprites=0 black=1 hold=0"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame15"; state = "intro-finale-state frame=399 scene=title phase=title-preroll local=15 palette=0 variant=0 loop=0 anchor=0,0 title=0 primary=0:0 secondary=0:2 sprites=0 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame142"; state = "intro-finale-state frame=526 scene=title phase=title-preroll local=142 palette=0 variant=0 loop=0 anchor=0,0 title=0 primary=0:0 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame143"; state = "intro-finale-state frame=527 scene=title phase=dispatch-wait local=143 palette=0 variant=0 loop=0 anchor=0,0 title=0 primary=0:0 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame144"; state = "intro-finale-state frame=528 scene=title phase=title-write local=144 palette=0 variant=0 loop=0 anchor=0,0 title=1 primary=0:2 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame151"; state = "intro-finale-state frame=535 scene=title phase=title-write local=151 palette=0 variant=0 loop=0 anchor=0,0 title=1 primary=0:16 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame159"; state = "intro-finale-state frame=543 scene=title phase=title-write local=159 palette=0 variant=0 loop=0 anchor=0,0 title=2 primary=0:32 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame487"; state = "intro-finale-state frame=871 scene=title phase=title-write local=487 palette=0 variant=0 loop=0 anchor=0,0 title=43 primary=0:176 secondary=1:0 sprites=0 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame488"; state = "intro-finale-state frame=872 scene=title phase=title-tail local=488 palette=0 variant=0 loop=0 anchor=0,0 title=44 primary=0:176 secondary=1:2 sprites=0 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame489"; state = "intro-finale-state frame=873 scene=title phase=title-tail local=489 palette=0 variant=0 loop=0 anchor=0,0 title=44 primary=0:176 secondary=1:4 sprites=0 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame490"; state = "intro-finale-state frame=874 scene=title phase=title-tail local=490 palette=0 variant=0 loop=0 anchor=0,0 title=44 primary=0:176 secondary=1:6 sprites=0 black=0 hold=0"; visual = "scene" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame615"; state = "intro-finale-state frame=999 scene=title phase=title-tail local=615 palette=0 variant=0 loop=0 anchor=0,0 title=44 primary=0:176 secondary=0:0 sprites=0 black=0 hold=0"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-finale-title-clean-frame616"; state = "intro-finale-state frame=1000 scene=title phase=dispatch-wait local=616 palette=0 variant=0 loop=0 anchor=0,0 title=44 primary=0:176 secondary=0:0 sprites=0 black=0 hold=0"; visual = "black" },
+    [pscustomobject]@{ mode = "intro-finale-hold-clean-frame0"; state = "intro-finale-state frame=1001 scene=terminator-hold phase=terminator-hold local=0 palette=0 variant=0 loop=0 anchor=0,0 title=44 primary=0:176 secondary=0:0 sprites=0 black=0 hold=1"; visual = "black" }
 )
 $BoundedReferenceCases = @(
     [pscustomobject]@{ mode = "intro-bucks-clean-frame14"; reference = "bucks-pass-02.png" },
@@ -505,12 +606,34 @@ try {
         error = if ($ListPassed) { $null } else { "ROM-only test asset pack is missing native arena entries or contains capture entries" }
     })
 
+    $AssetSelfTestOutput = & $ExePath --assetpack-test 2>&1
+    $AssetSelfTestExitCode = $LASTEXITCODE
+    $AssetSelfTestText = (@($AssetSelfTestOutput) |
+        ForEach-Object { [string]$_ }) -join "`n"
+    $AssetSelfTestMessageSeen =
+        $AssetSelfTestText -match "Asset pack self-test passed\."
+    $AssetSelfTestPassed = $AssetSelfTestExitCode -eq 0 -and
+        $AssetSelfTestMessageSeen
+    if (!$AssetSelfTestPassed) {
+        ++$Failures
+    }
+    $Results.Add([pscustomobject]@{
+        id = "intro-assetpack-self-test"
+        command = ".\build\tecmo_port.exe --assetpack-test"
+        passed = $AssetSelfTestPassed
+        skipped = $false
+        exit_code = $AssetSelfTestExitCode
+        pass_message_seen = $AssetSelfTestMessageSeen
+        raw_output_persisted = $false
+        error = if ($AssetSelfTestPassed) { $null } else { "asset-pack synthetic self-test failed" }
+    })
+
     $PreviousAssetPack = $env:TECMO_ASSETPACK
     $TitleRenderPassed = $ListPassed
     $TitleRenderOutputs = New-Object System.Collections.Generic.List[object]
     try {
         $env:TECMO_ASSETPACK = $AssetPackPath
-        foreach ($Mode in @("title-attract-frame6", "title-attract-frame621",
+        foreach ($Mode in @("title-attract-frame0", "title-attract-frame6", "title-attract-frame621",
                              "title-screen", "title-confirm-frame1",
                              "title-confirm-frame10", "title-confirm-frame30",
                              "title-confirm-frame60", "title-confirm-frame120",
@@ -1473,8 +1596,410 @@ try {
         error = if ($FinalePassed) { $null } else { "ROM-only finale/title render or timing checkpoint failed" }
     })
 
+    $FinaleTitlePixelCases = @(
+        [pscustomobject]@{ local = 15; mode = "intro-finale-title-clean-frame15"; y121 = "none"; y122 = "none"; y129 = "none"; y130 = "none"; y139 = "none"; y140 = "none"; y147 = "254,255"; y148 = "254,255" },
+        [pscustomobject]@{ local = 142; mode = "intro-finale-title-clean-frame142"; y121 = "none"; y122 = "none"; y129 = "none"; y130 = "none"; y139 = "none"; y140 = "none"; y147 = "0,255"; y148 = "0,255" },
+        [pscustomobject]@{ local = 143; mode = "intro-finale-title-clean-frame143"; y121 = "none"; y122 = "none"; y129 = "none"; y130 = "none"; y139 = "none"; y140 = "none"; y147 = "0,255"; y148 = "0,255" },
+        [pscustomobject]@{ local = 144; mode = "intro-finale-title-clean-frame144"; y121 = "none"; y122 = "none"; y129 = "255,255"; y130 = "255,255"; y139 = "none"; y140 = "none"; y147 = "0,255"; y148 = "0,255" },
+        [pscustomobject]@{ local = 151; mode = "intro-finale-title-clean-frame151"; y121 = "none"; y122 = "none"; y129 = "241,254"; y130 = "241,254"; y139 = "247,248"; y140 = "247,248"; y147 = "0,255"; y148 = "0,255" },
+        [pscustomobject]@{ local = 159; mode = "intro-finale-title-clean-frame159"; y121 = "none"; y122 = "none"; y129 = "225,254"; y130 = "225,254"; y139 = "231,242"; y140 = "231,242"; y147 = "0,255"; y148 = "0,255" },
+        [pscustomobject]@{ local = 487; mode = "intro-finale-title-clean-frame487"; y121 = "none"; y122 = "none"; y129 = "none"; y130 = "none"; y139 = "none"; y140 = "none"; y147 = "0,255"; y148 = "0,255" },
+        [pscustomobject]@{ local = 488; mode = "intro-finale-title-clean-frame488"; y121 = "none"; y122 = "none"; y129 = "none"; y130 = "none"; y139 = "none"; y140 = "none"; y147 = "0,253"; y148 = "0,253" },
+        [pscustomobject]@{ local = 489; mode = "intro-finale-title-clean-frame489"; y121 = "none"; y122 = "none"; y129 = "none"; y130 = "none"; y139 = "none"; y140 = "none"; y147 = "0,251"; y148 = "0,251" },
+        [pscustomobject]@{ local = 490; mode = "intro-finale-title-clean-frame490"; y121 = "none"; y122 = "none"; y129 = "none"; y130 = "none"; y139 = "none"; y140 = "none"; y147 = "0,249"; y148 = "0,249" },
+        [pscustomobject]@{ local = 615; mode = "intro-finale-title-clean-frame615"; y121 = "none"; y122 = "none"; y129 = "none"; y130 = "none"; y139 = "none"; y140 = "none"; y147 = "none"; y148 = "none" },
+        [pscustomobject]@{ local = 616; mode = "intro-finale-title-clean-frame616"; y121 = "none"; y122 = "none"; y129 = "none"; y130 = "none"; y139 = "none"; y140 = "none"; y147 = "none"; y148 = "none" },
+        [pscustomobject]@{ local = 617; mode = "intro-finale-hold-clean-frame0"; y121 = "none"; y122 = "none"; y129 = "none"; y130 = "none"; y139 = "none"; y140 = "none"; y147 = "none"; y148 = "none" }
+    )
+    $FinaleTitlePixelResults = New-Object System.Collections.Generic.List[object]
+    $FinaleTitlePixelPassed = $true
+    foreach ($PixelCase in $FinaleTitlePixelCases) {
+        $PixelPath = Join-Path $OutputDir "$($PixelCase.mode).png"
+        $RowValues = @{}
+        $PixelCasePassed = Test-Path -LiteralPath $PixelPath
+        if ($PixelCasePassed) {
+            $PixelBitmap = [System.Drawing.Bitmap]::FromFile($PixelPath)
+            try {
+                foreach ($Row in @(121, 122, 129, 130, 139, 140, 147, 148)) {
+                    $RowValues[$Row] = Get-NativeRowNonBlackBounds $PixelBitmap $Row
+                    if ($RowValues[$Row] -cne [string]$PixelCase.("y$Row")) {
+                        $PixelCasePassed = $false
+                    }
+                }
+            } finally {
+                $PixelBitmap.Dispose()
+            }
+        }
+        if (!$PixelCasePassed) { $FinaleTitlePixelPassed = $false }
+        $FinaleTitlePixelResults.Add([pscustomobject]@{
+            local = $PixelCase.local
+            mode = $PixelCase.mode
+            y121 = if ($RowValues.ContainsKey(121)) { $RowValues[121] } else { "missing" }
+            y122 = if ($RowValues.ContainsKey(122)) { $RowValues[122] } else { "missing" }
+            y129 = if ($RowValues.ContainsKey(129)) { $RowValues[129] } else { "missing" }
+            y130 = if ($RowValues.ContainsKey(130)) { $RowValues[130] } else { "missing" }
+            y139 = if ($RowValues.ContainsKey(139)) { $RowValues[139] } else { "missing" }
+            y140 = if ($RowValues.ContainsKey(140)) { $RowValues[140] } else { "missing" }
+            y147 = if ($RowValues.ContainsKey(147)) { $RowValues[147] } else { "missing" }
+            y148 = if ($RowValues.ContainsKey(148)) { $RowValues[148] } else { "missing" }
+            passed = $PixelCasePassed
+        })
+    }
+    if (!$FinaleTitlePixelPassed) { ++$Failures }
+    $Results.Add([pscustomobject]@{
+        id = "intro-finale-title-native-pixel-checkpoints"
+        passed = $FinaleTitlePixelPassed
+        skipped = $false
+        cases = $FinaleTitlePixelResults
+        raw_output_persisted = $false
+        coverage_status = "capture-y121-y139-mapped-to-native-y129-y147; dynamic-y129-y142; baseline-y147-y148; no-fabricated-native-y139-y140-band"
+        error = if ($FinaleTitlePixelPassed) { $null } else { "native title row geometry differed at a required checkpoint" }
+    })
+
+    $FinaleCaptionPixelCases = @(
+        [pscustomobject]@{ id = "suns-first"; mode = "intro-finale-opening-clean-frame29"; color = @(252, 216, 168); bounds = "97,110,209,222" },
+        [pscustomobject]@{ id = "suns-resolved"; mode = "intro-finale-opening-clean-frame32"; color = @(252, 216, 168); bounds = "97,158,209,222" },
+        [pscustomobject]@{ id = "spurs-first"; mode = "intro-finale-short-clean-frame7"; color = @(228, 0, 88); bounds = "97,110,209,222" },
+        [pscustomobject]@{ id = "spurs-resolved"; mode = "intro-finale-short-clean-frame11"; color = @(228, 0, 88); bounds = "97,174,209,222" },
+        [pscustomobject]@{ id = "spurs-final-visible"; mode = "intro-finale-short-clean-frame57"; color = @(228, 0, 88); bounds = "97,174,209,222" },
+        [pscustomobject]@{ id = "spurs-black-tail"; mode = "intro-finale-short-clean-frame58"; color = @(228, 0, 88); bounds = "none" },
+        [pscustomobject]@{ id = "bulls-first"; mode = "intro-finale-staged-clean-frame29"; color = @(252, 152, 56); bounds = "97,110,209,222" },
+        [pscustomobject]@{ id = "bulls-resolved"; mode = "intro-finale-staged-clean-frame33"; color = @(252, 152, 56); bounds = "97,174,209,222" }
+    )
+    $FinaleCaptionPixelResults = New-Object System.Collections.Generic.List[object]
+    $FinaleCaptionPixelPassed = $true
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    try {
+        $env:TECMO_ASSETPACK = $AssetPackPath
+        foreach ($CaptionCase in $FinaleCaptionPixelCases) {
+            $CaptionPath = Join-Path $OutputDir "finale-caption-$($CaptionCase.id).png"
+            Remove-Item -LiteralPath $CaptionPath -Force -ErrorAction SilentlyContinue
+            $CaptionOutput = & $ExePath --root $ProjectRoot `
+                --render-test-mode $CaptionCase.mode $CaptionPath 2>&1
+            $CaptionExitCode = $LASTEXITCODE
+            $CaptionText = (@($CaptionOutput) | ForEach-Object { [string]$_ }) -join "`n"
+            $CaptionPassed = $CaptionExitCode -eq 0 -and
+                (Test-Path -LiteralPath $CaptionPath) -and
+                $CaptionText -match "intro-finale-render-source finale=1 chr=1 schema=TFIN-1"
+            $ActualBounds = "missing"
+            if (Test-Path -LiteralPath $CaptionPath) {
+                $CaptionBitmap = [System.Drawing.Bitmap]::FromFile($CaptionPath)
+                try {
+                    $ActualBounds = Get-NativeColorBounds $CaptionBitmap 96 208 175 223 `
+                        $CaptionCase.color[0] $CaptionCase.color[1] $CaptionCase.color[2]
+                } finally {
+                    $CaptionBitmap.Dispose()
+                }
+                if ($ActualBounds -cne $CaptionCase.bounds) { $CaptionPassed = $false }
+            }
+            if (!$CaptionPassed) { $FinaleCaptionPixelPassed = $false }
+            $FinaleCaptionPixelResults.Add([pscustomobject]@{
+                id = $CaptionCase.id
+                mode = $CaptionCase.mode
+                expected_bounds = $CaptionCase.bounds
+                actual_bounds = $ActualBounds
+                passed = $CaptionPassed
+                output = Get-RepoRelativePath $CaptionPath
+            })
+        }
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+    }
+    if (!$FinaleCaptionPixelPassed) { ++$Failures }
+    $Results.Add([pscustomobject]@{
+        id = "intro-finale-caption-native-pixel-checkpoints"
+        passed = $FinaleCaptionPixelPassed
+        skipped = $false
+        cases = $FinaleCaptionPixelResults
+        raw_output_persisted = $false
+        coverage_status = "SUNS-SPURS-BULLS-reveal-native-y209-y222-and-SPURS-local58-black-tail"
+        error = if ($FinaleCaptionPixelPassed) { $null } else { "caption glyph reveal or route-tail pixels differed" }
+    })
+
+    $FinaleReverseColorCases = @(
+        [pscustomobject]@{ id = "selector-stage0-cap"; local = 8; mode = "intro-finale-reverse-clean-frame8"; color = @(164, 0, 0); bounds = "112,143,85,119" },
+        [pscustomobject]@{ id = "selector-stage1-cap"; local = 12; mode = "intro-finale-reverse-clean-frame12"; color = @(216, 40, 0); bounds = "80,111,85,119" },
+        [pscustomobject]@{ id = "selector-stage2-cap"; local = 16; mode = "intro-finale-reverse-clean-frame16"; color = @(252, 116, 96); bounds = "48,79,85,100" },
+        [pscustomobject]@{ id = "selector-stage3-cap"; local = 20; mode = "intro-finale-reverse-clean-frame20"; color = @(252, 116, 96); bounds = "16,47,85,100" },
+        [pscustomobject]@{ id = "selector-stage4-special"; local = 25; mode = "intro-finale-reverse-clean-frame25"; color = @(252, 116, 96); bounds = "240,255,85,98" }
+    )
+    $FinaleReverseColorResults = New-Object System.Collections.Generic.List[object]
+    $FinaleReverseColorPassed = $true
+    foreach ($ColorCase in $FinaleReverseColorCases) {
+        $ColorPath = Join-Path $OutputDir "$($ColorCase.mode).png"
+        $ActualColorBounds = "missing"
+        $ColorCasePassed = Test-Path -LiteralPath $ColorPath
+        if ($ColorCasePassed) {
+            $ColorBitmap = [System.Drawing.Bitmap]::FromFile($ColorPath)
+            try {
+                $ActualColorBounds = Get-NativeColorBounds $ColorBitmap 0 0 255 239 `
+                    $ColorCase.color[0] $ColorCase.color[1] $ColorCase.color[2]
+            } finally {
+                $ColorBitmap.Dispose()
+            }
+            if ($ActualColorBounds -cne $ColorCase.bounds) { $ColorCasePassed = $false }
+        }
+        if (!$ColorCasePassed) { $FinaleReverseColorPassed = $false }
+        $FinaleReverseColorResults.Add([pscustomobject]@{
+            id = $ColorCase.id
+            local = $ColorCase.local
+            mode = $ColorCase.mode
+            expected_color = $ColorCase.color -join ","
+            expected_bounds = $ColorCase.bounds
+            actual_bounds = $ActualColorBounds
+            passed = $ColorCasePassed
+            output = Get-RepoRelativePath $ColorPath
+        })
+    }
+    if (!$FinaleReverseColorPassed) { ++$Failures }
+    $Results.Add([pscustomobject]@{
+        id = "intro-finale-selector-brightness-cap-pixels"
+        passed = $FinaleReverseColorPassed
+        skipped = $false
+        cases = $FinaleReverseColorResults
+        raw_output_persisted = $false
+        coverage_status = "selector-stage0-1-2-3-capped-and-stage4-special-unchanged"
+        error = if ($FinaleReverseColorPassed) { $null } else { "selector sprite palette brightness-cap RGB bounds differed" }
+    })
+
+    $FinaleSceneColorCases = @(
+        [pscustomobject]@{ id = "opening-stage0-cap"; mode = "intro-finale-opening-clean-frame7"; color = @(164, 0, 0); count = 1326; bounds = "64,110,56,106" },
+        [pscustomobject]@{ id = "opening-stage1-cap"; mode = "intro-finale-opening-clean-frame11"; color = @(216, 40, 0); count = 1326; bounds = "64,110,56,106" },
+        [pscustomobject]@{ id = "opening-stage2-cap"; mode = "intro-finale-opening-clean-frame15"; color = @(252, 116, 96); count = 1326; bounds = "64,110,56,106" },
+        [pscustomobject]@{ id = "opening-stage3-full"; mode = "intro-finale-opening-clean-frame19"; color = @(252, 116, 96); count = 1326; bounds = "64,110,56,106" },
+        [pscustomobject]@{ id = "staged-stage0-background"; mode = "intro-finale-staged-clean-frame7"; color = @(124, 8, 0); count = 4621; bounds = "0,255,30,193" },
+        [pscustomobject]@{ id = "staged-stage1-background"; mode = "intro-finale-staged-clean-frame11"; color = @(200, 76, 12); count = 1202; bounds = "32,102,45,191" },
+        [pscustomobject]@{ id = "staged-stage2-background"; mode = "intro-finale-staged-clean-frame15"; color = @(200, 76, 12); count = 1145; bounds = "32,102,45,191" },
+        [pscustomobject]@{ id = "staged-stage3-background"; mode = "intro-finale-staged-clean-frame19"; color = @(200, 76, 12); count = 1145; bounds = "32,102,45,191" },
+        [pscustomobject]@{ id = "staged-team-stage0"; mode = "intro-finale-staged-clean-frame7"; color = @(168, 0, 16); count = 1885; bounds = "32,79,121,191" },
+        [pscustomobject]@{ id = "staged-team-stage1"; mode = "intro-finale-staged-clean-frame11"; color = @(228, 0, 88); count = 1885; bounds = "32,79,121,191" },
+        [pscustomobject]@{ id = "staged-team-late"; mode = "intro-finale-staged-clean-frame29"; color = @(228, 0, 88); count = 1885; bounds = "32,79,121,191" }
+    )
+    $FinaleSceneColorResults = New-Object System.Collections.Generic.List[object]
+    $FinaleSceneColorPassed = $true
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    try {
+        $env:TECMO_ASSETPACK = $AssetPackPath
+        foreach ($ColorCase in $FinaleSceneColorCases) {
+            $ColorPath = Join-Path $OutputDir "finale-color-$($ColorCase.id).png"
+            Remove-Item -LiteralPath $ColorPath -Force -ErrorAction SilentlyContinue
+            $ColorOutput = & $ExePath --root $ProjectRoot `
+                --render-test-mode $ColorCase.mode $ColorPath 2>&1
+            $ColorExitCode = $LASTEXITCODE
+            $ColorText = (@($ColorOutput) | ForEach-Object { [string]$_ }) -join "`n"
+            $ColorCasePassed = $ColorExitCode -eq 0 -and
+                (Test-Path -LiteralPath $ColorPath) -and
+                $ColorText -match "intro-finale-render-source finale=1 chr=1 schema=TFIN-1"
+            $ActualBounds = "missing"
+            $ActualCount = 0
+            if (Test-Path -LiteralPath $ColorPath) {
+                $ColorBitmap = [System.Drawing.Bitmap]::FromFile($ColorPath)
+                try {
+                    $ActualBounds = Get-NativeColorBounds $ColorBitmap 0 0 255 239 `
+                        $ColorCase.color[0] $ColorCase.color[1] $ColorCase.color[2]
+                    $ActualCount = Get-NativeColorCount $ColorBitmap 0 0 255 239 `
+                        $ColorCase.color[0] $ColorCase.color[1] $ColorCase.color[2]
+                } finally {
+                    $ColorBitmap.Dispose()
+                }
+                if ($ActualBounds -cne $ColorCase.bounds -or
+                    $ActualCount -ne [int]$ColorCase.count) {
+                    $ColorCasePassed = $false
+                }
+            } else {
+                $ColorCasePassed = $false
+            }
+            if (!$ColorCasePassed) { $FinaleSceneColorPassed = $false }
+            $FinaleSceneColorResults.Add([pscustomobject]@{
+                id = $ColorCase.id
+                mode = $ColorCase.mode
+                expected_color = $ColorCase.color -join ","
+                expected_count = $ColorCase.count
+                actual_count = $ActualCount
+                expected_bounds = $ColorCase.bounds
+                actual_bounds = $ActualBounds
+                passed = $ColorCasePassed
+                output = Get-RepoRelativePath $ColorPath
+            })
+        }
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+    }
+    if (!$FinaleSceneColorPassed) { ++$Failures }
+    $Results.Add([pscustomobject]@{
+        id = "intro-finale-opening-staged-brightness-and-team-color-pixels"
+        passed = $FinaleSceneColorPassed
+        skipped = $false
+        cases = $FinaleSceneColorResults
+        raw_output_persisted = $false
+        coverage_status = "opening-and-staged-four-frame-background-caps-plus-BULLS-slot9-background-and-sprite-color"
+        error = if ($FinaleSceneColorPassed) { $null } else { "opening/staged native RGB, color count, or bounds differed" }
+    })
+
+    $FinaleCaptureDir = Join-Path (Split-Path -Parent $ProjectRoot) `
+        "tecmo-basketball-port\temp-videos\fceux-finale-frames-1350-2550"
+    $FinaleMaskCases = @(
+        @(6, "intro-finale-short-clean-frame6", 1675),
+        @(7, "intro-finale-short-clean-frame7", 1675),
+        @(13, "intro-finale-short-clean-frame13", 1675),
+        @(14, "intro-finale-short-clean-frame14", 1675),
+        @(15, "intro-finale-short-clean-frame15", 1675),
+        @(17, "intro-finale-short-clean-frame17", 1675),
+        @(18, "intro-finale-short-clean-frame18", 1675),
+        @(21, "intro-finale-short-clean-frame21", 1675),
+        @(22, "intro-finale-short-clean-frame22", 1675),
+        @(25, "intro-finale-short-clean-frame25", 1675),
+        @(26, "intro-finale-short-clean-frame26", 1675),
+        @(27, "intro-finale-short-clean-frame27", 1675),
+        @(28, "intro-finale-short-clean-frame28", 1675),
+        @(29, "intro-finale-short-clean-frame29", 1675),
+        @(30, "intro-finale-short-clean-frame30", 1675),
+        @(57, "intro-finale-short-clean-frame57", 1675),
+        @(58, "intro-finale-short-clean-frame58", 1675),
+        @(7, "intro-finale-opening-clean-frame7", 1591),
+        @(82, "intro-finale-opening-clean-frame82", 1591),
+        @(7, "intro-finale-staged-clean-frame7", 1786),
+        @(29, "intro-finale-staged-clean-frame29", 1786),
+        @(188, "intro-finale-staged-clean-frame188", 1786),
+        @(8, "intro-finale-reverse-clean-frame8", 1734),
+        @(11, "intro-finale-reverse-clean-frame11", 1734),
+        @(12, "intro-finale-reverse-clean-frame12", 1734),
+        @(15, "intro-finale-reverse-clean-frame15", 1734),
+        @(16, "intro-finale-reverse-clean-frame16", 1734),
+        @(19, "intro-finale-reverse-clean-frame19", 1734),
+        @(20, "intro-finale-reverse-clean-frame20", 1734),
+        @(23, "intro-finale-reverse-clean-frame23", 1734),
+        @(24, "intro-finale-reverse-clean-frame24", 1734),
+        @(25, "intro-finale-reverse-clean-frame25", 1734),
+        @(26, "intro-finale-reverse-clean-frame26", 1734),
+        @(27, "intro-finale-reverse-clean-frame27", 1734),
+        @(49, "intro-finale-reverse-clean-frame49", 1734),
+        @(50, "intro-finale-reverse-clean-frame50", 1734),
+        @(51, "intro-finale-reverse-clean-frame51", 1734),
+        @(15, "intro-finale-title-clean-frame15", 1975),
+        @(142, "intro-finale-title-clean-frame142", 1975),
+        @(143, "intro-finale-title-clean-frame143", 1975),
+        @(144, "intro-finale-title-clean-frame144", 1975),
+        @(151, "intro-finale-title-clean-frame151", 1975),
+        @(159, "intro-finale-title-clean-frame159", 1975),
+        @(487, "intro-finale-title-clean-frame487", 1975),
+        @(488, "intro-finale-title-clean-frame488", 1975),
+        @(489, "intro-finale-title-clean-frame489", 1975),
+        @(490, "intro-finale-title-clean-frame490", 1975)
+    )
+    $FinaleMaskResults = New-Object System.Collections.Generic.List[object]
+    $FinaleMaskPassed = $true
+    $FinaleMaskCompared = 0
+    foreach ($MaskCase in $FinaleMaskCases) {
+        $MaskLocal = [int]$MaskCase[0]
+        $MaskMode = [string]$MaskCase[1]
+        $MaskBase = [int]$MaskCase[2]
+        $HostPath = Join-Path $OutputDir "$MaskMode.png"
+        $ReferencePath = Join-Path $FinaleCaptureDir "fceux-$($MaskBase + $MaskLocal).png"
+        $MaskCasePassed = $false
+        $Comparison = $null
+        if ((Test-Path -LiteralPath $HostPath) -and (Test-Path -LiteralPath $ReferencePath)) {
+            ++$FinaleMaskCompared
+            $HostBitmap = [System.Drawing.Bitmap]::FromFile($HostPath)
+            $ReferenceBitmap = [System.Drawing.Bitmap]::FromFile($ReferencePath)
+            try {
+                $Comparison = Compare-NativeViewportMask $HostBitmap $ReferenceBitmap
+                $MaskCasePassed = [bool]$Comparison.passed
+            } finally {
+                $HostBitmap.Dispose()
+                $ReferenceBitmap.Dispose()
+            }
+        } elseif (!(Test-Path -LiteralPath $FinaleCaptureDir)) {
+            $MaskCasePassed = $true
+        }
+        if (!$MaskCasePassed) { $FinaleMaskPassed = $false }
+        $FinaleMaskResults.Add([pscustomobject]@{
+            local = $MaskLocal
+            mode = $MaskMode
+            reference = Get-RepoRelativePath $ReferencePath
+            compared = $null -ne $Comparison
+            passed = $MaskCasePassed
+            host_nonblack = if ($Comparison) { $Comparison.host_nonblack } else { $null }
+            reference_nonblack = if ($Comparison) { $Comparison.reference_nonblack } else { $null }
+            mask_iou = if ($Comparison) { $Comparison.mask_iou } else { $null }
+            host_bounds = if ($Comparison) { $Comparison.host_bounds } else { $null }
+            reference_bounds = if ($Comparison) { $Comparison.reference_bounds } else { $null }
+        })
+    }
+    if (!$FinaleMaskPassed) { ++$Failures }
+    if ($FinaleMaskCompared -eq 0) { ++$Skipped }
+    $Results.Add([pscustomobject]@{
+        id = "intro-finale-ignored-capture-mask-checkpoints"
+        passed = $FinaleMaskPassed
+        skipped = $FinaleMaskCompared -eq 0
+        compared = $FinaleMaskCompared
+        capture_dir = Get-RepoRelativePath $FinaleCaptureDir
+        coordinate_convention = "FCEUX 256x224 top-eight-scanline crop maps to native y+8; host x=64+2*native_x and y=2*native_y"
+        cases = $FinaleMaskResults
+        raw_output_persisted = $false
+        coverage_status = "short-selector-staged-title-full-resolution-ignored-PNG-masks"
+        error = if ($FinaleMaskPassed) { $null } else { "native finale mask differed from retained ignored FCEUX checkpoint" }
+    })
+
+    $FinaleDeterminismCases = @(
+        "intro-finale-opening-clean-frame7",
+        "intro-finale-short-clean-frame14",
+        "intro-finale-reverse-clean-frame25",
+        "intro-finale-staged-clean-frame29",
+        "intro-finale-title-clean-frame15",
+        "intro-finale-title-clean-frame488",
+        "intro-finale-title-clean-frame615",
+        "intro-finale-hold-clean-frame0"
+    )
+    $FinaleDeterminismResults = New-Object System.Collections.Generic.List[object]
+    $FinaleDeterminismPassed = $true
+    $PreviousAssetPack = $env:TECMO_ASSETPACK
+    try {
+        $env:TECMO_ASSETPACK = $AssetPackPath
+        foreach ($DeterminismMode in $FinaleDeterminismCases) {
+            $DeterminismA = Join-Path $OutputDir "determinism-$DeterminismMode-a.png"
+            $DeterminismB = Join-Path $OutputDir "determinism-$DeterminismMode-b.png"
+            Remove-Item -LiteralPath $DeterminismA, $DeterminismB -Force -ErrorAction SilentlyContinue
+            $OutputA = & $ExePath --root $ProjectRoot --render-test-mode $DeterminismMode $DeterminismA 2>&1
+            $ExitA = $LASTEXITCODE
+            $OutputB = & $ExePath --root $ProjectRoot --render-test-mode $DeterminismMode $DeterminismB 2>&1
+            $ExitB = $LASTEXITCODE
+            $HashA = if (Test-Path -LiteralPath $DeterminismA) {
+                (Get-FileHash -LiteralPath $DeterminismA -Algorithm SHA256).Hash
+            } else { $null }
+            $HashB = if (Test-Path -LiteralPath $DeterminismB) {
+                (Get-FileHash -LiteralPath $DeterminismB -Algorithm SHA256).Hash
+            } else { $null }
+            $CasePassed = $ExitA -eq 0 -and $ExitB -eq 0 -and
+                $null -ne $HashA -and $HashA -ceq $HashB
+            if (!$CasePassed) { $FinaleDeterminismPassed = $false }
+            $FinaleDeterminismResults.Add([pscustomobject]@{
+                mode = $DeterminismMode
+                first_hash = $HashA
+                second_hash = $HashB
+                passed = $CasePassed
+                output_a = Get-RepoRelativePath $DeterminismA
+                output_b = Get-RepoRelativePath $DeterminismB
+            })
+        }
+    } finally {
+        $env:TECMO_ASSETPACK = $PreviousAssetPack
+    }
+    if (!$FinaleDeterminismPassed) { ++$Failures }
+    $Results.Add([pscustomobject]@{
+        id = "intro-finale-deterministic-repeat-frames"
+        passed = $FinaleDeterminismPassed
+        skipped = $false
+        cases = $FinaleDeterminismResults
+        raw_output_persisted = $false
+        coverage_status = "opening-short-selector-staged-title-tail-and-terminal-hold-repeat-SHA256"
+        error = if ($FinaleDeterminismPassed) { $null } else { "repeated finale renders were not byte deterministic" }
+    })
+
     $FinaleNegativeResults = New-Object System.Collections.Generic.List[object]
     $FinaleNegativePassed = $PackBuildPassed
+    $FinaleSemanticRoundTripResults = New-Object System.Collections.Generic.List[object]
+    $FinaleSemanticRoundTripPassed = $PackBuildPassed
     $PreviousAssetPack = $env:TECMO_ASSETPACK
     try {
         foreach ($NegativeCase in @(
@@ -1482,12 +2007,36 @@ try {
             "bad-route-screen-order", "bad-reverse-initial", "bad-reverse-second",
             "bad-reverse-delta", "bad-reverse-y", "bad-band-layout",
             "bad-band-channel", "overlapping-sections", "bad-piece-bottom",
-            "bad-one-page-mirror", "bad-alignment-padding")) {
+            "bad-one-page-mirror", "bad-alignment-padding", "bad-semantic-duration",
+            "bad-semantic-gate", "bad-semantic-caption-ref", "bad-semantic-extra-glyph",
+            "bad-semantic-staged-team-color", "bad-semantic-reserved",
+            "bad-title-initial-page", "bad-band-reserved",
+            "bad-title-baseline-cell", "bad-title-baseline-chr",
+            "bad-chr-fingerprint")) {
             $CasePack = Join-Path $OutputDir "finale-$NegativeCase.assetpack"
             $CaseRender = Join-Path $OutputDir "finale-$NegativeCase.png"
             [byte[]]$CaseBytes = [System.IO.File]::ReadAllBytes($AssetPackPath)
             $PayloadOffset = Get-AssetPackEntryPayloadOffset `
                 -Bytes $CaseBytes -EntryId "intro/finale-sequence"
+            $HeaderSize = [System.BitConverter]::ToUInt16($CaseBytes, $PayloadOffset + 6)
+            $ScreensOffsetForRoundTrip = [System.BitConverter]::ToUInt32(
+                $CaseBytes, $PayloadOffset + 20)
+            $ScreenCountForRoundTrip = [System.BitConverter]::ToUInt16(
+                $CaseBytes, $PayloadOffset + 8)
+            $PageCountForRoundTrip = [System.BitConverter]::ToUInt16(
+                $CaseBytes, $PayloadOffset + 14)
+            $WidthForRoundTrip = [System.BitConverter]::ToUInt16(
+                $CaseBytes, $PayloadOffset + 10)
+            $HeightForRoundTrip = [System.BitConverter]::ToUInt16(
+                $CaseBytes, $PayloadOffset + 12)
+            $CellStrideForRoundTrip = [System.BitConverter]::ToUInt16(
+                $CaseBytes, $PayloadOffset + 16)
+            $ScreenByteLength = [int]($ScreenCountForRoundTrip *
+                $PageCountForRoundTrip * $WidthForRoundTrip *
+                $HeightForRoundTrip * $CellStrideForRoundTrip)
+            $ScreenSnapshot = [byte[]]::new($ScreenByteLength)
+            [Array]::Copy($CaseBytes, $PayloadOffset + $ScreensOffsetForRoundTrip,
+                          $ScreenSnapshot, 0, $ScreenByteLength)
             if ($NegativeCase -eq "missing") {
                 $DirectoryOffset = Get-AssetPackEntryDirectoryOffset `
                     -Bytes $CaseBytes -EntryId "intro/finale-sequence"
@@ -1504,6 +2053,40 @@ try {
             } elseif ($NegativeCase -eq "bad-route-wait") {
                 $RoutesOffset = [System.BitConverter]::ToUInt32($CaseBytes, $PayloadOffset + 64)
                 $CaseBytes[$PayloadOffset + $RoutesOffset + 6] = 49
+            } elseif ($NegativeCase -eq "bad-semantic-duration") {
+                $CaseBytes[$PayloadOffset + 120] = [byte]($CaseBytes[$PayloadOffset + 120] -bxor 1)
+            } elseif ($NegativeCase -eq "bad-semantic-gate") {
+                $CaseBytes[$PayloadOffset + 130] = [byte]($CaseBytes[$PayloadOffset + 130] -bxor 1)
+            } elseif ($NegativeCase -eq "bad-semantic-caption-ref") {
+                $CaseBytes[$PayloadOffset + 161] = [byte]($CaseBytes[$PayloadOffset + 161] -bxor 1)
+            } elseif ($NegativeCase -eq "bad-semantic-extra-glyph") {
+                $CaseBytes[$PayloadOffset + 176] = [byte]($CaseBytes[$PayloadOffset + 176] -bxor 1)
+            } elseif ($NegativeCase -eq "bad-semantic-staged-team-color") {
+                $CaseBytes[$PayloadOffset + 180] = [byte]($CaseBytes[$PayloadOffset + 180] -bxor 1)
+            } elseif ($NegativeCase -eq "bad-semantic-reserved") {
+                $CaseBytes[$PayloadOffset + 181] = 1
+            } elseif ($NegativeCase -eq "bad-title-initial-page") {
+                $TitleOffset = [System.BitConverter]::ToUInt32($CaseBytes, $PayloadOffset + 84)
+                $CaseBytes[$PayloadOffset + $TitleOffset + 30] = 1
+                $CaseBytes[$PayloadOffset + $TitleOffset + 31] = 0
+            } elseif ($NegativeCase -eq "bad-band-reserved") {
+                $BandsOffset = [System.BitConverter]::ToUInt32($CaseBytes, $PayloadOffset + 104)
+                $CaseBytes[$PayloadOffset + $BandsOffset + 16 + 6] = 4
+            } elseif ($NegativeCase -eq "bad-title-baseline-cell") {
+                $ScreensOffset = [System.BitConverter]::ToUInt32($CaseBytes, $PayloadOffset + 20)
+                $BaselineCell = 4 * 1920 + 960 + 18 * 32
+                $CaseBytes[$PayloadOffset + $ScreensOffset + $BaselineCell * 6] =
+                    [byte]($CaseBytes[$PayloadOffset + $ScreensOffset + $BaselineCell * 6] -bxor 1)
+            } elseif ($NegativeCase -eq "bad-title-baseline-chr") {
+                $ScreensOffset = [System.BitConverter]::ToUInt32($CaseBytes, $PayloadOffset + 20)
+                $BaselineCell = 4 * 1920 + 960 + 18 * 32
+                [System.BitConverter]::GetBytes([uint32]262144).CopyTo(
+                    $CaseBytes, $PayloadOffset + $ScreensOffset + $BaselineCell * 6 + 2)
+            } elseif ($NegativeCase -eq "bad-chr-fingerprint") {
+                $ChrPayloadOffset = Get-AssetPackEntryPayloadOffset `
+                    -Bytes $CaseBytes -EntryId "chr/all"
+                $CaseBytes[$ChrPayloadOffset] =
+                    [byte]($CaseBytes[$ChrPayloadOffset] -bxor 1)
             } elseif ($NegativeCase -eq "bad-route-screen-order") {
                 $RoutesOffset = [System.BitConverter]::ToUInt32($CaseBytes, $PayloadOffset + 64)
                 $CaseBytes[$PayloadOffset + $RoutesOffset] = 1
@@ -1547,6 +2130,30 @@ try {
                 $GroupsOffset = [System.BitConverter]::ToUInt32($CaseBytes, $PayloadOffset + 44)
                 $CaseBytes[$PayloadOffset + $GroupsOffset - 1] = 1
             }
+            $SemanticMutation = $NegativeCase -like "bad-semantic-*" -or
+                $NegativeCase -eq "bad-title-initial-page" -or
+                $NegativeCase -eq "bad-band-reserved"
+            if ($SemanticMutation) {
+                $ScreenBytesUnchanged = $HeaderSize -eq 192 -and
+                    $ScreensOffsetForRoundTrip -eq $HeaderSize
+                if ($ScreenBytesUnchanged) {
+                    for ($ScreenIndex = 0; $ScreenIndex -lt $ScreenByteLength; ++$ScreenIndex) {
+                        if ($CaseBytes[$PayloadOffset + $ScreensOffsetForRoundTrip + $ScreenIndex] -ne
+                            $ScreenSnapshot[$ScreenIndex]) {
+                            $ScreenBytesUnchanged = $false
+                            break
+                        }
+                    }
+                }
+                if (!$ScreenBytesUnchanged) { $FinaleSemanticRoundTripPassed = $false }
+                $FinaleSemanticRoundTripResults.Add([pscustomobject]@{
+                    id = $NegativeCase
+                    header_size = $HeaderSize
+                    screens_offset = $ScreensOffsetForRoundTrip
+                    screen_bytes_unchanged = $ScreenBytesUnchanged
+                    passed = $ScreenBytesUnchanged
+                })
+            }
             [System.IO.File]::WriteAllBytes($CasePack, $CaseBytes)
             Remove-Item -LiteralPath $CaseRender -Force -ErrorAction SilentlyContinue
             $env:TECMO_ASSETPACK = $CasePack
@@ -1554,9 +2161,11 @@ try {
                 --render-test-mode intro-finale-opening-clean-frame0 $CaseRender 2>&1
             $CaseExitCode = $LASTEXITCODE
             $CaseText = (@($CaseOutput) | ForEach-Object { [string]$_ }) -join "`n"
+            $ExpectedSourceStatus =
+                $CaseText -match "intro-finale-render-source finale=0 chr=1 schema=TFIN-1"
             $Rejected = $CaseExitCode -eq 1 -and
                 !(Test-Path -LiteralPath $CaseRender) -and
-                $CaseText -match "intro-finale-render-source finale=0 chr=1 schema=TFIN-1"
+                $ExpectedSourceStatus
             if (!$Rejected) { $FinaleNegativePassed = $false }
             $FinaleNegativeResults.Add([pscustomobject]@{
                 id = $NegativeCase
@@ -1570,11 +2179,11 @@ try {
 
         $env:TECMO_ASSETPACK = $AssetPackPath
         foreach ($InvalidMode in @(
-            "intro-finale-opening-clean-frame51", "intro-finale-opening-frame51",
-            "intro-finale-short-clean-frame47", "intro-finale-short-frame47",
+            "intro-finale-opening-clean-frame84", "intro-finale-opening-frame84",
+            "intro-finale-short-clean-frame59", "intro-finale-short-frame59",
             "intro-finale-reverse-clean-frame52", "intro-finale-reverse-frame52",
-            "intro-finale-staged-clean-frame156", "intro-finale-staged-frame156",
-            "intro-finale-title-clean-frame603", "intro-finale-title-frame603",
+            "intro-finale-staged-clean-frame189", "intro-finale-staged-frame189",
+            "intro-finale-title-clean-frame617", "intro-finale-title-frame617",
             "intro-finale-opening-frame909", "intro-finale-short-frame47junk",
             "intro-finale-title-frame4294967296")) {
             $CaseRender = Join-Path $OutputDir "invalid-finale-local-mode.png"
@@ -1597,6 +2206,18 @@ try {
     } finally {
         $env:TECMO_ASSETPACK = $PreviousAssetPack
     }
+    if (!$FinaleSemanticRoundTripPassed) { ++$Failures }
+    $Results.Add([pscustomobject]@{
+        id = "intro-finale-tfin1-semantic-roundtrip"
+        passed = $FinaleSemanticRoundTripPassed
+        skipped = $false
+        cases = $FinaleSemanticRoundTripResults
+        raw_output_persisted = $false
+        coverage_status = "192-byte-header-reserved-extension-does-not-touch-screen-payload"
+        error = if ($FinaleSemanticRoundTripPassed) { $null } else {
+            "TFIN semantic mutations changed screen cells or violated the 192-byte header contract"
+        }
+    })
     if (!$FinaleNegativePassed) { ++$Failures }
     $Results.Add([pscustomobject]@{
         id = "intro-finale-missing-malformed-contract"

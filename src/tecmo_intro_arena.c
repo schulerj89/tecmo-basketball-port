@@ -25,6 +25,8 @@
 #define ARENA_SCREEN_CAPTURE_FRAME_FIRST 464U
 #define ARENA_SCREEN_NATIVE_REFERENCE_FRAME 320U
 #define ARENA_SCREEN_CAPTURE_REFERENCE_FRAME 386U
+/* Capture palette windows remain diagnostic until Bank04 writes can be
+   source-mapped to frame-indexed PPU $3F00-$3F1F updates. */
 #define ARENA_SCREEN_CHR_1KB_BYTES 1024ULL
 #define ARENA_SCREEN_BG_UPPER_R0 0x14U
 #define ARENA_SCREEN_BG_UPPER_R1 0x16U
@@ -206,7 +208,24 @@ static uint64_t arena_mmc3_bg_tile_offset(const TecmoIntroArenaCapture *capture,
 
 static bool arena_chr_tile_offset_available(uint64_t chr_byte_count, uint64_t tile_offset)
 {
-    return tile_offset + 15ULL < chr_byte_count;
+    return chr_byte_count >= 16U && tile_offset <= chr_byte_count - 16U;
+}
+
+static uint64_t arena_chr_fingerprint(const uint8_t *bytes, uint64_t count)
+{
+    uint64_t hash = 14695981039346656037ULL;
+
+    for (uint64_t i = 0U; i < count; ++i) {
+        hash ^= bytes[i];
+        hash *= 1099511628211ULL;
+    }
+    return hash;
+}
+
+static bool arena_chr_identity_matches(const uint8_t *bytes, uint64_t count)
+{
+    return bytes != NULL && count == TECMO_INTRO_ARENA_CHR_BYTE_COUNT &&
+           arena_chr_fingerprint(bytes, count) == TECMO_INTRO_ARENA_CHR_FNV1A64;
 }
 
 static void arena_status(TecmoIntroArenaCapture *capture, const char *text)
@@ -1247,6 +1266,15 @@ static void arena_tile_layer_status(TecmoArenaTileLayer *layer, const char *text
     (void)snprintf(layer->status, sizeof(layer->status), "%s", text != NULL ? text : "");
 }
 
+static void arena_tile_layer_invalidate(TecmoArenaTileLayer *layer, const char *text)
+{
+    if (layer == NULL) {
+        return;
+    }
+    memset(layer, 0, sizeof(*layer));
+    arena_tile_layer_status(layer, text);
+}
+
 static bool arena_decode_tile_layer(TecmoArenaTileLayer *layer,
                                     const uint8_t *bytes,
                                     uint64_t byte_count)
@@ -1258,7 +1286,12 @@ static bool arena_decode_tile_layer(TecmoArenaTileLayer *layer,
     uint32_t cells_offset;
     uint32_t palette_offset;
 
-    if (layer == NULL || bytes == NULL || byte_count != expected_size ||
+    if (layer == NULL) {
+        return false;
+    }
+    arena_tile_layer_invalidate(layer,
+                                "ROM-ONLY EXACT ARENA TILE LAYER INVALID (TATL-1)");
+    if (bytes == NULL || byte_count != expected_size ||
         memcmp(bytes, "TATL", 4U) != 0 ||
         arena_read_le_u16(bytes + 4U) != ARENA_TILE_LAYER_VERSION ||
         arena_read_le_u16(bytes + 6U) != ARENA_TILE_LAYER_HEADER_SIZE ||
@@ -1280,13 +1313,19 @@ static bool arena_decode_tile_layer(TecmoArenaTileLayer *layer,
         return false;
     }
 
-    memset(layer, 0, sizeof(*layer));
     layer->width = TECMO_ARENA_TILE_LAYER_WIDTH;
     layer->height = TECMO_ARENA_TILE_LAYER_HEIGHT;
     layer->viewport_width = 32U;
     layer->viewport_height = 30U;
     layer->cell_count = cell_count;
     memcpy(layer->palette, bytes + palette_offset, sizeof(layer->palette));
+    for (size_t i = 0U; i < sizeof(layer->palette); ++i) {
+        if (layer->palette[i] > 0x3FU) {
+            arena_tile_layer_invalidate(
+                layer, "ROM-ONLY EXACT ARENA TILE LAYER INVALID PALETTE (TATL-1)");
+            return false;
+        }
+    }
 
     for (size_t i = 0; i < layer->cell_count; ++i) {
         const uint8_t *cell_bytes = bytes + cells_offset + i * ARENA_TILE_LAYER_CELL_STRIDE;
@@ -1296,11 +1335,14 @@ static bool arena_decode_tile_layer(TecmoArenaTileLayer *layer,
         cell->palette_index = cell_bytes[1];
         cell->chr_byte_offset = arena_read_le_u32(cell_bytes + 2U);
         if (cell->palette_index > 3U || (cell->chr_byte_offset & 0x0FU) != 0U) {
-            memset(layer, 0, sizeof(*layer));
+            arena_tile_layer_invalidate(
+                layer, "ROM-ONLY EXACT ARENA TILE LAYER INVALID CELLS (TATL-1)");
             return false;
         }
     }
 
+    layer->chr_byte_count = TECMO_INTRO_ARENA_CHR_BYTE_COUNT;
+    layer->chr_fingerprint = TECMO_INTRO_ARENA_CHR_FNV1A64;
     layer->available = true;
     arena_tile_layer_status(layer, "ROM-ONLY EXACT ARENA TILE LAYER LOADED");
     return true;
@@ -1312,6 +1354,11 @@ static bool load_arena_tile_layer_entry(TecmoArenaTileLayer *layer, const char *
     uint64_t byte_count = 0U;
     bool loaded;
 
+    if (layer == NULL) {
+        return false;
+    }
+    arena_tile_layer_invalidate(
+        layer, "ROM-ONLY EXACT ARENA TILE LAYER MISSING: " ARENA_TILE_LAYER_ENTRY_ID);
     if (pack_path == NULL || pack_path[0] == '\0' ||
         tecmo_asset_pack_read_entry(pack_path,
                                     ARENA_TILE_LAYER_ENTRY_ID,
@@ -1368,6 +1415,16 @@ static void arena_sprite_groups_status(TecmoArenaNativeSpriteGroups *sprite_grou
                    text != NULL ? text : "");
 }
 
+static void arena_sprite_groups_invalidate(TecmoArenaNativeSpriteGroups *sprite_groups,
+                                           const char *text)
+{
+    if (sprite_groups == NULL) {
+        return;
+    }
+    memset(sprite_groups, 0, sizeof(*sprite_groups));
+    arena_sprite_groups_status(sprite_groups, text);
+}
+
 static bool arena_sprite_group_contract_valid(const TecmoArenaNativeSpriteGroup *group)
 {
     if (group == NULL || group->camera_x_multiplier != 0 ||
@@ -1409,7 +1466,12 @@ static bool arena_decode_sprite_groups(TecmoArenaNativeSpriteGroups *sprite_grou
     bool saw_goal = false;
     size_t connector_overlay_piece_count = 0U;
 
-    if (sprite_groups == NULL || bytes == NULL || byte_count != expected_size ||
+    if (sprite_groups == NULL) {
+        return false;
+    }
+    arena_sprite_groups_invalidate(
+        sprite_groups, "ROM-ONLY EXACT ARENA SPRITE GROUPS INVALID (TASG-2)");
+    if (bytes == NULL || byte_count != expected_size ||
         memcmp(bytes, "TASG", 4U) != 0 ||
         arena_read_le_u16(bytes + 4U) != ARENA_SPRITE_GROUPS_VERSION ||
         arena_read_le_u16(bytes + 6U) != ARENA_SPRITE_GROUPS_HEADER_SIZE ||
@@ -1527,6 +1589,8 @@ static bool arena_decode_sprite_groups(TecmoArenaNativeSpriteGroups *sprite_grou
         return false;
     }
 
+    decoded.chr_byte_count = TECMO_INTRO_ARENA_CHR_BYTE_COUNT;
+    decoded.chr_fingerprint = TECMO_INTRO_ARENA_CHR_FNV1A64;
     decoded.available = true;
     arena_sprite_groups_status(&decoded, "ROM-ONLY EXACT ARENA SPRITE GROUPS LOADED");
     *sprite_groups = decoded;
@@ -1540,7 +1604,13 @@ static bool load_arena_sprite_groups_entry(TecmoArenaNativeSpriteGroups *sprite_
     uint64_t byte_count = 0U;
     bool loaded;
 
-    if (sprite_groups == NULL || pack_path == NULL || pack_path[0] == '\0' ||
+    if (sprite_groups == NULL) {
+        return false;
+    }
+    arena_sprite_groups_invalidate(
+        sprite_groups,
+        "ROM-ONLY EXACT ARENA SPRITE GROUPS MISSING: " ARENA_SPRITE_GROUPS_ENTRY_ID);
+    if (pack_path == NULL || pack_path[0] == '\0' ||
         tecmo_asset_pack_read_entry(pack_path,
                                     ARENA_SPRITE_GROUPS_ENTRY_ID,
                                     &bytes,
@@ -1549,10 +1619,6 @@ static bool load_arena_sprite_groups_entry(TecmoArenaNativeSpriteGroups *sprite_
     }
     loaded = arena_decode_sprite_groups(sprite_groups, bytes, byte_count);
     tecmo_asset_pack_free(bytes);
-    if (!loaded) {
-        arena_sprite_groups_status(sprite_groups,
-                                   "ROM-ONLY EXACT ARENA SPRITE GROUPS INVALID (TASG-2)");
-    }
     return loaded;
 }
 
@@ -1979,7 +2045,10 @@ bool tecmo_intro_arena_tile_layer_chr_available(const TecmoArenaTileLayer *layer
                                                 uint64_t chr_byte_count)
 {
     if (layer == NULL || !layer->available || chr_bytes == NULL ||
-        layer->cell_count != TECMO_ARENA_TILE_LAYER_CELL_COUNT) {
+        layer->cell_count != TECMO_ARENA_TILE_LAYER_CELL_COUNT ||
+        layer->chr_byte_count != TECMO_INTRO_ARENA_CHR_BYTE_COUNT ||
+        layer->chr_fingerprint != TECMO_INTRO_ARENA_CHR_FNV1A64 ||
+        !arena_chr_identity_matches(chr_bytes, chr_byte_count)) {
         return false;
     }
 
@@ -2149,13 +2218,17 @@ bool tecmo_intro_arena_native_sprite_chr_available(
     uint64_t chr_byte_count)
 {
     if (sprite_groups == NULL || !sprite_groups->available || chr_bytes == NULL ||
-        sprite_groups->piece_count != TECMO_INTRO_ARENA_NATIVE_SPRITE_PIECE_COUNT) {
+        sprite_groups->piece_count != TECMO_INTRO_ARENA_NATIVE_SPRITE_PIECE_COUNT ||
+        sprite_groups->chr_byte_count != TECMO_INTRO_ARENA_CHR_BYTE_COUNT ||
+        sprite_groups->chr_fingerprint != TECMO_INTRO_ARENA_CHR_FNV1A64 ||
+        !arena_chr_identity_matches(chr_bytes, chr_byte_count)) {
         return false;
     }
     for (size_t i = 0; i < sprite_groups->piece_count; ++i) {
         uint64_t top_offset = sprite_groups->pieces[i].top_chr_offset;
         if (!arena_sprite_chr_pair_offset_valid(top_offset) ||
-            top_offset + ARENA_SPRITE_CHR_PAIR_BYTES > chr_byte_count) {
+            chr_byte_count < ARENA_SPRITE_CHR_PAIR_BYTES ||
+            top_offset > chr_byte_count - ARENA_SPRITE_CHR_PAIR_BYTES) {
             return false;
         }
     }

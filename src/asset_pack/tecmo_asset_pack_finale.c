@@ -6,6 +6,136 @@
 
 #include <string.h>
 
+#define FINALE_SEMANTIC_HEADER_OFFSET 116U
+#define FINALE_SEMANTIC_MAGIC "TFM1"
+#define FINALE_SEMANTIC_ROUTE_DURATION_OFFSET 120U
+#define FINALE_SEMANTIC_ROUTE_GATE_OFFSET 130U
+#define FINALE_SEMANTIC_ROUTE_PULSE_OFFSET 135U
+#define FINALE_SEMANTIC_ROUTE_TAIL_OFFSET 140U
+#define FINALE_SEMANTIC_CAPTION_COUNT_OFFSET 145U
+#define FINALE_SEMANTIC_CAPTION_COLUMN_OFFSET 146U
+#define FINALE_SEMANTIC_CAPTION_ROW_OFFSET 147U
+#define FINALE_SEMANTIC_CAPTION_INTERVAL_OFFSET 148U
+#define FINALE_SEMANTIC_CAPTION_ROUTE_OFFSET 149U
+#define FINALE_SEMANTIC_CAPTION_FIRST_FRAME_OFFSET 152U
+#define FINALE_SEMANTIC_CAPTION_PALETTE_OFFSET 155U
+#define FINALE_SEMANTIC_CAPTION_GLYPH_COUNT_OFFSET 158U
+#define FINALE_SEMANTIC_CAPTION_REF_OFFSET 161U
+#define FINALE_SEMANTIC_EXTRA_GLYPH_OFFSET 176U
+#define FINALE_SEMANTIC_STAGED_TEAM_COLOR_OFFSET 180U
+#define FINALE_SEMANTIC_RESERVED_OFFSET 181U
+
+_Static_assert(TECMO_ASSET_PACK_FINALE_SCREENS_OFFSET ==
+                   TECMO_ASSET_PACK_FINALE_HEADER_SIZE,
+               "TFIN semantic header extension must not overlap screen cells");
+
+static int validate_finale_caption_name_table(
+    const uint8_t *rom,
+    uint64_t rom_size,
+    uint64_t bank06_offset,
+    int enforce_revision_fingerprints,
+    const uint8_t *names_out[TECMO_ASSET_PACK_FINALE_CAPTION_COUNT],
+    uint8_t lengths_out[TECMO_ASSET_PACK_FINALE_CAPTION_COUNT],
+    char *message,
+    size_t message_size)
+{
+    static const uint8_t expected_ids[TECMO_ASSET_PACK_FINALE_CAPTION_COUNT] = {
+        0x14U, 0x17U, 0x03U
+    };
+    static const char *expected_names[TECMO_ASSET_PACK_FINALE_CAPTION_COUNT] = {
+        "SUNS", "SPURS", "BULLS"
+    };
+    const uint64_t source_offset = bank06_offset +
+        (TECMO_ASSET_PACK_FINALE_TEAM_NAME_TABLE_CPU - 0x8000U);
+    const uint64_t names_end = source_offset +
+        TECMO_ASSET_PACK_FINALE_TEAM_NAME_TABLE_SIZE - 1U;
+    uint64_t cursor = source_offset + 1U;
+    unsigned record_index = 0U;
+
+    if (names_out == NULL || lengths_out == NULL) {
+        tecmo_asset_pack_set_message(message, message_size,
+                                     "Finale caption output is unavailable.");
+        return -1;
+    }
+    for (size_t i = 0U; i < TECMO_ASSET_PACK_FINALE_CAPTION_COUNT; ++i) {
+        names_out[i] = NULL;
+        lengths_out[i] = 0U;
+    }
+    /* The central synthetic builder explicitly disables revision
+       fingerprints and does not carry the proprietary Rev1 name table.
+       Production ROM import always enables fingerprints and must validate
+       the exact source table below. */
+    if (enforce_revision_fingerprints == 0) {
+        for (size_t i = 0U; i < TECMO_ASSET_PACK_FINALE_CAPTION_COUNT; ++i) {
+            names_out[i] = (const uint8_t *)expected_names[i];
+            lengths_out[i] = (uint8_t)strlen(expected_names[i]);
+        }
+        return 0;
+    }
+    if (rom == NULL ||
+        source_offset > rom_size ||
+        (uint64_t)TECMO_ASSET_PACK_FINALE_TEAM_NAME_TABLE_SIZE >
+            rom_size - source_offset || rom[(size_t)source_offset] != 0x30U) {
+        tecmo_asset_pack_set_message(message, message_size,
+                                     "Finale caption team-name table is unavailable.");
+        return -1;
+    }
+    while (cursor < names_end) {
+        uint8_t length = rom[(size_t)cursor];
+        /* The validated Rev1 fingerprint ends at the SIXERS length byte;
+           its characters begin immediately after the fingerprint boundary. */
+        if (cursor + 1U + length > names_end) {
+            if (record_index == 35U && length == 6U && cursor + 1U == names_end) {
+                cursor = names_end;
+                ++record_index;
+                break;
+            }
+            tecmo_asset_pack_set_message(message, message_size,
+                                         "Finale caption team-name table record is malformed.");
+            return -1;
+        }
+        if (length < 1U || length > 20U || cursor + 1U + length > names_end) {
+            tecmo_asset_pack_set_message(message, message_size,
+                                         "Finale caption team-name table record is malformed.");
+            return -1;
+        }
+        for (size_t character = 0U; character < length; ++character) {
+            uint8_t value = rom[(size_t)cursor + 1U + character];
+            if ((value < 0x20U || value > 0x5AU) && value != 0x2DU) {
+                tecmo_asset_pack_set_message(message, message_size,
+                                             "Finale caption team-name table contains an invalid glyph.");
+                return -1;
+            }
+        }
+        for (size_t expected = 0U;
+             expected < TECMO_ASSET_PACK_FINALE_CAPTION_COUNT; ++expected) {
+            size_t expected_length = strlen(expected_names[expected]);
+            if (record_index == expected_ids[expected] &&
+                length == expected_length &&
+                memcmp(rom + (size_t)cursor + 1U,
+                       expected_names[expected], expected_length) == 0) {
+                names_out[expected] = rom + (size_t)cursor + 1U;
+                lengths_out[expected] = length;
+            }
+        }
+        cursor += 1U + length;
+        ++record_index;
+    }
+    if (cursor != names_end || record_index != 35U || rom[(size_t)cursor] != 6U) {
+        tecmo_asset_pack_set_message(message, message_size,
+                                     "Finale caption team-name table boundary is unsupported.");
+        return -1;
+    }
+    for (size_t i = 0U; i < TECMO_ASSET_PACK_FINALE_CAPTION_COUNT; ++i) {
+        if (names_out[i] == NULL || lengths_out[i] == 0U) {
+            tecmo_asset_pack_set_message(message, message_size,
+                                         "Finale caption team-name table lacks a required Rev1 name.");
+            return -1;
+        }
+    }
+    return 0;
+}
+
 static int validate_finale_fingerprint(const uint8_t *rom,
                                        uint64_t rom_size,
                                        uint64_t source_offset,
@@ -70,6 +200,26 @@ static int validate_finale_source_contract(const uint8_t *rom,
     bank06_offset = prg_offset + 6ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES;
     fixed_offset = prg_offset + (uint64_t)(prg_banks - 1U) * TECMO_ASSET_PACK_PRG_BANK_BYTES;
     if (enforce_revision_fingerprints != 0) {
+        uint64_t team_color_table_offset = fixed_offset +
+            (TECMO_ASSET_PACK_FINALE_TEAM_COLOR_TABLE_CPU - 0xC000U);
+        uint64_t bulls_color_offset = team_color_table_offset +
+            TECMO_ASSET_PACK_FINALE_BULLS_TEAM_ID;
+        if (team_color_table_offset > rom_size ||
+            (uint64_t)TECMO_ASSET_PACK_FINALE_TEAM_COLOR_TABLE_SIZE >
+                rom_size - team_color_table_offset ||
+            tecmo_asset_pack_fnv1a32(
+                rom + (size_t)team_color_table_offset,
+                TECMO_ASSET_PACK_FINALE_TEAM_COLOR_TABLE_SIZE) !=
+                TECMO_ASSET_PACK_FINALE_TEAM_COLOR_TABLE_FINGERPRINT ||
+            bulls_color_offset >= rom_size ||
+            rom[(size_t)bulls_color_offset] !=
+                TECMO_ASSET_PACK_FINALE_BULLS_TEAM_COLOR) {
+            tecmo_asset_pack_set_message(message, message_size,
+                                         "Finale fixed team-color table or BULLS color is not Rev1.");
+            return -1;
+        }
+    }
+    if (enforce_revision_fingerprints != 0) {
         if (validate_finale_fingerprint(
                 rom, rom_size,
                 bank04_offset + (TECMO_ASSET_PACK_FINALE_BANK04_FINGERPRINT_CPU - 0x8000U),
@@ -105,7 +255,14 @@ static int validate_finale_source_contract(const uint8_t *rom,
                 bank06_offset + (TECMO_ASSET_PACK_FINALE_GLYPH_MAP_CPU - 0x8000U),
                 TECMO_ASSET_PACK_FINALE_CHAR_MAP_FINGERPRINT_SIZE,
                 TECMO_ASSET_PACK_FINALE_CHAR_MAP_FINGERPRINT,
-                "character map", message, message_size) != 0) {
+                "character map", message, message_size) != 0 ||
+            validate_finale_fingerprint(
+                rom, rom_size,
+                bank06_offset +
+                    (TECMO_ASSET_PACK_FINALE_TEAM_NAME_TABLE_CPU - 0x8000U),
+                TECMO_ASSET_PACK_FINALE_TEAM_NAME_TABLE_SIZE,
+                TECMO_ASSET_PACK_FINALE_TEAM_NAME_TABLE_FINGERPRINT,
+                "caption team-name table", message, message_size) != 0) {
             return -1;
         }
         {
@@ -259,7 +416,7 @@ int tecmo_asset_pack_build_finale_sequence(const uint8_t *rom,
         0U, 16U, 45U, 80U, 601U
     };
     static const uint16_t reverse_palette_frames[TECMO_ASSET_PACK_FINALE_REVERSE_PALETTE_COUNT] = {
-        10U, 14U, 18U, 22U, 27U
+        8U, 12U, 16U, 20U, 25U
     };
     uint8_t sprite_selectors[3];
     uint64_t sprite_selector_offsets[3];
@@ -275,6 +432,8 @@ int tecmo_asset_pack_build_finale_sequence(const uint8_t *rom,
     uint64_t special_palette_offset;
     uint64_t piece_stream_offset;
     uint64_t title_source_offset;
+    const uint8_t *caption_names[TECMO_ASSET_PACK_FINALE_CAPTION_COUNT];
+    uint8_t caption_name_lengths[TECMO_ASSET_PACK_FINALE_CAPTION_COUNT];
 
     if (payload == NULL || provenance == NULL || chr_size == 0U ||
         validate_finale_source_contract(rom, rom_size, prg_offset, prg_banks,
@@ -282,6 +441,13 @@ int tecmo_asset_pack_build_finale_sequence(const uint8_t *rom,
                                         sprite_selectors,
                                         sprite_selector_offsets,
                                         message, message_size) != 0) {
+        return -1;
+    }
+    if (validate_finale_caption_name_table(rom, rom_size, bank06_offset,
+                                           enforce_revision_fingerprints,
+                                           caption_names,
+                                           caption_name_lengths,
+                                           message, message_size) != 0) {
         return -1;
     }
     fixed_offset = prg_offset + (uint64_t)(prg_banks - 1U) * TECMO_ASSET_PACK_PRG_BANK_BYTES;
@@ -389,6 +555,10 @@ int tecmo_asset_pack_build_finale_sequence(const uint8_t *rom,
     for (size_t stage = 0U; stage < 4U; ++stage) {
         for (size_t i = 0U; i < 16U; ++i) {
             uint8_t color = rom[(size_t)provenance->screens[2].palette_offset + i];
+            /* Bank04 inherits nametable palette slot 13 from the prior
+               short-route palette ($8A0D+10), then applies the same
+               brightness cap as the other water-route colors. */
+            if (i == 13U) color = rom[(size_t)short_palette_offset + 10U];
             if (i == 4U || i == 8U || i == 12U) color = rom[(size_t)helper_palette_offset + i];
             if (i != 4U && i != 8U && i != 12U) color = tecmo_asset_pack_palette_brightness_cap(color, (uint8_t)stage);
             payload[TECMO_ASSET_PACK_FINALE_REVERSE_PALETTES_OFFSET + stage * 16U + i] = color;
@@ -517,7 +687,7 @@ int tecmo_asset_pack_build_finale_sequence(const uint8_t *rom,
         tecmo_asset_pack_store_u16(meta + 4U, 1U);
         tecmo_asset_pack_store_u16(meta + 6U, 7U);
         tecmo_asset_pack_store_u16(meta + 8U, 301U);
-        tecmo_asset_pack_store_u16(meta + 10U, 345U);
+        tecmo_asset_pack_store_u16(meta + 10U, 344U);
         tecmo_asset_pack_store_u16(meta + 12U, 128U);
         tecmo_asset_pack_store_u16(meta + 14U, 1U);
         tecmo_asset_pack_store_u16(meta + 16U, 2U);
@@ -527,11 +697,12 @@ int tecmo_asset_pack_build_finale_sequence(const uint8_t *rom,
         tecmo_asset_pack_store_u16(meta + 24U, 16U);
         tecmo_asset_pack_store_u16(meta + 26U, 2U);
         tecmo_asset_pack_store_u16(meta + 28U, 2U);
+        tecmo_asset_pack_store_u16(meta + 30U, 0U);
     }
     {
-        static const uint16_t starts[3] = {0U, 200U, 223U};
-        static const uint16_t ends[3] = {200U, 223U, 240U};
-        static const uint8_t channels[3] = {0U, 1U, 2U};
+        static const uint16_t starts[3] = {0U, 144U, 152U};
+        static const uint16_t ends[3] = {144U, 152U, 240U};
+        static const uint8_t channels[3] = {0U, 1U, 0U};
         uint32_t low_base = (uint32_t)screen_r0[4] * 1024U;
         uint32_t high_base = (uint32_t)screen_r1[4] * 1024U;
         for (size_t band = 0U; band < 3U; ++band) {
@@ -600,6 +771,143 @@ int tecmo_asset_pack_build_finale_sequence(const uint8_t *rom,
                                              col + local_col);
             tecmo_asset_pack_store_u32(cell + 2U, chr_offset);
         }
+    }
+
+    {
+        static const uint8_t caption_routes[TECMO_ASSET_PACK_FINALE_CAPTION_COUNT] = {
+            0U, 1U, 3U
+        };
+        static const uint8_t caption_first_frames[TECMO_ASSET_PACK_FINALE_CAPTION_COUNT] = {
+            29U, 7U, 29U
+        };
+        static const uint16_t route_durations[TECMO_ASSET_PACK_FINALE_ROUTE_COUNT] = {
+            84U, 59U, 52U, 189U, 617U
+        };
+        static const uint8_t route_black_gates[TECMO_ASSET_PACK_FINALE_ROUTE_COUNT] = {
+            7U, 6U, 8U, 7U, 15U
+        };
+        static const uint8_t route_black_pulses[TECMO_ASSET_PACK_FINALE_ROUTE_COUNT] = {
+            0xFFU, 0xFFU, 24U, 0xFFU, 0xFFU
+        };
+        static const uint8_t route_black_tails[TECMO_ASSET_PACK_FINALE_ROUTE_COUNT] = {
+            83U, 58U, 51U, 0xFFU, 0xFFU
+        };
+        uint8_t caption_refs[TECMO_ASSET_PACK_FINALE_CAPTION_COUNT]
+                            [TECMO_ASSET_PACK_FINALE_CAPTION_MAX_GLYPHS];
+        uint8_t extra_glyph[4] = {0U, 0U, 0U, 0U};
+        int extra_glyph_written = 0;
+        uint8_t *semantic = payload + FINALE_SEMANTIC_HEADER_OFFSET;
+
+        memset(caption_refs, TECMO_ASSET_PACK_FINALE_CAPTION_GLYPH_SENTINEL,
+               sizeof(caption_refs));
+        for (size_t caption = 0U;
+             caption < TECMO_ASSET_PACK_FINALE_CAPTION_COUNT; ++caption) {
+            size_t length = caption_name_lengths[caption];
+            if (length < 4U || length > TECMO_ASSET_PACK_FINALE_CAPTION_MAX_GLYPHS) {
+                tecmo_asset_pack_set_message(message, message_size,
+                                             "Finale caption name length is unsupported.");
+                return -1;
+            }
+            for (size_t glyph = 0U; glyph < length; ++glyph) {
+                uint8_t code = caption_names[caption][glyph];
+                uint8_t ref = TECMO_ASSET_PACK_FINALE_CAPTION_GLYPH_SENTINEL;
+                /* The synthetic title source contains A-Z for broad importer
+                   coverage, whereas Rev1's actual title source omits N. Keep
+                   the fingerprint-disabled fixture on the production semantic
+                   path by requiring its N to use the extra-glyph sentinel. */
+                if (!(enforce_revision_fingerprints == 0 && code == 0x4EU)) {
+                    for (size_t slot = 0U;
+                         slot < TECMO_ASSET_PACK_FINALE_TITLE_TEXT_SLOT_COUNT;
+                         ++slot) {
+                        if (rom[(size_t)title_source_offset + slot] == code) {
+                            ref = (uint8_t)slot;
+                            break;
+                        }
+                    }
+                }
+                if (ref == TECMO_ASSET_PACK_FINALE_CAPTION_GLYPH_SENTINEL) {
+                    uint8_t mapped;
+                    uint64_t glyph_offset;
+                    if (code != 0x4EU || extra_glyph_written != 0 ||
+                        finale_title_char_to_tile(rom, rom_size, bank06_offset,
+                                                  code, &mapped) != 0) {
+                        tecmo_asset_pack_set_message(message, message_size,
+                                                     "Finale caption character is not represented by the validated title/glyph tables.");
+                        return -1;
+                    }
+                    glyph_offset = bank06_offset +
+                                   (TECMO_ASSET_PACK_FINALE_GLYPH_TABLE_CPU - 0x8000U) +
+                                   (uint64_t)mapped * 4U;
+                    if (glyph_offset + 4U > rom_size) {
+                        tecmo_asset_pack_set_message(message, message_size,
+                                                     "Finale caption extra glyph crosses Bank06.");
+                        return -1;
+                    }
+                    memcpy(extra_glyph, rom + (size_t)glyph_offset, 4U);
+                    for (size_t tile = 0U; tile < 4U; ++tile) {
+                        uint32_t chr_offset = tecmo_asset_pack_bg_chr_offset(
+                            extra_glyph[tile], screen_r0[4], screen_r1[4]);
+                        if ((uint64_t)chr_offset + 16U > chr_size) {
+                            tecmo_asset_pack_set_message(message, message_size,
+                                                         "Finale caption extra glyph resolves outside chr/all.");
+                            return -1;
+                        }
+                    }
+                    extra_glyph_written = 1;
+                }
+                caption_refs[caption][glyph] = ref;
+            }
+        }
+        if (extra_glyph_written == 0) {
+            tecmo_asset_pack_set_message(message, message_size,
+                                         "Finale caption source did not require the validated N glyph.");
+            return -1;
+        }
+
+        memcpy(semantic, FINALE_SEMANTIC_MAGIC, 4U);
+        for (size_t route = 0U; route < TECMO_ASSET_PACK_FINALE_ROUTE_COUNT; ++route) {
+            tecmo_asset_pack_store_u16(semantic +
+                                        FINALE_SEMANTIC_ROUTE_DURATION_OFFSET -
+                                            FINALE_SEMANTIC_HEADER_OFFSET + route * 2U,
+                                        route_durations[route]);
+            semantic[FINALE_SEMANTIC_ROUTE_GATE_OFFSET - FINALE_SEMANTIC_HEADER_OFFSET + route] =
+                route_black_gates[route];
+            semantic[FINALE_SEMANTIC_ROUTE_PULSE_OFFSET - FINALE_SEMANTIC_HEADER_OFFSET + route] =
+                route_black_pulses[route];
+            semantic[FINALE_SEMANTIC_ROUTE_TAIL_OFFSET - FINALE_SEMANTIC_HEADER_OFFSET + route] =
+                route_black_tails[route];
+        }
+        semantic[FINALE_SEMANTIC_CAPTION_COUNT_OFFSET - FINALE_SEMANTIC_HEADER_OFFSET] =
+            TECMO_ASSET_PACK_FINALE_CAPTION_COUNT;
+        semantic[FINALE_SEMANTIC_CAPTION_COLUMN_OFFSET - FINALE_SEMANTIC_HEADER_OFFSET] = 12U;
+        semantic[FINALE_SEMANTIC_CAPTION_ROW_OFFSET - FINALE_SEMANTIC_HEADER_OFFSET] = 26U;
+        semantic[FINALE_SEMANTIC_CAPTION_INTERVAL_OFFSET - FINALE_SEMANTIC_HEADER_OFFSET] = 1U;
+        for (size_t caption = 0U;
+             caption < TECMO_ASSET_PACK_FINALE_CAPTION_COUNT; ++caption) {
+            semantic[FINALE_SEMANTIC_CAPTION_ROUTE_OFFSET - FINALE_SEMANTIC_HEADER_OFFSET + caption] =
+                caption_routes[caption];
+            semantic[FINALE_SEMANTIC_CAPTION_FIRST_FRAME_OFFSET - FINALE_SEMANTIC_HEADER_OFFSET + caption] =
+                caption_first_frames[caption];
+            semantic[FINALE_SEMANTIC_CAPTION_PALETTE_OFFSET - FINALE_SEMANTIC_HEADER_OFFSET + caption] = 0U;
+            semantic[FINALE_SEMANTIC_CAPTION_GLYPH_COUNT_OFFSET - FINALE_SEMANTIC_HEADER_OFFSET + caption] =
+                caption_name_lengths[caption];
+            for (size_t glyph = 0U;
+                 glyph < TECMO_ASSET_PACK_FINALE_CAPTION_MAX_GLYPHS; ++glyph) {
+                semantic[FINALE_SEMANTIC_CAPTION_REF_OFFSET - FINALE_SEMANTIC_HEADER_OFFSET +
+                         caption * TECMO_ASSET_PACK_FINALE_CAPTION_MAX_GLYPHS + glyph] =
+                    caption_refs[caption][glyph];
+            }
+        }
+        memcpy(semantic + FINALE_SEMANTIC_EXTRA_GLYPH_OFFSET -
+                   FINALE_SEMANTIC_HEADER_OFFSET,
+               extra_glyph, sizeof(extra_glyph));
+        semantic[FINALE_SEMANTIC_STAGED_TEAM_COLOR_OFFSET -
+                 FINALE_SEMANTIC_HEADER_OFFSET] =
+            TECMO_ASSET_PACK_FINALE_BULLS_TEAM_COLOR;
+        memset(semantic + FINALE_SEMANTIC_RESERVED_OFFSET -
+                   FINALE_SEMANTIC_HEADER_OFFSET,
+               0, TECMO_ASSET_PACK_FINALE_HEADER_SIZE -
+                     FINALE_SEMANTIC_RESERVED_OFFSET);
     }
 
     memcpy(payload, "TFIN", 4U);

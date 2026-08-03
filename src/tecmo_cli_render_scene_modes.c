@@ -12,6 +12,54 @@
 
 #include "tecmo_cli_internal.h"
 
+#define TECMO_INTRO_PRODUCTION_CLEAN_FRAME_PREFIX \
+    "intro-production-clean-frame"
+#define TECMO_INTRO_PRODUCTION_CLEAN_FRAME_MAX 4096U
+
+
+static bool configure_intro_production_clean_frame_mode(
+    TecmoRuntime *runtime,
+    const char *mode_name,
+    TecmoCliRenderModeState *state,
+    bool *handled_out)
+{
+    TecmoInput neutral_input;
+    unsigned frame;
+
+    *handled_out = false;
+    if (strncmp(mode_name,
+                TECMO_INTRO_PRODUCTION_CLEAN_FRAME_PREFIX,
+                sizeof(TECMO_INTRO_PRODUCTION_CLEAN_FRAME_PREFIX) - 1U) != 0) {
+        return true;
+    }
+
+    *handled_out = true;
+    if (!tecmo_cli_parse_render_frame_suffix(
+            mode_name, TECMO_INTRO_PRODUCTION_CLEAN_FRAME_PREFIX, &frame) ||
+        frame > TECMO_INTRO_PRODUCTION_CLEAN_FRAME_MAX) {
+        printf("Unsupported render-test mode: %s\n", mode_name);
+        return false;
+    }
+
+    memset(&neutral_input, 0, sizeof(neutral_input));
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_FIRST_SPRITE);
+    runtime->debug_overlay = false;
+    for (unsigned logical_frame = 0U; logical_frame < frame; ++logical_frame) {
+        tecmo_runtime_update(runtime, &neutral_input);
+    }
+    printf("intro-production-state global=%u step=%u local=%u mode=%u attract=%u title_armed=%u title_confirming=%u title_frame=%u\n",
+           runtime->frame_counter,
+           (unsigned)runtime->intro_output_step,
+           runtime->mode_frame_counter,
+           (unsigned)runtime->mode,
+           runtime->intro_output_step == 15U ? 1U : 0U,
+           runtime->title_start_armed ? 1U : 0U,
+           runtime->title_confirming ? 1U : 0U,
+           runtime->title_confirmation_frame);
+    state->result = 0;
+    return true;
+}
+
 
 static bool configure_gameplay_mode(TecmoRuntime *runtime, const char *mode_name, TecmoCliRenderModeState *state, bool *handled_out)
 {
@@ -88,6 +136,15 @@ static bool configure_intro_opening_mode(
     bool arena_render_succeeded = state->arena_render_succeeded;
     bool render_runtime = true;
     int result = state->result;
+
+    if (!configure_intro_production_clean_frame_mode(
+            runtime, mode_name, state, handled_out)) {
+        return false;
+    }
+    if (*handled_out) {
+        state->arena_render_succeeded = arena_render_succeeded;
+        return true;
+    }
 
     *handled_out = true;
     if (strcmp(mode_name, "menu-overlay") == 0) {
