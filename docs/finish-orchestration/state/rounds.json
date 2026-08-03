@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T20:01:46Z",
+  "updated_at": "2026-08-03T21:02:40Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -508,7 +508,7 @@
     {
       "round_id": "R4B",
       "title": "Frontend intro/title incremental integration delivery",
-      "status": "combined_qa",
+      "status": "pushed",
       "base_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
       "scope": [
         "Freeze accepted frontend/title candidate 757283ed",
@@ -526,16 +526,16 @@
       "merge_order": ["R4B-INTEGRATION-QA"],
       "combined_qa": {
         "required": true,
-        "status": "in_progress",
-        "accepted_sha": null,
-        "report_path": null,
-        "signed_by_session_id": null,
-        "notes": "Dedicated Sol Max Integration QA must reconcile immutable frontend 757283ed with current accepted main 819b0e5 and obtain same-Luna P0/P1/P2 closure before master integration."
+        "status": "accepted",
+        "accepted_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
+        "report_path": "docs/finish-tasks/R4B-frontend-integration-qa/README.md",
+        "signed_by_session_id": "S-SOL-R4B-INTEGRATION-QA-001",
+        "notes": "Signed merge 6b5d435 and signed terminal report edf16ca close Sol and independent P0/P1/P2 at zero after combined build/frontend/direct/cross-domain/Win32/malformed/proof/visual/ownership gates. The immutable candidate's unsigned status remains explicit."
       },
       "acceptance": {
-        "status": "pending",
-        "accepted_at": null,
-        "accepted_sha": null,
+        "status": "accepted",
+        "accepted_at": "2026-08-03T21:02:40Z",
+        "accepted_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
         "criteria": [
           "Both current main 819b0e5 and frontend candidate 757283ed are ancestors of the terminal integration commit",
           "Combined warning-clean build, canonical intro suite, direct assetpack/arena/flow tests, and cross-domain smoke pass",
@@ -546,15 +546,15 @@
       },
       "main_integration": {
         "pre_main_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
-        "merge_commits": [],
-        "post_main_sha": null,
+        "merge_commits": ["edf16ca9059158452798dbe5667f5e64ef444e39"],
+        "post_main_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
         "remote_main_before_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
-        "push_sha": null,
-        "push_result": "not_attempted",
-        "pushed_at": null
+        "push_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
+        "push_result": "succeeded",
+        "pushed_at": "2026-08-03T21:02:40Z"
       },
       "created_at": "2026-08-03T19:48:51Z",
-      "updated_at": "2026-08-03T20:01:46Z"
+      "updated_at": "2026-08-03T21:02:40Z"
     },
     {
       "round_id": "R5",

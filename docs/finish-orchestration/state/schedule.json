@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T20:17:37Z",
+  "updated_at": "2026-08-03T21:02:40Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,12 +10,12 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 4,
+    "active_domain_orchestrators": 3,
     "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
-    "unallocated_target_slots": 0,
-    "unallocated_monitoring_slots": 4
+    "unallocated_target_slots": 1,
+    "unallocated_monitoring_slots": 5
   },
   "lanes": [
     {
@@ -196,8 +196,8 @@
       "task_ids": [
         "R4B-INTEGRATION-QA"
       ],
-      "readiness": "active",
-      "dependency_status": "ready",
+      "readiness": "complete",
+      "dependency_status": "complete",
       "reservation_owner_session_id": "S-MASTER-001",
       "orchestrator_session_id": "S-SOL-R4B-INTEGRATION-QA-001",
       "base_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
@@ -207,8 +207,8 @@
         "OWN-R4B-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Dedicated pinned R4B Sol must recheck immutable inputs, create one independent Luna Max QA lineage, deliberately signed-merge frontend 757283ed into current-main base 819b0e5, run combined proof, and return a signed fast-forwardable handoff without touching main.",
-      "updated_at": "2026-08-03T20:01:46Z"
+      "next_gate": "Complete: signed terminal edf16ca passed combined P0/P1/P2-zero QA and was fast-forwarded/non-force pushed to main; preserved branches/worktrees remain available for audit.",
+      "updated_at": "2026-08-03T21:02:40Z"
     },
     {
       "lane_id": "LANE-R2-SHOTS-OUTCOMES",

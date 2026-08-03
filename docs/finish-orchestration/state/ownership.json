@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T20:48:17Z",
+  "updated_at": "2026-08-03T21:02:40Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -515,10 +515,10 @@
         "docs/finish-tasks/R4B-frontend-integration-qa/README.md"
       ],
       "concurrency_group": "R4B-frontend-integration-qa",
-      "active": true,
+      "active": false,
       "claimed_at": "2026-08-03T19:48:51Z",
-      "released_at": null,
-      "notes": "Transferred from master reservation to pinned Integration QA Sol S-SOL-R4B-INTEGRATION-QA-001 after exact staging/branch/worktree collision and clean-head verification. Accepted frontend 757283ed and current main 819b0e5 are immutable inputs; only the dedicated R4B report path is writable outside ignored proof output."
+      "released_at": "2026-08-03T21:02:40Z",
+      "notes": "Released after signed merge 6b5d435 and signed terminal report edf16ca passed personal and independent P0/P1/P2-zero combined QA, master fast-forwarded/pushed main to exact edf16ca, and both Luna/Sol were unpinned. The unsigned immutable frontend candidate remained explicitly anchored by exact SHA/tree/report digest; branches/worktrees are preserved."
     }
   ],
   "shared_boundaries": [
