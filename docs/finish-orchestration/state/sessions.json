@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T19:00:02Z",
+  "updated_at": "2026-08-03T19:05:21Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -362,13 +362,13 @@
       "last_good_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
-      "reported_luna_lineage": [],
+      "reported_luna_lineage": ["019fc901-9608-76c1-ac13-4a5ef73f2e91", "019fc901-d35e-7573-bf0d-36087859df58", "019fc902-0bed-7d82-aa29-acaff4d9d04e"],
       "recovery_lineage": [],
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T19:00:02Z",
       "completed_at": null,
-      "updated_at": "2026-08-03T19:00:02Z",
-      "notes": "Created and pinned once after durable collision-free reservation bb423f8. Exact worktree/branch/base were created clean before dispatch. Owns only existing gameplay-state, free-throw-lineup, fatigue, projection-test, shot-clock-test, dedicated semantic-pack, focused-runner, and task-doc paths. Must report any shared scene/core rescope, create only top-level Luna Max workers, and never merge or push main."
+      "updated_at": "2026-08-03T19:05:21Z",
+      "notes": "Created and pinned once after durable collision-free reservation bb423f8. Sol confirmed exact clean branch/worktree/base/merge-base, read AGENTS.md and PORTING.md completely, and began authoritative native/evidence inventory. It created/pinned three collision-free projectless Luna Max read-only audits for clocks/periods, lineups/substitutions, and fatigue/native coupling. Owns only the registered dedicated paths; shared scene/core rescope must be reported and main remains untouched."
     },
     {
       "session_id": "S-SOL-TIP-VIS-LEGACY",
@@ -484,6 +484,15 @@
     }
   ],
   "reported_luna_workers": [
+    {
+      "worker_id":"019fc901-9608-76c1-ac13-4a5ef73f2e91","thread_id":"019fc901-9608-76c1-ac13-4a5ef73f2e91","title":"Tecmo R2 Clocks Periods Evidence Research — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R2-CLOCK-LINEUPS-001","round_ids":["R2"],"task_ids":["R2-CLOCK-LINEUPS-FATIGUE"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Collision-free projectless read-only audit of original clocks, shot clock, periods, halftime, overtime, and final flow. Explicitly non-delegating with no Git/filesystem mutation.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T19:05:21Z"
+    },
+    {
+      "worker_id":"019fc901-d35e-7573-bf0d-36087859df58","thread_id":"019fc901-d35e-7573-bf0d-36087859df58","title":"Tecmo R2 Lineups Substitution Evidence Research — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R2-CLOCK-LINEUPS-001","round_ids":["R2"],"task_ids":["R2-CLOCK-LINEUPS-FATIGUE"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Collision-free projectless read-only audit of starters, substitutions, active lineups, and TGFL evidence/contracts. Explicitly non-delegating with no Git/filesystem mutation.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T19:05:21Z"
+    },
+    {
+      "worker_id":"019fc902-0bed-7d82-aa29-acaff4d9d04e","thread_id":"019fc902-0bed-7d82-aa29-acaff4d9d04e","title":"Tecmo R2 Fatigue Native Audit — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R2-CLOCK-LINEUPS-001","round_ids":["R2"],"task_ids":["R2-CLOCK-LINEUPS-FATIGUE"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Collision-free projectless read-only TGFT/native fatigue and active/bench coupling audit. Explicitly non-delegating with no Git/filesystem mutation.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T19:05:21Z"
+    },
     {
       "worker_id":"019fc8f8-44b5-7a93-835b-1c75f69ab506","thread_id":"019fc8f8-44b5-7a93-835b-1c75f69ab506","title":"Tecmo R4 Frontend Intro Title — Independent Recovery QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R4-FRONTEND-RECOVERY-001","round_ids":["R4"],"task_ids":["R4-FRONTEND-INTRO-TITLE"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Created once at 2026-08-03T18:52:21Z as the sole projectless/null-Git independent recovery QA lineage against frozen reference 0a3fc57f. Creation/pin succeeded first attempt with no duplicate/retry/replacement. It is read-only and currently reviewing the narrow finale importer synthetic-fixture gating regression found by the replacement Sol after the canonical suite passed.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T19:00:02Z"
     },

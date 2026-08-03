@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T19:00:02Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T19:05:21Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,7 +8,7 @@ Generated from committed JSON at `2026-08-03T19:00:02Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `assigned` 1, `backlog` 12, `in_progress` 5, `pushed` 7, `ready_for_round_staging` 3
+- Task states: `backlog` 12, `in_progress` 6, `pushed` 7, `ready_for_round_staging` 3
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
@@ -30,7 +30,7 @@ Generated from committed JSON at `2026-08-03T19:00:02Z`. This dashboard reports 
 | LANE-R4-AUDIO-FOUNDATION | audio | complete | complete | R4-AUDIO-FOUNDATION | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | Isolated audio foundation is terminally accepted, writer/QA/domain Sol are completed/unpinned, and exact e120c30 is physically staged. Its separate R4A Integration QA lane is cleared; broader cross-domain ACC-AUDIO remains deferred in parent R4. |
 | LANE-R4A-INTEGRATION-QA | integration | active | ready | R4A-INTEGRATION-QA | S-SOL-R4A-INTEGRATION-QA-001 | codex/r4a-audio-integration-qa-sol | Integration Sol personally completes clean build and Music/Frontend/Gameplay suites, proof/event/WAV/waveform/provenance audit, objective inspection, honest external listening attribution, independent Luna P0/P1/P2 closure, and signed docs-only commit. |
 | LANE-R2-SHOTS-OUTCOMES | gameplay_behavior | active | ready | R2-SHOTS-OUTCOMES | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | Evidence auditor 019fc8a8-186e-7be2-aab3-0aae3da3a2fa is accepted/completed/unpinned. One persistent writable Luna 019fc8cb-3d2c-7171-bbe8-534028387b6e is active/pinned on the isolated codex/r2-shots-outcomes-luna worktree and must preserve accepted LIVE far-shot deferral. |
-| LANE-R2-CLOCK-LINEUPS-FATIGUE | gameplay_behavior | active | ready | R2-CLOCK-LINEUPS-FATIGUE | S-SOL-R2-CLOCK-LINEUPS-001 | codex/r2-clock-lineups-fatigue-sol | Pinned Sol 019fc8ff-4ec4-7b20-86c6-9c9614f9194c begins clean takeover, full governing-file/evidence/native inventory, then creates only bounded top-level Luna Max workers. Shared scene/core changes require explicit sequential rescope; main remains master-owned. |
+| LANE-R2-CLOCK-LINEUPS-FATIGUE | gameplay_behavior | active | ready | R2-CLOCK-LINEUPS-FATIGUE | S-SOL-R2-CLOCK-LINEUPS-001 | codex/r2-clock-lineups-fatigue-sol | Pinned Sol confirmed clean takeover and complete governing-file read. Three projectless read-only Luna Max audits cover clocks/periods, lineups/substitutions, and fatigue/native coupling while Sol performs authoritative inventory; reconcile reports before a single persistent writable lineage and request any shared scene/core rescope explicitly. |
 
 ## Rounds
 
@@ -76,7 +76,7 @@ Generated from committed JSON at `2026-08-03T19:00:02Z`. This dashboard reports 
 | 96 | R3-TEAM-MGMT-DATA | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 96 | R4-AUDIO | audio | R4 | backlog | - | - | 0 | pending | not_ready |
 | 96 | R5-E2E-RELEASE-QA | integration | R5 | backlog | - | - | 0 | pending | not_ready |
-| 94 | R2-CLOCK-LINEUPS-FATIGUE | gameplay_behavior | R2 | assigned | S-SOL-R2-CLOCK-LINEUPS-001 | codex/r2-clock-lineups-fatigue-sol | 0 | pending | not_ready |
+| 94 | R2-CLOCK-LINEUPS-FATIGUE | gameplay_behavior | R2 | in_progress | S-SOL-R2-CLOCK-LINEUPS-001 | codex/r2-clock-lineups-fatigue-sol | 0 | pending | not_ready |
 | 94 | R3-ALLSTAR | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 92 | R2-GAMEPLAY-PRESENTATION | gameplay_presentation | R2 | backlog | - | - | 0 | pending | not_ready |
 
