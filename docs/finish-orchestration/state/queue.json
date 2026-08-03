@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T19:12:26Z",
+  "updated_at": "2026-08-03T19:24:36Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -2022,7 +2022,7 @@
       "round_id": "R4A",
       "priority": 99,
       "coordination_only": false,
-      "state": "ready_for_round_staging",
+      "state": "pushed",
       "dependencies": [
         "R0A-INV-001"
       ],
@@ -2052,7 +2052,7 @@
         "22199fb5a0b6a51641319ae5c61cc093e0a79444",
         "e120c30ee882fe07b37496e2742ac83f1d16ff3a"
       ],
-      "evidence_ids": [],
+      "evidence_ids": ["EVID-R4A-INTEGRATION-QA"],
       "blocker_ids": [
         "BLOCK-R4-AUDIO-LISTENING-001"
       ],
@@ -2061,7 +2061,7 @@
       "qa": {
         "status": "passed",
         "sol_signoff": true,
-        "integration_signoff": false,
+        "integration_signoff": true,
         "test_records": [
           "2026-08-03 master created and pinned S-SOL-R4-AUDIO-001 / thread 019fc822-bdfa-7ab1-8b35-e7d9aa58969d once at the reserved clean branch/worktree/base; no creation retry or fault. Startup confirms governing-file, lineage, and collision checks before Sol-managed Luna fan-out.",
           "2026-08-03 Sol-reported active/pinned read-only Luna registry: 019fc825-e59c-7002-8139-e3c6e2818318, 019fc825-ec41-7993-8629-9c0948e08b4b; exact titles/model/thinking/projectless null Git contexts and no creation fault/retry are recorded in sessions.json. Master does not inspect or contact these workers.",
@@ -2078,25 +2078,26 @@
           "2026-08-03T17:36:52Z writer Revision C terminal chain extends with 96471e42f79669379df0a573e8e82be037e559fb, 9ac09214dfb167e6545d3e0422dbf2f2e7cfcad3, and 22199fb5a0b6a51641319ae5c61cc093e0a79444. Writer branch clean, base 6d8f9c7, 17 owned paths/diff/proprietary scan green; build and all three suites pass; proof manifest SHA CA3CB4AE84297085FE415B989A6D2AD9DCD44BCC3BAA73AD887A688041D23996 at exact HEAD with stable identities. Same pinned detached QA moved cleanly ad82eb9 -> 22199fb and final QA dispatched.",
           "2026-08-03T17:44:54Z terminal QA at clean detached 22199fb PASSes all C/runtime/product gates: three suites; exact event/header/state/sample/per-vector-WAV-FNV/two-run proof; manifest CA3CB4AE84297085FE415B989A6D2AD9DCD44BCC3BAA73AD887A688041D23996; ownership, diff, no-proprietary, provenance, and clean status. Strict acceptance is held only for four-doc Revision D naming exact parent 9ac09214 and the ignored root-manifest path/hash checkpoint without false self-reference. Same writer is revising and will regenerate proof; no runtime defect or domain/main integration.",
           "2026-08-03T17:47:36Z Revision D commit e120c30ee882fe07b37496e2742ac83f1d16ff3a changes only LINEAGE/MERGE/PROOF/TESTS, closes the exact 9ac09214/22199fb lineage and ignored-manifest checkpoint findings, and passes final build/all three suites at clean e120. Regenerated manifest names e120 with SHA 932AA1FE62BE3CC144C643A489353D2309434B81B5D8A4C6F1CB2CAE0F1B8FC5; stable artifacts are unchanged. Same detached QA moved cleanly 22199fb -> e120 and decisive verification is active",
-          "2026-08-03T17:52:20Z decisive independent QA PASSed exact clean e120c30 with no runtime/source/proof/docs/ownership/cleanliness finding. Sol ff-only integrated the ten-commit writer lineage into codex/r4-audio-foundation-sol, then personally passed build, Music, Frontend Audio, Gameplay Audio, proof/provenance, scope/diff/no-proprietary, and clean branch gates. Manifest SHA 932AA1FE62BE3CC144C643A489353D2309434B81B5D8A4C6F1CB2CAE0F1B8FC5; human listening remains approved. Isolated boundary accepted; broader cross-domain ACC-AUDIO deferred."
+          "2026-08-03T17:52:20Z decisive independent QA PASSed exact clean e120c30 with no runtime/source/proof/docs/ownership/cleanliness finding. Sol ff-only integrated the ten-commit writer lineage into codex/r4-audio-foundation-sol, then personally passed build, Music, Frontend Audio, Gameplay Audio, proof/provenance, scope/diff/no-proprietary, and clean branch gates. Manifest SHA 932AA1FE62BE3CC144C643A489353D2309434B81B5D8A4C6F1CB2CAE0F1B8FC5; human listening remains approved. Isolated boundary accepted; broader cross-domain ACC-AUDIO deferred.",
+          "2026-08-03T19:24:36Z dedicated R4A Integration QA reconciled accepted audio e120c30 with current main dd096cb at zero path overlap, passed combined personal and independent P0/P1/P2-zero gates, and signed terminal report commit bcacd5b with report SHA FFCF6675EE4391DC82B55E1A0C6DD527C5B8A608A3EE0058408DA5BD661C37B4. Master verified clean ancestry, exact 18-path delta and unchanged remote precondition, then fast-forwarded and non-force pushed main/origin/main/remote to bcacd5b without rerunning product QA."
         ],
         "proof_manifests": [
           "build/proof/r4-audio-foundation/proof-manifest.txt"
         ],
-        "notes": "Isolated OWN-R4-AUDIO-FOUNDATION is Sol-accepted and ff-only integrated cleanly at e120c30 after decisive QA and final Sol suites/proof. Objective waveform/source evidence plus external human listening are accepted; cycle-exact/APU/DMC and excluded cross-domain cue routing/full ACC-AUDIO remain explicitly deferred. Writer, QA, and domain Sol are completed/unpinned; exact candidate is physically staged for delivery subround R4A."
+        "notes": "Isolated OWN-R4-AUDIO-FOUNDATION is delivered on main/origin at terminal signed R4A commit bcacd5b after combined current-main reconciliation and dedicated Integration QA. Objective waveform/source evidence plus external human listening are accepted; cycle-exact/APU/DMC and excluded cross-domain cue routing/full ACC-AUDIO remain explicitly deferred."
       },
       "merge": {
         "staging_branch": "codex/round-4a-audio-foundation-staging",
         "merge_order": 1,
-        "status": "staged",
-        "merge_commit": "e120c30ee882fe07b37496e2742ac83f1d16ff3a",
-        "main_pre_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
-        "main_post_sha": null,
-        "push_sha": null,
-        "pushed_at": null
+        "status": "pushed",
+        "merge_commit": "bcacd5b6963f4db1a92c8db9b9770413505a0e98",
+        "main_pre_sha": "dd096cb23a5fe7d755615fcaaadc0aa1d9b1509d",
+        "main_post_sha": "bcacd5b6963f4db1a92c8db9b9770413505a0e98",
+        "push_sha": "bcacd5b6963f4db1a92c8db9b9770413505a0e98",
+        "pushed_at": "2026-08-03T19:24:28Z"
       },
       "created_at": "2026-08-03T14:50:16Z",
-      "updated_at": "2026-08-03T18:21:12Z",
+      "updated_at": "2026-08-03T19:24:36Z",
       "audit": [
         {
           "timestamp": "2026-08-03T14:50:16Z",
@@ -2146,6 +2147,34 @@
           "from_state": "sol_accepted",
           "to_state": "ready_for_round_staging",
           "reason": "Terminal audio domain tip e120c30e is clean, exact-base descendant, independently QA-accepted, personally Sol-accepted with final build/Music/Frontend/Gameplay proof and human listening signoff; writer and QA Lunas are unpinned and the domain Sol is unpinned after durable handoff."
+        },
+        {
+          "timestamp": "2026-08-03T19:09:43Z",
+          "actor_session_id": "S-SOL-R4A-INTEGRATION-QA-001",
+          "from_state": "ready_for_round_staging",
+          "to_state": "combined_qa",
+          "reason": "Dedicated R4A Sol reconciled accepted audio with current main at zero path overlap and began final combined proof and independent audit at 0f06fd1."
+        },
+        {
+          "timestamp": "2026-08-03T19:23:30Z",
+          "actor_session_id": "S-SOL-R4A-INTEGRATION-QA-001",
+          "from_state": "combined_qa",
+          "to_state": "ready_for_main",
+          "reason": "Combined audio/current-main tip and signed report closed at P0/P1/P2 zero with exact proof identities and honest deferred ACC-AUDIO boundary."
+        },
+        {
+          "timestamp": "2026-08-03T19:24:00Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "ready_for_main",
+          "to_state": "merged",
+          "reason": "Master verified clean fast-forward ancestry, report hash, exact 18-path delta, and unchanged dd096cb remote precondition, then fast-forwarded local main to bcacd5b."
+        },
+        {
+          "timestamp": "2026-08-03T19:24:28Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "merged",
+          "to_state": "pushed",
+          "reason": "Master non-force pushed bcacd5b and verified local main, origin/main tracking, and live remote main all equal the terminal signed R4A commit."
         }
       ]
     },
@@ -2608,7 +2637,7 @@
       "round_id": "R4A",
       "priority": 100,
       "coordination_only": false,
-      "state": "in_progress",
+      "state": "pushed",
       "dependencies": [
         "R4-AUDIO-FOUNDATION"
       ],
@@ -2624,35 +2653,37 @@
         "019fc8e2-b17a-7f92-a9d6-9b7db43e74e3"
       ],
       "result_commits": [
-        "0f06fd1102986c90fce65db251bf0c1806bd0c98"
+        "0f06fd1102986c90fce65db251bf0c1806bd0c98",
+        "bcacd5b6963f4db1a92c8db9b9770413505a0e98"
       ],
-      "evidence_ids": [],
+      "evidence_ids": ["EVID-R4A-INTEGRATION-QA"],
       "blocker_ids": [],
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-tasks/R4A-audio-integration-qa",
       "qa": {
-        "status": "pending",
-        "sol_signoff": false,
-        "integration_signoff": false,
+        "status": "passed",
+        "sol_signoff": true,
+        "integration_signoff": true,
         "test_records": [
           "2026-08-03T18:21:12Z user-authorized incremental delivery policy applied so accepted audio foundation does not wait behind frontend/menu or broader cross-domain cue-routing work. Master froze exact staged SHA e120c30 and reserved dedicated Sol Max Integration QA context.",
-          "2026-08-03T19:09:43Z after authorized R3A advanced main/origin to dd096cb, R4A Sol verified zero overlap and created integration-only merge 0f06fd1 with parents e120c30 and dd096cb. Combined warning-clean audio suites and regenerated deterministic 23-vector/4,331,648-sample proof plus independent verifier pass; same Luna final audit and signed report commit remain."
+          "2026-08-03T19:09:43Z after authorized R3A advanced main/origin to dd096cb, R4A Sol verified zero overlap and created integration-only merge 0f06fd1 with parents e120c30 and dd096cb. Combined warning-clean audio suites and regenerated deterministic 23-vector/4,331,648-sample proof plus independent verifier pass; same Luna final audit and signed report commit remain.",
+          "2026-08-03T19:24:36Z terminal signed child bcacd5b passed same-Luna P0/P1/P2-zero closure. Report SHA FFCF6675EE4391DC82B55E1A0C6DD527C5B8A608A3EE0058408DA5BD661C37B4; combined proof root 5BC06D6E893BC9DA40215626CE714CDFF66F70FA58F192D5E488C490FC40A97D; original exact-candidate proof root 932AA1FE62BE3CC144C643A489353D2309434B81B5D8A4C6F1CB2CAE0F1B8FC5. Master fast-forwarded/non-force pushed and verified main/origin/remote exact bcacd5b."
         ],
-        "proof_manifests": [],
-        "notes": "Integration Sol has reconciled the current main into combined tip 0f06fd1 without touching main and personally passed the combined build/audio/proof matrix. Final independent Luna P0/P1/P2 closure and a signed report commit are the only remaining gates before master fast-forward/non-force push."
+        "proof_manifests": ["build/proof/r4-audio-foundation/proof-manifest.txt"],
+        "notes": "Dedicated R4A Integration QA is terminally accepted at signed bcacd5b with P0/P1/P2 zero. Main/origin/remote are synchronized at that exact SHA; broader cross-domain cue routing and full ACC-AUDIO remain explicitly deferred."
       },
       "merge": {
         "staging_branch": "codex/round-4a-audio-foundation-staging",
         "merge_order": 2,
-        "status": "not_ready",
-        "merge_commit": null,
-        "main_pre_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
-        "main_post_sha": null,
-        "push_sha": null,
-        "pushed_at": null
+        "status": "pushed",
+        "merge_commit": "bcacd5b6963f4db1a92c8db9b9770413505a0e98",
+        "main_pre_sha": "dd096cb23a5fe7d755615fcaaadc0aa1d9b1509d",
+        "main_post_sha": "bcacd5b6963f4db1a92c8db9b9770413505a0e98",
+        "push_sha": "bcacd5b6963f4db1a92c8db9b9770413505a0e98",
+        "pushed_at": "2026-08-03T19:24:28Z"
       },
       "created_at": "2026-08-03T18:21:12Z",
-      "updated_at": "2026-08-03T19:09:43Z",
+      "updated_at": "2026-08-03T19:24:36Z",
       "audit": [
         {
           "timestamp": "2026-08-03T18:21:12Z",
@@ -2681,6 +2712,55 @@
           "from_state": "assigned",
           "to_state": "in_progress",
           "reason": "Dedicated Integration QA Sol began exact clean takeover and personal combined QA on the frozen audio candidate; product paths remain read-only and master retains main push authority."
+        },
+        {
+          "timestamp": "2026-08-03T19:22:30Z",
+          "actor_session_id": "S-SOL-R4A-INTEGRATION-QA-001",
+          "from_state": "in_progress",
+          "to_state": "sol_review",
+          "reason": "Combined tip 0f06fd1 passed personal and same-Luna product/proof review at P0/P1/P2 zero; only terminal report self-reference wording remained."
+        },
+        {
+          "timestamp": "2026-08-03T19:22:45Z",
+          "actor_session_id": "S-SOL-R4A-INTEGRATION-QA-001",
+          "from_state": "sol_review",
+          "to_state": "sol_accepted",
+          "reason": "Corrected signed report content and combined current-main/audio lineage passed final same-Luna audit with P0/P1/P2 zero."
+        },
+        {
+          "timestamp": "2026-08-03T19:23:00Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "sol_accepted",
+          "to_state": "ready_for_round_staging",
+          "reason": "Master received exact terminal SHA, parents, report path/hash, proof identities, clean ownership and fast-forward handoff."
+        },
+        {
+          "timestamp": "2026-08-03T19:23:10Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "ready_for_round_staging",
+          "to_state": "combined_qa",
+          "reason": "R4A combined QA package is the signed terminal commit bcacd5b over reconciliation merge 0f06fd1."
+        },
+        {
+          "timestamp": "2026-08-03T19:23:30Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "combined_qa",
+          "to_state": "ready_for_main",
+          "reason": "Master verified local/tracking/live remote pre-main dd096cb, clean worktrees, both required ancestors, exact report hash, diff-check, and 18-path scope."
+        },
+        {
+          "timestamp": "2026-08-03T19:24:00Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "ready_for_main",
+          "to_state": "merged",
+          "reason": "Local main fast-forwarded from dd096cb to terminal signed R4A commit bcacd5b."
+        },
+        {
+          "timestamp": "2026-08-03T19:24:28Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "merged",
+          "to_state": "pushed",
+          "reason": "Non-force push succeeded and post-push local main, origin/main tracking, and live remote main all verified exact bcacd5b."
         }
       ]
     }

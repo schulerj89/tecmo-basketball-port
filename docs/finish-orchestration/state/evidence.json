@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T18:45:20Z",
+  "updated_at": "2026-08-03T19:24:36Z",
   "records": [
     {
       "evidence_id": "EVID-R0-BASE",
@@ -287,6 +287,26 @@
       "proof_locations": ["C:/Users/joshs/Projects/tecmo-basketball-port-r3a-season-data-integration-qa-sol/build/proof/r3a-season-data-integration-qa-f536a193-019fc8d2-001"],
       "local_private": true,
       "created_at": "2026-08-03T18:45:20Z"
+    },
+    {
+      "evidence_id": "EVID-R4A-INTEGRATION-QA",
+      "task_ids": ["R4-AUDIO-FOUNDATION", "R4A-INTEGRATION-QA"],
+      "kind": "proof_manifest",
+      "title": "Audio foundation integration acceptance and incremental main delivery",
+      "classification": "native_faithful",
+      "confidence": "high",
+      "rom": null,
+      "asm": null,
+      "original_reference": {"kind":"document","identity":"R4A signed integration report SHA-256 FFCF6675EE4391DC82B55E1A0C6DD527C5B8A608A3EE0058408DA5BD661C37B4","timestamp_or_frame":"accepted and pushed 2026-08-03T19:24:28Z"},
+      "description": "The dedicated R4A Sol integration orchestrator reconciled accepted audio candidate e120c30 with then-current main dd096cb using zero-overlap merge 0f06fd1. Personal warning-clean Music, Frontend Audio, Gameplay Audio, deterministic 23-vector/4,331,648-sample proof, provenance negatives, objective waveform review, external human listening signoff, and the same independent Luna all passed with P0/P1/P2 zero. Signed docs-only child bcacd5b records the final handoff. Master verified exact report hash, clean ancestry, 18-path delta and unchanged remote precondition, then fast-forwarded and non-force pushed main.",
+      "what_it_proves": "The accepted native audio-engine foundation and its signed Integration QA report are present on local main, origin/main tracking, and live remote main at bcacd5b6963f4db1a92c8db9b9770413505a0e98.",
+      "limits": "The master did not rerun product tests and relies on signed Sol QA. Native nonlinear/cycle-exact PCM/APU behavior, DMC reader bit/cycle phase and IRQ, unresolved IDs 0/1/2, neutral effect 5, bounded effect 6 correlation, cross-domain cue routing, and full ACC-AUDIO remain deferred.",
+      "runtime_locations": ["include/tecmo_audio_output.h", "src/tecmo_audio_output.c", "src/tecmo_cli_audio.c", "src/tecmo_frontend_audio.c", "src/tecmo_gameplay_audio.c", "src/tecmo_music.c", "src/asset_pack/tecmo_asset_pack_gameplay_audio.c", "src/asset_pack/tecmo_asset_pack_music.c"],
+      "test_locations": ["tools/Run-MusicTests.ps1", "tools/Run-FrontendAudioTests.ps1", "tools/Run-GameplayAudioTests.ps1"],
+      "doc_locations": ["docs/finish-tasks/R4-audio-foundation/README.md", "docs/finish-tasks/R4A-audio-integration-qa/README.md"],
+      "proof_locations": ["C:/Users/joshs/Projects/tecmo-basketball-port-r4a-audio-integration-qa-sol/build/proof/r4-audio-foundation/proof-manifest.txt"],
+      "local_private": true,
+      "created_at": "2026-08-03T19:24:36Z"
     }
   ]
 }

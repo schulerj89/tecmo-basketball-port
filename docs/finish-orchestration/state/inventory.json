@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T18:45:20Z",
+  "updated_at": "2026-08-03T19:24:36Z",
   "inventory_status": "complete",
   "snapshot_base_sha": "7090d2c62201ce3d330df20043a6e80fd0bdef00",
   "snapshot_started_at": "2026-08-03T04:40:00Z",
@@ -19,7 +19,7 @@
     "ignored proof manifests, proof directories, test logs, and research captures"
   ],
   "repositories": [
-    {"path":"C:/Users/joshs/Projects/tecmo-basketball-port","remote":"git@github.com:schulerj89/tecmo-basketball-port.git","main_sha":"dd096cb23a5fe7d755615fcaaadc0aa1d9b1509d","origin_main_sha":"dd096cb23a5fe7d755615fcaaadc0aa1d9b1509d","observed_at":"2026-08-03T18:45:20Z"}
+    {"path":"C:/Users/joshs/Projects/tecmo-basketball-port","remote":"git@github.com:schulerj89/tecmo-basketball-port.git","main_sha":"bcacd5b6963f4db1a92c8db9b9770413505a0e98","origin_main_sha":"bcacd5b6963f4db1a92c8db9b9770413505a0e98","observed_at":"2026-08-03T19:24:36Z"}
   ],
   "threads": [
     {"thread_id":"019fc5d4-f360-78b3-b2a6-c8bae92df690","title":"Tecmo R0 Master Finish Orchestrator - Sol Max","role":"master","model":"gpt-5.6-sol","thinking":"max","status":"active","session_id":"S-MASTER-001","actual_branch":"codex/master-finish-orchestration","actual_worktree":"C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator","report_status":"active control-plane/inventory owner","observed_at":"2026-08-03T04:47:45Z"},

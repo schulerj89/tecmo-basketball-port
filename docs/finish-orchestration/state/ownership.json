@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T18:57:26Z",
+  "updated_at": "2026-08-03T19:24:36Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -143,7 +143,7 @@
         "docs/finish-tasks/R1-cpu-play-lifecycle/README.md"
       ],
       "concurrency_group": "R1-gameplay-foundation",
-      "active": false,
+      "active": true,
       "claimed_at": "2026-08-03T05:30:16Z",
       "released_at": "2026-08-03T11:18:38Z",
       "notes": "Released after terminal ad0f005 was Sol/QA accepted, fast-forwarded into the Sol branch, recorded as ready for Round 1 staging, and both CPU Lunas were unpinned."
@@ -491,10 +491,10 @@
         "docs/finish-tasks/R4A-audio-integration-qa/PROOF.md"
       ],
       "concurrency_group": "R4A-integration-qa",
-      "active": true,
+      "active": false,
       "claimed_at": "2026-08-03T18:21:12Z",
-      "released_at": null,
-      "notes": "Transferred from the master reservation to pinned Integration QA Sol S-SOL-R4A-INTEGRATION-QA-001 after exact branch/worktree/staging clean-head verification. Product/source paths remain read-only; only signed QA docs are tracked writable and ignored proof output is allowed."
+      "released_at": "2026-08-03T19:24:36Z",
+      "notes": "Released after signed terminal report bcacd5b passed combined P0/P1/P2-zero review, master fast-forward/non-force push, and Luna unpin. Product paths remained read-only to this claim; branches/worktrees are preserved."
     }
   ],
   "shared_boundaries": [

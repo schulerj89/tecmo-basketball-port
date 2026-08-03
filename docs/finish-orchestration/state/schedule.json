@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T19:12:26Z",
+  "updated_at": "2026-08-03T19:24:36Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,12 +10,12 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 6,
+    "active_domain_orchestrators": 5,
     "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
     "unallocated_target_slots": 0,
-    "unallocated_monitoring_slots": 2
+    "unallocated_monitoring_slots": 3
   },
   "lanes": [
     {
@@ -159,8 +159,8 @@
         "OWN-R4-AUDIO-FOUNDATION"
       ],
       "blockers": [],
-      "next_gate": "Isolated audio foundation is terminally accepted, writer/QA/domain Sol are completed/unpinned, and exact e120c30 is physically staged. Its separate R4A Integration QA lane is cleared; broader cross-domain ACC-AUDIO remains deferred in parent R4.",
-      "updated_at": "2026-08-03T18:21:12Z"
+      "next_gate": "Complete: accepted audio foundation and signed R4A Integration QA report are pushed on main/origin at bcacd5b. Broader cross-domain cue routing/full ACC-AUDIO remains deferred in parent R4.",
+      "updated_at": "2026-08-03T19:24:36Z"
     },
     {
       "lane_id": "LANE-R4A-INTEGRATION-QA",
@@ -172,8 +172,8 @@
       "task_ids": [
         "R4A-INTEGRATION-QA"
       ],
-      "readiness": "active",
-      "dependency_status": "ready",
+      "readiness": "complete",
+      "dependency_status": "complete",
       "reservation_owner_session_id": "S-MASTER-001",
       "orchestrator_session_id": "S-SOL-R4A-INTEGRATION-QA-001",
       "base_sha": "e120c30ee882fe07b37496e2742ac83f1d16ff3a",
@@ -183,8 +183,8 @@
         "OWN-R4A-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Combined tip 0f06fd1 now contains accepted audio e120c30 plus current-main R3A dd096cb with zero path overlap. Personal combined suites/proof and independent verifier pass; finish same-Luna read-only audit, commit signed terminal report, then master can fast-forward and non-force push.",
-      "updated_at": "2026-08-03T19:09:43Z"
+      "next_gate": "Complete: same-Luna P0/P1/P2-zero closure and signed report bcacd5b were master-verified, fast-forwarded, non-force pushed, and remote-verified. Luna unpinned; completed Sol awaits master unpin after durable record.",
+      "updated_at": "2026-08-03T19:24:36Z"
     },
     {
       "lane_id": "LANE-R2-SHOTS-OUTCOMES",
