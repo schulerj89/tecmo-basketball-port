@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T17:33:02Z",
+  "updated_at": "2026-08-03T17:36:52Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -41,8 +41,8 @@
         "OWN-R1-TIP"
       ],
       "blockers": [],
-      "next_gate": "CPU+LIVE remain clean on Round 1 staging at 222d75cf. TIP is in_progress; one exact projectless read-only original claim/automatic/timing Luna 019fc89b-05fb-7193-aef0-e483f9306279 is active/pinned while the Sol reconciles evidence. No writable TIP worker or excluded scene/source-map mutation before research acceptance/rescope.",
-      "updated_at": "2026-08-03T17:10:30Z"
+      "next_gate": "CPU+LIVE remain clean on Round 1 staging at 222d75cf. TIP read-only trace now proves the dedicated Bank05 slot-10 $A214/$A25F/$A274 ball path and rejects shared actor $8642; worker is tightening telemetry/full case matrix. No rescope or writable TIP lineage until Sol accepts the complete evidence report.",
+      "updated_at": "2026-08-03T17:35:22Z"
     },
     {
       "lane_id": "LANE-R3-SEASON-DATA-FOUNDATION",
@@ -113,8 +113,8 @@
         "OWN-R4-AUDIO-FOUNDATION"
       ],
       "blockers": [],
-      "next_gate": "Revised-tip QA conditionally passes clean ad82eb9 with no runtime/product defect. Same writer performs Revision C: correct >=8 docs/proof/lineage/handoff plus exact event-header and per-WAV-slice FNV assertions; same pinned QA then verifies the terminal tip before Sol acceptance/integration.",
-      "updated_at": "2026-08-03T17:24:09Z"
+      "next_gate": "Revision C is a clean terminal candidate at exact 22199fb: 17 owned paths, build plus Music/Frontend/Gameplay suites, proof identities, seven-document contract, and Sol source/docs review pass. Same pinned detached QA is active at 22199fb for final independent verification; acceptance, ff-only writer-to-Sol integration, and final integrated-tip QA follow only after its verdict.",
+      "updated_at": "2026-08-03T17:36:52Z"
     },
     {
       "lane_id": "LANE-R2-SHOTS-OUTCOMES",
