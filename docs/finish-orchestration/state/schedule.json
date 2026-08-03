@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T22:15:15Z",
+  "updated_at": "2026-08-03T22:34:04Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -231,8 +231,8 @@
         "OWN-R2-SHOTS-OUTCOMES"
       ],
       "blockers": [],
-      "next_gate": "Scene and bound route matrices are green, but first commit remains held. Same Luna must remove temporary R2DIAG output, enforce exact-make frames 1-8 unreleased polarity with a bytewise corruption probe, and finish focused suites, terminal production matrices, and docs; source_map.c and scene.c remain zero-diff exclusions.",
-      "updated_at": "2026-08-03T22:15:15Z"
+      "next_gate": "First commit remains held. Same Luna must close exact selector 0/3/2/1 miss schedules, ordinary approximate make, numeric0/1/2 close make+miss settlement, route-bound active-tail duration/JUMP base-frame invariants, and coordinated corruption probes, then pass Sol warning-clean, focused, full-scene, and native-proof gates. source_map.c and scene.c remain zero-diff exclusions.",
+      "updated_at": "2026-08-03T22:34:04Z"
     },
     {
       "lane_id": "LANE-R2-CLOCK-LINEUPS-FATIGUE",
