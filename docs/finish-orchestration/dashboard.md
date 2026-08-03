@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T11:15:54Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T11:18:38Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,7 +8,7 @@ Generated from committed JSON at `2026-08-03T11:15:54Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 15, `pushed` 5, `scoped` 2, `sol_accepted` 1
+- Task states: `backlog` 15, `pushed` 5, `ready_for_round_staging` 1, `scoped` 2
 - Fidelity classifications: `incomplete` 24
 
 ## Rounds
@@ -29,7 +29,7 @@ Generated from committed JSON at `2026-08-03T11:15:54Z`. This dashboard reports 
 |---:|---|---|---|---|---|---|---:|---|---|
 | 100 | R0-CTRL-001 | orchestration | R0 | pushed | S-MASTER-001 | codex/master-finish-orchestration | 2 | coordination_validated | pushed |
 | 100 | R0A-INV-001 | orchestration | R0A | pushed | S-MASTER-001 | codex/master-finish-orchestration | 2 | coordination_validated | pushed |
-| 100 | R1-CPU-PLAY-LIFECYCLE | gameplay_behavior | R1 | sol_accepted | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | not_ready |
+| 100 | R1-CPU-PLAY-LIFECYCLE | gameplay_behavior | R1 | ready_for_round_staging | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | not_ready |
 | 100 | R2-SHOTS-OUTCOMES | gameplay_behavior | R2 | backlog | - | - | 0 | pending | not_ready |
 | 100 | R3-PLAYER-STATS-LEADERS | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 100 | R4-FRONTEND-INTRO-TITLE | frontend | R4 | backlog | - | - | 0 | pending | not_ready |
@@ -62,7 +62,6 @@ Generated from committed JSON at `2026-08-03T11:15:54Z`. This dashboard reports 
 
 | Claim | Task | Round | Mode | Writable globs | Concurrency group |
 |---|---|---|---|---|---|
-| OWN-R1-CPU-PLAY | R1-CPU-PLAY-LIFECYCLE | R1 | exclusive | include/tecmo_gameplay_cpu_*.h<br>src/tecmo_gameplay_cpu_*.c<br>src/asset_pack/tecmo_asset_pack_gameplay_cpu_*.c<br>src/asset_pack/tecmo_asset_pack_gameplay_cpu_*.h<br>tools/Run-GameplayCpuSteeringTests.ps1<br>tools/gameplay-lab/**<br>docs/finish-tasks/R1-cpu-play-lifecycle/** | R1-gameplay-foundation |
 | OWN-R1-LIVE | R1-LIVE-FOUNDATION | R1 | exclusive | CMakeLists.txt<br>include/tecmo_gameplay_scene.h<br>include/tecmo_gameplay_scene_internal.h<br>include/tecmo_gameplay_state.h<br>include/tecmo_gameplay_movement.h<br>include/tecmo_gameplay_live_*.h<br>src/tecmo_gameplay_scene.c<br>src/tecmo_gameplay_scene_actors.c<br>src/tecmo_gameplay_scene_validation.c<br>src/tecmo_gameplay_scene_test_internal.h<br>src/tecmo_gameplay_scene_test_orchestrator.c<br>src/tecmo_gameplay_scene_test_state_flow.c<br>src/tecmo_gameplay_state.c<br>src/tecmo_gameplay_movement.c<br>src/tecmo_gameplay_live_*.c<br>src/tecmo_cli_gameplay_core.c<br>src/asset_pack/tecmo_asset_pack_gameplay_movement.c<br>src/asset_pack/tecmo_asset_pack_gameplay_movement.h<br>src/asset_pack/tecmo_asset_pack_source_map.c<br>src/asset_pack/tecmo_asset_pack_source_map.h<br>src/asset_pack/tecmo_asset_pack_import_layout.h<br>tools/Run-GameplayMovementTests.ps1<br>tools/Run-GameplaySceneTests.ps1<br>docs/finish-tasks/R1-live-foundation/** | R1-gameplay-foundation |
 | OWN-R1-TIP | R1-TIP-FIDELITY | R1 | exclusive | include/tecmo_gameplay_pretip.h<br>src/tecmo_gameplay_pretip.c<br>src/tecmo_gameplay_scene_render.c<br>src/tecmo_gameplay_scene_test_pretip.c<br>src/tecmo_gameplay_scene_test_render_contract.c<br>src/tecmo_cli_render_gameplay_checkpoint.c<br>src/tecmo_win32_keys.c<br>src/asset_pack/tecmo_asset_pack_gameplay_pretip.c<br>src/asset_pack/tecmo_asset_pack_gameplay_pretip.h<br>tools/New-TipoffVisualProof.ps1<br>tools/Run-GameplayPreTipTests.ps1<br>docs/finish-tasks/R1-tip-fidelity/** | R1-gameplay-foundation |
 

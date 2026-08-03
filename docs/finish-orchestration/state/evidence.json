@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T11:15:54Z",
+  "updated_at": "2026-08-03T11:18:38Z",
   "records": [
     {
       "evidence_id": "EVID-R0-BASE",
@@ -220,7 +220,7 @@
       "original_reference": {"kind":"trace","identity":"canonical local Rev 1 formal source trace with manifest-pinned ROM, FCEUX, pack, script, and tool identities","timestamp_or_frame":"clean formal run 20260803-053244"},
       "description": "Sol personally verified PASS at clean worker HEAD 8be7a9f9a11d43e68b090a98af122758885931fd, parent db5a043244361b3e9bbab2e154c7f14e4a4a5014: status pass, final=head, clean flags true, no pending fields, personal inspection complete, 102 files, 100 artifacts, 36 logs, 33,650,575 bytes, and draft/formal key hashes identical. Independent read-only QA reran the static and canonical Rev1 focused suites, then accepted terminal docs child ad0f005 and the full CPU slice with no P0/P1/P2 findings; it pinned manifest SHA-256 E7C9E6C9210D398DADC82715779A1389DF881643D109A0FDB091EBAFA523254A plus summary SHA-256 78C91AAF981C075BF9088EE4618EBB73CDB740DF08E12B5AC1D5E125C5419252.",
       "what_it_proves": "The committed isolated CPU lifecycle implementation, source-trace proof, exact-cadence videos, native regression frames, documentation, and warning-clean/Win32 gates are reproducible from the reviewed clean worker commit.",
-      "limits": "Independent QA accepted implementation/proof. Sol and focused independent QA accept terminal docs child ad0f005 and the CPU slice with no P0/P1/P2 findings. Exact four-commit chain is integrated ff-only into the registered Sol branch and result commits are recorded; only worker unpin confirmations remain pending; native Hawks-Celtics imagery remains regression-only and LIVE scene integration remains outside this accepted CPU slice. Native Hawks-Celtics imagery remains deterministic regression evidence only and does not prove one-to-one original parity or LIVE scene integration.",
+      "limits": "Independent QA accepted implementation/proof. Sol and focused independent QA accept terminal docs child ad0f005 and the CPU slice with no P0/P1/P2 findings. Exact four-commit chain is integrated ff-only into the registered Sol branch and result commits are recorded; both CPU workers are completed/unpinned and the ownership claim is released; native Hawks-Celtics imagery remains regression-only and LIVE scene integration remains outside this accepted CPU slice. Native Hawks-Celtics imagery remains deterministic regression evidence only and does not prove one-to-one original parity or LIVE scene integration.",
       "runtime_locations": ["include/tecmo_gameplay_cpu_steering.h", "src/tecmo_gameplay_cpu_steering.c", "src/asset_pack/tecmo_asset_pack_gameplay_cpu_steering.c"],
       "test_locations": ["tools/Run-GameplayCpuSteeringTests.ps1", "tools/gameplay-lab"],
       "doc_locations": ["docs/finish-tasks/R1-cpu-play-lifecycle"],

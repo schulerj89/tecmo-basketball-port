@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T05:39:02Z",
+  "updated_at": "2026-08-03T11:18:38Z",
   "claims": [
     {
       "claim_id":"OWN-R0-CTRL","task_id":"R0-CTRL-001","round_id":"R0","session_id":"S-MASTER-001","mode":"exclusive",
@@ -41,8 +41,8 @@
       "claim_id":"OWN-R1-CPU-PLAY","task_id":"R1-CPU-PLAY-LIFECYCLE","round_id":"R1","session_id":"S-SOL-R1-GAMEPLAY-001","mode":"exclusive",
       "writable_globs":["include/tecmo_gameplay_cpu_*.h","src/tecmo_gameplay_cpu_*.c","src/asset_pack/tecmo_asset_pack_gameplay_cpu_*.c","src/asset_pack/tecmo_asset_pack_gameplay_cpu_*.h","tools/Run-GameplayCpuSteeringTests.ps1","tools/gameplay-lab/**","docs/finish-tasks/R1-cpu-play-lifecycle/**"],
       "planned_paths":["src/tecmo_gameplay_cpu_steering.c","src/asset_pack/tecmo_asset_pack_gameplay_cpu_steering.c","docs/finish-tasks/R1-cpu-play-lifecycle/README.md"],
-      "concurrency_group":"R1-gameplay-foundation","active":true,"claimed_at":"2026-08-03T05:30:16Z","released_at":null,
-      "notes":"Transferred from the master registrar to the authoritative Round 1 Gameplay Foundation Sol after exact branch/worktree verification."
+      "concurrency_group":"R1-gameplay-foundation","active":false,"claimed_at":"2026-08-03T05:30:16Z","released_at":"2026-08-03T11:18:38Z",
+      "notes":"Released after terminal ad0f005 was Sol/QA accepted, fast-forwarded into the Sol branch, recorded as ready for Round 1 staging, and both CPU Lunas were unpinned."
     },
     {
       "claim_id":"OWN-R1-LIVE","task_id":"R1-LIVE-FOUNDATION","round_id":"R1","session_id":"S-SOL-R1-GAMEPLAY-001","mode":"exclusive",
