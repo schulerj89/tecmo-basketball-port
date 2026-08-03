@@ -1,7 +1,8 @@
 # R1-CPU-PLAY-LIFECYCLE task contract
 
-Status: Sol-accepted `DRAFT_PASS` evidence is recorded; the CPU-only worker
-commit and formal clean `-RequirePass`/final proof remain separate gates.
+Status: Sol-accepted `DRAFT_PASS` evidence is recorded in worker commit
+`db5a043244361b3e9bbab2e154c7f14e4a4a5014`; formal clean
+`-RequirePass`/final proof and Sol integration remain separate gates.
 
 | Field | Value |
 | --- | --- |
@@ -12,7 +13,7 @@ commit and formal clean `-RequirePass`/final proof remain separate gates.
 | Worker worktree | `C:\Users\joshs\Projects\tecmo-basketball-port-r1-cpu-play-lifecycle-luna` |
 | Expected base | `6d8f9c7a99a7ce188f1a523247d3a9b9093860fb` |
 | Sol-recorded control-plane checkpoint (not a product commit) | `dea1fd7c2c2761fe08a6a27ab13a5e661e2b7094` |
-| Current draft final SHA | `PENDING_FINAL_SHA_UNTIL_COMMIT` |
+| Worker implementation/evidence commit | `db5a043244361b3e9bbab2e154c7f14e4a4a5014` |
 | Model/pin | `gpt-5.6-luna`, max thinking; no subagents or child tasks |
 
 ## Scope

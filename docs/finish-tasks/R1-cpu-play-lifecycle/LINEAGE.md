@@ -5,7 +5,7 @@
 | Role | Thread/session | Branch/worktree | State |
 | --- | --- | --- | --- |
 | Authoritative Sol | `019fc61e-0f2a-7fb0-a76e-e4676808c959` | `codex/r1-gameplay-foundation-sol` / `C:\Users\joshs\Projects\tecmo-basketball-port-r1-gameplay-foundation-sol` | owns acceptance and final proof |
-| Current pinned Luna | `019fc63f-dada-7de2-bae3-9e809126ccbe` | `codex/r1-cpu-play-lifecycle-luna` / `C:\Users\joshs\Projects\tecmo-basketball-port-r1-cpu-play-lifecycle-luna` | `gpt-5.6-luna`, max; pinned; draft/no commit |
+| Current pinned Luna | `019fc63f-dada-7de2-bae3-9e809126ccbe` | `codex/r1-cpu-play-lifecycle-luna` / `C:\Users\joshs\Projects\tecmo-basketball-port-r1-cpu-play-lifecycle-luna` | `gpt-5.6-luna`, max; pinned; worker commit `db5a043244361b3e9bbab2e154c7f14e4a4a5014`; formal acceptance pending |
 | Trace/QA research Luna | `019fc628-0b32-7e83-b969-b41990b36e9b` | `Tecmo R1 CPU Lifecycle -- Trace and QA`; read-only research | `gpt-5.6-luna`, max; completed/accepted/unpinned; supplied route/trace hooks and selector evidence |
 | Original-stream research Luna | `019fc628-0649-7c53-8153-31f8cb75c30d` | `Tecmo R1 CPU Lifecycle -- Original Stream`; read-only research | `gpt-5.6-luna`, max; completed/accepted/unpinned; supplied corpus/handler/transport evidence |
 
@@ -241,8 +241,10 @@ zero literal `{detail: bad request}` faults and zero confirmed equivalents.
 22. Sol accepted the eleventh `DRAFT_PASS` session at
    `temp-videos/gameplay-lab/cpu-lifecycle/20260803-051716/`, generated UTC
    `2026-08-03T10:17:40.6360836Z`. It has status `draft_pass`, base/head
-   `6d8f9c7a99a7ce188f1a523247d3a9b9093860fb`, and correctly pending final SHA
-   until the worker commit. It contains 102 files, 100 inventoried artifacts,
+   `6d8f9c7a99a7ce188f1a523247d3a9b9093860fb`; final SHA was correctly
+   pending at generation, and worker commit
+   `db5a043244361b3e9bbab2e154c7f14e4a4a5014` now records the implementation.
+   It contains 102 files, 100 inventoried artifacts,
    36 nonempty runner-metadata logs, zero empty files, no `.incomplete`, and
    `33,652,224` bytes. The manifest is `130,114` bytes with SHA-256
    `457EB6E50BCCBC113B439104143F5834D55C836C9C47E3CC1E2B4D7F6588165A`; the

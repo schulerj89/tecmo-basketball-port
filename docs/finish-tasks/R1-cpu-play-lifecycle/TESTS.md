@@ -297,8 +297,10 @@ counts, manifest probe fields, and repeat SHA equality.
 Sol accepted the `DRAFT_PASS` session at
 `temp-videos/gameplay-lab/cpu-lifecycle/20260803-051716/`, generated UTC
 `2026-08-03T10:17:40.6360836Z`. It has base/head
-`6d8f9c7a99a7ce188f1a523247d3a9b9093860fb`, with final SHA correctly pending
-until commit. The session contains 102 files, 100 inventoried artifacts, 36
+`6d8f9c7a99a7ce188f1a523247d3a9b9093860fb`; final SHA was correctly pending
+at generation, and the resulting worker implementation/evidence commit is
+`db5a043244361b3e9bbab2e154c7f14e4a4a5014`. The session contains 102 files,
+100 inventoried artifacts, 36
 nonempty logs with complete runner metadata, zero empty files, no `.incomplete`,
 and `33,652,224` bytes. Manifest: `130,114` bytes,
 `457EB6E50BCCBC113B439104143F5834D55C836C9C47E3CC1E2B4D7F6588165A`;

@@ -123,8 +123,9 @@ inherit exact intent from their address.
 Sol accepted the deterministic draft session
 `temp-videos/gameplay-lab/cpu-lifecycle/20260803-051716/` with generated UTC
 `2026-08-03T10:17:40.6360836Z`. It is `status=draft_pass` at base and head
-`6d8f9c7a99a7ce188f1a523247d3a9b9093860fb`; `final_sha` remains pending until
-the worker commit and formal clean proof. The session contains 102 files, 100
+`6d8f9c7a99a7ce188f1a523247d3a9b9093860fb`; at generation `final_sha` was
+pending, and the resulting worker implementation/evidence commit is now
+`db5a043244361b3e9bbab2e154c7f14e4a4a5014`. The session contains 102 files, 100
 inventoried artifacts, 36 nonempty runner-metadata logs, zero empty files, no
 `.incomplete`, and `33,652,224` bytes. The preserved generated manifest is
 `130,114` bytes, SHA-256

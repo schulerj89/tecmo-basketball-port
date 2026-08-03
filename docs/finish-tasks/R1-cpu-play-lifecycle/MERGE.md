@@ -9,11 +9,13 @@ CPU-only gates below. No merge, rebase, or push is authorized from this worker.
 - Expected parent/base: `6d8f9c7a99a7ce188f1a523247d3a9b9093860fb`.
 - Sol-recorded control-plane checkpoint (not a product commit): `dea1fd7c2c2761fe08a6a27ab13a5e661e2b7094`.
 - Worker branch: `codex/r1-cpu-play-lifecycle-luna`.
-- Final worker commit(s): `PENDING_UNTIL_LOCAL_COMMIT`.
+- Final worker implementation/evidence commit:
+  `db5a043244361b3e9bbab2e154c7f14e4a4a5014`.
 - Final product commit SHA: `PENDING_FINAL_SHA_UNTIL_COMMIT`.
 - Master merge commit: `PENDING_SOL_MASTER_MERGE_SHA`.
 
-The worker remains based on the expected parent. Sol has personally inspected
+The worker remains based on the expected parent and the implementation/evidence
+commit above is local-only. Sol has personally inspected
 the accepted draft source/trace/visual evidence; formal clean `-RequirePass`,
 independent QA, source-map compatibility, and master integration remain Sol
 responsibilities. The worker must not resolve history by merge/rebase or by
