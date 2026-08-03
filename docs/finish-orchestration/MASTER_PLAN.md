@@ -147,10 +147,15 @@ new state. The transition tool rejects an unpermitted edge.
    commits, and declared merge order.
 5. Validators reject duplicate task/session/thread/worktree/branch IDs,
    dependency cycles, missing references, glob overlap, and active registry
-   collisions.
-6. Lineage validation checks that bases and result commits exist and that each
+   collisions. A task cannot enter an active execution state until every
+   dependency has reached Sol acceptance or a later state.
+6. One Sol may reuse one exact domain branch/worktree for explicitly
+   dependency-ordered tasks in the same round only after the earlier task has
+   left every writable, revision, review, or blocked state. Ownership claims
+   remain disjoint, and concurrent writable reuse is rejected.
+7. Lineage validation checks that bases and result commits exist and that each
    branch/result descends from its expected base.
-7. The master does not improvise product conflict resolution. Overlap or merge
+8. The master does not improvise product conflict resolution. Overlap or merge
    conflicts are sent back for rescoping to the responsible Sols, or to a
    bounded Sol boundary orchestrator created by the master.
 

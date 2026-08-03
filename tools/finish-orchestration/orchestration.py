@@ -63,6 +63,14 @@ ACTIVE_TASK_STATES = {
     "blocked",
     "reopened",
 }
+WRITABLE_OR_REVIEW_TASK_STATES = {
+    "assigned",
+    "in_progress",
+    "sol_review",
+    "luna_revision",
+    "blocked",
+    "reopened",
+}
 ACTIVE_SESSION_STATES = {"active", "idle", "blocked"}
 
 
@@ -209,6 +217,28 @@ def normalize_relative_path(value: str) -> str:
 
 def canonical_worktree(value: str) -> str:
     return os.path.normcase(os.path.abspath(value.replace("/", os.sep)))
+
+
+def tasks_may_share_sequential_context(first: dict[str, Any], second: dict[str, Any]) -> bool:
+    """Allow exact branch/worktree reuse only for an explicit same-Sol sequence."""
+    same_sol = (
+        first["sol_orchestrator_session_id"] is not None
+        and first["sol_orchestrator_session_id"] == second["sol_orchestrator_session_id"]
+    )
+    dependency_ordered = (
+        first["task_id"] in second["dependencies"]
+        or second["task_id"] in first["dependencies"]
+    )
+    concurrently_writable = (
+        first["state"] in WRITABLE_OR_REVIEW_TASK_STATES
+        and second["state"] in WRITABLE_OR_REVIEW_TASK_STATES
+    )
+    return (
+        same_sol
+        and first["round_id"] == second["round_id"]
+        and dependency_ordered
+        and not concurrently_writable
+    )
 
 
 def glob_regex(pattern: str) -> re.Pattern[str]:
@@ -451,8 +481,8 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         if worker["thread_id"] in session_thread_ids:
             result.error(f"reported Luna thread {worker['thread_id']} duplicates a registered Sol/master thread")
 
-    active_task_branches: dict[str, str] = {}
-    active_task_worktrees: dict[str, str] = {}
+    active_task_branches: dict[str, dict[str, Any]] = {}
+    active_task_worktrees: dict[str, dict[str, Any]] = {}
     for task in tasks:
         task_id = task["task_id"]
         if task["state"] not in states:
@@ -469,6 +499,15 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
                 result.error(f"task {task_id}: unknown dependency {dependency}")
             if dependency == task_id:
                 result.error(f"task {task_id}: self dependency")
+            if (
+                task["state"] in ACTIVE_TASK_STATES
+                and dependency in task_by_id
+                and task_by_id[dependency]["state"] not in FINAL_OR_LATE_STATES
+            ):
+                result.error(
+                    f"task {task_id}: active state {task['state']} has unsatisfied dependency "
+                    f"{dependency} in state {task_by_id[dependency]['state']}"
+                )
         for claim_id in task["ownership_claim_ids"]:
             claim = claim_by_id.get(claim_id)
             if not claim:
@@ -540,12 +579,26 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
                 continue
             branch_key = task["branch"].casefold()
             worktree_key = canonical_worktree(task["worktree"])
-            if branch_key in active_task_branches:
-                result.error(f"active tasks {active_task_branches[branch_key]} and {task_id} share branch {task['branch']}")
-            if worktree_key in active_task_worktrees:
-                result.error(f"active tasks {active_task_worktrees[worktree_key]} and {task_id} share worktree {task['worktree']}")
-            active_task_branches[branch_key] = task_id
-            active_task_worktrees[worktree_key] = task_id
+            branch_peer = active_task_branches.get(branch_key)
+            if branch_peer and not (
+                tasks_may_share_sequential_context(branch_peer, task)
+                and canonical_worktree(branch_peer["worktree"]) == worktree_key
+            ):
+                result.error(
+                    f"active tasks {branch_peer['task_id']} and {task_id} share branch {task['branch']} "
+                    "without an allowed exact sequential context"
+                )
+            worktree_peer = active_task_worktrees.get(worktree_key)
+            if worktree_peer and not (
+                tasks_may_share_sequential_context(worktree_peer, task)
+                and worktree_peer["branch"].casefold() == branch_key
+            ):
+                result.error(
+                    f"active tasks {worktree_peer['task_id']} and {task_id} share worktree {task['worktree']} "
+                    "without an allowed exact sequential context"
+                )
+            active_task_branches[branch_key] = task
+            active_task_worktrees[worktree_key] = task
 
     for cycle in detect_dependency_cycles(task_by_id):
         result.error("task dependency cycle: " + " -> ".join(cycle))
@@ -1159,6 +1212,34 @@ def command_self_test(args: argparse.Namespace) -> int:
     expect(not possible_pattern_overlap("src/audio/**", "src/gameplay/**"), "disjoint prefixes do not overlap")
     expect(find_duplicates(["a", "b", "a"]) == ["a"], "duplicate detector")
 
+    prior_task = {
+        "task_id": "A", "round_id": "R1", "sol_orchestrator_session_id": "S1",
+        "state": "sol_accepted", "dependencies": [],
+    }
+    next_task = {
+        "task_id": "B", "round_id": "R1", "sol_orchestrator_session_id": "S1",
+        "state": "in_progress", "dependencies": ["A"],
+    }
+    expect(tasks_may_share_sequential_context(prior_task, next_task), "same-Sol sequential context reuse")
+    concurrent_task = copy.deepcopy(prior_task)
+    concurrent_task["state"] = "sol_review"
+    expect(
+        not tasks_may_share_sequential_context(concurrent_task, next_task),
+        "concurrent writable context rejection",
+    )
+    unordered_task = copy.deepcopy(next_task)
+    unordered_task["dependencies"] = []
+    expect(
+        not tasks_may_share_sequential_context(prior_task, unordered_task),
+        "unordered context reuse rejection",
+    )
+    other_sol_task = copy.deepcopy(next_task)
+    other_sol_task["sol_orchestrator_session_id"] = "S2"
+    expect(
+        not tasks_may_share_sequential_context(prior_task, other_sol_task),
+        "cross-Sol context reuse rejection",
+    )
+
     sample_tasks = {
         "A": {"dependencies": ["B"]},
         "B": {"dependencies": ["A"]},
@@ -1182,6 +1263,17 @@ def command_self_test(args: argparse.Namespace) -> int:
         audit_state["queue"]["tasks"][0]["audit"][-1]["from_state"] = "backlog"
         audit_result = validate_semantics(args.repo_root, audit_state)
         expect(any("does not continue prior state" in message for message in audit_result.errors), "audit-chain rejection")
+
+        dependency_state = copy.deepcopy(actual_state)
+        dependency_task = next(
+            row for row in dependency_state["queue"]["tasks"] if row["task_id"] == "R0A-ADOPT-CPU-TIP"
+        )
+        dependency_task["state"] = "backlog"
+        dependency_result = validate_semantics(args.repo_root, dependency_state)
+        expect(
+            any("unsatisfied dependency R0A-ADOPT-CPU-TIP" in message for message in dependency_result.errors),
+            "active-task dependency gate",
+        )
 
         overlap_claims = copy.deepcopy(actual_state["ownership"])
         first_claim = copy.deepcopy(overlap_claims["claims"][0])
