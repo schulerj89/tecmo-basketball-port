@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T17:47:36Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T17:52:20Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,7 +8,7 @@ Generated from committed JSON at `2026-08-03T17:47:36Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 13, `in_progress` 4, `pushed` 5, `ready_for_round_staging` 3
+- Task states: `backlog` 13, `in_progress` 3, `pushed` 5, `ready_for_round_staging` 3, `sol_accepted` 1
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
@@ -24,8 +24,8 @@ Generated from committed JSON at `2026-08-03T17:47:36Z`. This dashboard reports 
 |---|---|---|---|---|---|---|---|
 | LANE-R1-GAMEPLAY-FOUNDATION | gameplay_foundation | active | sequentially_active | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | CPU+LIVE remain clean on Round 1 staging at 222d75cf. TIP read-only trace now proves the dedicated Bank05 slot-10 $A214/$A25F/$A274 ball path and rejects shared actor $8642; worker is tightening telemetry/full case matrix. No rescope or writable TIP lineage until Sol accepts the complete evidence report. |
 | LANE-R3-SEASON-DATA-FOUNDATION | season_data | complete | complete | R3-SEASON-DATA-FOUNDATION | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | Bounded R3 foundation lane is complete: terminal f536a193 is staging-ready; claim released; all Lunas and the Sol orchestrator are completed/unpinned; branches/worktrees remain preserved for master-owned future Round 3 staging. |
-| LANE-R4-FRONTEND-INTRO-TITLE | frontend | active | ready | R4-FRONTEND-INTRO-TITLE | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | Sampled original/native geometry and binary masks are now exact after normalization, but same uncommitted finale worker must correct exact NES palette caps, Bulls BG+sprite slot9 override, and title page1-negative mutation. Then Sol runs full suite/source/docs review and integrates finale second; held proof worker follows. |
-| LANE-R4-AUDIO-FOUNDATION | audio | active | ready | R4-AUDIO-FOUNDATION | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | Revision D is clean at exact e120c30e with only LINEAGE/MERGE/PROOF/TESTS changed; build/all three suites and regenerated proof SHA 932AA1FE62BE3CC144C643A489353D2309434B81B5D8A4C6F1CB2CAE0F1B8FC5 pass. Same pinned detached QA is active at e120 for the decisive docs gate before Sol acceptance/ff-only integration. |
+| LANE-R4-FRONTEND-INTRO-TITLE | frontend | active | ready | R4-FRONTEND-INTRO-TITLE | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | Native hardening plus accepted three-commit finale lineage are integrated cleanly at a40dc3f; combined /W4 build, 28/28 suite, 47 masks, 11 color cases, repeats, source/ASM and visual gates pass. Accepted finale worker is completed/unpinned. Reuse held proof worker against a40dc3f for corrected production replay, media inspection, and independent QA before domain acceptance. |
+| LANE-R4-AUDIO-FOUNDATION | audio | active | ready | R4-AUDIO-FOUNDATION | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | Isolated OWN-R4-AUDIO-FOUNDATION is Sol-accepted and ff-only integrated cleanly at e120c30e after decisive independent QA PASS and final Sol build/Music/Frontend/Gameplay suites. Await accepted writer/QA unpin confirmations, then master records staging readiness; broader cross-domain ACC-AUDIO remains deferred. |
 | LANE-R2-SHOTS-OUTCOMES | gameplay_behavior | active | ready | R2-SHOTS-OUTCOMES | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | One exact projectless read-only Luna Max evidence/native-gap auditor 019fc8a8-186e-7be2-aab3-0aae3da3a2fa is active/pinned with null Git scope. Sol must personally reconcile/accept it, then register one persistent writable lineage; excluded TIP/shared boundaries remain frozen. |
 
 ## Rounds
@@ -50,10 +50,10 @@ Generated from committed JSON at `2026-08-03T17:47:36Z`. This dashboard reports 
 | 100 | R2-SHOTS-OUTCOMES | gameplay_behavior | R2 | in_progress | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | 0 | in_progress | not_ready |
 | 100 | R3-PLAYER-STATS-LEADERS | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 100 | R3-SEASON-DATA-FOUNDATION | season_data | R3 | ready_for_round_staging | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | 7 | passed | staged |
-| 100 | R4-FRONTEND-INTRO-TITLE | frontend | R4 | in_progress | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | 0 | in_progress | not_ready |
+| 100 | R4-FRONTEND-INTRO-TITLE | frontend | R4 | in_progress | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | 8 | in_progress | not_ready |
 | 100 | R5-ASSET-BUILD-PROVENANCE | assets_build | R5 | backlog | - | - | 0 | pending | not_ready |
 | 99 | R0A-ADOPT-CPU-TIP | gameplay_behavior | R0A | pushed | S-SOL-CPU-TIP-LEGACY | codex/cpu-tipoff-behavior | 1 | historical_sol_accepted | pushed |
-| 99 | R4-AUDIO-FOUNDATION | audio | R4 | in_progress | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | 0 | in_progress | not_ready |
+| 99 | R4-AUDIO-FOUNDATION | audio | R4 | sol_accepted | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | 10 | passed | not_ready |
 | 98 | R0A-ADOPT-TIP-VIS | gameplay_presentation | R0A | pushed | S-SOL-TIP-VIS-LEGACY | codex/tipoff-visual-orientation | 6 | historical_sol_accepted | pushed |
 | 98 | R1-LIVE-FOUNDATION | gameplay_behavior | R1 | ready_for_round_staging | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 3 | passed | staged |
 | 98 | R2-DEFENSE-CONTACT | gameplay_behavior | R2 | backlog | - | - | 0 | pending | not_ready |
@@ -76,8 +76,8 @@ Generated from committed JSON at `2026-08-03T17:47:36Z`. This dashboard reports 
 |---|---|---|---|---|---|---|---|---|
 | S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 813a4c4b5b1e |
 | S-SOL-R1-GAMEPLAY-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | codex/r1-gameplay-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r1-gameplay-foundation-sol | 222d75cfafa9 |
-| S-SOL-R4-FRONTEND-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R4-FRONTEND-INTRO-TITLE | codex/r4-frontend-intro-title-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r4-frontend-intro-title-sol | 761e061fdea1 |
-| S-SOL-R4-AUDIO-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R4-AUDIO-FOUNDATION | codex/r4-audio-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r4-audio-foundation-sol | 6d8f9c7a99a7 |
+| S-SOL-R4-FRONTEND-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R4-FRONTEND-INTRO-TITLE | codex/r4-frontend-intro-title-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r4-frontend-intro-title-sol | a40dc3f9976d |
+| S-SOL-R4-AUDIO-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R4-AUDIO-FOUNDATION | codex/r4-audio-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r4-audio-foundation-sol | e120c30ee882 |
 | S-SOL-R2-SHOTS-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R2-SHOTS-OUTCOMES | codex/r2-shots-outcomes-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2-shots-outcomes-sol | 222d75cfafa9 |
 
 ## Active Ownership
