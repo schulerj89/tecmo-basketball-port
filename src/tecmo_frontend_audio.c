@@ -6,6 +6,7 @@
 #include "tecmo_audio_output.h"
 
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 
 static uint32_t sample_hash(const int16_t *samples, size_t count)
@@ -139,6 +140,7 @@ void tecmo_frontend_audio_render_samples(TecmoFrontendAudioPlayer *player,
                                          int16_t *samples,
                                          size_t sample_count)
 {
+    if (sample_count > SIZE_MAX / sizeof(int16_t)) return;
     if (player == NULL || !player->pack_identity_valid) {
         tecmo_gameplay_audio_render_samples(NULL, samples, sample_count);
         return;
@@ -161,6 +163,7 @@ bool tecmo_frontend_audio_self_test(const char *project_root,
     TecmoFrontendAudioPlayer title;
     TecmoFrontendAudioPlayer menu;
     TecmoFrontendAudioPlayer routed;
+    TecmoFrontendAudioPlayer guard_player;
     TecmoMusicAsset music_asset;
     TecmoMusicPlayer music_player;
     TecmoAudioOutput output;
@@ -168,6 +171,8 @@ bool tecmo_frontend_audio_self_test(const char *project_root,
     int16_t menu_samples[4096];
     uint32_t title_hash;
     uint32_t menu_hash;
+    int16_t guard_sentinel;
+    bool guard_ok;
     bool ok;
     memset(&asset, 0, sizeof(asset));
     memset(&music_asset, 0, sizeof(music_asset));
@@ -181,6 +186,22 @@ bool tecmo_frontend_audio_self_test(const char *project_root,
     }
     tecmo_frontend_audio_player_init(&title, &asset, NULL);
     tecmo_frontend_audio_player_init(&menu, &asset, NULL);
+    tecmo_frontend_audio_player_init(&guard_player, &asset, NULL);
+    {
+        TecmoFrontendAudioPlayer guard_before = guard_player;
+        guard_sentinel = (int16_t)0x2D2D;
+        tecmo_frontend_audio_render_samples(
+            &guard_player, &guard_sentinel,
+            SIZE_MAX / sizeof(int16_t) + 1U);
+        guard_ok = guard_sentinel == (int16_t)0x2D2D &&
+                   memcmp(&guard_player, &guard_before,
+                          sizeof(guard_player)) == 0;
+        tecmo_frontend_audio_render_samples(
+            &guard_player, NULL, SIZE_MAX / sizeof(int16_t) + 1U);
+        guard_ok = guard_ok &&
+                   memcmp(&guard_player, &guard_before,
+                          sizeof(guard_player)) == 0;
+    }
     ok = tecmo_frontend_audio_queue_title_confirm(&title) &&
          !tecmo_gameplay_audio_queue_sfx_id(&title.sfx, 8U + 1U) &&
          tecmo_frontend_audio_queue_menu_accept(&menu);
@@ -215,7 +236,7 @@ bool tecmo_frontend_audio_self_test(const char *project_root,
          title.title_confirm_queue_count == 1U &&
          title.menu_accept_queue_count == 0U &&
          menu.title_confirm_queue_count == 0U &&
-         menu.menu_accept_queue_count == 1U;
+         menu.menu_accept_queue_count == 1U && guard_ok;
     if (message != NULL && message_size != 0U) {
         (void)snprintf(
             message, message_size,

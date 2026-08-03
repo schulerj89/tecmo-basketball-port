@@ -5,6 +5,7 @@
 
 #include <limits.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 
 enum GameplayAudioInstructionType {
@@ -90,6 +91,53 @@ static const uint8_t frontend_audio_rev1_sha256[32] = {
 static int range_valid(uint64_t offset, uint64_t count, uint64_t size)
 {
     return offset <= size && count <= size - offset;
+}
+
+static int checked_add_u64(uint64_t left, uint64_t right, uint64_t *result)
+{
+    if (result == NULL || right > UINT64_MAX - left) return 0;
+    *result = left + right;
+    return 1;
+}
+
+static int checked_mul_u64(uint64_t left, uint64_t right, uint64_t *result)
+{
+    if (result == NULL || (left != 0U && right > UINT64_MAX / left))
+        return 0;
+    *result = left * right;
+    return 1;
+}
+
+static int prg_layout_valid(uint64_t prg_offset, uint32_t prg_banks,
+                            uint32_t minimum_banks, uint64_t rom_size)
+{
+    uint64_t prg_bytes;
+    uint64_t end;
+    return prg_banks >= minimum_banks &&
+           checked_mul_u64(prg_banks, TECMO_ASSET_PACK_PRG_BANK_BYTES,
+                           &prg_bytes) &&
+           checked_add_u64(prg_offset, prg_bytes, &end) &&
+           range_valid(prg_offset, prg_bytes, rom_size);
+}
+
+static int prg_bank_range_valid(uint64_t prg_offset, uint32_t prg_banks,
+                                uint32_t bank, uint64_t count,
+                                uint64_t rom_size)
+{
+    uint64_t prg_bytes;
+    uint64_t prg_end;
+    uint64_t bank_delta;
+    uint64_t bank_start;
+    if (bank >= prg_banks ||
+        !checked_mul_u64(prg_banks, TECMO_ASSET_PACK_PRG_BANK_BYTES,
+                         &prg_bytes) ||
+        !checked_add_u64(prg_offset, prg_bytes, &prg_end) ||
+        !checked_mul_u64(bank, TECMO_ASSET_PACK_PRG_BANK_BYTES,
+                         &bank_delta) ||
+        !checked_add_u64(prg_offset, bank_delta, &bank_start))
+        return 0;
+    return range_valid(bank_start, count, prg_end) &&
+           range_valid(bank_start, count, rom_size);
 }
 
 static uint64_t bank_offset(uint64_t prg_offset, uint32_t bank,
@@ -744,14 +792,18 @@ static int validate_revision(const uint8_t *rom, uint64_t bank04_source,
                "\x10\x20\x40\x80\x00\x00\x00\x00", 8U) != 0) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "Rev1 gameplay SFX directory or fixed-engine fingerprint mismatch.");
+            "Rev1 gameplay audio directory or fixed-engine fingerprint mismatch.");
         return -1;
     }
     for (index = 0U; index < 16U; ++index) {
         if (source_word(rom, bank04_source,
                         (uint16_t)(0x8AA4U + index * 2U)) !=
-            expected_directory[index])
+            expected_directory[index]) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Rev1 gameplay audio source fingerprint mismatch.");
             return -1;
+        }
     }
     for (index = 0U;
          index < TECMO_ASSET_PACK_GAMEPLAY_SFX_EFFECT_COUNT; ++index) {
@@ -759,30 +811,46 @@ static int validate_revision(const uint8_t *rom, uint64_t bank04_source,
         if (tecmo_asset_pack_fnv1a32(
                 rom + (size_t)(bank04_source + source->begin - 0x8000U),
                 (size_t)(source->end - source->begin)) !=
-            source->fingerprint)
+            source->fingerprint) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Rev1 gameplay audio source fingerprint mismatch.");
             return -1;
+        }
     }
     for (index = 0U; index < sizeof(fixed_ranges) / sizeof(fixed_ranges[0]);
          ++index) {
         if (tecmo_asset_pack_fnv1a32(
                 rom + (size_t)(fixed_source + fixed_ranges[index].cpu -
                                0xC000U),
-                fixed_ranges[index].size) != fixed_ranges[index].fingerprint)
+                fixed_ranges[index].size) != fixed_ranges[index].fingerprint) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Rev1 gameplay audio source fingerprint mismatch.");
             return -1;
+        }
     }
     for (index = 0U;
          index < sizeof(bank05_ranges) / sizeof(bank05_ranges[0]); ++index) {
         if (tecmo_asset_pack_fnv1a32(
                 rom + (size_t)(bank05_source + bank05_ranges[index].cpu -
                                0x8000U),
-                bank05_ranges[index].size) != bank05_ranges[index].fingerprint)
+                bank05_ranges[index].size) != bank05_ranges[index].fingerprint) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Rev1 gameplay audio source fingerprint mismatch.");
             return -1;
+        }
     }
     for (index = 0U; index < 3U; ++index) {
         if (tecmo_asset_pack_fnv1a32(
                 rom + (size_t)(fixed_source + pool_cpu[index] - 0xC000U),
-                pool_size[index]) != pool_hash[index])
+                pool_size[index]) != pool_hash[index]) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Rev1 gameplay audio source fingerprint mismatch.");
             return -1;
+        }
     }
     return 0;
 }
@@ -803,22 +871,23 @@ int tecmo_asset_pack_build_gameplay_audio(
     int result = -1;
     if (rom == NULL || sfx_payload_out == NULL ||
         sfx_payload_size_out == NULL || dmc_payload_out == NULL ||
-        dmc_payload_size_out == NULL || provenance == NULL || prg_banks < 8U)
+        dmc_payload_size_out == NULL || provenance == NULL || prg_banks < 6U)
         return -1;
     *sfx_payload_out = NULL;
     *sfx_payload_size_out = 0U;
     *dmc_payload_out = NULL;
     *dmc_payload_size_out = 0U;
     memset(provenance, 0, sizeof(*provenance));
+    if (!prg_layout_valid(prg_offset, prg_banks, 6U, rom_size)) return -1;
     bank04_source = bank_offset(prg_offset, 4U, 0x8000U);
     bank05_source = bank_offset(prg_offset, 5U, 0x8000U);
     fixed_source = fixed_offset(prg_offset, prg_banks, 0xC000U);
-    if (!range_valid(bank04_source, TECMO_ASSET_PACK_PRG_BANK_BYTES,
-                     rom_size) ||
-        !range_valid(bank05_source, TECMO_ASSET_PACK_PRG_BANK_BYTES,
-                     rom_size) ||
-        !range_valid(fixed_source, TECMO_ASSET_PACK_PRG_BANK_BYTES,
-                     rom_size))
+    if (!prg_bank_range_valid(prg_offset, prg_banks, 4U,
+                              TECMO_ASSET_PACK_PRG_BANK_BYTES, rom_size) ||
+        !prg_bank_range_valid(prg_offset, prg_banks, 5U,
+                              TECMO_ASSET_PACK_PRG_BANK_BYTES, rom_size) ||
+        !prg_bank_range_valid(prg_offset, prg_banks, prg_banks - 1U,
+                              TECMO_ASSET_PACK_PRG_BANK_BYTES, rom_size))
         return -1;
     if (enforce_revision_fingerprints &&
         validate_revision(rom, bank04_source, bank05_source, fixed_source,
@@ -849,6 +918,20 @@ int tecmo_asset_pack_build_gameplay_audio(
             serialize_dmc(rom, fixed_source, dmc_payload_out,
                           dmc_payload_size_out) != 0)
             goto cleanup;
+        if (enforce_revision_fingerprints &&
+            (*sfx_payload_size_out != 2824U ||
+             tecmo_asset_pack_fnv1a32(*sfx_payload_out,
+                                      *sfx_payload_size_out) !=
+                 0x968A5DE6U || sfx->instruction_count != 131U ||
+             sfx->voice_count != 14U || *dmc_payload_size_out != 2515U ||
+             tecmo_asset_pack_fnv1a32(*dmc_payload_out,
+                                      *dmc_payload_size_out) !=
+                 0xAD70E6E8U)) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Rev1 TSFX-1/TDMC-1 serialized postconditions mismatch.");
+            goto cleanup;
+        }
     }
     provenance->sfx_directory_offset = bank04_source + 0x0AA4U;
     provenance->sfx_core_offset = bank04_source + 0x0AA4U;
@@ -940,17 +1023,20 @@ int tecmo_asset_pack_build_frontend_audio(
     unsigned index;
     int result = -1;
     if (rom == NULL || payload_out == NULL || payload_size_out == NULL ||
-        provenance == NULL || prg_banks < 8U)
+        provenance == NULL || prg_banks < 5U)
         return -1;
     *payload_out = NULL;
     *payload_size_out = 0U;
     memset(provenance, 0, sizeof(*provenance));
+    if (!prg_layout_valid(prg_offset, prg_banks, 5U, rom_size)) return -1;
     bank04_source = bank_offset(prg_offset, 4U, 0x8000U);
     fixed_source = fixed_offset(prg_offset, prg_banks, 0xC000U);
-    if (!range_valid(bank04_source, TECMO_ASSET_PACK_PRG_BANK_BYTES,
-                     rom_size) ||
-        !range_valid(fixed_source, TECMO_ASSET_PACK_PRG_BANK_BYTES,
-                     rom_size))
+    if (!prg_bank_range_valid(prg_offset, prg_banks, 4U,
+                              TECMO_ASSET_PACK_PRG_BANK_BYTES, rom_size) ||
+        !prg_bank_range_valid(prg_offset, prg_banks, 3U,
+                              TECMO_ASSET_PACK_PRG_BANK_BYTES, rom_size) ||
+        !prg_bank_range_valid(prg_offset, prg_banks, prg_banks - 1U,
+                              TECMO_ASSET_PACK_PRG_BANK_BYTES, rom_size))
         return -1;
     if (enforce_revision_fingerprints) {
         for (index = 0U; index < sizeof(ranges) / sizeof(ranges[0]);
@@ -987,6 +1073,16 @@ int tecmo_asset_pack_build_frontend_audio(
                       "TFSX", semantic_fingerprints, metadata, rom,
                       fixed_source, payload_out, payload_size_out) != 0)
         goto cleanup;
+    if (enforce_revision_fingerprints &&
+        (*payload_size_out != 1792U ||
+         tecmo_asset_pack_fnv1a32(*payload_out, *payload_size_out) !=
+             0x985DC7EDU || sfx->instruction_count != 87U ||
+         sfx->voice_count != 3U)) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "Rev1 TFSX-1 serialized postconditions mismatch.");
+        goto cleanup;
+    }
     provenance->sfx_directory_offset =
         bank_offset(prg_offset, 4U, 0x8AA4U);
     provenance->effect_offsets[0] =
@@ -1033,10 +1129,13 @@ int tecmo_asset_pack_frontend_audio_source_test(
         32ULL * TECMO_ASSET_PACK_CHR_BANK_BYTES;
     uint8_t *rom = NULL;
     uint8_t *payload = NULL;
+    uint8_t *invalid_payload = NULL;
     uint8_t input_sha256[32];
     uint64_t rom_size = 0U;
     size_t payload_size = 0U;
+    size_t invalid_payload_size = 0U;
     TecmoFrontendAudioProvenance provenance;
+    TecmoFrontendAudioProvenance invalid_provenance;
     int result;
     if (rom_path == NULL ||
         tecmo_asset_pack_read_file(rom_path, &rom, &rom_size) != 0) {
@@ -1054,6 +1153,53 @@ int tecmo_asset_pack_frontend_audio_source_test(
         free(rom);
         return -1;
     }
+    memset(&invalid_provenance, 0, sizeof(invalid_provenance));
+    if (tecmo_asset_pack_build_frontend_audio(
+            rom, rom_size, UINT64_MAX, 8U, 1,
+            &invalid_payload, &invalid_payload_size, &invalid_provenance,
+            message, message_size) == 0 || invalid_payload != NULL ||
+        invalid_payload_size != 0U) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TFSX-1 direct builder offset guard accepted an invalid layout.");
+        free(invalid_payload);
+        free(rom);
+        return -1;
+    }
+    free(invalid_payload);
+
+    invalid_payload = NULL;
+    invalid_payload_size = 0U;
+    if (tecmo_asset_pack_build_frontend_audio(
+            rom, rom_size, sizeof(frontend_audio_rev1_ines_header), 0U, 1,
+            &invalid_payload, &invalid_payload_size, &invalid_provenance,
+            message, message_size) == 0 || invalid_payload != NULL ||
+        invalid_payload_size != 0U) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TFSX-1 direct builder zero-bank guard accepted an invalid layout.");
+        free(invalid_payload);
+        free(rom);
+        return -1;
+    }
+    free(invalid_payload);
+
+    invalid_payload = NULL;
+    invalid_payload_size = 0U;
+    if (tecmo_asset_pack_build_frontend_audio(
+            rom, rom_size, sizeof(frontend_audio_rev1_ines_header), 4U, 1,
+            &invalid_payload, &invalid_payload_size, &invalid_provenance,
+            message, message_size) == 0 || invalid_payload != NULL ||
+        invalid_payload_size != 0U) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TFSX-1 direct builder undersized-bank guard accepted an invalid layout.");
+        free(invalid_payload);
+        free(rom);
+        return -1;
+    }
+    free(invalid_payload);
+
     result = tecmo_asset_pack_build_frontend_audio(
         rom, rom_size, sizeof(frontend_audio_rev1_ines_header), 8U, 1,
         &payload, &payload_size, &provenance, message, message_size);
@@ -1073,6 +1219,150 @@ int tecmo_asset_pack_frontend_audio_source_test(
             "Built strict ROM-derived TFSX-1 frontend audio source.");
     }
     free(payload);
+    free(rom);
+    return result;
+}
+
+int tecmo_asset_pack_gameplay_audio_source_test(
+    const char *rom_path, char *message, size_t message_size)
+{
+    const uint64_t expected_rom_size =
+        sizeof(frontend_audio_rev1_ines_header) +
+        8ULL * TECMO_ASSET_PACK_PRG_BANK_BYTES +
+        32ULL * TECMO_ASSET_PACK_CHR_BANK_BYTES;
+    uint8_t *rom = NULL;
+    uint8_t *sfx_payload = NULL;
+    uint8_t *dmc_payload = NULL;
+    uint8_t *invalid_sfx = NULL;
+    uint8_t *invalid_dmc = NULL;
+    uint8_t input_sha256[32];
+    uint64_t rom_size = 0U;
+    size_t sfx_payload_size = 0U;
+    size_t dmc_payload_size = 0U;
+    size_t invalid_sfx_size = 0U;
+    size_t invalid_dmc_size = 0U;
+    TecmoGameplayAudioProvenance provenance;
+    TecmoGameplayAudioProvenance invalid_provenance;
+    int result;
+
+    if (rom_path == NULL ||
+        tecmo_asset_pack_read_file(rom_path, &rom, &rom_size) != 0) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TSFX-1/TDMC-1 direct source test could not read the ROM.");
+        return -1;
+    }
+    if (rom_size != expected_rom_size ||
+        memcmp(rom, frontend_audio_rev1_ines_header,
+               sizeof(frontend_audio_rev1_ines_header)) != 0) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TSFX-1/TDMC-1 direct source test requires the exact Rev1 iNES layout.");
+        free(rom);
+        return -1;
+    }
+
+    /* Exercise the public arithmetic guard before any source pointer is
+       formed. This remains a gameplay-importer-only gate. */
+    memset(&invalid_provenance, 0, sizeof(invalid_provenance));
+    if (tecmo_asset_pack_build_gameplay_audio(
+            rom, rom_size, UINT64_MAX, 8U, 1,
+            &invalid_sfx, &invalid_sfx_size, &invalid_dmc,
+            &invalid_dmc_size, &invalid_provenance, message, message_size) == 0 ||
+        invalid_sfx != NULL || invalid_dmc != NULL ||
+        invalid_sfx_size != 0U || invalid_dmc_size != 0U) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TSFX-1/TDMC-1 direct builder offset guard accepted an invalid layout.");
+        free(invalid_sfx);
+        free(invalid_dmc);
+        free(rom);
+        return -1;
+    }
+    free(invalid_sfx);
+    free(invalid_dmc);
+
+    invalid_sfx = NULL;
+    invalid_dmc = NULL;
+    invalid_sfx_size = 0U;
+    invalid_dmc_size = 0U;
+    if (tecmo_asset_pack_build_gameplay_audio(
+            rom, rom_size, sizeof(frontend_audio_rev1_ines_header), 0U, 1,
+            &invalid_sfx, &invalid_sfx_size, &invalid_dmc,
+            &invalid_dmc_size, &invalid_provenance, message, message_size) == 0 ||
+        invalid_sfx != NULL || invalid_dmc != NULL ||
+        invalid_sfx_size != 0U || invalid_dmc_size != 0U) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TSFX-1/TDMC-1 direct builder zero-bank guard accepted an invalid layout.");
+        free(invalid_sfx);
+        free(invalid_dmc);
+        free(rom);
+        return -1;
+    }
+
+    invalid_sfx = NULL;
+    invalid_dmc = NULL;
+    invalid_sfx_size = 0U;
+    invalid_dmc_size = 0U;
+    if (tecmo_asset_pack_build_gameplay_audio(
+            rom, rom_size, sizeof(frontend_audio_rev1_ines_header), 5U, 1,
+            &invalid_sfx, &invalid_sfx_size, &invalid_dmc,
+            &invalid_dmc_size, &invalid_provenance, message, message_size) == 0 ||
+        invalid_sfx != NULL || invalid_dmc != NULL ||
+        invalid_sfx_size != 0U || invalid_dmc_size != 0U) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TSFX-1/TDMC-1 direct builder undersized-bank guard accepted an invalid layout.");
+        free(invalid_sfx);
+        free(invalid_dmc);
+        free(rom);
+        return -1;
+    }
+    free(invalid_sfx);
+    free(invalid_dmc);
+
+    /* Revision validation deliberately precedes the full-ROM identity check:
+       bounded gameplay source mutations must fail as gameplay-source
+       mismatches, not as an indistinguishable final SHA rejection. */
+    result = tecmo_asset_pack_build_gameplay_audio(
+        rom, rom_size, sizeof(frontend_audio_rev1_ines_header), 8U, 1,
+        &sfx_payload, &sfx_payload_size, &dmc_payload, &dmc_payload_size,
+        &provenance, message, message_size);
+    if (result == 0 &&
+        (sfx_payload_size != 2824U || dmc_payload_size != 2515U ||
+         provenance.sfx_payload_size != 2824U ||
+         provenance.sfx_payload_fingerprint != 0x968A5DE6U ||
+         provenance.sfx_instruction_count != 131U ||
+         provenance.sfx_voice_count != 14U ||
+         provenance.dmc_payload_size != 2515U ||
+         provenance.dmc_payload_fingerprint != 0xAD70E6E8U ||
+         tecmo_asset_pack_fnv1a32(sfx_payload, sfx_payload_size) !=
+             0x968A5DE6U ||
+         tecmo_asset_pack_fnv1a32(dmc_payload, dmc_payload_size) !=
+             0xAD70E6E8U)) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "Rev1 TSFX-1/TDMC-1 gameplay source postconditions mismatch.");
+        result = -1;
+    }
+    if (result == 0 &&
+        (tecmo_asset_pack_sha256_digest(
+             rom, (size_t)rom_size, input_sha256) != 0 ||
+         memcmp(input_sha256, frontend_audio_rev1_sha256,
+                sizeof(input_sha256)) != 0)) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TSFX-1/TDMC-1 direct source test full-ROM SHA-256 mismatch.");
+        result = -1;
+    }
+    if (result == 0) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "Built strict ROM-derived TSFX-1/TDMC-1 gameplay audio source.");
+    }
+    free(sfx_payload);
+    free(dmc_payload);
     free(rom);
     return result;
 }

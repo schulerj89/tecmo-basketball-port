@@ -9,6 +9,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 
 #define SFX_ENTRY_ID "audio/gameplay-sfx"
@@ -599,6 +600,12 @@ static bool parse_dmc(TecmoGameplayAudioAsset *asset, const uint8_t *bytes,
         clip->pool_offset = read_u32(source + 4U);
         clip->byte_count = read_u32(source + 8U);
         clip->trigger_fingerprint = read_u32(source + 12U);
+        if (clip->pool_index >= TECMO_GAMEPLAY_DMC_POOL_COUNT ||
+            clip->pool_offset > asset->dmc_pools[clip->pool_index].byte_count ||
+            clip->byte_count >
+                asset->dmc_pools[clip->pool_index].byte_count -
+                    clip->pool_offset)
+            goto malformed;
     }
     asset->dmc_payload_fingerprint = TECMO_GAMEPLAY_DMC_PAYLOAD_FNV1A32;
     return true;
@@ -1127,13 +1134,33 @@ static double render_dmc_sample(TecmoGameplayAudioPlayer *player)
     uint32_t threshold;
     if (!state->active)
         return ((double)((int)state->output_level - 64) / 64.0) * 0.30;
+    if (player->asset->dmc_data == NULL ||
+        state->pool_index >= TECMO_GAMEPLAY_DMC_POOL_COUNT ||
+        state->period_cycles == 0U) {
+        state->active = false;
+        return ((double)((int)state->output_level - 64) / 64.0) * 0.30;
+    }
     pool = &player->asset->dmc_pools[state->pool_index];
+    if (pool->data_offset > TECMO_GAMEPLAY_DMC_DATA_SIZE ||
+        pool->byte_count > TECMO_GAMEPLAY_DMC_DATA_SIZE - pool->data_offset ||
+        state->byte_index > state->byte_count ||
+        state->byte_count > pool->byte_count ||
+        state->byte_index > TECMO_GAMEPLAY_DMC_DATA_SIZE - pool->data_offset) {
+        state->active = false;
+        return ((double)((int)state->output_level - 64) / 64.0) * 0.30;
+    }
     threshold = (uint32_t)TECMO_MUSIC_SAMPLE_RATE * state->period_cycles;
     state->cycle_accumulator += GAMEPLAY_AUDIO_CPU_CLOCK_INTEGER;
     while (state->active && state->cycle_accumulator >= threshold) {
         state->cycle_accumulator -= threshold;
         if (state->bits_remaining == 0U) {
             if (state->byte_index >= state->byte_count) {
+                state->active = false;
+                break;
+            }
+            if (state->byte_index >= pool->byte_count ||
+                state->byte_index >=
+                    TECMO_GAMEPLAY_DMC_DATA_SIZE - pool->data_offset) {
                 state->active = false;
                 break;
             }
@@ -1166,6 +1193,19 @@ bool tecmo_gameplay_audio_queue_dmc_clip(TecmoGameplayAudioPlayer *player,
         (unsigned)clip_id >= TECMO_GAMEPLAY_DMC_CLIP_COUNT)
         return false;
     clip = &player->asset->dmc_clips[(unsigned)clip_id];
+    if (clip->pool_index >= TECMO_GAMEPLAY_DMC_POOL_COUNT ||
+        clip->rate_index >= 16U)
+        return false;
+    {
+        const TecmoGameplayDmcPool *pool =
+            &player->asset->dmc_pools[clip->pool_index];
+        if (pool->data_offset > TECMO_GAMEPLAY_DMC_DATA_SIZE ||
+            pool->byte_count >
+                TECMO_GAMEPLAY_DMC_DATA_SIZE - pool->data_offset ||
+            clip->pool_offset > pool->byte_count ||
+            clip->byte_count > pool->byte_count - clip->pool_offset)
+            return false;
+    }
     output_level = player->dmc.output_level;
     memset(&player->dmc, 0, sizeof(player->dmc));
     player->dmc.pool_index = clip->pool_index;
@@ -1259,6 +1299,7 @@ void tecmo_gameplay_audio_render_samples(TecmoGameplayAudioPlayer *player,
 {
     uint64_t tick_threshold;
     size_t index;
+    if (sample_count > SIZE_MAX / sizeof(int16_t)) return;
     if (player == NULL || player->asset == NULL ||
         !player->asset->available) {
         if (samples != NULL)
@@ -1331,8 +1372,10 @@ bool tecmo_gameplay_audio_self_test(const char *project_root,
     TecmoGameplayAudioPlayer player;
     TecmoGameplayAudioPlayer control;
     TecmoGameplayAudioPlayer dmc_control;
+    TecmoGameplayAudioPlayer guard_player;
     int16_t samples[TECMO_MUSIC_SAMPLE_RATE];
     int16_t held_samples[2];
+    int16_t guard_sentinel;
     uint32_t pcm_hash;
     uint32_t state_hash;
     bool override_ok;
@@ -1344,6 +1387,8 @@ bool tecmo_gameplay_audio_self_test(const char *project_root,
     bool event_map_ok;
     bool clear_ok;
     bool dmc_continuity_ok;
+    bool dmc_bounds_ok;
+    bool guard_ok;
     bool ok = false;
     memset(&asset, 0, sizeof(asset));
     memset(&music_asset, 0, sizeof(music_asset));
@@ -1355,11 +1400,45 @@ bool tecmo_gameplay_audio_self_test(const char *project_root,
     tecmo_gameplay_audio_player_init(&player, &asset, &music_a);
     tecmo_gameplay_audio_player_init(&control, &asset, &music_b);
     tecmo_gameplay_audio_player_init(&dmc_control, &asset, NULL);
+    tecmo_gameplay_audio_player_init(&guard_player, &asset, &music_a);
+    {
+        TecmoGameplayAudioPlayer guard_before = guard_player;
+        guard_sentinel = (int16_t)0x3C3C;
+        tecmo_gameplay_audio_render_samples(
+            &guard_player, &guard_sentinel,
+            SIZE_MAX / sizeof(int16_t) + 1U);
+        guard_ok = guard_sentinel == (int16_t)0x3C3C &&
+                   memcmp(&guard_player, &guard_before,
+                          sizeof(guard_player)) == 0;
+        tecmo_gameplay_audio_render_samples(
+            &guard_player, NULL, SIZE_MAX / sizeof(int16_t) + 1U);
+        guard_ok = guard_ok &&
+                   memcmp(&guard_player, &guard_before,
+                          sizeof(guard_player)) == 0;
+    }
     event_map_ok = tecmo_gameplay_audio_queue_event(
+                       &player, TECMO_GAMEPLAY_AUDIO_CLOCK_BUZZER) &&
+                   player.pending_sfx_id == 3U &&
+                   tecmo_gameplay_audio_queue_event(
+                       &player, TECMO_GAMEPLAY_AUDIO_COUNTDOWN) &&
+                   player.pending_sfx_id == 14U &&
+                   tecmo_gameplay_audio_queue_event(
+                       &player, TECMO_GAMEPLAY_AUDIO_CROWD_RESPONSE) &&
+                   player.pending_sfx_id == 11U &&
+                   tecmo_gameplay_audio_queue_event(
+                       &player, TECMO_GAMEPLAY_AUDIO_SIDE_RESULT_12) &&
+                   player.pending_sfx_id == 12U &&
+                   tecmo_gameplay_audio_queue_event(
+                       &player, TECMO_GAMEPLAY_AUDIO_SIDE_RESULT_13) &&
+                   player.pending_sfx_id == 13U &&
+                   tecmo_gameplay_audio_queue_event(
                        &player, TECMO_GAMEPLAY_AUDIO_VIOLATION_CUE) &&
                    player.pending_sfx_id == 6U &&
                    tecmo_gameplay_audio_queue_event(
                        &player, TECMO_GAMEPLAY_AUDIO_BANK05_9FEC_CUE) &&
+                   player.pending_sfx_id == 5U &&
+                   !tecmo_gameplay_audio_queue_event(
+                       &player, (TecmoGameplayAudioEvent)255U) &&
                    player.pending_sfx_id == 5U;
     if (!tecmo_gameplay_audio_queue_game_music(&player) ||
         !tecmo_gameplay_audio_queue_game_music(&control) ||
@@ -1392,6 +1471,13 @@ bool tecmo_gameplay_audio_self_test(const char *project_root,
                                            0x0650F5B0U) &&
                     !revision_tokens_match(asset.revision_token,
                                            asset.revision_token ^ 1U);
+    {
+        TecmoGameplayDmcClip saved_clip = asset.dmc_clips[0];
+        asset.dmc_clips[0].pool_offset = asset.dmc_pools[2].byte_count;
+        dmc_bounds_ok = !tecmo_gameplay_audio_queue_dmc_clip(
+            &dmc_control, TECMO_GAMEPLAY_DMC_BANK05_A8D6_SHORT);
+        asset.dmc_clips[0] = saved_clip;
+    }
     dmc_ok = tecmo_gameplay_audio_queue_event(
                  &player, TECMO_GAMEPLAY_AUDIO_HELD_BALL_DRIBBLE) &&
              tecmo_gameplay_audio_queue_event(
@@ -1451,7 +1537,7 @@ bool tecmo_gameplay_audio_self_test(const char *project_root,
          event_map_ok && dmc_continuity_ok &&
          clear_ok &&
          cross_pack_ok &&
-         !player.render_guard_failed;
+         dmc_bounds_ok && guard_ok && !player.render_guard_failed;
     if (message != NULL && message_size > 0U) {
         (void)snprintf(
             message, message_size,

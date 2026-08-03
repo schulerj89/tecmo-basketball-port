@@ -744,8 +744,10 @@ bool tecmo_music_queue_track(TecmoMusicPlayer *player, uint8_t track_id)
 bool tecmo_music_queue_opening_once(TecmoMusicPlayer *player)
 {
     if (player == NULL || player->opening_queued) return false;
+    if (!tecmo_music_queue_track(player, TECMO_MUSIC_TRACK_OPENING))
+        return false;
     player->opening_queued = true;
-    return tecmo_music_queue_track(player, TECMO_MUSIC_TRACK_OPENING);
+    return true;
 }
 
 void tecmo_music_set_game_music_enabled(TecmoMusicPlayer *player,
@@ -825,6 +827,7 @@ void tecmo_music_render_samples(TecmoMusicPlayer *player,
                                 size_t sample_count)
 {
     size_t i;
+    if (sample_count > SIZE_MAX / sizeof(int16_t)) return;
     if (player == NULL || player->asset == NULL || !player->asset->available) {
         if (samples != NULL)
             memset(samples, 0, sample_count * sizeof(*samples));
@@ -1189,7 +1192,10 @@ bool tecmo_music_self_test(const char *project_root,
     TecmoMusicPlayer duration_player;
     TecmoMusicPlayer startup_player;
     TecmoMusicPlayer cadence_player;
+    TecmoMusicPlayer opening_retry_player;
+    TecmoMusicPlayer guard_player;
     int16_t samples[8192];
+    int16_t guard_sentinel;
     uint32_t pcm_hash;
     uint32_t state_hash;
     uint32_t pulse_hash;
@@ -1211,6 +1217,8 @@ bool tecmo_music_self_test(const char *project_root,
     bool pregame_matchup_ok;
     bool startup_ok;
     bool cadence_ok;
+    bool retry_ok;
+    bool guard_ok;
     uint64_t opening_ticks;
     uint64_t pregame_matchup_ticks;
     if (!tecmo_music_asset_load(&asset, project_root)) {
@@ -1234,6 +1242,31 @@ bool tecmo_music_self_test(const char *project_root,
     tecmo_music_player_init(&player, &asset);
     gate_ok = tecmo_music_queue_opening_once(&player) &&
               !tecmo_music_queue_opening_once(&player);
+    tecmo_music_player_init(&opening_retry_player, &asset);
+    opening_retry_player.asset = NULL;
+    retry_ok = !tecmo_music_queue_opening_once(&opening_retry_player) &&
+               !opening_retry_player.opening_queued;
+    opening_retry_player.asset = &asset;
+    retry_ok = retry_ok &&
+               tecmo_music_queue_opening_once(&opening_retry_player) &&
+               opening_retry_player.opening_queued;
+    gate_ok = gate_ok && retry_ok;
+    tecmo_music_player_init(&guard_player, &asset);
+    {
+        TecmoMusicPlayer guard_before = guard_player;
+        guard_sentinel = (int16_t)0x4D4D;
+        tecmo_music_render_samples(
+            &guard_player, &guard_sentinel,
+            SIZE_MAX / sizeof(int16_t) + 1U);
+        guard_ok = guard_sentinel == (int16_t)0x4D4D &&
+                   memcmp(&guard_player, &guard_before,
+                          sizeof(guard_player)) == 0;
+        tecmo_music_render_samples(
+            &guard_player, NULL, SIZE_MAX / sizeof(int16_t) + 1U);
+        guard_ok = guard_ok &&
+                   memcmp(&guard_player, &guard_before,
+                          sizeof(guard_player)) == 0;
+    }
     tecmo_music_render_samples(&player, samples,
                                sizeof(samples) / sizeof(samples[0]));
     pcm_hash = fnv1a32((const uint8_t *)samples, sizeof(samples));
@@ -1292,6 +1325,7 @@ bool tecmo_music_self_test(const char *project_root,
     null_sink_ok = null_sink_ok &&
                    memcmp(&null_sink_player, &buffered_player,
                           sizeof(null_sink_player)) == 0;
+    null_sink_ok = null_sink_ok && guard_ok;
     tecmo_music_player_init(&duration_player, &asset);
     duration_ok = tecmo_music_queue_track(&duration_player,
                                            TECMO_MUSIC_TRACK_OPENING);

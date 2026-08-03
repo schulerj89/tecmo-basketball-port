@@ -10,10 +10,16 @@ if (!$ProjectRoot) { $ProjectRoot = Split-Path -Parent $PSScriptRoot }
 $ProjectRoot = (Resolve-Path -LiteralPath $ProjectRoot).Path
 $BuildDir = Join-Path $ProjectRoot "build"
 $TestDir = [IO.Path]::GetFullPath((Join-Path $BuildDir "gameplay_audio_test"))
+$ProofRoot = [IO.Path]::GetFullPath((Join-Path $BuildDir "proof/r4-audio-foundation"))
 $BuildPrefix = [IO.Path]::GetFullPath($BuildDir).TrimEnd('\', '/') +
     [IO.Path]::DirectorySeparatorChar
 if (!$TestDir.StartsWith($BuildPrefix, [StringComparison]::OrdinalIgnoreCase)) {
     throw "Gameplay-audio test directory escaped build/."
+}
+$ProofPrefix = [IO.Path]::GetFullPath((Join-Path $BuildDir "proof")).TrimEnd('\', '/') +
+    [IO.Path]::DirectorySeparatorChar
+if (!$ProofRoot.StartsWith($ProofPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Audio-proof evidence directory escaped build/proof/."
 }
 if (!$RomPath) { $RomPath = $env:TECMO_ROM_PATH }
 if (!$RomPath -or !(Test-Path -LiteralPath $RomPath)) {
@@ -33,6 +39,229 @@ $PreviousSkip = $env:TECMO_SKIP_SHORTCUT
 
 function Get-ShortTail([object[]]$Lines) {
     return (@($Lines | Select-Object -Last 8) -join [Environment]::NewLine)
+}
+
+function Invoke-GameplaySourceGate([string]$SourcePath, [bool]$ExpectSuccess) {
+    $Output = @(& $ExePath --gameplay-audio-source-test $SourcePath 2>&1)
+    $ExitCode = $LASTEXITCODE
+    $Text = ($Output -join [Environment]::NewLine)
+    if ($ExpectSuccess) {
+        if ($ExitCode -ne 0 -or
+            $Text -notmatch "Built strict ROM-derived TSFX-1/TDMC-1 gameplay audio source") {
+            throw "Isolated gameplay-audio importer rejected canonical Rev1.`n$(Get-ShortTail $Output)"
+        }
+    } elseif ($ExitCode -eq 0 -or
+              $Text -notmatch "Rev1 gameplay audio" -or
+              $Text -match "full-ROM SHA-256 mismatch") {
+        throw "Gameplay source mutation was not rejected by gameplay revision validation.`n$(Get-ShortTail $Output)"
+    }
+}
+
+function Invoke-PackIdentityGate([string]$MusicPack, [string]$GameplayPack,
+                                  [string]$Expectation) {
+    $Output = @(& $ExePath --audio-pack-identity-test $MusicPack $GameplayPack $Expectation 2>&1)
+    $ExitCode = $LASTEXITCODE
+    $Text = ($Output -join [Environment]::NewLine)
+    $ExpectedText = if ($Expectation -eq "accept") {
+        "Audio pack identity test pass: accept"
+    } else {
+        "Audio pack identity test pass: reject-preserve"
+    }
+    if ($ExitCode -ne 0 -or $Text.Trim() -ne $ExpectedText) {
+        throw "Real-pack canonical identity gate '$Expectation' failed.`n$(Get-ShortTail $Output)"
+    }
+}
+
+function Get-ProofEventRecords([string]$EventsPath) {
+    $Records = @()
+    foreach ($Line in [IO.File]::ReadLines($EventsPath)) {
+        if ($Line -notmatch "\|vector=") { continue }
+        $Fields = @{}
+        foreach ($Part in ($Line -split "\|")) {
+            $Pair = $Part -split "=", 2
+            if ($Pair.Count -eq 2) { $Fields[$Pair[0]] = $Pair[1] }
+        }
+        $Records += [pscustomobject]@{
+            vector = [int]$Fields.vector
+            name = ([string]$Fields.name).Trim()
+            start = [int64]$Fields.start
+            count = [int64]$Fields.count
+            queue = ([string]$Fields.queue).Trim()
+            source = ([string]$Fields.source).Trim()
+            termination = ([string]$Fields.termination).Trim()
+        }
+    }
+    return $Records
+}
+
+function New-ProofWaveformEvidence([string]$EventsPath, [string]$WavPath,
+                                    [string]$CsvPath, [string]$SvgPath) {
+    $Invariant = [Globalization.CultureInfo]::InvariantCulture
+    $Wav = [IO.File]::ReadAllBytes($WavPath)
+    if ($Wav.Length -lt 44 -or
+        [Text.Encoding]::ASCII.GetString($Wav, 0, 4) -ne "RIFF" -or
+        [Text.Encoding]::ASCII.GetString($Wav, 8, 4) -ne "WAVE" -or
+        [BitConverter]::ToUInt16($Wav, 22) -ne 1 -or
+        [BitConverter]::ToUInt32($Wav, 24) -ne 44100 -or
+        [BitConverter]::ToUInt16($Wav, 34) -ne 16) {
+        throw "Audio proof WAV header is not 44.1 kHz mono 16-bit PCM."
+    }
+    $Rows = @(Get-ProofEventRecords $EventsPath)
+    $Csv = New-Object System.Collections.Generic.List[string]
+    [void]$Csv.Add("vector,name,sample_index,sample_offset,amplitude")
+    $Points = 128
+    foreach ($Row in $Rows) {
+        for ($Point = 0; $Point -lt $Points; ++$Point) {
+            $Offset = if ($Row.count -eq 0) { 0 } else {
+                [int64][math]::Floor($Point * $Row.count / $Points)
+            }
+            $SampleIndex = $Row.start + $Offset
+            $ByteIndex = [int](44 + $SampleIndex * 2)
+            if ($ByteIndex -lt 44 -or $ByteIndex + 1 -ge $Wav.Length) {
+                throw "Audio proof event sample range exceeded WAV data."
+            }
+            $Unsigned = [int]$Wav[$ByteIndex] -bor
+                ([int]$Wav[$ByteIndex + 1] -shl 8)
+            $Amplitude = if ($Unsigned -ge 32768) { $Unsigned - 65536 } else { $Unsigned }
+            [void]$Csv.Add([string]::Format(
+                $Invariant, "{0:D3},{1},{2:D20},{3:D4},{4}",
+                $Row.vector, $Row.name, $SampleIndex, $Offset, $Amplitude))
+        }
+    }
+    [IO.File]::WriteAllText($CsvPath, ($Csv -join "`n") + "`n",
+                            [Text.Encoding]::ASCII)
+
+    $SvgHeight = 24 + $Rows.Count * 34
+    $Svg = New-Object System.Collections.Generic.List[string]
+    [void]$Svg.Add([string]::Format($Invariant,
+        '<svg xmlns="http://www.w3.org/2000/svg" width="1660" height="{0}" viewBox="0 0 1660 {0}">',
+        $SvgHeight))
+    [void]$Svg.Add('<rect width="100%" height="100%" fill="#101820"/>')
+    foreach ($Row in $Rows) {
+        $Base = 34 + $Row.vector * 34
+        $PointsText = New-Object System.Collections.Generic.List[string]
+        for ($Point = 0; $Point -lt $Points; ++$Point) {
+            $Offset = if ($Row.count -eq 0) { 0 } else {
+                [int64][math]::Floor($Point * $Row.count / $Points)
+            }
+            $SampleIndex = $Row.start + $Offset
+            $ByteIndex = [int](44 + $SampleIndex * 2)
+            $Unsigned = [int]$Wav[$ByteIndex] -bor
+                ([int]$Wav[$ByteIndex + 1] -shl 8)
+            $Amplitude = if ($Unsigned -ge 32768) { $Unsigned - 65536 } else { $Unsigned }
+            $X = 250.0 + $Point * 11.0
+            $Y = $Base - ($Amplitude * 11.0 / 32768.0)
+            [void]$PointsText.Add([string]::Format($Invariant, "{0:F2},{1:F2}", $X, $Y))
+        }
+        [void]$Svg.Add([string]::Format($Invariant,
+            '<text x="8" y="{0:F2}" fill="#E6EDF3" font-family="monospace" font-size="12">{1}</text>',
+            ($Base + 4.0), $Row.name))
+        [void]$Svg.Add([string]::Format($Invariant,
+            '<line x1="250" y1="{0:F2}" x2="1650" y2="{0:F2}" stroke="#263746"/>',
+            $Base))
+        [void]$Svg.Add([string]::Format($Invariant,
+            '<polyline fill="none" stroke="#56D364" stroke-width="1" points="{0}"/>',
+            ($PointsText -join " ")))
+    }
+    [void]$Svg.Add("</svg>")
+    [IO.File]::WriteAllText($SvgPath, ($Svg -join "`n") + "`n",
+                            [Text.Encoding]::ASCII)
+}
+
+function Invoke-AudioProof([string]$PackPath) {
+    if (Test-Path -LiteralPath $ProofRoot) {
+        Remove-Item -LiteralPath $ProofRoot -Recurse -Force
+    }
+    $Run1 = Join-Path $ProofRoot "run1"
+    $Run2 = Join-Path $ProofRoot "run2"
+    [void](New-Item -ItemType Directory -Force -Path $Run1, $Run2)
+    $ProofHead = @(& git -C $ProjectRoot rev-parse HEAD 2>$null).Trim()
+    if ($ProofHead -notmatch "^[0-9a-fA-F]{40}$") {
+        throw "Could not resolve the proof-generation HEAD."
+    }
+    $PackSha = (Get-FileHash -LiteralPath $PackPath -Algorithm SHA256).Hash
+    foreach ($Run in @($Run1, $Run2)) {
+        $Output = @(& $ExePath --audio-proof $PackPath $Run 2>&1)
+        if ($LASTEXITCODE -ne 0 -or
+            ($Output -join [Environment]::NewLine) -notmatch "Audio proof pass: vectors=23") {
+            throw "Deterministic audio proof command failed.`n$(Get-ShortTail $Output)"
+        }
+    }
+    $Artifacts = @("audio-proof.wav", "audio-proof.events", "audio-proof.manifest")
+    $Hashes = @{}
+    foreach ($Artifact in $Artifacts) {
+        $First = Join-Path $Run1 $Artifact
+        $Second = Join-Path $Run2 $Artifact
+        if (!(Test-Path -LiteralPath $First) -or !(Test-Path -LiteralPath $Second) -or
+            (Get-Item -LiteralPath $First).Length -ne (Get-Item -LiteralPath $Second).Length) {
+            throw "Audio proof artifact '$Artifact' is not byte-identical across runs."
+        }
+        $Hash1 = (Get-FileHash -LiteralPath $First -Algorithm SHA256).Hash
+        $Hash2 = (Get-FileHash -LiteralPath $Second -Algorithm SHA256).Hash
+        if ($Hash1 -ne $Hash2) {
+            throw "Audio proof artifact '$Artifact' is not byte-identical across runs."
+        }
+        $Hashes[$Artifact] = $Hash1
+    }
+    $EventsPath = Join-Path $Run1 "audio-proof.events"
+    $Rows = @(Get-ProofEventRecords $EventsPath)
+    $Required = @(
+        "TMUS7_START", "TMUS7_TAIL_END", "TMUS5_LOOP", "TMUS6_LOOP",
+        "TMUS8_END", "TFSX8_DRY", "TFSX10_DRY", "TSFX3_DRY", "TSFX5_DRY",
+        "TSFX6_DRY", "TSFX11_DRY", "TSFX12_DRY", "TSFX13_DRY", "TSFX14_DRY",
+        "TMUS5_TSFX3_OVERRIDE", "TDMC0_CLIP", "TDMC1_CLIP", "TDMC2_CLIP",
+        "TDMC3_CLIP", "TDMC4_CLIP", "TDMC_POST_END_HOLD", "TDMC_RETRIGGER",
+        "TDMC_STOP_HOLD"
+    )
+    if ($Rows.Count -ne $Required.Count) { throw "Audio proof event vector count is wrong." }
+    foreach ($Name in $Required) {
+        if (@($Rows | Where-Object name -eq $Name).Count -ne 1) {
+            throw "Audio proof is missing vector '$Name'."
+        }
+    }
+    $EvidenceDir = Join-Path $ProofRoot "waveform"
+    [void](New-Item -ItemType Directory -Force -Path $EvidenceDir)
+    $CsvPath = Join-Path $EvidenceDir "audio-proof-waveform.csv"
+    $SvgPath = Join-Path $EvidenceDir "audio-proof-waveform.svg"
+    New-ProofWaveformEvidence $EventsPath (Join-Path $Run1 "audio-proof.wav") $CsvPath $SvgPath
+    $ManifestPath = Join-Path $ProofRoot "proof-manifest.txt"
+    $Manifest = @(
+        "manifest=TECMAUDIOPROOF-SCRIPT-2",
+        "base_sha=6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
+        "proof_generation_head=$ProofHead",
+        "canonical_rom_revision=Rev1",
+        "canonical_rom_sha256=076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4",
+        "canonical_rom_visibility=local_private",
+        "pack_sha256=$PackSha",
+        "tmus_payload_size=36784",
+        "tmus_payload_fnv1a32=05C00ECB",
+        "tfsx_payload_size=1792",
+        "tfsx_payload_fnv1a32=985DC7ED",
+        "tsfx_payload_size=2824",
+        "tsfx_payload_fnv1a32=968A5DE6",
+        "tdmc_payload_size=2515",
+        "tdmc_payload_fnv1a32=AD70E6E8",
+        "command=--audio-proof PACK OUTPUT_DIR",
+        "source=explicit-validated-asset-pack",
+        "vector_count=$($Rows.Count)",
+        "sample_format=44100Hz_mono_s16le",
+        "audio_proof_wav_sha256=$($Hashes['audio-proof.wav'])",
+        "audio_proof_events_sha256=$($Hashes['audio-proof.events'])",
+        "audio_proof_manifest_sha256=$($Hashes['audio-proof.manifest'])",
+        "waveform_csv_sha256=$((Get-FileHash -LiteralPath $CsvPath -Algorithm SHA256).Hash)",
+        "waveform_svg_sha256=$((Get-FileHash -LiteralPath $SvgPath -Algorithm SHA256).Hash)"
+    )
+    [IO.File]::WriteAllText($ManifestPath, ($Manifest -join "`n") + "`n",
+                            [Text.Encoding]::ASCII)
+    return [pscustomobject]@{
+        root = $ProofRoot
+        manifest = $ManifestPath
+        wav_sha256 = $Hashes['audio-proof.wav']
+        events_sha256 = $Hashes['audio-proof.events']
+        proof_manifest_sha256 = $Hashes['audio-proof.manifest']
+        waveform_csv_sha256 = (Get-FileHash -LiteralPath $CsvPath -Algorithm SHA256).Hash
+        waveform_svg_sha256 = (Get-FileHash -LiteralPath $SvgPath -Algorithm SHA256).Hash
+    }
 }
 
 function Get-PackEntry([byte[]]$Bytes, [string]$Id) {
@@ -188,6 +417,12 @@ try {
         throw "Gameplay-audio or track-8 source-map provenance is malformed."
     }
     Invoke-GameplayAudio $PackPath $true
+    Invoke-GameplaySourceGate $RomPath $true
+    $CanonicalAlias = "$TestDir\.\gameplay-audio.assetpack"
+    Invoke-PackIdentityGate $PackPath $CanonicalAlias "accept"
+    $DistinctPack = Join-Path $TestDir "gameplay-audio-copy.assetpack"
+    [IO.File]::WriteAllBytes($DistinctPack, $Pack)
+    Invoke-PackIdentityGate $PackPath $DistinctPack "reject"
 
     foreach ($Spec in @(
         [pscustomobject]@{ id = "sfx-payload"; entry = $Sfx; delta = 128 },
@@ -251,10 +486,21 @@ try {
         $MutatedRom = Join-Path $TestDir ("source-{0}.nes" -f $Spec.id)
         $RejectedPack = Join-Path $TestDir ("source-{0}.assetpack" -f $Spec.id)
         [IO.File]::WriteAllBytes($MutatedRom, $Rom)
+        if ($Spec.id -ne "pregame-matchup-queue") {
+            Invoke-GameplaySourceGate $MutatedRom $false
+        }
         $Output = @(& $ExePath --build-assetpack $MutatedRom $RejectedPack 2>&1)
         if ($LASTEXITCODE -eq 0) {
             throw "Gameplay-audio source mutation '$($Spec.id)' was accepted.`n$(Get-ShortTail $Output)"
         }
+    }
+    $ProofFacts = Invoke-AudioProof $PackPath
+    if (!(Test-Path -LiteralPath $ProofFacts.manifest) -or
+        $ProofFacts.wav_sha256.Length -ne 64 -or
+        $ProofFacts.events_sha256.Length -ne 64 -or
+        $ProofFacts.waveform_csv_sha256.Length -ne 64 -or
+        $ProofFacts.waveform_svg_sha256.Length -ne 64) {
+        throw "Audio proof manifest or waveform evidence is incomplete."
     }
     $global:LASTEXITCODE = 0
     Write-Output "GAMEPLAY AUDIO TEST PASS: TSFX-1 TDMC-1 provenance parser mixer override cadence music-gate mailbox DMC-independence DMC-continuity clear-all malformed missing oversized cross-pack source-mutations"
