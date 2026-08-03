@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T15:00:08Z",
+  "updated_at": "2026-08-03T15:19:45Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -33,8 +33,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1-gameplay-foundation-sol",
       "ownership_claim_ids": ["OWN-R1-LIVE", "OWN-R1-TIP"],
       "blockers": [],
-      "next_gate": "Sol acceptance of LIVE, then sequential TIP execution and Round 1 integration QA.",
-      "updated_at": "2026-08-03T14:50:16Z"
+      "next_gate": "Same-Luna LIVE revision for boundary-direction semantics, sustained running-clock coverage, and evidence/docs accuracy; then Sol acceptance, sequential TIP, and Round 1 integration QA.",
+      "updated_at": "2026-08-03T15:19:45Z"
     },
     {
       "lane_id": "LANE-R3-SEASON-DATA-FOUNDATION",
@@ -51,8 +51,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3-season-data-foundation-sol",
       "ownership_claim_ids": ["OWN-R3-SEASON-DATA-FOUNDATION"],
       "blockers": [],
-      "next_gate": "Sol-managed Luna research, implementation, proof, independent QA, and domain acceptance.",
-      "updated_at": "2026-08-03T15:00:08Z"
+      "next_gate": "Create one isolated writable Luna lineage for the Sol-accepted bounded data contract, then Sol review, product QA, independent QA, and domain acceptance.",
+      "updated_at": "2026-08-03T15:19:45Z"
     },
     {
       "lane_id": "LANE-R4-FRONTEND-INTRO-TITLE",

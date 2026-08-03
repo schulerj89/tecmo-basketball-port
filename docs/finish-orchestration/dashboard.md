@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T15:04:35Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T15:19:45Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -22,8 +22,8 @@ Generated from committed JSON at `2026-08-03T15:04:35Z`. This dashboard reports 
 
 | Lane | Domain | Readiness | Dependencies | Tasks | Sol | Branch | Next gate |
 |---|---|---|---|---|---|---|---|
-| LANE-R1-GAMEPLAY-FOUNDATION | gameplay_foundation | active | sequentially_active | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | Sol acceptance of LIVE, then sequential TIP execution and Round 1 integration QA. |
-| LANE-R3-SEASON-DATA-FOUNDATION | season_data | active | ready | R3-SEASON-DATA-FOUNDATION | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | Sol-managed Luna research, implementation, proof, independent QA, and domain acceptance. |
+| LANE-R1-GAMEPLAY-FOUNDATION | gameplay_foundation | active | sequentially_active | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | Same-Luna LIVE revision for boundary-direction semantics, sustained running-clock coverage, and evidence/docs accuracy; then Sol acceptance, sequential TIP, and Round 1 integration QA. |
+| LANE-R3-SEASON-DATA-FOUNDATION | season_data | active | ready | R3-SEASON-DATA-FOUNDATION | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | Create one isolated writable Luna lineage for the Sol-accepted bounded data contract, then Sol review, product QA, independent QA, and domain acceptance. |
 | LANE-R4-FRONTEND-INTRO-TITLE | frontend | active | ready | R4-FRONTEND-INTRO-TITLE | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | Sol-managed Luna research, implementation, production-path visual proof, independent QA, and domain acceptance. |
 | LANE-R4-AUDIO-FOUNDATION | audio | active | ready | R4-AUDIO-FOUNDATION | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | Sol-managed Luna research, implementation, waveform/listening proof, independent QA, and domain acceptance. |
 
