@@ -285,7 +285,7 @@
     {
       "round_id": "R3A",
       "title": "Incremental season/data foundation delivery",
-      "status": "combined_qa",
+      "status": "pushed",
       "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "scope": [
         "Accepted real-team/player identity and All-Star source mapping foundation",
@@ -307,16 +307,16 @@
       ],
       "combined_qa": {
         "required": true,
-        "status": "in_progress",
-        "accepted_sha": null,
-        "report_path": null,
-        "signed_by_session_id": null,
-        "notes": "User authorized incremental delivery so the accepted season/data foundation does not sit behind downstream statistics, save, management, and All-Star tasks. Dedicated pinned Sol Max Integration QA session S-SOL-R3A-INTEGRATION-QA-001 is active on exact clean f536a193; push only after its exact signed docs-only tip and terminal report."
+        "status": "accepted",
+        "accepted_sha": "dd096cb23a5fe7d755615fcaaadc0aa1d9b1509d",
+        "report_path": "docs/finish-tasks/R3A-season-data-integration-qa/README.md",
+        "signed_by_session_id": "S-SOL-R3A-INTEGRATION-QA-001",
+        "notes": "Dedicated Sol Max Integration QA accepted exact product candidate f536a193 with P0/P1/P2 zero and signed docs-only child dd096cb. Master verified report hash, lineage, cleanliness, and remote preconditions and did not rerun product QA."
       },
       "acceptance": {
-        "status": "pending",
-        "accepted_at": null,
-        "accepted_sha": null,
+        "status": "accepted",
+        "accepted_at": "2026-08-03T18:45:15Z",
+        "accepted_sha": "dd096cb23a5fe7d755615fcaaadc0aa1d9b1509d",
         "criteria": [
           "Season/data foundation retains exact Sol and independent QA acceptance",
           "Dedicated build, asset-pack, team-data, season-flow, rollback, and production-path proof pass",
@@ -325,15 +325,17 @@
       },
       "main_integration": {
         "pre_main_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
-        "merge_commits": [],
-        "post_main_sha": null,
+        "merge_commits": [
+          "dd096cb23a5fe7d755615fcaaadc0aa1d9b1509d"
+        ],
+        "post_main_sha": "dd096cb23a5fe7d755615fcaaadc0aa1d9b1509d",
         "remote_main_before_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
-        "push_sha": null,
-        "push_result": "not_attempted",
-        "pushed_at": null
+        "push_sha": "dd096cb23a5fe7d755615fcaaadc0aa1d9b1509d",
+        "push_result": "succeeded",
+        "pushed_at": "2026-08-03T18:45:20Z"
       },
       "created_at": "2026-08-03T17:57:57Z",
-      "updated_at": "2026-08-03T18:11:12Z"
+      "updated_at": "2026-08-03T18:45:20Z"
     },
     {
       "round_id": "R3",

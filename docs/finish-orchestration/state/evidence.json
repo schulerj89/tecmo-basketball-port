@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T12:42:27Z",
+  "updated_at": "2026-08-03T18:45:20Z",
   "records": [
     {
       "evidence_id": "EVID-R0-BASE",
@@ -267,6 +267,26 @@
       "proof_locations": [],
       "local_private": false,
       "created_at": "2026-08-03T12:08:09Z"
+    },
+    {
+      "evidence_id": "EVID-R3A-INTEGRATION-QA",
+      "task_ids": ["R3-SEASON-DATA-FOUNDATION", "R3A-INTEGRATION-QA"],
+      "kind": "proof_manifest",
+      "title": "Season-data foundation integration acceptance and incremental main delivery",
+      "classification": "native_faithful",
+      "confidence": "high",
+      "rom": null,
+      "asm": null,
+      "original_reference": {"kind":"document","identity":"R3A signed integration report SHA-256 AD6218724F521D8E88E74B4F465F838825F2D5CC331544BAA63BCFF1A2C10810","timestamp_or_frame":"accepted 2026-08-03T18:43:13Z"},
+      "description": "The dedicated R3A Sol integration orchestrator and its independent Luna accepted the frozen season/data candidate at f536a19398803742e1a3dc5bb33d8a6ee2968a24 with P0/P1/P2 all zero. The signed docs-only child dd096cb23a5fe7d755615fcaaadc0aa1d9b1509d records warning-clean build, asset-pack and season self-tests, 15/15 team-data checkpoints, 13/13 season checkpoints including native gameplay handoff/result, and inspected deterministic frame/contact proof. The master verified the signed report hash, clean lineage, exact nine-path delta, unchanged remote precondition, then fast-forwarded and non-force pushed main.",
+      "what_it_proves": "The accepted native season/team-data foundation and its signed integration report are present on both local main and origin/main at dd096cb23a5fe7d755615fcaaadc0aa1d9b1509d.",
+      "limits": "The master did not rerun product tests and relies on the signed Sol QA record. Gameplay-driven stat accumulation, populated leaders UI, original save compatibility, full management/All-Star end-to-end behavior, and full gameplay remain deferred.",
+      "runtime_locations": ["include/tecmo_season_menu.h", "include/tecmo_team_data.h", "src/tecmo_season_menu.c", "src/tecmo_team_data.c", "src/asset_pack/tecmo_asset_pack_season.c", "src/asset_pack/tecmo_asset_pack_team_data.c"],
+      "test_locations": ["build.ps1", "tools/Run-TeamDataTests.ps1", "tools/Run-SeasonTests.ps1"],
+      "doc_locations": ["docs/finish-tasks/R3-season-data-foundation/README.md", "docs/finish-tasks/R3A-season-data-integration-qa/README.md"],
+      "proof_locations": ["C:/Users/joshs/Projects/tecmo-basketball-port-r3a-season-data-integration-qa-sol/build/proof/r3a-season-data-integration-qa-f536a193-019fc8d2-001"],
+      "local_private": true,
+      "created_at": "2026-08-03T18:45:20Z"
     }
   ]
 }

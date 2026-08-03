@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T18:38:12Z",
+  "updated_at": "2026-08-03T18:45:20Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -433,10 +433,10 @@
         "docs/finish-tasks/R3A-season-data-integration-qa/PROOF.md"
       ],
       "concurrency_group": "R3A-integration-qa",
-      "active": true,
+      "active": false,
       "claimed_at": "2026-08-03T17:57:57Z",
-      "released_at": null,
-      "notes": "Transferred from the master reservation to pinned Integration QA Sol S-SOL-R3A-INTEGRATION-QA-001 after exact branch/worktree collision and clean-head verification. Product/source paths remain read-only; ignored proof output is allowed."
+      "released_at": "2026-08-03T18:45:20Z",
+      "notes": "Transferred to Integration QA Sol after exact collision/clean-head verification and released only after terminal signed report dd096cb, Luna unpin, master lineage/remote checks, staging/main fast-forward, and successful non-force origin/main push. Branch/worktree and ignored proof remain preserved."
     },
     {
       "claim_id": "OWN-R4A-INTEGRATION-QA",

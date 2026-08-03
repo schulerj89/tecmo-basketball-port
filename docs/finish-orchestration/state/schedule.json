@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T18:38:12Z",
+  "updated_at": "2026-08-03T18:45:20Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,12 +10,12 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 6,
+    "active_domain_orchestrators": 5,
     "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
     "unallocated_target_slots": 0,
-    "unallocated_monitoring_slots": 2
+    "unallocated_monitoring_slots": 3
   },
   "lanes": [
     {
@@ -100,8 +100,8 @@
       "task_ids": [
         "R3A-INTEGRATION-QA"
       ],
-      "readiness": "active",
-      "dependency_status": "ready",
+      "readiness": "complete",
+      "dependency_status": "complete",
       "reservation_owner_session_id": "S-MASTER-001",
       "orchestrator_session_id": "S-SOL-R3A-INTEGRATION-QA-001",
       "base_sha": "f536a19398803742e1a3dc5bb33d8a6ee2968a24",
@@ -111,8 +111,8 @@
         "OWN-R3A-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Pinned Integration QA Sol 019fc8d2-986a-7643-978f-099070876dfb and its sole pinned projectless Luna 019fc8d7-50f8-77f1-b379-8bcc33280ae5 are auditing exact f536a193. Sol personally owns combined build/team-data/season/frame/provenance review and may write only signed QA docs; master pushes only after terminal acceptance.",
-      "updated_at": "2026-08-03T18:16:22Z"
+      "next_gate": "Complete: signed dd096cb passed dedicated R3A Integration QA and was non-force pushed to main/origin. Integration Sol may be unpinned after this durable master record; downstream R3 features must start from then-current main and retain documented deferrals.",
+      "updated_at": "2026-08-03T18:45:20Z"
     },
     {
       "lane_id": "LANE-R4-FRONTEND-INTRO-TITLE",
