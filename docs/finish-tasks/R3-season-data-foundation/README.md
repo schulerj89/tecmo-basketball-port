@@ -226,20 +226,27 @@ No audio path changed; audio proof is not applicable to this domain.
 
 ## Merge instruction
 
-The primary implementation unit is commit
-`75119657dda1db7d97083dafddc4498548ac7ab3`; the first documentation follow-up
-is `3431112e1ddcc66cf771106818f31bd1b5a5e4e6`; and this revision is
-`0c2bf410f8d86d3a5bbb3af75d699be86de8a780`. Sol can cherry-pick those commits
-in order onto the expected parent/lineage, followed by the final evidence
-correction commit `15946f584e7a69836a3767059123c7b13593fc2a`. After this
-documentation-only commit is reviewed, Sol should fast-forward the domain
-branch from the exact base lineage with:
+The accepted predecessor chain through the current documentation commit is:
+
+```text
+75119657dda1db7d97083dafddc4498548ac7ab3
+3431112e1ddcc66cf771106818f31bd1b5a5e4e6
+0c2bf410f8d86d3a5bbb3af75d699be86de8a780
+d282bc21e8fd1e766ede0e677c05a8721ae7a47d
+15946f584e7a69836a3767059123c7b13593fc2a
+2e4ea1b52c09a16791496545183db82defb43cb8
+```
+
+This full linear history is carried by the domain branch. After this final
+documentation-only clarification is reviewed, the sole authoritative
+integration method is the fast-forward branch merge from the exact base
+lineage:
 
 ```text
 git switch codex/r3-season-data-foundation-sol
 git merge --ff-only codex/r3-season-data-foundation-luna
 ```
 
-The exact SHA of this documentation-only commit is supplied in the Sol
+The exact SHA of this final clarification commit is supplied in the Sol
 handoff because a commit cannot contain its own SHA. Master later integrates
 the domain branch; no main/origin/main push or merge occurs here.
