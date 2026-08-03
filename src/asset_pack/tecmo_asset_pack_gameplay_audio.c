@@ -871,14 +871,14 @@ int tecmo_asset_pack_build_gameplay_audio(
     int result = -1;
     if (rom == NULL || sfx_payload_out == NULL ||
         sfx_payload_size_out == NULL || dmc_payload_out == NULL ||
-        dmc_payload_size_out == NULL || provenance == NULL || prg_banks < 6U)
+        dmc_payload_size_out == NULL || provenance == NULL || prg_banks < 8U)
         return -1;
     *sfx_payload_out = NULL;
     *sfx_payload_size_out = 0U;
     *dmc_payload_out = NULL;
     *dmc_payload_size_out = 0U;
     memset(provenance, 0, sizeof(*provenance));
-    if (!prg_layout_valid(prg_offset, prg_banks, 6U, rom_size)) return -1;
+    if (!prg_layout_valid(prg_offset, prg_banks, 8U, rom_size)) return -1;
     bank04_source = bank_offset(prg_offset, 4U, 0x8000U);
     bank05_source = bank_offset(prg_offset, 5U, 0x8000U);
     fixed_source = fixed_offset(prg_offset, prg_banks, 0xC000U);
@@ -1023,12 +1023,12 @@ int tecmo_asset_pack_build_frontend_audio(
     unsigned index;
     int result = -1;
     if (rom == NULL || payload_out == NULL || payload_size_out == NULL ||
-        provenance == NULL || prg_banks < 5U)
+        provenance == NULL || prg_banks < 8U)
         return -1;
     *payload_out = NULL;
     *payload_size_out = 0U;
     memset(provenance, 0, sizeof(*provenance));
-    if (!prg_layout_valid(prg_offset, prg_banks, 5U, rom_size)) return -1;
+    if (!prg_layout_valid(prg_offset, prg_banks, 8U, rom_size)) return -1;
     bank04_source = bank_offset(prg_offset, 4U, 0x8000U);
     fixed_source = fixed_offset(prg_offset, prg_banks, 0xC000U);
     if (!prg_bank_range_valid(prg_offset, prg_banks, 4U,
@@ -1187,7 +1187,7 @@ int tecmo_asset_pack_frontend_audio_source_test(
     invalid_payload = NULL;
     invalid_payload_size = 0U;
     if (tecmo_asset_pack_build_frontend_audio(
-            rom, rom_size, sizeof(frontend_audio_rev1_ines_header), 4U, 1,
+            rom, rom_size, sizeof(frontend_audio_rev1_ines_header), 7U, 1,
             &invalid_payload, &invalid_payload_size, &invalid_provenance,
             message, message_size) == 0 || invalid_payload != NULL ||
         invalid_payload_size != 0U) {
@@ -1306,7 +1306,7 @@ int tecmo_asset_pack_gameplay_audio_source_test(
     invalid_sfx_size = 0U;
     invalid_dmc_size = 0U;
     if (tecmo_asset_pack_build_gameplay_audio(
-            rom, rom_size, sizeof(frontend_audio_rev1_ines_header), 5U, 1,
+            rom, rom_size, sizeof(frontend_audio_rev1_ines_header), 7U, 1,
             &invalid_sfx, &invalid_sfx_size, &invalid_dmc,
             &invalid_dmc_size, &invalid_provenance, message, message_size) == 0 ||
         invalid_sfx != NULL || invalid_dmc != NULL ||
