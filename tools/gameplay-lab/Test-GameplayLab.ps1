@@ -11,9 +11,26 @@ $LuaPath = Join-Path $PSScriptRoot 'gameplay_lab.lua'
 $MapPath = Join-Path $PSScriptRoot 'tecmo_rev1_map.lua'
 $RunnerPath = Join-Path $PSScriptRoot 'Run-GameplayLab.ps1'
 $ReadmePath = Join-Path $PSScriptRoot 'README.md'
+$CpuLuaPath = Join-Path $PSScriptRoot 'tecmo_cpu_lifecycle.lua'
+$CpuMapPath = Join-Path $PSScriptRoot 'tecmo_cpu_lifecycle_rev1_map.lua'
+$CpuRunnerPath = Join-Path $PSScriptRoot 'Run-GameplayCpuLifecycleProof.ps1'
+$CpuDocsRoot = Join-Path $PSScriptRoot '..\..\docs\finish-tasks\R1-cpu-play-lifecycle'
+$CpuProofDocPath = Join-Path $CpuDocsRoot 'PROOF.md'
+$CpuLineageDocPath = Join-Path $CpuDocsRoot 'LINEAGE.md'
+$CpuManifestPath = Join-Path $CpuDocsRoot 'proof-manifest.template.json'
 foreach ($Path in @($LuaPath, $MapPath, $RunnerPath, $ReadmePath)) {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
         throw "Missing gameplay-lab file: $Path"
+    }
+}
+foreach ($Path in @($CpuLuaPath, $CpuMapPath, $CpuRunnerPath)) {
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw "Missing CPU lifecycle lab file: $Path"
+    }
+}
+foreach ($Path in @($CpuProofDocPath, $CpuLineageDocPath, $CpuManifestPath)) {
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw "Missing CPU lifecycle task document: $Path"
     }
 }
 
@@ -21,6 +38,25 @@ $Lua = Get-Content -Raw -LiteralPath $LuaPath
 $Map = Get-Content -Raw -LiteralPath $MapPath
 $Runner = Get-Content -Raw -LiteralPath $RunnerPath
 $All = $Lua + "`n" + $Map + "`n" + $Runner
+$CpuLua = Get-Content -Raw -LiteralPath $CpuLuaPath
+$CpuMap = Get-Content -Raw -LiteralPath $CpuMapPath
+$CpuRunner = Get-Content -Raw -LiteralPath $CpuRunnerPath
+$CpuProofDoc = Get-Content -Raw -LiteralPath $CpuProofDocPath
+$CpuLineageDoc = Get-Content -Raw -LiteralPath $CpuLineageDocPath
+$CpuManifest = Get-Content -Raw -LiteralPath $CpuManifestPath
+$CpuAll = $CpuLua + "`n" + $CpuMap + "`n" + $CpuRunner
+$ProgressFunctionText = [regex]::Match($CpuRunner,
+    '(?s)function Get-ProgressSnapshot \{.*?\r?\n\}\r?\nfunction Get-Fnv1a32').Value
+$TraceHeaderText = [regex]::Match($CpuLua, 'local trace_header = "([^"]+)"').Groups[1].Value -replace '\\n$', ''
+$TraceFormatText = [regex]::Match($CpuLua, 'local trace_format = "([^"]+)"').Groups[1].Value
+$TraceValuesText = [regex]::Match($CpuLua, '(?s)local trace_values = \{(.*?)\r?\n\s*\}').Groups[1].Value
+$TraceHeaderColumns = @($TraceHeaderText.Split(',')).Count
+$TraceConversionTokens = @([regex]::Matches($TraceFormatText, '%[0-9]*[a-zA-Z]') |
+    ForEach-Object { $_.Value })
+$TraceValueIndexes = @([regex]::Matches($TraceValuesText, '(?m)^\s*\[(\d+)\]\s*=') |
+    ForEach-Object { [int]$_.Groups[1].Value })
+$RegisterExecCallbackText = [regex]::Match($CpuLua,
+    '(?s)memory\.registerexec\(hook\.address, function\(\).*?\r?\n\s*end\)').Value
 $Failures = [Collections.Generic.List[string]]::new()
 function Assert-Lab {
     param([bool]$Condition, [string]$Message)
@@ -411,6 +447,364 @@ Assert-Lab ($Lua -match 'local dx, dy = a\.x - b\.x, a\.y - b\.y' -and
     $Lua -match 'button = dy >= 0 and "up" or "down"') `
     'Front/away coordinate signs are inconsistent.'
 
+Assert-Lab ($CpuMap -match 'schema = "TGLCPU-1"' -and
+    $CpuMap -match 'output_schema = "TGLCPU-TRACE-1"' -and
+    $CpuLua -match 'map\.schema == "TGLCPU-1" and map\.schema_version == 1' -and
+    $CpuRunner -match "schema = 'tecmo.r1-cpu-play-lifecycle-proof/2'") `
+    'CPU lifecycle schema/version locks are missing.'
+Assert-Lab ($CpuMap -match '076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4' -and
+    $CpuMap -match 'F89812F4E9506EF7090D9D0310D368ABD79BACA362B7BFC4A2E7E499754F2A1B' -and
+    $CpuRunner -match '076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4' -and
+    $CpuRunner -match 'F89812F4E9506EF7090D9D0310D368ABD79BACA362B7BFC4A2E7E499754F2A1B') `
+    'CPU lifecycle ROM/FCEUX identity locks are missing.'
+foreach ($Pattern in $ForbiddenLua) {
+    Assert-Lab ($CpuLua -notmatch $Pattern) "Forbidden CPU Lua capability matched: $Pattern"
+}
+Assert-Lab ($CpuLua -match 'memory\.registerexec' -and
+    $CpuLua -match 'memory\.registerwrite' -and
+    $CpuLua -match 'mapped_raw_bank' -and
+    $CpuLua -match 'map\.raw_banks\[hook\.gate\]\[raw_bank\]') `
+    'CPU lifecycle mapper-gated hook policy is missing.'
+foreach ($Address in @('0x8B90', '0x8B9F', '0x8BA2', '0x8BAE', '0x8FD9', '0x8FE8')) {
+    Assert-Lab ($CpuMap -match [regex]::Escape($Address)) `
+        "CPU lifecycle hook '$Address' is missing."
+}
+Assert-Lab ($CpuMap -match 'dispatch_cpu = 0x8BAE' -and
+    $CpuMap -match 'opcode_load_cpu = 0x8BA2' -and
+    $CpuMap -match 'handler_table_low = 0x8BB1' -and
+    $CpuMap -match 'handler_table_high = 0x8BC9' -and
+    $CpuMap -match 'opcode_22_handler' -and
+    $CpuMap -notmatch '\{ address=0x8BB1' -and
+    $CpuMap -notmatch '\{ address=0x8BC9') `
+    'CPU dispatcher/table distinction is missing or static table bytes are registered as hooks.'
+Assert-Lab ($CpuMap -match 'decomp_comment_note' -and
+    $CpuMap -match 'drift two bytes early' -and
+    $CpuMap -match 'following canonical ROM addresses' -and
+    $CpuMap -notmatch 'These six addresses' -and
+    $CpuLua -match 'decomp_comment_note=') `
+    'Canonical ROM/decomp comment-drift note is missing.'
+Assert-Lab ($CpuMap -match 'accepted deterministic/authentic controller schedule' -and
+    $CpuProofDoc -match 'accepted deterministic/authentic controller schedule' -and
+    $CpuProofDoc -match 'row timing is not claimed as ASM/source-pinned input semantics' -and
+    $CpuProofDoc -notmatch 'navigation schedule is source-pinned' -and
+    $CpuProofDoc -notmatch 'source-pinned tip schedule') `
+    'CPU lifecycle controller schedule is overclaimed as source-pinned input semantics.'
+Assert-Lab ($CpuProofDoc -notmatch '\u00C3|\u00E2' -and $CpuLineageDoc -notmatch '\u00C3|\u00E2' -and
+    $CpuProofDoc -notmatch '[\u00D7\u2014\u2013]' -and $CpuLineageDoc -notmatch '[\u00D7\u2014\u2013]') `
+    'CPU lifecycle proof documents contain mojibake or nonportable punctuation.'
+Assert-Lab ($CpuLua -match 'address_evidence=exact_source_pinned' -and
+    $CpuLua -match 'address_confidence,label_confidence' -and
+    $CpuLua -match 'hook\.address_confidence' -and
+    $CpuLua -match 'hook\.label_confidence' -and
+    $CpuMap -match 'source_hook' -and
+    $CpuMap -match 'label_confidence = label_confidence') `
+    'CPU lifecycle exact address evidence and semantic label confidence are not split.'
+Assert-Lab ($CpuMap -match 'record_count = 680' -and
+    $CpuMap -match 'record_size = 5' -and
+    $CpuMap -match 'opcode_histogram' -and
+    $CpuLua -match 'stream_offset < map\.command\.record_count \* map\.command\.record_size') `
+    'CPU lifecycle aligned stream/corpus contract is missing.'
+Assert-Lab ($CpuMap -match 'first_age = 30, last_age = 34' -and
+    $CpuMap -match 'first_age = 35, last_age = 37' -and
+    $CpuMap -match 'first_age = 38, last_age = 55' -and
+    $CpuLua -match 'setup_valid\(\)' -and
+    $CpuLua -match 'tip_not_running_seen' -and
+    $CpuLua -match 'clock_stopped\(\)' -and
+    $CpuLua -match 'clock_stopped_seen' -and
+    $CpuLua -match 'clock_running\(\)' -and
+    $CpuLua -match 'capture_start_frame = frame \+ map\.reference_window\.post_live_delay') `
+    'CPU lifecycle setup/tip/clock-running gate is missing.'
+Assert-Lab ($CpuMap -match 'max_frames = 4320' -and
+    $CpuMap -match 'trace_rows = 8192' -and
+    $CpuRunner -match "TECMO_CPU_LIFECYCLE_MAX_FRAMES = '4320'" -and
+    $CpuMap -notmatch 'max_frames\s*=\s*4200' -and
+    $CpuMap -notmatch 'trace_rows\s*=\s*4096' -and
+    $CpuRunner -notmatch "TECMO_CPU_LIFECYCLE_MAX_FRAMES = '4200'" -and
+    $CpuMap -match 'Empirical deterministic schedule capacity' -and
+    $CpuProofDoc -match 'bounded at 4320 emulator frames' -and
+    $CpuProofDoc -match '8192 trace rows' -and
+    $CpuProofDoc -notmatch 'bounded at 4200 emulator frames' -and
+    $CpuProofDoc -notmatch '4096 trace rows') `
+    'CPU lifecycle empirical capacity is stale, mismatched, or still claims the old 4200/4096 bounds.'
+Assert-Lab ($CpuLua -match 'local capture_end_frame = capture_start_frame \+ map\.reference_window\.frames - 1' -and
+    $CpuLua -match 'if capture_end_frame > max_frames then' -and
+    $CpuLua -match 'capture window exceeds bounded session max' -and
+    $CpuLua -match 'finish\("capture window exceeds bounded session max", "abort"\)') `
+    'CPU lifecycle inclusive capture-window feasibility fail-fast is missing.'
+Assert-Lab ($CpuLua -match 'lifecycle_evidence_valid\(\)' -and
+    $CpuLua -match 'lifecycle\.fetch_events > 0' -and
+    $CpuLua -match 'lifecycle\.opcode_observations > 0' -and
+    $CpuLua -match 'lifecycle\.dispatch_events > 0' -and
+    $CpuLua -match 'lifecycle\.handler_events > 0' -and
+    $CpuLua -match 'lifecycle\.advance_events > 0' -and
+    $CpuLua -match 'lifecycle\.aligned_stream_offsets > 0' -and
+    $CpuLua -match 'lifecycle\.fixed_link_observations > 0' -and
+    $CpuLua -match 'complete window lacked source-pinned CPU lifecycle evidence') `
+    'CPU lifecycle proof does not fail closed on missing source-pinned execution evidence.'
+Assert-Lab ($TraceHeaderColumns -eq 30 -and $TraceConversionTokens.Count -eq 30 -and $TraceValueIndexes.Count -eq 30 -and ($TraceValueIndexes -join ',') -eq '1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30' -and $TraceHeaderText.Split(',')[25] -eq 'fixed_link' -and $TraceHeaderText.Split(',')[28] -eq 'address_confidence' -and $TraceHeaderText.Split(',')[29] -eq 'label_confidence' -and $TraceConversionTokens[13] -eq '%d' -and $TraceConversionTokens[14] -eq '%04X' -and $TraceConversionTokens[15] -eq '%d' -and $TraceConversionTokens[20] -eq '%04X' -and $TraceConversionTokens[25] -eq '%s' -and $TraceConversionTokens[28] -eq '%s' -and $TraceConversionTokens[29] -eq '%s' -and $CpuLua -match 'string\.format\(trace_format, unpack\(trace_values\)\)') 'CPU lifecycle trace header, format conversion, value count, or fixed-link/confidence positions are misaligned.'
+Assert-Lab ($RegisterExecCallbackText -match 'local ok, failure = xpcall\(function\(\)' -and $RegisterExecCallbackText -match 'mapped_raw_bank' -and $RegisterExecCallbackText -match 'record_hook\(hook, raw_bank\)' -and $RegisterExecCallbackText -match 'if not ok then defer_callback_failure\(failure\) end' -and $RegisterExecCallbackText -notmatch 'FCEU\.frameadvance' -and $CpuLua -match 'string\.gsub\(tostring\(message\), "\[%c\]", " "\)' -and $CpuLua -match 'string\.len\(value\) > 160' -and $CpuLua -match 'deferred_failure = "CPU lifecycle registerexec callback failed: " \.\. value') 'CPU lifecycle registerexec callback errors are not bounded, sanitized, and fail-closed.'
+Assert-Lab ($CpuLua -match 'frame < capture_start_frame' -and $CpuLua -match 'captured < 1 or captured > map\.reference_window\.frames' -and $CpuLua -match 'capture_start_frame = frame \+ map\.reference_window\.post_live_delay') 'CPU lifecycle trace evidence is recorded before the defined capture window.'
+Assert-Lab ($CpuLua -match 'index <= 9 and string\.format\("%04X", stream_actor_offset\(index\)\) or "NA"' -and
+    $CpuLua -match 'index <= 9 and string\.format\("%02X", rb\(R\.fixed_link \+ index\)\) or "NA"' -and
+    $CpuLua -match 'for index = 0, 10 do') `
+    'CPU lifecycle actor slot 10 incorrectly serializes stream or fixed-link data.'
+foreach ($Button in @('A', 'B', 'up', 'down', 'left', 'right', 'start', 'select')) {
+    Assert-Lab ($CpuLua -match ([regex]::Escape($Button) + ' = source\.' + [regex]::Escape($Button))) `
+        "CPU lifecycle complete joypad field '$Button' is missing."
+}
+Assert-Lab ($CpuLua -match 'joypad\.set\(1, active_p1\)' -and
+    $CpuLua -match 'joypad\.set\(2, active_p2\)' -and
+    $CpuLua -match 'apply_pads\(\{\}, \{\}\)' -and
+    $CpuRunner -match 'Process\.Kill\(\)' -and
+    $CpuRunner -match '64 MiB') `
+    'CPU lifecycle complete-pad cleanup or bounded output is missing.'
+Assert-Lab ($CpuRunner -match 'Run-GameplayCpuSteeringTests\.ps1' -and
+    $CpuRunner -match 'gameplay-cpu-steering-frame' -and
+    $CpuRunner -match '640x480' -and
+    $CpuRunner -match 'nondeterministic' -and
+    $CpuRunner -match 'contact-sheet' -and
+    $CpuRunner -match 'ffmpeg' -and $CpuRunner -match 'ffprobe' -and
+    $CpuRunner -match 'RequireVideo' -and
+    $CpuRunner -match '39375000/655171' -and
+    $CpuRunner -match 'temp-videos\\gameplay-lab') `
+    'CPU lifecycle native/reference proof runner contract is incomplete.'
+Assert-Lab ($CpuRunner -match 'lifecycle_evidence_valid' -and
+    $CpuRunner -match '\[int\]::TryParse' -and
+    $CpuRunner -match 'fixed_link_mismatches') `
+    'CPU lifecycle runner does not validate positive execution evidence.'
+Assert-Lab ($CpuRunner -match '\$ProcessExitCode = \$null' -and
+    $CpuRunner -match '(?s)finally \{.*?\$Process\.WaitForExit\(\).*?\$ProcessExitCode = \[int\]\$Process\.ExitCode.*?\$Process\.Dispose\(\)' -and
+    $CpuRunner -match 'if \(\$ProcessExitCode -ne 0\)' -and
+    $CpuRunner -notmatch '\$Process\.ExitCode -ne 0' -and
+    $CpuRunner -notmatch '(?s)\$Process\.Dispose\(\).*?\$Process\.ExitCode') `
+    'CPU lifecycle process status is read before cached post-WaitForExit bookkeeping or after disposal.'
+Assert-Lab ($CpuRunner -match 'Get-Command powershell\.exe -CommandType Application' -and
+    $CpuRunner -match '\$FocusedArguments = @\(' -and
+    $CpuRunner -match "'-NoProfile'" -and
+    $CpuRunner -match "'-ExecutionPolicy'" -and
+    $CpuRunner -match "'-File'" -and
+    $CpuRunner -match "'-RomPath'" -and
+    $CpuRunner -match "'-ProjectRoot'" -and
+    $CpuRunner -match "'-Build'" -and
+    $CpuRunner -match "Invoke-Logged -Command 'powershell\.exe'") `
+    'CPU lifecycle focused wrapper does not transport named parameters through a nested PowerShell process.'
+Assert-Lab ($CpuRunner -match '\$InvocationError = \$null' -and
+    $CpuRunner -match '\$ErrorActionPreference = ''Continue''' -and
+    $CpuRunner -match '\$Raw \+= \$_.ToString\(\)' -and
+    $CpuRunner -match '\$Code = 1' -and
+    $CpuRunner -match 'invocation_failed=true' -and
+    $CpuRunner -match '\$Rows \| Set-Content' -and
+    $CpuRunner -match 'Get-ArtifactInventory') `
+    'CPU lifecycle failed child commands can escape before nonempty inventoried runner metadata is written.'
+Assert-Lab ($CpuLua -match 'local step_ok, step_failure = xpcall\(execute_frame' -and
+    $CpuLua -match 'if not stopped then FCEU\.frameadvance\(\) end' -and
+    $CpuLua -notmatch 'xpcall\(function\(\)\s*while not stopped do') `
+    'CPU lifecycle Lua frameadvance is enclosed by a yield-crossing outer xpcall.'
+Assert-Lab ($CpuLua -match 'pcall\(FCEU\.speedmode, "maximum"\)' -and
+    $CpuLua -match 'progress\.txt' -and $CpuLua -match 'os\.rename\(temp_path, progress_path\)' -and
+    $CpuMap -match 'progress_publish_attempts = 3' -and
+    $CpuLua -match 'for attempt = 1, map\.caps\.progress_publish_attempts do' -and
+    $CpuLua -match 'local removed = os\.remove\(progress_path\)' -and
+    $CpuLua -match 'local renamed = os\.rename\(temp_path, progress_path\)' -and
+    $CpuLua -match 'if renamed then' -and
+    $CpuLua -match 'final_progress_written' -and $CpuLua -match 'final progress publish failed' -and
+    $CpuLua -match 'map\.caps\.progress_period' -and
+    $CpuRunner -match 'Get-ProgressSnapshot' -and
+    $ProgressFunctionText -match '\[IO\.File\]::Open' -and
+    $ProgressFunctionText -match '\[IO\.FileShare\]::ReadWrite' -and
+    $ProgressFunctionText -match '\[IO\.FileShare\]::Delete' -and
+    $ProgressFunctionText -match '\[IO\.StreamReader\]::new' -and
+    $ProgressFunctionText -match '\$Reader\.Dispose\(\)' -and
+    $ProgressFunctionText -match 'CharCount -gt 65536' -and
+    $ProgressFunctionText -notmatch 'ReadAllText' -and
+    $CpuRunner -match 'stage -ne .finished' -and $CpuRunner -match 'ProgressSequence' -and
+    $CpuRunner -match 'speedmode_ok' -and $CpuLua -match 'local speedmode_ok = false' -and
+    $CpuLua -match 'speedmode_ok = pcall\(FCEU\.speedmode' -and
+    $CpuLua -match 'file:write\("speedmode_ok=' -and
+    $CpuRunner -match 'progress\.txt\.tmp' -and
+    $CpuRunner -match 'Join-Path.*progress\.txt' -and
+    $CpuRunner -notmatch 'SentinelSeen = .*metadata\.txt' -and
+    $CpuRunner -notmatch 'foreach \(\$Name in @\(\x27status\.txt\x27, \x27trace\.csv\x27') `
+    'CPU lifecycle boot progress sentinel/watchdog is missing or uses buffered files.'
+Assert-Lab ($ProgressFunctionText -match '\[IO\.File\]::Open' -and
+    $ProgressFunctionText -match '\[IO\.FileShare\]::ReadWrite' -and
+    $ProgressFunctionText -match '\[IO\.FileShare\]::Delete' -and
+    $ProgressFunctionText -match '\[IO\.StreamReader\]::new' -and
+    $ProgressFunctionText -match '\$Reader\.Dispose\(\)' -and
+    $ProgressFunctionText -match 'CharCount -gt 65536' -and
+    $ProgressFunctionText -notmatch 'ReadAllText') `
+    'CPU lifecycle progress reader uses a blocking whole-file API or lacks rename-safe bounded sharing.'
+Assert-Lab ($CpuMap -match 'progress_publish_attempts = 3' -and
+    $CpuLua -match 'for attempt = 1, map\.caps\.progress_publish_attempts do' -and
+    $CpuLua -match 'local removed = os\.remove\(progress_path\)' -and
+    $CpuLua -match 'local renamed = os\.rename\(temp_path, progress_path\)' -and
+    $CpuLua -match 'if renamed then' -and
+    $CpuLua -notmatch 'os\.remove\(progress_path\)\s*local ok = os\.rename') `
+    'CPU lifecycle progress publisher uses a single-shot remove/rename instead of bounded retry.'
+Assert-Lab ($CpuLua -match 'live_setup_valid\(\)' -and
+    $CpuLua -match 'running_clock_live_seen' -and
+    $CpuLua -match 'clock_running\(\)' -and
+    $CpuLua -match 'map\.live\.mode' -and $CpuLua -match 'map\.live\.screen' -and
+    $CpuLua -match 'map\.live\.control0' -and $CpuLua -match 'map\.live\.control1' -and
+    $CpuLua -match 'defense_side == \(1 - offense_side\)' -and
+    $CpuLua -match 'offense_actor >= 0 and offense_actor <= 9' -and
+    $CpuLua -match 'defense_actor >= 0 and defense_actor <= 9' -and
+    $CpuMap -match 'defense_side = 1' -and
+    $CpuLua -notmatch 'if not live_seen and live_valid' -and
+    $CpuRunner -match 'clock_stopped_seen') `
+    'CPU lifecycle running-clock/live-invariant gate regressed to pre-tip mode/screen detection.'
+Assert-Lab ($CpuLua -match 'invalid_fetches' -and $CpuLua -match 'misaligned_fetches' -and
+    $CpuLua -match 'valid_actor = actor_index >= 0 and actor_index <= 9' -and
+    $CpuLua -match 'stream_offset < map\.command\.record_count \* map\.command\.record_size' -and
+    $CpuLua -match 'stream_offset % map\.command\.record_size == 0' -and
+    $CpuLua -match 'fixed_link_mismatches = lifecycle\.fixed_link_mismatches \+ 1') `
+    'CPU lifecycle per-fetch actor/stream/fixed-link fail-closed validation is missing.'
+foreach ($HandlerAddress in @('0x8C40', '0x8CD0', '0x8E4F', '0x9172', '0x8BE1')) {
+    Assert-Lab ($CpuMap -match ('source_hook\(' + [regex]::Escape($HandlerAddress) + '[^\n]*"handler", "exact_opcode_entry"\)')) `
+        "Explicit handler '$HandlerAddress' is not classified for deduplicated handler evidence."
+}
+Assert-Lab ($CpuLua -match 'handler_addresses = \{\}' -and
+    $CpuLua -match 'handler_addresses\[address\] = true' -and
+    $CpuLua -match 'not handler_addresses\[address\]' -and
+    $CpuLua -match 'registered_addresses\[hook\.address\]') `
+    'CPU lifecycle handler deduplication does not preserve handler-kind evidence or command fields.'
+Assert-Lab ($CpuLua -match 'flush_outputs\(\)' -and
+    $CpuLua -match 'trace:flush' -and $CpuLua -match 'actors:flush' -and
+    $CpuLua -match 'screenshot_count == map\.caps\.screenshots' -and
+    $CpuRunner -match 'screenshot_count' -and
+    $CpuRunner -match '\$ReferenceScreenshotCount = 12') `
+    'CPU lifecycle deterministic flush or exact screenshot-count gate is missing.'
+Assert-Lab ($CpuRunner -match '\$IncompletePath' -and
+    $CpuRunner -match 'Set-Content -LiteralPath \$IncompletePath' -and
+    $CpuRunner -match 'Remove-Item -LiteralPath \$IncompletePath' -and
+    $CpuRunner -match 'Get-ReferenceFrameRecords' -and
+    $CpuRunner -match '\$ExpectedName = .reference-frame-\{0:D4\}\.png' -and
+    $CpuRunner -match 'Get-FileRecord \$Files\[\$Index - 1\]\.FullName \$ExpectedName \$ReferenceWidth \$ReferenceHeight' -and
+    $CpuRunner -match '\$Item\.Length -le 0' -and
+    $CpuRunner -match 'Expected exactly \$ReferenceScreenshotCount' -and
+    $CpuRunner -match 'No files matched fingerprint pattern' -and
+    $CpuRunner -match 'selected asset-pack entry offset/count is out of bounds') `
+    'CPU lifecycle incomplete-sentinel, frame inventory, or asset-pack bounds contract is missing.'
+Assert-Lab ($CpuRunner -match 'Get-GitState' -and
+    $CpuRunner -match 'tracked_clean' -and
+    $CpuRunner -match 'nonignored_clean' -and
+    $CpuRunner -match 'RequirePass refuses tracked worktree dirtiness' -and
+    $CpuRunner -match 'RequirePass refuses untracked nonignored worktree entries' -and
+    $CpuRunner -match 'RequirePass requires -RequireVideo' -and
+    $CpuRunner -match '\$GitState\.head' -and
+    $CpuRunner -match 'draft_pass' -and
+    $CpuRunner -match '\$RequirePass -and \$ManifestJson -match' -and
+    $CpuRunner -match 'PENDING_FINAL_SHA_UNTIL_COMMIT' -and
+    $CpuRunner -notmatch 'accepted_core_sha' -and
+    $CpuRunner -notmatch 'dea1fd7c2c2761fe08a6a27ab13a5e661e2b7094') `
+    'CPU lifecycle Git cleanliness/final-SHA/pending-metadata contract is missing.'
+Assert-Lab ($CpuRunner -match 'generated_utc' -and
+    $CpuRunner -match 'scripts = \[ordered\]@' -and
+    $CpuRunner -match 'reference_frames = \$FrameDetails' -and
+    $CpuRunner -match 'repeat_frame_hashes' -and
+    $CpuRunner -match 'artifacts = \$ArtifactInventory' -and
+    $CpuRunner -match 'legacy gameplay-cpu-steering-frameN continuity/regression' -and
+    $CpuRunner -match 'R1-LIVE' -and
+    $CpuRunner -match 'log_files = \$LogHashes') `
+    'CPU lifecycle generated manifest does not carry the required evidence inventory/limitations.'
+Assert-Lab ($CpuRunner -match '39375000/655171' -and
+    $CpuRunner -match '-count_frames' -and
+    $CpuRunner -match 'nb_read_frames' -and
+    $CpuRunner -match 'show_entries.*nb_frames,nb_read_frames' -and
+    $CpuRunner -match '\$Streams = @\(\$ProbeJson\.streams\)' -and
+    $CpuRunner -match 'avg_frame_rate' -and
+    $CpuRunner -match 'deterministic_sha256_equal' -and
+    $CpuRunner -match 'ffmpeg-primary\.log' -and $CpuRunner -match 'ffmpeg-repeat\.log' -and
+    $CpuRunner -match '\[int\]\$Stream\.width -ne \$NativeWidth' -and
+    $CpuRunner -match '\[int\]\$Stream\.nb_read_frames -ne \$NativeFrameCount' -and
+    $CpuRunner -match "Arguments = '-version'") `
+    'CPU lifecycle video cadence is not the exact NTSC contract.'
+Assert-Lab ($CpuRunner -match '\$NativeVideoTrackTimescale = 39375000' -and
+    $CpuRunner -match '(?s)-video_track_timescale.*\$NativeVideoTrackTimescale' -and
+    $CpuRunner -match 'show_entries.*r_frame_rate.*avg_frame_rate.*time_base.*nb_frames,nb_read_frames' -and
+    $CpuRunner -match '\[string\]\$Stream\.r_frame_rate -ne \$NativeFrameRate' -and
+    $CpuRunner -match '\[string\]\$Stream\.avg_frame_rate -ne \$NativeFrameRate' -and
+    $CpuRunner -match '\[string\]\$Stream\.time_base -ne \$NativeVideoTimeBase' -and
+    $CpuRunner -match '\[int\]\$Stream\.nb_frames -ne \$NativeFrameCount' -and
+    $CpuRunner -match '\[int\]\$Stream\.nb_read_frames -ne \$NativeFrameCount' -and
+    $CpuRunner -match 'r_frame_rate = \[string\]\$Stream\.r_frame_rate' -and
+    $CpuRunner -match 'time_base = \[string\]\$Stream\.time_base' -and
+    $CpuRunner -match 'track_timescale = \$NativeVideoTrackTimescale' -and
+    $CpuManifest -match '"track_timescale": 39375000' -and
+    $CpuManifest -match '"time_base": "1/39375000"' -and
+    $CpuProofDoc -match 'r_frame_rate' -and $CpuProofDoc -match 'time_base') `
+    'CPU lifecycle exact video track-timescale, r/avg rate, time_base, or frame-count validation is missing or incomplete.'
+Assert-Lab ($CpuRunner -match '\$RequirePass -and !\$RequireVideo' -and
+    $CpuRunner -match 'pass status cannot carry unavailable video' -and
+    $CpuRunner -match 'repeat_sha256' -and $CpuRunner -match 'probe_commands' -and
+    $CpuRunner -match 'VideoEncodeSummary' -and $CpuRunner -match 'VideoProbeSummary') `
+    'CPU lifecycle RequirePass/video and deterministic repeat-video contract is missing.'
+Assert-Lab ($CpuRunner -match 'reference-contact-sheet\.png' -and
+    $CpuRunner -match '\$ReferenceWidth = 256' -and
+    $CpuRunner -match '\$ReferenceHeight = 224' -and
+    $CpuRunner -match '\$ReferenceSheetWidth = 768' -and
+    $CpuRunner -match '\$ReferenceSheetHeight = 896' -and
+    $CpuRunner -notmatch '\$ReferenceHeight = 240' -and
+    $CpuRunner -notmatch '\$ReferenceSheetHeight = 960' -and
+    $CpuRunner -match '\$ReferenceScreenshotCount = 12' -and
+    $CpuRunner -match 'Expected exactly \$ReferenceScreenshotCount reference frames' -and
+    $CpuRunner -match 'has dimensions .*expected' -and
+    $CpuRunner -match '\$NativeSheetWidth = 1920' -and
+    $CpuRunner -match '\$NativeSheetHeight = 1920' -and
+    $CpuRunner -match 'Get-FileRecord \$SheetPath .native-contact-sheet\.png. \$NativeSheetWidth \$NativeSheetHeight' -and
+    $CpuRunner -match 'contact_sheet_hashes_equal' -and
+    $CpuRunner -match 'contact_sheet\.sha256' -and
+    $CpuRunner -match 'resolution = .256x224 FCEUX gui\.savescreenshotas PNG raster/crop' -and
+    $CpuRunner -match 'video_resolution = .256x240 original AVI/video contract' -and
+    $CpuRunner -match 'original_contact_sheets=two separate 768x896' -and
+    $CpuRunner -notmatch 'original_contact_sheets=two separate 768x960' -and
+    $CpuRunner -notmatch 'original=.*256x240 source traces' -and
+    $CpuProofDoc -match '256x224' -and $CpuProofDoc -match '768x896' -and
+    $CpuProofDoc -match 'original AVI/video resolution' -and $CpuProofDoc -match '256x240' -and
+    $CpuManifest -match '256x224 FCEUX' -and
+    $CpuManifest -match '768x896' -and
+    $CpuManifest -match '256x240.*video' -and
+    $CpuLineageDoc -match 'Two 768x896 original sheets and one 1920x1920 native sheet are required' -and
+    $CpuLineageDoc -notmatch '(?m)^\| Original/native contact-sheet review was incomplete \| .*768x960') `
+    'CPU lifecycle reference PNG/sheet dimensions, exact 12-frame inventory, or separate video-resolution contract is missing or stale.'
+Assert-Lab ($CpuRunner -match '(?s)function New-ContactSheet .*?\[Drawing\.Bitmap\]::new\(\s*\[int\]\(\$CellWidth \* 3\),\s*\[int\]\(\$CellHeight \* 4\)\)' -and
+    $CpuRunner -match '(?s)\$SheetPath = Join-Path \$NativeRoot.*?\[Drawing\.Bitmap\]::new\(\s*\[int\]\(\$NativeWidth \* 3\),\s*\[int\]\(\$NativeHeight \* 4\)\)' -and
+    $CpuRunner -notmatch 'New-Object\s+Drawing\.Bitmap\s*\(') `
+    'CPU lifecycle contact-sheet constructors are ambiguous, untyped, or missing independent original/native 3x4 coverage.'
+Assert-Lab ($CpuRunner.Contains('$FrameKey = ''{0:D4}'' -f $Frame') -and
+    $CpuRunner.Contains('$NativeFrameHashes[$FrameKey] = $Hash') -and
+    $CpuRunner.Contains('$NativeFrameDetails[$FrameKey] = $Record') -and
+    $CpuRunner.Contains('$NativeRepeatFrameDetails[$FrameKey] = $Record') -and
+    $CpuRunner.Contains('if ($NativeFrameHashes[$FrameKey] -ne $Hash)') -and
+    $CpuRunner -notmatch '\$NativeFrameHashes\[\$Frame\]' -and
+    $CpuRunner -notmatch '\$NativeFrameDetails\[\$Frame\]' -and
+    $CpuRunner -notmatch '\$NativeRepeatFrameDetails\[\$Frame\]') `
+    'CPU lifecycle native frame dictionaries use numeric OrderedDictionary indexing or lack the canonical D4 string key.'
+Assert-Lab ($CpuRunner -match 'Get-ArtifactInventory' -and
+    $CpuRunner -match 'Empty proof artifact' -and
+    $CpuRunner -match 'log_files' -and
+    $CpuRunner -match 'no stdout/stderr emitted; exit=' -and
+    $CpuRunner -match 'Add-ProcessLogMetadata' -and
+    $CpuRunner -match 'start_utc' -and $CpuRunner -match 'end_utc' -and
+    $CpuRunner -match 'lacks complete runner metadata' -and
+    $CpuRunner -match 'lacks the explicit no-output record' -and
+    $CpuRunner -match 'LogHashes\.Count -eq 0' -and
+    $CpuRunner -match '\(\(Get-SessionBytes \$Path\) -gt 64MB\)' -and
+    $CpuRunner -match '\(\(Get-SessionBytes \$OutputRoot\) -gt 64MB\)') `
+    'CPU lifecycle log nonempty/inventory contract is missing.'
+$PathCapMatches = [regex]::Matches($CpuRunner, '\(\(Get-SessionBytes \$Path\) -gt 64MB\)')
+$OutputCapMatches = [regex]::Matches($CpuRunner, '\(\(Get-SessionBytes \$OutputRoot\) -gt 64MB\)')
+Assert-Lab ($PathCapMatches.Count -eq 1 -and $OutputCapMatches.Count -eq 2 -and
+    ($PathCapMatches.Count + $OutputCapMatches.Count) -eq 3 -and
+    $CpuRunner -notmatch '(?m)^\s*if \(Get-SessionBytes (?:\$Path|\$OutputRoot)') `
+    'CPU lifecycle session output cap comparison is unparenthesized or incomplete.'
+Assert-Lab ($CpuMap -match 'source_hook\(0xB081, "candidate_scan_entry", "bank06", nil, "inferred_label"\)' -and
+    $CpuMap -match 'source_hook\(0x9172, "primary_switch_entry", "bank06", "handler", "exact_opcode_entry"\)' -and
+    $CpuMap -match 'source_hook\(0x8431, "shot_request_predicate", "bank06", nil, "exact_mechanics"\)' -and
+    $CpuLua -match 'label_confidence ~= "inferred_label"' -and
+    $CpuLua -match 'label_confidence = "exact_opcode_entry"') `
+    'CPU lifecycle candidate/switch/shot label confidence is not explicitly bounded.'
+
 foreach ($Button in @('A', 'B', 'up', 'down', 'left', 'right', 'start', 'select')) {
     Assert-Lab ($Lua -match ([regex]::Escape($Button) + ' = source\.' + [regex]::Escape($Button))) `
         "Complete joypad field '$Button' is missing."
@@ -430,12 +824,18 @@ $RunnerErrors = $null
     $RunnerPath, [ref]$RunnerTokens, [ref]$RunnerErrors)
 Assert-Lab ($RunnerErrors.Count -eq 0) ('Runner PowerShell parse errors: ' +
     (($RunnerErrors | ForEach-Object Message) -join '; '))
+$CpuRunnerTokens = $null
+$CpuRunnerErrors = $null
+[void][Management.Automation.Language.Parser]::ParseFile(
+    $CpuRunnerPath, [ref]$CpuRunnerTokens, [ref]$CpuRunnerErrors)
+Assert-Lab ($CpuRunnerErrors.Count -eq 0) ('CPU lifecycle runner PowerShell parse errors: ' +
+    (($CpuRunnerErrors | ForEach-Object Message) -join '; '))
 
 if ($Failures.Count -ne 0) {
     $Failures | ForEach-Object { Write-Error $_ }
     throw "$($Failures.Count) gameplay-lab static test(s) failed."
 }
-Write-Host 'GAMEPLAY LAB STATIC TEST PASS: closed profiles, read-only controller policy, exact revisions, bounded output, point/velocity evidence, fail-closed shot evidence, neutral cleanup'
+Write-Host 'GAMEPLAY LAB STATIC TEST PASS: closed profiles, CPU lifecycle proof surface, read-only controller policy, exact revisions, bounded output, point/velocity evidence, fail-closed shot/lifecycle evidence, neutral cleanup'
 
 if ($Smoke) {
     if (-not $RomPath -or -not $FceuxPath) {

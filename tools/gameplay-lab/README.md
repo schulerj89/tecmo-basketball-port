@@ -7,6 +7,40 @@ defender and place the ball holder in the selected proven window, then performs
 the captured eight-frame B hold and frame-nine release. It is not a general
 gameplay AI.
 
+## Separate CPU lifecycle proof surface
+
+`tecmo_cpu_lifecycle.lua`, `tecmo_cpu_lifecycle_rev1_map.lua`, and
+`Run-GameplayCpuLifecycleProof.ps1` are a separate, read-only CPU lifecycle
+surface. They do not alter either closed shot profile or reuse its acceptance
+criteria. The CPU map is locked to the Rev1 ROM SHA-256
+`076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4` and the
+FCEUX SHA-256
+`F89812F4E9506EF7090D9D0310D368ABD79BACA362B7BFC4A2E7E499754F2A1B`.
+
+Its controller-only setup first proves the MAN VS MAN gameplay setup, then
+executes the authentic tip schedule (P1 A at ages 30-34, A+B at 35-37, B at
+38-55) and waits for the clock to demonstrably leave its stopped state before
+starting the 120-frame CPU capture. The driver writes complete neutral P1/P2
+pads every frame and never writes RAM, loads cheats/savestates, or patches the
+ROM. FCEUX `gui.savescreenshotas` reference PNGs are contractually 256x224,
+with 3x4 sheets at 768x896; the original AVI/video contract remains separately
+declared as 256x240.
+
+The source-pinned dispatch evidence uses canonical ROM addresses `$8B90`
+(fetch), `$8B9F` (fixed reader call), `$8BA2` (copied opcode), and `$8BAE`
+(indirect dispatch). `$8BB1/$8BC9` are static handler-table data anchors, not
+runtime execution hooks; `$8BE1` is opcode-22's handler. The capture fails
+closed unless the window contains fetch, copied-opcode, dispatch, handler, and
+advance observations, aligned in-range stream offsets, and the exact fixed
+link bytes. Actor slot 10 has no `$06CB` fixed-link entry and is emitted as
+`NA` in the actor CSV.
+
+The native half runs the warning-clean CPU focused test and deterministic
+`gameplay-cpu-steering-frameN` renders. Those frames are production continuity
+and regression evidence only: the current scene still uses the accepted native
+harness/formation approximation and does not consume the isolated lifecycle
+engine. Normal-flow integration remains `R1-LIVE`.
+
 The driver supplies controller input only. It never changes game RAM, enables
 cheats, or loads an emulator state. Both controller tables are complete on
 every frame, all aborts neutralize both pads, and the runner closes its FCEUX
@@ -46,8 +80,8 @@ names, coordinates, delays, outcomes, or score deltas are not exposed.
 as clearly named alternatives. The runner revision-locks both binaries, rejects
 concurrent FCEUX, runs hidden with redirected logs by default, and imposes
 frame, wall-clock, row, screenshot, and tracked-text caps. While FCEUX runs, the
-runner polls the entire session—including screenshots, optional FM2, and
-redirected logs—and terminates it above 64 MiB. Outputs stay beneath the ignored
+runner polls the entire session -- including screenshots, optional FM2, and
+redirected logs -- and terminates it above 64 MiB. Outputs stay beneath the ignored
 `temp-videos/gameplay-lab/<timestamp>` directory. Add `-RecordMovie` only when
 an ignored FM2 is useful. A metadata/status startup sentinel must appear within
 five seconds, so a Lua load error cannot leave hidden FCEUX waiting for the

@@ -18,12 +18,27 @@
 #define TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT 2U
 #define TECMO_GAMEPLAY_CPU_STEERING_ORIENTATION_COUNT 2U
 #define TECMO_GAMEPLAY_CPU_STEERING_DIFFICULTY_COUNT 3U
+#define TECMO_GAMEPLAY_CPU_STEERING_FORMATION_START_COUNT 48U
+#define TECMO_GAMEPLAY_CPU_STEERING_FORMATION_SOURCE_PINNED_COUNT 46U
+#define TECMO_GAMEPLAY_CPU_STEERING_FIXED_LINK_COUNT 10U
+#define TECMO_GAMEPLAY_CPU_STEERING_046E_PROBE_COUNT 11U
+#define TECMO_GAMEPLAY_CPU_STEERING_CONTROLLER_SLOT_COUNT \
+    TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT
+#define TECMO_GAMEPLAY_CPU_STEERING_PLAY_STEP_BUDGET 32U
 #define TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR 0xFFU
 #define TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION 0xFFU
 #define TECMO_GAMEPLAY_CPU_STEERING_HARNESS_INPUT_TAG 0x48414754U
 #define TECMO_GAMEPLAY_CPU_STEERING_HARNESS_RESULT_TAG 0x52414754U
 #define TECMO_GAMEPLAY_CPU_STEERING_MOVEMENT_INPUT_TAG 0x494D4754U
 #define TECMO_GAMEPLAY_CPU_STEERING_MOVEMENT_RESULT_TAG 0x524D4754U
+#define TECMO_GAMEPLAY_CPU_STEERING_PLAY_STATE_TAG 0x53504C54U
+#define TECMO_GAMEPLAY_CPU_STEERING_PLAY_INPUT_TAG 0x49504C54U
+#define TECMO_GAMEPLAY_CPU_STEERING_PLAY_RESULT_TAG 0x52504C54U
+#define TECMO_GAMEPLAY_CPU_STEERING_FORMATION_RESULT_TAG 0x52464D54U
+#define TECMO_GAMEPLAY_CPU_STEERING_ROUTE_INPUT_TAG 0x49525454U
+#define TECMO_GAMEPLAY_CPU_STEERING_ROUTE_RESULT_TAG 0x52525454U
+#define TECMO_GAMEPLAY_CPU_STEERING_SHOT_INPUT_TAG 0x49534854U
+#define TECMO_GAMEPLAY_CPU_STEERING_SHOT_RESULT_TAG 0x52534854U
 
 typedef enum TecmoGameplayCpuSteeringSourceKind {
     TECMO_GAMEPLAY_CPU_STEERING_SOURCE_ACTOR_DISPATCH = 1,
@@ -51,6 +66,61 @@ typedef enum TecmoGameplayCpuSteeringCommandKind {
     TECMO_GAMEPLAY_CPU_STEERING_COMMAND_POINTER_ACTOR_TARGET = 7
 } TecmoGameplayCpuSteeringCommandKind;
 
+/* One conservative semantic effect per exact Bank06 dispatch entry. The
+   effect names describe bounded writes/control flow, not basketball plays. */
+typedef enum TecmoGameplayCpuSteeringEffectKind {
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_RELATIVE_TARGET = 0,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_GOTO,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_ABSOLUTE_TARGET,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_WAIT_COUNTDOWN,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_ACTOR_TARGET,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_DIRECTION_POSE,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_TRANSITION_RESET,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_ACTOR_STATE_BRANCH,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_BOUNDARY_BRANCH,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_STATE_ANIMATION,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_FIXED_LINK_PROXIMITY,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_FIXED_LINK_RELATIVE_POSE,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_FIXED_LINK_FOLLOW_UP,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_GLOBAL_SCRATCH_TARGET,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_GROUP_RESEED,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_PRIMARY_DEFENDER_SWITCH,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_POINTER_ACTOR_TARGET,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_AGGREGATION_BARRIER,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_GLOBAL_TARGET,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_CONDITIONAL_ADVANCE,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_GLOBAL_TIMERS,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_DIRECTION_POSE_ALT,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_COUNT
+} TecmoGameplayCpuSteeringEffectKind;
+
+typedef enum TecmoGameplayCpuSteeringAdvancePolicy {
+    TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_NONE = 0,
+    TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_PLUS_FIVE,
+    TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_CONDITIONAL_NONE_OR_FIVE,
+    TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_CONDITIONAL_FIVE_OR_TEN,
+    TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_PLUS_FIVE_OR_BRANCH_PLUS_FIVE,
+    TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_JUMP,
+    TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_WAIT,
+    TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_PLUS_FIVE_OR_RETRY_CANCEL,
+    TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_CONDITIONAL_BA_NONE_OR_FIVE_OR_RETRY_CANCEL
+} TecmoGameplayCpuSteeringAdvancePolicy;
+
+typedef struct TecmoGameplayCpuSteeringEffectMetadata {
+    TecmoGameplayCpuSteeringEffectKind kind;
+    uint16_t handler_cpu;
+    uint16_t corpus_count;
+    /* True only when the native executor writes the bounded fields proven by
+       the handler. Deferred handlers retain their source metadata but do not
+       pretend that missing RAM/workspace inputs are command arguments. */
+    bool exact_bounded;
+    bool deferred_inputs;
+    bool native_approximation;
+    bool can_jump;
+    bool intent_inferred;
+    TecmoGameplayCpuSteeringAdvancePolicy advance_policy;
+} TecmoGameplayCpuSteeringEffectMetadata;
+
 typedef struct TecmoGameplayCpuSteeringSourceSpan {
     TecmoGameplayCpuSteeringSourceKind kind;
     uint8_t bank;
@@ -69,6 +139,7 @@ typedef struct TecmoGameplayCpuSteeringCommand {
     uint8_t arguments[4];
     uint16_t handler_cpu;
     TecmoGameplayCpuSteeringCommandKind kind;
+    TecmoGameplayCpuSteeringEffectKind effect;
 } TecmoGameplayCpuSteeringCommand;
 
 typedef struct TecmoGameplayCpuSteeringAssets {
@@ -82,19 +153,168 @@ typedef struct TecmoGameplayCpuSteeringAssets {
     uint16_t command_base_cpu;
     uint16_t command_record_count;
     uint16_t handler_cpu[TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT];
+    uint16_t command_count_by_opcode[
+        TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT];
+    TecmoGameplayCpuSteeringEffectMetadata effect_metadata[
+        TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT];
     uint8_t direction_map[TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT];
+    uint8_t fixed_link[TECMO_GAMEPLAY_CPU_STEERING_FIXED_LINK_COUNT];
+    uint16_t formation_start_count;
+    uint16_t formation_source_pinned_count;
+    uint16_t formation_stream_offsets[
+        TECMO_GAMEPLAY_CPU_STEERING_FORMATION_START_COUNT]
+        [TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    uint8_t formation_source_pinned[
+        TECMO_GAMEPLAY_CPU_STEERING_FORMATION_START_COUNT];
     uint32_t movement_fingerprint;
 } TecmoGameplayCpuSteeringAssets;
 
+typedef struct TecmoGameplayCpuSteeringFormationResult {
+    uint32_t contract_tag;
+    uint8_t formation_index;
+    uint8_t actor_count;
+    uint16_t stream_offset[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    bool source_pinned;
+} TecmoGameplayCpuSteeringFormationResult;
+
+/* Exact Bank05 $96B6-$9708 route branch. Route names are intentionally not
+   exposed: only the two source-pinned command offsets are meaningful here. */
+typedef struct TecmoGameplayCpuSteeringRouteInput {
+    uint32_t contract_tag;
+    uint8_t route_slot;
+    uint8_t actor;
+    uint8_t control_flags[
+        TECMO_GAMEPLAY_CPU_STEERING_CONTROLLER_SLOT_COUNT];
+    uint8_t global_0373;
+    uint8_t table_index_035A;
+    uint8_t flag_0095;
+    uint8_t age_0094;
+} TecmoGameplayCpuSteeringRouteInput;
+
+typedef struct TecmoGameplayCpuSteeringRouteResult {
+    uint32_t contract_tag;
+    uint8_t route_slot;
+    uint8_t actor;
+    uint16_t stream_offset;
+    uint8_t actor_state;
+    bool wrote_route;
+    bool used_long_route;
+} TecmoGameplayCpuSteeringRouteResult;
+
+typedef struct TecmoGameplayCpuSteeringPlayState {
+    uint32_t contract_tag;
+    uint16_t stream_offset[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    uint8_t actor_state[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    uint8_t wait_counter[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    uint8_t direction[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    uint8_t pose[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    uint8_t action[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    /* Actor-local $046E values used by the source command handlers. */
+    uint8_t timer[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    uint8_t target_actor[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    int16_t target_x[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    int16_t target_depth[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    uint8_t fixed_link[TECMO_GAMEPLAY_CPU_STEERING_FIXED_LINK_COUNT];
+    /* Native candidate/matchup integration state. This is deliberately not a
+       claim that the array is the ROM's dynamic $037F vector. The exact
+       startup seeds are carried separately in matchup_seed and fixed_link. */
+    uint8_t native_matchup_actor[
+        TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    uint8_t primary_actor;
+    uint8_t defender_actor;
+    uint8_t candidate_actor;
+    uint8_t matchup_seed[2];
+    /* Exact opcode-22 mirrors: C8->$0791, C9->$0792, CA ORs $0790. */
+    uint8_t global_0790;
+    uint8_t global_0791;
+    uint8_t global_0792;
+    /* Exact opcode-17/18/19 aggregation/barrier fields. */
+    uint8_t aggregation_06e0;
+    uint8_t aggregation_06df;
+    uint8_t aggregation_06e1;
+    uint16_t step_serial;
+} TecmoGameplayCpuSteeringPlayState;
+
+typedef struct TecmoGameplayCpuSteeringPlayInput {
+    uint32_t contract_tag;
+    uint8_t actor;
+    uint8_t step_budget;
+    /* Exact $035A orientation selector; only 0 and 1 are valid. */
+    uint8_t orientation_035a;
+    /* Exact $BA low-bit common-tail gate; bits 0..1 are consumed here. */
+    uint8_t flags_ba;
+    /* Exact $04B0 values for opcode 14; bit $10 is the qualification gate. */
+    uint8_t actor_04b0[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    /* Opcode 7 indexes the original $046E table with C8. The corpus uses
+       C8=$0A, so this bounded probe intentionally has eleven entries. */
+    uint8_t actor_046e_probe[TECMO_GAMEPLAY_CPU_STEERING_046E_PROBE_COUNT];
+    /* Exact opcode-21 gate inputs ($058A/$0357/$0358/$7E). */
+    uint8_t state_058a;
+    uint8_t state_0357;
+    uint8_t state_0358;
+    uint8_t flags_007e;
+    TecmoGameplayCourtCoordinate
+        actor_position[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+} TecmoGameplayCpuSteeringPlayInput;
+
+typedef struct TecmoGameplayCpuSteeringPlayResult {
+    uint32_t contract_tag;
+    uint8_t actor;
+    uint8_t steps_executed;
+    uint8_t step_budget;
+    TecmoGameplayCpuSteeringCommand command;
+    TecmoGameplayCpuSteeringEffectKind effect;
+    uint16_t previous_offset;
+    uint16_t next_offset;
+    uint16_t jump_offset;
+    uint8_t target_actor;
+    int16_t target_x;
+    int16_t target_depth;
+    bool fetched;
+    bool advanced;
+    bool jumped;
+    bool waiting;
+    bool budget_exhausted;
+    bool deferred;
+    bool proximity_met;
+} TecmoGameplayCpuSteeringPlayResult;
+
+typedef struct TecmoGameplayCpuSteeringShotInput {
+    uint32_t contract_tag;
+    uint8_t state_0588;
+    uint8_t flags_ba;
+    uint8_t target_delta_low;
+    uint8_t target_delta_high;
+    uint8_t gate_0478;
+    uint8_t timer_0798;
+    uint8_t difficulty;
+    uint8_t timer_0760;
+    uint8_t rating_0533;
+    uint8_t random_byte;
+} TecmoGameplayCpuSteeringShotInput;
+
+typedef struct TecmoGameplayCpuSteeringShotResult {
+    uint32_t contract_tag;
+    uint8_t difficulty_threshold;
+    uint8_t timer_sum;
+    uint8_t rating_bucket;
+    uint8_t actor_state;
+    uint8_t action;
+    uint8_t timer;
+    uint8_t handoff_code;
+    bool request;
+    bool wrote_state;
+} TecmoGameplayCpuSteeringShotResult;
+
 /* Bounded native composition policy for exercising the isolated TGAI
    direction boundary with a complete canonical court snapshot. The CLI and
-   live scene share it. A fixed linked actor is matchup/pose and
-   defender-reference metadata: it is the port's explicit stand-in for the
-   still-unreconstructed ROM $06CB,X assignment, not a non-holder's live
-   target coordinate. Non-holder live targets are explicit canonical
-   coordinates supplied by the native policy. Slots 0..4 are away/team 0 and
-   slots 5..9 are home/team 1, matching TecmoGameplayScene. This is not a
-   reconstructed ROM play selector. */
+   live scene share it. Its legacy matchup input is separate from the
+   lifecycle's exact fixed-link seed {5,6,7,8,9,0,1,2,3,4}; it is not a claim
+   that the harness owns the ROM's dynamic candidate/$037F assignment.
+   Non-holder live targets are explicit canonical coordinates supplied by the
+   native policy. Slots 0..4 are away/team 0 and slots 5..9 are home/team 1,
+   matching TecmoGameplayScene. This is not a reconstructed ROM play
+   selector. */
 typedef enum TecmoGameplayCpuSteeringHarnessTargetKind {
     TECMO_GAMEPLAY_CPU_STEERING_HARNESS_LINKED_ACTOR = 0,
     TECMO_GAMEPLAY_CPU_STEERING_HARNESS_HOOP_APPROACH,
@@ -208,6 +428,35 @@ bool tecmo_gameplay_cpu_steering_direction_for_delta(
 const char *tecmo_gameplay_cpu_steering_direction_name(uint8_t direction);
 const char *tecmo_gameplay_cpu_steering_command_kind_name(
     TecmoGameplayCpuSteeringCommandKind kind);
+const TecmoGameplayCpuSteeringEffectMetadata *
+tecmo_gameplay_cpu_steering_effect_metadata(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t opcode);
+const char *tecmo_gameplay_cpu_steering_effect_name(
+    TecmoGameplayCpuSteeringEffectKind kind);
+
+bool tecmo_gameplay_cpu_steering_formation_select(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t formation_index,
+    TecmoGameplayCpuSteeringFormationResult *result_out);
+bool tecmo_gameplay_cpu_steering_route_select(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    const TecmoGameplayCpuSteeringRouteInput *input,
+    TecmoGameplayCpuSteeringRouteResult *result_out);
+bool tecmo_gameplay_cpu_steering_play_state_initialize(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t formation_index,
+    TecmoGameplayCpuSteeringPlayState *state_out);
+bool tecmo_gameplay_cpu_steering_play_step(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    const TecmoGameplayCpuSteeringPlayState *state_in,
+    const TecmoGameplayCpuSteeringPlayInput *input,
+    TecmoGameplayCpuSteeringPlayState *state_out,
+    TecmoGameplayCpuSteeringPlayResult *result_out);
+bool tecmo_gameplay_cpu_steering_shot_request(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    const TecmoGameplayCpuSteeringShotInput *input,
+    TecmoGameplayCpuSteeringShotResult *result_out);
 
 /* Pure and transactional. Every one of the ten coordinates is validated and
    included in input_fingerprint. A caller may set has_explicit_target and
@@ -223,13 +472,24 @@ bool tecmo_gameplay_cpu_steering_harness_evaluate(
 const char *tecmo_gameplay_cpu_steering_harness_target_kind_name(
     TecmoGameplayCpuSteeringHarnessTargetKind kind);
 
+/* `play_step` is transactional: invalid tags, actors, offsets, positions,
+   or budgets return false without writing either output. `state_out` and
+   `result_out` may not alias state_in, input, or one another; every such
+   cross-object alias is rejected before any write. Only opcode 1 chains into
+   another record in the same tick; all other handlers stop after one bounded
+   effect/transport decision. A bounded step budget prevents opcode-1 loops
+   from becoming an unbounded native tick. Deferred effect inputs do not defer
+   a transport path that is independently proven (for example, opcode 5's
+   +5 advance). */
+
 /* Pure and transactional TGAI -> TGMO composition. A nonzero TGAI
    result is inverted through TGMO's validated direction table and supplied
    as NES held-direction bits. TGAI's zero-vector no-write case has no NES
    input equivalent, so this adapter-owned boundary supplies neutral while
    preserving TGMO's exact one-update action-state latency. The live scene
    uses this API with scene-owned fixed opposing links. It still does not own
-   or claim the ROM command/link lifecycle. */
+   or invoke the isolated ROM command/link lifecycle. Normal scene lifecycle
+   integration remains a later R1-LIVE boundary. */
 bool tecmo_gameplay_cpu_steering_movement_step(
     const TecmoGameplayCpuSteeringAssets *steering_assets,
     const TecmoGameplayMovementAssets *movement_assets,

@@ -39,6 +39,51 @@ static const uint8_t cpu_steering_direction_map[
     3U,6U,4U,7U,0U,1U,2U,5U
 };
 
+/* These native lifecycle consumers use bytes outside the unchanged TGAI-1
+   payload spans. The importer validates their canonical Rev1 source ranges;
+   runtime code receives only the semantic constants derived from them. */
+static const uint8_t cpu_steering_anchor_ac76_acf0_sha256[32] = {
+    0xAAU,0x29U,0x6CU,0xBBU,0xF2U,0x26U,0x91U,0x30U,
+    0xF1U,0x3CU,0x8DU,0x69U,0x83U,0xD8U,0x97U,0x45U,
+    0x17U,0x71U,0x0BU,0x9AU,0x06U,0x41U,0xA6U,0xE9U,
+    0x77U,0x0EU,0x50U,0x43U,0x8EU,0x07U,0xA2U,0x0AU
+};
+
+static const uint8_t cpu_steering_anchor_acd9_ace3_sha256[32] = {
+    0x47U,0x61U,0xCFU,0x44U,0x14U,0x82U,0x47U,0xC6U,
+    0xB9U,0x60U,0x46U,0xAEU,0x8FU,0xA2U,0xA9U,0xB8U,
+    0x99U,0xBCU,0xDDU,0x2AU,0x3BU,0xCBU,0x2AU,0xD6U,
+    0x1EU,0xFAU,0x3BU,0xEBU,0xBAU,0xD9U,0x41U,0x4DU
+};
+
+static const uint8_t cpu_steering_anchor_add6_addf_sha256[32] = {
+    0x71U,0x0EU,0x20U,0x6AU,0x0EU,0x4AU,0x69U,0x19U,
+    0xA8U,0x32U,0x3EU,0x87U,0xF4U,0x0DU,0x89U,0x1BU,
+    0x73U,0xF8U,0xFBU,0xC2U,0x04U,0xEAU,0x28U,0x6CU,
+    0xE7U,0x5DU,0xE5U,0xEDU,0x75U,0x44U,0x01U,0x55U
+};
+
+static const uint8_t cpu_steering_anchor_b05_route_sha256[32] = {
+    0x30U,0x77U,0x15U,0xF2U,0x1DU,0x95U,0xCEU,0xEBU,
+    0x50U,0x33U,0xEDU,0xD4U,0xDDU,0x77U,0xBEU,0x66U,
+    0x52U,0x15U,0xE5U,0xF2U,0x99U,0x36U,0x63U,0xD9U,
+    0xABU,0x81U,0xB1U,0x7AU,0x50U,0xD4U,0x0AU,0x48U
+};
+
+static const uint8_t cpu_steering_anchor_b06_shot_sha256[32] = {
+    0x0EU,0x34U,0xFEU,0xFAU,0xC7U,0xDCU,0x76U,0x7BU,
+    0x0AU,0x02U,0x86U,0xFDU,0x3BU,0xD7U,0xA8U,0x49U,
+    0xA2U,0x49U,0x5DU,0x24U,0xF0U,0x03U,0xA1U,0x8DU,
+    0xABU,0xFBU,0x18U,0x6FU,0x9BU,0xB4U,0x98U,0x1FU
+};
+
+static const uint8_t cpu_steering_anchor_b06_candidate_sha256[32] = {
+    0xAAU,0xA9U,0x67U,0x0DU,0xA5U,0x94U,0x2FU,0xA2U,
+    0x61U,0x4FU,0x92U,0x5AU,0x26U,0x66U,0x74U,0x89U,
+    0x3AU,0x35U,0x2BU,0xB2U,0xDBU,0x3AU,0x8FU,0x41U,
+    0x58U,0xF6U,0x1CU,0x8AU,0xE8U,0x91U,0xAEU,0x36U
+};
+
 const TecmoGameplayCpuSteeringExpectedSource
     tecmo_gameplay_cpu_steering_expected_sources[
         TECMO_GAMEPLAY_CPU_STEERING_SOURCE_COUNT] = {
@@ -113,6 +158,77 @@ static uint64_t source_offset(
     return prg_offset +
            (uint64_t)bank * TECMO_ASSET_PACK_PRG_BANK_BYTES +
            (uint64_t)(source->cpu_start - cpu_base);
+}
+
+static uint64_t cpu_steering_switchable_rom_offset(
+    uint64_t prg_offset,
+    uint32_t bank,
+    uint16_t cpu_address)
+{
+    return prg_offset +
+           (uint64_t)bank * TECMO_ASSET_PACK_PRG_BANK_BYTES +
+           (uint64_t)(cpu_address -
+                      TECMO_ASSET_PACK_SWITCHED_PRG_CPU_BASE);
+}
+
+static int validate_lifecycle_anchor(
+    const uint8_t *rom,
+    uint64_t rom_size,
+    uint64_t prg_offset,
+    uint32_t bank,
+    uint16_t cpu_start,
+    uint16_t cpu_end,
+    const uint8_t expected_sha256[32])
+{
+    uint8_t digest[32];
+    uint64_t offset;
+    uint64_t byte_count = (uint64_t)cpu_end - cpu_start + 1U;
+    if (rom == NULL || cpu_end < cpu_start || bank >= CPU_STEERING_PRG_BANK_COUNT) {
+        return 0;
+    }
+    offset = cpu_steering_switchable_rom_offset(
+        prg_offset, bank, cpu_start);
+    if (!range_ok(offset, byte_count, rom_size) ||
+        tecmo_asset_pack_sha256_digest(
+            rom + (size_t)offset, (size_t)byte_count, digest) != 0 ||
+        memcmp(digest, expected_sha256, sizeof(digest)) != 0) {
+        return 0;
+    }
+    return 1;
+}
+
+static int validate_lifecycle_anchors(
+    const uint8_t *rom,
+    uint64_t rom_size,
+    uint64_t prg_offset)
+{
+    static const uint8_t route_table[2] = {0x00U,0x80U};
+    uint64_t route_table_offset = cpu_steering_switchable_rom_offset(
+        prg_offset, 5U, 0x9709U);
+    if (!validate_lifecycle_anchor(
+            rom, rom_size, prg_offset, 4U, 0xAC76U, 0xACF0U,
+            cpu_steering_anchor_ac76_acf0_sha256) ||
+        !validate_lifecycle_anchor(
+            rom, rom_size, prg_offset, 4U, 0xACD9U, 0xACE3U,
+            cpu_steering_anchor_acd9_ace3_sha256) ||
+        !validate_lifecycle_anchor(
+            rom, rom_size, prg_offset, 4U, 0xADD6U, 0xADDFU,
+            cpu_steering_anchor_add6_addf_sha256) ||
+        !validate_lifecycle_anchor(
+            rom, rom_size, prg_offset, 5U, 0x96B6U, 0x9708U,
+            cpu_steering_anchor_b05_route_sha256) ||
+        !validate_lifecycle_anchor(
+            rom, rom_size, prg_offset, 6U, 0x8374U, 0x84B6U,
+            cpu_steering_anchor_b06_shot_sha256) ||
+        !validate_lifecycle_anchor(
+            rom, rom_size, prg_offset, 6U, 0xB081U, 0xB365U,
+            cpu_steering_anchor_b06_candidate_sha256) ||
+        !range_ok(route_table_offset, sizeof(route_table), rom_size) ||
+        memcmp(rom + (size_t)route_table_offset,
+               route_table, sizeof(route_table)) != 0) {
+        return 0;
+    }
+    return 1;
 }
 
 static int play_commands_valid(const uint8_t *commands)
@@ -305,6 +421,7 @@ int tecmo_asset_pack_build_gameplay_cpu_steering(
     }
 
     if (!validate_semantics(payload) ||
+        !validate_lifecycle_anchors(rom, rom_size, prg_offset) ||
         /* The byte immediately after the 680th record resumes Bank04 code. */
         rom[16U + 4U * 0x4000U + (0xAC76U - 0x8000U)] != 0x20U ||
         tecmo_asset_pack_fnv1a32(rom, (size_t)rom_size) !=

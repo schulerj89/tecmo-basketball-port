@@ -309,6 +309,15 @@ try {
         @{ bank=7; fixed=$true;  start=0xCBE0; size=23;   hash="41C5B5C8"; payload=4176 },
         @{ bank=4; fixed=$false; start=0x9F2E; size=3400; hash="71331A96"; payload=4208 }
     )
+    $LifecycleAnchorSpans = @(
+        @{ label="Bank04 AC76-ACF0"; bank=4; fixed=$false; start=0xAC76; size=0x7B },
+        @{ label="Bank04 ACD9-ACE3"; bank=4; fixed=$false; start=0xACD9; size=0x0B },
+        @{ label="Bank04 ADD6-ADDF"; bank=4; fixed=$false; start=0xADD6; size=0x0A },
+        @{ label="Bank05 96B6-9708"; bank=5; fixed=$false; start=0x96B6; size=0x53 },
+        @{ label="Bank06 8374-84B6"; bank=6; fixed=$false; start=0x8374; size=0x143 },
+        @{ label="Bank06 B081-B365"; bank=6; fixed=$false; start=0xB081; size=0x2E5 },
+        @{ label="Bank05 9709-970A route table"; bank=5; fixed=$false; start=0x9709; size=2 }
+    )
     $SourceMap = ([Text.Encoding]::UTF8.GetString(
         (Get-EntryBytes $PackBytes $SourceMapEntry))) | ConvertFrom-Json
     $Maps = @($SourceMap.logical_entries | Where-Object {
@@ -753,13 +762,35 @@ try {
         }
         ++$RomMutationCount
     }
+    $LifecycleRomMutationCount = 0
+    foreach ($Span in $LifecycleAnchorSpans) {
+        $CpuBase = if ([bool]$Span.fixed) { 0xC000 } else { 0x8000 }
+        $Offset = $Prg + $Span.bank * 0x4000 + ($Span.start - $CpuBase)
+        $MutatedRom = Join-Path $Scratch `
+            ("rom-lifecycle-{0}-{1:X4}.nes" -f $Span.bank, $Span.start)
+        $Bytes = [byte[]]$RomBytes.Clone()
+        $Bytes[$Offset] = $Bytes[$Offset] -bxor 1
+        [IO.File]::WriteAllBytes($MutatedRom, $Bytes)
+        $Output = @(& $Executable --gameplay-cpu-steering-source-test `
+            $MutatedRom 2>&1)
+        if ($LASTEXITCODE -eq 0 -or
+            ($Output -join [Environment]::NewLine) -notmatch
+                'TGAI-1 import requires the exact Rev1 ROM fingerprint') {
+            throw ("Rev1 lifecycle-anchor mutation at $($Span.label) was " +
+                "accepted.`n$(Get-ShortTail $Output)")
+        }
+        ++$RomMutationCount
+        ++$LifecycleRomMutationCount
+    }
 
     Write-Host ("TGAI-1 focused tests passed: exact Rev1 importer and ten " +
-        "source spans, 680 aligned commands, 24 handlers, eight exact " +
+        "source spans plus seven lifecycle anchor/table spans, 680 aligned " +
+        "commands, 24 handlers, eight exact " +
         "direction codes, deterministic ten-coordinate/context harness, " +
         "transactional TGMO direction/movement composition, " +
         "strict provenance/dependency/parser/input mutations, " +
-        "$RomMutationCount ROM mutations, bounded live scene adapter enabled")
+        "$RomMutationCount ROM mutations ($LifecycleRomMutationCount lifecycle " +
+        "anchor/table), bounded live scene adapter enabled")
     $global:LASTEXITCODE = 0
 } finally {
     $env:TECMO_SKIP_SHORTCUT = $PreviousSkipShortcut

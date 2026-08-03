@@ -1,0 +1,71 @@
+{
+  "schema": "tecmo.r1-cpu-play-lifecycle-proof/2",
+  "status": "PENDING_PRIVATE_RUN",
+  "task": "R1-CPU-PLAY-LIFECYCLE",
+  "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
+  "final_sha": "PENDING_FINAL_SHA_UNTIL_COMMIT",
+  "rom": {
+    "sha256": "076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4",
+    "runtime_reads_rom": false
+  },
+  "fceux": {
+    "sha256": "F89812F4E9506EF7090D9D0310D368ABD79BACA362B7BFC4A2E7E499754F2A1B",
+    "private_run": true
+  },
+  "asset_pack": {
+    "entry": "gameplay/cpu-steering",
+    "bytes": 7616,
+    "fnv1a32": "D6C4DB35",
+    "sha256": "PENDING_GENERATED_PACK_SHA256"
+  },
+  "input_schedule": {
+    "kind": "controller-input-only",
+    "map": "tools/gameplay-lab/tecmo_cpu_lifecycle_rev1_map.lua",
+    "classification": "accepted deterministic/authentic controller schedule; row timing is not ASM/source-pinned input semantics",
+    "schedule": "boot_inputs plus tip A 30-34/A+B 35-37/B 38-55; complete neutral P1/P2 every frame"
+  },
+  "original_reference": {
+    "schema": "TGLCPU-TRACE-1",
+    "live_window_frames": 120,
+    "screenshot_count": 12,
+    "frames": "reference-frame-0001..0012",
+    "resolution": "256x224 FCEUX gui.savescreenshotas PNG raster/crop",
+    "video_resolution": "256x240 original AVI/video contract (separate from PNG raster)",
+    "trace": "trace.csv",
+    "contact_sheet_dimensions": "768x896",
+    "contact_sheet_hashes_equal": "PENDING",
+    "comparison": "two-run SHA256 equality required",
+    "status": "PENDING"
+  },
+  "native": {
+    "surface": "gameplay-cpu-steering-frameN",
+    "frames": "25..36 contiguous, two renders",
+    "resolution": "640x480",
+    "contact_sheet": "native-contact-sheet.png (1920x1920)",
+    "video": {
+      "cadence": "39375000/655171",
+      "track_timescale": 39375000,
+      "r_frame_rate": "39375000/655171",
+      "avg_frame_rate": "39375000/655171",
+      "time_base": "1/39375000",
+      "frames": 12,
+      "primary_sha256": "PENDING",
+      "repeat_sha256": "PENDING",
+      "deterministic_sha256_equal": "PENDING",
+      "encode_commands": [],
+      "probe_commands": [],
+      "status": "PENDING_FFMPEG_AVAILABILITY"
+    },
+    "status": "PENDING"
+  },
+  "commands": [],
+  "tools": [],
+  "artifacts": [],
+  "limitations": [
+    "production scene uses legacy native harness/formation continuity surface",
+    "isolated lifecycle engine is not consumed by normal scene flow; R1-LIVE",
+    "handler intent, dynamic candidate/matchup state, and shot outcomes remain incomplete",
+    "visual sequence is continuity/regression evidence, not one-to-one lifecycle parity"
+  ],
+  "personal_sol_inspection": "PENDING_PERSONAL_SOL_INSPECTION"
+}
