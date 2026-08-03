@@ -1,4 +1,4 @@
-# R4 frontend intro/title production replay proof — Luna revision 2
+# R4 frontend intro/title production replay proof — Luna revision 3
 
 ## Revision status
 
@@ -12,7 +12,7 @@ The source implementation remains the provisionally accepted commit 853e46ac3151
 - Raw predecessor task status: systemError.
 - Preserved last-good Sol commit: a40dc3f9976d40444d91255f31a29959f5b23be3.
 - Replacement Sol task: 019fc8e8-190e-7912-937f-482a325dfa52.
-- Takeover was confirmed from the exact clean branch codex/r4-frontend-intro-title-sol at base 6d8f9c7a99a7ce188f1a523247d3a9b9093860fb. main and origin-main remain master-owned at 6d8f9c7a99a7ce188f1a523247d3a9b9093860fb.
+- Takeover was confirmed from the clean branch codex/r4-frontend-intro-title-sol at HEAD/last-good a40dc3f9976d40444d91255f31a29959f5b23be3; its merge-base/required base is 6d8f9c7a99a7ce188f1a523247d3a9b9093860fb. main and origin-main remain master-owned at 6d8f9c7a99a7ce188f1a523247d3a9b9093860fb.
 - This exact Luna worktree and branch, codex/r4-frontend-intro-title-proof-luna, were reused and re-pinned. All committed proof lineage and ignored proof artifacts were preserved; no source or generated artifact was rewritten for this recovery documentation pass.
 
 ## Scope
@@ -72,13 +72,13 @@ The complete first neutral-input cycle has these inclusive rendered ranges:
 
 The corrected state samples include N=1507 step 13/local 51, N=1508 step 14/local 0, N=2508 step 14/local 1000, N=2509 step 15/local 0/attract 1, N=3150 step 15/local 641/attract 1, N=3151 step 6/local 0, and N=4096 step 8/local 535. The last sample is inside the next cycle's arena route and demonstrates that the safe maximum still follows the normal state machine.
 
-The finale local range 0..1000 in this production boundary table is cumulative scene-local finale progression for step 14. It is distinct from the production global frame range 1508..2508. The internal observation table below further partitions that local progression into opening, loop, selector, staged-group, and title subroutes.
+The step-14 Local frame range 0..1000 in this production boundary table is cumulative step-local mode_frame progression, corresponding to global N 1508..2508. It is distinct from the production global frame numbers. The internal observation table below partitions that progression into opening, loop, selector, staged-group, and title subroutes.
 
 ### Finale internal map
 
 The finale route is step 14 and has these production internals:
 
-In this internal observation table, a finale range written as 0..1000 means scene-local cumulative finale progression. It is not a production global frame number; the corresponding production global frames are 1508..2508.
+In this internal observation table, the Local range column is subroute-local and resets to zero at opening-screen, short-sprite-loop, selector-transition, staged-group, and title. The Global range column gives production global N. The internal table does not use a 0..1000 scene-local range; 0..1000 belongs to the cumulative step-local mode_frame progression in the production boundary table above.
 
 | Internal route | Frames | Global range | Local range | Selected state observations |
 | --- | ---: | ---: | ---: | --- |
@@ -88,7 +88,7 @@ In this internal observation table, a finale range written as 0..1000 means scen
 | staged-group | 189 | 1703..1891 | 0..188 | local 0 phase=load; local 188 phase=dispatch-wait sprites=1 |
 | title | 617 | 1892..2508 | 0..616 | local 0 phase=load; local 308 phase=title-write title_slots=21 primary=1:74 secondary=1:0; local 616 phase=dispatch-wait title_slots=44 primary=0:176 |
 
-The internal terminator hold is local 1001. The normal production update hands off at N=2509, so the hold is not a rendered frame in this production-path sequence.
+The step-local terminator hold is 1001. The normal production update hands off at global N=2509, so the hold is not a rendered frame in this production-path sequence.
 
 ## Superseded evidence and harness notes
 
