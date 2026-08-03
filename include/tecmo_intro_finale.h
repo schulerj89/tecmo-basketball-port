@@ -23,6 +23,24 @@
 #define TECMO_INTRO_FINALE_TITLE_TEXT_SLOT_COUNT 26U
 #define TECMO_INTRO_FINALE_TITLE_CELL_COUNT 4U
 #define TECMO_INTRO_FINALE_TITLE_BAND_COUNT 3U
+#define TECMO_INTRO_FINALE_CAPTION_COUNT 3U
+#define TECMO_INTRO_FINALE_CAPTION_MAX_GLYPHS 5U
+#define TECMO_INTRO_FINALE_CAPTION_GLYPH_SENTINEL 0xFFU
+
+/* Rev1 Bank04/capture timing, expressed in the native frame convention. */
+#define TECMO_INTRO_FINALE_OPENING_DURATION_FRAMES 84U
+#define TECMO_INTRO_FINALE_SHORT_LOOP_DURATION_FRAMES 59U
+#define TECMO_INTRO_FINALE_SELECTOR_DURATION_FRAMES 52U
+#define TECMO_INTRO_FINALE_STAGED_DURATION_FRAMES 189U
+#define TECMO_INTRO_FINALE_TITLE_DURATION_FRAMES 617U
+#define TECMO_INTRO_FINALE_TITLE_START_FRAME \
+    (TECMO_INTRO_FINALE_OPENING_DURATION_FRAMES + \
+     TECMO_INTRO_FINALE_SHORT_LOOP_DURATION_FRAMES + \
+     TECMO_INTRO_FINALE_SELECTOR_DURATION_FRAMES + \
+     TECMO_INTRO_FINALE_STAGED_DURATION_FRAMES)
+#define TECMO_INTRO_FINALE_HOLD_FRAME \
+    (TECMO_INTRO_FINALE_TITLE_START_FRAME + \
+     TECMO_INTRO_FINALE_TITLE_DURATION_FRAMES)
 
 #define TECMO_INTRO_FINALE_LOAD_BOUNDARY_FRAMES 1U
 #define TECMO_INTRO_FINALE_OPENING_WAIT_FRAMES 50U
@@ -38,8 +56,8 @@
 #define TECMO_INTRO_FINALE_TITLE_PREROLL_FRAMES 128U
 #define TECMO_INTRO_FINALE_TITLE_SLOT_INTERVAL_FRAMES 8U
 #define TECMO_INTRO_FINALE_TITLE_WRITE_FRAMES \
-    (((TECMO_INTRO_FINALE_TITLE_SLOT_COUNT - 1U) * \
-      TECMO_INTRO_FINALE_TITLE_SLOT_INTERVAL_FRAMES) + 1U)
+    ((TECMO_INTRO_FINALE_TITLE_SLOT_COUNT - 1U) * \
+     TECMO_INTRO_FINALE_TITLE_SLOT_INTERVAL_FRAMES)
 #define TECMO_INTRO_FINALE_TITLE_TAIL_FRAMES 128U
 #define TECMO_INTRO_FINALE_TITLE_DISPATCH_WAIT_FRAMES 1U
 
@@ -74,6 +92,17 @@ typedef struct TecmoIntroFinaleTitleBand {
     uint32_t high_chr_base;
 } TecmoIntroFinaleTitleBand;
 
+typedef struct TecmoIntroFinaleCaption {
+    uint8_t route_index;
+    uint8_t first_frame;
+    uint8_t reveal_interval;
+    uint8_t palette_index;
+    uint8_t column;
+    uint8_t row;
+    uint8_t glyph_count;
+    uint8_t glyph_refs[TECMO_INTRO_FINALE_CAPTION_MAX_GLYPHS];
+} TecmoIntroFinaleCaption;
+
 typedef struct TecmoIntroFinaleAsset {
     bool available;
     TecmoIntroFinaleCell screens[TECMO_INTRO_FINALE_SCREEN_COUNT]
@@ -94,6 +123,15 @@ typedef struct TecmoIntroFinaleAsset {
     uint8_t staged_anchor_y;
     uint16_t reverse_palette_frames[TECMO_INTRO_FINALE_PALETTE_STAGE_COUNT];
     TecmoIntroFinaleTitleBand title_bands[TECMO_INTRO_FINALE_TITLE_BAND_COUNT];
+    uint16_t route_duration_frames[TECMO_INTRO_FINALE_SCREEN_COUNT];
+    uint8_t route_black_gate_frames[TECMO_INTRO_FINALE_SCREEN_COUNT];
+    uint8_t route_black_pulse_frames[TECMO_INTRO_FINALE_SCREEN_COUNT];
+    uint8_t route_black_tail_frames[TECMO_INTRO_FINALE_SCREEN_COUNT];
+    uint8_t title_secondary_initial_page;
+    /* ROM-derived Bank04 $8A6F team-color result for the staged BULLS art. */
+    uint8_t staged_team_color;
+    TecmoIntroFinaleCaption captions[TECMO_INTRO_FINALE_CAPTION_COUNT];
+    uint8_t caption_extra_glyph_tiles[TECMO_INTRO_FINALE_TITLE_CELL_COUNT];
     uint64_t chr_byte_count;
     uint64_t chr_fingerprint;
     char status[160];
