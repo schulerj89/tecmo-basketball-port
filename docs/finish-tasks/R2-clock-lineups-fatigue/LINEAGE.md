@@ -4,7 +4,7 @@
 
 | Role | ID | Exact title | Model/creation metadata |
 |---|---|---|---|
-| Authoritative Sol | `019fc8ff-4ec4-7b20-86c6-9c9614f9194c` | `Tecmo R2 Clocks Lineups Fatigue Domain Orchestrator — Sol Max` | gpt-5.6-sol/max; completed personal terminal QA and production proof; independent QA remains pending. |
+| Authoritative Sol | `019fc8ff-4ec4-7b20-86c6-9c9614f9194c` | `Tecmo R2 Clocks Lineups Fatigue Domain Orchestrator — Sol Max` | gpt-5.6-sol/max; completed v1 personal terminal QA/proof; v2 QA/proof and independent re-audit remain pending. |
 | Writable implementation/revision Luna | `019fc912-a957-79f0-89a3-7e2e2d10db24` | `Tecmo R2 Clocks Lineups Fatigue Implementation — Luna Max` | gpt-5.6-luna/max; created_at `2026-08-03T19:21:11.000Z`; pinned=true during work; one successful creation, no fault, retry, or replacement. |
 
 Writable registry details: branch
@@ -33,6 +33,23 @@ durably captured.
 
 No additional task or subagent was created by this writable worker.
 
+## Independent QA lineage
+
+| Field | Accepted historical value |
+|---|---|
+| Task | `019fc957-a425-70f3-83b9-1e63dfdba40e` — `Tecmo R2 Clocks Lineups Fatigue Independent QA — Luna Max` |
+| Model/creation | `gpt-5.6-luna/max`; projectless/null-Git; created_at epoch `1785789391` = `2026-08-03T20:36:31Z` |
+| Frozen candidate | `1536ae31e7016f6e9adbddb7868e2d40e51c1085` |
+| Initial verdict | `FAIL` due to P2 only; explicitly no P0/P1 |
+| Read-only integrity | Exact branch/HEAD/base/merge-base, four linear Good-signed commits, 18 allowed changed paths, clean/diff-check, and proof inventory/hash validation all passed. |
+| Task state | Read-only QA remains pinned for independent re-audit. |
+
+The v1 proof manifest SHA-256
+`12DBA6C5D5D0C64C131DA35575CACBAAEA2D257198D57FC7C0B9D2DC11B043E1` is
+bound to proof-source HEAD `97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`.
+The frozen candidate `1536ae31e7016f6e9adbddb7868e2d40e51c1085` is its
+docs-only descendant; no v2 proof was regenerated.
+
 ## Implementation revisions
 
 1. Initial implementation added LIVE-only reset, ordered clock vectors,
@@ -57,6 +74,10 @@ No additional task or subagent was created by this writable worker.
    normalized public predicate names, added 720 policy vectors plus `0xFF`,
    parse alias guards, storage/object corruption coverage, and the exact runner
    message.
+8. Independent-QA remediation staged all owned gameplay-state mutators and
+   state/event outputs transactionally, added exact/partial alias and failure
+   vectors, and hardened TGFT/TGFL destructor frees against bounded corrupt
+   in-object storage without claiming arbitrary invalid-pointer detection.
 
 ## Commits
 
@@ -79,8 +100,10 @@ The task-specific proof root is
 `C:\Users\joshs\Projects\tecmo-basketball-port-r2-clock-lineups-fatigue-sol\build\r2-clock-lineups-fatigue-proof-20260803T203000Z`,
 with manifest SHA-256
 `12DBA6C5D5D0C64C131DA35575CACBAAEA2D257198D57FC7C0B9D2DC11B043E1`.
-Independent QA task identity/outcome and the terminal accepted SHA remain
-pending until the independent QA/final revision.
+That manifest remains v1 proof-source evidence for HEAD
+`97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`, not v2
+proof for this remediation. Sol v2 QA/proof, independent re-audit, and the
+terminal accepted SHA remain pending.
 
 No merge, rebase, push, or main/staging mutation was performed in this worker
 lane.

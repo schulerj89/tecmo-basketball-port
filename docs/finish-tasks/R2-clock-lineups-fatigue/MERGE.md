@@ -26,8 +26,12 @@ the exact scene rescope in `APPROXIMATIONS.md` before any future live
 substitution or active-lineup integration.
 
 Sol's personal QA and bounded production proof are recorded in `PROOF.md` and
-`TESTS.md`. Independent QA remains pending, and the terminal accepted SHA must
-remain pending until that QA and the final revision. Any later handoff should
-use the precise equivalent of `git merge --ff-only
-97277cbecf685a9f8ac8e29dde1a6de61f0e2db8` in the Sol worktree; never merge this
-domain into `main`, `origin-main`, `staging`, or `master`.
+`TESTS.md` as v1 proof-source evidence bound to HEAD
+`97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`. This remediation must be
+fast-forwarded into Sol only after the signed commit is created; use the
+precise equivalent of `git merge --ff-only <remediation-commit>` in the Sol
+worktree. Independent QA task
+`019fc957-a425-70f3-83b9-1e63dfdba40e` remains pinned for re-audit, and v2 Sol
+QA/proof plus the terminal accepted SHA remain pending. Do not regenerate or
+claim v2 proof from the v1 manifest. Never merge this domain into `main`,
+`origin-main`, `staging`, or `master`.

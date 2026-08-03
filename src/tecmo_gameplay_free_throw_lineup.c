@@ -79,10 +79,32 @@ static bool ranges_overlap(const void *left,
            right_start < left_start + left_size;
 }
 
+static bool lineup_storage_can_be_freed(
+    const TecmoGameplayFreeThrowLineupAssets *assets)
+{
+    uintptr_t storage_start;
+
+    if (assets == NULL || assets->storage == NULL) {
+        return true;
+    }
+    storage_start = (uintptr_t)assets->storage;
+    if (assets->storage_size == 0U ||
+        assets->storage_size !=
+            TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SIZE ||
+        assets->storage_size > UINTPTR_MAX - storage_start ||
+        ranges_overlap(assets, sizeof(*assets), assets->storage,
+                       assets->storage_size)) {
+        return false;
+    }
+    return true;
+}
+
 static bool reject(TecmoGameplayFreeThrowLineupAssets *assets,
                    const char *message)
 {
-    free(assets->storage);
+    if (lineup_storage_can_be_freed(assets)) {
+        free(assets->storage);
+    }
     assets->storage = NULL;
     assets->storage_size = 0U;
     assets->pose_lookup = NULL;
@@ -114,7 +136,9 @@ void tecmo_gameplay_free_throw_lineup_destroy(
             TECMO_GAMEPLAY_FREE_THROW_LINEUP_LIFECYCLE_TAG) {
         return;
     }
-    free(assets->storage);
+    if (lineup_storage_can_be_freed(assets)) {
+        free(assets->storage);
+    }
     tecmo_gameplay_free_throw_lineup_init(assets);
 }
 
@@ -559,6 +583,7 @@ static bool parse_into(
     staged->gameplay_core_fingerprint =
         TECMO_ASSET_PACK_GAMEPLAY_FNV1A32;
     staged->available = true;
+
     (void)snprintf(
         staged->status, sizeof(staged->status),
         "TGFL-1 gameplay free-throw lineup assetpack");
@@ -577,6 +602,7 @@ bool tecmo_gameplay_free_throw_lineup_parse(
 {
     TecmoGameplayFreeThrowLineupAssets staged;
     uint8_t *old_storage;
+    bool old_storage_can_be_freed;
     if (assets == NULL ||
         assets->lifecycle_tag !=
             TECMO_GAMEPLAY_FREE_THROW_LINEUP_LIFECYCLE_TAG) {
@@ -598,8 +624,11 @@ bool tecmo_gameplay_free_throw_lineup_parse(
         return false;
     }
     old_storage = assets->storage;
+    old_storage_can_be_freed = lineup_storage_can_be_freed(assets);
     *assets = staged;
-    free(old_storage);
+    if (old_storage_can_be_freed) {
+        free(old_storage);
+    }
     return true;
 }
 
@@ -1354,6 +1383,56 @@ bool tecmo_gameplay_free_throw_lineup_self_test(
         (void)snprintf(message, message_size,
                        "invalid input accepted or mutated output/storage");
         goto cleanup;
+    }
+
+    {
+        struct {
+            unsigned char prefix[16U];
+            TecmoGameplayFreeThrowLineupAssets asset;
+            unsigned char suffix[16U];
+        } guarded;
+        TecmoGameplayFreeThrowLineupAssets expected;
+        unsigned char prefix_before[sizeof(guarded.prefix)];
+        unsigned char suffix_before[sizeof(guarded.suffix)];
+
+        memset(&guarded, 0xA5, sizeof(guarded));
+        tecmo_gameplay_free_throw_lineup_init(&guarded.asset);
+        memcpy(prefix_before, guarded.prefix, sizeof(prefix_before));
+        memcpy(suffix_before, guarded.suffix, sizeof(suffix_before));
+        guarded.asset.storage = (uint8_t *)&guarded.asset + 1U;
+        guarded.asset.storage_size = 0U;
+        tecmo_gameplay_free_throw_lineup_destroy(&guarded.asset);
+        tecmo_gameplay_free_throw_lineup_init(&expected);
+        if (memcmp(&guarded.asset, &expected, sizeof(expected)) != 0 ||
+            memcmp(guarded.prefix, prefix_before,
+                   sizeof(prefix_before)) != 0 ||
+            memcmp(guarded.suffix, suffix_before,
+                   sizeof(suffix_before)) != 0) {
+            (void)snprintf(message, message_size,
+                           "TGFL-1 zero-size corrupt destroy failed");
+            goto cleanup;
+        }
+
+        guarded.asset.storage = (uint8_t *)&guarded.asset;
+        guarded.asset.storage_size = sizeof(guarded.asset);
+        tecmo_gameplay_free_throw_lineup_destroy(&guarded.asset);
+        if (memcmp(&guarded.asset, &expected, sizeof(expected)) != 0 ||
+            memcmp(guarded.prefix, prefix_before,
+                   sizeof(prefix_before)) != 0 ||
+            memcmp(guarded.suffix, suffix_before,
+                   sizeof(suffix_before)) != 0) {
+            (void)snprintf(message, message_size,
+                           "TGFL-1 overlapping corrupt destroy failed");
+            goto cleanup;
+        }
+        tecmo_gameplay_free_throw_lineup_destroy(&guarded.asset);
+        if (memcmp(&assets, &assets_before, sizeof(assets)) != 0 ||
+            memcmp(assets.storage, storage_before,
+                   sizeof(storage_before)) != 0) {
+            (void)snprintf(message, message_size,
+                           "TGFL-1 corrupt destroy changed live asset");
+            goto cleanup;
+        }
     }
 
     (void)snprintf(

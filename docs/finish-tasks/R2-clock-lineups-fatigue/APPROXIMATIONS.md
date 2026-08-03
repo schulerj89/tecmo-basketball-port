@@ -13,15 +13,17 @@ they do not claim a particular renderer, animation, or audio mixer.
 
 The fatigue kernel is `native_faithful` for its cadence, active decay,
 threshold, bench, cap, and recovery behavior. Its live-tick coupling is a
-`native_approximation_with_justification`: the public kernel remains policy-free
-over caller-provided difficulty and two 5-player active lists. This lane does
-not derive substitutions, choose replacements, or claim ownership of the
-production scene tick.
+`native_approximation_with_justification`: the existing production scene
+already bridges its fixed actor slots/active lists into the caller-owned
+kernel outside this candidate. The public kernel remains policy-free over
+caller-provided difficulty and two 5-player active lists; this lane does not
+derive dynamic replacements, substitutions, or replacement timing.
 
 The current production scene supplies fixed actor slots `[0..4]` and `[5..9]`,
-roster indexes, active flags, launch starter arrays, and validation. That
-stable-slot boundary is recorded as a bounded native approximation; it is not
-evidence of a live substitution eligibility rule or timing owner.
+roster indexes, active flags, launch starter arrays, validation, and the
+existing fixed-slot bridge. That stable-slot boundary is recorded as a bounded
+native approximation; it is not evidence of a live substitution eligibility
+rule, dynamic replacement policy, or replacement timing owner.
 
 ## TGFL predicate boundary
 

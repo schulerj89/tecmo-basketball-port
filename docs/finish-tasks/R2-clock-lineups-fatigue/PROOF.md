@@ -17,7 +17,27 @@ fast-forwarded this signed lineage into
 `codex/r2-clock-lineups-fatigue-sol` at
 `97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`.
 
-## Sol personal QA
+## Independent QA historical audit
+
+The read-only independent QA task was:
+
+- ID: `019fc957-a425-70f3-83b9-1e63dfdba40e`;
+- exact title: `Tecmo R2 Clocks Lineups Fatigue Independent QA — Luna Max`;
+- model/thinking: `gpt-5.6-luna/max`;
+- projectless/null-Git, created_at epoch `1785789391`
+  (`2026-08-03T20:36:31Z`);
+- frozen audit candidate:
+  `1536ae31e7016f6e9adbddb7868e2d40e51c1085`.
+
+Its initial historical verdict was `FAIL` due to P2 findings only; it
+explicitly reported no P0 or P1. Read-only integrity passed for the exact
+branch/HEAD/base/merge-base, four linear Good-signed commits, 18 allowed
+changed paths, clean status/diff-check, and proof inventory/hash validation.
+The P2 remediation in this commit addresses the public state transaction
+boundaries and TGFT/TGFL corrupt-destructor safety. The independent QA task
+remains pinned for re-audit.
+
+## Sol v1 personal QA and proof-source
 
 The authoritative Sol task is
 `019fc8ff-4ec4-7b20-86c6-9c9614f9194c`, titled
@@ -65,8 +85,10 @@ Its exact proof facts are:
   `110,862,262` bytes;
 - commands file SHA-256:
   `3DE73EA26802C39B7354362D2D580929D5372028AF42A4B8776BE42E223A2F3B`;
-- 81 production render frames named
-  `gameplay-shot-clock-violation-frame0..80`, each 640x480;
+- 81 production render frames are stored at
+  `shot-clock-frames/frame-0000.png` through
+  `shot-clock-frames/frame-0080.png`, each 640x480. The render-mode
+  identifiers remain `gameplay-shot-clock-violation-frame0..80`;
 - native MP4 `shot-clock-violation-native.mp4`, 15,769 bytes, SHA-256
   `AD682F67F0EF43C2BDD08D1FE80E4F2146A83E211FEA9B2459AAB9E005683FFE`;
 - ffprobe: `width=640`, `height=480`,
@@ -87,11 +109,17 @@ This proof changes no audio semantics, so audio is N/A. It also does not claim
 period, halftime, or final render-mode ownership; those mechanics remain
 state/event-only in this scope.
 
+The manifest above is bound to proof-source HEAD
+`97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`, not to the frozen independent-QA
+candidate `1536ae31e7016f6e9adbddb7868e2d40e51c1085` or this remediation.
+No v2 Sol QA/proof was regenerated or is claimed.
+
 ## Acceptance still pending
 
-Independent QA task ID/title and outcome are not supplied and remain pending.
-The terminal accepted SHA also remains pending until independent QA and the
-final revision. No independent QA identity or result is inferred here.
+Independent re-audit of `019fc957-a425-70f3-83b9-1e63dfdba40e` remains
+pending. The terminal accepted SHA also remains pending until that re-audit and
+the final revision. No v2 Sol QA/proof, independent re-audit outcome, or
+terminal accepted SHA is inferred here.
 
 Ignored build outputs, raw ROM/decomp/capture material, and proof-only payloads
 remain outside the committed product. The exact visual observations are

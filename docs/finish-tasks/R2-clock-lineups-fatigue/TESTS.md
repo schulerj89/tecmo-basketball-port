@@ -33,7 +33,7 @@ dependency/size/strict-object cases, both orientations, all base placements,
 and the self-test’s 720 policy
 vectors plus `0xFF` predicate check.
 
-## Sol personal QA and production proof
+## Sol v1 personal QA and production proof
 
 After fast-forwarding the signed lineage at
 `97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`, Sol reran the broader exact-Rev1
@@ -78,9 +78,39 @@ the labeled left/right free-throw sheet SHA-256 is
 Separate re-renders matched every selected SHA byte-for-byte, and the two
 free-throw orientation hashes were distinct.
 
-Independent QA remains pending, and no terminal accepted SHA is claimed until
-that QA and the final revision. Audio is N/A; the bounded visual proof does
-not establish period/halftime/final render semantics.
+The manifest and render proof above are bound to proof-source HEAD
+`97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`; they are not v2 proof for the
+frozen independent-QA candidate or this remediation. No v2 Sol QA/proof was
+regenerated. Audio is N/A; the bounded visual proof does not establish
+period/halftime/final render semantics.
+
+## Independent QA historical result
+
+Read-only independent QA task
+`019fc957-a425-70f3-83b9-1e63dfdba40e`,
+`Tecmo R2 Clocks Lineups Fatigue Independent QA — Luna Max`, created at
+`2026-08-03T20:36:31Z` with `gpt-5.6-luna/max`, froze candidate
+`1536ae31e7016f6e9adbddb7868e2d40e51c1085`. Its initial verdict was `FAIL`
+due to P2 only, with explicitly no P0/P1. Exact branch/HEAD/base/merge-base,
+four linear Good-signed commits, 18 allowed changed paths, clean/diff-check,
+and proof inventory/hash validation passed. The QA task remains pinned for
+re-audit.
+
+## Remediation verification
+
+This revision adds no new production proof. The owned remediation verified:
+
+| Command | Result |
+|---|---|
+| `.\build.ps1` | Exit 0; warning-free MSVC build produced both executables. |
+| `.\build\tecmo_port.exe --gameplay-state-test` | Exit 0; `GAMEPLAY STATE SELF TEST PASS replay=7A204A525C79D21C`. |
+| `.\build\tecmo_port.exe --assetpack-test` | Exit 0; `Asset pack self-test passed.` |
+| `.\tools\Run-GameplayFatigueTests.ps1` with exact Rev1 | Exit 0; `TGFT-1 fatigue tests passed.` |
+| `.\tools\Run-GameplayFreeThrowLineupTests.ps1` with exact Rev1 | Exit 0; `TGFL-1 focused tests passed` with 12 selected source mutations. |
+
+Independent re-audit, v2 Sol QA/proof, and the terminal accepted SHA remain
+pending. Do not interpret these remediation tests as regenerated production
+render proof.
 
 ## Review corrections represented in the final run
 
@@ -90,6 +120,6 @@ messages to the full-ROM SHA message. The owned runner was updated to assert
 that stronger contract; the final run passed. This was a test-contract
 correction, not a product failure.
 
-The worker did not run or own Sol's production proof. Sol-owned visual output
+The worker did not run or own Sol's v1 production proof. Sol-owned visual output
 is limited to the bounded proof cases above; it does not alter the API/state
 behavior classifications or establish audio semantics.

@@ -59,10 +59,13 @@ was not expanded because no production integration is in scope.
 
 ## Explicitly excluded files and behavior
 
-No substitutions or live active-lineup policy was invented or integrated.
-Pause/substitution labels and data were not treated as a proven gameplay
-caller, eligibility rule, or timing owner. Scene ownership, actor binding,
-launch staging, and game-flow integration remain outside this lane.
+No dynamic substitutions or live active-lineup replacement policy was invented
+or integrated. The existing production scene fixed-slot actor binding, launch
+staging, validation, and bridge remain outside this candidate but are already
+present. Pause/substitution labels and data were not treated as a proven
+dynamic gameplay caller, eligibility rule, replacement policy, or timing owner.
+Only that dynamic ownership and directly affected game-flow integration remain
+outside this lane.
 
 The broader later rescope is recorded exactly in
 [APPROXIMATIONS.md](APPROXIMATIONS.md) and includes the scene internal header,

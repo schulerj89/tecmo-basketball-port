@@ -9,7 +9,10 @@ resolution. The implementation commit is
 Sol fast-forwarded the signed worker lineage through
 `97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`. Sol's personal QA and the
 task-specific deterministic production proof are recorded in `PROOF.md` and
-`TESTS.md`; independent QA and the terminal accepted SHA remain pending.
+`TESTS.md` as v1 proof-source evidence. Independent QA froze candidate
+`1536ae31e7016f6e9adbddb7868e2d40e51c1085` with a historical P2 FAIL; this
+remediation is not v2 proof, and Sol v2 QA/proof plus independent re-audit
+remain pending.
 
 The worker lane is complete and remains bounded to the owned modules. The
 production gameplay scene still supplies its own actor slots, active flags,
@@ -35,5 +38,5 @@ capture, save state, or proprietary payload is committed.
 
 Audio is N/A for the owned semantics. The clock tests assert event vectors and
 state transitions; they do not claim period/halftime/final visual semantics.
-Sol's separate proof records bounded shot-clock/violation and free-throw
-orientation renders only.
+The v1 Sol proof records bounded shot-clock/violation and free-throw
+orientation renders only; no v2 proof was regenerated for this remediation.

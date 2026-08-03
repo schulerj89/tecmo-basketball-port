@@ -50,5 +50,8 @@ not expand the state/API behavior classifications:
    state/event-only in this scope and are proved by gameplay-state vectors plus
    scene regression, not a new visual-semantic claim.
 
-Audio is N/A because this boundary changes no audio semantics. Independent QA
-and terminal acceptance remain pending.
+Audio is N/A because this boundary changes no audio semantics. These are v1
+proof-source observations bound to HEAD
+`97277cbecf685a9f8ac8e29dde1a6de61f0e2db8`; no v2 proof was regenerated.
+The independent QA task's historical P2-only FAIL remains pending re-audit,
+and terminal acceptance remains pending.

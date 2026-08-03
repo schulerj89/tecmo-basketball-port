@@ -22,6 +22,13 @@ exemption detail), simultaneous-expiry, fixed-wait, final-music, and complete
 vectors; both duration matrices; saturated phase-frame checks; symmetric
 controller dismissal paths; and the non-LIVE reset matrix.
 
+The independent-QA remediation stages `state_init` behind config-overlap and
+validation checks, stages state/event outputs for request/settlement/free-throw
+and close-shot mutators, and adds aligned exact/partial alias, invalid,
+capacity, unchanged-sentinel, and successful event-vector self-tests. Scalar
+score, reset, violation, and foul mutators now validate complete local next
+states before one commit; successful replay/event semantics remain unchanged.
+
 ## TGFT fatigue
 
 `src/tecmo_gameplay_fatigue.c` stages parse results in `parse_into`, validates
@@ -51,7 +58,9 @@ four source-descriptor invariants. `find_source`, the pure base resolver, and
 the caller-policy resolver all fail closed on invalid objects. Parse/load use a
 staged replacement so a valid preloaded object survives failed replacement;
 the old storage alias is safe because the new storage is allocated and copied
-before commit.
+before commit. The post-commit old-storage free uses the same bounded
+canonical, non-overlapping range check as destruction, so a lifecycle-valid
+but corrupt in-object/zero-size/noncanonical old storage is skipped safely.
 
 `tecmo_gameplay_free_throw_lineup_derive` remains the source-compatible pure
 base resolver. New script fields are explicitly undefined there. The separate
@@ -68,6 +77,13 @@ not reproduced in committed documentation.
 The builder stages the unchanged 1216-byte TGFL payload and provenance,
 requires the full Rev1 SHA-256 internally, and rejects all pairwise input/output
 overlaps before any output write.
+
+Both TGFT and TGFL destructors now skip freeing non-NULL storage when its size
+is zero, noncanonical, overflowing, or overlaps the containing asset object;
+they then safely reinitialize the object. Focused self-tests cover zero-size
+and overlapping in-object corrupt storage, double destroy, outside-object
+sentinels, and preservation of the live canonical allocation. Portable C still
+cannot detect every arbitrary invalid pointer, so no such guarantee is claimed.
 
 ## Tests and boundary
 
