@@ -24,6 +24,12 @@ static uint64_t fnv1a64(const uint8_t *bytes, uint64_t count)
     return hash;
 }
 
+static bool title_chr_range_valid(uint32_t offset, uint64_t count)
+{
+    return (offset & 0x0FU) == 0U && count >= 16U &&
+           (uint64_t)offset <= count - 16U;
+}
+
 static int make_path(char *path, size_t size, const char *root, const char *suffix)
 {
     size_t n;
@@ -69,17 +75,16 @@ static bool read_entry(const char *root, const char *id, uint64_t expected_count
 }
 
 static bool parse_cells(TecmoTitleCell cells[TECMO_TITLE_CELL_COUNT],
-                        const uint8_t *bytes, uint64_t count)
+                        const uint8_t *bytes)
 {
-    (void)count;
     if (read_u32(bytes + 16U) != TECMO_TITLE_CELL_COUNT || read_u32(bytes + 20U) != 64U) return false;
     for (size_t i = 0U; i < TECMO_TITLE_CELL_COUNT; ++i) {
         const uint8_t *cell = bytes + 64U + i * 6U;
         cells[i].tile_id = cell[0];
         cells[i].palette_index = cell[1];
         cells[i].chr_offset = read_u32(cell + 2U);
-        if (cells[i].palette_index > 3U || (cells[i].chr_offset & 15U) != 0U ||
-            cells[i].chr_offset > 0x00100000U) return false;
+        if (cells[i].palette_index > 3U ||
+            !title_chr_range_valid(cells[i].chr_offset, TITLE_CHR_SIZE)) return false;
     }
     return true;
 }
@@ -95,7 +100,7 @@ static bool parse_attract(TecmoTitleAsset *asset, const uint8_t *bytes, uint64_t
         read_u16(bytes + 38U) != 16U || read_u32(bytes + 40U) != 6656U ||
         read_u16(bytes + 44U) != 642U || read_u16(bytes + 46U) != 621U) return false;
     for (size_t i = 48U; i < 64U; ++i) if (bytes[i] != 0U) return false;
-    if (!parse_cells(asset->attract_cells, bytes, count)) return false;
+    if (!parse_cells(asset->attract_cells, bytes)) return false;
     memcpy(asset->attract_palette, bytes + 5824U, 48U);
     memcpy(asset->attract_attributes, bytes + 6656U, 32U);
     for (size_t i = 0U; i < 49U; ++i) {
@@ -107,7 +112,9 @@ static bool parse_attract(TecmoTitleAsset *asset, const uint8_t *bytes, uint64_t
         asset->sprites[i].palette_index = p[12U];
         asset->sprites[i].flags = p[13U];
         if (p[14U] != 0U || p[15U] != 0U || asset->sprites[i].palette_index > 3U ||
-            (asset->sprites[i].flags & ~7U) != 0U) return false;
+            (asset->sprites[i].flags & ~7U) != 0U ||
+            !title_chr_range_valid(asset->sprites[i].top_chr_offset, TITLE_CHR_SIZE) ||
+            !title_chr_range_valid(asset->sprites[i].bottom_chr_offset, TITLE_CHR_SIZE)) return false;
     }
     return true;
 }
@@ -126,7 +133,7 @@ static bool parse_start(TecmoTitleAsset *asset, const uint8_t *bytes, uint64_t c
         read_u16(bytes + 38U) != 1U || read_u32(bytes + 40U) != 0U ||
         read_u16(bytes + 44U) != 127U || read_u16(bytes + 46U) != 126U) return false;
     for (size_t i = 48U; i < 64U; ++i) if (bytes[i] != 0U) return false;
-    if (!parse_cells(asset->start_cells, bytes, count)) return false;
+    if (!parse_cells(asset->start_cells, bytes)) return false;
     memcpy(asset->start_palette, bytes + 5824U, 16U);
     memcpy(asset->prompt_rows, bytes + 5840U, 20U);
     for (size_t i = 0U; i < 10U; ++i) if (asset->prompt_rows[0][i] != 0xFFU) return false;
@@ -167,13 +174,14 @@ bool tecmo_title_asset_load(TecmoTitleAsset *asset, const char *root)
 
 bool tecmo_title_asset_chr_available(const TecmoTitleAsset *asset, const uint8_t *chr, uint64_t count)
 {
-    if (asset == NULL || chr == NULL || count == 0U ||
-        (asset->chr_byte_count != 0U && (asset->chr_byte_count != count || asset->chr_fingerprint != fnv1a64(chr, count)))) return false;
+    if (asset == NULL || chr == NULL || count != TITLE_CHR_SIZE ||
+        asset->chr_byte_count != count || asset->chr_fingerprint != fnv1a64(chr, count)) return false;
     for (size_t i = 0U; i < 960U; ++i)
-        if ((uint64_t)asset->attract_cells[i].chr_offset + 16U > count ||
-            (uint64_t)asset->start_cells[i].chr_offset + 16U > count) return false;
+        if (!title_chr_range_valid(asset->attract_cells[i].chr_offset, count) ||
+            !title_chr_range_valid(asset->start_cells[i].chr_offset, count)) return false;
     for (size_t i = 0U; i < 49U; ++i)
-        if ((uint64_t)asset->sprites[i].bottom_chr_offset + 16U > count) return false;
+        if (!title_chr_range_valid(asset->sprites[i].top_chr_offset, count) ||
+            !title_chr_range_valid(asset->sprites[i].bottom_chr_offset, count)) return false;
     return true;
 }
 

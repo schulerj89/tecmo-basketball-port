@@ -5,6 +5,24 @@
 
 #include <string.h>
 
+static int arena_validate_chr_contract(const uint8_t *rom,
+                                       uint64_t rom_size,
+                                       uint64_t chr_offset,
+                                       uint64_t chr_size,
+                                       char *message,
+                                       size_t message_size)
+{
+    if (rom == NULL || chr_size != TECMO_ASSET_PACK_ARENA_CHR_BYTE_COUNT ||
+        chr_offset > rom_size || chr_size > rom_size - chr_offset ||
+        chr_offset > (uint64_t)SIZE_MAX) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "Arena TATL/TASG import requires exact 256 KiB chr/all bounds.");
+        return -1;
+    }
+    return 0;
+}
+
 int tecmo_asset_pack_build_arena_background_layer(const uint8_t *rom,
                                         uint64_t rom_size,
                                         uint64_t prg_offset,
@@ -29,12 +47,26 @@ int tecmo_asset_pack_build_arena_background_layer(const uint8_t *rom,
     uint8_t upper_r1;
     uint8_t lower_r0;
     uint8_t lower_r1;
+    uint64_t chr_offset;
     size_t encoded_size = 0U;
 
     if (rom == NULL || payload == NULL || provenance == NULL ||
         payload_size != TECMO_ASSET_PACK_ARENA_LAYER_SIZE ||
         prg_banks <= TECMO_ASSET_PACK_ARENA_BANK04) {
         tecmo_asset_pack_set_message(message, message_size, "Arena screen import requires a compatible ROM with Bank04.");
+        return -1;
+    }
+
+    if ((uint64_t)prg_banks * TECMO_ASSET_PACK_PRG_BANK_BYTES >
+        UINT64_MAX - prg_offset) {
+        tecmo_asset_pack_set_message(message, message_size,
+                                     "Arena screen CHR source offset overflowed.");
+        return -1;
+    }
+    chr_offset = prg_offset +
+                 (uint64_t)prg_banks * TECMO_ASSET_PACK_PRG_BANK_BYTES;
+    if (arena_validate_chr_contract(rom, rom_size, chr_offset, chr_size,
+                                    message, message_size) != 0) {
         return -1;
     }
 
@@ -74,6 +106,14 @@ int tecmo_asset_pack_build_arena_background_layer(const uint8_t *rom,
     if (palette_offset > rom_size || 16U > rom_size - palette_offset) {
         tecmo_asset_pack_set_message(message, message_size, "Arena background palette is outside its descriptor bank.");
         return -1;
+    }
+    for (size_t palette = 0U; palette < 16U; ++palette) {
+        if (rom[(size_t)palette_offset + palette] > 0x3FU) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Arena background palette contains a byte outside the NES palette.");
+            return -1;
+        }
     }
 
     {
@@ -161,7 +201,8 @@ int tecmo_asset_pack_build_arena_background_layer(const uint8_t *rom,
             uint8_t *cell = payload + TECMO_ASSET_PACK_ARENA_LAYER_HEADER_SIZE +
                             cell_index * TECMO_ASSET_PACK_ARENA_LAYER_CELL_STRIDE;
 
-            if (chr_byte_offset > UINT32_MAX || chr_byte_offset + 16U > chr_size) {
+            if (chr_byte_offset > UINT32_MAX || chr_size < 16U ||
+                chr_byte_offset > chr_size - 16U) {
                 tecmo_asset_pack_set_messagef(message,
                              message_size,
                              "Arena tile at row %u column %u resolves outside chr/all.",
@@ -231,8 +272,8 @@ int tecmo_asset_pack_build_arena_sprite_groups(const uint8_t *rom,
         tecmo_asset_pack_set_message(message, message_size, "Arena sprite import requires Bank00 and Bank04.");
         return -1;
     }
-    if (chr_size < ((uint64_t)TECMO_ASSET_PACK_ARENA_SPRITE_CHR_R3 + 1U) * 1024U) {
-        tecmo_asset_pack_set_message(message, message_size, "Arena sprite import requires CHR pages R2=08 and R3=09.");
+    if (arena_validate_chr_contract(rom, rom_size, chr_offset, chr_size,
+                                    message, message_size) != 0) {
         return -1;
     }
 

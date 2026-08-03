@@ -8,12 +8,22 @@
 #define TECMO_ARENA_INTRO_MAX_SPRITE_GROUPS 8U
 #define TECMO_ARENA_SPRITE_GROUP_MAX_PIECES 16U
 #define TECMO_ARENA_GOAL_PART_COUNT 5U
-#define TECMO_ARENA_INTRO_GOAL_ANCHOR_X 184
-#define TECMO_ARENA_INTRO_GOAL_ANCHOR_Y 302
+#define TECMO_ARENA_INTRO_GOAL_ANCHOR_X 165
+#define TECMO_ARENA_INTRO_GOAL_ANCHOR_Y 350
 #define TECMO_ARENA_TILE_LAYER_WIDTH 32U
 #define TECMO_ARENA_TILE_LAYER_HEIGHT 51U
 #define TECMO_ARENA_TILE_LAYER_CELL_COUNT \
     (TECMO_ARENA_TILE_LAYER_WIDTH * TECMO_ARENA_TILE_LAYER_HEIGHT)
+
+/* TATL/TASG are decoded against the exact shared chr/all entry. */
+#define TECMO_INTRO_ARENA_CHR_BYTE_COUNT 262144ULL
+#define TECMO_INTRO_ARENA_CHR_FNV1A64 0x96A64F53B240ABB4ULL
+
+/*
+ * The five-part goal structs below are a legacy conceptual/attachment
+ * self-test surface. They project the production stage's shared 540-frame
+ * state; they are not a second renderer or an alternate 192-frame route.
+ */
 
 typedef enum TecmoArenaIntroPhase {
     TECMO_ARENA_INTRO_PHASE_ENTER,
@@ -63,6 +73,8 @@ typedef struct TecmoArenaTileLayer {
     uint8_t palette[16];
     TecmoArenaTileCell cells[TECMO_ARENA_TILE_LAYER_CELL_COUNT];
     size_t cell_count;
+    uint64_t chr_byte_count;
+    uint64_t chr_fingerprint;
     char status[128];
 } TecmoArenaTileLayer;
 

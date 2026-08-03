@@ -6,6 +6,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define TECMO_ASSET_PACK_ARENA_CHR_BYTE_COUNT 262144ULL
+#define TECMO_ASSET_PACK_ARENA_CHR_FNV1A64 0x96A64F53B240ABB4ULL
+
 int tecmo_asset_pack_build_arena_background_layer(
     const uint8_t *rom,
     uint64_t rom_size,

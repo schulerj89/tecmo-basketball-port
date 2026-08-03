@@ -4,12 +4,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#define TECMO_INTRO_ARENA_WAIT_FRAMES 0x96U
 #define TECMO_INTRO_ARENA_INITIAL_BASE_Y 0xFEU
 #define TECMO_INTRO_ARENA_FINAL_BASE_Y 0x38U
 #define TECMO_INTRO_ARENA_FINAL_SCROLL_Y 0x64U
 #define TECMO_INTRO_ARENA_SCROLL_START_8A 0x3CU
-#define TECMO_INTRO_ARENA_SCROLL_WRAP_TICK 0xC4U
 #define TECMO_INTRO_ARENA_X_SHIFT_DELAY_TICKS 43U
 #define TECMO_INTRO_ARENA_MOTION_START_88 0xA8U
 #define TECMO_INTRO_ARENA_MOTION_GATE_88 0x44U
@@ -232,7 +230,7 @@ static void intro_arena_run_until_frame(unsigned frame, TecmoIntroArenaAsmMachin
            frame >= machine->next_loop_frame) {
         intro_arena_l892c_tick(machine);
         if (machine->pc != TECMO_INTRO_ARENA_ASM_L8983_DONE) {
-            machine->next_loop_frame += 2U;
+            machine->next_loop_frame += TECMO_INTRO_ARENA_FRAME_STEP;
         }
     }
 }
@@ -390,6 +388,22 @@ bool tecmo_intro_stage_self_test(char *message, size_t message_size)
         set_intro_stage_test_message(message, message_size, "ARENA INITIAL WAIT STATE CONTRACT FAILED");
         return false;
     }
+    tecmo_intro_arena_transition_state(TECMO_INTRO_ARENA_WAIT_FRAMES - 1U,
+                                        &arena_state);
+    if (arena_state.phase != TECMO_INTRO_ARENA_PHASE_WAIT ||
+        arena_state.loop_tick != 0U) {
+        set_intro_stage_test_message(message, message_size,
+                                     "ARENA WAIT #$96 PRE-EDGE CONTRACT FAILED");
+        return false;
+    }
+    tecmo_intro_arena_transition_state(TECMO_INTRO_ARENA_WAIT_FRAMES,
+                                        &arena_state);
+    if (arena_state.phase != TECMO_INTRO_ARENA_PHASE_SCROLL ||
+        arena_state.loop_tick != 1U) {
+        set_intro_stage_test_message(message, message_size,
+                                     "ARENA WAIT #$96 EDGE CONTRACT FAILED");
+        return false;
+    }
     tecmo_intro_arena_transition_state(TECMO_INTRO_ARENA_WAIT_FRAMES + 88U, &arena_state);
     if (!check_intro_arena_state(&arena_state,
                                  TECMO_INTRO_ARENA_PHASE_SCROLL,
@@ -433,6 +447,22 @@ bool tecmo_intro_stage_self_test(char *message, size_t message_size)
                                  TECMO_INTRO_ARENA_SCROLL_WRAP_TICK,
                                  0x42U)) {
         set_intro_stage_test_message(message, message_size, "ARENA WRAP CHECKPOINT CONTRACT FAILED");
+        return false;
+    }
+    tecmo_intro_arena_transition_state(TECMO_INTRO_ARENA_HANDOFF_FRAME - 1U,
+                                        &arena_state);
+    if (arena_state.phase != TECMO_INTRO_ARENA_PHASE_SETTLE ||
+        arena_state.loop_tick != TECMO_INTRO_ARENA_SCROLL_WRAP_TICK - 1U) {
+        set_intro_stage_test_message(message, message_size,
+                                     "ARENA $8983 PRE-EDGE CONTRACT FAILED");
+        return false;
+    }
+    tecmo_intro_arena_transition_state(TECMO_INTRO_ARENA_HANDOFF_FRAME,
+                                        &arena_state);
+    if (arena_state.phase != TECMO_INTRO_ARENA_PHASE_WRAP ||
+        arena_state.loop_tick != TECMO_INTRO_ARENA_SCROLL_WRAP_TICK) {
+        set_intro_stage_test_message(message, message_size,
+                                     "ARENA $8983 EDGE CONTRACT FAILED");
         return false;
     }
 

@@ -59,6 +59,8 @@ typedef struct TecmoArenaNativeSpriteGroups {
     TecmoArenaNativeSpritePiece pieces[TECMO_INTRO_ARENA_NATIVE_SPRITE_PIECE_COUNT];
     size_t group_count;
     size_t piece_count;
+    uint64_t chr_byte_count;
+    uint64_t chr_fingerprint;
     char status[160];
 } TecmoArenaNativeSpriteGroups;
 
