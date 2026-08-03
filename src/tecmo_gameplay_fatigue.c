@@ -57,6 +57,28 @@ static bool range_ok(size_t offset, size_t count, size_t total)
     return offset <= total && count <= total - offset;
 }
 
+static bool ranges_overlap(const void *left,
+                           size_t left_size,
+                           const void *right,
+                           size_t right_size)
+{
+    uintptr_t left_start;
+    uintptr_t right_start;
+
+    if (left == NULL || right == NULL || left_size == 0U ||
+        right_size == 0U) {
+        return false;
+    }
+    left_start = (uintptr_t)left;
+    right_start = (uintptr_t)right;
+    if (left_size > UINTPTR_MAX - left_start ||
+        right_size > UINTPTR_MAX - right_start) {
+        return true;
+    }
+    return left_start < right_start + right_size &&
+           right_start < left_start + left_size;
+}
+
 static bool reject(TecmoGameplayFatigueAssets *assets,
                    const char *message)
 {
@@ -189,22 +211,23 @@ static bool validate_dependency(const uint8_t *team_data,
                TECMO_ASSET_PACK_TEAM_DATA_FNV1A32;
 }
 
-bool tecmo_gameplay_fatigue_assets_parse(
-    TecmoGameplayFatigueAssets *assets,
+static bool assets_valid(const TecmoGameplayFatigueAssets *assets);
+
+static bool parse_into(
+    TecmoGameplayFatigueAssets *staged,
     const uint8_t *payload,
     size_t payload_size,
     const uint8_t *team_data,
     size_t team_data_size)
 {
     uint8_t *storage;
-    if (assets == NULL ||
-        assets->lifecycle_tag != TECMO_GAMEPLAY_FATIGUE_LIFECYCLE_TAG) {
+    if (staged == NULL ||
+        staged->lifecycle_tag != TECMO_GAMEPLAY_FATIGUE_LIFECYCLE_TAG) {
         return false;
     }
-    tecmo_gameplay_fatigue_assets_destroy(assets);
     if (payload == NULL || !validate_header(payload, payload_size)) {
         return reject(
-            assets, "TGFT-1 header/size/reserved contract rejected");
+            staged, "TGFT-1 header/size/reserved contract rejected");
     }
     if (fnv1a32(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_FNV1A32 ||
@@ -217,22 +240,22 @@ bool tecmo_gameplay_fatigue_assets_parse(
                 (TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_EVOLUTION_OFFSET +
                  TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_EVOLUTION_SIZE))) {
         return reject(
-            assets, "TGFT-1 canonical source/padding contract rejected");
+            staged, "TGFT-1 canonical source/padding contract rejected");
     }
     if (!validate_dependency(team_data, team_data_size)) {
         return reject(
-            assets, "TGFT-1 same-pack TTDT-1 dependency rejected");
+            staged, "TGFT-1 same-pack TTDT-1 dependency rejected");
     }
     storage = (uint8_t *)malloc(payload_size);
-    if (storage == NULL) return reject(assets, "TGFT-1 allocation failed");
+    if (storage == NULL) return reject(staged, "TGFT-1 allocation failed");
     memcpy(storage, payload, payload_size);
-    assets->storage = storage;
-    assets->storage_size = payload_size;
+    staged->storage = storage;
+    staged->storage_size = payload_size;
     for (size_t index = 0U;
          index < TECMO_GAMEPLAY_FATIGUE_SOURCE_COUNT; ++index) {
         const TecmoGameplayFatigueExpectedSource *expected =
             &tecmo_gameplay_fatigue_expected_sources[index];
-        TecmoGameplayFatigueSourceSpan *source = &assets->sources[index];
+        TecmoGameplayFatigueSourceSpan *source = &staged->sources[index];
         source->kind = expected->kind;
         source->bank = expected->bank;
         source->fixed_bank = expected->fixed_bank != 0U;
@@ -243,17 +266,54 @@ bool tecmo_gameplay_fatigue_assets_parse(
         source->fingerprint = expected->fingerprint;
         source->bytes = storage + expected->payload_offset;
     }
-    memcpy(assets->cadence_reload, storage + 76U,
-           sizeof(assets->cadence_reload));
-    assets->capacity_profile_index = storage[72U];
-    assets->condition_maximum = storage[73U];
-    assets->recovery_increment = storage[74U];
-    assets->recovery_reload = storage[75U];
-    assets->team_data_fingerprint = TECMO_ASSET_PACK_TEAM_DATA_FNV1A32;
-    assets->available = true;
+    memcpy(staged->cadence_reload, storage + 76U,
+           sizeof(staged->cadence_reload));
+    staged->capacity_profile_index = storage[72U];
+    staged->condition_maximum = storage[73U];
+    staged->recovery_increment = storage[74U];
+    staged->recovery_reload = storage[75U];
+    staged->team_data_fingerprint = TECMO_ASSET_PACK_TEAM_DATA_FNV1A32;
+    staged->available = true;
     (void)snprintf(
-        assets->status, sizeof(assets->status),
+        staged->status, sizeof(staged->status),
         "TGFT-1 gameplay fatigue assetpack");
+    if (!assets_valid(staged)) {
+        return reject(staged, "TGFT-1 in-memory object validation rejected");
+    }
+    return true;
+}
+
+bool tecmo_gameplay_fatigue_assets_parse(
+    TecmoGameplayFatigueAssets *assets,
+    const uint8_t *payload,
+    size_t payload_size,
+    const uint8_t *team_data,
+    size_t team_data_size)
+{
+    TecmoGameplayFatigueAssets staged;
+    uint8_t *old_storage;
+    if (assets == NULL ||
+        assets->lifecycle_tag != TECMO_GAMEPLAY_FATIGUE_LIFECYCLE_TAG) {
+        return false;
+    }
+    if (ranges_overlap(assets, sizeof(*assets), payload, payload_size) ||
+        ranges_overlap(assets, sizeof(*assets), team_data,
+                       team_data_size)) {
+        return false;
+    }
+    tecmo_gameplay_fatigue_assets_init(&staged);
+    if (!parse_into(&staged, payload, payload_size,
+                    team_data, team_data_size)) {
+        if (!assets->available) {
+            (void)snprintf(assets->status, sizeof(assets->status), "%s",
+                           staged.status);
+        }
+        tecmo_gameplay_fatigue_assets_destroy(&staged);
+        return false;
+    }
+    old_storage = assets->storage;
+    *assets = staged;
+    free(old_storage);
     return true;
 }
 
@@ -270,15 +330,17 @@ bool tecmo_gameplay_fatigue_assets_load(
         assets->lifecycle_tag != TECMO_GAMEPLAY_FATIGUE_LIFECYCLE_TAG) {
         return false;
     }
-    tecmo_gameplay_fatigue_assets_destroy(assets);
     if (asset_pack_path == NULL ||
         tecmo_asset_pack_read_entry_exact(
             asset_pack_path, TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_ID,
             TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SIZE,
             &payload, &payload_size) != 0) {
-        return reject(
-            assets,
-            "TGFT-1 gameplay/fatigue entry missing or wrong-sized");
+        if (!assets->available) {
+            (void)snprintf(
+                assets->status, sizeof(assets->status), "%s",
+                "TGFT-1 gameplay/fatigue entry missing or wrong-sized");
+        }
+        return false;
     }
     if (tecmo_asset_pack_read_entry_exact(
             asset_pack_path, TECMO_ASSET_PACK_TEAM_DATA_ID,
@@ -286,9 +348,12 @@ bool tecmo_gameplay_fatigue_assets_load(
             &team_data, &team_data_size) != 0) {
         tecmo_asset_pack_free(payload);
         tecmo_asset_pack_free(team_data);
-        return reject(
-            assets,
-            "TGFT-1 menu/team-data dependency missing or wrong-sized");
+        if (!assets->available) {
+            (void)snprintf(
+                assets->status, sizeof(assets->status), "%s",
+                "TGFT-1 menu/team-data dependency missing or wrong-sized");
+        }
+        return false;
     }
     loaded = tecmo_gameplay_fatigue_assets_parse(
         assets, payload, (size_t)payload_size,
@@ -301,20 +366,60 @@ bool tecmo_gameplay_fatigue_assets_load(
 static bool assets_valid(const TecmoGameplayFatigueAssets *assets)
 {
     static const uint8_t expected_cadence[3] = {6U,4U,1U};
-    return assets != NULL &&
-           assets->lifecycle_tag == TECMO_GAMEPLAY_FATIGUE_LIFECYCLE_TAG &&
-           assets->available && assets->storage != NULL &&
-           assets->storage_size == TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SIZE &&
-           fnv1a32(assets->storage, assets->storage_size) ==
-               TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_FNV1A32 &&
-           memcmp(assets->cadence_reload, expected_cadence,
-                  sizeof(expected_cadence)) == 0 &&
-           assets->capacity_profile_index == 3U &&
-           assets->condition_maximum == 100U &&
-           assets->recovery_increment == 4U &&
-           assets->recovery_reload == 30U &&
-           assets->team_data_fingerprint ==
-               TECMO_ASSET_PACK_TEAM_DATA_FNV1A32;
+    if (assets == NULL ||
+        assets->lifecycle_tag != TECMO_GAMEPLAY_FATIGUE_LIFECYCLE_TAG ||
+        !assets->available || assets->storage == NULL ||
+        assets->storage_size != TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SIZE) {
+        return false;
+    }
+    if (ranges_overlap(assets, sizeof(*assets), assets->storage,
+                       assets->storage_size)) {
+        return false;
+    }
+    if (fnv1a32(assets->storage, assets->storage_size) !=
+            TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_FNV1A32 ||
+        !validate_header(assets->storage, assets->storage_size) ||
+        !validate_sources(assets->storage, assets->storage_size) ||
+        !bytes_are_zero(
+            assets->storage +
+                TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_EVOLUTION_OFFSET +
+                TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_EVOLUTION_SIZE,
+            TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_CALLER_OFFSET -
+                (TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_EVOLUTION_OFFSET +
+                 TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_EVOLUTION_SIZE)) ||
+        memcmp(assets->cadence_reload, expected_cadence,
+               sizeof(expected_cadence)) != 0 ||
+        assets->capacity_profile_index != 3U ||
+        assets->condition_maximum != 100U ||
+        assets->recovery_increment != 4U ||
+        assets->recovery_reload != 30U ||
+        assets->team_data_fingerprint !=
+            TECMO_ASSET_PACK_TEAM_DATA_FNV1A32) {
+        return false;
+    }
+    for (size_t index = 0U;
+         index < TECMO_GAMEPLAY_FATIGUE_SOURCE_COUNT; ++index) {
+        const TecmoGameplayFatigueExpectedSource *expected =
+            &tecmo_gameplay_fatigue_expected_sources[index];
+        const TecmoGameplayFatigueSourceSpan *source =
+            &assets->sources[index];
+        uint32_t cpu_end = (uint32_t)expected->cpu_start +
+                           expected->byte_count - 1U;
+        if (source->kind != expected->kind ||
+            source->bank != expected->bank ||
+            source->fixed_bank != (expected->fixed_bank != 0U) ||
+            source->cpu_start != expected->cpu_start ||
+            source->cpu_end != (uint16_t)cpu_end ||
+            source->byte_count != expected->byte_count ||
+            source->fingerprint != expected->fingerprint ||
+            source->bytes != assets->storage + expected->payload_offset ||
+            source->bytes == NULL ||
+            fnv1a32(source->bytes, source->byte_count) !=
+                expected->fingerprint) {
+            return false;
+        }
+    }
+    return true;
 }
 
 const TecmoGameplayFatigueSourceSpan *tecmo_gameplay_fatigue_find_source(
@@ -337,7 +442,7 @@ bool tecmo_gameplay_fatigue_state_valid(
 {
     if (!assets_valid(assets) || state == NULL ||
         state->contract_tag != TECMO_GAMEPLAY_FATIGUE_STATE_TAG ||
-        state->cadence_counter > assets->cadence_reload[0U]) {
+        state->cadence_counter >= assets->cadence_reload[0U]) {
         return false;
     }
     for (size_t team = 0U; team < TECMO_GAMEPLAY_FATIGUE_TEAM_COUNT;
@@ -365,6 +470,20 @@ bool tecmo_gameplay_fatigue_state_initialize(
 {
     TecmoGameplayFatigueState initialized;
     if (!assets_valid(assets) || state == NULL || seeds == NULL) {
+        return false;
+    }
+    if (ranges_overlap(state, sizeof(*state), assets, sizeof(*assets))) {
+        return false;
+    }
+    if (ranges_overlap(state, sizeof(*state), assets->storage,
+                       assets->storage_size)) {
+        return false;
+    }
+    if (ranges_overlap(
+            state, sizeof(*state), seeds,
+            sizeof(TecmoGameplayFatigueRosterSeed) *
+                TECMO_GAMEPLAY_FATIGUE_TEAM_COUNT *
+                TECMO_GAMEPLAY_FATIGUE_ROSTER_COUNT)) {
         return false;
     }
     memset(&initialized, 0, sizeof(initialized));
@@ -439,6 +558,17 @@ bool tecmo_gameplay_fatigue_step(
     const TecmoGameplayFatigueStepInput *input)
 {
     TecmoGameplayFatigueState next;
+    if (assets == NULL || state == NULL || input == NULL ||
+        ranges_overlap(state, sizeof(*state), input, sizeof(*input))) {
+        return false;
+    }
+    if (ranges_overlap(state, sizeof(*state), assets, sizeof(*assets))) {
+        return false;
+    }
+    if (ranges_overlap(state, sizeof(*state), assets->storage,
+                       assets->storage_size)) {
+        return false;
+    }
     if (!tecmo_gameplay_fatigue_state_valid(assets, state) ||
         !step_input_valid(assets, input)) {
         return false;
@@ -510,12 +640,91 @@ bool tecmo_gameplay_fatigue_self_test(const char *asset_pack_path,
     TecmoGameplayFatigueState state;
     TecmoGameplayFatigueState before;
     TecmoGameplayFatigueStepInput input;
+    TecmoGameplayFatigueStepInput input_before;
+    TecmoGameplayFatigueAssets assets_before;
+    TecmoGameplayFatigueAssets corrupted;
+    uint8_t storage_before[TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SIZE];
     bool ok = false;
     tecmo_gameplay_fatigue_assets_init(&assets);
     if (!tecmo_gameplay_fatigue_assets_load(&assets, asset_pack_path)) {
         (void)snprintf(message, message_size, "%s", assets.status);
         goto cleanup;
     }
+    if (tecmo_gameplay_fatigue_find_source(
+            &assets, TECMO_GAMEPLAY_FATIGUE_SOURCE_EVOLUTION) == NULL ||
+        tecmo_gameplay_fatigue_find_source(
+            &assets, TECMO_GAMEPLAY_FATIGUE_SOURCE_LIVE_CALLER) == NULL) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 canonical source lookup failed");
+        goto cleanup;
+    }
+    if (!tecmo_gameplay_fatigue_assets_load(&assets, asset_pack_path)) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 valid staged replacement failed");
+        goto cleanup;
+    }
+    corrupted = assets;
+    corrupted.sources[0U].cpu_start ^= 1U;
+    if (tecmo_gameplay_fatigue_find_source(
+            &corrupted, TECMO_GAMEPLAY_FATIGUE_SOURCE_EVOLUTION) != NULL) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 source metadata mutation accepted");
+        goto cleanup;
+    }
+    corrupted = assets;
+    corrupted.sources[0U].bytes = assets.storage + 1U;
+    if (tecmo_gameplay_fatigue_find_source(
+            &corrupted, TECMO_GAMEPLAY_FATIGUE_SOURCE_EVOLUTION) != NULL) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 source pointer mutation accepted");
+        goto cleanup;
+    }
+    corrupted = assets;
+    corrupted.storage = (uint8_t *)&corrupted;
+    if (tecmo_gameplay_fatigue_find_source(
+            &corrupted, TECMO_GAMEPLAY_FATIGUE_SOURCE_EVOLUTION) != NULL) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 storage/object overlap accepted");
+        goto cleanup;
+    }
+    assets_before = assets;
+    if (tecmo_gameplay_fatigue_assets_parse(
+            &assets, assets.storage, assets.storage_size,
+            NULL, 0U) ||
+        memcmp(&assets, &assets_before, sizeof(assets)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 aliased malformed reload was not transactional");
+        goto cleanup;
+    }
+    assets_before = assets;
+    if (tecmo_gameplay_fatigue_assets_parse(
+            &assets, (const uint8_t *)&assets,
+            TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SIZE,
+            NULL, 0U) ||
+        memcmp(&assets, &assets_before, sizeof(assets)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 assets/payload overlap was not rejected");
+        goto cleanup;
+    }
+    assets_before = assets;
+    if (tecmo_gameplay_fatigue_assets_parse(
+            &assets, assets.storage, assets.storage_size,
+            (const uint8_t *)&assets,
+            TECMO_ASSET_PACK_TEAM_DATA_SIZE) ||
+        memcmp(&assets, &assets_before, sizeof(assets)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 assets/dependency overlap was not rejected");
+        goto cleanup;
+    }
+    assets_before = assets;
+    if (tecmo_gameplay_fatigue_assets_load(
+            &assets, NULL) ||
+        memcmp(&assets, &assets_before, sizeof(assets)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 failed replacement did not preserve valid asset");
+        goto cleanup;
+    }
+
     memset(seeds, 0, sizeof(seeds));
     memset(&input, 0, sizeof(input));
     for (size_t team = 0U; team < TECMO_GAMEPLAY_FATIGUE_TEAM_COUNT;
@@ -525,52 +734,148 @@ bool tecmo_gameplay_fatigue_self_test(const char *asset_pack_path,
             seeds[team][roster].condition = 100U;
             seeds[team][roster].maximum_capacity = 30U;
         }
-        for (size_t slot = 0U; slot < TECMO_GAMEPLAY_FATIGUE_ACTIVE_COUNT;
-             ++slot) {
-            input.active_roster[team][slot] = (uint8_t)slot;
-        }
     }
+    input.active_roster[0U][0U] = 11U;
+    input.active_roster[0U][1U] = 7U;
+    input.active_roster[0U][2U] = 3U;
+    input.active_roster[0U][3U] = 9U;
+    input.active_roster[0U][4U] = 1U;
+    input.active_roster[1U][0U] = 10U;
+    input.active_roster[1U][1U] = 8U;
+    input.active_roster[1U][2U] = 6U;
+    input.active_roster[1U][3U] = 4U;
+    input.active_roster[1U][4U] = 2U;
+    memset(&state, 0xCC, sizeof(state));
+    before = state;
+    seeds[0U][0U].condition = 101U;
+    if (tecmo_gameplay_fatigue_state_initialize(
+            &assets, &state, seeds) ||
+        memcmp(&state, &before, sizeof(state)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 initialization failure mutated output");
+        goto cleanup;
+    }
+    seeds[0U][0U].condition = 100U;
     if (!tecmo_gameplay_fatigue_state_initialize(
             &assets, &state, seeds)) {
         (void)snprintf(message, message_size,
                        "TGFT-1 state initialization failed");
         goto cleanup;
     }
+    corrupted = assets;
+    corrupted.sources[0U].bytes = assets.storage + 1U;
+    before = state;
+    if (tecmo_gameplay_fatigue_step(&corrupted, &state, &input) ||
+        memcmp(&state, &before, sizeof(state)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 corrupt descriptor drove state mutation");
+        goto cleanup;
+    }
+    assets_before = assets;
+    if (tecmo_gameplay_fatigue_state_initialize(
+            &assets, (TecmoGameplayFatigueState *)&assets, seeds) ||
+        memcmp(&assets, &assets_before, sizeof(assets)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 state/assets overlap was not rejected");
+        goto cleanup;
+    }
+    memcpy(storage_before, assets.storage, sizeof(storage_before));
+    assets_before = assets;
+    if (tecmo_gameplay_fatigue_state_initialize(
+            &assets, (TecmoGameplayFatigueState *)assets.storage, seeds) ||
+        memcmp(&assets, &assets_before, sizeof(assets)) != 0 ||
+        memcmp(assets.storage, storage_before, sizeof(storage_before)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 state/storage initialization overlap was not rejected");
+        goto cleanup;
+    }
+    before = state;
+    if (tecmo_gameplay_fatigue_state_initialize(
+            &assets, &state,
+            (const TecmoGameplayFatigueRosterSeed (*)[
+                TECMO_GAMEPLAY_FATIGUE_ROSTER_COUNT])&state) ||
+        memcmp(&state, &before, sizeof(state)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 state/seeds overlap was not rejected");
+        goto cleanup;
+    }
+
     input.difficulty = 2U;
-    state.capacity[0U][0U] = 10U;
-    state.countdown[0U][0U] = 1U;
-    state.condition[0U][0U] = 10U;
-    state.capacity[0U][5U] = 20U;
-    state.countdown[0U][5U] = 0U;
-    state.condition[0U][5U] = 96U;
-    state.capacity[1U][5U] = 20U;
-    state.countdown[1U][5U] = 0U;
-    state.condition[1U][5U] = 96U;
-    if (!tecmo_gameplay_fatigue_step(&assets, &state, &input) ||
+    state.capacity[0U][11U] = 20U;
+    state.countdown[0U][11U] = 0U;
+    state.condition[0U][11U] = 50U;
+    state.capacity[1U][10U] = 20U;
+    state.countdown[1U][10U] = UINT8_MAX;
+    state.condition[1U][10U] = 50U;
+    state.capacity[0U][7U] = 10U;
+    state.countdown[0U][7U] = 1U;
+    state.condition[0U][7U] = 10U;
+    state.capacity[0U][3U] = 9U;
+    state.countdown[0U][3U] = 1U;
+    state.condition[0U][3U] = 9U;
+    state.capacity[0U][0U] = 9U;
+    state.maximum_capacity[0U][0U] = 10U;
+    state.countdown[0U][0U] = 0U;
+    state.condition[0U][0U] = 0U;
+    state.capacity[1U][0U] = 9U;
+    state.maximum_capacity[1U][0U] = 10U;
+    state.countdown[1U][0U] = 0U;
+    state.condition[1U][0U] = 99U;
+    if (!tecmo_gameplay_fatigue_state_valid(&assets, &state) ||
+        !tecmo_gameplay_fatigue_step(&assets, &state, &input) ||
         state.cadence_counter != 0U ||
-        state.capacity[0U][0U] != 9U ||
-        state.countdown[0U][0U] != 9U ||
-        state.condition[0U][0U] != 9U ||
-        state.capacity[0U][5U] != 24U ||
-        state.countdown[0U][5U] != 30U ||
-        state.condition[0U][5U] != 100U ||
-        state.capacity[1U][5U] != 24U ||
-        state.countdown[1U][5U] != 24U ||
-        state.condition[1U][5U] != 100U) {
+        state.countdown[0U][11U] != UINT8_MAX ||
+        state.capacity[0U][11U] != 20U ||
+        state.condition[0U][11U] != 50U ||
+        state.countdown[1U][10U] != 254U ||
+        state.capacity[0U][7U] != 9U ||
+        state.countdown[0U][7U] != 9U ||
+        state.condition[0U][7U] != 9U ||
+        state.capacity[0U][3U] != 9U ||
+        state.countdown[0U][3U] != 9U ||
+        state.condition[0U][3U] != 9U ||
+        state.capacity[0U][0U] != 10U ||
+        state.countdown[0U][0U] != 30U ||
+        state.condition[0U][0U] != 0U ||
+        state.capacity[1U][0U] != 10U ||
+        state.countdown[1U][0U] != 10U ||
+        state.condition[1U][0U] != 100U) {
         (void)snprintf(message, message_size,
-                       "TGFT-1 decay/recovery vector failed");
+                       "TGFT-1 active/bench threshold vector failed");
         goto cleanup;
     }
-    input.difficulty = 0U;
+    if (state.cadence_counter != 0U) {
+        goto cleanup;
+    }
+    for (size_t difficulty = 0U; difficulty <
+         TECMO_GAMEPLAY_FATIGUE_DIFFICULTY_COUNT; ++difficulty) {
+        static const uint8_t expected_counter[] = {5U, 3U, 0U};
+        state.cadence_counter = 0U;
+        input.difficulty = (uint8_t)difficulty;
+        if (!tecmo_gameplay_fatigue_step(&assets, &state, &input) ||
+            state.cadence_counter != expected_counter[difficulty]) {
+            (void)snprintf(message, message_size,
+                           "TGFT-1 three-mode cadence vector failed");
+            goto cleanup;
+        }
+    }
+    state.cadence_counter = 6U;
+    before = state;
+    if (tecmo_gameplay_fatigue_state_valid(&assets, &state) ||
+        tecmo_gameplay_fatigue_step(&assets, &state, &input) ||
+        memcmp(&state, &before, sizeof(state)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 unreachable cadence-6 state accepted");
+        goto cleanup;
+    }
     state.cadence_counter = 0U;
-    state.countdown[0U][0U] = 20U;
     if (!tecmo_gameplay_fatigue_step(&assets, &state, &input) ||
-        state.cadence_counter != 5U ||
-        state.countdown[0U][0U] != 19U) {
+        state.cadence_counter != 0U) {
         (void)snprintf(message, message_size,
-                       "TGFT-1 difficulty cadence vector failed");
+                       "TGFT-1 cadence recovery vector failed");
         goto cleanup;
     }
+    input.difficulty = 2U;
     before = state;
     input.active_roster[0U][4U] = input.active_roster[0U][3U];
     if (tecmo_gameplay_fatigue_step(&assets, &state, &input) ||
@@ -579,13 +884,68 @@ bool tecmo_gameplay_fatigue_self_test(const char *asset_pack_path,
                        "TGFT-1 transactional active-list rejection failed");
         goto cleanup;
     }
-    input.active_roster[0U][4U] = 4U;
+    input.active_roster[0U][4U] = 1U;
+    before = state;
+    input.active_roster[0U][4U] = 12U;
+    if (tecmo_gameplay_fatigue_step(&assets, &state, &input) ||
+        memcmp(&state, &before, sizeof(state)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 out-of-range active-list rejection failed");
+        goto cleanup;
+    }
+    input.active_roster[0U][4U] = 1U;
+    before = state;
+    input.difficulty = TECMO_GAMEPLAY_FATIGUE_DIFFICULTY_COUNT;
+    if (tecmo_gameplay_fatigue_step(&assets, &state, &input) ||
+        memcmp(&state, &before, sizeof(state)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 invalid difficulty rejection failed");
+        goto cleanup;
+    }
+    input.difficulty = 2U;
+    before = state;
     state.contract_tag ^= 1U;
     before = state;
     if (tecmo_gameplay_fatigue_step(&assets, &state, &input) ||
         memcmp(&state, &before, sizeof(state)) != 0) {
         (void)snprintf(message, message_size,
                        "TGFT-1 malformed-state rejection failed");
+        goto cleanup;
+    }
+    state.contract_tag ^= 1U;
+    before = state;
+    if (tecmo_gameplay_fatigue_step(NULL, &state, &input) ||
+        memcmp(&state, &before, sizeof(state)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 NULL-assets step was not rejected transactionally");
+        goto cleanup;
+    }
+    input_before = input;
+    if (tecmo_gameplay_fatigue_step(
+            &assets, &state,
+            (const TecmoGameplayFatigueStepInput *)&state) ||
+        memcmp(&state, &before, sizeof(state)) != 0 ||
+        memcmp(&input, &input_before, sizeof(input)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 state/input overlap was not rejected");
+        goto cleanup;
+    }
+    assets_before = assets;
+    if (tecmo_gameplay_fatigue_step(
+            &assets, (TecmoGameplayFatigueState *)&assets, &input) ||
+        memcmp(&assets, &assets_before, sizeof(assets)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 state/assets step overlap was not rejected");
+        goto cleanup;
+    }
+    memcpy(storage_before, assets.storage, sizeof(storage_before));
+    assets_before = assets;
+    if (tecmo_gameplay_fatigue_step(
+            &assets, (TecmoGameplayFatigueState *)assets.storage, &input) ||
+        memcmp(&assets, &assets_before, sizeof(assets)) != 0 ||
+        memcmp(assets.storage, storage_before, sizeof(storage_before)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFT-1 state/storage step overlap was not rejected");
         goto cleanup;
     }
     ok = true;

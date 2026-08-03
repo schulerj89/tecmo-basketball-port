@@ -3,6 +3,7 @@
 #include "tecmo_asset_pack_import_layout.h"
 #include "tecmo_asset_pack_util.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -39,6 +40,28 @@ const TecmoGameplayFatigueExpectedSource
 static int range_ok(uint64_t offset, uint64_t count, uint64_t total)
 {
     return offset <= total && count <= total - offset;
+}
+
+static int ranges_overlap(const void *left,
+                          size_t left_size,
+                          const void *right,
+                          size_t right_size)
+{
+    uintptr_t left_start;
+    uintptr_t right_start;
+
+    if (left == NULL || right == NULL || left_size == 0U ||
+        right_size == 0U) {
+        return 0;
+    }
+    left_start = (uintptr_t)left;
+    right_start = (uintptr_t)right;
+    if (left_size > UINTPTR_MAX - left_start ||
+        right_size > UINTPTR_MAX - right_start) {
+        return 1;
+    }
+    return left_start < right_start + right_size &&
+           right_start < left_start + left_size;
 }
 
 static uint64_t source_offset(
@@ -95,8 +118,16 @@ int tecmo_asset_pack_build_gameplay_fatigue(
     size_t message_size)
 {
     uint8_t input_sha256[32];
+    uint8_t staged_payload[TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SIZE];
+    TecmoGameplayFatigueProvenance staged_provenance;
     if (rom == NULL || payload == NULL || provenance == NULL ||
         payload_size != TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SIZE ||
+        rom_size > (uint64_t)SIZE_MAX ||
+        ranges_overlap(rom, (size_t)rom_size, payload, payload_size) ||
+        ranges_overlap(rom, (size_t)rom_size, provenance,
+                       sizeof(*provenance)) ||
+        ranges_overlap(payload, payload_size, provenance,
+                       sizeof(*provenance)) ||
         prg_banks != FATIGUE_PRG_BANK_COUNT ||
         enforce_revision_fingerprints == 0 ||
         rom_size != FATIGUE_REV1_ROM_SIZE ||
@@ -112,8 +143,8 @@ int tecmo_asset_pack_build_gameplay_fatigue(
             "TGFT-1 import requires the exact Rev1 ROM fingerprint.");
         return -1;
     }
-    memset(payload, 0, payload_size);
-    memset(provenance, 0, sizeof(*provenance));
+    memset(staged_payload, 0, sizeof(staged_payload));
+    memset(&staged_provenance, 0, sizeof(staged_provenance));
     for (size_t index = 0U;
          index < TECMO_GAMEPLAY_FATIGUE_SOURCE_COUNT; ++index) {
         const TecmoGameplayFatigueExpectedSource *source =
@@ -121,7 +152,7 @@ int tecmo_asset_pack_build_gameplay_fatigue(
         uint64_t offset = source_offset(prg_offset, prg_banks, source);
         uint32_t cpu_end =
             (uint32_t)source->cpu_start + source->byte_count - 1U;
-        uint8_t *record = payload +
+        uint8_t *record = staged_payload +
             TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SOURCES_OFFSET +
             index * TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SOURCE_STRIDE;
         if (source->bank >= prg_banks ||
@@ -146,11 +177,11 @@ int tecmo_asset_pack_build_gameplay_fatigue(
         tecmo_asset_pack_store_u32(record + 8U, source->byte_count);
         tecmo_asset_pack_store_u32(record + 12U, source->fingerprint);
         tecmo_asset_pack_store_u32(record + 16U, source->payload_offset);
-        memcpy(payload + source->payload_offset,
+        memcpy(staged_payload + source->payload_offset,
                rom + (size_t)offset, source->byte_count);
-        provenance->source_offsets[index] = offset;
+        staged_provenance.source_offsets[index] = offset;
     }
-    if (!validate_semantics(payload) ||
+    if (!validate_semantics(staged_payload) ||
         tecmo_asset_pack_fnv1a32(rom, (size_t)rom_size) !=
             FATIGUE_REV1_ROM_FNV1A32) {
         tecmo_asset_pack_set_message(
@@ -159,57 +190,59 @@ int tecmo_asset_pack_build_gameplay_fatigue(
         return -1;
     }
 
-    memcpy(payload, "TGFT", 4U);
+    memcpy(staged_payload, "TGFT", 4U);
     tecmo_asset_pack_store_u16(
-        payload + 4U, TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_VERSION);
+        staged_payload + 4U, TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_VERSION);
     tecmo_asset_pack_store_u16(
-        payload + 6U, TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_HEADER_SIZE);
+        staged_payload + 6U, TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_HEADER_SIZE);
     tecmo_asset_pack_store_u32(
-        payload + 8U, TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SIZE);
+        staged_payload + 8U, TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SIZE);
     tecmo_asset_pack_store_u16(
-        payload + 12U, TECMO_GAMEPLAY_FATIGUE_SOURCE_COUNT);
+        staged_payload + 12U, TECMO_GAMEPLAY_FATIGUE_SOURCE_COUNT);
     tecmo_asset_pack_store_u16(
-        payload + 14U, TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SOURCE_STRIDE);
+        staged_payload + 14U, TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SOURCE_STRIDE);
     tecmo_asset_pack_store_u32(
-        payload + 16U, TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SOURCES_OFFSET);
+        staged_payload + 16U, TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SOURCES_OFFSET);
     tecmo_asset_pack_store_u32(
-        payload + 20U, TECMO_ASSET_PACK_TEAM_DATA_SIZE);
+        staged_payload + 20U, TECMO_ASSET_PACK_TEAM_DATA_SIZE);
     tecmo_asset_pack_store_u32(
-        payload + 24U, TECMO_ASSET_PACK_TEAM_DATA_FNV1A32);
-    tecmo_asset_pack_store_u32(payload + 28U, FATIGUE_REV1_ROM_SIZE);
-    tecmo_asset_pack_store_u32(payload + 32U, FATIGUE_REV1_ROM_FNV1A32);
-    memcpy(payload + 36U, fatigue_rev1_sha256,
+        staged_payload + 24U, TECMO_ASSET_PACK_TEAM_DATA_FNV1A32);
+    tecmo_asset_pack_store_u32(staged_payload + 28U, FATIGUE_REV1_ROM_SIZE);
+    tecmo_asset_pack_store_u32(staged_payload + 32U, FATIGUE_REV1_ROM_FNV1A32);
+    memcpy(staged_payload + 36U, fatigue_rev1_sha256,
            sizeof(fatigue_rev1_sha256));
-    payload[68U] = TECMO_GAMEPLAY_FATIGUE_DIFFICULTY_COUNT;
-    payload[69U] = TECMO_GAMEPLAY_FATIGUE_TEAM_COUNT;
-    payload[70U] = TECMO_GAMEPLAY_FATIGUE_ROSTER_COUNT;
-    payload[71U] = TECMO_GAMEPLAY_FATIGUE_ACTIVE_COUNT;
-    payload[72U] = 3U;
-    payload[73U] = 100U;
-    payload[74U] = 4U;
-    payload[75U] = 30U;
-    memcpy(payload + 76U,
-           payload + TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_EVOLUTION_OFFSET,
+    staged_payload[68U] = TECMO_GAMEPLAY_FATIGUE_DIFFICULTY_COUNT;
+    staged_payload[69U] = TECMO_GAMEPLAY_FATIGUE_TEAM_COUNT;
+    staged_payload[70U] = TECMO_GAMEPLAY_FATIGUE_ROSTER_COUNT;
+    staged_payload[71U] = TECMO_GAMEPLAY_FATIGUE_ACTIVE_COUNT;
+    staged_payload[72U] = 3U;
+    staged_payload[73U] = 100U;
+    staged_payload[74U] = 4U;
+    staged_payload[75U] = 30U;
+    memcpy(staged_payload + 76U,
+           staged_payload + TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_EVOLUTION_OFFSET,
            TECMO_GAMEPLAY_FATIGUE_DIFFICULTY_COUNT);
     for (size_t index = 0U;
          index < TECMO_GAMEPLAY_FATIGUE_SOURCE_COUNT; ++index) {
         const TecmoGameplayFatigueExpectedSource *source =
             &tecmo_gameplay_fatigue_expected_sources[index];
-        uint8_t *descriptor = payload +
+        uint8_t *descriptor = staged_payload +
             TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_DESCRIPTOR_OFFSET +
             index * TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_DESCRIPTOR_STRIDE;
         tecmo_asset_pack_store_u32(descriptor, source->payload_offset);
         tecmo_asset_pack_store_u32(descriptor + 4U, source->byte_count);
         tecmo_asset_pack_store_u32(descriptor + 8U, source->fingerprint);
     }
-    if (tecmo_asset_pack_fnv1a32(payload, payload_size) !=
+    if (tecmo_asset_pack_fnv1a32(staged_payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_FNV1A32) {
         tecmo_asset_pack_set_messagef(
             message, message_size,
             "TGFT-1 canonical payload fingerprint mismatch (got %08X).",
-            tecmo_asset_pack_fnv1a32(payload, payload_size));
+            tecmo_asset_pack_fnv1a32(staged_payload, payload_size));
         return -1;
     }
+    memcpy(payload, staged_payload, sizeof(staged_payload));
+    *provenance = staged_provenance;
     tecmo_asset_pack_set_message(
         message, message_size,
         "Built strict ROM-derived TGFT-1 fatigue asset.");
@@ -247,7 +280,16 @@ int tecmo_asset_pack_gameplay_fatigue_self_test(
 {
     uint8_t truncated_rom[16] = {0U};
     uint8_t payload[TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SIZE];
+    uint8_t payload_before[TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SIZE];
+    uint8_t overlap[TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SIZE];
+    uint8_t overlap_before[TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SIZE];
     TecmoGameplayFatigueProvenance provenance;
+    TecmoGameplayFatigueProvenance provenance_before;
+    TecmoGameplayFatigueProvenance *overlapping_provenance;
+    memset(payload, 0xA5, sizeof(payload));
+    memcpy(payload_before, payload, sizeof(payload));
+    memset(&provenance, 0x5A, sizeof(provenance));
+    provenance_before = provenance;
     if (TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_EVOLUTION_OFFSET !=
             TECMO_ASSET_PACK_GAMEPLAY_FATIGUE_SOURCES_OFFSET +
                 TECMO_GAMEPLAY_FATIGUE_SOURCE_COUNT *
@@ -258,9 +300,51 @@ int tecmo_asset_pack_gameplay_fatigue_self_test(
         tecmo_asset_pack_build_gameplay_fatigue(
             truncated_rom, sizeof(truncated_rom), 16U,
             FATIGUE_PRG_BANK_COUNT, 1, payload, sizeof(payload),
-            &provenance, NULL, 0U) == 0) {
+            &provenance, NULL, 0U) == 0 ||
+        memcmp(payload, payload_before, sizeof(payload)) != 0 ||
+        memcmp(&provenance, &provenance_before, sizeof(provenance)) != 0) {
         tecmo_asset_pack_set_message(
-            message, message_size, "TGFT-1 layout self-test failed.");
+            message, message_size,
+            "TGFT-1 layout/transaction self-test failed.");
+        return -1;
+    }
+    memset(overlap, 0xC3, sizeof(overlap));
+    memcpy(overlap_before, overlap, sizeof(overlap));
+    memcpy(payload_before, overlap, sizeof(overlap));
+    if (tecmo_asset_pack_build_gameplay_fatigue(
+            overlap, FATIGUE_REV1_ROM_SIZE, 16U,
+            FATIGUE_PRG_BANK_COUNT, 1, overlap, sizeof(overlap),
+            &provenance, NULL, 0U) == 0 ||
+        memcmp(overlap, payload_before, sizeof(overlap)) != 0) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TGFT-1 ROM/payload overlap self-test failed.");
+        return -1;
+    }
+    overlapping_provenance = (TecmoGameplayFatigueProvenance *)payload;
+    memcpy(payload_before, payload, sizeof(payload));
+    if (tecmo_asset_pack_build_gameplay_fatigue(
+            truncated_rom, sizeof(truncated_rom), 16U,
+            FATIGUE_PRG_BANK_COUNT, 1, payload, sizeof(payload),
+            overlapping_provenance, NULL, 0U) == 0 ||
+        memcmp(payload, payload_before, sizeof(payload)) != 0) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TGFT-1 payload/provenance overlap self-test failed.");
+        return -1;
+    }
+    memset(overlap, 0xC3, sizeof(overlap));
+    memcpy(overlap_before, overlap, sizeof(overlap));
+    memcpy(payload_before, payload, sizeof(payload));
+    if (tecmo_asset_pack_build_gameplay_fatigue(
+            overlap, FATIGUE_REV1_ROM_SIZE, 16U,
+            FATIGUE_PRG_BANK_COUNT, 1, payload, sizeof(payload),
+            (TecmoGameplayFatigueProvenance *)overlap, NULL, 0U) == 0 ||
+        memcmp(payload, payload_before, sizeof(payload)) != 0 ||
+        memcmp(overlap, overlap_before, sizeof(overlap)) != 0) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TGFT-1 ROM/provenance overlap self-test failed.");
         return -1;
     }
     tecmo_asset_pack_set_message(

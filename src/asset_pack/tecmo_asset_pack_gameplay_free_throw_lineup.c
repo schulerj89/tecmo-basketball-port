@@ -4,6 +4,7 @@
 #include "tecmo_asset_pack_import_layout.h"
 #include "tecmo_asset_pack_util.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -45,6 +46,28 @@ const TecmoGameplayFreeThrowLineupExpectedSource
 static int range_ok(uint64_t offset, uint64_t count, uint64_t total)
 {
     return offset <= total && count <= total - offset;
+}
+
+static int ranges_overlap(const void *left,
+                          size_t left_size,
+                          const void *right,
+                          size_t right_size)
+{
+    uintptr_t left_start;
+    uintptr_t right_start;
+
+    if (left == NULL || right == NULL || left_size == 0U ||
+        right_size == 0U) {
+        return 0;
+    }
+    left_start = (uintptr_t)left;
+    right_start = (uintptr_t)right;
+    if (left_size > UINTPTR_MAX - left_start ||
+        right_size > UINTPTR_MAX - right_start) {
+        return 1;
+    }
+    return left_start < right_start + right_size &&
+           right_start < left_start + left_size;
 }
 
 static uint64_t source_offset(
@@ -110,19 +133,36 @@ int tecmo_asset_pack_build_gameplay_free_throw_lineup(
     char *message,
     size_t message_size)
 {
+    uint8_t input_sha256[32];
+    uint8_t staged_payload[
+        TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SIZE];
+    TecmoGameplayFreeThrowLineupProvenance staged_provenance;
     if (rom == NULL || payload == NULL || provenance == NULL ||
         payload_size != TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SIZE ||
+        rom_size > (uint64_t)SIZE_MAX ||
+        ranges_overlap(rom, (size_t)rom_size, payload, payload_size) ||
+        ranges_overlap(rom, (size_t)rom_size, provenance,
+                       sizeof(*provenance)) ||
+        ranges_overlap(payload, payload_size, provenance,
+                       sizeof(*provenance)) ||
         prg_banks != FREE_THROW_LINEUP_PRG_BANK_COUNT ||
         enforce_revision_fingerprints == 0 ||
-        rom_size != FREE_THROW_LINEUP_REV1_ROM_SIZE) {
+        rom_size != FREE_THROW_LINEUP_REV1_ROM_SIZE ||
+        prg_offset != sizeof(free_throw_lineup_rev1_ines_header) ||
+        memcmp(rom, free_throw_lineup_rev1_ines_header,
+               sizeof(free_throw_lineup_rev1_ines_header)) != 0 ||
+        tecmo_asset_pack_sha256_digest(
+            rom, (size_t)rom_size, input_sha256) != 0 ||
+        memcmp(input_sha256, free_throw_lineup_rev1_sha256,
+               sizeof(input_sha256)) != 0) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGFL-1 import requires the exact Rev1 ROM fingerprint.");
+            "TGFL-1 full-ROM SHA-256 mismatch for target Rev1.");
         return -1;
     }
 
-    memset(payload, 0, payload_size);
-    memset(provenance, 0, sizeof(*provenance));
+    memset(staged_payload, 0, sizeof(staged_payload));
+    memset(&staged_provenance, 0, sizeof(staged_provenance));
     for (size_t index = 0U;
          index < TECMO_GAMEPLAY_FREE_THROW_LINEUP_SOURCE_COUNT; ++index) {
         const TecmoGameplayFreeThrowLineupExpectedSource *expected =
@@ -130,7 +170,7 @@ int tecmo_asset_pack_build_gameplay_free_throw_lineup(
         uint64_t offset = source_offset(prg_offset, expected);
         uint32_t cpu_end =
             (uint32_t)expected->cpu_start + expected->byte_count - 1U;
-        uint8_t *record = payload +
+        uint8_t *record = staged_payload +
             TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SOURCES_OFFSET +
             index *
                 TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SOURCE_STRIDE;
@@ -153,12 +193,12 @@ int tecmo_asset_pack_build_gameplay_free_throw_lineup(
         tecmo_asset_pack_store_u32(record + 8U, expected->byte_count);
         tecmo_asset_pack_store_u32(record + 12U, expected->fingerprint);
         tecmo_asset_pack_store_u32(record + 16U, expected->payload_offset);
-        memcpy(payload + expected->payload_offset,
+        memcpy(staged_payload + expected->payload_offset,
                rom + (size_t)offset, expected->byte_count);
-        provenance->source_offsets[index] = offset;
+        staged_provenance.source_offsets[index] = offset;
     }
     if (validate_table_relationships(
-            payload +
+            staged_payload +
                 TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_TABLES_OFFSET) !=
         0) {
         tecmo_asset_pack_set_message(
@@ -174,43 +214,43 @@ int tecmo_asset_pack_build_gameplay_free_throw_lineup(
         return -1;
     }
 
-    memcpy(payload, "TGFL", 4U);
+    memcpy(staged_payload, "TGFL", 4U);
     tecmo_asset_pack_store_u16(
-        payload + 4U,
+        staged_payload + 4U,
         TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_VERSION);
     tecmo_asset_pack_store_u16(
-        payload + 6U,
+        staged_payload + 6U,
         TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_HEADER_SIZE);
     tecmo_asset_pack_store_u32(
-        payload + 8U,
+        staged_payload + 8U,
         TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SIZE);
     tecmo_asset_pack_store_u16(
-        payload + 12U, TECMO_GAMEPLAY_FREE_THROW_LINEUP_SOURCE_COUNT);
+        staged_payload + 12U, TECMO_GAMEPLAY_FREE_THROW_LINEUP_SOURCE_COUNT);
     tecmo_asset_pack_store_u16(
-        payload + 14U,
+        staged_payload + 14U,
         TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SOURCE_STRIDE);
     tecmo_asset_pack_store_u32(
-        payload + 16U,
+        staged_payload + 16U,
         TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SOURCES_OFFSET);
     tecmo_asset_pack_store_u16(
-        payload + 20U, TECMO_GAMEPLAY_FREE_THROW_LINEUP_ACTOR_COUNT);
+        staged_payload + 20U, TECMO_GAMEPLAY_FREE_THROW_LINEUP_ACTOR_COUNT);
     tecmo_asset_pack_store_u16(
-        payload + 22U, TECMO_GAMEPLAY_FREE_THROW_LINEUP_ORIENTATION_COUNT);
+        staged_payload + 22U, TECMO_GAMEPLAY_FREE_THROW_LINEUP_ORIENTATION_COUNT);
     tecmo_asset_pack_store_u32(
-        payload + 24U, TECMO_ASSET_PACK_GAMEPLAY_SIZE);
+        staged_payload + 24U, TECMO_ASSET_PACK_GAMEPLAY_SIZE);
     tecmo_asset_pack_store_u32(
-        payload + 28U, TECMO_ASSET_PACK_GAMEPLAY_FNV1A32);
+        staged_payload + 28U, TECMO_ASSET_PACK_GAMEPLAY_FNV1A32);
     tecmo_asset_pack_store_u32(
-        payload + 32U, FREE_THROW_LINEUP_REV1_ROM_SIZE);
+        staged_payload + 32U, FREE_THROW_LINEUP_REV1_ROM_SIZE);
     tecmo_asset_pack_store_u32(
-        payload + 36U, FREE_THROW_LINEUP_REV1_ROM_FNV1A32);
-    memcpy(payload + 40U, free_throw_lineup_rev1_sha256,
+        staged_payload + 36U, FREE_THROW_LINEUP_REV1_ROM_FNV1A32);
+    memcpy(staged_payload + 40U, free_throw_lineup_rev1_sha256,
            sizeof(free_throw_lineup_rev1_sha256));
     for (size_t index = 0U;
          index < TECMO_GAMEPLAY_FREE_THROW_LINEUP_SOURCE_COUNT; ++index) {
         const TecmoGameplayFreeThrowLineupExpectedSource *expected =
             &tecmo_gameplay_free_throw_lineup_expected_sources[index];
-        uint8_t *descriptor = payload + 72U + index * 12U;
+        uint8_t *descriptor = staged_payload + 72U + index * 12U;
         tecmo_asset_pack_store_u32(
             descriptor, expected->payload_offset);
         tecmo_asset_pack_store_u32(
@@ -218,20 +258,22 @@ int tecmo_asset_pack_build_gameplay_free_throw_lineup(
         tecmo_asset_pack_store_u32(
             descriptor + 8U, expected->fingerprint);
     }
-    payload[120U] = FREE_THROW_LINEUP_BANK;
-    payload[121U] = 0U; /* shooter pose preserved/undefined */
-    payload[122U] = 16U; /* raw world-X width */
-    payload[123U] = 8U;  /* raw world-Y width */
-    payload[124U] = 2U;  /* raw pose byte offset to TGPL index divisor */
+    staged_payload[120U] = FREE_THROW_LINEUP_BANK;
+    staged_payload[121U] = 0U; /* shooter pose preserved/undefined */
+    staged_payload[122U] = 16U; /* raw world-X width */
+    staged_payload[123U] = 8U;  /* raw world-Y width */
+    staged_payload[124U] = 2U;  /* raw pose byte offset to TGPL index divisor */
 
-    if (tecmo_asset_pack_fnv1a32(payload, payload_size) !=
+    if (tecmo_asset_pack_fnv1a32(staged_payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_FNV1A32) {
         tecmo_asset_pack_set_messagef(
             message, message_size,
             "TGFL-1 canonical payload fingerprint mismatch (got %08X).",
-            tecmo_asset_pack_fnv1a32(payload, payload_size));
+            tecmo_asset_pack_fnv1a32(staged_payload, payload_size));
         return -1;
     }
+    memcpy(payload, staged_payload, sizeof(staged_payload));
+    *provenance = staged_provenance;
     tecmo_asset_pack_set_message(
         message, message_size,
         "Built strict ROM-derived TGFL-1 free-throw lineup asset.");
@@ -296,7 +338,19 @@ int tecmo_asset_pack_gameplay_free_throw_lineup_self_test(
 {
     uint8_t truncated_rom[16] = {0};
     uint8_t payload[TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SIZE];
+    uint8_t payload_before[
+        TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SIZE];
+    uint8_t overlap[
+        TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SIZE];
+    uint8_t overlap_before[
+        TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SIZE];
     TecmoGameplayFreeThrowLineupProvenance provenance;
+    TecmoGameplayFreeThrowLineupProvenance provenance_before;
+    TecmoGameplayFreeThrowLineupProvenance *overlapping_provenance;
+    memset(payload, 0xA5, sizeof(payload));
+    memcpy(payload_before, payload, sizeof(payload));
+    memset(&provenance, 0x5A, sizeof(provenance));
+    provenance_before = provenance;
     if (TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_POSE_OFFSET !=
             TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SOURCES_OFFSET +
                 TECMO_GAMEPLAY_FREE_THROW_LINEUP_SOURCE_COUNT *
@@ -311,6 +365,55 @@ int tecmo_asset_pack_gameplay_free_throw_lineup_self_test(
         tecmo_asset_pack_set_message(
             message, message_size,
             "TGFL-1 layout self-test failed.");
+        return -1;
+    }
+    if (memcmp(payload, payload_before, sizeof(payload)) != 0 ||
+        memcmp(&provenance, &provenance_before, sizeof(provenance)) != 0) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TGFL-1 truncated-build transaction self-test failed.");
+        return -1;
+    }
+    memset(overlap, 0xC3, sizeof(overlap));
+    memcpy(overlap_before, overlap, sizeof(overlap));
+    memcpy(payload_before, overlap, sizeof(overlap));
+    if (tecmo_asset_pack_build_gameplay_free_throw_lineup(
+            overlap, FREE_THROW_LINEUP_REV1_ROM_SIZE, 16U,
+            FREE_THROW_LINEUP_PRG_BANK_COUNT, 1, overlap, sizeof(overlap),
+            &provenance, NULL, 0U) == 0 ||
+        memcmp(overlap, payload_before, sizeof(overlap)) != 0) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TGFL-1 ROM/payload overlap self-test failed.");
+        return -1;
+    }
+    memset(payload, 0xA5, sizeof(payload));
+    memcpy(payload_before, payload, sizeof(payload));
+    overlapping_provenance = (TecmoGameplayFreeThrowLineupProvenance *)
+        payload;
+    if (tecmo_asset_pack_build_gameplay_free_throw_lineup(
+            truncated_rom, sizeof(truncated_rom), 16U,
+            FREE_THROW_LINEUP_PRG_BANK_COUNT, 1, payload, sizeof(payload),
+            overlapping_provenance, NULL, 0U) == 0 ||
+        memcmp(payload, payload_before, sizeof(payload)) != 0) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TGFL-1 payload/provenance overlap self-test failed.");
+        return -1;
+    }
+    memset(overlap, 0xC3, sizeof(overlap));
+    memcpy(overlap_before, overlap, sizeof(overlap));
+    memcpy(payload_before, payload, sizeof(payload));
+    if (tecmo_asset_pack_build_gameplay_free_throw_lineup(
+            overlap, FREE_THROW_LINEUP_REV1_ROM_SIZE, 16U,
+            FREE_THROW_LINEUP_PRG_BANK_COUNT, 1, payload, sizeof(payload),
+            (TecmoGameplayFreeThrowLineupProvenance *)overlap,
+            NULL, 0U) == 0 ||
+        memcmp(payload, payload_before, sizeof(payload)) != 0 ||
+        memcmp(overlap, overlap_before, sizeof(overlap)) != 0) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TGFL-1 ROM/provenance overlap self-test failed.");
         return -1;
     }
     tecmo_asset_pack_set_message(

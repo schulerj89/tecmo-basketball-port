@@ -34,7 +34,7 @@ if (!$Scratch.StartsWith($BuildPrefix,
 }
 $PackPath = Join-Path $Scratch "free-throw-lineup.assetpack"
 $ExpectedOutput =
-    "TGFL-1 free-throw lineup passed: orientations=2 actors=10 poses=040A/040C/040E/0410 indices=517-520"
+    "TGFL-1 free-throw lineup passed: orientations=2 actors=10 policies=4 poses=040A/040C/040E/0410 indices=517-520"
 $PreviousSkipShortcut = $env:TECMO_SKIP_SHORTCUT
 
 function Get-ShortTail {
@@ -392,10 +392,8 @@ try {
         )) {
             $Id = ("{0:X4}-{1}" -f $Span.start, $Point.label)
             $Offset = $Prg + 6 * 0x4000 + ($Point.cpu - 0x8000)
-            $Range = ('$' + ("{0:X4}" -f $Span.start) + '-$' +
-                ("{0:X4}" -f ($Span.start + $Span.size - 1)))
             Invoke-RejectedRomMutation $RomBytes $Id $Offset `
-                $Range
+                "full-ROM SHA-256 mismatch"
             ++$RomMutationCount
         }
     }

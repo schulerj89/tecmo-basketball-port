@@ -57,6 +57,28 @@ static bool range_ok(size_t offset, size_t count, size_t total)
     return offset <= total && count <= total - offset;
 }
 
+static bool ranges_overlap(const void *left,
+                           size_t left_size,
+                           const void *right,
+                           size_t right_size)
+{
+    uintptr_t left_start;
+    uintptr_t right_start;
+
+    if (left == NULL || right == NULL || left_size == 0U ||
+        right_size == 0U) {
+        return false;
+    }
+    left_start = (uintptr_t)left;
+    right_start = (uintptr_t)right;
+    if (left_size > UINTPTR_MAX - left_start ||
+        right_size > UINTPTR_MAX - right_start) {
+        return true;
+    }
+    return left_start < right_start + right_size &&
+           right_start < left_start + left_size;
+}
+
 static bool reject(TecmoGameplayFreeThrowLineupAssets *assets,
                    const char *message)
 {
@@ -251,6 +273,17 @@ static bool validate_opcode_relationships(const uint8_t *payload)
         0xA8U,0xB9U,0x5FU,0x98U,0x95U,0x73U,
         0xB9U,0x60U,0x98U,0x95U,0xE8U
     };
+    static const uint8_t shooter_predicate_tail[] = {
+        0xBDU,0x0CU,0x03U,0xF0U,0x0FU,
+        0xA9U,0x36U,0x99U,0x47U,0x05U,
+        0xA9U,0x01U,0x99U,0x51U,0x05U,
+        0xA9U,0x04U,0x99U,0x7CU,0x05U
+    };
+    static const uint8_t secondary_predicate_tail[] = {
+        0xBDU,0x0CU,0x03U,0xD0U,0x08U,
+        0xAEU,0x09U,0x03U,
+        0xA9U,0x15U,0x9DU,0x6EU,0x04U
+    };
     const uint8_t *pose = payload +
         TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_POSE_OFFSET;
     const uint8_t *round = payload +
@@ -273,7 +306,15 @@ static bool validate_opcode_relationships(const uint8_t *payload)
            contains_bytes(
                followup,
                TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_FOLLOWUP_SIZE,
-               shooter_seed, sizeof(shooter_seed));
+               shooter_seed, sizeof(shooter_seed)) &&
+           contains_bytes(
+               followup,
+               TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_FOLLOWUP_SIZE,
+               shooter_predicate_tail, sizeof(shooter_predicate_tail)) &&
+           contains_bytes(
+               followup,
+               TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_FOLLOWUP_SIZE,
+               secondary_predicate_tail, sizeof(secondary_predicate_tail));
 }
 
 static bool validate_pose_record(const uint8_t *gameplay_core,
@@ -447,54 +488,56 @@ static bool validate_table_relationships(const uint8_t *payload,
     return true;
 }
 
-bool tecmo_gameplay_free_throw_lineup_parse(
-    TecmoGameplayFreeThrowLineupAssets *assets,
+static bool assets_valid(
+    const TecmoGameplayFreeThrowLineupAssets *assets);
+
+static bool parse_into(
+    TecmoGameplayFreeThrowLineupAssets *staged,
     const uint8_t *payload,
     size_t payload_size,
     const uint8_t *gameplay_core,
     size_t gameplay_core_size)
 {
     uint8_t *storage;
-    if (assets == NULL ||
-        assets->lifecycle_tag !=
+    if (staged == NULL ||
+        staged->lifecycle_tag !=
             TECMO_GAMEPLAY_FREE_THROW_LINEUP_LIFECYCLE_TAG) {
         return false;
     }
-    tecmo_gameplay_free_throw_lineup_destroy(assets);
     if (payload == NULL || !validate_header(payload, payload_size)) {
-        return reject(assets,
+        return reject(staged,
                       "TGFL-1 header/size/reserved contract rejected");
     }
     if (fnv1a32(payload, payload_size) !=
         TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_FNV1A32) {
-        return reject(assets,
+        return reject(staged,
                       "TGFL-1 canonical payload fingerprint rejected");
     }
     if (!validate_source_records(payload, payload_size) ||
         !validate_padding(payload) ||
         !validate_opcode_relationships(payload)) {
-        return reject(assets,
+        return reject(staged,
                       "TGFL-1 source/opcode contract rejected");
     }
     if (!validate_gameplay_core(gameplay_core, gameplay_core_size) ||
         !validate_table_relationships(payload, gameplay_core)) {
         return reject(
-            assets,
+            staged,
             "TGFL-1 table/TGPL-1 dependency contract rejected");
     }
 
     storage = (uint8_t *)malloc(payload_size);
-    if (storage == NULL) return reject(assets, "TGFL-1 allocation failed");
+    if (storage == NULL) return reject(staged, "TGFL-1 allocation failed");
     memcpy(storage, payload, payload_size);
-    assets->storage = storage;
-    assets->storage_size = payload_size;
+    staged->storage = storage;
+    staged->storage_size = payload_size;
     for (size_t index = 0U;
          index < TECMO_GAMEPLAY_FREE_THROW_LINEUP_SOURCE_COUNT;
          ++index) {
         const TecmoGameplayFreeThrowLineupExpectedSource *expected =
             &tecmo_gameplay_free_throw_lineup_expected_sources[index];
         TecmoGameplayFreeThrowLineupSourceSpan *source =
-            &assets->sources[index];
+            &staged->sources[index];
         source->kind = expected->kind;
         source->bank = expected->bank;
         source->fixed_bank = false;
@@ -505,20 +548,58 @@ bool tecmo_gameplay_free_throw_lineup_parse(
         source->fingerprint = expected->fingerprint;
         source->bytes = storage + expected->payload_offset;
     }
-    assets->pose_lookup = storage +
+    staged->pose_lookup = storage +
         TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_POSE_OFFSET;
-    assets->round_setup = storage +
+    staged->round_setup = storage +
         TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_ROUND_OFFSET;
-    assets->followup = storage +
+    staged->followup = storage +
         TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_FOLLOWUP_OFFSET;
-    assets->tables = storage +
+    staged->tables = storage +
         TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_TABLES_OFFSET;
-    assets->gameplay_core_fingerprint =
+    staged->gameplay_core_fingerprint =
         TECMO_ASSET_PACK_GAMEPLAY_FNV1A32;
-    assets->available = true;
+    staged->available = true;
     (void)snprintf(
-        assets->status, sizeof(assets->status),
+        staged->status, sizeof(staged->status),
         "TGFL-1 gameplay free-throw lineup assetpack");
+    if (!assets_valid(staged)) {
+        return reject(staged, "TGFL-1 in-memory object validation rejected");
+    }
+    return true;
+}
+
+bool tecmo_gameplay_free_throw_lineup_parse(
+    TecmoGameplayFreeThrowLineupAssets *assets,
+    const uint8_t *payload,
+    size_t payload_size,
+    const uint8_t *gameplay_core,
+    size_t gameplay_core_size)
+{
+    TecmoGameplayFreeThrowLineupAssets staged;
+    uint8_t *old_storage;
+    if (assets == NULL ||
+        assets->lifecycle_tag !=
+            TECMO_GAMEPLAY_FREE_THROW_LINEUP_LIFECYCLE_TAG) {
+        return false;
+    }
+    if (ranges_overlap(assets, sizeof(*assets), payload, payload_size) ||
+        ranges_overlap(assets, sizeof(*assets), gameplay_core,
+                       gameplay_core_size)) {
+        return false;
+    }
+    tecmo_gameplay_free_throw_lineup_init(&staged);
+    if (!parse_into(&staged, payload, payload_size,
+                    gameplay_core, gameplay_core_size)) {
+        if (!assets->available) {
+            (void)snprintf(assets->status, sizeof(assets->status), "%s",
+                           staged.status);
+        }
+        tecmo_gameplay_free_throw_lineup_destroy(&staged);
+        return false;
+    }
+    old_storage = assets->storage;
+    *assets = staged;
+    free(old_storage);
     return true;
 }
 
@@ -536,25 +617,30 @@ bool tecmo_gameplay_free_throw_lineup_load(
             TECMO_GAMEPLAY_FREE_THROW_LINEUP_LIFECYCLE_TAG) {
         return false;
     }
-    tecmo_gameplay_free_throw_lineup_destroy(assets);
     if (asset_pack_path == NULL ||
         tecmo_asset_pack_read_entry_exact(
             asset_pack_path,
             TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_ID,
             TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SIZE,
             &payload, &payload_size) != 0) {
-        return reject(
-            assets,
-            "TGFL-1 gameplay/free-throw-lineup entry missing or wrong-sized");
+        if (!assets->available) {
+            (void)snprintf(
+                assets->status, sizeof(assets->status), "%s",
+                "TGFL-1 gameplay/free-throw-lineup entry missing or wrong-sized");
+        }
+        return false;
     }
     if (tecmo_asset_pack_read_entry_exact(
             asset_pack_path, TECMO_ASSET_PACK_GAMEPLAY_ID,
             TECMO_ASSET_PACK_GAMEPLAY_SIZE,
             &gameplay_core, &gameplay_core_size) != 0) {
         tecmo_asset_pack_free(payload);
-        return reject(
-            assets,
-            "TGFL-1 gameplay/core dependency missing or wrong-sized");
+        if (!assets->available) {
+            (void)snprintf(
+                assets->status, sizeof(assets->status), "%s",
+                "TGFL-1 gameplay/core dependency missing or wrong-sized");
+        }
+        return false;
     }
     loaded = tecmo_gameplay_free_throw_lineup_parse(
         assets, payload, (size_t)payload_size,
@@ -564,12 +650,70 @@ bool tecmo_gameplay_free_throw_lineup_load(
     return loaded;
 }
 
+static bool assets_valid(
+    const TecmoGameplayFreeThrowLineupAssets *assets)
+{
+    if (assets == NULL ||
+        assets->lifecycle_tag !=
+            TECMO_GAMEPLAY_FREE_THROW_LINEUP_LIFECYCLE_TAG ||
+        !assets->available || assets->storage == NULL ||
+        assets->storage_size !=
+            TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SIZE ||
+        ranges_overlap(assets, sizeof(*assets), assets->storage,
+                       assets->storage_size) ||
+        fnv1a32(assets->storage, assets->storage_size) !=
+            TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_FNV1A32 ||
+        !validate_header(assets->storage, assets->storage_size) ||
+        !validate_source_records(assets->storage, assets->storage_size) ||
+        !validate_padding(assets->storage) ||
+        !validate_opcode_relationships(assets->storage) ||
+        assets->gameplay_core_fingerprint !=
+            TECMO_ASSET_PACK_GAMEPLAY_FNV1A32 ||
+        assets->pose_lookup !=
+            assets->storage +
+                TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_POSE_OFFSET ||
+        assets->round_setup !=
+            assets->storage +
+                TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_ROUND_OFFSET ||
+        assets->followup !=
+            assets->storage +
+                TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_FOLLOWUP_OFFSET ||
+        assets->tables !=
+            assets->storage +
+                TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_TABLES_OFFSET) {
+        return false;
+    }
+    for (size_t index = 0U;
+         index < TECMO_GAMEPLAY_FREE_THROW_LINEUP_SOURCE_COUNT;
+         ++index) {
+        const TecmoGameplayFreeThrowLineupExpectedSource *expected =
+            &tecmo_gameplay_free_throw_lineup_expected_sources[index];
+        const TecmoGameplayFreeThrowLineupSourceSpan *source =
+            &assets->sources[index];
+        uint32_t cpu_end = (uint32_t)expected->cpu_start +
+                           expected->byte_count - 1U;
+        if (source->kind != expected->kind ||
+            source->bank != expected->bank || source->fixed_bank ||
+            source->cpu_start != expected->cpu_start ||
+            source->cpu_end != (uint16_t)cpu_end ||
+            source->byte_count != expected->byte_count ||
+            source->fingerprint != expected->fingerprint ||
+            source->bytes != assets->storage + expected->payload_offset ||
+            source->bytes == NULL ||
+            fnv1a32(source->bytes, source->byte_count) !=
+                expected->fingerprint) {
+            return false;
+        }
+    }
+    return true;
+}
+
 const TecmoGameplayFreeThrowLineupSourceSpan *
 tecmo_gameplay_free_throw_lineup_find_source(
     const TecmoGameplayFreeThrowLineupAssets *assets,
     TecmoGameplayFreeThrowLineupSourceKind kind)
 {
-    if (assets == NULL || !assets->available) return NULL;
+    if (!assets_valid(assets)) return NULL;
     for (size_t index = 0U;
          index < TECMO_GAMEPLAY_FREE_THROW_LINEUP_SOURCE_COUNT;
          ++index) {
@@ -595,7 +739,12 @@ bool tecmo_gameplay_free_throw_lineup_derive(
     size_t height_offset;
     uint8_t pose_stream_index;
     uint8_t position_pair_index = 8U;
-    if (assets == NULL || !assets->available || lineup == NULL ||
+    if (lineup == NULL ||
+        ranges_overlap(lineup, sizeof(*lineup), assets, sizeof(*assets)) ||
+        (assets != NULL &&
+         ranges_overlap(lineup, sizeof(*lineup), assets->storage,
+                        assets->storage_size)) ||
+        !assets_valid(assets) ||
         orientation >=
             TECMO_GAMEPLAY_FREE_THROW_LINEUP_ORIENTATION_COUNT ||
         shooter_slot >=
@@ -632,6 +781,12 @@ bool tecmo_gameplay_free_throw_lineup_derive(
         actor->raw_palette_attributes = 0x30U;
         actor->raw_actor_state = 0x01U;
         actor->raw_aux_state = 0x00U;
+        actor->raw_script_0547 =
+            TECMO_GAMEPLAY_FREE_THROW_LINEUP_UNDEFINED_BYTE;
+        actor->raw_script_0551 =
+            TECMO_GAMEPLAY_FREE_THROW_LINEUP_UNDEFINED_BYTE;
+        actor->raw_script_0547_defined = false;
+        actor->raw_script_0551_defined = false;
         if (actor->shooter) {
             actor->raw_world_x = read_u16(
                 tables + (0x985FU - 0x985DU) +
@@ -681,6 +836,41 @@ bool tecmo_gameplay_free_throw_lineup_derive(
     return true;
 }
 
+bool tecmo_gameplay_free_throw_lineup_derive_caller_policy(
+    const TecmoGameplayFreeThrowLineupAssets *assets,
+    uint8_t orientation,
+    uint8_t shooter_slot,
+    uint8_t secondary_slot,
+    uint8_t shooter_predicate,
+    uint8_t secondary_predicate,
+    TecmoGameplayFreeThrowLineup *lineup)
+{
+    TecmoGameplayFreeThrowLineup derived;
+    if (lineup == NULL ||
+        ranges_overlap(lineup, sizeof(*lineup), assets, sizeof(*assets)) ||
+        (assets != NULL &&
+         ranges_overlap(lineup, sizeof(*lineup), assets->storage,
+                        assets->storage_size)) ||
+        !tecmo_gameplay_free_throw_lineup_derive(
+            assets, orientation, shooter_slot, secondary_slot, &derived)) {
+        return false;
+    }
+    if (shooter_predicate != 0U) {
+        TecmoGameplayFreeThrowLineupActor *shooter =
+            &derived.actors[shooter_slot];
+        shooter->raw_script_0547 = 0x36U;
+        shooter->raw_script_0551 = 0x01U;
+        shooter->raw_script_0547_defined = true;
+        shooter->raw_script_0551_defined = true;
+        shooter->raw_actor_state = 0x04U;
+    }
+    if (secondary_predicate == 0U) {
+        derived.actors[secondary_slot].raw_action_phase = 0x15U;
+    }
+    *lineup = derived;
+    return true;
+}
+
 static bool validate_derived_actor(
     const TecmoGameplayFreeThrowLineupAssets *assets,
     const TecmoGameplayFreeThrowLineup *lineup,
@@ -709,7 +899,13 @@ static bool validate_derived_actor(
         !actor->position_defined ||
         actor->raw_actor_state != 0x01U ||
         actor->raw_palette_attributes != 0x30U ||
-        actor->raw_aux_state != 0x00U) {
+        actor->raw_aux_state != 0x00U ||
+        actor->raw_script_0547 !=
+            TECMO_GAMEPLAY_FREE_THROW_LINEUP_UNDEFINED_BYTE ||
+        actor->raw_script_0551 !=
+            TECMO_GAMEPLAY_FREE_THROW_LINEUP_UNDEFINED_BYTE ||
+        actor->raw_script_0547_defined ||
+        actor->raw_script_0551_defined) {
         return false;
     }
     if (slot == shooter_slot) {
@@ -758,15 +954,69 @@ static bool validate_derived_actor(
     }
 }
 
+static bool lineup_actors_equal(
+    const TecmoGameplayFreeThrowLineupActor *left,
+    const TecmoGameplayFreeThrowLineupActor *right)
+{
+    return left->raw_world_x == right->raw_world_x &&
+           left->raw_world_y == right->raw_world_y &&
+           left->direction_index == right->direction_index &&
+           left->raw_pose_offset == right->raw_pose_offset &&
+           left->pose_index == right->pose_index &&
+           left->position_pair_index == right->position_pair_index &&
+           left->pose_stream_index == right->pose_stream_index &&
+           left->raw_action_phase == right->raw_action_phase &&
+           left->raw_actor_state == right->raw_actor_state &&
+           left->raw_palette_attributes == right->raw_palette_attributes &&
+           left->raw_pose_flags == right->raw_pose_flags &&
+           left->raw_aux_state == right->raw_aux_state &&
+           left->position_defined == right->position_defined &&
+           left->pose_defined == right->pose_defined &&
+           left->shooter == right->shooter &&
+           left->secondary == right->secondary &&
+           left->raw_script_0547 == right->raw_script_0547 &&
+           left->raw_script_0551 == right->raw_script_0551 &&
+           left->raw_script_0547_defined ==
+               right->raw_script_0547_defined &&
+           left->raw_script_0551_defined ==
+               right->raw_script_0551_defined;
+}
+
+static bool lineups_equal(
+    const TecmoGameplayFreeThrowLineup *left,
+    const TecmoGameplayFreeThrowLineup *right)
+{
+    if (left->orientation != right->orientation ||
+        left->shooter_slot != right->shooter_slot ||
+        left->secondary_slot != right->secondary_slot) {
+        return false;
+    }
+    for (size_t slot = 0U;
+         slot < TECMO_GAMEPLAY_FREE_THROW_LINEUP_ACTOR_COUNT; ++slot) {
+        if (!lineup_actors_equal(&left->actors[slot],
+                                 &right->actors[slot])) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool tecmo_gameplay_free_throw_lineup_self_test(
     const char *asset_pack_path,
     char *message,
     size_t message_size)
 {
     TecmoGameplayFreeThrowLineupAssets assets;
+    TecmoGameplayFreeThrowLineupAssets assets_before;
+    TecmoGameplayFreeThrowLineupAssets corrupted;
     TecmoGameplayFreeThrowLineup lineup;
     TecmoGameplayFreeThrowLineup unchanged;
+    TecmoGameplayFreeThrowLineup policy;
+    TecmoGameplayFreeThrowLineup expected_policy;
     uint32_t storage_hash;
+    uint8_t storage_before[
+        TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SIZE];
+    unsigned policy_count = 0U;
     const TecmoGameplayFreeThrowLineupSourceSpan *pose_source;
     const TecmoGameplayFreeThrowLineupSourceSpan *tables_source;
     bool passed = false;
@@ -791,6 +1041,44 @@ bool tecmo_gameplay_free_throw_lineup_self_test(
         (void)snprintf(message, message_size, "%s",
                        asset_pack_path != NULL ? assets.status
                                                : "PACK path required");
+        goto cleanup;
+    }
+    assets_before = assets;
+    if (tecmo_gameplay_free_throw_lineup_parse(
+            &assets, assets.storage, assets.storage_size, NULL, 0U) ||
+        memcmp(&assets, &assets_before, sizeof(assets)) != 0) {
+        (void)snprintf(message, message_size,
+                       "preloaded TGFL-1 failed reload was not transactional");
+        goto cleanup;
+    }
+    assets_before = assets;
+    if (tecmo_gameplay_free_throw_lineup_load(&assets, NULL) ||
+        memcmp(&assets, &assets_before, sizeof(assets)) != 0) {
+        (void)snprintf(message, message_size,
+                       "preloaded TGFL-1 NULL reload changed valid asset");
+        goto cleanup;
+    }
+    memcpy(storage_before, assets.storage, sizeof(storage_before));
+    assets_before = assets;
+    if (tecmo_gameplay_free_throw_lineup_parse(
+            &assets, (const uint8_t *)&assets,
+            TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_SIZE,
+            NULL, 0U) ||
+        memcmp(&assets, &assets_before, sizeof(assets)) != 0 ||
+        memcmp(assets.storage, storage_before, sizeof(storage_before)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFL-1 assets/payload alias was not rejected");
+        goto cleanup;
+    }
+    memcpy(storage_before, assets.storage, sizeof(storage_before));
+    assets_before = assets;
+    if (tecmo_gameplay_free_throw_lineup_parse(
+            &assets, assets.storage, assets.storage_size,
+            (const uint8_t *)&assets, TECMO_ASSET_PACK_GAMEPLAY_SIZE) ||
+        memcmp(&assets, &assets_before, sizeof(assets)) != 0 ||
+        memcmp(assets.storage, storage_before, sizeof(storage_before)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFL-1 assets/core alias was not rejected");
         goto cleanup;
     }
     pose_source = tecmo_gameplay_free_throw_lineup_find_source(
@@ -821,6 +1109,84 @@ bool tecmo_gameplay_free_throw_lineup_self_test(
         goto cleanup;
     }
     storage_hash = fnv1a32(assets.storage, assets.storage_size);
+    memcpy(storage_before, assets.storage, sizeof(storage_before));
+    assets_before = assets;
+    corrupted = assets;
+    corrupted.sources[0U].cpu_start ^= 1U;
+    memset(&lineup, 0xA5, sizeof(lineup));
+    unchanged = lineup;
+    if (tecmo_gameplay_free_throw_lineup_find_source(
+            &corrupted,
+            TECMO_GAMEPLAY_FREE_THROW_LINEUP_SOURCE_POSE_LOOKUP) != NULL ||
+        tecmo_gameplay_free_throw_lineup_derive(
+            &corrupted, 0U, 0U, 1U, &lineup) ||
+        tecmo_gameplay_free_throw_lineup_derive_caller_policy(
+            &corrupted, 0U, 0U, 1U, 1U, 0U, &lineup) ||
+        memcmp(&lineup, &unchanged, sizeof(lineup)) != 0 ||
+        memcmp(&assets, &assets_before, sizeof(assets)) != 0 ||
+        memcmp(assets.storage, storage_before, sizeof(storage_before)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFL-1 source metadata corruption was not transactional");
+        goto cleanup;
+    }
+    assets_before = assets;
+    corrupted = assets;
+    corrupted.sources[3U].bytes = assets.storage + 1U;
+    memset(&lineup, 0xA5, sizeof(lineup));
+    unchanged = lineup;
+    if (tecmo_gameplay_free_throw_lineup_find_source(
+            &corrupted,
+            TECMO_GAMEPLAY_FREE_THROW_LINEUP_SOURCE_TABLES) != NULL ||
+        tecmo_gameplay_free_throw_lineup_derive(
+            &corrupted, 0U, 0U, 1U, &lineup) ||
+        tecmo_gameplay_free_throw_lineup_derive_caller_policy(
+            &corrupted, 0U, 0U, 1U, 1U, 0U, &lineup) ||
+        memcmp(&lineup, &unchanged, sizeof(lineup)) != 0 ||
+        memcmp(&assets, &assets_before, sizeof(assets)) != 0 ||
+        memcmp(assets.storage, storage_before, sizeof(storage_before)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFL-1 source pointer corruption was not transactional");
+        goto cleanup;
+    }
+    assets_before = assets;
+    corrupted = assets;
+    corrupted.pose_lookup = assets.storage + 1U;
+    memset(&lineup, 0xA5, sizeof(lineup));
+    unchanged = lineup;
+    if (tecmo_gameplay_free_throw_lineup_find_source(
+            &corrupted,
+            TECMO_GAMEPLAY_FREE_THROW_LINEUP_SOURCE_POSE_LOOKUP) != NULL ||
+        tecmo_gameplay_free_throw_lineup_derive(
+            &corrupted, 0U, 0U, 1U, &lineup) ||
+        tecmo_gameplay_free_throw_lineup_derive_caller_policy(
+            &corrupted, 0U, 0U, 1U, 1U, 0U, &lineup) ||
+        memcmp(&lineup, &unchanged, sizeof(lineup)) != 0 ||
+        memcmp(&assets, &assets_before, sizeof(assets)) != 0 ||
+        memcmp(assets.storage, storage_before, sizeof(storage_before)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFL-1 canonical pointer corruption was not transactional");
+        goto cleanup;
+    }
+    memcpy(storage_before, assets.storage, sizeof(storage_before));
+    assets_before = assets;
+    corrupted = assets;
+    corrupted.storage = (uint8_t *)&corrupted;
+    memset(&lineup, 0xA5, sizeof(lineup));
+    unchanged = lineup;
+    if (tecmo_gameplay_free_throw_lineup_find_source(
+            &corrupted,
+            TECMO_GAMEPLAY_FREE_THROW_LINEUP_SOURCE_POSE_LOOKUP) != NULL ||
+        tecmo_gameplay_free_throw_lineup_derive(
+            &corrupted, 0U, 0U, 1U, &lineup) ||
+        tecmo_gameplay_free_throw_lineup_derive_caller_policy(
+            &corrupted, 0U, 0U, 1U, 1U, 0U, &lineup) ||
+        memcmp(&lineup, &unchanged, sizeof(lineup)) != 0 ||
+        memcmp(&assets, &assets_before, sizeof(assets)) != 0 ||
+        memcmp(assets.storage, storage_before, sizeof(storage_before)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFL-1 storage/object corruption was not rejected");
+        goto cleanup;
+    }
     for (uint8_t orientation = 0U;
          orientation <
              TECMO_GAMEPLAY_FREE_THROW_LINEUP_ORIENTATION_COUNT;
@@ -871,12 +1237,93 @@ bool tecmo_gameplay_free_throw_lineup_self_test(
                         goto cleanup;
                     }
                 }
+                for (uint8_t shooter_predicate = 0U;
+                     shooter_predicate <= 1U; ++shooter_predicate) {
+                    for (uint8_t secondary_predicate = 0U;
+                         secondary_predicate <= 1U;
+                         ++secondary_predicate) {
+                        expected_policy = lineup;
+                        if (shooter_predicate != 0U) {
+                            TecmoGameplayFreeThrowLineupActor *shooter_actor =
+                                &expected_policy.actors[shooter];
+                            shooter_actor->raw_script_0547 = 0x36U;
+                            shooter_actor->raw_script_0551 = 0x01U;
+                            shooter_actor->raw_script_0547_defined = true;
+                            shooter_actor->raw_script_0551_defined = true;
+                            shooter_actor->raw_actor_state = 0x04U;
+                        }
+                        if (secondary_predicate == 0U) {
+                            expected_policy.actors[secondary].raw_action_phase =
+                                0x15U;
+                        }
+                        if (!tecmo_gameplay_free_throw_lineup_derive_caller_policy(
+                                &assets, orientation, shooter, secondary,
+                                shooter_predicate, secondary_predicate,
+                                &policy) ||
+                            !lineups_equal(&policy, &expected_policy)) {
+                            (void)snprintf(
+                                message, message_size,
+                                "caller-policy vector failed o=%u s=%u n=%u "
+                                "sp=%u np=%u",
+                                (unsigned)orientation, (unsigned)shooter,
+                                (unsigned)secondary,
+                                (unsigned)shooter_predicate,
+                                (unsigned)secondary_predicate);
+                            goto cleanup;
+                        }
+                        ++policy_count;
+                    }
+                }
             }
         }
     }
-    if (fnv1a32(assets.storage, assets.storage_size) != storage_hash) {
+    if (policy_count !=
+            2U * TECMO_GAMEPLAY_FREE_THROW_LINEUP_ACTOR_COUNT * 9U * 4U ||
+        fnv1a32(assets.storage, assets.storage_size) != storage_hash) {
         (void)snprintf(message, message_size,
                        "pure derive mutated TGFL-1 storage");
+        goto cleanup;
+    }
+    if (!tecmo_gameplay_free_throw_lineup_derive(
+            &assets, 0U, 0U, 1U, &lineup)) {
+        (void)snprintf(message, message_size,
+                       "TGFL-1 0xFF predicate base vector setup failed");
+        goto cleanup;
+    }
+    expected_policy = lineup;
+    expected_policy.actors[0U].raw_script_0547 = 0x36U;
+    expected_policy.actors[0U].raw_script_0551 = 0x01U;
+    expected_policy.actors[0U].raw_script_0547_defined = true;
+    expected_policy.actors[0U].raw_script_0551_defined = true;
+    expected_policy.actors[0U].raw_actor_state = 0x04U;
+    if (!tecmo_gameplay_free_throw_lineup_derive_caller_policy(
+            &assets, 0U, 0U, 1U, UINT8_MAX, UINT8_MAX, &policy) ||
+        !lineups_equal(&policy, &expected_policy) ||
+        policy.actors[1U].raw_action_phase !=
+            lineup.actors[1U].raw_action_phase) {
+        (void)snprintf(message, message_size,
+                       "TGFL-1 0xFF predicate nonzero vector failed");
+        goto cleanup;
+    }
+
+    memcpy(storage_before, assets.storage, sizeof(storage_before));
+    assets_before = assets;
+    if (tecmo_gameplay_free_throw_lineup_derive(
+            &assets, 0U, 0U, 1U,
+            (TecmoGameplayFreeThrowLineup *)&assets) ||
+        tecmo_gameplay_free_throw_lineup_derive(
+            &assets, 0U, 0U, 1U,
+            (TecmoGameplayFreeThrowLineup *)assets.storage) ||
+        tecmo_gameplay_free_throw_lineup_derive_caller_policy(
+            &assets, 0U, 0U, 1U, 1U, 0U,
+            (TecmoGameplayFreeThrowLineup *)&assets) ||
+        tecmo_gameplay_free_throw_lineup_derive_caller_policy(
+            &assets, 0U, 0U, 1U, 1U, 0U,
+            (TecmoGameplayFreeThrowLineup *)assets.storage) ||
+        memcmp(&assets, &assets_before, sizeof(assets)) != 0 ||
+        memcmp(assets.storage, storage_before, sizeof(storage_before)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGFL-1 lineup/assets overlap was not rejected");
         goto cleanup;
     }
 
@@ -892,6 +1339,16 @@ bool tecmo_gameplay_free_throw_lineup_self_test(
             &assets, 0U, 1U, 1U, &lineup) ||
         tecmo_gameplay_free_throw_lineup_derive(
             &assets, 0U, 0U, 1U, NULL) ||
+        tecmo_gameplay_free_throw_lineup_derive_caller_policy(
+            &assets, 2U, 0U, 1U, 1U, 0U, &lineup) ||
+        tecmo_gameplay_free_throw_lineup_derive_caller_policy(
+            &assets, 0U, 10U, 1U, 1U, 0U, &lineup) ||
+        tecmo_gameplay_free_throw_lineup_derive_caller_policy(
+            &assets, 0U, 0U, 10U, 1U, 0U, &lineup) ||
+        tecmo_gameplay_free_throw_lineup_derive_caller_policy(
+            &assets, 0U, 1U, 1U, 1U, 0U, &lineup) ||
+        tecmo_gameplay_free_throw_lineup_derive_caller_policy(
+            &assets, 0U, 0U, 1U, 1U, 0U, NULL) ||
         memcmp(&lineup, &unchanged, sizeof(lineup)) != 0 ||
         fnv1a32(assets.storage, assets.storage_size) != storage_hash) {
         (void)snprintf(message, message_size,
@@ -902,7 +1359,7 @@ bool tecmo_gameplay_free_throw_lineup_self_test(
     (void)snprintf(
         message, message_size,
         "TGFL-1 free-throw lineup passed: orientations=2 actors=10 "
-        "poses=040A/040C/040E/0410 indices=517-520");
+        "policies=4 poses=040A/040C/040E/0410 indices=517-520");
     passed = true;
 
 cleanup:

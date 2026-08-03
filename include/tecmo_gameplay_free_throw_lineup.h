@@ -9,6 +9,7 @@
 #define TECMO_GAMEPLAY_FREE_THROW_LINEUP_ACTOR_COUNT 10U
 #define TECMO_GAMEPLAY_FREE_THROW_LINEUP_ORIENTATION_COUNT 2U
 #define TECMO_GAMEPLAY_FREE_THROW_LINEUP_UNDEFINED_INDEX 0xFFU
+#define TECMO_GAMEPLAY_FREE_THROW_LINEUP_UNDEFINED_BYTE 0xFFU
 
 typedef enum TecmoGameplayFreeThrowLineupSourceKind {
     TECMO_GAMEPLAY_FREE_THROW_LINEUP_SOURCE_POSE_LOOKUP = 1,
@@ -53,6 +54,13 @@ typedef struct TecmoGameplayFreeThrowLineupActor {
     bool pose_defined;
     bool shooter;
     bool secondary;
+    /* The caller-tail script fields are not produced by the pure base
+       resolver. They are defined only when the separately named caller-policy
+       API applies the exact proven override. */
+    uint8_t raw_script_0547;
+    uint8_t raw_script_0551;
+    bool raw_script_0547_defined;
+    bool raw_script_0551_defined;
 } TecmoGameplayFreeThrowLineupActor;
 
 typedef struct TecmoGameplayFreeThrowLineup {
@@ -101,7 +109,7 @@ tecmo_gameplay_free_throw_lineup_find_source(
 
 /*
  * The pure base resolver intentionally does not accept the original
- * side-control bytes. Consequently it does not apply the conditional shooter
+ * caller predicate bytes. Consequently it does not apply the conditional shooter
  * script override or secondary-slot raw phase $15 override that follow the
  * base lineup seed.
  */
@@ -110,6 +118,24 @@ bool tecmo_gameplay_free_throw_lineup_derive(
     uint8_t orientation,
     uint8_t shooter_slot,
     uint8_t secondary_slot,
+    TecmoGameplayFreeThrowLineup *lineup);
+
+/*
+ * Explicit caller-policy composition for only the conditional tail of Bank06
+ * $976F-$985C. This is not production-scene integration and does not select
+ * the shooter or secondary slot. A nonzero shooter predicate applies
+ * raw-$0547=$36, raw-$0551=$01, and raw-$057C=$04 to the shooter. A zero
+ * secondary predicate applies raw-$046E=$15 to the secondary. All other
+ * script fields remain undefined/preserved; no aim, release, attempt, pose,
+ * ownership, or scene semantics are inferred.
+ */
+bool tecmo_gameplay_free_throw_lineup_derive_caller_policy(
+    const TecmoGameplayFreeThrowLineupAssets *assets,
+    uint8_t orientation,
+    uint8_t shooter_slot,
+    uint8_t secondary_slot,
+    uint8_t shooter_predicate,
+    uint8_t secondary_predicate,
     TecmoGameplayFreeThrowLineup *lineup);
 
 bool tecmo_gameplay_free_throw_lineup_self_test(
