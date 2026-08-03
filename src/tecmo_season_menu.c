@@ -2738,6 +2738,23 @@ bool tecmo_season_self_test(char *message, size_t message_size)
                "division/order; games behind in half-game units") != 0)
         goto state_failure;
 
+    failure_stage = "standings-negative-games-behind-floor";
+    session_defaults(&session);
+    session.wins[0U] = 1U;
+    session.wins[1U] = 10U;
+    session.losses[1U] = 1U;
+    if (!tecmo_season_build_standings_rows(
+            &asset, &session, 0U, standings,
+            TECMO_SEASON_STANDINGS_MAX_DIVISION_TEAMS, &standings_count) ||
+        standings_count != 7U || standings[0].team_id != 0U ||
+        standings[0].winning_ratio_numerator != 1U ||
+        standings[0].winning_ratio_denominator != 1U ||
+        standings[1].team_id != 1U ||
+        standings[1].winning_ratio_numerator != 10U ||
+        standings[1].winning_ratio_denominator != 11U ||
+        standings[1].games_behind_half != 0U)
+        goto state_failure;
+
     failure_stage = "completed-session-type-reset";
     session_defaults(&session);
     session.schedule_index = asset.game_counts[TECMO_SEASON_REGULAR];

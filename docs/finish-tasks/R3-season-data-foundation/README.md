@@ -63,6 +63,8 @@ policy is exact winning-ratio comparison by 64-bit cross multiplication (no
 display truncation), then wins, then source division/display order. Games
 behind are stored in unsigned half-game units; if an arbitrary programmed
 record would produce a negative distance, the exported value floors at zero.
+The self-test explicitly exercises a `1-0` leader ahead of a `10-1` row: the
+exact-ratio order is preserved and the negative raw distance exports as zero.
 The original tie policy is not claimed.
 
 ### Transaction and state hardening
@@ -102,6 +104,10 @@ range arithmetic overflow and has exact boundary tests.
   pending-record validation is exact; persistence failures roll back; and the
   prepared result remains launch-blocked until commit.
 - Revision commit: `0c2bf410f8d86d3a5bbb3af75d699be86de8a780` (`Harden season targets and reset lifecycle`): mode-specific TSAV/runtime W+L targets, completed-session reset coherence, boundary regressions, and the unsigned games-behind floor contract.
+- Final evidence correction: a focused synthetic `1-0` versus `10-1`
+  standings regression now proves the negative games-behind expression is
+  floored before export; the correction commit is reported in the final
+  handoff.
 
 ## Reproducible proof manifest
 
@@ -128,11 +134,11 @@ unit was added.
 
 The self-tests additionally prove all four schedule counts and completion
 sentinels, zero-game standings, exact-ratio/wins ordering, odd half-game
-distance, zero-floor games-behind behavior, strict TSAV parsing, exact and
-over-limit `82/42/26/82` mode boundaries, completed-session reset recovery,
-invalid pending no-mutation, team-control/reset/editor/result rollback, and
-importer CHR boundaries. `git diff --check` was clean before the revision
-commit.
+distance, the explicit negative `1-0` versus `10-1` zero-floor case, strict
+TSAV parsing, exact and over-limit `82/42/26/82` mode boundaries,
+completed-session reset recovery, invalid pending no-mutation,
+team-control/reset/editor/result rollback, and importer CHR boundaries.
+`git diff --check` was clean before the evidence-correction commit.
 
 ## Visual observations
 
@@ -162,7 +168,7 @@ The primary implementation unit is commit
 `75119657dda1db7d97083dafddc4498548ac7ab3`; the first documentation follow-up
 is `3431112e1ddcc66cf771106818f31bd1b5a5e4e6`; and this revision is
 `0c2bf410f8d86d3a5bbb3af75d699be86de8a780`. Sol can cherry-pick those commits
-in order onto the expected parent/lineage. The current documentation revision
-commit is reported separately in the final handoff so the exact repository tip
-can be verified without claiming that a commit can contain its own SHA-256
-identity.
+in order onto the expected parent/lineage, followed by the final evidence
+correction commit reported in the handoff. The current documentation revision
+commit is reported separately so the exact repository tip can be verified
+without claiming that a commit can contain its own SHA-256 identity.
