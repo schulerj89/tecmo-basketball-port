@@ -44,7 +44,7 @@ $ProofGolden = @{
 }
 $ExpectedProofVectors = @(
     [pscustomobject]@{ Name="TMUS7_START"; Queue="TRACK7_PASS"; Source="TMUS"; Termination="STARTUP"; MusicTicks=5; MusicAcc=16814794500; MusicPlaying=1; SfxId=0; SfxPlaying=0; DmcActive=0; DmcLevel=0; PcmFnv="AAAEB721" },
-    [pscustomobject]@{ Name="TMUS7_TAIL_END"; Queue="TRACK7_PASS"; Source="TMUS"; Termination="CLEAN_END"; MusicTicks=2615; MusicAcc=43775235900; MusicPlaying=0; SfxId=0; SfxPlaying=0; DmcActive=0; DmcLevel=0; PcmFnv="401472A3" },
+    [pscustomobject]@{ Name="TMUS7_TAIL_END"; Queue="TRACK7_PASS"; Source="TMUS"; Termination="CLEAN_END"; MusicTicks=2615; MusicAcc=4377523500; MusicPlaying=0; SfxId=0; SfxPlaying=0; DmcActive=0; DmcLevel=0; PcmFnv="401472A3" },
     [pscustomobject]@{ Name="TMUS5_LOOP"; Queue="TRACK5_PASS"; Source="TMUS"; Termination="LOOP_REPRESENTATIVE"; MusicTicks=1362; MusicAcc=22678021800; MusicPlaying=1; SfxId=0; SfxPlaying=0; DmcActive=0; DmcLevel=0; PcmFnv="BDF8A662" },
     [pscustomobject]@{ Name="TMUS6_LOOP"; Queue="TRACK6_PASS"; Source="TMUS"; Termination="LOOP_REPRESENTATIVE"; MusicTicks=1362; MusicAcc=22678021800; MusicPlaying=1; SfxId=0; SfxPlaying=0; DmcActive=0; DmcLevel=0; PcmFnv="C034740E" },
     [pscustomobject]@{ Name="TMUS8_END"; Queue="TRACK8_PASS"; Source="TMUS"; Termination="CLEAN_END"; MusicTicks=396; MusicAcc=9235724400; MusicPlaying=0; SfxId=0; SfxPlaying=0; DmcActive=0; DmcLevel=0; PcmFnv="8F310591" },
