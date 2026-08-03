@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T17:24:09Z",
+  "updated_at": "2026-08-03T17:24:47Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -137,8 +137,8 @@
         "OWN-R2-SHOTS-OUTCOMES"
       ],
       "blockers": [],
-      "next_gate": "Clean takeover accepted and task in_progress. Sol may create/pin exactly one projectless read-only Luna Max evidence/native-gap audit, reconcile it personally, then register one persistent writable lineage only after the evidence gate; excluded TIP/shared boundaries remain frozen.",
-      "updated_at": "2026-08-03T17:22:51Z"
+      "next_gate": "One exact projectless read-only Luna Max evidence/native-gap auditor 019fc8a8-186e-7be2-aab3-0aae3da3a2fa is active/pinned with null Git scope. Sol must personally reconcile/accept it, then register one persistent writable lineage; excluded TIP/shared boundaries remain frozen.",
+      "updated_at": "2026-08-03T17:24:47Z"
     }
   ]
 }
