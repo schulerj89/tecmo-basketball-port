@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T15:00:08Z",
+  "updated_at": "2026-08-03T15:32:25Z",
   "claims": [
     {
       "claim_id":"OWN-R0-CTRL","task_id":"R0-CTRL-001","round_id":"R0","session_id":"S-MASTER-001","mode":"exclusive",
@@ -67,10 +67,10 @@
     },
     {
       "claim_id":"OWN-R4-FRONTEND-INTRO-TITLE","task_id":"R4-FRONTEND-INTRO-TITLE","round_id":"R4","session_id":"S-SOL-R4-FRONTEND-001","mode":"exclusive",
-      "writable_globs":["include/tecmo_intro_*.h","src/tecmo_intro_*.c","include/tecmo_title_screen.h","src/tecmo_title_screen.c","src/asset_pack/tecmo_asset_pack_opening.c","src/asset_pack/tecmo_asset_pack_opening.h","src/asset_pack/tecmo_asset_pack_arena.c","src/asset_pack/tecmo_asset_pack_arena.h","src/asset_pack/tecmo_asset_pack_finale.c","src/asset_pack/tecmo_asset_pack_finale.h","src/asset_pack/tecmo_asset_pack_post_arena.c","src/asset_pack/tecmo_asset_pack_post_arena.h","src/asset_pack/tecmo_asset_pack_d9f6.c","src/asset_pack/tecmo_asset_pack_d9f6.h","src/asset_pack/tecmo_asset_pack_title.c","src/asset_pack/tecmo_asset_pack_title.h","tools/Run-IntroSequenceTests.ps1","tools/New-IntroLayoutDraft.ps1","tools/Import-IntroArenaCapture.ps1","tools/Find-Intro*.ps1","tools/Find-NesReferenceIntro.ps1","tools/Find-Title*.ps1","tools/emu_intro_*.lua","docs/finish-tasks/R4-frontend-intro-title/**"],
-      "planned_paths":["src/tecmo_intro_stage.c","src/tecmo_title_screen.c","tools/Run-IntroSequenceTests.ps1","docs/finish-tasks/R4-frontend-intro-title/README.md"],
+      "writable_globs":["include/tecmo_intro_*.h","src/tecmo_intro_*.c","include/tecmo_title_screen.h","src/tecmo_title_screen.c","src/asset_pack/tecmo_asset_pack_opening.c","src/asset_pack/tecmo_asset_pack_opening.h","src/asset_pack/tecmo_asset_pack_arena.c","src/asset_pack/tecmo_asset_pack_arena.h","src/asset_pack/tecmo_asset_pack_finale.c","src/asset_pack/tecmo_asset_pack_finale.h","src/asset_pack/tecmo_asset_pack_post_arena.c","src/asset_pack/tecmo_asset_pack_post_arena.h","src/asset_pack/tecmo_asset_pack_d9f6.c","src/asset_pack/tecmo_asset_pack_d9f6.h","src/asset_pack/tecmo_asset_pack_title.c","src/asset_pack/tecmo_asset_pack_title.h","tools/Run-IntroSequenceTests.ps1","tools/New-IntroLayoutDraft.ps1","tools/Import-IntroArenaCapture.ps1","tools/Find-Intro*.ps1","tools/Find-NesReferenceIntro.ps1","tools/Find-Title*.ps1","tools/emu_intro_*.lua","docs/finish-tasks/R4-frontend-intro-title/**","src/tecmo_cli_render_scene_modes.c"],
+      "planned_paths":["src/tecmo_intro_stage.c","src/tecmo_title_screen.c","tools/Run-IntroSequenceTests.ps1","docs/finish-tasks/R4-frontend-intro-title/README.md","src/tecmo_cli_render_scene_modes.c"],
       "concurrency_group":"R4-frontend-intro-title","active":true,"claimed_at":"2026-08-03T14:50:16Z","released_at":null,
-      "notes":"Reserved by the master before session creation, then transferred to registered/pinned S-SOL-R4-FRONTEND-001. Intro/title native modules, their existing semantic asset families, focused research/test tools, and task docs only; audio, menus, build lists, source-map/import-layout, Win32, and gameplay paths are excluded."
+      "notes":"Reserved by the master before session creation, then transferred to registered/pinned S-SOL-R4-FRONTEND-001. Intro/title native modules, their existing semantic asset families, focused research/test tools, and task docs only. Exact rescope granted 2026-08-03T15:32:25Z for src/tecmo_cli_render_scene_modes.c solely to add an intro-production-clean-frame<N> checkpoint that initializes TECMO_MODE_FIRST_SPRITE and advances/renders the real update path. Collision audit found no active claim, dirty worktree, or post-base ref touching the file. Audio, menus, build lists, source-map/import-layout, Win32, game, and gameplay paths remain excluded."
     },
     {
       "claim_id":"OWN-R4-AUDIO-FOUNDATION","task_id":"R4-AUDIO-FOUNDATION","round_id":"R4","session_id":"S-SOL-R4-AUDIO-001","mode":"exclusive",

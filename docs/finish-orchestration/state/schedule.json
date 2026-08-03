@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T15:24:43Z",
+  "updated_at": "2026-08-03T15:32:25Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -69,8 +69,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4-frontend-intro-title-sol",
       "ownership_claim_ids": ["OWN-R4-FRONTEND-INTRO-TITLE"],
       "blockers": [],
-      "next_gate": "Sol-managed Luna research, implementation, production-path visual proof, independent QA, and domain acceptance.",
-      "updated_at": "2026-08-03T15:00:08Z"
+      "next_gate": "Finish evidence reconciliation, then writable Luna implementation of route/load/caption/title-preroll corrections plus the granted production-clean-frame proof mode, followed by Sol visual review and independent QA.",
+      "updated_at": "2026-08-03T15:32:25Z"
     },
     {
       "lane_id": "LANE-R4-AUDIO-FOUNDATION",
