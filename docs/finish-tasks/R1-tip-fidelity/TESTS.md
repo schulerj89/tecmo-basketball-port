@@ -1,12 +1,13 @@
 # Tests, builds, and proof status
 
-Sol's latest personal post-rescope gate snapshot is accepted for the first TIP
-implementation commit: `build.ps1` exited `0` for console+Win32 with no warning
-lines; `Run-Win32LaunchSmokeTest.ps1` exited `0` with explicit console flow and
-GUI/console production smoke; `Run-GameplayPreTipTests.ps1` exited `0`; and
-`Run-GameplaySceneTests.ps1 -Build` exited `0` with LIVE PROOF DRAFT at
-`build/live-proof-20260803T205847090Z`. Clean-commit formal proof and
-independent QA remain pending.
+Sol accepted implementation commit
+`a37e10207455933be3930e90c55b10b669cb0ef3` and its clean-commit formal proof.
+The post-rescope gates all exited `0`: `build.ps1` built console+Win32 with no
+warning lines; `Run-Win32LaunchSmokeTest.ps1` passed explicit console flow and
+GUI/console production smoke; `Run-GameplayPreTipTests.ps1` passed; and
+`Run-GameplaySceneTests.ps1 -Build` passed with historical LIVE PROOF DRAFT at
+`build/live-proof-20260803T205847090Z`. Independent QA and Sol-branch
+integration remain pending.
 
 ## Focused commands passed
 
@@ -16,7 +17,7 @@ All commands below were run from the worker worktree against the built
 | Command | Result |
 |---|---|
 | `\.\build.ps1` | Exit 0; production native and Win32 targets built. Final build output had no warning lines. The existing script updated the desktop shortcut as an external side effect. |
-| `\.\tools\Run-Win32LaunchSmokeTest.ps1 -ProjectRoot .` | Exit 0 after the `43ab7a7` flow-fixture correction; GUI/console subsystem, project-root argument, working-directory, icon, roster-independent startup, window lifetime, and clean shutdown checks passed. |
+| `\.\tools\Run-Win32LaunchSmokeTest.ps1 -ProjectRoot . -DecompRoot C:\Users\joshs\Projects\disassem\tecmo-basketball-decompilation` | Exit 0 after the `43ab7a7` flow-fixture correction; explicit console flow, GUI/console subsystem, project-root argument, working-directory, icon, roster-independent startup, window lifetime, and clean shutdown checks passed. |
 | `\.\build\tecmo_port.exe --gameplay-pretip-test .\build\tecmo.assetpack` | `TPTI-2 pre-tip self-test passed` |
 | `\.\build\tecmo_port.exe --gameplay-pretip-human-checkpoint .\build\tecmo.assetpack` | `TPTI-2 human checkpoint PASS frame=721 late-sample=29 win32-X=assigned-Away-frame-0 fast-X=one-frame B-unmapped` |
 | `\.\build\tecmo_port.exe --gameplay-scene-test .\build\tecmo.assetpack` | `GAMEPLAY SCENE SELF TEST PASS` |
@@ -38,6 +39,25 @@ worker's `205139679Z` DRAFT.
 The latest personal Sol broad result supersedes neither earlier diagnostic
 roots nor their recorded recovery history: it is the post-flow DRAFT root
 `build/live-proof-20260803T205847090Z` and remains non-formal proof.
+
+## Formal proof result
+
+The first formal invocation was:
+
+```powershell
+.\tools\New-TipoffVisualProof.ps1 -ProjectRoot . -RomPath 'C:\Users\joshs\Projects\disassem\Tecmo NBA Basketball (USA) (NES-BK) (Rev 1).nes'
+```
+
+It returned `TIPOFF VISUAL PROOF PASS` on the first attempt at UTC
+`2026-08-03T21:08:24.8165649Z`. Root:
+`build\proof\tipoff-visual-orientation-a37e10207455`. Manifest schema:
+`tecmo.tipoff-realtime-proof/2`; manifest SHA-256
+`AAD8EF7AF9F075E5EA1F64B91C6F363A9E2959444D893F6D0C4A760368D11438`; summary
+SHA-256 `1AA8C97B10E31368E28BAEE8232B3B892F2BC6D249F14295040ECD87D74FA78D`.
+The manifest records exact commit `a37e10207455933be3930e90c55b10b669cb0ef3`,
+branch `codex/r1-tip-fidelity-luna`, and a passed clean-worktree gate. Full
+inventory, artifact hashes, runtime observations, and visual/reference review
+are recorded in `PROOF.md`.
 
 ## Named runtime and source negatives covered
 
@@ -86,17 +106,17 @@ is inside the ball sprite bounds; no player, court, HUD, or arc pixels differ.
 Unaffected checkpoints verified unchanged include pretip 675 and 712, proof
 668 and 712, plus all card/toss/LIVE checkpoints in the focused harness.
 
-## Pending gates
+## Remaining closure gates
 
-- Formal `New-TipoffVisualProof.ps1` has been updated, syntax-checked, and its
-  derived `HomeSampleLogicalFrame = 661 + 21 + 1 = 683` guard was verified, but
-  it has not been run because it requires a clean tree and produces formal
-  proof output.
+- Formal `New-TipoffVisualProof.ps1` passed on the first attempt at the clean
+  implementation commit. Its derived `HomeSampleLogicalFrame = 661 + 21 + 1
+  = 683` guard, complete frame/log inventories, dimensions, hashes, cadence,
+  and metadata all passed.
 - Broad `Run-GameplaySceneTests.ps1` passed after both authorized fixture-only
   corrections. The live-proof fixture and flow fixture hold/recompute only
   P1/Away input during `JUMP_CONTEST`, clear it otherwise, and preserve the
   real 721-update handoff. The wrapper was run without `-RequirePass`, so its
   manifest is intentionally `DRAFT`.
-- Production Win32 launch smoke passed after `43ab7a7`; final visual
-  inspection and the formal `New-TipoffVisualProof.ps1` run remain Sol-owned
-  gates. No test suite was deleted or weakened.
+- Production Win32 launch smoke and formal visual inspection passed. Independent
+  QA and Sol-branch integration remain pending. No test suite was deleted or
+  weakened.

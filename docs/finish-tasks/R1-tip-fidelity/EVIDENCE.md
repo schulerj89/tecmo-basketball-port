@@ -74,10 +74,11 @@ and tests use those same spans and hashes.
 ## Latest review gate
 
 Sol accepted the source/ABI/pack/test review for the first TIP implementation
-commit. The personal post-rescope gates all exited `0`: `build.ps1` built the
+commit `a37e10207455933be3930e90c55b10b669cb0ef3`, and accepted the clean-commit
+formal proof. The personal post-rescope gates all exited `0`: `build.ps1` built the
 console and Win32 targets with no warning lines;
 `Run-Win32LaunchSmokeTest.ps1` passed explicit console flow plus GUI/console
 production smoke; `Run-GameplayPreTipTests.ps1` passed; and
 `Run-GameplaySceneTests.ps1 -Build` passed with LIVE PROOF DRAFT at
-`build/live-proof-20260803T205847090Z`. Clean-commit formal proof and
-independent QA remain pending.
+`build/live-proof-20260803T205847090Z`. Independent QA and Sol-branch
+integration remain pending.

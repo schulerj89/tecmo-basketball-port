@@ -3,10 +3,11 @@
 ## Review gate
 
 Sol accepted the source/ABI/pack/test review for the first TIP implementation
-commit. The post-rescope build, explicit console-flow and GUI/console Win32
-smoke, focused pre-tip harness, and broad scene suite all passed; clean-commit
-formal proof and independent QA remain pending. The latest broad DRAFT is
-`build/live-proof-20260803T205847090Z`.
+commit `a37e10207455933be3930e90c55b10b669cb0ef3` and accepted its clean-commit
+formal proof. The post-rescope build, explicit console-flow and GUI/console
+Win32 smoke, focused pre-tip harness, and broad scene suite all passed. The
+latest historical broad DRAFT is `build/live-proof-20260803T205847090Z`;
+independent QA and Sol-branch integration remain pending.
 
 ## TPTI-2 payload contract
 

@@ -1,8 +1,8 @@
 # R1 TIP Fidelity — Luna lineage and diagnostic ledger
 
-Status: Sol source/ABI/pack/test review is accepted for the first TIP
-implementation commit. Clean-commit formal proof and independent QA remain
-pending.
+Status: Sol accepted source/ABI/pack/test review and clean-commit formal proof
+for implementation commit `a37e10207455933be3930e90c55b10b669cb0ef3`.
+Independent QA and Sol-branch integration remain pending.
 
 ## Lineage
 
@@ -20,12 +20,16 @@ pending.
   `gpt-5.6-luna/max`, created `2026-08-03T18:37:08Z`. It is the persistent
   pinned/active worker task, reused for every revision, on branch
   `codex/r1-tip-fidelity-luna` in the worktree below, with base/expected parent
-  `222d75cfafa9153db1eb44492bf557f11b1a9091`. It has zero literal bad
-  requests, no commit, and no mutation outside the authorized boundary.
+  `222d75cfafa9153db1eb44492bf557f11b1a9091`. First implementation commit
+  `a37e10207455933be3930e90c55b10b669cb0ef3` exists with that exact parent;
+  the worker has zero literal bad requests and no mutation outside the
+  authorized boundary.
 - Worker worktree: `C:\Users\joshs\Projects\tecmo-basketball-port-r1-tip-fidelity-luna`.
 - Branch: `codex/r1-tip-fidelity-luna`.
 - Base, expected parent, and merge-base: `222d75cfafa9153db1eb44492bf557f11b1a9091`.
-- No commit, merge, rebase, reset, clean, push, or subtask was used.
+- No merge, rebase, reset, destructive clean, push, or subtask was used.
+- At this pre-closure snapshot, the docs-only closure commit is the current
+  pending action; its SHA is intentionally not yet assigned.
 - The later durable clearance authorized only `live_proof_advance_pretip` in
   `src/tecmo_gameplay_live_proof.c`; that function now routes held P1/Away B
   only during `JUMP_CONTEST` and clears it otherwise. No other live-proof line
@@ -126,6 +130,12 @@ exact `os error 2` and `os error 123` signatures.
 | 1 | `read_thread` output truncation: `Warning: truncated output (original token count: 139932) Total output lines: 1` | A large historical task read exceeded the output limit. Recovery used compact/direct reads. | No repository or external-state mutation. |
 | 1 | `read_thread received invalid arguments: turnLimit: Too big: expected number to be <=10.` | A read-only inspection requested 30 turns. Recovery used `turnLimit=10`. | No repository or external-state mutation. |
 
+### Sol-only metadata diagnostic
+
+| Count | Raw signature / purpose | Cause and recovery | State impact |
+|---:|---|---|---|
+| 1 | `SyntaxError: Unexpected identifier 'Tecmo'` | The Sol's first formal-proof/master-checkpoint send payload contained unescaped title delimiters in a JavaScript template literal, so the local `functions.exec` wrapper failed before invoking `codex_app__send_message_to_thread`. Recovery used a quoting-safe plain-string retry, which succeeded to master thread `019fc5d4-f360-78b3-b2a6-c8bae92df690`. | No repository, artifact, worktree, task, or emulator mutation; literal bad-request count remains `0`. |
+
 ### Implementation-turn diagnostics
 
 | Count | Raw signature / purpose | Cause and recovery | State impact |
@@ -185,10 +195,95 @@ exact `os error 2` and `os error 123` signatures.
   `Run-GameplaySceneTests.ps1 -Build` passed with LIVE PROOF DRAFT at
   `build/live-proof-20260803T205847090Z`. This is the accepted source/ABI/
   pack/test review point for the first implementation commit. Clean-commit
-  formal proof and independent QA remain pending.
+  formal proof passed afterward; independent QA and Sol-branch integration
+  remain pending.
+
+## Formal proof closure
+
+Sol accepted the first formal proof on the first attempt at exact implementation
+commit `a37e10207455933be3930e90c55b10b669cb0ef3`, parent
+`222d75cfafa9153db1eb44492bf557f11b1a9091`, branch
+`codex/r1-tip-fidelity-luna`. Invocation:
+
+```powershell
+.\tools\New-TipoffVisualProof.ps1 -ProjectRoot . -RomPath 'C:\Users\joshs\Projects\disassem\Tecmo NBA Basketball (USA) (NES-BK) (Rev 1).nes'
+```
+
+It returned `TIPOFF VISUAL PROOF PASS`, generated UTC
+`2026-08-03T21:08:24.8165649Z`, at
+`build\proof\tipoff-visual-orientation-a37e10207455`. The manifest is
+`proof-manifest.json`, schema `tecmo.tipoff-realtime-proof/2`, SHA-256
+`AAD8EF7AF9F075E5EA1F64B91C6F363A9E2959444D893F6D0C4A760368D11438`; summary
+SHA-256 is
+`1AA8C97B10E31368E28BAEE8232B3B892F2BC6D249F14295040ECD87D74FA78D`.
+The clean-worktree requirement passed.
+
+Formal identity: Rev1 ROM SHA-256
+`076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4`;
+executable `1,981,952` bytes, SHA-256
+`0CA0CDAE6C837ACB2FC0C601D25830EEA1EA6FF74EEC7D0079CAFDEB99602257`,
+freshness passed, warning-clean formal build log; pack `1,406,713` bytes,
+`86` entries, SHA-256
+`A16D873CCBBDEBEFB19F101D34569F6F1CE280943A47221956D3B036BA89FEC4`.
+TPTI-2 is `7,680` bytes/FNV32 `28910BC1`/FNV64 `7EA1596E8DFAC0C1`,
+payload SHA-256
+`C453848A33D6B29046D48ACDB44973D9A93234457C13F4150154F35DEA8F27FB`.
+Proof-script SHA-256 is
+`A92F811E6EADFAEE3876E03FC2EF0725A728437CD8572CBE75F56F27240B2D93`;
+checkpoint-source SHA-256 is
+`C4586F9E36AAE773B47F74340115F85416BEEBDD7267FEDFAA927808D9CC4FDE`.
+
+Inventory pass 1 contained exactly `65` PNGs named `0661..0725`; pass 2 had
+the same `65` plus one facing checkpoint. There were zero name/hash/dimension
+mismatches, every PNG was `640x480`, and `138` logs were nonempty with minimum
+size `196` bytes. No warning/fatal/exception/failed/failure/error-colon match
+occurred; `proof-incomplete.marker` was absent and the worktree stayed clean.
+The `3200x1592` contact sheet SHA-256 is
+`4D29B5323D21B0C0CEACE359AFE6AB55E5EE1A7B54C783629769426D31B5EB95`; left
+edge `448x5108` is
+`4785DD027E8180A145517C824BC4AABEEA064EA39273450E316B3CC39BDB051A`; right
+edge `448x5108` is
+`7E8FF07AB0CF4D1FC3EDDCF582A8F2F82F359EAE03B5729593ADAF62E3B5BBB0`.
+All `65` frames were represented with black outside-active-view host margins.
+Facing `640x480` checkpoint SHA-256 is
+`DDE21802E85DD14AC85F8792CBB9694C0833E5DC103A1C567891B1501F6FA783`,
+deterministic twice.
+
+The MP4 is presentation-only, never acceptance proof: `98,535` bytes, SHA-256
+`4215BBF4733E71D2FFE8EC2D6C16DDF60AF187B7FE1585141320B34BEB8D4C20`,
+`640x480`, `65` decoded/stored frames, average and real rate
+`39375000/655171`, duration `1.081552s` versus expected
+`1.0815521269841271s`; ffmpeg SHA-256
+`D1E2A156261ECC675081943197A85F08F2868784A0AF499171EDE89353EDAD31` and
+ffprobe SHA-256
+`70872C3FFBC43D0B2C570F9837F54D6E9A832F4CA25463E9735B6A3EC0621478`, both
+8.1 full builds.
+
+Runtime evidence observed physical-X fast pulse only at logical `662`, Away
+human sample raw frame/error `0/0`, Home automatic sample at logical `683`
+raw frame/error `21/11`, all `60` contest frames anchor-ordered/inward with
+camera X `256`, contest-frame cap `30`, centered ball through logical `691`,
+then one-pixel-per-update left travel to the `8px` cap, and valid LIVE at
+logical `721` with Away possession/direction-left and holder `0`, continuing
+through `725`.
+
+Sol inspected frames `661`, `662`, `683`, `687`, `696`, `720`, `721`, `725`,
+the contact and edge sheets, and facing checkpoint. Court/HUD/players/jumpers,
+ball, landing, and LIVE handoff were coherent without clipping, corruption,
+snap, or host-margin leakage. Private original-reference sheets were
+`4E4E4D9E9E33CE245E416B84F89B0F18FEA394C2741413AF1496CCE67E6717A5`
+(automatic),
+`01ECAE0D235E1433263CEBC4F828A31700A690C2AB724DF8BE03B6E195125894`
+(simultaneous), and
+`630BC1CA5A0E33AD28257CAB22B5D8B0C5DE3213BC4E2EB90763DEF390E6C29C`
+(human-vs-CPU one-down). Native preserves the accepted `640x480` center-court
+arc and frame-721 handoff; visual trajectory/camera composition is approximate,
+and TTDT/`$7C48` trajectory plus original tie settlement and selector-to-team/
+receiver mapping remain incomplete. Frame 721 is not ROM-exact.
 
 ### Commit-audit diagnostic
 
 | Count | Raw signature / purpose | Cause and recovery | State impact |
 |---:|---|---|---|
 | 1 command, 3 reported lines | Initial `git diff --cached --check` reported `docs/finish-tasks/R1-tip-fidelity/README.md:8: trailing whitespace.`, with the same diagnostic at lines 10 and 11. | Three pre-existing Markdown hard-break spaces were removed from the authorized README; the cached diff check was rerun and passed. | No implementation, repository-state, or external-state impact beyond the authorized documentation cleanup. |
+| 1 | `At line:2 char:200 ... The token '||' is not a valid statement separator in this version.` / `FullyQualifiedErrorId ParserError` | A read-only documentation audit used the Bash `||` separator under Windows PowerShell. Recovery used explicit PowerShell-compatible control flow. | No repository or external-state mutation; literal bad-request count remains `0`. |
