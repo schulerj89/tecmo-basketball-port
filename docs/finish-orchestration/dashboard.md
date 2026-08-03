@@ -1,14 +1,14 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T16:34:55Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T16:43:46Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
 - Base SHA: `63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e`
 - Inventory: `complete`
 - Project acceptance: `incomplete`
-- Open external blockers: `1`
-- Task states: `backlog` 14, `in_progress` 3, `luna_revision` 1, `pushed` 5, `ready_for_round_staging` 1, `scoped` 1
+- Open external blockers: `0`
+- Task states: `backlog` 14, `in_progress` 2, `luna_revision` 2, `pushed` 5, `ready_for_round_staging` 1, `scoped` 1
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
@@ -22,10 +22,10 @@ Generated from committed JSON at `2026-08-03T16:34:55Z`. This dashboard reports 
 
 | Lane | Domain | Readiness | Dependencies | Tasks | Sol | Branch | Next gate |
 |---|---|---|---|---|---|---|---|
-| LANE-R1-GAMEPLAY-FOUNDATION | gameplay_foundation | active | sequentially_active | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | Repinned independent QA Luna audits exact terminal LIVE chain ad0f005->e2333db8->6a16422b, including clean -RequirePass proof and Win32 smoke; then same-worker corrections if needed, Sol acceptance/ff-only LIVE integration, sequential TIP execution, and Round 1 integration QA. |
-| LANE-R3-SEASON-DATA-FOUNDATION | season_data | active | ready | R3-SEASON-DATA-FOUNDATION | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | Independent pinned read-only QA Luna 019fc869-9412-7d72-8534-f81c1d63275b audits immutable candidate 15946f58 after the green Sol personal build/harness/frame gate; then same-worker evidence-doc closure, Sol acceptance, and ff-only Sol-branch integration. |
+| LANE-R1-GAMEPLAY-FOUNDATION | gameplay_foundation | active | sequentially_active | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | Independent QA accepts LIVE code/proof with P0=0/P1=0. Same implementation Luna corrects exactly two P2 PROOF.md items plus QA lineage; same QA Luna verifies final doc tip; then Sol accepts/integrates ff-only and reports unpins before TIP activation. |
+| LANE-R3-SEASON-DATA-FOUNDATION | season_data | active | ready | R3-SEASON-DATA-FOUNDATION | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | Code candidate 15946f58 is Sol- and independent-QA-accepted with no findings. Same implementation Luna makes README-only evidence closure; same QA Luna reviews final doc tip; then Sol accepts/integrates ff-only and reports exact lineage/unpins. |
 | LANE-R4-FRONTEND-INTRO-TITLE | frontend | active | ready | R4-FRONTEND-INTRO-TITLE | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | Native hardening is Sol-accepted/integrated first at 761e061f and its worker is unpinned. Finale/title fidelity remains active; then the pinned proof worker revises fee87cfd against the corrected integrated boundary before remaining Sol review, independent QA, and domain acceptance. |
-| LANE-R4-AUDIO-FOUNDATION | audio | active | ready | R4-AUDIO-FOUNDATION | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | Independent QA completes its initial 51790b83 report, then the same clean detached QA lineage moves to revised candidate 4ddb1bf3 for terminal verification; writer reconciles docs/findings, Sol completes objective acceptance, and external listening sign-off or substitute authorization remains required via S-BLOCKERS-001. |
+| LANE-R4-AUDIO-FOUNDATION | audio | active | ready | R4-AUDIO-FOUNDATION | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | Human listening is approved. Same writer adds the initial QA-requested order/vector/RIFF/event/run2/provenance proof assertions; same detached QA lineage, now clean at 4ddb1bf3, performs revised-tip verification; then Sol completes terminal acceptance/integration. |
 
 ## Rounds
 
@@ -48,7 +48,7 @@ Generated from committed JSON at `2026-08-03T16:34:55Z`. This dashboard reports 
 | 100 | R1-CPU-PLAY-LIFECYCLE | gameplay_behavior | R1 | ready_for_round_staging | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | not_ready |
 | 100 | R2-SHOTS-OUTCOMES | gameplay_behavior | R2 | backlog | - | - | 0 | pending | not_ready |
 | 100 | R3-PLAYER-STATS-LEADERS | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
-| 100 | R3-SEASON-DATA-FOUNDATION | season_data | R3 | in_progress | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | 0 | in_progress | not_ready |
+| 100 | R3-SEASON-DATA-FOUNDATION | season_data | R3 | luna_revision | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | 0 | luna_revision | not_ready |
 | 100 | R4-FRONTEND-INTRO-TITLE | frontend | R4 | in_progress | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | 0 | in_progress | not_ready |
 | 100 | R5-ASSET-BUILD-PROVENANCE | assets_build | R5 | backlog | - | - | 0 | pending | not_ready |
 | 99 | R0A-ADOPT-CPU-TIP | gameplay_behavior | R0A | pushed | S-SOL-CPU-TIP-LEGACY | codex/cpu-tipoff-behavior | 1 | historical_sol_accepted | pushed |
@@ -78,7 +78,6 @@ Generated from committed JSON at `2026-08-03T16:34:55Z`. This dashboard reports 
 | S-SOL-R3-SEASON-DATA-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R3-SEASON-DATA-FOUNDATION | codex/r3-season-data-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r3-season-data-foundation-sol | 6d8f9c7a99a7 |
 | S-SOL-R4-FRONTEND-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R4-FRONTEND-INTRO-TITLE | codex/r4-frontend-intro-title-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r4-frontend-intro-title-sol | 761e061fdea1 |
 | S-SOL-R4-AUDIO-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R4-AUDIO-FOUNDATION | codex/r4-audio-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r4-audio-foundation-sol | 6d8f9c7a99a7 |
-| S-BLOCKERS-001 | emergency_blocker | gpt-5.6-luna/high | idle | pinned | R4-AUDIO-FOUNDATION | - | - | 6d8f9c7a99a7 |
 
 ## Active Ownership
 
@@ -94,7 +93,7 @@ Generated from committed JSON at `2026-08-03T16:34:55Z`. This dashboard reports 
 
 | Blocker | Task | Category | Status | Required action |
 |---|---|---|---|---|
-| BLOCK-R4-AUDIO-LISTENING-001 | R4-AUDIO-FOUNDATION | material_product_decision | open | Listen to the WAV and report approval or defect timestamps for opening/tail/end, music loops/stinger, cue separability, mixed override, and TDMC held/retrigger/stop windows; alternatively explicitly authorize objective waveform/spectrum/event inspection as the accepted substitute for this round. |
+| BLOCK-R4-AUDIO-LISTENING-001 | R4-AUDIO-FOUNDATION | material_product_decision | resolved | Listen to the WAV and report approval or defect timestamps for opening/tail/end, music loops/stinger, cue separability, mixed override, and TDMC held/retrigger/stop windows; alternatively explicitly authorize objective waveform/spectrum/event inspection as the accepted substitute for this round. |
 
 ## Completion Matrix
 

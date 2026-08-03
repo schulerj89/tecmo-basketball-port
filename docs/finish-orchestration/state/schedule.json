@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T16:34:55Z",
+  "updated_at": "2026-08-03T16:43:46Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -33,8 +33,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1-gameplay-foundation-sol",
       "ownership_claim_ids": ["OWN-R1-LIVE", "OWN-R1-TIP"],
       "blockers": [],
-      "next_gate": "Repinned independent QA Luna audits exact terminal LIVE chain ad0f005->e2333db8->6a16422b, including clean -RequirePass proof and Win32 smoke; then same-worker corrections if needed, Sol acceptance/ff-only LIVE integration, sequential TIP execution, and Round 1 integration QA.",
-      "updated_at": "2026-08-03T16:27:29Z"
+      "next_gate": "Independent QA accepts LIVE code/proof with P0=0/P1=0. Same implementation Luna corrects exactly two P2 PROOF.md items plus QA lineage; same QA Luna verifies final doc tip; then Sol accepts/integrates ff-only and reports unpins before TIP activation.",
+      "updated_at": "2026-08-03T16:40:36Z"
     },
     {
       "lane_id": "LANE-R3-SEASON-DATA-FOUNDATION",
@@ -51,8 +51,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3-season-data-foundation-sol",
       "ownership_claim_ids": ["OWN-R3-SEASON-DATA-FOUNDATION"],
       "blockers": [],
-      "next_gate": "Independent pinned read-only QA Luna 019fc869-9412-7d72-8534-f81c1d63275b audits immutable candidate 15946f58 after the green Sol personal build/harness/frame gate; then same-worker evidence-doc closure, Sol acceptance, and ff-only Sol-branch integration.",
-      "updated_at": "2026-08-03T16:17:05Z"
+      "next_gate": "Code candidate 15946f58 is Sol- and independent-QA-accepted with no findings. Same implementation Luna makes README-only evidence closure; same QA Luna reviews final doc tip; then Sol accepts/integrates ff-only and reports exact lineage/unpins.",
+      "updated_at": "2026-08-03T16:39:17Z"
     },
     {
       "lane_id": "LANE-R4-FRONTEND-INTRO-TITLE",
@@ -86,9 +86,9 @@
       "branch": "codex/r4-audio-foundation-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4-audio-foundation-sol",
       "ownership_claim_ids": ["OWN-R4-AUDIO-FOUNDATION"],
-      "blockers": ["BLOCK-R4-AUDIO-LISTENING-001"],
-      "next_gate": "Independent QA completes its initial 51790b83 report, then the same clean detached QA lineage moves to revised candidate 4ddb1bf3 for terminal verification; writer reconciles docs/findings, Sol completes objective acceptance, and external listening sign-off or substitute authorization remains required via S-BLOCKERS-001.",
-      "updated_at": "2026-08-03T16:34:55Z"
+      "blockers": [],
+      "next_gate": "Human listening is approved. Same writer adds the initial QA-requested order/vector/RIFF/event/run2/provenance proof assertions; same detached QA lineage, now clean at 4ddb1bf3, performs revised-tip verification; then Sol completes terminal acceptance/integration.",
+      "updated_at": "2026-08-03T16:43:46Z"
     }
   ]
 }
