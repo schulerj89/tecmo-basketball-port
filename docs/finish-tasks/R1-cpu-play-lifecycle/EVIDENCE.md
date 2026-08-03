@@ -10,7 +10,7 @@ source-pinned; `inferred` means only a conservative descriptive label;
 | Input | Identity | Use | Confidence |
 | --- | --- | --- | --- |
 | Canonical Rev1 iNES ROM | SHA-256 `076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4`; full-ROM FNV1a32 `0650F5B0` | importer/research/test only | exact |
-| FCEUX reference binary | SHA-256 `F89812F4E9506EF7090D9D0310D368ABD79BACA362B7BFC4A2E7E499754F2A1B` | private trace tool lock | exact identity gate; accepted eleventh draft run; formal final run pending |
+| FCEUX reference binary | SHA-256 `F89812F4E9506EF7090D9D0310D368ABD79BACA362B7BFC4A2E7E499754F2A1B` | private trace tool lock | exact identity gate; accepted draft and formal PASS |
 | TGAI-1 payload | 7616 bytes; FNV1a32 `D6C4DB35` | runtime semantic asset boundary | exact |
 | TGMO-1 dependency | 1664 bytes; FNV1a32 `6C82A137` | same-pack dependency | exact existing contract |
 
@@ -177,9 +177,9 @@ differ; native output remains legacy harness/formation regression evidence, not
 one-to-one parity or scene integration.
 
 The warning-clean Win32 production smoke also passed with project-root,
-subsystem, icon, startup, lifetime, and clean-shutdown checks. Formal generated
-manifest acceptance remains pending a clean committed `-RequirePass` run and
-independent QA; this draft evidence does not claim either.
+subsystem, icon, startup, lifetime, and clean-shutdown checks. At the time of
+the draft snapshot, formal proof had not yet run; that historical state is
+superseded by the formal PASS and independent QA closure below.
 
 ## Personal raw-ROM reinspection
 
@@ -192,3 +192,36 @@ five. Bank04 `$ACD9` is the fixed-link producer and `$ADD6-$ADDF` is
 timing bytes `$84B4-$84B6 = 12 1C 28`. These observations reinforce the
 existing exact-source classifications; they do not promote inferred handler
 intent, native harness output, or scene integration to exact parity.
+
+## Formal clean proof and independent QA closure
+
+The formal clean proof passed at
+`temp-videos/gameplay-lab/cpu-lifecycle/20260803-053244/`, generated UTC
+`2026-08-03T10:33:08.4555394Z`, with status `pass`, base
+`6d8f9c7a99a7ce188f1a523247d3a9b9093860fb`, and proven final/code-doc HEAD
+`8be7a9f9a11d43e68b090a98af122758885931fd` on the pinned worker branch. The
+tracked and nonignored worktree was clean, personal inspection was complete,
+and no pending metadata remained. The formal manifest is SHA-256
+`E7C9E6C9210D398DADC82715779A1389DF881643D109A0FDB091EBAFA523254A`; the
+summary is SHA-256
+`78C91AAF981C075BF9088EE4618EBB73CDB740DF08E12B5AC1D5E125C5419252`.
+It contains 102 session files, 100 inventoried artifacts, 36 nonempty logs, no
+empty files, and `33,650,575` bytes. The formal identity gates are ROM
+`076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4`, FCEUX
+`F89812F4E9506EF7090D9D0310D368ABD79BACA362B7BFC4A2E7E499754F2A1B`, fresh
+pack `8916A549E804AFF083B42989E898A92189A1226C192A644660B19812519C8141`
+(`1,397,729` bytes), and TGAI-1 `7,616` bytes/FNV1a32 `D6C4DB35`. The two
+original runs and native/video facts were reproven deterministically.
+
+Independent final QA was performed by thread
+`019fc628-0b32-7e83-b969-b41990b36e9b`, `gpt-5.6-luna/max`, repinned for
+read-only final QA. It accepted implementation/code-doc HEAD
+`8be7a9f9a11d43e68b090a98af122758885931fd` with no P0/P1 findings. The only
+finding was this bounded P2 documentation-state revision. QA reran the static
+lab and focused CPU wrapper with the canonical Rev1 ROM and worker project
+root; both passed, including 680 commands, 24 handlers, and 17 ROM mutation
+rejections. QA reported a clean tree, zero bad-request faults, no mutation,
+and no FCEUX/private proof. Formal proof limitations remain: dynamic policy,
+workspace effects, and normal scene integration are deferred; native video is
+deterministic legacy-harness regression evidence, not one-to-one original
+parity.

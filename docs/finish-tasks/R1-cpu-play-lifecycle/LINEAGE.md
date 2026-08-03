@@ -5,18 +5,20 @@
 | Role | Thread/session | Branch/worktree | State |
 | --- | --- | --- | --- |
 | Authoritative Sol | `019fc61e-0f2a-7fb0-a76e-e4676808c959` | `codex/r1-gameplay-foundation-sol` / `C:\Users\joshs\Projects\tecmo-basketball-port-r1-gameplay-foundation-sol` | owns acceptance and final proof |
-| Current pinned Luna | `019fc63f-dada-7de2-bae3-9e809126ccbe` | `codex/r1-cpu-play-lifecycle-luna` / `C:\Users\joshs\Projects\tecmo-basketball-port-r1-cpu-play-lifecycle-luna` | `gpt-5.6-luna`, max; pinned; worker commit `db5a043244361b3e9bbab2e154c7f14e4a4a5014`; formal acceptance pending |
+| Current pinned Luna | `019fc63f-dada-7de2-bae3-9e809126ccbe` | `codex/r1-cpu-play-lifecycle-luna` / `C:\Users\joshs\Projects\tecmo-basketball-port-r1-cpu-play-lifecycle-luna` | `gpt-5.6-luna`, max; pinned; implementation/evidence `db5a043244361b3e9bbab2e154c7f14e4a4a5014`; formal proof/QA accepted at `8be7a9f9a11d43e68b090a98af122758885931fd`; docs closure terminal SHA reported externally |
 | Trace/QA research Luna | `019fc628-0b32-7e83-b969-b41990b36e9b` | `Tecmo R1 CPU Lifecycle -- Trace and QA`; read-only research | `gpt-5.6-luna`, max; completed/accepted/unpinned; supplied route/trace hooks and selector evidence |
 | Original-stream research Luna | `019fc628-0649-7c53-8153-31f8cb75c30d` | `Tecmo R1 CPU Lifecycle -- Original Stream`; read-only research | `gpt-5.6-luna`, max; completed/accepted/unpinned; supplied corpus/handler/transport evidence |
 
 The current Luna was created at `2026-08-03T06:11:41Z` with the title
 `Tecmo R1 CPU Play Lifecycle -- Native Engine Implementation -- Luna Max`.
-The worker is pinned to this exact branch/worktree/base and has made no
-mutation, commit, merge, rebase, push, task creation, or pin change outside
-the CPU-owned boundary. Both research Lunas completed and were accepted before
-being unpinned; neither mutated a worktree or committed. The lineage records
-zero literal `{detail: bad request}` faults and zero confirmed equivalents.
-`gpt-5.6-luna`/max, no-subagent rule, and CPU-only ownership remain active.
+The worker remains pinned to this exact branch/worktree/base and has made no
+merge, rebase, push, task creation, or pin change outside the CPU-owned
+boundary. Its implementation/evidence commits are recorded in the ordered
+history; this turn is a docs-only closure revision. Both research Lunas
+completed and were accepted before being unpinned; neither mutated a worktree
+or committed. The lineage records zero literal `{detail: bad request}` faults
+and zero confirmed equivalents. `gpt-5.6-luna`/max, no-subagent rule, and
+CPU-only ownership remain active.
 
 ## Revision and review history
 
@@ -283,22 +285,51 @@ zero literal `{detail: bad request}` faults and zero confirmed equivalents.
    readable HUD/court/crowd, moving sprites, black margins, and no corruption.
    Team, clock, framing, and scenario differ, so native remains deterministic
    legacy harness/formation regression evidence, not parity or scene
-   integration proof. Win32 production smoke passed; formal generated-manifest
-   acceptance, clean committed `-RequirePass`, and independent QA remain
-   pending.
+   integration proof. Win32 production smoke passed. At the draft snapshot,
+   formal generated-manifest acceptance, clean committed `-RequirePass`, and
+   independent QA were still pending; the subsequent formal closure below
+   supersedes that historical state.
+26. The formal clean proof passed at
+    `temp-videos/gameplay-lab/cpu-lifecycle/20260803-053244/`, generated UTC
+    `2026-08-03T10:33:08.4555394Z`, with `status=pass`, base
+    `6d8f9c7a99a7ce188f1a523247d3a9b9093860fb`, and proven code/doc HEAD
+    `8be7a9f9a11d43e68b090a98af122758885931fd` on the pinned worker branch.
+    Tracked and nonignored state was clean, personal inspection was complete,
+    and no pending metadata remained. The formal manifest SHA-256 is
+    `E7C9E6C9210D398DADC82715779A1389DF881643D109A0FDB091EBAFA523254A`; the
+    summary SHA-256 is
+    `78C91AAF981C075BF9088EE4618EBB73CDB740DF08E12B5AC1D5E125C5419252`.
+    The session contains 102 files, 100 inventoried artifacts, 36 nonempty
+    logs, zero empty files, and `33,650,575` bytes. ROM/FCEUX/fresh-pack/TGAI
+    identities are the exact values recorded in `EVIDENCE.md`.
+27. Independent final QA was performed by thread
+    `019fc628-0b32-7e83-b969-b41990b36e9b`, `gpt-5.6-luna/max`, repinned for
+    read-only final QA. It accepted `8be7a9f9a11d43e68b090a98af122758885931fd`
+    with no P0/P1 findings; the sole finding was this bounded docs-only P2
+    revision. `Test-GameplayLab.ps1` and the focused wrapper passed with 680
+    commands, 24 handlers, and 17 ROM mutation rejections. QA reported a clean
+    tree, zero bad-request faults, no mutation, and no FCEUX/private proof.
+28. This worker turn is a docs-only closure revision atop the independently
+    proven `8be7a9f9a11d43e68b090a98af122758885931fd` code/doc HEAD. The closure
+    commit's own SHA is intentionally reported in the terminal handoff rather
+    than self-embedded. Sol integration remains fast-forward-only from the
+    expected base; no master merge or push is claimed here.
 
 ## Fault ledger
 
 No literal `{detail: bad request}` fault or confirmed equivalent occurred in
-this task. Twenty-two recoverable local-tool diagnostics occurred: two ordinary
+this task. Twenty-eight recoverable local-tool diagnostics occurred: two ordinary
 worker diagnostics from the earlier pass, five current patch-context
 diagnostics, one current process/progress assertion patch-context diagnostic,
 one current TESTS documentation patch-context diagnostic, and one current
 static-assertion quoting diagnostic, plus four fifth-rehearsal trace/static
 diagnostics, one ninth-rehearsal native dictionary diagnostic, one tenth-rehearsal
-native video cadence diagnostic, and one current
-inspection-command regex diagnostic. None changed
-files or external state:
+native video cadence diagnostic, one current inspection-command regex
+diagnostic, one current wildcard-path diagnostic, one current docs-closure
+bundle patch-context diagnostic, one current docs-closure section-inspection
+PowerShell parse diagnostic, one final docs-audit false-positive marker
+diagnostic, and two docs-closure fault-ledger patch-context diagnostics. None
+changed files or external state:
 
 | Diagnostic | Raw signature/command | Result |
 | --- | --- | --- |
@@ -322,6 +353,11 @@ files or external state:
 | Ninth rehearsal native frame dictionary | Raw signature: `ArgumentOutOfRangeException: Specified argument was out of the range of valid values, parameter index.`; isolated reproduction was `([ordered]@{})[25]='x'` | All four native dictionary accesses now use the canonical D4 string key; no FCEUX/private proof was rerun |
 | Tenth rehearsal native video cadence | Raw signature: primary ffprobe returned `avg_frame_rate=719503/11972` instead of exact `39375000/655171`; dimensions and both frame counts were correct | Added `-video_track_timescale 39375000`; validation now requires `r_frame_rate`, `avg_frame_rate`, `time_base`, `nb_frames`, and `nb_read_frames` exact values |
 | Current inspection-command regex | Raw signature: `rg: regex parse error: (?:\|\|\) unclosed group` from an over-escaped read-only inspection pattern | The inspection was reissued with a literal alternation; no file or external state changed |
+| Current wildcard-path inspection | Raw signature: `rg: ... docs/finish-tasks/R1-cpu-play-lifecycle/*.md: The filename, directory name, or volume label syntax is incorrect. (os error 123)` | No mutation; the inspection was corrected to the directory-scoped command `rg ... docs/finish-tasks/R1-cpu-play-lifecycle` |
+| Current docs-closure bundle patch context | Raw signature: `apply_patch verification failed: Failed to find expected lines in ... EVIDENCE.md`; one bundled docs-closure patch did not match the current formal-evidence context | No files changed; the patch was split into smaller README/EVIDENCE/PROOF/template edits and reapplied successfully |
+| Current docs-closure section inspection marker | Raw signature: `Variable reference is not valid. ':' was not followed by a valid variable name character. Consider using ${} to delimit the name.` (`FullyQualifiedErrorId=InvalidVariableReferenceWithDrive`) from a read-only PowerShell section dump | No files changed; the inspection was corrected to use `${f}` and rerun read-only |
+| Additional current fault-ledger patch context (count 2) | Raw signature: `apply_patch verification failed: Failed to find expected lines in ... LINEAGE.md`; two combined fault-ledger updates did not match the already-updated line wrapping/case | No files changed; the exact current ledger block was re-read before the successful narrow update |
+| Final docs-audit false-positive marker | Raw signature: `bad-request fault claim regressed` from an overbroad read-only assertion that matched the honest zero-fault sentence | No files changed; the assertion was corrected to test the exact zero-fault statement and the ledger's explicit diagnostic rows |
 
 None changed files, created a task, altered pins, or caused an external retry.
 The research Lunas likewise report zero bad-request faults, no mutation, and
@@ -387,8 +423,9 @@ the proof/output directory.
 ## Pins and ownership
 
 The worker is pinned to the CPU-owned path families only. Existing dirty legacy
-worktrees, especially the TIP input worker, are preserved. The Sol owns final
-acceptance, source-map compatibility, master integration, and formal final
-proof. Sol's draft source/trace/visual inspection is complete and recorded in
-the accepted eleventh-session entries above; formal independent QA and clean
-`-RequirePass` acceptance remain pending.
+worktrees, especially the TIP input worker, are preserved. Formal clean proof
+and independent QA are complete at proven code/doc HEAD
+`8be7a9f9a11d43e68b090a98af122758885931fd`; Sol owns source-map compatibility
+and master integration. This turn's docs-only closure commit is reported
+externally because its own SHA cannot be self-embedded. Dynamic policy,
+workspace effects, and normal scene integration remain deferred to `R1-LIVE`.

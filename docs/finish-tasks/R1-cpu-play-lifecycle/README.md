@@ -1,8 +1,10 @@
 # R1-CPU-PLAY-LIFECYCLE task contract
 
-Status: Sol-accepted `DRAFT_PASS` evidence is recorded in worker commit
-`db5a043244361b3e9bbab2e154c7f14e4a4a5014`; formal clean
-`-RequirePass`/final proof and Sol integration remain separate gates.
+Status: Formal clean proof and independent QA passed at proven code/doc HEAD
+`8be7a9f9a11d43e68b090a98af122758885931fd`. The accepted historical
+`DRAFT_PASS` evidence is recorded in worker commit
+`db5a043244361b3e9bbab2e154c7f14e4a4a5014`; this docs-only closure commit is
+the terminal worker state, while Sol master integration remains separate.
 
 | Field | Value |
 | --- | --- |
@@ -49,22 +51,28 @@ FNV1a32 `D6C4DB35`; the source-map and import-layout contracts are untouched.
   deferred later boundaries.
 - [LINEAGE.md](LINEAGE.md) -- Sol/Luna history, revisions, review corrections,
   pins, and fault register.
-- [TESTS.md](TESTS.md) -- exact commands, expected outputs, and draft results.
+- [TESTS.md](TESTS.md) -- exact commands, expected outputs, draft chronology,
+  and formal closure results.
 - [PROOF.md](PROOF.md) -- private original/native proof protocol and limitations.
-- [proof-manifest.template.json](proof-manifest.template.json) -- generated-proof
-  manifest shape with explicit pending fields.
-- [MERGE.md](MERGE.md) -- final commit and Sol-owned merge placeholders.
+- [proof-manifest.template.json](proof-manifest.template.json) -- template-only
+  manifest shape; its pending fields are never generated proof metadata.
+- [MERGE.md](MERGE.md) -- ordered commits and exact fast-forward-only Sol
+  integration instructions.
 
 ## Acceptance boundary
 
 The isolated lifecycle acceptance evidence is the strict importer/semantic
-contract plus the accepted eleventh `DRAFT_PASS` source-pinned original trace.
-Native PNGs, contact sheets, and video are continuity/regression evidence only.
-The current production scene continues to use the previously accepted native
-harness/formation approximation and does not consume these command offsets or
-the isolated lifecycle state. Sol's source, trace, and visual inspection of
-the draft evidence is recorded in `EVIDENCE.md`; formal clean `-RequirePass`
-and final manifest acceptance remain pending.
+contract plus the formal clean source-pinned original proof at
+`8be7a9f9a11d43e68b090a98af122758885931fd`. The accepted eleventh
+`DRAFT_PASS` is retained as chronology. Native PNGs, contact sheets, and video
+are continuity/regression evidence only. The current production scene
+continues to use the previously accepted native harness/formation
+approximation and does not consume these command offsets or the isolated
+lifecycle state. Sol's source, trace, visual, and independent QA inspection is
+recorded in `EVIDENCE.md`; formal clean proof and QA both passed, with the
+docs-only closure commit reported externally because its hash cannot be
+self-embedded. Dynamic policy/workspace effects and normal scene integration
+remain deferred to `R1-LIVE`.
 
 ## Legal and provenance boundary
 

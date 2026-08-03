@@ -1,8 +1,9 @@
 # R1 CPU lifecycle proof protocol
 
 This is the reproduction contract for the accepted eleventh `DRAFT_PASS`
-session and for the later formal clean proof. The accepted session is recorded
-in `EVIDENCE.md`; generated artifacts belong under ignored
+session and the formal clean proof that passed at proven code/doc HEAD
+`8be7a9f9a11d43e68b090a98af122758885931fd`. Both sessions are recorded in
+`EVIDENCE.md`; generated artifacts belong under ignored
 `temp-videos/gameplay-lab/cpu-lifecycle/<timestamp>/` or an equivalent ignored
 `build/proof` directory and must never be committed.
 
@@ -114,11 +115,13 @@ normal-flow integration, and shot outcomes remain outside this proof.
 
 ## Required manifest fields
 
-The generated manifest must carry base SHA
-`6d8f9c7a99a7ce188f1a523247d3a9b9093860fb`, the eventual final SHA (or an
-explicit pending placeholder before commit), pack/TGAI identity, ROM and FCEUX
+The formal generated manifest carries base SHA
+`6d8f9c7a99a7ce188f1a523247d3a9b9093860fb`, proven final/code-doc HEAD
+`8be7a9f9a11d43e68b090a98af122758885931fd`, pack/TGAI identity, ROM and FCEUX
 fingerprints, exact input schedule, output resolutions, frame numbers and
 timestamps, command lines, tool hashes/versions, artifact hashes, pass/fail
-state, and the limitations above. The accepted draft records
-`personal_sol_inspection=complete`; formal final manifest acceptance and the
-post-commit `-RequirePass` run remain pending.
+state, complete personal inspection, and the limitations above. The checked-in
+`proof-manifest.template.json` remains template-only; its pending placeholders
+are not generated proof metadata. The subsequent worker docs-closure commit
+is docs-only and its terminal SHA is reported in the final handoff rather than
+self-embedded.

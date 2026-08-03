@@ -1,5 +1,7 @@
 {
   "schema": "tecmo.r1-cpu-play-lifecycle-proof/2",
+  "document_kind": "TEMPLATE_ONLY_NOT_GENERATED_PROOF",
+  "template_notice": "Template only; pending fields are not generated proof metadata.",
   "status": "PENDING_PRIVATE_RUN",
   "task": "R1-CPU-PLAY-LIFECYCLE",
   "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",

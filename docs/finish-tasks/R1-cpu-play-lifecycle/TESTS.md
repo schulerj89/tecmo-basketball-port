@@ -1,4 +1,4 @@
-# R1 CPU lifecycle tests and draft proof commands
+# R1 CPU lifecycle tests and proof commands
 
 ## Prerequisites
 
@@ -343,8 +343,56 @@ HUD, court, crowd, sprites, framing, and black margins are readable with no
 corruption. The teams/scenarios differ, so native remains continuity evidence,
 not parity or scene-integration proof. Win32 production smoke also passed.
 
-Formal generated-manifest acceptance, a clean committed `-RequirePass` run,
-and independent QA remain pending; no final proof claim is made here.
+At generation this draft record correctly left formal generated-manifest
+acceptance, a clean committed `-RequirePass` run, and independent QA pending.
+That historical state is superseded by the formal closure below.
+
+## Formal clean proof and independent QA closure
+
+The clean formal proof passed at
+`temp-videos/gameplay-lab/cpu-lifecycle/20260803-053244/`, generated UTC
+`2026-08-03T10:33:08.4555394Z`, with `status=pass`, base
+`6d8f9c7a99a7ce188f1a523247d3a9b9093860fb`, and proven code/doc HEAD
+`8be7a9f9a11d43e68b090a98af122758885931fd` on the pinned worker branch. The
+tracked and nonignored tree was clean, personal inspection was complete, and
+no pending metadata remained. The manifest is
+`E7C9E6C9210D398DADC82715779A1389DF881643D109A0FDB091EBAFA523254A`; the
+summary is
+`78C91AAF981C075BF9088EE4618EBB73CDB740DF08E12B5AC1D5E125C5419252`.
+The session contains 102 files, 100 inventoried artifacts, 36 nonempty logs,
+zero empty files, and `33,650,575` bytes. Its exact ROM, FCEUX, fresh-pack,
+TGAI, original, native, and video identities are recorded in `EVIDENCE.md`.
+
+The formal proof command was the bounded private command below, with the
+canonical Rev1 ROM and FCEUX 2.6.6 paths supplied privately:
+
+```powershell
+powershell.exe -NoProfile -File .\tools\gameplay-lab\Run-GameplayCpuLifecycleProof.ps1 `
+  -RomPath '<CANONICAL_REV1_ROM.nes>' `
+  -FceuxPath '<FCEUX_2.6.6.exe>' `
+  -Build -RequirePass -RequireVideo
+```
+
+Independent final QA was performed by thread
+`019fc628-0b32-7e83-b969-b41990b36e9b`, `gpt-5.6-luna/max`, repinned for
+read-only final QA. It accepted `8be7a9f9a11d43e68b090a98af122758885931fd`
+with no P0/P1 findings; the only finding was this bounded docs-only closure.
+The exact QA commands passed:
+
+```powershell
+powershell.exe -NoProfile -File .\tools\gameplay-lab\Test-GameplayLab.ps1
+powershell.exe -NoProfile -File .\tools\Run-GameplayCpuSteeringTests.ps1 `
+  -Build -RomPath '<CANONICAL_REV1_ROM.nes>' `
+  -ProjectRoot '<WORKER_PROJECT_ROOT>'
+```
+
+The QA result was `680` commands, `24` handlers, and `17` ROM mutation
+rejections, with a clean tree, zero bad-request faults, no mutation, and no
+FCEUX/private proof. Formal acceptance is complete at `8be7...`; this worker
+turn adds only task documentation, whose terminal commit SHA is reported in
+the handoff because it cannot be self-embedded. Dynamic policy/workspace
+effects, normal scene integration, and one-to-one native/original parity
+remain deferred as stated in `PROOF.md`.
 
 ## Static lab command
 
@@ -409,14 +457,14 @@ are also recorded in `LINEAGE.md` and must remain visible in the static suite:
 | Final progress or speed-mode evidence missing | `CPU lifecycle boot progress sentinel/watchdog is missing or uses buffered files` |
 | Nonignored untracked proof inputs accepted under `-RequirePass` | `CPU lifecycle Git cleanliness/final-SHA/pending-metadata contract is missing` |
 
-The Lua parser executable was not present as a local command (`lua`, `luac`,
-and `fceux` were not discoverable), so Lua runtime syntax remains a private
-FCEUX-run gate rather than a claim of local emulator validation.
+The standalone Lua parser executable was not present as a local command
+(`lua`, `luac`, and `fceux` were not discoverable). This remained a local-tool
+limitation; the formal FCEUX proof run passed separately.
 
-## Proposed private original/native proof command
+## Reproduction command (formal run already executed; no rerun in this turn)
 
-Do not run this automatically from static or CPU focused tests. Sol must choose
-the private tool paths and approve the run:
+Do not run this automatically from static or CPU focused tests. The command is
+shown for reproducibility; the formal run used privately supplied tool paths.
 
 ```powershell
 .\tools\gameplay-lab\Run-GameplayCpuLifecycleProof.ps1 `
@@ -425,7 +473,7 @@ the private tool paths and approve the run:
   -Build -RequirePass -RequireVideo
 ```
 
-For a final `-RequirePass` run, Sol must first set
+For a future `-RequirePass` rerun, Sol must first set
 `$env:TECMO_CPU_LIFECYCLE_PERSONAL_SOL_INSPECTION='complete'`; the runner also
 requires tracked and untracked nonignored worktree state to be clean and uses
 the current Git HEAD as `final_sha`. `-RequirePass` also requires
@@ -457,11 +505,11 @@ native harness/formation approximation. Integration remains R1-LIVE.
 | TGAI-1 size/FNV identity | passed by focused wrapper |
 | 680-record/opcode/handler/formation/route/play/shot goldens | passed by focused wrapper |
 | Gameplay-lab static CPU proof checks | passed; new CPU surface and closed shot profiles both checked |
-| Original FCEUX trace | accepted eleventh `DRAFT_PASS`; formal clean `-RequirePass`/final manifest pending |
-| Native contiguous render/repeat/contact sheets | accepted draft; original sheets 768x896, native sheet 1920x1920 |
-| ffmpeg/ffprobe dual MP4 cadence/equal-hash check | accepted draft; `-video_track_timescale 39375000`, JSON `r_frame_rate`/`avg_frame_rate`/`time_base`, and both frame counts validated |
-| Nonempty deterministic log inventory | accepted draft; 100 artifacts and 36 nonempty runner-metadata logs |
-| Personal Sol inspection | completed for draft source/trace/visual evidence; formal independent QA pending |
+| Original FCEUX trace | formal clean `-RequirePass` passed; two deterministic runs and source-pinned evidence accepted |
+| Native contiguous render/repeat/contact sheets | formal pass; original sheets 768x896, native sheet 1920x1920 |
+| ffmpeg/ffprobe dual MP4 cadence/equal-hash check | formal pass; timescale, exact rate/time-base, dimensions, and both frame counts validated |
+| Nonempty deterministic log inventory | formal pass; 100 artifacts and 36 nonempty runner-metadata logs |
+| Personal Sol inspection | complete; independent QA accepted with only this docs-only P2 closure |
 
 No ROM, decomp/ASM, FCEUX binary, capture, asset pack, PNG, video, or private
 absolute path belongs in the commit.
