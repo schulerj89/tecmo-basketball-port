@@ -2161,11 +2161,8 @@ try {
                 --render-test-mode intro-finale-opening-clean-frame0 $CaseRender 2>&1
             $CaseExitCode = $LASTEXITCODE
             $CaseText = (@($CaseOutput) | ForEach-Object { [string]$_ }) -join "`n"
-            $ExpectedSourceStatus = if ($NegativeCase -eq "bad-chr-fingerprint") {
-                $CaseText -match "intro-finale-render-source finale=0 chr=[01] schema=TFIN-1"
-            } else {
+            $ExpectedSourceStatus =
                 $CaseText -match "intro-finale-render-source finale=0 chr=1 schema=TFIN-1"
-            }
             $Rejected = $CaseExitCode -eq 1 -and
                 !(Test-Path -LiteralPath $CaseRender) -and
                 $ExpectedSourceStatus
