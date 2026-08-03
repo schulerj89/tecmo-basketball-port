@@ -6,17 +6,19 @@ ordered merge.
 ## Lineage metadata
 
 - Luna ID: `019fc848-b87f-7e32-8954-51097efa933a`
-- Title/model-thinking: `gpt-5.6-luna/max`
+- Task title: `Tecmo R4 Frontend Intro Title — Native Contract Hardening — Luna Max`
+- Model/thinking: `gpt-5.6-luna / max`
 - Branch: `codex/r4-frontend-intro-title-native-hardening-luna`
 - Worktree: `C:\Users\joshs\Projects\tecmo-basketball-port-r4-frontend-intro-title-native-hardening-luna`
 - Base and last-good: `6d8f9c7a99a7ce188f1a523247d3a9b9093860fb`
 - Created at: `2026-08-03T15:40:36.000Z`
-- Pin state: not pinned; no pin or unpin operation was performed.
+- Pin state: pinned (set/owned by Sol; Luna performed no pin/unpin operation).
 - Revision history and creation faults: this was one delegated Luna lineage
   created at the timestamp above. Initial worktree, branch, base, merge-base,
   and clean-status checks passed. The source revision was committed first as
-  `f1e7005115f98d0ef189639a2364e740246b6d8c`; this document is the ordered
-  documentation-only follow-up. No creation faults, duplicate lineage,
+  `f1e7005115f98d0ef189639a2364e740246b6d8c`; documentation revision one was
+  committed as `175b28e5dba1b0020cae09958a473ba496b015e2`; this document is the
+  ordered documentation revision two. No creation faults, duplicate lineage,
   fork, merge, rebase, push, reset, force, or cross-lineage edit occurred.
 
 ## Scope and non-goals
@@ -319,10 +321,15 @@ Implementation commit: `f1e7005115f98d0ef189639a2364e740246b6d8c`, parent
 `6d8f9c7a99a7ce188f1a523247d3a9b9093860fb`, message
 `Harden frontend intro and title native contracts`.
 
-Ordered merge range and instructions: start at the accepted base, apply the
-implementation commit first, then apply this documentation-only follow-up
-commit. Preserve the order `6d8f9c7a99a7ce188f1a523247d3a9b9093860fb` ->
-`f1e7005115f98d0ef189639a2364e740246b6d8c` -> docs-only follow-up. Sol should
-cherry-pick or merge the two commits in that order without squashing if the
-review lineage is to remain visible. No self-merge, rebase, push, reset, or
-force operation was performed.
+Authorized Sol merge operation: from `codex/r4-frontend-intro-title-sol`,
+merge the accepted Luna branch/range with:
+
+```powershell
+git merge --no-ff codex/r4-frontend-intro-title-native-hardening-luna
+```
+
+The ordered range is `6d8f9c7a99a7ce188f1a523247d3a9b9093860fb` ->
+`f1e7005115f98d0ef189639a2364e740246b6d8c` ->
+`175b28e5dba1b0020cae09958a473ba496b015e2` -> this docs-only revision. Do
+not cherry-pick or rebase. No self-merge, merge, rebase, push, reset, or force
+operation was performed in this Luna lineage.
