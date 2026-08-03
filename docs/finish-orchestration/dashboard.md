@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T16:27:29Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T16:34:55Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -25,7 +25,7 @@ Generated from committed JSON at `2026-08-03T16:27:29Z`. This dashboard reports 
 | LANE-R1-GAMEPLAY-FOUNDATION | gameplay_foundation | active | sequentially_active | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | Repinned independent QA Luna audits exact terminal LIVE chain ad0f005->e2333db8->6a16422b, including clean -RequirePass proof and Win32 smoke; then same-worker corrections if needed, Sol acceptance/ff-only LIVE integration, sequential TIP execution, and Round 1 integration QA. |
 | LANE-R3-SEASON-DATA-FOUNDATION | season_data | active | ready | R3-SEASON-DATA-FOUNDATION | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | Independent pinned read-only QA Luna 019fc869-9412-7d72-8534-f81c1d63275b audits immutable candidate 15946f58 after the green Sol personal build/harness/frame gate; then same-worker evidence-doc closure, Sol acceptance, and ff-only Sol-branch integration. |
 | LANE-R4-FRONTEND-INTRO-TITLE | frontend | active | ready | R4-FRONTEND-INTRO-TITLE | S-SOL-R4-FRONTEND-001 | codex/r4-frontend-intro-title-sol | Native hardening is Sol-accepted/integrated first at 761e061f and its worker is unpinned. Finale/title fidelity remains active; then the pinned proof worker revises fee87cfd against the corrected integrated boundary before remaining Sol review, independent QA, and domain acceptance. |
-| LANE-R4-AUDIO-FOUNDATION | audio | active | ready | R4-AUDIO-FOUNDATION | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | Independent pinned Luna 019fc86b-1cc0-7f01-9abb-fa3e23598703 audits detached candidate 51790b83 while implementation continues. Final acceptance additionally requires user listening sign-off or explicit authorization of objective waveform/spectrum/event evidence as the substitute via S-BLOCKERS-001. |
+| LANE-R4-AUDIO-FOUNDATION | audio | active | ready | R4-AUDIO-FOUNDATION | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | Independent QA completes its initial 51790b83 report, then the same clean detached QA lineage moves to revised candidate 4ddb1bf3 for terminal verification; writer reconciles docs/findings, Sol completes objective acceptance, and external listening sign-off or substitute authorization remains required via S-BLOCKERS-001. |
 
 ## Rounds
 

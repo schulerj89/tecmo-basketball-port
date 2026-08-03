@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T16:27:29Z",
+  "updated_at": "2026-08-03T16:34:55Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -87,8 +87,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4-audio-foundation-sol",
       "ownership_claim_ids": ["OWN-R4-AUDIO-FOUNDATION"],
       "blockers": ["BLOCK-R4-AUDIO-LISTENING-001"],
-      "next_gate": "Independent pinned Luna 019fc86b-1cc0-7f01-9abb-fa3e23598703 audits detached candidate 51790b83 while implementation continues. Final acceptance additionally requires user listening sign-off or explicit authorization of objective waveform/spectrum/event evidence as the substitute via S-BLOCKERS-001.",
-      "updated_at": "2026-08-03T16:27:29Z"
+      "next_gate": "Independent QA completes its initial 51790b83 report, then the same clean detached QA lineage moves to revised candidate 4ddb1bf3 for terminal verification; writer reconciles docs/findings, Sol completes objective acceptance, and external listening sign-off or substitute authorization remains required via S-BLOCKERS-001.",
+      "updated_at": "2026-08-03T16:34:55Z"
     }
   ]
 }
