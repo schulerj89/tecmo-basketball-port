@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T15:00:09Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T15:04:35Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -73,7 +73,7 @@ Generated from committed JSON at `2026-08-03T15:00:09Z`. This dashboard reports 
 
 | Session | Role | Model/thinking | Status | Pin | Tasks | Branch | Worktree | Last good |
 |---|---|---|---|---|---|---|---|---|
-| S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 4c0fdda099ee |
+| S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 813a4c4b5b1e |
 | S-SOL-R1-GAMEPLAY-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R1-CPU-PLAY-LIFECYCLE, R1-LIVE-FOUNDATION, R1-TIP-FIDELITY | codex/r1-gameplay-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r1-gameplay-foundation-sol | ad0f00567369 |
 | S-SOL-R3-SEASON-DATA-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R3-SEASON-DATA-FOUNDATION | codex/r3-season-data-foundation-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r3-season-data-foundation-sol | 6d8f9c7a99a7 |
 | S-SOL-R4-FRONTEND-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R4-FRONTEND-INTRO-TITLE | codex/r4-frontend-intro-title-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r4-frontend-intro-title-sol | 6d8f9c7a99a7 |

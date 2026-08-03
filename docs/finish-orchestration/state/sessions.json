@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T15:00:08Z",
+  "updated_at": "2026-08-03T15:04:35Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -17,7 +17,7 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator",
       "branch": "codex/master-finish-orchestration",
       "base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
-      "last_good_sha": "4c0fdda099ee1f8c14f70e8dc241c3e33aa01655",
+      "last_good_sha": "813a4c4b5b1e47304a1aa62162161879420190cb",
       "reports_to_session_id": null,
       "parent_session_id": null,
       "reported_luna_lineage": [],
@@ -31,7 +31,7 @@
       },
       "created_at": "2026-08-03T04:18:18Z",
       "completed_at": null,
-      "updated_at": "2026-08-03T15:00:08Z",
+      "updated_at": "2026-08-03T15:04:35Z",
       "notes": "Master owns coordination state, round integration, and main pushes; no product implementation or product QA. Capacity target is four active domain Sols. A second master is recovery-only to prevent split queue/merge/push authority."
     },
     {
@@ -120,7 +120,7 @@
       "last_good_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
-      "reported_luna_lineage": [],
+      "reported_luna_lineage": ["019fc824-fea9-70b2-a0d0-c0621b217fa5", "019fc825-586c-7250-9e8f-805f2bf8860a"],
       "recovery_lineage": [],
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T14:59:03Z",
@@ -145,7 +145,7 @@
       "last_good_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
-      "reported_luna_lineage": [],
+      "reported_luna_lineage": ["019fc825-dc43-7540-bd16-be55a3eb85ac", "019fc826-7a1d-7261-9ade-9feee073badd"],
       "recovery_lineage": [],
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T14:59:05Z",
@@ -170,7 +170,7 @@
       "last_good_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
-      "reported_luna_lineage": [],
+      "reported_luna_lineage": ["019fc825-e59c-7002-8139-e3c6e2818318", "019fc825-ec41-7993-8629-9c0948e08b4b"],
       "recovery_lineage": [],
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T14:59:07Z",
@@ -301,6 +301,24 @@
     }
   ],
   "reported_luna_workers": [
+    {
+      "worker_id":"019fc824-fea9-70b2-a0d0-c0621b217fa5","thread_id":"019fc824-fea9-70b2-a0d0-c0621b217fa5","title":"Tecmo R3 Season Data Foundation — ROM/ASM Evidence Research — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R3-SEASON-DATA-001","round_ids":["R3"],"task_ids":["R3-SEASON-DATA-FOUNDATION"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Created once at 2026-08-03T15:01:35Z as a strict projectless read-only evidence worker against reference SHA 6d8f9c7. It owns original ROM/ASM team/season data semantics, bank/address/table evidence, and proof-vs-inference classification; no creation fault/retry or writable context was reported.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T15:04:35Z"
+    },
+    {
+      "worker_id":"019fc825-586c-7250-9e8f-805f2bf8860a","thread_id":"019fc825-586c-7250-9e8f-805f2bf8860a","title":"Tecmo R3 Season Data Foundation — Native Architecture Audit — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R3-SEASON-DATA-001","round_ids":["R3"],"task_ids":["R3-SEASON-DATA-FOUNDATION"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Created once at 2026-08-03T15:01:58Z as a strict projectless read-only native architecture/test audit against reference SHA 6d8f9c7. It owns current API/contracts/tests and exact rescope-risk analysis; no creation fault/retry or writable context was reported.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T15:04:35Z"
+    },
+    {
+      "worker_id":"019fc825-dc43-7540-bd16-be55a3eb85ac","thread_id":"019fc825-dc43-7540-bd16-be55a3eb85ac","title":"Tecmo R4 Frontend Intro Title — Original Evidence Research — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R4-FRONTEND-001","round_ids":["R4"],"task_ids":["R4-FRONTEND-INTRO-TITLE"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Created once at 2026-08-03T15:02:32Z as strict projectless read-only original-evidence research against reference SHA 6d8f9c7. It owns the ROM/ASM/reference behavior matrix and proof plan; no creation fault/retry or writable context was reported.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T15:04:35Z"
+    },
+    {
+      "worker_id":"019fc826-7a1d-7261-9ade-9feee073badd","thread_id":"019fc826-7a1d-7261-9ade-9feee073badd","title":"Tecmo R4 Frontend Intro Title — Native C and QA Audit — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R4-FRONTEND-001","round_ids":["R4"],"task_ids":["R4-FRONTEND-INTRO-TITLE"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Created once at 2026-08-03T15:03:12Z as strict projectless read-only native implementation/test/proof-gap audit against reference SHA 6d8f9c7. It owns current native/QA seam analysis; no creation fault/retry or writable context was reported.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T15:04:35Z"
+    },
+    {
+      "worker_id":"019fc825-e59c-7002-8139-e3c6e2818318","thread_id":"019fc825-e59c-7002-8139-e3c6e2818318","title":"Tecmo R4 Audio Foundation — Source Evidence Audit — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R4-AUDIO-001","round_ids":["R4"],"task_ids":["R4-AUDIO-FOUNDATION"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Created once at 2026-08-03T15:02:34Z as a strict read-only source-evidence audit against reference SHA 6d8f9c7. It owns original music/SFX/sample/cue evidence and proof limits; no creation fault/retry or writable context was reported.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T15:04:35Z"
+    },
+    {
+      "worker_id":"019fc825-ec41-7993-8629-9c0948e08b4b","thread_id":"019fc825-ec41-7993-8629-9c0948e08b4b","title":"Tecmo R4 Audio Foundation — Native C and QA Audit — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R4-AUDIO-001","round_ids":["R4"],"task_ids":["R4-AUDIO-FOUNDATION"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Created once at 2026-08-03T15:02:36Z as a strict read-only native C/test/proof audit against reference SHA 6d8f9c7. It owns engine, validator, capture, waveform, and QA-gap analysis; no creation fault/retry or writable context was reported.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T15:04:35Z"
+    },
     {
       "worker_id": "019fc78a-69e1-7892-82ed-d14a39d37728", "thread_id": "019fc78a-69e1-7892-82ed-d14a39d37728", "title": "Tecmo R1 LIVE Foundation — Native Integration Implementation — Luna Max", "model": "gpt-5.6-luna", "thinking": "max", "status": "active", "pin_state": "pinned", "reported_by_session_id": "S-SOL-R1-GAMEPLAY-001", "round_ids": ["R1"], "task_ids": ["R1-LIVE-FOUNDATION"], "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1-live-foundation-luna", "branch": "codex/r1-live-foundation-luna", "base_sha": "ad0f005673692b04772bce3c3b4d3ac4b2624731", "last_good_sha": "ad0f005673692b04772bce3c3b4d3ac4b2624731", "contribution": "Created once at 2026-08-03T12:12:44.000Z as the sole writable LIVE worker. Projectless control task operates only C:/Users/joshs/Projects/tecmo-basketball-port-r1-live-foundation-luna on branch codex/r1-live-foundation-luna, created by exact git worktree add from ad0f005. Initial HEAD/base/expected parent/last-good are ad0f005; worktree clean, registered, path present, and base ancestor verified. Writable scope is exactly OWN-R1-LIVE including granted game.c/flow_test/build.ps1 and stated exclusions; consumes both accepted research reports. First uncommitted patch reached Sol review with launch normalization and source-pinned Bank04 actor tables. Sol returned it to this same pinned Luna after two initialization warnings and a substantive regression that removed the existing render-contract suite; required revision preserves every prior suite through explicit legacy launch/layout compatibility and proves PRETIP-safe synchronization plus invariant-valid normalization. CMake is unavailable, so repository build.ps1 is the active warning-clean production gate. No bad-request fault, second writable worker, scope expansion, TIP change, or main mutation; active and pinned in luna_revision.", "recovery_lineage": [], "failure": {"count": 0, "raw_error_signatures": [], "retry_worker_ids": [], "replacement_worker_id": null, "takeover_confirmed_at": null}, "observed_at": "2026-08-03T12:42:27Z"
     },
