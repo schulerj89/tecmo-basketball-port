@@ -219,6 +219,18 @@ def canonical_worktree(value: str) -> str:
     return os.path.normcase(os.path.abspath(value.replace("/", os.sep)))
 
 
+def task_docs_candidates(repo_root: Path, task: dict[str, Any]) -> list[Path]:
+    """Return accepted-doc locations in registered-context-first order."""
+    relative = Path(normalize_relative_path(task["task_docs_path"]))
+    roots: list[Path] = []
+    if task.get("worktree"):
+        roots.append(Path(canonical_worktree(task["worktree"])))
+    resolved_repo_root = repo_root.resolve()
+    if not roots or canonical_worktree(str(resolved_repo_root)) != canonical_worktree(str(roots[0])):
+        roots.append(resolved_repo_root)
+    return [root / relative for root in roots]
+
+
 def tasks_may_share_sequential_context(first: dict[str, Any], second: dict[str, Any]) -> bool:
     """Allow exact branch/worktree reuse only for an explicit same-Sol sequence."""
     same_sol = (
@@ -565,8 +577,19 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         if task["state"] in FINAL_OR_LATE_STATES and not task["coordination_only"]:
             if not task["qa"]["sol_signoff"]:
                 result.error(f"task {task_id}: {task['state']} requires Sol QA sign-off")
-            if not (repo_root / task["task_docs_path"]).is_dir():
-                result.error(f"task {task_id}: accepted task documentation folder is missing")
+            docs_path = normalize_relative_path(task["task_docs_path"])
+            if (
+                not docs_path
+                or docs_path.startswith("/")
+                or re.match(r"^[A-Za-z]:", docs_path)
+                or ".." in docs_path.split("/")
+            ):
+                result.error(f"task {task_id}: accepted task documentation path is unsafe/non-relative")
+            elif not any(candidate.is_dir() for candidate in task_docs_candidates(repo_root, task)):
+                result.error(
+                    f"task {task_id}: accepted task documentation folder is missing from its registered "
+                    "worktree and the validator repository root"
+                )
         if task["state"] in INTEGRATION_SIGNOFF_STATES and not task["qa"]["integration_signoff"]:
             result.error(f"task {task_id}: {task['state']} requires integration sign-off")
         if task["state"] == "pushed":
@@ -1307,6 +1330,19 @@ def command_self_test(args: argparse.Namespace) -> int:
         "acceptance.json", "blockers.json", "evidence.json", "inventory.json", "ownership.json",
         "queue.json", "rounds.json", "sessions.json", "state-machine.json"
     }, "state/schema registry")
+    with tempfile.TemporaryDirectory(prefix="tecmo-doc-root-selftest-") as temp_root:
+        fixture_root = Path(temp_root)
+        master_root = fixture_root / "master"
+        task_root = fixture_root / "domain-worktree"
+        registered_docs = task_root / "docs" / "finish-tasks" / "sample"
+        registered_docs.mkdir(parents=True)
+        docs_fixture = {
+            "worktree": str(task_root),
+            "task_docs_path": "docs/finish-tasks/sample",
+        }
+        candidates = task_docs_candidates(master_root, docs_fixture)
+        expect(candidates[0] == registered_docs and candidates[0].is_dir(), "registered-worktree task docs")
+        expect(candidates[-1] == master_root / "docs" / "finish-tasks" / "sample", "master-root docs fallback")
 
     state_dir, schema_dir, _ = orchestration_paths(args.repo_root)
     try:

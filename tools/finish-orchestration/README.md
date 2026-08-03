@@ -5,7 +5,9 @@ These scripts operate only on coordination metadata in
 
 - `Validate-ControlPlane.ps1` validates every JSON file against its schema,
   replays task transitions, detects duplicate IDs and registry collisions,
-  checks dependencies/references/recovery policy, and detects ownership overlap.
+  checks dependencies/references/recovery policy, validates accepted task docs
+  in each task's registered worktree (with a repository-root fallback), and
+  detects ownership overlap.
 - `Verify-Lineage.ps1` verifies expected bases/parents, branch ancestry, result
   commits, and live worktree/branch registration.
 - `Show-ControlPlane.ps1` prints status or generates/checks the Markdown
