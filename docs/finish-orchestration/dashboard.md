@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T20:33:56Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T20:38:23Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -63,7 +63,7 @@ Generated from committed JSON at `2026-08-03T20:33:56Z`. This dashboard reports 
 | 100 | R3A-INTEGRATION-QA | integration | R3A | pushed | S-SOL-R3A-INTEGRATION-QA-001 | codex/r3a-season-data-integration-qa-sol | 1 | passed | pushed |
 | 100 | R4-FRONTEND-INTRO-TITLE | frontend | R4 | ready_for_round_staging | S-SOL-R4-FRONTEND-RECOVERY-001 | codex/r4-frontend-intro-title-sol | 13 | passed | ready |
 | 100 | R4A-INTEGRATION-QA | integration | R4A | pushed | S-SOL-R4A-INTEGRATION-QA-001 | codex/r4a-audio-integration-qa-sol | 2 | passed | pushed |
-| 100 | R4B-INTEGRATION-QA | integration | R4B | in_progress | S-SOL-R4B-INTEGRATION-QA-001 | codex/r4b-frontend-integration-qa-sol | 1 | pending | not_ready |
+| 100 | R4B-INTEGRATION-QA | integration | R4B | in_progress | S-SOL-R4B-INTEGRATION-QA-001 | codex/r4b-frontend-integration-qa-sol | 1 | in_progress | not_ready |
 | 100 | R5-ASSET-BUILD-PROVENANCE | assets_build | R5 | backlog | - | - | 0 | pending | not_ready |
 | 99 | R0A-ADOPT-CPU-TIP | gameplay_behavior | R0A | pushed | S-SOL-CPU-TIP-LEGACY | codex/cpu-tipoff-behavior | 1 | historical_sol_accepted | pushed |
 | 99 | R4-AUDIO-FOUNDATION | audio | R4A | pushed | S-SOL-R4-AUDIO-001 | codex/round-4a-audio-foundation-staging | 10 | passed | pushed |

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T20:33:56Z",
+  "updated_at": "2026-08-03T20:38:23Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -468,13 +468,13 @@
       "last_good_sha": "6b5d43546128408de8ab246d22f1b48322714183",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
-      "reported_luna_lineage": [],
+      "reported_luna_lineage": ["019fc941-51c3-72a0-b24e-8554691124f1"],
       "recovery_lineage": [],
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T20:01:45Z",
       "completed_at": null,
-      "updated_at": "2026-08-03T20:11:16Z",
-      "notes": "Created/pinned once after exact control reservation, candidate-staging freeze at 757283ed, clean branch/worktree creation at current main 819b0e5, and zero 75-vs-19 path overlap. Pre-mutation audit passed and the Sol created verified SSH-signed non-ff merge 6b5d435 with ordered parents 819b0e5 and unsigned-but-immutable accepted candidate 757283ed, producing predicted tree 4b9879f. Independent Luna, combined QA/proof, signed terminal report, and master handoff remain; main is untouched."
+      "updated_at": "2026-08-03T20:38:23Z",
+      "notes": "Created/pinned once after exact control reservation, candidate-staging freeze at 757283ed, clean branch/worktree creation at current main 819b0e5, and zero 75-vs-19 path overlap. Verified SSH-signed non-ff merge 6b5d435 has ordered parents 819b0e5 and unsigned-but-immutable candidate 757283ed. Personal combined build/frontend/direct/cross-domain/Win32/malformed/proof/visual/ownership gates all pass; 3152-frame replay and exact accepted MP4 are deterministic, sanitized manifest SHA is 0AD36502.... Sole projectless Luna 019fc941-51c3-72a0-b24e-8554691124f1 is active/pinned for final P0/P1/P2 closure. Signed terminal report and master handoff remain; main is untouched."
     },
     {
       "session_id": "S-SOL-GITHUB-SIGNING-001",
@@ -571,6 +571,9 @@
     }
   ],
   "reported_luna_workers": [
+    {
+      "worker_id":"019fc941-51c3-72a0-b24e-8554691124f1","thread_id":"019fc941-51c3-72a0-b24e-8554691124f1","title":"Tecmo R4B Integration QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R4B-INTEGRATION-QA-001","round_ids":["R4B"],"task_ids":["R4B-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Sole independent projectless/null-Git R4B auditor, created once at 2026-08-03T20:12:09Z with no setup fault/retry/replacement. Frozen read-only reference is signed merge 6b5d435. It independently reconfirmed 75/19/0 path accounting, candidate tree/report identity, merge parents/signature, and reports no blocker while auditing the sanitized 3152-frame proof manifest. Final P0/P1/P2 disposition and unpin remain pending.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T20:38:23Z"
+    },
     {
       "worker_id":"019fc901-9608-76c1-ac13-4a5ef73f2e91","thread_id":"019fc901-9608-76c1-ac13-4a5ef73f2e91","title":"Tecmo R2 Clocks Periods Evidence Research — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R2-CLOCK-LINEUPS-001","round_ids":["R2"],"task_ids":["R2-CLOCK-LINEUPS-FATIGUE"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Completed/idle projectless read-only audit of original clocks, shot clock, periods, halftime, overtime, and final flow; personally accepted and durably captured in the signed worker docs. Unpinned successfully at 2026-08-03T20:22:43.967Z with context preserved; no Git/filesystem mutation.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T20:23:27Z"
     },
