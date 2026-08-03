@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T23:23:45Z",
+  "updated_at": "2026-08-03T23:50:13Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -352,23 +352,23 @@
       "role": "domain_orchestrator",
       "model": "gpt-5.6-sol",
       "thinking": "max",
-      "status": "active",
-      "pin_state": "pinned",
+      "status": "completed",
+      "pin_state": "unpinned",
       "round_ids": ["R2"],
       "task_ids": ["R2-CLOCK-LINEUPS-FATIGUE"],
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-clock-lineups-fatigue-sol",
       "branch": "codex/r2-clock-lineups-fatigue-sol",
       "base_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
-      "last_good_sha": "1536ae31e7016f6e9adbddb7868e2d40e51c1085",
+      "last_good_sha": "ed4e56fc595894c692ffca84ae3b35f129317049",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
       "reported_luna_lineage": ["019fc901-9608-76c1-ac13-4a5ef73f2e91", "019fc901-d35e-7573-bf0d-36087859df58", "019fc902-0bed-7d82-aa29-acaff4d9d04e", "019fc912-a957-79f0-89a3-7e2e2d10db24", "019fc957-a425-70f3-83b9-1e63dfdba40e"],
       "recovery_lineage": [],
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T19:00:02Z",
-      "completed_at": null,
-      "updated_at": "2026-08-03T21:02:40Z",
-      "notes": "Created and pinned once after durable collision-free reservation bb423f8. Three evidence audits are accepted/unpinned. Signed candidate 1536ae passed personal gates and independent integrity/proof audit, but sole pinned QA Luna 019fc957-a425-70f3-83b9-1e63dfdba40e found two P2 overlap/transaction/destructor hardening gaps plus three P3 record corrections, with P0/P1 zero. Same persistent writable Luna 019fc912 is making bounded owned-path remediation; same QA will review v2. Main remains untouched."
+      "completed_at": "2026-08-03T21:59:16Z",
+      "updated_at": "2026-08-03T23:48:47Z",
+      "notes": "Terminal signed domain tip ed4e56fc595894c692ffca84ae3b35f129317049 was personally accepted after remediation, deterministic v2 proof, and independent P0/P1/P2/P3-zero closure. Writable and QA Lunas were durably reported and unpinned; master released the domain claim, froze ed4e56f for R2A integration, and unpinned this completed Sol with branches/worktrees preserved. Main remains untouched by the domain lane."
     },
     {
       "session_id": "S-SOL-TIP-VIS-LEGACY",
@@ -539,6 +539,81 @@
       "notes": "Unintended duplicate discovered by master registry inspection. Before stop it created the public allowed_signers mapping and matching global Git signing values, but GitHub sudo never succeeded. Master ordered immediate stop; it closed its browser flow, reported exact shared state, remained idle, and was unpinned. Authoritative sibling revalidated all state, closed stale flows, completed GitHub registration, and preserved no repository mutation."
     },
     {
+      "session_id": "S-SOL-R1B-TIP-INTEGRATION-QA-001",
+      "thread_id": "019fca05-b260-78c0-8021-9b9ec5f25e98",
+      "title": "Tecmo R1B TIP Integration QA — Sol Max",
+      "role": "integration_orchestrator",
+      "model": "gpt-5.6-sol",
+      "thinking": "max",
+      "status": "active",
+      "pin_state": "pinned",
+      "round_ids": ["R1B"],
+      "task_ids": ["R1B-TIP-INTEGRATION-QA"],
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1b-tip-integration-qa-sol",
+      "branch": "codex/r1b-tip-integration-qa-sol",
+      "base_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
+      "last_good_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
+      "reports_to_session_id": "S-MASTER-001",
+      "parent_session_id": null,
+      "reported_luna_lineage": [],
+      "recovery_lineage": [],
+      "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
+      "created_at": "2026-08-03T23:46:38Z",
+      "completed_at": null,
+      "updated_at": "2026-08-03T23:50:13Z",
+      "notes": "Created once and immediately pinned after signed reservation bc0c680. Exact clean edf16ca worktree and immutable e21f9a6 staging were pre-created and collision-checked. Sol owns branch-only signed reconciliation, combined TIP/current-main QA, one independent projectless Luna lineage, and terminal docs; main/push remain master-only."
+    },
+    {
+      "session_id": "S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001",
+      "thread_id": "019fca06-1b25-7f51-ac8d-16577f94c179",
+      "title": "Tecmo R2A Clocks Lineups Fatigue Integration QA — Sol Max",
+      "role": "integration_orchestrator",
+      "model": "gpt-5.6-sol",
+      "thinking": "max",
+      "status": "active",
+      "pin_state": "pinned",
+      "round_ids": ["R2A"],
+      "task_ids": ["R2A-CLOCK-LINEUPS-INTEGRATION-QA"],
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2a-clocks-integration-qa-sol",
+      "branch": "codex/r2a-clocks-integration-qa-sol",
+      "base_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
+      "last_good_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
+      "reports_to_session_id": "S-MASTER-001",
+      "parent_session_id": null,
+      "reported_luna_lineage": [],
+      "recovery_lineage": [],
+      "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
+      "created_at": "2026-08-03T23:47:05Z",
+      "completed_at": null,
+      "updated_at": "2026-08-03T23:50:13Z",
+      "notes": "Created once and immediately pinned after signed reservation bc0c680. Exact clean edf16ca worktree and immutable ed4e56f staging were pre-created and collision-checked. Sol owns branch-only signed reconciliation, combined clocks/lineups/fatigue/current-main QA, one independent projectless Luna lineage, and terminal docs; main/push remain master-only."
+    },
+    {
+      "session_id": "S-SOL-R2-DEFENSE-CONTACT-001",
+      "thread_id": "019fca06-752d-7863-a2ae-862747a457b7",
+      "title": "Tecmo R2 Defense Contact Domain Orchestrator — Sol Max",
+      "role": "domain_orchestrator",
+      "model": "gpt-5.6-sol",
+      "thinking": "max",
+      "status": "active",
+      "pin_state": "pinned",
+      "round_ids": ["R2"],
+      "task_ids": ["R2-DEFENSE-CONTACT"],
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-defense-contact-sol",
+      "branch": "codex/r2-defense-contact-sol",
+      "base_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
+      "last_good_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
+      "reports_to_session_id": "S-MASTER-001",
+      "parent_session_id": null,
+      "reported_luna_lineage": [],
+      "recovery_lineage": [],
+      "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
+      "created_at": "2026-08-03T23:47:28Z",
+      "completed_at": null,
+      "updated_at": "2026-08-03T23:50:13Z",
+      "notes": "Created once and immediately pinned after signed reservation bc0c680. Initial claim is docs-only evidence/native-gap audit at clean edf16ca. Product writes and any writable Luna are forbidden until Sol proposes an exact collision-free scope and master grants it; active Shots retains the sequential shared-scene boundary."
+    },
+    {
       "session_id": "S-BLOCKERS-001",
       "thread_id": "019fc873-20a8-7772-8fb6-ac0e80ffa3a4",
       "title": "Blockers we need help with",
@@ -572,7 +647,7 @@
   ],
   "reported_luna_workers": [
     {
-      "worker_id":"019fc957-a425-70f3-83b9-1e63dfdba40e","thread_id":"019fc957-a425-70f3-83b9-1e63dfdba40e","title":"Tecmo R2 Clocks Lineups Fatigue Independent QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R2-CLOCK-LINEUPS-001","round_ids":["R2"],"task_ids":["R2-CLOCK-LINEUPS-FATIGUE"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Sole projectless/null-Git independent QA lineage, created once at 2026-08-03T20:36:31Z. It verified frozen candidate 1536ae integrity, four signed commits, 18 owned paths, and all 97 proof artifacts, then returned FAIL with P0/P1 zero, two P2 overlap-safe transactional/destructor hardening gaps, and three P3 record corrections. It remains pinned and will be reused against the remediated v2 candidate.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T21:02:40Z"
+      "worker_id":"019fc957-a425-70f3-83b9-1e63dfdba40e","thread_id":"019fc957-a425-70f3-83b9-1e63dfdba40e","title":"Tecmo R2 Clocks Lineups Fatigue Independent QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R2-CLOCK-LINEUPS-001","round_ids":["R2"],"task_ids":["R2-CLOCK-LINEUPS-FATIGUE"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"ed4e56fc595894c692ffca84ae3b35f129317049","contribution":"Sole projectless/null-Git independent QA lineage. It first found two P2 and three P3 issues, then accepted the remediated candidate and terminal ed4e56f docs with no P0/P1/P2/P3 findings. Final unpin returned pinned=false after durable signed handoff; context is preserved.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T21:58:15.775Z"
     },
     {
       "worker_id":"019fc941-51c3-72a0-b24e-8554691124f1","thread_id":"019fc941-51c3-72a0-b24e-8554691124f1","title":"Tecmo R4B Integration QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R4B-INTEGRATION-QA-001","round_ids":["R4B"],"task_ids":["R4B-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Sole independent projectless/null-Git R4B auditor, created once at 2026-08-03T20:12:09Z with no setup fault/retry/replacement. It independently accepted signed merge 6b5d435 and the five-file terminal report at P0/P1/P2 zero after rehashing all 3152 frames, 28 manifest artifacts, boundaries, parser/determinism cases, MP4 identity, refs, signatures, and ownership. Final docs review completed 2026-08-03T20:56:36Z; unpin returned pinned=false at 2026-08-03T20:58:46.724Z. Null Git context preserved.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T20:58:46.724Z"
@@ -587,7 +662,7 @@
       "worker_id":"019fc902-0bed-7d82-aa29-acaff4d9d04e","thread_id":"019fc902-0bed-7d82-aa29-acaff4d9d04e","title":"Tecmo R2 Fatigue Native Audit — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R2-CLOCK-LINEUPS-001","round_ids":["R2"],"task_ids":["R2-CLOCK-LINEUPS-FATIGUE"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Completed/idle projectless read-only TGFT/native fatigue and active/bench coupling audit; personally accepted and durably captured in the signed worker docs. Unpinned successfully at 2026-08-03T20:22:43.967Z with context preserved; no Git/filesystem mutation.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T20:23:27Z"
     },
     {
-      "worker_id":"019fc912-a957-79f0-89a3-7e2e2d10db24","thread_id":"019fc912-a957-79f0-89a3-7e2e2d10db24","title":"Tecmo R2 Clocks Lineups Fatigue Implementation — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R2-CLOCK-LINEUPS-001","round_ids":["R2"],"task_ids":["R2-CLOCK-LINEUPS-FATIGUE"],"worktree":"C:/Users/joshs/Projects/tecmo-basketball-port-r2-clock-lineups-fatigue-luna","branch":"codex/r2-clock-lineups-fatigue-luna","base_sha":"222d75cfafa9153db1eb44492bf557f11b1a9091","last_good_sha":"1536ae31e7016f6e9adbddb7868e2d40e51c1085","contribution":"Sole persistent writable implementation/revision lineage, created once at 2026-08-03T19:21:11Z with no bad-request/setup/retry/replacement. Exact owned scope only. Signed frozen candidate 1536ae passed personal gates and integrity/proof audit, but independent QA found two P2 overlap/transaction/destructor hardening gaps and three P3 record corrections; this same worker is making the bounded remediation and remains pinned for revisions.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T21:02:40Z"
+      "worker_id":"019fc912-a957-79f0-89a3-7e2e2d10db24","thread_id":"019fc912-a957-79f0-89a3-7e2e2d10db24","title":"Tecmo R2 Clocks Lineups Fatigue Implementation — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R2-CLOCK-LINEUPS-001","round_ids":["R2"],"task_ids":["R2-CLOCK-LINEUPS-FATIGUE"],"worktree":"C:/Users/joshs/Projects/tecmo-basketball-port-r2-clock-lineups-fatigue-luna","branch":"codex/r2-clock-lineups-fatigue-luna","base_sha":"222d75cfafa9153db1eb44492bf557f11b1a9091","last_good_sha":"ed4e56fc595894c692ffca84ae3b35f129317049","contribution":"Sole persistent writable implementation/revision lineage, created once with no bad-request/setup/retry/replacement. It produced the seven Good-signed terminal commits through ed4e56f, resolved every independent QA finding, and ended clean. Final unpin returned pinned=false after durable signed handoff; branch/worktree are preserved.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T21:58:15.775Z"
     },
     {
       "worker_id":"019fc8f8-44b5-7a93-835b-1c75f69ab506","thread_id":"019fc8f8-44b5-7a93-835b-1c75f69ab506","title":"Tecmo R4 Frontend Intro Title — Independent Recovery QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R4-FRONTEND-RECOVERY-001","round_ids":["R4"],"task_ids":["R4-FRONTEND-INTRO-TITLE"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Created once at 2026-08-03T18:52:21Z as the sole projectless/null-Git independent recovery QA lineage. It first found synthetic-mode fingerprint P1 and canonical finale CHR identity P2 at 0a3fc57f, then independently accepted the corrected clean 757283ed terminal candidate with no actionable P0/P1/P2 findings. Sol reports unpin after durable closure; no fault/retry/replacement.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T19:48:51Z"

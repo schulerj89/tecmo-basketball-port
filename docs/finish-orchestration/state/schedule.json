@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T23:38:12Z",
+  "updated_at": "2026-08-03T23:50:13Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,8 +10,8 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 1,
-    "cleared_for_creation": 3,
+    "active_domain_orchestrators": 4,
+    "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
     "unallocated_target_slots": 0,
@@ -268,10 +268,10 @@
       "task_ids": [
         "R1B-TIP-INTEGRATION-QA"
       ],
-      "readiness": "cleared_for_creation",
+      "readiness": "active",
       "dependency_status": "ready",
       "reservation_owner_session_id": "S-MASTER-001",
-      "orchestrator_session_id": null,
+      "orchestrator_session_id": "S-SOL-R1B-TIP-INTEGRATION-QA-001",
       "base_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
       "branch": "codex/r1b-tip-integration-qa-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1b-tip-integration-qa-sol",
@@ -279,8 +279,8 @@
         "OWN-R1B-TIP-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Create and pin the exact Sol Max orchestrator, transfer the reserved claim, verify the clean edf16ca takeover, and reconcile immutable staging e21f9a6 on the branch only.",
-      "updated_at": "2026-08-03T23:38:12Z"
+      "next_gate": "Clean takeover and signed-candidate verification passed. Sol is auditing candidate reports, ownership overlap, and merge-tree prediction before the one signed branch-only reconciliation merge and full combined QA.",
+      "updated_at": "2026-08-03T23:50:13Z"
     },
     {
       "lane_id": "LANE-R2A-CLOCK-LINEUPS-INTEGRATION-QA",
@@ -292,10 +292,10 @@
       "task_ids": [
         "R2A-CLOCK-LINEUPS-INTEGRATION-QA"
       ],
-      "readiness": "cleared_for_creation",
+      "readiness": "active",
       "dependency_status": "ready",
       "reservation_owner_session_id": "S-MASTER-001",
-      "orchestrator_session_id": null,
+      "orchestrator_session_id": "S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001",
       "base_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
       "branch": "codex/r2a-clocks-integration-qa-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2a-clocks-integration-qa-sol",
@@ -303,8 +303,8 @@
         "OWN-R2A-CLOCK-LINEUPS-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Create and pin the exact Sol Max orchestrator, transfer the reserved claim, verify the clean edf16ca takeover, and reconcile immutable staging ed4e56f on the branch only.",
-      "updated_at": "2026-08-03T23:38:12Z"
+      "next_gate": "Clean takeover, seven-signature audit, 18-path zero-overlap audit, and conflict-free merge-tree prediction passed. Sol may create the signed branch-only reconciliation merge and begin full combined QA.",
+      "updated_at": "2026-08-03T23:50:13Z"
     },
     {
       "lane_id": "LANE-R2-DEFENSE-CONTACT",
@@ -316,10 +316,10 @@
       "task_ids": [
         "R2-DEFENSE-CONTACT"
       ],
-      "readiness": "cleared_for_creation",
+      "readiness": "active",
       "dependency_status": "ready",
       "reservation_owner_session_id": "S-MASTER-001",
-      "orchestrator_session_id": null,
+      "orchestrator_session_id": "S-SOL-R2-DEFENSE-CONTACT-001",
       "base_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
       "branch": "codex/r2-defense-contact-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-defense-contact-sol",
@@ -327,8 +327,8 @@
         "OWN-R2-DEFENSE-CONTACT"
       ],
       "blockers": [],
-      "next_gate": "Create and pin the exact Sol Max orchestrator. Begin read-only evidence/native-gap and ownership audit under the docs-only claim; no product writes or writable Luna until master grants an exact collision-free scope that preserves the active Shots shared-scene boundary.",
-      "updated_at": "2026-08-03T23:38:12Z"
+      "next_gate": "Clean takeover and Shots-boundary audit passed. Sol is running the read-only evidence/native-gap/collision phase and must return one exact product-scope proposal before any product write or writable Luna.",
+      "updated_at": "2026-08-03T23:50:13Z"
     }
   ]
 }

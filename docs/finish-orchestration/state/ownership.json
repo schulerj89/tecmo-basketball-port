@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T23:38:12Z",
+  "updated_at": "2026-08-03T23:50:13Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -524,7 +524,7 @@
       "claim_id": "OWN-R1B-TIP-INTEGRATION-QA",
       "task_id": "R1B-TIP-INTEGRATION-QA",
       "round_id": "R1B",
-      "session_id": "S-MASTER-001",
+      "session_id": "S-SOL-R1B-TIP-INTEGRATION-QA-001",
       "mode": "exclusive",
       "writable_globs": [
         "docs/finish-tasks/R1B-tip-integration-qa/**"
@@ -543,7 +543,7 @@
       "claim_id": "OWN-R2A-CLOCK-LINEUPS-INTEGRATION-QA",
       "task_id": "R2A-CLOCK-LINEUPS-INTEGRATION-QA",
       "round_id": "R2A",
-      "session_id": "S-MASTER-001",
+      "session_id": "S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001",
       "mode": "exclusive",
       "writable_globs": [
         "docs/finish-tasks/R2A-clock-lineups-fatigue-integration-qa/**"
@@ -562,7 +562,7 @@
       "claim_id": "OWN-R2-DEFENSE-CONTACT",
       "task_id": "R2-DEFENSE-CONTACT",
       "round_id": "R2",
-      "session_id": "S-MASTER-001",
+      "session_id": "S-SOL-R2-DEFENSE-CONTACT-001",
       "mode": "exclusive",
       "writable_globs": [
         "docs/finish-tasks/R2-defense-contact/**"
