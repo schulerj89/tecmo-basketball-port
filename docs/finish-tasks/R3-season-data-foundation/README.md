@@ -97,6 +97,22 @@ range arithmetic overflow and has exact boundary tests.
 - Worktree: `C:\Users\joshs\Projects\tecmo-basketball-port-r3-season-data-foundation-luna`
 - Branch: `codex/r3-season-data-foundation-luna`
 - Expected parent/base: `6d8f9c7a99a7ce188f1a523247d3a9b9093860fb`
+- ROM/ASM research Luna: `019fc824-fea9-70b2-a0d0-c0621b217fa5`,
+  `gpt-5.6-luna/max`, read-only/projectless, completed
+  `2026-08-03T15:18:41Z`, Sol accepted, unpinned
+  `2026-08-03T15:22:38.348Z`.
+- Native audit Luna: `019fc825-586c-7250-9e8f-805f2bf8860a`,
+  `gpt-5.6-luna/max`, read-only/projectless, completed
+  `2026-08-03T15:17:07Z`, Sol accepted, unpinned
+  `2026-08-03T15:22:38.348Z`.
+- Writable implementation Luna: `019fc836-d254-78a0-b3a6-c4003278c2a5`,
+  `gpt-5.6-luna/max`, created `2026-08-03T15:21:03Z`; the branch, worktree,
+  and base are recorded above and this Luna remains pinned until final
+  integration.
+- Independent QA Luna: `019fc869-9412-7d72-8534-f81c1d63275b`,
+  `gpt-5.6-luna/max`, projectless/read-only, created `2026-08-03T16:16:30Z`,
+  completed `2026-08-03T16:37:54Z`, ACCEPT with no candidate-relevant
+  findings; it remains pinned until the final report/unpin.
 - Implementation commit: `75119657dda1db7d97083dafddc4498548ac7ab3` (`Implement R3 season data foundation contracts`)
 - Review corrections included: removed the unsafe null ranking comparison;
   bounded full-buffer insertion now skips a non-winning candidate; canonical
@@ -104,10 +120,17 @@ range arithmetic overflow and has exact boundary tests.
   pending-record validation is exact; persistence failures roll back; and the
   prepared result remains launch-blocked until commit.
 - Revision commit: `0c2bf410f8d86d3a5bbb3af75d699be86de8a780` (`Harden season targets and reset lifecycle`): mode-specific TSAV/runtime W+L targets, completed-session reset coherence, boundary regressions, and the unsigned games-behind floor contract.
-- Final evidence correction: a focused synthetic `1-0` versus `10-1`
-  standings regression now proves the negative games-behind expression is
-  floored before export; the correction commit is reported in the final
-  handoff.
+- Final accepted code candidate: `15946f584e7a69836a3767059123c7b13593fc2a`;
+  a focused synthetic `1-0` versus `10-1` standings regression proves the
+  negative games-behind expression is floored before export.
+- Exact candidate lineage before this documentation commit, in order:
+  `75119657dda1db7d97083dafddc4498548ac7ab3`,
+  `3431112e1ddcc66cf771106818f31bd1b5a5e4e6`,
+  `0c2bf410f8d86d3a5bbb3af75d699be86de8a780`,
+  `d282bc21e8fd1e766ede0e677c05a8721ae7a47d`,
+  `15946f584e7a69836a3767059123c7b13593fc2a`.
+- The exact SHA of this final documentation-only commit is supplied in the
+  Sol handoff because a commit cannot contain its own SHA.
 
 ## Reproducible proof manifest
 
@@ -140,12 +163,51 @@ completed-session reset recovery, invalid pending no-mutation,
 team-control/reset/editor/result rollback, and importer CHR boundaries.
 `git diff --check` was clean before the evidence-correction commit.
 
+## Sol personal QA and independent acceptance
+
+Sol personally reverified the canonical ROM SHA-256 as
+`076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4`.
+The warning-clean `.\build.ps1`, `.\build\tecmo_port.exe --assetpack-test`,
+and `.\build\tecmo_port.exe --season-test` passed. The exact wrapper runs
+were:
+
+```text
+.\tools\Run-TeamDataTests.ps1 -ProjectRoot . -SkipBuild
+  PASS: 15/15 pixel checkpoints
+
+.\tools\Run-SeasonTests.ps1 -ProjectRoot . -SkipBuild
+  PASS: 13/13 pixel checkpoints, including native gameplay handoff/result
+```
+
+Sol also passed `git diff --check`, exact base ancestry, allowed-path scope,
+and clean status. The reproducible ignored proof directory is
+`build/sol-proof-15946f5`; private packs and captures were test-only and were
+not committed.
+
+Independent QA repeated diff/build/self-tests/wrappers, the exact five-commit
+candidate lineage, source claims, completed reset, `82/42/26/82` bounds,
+negative games-behind floor, pending coherence, identity/ranking/CHR, and all
+four rollback paths. It accepted the candidate with no candidate-relevant
+findings; intentional downstream gaps remain as documented above.
+
 ## Visual observations
 
 The existing 15 TTDT and 13 TSNS pixel checkpoint hashes remain accepted by
 their scripts. No ROM capture, save-state, trace dump, or proprietary decoded
 payload was added. The leaders results view continues to show
 `PLAYER RESULTS UNAVAILABLE`; the new ranking seam is not wired to that UI.
+
+Sol's visual proof observations:
+
+| Checkpoint | Frame SHA-256 | Observation |
+| --- | --- | --- |
+| `team-data-profile` | `E8BA35AC6C2FF05F882CC6D374BC3D4578992A1304D7018A2FE2D21F25F8D575` | Atlanta header/logo/coach/division roster/menu cursor aligned and legible. |
+| `team-data-player-detail` | `BC717CC2C62A1BAD485BA6307F8F250198476AFBD816162D6311D4A960635174` | Portrait, identity, attributes, zero-value profile statistics, and six ability meters aligned without clipping or artifacts; static profile fields are not claimed as season accumulators. |
+| `season-standings-east` | `3CC04A3C668C9EA7265D7758AA08CADB33BA5E416C1D717B37B9D595050229AB` | Atlantic/Central zero-state rows preserve source order, columns, and readable games-behind markers. |
+| `season-leaders-results` | `540D6EA78E8CB646E1D4D960E97EE5A464D04ABD32A6634BCCBD6E75F8CE7764` | Seven-category screen is stable and explicitly shows `PLAYER RESULTS UNAVAILABLE`; no fabricated rows. |
+| `season-game-start` | `66458313C7243A8EB3C464495B5B31D1EEAD31BA5D5B8669AD1F9009B0D65649` | TSNS boundary is stable with diagnostic `game-pending=1/launch-blocked=1` and no pre-result save. |
+
+No audio path changed; audio proof is not applicable to this domain.
 
 ## Honest approximations and deferred gaps
 
@@ -169,6 +231,15 @@ The primary implementation unit is commit
 is `3431112e1ddcc66cf771106818f31bd1b5a5e4e6`; and this revision is
 `0c2bf410f8d86d3a5bbb3af75d699be86de8a780`. Sol can cherry-pick those commits
 in order onto the expected parent/lineage, followed by the final evidence
-correction commit reported in the handoff. The current documentation revision
-commit is reported separately so the exact repository tip can be verified
-without claiming that a commit can contain its own SHA-256 identity.
+correction commit `15946f584e7a69836a3767059123c7b13593fc2a`. After this
+documentation-only commit is reviewed, Sol should fast-forward the domain
+branch from the exact base lineage with:
+
+```text
+git switch codex/r3-season-data-foundation-sol
+git merge --ff-only codex/r3-season-data-foundation-luna
+```
+
+The exact SHA of this documentation-only commit is supplied in the Sol
+handoff because a commit cannot contain its own SHA. Master later integrates
+the domain branch; no main/origin/main push or merge occurs here.
