@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T17:24:47Z",
+  "updated_at": "2026-08-03T17:33:02Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -89,8 +89,8 @@
         "OWN-R4-FRONTEND-INTRO-TITLE"
       ],
       "blockers": [],
-      "next_gate": "Native hardening is integrated at 761e061f. Same finale worker is correcting capture/native +8 scanline mapping, page1 short-route cadence, and three-band title renderer before its first commit; held proof worker revises only after finale integration.",
-      "updated_at": "2026-08-03T17:06:09Z"
+      "next_gate": "Sampled original/native geometry and binary masks are now exact after normalization, but same uncommitted finale worker must correct exact NES palette caps, Bulls BG+sprite slot9 override, and title page1-negative mutation. Then Sol runs full suite/source/docs review and integrates finale second; held proof worker follows.",
+      "updated_at": "2026-08-03T17:33:02Z"
     },
     {
       "lane_id": "LANE-R4-AUDIO-FOUNDATION",
