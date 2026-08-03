@@ -161,7 +161,7 @@ void scene_clamp_actor_world(TecmoGameplaySceneActor *actor)
     }
 }
 
-static const TecmoTeamDataPlayer *scene_actor_player(
+const TecmoTeamDataPlayer *scene_actor_player(
     const TecmoGameplayScene *scene,
     const TecmoGameplaySceneActor *actor)
 {
@@ -170,7 +170,7 @@ static const TecmoTeamDataPlayer *scene_actor_player(
         scene->pretip_team_data == NULL ||
         !scene->pretip_team_data->available ||
         actor->team > TECMO_GAMEPLAY_TEAM_HOME ||
-        actor->roster_index >= TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT) {
+        actor->roster_index >= TECMO_TEAM_DATA_PLAYERS_PER_TEAM) {
         return NULL;
     }
     team_id = actor->team == TECMO_GAMEPLAY_TEAM_AWAY
@@ -178,6 +178,43 @@ static const TecmoTeamDataPlayer *scene_actor_player(
     if (team_id >= TECMO_TEAM_DATA_TEAM_COUNT) return NULL;
     return &scene->pretip_team_data->players[team_id]
                                                 [actor->roster_index];
+}
+
+bool scene_sync_live_foundation(TecmoGameplayScene *scene)
+{
+    TecmoGameplayCourtCoordinate positions[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    uint8_t actor_team[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplayLiveFoundation candidate;
+    size_t actor;
+    if (scene == NULL || scene->state.possession > TECMO_GAMEPLAY_TEAM_HOME) {
+        return false;
+    }
+    /* shots.c deliberately clears the slot holder during playback. Preserve
+       the last validated LIVE binding until its existing slot-based handoff
+       restores a holder; no dynamic matchup is fabricated mid-shot. */
+    if (scene->ball_holder == TECMO_GAMEPLAY_SCENE_NO_ACTOR) {
+        return scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE;
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        if (!scene->actors[actor].active ||
+            !scene_actor_world_position_valid(&scene->actors[actor])) {
+            return false;
+        }
+        positions[actor] = scene->actors[actor].position;
+        actor_team[actor] = scene->actors[actor].team;
+    }
+    candidate = scene->live_foundation;
+    if (!tecmo_gameplay_live_foundation_synchronize(
+            &scene->cpu_steering_assets, positions,
+            scene->orientation_state.current_direction,
+            (uint8_t)scene->state.possession, scene->ball_holder,
+            actor_team, scene->launch.controller_team,
+            scene->controlled_actor, &candidate)) {
+        return false;
+    }
+    scene->live_foundation = candidate;
+    return true;
 }
 
 bool scene_actor_movement_state(
@@ -685,108 +722,6 @@ static bool scene_actor_is_controlled(const TecmoGameplayScene *scene,
     return false;
 }
 
-/* Native, non-ROM-exact target policy for ordinary CPU locomotion. Offensive
-   non-holders use mirrored per-slot formation points. Defenders retain their
-   opposing roster-slot link for pose/facing, but stand goal-side of the linked
-   offensive snapshot with a small slot-specific depth split so the fixed
-   pairs cannot collapse onto one coordinate. */
-static bool scene_cpu_policy_target(
-    const TecmoGameplayScene *scene,
-    const TecmoGameplayCpuSteeringHarnessInput *snapshot,
-    size_t actor,
-    TecmoGameplayCourtCoordinate *target_out)
-{
-    static const TecmoGameplayCourtCoordinate formation_targets[5] = {
-        {256, 148}, {288, 112}, {288, 184}, {352, 96}, {352, 200}
-    };
-    static const int8_t defender_depth_split[5] = {
-        0, -10, 10, -14, 14
-    };
-    const TecmoGameplaySceneActor *item;
-    uint8_t linked_actor;
-    int32_t target_x;
-    int32_t target_y;
-    int32_t goal_side;
-    if (scene == NULL || snapshot == NULL || target_out == NULL ||
-        actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
-        scene->state.possession > TECMO_GAMEPLAY_TEAM_HOME ||
-        scene->orientation_state.current_direction >=
-            TECMO_GAMEPLAY_COURT_ORIENTATION_COUNT) {
-        return false;
-    }
-    item = &scene->actors[actor];
-    linked_actor = scene->cpu_actors[actor].linked_actor;
-    if (item->team > TECMO_GAMEPLAY_TEAM_HOME ||
-        item->roster_index >= TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
-        linked_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
-        linked_actor == actor ||
-        !tecmo_gameplay_court_coordinate_valid(
-            &snapshot->actor_position[linked_actor])) {
-        return false;
-    }
-
-    if (item->team == (uint8_t)scene->state.possession) {
-        const TecmoGameplayCourtCoordinate *formation =
-            &formation_targets[item->roster_index];
-        target_x = scene->orientation_state.current_direction == 0U
-            ? formation->x
-            : TECMO_GAMEPLAY_COURT_WORLD_MAX_X - formation->x;
-        target_y = formation->y;
-    } else {
-        const TecmoGameplayCourtCoordinate *linked =
-            &snapshot->actor_position[linked_actor];
-        /* Orientation is the attacking side: orientation 0 attacks left,
-           so its defender's goal-side offset decreases X; orientation 1
-           attacks right, so its defender's goal-side offset increases X. */
-        goal_side = scene->orientation_state.current_direction == 0U
-            ? -1
-            : 1;
-        target_x = (int32_t)linked->x + goal_side * 32;
-        target_y = (int32_t)linked->y +
-            defender_depth_split[item->roster_index];
-        /* Keep the bounded native policy from collapsing a boundary defender
-           onto its fixed link. If the goal-side point is outside the shaped
-           court, use the same 32-pixel distance on the court side. The final
-           full-world bounds clamp below remains the safety check. */
-        {
-            bool goal_side_outside =
-                target_x < TECMO_GAMEPLAY_COURT_WORLD_MIN_X ||
-                target_x > TECMO_GAMEPLAY_COURT_WORLD_MAX_X;
-            int32_t boundary_y = target_y;
-            if (boundary_y < TECMO_GAMEPLAY_COURT_WORLD_MIN_Y) {
-                boundary_y = TECMO_GAMEPLAY_COURT_WORLD_MIN_Y;
-            } else if (boundary_y > TECMO_GAMEPLAY_COURT_WORLD_MAX_Y) {
-                boundary_y = TECMO_GAMEPLAY_COURT_WORLD_MAX_Y;
-            }
-            if (!goal_side_outside) {
-                int32_t half_y = boundary_y / 2;
-                int32_t left_boundary =
-                    TECMO_GAMEPLAY_LEFT_BOUNDARY_BASE - half_y;
-                int32_t right_boundary =
-                    TECMO_GAMEPLAY_RIGHT_BOUNDARY_BASE + half_y;
-                goal_side_outside = target_x < left_boundary ||
-                    target_x > right_boundary;
-            }
-            if (goal_side_outside) {
-                target_x = (int32_t)linked->x - goal_side * 32;
-            }
-        }
-    }
-    if (target_x < TECMO_GAMEPLAY_COURT_WORLD_MIN_X) {
-        target_x = TECMO_GAMEPLAY_COURT_WORLD_MIN_X;
-    } else if (target_x > TECMO_GAMEPLAY_COURT_WORLD_MAX_X) {
-        target_x = TECMO_GAMEPLAY_COURT_WORLD_MAX_X;
-    }
-    if (target_y < TECMO_GAMEPLAY_COURT_WORLD_MIN_Y) {
-        target_y = TECMO_GAMEPLAY_COURT_WORLD_MIN_Y;
-    } else if (target_y > TECMO_GAMEPLAY_COURT_WORLD_MAX_Y) {
-        target_y = TECMO_GAMEPLAY_COURT_WORLD_MAX_Y;
-    }
-    target_out->x = (int16_t)target_x;
-    target_out->y = (int16_t)target_y;
-    return tecmo_gameplay_court_coordinate_valid(target_out);
-}
-
 bool scene_cpu_actor_state_valid(
     const TecmoGameplayScene *scene,
     size_t actor,
@@ -840,69 +775,298 @@ bool scene_cpu_actor_state_valid(
                cpu->held_direction_bits] == cpu->direction;
 }
 
-static bool scene_cpu_result_coherent(
-    const TecmoGameplayScene *scene,
+static bool scene_cpu_source_target(
+    const TecmoGameplayCpuSteeringPlayState *play_state,
+    const TecmoGameplayCourtCoordinate
+        actor_position[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT],
     size_t actor,
-    const TecmoGameplayCpuSteeringMovementResult *result)
+    TecmoGameplayCourtCoordinate *target_out,
+    TecmoGameplayCpuSteeringHarnessTargetKind *target_kind_out)
 {
-    const TecmoGameplaySceneCpuActor *cpu;
-    if (scene == NULL || result == NULL ||
-        actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
-        result->contract_tag !=
-            TECMO_GAMEPLAY_CPU_STEERING_MOVEMENT_RESULT_TAG ||
-        result->steering.contract_tag !=
-            TECMO_GAMEPLAY_CPU_STEERING_HARNESS_RESULT_TAG ||
-        result->steering.actor != actor ||
-        result->steering.possession != (uint8_t)scene->state.possession ||
-        result->steering.orientation !=
-            scene->orientation_state.current_direction ||
-        result->steering.ball_holder != scene->ball_holder ||
-        result->steering.difficulty != scene->launch.difficulty) {
+    uint8_t target_actor;
+    TecmoGameplayCourtCoordinate target;
+    if (play_state == NULL || actor_position == NULL || target_out == NULL ||
+        target_kind_out == NULL ||
+        actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
         return false;
     }
-    cpu = &scene->cpu_actors[actor];
-    if (result->steering.matchup_actor != cpu->linked_actor) return false;
-    if (actor == scene->ball_holder) {
-        return result->steering.target_kind ==
-                   TECMO_GAMEPLAY_CPU_STEERING_HARNESS_HOOP_APPROACH &&
-               result->steering.target_actor ==
-                   TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    target_actor = play_state->target_actor[actor];
+    if (target_actor != TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR) {
+        if (target_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) return false;
+        /* Native-faithful adapter policy: an actor-target command follows
+           the current referenced actor's coordinate on every immutable
+           post-human snapshot/tick. The foundation's stored target
+           coordinate remains validated source evidence; original Bank05
+           dynamic retarget/matchup semantics remain incomplete/unproven. */
+        target = actor_position[target_actor];
+        *target_kind_out =
+            TECMO_GAMEPLAY_CPU_STEERING_HARNESS_LINKED_ACTOR;
+    } else {
+        target.x = play_state->target_x[actor];
+        target.y = play_state->target_depth[actor];
+        *target_kind_out =
+            TECMO_GAMEPLAY_CPU_STEERING_HARNESS_EXPLICIT_TARGET;
     }
-    return result->steering.target_kind ==
-               TECMO_GAMEPLAY_CPU_STEERING_HARNESS_EXPLICIT_TARGET &&
-           result->steering.target_actor == cpu->linked_actor;
+    if (!tecmo_gameplay_court_coordinate_valid(&target)) return false;
+    *target_out = target;
+    return true;
 }
 
-bool scene_update_ai(
+bool scene_cpu_target_for_source_direction(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    const TecmoGameplayCourtCoordinate *actor_position,
+    uint8_t source_direction,
+    TecmoGameplayCourtCoordinate *target_out)
+{
+    bool found = false;
+    int64_t best_distance = INT64_MAX;
+    int32_t best_abs_sum = INT32_MAX;
+    int32_t best_horizontal = INT32_MAX;
+    int32_t best_depth = INT32_MAX;
+    TecmoGameplayCourtCoordinate best_target = {0};
+    if (assets == NULL || actor_position == NULL || target_out == NULL ||
+        source_direction >= TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT ||
+        !tecmo_gameplay_court_coordinate_valid(actor_position)) {
+        return false;
+    }
+    /* TGMO consumes held bits and derives its direction from a target. When
+       the accepted play state supplies a direction without a target write,
+       choose the nearest deterministic in-court target whose exact TGAI
+       octant equals that direction. This is an owned TGAI->TGMO composition
+       and an explicit native adapter policy; it does not invent a ROM
+       command argument. */
+    for (int32_t horizontal = -64; horizontal <= 64; horizontal += 8) {
+        for (int32_t depth = -64; depth <= 64; depth += 8) {
+            TecmoGameplayCourtCoordinate candidate;
+            uint8_t direction;
+            int64_t distance;
+            int32_t abs_sum;
+            if (horizontal == 0 && depth == 0) continue;
+            if ((int32_t)actor_position->x + horizontal <
+                    TECMO_GAMEPLAY_COURT_WORLD_MIN_X ||
+                (int32_t)actor_position->x + horizontal >
+                    TECMO_GAMEPLAY_COURT_WORLD_MAX_X ||
+                (int32_t)actor_position->y + depth <
+                    TECMO_GAMEPLAY_COURT_WORLD_MIN_Y ||
+                (int32_t)actor_position->y + depth >
+                    TECMO_GAMEPLAY_COURT_WORLD_MAX_Y) {
+                continue;
+            }
+            candidate.x = (int16_t)((int32_t)actor_position->x + horizontal);
+            candidate.y = (int16_t)((int32_t)actor_position->y + depth);
+            /* Scene movement uses the playable court polygon, which is
+               narrower than the decoded full TGCT world at its baseline and
+               sidelines. Never synthesize a TGMO target in that outside
+               staging area merely because it is inside the raw world box. */
+            if (!scene_actor_coordinate_valid(&candidate)) continue;
+            if (!tecmo_gameplay_cpu_steering_direction_for_delta(
+                    assets, (int16_t)horizontal, (int16_t)depth,
+                    &direction) || direction != source_direction) {
+                continue;
+            }
+            distance = (int64_t)horizontal * (int64_t)horizontal +
+                       (int64_t)depth * (int64_t)depth;
+            abs_sum = (horizontal < 0 ? -horizontal : horizontal) +
+                      (depth < 0 ? -depth : depth);
+            if (!found || distance < best_distance ||
+                (distance == best_distance &&
+                 (abs_sum < best_abs_sum ||
+                  (abs_sum == best_abs_sum &&
+                   (horizontal < best_horizontal ||
+                    (horizontal == best_horizontal &&
+                     depth < best_depth)))))) {
+                found = true;
+                best_distance = distance;
+                best_abs_sum = abs_sum;
+                best_horizontal = horizontal;
+                best_depth = depth;
+                best_target = candidate;
+            }
+        }
+    }
+    if (!found) return false;
+    *target_out = best_target;
+    return true;
+}
+
+static void scene_cpu_build_play_input(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplayCourtCoordinate
+        actor_position[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT],
+    TecmoGameplayCpuSteeringPlayInput *input)
+{
+    memset(input, 0, sizeof(*input));
+    input->contract_tag = TECMO_GAMEPLAY_CPU_STEERING_PLAY_INPUT_TAG;
+    /* Bank06 advances one bounded source record for the selected actor per
+       live tick. The accepted executor's maximum budget is not a per-actor
+       scene tick budget. */
+    input->step_budget = 1U;
+    input->orientation_035a = scene->orientation_state.current_direction;
+    /* $BA, $04B0, $046E, $058A/$0357/$0358/$7E are caller workspaces not
+       exposed by the native scene. Zero/clock-derived values are deterministic
+       native approximations; they are not original command arguments. */
+    input->flags_ba = 0U;
+    input->state_058a = scene->state.shot_clock >= 4U
+        ? 4U : scene->state.shot_clock;
+    input->state_0357 = 0U;
+    input->state_0358 = 4U;
+    input->flags_007e = 0U;
+    memcpy(input->actor_position, actor_position,
+           sizeof(input->actor_position));
+}
+
+static bool scene_cpu_shot_input(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplaySceneActor *holder,
+    const TecmoTeamDataPlayer *player,
+    TecmoGameplayCpuSteeringShotInput *input)
+{
+    int32_t delta;
+    if (scene == NULL || holder == NULL || player == NULL || input == NULL ||
+        scene->orientation_state.offensive_hoop.x <
+            TECMO_GAMEPLAY_COURT_WORLD_MIN_X ||
+        scene->orientation_state.offensive_hoop.x >
+            TECMO_GAMEPLAY_COURT_WORLD_MAX_X) {
+        return false;
+    }
+    memset(input, 0, sizeof(*input));
+    input->contract_tag = TECMO_GAMEPLAY_CPU_STEERING_SHOT_INPUT_TAG;
+    /* State/gate zero is the supported neutral live-action mapping. The
+       target delta is the exact scene holder-to-TGOR offensive hoop delta;
+       timer_0798=1, timer_0760=shot clock, and random_byte=0 are deterministic
+       native approximations because their original caller workspace is not
+       proven. TTDT profile[0] supplies the source-backed rating byte. */
+    input->state_0588 = 0U;
+    input->flags_ba = 0U;
+    delta = (int32_t)scene->orientation_state.offensive_hoop.x -
+            holder->position.x;
+    if (delta < 0) delta = -delta;
+    if (delta > 0xFFFF) delta = 0xFFFF;
+    input->target_delta_low = (uint8_t)delta;
+    input->target_delta_high = (uint8_t)((uint32_t)delta >> 8U);
+    input->gate_0478 = 0U;
+    input->timer_0798 = 1U;
+    input->difficulty = scene->launch.difficulty;
+    input->timer_0760 = scene->state.shot_clock;
+    input->rating_0533 = player->profile[0];
+    input->random_byte = 0U;
+    return true;
+}
+
+/* Direct callers that use the source/default-initializer unbound launch retain
+   pre-R1 native approximation. This path is deliberately isolated behind the
+   stored legacy bit; production launchers are canonical bound LIVE launches
+   and never consume these formation targets or cadence. */
+static bool scene_cpu_legacy_policy_target(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplayCourtCoordinate
+        snapshot[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT],
+    size_t actor,
+    TecmoGameplayCourtCoordinate *target_out)
+{
+    static const TecmoGameplayCourtCoordinate formation_targets[5] = {
+        {256, 148}, {288, 112}, {288, 184}, {352, 96}, {352, 200}
+    };
+    static const int8_t defender_depth_split[5] = {
+        0, -10, 10, -14, 14
+    };
+    const TecmoGameplaySceneActor *item;
+    uint8_t linked_actor;
+    int32_t target_x;
+    int32_t target_y;
+    int32_t goal_side;
+    if (scene == NULL || snapshot == NULL || target_out == NULL ||
+        !scene->legacy_direct_launch ||
+        actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->state.possession > TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->orientation_state.current_direction >=
+            TECMO_GAMEPLAY_COURT_ORIENTATION_COUNT) {
+        return false;
+    }
+    item = &scene->actors[actor];
+    linked_actor = scene->cpu_actors[actor].linked_actor;
+    if (item->team > TECMO_GAMEPLAY_TEAM_HOME ||
+        item->roster_index >= TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
+        linked_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        linked_actor == actor ||
+        !tecmo_gameplay_court_coordinate_valid(&snapshot[linked_actor])) {
+        return false;
+    }
+    if (item->team == (uint8_t)scene->state.possession) {
+        const TecmoGameplayCourtCoordinate *formation =
+            &formation_targets[item->roster_index];
+        target_x = scene->orientation_state.current_direction == 0U
+            ? formation->x
+            : TECMO_GAMEPLAY_COURT_WORLD_MAX_X - formation->x;
+        target_y = formation->y;
+    } else {
+        const TecmoGameplayCourtCoordinate *linked = &snapshot[linked_actor];
+        goal_side = scene->orientation_state.current_direction == 0U
+            ? -1 : 1;
+        target_x = (int32_t)linked->x + goal_side * 32;
+        target_y = (int32_t)linked->y +
+            defender_depth_split[item->roster_index];
+        {
+            bool goal_side_outside =
+                target_x < TECMO_GAMEPLAY_COURT_WORLD_MIN_X ||
+                target_x > TECMO_GAMEPLAY_COURT_WORLD_MAX_X;
+            int32_t boundary_y = target_y;
+            if (boundary_y < TECMO_GAMEPLAY_COURT_WORLD_MIN_Y) {
+                boundary_y = TECMO_GAMEPLAY_COURT_WORLD_MIN_Y;
+            } else if (boundary_y > TECMO_GAMEPLAY_COURT_WORLD_MAX_Y) {
+                boundary_y = TECMO_GAMEPLAY_COURT_WORLD_MAX_Y;
+            }
+            if (!goal_side_outside) {
+                int32_t half_y = boundary_y / 2;
+                int32_t left_boundary =
+                    TECMO_GAMEPLAY_LEFT_BOUNDARY_BASE - half_y;
+                int32_t right_boundary =
+                    TECMO_GAMEPLAY_RIGHT_BOUNDARY_BASE + half_y;
+                goal_side_outside = target_x < left_boundary ||
+                    target_x > right_boundary;
+            }
+            if (goal_side_outside) {
+                target_x = (int32_t)linked->x - goal_side * 32;
+            }
+        }
+    }
+    if (target_x < TECMO_GAMEPLAY_COURT_WORLD_MIN_X) {
+        target_x = TECMO_GAMEPLAY_COURT_WORLD_MIN_X;
+    } else if (target_x > TECMO_GAMEPLAY_COURT_WORLD_MAX_X) {
+        target_x = TECMO_GAMEPLAY_COURT_WORLD_MAX_X;
+    }
+    if (target_y < TECMO_GAMEPLAY_COURT_WORLD_MIN_Y) {
+        target_y = TECMO_GAMEPLAY_COURT_WORLD_MIN_Y;
+    } else if (target_y > TECMO_GAMEPLAY_COURT_WORLD_MAX_Y) {
+        target_y = TECMO_GAMEPLAY_COURT_WORLD_MAX_Y;
+    }
+    target_out->x = (int16_t)target_x;
+    target_out->y = (int16_t)target_y;
+    return tecmo_gameplay_court_coordinate_valid(target_out);
+}
+
+static bool scene_update_ai_legacy(
     TecmoGameplayScene *scene,
     TecmoGameplaySceneCpuShotRequest *shot_request_out)
 {
-    TecmoGameplayCpuSteeringHarnessInput steering_snapshot;
-    TecmoGameplaySceneActor
-        candidate_actors[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
-    TecmoGameplaySceneCpuActor
-        candidate_cpu[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplaySceneActor candidate_actors[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplaySceneCpuActor candidate_cpu[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplayCourtCoordinate snapshot[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     TecmoGameplayCourtCoordinateQ8 candidate_ball;
     TecmoGameplayBallDribbleFrame candidate_dribble;
+    TecmoGameplayScene candidate_scene;
     size_t actor;
     if (scene == NULL || shot_request_out == NULL ||
-        !scene->cpu_steering_assets.available ||
-        !scene->movement_assets.available ||
-        scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
-        scene->launch.difficulty >=
-            TECMO_GAMEPLAY_CPU_STEERING_DIFFICULTY_COUNT) {
+        !scene->legacy_direct_launch) {
         return false;
     }
     shot_request_out->requested = false;
     shot_request_out->actor_index = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
-    memset(&steering_snapshot, 0, sizeof(steering_snapshot));
-    steering_snapshot.contract_tag =
-        TECMO_GAMEPLAY_CPU_STEERING_HARNESS_INPUT_TAG;
-    steering_snapshot.possession = (uint8_t)scene->state.possession;
-    steering_snapshot.orientation =
-        scene->orientation_state.current_direction;
-    steering_snapshot.ball_holder = scene->ball_holder;
-    steering_snapshot.difficulty = scene->launch.difficulty;
+    shot_request_out->playback_supported = false;
+    shot_request_out->deferred = false;
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
         if (!scene->actors[actor].active ||
             !scene_actor_world_position_valid(&scene->actors[actor]) ||
@@ -910,16 +1074,10 @@ bool scene_update_ai(
                 scene, actor, &scene->cpu_actors[actor])) {
             return false;
         }
-        steering_snapshot.actor_position[actor] =
-            scene->actors[actor].position;
+        snapshot[actor] = scene->actors[actor].position;
     }
     memcpy(candidate_actors, scene->actors, sizeof(candidate_actors));
     memcpy(candidate_cpu, scene->cpu_actors, sizeof(candidate_cpu));
-    candidate_ball = scene->ball_position;
-
-    /* All ten decisions consume one immutable post-human-input court
-       snapshot. Successful TGAI -> TGMO steps are committed together, so
-       iteration order cannot alter another CPU actor's target this frame. */
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
         TecmoGameplayCpuSteeringMovementInput input;
         TecmoGameplayCpuSteeringMovementResult result;
@@ -935,15 +1093,21 @@ bool scene_update_ai(
             return false;
         }
         memset(&input, 0, sizeof(input));
-        input.contract_tag =
-            TECMO_GAMEPLAY_CPU_STEERING_MOVEMENT_INPUT_TAG;
-        input.steering = steering_snapshot;
+        input.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_MOVEMENT_INPUT_TAG;
+        input.steering.contract_tag =
+            TECMO_GAMEPLAY_CPU_STEERING_HARNESS_INPUT_TAG;
+        memcpy(input.steering.actor_position, snapshot,
+               sizeof(input.steering.actor_position));
         input.steering.actor = (uint8_t)actor;
+        input.steering.possession = (uint8_t)scene->state.possession;
+        input.steering.orientation =
+            scene->orientation_state.current_direction;
+        input.steering.ball_holder = scene->ball_holder;
         input.steering.matchup_actor = cpu->linked_actor;
+        input.steering.difficulty = scene->launch.difficulty;
         if (actor != scene->ball_holder &&
-            !scene_cpu_policy_target(
-                scene, &steering_snapshot, actor,
-                &input.steering.explicit_target)) {
+            !scene_cpu_legacy_policy_target(scene, snapshot, actor,
+                                             &input.steering.explicit_target)) {
             return false;
         }
         input.steering.has_explicit_target = actor != scene->ball_holder;
@@ -954,13 +1118,10 @@ bool scene_update_ai(
         input.player_movement_rating = player->profile[0];
         input.condition = scene->actors[actor].condition;
         input.speed_value = scene->launch.speed_value;
-        input.global_object_state = 0U;
-        input.movement_flags = 0U;
         input.primary_selected_actor = actor == scene->ball_holder;
         if (!tecmo_gameplay_cpu_steering_movement_step(
                 &scene->cpu_steering_assets, &scene->movement_assets,
                 &input, &result) ||
-            !scene_cpu_result_coherent(scene, actor, &result) ||
             !scene_actor_apply_movement(
                 scene, candidate_actors, actor, &result.movement,
                 result.held_direction_bits) ||
@@ -977,6 +1138,298 @@ bool scene_update_ai(
         cpu->writes_direction = result.steering.writes_direction;
         if (!scene_cpu_actor_state_valid(scene, actor, cpu)) return false;
     }
+    if (!scene_live_ball_frame_for_actors(
+            scene, candidate_actors, scene->ball_holder,
+            &candidate_dribble) ||
+        !tecmo_gameplay_court_coordinate_to_q8(
+            &candidate_dribble.visible_position, &candidate_ball)) {
+        return false;
+    }
+    if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+        !scene_team_has_controller(scene, scene->state.possession) &&
+        !candidate_actors[scene->ball_holder].movement_boundary_latched) {
+        const TecmoGameplaySceneActor *holder =
+            &candidate_actors[scene->ball_holder];
+        const TecmoGameplaySceneCpuActor *cpu =
+            &candidate_cpu[scene->ball_holder];
+        int32_t target_dx = (int32_t)holder->position.x -
+            cpu->target_position.x;
+        int32_t target_dy = (int32_t)holder->position.y -
+            cpu->target_position.y;
+        uint32_t shot_cadence = 60U -
+            (uint32_t)scene->launch.difficulty * 15U;
+        if (target_dx < 0) target_dx = -target_dx;
+        if (target_dy < 0) target_dy = -target_dy;
+        if (!holder->movement_boundary_latched && cpu->target_valid &&
+            cpu->target_kind ==
+                TECMO_GAMEPLAY_CPU_STEERING_HARNESS_HOOP_APPROACH &&
+            target_dx <= 2 && target_dy <= 2 &&
+            scene->frame % shot_cadence == 0U) {
+            shot_request_out->requested = true;
+            shot_request_out->actor_index = scene->ball_holder;
+            shot_request_out->deferred = false;
+        }
+    }
+    if (shot_request_out->requested) {
+        candidate_scene = *scene;
+        memcpy(candidate_scene.actors, candidate_actors,
+               sizeof(candidate_actors));
+        memcpy(candidate_scene.cpu_actors, candidate_cpu,
+               sizeof(candidate_cpu));
+        candidate_scene.ball_position = candidate_ball;
+        if (scene_start_shot_actor(
+                &candidate_scene, 0U, shot_request_out->actor_index)) {
+            shot_request_out->playback_supported = true;
+            shot_request_out->deferred = false;
+            *scene = candidate_scene;
+            return true;
+        }
+        shot_request_out->requested = false;
+        shot_request_out->playback_supported = false;
+        shot_request_out->deferred = true;
+    }
+    memcpy(scene->actors, candidate_actors, sizeof(candidate_actors));
+    memcpy(scene->cpu_actors, candidate_cpu, sizeof(candidate_cpu));
+    scene->ball_position = candidate_ball;
+    return true;
+}
+
+bool scene_update_ai(
+    TecmoGameplayScene *scene,
+    TecmoGameplaySceneCpuShotRequest *shot_request_out)
+{
+    TecmoGameplayCpuSteeringPlayInput play_input;
+    TecmoGameplayCourtCoordinate
+        steering_snapshot[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplayLiveFoundation candidate_foundation;
+    TecmoGameplaySceneActor
+        candidate_actors[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplaySceneCpuActor
+        candidate_cpu[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplayCourtCoordinateQ8 candidate_ball;
+    TecmoGameplayBallDribbleFrame candidate_dribble;
+    TecmoGameplayScene candidate_scene;
+    uint8_t actor_team[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    static const uint8_t source_actor_order[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT] = {
+        0U, 1U, 2U, 3U, 4U, 5U, 6U, 7U, 8U, 9U
+    };
+    size_t actor;
+    if (scene == NULL || shot_request_out == NULL ||
+        !scene->cpu_steering_assets.available ||
+        !scene->movement_assets.available ||
+        scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->launch.difficulty >=
+            TECMO_GAMEPLAY_CPU_STEERING_DIFFICULTY_COUNT) {
+        return false;
+    }
+    shot_request_out->requested = false;
+    shot_request_out->actor_index = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    shot_request_out->playback_supported = false;
+    shot_request_out->deferred = false;
+    if (scene->legacy_direct_launch) {
+        return scene_update_ai_legacy(scene, shot_request_out);
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        if (!scene->actors[actor].active ||
+            !scene_actor_world_position_valid(&scene->actors[actor]) ||
+            !scene_cpu_actor_state_valid(
+                scene, actor, &scene->cpu_actors[actor])) {
+            return false;
+        }
+        steering_snapshot[actor] =
+            scene->actors[actor].position;
+        actor_team[actor] = scene->actors[actor].team;
+    }
+    scene_cpu_build_play_input(scene, steering_snapshot, &play_input);
+    memcpy(candidate_actors, scene->actors, sizeof(candidate_actors));
+    memcpy(candidate_cpu, scene->cpu_actors, sizeof(candidate_cpu));
+    candidate_ball = scene->ball_position;
+    candidate_foundation = scene->live_foundation;
+    if (!tecmo_gameplay_live_foundation_synchronize(
+            &scene->cpu_steering_assets, steering_snapshot,
+            scene->orientation_state.current_direction,
+            (uint8_t)scene->state.possession, scene->ball_holder,
+            actor_team, scene->launch.controller_team,
+            scene->controlled_actor, &candidate_foundation)) {
+        return false;
+    }
+
+    /* All ten decisions consume one immutable post-human-input court
+       snapshot. Each accepted play step is staged in candidate_foundation;
+       no actor, CPU metadata, or ball state reaches the scene until every
+       requested validation succeeds. */
+    for (size_t source_index = 0U;
+         source_index < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++source_index) {
+        TecmoGameplayCpuSteeringPlayResult play_result;
+        TecmoGameplayCpuSteeringMovementInput input;
+        TecmoGameplayCpuSteeringMovementResult result;
+        TecmoGameplaySceneCpuActor *cpu;
+        const TecmoTeamDataPlayer *player;
+        TecmoGameplayCourtCoordinate target = {0, 0};
+        TecmoGameplayCpuSteeringHarnessTargetKind target_kind =
+            TECMO_GAMEPLAY_CPU_STEERING_HARNESS_EXPLICIT_TARGET;
+        bool source_target;
+        bool source_direction;
+        bool source_direction_target = false;
+        bool movement_target;
+        actor = source_actor_order[source_index];
+        if (scene_actor_is_controlled(scene, actor) ||
+            actor == scene->shot_actor) {
+            continue;
+        }
+        player = scene_actor_player(scene, &scene->actors[actor]);
+        cpu = &candidate_cpu[actor];
+        if (player == NULL || cpu->decision_serial == UINT32_MAX) {
+            return false;
+        }
+        memset(&input, 0, sizeof(input));
+        play_input.actor = (uint8_t)actor;
+        if (!tecmo_gameplay_live_foundation_play_step(
+                &scene->cpu_steering_assets, &play_input,
+                &candidate_foundation, &play_result)) {
+            return false;
+        }
+        source_target = candidate_foundation.source_target_valid[actor];
+        source_direction = candidate_foundation.source_direction_valid[actor];
+        input.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_MOVEMENT_INPUT_TAG;
+        input.steering.contract_tag =
+            TECMO_GAMEPLAY_CPU_STEERING_HARNESS_INPUT_TAG;
+        memcpy(input.steering.actor_position, steering_snapshot,
+               sizeof(input.steering.actor_position));
+        input.steering.actor = (uint8_t)actor;
+        input.steering.possession = (uint8_t)scene->state.possession;
+        input.steering.orientation =
+            scene->orientation_state.current_direction;
+        input.steering.ball_holder = scene->ball_holder;
+        input.steering.difficulty = scene->launch.difficulty;
+        input.steering.matchup_actor = candidate_foundation.play_state
+            .native_matchup_actor[actor];
+        if (source_target) {
+            if (!scene_cpu_source_target(
+                    &candidate_foundation.play_state, steering_snapshot,
+                    actor, &target, &target_kind)) {
+                return false;
+            }
+            if (source_direction) {
+                uint8_t direction;
+                if (!tecmo_gameplay_cpu_steering_direction_for_delta(
+                        &scene->cpu_steering_assets,
+                        (int16_t)(target.x - steering_snapshot[actor].x),
+                        (int16_t)(target.y - steering_snapshot[actor].y),
+                        &direction) ||
+                    direction != candidate_foundation.source_direction[actor]) {
+                    return false;
+                }
+            }
+        } else if (source_direction) {
+            if (scene_cpu_target_for_source_direction(
+                    &scene->cpu_steering_assets, &steering_snapshot[actor],
+                    candidate_foundation.source_direction[actor], &target)) {
+                source_direction_target = true;
+            } else {
+                /* An outward source direction at an edge/corner has no
+                   legal in-court TGMO target. Preserve the accepted source
+                   direction and classify only its owned TGMO composition as
+                   inert/deferred; the LIVE scene transaction remains valid. */
+                candidate_foundation.deferred[actor] = true;
+            }
+        }
+        /* A deferred source effect preserves its last validated target. If
+           none exists, LIVE deliberately performs no movement this tick;
+           there is no fallback to the retired approximate formation policy. */
+        movement_target = source_target || source_direction_target;
+        input.steering.has_explicit_target = movement_target;
+        if (movement_target) input.steering.explicit_target = target;
+        if (!scene_actor_movement_state(
+            scene, &scene->actors[actor], &input.movement)) {
+            return false;
+        }
+        input.player_movement_rating = player->profile[0];
+        input.condition = scene->actors[actor].condition;
+        input.speed_value = scene->launch.speed_value;
+        input.global_object_state = 0U;
+        input.movement_flags = 0U;
+        input.primary_selected_actor = actor == scene->ball_holder;
+        if (!movement_target) {
+            /* A deferred/no-target source step is intentionally inert. Clear
+               all prior CPU target metadata so a target computed under the
+               old role/orientation cannot remain scene-visible; fixed links
+               and the validated foundation stream still advance separately. */
+            cpu->decision_serial = 0U;
+            cpu->snapshot_fingerprint = 0U;
+            cpu->target_position.x = 0;
+            cpu->target_position.y = 0;
+            cpu->target_kind =
+                TECMO_GAMEPLAY_CPU_STEERING_HARNESS_TARGET_KIND_COUNT;
+            cpu->direction = TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+            cpu->held_direction_bits = TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
+            cpu->target_valid = false;
+            cpu->writes_direction = false;
+            cpu->command_offset = TECMO_GAMEPLAY_SCENE_CPU_NO_COMMAND_OFFSET;
+            cpu->linked_actor = candidate_foundation.play_state
+                .fixed_link[actor];
+            if (!scene_cpu_actor_state_valid(scene, actor, cpu)) {
+                return false;
+            }
+            continue;
+        }
+        if (!tecmo_gameplay_cpu_steering_movement_step(
+            &scene->cpu_steering_assets, &scene->movement_assets,
+            &input, &result) ||
+            result.steering.target_position.x != target.x ||
+            result.steering.target_position.y != target.y ||
+            result.steering.matchup_actor != input.steering.matchup_actor ||
+            !scene_actor_apply_movement(
+                scene, candidate_actors, actor, &result.movement,
+                result.held_direction_bits) ||
+            !scene_actor_world_position_valid(&candidate_actors[actor])) {
+            return false;
+        }
+        if (result.steering.writes_direction) {
+            uint8_t expected_direction;
+            int16_t horizontal = (int16_t)(
+                target.x - steering_snapshot[actor].x);
+            int16_t depth = (int16_t)(
+                target.y - steering_snapshot[actor].y);
+            if (!tecmo_gameplay_cpu_steering_direction_for_delta(
+                    &scene->cpu_steering_assets, horizontal, depth,
+                    &expected_direction) ||
+                result.steering.direction != expected_direction ||
+                result.held_direction_bits >=
+                    sizeof(scene->movement_assets.direction_map) ||
+                scene->movement_assets.direction_map[
+                    result.held_direction_bits] != expected_direction) {
+                return false;
+            }
+            /* For the current target-write family this equality proves the
+               accepted source target and TGMO octant remain identical. A
+               source direction write is checked against the actual held-bit
+               map below and may also supply a deterministic adapter target. */
+        }
+        if (source_direction &&
+            (result.steering.direction !=
+                 candidate_foundation.source_direction[actor] ||
+             result.held_direction_bits >=
+                 sizeof(scene->movement_assets.direction_map) ||
+             scene->movement_assets.direction_map[
+                 result.held_direction_bits] !=
+                 candidate_foundation.source_direction[actor])) {
+            return false;
+        }
+        if (cpu->decision_serial == UINT32_MAX) return false;
+        ++cpu->decision_serial;
+        cpu->snapshot_fingerprint = result.steering.input_fingerprint;
+        cpu->target_position = result.steering.target_position;
+        cpu->target_kind = (uint8_t)target_kind;
+        cpu->direction = result.steering.direction;
+        cpu->held_direction_bits = result.held_direction_bits;
+        cpu->target_valid = true;
+        cpu->writes_direction = result.steering.writes_direction;
+        cpu->command_offset = TECMO_GAMEPLAY_SCENE_CPU_NO_COMMAND_OFFSET;
+        cpu->linked_actor = candidate_foundation.play_state.fixed_link[actor];
+        if (!scene_cpu_actor_state_valid(scene, actor, cpu)) return false;
+    }
 
     if (!scene_live_ball_frame_for_actors(
             scene, candidate_actors, scene->ball_holder,
@@ -985,37 +1438,76 @@ bool scene_update_ai(
             &candidate_dribble.visible_position, &candidate_ball)) {
         return false;
     }
-    memcpy(scene->actors, candidate_actors, sizeof(candidate_actors));
-    memcpy(scene->cpu_actors, candidate_cpu, sizeof(candidate_cpu));
-    scene->ball_position = candidate_ball;
+    candidate_foundation.last_shot_request = false;
+    candidate_foundation.last_shot_actor =
+        TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    candidate_foundation.last_shot_deferred = false;
+    candidate_foundation.last_shot_playback_supported = false;
 
     if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
-        !scene_team_has_controller(scene, scene->state.possession)) {
-        TecmoGameplaySceneActor *holder = &scene->actors[scene->ball_holder];
-        const TecmoGameplaySceneCpuActor *cpu =
-            &scene->cpu_actors[scene->ball_holder];
-        int32_t target_dx = (int32_t)holder->position.x -
-                            cpu->target_position.x;
-        int32_t target_dy = (int32_t)holder->position.y -
-                            cpu->target_position.y;
-        uint32_t shot_cadence = 60U -
-            (uint32_t)scene->launch.difficulty * 15U;
-        if (target_dx < 0) target_dx = -target_dx;
-        if (target_dy < 0) target_dy = -target_dy;
-        /* Shot choice/cadence is still native approximate policy, kept
-           separate from the now TGAI-directed/TGMO-moved ordinary actor. */
-        if (!holder->movement_boundary_latched && cpu->target_valid &&
-            cpu->target_kind ==
-                TECMO_GAMEPLAY_CPU_STEERING_HARNESS_HOOP_APPROACH &&
-            target_dx <= 2 && target_dy <= 2 &&
-            scene->frame % shot_cadence == 0U) {
-            /* CPU close shots remain available. Report the launch decision
-               to the scene orchestrator; actor policy must not depend on the
-               shot playback module. */
-            shot_request_out->requested = true;
+        !scene_team_has_controller(scene, scene->state.possession) &&
+        !candidate_actors[scene->ball_holder].movement_boundary_latched) {
+        TecmoGameplaySceneActor *holder =
+            &candidate_actors[scene->ball_holder];
+        const TecmoTeamDataPlayer *player = scene_actor_player(
+            scene, holder);
+        TecmoGameplayCpuSteeringShotInput shot_input;
+        TecmoGameplayCpuSteeringShotResult shot_result;
+        if (player == NULL ||
+            !scene_cpu_shot_input(scene, holder, player, &shot_input) ||
+            !tecmo_gameplay_live_foundation_shot_request(
+                &scene->cpu_steering_assets, &shot_input, scene->ball_holder,
+                &candidate_foundation, &shot_result)) {
+            return false;
+        }
+        if (shot_result.request) {
+            candidate_foundation.last_shot_request = true;
+            candidate_foundation.last_shot_actor = scene->ball_holder;
+            candidate_scene = *scene;
+            memcpy(candidate_scene.actors, candidate_actors,
+                   sizeof(candidate_actors));
+            memcpy(candidate_scene.cpu_actors, candidate_cpu,
+                   sizeof(candidate_cpu));
+            candidate_scene.ball_position = candidate_ball;
+            candidate_scene.live_foundation = candidate_foundation;
+            /* shots.c remains the sole playback owner. Probe it once on the
+               complete candidate; an unsupported request is recorded as a
+               nonfatal deferred/non-launch classification. */
+             if (scene_start_shot_actor(
+                     &candidate_scene, 0U, scene->ball_holder) &&
+                 scene_shot_is_close(candidate_scene.shot_kind) &&
+                 candidate_scene.shot_actor == scene->ball_holder) {
+                candidate_scene.live_foundation.last_shot_deferred = false;
+                candidate_scene.live_foundation.last_shot_playback_supported =
+                    true;
+                if (!scene_ownership_valid(&candidate_scene)) return false;
+                *scene = candidate_scene;
+                shot_request_out->requested = true;
+                shot_request_out->actor_index = scene->shot_actor;
+                shot_request_out->playback_supported = true;
+                shot_request_out->deferred = false;
+                return true;
+            }
+            /* A source predicate may describe a jump/far request that the
+               native shots.c entry can superficially start, but the later
+               playback path requires controller-team state that autonomous
+               CPU sides do not own. Only the bounded close-shot profile is
+               therefore exposed as supported; discard every other shallow
+               candidate and retain an explicit non-launch classification. */
+            candidate_foundation.last_shot_request = true;
+            candidate_foundation.last_shot_actor = scene->ball_holder;
+            candidate_foundation.last_shot_deferred = true;
+            candidate_foundation.last_shot_playback_supported = false;
+            shot_request_out->deferred = true;
             shot_request_out->actor_index = scene->ball_holder;
         }
     }
+    /* All scene-visible mutations, including shot-decision metadata, commit
+       only after the complete candidate transaction succeeds. */
+    memcpy(scene->actors, candidate_actors, sizeof(candidate_actors));
+    memcpy(scene->cpu_actors, candidate_cpu, sizeof(candidate_cpu));
+    scene->ball_position = candidate_ball;
+    scene->live_foundation = candidate_foundation;
     return true;
 }
 

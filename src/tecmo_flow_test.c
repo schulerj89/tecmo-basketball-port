@@ -1221,8 +1221,86 @@ static bool flow_expect_preseason_native_path(TecmoRuntime *runtime,
             runtime->preseason_state.team_selection[1];
         uint8_t expected_away = asset->team_ids[away_slot];
         uint8_t expected_home = asset->team_ids[home_slot];
+        static const uint8_t live_away_starters[
+            TECMO_TEAM_MANAGEMENT_STARTER_COUNT] = {5U, 6U, 10U, 11U, 0U};
+        static const uint8_t live_home_starters[
+            TECMO_TEAM_MANAGEMENT_STARTER_COUNT] = {11U, 10U, 6U, 5U, 1U};
+        TecmoTeamManagementSession live_session;
+        TecmoPreseasonState live_preseason_before;
+        TecmoStartGameMenuState live_menu_before;
+        TecmoGameplayScene live_scene_before;
+        TecmoPlayMode live_mode_before;
         uint32_t scene_frame;
 
+        /* Exercise the production preseason caller with the same by-value
+           Team Management bridge used by normal launch. Invalid session data
+           must stop before scene/mode mutation, then the valid high-index
+           permutation must reach the canonical stored lineup. */
+        live_session = runtime->team_management_session;
+        memcpy(live_session.starters[expected_away], live_away_starters,
+               sizeof(live_away_starters));
+        memcpy(live_session.starters[expected_home], live_home_starters,
+               sizeof(live_home_starters));
+        if (!tecmo_team_management_session_valid(&live_session)) {
+            set_flow_test_message(message, message_size,
+                                  "preseason LIVE high-index session fixture invalid");
+            return false;
+        }
+        live_preseason_before = runtime->preseason_state;
+        live_menu_before = runtime->start_game_menu_state;
+        live_scene_before = runtime->gameplay_scene;
+        live_mode_before = runtime->mode;
+        runtime->team_management_session = live_session;
+        runtime->team_management_session.starters[expected_away][4U] = 5U;
+        flow_preseason_release(runtime, true, true);
+        if (runtime->mode != live_mode_before ||
+            runtime->preseason_state.phase != live_preseason_before.phase ||
+            runtime->preseason_state.active_player !=
+                live_preseason_before.active_player ||
+            runtime->preseason_state.division_selection[0] !=
+                live_preseason_before.division_selection[0] ||
+            runtime->preseason_state.division_selection[1] !=
+                live_preseason_before.division_selection[1] ||
+            runtime->preseason_state.team_selection[0] !=
+                live_preseason_before.team_selection[0] ||
+            runtime->preseason_state.team_selection[1] !=
+                live_preseason_before.team_selection[1] ||
+            memcmp(&runtime->start_game_menu_state, &live_menu_before,
+                   sizeof(live_menu_before)) != 0 ||
+            memcmp(&runtime->gameplay_scene, &live_scene_before,
+                   sizeof(live_scene_before)) != 0) {
+            set_flow_test_message(
+                message, message_size,
+                "preseason LIVE duplicate starters changed scene/mode");
+            return false;
+        }
+        runtime->preseason_state = live_preseason_before;
+        runtime->team_management_session = live_session;
+        runtime->team_management_session.starters[expected_home][2U] = 12U;
+        flow_preseason_release(runtime, true, true);
+        if (runtime->mode != live_mode_before ||
+            runtime->preseason_state.phase != live_preseason_before.phase ||
+            runtime->preseason_state.active_player !=
+                live_preseason_before.active_player ||
+            runtime->preseason_state.division_selection[0] !=
+                live_preseason_before.division_selection[0] ||
+            runtime->preseason_state.division_selection[1] !=
+                live_preseason_before.division_selection[1] ||
+            runtime->preseason_state.team_selection[0] !=
+                live_preseason_before.team_selection[0] ||
+            runtime->preseason_state.team_selection[1] !=
+                live_preseason_before.team_selection[1] ||
+            memcmp(&runtime->start_game_menu_state, &live_menu_before,
+                   sizeof(live_menu_before)) != 0 ||
+            memcmp(&runtime->gameplay_scene, &live_scene_before,
+                   sizeof(live_scene_before)) != 0) {
+            set_flow_test_message(
+                message, message_size,
+                "preseason LIVE out-of-range starter changed scene/mode");
+            return false;
+        }
+        runtime->preseason_state = live_preseason_before;
+        runtime->team_management_session = live_session;
         flow_preseason_release(runtime, true, true);
         if (!flow_expect_mode(runtime, TECMO_MODE_COURT,
                               "preseason gameplay launch", message,
@@ -1250,9 +1328,36 @@ static bool flow_expect_preseason_native_path(TecmoRuntime *runtime,
                                   "preseason gameplay snapshot/mapping mismatch");
             return false;
         }
+        if (!runtime->gameplay_scene.launch.starter_binding_bound) {
+            set_flow_test_message(message, message_size,
+                                  "preseason LIVE launch was not starter-bound");
+            return false;
+        }
+        for (size_t actor = 0U;
+             actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+            uint8_t side = actor < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT
+                ? TECMO_GAMEPLAY_TEAM_AWAY : TECMO_GAMEPLAY_TEAM_HOME;
+            size_t local = actor % TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT;
+            uint8_t team_id = side == TECMO_GAMEPLAY_TEAM_AWAY
+                ? expected_away : expected_home;
+            uint8_t expected_roster =
+                live_session.starters[team_id][local];
+            if (runtime->gameplay_scene.launch.starter_roster_index[side][local] !=
+                    expected_roster ||
+                runtime->gameplay_scene.actors[actor].roster_index !=
+                    expected_roster ||
+                runtime->gameplay_scene.actors[actor].condition !=
+                    runtime->gameplay_scene.fatigue_state.condition
+                        [side][expected_roster]) {
+                set_flow_test_message(
+                    message, message_size,
+                    "preseason LIVE selected starter/profile/condition mismatch");
+                return false;
+            }
+        }
 
         if (!flow_finish_gameplay_pretip(
-                runtime, "preseason", message, message_size)) {
+            runtime, "preseason", message, message_size)) {
             return false;
         }
         scene_frame = runtime->gameplay_scene.frame;
@@ -3554,6 +3659,56 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
         return false;
     }
     memset(&input, 0, sizeof(input));
+    {
+        static const uint8_t live_away_starters[
+            TECMO_TEAM_MANAGEMENT_STARTER_COUNT] = {5U, 6U, 10U, 11U, 0U};
+        static const uint8_t live_home_starters[
+            TECMO_TEAM_MANAGEMENT_STARTER_COUNT] = {11U, 10U, 6U, 5U, 1U};
+        TecmoTeamManagementSession live_session =
+            runtime->team_management_session;
+        TecmoSeasonState live_season_before = runtime->season_state;
+        TecmoGameplayScene live_scene_before = runtime->gameplay_scene;
+        TecmoPlayMode live_mode_before = runtime->mode;
+        memcpy(live_session.starters[expected_season_away],
+               live_away_starters, sizeof(live_away_starters));
+        memcpy(live_session.starters[expected_season_home],
+               live_home_starters, sizeof(live_home_starters));
+        if (!tecmo_team_management_session_valid(&live_session)) {
+            set_flow_test_message(message, message_size,
+                                  "season LIVE high-index session fixture invalid");
+            return false;
+        }
+        /* The caller is reached from the real GAME START boundary. Restore
+           the pending state after each rejected session so the next attempt
+           exercises that same production path. */
+        runtime->team_management_session = live_session;
+        runtime->team_management_session.starters[expected_season_away][4U] =
+            5U;
+        tecmo_runtime_update(runtime, &input);
+        if (runtime->mode != live_mode_before ||
+            memcmp(&runtime->gameplay_scene, &live_scene_before,
+                   sizeof(live_scene_before)) != 0) {
+            set_flow_test_message(
+                message, message_size,
+                "season LIVE duplicate starters changed scene/mode");
+            return false;
+        }
+        runtime->season_state = live_season_before;
+        runtime->team_management_session = live_session;
+        runtime->team_management_session.starters[expected_season_home][2U] =
+            12U;
+        tecmo_runtime_update(runtime, &input);
+        if (runtime->mode != live_mode_before ||
+            memcmp(&runtime->gameplay_scene, &live_scene_before,
+                   sizeof(live_scene_before)) != 0) {
+            set_flow_test_message(
+                message, message_size,
+                "season LIVE out-of-range starter changed scene/mode");
+            return false;
+        }
+        runtime->season_state = live_season_before;
+        runtime->team_management_session = live_session;
+    }
     tecmo_runtime_update(runtime, &input);
     if (runtime->mode != TECMO_MODE_COURT ||
         !runtime->gameplay_scene.active ||
@@ -3575,9 +3730,41 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
                               "season GAME START launch snapshot mismatch");
         return false;
     }
+    if (!runtime->gameplay_scene.launch.starter_binding_bound) {
+        set_flow_test_message(message, message_size,
+                              "season LIVE launch was not starter-bound");
+        return false;
+    }
+    {
+        static const uint8_t expected_away_starters[
+            TECMO_TEAM_MANAGEMENT_STARTER_COUNT] = {5U, 6U, 10U, 11U, 0U};
+        static const uint8_t expected_home_starters[
+            TECMO_TEAM_MANAGEMENT_STARTER_COUNT] = {11U, 10U, 6U, 5U, 1U};
+        for (size_t actor = 0U;
+             actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+            uint8_t side = actor < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT
+                ? TECMO_GAMEPLAY_TEAM_AWAY : TECMO_GAMEPLAY_TEAM_HOME;
+            size_t local = actor % TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT;
+            uint8_t expected_roster = side == TECMO_GAMEPLAY_TEAM_AWAY
+                ? expected_away_starters[local]
+                : expected_home_starters[local];
+            if (runtime->gameplay_scene.launch.starter_roster_index[side][local] !=
+                    expected_roster ||
+                runtime->gameplay_scene.actors[actor].roster_index !=
+                    expected_roster ||
+                runtime->gameplay_scene.actors[actor].condition !=
+                    runtime->gameplay_scene.fatigue_state.condition
+                        [side][expected_roster]) {
+                set_flow_test_message(
+                    message, message_size,
+                    "season LIVE selected starter/profile/condition mismatch");
+                return false;
+            }
+        }
+    }
 
     if (!flow_finish_gameplay_pretip(
-            runtime, "season", message, message_size)) {
+        runtime, "season", message, message_size)) {
         return false;
     }
     runtime->gameplay_scene.result.source = TECMO_GAMEPLAY_SCENE_SEASON;

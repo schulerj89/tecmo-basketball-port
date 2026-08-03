@@ -17,6 +17,7 @@
 #include "tecmo_gameplay_free_throw_lineup.h"
 #include "tecmo_gameplay_hud.h"
 #include "tecmo_gameplay_jump_shots.h"
+#include "tecmo_gameplay_live_foundation.h"
 #include "tecmo_gameplay_movement.h"
 #include "tecmo_gameplay_penalties.h"
 #include "tecmo_gameplay_violation_referee.h"
@@ -35,6 +36,7 @@
 #define TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT 5U
 #define TECMO_GAMEPLAY_SCENE_NO_ACTOR 0xFFU
 #define TECMO_GAMEPLAY_SCENE_NO_TEAM 0xFFU
+#define TECMO_GAMEPLAY_SCENE_TEAM_LIMIT 27U
 #define TECMO_GAMEPLAY_SCENE_NES_WIDTH 256
 #define TECMO_GAMEPLAY_SCENE_NES_HEIGHT 240
 #define TECMO_GAMEPLAY_SCENE_COURT_COORDINATES_TAG 0x43434754U
@@ -75,6 +77,16 @@ typedef struct TecmoGameplaySceneLaunch {
     uint8_t speed_value;
     uint8_t controller_team[TECMO_GAMEPLAY_CONTROLLER_COUNT];
     bool game_music_enabled;
+    /* Source/default-initializer compatibility binding. False preserves
+       direct legacy/test/render
+       callers and normalizes both sides to the deterministic identity
+       lineup 0..4. Production launchers always set this true after copying
+       and validating Team Management session starters by value. The stored
+       launch is always canonicalized to bound=true; direct-call origin is
+       retained only in the scene-owned compatibility bit below. */
+    bool starter_binding_bound;
+    uint8_t starter_roster_index[TECMO_GAMEPLAY_TEAM_COUNT]
+                                [TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT];
 } TecmoGameplaySceneLaunch;
 
 typedef struct TecmoGameplaySceneResult {
@@ -215,11 +227,15 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayState state;
     TecmoGameplayEventBuffer events;
     TecmoGameplaySceneLaunch launch;
+    /* Internal origin bit: true only when an unbound direct/test launch was
+       normalized to the identity lineup. It is not caller-controlled. */
+    bool legacy_direct_launch;
     TecmoGameplaySceneResult result;
 
     TecmoGameplaySceneActor actors[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     TecmoGameplaySceneCpuActor
         cpu_actors[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplayLiveFoundation live_foundation;
     uint8_t controlled_actor[TECMO_GAMEPLAY_CONTROLLER_COUNT];
     uint8_t ball_holder;
     TecmoGameplayCourtCoordinateQ8 ball_position;

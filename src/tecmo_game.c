@@ -704,6 +704,47 @@ static void gameplay_assign_manual_teams(TecmoGameplaySceneLaunch *launch,
     }
 }
 
+/* Production-only by-value bridge from Team Management into LIVE.  The
+   scene's false binding path is intentionally not used here: a malformed
+   session must fail before scene or mode state can be changed. */
+static bool gameplay_bind_session_starters(
+    const TecmoRuntime *runtime,
+    TecmoGameplaySceneLaunch *launch)
+{
+    bool seen[TECMO_TEAM_MANAGEMENT_PLAYER_COUNT];
+    size_t side;
+    size_t starter;
+    uint8_t team_id[TECMO_GAMEPLAY_TEAM_COUNT];
+    if (runtime == NULL || launch == NULL ||
+        !tecmo_team_management_session_valid(
+            &runtime->team_management_session) ||
+        launch->away_team >= TECMO_GAMEPLAY_SCENE_TEAM_LIMIT ||
+        launch->home_team >= TECMO_GAMEPLAY_SCENE_TEAM_LIMIT ||
+        launch->away_team == launch->home_team) {
+        return false;
+    }
+    team_id[TECMO_GAMEPLAY_TEAM_AWAY] = launch->away_team;
+    team_id[TECMO_GAMEPLAY_TEAM_HOME] = launch->home_team;
+    memset(launch->starter_roster_index, 0,
+           sizeof(launch->starter_roster_index));
+    for (side = 0U; side < TECMO_GAMEPLAY_TEAM_COUNT; ++side) {
+        memset(seen, 0, sizeof(seen));
+        for (starter = 0U;
+             starter < TECMO_TEAM_MANAGEMENT_STARTER_COUNT; ++starter) {
+            uint8_t player = runtime->team_management_session.starters[
+                team_id[side]][starter];
+            if (player >= TECMO_TEAM_MANAGEMENT_PLAYER_COUNT ||
+                seen[player]) {
+                return false;
+            }
+            seen[player] = true;
+            launch->starter_roster_index[side][starter] = player;
+        }
+    }
+    launch->starter_binding_bound = true;
+    return true;
+}
+
 static bool launch_preseason_gameplay(TecmoRuntime *runtime)
 {
     const TecmoPreseasonAsset *asset = &runtime->preseason_asset;
@@ -741,6 +782,7 @@ static bool launch_preseason_gameplay(TecmoRuntime *runtime)
     launch.home_team = asset->team_ids[home_slot];
     launch.difficulty = state->committed_difficulty;
     launch.control_mode = state->control_selection;
+    if (!gameplay_bind_session_starters(runtime, &launch)) return false;
     ownership_index = (size_t)state->control_selection - 1U;
     gameplay_assign_manual_teams(
         &launch,
@@ -780,6 +822,7 @@ static bool launch_season_gameplay(TecmoRuntime *runtime)
        control row. Keep that ownership explicit and use the neutral raw mode. */
     launch.difficulty = 1U;
     launch.control_mode = 0U;
+    if (!gameplay_bind_session_starters(runtime, &launch)) return false;
     gameplay_assign_manual_teams(
         &launch,
         runtime->season_session.team_control[pending->away_team] == 1U,

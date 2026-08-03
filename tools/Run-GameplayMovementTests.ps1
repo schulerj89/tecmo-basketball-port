@@ -253,16 +253,21 @@ try {
             [bool]$Map.native_contract.overflow_rejected -and
             $Map.live_adapter.scope -match "TGAI-directed CPU" -and
             $Map.live_adapter.condition -match "TGFT-1 evolves" -and
-            $Map.live_adapter.starting_layout -match "approximation" -and
-            $Map.live_adapter.roster_binding -match "not yet bound" -and
+            $Map.live_adapter.starting_layout -match
+                "Bank04 AC76.*exact source evidence.*native post-tip stable layout.*native-faithful/inferred" -and
+            $Map.live_adapter.roster_binding -match
+                "production binds selected TTDT starters" -and
             $Map.live_adapter.boundary_latch_reset_and_settlement -match
                 "TPNL selector 1" -and
             $Map.live_adapter.boundary_latch_reset_and_settlement -match
                 "other violation detection remains unported" -and
             $Map.live_adapter.pose_half_selection -match '\$8F02' -and
-            $Map.live_adapter.matchup_link -match "native policy" -and
+            $Map.live_adapter.matchup_link -match
+                "fixed-link seed values.*dynamic matchup.*inferred" -and
             $Map.live_adapter.cpu_target_and_shot_policy -match
-                "approximation" -and
+                "live-wired" -and
+            $Map.live_adapter.cpu_target_and_shot_policy -match
+                "deferred/non-launch" -and
             [bool]$Map.developer_harness.deterministic -and
             ![bool]$Map.developer_harness.normal_game_flow_exposed
         if ($MapOk) {

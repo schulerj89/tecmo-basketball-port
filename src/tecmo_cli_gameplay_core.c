@@ -10,6 +10,7 @@
 #include "tecmo_gameplay_fatigue.h"
 #include "tecmo_gameplay_free_throw_lineup.h"
 #include "tecmo_gameplay_movement.h"
+#include "tecmo_gameplay_live_proof.h"
 #include "tecmo_gameplay_penalties.h"
 #include "tecmo_gameplay_state.h"
 #include "tecmo_gameplay_violation_referee.h"
@@ -183,6 +184,21 @@ int tecmo_cli_run_gameplay_core_commands(const TecmoCliContext *context)
         char message[192];
         if (!tecmo_gameplay_state_self_test(message, sizeof(message))) {
             printf("Gameplay state test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-live-foundation-proof") == 0) {
+        const char *pack_path = index < argc ? argv[index++] : NULL;
+        const char *event = index < argc ? argv[index++] : NULL;
+        const char *output_path = index < argc ? argv[index] : NULL;
+        char message[8192];
+        if (!tecmo_gameplay_live_foundation_proof(
+                root, pack_path, event, output_path,
+                message, sizeof(message))) {
+            printf("LIVE proof failed: %s\n", message);
             return 1;
         }
         printf("%s\n", message);

@@ -10,7 +10,7 @@
 #include <stdint.h>
 
 #define TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG 0x53434E31U
-#define TECMO_GAMEPLAY_TEAM_LIMIT 27U
+#define TECMO_GAMEPLAY_TEAM_LIMIT TECMO_GAMEPLAY_SCENE_TEAM_LIMIT
 #define TECMO_GAMEPLAY_BALL_POSE 64U
 #define TECMO_GAMEPLAY_SHOT_TARGET_Y 0x008F
 #define TECMO_GAMEPLAY_INITIAL_CAMERA_X 0x0084
@@ -106,6 +106,8 @@ typedef struct TecmoGameplayPreparedHud {
 typedef struct TecmoGameplaySceneCpuShotRequest {
     bool requested;
     uint8_t actor_index;
+    bool playback_supported;
+    bool deferred;
 } TecmoGameplaySceneCpuShotRequest;
 
 /* Lower-layer court snapshot and invariant seams. */
@@ -143,6 +145,9 @@ bool scene_actor_movement_state(
     const TecmoGameplayScene *scene,
     const TecmoGameplaySceneActor *actor,
     TecmoGameplayMovementState *state_out);
+const TecmoTeamDataPlayer *scene_actor_player(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplaySceneActor *actor);
 bool scene_live_ball_frame_for_actors(
     const TecmoGameplayScene *scene,
     const TecmoGameplaySceneActor
@@ -175,12 +180,18 @@ uint8_t scene_nearest_actor_for_team(const TecmoGameplayScene *scene,
                                      TecmoGameplayTeam team,
                                      uint8_t target);
 bool scene_pass_or_switch(TecmoGameplayScene *scene, size_t controller);
+bool scene_sync_live_foundation(TecmoGameplayScene *scene);
 size_t scene_controller_for_team(const TecmoGameplayScene *scene,
                                  TecmoGameplayTeam team);
 bool scene_cpu_actor_state_valid(
     const TecmoGameplayScene *scene,
     size_t actor,
     const TecmoGameplaySceneCpuActor *cpu);
+bool scene_cpu_target_for_source_direction(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    const TecmoGameplayCourtCoordinate *actor_position,
+    uint8_t source_direction,
+    TecmoGameplayCourtCoordinate *target_out);
 bool scene_update_ai(
     TecmoGameplayScene *scene,
     TecmoGameplaySceneCpuShotRequest *shot_request_out);

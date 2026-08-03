@@ -1,13 +1,24 @@
 param(
     [string]$ProjectRoot,
     [string]$RomPath,
-    [switch]$Build
+    [switch]$Build,
+    [switch]$RequirePass,
+    [string]$ProofRootPath,
+    [string]$OriginalReferenceManifestPath
 )
 
 $ErrorActionPreference = "Stop"
 
 $ExpectedRomSha256 =
     "076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4"
+$ExpectedBaseSha =
+    "ad0f005673692b04772bce3c3b4d3ac4b2624731"
+$ExpectedBranch = "codex/r1-live-foundation-luna"
+$ExpectedOriginalContactSheetSha =
+    "2EE377C3A97A2C415ED223A4E81C468230BCC6E4A987BABFC7F622E928B22B37"
+$NativeFrameRate = "39375000/655171"
+$NativeVideoTimeBase = "1/39375000"
+$NativeVideoTrackTimescale = 39375000
 
 if (!$ProjectRoot) {
     $ProjectRoot = Split-Path -Parent $PSScriptRoot
@@ -35,6 +46,37 @@ if (!$Scratch.StartsWith($BuildPrefix,
     throw "Gameplay scene scratch path escaped build\."
 }
 $PackPath = Join-Path $Scratch "gameplay-scene.assetpack"
+$ProofRoot = if ($ProofRootPath) {
+    if ([IO.Path]::IsPathRooted($ProofRootPath)) {
+        [IO.Path]::GetFullPath($ProofRootPath)
+    } else {
+        [IO.Path]::GetFullPath((Join-Path $ProjectRoot $ProofRootPath))
+    }
+} else {
+    Join-Path $BuildDir ("live-proof-{0}Z" -f
+        [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssfff"))
+}
+if (!$ProofRoot.StartsWith($BuildPrefix,
+                           [StringComparison]::OrdinalIgnoreCase) -or
+    $ProofRoot.TrimEnd('\', '/') -eq $BuildDir.TrimEnd('\', '/')) {
+    throw "LIVE proof root must be a child of build\."
+}
+if (Test-Path -LiteralPath $ProofRoot) {
+    if (@(Get-ChildItem -LiteralPath $ProofRoot -Force -ErrorAction Stop).Count -ne 0) {
+        throw "LIVE proof root must be new or empty: $ProofRoot"
+    }
+} else {
+    New-Item -ItemType Directory -Force -Path $ProofRoot | Out-Null
+}
+if ($OriginalReferenceManifestPath) {
+    if ([IO.Path]::IsPathRooted($OriginalReferenceManifestPath)) {
+        $OriginalReferenceManifestPath =
+            [IO.Path]::GetFullPath($OriginalReferenceManifestPath)
+    } else {
+        $OriginalReferenceManifestPath = [IO.Path]::GetFullPath(
+            (Join-Path $ProjectRoot $OriginalReferenceManifestPath))
+    }
+}
 $PreviousPack = $env:TECMO_ASSETPACK
 $PreviousSkipShortcut = $env:TECMO_SKIP_SHORTCUT
 
@@ -52,10 +94,50 @@ function Invoke-Logged {
         [string]$LogPath
     )
     & $Command @Arguments *> $LogPath
+    $ExitCode = $LASTEXITCODE
+    if (!(Test-Path -LiteralPath $LogPath -PathType Leaf) -or
+        (Get-Item -LiteralPath $LogPath).Length -eq 0) {
+        Set-Content -LiteralPath $LogPath `
+            -Value ("[runner] no stdout/stderr emitted; exit={0}" -f $ExitCode) `
+            -Encoding UTF8
+    }
     return [pscustomobject]@{
-        exit_code = $LASTEXITCODE
+        exit_code = $ExitCode
         tail = Get-ShortTail $LogPath
     }
+}
+
+function Get-LiveProofGitState {
+    $Head = (@(& git -C $ProjectRoot rev-parse HEAD 2>&1) -join "").Trim()
+    if ($LASTEXITCODE -ne 0 -or $Head -notmatch '^[0-9a-f]{40}$') {
+        throw "LIVE proof could not read Git HEAD."
+    }
+    $Branch = (@(& git -C $ProjectRoot branch --show-current 2>&1) -join "").Trim()
+    if ($LASTEXITCODE -ne 0 -or !$Branch) {
+        throw "LIVE proof could not read the Git branch."
+    }
+    $Status = @(& git -C $ProjectRoot status --porcelain=v1 --untracked-files=all 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        throw "LIVE proof could not read Git status."
+    }
+    & git -C $ProjectRoot merge-base --is-ancestor $ExpectedBaseSha $Head 2>$null
+    $Ancestor = $LASTEXITCODE -eq 0
+    return [pscustomobject]@{
+        head = $Head
+        branch = $Branch
+        clean = $Status.Count -eq 0
+        status = @($Status)
+        base_sha = $ExpectedBaseSha
+        base_is_ancestor = $Ancestor
+    }
+}
+
+function Test-LiveProofRequirePassState {
+    param([object]$GitState)
+    return $null -ne $GitState -and
+        [bool]$GitState.clean -and
+        $GitState.branch -eq $ExpectedBranch -and
+        [bool]$GitState.base_is_ancestor
 }
 
 function Get-Fnv1a32 {
@@ -155,6 +237,497 @@ function Get-PngDimensions {
     return [pscustomobject]@{ width = $Width; height = $Height }
 }
 
+function Assert-LiveProofRejected {
+    param(
+        [string[]]$Arguments,
+        [string]$Label
+    )
+    $Log = Join-Path $Scratch ("live-proof-reject-{0}.log" -f $Label)
+    $Run = Invoke-Logged -Command $Executable -Arguments $Arguments -LogPath $Log
+    if ($Run.exit_code -eq 0 -or $Run.tail -notmatch "LIVE proof failed") {
+        throw "LIVE proof accepted $Label negative input.`n$($Run.tail)"
+    }
+}
+
+function Test-LiveProofManifest {
+    param(
+        [string]$ManifestPath,
+        [string]$ExpectedRomSha256,
+        [string]$ExpectedPackSha256,
+        [string[]]$ExpectedEvents
+    )
+    if (!(Test-Path -LiteralPath $ManifestPath -PathType Leaf)) {
+        return $false
+    }
+    try {
+        $Manifest = Get-Content -LiteralPath $ManifestPath -Raw |
+            ConvertFrom-Json
+        $ExpectedSheetHeight = [int]([Math]::Ceiling(
+            $ExpectedEvents.Count / 3.0) * 480)
+        if ($Manifest.schema -ne "tecmo.live-proof-manifest/TGLP-1" -or
+            $Manifest.rom_sha256 -ne $ExpectedRomSha256 -or
+            $Manifest.pack_sha256 -ne $ExpectedPackSha256 -or
+            [int]$Manifest.native_resolution[0] -ne 640 -or
+            [int]$Manifest.native_resolution[1] -ne 480 -or
+            [int]$Manifest.stored_frame_count -ne $ExpectedEvents.Count * 2 -or
+             [int]$Manifest.decoded_frame_count -ne $ExpectedEvents.Count * 2) {
+            return $false
+        }
+        if ($null -eq $Manifest.asset_pack -or
+            !(Test-Path -LiteralPath $Manifest.asset_pack.path -PathType Leaf) -or
+            [string]$Manifest.asset_pack.replay_path -ne
+                [string]$Manifest.asset_pack.path -or
+            [string]$Manifest.proof_pack_replay_path -ne
+                [string]$Manifest.asset_pack.path -or
+            [string]$Manifest.asset_pack.sha256 -ne $ExpectedPackSha256 -or
+            (Get-FileHash -LiteralPath $Manifest.asset_pack.path -Algorithm SHA256).Hash -ne
+                $ExpectedPackSha256) {
+            return $false
+        }
+        $Records = @($Manifest.frame_records)
+        if ($Records.Count -ne $ExpectedEvents.Count * 2) {
+            return $false
+        }
+        foreach ($Event in $ExpectedEvents) {
+            $Matches = @($Records | Where-Object { $_.event -eq $Event })
+            if ($Matches.Count -ne 2 -or
+                $Matches[0].sha256 -ne $Matches[1].sha256 -or
+                $Matches[0].frame_fingerprint_fnv1a32 -ne
+                    $Matches[1].frame_fingerprint_fnv1a32) {
+                return $false
+            }
+            foreach ($Record in $Matches) {
+                if (!(Test-Path -LiteralPath $Record.path -PathType Leaf) -or
+                    (Get-FileHash -LiteralPath $Record.path -Algorithm SHA256).Hash -ne
+                        $Record.sha256 -or
+                    !(Test-Path -LiteralPath $Record.state_path -PathType Leaf) -or
+                    (Get-Item -LiteralPath $Record.state_path).Length -le 0) {
+                    return $false
+                }
+            }
+        }
+        $Sheets = @($Manifest.contact_sheets)
+        if ($Sheets.Count -ne 2) { return $false }
+        foreach ($Sheet in $Sheets) {
+            $Dimensions = Get-PngDimensions $Sheet.path
+            if ($Dimensions.width -ne 1920 -or
+                $Dimensions.height -ne $ExpectedSheetHeight -or
+                [int]$Sheet.width -ne $Dimensions.width -or
+                [int]$Sheet.height -ne $Dimensions.height -or
+                [int]$Sheet.frame_count -ne $ExpectedEvents.Count -or
+                (Get-FileHash -LiteralPath $Sheet.path -Algorithm SHA256).Hash -ne
+                    $Sheet.sha256) {
+                return $false
+            }
+        }
+        $Videos = @($Manifest.native_videos)
+        if ($Videos.Count -ne 2) { return $false }
+        foreach ($Video in $Videos) {
+            if (!(Test-Path -LiteralPath $Video.path -PathType Leaf) -or
+                (Get-FileHash -LiteralPath $Video.path -Algorithm SHA256).Hash -ne
+                    $Video.sha256 -or
+                [int]$Video.probe.width -ne 640 -or
+                [int]$Video.probe.height -ne 480 -or
+                [string]$Video.probe.r_frame_rate -ne $NativeFrameRate -or
+                [string]$Video.probe.avg_frame_rate -ne $NativeFrameRate -or
+                [string]$Video.probe.time_base -ne $NativeVideoTimeBase -or
+                [int]$Video.probe.nb_frames -ne $ExpectedEvents.Count -or
+                [int]$Video.probe.nb_read_frames -ne $ExpectedEvents.Count -or
+                [int]$Video.stored_frame_count -ne $ExpectedEvents.Count -or
+                [int]$Video.decoded_frame_count -ne $ExpectedEvents.Count) {
+                return $false
+            }
+        }
+        if ($Videos[0].decoded_frame_sha256 -ne
+                $Videos[1].decoded_frame_sha256 -or
+            (@($Videos[0].decoded_frame_hashes) -join ',') -ne
+                (@($Videos[1].decoded_frame_hashes) -join ',')) {
+            return $false
+        }
+        if ([bool]$Manifest.suites_complete) {
+            $RequiredLogs = @($Manifest.required_logs)
+            if ($RequiredLogs.Count -lt 3) {
+                return $false
+            }
+            foreach ($Log in $RequiredLogs) {
+                if (!(Test-Path -LiteralPath $Log.path -PathType Leaf) -or
+                    [int64]$Log.bytes -le 0 -or
+                    [int64](Get-Item -LiteralPath $Log.path).Length -ne
+                        [int64]$Log.bytes -or
+                    (Get-FileHash -LiteralPath $Log.path -Algorithm SHA256).Hash -ne
+                        $Log.sha256) {
+                    return $false
+                }
+            }
+            $Inventory = @($Manifest.artifact_inventory)
+            if ($Inventory.Count -le 0 -or
+                [int]$Manifest.artifact_inventory_count -ne
+                    $Inventory.Count) {
+                return $false
+            }
+            foreach ($Artifact in $Inventory) {
+                if (!(Test-Path -LiteralPath $Artifact.path -PathType Leaf) -or
+                    [int64]$Artifact.bytes -le 0 -or
+                    [int64](Get-Item -LiteralPath $Artifact.path).Length -ne
+                        [int64]$Artifact.bytes -or
+                    (Get-FileHash -LiteralPath $Artifact.path -Algorithm SHA256).Hash -ne
+                        $Artifact.sha256) {
+                    return $false
+                }
+            }
+        }
+        $Status = [string]$Manifest.status
+        $ShaPattern = '^[0-9a-fA-F]{40}$'
+        if ($Status -eq "PASS") {
+            if (![bool]$Manifest.require_pass -or
+                ![bool]$Manifest.clean -or
+                [string]$Manifest.current_sha -notmatch $ShaPattern -or
+                [string]$Manifest.final_sha -notmatch $ShaPattern -or
+                [string]$Manifest.current_sha -ne
+                    [string]$Manifest.final_sha -or
+                [string]$Manifest.current_sha -eq $ExpectedBaseSha) {
+                return $false
+            }
+            $GitState = Get-LiveProofGitState
+            if (!$GitState.clean -or
+                $GitState.branch -ne [string]$Manifest.branch -or
+                $GitState.head -ne [string]$Manifest.current_sha -or
+                !$GitState.base_is_ancestor) {
+                return $false
+            }
+        } elseif ($Status -eq "DRAFT") {
+            if ([string]$Manifest.final_sha -ne "PENDING_CLEAN_COMMIT") {
+                return $false
+            }
+        } else {
+            return $false
+        }
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+function New-LiveProofContactSheet {
+    param(
+        [object[]]$Records,
+        [string]$OutputPath
+    )
+    Add-Type -AssemblyName System.Drawing
+    $Columns = 3
+    $Rows = [int][Math]::Ceiling($Records.Count / [double]$Columns)
+    [int]$Width = 640 * $Columns
+    [int]$Height = 480 * $Rows
+    $Bitmap = [Drawing.Bitmap]::new($Width, $Height)
+    $Graphics = [Drawing.Graphics]::FromImage($Bitmap)
+    try {
+        $Graphics.Clear([Drawing.Color]::Black)
+        for ($Index = 0; $Index -lt $Records.Count; ++$Index) {
+            $Image = [Drawing.Image]::FromFile($Records[$Index].path)
+            try {
+                $X = ($Index % $Columns) * 640
+                [int]$Y = [Math]::Floor($Index / $Columns) * 480
+                $Graphics.DrawImage($Image, [int]$X, $Y, 640, 480)
+            } finally {
+                $Image.Dispose()
+            }
+        }
+        $Bitmap.Save($OutputPath, [Drawing.Imaging.ImageFormat]::Png)
+    } finally {
+        $Graphics.Dispose()
+        $Bitmap.Dispose()
+    }
+    $Dimensions = Get-PngDimensions $OutputPath
+    if ($Dimensions.width -ne $Width -or $Dimensions.height -ne $Height) {
+        throw "LIVE proof contact sheet IHDR is $($Dimensions.width)x$($Dimensions.height); expected ${Width}x${Height}."
+    }
+    return [pscustomobject]@{
+        path = [IO.Path]::GetFullPath($OutputPath)
+        sha256 = (Get-FileHash -LiteralPath $OutputPath -Algorithm SHA256).Hash
+        width = $Dimensions.width
+        height = $Dimensions.height
+        frame_count = $Records.Count
+    }
+}
+
+function New-LiveProofVideo {
+    param(
+        [string]$FramesRoot,
+        [string]$OutputPath,
+        [string]$Label,
+        [int]$FrameCount
+    )
+    $Ffmpeg = Get-Command ffmpeg -ErrorAction SilentlyContinue
+    $Ffprobe = Get-Command ffprobe -ErrorAction SilentlyContinue
+    if ($null -eq $Ffmpeg -or $null -eq $Ffprobe) {
+        throw "LIVE proof requires both ffmpeg and ffprobe for native MP4 validation."
+    }
+    $Pattern = Join-Path $FramesRoot "frame-%04d.png"
+    $EncodeLog = Join-Path $FramesRoot ("{0}-ffmpeg.log" -f $Label)
+    $EncodeArgs = @(
+        "-y", "-hide_banner", "-loglevel", "error",
+        "-framerate", $NativeFrameRate, "-start_number", "1",
+        "-i", $Pattern, "-frames:v", [string]$FrameCount,
+        "-an", "-pix_fmt", "yuv420p",
+        "-video_track_timescale", [string]$NativeVideoTrackTimescale,
+        $OutputPath
+    )
+    $EncodeRun = Invoke-Logged -Command $Ffmpeg.Source -Arguments $EncodeArgs `
+        -LogPath $EncodeLog
+    if ($EncodeRun.exit_code -ne 0 -or
+        !(Test-Path -LiteralPath $OutputPath -PathType Leaf) -or
+        (Get-Item -LiteralPath $OutputPath).Length -le 0) {
+        throw "ffmpeg failed to encode native LIVE proof video '$Label'."
+    }
+    $ProbeLog = Join-Path $FramesRoot ("{0}-ffprobe.json" -f $Label)
+    $ProbeArgs = @(
+        "-v", "error", "-count_frames", "-select_streams", "v:0",
+        "-show_entries",
+        "stream=width,height,r_frame_rate,avg_frame_rate,time_base,nb_frames,nb_read_frames",
+        "-of", "json", $OutputPath
+    )
+    $ProbeRun = Invoke-Logged -Command $Ffprobe.Source -Arguments $ProbeArgs `
+        -LogPath $ProbeLog
+    if ($ProbeRun.exit_code -ne 0) {
+        throw "ffprobe rejected native LIVE proof video '$Label'."
+    }
+    $ProbeJson = Get-Content -LiteralPath $ProbeLog -Raw | ConvertFrom-Json
+    $Streams = @($ProbeJson.streams)
+    if ($Streams.Count -ne 1) {
+        throw "ffprobe returned an unexpected video stream count for '$Label'."
+    }
+    $Stream = $Streams[0]
+    if ([int]$Stream.width -ne 640 -or [int]$Stream.height -ne 480 -or
+        [string]$Stream.r_frame_rate -ne $NativeFrameRate -or
+        [string]$Stream.avg_frame_rate -ne $NativeFrameRate -or
+        [string]$Stream.time_base -ne $NativeVideoTimeBase -or
+        [int]$Stream.nb_frames -ne $FrameCount -or
+        [int]$Stream.nb_read_frames -ne $FrameCount) {
+        throw "ffprobe native LIVE proof cadence/count contract failed for '$Label'."
+    }
+    $DecodeLog = Join-Path $FramesRoot ("{0}-decoded-framemd5.log" -f $Label)
+    $DecodeArgs = @("-v", "error", "-i", $OutputPath, "-map", "0:v:0",
+        "-f", "framemd5", "-")
+    $DecodeRun = Invoke-Logged -Command $Ffmpeg.Source -Arguments $DecodeArgs `
+        -LogPath $DecodeLog
+    if ($DecodeRun.exit_code -ne 0) {
+        throw "ffmpeg failed to decode native LIVE proof video '$Label'."
+    }
+    $FrameLines = @(Get-Content -LiteralPath $DecodeLog | Where-Object {
+        $_ -match '^\s*\d+,.*,[ \t]*[0-9a-fA-F]{32}\s*$'
+    })
+    if ($FrameLines.Count -ne $FrameCount) {
+        throw "Decoded native LIVE proof video '$Label' has $($FrameLines.Count) frames; expected $FrameCount."
+    }
+    $FrameHashes = @($FrameLines | ForEach-Object {
+        (($_ -split ',')[-1]).Trim().ToUpperInvariant()
+    })
+    $DecodedHashPath = Join-Path $FramesRoot ("{0}-decoded-frame-hashes.txt" -f $Label)
+    [IO.File]::WriteAllLines($DecodedHashPath, [string[]]$FrameHashes)
+    return [pscustomobject]@{
+        label = $Label
+        path = [IO.Path]::GetFullPath($OutputPath)
+        sha256 = (Get-FileHash -LiteralPath $OutputPath -Algorithm SHA256).Hash
+        stored_frame_count = [int]$Stream.nb_frames
+        decoded_frame_count = [int]$Stream.nb_read_frames
+        decoded_frame_sha256 = (Get-FileHash -LiteralPath $DecodedHashPath -Algorithm SHA256).Hash
+        decoded_frame_hashes = $FrameHashes
+        probe = [pscustomobject]@{
+            width = [int]$Stream.width
+            height = [int]$Stream.height
+            r_frame_rate = [string]$Stream.r_frame_rate
+            avg_frame_rate = [string]$Stream.avg_frame_rate
+            time_base = [string]$Stream.time_base
+            nb_frames = [int]$Stream.nb_frames
+            nb_read_frames = [int]$Stream.nb_read_frames
+        }
+        commands = @{
+            ffmpeg = ((@($Ffmpeg.Source) + $EncodeArgs) -join " ")
+            ffprobe = ((@($Ffprobe.Source) + $ProbeArgs) -join " ")
+            decode = ((@($Ffmpeg.Source) + $DecodeArgs) -join " ")
+        }
+        tools = [pscustomobject]@{
+            ffmpeg = (@(& $Ffmpeg.Source "-hide_banner" "-version" 2>&1 |
+                Select-Object -First 1) -join "")
+            ffprobe = (@(& $Ffprobe.Source "-hide_banner" "-version" 2>&1 |
+                Select-Object -First 1) -join "")
+        }
+    }
+}
+
+function Get-OriginalReferenceProof {
+    param([string]$ManifestPath)
+    if (!$ManifestPath) {
+        return [pscustomobject]@{
+            status = "PENDING_ORIGINAL_REFERENCE_MANIFEST"
+            classification = "immutable CPU formal proof; PNG 256x224 raster and separate 256x240 video contract; no AVI required"
+            manifest_path = $null
+            video_contract = "256x240 original AVI/video contract (separate from PNG raster)"
+            runs = @()
+        }
+    }
+    if (!(Test-Path -LiteralPath $ManifestPath -PathType Leaf)) {
+        throw "Original CPU proof manifest is missing: $ManifestPath"
+    }
+    try {
+        $Manifest = Get-Content -LiteralPath $ManifestPath -Raw |
+            ConvertFrom-Json
+    } catch {
+        throw "Original CPU proof manifest is malformed."
+    }
+    $Original = $Manifest.original_reference
+    if ($null -eq $Original -or
+        [string]$Original.video_resolution -ne
+            "256x240 original AVI/video contract (separate from PNG raster)" -or
+        [string]$Original.contact_sheet_dimensions -ne "768x896" -or
+        [int]$Original.run_count -ne 2) {
+        throw "Original CPU proof manifest lacks the accepted separate video/contact contract."
+    }
+    $ManifestRoot = Split-Path -Parent $ManifestPath
+    $Runs = @($Original.runs)
+    if ($Runs.Count -ne 2) { throw "Original CPU proof manifest lacks two runs." }
+    $RunRecords = @()
+    foreach ($Run in $Runs) {
+        $RunRoot = Join-Path $ManifestRoot ([string]$Run.label)
+        $Frames = @($Run.reference_frames)
+        if ($Frames.Count -ne 12) {
+            throw "Original CPU proof run '$($Run.label)' lacks 12 PNG records."
+        }
+        $FrameRecords = @()
+        for ($Index = 1; $Index -le 12; ++$Index) {
+            $ExpectedName = "reference-frame-{0:D4}.png" -f $Index
+            $Record = @($Frames | Where-Object { $_.name -eq $ExpectedName })
+            if ($Record.Count -ne 1 -or $Record[0].dimensions -ne "256x224") {
+                throw "Original CPU proof run '$($Run.label)' has an invalid $ExpectedName record."
+            }
+            $Path = Join-Path $RunRoot $ExpectedName
+            if (!(Test-Path -LiteralPath $Path -PathType Leaf) -or
+                (Get-PngDimensions $Path).width -ne 256 -or
+                (Get-PngDimensions $Path).height -ne 224 -or
+                (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash -ne
+                    $Record[0].sha256) {
+                throw "Original CPU proof PNG '$Path' failed presence/dimension/hash validation."
+            }
+            $FrameRecords += [pscustomobject]@{
+                path = [IO.Path]::GetFullPath($Path)
+                sha256 = $Record[0].sha256
+                dimensions = "256x224"
+            }
+        }
+        $Contact = $Run.contact_sheet
+        $ContactPath = Join-Path $RunRoot ([string]$Contact.name)
+        if ($Contact.name -ne "reference-contact-sheet.png" -or
+            $Contact.dimensions -ne "768x896" -or
+            !(Test-Path -LiteralPath $ContactPath -PathType Leaf) -or
+            (Get-PngDimensions $ContactPath).width -ne 768 -or
+            (Get-PngDimensions $ContactPath).height -ne 896 -or
+            (Get-FileHash -LiteralPath $ContactPath -Algorithm SHA256).Hash -ne
+                $Contact.sha256 -or
+            $Contact.sha256 -ne $ExpectedOriginalContactSheetSha) {
+            throw "Original CPU proof contact sheet '$ContactPath' failed accepted hash/dimension validation."
+        }
+        $RunRecords += [pscustomobject]@{
+            label = $Run.label
+            contact_sheet = [pscustomobject]@{
+                path = [IO.Path]::GetFullPath($ContactPath)
+                sha256 = $Contact.sha256
+                dimensions = "768x896"
+            }
+            reference_frames = $FrameRecords
+        }
+    }
+    if ($RunRecords[0].contact_sheet.sha256 -ne
+            $RunRecords[1].contact_sheet.sha256) {
+        throw "Original CPU proof contact sheets are not deterministic."
+    }
+    return [pscustomobject]@{
+        status = "validated"
+        classification = "immutable CPU formal proof; PNG raster 256x224 and separate 256x240 video contract; no original AVI required"
+        manifest_path = [IO.Path]::GetFullPath($ManifestPath)
+        video_contract = [string]$Original.video_resolution
+        runs = $RunRecords
+    }
+}
+
+function Get-LiveProofArtifactInventory {
+    param([string]$Root, [string]$ManifestName)
+    $Records = @()
+    foreach ($Item in Get-ChildItem -LiteralPath $Root -File -Recurse |
+        Sort-Object FullName) {
+        if ($Item.Name -eq $ManifestName) { continue }
+        if ($Item.Length -le 0) {
+            throw "LIVE proof artifact is empty: $($Item.FullName)"
+        }
+        $Records += [pscustomobject]@{
+            path = [IO.Path]::GetFullPath($Item.FullName)
+            bytes = [int64]$Item.Length
+            sha256 = (Get-FileHash -LiteralPath $Item.FullName -Algorithm SHA256).Hash
+        }
+    }
+    if ($Records.Count -eq 0) {
+        throw "LIVE proof artifact inventory is empty."
+    }
+    return $Records
+}
+
+function Copy-LiveProofLogs {
+    param(
+        [string]$ScratchRoot,
+        [string]$BuildLogSource,
+        [bool]$BuildWasRun,
+        [string]$ProofRoot
+    )
+    $LogRoot = Join-Path $ProofRoot "logs"
+    New-Item -ItemType Directory -Force -Path $LogRoot | Out-Null
+    $Sources = @()
+    if ($BuildWasRun) {
+        if (!(Test-Path -LiteralPath $BuildLogSource -PathType Leaf) -or
+            (Get-Item -LiteralPath $BuildLogSource).Length -le 0) {
+            throw "LIVE proof warning-clean build log is missing or empty."
+        }
+        $Sources += $BuildLogSource
+    }
+    foreach ($Item in Get-ChildItem -LiteralPath $ScratchRoot -File -Filter '*.log' |
+        Sort-Object FullName) {
+        if ($Item.Length -le 0) {
+            throw "LIVE proof scene/negative log is empty: $($Item.FullName)"
+        }
+        $Sources += $Item.FullName
+    }
+    if (!$BuildWasRun) {
+        $NoBuildLog = Join-Path $LogRoot "build-not-requested.log"
+        Set-Content -LiteralPath $NoBuildLog -Encoding UTF8 `
+            -Value "[proof] build.ps1 was not requested; draft only; rerun with -Build."
+    }
+    if ($Sources.Count -lt 2) {
+        throw "LIVE proof lacks the required asset-pack and scene/negative logs."
+    }
+    $Records = @()
+    foreach ($Source in $Sources) {
+        $Destination = Join-Path $LogRoot ([IO.Path]::GetFileName($Source))
+        Copy-Item -LiteralPath $Source -Destination $Destination -Force
+        if (!(Test-Path -LiteralPath $Destination -PathType Leaf) -or
+            (Get-Item -LiteralPath $Destination).Length -le 0) {
+            throw "LIVE proof failed to preserve log '$Source'."
+        }
+        $Records += [pscustomobject]@{
+            path = [IO.Path]::GetFullPath($Destination)
+            bytes = [int64](Get-Item -LiteralPath $Destination).Length
+            sha256 = (Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash
+        }
+    }
+    if (!$BuildWasRun) {
+        $NoBuildLogPath = Join-Path $LogRoot "build-not-requested.log"
+        $NoBuildLogItem = Get-Item -LiteralPath $NoBuildLogPath
+        $Records += [pscustomobject]@{
+            path = [IO.Path]::GetFullPath($NoBuildLogItem.FullName)
+            bytes = [int64]$NoBuildLogItem.Length
+            sha256 = (Get-FileHash -LiteralPath $NoBuildLogItem.FullName -Algorithm SHA256).Hash
+        }
+    }
+    return $Records
+}
+
 function Invoke-RenderCheckpoint {
     param([string]$Mode, [string]$ExpectedState)
     $SafeName = $Mode -replace '[^A-Za-z0-9_-]', '_'
@@ -183,9 +756,59 @@ function Invoke-RenderCheckpoint {
 
 try {
     $env:TECMO_SKIP_SHORTCUT = "1"
+    $ProofStartUtc = [DateTime]::UtcNow.ToString("o")
+    $InitialGitProofState = Get-LiveProofGitState
+    $SyntheticDirtyRequirePassState = [pscustomobject]@{
+        head = ('a' * 40)
+        branch = $ExpectedBranch
+        clean = $false
+        status = @(' M synthetic-proof-input')
+        base_sha = $ExpectedBaseSha
+        base_is_ancestor = $true
+    }
+    $SyntheticWrongBranchRequirePassState = [pscustomobject]@{
+        head = ('b' * 40)
+        branch = 'codex/unrelated-proof-input'
+        clean = $true
+        status = @()
+        base_sha = $ExpectedBaseSha
+        base_is_ancestor = $true
+    }
+    $SyntheticWrongBaseRequirePassState = [pscustomobject]@{
+        head = ('c' * 40)
+        branch = $ExpectedBranch
+        clean = $true
+        status = @()
+        base_sha = $ExpectedBaseSha
+        base_is_ancestor = $false
+    }
+    $SyntheticDirtyAccepted =
+        Test-LiveProofRequirePassState $SyntheticDirtyRequirePassState
+    $SyntheticWrongBranchAccepted =
+        Test-LiveProofRequirePassState $SyntheticWrongBranchRequirePassState
+    $SyntheticWrongBaseAccepted =
+        Test-LiveProofRequirePassState $SyntheticWrongBaseRequirePassState
+    if ($SyntheticDirtyAccepted -or $SyntheticWrongBranchAccepted -or
+        $SyntheticWrongBaseAccepted) {
+        throw "LIVE proof synthetic RequirePass rejection negative was accepted."
+    }
+    $RequirePassDirtyNegative = $true
+    $RequirePassWrongBranchNegative = $true
+    $RequirePassWrongBaseNegative = $true
+    if ($RequirePass -and !$Build) {
+        throw "LIVE proof -RequirePass requires -Build for a preserved warning-clean build log."
+    }
+    if ($RequirePass) {
+        if (!(Test-LiveProofRequirePassState $InitialGitProofState)) {
+            throw ("LIVE proof -RequirePass rejected dirty or non-ancestral input: " +
+                "branch=$($InitialGitProofState.branch) " +
+                "clean=$($InitialGitProofState.clean) " +
+                "base_is_ancestor=$($InitialGitProofState.base_is_ancestor)")
+        }
+    }
     New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
+    $BuildLog = Join-Path $BuildDir "gameplay-scene-build.log"
     if ($Build) {
-        $BuildLog = Join-Path $BuildDir "gameplay-scene-build.log"
         $BuildRun = Invoke-Logged `
             -Command (Join-Path $ProjectRoot "build.ps1") `
             -Arguments @() -LogPath $BuildLog
@@ -210,6 +833,16 @@ try {
     if ($PackRun.exit_code -ne 0 -or
         !(Test-Path -LiteralPath $PackPath -PathType Leaf)) {
         throw "Strict gameplay asset-pack build failed.`n$($PackRun.tail)"
+    }
+    $ProofPackDirectory = Join-Path $ProofRoot "asset-pack"
+    New-Item -ItemType Directory -Force -Path $ProofPackDirectory | Out-Null
+    $ProofPackPath = Join-Path $ProofPackDirectory "gameplay-proof.assetpack"
+    Copy-Item -LiteralPath $PackPath -Destination $ProofPackPath -Force
+    if (!(Test-Path -LiteralPath $ProofPackPath -PathType Leaf) -or
+        (Get-Item -LiteralPath $ProofPackPath).Length -le 0 -or
+        (Get-FileHash -LiteralPath $ProofPackPath -Algorithm SHA256).Hash -ne
+            (Get-FileHash -LiteralPath $PackPath -Algorithm SHA256).Hash) {
+        throw "Preserved LIVE proof asset-pack copy failed exact hash validation."
     }
 
     $PackBytes = [IO.File]::ReadAllBytes($PackPath)
@@ -265,8 +898,17 @@ try {
     $MovementMaps = @($SourceMap.logical_entries | Where-Object {
         $_.id -eq "gameplay/movement"
     })
+    $CpuMaps = @($SourceMap.logical_entries | Where-Object {
+        $_.id -eq "gameplay/cpu-steering"
+    })
+    $LiveEvidence = if ($CpuMaps.Count -eq 1) {
+        $CpuMaps[0].live_foundation_integration.evidence
+    } else { $null }
     $BallDribbleMaps = @($SourceMap.logical_entries | Where-Object {
         $_.id -eq "gameplay/ball-dribble"
+    })
+    $FatigueMaps = @($SourceMap.logical_entries | Where-Object {
+        $_.id -eq "gameplay/fatigue"
     })
     $CourtMaps = @($SourceMap.logical_entries | Where-Object {
         $_.id -eq "gameplay/court"
@@ -364,13 +1006,79 @@ try {
         $MovementMaps[0].live_adapter.boundary_latch_reset_and_settlement -notmatch
             "TPNL selector 1" -or
         $MovementMaps[0].live_adapter.pose_half_selection -notmatch '\$8F02' -or
-        $MovementMaps[0].live_adapter.matchup_link -notmatch "native policy" -or
+        $MovementMaps[0].live_adapter.starting_layout -notmatch
+            "Bank04 AC76.*exact source evidence.*native post-tip stable layout.*native-faithful/inferred" -or
+        $MovementMaps[0].live_adapter.roster_binding -notmatch
+            "production binds selected TTDT starters" -or
+        $MovementMaps[0].live_adapter.matchup_link -notmatch
+            "fixed-link seed values.*dynamic matchup.*inferred" -or
         $MovementMaps[0].live_adapter.cpu_target_and_shot_policy -notmatch
-            "approximation" -or
-        $MovementMaps[0].live_adapter.roster_binding -notmatch "not yet bound" -or
+            "live-wired" -or
+        $MovementMaps[0].live_adapter.cpu_target_and_shot_policy -notmatch
+            "deferred/non-launch" -or
         ![bool]$MovementMaps[0].developer_harness.deterministic -or
         [bool]$MovementMaps[0].developer_harness.normal_game_flow_exposed) {
         throw "Production TGMO-1 movement provenance is incomplete."
+    }
+    if ($CpuMaps.Count -ne 1 -or
+        $CpuMaps[0].fingerprint_fnv1a32 -ne "D6C4DB35" -or
+        @($CpuMaps[0].source_spans).Count -ne 10 -or
+        $LiveEvidence.rom.revision -ne "Rev1" -or
+        $LiveEvidence.rom.length -ne 393232 -or
+        $LiveEvidence.rom.sha256 -ne $ExpectedRomSha256 -or
+        $LiveEvidence.bank03_starter_commit.bank -ne 3 -or
+        $LiveEvidence.bank03_starter_commit.address -ne '$8FC2-$9102' -or
+        $LiveEvidence.bank03_starter_commit.byte_count -ne 321 -or
+        $LiveEvidence.bank03_starter_commit.sha256 -ne
+            "FA3B396D01581451717CEB44A0F5628560FC664191E8F15F5843B0EAB316A9F5" -or
+        $LiveEvidence.bank04_static_setup.bank -ne 4 -or
+        $LiveEvidence.bank04_static_setup.address -ne '$AC76-$ADDF' -or
+        $LiveEvidence.bank04_static_setup.byte_count -ne 362 -or
+        $LiveEvidence.bank04_static_setup.sha256 -ne
+            "E123614333986D9D5084678C9AE32DD3A1A28ABF52F6D6265FE749FC0070C6E0" -or
+        $LiveEvidence.bank04_starter_stage.bank -ne 4 -or
+        $LiveEvidence.bank04_starter_stage.address -ne '$ADE0-$ADF3' -or
+        $LiveEvidence.bank04_starter_stage.byte_count -ne 20 -or
+        $LiveEvidence.bank04_starter_stage.sha256 -ne
+            "B4CC98CF95216620E6DAAB21C71BC1D9A679AFE9BB8BE5DC455A239E07640A3B" -or
+        (@($LiveEvidence.positions | ForEach-Object {
+            "{0},{1}" -f $_[0], $_[1]
+        }) -join ';') -ne
+            '528,144;448,144;362,112;364,192;392,144;176,144;320,144;408,112;400,192;372,144' -or
+        (@($LiveEvidence.directions) -join ',') -ne '1,1,2,5,1,0,0,2,5,0' -or
+        (@($LiveEvidence.fixed_links) -join ',') -ne '5,6,7,8,9,0,1,2,3,4' -or
+        $LiveEvidence.static_seeds.primary -ne 4 -or
+        $LiveEvidence.static_seeds.defender -ne 9 -or
+        (@($LiveEvidence.static_seeds.matchup) -join ',') -ne '2,7' -or
+        $LiveEvidence.lineup_binding.staging -ne 'exact' -or
+        $LiveEvidence.lineup_binding.session_to_slot -notmatch 'native-faithful/inferred' -or
+        $LiveEvidence.lineup_binding.one_for_one_staged_to_slot -notmatch
+            'not directly proven' -or
+        ![bool]$CpuMaps[0].live_foundation_integration.live_wired -or
+        ![bool]$CpuMaps[0].live_foundation_integration.transactional -or
+        $CpuMaps[0].live_foundation_integration.formation_selector.source_pinned_starts -ne 46 -or
+        $CpuMaps[0].live_foundation_integration.formation_selector.theoretical_count -ne 48 -or
+        (@($CpuMaps[0].live_foundation_integration.formation_selector.rejected_indices) -join ',') -ne
+            '46,47' -or
+        $CpuMaps[0].live_foundation_integration.formation_selector.index_formula -notmatch
+            'depth_row\*12\+x_bucket' -or
+        !$CpuMaps[0].live_foundation_integration.play_state.source_command_advance -or
+        $CpuMaps[0].live_foundation_integration.fixed_opposing_link_use -notmatch
+            'fixed links.*not claimed as ROM dynamic assignment' -or
+        $CpuMaps[0].live_foundation_integration.source_direction_application -notmatch
+            'target-to-direction equivalence' -or
+        $CpuMaps[0].live_foundation_integration.source_target_policy -notmatch
+            'immutable post-human snapshot' -or
+        $CpuMaps[0].live_foundation_integration.shot_request_adapter -notmatch
+            'deferred/non-launch' -or
+        ![bool]$CpuMaps[0].live_foundation_integration.classifications.formation_source_pinned -or
+        ![bool]$CpuMaps[0].live_foundation_integration.classifications.native_matchup_inferred -or
+        ![bool]$CpuMaps[0].live_foundation_integration.classifications.workspace_native_approximation -or
+        ![bool]$CpuMaps[0].live_foundation_integration.classifications.shot_request_native_approximation -or
+        $CpuMaps[0].live_foundation_integration.play_state.step_budget -ne 1 -or
+        ![bool]$CpuMaps[0].live_foundation_integration.play_state.deferred_effects_explicit -or
+        ![bool]$CpuMaps[0].live_foundation_integration.normal_game_flow_exposed) {
+        throw "Production TGAI-1 LIVE adapter provenance is incomplete."
     }
     if ($BallDribbleMaps.Count -ne 1 -or
         $BallDribbleMaps[0].fingerprint_fnv1a32 -ne "E2CE6BFF" -or
@@ -391,8 +1099,13 @@ try {
         $BallDribbleMaps[0].live_adapter.altitude_projection -notmatch
             "flattened into canonical visible Y" -or
         $BallDribbleMaps[0].live_adapter.matchup_link -notmatch
-            "native policy") {
+            "fixed-link seed values.*dynamic matchup.*inferred") {
         throw "Production TGBD-1 held-ball provenance is incomplete."
+    }
+    if ($FatigueMaps.Count -ne 1 -or
+        $FatigueMaps[0].live_adapter.active_roster_binding -notmatch
+            "selected TTDT roster indices 0\.\.11.*stable local slots 0\.\.4.*native-faithful/inferred") {
+        throw "Production TGFT-1 active-roster provenance is incomplete."
     }
     if ($LineupMaps.Count -ne 1 -or
         $LineupMaps[0].live_scene_integration.orientation_source -notmatch
@@ -476,6 +1189,362 @@ try {
         $SceneRun.tail.Trim() -ne "GAMEPLAY SCENE SELF TEST PASS") {
         throw "Native gameplay scene self-test failed.`n$($SceneRun.tail)"
     }
+
+    # TGLP-1 executable LIVE proof seam. Each invocation starts a fresh bound
+    # non-identity direct scene launch, runs real PRETIP (no skip hook), and
+    # renders through the production TecmoRuntime court renderer. The flow
+    # wrapper separately proves the game.c production launch bridge.
+    $ProofEvents = @(
+        "pretip-start",
+        "live-handoff",
+        "human-movement",
+        "offensive-pass",
+        "defensive-switch",
+        "cpu-target-deferred",
+        "shot-path"
+    )
+    New-Item -ItemType Directory -Force -Path $ProofRoot | Out-Null
+    $ProofRecords = @()
+    for ($Repeat = 1; $Repeat -le 2; ++$Repeat) {
+        $RepeatRoot = Join-Path $ProofRoot ("repeat-{0}" -f $Repeat)
+        New-Item -ItemType Directory -Force -Path $RepeatRoot | Out-Null
+        foreach ($Event in $ProofEvents) {
+            $Png = Join-Path $RepeatRoot ("{0}.png" -f $Event)
+            $Log = Join-Path $RepeatRoot ("{0}.jsonl" -f $Event)
+            $Run = Invoke-Logged -Command $Executable -Arguments @(
+                "--root", $ProjectRoot,
+                "--gameplay-live-foundation-proof", $PackPath,
+                $Event, $Png
+            ) -LogPath $Log
+            if ($Run.exit_code -ne 0 -or
+                !(Test-Path -LiteralPath $Png -PathType Leaf)) {
+                throw "LIVE proof event '$Event' repeat $Repeat failed.`n$($Run.tail)"
+            }
+            $Lines = @(
+                Get-Content -LiteralPath $Log |
+                    Where-Object { $_.Trim().Length -ne 0 }
+            )
+            if ($Lines.Count -ne 1) {
+                throw "LIVE proof event '$Event' did not emit exactly one JSON state line."
+            }
+            try {
+                $State = $Lines[0] | ConvertFrom-Json
+            } catch {
+                throw "LIVE proof event '$Event' emitted malformed JSON state."
+            }
+            $Dimensions = Get-PngDimensions $Png
+            if ($State.schema -ne "tecmo.live-proof/TGLP-1" -or
+                $State.event -ne $Event -or
+                [int]$State.resolution[0] -ne 640 -or
+                [int]$State.resolution[1] -ne 480 -or
+                [bool]$State.pretip_skip_hook -or
+                $Dimensions.width -ne 640 -or $Dimensions.height -ne 480 -or
+                ![bool]$State.live.valid -or
+                @($State.actors).Count -ne 10 -or
+                @($State.starter_roster_index.away).Count -ne 5 -or
+                @($State.starter_roster_index.home).Count -ne 5) {
+                throw "LIVE proof event '$Event' state/frame contract failed."
+            }
+            if ($Event -eq "pretip-start" -and
+                (![bool]$State.pretip.in_presentation -or
+                 ![bool]$State.pretip.is_presentation -or
+                 [bool]$State.pretip.live_handoff -or
+                 ![bool]$State.pretip.first_sync_pending -or
+                 [bool]$State.pretip.synchronized -or
+                 [int]$State.live.sync_serial -ne 0 -or
+                 [int]$State.ball_holder -ne 255)) {
+                throw "LIVE proof pretip-start premature-sync regression failed."
+            }
+            if ($Event -ne "pretip-start" -and
+                ([bool]$State.pretip.in_presentation -or
+                 [bool]$State.live.first_sync_pending)) {
+                throw "LIVE proof event '$Event' did not reach synchronized LIVE."
+            }
+            if ($Event -eq "cpu-target-deferred" -and
+                ([int]$State.live.source_target_count -lt 1 -or
+                 [int]$State.live.deferred_count -lt 1)) {
+                throw "LIVE proof CPU event did not retain target/deferred evidence."
+            }
+            if ($Event -eq "shot-path" -and
+                (![bool]$State.live.last_shot_request -or
+                 ![bool]$State.live.last_shot_playback_supported -or
+                 [bool]$State.live.last_shot_deferred -or
+                 [int]$State.action_serial -ne 1 -or
+                 [int]$State.shot_frame -lt 1)) {
+                throw "LIVE proof shot event did not retain exact-once playback state."
+            }
+            $ProofRecords += [pscustomobject]@{
+                repeat = $Repeat
+                event = $Event
+                path = [IO.Path]::GetFullPath($Png)
+                state_path = [IO.Path]::GetFullPath($Log)
+                sha256 = (Get-FileHash -LiteralPath $Png -Algorithm SHA256).Hash
+                frame_fingerprint_fnv1a32 = [string]$State.frame_fingerprint_fnv1a32
+                state = $State
+            }
+        }
+    }
+    foreach ($Event in $ProofEvents) {
+        $Pair = @($ProofRecords | Where-Object { $_.event -eq $Event })
+        if ($Pair.Count -ne 2 -or $Pair[0].sha256 -ne $Pair[1].sha256 -or
+            $Pair[0].frame_fingerprint_fnv1a32 -ne
+                $Pair[1].frame_fingerprint_fnv1a32) {
+            throw "LIVE proof event '$Event' was not deterministic across repeats."
+        }
+    }
+    $ContactSheets = @()
+    foreach ($Repeat in 1, 2) {
+        $RepeatRecords = @($ProofRecords | Where-Object { $_.repeat -eq $Repeat })
+        $ContactPath = Join-Path $ProofRoot ("contact-repeat-{0}.png" -f $Repeat)
+        $Sheet = New-LiveProofContactSheet -Records $RepeatRecords -OutputPath $ContactPath
+        $ContactSheets += [pscustomobject]@{
+            repeat = $Repeat
+            path = $Sheet.path
+            sha256 = $Sheet.sha256
+            width = $Sheet.width
+            height = $Sheet.height
+            frame_count = $Sheet.frame_count
+        }
+    }
+    if ($ContactSheets[0].sha256 -ne $ContactSheets[1].sha256) {
+        throw "LIVE proof contact sheets were not deterministic across repeats."
+    }
+    $NativeVideos = @()
+    foreach ($Repeat in 1, 2) {
+        $RepeatRoot = Join-Path $ProofRoot ("repeat-{0}" -f $Repeat)
+        for ($Index = 0; $Index -lt $ProofEvents.Count; ++$Index) {
+            $Event = $ProofEvents[$Index]
+            $Record = @($ProofRecords | Where-Object {
+                $_.repeat -eq $Repeat -and $_.event -eq $Event
+            })[0]
+            $NumberedPath = Join-Path $RepeatRoot ("frame-{0:D4}.png" -f ($Index + 1))
+            Copy-Item -LiteralPath $Record.path -Destination $NumberedPath
+        }
+        $VideoPath = Join-Path $ProofRoot ("native-repeat-{0}.mp4" -f $Repeat)
+        $NativeVideos += New-LiveProofVideo -FramesRoot $RepeatRoot `
+            -OutputPath $VideoPath -Label ("native-repeat-{0}" -f $Repeat) `
+            -FrameCount $ProofEvents.Count
+    }
+    if ($NativeVideos[0].sha256 -ne $NativeVideos[1].sha256 -or
+        $NativeVideos[0].decoded_frame_sha256 -ne
+            $NativeVideos[1].decoded_frame_sha256 -or
+        (@($NativeVideos[0].decoded_frame_hashes) -join ',') -ne
+            (@($NativeVideos[1].decoded_frame_hashes) -join ',')) {
+        throw "Native LIVE proof MP4 repeats were not deterministic after decode."
+    }
+    $RomSha = (Get-FileHash -LiteralPath $RomPath -Algorithm SHA256).Hash
+    $PackSha = (Get-FileHash -LiteralPath $PackPath -Algorithm SHA256).Hash
+    $TgaiPayload = Get-EntryBytes $PackBytes $Entries["gameplay/cpu-steering"]
+    $TgmoPayload = Get-EntryBytes $PackBytes $Entries["gameplay/movement"]
+    $OriginalReferenceProof = Get-OriginalReferenceProof `
+        -ManifestPath $OriginalReferenceManifestPath
+    if ($RequirePass -and $OriginalReferenceProof.status -ne "validated") {
+        throw "LIVE proof -RequirePass requires the accepted original CPU proof manifest and artifacts."
+    }
+    $GitProofState = Get-LiveProofGitState
+    if ($RequirePass -and !(Test-LiveProofRequirePassState $GitProofState)) {
+        throw ("LIVE proof -RequirePass rejected the worktree before PASS: " +
+            "branch=$($GitProofState.branch) clean=$($GitProofState.clean) " +
+            "base_is_ancestor=$($GitProofState.base_is_ancestor)")
+    }
+    $ManifestPath = Join-Path $ProofRoot "PROOF-MANIFEST.json"
+    $Manifest = [ordered]@{
+        schema = "tecmo.live-proof-manifest/TGLP-1"
+        status = "DRAFT"
+        task = "R1-LIVE-FOUNDATION"
+        proof_root = [IO.Path]::GetFullPath($ProofRoot)
+        base_sha = $ExpectedBaseSha
+        current_sha = $GitProofState.head
+        final_sha = "PENDING_CLEAN_COMMIT"
+        branch = $GitProofState.branch
+        clean = [bool]$GitProofState.clean
+        native_resolution = @(640, 480)
+        native_cadence = $NativeFrameRate
+        native_time_base = $NativeVideoTimeBase
+        native_video_track_timescale = $NativeVideoTrackTimescale
+        rom = [ordered]@{
+            revision = "Rev1"
+            length = 393232
+            sha256 = $RomSha
+        }
+        asset_pack = [ordered]@{
+            path = [IO.Path]::GetFullPath($ProofPackPath)
+            replay_path = [IO.Path]::GetFullPath($ProofPackPath)
+            source_path_ephemeral = [IO.Path]::GetFullPath($PackPath)
+            sha256 = $PackSha
+            tgai = [ordered]@{
+                bytes = [int]$Entries["gameplay/cpu-steering"].byte_count
+                fnv1a32 = Get-Fnv1a32 $TgaiPayload
+            }
+            tgmo = [ordered]@{
+                bytes = [int]$Entries["gameplay/movement"].byte_count
+                fnv1a32 = Get-Fnv1a32 $TgmoPayload
+            }
+        }
+        rom_revision = "Rev1"
+        rom_length = 393232
+        rom_sha256 = $RomSha
+        pack_sha256 = $PackSha
+        tgai_bytes = [int]$Entries["gameplay/cpu-steering"].byte_count
+        tgai_fnv1a32 = Get-Fnv1a32 $TgaiPayload
+        tgmo_bytes = [int]$Entries["gameplay/movement"].byte_count
+        tgmo_fnv1a32 = Get-Fnv1a32 $TgmoPayload
+        event_order = $ProofEvents
+        input_schedule = @(
+            "pretip-start: real preTIP initial presentation, no updates"
+            "live-handoff: neutral PRETIP updates to LIVE"
+            "human-movement: P1 held RIGHT for two updates"
+            "offensive-pass: P1 NES A"
+            "defensive-switch: P1 NES A with home possession"
+            "cpu-target-deferred: deterministic source-offset fixture"
+            "shot-path: deterministic supported close-shot fixture"
+        )
+        repeat_count = 2
+        stored_frame_count = $ProofRecords.Count
+        decoded_frame_count = ($NativeVideos | Measure-Object -Property decoded_frame_count -Sum).Sum
+        frame_records = @($ProofRecords | ForEach-Object {
+            [ordered]@{
+                repeat = $_.repeat
+                event = $_.event
+                path = $_.path
+                state_path = $_.state_path
+                sha256 = $_.sha256
+                frame_fingerprint_fnv1a32 = $_.frame_fingerprint_fnv1a32
+                state = $_.state
+            }
+        })
+        contact_sheets = $ContactSheets
+        native_videos = $NativeVideos
+        original_reference = $OriginalReferenceProof
+        timestamps_utc = [ordered]@{
+            proof_started = $ProofStartUtc
+            manifest_draft = [DateTime]::UtcNow.ToString("o")
+            proof_finished = $null
+        }
+        fixture_classification = @{
+            force_possession = "deterministic test fixture; not original or normal-policy evidence"
+            source_offset_injection = "deterministic test fixture; not original or normal-policy evidence"
+            close_position_injection = "deterministic test fixture; not original or normal-policy evidence"
+            lineup_binding = "bound production-style scene launch; game.c bridge separately proven by flow tests"
+        }
+        proof_pack_replay_path = [IO.Path]::GetFullPath($ProofPackPath)
+        ephemeral_pack_path = [IO.Path]::GetFullPath($PackPath)
+        build_requested = [bool]$Build
+        build_warning_clean = [bool]$Build
+        required_logs = @()
+        negative_regressions = @(
+            "dirty RequirePass rejects before PASS"
+            "wrong-branch RequirePass rejects before PASS"
+            "non-ancestral-base RequirePass rejects before PASS"
+            "stale ROM SHA rejects"
+            "stale asset-pack SHA rejects"
+            "stale contact-sheet IHDR/metadata rejects (1920x960 is invalid for seven frames)"
+            "stale video rate rejects"
+            "stale video frame-count rejects"
+            "stale video time-base rejects"
+            "missing/malformed/cross-pack proof inputs reject"
+        )
+        commands = @()
+        tool_versions = @{}
+        suites_complete = $false
+        require_pass = [bool]$RequirePass
+        artifact_inventory = @()
+        artifact_inventory_count = 0
+    }
+    $Manifest | ConvertTo-Json -Depth 14 | Set-Content -LiteralPath $ManifestPath -Encoding UTF8
+    if (!(Test-LiveProofManifest -ManifestPath $ManifestPath `
+            -ExpectedRomSha256 $RomSha -ExpectedPackSha256 $PackSha `
+            -ExpectedEvents $ProofEvents)) {
+        throw "LIVE proof manifest self-validation failed."
+    }
+    $StaleManifestPath = Join-Path $ProofRoot "PROOF-MANIFEST-stale.json"
+    $StaleManifest = Get-Content -LiteralPath $ManifestPath -Raw |
+        ConvertFrom-Json
+    $StaleManifest.rom_sha256 = ('0' * 64)
+    $StaleManifest | ConvertTo-Json -Depth 14 |
+        Set-Content -LiteralPath $StaleManifestPath -Encoding UTF8
+    if (Test-LiveProofManifest -ManifestPath $StaleManifestPath `
+            -ExpectedRomSha256 $RomSha -ExpectedPackSha256 $PackSha `
+            -ExpectedEvents $ProofEvents) {
+        throw "LIVE proof stale-metadata negative was accepted."
+    }
+    $StalePackManifestPath = Join-Path $ProofRoot "PROOF-MANIFEST-stale-pack.json"
+    $StalePackManifest = Get-Content -LiteralPath $ManifestPath -Raw |
+        ConvertFrom-Json
+    $StalePackManifest.pack_sha256 = ('0' * 64)
+    $StalePackManifest | ConvertTo-Json -Depth 14 |
+        Set-Content -LiteralPath $StalePackManifestPath -Encoding UTF8
+    if (Test-LiveProofManifest -ManifestPath $StalePackManifestPath `
+            -ExpectedRomSha256 $RomSha -ExpectedPackSha256 $PackSha `
+            -ExpectedEvents $ProofEvents) {
+        throw "LIVE proof stale-pack metadata negative was accepted."
+    }
+    $StaleContactManifestPath = Join-Path $ProofRoot "PROOF-MANIFEST-stale-contact.json"
+    $StaleContactManifest = Get-Content -LiteralPath $ManifestPath -Raw |
+        ConvertFrom-Json
+    $StaleContactManifest.contact_sheets[0].height = 960
+    $StaleContactManifest | ConvertTo-Json -Depth 14 |
+        Set-Content -LiteralPath $StaleContactManifestPath -Encoding UTF8
+    if (Test-LiveProofManifest -ManifestPath $StaleContactManifestPath `
+            -ExpectedRomSha256 $RomSha -ExpectedPackSha256 $PackSha `
+            -ExpectedEvents $ProofEvents) {
+        throw "LIVE proof stale-contact metadata negative was accepted."
+    }
+    $StaleVideoManifestPath = Join-Path $ProofRoot "PROOF-MANIFEST-stale-video.json"
+    $StaleVideoManifest = Get-Content -LiteralPath $ManifestPath -Raw |
+        ConvertFrom-Json
+    $StaleVideoManifest.native_videos[0].probe.r_frame_rate = "1/60"
+    $StaleVideoManifest | ConvertTo-Json -Depth 14 |
+        Set-Content -LiteralPath $StaleVideoManifestPath -Encoding UTF8
+    if (Test-LiveProofManifest -ManifestPath $StaleVideoManifestPath `
+            -ExpectedRomSha256 $RomSha -ExpectedPackSha256 $PackSha `
+            -ExpectedEvents $ProofEvents) {
+        throw "LIVE proof stale-video cadence negative was accepted."
+    }
+    $StaleCountManifestPath = Join-Path $ProofRoot "PROOF-MANIFEST-stale-count.json"
+    $StaleCountManifest = Get-Content -LiteralPath $ManifestPath -Raw |
+        ConvertFrom-Json
+    $StaleCountManifest.native_videos[0].probe.nb_frames = 6
+    $StaleCountManifest | ConvertTo-Json -Depth 14 |
+        Set-Content -LiteralPath $StaleCountManifestPath -Encoding UTF8
+    if (Test-LiveProofManifest -ManifestPath $StaleCountManifestPath `
+            -ExpectedRomSha256 $RomSha -ExpectedPackSha256 $PackSha `
+            -ExpectedEvents $ProofEvents) {
+        throw "LIVE proof stale-count metadata negative was accepted."
+    }
+    $StaleCadenceManifestPath = Join-Path $ProofRoot "PROOF-MANIFEST-stale-timebase.json"
+    $StaleCadenceManifest = Get-Content -LiteralPath $ManifestPath -Raw |
+        ConvertFrom-Json
+    $StaleCadenceManifest.native_videos[0].probe.time_base = "1/90000"
+    $StaleCadenceManifest | ConvertTo-Json -Depth 14 |
+        Set-Content -LiteralPath $StaleCadenceManifestPath -Encoding UTF8
+    if (Test-LiveProofManifest -ManifestPath $StaleCadenceManifestPath `
+            -ExpectedRomSha256 $RomSha -ExpectedPackSha256 $PackSha `
+            -ExpectedEvents $ProofEvents) {
+        throw "LIVE proof stale-timebase metadata negative was accepted."
+    }
+    $MissingProofPack = Join-Path $ProofRoot "missing-proof.assetpack"
+    Assert-LiveProofRejected -Label "missing-pack" -Arguments @(
+        "--root", $ProjectRoot,
+        "--gameplay-live-foundation-proof", $MissingProofPack,
+        "live-handoff", (Join-Path $ProofRoot "missing.png")
+    )
+    Assert-LiveProofRejected -Label "malformed-event" -Arguments @(
+        "--root", $ProjectRoot,
+        "--gameplay-live-foundation-proof", $PackPath,
+        "not-an-event", (Join-Path $ProofRoot "malformed.png")
+    )
+    $CrossPackProofPath = Join-Path $ProofRoot "cross-pack-proof.assetpack"
+    $CrossPackProof = [byte[]]$PackBytes.Clone()
+    $ProofResolutionEntry = Get-AssetPackEntry $PackBytes "gameplay/shot-resolution"
+    $CrossPackProof[[int]$ProofResolutionEntry.pack_offset + 24] =
+        $CrossPackProof[[int]$ProofResolutionEntry.pack_offset + 24] -bxor 1
+    [IO.File]::WriteAllBytes($CrossPackProofPath, $CrossPackProof)
+    Assert-LiveProofRejected -Label "cross-pack" -Arguments @(
+        "--root", $ProjectRoot,
+        "--gameplay-live-foundation-proof", $CrossPackProofPath,
+        "live-handoff", (Join-Path $ProofRoot "cross-pack.png")
+    )
 
     $MissingHudPath = Join-Path $Scratch "missing-gameplay-hud.assetpack"
     $MissingHud = [byte[]]$PackBytes.Clone()
@@ -1200,11 +2269,139 @@ try {
         throw "Legacy close-shot render mode diverged from canonical dunk mode."
     }
 
+    $ProofLogRecords = Copy-LiveProofLogs -ScratchRoot $Scratch `
+        -BuildLogSource $BuildLog -BuildWasRun ([bool]$Build) `
+        -ProofRoot $ProofRoot
+    if ($ProofLogRecords.Count -lt 3) {
+        throw "LIVE proof did not preserve the required build/asset-pack/scene logs."
+    }
+    $FinalGitProofState = Get-LiveProofGitState
+    if ($RequirePass -and !(Test-LiveProofRequirePassState $FinalGitProofState)) {
+        throw ("LIVE proof -RequirePass detected a changed or dirty final worktree: " +
+            "branch=$($FinalGitProofState.branch) clean=$($FinalGitProofState.clean) " +
+            "base_is_ancestor=$($FinalGitProofState.base_is_ancestor)")
+    }
+    $FinalManifest = Get-Content -LiteralPath $ManifestPath -Raw |
+        ConvertFrom-Json
+    $FinalManifest.status = if ($RequirePass) { "PASS" } else { "DRAFT" }
+    $FinalManifest.current_sha = $FinalGitProofState.head
+    $FinalManifest.final_sha = if ($RequirePass) {
+        $FinalGitProofState.head
+    } else { "PENDING_CLEAN_COMMIT" }
+    $FinalManifest.branch = $FinalGitProofState.branch
+    $FinalManifest.clean = [bool]$FinalGitProofState.clean
+    $FinalManifest.suites_complete = $true
+    $FinalManifest.require_pass = [bool]$RequirePass
+    $FinalManifest.build_requested = [bool]$Build
+    $FinalManifest.build_warning_clean = [bool]$Build
+    $FinalManifest.asset_pack.path = [IO.Path]::GetFullPath($ProofPackPath)
+    $FinalManifest.asset_pack.replay_path = [IO.Path]::GetFullPath($ProofPackPath)
+    $FinalManifest.asset_pack.source_path_ephemeral =
+        [IO.Path]::GetFullPath($PackPath)
+    $FinalManifest.required_logs = $ProofLogRecords
+    $FinalManifest.timestamps_utc.proof_finished =
+        [DateTime]::UtcNow.ToString("o")
+    $FinalCommands = @(
+        ("build: {0}" -f (Join-Path $ProjectRoot "build.ps1"))
+        ("asset-pack: {0} --build-assetpack [LOCAL_REV1_ROM] " +
+            "[EPHEMERAL_SCRATCH_PACK] (preserved replay pack: {1})" -f
+            $Executable, $ProofPackPath)
+        ("scene-wrapper: powershell.exe -NoProfile -ExecutionPolicy Bypass " +
+            "-File tools\\Run-GameplaySceneTests.ps1 -ProjectRoot [PROJECT] " +
+            "-RomPath [LOCAL_REV1_ROM] -OriginalReferenceManifestPath " +
+            "[ACCEPTED_CPU_PROOF_MANIFEST]")
+    )
+    foreach ($Repeat in 1, 2) {
+        foreach ($Event in $ProofEvents) {
+            $FinalCommands += ("native-proof: {0} --root [PROJECT] " +
+                "--gameplay-live-foundation-proof {1} {2} {3}" -f
+                $Executable, $ProofPackPath, $Event,
+                (Join-Path $ProofRoot ("repeat-{0}\\{1}.png" -f $Repeat, $Event)))
+        }
+    }
+    foreach ($Video in $NativeVideos) {
+        $FinalCommands += "ffmpeg: $($Video.commands.ffmpeg)"
+        $FinalCommands += "ffprobe: $($Video.commands.ffprobe)"
+        $FinalCommands += "decode: $($Video.commands.decode)"
+    }
+    $FinalManifest.commands = $FinalCommands
+    $FinalManifest.tool_versions = [ordered]@{
+        powershell = $PSVersionTable.PSVersion.ToString()
+        ffmpeg = $NativeVideos[0].tools.ffmpeg
+        ffprobe = $NativeVideos[0].tools.ffprobe
+    }
+    $FinalManifest.artifact_inventory = Get-LiveProofArtifactInventory `
+        -Root $ProofRoot -ManifestName "PROOF-MANIFEST.json"
+    $FinalManifest.artifact_inventory_count =
+        @($FinalManifest.artifact_inventory).Count
+    $InventoryNegativeBase = $FinalManifest | ConvertTo-Json -Depth 20 |
+        ConvertFrom-Json
+    $InventoryNegativeBase.artifact_inventory[0].path =
+        (Join-Path $ProofRoot "missing-inventory-artifact.bin")
+    $InventoryPathNegativePath =
+        Join-Path $ProofRoot "PROOF-MANIFEST-negative-inventory-path.json"
+    $InventoryNegativeBase | ConvertTo-Json -Depth 20 |
+        Set-Content -LiteralPath $InventoryPathNegativePath -Encoding UTF8
+    if (Test-LiveProofManifest -ManifestPath $InventoryPathNegativePath `
+            -ExpectedRomSha256 $RomSha -ExpectedPackSha256 $PackSha `
+            -ExpectedEvents $ProofEvents) {
+        throw "LIVE proof artifact-inventory path negative was accepted."
+    }
+    $InventoryNegativeBase = $FinalManifest | ConvertTo-Json -Depth 20 |
+        ConvertFrom-Json
+    $InventoryNegativeBase.artifact_inventory[0].bytes =
+        [int64]$InventoryNegativeBase.artifact_inventory[0].bytes + 1
+    $InventoryBytesNegativePath =
+        Join-Path $ProofRoot "PROOF-MANIFEST-negative-inventory-bytes.json"
+    $InventoryNegativeBase | ConvertTo-Json -Depth 20 |
+        Set-Content -LiteralPath $InventoryBytesNegativePath -Encoding UTF8
+    if (Test-LiveProofManifest -ManifestPath $InventoryBytesNegativePath `
+            -ExpectedRomSha256 $RomSha -ExpectedPackSha256 $PackSha `
+            -ExpectedEvents $ProofEvents) {
+        throw "LIVE proof artifact-inventory byte negative was accepted."
+    }
+    $InventoryNegativeBase = $FinalManifest | ConvertTo-Json -Depth 20 |
+        ConvertFrom-Json
+    $InventoryNegativeBase.artifact_inventory[0].sha256 = '0' * 64
+    $InventoryShaNegativePath =
+        Join-Path $ProofRoot "PROOF-MANIFEST-negative-inventory-sha.json"
+    $InventoryNegativeBase | ConvertTo-Json -Depth 20 |
+        Set-Content -LiteralPath $InventoryShaNegativePath -Encoding UTF8
+    if (Test-LiveProofManifest -ManifestPath $InventoryShaNegativePath `
+            -ExpectedRomSha256 $RomSha -ExpectedPackSha256 $PackSha `
+            -ExpectedEvents $ProofEvents) {
+        throw "LIVE proof artifact-inventory SHA negative was accepted."
+    }
+    $FinalManifest.negative_regressions += @(
+        "artifact-inventory missing path rejects",
+        "artifact-inventory byte mismatch rejects",
+        "artifact-inventory SHA mismatch rejects"
+    )
+    $FinalManifest.artifact_inventory = Get-LiveProofArtifactInventory `
+        -Root $ProofRoot -ManifestName "PROOF-MANIFEST.json"
+    $FinalManifest.artifact_inventory_count =
+        @($FinalManifest.artifact_inventory).Count
+    $FinalManifest | ConvertTo-Json -Depth 20 |
+        Set-Content -LiteralPath $ManifestPath -Encoding UTF8
+    if (!(Test-LiveProofManifest -ManifestPath $ManifestPath `
+            -ExpectedRomSha256 $RomSha -ExpectedPackSha256 $PackSha `
+            -ExpectedEvents $ProofEvents)) {
+        throw "LIVE proof final manifest self-validation failed."
+    }
+    if ($RequirePass -and $FinalManifest.status -ne "PASS") {
+        throw "LIVE proof -RequirePass did not publish status=PASS."
+    }
+
     $global:LASTEXITCODE = 0
     Write-Output ("GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance " +
         "scene controls THUD-1 clean jersey/name HUD TGMO-1 human/CPU walking poses TGBD-1 held-ball bounce/sound TGFT-1 fatigue TPNL-1 out-of-bounds settlement TGBC-1 live backcourt settlement TGVR-1 native violation referee TGAI-1/TGMO-1 transactional ordinary CPU movement TGCP-2 full-world camera fine-scroll guarded-margins actor-camera-projection/possession-slice-render/freeze TGFL-1 orientation-lineup TGOR two-basket shot ownership TGDK TGJS TGSR-3 jump entry/turn/release/flight poses jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
         "halftime/final render-hashes/determinism missing malformed oversized " +
         "dependency-corrupt chr-mismatch")
+    $ProofSummary = ("LIVE PROOF {0}: root={1} manifest={2} native_videos=2 frames={3} contact_sheet=1920x{4}" -f
+        $FinalManifest.status, $ProofRoot, $ManifestPath,
+        ([int]$ProofEvents.Count * 2),
+        [int]([Math]::Ceiling($ProofEvents.Count / 3.0) * 480))
+    Write-Output $ProofSummary
 } finally {
     $env:TECMO_ASSETPACK = $PreviousPack
     $env:TECMO_SKIP_SHORTCUT = $PreviousSkipShortcut

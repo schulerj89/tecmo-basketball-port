@@ -103,6 +103,8 @@ $Sources = @(
     "src\tecmo_gameplay_ball_dribble.c",
     "src\tecmo_gameplay_fatigue.c",
     "src\tecmo_gameplay_cpu_steering.c",
+    "src\tecmo_gameplay_live_foundation.c",
+    "src\tecmo_gameplay_live_proof.c",
     "src\tecmo_gameplay_hud.c",
     "src\tecmo_gameplay_close_shots.c",
     "src\tecmo_gameplay_dunk_cutaway.c",
