@@ -109,3 +109,15 @@ The master may run only the control-plane schema, state, ownership, duplicate,
 and Git-lineage checks for this task. Product QA remains delegated to future Sol
 domain and integration orchestrators.
 
+All state/schema JSON parsing, validator syntax compilation, schema/semantic/Git
+lineage validation, synthetic failure-detection self-tests, and the generated
+dashboard freshness gate passed. Inventory implementation commit:
+`6bbbdc3a2726fd38d8dbe75ac5581bf3465d922b`.
+
+## Merge instructions
+
+After the ready-for-main metadata commit is created and validation is repeated,
+fast-forward local `main` from `codex/master-finish-orchestration` only if
+`origin/main` remains exactly
+`7090d2c62201ce3d330df20043a6e80fd0bdef00`. Push `main` once, without force.
+Record the resulting main/push SHA in the next committed control-plane update.

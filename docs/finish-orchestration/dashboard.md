@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T04:47:45Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T05:25:00Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,7 +8,7 @@ Generated from committed JSON at `2026-08-03T04:47:45Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 18, `in_progress` 1, `pushed` 4
+- Task states: `backlog` 18, `pushed` 4, `ready_for_main` 1
 - Fidelity classifications: `incomplete` 24
 
 ## Rounds
@@ -16,7 +16,7 @@ Generated from committed JSON at `2026-08-03T04:47:45Z`. This dashboard reports 
 | Round | Status | Base | Tasks | Staging | Combined QA | Push |
 |---|---|---|---:|---|---|---|
 | R0 | pushed | 63b29b04b1ab | 1 | codex/master-finish-orchestration | coordination_only | succeeded |
-| R0A | in_progress | 7090d2c62201 | 4 | codex/master-finish-orchestration | pending | not_attempted |
+| R0A | ready_for_main | 7090d2c62201 | 4 | codex/master-finish-orchestration | coordination_only | not_attempted |
 | R1 | planned | 7090d2c62201 | 3 | codex/round-1-gameplay-foundation-staging | pending | not_attempted |
 | R2 | planned | 7090d2c62201 | 5 | codex/round-2-gameplay-mechanics-staging | pending | not_attempted |
 | R3 | planned | 7090d2c62201 | 4 | codex/round-3-season-data-staging | pending | not_attempted |
@@ -28,7 +28,7 @@ Generated from committed JSON at `2026-08-03T04:47:45Z`. This dashboard reports 
 | Priority | Task | Domain | Round | State | Sol session | Branch | Result commits | QA | Merge |
 |---:|---|---|---|---|---|---|---:|---|---|
 | 100 | R0-CTRL-001 | orchestration | R0 | pushed | S-MASTER-001 | codex/master-finish-orchestration | 2 | coordination_validated | pushed |
-| 100 | R0A-INV-001 | orchestration | R0A | in_progress | S-MASTER-001 | codex/master-finish-orchestration | 0 | coordination_in_progress | not_ready |
+| 100 | R0A-INV-001 | orchestration | R0A | ready_for_main | S-MASTER-001 | codex/master-finish-orchestration | 1 | coordination_validated | ready |
 | 100 | R1-CPU-PLAY-LIFECYCLE | gameplay_behavior | R1 | backlog | - | - | 0 | pending | not_ready |
 | 100 | R2-SHOTS-OUTCOMES | gameplay_behavior | R2 | backlog | - | - | 0 | pending | not_ready |
 | 100 | R3-PLAYER-STATS-LEADERS | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
@@ -55,7 +55,7 @@ Generated from committed JSON at `2026-08-03T04:47:45Z`. This dashboard reports 
 
 | Session | Role | Model/thinking | Status | Pin | Tasks | Branch | Worktree | Last good |
 |---|---|---|---|---|---|---|---|---|
-| S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 7090d2c62201 |
+| S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 6bbbdc3a2726 |
 
 ## Active Ownership
 
