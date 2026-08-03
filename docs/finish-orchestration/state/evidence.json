@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T04:47:45Z",
+  "updated_at": "2026-08-03T10:23:50Z",
   "records": [
     {
       "evidence_id": "EVID-R0-BASE",
@@ -187,6 +187,26 @@
       "proof_locations": ["C:/Users/joshs/Projects/tecmo-basketball-port/build/proof/away-facing-left-only/manifest.json", "C:/Users/joshs/Projects/tecmo-basketball-port/build/proof/away-facing-left-luna/manifest.json"],
       "local_private": true,
       "created_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "evidence_id": "EVID-R1-CPU-DRAFT-PROOF",
+      "task_ids": ["R1-CPU-PLAY-LIFECYCLE"],
+      "kind": "proof_manifest",
+      "title": "CPU lifecycle source-trace and native-regression draft proof",
+      "classification": "exact_source_pinned",
+      "confidence": "high",
+      "rom": null,
+      "asm": {"bank":"Bank06","address":"$8B90, $8BA2, $8BAE, and $8FD9","table_or_routine":"CPU play-command fetch, opcode copy, dispatch, and lifecycle-event hooks"},
+      "original_reference": {"kind":"trace","identity":"local canonical Rev 1 source-trace rehearsal with ROM/FCEUX/pack/script/tool fingerprints in the draft manifest","timestamp_or_frame":"120 clock-running live frames through inclusive original frame 4244"},
+      "description": "Sol personally accepted the local draft proof at run 20260803-051716 after ten preserved fail-closed rehearsal revisions: 102 files, 100 inventoried artifacts, 36 metadata-complete logs, source-pinned lifecycle events and actor rows, equal original traces/sheets/videos, deterministic native frames/repeats, warning-clean builds, visual inspection, and Win32 smoke.",
+      "what_it_proves": "The original CPU lifecycle evidence path is mapper/address pinned and deterministic, and the isolated native CPU implementation and regression-render path are warning-clean and reproducible at the reviewed dirty-tree state.",
+      "limits": "This is a local private draft proof, not final CPU acceptance. Native Hawks-Celtics imagery is deterministic regression evidence only, not one-to-one original parity or LIVE integration. A worker commit, clean-commit RequirePass proof, and independent QA remain mandatory.",
+      "runtime_locations": ["include/tecmo_gameplay_cpu_steering.h", "src/tecmo_gameplay_cpu_steering.c", "src/asset_pack/tecmo_asset_pack_gameplay_cpu_steering.c"],
+      "test_locations": ["tools/Run-GameplayCpuSteeringTests.ps1", "tools/gameplay-lab"],
+      "doc_locations": ["docs/finish-tasks/R1-cpu-play-lifecycle"],
+      "proof_locations": ["C:/Users/joshs/Projects/tecmo-basketball-port-r1-cpu-play-lifecycle-luna/temp-videos/gameplay-lab/cpu-lifecycle/20260803-051716/manifest.json"],
+      "local_private": true,
+      "created_at": "2026-08-03T10:23:50Z"
     }
   ]
 }
