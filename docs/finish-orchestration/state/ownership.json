@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T04:47:45Z",
+  "updated_at": "2026-08-03T05:30:16Z",
   "claims": [
     {
       "claim_id":"OWN-R0-CTRL","task_id":"R0-CTRL-001","round_id":"R0","session_id":"S-MASTER-001","mode":"exclusive",
@@ -13,8 +13,8 @@
       "claim_id":"OWN-R0A-INV","task_id":"R0A-INV-001","round_id":"R0A","session_id":"S-MASTER-001","mode":"exclusive",
       "writable_globs":["docs/finish-orchestration/**","docs/finish-tasks/**","tools/finish-orchestration/**"],
       "planned_paths":["docs/finish-orchestration/state/inventory.json","docs/finish-tasks/R0A-inventory/README.md","docs/finish-orchestration/dashboard.md"],
-      "concurrency_group":"R0A-inventory","active":true,"claimed_at":"2026-08-03T04:47:45Z","released_at":null,
-      "notes":"Coordination-only inventory/adoption ownership; no product source or product test files."
+      "concurrency_group":"R0A-inventory","active":false,"claimed_at":"2026-08-03T04:47:45Z","released_at":"2026-08-03T05:30:16Z",
+      "notes":"Coordination-only inventory/adoption ownership released after the verified Round 0A push."
     },
     {
       "claim_id":"OWN-R0A-HIST-CPU-TIP","task_id":"R0A-ADOPT-CPU-TIP","round_id":"R0A","session_id":"S-SOL-CPU-TIP-LEGACY","mode":"shared_sequential",
@@ -36,6 +36,27 @@
       "planned_paths":["src/tecmo_gameplay_scene_render.c","src/tecmo_gameplay_scene_test_render_contract.c"],
       "concurrency_group":"historical-away-facing","active":false,"claimed_at":"2026-08-02T23:57:34Z","released_at":"2026-08-03T01:56:31Z",
       "notes":"Reconstructed focused historical ownership. Worktree/branch were removed after proof preservation."
+    },
+    {
+      "claim_id":"OWN-R1-CPU-PLAY","task_id":"R1-CPU-PLAY-LIFECYCLE","round_id":"R1","session_id":"S-MASTER-001","mode":"exclusive",
+      "writable_globs":["include/tecmo_gameplay_cpu_*.h","src/tecmo_gameplay_cpu_*.c","src/asset_pack/tecmo_asset_pack_gameplay_cpu_*.c","src/asset_pack/tecmo_asset_pack_gameplay_cpu_*.h","tools/Run-GameplayCpuSteeringTests.ps1","tools/gameplay-lab/**","docs/finish-tasks/R1-cpu-play-lifecycle/**"],
+      "planned_paths":["src/tecmo_gameplay_cpu_steering.c","src/asset_pack/tecmo_asset_pack_gameplay_cpu_steering.c","docs/finish-tasks/R1-cpu-play-lifecycle/README.md"],
+      "concurrency_group":"R1-gameplay-foundation","active":true,"claimed_at":"2026-08-03T05:30:16Z","released_at":null,
+      "notes":"Preassignment claim held by the master registrar; transfer to the created Round 1 Gameplay Foundation Sol before assignment."
+    },
+    {
+      "claim_id":"OWN-R1-LIVE","task_id":"R1-LIVE-FOUNDATION","round_id":"R1","session_id":"S-MASTER-001","mode":"exclusive",
+      "writable_globs":["CMakeLists.txt","include/tecmo_gameplay_scene.h","include/tecmo_gameplay_scene_internal.h","include/tecmo_gameplay_state.h","include/tecmo_gameplay_movement.h","include/tecmo_gameplay_live_*.h","src/tecmo_gameplay_scene.c","src/tecmo_gameplay_scene_actors.c","src/tecmo_gameplay_scene_validation.c","src/tecmo_gameplay_scene_test_internal.h","src/tecmo_gameplay_scene_test_orchestrator.c","src/tecmo_gameplay_scene_test_state_flow.c","src/tecmo_gameplay_state.c","src/tecmo_gameplay_movement.c","src/tecmo_gameplay_live_*.c","src/tecmo_cli_gameplay_core.c","src/asset_pack/tecmo_asset_pack_gameplay_movement.c","src/asset_pack/tecmo_asset_pack_gameplay_movement.h","src/asset_pack/tecmo_asset_pack_source_map.c","src/asset_pack/tecmo_asset_pack_source_map.h","src/asset_pack/tecmo_asset_pack_import_layout.h","tools/Run-GameplayMovementTests.ps1","tools/Run-GameplaySceneTests.ps1","docs/finish-tasks/R1-live-foundation/**"],
+      "planned_paths":["src/tecmo_gameplay_scene.c","src/tecmo_gameplay_scene_actors.c","src/tecmo_gameplay_state.c","docs/finish-tasks/R1-live-foundation/README.md"],
+      "concurrency_group":"R1-gameplay-foundation","active":true,"claimed_at":"2026-08-03T05:30:16Z","released_at":null,
+      "notes":"Designated owner for every shared scene/build/source-map boundary used by the same sequential Round 1 Sol."
+    },
+    {
+      "claim_id":"OWN-R1-TIP","task_id":"R1-TIP-FIDELITY","round_id":"R1","session_id":"S-MASTER-001","mode":"exclusive",
+      "writable_globs":["include/tecmo_gameplay_pretip.h","src/tecmo_gameplay_pretip.c","src/tecmo_gameplay_scene_render.c","src/tecmo_gameplay_scene_test_pretip.c","src/tecmo_gameplay_scene_test_render_contract.c","src/tecmo_cli_render_gameplay_checkpoint.c","src/tecmo_win32_keys.c","src/asset_pack/tecmo_asset_pack_gameplay_pretip.c","src/asset_pack/tecmo_asset_pack_gameplay_pretip.h","tools/New-TipoffVisualProof.ps1","tools/Run-GameplayPreTipTests.ps1","docs/finish-tasks/R1-tip-fidelity/**"],
+      "planned_paths":["src/tecmo_gameplay_pretip.c","src/tecmo_gameplay_scene_render.c","src/tecmo_gameplay_scene_test_pretip.c","docs/finish-tasks/R1-tip-fidelity/README.md"],
+      "concurrency_group":"R1-gameplay-foundation","active":true,"claimed_at":"2026-08-03T05:30:16Z","released_at":null,
+      "notes":"Pretip, rendering, input, and proof paths are disjoint from CPU/live paths; shared handoff edits go through OWN-R1-LIVE sequentially."
     }
   ],
   "shared_boundaries": [
@@ -43,6 +64,11 @@
       "boundary_id":"BOUNDARY-R0A-HIST-SCENE","round_id":"R0A","writable_glob":"src/tecmo_gameplay_scene*.c","policy":"sequential","designated_task_id":null,
       "ordered_task_ids":["R0A-ADOPT-CPU-TIP","R0A-ADOPT-TIP-VIS","R0A-ADOPT-AWAY-FACING"],
       "notes":"Historical work was integrated sequentially. Future rounds must create new non-overlapping claims rather than reuse this record."
+    },
+    {
+      "boundary_id":"BOUNDARY-R1-SCENE","round_id":"R1","writable_glob":"src/tecmo_gameplay_scene.c","policy":"designated_task","designated_task_id":"R1-LIVE-FOUNDATION",
+      "ordered_task_ids":["R1-CPU-PLAY-LIFECYCLE","R1-LIVE-FOUNDATION","R1-TIP-FIDELITY"],
+      "notes":"CPU or tip discoveries that require shared scene/handoff changes are implemented and reviewed sequentially under the live-foundation task; no second session may edit this file."
     }
   ],
   "merge_orders": [

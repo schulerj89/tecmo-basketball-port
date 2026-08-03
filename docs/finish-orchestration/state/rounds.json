@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T05:25:00Z",
+  "updated_at": "2026-08-03T05:30:16Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -20,24 +20,24 @@
       "updated_at": "2026-08-03T04:47:45Z"
     },
     {
-      "round_id":"R0A","title":"Current-state inventory and historical Sol adoption","status":"ready_for_main","base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00",
+      "round_id":"R0A","title":"Current-state inventory and historical Sol adoption","status":"pushed","base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00",
       "scope":["Inventory all known Tecmo sessions, branches, worktrees, relevant commits and proof sets","Adopt already-integrated Sol work without duplicating product tasks","Map source-declared gaps into a dependency-aware R1-R5 queue"],
       "included_task_ids":["R0A-INV-001","R0A-ADOPT-CPU-TIP","R0A-ADOPT-TIP-VIS","R0A-ADOPT-AWAY-FACING"],
       "staging_branch":"codex/master-finish-orchestration","sol_orchestrator_session_ids":["S-SOL-CPU-TIP-LEGACY","S-SOL-TIP-VIS-LEGACY","S-SOL-AWAY-FACING-LEGACY"],"integration_qa_session_id":null,
       "merge_order":["R0A-INV-001","R0A-ADOPT-CPU-TIP","R0A-ADOPT-TIP-VIS","R0A-ADOPT-AWAY-FACING"],
       "combined_qa":{"required":false,"status":"coordination_only","accepted_sha":"6bbbdc3a2726fd38d8dbe75ac5581bf3465d922b","report_path":"docs/finish-tasks/R0A-inventory/README.md","signed_by_session_id":"S-MASTER-001","notes":"Administrative inventory validates coordination state and Git lineage only; historical product QA is trusted from the adopted Sol reports."},
       "acceptance":{"status":"accepted","accepted_at":"2026-08-03T05:25:00Z","accepted_sha":"6bbbdc3a2726fd38d8dbe75ac5581bf3465d922b","criteria":["Inventory sources are complete and unresolved_items is empty","All known Sol/Luna lineage and bad-request/duplicate records are durable","Every live worktree and local branch has a disposition","Every discovered completion gap maps to a backlog task and acceptance criterion","All coordination validators pass"]},
-      "main_integration":{"pre_main_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","merge_commits":["6bbbdc3a2726fd38d8dbe75ac5581bf3465d922b"],"post_main_sha":null,"remote_main_before_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","push_sha":null,"push_result":"not_attempted","pushed_at":null},
-      "created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T05:25:00Z"
+      "main_integration":{"pre_main_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","merge_commits":["6bbbdc3a2726fd38d8dbe75ac5581bf3465d922b","6d8f9c7a99a7ce188f1a523247d3a9b9093860fb"],"post_main_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","remote_main_before_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","push_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","push_result":"succeeded","pushed_at":"2026-08-03T05:30:16Z"},
+      "created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T05:30:16Z"
     },
     {
-      "round_id":"R1","title":"Critical gameplay foundation and exact-policy recovery","status":"planned","base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00",
+      "round_id":"R1","title":"Critical gameplay foundation and exact-policy recovery","status":"planned","base_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
       "scope":["Original CPU play-command lifecycle","Roster-bound live foundation","Remaining exact tip-off behavior"],
       "included_task_ids":["R1-CPU-PLAY-LIFECYCLE","R1-LIVE-FOUNDATION","R1-TIP-FIDELITY"],"staging_branch":"codex/round-1-gameplay-foundation-staging","sol_orchestrator_session_ids":[],"integration_qa_session_id":null,
       "merge_order":["R1-CPU-PLAY-LIFECYCLE","R1-LIVE-FOUNDATION","R1-TIP-FIDELITY"],
       "combined_qa":{"required":true,"status":"pending","accepted_sha":null,"report_path":null,"signed_by_session_id":null,"notes":"A dedicated Sol Max integration-QA orchestrator is required after domain staging."},
       "acceptance":{"status":"pending","accepted_at":null,"accepted_sha":null,"criteria":["Every domain task has Sol sign-off and complete task docs","No writable ownership overlap","Dedicated combined suite and production visual proof pass"]},
-      "main_integration":{"pre_main_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","merge_commits":[],"post_main_sha":null,"remote_main_before_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00","push_sha":null,"push_result":"not_attempted","pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T04:47:45Z"
+      "main_integration":{"pre_main_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","merge_commits":[],"post_main_sha":null,"remote_main_before_sha":"6d8f9c7a99a7ce188f1a523247d3a9b9093860fb","push_sha":null,"push_result":"not_attempted","pushed_at":null},"created_at":"2026-08-03T04:47:45Z","updated_at":"2026-08-03T05:30:16Z"
     },
     {
       "round_id":"R2","title":"Gameplay mechanics, rules, animation, and presentation","status":"planned","base_sha":"7090d2c62201ce3d330df20043a6e80fd0bdef00",
