@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T11:18:38Z",
+  "updated_at": "2026-08-03T12:02:15Z",
   "records": [
     {
       "evidence_id": "EVID-R0-BASE",
@@ -227,6 +227,26 @@
       "proof_locations": ["C:/Users/joshs/Projects/tecmo-basketball-port-r1-cpu-play-lifecycle-luna/temp-videos/gameplay-lab/cpu-lifecycle/20260803-053244/manifest.json"],
       "local_private": true,
       "created_at": "2026-08-03T10:34:18Z"
+    },
+    {
+      "evidence_id": "EVID-R1-LIVE-LINEUP-BINDING",
+      "task_ids": ["R1-LIVE-FOUNDATION"],
+      "kind": "asm",
+      "title": "Original Rev1 starter-to-live-roster binding path",
+      "classification": "exact_source_pinned",
+      "confidence": "exact",
+      "rom": null,
+      "asm": {"bank":"Bank04","address":"$AC76-$AC8B, $ADE0-$ADF3, $AE65-$AE6C, and $AC76-$ADDF","table_or_routine":"team selection, team_id*5 helper, SRAM starter copy, and live actor setup"},
+      "original_reference": {"kind":"trace","identity":"Sol-personally verified canonical Rev1 ROM SHA256 076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4 plus byte-span SHA256 fingerprints","timestamp_or_frame":"R1 LIVE preimplementation evidence inventory"},
+      "description": "Bank04 $AC76-$AC8B loads team IDs $0765/$0766 and calls $ADE0 for destination offsets 0/5. $ADE0-$ADF3 calls $AE65 and copies exactly five starter indices from SRAM $6023+team*5 into live slots $7B2E+side*5. $AE65-$AE6C computes team_id*5; $AC76-$ADDF is the exact actor setup/start-table neighborhood.",
+      "what_it_proves": "Propagating validated mutable team-management starters by value through native gameplay launch into ten live actor roster slots is a source-faithful semantic port, and hardcoded scene roster indices are incomplete.",
+      "limits": "Implementation, production-path regressions, runtime proof, post-tip spacing replacement, and final Sol/QA acceptance remain pending. Bank06 formation evidence source-pins 46 of 48 theoretical rows; unproven rows must remain honest.",
+      "runtime_locations": ["src/tecmo_game.c","src/tecmo_gameplay_scene.c","src/tecmo_gameplay_scene_actors.c"],
+      "test_locations": ["src/tecmo_flow_test.c","tools/Run-GameplayMovementTests.ps1","tools/Run-GameplaySceneTests.ps1"],
+      "doc_locations": ["docs/finish-tasks/R1-live-foundation"],
+      "proof_locations": [],
+      "local_private": false,
+      "created_at": "2026-08-03T12:02:15Z"
     }
   ]
 }
