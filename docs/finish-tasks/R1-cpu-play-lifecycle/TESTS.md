@@ -363,14 +363,17 @@ The session contains 102 files, 100 inventoried artifacts, 36 nonempty logs,
 zero empty files, and `33,650,575` bytes. Its exact ROM, FCEUX, fresh-pack,
 TGAI, original, native, and video identities are recorded in `EVIDENCE.md`.
 
-The formal proof command was the bounded private command below, with the
-canonical Rev1 ROM and FCEUX 2.6.6 paths supplied privately:
+The formal proof contract used the following environment and exact PowerShell
+invocation, with the canonical Rev1 ROM and FCEUX 2.6.6 paths supplied
+privately:
 
 ```powershell
-powershell.exe -NoProfile -File .\tools\gameplay-lab\Run-GameplayCpuLifecycleProof.ps1 `
+$env:TECMO_SKIP_SHORTCUT='1'
+$env:TECMO_CPU_LIFECYCLE_PERSONAL_SOL_INSPECTION='complete'
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\gameplay-lab\Run-GameplayCpuLifecycleProof.ps1 `
   -RomPath '<CANONICAL_REV1_ROM.nes>' `
   -FceuxPath '<FCEUX_2.6.6.exe>' `
-  -Build -RequirePass -RequireVideo
+  -Build -RequireVideo -RequirePass
 ```
 
 Independent final QA was performed by thread
@@ -380,8 +383,8 @@ with no P0/P1 findings; the only finding was this bounded docs-only closure.
 The exact QA commands passed:
 
 ```powershell
-powershell.exe -NoProfile -File .\tools\gameplay-lab\Test-GameplayLab.ps1
-powershell.exe -NoProfile -File .\tools\Run-GameplayCpuSteeringTests.ps1 `
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\gameplay-lab\Test-GameplayLab.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Run-GameplayCpuSteeringTests.ps1 `
   -Build -RomPath '<CANONICAL_REV1_ROM.nes>' `
   -ProjectRoot '<WORKER_PROJECT_ROOT>'
 ```

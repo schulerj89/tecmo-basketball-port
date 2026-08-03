@@ -6,7 +6,7 @@
 | --- | --- | --- | --- |
 | Authoritative Sol | `019fc61e-0f2a-7fb0-a76e-e4676808c959` | `codex/r1-gameplay-foundation-sol` / `C:\Users\joshs\Projects\tecmo-basketball-port-r1-gameplay-foundation-sol` | owns acceptance and final proof |
 | Current pinned Luna | `019fc63f-dada-7de2-bae3-9e809126ccbe` | `codex/r1-cpu-play-lifecycle-luna` / `C:\Users\joshs\Projects\tecmo-basketball-port-r1-cpu-play-lifecycle-luna` | `gpt-5.6-luna`, max; pinned; implementation/evidence `db5a043244361b3e9bbab2e154c7f14e4a4a5014`; formal proof/QA accepted at `8be7a9f9a11d43e68b090a98af122758885931fd`; docs closure terminal SHA reported externally |
-| Trace/QA research Luna | `019fc628-0b32-7e83-b969-b41990b36e9b` | `Tecmo R1 CPU Lifecycle -- Trace and QA`; read-only research | `gpt-5.6-luna`, max; completed/accepted/unpinned; supplied route/trace hooks and selector evidence |
+| Trace/QA research Luna | `019fc628-0b32-7e83-b969-b41990b36e9b` | `Tecmo R1 CPU Lifecycle -- Trace and QA`; read-only research/final QA | `gpt-5.6-luna`, max; completed/accepted; originally unpinned after research, then repinned for independent final QA and remains pinned through acceptance; supplied route/trace hooks and selector evidence |
 | Original-stream research Luna | `019fc628-0649-7c53-8153-31f8cb75c30d` | `Tecmo R1 CPU Lifecycle -- Original Stream`; read-only research | `gpt-5.6-luna`, max; completed/accepted/unpinned; supplied corpus/handler/transport evidence |
 
 The current Luna was created at `2026-08-03T06:11:41Z` with the title
@@ -15,10 +15,13 @@ The worker remains pinned to this exact branch/worktree/base and has made no
 merge, rebase, push, task creation, or pin change outside the CPU-owned
 boundary. Its implementation/evidence commits are recorded in the ordered
 history; this turn is a docs-only closure revision. Both research Lunas
-completed and were accepted before being unpinned; neither mutated a worktree
-or committed. The lineage records zero literal `{detail: bad request}` faults
-and zero confirmed equivalents. `gpt-5.6-luna`/max, no-subagent rule, and
-CPU-only ownership remain active.
+completed and were accepted. The Original-stream Luna was then unpinned after
+its read-only research; the Trace/QA Luna was later repinned for independent
+final QA and remains pinned through acceptance, as does this implementation
+Luna under the master coordination requirement. Neither research Luna mutated
+a worktree or committed. The lineage records zero literal `{detail: bad request}`
+faults and zero confirmed equivalents. `gpt-5.6-luna`/max, no-subagent rule,
+and CPU-only ownership remain active.
 
 ## Revision and review history
 
@@ -318,7 +321,7 @@ CPU-only ownership remain active.
 ## Fault ledger
 
 No literal `{detail: bad request}` fault or confirmed equivalent occurred in
-this task. Twenty-eight recoverable local-tool diagnostics occurred: two ordinary
+this task. Thirty-three recoverable local-tool diagnostics occurred: two ordinary
 worker diagnostics from the earlier pass, five current patch-context
 diagnostics, one current process/progress assertion patch-context diagnostic,
 one current TESTS documentation patch-context diagnostic, and one current
@@ -328,8 +331,11 @@ native video cadence diagnostic, one current inspection-command regex
 diagnostic, one current wildcard-path diagnostic, one current docs-closure
 bundle patch-context diagnostic, one current docs-closure section-inspection
 PowerShell parse diagnostic, one final docs-audit false-positive marker
-diagnostic, and two docs-closure fault-ledger patch-context diagnostics. None
-changed files or external state:
+diagnostic, two docs-closure fault-ledger patch-context diagnostics, one current
+three-doc review-correction patch-context diagnostic, two current review-ledger
+patch-context diagnostics, one current docs-review audit parser diagnostic, and
+one current docs-review pin-state assertion diagnostic. None changed files or
+external state:
 
 | Diagnostic | Raw signature/command | Result |
 | --- | --- | --- |
@@ -358,6 +364,10 @@ changed files or external state:
 | Current docs-closure section inspection marker | Raw signature: `Variable reference is not valid. ':' was not followed by a valid variable name character. Consider using ${} to delimit the name.` (`FullyQualifiedErrorId=InvalidVariableReferenceWithDrive`) from a read-only PowerShell section dump | No files changed; the inspection was corrected to use `${f}` and rerun read-only |
 | Additional current fault-ledger patch context (count 2) | Raw signature: `apply_patch verification failed: Failed to find expected lines in ... LINEAGE.md`; two combined fault-ledger updates did not match the already-updated line wrapping/case | No files changed; the exact current ledger block was re-read before the successful narrow update |
 | Final docs-audit false-positive marker | Raw signature: `bad-request fault claim regressed` from an overbroad read-only assertion that matched the honest zero-fault sentence | No files changed; the assertion was corrected to test the exact zero-fault statement and the ledger's explicit diagnostic rows |
+| Current review-ledger patch context (count 2) | Raw signature: `apply_patch verification failed: Failed to find expected lines in ... LINEAGE.md`; two attempts to update the current diagnostic total/rows did not match the existing wrapped ledger text | No files changed; the exact ledger blocks were re-read and updated with narrow patches |
+| Current three-doc review-correction patch context (count 1) | Raw signature: `apply_patch verification failed: Failed to find expected lines in ... LINEAGE.md`; the combined authority/command/merge correction patch did not match the existing paragraph wrapping | No files changed; the exact blocks were re-read and applied as three narrow docs-only patches |
+| Current docs-review audit parser marker | Raw signature: `Unexpected token '.Count'` / `Missing closing ')' after expression` from a read-only PowerShell match-count assertion | No files changed; the assertion was corrected to assign the match count before comparison |
+| Current docs-review pin-state assertion marker | Raw signature: `Trace/QA current pin state missing` from a read-only regex that targeted `Trace/QA Luna` instead of the table's `Trace/QA research Luna` label | No files changed; the assertion was abandoned in favor of direct literal checks |
 
 None changed files, created a task, altered pins, or caused an external retry.
 The research Lunas likewise report zero bad-request faults, no mutation, and

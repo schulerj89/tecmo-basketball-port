@@ -39,8 +39,9 @@ deferred to `R1-LIVE`.
 
 ## Sol fast-forward-only integration from the expected base
 
-Use the terminal docs-closure SHA from the final Luna handoff. From Sol's
-worker branch at the expected base, the authorized integration shape is:
+Use the terminal docs-closure SHA from the final Luna handoff. From the
+authoritative Sol branch `codex/r1-gameplay-foundation-sol` at the expected
+base, the authorized integration shape is:
 
 ```powershell
 git status --short --untracked-files=all
