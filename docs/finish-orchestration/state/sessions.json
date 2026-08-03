@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T19:05:21Z",
+  "updated_at": "2026-08-03T19:12:26Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -152,8 +152,8 @@
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T18:10:36Z",
       "completed_at": null,
-      "updated_at": "2026-08-03T18:15:27Z",
-      "notes": "Created and pinned once as the dedicated R1A Integration QA Sol after exact branch/path collision checks and clean staging verification. Clean takeover at exact 222d75cf is accepted. Product paths are frozen/read-only; only docs/finish-tasks/R1A-cpu-live-integration-qa/** is writable. Exactly one collision-cleared projectless Luna Max QA/proof worker 019fc8d6-7a77-79d0-a352-767a228ef478 is active/pinned with null Git and tracked-write scope. Sol personally owns combined build, suites, Win32 smoke, production media/original-reference inspection, and final signed docs, and may not merge or push main."
+      "updated_at": "2026-08-03T19:12:26Z",
+      "notes": "Dedicated R1A Integration QA remains active/pinned at frozen candidate 222d75cf with one projectless Luna. Same-Luna disposition closed the four generic proof-harness hardening observations and one historical-doc wording item as non-evidence-invalidating after exact compensating ancestry/final-clean/manifest-identity/scratch controls; open candidate P0/P1/P2 are all zero. Sol is now reconciling authorized current main dd096 into its integration branch only, then will rerun the full merged-tip build/suites/RequirePass proof and reuse the same Luna before signed acceptance. Main remains untouched."
     },
     {
       "session_id": "S-SOL-R3A-INTEGRATION-QA-001",
@@ -194,7 +194,7 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4a-audio-integration-qa-sol",
       "branch": "codex/r4a-audio-integration-qa-sol",
       "base_sha": "e120c30ee882fe07b37496e2742ac83f1d16ff3a",
-      "last_good_sha": "e120c30ee882fe07b37496e2742ac83f1d16ff3a",
+      "last_good_sha": "0f06fd1102986c90fce65db251bf0c1806bd0c98",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
       "reported_luna_lineage": ["019fc8e2-b17a-7f92-a9d6-9b7db43e74e3"],
@@ -202,8 +202,8 @@
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T18:27:06Z",
       "completed_at": null,
-      "updated_at": "2026-08-03T18:29:07Z",
-      "notes": "Created and pinned once as the dedicated R4A audio Integration QA Sol after exact branch/path/staging/remote-main collision checks. Clean takeover at exact e120c30 is confirmed. Product paths are frozen/read-only; only docs/finish-tasks/R4A-audio-integration-qa/** is writable. Exactly one collision-cleared projectless Luna Max independent auditor 019fc8e2-b17a-7f92-a9d6-9b7db43e74e3 was created/pinned on the first attempt with null Git and tracked-write scope. Sol personally owns clean build, Music/Frontend/Gameplay audio suites, proof/event/WAV/waveform/provenance audit, objective inspection, external human-listening attribution, and final signed docs, and may not merge or push main."
+      "updated_at": "2026-08-03T19:09:43Z",
+      "notes": "Created and pinned once as the dedicated R4A audio Integration QA Sol. After master intentionally advanced origin/main to R3A dd096cb, the Sol verified zero path overlap and merged that exact current main into its own integration branch only, producing two-parent combined tip 0f06fd1 while leaving main untouched. Combined warning-clean audio suites and regenerated proof/independent verifier pass at 0f06fd1; the same sole projectless Luna is performing final read-only audit before the signed terminal report commit."
     },
     {
       "session_id": "S-SOL-R4-FRONTEND-001",
@@ -302,8 +302,8 @@
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T17:10:20Z",
       "completed_at": null,
-      "updated_at": "2026-08-03T18:03:10Z",
-      "notes": "Task is in_progress at exact clean Sol base 222d75cf. Read-only evidence auditor 019fc8a8-186e-7be2-aab3-0aae3da3a2fa was personally accepted, completed, and unpinned with no Git mutation or bad-request. One persistent writable gpt-5.6-luna/max lineage 019fc8cb-3d2c-7171-bbe8-534028387b6e was then created/pinned on first attempt for codex/r2-shots-outcomes-luna at exact base 222d75cf. It owns only OWN-R2-SHOTS-OUTCOMES, must preserve accepted LIVE far-shot deferral, and never merges or pushes."
+      "updated_at": "2026-08-03T19:10:41Z",
+      "notes": "Task remains in_progress with clean Sol branch at exact base 222d75cf and one persistent pinned writable Luna 019fc8cb on its owned-only worker branch. Personally reviewed uncommitted corrections now cover all-actor source-order claimant SAME/OTHER settlement, exact 16-update A7A9 rattle plus bounded bridge, strict no-claimant failure, transactional guards, and an accepted scene self-test. Loader transaction diagnostics, deep validation, exhaustive tests, docs, commit, proof, and independent QA remain; no main/staging mutation or bad-request fault."
     },
     {
       "session_id": "S-SOL-CPU-TIP-LEGACY",
@@ -500,7 +500,7 @@
       "worker_id":"019fc8e2-b17a-7f92-a9d6-9b7db43e74e3","thread_id":"019fc8e2-b17a-7f92-a9d6-9b7db43e74e3","title":"Tecmo R4A Audio Integration — Independent Audit Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R4A-INTEGRATION-QA-001","round_ids":["R4A"],"task_ids":["R4A-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Created once at 2026-08-03T18:28:37Z as the sole authorized projectless read-only independent audio integration auditor against frozen reference e120c30. It has null Git/write scope, reports only to the R4A Sol, is reused for any correction/re-audit, and remains pinned through durable Sol acceptance. Creation and pin succeeded first attempt; zero bad-request/retry/replacement.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T18:29:07Z"
     },
     {
-      "worker_id":"019fc8d6-7a77-79d0-a352-767a228ef478","thread_id":"019fc8d6-7a77-79d0-a352-767a228ef478","title":"Tecmo R1A CPU+LIVE Integration — Independent QA and Proof Audit — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R1A-INTEGRATION-QA-001","round_ids":["R1A"],"task_ids":["R1A-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Created once at 2026-08-03T18:15:27Z as the sole authorized projectless independent source/ABI/integration/fail-closed and proof auditor against frozen reference 222d75cf. Initial tracked writable scope is null; later ignored proof output requires exact Sol allocation. It reports only to the R1A Sol, is reused for revisions, and remains pinned through final P0/P1/P2 closure. Creation and pin succeeded first attempt; zero bad-request/retry/replacement.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T18:15:27Z"
+      "worker_id":"019fc8d6-7a77-79d0-a352-767a228ef478","thread_id":"019fc8d6-7a77-79d0-a352-767a228ef478","title":"Tecmo R1A CPU+LIVE Integration — Independent QA and Proof Audit — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R1A-INTEGRATION-QA-001","round_ids":["R1A"],"task_ids":["R1A-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Sole projectless independent QA/proof lineage. It independently matched the personal 254-file/189-log/13-negative proof, CPU formal identity and 680/24/17 gate, movement/flow/season/Win32 checks, then classified all reusable harness/document observations as non-evidence-invalidating under explicit compensating controls with candidate P0/P1/P2 zero. It remains pinned for final review after Sol merges current main dd096 into the integration branch and regenerates proof.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T19:12:26Z"
     },
     {
       "worker_id":"019fc8d7-50f8-77f1-b379-8bcc33280ae5","thread_id":"019fc8d7-50f8-77f1-b379-8bcc33280ae5","title":"Tecmo R3A Season Data Integration — Independent QA Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R3A-INTEGRATION-QA-001","round_ids":["R3A"],"task_ids":["R3A-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Sole projectless read-only independent QA lineage accepted frozen f536a193 with candidate P0/P1/P2 all zero and no fault/retry/replacement. Completed at 2026-08-03T18:34:35Z; unpinned successfully at 2026-08-03T18:43:13Z only after durable signed acceptance commit dd096cb. No Git allocation, mutation, archive, merge, or push.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T18:43:13Z"

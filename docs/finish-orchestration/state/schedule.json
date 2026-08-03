@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T19:05:21Z",
+  "updated_at": "2026-08-03T19:12:26Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -87,8 +87,8 @@
         "OWN-R1A-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Pinned Integration QA Sol 019fc8d2-0d1e-78d2-a506-58a5da24db16 and its sole pinned projectless Luna 019fc8d6-7a77-79d0-a352-767a228ef478 are auditing exact 222d75cf. Sol personally owns combined build/suite/smoke/media review and may write only signed QA docs; master pushes only after terminal acceptance.",
-      "updated_at": "2026-08-03T18:15:27Z"
+      "next_gate": "Frozen 222d75 proof has same-Luna P0/P1/P2 closure under explicit controls. Merge current main dd096 into only the R1A integration branch, rerun full combined build/suites/RequirePass proof, reuse the same Luna for terminal read-only review, then sign a fast-forwardable report commit.",
+      "updated_at": "2026-08-03T19:12:26Z"
     },
     {
       "lane_id": "LANE-R3A-INTEGRATION-QA",
@@ -183,8 +183,8 @@
         "OWN-R4A-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Integration Sol personally completes clean build and Music/Frontend/Gameplay suites, proof/event/WAV/waveform/provenance audit, objective inspection, honest external listening attribution, independent Luna P0/P1/P2 closure, and signed docs-only commit.",
-      "updated_at": "2026-08-03T18:29:07Z"
+      "next_gate": "Combined tip 0f06fd1 now contains accepted audio e120c30 plus current-main R3A dd096cb with zero path overlap. Personal combined suites/proof and independent verifier pass; finish same-Luna read-only audit, commit signed terminal report, then master can fast-forward and non-force push.",
+      "updated_at": "2026-08-03T19:09:43Z"
     },
     {
       "lane_id": "LANE-R2-SHOTS-OUTCOMES",
@@ -207,8 +207,8 @@
         "OWN-R2-SHOTS-OUTCOMES"
       ],
       "blockers": [],
-      "next_gate": "Evidence auditor 019fc8a8-186e-7be2-aab3-0aae3da3a2fa is accepted/completed/unpinned. One persistent writable Luna 019fc8cb-3d2c-7171-bbe8-534028387b6e is active/pinned on the isolated codex/r2-shots-outcomes-luna worktree and must preserve accepted LIVE far-shot deferral.",
-      "updated_at": "2026-08-03T18:03:10Z"
+      "next_gate": "One persistent writable Luna remains active/pinned with owned-only uncommitted corrections; Sol has accepted scene-self-test progress and claimant/rattle/transactional design. Complete loader transactions, deep validation, exhaustive tests/docs, stable commit, proof, and independent terminal QA while preserving LIVE far-shot deferral.",
+      "updated_at": "2026-08-03T19:10:41Z"
     },
     {
       "lane_id": "LANE-R2-CLOCK-LINEUPS-FATIGUE",
