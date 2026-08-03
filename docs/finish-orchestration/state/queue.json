@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T20:11:16Z",
+  "updated_at": "2026-08-03T20:17:37Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -1174,10 +1174,11 @@
           "2026-08-03T17:24:47Z R2 Sol created/pinned exactly one projectless read-only gpt-5.6-luna/max evidence/native-gap auditor 019fc8a8-186e-7be2-aab3-0aae3da3a2fa on first attempt under master checkpoint 701594a. Git/base/worktree/branch/writable fields are null; immutable reference is 222d75cf; no bad-request/retry/replacement/product mutation.",
           "2026-08-03T19:10:41Z Sol reports owned-only uncommitted corrections for source-order all-actor claimant SAME/OTHER settlement, exact 16-update A7A9 rattle with separately classified bridge, strict no-claimant failure, 38-step approximate jump physics, NULL/scene/audio transactional guards, and passing existing scene self-test. Loader transactions, deep validation, exhaustive tests/docs/proof remain.",
           "2026-08-03T19:32:58Z master chose rescope option A: global src/asset_pack/tecmo_asset_pack_source_map.c remains excluded because active R1 TIP exclusively owns that sequential shared boundary. R2 must document unchanged TGCS-1 exact/complete-semantics metadata versus pose-only numeric-1 native-approximate runtime exposure and record `intentionally unexposed` as a known stale wording/incomplete metadata boundary; no source-map edit or completion overclaim.",
-          "2026-08-03T20:01:46Z master deferred the requested one-line src/tecmo_gameplay_scene.c shot-name case because active TIP concurrently owns that exact shared file. The correct future neutral string `numeric-1` is accepted; R2 must keep scene.c read-only, continue owned work, and record the public-name helper returning `invalid` as a specific integration follow-up until sequential ownership transfers."
+          "2026-08-03T20:01:46Z master deferred the requested one-line src/tecmo_gameplay_scene.c shot-name case because active TIP concurrently owns that exact shared file. The correct future neutral string `numeric-1` is accepted; R2 must keep scene.c read-only, continue owned work, and record the public-name helper returning `invalid` as a specific integration follow-up until sequential ownership transfers.",
+          "2026-08-03T20:17:37Z Sol review found a substantive production gap before commit: TGJS family/profile/direction pose resolution was discarded and playback hardcoded pose 213. Same persistent Luna must persist the source-selected pose through the existing flight transition, preserve f0/p0/d1=213, add deep validation and both-family/profile/direction production coverage, and correct compatibility/rim-tail/orientation fixtures. Current diff remains 14 owned files; no commit or independent QA."
         ],
         "proof_manifests": [],
-        "notes": "R2 Shots/Outcomes is in_progress under its authoritative Sol from accepted CPU+LIVE base 222d75cf. Research is accepted/unpinned and one persistent writable Luna is revising the owned implementation. Scene self-test progress is green, but no code commit/proof/independent QA is accepted yet. Active TIP-owned source-map and scene.c boundaries stay excluded; R2 must document both the numeric-1 runtime/metadata distinction and the deferred neutral public-name case honestly."
+        "notes": "R2 Shots/Outcomes remains in active same-Luna revision from accepted CPU+LIVE base 222d75cf. The 14-file owned diff must close the discarded TGJS pose-selection production defect and fixture corrections before any commit. Active TIP-owned source-map and scene.c stay untouched; neutral numeric-1 metadata/name gaps remain explicit. No proof or independent QA is accepted yet."
       },
       "merge": {
         "staging_branch": "codex/round-2-gameplay-mechanics-staging",
@@ -1190,7 +1191,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T20:01:46Z",
+      "updated_at": "2026-08-03T20:17:37Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",

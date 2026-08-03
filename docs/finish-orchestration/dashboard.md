@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-03T20:11:16Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-03T20:17:37Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -30,7 +30,7 @@ Generated from committed JSON at `2026-08-03T20:11:16Z`. This dashboard reports 
 | LANE-R4-AUDIO-FOUNDATION | audio | complete | complete | R4-AUDIO-FOUNDATION | S-SOL-R4-AUDIO-001 | codex/r4-audio-foundation-sol | Complete: accepted audio foundation and signed R4A Integration QA report are pushed on main/origin at bcacd5b. Broader cross-domain cue routing/full ACC-AUDIO remains deferred in parent R4. |
 | LANE-R4A-INTEGRATION-QA | integration | complete | complete | R4A-INTEGRATION-QA | S-SOL-R4A-INTEGRATION-QA-001 | codex/r4a-audio-integration-qa-sol | Complete: same-Luna P0/P1/P2-zero closure and signed report bcacd5b were master-verified, fast-forwarded, non-force pushed, and remote-verified. Luna and Sol are completed/unpinned; branches/worktrees are preserved. |
 | LANE-R4B-INTEGRATION-QA | integration | active | ready | R4B-INTEGRATION-QA | S-SOL-R4B-INTEGRATION-QA-001 | codex/r4b-frontend-integration-qa-sol | Dedicated pinned R4B Sol must recheck immutable inputs, create one independent Luna Max QA lineage, deliberately signed-merge frontend 757283ed into current-main base 819b0e5, run combined proof, and return a signed fast-forwardable handoff without touching main. |
-| LANE-R2-SHOTS-OUTCOMES | gameplay_behavior | active | ready | R2-SHOTS-OUTCOMES | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | One persistent writable Luna remains active/pinned with owned-only uncommitted corrections. Complete loader transactions, deep validation, exhaustive tests/docs, stable commit, proof, and independent terminal QA while preserving LIVE far-shot deferral. Source-map stays excluded during active TIP ownership; document numeric-1 pose-only approximation versus unchanged exact TGCS metadata and stale wording honestly. |
+| LANE-R2-SHOTS-OUTCOMES | gameplay_behavior | active | ready | R2-SHOTS-OUTCOMES | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | Same persistent Luna must persist the TGJS-selected family/profile/direction pose instead of hardcoded 213, close compatibility/rim-tail/orientation fixtures, retain exact exclusions, then deliver a stable owned-only commit for Sol proof and independent terminal QA. |
 | LANE-R2-CLOCK-LINEUPS-FATIGUE | gameplay_behavior | active | ready | R2-CLOCK-LINEUPS-FATIGUE | S-SOL-R2-CLOCK-LINEUPS-001 | codex/r2-clock-lineups-fatigue-sol | Evidence reconciliation is complete and one persistent writable Luna is active on state/TGFT/TGFL patches. Sol must finish live review, bounded rescope for the LIVE reset/substitution seams, stable commits, personal QA/proof, and independent Luna closure before handoff. |
 
 ## Rounds

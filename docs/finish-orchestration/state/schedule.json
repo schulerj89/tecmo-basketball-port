@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T20:01:46Z",
+  "updated_at": "2026-08-03T20:17:37Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -231,8 +231,8 @@
         "OWN-R2-SHOTS-OUTCOMES"
       ],
       "blockers": [],
-      "next_gate": "One persistent writable Luna remains active/pinned with owned-only uncommitted corrections. Complete loader transactions, deep validation, exhaustive tests/docs, stable commit, proof, and independent terminal QA while preserving LIVE far-shot deferral. Source-map stays excluded during active TIP ownership; document numeric-1 pose-only approximation versus unchanged exact TGCS metadata and stale wording honestly.",
-      "updated_at": "2026-08-03T19:32:58Z"
+      "next_gate": "Same persistent Luna must persist the TGJS-selected family/profile/direction pose instead of hardcoded 213, close compatibility/rim-tail/orientation fixtures, retain exact exclusions, then deliver a stable owned-only commit for Sol proof and independent terminal QA.",
+      "updated_at": "2026-08-03T20:17:37Z"
     },
     {
       "lane_id": "LANE-R2-CLOCK-LINEUPS-FATIGUE",
