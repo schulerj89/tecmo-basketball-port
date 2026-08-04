@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T01:09:30Z",
+  "updated_at": "2026-08-04T01:20:56Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -684,11 +684,11 @@
       ],
       "combined_qa": {
         "required": true,
-        "status": "pending",
+        "status": "in_progress",
         "accepted_sha": null,
         "report_path": "docs/finish-tasks/R2B-shots-outcomes-integration-qa/README.md",
         "signed_by_session_id": null,
-        "notes": "A dedicated Sol Max integration orchestrator must reconcile exact candidate 7b9287a9 with current main, run complete combined gates, and close independent P0/P1/P2 at zero."
+        "notes": "Good-signed branch-only reconciliation 26e6aaf is complete with current-main parent 8a5b992 first, immutable candidate 7b9287a9 second, and exact predicted tree 2d918e8. Personal combined gates and sole pinned projectless Luna 019fca5b must now close P0/P1/P2 at zero before terminal acceptance."
       },
       "acceptance": {
         "status": "pending",
@@ -711,7 +711,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-04T01:01:24Z",
-      "updated_at": "2026-08-04T01:09:30Z"
+      "updated_at": "2026-08-04T01:20:56Z"
     },
     {
       "round_id": "R5",

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T01:09:30Z",
+  "updated_at": "2026-08-04T01:20:56Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -3359,7 +3359,7 @@
       "round_id": "R2B",
       "priority": 100,
       "coordination_only": false,
-      "state": "assigned",
+      "state": "in_progress",
       "dependencies": ["R2-SHOTS-OUTCOMES"],
       "ownership_claim_ids": ["OWN-R2B-SHOTS-OUTCOMES-INTEGRATION-QA"],
       "base_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
@@ -3367,8 +3367,8 @@
       "branch": "codex/r2b-shots-outcomes-integration-qa-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2b-shots-outcomes-integration-qa-sol",
       "sol_orchestrator_session_id": "S-SOL-R2B-SHOTS-INTEGRATION-QA-001",
-      "reported_luna_worker_session_ids": [],
-      "result_commits": [],
+      "reported_luna_worker_session_ids": ["019fca5b-3b84-7a82-b2ab-588c50a4b7fd"],
+      "result_commits": ["26e6aaf19b639972cb9043f29fc55daa1efce835"],
       "evidence_ids": [],
       "blocker_ids": [],
       "replacement_task_id": null,
@@ -3379,18 +3379,21 @@
         "integration_signoff": false,
         "test_records": [
           "2026-08-04T01:01:24Z master accepted terminal domain tip 7b9287a9, verified all three Good SSH signatures, clean 17-path ownership, unchanged shared exclusions, zero current-main overlap, diff-check, and conflict-free merge-tree prediction, then reserved immutable R2B staging and an isolated 8a5b992-based Integration QA lane before Sol creation.",
-          "2026-08-04T01:09:30Z after Good-signed reservation 4f942648, master created immutable staging ref 7b9287a9, a clean unique integration worktree/branch at 8a5b992, and exactly one pinned gpt-5.6-sol/max orchestrator 019fca51-55f5-7473-92b1-58dd241998f6 on the first attempt with no setup/retry/replacement fault. Read-only clean takeover is required before branch merge or Luna creation."
+          "2026-08-04T01:09:30Z after Good-signed reservation 4f942648, master created immutable staging ref 7b9287a9, a clean unique integration worktree/branch at 8a5b992, and exactly one pinned gpt-5.6-sol/max orchestrator 019fca51-55f5-7473-92b1-58dd241998f6 on the first attempt with no setup/retry/replacement fault. Read-only clean takeover is required before branch merge or Luna creation.",
+          "2026-08-04T01:17:26Z Sol clean takeover independently verified exact refs, all Good signatures, 17 candidate versus 80 current-main paths with zero overlap, unchanged scene/source-map exclusions, clean diff-checks, and predicted tree 2d918e8; the authorized Good-signed no-ff branch merge 26e6aaf then completed with ordered parents 8a5b992 and 7b9287a and that exact tree. Main, origin/main, immutable staging, and remote main remained untouched.",
+          "2026-08-04T01:20:56Z post-merge collision/registry gate found no prior R2B Luna. Sol created and pinned the sole projectless read-only gpt-5.6-luna/max auditor 019fca5b-3b84-7a82-b2ab-588c50a4b7fd for combined-tip and terminal-doc QA. One first invocation was rejected locally for an invalid extra schema field and created no task or external state; the corrected invocation created the sole lineage."
         ],
         "proof_manifests": [],
-        "notes": "The R2B Sol is assigned at exact clean base 8a5b992 against immutable signed candidate 7b9287a9. It may perform one signed branch-only reconciliation plus docs-only reporting, complete combined product/proof/cross-domain QA, and create one independent read-only Luna after its own collision gate. Main and push remain master-only."
+        "notes": "The R2B Sol is in progress at exact Good-signed branch merge 26e6aaf, whose ordered parents are current-main base 8a5b992 and immutable accepted candidate 7b9287a9 and whose tree matches predicted 2d918e8. Personal combined product/proof/cross-domain QA and the sole pinned projectless auditor 019fca5b remain active. Main and push remain master-only."
       },
       "merge": {"staging_branch":"codex/round-2b-shots-outcomes-staging","merge_order":1,"status":"not_ready","merge_commit":null,"main_pre_sha":"8a5b9928544a430efa34cbf98a248d6a8cbe7b14","main_post_sha":null,"push_sha":null,"pushed_at":null},
       "created_at": "2026-08-04T01:01:24Z",
-      "updated_at": "2026-08-04T01:09:30Z",
+      "updated_at": "2026-08-04T01:20:56Z",
       "audit": [
         {"timestamp":"2026-08-04T01:01:23Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Incremental delivery policy requires accepted Shots/Outcomes C code to reach stable main without waiting for the rest of Round 2."},
         {"timestamp":"2026-08-04T01:01:24Z","actor_session_id":"S-MASTER-001","from_state":"backlog","to_state":"scoped","reason":"Reserved exact docs-only Integration QA ownership, immutable signed 7b9287a9 staging, and the collision-cleared 8a5b992-based branch/worktree before creating a Sol orchestrator."},
-        {"timestamp":"2026-08-04T01:09:30Z","actor_session_id":"S-MASTER-001","from_state":"scoped","to_state":"assigned","reason":"Created and pinned exact gpt-5.6-sol/max orchestrator 019fca51-55f5-7473-92b1-58dd241998f6 once after signed reservation and transferred the clean isolated branch-only integration assignment."}
+        {"timestamp":"2026-08-04T01:09:30Z","actor_session_id":"S-MASTER-001","from_state":"scoped","to_state":"assigned","reason":"Created and pinned exact gpt-5.6-sol/max orchestrator 019fca51-55f5-7473-92b1-58dd241998f6 once after signed reservation and transferred the clean isolated branch-only integration assignment."},
+        {"timestamp":"2026-08-04T01:17:26Z","actor_session_id":"S-SOL-R2B-SHOTS-INTEGRATION-QA-001","from_state":"assigned","to_state":"in_progress","reason":"Clean takeover closed every ref/signature/ownership/exclusion/tree guard, and the authorized Good-signed branch-only reconciliation 26e6aaf produced the exact predicted combined tree without touching main or staging."}
       ]
     }
   ]

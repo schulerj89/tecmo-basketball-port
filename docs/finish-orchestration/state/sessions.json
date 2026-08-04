@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T01:09:30Z",
+  "updated_at": "2026-08-04T01:20:56Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -319,16 +319,16 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2b-shots-outcomes-integration-qa-sol",
       "branch": "codex/r2b-shots-outcomes-integration-qa-sol",
       "base_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
-      "last_good_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
+      "last_good_sha": "26e6aaf19b639972cb9043f29fc55daa1efce835",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
-      "reported_luna_lineage": [],
+      "reported_luna_lineage": ["019fca5b-3b84-7a82-b2ab-588c50a4b7fd"],
       "recovery_lineage": [],
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-04T01:09:15Z",
       "completed_at": null,
-      "updated_at": "2026-08-04T01:09:30Z",
-      "notes": "Created once and immediately pinned after Good-signed reservation 4f942648. Exact clean worktree/branch starts at current main 8a5b992; immutable staging is signed 7b9287a9. First turn is read-only through complete governing-file, ref/signature/lineage, 17-path zero-overlap, exclusion, diff-check, and merge-tree validation. Main/staging/push are read-only; one signed branch-only reconciliation and R2B task docs are the only tracked authority."
+      "updated_at": "2026-08-04T01:20:56Z",
+      "notes": "Created once and immediately pinned after Good-signed reservation 4f942648. Clean takeover passed exact refs/signatures/lineage, 17-versus-80 zero-overlap ownership, unchanged exclusions, diff-check, and merge-tree validation. Authorized Good-signed branch-only no-ff merge 26e6aaf has ordered parents 8a5b992 then 7b9287a and exact predicted tree 2d918e8. Sole projectless read-only Luna 019fca5b is pinned for independent combined-tip and terminal-doc QA. Main/staging/push remain read-only; personal combined gates and R2B task docs are active."
     },
     {
       "session_id": "S-SOL-CPU-TIP-LEGACY",
@@ -675,6 +675,9 @@
     }
   ],
   "reported_luna_workers": [
+    {
+      "worker_id":"019fca5b-3b84-7a82-b2ab-588c50a4b7fd","thread_id":"019fca5b-3b84-7a82-b2ab-588c50a4b7fd","title":"Tecmo R2B Shots Outcomes Integration Independent QA â€” Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R2B-SHOTS-INTEGRATION-QA-001","round_ids":["R2B"],"task_ids":["R2B-SHOTS-OUTCOMES-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"26e6aaf19b639972cb9043f29fc55daa1efce835","contribution":"Sole top-level projectless/null-Git independent QA lineage for Good-signed R2B branch merge 26e6aaf, combined product/proof/cross-domain evidence, and terminal docs. A first create_thread invocation was rejected locally for an invalid extra schema field and created no task or state; the corrected invocation created this sole pinned read-only task, which will be reused through terminal verification.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T01:20:56Z"
+    },
     {
       "worker_id":"019fca31-519c-7533-b710-7fc8fb09f424","thread_id":"019fca31-519c-7533-b710-7fc8fb09f424","title":"Tecmo R2 Defense Contact Raw Foundation Implementation — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R2-DEFENSE-CONTACT-001","round_ids":["R2"],"task_ids":["R2-DEFENSE-CONTACT"],"worktree":"C:/Users/joshs/Projects/tecmo-basketball-port-r2-defense-contact-luna","branch":"codex/r2-defense-contact-luna","base_sha":"edf16ca9059158452798dbe5667f5e64ef444e39","last_good_sha":"edf16ca9059158452798dbe5667f5e64ef444e39","contribution":"Sole persistent writable implementation/revision lineage for the granted three-path pure raw defense-contact foundation plus task docs. Must preserve raw widths/order/wrap/context and transactional rollback, use no semantic outcome labels, remain outside normal build/scene/asset/source-map integration, and produce a Good-signed branch-only candidate for Sol review.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T00:34:47Z"
     },

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T01:09:30Z",
+  "updated_at": "2026-08-04T01:20:56Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -327,8 +327,8 @@
         "OWN-R2B-SHOTS-OUTCOMES-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Assigned pinned Sol Max 019fca51 must complete the read-only clean takeover: exact 8a5b992 branch/worktree/refs, immutable signed 7b9287a9 staging/lineage, 17-path zero-overlap ownership, excluded blobs, diff-check, and merge-tree 2d918e8. No merge or Luna before that checkpoint.",
-      "updated_at": "2026-08-04T01:09:30Z"
+      "next_gate": "Good-signed branch-only merge 26e6aaf is complete with exact predicted tree 2d918e8, and the sole collision-cleared projectless pinned Luna/max 019fca5b is active. Sol must finish personal combined warning-clean/focused/full-scene/native-proof/cross-domain gates, reconcile independent P0/P1/P2, and produce a clean Good-signed terminal report descendant of then-current main. Main and push remain master-only.",
+      "updated_at": "2026-08-04T01:20:56Z"
     },
     {
       "lane_id": "LANE-R2-DEFENSE-CONTACT",
