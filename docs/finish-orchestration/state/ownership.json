@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T01:01:24Z",
+  "updated_at": "2026-08-04T01:09:30Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -568,7 +568,7 @@
       "claim_id": "OWN-R2B-SHOTS-OUTCOMES-INTEGRATION-QA",
       "task_id": "R2B-SHOTS-OUTCOMES-INTEGRATION-QA",
       "round_id": "R2B",
-      "session_id": "S-MASTER-001",
+      "session_id": "S-SOL-R2B-SHOTS-INTEGRATION-QA-001",
       "mode": "exclusive",
       "writable_globs": [
         "docs/finish-tasks/R2B-shots-outcomes-integration-qa/**"
@@ -581,7 +581,7 @@
       "active": true,
       "claimed_at": "2026-08-04T01:01:24Z",
       "released_at": null,
-      "notes": "Master reservation before Sol creation. The lane may create one Good-signed branch-only reconciliation merge that combines current main 8a5b992 with immutable accepted Shots tip 7b9287a9, then write only its R2B task docs. Candidate/product paths, main, origin/main, staging, push, and all unrelated paths remain read-only. Any combined-test defect requiring product/tool correction must be returned for exact master rescope."
+      "notes": "Master reservation before Sol creation, transferred after Good-signed checkpoint 4f942648 to exact pinned orchestrator 019fca51-55f5-7473-92b1-58dd241998f6. The lane may create one Good-signed branch-only reconciliation merge that combines current main 8a5b992 with immutable accepted Shots tip 7b9287a9, then write only its R2B task docs. Candidate/product paths, main, origin/main, staging, push, and all unrelated paths remain read-only. Any combined-test defect requiring product/tool correction must be returned for exact master rescope."
     },
     {
       "claim_id": "OWN-R2-DEFENSE-CONTACT",

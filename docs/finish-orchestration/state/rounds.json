@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T01:01:24Z",
+  "updated_at": "2026-08-04T01:09:30Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -664,7 +664,7 @@
     {
       "round_id": "R2B",
       "title": "Shots and outcomes current-main integration and independent QA",
-      "status": "planned",
+      "status": "in_progress",
       "base_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
       "scope": [
         "Reconcile immutable accepted R2 Shots/Outcomes candidate 7b9287a91fcd9d4725d5d05c37b1d667d9bfb57a with current main",
@@ -675,8 +675,10 @@
         "R2B-SHOTS-OUTCOMES-INTEGRATION-QA"
       ],
       "staging_branch": "codex/round-2b-shots-outcomes-staging",
-      "sol_orchestrator_session_ids": [],
-      "integration_qa_session_id": null,
+      "sol_orchestrator_session_ids": [
+        "S-SOL-R2B-SHOTS-INTEGRATION-QA-001"
+      ],
+      "integration_qa_session_id": "S-SOL-R2B-SHOTS-INTEGRATION-QA-001",
       "merge_order": [
         "R2B-SHOTS-OUTCOMES-INTEGRATION-QA"
       ],
@@ -709,7 +711,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-04T01:01:24Z",
-      "updated_at": "2026-08-04T01:01:24Z"
+      "updated_at": "2026-08-04T01:09:30Z"
     },
     {
       "round_id": "R5",

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T01:01:24Z",
+  "updated_at": "2026-08-04T01:09:30Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,8 +10,8 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 2,
-    "cleared_for_creation": 1,
+    "active_domain_orchestrators": 3,
+    "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
     "unallocated_target_slots": 1,
@@ -316,10 +316,10 @@
       "task_ids": [
         "R2B-SHOTS-OUTCOMES-INTEGRATION-QA"
       ],
-      "readiness": "cleared_for_creation",
+      "readiness": "active",
       "dependency_status": "ready",
       "reservation_owner_session_id": "S-MASTER-001",
-      "orchestrator_session_id": null,
+      "orchestrator_session_id": "S-SOL-R2B-SHOTS-INTEGRATION-QA-001",
       "base_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
       "branch": "codex/r2b-shots-outcomes-integration-qa-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2b-shots-outcomes-integration-qa-sol",
@@ -327,8 +327,8 @@
         "OWN-R2B-SHOTS-OUTCOMES-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Create the exact reserved Sol Max integration orchestrator after this signed control checkpoint, then verify clean current-main base 8a5b992, immutable signed candidate 7b9287a9, zero-overlap ownership, and the precomputed conflict-free merge tree before any branch-only reconciliation.",
-      "updated_at": "2026-08-04T01:01:24Z"
+      "next_gate": "Assigned pinned Sol Max 019fca51 must complete the read-only clean takeover: exact 8a5b992 branch/worktree/refs, immutable signed 7b9287a9 staging/lineage, 17-path zero-overlap ownership, excluded blobs, diff-check, and merge-tree 2d918e8. No merge or Luna before that checkpoint.",
+      "updated_at": "2026-08-04T01:09:30Z"
     },
     {
       "lane_id": "LANE-R2-DEFENSE-CONTACT",
