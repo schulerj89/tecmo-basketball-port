@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-04T00:28:30Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-04T00:34:47Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -34,7 +34,7 @@ Generated from committed JSON at `2026-08-04T00:28:30Z`. This dashboard reports 
 | LANE-R2-CLOCK-LINEUPS-FATIGUE | gameplay_behavior | complete | complete | R2-CLOCK-LINEUPS-FATIGUE | S-SOL-R2-CLOCK-LINEUPS-001 | codex/r2-clock-lineups-fatigue-sol | Terminal signed domain tip ed4e56fc595894c692ffca84ae3b35f129317049 is accepted and frozen for the dedicated R2A current-main integration lane. Domain ownership is released; the accepted Sol may retire after durable control-plane closure. |
 | LANE-R1B-TIP-INTEGRATION-QA | integration_qa | active | ready | R1B-TIP-INTEGRATION-QA | S-SOL-R1B-TIP-INTEGRATION-QA-001 | codex/r1b-tip-integration-qa-sol | Good-signed guidance-only commit 7ba0066 removed the equal-away contradiction in exactly AGENTS.md/PORTING.md. Finish the owned ASM/native traceability table, have the same Luna verify correction/table/terminal chain, then create signed acceptance docs. |
 | LANE-R2A-CLOCK-LINEUPS-INTEGRATION-QA | integration_qa | active | ready | R2A-CLOCK-LINEUPS-INTEGRATION-QA | S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001 | codex/r2a-clocks-integration-qa-sol | Good-signed runner-only correction 73e87dcc consumed the exact rescope; broad AssetPackTests pass 55/55 and focused reruns pass. Finish terminal combined gates, same-Luna read-only re-audit, and signed acceptance docs. No runtime source or main mutation is authorized. |
-| LANE-R2-DEFENSE-CONTACT | gameplay_behavior | active | ready | R2-DEFENSE-CONTACT | S-SOL-R2-DEFENSE-CONTACT-001 | codex/r2-defense-contact-sol | Raw evidence/collision gate accepted. Create exactly one persistent Luna at codex/r2-defense-contact-luna from edf16ca with only the new defense_contact header/C/focused runner plus task docs; implement pure transactional raw contracts, focused fingerprints/oracles, and docs while preserving every scene/Shots/asset/source-map/build/main exclusion. |
+| LANE-R2-DEFENSE-CONTACT | gameplay_behavior | active | ready | R2-DEFENSE-CONTACT | S-SOL-R2-DEFENSE-CONTACT-001 | codex/r2-defense-contact-sol | Persistent Luna 019fca31 is active/pinned on the exact clean codex/r2-defense-contact-luna allocation. Implement and review only the three-path pure raw foundation plus task docs, focused fingerprints/oracles, alias/NULL rollback, and Good-signed candidate while preserving all shared scene/Shots/asset/source-map/build/main exclusions. |
 
 ## Rounds
 

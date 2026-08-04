@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T00:28:30Z",
+  "updated_at": "2026-08-04T00:34:47Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -327,8 +327,8 @@
         "OWN-R2-DEFENSE-CONTACT"
       ],
       "blockers": [],
-      "next_gate": "Raw evidence/collision gate accepted. Create exactly one persistent Luna at codex/r2-defense-contact-luna from edf16ca with only the new defense_contact header/C/focused runner plus task docs; implement pure transactional raw contracts, focused fingerprints/oracles, and docs while preserving every scene/Shots/asset/source-map/build/main exclusion.",
-      "updated_at": "2026-08-04T00:27:29Z"
+      "next_gate": "Persistent Luna 019fca31 is active/pinned on the exact clean codex/r2-defense-contact-luna allocation. Implement and review only the three-path pure raw foundation plus task docs, focused fingerprints/oracles, alias/NULL rollback, and Good-signed candidate while preserving all shared scene/Shots/asset/source-map/build/main exclusions.",
+      "updated_at": "2026-08-04T00:34:47Z"
     }
   ]
 }
