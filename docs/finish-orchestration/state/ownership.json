@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T06:34:29Z",
+  "updated_at": "2026-08-04T07:52:42Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -684,10 +684,10 @@
         "docs/finish-tasks/R2D-rules-restarts-integration-qa/LINEAGE.md"
       ],
       "concurrency_group": "R2D-rules-restarts-integration-qa",
-      "active": true,
+      "active": false,
       "claimed_at": "2026-08-04T06:25:47Z",
-      "released_at": null,
-      "notes": "Transferred after Good-signed reservation 6475128 to exact pinned Sol 019fcb7a-ea78-7023-b251-e522d95bc819. Authority is docs-only for immutable Good-signed 1f23235 on exact guarded main 7fe2dd7. The Sol may perform only one branch-local ff-only from 7fe2dd7 to 1f23235, read-only combined build/test/proof/visual QA with ignored outputs, creation of exactly one projectless Luna/max independent reviewer after collision checks, and Good-signed reports under the sole writable glob. Main, origin/main, immutable staging, product/test/build/source paths, force/rebase/cherry-pick, push, cleanup, deletion, and archive are excluded."
+      "released_at": "2026-08-04T07:52:42Z",
+      "notes": "Released after exact Good-signed ed060720, sole parent immutable 1f23235, passed complete Sol and same-Luna P0/P1/P2/P3-zero integration QA. Master independently verified signature/tree/parent/ancestry/exact five-report layer, guarded ff-only delivered and ordinary-pushed ed060720 to stable main, rebuilt console+GUI warning-clean, and verified both desktop shortcuts. Preserve every branch, worktree, report, and proof artifact. Any future detector, FT/rebound/possession, renderer, caller-order, or other semantic expansion requires new authority."
     }
   ],
   "shared_boundaries": [

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T07:46:48Z",
+  "updated_at": "2026-08-04T07:52:42Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,12 +10,12 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 1,
+    "active_domain_orchestrators": 0,
     "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
-    "unallocated_target_slots": 3,
-    "unallocated_monitoring_slots": 7
+    "unallocated_target_slots": 4,
+    "unallocated_monitoring_slots": 8
   },
   "lanes": [
     {
@@ -396,8 +396,8 @@
       "domain": "integration_qa",
       "round_ids": ["R2D"],
       "task_ids": ["R2D-RULES-RESTARTS-INTEGRATION-QA"],
-      "readiness": "active",
-      "dependency_status": "ready",
+      "readiness": "complete",
+      "dependency_status": "complete",
       "reservation_owner_session_id": "S-MASTER-001",
       "orchestrator_session_id": "S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001",
       "base_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
@@ -405,8 +405,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2d-rules-restarts-integration-qa-sol",
       "ownership_claim_ids": ["OWN-R2D-RULES-RESTARTS-INTEGRATION-QA"],
       "blockers": [],
-      "next_gate": "Terminal Good-signed ed060720 passed complete Sol and same-Luna P0/P1/P2/P3-zero QA and master signature/ref/scope guards. Master must ff-only stable main from exact 7fe2dd7, ordinary-push, rebuild warning-clean, verify both desktop shortcuts, then release the pinned Sol/Luna lifecycle.",
-      "updated_at": "2026-08-04T07:46:48Z"
+      "next_gate": "Complete: terminal Good-signed ed060720 passed Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only delivered and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Sol and Luna lifecycle unpin is authorized; preserve all branches, worktrees, reports, and proof.",
+      "updated_at": "2026-08-04T07:52:42Z"
     }
   ]
 }

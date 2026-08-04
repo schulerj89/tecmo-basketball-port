@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T07:46:48Z",
+  "updated_at": "2026-08-04T07:52:42Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -763,7 +763,7 @@
     {
       "round_id": "R2D",
       "title": "Rules and restarts current-main integration and independent QA",
-      "status": "ready_for_main",
+      "status": "pushed",
       "base_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
       "scope": [
         "Fast-forward an isolated integration branch from accepted current main 7fe2dd772af1d88f704a9272005b4ba557434cac to immutable Good-signed rules/restarts tip 1f23235cd60582379da5e8f1713cd25de4ced62f",
@@ -797,14 +797,14 @@
       "main_integration": {
         "pre_main_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
         "merge_commits": ["1dde1ef748658a11403ff4bc450af858d05f08c2","1f23235cd60582379da5e8f1713cd25de4ced62f","ed060720a98b790f98591af363a490a0e0816018"],
-        "post_main_sha": null,
+        "post_main_sha": "ed060720a98b790f98591af363a490a0e0816018",
         "remote_main_before_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
-        "push_sha": null,
-        "push_result": "not_attempted",
-        "pushed_at": null
+        "push_sha": "ed060720a98b790f98591af363a490a0e0816018",
+        "push_result": "succeeded",
+        "pushed_at": "2026-08-04T07:52:42Z"
       },
       "created_at": "2026-08-04T06:25:47Z",
-      "updated_at": "2026-08-04T07:46:48Z"
+      "updated_at": "2026-08-04T07:52:42Z"
     },
     {
       "round_id": "R5",

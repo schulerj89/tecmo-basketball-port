@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T07:46:48Z",
+  "updated_at": "2026-08-04T07:52:42Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -3577,7 +3577,7 @@
       "round_id": "R2D",
       "priority": 99,
       "coordination_only": false,
-      "state": "ready_for_main",
+      "state": "pushed",
       "dependencies": ["R2-RULES-RESTARTS"],
       "ownership_claim_ids": ["OWN-R2D-RULES-RESTARTS-INTEGRATION-QA"],
       "base_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
@@ -3601,23 +3601,24 @@
           "2026-08-04T06:34:29Z after Good-signed reservation 6475128, master created immutable staging ref 1f23235, exact clean isolated branch/worktree from 7fe2dd7, and exactly one pinned gpt-5.6-sol/max orchestrator 019fcb7a-ea78-7023-b251-e522d95bc819 on the first attempt. Read-only clean takeover is required before branch ff-only or Luna creation.",
           "2026-08-04T07:13:34Z Sol clean takeover, signatures, refs, 17-path ownership/proprietary/collision gates, and branch-only ff-only to exact 1f23235/tree b668b45 passed with main/staging untouched. Sole projectless pinned Luna/max 019fcb82-4090-7b33-8293-7ceda46a43ba was created once without fault and independently returned initial P0/P1/P2/P3 zero across canonical and CMake console/GUI builds, focused rules/restarts and strict scene/audio/state/flow/Win32/current-main gates, deterministic proof, and original-resolution visual review. Sol's separate authoritative combined matrix and signed terminal reporting remain in progress.",
           "2026-08-04T07:46:48Z terminal Good-signed ed060720/tree 32a741c added exactly five owned text reports above immutable 1f23235. Sol independently passed the complete canonical/CMake build, timing, scene/audio/assets/state/flow/Win32/season/team/CLI, deterministic proof, and original-resolution visual matrix at P0/P1/P2/P3 zero; proof manifest build/R2D-Sol-scene-proof-001/PROOF-MANIFEST.json is 554078 bytes with SHA-256 DB0784AFA6E4ADA0CE9F203C80B74A8C5EA7856BB167A676175857C1E69FC822.",
-          "2026-08-04T07:46:48Z same pinned Luna 019fcb82 reviewed exact ed060720 commit/tree/parent/signature/five-path ledger/reports/proofs/visuals/refs and returned final P0/P1/P2/P3 zero. Its first signed-tip turn reached task-level systemError after substantive checks but before disposition; the same lineage resumed without replacement or rebuild and delivered the exact PASS. Master independently reverified clean local/tracking/live main 7fe2dd7, Good signature, sole parent, candidate/base ancestry, five-report delta, and diff hygiene."
+          "2026-08-04T07:46:48Z same pinned Luna 019fcb82 reviewed exact ed060720 commit/tree/parent/signature/five-path ledger/reports/proofs/visuals/refs and returned final P0/P1/P2/P3 zero. Its first signed-tip turn reached task-level systemError after substantive checks but before disposition; the same lineage resumed without replacement or rebuild and delivered the exact PASS. Master independently reverified clean local/tracking/live main 7fe2dd7, Good signature, sole parent, candidate/base ancestry, five-report delta, and diff hygiene.",
+          "2026-08-04T07:52:42Z under Good-signed master acceptance dd41d993, guarded ff-only advanced stable main from 7fe2dd7 to ed060720 and ordinary non-force push succeeded. Local main, origin/main, and live remote main all equal ed060720; warning-clean stable console+GUI rebuild passed; both desktop shortcuts target the stable main GUI with --play. Console SHA-256 C9E7A1E31834F45894DD585C77D12848C9091E05F3A40C900E6847933685451F; GUI SHA-256 057D4B88270A676977E321D19BA6F342624095FD95C627BEA1B0C37E88229BF3."
         ],
         "proof_manifests": ["build/R2D-Sol-scene-proof-001/PROOF-MANIFEST.json"],
-        "notes": "Terminal Good-signed ed060720 is a true fast-forward descendant of guarded main 7fe2dd7 and immutable 1f23235. Complete Sol and same-Luna QA closed P0/P1/P2/P3 zero while preserving the frame-16 cue seam and all detector/FT/rebound/possession/renderer/caller-order incompletes. Master guards passed; the result is ready for master-only ff-only main delivery."
+        "notes": "Terminal Good-signed ed060720 passed complete Sol and same-Luna P0/P1/P2/P3-zero QA, was delivered by guarded master ff-only and ordinary non-force push, and stable main plus both desktop shortcuts were rebuilt/verified. The frame-16 cue seam and all detector/FT/rebound/possession/renderer/caller-order incompletes remain explicit."
       },
       "merge": {
         "staging_branch": "codex/round-2d-rules-restarts-staging",
         "merge_order": 1,
-        "status": "ready",
+        "status": "pushed",
         "merge_commit": "ed060720a98b790f98591af363a490a0e0816018",
         "main_pre_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
-        "main_post_sha": null,
-        "push_sha": null,
-        "pushed_at": null
+        "main_post_sha": "ed060720a98b790f98591af363a490a0e0816018",
+        "push_sha": "ed060720a98b790f98591af363a490a0e0816018",
+        "pushed_at": "2026-08-04T07:52:42Z"
       },
       "created_at": "2026-08-04T06:25:47Z",
-      "updated_at": "2026-08-04T07:46:48Z",
+      "updated_at": "2026-08-04T07:52:42Z",
       "audit": [
         {
           "timestamp": "2026-08-04T06:25:46Z",
@@ -3681,6 +3682,20 @@
           "from_state": "combined_qa",
           "to_state": "ready_for_main",
           "reason": "Master independently reverified stable main 7fe2dd7, terminal signature/tree/parent, ancestry, exact five-report layer, and clean diff; ed060720 is a true fast-forward descendant ready for guarded delivery."
+        },
+        {
+          "timestamp": "2026-08-04T07:52:30Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "ready_for_main",
+          "to_state": "merged",
+          "reason": "All guards remained exact and local main fast-forwarded from 7fe2dd7 to ed060720 without a merge commit."
+        },
+        {
+          "timestamp": "2026-08-04T07:52:42Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "merged",
+          "to_state": "pushed",
+          "reason": "Ordinary non-force push succeeded; local/tracking/live main equal ed060720, stable main rebuilt warning-clean, and both desktop shortcuts were verified."
         }
       ]
     }
