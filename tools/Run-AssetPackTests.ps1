@@ -712,6 +712,23 @@ function Test-FinalePayloadContract {
         72 = $AnchorsOffset; 80 = $ReverseMetadataOffset; 84 = $TitleMetadataOffset
         96 = $TitleSlotsOffset; 104 = $BandsOffset; 112 = $PayloadSize
     }
+    [byte[]]$ExpectedSemanticHeader = @(
+        0x54, 0x46, 0x4D, 0x31,
+        0x54, 0x00, 0x3B, 0x00, 0x34, 0x00, 0xBD, 0x00, 0x69, 0x02,
+        0x07, 0x06, 0x08, 0x07, 0x0F,
+        0xFF, 0xFF, 0x18, 0xFF, 0xFF,
+        0x53, 0x3A, 0x33, 0xFF, 0xFF,
+        0x03, 0x0C, 0x1A, 0x01,
+        0x00, 0x01, 0x03,
+        0x1D, 0x07, 0x1D,
+        0x00, 0x00, 0x00,
+        0x04, 0x05, 0x05,
+        0x06, 0x07, 0xFF, 0x06, 0xFF,
+        0x06, 0x08, 0x07, 0x0A, 0x06,
+        0x10, 0x07, 0x18, 0x18, 0x06,
+        0xD2, 0xD6, 0xD4, 0xD7,
+        0x15
+    )
     if ($Magic -ne "TFIN") { [void]$Issues.Add("magic") }
     foreach ($Offset in $ExpectedU16.Keys) {
         if ([System.BitConverter]::ToUInt16($Bytes, [int]$Offset) -ne [uint16]$ExpectedU16[$Offset]) {
@@ -726,7 +743,12 @@ function Test-FinalePayloadContract {
     for ($Index = 106; $Index -le 107; ++$Index) {
         if ($Bytes[$Index] -ne 0) { [void]$Issues.Add("header-offset-high-reserved"); break }
     }
-    for ($Index = 116; $Index -lt $HeaderSize; ++$Index) {
+    for ($Index = 0; $Index -lt $ExpectedSemanticHeader.Length; ++$Index) {
+        if ($Bytes[116 + $Index] -ne $ExpectedSemanticHeader[$Index]) {
+            [void]$Issues.Add("semantic-header"); break
+        }
+    }
+    for ($Index = 181; $Index -lt $HeaderSize; ++$Index) {
         if ($Bytes[$Index] -ne 0) { [void]$Issues.Add("header-reserved"); break }
     }
     for ($Index = $ReverseFramesOffset + 10; $Index -lt $GroupsOffset; ++$Index) {
@@ -770,7 +792,7 @@ function Test-FinalePayloadContract {
             }
         }
     }
-    $ExpectedFrames = @(10, 14, 18, 22, 27)
+    $ExpectedFrames = @(8, 12, 16, 20, 25)
     for ($Index = 0; $Index -lt $ExpectedFrames.Count; ++$Index) {
         if ([System.BitConverter]::ToUInt16($Bytes, $ReverseFramesOffset + $Index * 2) -ne $ExpectedFrames[$Index]) {
             [void]$Issues.Add("reverse-palette-frames")
@@ -828,21 +850,23 @@ function Test-FinalePayloadContract {
         [System.BitConverter]::ToUInt32($Bytes, $ReverseMetadataOffset + 12) -ne 0) {
         [void]$Issues.Add("reverse-metadata")
     }
-    $ExpectedTitleMetadata = @(128, 44, 1, 7, 301, 345, 128, 1, 2, 2, 8, 1, 16, 2, 2, 0)
+    $ExpectedTitleMetadata = @(128, 44, 1, 7, 301, 344, 128, 1, 2, 2, 8, 1, 16, 2, 2, 0)
     for ($Index = 0; $Index -lt 16; ++$Index) {
         if ([System.BitConverter]::ToUInt16($Bytes, $TitleMetadataOffset + $Index * 2) -ne $ExpectedTitleMetadata[$Index]) {
             [void]$Issues.Add("title-metadata"); break
         }
     }
-    $ExpectedBandStarts = @(0, 200, 223)
-    $ExpectedBandEnds = @(200, 223, 240)
+    $ExpectedBandStarts = @(0, 144, 152)
+    $ExpectedBandEnds = @(144, 152, 240)
+    $ExpectedBandChannels = @(0, 1, 0)
     for ($Band = 0; $Band -lt 3; ++$Band) {
         $Offset = $BandsOffset + $Band * 16
         $Low = [System.BitConverter]::ToUInt32($Bytes, $Offset + 8)
         $High = [System.BitConverter]::ToUInt32($Bytes, $Offset + 12)
         if ([System.BitConverter]::ToUInt16($Bytes, $Offset) -ne $ExpectedBandStarts[$Band] -or
             [System.BitConverter]::ToUInt16($Bytes, $Offset + 2) -ne $ExpectedBandEnds[$Band] -or
-            $Bytes[$Offset + 4] -ne $Band -or $Bytes[$Offset + 5] -ne $Band -or
+            $Bytes[$Offset + 4] -ne $ExpectedBandChannels[$Band] -or
+            $Bytes[$Offset + 5] -ne $ExpectedBandChannels[$Band] -or
             [System.BitConverter]::ToUInt16($Bytes, $Offset + 6) -ne 0 -or
             ($Low % 1024) -ne 0 -or ($High % 1024) -ne 0 -or
             [uint64]$Low + 2048 -gt $ChrByteCount -or [uint64]$High + 2048 -gt $ChrByteCount) {
@@ -3657,7 +3681,8 @@ try {
 
                 $MalformedCases = [System.Collections.Generic.List[object]]::new()
                 $MalformedSpecs = @(
-                    [pscustomobject]@{ id = "reserved"; mutate = { param([byte[]]$Data) $Data[116] = 1 } },
+                    [pscustomobject]@{ id = "semantic-header"; mutate = { param([byte[]]$Data) $Data[116] = 1 } },
+                    [pscustomobject]@{ id = "reserved"; mutate = { param([byte[]]$Data) $Data[181] = 1 } },
                     [pscustomobject]@{ id = "header-offset-high-reserved"; mutate = { param([byte[]]$Data) $Data[106] = 1 } },
                     [pscustomobject]@{ id = "post-anchor-reserved"; mutate = { param([byte[]]$Data) $Data[58246] = 1 } },
                     [pscustomobject]@{ id = "offset"; mutate = {
