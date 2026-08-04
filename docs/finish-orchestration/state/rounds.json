@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T06:34:29Z",
+  "updated_at": "2026-08-04T07:13:34Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -777,11 +777,11 @@
       "merge_order": ["R2D-RULES-RESTARTS-INTEGRATION-QA"],
       "combined_qa": {
         "required": true,
-        "status": "pending",
+        "status": "in_progress",
         "accepted_sha": null,
         "report_path": null,
         "signed_by_session_id": null,
-        "notes": "A dedicated Sol Max integration orchestrator must independently reproduce the accepted domain gates on the exact current-main descendant and sign a docs-only terminal handoff."
+        "notes": "The dedicated Sol Max orchestrator completed clean takeover and exact branch ff-only to 1f23235. Its sole projectless Luna/max returned initial P0/P1/P2/P3 zero; the separate Sol combined matrix, signed docs-only terminal handoff, and same-Luna signed-tip review remain in progress."
       },
       "acceptance": {
         "status": "pending",
@@ -804,7 +804,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-04T06:25:47Z",
-      "updated_at": "2026-08-04T06:34:29Z"
+      "updated_at": "2026-08-04T07:13:34Z"
     },
     {
       "round_id": "R5",

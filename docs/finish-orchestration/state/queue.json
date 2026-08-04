@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T04:54:52Z",
+  "updated_at": "2026-08-04T07:13:34Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -3577,7 +3577,7 @@
       "round_id": "R2D",
       "priority": 99,
       "coordination_only": false,
-      "state": "assigned",
+      "state": "in_progress",
       "dependencies": ["R2-RULES-RESTARTS"],
       "ownership_claim_ids": ["OWN-R2D-RULES-RESTARTS-INTEGRATION-QA"],
       "base_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
@@ -3585,23 +3585,24 @@
       "branch": "codex/r2d-rules-restarts-integration-qa-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2d-rules-restarts-integration-qa-sol",
       "sol_orchestrator_session_id": "S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001",
-      "reported_luna_worker_session_ids": [],
+      "reported_luna_worker_session_ids": ["019fcb82-4090-7b33-8293-7ceda46a43ba"],
       "result_commits": [],
       "evidence_ids": [],
       "blocker_ids": [],
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-tasks/R2D-rules-restarts-integration-qa",
       "qa": {
-        "status": "pending",
+        "status": "in_progress",
         "sol_signoff": false,
         "integration_signoff": false,
         "test_records": [
           "2026-08-04T06:25:47Z master accepted immutable Good-signed domain tip 1f23235, recorded all six lifecycle unpins, reverified stable clean local/tracking/live main exact 7fe2dd7, candidate ancestry/tree/signature, exact 17-path text delta, diff-check, and absence of the proposed branch/worktree/staging refs before reservation.",
           "2026-08-04T06:25:47Z one initial read-only PowerShell preflight used an unquoted variable range and caused git diff usage exit 129 with no mutation; literal-SHA rerun proved the exact 17-path delta and clean diff-check.",
-          "2026-08-04T06:34:29Z after Good-signed reservation 6475128, master created immutable staging ref 1f23235, exact clean isolated branch/worktree from 7fe2dd7, and exactly one pinned gpt-5.6-sol/max orchestrator 019fcb7a-ea78-7023-b251-e522d95bc819 on the first attempt. Read-only clean takeover is required before branch ff-only or Luna creation."
+          "2026-08-04T06:34:29Z after Good-signed reservation 6475128, master created immutable staging ref 1f23235, exact clean isolated branch/worktree from 7fe2dd7, and exactly one pinned gpt-5.6-sol/max orchestrator 019fcb7a-ea78-7023-b251-e522d95bc819 on the first attempt. Read-only clean takeover is required before branch ff-only or Luna creation.",
+          "2026-08-04T07:13:34Z Sol clean takeover, signatures, refs, 17-path ownership/proprietary/collision gates, and branch-only ff-only to exact 1f23235/tree b668b45 passed with main/staging untouched. Sole projectless pinned Luna/max 019fcb82-4090-7b33-8293-7ceda46a43ba was created once without fault and independently returned initial P0/P1/P2/P3 zero across canonical and CMake console/GUI builds, focused rules/restarts and strict scene/audio/state/flow/Win32/current-main gates, deterministic proof, and original-resolution visual review. Sol's separate authoritative combined matrix and signed terminal reporting remain in progress."
         ],
         "proof_manifests": [],
-        "notes": "Reserved for a dedicated current-main integration QA lane. Because immutable 1f23235 directly descends from guarded main 7fe2dd7, the isolated branch must use ff-only, not synthesize a merge. Sol must run proportional combined build/scene/audio/state/flow/Win32/proof/visual gates, create exactly one independent projectless Luna/max auditor after its collision gate, sign only the owned integration reports, and stop before main or push."
+        "notes": "Read-only takeover and exact branch-only ff-only to immutable 1f23235 are complete. Sole projectless Luna/max initial independent QA is P0/P1/P2/P3 zero and remains pinned for terminal signed-tip reuse. Sol is running its separate authoritative combined matrix, then must sign only the owned integration reports and stop before main or push."
       },
       "merge": {
         "staging_branch": "codex/round-2d-rules-restarts-staging",
@@ -3614,7 +3615,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-04T06:25:47Z",
-      "updated_at": "2026-08-04T06:34:29Z",
+      "updated_at": "2026-08-04T07:13:34Z",
       "audit": [
         {
           "timestamp": "2026-08-04T06:25:46Z",
@@ -3636,6 +3637,13 @@
           "from_state": "scoped",
           "to_state": "assigned",
           "reason": "Created and immediately pinned exact gpt-5.6-sol/max orchestrator 019fcb7a-ea78-7023-b251-e522d95bc819 once after signed reservation and transferred the isolated read-only-first ff-only integration assignment."
+        },
+        {
+          "timestamp": "2026-08-04T07:13:34Z",
+          "actor_session_id": "S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001",
+          "from_state": "assigned",
+          "to_state": "in_progress",
+          "reason": "Clean takeover and exact ff-only integration passed; sole pinned independent Luna/max returned initial P0/P1/P2/P3 zero while the Sol continued its separate combined matrix and terminal report."
         }
       ]
     }
