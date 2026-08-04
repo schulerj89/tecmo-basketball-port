@@ -613,7 +613,7 @@
       "claim_id": "OWN-R2C-DEFENSE-CONTACT-INTEGRATION-QA",
       "task_id": "R2C-DEFENSE-CONTACT-INTEGRATION-QA",
       "round_id": "R2C",
-      "session_id": "S-MASTER-001",
+      "session_id": "S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001",
       "mode": "exclusive",
       "writable_globs": [
         "docs/finish-tasks/R2C-defense-contact-integration-qa/**"
@@ -626,7 +626,7 @@
       "active": true,
       "claimed_at": "2026-08-04T02:26:58Z",
       "released_at": null,
-      "notes": "Master-held signed reservation before Sol creation. Writable tracked scope is docs/finish-tasks/R2C-defense-contact-integration-qa/** only, plus one deliberate Good-signed branch-only reconciliation merge combining current main with immutable ed70d884. Candidate/product paths, normal build registries, main, origin/main, staging, push, and all unrelated paths are read-only; any product/tool correction requires exact master rescope."
+      "notes": "Transferred after Good-signed reservation bd3160a to exact pinned Sol 019fca9b-915b-7133-9605-a0fcdf166d3b. Writable tracked scope is docs/finish-tasks/R2C-defense-contact-integration-qa/** only, plus one deliberate Good-signed branch-only reconciliation merge combining current main with immutable ed70d884. Candidate/product paths, normal build registries, main, origin/main, staging, push, and all unrelated paths are read-only; any product/tool correction requires exact master rescope."
     }
   ],
   "shared_boundaries": [

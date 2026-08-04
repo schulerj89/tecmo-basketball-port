@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T02:26:58Z",
+  "updated_at": "2026-08-04T02:30:31Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,8 +10,8 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 1,
-    "cleared_for_creation": 1,
+    "active_domain_orchestrators": 2,
+    "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
     "unallocated_target_slots": 2,
@@ -360,17 +360,17 @@
       "domain": "integration_qa",
       "round_ids": ["R2C"],
       "task_ids": ["R2C-DEFENSE-CONTACT-INTEGRATION-QA"],
-      "readiness": "cleared_for_creation",
+      "readiness": "active",
       "dependency_status": "ready",
       "reservation_owner_session_id": "S-MASTER-001",
-      "orchestrator_session_id": null,
+      "orchestrator_session_id": "S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001",
       "base_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
       "branch": "codex/r2c-defense-contact-integration-qa-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2c-defense-contact-integration-qa-sol",
       "ownership_claim_ids": ["OWN-R2C-DEFENSE-CONTACT-INTEGRATION-QA"],
       "blockers": [],
-      "next_gate": "Signed reservation must precede exactly one gpt-5.6-sol/max Integration QA orchestrator. First turn is read-only: verify clean 0ef11cf allocation, immutable Good-signed ed70d884 staging, ownership/overlap/diff-check, and reproduce merge-tree before any branch-only signed reconciliation or Luna creation.",
-      "updated_at": "2026-08-04T02:26:58Z"
+      "next_gate": "Exact pinned Sol 019fca9b must complete the mandatory read-only clean takeover at 0ef11cf, verify immutable Good-signed ed70d884 staging, ownership/overlap/diff-check, and reproduce merge-tree before any branch-only signed reconciliation or Luna creation.",
+      "updated_at": "2026-08-04T02:30:31Z"
     }
   ]
 }

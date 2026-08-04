@@ -3445,14 +3445,14 @@
       "round_id": "R2C",
       "priority": 99,
       "coordination_only": false,
-      "state": "scoped",
+      "state": "assigned",
       "dependencies": ["R2-DEFENSE-CONTACT"],
       "ownership_claim_ids": ["OWN-R2C-DEFENSE-CONTACT-INTEGRATION-QA"],
       "base_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
       "expected_parent_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
       "branch": "codex/r2c-defense-contact-integration-qa-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2c-defense-contact-integration-qa-sol",
-      "sol_orchestrator_session_id": null,
+      "sol_orchestrator_session_id": "S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001",
       "reported_luna_worker_session_ids": [],
       "result_commits": [],
       "evidence_ids": [],
@@ -3471,10 +3471,11 @@
       },
       "merge": {"staging_branch":"codex/round-2c-defense-contact-staging","merge_order":1,"status":"not_ready","merge_commit":null,"main_pre_sha":"0ef11cf247e3110b6064e79a4c496be6346f3e13","main_post_sha":null,"push_sha":null,"pushed_at":null},
       "created_at": "2026-08-04T02:26:57Z",
-      "updated_at": "2026-08-04T02:26:58Z",
+      "updated_at": "2026-08-04T02:30:31Z",
       "audit": [
         {"timestamp":"2026-08-04T02:26:57Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Incremental delivery policy requires the accepted defense-contact raw foundation to reach current main without waiting for the rest of Round 2."},
-        {"timestamp":"2026-08-04T02:26:58Z","actor_session_id":"S-MASTER-001","from_state":"backlog","to_state":"scoped","reason":"Reserved docs-only Integration QA ownership, immutable Good-signed ed70d884 staging, and a collision-cleared clean 0ef11cf-based branch/worktree before Sol creation."}
+        {"timestamp":"2026-08-04T02:26:58Z","actor_session_id":"S-MASTER-001","from_state":"backlog","to_state":"scoped","reason":"Reserved docs-only Integration QA ownership, immutable Good-signed ed70d884 staging, and a collision-cleared clean 0ef11cf-based branch/worktree before Sol creation."},
+        {"timestamp":"2026-08-04T02:30:31Z","actor_session_id":"S-MASTER-001","from_state":"scoped","to_state":"assigned","reason":"Created and immediately pinned exact gpt-5.6-sol/max orchestrator 019fca9b-915b-7133-9605-a0fcdf166d3b once after signed reservation and transferred the isolated read-only-first branch integration assignment."}
       ]
     }
   ]

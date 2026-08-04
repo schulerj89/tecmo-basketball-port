@@ -716,7 +716,7 @@
     {
       "round_id": "R2C",
       "title": "Defense-contact raw foundation current-main integration and independent QA",
-      "status": "planned",
+      "status": "in_progress",
       "base_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
       "scope": [
         "Reconcile immutable accepted Defense Contact raw-foundation candidate ed70d884c3c75d900df589f442816c9566eb38df with current main",
@@ -725,8 +725,8 @@
       ],
       "included_task_ids": ["R2C-DEFENSE-CONTACT-INTEGRATION-QA"],
       "staging_branch": "codex/round-2c-defense-contact-staging",
-      "sol_orchestrator_session_ids": [],
-      "integration_qa_session_id": null,
+      "sol_orchestrator_session_ids": ["S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001"],
+      "integration_qa_session_id": "S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001",
       "merge_order": ["R2C-DEFENSE-CONTACT-INTEGRATION-QA"],
       "combined_qa": {
         "required": true,
@@ -734,7 +734,7 @@
         "accepted_sha": null,
         "report_path": "docs/finish-tasks/R2C-defense-contact-integration-qa/README.md",
         "signed_by_session_id": null,
-        "notes": "Master reserved immutable Good-signed ed70d884 staging and a clean current-main 0ef11cf integration worktree. Sol creation and branch-only reconciliation remain pending the signed reservation checkpoint."
+        "notes": "Good-signed reservation bd3160a preceded one exact pinned gpt-5.6-sol/max orchestrator. It must complete the read-only clean takeover before branch reconciliation or independent Luna creation."
       },
       "acceptance": {
         "status": "pending",
@@ -757,7 +757,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-04T02:26:57Z",
-      "updated_at": "2026-08-04T02:26:58Z"
+      "updated_at": "2026-08-04T02:30:31Z"
     },
     {
       "round_id": "R5",
