@@ -119,9 +119,9 @@ function Assert-NotContains([string[]]$RelativePaths, [string[]]$Needles) {
 }
 
 function Invoke-FrozenSuite([string]$Name, [string]$Script,
-                            [string[]]$SuiteArguments,
+                            [hashtable]$SuiteParameters,
                             [string]$ExpectedLine) {
-    $Output = @(& $Script @SuiteArguments 2>&1)
+    $Output = @(& $Script @SuiteParameters 2>&1)
     $ExitCode = $LASTEXITCODE
     $MatchingLines = @($Output | Where-Object {
         ([string]$_).Trim() -eq $ExpectedLine
@@ -285,19 +285,29 @@ Assert-NotContains @(
 $PreviousSkipShortcut = $env:TECMO_SKIP_SHORTCUT
 try {
     $env:TECMO_SKIP_SHORTCUT = "1"
-    $MusicArguments = @("-ProjectRoot", $ProjectRoot, "-RomPath", $RomPath)
-    if ($Build) { $MusicArguments += "-Build" }
+    $MusicParameters = @{
+        ProjectRoot = $ProjectRoot
+        RomPath = $RomPath
+    }
+    if ($Build) { $MusicParameters.Build = $true }
     Invoke-FrozenSuite "Music" `
         (Join-Path $ProjectRoot "tools/Run-MusicTests.ps1") `
-        $MusicArguments $ExpectedSuiteOutput.music
+        $MusicParameters $ExpectedSuiteOutput.music
+    $FrontendParameters = @{
+        ProjectRoot = $ProjectRoot
+        RomPath = $RomPath
+        DecompRoot = $DecompRoot
+    }
     Invoke-FrozenSuite "FrontendAudio" `
         (Join-Path $ProjectRoot "tools/Run-FrontendAudioTests.ps1") `
-        @("-ProjectRoot", $ProjectRoot, "-RomPath", $RomPath,
-          "-DecompRoot", $DecompRoot) $ExpectedSuiteOutput.frontend
+        $FrontendParameters $ExpectedSuiteOutput.frontend
+    $GameplayParameters = @{
+        ProjectRoot = $ProjectRoot
+        RomPath = $RomPath
+    }
     Invoke-FrozenSuite "GameplayAudio" `
         (Join-Path $ProjectRoot "tools/Run-GameplayAudioTests.ps1") `
-        @("-ProjectRoot", $ProjectRoot, "-RomPath", $RomPath) `
-        $ExpectedSuiteOutput.gameplay
+        $GameplayParameters $ExpectedSuiteOutput.gameplay
 } finally {
     $env:TECMO_SKIP_SHORTCUT = $PreviousSkipShortcut
 }
