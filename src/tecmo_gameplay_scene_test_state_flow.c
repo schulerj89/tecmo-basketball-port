@@ -297,12 +297,11 @@ static bool scene_test_violations_and_cpu_offense(
         scene->actors[0U].position.x != 149 ||
         scene->actors[0U].movement_boundary_latched ||
         scene->ball_holder != 0U ||
-        !scene->audio_player.sfx_pending ||
-        scene->audio_player.pending_sfx_id != 6U) {
+        scene->audio_player.sfx_pending) {
         char failure[384];
         (void)snprintf(
             failure, sizeof(failure),
-            "TGMO/TPNL out-of-bounds entry failed: phase=%u violation=%u restart=%u x=%d latch=%u holder=%u sfx=%u/%u control=%u team=%u action=%u direction=%u shot=%u",
+            "TGMO/TPNL out-of-bounds entry failed: phase=%u violation=%u restart=%u x=%d latch=%u holder=%u sfx_pending=%u/%u control=%u team=%u action=%u direction=%u shot=%u",
             (unsigned)scene->state.phase,
             (unsigned)scene->state.violation,
             (unsigned)scene->state.restart_possession,
@@ -359,13 +358,43 @@ static bool scene_test_violations_and_cpu_offense(
         !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
         !scene->audio_player.sfx_pending ||
-        scene->audio_player.pending_sfx_id != 6U ||
+        scene->audio_player.pending_sfx_id !=
+            TECMO_GAMEPLAY_SFX_EXPIRY_ID ||
         scene->audio_player.dmc.active ||
         scene->audio_player.music == NULL ||
         scene->audio_player.music->playing ||
         scene->audio_player.music->track_pending) {
         tecmo_gameplay_scene_test_message(message, message_size,
-                           "shot-clock violation reset/cue ordering failed");
+                           "shot-clock violation reset/pre-delay ordering failed");
+        return false;
+    }
+    tecmo_gameplay_audio_render_samples(&scene->audio_player, NULL, 1024U);
+    if (scene->audio_player.sfx_pending ||
+        scene->audio_player.current_sfx_id != TECMO_GAMEPLAY_SFX_EXPIRY_ID) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "shot-clock expiry buzzer consumption failed");
+        return false;
+    }
+    for (frame = 0U; frame < 15U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+            scene->state.phase_frame != (uint16_t)(frame + 1U) ||
+            scene->audio_player.sfx_pending) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "shot-clock violation queued SFX6 before frame 16");
+            return false;
+        }
+    }
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+        scene->state.phase_frame != 16U ||
+        !scene->audio_player.sfx_pending ||
+        scene->audio_player.pending_sfx_id != 6U) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "shot-clock violation did not queue SFX6 at frame 16");
         return false;
     }
     tecmo_gameplay_audio_render_samples(&scene->audio_player, NULL, 1024U);
@@ -378,13 +407,15 @@ static bool scene_test_violations_and_cpu_offense(
                            "single violation cue consumption failed");
         return false;
     }
-    for (frame = 0U;
+    for (frame = 16U;
          frame < TECMO_GAMEPLAY_VIOLATION_RELEASE_LEAD_IN_FRAMES;
          ++frame) {
         if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+            scene->state.phase_frame != (uint16_t)(frame + 1U) ||
             scene->audio_player.sfx_pending) {
             tecmo_gameplay_scene_test_message(message, message_size,
-                               "violation reset/cue repeated after entry");
+                               "violation reset/cue repeated after frame 16");
             return false;
         }
     }
@@ -2714,30 +2745,70 @@ static bool scene_test_music_and_steal_policy(
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
         !scene->audio_player.sfx_pending ||
-        scene->audio_player.pending_sfx_id != 6U) {
+        scene->audio_player.pending_sfx_id !=
+            TECMO_GAMEPLAY_SFX_EXPIRY_ID ||
+        scene->audio_player.music == NULL ||
+        scene->audio_player.music->playing ||
+        scene->audio_player.music->track_pending) {
         tecmo_gameplay_scene_test_message(message, message_size,
-                           "music-off violation entry failed");
+                           "music-off violation expiry entry failed");
         return false;
     }
     tecmo_gameplay_audio_render_samples(&scene->audio_player, NULL, 1024U);
-    if (scene->audio_player.sfx_pending) {
+    if (scene->audio_player.sfx_pending ||
+        scene->audio_player.current_sfx_id != TECMO_GAMEPLAY_SFX_EXPIRY_ID) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "music-off violation expiry buzzer consumption failed");
+        return false;
+    }
+    for (frame = 0U; frame < 15U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+            scene->state.phase_frame != (uint16_t)(frame + 1U) ||
+            scene->audio_player.sfx_pending) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "music-off violation queued SFX6 before frame 16");
+            return false;
+        }
+    }
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+        scene->state.phase_frame != 16U ||
+        !scene->audio_player.sfx_pending ||
+        scene->audio_player.pending_sfx_id != 6U) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "music-off violation did not queue SFX6 at frame 16");
+        return false;
+    }
+    tecmo_gameplay_audio_render_samples(&scene->audio_player, NULL, 1024U);
+    if (scene->audio_player.sfx_pending ||
+        scene->audio_player.current_sfx_id != 6U) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "music-off violation cue was not consumed");
         return false;
     }
-    for (frame = 0U;
+    for (frame = 16U;
          frame < TECMO_GAMEPLAY_VIOLATION_RELEASE_LEAD_IN_FRAMES;
          ++frame) {
-        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+            scene->state.phase_frame != (uint16_t)(frame + 1U) ||
+            scene->audio_player.sfx_pending) {
             tecmo_gameplay_scene_test_message(message, message_size,
-                               "music-off violation lead-in failed");
+                               "music-off violation cue repeated after frame 16");
             return false;
         }
     }
     p1.released.shoot = true;
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
-        scene->audio_player.sfx_pending) {
+        scene->audio_player.sfx_pending ||
+        scene->audio_player.music == NULL ||
+        scene->audio_player.music->playing ||
+        scene->audio_player.music->track_pending) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "music-off restart queued neutral cue");
         return false;

@@ -56,6 +56,8 @@ bool tecmo_gameplay_scene_test_shot_clock(
     TecmoGameplaySceneTestContext *test);
 bool tecmo_gameplay_scene_test_state_flow(
     TecmoGameplaySceneTestContext *test);
+bool tecmo_gameplay_scene_test_rules_restarts(
+    TecmoGameplaySceneTestContext *test);
 bool tecmo_gameplay_scene_test_orchestrate(
     const char *project_root,
     const char *asset_pack_path,

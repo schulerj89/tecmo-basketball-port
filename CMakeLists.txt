@@ -99,6 +99,7 @@ set(TECMO_PORT_SOURCES
     src/tecmo_gameplay_scene_test_render_contract.c
     src/tecmo_gameplay_scene_test_shot_clock.c
     src/tecmo_gameplay_scene_test_state_flow.c
+    src/tecmo_gameplay_scene_test_rules_restarts.c
     src/tecmo_gameplay_scene_test_orchestrator.c
     src/tecmo_gameplay_scene_actors.c
     src/tecmo_gameplay_scene_shots.c

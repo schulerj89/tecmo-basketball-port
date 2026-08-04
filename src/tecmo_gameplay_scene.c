@@ -1533,14 +1533,29 @@ static void scene_process_phase_audio(TecmoGameplayScene *scene,
                                       TecmoGameplayPhase before)
 {
     TecmoGameplayPhase after = scene->state.phase;
+    if ((after == TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+         after == TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION)) {
+        TecmoGameplayPenaltyPresentation presentation;
+        TecmoGameplayPenaltyPresentationKind kind =
+            after == TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION
+                ? TECMO_GAMEPLAY_PENALTY_PRESENTATION_FOUL
+                : TECMO_GAMEPLAY_PENALTY_PRESENTATION_VIOLATION;
+        uint8_t selector = after == TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION
+                               ? 0U
+                               : (uint8_t)scene->state.violation;
+        if (tecmo_gameplay_penalties_get_presentation(
+                &scene->penalty_assets, kind, selector, &presentation) &&
+            scene->state.phase_frame ==
+                presentation.presentation_sfx_delay_frames) {
+            (void)tecmo_gameplay_audio_queue_sfx_id(
+                &scene->audio_player, presentation.presentation_sfx_id);
+        }
+    }
     if (before == after) return;
-    if (after == TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION) {
-        (void)tecmo_gameplay_audio_queue_event(
-            &scene->audio_player, TECMO_GAMEPLAY_AUDIO_VIOLATION_CUE);
-    } else if (after == TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE &&
-               scene->launch.game_music_enabled &&
-               (before == TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
-                before == TECMO_GAMEPLAY_PHASE_FOUL_SETTLEMENT_REQUIRED)) {
+    if (after == TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE &&
+        scene->launch.game_music_enabled &&
+        (before == TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
+         before == TECMO_GAMEPLAY_PHASE_FOUL_SETTLEMENT_REQUIRED)) {
         /* The bounded free-throw observation requests gameplay track 5 at
            setup. It does not request the same-numbered Bank05 $9FEC SFX. */
         (void)tecmo_gameplay_audio_queue_game_music(&scene->audio_player);

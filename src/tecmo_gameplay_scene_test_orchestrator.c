@@ -31,7 +31,8 @@ bool tecmo_gameplay_scene_test_orchestrate(
     if (!tecmo_gameplay_scene_test_pretip(&test) ||
         !tecmo_gameplay_scene_test_render_contract(&test) ||
         !tecmo_gameplay_scene_test_shot_clock(&test) ||
-        !tecmo_gameplay_scene_test_state_flow(&test)) {
+        !tecmo_gameplay_scene_test_state_flow(&test) ||
+        !tecmo_gameplay_scene_test_rules_restarts(&test)) {
         return false;
     }
     tecmo_gameplay_scene_test_set_skip_pretip(false);
