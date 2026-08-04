@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T07:52:42Z",
+  "updated_at": "2026-08-04T07:56:02Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -681,8 +681,8 @@
       "role": "integration_orchestrator",
       "model": "gpt-5.6-sol",
       "thinking": "max",
-      "status": "idle",
-      "pin_state": "pinned",
+      "status": "completed",
+      "pin_state": "unpinned",
       "round_ids": ["R2D"],
       "task_ids": ["R2D-RULES-RESTARTS-INTEGRATION-QA"],
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2d-rules-restarts-integration-qa-sol",
@@ -695,9 +695,9 @@
       "recovery_lineage": [],
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-04T06:34:29Z",
-      "completed_at": null,
-      "updated_at": "2026-08-04T07:52:42Z",
-      "notes": "Terminal Good-signed ed060720/tree 32a741c is clean and accepted after complete personal Sol and same-Luna P0/P1/P2/P3-zero QA. Under Good-signed master acceptance dd41d993, stable main was guarded ff-only advanced and ordinary-pushed to ed060720, then rebuilt warning-clean; both desktop shortcuts target the rebuilt GUI. The same-Luna systemError/recovery lineage remains recorded. Sol and Luna are still pinned only until exact unpin confirmations; lifecycle release is authorized with all branches/worktrees/reports/proof preserved."
+      "completed_at": "2026-08-04T07:56:02Z",
+      "updated_at": "2026-08-04T07:56:02Z",
+      "notes": "Terminal Good-signed ed060720/tree 32a741c passed complete personal Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only delivered and ordinary-pushed to stable main, then rebuilt warning-clean with both desktop shortcuts verified. The same-Luna systemError/recovery lineage remains recorded. Under Good-signed delivery control 3d82dd58, both Sol and Luna returned pinned=false and remain preserved/unarchived with every branch, worktree, report, proof, and artifact intact."
     },
     {
       "session_id": "S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001",
@@ -758,7 +758,7 @@
   ],
   "reported_luna_workers": [
     {
-      "worker_id":"019fcb82-4090-7b33-8293-7ceda46a43ba","thread_id":"019fcb82-4090-7b33-8293-7ceda46a43ba","title":"Tecmo R2D Rules Restarts Integration Independent QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"pinned","reported_by_session_id":"S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001","round_ids":["R2D"],"task_ids":["R2D-RULES-RESTARTS-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"ed060720a98b790f98591af363a490a0e0816018","contribution":"Sole projectless independent integration-QA lineage. Initial immutable-candidate and final exact Good-signed ed060720 tip audits both returned P0/P1/P2/P3 zero after signature/ref/scope, canonical and CMake console+GUI, strict timing/scene/audio/assets/state/flow/Win32/current-main, deterministic proof, original-resolution visual, five-report, classification, and protected-ref checks. Its first signed-tip turn entered systemError after completing substantive checks but before emitting a disposition; the same pinned lineage resumed without replacement or rebuild and returned the exact final PASS. It remains pinned pending durable delivery/lifecycle release.","recovery_lineage":[],"failure":{"count":1,"raw_error_signatures":["systemError after signed-tip checks before final disposition"],"retry_worker_ids":["019fcb82-4090-7b33-8293-7ceda46a43ba"],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T07:46:48Z"
+      "worker_id":"019fcb82-4090-7b33-8293-7ceda46a43ba","thread_id":"019fcb82-4090-7b33-8293-7ceda46a43ba","title":"Tecmo R2D Rules Restarts Integration Independent QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001","round_ids":["R2D"],"task_ids":["R2D-RULES-RESTARTS-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"ed060720a98b790f98591af363a490a0e0816018","contribution":"Sole projectless independent integration-QA lineage. Initial immutable-candidate and final exact Good-signed ed060720 tip audits both returned P0/P1/P2/P3 zero after signature/ref/scope, canonical and CMake console+GUI, strict timing/scene/audio/assets/state/flow/Win32/current-main, deterministic proof, original-resolution visual, five-report, classification, and protected-ref checks. Its first signed-tip turn entered systemError after completing substantive checks but before emitting a disposition; the same pinned lineage resumed without replacement or rebuild and returned exact PASS. It returned pinned=false after durable Good-signed delivery control; it remains preserved and unarchived with no replacement.","recovery_lineage":[],"failure":{"count":1,"raw_error_signatures":["systemError after signed-tip checks before final disposition"],"retry_worker_ids":["019fcb82-4090-7b33-8293-7ceda46a43ba"],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T07:56:02Z"
     },
     {
       "worker_id":"019fca5b-3b84-7a82-b2ab-588c50a4b7fd","thread_id":"019fca5b-3b84-7a82-b2ab-588c50a4b7fd","title":"Tecmo R2B Shots Outcomes Integration Independent QA â€” Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R2B-SHOTS-INTEGRATION-QA-001","round_ids":["R2B"],"task_ids":["R2B-SHOTS-OUTCOMES-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"522909264f67673bd3242ecc62b343e1238bb142","contribution":"Sole projectless/null-Git independent QA lineage. It accepted reconciled signed docs candidate fcc5209 and final Good-signed terminal 5229092 at P0/P1/P2 zero after exact signature/ancestry/scope, 119-file shot proof, 254-record DRAFT scene proof, visual, report, caveat, and classification audits. Completed and unpinned after durable control acknowledgment; no replacement or task fault.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T03:20:41Z"

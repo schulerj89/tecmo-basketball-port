@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T07:52:42Z",
+  "updated_at": "2026-08-04T07:56:02Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -405,8 +405,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2d-rules-restarts-integration-qa-sol",
       "ownership_claim_ids": ["OWN-R2D-RULES-RESTARTS-INTEGRATION-QA"],
       "blockers": [],
-      "next_gate": "Complete: terminal Good-signed ed060720 passed Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only delivered and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Sol and Luna lifecycle unpin is authorized; preserve all branches, worktrees, reports, and proof.",
-      "updated_at": "2026-08-04T07:52:42Z"
+      "next_gate": "Complete: terminal Good-signed ed060720 passed Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only delivered and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Sol and Luna both returned pinned=false; all tasks and artifacts remain preserved and unarchived.",
+      "updated_at": "2026-08-04T07:56:02Z"
     }
   ]
 }
