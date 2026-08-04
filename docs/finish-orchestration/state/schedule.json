@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T08:14:53Z",
+  "updated_at": "2026-08-04T08:53:00Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -423,8 +423,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-gameplay-presentation-sol",
       "ownership_claim_ids": ["OWN-R2-GAMEPLAY-PRESENTATION"],
       "blockers": [],
-      "next_gate": "Clean takeover is accepted. Exactly three pinned projectless Luna/max read-only auditors are active under the sole Sol for original evidence, architecture/collision, and proof/visual gaps. Sol must personally reconcile them and request one exact minimal signed product/test rescope; product write and writable-worker creation remain prohibited until granted.",
-      "updated_at": "2026-08-04T08:07:25Z"
+      "next_gate": "Good-signed exact rescope grants only the bounded CLI gameplay-layup-frameN proof mode and new focused two-pass presentation runner. Sol may collision-gate and create exactly one persistent projectless Luna/max worker at codex/r2-gameplay-presentation-luna from ed060720, personally review every revision, run the required warning-clean/full-scene/focused proof matrix, then create exactly one independent terminal Luna. All broader presentation/product paths remain excluded.",
+      "updated_at": "2026-08-04T08:49:20Z"
     },
     {
       "lane_id": "LANE-R3-PLAYER-STATS-LEADERS",
@@ -441,8 +441,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3-player-stats-leaders-sol",
       "ownership_claim_ids": ["OWN-R3-PLAYER-STATS-LEADERS"],
       "blockers": [],
-      "next_gate": "Clean takeover is accepted. Exactly three pinned projectless Luna/max read-only auditors are active under the sole Sol for original evidence, architecture/ownership, and proof/save-schema gaps. Sol must personally reconcile them and request one exact minimal signed product/test rescope; product write and writable-worker creation remain prohibited until granted.",
-      "updated_at": "2026-08-04T08:14:53Z"
+      "next_gate": "Good-signed exact rescope grants the listed ten stats/scene/season/save/leader/test paths with this Sol as sole sequential shared-scene writer. Sol may collision-gate and create exactly one persistent projectless Luna/max worker at codex/r3-player-stats-leaders-luna from ed060720, personally review every revision, run the required state-flow/season/save/formula/ranking/render/two-run/visual matrix, then create exactly one independent terminal Luna. Every excluded semantic and adjacent-domain path remains read-only.",
+      "updated_at": "2026-08-04T08:53:00Z"
     }
   ]
 }

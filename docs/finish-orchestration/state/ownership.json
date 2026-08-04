@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T08:07:25Z",
+  "updated_at": "2026-08-04T08:53:00Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -696,19 +696,23 @@
       "session_id": "S-SOL-R2-GAMEPLAY-PRESENTATION-001",
       "mode": "exclusive",
       "writable_globs": [
-        "docs/finish-tasks/R2-gameplay-presentation/**"
+        "docs/finish-tasks/R2-gameplay-presentation/**",
+        "src/tecmo_cli_render_gameplay_checkpoint.c",
+        "tools/Run-GameplayPresentationTests.ps1"
       ],
       "planned_paths": [
         "docs/finish-tasks/R2-gameplay-presentation/README.md",
         "docs/finish-tasks/R2-gameplay-presentation/SCOPE.md",
         "docs/finish-tasks/R2-gameplay-presentation/EVIDENCE.md",
-        "docs/finish-tasks/R2-gameplay-presentation/LINEAGE.md"
+        "docs/finish-tasks/R2-gameplay-presentation/LINEAGE.md",
+        "src/tecmo_cli_render_gameplay_checkpoint.c",
+        "tools/Run-GameplayPresentationTests.ps1"
       ],
       "concurrency_group": "R2-gameplay-presentation",
       "active": true,
       "claimed_at": "2026-08-04T07:58:28Z",
       "released_at": null,
-      "notes": "Transferred from the master reservation to sole pinned Sol task 019fcbcb-8e96-7a41-b56c-5670f5c45dc2 under session S-SOL-R2-GAMEPLAY-PRESENTATION-001. Authority remains docs-only and read-only-first from exact stable main ed060720. The Sol may inspect current native code, tests, ignored proof, canonical Rev1 ROM/decomp/captures read-only, and create exactly three bounded projectless Luna auditors, but must request a later Good-signed exact product/test/build rescope before any non-doc mutation or writable worker. Shared scene, renderer, animation, asset/source-map, build, main/staging, push, cleanup, deletion, and archive remain excluded."
+      "notes": "After the clean takeover and personally reconciled three-auditor read-only gate, master grants exactly two product/tool paths from stable ed060720: src/tecmo_cli_render_gameplay_checkpoint.c only within TecmoCliGameplayCheckpointConfig, parse_gameplay_render_checkpoint_mode, and run_gameplay_shot_checkpoint for gameplay-layup-frameN production-input proof; and new tools/Run-GameplayPresentationTests.ps1 only for the focused deterministic two-pass layup proof/test runner. Exactly one persistent top-level projectless gpt-5.6-luna/max worker may be created after collision recheck at branch codex/r2-gameplay-presentation-luna, worktree C:/Users/joshs/Projects/tecmo-basketball-port-r2-gameplay-presentation-luna, base/expected parent/initial last-good ed060720. The CLI fixture may coherently place actor/holder/ball/camera inputs but may not write shot kind/variant, pose, schedule, outcome, score, claimant, or settlement; production must select LAYUP/numeric-2 and malformed/zero/out-of-range suffixes must fail transactionally. Every include/scene/renderer/actor/validation/state/court/camera/video/HUD/shot-asset/referee/free-throw/defense/audio/test-orchestrator/existing-runner/CMake/build/asset/import/source-map/global-doc/main/staging/origin/push path and every broader pass/defense/contact/numeric-1/ordinary-two-point/camera/clipping/renderer/violation/restart/free-throw/new-asset claim remain excluded."
     },
     {
       "claim_id": "OWN-R3-PLAYER-STATS-LEADERS",
@@ -717,19 +721,39 @@
       "session_id": "S-SOL-R3-PLAYER-STATS-LEADERS-001",
       "mode": "exclusive",
       "writable_globs": [
-        "docs/finish-tasks/R3-player-stats-leaders/**"
+        "docs/finish-tasks/R3-player-stats-leaders/**",
+        "include/tecmo_player_stats.h",
+        "include/tecmo_gameplay_scene.h",
+        "src/tecmo_gameplay_scene.c",
+        "src/tecmo_gameplay_scene_shots.c",
+        "src/tecmo_gameplay_scene_test_state_flow.c",
+        "include/tecmo_season_menu.h",
+        "src/tecmo_game.c",
+        "src/tecmo_season_menu.c",
+        "src/tecmo_cli_render_menu_modes.c",
+        "tools/Run-SeasonTests.ps1"
       ],
       "planned_paths": [
         "docs/finish-tasks/R3-player-stats-leaders/README.md",
         "docs/finish-tasks/R3-player-stats-leaders/SCOPE.md",
         "docs/finish-tasks/R3-player-stats-leaders/EVIDENCE.md",
-        "docs/finish-tasks/R3-player-stats-leaders/LINEAGE.md"
+        "docs/finish-tasks/R3-player-stats-leaders/LINEAGE.md",
+        "include/tecmo_player_stats.h",
+        "include/tecmo_gameplay_scene.h",
+        "src/tecmo_gameplay_scene.c",
+        "src/tecmo_gameplay_scene_shots.c",
+        "src/tecmo_gameplay_scene_test_state_flow.c",
+        "include/tecmo_season_menu.h",
+        "src/tecmo_game.c",
+        "src/tecmo_season_menu.c",
+        "src/tecmo_cli_render_menu_modes.c",
+        "tools/Run-SeasonTests.ps1"
       ],
       "concurrency_group": "R3-player-stats-leaders",
       "active": true,
       "claimed_at": "2026-08-04T07:58:28Z",
       "released_at": null,
-      "notes": "Transferred from the master reservation to sole pinned Sol task 019fcbcb-ecee-7fc1-9ab4-195ef4d7cc16 under session S-SOL-R3-PLAYER-STATS-LEADERS-001. Authority remains docs-only and read-only-first from exact stable main ed060720. The Sol may inspect current native season/statistics/data code, tests, ignored proof, and canonical Rev1 evidence read-only, and create exactly three bounded projectless Luna auditors, but must request a later Good-signed exact product/test/build rescope before any non-doc mutation or writable worker. Season/save/team-management/All-Star/shared asset/source-map/build/main/staging/push/cleanup/delete/archive paths remain excluded."
+      "notes": "After the clean takeover and personally reconciled three-auditor read-only gate, master grants exactly the listed ten product/test paths plus existing task docs from stable ed060720. This is the sole sequential owner of include/tecmo_gameplay_scene.h and src/tecmo_gameplay_scene{,_shots}.c; the concurrently active Presentation slice is disjoint and owns only its CLI checkpoint/new runner. Exactly one persistent top-level projectless gpt-5.6-luna/max worker may be created after collision recheck at branch codex/r3-player-stats-leaders-luna, worktree C:/Users/joshs/Projects/tecmo-basketball-port-r3-player-stats-leaders-luna, base/expected parent/initial last-good ed060720. New include/tecmo_player_stats.h defines checked uint8 game [2][12][9] and uint16 season [27][12][9] contracts. Scene writes only FTA/FGA/3PA/FTM/FGM/3PM at the existing fully valid launch/successful settlement/free-throw seams using immutable attribution, transactionally copies the finalized ledger at GAME_COMPLETE, and leaves steals/blocks/rebounds zero with no new emitters. Game update copies the scene ledger once; season commit validates and atomically accumulates all nine counters with existing replay/idempotency checks. TSAV-2 is exactly 24-byte header plus 5,918-byte payload/5,942 total: unchanged 84-byte v1 prefix, little-endian coverage mask, then 5,832 little-endian totals; saver emits v2, exact 108-byte v1 loads under the requested fresh/in-progress coverage rule, malformed-new never falls back. Leader projections/ranking/paging/rendering must implement the reconciled source formulas, thresholds, truncation/high-bit/exclusion behavior, 27x12 top-18 later-key tie order, pages 0/6/12, and x.xxx/xx.xx formatting. Only FIELD GOALS, TOTAL POINTS, 3 POINT SHOTS, and FREE THROWS may populate when coverage is complete; STEALS, BLOCKED SHOTS, REBOUNDS, and incomplete migrated seasons remain PLAYER RESULTS UNAVAILABLE. CLI may seed deterministic proof data only. Required state-flow, season/save/formula/ranking/render, two-run gameplay/season/team-data, visual, and one independent terminal-Luna gates apply. Team-data implementation, gameplay state/rules/render/assets/source-map/importers/CMake/build/global docs/main/staging/origin/push, player details/team management/substitutions/All-Star, SRAM import, rebound/steal/block semantics, and priority metasprites remain excluded."
     }
   ],
   "shared_boundaries": [
@@ -796,18 +820,19 @@
     },
     {
       "boundary_id": "BOUNDARY-R2-SHOTS-SCENE-CONTRACT",
-      "round_id": "R2",
+      "round_id": "R3",
       "writable_glob": "include/tecmo_gameplay_scene*.h",
-      "policy": "designated_task",
-      "designated_task_id": "R2-SHOTS-OUTCOMES",
+      "policy": "sequential",
+      "designated_task_id": "R3-PLAYER-STATS-LEADERS",
       "ordered_task_ids": [
         "R2-SHOTS-OUTCOMES",
         "R2-DEFENSE-CONTACT",
         "R2-RULES-RESTARTS",
         "R2-CLOCK-LINEUPS-FATIGUE",
-        "R2-GAMEPLAY-PRESENTATION"
+        "R2-GAMEPLAY-PRESENTATION",
+        "R3-PLAYER-STATS-LEADERS"
       ],
-      "notes": "Shots owns the bounded shared scene contract first from accepted LIVE base. Later Round 2 domains must consume it read-only or receive an explicit sequential ownership transfer/rescope; concurrent edits are forbidden."
+      "notes": "Shots owned the bounded shared scene contract first from the accepted LIVE base. Every earlier Round 2 scene-contract claim is now released or delivered, and the concurrently active R2 Gameplay Presentation slice is explicitly disjoint: it owns only its CLI checkpoint and new focused runner. Under this Good-signed sequential transfer, R3-PLAYER-STATS-LEADERS is the sole current writer of include/tecmo_gameplay_scene.h and the exact scene source/test paths listed in OWN-R3-PLAYER-STATS-LEADERS; all other scene headers and sources remain read-only. Concurrent scene-contract edits are forbidden."
     }
   ],
   "merge_orders": [

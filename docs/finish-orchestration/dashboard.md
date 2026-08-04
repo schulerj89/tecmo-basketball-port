@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-04T08:14:53Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-04T08:53:00Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -39,8 +39,8 @@ Generated from committed JSON at `2026-08-04T08:14:53Z`. This dashboard reports 
 | LANE-R2C-DEFENSE-CONTACT-INTEGRATION-QA | integration_qa | complete | complete | R2C-DEFENSE-CONTACT-INTEGRATION-QA | S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001 | codex/r2c-defense-contact-integration-qa-sol | Complete: terminal Good-signed 7fe2dd7 passed reconciled Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; Sol/Luna unpin is authorized after durable control acknowledgment. |
 | LANE-R2-RULES-RESTARTS | gameplay_behavior | complete | complete | R2-RULES-RESTARTS | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | Complete: exact Good-signed terminal 1f23235 passed personal Sol and same-Luna P0/P1/P2/P3-zero QA, active contract wording is reconciled, domain ownership is released, and immutable 1f23235 is routed to dedicated current-main integration QA. All five child tasks and the Sol returned pinned=false after durable control; branches/worktrees/docs/proof remain preserved. |
 | LANE-R2D-RULES-RESTARTS-INTEGRATION-QA | integration_qa | complete | complete | R2D-RULES-RESTARTS-INTEGRATION-QA | S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001 | codex/r2d-rules-restarts-integration-qa-sol | Complete: terminal Good-signed ed060720 passed Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only delivered and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Sol and Luna both returned pinned=false; all tasks and artifacts remain preserved and unarchived. |
-| LANE-R2-GAMEPLAY-PRESENTATION | gameplay_presentation | active | ready | R2-GAMEPLAY-PRESENTATION | S-SOL-R2-GAMEPLAY-PRESENTATION-001 | codex/r2-gameplay-presentation-sol | Clean takeover is accepted. Exactly three pinned projectless Luna/max read-only auditors are active under the sole Sol for original evidence, architecture/collision, and proof/visual gaps. Sol must personally reconcile them and request one exact minimal signed product/test rescope; product write and writable-worker creation remain prohibited until granted. |
-| LANE-R3-PLAYER-STATS-LEADERS | season_data | active | ready | R3-PLAYER-STATS-LEADERS | S-SOL-R3-PLAYER-STATS-LEADERS-001 | codex/r3-player-stats-leaders-sol | Clean takeover is accepted. Exactly three pinned projectless Luna/max read-only auditors are active under the sole Sol for original evidence, architecture/ownership, and proof/save-schema gaps. Sol must personally reconcile them and request one exact minimal signed product/test rescope; product write and writable-worker creation remain prohibited until granted. |
+| LANE-R2-GAMEPLAY-PRESENTATION | gameplay_presentation | active | ready | R2-GAMEPLAY-PRESENTATION | S-SOL-R2-GAMEPLAY-PRESENTATION-001 | codex/r2-gameplay-presentation-sol | Good-signed exact rescope grants only the bounded CLI gameplay-layup-frameN proof mode and new focused two-pass presentation runner. Sol may collision-gate and create exactly one persistent projectless Luna/max worker at codex/r2-gameplay-presentation-luna from ed060720, personally review every revision, run the required warning-clean/full-scene/focused proof matrix, then create exactly one independent terminal Luna. All broader presentation/product paths remain excluded. |
+| LANE-R3-PLAYER-STATS-LEADERS | season_data | active | ready | R3-PLAYER-STATS-LEADERS | S-SOL-R3-PLAYER-STATS-LEADERS-001 | codex/r3-player-stats-leaders-sol | Good-signed exact rescope grants the listed ten stats/scene/season/save/leader/test paths with this Sol as sole sequential shared-scene writer. Sol may collision-gate and create exactly one persistent projectless Luna/max worker at codex/r3-player-stats-leaders-luna from ed060720, personally review every revision, run the required state-flow/season/save/formula/ranking/render/two-run/visual matrix, then create exactly one independent terminal Luna. Every excluded semantic and adjacent-domain path remains read-only. |
 
 ## Rounds
 
@@ -114,8 +114,8 @@ Generated from committed JSON at `2026-08-04T08:14:53Z`. This dashboard reports 
 
 | Claim | Task | Round | Mode | Writable globs | Concurrency group |
 |---|---|---|---|---|---|
-| OWN-R2-GAMEPLAY-PRESENTATION | R2-GAMEPLAY-PRESENTATION | R2 | exclusive | docs/finish-tasks/R2-gameplay-presentation/** | R2-gameplay-presentation |
-| OWN-R3-PLAYER-STATS-LEADERS | R3-PLAYER-STATS-LEADERS | R3 | exclusive | docs/finish-tasks/R3-player-stats-leaders/** | R3-player-stats-leaders |
+| OWN-R2-GAMEPLAY-PRESENTATION | R2-GAMEPLAY-PRESENTATION | R2 | exclusive | docs/finish-tasks/R2-gameplay-presentation/**<br>src/tecmo_cli_render_gameplay_checkpoint.c<br>tools/Run-GameplayPresentationTests.ps1 | R2-gameplay-presentation |
+| OWN-R3-PLAYER-STATS-LEADERS | R3-PLAYER-STATS-LEADERS | R3 | exclusive | docs/finish-tasks/R3-player-stats-leaders/**<br>include/tecmo_player_stats.h<br>include/tecmo_gameplay_scene.h<br>src/tecmo_gameplay_scene.c<br>src/tecmo_gameplay_scene_shots.c<br>src/tecmo_gameplay_scene_test_state_flow.c<br>include/tecmo_season_menu.h<br>src/tecmo_game.c<br>src/tecmo_season_menu.c<br>src/tecmo_cli_render_menu_modes.c<br>tools/Run-SeasonTests.ps1 | R3-player-stats-leaders |
 
 ## External Blockers
 
