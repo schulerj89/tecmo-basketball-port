@@ -264,7 +264,10 @@ git rev-parse main origin/main
 git ls-remote origin refs/heads/main
 ```
 
-The exact Good-signed docs tip is sent to the same pinned Luna. Reviewer
-corrections, if any, remain in this folder and are Good-signed. The terminal SHA
-and guarded fast-forward handoff are sent to master because a commit cannot
-contain its own object ID.
+Good-signed candidate `fcc520998c206c2f244fab8d75b69fe8ac96bf64`, tree
+`445b1615dea553b328c2dbf79bb88ee342943862`, changed exactly the six scoped
+documents and was independently accepted by the same pinned Luna with
+P0=0/P1=0/P2=0. Its only requested terminal addition was to record that result.
+The final docs-only signed descendant is returned to the same Luna for a narrow
+scope/wording verification. The terminal SHA and guarded fast-forward handoff
+are sent to master because a commit cannot contain its own object ID.

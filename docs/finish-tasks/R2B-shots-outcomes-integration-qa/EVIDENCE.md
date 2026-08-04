@@ -157,6 +157,9 @@ Original-detail review of four pass-1 sheets plus dunk ordinal 5 found coherent
 make, miss, multi-frame rattle, and dunk progression; expected source-frame-64
 blackout; readable HUD/court/sprites; and no corrupt tile, clipping, overlap,
 torn transition, or route discontinuity. Sol severity is P0=0/P1=0/P2=0.
+The same pinned Luna independently recomputed the inventory, hashes,
+dimensions, aggregates, and pass pairs, opened the fresh visuals, and returned
+P0=0/P1=0/P2=0 at exact signed docs tip `fcc520998...`.
 
 ## Scene proof integrity and caveat
 

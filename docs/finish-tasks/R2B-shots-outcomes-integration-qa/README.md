@@ -26,11 +26,13 @@ Sol's reconciled product, source/ASM, deterministic, visual, and cross-domain
 review found no actionable defect: **P0=0, P1=0, P2=0**.
 
 The sole independent projectless `gpt-5.6-luna` reviewer at thinking `max`,
-task `019fca5b-3b84-7a82-b2ab-588c50a4b7fd`, already returned
-**P0=0, P1=0, P2=0** for the original merged source and supplied evidence.
-The same pinned reviewer is reused for the reconciled lineage, fresh evidence,
-and exact signed-document tip. This docs candidate is not called terminal until
-that final read-only review is recorded in `INDEPENDENT-QA.md`.
+task `019fca5b-3b84-7a82-b2ab-588c50a4b7fd`, returned
+**P0=0, P1=0, P2=0** for the original source/evidence and again for the exact
+reconciled signed docs candidate
+`fcc520998c206c2f244fab8d75b69fe8ac96bf64`. It independently accepted that
+tip after checking signatures, ancestry, scope, both fresh proofs, reports,
+visuals, caveats, and classification wording. This final docs-only revision
+records that result without changing product or evidence claims.
 
 No candidate or product correction was made in R2B. Tracked lane mutations are
 the two authorized Good-signed no-ff branch-only merges and documentation in

@@ -85,7 +85,7 @@ The reviewer required terminal documents to preserve:
 
 Both caveats remain explicit throughout the reconciled docs.
 
-## Reconciled review package
+## Reconciled review package and exact-tip result
 
 After accepted main advanced, the same reviewer is asked to inspect exact
 reconciliation `d3f1980d1d9147c47bd6a3bd555708ad6bfcb0f9`, including:
@@ -105,9 +105,37 @@ reconciliation `d3f1980d1d9147c47bd6a3bd555708ad6bfcb0f9`, including:
   `C6ABD02253659272F9DBFCF8FD76289D6C13E9B4F5C375BC22E2279ABF0FC54B`;
 - exact signed revised-document tip and scope.
 
-The reconciled final independent result is intentionally not predeclared. It is
-added in a docs-only Good-signed revision after this same Luna reports on the
-exact signed candidate.
+The exact reviewed docs candidate was Good-signed commit
+`fcc520998c206c2f244fab8d75b69fe8ac96bf64`, tree
+`445b1615dea553b328c2dbf79bb88ee342943862`, parent reconciliation
+`d3f1980d...`. It changed exactly the six files in this documentation folder.
+
+Final exact-tip result:
+
+```text
+P0=0, P1=0, P2=0.
+fcc5209 is accepted as the reconciled signed docs candidate.
+```
+
+The reviewer independently verified:
+
+- Good signatures, clean branch, exact parent/tree ancestry, candidate lineage,
+  and six-file docs-only scope;
+- reconciliation parent order/tree, 23/31 path counts, overlap zero, and clean
+  diff checks;
+- shot manifest `301A...77D3`, 119/119 inventory, all hashes/dimensions and
+  recomputed aggregates, pass equality, fresh-video hash reproduction, and
+  clean make/miss/rattle/dunk visuals including intentional black frame 64;
+- scene manifest `C6AB...FC54`, 254 declared/255 physical files, all byte/hash
+  records, repeat-equal visuals, and the retained generic DRAFT/PENDING caveat;
+- report, pack, and executable hashes, plus the explicit intro skip;
+- accepted-main blob evolution and continued numeric-1 `"invalid"`/semantic
+  incompleteness and raw-group `"intentionally unexposed"` wording.
+
+No source, integration, evidence, or documentation correction was requested.
+The sole required terminal-doc addition was to record this exact-tip result and
+update handoff wording while preserving every caveat and incomplete
+classification. This section is that requested docs-only addition.
 
 ## Residual accepted incompletes
 
@@ -123,8 +151,9 @@ The independent review must not upgrade:
 
 ## Signed-document review state
 
-The revised documentation candidate is Good-signed and sent back to this same
-pinned task for exact-tip read-only review of scope, lineage, gate accuracy,
-hashes, caveats, classifications, and severity. Any correction remains docs-only
-and returns to the same reviewer. The reviewer stays pinned until durable
-Good-signed terminal acceptance is recorded by master control.
+Good-signed `fcc520998...` completed exact-tip independent review with
+P0=0/P1=0/P2=0. The final docs-only descendant records that already completed
+result and is sent back to the same Luna for a narrow read-only verification
+that no wording or scope changed beyond the requested addition. The reviewer
+stays pinned until durable Good-signed terminal acceptance is recorded by
+master control.

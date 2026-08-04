@@ -169,10 +169,14 @@ no task and is recorded in `FAULT-LEDGER.md`.
 
 ## Documentation lineage
 
-The current revised docs candidate descends from reconciliation `d3f1980d...`
-and changes only this folder. It is Good-signed before exact-tip independent
-review. Any reviewer correction remains a docs-only Good-signed descendant and
-returns to the same Luna.
+Good-signed revised docs candidate
+`fcc520998c206c2f244fab8d75b69fe8ac96bf64`, tree
+`445b1615dea553b328c2dbf79bb88ee342943862`, descends directly from
+reconciliation `d3f1980d...` and changes exactly the six files in this folder.
+The same pinned Luna accepted that exact tip with P0=0/P1=0/P2=0 and requested
+only that its completed result be appended to the terminal docs. The resulting
+final docs-only Good-signed descendant is returned to that same reviewer for a
+narrow no-overreach verification before handoff.
 
 A commit cannot contain its own object ID or a later review result. The exact
 terminal SHA, Good signature, final severity ledger, stable-current-main
