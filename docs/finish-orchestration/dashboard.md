@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-04T12:58:11Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-04T13:05:52Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -40,7 +40,7 @@ Generated from committed JSON at `2026-08-04T12:58:11Z`. This dashboard reports 
 | LANE-R2-RULES-RESTARTS | gameplay_behavior | complete | complete | R2-RULES-RESTARTS | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | Complete: exact Good-signed terminal 1f23235 passed personal Sol and same-Luna P0/P1/P2/P3-zero QA, active contract wording is reconciled, domain ownership is released, and immutable 1f23235 is routed to dedicated current-main integration QA. All five child tasks and the Sol returned pinned=false after durable control; branches/worktrees/docs/proof remain preserved. |
 | LANE-R2D-RULES-RESTARTS-INTEGRATION-QA | integration_qa | complete | complete | R2D-RULES-RESTARTS-INTEGRATION-QA | S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001 | codex/r2d-rules-restarts-integration-qa-sol | Complete: terminal Good-signed ed060720 passed Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only delivered and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Sol and Luna both returned pinned=false; all tasks and artifacts remain preserved and unarchived. |
 | LANE-R2-GAMEPLAY-PRESENTATION | gameplay_presentation | complete | complete | R2-GAMEPLAY-PRESENTATION | S-SOL-R2-GAMEPLAY-PRESENTATION-001 | codex/r2-gameplay-presentation-sol | Complete: exact Good-signed d8d8119 passed personal and same-Luna P0/P1/P2/P3-zero terminal QA and is routed as an immutable input to active R2E Integration QA. Domain ownership is released; Sol and all five child tasks returned pinned=false while every branch, worktree, report, proof, and artifact remains preserved and unarchived. |
-| LANE-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA | integration_qa | active | ready | R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA | S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-001 | codex/r2e-gameplay-presentation-integration-qa-sol | The sole Luna returned final terminal PASS with product/tooling P0/P1/P2/P3 zero, but the original Sol entered systemError before emitting its handoff. One sequential Sol/max recovery replacement is reserved on the same clean bdc2fbb branch/worktree; confirm takeover, inherit the existing Luna evidence, issue the guarded handoff, then retire the failed predecessor. |
+| LANE-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA | integration_qa | active | ready | R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA | S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001 | codex/r2e-gameplay-presentation-integration-qa-sol | Recovery Sol 019fccdd confirmed exact clean takeover of bdc2fbb, stable ed060720 main, immutable d8d8119 staging, all five reports, and the existing Luna's zero-finding terminal PASS. Unpin the failed predecessor, then require the recovery Sol to issue the missing guarded handoff without new product/report/main mutation. |
 | LANE-R3-PLAYER-STATS-LEADERS | season_data | complete | complete | R3-PLAYER-STATS-LEADERS | S-SOL-R3-PLAYER-STATS-LEADERS-001 | codex/r3-player-stats-leaders-sol | Good-signed 13-path terminal 7897871 passed personal and sole independent terminal QA with no findings and is ready for dedicated current-main staging/integration QA. Preserve unsupported-counter and adjacent-domain exclusions; main/staging/origin/push remain master-only until a separately reserved integration lane completes. |
 
 ## Rounds
@@ -87,7 +87,7 @@ Generated from committed JSON at `2026-08-04T12:58:11Z`. This dashboard reports 
 | 99 | R0A-ADOPT-CPU-TIP | gameplay_behavior | R0A | pushed | S-SOL-CPU-TIP-LEGACY | codex/cpu-tipoff-behavior | 1 | historical_sol_accepted | pushed |
 | 99 | R2C-DEFENSE-CONTACT-INTEGRATION-QA | integration | R2C | pushed | S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001 | codex/r2c-defense-contact-integration-qa-sol | 3 | passed | pushed |
 | 99 | R2D-RULES-RESTARTS-INTEGRATION-QA | integration | R2D | pushed | S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001 | codex/r2d-rules-restarts-integration-qa-sol | 3 | passed | pushed |
-| 99 | R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA | integration | R2E | sol_review | S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-001 | codex/r2e-gameplay-presentation-integration-qa-sol | 3 | recovery_reserved | not_ready |
+| 99 | R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA | integration | R2E | sol_review | S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001 | codex/r2e-gameplay-presentation-integration-qa-sol | 3 | recovery_handoff | not_ready |
 | 99 | R4-AUDIO-FOUNDATION | audio | R4A | pushed | S-SOL-R4-AUDIO-001 | codex/round-4a-audio-foundation-staging | 10 | passed | pushed |
 | 98 | R0A-ADOPT-TIP-VIS | gameplay_presentation | R0A | pushed | S-SOL-TIP-VIS-LEGACY | codex/tipoff-visual-orientation | 6 | historical_sol_accepted | pushed |
 | 98 | R1-LIVE-FOUNDATION | gameplay_behavior | R1A | pushed | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 3 | passed | pushed |
@@ -109,8 +109,8 @@ Generated from committed JSON at `2026-08-04T12:58:11Z`. This dashboard reports 
 
 | Session | Role | Model/thinking | Status | Pin | Tasks | Branch | Worktree | Last good |
 |---|---|---|---|---|---|---|---|---|
-| S-MASTER-001 | master | gpt-5.6-sol/max | blocked | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 5b8a13b30620 |
-| S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-001 | integration_orchestrator | gpt-5.6-sol/max | active | pinned | R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA | codex/r2e-gameplay-presentation-integration-qa-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2e-gameplay-presentation-integration-qa-sol | bdc2fbb8f5b8 |
+| S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 5b8a13b30620 |
+| S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001 | integration_orchestrator | gpt-5.6-sol/max | active | pinned | R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA | codex/r2e-gameplay-presentation-integration-qa-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2e-gameplay-presentation-integration-qa-sol | bdc2fbb8f5b8 |
 | S-SOL-R3-PLAYER-STATS-LEADERS-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R3-PLAYER-STATS-LEADERS | codex/r3-player-stats-leaders-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r3-player-stats-leaders-sol | 7897871aa1e3 |
 
 ## Active Ownership

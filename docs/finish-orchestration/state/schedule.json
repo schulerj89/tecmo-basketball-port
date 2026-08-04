@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T12:58:11Z",
+  "updated_at": "2026-08-04T13:05:52Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -435,14 +435,14 @@
       "readiness": "active",
       "dependency_status": "ready",
       "reservation_owner_session_id": "S-MASTER-001",
-      "orchestrator_session_id": "S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-001",
+      "orchestrator_session_id": "S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001",
       "base_sha": "ed060720a98b790f98591af363a490a0e0816018",
       "branch": "codex/r2e-gameplay-presentation-integration-qa-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2e-gameplay-presentation-integration-qa-sol",
       "ownership_claim_ids": ["OWN-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"],
       "blockers": [],
-      "next_gate": "The sole Luna returned final terminal PASS with product/tooling P0/P1/P2/P3 zero, but the original Sol entered systemError before emitting its handoff. One sequential Sol/max recovery replacement is reserved on the same clean bdc2fbb branch/worktree; confirm takeover, inherit the existing Luna evidence, issue the guarded handoff, then retire the failed predecessor.",
-      "updated_at": "2026-08-04T12:58:11Z"
+      "next_gate": "Recovery Sol 019fccdd confirmed exact clean takeover of bdc2fbb, stable ed060720 main, immutable d8d8119 staging, all five reports, and the existing Luna's zero-finding terminal PASS. Unpin the failed predecessor, then require the recovery Sol to issue the missing guarded handoff without new product/report/main mutation.",
+      "updated_at": "2026-08-04T13:05:52Z"
     },
     {
       "lane_id": "LANE-R3-PLAYER-STATS-LEADERS",

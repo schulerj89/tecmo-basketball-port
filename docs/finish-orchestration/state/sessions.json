@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T12:58:11Z",
+  "updated_at": "2026-08-04T13:05:52Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -10,7 +10,7 @@
       "role": "master",
       "model": "gpt-5.6-sol",
       "thinking": "max",
-      "status": "blocked",
+      "status": "active",
       "pin_state": "pinned",
       "round_ids": ["R0", "R0A", "R1A", "R1", "R2", "R3A", "R3", "R4A", "R4"],
       "task_ids": ["R0-CTRL-001", "R0A-INV-001"],
@@ -23,16 +23,18 @@
       "reported_luna_lineage": [],
       "recovery_lineage": [],
       "failure": {
-        "count": 0,
-        "raw_error_signatures": [],
+        "count": 1,
+        "raw_error_signatures": [
+          "overbroad recovery-reservation status hunk marked S-MASTER-001 blocked instead of the failed R2E predecessor in signed 99c1edf; corrected in the next signed registry checkpoint before recovery takeover"
+        ],
         "retry_session_ids": [],
         "replacement_session_id": null,
         "takeover_confirmed_at": null
       },
       "created_at": "2026-08-03T04:18:18Z",
       "completed_at": null,
-      "updated_at": "2026-08-03T18:45:20Z",
-      "notes": "Master owns coordination state, round integration, and main pushes; no product implementation or product QA. User-authorized incremental delivery subrounds R1A and R3A prevent accepted work from waiting behind unrelated parent-round tasks. Capacity target is four active domain Sols plus bounded Integration QA Sols within the eight-session monitoring limit. A second master is recovery-only to prevent split queue/merge/push authority."
+      "updated_at": "2026-08-04T13:01:45Z",
+      "notes": "Master owns coordination state, round integration, and main pushes; no product implementation or product QA. User-authorized incremental delivery subrounds R1A and R3A prevent accepted work from waiting behind unrelated parent-round tasks. Capacity target is four active domain Sols plus bounded Integration QA Sols within the eight-session monitoring limit. A second master is recovery-only to prevent split queue/merge/push authority. During R2E replacement bookkeeping, signed reservation 99c1edf temporarily recorded the master session as blocked because an overbroad status hunk targeted the first active session; the next signed registry checkpoint restores the master to active and correctly records the failed R2E predecessor as replaced before recovery takeover."
     },
     {
       "session_id": "S-SOL-R1-GAMEPLAY-DUP-001",
@@ -762,7 +764,7 @@
       "role": "integration_orchestrator",
       "model": "gpt-5.6-sol",
       "thinking": "max",
-      "status": "active",
+      "status": "replaced",
       "pin_state": "pinned",
       "round_ids": ["R2E"],
       "task_ids": ["R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"],
@@ -772,15 +774,42 @@
       "last_good_sha": "bdc2fbb8f5b8497f4855b80e8834696220036aba",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
+      "reported_luna_lineage": [],
+      "recovery_lineage": [],
+      "failure": {"count":2,"raw_error_signatures":["create_thread returned JSON as a string so same-script pin extraction did not execute","Codex task status became exactly systemError after the sole Luna delivered final terminal PASS and before Sol emitted the terminal guarded handoff"],"retry_session_ids":["019fcc72-721f-7683-bdc2-26f69f0563be"],"replacement_session_id":"S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001","takeover_confirmed_at":"2026-08-04T13:05:52Z"},
+      "created_at": "2026-08-04T10:34:47Z",
+      "completed_at": "2026-08-04T12:15:24Z",
+      "updated_at": "2026-08-04T13:05:52Z",
+      "notes": "Created once and pinned immediately on the first attempt after Good-signed reservation ab832e8 and exact main/candidate/ref/worktree preflight. Full read-only takeover and exact branch-only ff-only to immutable d8d8119/tree 856ffbe passed with protected refs unchanged. Sol's initial complete matrix remained product P0/P1/P2/P3 zero; sole Luna 019fcc72 found only the fixed-scratch runner P2. Under Good-signed Option-A control 20a4d4e, Sol created exact Good-signed one-runner corrective a4c1286, personally verified unique invocation-owned build scratch and exact-self cleanup, and reran the complete safety/build/proof/visual matrix successfully. The same pinned Luna independently accepted a4c1286 and closed product/tooling P0/P1/P2/P3 at zero. Sol then created exact Good-signed five-report terminal bdc2fbb, and the same Luna independently returned terminal PASS with product/tooling P0/P1/P2/P3 all zero. At 2026-08-04T12:15:24Z the Sol task status became exactly systemError before it emitted the terminal guarded handoff. Git state is preserved clean at bdc2fbb. Replacement recovery session S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001 was created once and pinned under signed reservation 99c1edf and confirmed exact clean takeover at 2026-08-04T13:05:52Z; predecessor unpin is now authorized."
+    },
+    {
+      "session_id": "S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001",
+      "thread_id": "019fccdd-694b-7000-b0c1-3926c8e55e0d",
+      "title": "Tecmo R2E Gameplay Presentation Integration QA Recovery — Sol Max",
+      "role": "integration_orchestrator",
+      "model": "gpt-5.6-sol",
+      "thinking": "max",
+      "status": "active",
+      "pin_state": "pinned",
+      "round_ids": ["R2E"],
+      "task_ids": ["R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"],
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2e-gameplay-presentation-integration-qa-sol",
+      "branch": "codex/r2e-gameplay-presentation-integration-qa-sol",
+      "base_sha": "bdc2fbb8f5b8497f4855b80e8834696220036aba",
+      "last_good_sha": "bdc2fbb8f5b8497f4855b80e8834696220036aba",
+      "reports_to_session_id": "S-MASTER-001",
+      "parent_session_id": null,
       "reported_luna_lineage": [
         "019fcc72-721f-7683-bdc2-26f69f0563be"
       ],
-      "recovery_lineage": [],
-      "failure": {"count":2,"raw_error_signatures":["create_thread returned JSON as a string so same-script pin extraction did not execute","Codex task status became exactly systemError after the sole Luna delivered final terminal PASS and before Sol emitted the terminal guarded handoff"],"retry_session_ids":["019fcc72-721f-7683-bdc2-26f69f0563be"],"replacement_session_id":null,"takeover_confirmed_at":null},
-      "created_at": "2026-08-04T10:34:47Z",
+      "recovery_lineage": [
+        "S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-001"
+      ],
+      "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
+      "created_at": "2026-08-04T13:01:45Z",
       "completed_at": null,
-      "updated_at": "2026-08-04T12:58:11Z",
-      "notes": "Created once and pinned immediately on the first attempt after Good-signed reservation ab832e8 and exact main/candidate/ref/worktree preflight. Full read-only takeover and exact branch-only ff-only to immutable d8d8119/tree 856ffbe passed with protected refs unchanged. Sol's initial complete matrix remained product P0/P1/P2/P3 zero; sole Luna 019fcc72 found only the fixed-scratch runner P2. Under Good-signed Option-A control 20a4d4e, Sol created exact Good-signed one-runner corrective a4c1286, personally verified unique invocation-owned build scratch and exact-self cleanup, and reran the complete safety/build/proof/visual matrix successfully. The same pinned Luna independently accepted a4c1286 and closed product/tooling P0/P1/P2/P3 at zero. Sol then created exact Good-signed five-report terminal bdc2fbb, and the same Luna independently returned terminal PASS with product/tooling P0/P1/P2/P3 all zero. At 2026-08-04T12:15:24Z the Sol task status became exactly systemError before it emitted the terminal guarded handoff. Git state is preserved clean at bdc2fbb; master has reserved one same-branch Sol/max recovery replacement and will keep this predecessor pinned until takeover is confirmed."
+      "updated_at": "2026-08-04T13:05:52Z",
+      "notes": "Created once and pinned on the first attempt as the sequential recovery replacement under Good-signed reservation 99c1edf. It personally confirmed exact clean bdc2fbb/tree 9fd2af3, Good signatures, sole-parent/linear ancestry, diff-check, immutable d8d8119 staging, unchanged local/tracking/live ed060720 main, all five reports, and the sole Luna's final terminal PASS with zero mutation. It is now the authoritative recovery owner and may issue the missing guarded terminal handoff; no product/report/proof/ref/main/staging/origin/push mutation and no new Luna/task is authorized."
     },
     {
       "session_id": "S-SOL-R3-PLAYER-STATS-LEADERS-001",
@@ -850,7 +879,7 @@
       "worker_id":"019fcc9a-6bef-71f1-b327-85d5a7d87f52","thread_id":"019fcc9a-6bef-71f1-b327-85d5a7d87f52","title":"Tecmo R3 Player Stats Leaders Terminal QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"idle","pin_state":"pinned","reported_by_session_id":"S-SOL-R3-PLAYER-STATS-LEADERS-001","round_ids":["R3"],"task_ids":["R3-PLAYER-STATS-LEADERS"],"worktree":null,"branch":null,"base_sha":"7897871aa1e392f7650203e23d106b9ad9d7fbbf","last_good_sha":"7897871aa1e392f7650203e23d106b9ad9d7fbbf","contribution":"Sole independent top-level projectless terminal reviewer returned PASS with no findings at frozen Good-signed candidate 7897871/tree d73faff. It independently verified signature/parent/tree/scope, corrected screen-template resolver, complete stats/save/leader contract, deterministic gameplay/season/team proof, all accepted and rejected hashes, six original-resolution frames, classifications, ownership, and stable protected refs with zero tracked mutation or task fault. It remains pinned/idle pending durable lifecycle acceptance.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T12:10:06Z"
     },
     {
-      "worker_id":"019fcc72-721f-7683-bdc2-26f69f0563be","thread_id":"019fcc72-721f-7683-bdc2-26f69f0563be","title":"Tecmo R2E Gameplay Presentation Integration QA — Independent Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-001","round_ids":["R2E"],"task_ids":["R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":"d8d811918932c19bbe1741d2392ec1ad942ebd79","last_good_sha":"bdc2fbb8f5b8497f4855b80e8834696220036aba","contribution":"Sole prescribed projectless read-only R2E Integration QA lineage. Initial audit accepted the product and found only the fixed-scratch runner P2; the same lineage accepted Good-signed corrective a4c1286 and closed product/tooling P0/P1/P2/P3 at zero. It is now actively reviewing exact Good-signed five-report terminal bdc2fbb, its linear ancestry, reports, proofs, classifications, clean branch, and protected refs. No tracked/index/ref/main/staging/product write or outside-lane authority.","recovery_lineage":[],"failure":{"count":2,"raw_error_signatures":["create result was JSON-encoded text so same-script pin extraction did not execute","report-message transport rejected a formatting delimiter before same-task plain-text resend"],"retry_worker_ids":["019fcc72-721f-7683-bdc2-26f69f0563be"],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T12:07:07Z"
+      "worker_id":"019fcc72-721f-7683-bdc2-26f69f0563be","thread_id":"019fcc72-721f-7683-bdc2-26f69f0563be","title":"Tecmo R2E Gameplay Presentation Integration QA — Independent Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"idle","pin_state":"pinned","reported_by_session_id":"S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001","round_ids":["R2E"],"task_ids":["R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":"d8d811918932c19bbe1741d2392ec1ad942ebd79","last_good_sha":"bdc2fbb8f5b8497f4855b80e8834696220036aba","contribution":"Sole prescribed projectless read-only R2E Integration QA lineage. It accepted the product, identified the fixed-scratch runner P2, accepted Good-signed corrective a4c1286, and finally accepted exact terminal bdc2fbb with product/tooling P0/P1/P2/P3 all zero. It is inherited read-only by the sequential recovery Sol solely so the already-complete evidence can support the missing guarded handoff. No tracked/index/ref/main/staging/product write or outside-lane authority.","recovery_lineage":[],"failure":{"count":2,"raw_error_signatures":["create result was JSON-encoded text so same-script pin extraction did not execute","report-message transport rejected a formatting delimiter before same-task plain-text resend"],"retry_worker_ids":["019fcc72-721f-7683-bdc2-26f69f0563be"],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T13:01:45Z"
     },
     {
       "worker_id":"019fcc34-09f6-7be3-a24f-4031ca076b64","thread_id":"019fcc34-09f6-7be3-a24f-4031ca076b64","title":"Tecmo R2 Gameplay Presentation — Terminal Candidate Audit — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R2-GAMEPLAY-PRESENTATION-001","round_ids":["R2"],"task_ids":["R2-GAMEPLAY-PRESENTATION"],"worktree":null,"branch":null,"base_sha":"4cb0c43bcd4c7ca111c996b3788e1bd00a734424","last_good_sha":"d8d811918932c19bbe1741d2392ec1ad942ebd79","contribution":"Sole independent terminal auditor accepted product 4cb0c43 and exact Good-signed four-report Sol tip d8d8119 with P0/P1/P2/P3 zero. It verified parser/fixture/production-selection/determinism/hashes/classifications, exact signed-tip tree/parent/subject/scope/docs/control/ref guards, and the non-blocking gameplay-layup-contact-sheet.png naming note. It returned pinned=false under durable lifecycle release and remains preserved/unarchived.","recovery_lineage":[],"failure":{"count":2,"raw_error_signatures":["PowerShell tab-delimiter wrapper command rejected before execution","second PowerShell tab-delimiter wrapper command rejected before execution"],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T10:38:08Z"

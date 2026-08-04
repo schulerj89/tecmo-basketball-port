@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T12:10:06Z",
+  "updated_at": "2026-08-04T13:05:52Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -823,8 +823,8 @@
       ],
       "included_task_ids": ["R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"],
       "staging_branch": "codex/round-2e-gameplay-presentation-staging",
-      "sol_orchestrator_session_ids": ["S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-001"],
-      "integration_qa_session_id": "S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-001",
+      "sol_orchestrator_session_ids": ["S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001"],
+      "integration_qa_session_id": "S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001",
       "merge_order": ["R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"],
       "combined_qa": {
         "required": true,
@@ -855,7 +855,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-04T10:26:21Z",
-      "updated_at": "2026-08-04T10:34:47Z"
+      "updated_at": "2026-08-04T13:05:52Z"
     },
     {
       "round_id": "R5",
