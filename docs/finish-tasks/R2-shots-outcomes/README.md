@@ -1,9 +1,11 @@
 # Tecmo R2 Shots Outcomes
 
-Status: implementation candidate committed, with a docs-only QA revision currently
-uncommitted and pending same-QA revised-tip verification and final Sol acceptance.
-This document describes the bounded native implementation in the Luna worker
-worktree; it is not an acceptance certificate.
+Status: the implementation commit and committed QA-lineage child are exact:
+`24bdde9c87b1529d9ab83671bc8c60c1e136ceb1` and
+`8be0258e83369bce58d3a9eabedb4ef575127b25`. The terminal metadata tip SHA and
+its subsequent same-QA terminal-tip verification are supplied in the
+authoritative Sol/master handoff because a commit cannot contain its own object
+ID or a later audit result. This record does not assert final QA acceptance.
 
 ## Lineage and handoff
 
@@ -29,6 +31,11 @@ worktree; it is not an acceptance certificate.
 - Candidate commit stat: 17 owned paths, 7977 insertions, 420 deletions. The
   branch/worktree were clean after the candidate commit. No merge, rebase, push,
   or force operation has been performed.
+- Committed QA-lineage child: `8be0258e83369bce58d3a9eabedb4ef575127b25`,
+  parent `24bdde9c87b1529d9ab83671bc8c60c1e136ceb1`, tree
+  `5863c301ed00e8dedbc9e2af12a3c8b97ea876f3`, message
+  `docs: record R2 shot outcomes`, exactly 3 docs, 138 insertions, and 30
+  deletions.
 
 The revision lineage contains the Sol-supplied live-review rounds covering
 transactional loaders and shot wrappers, neutral numeric-1 identity/exposure, direction
@@ -44,9 +51,11 @@ that raw A7A9 metadata on a MAKE never activates the miss-only rattle bit. The
 R1 exact and native-approximate A7A9 MAKE regressions both pass: the exact
 bounded search resolves team 0/roster 0, vector 0 (`dx=-320,dy=64`), launch
 frame 42, sample `AC0D3E09`, probability 5. Sol visual review is complete.
-Independent QA found no actionable runtime/code issue; its initial P2
-stale-lineage documentation finding is resolved by this R2 docs revision.
-Same-QA revised-tip verification and final Sol acceptance remain pending.
+Independent QA found no actionable runtime/code issue. Its initial stale-lineage
+P2 was resolved in the committed QA-lineage child; revised-tip QA then found one
+self-reference P2 only, addressed by the terminal metadata revision. No final
+QA acceptance claim is made here; authoritative Sol/master handoff supplies that
+terminal disposition.
 
 ## Scope
 
@@ -256,6 +265,24 @@ Transactional/fail-closed loaders and state, geometry/sample/context, matrices,
 points, routes/rattle, claimant, expiry, CPU defer, malformed/replay, and
 evidence classifications all cleared independently.
 
+### R2 revised-tip QA and terminal metadata boundary
+
+QA fast-forwarded only its branch/worktree to the committed QA-lineage child
+`8be0258e83369bce58d3a9eabedb4ef575127b25`. QA verified exact HEAD/tree/parent/
+merge-base, a clean worktree, and the exact three-doc identity. All non-doc
+blobs were identical to the implementation candidate; the excluded-file blob
+hashes remained `58ad821d31a5559225855fbb30a1566d374063e7` for
+`src/tecmo_gameplay_scene.c` and `b6fc46a927f1a0cddedf7a965d3ebb4ad7d23b7f`
+for `src/asset_pack/tecmo_asset_pack_source_map.c`. Initial runtime acceptance
+carries without rerun. Revised-tip QA found one self-reference P2 only, resolved
+by the terminal metadata revision.
+
+The implementation commit and committed QA-lineage child are exact. The
+terminal metadata tip SHA and its subsequent same-QA terminal-tip verification
+are supplied in the authoritative Sol/master handoff because a commit cannot
+contain its own object ID or a later audit result. This record does not assert
+final QA acceptance.
+
 ## Sol-owned ignored proof provenance and visual-proof boundary
 
 The following local artifacts and observations were supplied by Sol and are
@@ -423,13 +450,13 @@ dependencies or committed evidence.
 
 See [FAULT-LEDGER.md](FAULT-LEDGER.md) for the ordinary failed commands,
 diagnostic interpretations, and fixes retained in this candidate-commit lineage.
-The candidate baseline was clean at
-`24bdde9c87b1529d9ab83671bc8c60c1e136ceb1`; the current child is intentionally
-a docs-only, uncommitted QA revision. `git diff --check` is clean, all current
-changed paths are docs-owned, and explicit worktree/index/range zero-diff checks
-confirm that both excluded shared files, `src/tecmo_gameplay_scene.c` and
-`src/asset_pack/tecmo_asset_pack_source_map.c`, remain untouched. Same-QA
-revised-tip verification and final Sol acceptance remain pending; the shared-file
-name/source-map follow-ups remain incomplete and deferred. This docs-only child
-cannot embed its own future object ID; terminal handoff will supply its exact
-commit SHA.
+The candidate baseline is exact at
+`24bdde9c87b1529d9ab83671bc8c60c1e136ceb1`, and the committed QA-lineage child
+is exact at `8be0258e83369bce58d3a9eabedb4ef575127b25`. QA recorded clean
+worktree/index/range checks, three docs only, and both excluded shared files,
+`src/tecmo_gameplay_scene.c` and
+`src/asset_pack/tecmo_asset_pack_source_map.c`, untouched. The terminal metadata
+tip SHA and its subsequent same-QA terminal-tip verification are supplied in the
+authoritative Sol/master handoff because a commit cannot contain its own object
+ID or a later audit result. This record does not assert final QA acceptance; the
+shared-file name/source-map follow-ups remain incomplete and deferred.

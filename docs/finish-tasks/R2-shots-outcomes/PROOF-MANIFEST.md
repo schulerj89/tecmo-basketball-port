@@ -13,8 +13,11 @@ proof recordings remain ignored and are not committed.
   `222d75cfafa9153db1eb44492bf557f11b1a9091`
 - Candidate tree: `367c14eb390f53a7b7a45c08d9ad1a02ab44d415`; commit stat: 17
   owned paths, 7977 insertions, 420 deletions
-- Candidate branch/worktree were clean after the implementation commit; the
-  current child is docs-only and intentionally uncommitted
+- Candidate branch/worktree were clean after the implementation commit
+- Committed QA-lineage child: `8be0258e83369bce58d3a9eabedb4ef575127b25`,
+  parent `24bdde9c87b1529d9ab83671bc8c60c1e136ceb1`, tree
+  `5863c301ed00e8dedbc9e2af12a3c8b97ea876f3`, message
+  `docs: record R2 shot outcomes`, exactly 3 docs, 138 insertions, 30 deletions
 - ROM: 393232 bytes, personally reverified by Sol post-R1, SHA-256
   `076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4`
 - Build mode: PowerShell `/W4` path with `TECMO_SKIP_SHORTCUT=1`
@@ -261,19 +264,38 @@ cleared transactional/fail-closed loaders and state, geometry/sample/context,
 matrices, points, routes/rattle, claimant, expiry, CPU defer, malformed/replay,
 and evidence classifications.
 
+## R2 revised-tip QA and terminal metadata boundary
+
+QA fast-forwarded only its branch/worktree to
+`8be0258e83369bce58d3a9eabedb4ef575127b25` and verified exact HEAD, tree,
+parent, and merge-base, a clean worktree, and the exact three-doc identity.
+The three docs were `README.md`, `PROOF-MANIFEST.md`, and `FAULT-LEDGER.md`.
+All non-doc blobs were identical to the implementation candidate. The excluded
+blob hashes remained `58ad821d31a5559225855fbb30a1566d374063e7` for
+`src/tecmo_gameplay_scene.c` and `b6fc46a927f1a0cddedf7a965d3ebb4ad7d23b7f`
+for `src/asset_pack/tecmo_asset_pack_source_map.c`. Initial runtime acceptance
+carries without rerun. Revised-tip QA found one self-reference P2 only, resolved
+by the terminal metadata revision.
+
+The implementation commit and committed QA-lineage child are exact. The
+terminal metadata tip SHA and its subsequent same-QA terminal-tip verification
+are supplied in the authoritative Sol/master handoff because a commit cannot
+contain its own object ID or a later audit result. This record does not assert
+final QA acceptance.
+
 ## Commit and acceptance state
 
 Implementation candidate commit: `24bdde9c87b1529d9ab83671bc8c60c1e136ceb1`,
 parent/base `222d75cfafa9153db1eb44492bf557f11b1a9091`, tree
 `367c14eb390f53a7b7a45c08d9ad1a02ab44d415`, message
-`feat: complete R2 shot outcomes`. No implementation commit is pending. This
-QA revision is docs-only and intentionally uncommitted; its future object ID
-cannot be stated until commit. Candidate branch/worktree were clean after the
-implementation commit. Independent QA found no runtime/code issue; same-QA
-revised-tip verification and final Sol acceptance remain pending. The current
-changed paths are docs-owned, `git diff --check` is clean, and explicit
-worktree/index/range zero-diff checks confirm that
-`src/tecmo_gameplay_scene.c` and
-`src/asset_pack/tecmo_asset_pack_source_map.c` remain untouched. Shared-file
-name/source-map follow-ups remain incomplete and deferred. Terminal handoff
-will supply the docs-only child commit SHA.
+`feat: complete R2 shot outcomes`. Committed QA-lineage child:
+`8be0258e83369bce58d3a9eabedb4ef575127b25`, parent
+`24bdde9c87b1529d9ab83671bc8c60c1e136ceb1`, tree
+`5863c301ed00e8dedbc9e2af12a3c8b97ea876f3`, message
+`docs: record R2 shot outcomes`, exactly 3 docs, 138 insertions, 30 deletions.
+QA recorded clean worktree/index/range checks and exact docs-only scope.
+The terminal metadata tip SHA and its subsequent same-QA terminal-tip
+verification are supplied in the authoritative Sol/master handoff because a
+commit cannot contain its own object ID or a later audit result. This record does
+not assert final QA acceptance. The excluded files remain untouched, and
+shared-file name/source-map follow-ups remain incomplete and deferred.

@@ -2,7 +2,9 @@
 
 This ledger records ordinary failed commands and review-found defects in the
 same candidate-commit Luna lineage. It is diagnostic history, not a claim that
-the failures remain. The current child revision is docs-only and uncommitted.
+the failures remain. The implementation commit and committed QA-lineage child
+are exact; terminal metadata and subsequent terminal-tip verification are
+supplied in the authoritative Sol/master handoff.
 
 | Checkpoint | Observed failure | Cause / disposition |
 | --- | --- | --- |
@@ -27,7 +29,12 @@ the failures remain. The current child revision is docs-only and uncommitted.
 | Docs-consistency search invocation | Initial `rg` search treated a pattern beginning with `--root` as an option | Read-only verification invocation mistake; the search was rerun with `rg --` and passed. |
 | Sol post-commit audit | Unquoted PowerShell `$base..HEAD` produced git usage | No repository state changed; an explicit `$range="$base..HEAD"` retry passed. |
 | QA initial scope correction | QA initially considered the Three.js/browser screenshot skill | Sol corrected scope before any browser/product action; QA proceeded native-only. Non-material, not a task fault. |
-| Independent QA initial verdict | One P2 stale-lineage documentation issue | No runtime/code findings; this R2 docs-only correction resolves it pending revised-tip verification. |
+| Independent QA initial verdict | One P2 stale-lineage documentation issue | No runtime/code findings; the committed QA-lineage child resolved it. Revised-tip QA found one self-reference P2 only, addressed by the terminal metadata revision. |
+| QA PowerShell null/encoding check | One null/encoding issue during QA verification | Read-only/non-material; corrected rerun passed and no repository state changed. |
+| QA `$head` ownership check | One incorrect `$head` ownership check | Read-only/non-material; corrected rerun passed and no repository state changed. |
+| QA tree-reference check | One quoted `HEAD^{tree}`/head typo | Read-only/non-material; corrected rerun passed and no repository state changed. |
+| QA revised-status commands | Two transient PowerShell quote/parser errors in combined status commands | Read-only/non-material; corrected reruns passed and no repository state changed. |
+| Sol revised-QA follow-up message | First script failed JavaScript parsing because markdown backticks terminated a template literal | Retry without backticks succeeded; no task or repository state changed. |
 
 No destructive recovery command, reset, merge, rebase, push, or excluded-file
 edit was used. No proprietary ROM, capture, video, save state, or runtime
@@ -52,15 +59,23 @@ replacement fault. The separate evidence task had one ordinary failed read
 command; Sol classified it as non-material, with no bad-request or replacement
 fault.
 
-## QA revision R2 and pending disposition
+## R2 revised-tip QA and terminal metadata disposition
 
 - Sol visual review is complete.
 - Independent QA task `019fca10-32a8-7fd0-8d8f-2f558c5d262f` found no actionable
-  runtime/code issue and one P2 stale-lineage documentation finding. This
-  docs-only R2 correction resolves the initial P2; same-QA revised-tip
-  verification and final Sol acceptance remain pending.
-- The docs-only child cannot embed its own future object ID; terminal handoff
-  will supply its exact commit SHA.
+  runtime/code issue. QA fast-forwarded only its branch/worktree to committed
+  QA-lineage child `8be0258e83369bce58d3a9eabedb4ef575127b25` and verified exact
+  HEAD/tree/parent/merge-base, clean worktree, and exact three-doc identity.
+- All non-doc blobs were identical to the implementation candidate; excluded
+  blob hashes remained `58ad821d31a5559225855fbb30a1566d374063e7` and
+  `b6fc46a927f1a0cddedf7a965d3ebb4ad7d23b7f`. Initial runtime acceptance
+  carries without rerun. Revised-tip QA found one self-reference P2 only,
+  resolved by this terminal metadata revision.
+- The implementation commit and committed QA-lineage child are exact. The
+  terminal metadata tip SHA and its subsequent same-QA terminal-tip verification
+  are supplied in the authoritative Sol/master handoff because a commit cannot
+  contain its own object ID or a later audit result. This record does not assert
+  final QA acceptance.
 - A future sequential transfer may update the shared `scene.c` shot-name
   switch and source-map wording; those shared-file follow-ups remain
   incomplete and are intentionally not part of this lane.
