@@ -11,8 +11,9 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $ExpectedRomSha256 =
     "076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4"
-$ExpectedTptiFnv32 = "99ADFE3D"
-$ExpectedTptiBytes = 5888
+$ExpectedTptiFnv32 = "28910BC1"
+$ExpectedTptiFnv64 = "7EA1596E8DFAC0C1"
+$ExpectedTptiBytes = 7680
 $ProofFirstFrame = 661
 $JumpContestFrameCount = 60
 $JumpContestLastFrame = $ProofFirstFrame + $JumpContestFrameCount - 1
@@ -21,11 +22,16 @@ $LiveContinuityFrameCount = 5
 $ProofLastFrame = $LiveHandoffFrame + $LiveContinuityFrameCount - 1
 $ProofFrameCount = $ProofLastFrame - $ProofFirstFrame + 1
 $ContestInputClockCap = 30
-$CpuSampleFrame = 8
+$HomeAutomaticSampleFrame = 21
 $AwaySampleLogicalFrame = $ProofFirstFrame + 1
-$HomeSampleLogicalFrame = $ProofFirstFrame + $CpuSampleFrame + 1
+$HomeSampleLogicalFrame =
+    $ProofFirstFrame + $HomeAutomaticSampleFrame + 1
 $NoSampleFrame = 65535
 $UnsampledTipError = 12
+$MaxSampleError = 11
+if ($HomeSampleLogicalFrame -ne 683) {
+    throw "TPTI-2 proof Home sample logical-frame formula changed: $HomeSampleLogicalFrame."
+}
 $ProofFrameRangeText = "${ProofFirstFrame}-${ProofLastFrame}"
 $ProofFirstFrameName = "tipoff-{0:D4}.png" -f $ProofFirstFrame
 $ProofLastFrameName = "tipoff-{0:D4}.png" -f $ProofLastFrame
@@ -305,6 +311,18 @@ function Get-Fnv32 {
     return $Hash.ToString("X8")
 }
 
+Add-Type -AssemblyName System.Numerics
+function Get-Fnv64 {
+    param([byte[]]$Bytes)
+    $Modulus = [System.Numerics.BigInteger]::One -shl 64
+    $Hash = [System.Numerics.BigInteger]::Parse("14695981039346656037")
+    $Prime = [System.Numerics.BigInteger]::Parse("1099511628211")
+    foreach ($Byte in $Bytes) {
+        $Hash = (($Hash -bxor [System.Numerics.BigInteger]$Byte) * $Prime) % $Modulus
+    }
+    return $Hash.ToString("X16")
+}
+
 function Get-AssetPackPayload {
     param([byte[]]$Bytes, $Entry)
     if ($Entry.offset -gt [uint64][int]::MaxValue -or
@@ -318,6 +336,7 @@ function Get-AssetPackPayload {
         bytes = $Payload
         sha256 = Get-ByteArraySha256 -Bytes $Payload
         fnv1a32 = Get-Fnv32 -Bytes $Payload
+        fnv1a64 = Get-Fnv64 -Bytes $Payload
     }
 }
 
@@ -384,11 +403,13 @@ function Get-AssetPackIdentity {
             flags = [BitConverter]::ToUInt32($Bytes, $EntryOffset + 100)
             sha256 = $null
             fnv1a32 = $null
+            fnv1a64 = $null
         }
         if ($RequiredIds -contains $Name) {
             $Payload = Get-AssetPackPayload -Bytes $Bytes -Entry $Entry
             $Entry.sha256 = $Payload.sha256
             $Entry.fnv1a32 = $Payload.fnv1a32
+            $Entry.fnv1a64 = $Payload.fnv1a64
         }
         $Entries[$Name] = $Entry
     }
@@ -420,15 +441,17 @@ function Get-AssetPackIdentity {
     if ($SourceMap.format -ne "tecmo.assetpack.source-map/1" -or
         $SourceMap.input_contract -ne "ines-only" -or
         $MappedTip.Count -ne 1 -or
-        $MappedTip[0].schema -ne "tecmo.gameplay-pre-tip/TPTI-1") {
-        throw "Asset-pack source-map is missing the canonical TPTI-1 provenance."
+        $MappedTip[0].schema -ne "tecmo.gameplay-pre-tip/TPTI-2") {
+        throw "Asset-pack source-map is missing the canonical TPTI-2 provenance."
     }
     $TptiPayload = Get-AssetPackPayload -Bytes $Bytes `
         -Entry $Entries["gameplay/pre-tip"]
-    if ($TptiPayload.bytes.Length -lt 6 -or
+    if ($TptiPayload.bytes.Length -lt 512 -or
         [Text.Encoding]::ASCII.GetString($TptiPayload.bytes, 0, 4) -ne "TPTI" -or
-        [BitConverter]::ToUInt16($TptiPayload.bytes, 4) -ne 1) {
-        throw "Canonical gameplay/pre-tip is not a TPTI-1 payload."
+        [BitConverter]::ToUInt16($TptiPayload.bytes, 4) -ne 2 -or
+        [BitConverter]::ToUInt16($TptiPayload.bytes, 6) -ne 512 -or
+        [BitConverter]::ToUInt32($TptiPayload.bytes, 8) -ne 7680) {
+        throw "Canonical gameplay/pre-tip is not a TPTI-2 payload."
     }
     $RequiredEntries = [ordered]@{}
     foreach ($RequiredId in $RequiredIds) {
@@ -437,6 +460,7 @@ function Get-AssetPackIdentity {
             bytes = $Entry.size
             sha256 = $Entry.sha256
             fnv1a32 = $Entry.fnv1a32
+            fnv1a64 = $Entry.fnv1a64
         }
     }
     return [pscustomobject][ordered]@{
@@ -471,8 +495,10 @@ if ([int]$TptiIdentity.bytes -ne $ExpectedTptiBytes) {
 }
 $TptiPayloadLength = [int]$TptiIdentity.bytes
 $TptiFnv32 = $TptiIdentity.fnv1a32
-if ($TptiFnv32 -ne $ExpectedTptiFnv32) {
-    throw "TPTI payload fingerprint changed: $TptiFnv32."
+$TptiFnv64 = $TptiIdentity.fnv1a64
+if ($TptiFnv32 -ne $ExpectedTptiFnv32 -or
+    $TptiFnv64 -ne $ExpectedTptiFnv64) {
+    throw "TPTI payload fingerprint changed: $TptiFnv32/$TptiFnv64."
 }
 $ChrIdentity = $PackIdentity.required_entries["chr/all"]
 if ([int]$ChrIdentity.bytes -ne 262144 -or
@@ -659,9 +685,9 @@ function Assert-TipoffDiagnostic {
     $HomeSampleExpected = $Frame -ge $HomeSampleLogicalFrame
     if ($HomeSampleExpected) {
         if ([int]$Diagnostic.'home-sampled' -ne 1 -or
-            [int]$Diagnostic.'home-sample-frame' -ne $CpuSampleFrame -or
-            [int]$Diagnostic.'home-error' -ne $CpuSampleFrame) {
-            throw "Home CPU sample-frame-$CpuSampleFrame contract failed at frame $Frame."
+            [int]$Diagnostic.'home-sample-frame' -ne $HomeAutomaticSampleFrame -or
+            [int]$Diagnostic.'home-error' -ne $MaxSampleError) {
+            throw "Home CPU sample-frame-$HomeAutomaticSampleFrame/error-$MaxSampleError contract failed at frame $Frame."
         }
     } elseif ([int]$Diagnostic.'home-sampled' -ne 0 -or
         [int]$Diagnostic.'home-sample-frame' -ne $NoSampleFrame -or
@@ -1250,11 +1276,11 @@ $SummaryLines = @(
     "executable SHA256: $ExecutableSha256 ($($ExecutableItem.Length) bytes; stale-input check passed)",
     "asset pack: $($PackIdentity.canonical_path)",
     "asset pack SHA256: $PackSha256 ($($PackItem.Length) bytes; $($PackIdentity.entry_count) entries)",
-    "asset pack canonical entries: gameplay/pre-tip=$TptiPayloadLength bytes/$TptiFnv32; chr/all=$($ChrIdentity.bytes) bytes/$($ChrIdentity.fnv1a32)",
+    "asset pack canonical entries: gameplay/pre-tip=$TptiPayloadLength bytes/$TptiFnv32/$TptiFnv64; chr/all=$($ChrIdentity.bytes) bytes/$($ChrIdentity.fnv1a32)",
     "frames: $ProofFrameRangeText ($ProofFrameCount contiguous frames; contest=$ProofFirstFrame-$JumpContestLastFrame ($JumpContestFrameCount updates), live=$LiveHandoffFrame-$ProofLastFrame ($LiveContinuityFrameCount updates); deterministic double render)",
     "native cadence: $NativeFrameRateText fps ($NativeFrameRateDisplay Hz; frame period $NativeFrameDurationSeconds seconds)",
     "input: P1/Away physical X down+up is translated by the production TecmoWin32KeyboardState/TecmoControls adapter at the first visible JUMP_CONTEST update; exactly one bridged tecmo_runtime_update_players call carries the fast pulse, literal B remains unmapped, and no direct TecmoInput.cancel is used; source=$CheckpointSourcePath",
-    "input samples: Away assigned human samples at contest frame 0 on logical frame $AwaySampleLogicalFrame; unassigned Home CPU samples at contest frame $CpuSampleFrame on logical frame $HomeSampleLogicalFrame",
+    "input samples: Away assigned human samples at contest frame 0/error 0 on logical frame $AwaySampleLogicalFrame; unassigned Home CPU samples at bounded one-down native-approximate logical frame $HomeSampleLogicalFrame with raw sample frame $HomeAutomaticSampleFrame/error $MaxSampleError",
     "input source SHA256: $CheckpointSourceSha256",
     "shortcut audit: $ShortcutScriptPath SHA256=$ShortcutScriptSha256; GUI launch is tecmo_port_game.exe --root <project> --play; no native capture option",
     "output: 640x480; active view x=$ActiveLeft..$ActiveRight; both host margins verified black",
@@ -1306,6 +1332,7 @@ $Manifest = [pscustomobject][ordered]@{
         rom_or_payload_committed = $false
         tpti_payload_bytes = $TptiPayloadLength
         tpti_payload_fnv1a32 = $TptiFnv32
+        tpti_payload_fnv1a64 = $TptiFnv64
     }
     asset_pack = [pscustomobject][ordered]@{
         canonical_path = $PackIdentity.canonical_path
@@ -1352,17 +1379,17 @@ $Manifest = [pscustomobject][ordered]@{
         native_checkpoint_source_sha256 = $CheckpointSourceSha256
         controller_1_team = "Away"
         schedule = "neutral through logical frame $ProofFirstFrame; physical X down+up is bridged between ticks at the first visible JUMP_CONTEST update (logical frame $AwaySampleLogicalFrame), then neutral adapter ticks through live handoff frame $LiveHandoffFrame"
-        input_semantics = "P1/Away uses the production TecmoWin32KeyboardState/TecmoControls fast-X bridge with literal physical B unmapped; one tecmo_runtime_update_players call is bracketed by begin/end per replay tick, with no direct TecmoInput.cancel assignment; Away human samples contest frame 0 and Home CPU samples contest frame $CpuSampleFrame"
+        input_semantics = "P1/Away uses the production TecmoWin32KeyboardState/TecmoControls fast-X bridge with literal physical B unmapped; one tecmo_runtime_update_players call is bracketed by begin/end per replay tick, with no direct TecmoInput.cancel assignment; Away human samples contest frame 0/error 0 and Home CPU takes the bounded one-down native-approximate sample at logical frame $HomeSampleLogicalFrame with raw sample frame $HomeAutomaticSampleFrame/error $MaxSampleError"
         observed_away_sample_frame = 0
         observed_away_tip_error = 0
-        observed_home_sample_frame = $CpuSampleFrame
-        observed_home_tip_error = $CpuSampleFrame
+        observed_home_sample_frame = $HomeAutomaticSampleFrame
+        observed_home_tip_error = $MaxSampleError
         home_tip_sampled = $true
     }
     assertions = @(
         "all $ProofFrameCount contiguous logical frames $ProofFirstFrame..$ProofLastFrame are rendered, including $JumpContestFrameCount contest frames and $LiveContinuityFrameCount live-handoff continuity frames",
         "the first visible JUMP_CONTEST update uses the real fast-X Win32 keyboard/control bridge, literal B is unmapped, direct TecmoInput.cancel is zero, and begin/end bracket exactly one tecmo_runtime_update_players call per tick",
-        "Away assigned human samples at contest frame 0/logical frame $AwaySampleLogicalFrame and unassigned Home CPU samples at contest frame $CpuSampleFrame/logical frame $HomeSampleLogicalFrame",
+        "Away assigned human samples at contest frame 0/error 0/logical frame $AwaySampleLogicalFrame and unassigned Home CPU takes a bounded native-approximate sample at logical frame $HomeSampleLogicalFrame with raw sample frame $HomeAutomaticSampleFrame/error $MaxSampleError",
         "both TPTI jumper actors 4 and 9 are visible, symmetric, center-camera, and anchor-ordered in every contest frame $ProofFirstFrame..$JumpContestLastFrame; current HUD player names are present",
         "every JUMP_CONTEST diagnostic asserts inward generic action facing with left-facing-right=1/right-facing-right=0; the LIVE handoff restores TGOR goal-facing with Away left",
         "both jumper screen Y, altitude, and pose follow the crouch/takeoff/rise/apex/fall/landing stages, including exact boundary diagnostics",

@@ -3494,9 +3494,14 @@ static int append_gameplay_pretip_source_map_entry(
         "tipoff-closeup-control",
         "tipoff-closeup-timing-and-lineup-tables",
         "fixed-d861-sprite-staging",
-        "center-tip-object-setup","center-tip-object-update",
+        "center-tip-object-setup","later-general-collision-settlement",
         "pregame-launch-bridge","live-handoff",
-        "tipoff-orientation-select"
+        "tipoff-orientation-e537-e542-ordering",
+        "b04-capture-error-exact-overlap","shared-actor-dispatcher",
+        "automatic-actor-path","opposing-actor-dispatcher",
+        "opposing-selected-actor-path","actor-jump-commit-state-0b",
+        "slot10-claim-commit-state-17","e56e-one-byte-hook-anchor",
+        "cd96-cdab-rng-mix"
     };
     const char *prefix = *first != 0 ? "" : ",\n";
     size_t index;
@@ -3504,20 +3509,25 @@ static int append_gameplay_pretip_source_map_entry(
     if (tecmo_asset_pack_append_text(
             buffer, capacity, length,
             "%s    {\"id\":\"%s\",\"kind\":\"gameplay-pre-tip-presentation\","
-            "\"schema\":\"tecmo.gameplay-pre-tip/TPTI-1\","
+            "\"schema\":\"tecmo.gameplay-pre-tip/TPTI-2\","
             "\"payload_size\":%u,\"payload_fingerprint_fnv1a32\":\"%08X\","
+            "\"payload_fingerprint_fnv1a64\":\"%016llX\","
             "\"dependencies\":["
             "{\"entry\":\"gameplay/core\",\"schema\":\"tecmo.gameplay/TGPL-1\",\"size\":23416,\"fingerprint_fnv1a32\":\"2047CCE0\"},"
             "{\"entry\":\"menu/team-data\",\"schema\":\"tecmo.team-data/TTDT-1\",\"size\":96372,\"fingerprint_fnv1a32\":\"812628F0\"},"
             "{\"entry\":\"audio/music\",\"schema\":\"tecmo.music/TMUS-1\",\"size\":36784,\"fingerprint_fnv1a32\":\"05C00ECB\"},"
             "{\"entry\":\"arena/intro/warriors-transition\",\"schema\":\"tecmo.intro.warriors/TWAR-1\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\"},"
+            "{\"entry\":\"gameplay/jump-shots\",\"schema\":\"tecmo.gameplay-jump-shots/TGJS-2\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\"},"
             "{\"entry\":\"chr/all\",\"size\":262144,\"fingerprint_fnv1a32\":\"F6F6E854\",\"fingerprint_fnv1a64\":\"96A64F53B240ABB4\"}],"
             "\"sources\":[",
             prefix, TECMO_ASSET_PACK_GAMEPLAY_PRETIP_ID,
             TECMO_ASSET_PACK_GAMEPLAY_PRETIP_SIZE,
             TECMO_ASSET_PACK_GAMEPLAY_PRETIP_FNV1A32,
+            (unsigned long long)TECMO_ASSET_PACK_GAMEPLAY_PRETIP_FNV1A64,
             TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TWAR_SIZE,
-            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TWAR_FNV1A32) != 0) {
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TWAR_FNV1A32,
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TGJS_SIZE,
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TGJS_FNV1A32) != 0) {
         return -1;
     }
     for (index = 0U; index < TECMO_GAMEPLAY_PRETIP_SOURCE_COUNT; ++index) {
@@ -3561,10 +3571,11 @@ static int append_gameplay_pretip_source_map_entry(
         "\"fingerprint_fnv1a32\":\"423816F1\","
         "\"fingerprint_fnv1a64\":\"032F8A7A4F4439D1\","
         "\"rom_exact\":true,"
-        "\"proves\":\"current-level NES B mask $40 is read and latched before the later height/countdown gate; the exact Bank05 $98E1 lda $030C,Y / beq L9920 branch sends nonzero through $04A5,X/L9360/L9354/L9936 and zero to the held-B test at $05,Y & $40, supporting but not proving an automatic/CPU-selector interpretation\","
-        "\"does_not_prove\":\"winner settlement, caller/state identity, exact CPU/human or automatic/CPU-selector meaning of $030C,Y, or original CPU timing/decision cadence\"},"
-        "\"tip_input\":\"the first 30 native jump-contest updates accept the first held NES B level routed by team; target frame 0, capped error 0..11, no-sample error 12, and tie-away settlement are explicit native approximations; an unassigned team receives one deterministic CPU decision at contest frame 8 inside that visible window as an evidence-informed approximation, not a claim of exact automatic-path timing\","
-        "\"winner_query_gate\":\"rejects before jump-contest without mutating caller output; accepted during jump-contest and live\","
+        "\"proves\":\"the exact Bank05 $985E-$986A current-B sampling/wait/countdown subspan inside the 49-byte opposing selected-actor path\","
+        "\"does_not_prove\":\"the separate $98E1 $030C,Y path, winner settlement, caller/state identity, selector/team/receiver mapping, or original CPU timing/decision cadence\"},"
+        "\"tip_input\":\"the first 30 native jump-contest updates accept the first held NES B level routed by team; target frame 0, capped sampled error 0..11, no-sample error 12, and no-input/equal-height contests fail closed; unassigned branches use the bounded native-faithful/approximate 20/21/22 calibration (both automatic Away 20/Home 22, single automatic 21) only after the strict $839F threshold seam\","
+        "\"tpti_mechanics\":{\"version\":2,\"magic\":\"TPM2\",\"capture_error\":\"B04 $86E1-$8817 exact clocked capture/error, intentionally overlapping the stored closeup entry\",\"shared_dispatch\":\"B05 $8351-$839E actor-state/$839F and shared-state/$8642 paths; $8642 is a false friend, not slot-10 TIP logic\",\"automatic\":\"B05 $839F strict ball-high > $3D+(($6A & 31)>>2), with zero-control human/countdown path\",\"opposing\":\"B05 $9824-$984F opposing dispatcher and $985E-$988E opposing selected-actor path; the exact $985E-$986A TIP_INPUT subspan remains a separate 13-byte overlap\",\"jump_commit\":\"B05 $9C79-$9CC8 actor commit at $9C7F, source-pinned $8D92 helper, actor state $0B\",\"slot10_claim\":\"B05 $A214-$A2DE equality deferral and ball-minus-jumper < $3A, commit $0478=$17 at $A2D2 with $A2D5 post-store seam\",\"later_settlement\":\"B05 $98E1-$9A5F is later/general collision settlement, not TIP claim\",\"ordering\":\"fixed $E537-$E542 proves high-bit ordering into $0758; fixed $E56E is a one-byte executable hook anchor only, with recurring/handoff labels mapper-gated\",\"rng\":\"fixed $CD96-$CDAB exact $6A mix seam; native downstream velocity/raw-height bridge is deterministic and approximate\"},"
+        "\"winner_query_gate\":\"rejects before jump-contest without mutating caller output; during jump-contest succeeds only after a resolved, nondeferred, nonstalled claim; LIVE requires the same resolved claimant\","
         "\"tip_lineup\":\"Bank04 $AC8C-$ACD9 initializes object slots 0..10 from $ADA3/$ADAE/$ADB9; native play consumes the exact ten player coordinates and ball anchor\","
         "\"tip_jumper_selectors\":[4,9],"
         "\"tip_animation\":\"both TPTI-selected actors use the native 30-frame contest-input window and a native 60-update crouch/takeoff/rise/apex/contact/fall/land presentation; generic action poses use actor-facing mirroring, pose and projected altitude are native approximations, while anchors and live handoff remain transactional\","
@@ -3574,8 +3585,8 @@ static int append_gameplay_pretip_source_map_entry(
         "\"ball_descent\":\"Y 71..145 over the first 60 of 120 frames, then held through the phase boundary\","
         "\"clock_rules_controls\":\"frozen until live handoff\","
         "\"music\":\"track 8 at card start; game-music track 5 only at live handoff\","
-        "\"winner_policy\":\"native lower-error contest timing drives jump interaction and initial possession; an unassigned team samples at fixed contest frame 8 as an explicit CPU approximation, equal errors choose away deterministically, while exact original winner, claim settlement, the inferred CPU/human selector meaning of the $030C,Y branch, and original timing remain unported\","
-        "\"runtime_inputs\":\"TPTI-1 and exact same-pack dependencies only; no ROM, ASM, decompilation, Lua, trace, capture, screenshot, video, log, dump, or save state\"}}",
+        "\"winner_policy\":\"resolved native claimant actor/team drives possession; accepted CPU-vs-CPU compatibility preserves Away and holder slot 0 through the native bridge, not a claim that raw selector_00 proves team ownership; jumper selection and opaque $0380/$037F receiver/holder selection remain separate, equal/no-input contests stall, and complete original tie settlement/TTDT-to-$7C48 trajectory remain incomplete\","
+        "\"runtime_inputs\":\"TPTI-2 and exact same-pack TGPL/TTDT/TMUS/TWAR/TGJS/CHR dependencies only; no ROM, ASM, decompilation, Lua, trace, capture, screenshot, video, log, dump, or save state\"}}",
         (unsigned long long)(
             provenance->source_offsets[
                 TECMO_GAMEPLAY_PRETIP_SOURCE_TIP_SETUP - 1U] + 3U));

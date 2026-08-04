@@ -114,12 +114,19 @@ static void live_proof_controls_neutral(TecmoControlFrame *frame)
 
 static bool live_proof_advance_pretip(TecmoGameplayScene *scene)
 {
+    TecmoControlFrame away;
     TecmoControlFrame neutral;
     size_t update;
+    live_proof_controls_neutral(&away);
     live_proof_controls_neutral(&neutral);
     for (update = 0U; update < LIVE_PROOF_MAX_PRETIP_UPDATES; ++update) {
         if (!tecmo_gameplay_scene_in_pretip(scene)) return true;
-        if (!tecmo_gameplay_scene_update(scene, &neutral, &neutral)) {
+        live_proof_controls_neutral(&away);
+        if (scene->pretip_state.phase ==
+            TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
+            away.held.cancel = true;
+        }
+        if (!tecmo_gameplay_scene_update(scene, &away, &neutral)) {
             return false;
         }
     }

@@ -850,8 +850,9 @@ The native scene therefore accepts each team's first held B during the first
 30 `JUMP_CONTEST` input updates, after routing controllers by assigned team;
 the selected jumpers remain visible for the full 60-update presentation.
 Contest frame 0 is the native timing target, error is capped at 11, no sample
-is 12, lower error wins, and equal errors choose away. A hold carried into the
-phase samples frame 0; an edge without a held level does not. This deterministic
+is 12, lower error wins, and equal errors defer the native claim; the original
+single-winner tie policy remains incomplete. A hold carried into the phase
+samples frame 0; an edge without a held level does not. This deterministic
 window and timing policy are explicit native approximations. B cannot sample a
 tip during the close-up or court/toss phases and cannot cancel those phases.
 The public winner query rejects every phase before `JUMP_CONTEST` without

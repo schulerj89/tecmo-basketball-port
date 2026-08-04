@@ -802,8 +802,9 @@ machinery, but not the original timing or winner settlement. During the first
 30 `JUMP_CONTEST` updates, the native scene routes pads by assigned team and
 retains that team's first held B sample; the selected jumpers remain visible
 through the complete 60-update presentation. Frame 0 is the native timing
-target, error caps at 11, no sample is 12, lower error wins, and equal errors
-choose away; this complete timing/winner policy is an explicit approximation.
+target, error caps at 11, and no sample is 12. Lower error wins. Equal captured
+errors defer the native claim because the original single-winner tie settlement
+remains unproven. This timing policy is an explicit native approximation.
 B cannot sample a tip in the close-up, court, or toss phases and cannot cancel
 those phases. Winner queries fail closed before `JUMP_CONTEST` without changing
 caller-owned output. Other inputs are inert throughout the presentation. Rules,
@@ -821,8 +822,8 @@ for ten players plus the ball in canonical TGCT space. The scene consumes the
 exact coordinate, sprite-slot base, and facing-selected pose without a second
 horizontal mirror. Raw object-state behavior, jump interpolation, the
 capture-bounded ball descent, and exact original claim/tie settlement are not
-implied. Equal errors
-still choose away deterministically. State updates validate phase bounds, total-frame
+implied. Equal captured errors defer the native claim because the original
+single-winner tie settlement remains unproven. State updates validate phase bounds, total-frame
 coherence, sample/error/sample-frame coherence, terminal flags, and overflow
 before committing a candidate state; rejection must leave the caller state
 unchanged. Run
