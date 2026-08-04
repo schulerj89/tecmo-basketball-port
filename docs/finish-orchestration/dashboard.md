@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-04T01:26:15Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-04T01:41:48Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -34,8 +34,8 @@ Generated from committed JSON at `2026-08-04T01:26:15Z`. This dashboard reports 
 | LANE-R2-CLOCK-LINEUPS-FATIGUE | gameplay_behavior | complete | complete | R2-CLOCK-LINEUPS-FATIGUE | S-SOL-R2-CLOCK-LINEUPS-001 | codex/r2-clock-lineups-fatigue-sol | Terminal signed domain tip ed4e56fc595894c692ffca84ae3b35f129317049 is accepted and frozen for the dedicated R2A current-main integration lane. Domain ownership is released; the accepted Sol may retire after durable control-plane closure. |
 | LANE-R1B-TIP-INTEGRATION-QA | integration_qa | active | ready | R1B-TIP-INTEGRATION-QA | S-SOL-R1B-TIP-INTEGRATION-QA-001 | codex/r1b-tip-integration-qa-sol | Good-signed guidance-only commit 7ba0066 removed the equal-away contradiction in exactly AGENTS.md/PORTING.md. Finish the owned ASM/native traceability table, have the same Luna verify correction/table/terminal chain, then create signed acceptance docs. |
 | LANE-R2A-CLOCK-LINEUPS-INTEGRATION-QA | integration_qa | complete | complete | R2A-CLOCK-LINEUPS-INTEGRATION-QA | S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001 | codex/r2a-clocks-integration-qa-sol | Complete: terminal Good-signed 8a5b992 passed combined zero-finding QA, was fast-forwarded/non-force pushed to main, and stable main plus both desktop launch shortcuts were rebuilt/verified. Preserve branches/worktrees for audit until guarded cleanup. |
-| LANE-R2B-SHOTS-OUTCOMES-INTEGRATION-QA | integration_qa | active | ready | R2B-SHOTS-OUTCOMES-INTEGRATION-QA | S-SOL-R2B-SHOTS-INTEGRATION-QA-001 | codex/r2b-shots-outcomes-integration-qa-sol | Good-signed branch-only merge 26e6aaf is complete with exact predicted tree 2d918e8, and the sole collision-cleared projectless pinned Luna/max 019fca5b is active. Sol must finish personal combined warning-clean/focused/full-scene/native-proof/cross-domain gates, reconcile independent P0/P1/P2, and produce a clean Good-signed terminal report descendant of then-current main. Main and push remain master-only. |
-| LANE-R2-DEFENSE-CONTACT | gameplay_behavior | active | ready | R2-DEFENSE-CONTACT | S-SOL-R2-DEFENSE-CONTACT-001 | codex/r2-defense-contact-sol | Good-signed focused candidate d5c5fa9 is personally accepted with exact eight-path scope and all raw oracle/rollback gates green. Create exactly one collision-cleared pinned projectless Luna/max for independent terminal QA, reuse worker 019fca31 only for objective corrections, and stop before Sol/domain/main integration until P0/P1/P2 closure. |
+| LANE-R2B-SHOTS-OUTCOMES-INTEGRATION-QA | integration_qa | active | ready | R2B-SHOTS-OUTCOMES-INTEGRATION-QA | S-SOL-R2B-SHOTS-INTEGRATION-QA-001 | codex/r2b-shots-outcomes-integration-qa-sol | Sol personal combined warning-clean/focused/full-scene/native-proof/flow/Win32/cross-domain gates all pass at Good-signed 26e6aaf with P0/P1/P2 zero. Sole pinned Luna 019fca5b must finish independent integrity review, then recheck terminal docs and a clean Good-signed terminal descendant before master-only guarded delivery. Main and push remain master-only. |
+| LANE-R2-DEFENSE-CONTACT | gameplay_behavior | active | ready | R2-DEFENSE-CONTACT | S-SOL-R2-DEFENSE-CONTACT-001 | codex/r2-defense-contact-sol | Independent QA Luna 019fca60 FAILed d5c5fa9 on one P1 runner-isolation and two P2 provenance/docs findings, with no C/runtime defect. Same worker 019fca31 must bind MSVC output to validated scratch via /Fo, remove and prove absence of the two exact ignored root objects, validate enclosing B06 $B081-$B365 SHA-256 AAA9670D...AE891AE36, and correct stale candidate wording; then create a Good-signed revision and reuse the same pinned QA before any Sol integration. |
 
 ## Rounds
 
@@ -67,7 +67,7 @@ Generated from committed JSON at `2026-08-04T01:26:15Z`. This dashboard reports 
 | 100 | R1B-TIP-INTEGRATION-QA | integration | R1B | in_progress | S-SOL-R1B-TIP-INTEGRATION-QA-001 | codex/r1b-tip-integration-qa-sol | 2 | pending | not_ready |
 | 100 | R2-SHOTS-OUTCOMES | gameplay_behavior | R2 | ready_for_round_staging | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | 3 | passed | ready |
 | 100 | R2A-CLOCK-LINEUPS-INTEGRATION-QA | integration | R2A | pushed | S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001 | codex/r2a-clocks-integration-qa-sol | 3 | accepted | pushed |
-| 100 | R2B-SHOTS-OUTCOMES-INTEGRATION-QA | integration | R2B | in_progress | S-SOL-R2B-SHOTS-INTEGRATION-QA-001 | codex/r2b-shots-outcomes-integration-qa-sol | 1 | pending | not_ready |
+| 100 | R2B-SHOTS-OUTCOMES-INTEGRATION-QA | integration | R2B | in_progress | S-SOL-R2B-SHOTS-INTEGRATION-QA-001 | codex/r2b-shots-outcomes-integration-qa-sol | 1 | in_progress | not_ready |
 | 100 | R3-PLAYER-STATS-LEADERS | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 100 | R3-SEASON-DATA-FOUNDATION | season_data | R3A | pushed | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | 7 | passed | pushed |
 | 100 | R3A-INTEGRATION-QA | integration | R3A | pushed | S-SOL-R3A-INTEGRATION-QA-001 | codex/r3a-season-data-integration-qa-sol | 1 | passed | pushed |
@@ -79,7 +79,7 @@ Generated from committed JSON at `2026-08-04T01:26:15Z`. This dashboard reports 
 | 99 | R4-AUDIO-FOUNDATION | audio | R4A | pushed | S-SOL-R4-AUDIO-001 | codex/round-4a-audio-foundation-staging | 10 | passed | pushed |
 | 98 | R0A-ADOPT-TIP-VIS | gameplay_presentation | R0A | pushed | S-SOL-TIP-VIS-LEGACY | codex/tipoff-visual-orientation | 6 | historical_sol_accepted | pushed |
 | 98 | R1-LIVE-FOUNDATION | gameplay_behavior | R1A | pushed | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 3 | passed | pushed |
-| 98 | R2-DEFENSE-CONTACT | gameplay_behavior | R2 | in_progress | S-SOL-R2-DEFENSE-CONTACT-001 | codex/r2-defense-contact-sol | 0 | pending | not_ready |
+| 98 | R2-DEFENSE-CONTACT | gameplay_behavior | R2 | in_progress | S-SOL-R2-DEFENSE-CONTACT-001 | codex/r2-defense-contact-sol | 0 | failed | not_ready |
 | 98 | R3-SEASON-PROGRESSION-SAVE | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 98 | R4-MENUS-UI | frontend | R4 | backlog | - | - | 0 | pending | not_ready |
 | 98 | R5-PARITY-GAP-CLOSURE | integration | R5 | backlog | - | - | 0 | pending | not_ready |

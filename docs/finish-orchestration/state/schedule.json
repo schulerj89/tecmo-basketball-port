@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T01:26:15Z",
+  "updated_at": "2026-08-04T01:41:48Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -327,8 +327,8 @@
         "OWN-R2B-SHOTS-OUTCOMES-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Good-signed branch-only merge 26e6aaf is complete with exact predicted tree 2d918e8, and the sole collision-cleared projectless pinned Luna/max 019fca5b is active. Sol must finish personal combined warning-clean/focused/full-scene/native-proof/cross-domain gates, reconcile independent P0/P1/P2, and produce a clean Good-signed terminal report descendant of then-current main. Main and push remain master-only.",
-      "updated_at": "2026-08-04T01:20:56Z"
+      "next_gate": "Sol personal combined warning-clean/focused/full-scene/native-proof/flow/Win32/cross-domain gates all pass at Good-signed 26e6aaf with P0/P1/P2 zero. Sole pinned Luna 019fca5b must finish independent integrity review, then recheck terminal docs and a clean Good-signed terminal descendant before master-only guarded delivery. Main and push remain master-only.",
+      "updated_at": "2026-08-04T01:41:48Z"
     },
     {
       "lane_id": "LANE-R2-DEFENSE-CONTACT",
@@ -351,8 +351,8 @@
         "OWN-R2-DEFENSE-CONTACT"
       ],
       "blockers": [],
-      "next_gate": "Good-signed focused candidate d5c5fa9 is personally accepted with exact eight-path scope and all raw oracle/rollback gates green. Create exactly one collision-cleared pinned projectless Luna/max for independent terminal QA, reuse worker 019fca31 only for objective corrections, and stop before Sol/domain/main integration until P0/P1/P2 closure.",
-      "updated_at": "2026-08-04T01:26:15Z"
+      "next_gate": "Independent QA Luna 019fca60 FAILed d5c5fa9 on one P1 runner-isolation and two P2 provenance/docs findings, with no C/runtime defect. Same worker 019fca31 must bind MSVC output to validated scratch via /Fo, remove and prove absence of the two exact ignored root objects, validate enclosing B06 $B081-$B365 SHA-256 AAA9670D...AE891AE36, and correct stale candidate wording; then create a Good-signed revision and reuse the same pinned QA before any Sol integration.",
+      "updated_at": "2026-08-04T01:39:05Z"
     }
   ]
 }

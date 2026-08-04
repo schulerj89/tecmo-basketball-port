@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T01:26:15Z",
+  "updated_at": "2026-08-04T01:41:48Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -1410,7 +1410,8 @@
       "reported_luna_worker_session_ids": [
         "019fca19-9ff5-7790-8721-5cf13de90aad",
         "019fca19-a8b5-7981-839c-7cce0353a3f3",
-        "019fca31-519c-7533-b710-7fc8fb09f424"
+        "019fca31-519c-7533-b710-7fc8fb09f424",
+        "019fca60-e2c5-7903-8b52-6df76809dd91"
       ],
       "result_commits": [],
       "evidence_ids": [],
@@ -1418,15 +1419,16 @@
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-tasks/R2-defense-contact",
       "qa": {
-        "status": "pending",
+        "status": "failed",
         "sol_signoff": false,
         "integration_signoff": false,
         "test_records": [
           "2026-08-04T00:27:29Z Sol and two independent read-only Luna audits reconciled the canonical Rev1 B06 $B081-$B108, B05 $9968-$999E, and B05 $9A24-$9A5F raw contracts, rejected semantic outcome labeling and existing TGAI/TPNL expansion, and proved the proposed three new paths collision-free. Master independently rechecked the files, branch, worktree path, and Git worktree registry as absent/collision-free before granting the raw-foundation scope.",
-          "2026-08-04T01:26:15Z Sol personally accepted Good-signed candidate d5c5fa9 (tree fcfd0c3, sole parent edf16ca) after exact eight-path ownership, diff-check, clean-tree, isolated MSVC C11 /W4 /WX, canonical Rev1 fingerprint/span, B081 scan, $9968 carry/borrow geometry, raw-$17 plan, transactional rollback/repeatability, and read-only boundary gates all passed. The candidate remains a focused raw/neutral foundation with no normal-build, scene, Shots, asset, source-map, semantic-outcome, staging, main, or push claim."
+          "2026-08-04T01:26:15Z Sol personally accepted Good-signed candidate d5c5fa9 (tree fcfd0c3, sole parent edf16ca) after exact eight-path ownership, diff-check, clean-tree, isolated MSVC C11 /W4 /WX, canonical Rev1 fingerprint/span, B081 scan, $9968 carry/borrow geometry, raw-$17 plan, transactional rollback/repeatability, and read-only boundary gates all passed. The candidate remains a focused raw/neutral foundation with no normal-build, scene, Shots, asset, source-map, semantic-outcome, staging, main, or push claim.",
+          "2026-08-04T01:39:05Z sole pinned projectless independent QA Luna 019fca60 returned FAIL on exact d5c5fa9 with no C/runtime arithmetic/control defect: P1 runner isolation because MSVC emitted two ignored root .obj files without scratch-directory /Fo binding; P2 omitted enclosing B06 $B081-$B365 741-byte SHA-256 AAA9670D...AE891AE36; and P2 stale README/LINEAGE uncommitted wording. Object/tree/parent/signature/eight paths, direct spans, raw code/oracles, /W4 /WX, diff-check, tracked cleanliness, and honest limitations passed. No Sol integration was attempted."
         ],
         "proof_manifests": [],
-        "notes": "Good-signed focused candidate d5c5fa9 is personally accepted as the pre-QA last-good. Independent terminal Luna/max QA must now verify exact object/signature/scope, raw oracles/fingerprints, transactional/fail-closed behavior, docs/classifications, and every exclusion. This scope does not authorize semantic outcome labels, normal executable integration, or any scene/asset/source-map mutation."
+        "notes": "Good-signed d5c5fa9 remains the pre-QA last-good only. Same worker 019fca31 must correct exactly the runner scratch /Fo isolation and root-object cleanup proof, enclosing B06 $B081-$B365 provenance fingerprint, and stale committed-candidate README/LINEAGE wording. Reuse the same pinned QA Luna 019fca60 on the corrected signed candidate; no Sol integration until PASS."
       },
       "merge": {
         "staging_branch": "codex/round-2-gameplay-mechanics-staging",
@@ -1439,7 +1441,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-04T01:26:15Z",
+      "updated_at": "2026-08-04T01:39:05Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -3375,21 +3377,22 @@
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-tasks/R2B-shots-outcomes-integration-qa",
       "qa": {
-        "status": "pending",
+        "status": "in_progress",
         "sol_signoff": false,
         "integration_signoff": false,
         "test_records": [
           "2026-08-04T01:01:24Z master accepted terminal domain tip 7b9287a9, verified all three Good SSH signatures, clean 17-path ownership, unchanged shared exclusions, zero current-main overlap, diff-check, and conflict-free merge-tree prediction, then reserved immutable R2B staging and an isolated 8a5b992-based Integration QA lane before Sol creation.",
           "2026-08-04T01:09:30Z after Good-signed reservation 4f942648, master created immutable staging ref 7b9287a9, a clean unique integration worktree/branch at 8a5b992, and exactly one pinned gpt-5.6-sol/max orchestrator 019fca51-55f5-7473-92b1-58dd241998f6 on the first attempt with no setup/retry/replacement fault. Read-only clean takeover is required before branch merge or Luna creation.",
           "2026-08-04T01:17:26Z Sol clean takeover independently verified exact refs, all Good signatures, 17 candidate versus 80 current-main paths with zero overlap, unchanged scene/source-map exclusions, clean diff-checks, and predicted tree 2d918e8; the authorized Good-signed no-ff branch merge 26e6aaf then completed with ordered parents 8a5b992 and 7b9287a and that exact tree. Main, origin/main, immutable staging, and remote main remained untouched.",
-          "2026-08-04T01:20:56Z post-merge collision/registry gate found no prior R2B Luna. Sol created and pinned the sole projectless read-only gpt-5.6-luna/max auditor 019fca5b-3b84-7a82-b2ab-588c50a4b7fd for combined-tip and terminal-doc QA. One first invocation was rejected locally for an invalid extra schema field and created no task or external state; the corrected invocation created the sole lineage."
+          "2026-08-04T01:20:56Z post-merge collision/registry gate found no prior R2B Luna. Sol created and pinned the sole projectless read-only gpt-5.6-luna/max auditor 019fca5b-3b84-7a82-b2ab-588c50a4b7fd for combined-tip and terminal-doc QA. One first invocation was rejected locally for an invalid extra schema field and created no task or external state; the corrected invocation created the sole lineage.",
+          "2026-08-04T01:41:48Z Sol personal combined gate at clean Good-signed 26e6aaf PASSed warning-clean /W4, TGCS/TGSR, full/direct scene, gameplay state replay, TGFL/TGFT, 86-entry asset pack/direct, audio, intro, season, team data/management, bound flow/NativeFlow, Win32, source/ASM/exclusion audit, and fresh two-pass 51-frame-per-pass native shots proof with all four accepted aggregate hashes exact and P0/P1/P2 zero. Fresh MP4s matched each other while differing from historical encoder hashes due FFmpeg 8.1 toolchain variance. Independent Luna 019fca5b reports no defect so far and is completing integrity review."
         ],
         "proof_manifests": [],
-        "notes": "The R2B Sol is in progress at exact Good-signed branch merge 26e6aaf, whose ordered parents are current-main base 8a5b992 and immutable accepted candidate 7b9287a9 and whose tree matches predicted 2d918e8. Personal combined product/proof/cross-domain QA and the sole pinned projectless auditor 019fca5b remain active. Main and push remain master-only."
+        "notes": "Good-signed merge 26e6aaf has complete personal combined product/proof/cross-domain P0/P1/P2-zero evidence. Sole pinned projectless auditor 019fca5b is finishing independent integrity review; terminal docs and final same-Luna verification remain before acceptance. Main and push remain master-only."
       },
       "merge": {"staging_branch":"codex/round-2b-shots-outcomes-staging","merge_order":1,"status":"not_ready","merge_commit":null,"main_pre_sha":"8a5b9928544a430efa34cbf98a248d6a8cbe7b14","main_post_sha":null,"push_sha":null,"pushed_at":null},
       "created_at": "2026-08-04T01:01:24Z",
-      "updated_at": "2026-08-04T01:20:56Z",
+      "updated_at": "2026-08-04T01:41:48Z",
       "audit": [
         {"timestamp":"2026-08-04T01:01:23Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Incremental delivery policy requires accepted Shots/Outcomes C code to reach stable main without waiting for the rest of Round 2."},
         {"timestamp":"2026-08-04T01:01:24Z","actor_session_id":"S-MASTER-001","from_state":"backlog","to_state":"scoped","reason":"Reserved exact docs-only Integration QA ownership, immutable signed 7b9287a9 staging, and the collision-cleared 8a5b992-based branch/worktree before creating a Sol orchestrator."},
