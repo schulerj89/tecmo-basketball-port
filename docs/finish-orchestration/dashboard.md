@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-04T04:26:26Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-04T04:41:08Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -37,7 +37,7 @@ Generated from committed JSON at `2026-08-04T04:26:26Z`. This dashboard reports 
 | LANE-R2B-SHOTS-OUTCOMES-INTEGRATION-QA | integration_qa | complete | ready | R2B-SHOTS-OUTCOMES-INTEGRATION-QA | S-SOL-R2B-SHOTS-INTEGRATION-QA-001 | codex/r2b-shots-outcomes-integration-qa-sol | Complete: terminal Good-signed 5229092 passed reconciled Sol and same-Luna P0/P1/P2-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; unpin is authorized after durable control acknowledgment. |
 | LANE-R2-DEFENSE-CONTACT | gameplay_behavior | complete | complete | R2-DEFENSE-CONTACT | S-SOL-R2-DEFENSE-CONTACT-001 | codex/r2-defense-contact-sol | Terminal Good-signed ed70d884 is Sol/independent accepted and frozen for dedicated current-main integration QA. Domain ownership is released; preserve branches/worktrees and focused proof for audit. Normal-build/runtime/player-facing and semantic downstream integration remain separate incomplete boundaries. |
 | LANE-R2C-DEFENSE-CONTACT-INTEGRATION-QA | integration_qa | complete | complete | R2C-DEFENSE-CONTACT-INTEGRATION-QA | S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001 | codex/r2c-defense-contact-integration-qa-sol | Complete: terminal Good-signed 7fe2dd7 passed reconciled Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; Sol/Luna unpin is authorized after durable control acknowledgment. |
-| LANE-R2-RULES-RESTARTS | gameplay_behavior | active | ready | R2-RULES-RESTARTS | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | Sole persistent writable Luna 019fcb05-7013-7453-87ff-2d92d3ad2b32 is active/pinned on clean codex/r2-rules-restarts-luna at 7fe2dd7 with exactly the five granted product/test paths. Sol must personally review every revision, enforce the frame-16 exact-once cue and restart matrix, preserve all semantic exclusions, require Good-signed clean ownership-compliant commits, then run proportional broad/visual QA and independent terminal review before handoff. |
+| LANE-R2-RULES-RESTARTS | gameplay_behavior | active | ready | R2-RULES-RESTARTS | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | Sole persistent writable Luna 019fcb05-7013-7453-87ff-2d92d3ad2b32 may complete the original five-path frame-16 cue/restart matrix plus exactly the inherited TGMO entry assertion/diagnostic in scene_test_state_flow.c to require no pre-delay SFX. No other state-flow logic is writable. Sol must personally review every revision, preserve all semantic exclusions, require Good-signed clean ownership-compliant commits, then run proportional broad/visual QA and independent terminal review before handoff. |
 
 ## Rounds
 
@@ -108,7 +108,7 @@ Generated from committed JSON at `2026-08-04T04:26:26Z`. This dashboard reports 
 
 | Claim | Task | Round | Mode | Writable globs | Concurrency group |
 |---|---|---|---|---|---|
-| OWN-R2-RULES-RESTARTS | R2-RULES-RESTARTS | R2 | exclusive | docs/finish-tasks/R2-rules-restarts/**<br>CMakeLists.txt<br>src/tecmo_gameplay_scene.c<br>src/tecmo_gameplay_scene_test_rules_restarts.c<br>src/tecmo_gameplay_scene_test_internal.h<br>src/tecmo_gameplay_scene_test_orchestrator.c | R2-rules-restarts |
+| OWN-R2-RULES-RESTARTS | R2-RULES-RESTARTS | R2 | exclusive | docs/finish-tasks/R2-rules-restarts/**<br>CMakeLists.txt<br>src/tecmo_gameplay_scene.c<br>src/tecmo_gameplay_scene_test_rules_restarts.c<br>src/tecmo_gameplay_scene_test_internal.h<br>src/tecmo_gameplay_scene_test_orchestrator.c<br>src/tecmo_gameplay_scene_test_state_flow.c | R2-rules-restarts |
 
 ## External Blockers
 
