@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T00:22:16Z",
+  "updated_at": "2026-08-04T00:28:30Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -571,18 +571,24 @@
       "session_id": "S-SOL-R2-DEFENSE-CONTACT-001",
       "mode": "exclusive",
       "writable_globs": [
-        "docs/finish-tasks/R2-defense-contact/**"
+        "docs/finish-tasks/R2-defense-contact/**",
+        "include/tecmo_gameplay_defense_contact.h",
+        "src/tecmo_gameplay_defense_contact.c",
+        "tools/Run-GameplayDefenseContactTests.ps1"
       ],
       "planned_paths": [
         "docs/finish-tasks/R2-defense-contact/README.md",
         "docs/finish-tasks/R2-defense-contact/EVIDENCE.md",
-        "docs/finish-tasks/R2-defense-contact/SCOPE.md"
+        "docs/finish-tasks/R2-defense-contact/SCOPE.md",
+        "include/tecmo_gameplay_defense_contact.h",
+        "src/tecmo_gameplay_defense_contact.c",
+        "tools/Run-GameplayDefenseContactTests.ps1"
       ],
       "concurrency_group": "R2-defense-contact",
       "active": true,
       "claimed_at": "2026-08-03T23:38:12Z",
       "released_at": null,
-      "notes": "Master reservation before Sol creation. Initial authority is docs-only evidence and native-gap audit. Product writable scope is withheld until the Sol proposes an exact collision-free path set and master explicitly grants it. R2 Shots retains first ownership of the shared scene contract; concurrent shared-file edits are forbidden."
+      "notes": "Master reservation before Sol creation, expanded at 2026-08-04T00:27:29Z after the accepted read-only evidence and collision gate. Authority adds exactly three previously nonexistent paths for a pure raw/neutral defense-contact foundation: include/tecmo_gameplay_defense_contact.h, src/tecmo_gameplay_defense_contact.c, and tools/Run-GameplayDefenseContactTests.ps1. APIs must preserve raw widths/state/order/wrap and use no semantic steal/block/rebound/recovery/contact/foul/matchup labels. No new asset family/source-map claim or normal-build integration is authorized. All scene, Shots, TGAI, TPNL, source-map/import-layout, build/CMake, game/flow/Win32, stats/season/rules/restarts/audio/possession/scoring, guidance, main/staging/push paths remain read-only. R2 Shots retains first ownership of the shared scene contract."
     }
   ],
   "shared_boundaries": [

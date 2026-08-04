@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T00:22:16Z",
+  "updated_at": "2026-08-04T00:28:30Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -279,8 +279,8 @@
         "OWN-R1B-TIP-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Signed merge 564d838 and combined runtime/proof/visual gates pass. Correct only the stale equal-tie-away wording in AGENTS.md and PORTING.md to native claim deferral plus incomplete original tie policy, have the same Luna verify the ASM/native traceability table and correction, then finish signed terminal docs.",
-      "updated_at": "2026-08-04T00:22:16Z"
+      "next_gate": "Good-signed guidance-only commit 7ba0066 removed the equal-away contradiction in exactly AGENTS.md/PORTING.md. Finish the owned ASM/native traceability table, have the same Luna verify correction/table/terminal chain, then create signed acceptance docs.",
+      "updated_at": "2026-08-04T00:28:30Z"
     },
     {
       "lane_id": "LANE-R2A-CLOCK-LINEUPS-INTEGRATION-QA",
@@ -327,8 +327,8 @@
         "OWN-R2-DEFENSE-CONTACT"
       ],
       "blockers": [],
-      "next_gate": "Clean takeover and Shots-boundary audit passed. Sol is running the read-only evidence/native-gap/collision phase and must return one exact product-scope proposal before any product write or writable Luna.",
-      "updated_at": "2026-08-03T23:50:13Z"
+      "next_gate": "Raw evidence/collision gate accepted. Create exactly one persistent Luna at codex/r2-defense-contact-luna from edf16ca with only the new defense_contact header/C/focused runner plus task docs; implement pure transactional raw contracts, focused fingerprints/oracles, and docs while preserving every scene/Shots/asset/source-map/build/main exclusion.",
+      "updated_at": "2026-08-04T00:27:29Z"
     }
   ]
 }

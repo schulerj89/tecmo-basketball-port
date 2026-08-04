@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T00:22:16Z",
+  "updated_at": "2026-08-04T00:28:30Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -552,7 +552,7 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1b-tip-integration-qa-sol",
       "branch": "codex/r1b-tip-integration-qa-sol",
       "base_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
-      "last_good_sha": "564d83835258ab48b9ea2ebcc867ba41e185822f",
+      "last_good_sha": "7ba0066ca1084e971a268d0b1b0176d065fdbd01",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
       "reported_luna_lineage": ["019fca13-3e2c-7e52-9e7a-198c66bdfef8"],
@@ -560,8 +560,8 @@
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T23:46:38Z",
       "completed_at": null,
-      "updated_at": "2026-08-04T00:22:16Z",
-      "notes": "Created once and immediately pinned after signed reservation bc0c680. Signed integration merge 564d838 has exact parent order/tree and passed build, TIP, scene, Win32, cross-domain, deterministic proof, and visual gates. One projectless independent Luna was created/pinned. The added ASM/native traceability audit passed requested raw spans and source-map roles but exposed stale equal-tie-away wording in AGENTS.md/PORTING.md. Master collision-checked and granted only those two guidance files for exact equal-claim-defers/incomplete-original-tie wording; runtime/source-map and main/push remain read-only."
+      "updated_at": "2026-08-04T00:28:30Z",
+      "notes": "Created once and immediately pinned after signed reservation bc0c680. Signed integration merge 564d838 has exact parent order/tree and passed build, TIP, scene, Win32, cross-domain, deterministic proof, and visual gates. One projectless independent Luna was created/pinned. The added ASM/native traceability audit passed requested raw spans and source-map roles but exposed stale equal-tie-away wording in AGENTS.md/PORTING.md. Master collision-checked and granted only those two guidance files; Good-signed commit 7ba0066 changed exactly them, removed the contradiction, passed diff-check, and left runtime/source-map untouched. Owned traceability docs, same-Luna terminal verification, and signed acceptance remain; main/push are master-only."
     },
     {
       "session_id": "S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001",
@@ -605,13 +605,16 @@
       "last_good_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
-      "reported_luna_lineage": [],
+      "reported_luna_lineage": [
+        "019fca19-9ff5-7790-8721-5cf13de90aad",
+        "019fca19-a8b5-7981-839c-7cce0353a3f3"
+      ],
       "recovery_lineage": [],
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T23:47:28Z",
       "completed_at": null,
-      "updated_at": "2026-08-03T23:50:13Z",
-      "notes": "Created once and immediately pinned after signed reservation bc0c680. Initial claim is docs-only evidence/native-gap audit at clean edf16ca. Product writes and any writable Luna are forbidden until Sol proposes an exact collision-free scope and master grants it; active Shots retains the sequential shared-scene boundary."
+      "updated_at": "2026-08-04T00:27:29Z",
+      "notes": "Created once and immediately pinned after signed reservation bc0c680. Sol personally reconciled two completed/unpinned projectless read-only Luna audits, canonical Rev1 raw spans, and the collision architecture. Master independently confirmed the three proposed files, worker branch/path, and registry are absent/collision-free, then granted exactly the new pure raw-foundation header/C/focused-runner paths and persistent codex/r2-defense-contact-luna allocation from edf16ca. All scene, Shots, existing asset families, source-map/build/runtime integration, semantic outcome, and main/push paths remain read-only."
     },
     {
       "session_id": "S-BLOCKERS-001",
@@ -647,7 +650,13 @@
   ],
   "reported_luna_workers": [
     {
-      "worker_id":"019fca13-3e2c-7e52-9e7a-198c66bdfef8","thread_id":"019fca13-3e2c-7e52-9e7a-198c66bdfef8","title":"Tecmo R1B TIP Integration Independent QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R1B-TIP-INTEGRATION-QA-001","round_ids":["R1B"],"task_ids":["R1B-TIP-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"564d83835258ab48b9ea2ebcc867ba41e185822f","contribution":"Sole top-level projectless/null-Git independent QA lineage for signed merge 564d838, accepted TIP/current-main integration evidence, deterministic proof, and terminal traceability/docs revisions. Created once and pinned; read-only review is active while Sol retains execution and personal visual acceptance.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T00:22:16Z"
+      "worker_id":"019fca19-9ff5-7790-8721-5cf13de90aad","thread_id":"019fca19-9ff5-7790-8721-5cf13de90aad","title":"Tecmo R2 Defense Contact Native Evidence Audit — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R2-DEFENSE-CONTACT-001","round_ids":["R2"],"task_ids":["R2-DEFENSE-CONTACT"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Projectless read-only audit of canonical Rev1 B06 $B081-$B108 and B05 $9968-$999E/$9A24-$9A5F raw behavior, fingerprints, stateful scan/wrap/tie semantics, geometry gate, and numeric state17 plan boundary. No writes/build/emulator authority; completed and unpinned after Sol acceptance.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T00:27:29Z"
+    },
+    {
+      "worker_id":"019fca19-a8b5-7981-839c-7cce0353a3f3","thread_id":"019fca19-a8b5-7981-839c-7cce0353a3f3","title":"Tecmo R2 Defense Contact Collision Architecture Audit — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R2-DEFENSE-CONTACT-001","round_ids":["R2"],"task_ids":["R2-DEFENSE-CONTACT"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Projectless read-only architecture/collision audit that rejected TGAI/TPNL expansion, preserved TGSR/TPNL semantic boundaries, and identified exactly three nonexistent collision-free paths for a pure raw/neutral foundation. No writes/build/emulator authority; completed and unpinned after Sol acceptance.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T00:27:29Z"
+    },
+    {
+      "worker_id":"019fca13-3e2c-7e52-9e7a-198c66bdfef8","thread_id":"019fca13-3e2c-7e52-9e7a-198c66bdfef8","title":"Tecmo R1B TIP Integration Independent QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R1B-TIP-INTEGRATION-QA-001","round_ids":["R1B"],"task_ids":["R1B-TIP-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"7ba0066ca1084e971a268d0b1b0176d065fdbd01","contribution":"Sole top-level projectless/null-Git independent QA lineage for signed merge 564d838, accepted TIP/current-main integration evidence, deterministic proof, and terminal traceability/docs revisions. Created once and pinned; read-only review is active while Sol retains execution and personal visual acceptance.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T00:28:30Z"
     },
     {
       "worker_id":"019fca0a-a7ff-7d92-b2ad-a6b5ab51aece","thread_id":"019fca0a-a7ff-7d92-b2ad-a6b5ab51aece","title":"Tecmo R2A Clock Lineups Fatigue Integration Independent QA - Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001","round_ids":["R2A"],"task_ids":["R2A-CLOCK-LINEUPS-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"8233cb4b7c86612cd290615927439caf83947b1e","contribution":"Sole top-level projectless/null-Git independent QA lineage for the frozen signed R2A merge and later runner/docs revisions. Created and pinned once with no setup fault, retry, or replacement; read-only audit is active while Sol owns all execution and personal visual acceptance.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T00:04:57Z"
