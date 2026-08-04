@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T07:58:28Z",
+  "updated_at": "2026-08-04T08:07:25Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -693,7 +693,7 @@
       "claim_id": "OWN-R2-GAMEPLAY-PRESENTATION",
       "task_id": "R2-GAMEPLAY-PRESENTATION",
       "round_id": "R2",
-      "session_id": "S-MASTER-001",
+      "session_id": "S-SOL-R2-GAMEPLAY-PRESENTATION-001",
       "mode": "exclusive",
       "writable_globs": [
         "docs/finish-tasks/R2-gameplay-presentation/**"
@@ -708,13 +708,13 @@
       "active": true,
       "claimed_at": "2026-08-04T07:58:28Z",
       "released_at": null,
-      "notes": "Master reservation only. Initial authority is docs-only and read-only-first from exact stable main ed060720. A future Sol may inspect current native code, tests, ignored proof, canonical Rev1 ROM/decomp/captures read-only, and create bounded projectless Luna auditors, but must request a later Good-signed exact product/test/build rescope before any non-doc mutation or writable worker. Shared scene, renderer, animation, asset/source-map, build, main/staging, push, cleanup, deletion, and archive remain excluded."
+      "notes": "Transferred from the master reservation to sole pinned Sol task 019fcbcb-8e96-7a41-b56c-5670f5c45dc2 under session S-SOL-R2-GAMEPLAY-PRESENTATION-001. Authority remains docs-only and read-only-first from exact stable main ed060720. The Sol may inspect current native code, tests, ignored proof, canonical Rev1 ROM/decomp/captures read-only, and create exactly three bounded projectless Luna auditors, but must request a later Good-signed exact product/test/build rescope before any non-doc mutation or writable worker. Shared scene, renderer, animation, asset/source-map, build, main/staging, push, cleanup, deletion, and archive remain excluded."
     },
     {
       "claim_id": "OWN-R3-PLAYER-STATS-LEADERS",
       "task_id": "R3-PLAYER-STATS-LEADERS",
       "round_id": "R3",
-      "session_id": "S-MASTER-001",
+      "session_id": "S-SOL-R3-PLAYER-STATS-LEADERS-001",
       "mode": "exclusive",
       "writable_globs": [
         "docs/finish-tasks/R3-player-stats-leaders/**"
@@ -729,7 +729,7 @@
       "active": true,
       "claimed_at": "2026-08-04T07:58:28Z",
       "released_at": null,
-      "notes": "Master reservation only. Initial authority is docs-only and read-only-first from exact stable main ed060720. A future Sol may inspect current native season/statistics/data code, tests, ignored proof, and canonical Rev1 evidence read-only, and create bounded projectless Luna auditors, but must request a later Good-signed exact product/test/build rescope before any non-doc mutation or writable worker. Season/save/team-management/All-Star/shared asset/source-map/build/main/staging/push/cleanup/delete/archive paths remain excluded."
+      "notes": "Transferred from the master reservation to sole pinned Sol task 019fcbcb-ecee-7fc1-9ab4-195ef4d7cc16 under session S-SOL-R3-PLAYER-STATS-LEADERS-001. Authority remains docs-only and read-only-first from exact stable main ed060720. The Sol may inspect current native season/statistics/data code, tests, ignored proof, and canonical Rev1 evidence read-only, and create exactly three bounded projectless Luna auditors, but must request a later Good-signed exact product/test/build rescope before any non-doc mutation or writable worker. Season/save/team-management/All-Star/shared asset/source-map/build/main/staging/push/cleanup/delete/archive paths remain excluded."
     }
   ],
   "shared_boundaries": [

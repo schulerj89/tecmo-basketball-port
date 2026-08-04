@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T07:52:42Z",
+  "updated_at": "2026-08-04T08:07:25Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -244,7 +244,8 @@
       "sol_orchestrator_session_ids": [
         "S-SOL-R2-SHOTS-001",
         "S-SOL-R2-DEFENSE-CONTACT-001",
-        "S-SOL-R2-RULES-RESTARTS-001"
+        "S-SOL-R2-RULES-RESTARTS-001",
+        "S-SOL-R2-GAMEPLAY-PRESENTATION-001"
       ],
       "integration_qa_session_id": null,
       "merge_order": [
@@ -260,7 +261,7 @@
         "accepted_sha": null,
         "report_path": null,
         "signed_by_session_id": null,
-        "notes": "Shots/outcomes R2B produced Good-signed new-main reconciliation d3f1980 and is rerunning combined gates before terminal. Defense terminal Good-signed raw-foundation tip ed70d884 is Sol-integrated, independently accepted with no findings, ownership-released, and routed to dedicated incremental current-main integration QA; normal-build/runtime/player-facing semantics remain incomplete. Shared scene/Shots/asset/source-map/build integration remains excluded. Rules, presentation, and full-round integration QA remain pending."
+        "notes": "Shots/outcomes, Defense, and Rules/Restarts have each completed dedicated current-main integration QA and are delivered through stable main ed060720. The sole R2 Gameplay Presentation Sol is now active from that stable main under docs-only/read-only-first authority; shared scene/renderer/animation/product scope remains withheld pending evidence/collision/proof-gap reconciliation and a later exact signed rescope. Full-round integration QA remains pending."
       },
       "acceptance": {
         "status": "pending",
@@ -357,7 +358,9 @@
         "R3-ALLSTAR"
       ],
       "staging_branch": "codex/round-3-season-completion-staging",
-      "sol_orchestrator_session_ids": [],
+      "sol_orchestrator_session_ids": [
+        "S-SOL-R3-PLAYER-STATS-LEADERS-001"
+      ],
       "integration_qa_session_id": null,
       "merge_order": [
         "R3-PLAYER-STATS-LEADERS",
@@ -371,7 +374,7 @@
         "accepted_sha": null,
         "report_path": null,
         "signed_by_session_id": null,
-        "notes": "The accepted foundation moved to authorized delivery subround R3A. Player stats/leaders, progression/save, management/data, and All-Star remain dependency-gated here; after R3A pushes, refresh this round base/staging metadata to the new main."
+        "notes": "The accepted R3A season-data foundation is already delivered through stable main ed060720. The sole R3 Player Stats/Leaders Sol is now active from that stable main under docs-only/read-only-first authority. Progression/save, management/data, All-Star, and final combined QA remain pending and must consume only accepted downstream contracts."
       },
       "acceptance": {
         "status": "pending",

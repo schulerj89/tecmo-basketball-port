@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T07:56:02Z",
+  "updated_at": "2026-08-04T08:10:44Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -725,6 +725,60 @@
       "notes": "Good-signed reconciliation 32721888 combined accepted main 5229092 with immutable Defense lineage at the exact predicted tree. Reconciled gates and sole-Luna audits closed P0/P1/P2/P3 zero at terminal 7fe2dd7; master guarded ff-only integrated and ordinary-pushed it, rebuilt stable main, and verified both desktop shortcuts. After Good-signed acceptance 16cffc5, Sol and Luna both returned pinned=false. Tasks, branches, worktrees, docs, and proof remain preserved and unarchived."
     },
     {
+      "session_id": "S-SOL-R2-GAMEPLAY-PRESENTATION-001",
+      "thread_id": "019fcbcb-8e96-7a41-b56c-5670f5c45dc2",
+      "title": "Tecmo R2 Gameplay Presentation Domain Orchestrator — Sol Max",
+      "role": "domain_orchestrator",
+      "model": "gpt-5.6-sol",
+      "thinking": "max",
+      "status": "active",
+      "pin_state": "pinned",
+      "round_ids": ["R2"],
+      "task_ids": ["R2-GAMEPLAY-PRESENTATION"],
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-gameplay-presentation-sol",
+      "branch": "codex/r2-gameplay-presentation-sol",
+      "base_sha": "ed060720a98b790f98591af363a490a0e0816018",
+      "last_good_sha": "ed060720a98b790f98591af363a490a0e0816018",
+      "reports_to_session_id": "S-MASTER-001",
+      "parent_session_id": null,
+      "reported_luna_lineage": [
+        "019fcbcf-2171-77b3-92f7-1ba49110cc04",
+        "019fcbcf-9c88-7280-a433-0fd12087ada9",
+        "019fcbcf-e911-7381-853d-bc2dc01ac93c"
+      ],
+      "recovery_lineage": [],
+      "failure": {"count":1,"raw_error_signatures":["initial auditor pin wrapper passed undefined threadId after JSON-encoded create result"],"retry_session_ids":["019fcbcf-2171-77b3-92f7-1ba49110cc04"],"replacement_session_id":null,"takeover_confirmed_at":null},
+      "created_at": "2026-08-04T08:02:22Z",
+      "completed_at": null,
+      "updated_at": "2026-08-04T08:10:44Z",
+      "notes": "Created once and pinned immediately on the first attempt under Good-signed reservation 4c264ca. Clean takeover personally passed: exact unique worktree/branch at ed060720, stable local/tracking/live main, Good signature, full AGENTS/PORTING review, and zero mutation. Exactly three projectless Luna/max read-only auditors were collision-gated, created once, and pinned; the first pin wrapper faulted locally on an undefined parsed threadId, then the same exact task was pinned with no replacement. All three same IDs were metadata-only renamed at 2026-08-04T08:10:44Z to validator-compliant exact Tecmo/Luna titles; pins and audit continuity were unchanged. Initial authority remains docs-only/read-only-first; product mutation and writable-worker creation require a later exact Good-signed master rescope."
+    },
+    {
+      "session_id": "S-SOL-R3-PLAYER-STATS-LEADERS-001",
+      "thread_id": "019fcbcb-ecee-7fc1-9ab4-195ef4d7cc16",
+      "title": "Tecmo R3 Player Stats Leaders Domain Orchestrator — Sol Max",
+      "role": "domain_orchestrator",
+      "model": "gpt-5.6-sol",
+      "thinking": "max",
+      "status": "active",
+      "pin_state": "pinned",
+      "round_ids": ["R3"],
+      "task_ids": ["R3-PLAYER-STATS-LEADERS"],
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3-player-stats-leaders-sol",
+      "branch": "codex/r3-player-stats-leaders-sol",
+      "base_sha": "ed060720a98b790f98591af363a490a0e0816018",
+      "last_good_sha": "ed060720a98b790f98591af363a490a0e0816018",
+      "reports_to_session_id": "S-MASTER-001",
+      "parent_session_id": null,
+      "reported_luna_lineage": [],
+      "recovery_lineage": [],
+      "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
+      "created_at": "2026-08-04T08:02:47Z",
+      "completed_at": null,
+      "updated_at": "2026-08-04T08:07:25Z",
+      "notes": "Created once and pinned immediately on the first attempt under Good-signed reservation 4c264ca. Clean takeover personally passed: exact unique worktree/branch at ed060720, stable local/tracking/live main, Good signature, full AGENTS/PORTING review, single claim/task/lane allocation, no pre-existing auditor lineage, and zero mutation. Initial authority remains docs-only/read-only-first; product mutation and writable-worker creation require a later exact Good-signed master rescope after personal and three-Luna evidence/collision/proof-gap reconciliation."
+    },
+    {
       "session_id": "S-BLOCKERS-001",
       "thread_id": "019fc873-20a8-7772-8fb6-ac0e80ffa3a4",
       "title": "Blockers we need help with",
@@ -757,6 +811,15 @@
     }
   ],
   "reported_luna_workers": [
+    {
+      "worker_id":"019fcbcf-2171-77b3-92f7-1ba49110cc04","thread_id":"019fcbcf-2171-77b3-92f7-1ba49110cc04","title":"Tecmo R2 Gameplay Presentation — Original Evidence Audit — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R2-GAMEPLAY-PRESENTATION-001","round_ids":["R2"],"task_ids":["R2-GAMEPLAY-PRESENTATION"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Created once at 2026-08-04T08:06:17Z as a bounded top-level projectless read-only original ASM/native presentation evidence audit. Repository edits, builds, tests, emulation, task creation, and cross-lane contact are prohibited. The first pin wrapper passed an undefined threadId because create_thread returned JSON-encoded text; the same exact created task was pinned on retry with no replacement or repository mutation. Metadata-only renamed at 2026-08-04T08:10:44Z to the exact validator-compliant title without changing ID, pin, or audit continuity.","recovery_lineage":[],"failure":{"count":1,"raw_error_signatures":["pin wrapper passed undefined threadId after JSON-encoded create result"],"retry_worker_ids":["019fcbcf-2171-77b3-92f7-1ba49110cc04"],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T08:10:44Z"
+    },
+    {
+      "worker_id":"019fcbcf-9c88-7280-a433-0fd12087ada9","thread_id":"019fcbcf-9c88-7280-a433-0fd12087ada9","title":"Tecmo R2 Gameplay Presentation — Architecture & Collision Audit — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R2-GAMEPLAY-PRESENTATION-001","round_ids":["R2"],"task_ids":["R2-GAMEPLAY-PRESENTATION"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Created and pinned once at 2026-08-04T08:06:48Z as a bounded top-level projectless read-only architecture, ownership, and collision audit. Repository edits, builds, tests, emulation, task creation, and cross-lane contact are prohibited. Metadata-only renamed at 2026-08-04T08:10:44Z to the exact validator-compliant title without changing ID, pin, or audit continuity.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T08:10:44Z"
+    },
+    {
+      "worker_id":"019fcbcf-e911-7381-853d-bc2dc01ac93c","thread_id":"019fcbcf-e911-7381-853d-bc2dc01ac93c","title":"Tecmo R2 Gameplay Presentation — Proof & Visual Gaps Audit — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R2-GAMEPLAY-PRESENTATION-001","round_ids":["R2"],"task_ids":["R2-GAMEPLAY-PRESENTATION"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Created and pinned once at 2026-08-04T08:07:08Z as a bounded top-level projectless read-only proof, test, and visual-gap audit. Repository edits, builds, tests, emulation, task creation, and cross-lane contact are prohibited. Metadata-only renamed at 2026-08-04T08:10:44Z to the exact validator-compliant title without changing ID, pin, or audit continuity.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T08:10:44Z"
+    },
     {
       "worker_id":"019fcb82-4090-7b33-8293-7ceda46a43ba","thread_id":"019fcb82-4090-7b33-8293-7ceda46a43ba","title":"Tecmo R2D Rules Restarts Integration Independent QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001","round_ids":["R2D"],"task_ids":["R2D-RULES-RESTARTS-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"ed060720a98b790f98591af363a490a0e0816018","contribution":"Sole projectless independent integration-QA lineage. Initial immutable-candidate and final exact Good-signed ed060720 tip audits both returned P0/P1/P2/P3 zero after signature/ref/scope, canonical and CMake console+GUI, strict timing/scene/audio/assets/state/flow/Win32/current-main, deterministic proof, original-resolution visual, five-report, classification, and protected-ref checks. Its first signed-tip turn entered systemError after completing substantive checks but before emitting a disposition; the same pinned lineage resumed without replacement or rebuild and returned exact PASS. It returned pinned=false after durable Good-signed delivery control; it remains preserved and unarchived with no replacement.","recovery_lineage":[],"failure":{"count":1,"raw_error_signatures":["systemError after signed-tip checks before final disposition"],"retry_worker_ids":["019fcb82-4090-7b33-8293-7ceda46a43ba"],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T07:56:02Z"
     },
