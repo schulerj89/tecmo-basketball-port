@@ -42,6 +42,19 @@ mistaken for PRG.
 The last SHA-256 is the corrected authoritative value, exactly 64 hex
 characters and with no appended character.
 
+## Enclosing B06 source span (provenance only)
+
+The enclosing B06 source span is checked separately by the runner using the
+same derived iNES bank mapping. It is not a fourth direct implementation span
+and has no additional API claim:
+
+| Evidence | Bank | CPU range | File offset | Bytes | SHA-256 |
+| --- | ---: | --- | ---: | ---: | --- |
+| B06 enclosing source span (provenance only) | 6 | `$B081-$B365` | `0x1B091` | 741 | `AAA9670DA5942FA2614F925A266674893A352BB2DB3A8F4158F61C8AE891AE36` |
+
+The three direct spans above retain their independent FNV-1a 32 and SHA-256
+checks. The enclosing row is a source-span length/SHA verification only.
+
 ## B06 `$B081-$B108`
 
 The functional scan closes at RTS `$B103` (`$60`). `$B104` begins a separate

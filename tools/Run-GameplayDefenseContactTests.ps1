@@ -9,6 +9,43 @@ if (!$ProjectRoot) {
     $ProjectRoot = Split-Path -Parent $PSScriptRoot
 }
 $ProjectRoot = (Resolve-Path -LiteralPath $ProjectRoot).Path
+
+$RepositoryBuildArtifactPatterns = @(
+    "*.obj",
+    "*.exe",
+    "*.pdb",
+    "*.ilk",
+    "*.idb",
+    "*.res",
+    "*.lib",
+    "*.exp",
+    "*.sbr",
+    "*.bsc",
+    "*.manifest",
+    "*.tlog"
+)
+function Get-RepositoryRootBuildArtifactNames {
+    param([string]$Root)
+    $Names = @()
+    foreach ($Pattern in $RepositoryBuildArtifactPatterns) {
+        $Names += @(Get-ChildItem -LiteralPath $Root -File -Force `
+            -Filter $Pattern -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty Name)
+    }
+    return @($Names | Sort-Object -Unique)
+}
+function Assert-NoNewRepositoryRootBuildArtifacts {
+    param([string[]]$Before)
+    $After = @(Get-RepositoryRootBuildArtifactNames -Root $ProjectRoot)
+    $NewArtifacts = @($After | Where-Object { $Before -notcontains $_ })
+    if ($NewArtifacts.Count -ne 0) {
+        throw ("Focused compiler created repository-root build artifacts: " +
+               ($NewArtifacts -join ", "))
+    }
+}
+$RepositoryRootBuildArtifactsBefore = @(
+    Get-RepositoryRootBuildArtifactNames -Root $ProjectRoot
+)
 if (!$RomPath) {
     $RomPath = $env:TECMO_ROM_PATH
 }
@@ -1005,6 +1042,22 @@ foreach ($Spec in $SpanSpecs) {
     $Spans[$Spec.name] = $Span
 }
 
+$EnclosingB06Spec = [pscustomobject]@{
+    name = 'B06 enclosing source span $B081-$B365'
+    bank = 6; start = 0xB081; end = 0xB365
+    file_offset = 0x1B091
+    count = 741
+    sha = "AAA9670DA5942FA2614F925A266674893A352BB2DB3A8F4158F61C8AE891AE36"
+}
+$EnclosingB06Span = Get-RomSpan -RomBytes $RomBytes -PrgStart $PrgStart `
+    -PrgBankCount $PrgBankCount -Bank $EnclosingB06Spec.bank `
+    -CpuStart $EnclosingB06Spec.start -CpuEnd $EnclosingB06Spec.end
+if ($EnclosingB06Span.offset -ne $EnclosingB06Spec.file_offset -or
+    $EnclosingB06Span.count -ne $EnclosingB06Spec.count -or
+    (Get-Sha256Hex $EnclosingB06Span.bytes) -cne $EnclosingB06Spec.sha) {
+    throw "Enclosing B06 source-span provenance fingerprint mismatch."
+}
+
 function Get-MappedByte {
     param([int]$Bank, [int]$Cpu)
     $Span = Get-RomSpan -RomBytes $RomBytes -PrgStart $PrgStart `
@@ -1165,6 +1218,8 @@ if (!(Test-SafeScratchPath -Candidate $Scratch -ResolvedTempRoot $TempRoot `
 }
 New-Item -ItemType Directory -Force -Path $Scratch | Out-Null
 $HarnessPath = Join-Path $Scratch "defense_contact_harness.c"
+$HarnessObject = Join-Path $Scratch "defense_contact_harness.obj"
+$SourceObject = Join-Path $Scratch "tecmo_gameplay_defense_contact.obj"
 $Executable = Join-Path $Scratch "defense_contact_harness.exe"
 try {
     [IO.File]::WriteAllText($HarnessPath, (Get-HarnessSource),
@@ -1186,12 +1241,26 @@ try {
     $SourcePath = Join-Path $ProjectRoot "src\tecmo_gameplay_defense_contact.c"
     $CompileCommand =
         'call "' + $VcVars + '" >nul && cl /nologo /std:c11 /W4 /WX /TC /I"' +
-        $HeaderPath + '" /Fe:"' + $Executable + '" "' + $HarnessPath +
-        '" "' + $SourcePath + '"'
-    $CompileOutput = @(& cmd.exe /d /c $CompileCommand 2>&1)
-    if ($LASTEXITCODE -ne 0) {
+        $HeaderPath + '" /c /Fo:"' + $HarnessObject + '" "' + $HarnessPath +
+        '" && cl /nologo /std:c11 /W4 /WX /TC /I"' + $HeaderPath +
+        '" /c /Fo:"' + $SourceObject + '" "' + $SourcePath +
+        '" && link /nologo /OUT:"' + $Executable + '" "' + $HarnessObject +
+        '" "' + $SourceObject + '"'
+    Push-Location -LiteralPath $Scratch
+    try {
+        $CompileOutput = @(& cmd.exe /d /c $CompileCommand 2>&1)
+        $CompileExitCode = $LASTEXITCODE
+    } finally {
+        Pop-Location
+    }
+    if ($CompileExitCode -ne 0) {
         throw ("Focused MSVC /W4 /WX compile failed.`n" +
                ($CompileOutput -join [Environment]::NewLine))
+    }
+    foreach ($OutputPath in @($HarnessObject, $SourceObject, $Executable)) {
+        if (!(Test-Path -LiteralPath $OutputPath -PathType Leaf)) {
+            throw "Focused compiler/linker output is missing from scratch: $OutputPath"
+        }
     }
     if (!(Test-Path -LiteralPath $Executable -PathType Leaf)) {
         throw "Focused harness executable was not produced."
@@ -1213,7 +1282,8 @@ try {
     }
     Write-Output "Focused isolated MSVC compile used /std:c11 /W4 /WX; no normal build integration."
     Write-Output ("R2 defense/contact tests passed: ROM size/SHA, iNES bank mapping, " +
-                  "three raw-span FNV32/SHA fingerprints, B081 scan oracle, " +
+                  "three direct raw-span FNV32/SHA fingerprints, enclosing B06 " +
+                  "source-span SHA/length provenance, B081 scan oracle, " +
                   "B05 `$9968 matrix, B05 raw-`$17 plan, rollback, repeatability, " +
                   "and read-only CPU/LIVE/TIP/TPNL/TGSR boundary checks.")
 } finally {
@@ -1224,4 +1294,5 @@ try {
         }
         Remove-Item -LiteralPath $Scratch -Recurse -Force
     }
+    Assert-NoNewRepositoryRootBuildArtifacts -Before $RepositoryRootBuildArtifactsBefore
 }

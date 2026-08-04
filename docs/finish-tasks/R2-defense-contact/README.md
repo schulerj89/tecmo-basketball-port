@@ -70,6 +70,19 @@ review. This candidate does not replace or pre-empt that dependency.
 ## Luna lineage
 
 See [LINEAGE.md](LINEAGE.md) for the exact session identities. The final
-Good-signed branch-only candidate commit, tree, signature, and review
-disposition remain pending Sol authorization after this uncommitted correction
-pass.
+The first Good-signed branch-only candidate was
+`d5c5fa9b84cdce404751eda1a86e5507fc014656`, with tree
+`fcfd0c31b14187c7368e83bf1fc235c37b339820` and sole parent
+`edf16ca9059158452798dbe5667f5e64ef444e39`.
+
+Independent terminal QA was distinct from this worker: QA thread
+`019fca60-e2c5-7903-8b52-6df76809dd91`, completed QA turn
+`019fca60-e497-7052-a705-e42c83fe6e31`, exact title `Tecmo R2 Defense Contact
+Raw Foundation Independent Terminal QA — Luna Max`, model/reasoning
+gpt-5.6-luna/max, status/pin completed/idle and pinned, topology independent
+top-level projectless, and zero faults, retries, or replacements. Its initial
+verdict was `FAIL`; findings were compiler outputs leaking into the repository
+root, missing executable verification of the enclosing B06 `$B081-$B365`
+provenance span, and stale candidate lineage wording. These are QA findings,
+not worker task/session faults. This document accompanies the corrective signed
+descendant; its exact object identity is recorded externally after commit.
