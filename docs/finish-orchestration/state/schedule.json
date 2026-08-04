@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T12:10:06Z",
+  "updated_at": "2026-08-04T12:58:11Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -441,8 +441,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2e-gameplay-presentation-integration-qa-sol",
       "ownership_claim_ids": ["OWN-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"],
       "blockers": [],
-      "next_gate": "Good-signed docs-only terminal bdc2fbb now closes the five-report layer over accepted corrective a4c1286. Same pinned Luna 019fcc72 is performing exact signed-tip/report/proof/ref review; on PASS the Sol must issue the guarded handoff before any master-only main delivery.",
-      "updated_at": "2026-08-04T12:07:07Z"
+      "next_gate": "The sole Luna returned final terminal PASS with product/tooling P0/P1/P2/P3 zero, but the original Sol entered systemError before emitting its handoff. One sequential Sol/max recovery replacement is reserved on the same clean bdc2fbb branch/worktree; confirm takeover, inherit the existing Luna evidence, issue the guarded handoff, then retire the failed predecessor.",
+      "updated_at": "2026-08-04T12:58:11Z"
     },
     {
       "lane_id": "LANE-R3-PLAYER-STATS-LEADERS",

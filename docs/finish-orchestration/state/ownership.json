@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T12:10:06Z",
+  "updated_at": "2026-08-04T12:58:11Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -736,7 +736,7 @@
       "active": true,
       "claimed_at": "2026-08-04T10:26:21Z",
       "released_at": null,
-      "notes": "Master reservation for one dedicated current-main Integration QA Sol. Initial scope was docs-only plus the prescribed branch-only ff-only from clean ed060720 to immutable Good-signed d8d8119. After the sole independent Luna found one actionable runner P2, master grants exactly tools/Run-GameplayPresentationTests.ps1 for a narrow corrective descendant: replace fixed build/gameplay_presentation_test ownership with a collision-free per-invocation build-contained directory, or fail closed if any selected path pre-exists; resolve/validate containment; delete only the exact directory this invocation created; preserve every parser, frame, state, proof, negative, product, and classification semantic. Rerun focused 17x2 plus six negatives, warning-clean builds, full affected matrix, rehash and original-resolution visual review, then reuse the same Luna for revised-tip and final signed-report review. Candidate product, all other paths, main, origin, staging, and push remain read-only/master-only."
+      "notes": "Master reservation for one dedicated current-main Integration QA Sol. Initial scope was docs-only plus the prescribed branch-only ff-only from clean ed060720 to immutable Good-signed d8d8119. After the sole independent Luna found one actionable runner P2, master granted exactly tools/Run-GameplayPresentationTests.ps1 for the accepted scratch-isolation correction a4c1286 and the five-report terminal bdc2fbb. The same Luna returned final terminal PASS with product/tooling P0/P1/P2/P3 all zero. The original Sol then entered systemError before emitting its guarded handoff. This still-active claim now reserves one sequential Sol/max recovery replacement on the exact preserved branch/worktree at clean bdc2fbb; no new product/report write, new Luna, main, origin, staging, or push authority is granted. The predecessor remains pinned until recovery takeover is confirmed."
     },
     {
       "claim_id": "OWN-R3-PLAYER-STATS-LEADERS",

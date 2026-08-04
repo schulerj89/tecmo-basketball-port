@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T12:10:06Z",
+  "updated_at": "2026-08-04T12:58:11Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -3997,7 +3997,7 @@
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-tasks/R2E-gameplay-presentation-integration-qa",
       "qa": {
-        "status": "terminal_tip_review",
+        "status": "recovery_reserved",
         "sol_signoff": false,
         "integration_signoff": false,
         "test_records": [
@@ -4009,14 +4009,15 @@
           "2026-08-04T11:27:47Z sole Luna initial audit passed the bounded product with P0/P1/P2/P3 zero but found one actionable runner P2: tools/Run-GameplayPresentationTests.ps1 used fixed build/gameplay_presentation_test and recursively deleted it before and after each run, allowing deletion of pre-existing ignored data and concurrent-run races. Master chose corrective option A and granted only that existing runner plus the five R2E reports: use a unique build-contained per-run scratch (or fail closed on pre-existence), validate containment, clean only the exact directory created by this invocation, preserve all proof/parser/product semantics, rerun the complete matrix, and reuse the same Luna.",
           "2026-08-04T11:49:20Z Sol produced exact Good-signed one-runner corrective descendant a4c1286351add0450b1820cd79876e04aa3a08f9, tree ef19835e58b87c3f02dec989f02d63db27a787a0, sole parent d8d8119. The unique GUID-suffixed build-contained scratch, pre-existence/containment gates, invocation-created flag, exact-self cleanup, and zero-residue checks passed. Focused 17x2 plus six negatives, canonical/CMake builds, full scene/affected/native/current-main matrices, proof rehash, and original-resolution visual review passed; corrective manifest SHA DCFF7AD9670D0C630785401F8E083F10019E458BD23001E3575D124EF0F60E4C and accepted contact SHA 85995E1654354BFFF874AEA8510F91FD6E0AB1BCECD49C5138EBC116FB9B6A6C. Branch is clean; protected refs unchanged; the same pinned Luna 019fcc72 is performing revised-tip verification.",
           "2026-08-04T11:59:11Z the same pinned Luna independently accepted exact corrective a4c1286 and closed the prior runner P2. Product and QA-tooling P0/P1/P2/P3 are all zero; SHA/tree/parent/signature, one-path diff, all seven scratch invariants, zero residue, 17x2/six negatives, manifests/hashes, 254/254 DRAFT scene proof, 23 affected/cross-domain checks, and original-resolution visuals passed. One report transport message was rejected for a formatting delimiter and resent successfully in the same task with no state impact. Sol is authorized only to author the five terminal reports and reuse this exact Luna for signed-tip review.",
-          "2026-08-04T12:07:07Z Sol created exact Good-SSH-signed docs-only terminal bdc2fbb8f5b8497f4855b80e8834696220036aba, tree 9fd2af3e059ebf2c010612afb3531335f3a23ee3, sole parent a4c1286. Its delta is exactly five new owned LF Markdown reports (637 insertions), candidate-to-tip is corrected runner plus those reports, base-to-tip is eleven regular text paths, branch is clean, and protected refs remain ed060720 main plus immutable d8d8119 staging. The same pinned Luna 019fcc72 is now performing exact terminal signed-tip/report/proof/ref review."
+          "2026-08-04T12:07:07Z Sol created exact Good-SSH-signed docs-only terminal bdc2fbb8f5b8497f4855b80e8834696220036aba, tree 9fd2af3e059ebf2c010612afb3531335f3a23ee3, sole parent a4c1286. Its delta is exactly five new owned LF Markdown reports (637 insertions), candidate-to-tip is corrected runner plus those reports, base-to-tip is eleven regular text paths, branch is clean, and protected refs remain ed060720 main plus immutable d8d8119 staging. The same pinned Luna 019fcc72 is now performing exact terminal signed-tip/report/proof/ref review.",
+          "2026-08-04T12:15:24Z the sole Luna had already returned final terminal PASS with product/tooling P0/P1/P2/P3 all zero when the original Sol task became exactly systemError before emitting the guarded handoff. Master independently reverified the preserved branch clean at Good-signed bdc2fbb/tree 9fd2af3, diff-check clean, and local/tracking/live main unchanged at ed060720. One sequential Sol/max recovery replacement is reserved on the same branch/worktree; the existing Luna lineage is inherited read-only and no new product/report/main/staging/origin/push authority is granted."
         ],
         "proof_manifests": [
           "personal layup manifest SHA256 90EFB0AAAF55BB9853B8ED52A1E476701E388F389FD895922A4111E9BF1A91DD",
           "personal 2560x2400 gameplay-layup contact sheet SHA256 85995E1654354BFFF874AEA8510F91FD6E0AB1BCECD49C5138EBC116FB9B6A6C",
           "corrective presentation manifest SHA256 DCFF7AD9670D0C630785401F8E083F10019E458BD23001E3575D124EF0F60E4C"
         ],
-        "notes": "Product and QA-tooling P0/P1/P2/P3 are zero at same-Luna-accepted corrective a4c1286. Exact Good-signed five-report terminal bdc2fbb is clean and is under mandatory same-Luna signed-tip review. Collision-free invocation-owned build scratch, exact containment validation, exact-self cleanup, parser/frame/state/proof semantics, full matrix, proof, and visuals remain accepted. Main, origin, staging, and push remain master-only."
+        "notes": "Product and QA-tooling P0/P1/P2/P3 are zero after the same Luna accepted corrective a4c1286 and exact Good-signed five-report terminal bdc2fbb. The original Sol entered systemError only after that final PASS and before emitting its guarded handoff. Git state is preserved clean; one same-branch recovery Sol is reserved to verify takeover and deliver the terminal handoff. Main, origin, staging, and push remain master-only."
       },
       "merge": {
         "staging_branch": "codex/round-2e-gameplay-presentation-staging",
@@ -4029,7 +4030,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-04T10:26:21Z",
-      "updated_at": "2026-08-04T12:07:07Z",
+      "updated_at": "2026-08-04T12:58:11Z",
       "audit": [
         {
           "timestamp": "2026-08-04T10:26:20Z",
