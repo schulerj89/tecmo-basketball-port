@@ -3437,6 +3437,45 @@
         {"timestamp":"2026-08-04T01:09:30Z","actor_session_id":"S-MASTER-001","from_state":"scoped","to_state":"assigned","reason":"Created and pinned exact gpt-5.6-sol/max orchestrator 019fca51-55f5-7473-92b1-58dd241998f6 once after signed reservation and transferred the clean isolated branch-only integration assignment."},
         {"timestamp":"2026-08-04T01:17:26Z","actor_session_id":"S-SOL-R2B-SHOTS-INTEGRATION-QA-001","from_state":"assigned","to_state":"in_progress","reason":"Clean takeover closed every ref/signature/ownership/exclusion/tree guard, and the authorized Good-signed branch-only reconciliation 26e6aaf produced the exact predicted combined tree without touching main or staging."}
       ]
+    },
+    {
+      "task_id": "R2C-DEFENSE-CONTACT-INTEGRATION-QA",
+      "title": "Integrate accepted defense-contact raw foundation with current main and sign combined QA",
+      "domain": "integration",
+      "round_id": "R2C",
+      "priority": 99,
+      "coordination_only": false,
+      "state": "scoped",
+      "dependencies": ["R2-DEFENSE-CONTACT"],
+      "ownership_claim_ids": ["OWN-R2C-DEFENSE-CONTACT-INTEGRATION-QA"],
+      "base_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
+      "expected_parent_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
+      "branch": "codex/r2c-defense-contact-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2c-defense-contact-integration-qa-sol",
+      "sol_orchestrator_session_id": null,
+      "reported_luna_worker_session_ids": [],
+      "result_commits": [],
+      "evidence_ids": [],
+      "blocker_ids": [],
+      "replacement_task_id": null,
+      "task_docs_path": "docs/finish-tasks/R2C-defense-contact-integration-qa",
+      "qa": {
+        "status": "pending",
+        "sol_signoff": false,
+        "integration_signoff": false,
+        "test_records": [
+          "2026-08-04T02:26:58Z master accepted immutable Good-signed raw-foundation tip ed70d884, verified stable local/tracking/live remote main exact 0ef11cf, confirmed the proposed branch/worktree/staging refs absent and collision-free, created immutable staging codex/round-2c-defense-contact-staging at ed70d884, and created an isolated clean integration branch/worktree from 0ef11cf. Sol creation remains gated on this signed reservation."
+        ],
+        "proof_manifests": [],
+        "notes": "Dedicated incremental Integration QA must reconcile immutable ed70d884 with then-current main, prove zero unexpected overlap, run the focused defense runner plus current-main build/smokes, preserve the no-normal-runtime-use boundary, obtain independent QA, and produce a clean Good-signed fast-forwardable terminal."
+      },
+      "merge": {"staging_branch":"codex/round-2c-defense-contact-staging","merge_order":1,"status":"not_ready","merge_commit":null,"main_pre_sha":"0ef11cf247e3110b6064e79a4c496be6346f3e13","main_post_sha":null,"push_sha":null,"pushed_at":null},
+      "created_at": "2026-08-04T02:26:57Z",
+      "updated_at": "2026-08-04T02:26:58Z",
+      "audit": [
+        {"timestamp":"2026-08-04T02:26:57Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Incremental delivery policy requires the accepted defense-contact raw foundation to reach current main without waiting for the rest of Round 2."},
+        {"timestamp":"2026-08-04T02:26:58Z","actor_session_id":"S-MASTER-001","from_state":"backlog","to_state":"scoped","reason":"Reserved docs-only Integration QA ownership, immutable Good-signed ed70d884 staging, and a collision-cleared clean 0ef11cf-based branch/worktree before Sol creation."}
+      ]
     }
   ]
 }
