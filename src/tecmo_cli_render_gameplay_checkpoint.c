@@ -35,6 +35,7 @@ typedef struct TecmoCliGameplayCheckpointConfig {
     bool jump_make;
     bool jump_rattle;
     bool dunk;
+    bool layup;
     bool pretip_checkpoint;
     bool live_start;
     bool facing_checkpoint;
@@ -291,6 +292,7 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     bool jump_make = false;
     bool jump_rattle = false;
     bool dunk = false;
+    bool layup = false;
     bool pretip_checkpoint = false;
     bool live_start = false;
     bool facing_checkpoint = false;
@@ -380,6 +382,13 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
                    mode_name, "gameplay-dunk-frame", &checkpoint)) {
         dunk = true;
     } else if (tecmo_cli_parse_render_frame_suffix(
+                   mode_name, "gameplay-layup-frame", &checkpoint)) {
+        const char *suffix = mode_name + strlen("gameplay-layup-frame");
+        /* Keep this new production checkpoint canonical: positive decimal,
+           no leading zeroes, and no alternate spelling of the frame. */
+        if (suffix[0] == '0' && suffix[1] != '\0') return false;
+        layup = true;
+    } else if (tecmo_cli_parse_render_frame_suffix(
                    mode_name, "gameplay-close-shot-frame", &checkpoint)) {
         /* Compatibility spelling for the former numeric-variant-0 mode. */
         dunk = true;
@@ -409,7 +418,8 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     if ((jump && (checkpoint == 0U ||
                   checkpoint >
                       (jump_make ? 111U : (jump_rattle ? 103U : 87U)))) ||
-        (dunk && (checkpoint == 0U || checkpoint > 132U))) {
+        (dunk && (checkpoint == 0U || checkpoint > 132U)) ||
+        (layup && (checkpoint == 0U || checkpoint > 17U))) {
         return false;
     }
 
@@ -421,6 +431,7 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     config->jump_make = jump_make;
     config->jump_rattle = jump_rattle;
     config->dunk = dunk;
+    config->layup = layup;
     config->pretip_checkpoint = pretip_checkpoint;
     config->live_start = live_start;
     config->facing_checkpoint = facing_checkpoint;
@@ -1124,12 +1135,15 @@ static bool run_gameplay_camera_checkpoint(
 static bool run_gameplay_shot_checkpoint(TecmoRuntime *runtime, const TecmoCliGameplayCheckpointConfig *config)
 {
     TecmoInput input;
+    TecmoGameplaySceneShotKind expected_shot_kind;
     unsigned update;
     const unsigned checkpoint = config->checkpoint;
     const bool jump = config->jump;
     const bool jump_make = config->jump_make;
     const bool jump_rattle = config->jump_rattle;
     const bool dunk = config->dunk;
+    const bool layup = config->layup;
+    bool layup_variant2_seen = false;
     runtime->gameplay_scene.frame = 0U;
 
     if (dunk) {
@@ -1142,6 +1156,33 @@ static bool run_gameplay_shot_checkpoint(TecmoRuntime *runtime, const TecmoCliGa
         /* Deliberate shot checkpoint setup; launch immediately replaces this
            with the validated offensive-hoop facing override. */
         actor->facing_right = true;
+        runtime->gameplay_scene.ball_holder = 0U;
+        runtime->gameplay_scene.ball_position.x_q8 =
+            (int32_t)(actor->position.x + 7) * 256;
+        runtime->gameplay_scene.ball_position.y_q8 =
+            (int32_t)(actor->position.y - 18) * 256;
+        runtime->gameplay_scene.camera_state.thresholds_valid = false;
+        runtime->gameplay_scene.camera_state.endpoint_latched = false;
+        if (!tecmo_gameplay_camera_settle_court(
+                &runtime->gameplay_scene.camera_assets,
+                &runtime->gameplay_scene.camera_state,
+                &runtime->gameplay_scene.ball_position,
+                runtime->gameplay_scene.orientation_state.current_direction,
+                false)) {
+            return false;
+        }
+    } else if (layup) {
+        TecmoGameplaySceneActor *actor = &runtime->gameplay_scene.actors[0];
+
+        /* This is a coherent live-court input fixture.  The production shot
+           selector observes the resulting TGOR geometry and stable sample to
+           choose numeric TGCS variant 2; this fixture does not author any
+           shot kind, pose, schedule, outcome, score, claimant, or settlement
+           state. */
+        actor->position.x = 0x00C0U;
+        actor->position.y = 0x008FU;
+        actor->anchor.x = actor->position.x;
+        actor->anchor.y = actor->position.y;
         runtime->gameplay_scene.ball_holder = 0U;
         runtime->gameplay_scene.ball_position.x_q8 =
             (int32_t)(actor->position.x + 7) * 256;
@@ -1191,22 +1232,51 @@ static bool run_gameplay_shot_checkpoint(TecmoRuntime *runtime, const TecmoCliGa
     memset(&input, 0, sizeof(input));
     input.cancel = true;
     tecmo_runtime_update(runtime, &input);
+    if (layup && runtime->gameplay_scene.shot_kind ==
+                     TECMO_GAMEPLAY_SCENE_SHOT_LAYUP) {
+        if (runtime->gameplay_scene.close_shot_variant !=
+            TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2) {
+            return false;
+        }
+        layup_variant2_seen = true;
+    }
     for (update = 1U; update < checkpoint; ++update) {
         memset(&input, 0, sizeof(input));
         if (jump_make && update < 8U) input.cancel = true;
         tecmo_runtime_update(runtime, &input);
+        if (layup && runtime->gameplay_scene.shot_kind ==
+                         TECMO_GAMEPLAY_SCENE_SHOT_LAYUP) {
+            if (runtime->gameplay_scene.close_shot_variant !=
+                TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2) {
+                return false;
+            }
+            layup_variant2_seen = true;
+        }
     }
-    return runtime->mode == TECMO_MODE_COURT &&
-           runtime->gameplay_scene.active &&
-           runtime->gameplay_scene.shot_kind ==
-               (jump &&
-                        ((!jump_make && !jump_rattle &&
-                          checkpoint == 87U) ||
-                         (jump_rattle && checkpoint == 103U) ||
-                         (jump_make && checkpoint == 111U))
-                    ? TECMO_GAMEPLAY_SCENE_SHOT_NONE
-                    : (dunk ? TECMO_GAMEPLAY_SCENE_SHOT_DUNK
-                            : TECMO_GAMEPLAY_SCENE_SHOT_JUMP));
+    if (jump &&
+        ((!jump_make && !jump_rattle && checkpoint == 87U) ||
+         (jump_rattle && checkpoint == 103U) ||
+         (jump_make && checkpoint == 111U))) {
+        expected_shot_kind = TECMO_GAMEPLAY_SCENE_SHOT_NONE;
+    } else if (layup) {
+        expected_shot_kind = checkpoint == 17U
+                                 ? TECMO_GAMEPLAY_SCENE_SHOT_NONE
+                                 : TECMO_GAMEPLAY_SCENE_SHOT_LAYUP;
+    } else {
+        expected_shot_kind = dunk ? TECMO_GAMEPLAY_SCENE_SHOT_DUNK
+                                  : TECMO_GAMEPLAY_SCENE_SHOT_JUMP;
+    }
+    if (runtime->mode != TECMO_MODE_COURT ||
+        !runtime->gameplay_scene.active ||
+        (layup &&
+         (!layup_variant2_seen ||
+          (runtime->gameplay_scene.shot_kind !=
+               TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+           runtime->gameplay_scene.close_shot_variant !=
+               TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2)))) {
+        return false;
+    }
+    return runtime->gameplay_scene.shot_kind == expected_shot_kind;
 }
 
 bool tecmo_cli_setup_gameplay_render_checkpoint(TecmoRuntime *runtime, const char *mode_name)
