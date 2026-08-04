@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-04T01:56:10Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-04T03:44:25Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,7 +8,7 @@ Generated from committed JSON at `2026-08-04T01:56:10Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 11, `pushed` 18, `ready_for_round_staging` 4
+- Task states: `backlog` 10, `pushed` 18, `ready_for_round_staging` 4, `scoped` 1
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
@@ -16,7 +16,7 @@ Generated from committed JSON at `2026-08-04T01:56:10Z`. This dashboard reports 
 - Single master authority: `True`
 - Second-master policy: `recovery_replacement_only`
 - Active domain Sols: `1`
-- Cleared for creation: `0`
+- Cleared for creation: `1`
 - Target active domain Sols: `4`
 - Monitoring limit: `8`
 
@@ -37,6 +37,7 @@ Generated from committed JSON at `2026-08-04T01:56:10Z`. This dashboard reports 
 | LANE-R2B-SHOTS-OUTCOMES-INTEGRATION-QA | integration_qa | complete | ready | R2B-SHOTS-OUTCOMES-INTEGRATION-QA | S-SOL-R2B-SHOTS-INTEGRATION-QA-001 | codex/r2b-shots-outcomes-integration-qa-sol | Complete: terminal Good-signed 5229092 passed reconciled Sol and same-Luna P0/P1/P2-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; unpin is authorized after durable control acknowledgment. |
 | LANE-R2-DEFENSE-CONTACT | gameplay_behavior | complete | complete | R2-DEFENSE-CONTACT | S-SOL-R2-DEFENSE-CONTACT-001 | codex/r2-defense-contact-sol | Terminal Good-signed ed70d884 is Sol/independent accepted and frozen for dedicated current-main integration QA. Domain ownership is released; preserve branches/worktrees and focused proof for audit. Normal-build/runtime/player-facing and semantic downstream integration remain separate incomplete boundaries. |
 | LANE-R2C-DEFENSE-CONTACT-INTEGRATION-QA | integration_qa | active | ready | R2C-DEFENSE-CONTACT-INTEGRATION-QA | S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001 | codex/r2c-defense-contact-integration-qa-sol | Complete: terminal Good-signed 7fe2dd7 passed reconciled Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; Sol/Luna unpin is authorized after durable control acknowledgment. |
+| LANE-R2-RULES-RESTARTS | gameplay_behavior | cleared_for_creation | ready | R2-RULES-RESTARTS | reserved by master | codex/r2-rules-restarts-sol | Signed reservation must precede exactly one gpt-5.6-sol/max orchestrator. First turn stays read-only: verify exact clean 7fe2dd7 allocation and all dependencies, fully audit original ASM/native rules evidence plus current contracts/collisions/proof gaps, fan out bounded projectless Luna research audits, and return one exact product/function/test rescope request before any product write or writable Luna. |
 
 ## Rounds
 
@@ -88,7 +89,7 @@ Generated from committed JSON at `2026-08-04T01:56:10Z`. This dashboard reports 
 | 98 | R5-PARITY-GAP-CLOSURE | integration | R5 | backlog | - | - | 0 | pending | not_ready |
 | 97 | R0A-ADOPT-AWAY-FACING | gameplay_presentation | R0A | pushed | S-SOL-AWAY-FACING-LEGACY | codex/away-facing-left-only | 2 | historical_sol_accepted | pushed |
 | 96 | R1-TIP-FIDELITY | gameplay_behavior | R1 | ready_for_round_staging | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | ready |
-| 96 | R2-RULES-RESTARTS | gameplay_behavior | R2 | backlog | - | - | 0 | pending | not_ready |
+| 96 | R2-RULES-RESTARTS | gameplay_behavior | R2 | scoped | - | codex/r2-rules-restarts-sol | 0 | pending | not_ready |
 | 96 | R3-TEAM-MGMT-DATA | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 96 | R4-AUDIO | audio | R4 | backlog | - | - | 0 | pending | not_ready |
 | 96 | R5-E2E-RELEASE-QA | integration | R5 | backlog | - | - | 0 | pending | not_ready |
@@ -108,6 +109,7 @@ Generated from committed JSON at `2026-08-04T01:56:10Z`. This dashboard reports 
 | Claim | Task | Round | Mode | Writable globs | Concurrency group |
 |---|---|---|---|---|---|
 | OWN-R2C-DEFENSE-CONTACT-INTEGRATION-QA | R2C-DEFENSE-CONTACT-INTEGRATION-QA | R2C | exclusive | docs/finish-tasks/R2C-defense-contact-integration-qa/** | R2C-defense-contact-integration-qa |
+| OWN-R2-RULES-RESTARTS | R2-RULES-RESTARTS | R2 | exclusive | docs/finish-tasks/R2-rules-restarts/** | R2-rules-restarts |
 
 ## External Blockers
 

@@ -627,6 +627,25 @@
       "claimed_at": "2026-08-04T02:26:58Z",
       "released_at": null,
       "notes": "Terminal delivery is complete: Good-signed 32721888 reconciled immutable ed70d884 with accepted main 5229092 at the exact predicted tree, reconciled Sol and same-Luna QA closed P0/P1/P2/P3 zero, terminal Good-signed 7fe2dd7 was guarded ff-only integrated and ordinary-pushed, and stable main plus both desktop shortcuts were rebuilt/verified. Claim remains active only for the pinned lifecycle-closure turn; release is authorized after Sol and Luna confirm unpin."
+    },
+    {
+      "claim_id": "OWN-R2-RULES-RESTARTS",
+      "task_id": "R2-RULES-RESTARTS",
+      "round_id": "R2",
+      "session_id": "S-MASTER-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R2-rules-restarts/**"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R2-rules-restarts/README.md",
+        "docs/finish-tasks/R2-rules-restarts/SCOPE.md"
+      ],
+      "concurrency_group": "R2-rules-restarts",
+      "active": true,
+      "claimed_at": "2026-08-04T03:44:25Z",
+      "released_at": null,
+      "notes": "Master-held signed reservation before Sol creation. Initial writable scope is task docs only. All product/source/header/tool/build/scene/asset/source-map paths remain read-only while the Sol completes parallel native-evidence, architecture/collision, and proof-gap audits and returns an exact bounded rescope request. No product mutation or writable Luna is authorized by this reservation."
     }
   ],
   "shared_boundaries": [
