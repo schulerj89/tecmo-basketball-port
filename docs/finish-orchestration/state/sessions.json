@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T04:18:06Z",
+  "updated_at": "2026-08-04T04:26:26Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -663,14 +663,15 @@
       "reported_luna_lineage": [
         "019fcae5-dd40-73d3-9b9e-de84fd76f39d",
         "019fcae5-e369-7802-919f-5e166ce2a760",
-        "019fcae5-eac8-7661-86e4-92f6e91e9c0b"
+        "019fcae5-eac8-7661-86e4-92f6e91e9c0b",
+        "019fcb05-7013-7453-87ff-2d92d3ad2b32"
       ],
       "recovery_lineage": [],
       "failure": {"count":1,"raw_error_signatures":["Auditor 0 did not return a ready threadId"],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":"2026-08-04T03:52:40Z"},
       "created_at": "2026-08-04T03:47:06Z",
       "completed_at": null,
-      "updated_at": "2026-08-04T04:18:06Z",
-      "notes": "Clean takeover passed exact worktree/branch/base/main/dependency/instruction/ownership gates without mutation. The same three exact projectless Luna/max read-only auditors completed and converged with the Sol: reject broad semantic rules/TPNL/Defense relabeling and grant only the existing scene audio seam for the source-backed shared foul/violation SFX-6 cue after 16 presentation frames plus additive focused restart tests. Master independently collision-checked and granted exactly CMakeLists.txt, scene.c limited functions, new rules/restarts test C, one internal-test prototype, and one orchestrator call. One persistent writable Luna at codex/r2-rules-restarts-luna from exact 7fe2dd7 is now authorized for only those five product/test paths; task docs remain Sol-owned. The original wrapper fault remains the sole creation fault, with no retry/recreation/replacement or repo mutation."
+      "updated_at": "2026-08-04T04:26:26Z",
+      "notes": "Clean takeover passed exact worktree/branch/base/main/dependency/instruction/ownership gates without mutation. The same three exact projectless Luna/max read-only auditors completed and converged with the Sol: reject broad semantic rules/TPNL/Defense relabeling and grant only the existing scene audio seam for the source-backed shared foul/violation SFX-6 cue after 16 presentation frames plus additive focused restart tests. Master independently collision-checked and granted exactly CMakeLists.txt, scene.c limited functions, new rules/restarts test C, one internal-test prototype, and one orchestrator call. Sol reverified Good-signed b46b634 and absent branch/path/registry collision, created one clean codex/r2-rules-restarts-luna worktree from exact 7fe2dd7, and created/pinned exactly one top-level projectless gpt-5.6-luna/max writable implementation/revision task 019fcb05-7013-7453-87ff-2d92d3ad2b32 with zero creation fault/retry/replacement. Worker scope is only the five product/test paths; task docs remain Sol-owned. The original three-auditor wrapper fault remains the sole Sol orchestration fault."
     },
     {
       "session_id": "S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001",
@@ -741,6 +742,9 @@
     },
     {
       "worker_id":"019fcae5-eac8-7661-86e4-92f6e91e9c0b","thread_id":"019fcae5-eac8-7661-86e4-92f6e91e9c0b","title":"Tecmo R2 Rules Restarts — Proof Gap Audit — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"pinned","reported_by_session_id":"S-SOL-R2-RULES-RESTARTS-001","round_ids":["R2"],"task_ids":["R2-RULES-RESTARTS"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Completed bounded projectless read-only proof-gap audit. It confirmed strong state/restart adapter coverage but that no existing test can upgrade the synthetic foul detector, absent live violation detectors, or invented final-FT possession to ROM parity; it specified deterministic exact-once cue and OOB/backcourt restart matrices for the bounded slice. No edit/build/test/emulator/capture mutation.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T04:18:06Z"
+    },
+    {
+      "worker_id":"019fcb05-7013-7453-87ff-2d92d3ad2b32","thread_id":"019fcb05-7013-7453-87ff-2d92d3ad2b32","title":"Tecmo R2 Rules Restarts Audio Seam Implementation — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R2-RULES-RESTARTS-001","round_ids":["R2"],"task_ids":["R2-RULES-RESTARTS"],"worktree":"C:/Users/joshs/Projects/tecmo-basketball-port-r2-rules-restarts-luna","branch":"codex/r2-rules-restarts-luna","base_sha":"7fe2dd772af1d88f704a9272005b4ba557434cac","last_good_sha":"7fe2dd772af1d88f704a9272005b4ba557434cac","contribution":"Sole persistent writable implementation/revision lineage for the source-backed frame-16 exact-once shared foul/violation SFX-6 scene-audio seam and granted focused restart matrix. Writable scope is exactly CMakeLists additive test registration, limited scene audio functions, the new focused test C, one internal prototype, and one orchestrator invocation. Task docs, broader rules semantics, assets/source-map, other scene/tool/build paths, main/staging/push are excluded.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T04:26:26Z"
     },
     {
       "worker_id":"019fcaa4-615e-7a41-b919-f001132bdcb9","thread_id":"019fcaa4-615e-7a41-b919-f001132bdcb9","title":"Tecmo R2C Defense Contact Integration Independent QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001","round_ids":["R2C"],"task_ids":["R2C-DEFENSE-CONTACT-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"7fe2dd772af1d88f704a9272005b4ba557434cac","contribution":"Sole projectless/null-Git independent QA lineage. It passed the initial exact merge/source/provenance/focused-run audit; identified one P3 invalid PowerShell example in the draft; accepted the corrected reconciled 32721888 tip and revised docs; and returned terminal P0/P1/P2/P3 zero on exact Good-signed 7fe2dd7 commit/tree/parent/signature/two-path/clean/ref verification. Completed and unpinned after durable signed acceptance 16cffc5; no replacement or task fault.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T03:52:40Z"

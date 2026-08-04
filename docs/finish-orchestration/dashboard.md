@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-04T04:18:06Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-04T04:26:26Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -37,7 +37,7 @@ Generated from committed JSON at `2026-08-04T04:18:06Z`. This dashboard reports 
 | LANE-R2B-SHOTS-OUTCOMES-INTEGRATION-QA | integration_qa | complete | ready | R2B-SHOTS-OUTCOMES-INTEGRATION-QA | S-SOL-R2B-SHOTS-INTEGRATION-QA-001 | codex/r2b-shots-outcomes-integration-qa-sol | Complete: terminal Good-signed 5229092 passed reconciled Sol and same-Luna P0/P1/P2-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; unpin is authorized after durable control acknowledgment. |
 | LANE-R2-DEFENSE-CONTACT | gameplay_behavior | complete | complete | R2-DEFENSE-CONTACT | S-SOL-R2-DEFENSE-CONTACT-001 | codex/r2-defense-contact-sol | Terminal Good-signed ed70d884 is Sol/independent accepted and frozen for dedicated current-main integration QA. Domain ownership is released; preserve branches/worktrees and focused proof for audit. Normal-build/runtime/player-facing and semantic downstream integration remain separate incomplete boundaries. |
 | LANE-R2C-DEFENSE-CONTACT-INTEGRATION-QA | integration_qa | complete | complete | R2C-DEFENSE-CONTACT-INTEGRATION-QA | S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001 | codex/r2c-defense-contact-integration-qa-sol | Complete: terminal Good-signed 7fe2dd7 passed reconciled Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; Sol/Luna unpin is authorized after durable control acknowledgment. |
-| LANE-R2-RULES-RESTARTS | gameplay_behavior | active | ready | R2-RULES-RESTARTS | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | Good-signed master grant authorizes exactly the existing scene audio seam and additive focused test registration for source-backed shared foul/violation SFX-6 at presentation frame 16. Create exactly one collision-cleared persistent Luna on codex/r2-rules-restarts-luna from 7fe2dd7, constrain it to the five granted product/test paths, keep task docs Sol-owned, and preserve every broader semantic rules/FT/detector/asset/source-map/shared-scene exclusion. |
+| LANE-R2-RULES-RESTARTS | gameplay_behavior | active | ready | R2-RULES-RESTARTS | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | Sole persistent writable Luna 019fcb05-7013-7453-87ff-2d92d3ad2b32 is active/pinned on clean codex/r2-rules-restarts-luna at 7fe2dd7 with exactly the five granted product/test paths. Sol must personally review every revision, enforce the frame-16 exact-once cue and restart matrix, preserve all semantic exclusions, require Good-signed clean ownership-compliant commits, then run proportional broad/visual QA and independent terminal review before handoff. |
 
 ## Rounds
 
