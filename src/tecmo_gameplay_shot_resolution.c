@@ -60,31 +60,39 @@ static bool bytes_are_zero(const uint8_t *bytes, size_t count)
     return true;
 }
 
-static bool reject(TecmoGameplayShotResolutionAssets *assets,
-                   const char *message)
+static bool reject(
+    TecmoGameplayShotResolutionAssets *candidate,
+    TecmoGameplayShotResolutionAssets *destination,
+    const char *message)
 {
-    free(assets->storage);
-    assets->storage = NULL;
-    assets->storage_size = 0U;
-    memset(assets->sources, 0, sizeof(assets->sources));
-    memset(assets->routes, 0, sizeof(assets->routes));
-    memset(&assets->claimant_thresholds, 0,
-           sizeof(assets->claimant_thresholds));
-    assets->outcome_flag_mask = 0U;
-    assets->route_selector_mask = 0U;
-    assets->claimant_other_team_flag_mask = 0U;
-    assets->claimant_count = 0U;
-    assets->gameplay_core_fingerprint = 0U;
-    assets->point_shot_flags_mask = 0U;
-    assets->point_y_min_inclusive = 0U;
-    assets->point_y_max_exclusive = 0U;
-    assets->point_orientation_count = 0U;
-    memset(assets->point_arc_boundary, 0,
-           sizeof(assets->point_arc_boundary));
-    memset(&assets->rim_rattle, 0, sizeof(assets->rim_rattle));
-    assets->available = false;
-    (void)snprintf(assets->status, sizeof(assets->status), "%s",
+    bool publish_fresh_status = destination != NULL &&
+        !destination->available && destination->storage == NULL;
+    free(candidate->storage);
+    candidate->storage = NULL;
+    candidate->storage_size = 0U;
+    memset(candidate->sources, 0, sizeof(candidate->sources));
+    memset(candidate->routes, 0, sizeof(candidate->routes));
+    memset(&candidate->claimant_thresholds, 0,
+           sizeof(candidate->claimant_thresholds));
+    candidate->outcome_flag_mask = 0U;
+    candidate->route_selector_mask = 0U;
+    candidate->claimant_other_team_flag_mask = 0U;
+    candidate->claimant_count = 0U;
+    candidate->gameplay_core_fingerprint = 0U;
+    candidate->point_shot_flags_mask = 0U;
+    candidate->point_y_min_inclusive = 0U;
+    candidate->point_y_max_exclusive = 0U;
+    candidate->point_orientation_count = 0U;
+    memset(candidate->point_arc_boundary, 0,
+           sizeof(candidate->point_arc_boundary));
+    memset(&candidate->rim_rattle, 0, sizeof(candidate->rim_rattle));
+    candidate->available = false;
+    (void)snprintf(candidate->status, sizeof(candidate->status), "%s",
                    message != NULL ? message : "TGSR-3 rejected");
+    if (publish_fresh_status) {
+        (void)snprintf(destination->status, sizeof(destination->status), "%s",
+                       candidate->status);
+    }
     return false;
 }
 
@@ -290,6 +298,8 @@ bool tecmo_gameplay_shot_resolution_parse(
     const uint8_t *gameplay_core,
     size_t gameplay_core_size)
 {
+    TecmoGameplayShotResolutionAssets candidate;
+    TecmoGameplayShotResolutionAssets previous;
     const uint8_t *metadata;
     const uint8_t *route_bytes;
     uint8_t *storage;
@@ -298,34 +308,43 @@ bool tecmo_gameplay_shot_resolution_parse(
             TECMO_GAMEPLAY_SHOT_RESOLUTION_LIFECYCLE_TAG) {
         return false;
     }
-    tecmo_gameplay_shot_resolution_destroy(assets);
+    /* TGSR contains route tables, point boundaries, and a nested rattle
+       contract.  Keep the committed object untouched until the full payload
+       and same-pack dependency have passed. */
+    tecmo_gameplay_shot_resolution_init(&candidate);
     if (payload == NULL || !validate_header(payload, payload_size)) {
-        return reject(assets, "TGSR-3 header/size/reserved contract rejected");
+        return reject(&candidate, assets,
+                      "TGSR-3 header/size/reserved contract rejected");
     }
     if (fnv1a32(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_FNV1A32 ||
         fnv1a64(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_FNV1A64) {
-        return reject(assets, "TGSR-3 canonical payload fingerprint rejected");
+        return reject(&candidate, assets,
+                      "TGSR-3 canonical payload fingerprint rejected");
     }
     if (!validate_sources(payload) || !validate_semantics(payload)) {
-        return reject(assets, "TGSR-3 source/semantic contract rejected");
+        return reject(&candidate, assets,
+                      "TGSR-3 source/semantic contract rejected");
     }
     if (!validate_gameplay_core(gameplay_core, gameplay_core_size)) {
-        return reject(assets, "TGSR-3 same-pack TGPL-1 dependency rejected");
+        return reject(&candidate, assets,
+                      "TGSR-3 same-pack TGPL-1 dependency rejected");
     }
 
     storage = (uint8_t *)malloc(payload_size);
-    if (storage == NULL) return reject(assets, "TGSR-3 allocation failed");
+    if (storage == NULL) {
+        return reject(&candidate, assets, "TGSR-3 allocation failed");
+    }
     memcpy(storage, payload, payload_size);
-    assets->storage = storage;
-    assets->storage_size = payload_size;
+    candidate.storage = storage;
+    candidate.storage_size = payload_size;
     for (size_t index = 0U;
          index < TECMO_GAMEPLAY_SHOT_RESOLUTION_SOURCE_COUNT; ++index) {
         const TecmoGameplayShotResolutionExpectedSource *expected =
             &tecmo_gameplay_shot_resolution_expected_sources[index];
         TecmoGameplayShotResolutionSourceSpan *source =
-            &assets->sources[index];
+            &candidate.sources[index];
         source->kind = expected->kind;
         source->bank = TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_BANK;
         source->fixed_bank = false;
@@ -342,68 +361,71 @@ bool tecmo_gameplay_shot_resolution_parse(
          index < TECMO_GAMEPLAY_SHOT_RESOLUTION_RIM_ROUTE_COUNT; ++index) {
         const uint8_t *record = route_bytes +
             index * TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_ROUTE_STRIDE;
-        assets->routes[index].selector = record[0U];
-        assets->routes[index].kind =
+        candidate.routes[index].selector = record[0U];
+        candidate.routes[index].kind =
             (TecmoGameplayShotRimRouteKind)record[1U];
-        assets->routes[index].source_target_cpu = read_u16(record + 4U);
+        candidate.routes[index].source_target_cpu = read_u16(record + 4U);
     }
     metadata = storage +
         TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_METADATA_OFFSET;
-    assets->point_shot_flags_mask = storage[92U];
-    assets->point_y_min_inclusive = storage[93U];
-    assets->point_y_max_exclusive = storage[94U];
-    assets->point_orientation_count = storage[95U];
+    candidate.point_shot_flags_mask = storage[92U];
+    candidate.point_y_min_inclusive = storage[93U];
+    candidate.point_y_max_exclusive = storage[94U];
+    candidate.point_orientation_count = storage[95U];
     memcpy(
-        assets->point_arc_boundary,
+        candidate.point_arc_boundary,
         storage + TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_POINT_ARC_OFFSET,
-        sizeof(assets->point_arc_boundary));
-    assets->outcome_flag_mask = metadata[0U];
-    assets->route_selector_mask = metadata[4U];
-    assets->claimant_thresholds.horizontal_min_inclusive =
+        sizeof(candidate.point_arc_boundary));
+    candidate.outcome_flag_mask = metadata[0U];
+    candidate.route_selector_mask = metadata[4U];
+    candidate.claimant_thresholds.horizontal_min_inclusive =
         (int8_t)metadata[6U];
-    assets->claimant_thresholds.horizontal_max_inclusive =
+    candidate.claimant_thresholds.horizontal_max_inclusive =
         (int8_t)metadata[7U];
-    assets->claimant_thresholds.depth_min_inclusive =
+    candidate.claimant_thresholds.depth_min_inclusive =
         (int8_t)metadata[8U];
-    assets->claimant_thresholds.depth_max_inclusive =
+    candidate.claimant_thresholds.depth_max_inclusive =
         (int8_t)metadata[9U];
-    assets->claimant_thresholds.grounded_ball_altitude_max_inclusive =
+    candidate.claimant_thresholds.grounded_ball_altitude_max_inclusive =
         metadata[10U];
-    assets->claimant_thresholds.
+    candidate.claimant_thresholds.
         airborne_ball_above_claimant_max_inclusive = metadata[11U];
-    assets->claimant_other_team_flag_mask = metadata[12U];
-    assets->claimant_count = metadata[13U];
-    assets->rim_rattle.object_state = metadata[29U];
-    assets->rim_rattle.orientation_start_x[0U] =
+    candidate.claimant_other_team_flag_mask = metadata[12U];
+    candidate.claimant_count = metadata[13U];
+    candidate.rim_rattle.object_state = metadata[29U];
+    candidate.rim_rattle.orientation_start_x[0U] =
         read_u16(metadata + 30U);
-    assets->rim_rattle.orientation_start_x[1U] =
+    candidate.rim_rattle.orientation_start_x[1U] =
         read_u16(metadata + 32U);
-    assets->rim_rattle.start_y = metadata[34U];
-    assets->rim_rattle.horizontal_velocity_q6 =
+    candidate.rim_rattle.start_y = metadata[34U];
+    candidate.rim_rattle.horizontal_velocity_q6 =
         read_u16(metadata + 35U);
-    assets->rim_rattle.altitude = metadata[37U];
-    assets->rim_rattle.pass_timer_updates = metadata[38U];
-    assets->rim_rattle.pass_source_mask = metadata[39U];
-    assets->rim_rattle.pass_source_bias = metadata[40U];
-    assets->rim_rattle.pass_animation_shift = metadata[41U];
-    assets->rim_rattle.animation_low_mask = metadata[42U];
-    assets->rim_rattle.repeat_dmc_length = metadata[43U];
+    candidate.rim_rattle.altitude = metadata[37U];
+    candidate.rim_rattle.pass_timer_updates = metadata[38U];
+    candidate.rim_rattle.pass_source_mask = metadata[39U];
+    candidate.rim_rattle.pass_source_bias = metadata[40U];
+    candidate.rim_rattle.pass_animation_shift = metadata[41U];
+    candidate.rim_rattle.animation_low_mask = metadata[42U];
+    candidate.rim_rattle.repeat_dmc_length = metadata[43U];
     for (size_t index = 0U;
          index < TECMO_GAMEPLAY_SHOT_RIM_RATTLE_RENDER_SCRIPT_COUNT;
          ++index) {
-        assets->rim_rattle.render_script_addresses[index] =
+        candidate.rim_rattle.render_script_addresses[index] =
             read_u16(metadata + 44U + index * 2U);
     }
     for (size_t index = 0U;
          index < TECMO_GAMEPLAY_SHOT_RIM_RATTLE_ORIENTATION_COUNT;
          ++index) {
-        assets->rim_rattle.exit_render_script_addresses[index] =
+        candidate.rim_rattle.exit_render_script_addresses[index] =
             read_u16(metadata + 60U + index * 2U);
     }
-    assets->gameplay_core_fingerprint = TECMO_ASSET_PACK_GAMEPLAY_FNV1A32;
-    assets->available = true;
-    (void)snprintf(assets->status, sizeof(assets->status),
+    candidate.gameplay_core_fingerprint = TECMO_ASSET_PACK_GAMEPLAY_FNV1A32;
+    candidate.available = true;
+    (void)snprintf(candidate.status, sizeof(candidate.status),
                    "TGSR-3 gameplay shot-resolution assetpack");
+    previous = *assets;
+    *assets = candidate;
+    free(previous.storage);
     return true;
 }
 
@@ -421,25 +443,28 @@ bool tecmo_gameplay_shot_resolution_load(
             TECMO_GAMEPLAY_SHOT_RESOLUTION_LIFECYCLE_TAG) {
         return false;
     }
-    tecmo_gameplay_shot_resolution_destroy(assets);
     if (asset_pack_path == NULL ||
         tecmo_asset_pack_read_entry_exact(
             asset_pack_path,
             TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_ID,
             TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_SIZE,
             &payload, &payload_size) != 0) {
-        return reject(
-            assets,
-            "TGSR-3 gameplay/shot-resolution entry missing or wrong-sized");
+        if (!assets->available) {
+            (void)snprintf(assets->status, sizeof(assets->status),
+                           "TGSR-3 gameplay/shot-resolution entry missing or wrong-sized");
+        }
+        return false;
     }
     if (tecmo_asset_pack_read_entry_exact(
             asset_pack_path, TECMO_ASSET_PACK_GAMEPLAY_ID,
             TECMO_ASSET_PACK_GAMEPLAY_SIZE,
             &gameplay_core, &gameplay_core_size) != 0) {
         tecmo_asset_pack_free(payload);
-        return reject(
-            assets,
-            "TGSR-3 gameplay/core dependency missing or wrong-sized");
+        if (!assets->available) {
+            (void)snprintf(assets->status, sizeof(assets->status),
+                           "TGSR-3 gameplay/core dependency missing or wrong-sized");
+        }
+        return false;
     }
     loaded = tecmo_gameplay_shot_resolution_parse(
         assets, payload, (size_t)payload_size,
@@ -475,6 +500,120 @@ bool tecmo_gameplay_shot_resolution_classify_terminal_outcome(
         return false;
     }
     *outcome = (result_flags & assets->outcome_flag_mask) == 0U
+        ? TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE
+        : TECMO_GAMEPLAY_SHOT_OUTCOME_MISS;
+    return true;
+}
+
+bool tecmo_gameplay_shot_resolution_direction_for_delta(
+    int16_t target_delta_x,
+    int16_t target_delta_y,
+    TecmoGameplayShotDirectionSlot *direction)
+{
+    int32_t dx;
+    int32_t dy;
+    int32_t abs_x;
+    int32_t abs_y;
+    if (direction == NULL ||
+        (target_delta_x == 0 && target_delta_y == 0)) {
+        return false;
+    }
+    dx = target_delta_x;
+    dy = target_delta_y;
+    abs_x = dx < 0 ? -dx : dx;
+    abs_y = dy < 0 ? -dy : dy;
+
+    /* The equality cases are intentionally deterministic.  This is the
+       source-aligned 4:1 sector boundary, not the unrelated TGAI steering
+       ratio used by movement. */
+    if (abs_x >= abs_y * 4) {
+        *direction = dx > 0
+            ? TECMO_GAMEPLAY_SHOT_DIRECTION_RIGHT
+            : TECMO_GAMEPLAY_SHOT_DIRECTION_LEFT;
+    } else if (abs_y >= abs_x * 4) {
+        *direction = dy > 0
+            ? TECMO_GAMEPLAY_SHOT_DIRECTION_DOWN
+            : TECMO_GAMEPLAY_SHOT_DIRECTION_UP;
+    } else if (dx > 0 && dy > 0) {
+        *direction = TECMO_GAMEPLAY_SHOT_DIRECTION_DOWN_RIGHT;
+    } else if (dx < 0 && dy > 0) {
+        *direction = TECMO_GAMEPLAY_SHOT_DIRECTION_DOWN_LEFT;
+    } else if (dx > 0 && dy < 0) {
+        *direction = TECMO_GAMEPLAY_SHOT_DIRECTION_UP_RIGHT;
+    } else {
+        *direction = TECMO_GAMEPLAY_SHOT_DIRECTION_UP_LEFT;
+    }
+    return true;
+}
+
+bool tecmo_gameplay_shot_profile_from_profile_byte2(
+    uint8_t profile_byte2,
+    uint8_t *profile)
+{
+    if (profile == NULL) return false;
+    *profile = (profile_byte2 & 0x20U) != 0U ? 1U : 0U;
+    return true;
+}
+
+bool tecmo_gameplay_shot_resolution_evaluate(
+    const TecmoGameplayShotResolutionAssets *assets,
+    const TecmoGameplayShotEvaluationInput *input,
+    TecmoGameplayShotEvaluation *evaluation)
+{
+    int32_t horizontal;
+    int32_t vertical;
+    int32_t distance_penalty;
+    int32_t probability;
+    uint8_t sample;
+    if (assets == NULL || !assets->available || input == NULL ||
+        evaluation == NULL || input->point_value < 1U ||
+        input->point_value > 3U || input->family >= 2U ||
+        input->profile >= 2U || input->direction >= 8U ||
+        input->numeric_variant > 2U ||
+        (!input->close_context && input->numeric_variant != 0U) ||
+        (input->contact_context && !input->contest_context)) {
+        return false;
+    }
+    horizontal = input->horizontal_distance;
+    vertical = input->vertical_distance;
+    if (horizontal < 0) horizontal = -horizontal;
+    if (vertical < 0) vertical = -vertical;
+    distance_penalty = (horizontal + vertical) / 4;
+    if (distance_penalty > 30) distance_penalty = 30;
+
+    /* profile[0] is the source-backed player rating byte available at this
+       boundary.  It is a rating substitution for the unproven full $91BC
+       helper inputs, never a claim that profile[0] is the ROM's complete
+       shot formula. */
+    probability = 32 + (int32_t)(input->player_rating / 4U);
+    probability -= distance_penalty;
+    if (input->close_context) probability += 18;
+    if (input->point_value == 1U) probability += 8;
+    if (input->point_value == 3U) probability -= 10;
+    if (input->contest_context) probability -= 15;
+    if (input->contact_context) probability -= 20;
+    if (probability < 5) probability = 5;
+    if (probability > 95) probability = 95;
+
+    memset(evaluation, 0, sizeof(*evaluation));
+    evaluation->point_value = input->point_value;
+    evaluation->contact_context = input->contact_context;
+    evaluation->contest_context = input->contest_context;
+    evaluation->make_probability = (uint8_t)probability;
+    if (input->close_context && input->numeric_variant == 1U) {
+        evaluation->schedule =
+            TECMO_GAMEPLAY_SHOT_SCHEDULE_CLOSE_NUMERIC_1;
+    } else if (!input->close_context && input->point_value == 3U &&
+               input->family == 0U && input->profile == 0U &&
+               input->direction == 1U) {
+        evaluation->schedule =
+            TECMO_GAMEPLAY_SHOT_SCHEDULE_EXACT_THREE_POINT;
+    } else {
+        evaluation->schedule =
+            TECMO_GAMEPLAY_SHOT_SCHEDULE_NATIVE_APPROXIMATION;
+    }
+    sample = (uint8_t)(input->stable_sample % 100U);
+    evaluation->outcome = sample < evaluation->make_probability
         ? TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE
         : TECMO_GAMEPLAY_SHOT_OUTCOME_MISS;
     return true;
@@ -645,6 +784,7 @@ bool tecmo_gameplay_shot_rim_rattle_begin(
     int16_t incoming_horizontal_velocity_q6,
     int16_t incoming_vertical_velocity_q6)
 {
+    TecmoGameplayShotRimRattle candidate;
     const TecmoGameplayShotRimRattleContract *contract;
     uint8_t pass_count;
     if (assets == NULL || !assets->available || rattle == NULL ||
@@ -662,33 +802,34 @@ bool tecmo_gameplay_shot_rim_rattle_begin(
         pass_count == 0U || pass_count > 4U) {
         return false;
     }
-    memset(rattle, 0, sizeof(*rattle));
-    rattle->active = true;
-    rattle->object_state = contract->object_state;
-    rattle->orientation = orientation;
-    rattle->timer_remaining = contract->pass_timer_updates;
-    rattle->passes_remaining = pass_count;
-    rattle->animation_phase = (uint8_t)(
+    memset(&candidate, 0, sizeof(candidate));
+    candidate.active = true;
+    candidate.object_state = contract->object_state;
+    candidate.orientation = orientation;
+    candidate.timer_remaining = contract->pass_timer_updates;
+    candidate.passes_remaining = pass_count;
+    candidate.animation_phase = (uint8_t)(
         (uint8_t)(pass_count << contract->pass_animation_shift) |
         (animation_phase & contract->animation_low_mask));
-    rattle->altitude = contract->altitude;
-    rattle->x = (int16_t)contract->orientation_start_x[orientation];
-    rattle->y = (int16_t)contract->start_y;
-    rattle->saved_horizontal_velocity_q6 =
+    candidate.altitude = contract->altitude;
+    candidate.x = (int16_t)contract->orientation_start_x[orientation];
+    candidate.y = (int16_t)contract->start_y;
+    candidate.saved_horizontal_velocity_q6 =
         incoming_horizontal_velocity_q6;
-    rattle->saved_vertical_velocity_q6 =
+    candidate.saved_vertical_velocity_q6 =
         incoming_vertical_velocity_q6;
-    rattle->horizontal_velocity_q6 =
+    candidate.horizontal_velocity_q6 =
         incoming_horizontal_velocity_q6 < 0
             ? (int16_t)contract->horizontal_velocity_q6
             : -(int16_t)contract->horizontal_velocity_q6;
-    rattle->vertical_velocity_q6 = 0;
-    rattle->render_script_address =
+    candidate.vertical_velocity_q6 = 0;
+    candidate.render_script_address =
         contract->render_script_addresses[(size_t)orientation * 4U];
+    *rattle = candidate;
     return true;
 }
 
-bool tecmo_gameplay_shot_rim_rattle_step(
+static bool tecmo_gameplay_shot_rim_rattle_step_mutating(
     const TecmoGameplayShotResolutionAssets *assets,
     TecmoGameplayShotRimRattle *rattle,
     bool *repeat_dmc,
@@ -784,5 +925,29 @@ bool tecmo_gameplay_shot_rim_rattle_step(
     }
     rattle->render_script_address =
         contract->render_script_addresses[render_index];
+    return true;
+}
+
+bool tecmo_gameplay_shot_rim_rattle_step(
+    const TecmoGameplayShotResolutionAssets *assets,
+    TecmoGameplayShotRimRattle *rattle,
+    bool *repeat_dmc,
+    bool *completed)
+{
+    TecmoGameplayShotRimRattle candidate;
+    bool candidate_repeat = false;
+    bool candidate_complete = false;
+    if (assets == NULL || rattle == NULL || repeat_dmc == NULL ||
+        completed == NULL) {
+        return false;
+    }
+    candidate = *rattle;
+    if (!tecmo_gameplay_shot_rim_rattle_step_mutating(
+            assets, &candidate, &candidate_repeat, &candidate_complete)) {
+        return false;
+    }
+    *rattle = candidate;
+    *repeat_dmc = candidate_repeat;
+    *completed = candidate_complete;
     return true;
 }

@@ -7,6 +7,7 @@
 
 #define TECMO_GAMEPLAY_CLOSE_SHOT_SOURCE_COUNT 13U
 #define TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_COUNT 2U
+#define TECMO_GAMEPLAY_CLOSE_SHOT_NUMERIC_VARIANT_COUNT 3U
 #define TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_COUNT 2U
 #define TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_COUNT 8U
 #define TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT0_STEP_COUNT 32U
@@ -14,12 +15,14 @@
 #define TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT0_POSE_PHASE_COUNT 7U
 #define TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT2_POSE_PHASE_COUNT 6U
 #define TECMO_GAMEPLAY_CLOSE_SHOT_POSE_BASE_COUNT 32U
+#define TECMO_GAMEPLAY_CLOSE_SHOT_NUMERIC_1_POSE_GROUP_INDEX 16U
 
 #define TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_DIRECT 0x01U
 #define TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_HELD_RELEASE 0x02U
 #define TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_ARC 0x04U
 #define TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_LONGER_TRAJECTORY 0x08U
 #define TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_CONTACTABLE 0x10U
+#define TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_UNPROVEN_NUMERIC 0x20U
 
 typedef enum TecmoGameplayCloseShotSourceKind {
     TECMO_GAMEPLAY_CLOSE_SHOT_SOURCE_BANK05_8542_8694 = 1,
@@ -39,6 +42,10 @@ typedef enum TecmoGameplayCloseShotSourceKind {
 
 typedef enum TecmoGameplayCloseShotVariant {
     TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0 = 0,
+    /* Numeric 1 is exposed as its own source-pinned identity.  Its fixed pose
+       group is source-backed below, but complete object/trajectory semantics
+       remain unproven. */
+    TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_1 = 1,
     TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2 = 2
 } TecmoGameplayCloseShotVariant;
 
@@ -120,6 +127,17 @@ bool tecmo_gameplay_close_shots_get_variant_info(
     TecmoGameplayCloseShotVariant variant,
     TecmoGameplayCloseShotVariantInfo *info);
 
+/* Native scene selection helper.  The thresholds are scene geometry policy;
+   source_variant1_gate is a neutral bounded source/substitution bit, not a
+   contact, foul, dunk, layup, or other semantic classification.  The
+   returned numeric identity remains distinct from the exact TGCS phase data,
+   especially for numeric variant 1. */
+bool tecmo_gameplay_close_shots_select_numeric_variant(
+    int16_t approach_distance_x,
+    int16_t distance_y,
+    bool source_variant1_gate,
+    TecmoGameplayCloseShotVariant *variant);
+
 bool tecmo_gameplay_close_shots_phase_for_step(
     const TecmoGameplayCloseShotAssets *assets,
     TecmoGameplayCloseShotVariant variant,
@@ -133,6 +151,16 @@ bool tecmo_gameplay_close_shots_resolve_pose_pointer_index(
     TecmoGameplayCloseShotProfile profile,
     TecmoGameplayCloseShotDirection direction,
     uint8_t phase,
+    uint16_t *pointer_index);
+
+/* Bank05 $8C7D-$8CD4 selects numeric 1's fixed group at $10 and adds the
+   canonical eight-direction slot.  The raw TGCS-1 $8CED-$8D3C low/high span
+   retains these pointers even though the ordinary derived pose-base array
+   omits group $10.  Profile is intentionally absent: the source path ignores
+   it for this group. */
+bool tecmo_gameplay_close_shots_resolve_numeric_variant1_pose_pointer_index(
+    const TecmoGameplayCloseShotAssets *assets,
+    TecmoGameplayCloseShotDirection direction,
     uint16_t *pointer_index);
 
 #endif

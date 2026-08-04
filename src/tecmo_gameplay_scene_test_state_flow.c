@@ -231,6 +231,7 @@ static bool scene_test_cpu_offense_all_difficulties(
         }
         tecmo_gameplay_scene_end(scene);
     }
+
     return true;
 }
 
@@ -2525,8 +2526,10 @@ static bool scene_test_live_foundation_regressions(
         }
         action_before = scene->action_serial;
         memset(&shot_request, 0, sizeof(shot_request));
-        if (!scene_update_ai(scene, &shot_request) ||
-            !shot_request.requested ||
+        if (!scene_update_ai(scene, &shot_request)) {
+            LIVE_FAIL("LIVE supported close-shot scene_update_ai rejected");
+        }
+        if (!shot_request.requested ||
             shot_request.actor_index != 0U ||
             !shot_request.playback_supported ||
             shot_request.deferred ||
@@ -3313,6 +3316,2915 @@ static bool scene_test_halftime_and_final_result(
     return true;
 }
 
+static unsigned scene_test_prepare_failure_stage;
+
+static bool scene_test_prepare_owned_shot_fixture(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *base_launch,
+    int approach_distance_x,
+    int16_t y,
+    uint32_t frame_seed)
+{
+    TecmoGameplaySceneLaunch launch;
+    TecmoGameplayCourtCoordinate hoop;
+    TecmoGameplayCourtCoordinate position;
+    size_t actor;
+    bool launched = false;
+    scene_test_prepare_failure_stage = 1U;
+    if (scene == NULL || base_launch == NULL ||
+        approach_distance_x < -8 || approach_distance_x > 320 ||
+        y < TECMO_GAMEPLAY_COURT_WORLD_MIN_Y ||
+        y > TECMO_GAMEPLAY_COURT_WORLD_MAX_Y) {
+        return false;
+    }
+    launch = *base_launch;
+    launch.starter_binding_bound = true;
+    for (size_t side = 0U; side < TECMO_GAMEPLAY_TEAM_COUNT; ++side) {
+        for (size_t local = 0U;
+             local < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT; ++local) {
+            launch.starter_roster_index[side][local] = (uint8_t)local;
+        }
+    }
+    launch.controller_team[0U] = TECMO_GAMEPLAY_TEAM_AWAY;
+    launch.controller_team[1U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    launch.game_music_enabled = false;
+    tecmo_gameplay_scene_test_set_skip_pretip(true);
+    if (!tecmo_gameplay_scene_launch(scene, &launch)) {
+        tecmo_gameplay_scene_test_set_skip_pretip(false);
+        return false;
+    }
+    launched = true;
+    scene_test_prepare_failure_stage = 2U;
+    tecmo_gameplay_scene_test_set_skip_pretip(false);
+    if (!scene_handoff_possession(
+            scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U)) {
+        if (launched) tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    scene_test_prepare_failure_stage = 3U;
+    hoop = scene->orientation_state.offensive_hoop;
+    position.x = scene->orientation_state.current_direction == 0U
+        ? (int16_t)((int)hoop.x + approach_distance_x)
+        : (int16_t)((int)hoop.x - approach_distance_x);
+    position.y = y;
+    if (!scene_actor_coordinate_valid(&position)) {
+        if (launched) tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        scene->actors[actor].position.x = 500;
+        scene->actors[actor].position.y = 230;
+        scene->actors[actor].anchor = scene->actors[actor].position;
+        scene->actors[actor].movement_boundary_latched = false;
+    }
+    scene->actors[0U].position = position;
+    scene->actors[0U].anchor = position;
+    scene->actors[0U].facing_right =
+        scene->orientation_state.current_direction == 0U
+            ? position.x < hoop.x : position.x > hoop.x;
+    scene->state.clock_minutes = 1U;
+    scene->state.clock_seconds = 0U;
+    scene->state.clock_divider = 1U;
+    scene->state.shot_clock = 12U;
+    scene->frame = frame_seed;
+    if (!scene_attach_ball(scene)) {
+        scene_test_prepare_failure_stage = 4U;
+        if (launched) tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    if (!scene_sync_live_foundation(scene)) {
+        scene_test_prepare_failure_stage = 5U;
+        if (launched) tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    scene_test_prepare_failure_stage = 0U;
+    return true;
+}
+
+static bool scene_test_find_close_route(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *base_launch,
+    uint8_t desired_selector)
+{
+    static const int approaches[] = {8, 16, 24, 32, 40, 48};
+    static const int16_t heights[] = {95, 105, 120, 143, 160, 180, 200};
+    size_t approach;
+    size_t height;
+    uint32_t frame;
+    TecmoGameplayShotRimRouteKind expected_kind;
+    if (scene == NULL || base_launch == NULL || desired_selector > 3U) {
+        return false;
+    }
+    expected_kind = desired_selector == 1U
+        ? TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A7A9
+        : desired_selector == 2U
+            ? TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A8E9
+            : TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A708;
+    for (frame = 0U; frame < 256U; ++frame) {
+        for (approach = 0U;
+             approach < sizeof(approaches) / sizeof(approaches[0]);
+             ++approach) {
+            for (height = 0U;
+                 height < sizeof(heights) / sizeof(heights[0]); ++height) {
+                if (!scene_test_prepare_owned_shot_fixture(
+                        scene, base_launch, approaches[approach],
+                        heights[height], frame)) {
+                    continue;
+                }
+                if (!scene_start_shot_actor(scene, 0U, 0U)) {
+                    tecmo_gameplay_scene_end(scene);
+                    continue;
+                }
+                if (scene_shot_is_close(scene->shot_kind) &&
+                    scene->shot_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MISS &&
+                    scene->shot_rim_route.selector == desired_selector &&
+                    scene->shot_rim_route.kind == expected_kind) {
+                    return true;
+                }
+                tecmo_gameplay_scene_end(scene);
+            }
+        }
+    }
+    return false;
+}
+
+static bool scene_test_find_approx_make(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *base_launch,
+    uint8_t desired_points,
+    int desired_selector)
+{
+    static const int approaches[] = {64, 96, 128, 160, 220, 300};
+    static const int16_t heights[] = {95, 110, 125, 143, 160, 180, 200, 215};
+    size_t approach;
+    size_t height;
+    uint32_t frame;
+    if (scene == NULL || base_launch == NULL || desired_points > 3U ||
+        desired_selector < -1 || desired_selector > 3) {
+        return false;
+    }
+    for (frame = 0U; frame < 256U; ++frame) {
+        for (approach = 0U;
+             approach < sizeof(approaches) / sizeof(approaches[0]);
+             ++approach) {
+            for (height = 0U;
+                 height < sizeof(heights) / sizeof(heights[0]); ++height) {
+                if (!scene_test_prepare_owned_shot_fixture(
+                        scene, base_launch, approaches[approach],
+                        heights[height], frame)) {
+                    continue;
+                }
+                if (!scene_start_shot_actor(scene, 0U, 0U)) {
+                    tecmo_gameplay_scene_end(scene);
+                    continue;
+                }
+                if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
+                    scene->jump_make_route &&
+                    scene->shot_schedule ==
+                        TECMO_GAMEPLAY_SHOT_SCHEDULE_NATIVE_APPROXIMATION &&
+                     scene->shot_outcome ==
+                         TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE &&
+                     (desired_selector < 0 ||
+                      scene->shot_rim_route.selector ==
+                          (uint8_t)desired_selector) &&
+                     (desired_points == 0U ||
+                      scene->shot_points == desired_points)) {
+                    return true;
+                }
+                tecmo_gameplay_scene_end(scene);
+            }
+        }
+    }
+    return false;
+}
+
+static unsigned scene_test_advance_failure;
+
+static bool scene_test_advance_to_rim_tail(
+    TecmoGameplayScene *scene)
+{
+    TecmoControlFrame neutral;
+    unsigned updates = 0U;
+    scene_test_advance_failure = 0U;
+    if (scene == NULL || !scene_shot_is_close(scene->shot_kind) ||
+        scene->shot_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS) {
+        return false;
+    }
+    memset(&neutral, 0, sizeof(neutral));
+    while (!scene->shot_rim_tail_active &&
+           scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+           updates < 140U) {
+        if (!scene_update_shot(scene, &neutral)) {
+            scene_test_advance_failure = updates + 1U;
+            return false;
+        }
+        ++updates;
+    }
+    if (!scene->shot_rim_tail_active || scene->shot_rim_tail_frame != 0U) {
+        scene_test_advance_failure = 1000U + updates;
+        return false;
+    }
+    return true;
+}
+
+static unsigned scene_test_route_failure;
+static unsigned scene_test_terminal_failure;
+static unsigned scene_test_terminal_detail;
+
+static unsigned scene_test_production_matrix_failure;
+static unsigned scene_test_matrix_setup_failure;
+static unsigned scene_test_contact_failure;
+
+static bool scene_test_prepare_matrix_fixture(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *base_launch,
+    TecmoGameplayTeam shooting_team,
+    uint8_t shooter_roster,
+    int16_t target_delta_x,
+    int16_t target_delta_y,
+    uint32_t frame_seed,
+    unsigned context_kind)
+{
+    TecmoGameplaySceneLaunch launch;
+    TecmoGameplayCourtCoordinate hoop;
+    TecmoGameplayCourtCoordinate position;
+    uint8_t shooter;
+    uint8_t controller;
+    int16_t far_x;
+    int16_t far_y;
+    if (scene == NULL || base_launch == NULL ||
+        (shooting_team != TECMO_GAMEPLAY_TEAM_AWAY &&
+         shooting_team != TECMO_GAMEPLAY_TEAM_HOME) ||
+        shooter_roster >= TECMO_TEAM_DATA_PLAYERS_PER_TEAM) {
+        return false;
+    }
+    launch = *base_launch;
+    launch.starter_binding_bound = true;
+    for (size_t side = 0U; side < TECMO_GAMEPLAY_TEAM_COUNT; ++side) {
+        for (size_t local = 0U;
+             local < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT; ++local) {
+            launch.starter_roster_index[side][local] = (uint8_t)local;
+        }
+    }
+    if (shooting_team == TECMO_GAMEPLAY_TEAM_AWAY) {
+        launch.starter_roster_index[0U][0U] = shooter_roster;
+        controller = 0U;
+        shooter = 0U;
+    } else {
+        launch.starter_roster_index[1U][0U] = shooter_roster;
+        controller = 1U;
+        shooter = 5U;
+    }
+    for (size_t side = 0U; side < TECMO_GAMEPLAY_TEAM_COUNT; ++side) {
+        uint8_t next = 0U;
+        if ((shooting_team == TECMO_GAMEPLAY_TEAM_AWAY && side == 0U) ||
+            (shooting_team == TECMO_GAMEPLAY_TEAM_HOME && side == 1U)) {
+            for (size_t local = 1U;
+                 local < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT; ++local) {
+                while (next == shooter_roster) ++next;
+                launch.starter_roster_index[side][local] = next++;
+            }
+        }
+    }
+    launch.controller_team[0U] = shooting_team == TECMO_GAMEPLAY_TEAM_AWAY
+        ? TECMO_GAMEPLAY_TEAM_AWAY : TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    launch.controller_team[1U] = shooting_team == TECMO_GAMEPLAY_TEAM_HOME
+        ? TECMO_GAMEPLAY_TEAM_HOME : TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    launch.game_music_enabled = false;
+    tecmo_gameplay_scene_test_set_skip_pretip(true);
+    if (!tecmo_gameplay_scene_launch(scene, &launch)) {
+        tecmo_gameplay_scene_test_set_skip_pretip(false);
+        scene_test_matrix_setup_failure = 1U;
+        return false;
+    }
+    tecmo_gameplay_scene_test_set_skip_pretip(false);
+    if (!scene_handoff_possession(scene, shooting_team, shooter)) {
+        scene_test_matrix_setup_failure = 2U;
+        tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    hoop = scene->orientation_state.offensive_hoop;
+    position.x = (int16_t)((int)hoop.x - (int)target_delta_x);
+    position.y = (int16_t)((int)hoop.y - (int)target_delta_y);
+    if (!scene_actor_coordinate_valid(&position)) {
+        scene_test_matrix_setup_failure = 3U;
+        tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    /* Keep the non-shooters inside the perspective court boundary.  The old
+       extrema (x=760/0) are legal rectangle coordinates but invalid actor
+       world positions at their corresponding depth, which makes the bound
+       foundation synchronizer reject otherwise valid direction cases. */
+    far_x = position.x < 384 ? 520 : 240;
+    far_y = position.y < 120 ? 220 : 20;
+    for (size_t actor = 0U;
+         actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        scene->actors[actor].position.x = far_x;
+        scene->actors[actor].position.y = far_y;
+        scene->actors[actor].anchor = scene->actors[actor].position;
+        scene->actors[actor].movement_boundary_latched = false;
+    }
+    scene->actors[shooter].position = position;
+    scene->actors[shooter].anchor = position;
+    scene->actors[shooter].facing_right = position.x < hoop.x;
+    if (context_kind == 1U || context_kind == 2U) {
+        uint8_t defender = shooting_team == TECMO_GAMEPLAY_TEAM_AWAY
+            ? 5U : 0U;
+        scene->actors[defender].position.x = (int16_t)(position.x +
+            (context_kind == 2U ? 8 : 30));
+        scene->actors[defender].position.y = (int16_t)(position.y +
+            (context_kind == 2U ? 8 : 20));
+        if (!scene_actor_coordinate_valid(
+                &scene->actors[defender].position)) {
+            scene_test_matrix_setup_failure = 4U;
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+        scene->actors[defender].anchor = scene->actors[defender].position;
+    }
+    scene->state.clock_minutes = 1U;
+    scene->state.clock_seconds = 0U;
+    scene->state.clock_divider = 1U;
+    scene->state.shot_clock = 12U;
+    scene->frame = frame_seed;
+    if (!scene_attach_ball(scene)) {
+        scene_test_matrix_setup_failure = 5U;
+        tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    if (!scene_sync_live_foundation(scene)) {
+        scene_test_matrix_setup_failure = 6U;
+        tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    if (!scene_start_shot_actor(scene, controller, shooter)) {
+        scene_test_matrix_setup_failure = 7U;
+        tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    return true;
+}
+
+static bool scene_test_production_jump_matrix(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *base_launch)
+{
+    static const int16_t deltas_x[8] = {
+        96, -96, 8, 64, -64, 8, 64, -64
+    };
+    static const int16_t deltas_y[8] = {
+        0, 0, 32, 64, 64, -32, -64, -64
+    };
+    uint8_t profile_roster[TECMO_GAMEPLAY_TEAM_COUNT][2];
+    uint8_t matrix_team[2] = {0xFFU, 0xFFU};
+    TecmoGameplaySceneLaunch matrix_launch;
+    TecmoGameplayScene replay;
+    TecmoControlFrame neutral;
+    if (scene == NULL || base_launch == NULL ||
+        scene->pretip_team_data == NULL ||
+        !scene->pretip_team_data->available) {
+        scene_test_production_matrix_failure = 1U;
+        return false;
+    }
+    memset(profile_roster, 0xFF, sizeof(profile_roster));
+    for (uint8_t team_id = 0U;
+         team_id < TECMO_TEAM_DATA_TEAM_COUNT; ++team_id) {
+        bool has_profile[2] = {false, false};
+        for (uint8_t roster = 0U;
+             roster < TECMO_TEAM_DATA_PLAYERS_PER_TEAM; ++roster) {
+            uint8_t profile;
+            if (!tecmo_gameplay_shot_profile_from_profile_byte2(
+                    scene->pretip_team_data->players[team_id][roster]
+                        .profile[2], &profile)) {
+                scene_test_production_matrix_failure = 2U;
+                return false;
+            }
+            has_profile[profile] = true;
+        }
+        if (has_profile[0] && has_profile[1]) {
+            if (matrix_team[0] == 0xFFU) matrix_team[0] = team_id;
+            else if (matrix_team[1] == 0xFFU &&
+                     team_id != matrix_team[0]) matrix_team[1] = team_id;
+        }
+    }
+    if (matrix_team[0] == 0xFFU || matrix_team[1] == 0xFFU) {
+        scene_test_production_matrix_failure = 3U;
+        return false;
+    }
+    matrix_launch = *base_launch;
+    matrix_launch.away_team = matrix_team[0];
+    matrix_launch.home_team = matrix_team[1];
+    for (unsigned team_slot = 0U; team_slot < 2U; ++team_slot) {
+        uint8_t team_id = matrix_team[team_slot];
+        for (uint8_t roster = 0U;
+             roster < TECMO_TEAM_DATA_PLAYERS_PER_TEAM; ++roster) {
+            uint8_t profile;
+            if (!tecmo_gameplay_shot_profile_from_profile_byte2(
+                    scene->pretip_team_data->players[team_id][roster]
+                        .profile[2], &profile)) {
+                scene_test_production_matrix_failure = 4U;
+                return false;
+            }
+            if (profile_roster[team_slot][profile] == 0xFFU) {
+                profile_roster[team_slot][profile] = roster;
+            }
+        }
+        if (profile_roster[team_slot][0] == 0xFFU ||
+            profile_roster[team_slot][1] == 0xFFU) {
+            scene_test_production_matrix_failure = 5U + team_slot;
+            return false;
+        }
+    }
+    memset(&neutral, 0, sizeof(neutral));
+    scene_test_production_matrix_failure = 0U;
+    scene_test_matrix_setup_failure = 0U;
+    for (unsigned family = 0U; family < 2U; ++family) {
+        for (unsigned profile = 0U; profile < 2U; ++profile) {
+            for (unsigned direction = 0U; direction < 8U; ++direction) {
+                bool found = false;
+                TecmoGameplayTeam shooting_team = deltas_x[direction] >= 0
+                    ? TECMO_GAMEPLAY_TEAM_HOME : TECMO_GAMEPLAY_TEAM_AWAY;
+                unsigned team_slot = shooting_team ==
+                    TECMO_GAMEPLAY_TEAM_AWAY ? 0U : 1U;
+                for (uint32_t frame = 0U; frame < 256U && !found; ++frame) {
+                    bool saw_flight = false;
+                    if (!scene_test_prepare_matrix_fixture(
+                            scene, &matrix_launch, shooting_team,
+                            profile_roster[team_slot][profile], deltas_x[direction],
+                            deltas_y[direction], frame, 0U)) {
+                        continue;
+                    }
+                    {
+                        uint16_t expected_pose;
+                        if (scene->shot_kind !=
+                            TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+                        scene->jump_family !=
+                            (TecmoGameplayJumpShotFamily)family ||
+                        scene->jump_profile !=
+                            (TecmoGameplayJumpShotProfile)profile ||
+                        scene->jump_direction !=
+                            (TecmoGameplayJumpShotDirection)direction ||
+                        !tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
+                            &scene->jump_shots, scene->jump_family,
+                            scene->jump_profile, scene->jump_direction,
+                            &expected_pose) ||
+                        scene->jump_resolved_pose_index != expected_pose ||
+                        !scene_ownership_valid(scene)) {
+                        scene_test_matrix_setup_failure = 8U +
+                            ((unsigned)scene->shot_kind & 0x03U) * 16U +
+                            (unsigned)scene->jump_family * 4U +
+                            (unsigned)scene->jump_profile;
+                        tecmo_gameplay_scene_end(scene);
+                        continue;
+                    }
+                    }
+                    {
+                        TecmoGameplayScene malformed = *scene;
+                        TecmoGameplayScene snapshot;
+                        malformed.jump_resolved_pose_index ^= 0x0001U;
+                        snapshot = malformed;
+                        if (scene_update_shot(&malformed, &neutral) ||
+                            memcmp(&malformed, &snapshot,
+                                   sizeof(malformed)) != 0) {
+                            scene_test_production_matrix_failure =
+                                400U + family * 100U + profile * 20U +
+                                direction;
+                            tecmo_gameplay_scene_end(scene);
+                            return false;
+                        }
+                        malformed = *scene;
+                        malformed.actors[malformed.shot_actor].facing_right =
+                            !malformed.actors[malformed.shot_actor].facing_right;
+                        snapshot = malformed;
+                        if (scene_update_shot(&malformed, &neutral) ||
+                            memcmp(&malformed, &snapshot,
+                                   sizeof(malformed)) != 0) {
+                            scene_test_production_matrix_failure =
+                                500U + family * 100U + profile * 20U +
+                                direction;
+                            tecmo_gameplay_scene_end(scene);
+                            return false;
+                        }
+                        malformed = *scene;
+                        malformed.jump_rim_rattle_raw_selector = 1U;
+                        snapshot = malformed;
+                        if (scene_update_shot(&malformed, &neutral) ||
+                            memcmp(&malformed, &snapshot,
+                                   sizeof(malformed)) != 0) {
+                            scene_test_production_matrix_failure =
+                                600U + family * 100U + profile * 20U +
+                                direction;
+                            tecmo_gameplay_scene_end(scene);
+                            return false;
+                        }
+                    }
+                    replay = *scene;
+                    for (unsigned update = 0U; update < 12U; ++update) {
+                        if (!scene_update_shot(scene, &neutral) ||
+                            !scene_update_shot(&replay, &neutral)) {
+                            scene_test_production_matrix_failure =
+                                100U + family * 100U + profile * 20U +
+                                direction;
+                            tecmo_gameplay_scene_end(scene);
+                            return false;
+                        }
+                        if (scene->shot_kind ==
+                                TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
+                            break;
+                        }
+                        if (scene->shot_frame >= 3U &&
+                            scene->actors[scene->shot_actor].pose_index ==
+                                scene->jump_resolved_pose_index) {
+                            saw_flight = true;
+                        }
+                    }
+                    if (!saw_flight || memcmp(scene, &replay, sizeof(*scene)) != 0) {
+                        scene_test_production_matrix_failure =
+                            200U + family * 100U + profile * 20U + direction;
+                        tecmo_gameplay_scene_end(scene);
+                        return false;
+                    }
+                    tecmo_gameplay_scene_end(scene);
+                    found = true;
+                }
+                if (!found) {
+                    scene_test_production_matrix_failure =
+                        300U + family * 100U + profile * 20U + direction;
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
+}
+
+static bool scene_test_production_contact_contexts(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *base_launch)
+{
+    uint8_t context;
+    uint8_t shooter_roster = 0U;
+    uint8_t best_rating = 0U;
+    uint8_t expected_contact[3] = {0U, 0U, 1U};
+    uint8_t expected_contest[3] = {0U, 1U, 1U};
+    uint8_t probability[3] = {0U, 0U, 0U};
+    TecmoControlFrame neutral;
+    TecmoGameplayScene corrupted;
+    TecmoGameplayScene snapshot;
+    scene_test_contact_failure = 0U;
+    if (scene == NULL || base_launch == NULL) {
+        scene_test_contact_failure = 1U;
+        return false;
+    }
+    if (scene->pretip_team_data == NULL ||
+        !scene->pretip_team_data->available) {
+        scene_test_contact_failure = 2U;
+        return false;
+    }
+    for (uint8_t roster = 0U;
+         roster < TECMO_TEAM_DATA_PLAYERS_PER_TEAM; ++roster) {
+        const TecmoTeamDataPlayer *player =
+            &scene->pretip_team_data->players[base_launch->away_team][roster];
+        if (player->profile[0] >= best_rating) {
+            best_rating = player->profile[0];
+            shooter_roster = roster;
+        }
+    }
+    memset(&neutral, 0, sizeof(neutral));
+    for (context = 0U; context < 3U; ++context) {
+        if (!scene_test_prepare_matrix_fixture(
+                scene, base_launch, TECMO_GAMEPLAY_TEAM_AWAY, shooter_roster,
+                -64, 0, (uint32_t)(context + 17U), context)) {
+            scene_test_contact_failure = 10U + context;
+            return false;
+        }
+        if (scene->shot_contact_context != expected_contact[context] ||
+            scene->shot_contest_context != expected_contest[context]) {
+            scene_test_contact_failure = 20U + context;
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+        probability[context] = scene->shot_make_probability;
+        corrupted = *scene;
+        corrupted.shot_contact_context = !corrupted.shot_contact_context;
+        snapshot = corrupted;
+        if (scene_update_shot(&corrupted, &neutral) ||
+            memcmp(&corrupted, &snapshot, sizeof(corrupted)) != 0) {
+            scene_test_contact_failure = 25U + context;
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+        corrupted = *scene;
+        corrupted.shot_contest_context = !corrupted.shot_contest_context;
+        snapshot = corrupted;
+        if (scene_update_shot(&corrupted, &neutral) ||
+            memcmp(&corrupted, &snapshot, sizeof(corrupted)) != 0) {
+            scene_test_contact_failure = 28U + context;
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+        corrupted = *scene;
+        corrupted.shot_context_signature ^= 0x00000001U;
+        snapshot = corrupted;
+        if (scene_update_shot(&corrupted, &neutral) ||
+            memcmp(&corrupted, &snapshot, sizeof(corrupted)) != 0) {
+            scene_test_contact_failure = 32U + context;
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+        if (!scene_update_shot(scene, &neutral)) {
+            scene_test_contact_failure = 30U + context;
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+        tecmo_gameplay_scene_end(scene);
+    }
+    if (!(probability[0] > probability[1] &&
+          probability[1] > probability[2])) {
+        scene_test_contact_failure = 40U;
+        return false;
+    }
+    return true;
+}
+
+static unsigned scene_test_close_matrix_failure;
+static unsigned scene_test_close_matrix_detail;
+
+static bool scene_test_production_close_matrix(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *base_launch)
+{
+    static const int16_t variant0_dx[8] = {
+        8, -8, 2, 8, -8, 2, 8, -8
+    };
+    static const int16_t variant0_dy[8] = {
+        0, 0, 16, 16, 16, -16, -16, -16
+    };
+    static const int16_t variant2_dx[8] = {
+        32, -32, 2, 32, -32, 2, 32, -32
+    };
+    static const int16_t variant2_dy[8] = {
+        0, 0, 16, 16, 16, -16, -16, -16
+    };
+    uint8_t profile_roster[2][2];
+    uint8_t matrix_team[2] = {0xFFU, 0xFFU};
+    TecmoGameplaySceneLaunch matrix_launch;
+    TecmoControlFrame neutral;
+    uint16_t numeric1_pose[8] = {0U};
+    if (scene == NULL || base_launch == NULL ||
+        scene->pretip_team_data == NULL ||
+        !scene->pretip_team_data->available) {
+        scene_test_close_matrix_failure = 1U;
+        return false;
+    }
+    memset(profile_roster, 0xFF, sizeof(profile_roster));
+    for (uint8_t team_id = 0U;
+         team_id < TECMO_TEAM_DATA_TEAM_COUNT; ++team_id) {
+        bool has_profile[2] = {false, false};
+        for (uint8_t roster = 0U;
+             roster < TECMO_TEAM_DATA_PLAYERS_PER_TEAM; ++roster) {
+            uint8_t profile;
+            if (!tecmo_gameplay_shot_profile_from_profile_byte2(
+                    scene->pretip_team_data->players[team_id][roster]
+                        .profile[2], &profile)) {
+                scene_test_close_matrix_failure = 2U;
+                return false;
+            }
+            has_profile[profile] = true;
+        }
+        if (has_profile[0] && has_profile[1]) {
+            if (matrix_team[0] == 0xFFU) matrix_team[0] = team_id;
+            else if (matrix_team[1] == 0xFFU &&
+                     team_id != matrix_team[0]) matrix_team[1] = team_id;
+        }
+    }
+    if (matrix_team[0] == 0xFFU || matrix_team[1] == 0xFFU) {
+        scene_test_close_matrix_failure = 3U;
+        return false;
+    }
+    matrix_launch = *base_launch;
+    matrix_launch.away_team = matrix_team[0];
+    matrix_launch.home_team = matrix_team[1];
+    for (unsigned team_slot = 0U; team_slot < 2U; ++team_slot) {
+        uint8_t team_id = matrix_team[team_slot];
+        for (uint8_t roster = 0U;
+             roster < TECMO_TEAM_DATA_PLAYERS_PER_TEAM; ++roster) {
+            uint8_t profile;
+            if (!tecmo_gameplay_shot_profile_from_profile_byte2(
+                    scene->pretip_team_data->players[team_id][roster]
+                        .profile[2], &profile)) {
+                scene_test_close_matrix_failure = 4U;
+                return false;
+            }
+            if (profile_roster[team_slot][profile] == 0xFFU) {
+                profile_roster[team_slot][profile] = roster;
+            }
+        }
+    }
+    if (profile_roster[0][0] == 0xFFU || profile_roster[0][1] == 0xFFU ||
+        profile_roster[1][0] == 0xFFU || profile_roster[1][1] == 0xFFU) {
+        scene_test_close_matrix_failure = 5U;
+        return false;
+    }
+    memset(&neutral, 0, sizeof(neutral));
+    scene_test_close_matrix_failure = 0U;
+    for (unsigned variant = 0U; variant < 3U; ++variant) {
+        for (unsigned profile = 0U; profile < 2U; ++profile) {
+            for (unsigned direction = 0U; direction < 8U; ++direction) {
+                bool found = false;
+                unsigned prepared_count = 0U;
+                unsigned started_count = 0U;
+                unsigned close_count = 0U;
+                unsigned variant_count = 0U;
+                const int16_t *dx = variant == 2U
+                    ? variant2_dx : variant0_dx;
+                const int16_t *dy = variant == 2U
+                    ? variant2_dy : variant0_dy;
+                for (unsigned team_attempt = 0U;
+                     team_attempt < 2U && !found; ++team_attempt) {
+                    TecmoGameplayTeam shooting_team = team_attempt == 0U
+                        ? TECMO_GAMEPLAY_TEAM_AWAY
+                        : TECMO_GAMEPLAY_TEAM_HOME;
+                    unsigned team_slot = shooting_team ==
+                        TECMO_GAMEPLAY_TEAM_AWAY ? 0U : 1U;
+                    for (uint32_t frame = 0U; frame < 256U && !found;
+                         ++frame) {
+                    /* The separate bound context matrix exercises far,
+                       contest-only, and contact+contest contexts. Keep this
+                       exhaustive selector matrix uncontested so near-hoop
+                       perspective setup cannot mask a pose-selector case. */
+                    unsigned context_kind = 0U;
+                    TecmoGameplayScene replay;
+                    uint16_t pose;
+                    if (!scene_test_prepare_matrix_fixture(
+                            scene, &matrix_launch, shooting_team,
+                            profile_roster[team_slot][profile], dx[direction],
+                            dy[direction], frame, context_kind)) {
+                        continue;
+                    }
+                    ++prepared_count;
+                    ++started_count;
+                    if (scene->shot_kind !=
+                            TECMO_GAMEPLAY_SCENE_SHOT_DUNK &&
+                        scene->shot_kind !=
+                            TECMO_GAMEPLAY_SCENE_SHOT_NUMERIC_1 &&
+                        scene->shot_kind !=
+                            TECMO_GAMEPLAY_SCENE_SHOT_LAYUP) {
+                        tecmo_gameplay_scene_end(scene);
+                        continue;
+                    }
+                    ++close_count;
+                    if ((unsigned)scene->close_shot_variant != variant) {
+                        /* Stable-source bits select among the three native
+                           numeric identities; an otherwise valid close shot
+                           of another identity is a bounded search miss. */
+                        tecmo_gameplay_scene_end(scene);
+                        continue;
+                    }
+                    {
+                        unsigned selector_failure = 0U;
+                        bool pose_ok = scene_close_pose_for_step(
+                            scene, 0U, &pose);
+                        if ((unsigned)scene->close_shot_profile != profile) {
+                            selector_failure |= 2U;
+                        }
+                        if ((unsigned)scene->close_shot_direction != direction) {
+                            selector_failure |= 4U;
+                        }
+                        if (scene->shot_kind !=
+                                (variant == 0U
+                                    ? TECMO_GAMEPLAY_SCENE_SHOT_DUNK
+                                    : variant == 1U
+                                        ? TECMO_GAMEPLAY_SCENE_SHOT_NUMERIC_1
+                                        : TECMO_GAMEPLAY_SCENE_SHOT_LAYUP)) {
+                            selector_failure |= 64U;
+                        }
+                        if (!scene_ownership_valid(scene)) {
+                            selector_failure |= 8U;
+                        }
+                        if (!pose_ok) selector_failure |= 16U;
+                        else if (scene->actors[scene->shot_actor].pose_index !=
+                                 pose) {
+                            selector_failure |= 32U;
+                        }
+                        if (selector_failure != 0U) {
+                            scene_test_close_matrix_failure =
+                                100U + variant * 100U + profile * 20U + direction;
+                            scene_test_close_matrix_detail = selector_failure |
+                                ((unsigned)scene->close_shot_variant << 8U) |
+                                ((unsigned)scene->close_shot_profile << 12U) |
+                                ((unsigned)scene->close_shot_direction << 16U) |
+                                ((unsigned)scene->shot_kind << 20U);
+                            tecmo_gameplay_scene_end(scene);
+                            return false;
+                        }
+                    }
+                    {
+                        TecmoGameplayScene malformed = *scene;
+                        TecmoGameplayScene snapshot;
+                        malformed.shot_sample ^= 0x80000000U;
+                        snapshot = malformed;
+                        if (scene_update_shot(&malformed, &neutral) ||
+                            memcmp(&malformed, &snapshot,
+                                   sizeof(malformed)) != 0) {
+                            scene_test_close_matrix_failure =
+                                500U + variant * 100U + profile * 20U +
+                                direction;
+                            tecmo_gameplay_scene_end(scene);
+                            return false;
+                        }
+                        malformed = *scene;
+                        malformed.shot_launch_frame ^= 0x00010000U;
+                        snapshot = malformed;
+                        if (scene_update_shot(&malformed, &neutral) ||
+                            memcmp(&malformed, &snapshot,
+                                   sizeof(malformed)) != 0) {
+                            scene_test_close_matrix_failure =
+                                600U + variant * 100U + profile * 20U +
+                                direction;
+                            tecmo_gameplay_scene_end(scene);
+                            return false;
+                        }
+                        malformed = *scene;
+                        malformed.shot_launch_facing_right =
+                            !malformed.shot_launch_facing_right;
+                        snapshot = malformed;
+                        if (scene_update_shot(&malformed, &neutral) ||
+                            memcmp(&malformed, &snapshot,
+                                   sizeof(malformed)) != 0) {
+                            scene_test_close_matrix_failure =
+                                700U + variant * 100U + profile * 20U +
+                                direction;
+                            tecmo_gameplay_scene_end(scene);
+                            return false;
+                        }
+                        malformed = *scene;
+                        ++malformed.shot_start_position.x_q8;
+                        snapshot = malformed;
+                        if (scene_update_shot(&malformed, &neutral) ||
+                            memcmp(&malformed, &snapshot,
+                                   sizeof(malformed)) != 0) {
+                            scene_test_close_matrix_failure =
+                                800U + variant * 100U + profile * 20U +
+                                direction;
+                            tecmo_gameplay_scene_end(scene);
+                            return false;
+                        }
+                        malformed = *scene;
+                        malformed.shot_kind = TECMO_GAMEPLAY_SCENE_SHOT_JUMP;
+                        snapshot = malformed;
+                        if (scene_update_shot(&malformed, &neutral) ||
+                            memcmp(&malformed, &snapshot,
+                                   sizeof(malformed)) != 0) {
+                            scene_test_close_matrix_failure =
+                                900U + variant * 100U + profile * 20U +
+                                direction;
+                            tecmo_gameplay_scene_end(scene);
+                            return false;
+                        }
+                    }
+                    ++variant_count;
+                    if (variant == 1U) numeric1_pose[direction] = pose;
+                    replay = *scene;
+                    if (!scene_update_shot(scene, &neutral) ||
+                        !scene_update_shot(&replay, &neutral) ||
+                        memcmp(scene, &replay, sizeof(*scene)) != 0) {
+                        scene_test_close_matrix_failure =
+                            200U + variant * 100U + profile * 20U + direction;
+                        tecmo_gameplay_scene_end(scene);
+                        return false;
+                    }
+                    tecmo_gameplay_scene_end(scene);
+                    found = true;
+                    }
+                }
+                if (!found) {
+                    scene_test_close_matrix_failure =
+                        300U + variant * 100U + profile * 20U + direction;
+                    scene_test_close_matrix_detail =
+                        prepared_count * 1000000U + started_count * 10000U +
+                        close_count * 100U + variant_count;
+                    return false;
+                }
+            }
+        }
+    }
+    /* Bank05 $8C7D fixed group $10 ignores profile for numeric identity 1. */
+    for (unsigned direction = 0U; direction < 8U; ++direction) {
+        TecmoGameplayCloseShotDirection close_direction =
+            (TecmoGameplayCloseShotDirection)direction;
+        uint16_t expected;
+        if (!tecmo_gameplay_close_shots_resolve_numeric_variant1_pose_pointer_index(
+                &scene->close_shots, close_direction, &expected) ||
+            numeric1_pose[direction] != expected) {
+            scene_test_close_matrix_failure = 400U + direction;
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool scene_test_route_tail_matrix(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *base_launch)
+{
+    static const TecmoGameplayShotRimRouteKind expected_kind[4] = {
+        TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A708,
+        TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A7A9,
+        TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A8E9,
+        TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A708
+    };
+    static const uint16_t expected_cpu[4] = {
+        0xA708U, 0xA7A9U, 0xA8E9U, 0xA708U
+    };
+    uint32_t trace_hash[4] = {0U, 0U, 0U, 0U};
+    unsigned observed_updates[4] = {0U, 0U, 0U, 0U};
+    static const unsigned expected_duration[4] = {6U, 17U, 7U, 8U};
+    TecmoControlFrame neutral;
+    TecmoGameplayCourtCoordinate endpoint;
+    TecmoGameplayScene before_terminal;
+    TecmoGameplayScene malformed;
+    TecmoGameplayScene snapshot;
+    uint8_t selector;
+    scene_test_route_failure = 0U;
+    memset(&neutral, 0, sizeof(neutral));
+    for (selector = 0U; selector < 4U; ++selector) {
+        if (!scene_test_find_close_route(scene, base_launch, selector)) {
+            scene_test_route_failure = (unsigned)(10U + selector);
+            return false;
+        }
+        if (!scene_test_advance_to_rim_tail(scene)) {
+            scene_test_route_failure = (unsigned)(20U + selector);
+            return false;
+        }
+        if (scene->shot_rim_route.kind != expected_kind[selector] ||
+            scene->shot_rim_route.source_target_cpu != expected_cpu[selector] ||
+            scene->shot_rim_route.selector != selector ||
+            (scene->shot_rim_rattle_raw_selector & 0x03U) != selector) {
+            scene_test_route_failure = (unsigned)(30U + selector);
+            return false;
+        }
+        malformed = *scene;
+        malformed.shot_rim_tail_duration++;
+        malformed.shot_duration++;
+        snapshot = malformed;
+        if (scene_update_shot(&malformed, &neutral) ||
+            memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+            scene_test_route_failure = (unsigned)(31U + selector);
+            return false;
+        }
+        malformed = *scene;
+        malformed.shot_rim_tail_base_frame++;
+        malformed.shot_frame++;
+        malformed.shot_duration++;
+        snapshot = malformed;
+        if (scene_update_shot(&malformed, &neutral) ||
+            memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+            scene_test_route_failure = (unsigned)(35U + selector);
+            return false;
+        }
+        malformed = *scene;
+        malformed.shot_rim_route.selector =
+            (uint8_t)((selector + 1U) & 0x03U);
+        snapshot = malformed;
+        if (scene_update_shot(&malformed, &neutral) ||
+            memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+            scene_test_route_failure = (unsigned)(39U + selector);
+            return false;
+        }
+        endpoint.x = (int16_t)(scene->shot_end_position.x_q8 / 256);
+        endpoint.y = (int16_t)(scene->shot_end_position.y_q8 / 256);
+        for (unsigned actor = 0U;
+             actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+            scene->actors[actor].position.x = 650;
+            scene->actors[actor].position.y = 230;
+            scene->actors[actor].anchor = scene->actors[actor].position;
+        }
+        /* Alternate the proven settlement relation so all four route
+           identities exercise both same-team retention and opposing-team
+           handoff.  Actor-slot order, not geometric nearest distance, is the
+           bounded source-order substitution. */
+        if ((selector & 1U) == 0U) {
+            scene->actors[5U].position = endpoint;
+            scene->actors[5U].anchor = endpoint;
+        } else {
+            scene->actors[1U].position = endpoint;
+            scene->actors[1U].anchor = endpoint;
+        }
+        for (unsigned update = 0U;
+             update < expected_duration[selector]; ++update) {
+            if (!scene_update_shot(scene, &neutral)) {
+                scene_test_route_failure = (unsigned)(40U + selector);
+                return false;
+            }
+            ++observed_updates[selector];
+            if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
+                trace_hash[selector] = trace_hash[selector] * 16777619U ^
+                    (uint32_t)scene->ball_position.x_q8;
+                trace_hash[selector] = trace_hash[selector] * 16777619U ^
+                    (uint32_t)scene->ball_position.y_q8;
+                if (!scene->shot_rim_tail_active) {
+                    scene_test_route_failure = (unsigned)(50U + selector);
+                    return false;
+                }
+                if (selector == 1U &&
+                    (scene->jump_ball_altitude_q8 != 0x3800U ||
+                     scene->jump_rim_rattle_audio_repeats !=
+                         ((update + 1U) / 4U > 3U
+                              ? 3U : (update + 1U) / 4U))) {
+                    scene_test_route_failure = (unsigned)(60U + update);
+                    return false;
+                }
+            }
+        }
+        if (observed_updates[selector] != expected_duration[selector] ||
+            scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+            scene->shot_rim_route.selector != 0U ||
+            scene->shot_rim_route.kind != 0 ||
+            scene->shot_rim_route.source_target_cpu != 0U ||
+            ((selector & 1U) == 0U
+                ? (scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
+                   scene->ball_holder != 5U)
+                : (scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+                   scene->ball_holder != 1U))) {
+            scene_test_route_failure = (unsigned)(70U + selector);
+            return false;
+        }
+        before_terminal = *scene;
+        if (scene_update_shot(scene, &neutral) ||
+            memcmp(scene, &before_terminal, sizeof(*scene)) != 0) {
+            scene_test_route_failure = (unsigned)(80U + selector);
+            return false;
+        }
+        tecmo_gameplay_scene_end(scene);
+    }
+    if (observed_updates[0] != 6U || observed_updates[1] != 17U ||
+        observed_updates[2] != 7U || observed_updates[3] != 8U) {
+        scene_test_route_failure = 40U;
+        return false;
+    }
+    if (trace_hash[0] == trace_hash[3]) {
+        scene_test_route_failure = 41U;
+        return false;
+    }
+    if (trace_hash[0] == trace_hash[2]) {
+        scene_test_route_failure = 42U;
+        return false;
+    }
+    if (trace_hash[3] == trace_hash[2]) {
+        scene_test_route_failure = 43U;
+        return false;
+    }
+    return true;
+}
+
+static bool scene_test_find_bound_close_terminal_case(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *base_launch,
+    unsigned desired_variant,
+    TecmoGameplayShotOutcome desired_outcome,
+    int desired_selector)
+{
+    static const int16_t variant0_dx[8] = {
+        8, -8, 2, 8, -8, 2, 8, -8
+    };
+    static const int16_t variant0_dy[8] = {
+        0, 0, 16, 16, 16, -16, -16, -16
+    };
+    static const int16_t variant2_dx[8] = {
+        32, -32, 2, 32, -32, 2, 32, -32
+    };
+    static const int16_t variant2_dy[8] = {
+        0, 0, 16, 16, 16, -16, -16, -16
+    };
+    const int16_t *dx = desired_variant == 2U ? variant2_dx : variant0_dx;
+    const int16_t *dy = desired_variant == 2U ? variant2_dy : variant0_dy;
+    if (scene == NULL || base_launch == NULL || desired_variant > 2U ||
+        (desired_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE &&
+         desired_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS) ||
+        desired_selector < -1 || desired_selector > 3) {
+        return false;
+    }
+    for (unsigned team = 0U; team < TECMO_GAMEPLAY_TEAM_COUNT; ++team) {
+        for (unsigned direction = 0U; direction < 8U; ++direction) {
+            for (uint32_t frame = 0U; frame < 256U; ++frame) {
+                if (!scene_test_prepare_matrix_fixture(
+                        scene, base_launch, (TecmoGameplayTeam)team, 0U,
+                        dx[direction], dy[direction], frame, 0U)) {
+                    continue;
+                }
+                if (scene_shot_is_close(scene->shot_kind) &&
+                    (unsigned)scene->close_shot_variant == desired_variant &&
+                    scene->shot_outcome == desired_outcome &&
+                    (desired_selector < 0 ||
+                     scene->shot_rim_route.selector ==
+                         (uint8_t)desired_selector) &&
+                    scene_ownership_valid(scene)) {
+                    return true;
+                }
+                tecmo_gameplay_scene_end(scene);
+            }
+        }
+    }
+    return false;
+}
+
+/* The matrix fixture deliberately relocates actors after the normal LIVE
+   foundation has been built. Rebuild only the future holder before terminal
+   handoff; its fixed linked actor remains untouched because the resolver only
+   consumes that actor's position. This is test-fixture repair, not a
+   shot-path fallback. */
+static bool scene_test_prepare_terminal_holder(
+    TecmoGameplayScene *scene,
+    uint8_t holder,
+    bool made_handoff)
+{
+    uint8_t linked;
+    TecmoGameplaySceneActor *actor;
+    TecmoGameplayMovementState movement;
+    TecmoGameplayBallDribbleFrame dribble;
+    TecmoGameplayCourtCoordinateQ8 ball_q8;
+    uint16_t pose_index = 0U;
+    bool found = false;
+    memset(&movement, 0, sizeof(movement));
+    if (scene == NULL || holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        !scene->actors[holder].active) {
+        scene_test_terminal_detail = 401U;
+        return false;
+    }
+    linked = scene->cpu_actors[holder].linked_actor;
+    if (linked >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT || linked == holder ||
+        !scene->actors[linked].active) {
+        scene_test_terminal_detail = 402U;
+        return false;
+    }
+    actor = &scene->actors[holder];
+    if (made_handoff) {
+        /* The matrix's far_y=20 staging can place the attached ball above
+           the resolver's court boundary.  Made possession is handed to the
+           opposing team, so use the source-tested safe canonical position;
+           miss claimants retain their captured endpoint position. */
+        actor->position.x = 352;
+        actor->position.y = 198;
+        actor->anchor = actor->position;
+    }
+    for (uint8_t direction = 0U; direction < 8U && !found; ++direction) {
+        if (!tecmo_gameplay_movement_state_initialize(
+                &scene->movement_assets, &movement, &actor->position,
+                direction) ||
+            !scene_movement_pose_index(
+                scene, &movement,
+                &scene->actors[scene->cpu_actors[holder].linked_actor]
+                    .position,
+                &pose_index) ||
+            !tecmo_gameplay_ball_dribble_resolve(
+                &scene->ball_dribble_assets, &scene->movement_assets,
+                &movement,
+                &scene->actors[scene->cpu_actors[holder].linked_actor]
+                    .position,
+                &dribble) ||
+            !tecmo_gameplay_court_coordinate_to_q8(
+                &dribble.visible_position, &ball_q8)) {
+            continue;
+        }
+        found = true;
+    }
+    if (!found) {
+        scene_test_terminal_detail = 430U;
+        return false;
+    }
+    {
+        actor->movement_action_state = movement.action_state;
+        actor->movement_direction = movement.direction;
+        actor->movement_fractional_accumulator =
+            movement.fractional_accumulator;
+        actor->movement_animation_phase = movement.animation_phase;
+        actor->movement_boundary_latched =
+            movement.boundary_violation_latched;
+        actor->pose_index = pose_index;
+    }
+    {
+        if (!scene_live_ball_frame_for_actors(
+                scene, scene->actors, holder, &dribble)) {
+            scene_test_terminal_detail = 431U;
+            return false;
+        }
+        if (!tecmo_gameplay_court_coordinate_to_q8(
+                &dribble.visible_position, &ball_q8)) {
+            scene_test_terminal_detail = 432U;
+            return false;
+        }
+        return true;
+    }
+}
+
+static bool scene_test_run_bound_close_terminal_case(
+    TecmoGameplayScene *scene,
+    TecmoGameplayShotOutcome desired_outcome,
+    unsigned expected_variant,
+    int desired_selector,
+    const TecmoControlFrame *neutral)
+{
+    TecmoGameplayScene snapshot;
+    TecmoGameplayCourtCoordinate endpoint;
+    TecmoGameplayTeam shooting_team;
+    TecmoGameplayTeam claimant_team;
+    uint16_t score_before[TECMO_GAMEPLAY_TEAM_COUNT];
+    unsigned updates = 0U;
+    if (scene == NULL || neutral == NULL ||
+        !scene_shot_is_close(scene->shot_kind) ||
+        (unsigned)scene->close_shot_variant != expected_variant ||
+        scene->shot_outcome != desired_outcome ||
+        (desired_selector >= 0 &&
+         scene->shot_rim_route.selector != (uint8_t)desired_selector) ||
+        !scene_ownership_valid(scene)) {
+        scene_test_terminal_detail = 1U;
+        return false;
+    }
+    shooting_team = (TecmoGameplayTeam)scene->actors[scene->shot_actor].team;
+    score_before[TECMO_GAMEPLAY_TEAM_AWAY] =
+        scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY];
+    score_before[TECMO_GAMEPLAY_TEAM_HOME] =
+        scene->state.score[TECMO_GAMEPLAY_TEAM_HOME];
+    if (desired_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MISS) {
+        endpoint.x = (int16_t)(scene->shot_end_position.x_q8 / 256);
+        endpoint.y = (int16_t)(scene->shot_end_position.y_q8 / 256);
+        for (unsigned actor = 0U;
+             actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+            scene->actors[actor].position.x = 650;
+            scene->actors[actor].position.y = 230;
+            scene->actors[actor].anchor = scene->actors[actor].position;
+        }
+        /* Actor-slot order is the bounded claimant scan substitution. Actor
+           1 is deliberately retained even when it is the shooter's team;
+           the native $BA/$40 predicate is not proven universal. */
+        scene->actors[1U].position = endpoint;
+        scene->actors[1U].anchor = endpoint;
+        claimant_team = (TecmoGameplayTeam)scene->actors[1U].team;
+    } else {
+        claimant_team = scene_other_team(shooting_team);
+    }
+    if (!scene_test_prepare_terminal_holder(
+            scene,
+            desired_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MISS ? 1U :
+                scene_first_actor_for_team(claimant_team),
+            desired_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE)) {
+        if (scene_test_terminal_detail == 0U) {
+            scene_test_terminal_detail = 400U;
+        }
+        return false;
+    }
+    while (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+           updates < 140U) {
+        if (!scene_update_shot(scene, neutral)) {
+            scene_test_terminal_detail = 500000U + scene->shot_frame;
+            return false;
+        }
+        ++updates;
+    }
+    {
+        unsigned final_failure = 0U;
+        uint8_t points = scene->shot_points;
+        if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
+            final_failure |= 1U;
+        }
+        if (!scene_shot_state_valid(scene)) final_failure |= 2U;
+        if (!scene_ownership_valid(scene)) final_failure |= 4U;
+        if (scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY] !=
+                (desired_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE &&
+                 shooting_team == TECMO_GAMEPLAY_TEAM_AWAY
+                     ? (uint16_t)(score_before[TECMO_GAMEPLAY_TEAM_AWAY] +
+                                  points)
+                     : score_before[TECMO_GAMEPLAY_TEAM_AWAY])) {
+            final_failure |= 8U;
+        }
+        if (scene->state.score[TECMO_GAMEPLAY_TEAM_HOME] !=
+                (desired_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE &&
+                 shooting_team == TECMO_GAMEPLAY_TEAM_HOME
+                     ? (uint16_t)(score_before[TECMO_GAMEPLAY_TEAM_HOME] +
+                                  points)
+                     : score_before[TECMO_GAMEPLAY_TEAM_HOME])) {
+            final_failure |= 16U;
+        }
+        if (scene->state.possession != claimant_team) final_failure |= 32U;
+        if (desired_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MISS &&
+            scene->ball_holder != 1U) final_failure |= 64U;
+        if (final_failure != 0U) {
+            scene_test_terminal_detail = 20000U + updates * 128U +
+                final_failure;
+            return false;
+        }
+    }
+    snapshot = *scene;
+    if (scene_update_shot(scene, neutral) ||
+        memcmp(scene, &snapshot, sizeof(*scene)) != 0) {
+        scene_test_terminal_detail = 300U;
+        return false;
+    }
+    return true;
+}
+
+static bool scene_test_run_bound_approximate_make_terminal(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *base_launch,
+    const TecmoControlFrame *neutral,
+    int desired_selector)
+{
+    TecmoControlFrame held;
+    TecmoGameplayScene malformed;
+    TecmoGameplayScene snapshot;
+    TecmoGameplayTeam shooting_team;
+    uint16_t score_before[TECMO_GAMEPLAY_TEAM_COUNT];
+    uint8_t points;
+    unsigned updates = 0U;
+    if (scene == NULL || base_launch == NULL || neutral == NULL ||
+        !scene_test_find_approx_make(scene, base_launch, 2U,
+                                     desired_selector) ||
+        scene->shot_schedule !=
+            TECMO_GAMEPLAY_SHOT_SCHEDULE_NATIVE_APPROXIMATION ||
+        scene->shot_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+        !scene->jump_make_route || !scene_ownership_valid(scene)) {
+        return false;
+    }
+    if (desired_selector == 1 &&
+        (scene->shot_rim_route.selector != 1U ||
+         scene->shot_rim_route.kind != TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A7A9 ||
+         (scene->shot_rim_rattle_raw_selector & 0x03U) != 1U ||
+         scene->shot_rim_rattle_selected ||
+         scene->jump_rim_rattle.active || scene->jump_rim_rattle.complete)) {
+        return false;
+    }
+    shooting_team = (TecmoGameplayTeam)scene->actors[scene->shot_actor].team;
+    points = scene->shot_points;
+    score_before[TECMO_GAMEPLAY_TEAM_AWAY] =
+        scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY];
+    score_before[TECMO_GAMEPLAY_TEAM_HOME] =
+        scene->state.score[TECMO_GAMEPLAY_TEAM_HOME];
+    memset(&held, 0, sizeof(held));
+    held.held.cancel = true;
+    if (desired_selector == 1) {
+        malformed = *scene;
+        malformed.shot_rim_rattle_selected = true;
+        snapshot = malformed;
+        if (scene_update_shot(&malformed, &held) ||
+            memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+            return false;
+        }
+    }
+    while (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+           updates < 80U) {
+        const TecmoControlFrame *controls = scene->jump_b_released
+            ? neutral : &held;
+        if (!scene_update_shot(scene, controls)) return false;
+        ++updates;
+        if (desired_selector == 1 &&
+            (scene->shot_rim_rattle_selected ||
+             scene->jump_rim_rattle.active ||
+             scene->jump_rim_rattle.complete)) {
+            return false;
+        }
+    }
+    if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        !scene_shot_state_valid(scene) || !scene_ownership_valid(scene) ||
+        scene->state.score[shooting_team] !=
+            (uint16_t)(score_before[shooting_team] + points) ||
+        scene->state.score[scene_other_team(shooting_team)] !=
+            score_before[scene_other_team(shooting_team)] ||
+        scene->state.possession != scene_other_team(shooting_team)) {
+        return false;
+    }
+    if (desired_selector == 1 && scene->shot_rim_rattle_selected) {
+        return false;
+    }
+    snapshot = *scene;
+    if (scene_update_shot(scene, neutral) ||
+        memcmp(scene, &snapshot, sizeof(*scene)) != 0) {
+        return false;
+    }
+    return true;
+}
+
+static bool scene_test_production_terminal_scenarios(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *base_launch)
+{
+    static const int16_t exact_delta_x[] = {
+        -320, -256, -192, -160, -128, -96, -64, -33,
+        96, 128, 160, 192, 256, 320, -320, -256
+    };
+    static const int16_t exact_delta_y[] = {
+        64, 64, 64, 64, 0, 0, 0, 0,
+        0, 0, 0, 0, 64, 64, -80, -64
+    };
+    static const uint8_t miss_selectors[4] = {0U, 3U, 2U, 1U};
+    static const TecmoGameplayShotRimRouteKind miss_kinds[4] = {
+        TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A708,
+        TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A708,
+        TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A8E9,
+        TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A7A9
+    };
+    static const unsigned miss_expected_updates[4] = {
+        92U, 94U, 93U, 102U
+    };
+    TecmoControlFrame neutral;
+    TecmoControlFrame held;
+    TecmoGameplayScene malformed;
+    TecmoGameplayScene snapshot;
+    uint16_t score_before;
+    uint16_t exact_score_before[TECMO_GAMEPLAY_TEAM_COUNT];
+    unsigned corruption;
+    unsigned guard;
+    unsigned scenario;
+    bool exact_make_found = false;
+    TecmoGameplayTeam exact_team = TECMO_GAMEPLAY_TEAM_AWAY;
+    unsigned exact_seen_mask = 0U;
+    scene_test_terminal_failure = 0U;
+    scene_test_terminal_detail = 0U;
+    if (scene == NULL || base_launch == NULL) {
+        scene_test_terminal_failure = 1U;
+        return false;
+    }
+    memset(&neutral, 0, sizeof(neutral));
+    memset(&held, 0, sizeof(held));
+    held.held.cancel = true;
+
+    /* The exact captured make is a bound production launch: f0/p0/d1, point
+       3, and the source-pinned schedule. Search only the immutable frame and
+       available roster inputs; every active miss is ended before continuing. */
+    for (unsigned team = 0U; team < TECMO_GAMEPLAY_TEAM_COUNT &&
+             !exact_make_found; ++team) {
+        for (uint8_t roster = 0U;
+             roster < TECMO_TEAM_DATA_PLAYERS_PER_TEAM &&
+             !exact_make_found; ++roster) {
+            for (size_t vector = 0U;
+                 vector < sizeof(exact_delta_x) / sizeof(exact_delta_x[0]) &&
+                 !exact_make_found; ++vector) {
+                for (uint32_t frame = 0U; frame < 256U &&
+                         !exact_make_found; ++frame) {
+                    if (!scene_test_prepare_matrix_fixture(
+                            scene, base_launch, (TecmoGameplayTeam)team, roster,
+                            exact_delta_x[vector], exact_delta_y[vector],
+                            frame, 0U)) {
+                        continue;
+                    }
+                    if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP) {
+                        exact_seen_mask |= 1U;
+                    }
+                    if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
+                        scene->shot_points == 3U) {
+                        exact_seen_mask |= 2U;
+                    }
+                    if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
+                        scene->jump_profile ==
+                            TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_0) {
+                        exact_seen_mask |= 4U;
+                    }
+                    if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
+                        scene->jump_direction ==
+                            TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_1) {
+                        exact_seen_mask |= 8U;
+                    }
+                    if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
+                        scene->jump_family ==
+                            TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0) {
+                        exact_seen_mask |= 16U;
+                    }
+                    if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
+                        scene->jump_make_route) {
+                        exact_seen_mask |= 32U;
+                    }
+                    if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
+                        scene->shot_schedule ==
+                            TECMO_GAMEPLAY_SHOT_SCHEDULE_EXACT_THREE_POINT) {
+                        exact_seen_mask |= 64U;
+                    }
+                    if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
+                        scene->jump_make_route &&
+                        scene->shot_points == 3U &&
+                        scene->shot_schedule ==
+                            TECMO_GAMEPLAY_SHOT_SCHEDULE_EXACT_THREE_POINT &&
+                        scene->jump_family ==
+                            TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0 &&
+                        scene->jump_profile ==
+                            TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_0 &&
+                        scene->jump_direction ==
+                            TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_1 &&
+                        scene->shot_rim_route.selector == 1U &&
+                        scene->shot_rim_route.kind ==
+                            TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A7A9 &&
+                        scene->shot_rim_route.source_target_cpu == 0xA7A9U &&
+                        !scene->shot_rim_rattle_selected &&
+                        scene_ownership_valid(scene)) {
+                        exact_make_found = true;
+                        exact_team = (TecmoGameplayTeam)team;
+                    } else {
+                        tecmo_gameplay_scene_end(scene);
+                    }
+                }
+            }
+        }
+    }
+    if (!exact_make_found) {
+        scene_test_terminal_failure = 1000U + exact_seen_mask;
+        return false;
+    }
+
+    exact_score_before[TECMO_GAMEPLAY_TEAM_AWAY] =
+        scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY];
+    exact_score_before[TECMO_GAMEPLAY_TEAM_HOME] =
+        scene->state.score[TECMO_GAMEPLAY_TEAM_HOME];
+    if (scene->shot_frame != 1U) {
+        scene_test_terminal_failure = 9U;
+        tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    malformed = *scene;
+    malformed.shot_rim_rattle_selected = true;
+    snapshot = malformed;
+    if (scene_update_shot(&malformed, &neutral) ||
+        memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+        scene_test_terminal_failure = 14U;
+        tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    malformed = *scene;
+    malformed.jump_entry_pose_index ^= 1U;
+    malformed.actors[malformed.shot_actor].pose_index ^= 1U;
+    snapshot = malformed;
+    if (scene_update_shot(&malformed, &neutral) ||
+        memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+        scene_test_terminal_failure = 10U;
+        tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    while (scene->shot_frame < 8U) {
+        if (!scene_update_shot(scene, &held)) {
+            scene_test_terminal_failure = 11U;
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+    }
+    /* Make the early released candidate pose-coherent so this specifically
+       exercises the exact frame-1..8 release polarity invariant. */
+    malformed = *scene;
+    malformed.jump_b_released = true;
+    malformed.jump_pose_frame = TECMO_GAMEPLAY_JUMP_FLIGHT_POSE_FRAME;
+    malformed.actors[malformed.shot_actor].pose_index =
+        malformed.jump_resolved_pose_index;
+    snapshot = malformed;
+    if (scene_update_shot(&malformed, &neutral) ||
+        memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+        scene_test_terminal_failure = 12U;
+        tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    if (!scene_update_shot(scene, &neutral) || scene->shot_frame != 9U ||
+        !scene->jump_b_released || !scene_shot_state_valid(scene) ||
+        !scene_update_shot(scene, &neutral) || scene->shot_frame != 10U) {
+        scene_test_terminal_failure = 13U;
+        tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    for (corruption = 0U; corruption < 8U; ++corruption) {
+        malformed = *scene;
+        switch (corruption) {
+        case 0U:
+            malformed.jump_actor_state = 0xFFU;
+            break;
+        case 1U:
+            malformed.jump_ball_state = 0xFFU;
+            break;
+        case 2U:
+            malformed.jump_phase_counter ^= 1U;
+            break;
+        case 3U:
+            malformed.jump_actor_altitude_q8 = 1U;
+            break;
+        case 4U:
+            malformed.jump_actor_velocity_q8 ^= 1U;
+            break;
+        case 5U:
+            malformed.actors[malformed.shot_actor].pose_index ^= 1U;
+            break;
+        case 6U:
+            malformed.jump_entry_pose_index ^= 1U;
+            malformed.actors[malformed.shot_actor].pose_index ^= 1U;
+            break;
+        default:
+            malformed.ball_position.x_q8 += 1;
+            break;
+        }
+        snapshot = malformed;
+        if (scene_update_shot(&malformed, &neutral) ||
+            memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+            scene_test_terminal_failure = 20U + corruption;
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+    }
+    score_before = scene->state.score[exact_team];
+    guard = 0U;
+    while (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+           guard < 130U) {
+        if (!scene_update_shot(scene, &neutral)) {
+            scene_test_terminal_failure = 30U + guard;
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+        ++guard;
+        if (scene->shot_rim_rattle_selected ||
+            scene->jump_rim_rattle.active ||
+            scene->jump_rim_rattle.complete) {
+            scene_test_terminal_failure = 40U + guard;
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+    }
+    if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        scene->state.score[exact_team] !=
+            (uint16_t)(score_before + 3U) ||
+        scene->state.score[scene_other_team(exact_team)] !=
+            exact_score_before[scene_other_team(exact_team)] ||
+        scene->state.possession != scene_other_team(exact_team) ||
+        scene->ball_holder !=
+            scene_first_actor_for_team(scene_other_team(exact_team)) ||
+        scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->actors[scene->ball_holder].team !=
+            (uint8_t)scene_other_team(exact_team) ||
+        !scene_shot_state_valid(scene) || !scene_ownership_valid(scene)) {
+        scene_test_terminal_failure = 170U;
+        tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    snapshot = *scene;
+    if (scene_update_shot(scene, &neutral) ||
+        memcmp(scene, &snapshot, sizeof(*scene)) != 0) {
+        scene_test_terminal_failure = 171U;
+        tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    tecmo_gameplay_scene_end(scene);
+
+    /* Bound exact-miss routes cover ordinary A708/A8E9 tails and the normal
+       A7A9 rattle through terminal claimant settlement. */
+    for (scenario = 0U; scenario < 4U; ++scenario) {
+        bool found = false;
+        TecmoGameplayTeam miss_team = TECMO_GAMEPLAY_TEAM_AWAY;
+        for (unsigned team = 0U; team < TECMO_GAMEPLAY_TEAM_COUNT &&
+                 !found; ++team) {
+            for (size_t vector = 0U;
+                 vector < sizeof(exact_delta_x) / sizeof(exact_delta_x[0]) &&
+                 !found; ++vector) {
+                for (uint8_t roster = 0U;
+                     roster < TECMO_TEAM_DATA_PLAYERS_PER_TEAM && !found;
+                     ++roster) {
+                    for (uint32_t frame = 0U; frame < 256U && !found;
+                         ++frame) {
+                        if (!scene_test_prepare_matrix_fixture(
+                                scene, base_launch, (TecmoGameplayTeam)team,
+                                roster, exact_delta_x[vector],
+                                exact_delta_y[vector], frame, 0U)) {
+                            continue;
+                        }
+                        if (scene->shot_kind ==
+                                TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
+                            !scene->jump_make_route &&
+                            scene->shot_points == 3U &&
+                            scene->shot_schedule ==
+                                TECMO_GAMEPLAY_SHOT_SCHEDULE_EXACT_THREE_POINT &&
+                            scene->jump_family ==
+                                TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0 &&
+                            scene->jump_profile ==
+                                TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_0 &&
+                            scene->jump_direction ==
+                                TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_1 &&
+                            scene->shot_rim_route.selector ==
+                                miss_selectors[scenario] &&
+                            scene->shot_rim_route.kind == miss_kinds[scenario] &&
+                            scene->shot_rim_rattle_selected == (scenario == 3U) &&
+                            scene_ownership_valid(scene)) {
+                            found = true;
+                            miss_team = (TecmoGameplayTeam)team;
+                        } else {
+                            tecmo_gameplay_scene_end(scene);
+                        }
+                    }
+                }
+            }
+        }
+        if (!found) {
+            scene_test_terminal_failure = 200U + scenario;
+            return false;
+        }
+        {
+            TecmoGameplayCourtCoordinate endpoint;
+            uint32_t trace = 0U;
+            unsigned updates = 0U;
+            uint8_t max_repeats = 0U;
+            bool tail_corruption_checked = false;
+            uint16_t miss_score_before[TECMO_GAMEPLAY_TEAM_COUNT];
+            miss_score_before[TECMO_GAMEPLAY_TEAM_AWAY] =
+                scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY];
+            miss_score_before[TECMO_GAMEPLAY_TEAM_HOME] =
+                scene->state.score[TECMO_GAMEPLAY_TEAM_HOME];
+            endpoint.x = (int16_t)(scene->shot_end_position.x_q8 / 256);
+            endpoint.y = (int16_t)(scene->shot_end_position.y_q8 / 256);
+            for (unsigned actor = 0U;
+                 actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+                scene->actors[actor].position.x = 650;
+                scene->actors[actor].position.y = 230;
+                scene->actors[actor].anchor = scene->actors[actor].position;
+            }
+            scene->actors[1U].position = endpoint;
+            scene->actors[1U].anchor = endpoint;
+            miss_team = (TecmoGameplayTeam)scene->actors[1U].team;
+            malformed = *scene;
+            malformed.ball_position.x_q8 += 1;
+            snapshot = malformed;
+            if (scene_update_jump_miss(&malformed, &neutral) ||
+                memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+                scene_test_terminal_failure = 210U + scenario;
+                tecmo_gameplay_scene_end(scene);
+                return false;
+            }
+            malformed = *scene;
+            malformed.jump_ball_state = 0xFFU;
+            snapshot = malformed;
+            if (scene_update_jump_miss(&malformed, &neutral) ||
+                memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+                scene_test_terminal_failure = 220U + scenario;
+                tecmo_gameplay_scene_end(scene);
+                return false;
+            }
+            while (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+                   updates < 130U) {
+                if (!scene_update_shot(scene, &neutral)) {
+                    scene_test_terminal_failure = 230U + scenario;
+                    tecmo_gameplay_scene_end(scene);
+                    return false;
+                }
+                ++updates;
+                trace = trace * 16777619U ^
+                    (uint32_t)scene->ball_position.x_q8;
+                trace = trace * 16777619U ^
+                    (uint32_t)scene->ball_position.y_q8;
+                if (!tail_corruption_checked &&
+                    scene->shot_rim_tail_active) {
+                    malformed = *scene;
+                    malformed.shot_rim_tail_duration++;
+                    malformed.shot_duration++;
+                    snapshot = malformed;
+                    if (scene_update_shot(&malformed, &neutral) ||
+                        memcmp(&malformed, &snapshot,
+                               sizeof(malformed)) != 0) {
+                        scene_test_terminal_failure = 235U + scenario;
+                        tecmo_gameplay_scene_end(scene);
+                        return false;
+                    }
+                    malformed = *scene;
+                    malformed.shot_rim_tail_base_frame++;
+                    malformed.shot_frame++;
+                    malformed.shot_duration++;
+                    snapshot = malformed;
+                    if (scene_update_shot(&malformed, &neutral) ||
+                        memcmp(&malformed, &snapshot,
+                               sizeof(malformed)) != 0) {
+                        scene_test_terminal_failure = 236U + scenario;
+                        tecmo_gameplay_scene_end(scene);
+                        return false;
+                    }
+                    tail_corruption_checked = true;
+                }
+                if (scene->jump_rim_rattle_audio_repeats > max_repeats) {
+                    max_repeats = scene->jump_rim_rattle_audio_repeats;
+                }
+            }
+            if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+                scene->state.possession != miss_team ||
+                scene->ball_holder != 1U || trace == 0U ||
+                scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY] !=
+                    miss_score_before[TECMO_GAMEPLAY_TEAM_AWAY] ||
+                scene->state.score[TECMO_GAMEPLAY_TEAM_HOME] !=
+                    miss_score_before[TECMO_GAMEPLAY_TEAM_HOME] ||
+                updates != miss_expected_updates[scenario] ||
+                (scenario == 3U && max_repeats != 3U) ||
+                (scenario != 3U && !tail_corruption_checked) ||
+                !scene_shot_state_valid(scene) ||
+                !scene_ownership_valid(scene)) {
+                scene_test_terminal_failure = 240U + scenario;
+                tecmo_gameplay_scene_end(scene);
+                return false;
+            }
+            snapshot = *scene;
+            if (scene_update_shot(scene, &neutral) ||
+                memcmp(scene, &snapshot, sizeof(*scene)) != 0) {
+                scene_test_terminal_failure = 250U + scenario;
+                tecmo_gameplay_scene_end(scene);
+                return false;
+            }
+        }
+        tecmo_gameplay_scene_end(scene);
+    }
+
+    /* A bound ordinary jump make must use the native approximation schedule
+       and explicitly settle a two-point attempt exactly once. */
+    if (!scene_test_run_bound_approximate_make_terminal(
+            scene, base_launch, &neutral, -1)) {
+        scene_test_terminal_failure = 300U;
+        if (scene->active) tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    tecmo_gameplay_scene_end(scene);
+
+    /* A low2==1/A7A9 raw selector is a miss-route identity only.  A bound
+       native-approximate MAKE with that selector must score normally without
+       activating the rattle object or tail. */
+    if (!scene_test_run_bound_approximate_make_terminal(
+            scene, base_launch, &neutral, 1)) {
+        scene_test_terminal_failure = 301U;
+        if (scene->active) tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    tecmo_gameplay_scene_end(scene);
+
+    /* Close numeric identities each receive a terminal MAKE. The exhaustive
+       3x2x8 selector matrix above proves all selector dimensions; these
+       cases specifically prove score/settlement ownership at the boundary. */
+    for (unsigned variant = 0U; variant < 3U; ++variant) {
+        if (!scene_test_find_bound_close_terminal_case(
+                scene, base_launch, variant,
+                TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE, -1)) {
+            scene_test_terminal_failure = 3100U + variant;
+            if (scene->active) tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+        if (!scene_test_run_bound_close_terminal_case(
+                scene, TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE, variant, -1,
+                &neutral)) {
+            scene_test_terminal_failure = 3110U + variant;
+            if (scene->active) tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+        tecmo_gameplay_scene_end(scene);
+    }
+
+    /* The four raw miss routes are distributed over the three numeric close
+       identities so every identity has a terminal MISS and every source
+       selector (A708 0/3, A7A9, A8E9) is exercised in production. */
+    {
+        static const unsigned miss_variant[4] = {0U, 0U, 1U, 2U};
+        static const int miss_selector[4] = {0, 3, 1, 2};
+        for (unsigned miss_case = 0U; miss_case < 4U; ++miss_case) {
+            if (!scene_test_find_bound_close_terminal_case(
+                    scene, base_launch, miss_variant[miss_case],
+                    TECMO_GAMEPLAY_SHOT_OUTCOME_MISS,
+                    miss_selector[miss_case])) {
+                scene_test_terminal_failure = 3200U + miss_case;
+                if (scene->active) tecmo_gameplay_scene_end(scene);
+                return false;
+            }
+            if (!scene_test_run_bound_close_terminal_case(
+                    scene, TECMO_GAMEPLAY_SHOT_OUTCOME_MISS,
+                    miss_variant[miss_case], miss_selector[miss_case],
+                    &neutral)) {
+                scene_test_terminal_failure = 3210U + miss_case;
+                if (scene->active) tecmo_gameplay_scene_end(scene);
+                return false;
+            }
+            tecmo_gameplay_scene_end(scene);
+        }
+    }
+    return true;
+}
+
+static unsigned scene_test_jump_orientation_failure;
+
+static bool scene_test_home_a7a9_orientation_one(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *base_launch)
+{
+    static const int approaches[] = {64, 96, 128, 160, 220, 300};
+    static const int16_t heights[] = {95, 105, 120, 143, 160, 180, 200};
+    TecmoGameplaySceneLaunch launch;
+    TecmoGameplayCourtCoordinate hoop;
+    TecmoGameplayCourtCoordinate position;
+    TecmoControlFrame neutral;
+    size_t approach;
+    size_t height;
+    uint32_t frame;
+    unsigned updates;
+    scene_test_jump_orientation_failure = 0U;
+    if (scene == NULL || base_launch == NULL) return false;
+    launch = *base_launch;
+    launch.starter_binding_bound = true;
+    for (size_t side = 0U; side < TECMO_GAMEPLAY_TEAM_COUNT; ++side) {
+        for (size_t local = 0U;
+             local < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT; ++local) {
+            launch.starter_roster_index[side][local] = (uint8_t)local;
+        }
+    }
+    launch.controller_team[0U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    launch.controller_team[1U] = TECMO_GAMEPLAY_TEAM_HOME;
+    launch.game_music_enabled = false;
+    memset(&neutral, 0, sizeof(neutral));
+    for (frame = 0U; frame < 256U; ++frame) {
+        for (approach = 0U;
+             approach < sizeof(approaches) / sizeof(approaches[0]);
+             ++approach) {
+            for (height = 0U;
+                 height < sizeof(heights) / sizeof(heights[0]); ++height) {
+                tecmo_gameplay_scene_test_set_skip_pretip(true);
+                if (!tecmo_gameplay_scene_launch(scene, &launch)) {
+                    scene_test_jump_orientation_failure = 1U;
+                    tecmo_gameplay_scene_test_set_skip_pretip(false);
+                    return false;
+                }
+                tecmo_gameplay_scene_test_set_skip_pretip(false);
+                if (!scene_handoff_possession(
+                        scene, TECMO_GAMEPLAY_TEAM_HOME, 5U)) {
+                    scene_test_jump_orientation_failure = 2U;
+                    return false;
+                }
+                hoop = scene->orientation_state.offensive_hoop;
+                position.x = (int16_t)((int)hoop.x - approaches[approach]);
+                position.y = heights[height];
+                if (!scene_actor_coordinate_valid(&position)) {
+                    scene_test_jump_orientation_failure = 3U;
+                    return false;
+                }
+                for (size_t actor = 0U;
+                     actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+                    scene->actors[actor].position.x = 120;
+                    scene->actors[actor].position.y = 230;
+                    scene->actors[actor].anchor = scene->actors[actor].position;
+                    scene->actors[actor].movement_boundary_latched = false;
+                }
+                scene->actors[5U].position = position;
+                scene->actors[5U].anchor = position;
+                scene->actors[5U].facing_right = position.x > hoop.x;
+                scene->state.clock_minutes = 1U;
+                scene->state.clock_seconds = 0U;
+                scene->state.clock_divider = 1U;
+                scene->state.shot_clock = 12U;
+                scene->frame = frame;
+                if (!scene_attach_ball(scene) ||
+                    !scene_sync_live_foundation(scene) ||
+                    !scene_start_shot_actor(scene, 1U, 5U)) {
+                    tecmo_gameplay_scene_end(scene);
+                    continue;
+                }
+                if (scene->shot_kind !=
+                        TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+                    scene->shot_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS ||
+                    scene->shot_rim_route.selector != 1U ||
+                    scene->shot_rim_route.kind !=
+                        TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A7A9 ||
+                    !scene->shot_rim_rattle_selected) {
+                    tecmo_gameplay_scene_end(scene);
+                    continue;
+                }
+                updates = 0U;
+                while (!scene->jump_rim_rattle.active &&
+                       scene->shot_kind !=
+                           TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+                       updates < 130U) {
+                    if (!scene_update_jump_miss(scene, &neutral)) {
+                        scene_test_jump_orientation_failure = 4U;
+                        tecmo_gameplay_scene_end(scene);
+                        return false;
+                    }
+                    ++updates;
+                }
+                if (!scene->jump_rim_rattle.active ||
+                    !scene_update_jump_miss(scene, &neutral) ||
+                    scene->jump_rim_rattle.orientation != 1U ||
+                    scene->jump_rim_rattle.x != 0x0264 ||
+                    scene->jump_rim_rattle.render_script_address != 0xBAD7U) {
+                    scene_test_jump_orientation_failure = 5U + updates;
+                    tecmo_gameplay_scene_end(scene);
+                    return false;
+                }
+                {
+                    TecmoGameplayScene orientation_probe = *scene;
+                    TecmoGameplayScene endpoint_probe = *scene;
+                    TecmoGameplayScene snapshot;
+                    uint8_t captured_orientation;
+                    orientation_probe.orientation_state.current_direction = 0U;
+                    if (!scene_shot_state_valid(&orientation_probe) ||
+                        !scene_shot_captured_rattle_orientation(
+                            &orientation_probe, &captured_orientation) ||
+                        captured_orientation != 1U) {
+                        scene_test_jump_orientation_failure = 601U;
+                        tecmo_gameplay_scene_end(scene);
+                        return false;
+                    }
+                    snapshot = orientation_probe;
+                    if (scene_update_jump_miss(&orientation_probe, &neutral) ||
+                        memcmp(&orientation_probe, &snapshot,
+                               sizeof(orientation_probe)) != 0) {
+                        scene_test_jump_orientation_failure = 602U;
+                        tecmo_gameplay_scene_end(scene);
+                        return false;
+                    }
+                    endpoint_probe.shot_end_position.x_q8 += 1;
+                    snapshot = endpoint_probe;
+                    if (scene_update_jump_miss(&endpoint_probe, &neutral) ||
+                        memcmp(&endpoint_probe, &snapshot,
+                               sizeof(endpoint_probe)) != 0) {
+                        scene_test_jump_orientation_failure = 7U;
+                        tecmo_gameplay_scene_end(scene);
+                        return false;
+                    }
+                }
+                while (scene->shot_frame <
+                       TECMO_GAMEPLAY_JUMP_RATTLE_HANDOFF_FRAME + 1U) {
+                    if (!scene_update_jump_miss(scene, &neutral)) {
+                        scene_test_jump_orientation_failure = 8U + updates;
+                        tecmo_gameplay_scene_end(scene);
+                        return false;
+                    }
+                    ++updates;
+                }
+                {
+                    TecmoGameplayScene corrupted = *scene;
+                    TecmoGameplayScene snapshot;
+                    memset(&corrupted.jump_rim_rattle, 0,
+                           sizeof(corrupted.jump_rim_rattle));
+                    snapshot = corrupted;
+                    if (scene_update_jump_miss(&corrupted, &neutral) ||
+                        memcmp(&corrupted, &snapshot,
+                               sizeof(corrupted)) != 0) {
+                        scene_test_jump_orientation_failure = 9U;
+                        tecmo_gameplay_scene_end(scene);
+                        return false;
+                    }
+                    corrupted = *scene;
+                    corrupted.jump_rim_rattle.render_script_address ^= 1U;
+                    snapshot = corrupted;
+                    if (scene_update_jump_miss(&corrupted, &neutral) ||
+                        memcmp(&corrupted, &snapshot,
+                               sizeof(corrupted)) != 0) {
+                        scene_test_jump_orientation_failure = 10U;
+                        tecmo_gameplay_scene_end(scene);
+                        return false;
+                    }
+                }
+                /* Continue the same bound JUMP miss through the complete
+                   captured 103-update A7A9 route.  The opponent is placed at
+                   the captured endpoint only after the orientation identity
+                   has been observed, so this proves terminal settlement as
+                   well as the orientation-1 snap/render contract. */
+                {
+                    TecmoGameplayCourtCoordinate endpoint;
+                    TecmoGameplayScene before_terminal;
+                    endpoint.x = (int16_t)(
+                        scene->shot_end_position.x_q8 / 256);
+                    endpoint.y = (int16_t)(
+                        scene->shot_end_position.y_q8 / 256);
+                    for (size_t actor = 0U;
+                         actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+                        scene->actors[actor].position.x = 650;
+                        scene->actors[actor].position.y = 230;
+                        scene->actors[actor].anchor =
+                            scene->actors[actor].position;
+                    }
+                    scene->actors[0U].position = endpoint;
+                    scene->actors[0U].anchor = endpoint;
+                    while (scene->shot_kind !=
+                               TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+                           updates < 130U) {
+                        if (!scene_update_jump_miss(scene, &neutral)) {
+                            scene_test_jump_orientation_failure =
+                                100U + updates;
+                            tecmo_gameplay_scene_end(scene);
+                            return false;
+                        }
+                        ++updates;
+                    }
+                    before_terminal = *scene;
+                    if (scene->shot_kind !=
+                            TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+                        scene->state.possession !=
+                            TECMO_GAMEPLAY_TEAM_AWAY ||
+                        scene->ball_holder != 0U ||
+                        !scene_shot_state_valid(scene) ||
+                        scene_update_jump_miss(scene, &neutral) ||
+                        memcmp(scene, &before_terminal,
+                               sizeof(*scene)) != 0) {
+                        scene_test_jump_orientation_failure = 200U + updates;
+                        tecmo_gameplay_scene_end(scene);
+                        return false;
+                    }
+                }
+                tecmo_gameplay_scene_end(scene);
+                return true;
+            }
+        }
+    }
+    scene_test_jump_orientation_failure = 1000U;
+    return false;
+}
+
+static unsigned scene_test_claimant_failure;
+
+static bool scene_test_close_rattle_claimant_cases(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *base_launch)
+{
+    TecmoControlFrame neutral;
+    TecmoGameplayScene before_late_failure;
+    TecmoGameplayScene corrupted;
+    TecmoGameplayCourtCoordinate endpoint;
+    unsigned update;
+    unsigned expected_repeats;
+    scene_test_claimant_failure = 0U;
+    memset(&neutral, 0, sizeof(neutral));
+
+    /* Same-team source order wins over a geometrically nearer later actor. */
+    if (!scene_test_find_close_route(scene, base_launch, 1U) ||
+        !scene_test_advance_to_rim_tail(scene)) {
+        scene_test_claimant_failure = 1U;
+        return false;
+    }
+    endpoint.x = (int16_t)(scene->shot_end_position.x_q8 / 256);
+    endpoint.y = (int16_t)(scene->shot_end_position.y_q8 / 256);
+    for (unsigned actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT;
+         ++actor) {
+        scene->actors[actor].position.x = 650;
+        scene->actors[actor].position.y = 230;
+        scene->actors[actor].anchor = scene->actors[actor].position;
+    }
+    scene->actors[1U].position.x = (int16_t)(endpoint.x + 10);
+    scene->actors[1U].position.y = (int16_t)(endpoint.y + 6);
+    scene->actors[1U].anchor = scene->actors[1U].position;
+    scene->actors[2U].position = endpoint;
+    scene->actors[2U].anchor = endpoint;
+    /* Claimant movement is not a launch retarget.  The immutable launch
+       snapshot keeps this otherwise coherent active shot valid; changing
+       either captured geometry or its stored selector delta rejects before
+       any rattle/audio/settlement mutation. */
+    corrupted = *scene;
+    ++corrupted.actors[scene->shot_actor].position.x;
+    if (!scene_shot_state_valid(&corrupted)) {
+        scene_test_claimant_failure = 2U;
+        return false;
+    }
+    if (!scene_update_shot(&corrupted, &neutral)) {
+        scene_test_claimant_failure = 3U;
+        return false;
+    }
+    corrupted = *scene;
+    ++corrupted.shot_target_delta_x;
+    before_late_failure = corrupted;
+    if (scene_update_shot(&corrupted, &neutral) ||
+        memcmp(&corrupted, &before_late_failure,
+               sizeof(corrupted)) != 0) {
+        scene_test_claimant_failure = 3U;
+        return false;
+    }
+    corrupted = *scene;
+    ++corrupted.shot_actor_launch_position.x;
+    before_late_failure = corrupted;
+    if (scene_update_shot(&corrupted, &neutral) ||
+        memcmp(&corrupted, &before_late_failure,
+               sizeof(corrupted)) != 0) {
+        scene_test_claimant_failure = 4U;
+        return false;
+    }
+    for (update = 1U; update <= TECMO_GAMEPLAY_SHOT_RIM_TAIL_RATTLE_UPDATES;
+         ++update) {
+        if (!scene_update_shot(scene, &neutral) ||
+            scene->jump_ball_altitude_q8 != 0x3800U ||
+            scene->jump_rim_rattle_audio_repeats !=
+                (update / 4U > 3U ? 3U : update / 4U) ||
+            (update < TECMO_GAMEPLAY_SHOT_RIM_TAIL_RATTLE_UPDATES &&
+             (!scene->jump_rim_rattle.active ||
+              scene->jump_rim_rattle.complete)) ||
+            (update == TECMO_GAMEPLAY_SHOT_RIM_TAIL_RATTLE_UPDATES &&
+             (scene->jump_rim_rattle.active ||
+              !scene->jump_rim_rattle.complete))) {
+            scene_test_claimant_failure = 5U + update;
+            return false;
+        }
+    }
+    if (!scene_update_shot(scene, &neutral) ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->ball_holder != 1U) {
+        scene_test_claimant_failure = 22U;
+        return false;
+    }
+
+    /* An earlier ineligible actor is skipped for a later opponent. */
+    if (!scene_test_find_close_route(scene, base_launch, 1U) ||
+        !scene_test_advance_to_rim_tail(scene)) {
+        scene_test_claimant_failure = 23U;
+        return false;
+    }
+    endpoint.x = (int16_t)(scene->shot_end_position.x_q8 / 256);
+    endpoint.y = (int16_t)(scene->shot_end_position.y_q8 / 256);
+    for (unsigned actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT;
+         ++actor) {
+        scene->actors[actor].position.x = 650;
+        scene->actors[actor].position.y = 230;
+        scene->actors[actor].anchor = scene->actors[actor].position;
+    }
+    scene->actors[5U].position = endpoint;
+    scene->actors[5U].anchor = endpoint;
+    for (update = 0U; update < TECMO_GAMEPLAY_SHOT_RIM_TAIL_RATTLE_UPDATES;
+         ++update) {
+        if (!scene_update_shot(scene, &neutral)) {
+            scene_test_claimant_failure = 25U + update;
+            return false;
+        }
+    }
+    if (!scene_update_shot(scene, &neutral) ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->ball_holder != 5U) {
+        scene_test_claimant_failure = 24U + update;
+        return false;
+    }
+
+    /* Corruption at the rattle late step and no-claimant settlement both
+       reject without committing any scene or output mutation. */
+    if (!scene_test_find_close_route(scene, base_launch, 1U) ||
+        !scene_test_advance_to_rim_tail(scene)) {
+        scene_test_claimant_failure = 40U;
+        return false;
+    }
+    corrupted = *scene;
+    corrupted.jump_rim_rattle.timer_remaining = 0U;
+    before_late_failure = corrupted;
+    if (scene_update_shot(&corrupted, &neutral) ||
+        memcmp(&corrupted, &before_late_failure,
+               sizeof(corrupted)) != 0 ||
+        corrupted.jump_rim_rattle_audio_repeats !=
+            before_late_failure.jump_rim_rattle_audio_repeats) {
+        scene_test_claimant_failure = 41U;
+        return false;
+    }
+    corrupted = *scene;
+    corrupted.jump_ball_state = 0U;
+    before_late_failure = corrupted;
+    if (scene_update_shot(&corrupted, &neutral) ||
+        memcmp(&corrupted, &before_late_failure,
+               sizeof(corrupted)) != 0) {
+        scene_test_claimant_failure = 42U;
+        return false;
+    }
+    for (unsigned actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT;
+         ++actor) {
+        scene->actors[actor].position.x = 650;
+        scene->actors[actor].position.y = 230;
+        scene->actors[actor].anchor = scene->actors[actor].position;
+    }
+    for (update = 0U; update < TECMO_GAMEPLAY_SHOT_RIM_TAIL_RATTLE_UPDATES;
+         ++update) {
+        if (!scene_update_shot(scene, &neutral)) {
+            scene_test_claimant_failure = 43U + update;
+            return false;
+        }
+    }
+    before_late_failure = *scene;
+    expected_repeats = scene->jump_rim_rattle_audio_repeats;
+    if (scene_update_shot(scene, &neutral) ||
+        memcmp(scene, &before_late_failure, sizeof(*scene)) != 0 ||
+        scene->jump_rim_rattle_audio_repeats != expected_repeats) {
+        scene_test_claimant_failure = 43U;
+        return false;
+    }
+    tecmo_gameplay_scene_end(scene);
+    return true;
+}
+
+static bool scene_test_settlement_one_point_fields(
+    TecmoGameplayScene *scene)
+{
+    const TecmoGameplaySceneActor *actor;
+    const TecmoTeamDataPlayer *player;
+    TecmoGameplayShotEvaluationInput input;
+    TecmoGameplayShotEvaluation evaluation;
+    TecmoGameplayShotDirectionSlot direction;
+    int32_t delta_x;
+    int32_t delta_y;
+    uint8_t profile;
+    uint32_t stable_sample;
+    TecmoGameplayShotRimRoute route;
+    uint16_t resolved_pose;
+    if (scene == NULL || scene->shot_actor >=
+            TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+        !scene->jump_make_route) {
+        return false;
+    }
+    actor = &scene->actors[scene->shot_actor];
+    player = scene_actor_player(scene, actor);
+    delta_x = scene->shot_target_delta_x;
+    delta_y = scene->shot_target_delta_y;
+    if (delta_x < INT16_MIN || delta_x > INT16_MAX ||
+        delta_y < INT16_MIN || delta_y > INT16_MAX ||
+        (delta_x == 0 && delta_y == 0) || player == NULL ||
+        !tecmo_gameplay_shot_profile_from_profile_byte2(
+            player->profile[2], &profile) ||
+        !tecmo_gameplay_shot_resolution_direction_for_delta(
+            (int16_t)delta_x, (int16_t)delta_y, &direction)) {
+        scene_test_claimant_failure = 44U;
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.player_rating = player->profile[0];
+    input.point_value = 1U;
+    input.close_context = false;
+    input.contact_context = scene->shot_contact_context;
+    input.contest_context = scene->shot_contest_context;
+    input.horizontal_distance = (int16_t)delta_x;
+    input.vertical_distance = (int16_t)(
+        TECMO_GAMEPLAY_SHOT_TARGET_Y -
+        (int)scene->shot_actor_launch_position.y);
+    input.family = scene_shot_family_for_context(
+        (int16_t)delta_x, (int16_t)delta_y,
+        scene->shot_sample);
+    input.profile = profile;
+    input.direction = (uint8_t)direction;
+    input.numeric_variant = 0U;
+    stable_sample = scene_shot_stable_sample_from_inputs(
+        scene->shot_actor_launch_position.x,
+        scene->shot_actor_launch_position.y, 1U,
+        (int16_t)delta_x, (int16_t)delta_y,
+        scene->shot_actor_team, scene->shot_actor_roster_index,
+        scene->shot_launch_frame);
+    input.stable_sample = stable_sample;
+    input.family = scene_shot_family_for_context(
+        (int16_t)delta_x, (int16_t)delta_y, stable_sample);
+    if (!tecmo_gameplay_shot_resolution_resolve_rim_route(
+            &scene->shot_resolution, (uint8_t)stable_sample, &route) ||
+        !tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
+            &scene->jump_shots, input.family, profile,
+            (uint8_t)direction, &resolved_pose)) {
+        return false;
+    }
+    if (!tecmo_gameplay_shot_resolution_evaluate(
+            &scene->shot_resolution, &input, &evaluation) ||
+        evaluation.outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE ||
+        evaluation.schedule !=
+            TECMO_GAMEPLAY_SHOT_SCHEDULE_NATIVE_APPROXIMATION) {
+        return false;
+    }
+    scene->shot_points = evaluation.point_value;
+    scene->shot_flags = 0x01U;
+    scene->shot_sample = stable_sample;
+    scene->shot_rim_rattle_raw_selector = (uint8_t)stable_sample;
+    scene->shot_context_signature = scene_shot_context_signature(
+        stable_sample, evaluation.contact_context,
+        evaluation.contest_context);
+    scene->shot_rim_route = route;
+    /* This helper rebinds a MAKE fixture; raw A7A9 identity remains metadata,
+       but the miss-only rattle activation bit must stay clear. */
+    scene->shot_rim_rattle_selected = false;
+    scene->jump_family = (TecmoGameplayJumpShotFamily)input.family;
+    scene->jump_profile = (TecmoGameplayJumpShotProfile)profile;
+    scene->jump_direction = (TecmoGameplayJumpShotDirection)direction;
+    scene->jump_resolved_pose_index = resolved_pose;
+    scene->shot_make_probability = evaluation.make_probability;
+    scene->shot_contact_context = evaluation.contact_context;
+    scene->shot_contest_context = evaluation.contest_context;
+    scene->shot_outcome = evaluation.outcome;
+    scene->shot_schedule = evaluation.schedule;
+    return true;
+}
+
+static bool scene_test_approximate_make_physics(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *base_launch,
+    uint8_t desired_points)
+{
+    TecmoControlFrame neutral;
+    TecmoControlFrame held;
+    TecmoGameplayScene malformed;
+    TecmoGameplayScene snapshot;
+    uint16_t score_before;
+    unsigned physics_steps = 0U;
+    unsigned updates = 0U;
+    bool saw_release = false;
+    bool saw_landing = false;
+    bool saw_score = false;
+    bool settlement_one_point = desired_points == 1U;
+    if (!scene_test_find_approx_make(
+            scene, base_launch,
+            settlement_one_point ? 0U : desired_points, -1)) {
+        return false;
+    }
+    if (settlement_one_point) {
+        /* The controller's current point classifier with shot_flags==0 only
+           selects 2/3.  This is a settlement-only one-point fixture, not a
+           claim that the production selector emits free throws here. */
+        if (!scene_test_settlement_one_point_fields(scene) ||
+            !scene_ownership_valid(scene)) return false;
+    } else if (scene->shot_points != desired_points && desired_points != 0U) {
+        return false;
+    }
+    score_before = scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY];
+    memset(&neutral, 0, sizeof(neutral));
+    memset(&held, 0, sizeof(held));
+    held.held.cancel = true;
+    /* The approximate controller advances from external frame 5 to frame 6
+       while B/cancel remains held, then releases on the next update.  This
+       explicitly proves the inclusive unreleased gather boundary. */
+    while (scene->shot_frame <
+               TECMO_GAMEPLAY_JUMP_APPROX_MAKE_RELEASE_FRAME - 1U) {
+        if (!scene_update_shot(scene, &held)) return false;
+    }
+    if (scene->shot_frame !=
+            TECMO_GAMEPLAY_JUMP_APPROX_MAKE_RELEASE_FRAME - 1U ||
+        !scene_update_shot(scene, &held) ||
+        scene->shot_frame != TECMO_GAMEPLAY_JUMP_APPROX_MAKE_RELEASE_FRAME ||
+        scene->jump_b_released ||
+        scene->actors[scene->shot_actor].pose_index !=
+            scene->jump_entry_pose_index ||
+        !scene_shot_state_valid(scene)) {
+        return false;
+    }
+    malformed = *scene;
+    malformed.jump_entry_pose_index ^= 1U;
+    malformed.actors[malformed.shot_actor].pose_index ^= 1U;
+    snapshot = malformed;
+    if (scene_update_shot(&malformed, &neutral) ||
+        memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+        return false;
+    }
+    while (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+           updates < 80U) {
+        uint16_t frame_before = scene->shot_frame;
+        if (!scene_update_shot(scene, &neutral)) return false;
+        ++updates;
+        if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
+            if (frame_before != TECMO_GAMEPLAY_JUMP_APPROX_MAKE_DURATION - 1U) {
+                return false;
+            }
+            break;
+        }
+        if (scene->shot_frame == TECMO_GAMEPLAY_JUMP_APPROX_MAKE_RELEASE_FRAME) {
+            saw_release = scene->jump_b_released &&
+                scene->jump_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE &&
+                scene->jump_actor_velocity_q8 ==
+                    TECMO_GAMEPLAY_JUMP_MAKE_ACTOR_VELOCITY_Q8;
+        }
+        if (scene->shot_frame >= TECMO_GAMEPLAY_JUMP_APPROX_MAKE_RELEASE_FRAME + 1U &&
+            scene->shot_frame <= TECMO_GAMEPLAY_JUMP_APPROX_MAKE_LAND_FRAME) {
+            ++physics_steps;
+        }
+        if (scene->shot_frame == TECMO_GAMEPLAY_JUMP_APPROX_MAKE_LAND_FRAME) {
+            saw_landing = scene->jump_actor_landed &&
+                scene->jump_actor_altitude_q8 == 0U &&
+                scene->jump_actor_velocity_q8 == 0U &&
+                scene->jump_actor_state ==
+                    scene->jump_shots.constants.actor_state_recovery;
+        }
+        if (scene->shot_frame == TECMO_GAMEPLAY_JUMP_APPROX_MAKE_SCORE_FRAME) {
+            saw_score = scene->shot_result_awarded &&
+                scene->jump_made_settlement.complete &&
+                scene->jump_made_settlement.state == 0U &&
+                scene->jump_made_settlement.timer == 0U &&
+                scene->jump_made_settlement.stage == 0U &&
+                scene->jump_made_settlement.updates == 0U;
+        }
+    }
+    if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        !saw_release || physics_steps != 38U || !saw_landing ||
+        scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY] !=
+            (uint16_t)(score_before + scene->shot_points) || !saw_score) {
+        return false;
+    }
+
+    /* The public update wrapper rejects malformed schedule, state, and
+       approximate-settlement markers transactionally before any step/audio. */
+    if (!scene_test_find_approx_make(
+            scene, base_launch,
+            settlement_one_point ? 0U : desired_points, -1)) {
+        return false;
+    }
+    if (settlement_one_point) {
+        if (!scene_test_settlement_one_point_fields(scene) ||
+            !scene_ownership_valid(scene)) return false;
+    }
+    malformed = *scene;
+    malformed.shot_schedule = (TecmoGameplayShotScheduleKind)99;
+    snapshot = malformed;
+    if (scene_update_shot(&malformed, &neutral) ||
+        memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+        return false;
+    }
+    if (settlement_one_point) {
+        TecmoGameplayScene recovery_probe;
+        if (!scene_test_find_approx_make(scene, base_launch, 0U, -1)) {
+            return false;
+        }
+        if (!scene_test_settlement_one_point_fields(scene) ||
+            !scene_ownership_valid(scene)) return false;
+        while (scene->shot_frame <
+                   TECMO_GAMEPLAY_JUMP_APPROX_MAKE_RECOVERY_START_FRAME) {
+            if (!scene_update_shot(scene, &neutral)) return false;
+        }
+        if (scene->shot_frame !=
+                TECMO_GAMEPLAY_JUMP_APPROX_MAKE_RECOVERY_START_FRAME) {
+            return false;
+        }
+        recovery_probe = *scene;
+        recovery_probe.jump_phase_counter = 0x07U;
+        snapshot = recovery_probe;
+        if (scene_update_shot(&recovery_probe, &neutral) ||
+            memcmp(&recovery_probe, &snapshot, sizeof(recovery_probe)) != 0) {
+            return false;
+        }
+        tecmo_gameplay_scene_end(scene);
+        return true;
+    }
+    malformed = *scene;
+    malformed.jump_actor_state = 0xFFU;
+    snapshot = malformed;
+    if (scene_update_shot(&malformed, &neutral) ||
+        memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+        return false;
+    }
+    malformed = *scene;
+    malformed.jump_phase_counter = 0x07U;
+    snapshot = malformed;
+    if (scene_update_shot(&malformed, &neutral) ||
+        memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+        return false;
+    }
+    malformed = *scene;
+    malformed.jump_made_settlement.complete = true;
+    snapshot = malformed;
+    if (scene_update_shot(&malformed, &neutral) ||
+        memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+        return false;
+    }
+    malformed = *scene;
+    malformed.shot_result_awarded = true;
+    snapshot = malformed;
+    if (scene_update_shot(&malformed, &neutral) ||
+        memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+        return false;
+    }
+    malformed = *scene;
+    malformed.shot_frame = malformed.shot_duration;
+    snapshot = malformed;
+    if (scene_update_shot(&malformed, &neutral) ||
+        memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+        return false;
+    }
+    tecmo_gameplay_scene_end(scene);
+    return true;
+}
+
+static bool scene_test_owned_shot_boundary(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *base_launch,
+    char *message,
+    size_t message_size)
+{
+    static const struct {
+        int approach;
+        int16_t y;
+        TecmoGameplayCloseShotVariant variant;
+        TecmoGameplaySceneShotKind kind;
+    } close_cases[] = {
+        {24, TECMO_GAMEPLAY_SHOT_TARGET_Y,
+         TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0,
+         TECMO_GAMEPLAY_SCENE_SHOT_DUNK},
+        {32, 110, TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_1,
+         TECMO_GAMEPLAY_SCENE_SHOT_NUMERIC_1},
+        {48, TECMO_GAMEPLAY_SHOT_TARGET_Y,
+         TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2,
+         TECMO_GAMEPLAY_SCENE_SHOT_LAYUP}
+    };
+    size_t index;
+    if (scene == NULL || base_launch == NULL ||
+        scene_start_shot(NULL, 0U)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size, "owned shot NULL/start guard failed");
+        return false;
+    }
+    if (scene_shot_stable_sample_from_inputs(
+            160, 143, 3U, 24, 0, TECMO_GAMEPLAY_TEAM_AWAY, 0U,
+            0x00000100U) ==
+        scene_shot_stable_sample_from_inputs(
+            160, 143, 3U, 24, 0, TECMO_GAMEPLAY_TEAM_AWAY, 0U,
+            0x00010000U)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "owned stable-sample frame-byte-position binding failed");
+        return false;
+    }
+    for (index = 0U; index < sizeof(close_cases) / sizeof(close_cases[0]);
+         ++index) {
+        TecmoGameplayScene malformed;
+        TecmoGameplayScene snapshot;
+        uint16_t pose = 0xBEEFU;
+        bool prepared = scene_test_prepare_owned_shot_fixture(
+                scene, base_launch, close_cases[index].approach,
+                close_cases[index].y, (uint32_t)index);
+        bool started = prepared && scene_start_shot_actor(scene, 0U, 0U);
+        if (!prepared || !started ||
+            scene->shot_kind != close_cases[index].kind ||
+            scene->close_shot_variant != close_cases[index].variant ||
+            scene->shot_result_awarded ||
+            !scene_ownership_valid(scene)) {
+            char failure[256];
+            (void)snprintf(
+                failure, sizeof(failure),
+                "owned close numeric matrix failed i=%u prepared=%u started=%u prep_stage=%u available=%u active=%u phase=%u legacy=%u binding=%u holder=%u kind=%u variant=%u outcome=%u schedule=%u frame=%u/%u valid=%u",
+                (unsigned)index, prepared ? 1U : 0U, started ? 1U : 0U,
+                scene_test_prepare_failure_stage,
+                scene->available ? 1U : 0U, scene->active ? 1U : 0U,
+                (unsigned)scene->state.phase,
+                scene->legacy_direct_launch ? 1U : 0U,
+                scene->launch.starter_binding_bound ? 1U : 0U,
+                (unsigned)scene->ball_holder,
+                (unsigned)scene->shot_kind,
+                (unsigned)scene->close_shot_variant,
+                (unsigned)scene->shot_outcome,
+                (unsigned)scene->shot_schedule,
+                (unsigned)scene->shot_frame,
+                (unsigned)scene->shot_duration,
+                scene_ownership_valid(scene) ? 1U : 0U);
+            tecmo_gameplay_scene_test_message(message, message_size, failure);
+            return false;
+        }
+        if (close_cases[index].variant ==
+                TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_1 &&
+            (!scene_close_pose_for_step(scene, 0U, &pose) || pose == 0xBEEFU)) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size, "owned numeric-1 fixed pose exposure failed");
+            return false;
+        }
+        malformed = *scene;
+        malformed.close_shot_direction =
+            (TecmoGameplayCloseShotDirection)8;
+        pose = 0xBEEFU;
+        if (scene_close_pose_for_step(&malformed, 0U, &pose) ||
+            pose != 0xBEEFU) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size, "owned close direction/output guard failed");
+            return false;
+        }
+        malformed = *scene;
+        malformed.shot_schedule = (TecmoGameplayShotScheduleKind)99;
+        snapshot = malformed;
+        if (scene_update_shot(&malformed, NULL) ||
+            memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size, "owned close malformed schedule rollback failed");
+            return false;
+        }
+        tecmo_gameplay_scene_end(scene);
+    }
+    if (!scene_test_production_close_matrix(scene, base_launch)) {
+        char failure[192];
+        (void)snprintf(failure, sizeof(failure),
+                       "owned bound close matrix failed case=%u detail=%u (prepared/start/close/selector counts)",
+                       scene_test_close_matrix_failure,
+                       scene_test_close_matrix_detail);
+        tecmo_gameplay_scene_test_message(message, message_size, failure);
+        return false;
+    }
+    if (!scene_test_production_jump_matrix(scene, base_launch)) {
+        char failure[192];
+        (void)snprintf(failure, sizeof(failure),
+                       "owned production jump matrix failed case=%u setup=%u (family/profile/direction or flight/replay)",
+                       scene_test_production_matrix_failure,
+                       scene_test_matrix_setup_failure);
+        tecmo_gameplay_scene_test_message(message, message_size, failure);
+        return false;
+    }
+    if (!scene_test_production_contact_contexts(scene, base_launch)) {
+        char failure[192];
+        (void)snprintf(failure, sizeof(failure),
+                       "owned production contact/contest context matrix failed stage=%u (prepare/context/probability/first-update)",
+                       scene_test_contact_failure);
+        tecmo_gameplay_scene_test_message(
+            message, message_size, failure);
+        return false;
+    }
+    if (!scene_test_route_tail_matrix(scene, base_launch)) {
+        char failure[192];
+        (void)snprintf(failure, sizeof(failure),
+                       "owned route-tail matrix failed stage=%u selector=%u advance=%u kind=%u route_selector=%u cpu=%04X frame=%u/%u",
+                       scene_test_route_failure,
+                       (unsigned)(scene->shot_rim_route.selector),
+                       scene_test_advance_failure,
+                       (unsigned)scene->shot_rim_route.kind,
+                       (unsigned)scene->shot_rim_route.selector,
+                       (unsigned)scene->shot_rim_route.source_target_cpu,
+                       (unsigned)scene->shot_frame,
+                       (unsigned)scene->shot_duration);
+        tecmo_gameplay_scene_test_message(
+            message, message_size, failure);
+        return false;
+    }
+    if (!scene_test_production_terminal_scenarios(scene, base_launch)) {
+        char failure[192];
+        (void)snprintf(failure, sizeof(failure),
+                       "owned bound terminal scenario matrix failed stage=%u detail=%u",
+                       scene_test_terminal_failure,
+                       scene_test_terminal_detail);
+        tecmo_gameplay_scene_test_message(
+            message, message_size, failure);
+        return false;
+    }
+    if (!scene_test_home_a7a9_orientation_one(scene, base_launch)) {
+        char failure[192];
+        (void)snprintf(failure, sizeof(failure),
+                       "owned jump orientation-1 rattle matrix failed stage=%u kind=%u outcome=%u route=%u/%04X direction=%u frame=%u rattle=%u/%u x=%04X render=%04X",
+                       scene_test_jump_orientation_failure,
+                       (unsigned)scene->shot_kind,
+                       (unsigned)scene->shot_outcome,
+                       (unsigned)scene->shot_rim_route.selector,
+                       (unsigned)scene->shot_rim_route.source_target_cpu,
+                       (unsigned)scene->orientation_state.current_direction,
+                       (unsigned)scene->shot_frame,
+                       scene->jump_rim_rattle.active ? 1U : 0U,
+                       (unsigned)scene->jump_rim_rattle.orientation,
+                       (unsigned)scene->jump_rim_rattle.x,
+                       (unsigned)scene->jump_rim_rattle.render_script_address);
+        tecmo_gameplay_scene_test_message(
+            message, message_size, failure);
+        return false;
+    }
+    if (!scene_test_close_rattle_claimant_cases(scene, base_launch)) {
+        char failure[192];
+        (void)snprintf(failure, sizeof(failure),
+                       "owned claimant/rattle matrix failed stage=%u kind=%u selector=%u cpu=%04X frame=%u/%u possession=%u holder=%u",
+                       scene_test_claimant_failure,
+                       (unsigned)scene->shot_kind,
+                       (unsigned)scene->shot_rim_route.selector,
+                       (unsigned)scene->shot_rim_route.source_target_cpu,
+                       (unsigned)scene->shot_frame,
+                       (unsigned)scene->shot_duration,
+                       (unsigned)scene->state.possession,
+                       (unsigned)scene->ball_holder);
+        tecmo_gameplay_scene_test_message(
+            message, message_size, failure);
+        return false;
+    }
+    if (!scene_test_approximate_make_physics(scene, base_launch, 1U)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size, "owned approximate one-point settlement matrix failed");
+        return false;
+    }
+    if (!scene_test_approximate_make_physics(scene, base_launch, 2U)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size, "owned approximate two-point matrix failed");
+        return false;
+    }
+    {
+        TecmoGameplaySceneLaunch legacy = *base_launch;
+        TecmoGameplayScene expected;
+        TecmoGameplayScene malformed;
+        uint16_t expected_entry;
+        uint16_t expected_actor_pose;
+        TecmoControlFrame neutral;
+        bool legacy_a7a9_found = false;
+        uint32_t legacy_frame;
+        unsigned legacy_update;
+        legacy.starter_binding_bound = false;
+        legacy.controller_team[0U] = TECMO_GAMEPLAY_TEAM_AWAY;
+        legacy.controller_team[1U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+        legacy.game_music_enabled = false;
+        tecmo_gameplay_scene_test_set_skip_pretip(true);
+        if (!tecmo_gameplay_scene_launch(scene, &legacy)) {
+            tecmo_gameplay_scene_test_set_skip_pretip(false);
+            tecmo_gameplay_scene_test_message(
+                message, message_size, "owned legacy debug launch failed");
+            return false;
+        }
+        tecmo_gameplay_scene_test_set_skip_pretip(false);
+        if (!scene_handoff_possession(
+                scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+            !scene_attach_ball(scene)) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size, "owned legacy debug setup failed");
+            return false;
+        }
+        /* The accepted direct render fixture carries this facing bit from
+           its legacy adapter. It is only a diagnostic precondition. */
+        scene->actors[0U].facing_right = true;
+        expected = *scene;
+        expected.action_serial = 1U;
+        if (!scene_start_shot_actor(&expected, 0U, 0U)) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size, "owned debug production probe failed");
+            return false;
+        }
+        expected_entry = expected.jump_entry_pose_index;
+        expected_actor_pose = expected.actors[0U].pose_index;
+        if (!tecmo_gameplay_scene_start_rim_rattle_debug(scene) ||
+            scene->jump_direction != TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_1 ||
+            scene->shot_schedule !=
+                TECMO_GAMEPLAY_SHOT_SCHEDULE_EXACT_THREE_POINT ||
+            scene->shot_duration != TECMO_GAMEPLAY_JUMP_RATTLE_DURATION ||
+            scene->shot_points != 3U ||
+            scene->shot_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS ||
+            scene->jump_entry_pose_index != expected_entry ||
+            scene->actors[0U].pose_index != expected_actor_pose ||
+            !scene_shot_state_valid(scene)) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size, "owned debug identity/entry-pose normalization failed");
+            return false;
+        }
+        malformed = *scene;
+        malformed.jump_direction =
+            (TecmoGameplayJumpShotDirection)7;
+        expected = malformed;
+        if (scene_update_jump_miss(&malformed, NULL) ||
+            memcmp(&malformed, &expected, sizeof(malformed)) != 0 ||
+            scene_shot_state_valid(&malformed)) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size, "owned debug malformed identity rollback failed");
+            return false;
+        }
+        tecmo_gameplay_scene_end(scene);
+        for (legacy_frame = 0U; legacy_frame < 256U &&
+             !legacy_a7a9_found; ++legacy_frame) {
+            tecmo_gameplay_scene_test_set_skip_pretip(true);
+            if (!tecmo_gameplay_scene_launch(scene, &legacy)) {
+                tecmo_gameplay_scene_test_set_skip_pretip(false);
+                tecmo_gameplay_scene_test_message(
+                    message, message_size,
+                    "owned legacy A7A9 search launch failed");
+                return false;
+            }
+            tecmo_gameplay_scene_test_set_skip_pretip(false);
+            if (!scene_handoff_possession(
+                    scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+                !scene_attach_ball(scene)) {
+                tecmo_gameplay_scene_end(scene);
+                tecmo_gameplay_scene_test_message(
+                    message, message_size,
+                    "owned legacy A7A9 search setup failed");
+                return false;
+            }
+            scene->actors[0U].facing_right = true;
+            scene->frame = legacy_frame;
+            scene->action_serial = 1U;
+            if (!scene_start_shot_actor(scene, 0U, 0U)) {
+                tecmo_gameplay_scene_end(scene);
+                continue;
+            }
+            if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
+                !scene->jump_make_route &&
+                scene->shot_rim_route.kind ==
+                    TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A7A9 &&
+                !scene->shot_rim_rattle_selected) {
+                legacy_a7a9_found = true;
+                break;
+            }
+            tecmo_gameplay_scene_end(scene);
+        }
+        if (!legacy_a7a9_found) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "owned legacy A7A9 not-selected miss was unreachable");
+            return false;
+        }
+        memset(&neutral, 0, sizeof(neutral));
+        while (scene->shot_frame < 72U) {
+            if (!scene_update_shot(scene, &neutral)) {
+                tecmo_gameplay_scene_end(scene);
+                tecmo_gameplay_scene_test_message(
+                    message, message_size,
+                    "owned legacy A7A9 pre-rattle route rejected");
+                return false;
+            }
+        }
+        for (legacy_update = 73U; legacy_update <= 75U; ++legacy_update) {
+            if (!scene_update_shot(scene, &neutral) ||
+                scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+                scene->shot_rim_rattle_selected ||
+                scene->jump_rim_rattle.active ||
+                scene->jump_rim_rattle.complete ||
+                scene->jump_ball_state !=
+                    scene->jump_shots.constants.ball_state_route10 ||
+                scene->jump_ball_altitude_q8 != 0U ||
+                scene->jump_ball_bounce_q8 !=
+                    (legacy_update == 74U
+                        ? scene->jump_shots.constants.bounce_decay_q8 : 0U) ||
+                !scene_shot_state_valid(scene)) {
+                tecmo_gameplay_scene_end(scene);
+                tecmo_gameplay_scene_test_message(
+                    message, message_size,
+                    "owned legacy A7A9 ordinary route10/bounce contract failed");
+                return false;
+            }
+        }
+        tecmo_gameplay_scene_end(scene);
+    }
+    return true;
+}
+
 bool tecmo_gameplay_scene_test_state_flow(
     TecmoGameplaySceneTestContext *test)
 {
@@ -3342,7 +6254,9 @@ bool tecmo_gameplay_scene_test_state_flow(
         !scene_test_home_and_cpu_free_throws(
             scene, &launch, &p1, &p2, message, message_size) ||
         !scene_test_halftime_and_final_result(
-            scene, &launch, &p1, &p2, message, message_size)) {
+            scene, &launch, &p1, &p2, message, message_size) ||
+        !scene_test_owned_shot_boundary(
+            scene, &launch, message, message_size)) {
         tecmo_gameplay_scene_destroy(scene);
         return false;
     }
