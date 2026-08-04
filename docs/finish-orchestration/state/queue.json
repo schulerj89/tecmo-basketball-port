@@ -1509,7 +1509,7 @@
       "round_id": "R2",
       "priority": 96,
       "coordination_only": false,
-      "state": "sol_review",
+      "state": "ready_for_round_staging",
       "dependencies": [
         "R2-SHOTS-OUTCOMES",
         "R2-DEFENSE-CONTACT"
@@ -1527,14 +1527,17 @@
         "019fcb05-7013-7453-87ff-2d92d3ad2b32",
         "019fcb44-0f91-7632-9b25-88e51b505ce3"
       ],
-      "result_commits": ["1dde1ef748658a11403ff4bc450af858d05f08c2"],
+      "result_commits": [
+        "1dde1ef748658a11403ff4bc450af858d05f08c2",
+        "1f23235cd60582379da5e8f1713cd25de4ced62f"
+      ],
       "evidence_ids": [],
       "blocker_ids": [],
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-tasks/R2-rules-restarts",
       "qa": {
-        "status": "in_progress",
-        "sol_signoff": false,
+        "status": "passed",
+        "sol_signoff": true,
         "integration_signoff": false,
         "test_records": [
           "2026-08-04T03:44:25Z master reverified local/tracking/live stable main exact Good-signed 7fe2dd7 and confirmed proposed codex/r2-rules-restarts-sol branch plus C:/Users/joshs/Projects/tecmo-basketball-port-r2-rules-restarts-sol path absent from local/remote refs, filesystem, and worktree registry before reservation.",
@@ -1551,15 +1554,17 @@
           "2026-08-04T05:34:52Z Sol personal integrated QA passed canonical build.ps1 and fresh VS CMake console/GUI /W4 builds, full scene proof, focused TPNL/TGVR/TGBC/TGOR/TGCP/audio, direct console and hidden-GUI scene routes, canonical ROM identity, deterministic paired proof hashes, and full-resolution visual inspection. Production dispatch order and all explicit semantic incompletes remain unchanged.",
           "2026-08-04T05:34:52Z after a zero-collision gate, Sol created exactly one fresh top-level projectless gpt-5.6-luna/max independent terminal QA task 019fcb44-0f91-7632-9b25-88e51b505ce3 on the first attempt and pinned it immediately. It targets frozen 1dde1ef/a46d403, has read-only tracked/index/ref authority with ignored QA outputs only, and has zero creation/pin/retry/replacement fault.",
           "2026-08-04T06:00:40Z master recorded sole independent terminal QA acceptance of frozen 1dde1ef/a46d403 with P0/P1/P2/P3 all zero after independent signature/ancestry/seven-path ownership, canonical and CMake console/GUI builds, full scene/proof and focused TPNL/TGVR/TGBC/TGOR/TGCP/audio gates, direct console/hidden GUI, two deterministic gameplay-state runs with replay 7A204A525C79D21C, proof hashes, and full-resolution inspection.",
-          "2026-08-04T06:00:40Z before terminal docs signing, master traceability review confirmed accepted 1dde1ef contradicts active immediate-SFX6 wording in exactly AGENTS.md lines 968-970, PORTING.md lines 1134-1136, and docs/gameplay-state-foundation.md lines 354-359. With zero active ownership collision, master granted Sol only those three wording replacements to record strict TPNL-1 frame-16 exact-once/native-faithful bounded cue behavior while preserving capture-bounded loader/fade and incomplete full presentation/original caller order."
+          "2026-08-04T06:00:40Z before terminal docs signing, master traceability review confirmed accepted 1dde1ef contradicts active immediate-SFX6 wording in exactly AGENTS.md lines 968-970, PORTING.md lines 1134-1136, and docs/gameplay-state-foundation.md lines 354-359. With zero active ownership collision, master granted Sol only those three wording replacements to record strict TPNL-1 frame-16 exact-once/native-faithful bounded cue behavior while preserving capture-bounded loader/fade and incomplete full presentation/original caller order.",
+          "2026-08-04T06:16:58Z Sol produced exact Good-SSH-signed docs descendant 1f23235cd60582379da5e8f1713cd25de4ced62f, tree b668b45fa38807de6249b1a814d3e6baf96329f5, sole parent 1dde1ef, with exactly ten documentation paths: the three granted active-contract corrections plus seven R2 task docs. Same independent QA accepted the signed tip P0/P1/P2/P3 zero, verified 10/10 scope, every recorded hash, non-doc blob identity, clean status/diff-check, and absence of stale immediate-cue assertions.",
+          "2026-08-04T06:16:58Z master independently reverified both Good SSH signatures, exact ancestry, stable local/tracking/live main 7fe2dd7, clean Sol worktree, complete bounded classifications, and zero main/staging/push action. The terminal domain tip is accepted and released to dedicated current-main integration QA; all Lunas/Sol may unpin after this durable checkpoint."
         ],
         "proof_manifests": [],
-        "notes": "Good-signed clean product candidate 1dde1ef748658a11403ff4bc450af858d05f08c2 is Sol-integrated and independently accepted P0/P1/P2/P3 zero. Its exact seven-path result implements only the source-backed 16-frame shared foul/violation SFX-6 presentation cue through the existing scene audio seam, one additive focused scene test unit, three bounded inherited compatibility blocks, and matching CMake/build.ps1 static registration. All required build, focused, broad scene, strict audio, state/assets, proof, and visual gates pass. Shot-clock SFX3 remains accepted at frame 0; SFX6 is absent frames 1-15, consumed exact-once at frame 16, and does not repeat through frame 48. Sol must now correct only the three active stale wording passages in AGENTS.md, PORTING.md, and docs/gameplay-state-foundation.md, add only its owned task docs, sign the docs descendant, and obtain same-QA exact signed-tip review. Direct foul fixtures are presentation/audio proof only. Capture-bounded loader/fade, full presentation/original caller order, foul/contact classification, invented TPNL inputs, FT outcome/rebound/final possession, missing live violation detectors, shot claimant/rebound/block/steal semantics, foul-divider selection, and blackout/fade parity remain explicitly incomplete and excluded."
+        "notes": "Terminal Good-signed chain 1dde1ef748658a11403ff4bc450af858d05f08c2 -> 1f23235cd60582379da5e8f1713cd25de4ced62f is personally Sol-accepted and independently accepted P0/P1/P2/P3 zero. Its seven product/test/build paths implement only the source-backed shared foul/violation SFX6 at frame 16 exact-once while preserving shot-clock SFX3 at frame 0 and unchanged dispatch/reset/restart policy. Its docs descendant changes only the three granted active-contract passages plus seven task docs; all non-doc blobs are byte-identical to the accepted product parent. Canonical/CMake console+GUI builds, focused/broad scene/audio/state, deterministic proof, visual, signature, ownership, diagnostics, and clean-lineage gates pass. Direct foul fixtures are presentation/audio proof only. Capture-bounded loader/fade, full presentation/original caller order, foul/contact classification, invented TPNL inputs, FT outcome/rebound/final possession, missing live violation detectors, shot claimant/rebound/block/steal semantics, foul-divider selection, and blackout/fade parity remain explicitly incomplete. Dedicated current-main integration QA is required before delivery."
       },
       "merge": {
         "staging_branch": "codex/round-2-gameplay-mechanics-staging",
         "merge_order": 3,
-        "status": "not_ready",
+        "status": "ready",
         "merge_commit": null,
         "main_pre_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
         "main_post_sha": null,
@@ -1567,7 +1572,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-04T06:00:40Z",
+      "updated_at": "2026-08-04T06:16:58Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -1603,6 +1608,20 @@
           "from_state": "in_progress",
           "to_state": "sol_review",
           "reason": "Authoritative Sol ff-only integrated exact Good-signed seven-path candidate 1dde1ef into its registered clean branch, completed the proportional integrated build/scene/audio/state/visual gate, and created exactly one fresh pinned projectless Luna/max terminal QA task against the frozen tip."
+        },
+        {
+          "timestamp": "2026-08-04T06:16:58Z",
+          "actor_session_id": "S-SOL-R2-RULES-RESTARTS-001",
+          "from_state": "sol_review",
+          "to_state": "sol_accepted",
+          "reason": "Same independent terminal QA accepted frozen product candidate and exact Good-signed ten-document descendant 1f23235 with P0/P1/P2/P3 zero; Sol reverified exact ancestry, signatures, scope, clean state, non-doc identity, and honest incomplete boundaries."
+        },
+        {
+          "timestamp": "2026-08-04T06:16:58Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "sol_accepted",
+          "to_state": "ready_for_round_staging",
+          "reason": "Master independently verified the terminal signed chain, stable current main, complete personal/independent gates, corrected active contracts, clean ownership, and zero main/staging/push action; release the domain claim and route immutable 1f23235 to dedicated current-main integration QA."
         }
       ]
     },

@@ -8,14 +8,14 @@ Generated from committed JSON at `2026-08-04T04:54:52Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 10, `pushed` 18, `ready_for_round_staging` 4, `sol_review` 1
+- Task states: `backlog` 10, `pushed` 18, `ready_for_round_staging` 5
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
 
 - Single master authority: `True`
 - Second-master policy: `recovery_replacement_only`
-- Active domain Sols: `1`
+- Active domain Sols: `0`
 - Cleared for creation: `0`
 - Target active domain Sols: `4`
 - Monitoring limit: `8`
@@ -37,7 +37,7 @@ Generated from committed JSON at `2026-08-04T04:54:52Z`. This dashboard reports 
 | LANE-R2B-SHOTS-OUTCOMES-INTEGRATION-QA | integration_qa | complete | ready | R2B-SHOTS-OUTCOMES-INTEGRATION-QA | S-SOL-R2B-SHOTS-INTEGRATION-QA-001 | codex/r2b-shots-outcomes-integration-qa-sol | Complete: terminal Good-signed 5229092 passed reconciled Sol and same-Luna P0/P1/P2-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; unpin is authorized after durable control acknowledgment. |
 | LANE-R2-DEFENSE-CONTACT | gameplay_behavior | complete | complete | R2-DEFENSE-CONTACT | S-SOL-R2-DEFENSE-CONTACT-001 | codex/r2-defense-contact-sol | Terminal Good-signed ed70d884 is Sol/independent accepted and frozen for dedicated current-main integration QA. Domain ownership is released; preserve branches/worktrees and focused proof for audit. Normal-build/runtime/player-facing and semantic downstream integration remain separate incomplete boundaries. |
 | LANE-R2C-DEFENSE-CONTACT-INTEGRATION-QA | integration_qa | complete | complete | R2C-DEFENSE-CONTACT-INTEGRATION-QA | S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001 | codex/r2c-defense-contact-integration-qa-sol | Complete: terminal Good-signed 7fe2dd7 passed reconciled Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; Sol/Luna unpin is authorized after durable control acknowledgment. |
-| LANE-R2-RULES-RESTARTS | gameplay_behavior | active | ready | R2-RULES-RESTARTS | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | Frozen Good-signed 1dde1ef is Sol-integrated and sole independent QA accepted P0/P1/P2/P3 zero. Before terminal signing, Sol may change only AGENTS.md lines 968-970, PORTING.md lines 1134-1136, and docs/gameplay-state-foundation.md lines 354-359 to replace the contradicted immediate-SFX6 status with strict TPNL-1 frame-16 exact-once/native-faithful bounded cue wording while preserving capture-bounded loader/fade and incomplete full presentation/original caller order. Then add only the seven Sol-owned task docs, create one Good-signed docs descendant, obtain same-QA exact signed-tip review, and issue a clean terminal handoff before master-owned current-main integration QA. |
+| LANE-R2-RULES-RESTARTS | gameplay_behavior | complete | complete | R2-RULES-RESTARTS | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | Complete: exact Good-signed terminal 1f23235 passed personal Sol and same-Luna P0/P1/P2/P3-zero QA, active contract wording is reconciled, domain ownership is released, and immutable 1f23235 is routed to dedicated current-main integration QA. Preserve branch/worktree/docs/proof; all five child tasks and the Sol may unpin after durable control acknowledgment. |
 
 ## Rounds
 
@@ -89,7 +89,7 @@ Generated from committed JSON at `2026-08-04T04:54:52Z`. This dashboard reports 
 | 98 | R5-PARITY-GAP-CLOSURE | integration | R5 | backlog | - | - | 0 | pending | not_ready |
 | 97 | R0A-ADOPT-AWAY-FACING | gameplay_presentation | R0A | pushed | S-SOL-AWAY-FACING-LEGACY | codex/away-facing-left-only | 2 | historical_sol_accepted | pushed |
 | 96 | R1-TIP-FIDELITY | gameplay_behavior | R1 | ready_for_round_staging | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | ready |
-| 96 | R2-RULES-RESTARTS | gameplay_behavior | R2 | sol_review | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | 1 | in_progress | not_ready |
+| 96 | R2-RULES-RESTARTS | gameplay_behavior | R2 | ready_for_round_staging | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | 2 | passed | ready |
 | 96 | R3-TEAM-MGMT-DATA | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 96 | R4-AUDIO | audio | R4 | backlog | - | - | 0 | pending | not_ready |
 | 96 | R5-E2E-RELEASE-QA | integration | R5 | backlog | - | - | 0 | pending | not_ready |
@@ -102,13 +102,12 @@ Generated from committed JSON at `2026-08-04T04:54:52Z`. This dashboard reports 
 | Session | Role | Model/thinking | Status | Pin | Tasks | Branch | Worktree | Last good |
 |---|---|---|---|---|---|---|---|---|
 | S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 5b8a13b30620 |
-| S-SOL-R2-RULES-RESTARTS-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R2-RULES-RESTARTS | codex/r2-rules-restarts-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2-rules-restarts-sol | 1dde1ef74865 |
+| S-SOL-R2-RULES-RESTARTS-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R2-RULES-RESTARTS | codex/r2-rules-restarts-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2-rules-restarts-sol | 1f23235cd605 |
 
 ## Active Ownership
 
 | Claim | Task | Round | Mode | Writable globs | Concurrency group |
 |---|---|---|---|---|---|
-| OWN-R2-RULES-RESTARTS | R2-RULES-RESTARTS | R2 | exclusive | docs/finish-tasks/R2-rules-restarts/**<br>CMakeLists.txt<br>src/tecmo_gameplay_scene.c<br>src/tecmo_gameplay_scene_test_rules_restarts.c<br>src/tecmo_gameplay_scene_test_internal.h<br>src/tecmo_gameplay_scene_test_orchestrator.c<br>src/tecmo_gameplay_scene_test_state_flow.c<br>build.ps1<br>AGENTS.md<br>PORTING.md<br>docs/gameplay-state-foundation.md | R2-rules-restarts |
 
 ## External Blockers
 

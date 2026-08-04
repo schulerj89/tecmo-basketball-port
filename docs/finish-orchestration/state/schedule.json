@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T04:54:52Z",
+  "updated_at": "2026-08-04T06:16:58Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,12 +10,12 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 1,
+    "active_domain_orchestrators": 0,
     "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
-    "unallocated_target_slots": 3,
-    "unallocated_monitoring_slots": 7
+    "unallocated_target_slots": 4,
+    "unallocated_monitoring_slots": 8
   },
   "lanes": [
     {
@@ -378,8 +378,8 @@
       "domain": "gameplay_behavior",
       "round_ids": ["R2"],
       "task_ids": ["R2-RULES-RESTARTS"],
-      "readiness": "active",
-      "dependency_status": "ready",
+      "readiness": "complete",
+      "dependency_status": "complete",
       "reservation_owner_session_id": "S-MASTER-001",
       "orchestrator_session_id": "S-SOL-R2-RULES-RESTARTS-001",
       "base_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
@@ -387,8 +387,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-rules-restarts-sol",
       "ownership_claim_ids": ["OWN-R2-RULES-RESTARTS"],
       "blockers": [],
-      "next_gate": "Frozen Good-signed 1dde1ef is Sol-integrated and sole independent QA accepted P0/P1/P2/P3 zero. Before terminal signing, Sol may change only AGENTS.md lines 968-970, PORTING.md lines 1134-1136, and docs/gameplay-state-foundation.md lines 354-359 to replace the contradicted immediate-SFX6 status with strict TPNL-1 frame-16 exact-once/native-faithful bounded cue wording while preserving capture-bounded loader/fade and incomplete full presentation/original caller order. Then add only the seven Sol-owned task docs, create one Good-signed docs descendant, obtain same-QA exact signed-tip review, and issue a clean terminal handoff before master-owned current-main integration QA.",
-      "updated_at": "2026-08-04T06:00:40Z"
+      "next_gate": "Complete: exact Good-signed terminal 1f23235 passed personal Sol and same-Luna P0/P1/P2/P3-zero QA, active contract wording is reconciled, domain ownership is released, and immutable 1f23235 is routed to dedicated current-main integration QA. Preserve branch/worktree/docs/proof; all five child tasks and the Sol may unpin after durable control acknowledgment.",
+      "updated_at": "2026-08-04T06:16:58Z"
     }
   ]
 }
