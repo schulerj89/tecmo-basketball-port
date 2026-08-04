@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T22:40:29Z",
+  "updated_at": "2026-08-04T22:43:30Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -2935,7 +2935,7 @@
       "round_id": "R4",
       "priority": 96,
       "coordination_only": false,
-      "state": "ready_for_main",
+      "state": "pushed",
       "dependencies": [
         "R4-AUDIO-FOUNDATION",
         "R2-CLOCK-LINEUPS-FATIGUE",
@@ -2977,15 +2977,15 @@
       "merge": {
         "staging_branch": "codex/r4c-audio-proof-integration-qa-sol",
         "merge_order": 4,
-        "status": "ready",
+        "status": "pushed",
         "merge_commit": "266ff6f744c6561fb3dad38ed74323f0a636d746",
         "main_pre_sha": "709465dae0d648810e6990d1432c9cb133068253",
-        "main_post_sha": null,
-        "push_sha": null,
-        "pushed_at": null
+        "main_post_sha": "ff900a421d3d59ff0ea4afadcb187dbd93f6e368",
+        "push_sha": "ff900a421d3d59ff0ea4afadcb187dbd93f6e368",
+        "pushed_at": "2026-08-04T22:43:30Z"
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-04T22:40:29Z",
+      "updated_at": "2026-08-04T22:43:30Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -3049,6 +3049,20 @@
           "from_state": "combined_qa",
           "to_state": "ready_for_main",
           "reason": "Warning-clean builds, native Music/FrontendAudio/GameplayAudio/state tests, runner parse, diff-check, proof rehash, independent review, and control validation all passed."
+        },
+        {
+          "timestamp": "2026-08-04T22:43:30Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "ready_for_main",
+          "to_state": "merged",
+          "reason": "Guarded fast-forward advanced clean main from exact 709465d to signed integration terminal ff900a4 with no merge commit on main."
+        },
+        {
+          "timestamp": "2026-08-04T22:43:30Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "merged",
+          "to_state": "pushed",
+          "reason": "Ordinary non-force push succeeded and local main, origin/main tracking, and live remote main all verified exact ff900a4."
         }
       ]
     },

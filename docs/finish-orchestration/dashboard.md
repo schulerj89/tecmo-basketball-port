@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-04T22:40:29Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-04T22:43:30Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,14 +8,14 @@ Generated from committed JSON at `2026-08-04T22:40:29Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `assigned` 1, `backlog` 6, `pushed` 27, `ready_for_main` 1
+- Task states: `assigned` 1, `backlog` 6, `pushed` 28
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
 
 - Single master authority: `True`
 - Second-master policy: `recovery_replacement_only`
-- Active domain Sols: `2`
+- Active domain Sols: `1`
 - Cleared for creation: `0`
 - Target active domain Sols: `4`
 - Monitoring limit: `8`
@@ -43,7 +43,7 @@ Generated from committed JSON at `2026-08-04T22:40:29Z`. This dashboard reports 
 | LANE-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA | integration_qa | complete | complete | R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA | S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001 | codex/r2e-gameplay-presentation-integration-qa-sol | Complete: release orchestration reverified clean local/tracking/live ed060720, Good signatures, exact ancestry/diff/tree and immutable staging, then fast-forward-only delivered bdc2fbb and verified the ordinary non-force origin/main push at 2026-08-04T18:34:34Z. All task, branch, worktree, report and proof lineage remains preserved. |
 | LANE-R3-PLAYER-STATS-LEADERS | season_data | complete | complete | R3-PLAYER-STATS-LEADERS | S-SOL-R3-PLAYER-STATS-LEADERS-001 | codex/r3-player-stats-leaders-sol | Complete and delivered for this bounded slice: 7897871 was reconciled onto bdc2fbb, sole current-main Luna/max QA closed the seeded-attempts fixture P2 and required docs, and release orchestration fast-forward-only delivered and ordinary-pushed terminal 35d31f5 at 2026-08-04T19:22:56Z. Unsupported counters and adjacent R3 tasks remain excluded and pending under separate authority. |
 | LANE-R3-SEASON-PROGRESSION-SAVE | season_data | active | ready | R3-SEASON-PROGRESSION-SAVE | S-SOL-R3-SEASON-PROGRESSION-SAVE-001 | codex/r3-season-progression-save-sol | Complete the exact Season scope, obtain independent terminal QA, and send the terminal SHA/tree/parent, QA disposition, clean scope, and remaining limitations directly to S-MASTER-001 before the lane may be accepted or integrated. No scope expansion, Team Management assignment, or unmanaged worker context is authorized. |
-| LANE-R4-AUDIO-CUE-ROUTING | audio | active | ready | R4-AUDIO | S-SOL-R4-AUDIO-CUE-ROUTING-001 | codex/r4-audio-cue-routing-sol | Master-only guarded fast-forward of Good-signed integration branch 266ff6f from exact main 709465d, followed by ordinary non-force push and durable release-state update. |
+| LANE-R4-AUDIO-CUE-ROUTING | audio | complete | ready | R4-AUDIO | S-SOL-R4-AUDIO-CUE-ROUTING-001 | codex/r4-audio-cue-routing-sol | Complete: proof-first R4 Audio is delivered at ff900a4. Future production audio work requires a new signed evidence-backed claim; preserve the domain branch, worktree, docs, and ignored proof artifacts for audit. |
 
 ## Rounds
 
@@ -101,7 +101,7 @@ Generated from committed JSON at `2026-08-04T22:40:29Z`. This dashboard reports 
 | 96 | R1-TIP-FIDELITY | gameplay_behavior | R1 | pushed | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | pushed |
 | 96 | R2-RULES-RESTARTS | gameplay_behavior | R2 | pushed | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | 2 | passed | pushed |
 | 96 | R3-TEAM-MGMT-DATA | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
-| 96 | R4-AUDIO | audio | R4 | ready_for_main | S-SOL-R4-AUDIO-CUE-ROUTING-001 | codex/r4-audio-cue-routing-sol | 1 | passed | ready |
+| 96 | R4-AUDIO | audio | R4 | pushed | S-SOL-R4-AUDIO-CUE-ROUTING-001 | codex/r4-audio-cue-routing-sol | 1 | passed | pushed |
 | 96 | R5-E2E-RELEASE-QA | integration | R5 | backlog | - | - | 0 | pending | not_ready |
 | 94 | R2-CLOCK-LINEUPS-FATIGUE | gameplay_behavior | R2 | pushed | S-SOL-R2-CLOCK-LINEUPS-001 | codex/r2-clock-lineups-fatigue-sol | 7 | passed | pushed |
 | 94 | R3-ALLSTAR | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
@@ -114,14 +114,12 @@ Generated from committed JSON at `2026-08-04T22:40:29Z`. This dashboard reports 
 | S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 5b8a13b30620 |
 | S-TERRA-INFLIGHT-RELEASE-ORCHESTRATOR-001 | release_orchestrator | gpt-5.6-terra/xhigh | active | pinned | R2-GAMEPLAY-PRESENTATION, R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA, R3-PLAYER-STATS-LEADERS | main | C:/Users/joshs/Projects/tecmo-basketball-port-main-integration | 35d31f5a0e00 |
 | S-SOL-R3-SEASON-PROGRESSION-SAVE-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R3-SEASON-PROGRESSION-SAVE | codex/r3-season-progression-save-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r3-season-progression-save-sol | f1b04193405d |
-| S-SOL-R4-AUDIO-CUE-ROUTING-001 | domain_orchestrator | gpt-5.6-sol/max | idle | pinned | R4-AUDIO | codex/r4-audio-cue-routing-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r4-audio-cue-routing-sol | 5dfeb3bd2026 |
 
 ## Active Ownership
 
 | Claim | Task | Round | Mode | Writable globs | Concurrency group |
 |---|---|---|---|---|---|
 | OWN-R3-SEASON-PROGRESSION-SAVE | R3-SEASON-PROGRESSION-SAVE | R3 | exclusive | include/tecmo_season_menu.h<br>src/tecmo_season_menu.c<br>tools/Run-SeasonTests.ps1<br>docs/finish-tasks/R3-season-progression-save/** | R3-season-progression-save |
-| OWN-R4-AUDIO-PROOF-FIRST | R4-AUDIO | R4 | exclusive | tools/Run-AudioRouteProofTests.ps1<br>docs/finish-tasks/R4-audio/README.md<br>docs/finish-tasks/R4-audio/EVIDENCE.md<br>docs/finish-tasks/R4-audio/COMMANDS.md<br>docs/finish-tasks/R4-audio/LINEAGE.md | R4-audio-cue-routing |
 
 ## External Blockers
 

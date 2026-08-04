@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T21:17:51Z",
+  "updated_at": "2026-08-04T22:43:30Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -824,10 +824,10 @@
         "docs/finish-tasks/R4-audio/LINEAGE.md"
       ],
       "concurrency_group": "R4-audio-cue-routing",
-      "active": true,
+      "active": false,
       "claimed_at": "2026-08-04T21:17:51Z",
-      "released_at": null,
-      "notes": "Exact proof-first exclusive scope at f1b04193405d1c87f21e80ee51d3790499ea0cf8. Production, gameplay, season, importer, and device paths remain read-only pending later signed evidence."
+      "released_at": "2026-08-04T22:43:30Z",
+      "notes": "Released after signed proof terminal 5dfeb3b and Good-signed current-main reconciliation 266ff6f passed final-HEAD artifact rehash, independent P0/P1/P2/P3-zero review, warning-clean combined build, native audio/state tests, control validation, guarded main fast-forward, and ordinary non-force push at ff900a4. The delivered slice proves 5 frontend routes, keeps 13 source-present-only and 7 unproven boundaries, and changes no production path. Any production caller, engine, importer, device, gameplay, or season change requires a new signed claim."
     }
   ],
   "shared_boundaries": [

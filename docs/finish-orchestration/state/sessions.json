@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T21:17:51Z",
+  "updated_at": "2026-08-04T22:43:30Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -957,7 +957,7 @@
       "role": "domain_orchestrator",
       "model": "gpt-5.6-sol",
       "thinking": "max",
-      "status": "idle",
+      "status": "completed",
       "pin_state": "pinned",
       "round_ids": [
         "R4"
@@ -984,9 +984,9 @@
         "takeover_confirmed_at": null
       },
       "created_at": "2026-08-04T21:17:51Z",
-      "completed_at": null,
-      "updated_at": "2026-08-04T22:40:29Z",
-      "notes": "Signed terminal 5dfeb3b is Sol/master accepted and integrated on Good-signed current-main reconciliation 266ff6f with combined QA green. The two thread-backed Luna creation timeouts created no task; one independent in-session reviewer and one master integration reviewer closed P0/P1/P2/P3 at zero. Session remains pinned/idle until guarded main delivery records completion."
+      "completed_at": "2026-08-04T22:43:30Z",
+      "updated_at": "2026-08-04T22:43:30Z",
+      "notes": "Signed terminal 5dfeb3b and Good-signed reconciliation 266ff6f were delivered by guarded main fast-forward and ordinary non-force push at ff900a4. The two thread-backed Luna creation timeouts created no task; one independent in-session reviewer and one master integration reviewer closed P0/P1/P2/P3 at zero. The session remains pinned only until its explicit completion acknowledgment is delivered to S-MASTER-001, after which lifecycle unpin is permitted without archiving or deleting its worktree/proof."
     }
   ],
   "reported_luna_workers": [

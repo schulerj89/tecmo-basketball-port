@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T21:17:51Z",
+  "updated_at": "2026-08-04T22:43:30Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,12 +10,12 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 2,
+    "active_domain_orchestrators": 1,
     "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
-    "unallocated_target_slots": 2,
-    "unallocated_monitoring_slots": 6
+    "unallocated_target_slots": 3,
+    "unallocated_monitoring_slots": 7
   },
   "lanes": [
     {
@@ -496,7 +496,7 @@
       "task_ids": [
         "R4-AUDIO"
       ],
-      "readiness": "active",
+      "readiness": "complete",
       "dependency_status": "ready",
       "reservation_owner_session_id": "S-MASTER-001",
       "orchestrator_session_id": "S-SOL-R4-AUDIO-CUE-ROUTING-001",
@@ -507,8 +507,8 @@
         "OWN-R4-AUDIO-PROOF-FIRST"
       ],
       "blockers": [],
-      "next_gate": "Master-only guarded fast-forward of Good-signed integration branch 266ff6f from exact main 709465d, followed by ordinary non-force push and durable release-state update.",
-      "updated_at": "2026-08-04T22:40:29Z"
+      "next_gate": "Complete: proof-first R4 Audio is delivered at ff900a4. Future production audio work requires a new signed evidence-backed claim; preserve the domain branch, worktree, docs, and ignored proof artifacts for audit.",
+      "updated_at": "2026-08-04T22:43:30Z"
     }
   ]
 }
