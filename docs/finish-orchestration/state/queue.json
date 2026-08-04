@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T21:17:51Z",
+  "updated_at": "2026-08-04T22:40:29Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -2935,7 +2935,7 @@
       "round_id": "R4",
       "priority": 96,
       "coordination_only": false,
-      "state": "assigned",
+      "state": "ready_for_main",
       "dependencies": [
         "R4-AUDIO-FOUNDATION",
         "R2-CLOCK-LINEUPS-FATIGUE",
@@ -2951,31 +2951,41 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4-audio-cue-routing-sol",
       "sol_orchestrator_session_id": "S-SOL-R4-AUDIO-CUE-ROUTING-001",
       "reported_luna_worker_session_ids": [],
-      "result_commits": [],
+      "result_commits": [
+        "5dfeb3bd2026dd2b0ac0c7692553d15253b2c852"
+      ],
       "evidence_ids": [],
       "blocker_ids": [],
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-tasks/R4-audio",
       "qa": {
-        "status": "pending",
-        "sol_signoff": false,
-        "integration_signoff": false,
-        "test_records": [],
-        "proof_manifests": [],
-        "notes": "Inventory found no audio capture/waveform/listening-proof set; this task must create one."
+        "status": "passed",
+        "sol_signoff": true,
+        "integration_signoff": true,
+        "test_records": [
+          "2026-08-04T22:40:29Z signed terminal 5dfeb3b retained exact five-path proof-only scope; final candidate artifacts bind exact 8e58aa4 and independent terminal review closed P0/P1/P2/P3 at zero.",
+          "2026-08-04T22:40:29Z Good-signed integration merge 266ff6f used current main 709465d first and audio terminal 5dfeb3b second with zero overlap and the exact predicted tree.",
+          "2026-08-04T22:40:29Z integration QA passed warning-clean console/GUI build, native Music/FrontendAudio/GameplayAudio tests, gameplay-state replay 7A204A525C79D21C, runner parse, diff-check, proof rehash, independent review, and control validation."
+        ],
+        "proof_manifests": [
+          "R4 audio route ledger SHA256 C3D15BB68D5A9ACF0AE4A58E8E962AB21EB1217BEA6DC70E1F824C0AFBE0BCEC",
+          "R4 audio route manifest SHA256 D6ABBABD69CBAB5CDF5F5727F04EB3AD8847DC36CA5216049B378FEB390311B9",
+          "R4 audio foundation manifest SHA256 A87CF0D8C234B43FD2C28FC4C9ABFA77FE57595D272BE10A10F1B26331414F2D"
+        ],
+        "notes": "Proof-first R4 audio route work is accepted: 5 production frontend routes proven, 13 callers source-present-only, and 7 boundaries unproven. No production audio caller, engine, importer, device, gameplay, or season path changed. Cycle/APU/device parity, DMC IDs 0-2 semantics, effect 5 semantics, and complete effect 6 meaning remain incomplete. Thread-backed Luna creation timed out without creating a task; the one independent in-session terminal reviewer and master integration reviewer both returned P0/P1/P2/P3 zero."
       },
       "merge": {
-        "staging_branch": "codex/round-4-frontend-audio-staging",
+        "staging_branch": "codex/r4c-audio-proof-integration-qa-sol",
         "merge_order": 4,
-        "status": "not_ready",
-        "merge_commit": null,
-        "main_pre_sha": "7090d2c62201ce3d330df20043a6e80fd0bdef00",
+        "status": "ready",
+        "merge_commit": "266ff6f744c6561fb3dad38ed74323f0a636d746",
+        "main_pre_sha": "709465dae0d648810e6990d1432c9cb133068253",
         "main_post_sha": null,
         "push_sha": null,
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-04T21:17:51Z",
+      "updated_at": "2026-08-04T22:40:29Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -2997,6 +3007,48 @@
           "from_state": "scoped",
           "to_state": "assigned",
           "reason": "Master reverified clean registered codex/r4-audio-cue-routing-sol at exact f1b04193405d1c87f21e80ee51d3790499ea0cf8; S-SOL-R4-AUDIO-CUE-ROUTING-001 owns only the proof-first paths and leaves production, gameplay, season, importer, and device paths read-only pending later signed evidence."
+        },
+        {
+          "timestamp": "2026-08-04T22:40:28Z",
+          "actor_session_id": "S-SOL-R4-AUDIO-CUE-ROUTING-001",
+          "from_state": "assigned",
+          "to_state": "in_progress",
+          "reason": "The assigned Sol produced the exact five-path proof-first implementation and began signed terminal review."
+        },
+        {
+          "timestamp": "2026-08-04T22:40:28Z",
+          "actor_session_id": "S-SOL-R4-AUDIO-CUE-ROUTING-001",
+          "from_state": "in_progress",
+          "to_state": "sol_review",
+          "reason": "Signed candidate proof runner, final-HEAD artifacts, classifications, scope, and task documentation entered Sol review."
+        },
+        {
+          "timestamp": "2026-08-04T22:40:29Z",
+          "actor_session_id": "S-SOL-R4-AUDIO-CUE-ROUTING-001",
+          "from_state": "sol_review",
+          "to_state": "sol_accepted",
+          "reason": "Sol accepted signed terminal 5dfeb3b after final-HEAD proof and independent in-session QA closed P0/P1/P2/P3 at zero."
+        },
+        {
+          "timestamp": "2026-08-04T22:40:29Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "sol_accepted",
+          "to_state": "ready_for_round_staging",
+          "reason": "Master independently verified signed terminal scope, proof bindings, classifications, clean worktree, and zero overlap with current main or active Season ownership."
+        },
+        {
+          "timestamp": "2026-08-04T22:40:29Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "ready_for_round_staging",
+          "to_state": "combined_qa",
+          "reason": "Good-signed no-ff integration merge 266ff6f reconciled current main first and audio terminal second at the exact conflict-free predicted tree."
+        },
+        {
+          "timestamp": "2026-08-04T22:40:29Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "combined_qa",
+          "to_state": "ready_for_main",
+          "reason": "Warning-clean builds, native Music/FrontendAudio/GameplayAudio/state tests, runner parse, diff-check, proof rehash, independent review, and control validation all passed."
         }
       ]
     },

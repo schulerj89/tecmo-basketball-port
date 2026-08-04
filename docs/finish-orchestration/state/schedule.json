@@ -483,7 +483,7 @@
         "OWN-R3-SEASON-PROGRESSION-SAVE"
       ],
       "blockers": [],
-      "next_gate": "Await separately authorized Sol task dispatch; no scope expansion, Team Management assignment, or unmanaged worker context is authorized.",
+      "next_gate": "Complete the exact Season scope, obtain independent terminal QA, and send the terminal SHA/tree/parent, QA disposition, clean scope, and remaining limitations directly to S-MASTER-001 before the lane may be accepted or integrated. No scope expansion, Team Management assignment, or unmanaged worker context is authorized.",
       "updated_at": "2026-08-04T21:17:51Z"
     },
     {
@@ -507,8 +507,8 @@
         "OWN-R4-AUDIO-PROOF-FIRST"
       ],
       "blockers": [],
-      "next_gate": "Await separately authorized Sol task dispatch; production, gameplay, season, importer, and device paths remain read-only pending later signed evidence.",
-      "updated_at": "2026-08-04T21:17:51Z"
+      "next_gate": "Master-only guarded fast-forward of Good-signed integration branch 266ff6f from exact main 709465d, followed by ordinary non-force push and durable release-state update.",
+      "updated_at": "2026-08-04T22:40:29Z"
     }
   ]
 }
