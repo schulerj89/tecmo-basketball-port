@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T07:56:02Z",
+  "updated_at": "2026-08-04T07:58:28Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -11,11 +11,11 @@
   },
   "capacity": {
     "active_domain_orchestrators": 0,
-    "cleared_for_creation": 0,
+    "cleared_for_creation": 2,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
-    "unallocated_target_slots": 4,
-    "unallocated_monitoring_slots": 8
+    "unallocated_target_slots": 2,
+    "unallocated_monitoring_slots": 6
   },
   "lanes": [
     {
@@ -407,6 +407,42 @@
       "blockers": [],
       "next_gate": "Complete: terminal Good-signed ed060720 passed Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only delivered and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Sol and Luna both returned pinned=false; all tasks and artifacts remain preserved and unarchived.",
       "updated_at": "2026-08-04T07:56:02Z"
+    },
+    {
+      "lane_id": "LANE-R2-GAMEPLAY-PRESENTATION",
+      "title": "Round 2 full gameplay presentation matrix",
+      "domain": "gameplay_presentation",
+      "round_ids": ["R2"],
+      "task_ids": ["R2-GAMEPLAY-PRESENTATION"],
+      "readiness": "cleared_for_creation",
+      "dependency_status": "ready",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": null,
+      "base_sha": "ed060720a98b790f98591af363a490a0e0816018",
+      "branch": "codex/r2-gameplay-presentation-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-gameplay-presentation-sol",
+      "ownership_claim_ids": ["OWN-R2-GAMEPLAY-PRESENTATION"],
+      "blockers": [],
+      "next_gate": "After signed reservation, create the exact isolated worktree/branch and one pinned gpt-5.6-sol/max orchestrator. Its first gate is read-only native/original evidence, scene-boundary collision, and proof-gap audit; no product write or writable worker exists without later exact signed rescope.",
+      "updated_at": "2026-08-04T07:58:28Z"
+    },
+    {
+      "lane_id": "LANE-R3-PLAYER-STATS-LEADERS",
+      "title": "Round 3 player statistics and league leaders",
+      "domain": "season_data",
+      "round_ids": ["R3"],
+      "task_ids": ["R3-PLAYER-STATS-LEADERS"],
+      "readiness": "cleared_for_creation",
+      "dependency_status": "ready",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": null,
+      "base_sha": "ed060720a98b790f98591af363a490a0e0816018",
+      "branch": "codex/r3-player-stats-leaders-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3-player-stats-leaders-sol",
+      "ownership_claim_ids": ["OWN-R3-PLAYER-STATS-LEADERS"],
+      "blockers": [],
+      "next_gate": "After signed reservation, create the exact isolated worktree/branch and one pinned gpt-5.6-sol/max orchestrator. Its first gate is read-only native statistics/leader architecture, original evidence, ownership/collision, and proof-gap audit; no product write or writable worker exists without later exact signed rescope.",
+      "updated_at": "2026-08-04T07:58:28Z"
     }
   ]
 }

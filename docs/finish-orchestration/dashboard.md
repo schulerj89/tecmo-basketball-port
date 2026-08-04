@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-04T07:56:02Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-04T07:58:28Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,7 +8,7 @@ Generated from committed JSON at `2026-08-04T07:56:02Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 10, `pushed` 19, `ready_for_round_staging` 5
+- Task states: `backlog` 8, `pushed` 19, `ready_for_round_staging` 5, `scoped` 2
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
@@ -16,7 +16,7 @@ Generated from committed JSON at `2026-08-04T07:56:02Z`. This dashboard reports 
 - Single master authority: `True`
 - Second-master policy: `recovery_replacement_only`
 - Active domain Sols: `0`
-- Cleared for creation: `0`
+- Cleared for creation: `2`
 - Target active domain Sols: `4`
 - Monitoring limit: `8`
 
@@ -39,6 +39,8 @@ Generated from committed JSON at `2026-08-04T07:56:02Z`. This dashboard reports 
 | LANE-R2C-DEFENSE-CONTACT-INTEGRATION-QA | integration_qa | complete | complete | R2C-DEFENSE-CONTACT-INTEGRATION-QA | S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001 | codex/r2c-defense-contact-integration-qa-sol | Complete: terminal Good-signed 7fe2dd7 passed reconciled Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; Sol/Luna unpin is authorized after durable control acknowledgment. |
 | LANE-R2-RULES-RESTARTS | gameplay_behavior | complete | complete | R2-RULES-RESTARTS | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | Complete: exact Good-signed terminal 1f23235 passed personal Sol and same-Luna P0/P1/P2/P3-zero QA, active contract wording is reconciled, domain ownership is released, and immutable 1f23235 is routed to dedicated current-main integration QA. All five child tasks and the Sol returned pinned=false after durable control; branches/worktrees/docs/proof remain preserved. |
 | LANE-R2D-RULES-RESTARTS-INTEGRATION-QA | integration_qa | complete | complete | R2D-RULES-RESTARTS-INTEGRATION-QA | S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001 | codex/r2d-rules-restarts-integration-qa-sol | Complete: terminal Good-signed ed060720 passed Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only delivered and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Sol and Luna both returned pinned=false; all tasks and artifacts remain preserved and unarchived. |
+| LANE-R2-GAMEPLAY-PRESENTATION | gameplay_presentation | cleared_for_creation | ready | R2-GAMEPLAY-PRESENTATION | reserved by master | codex/r2-gameplay-presentation-sol | After signed reservation, create the exact isolated worktree/branch and one pinned gpt-5.6-sol/max orchestrator. Its first gate is read-only native/original evidence, scene-boundary collision, and proof-gap audit; no product write or writable worker exists without later exact signed rescope. |
+| LANE-R3-PLAYER-STATS-LEADERS | season_data | cleared_for_creation | ready | R3-PLAYER-STATS-LEADERS | reserved by master | codex/r3-player-stats-leaders-sol | After signed reservation, create the exact isolated worktree/branch and one pinned gpt-5.6-sol/max orchestrator. Its first gate is read-only native statistics/leader architecture, original evidence, ownership/collision, and proof-gap audit; no product write or writable worker exists without later exact signed rescope. |
 
 ## Rounds
 
@@ -73,7 +75,7 @@ Generated from committed JSON at `2026-08-04T07:56:02Z`. This dashboard reports 
 | 100 | R2-SHOTS-OUTCOMES | gameplay_behavior | R2 | ready_for_round_staging | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | 3 | passed | ready |
 | 100 | R2A-CLOCK-LINEUPS-INTEGRATION-QA | integration | R2A | pushed | S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001 | codex/r2a-clocks-integration-qa-sol | 3 | accepted | pushed |
 | 100 | R2B-SHOTS-OUTCOMES-INTEGRATION-QA | integration | R2B | pushed | S-SOL-R2B-SHOTS-INTEGRATION-QA-001 | codex/r2b-shots-outcomes-integration-qa-sol | 4 | pass | pushed |
-| 100 | R3-PLAYER-STATS-LEADERS | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
+| 100 | R3-PLAYER-STATS-LEADERS | season_data | R3 | scoped | - | codex/r3-player-stats-leaders-sol | 0 | pending | not_ready |
 | 100 | R3-SEASON-DATA-FOUNDATION | season_data | R3A | pushed | S-SOL-R3-SEASON-DATA-001 | codex/r3-season-data-foundation-sol | 7 | passed | pushed |
 | 100 | R3A-INTEGRATION-QA | integration | R3A | pushed | S-SOL-R3A-INTEGRATION-QA-001 | codex/r3a-season-data-integration-qa-sol | 1 | passed | pushed |
 | 100 | R4-FRONTEND-INTRO-TITLE | frontend | R4 | pushed | S-SOL-R4-FRONTEND-RECOVERY-001 | codex/r4-frontend-intro-title-sol | 13 | passed | pushed |
@@ -98,7 +100,7 @@ Generated from committed JSON at `2026-08-04T07:56:02Z`. This dashboard reports 
 | 96 | R5-E2E-RELEASE-QA | integration | R5 | backlog | - | - | 0 | pending | not_ready |
 | 94 | R2-CLOCK-LINEUPS-FATIGUE | gameplay_behavior | R2 | ready_for_round_staging | S-SOL-R2-CLOCK-LINEUPS-001 | codex/r2-clock-lineups-fatigue-sol | 7 | passed | ready |
 | 94 | R3-ALLSTAR | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
-| 92 | R2-GAMEPLAY-PRESENTATION | gameplay_presentation | R2 | backlog | - | - | 0 | pending | not_ready |
+| 92 | R2-GAMEPLAY-PRESENTATION | gameplay_presentation | R2 | scoped | - | codex/r2-gameplay-presentation-sol | 0 | pending | not_ready |
 
 ## Active Sessions
 
@@ -110,6 +112,8 @@ Generated from committed JSON at `2026-08-04T07:56:02Z`. This dashboard reports 
 
 | Claim | Task | Round | Mode | Writable globs | Concurrency group |
 |---|---|---|---|---|---|
+| OWN-R2-GAMEPLAY-PRESENTATION | R2-GAMEPLAY-PRESENTATION | R2 | exclusive | docs/finish-tasks/R2-gameplay-presentation/** | R2-gameplay-presentation |
+| OWN-R3-PLAYER-STATS-LEADERS | R3-PLAYER-STATS-LEADERS | R3 | exclusive | docs/finish-tasks/R3-player-stats-leaders/** | R3-player-stats-leaders |
 
 ## External Blockers
 

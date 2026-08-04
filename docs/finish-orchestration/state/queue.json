@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T07:56:02Z",
+  "updated_at": "2026-08-04T07:58:28Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -1753,7 +1753,7 @@
       "round_id": "R2",
       "priority": 92,
       "coordination_only": false,
-      "state": "backlog",
+      "state": "scoped",
       "dependencies": [
         "R0A-ADOPT-TIP-VIS",
         "R0A-ADOPT-AWAY-FACING",
@@ -1761,11 +1761,11 @@
         "R2-DEFENSE-CONTACT",
         "R2-RULES-RESTARTS"
       ],
-      "ownership_claim_ids": [],
-      "base_sha": "7090d2c62201ce3d330df20043a6e80fd0bdef00",
-      "expected_parent_sha": "7090d2c62201ce3d330df20043a6e80fd0bdef00",
-      "branch": null,
-      "worktree": null,
+      "ownership_claim_ids": ["OWN-R2-GAMEPLAY-PRESENTATION"],
+      "base_sha": "ed060720a98b790f98591af363a490a0e0816018",
+      "expected_parent_sha": "ed060720a98b790f98591af363a490a0e0816018",
+      "branch": "codex/r2-gameplay-presentation-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-gameplay-presentation-sol",
       "sol_orchestrator_session_id": null,
       "reported_luna_worker_session_ids": [],
       "result_commits": [],
@@ -1777,7 +1777,9 @@
         "status": "pending",
         "sol_signoff": false,
         "integration_signoff": false,
-        "test_records": [],
+        "test_records": [
+          "2026-08-04T07:58:28Z master reverified clean local/tracking/live stable main exact ed060720, all listed dependencies delivered on that lineage, no proposed local/remote branch or worktree collision, and reserved a docs-only read-only-first Sol lane before any task or worktree creation."
+        ],
         "proof_manifests": [],
         "notes": "Accepted tip/Away proof covers only narrow contexts; every action family and screen edge still needs reference proof."
       },
@@ -1786,13 +1788,13 @@
         "merge_order": 5,
         "status": "not_ready",
         "merge_commit": null,
-        "main_pre_sha": "7090d2c62201ce3d330df20043a6e80fd0bdef00",
+        "main_pre_sha": "ed060720a98b790f98591af363a490a0e0816018",
         "main_post_sha": null,
         "push_sha": null,
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T04:47:45Z",
+      "updated_at": "2026-08-04T07:58:28Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -1800,6 +1802,13 @@
           "from_state": null,
           "to_state": "backlog",
           "reason": "Definition of finished requires the full motion/presentation matrix; historical fixes are narrow, not global acceptance."
+        },
+        {
+          "timestamp": "2026-08-04T07:58:28Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "backlog",
+          "to_state": "scoped",
+          "reason": "Reserved a current-main ed060720 docs-only Sol lane for read-only native/original evidence, architecture/collision, and proof-gap audit before any exact product rescope."
         }
       ]
     },
@@ -1978,17 +1987,17 @@
       "round_id": "R3",
       "priority": 100,
       "coordination_only": false,
-      "state": "backlog",
+      "state": "scoped",
       "dependencies": [
         "R2-SHOTS-OUTCOMES",
         "R2-RULES-RESTARTS",
         "R2-CLOCK-LINEUPS-FATIGUE"
       ],
-      "ownership_claim_ids": [],
-      "base_sha": "7090d2c62201ce3d330df20043a6e80fd0bdef00",
-      "expected_parent_sha": "7090d2c62201ce3d330df20043a6e80fd0bdef00",
-      "branch": null,
-      "worktree": null,
+      "ownership_claim_ids": ["OWN-R3-PLAYER-STATS-LEADERS"],
+      "base_sha": "ed060720a98b790f98591af363a490a0e0816018",
+      "expected_parent_sha": "ed060720a98b790f98591af363a490a0e0816018",
+      "branch": "codex/r3-player-stats-leaders-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3-player-stats-leaders-sol",
       "sol_orchestrator_session_id": null,
       "reported_luna_worker_session_ids": [],
       "result_commits": [],
@@ -2000,7 +2009,9 @@
         "status": "pending",
         "sol_signoff": false,
         "integration_signoff": false,
-        "test_records": [],
+        "test_records": [
+          "2026-08-04T07:58:28Z master reverified clean local/tracking/live stable main exact ed060720, accepted Shots/Rules/Clock-Lineups-Fatigue dependencies on that lineage, no proposed local/remote branch or worktree collision, and reserved a docs-only read-only-first Sol lane before any task or worktree creation."
+        ],
         "proof_manifests": [],
         "notes": "README and season renderer explicitly show PLAYER RESULTS UNAVAILABLE and no TSAV accumulators."
       },
@@ -2009,13 +2020,13 @@
         "merge_order": 2,
         "status": "not_ready",
         "merge_commit": null,
-        "main_pre_sha": "7090d2c62201ce3d330df20043a6e80fd0bdef00",
+        "main_pre_sha": "ed060720a98b790f98591af363a490a0e0816018",
         "main_post_sha": null,
         "push_sha": null,
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T04:47:45Z",
+      "updated_at": "2026-08-04T07:58:28Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -2023,6 +2034,13 @@
           "from_state": null,
           "to_state": "backlog",
           "reason": "README and PORTING explicitly identify per-player stats and ranked leaders as unimplemented."
+        },
+        {
+          "timestamp": "2026-08-04T07:58:28Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "backlog",
+          "to_state": "scoped",
+          "reason": "Reserved a current-main ed060720 docs-only Sol lane for read-only statistics/leader native architecture, original evidence, ownership/collision, and proof-gap audit before any exact product rescope."
         }
       ]
     },
