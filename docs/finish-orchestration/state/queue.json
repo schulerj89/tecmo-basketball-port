@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T11:59:11Z",
+  "updated_at": "2026-08-04T12:10:06Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -2183,7 +2183,7 @@
       "round_id": "R3",
       "priority": 100,
       "coordination_only": false,
-      "state": "sol_review",
+      "state": "ready_for_round_staging",
       "dependencies": [
         "R2-SHOTS-OUTCOMES",
         "R2-RULES-RESTARTS",
@@ -2202,14 +2202,16 @@
         "019fcc01-9670-7ea0-bff4-3d5847d3a9dd",
         "019fcc9a-6bef-71f1-b327-85d5a7d87f52"
       ],
-      "result_commits": [],
+      "result_commits": [
+        "7897871aa1e392f7650203e23d106b9ad9d7fbbf"
+      ],
       "evidence_ids": [],
       "blocker_ids": [],
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-tasks/R3-player-stats-leaders",
       "qa": {
-        "status": "independent_qa_running",
-        "sol_signoff": false,
+        "status": "passed",
+        "sol_signoff": true,
         "integration_signoff": false,
         "test_records": [
           "2026-08-04T07:58:28Z master reverified clean local/tracking/live stable main exact ed060720, accepted Shots/Rules/Clock-Lineups-Fatigue dependencies on that lineage, no proposed local/remote branch or worktree collision, and reserved a docs-only read-only-first Sol lane before any task or worktree creation.",
@@ -2219,15 +2221,16 @@
           "2026-08-04T08:53:00Z all three stats auditors completed read-only with zero task faults/retries/replacements. Sol personally closed the original counter meanings, widths, season rollup, formulas, eligibility, top-18/tie/page/format evidence and constrained live attribution to six authoritative counters. Master reverified stable main, clean Sol branch, existing function seams, absent new header/worker branch/path, and zero active-writer overlap: Presentation owns only disjoint CLI/new-runner paths. Exact ten-path stats/save/leader rescope granted sequentially.",
           "2026-08-04T09:02:57Z under Good-signed control de316a7, Sol reverified the exact signature/tree/parent/subject, stable ed060720 refs, absent header/branch/remote/worktree allocation, and sole shared-scene writer registry, then created and pinned exactly one persistent Luna/max implementation task 019fcc01-9670-7ea0-bff4-3d5847d3a9dd on codex/r3-player-stats-leaders-luna at the exact isolated worktree/base with zero create/pin/retry/replacement fault and zero pre-gate repository mutation.",
           "2026-08-04T10:43:11Z personal full-resolution inspection rejected four deterministic populated-leader hashes despite green suites: rows overlaid selection labels and preceding-screen palettes clipped names/headers/metrics. Read-only TSNS/source reconciliation proved the accepted proposal's template offset was wrong: imported leader screen IDs are 38..44 while category templates are 39,40,41,42,43,39,44, so the checked mapping is template_id - 38, not -39. Under the existing same ten-path authority, master grants only this mapping correction in src/tecmo_season_menu.c plus already-authorized self-test/CLI/Run-SeasonTests proof/hash updates and task-local docs. Same worker 019fcc01 remains the sole revision lineage; no new path, ownership, semantic claim, commit, main, or push authority.",
-          "2026-08-04T11:48:20Z Sol froze Good-SSH-signed ten-path candidate 7897871aa1e392f7650203e23d106b9ad9d7fbbf, tree d73faff107658e996326dc689f9f57c2b6c82fcb, sole parent stable main ed060720, after corrected source-template mapping, full proof/visual review, and deterministic-manifest reconciliation. Exactly one top-level projectless gpt-5.6-luna/max terminal reviewer 019fcc9a-6bef-71f1-b327-85d5a7d87f52 was created once and pinned with zero creation/pin/retry/replacement fault; it is auditing the frozen candidate read-only. Main/staging/origin/push remain unchanged."
+          "2026-08-04T11:48:20Z Sol froze Good-SSH-signed ten-path candidate 7897871aa1e392f7650203e23d106b9ad9d7fbbf, tree d73faff107658e996326dc689f9f57c2b6c82fcb, sole parent stable main ed060720, after corrected source-template mapping, full proof/visual review, and deterministic-manifest reconciliation. Exactly one top-level projectless gpt-5.6-luna/max terminal reviewer 019fcc9a-6bef-71f1-b327-85d5a7d87f52 was created once and pinned with zero creation/pin/retry/replacement fault; it is auditing the frozen candidate read-only. Main/staging/origin/push remain unchanged.",
+          "2026-08-04T12:10:06Z sole terminal Luna 019fcc9a returned PASS with no findings after independent signature/tree/parent/scope/contract/template-resolver/determinism/hash and six-frame original-resolution review. Sol ff-only advanced its exact branch to Good-signed 7897871 and reported a clean guarded handoff. Master independently reverified exact branch HEAD, Good signature, sole parent ed060720, 13 authorized paths, diff-check, and clean worktree. Personal Season twice (19 checkpoints), TeamData twice (15), GameplayScene twice/full proof, and terminal build/native/scene/Rev1 wrapper gates passed; no main/staging/origin/push mutation occurred."
         ],
         "proof_manifests": [],
-        "notes": "Frozen Good-signed candidate 7897871 is under sole independent terminal QA. The implementation populates only FTA/FGA/3PA/FTM/FGM/3PM-backed FIELD GOALS, TOTAL POINTS, 3 POINT SHOTS, and FREE THROWS with complete coverage. The checked category-template resolver maps source template IDs 39..44 against imported screen IDs 38..44 using template_id - 38; the prior -39 proposal and its four visually invalid hashes remain rejected. Steals, blocks, rebounds, incomplete migrated seasons, broader player-detail/team-management/All-Star flows, and unproved gameplay semantics remain unavailable/incomplete."
+        "notes": "Good-signed 13-path terminal 7897871 passed personal and sole independent terminal QA with no findings and is ready for dedicated current-main staging/integration. The implementation populates only FTA/FGA/3PA/FTM/FGM/3PM-backed FIELD GOALS, TOTAL POINTS, 3 POINT SHOTS, and FREE THROWS with complete coverage. The checked category-template resolver maps source template IDs 39..44 against imported screen IDs 38..44 using template_id - 38; the prior -39 proposal and its four visually invalid hashes remain rejected. Steals, blocks, rebounds, incomplete migrated seasons, broader player-detail/team-management/All-Star flows, and unproved gameplay semantics remain unavailable/incomplete."
       },
       "merge": {
         "staging_branch": "codex/round-3-season-data-staging",
         "merge_order": 2,
-        "status": "not_ready",
+        "status": "ready",
         "merge_commit": null,
         "main_pre_sha": "ed060720a98b790f98591af363a490a0e0816018",
         "main_post_sha": null,
@@ -2235,7 +2238,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-04T11:49:21Z",
+      "updated_at": "2026-08-04T12:10:06Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -2271,6 +2274,20 @@
           "from_state": "in_progress",
           "to_state": "sol_review",
           "reason": "Sol froze Good-signed exact ten-path candidate 7897871 after corrected proof and visual reconciliation, then created and pinned exactly one projectless Luna/max terminal reviewer for independent read-only QA."
+        },
+        {
+          "timestamp": "2026-08-04T12:10:05Z",
+          "actor_session_id": "S-SOL-R3-PLAYER-STATS-LEADERS-001",
+          "from_state": "sol_review",
+          "to_state": "sol_accepted",
+          "reason": "Sole terminal Luna returned PASS with no findings and Sol completed its clean Good-signed guarded handoff at exact 7897871."
+        },
+        {
+          "timestamp": "2026-08-04T12:10:06Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "sol_accepted",
+          "to_state": "ready_for_round_staging",
+          "reason": "Master independently reverified branch identity, Good signature, exact parent and authorized 13-path scope, clean diff/worktree, terminal QA lineage, and stable protected main; immutable 7897871 is accepted for dedicated current-main integration QA."
         }
       ]
     },
@@ -3972,14 +3989,15 @@
       ],
       "result_commits": [
         "d8d811918932c19bbe1741d2392ec1ad942ebd79",
-        "a4c1286351add0450b1820cd79876e04aa3a08f9"
+        "a4c1286351add0450b1820cd79876e04aa3a08f9",
+        "bdc2fbb8f5b8497f4855b80e8834696220036aba"
       ],
       "evidence_ids": [],
       "blocker_ids": [],
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-tasks/R2E-gameplay-presentation-integration-qa",
       "qa": {
-        "status": "revised_tip_passed",
+        "status": "terminal_tip_review",
         "sol_signoff": false,
         "integration_signoff": false,
         "test_records": [
@@ -3990,14 +4008,15 @@
           "2026-08-04T11:05:26Z post-ff collision registry was empty, then exactly one projectless gpt-5.6-luna/max read-only Integration QA task 019fcc72-721f-7683-bdc2-26f69f0563be was created once and pinned. Creation and pin API calls succeeded without duplicate/replacement; create returned JSON as a string so same-script pin extraction did not execute, and the first actual pin call immediately afterward succeeded. The same lineage is required for signed-tip review.",
           "2026-08-04T11:27:47Z sole Luna initial audit passed the bounded product with P0/P1/P2/P3 zero but found one actionable runner P2: tools/Run-GameplayPresentationTests.ps1 used fixed build/gameplay_presentation_test and recursively deleted it before and after each run, allowing deletion of pre-existing ignored data and concurrent-run races. Master chose corrective option A and granted only that existing runner plus the five R2E reports: use a unique build-contained per-run scratch (or fail closed on pre-existence), validate containment, clean only the exact directory created by this invocation, preserve all proof/parser/product semantics, rerun the complete matrix, and reuse the same Luna.",
           "2026-08-04T11:49:20Z Sol produced exact Good-signed one-runner corrective descendant a4c1286351add0450b1820cd79876e04aa3a08f9, tree ef19835e58b87c3f02dec989f02d63db27a787a0, sole parent d8d8119. The unique GUID-suffixed build-contained scratch, pre-existence/containment gates, invocation-created flag, exact-self cleanup, and zero-residue checks passed. Focused 17x2 plus six negatives, canonical/CMake builds, full scene/affected/native/current-main matrices, proof rehash, and original-resolution visual review passed; corrective manifest SHA DCFF7AD9670D0C630785401F8E083F10019E458BD23001E3575D124EF0F60E4C and accepted contact SHA 85995E1654354BFFF874AEA8510F91FD6E0AB1BCECD49C5138EBC116FB9B6A6C. Branch is clean; protected refs unchanged; the same pinned Luna 019fcc72 is performing revised-tip verification.",
-          "2026-08-04T11:59:11Z the same pinned Luna independently accepted exact corrective a4c1286 and closed the prior runner P2. Product and QA-tooling P0/P1/P2/P3 are all zero; SHA/tree/parent/signature, one-path diff, all seven scratch invariants, zero residue, 17x2/six negatives, manifests/hashes, 254/254 DRAFT scene proof, 23 affected/cross-domain checks, and original-resolution visuals passed. One report transport message was rejected for a formatting delimiter and resent successfully in the same task with no state impact. Sol is authorized only to author the five terminal reports and reuse this exact Luna for signed-tip review."
+          "2026-08-04T11:59:11Z the same pinned Luna independently accepted exact corrective a4c1286 and closed the prior runner P2. Product and QA-tooling P0/P1/P2/P3 are all zero; SHA/tree/parent/signature, one-path diff, all seven scratch invariants, zero residue, 17x2/six negatives, manifests/hashes, 254/254 DRAFT scene proof, 23 affected/cross-domain checks, and original-resolution visuals passed. One report transport message was rejected for a formatting delimiter and resent successfully in the same task with no state impact. Sol is authorized only to author the five terminal reports and reuse this exact Luna for signed-tip review.",
+          "2026-08-04T12:07:07Z Sol created exact Good-SSH-signed docs-only terminal bdc2fbb8f5b8497f4855b80e8834696220036aba, tree 9fd2af3e059ebf2c010612afb3531335f3a23ee3, sole parent a4c1286. Its delta is exactly five new owned LF Markdown reports (637 insertions), candidate-to-tip is corrected runner plus those reports, base-to-tip is eleven regular text paths, branch is clean, and protected refs remain ed060720 main plus immutable d8d8119 staging. The same pinned Luna 019fcc72 is now performing exact terminal signed-tip/report/proof/ref review."
         ],
         "proof_manifests": [
           "personal layup manifest SHA256 90EFB0AAAF55BB9853B8ED52A1E476701E388F389FD895922A4111E9BF1A91DD",
           "personal 2560x2400 gameplay-layup contact sheet SHA256 85995E1654354BFFF874AEA8510F91FD6E0AB1BCECD49C5138EBC116FB9B6A6C",
           "corrective presentation manifest SHA256 DCFF7AD9670D0C630785401F8E083F10019E458BD23001E3575D124EF0F60E4C"
         ],
-        "notes": "Product and QA-tooling P0/P1/P2/P3 are zero at same-Luna-accepted corrective a4c1286. Collision-free invocation-owned build scratch, exact containment validation, exact-self cleanup, parser/frame/state/proof semantics, full matrix, proof, and visuals pass. Sol may now author only the five R2E reports and must reuse the same pinned Luna for exact signed-tip review. Main, origin, staging, and push remain master-only."
+        "notes": "Product and QA-tooling P0/P1/P2/P3 are zero at same-Luna-accepted corrective a4c1286. Exact Good-signed five-report terminal bdc2fbb is clean and is under mandatory same-Luna signed-tip review. Collision-free invocation-owned build scratch, exact containment validation, exact-self cleanup, parser/frame/state/proof semantics, full matrix, proof, and visuals remain accepted. Main, origin, staging, and push remain master-only."
       },
       "merge": {
         "staging_branch": "codex/round-2e-gameplay-presentation-staging",
@@ -4010,7 +4029,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-04T10:26:21Z",
-      "updated_at": "2026-08-04T11:59:11Z",
+      "updated_at": "2026-08-04T12:07:07Z",
       "audit": [
         {
           "timestamp": "2026-08-04T10:26:20Z",

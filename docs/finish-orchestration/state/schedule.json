@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T11:59:11Z",
+  "updated_at": "2026-08-04T12:10:06Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,12 +10,12 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 2,
+    "active_domain_orchestrators": 1,
     "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
-    "unallocated_target_slots": 2,
-    "unallocated_monitoring_slots": 6
+    "unallocated_target_slots": 3,
+    "unallocated_monitoring_slots": 7
   },
   "lanes": [
     {
@@ -441,8 +441,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2e-gameplay-presentation-integration-qa-sol",
       "ownership_claim_ids": ["OWN-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"],
       "blockers": [],
-      "next_gate": "Same pinned Luna 019fcc72 accepted Good-signed corrective a4c1286 and closed the runner P2 with product/tooling P0/P1/P2/P3 zero. Sol may author only the five terminal reports, create the Good-signed terminal descendant, and reuse the same Luna for exact signed-tip review before guarded main delivery. Main/staging/origin/push remain master-only.",
-      "updated_at": "2026-08-04T11:59:11Z"
+      "next_gate": "Good-signed docs-only terminal bdc2fbb now closes the five-report layer over accepted corrective a4c1286. Same pinned Luna 019fcc72 is performing exact signed-tip/report/proof/ref review; on PASS the Sol must issue the guarded handoff before any master-only main delivery.",
+      "updated_at": "2026-08-04T12:07:07Z"
     },
     {
       "lane_id": "LANE-R3-PLAYER-STATS-LEADERS",
@@ -450,8 +450,8 @@
       "domain": "season_data",
       "round_ids": ["R3"],
       "task_ids": ["R3-PLAYER-STATS-LEADERS"],
-      "readiness": "active",
-      "dependency_status": "ready",
+      "readiness": "complete",
+      "dependency_status": "complete",
       "reservation_owner_session_id": "S-MASTER-001",
       "orchestrator_session_id": "S-SOL-R3-PLAYER-STATS-LEADERS-001",
       "base_sha": "ed060720a98b790f98591af363a490a0e0816018",
@@ -459,8 +459,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3-player-stats-leaders-sol",
       "ownership_claim_ids": ["OWN-R3-PLAYER-STATS-LEADERS"],
       "blockers": [],
-      "next_gate": "Good-signed exact ten-path candidate 7897871/tree d73faff is frozen after corrected template mapping, deterministic proof reconciliation, and personal full-resolution review. Sole top-level projectless Luna/max 019fcc9a is pinned and performing independent terminal QA; no main/staging/origin/push action is authorized.",
-      "updated_at": "2026-08-04T11:49:21Z"
+      "next_gate": "Good-signed 13-path terminal 7897871 passed personal and sole independent terminal QA with no findings and is ready for dedicated current-main staging/integration QA. Preserve unsupported-counter and adjacent-domain exclusions; main/staging/origin/push remain master-only until a separately reserved integration lane completes.",
+      "updated_at": "2026-08-04T12:10:06Z"
     }
   ]
 }

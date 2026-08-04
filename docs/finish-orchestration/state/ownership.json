@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T11:27:47Z",
+  "updated_at": "2026-08-04T12:10:06Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -774,10 +774,10 @@
         "tools/Run-SeasonTests.ps1"
       ],
       "concurrency_group": "R3-player-stats-leaders",
-      "active": true,
+      "active": false,
       "claimed_at": "2026-08-04T07:58:28Z",
-      "released_at": null,
-      "notes": "After the clean takeover and personally reconciled three-auditor read-only gate, master grants exactly the listed ten product/test paths plus existing task docs from stable ed060720. This is the sole sequential owner of include/tecmo_gameplay_scene.h and src/tecmo_gameplay_scene{,_shots}.c; the concurrently active Presentation slice is disjoint and owns only its CLI checkpoint/new runner. Exactly one persistent top-level projectless gpt-5.6-luna/max worker may be created after collision recheck at branch codex/r3-player-stats-leaders-luna, worktree C:/Users/joshs/Projects/tecmo-basketball-port-r3-player-stats-leaders-luna, base/expected parent/initial last-good ed060720. New include/tecmo_player_stats.h defines checked uint8 game [2][12][9] and uint16 season [27][12][9] contracts. Scene writes only FTA/FGA/3PA/FTM/FGM/3PM at the existing fully valid launch/successful settlement/free-throw seams using immutable attribution, transactionally copies the finalized ledger at GAME_COMPLETE, and leaves steals/blocks/rebounds zero with no new emitters. Game update copies the scene ledger once; season commit validates and atomically accumulates all nine counters with existing replay/idempotency checks. TSAV-2 is exactly 24-byte header plus 5,918-byte payload/5,942 total: unchanged 84-byte v1 prefix, little-endian coverage mask, then 5,832 little-endian totals; saver emits v2, exact 108-byte v1 loads under the requested fresh/in-progress coverage rule, malformed-new never falls back. Leader projections/ranking/paging/rendering must implement the reconciled source formulas, thresholds, truncation/high-bit/exclusion behavior, 27x12 top-18 later-key tie order, pages 0/6/12, and x.xxx/xx.xx formatting. Only FIELD GOALS, TOTAL POINTS, 3 POINT SHOTS, and FREE THROWS may populate when coverage is complete; STEALS, BLOCKED SHOTS, REBOUNDS, and incomplete migrated seasons remain PLAYER RESULTS UNAVAILABLE. CLI may seed deterministic proof data only. Required state-flow, season/save/formula/ranking/render, two-run gameplay/season/team-data, visual, and one independent terminal-Luna gates apply. Team-data implementation, gameplay state/rules/render/assets/source-map/importers/CMake/build/global docs/main/staging/origin/push, player details/team management/substitutions/All-Star, SRAM import, rebound/steal/block semantics, and priority metasprites remain excluded."
+      "released_at": "2026-08-04T12:10:06Z",
+      "notes": "Released after exact Good-signed 13-path terminal 7897871 passed full personal QA and sole independent Luna terminal QA with no findings. Master independently reverified exact branch HEAD, Good signature, sole parent ed060720, authorized scope, diff-check, clean worktree, accepted hashes/visual closure, and stable protected main. Immutable 7897871 is ready for dedicated current-main integration QA. Preserve all tasks, branches, worktrees, docs, proofs, and artifacts. Steals, blocks, rebounds, incomplete migrated seasons, original SRAM import, adjacent gameplay/team-management/All-Star paths, and every unproved semantic remain excluded and require new sequential authority."
     }
   ],
   "shared_boundaries": [
