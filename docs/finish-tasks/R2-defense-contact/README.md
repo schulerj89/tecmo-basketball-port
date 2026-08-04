@@ -69,7 +69,8 @@ review. This candidate does not replace or pre-empt that dependency.
 
 ## Luna lineage
 
-See [LINEAGE.md](LINEAGE.md) for the exact session identities. The final
+See [LINEAGE.md](LINEAGE.md) for the exact session identities.
+
 The first Good-signed branch-only candidate was
 `d5c5fa9b84cdce404751eda1a86e5507fc014656`, with tree
 `fcfd0c31b14187c7368e83bf1fc235c37b339820` and sole parent
