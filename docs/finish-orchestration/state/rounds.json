@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T10:34:47Z",
+  "updated_at": "2026-08-04T11:49:21Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -175,7 +175,7 @@
     {
       "round_id": "R1",
       "title": "Tip-off fidelity continuation",
-      "status": "in_progress",
+      "status": "pushed",
       "base_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
       "scope": [
         "Remaining exact tip-off behavior"
@@ -187,22 +187,22 @@
       "sol_orchestrator_session_ids": [
         "S-SOL-R1-GAMEPLAY-001"
       ],
-      "integration_qa_session_id": null,
+      "integration_qa_session_id": "S-SOL-R1B-TIP-INTEGRATION-QA-001",
       "merge_order": [
         "R1-TIP-FIDELITY"
       ],
       "combined_qa": {
         "required": true,
-        "status": "pending",
-        "accepted_sha": null,
-        "report_path": null,
-        "signed_by_session_id": null,
-        "notes": "TIP domain tip e21f9a6 is ready_for_round_staging after exact signed-lineage, ownership, documentation, Sol-proof, and independent P0/P1/P2-zero acceptance. CPU+LIVE and subsequent accepted domains are already on current main edf16ca. Dedicated incremental integration QA must deliberately reconcile e21f9a6 with current main before any push; the local active preview is not an acceptance artifact."
+        "status": "accepted",
+        "accepted_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
+        "report_path": "docs/finish-tasks/R1B-tip-integration-qa/README.md",
+        "signed_by_session_id": "S-SOL-R1B-TIP-INTEGRATION-QA-001",
+        "notes": "Dedicated R1B integration QA reconciled exact TIP domain tip e21f9a6 with then-current main, closed personal and same-Luna P0/P1/P2 zero, and delivered Good-signed terminal 0ef11cf. The accepted TIP domain tip remains an ancestor of current stable main ed060720."
       },
       "acceptance": {
-        "status": "pending",
-        "accepted_at": null,
-        "accepted_sha": null,
+        "status": "accepted",
+        "accepted_at": "2026-08-04T01:52:00Z",
+        "accepted_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
         "criteria": [
           "TIP task has Sol sign-off and complete task docs",
           "Original human and automatic timing, claim, trajectory, orientation, and handoff proof pass",
@@ -210,16 +210,18 @@
         ]
       },
       "main_integration": {
-        "pre_main_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
-        "merge_commits": [],
-        "post_main_sha": null,
-        "remote_main_before_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
-        "push_sha": null,
-        "push_result": "not_attempted",
-        "pushed_at": null
+        "pre_main_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
+        "merge_commits": [
+          "0ef11cf247e3110b6064e79a4c496be6346f3e13"
+        ],
+        "post_main_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
+        "remote_main_before_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
+        "push_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
+        "push_result": "succeeded",
+        "pushed_at": "2026-08-04T01:52:00Z"
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T22:04:10Z"
+      "updated_at": "2026-08-04T11:49:21Z"
     },
     {
       "round_id": "R2",
@@ -261,7 +263,7 @@
         "accepted_sha": null,
         "report_path": null,
         "signed_by_session_id": null,
-        "notes": "Shots/outcomes, Defense, and Rules/Restarts have each completed dedicated current-main integration QA and are delivered through stable main ed060720. Gameplay Presentation Good-signed exact two-path product 4cb0c43 passed personal and sole-Luna terminal QA with P0/P1/P2/P3 zero; exact four-report Good-signed Sol tip d8d8119 is clean and now under the same auditor's final signed-tip review. Master handoff and dedicated current-main integration QA remain pending. Shared scene/renderer/animation/assets and every broader presentation claim remain excluded."
+        "notes": "Clocks/lineups/fatigue, Shots/outcomes, Defense/contact, and Rules/restarts have each completed dedicated current-main integration QA and are delivered through stable main ed060720. Gameplay Presentation domain tip d8d8119 remains the sole staged Round-2 domain; Good-signed one-runner corrective a4c1286 passed the full personal and same-Luna revised-tip matrix, and only the five-report signed R2E terminal layer remains before guarded main delivery. Shared scene/renderer/animation/assets and every broader presentation claim remain excluded."
       },
       "acceptance": {
         "status": "pending",
@@ -283,7 +285,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-04T03:47:49Z"
+      "updated_at": "2026-08-04T11:49:21Z"
     },
     {
       "round_id": "R3A",

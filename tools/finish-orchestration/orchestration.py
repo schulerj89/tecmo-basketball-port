@@ -1533,13 +1533,19 @@ def command_self_test(args: argparse.Namespace) -> int:
         expect(any("does not continue prior state" in message for message in audit_result.errors), "audit-chain rejection")
 
         dependency_state = copy.deepcopy(actual_state)
+        dependent_task = next(
+            row
+            for row in dependency_state["queue"]["tasks"]
+            if row["state"] in ACTIVE_TASK_STATES and row["dependencies"]
+        )
+        dependency_id = dependent_task["dependencies"][0]
         dependency_task = next(
-            row for row in dependency_state["queue"]["tasks"] if row["task_id"] == "R0A-ADOPT-CPU-TIP"
+            row for row in dependency_state["queue"]["tasks"] if row["task_id"] == dependency_id
         )
         dependency_task["state"] = "backlog"
         dependency_result = validate_semantics(args.repo_root, dependency_state)
         expect(
-            any("unsatisfied dependency R0A-ADOPT-CPU-TIP" in message for message in dependency_result.errors),
+            any(f"unsatisfied dependency {dependency_id}" in message for message in dependency_result.errors),
             "active-task dependency gate",
         )
 

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T11:27:47Z",
+  "updated_at": "2026-08-04T11:59:11Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -441,8 +441,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2e-gameplay-presentation-integration-qa-sol",
       "ownership_claim_ids": ["OWN-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"],
       "blockers": [],
-      "next_gate": "Bounded product remains P0/P1/P2/P3 zero; sole Luna found one actionable runner P2. Sol is granted only tools/Run-GameplayPresentationTests.ps1 to replace fixed recursive scratch deletion with collision-free invocation-owned build-contained scratch and exact-self cleanup, preserve all semantics, rerun the full matrix, then reuse Luna 019fcc72 for revised-tip and signed-report review. Main/staging/origin/push remain master-only.",
-      "updated_at": "2026-08-04T11:27:47Z"
+      "next_gate": "Same pinned Luna 019fcc72 accepted Good-signed corrective a4c1286 and closed the runner P2 with product/tooling P0/P1/P2/P3 zero. Sol may author only the five terminal reports, create the Good-signed terminal descendant, and reuse the same Luna for exact signed-tip review before guarded main delivery. Main/staging/origin/push remain master-only.",
+      "updated_at": "2026-08-04T11:59:11Z"
     },
     {
       "lane_id": "LANE-R3-PLAYER-STATS-LEADERS",
@@ -459,8 +459,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3-player-stats-leaders-sol",
       "ownership_claim_ids": ["OWN-R3-PLAYER-STATS-LEADERS"],
       "blockers": [],
-      "next_gate": "Full-resolution review rejected four stable leader hashes and proved the accepted template offset off by one. Under the same ten-path scope, sole persistent worker 019fcc01 must implement checked template_id - 38 mapping for source IDs 39..44 against imported IDs 38..44, regenerate authorized self-test/CLI/Run-SeasonTests proof, and return corrected page 0/6/12 frames for personal review before any commit. No new task/path/semantic authority.",
-      "updated_at": "2026-08-04T10:43:11Z"
+      "next_gate": "Good-signed exact ten-path candidate 7897871/tree d73faff is frozen after corrected template mapping, deterministic proof reconciliation, and personal full-resolution review. Sole top-level projectless Luna/max 019fcc9a is pinned and performing independent terminal QA; no main/staging/origin/push action is authorized.",
+      "updated_at": "2026-08-04T11:49:21Z"
     }
   ]
 }

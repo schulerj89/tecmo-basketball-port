@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T11:27:47Z",
+  "updated_at": "2026-08-04T11:59:11Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -1110,7 +1110,7 @@
       "round_id": "R1",
       "priority": 96,
       "coordination_only": false,
-      "state": "ready_for_round_staging",
+      "state": "pushed",
       "dependencies": [
         "R0A-ADOPT-CPU-TIP",
         "R0A-ADOPT-TIP-VIS",
@@ -1144,7 +1144,7 @@
       "qa": {
         "status": "passed",
         "sol_signoff": true,
-        "integration_signoff": false,
+        "integration_signoff": true,
         "test_records": [
           "2026-08-03T17:04:11Z authoritative R1 Sol confirmed clean exact-base TIP takeover at domain HEAD 222d75cfafa9153db1eb44492bf557f11b1a9091 with OWN-R1-TIP active, no TIP worker/mutation, and CPU/LIVE immutable staging-ready. Personal read-only evidence/native/history inventory began before any Luna creation.",
           "2026-08-03T17:10:30Z R1 Sol created/pinned exactly one projectless read-only gpt-5.6-luna/max original claim/automatic path/timing research task 019fc89b-05fb-7193-aef0-e483f9306279 on first attempt. Git fields and writable paths are null; evidence reference is 222d75cf; no tracked mutation, writable TIP worker, bad-request, or retry.",
@@ -1168,20 +1168,20 @@
           "build/proof/tipoff-visual-orientation-a37e10207455/proof-manifest.json",
           "build/proof/qa-tipoff-b678beffeacd/proof-manifest.json"
         ],
-        "notes": "Terminal TIP domain chain e21f9a6 is personally Sol-accepted and independently QA-accepted with P0/P1/P2 zero. Warning-clean build, focused TPTI-2, broad gameplay scene, Win32 smoke, deterministic 65x2 frame proof, media audit, original-reference comparison, ownership, documentation, and clean-lineage gates pass. Tie settlement, selector/receiver ownership, TTDT mapping, complete original trajectory/close-up, and ROM-exact frame-721 timing remain explicitly incomplete; dedicated current-main integration QA is still required."
+        "notes": "Terminal TIP domain chain e21f9a6 is personally Sol-accepted and independently QA-accepted with P0/P1/P2 zero. Warning-clean build, focused TPTI-2, broad gameplay scene, Win32 smoke, deterministic 65x2 frame proof, media audit, original-reference comparison, ownership, documentation, and clean-lineage gates pass. Dedicated R1B integration QA delivered this exact domain tip through Good-signed main 0ef11cf and subsequent stable main descendants. Tie settlement, selector/receiver ownership, TTDT mapping, complete original trajectory/close-up, and ROM-exact frame-721 timing remain explicitly incomplete."
       },
       "merge": {
         "staging_branch": "codex/round-1-tip-staging",
         "merge_order": 3,
-        "status": "ready",
-        "merge_commit": null,
-        "main_pre_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
-        "main_post_sha": null,
-        "push_sha": null,
-        "pushed_at": null
+        "status": "pushed",
+        "merge_commit": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
+        "main_pre_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
+        "main_post_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
+        "push_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
+        "pushed_at": "2026-08-04T01:52:00Z"
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T22:11:25Z",
+      "updated_at": "2026-08-04T11:49:21Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -1245,6 +1245,34 @@
           "from_state": "sol_accepted",
           "to_state": "ready_for_round_staging",
           "reason": "Master verified documented Sol and independent P0/P1/P2-zero signoff, complete eight-file task contract, exact signed four-commit lineage, clean/equal Sol and worker tips, 24-path ownership compliance, diff-check, and unchanged main/origin/staging. Product QA was not rerun. Release the TIP claim and advance to dedicated incremental integration QA."
+        },
+        {
+          "timestamp": "2026-08-04T01:51:57Z",
+          "actor_session_id": "S-SOL-R1B-TIP-INTEGRATION-QA-001",
+          "from_state": "ready_for_round_staging",
+          "to_state": "combined_qa",
+          "reason": "Backfilled from the dedicated R1B integration ledger: personal and independent combined evidence closed P0/P1/P2 at zero on the current-main-compatible terminal."
+        },
+        {
+          "timestamp": "2026-08-04T01:51:58Z",
+          "actor_session_id": "S-SOL-R1B-TIP-INTEGRATION-QA-001",
+          "from_state": "combined_qa",
+          "to_state": "ready_for_main",
+          "reason": "Backfilled from R1B: terminal 0ef11cf was clean, Good-signed, ownership-compliant, and a true fast-forward descendant of guarded main 8a5b992."
+        },
+        {
+          "timestamp": "2026-08-04T01:51:59Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "ready_for_main",
+          "to_state": "merged",
+          "reason": "Backfilled from the delivered R1B ledger: guarded local main fast-forwarded from 8a5b992 to 0ef11cf."
+        },
+        {
+          "timestamp": "2026-08-04T01:52:00Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "merged",
+          "to_state": "pushed",
+          "reason": "Backfilled from the delivered R1B ledger: non-force push succeeded and the exact TIP domain tip is an ancestor of 0ef11cf and current stable main."
         }
       ]
     },
@@ -1255,7 +1283,7 @@
       "round_id": "R2",
       "priority": 100,
       "coordination_only": false,
-      "state": "ready_for_round_staging",
+      "state": "pushed",
       "dependencies": [
         "R1-CPU-PLAY-LIFECYCLE",
         "R1-LIVE-FOUNDATION"
@@ -1285,7 +1313,7 @@
       "qa": {
         "status": "passed",
         "sol_signoff": true,
-        "integration_signoff": false,
+        "integration_signoff": true,
         "test_records": [
           "2026-08-03T17:10:20Z master created/pinned exactly one gpt-5.6-sol thinking=max domain orchestrator thread 019fc89a-de0d-7b61-9364-3cf96ff8dba8 after control-plane reservation e82392c and exact clean worktree creation at base 222d75cf. No create retry/fault; task awaits Sol clean takeover before in_progress or Luna creation.",
           "2026-08-03T17:22:51Z authoritative R2 Sol clean takeover accepted: exact branch/worktree/HEAD/base/expected parent 222d75cf, clean unique registry, main/origin 6d8f9c7, R1/R3 staging clean, active claims disjoint, root AGENTS/PORTING and accepted CPU/LIVE docs fully read, canonical Rev1 ROM 393232 bytes/SHA-256 076A6BEB... exact, original/native shot evidence/gaps explicitly classified, and zero Luna/product mutation.",
@@ -1307,20 +1335,20 @@
           "2026-08-04T01:01:24Z master accepted the authoritative terminal handoff after verifying exact clean Sol tip 7b9287a9, Good SSH signatures on all three commits, 17-path ownership, diff-check, zero current-main overlap, unchanged excluded scene.c/source_map.c blobs, and final independent no-actionable-finding QA. The domain claim is released and immutable R2B staging is reserved for dedicated current-main integration QA; product QA was not rerun by master."
         ],
         "proof_manifests": [],
-        "notes": "Terminal signed 7b9287a9 is Sol-accepted and independently accepted with no actionable finding. Warning-clean build, focused TGCS/TGSR, full scene/direct gates, deterministic native proof, exact original make/miss traces, transactional matrices, ownership, documentation, and exclusions passed. The public numeric-1 name and stale source-map wording remain explicit deferred follow-ups; dedicated current-main R2B integration QA is still required."
+        "notes": "Terminal signed 7b9287a9 is Sol-accepted and independently accepted with no actionable finding. Warning-clean build, focused TGCS/TGSR, full scene/direct gates, deterministic native proof, exact original make/miss traces, transactional matrices, ownership, documentation, and exclusions passed. Dedicated R2B integration QA delivered this exact domain tip through Good-signed main 5229092 and subsequent stable main descendants. The public numeric-1 name and stale source-map wording remain explicit deferred follow-ups."
       },
       "merge": {
         "staging_branch": "codex/round-2b-shots-outcomes-staging",
         "merge_order": 1,
-        "status": "ready",
-        "merge_commit": null,
-        "main_pre_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
-        "main_post_sha": null,
-        "push_sha": null,
-        "pushed_at": null
+        "status": "pushed",
+        "merge_commit": "522909264f67673bd3242ecc62b343e1238bb142",
+        "main_pre_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
+        "main_post_sha": "522909264f67673bd3242ecc62b343e1238bb142",
+        "push_sha": "522909264f67673bd3242ecc62b343e1238bb142",
+        "pushed_at": "2026-08-04T03:12:31Z"
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-04T01:01:24Z",
+      "updated_at": "2026-08-04T11:49:21Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -1384,6 +1412,34 @@
           "from_state": "sol_accepted",
           "to_state": "ready_for_round_staging",
           "reason": "Master verified the exact signed chain, clean terminal branch, 17-path ownership, zero-diff exclusions, independent no-finding closure, diff-check, and conflict-free zero-overlap current-main merge prediction. Release domain ownership and advance the immutable candidate to dedicated R2B integration QA."
+        },
+        {
+          "timestamp": "2026-08-04T03:10:20Z",
+          "actor_session_id": "S-SOL-R2B-SHOTS-INTEGRATION-QA-001",
+          "from_state": "ready_for_round_staging",
+          "to_state": "combined_qa",
+          "reason": "Backfilled from R2B: same-Luna exact-tip review closed P0/P1/P2 zero at terminal 5229092."
+        },
+        {
+          "timestamp": "2026-08-04T03:10:21Z",
+          "actor_session_id": "S-SOL-R2B-SHOTS-INTEGRATION-QA-001",
+          "from_state": "combined_qa",
+          "to_state": "ready_for_main",
+          "reason": "Backfilled from R2B: terminal 5229092 was clean, Good-signed, ownership-compliant, and a true fast-forward descendant of guarded main 0ef11cf."
+        },
+        {
+          "timestamp": "2026-08-04T03:12:20Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "ready_for_main",
+          "to_state": "merged",
+          "reason": "Backfilled from the delivered R2B ledger: guarded local main fast-forwarded from 0ef11cf to 5229092."
+        },
+        {
+          "timestamp": "2026-08-04T03:12:31Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "merged",
+          "to_state": "pushed",
+          "reason": "Backfilled from the delivered R2B ledger: ordinary non-force push succeeded and exact shots/outcomes tip 7b9287a9 is an ancestor of 5229092 and current stable main."
         }
       ]
     },
@@ -1394,7 +1450,7 @@
       "round_id": "R2",
       "priority": 98,
       "coordination_only": false,
-      "state": "ready_for_round_staging",
+      "state": "pushed",
       "dependencies": [
         "R1-CPU-PLAY-LIFECYCLE",
         "R1-LIVE-FOUNDATION"
@@ -1425,7 +1481,7 @@
       "qa": {
         "status": "passed",
         "sol_signoff": true,
-        "integration_signoff": false,
+        "integration_signoff": true,
         "test_records": [
           "2026-08-04T00:27:29Z Sol and two independent read-only Luna audits reconciled the canonical Rev1 B06 $B081-$B108, B05 $9968-$999E, and B05 $9A24-$9A5F raw contracts, rejected semantic outcome labeling and existing TGAI/TPNL expansion, and proved the proposed three new paths collision-free. Master independently rechecked the files, branch, worktree path, and Git worktree registry as absent/collision-free before granting the raw-foundation scope.",
           "2026-08-04T01:26:15Z Sol personally accepted Good-signed candidate d5c5fa9 (tree fcfd0c3, sole parent edf16ca) after exact eight-path ownership, diff-check, clean-tree, isolated MSVC C11 /W4 /WX, canonical Rev1 fingerprint/span, B081 scan, $9968 carry/borrow geometry, raw-$17 plan, transactional rollback/repeatability, and read-only boundary gates all passed. The candidate remains a focused raw/neutral foundation with no normal-build, scene, Shots, asset, source-map, semantic-outcome, staging, main, or push claim.",
@@ -1436,20 +1492,20 @@
           "2026-08-04T02:21:30Z authoritative Sol verified Good-signed control 71fdcfb, fast-forwarded its exact clean branch from edf16ca to ed70d884 with no merge commit, and personally repeated the focused isolated /std:c11 /W4 /WX, canonical ROM/direct/enclosing provenance, raw oracle/rollback/repeatability, boundary, path, include, artifact, and cleanliness gates. All three result commits and control verify Good under the accepted SSH key; no normal-build/emulator/runtime/player-facing or semantic downstream claim was added."
         ],
         "proof_manifests": [],
-        "notes": "Terminal raw-foundation chain d5c5fa9..ed70d884 is Good-signed, Sol-integrated, personally reverified, and independently QA-accepted with no findings. The bounded foundation has no normal-build/emulator/runtime/player-facing claim; dedicated current-main integration QA is required before any incremental main delivery."
+        "notes": "Terminal raw-foundation chain d5c5fa9..ed70d884 is Good-signed, Sol-integrated, personally reverified, and independently QA-accepted with no findings. Dedicated R2C integration QA delivered this exact domain tip through Good-signed main 7fe2dd7 and subsequent stable main descendants. The bounded foundation retains no normal-build/emulator/runtime/player-facing claim."
       },
       "merge": {
         "staging_branch": "codex/round-2-gameplay-mechanics-staging",
         "merge_order": 2,
-        "status": "ready",
-        "merge_commit": null,
-        "main_pre_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
-        "main_post_sha": null,
-        "push_sha": null,
-        "pushed_at": null
+        "status": "pushed",
+        "merge_commit": "7fe2dd772af1d88f704a9272005b4ba557434cac",
+        "main_pre_sha": "522909264f67673bd3242ecc62b343e1238bb142",
+        "main_post_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
+        "push_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
+        "pushed_at": "2026-08-04T03:35:34Z"
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-04T02:22:21Z",
+      "updated_at": "2026-08-04T11:49:21Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -1499,6 +1555,34 @@
           "from_state": "sol_accepted",
           "to_state": "ready_for_round_staging",
           "reason": "Master accepted the exact terminal signed Sol handoff, released the bounded domain claim, authorized completed Luna unpins, and advanced the immutable ed70d884 raw-foundation tip to dedicated incremental current-main integration QA without waiting for the rest of Round 2."
+        },
+        {
+          "timestamp": "2026-08-04T03:32:00Z",
+          "actor_session_id": "S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001",
+          "from_state": "ready_for_round_staging",
+          "to_state": "combined_qa",
+          "reason": "Backfilled from R2C: terminal Good-signed 7fe2dd7 and the immutable raw-foundation candidate passed combined same-Luna review."
+        },
+        {
+          "timestamp": "2026-08-04T03:32:00Z",
+          "actor_session_id": "S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001",
+          "from_state": "combined_qa",
+          "to_state": "ready_for_main",
+          "reason": "Backfilled from R2C: exact commit/tree/parent/signature/clean/ref review closed P0/P1/P2/P3 zero and 7fe2dd7 was a true fast-forward descendant of 5229092."
+        },
+        {
+          "timestamp": "2026-08-04T03:35:34Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "ready_for_main",
+          "to_state": "merged",
+          "reason": "Backfilled from the delivered R2C ledger: guarded local main fast-forwarded from 5229092 to 7fe2dd7."
+        },
+        {
+          "timestamp": "2026-08-04T03:35:34Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "merged",
+          "to_state": "pushed",
+          "reason": "Backfilled from the delivered R2C ledger: ordinary non-force push succeeded and exact defense/contact tip ed70d884 is an ancestor of 7fe2dd7 and current stable main."
         }
       ]
     },
@@ -1509,7 +1593,7 @@
       "round_id": "R2",
       "priority": 96,
       "coordination_only": false,
-      "state": "ready_for_round_staging",
+      "state": "pushed",
       "dependencies": [
         "R2-SHOTS-OUTCOMES",
         "R2-DEFENSE-CONTACT"
@@ -1538,7 +1622,7 @@
       "qa": {
         "status": "passed",
         "sol_signoff": true,
-        "integration_signoff": false,
+        "integration_signoff": true,
         "test_records": [
           "2026-08-04T03:44:25Z master reverified local/tracking/live stable main exact Good-signed 7fe2dd7 and confirmed proposed codex/r2-rules-restarts-sol branch plus C:/Users/joshs/Projects/tecmo-basketball-port-r2-rules-restarts-sol path absent from local/remote refs, filesystem, and worktree registry before reservation.",
           "2026-08-04T03:47:49Z after Good-signed reservation 99e7183, master created the exact clean branch/worktree at 7fe2dd7, created exactly one gpt-5.6-sol/max orchestrator task 019fcae1-d939-7dd0-a839-6599e2efc362, and immediately pinned it. Creation/pin succeeded without retry or replacement.",
@@ -1559,20 +1643,20 @@
           "2026-08-04T06:16:58Z master independently reverified both Good SSH signatures, exact ancestry, stable local/tracking/live main 7fe2dd7, clean Sol worktree, complete bounded classifications, and zero main/staging/push action. The terminal domain tip is accepted and released to dedicated current-main integration QA; all Lunas/Sol may unpin after this durable checkpoint."
         ],
         "proof_manifests": [],
-        "notes": "Terminal Good-signed chain 1dde1ef748658a11403ff4bc450af858d05f08c2 -> 1f23235cd60582379da5e8f1713cd25de4ced62f is personally Sol-accepted and independently accepted P0/P1/P2/P3 zero. Its seven product/test/build paths implement only the source-backed shared foul/violation SFX6 at frame 16 exact-once while preserving shot-clock SFX3 at frame 0 and unchanged dispatch/reset/restart policy. Its docs descendant changes only the three granted active-contract passages plus seven task docs; all non-doc blobs are byte-identical to the accepted product parent. Canonical/CMake console+GUI builds, focused/broad scene/audio/state, deterministic proof, visual, signature, ownership, diagnostics, and clean-lineage gates pass. Direct foul fixtures are presentation/audio proof only. Capture-bounded loader/fade, full presentation/original caller order, foul/contact classification, invented TPNL inputs, FT outcome/rebound/final possession, missing live violation detectors, shot claimant/rebound/block/steal semantics, foul-divider selection, and blackout/fade parity remain explicitly incomplete. Dedicated current-main integration QA is required before delivery."
+        "notes": "Terminal Good-signed chain 1dde1ef748658a11403ff4bc450af858d05f08c2 -> 1f23235cd60582379da5e8f1713cd25de4ced62f is personally Sol-accepted and independently accepted P0/P1/P2/P3 zero. Its seven product/test/build paths implement only the source-backed shared foul/violation SFX6 at frame 16 exact-once while preserving shot-clock SFX3 at frame 0 and unchanged dispatch/reset/restart policy. Its docs descendant changes only the three granted active-contract passages plus seven task docs; all non-doc blobs are byte-identical to the accepted product parent. Canonical/CMake console+GUI builds, focused/broad scene/audio/state, deterministic proof, visual, signature, ownership, diagnostics, and clean-lineage gates pass. Dedicated R2D integration QA delivered this exact domain tip through Good-signed stable main ed060720. Direct foul fixtures are presentation/audio proof only. Capture-bounded loader/fade, full presentation/original caller order, foul/contact classification, invented TPNL inputs, FT outcome/rebound/final possession, missing live violation detectors, shot claimant/rebound/block/steal semantics, foul-divider selection, and blackout/fade parity remain explicitly incomplete."
       },
       "merge": {
         "staging_branch": "codex/round-2-gameplay-mechanics-staging",
         "merge_order": 3,
-        "status": "ready",
-        "merge_commit": null,
+        "status": "pushed",
+        "merge_commit": "ed060720a98b790f98591af363a490a0e0816018",
         "main_pre_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
-        "main_post_sha": null,
-        "push_sha": null,
-        "pushed_at": null
+        "main_post_sha": "ed060720a98b790f98591af363a490a0e0816018",
+        "push_sha": "ed060720a98b790f98591af363a490a0e0816018",
+        "pushed_at": "2026-08-04T07:52:42Z"
       },
       "created_at": "2026-08-03T04:47:45Z",
-  "updated_at": "2026-08-04T06:34:29Z",
+      "updated_at": "2026-08-04T11:49:21Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -1622,6 +1706,34 @@
           "from_state": "sol_accepted",
           "to_state": "ready_for_round_staging",
           "reason": "Master independently verified the terminal signed chain, stable current main, complete personal/independent gates, corrected active contracts, clean ownership, and zero main/staging/push action; release the domain claim and route immutable 1f23235 to dedicated current-main integration QA."
+        },
+        {
+          "timestamp": "2026-08-04T07:46:47Z",
+          "actor_session_id": "S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001",
+          "from_state": "ready_for_round_staging",
+          "to_state": "combined_qa",
+          "reason": "Backfilled from R2D: the same pinned Luna verified the exact terminal commit, reports, proof, visual evidence, and protected refs."
+        },
+        {
+          "timestamp": "2026-08-04T07:46:48Z",
+          "actor_session_id": "S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001",
+          "from_state": "combined_qa",
+          "to_state": "ready_for_main",
+          "reason": "Backfilled from R2D: terminal ed060720 was Good-signed, clean, and a true fast-forward descendant of guarded main 7fe2dd7."
+        },
+        {
+          "timestamp": "2026-08-04T07:52:30Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "ready_for_main",
+          "to_state": "merged",
+          "reason": "Backfilled from the delivered R2D ledger: guarded local main fast-forwarded from 7fe2dd7 to ed060720 without a merge commit."
+        },
+        {
+          "timestamp": "2026-08-04T07:52:42Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "merged",
+          "to_state": "pushed",
+          "reason": "Backfilled from the delivered R2D ledger: ordinary non-force push succeeded and exact rules/restarts tip 1f23235 is an ancestor of stable main ed060720."
         }
       ]
     },
@@ -1632,7 +1744,7 @@
       "round_id": "R2",
       "priority": 94,
       "coordination_only": false,
-      "state": "ready_for_round_staging",
+      "state": "pushed",
       "dependencies": [
         "R1-LIVE-FOUNDATION"
       ],
@@ -1667,7 +1779,7 @@
       "qa": {
         "status": "passed",
         "sol_signoff": true,
-        "integration_signoff": false,
+        "integration_signoff": true,
         "test_records": [
           "2026-08-03T19:05:21Z Sol confirmed pinned clean takeover at exact branch/worktree/base/merge-base 222d75cf, read complete AGENTS/PORTING, and created three pinned projectless read-only Luna Max audits for clocks/periods, lineups/substitutions, and fatigue/native coupling with no writable allocation.",
           "2026-08-03T20:01:46Z Sol reports all three read-only audits complete/idle/pinned and evidence reconciliation accepted: native-faithful clock/period core with one LIVE-only reset defect; exact fatigue retained values 5/3/0 and reachable active countdown 0->255; exact TGFL base resolver with caller-tail overrides as a separate pure API; ungrounded LIVE substitutions excluded. Sole writable Luna is active on its isolated branch; state/TGFT staged/fail-closed patches remain uncommitted under Sol review.",
@@ -1680,20 +1792,20 @@
         "proof_manifests": [
           "build/r2-clock-lineups-fatigue-proof-v2-20260803T212500Z/proof-manifest.json"
         ],
-        "notes": "Terminal signed ed4e56fc is Sol-accepted and independently accepted with P0/P1/P2/P3 zero. Product/proof source bf0ea4b and the docs-only descendants are bound in the committed record. Exact clocks/TGFT/TGFL semantics and fixed-slot bridge are accepted within scope; dynamic substitutions and broader scene ownership remain deferred. Current-main integration requires dedicated R2A QA."
+        "notes": "Terminal signed ed4e56fc is Sol-accepted and independently accepted with P0/P1/P2/P3 zero. Product/proof source bf0ea4b and the docs-only descendants are bound in the committed record. Dedicated R2A integration QA delivered this exact domain tip through Good-signed main 8a5b992 and subsequent stable main descendants. Exact clocks/TGFT/TGFL semantics and fixed-slot bridge are accepted within scope; dynamic substitutions and broader scene ownership remain deferred."
       },
       "merge": {
         "staging_branch": "codex/round-2a-clock-lineups-fatigue-staging",
         "merge_order": 1,
-        "status": "ready",
-        "merge_commit": null,
+        "status": "pushed",
+        "merge_commit": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
         "main_pre_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
-        "main_post_sha": null,
-        "push_sha": null,
-        "pushed_at": null
+        "main_post_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
+        "push_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
+        "pushed_at": "2026-08-04T00:50:35Z"
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T23:38:12Z",
+      "updated_at": "2026-08-04T11:49:21Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -1743,6 +1855,34 @@
           "from_state": "sol_accepted",
           "to_state": "ready_for_round_staging",
           "reason": "Master verified the reported terminal lineage, signatures, clean domain branch, proof identity, accepted QA closure, and created immutable R2A staging ref ed4e56fc for dedicated current-main integration QA."
+        },
+        {
+          "timestamp": "2026-08-04T00:50:28Z",
+          "actor_session_id": "S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001",
+          "from_state": "ready_for_round_staging",
+          "to_state": "combined_qa",
+          "reason": "Backfilled from R2A: independent Luna and Sol confirmed combined P0/P1/P2/P3-zero closure and complete deterministic evidence."
+        },
+        {
+          "timestamp": "2026-08-04T00:50:29Z",
+          "actor_session_id": "S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001",
+          "from_state": "combined_qa",
+          "to_state": "ready_for_main",
+          "reason": "Backfilled from R2A: terminal 8a5b992 was clean, Good-signed, ownership-compliant, and a true fast-forward descendant of guarded main edf16ca."
+        },
+        {
+          "timestamp": "2026-08-04T00:50:30Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "ready_for_main",
+          "to_state": "merged",
+          "reason": "Backfilled from the delivered R2A ledger: guarded local main fast-forwarded from edf16ca to 8a5b992."
+        },
+        {
+          "timestamp": "2026-08-04T00:50:35Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "merged",
+          "to_state": "pushed",
+          "reason": "Backfilled from the delivered R2A ledger: non-force push succeeded and exact clocks/lineups/fatigue tip ed4e56fc is an ancestor of 8a5b992 and current stable main."
         }
       ]
     },
@@ -2043,7 +2183,7 @@
       "round_id": "R3",
       "priority": 100,
       "coordination_only": false,
-      "state": "in_progress",
+      "state": "sol_review",
       "dependencies": [
         "R2-SHOTS-OUTCOMES",
         "R2-RULES-RESTARTS",
@@ -2059,7 +2199,8 @@
         "019fcbd0-963e-7022-aea4-fb450b4801c2",
         "019fcbd0-fcd1-7d51-b93c-9e8688440b20",
         "019fcbd1-62ae-7891-a16e-b20c6b3b4342",
-        "019fcc01-9670-7ea0-bff4-3d5847d3a9dd"
+        "019fcc01-9670-7ea0-bff4-3d5847d3a9dd",
+        "019fcc9a-6bef-71f1-b327-85d5a7d87f52"
       ],
       "result_commits": [],
       "evidence_ids": [],
@@ -2067,7 +2208,7 @@
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-tasks/R3-player-stats-leaders",
       "qa": {
-        "status": "pending",
+        "status": "independent_qa_running",
         "sol_signoff": false,
         "integration_signoff": false,
         "test_records": [
@@ -2077,10 +2218,11 @@
           "2026-08-04T08:14:53Z Sol reported exactly three validator-compliant projectless Luna/max read-only auditors created and pinned once each with zero creation/pin faults, retries, or replacements. Target remains clean at ed060720 and all product mutation remains withheld pending reconciled exact rescope.",
           "2026-08-04T08:53:00Z all three stats auditors completed read-only with zero task faults/retries/replacements. Sol personally closed the original counter meanings, widths, season rollup, formulas, eligibility, top-18/tie/page/format evidence and constrained live attribution to six authoritative counters. Master reverified stable main, clean Sol branch, existing function seams, absent new header/worker branch/path, and zero active-writer overlap: Presentation owns only disjoint CLI/new-runner paths. Exact ten-path stats/save/leader rescope granted sequentially.",
           "2026-08-04T09:02:57Z under Good-signed control de316a7, Sol reverified the exact signature/tree/parent/subject, stable ed060720 refs, absent header/branch/remote/worktree allocation, and sole shared-scene writer registry, then created and pinned exactly one persistent Luna/max implementation task 019fcc01-9670-7ea0-bff4-3d5847d3a9dd on codex/r3-player-stats-leaders-luna at the exact isolated worktree/base with zero create/pin/retry/replacement fault and zero pre-gate repository mutation.",
-          "2026-08-04T10:43:11Z personal full-resolution inspection rejected four deterministic populated-leader hashes despite green suites: rows overlaid selection labels and preceding-screen palettes clipped names/headers/metrics. Read-only TSNS/source reconciliation proved the accepted proposal's template offset was wrong: imported leader screen IDs are 38..44 while category templates are 39,40,41,42,43,39,44, so the checked mapping is template_id - 38, not -39. Under the existing same ten-path authority, master grants only this mapping correction in src/tecmo_season_menu.c plus already-authorized self-test/CLI/Run-SeasonTests proof/hash updates and task-local docs. Same worker 019fcc01 remains the sole revision lineage; no new path, ownership, semantic claim, commit, main, or push authority."
+          "2026-08-04T10:43:11Z personal full-resolution inspection rejected four deterministic populated-leader hashes despite green suites: rows overlaid selection labels and preceding-screen palettes clipped names/headers/metrics. Read-only TSNS/source reconciliation proved the accepted proposal's template offset was wrong: imported leader screen IDs are 38..44 while category templates are 39,40,41,42,43,39,44, so the checked mapping is template_id - 38, not -39. Under the existing same ten-path authority, master grants only this mapping correction in src/tecmo_season_menu.c plus already-authorized self-test/CLI/Run-SeasonTests proof/hash updates and task-local docs. Same worker 019fcc01 remains the sole revision lineage; no new path, ownership, semantic claim, commit, main, or push authority.",
+          "2026-08-04T11:48:20Z Sol froze Good-SSH-signed ten-path candidate 7897871aa1e392f7650203e23d106b9ad9d7fbbf, tree d73faff107658e996326dc689f9f57c2b6c82fcb, sole parent stable main ed060720, after corrected source-template mapping, full proof/visual review, and deterministic-manifest reconciliation. Exactly one top-level projectless gpt-5.6-luna/max terminal reviewer 019fcc9a-6bef-71f1-b327-85d5a7d87f52 was created once and pinned with zero creation/pin/retry/replacement fault; it is auditing the frozen candidate read-only. Main/staging/origin/push remain unchanged."
         ],
         "proof_manifests": [],
-        "notes": "The granted implementation may populate only FTA/FGA/3PA/FTM/FGM/3PM-backed FIELD GOALS, TOTAL POINTS, 3 POINT SHOTS, and FREE THROWS with complete coverage. The checked category-template resolver must map source template IDs 39..44 against imported screen IDs 38..44 using template_id - 38; the prior -39 proposal and its four visually invalid hashes are rejected. Steals, blocks, rebounds, incomplete migrated seasons, broader player-detail/team-management/All-Star flows, and unproved gameplay semantics remain unavailable/incomplete."
+        "notes": "Frozen Good-signed candidate 7897871 is under sole independent terminal QA. The implementation populates only FTA/FGA/3PA/FTM/FGM/3PM-backed FIELD GOALS, TOTAL POINTS, 3 POINT SHOTS, and FREE THROWS with complete coverage. The checked category-template resolver maps source template IDs 39..44 against imported screen IDs 38..44 using template_id - 38; the prior -39 proposal and its four visually invalid hashes remain rejected. Steals, blocks, rebounds, incomplete migrated seasons, broader player-detail/team-management/All-Star flows, and unproved gameplay semantics remain unavailable/incomplete."
       },
       "merge": {
         "staging_branch": "codex/round-3-season-data-staging",
@@ -2093,7 +2235,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-04T10:43:11Z",
+      "updated_at": "2026-08-04T11:49:21Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -2122,6 +2264,13 @@
           "from_state": "assigned",
           "to_state": "in_progress",
           "reason": "Sol completed the clean signed takeover and full instruction review with zero mutation and began the authorized collision gate for exactly three pinned read-only Luna/max auditors."
+        },
+        {
+          "timestamp": "2026-08-04T11:48:20Z",
+          "actor_session_id": "S-SOL-R3-PLAYER-STATS-LEADERS-001",
+          "from_state": "in_progress",
+          "to_state": "sol_review",
+          "reason": "Sol froze Good-signed exact ten-path candidate 7897871 after corrected proof and visual reconciliation, then created and pinned exactly one projectless Luna/max terminal reviewer for independent read-only QA."
         }
       ]
     },
@@ -3806,7 +3955,7 @@
       "round_id": "R2E",
       "priority": 99,
       "coordination_only": false,
-      "state": "luna_revision",
+      "state": "sol_review",
       "dependencies": [
         "R2-GAMEPLAY-PRESENTATION"
       ],
@@ -3822,14 +3971,15 @@
         "019fcc72-721f-7683-bdc2-26f69f0563be"
       ],
       "result_commits": [
-        "d8d811918932c19bbe1741d2392ec1ad942ebd79"
+        "d8d811918932c19bbe1741d2392ec1ad942ebd79",
+        "a4c1286351add0450b1820cd79876e04aa3a08f9"
       ],
       "evidence_ids": [],
       "blocker_ids": [],
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-tasks/R2E-gameplay-presentation-integration-qa",
       "qa": {
-        "status": "runner_p2_revision",
+        "status": "revised_tip_passed",
         "sol_signoff": false,
         "integration_signoff": false,
         "test_records": [
@@ -3838,13 +3988,16 @@
           "2026-08-04T10:42:29Z Sol reported and master independently confirmed complete read-only takeover: full AGENTS/PORTING review, Good reservation/assignment/candidate signatures, exact unique clean branch/worktree, unchanged local/tracking/live ed060720 main, immutable d8d8119 staging, six text-only paths, zero collision/proprietary/ownership escape, and exact ff prediction. The single authorized branch-only ff-only landed cleanly at d8d8119/tree 856ffbe with linear ancestry and all protected refs unchanged.",
           "2026-08-04T11:05:26Z Sol personal combined matrix at exact clean d8d8119 remains P0/P1/P2/P3 zero: warning-clean canonical/CMake console+GUI builds; focused 17x2 layup proof and six transactional negatives; full scene/state and all affected presentation/assets/audio/flow/Win32/season/team/current-main smokes; proof integrity; and original-resolution review of every layup frame plus full sheets passed. Fresh manifest prefix AC6BCF9, accepted manifest 90EFB0AA, layup sheet 85995E16, scene manifest 2959A001, repeated scene sheet F8380481, repeated MP4 B8653E4D, and pack 27D4CEB4 were reported. The scene manifest remains honestly DRAFT only because its unrelated pinned RequirePass/original-reference gate is outside R2E.",
           "2026-08-04T11:05:26Z post-ff collision registry was empty, then exactly one projectless gpt-5.6-luna/max read-only Integration QA task 019fcc72-721f-7683-bdc2-26f69f0563be was created once and pinned. Creation and pin API calls succeeded without duplicate/replacement; create returned JSON as a string so same-script pin extraction did not execute, and the first actual pin call immediately afterward succeeded. The same lineage is required for signed-tip review.",
-          "2026-08-04T11:27:47Z sole Luna initial audit passed the bounded product with P0/P1/P2/P3 zero but found one actionable runner P2: tools/Run-GameplayPresentationTests.ps1 used fixed build/gameplay_presentation_test and recursively deleted it before and after each run, allowing deletion of pre-existing ignored data and concurrent-run races. Master chose corrective option A and granted only that existing runner plus the five R2E reports: use a unique build-contained per-run scratch (or fail closed on pre-existence), validate containment, clean only the exact directory created by this invocation, preserve all proof/parser/product semantics, rerun the complete matrix, and reuse the same Luna."
+          "2026-08-04T11:27:47Z sole Luna initial audit passed the bounded product with P0/P1/P2/P3 zero but found one actionable runner P2: tools/Run-GameplayPresentationTests.ps1 used fixed build/gameplay_presentation_test and recursively deleted it before and after each run, allowing deletion of pre-existing ignored data and concurrent-run races. Master chose corrective option A and granted only that existing runner plus the five R2E reports: use a unique build-contained per-run scratch (or fail closed on pre-existence), validate containment, clean only the exact directory created by this invocation, preserve all proof/parser/product semantics, rerun the complete matrix, and reuse the same Luna.",
+          "2026-08-04T11:49:20Z Sol produced exact Good-signed one-runner corrective descendant a4c1286351add0450b1820cd79876e04aa3a08f9, tree ef19835e58b87c3f02dec989f02d63db27a787a0, sole parent d8d8119. The unique GUID-suffixed build-contained scratch, pre-existence/containment gates, invocation-created flag, exact-self cleanup, and zero-residue checks passed. Focused 17x2 plus six negatives, canonical/CMake builds, full scene/affected/native/current-main matrices, proof rehash, and original-resolution visual review passed; corrective manifest SHA DCFF7AD9670D0C630785401F8E083F10019E458BD23001E3575D124EF0F60E4C and accepted contact SHA 85995E1654354BFFF874AEA8510F91FD6E0AB1BCECD49C5138EBC116FB9B6A6C. Branch is clean; protected refs unchanged; the same pinned Luna 019fcc72 is performing revised-tip verification.",
+          "2026-08-04T11:59:11Z the same pinned Luna independently accepted exact corrective a4c1286 and closed the prior runner P2. Product and QA-tooling P0/P1/P2/P3 are all zero; SHA/tree/parent/signature, one-path diff, all seven scratch invariants, zero residue, 17x2/six negatives, manifests/hashes, 254/254 DRAFT scene proof, 23 affected/cross-domain checks, and original-resolution visuals passed. One report transport message was rejected for a formatting delimiter and resent successfully in the same task with no state impact. Sol is authorized only to author the five terminal reports and reuse this exact Luna for signed-tip review."
         ],
         "proof_manifests": [
           "personal layup manifest SHA256 90EFB0AAAF55BB9853B8ED52A1E476701E388F389FD895922A4111E9BF1A91DD",
-          "personal 2560x2400 gameplay-layup contact sheet SHA256 85995E1654354BFFF874AEA8510F91FD6E0AB1BCECD49C5138EBC116FB9B6A6C"
+          "personal 2560x2400 gameplay-layup contact sheet SHA256 85995E1654354BFFF874AEA8510F91FD6E0AB1BCECD49C5138EBC116FB9B6A6C",
+          "corrective presentation manifest SHA256 DCFF7AD9670D0C630785401F8E083F10019E458BD23001E3575D124EF0F60E4C"
         ],
-        "notes": "Product integration at d8d8119 remains P0/P1/P2/P3 zero. One non-production runner P2 requires a narrow one-file corrective descendant: collision-free invocation-owned build scratch, exact containment validation, exact-self cleanup only, and unchanged parser/frame/state/proof semantics. After full rerun and same-Luna revised-tip acceptance, the Sol may author the five R2E reports and request the same-Luna signed-tip review. Main, origin, staging, and push remain master-only."
+        "notes": "Product and QA-tooling P0/P1/P2/P3 are zero at same-Luna-accepted corrective a4c1286. Collision-free invocation-owned build scratch, exact containment validation, exact-self cleanup, parser/frame/state/proof semantics, full matrix, proof, and visuals pass. Sol may now author only the five R2E reports and must reuse the same pinned Luna for exact signed-tip review. Main, origin, staging, and push remain master-only."
       },
       "merge": {
         "staging_branch": "codex/round-2e-gameplay-presentation-staging",
@@ -3857,7 +4010,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-04T10:26:21Z",
-      "updated_at": "2026-08-04T11:27:47Z",
+      "updated_at": "2026-08-04T11:59:11Z",
       "audit": [
         {
           "timestamp": "2026-08-04T10:26:20Z",
@@ -3900,6 +4053,13 @@
           "from_state": "sol_review",
           "to_state": "luna_revision",
           "reason": "Master accepted the sole Luna's actionable runner P2 and granted one-file scratch-isolation correction with full rerun and same-lineage revised-tip verification required."
+        },
+        {
+          "timestamp": "2026-08-04T11:49:20Z",
+          "actor_session_id": "S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-001",
+          "from_state": "luna_revision",
+          "to_state": "sol_review",
+          "reason": "Good-signed exact one-runner corrective a4c1286 passed the complete personal safety/build/proof/visual matrix and the same pinned independent Luna began revised-tip verification."
         }
       ]
     }
