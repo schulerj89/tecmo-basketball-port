@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T00:19:09Z",
+  "updated_at": "2026-08-04T00:22:16Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -552,16 +552,16 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1b-tip-integration-qa-sol",
       "branch": "codex/r1b-tip-integration-qa-sol",
       "base_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
-      "last_good_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
+      "last_good_sha": "564d83835258ab48b9ea2ebcc867ba41e185822f",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
-      "reported_luna_lineage": [],
+      "reported_luna_lineage": ["019fca13-3e2c-7e52-9e7a-198c66bdfef8"],
       "recovery_lineage": [],
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T23:46:38Z",
       "completed_at": null,
-      "updated_at": "2026-08-03T23:50:13Z",
-      "notes": "Created once and immediately pinned after signed reservation bc0c680. Exact clean edf16ca worktree and immutable e21f9a6 staging were pre-created and collision-checked. Sol owns branch-only signed reconciliation, combined TIP/current-main QA, one independent projectless Luna lineage, and terminal docs; main/push remain master-only."
+      "updated_at": "2026-08-04T00:22:16Z",
+      "notes": "Created once and immediately pinned after signed reservation bc0c680. Signed integration merge 564d838 has exact parent order/tree and passed build, TIP, scene, Win32, cross-domain, deterministic proof, and visual gates. One projectless independent Luna was created/pinned. The added ASM/native traceability audit passed requested raw spans and source-map roles but exposed stale equal-tie-away wording in AGENTS.md/PORTING.md. Master collision-checked and granted only those two guidance files for exact equal-claim-defers/incomplete-original-tie wording; runtime/source-map and main/push remain read-only."
     },
     {
       "session_id": "S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001",
@@ -646,6 +646,9 @@
     }
   ],
   "reported_luna_workers": [
+    {
+      "worker_id":"019fca13-3e2c-7e52-9e7a-198c66bdfef8","thread_id":"019fca13-3e2c-7e52-9e7a-198c66bdfef8","title":"Tecmo R1B TIP Integration Independent QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R1B-TIP-INTEGRATION-QA-001","round_ids":["R1B"],"task_ids":["R1B-TIP-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"564d83835258ab48b9ea2ebcc867ba41e185822f","contribution":"Sole top-level projectless/null-Git independent QA lineage for signed merge 564d838, accepted TIP/current-main integration evidence, deterministic proof, and terminal traceability/docs revisions. Created once and pinned; read-only review is active while Sol retains execution and personal visual acceptance.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T00:22:16Z"
+    },
     {
       "worker_id":"019fca0a-a7ff-7d92-b2ad-a6b5ab51aece","thread_id":"019fca0a-a7ff-7d92-b2ad-a6b5ab51aece","title":"Tecmo R2A Clock Lineups Fatigue Integration Independent QA - Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001","round_ids":["R2A"],"task_ids":["R2A-CLOCK-LINEUPS-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"8233cb4b7c86612cd290615927439caf83947b1e","contribution":"Sole top-level projectless/null-Git independent QA lineage for the frozen signed R2A merge and later runner/docs revisions. Created and pinned once with no setup fault, retry, or replacement; read-only audit is active while Sol owns all execution and personal visual acceptance.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T00:04:57Z"
     },

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T00:19:09Z",
+  "updated_at": "2026-08-04T00:22:16Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -527,17 +527,21 @@
       "session_id": "S-SOL-R1B-TIP-INTEGRATION-QA-001",
       "mode": "exclusive",
       "writable_globs": [
-        "docs/finish-tasks/R1B-tip-integration-qa/**"
+        "docs/finish-tasks/R1B-tip-integration-qa/**",
+        "AGENTS.md",
+        "PORTING.md"
       ],
       "planned_paths": [
         "docs/finish-tasks/R1B-tip-integration-qa/README.md",
-        "docs/finish-tasks/R1B-tip-integration-qa/PROOF.md"
+        "docs/finish-tasks/R1B-tip-integration-qa/PROOF.md",
+        "AGENTS.md",
+        "PORTING.md"
       ],
       "concurrency_group": "R1B-tip-integration-qa",
       "active": true,
       "claimed_at": "2026-08-03T23:38:12Z",
       "released_at": null,
-      "notes": "Master reservation before Sol creation. The immutable accepted TIP tip e21f9a6621df5527544be1de4d0dc60382539c60 and current-main product paths are read-only except for one deliberate signed branch-only reconciliation merge. This claim owns only R1B task docs; main integration and push remain master-only."
+      "notes": "Master reservation before Sol creation, expanded at 2026-08-04T00:22:16Z after the added ASM/native traceability gate proved AGENTS.md and PORTING.md still claimed deterministic-away tie settlement while merged runtime/tests/accepted TIP evidence defer equal-height claims and keep original tie policy incomplete. Collision scan found no active claim or active-worktree edit; one preserved historical dirty worktree remains explicitly untouched. Authority adds only the exact tie-policy wording correction in those two guidance files. Runtime/source-map remain read-only; main integration and push remain master-only."
     },
     {
       "claim_id": "OWN-R2A-CLOCK-LINEUPS-INTEGRATION-QA",

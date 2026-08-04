@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T00:19:09Z",
+  "updated_at": "2026-08-04T00:22:16Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -3222,8 +3222,8 @@
       "branch": "codex/r1b-tip-integration-qa-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1b-tip-integration-qa-sol",
       "sol_orchestrator_session_id": "S-SOL-R1B-TIP-INTEGRATION-QA-001",
-      "reported_luna_worker_session_ids": [],
-      "result_commits": [],
+      "reported_luna_worker_session_ids": ["019fca13-3e2c-7e52-9e7a-198c66bdfef8"],
+      "result_commits": ["564d83835258ab48b9ea2ebcc867ba41e185822f"],
       "evidence_ids": ["EVID-R1-TIP-SOURCE-MECHANICS", "EVID-R1-TIP-TERMINAL-PROOF"],
       "blocker_ids": [],
       "replacement_task_id": null,
@@ -3232,13 +3232,16 @@
         "status": "pending",
         "sol_signoff": false,
         "integration_signoff": false,
-        "test_records": ["2026-08-03T23:38:12Z master froze accepted TIP staging at e21f9a6621df5527544be1de4d0dc60382539c60 and created an isolated clean integration worktree from current main edf16ca; dedicated signed non-ff reconciliation and combined QA are required."],
+        "test_records": [
+          "2026-08-03T23:38:12Z master froze accepted TIP staging at e21f9a6621df5527544be1de4d0dc60382539c60 and created an isolated clean integration worktree from current main edf16ca; dedicated signed non-ff reconciliation and combined QA are required.",
+          "2026-08-04T00:22:16Z signed merge 564d838 passed build, focused TPTI-2, broad scene, Win32, current-main cross-domain, deterministic 65-frame proof (manifest SHA-256 9207974C6A34A24B1468D531D5E0F22C48F28BE0DB28411083BB5495CC1E6798), and visual gates. Added ASM/native traceability audit passed raw spans/source-map but caught stale equal-tie-away wording in AGENTS.md and PORTING.md; master granted an exact guidance-only correction after collision checks."
+        ],
         "proof_manifests": [],
-        "notes": "Candidate e21f9a6 is immutable input. Integration Sol may write only its task docs after a deliberate signed branch-only merge; main/push remain master-owned."
+        "notes": "Candidate e21f9a6 remains immutable. Signed merge 564d838 has required parent order/tree. Integration Sol may write task docs plus only the exact equal-tie-defers wording correction in AGENTS.md and PORTING.md; runtime/source-map and main/push remain read-only."
       },
       "merge": {"staging_branch":"codex/round-1b-tip-fidelity-staging","merge_order":1,"status":"not_ready","merge_commit":null,"main_pre_sha":"edf16ca9059158452798dbe5667f5e64ef444e39","main_post_sha":null,"push_sha":null,"pushed_at":null},
       "created_at": "2026-08-03T23:38:12Z",
-      "updated_at": "2026-08-03T23:50:13Z",
+      "updated_at": "2026-08-04T00:22:16Z",
       "audit": [
         {"timestamp":"2026-08-03T23:38:11Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Incremental delivery policy requires accepted TIP code to reach current main without waiting for the rest of Round 2."},
         {"timestamp":"2026-08-03T23:38:12Z","actor_session_id":"S-MASTER-001","from_state":"backlog","to_state":"scoped","reason":"Reserved exact docs-only Integration QA ownership, immutable e21f9a6 staging, and a clean edf16ca-based worktree before Sol creation."},

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T00:19:09Z",
+  "updated_at": "2026-08-04T00:22:16Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -279,8 +279,8 @@
         "OWN-R1B-TIP-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Clean takeover and signed-candidate verification passed. Sol is auditing candidate reports, ownership overlap, and merge-tree prediction before the one signed branch-only reconciliation merge and full combined QA.",
-      "updated_at": "2026-08-03T23:50:13Z"
+      "next_gate": "Signed merge 564d838 and combined runtime/proof/visual gates pass. Correct only the stale equal-tie-away wording in AGENTS.md and PORTING.md to native claim deferral plus incomplete original tie policy, have the same Luna verify the ASM/native traceability table and correction, then finish signed terminal docs.",
+      "updated_at": "2026-08-04T00:22:16Z"
     },
     {
       "lane_id": "LANE-R2A-CLOCK-LINEUPS-INTEGRATION-QA",
