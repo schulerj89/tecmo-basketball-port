@@ -578,10 +578,10 @@
         "docs/finish-tasks/R2B-shots-outcomes-integration-qa/PROOF.md"
       ],
       "concurrency_group": "R2B-shots-outcomes-integration-qa",
-      "active": true,
+      "active": false,
       "claimed_at": "2026-08-04T01:01:24Z",
-      "released_at": null,
-      "notes": "Master reservation before Sol creation, transferred after Good-signed checkpoint 4f942648 to exact pinned orchestrator 019fca51-55f5-7473-92b1-58dd241998f6. The lane may create one Good-signed branch-only reconciliation merge that combines current main 8a5b992 with immutable accepted Shots tip 7b9287a9, then write only its R2B task docs. Candidate/product paths, main, origin/main, staging, push, and all unrelated paths remain read-only. Any combined-test defect requiring product/tool correction must be returned for exact master rescope."
+      "released_at": "2026-08-04T03:12:31Z",
+      "notes": "Master reservation before Sol creation, transferred after Good-signed checkpoint 4f942648 to exact pinned orchestrator 019fca51-55f5-7473-92b1-58dd241998f6. The lane produced Good-signed initial merge 26e6aaf, reconciled accepted main in Good-signed d3f1980, and closed Sol/same-Luna P0/P1/P2 zero at terminal 5229092. Master guarded ff-only integrated and ordinary-pushed 5229092, rebuilt stable main, and verified both desktop shortcuts. Claim released after delivery; candidate/product history and branches/worktrees remain preserved."
     },
     {
       "claim_id": "OWN-R2-DEFENSE-CONTACT",

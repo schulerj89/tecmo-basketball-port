@@ -312,23 +312,23 @@
       "role": "integration_orchestrator",
       "model": "gpt-5.6-sol",
       "thinking": "max",
-      "status": "active",
+      "status": "completed",
       "pin_state": "pinned",
       "round_ids": ["R2B"],
       "task_ids": ["R2B-SHOTS-OUTCOMES-INTEGRATION-QA"],
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2b-shots-outcomes-integration-qa-sol",
       "branch": "codex/r2b-shots-outcomes-integration-qa-sol",
       "base_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
-      "last_good_sha": "26e6aaf19b639972cb9043f29fc55daa1efce835",
+      "last_good_sha": "522909264f67673bd3242ecc62b343e1238bb142",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
       "reported_luna_lineage": ["019fca5b-3b84-7a82-b2ab-588c50a4b7fd"],
       "recovery_lineage": [],
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-04T01:09:15Z",
-      "completed_at": null,
-      "updated_at": "2026-08-04T01:52:01Z",
-      "notes": "Good-signed 26e6aaf completed all personal combined gates; sole Luna 019fca5b independently verified native-shots manifest 96C260D2..., scene manifest 111788F3..., all declared artifacts, and P0/P1/P2 zero with honest DRAFT/optional-reference caveats. Stable main then advanced to accepted TIP 0ef11cf before terminal docs. Standing authority permits branch-only reconciliation with R2B lineage first and new main second, overlap/tree audit, affected TIP/full-gate reruns, and same-Luna final verification. Main/staging/push remain read-only."
+      "completed_at": "2026-08-04T03:12:31Z",
+      "updated_at": "2026-08-04T03:12:31Z",
+      "notes": "Good-signed d3f1980 reconciled accepted main 0ef11cf into the R2B lineage; complete Sol and same-Luna evidence closed P0/P1/P2 zero at terminal Good-signed 5229092 with fresh deterministic shot/scene artifacts and exact caveats. Master guarded ff-only integrated and ordinary-pushed 5229092, rebuilt warning-clean stable main, and verified both desktop shortcuts. Sol and Luna remain pinned only until this durable signed control acknowledgment is delivered; branches/worktrees/proof are preserved."
     },
     {
       "session_id": "S-SOL-CPU-TIP-LEGACY",
@@ -657,16 +657,16 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2c-defense-contact-integration-qa-sol",
       "branch": "codex/r2c-defense-contact-integration-qa-sol",
       "base_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
-      "last_good_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
+      "last_good_sha": "ec4c0958519f78d033f4b49936d07bdd30a2a400",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
-      "reported_luna_lineage": [],
+      "reported_luna_lineage": ["019fcaa4-615e-7a41-b919-f001132bdcb9"],
       "recovery_lineage": [],
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-04T02:30:31Z",
       "completed_at": null,
-      "updated_at": "2026-08-04T02:30:31Z",
-      "notes": "Created once and immediately pinned after Good-signed reservation bd3160a. Exact clean worktree/branch begins at current main 0ef11cf; immutable staging is Good-signed ed70d884. First turn is strictly read-only through branch/ref/signature/ownership/overlap/diff/merge-tree takeover. Writable tracked scope is only R2C task docs plus the prescribed Good-signed branch-only reconciliation merge; main/staging/push and all product/tool paths remain read-only."
+      "updated_at": "2026-08-04T03:12:31Z",
+      "notes": "Clean takeover and Good-signed initial reconciliation ec4c095 passed full Sol QA and the sole Luna 019fcaa4 initial audit with zero findings. Its draft-doc audit found only one P3 invalid PowerShell environment-assignment example. Stable main then advanced to accepted 5229092; read-only audit found R2C/new-main overlap zero and conflict-free predicted tree 7b8234fc. Master authorized one additional Good-signed branch-only reconciliation, affected gate reruns, exact P3 correction, and same-Luna final review. Main/staging/push remain read-only."
     },
     {
       "session_id": "S-BLOCKERS-001",
@@ -702,7 +702,10 @@
   ],
   "reported_luna_workers": [
     {
-      "worker_id":"019fca5b-3b84-7a82-b2ab-588c50a4b7fd","thread_id":"019fca5b-3b84-7a82-b2ab-588c50a4b7fd","title":"Tecmo R2B Shots Outcomes Integration Independent QA â€” Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R2B-SHOTS-INTEGRATION-QA-001","round_ids":["R2B"],"task_ids":["R2B-SHOTS-OUTCOMES-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"26e6aaf19b639972cb9043f29fc55daa1efce835","contribution":"Sole projectless/null-Git independent QA lineage. It independently closed the 119-file native-shots manifest 96C260D2..., all 254 scene artifacts/manifest 111788F3..., and P0/P1/P2 zero with exact DRAFT and optional-reference caveats. It remains pinned for post-0ef11cf branch-reconciliation evidence and terminal signed-doc verification; no replacement or task fault.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T01:52:01Z"
+      "worker_id":"019fca5b-3b84-7a82-b2ab-588c50a4b7fd","thread_id":"019fca5b-3b84-7a82-b2ab-588c50a4b7fd","title":"Tecmo R2B Shots Outcomes Integration Independent QA â€” Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"pinned","reported_by_session_id":"S-SOL-R2B-SHOTS-INTEGRATION-QA-001","round_ids":["R2B"],"task_ids":["R2B-SHOTS-OUTCOMES-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"522909264f67673bd3242ecc62b343e1238bb142","contribution":"Sole projectless/null-Git independent QA lineage. It accepted reconciled signed docs candidate fcc5209 and final Good-signed terminal 5229092 at P0/P1/P2 zero after exact signature/ancestry/scope, 119-file shot proof, 254-record DRAFT scene proof, visual, report, caveat, and classification audits. Completed/idle and still pinned only pending durable control acknowledgment; no replacement or task fault.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T03:12:31Z"
+    },
+    {
+      "worker_id":"019fcaa4-615e-7a41-b919-f001132bdcb9","thread_id":"019fcaa4-615e-7a41-b919-f001132bdcb9","title":"Tecmo R2C Defense Contact Integration Independent QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"idle","pin_state":"pinned","reported_by_session_id":"S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001","round_ids":["R2C"],"task_ids":["R2C-DEFENSE-CONTACT-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"ec4c0958519f78d033f4b49936d07bdd30a2a400","contribution":"Sole projectless/null-Git independent QA lineage. Initial exact-merge audit passed with zero findings across signatures, eight-path scope, raw semantics/provenance, isolation, two focused caller contexts, and cleanup. Draft-doc re-audit found only one P3 invalid PowerShell environment-assignment example; it remains pinned for corrected post-5229092 reconciliation signed-tip review. No replacement or task fault.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T03:12:31Z"
     },
     {
       "worker_id":"019fca31-519c-7533-b710-7fc8fb09f424","thread_id":"019fca31-519c-7533-b710-7fc8fb09f424","title":"Tecmo R2 Defense Contact Raw Foundation Implementation — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R2-DEFENSE-CONTACT-001","round_ids":["R2"],"task_ids":["R2-DEFENSE-CONTACT"],"worktree":"C:/Users/joshs/Projects/tecmo-basketball-port-r2-defense-contact-luna","branch":"codex/r2-defense-contact-luna","base_sha":"edf16ca9059158452798dbe5667f5e64ef444e39","last_good_sha":"ed70d884c3c75d900df589f442816c9566eb38df","contribution":"Sole persistent writable implementation/revision lineage. Final Good-signed ed70d884 carries the raw foundation, isolated scratch /Fo/link proof runner, enclosing B06 provenance, exact lineage, and the final one-line README grammar correction across the authorized cumulative eight paths. Same-Luna QA returned PASS/no findings; completed and unpinned after durable Sol acceptance. No semantic outcome, normal-build, scene, asset, source-map, staging, main, or push claim.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T02:32:38Z"

@@ -664,7 +664,7 @@
     {
       "round_id": "R2B",
       "title": "Shots and outcomes current-main integration and independent QA",
-      "status": "in_progress",
+      "status": "pushed",
       "base_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
       "scope": [
         "Reconcile immutable accepted R2 Shots/Outcomes candidate 7b9287a91fcd9d4725d5d05c37b1d667d9bfb57a with current main",
@@ -684,16 +684,16 @@
       ],
       "combined_qa": {
         "required": true,
-        "status": "in_progress",
-        "accepted_sha": null,
+        "status": "accepted",
+        "accepted_sha": "522909264f67673bd3242ecc62b343e1238bb142",
         "report_path": "docs/finish-tasks/R2B-shots-outcomes-integration-qa/README.md",
-        "signed_by_session_id": null,
-        "notes": "Good-signed 26e6aaf has complete personal and independent P0/P1/P2-zero evidence, including native-shots manifest 96C260D2 and scene manifest 111788F3. Stable main advanced to accepted TIP 0ef11cf before terminal docs, so the R2B branch must reconcile new main, rerun affected gates, and obtain same-Luna final signed-tip verification."
+        "signed_by_session_id": "S-SOL-R2B-SHOTS-INTEGRATION-QA-001",
+        "notes": "Good-signed d3f1980 reconciled accepted main 0ef11cf into the R2B lineage. Sol and the same Luna closed P0/P1/P2 zero at final Good-signed 5229092 with fresh 119-file shot proof, 254-record DRAFT scene smoke proof, exact caveats, and clean ownership. Master delivered 5229092 to stable main and rebuilt the desktop preview."
       },
       "acceptance": {
-        "status": "pending",
-        "accepted_at": null,
-        "accepted_sha": null,
+        "status": "accepted",
+        "accepted_at": "2026-08-04T03:12:31Z",
+        "accepted_sha": "522909264f67673bd3242ecc62b343e1238bb142",
         "criteria": [
           "Current main and immutable Shots/Outcomes candidate are both ancestors of the signed terminal integration commit",
           "Combined build, focused shots/resolution, full scene/direct, deterministic native proof, and relevant cross-domain tests pass",
@@ -702,16 +702,16 @@
         ]
       },
       "main_integration": {
-        "pre_main_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
-        "merge_commits": [],
-        "post_main_sha": null,
-        "remote_main_before_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
-        "push_sha": null,
-        "push_result": "not_attempted",
-        "pushed_at": null
+        "pre_main_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
+        "merge_commits": ["d3f1980d1d9147c47bd6a3bd555708ad6bfcb0f9","522909264f67673bd3242ecc62b343e1238bb142"],
+        "post_main_sha": "522909264f67673bd3242ecc62b343e1238bb142",
+        "remote_main_before_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
+        "push_sha": "522909264f67673bd3242ecc62b343e1238bb142",
+        "push_result": "succeeded",
+        "pushed_at": "2026-08-04T03:12:31Z"
       },
       "created_at": "2026-08-04T01:01:24Z",
-      "updated_at": "2026-08-04T01:52:01Z"
+      "updated_at": "2026-08-04T03:12:31Z"
     },
     {
       "round_id": "R2C",
@@ -730,11 +730,11 @@
       "merge_order": ["R2C-DEFENSE-CONTACT-INTEGRATION-QA"],
       "combined_qa": {
         "required": true,
-        "status": "pending",
+        "status": "in_progress",
         "accepted_sha": null,
         "report_path": "docs/finish-tasks/R2C-defense-contact-integration-qa/README.md",
         "signed_by_session_id": null,
-        "notes": "Good-signed reservation bd3160a preceded one exact pinned gpt-5.6-sol/max orchestrator. It must complete the read-only clean takeover before branch reconciliation or independent Luna creation."
+        "notes": "Good-signed ec4c095 reconciled immutable ed70d884 with old main 0ef11cf and passed complete Sol QA; sole Luna 019fcaa4 returned initial PASS/no findings, then identified one docs-only P3 PowerShell syntax example. Stable main advanced to 5229092; read-only audit found 8-vs-23 path overlap zero and predicted conflict-free tree 7b8234fc, so master authorized one additional Good-signed branch-only reconciliation and affected gate reruns before terminal docs."
       },
       "acceptance": {
         "status": "pending",
@@ -757,7 +757,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-04T02:26:57Z",
-      "updated_at": "2026-08-04T02:30:31Z"
+      "updated_at": "2026-08-04T03:12:31Z"
     },
     {
       "round_id": "R5",

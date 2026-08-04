@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T02:30:31Z",
+  "updated_at": "2026-08-04T03:12:31Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,12 +10,12 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 2,
+    "active_domain_orchestrators": 1,
     "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
-    "unallocated_target_slots": 2,
-    "unallocated_monitoring_slots": 6
+    "unallocated_target_slots": 3,
+    "unallocated_monitoring_slots": 7
   },
   "lanes": [
     {
@@ -316,7 +316,7 @@
       "task_ids": [
         "R2B-SHOTS-OUTCOMES-INTEGRATION-QA"
       ],
-      "readiness": "active",
+      "readiness": "complete",
       "dependency_status": "ready",
       "reservation_owner_session_id": "S-MASTER-001",
       "orchestrator_session_id": "S-SOL-R2B-SHOTS-INTEGRATION-QA-001",
@@ -327,8 +327,8 @@
         "OWN-R2B-SHOTS-OUTCOMES-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Personal and independent evidence at 26e6aaf closed P0/P1/P2 zero, but stable main advanced to accepted TIP 0ef11cf before terminal docs. Use the standing authorization for one Good-signed branch-only reconciliation with R2B lineage first and 0ef11cf second, precompute/audit overlap and tree, rerun affected TIP/full combined gates, then reuse Luna 019fca5b for final signed-tip verification. Main and push remain master-only.",
-      "updated_at": "2026-08-04T01:52:01Z"
+      "next_gate": "Complete: terminal Good-signed 5229092 passed reconciled Sol and same-Luna P0/P1/P2-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; unpin is authorized after durable control acknowledgment.",
+      "updated_at": "2026-08-04T03:12:31Z"
     },
     {
       "lane_id": "LANE-R2-DEFENSE-CONTACT",
@@ -369,8 +369,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2c-defense-contact-integration-qa-sol",
       "ownership_claim_ids": ["OWN-R2C-DEFENSE-CONTACT-INTEGRATION-QA"],
       "blockers": [],
-      "next_gate": "Exact pinned Sol 019fca9b must complete the mandatory read-only clean takeover at 0ef11cf, verify immutable Good-signed ed70d884 staging, ownership/overlap/diff-check, and reproduce merge-tree before any branch-only signed reconciliation or Luna creation.",
-      "updated_at": "2026-08-04T02:30:31Z"
+      "next_gate": "Initial Good-signed ec4c095 and complete Sol/independent QA are clean except one docs-only P3 syntax example. Stable main advanced to accepted 5229092; audited R2C/new-main overlap is zero with predicted tree 7b8234fc. Create the authorized Good-signed branch-only reconciliation, rerun affected gates, correct P3, and reuse Luna 019fcaa4 for final signed-tip review.",
+      "updated_at": "2026-08-04T03:12:31Z"
     }
   ]
 }

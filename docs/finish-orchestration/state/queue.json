@@ -3399,7 +3399,7 @@
       "round_id": "R2B",
       "priority": 100,
       "coordination_only": false,
-      "state": "in_progress",
+      "state": "pushed",
       "dependencies": ["R2-SHOTS-OUTCOMES"],
       "ownership_claim_ids": ["OWN-R2B-SHOTS-OUTCOMES-INTEGRATION-QA"],
       "base_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
@@ -3408,34 +3408,44 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2b-shots-outcomes-integration-qa-sol",
       "sol_orchestrator_session_id": "S-SOL-R2B-SHOTS-INTEGRATION-QA-001",
       "reported_luna_worker_session_ids": ["019fca5b-3b84-7a82-b2ab-588c50a4b7fd"],
-      "result_commits": ["26e6aaf19b639972cb9043f29fc55daa1efce835"],
+      "result_commits": ["26e6aaf19b639972cb9043f29fc55daa1efce835","d3f1980d1d9147c47bd6a3bd555708ad6bfcb0f9","fcc520998c206c2f244fab8d75b69fe8ac96bf64","522909264f67673bd3242ecc62b343e1238bb142"],
       "evidence_ids": [],
       "blocker_ids": [],
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-tasks/R2B-shots-outcomes-integration-qa",
       "qa": {
-        "status": "in_progress",
-        "sol_signoff": false,
-        "integration_signoff": false,
+        "status": "pass",
+        "sol_signoff": true,
+        "integration_signoff": true,
         "test_records": [
           "2026-08-04T01:01:24Z master accepted terminal domain tip 7b9287a9, verified all three Good SSH signatures, clean 17-path ownership, unchanged shared exclusions, zero current-main overlap, diff-check, and conflict-free merge-tree prediction, then reserved immutable R2B staging and an isolated 8a5b992-based Integration QA lane before Sol creation.",
           "2026-08-04T01:09:30Z after Good-signed reservation 4f942648, master created immutable staging ref 7b9287a9, a clean unique integration worktree/branch at 8a5b992, and exactly one pinned gpt-5.6-sol/max orchestrator 019fca51-55f5-7473-92b1-58dd241998f6 on the first attempt with no setup/retry/replacement fault. Read-only clean takeover is required before branch merge or Luna creation.",
           "2026-08-04T01:17:26Z Sol clean takeover independently verified exact refs, all Good signatures, 17 candidate versus 80 current-main paths with zero overlap, unchanged scene/source-map exclusions, clean diff-checks, and predicted tree 2d918e8; the authorized Good-signed no-ff branch merge 26e6aaf then completed with ordered parents 8a5b992 and 7b9287a and that exact tree. Main, origin/main, immutable staging, and remote main remained untouched.",
           "2026-08-04T01:20:56Z post-merge collision/registry gate found no prior R2B Luna. Sol created and pinned the sole projectless read-only gpt-5.6-luna/max auditor 019fca5b-3b84-7a82-b2ab-588c50a4b7fd for combined-tip and terminal-doc QA. One first invocation was rejected locally for an invalid extra schema field and created no task or external state; the corrected invocation created the sole lineage.",
           "2026-08-04T01:41:48Z Sol personal combined gate at clean Good-signed 26e6aaf PASSed warning-clean /W4, TGCS/TGSR, full/direct scene, gameplay state replay, TGFL/TGFT, 86-entry asset pack/direct, audio, intro, season, team data/management, bound flow/NativeFlow, Win32, source/ASM/exclusion audit, and fresh two-pass 51-frame-per-pass native shots proof with all four accepted aggregate hashes exact and P0/P1/P2 zero. Fresh MP4s matched each other while differing from historical encoder hashes due FFmpeg 8.1 toolchain variance. Independent Luna 019fca5b reports no defect so far and is completing integrity review.",
-          "2026-08-04T01:52:01Z sole Luna independently closed the 119-file native-shots manifest SHA-256 96C260D23B27559C9B0907264F80EDCEE56E75A2526BF87ABC356FE82CF884CB and all 254 declared scene artifacts plus manifest SHA-256 111788F30FC2E834C158E6EDCE38A4CCE3F395194A9FD548E03297921BE6B0EA at P0/P1/P2 zero, preserving the DRAFT scene-manifest and skipped optional intro-reference caveats. Before terminal docs, master advanced stable main from 8a5b992 to accepted TIP 0ef11cf; R2B must now perform its authorized branch-only reconciliation, audit overlap/tree, rerun affected TIP/full combined gates, and obtain same-Luna terminal verification."
+          "2026-08-04T01:52:01Z sole Luna independently closed the 119-file native-shots manifest SHA-256 96C260D23B27559C9B0907264F80EDCEE56E75A2526BF87ABC356FE82CF884CB and all 254 declared scene artifacts plus manifest SHA-256 111788F30FC2E834C158E6EDCE38A4CCE3F395194A9FD548E03297921BE6B0EA at P0/P1/P2 zero, preserving the DRAFT scene-manifest and skipped optional intro-reference caveats. Before terminal docs, master advanced stable main from 8a5b992 to accepted TIP 0ef11cf; R2B must now perform its authorized branch-only reconciliation, audit overlap/tree, rerun affected TIP/full combined gates, and obtain same-Luna terminal verification.",
+          "2026-08-04T03:09:30Z Good-signed reconciliation d3f1980d combined the R2B lineage first with accepted main 0ef11cf second at the exact predicted tree; Sol reran the complete affected build, TIP/shots/scene/flow/Win32/asset/season/audio matrix and fresh deterministic shot/scene proofs with P0/P1/P2 zero.",
+          "2026-08-04T03:10:20Z sole Luna independently accepted Good-signed docs candidate fcc5209 and final Good-signed terminal 5229092 at P0/P1/P2 zero, verifying exact ancestry, 23-path final scope, both fresh proof inventories/hashes, visuals, reports, DRAFT/skip caveats, and unchanged numeric-1/source-map limitations.",
+          "2026-08-04T03:12:31Z master reverified local/tracking/live main exact 0ef11cf, Good signature, ancestry, clean 23-path diff, then ff-only integrated and ordinary-pushed 5229092. Local main, origin/main, and live remote main match; warning-clean stable main rebuilt and both desktop preview shortcuts resolve to the rebuilt GUI."
         ],
-        "proof_manifests": [],
-        "notes": "Good-signed merge 26e6aaf has complete personal and independent evidence closure, but stable main advanced to accepted TIP 0ef11cf before terminal docs. R2B must reconcile new main into its branch, audit overlap/tree, rerun affected combined gates, and reuse Luna 019fca5b for the reconciled signed terminal. Main and push remain master-only."
+        "proof_manifests": ["build/r2b-sol-recon-native-shots-20260804T022200Z/PROOF-MANIFEST.json","build/r2b-sol-recon-scene-20260804T021505Z/PROOF-MANIFEST.json"],
+        "notes": "Terminal Good-signed 5229092 passed Sol and same-Luna P0/P1/P2-zero reconciliation QA. Master delivered it by guarded ff-only and ordinary non-force push, rebuilt stable main, and verified both desktop shortcuts. Scene proof remains explicitly DRAFT smoke evidence and all accepted incompletes remain unchanged."
       },
-      "merge": {"staging_branch":"codex/round-2b-shots-outcomes-staging","merge_order":1,"status":"not_ready","merge_commit":null,"main_pre_sha":"8a5b9928544a430efa34cbf98a248d6a8cbe7b14","main_post_sha":null,"push_sha":null,"pushed_at":null},
+      "merge": {"staging_branch":"codex/round-2b-shots-outcomes-staging","merge_order":1,"status":"pushed","merge_commit":"522909264f67673bd3242ecc62b343e1238bb142","main_pre_sha":"0ef11cf247e3110b6064e79a4c496be6346f3e13","main_post_sha":"522909264f67673bd3242ecc62b343e1238bb142","push_sha":"522909264f67673bd3242ecc62b343e1238bb142","pushed_at":"2026-08-04T03:12:31Z"},
       "created_at": "2026-08-04T01:01:24Z",
-      "updated_at": "2026-08-04T01:52:01Z",
+      "updated_at": "2026-08-04T03:12:31Z",
       "audit": [
         {"timestamp":"2026-08-04T01:01:23Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Incremental delivery policy requires accepted Shots/Outcomes C code to reach stable main without waiting for the rest of Round 2."},
         {"timestamp":"2026-08-04T01:01:24Z","actor_session_id":"S-MASTER-001","from_state":"backlog","to_state":"scoped","reason":"Reserved exact docs-only Integration QA ownership, immutable signed 7b9287a9 staging, and the collision-cleared 8a5b992-based branch/worktree before creating a Sol orchestrator."},
         {"timestamp":"2026-08-04T01:09:30Z","actor_session_id":"S-MASTER-001","from_state":"scoped","to_state":"assigned","reason":"Created and pinned exact gpt-5.6-sol/max orchestrator 019fca51-55f5-7473-92b1-58dd241998f6 once after signed reservation and transferred the clean isolated branch-only integration assignment."},
-        {"timestamp":"2026-08-04T01:17:26Z","actor_session_id":"S-SOL-R2B-SHOTS-INTEGRATION-QA-001","from_state":"assigned","to_state":"in_progress","reason":"Clean takeover closed every ref/signature/ownership/exclusion/tree guard, and the authorized Good-signed branch-only reconciliation 26e6aaf produced the exact predicted combined tree without touching main or staging."}
+        {"timestamp":"2026-08-04T01:17:26Z","actor_session_id":"S-SOL-R2B-SHOTS-INTEGRATION-QA-001","from_state":"assigned","to_state":"in_progress","reason":"Clean takeover closed every ref/signature/ownership/exclusion/tree guard, and the authorized Good-signed branch-only reconciliation 26e6aaf produced the exact predicted combined tree without touching main or staging."},
+        {"timestamp":"2026-08-04T03:10:17Z","actor_session_id":"S-SOL-R2B-SHOTS-INTEGRATION-QA-001","from_state":"in_progress","to_state":"sol_review","reason":"Reconciled implementation, complete personal evidence, and exact ownership entered final Sol review."},
+        {"timestamp":"2026-08-04T03:10:18Z","actor_session_id":"S-SOL-R2B-SHOTS-INTEGRATION-QA-001","from_state":"sol_review","to_state":"sol_accepted","reason":"Sol accepted the clean Good-signed terminal lineage after same-Luna P0/P1/P2-zero closure."},
+        {"timestamp":"2026-08-04T03:10:19Z","actor_session_id":"S-SOL-R2B-SHOTS-INTEGRATION-QA-001","from_state":"sol_accepted","to_state":"ready_for_round_staging","reason":"Accepted incremental R2B result was released immediately rather than waiting for the rest of Round 2."},
+        {"timestamp":"2026-08-04T03:10:20Z","actor_session_id":"S-SOL-R2B-SHOTS-INTEGRATION-QA-001","from_state":"ready_for_round_staging","to_state":"combined_qa","reason":"Same-Luna exact-tip review closed P0/P1/P2 zero at Good-signed terminal 5229092 with fresh proof and documentation verification."},
+        {"timestamp":"2026-08-04T03:10:21Z","actor_session_id":"S-SOL-R2B-SHOTS-INTEGRATION-QA-001","from_state":"combined_qa","to_state":"ready_for_main","reason":"Terminal 5229092 is clean, Good-signed, ownership-compliant, and a true fast-forward descendant of guarded main 0ef11cf."},
+        {"timestamp":"2026-08-04T03:12:20Z","actor_session_id":"S-MASTER-001","from_state":"ready_for_main","to_state":"merged","reason":"Master guards passed and local main fast-forwarded from 0ef11cf to 5229092."},
+        {"timestamp":"2026-08-04T03:12:31Z","actor_session_id":"S-MASTER-001","from_state":"merged","to_state":"pushed","reason":"Ordinary non-force push succeeded; local/tracking/live main all equal 5229092, stable main rebuilt, and both desktop launch shortcuts were verified."}
       ]
     },
     {
@@ -3445,7 +3455,7 @@
       "round_id": "R2C",
       "priority": 99,
       "coordination_only": false,
-      "state": "assigned",
+      "state": "in_progress",
       "dependencies": ["R2-DEFENSE-CONTACT"],
       "ownership_claim_ids": ["OWN-R2C-DEFENSE-CONTACT-INTEGRATION-QA"],
       "base_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
@@ -3453,29 +3463,33 @@
       "branch": "codex/r2c-defense-contact-integration-qa-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2c-defense-contact-integration-qa-sol",
       "sol_orchestrator_session_id": "S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001",
-      "reported_luna_worker_session_ids": [],
-      "result_commits": [],
+      "reported_luna_worker_session_ids": ["019fcaa4-615e-7a41-b919-f001132bdcb9"],
+      "result_commits": ["ec4c0958519f78d033f4b49936d07bdd30a2a400"],
       "evidence_ids": [],
       "blocker_ids": [],
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-tasks/R2C-defense-contact-integration-qa",
       "qa": {
-        "status": "pending",
+        "status": "in_progress",
         "sol_signoff": false,
         "integration_signoff": false,
         "test_records": [
-          "2026-08-04T02:26:58Z master accepted immutable Good-signed raw-foundation tip ed70d884, verified stable local/tracking/live remote main exact 0ef11cf, confirmed the proposed branch/worktree/staging refs absent and collision-free, created immutable staging codex/round-2c-defense-contact-staging at ed70d884, and created an isolated clean integration branch/worktree from 0ef11cf. Sol creation remains gated on this signed reservation."
+          "2026-08-04T02:26:58Z master accepted immutable Good-signed raw-foundation tip ed70d884, verified stable local/tracking/live remote main exact 0ef11cf, confirmed the proposed branch/worktree/staging refs absent and collision-free, created immutable staging codex/round-2c-defense-contact-staging at ed70d884, and created an isolated clean integration branch/worktree from 0ef11cf. Sol creation remains gated on this signed reservation.",
+          "2026-08-04T02:40:00Z Sol clean takeover verified signed control 6f32bd8, exact clean refs, Good-signed linear candidate, eight candidate versus 55 main paths with zero overlap, clean diffs, and conflict-free merge prediction; Good-signed branch-only merge ec4c095 then combined main first with immutable ed70d884 second.",
+          "2026-08-04T03:05:00Z Sol completed warning-clean normal build while proving the standalone module absent, two independent focused /W4 /WX provenance/oracle/rollback runs, complete TIP/shots/scene/flow/Win32/asset/season/audio/self-test matrix, and isolation/cleanliness checks. Sole Luna 019fcaa4 returned initial PASS/no findings; its two-doc draft audit found only one P3 invalid PowerShell environment-assignment example.",
+          "2026-08-04T03:12:31Z stable main advanced by accepted R2B from 0ef11cf to 5229092. Master explicitly authorized read-only overlap/tree audit and one additional Good-signed branch-only reconciliation with R2C lineage first and immutable 5229092 second, followed by affected gate reruns and same-Luna signed-tip review."
         ],
         "proof_manifests": [],
-        "notes": "Dedicated incremental Integration QA must reconcile immutable ed70d884 with then-current main, prove zero unexpected overlap, run the focused defense runner plus current-main build/smokes, preserve the no-normal-runtime-use boundary, obtain independent QA, and produce a clean Good-signed fast-forwardable terminal."
+        "notes": "Initial 0ef11cf reconciliation and personal/independent QA passed except one docs-only P3 syntax example. Stable main then advanced to accepted 5229092, so R2C is authorized to reconcile that immutable main, rerun affected combined gates, correct the P3, and reuse the same Luna for the final signed tip."
       },
       "merge": {"staging_branch":"codex/round-2c-defense-contact-staging","merge_order":1,"status":"not_ready","merge_commit":null,"main_pre_sha":"0ef11cf247e3110b6064e79a4c496be6346f3e13","main_post_sha":null,"push_sha":null,"pushed_at":null},
       "created_at": "2026-08-04T02:26:57Z",
-      "updated_at": "2026-08-04T02:30:31Z",
+      "updated_at": "2026-08-04T03:12:31Z",
       "audit": [
         {"timestamp":"2026-08-04T02:26:57Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Incremental delivery policy requires the accepted defense-contact raw foundation to reach current main without waiting for the rest of Round 2."},
         {"timestamp":"2026-08-04T02:26:58Z","actor_session_id":"S-MASTER-001","from_state":"backlog","to_state":"scoped","reason":"Reserved docs-only Integration QA ownership, immutable Good-signed ed70d884 staging, and a collision-cleared clean 0ef11cf-based branch/worktree before Sol creation."},
-        {"timestamp":"2026-08-04T02:30:31Z","actor_session_id":"S-MASTER-001","from_state":"scoped","to_state":"assigned","reason":"Created and immediately pinned exact gpt-5.6-sol/max orchestrator 019fca9b-915b-7133-9605-a0fcdf166d3b once after signed reservation and transferred the isolated read-only-first branch integration assignment."}
+        {"timestamp":"2026-08-04T02:30:31Z","actor_session_id":"S-MASTER-001","from_state":"scoped","to_state":"assigned","reason":"Created and immediately pinned exact gpt-5.6-sol/max orchestrator 019fca9b-915b-7133-9605-a0fcdf166d3b once after signed reservation and transferred the isolated read-only-first branch integration assignment."},
+        {"timestamp":"2026-08-04T02:40:00Z","actor_session_id":"S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001","from_state":"assigned","to_state":"in_progress","reason":"Clean takeover closed all ref/signature/ownership/overlap/diff/tree guards and Good-signed ec4c095 reconciled current main with immutable Defense candidate without touching main or staging."}
       ]
     }
   ]
