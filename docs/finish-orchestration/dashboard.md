@@ -8,7 +8,7 @@ Generated from committed JSON at `2026-08-04T01:56:10Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 11, `in_progress` 1, `pushed` 17, `ready_for_round_staging` 4
+- Task states: `backlog` 11, `pushed` 18, `ready_for_round_staging` 4
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
@@ -36,7 +36,7 @@ Generated from committed JSON at `2026-08-04T01:56:10Z`. This dashboard reports 
 | LANE-R2A-CLOCK-LINEUPS-INTEGRATION-QA | integration_qa | complete | complete | R2A-CLOCK-LINEUPS-INTEGRATION-QA | S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001 | codex/r2a-clocks-integration-qa-sol | Complete: terminal Good-signed 8a5b992 passed combined zero-finding QA, was fast-forwarded/non-force pushed to main, and stable main plus both desktop launch shortcuts were rebuilt/verified. Preserve branches/worktrees for audit until guarded cleanup. |
 | LANE-R2B-SHOTS-OUTCOMES-INTEGRATION-QA | integration_qa | complete | ready | R2B-SHOTS-OUTCOMES-INTEGRATION-QA | S-SOL-R2B-SHOTS-INTEGRATION-QA-001 | codex/r2b-shots-outcomes-integration-qa-sol | Complete: terminal Good-signed 5229092 passed reconciled Sol and same-Luna P0/P1/P2-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; unpin is authorized after durable control acknowledgment. |
 | LANE-R2-DEFENSE-CONTACT | gameplay_behavior | complete | complete | R2-DEFENSE-CONTACT | S-SOL-R2-DEFENSE-CONTACT-001 | codex/r2-defense-contact-sol | Terminal Good-signed ed70d884 is Sol/independent accepted and frozen for dedicated current-main integration QA. Domain ownership is released; preserve branches/worktrees and focused proof for audit. Normal-build/runtime/player-facing and semantic downstream integration remain separate incomplete boundaries. |
-| LANE-R2C-DEFENSE-CONTACT-INTEGRATION-QA | integration_qa | active | ready | R2C-DEFENSE-CONTACT-INTEGRATION-QA | S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001 | codex/r2c-defense-contact-integration-qa-sol | Initial Good-signed ec4c095 and complete Sol/independent QA are clean except one docs-only P3 syntax example. Stable main advanced to accepted 5229092; audited R2C/new-main overlap is zero with predicted tree 7b8234fc. Create the authorized Good-signed branch-only reconciliation, rerun affected gates, correct P3, and reuse Luna 019fcaa4 for final signed-tip review. |
+| LANE-R2C-DEFENSE-CONTACT-INTEGRATION-QA | integration_qa | active | ready | R2C-DEFENSE-CONTACT-INTEGRATION-QA | S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001 | codex/r2c-defense-contact-integration-qa-sol | Complete: terminal Good-signed 7fe2dd7 passed reconciled Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; Sol/Luna unpin is authorized after durable control acknowledgment. |
 
 ## Rounds
 
@@ -55,7 +55,7 @@ Generated from committed JSON at `2026-08-04T01:56:10Z`. This dashboard reports 
 | R1B | pushed | edf16ca90591 | 1 | codex/round-1b-tip-fidelity-staging | accepted | succeeded |
 | R2A | pushed | edf16ca90591 | 1 | codex/round-2a-clock-lineups-fatigue-staging | accepted | succeeded |
 | R2B | pushed | 8a5b9928544a | 1 | codex/round-2b-shots-outcomes-staging | accepted | succeeded |
-| R2C | in_progress | 0ef11cf247e3 | 1 | codex/round-2c-defense-contact-staging | in_progress | not_attempted |
+| R2C | pushed | 0ef11cf247e3 | 1 | codex/round-2c-defense-contact-staging | accepted | succeeded |
 | R5 | planned | 7090d2c62201 | 3 | codex/round-5-release-staging | pending | not_attempted |
 
 ## Queue
@@ -78,7 +78,7 @@ Generated from committed JSON at `2026-08-04T01:56:10Z`. This dashboard reports 
 | 100 | R4B-INTEGRATION-QA | integration | R4B | pushed | S-SOL-R4B-INTEGRATION-QA-001 | codex/r4b-frontend-integration-qa-sol | 2 | accepted | pushed |
 | 100 | R5-ASSET-BUILD-PROVENANCE | assets_build | R5 | backlog | - | - | 0 | pending | not_ready |
 | 99 | R0A-ADOPT-CPU-TIP | gameplay_behavior | R0A | pushed | S-SOL-CPU-TIP-LEGACY | codex/cpu-tipoff-behavior | 1 | historical_sol_accepted | pushed |
-| 99 | R2C-DEFENSE-CONTACT-INTEGRATION-QA | integration | R2C | in_progress | S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001 | codex/r2c-defense-contact-integration-qa-sol | 1 | in_progress | not_ready |
+| 99 | R2C-DEFENSE-CONTACT-INTEGRATION-QA | integration | R2C | pushed | S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001 | codex/r2c-defense-contact-integration-qa-sol | 3 | passed | pushed |
 | 99 | R4-AUDIO-FOUNDATION | audio | R4A | pushed | S-SOL-R4-AUDIO-001 | codex/round-4a-audio-foundation-staging | 10 | passed | pushed |
 | 98 | R0A-ADOPT-TIP-VIS | gameplay_presentation | R0A | pushed | S-SOL-TIP-VIS-LEGACY | codex/tipoff-visual-orientation | 6 | historical_sol_accepted | pushed |
 | 98 | R1-LIVE-FOUNDATION | gameplay_behavior | R1A | pushed | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 3 | passed | pushed |
@@ -101,7 +101,7 @@ Generated from committed JSON at `2026-08-04T01:56:10Z`. This dashboard reports 
 | Session | Role | Model/thinking | Status | Pin | Tasks | Branch | Worktree | Last good |
 |---|---|---|---|---|---|---|---|---|
 | S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 5b8a13b30620 |
-| S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001 | integration_orchestrator | gpt-5.6-sol/max | active | pinned | R2C-DEFENSE-CONTACT-INTEGRATION-QA | codex/r2c-defense-contact-integration-qa-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2c-defense-contact-integration-qa-sol | ec4c0958519f |
+| S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001 | integration_orchestrator | gpt-5.6-sol/max | active | pinned | R2C-DEFENSE-CONTACT-INTEGRATION-QA | codex/r2c-defense-contact-integration-qa-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2c-defense-contact-integration-qa-sol | 7fe2dd772af1 |
 
 ## Active Ownership
 

@@ -626,7 +626,7 @@
       "active": true,
       "claimed_at": "2026-08-04T02:26:58Z",
       "released_at": null,
-      "notes": "Transferred after Good-signed reservation bd3160a to exact pinned Sol 019fca9b-915b-7133-9605-a0fcdf166d3b. Writable tracked scope is docs/finish-tasks/R2C-defense-contact-integration-qa/** only, plus one deliberate Good-signed branch-only reconciliation merge combining current main with immutable ed70d884. Candidate/product paths, normal build registries, main, origin/main, staging, push, and all unrelated paths are read-only; any product/tool correction requires exact master rescope."
+      "notes": "Terminal delivery is complete: Good-signed 32721888 reconciled immutable ed70d884 with accepted main 5229092 at the exact predicted tree, reconciled Sol and same-Luna QA closed P0/P1/P2/P3 zero, terminal Good-signed 7fe2dd7 was guarded ff-only integrated and ordinary-pushed, and stable main plus both desktop shortcuts were rebuilt/verified. Claim remains active only for the pinned lifecycle-closure turn; release is authorized after Sol and Luna confirm unpin."
     }
   ],
   "shared_boundaries": [

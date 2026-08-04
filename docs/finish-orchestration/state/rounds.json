@@ -716,7 +716,7 @@
     {
       "round_id": "R2C",
       "title": "Defense-contact raw foundation current-main integration and independent QA",
-      "status": "in_progress",
+      "status": "pushed",
       "base_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
       "scope": [
         "Reconcile immutable accepted Defense Contact raw-foundation candidate ed70d884c3c75d900df589f442816c9566eb38df with current main",
@@ -730,16 +730,16 @@
       "merge_order": ["R2C-DEFENSE-CONTACT-INTEGRATION-QA"],
       "combined_qa": {
         "required": true,
-        "status": "in_progress",
-        "accepted_sha": null,
+        "status": "accepted",
+        "accepted_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
         "report_path": "docs/finish-tasks/R2C-defense-contact-integration-qa/README.md",
-        "signed_by_session_id": null,
-        "notes": "Good-signed ec4c095 reconciled immutable ed70d884 with old main 0ef11cf and passed complete Sol QA; sole Luna 019fcaa4 returned initial PASS/no findings, then identified one docs-only P3 PowerShell syntax example. Stable main advanced to 5229092; read-only audit found 8-vs-23 path overlap zero and predicted conflict-free tree 7b8234fc, so master authorized one additional Good-signed branch-only reconciliation and affected gate reruns before terminal docs."
+        "signed_by_session_id": "S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001",
+        "notes": "Good-signed 32721888 reconciled immutable ed70d884 and accepted main 5229092 with zero overlap and the exact predicted tree. Reconciled Sol gates and same-Luna draft/final-tip audits closed P0/P1/P2/P3 zero at terminal Good-signed 7fe2dd7 while preserving the raw-only/no-normal-runtime boundary."
       },
       "acceptance": {
-        "status": "pending",
-        "accepted_at": null,
-        "accepted_sha": null,
+        "status": "accepted",
+        "accepted_at": "2026-08-04T03:35:34Z",
+        "accepted_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
         "criteria": [
           "Current main and immutable ed70d884 raw-foundation candidate are both ancestors of the signed terminal integration commit",
           "Combined build and current-main smokes pass while focused raw-defense /W4 /WX, provenance, rollback, isolation, and no-root-artifact gates remain exact",
@@ -748,16 +748,16 @@
         ]
       },
       "main_integration": {
-        "pre_main_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
-        "merge_commits": [],
-        "post_main_sha": null,
-        "remote_main_before_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
-        "push_sha": null,
-        "push_result": "not_attempted",
-        "pushed_at": null
+        "pre_main_sha": "522909264f67673bd3242ecc62b343e1238bb142",
+        "merge_commits": ["32721888d9fd37b46c0ae2f529edf72c83844e88","7fe2dd772af1d88f704a9272005b4ba557434cac"],
+        "post_main_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
+        "remote_main_before_sha": "522909264f67673bd3242ecc62b343e1238bb142",
+        "push_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
+        "push_result": "succeeded",
+        "pushed_at": "2026-08-04T03:35:34Z"
       },
       "created_at": "2026-08-04T02:26:57Z",
-      "updated_at": "2026-08-04T03:12:31Z"
+      "updated_at": "2026-08-04T03:35:34Z"
     },
     {
       "round_id": "R5",
