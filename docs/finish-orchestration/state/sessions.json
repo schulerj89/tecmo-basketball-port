@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T22:43:30Z",
+  "updated_at": "2026-08-04T22:45:55Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -958,7 +958,7 @@
       "model": "gpt-5.6-sol",
       "thinking": "max",
       "status": "completed",
-      "pin_state": "pinned",
+      "pin_state": "unpinned",
       "round_ids": [
         "R4"
       ],
@@ -985,8 +985,8 @@
       },
       "created_at": "2026-08-04T21:17:51Z",
       "completed_at": "2026-08-04T22:43:30Z",
-      "updated_at": "2026-08-04T22:43:30Z",
-      "notes": "Signed terminal 5dfeb3b and Good-signed reconciliation 266ff6f were delivered by guarded main fast-forward and ordinary non-force push at ff900a4. The two thread-backed Luna creation timeouts created no task; one independent in-session reviewer and one master integration reviewer closed P0/P1/P2/P3 at zero. The session remains pinned only until its explicit completion acknowledgment is delivered to S-MASTER-001, after which lifecycle unpin is permitted without archiving or deleting its worktree/proof."
+      "updated_at": "2026-08-04T22:45:55Z",
+      "notes": "Signed terminal 5dfeb3b and Good-signed reconciliation 266ff6f were delivered by guarded main fast-forward and ordinary non-force push at ff900a4. The two thread-backed Luna creation timeouts created no task; one independent in-session reviewer and one master integration reviewer closed P0/P1/P2/P3 at zero. The orchestrator explicitly acknowledged exact terminal/integration/delivery SHAs, 5/13/7 classification, limitations, and zero further mutation to S-MASTER-001, then was unpinned without archiving or deleting its thread, branch, worktree, docs, or proof."
     }
   ],
   "reported_luna_workers": [
