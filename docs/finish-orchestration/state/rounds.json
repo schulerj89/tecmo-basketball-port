@@ -259,7 +259,7 @@
         "accepted_sha": null,
         "report_path": null,
         "signed_by_session_id": null,
-        "notes": "Shots/outcomes 26e6aaf personal/independent evidence passed but dedicated R2B must reconcile newly delivered TIP main 0ef11cf before terminal. Defense corrective Good-signed 9d6f022 fixes every initial QA proof/docs finding without C/header change and is under same-Luna re-audit, with no Sol integration. Shared scene/Shots/asset/source-map/build integration remains excluded. Rules, presentation, and full-round integration QA remain pending."
+        "notes": "Shots/outcomes R2B produced Good-signed new-main reconciliation d3f1980 and is rerunning combined gates before terminal. Defense final Good-signed worker tip ed70d884 passed same-lineage independent QA with no findings after all P1/P2/P3 corrections and is authorized only for exact ff-only Sol integration plus terminal verification. Shared scene/Shots/asset/source-map/build integration remains excluded. Rules, presentation, and full-round integration QA remain pending."
       },
       "acceptance": {
         "status": "pending",
