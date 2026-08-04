@@ -313,7 +313,7 @@
       "model": "gpt-5.6-sol",
       "thinking": "max",
       "status": "completed",
-      "pin_state": "pinned",
+      "pin_state": "unpinned",
       "round_ids": ["R2B"],
       "task_ids": ["R2B-SHOTS-OUTCOMES-INTEGRATION-QA"],
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2b-shots-outcomes-integration-qa-sol",
@@ -327,8 +327,8 @@
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-04T01:09:15Z",
       "completed_at": "2026-08-04T03:12:31Z",
-      "updated_at": "2026-08-04T03:12:31Z",
-      "notes": "Good-signed d3f1980 reconciled accepted main 0ef11cf into the R2B lineage; complete Sol and same-Luna evidence closed P0/P1/P2 zero at terminal Good-signed 5229092 with fresh deterministic shot/scene artifacts and exact caveats. Master guarded ff-only integrated and ordinary-pushed 5229092, rebuilt warning-clean stable main, and verified both desktop shortcuts. Sol and Luna remain pinned only until this durable signed control acknowledgment is delivered; branches/worktrees/proof are preserved."
+      "updated_at": "2026-08-04T03:20:41Z",
+      "notes": "Good-signed d3f1980 reconciled accepted main 0ef11cf into the R2B lineage; complete Sol and same-Luna evidence closed P0/P1/P2 zero at terminal Good-signed 5229092 with fresh deterministic shot/scene artifacts and exact caveats. Master guarded ff-only integrated and ordinary-pushed 5229092, rebuilt warning-clean stable main, and verified both desktop shortcuts. After Good-signed control 2894a25, both Sol and Luna returned pinned=false; tasks, branches, worktrees, and proof remain preserved and unarchived."
     },
     {
       "session_id": "S-SOL-CPU-TIP-LEGACY",
@@ -702,7 +702,7 @@
   ],
   "reported_luna_workers": [
     {
-      "worker_id":"019fca5b-3b84-7a82-b2ab-588c50a4b7fd","thread_id":"019fca5b-3b84-7a82-b2ab-588c50a4b7fd","title":"Tecmo R2B Shots Outcomes Integration Independent QA â€” Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"pinned","reported_by_session_id":"S-SOL-R2B-SHOTS-INTEGRATION-QA-001","round_ids":["R2B"],"task_ids":["R2B-SHOTS-OUTCOMES-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"522909264f67673bd3242ecc62b343e1238bb142","contribution":"Sole projectless/null-Git independent QA lineage. It accepted reconciled signed docs candidate fcc5209 and final Good-signed terminal 5229092 at P0/P1/P2 zero after exact signature/ancestry/scope, 119-file shot proof, 254-record DRAFT scene proof, visual, report, caveat, and classification audits. Completed/idle and still pinned only pending durable control acknowledgment; no replacement or task fault.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T03:12:31Z"
+      "worker_id":"019fca5b-3b84-7a82-b2ab-588c50a4b7fd","thread_id":"019fca5b-3b84-7a82-b2ab-588c50a4b7fd","title":"Tecmo R2B Shots Outcomes Integration Independent QA â€” Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R2B-SHOTS-INTEGRATION-QA-001","round_ids":["R2B"],"task_ids":["R2B-SHOTS-OUTCOMES-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"522909264f67673bd3242ecc62b343e1238bb142","contribution":"Sole projectless/null-Git independent QA lineage. It accepted reconciled signed docs candidate fcc5209 and final Good-signed terminal 5229092 at P0/P1/P2 zero after exact signature/ancestry/scope, 119-file shot proof, 254-record DRAFT scene proof, visual, report, caveat, and classification audits. Completed and unpinned after durable control acknowledgment; no replacement or task fault.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T03:20:41Z"
     },
     {
       "worker_id":"019fcaa4-615e-7a41-b919-f001132bdcb9","thread_id":"019fcaa4-615e-7a41-b919-f001132bdcb9","title":"Tecmo R2C Defense Contact Integration Independent QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"idle","pin_state":"pinned","reported_by_session_id":"S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001","round_ids":["R2C"],"task_ids":["R2C-DEFENSE-CONTACT-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"ec4c0958519f78d033f4b49936d07bdd30a2a400","contribution":"Sole projectless/null-Git independent QA lineage. Initial exact-merge audit passed with zero findings across signatures, eight-path scope, raw semantics/provenance, isolation, two focused caller contexts, and cleanup. Draft-doc re-audit found only one P3 invalid PowerShell environment-assignment example; it remains pinned for corrected post-5229092 reconciliation signed-tip review. No replacement or task fault.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T03:12:31Z"
