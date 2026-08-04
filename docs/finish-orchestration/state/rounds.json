@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T08:53:00Z",
+  "updated_at": "2026-08-04T09:03:19Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -261,7 +261,7 @@
         "accepted_sha": null,
         "report_path": null,
         "signed_by_session_id": null,
-        "notes": "Shots/outcomes, Defense, and Rules/Restarts have each completed dedicated current-main integration QA and are delivered through stable main ed060720. Gameplay Presentation completed its personal plus three-Luna read-only gate and received a two-path proof-first rescope limited to a production-input layup checkpoint and new deterministic runner. Shared scene/renderer/animation/assets and every broader presentation claim remain excluded. Full-round integration QA remains pending."
+        "notes": "Shots/outcomes, Defense, and Rules/Restarts have each completed dedicated current-main integration QA and are delivered through stable main ed060720. Gameplay Presentation completed its personal plus three-Luna read-only gate, received a two-path proof-first rescope limited to a production-input layup checkpoint and new deterministic runner, and now has sole pinned implementation worker 019fcc03-5518-7213-b015-21a6bc24210f active on the isolated exact-base worktree. Shared scene/renderer/animation/assets and every broader presentation claim remain excluded. Full-round integration QA remains pending."
       },
       "acceptance": {
         "status": "pending",
@@ -374,7 +374,7 @@
         "accepted_sha": null,
         "report_path": null,
         "signed_by_session_id": null,
-        "notes": "The accepted R3A season-data foundation is delivered through stable main ed060720. Player Stats/Leaders completed its personal plus three-Luna read-only evidence gate and received a sequential ten-path rescope for six authoritative game counters, transactional season totals, TSAV-2 migration, four supported leader categories, deterministic proof, and strict unavailable boundaries for steals/blocks/rebounds/incomplete migrations. Progression/save beyond this schema slice, management/data, All-Star, and final combined QA remain pending."
+        "notes": "The accepted R3A season-data foundation is delivered through stable main ed060720. Player Stats/Leaders completed its personal plus three-Luna read-only evidence gate, received a sequential ten-path rescope for six authoritative game counters, transactional season totals, TSAV-2 migration, four supported leader categories, deterministic proof, and strict unavailable boundaries for steals/blocks/rebounds/incomplete migrations, and now has sole pinned implementation worker 019fcc01-9670-7ea0-bff4-3d5847d3a9dd active on the isolated exact-base worktree. Progression/save beyond this schema slice, management/data, All-Star, and final combined QA remain pending."
       },
       "acceptance": {
         "status": "pending",

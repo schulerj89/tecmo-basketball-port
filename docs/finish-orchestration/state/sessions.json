@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T08:53:00Z",
+  "updated_at": "2026-08-04T09:03:19Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -744,14 +744,15 @@
       "reported_luna_lineage": [
         "019fcbcf-2171-77b3-92f7-1ba49110cc04",
         "019fcbcf-9c88-7280-a433-0fd12087ada9",
-        "019fcbcf-e911-7381-853d-bc2dc01ac93c"
+        "019fcbcf-e911-7381-853d-bc2dc01ac93c",
+        "019fcc03-5518-7213-b015-21a6bc24210f"
       ],
       "recovery_lineage": [],
-      "failure": {"count":1,"raw_error_signatures":["initial auditor pin wrapper passed undefined threadId after JSON-encoded create result"],"retry_session_ids":["019fcbcf-2171-77b3-92f7-1ba49110cc04"],"replacement_session_id":null,"takeover_confirmed_at":null},
+      "failure": {"count":2,"raw_error_signatures":["initial auditor pin wrapper passed undefined threadId after JSON-encoded create result","worktree registry helper searched a two-backslash token in a normal single-backslash path and falsely reported RegistryPathMatches=0"],"retry_session_ids":["019fcbcf-2171-77b3-92f7-1ba49110cc04"],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-04T08:02:22Z",
       "completed_at": null,
-      "updated_at": "2026-08-04T08:49:20Z",
-      "notes": "Created once and pinned immediately on the first attempt under Good-signed reservation 4c264ca. Clean takeover personally passed at exact ed060720 with zero mutation. All three same-ID pinned read-only auditors completed and were personally reconciled. Exact/native primitives exist, but broad selectors, arcs, policies, OAM/clipping composition, pass/defense/ordinary-two-point/numeric-1/layup/broad-edge/free-throw/referee presentation remain approximate or incomplete; no evidence-backed core renderer/camera/clipping defect was found. Master collision-audited and granted only a two-path proof-first slice: bounded gameplay-layup-frameN CLI mode plus new deterministic two-pass runner, with one exact persistent Luna/max worker allocation from ed060720. All broader product and main/staging/push scope remains excluded."
+      "updated_at": "2026-08-04T09:03:19Z",
+      "notes": "Created once and pinned immediately on the first attempt under Good-signed reservation 4c264ca. Clean takeover and the three accepted read-only audits were personally reconciled at exact ed060720 with zero product mutation. Under Good-signed rescope de316a7, Sol reverified stable refs and absent allocation, then created/pinned sole persistent worker 019fcc03-5518-7213-b015-21a6bc24210f on the exact isolated branch/worktree/base with zero create/pin/retry/replacement fault. A local registry helper initially normalized the Windows path incorrectly and falsely reported zero path matches; a corrected exact porcelain-line check proved exactly one worktree path and one branch, with no task or repository impact. The two-path proof-first grant and all broader exclusions remain exact."
     },
     {
       "session_id": "S-SOL-R3-PLAYER-STATS-LEADERS-001",
@@ -773,14 +774,15 @@
       "reported_luna_lineage": [
         "019fcbd0-963e-7022-aea4-fb450b4801c2",
         "019fcbd0-fcd1-7d51-b93c-9e8688440b20",
-        "019fcbd1-62ae-7891-a16e-b20c6b3b4342"
+        "019fcbd1-62ae-7891-a16e-b20c6b3b4342",
+        "019fcc01-9670-7ea0-bff4-3d5847d3a9dd"
       ],
       "recovery_lineage": [],
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-04T08:02:47Z",
       "completed_at": null,
-      "updated_at": "2026-08-04T08:53:00Z",
-      "notes": "Created once and pinned immediately on the first attempt under Good-signed reservation 4c264ca. Clean takeover personally passed at exact ed060720 with zero mutation. All three bounded projectless Luna/max read-only auditors completed with zero task faults/retries/replacements and were personally reconciled. Sol closed nine byte-wide per-game counters, 16-bit season rollup, formulas/eligibility, top-18 later-key tie order, pages/formatting, and six authoritative current attribution seams while retaining steals/blocks/rebounds and other unproved semantics as unavailable. Master verified the requested functions/paths, absent new header and worker allocation, stable main, and zero concurrent scene writer because Presentation owns only disjoint CLI/new-runner paths. Exact ten-path stats/save/leader rescope plus one persistent Luna/max worker from ed060720 is granted; every excluded adjacent domain and protected ref remains read-only."
+      "updated_at": "2026-08-04T09:03:19Z",
+      "notes": "Created once and pinned immediately on the first attempt under Good-signed reservation 4c264ca. Clean takeover and all three bounded read-only audits were personally reconciled at exact ed060720 with zero mutation. Under Good-signed rescope de316a7, Sol reverified the exact control identity, stable refs, absent header/worker allocation, and sole sequential scene-writer registry, then created/pinned sole persistent worker 019fcc01-9670-7ea0-bff4-3d5847d3a9dd on the exact isolated branch/worktree/base with zero creation/pin/retry/replacement fault and zero pre-gate repository mutation. The ten-path transactional stats/save/leader grant and every unavailable/excluded semantic boundary remain exact."
     },
     {
       "session_id": "S-BLOCKERS-001",
@@ -815,6 +817,12 @@
     }
   ],
   "reported_luna_workers": [
+    {
+      "worker_id":"019fcc03-5518-7213-b015-21a6bc24210f","thread_id":"019fcc03-5518-7213-b015-21a6bc24210f","title":"Tecmo R2 Gameplay Presentation — Layup Proof Implementation — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R2-GAMEPLAY-PRESENTATION-001","round_ids":["R2"],"task_ids":["R2-GAMEPLAY-PRESENTATION"],"worktree":"C:/Users/joshs/Projects/tecmo-basketball-port-r2-gameplay-presentation-luna","branch":"codex/r2-gameplay-presentation-luna","base_sha":"ed060720a98b790f98591af363a490a0e0816018","last_good_sha":"ed060720a98b790f98591af363a490a0e0816018","contribution":"Sole persistent top-level implementation/revision worker created once and pinned once under Good-signed de316a7 after exact stable-ref, absent-allocation, clean-worktree, and scope guards. Writable only to the bounded gameplay-layup-frameN CLI regions and new focused presentation runner; domain docs and every broader product path remain excluded. A Sol-local helper initially searched an incorrectly normalized Windows path and falsely reported zero registry matches; corrected exact-line verification proved one path and one branch with no worker/task/repository mutation.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T09:03:19Z"
+    },
+    {
+      "worker_id":"019fcc01-9670-7ea0-bff4-3d5847d3a9dd","thread_id":"019fcc01-9670-7ea0-bff4-3d5847d3a9dd","title":"Tecmo R3 Player Stats Leaders Implementation — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R3-PLAYER-STATS-LEADERS-001","round_ids":["R3"],"task_ids":["R3-PLAYER-STATS-LEADERS"],"worktree":"C:/Users/joshs/Projects/tecmo-basketball-port-r3-player-stats-leaders-luna","branch":"codex/r3-player-stats-leaders-luna","base_sha":"ed060720a98b790f98591af363a490a0e0816018","last_good_sha":"ed060720a98b790f98591af363a490a0e0816018","contribution":"Sole persistent top-level implementation/revision worker created once and pinned once under Good-signed de316a7 after exact signature/tree/parent/subject, stable-ref, absent-header/allocation, clean-worktree, and sole sequential scene-writer guards. Writable only to the exact ten-path transactional game-stats/season-save/leader/test surface; all adjacent domains and unsupported counters remain excluded. It entered its mandatory read-only signature/policy gate with zero repository mutation.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T09:02:57Z"
+    },
     {
       "worker_id":"019fcbcf-2171-77b3-92f7-1ba49110cc04","thread_id":"019fcbcf-2171-77b3-92f7-1ba49110cc04","title":"Tecmo R2 Gameplay Presentation — Original Evidence Audit — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"pinned","reported_by_session_id":"S-SOL-R2-GAMEPLAY-PRESENTATION-001","round_ids":["R2"],"task_ids":["R2-GAMEPLAY-PRESENTATION"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Completed read-only at 2026-08-04T08:20:30Z. Supplied the original ASM/native presentation evidence matrix and preserved exact-source-pinned versus native-faithful/native-approximate/incomplete boundaries. It supported a narrow numeric-2 layup proof slice rather than a renderer/camera/clipping mutation. The first pin wrapper passed an undefined threadId because create_thread returned JSON-encoded text; the same exact created task was pinned on retry with no replacement or repository mutation. Metadata-only rename preserved ID, pin, and continuity.","recovery_lineage":[],"failure":{"count":1,"raw_error_signatures":["pin wrapper passed undefined threadId after JSON-encoded create result"],"retry_worker_ids":["019fcbcf-2171-77b3-92f7-1ba49110cc04"],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T08:49:20Z"
     },
