@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-04T01:41:48Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-04T01:56:10Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,14 +8,14 @@ Generated from committed JSON at `2026-08-04T01:41:48Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 11, `in_progress` 3, `pushed` 15, `ready_for_round_staging` 3
+- Task states: `backlog` 11, `in_progress` 2, `pushed` 16, `ready_for_round_staging` 3
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
 
 - Single master authority: `True`
 - Second-master policy: `recovery_replacement_only`
-- Active domain Sols: `3`
+- Active domain Sols: `2`
 - Cleared for creation: `0`
 - Target active domain Sols: `4`
 - Monitoring limit: `8`
@@ -32,10 +32,10 @@ Generated from committed JSON at `2026-08-04T01:41:48Z`. This dashboard reports 
 | LANE-R4B-INTEGRATION-QA | integration | complete | complete | R4B-INTEGRATION-QA | S-SOL-R4B-INTEGRATION-QA-001 | codex/r4b-frontend-integration-qa-sol | Complete: signed terminal edf16ca passed combined P0/P1/P2-zero QA and was fast-forwarded/non-force pushed to main; preserved branches/worktrees remain available for audit. |
 | LANE-R2-SHOTS-OUTCOMES | gameplay_behavior | complete | complete | R2-SHOTS-OUTCOMES | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | Terminal Good-signed 7b9287a9 is Sol/independent accepted with no actionable finding and frozen for dedicated R2B current-main integration QA. Domain ownership is released; preserve branches/worktrees for audit. |
 | LANE-R2-CLOCK-LINEUPS-FATIGUE | gameplay_behavior | complete | complete | R2-CLOCK-LINEUPS-FATIGUE | S-SOL-R2-CLOCK-LINEUPS-001 | codex/r2-clock-lineups-fatigue-sol | Terminal signed domain tip ed4e56fc595894c692ffca84ae3b35f129317049 is accepted and frozen for the dedicated R2A current-main integration lane. Domain ownership is released; the accepted Sol may retire after durable control-plane closure. |
-| LANE-R1B-TIP-INTEGRATION-QA | integration_qa | active | ready | R1B-TIP-INTEGRATION-QA | S-SOL-R1B-TIP-INTEGRATION-QA-001 | codex/r1b-tip-integration-qa-sol | Good-signed guidance-only commit 7ba0066 removed the equal-away contradiction in exactly AGENTS.md/PORTING.md. Finish the owned ASM/native traceability table, have the same Luna verify correction/table/terminal chain, then create signed acceptance docs. |
+| LANE-R1B-TIP-INTEGRATION-QA | integration_qa | complete | ready | R1B-TIP-INTEGRATION-QA | S-SOL-R1B-TIP-INTEGRATION-QA-001 | codex/r1b-tip-integration-qa-sol | Complete: terminal Good-signed 0ef11cf passed combined zero-finding QA, was fast-forwarded/non-force pushed to main, and stable main plus both desktop shortcuts were rebuilt and verified. Preserve branches/worktrees for audit until guarded cleanup. |
 | LANE-R2A-CLOCK-LINEUPS-INTEGRATION-QA | integration_qa | complete | complete | R2A-CLOCK-LINEUPS-INTEGRATION-QA | S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001 | codex/r2a-clocks-integration-qa-sol | Complete: terminal Good-signed 8a5b992 passed combined zero-finding QA, was fast-forwarded/non-force pushed to main, and stable main plus both desktop launch shortcuts were rebuilt/verified. Preserve branches/worktrees for audit until guarded cleanup. |
-| LANE-R2B-SHOTS-OUTCOMES-INTEGRATION-QA | integration_qa | active | ready | R2B-SHOTS-OUTCOMES-INTEGRATION-QA | S-SOL-R2B-SHOTS-INTEGRATION-QA-001 | codex/r2b-shots-outcomes-integration-qa-sol | Sol personal combined warning-clean/focused/full-scene/native-proof/flow/Win32/cross-domain gates all pass at Good-signed 26e6aaf with P0/P1/P2 zero. Sole pinned Luna 019fca5b must finish independent integrity review, then recheck terminal docs and a clean Good-signed terminal descendant before master-only guarded delivery. Main and push remain master-only. |
-| LANE-R2-DEFENSE-CONTACT | gameplay_behavior | active | ready | R2-DEFENSE-CONTACT | S-SOL-R2-DEFENSE-CONTACT-001 | codex/r2-defense-contact-sol | Independent QA Luna 019fca60 FAILed d5c5fa9 on one P1 runner-isolation and two P2 provenance/docs findings, with no C/runtime defect. Same worker 019fca31 must bind MSVC output to validated scratch via /Fo, remove and prove absence of the two exact ignored root objects, validate enclosing B06 $B081-$B365 SHA-256 AAA9670D...AE891AE36, and correct stale candidate wording; then create a Good-signed revision and reuse the same pinned QA before any Sol integration. |
+| LANE-R2B-SHOTS-OUTCOMES-INTEGRATION-QA | integration_qa | active | ready | R2B-SHOTS-OUTCOMES-INTEGRATION-QA | S-SOL-R2B-SHOTS-INTEGRATION-QA-001 | codex/r2b-shots-outcomes-integration-qa-sol | Personal and independent evidence at 26e6aaf closed P0/P1/P2 zero, but stable main advanced to accepted TIP 0ef11cf before terminal docs. Use the standing authorization for one Good-signed branch-only reconciliation with R2B lineage first and 0ef11cf second, precompute/audit overlap and tree, rerun affected TIP/full combined gates, then reuse Luna 019fca5b for final signed-tip verification. Main and push remain master-only. |
+| LANE-R2-DEFENSE-CONTACT | gameplay_behavior | active | ready | R2-DEFENSE-CONTACT | S-SOL-R2-DEFENSE-CONTACT-001 | codex/r2-defense-contact-sol | Good-signed corrective candidate 9d6f022 fixes runner scratch /Fo/link isolation and root-object cleanup proof, executable enclosing B06 provenance, and exact docs lineage with no C/header change. Same pinned QA Luna 019fca60 must re-audit the corrected tip and return P0/P1/P2 closure before any Sol ff-only integration. |
 
 ## Rounds
 
@@ -51,7 +51,7 @@ Generated from committed JSON at `2026-08-04T01:41:48Z`. This dashboard reports 
 | R4A | pushed | 6d8f9c7a99a7 | 2 | codex/round-4a-audio-foundation-staging | accepted | succeeded |
 | R4 | planned | 6d8f9c7a99a7 | 3 | codex/round-4-frontend-audio-staging | pending | not_attempted |
 | R4B | pushed | 819b0e5eabca | 1 | codex/round-4b-frontend-intro-title-staging | accepted | succeeded |
-| R1B | in_progress | edf16ca90591 | 1 | codex/round-1b-tip-fidelity-staging | pending | not_attempted |
+| R1B | pushed | edf16ca90591 | 1 | codex/round-1b-tip-fidelity-staging | accepted | succeeded |
 | R2A | pushed | edf16ca90591 | 1 | codex/round-2a-clock-lineups-fatigue-staging | accepted | succeeded |
 | R2B | in_progress | 8a5b9928544a | 1 | codex/round-2b-shots-outcomes-staging | in_progress | not_attempted |
 | R5 | planned | 7090d2c62201 | 3 | codex/round-5-release-staging | pending | not_attempted |
@@ -64,7 +64,7 @@ Generated from committed JSON at `2026-08-04T01:41:48Z`. This dashboard reports 
 | 100 | R0A-INV-001 | orchestration | R0A | pushed | S-MASTER-001 | codex/master-finish-orchestration | 2 | coordination_validated | pushed |
 | 100 | R1-CPU-PLAY-LIFECYCLE | gameplay_behavior | R1A | pushed | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | pushed |
 | 100 | R1A-INTEGRATION-QA | integration | R1A | pushed | S-SOL-R1A-INTEGRATION-QA-001 | codex/r1a-cpu-live-integration-qa-sol | 3 | passed | pushed |
-| 100 | R1B-TIP-INTEGRATION-QA | integration | R1B | in_progress | S-SOL-R1B-TIP-INTEGRATION-QA-001 | codex/r1b-tip-integration-qa-sol | 2 | pending | not_ready |
+| 100 | R1B-TIP-INTEGRATION-QA | integration | R1B | pushed | S-SOL-R1B-TIP-INTEGRATION-QA-001 | codex/r1b-tip-integration-qa-sol | 4 | passed | pushed |
 | 100 | R2-SHOTS-OUTCOMES | gameplay_behavior | R2 | ready_for_round_staging | S-SOL-R2-SHOTS-001 | codex/r2-shots-outcomes-sol | 3 | passed | ready |
 | 100 | R2A-CLOCK-LINEUPS-INTEGRATION-QA | integration | R2A | pushed | S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001 | codex/r2a-clocks-integration-qa-sol | 3 | accepted | pushed |
 | 100 | R2B-SHOTS-OUTCOMES-INTEGRATION-QA | integration | R2B | in_progress | S-SOL-R2B-SHOTS-INTEGRATION-QA-001 | codex/r2b-shots-outcomes-integration-qa-sol | 1 | in_progress | not_ready |
@@ -79,7 +79,7 @@ Generated from committed JSON at `2026-08-04T01:41:48Z`. This dashboard reports 
 | 99 | R4-AUDIO-FOUNDATION | audio | R4A | pushed | S-SOL-R4-AUDIO-001 | codex/round-4a-audio-foundation-staging | 10 | passed | pushed |
 | 98 | R0A-ADOPT-TIP-VIS | gameplay_presentation | R0A | pushed | S-SOL-TIP-VIS-LEGACY | codex/tipoff-visual-orientation | 6 | historical_sol_accepted | pushed |
 | 98 | R1-LIVE-FOUNDATION | gameplay_behavior | R1A | pushed | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 3 | passed | pushed |
-| 98 | R2-DEFENSE-CONTACT | gameplay_behavior | R2 | in_progress | S-SOL-R2-DEFENSE-CONTACT-001 | codex/r2-defense-contact-sol | 0 | failed | not_ready |
+| 98 | R2-DEFENSE-CONTACT | gameplay_behavior | R2 | in_progress | S-SOL-R2-DEFENSE-CONTACT-001 | codex/r2-defense-contact-sol | 0 | in_progress | not_ready |
 | 98 | R3-SEASON-PROGRESSION-SAVE | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 98 | R4-MENUS-UI | frontend | R4 | backlog | - | - | 0 | pending | not_ready |
 | 98 | R5-PARITY-GAP-CLOSURE | integration | R5 | backlog | - | - | 0 | pending | not_ready |
@@ -99,14 +99,12 @@ Generated from committed JSON at `2026-08-04T01:41:48Z`. This dashboard reports 
 |---|---|---|---|---|---|---|---|---|
 | S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 5b8a13b30620 |
 | S-SOL-R2B-SHOTS-INTEGRATION-QA-001 | integration_orchestrator | gpt-5.6-sol/max | active | pinned | R2B-SHOTS-OUTCOMES-INTEGRATION-QA | codex/r2b-shots-outcomes-integration-qa-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2b-shots-outcomes-integration-qa-sol | 26e6aaf19b63 |
-| S-SOL-R1B-TIP-INTEGRATION-QA-001 | integration_orchestrator | gpt-5.6-sol/max | active | pinned | R1B-TIP-INTEGRATION-QA | codex/r1b-tip-integration-qa-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r1b-tip-integration-qa-sol | 7ba0066ca108 |
 | S-SOL-R2-DEFENSE-CONTACT-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R2-DEFENSE-CONTACT | codex/r2-defense-contact-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2-defense-contact-sol | edf16ca90591 |
 
 ## Active Ownership
 
 | Claim | Task | Round | Mode | Writable globs | Concurrency group |
 |---|---|---|---|---|---|
-| OWN-R1B-TIP-INTEGRATION-QA | R1B-TIP-INTEGRATION-QA | R1B | exclusive | docs/finish-tasks/R1B-tip-integration-qa/**<br>AGENTS.md<br>PORTING.md | R1B-tip-integration-qa |
 | OWN-R2B-SHOTS-OUTCOMES-INTEGRATION-QA | R2B-SHOTS-OUTCOMES-INTEGRATION-QA | R2B | exclusive | docs/finish-tasks/R2B-shots-outcomes-integration-qa/** | R2B-shots-outcomes-integration-qa |
 | OWN-R2-DEFENSE-CONTACT | R2-DEFENSE-CONTACT | R2 | exclusive | docs/finish-tasks/R2-defense-contact/**<br>include/tecmo_gameplay_defense_contact.h<br>src/tecmo_gameplay_defense_contact.c<br>tools/Run-GameplayDefenseContactTests.ps1 | R2-defense-contact |
 

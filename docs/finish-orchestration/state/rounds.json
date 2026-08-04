@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T01:41:48Z",
+  "updated_at": "2026-08-04T01:56:10Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -259,7 +259,7 @@
         "accepted_sha": null,
         "report_path": null,
         "signed_by_session_id": null,
-        "notes": "Shots/outcomes terminal 7b9287a is under dedicated R2B current-main Integration QA. Defense Good-signed raw-foundation candidate d5c5fa9 passed C/raw semantics but initial independent terminal QA FAILed one runner-isolation P1 and two provenance/docs P2 findings; same-worker correction and same-QA recheck are active, with no Sol integration. Shared scene/Shots/asset/source-map/build integration remains excluded. Rules, presentation, and full-round integration QA remain pending."
+        "notes": "Shots/outcomes 26e6aaf personal/independent evidence passed but dedicated R2B must reconcile newly delivered TIP main 0ef11cf before terminal. Defense corrective Good-signed 9d6f022 fixes every initial QA proof/docs finding without C/header change and is under same-Luna re-audit, with no Sol integration. Shared scene/Shots/asset/source-map/build integration remains excluded. Rules, presentation, and full-round integration QA remain pending."
       },
       "acceptance": {
         "status": "pending",
@@ -281,7 +281,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-04T01:39:05Z"
+      "updated_at": "2026-08-04T01:56:10Z"
     },
     {
       "round_id": "R3A",
@@ -560,7 +560,7 @@
     {
       "round_id": "R1B",
       "title": "TIP fidelity current-main integration and independent QA",
-      "status": "in_progress",
+      "status": "pushed",
       "base_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
       "scope": [
         "Reconcile immutable accepted R1 TIP candidate e21f9a6621df5527544be1de4d0dc60382539c60 with current main",
@@ -580,16 +580,16 @@
       ],
       "combined_qa": {
         "required": true,
-        "status": "pending",
-        "accepted_sha": null,
+        "status": "accepted",
+        "accepted_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
         "report_path": "docs/finish-tasks/R1B-tip-integration-qa/README.md",
-        "signed_by_session_id": null,
-        "notes": "A dedicated Sol Max integration orchestrator must reconcile exact candidate e21f9a6 with current main, run the full combined gate, and close independent P0/P1/P2 at zero."
+        "signed_by_session_id": "S-SOL-R1B-TIP-INTEGRATION-QA-001",
+        "notes": "Terminal Good-signed 0ef11cf reconciles accepted TIP and R2A main, passed all combined gates and deterministic proof, and closed independent P0/P1/P2 zero."
       },
       "acceptance": {
-        "status": "pending",
-        "accepted_at": null,
-        "accepted_sha": null,
+        "status": "accepted",
+        "accepted_at": "2026-08-04T01:52:01Z",
+        "accepted_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
         "criteria": [
           "Current main and immutable TIP candidate are both ancestors of the signed terminal integration commit",
           "Combined build, focused TIP, broad scene/flow/Win32, proof, and relevant cross-domain tests pass",
@@ -598,16 +598,16 @@
         ]
       },
       "main_integration": {
-        "pre_main_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
-        "merge_commits": [],
-        "post_main_sha": null,
-        "remote_main_before_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
-        "push_sha": null,
-        "push_result": "not_attempted",
-        "pushed_at": null
+        "pre_main_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
+        "merge_commits": ["0ef11cf247e3110b6064e79a4c496be6346f3e13"],
+        "post_main_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
+        "remote_main_before_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
+        "push_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
+        "push_result": "succeeded",
+        "pushed_at": "2026-08-04T01:52:00Z"
       },
       "created_at": "2026-08-03T23:38:12Z",
-      "updated_at": "2026-08-04T00:28:30Z"
+      "updated_at": "2026-08-04T01:52:01Z"
     },
     {
       "round_id": "R2A",
@@ -688,7 +688,7 @@
         "accepted_sha": null,
         "report_path": "docs/finish-tasks/R2B-shots-outcomes-integration-qa/README.md",
         "signed_by_session_id": null,
-        "notes": "Good-signed branch-only reconciliation 26e6aaf has exact predicted tree 2d918e8 and complete Sol personal combined product/proof/cross-domain P0/P1/P2-zero gates. Sole pinned projectless Luna 019fca5b reports no defect so far and must finish integrity plus terminal-doc verification before acceptance."
+        "notes": "Good-signed 26e6aaf has complete personal and independent P0/P1/P2-zero evidence, including native-shots manifest 96C260D2 and scene manifest 111788F3. Stable main advanced to accepted TIP 0ef11cf before terminal docs, so the R2B branch must reconcile new main, rerun affected gates, and obtain same-Luna final signed-tip verification."
       },
       "acceptance": {
         "status": "pending",
@@ -711,7 +711,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-04T01:01:24Z",
-      "updated_at": "2026-08-04T01:41:48Z"
+      "updated_at": "2026-08-04T01:52:01Z"
     },
     {
       "round_id": "R5",

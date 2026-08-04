@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T01:09:30Z",
+  "updated_at": "2026-08-04T01:56:10Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -538,10 +538,10 @@
         "PORTING.md"
       ],
       "concurrency_group": "R1B-tip-integration-qa",
-      "active": true,
+      "active": false,
       "claimed_at": "2026-08-03T23:38:12Z",
-      "released_at": null,
-      "notes": "Master reservation before Sol creation, expanded at 2026-08-04T00:22:16Z after the added ASM/native traceability gate proved AGENTS.md and PORTING.md still claimed deterministic-away tie settlement while merged runtime/tests/accepted TIP evidence defer equal-height claims and keep original tie policy incomplete. Collision scan found no active claim or active-worktree edit; one preserved historical dirty worktree remains explicitly untouched. Authority adds only the exact tie-policy wording correction in those two guidance files. Runtime/source-map remain read-only; main integration and push remain master-only."
+      "released_at": "2026-08-04T01:52:01Z",
+      "notes": "Released after terminal Good-signed 0ef11cf passed all combined product/proof/traceability and independent P0/P1/P2-zero gates, master fast-forwarded/non-force pushed main from 8a5b992 to 0ef11cf, and both stable desktop shortcuts were rebuilt/verified. Guidance correction remained limited to AGENTS.md/PORTING.md; runtime/source-map scope was not expanded. Luna and Sol were unpinned; branches/worktrees remain preserved."
     },
     {
       "claim_id": "OWN-R2A-CLOCK-LINEUPS-INTEGRATION-QA",

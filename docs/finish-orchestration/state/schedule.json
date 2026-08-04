@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T01:41:48Z",
+  "updated_at": "2026-08-04T01:56:10Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,12 +10,12 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 3,
+    "active_domain_orchestrators": 2,
     "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
-    "unallocated_target_slots": 1,
-    "unallocated_monitoring_slots": 5
+    "unallocated_target_slots": 2,
+    "unallocated_monitoring_slots": 6
   },
   "lanes": [
     {
@@ -268,7 +268,7 @@
       "task_ids": [
         "R1B-TIP-INTEGRATION-QA"
       ],
-      "readiness": "active",
+      "readiness": "complete",
       "dependency_status": "ready",
       "reservation_owner_session_id": "S-MASTER-001",
       "orchestrator_session_id": "S-SOL-R1B-TIP-INTEGRATION-QA-001",
@@ -279,8 +279,8 @@
         "OWN-R1B-TIP-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Good-signed guidance-only commit 7ba0066 removed the equal-away contradiction in exactly AGENTS.md/PORTING.md. Finish the owned ASM/native traceability table, have the same Luna verify correction/table/terminal chain, then create signed acceptance docs.",
-      "updated_at": "2026-08-04T00:28:30Z"
+      "next_gate": "Complete: terminal Good-signed 0ef11cf passed combined zero-finding QA, was fast-forwarded/non-force pushed to main, and stable main plus both desktop shortcuts were rebuilt and verified. Preserve branches/worktrees for audit until guarded cleanup.",
+      "updated_at": "2026-08-04T01:52:01Z"
     },
     {
       "lane_id": "LANE-R2A-CLOCK-LINEUPS-INTEGRATION-QA",
@@ -327,8 +327,8 @@
         "OWN-R2B-SHOTS-OUTCOMES-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Sol personal combined warning-clean/focused/full-scene/native-proof/flow/Win32/cross-domain gates all pass at Good-signed 26e6aaf with P0/P1/P2 zero. Sole pinned Luna 019fca5b must finish independent integrity review, then recheck terminal docs and a clean Good-signed terminal descendant before master-only guarded delivery. Main and push remain master-only.",
-      "updated_at": "2026-08-04T01:41:48Z"
+      "next_gate": "Personal and independent evidence at 26e6aaf closed P0/P1/P2 zero, but stable main advanced to accepted TIP 0ef11cf before terminal docs. Use the standing authorization for one Good-signed branch-only reconciliation with R2B lineage first and 0ef11cf second, precompute/audit overlap and tree, rerun affected TIP/full combined gates, then reuse Luna 019fca5b for final signed-tip verification. Main and push remain master-only.",
+      "updated_at": "2026-08-04T01:52:01Z"
     },
     {
       "lane_id": "LANE-R2-DEFENSE-CONTACT",
@@ -351,8 +351,8 @@
         "OWN-R2-DEFENSE-CONTACT"
       ],
       "blockers": [],
-      "next_gate": "Independent QA Luna 019fca60 FAILed d5c5fa9 on one P1 runner-isolation and two P2 provenance/docs findings, with no C/runtime defect. Same worker 019fca31 must bind MSVC output to validated scratch via /Fo, remove and prove absence of the two exact ignored root objects, validate enclosing B06 $B081-$B365 SHA-256 AAA9670D...AE891AE36, and correct stale candidate wording; then create a Good-signed revision and reuse the same pinned QA before any Sol integration.",
-      "updated_at": "2026-08-04T01:39:05Z"
+      "next_gate": "Good-signed corrective candidate 9d6f022 fixes runner scratch /Fo/link isolation and root-object cleanup proof, executable enclosing B06 provenance, and exact docs lineage with no C/header change. Same pinned QA Luna 019fca60 must re-audit the corrected tip and return P0/P1/P2 closure before any Sol ff-only integration.",
+      "updated_at": "2026-08-04T01:56:10Z"
     }
   ]
 }
