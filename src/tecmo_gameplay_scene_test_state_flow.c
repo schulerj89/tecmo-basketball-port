@@ -188,6 +188,170 @@ static bool scene_test_enter_free_throw_sequence(
     return true;
 }
 
+static bool scene_test_player_stats_contract(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *base_launch,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplaySceneLaunch launch;
+    TecmoGameplaySceneLaunch malformed_launch;
+    TecmoGameplayScene snapshot;
+    TecmoGameplayScene failed_shot;
+    TecmoGameplayScene failed_shot_before;
+    TecmoPlayerStatsGameLedger ledger;
+    TecmoPlayerStatsGameLedger live_stats_before;
+    TecmoPlayerStatsGameLedger rejected;
+    TecmoPlayerStatsGameLedger rejected_before;
+    TecmoGameplayScene threshold_before;
+    TecmoGameplayScene threshold_after;
+    TecmoControlFrame neutral;
+    if (scene == NULL || base_launch == NULL) return false;
+    if (scene->active) tecmo_gameplay_scene_end(scene);
+
+    launch = *base_launch;
+    malformed_launch = launch;
+    malformed_launch.home_team = malformed_launch.away_team;
+    snapshot = *scene;
+    if (tecmo_gameplay_scene_launch(scene, &malformed_launch) ||
+        memcmp(scene, &snapshot, sizeof(*scene)) != 0) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "player-stats failed launch mutated scene");
+        return false;
+    }
+
+    tecmo_gameplay_scene_test_set_skip_pretip(true);
+    if (!tecmo_gameplay_scene_launch(scene, &launch)) {
+        tecmo_gameplay_scene_test_set_skip_pretip(false);
+        tecmo_gameplay_scene_test_message(
+            message, message_size, "player-stats launch rejected");
+        return false;
+    }
+    tecmo_gameplay_scene_test_set_skip_pretip(false);
+    if (scene->player_stats.coverage !=
+            TECMO_PLAYER_STATS_IMPLEMENTED_COVERAGE ||
+        !tecmo_player_stats_game_ledger_valid(&scene->player_stats)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size, "player-stats launch ledger invalid");
+        tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    live_stats_before = scene->player_stats;
+    failed_shot = *scene;
+    failed_shot.actors[0U].roster_index = TECMO_PLAYER_STATS_ROSTER_COUNT;
+    failed_shot_before = failed_shot;
+    if (scene_start_shot_actor(&failed_shot, 0U, 0U) ||
+        memcmp(&failed_shot, &failed_shot_before,
+               sizeof(failed_shot)) != 0 ||
+        memcmp(&failed_shot.player_stats, &live_stats_before,
+               sizeof(live_stats_before)) != 0)
+        goto player_stats_failure;
+
+    tecmo_player_stats_game_ledger_initialize(&ledger);
+    for (uint8_t side = 0U;
+         side < TECMO_PLAYER_STATS_GAME_SIDE_COUNT; ++side)
+        for (uint8_t roster = 0U;
+             roster < TECMO_PLAYER_STATS_ROSTER_COUNT; ++roster) {
+            if (!tecmo_player_stats_record_shot_attempt(
+                    &ledger, side, roster, 2U) ||
+                !tecmo_player_stats_record_shot_make(
+                    &ledger, side, roster, 2U) ||
+                !tecmo_player_stats_record_shot_attempt(
+                    &ledger, side, roster, 3U) ||
+                !tecmo_player_stats_record_shot_make(
+                    &ledger, side, roster, 3U) ||
+                !tecmo_player_stats_record_free_throw(
+                    &ledger, side, roster, false) ||
+                !tecmo_player_stats_record_free_throw(
+                    &ledger, side, roster, true) ||
+                ledger.counters[side][roster][
+                    TECMO_PLAYER_STATS_COUNTER_FGA] != 2U ||
+                ledger.counters[side][roster][
+                    TECMO_PLAYER_STATS_COUNTER_FGM] != 2U ||
+                ledger.counters[side][roster][
+                    TECMO_PLAYER_STATS_COUNTER_THREE_PA] != 1U ||
+                ledger.counters[side][roster][
+                    TECMO_PLAYER_STATS_COUNTER_THREE_PM] != 1U ||
+                ledger.counters[side][roster][
+                    TECMO_PLAYER_STATS_COUNTER_FTA] != 2U ||
+                ledger.counters[side][roster][
+                    TECMO_PLAYER_STATS_COUNTER_FTM] != 1U)
+                goto player_stats_failure;
+        }
+    ledger.counters[0U][0U][TECMO_PLAYER_STATS_COUNTER_FGA] = 0xFFU;
+    if (!tecmo_player_stats_record_shot_attempt(
+            &ledger, 0U, 0U, 2U) ||
+        ledger.counters[0U][0U][TECMO_PLAYER_STATS_COUNTER_FGA] != 0U)
+        goto player_stats_failure;
+    for (uint8_t side = 0U;
+         side < TECMO_PLAYER_STATS_GAME_SIDE_COUNT; ++side)
+        for (uint8_t roster = 0U;
+             roster < TECMO_PLAYER_STATS_ROSTER_COUNT; ++roster)
+            for (uint8_t counter = TECMO_PLAYER_STATS_IMPLEMENTED_COUNTER_COUNT;
+                 counter < TECMO_PLAYER_STATS_COUNTER_DIMENSION; ++counter)
+                if (ledger.counters[side][roster][counter] != 0U)
+                    goto player_stats_failure;
+    if (!tecmo_player_stats_game_ledger_valid(&ledger))
+        goto player_stats_failure;
+
+    tecmo_player_stats_game_ledger_clear(&rejected);
+    rejected_before = rejected;
+    if (tecmo_player_stats_record_shot_attempt(&rejected, 0U, 0U, 2U) ||
+        tecmo_player_stats_record_shot_attempt(&rejected, 0U, 0U, 3U) ||
+        tecmo_player_stats_record_shot_make(&rejected, 0U, 0U, 2U) ||
+        tecmo_player_stats_record_shot_make(&rejected, 0U, 0U, 3U) ||
+        tecmo_player_stats_record_free_throw(&rejected, 0U, 0U, false) ||
+        tecmo_player_stats_record_free_throw(&rejected, 0U, 0U, true) ||
+        memcmp(&rejected, &rejected_before, sizeof(rejected)) != 0)
+        goto player_stats_failure;
+    rejected.coverage = 1U;
+    rejected_before = rejected;
+    if (tecmo_player_stats_record_shot_attempt(&rejected, 0U, 0U, 2U) ||
+        tecmo_player_stats_record_shot_attempt(&rejected, 0U, 0U, 3U) ||
+        tecmo_player_stats_record_shot_make(&rejected, 0U, 0U, 2U) ||
+        tecmo_player_stats_record_shot_make(&rejected, 0U, 0U, 3U) ||
+        tecmo_player_stats_record_free_throw(&rejected, 0U, 0U, false) ||
+        tecmo_player_stats_record_free_throw(&rejected, 0U, 0U, true) ||
+        memcmp(&rejected, &rejected_before, sizeof(rejected)) != 0)
+        goto player_stats_failure;
+
+    tecmo_gameplay_scene_end(scene);
+    launch.controller_team[0U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    launch.controller_team[1U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    tecmo_gameplay_scene_test_set_skip_pretip(true);
+    if (!tecmo_gameplay_scene_launch(scene, &launch)) {
+        tecmo_gameplay_scene_test_set_skip_pretip(false);
+        goto player_stats_failure;
+    }
+    tecmo_gameplay_scene_test_set_skip_pretip(false);
+    if (!scene_test_enter_free_throw_sequence(
+            scene, TECMO_GAMEPLAY_TEAM_AWAY, 1U))
+        goto player_stats_failure;
+    scene->free_throw_frame =
+        (uint16_t)(TECMO_GAMEPLAY_FREE_THROW_CPU_OBSERVED_LAUNCH_UPDATES - 1U);
+    scene->player_stats.coverage = 0U;
+    threshold_before = *scene;
+    memset(&neutral, 0, sizeof(neutral));
+    if (tecmo_gameplay_scene_update(scene, &neutral, &neutral))
+        goto player_stats_failure;
+    threshold_after = *scene;
+    memcpy(threshold_after.status, threshold_before.status,
+           sizeof(threshold_after.status));
+    if (memcmp(&threshold_after, &threshold_before,
+               sizeof(threshold_before)) != 0)
+        goto player_stats_failure;
+    tecmo_gameplay_scene_end(scene);
+    return true;
+
+player_stats_failure:
+    tecmo_gameplay_scene_test_set_skip_pretip(false);
+    if (scene->active) tecmo_gameplay_scene_end(scene);
+    tecmo_gameplay_scene_test_message(
+        message, message_size, "player-stats gameplay contract failed");
+    return false;
+}
+
 static bool scene_test_cpu_offense_all_difficulties(
     TecmoGameplayScene *scene,
     const TecmoGameplaySceneLaunch *base_launch,
@@ -2839,6 +3003,18 @@ static bool scene_test_music_and_steal_policy(
                            "native action-serial steal policy diverged");
         return false;
     }
+    for (uint8_t side = 0U;
+         side < TECMO_PLAYER_STATS_GAME_SIDE_COUNT; ++side)
+        for (uint8_t roster = 0U;
+             roster < TECMO_PLAYER_STATS_ROSTER_COUNT; ++roster)
+            for (uint8_t counter = TECMO_PLAYER_STATS_IMPLEMENTED_COUNTER_COUNT;
+                 counter < TECMO_PLAYER_STATS_COUNTER_DIMENSION; ++counter)
+                if (scene->player_stats.counters[side][roster][counter] != 0U) {
+                    tecmo_gameplay_scene_test_message(
+                        message, message_size,
+                        "steal policy emitted unsupported player stats");
+                    return false;
+                }
     tecmo_gameplay_scene_end(scene);
     *launch_input = launch;
     *p1_input = p1;
@@ -2857,6 +3033,7 @@ static bool scene_test_foul_and_away_free_throws(
     TecmoGameplaySceneLaunch launch = *launch_input;
     TecmoControlFrame p1 = *p1_input;
     TecmoControlFrame p2 = *p2_input;
+    uint8_t away_shooter_roster;
     size_t frame;
     if (!tecmo_gameplay_scene_launch(scene, &launch) ||
         !scene_test_free_throw_lineup_unbound(scene)) {
@@ -2924,6 +3101,7 @@ static bool scene_test_foul_and_away_free_throws(
                            "foul dismissal/free-throw handoff failed");
         return false;
     }
+    away_shooter_roster = scene->actors[scene->free_throw_shooter].roster_index;
     tecmo_gameplay_audio_render_samples(&scene->audio_player, NULL, 1024U);
     if (scene->audio_player.sfx_pending ||
         !scene->audio_player.music->playing ||
@@ -2987,6 +3165,10 @@ static bool scene_test_foul_and_away_free_throws(
         scene->state.free_throws.attempts_remaining != 1U ||
         scene->free_throw_frame != 0U || scene->action_serial != 5U ||
         scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY] != 1U ||
+        scene->player_stats.counters[TECMO_GAMEPLAY_TEAM_AWAY][
+            away_shooter_roster][TECMO_PLAYER_STATS_COUNTER_FTA] != 1U ||
+        scene->player_stats.counters[TECMO_GAMEPLAY_TEAM_AWAY][
+            away_shooter_roster][TECMO_PLAYER_STATS_COUNTER_FTM] != 1U ||
         !scene_test_free_throw_lineup_bound(
             scene, 0U, 0U, 5U,
             TECMO_GAMEPLAY_FREE_THROW_ORIENTATION_0_CAMERA_X) ||
@@ -3024,6 +3206,10 @@ static bool scene_test_foul_and_away_free_throws(
         scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
         scene->free_throw_frame != 0U || scene->action_serial != 6U ||
         scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY] != 2U ||
+        scene->player_stats.counters[TECMO_GAMEPLAY_TEAM_AWAY][
+            away_shooter_roster][TECMO_PLAYER_STATS_COUNTER_FTA] != 2U ||
+        scene->player_stats.counters[TECMO_GAMEPLAY_TEAM_AWAY][
+            away_shooter_roster][TECMO_PLAYER_STATS_COUNTER_FTM] != 2U ||
         scene->ball_holder < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
         scene->controlled_actor[1] != scene->ball_holder ||
         !scene->audio_player.sfx_pending ||
@@ -3081,6 +3267,8 @@ static bool scene_test_home_and_cpu_free_throws(
     TecmoGameplaySceneLaunch launch = *launch_input;
     TecmoControlFrame p1 = *p1_input;
     TecmoControlFrame p2 = *p2_input;
+    uint8_t home_shooter_roster;
+    uint8_t cpu_shooter_roster;
     size_t frame;
     /* Home ownership uses its assigned pad, independently of controller index. */
     if (!tecmo_gameplay_scene_launch(scene, &launch) ||
@@ -3091,6 +3279,7 @@ static bool scene_test_home_and_cpu_free_throws(
                            "home free-throw ownership setup failed");
         return false;
     }
+    home_shooter_roster = scene->actors[scene->free_throw_shooter].roster_index;
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
     p1.held.cancel = true;
@@ -3111,6 +3300,10 @@ static bool scene_test_home_and_cpu_free_throws(
         scene->state.free_throws.attempts_remaining != 0U ||
         scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
         scene->state.score[TECMO_GAMEPLAY_TEAM_HOME] != 1U ||
+        scene->player_stats.counters[TECMO_GAMEPLAY_TEAM_HOME][
+            home_shooter_roster][TECMO_PLAYER_STATS_COUNTER_FTA] != 1U ||
+        scene->player_stats.counters[TECMO_GAMEPLAY_TEAM_HOME][
+            home_shooter_roster][TECMO_PLAYER_STATS_COUNTER_FTM] != 1U ||
         scene->ball_holder >= TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
         scene->controlled_actor[0] != scene->ball_holder ||
         scene->action_serial != 1U || scene->free_throw_frame != 0U ||
@@ -3187,6 +3380,15 @@ static bool scene_test_home_and_cpu_free_throws(
                            "CPU free throw missed observed launch update");
         return false;
     }
+    cpu_shooter_roster = scene->actors[scene->free_throw_shooter].roster_index;
+    if (scene->player_stats.counters[TECMO_GAMEPLAY_TEAM_HOME][
+            cpu_shooter_roster][TECMO_PLAYER_STATS_COUNTER_FTA] != 1U ||
+        scene->player_stats.counters[TECMO_GAMEPLAY_TEAM_HOME][
+            cpu_shooter_roster][TECMO_PLAYER_STATS_COUNTER_FTM] != 0U) {
+        tecmo_gameplay_scene_test_message(message, message_size,
+                           "CPU missed free-throw stats attribution failed");
+        return false;
+    }
     tecmo_gameplay_audio_render_samples(&scene->audio_player, NULL, 1024U);
     if (scene->audio_player.sfx_pending ||
         scene->audio_player.current_sfx_id != 13U) {
@@ -3220,6 +3422,10 @@ static bool scene_test_home_and_cpu_free_throws(
         scene->state.free_throws.attempts_remaining != 0U ||
         scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
         scene->state.score[TECMO_GAMEPLAY_TEAM_HOME] != 0U ||
+        scene->player_stats.counters[TECMO_GAMEPLAY_TEAM_HOME][
+            cpu_shooter_roster][TECMO_PLAYER_STATS_COUNTER_FTA] != 2U ||
+        scene->player_stats.counters[TECMO_GAMEPLAY_TEAM_HOME][
+            cpu_shooter_roster][TECMO_PLAYER_STATS_COUNTER_FTM] != 0U ||
         scene->ball_holder >= TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
         scene->controlled_actor[0] != scene->ball_holder ||
         scene->free_throw_frame != 0U || scene->action_serial != 2U ||
@@ -3273,6 +3479,7 @@ static bool scene_test_halftime_and_final_result(
     TecmoControlFrame p1 = *p1_input;
     TecmoControlFrame p2 = *p2_input;
     TecmoGameplaySceneResult result;
+    TecmoPlayerStatsGameLedger expected_stats;
     size_t frame;
     if (!tecmo_gameplay_scene_launch(scene, &launch)) {
         tecmo_gameplay_scene_test_message(message, message_size,
@@ -3342,6 +3549,23 @@ static bool scene_test_halftime_and_final_result(
                            "final gameplay setup failed");
         return false;
     }
+    if (!tecmo_player_stats_record_shot_attempt(
+            &scene->player_stats, TECMO_GAMEPLAY_TEAM_AWAY, 0U, 2U) ||
+        !tecmo_player_stats_record_shot_make(
+            &scene->player_stats, TECMO_GAMEPLAY_TEAM_AWAY, 0U, 2U) ||
+        !tecmo_player_stats_record_shot_attempt(
+            &scene->player_stats, TECMO_GAMEPLAY_TEAM_AWAY, 0U, 3U) ||
+        !tecmo_player_stats_record_shot_make(
+            &scene->player_stats, TECMO_GAMEPLAY_TEAM_AWAY, 0U, 3U) ||
+        !tecmo_player_stats_record_free_throw(
+            &scene->player_stats, TECMO_GAMEPLAY_TEAM_AWAY, 0U, false) ||
+        !tecmo_player_stats_record_free_throw(
+            &scene->player_stats, TECMO_GAMEPLAY_TEAM_AWAY, 0U, true)) {
+        tecmo_gameplay_scene_test_message(message, message_size,
+                           "final player-stats setup failed");
+        return false;
+    }
+    expected_stats = scene->player_stats;
     scene->state.period = 4U;
     scene->state.clock_minutes = 0U;
     scene->state.clock_seconds = 1U;
@@ -3375,7 +3599,10 @@ static bool scene_test_halftime_and_final_result(
         result.game_index != launch.game_index ||
         result.away_team != launch.away_team ||
         result.home_team != launch.home_team ||
-        result.away_score != 4U || result.home_score != 2U) {
+        result.away_score != 4U || result.home_score != 2U ||
+        memcmp(&result.player_stats, &expected_stats,
+               sizeof(expected_stats)) != 0 ||
+        !tecmo_player_stats_game_ledger_valid(&result.player_stats)) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "final result handoff failed");
         return false;
@@ -4601,6 +4828,9 @@ static bool scene_test_run_bound_close_terminal_case(
     TecmoGameplayTeam shooting_team;
     TecmoGameplayTeam claimant_team;
     uint16_t score_before[TECMO_GAMEPLAY_TEAM_COUNT];
+    uint8_t points;
+    uint8_t stat_team;
+    uint8_t stat_roster;
     unsigned updates = 0U;
     if (scene == NULL || neutral == NULL ||
         !scene_shot_is_close(scene->shot_kind) ||
@@ -4613,6 +4843,19 @@ static bool scene_test_run_bound_close_terminal_case(
         return false;
     }
     shooting_team = (TecmoGameplayTeam)scene->actors[scene->shot_actor].team;
+    points = scene->shot_points;
+    stat_team = scene->shot_actor_team;
+    stat_roster = scene->shot_actor_roster_index;
+    if (stat_team >= TECMO_GAMEPLAY_TEAM_COUNT ||
+        stat_roster >= TECMO_PLAYER_STATS_ROSTER_COUNT ||
+        scene->player_stats.counters[stat_team][stat_roster][
+            TECMO_PLAYER_STATS_COUNTER_FGA] != 1U ||
+        scene->player_stats.counters[stat_team][stat_roster][
+            TECMO_PLAYER_STATS_COUNTER_THREE_PA] !=
+            (points == 3U ? 1U : 0U)) {
+        scene_test_terminal_detail = 2U;
+        return false;
+    }
     score_before[TECMO_GAMEPLAY_TEAM_AWAY] =
         scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY];
     score_before[TECMO_GAMEPLAY_TEAM_HOME] =
@@ -4655,7 +4898,7 @@ static bool scene_test_run_bound_close_terminal_case(
     }
     {
         unsigned final_failure = 0U;
-        uint8_t points = scene->shot_points;
+        uint8_t settled_points = scene->shot_points;
         if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
             final_failure |= 1U;
         }
@@ -4665,7 +4908,7 @@ static bool scene_test_run_bound_close_terminal_case(
                 (desired_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE &&
                  shooting_team == TECMO_GAMEPLAY_TEAM_AWAY
                      ? (uint16_t)(score_before[TECMO_GAMEPLAY_TEAM_AWAY] +
-                                  points)
+                                  settled_points)
                      : score_before[TECMO_GAMEPLAY_TEAM_AWAY])) {
             final_failure |= 8U;
         }
@@ -4673,13 +4916,21 @@ static bool scene_test_run_bound_close_terminal_case(
                 (desired_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE &&
                  shooting_team == TECMO_GAMEPLAY_TEAM_HOME
                      ? (uint16_t)(score_before[TECMO_GAMEPLAY_TEAM_HOME] +
-                                  points)
+                                  settled_points)
                      : score_before[TECMO_GAMEPLAY_TEAM_HOME])) {
             final_failure |= 16U;
         }
         if (scene->state.possession != claimant_team) final_failure |= 32U;
         if (desired_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MISS &&
             scene->ball_holder != 1U) final_failure |= 64U;
+        if (scene->player_stats.counters[stat_team][stat_roster][
+                TECMO_PLAYER_STATS_COUNTER_FGM] !=
+                (desired_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE ? 1U : 0U) ||
+            scene->player_stats.counters[stat_team][stat_roster][
+                TECMO_PLAYER_STATS_COUNTER_THREE_PM] !=
+                (desired_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE &&
+                 settled_points == 3U ? 1U : 0U))
+            final_failure |= 128U;
         if (final_failure != 0U) {
             scene_test_terminal_detail = 20000U + updates * 128U +
                 final_failure;
@@ -4707,6 +4958,8 @@ static bool scene_test_run_bound_approximate_make_terminal(
     TecmoGameplayTeam shooting_team;
     uint16_t score_before[TECMO_GAMEPLAY_TEAM_COUNT];
     uint8_t points;
+    uint8_t stat_team;
+    uint8_t stat_roster;
     unsigned updates = 0U;
     if (scene == NULL || base_launch == NULL || neutral == NULL ||
         !scene_test_find_approx_make(scene, base_launch, 2U,
@@ -4728,6 +4981,16 @@ static bool scene_test_run_bound_approximate_make_terminal(
     }
     shooting_team = (TecmoGameplayTeam)scene->actors[scene->shot_actor].team;
     points = scene->shot_points;
+    stat_team = scene->shot_actor_team;
+    stat_roster = scene->shot_actor_roster_index;
+    if (stat_team >= TECMO_GAMEPLAY_TEAM_COUNT ||
+        stat_roster >= TECMO_PLAYER_STATS_ROSTER_COUNT ||
+        scene->player_stats.counters[stat_team][stat_roster][
+            TECMO_PLAYER_STATS_COUNTER_FGA] != 1U ||
+        scene->player_stats.counters[stat_team][stat_roster][
+            TECMO_PLAYER_STATS_COUNTER_THREE_PA] !=
+            (points == 3U ? 1U : 0U))
+        return false;
     score_before[TECMO_GAMEPLAY_TEAM_AWAY] =
         scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY];
     score_before[TECMO_GAMEPLAY_TEAM_HOME] =
@@ -4765,6 +5028,12 @@ static bool scene_test_run_bound_approximate_make_terminal(
         scene->state.possession != scene_other_team(shooting_team)) {
         return false;
     }
+    if (scene->player_stats.counters[stat_team][stat_roster][
+            TECMO_PLAYER_STATS_COUNTER_FGM] != 1U ||
+        scene->player_stats.counters[stat_team][stat_roster][
+            TECMO_PLAYER_STATS_COUNTER_THREE_PM] !=
+            (points == 3U ? 1U : 0U))
+        return false;
     if (desired_selector == 1 && scene->shot_rim_rattle_selected) {
         return false;
     }
@@ -4809,6 +5078,8 @@ static bool scene_test_production_terminal_scenarios(
     unsigned scenario;
     bool exact_make_found = false;
     TecmoGameplayTeam exact_team = TECMO_GAMEPLAY_TEAM_AWAY;
+    uint8_t exact_stat_team = 0U;
+    uint8_t exact_stat_roster = 0U;
     unsigned exact_seen_mask = 0U;
     scene_test_terminal_failure = 0U;
     scene_test_terminal_detail = 0U;
@@ -4889,6 +5160,8 @@ static bool scene_test_production_terminal_scenarios(
                         scene_ownership_valid(scene)) {
                         exact_make_found = true;
                         exact_team = (TecmoGameplayTeam)team;
+                        exact_stat_team = scene->shot_actor_team;
+                        exact_stat_roster = scene->shot_actor_roster_index;
                     } else {
                         tecmo_gameplay_scene_end(scene);
                     }
@@ -4898,6 +5171,20 @@ static bool scene_test_production_terminal_scenarios(
     }
     if (!exact_make_found) {
         scene_test_terminal_failure = 1000U + exact_seen_mask;
+        return false;
+    }
+    if (exact_stat_team >= TECMO_GAMEPLAY_TEAM_COUNT ||
+        exact_stat_roster >= TECMO_PLAYER_STATS_ROSTER_COUNT ||
+        scene->player_stats.counters[exact_stat_team][exact_stat_roster][
+            TECMO_PLAYER_STATS_COUNTER_FGA] != 1U ||
+        scene->player_stats.counters[exact_stat_team][exact_stat_roster][
+            TECMO_PLAYER_STATS_COUNTER_THREE_PA] != 1U ||
+        scene->player_stats.counters[exact_stat_team][exact_stat_roster][
+            TECMO_PLAYER_STATS_COUNTER_FGM] != 0U ||
+        scene->player_stats.counters[exact_stat_team][exact_stat_roster][
+            TECMO_PLAYER_STATS_COUNTER_THREE_PM] != 0U) {
+        scene_test_terminal_failure = 1001U;
+        tecmo_gameplay_scene_end(scene);
         return false;
     }
 
@@ -5023,6 +5310,14 @@ static bool scene_test_production_terminal_scenarios(
         scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         scene->actors[scene->ball_holder].team !=
             (uint8_t)scene_other_team(exact_team) ||
+        scene->player_stats.counters[exact_stat_team][exact_stat_roster][
+            TECMO_PLAYER_STATS_COUNTER_FGA] != 1U ||
+        scene->player_stats.counters[exact_stat_team][exact_stat_roster][
+            TECMO_PLAYER_STATS_COUNTER_THREE_PA] != 1U ||
+        scene->player_stats.counters[exact_stat_team][exact_stat_roster][
+            TECMO_PLAYER_STATS_COUNTER_FGM] != 1U ||
+        scene->player_stats.counters[exact_stat_team][exact_stat_roster][
+            TECMO_PLAYER_STATS_COUNTER_THREE_PM] != 1U ||
         !scene_shot_state_valid(scene) || !scene_ownership_valid(scene)) {
         scene_test_terminal_failure = 170U;
         tecmo_gameplay_scene_end(scene);
@@ -5093,6 +5388,8 @@ static bool scene_test_production_terminal_scenarios(
             uint32_t trace = 0U;
             unsigned updates = 0U;
             uint8_t max_repeats = 0U;
+            uint8_t miss_stat_team;
+            uint8_t miss_stat_roster;
             bool tail_corruption_checked = false;
             uint16_t miss_score_before[TECMO_GAMEPLAY_TEAM_COUNT];
             miss_score_before[TECMO_GAMEPLAY_TEAM_AWAY] =
@@ -5110,6 +5407,22 @@ static bool scene_test_production_terminal_scenarios(
             scene->actors[1U].position = endpoint;
             scene->actors[1U].anchor = endpoint;
             miss_team = (TecmoGameplayTeam)scene->actors[1U].team;
+            miss_stat_team = scene->shot_actor_team;
+            miss_stat_roster = scene->shot_actor_roster_index;
+            if (miss_stat_team >= TECMO_GAMEPLAY_TEAM_COUNT ||
+                miss_stat_roster >= TECMO_PLAYER_STATS_ROSTER_COUNT ||
+                scene->player_stats.counters[miss_stat_team][miss_stat_roster][
+                    TECMO_PLAYER_STATS_COUNTER_FGA] != 1U ||
+                scene->player_stats.counters[miss_stat_team][miss_stat_roster][
+                    TECMO_PLAYER_STATS_COUNTER_THREE_PA] != 1U ||
+                scene->player_stats.counters[miss_stat_team][miss_stat_roster][
+                    TECMO_PLAYER_STATS_COUNTER_FGM] != 0U ||
+                scene->player_stats.counters[miss_stat_team][miss_stat_roster][
+                    TECMO_PLAYER_STATS_COUNTER_THREE_PM] != 0U) {
+                scene_test_terminal_failure = 209U + scenario;
+                tecmo_gameplay_scene_end(scene);
+                return false;
+            }
             malformed = *scene;
             malformed.ball_position.x_q8 += 1;
             snapshot = malformed;
@@ -5178,6 +5491,14 @@ static bool scene_test_production_terminal_scenarios(
                     miss_score_before[TECMO_GAMEPLAY_TEAM_AWAY] ||
                 scene->state.score[TECMO_GAMEPLAY_TEAM_HOME] !=
                     miss_score_before[TECMO_GAMEPLAY_TEAM_HOME] ||
+                scene->player_stats.counters[miss_stat_team][miss_stat_roster][
+                    TECMO_PLAYER_STATS_COUNTER_FGA] != 1U ||
+                scene->player_stats.counters[miss_stat_team][miss_stat_roster][
+                    TECMO_PLAYER_STATS_COUNTER_THREE_PA] != 1U ||
+                scene->player_stats.counters[miss_stat_team][miss_stat_roster][
+                    TECMO_PLAYER_STATS_COUNTER_FGM] != 0U ||
+                scene->player_stats.counters[miss_stat_team][miss_stat_roster][
+                    TECMO_PLAYER_STATS_COUNTER_THREE_PM] != 0U ||
                 updates != miss_expected_updates[scenario] ||
                 (scenario == 3U && max_repeats != 3U) ||
                 (scenario != 3U && !tail_corruption_checked) ||
@@ -5782,6 +6103,8 @@ static bool scene_test_approximate_make_physics(
     bool saw_landing = false;
     bool saw_score = false;
     bool settlement_one_point = desired_points == 1U;
+    uint8_t settlement_stat_team = 0U;
+    uint8_t settlement_stat_roster = 0U;
     if (!scene_test_find_approx_make(
             scene, base_launch,
             settlement_one_point ? 0U : desired_points, -1)) {
@@ -5793,6 +6116,18 @@ static bool scene_test_approximate_make_physics(
            claim that the production selector emits free throws here. */
         if (!scene_test_settlement_one_point_fields(scene) ||
             !scene_ownership_valid(scene)) return false;
+        settlement_stat_team = scene->shot_actor_team;
+        settlement_stat_roster = scene->shot_actor_roster_index;
+        if (settlement_stat_team >= TECMO_GAMEPLAY_TEAM_COUNT ||
+            settlement_stat_roster >= TECMO_PLAYER_STATS_ROSTER_COUNT ||
+            scene->player_stats.counters[settlement_stat_team][
+                settlement_stat_roster][TECMO_PLAYER_STATS_COUNTER_FGA] != 1U ||
+            scene->player_stats.counters[settlement_stat_team][
+                settlement_stat_roster][TECMO_PLAYER_STATS_COUNTER_FGM] != 0U ||
+            scene->player_stats.counters[settlement_stat_team][
+                settlement_stat_roster][TECMO_PLAYER_STATS_COUNTER_THREE_PM] !=
+                0U)
+            return false;
     } else if (scene->shot_points != desired_points && desired_points != 0U) {
         return false;
     }
@@ -5868,6 +6203,13 @@ static bool scene_test_approximate_make_physics(
             (uint16_t)(score_before + scene->shot_points) || !saw_score) {
         return false;
     }
+    if (settlement_one_point &&
+        (scene->player_stats.counters[settlement_stat_team][
+             settlement_stat_roster][TECMO_PLAYER_STATS_COUNTER_FGM] != 1U ||
+         scene->player_stats.counters[settlement_stat_team][
+             settlement_stat_roster][TECMO_PLAYER_STATS_COUNTER_THREE_PM] !=
+             0U))
+        return false;
 
     /* The public update wrapper rejects malformed schedule, state, and
        approximate-settlement markers transactionally before any step/audio. */
@@ -6327,6 +6669,8 @@ bool tecmo_gameplay_scene_test_state_flow(
         !scene_test_halftime_and_final_result(
             scene, &launch, &p1, &p2, message, message_size) ||
         !scene_test_owned_shot_boundary(
+            scene, &launch, message, message_size) ||
+        !scene_test_player_stats_contract(
             scene, &launch, message, message_size)) {
         tecmo_gameplay_scene_destroy(scene);
         return false;

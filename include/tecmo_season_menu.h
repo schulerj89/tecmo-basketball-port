@@ -3,6 +3,7 @@
 
 #include "tecmo_controls.h"
 #include "tecmo_framebuffer.h"
+#include "tecmo_player_stats.h"
 #include "tecmo_start_game_menu.h"
 #include "tecmo_team_data.h"
 
@@ -116,6 +117,8 @@ typedef struct TecmoSeasonSession {
     uint8_t wins[TECMO_SEASON_TEAM_COUNT];
     uint8_t losses[TECMO_SEASON_TEAM_COUNT];
     uint16_t schedule_index;
+    uint16_t player_stats_coverage;
+    TecmoPlayerStatsSeasonTotals player_stats_totals;
     bool dirty;
     TecmoSeasonSaveStatus save_status;
     char save_path[1024];
@@ -185,6 +188,7 @@ typedef struct TecmoSeasonGameResult {
     uint8_t away_team;
     uint8_t home_team;
     bool overtime;
+    TecmoPlayerStatsGameLedger player_stats;
 } TecmoSeasonGameResult;
 
 typedef struct TecmoSeasonPendingGame {

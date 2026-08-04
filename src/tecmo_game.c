@@ -1076,6 +1076,7 @@ static void update_court(TecmoRuntime *runtime,
         season_result.away_score = result.away_score;
         season_result.home_score = result.home_score;
         season_result.overtime = result.overtime_count != 0U;
+        season_result.player_stats = result.player_stats;
         if (tecmo_season_commit_game_result(
                 &runtime->season_state, &runtime->season_asset,
                 &runtime->season_session, &season_result)) {

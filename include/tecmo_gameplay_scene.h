@@ -26,6 +26,7 @@
 #include "tecmo_gameplay_state.h"
 #include "tecmo_intro_post_arena.h"
 #include "tecmo_music.h"
+#include "tecmo_player_stats.h"
 #include "tecmo_team_data.h"
 
 #include <stdbool.h>
@@ -100,6 +101,7 @@ typedef struct TecmoGameplaySceneResult {
     uint16_t away_score;
     uint16_t home_score;
     uint8_t overtime_count;
+    TecmoPlayerStatsGameLedger player_stats;
 } TecmoGameplaySceneResult;
 
 typedef struct TecmoGameplaySceneActor {
@@ -234,6 +236,7 @@ typedef struct TecmoGameplayScene {
        normalized to the identity lineup. It is not caller-controlled. */
     bool legacy_direct_launch;
     TecmoGameplaySceneResult result;
+    TecmoPlayerStatsGameLedger player_stats;
 
     TecmoGameplaySceneActor actors[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     TecmoGameplaySceneCpuActor
