@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T01:20:56Z",
+  "updated_at": "2026-08-04T01:26:15Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -1422,10 +1422,11 @@
         "sol_signoff": false,
         "integration_signoff": false,
         "test_records": [
-          "2026-08-04T00:27:29Z Sol and two independent read-only Luna audits reconciled the canonical Rev1 B06 $B081-$B108, B05 $9968-$999E, and B05 $9A24-$9A5F raw contracts, rejected semantic outcome labeling and existing TGAI/TPNL expansion, and proved the proposed three new paths collision-free. Master independently rechecked the files, branch, worktree path, and Git worktree registry as absent/collision-free before granting the raw-foundation scope."
+          "2026-08-04T00:27:29Z Sol and two independent read-only Luna audits reconciled the canonical Rev1 B06 $B081-$B108, B05 $9968-$999E, and B05 $9A24-$9A5F raw contracts, rejected semantic outcome labeling and existing TGAI/TPNL expansion, and proved the proposed three new paths collision-free. Master independently rechecked the files, branch, worktree path, and Git worktree registry as absent/collision-free before granting the raw-foundation scope.",
+          "2026-08-04T01:26:15Z Sol personally accepted Good-signed candidate d5c5fa9 (tree fcfd0c3, sole parent edf16ca) after exact eight-path ownership, diff-check, clean-tree, isolated MSVC C11 /W4 /WX, canonical Rev1 fingerprint/span, B081 scan, $9968 carry/borrow geometry, raw-$17 plan, transactional rollback/repeatability, and read-only boundary gates all passed. The candidate remains a focused raw/neutral foundation with no normal-build, scene, Shots, asset, source-map, semantic-outcome, staging, main, or push claim."
         ],
         "proof_manifests": [],
-        "notes": "Must cover human/CPU, both orientations, failure gates, raw PC/RAM/address evidence, exact fingerprints, deterministic reruns, and pure transactional rollback. This scope does not authorize semantic outcome labels, normal executable integration, or any scene/asset/source-map mutation."
+        "notes": "Good-signed focused candidate d5c5fa9 is personally accepted as the pre-QA last-good. Independent terminal Luna/max QA must now verify exact object/signature/scope, raw oracles/fingerprints, transactional/fail-closed behavior, docs/classifications, and every exclusion. This scope does not authorize semantic outcome labels, normal executable integration, or any scene/asset/source-map mutation."
       },
       "merge": {
         "staging_branch": "codex/round-2-gameplay-mechanics-staging",
@@ -1438,7 +1439,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-04T00:34:47Z",
+      "updated_at": "2026-08-04T01:26:15Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
