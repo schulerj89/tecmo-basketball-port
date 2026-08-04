@@ -76,10 +76,25 @@ every orchestrator and worker before work begins.
 - Sol orchestrators own Luna assignment, retry, revision, review, tests, proof,
   merge into their domain branch, and lineage reporting.
 - Internal collaboration/sub-agent tools are prohibited for this program.
+- A user-authorized account/security setup may use one bounded projectless
+  `gpt-5.6-sol`, thinking `high`, security operator. It reports directly to the
+  master, owns no product round/task/branch/worktree, never receives product
+  implementation authority, and is unpinned after its setup result is recorded.
 - Every active task is pinned and clearly titled with Tecmo, round, domain/task,
   role, and model tier.
 - Session identifiers, worktrees, branches, pin state, lineage, failure counts,
   replacement lineage, and last-good SHAs are committed in `state/sessions.json`.
+
+## Scheduling Capacity
+
+`state/schedule.json` is the durable lane and capacity registry. The normal
+target is four concurrently active domain Sol orchestrators, with at most eight
+Sol targets in a single master monitoring call. A lane is created only after
+dependencies, base SHA, branch, worktree, and exclusive ownership are reserved.
+The master may raise or lower the target based on proven writable overlap or
+external limits, but must record the reason. A second concurrent master is
+forbidden because it would split queue, merge, and push authority; another Sol
+may replace the master only through the documented recovery path.
 
 ## Full Subsystem Inventory Method
 
@@ -126,6 +141,14 @@ it. Rounds are dependency-aware. Concurrent tasks must have disjoint writable
 ownership. Shared boundaries are sequential or owned by a designated boundary
 task.
 
+An accepted, dependency-safe slice must not sit behind unrelated unfinished
+work. The master may split it into a letter-suffixed delivery subround (for
+example `R1A`) when the user authorizes incremental delivery. A subround freezes
+its own exact task set, staging SHA, merge order, Integration QA Sol, acceptance
+record, and one non-force main push. Remaining work stays in the parent round
+with fresh base and staging metadata after the subround push. No product task is
+duplicated across rounds and no subround bypasses Integration QA.
+
 ## Task Lifecycle
 
 The canonical state machine is `state/state-machine.json`:
@@ -147,10 +170,17 @@ new state. The transition tool rejects an unpermitted edge.
    commits, and declared merge order.
 5. Validators reject duplicate task/session/thread/worktree/branch IDs,
    dependency cycles, missing references, glob overlap, and active registry
-   collisions.
-6. Lineage validation checks that bases and result commits exist and that each
+   collisions. A task cannot enter an active execution state until every
+   dependency has reached Sol acceptance or a later state. Reported writable
+   Luna contexts participate in the same branch/worktree collision and Git
+   lineage checks as Sol/master contexts; read-only Lunas keep both fields null.
+6. One Sol may reuse one exact domain branch/worktree for explicitly
+   dependency-ordered tasks in the same round only after the earlier task has
+   left every writable, revision, review, or blocked state. Ownership claims
+   remain disjoint, and concurrent writable reuse is rejected.
+7. Lineage validation checks that bases and result commits exist and that each
    branch/result descends from its expected base.
-7. The master does not improvise product conflict resolution. Overlap or merge
+8. The master does not improvise product conflict resolution. Overlap or merge
    conflicts are sent back for rescoping to the responsible Sols, or to a
    bounded Sol boundary orchestrator created by the master.
 
@@ -168,7 +198,8 @@ master does not rerun product tests.
 
 ## Round Merge and Push Gate
 
-1. Freeze the round task set, merge order, expected parents, and staging branch.
+1. Freeze the round or authorized delivery-subround task set, merge order,
+   expected parents, and staging branch.
 2. Verify remote `origin/main` has not advanced unexpectedly.
 3. Merge only signed Sol-accepted domain commits in declared order.
 4. Create a dedicated top-level Sol Max Round Integration QA orchestrator on
@@ -176,9 +207,9 @@ master does not rerun product tests.
 5. Require its signed full-suite/rebuild/video/frame/audio/cross-domain report.
 6. Move the round to `ready_for_main` only after that report is committed and
    its accepted staging SHA is exact.
-7. Fast-forward or merge the complete round into `main`; never cherry-pick an
-   unsigned fragment.
-8. Push `origin/main` once for the accepted round, without force.
+7. Fast-forward or merge the complete frozen round/subround into `main`; never
+   cherry-pick an unsigned fragment.
+8. Push `origin/main` once for the accepted round/subround, without force.
 9. Record pre-main SHA, merge commits, post-main SHA, remote SHA, push result,
    and acceptance timestamp.
 

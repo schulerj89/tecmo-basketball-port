@@ -1,58 +1,1002 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T04:47:45Z",
+  "updated_at": "2026-08-04T19:27:46Z",
   "claims": [
     {
-      "claim_id":"OWN-R0-CTRL","task_id":"R0-CTRL-001","round_id":"R0","session_id":"S-MASTER-001","mode":"exclusive",
-      "writable_globs":["docs/finish-orchestration/**","tools/finish-orchestration/**"],
-      "planned_paths":["docs/finish-orchestration/MASTER_PLAN.md","tools/finish-orchestration/orchestration.py"],
-      "concurrency_group":"R0-control-plane","active":false,"claimed_at":"2026-08-03T04:18:18Z","released_at":"2026-08-03T04:39:00Z",
-      "notes":"Coordination-only ownership released after the verified Round 0 push."
+      "claim_id": "OWN-R0-CTRL",
+      "task_id": "R0-CTRL-001",
+      "round_id": "R0",
+      "session_id": "S-MASTER-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-orchestration/**",
+        "tools/finish-orchestration/**"
+      ],
+      "planned_paths": [
+        "docs/finish-orchestration/MASTER_PLAN.md",
+        "tools/finish-orchestration/orchestration.py"
+      ],
+      "concurrency_group": "R0-control-plane",
+      "active": false,
+      "claimed_at": "2026-08-03T04:18:18Z",
+      "released_at": "2026-08-03T04:39:00Z",
+      "notes": "Coordination-only ownership released after the verified Round 0 push."
     },
     {
-      "claim_id":"OWN-R0A-INV","task_id":"R0A-INV-001","round_id":"R0A","session_id":"S-MASTER-001","mode":"exclusive",
-      "writable_globs":["docs/finish-orchestration/**","docs/finish-tasks/**","tools/finish-orchestration/**"],
-      "planned_paths":["docs/finish-orchestration/state/inventory.json","docs/finish-tasks/R0A-inventory/README.md","docs/finish-orchestration/dashboard.md"],
-      "concurrency_group":"R0A-inventory","active":true,"claimed_at":"2026-08-03T04:47:45Z","released_at":null,
-      "notes":"Coordination-only inventory/adoption ownership; no product source or product test files."
+      "claim_id": "OWN-R0A-INV",
+      "task_id": "R0A-INV-001",
+      "round_id": "R0A",
+      "session_id": "S-MASTER-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-orchestration/**",
+        "docs/finish-tasks/**",
+        "tools/finish-orchestration/**"
+      ],
+      "planned_paths": [
+        "docs/finish-orchestration/state/inventory.json",
+        "docs/finish-tasks/R0A-inventory/README.md",
+        "docs/finish-orchestration/dashboard.md"
+      ],
+      "concurrency_group": "R0A-inventory",
+      "active": false,
+      "claimed_at": "2026-08-03T04:47:45Z",
+      "released_at": "2026-08-03T05:30:16Z",
+      "notes": "Coordination-only inventory/adoption ownership released after the verified Round 0A push."
     },
     {
-      "claim_id":"OWN-R0A-HIST-CPU-TIP","task_id":"R0A-ADOPT-CPU-TIP","round_id":"R0A","session_id":"S-SOL-CPU-TIP-LEGACY","mode":"shared_sequential",
-      "writable_globs":["include/tecmo_gameplay_cpu_steering.h","include/tecmo_gameplay_pretip.h","src/tecmo_gameplay_cpu_steering.c","src/tecmo_gameplay_pretip.c","src/tecmo_gameplay_scene*.c","src/asset_pack/tecmo_asset_pack_gameplay_pretip.c","src/asset_pack/tecmo_asset_pack_source_map.c","README.md","PORTING.md","AGENTS.md"],
-      "planned_paths":["src/tecmo_gameplay_scene_actors.c","src/tecmo_gameplay_scene_test_pretip.c"],
-      "concurrency_group":"historical-sequential-product","active":false,"claimed_at":"2026-08-02T01:24:21Z","released_at":"2026-08-02T15:18:42Z",
-      "notes":"Reconstructed historical ownership. Work is already represented in main; claim is inactive and must not be reused."
+      "claim_id": "OWN-R0A-HIST-CPU-TIP",
+      "task_id": "R0A-ADOPT-CPU-TIP",
+      "round_id": "R0A",
+      "session_id": "S-SOL-CPU-TIP-LEGACY",
+      "mode": "shared_sequential",
+      "writable_globs": [
+        "include/tecmo_gameplay_cpu_steering.h",
+        "include/tecmo_gameplay_pretip.h",
+        "src/tecmo_gameplay_cpu_steering.c",
+        "src/tecmo_gameplay_pretip.c",
+        "src/tecmo_gameplay_scene*.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_pretip.c",
+        "src/asset_pack/tecmo_asset_pack_source_map.c",
+        "README.md",
+        "PORTING.md",
+        "AGENTS.md"
+      ],
+      "planned_paths": [
+        "src/tecmo_gameplay_scene_actors.c",
+        "src/tecmo_gameplay_scene_test_pretip.c"
+      ],
+      "concurrency_group": "historical-sequential-product",
+      "active": false,
+      "claimed_at": "2026-08-02T01:24:21Z",
+      "released_at": "2026-08-02T15:18:42Z",
+      "notes": "Reconstructed historical ownership. Work is already represented in main; claim is inactive and must not be reused."
     },
     {
-      "claim_id":"OWN-R0A-HIST-TIP-VIS","task_id":"R0A-ADOPT-TIP-VIS","round_id":"R0A","session_id":"S-SOL-TIP-VIS-LEGACY","mode":"shared_sequential",
-      "writable_globs":["include/tecmo_gameplay_pretip.h","src/tecmo_gameplay_pretip.c","src/tecmo_gameplay_scene*.c","src/tecmo_win32_keys.c","src/asset_pack/tecmo_asset_pack_gameplay_pretip.c","src/asset_pack/tecmo_asset_pack_source_map.c","tools/New-TipoffVisualProof.ps1","tools/Run-GameplayPreTipTests.ps1","README.md","PORTING.md","AGENTS.md"],
-      "planned_paths":["src/tecmo_gameplay_scene_render.c","src/tecmo_cli_render_gameplay_checkpoint.c"],
-      "concurrency_group":"historical-sequential-product","active":false,"claimed_at":"2026-08-02T03:25:25Z","released_at":"2026-08-02T23:44:52Z",
-      "notes":"Reconstructed historical sequential/shared-boundary ownership. Already represented in main."
+      "claim_id": "OWN-R0A-HIST-TIP-VIS",
+      "task_id": "R0A-ADOPT-TIP-VIS",
+      "round_id": "R0A",
+      "session_id": "S-SOL-TIP-VIS-LEGACY",
+      "mode": "shared_sequential",
+      "writable_globs": [
+        "include/tecmo_gameplay_pretip.h",
+        "src/tecmo_gameplay_pretip.c",
+        "src/tecmo_gameplay_scene*.c",
+        "src/tecmo_win32_keys.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_pretip.c",
+        "src/asset_pack/tecmo_asset_pack_source_map.c",
+        "tools/New-TipoffVisualProof.ps1",
+        "tools/Run-GameplayPreTipTests.ps1",
+        "README.md",
+        "PORTING.md",
+        "AGENTS.md"
+      ],
+      "planned_paths": [
+        "src/tecmo_gameplay_scene_render.c",
+        "src/tecmo_cli_render_gameplay_checkpoint.c"
+      ],
+      "concurrency_group": "historical-sequential-product",
+      "active": false,
+      "claimed_at": "2026-08-02T03:25:25Z",
+      "released_at": "2026-08-02T23:44:52Z",
+      "notes": "Reconstructed historical sequential/shared-boundary ownership. Already represented in main."
     },
     {
-      "claim_id":"OWN-R0A-HIST-AWAY","task_id":"R0A-ADOPT-AWAY-FACING","round_id":"R0A","session_id":"S-SOL-AWAY-FACING-LEGACY","mode":"exclusive",
-      "writable_globs":["src/tecmo_gameplay_scene_render.c","src/tecmo_gameplay_scene_test_render_contract.c","PORTING.md"],
-      "planned_paths":["src/tecmo_gameplay_scene_render.c","src/tecmo_gameplay_scene_test_render_contract.c"],
-      "concurrency_group":"historical-away-facing","active":false,"claimed_at":"2026-08-02T23:57:34Z","released_at":"2026-08-03T01:56:31Z",
-      "notes":"Reconstructed focused historical ownership. Worktree/branch were removed after proof preservation."
+      "claim_id": "OWN-R0A-HIST-AWAY",
+      "task_id": "R0A-ADOPT-AWAY-FACING",
+      "round_id": "R0A",
+      "session_id": "S-SOL-AWAY-FACING-LEGACY",
+      "mode": "exclusive",
+      "writable_globs": [
+        "src/tecmo_gameplay_scene_render.c",
+        "src/tecmo_gameplay_scene_test_render_contract.c",
+        "PORTING.md"
+      ],
+      "planned_paths": [
+        "src/tecmo_gameplay_scene_render.c",
+        "src/tecmo_gameplay_scene_test_render_contract.c"
+      ],
+      "concurrency_group": "historical-away-facing",
+      "active": false,
+      "claimed_at": "2026-08-02T23:57:34Z",
+      "released_at": "2026-08-03T01:56:31Z",
+      "notes": "Reconstructed focused historical ownership. Worktree/branch were removed after proof preservation."
+    },
+    {
+      "claim_id": "OWN-R1-CPU-PLAY",
+      "task_id": "R1-CPU-PLAY-LIFECYCLE",
+      "round_id": "R1A",
+      "session_id": "S-SOL-R1-GAMEPLAY-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "include/tecmo_gameplay_cpu_*.h",
+        "src/tecmo_gameplay_cpu_*.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_cpu_*.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_cpu_*.h",
+        "tools/Run-GameplayCpuSteeringTests.ps1",
+        "tools/gameplay-lab/**",
+        "docs/finish-tasks/R1-cpu-play-lifecycle/**"
+      ],
+      "planned_paths": [
+        "src/tecmo_gameplay_cpu_steering.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_cpu_steering.c",
+        "docs/finish-tasks/R1-cpu-play-lifecycle/README.md"
+      ],
+      "concurrency_group": "R1-gameplay-foundation",
+      "active": false,
+      "claimed_at": "2026-08-03T05:30:16Z",
+      "released_at": "2026-08-03T11:18:38Z",
+      "notes": "Released after terminal ad0f005 was Sol/QA accepted, fast-forwarded into the Sol branch, recorded as ready for Round 1 staging, and both CPU Lunas were unpinned."
+    },
+    {
+      "claim_id": "OWN-R1-LIVE",
+      "task_id": "R1-LIVE-FOUNDATION",
+      "round_id": "R1A",
+      "session_id": "S-SOL-R1-GAMEPLAY-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "CMakeLists.txt",
+        "include/tecmo_gameplay_scene.h",
+        "include/tecmo_gameplay_scene_internal.h",
+        "include/tecmo_gameplay_state.h",
+        "include/tecmo_gameplay_movement.h",
+        "include/tecmo_gameplay_live_*.h",
+        "src/tecmo_gameplay_scene.c",
+        "src/tecmo_gameplay_scene_actors.c",
+        "src/tecmo_gameplay_scene_validation.c",
+        "src/tecmo_gameplay_scene_test_internal.h",
+        "src/tecmo_gameplay_scene_test_orchestrator.c",
+        "src/tecmo_gameplay_scene_test_state_flow.c",
+        "src/tecmo_gameplay_state.c",
+        "src/tecmo_gameplay_movement.c",
+        "src/tecmo_gameplay_live_*.c",
+        "src/tecmo_cli_gameplay_core.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_movement.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_movement.h",
+        "src/asset_pack/tecmo_asset_pack_source_map.c",
+        "src/asset_pack/tecmo_asset_pack_source_map.h",
+        "src/asset_pack/tecmo_asset_pack_import_layout.h",
+        "tools/Run-GameplayMovementTests.ps1",
+        "tools/Run-GameplaySceneTests.ps1",
+        "docs/finish-tasks/R1-live-foundation/**",
+        "src/tecmo_game.c",
+        "src/tecmo_flow_test.c",
+        "build.ps1"
+      ],
+      "planned_paths": [
+        "src/tecmo_gameplay_scene.c",
+        "src/tecmo_gameplay_scene_actors.c",
+        "src/tecmo_gameplay_state.c",
+        "docs/finish-tasks/R1-live-foundation/README.md",
+        "src/tecmo_game.c",
+        "src/tecmo_flow_test.c",
+        "build.ps1"
+      ],
+      "concurrency_group": "R1-gameplay-foundation",
+      "active": false,
+      "claimed_at": "2026-08-03T05:30:16Z",
+      "released_at": "2026-08-03T16:55:12Z",
+      "notes": "Accepted LIVE chain is preserved at domain tip 222d75cfafa9153db1eb44492bf557f11b1a9091 and staging-ready. Claim released only after Sol/QA acceptance, ff-only domain integration, durable master checkpoint cf3b3a2, accepted Luna unpins, and clean-tree reconfirmation. Sequential TIP claim remains active and disjoint."
+    },
+    {
+      "claim_id": "OWN-R1-TIP",
+      "task_id": "R1-TIP-FIDELITY",
+      "round_id": "R1",
+      "session_id": "S-SOL-R1-GAMEPLAY-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "include/tecmo_gameplay_pretip.h",
+        "src/tecmo_gameplay_pretip.c",
+        "src/tecmo_flow_test.c",
+        "src/tecmo_gameplay_live_proof.c",
+        "src/tecmo_gameplay_scene_render.c",
+        "src/tecmo_gameplay_scene_test_pretip.c",
+        "src/tecmo_gameplay_scene_test_render_contract.c",
+        "src/tecmo_cli.c",
+        "src/tecmo_cli_render_gameplay_checkpoint.c",
+        "src/tecmo_asset_pack.c",
+        "src/tecmo_win32_keys.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_pretip.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_pretip.h",
+        "src/asset_pack/tecmo_asset_pack_source_map.c",
+        "src/tecmo_gameplay_scene.c",
+        "tools/New-TipoffVisualProof.ps1",
+        "tools/Run-GameplayPreTipTests.ps1",
+        "tools/Run-GameplaySceneTests.ps1",
+        "docs/finish-tasks/R1-tip-fidelity/**"
+      ],
+      "planned_paths": [
+        "src/tecmo_gameplay_pretip.c",
+        "src/tecmo_flow_test.c",
+        "src/tecmo_gameplay_live_proof.c",
+        "src/tecmo_gameplay_scene.c",
+        "src/tecmo_gameplay_scene_render.c",
+        "src/tecmo_gameplay_scene_test_pretip.c",
+        "src/asset_pack/tecmo_asset_pack_source_map.c",
+        "docs/finish-tasks/R1-tip-fidelity/README.md"
+      ],
+      "concurrency_group": "R1-gameplay-foundation",
+      "active": false,
+      "claimed_at": "2026-08-03T05:30:16Z",
+      "released_at": "2026-08-03T22:04:10Z",
+      "notes": "Pretip, rendering, input, proof, and existing TPTI semantic-pack paths were exclusive to TIP, including the precisely recorded sequential shared-file and fixture-only rescopes. Terminal signed chain a37e102 through e21f9a6 is clean, ownership-compliant, personally Sol-accepted, independently QA-accepted with P0/P1/P2 zero, and ff-only integrated into the domain branch. Master released this claim only after verifying exact ancestry, equal worker/Sol tips and tree, 24-path scope, eight-file task docs, diff-check, and unchanged main/origin/staging. Later integration work must consume e21f9a6 read-only through a separately owned current-main integration lane."
+    },
+    {
+      "claim_id": "OWN-R3-SEASON-DATA-FOUNDATION",
+      "task_id": "R3-SEASON-DATA-FOUNDATION",
+      "round_id": "R3A",
+      "session_id": "S-SOL-R3-SEASON-DATA-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "include/tecmo_team_data.h",
+        "src/tecmo_team_data.c",
+        "include/tecmo_season_menu.h",
+        "src/tecmo_season_menu.c",
+        "src/asset_pack/tecmo_asset_pack_team_data.c",
+        "src/asset_pack/tecmo_asset_pack_team_data.h",
+        "src/asset_pack/tecmo_asset_pack_season.c",
+        "src/asset_pack/tecmo_asset_pack_season.h",
+        "tools/Run-TeamDataTests.ps1",
+        "tools/Run-SeasonTests.ps1",
+        "docs/finish-tasks/R3-season-data-foundation/**"
+      ],
+      "planned_paths": [
+        "include/tecmo_team_data.h",
+        "src/tecmo_team_data.c",
+        "include/tecmo_season_menu.h",
+        "src/tecmo_season_menu.c",
+        "docs/finish-tasks/R3-season-data-foundation/README.md"
+      ],
+      "concurrency_group": "R3-season-data-foundation",
+      "active": false,
+      "claimed_at": "2026-08-03T14:50:16Z",
+      "released_at": "2026-08-03T16:53:56Z",
+      "notes": "Exact accepted seven-commit slice is preserved at domain tip f536a19398803742e1a3dc5bb33d8a6ee2968a24 and ready for later round staging. Claim released only after Sol/QA acceptance, ff-only domain integration, all Luna unpins, durable master record cf3b3a2, and bounded Sol completion/unpin."
+    },
+    {
+      "claim_id": "OWN-R4-FRONTEND-INTRO-TITLE",
+      "task_id": "R4-FRONTEND-INTRO-TITLE",
+      "round_id": "R4",
+      "session_id": "S-SOL-R4-FRONTEND-RECOVERY-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "include/tecmo_intro_*.h",
+        "src/tecmo_intro_*.c",
+        "include/tecmo_title_screen.h",
+        "src/tecmo_title_screen.c",
+        "src/asset_pack/tecmo_asset_pack_opening.c",
+        "src/asset_pack/tecmo_asset_pack_opening.h",
+        "src/asset_pack/tecmo_asset_pack_arena.c",
+        "src/asset_pack/tecmo_asset_pack_arena.h",
+        "src/asset_pack/tecmo_asset_pack_finale.c",
+        "src/asset_pack/tecmo_asset_pack_finale.h",
+        "src/asset_pack/tecmo_asset_pack_post_arena.c",
+        "src/asset_pack/tecmo_asset_pack_post_arena.h",
+        "src/asset_pack/tecmo_asset_pack_d9f6.c",
+        "src/asset_pack/tecmo_asset_pack_d9f6.h",
+        "src/asset_pack/tecmo_asset_pack_title.c",
+        "src/asset_pack/tecmo_asset_pack_title.h",
+        "tools/Run-IntroSequenceTests.ps1",
+        "tools/New-IntroLayoutDraft.ps1",
+        "tools/Import-IntroArenaCapture.ps1",
+        "tools/Find-Intro*.ps1",
+        "tools/Find-NesReferenceIntro.ps1",
+        "tools/Find-Title*.ps1",
+        "tools/emu_intro_*.lua",
+        "docs/finish-tasks/R4-frontend-intro-title/**",
+        "src/tecmo_cli_render_scene_modes.c"
+      ],
+      "planned_paths": [
+        "src/tecmo_intro_stage.c",
+        "src/tecmo_title_screen.c",
+        "tools/Run-IntroSequenceTests.ps1",
+        "docs/finish-tasks/R4-frontend-intro-title/README.md",
+        "src/tecmo_cli_render_scene_modes.c"
+      ],
+      "concurrency_group": "R4-frontend-intro-title",
+      "active": false,
+      "claimed_at": "2026-08-03T14:50:16Z",
+      "released_at": "2026-08-03T20:01:46Z",
+      "notes": "Released only after replacement-Sol and same-Luna terminal acceptance at 757283ed, master froze exact staging ref codex/round-4b-frontend-intro-title-staging, created the isolated R4B integration worktree at current main 819b0e5, and unpinned the completed recovery Sol. Domain branch/worktree and proof remain preserved and immutable for R4B."
+    },
+    {
+      "claim_id": "OWN-R4-AUDIO-FOUNDATION",
+      "task_id": "R4-AUDIO-FOUNDATION",
+      "round_id": "R4A",
+      "session_id": "S-SOL-R4-AUDIO-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "include/tecmo_audio_output.h",
+        "include/tecmo_frontend_audio.h",
+        "include/tecmo_gameplay_audio.h",
+        "include/tecmo_music.h",
+        "src/tecmo_audio_output.c",
+        "src/tecmo_frontend_audio.c",
+        "src/tecmo_gameplay_audio.c",
+        "src/tecmo_music.c",
+        "src/tecmo_cli_audio.c",
+        "src/asset_pack/tecmo_asset_pack_music.c",
+        "src/asset_pack/tecmo_asset_pack_music.h",
+        "src/asset_pack/tecmo_asset_pack_gameplay_audio.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_audio.h",
+        "tools/Run-MusicTests.ps1",
+        "tools/Run-GameplayAudioTests.ps1",
+        "tools/Run-FrontendAudioTests.ps1",
+        "docs/finish-tasks/R4-audio-foundation/**"
+      ],
+      "planned_paths": [
+        "src/tecmo_music.c",
+        "src/tecmo_gameplay_audio.c",
+        "src/tecmo_frontend_audio.c",
+        "src/tecmo_audio_output.c",
+        "docs/finish-tasks/R4-audio-foundation/README.md"
+      ],
+      "concurrency_group": "R4-audio-foundation",
+      "active": false,
+      "claimed_at": "2026-08-03T14:50:16Z",
+      "released_at": "2026-08-03T18:21:12Z",
+      "notes": "Released after exact terminal e120c30 acceptance, writer/QA unpins, domain Sol unpin, and clean physical R4A staging. Existing compiled audio engines, semantic audio assets, CLI probe, focused tests, and task docs form the frozen delivery slice; cue call sites, build lists, source-map/import-layout, Win32/device platform code, and gameplay/frontend modules remain excluded."
+    },
+    {
+      "claim_id": "OWN-R2-SHOTS-OUTCOMES",
+      "task_id": "R2-SHOTS-OUTCOMES",
+      "round_id": "R2",
+      "session_id": "S-SOL-R2-SHOTS-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "include/tecmo_gameplay_close_shots.h",
+        "include/tecmo_gameplay_jump_shots.h",
+        "include/tecmo_gameplay_dunk_cutaway.h",
+        "include/tecmo_gameplay_shot_resolution.h",
+        "include/tecmo_gameplay_scene.h",
+        "include/tecmo_gameplay_scene_internal.h",
+        "src/tecmo_gameplay_close_shots.c",
+        "src/tecmo_gameplay_jump_shots.c",
+        "src/tecmo_gameplay_dunk_cutaway.c",
+        "src/tecmo_gameplay_shot_resolution.c",
+        "src/tecmo_gameplay_scene_shots.c",
+        "src/tecmo_gameplay_scene_validation.c",
+        "src/tecmo_gameplay_scene_test_internal.h",
+        "src/tecmo_gameplay_scene_test_orchestrator.c",
+        "src/tecmo_gameplay_scene_test_state_flow.c",
+        "src/tecmo_cli_gameplay_shots.c",
+        "src/tecmo_cli_gameplay_shot_resolution.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_close_shots.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_close_shots.h",
+        "src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.h",
+        "src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.h",
+        "src/asset_pack/tecmo_asset_pack_gameplay_shot_resolution.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_shot_resolution.h",
+        "tools/Run-GameplayCloseShotTests.ps1",
+        "tools/Run-GameplayShotResolutionTests.ps1",
+        "docs/finish-tasks/R2-shots-outcomes/**"
+      ],
+      "planned_paths": [
+        "src/tecmo_gameplay_close_shots.c",
+        "src/tecmo_gameplay_jump_shots.c",
+        "src/tecmo_gameplay_dunk_cutaway.c",
+        "src/tecmo_gameplay_shot_resolution.c",
+        "src/tecmo_gameplay_scene_shots.c",
+        "docs/finish-tasks/R2-shots-outcomes/README.md"
+      ],
+      "concurrency_group": "R2-shots-outcomes",
+      "active": false,
+      "claimed_at": "2026-08-03T17:06:38Z",
+      "released_at": "2026-08-04T01:01:24Z",
+      "notes": "Released after terminal Good-signed domain tip 7b9287a91fcd9d4725d5d05c37b1d667d9bfb57a passed Sol and independent no-actionable-finding QA, exact 17-path ownership and zero-diff shared exclusions were verified, the three accepted Lunas were unpinned, and immutable R2B staging was reserved. A dedicated current-main Integration QA lane consumes the accepted tip read-only; later shared scene/source-map follow-ups require new sequential authority."
+    },
+    {
+      "claim_id": "OWN-R2-CLOCK-LINEUPS-FATIGUE",
+      "task_id": "R2-CLOCK-LINEUPS-FATIGUE",
+      "round_id": "R2",
+      "session_id": "S-SOL-R2-CLOCK-LINEUPS-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "include/tecmo_gameplay_state.h",
+        "include/tecmo_gameplay_free_throw_lineup.h",
+        "include/tecmo_gameplay_fatigue.h",
+        "include/tecmo_gameplay_free_throw_projection_test.h",
+        "src/tecmo_gameplay_state.c",
+        "src/tecmo_gameplay_free_throw_lineup.c",
+        "src/tecmo_gameplay_fatigue.c",
+        "src/tecmo_gameplay_free_throw_projection_test.c",
+        "src/tecmo_gameplay_scene_test_shot_clock.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_free_throw_lineup.h",
+        "src/asset_pack/tecmo_asset_pack_gameplay_fatigue.c",
+        "src/asset_pack/tecmo_asset_pack_gameplay_fatigue.h",
+        "tools/Run-GameplayFreeThrowLineupTests.ps1",
+        "tools/Run-GameplayFatigueTests.ps1",
+        "docs/finish-tasks/R2-clock-lineups-fatigue/**"
+      ],
+      "planned_paths": [
+        "include/tecmo_gameplay_state.h",
+        "src/tecmo_gameplay_state.c",
+        "src/tecmo_gameplay_free_throw_lineup.c",
+        "src/tecmo_gameplay_fatigue.c",
+        "src/tecmo_gameplay_scene_test_shot_clock.c",
+        "docs/finish-tasks/R2-clock-lineups-fatigue/README.md"
+      ],
+      "concurrency_group": "R2-clock-lineups-fatigue",
+      "active": false,
+      "claimed_at": "2026-08-03T18:57:26Z",
+      "released_at": "2026-08-03T23:38:12Z",
+      "notes": "Released after terminal signed domain acceptance at ed4e56fc595894c692ffca84ae3b35f129317049, independent P0/P1/P2/P3-zero closure, durable handoff, and worker/QA unpins. A dedicated R2A integration lane consumes the immutable accepted tip read-only and owns only its integration report plus a signed branch-only reconciliation merge."
+    },
+    {
+      "claim_id": "OWN-R1A-INTEGRATION-QA",
+      "task_id": "R1A-INTEGRATION-QA",
+      "round_id": "R1A",
+      "session_id": "S-SOL-R1A-INTEGRATION-QA-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R1A-cpu-live-integration-qa/**"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R1A-cpu-live-integration-qa/README.md",
+        "docs/finish-tasks/R1A-cpu-live-integration-qa/PROOF.md"
+      ],
+      "concurrency_group": "R1A-integration-qa",
+      "active": false,
+      "claimed_at": "2026-08-03T17:57:57Z",
+      "released_at": "2026-08-03T19:55:43Z",
+      "notes": "Released after signed terminal R1A report 819b0e5 passed same-Luna P0/P1/P2-zero closure, master signature/ancestry/diff checks, fast-forward integration, successful non-force origin/main push, and remote verification. Product/source paths remained read-only to this docs claim; branches/worktrees are preserved."
+    },
+    {
+      "claim_id": "OWN-R3A-INTEGRATION-QA",
+      "task_id": "R3A-INTEGRATION-QA",
+      "round_id": "R3A",
+      "session_id": "S-SOL-R3A-INTEGRATION-QA-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R3A-season-data-integration-qa/**"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R3A-season-data-integration-qa/README.md",
+        "docs/finish-tasks/R3A-season-data-integration-qa/PROOF.md"
+      ],
+      "concurrency_group": "R3A-integration-qa",
+      "active": false,
+      "claimed_at": "2026-08-03T17:57:57Z",
+      "released_at": "2026-08-03T18:45:20Z",
+      "notes": "Transferred to Integration QA Sol after exact collision/clean-head verification and released only after terminal signed report dd096cb, Luna unpin, master lineage/remote checks, staging/main fast-forward, and successful non-force origin/main push. Branch/worktree and ignored proof remain preserved."
+    },
+    {
+      "claim_id": "OWN-R4A-INTEGRATION-QA",
+      "task_id": "R4A-INTEGRATION-QA",
+      "round_id": "R4A",
+      "session_id": "S-SOL-R4A-INTEGRATION-QA-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R4A-audio-integration-qa/**"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R4A-audio-integration-qa/README.md",
+        "docs/finish-tasks/R4A-audio-integration-qa/PROOF.md"
+      ],
+      "concurrency_group": "R4A-integration-qa",
+      "active": false,
+      "claimed_at": "2026-08-03T18:21:12Z",
+      "released_at": "2026-08-03T19:24:36Z",
+      "notes": "Released after signed terminal report bcacd5b passed combined P0/P1/P2-zero review, master fast-forward/non-force push, and Luna unpin. Product paths remained read-only to this claim; branches/worktrees are preserved."
+    },
+    {
+      "claim_id": "OWN-R4B-INTEGRATION-QA",
+      "task_id": "R4B-INTEGRATION-QA",
+      "round_id": "R4B",
+      "session_id": "S-SOL-R4B-INTEGRATION-QA-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R4B-frontend-integration-qa/**"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R4B-frontend-integration-qa/README.md"
+      ],
+      "concurrency_group": "R4B-frontend-integration-qa",
+      "active": false,
+      "claimed_at": "2026-08-03T19:48:51Z",
+      "released_at": "2026-08-03T21:02:40Z",
+      "notes": "Released after signed merge 6b5d435 and signed terminal report edf16ca passed personal and independent P0/P1/P2-zero combined QA, master fast-forwarded/pushed main to exact edf16ca, and both Luna/Sol were unpinned. The unsigned immutable frontend candidate remained explicitly anchored by exact SHA/tree/report digest; branches/worktrees are preserved."
+    },
+    {
+      "claim_id": "OWN-R1B-TIP-INTEGRATION-QA",
+      "task_id": "R1B-TIP-INTEGRATION-QA",
+      "round_id": "R1B",
+      "session_id": "S-SOL-R1B-TIP-INTEGRATION-QA-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R1B-tip-integration-qa/**",
+        "AGENTS.md",
+        "PORTING.md"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R1B-tip-integration-qa/README.md",
+        "docs/finish-tasks/R1B-tip-integration-qa/PROOF.md",
+        "AGENTS.md",
+        "PORTING.md"
+      ],
+      "concurrency_group": "R1B-tip-integration-qa",
+      "active": false,
+      "claimed_at": "2026-08-03T23:38:12Z",
+      "released_at": "2026-08-04T01:52:01Z",
+      "notes": "Released after terminal Good-signed 0ef11cf passed all combined product/proof/traceability and independent P0/P1/P2-zero gates, master fast-forwarded/non-force pushed main from 8a5b992 to 0ef11cf, and both stable desktop shortcuts were rebuilt/verified. Guidance correction remained limited to AGENTS.md/PORTING.md; runtime/source-map scope was not expanded. Luna and Sol were unpinned; branches/worktrees remain preserved."
+    },
+    {
+      "claim_id": "OWN-R2A-CLOCK-LINEUPS-INTEGRATION-QA",
+      "task_id": "R2A-CLOCK-LINEUPS-INTEGRATION-QA",
+      "round_id": "R2A",
+      "session_id": "S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R2A-clock-lineups-fatigue-integration-qa/**",
+        "tools/Run-AssetPackTests.ps1"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R2A-clock-lineups-fatigue-integration-qa/README.md",
+        "docs/finish-tasks/R2A-clock-lineups-fatigue-integration-qa/PROOF.md",
+        "tools/Run-AssetPackTests.ps1"
+      ],
+      "concurrency_group": "R2A-clock-lineups-fatigue-integration-qa",
+      "active": false,
+      "claimed_at": "2026-08-03T23:38:12Z",
+      "released_at": "2026-08-04T00:51:20Z",
+      "notes": "Master reservation before Sol creation, expanded at 2026-08-04T00:04:57Z after collision checks found no active claim, worktree edit, or candidate overlap for tools/Run-AssetPackTests.ps1. Sol consumed exactly that exception in Good-signed runner-only commit 73e87dcccbfe1ddc6a78d9b313e8dd75252fb857. Terminal Good-signed 8a5b992 passed Sol and independent P0/P1/P2/P3-zero combined QA. Master guards passed, main fast-forwarded and pushed non-force from edf16ca to 8a5b992, stable main rebuilt, and both Native Port and Active Preview desktop shortcuts now target the exact main executable. Claim released after delivery; branches/worktrees preserved."
+    },
+    {
+      "claim_id": "OWN-R2B-SHOTS-OUTCOMES-INTEGRATION-QA",
+      "task_id": "R2B-SHOTS-OUTCOMES-INTEGRATION-QA",
+      "round_id": "R2B",
+      "session_id": "S-SOL-R2B-SHOTS-INTEGRATION-QA-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R2B-shots-outcomes-integration-qa/**"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R2B-shots-outcomes-integration-qa/README.md",
+        "docs/finish-tasks/R2B-shots-outcomes-integration-qa/PROOF.md"
+      ],
+      "concurrency_group": "R2B-shots-outcomes-integration-qa",
+      "active": false,
+      "claimed_at": "2026-08-04T01:01:24Z",
+      "released_at": "2026-08-04T03:12:31Z",
+      "notes": "Master reservation before Sol creation, transferred after Good-signed checkpoint 4f942648 to exact pinned orchestrator 019fca51-55f5-7473-92b1-58dd241998f6. The lane produced Good-signed initial merge 26e6aaf, reconciled accepted main in Good-signed d3f1980, and closed Sol/same-Luna P0/P1/P2 zero at terminal 5229092. Master guarded ff-only integrated and ordinary-pushed 5229092, rebuilt stable main, and verified both desktop shortcuts. Claim released after delivery; candidate/product history and branches/worktrees remain preserved."
+    },
+    {
+      "claim_id": "OWN-R2-DEFENSE-CONTACT",
+      "task_id": "R2-DEFENSE-CONTACT",
+      "round_id": "R2",
+      "session_id": "S-SOL-R2-DEFENSE-CONTACT-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R2-defense-contact/**",
+        "include/tecmo_gameplay_defense_contact.h",
+        "src/tecmo_gameplay_defense_contact.c",
+        "tools/Run-GameplayDefenseContactTests.ps1"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R2-defense-contact/README.md",
+        "docs/finish-tasks/R2-defense-contact/EVIDENCE.md",
+        "docs/finish-tasks/R2-defense-contact/SCOPE.md",
+        "include/tecmo_gameplay_defense_contact.h",
+        "src/tecmo_gameplay_defense_contact.c",
+        "tools/Run-GameplayDefenseContactTests.ps1"
+      ],
+      "concurrency_group": "R2-defense-contact",
+      "active": false,
+      "claimed_at": "2026-08-03T23:38:12Z",
+      "released_at": "2026-08-04T02:22:21Z",
+      "notes": "Released after terminal Good-signed raw-foundation chain d5c5fa9..ed70d884 passed Sol and same-lineage independent QA with no findings, was ff-only integrated into the clean Sol branch, and was durably accepted for dedicated incremental integration QA. Exact eight-path scope, raw/neutral semantics, focused /W4 /WX proof, provenance, rollback, isolation, and no-normal-build/runtime/player-facing limits remain immutable; later integration or semantic expansion requires new authority."
+    },
+    {
+      "claim_id": "OWN-R2C-DEFENSE-CONTACT-INTEGRATION-QA",
+      "task_id": "R2C-DEFENSE-CONTACT-INTEGRATION-QA",
+      "round_id": "R2C",
+      "session_id": "S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R2C-defense-contact-integration-qa/**"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R2C-defense-contact-integration-qa/README.md",
+        "docs/finish-tasks/R2C-defense-contact-integration-qa/PROOF.md"
+      ],
+      "concurrency_group": "R2C-defense-contact-integration-qa",
+      "active": false,
+      "claimed_at": "2026-08-04T02:26:58Z",
+      "released_at": "2026-08-04T03:52:40Z",
+      "notes": "Released after Good-signed 32721888 reconciled immutable ed70d884 with accepted main 5229092 at the exact predicted tree, reconciled Sol and same-Luna QA closed P0/P1/P2/P3 zero, terminal Good-signed 7fe2dd7 was guarded ff-only integrated and ordinary-pushed, stable main plus both desktop shortcuts were rebuilt/verified, and both Sol/Luna returned pinned=false. Preserve task, branch, worktree, docs, and proof for audit; later normal-runtime/player-facing or semantic Defense work requires new authority."
+    },
+    {
+      "claim_id": "OWN-R2-RULES-RESTARTS",
+      "task_id": "R2-RULES-RESTARTS",
+      "round_id": "R2",
+      "session_id": "S-SOL-R2-RULES-RESTARTS-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R2-rules-restarts/**",
+        "CMakeLists.txt",
+        "src/tecmo_gameplay_scene.c",
+        "src/tecmo_gameplay_scene_test_rules_restarts.c",
+        "src/tecmo_gameplay_scene_test_internal.h",
+        "src/tecmo_gameplay_scene_test_orchestrator.c",
+        "src/tecmo_gameplay_scene_test_state_flow.c",
+        "build.ps1",
+        "AGENTS.md",
+        "PORTING.md",
+        "docs/gameplay-state-foundation.md"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R2-rules-restarts/README.md",
+        "docs/finish-tasks/R2-rules-restarts/SCOPE.md",
+        "CMakeLists.txt",
+        "src/tecmo_gameplay_scene.c",
+        "src/tecmo_gameplay_scene_test_rules_restarts.c",
+        "src/tecmo_gameplay_scene_test_internal.h",
+        "src/tecmo_gameplay_scene_test_orchestrator.c",
+        "src/tecmo_gameplay_scene_test_state_flow.c",
+        "build.ps1",
+        "AGENTS.md",
+        "PORTING.md",
+        "docs/gameplay-state-foundation.md"
+      ],
+      "concurrency_group": "R2-rules-restarts",
+      "active": false,
+      "claimed_at": "2026-08-04T03:44:25Z",
+      "released_at": "2026-08-04T06:16:58Z",
+      "notes": "Released after exact Good-signed chain 1dde1ef748658a11403ff4bc450af858d05f08c2 -> 1f23235cd60582379da5e8f1713cd25de4ced62f passed personal Sol and same-Luna terminal QA with P0/P1/P2/P3 all zero. The accepted bounded result changes exactly seven product/test/build paths for frame-16 exact-once shared SFX6 while preserving frame-0 shot-clock SFX3 and dispatch/restart policy, plus the three granted active-contract wording corrections and seven task docs. Master independently verified signatures, ancestry, scope, clean state, non-doc identity, stable main, and honest incomplete boundaries. Immutable 1f23235 is routed to dedicated current-main integration QA; preserve every task, branch, worktree, document, and proof artifact. Later foul/contact inference, missing violation detectors, FT outcome/rebound/possession, claimant/rebound/block/steal semantics, foul-divider policy, or full renderer/caller-order parity requires new authority."
+    },
+    {
+      "claim_id": "OWN-R2D-RULES-RESTARTS-INTEGRATION-QA",
+      "task_id": "R2D-RULES-RESTARTS-INTEGRATION-QA",
+      "round_id": "R2D",
+      "session_id": "S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R2D-rules-restarts-integration-qa/**"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R2D-rules-restarts-integration-qa/README.md",
+        "docs/finish-tasks/R2D-rules-restarts-integration-qa/COMMANDS.md",
+        "docs/finish-tasks/R2D-rules-restarts-integration-qa/EVIDENCE.md",
+        "docs/finish-tasks/R2D-rules-restarts-integration-qa/INDEPENDENT-QA.md",
+        "docs/finish-tasks/R2D-rules-restarts-integration-qa/LINEAGE.md"
+      ],
+      "concurrency_group": "R2D-rules-restarts-integration-qa",
+      "active": false,
+      "claimed_at": "2026-08-04T06:25:47Z",
+      "released_at": "2026-08-04T07:52:42Z",
+      "notes": "Released after exact Good-signed ed060720, sole parent immutable 1f23235, passed complete Sol and same-Luna P0/P1/P2/P3-zero integration QA. Master independently verified signature/tree/parent/ancestry/exact five-report layer, guarded ff-only delivered and ordinary-pushed ed060720 to stable main, rebuilt console+GUI warning-clean, and verified both desktop shortcuts. Preserve every branch, worktree, report, and proof artifact. Any future detector, FT/rebound/possession, renderer, caller-order, or other semantic expansion requires new authority."
+    },
+    {
+      "claim_id": "OWN-R2-GAMEPLAY-PRESENTATION",
+      "task_id": "R2-GAMEPLAY-PRESENTATION",
+      "round_id": "R2",
+      "session_id": "S-SOL-R2-GAMEPLAY-PRESENTATION-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R2-gameplay-presentation/**",
+        "src/tecmo_cli_render_gameplay_checkpoint.c",
+        "tools/Run-GameplayPresentationTests.ps1"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R2-gameplay-presentation/README.md",
+        "docs/finish-tasks/R2-gameplay-presentation/SCOPE.md",
+        "docs/finish-tasks/R2-gameplay-presentation/EVIDENCE.md",
+        "docs/finish-tasks/R2-gameplay-presentation/LINEAGE.md",
+        "src/tecmo_cli_render_gameplay_checkpoint.c",
+        "tools/Run-GameplayPresentationTests.ps1"
+      ],
+      "concurrency_group": "R2-gameplay-presentation",
+      "active": false,
+      "claimed_at": "2026-08-04T07:58:28Z",
+      "released_at": "2026-08-04T10:26:21Z",
+      "notes": "Released after exact Good-signed chain 4cb0c43bcd4c7ca111c996b3788e1bd00a734424 -> d8d811918932c19bbe1741d2392ec1ad942ebd79 passed personal Sol and same-Luna terminal QA with P0/P1/P2/P3 all zero. Master independently verified both signatures, tree/parent ancestry, exact six-path delta, clean branch, proof hashes, stable refs, and honest bounded classifications. Immutable d8d8119 is routed to dedicated R2E current-main integration QA. Preserve every task, branch, worktree, report, proof, and artifact; every broader renderer/camera/clipping/scene/numeric-1/ordinary-two-point/pass/defense/contact/free-throw/violation/restart/new-asset claim still requires separate authority."
+    },
+    {
+      "claim_id": "OWN-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA",
+      "task_id": "R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA",
+      "round_id": "R2E",
+      "session_id": "S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R2E-gameplay-presentation-integration-qa/**",
+        "tools/Run-GameplayPresentationTests.ps1"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R2E-gameplay-presentation-integration-qa/README.md",
+        "docs/finish-tasks/R2E-gameplay-presentation-integration-qa/COMMANDS.md",
+        "docs/finish-tasks/R2E-gameplay-presentation-integration-qa/EVIDENCE.md",
+        "docs/finish-tasks/R2E-gameplay-presentation-integration-qa/INDEPENDENT-QA.md",
+        "docs/finish-tasks/R2E-gameplay-presentation-integration-qa/LINEAGE.md",
+        "tools/Run-GameplayPresentationTests.ps1"
+      ],
+      "concurrency_group": "R2E-gameplay-presentation-integration-qa",
+        "active": false,
+      "claimed_at": "2026-08-04T10:26:21Z",
+        "released_at": "2026-08-04T18:34:34Z",
+        "notes": "Master reservation for one dedicated current-main Integration QA Sol. Initial scope was docs-only plus the prescribed branch-only ff-only from clean ed060720 to immutable Good-signed d8d8119. After the sole independent Luna found one actionable runner P2, master granted exactly tools/Run-GameplayPresentationTests.ps1 for the accepted scratch-isolation correction a4c1286 and the five-report terminal bdc2fbb. The same Luna returned final terminal PASS with product/tooling P0/P1/P2/P3 all zero. The original Sol then entered systemError before emitting its guarded handoff. Recovery session S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001 confirmed exact clean takeover and issued the missing guarded handoff. Release orchestration reverified all Git guards, fast-forward-only delivered bdc2fbb, verified the ordinary non-force push, and released this claim at 2026-08-04T18:34:34Z. No branch, worktree, proof, report, or excluded work was removed."
+    },
+    {
+      "claim_id": "OWN-R3-PLAYER-STATS-LEADERS",
+      "task_id": "R3-PLAYER-STATS-LEADERS",
+      "round_id": "R3",
+      "session_id": "S-SOL-R3-PLAYER-STATS-LEADERS-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R3-player-stats-leaders/**",
+        "include/tecmo_player_stats.h",
+        "include/tecmo_gameplay_scene.h",
+        "src/tecmo_gameplay_scene.c",
+        "src/tecmo_gameplay_scene_shots.c",
+        "src/tecmo_gameplay_scene_test_state_flow.c",
+        "include/tecmo_season_menu.h",
+        "src/tecmo_game.c",
+        "src/tecmo_season_menu.c",
+        "src/tecmo_cli_render_menu_modes.c",
+        "tools/Run-SeasonTests.ps1"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R3-player-stats-leaders/README.md",
+        "docs/finish-tasks/R3-player-stats-leaders/SCOPE.md",
+        "docs/finish-tasks/R3-player-stats-leaders/EVIDENCE.md",
+        "docs/finish-tasks/R3-player-stats-leaders/LINEAGE.md",
+        "include/tecmo_player_stats.h",
+        "include/tecmo_gameplay_scene.h",
+        "src/tecmo_gameplay_scene.c",
+        "src/tecmo_gameplay_scene_shots.c",
+        "src/tecmo_gameplay_scene_test_state_flow.c",
+        "include/tecmo_season_menu.h",
+        "src/tecmo_game.c",
+        "src/tecmo_season_menu.c",
+        "src/tecmo_cli_render_menu_modes.c",
+        "tools/Run-SeasonTests.ps1"
+      ],
+      "concurrency_group": "R3-player-stats-leaders",
+      "active": false,
+      "claimed_at": "2026-08-04T07:58:28Z",
+      "released_at": "2026-08-04T12:10:06Z",
+      "notes": "Released after exact Good-signed 13-path terminal 7897871 passed full personal QA and sole independent Luna terminal QA with no findings. Master independently reverified exact branch HEAD, Good signature, sole parent ed060720, authorized scope, diff-check, clean worktree, accepted hashes/visual closure, and stable protected main. Immutable 7897871 is ready for dedicated current-main integration QA. Preserve all tasks, branches, worktrees, docs, proofs, and artifacts. Steals, blocks, rebounds, incomplete migrated seasons, original SRAM import, adjacent gameplay/team-management/All-Star paths, and every unproved semantic remain excluded and require new sequential authority."
     }
   ],
   "shared_boundaries": [
     {
-      "boundary_id":"BOUNDARY-R0A-HIST-SCENE","round_id":"R0A","writable_glob":"src/tecmo_gameplay_scene*.c","policy":"sequential","designated_task_id":null,
-      "ordered_task_ids":["R0A-ADOPT-CPU-TIP","R0A-ADOPT-TIP-VIS","R0A-ADOPT-AWAY-FACING"],
-      "notes":"Historical work was integrated sequentially. Future rounds must create new non-overlapping claims rather than reuse this record."
+      "boundary_id": "BOUNDARY-R0A-HIST-SCENE",
+      "round_id": "R0A",
+      "writable_glob": "src/tecmo_gameplay_scene*.c",
+      "policy": "sequential",
+      "designated_task_id": "R1-TIP-FIDELITY",
+      "ordered_task_ids": [
+        "R0A-ADOPT-CPU-TIP",
+        "R0A-ADOPT-TIP-VIS",
+        "R0A-ADOPT-AWAY-FACING"
+      ],
+      "notes": "Historical work was integrated sequentially. Future rounds must create new non-overlapping claims rather than reuse this record."
+    },
+    {
+      "boundary_id": "BOUNDARY-R1-SCENE",
+      "round_id": "R1A",
+      "writable_glob": "src/tecmo_gameplay_scene.c",
+      "policy": "designated_task",
+      "designated_task_id": "R1-LIVE-FOUNDATION",
+      "ordered_task_ids": [
+        "R1-CPU-PLAY-LIFECYCLE",
+        "R1-LIVE-FOUNDATION"
+      ],
+      "notes": "CPU/LIVE shared scene and handoff work is frozen in delivery subround R1A. Later TIP discoveries requiring this accepted boundary must receive a fresh explicit sequential rescope; no active session may improvise edits."
+    },
+    {
+      "boundary_id": "BOUNDARY-R1A-TO-R1-TIP-LINEAGE",
+      "round_id": "R1",
+      "writable_glob": "src/tecmo_gameplay_scene.c",
+      "policy": "sequential",
+      "designated_task_id": null,
+      "ordered_task_ids": [
+        "R1-LIVE-FOUNDATION",
+        "R1-TIP-FIDELITY"
+      ],
+      "notes": "The accepted LIVE tip and active TIP continuation intentionally share one preserved domain branch/worktree in strict order. LIVE is immutable and staged in R1A. After accepted mapper-gated TIP research, master granted R1-TIP-FIDELITY the exact sequential scene.c rescope at 2026-08-03T18:29:07Z; no overlapping LIVE mutation or broader scene ownership is authorized."
+    },
+    {
+      "boundary_id": "BOUNDARY-R1A-TO-R1-TIP-SOURCE-MAP",
+      "round_id": "R1",
+      "writable_glob": "src/asset_pack/tecmo_asset_pack_source_map.c",
+      "policy": "sequential",
+      "designated_task_id": "R1-TIP-FIDELITY",
+      "ordered_task_ids": [
+        "R1-LIVE-FOUNDATION",
+        "R1-TIP-FIDELITY"
+      ],
+      "notes": "LIVE source-map changes are accepted and frozen in R1A. Master granted TIP the exact sequential source-map C-file rescope at 2026-08-03T18:29:07Z solely to extend existing TPTI roles/spans/classifications; source-map header, import layout, new asset families, and runtime ROM dependencies remain excluded."
+    },
+    {
+      "boundary_id": "BOUNDARY-R1-LIVE-TO-TIP-SCENE-WRAPPER",
+      "round_id": "R1",
+      "writable_glob": "tools/Run-GameplaySceneTests.ps1",
+      "policy": "sequential",
+      "designated_task_id": "R1-TIP-FIDELITY",
+      "ordered_task_ids": [
+        "R1-LIVE-FOUNDATION",
+        "R1-TIP-FIDELITY"
+      ],
+      "notes": "LIVE wrapper ownership is released and its accepted suite remains frozen. TIP may update only the strict gameplay/pre-tip asset specification from TPTI-1 to the accepted TPTI-2 result and add a named stale-TPTI-1 negative; removal, weakening, or unrelated wrapper changes are prohibited."
+    },
+    {
+      "boundary_id": "BOUNDARY-R2-SHOTS-SCENE-CONTRACT",
+      "round_id": "R3",
+      "writable_glob": "include/tecmo_gameplay_scene*.h",
+      "policy": "sequential",
+      "designated_task_id": "R3-PLAYER-STATS-LEADERS",
+      "ordered_task_ids": [
+        "R2-SHOTS-OUTCOMES",
+        "R2-DEFENSE-CONTACT",
+        "R2-RULES-RESTARTS",
+        "R2-CLOCK-LINEUPS-FATIGUE",
+        "R2-GAMEPLAY-PRESENTATION",
+        "R3-PLAYER-STATS-LEADERS"
+      ],
+      "notes": "Shots owned the bounded shared scene contract first from the accepted LIVE base. Every earlier Round 2 scene-contract claim is now released or delivered, and the concurrently active R2 Gameplay Presentation slice is explicitly disjoint: it owns only its CLI checkpoint and new focused runner. Under this Good-signed sequential transfer, R3-PLAYER-STATS-LEADERS is the sole current writer of include/tecmo_gameplay_scene.h and the exact scene source/test paths listed in OWN-R3-PLAYER-STATS-LEADERS; all other scene headers and sources remain read-only. Concurrent scene-contract edits are forbidden."
     }
   ],
   "merge_orders": [
-    {"round_id":"R0","ordered_task_ids":["R0-CTRL-001"],"declared_at":"2026-08-03T04:18:18Z"},
-    {"round_id":"R0A","ordered_task_ids":["R0A-INV-001","R0A-ADOPT-CPU-TIP","R0A-ADOPT-TIP-VIS","R0A-ADOPT-AWAY-FACING"],"declared_at":"2026-08-03T04:47:45Z"},
-    {"round_id":"R1","ordered_task_ids":["R1-CPU-PLAY-LIFECYCLE","R1-LIVE-FOUNDATION","R1-TIP-FIDELITY"],"declared_at":"2026-08-03T04:47:45Z"},
-    {"round_id":"R2","ordered_task_ids":["R2-SHOTS-OUTCOMES","R2-DEFENSE-CONTACT","R2-RULES-RESTARTS","R2-CLOCK-LINEUPS-FATIGUE","R2-GAMEPLAY-PRESENTATION"],"declared_at":"2026-08-03T04:47:45Z"},
-    {"round_id":"R3","ordered_task_ids":["R3-PLAYER-STATS-LEADERS","R3-SEASON-PROGRESSION-SAVE","R3-TEAM-MGMT-DATA","R3-ALLSTAR"],"declared_at":"2026-08-03T04:47:45Z"},
-    {"round_id":"R4","ordered_task_ids":["R4-FRONTEND-INTRO-TITLE","R4-MENUS-UI","R4-AUDIO"],"declared_at":"2026-08-03T04:47:45Z"},
-    {"round_id":"R5","ordered_task_ids":["R5-ASSET-BUILD-PROVENANCE","R5-PARITY-GAP-CLOSURE","R5-E2E-RELEASE-QA"],"declared_at":"2026-08-03T04:47:45Z"}
+    {
+      "round_id": "R0",
+      "ordered_task_ids": [
+        "R0-CTRL-001"
+      ],
+      "declared_at": "2026-08-03T04:18:18Z"
+    },
+    {
+      "round_id": "R0A",
+      "ordered_task_ids": [
+        "R0A-INV-001",
+        "R0A-ADOPT-CPU-TIP",
+        "R0A-ADOPT-TIP-VIS",
+        "R0A-ADOPT-AWAY-FACING"
+      ],
+      "declared_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "round_id": "R1A",
+      "ordered_task_ids": [
+        "R1-CPU-PLAY-LIFECYCLE",
+        "R1-LIVE-FOUNDATION",
+        "R1A-INTEGRATION-QA"
+      ],
+      "declared_at": "2026-08-03T17:57:57Z"
+    },
+    {
+      "round_id": "R1",
+      "ordered_task_ids": [
+        "R1-TIP-FIDELITY"
+      ],
+      "declared_at": "2026-08-03T17:57:57Z"
+    },
+    {
+      "round_id": "R2",
+      "ordered_task_ids": [
+        "R2-SHOTS-OUTCOMES",
+        "R2-DEFENSE-CONTACT",
+        "R2-RULES-RESTARTS",
+        "R2-CLOCK-LINEUPS-FATIGUE",
+        "R2-GAMEPLAY-PRESENTATION"
+      ],
+      "declared_at": "2026-08-03T04:47:45Z"
+    },
+    {
+      "round_id": "R3A",
+      "ordered_task_ids": [
+        "R3-SEASON-DATA-FOUNDATION",
+        "R3A-INTEGRATION-QA"
+      ],
+      "declared_at": "2026-08-03T17:57:57Z"
+    },
+    {
+      "round_id": "R3",
+      "ordered_task_ids": [
+        "R3-PLAYER-STATS-LEADERS",
+        "R3-SEASON-PROGRESSION-SAVE",
+        "R3-TEAM-MGMT-DATA",
+        "R3-ALLSTAR"
+      ],
+      "declared_at": "2026-08-03T17:57:57Z"
+    },
+    {
+      "round_id": "R4A",
+      "ordered_task_ids": [
+        "R4-AUDIO-FOUNDATION",
+        "R4A-INTEGRATION-QA"
+      ],
+      "declared_at": "2026-08-03T18:21:12Z"
+    },
+    {
+      "round_id": "R4B",
+      "ordered_task_ids": [
+        "R4B-INTEGRATION-QA"
+      ],
+      "declared_at": "2026-08-03T19:48:51Z"
+    },
+    {
+      "round_id": "R1B",
+      "ordered_task_ids": [
+        "R1B-TIP-INTEGRATION-QA"
+      ],
+      "declared_at": "2026-08-03T23:38:12Z"
+    },
+    {
+      "round_id": "R2A",
+      "ordered_task_ids": [
+        "R2A-CLOCK-LINEUPS-INTEGRATION-QA"
+      ],
+      "declared_at": "2026-08-03T23:38:12Z"
+    },
+    {
+      "round_id": "R2B",
+      "ordered_task_ids": [
+        "R2B-SHOTS-OUTCOMES-INTEGRATION-QA"
+      ],
+      "declared_at": "2026-08-04T01:01:24Z"
+    },
+    {
+      "round_id": "R2C",
+      "ordered_task_ids": [
+        "R2C-DEFENSE-CONTACT-INTEGRATION-QA"
+      ],
+      "declared_at": "2026-08-04T02:26:58Z"
+    },
+    {
+      "round_id": "R2D",
+      "ordered_task_ids": [
+        "R2D-RULES-RESTARTS-INTEGRATION-QA"
+      ],
+      "declared_at": "2026-08-04T06:25:47Z"
+    },
+    {
+      "round_id": "R2E",
+      "ordered_task_ids": [
+        "R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"
+      ],
+      "declared_at": "2026-08-04T10:26:21Z"
+    },
+    {
+      "round_id": "R4",
+      "ordered_task_ids": [
+        "R4-FRONTEND-INTRO-TITLE",
+        "R4-MENUS-UI",
+        "R4-AUDIO"
+      ],
+      "declared_at": "2026-08-03T14:50:16Z"
+    },
+    {
+      "round_id": "R5",
+      "ordered_task_ids": [
+        "R5-ASSET-BUILD-PROVENANCE",
+        "R5-PARITY-GAP-CLOSURE",
+        "R5-E2E-RELEASE-QA"
+      ],
+      "declared_at": "2026-08-03T04:47:45Z"
+    }
   ],
   "policy": {
     "claim_required_before_session_creation": true,

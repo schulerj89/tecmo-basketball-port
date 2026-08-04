@@ -1,9 +1,31 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T04:18:18Z",
+  "updated_at": "2026-08-03T16:42:20Z",
   "emergency_thread_id": null,
   "emergency_session_id": null,
-  "blockers": [],
+  "blockers": [
+    {
+      "blocker_id": "BLOCK-R4-AUDIO-LISTENING-001",
+      "task_id": "R4-AUDIO-FOUNDATION",
+      "category": "material_product_decision",
+      "status": "resolved",
+      "evidence": [
+        "Deterministic ignored native WAV: C:/Users/joshs/Projects/tecmo-basketball-port-r4-audio-foundation-luna/build/proof/r4-audio-foundation/run1/audio-proof.wav",
+        "Expected SHA-256: 57573ABE791F4277AF6DCFC6E7AE22C7A7F319BC64554B0D7FDD8F16AFBC5D6B",
+        "Objective source, event, waveform, spectrum, cue, determinism, and automated proof gates are green at candidate 51790b832eb4bb23db07ac7965d6c2b1da877a1e.",
+        "Human listening sign-off approved clean opening/tail/end, correct loops and stinger, separable cues, working mixed override, and correct TDMC held/retrigger/stop windows."
+      ],
+      "attempts": [
+        "Authoritative Sol inspected the source, event/state trace, waveform, spectrum, cue identities, and deterministic proof outputs.",
+        "Independent QA Luna is auditing the exact detached candidate and proof, but both available runtimes explicitly cannot ingest or perceive audio."
+      ],
+      "why_internal_resolution_is_impossible": "Subjective listening observations require a human or audio-capable listener; another coding or QA session would have the same runtime limitation and could not honestly certify audibility.",
+      "required_user_action": "Listen to the WAV and report approval or defect timestamps for opening/tail/end, music loops/stinger, cue separability, mixed override, and TDMC held/retrigger/stop windows; alternatively explicitly authorize objective waveform/spectrum/event inspection as the accepted substitute for this round.",
+      "impact": "Audio implementation and independent QA may continue, but final R4 audio acceptance and project completion cannot claim the required subjective listening sign-off until resolved.",
+      "opened_at": "2026-08-03T16:26:56Z",
+      "resolved_at": "2026-08-03T16:42:20Z"
+    }
+  ],
   "policy": {
     "thread_title": "Blockers we need help with",
     "model": "gpt-5.6-luna",

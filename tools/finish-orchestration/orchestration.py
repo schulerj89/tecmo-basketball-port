@@ -37,6 +37,7 @@ STATE_SCHEMA_MAP = {
     "ownership.json": "ownership.schema.json",
     "queue.json": "queue.schema.json",
     "rounds.json": "rounds.schema.json",
+    "schedule.json": "schedule.schema.json",
     "sessions.json": "sessions.schema.json",
     "state-machine.json": "state-machine.schema.json",
 }
@@ -60,6 +61,14 @@ ACTIVE_TASK_STATES = {
     "combined_qa",
     "ready_for_main",
     "merged",
+    "blocked",
+    "reopened",
+}
+WRITABLE_OR_REVIEW_TASK_STATES = {
+    "assigned",
+    "in_progress",
+    "sol_review",
+    "luna_revision",
     "blocked",
     "reopened",
 }
@@ -209,6 +218,47 @@ def normalize_relative_path(value: str) -> str:
 
 def canonical_worktree(value: str) -> str:
     return os.path.normcase(os.path.abspath(value.replace("/", os.sep)))
+
+
+def task_docs_candidates(repo_root: Path, task: dict[str, Any]) -> list[Path]:
+    """Return accepted-doc locations in registered-context-first order."""
+    relative = Path(normalize_relative_path(task["task_docs_path"]))
+    roots: list[Path] = []
+    if task.get("worktree"):
+        roots.append(Path(canonical_worktree(task["worktree"])))
+    resolved_repo_root = repo_root.resolve()
+    if not roots or canonical_worktree(str(resolved_repo_root)) != canonical_worktree(str(roots[0])):
+        roots.append(resolved_repo_root)
+    return [root / relative for root in roots]
+
+
+def tasks_may_share_sequential_context(first: dict[str, Any], second: dict[str, Any]) -> bool:
+    """Allow exact branch/worktree reuse only for an explicit frozen same-Sol sequence."""
+    same_sol = (
+        first["sol_orchestrator_session_id"] is not None
+        and first["sol_orchestrator_session_id"] == second["sol_orchestrator_session_id"]
+    )
+    dependency_ordered = (
+        first["task_id"] in second["dependencies"]
+        or second["task_id"] in first["dependencies"]
+    )
+    concurrently_writable = (
+        first["state"] in WRITABLE_OR_REVIEW_TASK_STATES
+        and second["state"] in WRITABLE_OR_REVIEW_TASK_STATES
+    )
+    frozen_delivery_handoff = (
+        first["state"] == "ready_for_round_staging"
+        and first["task_id"] in second["dependencies"]
+    ) or (
+        second["state"] == "ready_for_round_staging"
+        and second["task_id"] in first["dependencies"]
+    )
+    return (
+        same_sol
+        and (first["round_id"] == second["round_id"] or frozen_delivery_handoff)
+        and dependency_ordered
+        and not concurrently_writable
+    )
 
 
 def glob_regex(pattern: str) -> re.Pattern[str]:
@@ -389,6 +439,7 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
     blockers = state["blockers"]
     acceptance = state["acceptance"]
     inventory = state["inventory"]
+    schedule = state["schedule"]
 
     states = set(machine["states"])
     if machine["initial_state"] not in states:
@@ -414,6 +465,7 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
     evidence_rows = evidence["records"]
     blocker_rows = blockers["blockers"]
     criteria = acceptance["criteria"]
+    lane_rows = schedule["lanes"]
 
     for records, key, label in (
         (tasks, "task_id", "task id"),
@@ -431,6 +483,7 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         (inventory["branches"], "name", "inventory branch"),
         (inventory["commits"], "sha", "inventory commit"),
         (inventory["proof_artifacts"], "proof_id", "inventory proof id"),
+        (lane_rows, "lane_id", "schedule lane id"),
     ):
         check_unique(records, key, label, result)
 
@@ -442,6 +495,83 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
     evidence_by_id = {row["evidence_id"]: row for row in evidence_rows}
     blocker_by_id = {row["blocker_id"]: row for row in blocker_rows}
 
+    if schedule["master_session_id"] != sessions["master_session_id"]:
+        result.error("schedule master_session_id differs from sessions master_session_id")
+    active_lane_count = sum(row["readiness"] == "active" for row in lane_rows)
+    cleared_lane_count = sum(row["readiness"] == "cleared_for_creation" for row in lane_rows)
+    policy_target = schedule["policy"]["target_active_domain_orchestrators"]
+    monitoring_limit = schedule["policy"]["max_monitored_sol_orchestrators"]
+    capacity = schedule["capacity"]
+    expected_target_slots = max(0, policy_target - active_lane_count - cleared_lane_count)
+    expected_monitoring_slots = max(0, monitoring_limit - active_lane_count - cleared_lane_count)
+    if capacity["active_domain_orchestrators"] != active_lane_count:
+        result.error("schedule capacity active_domain_orchestrators does not match active lanes")
+    if capacity["cleared_for_creation"] != cleared_lane_count:
+        result.error("schedule capacity cleared_for_creation does not match cleared lanes")
+    if capacity["target_active_domain_orchestrators"] != policy_target:
+        result.error("schedule capacity target differs from policy target")
+    if capacity["monitoring_limit"] != monitoring_limit:
+        result.error("schedule capacity monitoring limit differs from policy")
+    if capacity["unallocated_target_slots"] != expected_target_slots:
+        result.error("schedule capacity unallocated_target_slots is stale")
+    if capacity["unallocated_monitoring_slots"] != expected_monitoring_slots:
+        result.error("schedule capacity unallocated_monitoring_slots is stale")
+    if active_lane_count + cleared_lane_count > monitoring_limit:
+        result.error("schedule active and cleared lanes exceed monitoring capacity")
+
+    lane_branches: dict[str, str] = {}
+    lane_worktrees: dict[str, str] = {}
+    for lane in lane_rows:
+        lane_id = lane["lane_id"]
+        for round_id in lane["round_ids"]:
+            if round_id not in round_by_id:
+                result.error(f"schedule lane {lane_id}: unknown round {round_id}")
+        for task_id in lane["task_ids"]:
+            if task_id not in task_by_id:
+                result.error(f"schedule lane {lane_id}: unknown task {task_id}")
+            elif task_by_id[task_id]["round_id"] not in lane["round_ids"]:
+                result.error(f"schedule lane {lane_id}: task {task_id} is outside the lane rounds")
+        reservation_owner = lane["reservation_owner_session_id"]
+        if reservation_owner not in session_by_id:
+            result.error(f"schedule lane {lane_id}: unknown reservation owner {reservation_owner}")
+        orchestrator_id = lane["orchestrator_session_id"]
+        orchestrator = session_by_id.get(orchestrator_id) if orchestrator_id else None
+        if orchestrator_id and not orchestrator:
+            result.error(f"schedule lane {lane_id}: unknown orchestrator {orchestrator_id}")
+        elif orchestrator and orchestrator["role"] not in {"domain_orchestrator", "integration_orchestrator"}:
+            result.error(f"schedule lane {lane_id}: assigned orchestrator is not a Sol orchestrator role")
+        if lane["readiness"] == "active":
+            if not orchestrator:
+                result.error(f"schedule lane {lane_id}: active lane has no orchestrator")
+            elif orchestrator["status"] not in ACTIVE_SESSION_STATES:
+                result.error(f"schedule lane {lane_id}: active lane orchestrator is not active/idle/blocked")
+        if lane["readiness"] == "cleared_for_creation" and orchestrator_id is not None:
+            result.error(f"schedule lane {lane_id}: cleared-for-creation lane already has an orchestrator")
+        if (lane["branch"] is None) != (lane["worktree"] is None):
+            result.error(f"schedule lane {lane_id}: branch and worktree must both be set or both be null")
+        if lane["branch"]:
+            branch_key = lane["branch"].casefold()
+            if branch_key in lane_branches:
+                result.error(f"schedule lanes {lane_branches[branch_key]} and {lane_id} share branch {lane['branch']}")
+            lane_branches[branch_key] = lane_id
+        if lane["worktree"]:
+            worktree_key = canonical_worktree(lane["worktree"])
+            if worktree_key in lane_worktrees:
+                result.error(f"schedule lanes {lane_worktrees[worktree_key]} and {lane_id} share worktree {lane['worktree']}")
+            lane_worktrees[worktree_key] = lane_id
+        expected_claim_session = orchestrator_id if lane["readiness"] == "active" else reservation_owner
+        for claim_id in lane["ownership_claim_ids"]:
+            claim = claim_by_id.get(claim_id)
+            if not claim:
+                result.error(f"schedule lane {lane_id}: unknown ownership claim {claim_id}")
+                continue
+            if claim["task_id"] not in lane["task_ids"]:
+                result.error(f"schedule lane {lane_id}: claim {claim_id} belongs to a task outside the lane")
+            if lane["readiness"] in {"active", "cleared_for_creation"} and not claim["active"]:
+                result.error(f"schedule lane {lane_id}: active/cleared claim {claim_id} is not active")
+            if lane["readiness"] in {"active", "cleared_for_creation"} and claim["session_id"] != expected_claim_session:
+                result.error(f"schedule lane {lane_id}: claim {claim_id} is not held by the expected session")
+
     if sessions["master_session_id"] not in session_by_id:
         result.error("master_session_id does not reference a registered session")
     elif session_by_id[sessions["master_session_id"]]["role"] != "master":
@@ -451,8 +581,8 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         if worker["thread_id"] in session_thread_ids:
             result.error(f"reported Luna thread {worker['thread_id']} duplicates a registered Sol/master thread")
 
-    active_task_branches: dict[str, str] = {}
-    active_task_worktrees: dict[str, str] = {}
+    active_task_branches: dict[str, dict[str, Any]] = {}
+    active_task_worktrees: dict[str, dict[str, Any]] = {}
     for task in tasks:
         task_id = task["task_id"]
         if task["state"] not in states:
@@ -469,6 +599,15 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
                 result.error(f"task {task_id}: unknown dependency {dependency}")
             if dependency == task_id:
                 result.error(f"task {task_id}: self dependency")
+            if (
+                task["state"] in ACTIVE_TASK_STATES
+                and dependency in task_by_id
+                and task_by_id[dependency]["state"] not in FINAL_OR_LATE_STATES
+            ):
+                result.error(
+                    f"task {task_id}: active state {task['state']} has unsatisfied dependency "
+                    f"{dependency} in state {task_by_id[dependency]['state']}"
+                )
         for claim_id in task["ownership_claim_ids"]:
             claim = claim_by_id.get(claim_id)
             if not claim:
@@ -521,13 +660,32 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
             if not worker:
                 result.error(f"task {task_id}: reported Luna session {worker_id} is not registered")
             elif worker["reported_by_session_id"] != sol_session_id:
-                result.error(f"task {task_id}: reported Luna session {worker_id} belongs to another Sol orchestrator")
+                reporter = session_by_id.get(worker["reported_by_session_id"])
+                if not (
+                    reporter
+                    and reporter["role"] == "release_orchestrator"
+                    and task_id in reporter["task_ids"]
+                ):
+                    result.error(
+                        f"task {task_id}: reported Luna session {worker_id} belongs to another orchestrator"
+                    )
 
         if task["state"] in FINAL_OR_LATE_STATES and not task["coordination_only"]:
             if not task["qa"]["sol_signoff"]:
                 result.error(f"task {task_id}: {task['state']} requires Sol QA sign-off")
-            if not (repo_root / task["task_docs_path"]).is_dir():
-                result.error(f"task {task_id}: accepted task documentation folder is missing")
+            docs_path = normalize_relative_path(task["task_docs_path"])
+            if (
+                not docs_path
+                or docs_path.startswith("/")
+                or re.match(r"^[A-Za-z]:", docs_path)
+                or ".." in docs_path.split("/")
+            ):
+                result.error(f"task {task_id}: accepted task documentation path is unsafe/non-relative")
+            elif not any(candidate.is_dir() for candidate in task_docs_candidates(repo_root, task)):
+                result.error(
+                    f"task {task_id}: accepted task documentation folder is missing from its registered "
+                    "worktree and the validator repository root"
+                )
         if task["state"] in INTEGRATION_SIGNOFF_STATES and not task["qa"]["integration_signoff"]:
             result.error(f"task {task_id}: {task['state']} requires integration sign-off")
         if task["state"] == "pushed":
@@ -540,12 +698,26 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
                 continue
             branch_key = task["branch"].casefold()
             worktree_key = canonical_worktree(task["worktree"])
-            if branch_key in active_task_branches:
-                result.error(f"active tasks {active_task_branches[branch_key]} and {task_id} share branch {task['branch']}")
-            if worktree_key in active_task_worktrees:
-                result.error(f"active tasks {active_task_worktrees[worktree_key]} and {task_id} share worktree {task['worktree']}")
-            active_task_branches[branch_key] = task_id
-            active_task_worktrees[worktree_key] = task_id
+            branch_peer = active_task_branches.get(branch_key)
+            if branch_peer and not (
+                tasks_may_share_sequential_context(branch_peer, task)
+                and canonical_worktree(branch_peer["worktree"]) == worktree_key
+            ):
+                result.error(
+                    f"active tasks {branch_peer['task_id']} and {task_id} share branch {task['branch']} "
+                    "without an allowed exact sequential context"
+                )
+            worktree_peer = active_task_worktrees.get(worktree_key)
+            if worktree_peer and not (
+                tasks_may_share_sequential_context(worktree_peer, task)
+                and worktree_peer["branch"].casefold() == branch_key
+            ):
+                result.error(
+                    f"active tasks {worktree_peer['task_id']} and {task_id} share worktree {task['worktree']} "
+                    "without an allowed exact sequential context"
+                )
+            active_task_branches[branch_key] = task
+            active_task_worktrees[worktree_key] = task
 
     for cycle in detect_dependency_cycles(task_by_id):
         result.error("task dependency cycle: " + " -> ".join(cycle))
@@ -558,17 +730,30 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         if role in {"master", "domain_orchestrator", "integration_orchestrator"}:
             if session["model"] != "gpt-5.6-sol" or session["thinking"] != "max":
                 result.error(f"session {session_id}: Sol role must use gpt-5.6-sol thinking=max")
+        elif role == "release_orchestrator":
+            if session["model"] != "gpt-5.6-terra" or session["thinking"] != "xhigh":
+                result.error(f"session {session_id}: release orchestrator must use gpt-5.6-terra thinking=xhigh")
+            if "tecmo" not in session["title"].casefold() or "terra" not in session["title"].casefold():
+                result.error(f"session {session_id}: release title must contain Tecmo and Terra")
+        elif role == "security_operator":
+            if session["model"] != "gpt-5.6-sol" or session["thinking"] != "high":
+                result.error(f"session {session_id}: security operator must use gpt-5.6-sol thinking=high")
+            if session["round_ids"] or session["task_ids"]:
+                result.error(f"session {session_id}: security operator must remain outside product rounds/tasks")
         elif role == "luna_worker":
             if session["model"] != "gpt-5.6-luna" or session["thinking"] != "max":
                 result.error(f"session {session_id}: worker must use gpt-5.6-luna thinking=max")
         elif role == "emergency_blocker":
             if session["model"] != "gpt-5.6-luna" or session["thinking"] != "high":
                 result.error(f"session {session_id}: blocker role must use gpt-5.6-luna thinking=high")
-        if "tecmo" not in session["title"].casefold():
-            result.error(f"session {session_id}: title does not contain Tecmo")
-        expected_tier = "sol" if session["model"] == "gpt-5.6-sol" else "luna"
-        if expected_tier not in session["title"].casefold():
-            result.error(f"session {session_id}: title does not contain model tier {expected_tier}")
+            if session["title"] != "Blockers we need help with":
+                result.error(f"session {session_id}: blocker role must use the exact emergency title")
+        else:
+            if "tecmo" not in session["title"].casefold():
+                result.error(f"session {session_id}: title does not contain Tecmo")
+            expected_tier = "sol" if session["model"] == "gpt-5.6-sol" else "luna"
+            if expected_tier not in session["title"].casefold():
+                result.error(f"session {session_id}: title does not contain model tier {expected_tier}")
         if session["status"] in ACTIVE_SESSION_STATES and session["pin_state"] != "pinned":
             result.error(f"session {session_id}: active/idle/blocked session must be pinned")
         for task_id in session["task_ids"]:
@@ -593,6 +778,10 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         if session["failure"]["count"] != len(session["failure"]["raw_error_signatures"]):
             result.error(f"session {session_id}: failure count does not equal recorded raw signatures")
         if session["status"] in ACTIVE_SESSION_STATES:
+            if role in {"emergency_blocker", "security_operator"}:
+                if session["branch"] or session["worktree"]:
+                    result.error(f"session {session_id}: projectless operator role must not own a branch/worktree")
+                continue
             if not session["branch"] or not session["worktree"]:
                 result.error(f"session {session_id}: active session requires a branch and worktree")
                 continue
@@ -612,8 +801,12 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         if "tecmo" not in worker["title"].casefold() or "luna" not in worker["title"].casefold():
             result.error(f"reported worker {worker_id}: title must contain Tecmo and Luna")
         reporter = session_by_id.get(worker["reported_by_session_id"])
-        if not reporter or reporter["role"] not in {"domain_orchestrator", "integration_orchestrator"}:
-            result.error(f"reported worker {worker_id}: reporter is not a registered Sol orchestrator")
+        if not reporter or reporter["role"] not in {
+            "domain_orchestrator",
+            "integration_orchestrator",
+            "release_orchestrator",
+        }:
+            result.error(f"reported worker {worker_id}: reporter is not a registered orchestrator")
         for task_id in worker["task_ids"]:
             if task_id not in task_by_id:
                 result.error(f"reported worker {worker_id}: unknown task {task_id}")
@@ -627,6 +820,28 @@ def validate_semantics(repo_root: Path, state: dict[str, Any]) -> CheckResult:
             result.error(f"reported worker {worker_id}: active/idle/blocked worker must be pinned")
         if worker["failure"]["count"] != len(worker["failure"]["raw_error_signatures"]):
             result.error(f"reported worker {worker_id}: failure count does not equal recorded signatures")
+        has_branch = worker["branch"] is not None
+        has_worktree = worker["worktree"] is not None
+        if worker["status"] in ACTIVE_SESSION_STATES and has_branch and not has_worktree:
+            result.error(f"reported worker {worker_id}: a branch requires a registered worktree")
+        if worker["status"] in ACTIVE_SESSION_STATES and has_worktree:
+            if worker["base_sha"] is None or worker["last_good_sha"] is None:
+                result.error(f"reported worker {worker_id}: active Git context requires base_sha and last_good_sha")
+            worktree_key = canonical_worktree(worker["worktree"])
+            if worktree_key in active_session_worktrees:
+                result.error(
+                    f"reported worker {worker_id} shares worktree {worker['worktree']} with active context "
+                    f"{active_session_worktrees[worktree_key]}"
+                )
+            active_session_worktrees[worktree_key] = worker_id
+            if has_branch:
+                branch_key = worker["branch"].casefold()
+                if branch_key in active_session_branches:
+                    result.error(
+                        f"reported worker {worker_id} shares branch {worker['branch']} with active context "
+                        f"{active_session_branches[branch_key]}"
+                    )
+                active_session_branches[branch_key] = worker_id
 
     for claim in claims:
         claim_id = claim["claim_id"]
@@ -811,7 +1026,17 @@ def validate_git_lineage(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         if not git_is_ancestor(repo_root, task["base_sha"], branch_tip):
             result.error(f"lineage: task {task_id} branch tip does not descend from base")
         try:
-            commits = git_output(repo_root, "rev-list", "--reverse", f"{task['base_sha']}..{task['branch']}").splitlines()
+            # Integration branches may merge a newly advanced main as a second
+            # parent.  Expected-parent validation follows the task branch's
+            # first-parent delivery line so unrelated commits brought in by
+            # that merge are not mistaken for the task's first commit.
+            commits = git_output(
+                repo_root,
+                "rev-list",
+                "--first-parent",
+                "--reverse",
+                f"{task['base_sha']}..{task['branch']}",
+            ).splitlines()
         except RuntimeError as exc:
             result.error(f"lineage: task {task_id}: {exc}")
             commits = []
@@ -836,6 +1061,10 @@ def validate_git_lineage(repo_root: Path, state: dict[str, Any]) -> CheckResult:
         if session["status"] not in ACTIVE_SESSION_STATES:
             continue
         session_id = session["session_id"]
+        if session["role"] in {"emergency_blocker", "security_operator"}:
+            if session["branch"] or session["worktree"]:
+                result.error(f"lineage: projectless operator {session_id} must remain projectless")
+            continue
         if not session["worktree"] or not session["branch"]:
             result.error(f"lineage: active session {session_id} has no branch/worktree")
             continue
@@ -848,6 +1077,57 @@ def validate_git_lineage(repo_root: Path, state: dict[str, Any]) -> CheckResult:
             result.error(f"lineage: active session {session_id} is on {actual_branch}, expected {session['branch']}")
         if not git_commit_exists(repo_root, session["last_good_sha"]):
             result.error(f"lineage: session {session_id} last_good_sha does not exist")
+
+    for worker in sessions["reported_luna_workers"]:
+        if worker["status"] not in ACTIVE_SESSION_STATES or not worker["worktree"]:
+            continue
+        worker_id = worker["worker_id"]
+        if worker["base_sha"] is None or worker["last_good_sha"] is None:
+            result.error(f"lineage: active Git worker {worker_id} lacks base/last-good SHA")
+            continue
+        for label, sha in (("base_sha", worker["base_sha"]), ("last_good_sha", worker["last_good_sha"])):
+            if not git_commit_exists(repo_root, sha):
+                result.error(f"lineage: worker {worker_id} {label} {sha} does not exist")
+        worktree = worktrees.get(canonical_worktree(worker["worktree"]))
+        if not worktree:
+            result.error(f"lineage: worker {worker_id} worktree is not registered")
+            continue
+        if not worker["branch"]:
+            actual_branch = worktree.get("branch", "").removeprefix("refs/heads/")
+            if actual_branch:
+                result.error(f"lineage: detached worker {worker_id} unexpectedly has branch {actual_branch}")
+            actual_head = worktree.get("HEAD")
+            if actual_head != worker["last_good_sha"]:
+                result.error(
+                    f"lineage: detached worker {worker_id} HEAD {actual_head} "
+                    f"does not equal last-good {worker['last_good_sha']}"
+                )
+            if git_commit_exists(repo_root, worker["base_sha"]) and git_commit_exists(repo_root, worker["last_good_sha"]):
+                if not git_is_ancestor(repo_root, worker["base_sha"], worker["last_good_sha"]):
+                    result.error(f"lineage: detached worker {worker_id} target does not descend from base")
+            continue
+        try:
+            branch_tip = git_output(repo_root, "rev-parse", f"refs/heads/{worker['branch']}")
+        except RuntimeError as exc:
+            result.error(f"lineage: worker {worker_id}: {exc}")
+            continue
+        if not git_is_ancestor(repo_root, worker["base_sha"], branch_tip):
+            result.error(f"lineage: worker {worker_id} branch tip does not descend from base")
+        if git_commit_exists(repo_root, worker["last_good_sha"]) and not git_is_ancestor(
+            repo_root, worker["last_good_sha"], branch_tip
+        ):
+            result.error(f"lineage: worker {worker_id} last-good commit is not on its branch")
+        commits = git_output(repo_root, "rev-list", "--reverse", f"{worker['base_sha']}..{worker['branch']}").splitlines()
+        if commits:
+            parents = git_output(repo_root, "show", "-s", "--format=%P", commits[0]).split()
+            if worker["base_sha"] not in parents:
+                result.error(
+                    f"lineage: worker {worker_id} first branch commit {commits[0]} "
+                    f"does not have base parent {worker['base_sha']}"
+                )
+        actual_branch = worktree.get("branch", "").removeprefix("refs/heads/")
+        if actual_branch != worker["branch"]:
+            result.error(f"lineage: worker {worker_id} is on {actual_branch}, expected {worker['branch']}")
 
     return result
 
@@ -889,6 +1169,7 @@ def status_text(state: dict[str, Any]) -> str:
     sessions = state["sessions"]
     acceptance = state["acceptance"]
     blockers = state["blockers"]
+    schedule = state["schedule"]
     counts = collections.Counter(task["state"] for task in queue["tasks"])
     classifications = collections.Counter(row["classification"] for row in acceptance["criteria"])
     active_sessions = [row for row in sessions["sessions"] if row["status"] in ACTIVE_SESSION_STATES]
@@ -900,6 +1181,10 @@ def status_text(state: dict[str, Any]) -> str:
         f"Active sessions: {len(active_sessions)}",
         f"Reported Luna workers: {len(sessions['reported_luna_workers'])}",
         f"Open external blockers: {sum(row['status'] == 'open' for row in blockers['blockers'])}",
+        f"Sol lane capacity: active={schedule['capacity']['active_domain_orchestrators']}, "
+        f"cleared={schedule['capacity']['cleared_for_creation']}, "
+        f"target={schedule['capacity']['target_active_domain_orchestrators']}, "
+        f"monitoring_limit={schedule['capacity']['monitoring_limit']}",
         "Acceptance: " + ", ".join(f"{key}={value}" for key, value in sorted(classifications.items())),
     ]
     return "\n".join(lines)
@@ -913,6 +1198,7 @@ def dashboard_text(state: dict[str, Any], generated_at: str) -> str:
     blockers = state["blockers"]
     acceptance = state["acceptance"]
     inventory = state["inventory"]
+    schedule = state["schedule"]
     task_counts = collections.Counter(task["state"] for task in queue["tasks"])
     classification_counts = collections.Counter(row["classification"] for row in acceptance["criteria"])
 
@@ -930,11 +1216,37 @@ def dashboard_text(state: dict[str, Any], generated_at: str) -> str:
         "- Task states: " + (", ".join(f"`{key}` {value}" for key, value in sorted(task_counts.items())) or "none"),
         "- Fidelity classifications: " + ", ".join(f"`{key}` {value}" for key, value in sorted(classification_counts.items())),
         "",
+        "## Sol Orchestration Capacity",
+        "",
+        f"- Single master authority: `{schedule['policy']['single_master_authority']}`",
+        f"- Second-master policy: `{schedule['policy']['second_master_policy']}`",
+        f"- Active domain Sols: `{schedule['capacity']['active_domain_orchestrators']}`",
+        f"- Cleared for creation: `{schedule['capacity']['cleared_for_creation']}`",
+        f"- Target active domain Sols: `{schedule['capacity']['target_active_domain_orchestrators']}`",
+        f"- Monitoring limit: `{schedule['capacity']['monitoring_limit']}`",
+        "",
+        "| Lane | Domain | Readiness | Dependencies | Tasks | Sol | Branch | Next gate |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for lane in schedule["lanes"]:
+        lines.append(
+            "| " + " | ".join(
+                markdown_escape(value)
+                for value in (
+                    lane["lane_id"], lane["domain"], lane["readiness"], lane["dependency_status"],
+                    ", ".join(lane["task_ids"]), lane["orchestrator_session_id"] or "reserved by master",
+                    lane["branch"] or "-", lane["next_gate"],
+                )
+            ) + " |"
+        )
+
+    lines.extend([
+        "",
         "## Rounds",
         "",
         "| Round | Status | Base | Tasks | Staging | Combined QA | Push |",
         "|---|---|---|---:|---|---|---|",
-    ]
+    ])
     for row in rounds["rounds"]:
         lines.append(
             "| " + " | ".join(
@@ -1159,6 +1471,47 @@ def command_self_test(args: argparse.Namespace) -> int:
     expect(not possible_pattern_overlap("src/audio/**", "src/gameplay/**"), "disjoint prefixes do not overlap")
     expect(find_duplicates(["a", "b", "a"]) == ["a"], "duplicate detector")
 
+    prior_task = {
+        "task_id": "A", "round_id": "R1", "sol_orchestrator_session_id": "S1",
+        "state": "sol_accepted", "dependencies": [],
+    }
+    next_task = {
+        "task_id": "B", "round_id": "R1", "sol_orchestrator_session_id": "S1",
+        "state": "in_progress", "dependencies": ["A"],
+    }
+    expect(tasks_may_share_sequential_context(prior_task, next_task), "same-Sol sequential context reuse")
+    delivery_task = copy.deepcopy(prior_task)
+    delivery_task["round_id"] = "R1A"
+    delivery_task["state"] = "ready_for_round_staging"
+    expect(
+        tasks_may_share_sequential_context(delivery_task, next_task),
+        "frozen delivery-subround handoff context reuse",
+    )
+    unfrozen_cross_round = copy.deepcopy(delivery_task)
+    unfrozen_cross_round["state"] = "sol_accepted"
+    expect(
+        not tasks_may_share_sequential_context(unfrozen_cross_round, next_task),
+        "unfrozen cross-round context rejection",
+    )
+    concurrent_task = copy.deepcopy(prior_task)
+    concurrent_task["state"] = "sol_review"
+    expect(
+        not tasks_may_share_sequential_context(concurrent_task, next_task),
+        "concurrent writable context rejection",
+    )
+    unordered_task = copy.deepcopy(next_task)
+    unordered_task["dependencies"] = []
+    expect(
+        not tasks_may_share_sequential_context(prior_task, unordered_task),
+        "unordered context reuse rejection",
+    )
+    other_sol_task = copy.deepcopy(next_task)
+    other_sol_task["sol_orchestrator_session_id"] = "S2"
+    expect(
+        not tasks_may_share_sequential_context(prior_task, other_sol_task),
+        "cross-Sol context reuse rejection",
+    )
+
     sample_tasks = {
         "A": {"dependencies": ["B"]},
         "B": {"dependencies": ["A"]},
@@ -1166,8 +1519,21 @@ def command_self_test(args: argparse.Namespace) -> int:
     expect(bool(detect_dependency_cycles(sample_tasks)), "dependency cycle detector")
     expect(set(STATE_SCHEMA_MAP) == {
         "acceptance.json", "blockers.json", "evidence.json", "inventory.json", "ownership.json",
-        "queue.json", "rounds.json", "sessions.json", "state-machine.json"
+        "queue.json", "rounds.json", "schedule.json", "sessions.json", "state-machine.json"
     }, "state/schema registry")
+    with tempfile.TemporaryDirectory(prefix="tecmo-doc-root-selftest-") as temp_root:
+        fixture_root = Path(temp_root)
+        master_root = fixture_root / "master"
+        task_root = fixture_root / "domain-worktree"
+        registered_docs = task_root / "docs" / "finish-tasks" / "sample"
+        registered_docs.mkdir(parents=True)
+        docs_fixture = {
+            "worktree": str(task_root),
+            "task_docs_path": "docs/finish-tasks/sample",
+        }
+        candidates = task_docs_candidates(master_root, docs_fixture)
+        expect(candidates[0] == registered_docs and candidates[0].is_dir(), "registered-worktree task docs")
+        expect(candidates[-1] == master_root / "docs" / "finish-tasks" / "sample", "master-root docs fallback")
 
     state_dir, schema_dir, _ = orchestration_paths(args.repo_root)
     try:
@@ -1182,6 +1548,70 @@ def command_self_test(args: argparse.Namespace) -> int:
         audit_state["queue"]["tasks"][0]["audit"][-1]["from_state"] = "backlog"
         audit_result = validate_semantics(args.repo_root, audit_state)
         expect(any("does not continue prior state" in message for message in audit_result.errors), "audit-chain rejection")
+
+        dependency_state = copy.deepcopy(actual_state)
+        dependent_task = next(
+            (
+                row
+                for row in dependency_state["queue"]["tasks"]
+                if row["state"] in ACTIVE_TASK_STATES and row["dependencies"]
+            ),
+            None,
+        )
+        if dependent_task is None:
+            dependent_task = next(
+                row
+                for row in dependency_state["queue"]["tasks"]
+                if row["dependencies"]
+                and row["sol_orchestrator_session_id"]
+                and row["ownership_claim_ids"]
+                and row["branch"]
+                and row["worktree"]
+            )
+            dependent_task["state"] = "in_progress"
+        dependency_id = dependent_task["dependencies"][0]
+        dependency_task = next(
+            row for row in dependency_state["queue"]["tasks"] if row["task_id"] == dependency_id
+        )
+        dependency_task["state"] = "backlog"
+        dependency_result = validate_semantics(args.repo_root, dependency_state)
+        expect(
+            any(f"unsatisfied dependency {dependency_id}" in message for message in dependency_result.errors),
+            "active-task dependency gate",
+        )
+
+        worker_collision_state = copy.deepcopy(actual_state)
+        reported_workers = worker_collision_state["sessions"]["reported_luna_workers"]
+        expect(bool(reported_workers), "reported-worker collision fixture availability")
+        if reported_workers:
+            collision_worker = reported_workers[0]
+            collision_reporter = next(
+                row
+                for row in worker_collision_state["sessions"]["sessions"]
+                if row["session_id"] == collision_worker["reported_by_session_id"]
+            )
+            collision_reporter.update(
+                {
+                    "status": "active",
+                    "pin_state": "pinned",
+                    "completed_at": None,
+                }
+            )
+            collision_worker.update(
+                {
+                    "status": "active",
+                    "pin_state": "pinned",
+                    "branch": "codex/master-finish-orchestration",
+                    "worktree": str(args.repo_root),
+                    "base_sha": worker_collision_state["queue"]["program_base_sha"],
+                    "last_good_sha": worker_collision_state["queue"]["program_base_sha"],
+                }
+            )
+            worker_collision_result = validate_semantics(args.repo_root, worker_collision_state)
+            expect(
+                any("shares branch" in message for message in worker_collision_result.errors),
+                "reported-worker active-context collision rejection",
+            )
 
         overlap_claims = copy.deepcopy(actual_state["ownership"])
         first_claim = copy.deepcopy(overlap_claims["claims"][0])

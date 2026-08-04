@@ -1,0 +1,466 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-08-04T19:27:46Z",
+  "master_session_id": "S-MASTER-001",
+  "policy": {
+    "single_master_authority": true,
+    "second_master_policy": "recovery_replacement_only",
+    "claim_reservation_required_before_creation": true,
+    "target_active_domain_orchestrators": 4,
+    "max_monitored_sol_orchestrators": 8
+  },
+  "capacity": {
+    "active_domain_orchestrators": 0,
+    "cleared_for_creation": 0,
+    "target_active_domain_orchestrators": 4,
+    "monitoring_limit": 8,
+    "unallocated_target_slots": 4,
+    "unallocated_monitoring_slots": 8
+  },
+  "lanes": [
+    {
+      "lane_id": "LANE-R1-GAMEPLAY-FOUNDATION",
+      "title": "Round 1 tip-off continuation",
+      "domain": "gameplay_foundation",
+      "round_ids": [
+        "R1"
+      ],
+      "task_ids": [
+        "R1-TIP-FIDELITY"
+      ],
+      "readiness": "complete",
+      "dependency_status": "complete",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R1-GAMEPLAY-001",
+      "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
+      "branch": "codex/r1-gameplay-foundation-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1-gameplay-foundation-sol",
+      "ownership_claim_ids": [
+        "OWN-R1-TIP"
+      ],
+      "blockers": [],
+      "next_gate": "Terminal signed TIP domain tip e21f9a6 is Sol/independent accepted with P0/P1/P2 zero and ready for incremental round staging. Create dedicated current-main integration QA; do not fast-forward divergent main directly or fold uncommitted shots work into the candidate.",
+      "updated_at": "2026-08-03T22:04:10Z"
+    },
+    {
+      "lane_id": "LANE-R3-SEASON-DATA-FOUNDATION",
+      "title": "Round 3A accepted season and data foundation",
+      "domain": "season_data",
+      "round_ids": [
+        "R3A"
+      ],
+      "task_ids": [
+        "R3-SEASON-DATA-FOUNDATION"
+      ],
+      "readiness": "complete",
+      "dependency_status": "complete",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R3-SEASON-DATA-001",
+      "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
+      "branch": "codex/r3-season-data-foundation-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3-season-data-foundation-sol",
+      "ownership_claim_ids": [
+        "OWN-R3-SEASON-DATA-FOUNDATION"
+      ],
+      "blockers": [],
+      "next_gate": "Accepted season/data foundation is frozen at f536a193. Its separate R3A Integration QA lane is cleared for creation and no longer waits for downstream statistics, save, management, or All-Star tasks.",
+      "updated_at": "2026-08-03T18:04:17Z"
+    },
+    {
+      "lane_id": "LANE-R1A-INTEGRATION-QA",
+      "title": "Round 1A CPU and LIVE Integration QA",
+      "domain": "integration",
+      "round_ids": [
+        "R1A"
+      ],
+      "task_ids": [
+        "R1A-INTEGRATION-QA"
+      ],
+      "readiness": "complete",
+      "dependency_status": "complete",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R1A-INTEGRATION-QA-001",
+      "base_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
+      "branch": "codex/r1a-cpu-live-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1a-cpu-live-integration-qa-sol",
+      "ownership_claim_ids": [
+        "OWN-R1A-INTEGRATION-QA"
+      ],
+      "blockers": [],
+      "next_gate": "Complete: signed terminal R1A report 819b0e5 passed same-Luna P0/P1/P2-zero closure and was master signature/ancestry/diff checked, fast-forwarded, non-force pushed, and remote-verified. CPU and LIVE native C are now on main; TIP continues separately.",
+      "updated_at": "2026-08-03T19:55:43Z"
+    },
+    {
+      "lane_id": "LANE-R3A-INTEGRATION-QA",
+      "title": "Round 3A Season Data Integration QA",
+      "domain": "integration",
+      "round_ids": [
+        "R3A"
+      ],
+      "task_ids": [
+        "R3A-INTEGRATION-QA"
+      ],
+      "readiness": "complete",
+      "dependency_status": "complete",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R3A-INTEGRATION-QA-001",
+      "base_sha": "f536a19398803742e1a3dc5bb33d8a6ee2968a24",
+      "branch": "codex/r3a-season-data-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3a-season-data-integration-qa-sol",
+      "ownership_claim_ids": [
+        "OWN-R3A-INTEGRATION-QA"
+      ],
+      "blockers": [],
+      "next_gate": "Complete: signed dd096cb passed dedicated R3A Integration QA and was non-force pushed to main/origin. Integration Sol may be unpinned after this durable master record; downstream R3 features must start from then-current main and retain documented deferrals.",
+      "updated_at": "2026-08-03T18:45:20Z"
+    },
+    {
+      "lane_id": "LANE-R4-FRONTEND-INTRO-TITLE",
+      "title": "Round 4 frontend intro and title",
+      "domain": "frontend",
+      "round_ids": [
+        "R4"
+      ],
+      "task_ids": [
+        "R4-FRONTEND-INTRO-TITLE"
+      ],
+      "readiness": "complete",
+      "dependency_status": "complete",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R4-FRONTEND-RECOVERY-001",
+      "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
+      "branch": "codex/r4-frontend-intro-title-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4-frontend-intro-title-sol",
+      "ownership_claim_ids": [
+        "OWN-R4-FRONTEND-INTRO-TITLE"
+      ],
+      "blockers": [],
+      "next_gate": "Complete at frozen accepted candidate 757283ed with replacement-Sol and same-Luna P0/P1/P2-zero closure. Dedicated R4B integration is reserved against current main 819b0e5; domain branch and proof stay immutable.",
+      "updated_at": "2026-08-03T19:55:43Z"
+    },
+    {
+      "lane_id": "LANE-R4-AUDIO-FOUNDATION",
+      "title": "Round 4A accepted audio foundation",
+      "domain": "audio",
+      "round_ids": [
+        "R4A"
+      ],
+      "task_ids": [
+        "R4-AUDIO-FOUNDATION"
+      ],
+      "readiness": "complete",
+      "dependency_status": "complete",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R4-AUDIO-001",
+      "base_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
+      "branch": "codex/r4-audio-foundation-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4-audio-foundation-sol",
+      "ownership_claim_ids": [
+        "OWN-R4-AUDIO-FOUNDATION"
+      ],
+      "blockers": [],
+      "next_gate": "Complete: accepted audio foundation and signed R4A Integration QA report are pushed on main/origin at bcacd5b. Broader cross-domain cue routing/full ACC-AUDIO remains deferred in parent R4.",
+      "updated_at": "2026-08-03T19:24:36Z"
+    },
+    {
+      "lane_id": "LANE-R4A-INTEGRATION-QA",
+      "title": "Round 4A Audio Foundation Integration QA",
+      "domain": "integration",
+      "round_ids": [
+        "R4A"
+      ],
+      "task_ids": [
+        "R4A-INTEGRATION-QA"
+      ],
+      "readiness": "complete",
+      "dependency_status": "complete",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R4A-INTEGRATION-QA-001",
+      "base_sha": "e120c30ee882fe07b37496e2742ac83f1d16ff3a",
+      "branch": "codex/r4a-audio-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4a-audio-integration-qa-sol",
+      "ownership_claim_ids": [
+        "OWN-R4A-INTEGRATION-QA"
+      ],
+      "blockers": [],
+      "next_gate": "Complete: same-Luna P0/P1/P2-zero closure and signed report bcacd5b were master-verified, fast-forwarded, non-force pushed, and remote-verified. Luna and Sol are completed/unpinned; branches/worktrees are preserved.",
+      "updated_at": "2026-08-03T19:32:58Z"
+    },
+    {
+      "lane_id": "LANE-R4B-INTEGRATION-QA",
+      "title": "Round 4B Frontend Intro and Title Integration QA",
+      "domain": "integration",
+      "round_ids": [
+        "R4B"
+      ],
+      "task_ids": [
+        "R4B-INTEGRATION-QA"
+      ],
+      "readiness": "complete",
+      "dependency_status": "complete",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R4B-INTEGRATION-QA-001",
+      "base_sha": "819b0e5eabca11683786e45474ca60329dff7f5f",
+      "branch": "codex/r4b-frontend-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4b-frontend-integration-qa-sol",
+      "ownership_claim_ids": [
+        "OWN-R4B-INTEGRATION-QA"
+      ],
+      "blockers": [],
+      "next_gate": "Complete: signed terminal edf16ca passed combined P0/P1/P2-zero QA and was fast-forwarded/non-force pushed to main; preserved branches/worktrees remain available for audit.",
+      "updated_at": "2026-08-03T21:02:40Z"
+    },
+    {
+      "lane_id": "LANE-R2-SHOTS-OUTCOMES",
+      "title": "Round 2 shots and outcomes",
+      "domain": "gameplay_behavior",
+      "round_ids": [
+        "R2"
+      ],
+      "task_ids": [
+        "R2-SHOTS-OUTCOMES"
+      ],
+      "readiness": "complete",
+      "dependency_status": "complete",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R2-SHOTS-001",
+      "base_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
+      "branch": "codex/r2-shots-outcomes-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-shots-outcomes-sol",
+      "ownership_claim_ids": [
+        "OWN-R2-SHOTS-OUTCOMES"
+      ],
+      "blockers": [],
+      "next_gate": "Terminal Good-signed 7b9287a9 is Sol/independent accepted with no actionable finding and frozen for dedicated R2B current-main integration QA. Domain ownership is released; preserve branches/worktrees for audit.",
+      "updated_at": "2026-08-04T01:01:24Z"
+    },
+    {
+      "lane_id": "LANE-R2-CLOCK-LINEUPS-FATIGUE",
+      "title": "Round 2 clocks, lineups, and fatigue",
+      "domain": "gameplay_behavior",
+      "round_ids": [
+        "R2"
+      ],
+      "task_ids": [
+        "R2-CLOCK-LINEUPS-FATIGUE"
+      ],
+      "readiness": "complete",
+      "dependency_status": "complete",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R2-CLOCK-LINEUPS-001",
+      "base_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
+      "branch": "codex/r2-clock-lineups-fatigue-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-clock-lineups-fatigue-sol",
+      "ownership_claim_ids": [
+        "OWN-R2-CLOCK-LINEUPS-FATIGUE"
+      ],
+      "blockers": [],
+      "next_gate": "Terminal signed domain tip ed4e56fc595894c692ffca84ae3b35f129317049 is accepted and frozen for the dedicated R2A current-main integration lane. Domain ownership is released; the accepted Sol may retire after durable control-plane closure.",
+      "updated_at": "2026-08-03T23:38:12Z"
+    },
+    {
+      "lane_id": "LANE-R1B-TIP-INTEGRATION-QA",
+      "title": "Round 1B TIP current-main integration QA",
+      "domain": "integration_qa",
+      "round_ids": [
+        "R1B"
+      ],
+      "task_ids": [
+        "R1B-TIP-INTEGRATION-QA"
+      ],
+      "readiness": "complete",
+      "dependency_status": "ready",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R1B-TIP-INTEGRATION-QA-001",
+      "base_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
+      "branch": "codex/r1b-tip-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r1b-tip-integration-qa-sol",
+      "ownership_claim_ids": [
+        "OWN-R1B-TIP-INTEGRATION-QA"
+      ],
+      "blockers": [],
+      "next_gate": "Complete: terminal Good-signed 0ef11cf passed combined zero-finding QA, was fast-forwarded/non-force pushed to main, and stable main plus both desktop shortcuts were rebuilt and verified. Preserve branches/worktrees for audit until guarded cleanup.",
+      "updated_at": "2026-08-04T01:52:01Z"
+    },
+    {
+      "lane_id": "LANE-R2A-CLOCK-LINEUPS-INTEGRATION-QA",
+      "title": "Round 2A clocks, lineups, and fatigue current-main integration QA",
+      "domain": "integration_qa",
+      "round_ids": [
+        "R2A"
+      ],
+      "task_ids": [
+        "R2A-CLOCK-LINEUPS-INTEGRATION-QA"
+      ],
+      "readiness": "complete",
+      "dependency_status": "complete",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001",
+      "base_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
+      "branch": "codex/r2a-clocks-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2a-clocks-integration-qa-sol",
+      "ownership_claim_ids": [
+        "OWN-R2A-CLOCK-LINEUPS-INTEGRATION-QA"
+      ],
+      "blockers": [],
+      "next_gate": "Complete: terminal Good-signed 8a5b992 passed combined zero-finding QA, was fast-forwarded/non-force pushed to main, and stable main plus both desktop launch shortcuts were rebuilt/verified. Preserve branches/worktrees for audit until guarded cleanup.",
+      "updated_at": "2026-08-04T00:51:20Z"
+    },
+    {
+      "lane_id": "LANE-R2B-SHOTS-OUTCOMES-INTEGRATION-QA",
+      "title": "Round 2B shots and outcomes current-main integration QA",
+      "domain": "integration_qa",
+      "round_ids": [
+        "R2B"
+      ],
+      "task_ids": [
+        "R2B-SHOTS-OUTCOMES-INTEGRATION-QA"
+      ],
+      "readiness": "complete",
+      "dependency_status": "ready",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R2B-SHOTS-INTEGRATION-QA-001",
+      "base_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
+      "branch": "codex/r2b-shots-outcomes-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2b-shots-outcomes-integration-qa-sol",
+      "ownership_claim_ids": [
+        "OWN-R2B-SHOTS-OUTCOMES-INTEGRATION-QA"
+      ],
+      "blockers": [],
+      "next_gate": "Complete: terminal Good-signed 5229092 passed reconciled Sol and same-Luna P0/P1/P2-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; unpin is authorized after durable control acknowledgment.",
+      "updated_at": "2026-08-04T03:12:31Z"
+    },
+    {
+      "lane_id": "LANE-R2-DEFENSE-CONTACT",
+      "title": "Round 2 defense and contact fidelity",
+      "domain": "gameplay_behavior",
+      "round_ids": [
+        "R2"
+      ],
+      "task_ids": [
+        "R2-DEFENSE-CONTACT"
+      ],
+      "readiness": "complete",
+      "dependency_status": "complete",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R2-DEFENSE-CONTACT-001",
+      "base_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
+      "branch": "codex/r2-defense-contact-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-defense-contact-sol",
+      "ownership_claim_ids": [
+        "OWN-R2-DEFENSE-CONTACT"
+      ],
+      "blockers": [],
+      "next_gate": "Terminal Good-signed ed70d884 is Sol/independent accepted and frozen for dedicated current-main integration QA. Domain ownership is released; preserve branches/worktrees and focused proof for audit. Normal-build/runtime/player-facing and semantic downstream integration remain separate incomplete boundaries.",
+      "updated_at": "2026-08-04T02:22:21Z"
+    },
+    {
+      "lane_id": "LANE-R2C-DEFENSE-CONTACT-INTEGRATION-QA",
+      "title": "Round 2C defense-contact current-main integration QA",
+      "domain": "integration_qa",
+      "round_ids": ["R2C"],
+      "task_ids": ["R2C-DEFENSE-CONTACT-INTEGRATION-QA"],
+      "readiness": "complete",
+      "dependency_status": "complete",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001",
+      "base_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
+      "branch": "codex/r2c-defense-contact-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2c-defense-contact-integration-qa-sol",
+      "ownership_claim_ids": ["OWN-R2C-DEFENSE-CONTACT-INTEGRATION-QA"],
+      "blockers": [],
+      "next_gate": "Complete: terminal Good-signed 7fe2dd7 passed reconciled Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; Sol/Luna unpin is authorized after durable control acknowledgment.",
+      "updated_at": "2026-08-04T03:35:34Z"
+    },
+    {
+      "lane_id": "LANE-R2-RULES-RESTARTS",
+      "title": "Round 2 rules, violations, free throws, and restarts",
+      "domain": "gameplay_behavior",
+      "round_ids": ["R2"],
+      "task_ids": ["R2-RULES-RESTARTS"],
+      "readiness": "complete",
+      "dependency_status": "complete",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R2-RULES-RESTARTS-001",
+      "base_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
+      "branch": "codex/r2-rules-restarts-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-rules-restarts-sol",
+      "ownership_claim_ids": ["OWN-R2-RULES-RESTARTS"],
+      "blockers": [],
+      "next_gate": "Complete: exact Good-signed terminal 1f23235 passed personal Sol and same-Luna P0/P1/P2/P3-zero QA, active contract wording is reconciled, domain ownership is released, and immutable 1f23235 is routed to dedicated current-main integration QA. All five child tasks and the Sol returned pinned=false after durable control; branches/worktrees/docs/proof remain preserved.",
+      "updated_at": "2026-08-04T06:25:47Z"
+    },
+    {
+      "lane_id": "LANE-R2D-RULES-RESTARTS-INTEGRATION-QA",
+      "title": "Round 2D rules and restarts current-main integration QA",
+      "domain": "integration_qa",
+      "round_ids": ["R2D"],
+      "task_ids": ["R2D-RULES-RESTARTS-INTEGRATION-QA"],
+      "readiness": "complete",
+      "dependency_status": "complete",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001",
+      "base_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
+      "branch": "codex/r2d-rules-restarts-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2d-rules-restarts-integration-qa-sol",
+      "ownership_claim_ids": ["OWN-R2D-RULES-RESTARTS-INTEGRATION-QA"],
+      "blockers": [],
+      "next_gate": "Complete: terminal Good-signed ed060720 passed Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only delivered and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Sol and Luna both returned pinned=false; all tasks and artifacts remain preserved and unarchived.",
+      "updated_at": "2026-08-04T07:56:02Z"
+    },
+    {
+      "lane_id": "LANE-R2-GAMEPLAY-PRESENTATION",
+      "title": "Round 2 full gameplay presentation matrix",
+      "domain": "gameplay_presentation",
+      "round_ids": ["R2"],
+      "task_ids": ["R2-GAMEPLAY-PRESENTATION"],
+      "readiness": "complete",
+      "dependency_status": "complete",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R2-GAMEPLAY-PRESENTATION-001",
+      "base_sha": "ed060720a98b790f98591af363a490a0e0816018",
+      "branch": "codex/r2-gameplay-presentation-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-gameplay-presentation-sol",
+      "ownership_claim_ids": ["OWN-R2-GAMEPLAY-PRESENTATION"],
+      "blockers": [],
+      "next_gate": "Complete and delivered: exact Good-signed d8d8119 passed domain QA, dedicated R2E closed the runner P2 at terminal bdc2fbb, and release orchestration fast-forward-only delivered and ordinary-pushed bdc2fbb at 2026-08-04T18:34:34Z. Every branch, worktree, report, proof and artifact remains preserved.",
+      "updated_at": "2026-08-04T18:34:34Z"
+    },
+    {
+      "lane_id": "LANE-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA",
+      "title": "Round 2E gameplay presentation current-main integration QA",
+      "domain": "integration_qa",
+      "round_ids": ["R2E"],
+      "task_ids": ["R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"],
+      "readiness": "complete",
+      "dependency_status": "complete",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001",
+      "base_sha": "ed060720a98b790f98591af363a490a0e0816018",
+      "branch": "codex/r2e-gameplay-presentation-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2e-gameplay-presentation-integration-qa-sol",
+      "ownership_claim_ids": ["OWN-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"],
+      "blockers": [],
+      "next_gate": "Complete: release orchestration reverified clean local/tracking/live ed060720, Good signatures, exact ancestry/diff/tree and immutable staging, then fast-forward-only delivered bdc2fbb and verified the ordinary non-force origin/main push at 2026-08-04T18:34:34Z. All task, branch, worktree, report and proof lineage remains preserved.",
+      "updated_at": "2026-08-04T18:34:34Z"
+    },
+    {
+      "lane_id": "LANE-R3-PLAYER-STATS-LEADERS",
+      "title": "Round 3 player statistics and league leaders",
+      "domain": "season_data",
+      "round_ids": ["R3"],
+      "task_ids": ["R3-PLAYER-STATS-LEADERS"],
+      "readiness": "complete",
+      "dependency_status": "complete",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R3-PLAYER-STATS-LEADERS-001",
+      "base_sha": "ed060720a98b790f98591af363a490a0e0816018",
+      "branch": "codex/r3-player-stats-leaders-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3-player-stats-leaders-sol",
+      "ownership_claim_ids": ["OWN-R3-PLAYER-STATS-LEADERS"],
+      "blockers": [],
+      "next_gate": "Complete and delivered for this bounded slice: 7897871 was reconciled onto bdc2fbb, sole current-main Luna/max QA closed the seeded-attempts fixture P2 and required docs, and release orchestration fast-forward-only delivered and ordinary-pushed terminal 35d31f5 at 2026-08-04T19:22:56Z. Unsupported counters and adjacent R3 tasks remain excluded and pending under separate authority.",
+      "updated_at": "2026-08-04T19:22:56Z"
+    }
+  ]
+}
