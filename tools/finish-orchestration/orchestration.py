@@ -1544,31 +1544,37 @@ def command_self_test(args: argparse.Namespace) -> int:
         )
 
         worker_collision_state = copy.deepcopy(actual_state)
-        active_reporter_ids = {
-            row["session_id"]
-            for row in worker_collision_state["sessions"]["sessions"]
-            if row["status"] == "active"
-        }
-        collision_worker = next(
-            row
-            for row in worker_collision_state["sessions"]["reported_luna_workers"]
-            if row["reported_by_session_id"] in active_reporter_ids
-        )
-        collision_worker.update(
-            {
-                "status": "active",
-                "pin_state": "pinned",
-                "branch": "codex/master-finish-orchestration",
-                "worktree": str(args.repo_root),
-                "base_sha": worker_collision_state["queue"]["program_base_sha"],
-                "last_good_sha": worker_collision_state["queue"]["program_base_sha"],
-            }
-        )
-        worker_collision_result = validate_semantics(args.repo_root, worker_collision_state)
-        expect(
-            any("shares branch" in message for message in worker_collision_result.errors),
-            "reported-worker active-context collision rejection",
-        )
+        reported_workers = worker_collision_state["sessions"]["reported_luna_workers"]
+        expect(bool(reported_workers), "reported-worker collision fixture availability")
+        if reported_workers:
+            collision_worker = reported_workers[0]
+            collision_reporter = next(
+                row
+                for row in worker_collision_state["sessions"]["sessions"]
+                if row["session_id"] == collision_worker["reported_by_session_id"]
+            )
+            collision_reporter.update(
+                {
+                    "status": "active",
+                    "pin_state": "pinned",
+                    "completed_at": None,
+                }
+            )
+            collision_worker.update(
+                {
+                    "status": "active",
+                    "pin_state": "pinned",
+                    "branch": "codex/master-finish-orchestration",
+                    "worktree": str(args.repo_root),
+                    "base_sha": worker_collision_state["queue"]["program_base_sha"],
+                    "last_good_sha": worker_collision_state["queue"]["program_base_sha"],
+                }
+            )
+            worker_collision_result = validate_semantics(args.repo_root, worker_collision_state)
+            expect(
+                any("shares branch" in message for message in worker_collision_result.errors),
+                "reported-worker active-context collision rejection",
+            )
 
         overlap_claims = copy.deepcopy(actual_state["ownership"])
         first_claim = copy.deepcopy(overlap_claims["claims"][0])

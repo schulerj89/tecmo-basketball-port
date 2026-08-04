@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T06:16:58Z",
+  "updated_at": "2026-08-04T06:25:47Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -666,6 +666,28 @@
       "claimed_at": "2026-08-04T03:44:25Z",
       "released_at": "2026-08-04T06:16:58Z",
       "notes": "Released after exact Good-signed chain 1dde1ef748658a11403ff4bc450af858d05f08c2 -> 1f23235cd60582379da5e8f1713cd25de4ced62f passed personal Sol and same-Luna terminal QA with P0/P1/P2/P3 all zero. The accepted bounded result changes exactly seven product/test/build paths for frame-16 exact-once shared SFX6 while preserving frame-0 shot-clock SFX3 and dispatch/restart policy, plus the three granted active-contract wording corrections and seven task docs. Master independently verified signatures, ancestry, scope, clean state, non-doc identity, stable main, and honest incomplete boundaries. Immutable 1f23235 is routed to dedicated current-main integration QA; preserve every task, branch, worktree, document, and proof artifact. Later foul/contact inference, missing violation detectors, FT outcome/rebound/possession, claimant/rebound/block/steal semantics, foul-divider policy, or full renderer/caller-order parity requires new authority."
+    },
+    {
+      "claim_id": "OWN-R2D-RULES-RESTARTS-INTEGRATION-QA",
+      "task_id": "R2D-RULES-RESTARTS-INTEGRATION-QA",
+      "round_id": "R2D",
+      "session_id": "S-MASTER-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R2D-rules-restarts-integration-qa/**"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R2D-rules-restarts-integration-qa/README.md",
+        "docs/finish-tasks/R2D-rules-restarts-integration-qa/COMMANDS.md",
+        "docs/finish-tasks/R2D-rules-restarts-integration-qa/EVIDENCE.md",
+        "docs/finish-tasks/R2D-rules-restarts-integration-qa/INDEPENDENT-QA.md",
+        "docs/finish-tasks/R2D-rules-restarts-integration-qa/LINEAGE.md"
+      ],
+      "concurrency_group": "R2D-rules-restarts-integration-qa",
+      "active": true,
+      "claimed_at": "2026-08-04T06:25:47Z",
+      "released_at": null,
+      "notes": "Master-reserved docs-only Integration QA authority for immutable Good-signed 1f23235 on exact guarded main 7fe2dd7. The future Sol may perform only one branch-local ff-only from 7fe2dd7 to 1f23235, read-only combined build/test/proof/visual QA with ignored outputs, creation of exactly one projectless Luna/max independent reviewer after collision checks, and Good-signed reports under the sole writable glob. Main, origin/main, immutable staging, product/test/build/source paths, force/rebase/cherry-pick, push, cleanup, deletion, and archive are excluded."
     }
   ],
   "shared_boundaries": [
@@ -851,6 +873,13 @@
         "R2C-DEFENSE-CONTACT-INTEGRATION-QA"
       ],
       "declared_at": "2026-08-04T02:26:58Z"
+    },
+    {
+      "round_id": "R2D",
+      "ordered_task_ids": [
+        "R2D-RULES-RESTARTS-INTEGRATION-QA"
+      ],
+      "declared_at": "2026-08-04T06:25:47Z"
     },
     {
       "round_id": "R4",

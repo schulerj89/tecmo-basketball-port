@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T01:56:10Z",
+  "updated_at": "2026-08-04T06:25:47Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -759,6 +759,52 @@
       },
       "created_at": "2026-08-04T02:26:57Z",
       "updated_at": "2026-08-04T03:35:34Z"
+    },
+    {
+      "round_id": "R2D",
+      "title": "Rules and restarts current-main integration and independent QA",
+      "status": "in_progress",
+      "base_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
+      "scope": [
+        "Fast-forward an isolated integration branch from accepted current main 7fe2dd772af1d88f704a9272005b4ba557434cac to immutable Good-signed rules/restarts tip 1f23235cd60582379da5e8f1713cd25de4ced62f",
+        "Run warning-clean canonical and CMake builds, focused rules/restarts and full scene/audio/state/flow/Win32/current-main smoke gates, proof-integrity review, and proportional visual QA",
+        "Obtain one independent projectless Luna/max terminal audit and produce a Good-signed docs-only result that remains a true fast-forward descendant of guarded main"
+      ],
+      "included_task_ids": ["R2D-RULES-RESTARTS-INTEGRATION-QA"],
+      "staging_branch": "codex/round-2d-rules-restarts-staging",
+      "sol_orchestrator_session_ids": [],
+      "integration_qa_session_id": null,
+      "merge_order": ["R2D-RULES-RESTARTS-INTEGRATION-QA"],
+      "combined_qa": {
+        "required": true,
+        "status": "pending",
+        "accepted_sha": null,
+        "report_path": null,
+        "signed_by_session_id": null,
+        "notes": "A dedicated Sol Max integration orchestrator must independently reproduce the accepted domain gates on the exact current-main descendant and sign a docs-only terminal handoff."
+      },
+      "acceptance": {
+        "status": "pending",
+        "accepted_at": null,
+        "accepted_sha": null,
+        "criteria": [
+          "Guarded current main and immutable 1f23235 are exact ancestors of the terminal signed integration result",
+          "Canonical and CMake warning-clean builds plus focused rules/restarts and affected current-main scene/audio/state/flow/Win32 smokes pass",
+          "One independent projectless Luna and the Sol close all actionable findings",
+          "Terminal result preserves the bounded frame-16 cue classification and all explicit semantic/renderer/caller-order incompletes"
+        ]
+      },
+      "main_integration": {
+        "pre_main_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
+        "merge_commits": [],
+        "post_main_sha": null,
+        "remote_main_before_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
+        "push_sha": null,
+        "push_result": "not_attempted",
+        "pushed_at": null
+      },
+      "created_at": "2026-08-04T06:25:47Z",
+      "updated_at": "2026-08-04T06:25:47Z"
     },
     {
       "round_id": "R5",

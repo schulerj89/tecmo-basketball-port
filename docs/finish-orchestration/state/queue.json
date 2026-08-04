@@ -1572,7 +1572,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-04T06:16:58Z",
+  "updated_at": "2026-08-04T06:25:47Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -3568,6 +3568,67 @@
         {"timestamp":"2026-08-04T03:32:00Z","actor_session_id":"S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001","from_state":"combined_qa","to_state":"ready_for_main","reason":"Same-Luna exact commit/tree/parent/signature/two-path/clean/ref review closed P0/P1/P2/P3 zero; 7fe2dd7 is a true fast-forward descendant of guarded main 5229092."},
         {"timestamp":"2026-08-04T03:35:34Z","actor_session_id":"S-MASTER-001","from_state":"ready_for_main","to_state":"merged","reason":"Master guards passed and local main fast-forwarded from 5229092 to 7fe2dd7."},
         {"timestamp":"2026-08-04T03:35:34Z","actor_session_id":"S-MASTER-001","from_state":"merged","to_state":"pushed","reason":"Ordinary non-force push succeeded; local/tracking/live main all equal 7fe2dd7, stable main rebuilt, and both desktop launch shortcuts were verified."}
+      ]
+    },
+    {
+      "task_id": "R2D-RULES-RESTARTS-INTEGRATION-QA",
+      "title": "Integrate accepted rules and restarts seam with current main and sign combined QA",
+      "domain": "integration",
+      "round_id": "R2D",
+      "priority": 99,
+      "coordination_only": false,
+      "state": "scoped",
+      "dependencies": ["R2-RULES-RESTARTS"],
+      "ownership_claim_ids": ["OWN-R2D-RULES-RESTARTS-INTEGRATION-QA"],
+      "base_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
+      "expected_parent_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
+      "branch": "codex/r2d-rules-restarts-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2d-rules-restarts-integration-qa-sol",
+      "sol_orchestrator_session_id": null,
+      "reported_luna_worker_session_ids": [],
+      "result_commits": [],
+      "evidence_ids": [],
+      "blocker_ids": [],
+      "replacement_task_id": null,
+      "task_docs_path": "docs/finish-tasks/R2D-rules-restarts-integration-qa",
+      "qa": {
+        "status": "pending",
+        "sol_signoff": false,
+        "integration_signoff": false,
+        "test_records": [
+          "2026-08-04T06:25:47Z master accepted immutable Good-signed domain tip 1f23235, recorded all six lifecycle unpins, reverified stable clean local/tracking/live main exact 7fe2dd7, candidate ancestry/tree/signature, exact 17-path text delta, diff-check, and absence of the proposed branch/worktree/staging refs before reservation.",
+          "2026-08-04T06:25:47Z one initial read-only PowerShell preflight used an unquoted variable range and caused git diff usage exit 129 with no mutation; literal-SHA rerun proved the exact 17-path delta and clean diff-check."
+        ],
+        "proof_manifests": [],
+        "notes": "Reserved for a dedicated current-main integration QA lane. Because immutable 1f23235 directly descends from guarded main 7fe2dd7, the isolated branch must use ff-only, not synthesize a merge. Sol must run proportional combined build/scene/audio/state/flow/Win32/proof/visual gates, create exactly one independent projectless Luna/max auditor after its collision gate, sign only the owned integration reports, and stop before main or push."
+      },
+      "merge": {
+        "staging_branch": "codex/round-2d-rules-restarts-staging",
+        "merge_order": 1,
+        "status": "not_ready",
+        "merge_commit": null,
+        "main_pre_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
+        "main_post_sha": null,
+        "push_sha": null,
+        "pushed_at": null
+      },
+      "created_at": "2026-08-04T06:25:47Z",
+      "updated_at": "2026-08-04T06:25:47Z",
+      "audit": [
+        {
+          "timestamp": "2026-08-04T06:25:46Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": null,
+          "to_state": "backlog",
+          "reason": "Incremental delivery policy requires the accepted bounded rules/restarts seam to reach stable main without waiting for the rest of Round 2."
+        },
+        {
+          "timestamp": "2026-08-04T06:25:47Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "backlog",
+          "to_state": "scoped",
+          "reason": "Reserved exact docs-only Integration QA ownership, immutable Good-signed 1f23235 staging, and the collision-cleared 7fe2dd7-based branch/worktree before creating a Sol orchestrator."
+        }
       ]
     }
   ]
