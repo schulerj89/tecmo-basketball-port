@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T11:05:26Z",
+  "updated_at": "2026-08-04T11:27:47Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -441,8 +441,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2e-gameplay-presentation-integration-qa-sol",
       "ownership_claim_ids": ["OWN-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"],
       "blockers": [],
-      "next_gate": "Sol's full independent combined/proof/original-resolution visual matrix at exact d8d8119 is P0/P1/P2/P3 zero. Sole projectless pinned Luna/max 019fcc72 is active read-only and must independently audit this candidate/evidence, then be reused for the Good-signed five-report terminal tip. Main/staging/origin/push remain master-only.",
-      "updated_at": "2026-08-04T11:05:26Z"
+      "next_gate": "Bounded product remains P0/P1/P2/P3 zero; sole Luna found one actionable runner P2. Sol is granted only tools/Run-GameplayPresentationTests.ps1 to replace fixed recursive scratch deletion with collision-free invocation-owned build-contained scratch and exact-self cleanup, preserve all semantics, rerun the full matrix, then reuse Luna 019fcc72 for revised-tip and signed-report review. Main/staging/origin/push remain master-only.",
+      "updated_at": "2026-08-04T11:27:47Z"
     },
     {
       "lane_id": "LANE-R3-PLAYER-STATS-LEADERS",

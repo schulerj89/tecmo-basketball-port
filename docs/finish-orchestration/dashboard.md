@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-04T11:05:26Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-04T11:27:47Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,7 +8,7 @@ Generated from committed JSON at `2026-08-04T11:05:26Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 8, `in_progress` 2, `pushed` 19, `ready_for_round_staging` 6
+- Task states: `backlog` 8, `in_progress` 1, `luna_revision` 1, `pushed` 19, `ready_for_round_staging` 6
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
@@ -40,7 +40,7 @@ Generated from committed JSON at `2026-08-04T11:05:26Z`. This dashboard reports 
 | LANE-R2-RULES-RESTARTS | gameplay_behavior | complete | complete | R2-RULES-RESTARTS | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | Complete: exact Good-signed terminal 1f23235 passed personal Sol and same-Luna P0/P1/P2/P3-zero QA, active contract wording is reconciled, domain ownership is released, and immutable 1f23235 is routed to dedicated current-main integration QA. All five child tasks and the Sol returned pinned=false after durable control; branches/worktrees/docs/proof remain preserved. |
 | LANE-R2D-RULES-RESTARTS-INTEGRATION-QA | integration_qa | complete | complete | R2D-RULES-RESTARTS-INTEGRATION-QA | S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001 | codex/r2d-rules-restarts-integration-qa-sol | Complete: terminal Good-signed ed060720 passed Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only delivered and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Sol and Luna both returned pinned=false; all tasks and artifacts remain preserved and unarchived. |
 | LANE-R2-GAMEPLAY-PRESENTATION | gameplay_presentation | complete | complete | R2-GAMEPLAY-PRESENTATION | S-SOL-R2-GAMEPLAY-PRESENTATION-001 | codex/r2-gameplay-presentation-sol | Complete: exact Good-signed d8d8119 passed personal and same-Luna P0/P1/P2/P3-zero terminal QA and is routed as an immutable input to active R2E Integration QA. Domain ownership is released; Sol and all five child tasks returned pinned=false while every branch, worktree, report, proof, and artifact remains preserved and unarchived. |
-| LANE-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA | integration_qa | active | ready | R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA | S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-001 | codex/r2e-gameplay-presentation-integration-qa-sol | Sol's full independent combined/proof/original-resolution visual matrix at exact d8d8119 is P0/P1/P2/P3 zero. Sole projectless pinned Luna/max 019fcc72 is active read-only and must independently audit this candidate/evidence, then be reused for the Good-signed five-report terminal tip. Main/staging/origin/push remain master-only. |
+| LANE-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA | integration_qa | active | ready | R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA | S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-001 | codex/r2e-gameplay-presentation-integration-qa-sol | Bounded product remains P0/P1/P2/P3 zero; sole Luna found one actionable runner P2. Sol is granted only tools/Run-GameplayPresentationTests.ps1 to replace fixed recursive scratch deletion with collision-free invocation-owned build-contained scratch and exact-self cleanup, preserve all semantics, rerun the full matrix, then reuse Luna 019fcc72 for revised-tip and signed-report review. Main/staging/origin/push remain master-only. |
 | LANE-R3-PLAYER-STATS-LEADERS | season_data | active | ready | R3-PLAYER-STATS-LEADERS | S-SOL-R3-PLAYER-STATS-LEADERS-001 | codex/r3-player-stats-leaders-sol | Full-resolution review rejected four stable leader hashes and proved the accepted template offset off by one. Under the same ten-path scope, sole persistent worker 019fcc01 must implement checked template_id - 38 mapping for source IDs 39..44 against imported IDs 38..44, regenerate authorized self-test/CLI/Run-SeasonTests proof, and return corrected page 0/6/12 frames for personal review before any commit. No new task/path/semantic authority. |
 
 ## Rounds
@@ -87,7 +87,7 @@ Generated from committed JSON at `2026-08-04T11:05:26Z`. This dashboard reports 
 | 99 | R0A-ADOPT-CPU-TIP | gameplay_behavior | R0A | pushed | S-SOL-CPU-TIP-LEGACY | codex/cpu-tipoff-behavior | 1 | historical_sol_accepted | pushed |
 | 99 | R2C-DEFENSE-CONTACT-INTEGRATION-QA | integration | R2C | pushed | S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001 | codex/r2c-defense-contact-integration-qa-sol | 3 | passed | pushed |
 | 99 | R2D-RULES-RESTARTS-INTEGRATION-QA | integration | R2D | pushed | S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001 | codex/r2d-rules-restarts-integration-qa-sol | 3 | passed | pushed |
-| 99 | R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA | integration | R2E | in_progress | S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-001 | codex/r2e-gameplay-presentation-integration-qa-sol | 1 | independent_qa_running | not_ready |
+| 99 | R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA | integration | R2E | luna_revision | S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-001 | codex/r2e-gameplay-presentation-integration-qa-sol | 1 | runner_p2_revision | not_ready |
 | 99 | R4-AUDIO-FOUNDATION | audio | R4A | pushed | S-SOL-R4-AUDIO-001 | codex/round-4a-audio-foundation-staging | 10 | passed | pushed |
 | 98 | R0A-ADOPT-TIP-VIS | gameplay_presentation | R0A | pushed | S-SOL-TIP-VIS-LEGACY | codex/tipoff-visual-orientation | 6 | historical_sol_accepted | pushed |
 | 98 | R1-LIVE-FOUNDATION | gameplay_behavior | R1A | pushed | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 3 | passed | pushed |
@@ -117,7 +117,7 @@ Generated from committed JSON at `2026-08-04T11:05:26Z`. This dashboard reports 
 
 | Claim | Task | Round | Mode | Writable globs | Concurrency group |
 |---|---|---|---|---|---|
-| OWN-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA | R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA | R2E | exclusive | docs/finish-tasks/R2E-gameplay-presentation-integration-qa/** | R2E-gameplay-presentation-integration-qa |
+| OWN-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA | R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA | R2E | exclusive | docs/finish-tasks/R2E-gameplay-presentation-integration-qa/**<br>tools/Run-GameplayPresentationTests.ps1 | R2E-gameplay-presentation-integration-qa |
 | OWN-R3-PLAYER-STATS-LEADERS | R3-PLAYER-STATS-LEADERS | R3 | exclusive | docs/finish-tasks/R3-player-stats-leaders/**<br>include/tecmo_player_stats.h<br>include/tecmo_gameplay_scene.h<br>src/tecmo_gameplay_scene.c<br>src/tecmo_gameplay_scene_shots.c<br>src/tecmo_gameplay_scene_test_state_flow.c<br>include/tecmo_season_menu.h<br>src/tecmo_game.c<br>src/tecmo_season_menu.c<br>src/tecmo_cli_render_menu_modes.c<br>tools/Run-SeasonTests.ps1 | R3-player-stats-leaders |
 
 ## External Blockers
