@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T01:56:10Z",
+  "updated_at": "2026-08-04T02:22:21Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,12 +10,12 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 2,
+    "active_domain_orchestrators": 1,
     "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
-    "unallocated_target_slots": 2,
-    "unallocated_monitoring_slots": 6
+    "unallocated_target_slots": 3,
+    "unallocated_monitoring_slots": 7
   },
   "lanes": [
     {
@@ -340,8 +340,8 @@
       "task_ids": [
         "R2-DEFENSE-CONTACT"
       ],
-      "readiness": "active",
-      "dependency_status": "ready",
+      "readiness": "complete",
+      "dependency_status": "complete",
       "reservation_owner_session_id": "S-MASTER-001",
       "orchestrator_session_id": "S-SOL-R2-DEFENSE-CONTACT-001",
       "base_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
@@ -351,8 +351,8 @@
         "OWN-R2-DEFENSE-CONTACT"
       ],
       "blockers": [],
-      "next_gate": "Final Good-signed worker tip ed70d884 passed same-lineage independent QA with no findings after all P1/P2/P3 corrections. Sol is authorized to ff-only edf16ca..ed70d884 into codex/r2-defense-contact-sol, personally verify the exact integrated tip, and issue the terminal signed handoff; no staging/main/push or shared/runtime integration is authorized.",
-      "updated_at": "2026-08-04T02:13:05Z"
+      "next_gate": "Terminal Good-signed ed70d884 is Sol/independent accepted and frozen for dedicated current-main integration QA. Domain ownership is released; preserve branches/worktrees and focused proof for audit. Normal-build/runtime/player-facing and semantic downstream integration remain separate incomplete boundaries.",
+      "updated_at": "2026-08-04T02:22:21Z"
     }
   ]
 }

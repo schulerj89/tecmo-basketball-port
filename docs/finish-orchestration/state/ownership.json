@@ -604,10 +604,10 @@
         "tools/Run-GameplayDefenseContactTests.ps1"
       ],
       "concurrency_group": "R2-defense-contact",
-      "active": true,
+      "active": false,
       "claimed_at": "2026-08-03T23:38:12Z",
-      "released_at": null,
-      "notes": "Master reservation before Sol creation, expanded at 2026-08-04T00:27:29Z after the accepted read-only evidence and collision gate. Authority adds exactly three previously nonexistent paths for a pure raw/neutral defense-contact foundation: include/tecmo_gameplay_defense_contact.h, src/tecmo_gameplay_defense_contact.c, and tools/Run-GameplayDefenseContactTests.ps1. APIs must preserve raw widths/state/order/wrap and use no semantic steal/block/rebound/recovery/contact/foul/matchup labels. No new asset family/source-map claim or normal-build integration is authorized. All scene, Shots, TGAI, TPNL, source-map/import-layout, build/CMake, game/flow/Win32, stats/season/rules/restarts/audio/possession/scoring, guidance, main/staging/push paths remain read-only. R2 Shots retains first ownership of the shared scene contract."
+      "released_at": "2026-08-04T02:22:21Z",
+      "notes": "Released after terminal Good-signed raw-foundation chain d5c5fa9..ed70d884 passed Sol and same-lineage independent QA with no findings, was ff-only integrated into the clean Sol branch, and was durably accepted for dedicated incremental integration QA. Exact eight-path scope, raw/neutral semantics, focused /W4 /WX proof, provenance, rollback, isolation, and no-normal-build/runtime/player-facing limits remain immutable; later integration or semantic expansion requires new authority."
     }
   ],
   "shared_boundaries": [

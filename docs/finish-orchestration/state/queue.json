@@ -1394,7 +1394,7 @@
       "round_id": "R2",
       "priority": 98,
       "coordination_only": false,
-      "state": "sol_review",
+      "state": "ready_for_round_staging",
       "dependencies": [
         "R1-CPU-PLAY-LIFECYCLE",
         "R1-LIVE-FOUNDATION"
@@ -1413,7 +1413,11 @@
         "019fca31-519c-7533-b710-7fc8fb09f424",
         "019fca60-e2c5-7903-8b52-6df76809dd91"
       ],
-      "result_commits": [],
+      "result_commits": [
+        "d5c5fa9b84cdce404751eda1a86e5507fc014656",
+        "9d6f0227f43ad476dcc3db008f43d7c5d830bb19",
+        "ed70d884c3c75d900df589f442816c9566eb38df"
+      ],
       "evidence_ids": [],
       "blocker_ids": [],
       "replacement_task_id": null,
@@ -1428,15 +1432,16 @@
           "2026-08-04T01:39:05Z sole pinned projectless independent QA Luna 019fca60 returned FAIL on exact d5c5fa9 with no C/runtime arithmetic/control defect: P1 runner isolation because MSVC emitted two ignored root .obj files without scratch-directory /Fo binding; P2 omitted enclosing B06 $B081-$B365 741-byte SHA-256 AAA9670D...AE891AE36; and P2 stale README/LINEAGE uncommitted wording. Object/tree/parent/signature/eight paths, direct spans, raw code/oracles, /W4 /WX, diff-check, tracked cleanliness, and honest limitations passed. No Sol integration was attempted.",
           "2026-08-04T01:56:10Z same worker produced Good-signed corrective candidate 9d6f022 (tree 513694f, sole parent d5c5fa9) changing only the focused runner plus four task docs. It binds scratch working directory and explicit /Fo/link outputs, enforces no new root compiler artifacts, removes only the two verified ignored root objects, executes enclosing B06 $B081-$B365 741-byte SHA provenance, and fixes exact candidate/QA/control lineage. Root and external caller runs pass /W4 /WX, fingerprints/raw oracles/rollback, root objects absent, and clean all-files status; C/header behavior is unchanged.",
           "2026-08-04T02:06:00Z same QA Luna 019fca60 re-audited 9d6f022 and cleared every prior P1/P2 finding, but correctly withheld acceptance for one P3 dangling README fragment. The same worker removed only that fragment in Good-signed docs-only descendant ed70d884 (tree dc989c3, sole parent 9d6f022); runner/source/header bytes and the fully exercised two-run ledger remained unchanged.",
-          "2026-08-04T02:13:05Z same independent QA lineage completed final turn 019fca89-3faf-7003-b93b-c81185862324 on exact clean ed70d884 with PASS and no findings. It verified the one-file docs delta, cumulative eight-path ownership, Good signature/tree/parent, root and external caller /W4 /WX ledger, direct and enclosing provenance, raw oracle/rollback boundaries, zero repository-root artifacts, clean ignored state, and honest no-normal-build/emulator/runtime limitation. Master authorizes only ff-only worker-to-Sol integration; main, staging, shared scene/Shots, asset/source-map, normal-build, and push remain excluded."
+          "2026-08-04T02:13:05Z same independent QA lineage completed final turn 019fca89-3faf-7003-b93b-c81185862324 on exact clean ed70d884 with PASS and no findings. It verified the one-file docs delta, cumulative eight-path ownership, Good signature/tree/parent, root and external caller /W4 /WX ledger, direct and enclosing provenance, raw oracle/rollback boundaries, zero repository-root artifacts, clean ignored state, and honest no-normal-build/emulator/runtime limitation. Master authorizes only ff-only worker-to-Sol integration; main, staging, shared scene/Shots, asset/source-map, normal-build, and push remain excluded.",
+          "2026-08-04T02:21:30Z authoritative Sol verified Good-signed control 71fdcfb, fast-forwarded its exact clean branch from edf16ca to ed70d884 with no merge commit, and personally repeated the focused isolated /std:c11 /W4 /WX, canonical ROM/direct/enclosing provenance, raw oracle/rollback/repeatability, boundary, path, include, artifact, and cleanliness gates. All three result commits and control verify Good under the accepted SSH key; no normal-build/emulator/runtime/player-facing or semantic downstream claim was added."
         ],
         "proof_manifests": [],
-        "notes": "Final Good-signed worker tip ed70d884 passed the same independent QA lineage with no findings after all historical P1/P2/P3 corrections. Sol is authorized to ff-only the exact accepted chain into codex/r2-defense-contact-sol, personally verify the integrated tip, and produce the terminal signed handoff. No staging/main/push or shared/runtime integration is authorized."
+        "notes": "Terminal raw-foundation chain d5c5fa9..ed70d884 is Good-signed, Sol-integrated, personally reverified, and independently QA-accepted with no findings. The bounded foundation has no normal-build/emulator/runtime/player-facing claim; dedicated current-main integration QA is required before any incremental main delivery."
       },
       "merge": {
         "staging_branch": "codex/round-2-gameplay-mechanics-staging",
         "merge_order": 2,
-        "status": "not_ready",
+        "status": "ready",
         "merge_commit": null,
         "main_pre_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
         "main_post_sha": null,
@@ -1444,7 +1449,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-04T02:13:05Z",
+      "updated_at": "2026-08-04T02:22:21Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -1480,6 +1485,20 @@
           "from_state": "in_progress",
           "to_state": "sol_review",
           "reason": "Recorded final same-lineage independent QA PASS with no findings at Good-signed ed70d884 after all P1/P2/P3 corrections and authorized only exact ff-only worker-to-Sol integration plus terminal Sol verification; all staging/main/push and shared/runtime boundaries remain excluded."
+        },
+        {
+          "timestamp": "2026-08-04T02:21:30Z",
+          "actor_session_id": "S-SOL-R2-DEFENSE-CONTACT-001",
+          "from_state": "sol_review",
+          "to_state": "sol_accepted",
+          "reason": "Authoritative Sol ff-only integrated exact Good-signed ed70d884 from exact edf16ca, personally reverified the cumulative eight-path raw foundation and focused proof on the clean integrated tree, and retained every normal-build/runtime/shared/main limitation."
+        },
+        {
+          "timestamp": "2026-08-04T02:22:21Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "sol_accepted",
+          "to_state": "ready_for_round_staging",
+          "reason": "Master accepted the exact terminal signed Sol handoff, released the bounded domain claim, authorized completed Luna unpins, and advanced the immutable ed70d884 raw-foundation tip to dedicated incremental current-main integration QA without waiting for the rest of Round 2."
         }
       ]
     },
