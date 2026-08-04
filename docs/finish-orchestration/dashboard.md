@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-04T03:47:49Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-04T03:52:40Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,14 +8,14 @@ Generated from committed JSON at `2026-08-04T03:47:49Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `assigned` 1, `backlog` 10, `pushed` 18, `ready_for_round_staging` 4
+- Task states: `backlog` 10, `in_progress` 1, `pushed` 18, `ready_for_round_staging` 4
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
 
 - Single master authority: `True`
 - Second-master policy: `recovery_replacement_only`
-- Active domain Sols: `2`
+- Active domain Sols: `1`
 - Cleared for creation: `0`
 - Target active domain Sols: `4`
 - Monitoring limit: `8`
@@ -36,8 +36,8 @@ Generated from committed JSON at `2026-08-04T03:47:49Z`. This dashboard reports 
 | LANE-R2A-CLOCK-LINEUPS-INTEGRATION-QA | integration_qa | complete | complete | R2A-CLOCK-LINEUPS-INTEGRATION-QA | S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001 | codex/r2a-clocks-integration-qa-sol | Complete: terminal Good-signed 8a5b992 passed combined zero-finding QA, was fast-forwarded/non-force pushed to main, and stable main plus both desktop launch shortcuts were rebuilt/verified. Preserve branches/worktrees for audit until guarded cleanup. |
 | LANE-R2B-SHOTS-OUTCOMES-INTEGRATION-QA | integration_qa | complete | ready | R2B-SHOTS-OUTCOMES-INTEGRATION-QA | S-SOL-R2B-SHOTS-INTEGRATION-QA-001 | codex/r2b-shots-outcomes-integration-qa-sol | Complete: terminal Good-signed 5229092 passed reconciled Sol and same-Luna P0/P1/P2-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; unpin is authorized after durable control acknowledgment. |
 | LANE-R2-DEFENSE-CONTACT | gameplay_behavior | complete | complete | R2-DEFENSE-CONTACT | S-SOL-R2-DEFENSE-CONTACT-001 | codex/r2-defense-contact-sol | Terminal Good-signed ed70d884 is Sol/independent accepted and frozen for dedicated current-main integration QA. Domain ownership is released; preserve branches/worktrees and focused proof for audit. Normal-build/runtime/player-facing and semantic downstream integration remain separate incomplete boundaries. |
-| LANE-R2C-DEFENSE-CONTACT-INTEGRATION-QA | integration_qa | active | ready | R2C-DEFENSE-CONTACT-INTEGRATION-QA | S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001 | codex/r2c-defense-contact-integration-qa-sol | Complete: terminal Good-signed 7fe2dd7 passed reconciled Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; Sol/Luna unpin is authorized after durable control acknowledgment. |
-| LANE-R2-RULES-RESTARTS | gameplay_behavior | active | ready | R2-RULES-RESTARTS | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | Exact pinned Sol 019fcae1 must finish the read-only takeover, then run bounded projectless Luna/max native-evidence, architecture/collision, and proof-gap audits in parallel, personally reconcile them, and return one exact product/function/test rescope request before any product write or writable Luna. |
+| LANE-R2C-DEFENSE-CONTACT-INTEGRATION-QA | integration_qa | complete | complete | R2C-DEFENSE-CONTACT-INTEGRATION-QA | S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001 | codex/r2c-defense-contact-integration-qa-sol | Complete: terminal Good-signed 7fe2dd7 passed reconciled Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; Sol/Luna unpin is authorized after durable control acknowledgment. |
+| LANE-R2-RULES-RESTARTS | gameplay_behavior | active | ready | R2-RULES-RESTARTS | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | Clean takeover passed. Three exact pinned projectless Luna/max read-only audits are active for ASM/native evidence, architecture/collision, and proof/test gaps. Sol must personally reconcile them and return one exact bounded product/function/test rescope request before any product write or writable implementation Luna. |
 
 ## Rounds
 
@@ -89,7 +89,7 @@ Generated from committed JSON at `2026-08-04T03:47:49Z`. This dashboard reports 
 | 98 | R5-PARITY-GAP-CLOSURE | integration | R5 | backlog | - | - | 0 | pending | not_ready |
 | 97 | R0A-ADOPT-AWAY-FACING | gameplay_presentation | R0A | pushed | S-SOL-AWAY-FACING-LEGACY | codex/away-facing-left-only | 2 | historical_sol_accepted | pushed |
 | 96 | R1-TIP-FIDELITY | gameplay_behavior | R1 | ready_for_round_staging | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | ready |
-| 96 | R2-RULES-RESTARTS | gameplay_behavior | R2 | assigned | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | 0 | pending | not_ready |
+| 96 | R2-RULES-RESTARTS | gameplay_behavior | R2 | in_progress | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | 0 | in_progress | not_ready |
 | 96 | R3-TEAM-MGMT-DATA | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 96 | R4-AUDIO | audio | R4 | backlog | - | - | 0 | pending | not_ready |
 | 96 | R5-E2E-RELEASE-QA | integration | R5 | backlog | - | - | 0 | pending | not_ready |
@@ -103,13 +103,11 @@ Generated from committed JSON at `2026-08-04T03:47:49Z`. This dashboard reports 
 |---|---|---|---|---|---|---|---|---|
 | S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 5b8a13b30620 |
 | S-SOL-R2-RULES-RESTARTS-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R2-RULES-RESTARTS | codex/r2-rules-restarts-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2-rules-restarts-sol | 7fe2dd772af1 |
-| S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001 | integration_orchestrator | gpt-5.6-sol/max | active | pinned | R2C-DEFENSE-CONTACT-INTEGRATION-QA | codex/r2c-defense-contact-integration-qa-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2c-defense-contact-integration-qa-sol | 7fe2dd772af1 |
 
 ## Active Ownership
 
 | Claim | Task | Round | Mode | Writable globs | Concurrency group |
 |---|---|---|---|---|---|
-| OWN-R2C-DEFENSE-CONTACT-INTEGRATION-QA | R2C-DEFENSE-CONTACT-INTEGRATION-QA | R2C | exclusive | docs/finish-tasks/R2C-defense-contact-integration-qa/** | R2C-defense-contact-integration-qa |
 | OWN-R2-RULES-RESTARTS | R2-RULES-RESTARTS | R2 | exclusive | docs/finish-tasks/R2-rules-restarts/** | R2-rules-restarts |
 
 ## External Blockers

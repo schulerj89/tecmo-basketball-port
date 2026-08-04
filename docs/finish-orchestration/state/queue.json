@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T03:47:49Z",
+  "updated_at": "2026-08-04T03:52:40Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -1509,7 +1509,7 @@
       "round_id": "R2",
       "priority": 96,
       "coordination_only": false,
-      "state": "assigned",
+      "state": "in_progress",
       "dependencies": [
         "R2-SHOTS-OUTCOMES",
         "R2-DEFENSE-CONTACT"
@@ -1520,19 +1520,24 @@
       "branch": "codex/r2-rules-restarts-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-rules-restarts-sol",
       "sol_orchestrator_session_id": "S-SOL-R2-RULES-RESTARTS-001",
-      "reported_luna_worker_session_ids": [],
+      "reported_luna_worker_session_ids": [
+        "019fcae5-dd40-73d3-9b9e-de84fd76f39d",
+        "019fcae5-e369-7802-919f-5e166ce2a760",
+        "019fcae5-eac8-7661-86e4-92f6e91e9c0b"
+      ],
       "result_commits": [],
       "evidence_ids": [],
       "blocker_ids": [],
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-tasks/R2-rules-restarts",
       "qa": {
-        "status": "pending",
+        "status": "in_progress",
         "sol_signoff": false,
         "integration_signoff": false,
         "test_records": [
           "2026-08-04T03:44:25Z master reverified local/tracking/live stable main exact Good-signed 7fe2dd7 and confirmed proposed codex/r2-rules-restarts-sol branch plus C:/Users/joshs/Projects/tecmo-basketball-port-r2-rules-restarts-sol path absent from local/remote refs, filesystem, and worktree registry before reservation.",
-          "2026-08-04T03:47:49Z after Good-signed reservation 99e7183, master created the exact clean branch/worktree at 7fe2dd7, created exactly one gpt-5.6-sol/max orchestrator task 019fcae1-d939-7dd0-a839-6599e2efc362, and immediately pinned it. Creation/pin succeeded without retry or replacement."
+          "2026-08-04T03:47:49Z after Good-signed reservation 99e7183, master created the exact clean branch/worktree at 7fe2dd7, created exactly one gpt-5.6-sol/max orchestrator task 019fcae1-d939-7dd0-a839-6599e2efc362, and immediately pinned it. Creation/pin succeeded without retry or replacement.",
+          "2026-08-04T03:52:40Z Sol clean takeover verified exact branch/worktree/base/main, Good-signed reservation and assignment, satisfied Shots/Defense delivery dependencies, complete root instructions, and zero ownership collision without mutation. It created exactly three authorized projectless Luna/max read-only auditors for ASM/native evidence, architecture/collision, and proof/test gaps and pinned the existing tasks. One wrapper interpretation fault occurred after all creates succeeded and before pinning; Sol recovered the same IDs without retry/recreation/replacement or repo mutation."
         ],
         "proof_manifests": [],
         "notes": "Existing violation/referee contracts are partial; free-throw aim/outcome/rebound and foul detection remain approximate. The first Sol turn is read-only and docs-only-authorized: reconcile exact ASM/native evidence, current rules architecture, ownership collisions, and proof gaps, use bounded independent Luna research in parallel, then return one exact product/function/test rescope request before any product mutation."
@@ -1548,7 +1553,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-04T03:47:49Z",
+      "updated_at": "2026-08-04T03:52:40Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -1570,6 +1575,13 @@
           "from_state": "scoped",
           "to_state": "assigned",
           "reason": "Created and immediately pinned exact gpt-5.6-sol/max orchestrator 019fcae1-d939-7dd0-a839-6599e2efc362 once after Good-signed reservation and transferred the read-only-first docs-only assignment."
+        },
+        {
+          "timestamp": "2026-08-04T03:52:40Z",
+          "actor_session_id": "S-SOL-R2-RULES-RESTARTS-001",
+          "from_state": "assigned",
+          "to_state": "in_progress",
+          "reason": "Clean takeover closed exact ref/dependency/instruction/ownership gates and three bounded projectless Luna/max read-only audits began without authorizing product mutation."
         }
       ]
     },

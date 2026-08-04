@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T03:47:49Z",
+  "updated_at": "2026-08-04T03:52:40Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,12 +10,12 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 2,
+    "active_domain_orchestrators": 1,
     "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
-    "unallocated_target_slots": 2,
-    "unallocated_monitoring_slots": 6
+    "unallocated_target_slots": 3,
+    "unallocated_monitoring_slots": 7
   },
   "lanes": [
     {
@@ -360,8 +360,8 @@
       "domain": "integration_qa",
       "round_ids": ["R2C"],
       "task_ids": ["R2C-DEFENSE-CONTACT-INTEGRATION-QA"],
-      "readiness": "active",
-      "dependency_status": "ready",
+      "readiness": "complete",
+      "dependency_status": "complete",
       "reservation_owner_session_id": "S-MASTER-001",
       "orchestrator_session_id": "S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001",
       "base_sha": "0ef11cf247e3110b6064e79a4c496be6346f3e13",
@@ -387,8 +387,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-rules-restarts-sol",
       "ownership_claim_ids": ["OWN-R2-RULES-RESTARTS"],
       "blockers": [],
-      "next_gate": "Exact pinned Sol 019fcae1 must finish the read-only takeover, then run bounded projectless Luna/max native-evidence, architecture/collision, and proof-gap audits in parallel, personally reconcile them, and return one exact product/function/test rescope request before any product write or writable Luna.",
-      "updated_at": "2026-08-04T03:47:49Z"
+      "next_gate": "Clean takeover passed. Three exact pinned projectless Luna/max read-only audits are active for ASM/native evidence, architecture/collision, and proof/test gaps. Sol must personally reconcile them and return one exact bounded product/function/test rescope request before any product write or writable implementation Luna.",
+      "updated_at": "2026-08-04T03:52:40Z"
     }
   ]
 }

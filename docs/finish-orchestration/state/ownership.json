@@ -623,10 +623,10 @@
         "docs/finish-tasks/R2C-defense-contact-integration-qa/PROOF.md"
       ],
       "concurrency_group": "R2C-defense-contact-integration-qa",
-      "active": true,
+      "active": false,
       "claimed_at": "2026-08-04T02:26:58Z",
-      "released_at": null,
-      "notes": "Terminal delivery is complete: Good-signed 32721888 reconciled immutable ed70d884 with accepted main 5229092 at the exact predicted tree, reconciled Sol and same-Luna QA closed P0/P1/P2/P3 zero, terminal Good-signed 7fe2dd7 was guarded ff-only integrated and ordinary-pushed, and stable main plus both desktop shortcuts were rebuilt/verified. Claim remains active only for the pinned lifecycle-closure turn; release is authorized after Sol and Luna confirm unpin."
+      "released_at": "2026-08-04T03:52:40Z",
+      "notes": "Released after Good-signed 32721888 reconciled immutable ed70d884 with accepted main 5229092 at the exact predicted tree, reconciled Sol and same-Luna QA closed P0/P1/P2/P3 zero, terminal Good-signed 7fe2dd7 was guarded ff-only integrated and ordinary-pushed, stable main plus both desktop shortcuts were rebuilt/verified, and both Sol/Luna returned pinned=false. Preserve task, branch, worktree, docs, and proof for audit; later normal-runtime/player-facing or semantic Defense work requires new authority."
     },
     {
       "claim_id": "OWN-R2-RULES-RESTARTS",
