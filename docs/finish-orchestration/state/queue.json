@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T10:18:56Z",
+  "updated_at": "2026-08-04T10:26:21Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -1753,7 +1753,7 @@
       "round_id": "R2",
       "priority": 92,
       "coordination_only": false,
-      "state": "in_progress",
+      "state": "ready_for_round_staging",
       "dependencies": [
         "R0A-ADOPT-TIP-VIS",
         "R0A-ADOPT-AWAY-FACING",
@@ -1783,8 +1783,8 @@
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-tasks/R2-gameplay-presentation",
       "qa": {
-        "status": "signed_tip_review_running",
-        "sol_signoff": false,
+        "status": "passed",
+        "sol_signoff": true,
         "integration_signoff": false,
         "test_records": [
           "2026-08-04T07:58:28Z master reverified clean local/tracking/live stable main exact ed060720, all listed dependencies delivered on that lineage, no proposed local/remote branch or worktree collision, and reserved a docs-only read-only-first Sol lane before any task or worktree creation.",
@@ -1794,18 +1794,19 @@
           "2026-08-04T09:03:19Z under Good-signed control de316a7, Sol reverified stable ed060720 refs and absent worker allocation, then created and pinned exactly one persistent Luna/max implementation task 019fcc03-5518-7213-b015-21a6bc24210f on codex/r2-gameplay-presentation-luna at the exact isolated worktree/base with zero create/pin/retry/replacement fault and zero pre-gate product mutation. A local registry helper initially normalized the Windows path incorrectly and reported zero matches; a corrected exact porcelain-line check proved one path and one branch match with no state impact.",
           "2026-08-04T09:56:31Z Sol froze Good-signed candidate 4cb0c43bcd4c7ca111c996b3788e1bd00a734424, tree 3bd5b4874eca46ff7ad771041e96946c3b08f233, sole parent ed060720, with exactly the two granted paths and a clean unique worker branch. Personal warning-clean canonical/CMake console+GUI builds, 17+17 deterministic layup frames with 17 unique hashes, six strict negatives, 640x480 manifest, full scene and focused suites, and original-resolution visual review all passed. Master independently reverified signature/tree/parent/subject/scope/diff-check/clean worker and stable local/tracking/live main. Exactly one projectless pinned terminal Luna 019fcc34-09f6-7be3-a24f-4031ca076b64 was created after freeze with zero creation/pin/retry/replacement fault.",
           "2026-08-04T10:10:52Z sole terminal Luna completed PASS with P0/P1/P2/P3 all zero and no actionable issue after independently verifying commit/scope/function boundaries, parser/transactional negatives, production layup/numeric-2 selection, two deterministic 17-frame passes, strict TGCS/state/anti-collapse evidence, manifest/contact hashes, and honest DRAFT/incomplete limitations. The contact hash belongs to gameplay-layup-contact-sheet.png; literal contact-sheet.png is absent, a naming note only. Sol reverified exact base/candidate/main guards and ff-only advanced codex/r2-gameplay-presentation-sol from ed060720 to 4cb0c43 with no merge commit or rewrite; only four authorized task docs remained untracked.",
-          "2026-08-04T10:18:56Z Sol created exact Good-signed docs tip d8d811918932c19bbe1741d2392ec1ad942ebd79, tree 856ffbedfa7f3c1dc509310e96138e1aad140e5b, sole parent 4cb0c43, with exactly the four authorized task reports and a clean branch. Master independently reverified signature/tree/parent/subject/four-path delta/diff-check/clean status and stable local/tracking/live main. The same sole pinned terminal auditor 019fcc34 was reused read-only for exact signed-tip/docs/P0-P3/guarded-handoff review; no new task or unpin occurred."
+          "2026-08-04T10:18:56Z Sol created exact Good-signed docs tip d8d811918932c19bbe1741d2392ec1ad942ebd79, tree 856ffbedfa7f3c1dc509310e96138e1aad140e5b, sole parent 4cb0c43, with exactly the four authorized task reports and a clean branch. Master independently reverified signature/tree/parent/subject/four-path delta/diff-check/clean status and stable local/tracking/live main. The same sole pinned terminal auditor 019fcc34 was reused read-only for exact signed-tip/docs/P0-P3/guarded-handoff review; no new task or unpin occurred.",
+          "2026-08-04T10:26:21Z same sole terminal Luna returned signed-tip PASS with P0/P1/P2/P3 all zero and no actionable issue after rechecking exact d8d8119 identity/signature/four-report layer, proof hashes, bounded classifications, controls, clean branch, and stable protected refs. Master independently reverified both Good-signed commits, exact six-path base-to-tip delta, diff-check, clean Sol branch, and unchanged local/tracking/live main. The accepted immutable tip is routed to dedicated R2E current-main integration QA; no main or push action is authorized here."
         ],
         "proof_manifests": [
           "personal layup manifest SHA256 90EFB0AAAF55BB9853B8ED52A1E476701E388F389FD895922A4111E9BF1A91DD",
           "personal 2560x2400 contact sheet SHA256 85995E1654354BFFF874AEA8510F91FD6E0AB1BCECD49C5138EBC116FB9B6A6C"
         ],
-        "notes": "Good-signed product 4cb0c43 passed personal and independent terminal QA with P0/P1/P2/P3 zero and is followed by exact four-report Good-signed Sol tip d8d8119. The same terminal auditor is reviewing that exact signed tip and guarded handoff; no staging or main delivery is authorized before its final disposition. The slice adds only gameplay-layup-frameN through existing production input selection and a focused deterministic runner. It does not claim or alter renderer, camera, clipping, scene mechanics, assets, numeric-1 semantics, ordinary two-point behavior, pass/defense/contact, free throws, violations/restarts, or broad presentation parity."
+        "notes": "Good-signed product 4cb0c43 and exact four-report Good-signed Sol tip d8d8119 passed complete personal and same-Luna terminal QA with P0/P1/P2/P3 zero. The immutable accepted tip is now reserved for dedicated R2E current-main integration QA before any main delivery. The slice adds only gameplay-layup-frameN through existing production input selection and a focused deterministic runner. It does not claim or alter renderer, camera, clipping, scene mechanics, assets, numeric-1 semantics, ordinary two-point behavior, pass/defense/contact, free throws, violations/restarts, or broad presentation parity."
       },
       "merge": {
-        "staging_branch": "codex/round-2-gameplay-mechanics-staging",
-        "merge_order": 5,
-        "status": "not_ready",
+        "staging_branch": "codex/round-2e-gameplay-presentation-staging",
+        "merge_order": 1,
+        "status": "ready",
         "merge_commit": null,
         "main_pre_sha": "ed060720a98b790f98591af363a490a0e0816018",
         "main_post_sha": null,
@@ -1813,7 +1814,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-04T10:18:56Z",
+      "updated_at": "2026-08-04T10:26:21Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -1842,6 +1843,27 @@
           "from_state": "assigned",
           "to_state": "in_progress",
           "reason": "Sol completed the clean signed takeover and full instruction review with zero mutation and began the authorized collision gate for exactly three pinned read-only Luna/max auditors."
+        },
+        {
+          "timestamp": "2026-08-04T10:23:08Z",
+          "actor_session_id": "S-SOL-R2-GAMEPLAY-PRESENTATION-001",
+          "from_state": "in_progress",
+          "to_state": "sol_review",
+          "reason": "Exact Good-signed product and four-report chain, personal proof, and same sole terminal Luna signed-tip review reached terminal reconciliation."
+        },
+        {
+          "timestamp": "2026-08-04T10:26:20Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "sol_review",
+          "to_state": "sol_accepted",
+          "reason": "Master accepted exact clean d8d8119 after independent P0/P1/P2/P3-zero closure and personal signature/tree/parent/scope/diff/ref verification."
+        },
+        {
+          "timestamp": "2026-08-04T10:26:21Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "sol_accepted",
+          "to_state": "ready_for_round_staging",
+          "reason": "Immutable accepted d8d8119 is reserved for dedicated current-main-compatible R2E integration QA before guarded stable-main delivery."
         }
       ]
     },
@@ -3772,6 +3794,73 @@
           "from_state": "merged",
           "to_state": "pushed",
           "reason": "Ordinary non-force push succeeded; local/tracking/live main equal ed060720, stable main rebuilt warning-clean, and both desktop shortcuts were verified."
+        }
+      ]
+    },
+    {
+      "task_id": "R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA",
+      "title": "Integrate accepted gameplay layup presentation proof with current main and sign combined QA",
+      "domain": "integration",
+      "round_id": "R2E",
+      "priority": 99,
+      "coordination_only": false,
+      "state": "scoped",
+      "dependencies": [
+        "R2-GAMEPLAY-PRESENTATION"
+      ],
+      "ownership_claim_ids": [
+        "OWN-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"
+      ],
+      "base_sha": "ed060720a98b790f98591af363a490a0e0816018",
+      "expected_parent_sha": "ed060720a98b790f98591af363a490a0e0816018",
+      "branch": "codex/r2e-gameplay-presentation-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2e-gameplay-presentation-integration-qa-sol",
+      "sol_orchestrator_session_id": null,
+      "reported_luna_worker_session_ids": [],
+      "result_commits": [],
+      "evidence_ids": [],
+      "blocker_ids": [],
+      "replacement_task_id": null,
+      "task_docs_path": "docs/finish-tasks/R2E-gameplay-presentation-integration-qa",
+      "qa": {
+        "status": "pending",
+        "sol_signoff": false,
+        "integration_signoff": false,
+        "test_records": [
+          "2026-08-04T10:26:21Z master accepted immutable Good-signed presentation tip d8d811918932c19bbe1741d2392ec1ad942ebd79 after personal and same-Luna P0/P1/P2/P3-zero closure, reverified exact six-path delta and stable clean ed060720 main, and reserved a dedicated current-main Integration QA lane before any branch/worktree/task creation."
+        ],
+        "proof_manifests": [
+          "personal layup manifest SHA256 90EFB0AAAF55BB9853B8ED52A1E476701E388F389FD895922A4111E9BF1A91DD",
+          "personal 2560x2400 gameplay-layup contact sheet SHA256 85995E1654354BFFF874AEA8510F91FD6E0AB1BCECD49C5138EBC116FB9B6A6C"
+        ],
+        "notes": "The integration Sol must begin read-only, verify exact current main and immutable d8d8119, use branch-only ff-only because the accepted tip directly descends from guarded main, then run independent combined builds, focused presentation proof, full scene and affected current-main gates, Win32 smoke, proof-integrity and original-resolution visual review, exactly one projectless Luna/max terminal audit, and a Good-signed docs-only terminal result. Main, origin, staging, and push remain master-only."
+      },
+      "merge": {
+        "staging_branch": "codex/round-2e-gameplay-presentation-staging",
+        "merge_order": 1,
+        "status": "not_ready",
+        "merge_commit": null,
+        "main_pre_sha": "ed060720a98b790f98591af363a490a0e0816018",
+        "main_post_sha": null,
+        "push_sha": null,
+        "pushed_at": null
+      },
+      "created_at": "2026-08-04T10:26:21Z",
+      "updated_at": "2026-08-04T10:26:21Z",
+      "audit": [
+        {
+          "timestamp": "2026-08-04T10:26:20Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": null,
+          "to_state": "backlog",
+          "reason": "Incremental delivery policy requires the accepted bounded gameplay layup presentation proof to reach stable main without waiting for the rest of the backlog."
+        },
+        {
+          "timestamp": "2026-08-04T10:26:21Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "backlog",
+          "to_state": "scoped",
+          "reason": "Reserved exact docs-only R2E Integration QA ownership, immutable d8d8119 staging, and a collision-cleared ed060720-based branch/worktree before creating a Sol orchestrator."
         }
       ]
     }

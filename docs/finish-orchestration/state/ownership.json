@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T08:53:00Z",
+  "updated_at": "2026-08-04T10:26:21Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -709,10 +709,32 @@
         "tools/Run-GameplayPresentationTests.ps1"
       ],
       "concurrency_group": "R2-gameplay-presentation",
-      "active": true,
+      "active": false,
       "claimed_at": "2026-08-04T07:58:28Z",
+      "released_at": "2026-08-04T10:26:21Z",
+      "notes": "Released after exact Good-signed chain 4cb0c43bcd4c7ca111c996b3788e1bd00a734424 -> d8d811918932c19bbe1741d2392ec1ad942ebd79 passed personal Sol and same-Luna terminal QA with P0/P1/P2/P3 all zero. Master independently verified both signatures, tree/parent ancestry, exact six-path delta, clean branch, proof hashes, stable refs, and honest bounded classifications. Immutable d8d8119 is routed to dedicated R2E current-main integration QA. Preserve every task, branch, worktree, report, proof, and artifact; every broader renderer/camera/clipping/scene/numeric-1/ordinary-two-point/pass/defense/contact/free-throw/violation/restart/new-asset claim still requires separate authority."
+    },
+    {
+      "claim_id": "OWN-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA",
+      "task_id": "R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA",
+      "round_id": "R2E",
+      "session_id": "S-MASTER-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R2E-gameplay-presentation-integration-qa/**"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R2E-gameplay-presentation-integration-qa/README.md",
+        "docs/finish-tasks/R2E-gameplay-presentation-integration-qa/COMMANDS.md",
+        "docs/finish-tasks/R2E-gameplay-presentation-integration-qa/EVIDENCE.md",
+        "docs/finish-tasks/R2E-gameplay-presentation-integration-qa/INDEPENDENT-QA.md",
+        "docs/finish-tasks/R2E-gameplay-presentation-integration-qa/LINEAGE.md"
+      ],
+      "concurrency_group": "R2E-gameplay-presentation-integration-qa",
+      "active": true,
+      "claimed_at": "2026-08-04T10:26:21Z",
       "released_at": null,
-      "notes": "After the clean takeover and personally reconciled three-auditor read-only gate, master grants exactly two product/tool paths from stable ed060720: src/tecmo_cli_render_gameplay_checkpoint.c only within TecmoCliGameplayCheckpointConfig, parse_gameplay_render_checkpoint_mode, and run_gameplay_shot_checkpoint for gameplay-layup-frameN production-input proof; and new tools/Run-GameplayPresentationTests.ps1 only for the focused deterministic two-pass layup proof/test runner. Exactly one persistent top-level projectless gpt-5.6-luna/max worker may be created after collision recheck at branch codex/r2-gameplay-presentation-luna, worktree C:/Users/joshs/Projects/tecmo-basketball-port-r2-gameplay-presentation-luna, base/expected parent/initial last-good ed060720. The CLI fixture may coherently place actor/holder/ball/camera inputs but may not write shot kind/variant, pose, schedule, outcome, score, claimant, or settlement; production must select LAYUP/numeric-2 and malformed/zero/out-of-range suffixes must fail transactionally. Every include/scene/renderer/actor/validation/state/court/camera/video/HUD/shot-asset/referee/free-throw/defense/audio/test-orchestrator/existing-runner/CMake/build/asset/import/source-map/global-doc/main/staging/origin/push path and every broader pass/defense/contact/numeric-1/ordinary-two-point/camera/clipping/renderer/violation/restart/free-throw/new-asset claim remain excluded."
+      "notes": "Master reservation for one dedicated current-main Integration QA Sol. Writable scope is docs-only plus the one prescribed branch-only ff-only from clean ed060720 to immutable Good-signed d8d8119; candidate and current main are otherwise read-only. The Sol must perform clean takeover, signature/ref/scope/collision checks, independent combined builds and presentation/full-scene/current-main/Win32/proof/visual QA, create exactly one projectless pinned Luna/max terminal audit after its collision gate, produce a Good-signed docs-only true descendant, and stop before main/staging/origin/push."
     },
     {
       "claim_id": "OWN-R3-PLAYER-STATS-LEADERS",
@@ -947,6 +969,13 @@
         "R2D-RULES-RESTARTS-INTEGRATION-QA"
       ],
       "declared_at": "2026-08-04T06:25:47Z"
+    },
+    {
+      "round_id": "R2E",
+      "ordered_task_ids": [
+        "R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"
+      ],
+      "declared_at": "2026-08-04T10:26:21Z"
     },
     {
       "round_id": "R4",

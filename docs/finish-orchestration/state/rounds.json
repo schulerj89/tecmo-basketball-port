@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T10:18:56Z",
+  "updated_at": "2026-08-04T10:26:21Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -808,6 +808,52 @@
       },
       "created_at": "2026-08-04T06:25:47Z",
       "updated_at": "2026-08-04T07:52:42Z"
+    },
+    {
+      "round_id": "R2E",
+      "title": "Gameplay presentation current-main integration and independent QA",
+      "status": "planned",
+      "base_sha": "ed060720a98b790f98591af363a490a0e0816018",
+      "scope": [
+        "Fast-forward an isolated integration branch from accepted current main ed060720a98b790f98591af363a490a0e0816018 to immutable Good-signed gameplay presentation tip d8d811918932c19bbe1741d2392ec1ad942ebd79",
+        "Run warning-clean canonical and CMake builds, focused deterministic layup proof, full scene and affected current-main smoke gates, proof-integrity review, and original-resolution visual QA",
+        "Obtain one independent projectless Luna/max terminal audit and produce a Good-signed docs-only result that remains a true fast-forward descendant of guarded main"
+      ],
+      "included_task_ids": ["R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"],
+      "staging_branch": "codex/round-2e-gameplay-presentation-staging",
+      "sol_orchestrator_session_ids": [],
+      "integration_qa_session_id": null,
+      "merge_order": ["R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"],
+      "combined_qa": {
+        "required": true,
+        "status": "pending",
+        "accepted_sha": null,
+        "report_path": null,
+        "signed_by_session_id": null,
+        "notes": "A dedicated R2E Sol must independently reconcile immutable d8d8119 with guarded ed060720 main, rerun complete proportional integration and visual evidence, obtain one same-lineage Luna/max audit, and sign the exact terminal result before any master delivery."
+      },
+      "acceptance": {
+        "status": "pending",
+        "accepted_at": null,
+        "accepted_sha": null,
+        "criteria": [
+          "Guarded current main and immutable d8d8119 are exact ancestors of the terminal signed integration result",
+          "Canonical and CMake warning-clean builds plus focused presentation and affected current-main scene/state/flow/Win32 smokes pass",
+          "The deterministic 17-frame layup proof and original-resolution visual review pass without widening the accepted claim",
+          "One independent projectless Luna and the Sol close all actionable findings while preserving explicit incomplete presentation boundaries"
+        ]
+      },
+      "main_integration": {
+        "pre_main_sha": "ed060720a98b790f98591af363a490a0e0816018",
+        "merge_commits": [],
+        "post_main_sha": null,
+        "remote_main_before_sha": "ed060720a98b790f98591af363a490a0e0816018",
+        "push_sha": null,
+        "push_result": "not_attempted",
+        "pushed_at": null
+      },
+      "created_at": "2026-08-04T10:26:21Z",
+      "updated_at": "2026-08-04T10:26:21Z"
     },
     {
       "round_id": "R5",
