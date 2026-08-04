@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T10:34:47Z",
+  "updated_at": "2026-08-04T10:38:08Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -423,8 +423,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-gameplay-presentation-sol",
       "ownership_claim_ids": ["OWN-R2-GAMEPLAY-PRESENTATION"],
       "blockers": [],
-      "next_gate": "Complete: exact Good-signed d8d8119 passed personal and same-Luna P0/P1/P2/P3-zero terminal QA and is routed as an immutable input to reserved R2E Integration QA. Domain ownership is released; preserve all tasks, branches, worktrees, reports, proof, and artifacts while lifecycle unpins are collected.",
-      "updated_at": "2026-08-04T10:26:21Z"
+      "next_gate": "Complete: exact Good-signed d8d8119 passed personal and same-Luna P0/P1/P2/P3-zero terminal QA and is routed as an immutable input to active R2E Integration QA. Domain ownership is released; Sol and all five child tasks returned pinned=false while every branch, worktree, report, proof, and artifact remains preserved and unarchived.",
+      "updated_at": "2026-08-04T10:38:08Z"
     },
     {
       "lane_id": "LANE-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA",
