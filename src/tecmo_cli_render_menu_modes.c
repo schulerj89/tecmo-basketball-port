@@ -12,6 +12,41 @@
 
 #include "tecmo_cli_internal.h"
 
+static void seed_populated_leader_results(TecmoSeasonSession *session)
+{
+    if (session == NULL) return;
+    session->season_type = TECMO_SEASON_REGULAR;
+    session->schedule_index = 0U;
+    session->player_stats_coverage =
+        TECMO_PLAYER_STATS_IMPLEMENTED_COVERAGE;
+    memset(session->wins, 0, sizeof(session->wins));
+    memset(session->losses, 0, sizeof(session->losses));
+    memset(session->player_stats_totals, 0,
+           sizeof(session->player_stats_totals));
+    for (uint8_t team = 0U; team < TECMO_PLAYER_STATS_TEAM_COUNT; ++team) {
+        session->wins[team] = 82U;
+        for (uint8_t roster = 0U;
+             roster < TECMO_PLAYER_STATS_ROSTER_COUNT; ++roster) {
+            uint16_t key = (uint16_t)team *
+                           TECMO_PLAYER_STATS_ROSTER_COUNT + roster;
+            session->player_stats_totals[team][roster][
+                TECMO_PLAYER_STATS_COUNTER_FGA] = 400U;
+            session->player_stats_totals[team][roster][
+                TECMO_PLAYER_STATS_COUNTER_FGM] = (uint16_t)(300U + key);
+            session->player_stats_totals[team][roster][
+                TECMO_PLAYER_STATS_COUNTER_THREE_PA] = 200U;
+            session->player_stats_totals[team][roster][
+                TECMO_PLAYER_STATS_COUNTER_THREE_PM] =
+                (uint16_t)(50U + key);
+            session->player_stats_totals[team][roster][
+                TECMO_PLAYER_STATS_COUNTER_FTA] = 120U;
+            session->player_stats_totals[team][roster][
+                TECMO_PLAYER_STATS_COUNTER_FTM] = (uint16_t)(90U + key);
+        }
+    }
+    session->dirty = false;
+}
+
 static bool configure_start_game_menu_mode(TecmoRuntime *runtime, const char *mode_name, TecmoCliRenderModeState *state, bool *handled_out)
 {
     bool arena_render_succeeded = state->arena_render_succeeded;
@@ -755,6 +790,43 @@ static bool configure_season_mode(TecmoRuntime *runtime, const char *mode_name, 
                 tecmo_season_state_init(&runtime->season_state,
                                         TECMO_SEASON_ROUTE_STANDINGS,
                                         &runtime->season_session);
+            } else if (strcmp(mode_name,
+                               "season-leaders-results-populated-page6") == 0 ||
+                       strcmp(mode_name,
+                              "season-leaders-results-populated-page12") == 0) {
+                *handled_out = true;
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
+                tecmo_season_state_init(&runtime->season_state,
+                                        TECMO_SEASON_ROUTE_LEADERS,
+                                        &runtime->season_session);
+                seed_populated_leader_results(&runtime->season_session);
+                runtime->season_state.leader_category = 0U;
+                runtime->season_state.leader_page =
+                    strcmp(mode_name,
+                           "season-leaders-results-populated-page12") == 0
+                        ? 12U : 6U;
+                runtime->season_state.leaders_results = true;
+            } else if (strncmp(mode_name,
+                               "season-leaders-results-populated", 32) == 0) {
+                *handled_out = true;
+                unsigned category = 0U;
+                if (mode_name[32] != '\0' &&
+                    (!tecmo_cli_parse_render_frame_suffix(
+                        mode_name, "season-leaders-results-populated",
+                        &category) ||
+                     (category != 0U && category != 3U &&
+                      category != 5U && category != 6U))) {
+                    printf("Unsupported render-test mode: %s\n", mode_name);
+                    render_runtime = false;
+                    goto season_mode_configured;
+                }
+                tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
+                tecmo_season_state_init(&runtime->season_state,
+                                        TECMO_SEASON_ROUTE_LEADERS,
+                                        &runtime->season_session);
+                seed_populated_leader_results(&runtime->season_session);
+                runtime->season_state.leader_category = (uint8_t)category;
+                runtime->season_state.leaders_results = true;
             } else if (strcmp(mode_name, "season-leaders-results") == 0) {
                 *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_SEASON_MENU);
@@ -811,6 +883,7 @@ static bool configure_season_mode(TecmoRuntime *runtime, const char *mode_name, 
                 result = arena_render_succeeded ? 0 : 1;
 }
 
+season_mode_configured:
     state->arena_render_succeeded = arena_render_succeeded;
     state->result = result;
     return render_runtime;

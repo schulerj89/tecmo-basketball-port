@@ -1098,6 +1098,8 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
         scene->active = false;
         return false;
     }
+    tecmo_player_stats_game_ledger_initialize(&scene->player_stats);
+    tecmo_player_stats_game_ledger_initialize(&scene->result.player_stats);
     scene_set_status(scene, "native pre-tip active");
     return true;
 }
@@ -1483,6 +1485,10 @@ static bool scene_process_events(TecmoGameplayScene *scene,
             }
             break;
         case TECMO_GAMEPLAY_EVENT_GAME_COMPLETE:
+            if (!tecmo_player_stats_game_ledger_valid(
+                    &scene->player_stats)) {
+                return false;
+            }
             scene->result.source = scene->launch.source;
             scene->result.game_index = scene->launch.game_index;
             scene->result.away_team = scene->launch.away_team;
@@ -1492,6 +1498,7 @@ static bool scene_process_events(TecmoGameplayScene *scene,
             scene->result.home_score =
                 scene->state.score[TECMO_GAMEPLAY_TEAM_HOME];
             scene->result.overtime_count = scene->state.overtime_count;
+            scene->result.player_stats = scene->player_stats;
             scene->result_ready = true;
             break;
         case TECMO_GAMEPLAY_EVENT_CLOSE_SHOT_PHASE_CHANGED:
@@ -1583,10 +1590,18 @@ static bool scene_update_free_throw(TecmoGameplayScene *scene,
                                     const TecmoControlFrame *player_one,
                                     const TecmoControlFrame *player_two)
 {
+    TecmoGameplayScene previous_scene;
     const TecmoControlFrame *controls[TECMO_GAMEPLAY_CONTROLLER_COUNT];
     size_t controller;
     bool launch_attempt;
+    bool made;
+    uint8_t shooter;
+    TecmoGameplayTeam scoring_team;
 
+    /* CPU launch bookkeeping may advance free_throw_frame before the launch
+       threshold is reached.  Every post-threshold transaction must roll back
+       to the function-entry scene, including that frame advance. */
+    previous_scene = *scene;
     controls[0] = player_one;
     controls[1] = player_two;
     controller = scene_controller_for_team(
@@ -1614,11 +1629,25 @@ static bool scene_update_free_throw(TecmoGameplayScene *scene,
        crowd response through the normal state-event path below. */
     ++scene->action_serial;
     scene->free_throw_frame = 0U;
+    scoring_team = scene->state.free_throws.scoring_team;
+    shooter = scene->free_throw_shooter;
+    made = (scene->action_serial +
+            scene->state.free_throws.attempts_remaining) % 3U != 0U;
     if (!tecmo_gameplay_record_free_throw_result(
             &scene->state,
-            (scene->action_serial +
-             scene->state.free_throws.attempts_remaining) % 3U != 0U,
+            made,
             &scene->events)) {
+        *scene = previous_scene;
+        return false;
+    }
+    if (shooter >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->actors[shooter].team != (uint8_t)scoring_team ||
+        scene->actors[shooter].roster_index >=
+            TECMO_PLAYER_STATS_ROSTER_COUNT ||
+        !tecmo_player_stats_record_free_throw(
+            &scene->player_stats, (uint8_t)scoring_team,
+            scene->actors[shooter].roster_index, made)) {
+        *scene = previous_scene;
         return false;
     }
     if (scene->state.phase ==
@@ -1628,10 +1657,12 @@ static bool scene_update_free_throw(TecmoGameplayScene *scene,
         if (!tecmo_gameplay_settle_free_throws(
                 &scene->state, next,
                 TECMO_GAMEPLAY_POST_FOUL_SHOT_24_DIVIDER_50)) {
+            *scene = previous_scene;
             return false;
         }
         if (!scene_handoff_possession(
                 scene, next, scene_first_actor_for_team(next))) {
+            *scene = previous_scene;
             return false;
         }
         scene_clear_free_throw_lineup_binding(scene);
@@ -2132,6 +2163,8 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
     bool jump_miss_settled = false;
     TecmoGameplayTeam jump_miss_shooting_team = TECMO_GAMEPLAY_TEAM_AWAY;
     TecmoGameplaySceneCpuShotRequest cpu_shot_request;
+    TecmoGameplayState previous_state;
+    TecmoGameplayEventBuffer previous_events;
 
     if (scene == NULL ||
         scene->lifecycle_tag != TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG ||
@@ -2139,6 +2172,8 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
         scene->pretip_abort_pending) {
         return false;
     }
+    previous_state = scene->state;
+    previous_events = scene->events;
     memset(&cpu_shot_request, 0, sizeof(cpu_shot_request));
     cpu_shot_request.actor_index = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     if (!tecmo_gameplay_pretip_state_validate(
@@ -2185,6 +2220,10 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
     }
     if (!scene_update_post_action_phases(
             scene, phase_before, restart_frame, player_one, player_two)) {
+        if (phase_before == TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE) {
+            scene->state = previous_state;
+            scene->events = previous_events;
+        }
         return false;
     }
     /* PRETIP owns transient presentation coordinates. Foundation sync is

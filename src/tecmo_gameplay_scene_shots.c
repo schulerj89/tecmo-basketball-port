@@ -23,6 +23,40 @@ static bool scene_update_shot_mutating(
 static bool scene_begin_shot_rim_tail(TecmoGameplayScene *scene);
 static bool scene_update_shot_rim_tail_mutating(TecmoGameplayScene *scene);
 
+static bool scene_record_shot_attempt_stats(
+    TecmoGameplayScene *scene)
+{
+    uint8_t stats_point_value;
+    if (scene == NULL || scene->shot_actor_team >=
+            TECMO_PLAYER_STATS_GAME_SIDE_COUNT ||
+        scene->shot_actor_roster_index >= TECMO_PLAYER_STATS_ROSTER_COUNT)
+        return false;
+    if (scene->shot_points != 1U && scene->shot_points != 2U &&
+        scene->shot_points != 3U)
+        return false;
+    stats_point_value = scene->shot_points == 3U ? 3U : 2U;
+    return tecmo_player_stats_record_shot_attempt(
+        &scene->player_stats, scene->shot_actor_team,
+        scene->shot_actor_roster_index, stats_point_value);
+}
+
+static bool scene_record_shot_make_stats(
+    TecmoGameplayScene *scene)
+{
+    uint8_t stats_point_value;
+    if (scene == NULL || scene->shot_actor_team >=
+            TECMO_PLAYER_STATS_GAME_SIDE_COUNT ||
+        scene->shot_actor_roster_index >= TECMO_PLAYER_STATS_ROSTER_COUNT)
+        return false;
+    if (scene->shot_points != 1U && scene->shot_points != 2U &&
+        scene->shot_points != 3U)
+        return false;
+    stats_point_value = scene->shot_points == 3U ? 3U : 2U;
+    return tecmo_player_stats_record_shot_make(
+        &scene->player_stats, scene->shot_actor_team,
+        scene->shot_actor_roster_index, stats_point_value);
+}
+
 /* All owned shot schedules are uint16_t timelines, but their next-frame
    arithmetic must be checked in a wider type first.  In particular, a
    corrupted frame equal to the schedule duration is already terminal and
@@ -735,6 +769,7 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
     }
     actor->pose_index = initial_pose;
     scene->shot_result_awarded = false;
+    if (!scene_record_shot_attempt_stats(scene)) return false;
     if (!close) {
         scene->jump_entry_pose_index = initial_pose;
         scene->jump_pose_frame = 1U;
@@ -1112,6 +1147,7 @@ static bool scene_finish_shot(TecmoGameplayScene *scene,
                                          scene->shot_points)) {
             return false;
         }
+        if (!scene_record_shot_make_stats(scene)) return false;
         if (queue_side_result) {
             if (!scene_shot_queue_result_audio(scene, shooting_team)) {
                 return false;
@@ -1817,6 +1853,10 @@ static bool scene_update_jump_make_approx(
             scene->state = state_before;
             return false;
         }
+        if (!scene_record_shot_make_stats(scene)) {
+            scene->state = state_before;
+            return false;
+        }
         scene->shot_result_awarded = true;
         scene->jump_made_settlement.complete = true;
     }
@@ -1971,6 +2011,10 @@ static bool scene_update_jump_make(
             (!period_expiry &&
              !tecmo_gameplay_reset_possession(
                  &scene->state, (TecmoGameplayTeam)actor->team))) {
+            scene->state = state_before;
+            return false;
+        }
+        if (!scene_record_shot_make_stats(scene)) {
             scene->state = state_before;
             return false;
         }

@@ -48,10 +48,40 @@
 #define SEASON_LEADER_PALETTES_OFFSET 101596U
 #define SEASON_POPUP_DESCS_OFFSET 101708U
 #define SEASON_POPUP_CELLS_OFFSET 101756U
-#define SEASON_SAVE_SIZE 108U
+#define SEASON_LEADER_SCREEN_ID_BASE 38U
+#define SEASON_LEADER_TEMPLATE_MIN_ID 39U
+#define SEASON_LEADER_TEMPLATE_MAX_ID 44U
+#define SEASON_LEADER_TITLE_Y 24
+#define SEASON_LEADER_ROW_PLAYER_X 32
+#define SEASON_LEADER_ROW_TEAM_X 184
+#define SEASON_LEADER_ROW_VALUE_X 192
+#define SEASON_LEADER_ROW_FIRST_Y 32
+#define SEASON_LEADER_ROW_LABEL_Y 40
+#define SEASON_LEADER_VALUE_FIRST_Y 48
+#define SEASON_LEADER_VALUE_ROW_STRIDE 32
+#define SEASON_LEADER_LABEL_FIRST_X 112
+#define SEASON_LEADER_LABEL_VALUE_X 192
+#define SEASON_LEADER_BLANK_TILE 0xFFU
 #define SEASON_SAVE_HEADER_SIZE 24U
-#define SEASON_SAVE_PAYLOAD_SIZE 84U
+#define SEASON_SAVE_V1_SIZE 108U
+#define SEASON_SAVE_V1_PAYLOAD_SIZE 84U
+#define SEASON_SAVE_V2_COVERAGE_OFFSET SEASON_SAVE_V1_PAYLOAD_SIZE
+#define SEASON_SAVE_V2_TOTALS_OFFSET (SEASON_SAVE_V2_COVERAGE_OFFSET + 2U)
+#define SEASON_SAVE_V2_TOTALS_SIZE \
+    (TECMO_PLAYER_STATS_TEAM_COUNT * TECMO_PLAYER_STATS_ROSTER_COUNT * \
+     TECMO_PLAYER_STATS_COUNTER_DIMENSION * sizeof(uint16_t))
+#define SEASON_SAVE_V2_PAYLOAD_SIZE \
+    (SEASON_SAVE_V2_TOTALS_OFFSET + SEASON_SAVE_V2_TOTALS_SIZE)
+#define SEASON_SAVE_V2_SIZE \
+    (SEASON_SAVE_HEADER_SIZE + SEASON_SAVE_V2_PAYLOAD_SIZE)
 #define SEASON_DIRECTION_REPEAT 8U
+
+_Static_assert(SEASON_SAVE_V2_TOTALS_SIZE == 5832U,
+               "TSAV-2 totals payload size drifted");
+_Static_assert(SEASON_SAVE_V2_PAYLOAD_SIZE == 5918U,
+               "TSAV-2 payload size drifted");
+_Static_assert(SEASON_SAVE_V2_SIZE == 5942U,
+               "TSAV-2 file size drifted");
 
 static uint16_t read_u16(const uint8_t *p)
 {
@@ -101,6 +131,215 @@ static uint64_t fnv1a64(const uint8_t *bytes, uint64_t count)
         hash *= 1099511628211ULL;
     }
     return hash;
+}
+
+/* Rev1 Bank00/Fixed leader provenance: the imported screen descriptors are
+ * IDs 38..44 and the category table selects IDs 39,40,41,42,43,39,44.
+ * Resolve by the validated imported ID table so the selection screen (38) is
+ * never confused with the first results template (39). */
+static const uint8_t season_leader_screen_ids[TECMO_SEASON_LEADER_SCREEN_COUNT] = {
+    SEASON_LEADER_SCREEN_ID_BASE, 39U, 40U, 41U, 42U, 43U, 44U
+};
+
+static const uint8_t season_leader_template_ids[TECMO_SEASON_LEADER_COUNT] = {
+    39U, 40U, 41U, 42U, 43U, 39U, 44U
+};
+
+static bool season_leader_template_to_screen(uint8_t template_id,
+                                             uint8_t *screen)
+{
+    if (screen == NULL || template_id < SEASON_LEADER_TEMPLATE_MIN_ID ||
+        template_id > SEASON_LEADER_TEMPLATE_MAX_ID)
+        return false;
+    for (uint8_t candidate = 0U;
+         candidate < TECMO_SEASON_LEADER_SCREEN_COUNT; ++candidate)
+        if (season_leader_screen_ids[candidate] == template_id) {
+            *screen = candidate;
+            return true;
+        }
+    return false;
+}
+
+/* Season-only projection identity is source-pinned here.  The public player
+ * header stops at the gameplay ledger/wire contract; these catalog formulas
+ * are not gameplay-facing types or emitters. */
+typedef enum SeasonPlayerStatsCategory {
+    SEASON_PLAYER_STATS_CATEGORY_FIELD_GOALS = 0,
+    SEASON_PLAYER_STATS_CATEGORY_BLOCKED_SHOTS,
+    SEASON_PLAYER_STATS_CATEGORY_REBOUNDS,
+    SEASON_PLAYER_STATS_CATEGORY_TOTAL_POINTS,
+    SEASON_PLAYER_STATS_CATEGORY_STEALS,
+    SEASON_PLAYER_STATS_CATEGORY_THREE_POINT_SHOTS,
+    SEASON_PLAYER_STATS_CATEGORY_FREE_THROWS,
+    SEASON_PLAYER_STATS_CATEGORY_COUNT
+} SeasonPlayerStatsCategory;
+
+typedef struct SeasonPlayerStatsProjection {
+    uint16_t value;
+    bool available;
+    bool eligible;
+} SeasonPlayerStatsProjection;
+
+#define SEASON_PLAYER_STATS_METRIC_HIGH_BIT 0x8000U
+#define SEASON_PLAYER_STATS_METRIC_MAX 0x7FFFU
+
+static uint16_t season_player_stats_signed_magnitude(uint16_t value)
+{
+    /* Reproduce the source's two's-complement magnitude without relying on
+       an implementation-defined out-of-range uint16_t -> int16_t cast. */
+    return (value & 0x8000U) != 0U
+               ? (uint16_t)(0U - value) : value;
+}
+
+static uint16_t season_player_stats_project_ratio(
+    uint16_t numerator,
+    uint16_t denominator,
+    uint16_t scale,
+    bool *projected_valid)
+{
+    uint64_t projected;
+    if (projected_valid == NULL) return 0U;
+    if (denominator == 0U) {
+        *projected_valid = true;
+        return numerator == 0U ? 0U : SEASON_PLAYER_STATS_METRIC_MAX;
+    }
+    projected = ((uint64_t)season_player_stats_signed_magnitude(numerator) *
+                 scale) / denominator;
+    if (projected > UINT16_MAX) projected = UINT16_MAX;
+    *projected_valid = (projected & SEASON_PLAYER_STATS_METRIC_HIGH_BIT) == 0U;
+    return (uint16_t)projected;
+}
+
+static bool season_player_stats_category_valid(
+    SeasonPlayerStatsCategory category)
+{
+    return category < SEASON_PLAYER_STATS_CATEGORY_COUNT;
+}
+
+static bool season_player_stats_category_supported(
+    SeasonPlayerStatsCategory category)
+{
+    return category == SEASON_PLAYER_STATS_CATEGORY_FIELD_GOALS ||
+           category == SEASON_PLAYER_STATS_CATEGORY_TOTAL_POINTS ||
+           category == SEASON_PLAYER_STATS_CATEGORY_THREE_POINT_SHOTS ||
+           category == SEASON_PLAYER_STATS_CATEGORY_FREE_THROWS;
+}
+
+static uint16_t season_player_stats_category_required_coverage(
+    SeasonPlayerStatsCategory category)
+{
+    switch (category) {
+    case SEASON_PLAYER_STATS_CATEGORY_FIELD_GOALS:
+        return (uint16_t)((1U << TECMO_PLAYER_STATS_COUNTER_FGA) |
+                          (1U << TECMO_PLAYER_STATS_COUNTER_FGM));
+    case SEASON_PLAYER_STATS_CATEGORY_TOTAL_POINTS:
+        return (uint16_t)((1U << TECMO_PLAYER_STATS_COUNTER_FTM) |
+                          (1U << TECMO_PLAYER_STATS_COUNTER_FGM) |
+                          (1U << TECMO_PLAYER_STATS_COUNTER_THREE_PM));
+    case SEASON_PLAYER_STATS_CATEGORY_THREE_POINT_SHOTS:
+        return (uint16_t)((1U << TECMO_PLAYER_STATS_COUNTER_THREE_PA) |
+                          (1U << TECMO_PLAYER_STATS_COUNTER_THREE_PM));
+    case SEASON_PLAYER_STATS_CATEGORY_FREE_THROWS:
+        return (uint16_t)((1U << TECMO_PLAYER_STATS_COUNTER_FTA) |
+                          (1U << TECMO_PLAYER_STATS_COUNTER_FTM));
+    case SEASON_PLAYER_STATS_CATEGORY_BLOCKED_SHOTS:
+        return (uint16_t)(1U << TECMO_PLAYER_STATS_COUNTER_BLOCKS);
+    case SEASON_PLAYER_STATS_CATEGORY_REBOUNDS:
+        return (uint16_t)(1U << TECMO_PLAYER_STATS_COUNTER_REBOUNDS);
+    case SEASON_PLAYER_STATS_CATEGORY_STEALS:
+        return (uint16_t)(1U << TECMO_PLAYER_STATS_COUNTER_STEALS);
+    case SEASON_PLAYER_STATS_CATEGORY_COUNT:
+    default:
+        return 0U;
+    }
+}
+
+static bool season_player_stats_projection_for_category(
+    SeasonPlayerStatsCategory category,
+    const uint16_t counters[TECMO_PLAYER_STATS_COUNTER_DIMENSION],
+    uint16_t team_games,
+    SeasonPlayerStatsProjection *projection)
+{
+    uint16_t numerator;
+    uint16_t denominator;
+    uint16_t scale;
+    bool projected_valid;
+    bool threshold_eligible = true;
+    if (counters == NULL || projection == NULL ||
+        !season_player_stats_category_valid(category))
+        return false;
+    switch (category) {
+    case SEASON_PLAYER_STATS_CATEGORY_FIELD_GOALS:
+        numerator = counters[TECMO_PLAYER_STATS_COUNTER_FGM];
+        denominator = counters[TECMO_PLAYER_STATS_COUNTER_FGA];
+        scale = 1000U;
+        threshold_eligible = (uint32_t)numerator >
+                             3U * (uint32_t)team_games;
+        break;
+    case SEASON_PLAYER_STATS_CATEGORY_TOTAL_POINTS:
+        numerator = (uint16_t)((2U *
+                       (uint32_t)counters[TECMO_PLAYER_STATS_COUNTER_FGM] +
+                       (uint32_t)counters[TECMO_PLAYER_STATS_COUNTER_THREE_PM] +
+                       (uint32_t)counters[TECMO_PLAYER_STATS_COUNTER_FTM]) &
+                      UINT16_MAX);
+        denominator = team_games;
+        scale = 100U;
+        break;
+    case SEASON_PLAYER_STATS_CATEGORY_THREE_POINT_SHOTS:
+        numerator = counters[TECMO_PLAYER_STATS_COUNTER_THREE_PM];
+        denominator = counters[TECMO_PLAYER_STATS_COUNTER_THREE_PA];
+        scale = 1000U;
+        threshold_eligible = (uint32_t)numerator >
+                             (uint32_t)(team_games / 2U);
+        break;
+    case SEASON_PLAYER_STATS_CATEGORY_FREE_THROWS:
+        numerator = counters[TECMO_PLAYER_STATS_COUNTER_FTM];
+        denominator = counters[TECMO_PLAYER_STATS_COUNTER_FTA];
+        scale = 1000U;
+        threshold_eligible = (uint32_t)numerator >
+                             (uint32_t)team_games;
+        break;
+    case SEASON_PLAYER_STATS_CATEGORY_BLOCKED_SHOTS:
+        numerator = counters[TECMO_PLAYER_STATS_COUNTER_BLOCKS];
+        denominator = team_games;
+        scale = 100U;
+        break;
+    case SEASON_PLAYER_STATS_CATEGORY_REBOUNDS:
+        numerator = counters[TECMO_PLAYER_STATS_COUNTER_REBOUNDS];
+        denominator = team_games;
+        scale = 100U;
+        break;
+    case SEASON_PLAYER_STATS_CATEGORY_STEALS:
+        numerator = counters[TECMO_PLAYER_STATS_COUNTER_STEALS];
+        denominator = team_games;
+        scale = 100U;
+        break;
+    case SEASON_PLAYER_STATS_CATEGORY_COUNT:
+    default:
+        return false;
+    }
+    projection->value = season_player_stats_project_ratio(
+        numerator, denominator, scale, &projected_valid);
+    projection->available = projected_valid;
+    projection->eligible = projected_valid && threshold_eligible;
+    return true;
+}
+
+static uint16_t season_player_stats_metric_value(
+    uint64_t high_byte,
+    uint64_t low_byte)
+{
+    return (uint16_t)(((uint16_t)high_byte << 8U) |
+                      (uint16_t)low_byte);
+}
+
+static void season_player_stats_metric_pair_from_value(
+    uint16_t value,
+    uint64_t *high_byte,
+    uint64_t *low_byte)
+{
+    if (high_byte != NULL) *high_byte = (uint64_t)(value >> 8U);
+    if (low_byte != NULL) *low_byte = (uint64_t)(value & 0xFFU);
 }
 
 static uint32_t bg_chr_offset(uint8_t tile, uint8_t r0, uint8_t r1)
@@ -200,6 +439,66 @@ static bool parse_cell(TecmoStartGameMenuCell *cell,
            season_chr_range_available(cell->chr_offset, SEASON_CHR_SIZE);
 }
 
+/* Rev1 row-flow/source-map reconciliation: $B486/$B48C select player/team
+ * destinations at x=32/x=184 on y=32+32*row.  The imported templates put
+ * their fixed stat labels at y=40+32*row and leave the projected value line
+ * at y=48+32*row, with the rightmost numeric column at x=192.  Validate those
+ * exact blank/write cells when accepting TSNS so renderer coordinates cannot
+ * drift back onto the label line or into the native title region. */
+static bool season_leader_row_geometry_valid(const TecmoSeasonAsset *asset)
+{
+    if (asset == NULL) return false;
+    for (size_t screen = 1U;
+         screen < TECMO_SEASON_LEADER_SCREEN_COUNT; ++screen) {
+        for (size_t row = 0U; row < 6U; ++row) {
+            size_t player_row =
+                ((size_t)SEASON_LEADER_ROW_FIRST_Y +
+                 row * SEASON_LEADER_VALUE_ROW_STRIDE) / 8U;
+            size_t label_row =
+                ((size_t)SEASON_LEADER_ROW_LABEL_Y +
+                 row * SEASON_LEADER_VALUE_ROW_STRIDE) / 8U;
+            size_t value_row =
+                ((size_t)SEASON_LEADER_VALUE_FIRST_Y +
+                 row * SEASON_LEADER_VALUE_ROW_STRIDE) / 8U;
+            size_t player_start = SEASON_LEADER_ROW_PLAYER_X / 8U;
+            size_t player_end = player_start + 16U;
+            size_t team_start = SEASON_LEADER_ROW_TEAM_X / 8U;
+            size_t team_end = team_start + 7U;
+            size_t value_start = SEASON_LEADER_ROW_VALUE_X / 8U;
+            size_t value_end = value_start + 8U;
+            const TecmoStartGameMenuCell *first_label =
+                &asset->leader_screens[screen][label_row * 32U +
+                                                SEASON_LEADER_LABEL_FIRST_X / 8U];
+            const TecmoStartGameMenuCell *value_label =
+                &asset->leader_screens[screen][label_row * 32U +
+                                                SEASON_LEADER_LABEL_VALUE_X / 8U];
+            if (first_label->tile_id == SEASON_LEADER_BLANK_TILE ||
+                value_label->tile_id == SEASON_LEADER_BLANK_TILE ||
+                first_label->palette_index != 0U ||
+                value_label->palette_index != 0U)
+                return false;
+            for (size_t column = player_start; column < player_end; ++column)
+                if (asset->leader_screens[screen][player_row * 32U + column]
+                            .tile_id != SEASON_LEADER_BLANK_TILE)
+                    return false;
+            for (size_t column = team_start; column < team_end; ++column)
+                if (asset->leader_screens[screen][player_row * 32U + column]
+                            .tile_id != SEASON_LEADER_BLANK_TILE)
+                    return false;
+            for (size_t column = value_start; column < value_end; ++column)
+                if (asset->leader_screens[screen][value_row * 32U + column]
+                            .tile_id != SEASON_LEADER_BLANK_TILE)
+                    return false;
+        }
+        for (size_t column = 0U; column < 32U; ++column)
+            if (asset->leader_screens[screen]
+                    [(SEASON_LEADER_TITLE_Y / 8U) * 32U + column]
+                    .tile_id != SEASON_LEADER_BLANK_TILE)
+                return false;
+    }
+    return true;
+}
+
 static bool schedule_record_selected(uint8_t season_type,
                                      const uint8_t record[2]);
 
@@ -234,9 +533,6 @@ static bool parse_payload(TecmoSeasonAsset *asset,
     static const uint8_t control_tiles[4][3] = {
         {0x56U, 0x57U, 0x58U}, {0x54U, 0x55U, 0x51U},
         {0x51U, 0x52U, 0x53U}, {0x54U, 0x55U, 0x52U}
-    };
-    static const uint8_t leader_screen_ids[7] = {
-        38U, 39U, 40U, 41U, 42U, 43U, 44U
     };
     static const uint8_t leader_selectors[14] = {
         0xFAU,0xFAU, 0xFAU,0x2EU, 0xFAU,0x2EU, 0xFAU,0x2EU,
@@ -287,8 +583,8 @@ static bool parse_payload(TecmoSeasonAsset *asset,
         read_u16(bytes + 142U) != TECMO_SEASON_LEADER_SCREEN_CELLS ||
         read_u16(bytes + 144U) != SEASON_MENU_TEXT_SIZE ||
         bytes[146U] != 0U || bytes[147U] != 0U ||
-        memcmp(bytes + 148U, leader_screen_ids,
-               sizeof(leader_screen_ids)) != 0 ||
+        memcmp(bytes + 148U, season_leader_screen_ids,
+               sizeof(season_leader_screen_ids)) != 0 ||
         memcmp(bytes + 155U, leader_selectors,
                sizeof(leader_selectors)) != 0)
         return false;
@@ -463,6 +759,7 @@ static bool parse_payload(TecmoSeasonAsset *asset,
         }
     }
     for (size_t i = 0U; i < TECMO_SEASON_LEADER_COUNT; ++i) {
+        uint8_t screen;
         asset->leader_up[i] = bytes[SEASON_LEADER_NAV_OFFSET + i];
         asset->leader_down[i] = bytes[SEASON_LEADER_NAV_OFFSET + 7U + i];
         asset->leader_cursor_x[i] = bytes[SEASON_LEADER_NAV_OFFSET + 14U + i];
@@ -470,8 +767,11 @@ static bool parse_payload(TecmoSeasonAsset *asset,
         asset->leader_template[i] = bytes[SEASON_LEADER_TEMPLATE_OFFSET + i];
         if (asset->leader_up[i] >= TECMO_SEASON_LEADER_COUNT ||
             asset->leader_down[i] >= TECMO_SEASON_LEADER_COUNT ||
-            asset->leader_template[i] < 39U ||
-            asset->leader_template[i] > 44U)
+            asset->leader_template[i] != season_leader_template_ids[i] ||
+            !season_leader_template_to_screen(asset->leader_template[i],
+                                              &screen) ||
+            screen != (uint8_t)(asset->leader_template[i] -
+                                SEASON_LEADER_SCREEN_ID_BASE))
             return false;
     }
     for (size_t screen = 0U;
@@ -492,6 +792,7 @@ static bool parse_payload(TecmoSeasonAsset *asset,
             asset->leader_palettes[screen][color] = value;
         }
     }
+    if (!season_leader_row_geometry_valid(asset)) return false;
     {
         size_t expected_start = 0U;
         for (size_t overlay = 0U; overlay < 3U; ++overlay) {
@@ -642,6 +943,10 @@ static void session_defaults(TecmoSeasonSession *session)
     memset(session->wins, 0, sizeof(session->wins));
     memset(session->losses, 0, sizeof(session->losses));
     session->schedule_index = 0U;
+    session->player_stats_coverage =
+        TECMO_PLAYER_STATS_IMPLEMENTED_COVERAGE;
+    memset(session->player_stats_totals, 0,
+           sizeof(session->player_stats_totals));
     session->dirty = false;
 }
 
@@ -659,19 +964,14 @@ static uint8_t season_team_game_target(uint8_t season_type)
     return season_type < 4U ? targets[season_type] : 0U;
 }
 
-static bool parse_save(TecmoSeasonSession *session,
-                       const uint8_t bytes[SEASON_SAVE_SIZE])
+static bool season_session_fields_valid(const TecmoSeasonSession *session);
+
+static bool parse_save_prefix(TecmoSeasonSession *session,
+                              const uint8_t *payload)
 {
-    const uint8_t *payload = bytes + SEASON_SAVE_HEADER_SIZE;
     uint8_t team_target;
-    if (memcmp(bytes, "TSAV", 4U) != 0 || read_u16(bytes + 4U) != 1U ||
-        read_u16(bytes + 6U) != SEASON_SAVE_HEADER_SIZE ||
-        read_u32(bytes + 8U) != SEASON_SAVE_SIZE ||
-        read_u32(bytes + 12U) != fnv1a32(payload, SEASON_SAVE_PAYLOAD_SIZE))
+    if (session == NULL || payload == NULL || payload[0] >= 4U)
         return false;
-    for (size_t i = 16U; i < SEASON_SAVE_HEADER_SIZE; ++i)
-        if (bytes[i] != 0U) return false;
-    if (payload[0] >= 4U) return false;
     team_target = season_team_game_target(payload[0]);
     for (size_t team = 0U; team < TECMO_SEASON_TEAM_COUNT; ++team) {
         if (payload[1U + team] >= 4U ||
@@ -681,12 +981,103 @@ static bool parse_save(TecmoSeasonSession *session,
             return false;
     }
     if (read_u16(payload + 82U) > season_game_count(payload[0])) return false;
+
     session->season_type = payload[0];
     memcpy(session->team_control, payload + 1U, TECMO_SEASON_TEAM_COUNT);
     memcpy(session->wins, payload + 28U, TECMO_SEASON_TEAM_COUNT);
     memcpy(session->losses, payload + 55U, TECMO_SEASON_TEAM_COUNT);
     session->schedule_index = read_u16(payload + 82U);
+    return true;
+}
+
+static bool parse_save_v1(TecmoSeasonSession *session,
+                          const uint8_t *payload)
+{
+    if (!parse_save_prefix(session, payload)) return false;
+
+    /* A fresh v1 file has no migrated stats but the native six-counter
+     * implementation is known at schedule zero.  An in-progress v1 file
+     * must remain permanently incomplete until reset/new data is written. */
+    session->player_stats_coverage = read_u16(payload + 82U) == 0U
+        ? TECMO_PLAYER_STATS_IMPLEMENTED_COVERAGE : 0U;
+    memset(session->player_stats_totals, 0,
+           sizeof(session->player_stats_totals));
     session->dirty = false;
+    return true;
+}
+
+static bool parse_save_v2(TecmoSeasonSession *session,
+                          const uint8_t *payload)
+{
+    uint16_t coverage;
+    if (!parse_save_prefix(session, payload)) return false;
+    coverage = read_u16(payload + SEASON_SAVE_V2_COVERAGE_OFFSET);
+    if ((coverage & (uint16_t)~TECMO_PLAYER_STATS_IMPLEMENTED_COVERAGE) !=
+            0U)
+        return false;
+    memset(session->player_stats_totals, 0,
+           sizeof(session->player_stats_totals));
+    {
+        size_t offset = SEASON_SAVE_V2_TOTALS_OFFSET;
+        for (size_t team = 0U; team < TECMO_PLAYER_STATS_TEAM_COUNT; ++team)
+            for (size_t roster = 0U;
+                 roster < TECMO_PLAYER_STATS_ROSTER_COUNT; ++roster)
+                for (size_t counter = 0U;
+                     counter < TECMO_PLAYER_STATS_COUNTER_DIMENSION;
+                     ++counter) {
+                    uint16_t value = read_u16(payload + offset);
+                    if (counter >=
+                            TECMO_PLAYER_STATS_IMPLEMENTED_COUNTER_COUNT &&
+                        value != 0U)
+                        return false;
+                    session->player_stats_totals[team][roster][counter] =
+                        value;
+                    offset += sizeof(uint16_t);
+                }
+    }
+    session->player_stats_coverage = coverage;
+    session->dirty = false;
+    return true;
+}
+
+static bool parse_save(TecmoSeasonSession *session,
+                       const uint8_t *bytes,
+                       size_t byte_count)
+{
+    TecmoSeasonSession candidate;
+    const uint8_t *payload;
+    uint16_t version;
+    size_t payload_size;
+    if (session == NULL || bytes == NULL ||
+        (byte_count != SEASON_SAVE_V1_SIZE &&
+         byte_count != SEASON_SAVE_V2_SIZE) ||
+        memcmp(bytes, "TSAV", 4U) != 0 ||
+        read_u16(bytes + 6U) != SEASON_SAVE_HEADER_SIZE)
+        return false;
+    version = read_u16(bytes + 4U);
+    if (version == 1U) {
+        if (byte_count != SEASON_SAVE_V1_SIZE ||
+            read_u32(bytes + 8U) != SEASON_SAVE_V1_SIZE)
+            return false;
+        payload_size = SEASON_SAVE_V1_PAYLOAD_SIZE;
+    } else if (version == 2U) {
+        if (byte_count != SEASON_SAVE_V2_SIZE ||
+            read_u32(bytes + 8U) != SEASON_SAVE_V2_SIZE)
+            return false;
+        payload_size = SEASON_SAVE_V2_PAYLOAD_SIZE;
+    } else {
+        return false;
+    }
+    payload = bytes + SEASON_SAVE_HEADER_SIZE;
+    if (read_u32(bytes + 12U) != fnv1a32(payload, payload_size))
+        return false;
+    for (size_t i = 16U; i < SEASON_SAVE_HEADER_SIZE; ++i)
+        if (bytes[i] != 0U) return false;
+    candidate = *session;
+    if ((version == 1U && !parse_save_v1(&candidate, payload)) ||
+        (version == 2U && !parse_save_v2(&candidate, payload)))
+        return false;
+    *session = candidate;
     return true;
 }
 
@@ -717,7 +1108,7 @@ static SeasonPathState season_path_state(const char *path)
 void tecmo_season_session_init(TecmoSeasonSession *session,
                                const char *project_root)
 {
-    uint8_t bytes[SEASON_SAVE_SIZE];
+    uint8_t bytes[SEASON_SAVE_V2_SIZE];
     char legacy_path[1024];
     FILE *file;
     size_t got;
@@ -745,13 +1136,13 @@ void tecmo_season_session_init(TecmoSeasonSession *session,
         if (file == NULL) {
             session->save_status = TECMO_SEASON_SAVE_IO_ERROR;
             (void)snprintf(session->status, sizeof(session->status),
-                           "existing TSAV-1 could not be read; ROM defaults active");
+                       "existing TSAV could not be read; ROM defaults active");
             return;
         }
     } else if (new_path_state == SEASON_PATH_ERROR) {
         session->save_status = TECMO_SEASON_SAVE_IO_ERROR;
         (void)snprintf(session->status, sizeof(session->status),
-                       "TSAV-1 existence check failed; ROM defaults active");
+                       "TSAV existence check failed; ROM defaults active");
         return;
     } else {
         SeasonPathState legacy_state = season_path_state(legacy_path);
@@ -760,7 +1151,7 @@ void tecmo_season_session_init(TecmoSeasonSession *session,
             (file = fopen(legacy_path, "rb")) == NULL) {
             session->save_status = TECMO_SEASON_SAVE_IO_ERROR;
             (void)snprintf(session->status, sizeof(session->status),
-                           "legacy TSAV-1 could not be read; ROM defaults active");
+                       "legacy TSAV could not be read; ROM defaults active");
             return;
         }
         migrated = true;
@@ -768,11 +1159,11 @@ void tecmo_season_session_init(TecmoSeasonSession *session,
     got = fread(bytes, 1U, sizeof(bytes), file);
     trailing = fgetc(file);
     fclose(file);
-    if (got != sizeof(bytes) || trailing != EOF || !parse_save(session, bytes)) {
+    if (trailing != EOF || !parse_save(session, bytes, got)) {
         session_defaults(session);
         session->save_status = TECMO_SEASON_SAVE_REJECTED;
         (void)snprintf(session->status, sizeof(session->status),
-                       "malformed TSAV-1 rejected; ROM defaults active");
+                       "malformed TSAV rejected; ROM defaults active");
         return;
     }
     session->save_status = TECMO_SEASON_SAVE_LOADED;
@@ -781,48 +1172,54 @@ void tecmo_season_session_init(TecmoSeasonSession *session,
         if (!tecmo_season_session_save(session)) {
             session->save_status = TECMO_SEASON_SAVE_IO_ERROR;
             (void)snprintf(session->status, sizeof(session->status),
-                           "legacy TSAV-1 loaded; migration failed");
+                       "legacy TSAV loaded; migration failed");
             return;
         }
         session->save_status = TECMO_SEASON_SAVE_LOADED;
         (void)snprintf(session->status, sizeof(session->status),
-                       "strict TSAV-1 loaded and migrated");
+                       "strict TSAV loaded and migrated");
     } else {
         (void)snprintf(session->status, sizeof(session->status),
-                       "strict TSAV-1 loaded");
+                       "strict TSAV loaded");
     }
 }
 
 bool tecmo_season_session_save(TecmoSeasonSession *session)
 {
-    uint8_t bytes[SEASON_SAVE_SIZE] = {0};
+    uint8_t bytes[SEASON_SAVE_V2_SIZE] = {0};
     uint8_t *payload = bytes + SEASON_SAVE_HEADER_SIZE;
     char temp_path[1060];
     char parent_path[1024];
     FILE *file;
     int written;
-    uint8_t team_target;
     if (session == NULL || session->save_path[0] == '\0' ||
-        session->season_type >= 4U ||
-        session->schedule_index > season_game_count(session->season_type))
+        !season_session_fields_valid(session))
         return false;
-    team_target = season_team_game_target(session->season_type);
-    for (size_t team = 0U; team < TECMO_SEASON_TEAM_COUNT; ++team)
-        if (session->team_control[team] >= 4U ||
-            session->wins[team] > team_target ||
-            session->losses[team] > team_target ||
-            session->wins[team] + session->losses[team] > team_target)
-            return false;
     memcpy(bytes, "TSAV", 4U);
-    write_u16(bytes + 4U, 1U);
+    write_u16(bytes + 4U, 2U);
     write_u16(bytes + 6U, SEASON_SAVE_HEADER_SIZE);
-    write_u32(bytes + 8U, SEASON_SAVE_SIZE);
+    write_u32(bytes + 8U, SEASON_SAVE_V2_SIZE);
     payload[0] = session->season_type;
     memcpy(payload + 1U, session->team_control, TECMO_SEASON_TEAM_COUNT);
     memcpy(payload + 28U, session->wins, TECMO_SEASON_TEAM_COUNT);
     memcpy(payload + 55U, session->losses, TECMO_SEASON_TEAM_COUNT);
     write_u16(payload + 82U, session->schedule_index);
-    write_u32(bytes + 12U, fnv1a32(payload, SEASON_SAVE_PAYLOAD_SIZE));
+    write_u16(payload + SEASON_SAVE_V2_COVERAGE_OFFSET,
+              session->player_stats_coverage);
+    {
+        size_t offset = SEASON_SAVE_V2_TOTALS_OFFSET;
+        for (size_t team = 0U; team < TECMO_PLAYER_STATS_TEAM_COUNT; ++team)
+            for (size_t roster = 0U;
+                 roster < TECMO_PLAYER_STATS_ROSTER_COUNT; ++roster)
+                for (size_t counter = 0U;
+                     counter < TECMO_PLAYER_STATS_COUNTER_DIMENSION;
+                     ++counter) {
+                    write_u16(payload + offset,
+                              session->player_stats_totals[team][roster][counter]);
+                    offset += sizeof(uint16_t);
+                }
+    }
+    write_u32(bytes + 12U, fnv1a32(payload, SEASON_SAVE_V2_PAYLOAD_SIZE));
     (void)snprintf(parent_path, sizeof(parent_path), "%s", session->save_path);
     {
         char *slash = strrchr(parent_path, '\\');
@@ -839,7 +1236,7 @@ bool tecmo_season_session_save(TecmoSeasonSession *session)
     if (file == NULL) {
         session->save_status = TECMO_SEASON_SAVE_IO_ERROR;
         (void)snprintf(session->status, sizeof(session->status),
-                       "could not write TSAV-1");
+                       "could not write TSAV-2");
         return false;
     }
     if (fwrite(bytes, 1U, sizeof(bytes), file) != sizeof(bytes) ||
@@ -848,14 +1245,14 @@ bool tecmo_season_session_save(TecmoSeasonSession *session)
         (void)remove(temp_path);
         session->save_status = TECMO_SEASON_SAVE_IO_ERROR;
         (void)snprintf(session->status, sizeof(session->status),
-                       "could not write TSAV-1");
+                       "could not write TSAV-2");
         return false;
     }
     if (fclose(file) != 0) {
         (void)remove(temp_path);
         session->save_status = TECMO_SEASON_SAVE_IO_ERROR;
         (void)snprintf(session->status, sizeof(session->status),
-                       "could not write TSAV-1");
+                       "could not write TSAV-2");
         return false;
     }
 #ifdef _WIN32
@@ -867,13 +1264,13 @@ bool tecmo_season_session_save(TecmoSeasonSession *session)
         (void)remove(temp_path);
         session->save_status = TECMO_SEASON_SAVE_IO_ERROR;
         (void)snprintf(session->status, sizeof(session->status),
-                       "could not install TSAV-1");
+                       "could not install TSAV-2");
         return false;
     }
     session->dirty = false;
     session->save_status = TECMO_SEASON_SAVE_SAVED;
     (void)snprintf(session->status, sizeof(session->status),
-                   "strict TSAV-1 saved");
+                   "strict TSAV-2 saved");
     return true;
 }
 
@@ -992,6 +1389,61 @@ static uint16_t wrap_u16(uint16_t value, uint16_t count, int direction)
     return value + 1U >= count ? 0U : (uint16_t)(value + 1U);
 }
 
+static bool season_leader_category_render_supported(uint8_t category);
+
+static bool season_leader_page_has_nonzero(
+    const TecmoSeasonSession *session,
+    uint8_t category,
+    uint8_t page)
+{
+    uint16_t top_values[TECMO_TEAM_DATA_LEADER_RESULT_COUNT] = {0};
+    uint16_t top_keys[TECMO_TEAM_DATA_LEADER_RESULT_COUNT] = {0};
+    size_t top_count = 0U;
+    if (session == NULL || page > 12U ||
+        !season_leader_category_render_supported(category) ||
+        !season_session_fields_valid(session) ||
+        session->player_stats_coverage !=
+            TECMO_PLAYER_STATS_IMPLEMENTED_COVERAGE)
+        return false;
+    for (size_t key = 0U; key < TECMO_TEAM_DATA_PLAYER_KEY_COUNT; ++key) {
+        uint8_t team = (uint8_t)(key / TECMO_PLAYER_STATS_ROSTER_COUNT);
+        uint8_t roster = (uint8_t)(key % TECMO_PLAYER_STATS_ROSTER_COUNT);
+        uint16_t team_games = (uint16_t)session->wins[team] +
+                              (uint16_t)session->losses[team];
+        SeasonPlayerStatsProjection projection;
+        size_t position;
+        if (!season_player_stats_projection_for_category(
+                (SeasonPlayerStatsCategory)category,
+                session->player_stats_totals[team][roster], team_games,
+                &projection) || !projection.available || !projection.eligible)
+            continue;
+        if (top_count == TECMO_TEAM_DATA_LEADER_RESULT_COUNT &&
+            (projection.value < top_values[top_count - 1U] ||
+             (projection.value == top_values[top_count - 1U] &&
+              key < top_keys[top_count - 1U])))
+            continue;
+        position = top_count < TECMO_TEAM_DATA_LEADER_RESULT_COUNT
+                       ? top_count
+                       : TECMO_TEAM_DATA_LEADER_RESULT_COUNT - 1U;
+        while (position > 0U &&
+               (projection.value > top_values[position - 1U] ||
+                (projection.value == top_values[position - 1U] &&
+                 key > top_keys[position - 1U]))) {
+            if (position < TECMO_TEAM_DATA_LEADER_RESULT_COUNT) {
+                top_values[position] = top_values[position - 1U];
+                top_keys[position] = top_keys[position - 1U];
+            }
+            --position;
+        }
+        if (position < TECMO_TEAM_DATA_LEADER_RESULT_COUNT) {
+            top_values[position] = projection.value;
+            top_keys[position] = (uint16_t)key;
+            if (top_count < TECMO_TEAM_DATA_LEADER_RESULT_COUNT) ++top_count;
+        }
+    }
+    return page < top_count && top_values[page] != 0U;
+}
+
 static bool persist_candidate(TecmoSeasonSession *session,
                               const TecmoSeasonSession *candidate)
 {
@@ -1001,7 +1453,7 @@ static bool persist_candidate(TecmoSeasonSession *session,
     attempt.dirty = true;
     attempt.save_status = TECMO_SEASON_SAVE_IO_ERROR;
     (void)snprintf(attempt.status, sizeof(attempt.status),
-                   "TSAV-1 persistence pending");
+                   "TSAV-2 persistence pending");
     if (!tecmo_season_session_save(&attempt)) {
         session->save_status = attempt.save_status;
         (void)snprintf(session->status, sizeof(session->status), "%s",
@@ -1141,7 +1593,9 @@ static bool season_session_fields_valid(const TecmoSeasonSession *session)
 {
     uint8_t team_target;
     if (session == NULL || session->season_type >= 4U ||
-        session->schedule_index > season_game_count(session->season_type))
+        session->schedule_index > season_game_count(session->season_type) ||
+        (session->player_stats_coverage &
+         (uint16_t)~TECMO_PLAYER_STATS_IMPLEMENTED_COVERAGE) != 0U)
         return false;
     team_target = season_team_game_target(session->season_type);
     for (size_t team = 0U; team < TECMO_SEASON_TEAM_COUNT; ++team)
@@ -1150,6 +1604,13 @@ static bool season_session_fields_valid(const TecmoSeasonSession *session)
             session->losses[team] > team_target ||
             session->wins[team] + session->losses[team] > team_target)
             return false;
+    for (size_t team = 0U; team < TECMO_PLAYER_STATS_TEAM_COUNT; ++team)
+        for (size_t roster = 0U;
+             roster < TECMO_PLAYER_STATS_ROSTER_COUNT; ++roster)
+            for (size_t counter = TECMO_PLAYER_STATS_IMPLEMENTED_COUNTER_COUNT;
+                 counter < TECMO_PLAYER_STATS_COUNTER_DIMENSION; ++counter)
+                if (session->player_stats_totals[team][roster][counter] != 0U)
+                    return false;
     return true;
 }
 
@@ -1368,6 +1829,7 @@ bool tecmo_season_commit_game_result(TecmoSeasonState *state,
         result->away_team == result->home_team ||
         result->away_score > 999U || result->home_score > 999U ||
         result->away_score == result->home_score ||
+        !tecmo_player_stats_game_ledger_valid(&result->player_stats) ||
         (unsigned)session->wins[result->away_team] +
                 session->losses[result->away_team] >= team_target ||
         (unsigned)session->wins[result->home_team] +
@@ -1382,6 +1844,12 @@ bool tecmo_season_commit_game_result(TecmoSeasonState *state,
         ++candidate.losses[result->away_team];
         ++candidate.wins[result->home_team];
     }
+    if (!tecmo_player_stats_merge_game(
+            candidate.player_stats_totals,
+            &candidate.player_stats_coverage,
+            result->away_team, result->home_team,
+            &result->player_stats))
+        return false;
     ++candidate.schedule_index;
     if (!persist_candidate(session, &candidate))
         return false;
@@ -1778,6 +2246,16 @@ TecmoSeasonAction tecmo_season_update(TecmoSeasonState *state,
                 if (controls->pressed.cancel) {
                     state->leaders_results = false;
                     state->leader_page = 0U;
+                } else if (controls->pressed.left ||
+                           controls->pressed.right) {
+                    int page_direction = controls->pressed.left ? -1 : 1;
+                    int destination = (int)state->leader_page +
+                                      page_direction * 6;
+                    if (destination >= 0 && destination <= 12 &&
+                        season_leader_page_has_nonzero(
+                            session, state->leader_category,
+                            (uint8_t)destination))
+                        state->leader_page = (uint8_t)destination;
                 }
                 break;
             }
@@ -1974,6 +2452,175 @@ static void draw_leader_text(TecmoFramebuffer *view,
                              int y,
                              const uint8_t *chr,
                              uint64_t chr_count,
+                             int scale);
+
+static uint16_t season_leader_metric_value(
+    const TecmoTeamDataLeaderEntry *entry)
+{
+    return entry == NULL ? 0U : season_player_stats_metric_value(
+        entry->metric.primary, entry->metric.secondary);
+}
+
+static bool season_leader_category_render_supported(uint8_t category)
+{
+    return category < TECMO_SEASON_LEADER_COUNT &&
+           season_player_stats_category_supported(
+               (SeasonPlayerStatsCategory)category);
+}
+
+static bool season_build_leader_results(
+    const TecmoSeasonSession *session,
+    const TecmoTeamDataAsset *team_data,
+    uint8_t category,
+    TecmoTeamDataLeaderEntry results[TECMO_TEAM_DATA_LEADER_RESULT_COUNT],
+    size_t *result_count)
+{
+    TecmoTeamDataStatCandidate candidates[
+        TECMO_TEAM_DATA_PLAYER_KEY_COUNT];
+    if (result_count == NULL || results == NULL || session == NULL ||
+        team_data == NULL || !team_data->available ||
+        !season_leader_category_render_supported(category) ||
+        !season_session_fields_valid(session) ||
+        session->player_stats_coverage !=
+            TECMO_PLAYER_STATS_IMPLEMENTED_COVERAGE)
+        return false;
+    for (size_t key = 0U; key < TECMO_TEAM_DATA_PLAYER_KEY_COUNT; ++key) {
+        uint8_t team = (uint8_t)(key / TECMO_PLAYER_STATS_ROSTER_COUNT);
+        uint8_t roster = (uint8_t)(key % TECMO_PLAYER_STATS_ROSTER_COUNT);
+        uint16_t team_games = (uint16_t)session->wins[team] +
+                              (uint16_t)session->losses[team];
+        SeasonPlayerStatsProjection projection;
+        candidates[key].canonical_key = (uint16_t)key;
+        candidates[key].available = false;
+        candidates[key].eligible = false;
+        candidates[key].metric.primary = 0U;
+        candidates[key].metric.secondary = 0U;
+        if (!season_player_stats_projection_for_category(
+                (SeasonPlayerStatsCategory)category,
+                session->player_stats_totals[team][roster], team_games,
+                &projection))
+            return false;
+        season_player_stats_metric_pair_from_value(
+            projection.value, &candidates[key].metric.primary,
+            &candidates[key].metric.secondary);
+        candidates[key].available = projection.available;
+        candidates[key].eligible = projection.eligible;
+    }
+    return tecmo_team_data_rank_leaders(
+        team_data, (TecmoTeamDataStatCategory)category, candidates,
+        TECMO_TEAM_DATA_PLAYER_KEY_COUNT, results,
+        TECMO_TEAM_DATA_LEADER_RESULT_COUNT, result_count);
+}
+
+static bool season_leader_page_first_nonzero(
+    const TecmoTeamDataLeaderEntry *results,
+    size_t result_count,
+    uint8_t page)
+{
+    return results != NULL && page < result_count &&
+           season_leader_metric_value(&results[page]) != 0U;
+}
+
+static uint16_t season_leader_metric_scale(uint8_t category)
+{
+    return category == TECMO_TEAM_DATA_STAT_FIELD_GOALS ||
+           category == TECMO_TEAM_DATA_STAT_THREE_POINT_SHOTS ||
+           category == TECMO_TEAM_DATA_STAT_FREE_THROWS
+               ? 1000U
+               : 100U;
+}
+
+static void season_format_leader_metric(char output[16], uint8_t category,
+                                        uint16_t value)
+{
+    uint16_t scale = season_leader_metric_scale(category);
+    if (scale == 1000U)
+        (void)snprintf(output, 16U, "%u.%03u", (unsigned)(value / scale),
+                       (unsigned)(value % scale));
+    else
+        (void)snprintf(output, 16U, "%u.%02u", (unsigned)(value / scale),
+                       (unsigned)(value % scale));
+}
+
+static void draw_leader_results(TecmoFramebuffer *view,
+                                const TecmoSeasonAsset *asset,
+                                const TecmoSeasonSession *session,
+                                const TecmoTeamDataAsset *team_data,
+                                uint8_t category,
+                                uint8_t page,
+                                const uint8_t *chr,
+                                uint64_t chr_count,
+                                int scale)
+{
+    TecmoTeamDataLeaderEntry results[TECMO_TEAM_DATA_LEADER_RESULT_COUNT];
+    size_t result_count = 0U;
+    uint8_t screen;
+    if (!season_build_leader_results(session, team_data, category, results,
+                                     &result_count) ||
+        !season_leader_page_first_nonzero(results, result_count, page)) {
+        draw_leader_screen(view, asset, 0U, chr, chr_count, scale);
+        draw_leader_text(view, asset, 0U, "PLAYER RESULTS UNAVAILABLE",
+                         24, 208, chr, chr_count, scale);
+        return;
+    }
+    if (!season_leader_template_to_screen(asset->leader_template[category],
+                                          &screen)) {
+        draw_leader_screen(view, asset, 0U, chr, chr_count, scale);
+        draw_leader_text(view, asset, 0U, "PLAYER RESULTS UNAVAILABLE",
+                         24, 208, chr, chr_count, scale);
+        return;
+    }
+    draw_leader_screen(view, asset, screen, chr, chr_count, scale);
+    {
+        size_t title_length = strlen(asset->leader_labels[category]);
+        int title_x = (256 - (int)(title_length * 8U)) / 2;
+        if (title_x < 0) title_x = 0;
+        draw_leader_text(view, asset, screen, asset->leader_labels[category],
+                         title_x, SEASON_LEADER_TITLE_Y, chr, chr_count,
+                         scale);
+    }
+    for (size_t row = 0U; row < 6U && page + row < result_count; ++row) {
+        const TecmoTeamDataLeaderEntry *entry = &results[page + row];
+        char metric[16];
+        char player_name[21];
+        char team_name[17];
+        (void)snprintf(player_name, sizeof(player_name), "%.16s",
+                       team_data->players[entry->identity.selector_index]
+                           [entry->identity.roster_slot].name);
+        (void)snprintf(team_name, sizeof(team_name), "%.7s",
+                       team_data->teams[entry->identity.canonical_team]
+                           .nickname);
+        season_format_leader_metric(metric, category,
+                                    season_leader_metric_value(entry));
+        /* Rev1 Bank00 $B430-$B487 uses the imported row pointer tables at
+         * $B486/$B48C: player=row_base+5 (x=32), team=row_base+$18
+         * (x=184), with row_base at y=32+32*row.  The result templates'
+         * fixed labels are at y=40+32*row and their projected numeric
+         * column is the rightmost x=192 field at y=48+32*row. */
+        int row_y = SEASON_LEADER_ROW_FIRST_Y +
+                    (int)row * SEASON_LEADER_VALUE_ROW_STRIDE;
+        int value_y = SEASON_LEADER_VALUE_FIRST_Y +
+                      (int)row * SEASON_LEADER_VALUE_ROW_STRIDE;
+        draw_leader_text(view, asset, screen, player_name,
+                         SEASON_LEADER_ROW_PLAYER_X, row_y,
+                         chr, chr_count, scale);
+        draw_leader_text(view, asset, screen, team_name,
+                         SEASON_LEADER_ROW_TEAM_X, row_y,
+                         chr, chr_count, scale);
+        draw_leader_text(view, asset, screen, metric,
+                         SEASON_LEADER_ROW_VALUE_X, value_y,
+                         chr, chr_count, scale);
+    }
+}
+
+static void draw_leader_text(TecmoFramebuffer *view,
+                             const TecmoSeasonAsset *asset,
+                             size_t screen,
+                             const char *value,
+                             int x,
+                             int y,
+                             const uint8_t *chr,
+                             uint64_t chr_count,
                              int scale)
 {
     if (value == NULL) return;
@@ -1983,9 +2630,15 @@ static void draw_leader_text(TecmoFramebuffer *view,
         if (c < 0x20U || c >= 0x20U + TECMO_SEASON_FONT_COUNT ||
             px < 0 || px >= 256)
             continue;
+        /* Bank00's dynamic leader text uses the fixed native text role.  Do
+         * not inherit blank template-cell attributes: those cells are layout
+         * placeholders and their alternating palette bits can erase portions
+         * of a glyph.  The imported leader screen palette remains
+         * screen-specific; palette role 0 is the source-faithful dynamic
+         * glyph role used by the native result pages. */
         draw_cell(view, &asset->font[c - 0x20U],
                   asset->leader_palettes[screen], chr, chr_count,
-                  px, y, scale, 2);
+                  px, y, scale, 0);
     }
 }
 
@@ -2441,11 +3094,9 @@ bool tecmo_season_draw(TecmoFramebuffer *framebuffer,
         break;
     case TECMO_SEASON_LEADERS:
         if (state->leaders_results) {
-            draw_leader_screen(&view, asset, 0U,
-                               chr_bytes, chr_byte_count, scale);
-            draw_leader_text(&view, asset, 0U,
-                             "PLAYER RESULTS UNAVAILABLE", 24, 208,
-                             chr_bytes, chr_byte_count, scale);
+            draw_leader_results(&view, asset, session, team_data,
+                                state->leader_category, state->leader_page,
+                                chr_bytes, chr_byte_count, scale);
         } else {
             int marker_x = ((int)asset->leader_cursor_x[
                                 state->leader_category] / 8) * 8 - 8;
@@ -2550,7 +3201,45 @@ static bool season_session_gameplay_equal(
            memcmp(left->wins, right->wins, sizeof(left->wins)) == 0 &&
            memcmp(left->losses, right->losses, sizeof(left->losses)) == 0 &&
            left->schedule_index == right->schedule_index &&
+           left->player_stats_coverage == right->player_stats_coverage &&
+           memcmp(left->player_stats_totals, right->player_stats_totals,
+                  sizeof(left->player_stats_totals)) == 0 &&
            left->dirty == right->dirty;
+}
+
+static void season_test_seed_team_data(TecmoTeamDataAsset *asset)
+{
+    static const uint8_t all_star_teams[2][
+        TECMO_TEAM_DATA_PLAYERS_PER_TEAM] = {
+        {12U, 21U, 8U, 25U, 23U, 25U, 8U, 20U, 20U, 12U, 9U, 6U},
+        {7U, 3U, 3U, 19U, 17U, 4U, 26U, 7U, 7U, 1U, 0U, 4U}
+    };
+    static const uint8_t all_star_players[2][
+        TECMO_TEAM_DATA_PLAYERS_PER_TEAM] = {
+        {1U, 1U, 2U, 3U, 4U, 0U, 0U, 1U, 6U, 2U, 4U, 4U},
+        {0U, 1U, 2U, 3U, 4U, 0U, 0U, 1U, 2U, 2U, 3U, 4U}
+    };
+    if (asset == NULL) return;
+    memset(asset, 0, sizeof(*asset));
+    asset->available = true;
+    for (uint8_t selector = 0U;
+         selector < TECMO_TEAM_DATA_SELECTOR_COUNT; ++selector) {
+        asset->selectors[selector].team_id = selector;
+        for (uint8_t roster = 0U;
+             roster < TECMO_TEAM_DATA_PLAYERS_PER_TEAM; ++roster) {
+            TecmoTeamDataPlayer *player =
+                &asset->players[selector][roster];
+            if (selector < TECMO_TEAM_DATA_REAL_TEAM_COUNT) {
+                player->source_team = selector;
+                player->source_player = roster;
+            } else {
+                size_t all_star = selector -
+                                   TECMO_TEAM_DATA_REAL_TEAM_COUNT;
+                player->source_team = all_star_teams[all_star][roster];
+                player->source_player = all_star_players[all_star][roster];
+            }
+        }
+    }
 }
 
 bool tecmo_season_self_test(char *message, size_t message_size)
@@ -2564,7 +3253,8 @@ bool tecmo_season_self_test(char *message, size_t message_size)
     TecmoSeasonScheduleRecord schedule_record;
     TecmoSeasonStandingsRow standings[TECMO_SEASON_STANDINGS_MAX_DIVISION_TEAMS];
     TecmoControlFrame controls;
-    uint8_t bytes[SEASON_SAVE_SIZE] = {0};
+    uint8_t bytes[SEASON_SAVE_V2_SIZE] = {0};
+    uint8_t expected_prefix[SEASON_SAVE_V1_PAYLOAD_SIZE] = {0};
     uint8_t *payload = bytes + SEASON_SAVE_HEADER_SIZE;
     const char *temp_root;
     char temp_save[1024] = {0};
@@ -2597,8 +3287,38 @@ bool tecmo_season_self_test(char *message, size_t message_size)
     for (size_t leader = 0U; leader < TECMO_SEASON_LEADER_COUNT; ++leader) {
         asset.leader_up[leader] = (uint8_t)leader;
         asset.leader_down[leader] = (uint8_t)leader;
-        asset.leader_template[leader] = 39U;
+        asset.leader_template[leader] = season_leader_template_ids[leader];
     }
+    for (size_t leader = 0U; leader < TECMO_SEASON_LEADER_COUNT; ++leader) {
+        uint8_t screen;
+        if (!season_leader_template_to_screen(
+                asset.leader_template[leader], &screen) ||
+            screen != (uint8_t)(asset.leader_template[leader] -
+                                SEASON_LEADER_SCREEN_ID_BASE))
+            goto state_failure;
+    }
+    for (size_t screen = 0U; screen < TECMO_SEASON_LEADER_SCREEN_COUNT;
+         ++screen)
+        for (size_t cell = 0U; cell < TECMO_SEASON_LEADER_SCREEN_CELLS;
+             ++cell) {
+            asset.leader_screens[screen][cell].tile_id =
+                SEASON_LEADER_BLANK_TILE;
+            asset.leader_screens[screen][cell].palette_index = 0U;
+        }
+    for (size_t screen = 1U; screen < TECMO_SEASON_LEADER_SCREEN_COUNT;
+         ++screen)
+        for (size_t row = 0U; row < 6U; ++row) {
+            size_t label_row =
+                ((size_t)SEASON_LEADER_ROW_LABEL_Y +
+                 row * SEASON_LEADER_VALUE_ROW_STRIDE) / 8U;
+            asset.leader_screens[screen][label_row * 32U +
+                                         SEASON_LEADER_LABEL_FIRST_X / 8U]
+                .tile_id = 0U;
+            asset.leader_screens[screen][label_row * 32U +
+                                         SEASON_LEADER_LABEL_VALUE_X / 8U]
+                .tile_id = 0U;
+        }
+    if (!season_leader_row_geometry_valid(&asset)) goto state_failure;
     for (size_t game = 0U; game < TECMO_SEASON_SCHEDULE_COUNT; ++game) {
         asset.schedule[game][0] = (uint8_t)(game % TECMO_SEASON_TEAM_COUNT);
         asset.schedule[game][1] =
@@ -2629,14 +3349,14 @@ bool tecmo_season_self_test(char *message, size_t message_size)
     memcpy(bytes, "TSAV", 4U);
     write_u16(bytes + 4U, 1U);
     write_u16(bytes + 6U, SEASON_SAVE_HEADER_SIZE);
-    write_u32(bytes + 8U, SEASON_SAVE_SIZE);
+    write_u32(bytes + 8U, SEASON_SAVE_V1_SIZE);
     payload[0] = TECMO_SEASON_PROGRAMMED;
     payload[1U] = 3U;
     payload[28U] = 41U;
     payload[55U] = 41U;
     write_u16(payload + 82U, 1106U);
-    write_u32(bytes + 12U, fnv1a32(payload, SEASON_SAVE_PAYLOAD_SIZE));
-    if (!parse_save(&session, bytes) ||
+    write_u32(bytes + 12U, fnv1a32(payload, SEASON_SAVE_V1_PAYLOAD_SIZE));
+    if (!parse_save(&session, bytes, SEASON_SAVE_V1_SIZE) ||
         session.season_type != TECMO_SEASON_PROGRAMMED ||
         session.team_control[0] != 3U || session.wins[0] != 41U ||
         session.losses[0] != 41U || session.schedule_index != 1106U) {
@@ -2645,6 +3365,19 @@ bool tecmo_season_self_test(char *message, size_t message_size)
                            "Season TSAV-1 parser self-test failed.");
         return false;
     }
+    if (session.player_stats_coverage != 0U) goto state_failure;
+    write_u16(payload + 82U, 0U);
+    write_u32(bytes + 12U, fnv1a32(payload, SEASON_SAVE_V1_PAYLOAD_SIZE));
+    if (!parse_save(&session, bytes, SEASON_SAVE_V1_SIZE) ||
+        session.schedule_index != 0U ||
+        session.player_stats_coverage !=
+            TECMO_PLAYER_STATS_IMPLEMENTED_COVERAGE)
+        goto state_failure;
+    write_u16(payload + 82U, 1106U);
+    write_u32(bytes + 12U, fnv1a32(payload, SEASON_SAVE_V1_PAYLOAD_SIZE));
+    if (!parse_save(&session, bytes, SEASON_SAVE_V1_SIZE) ||
+        session.schedule_index != 1106U || session.player_stats_coverage != 0U)
+        goto state_failure;
     tecmo_season_state_init(&state, TECMO_SEASON_ROUTE_GAME_START, &session);
     if (state.phase != TECMO_SEASON_GAME_START ||
         state.schedule_selection != 1106U ||
@@ -2656,6 +3389,336 @@ bool tecmo_season_self_test(char *message, size_t message_size)
         return false;
     }
 
+    failure_stage = "player-stats-formulas-and-leaders";
+    {
+        TecmoPlayerStatsGameLedger ledger;
+        TecmoPlayerStatsSeasonTotals totals = {0};
+        uint16_t counters[TECMO_PLAYER_STATS_COUNTER_DIMENSION] = {0};
+        SeasonPlayerStatsProjection projection;
+        TecmoSeasonSession leader_session;
+        TecmoTeamDataAsset team_data;
+        TecmoTeamDataLeaderEntry leader_results[
+            TECMO_TEAM_DATA_LEADER_RESULT_COUNT];
+        size_t leader_result_count = 0U;
+        bool projected_valid;
+        static const SeasonPlayerStatsCategory unsupported_categories[3] = {
+            SEASON_PLAYER_STATS_CATEGORY_BLOCKED_SHOTS,
+            SEASON_PLAYER_STATS_CATEGORY_REBOUNDS,
+            SEASON_PLAYER_STATS_CATEGORY_STEALS
+        };
+        static const uint16_t unsupported_coverage[3] = {
+            (uint16_t)(1U << TECMO_PLAYER_STATS_COUNTER_BLOCKS),
+            (uint16_t)(1U << TECMO_PLAYER_STATS_COUNTER_REBOUNDS),
+            (uint16_t)(1U << TECMO_PLAYER_STATS_COUNTER_STEALS)
+        };
+
+        if (season_player_stats_project_ratio(0U, 0U, 1000U,
+                                             &projected_valid) != 0U ||
+            !projected_valid ||
+            season_player_stats_project_ratio(1U, 0U, 1000U,
+                                             &projected_valid) !=
+                SEASON_PLAYER_STATS_METRIC_MAX ||
+            !projected_valid ||
+            season_player_stats_project_ratio(0xFFFFU, 1U, 1000U,
+                                             &projected_valid) != 1000U ||
+            !projected_valid ||
+            season_player_stats_project_ratio(0x8000U, 1000U, 1000U,
+                                             &projected_valid) != 0x8000U ||
+            projected_valid ||
+            season_player_stats_project_ratio(0x7FFFU, 1U, 1000U,
+                                             &projected_valid) != 0xFFFFU ||
+            projected_valid ||
+            season_player_stats_project_ratio(10U, 3U, 1000U,
+                                             &projected_valid) != 3333U ||
+            !projected_valid)
+            goto state_failure;
+
+        memset(counters, 0, sizeof(counters));
+        counters[TECMO_PLAYER_STATS_COUNTER_BLOCKS] = 5U;
+        counters[TECMO_PLAYER_STATS_COUNTER_REBOUNDS] = 5U;
+        counters[TECMO_PLAYER_STATS_COUNTER_STEALS] = 5U;
+        for (size_t unsupported = 0U; unsupported < 3U; ++unsupported) {
+            SeasonPlayerStatsCategory category =
+                unsupported_categories[unsupported];
+            if (!season_player_stats_projection_for_category(
+                    category, counters, 82U, &projection) ||
+                projection.value != 6U || !projection.available ||
+                !projection.eligible ||
+                season_player_stats_category_required_coverage(category) !=
+                    unsupported_coverage[unsupported])
+                goto state_failure;
+        }
+        memset(counters, 0, sizeof(counters));
+        counters[TECMO_PLAYER_STATS_COUNTER_FGM] = 0xFFFFU;
+        counters[TECMO_PLAYER_STATS_COUNTER_THREE_PM] = 0xFFFFU;
+        counters[TECMO_PLAYER_STATS_COUNTER_FTM] = 0xFFFFU;
+        if (!season_player_stats_projection_for_category(
+                SEASON_PLAYER_STATS_CATEGORY_TOTAL_POINTS, counters, 82U,
+                &projection) || projection.value != 4U ||
+            !projection.available || !projection.eligible)
+            goto state_failure;
+
+        memset(counters, 0, sizeof(counters));
+        counters[TECMO_PLAYER_STATS_COUNTER_FGM] = 10U;
+        counters[TECMO_PLAYER_STATS_COUNTER_THREE_PM] = 3U;
+        counters[TECMO_PLAYER_STATS_COUNTER_FTM] = 2U;
+        if (!season_player_stats_projection_for_category(
+                SEASON_PLAYER_STATS_CATEGORY_TOTAL_POINTS, counters, 5U,
+                &projection) || projection.value != 500U ||
+            !projection.available || !projection.eligible)
+            goto state_failure;
+
+        memset(counters, 0, sizeof(counters));
+        counters[TECMO_PLAYER_STATS_COUNTER_FGA] = 100U;
+        counters[TECMO_PLAYER_STATS_COUNTER_FGM] = 246U;
+        if (!season_player_stats_projection_for_category(
+                    SEASON_PLAYER_STATS_CATEGORY_FIELD_GOALS, counters, 82U,
+                    &projection) || projection.eligible)
+            goto state_failure;
+        counters[TECMO_PLAYER_STATS_COUNTER_FGM] = 247U;
+        if (!season_player_stats_projection_for_category(
+                    SEASON_PLAYER_STATS_CATEGORY_FIELD_GOALS, counters, 82U,
+                    &projection) || !projection.eligible)
+            goto state_failure;
+        memset(counters, 0, sizeof(counters));
+        counters[TECMO_PLAYER_STATS_COUNTER_THREE_PA] = 100U;
+        counters[TECMO_PLAYER_STATS_COUNTER_THREE_PM] = 41U;
+        if (!season_player_stats_projection_for_category(
+                    SEASON_PLAYER_STATS_CATEGORY_THREE_POINT_SHOTS,
+                    counters, 82U, &projection) || projection.eligible)
+            goto state_failure;
+        counters[TECMO_PLAYER_STATS_COUNTER_THREE_PM] = 42U;
+        if (!season_player_stats_projection_for_category(
+                    SEASON_PLAYER_STATS_CATEGORY_THREE_POINT_SHOTS,
+                    counters, 82U, &projection) || !projection.eligible)
+            goto state_failure;
+        memset(counters, 0, sizeof(counters));
+        counters[TECMO_PLAYER_STATS_COUNTER_FTA] = 100U;
+        counters[TECMO_PLAYER_STATS_COUNTER_FTM] = 82U;
+        if (!season_player_stats_projection_for_category(
+                    SEASON_PLAYER_STATS_CATEGORY_FREE_THROWS, counters, 82U,
+                    &projection) || projection.eligible)
+            goto state_failure;
+        counters[TECMO_PLAYER_STATS_COUNTER_FTM] = 83U;
+        if (!season_player_stats_projection_for_category(
+                    SEASON_PLAYER_STATS_CATEGORY_FREE_THROWS, counters, 82U,
+                    &projection) || !projection.eligible)
+            goto state_failure;
+
+        tecmo_player_stats_game_ledger_initialize(&ledger);
+        if (!tecmo_player_stats_game_ledger_valid(&ledger)) goto state_failure;
+        ledger.coverage = 0U;
+        if (tecmo_player_stats_game_ledger_valid(&ledger)) goto state_failure;
+        ledger.coverage = 1U;
+        if (tecmo_player_stats_game_ledger_valid(&ledger)) goto state_failure;
+        ledger.coverage = (uint16_t)(
+            TECMO_PLAYER_STATS_IMPLEMENTED_COVERAGE | 0x0040U);
+        if (tecmo_player_stats_game_ledger_valid(&ledger)) goto state_failure;
+        ledger.coverage = TECMO_PLAYER_STATS_IMPLEMENTED_COVERAGE;
+        session.player_stats_coverage =
+            TECMO_PLAYER_STATS_IMPLEMENTED_COVERAGE;
+        if (!tecmo_player_stats_game_ledger_valid(&ledger) ||
+            !tecmo_player_stats_merge_game(
+                totals, &session.player_stats_coverage, 0U, 1U, &ledger) ||
+            session.player_stats_coverage !=
+                TECMO_PLAYER_STATS_IMPLEMENTED_COVERAGE)
+            goto state_failure;
+        session.player_stats_coverage = 0U;
+        if (!tecmo_player_stats_merge_game(
+                totals, &session.player_stats_coverage, 0U, 1U, &ledger) ||
+            session.player_stats_coverage != 0U)
+            goto state_failure;
+
+        {
+            TecmoPlayerStatsGameLedger rejected;
+            TecmoPlayerStatsGameLedger before_rejected;
+            tecmo_player_stats_game_ledger_clear(&rejected);
+            before_rejected = rejected;
+            if (tecmo_player_stats_record_shot_attempt(
+                    &rejected, 0U, 0U, 2U) ||
+                tecmo_player_stats_record_shot_attempt(
+                    &rejected, 0U, 0U, 3U) ||
+                tecmo_player_stats_record_shot_make(
+                    &rejected, 0U, 0U, 2U) ||
+                tecmo_player_stats_record_shot_make(
+                    &rejected, 0U, 0U, 3U) ||
+                tecmo_player_stats_record_free_throw(
+                    &rejected, 0U, 0U, false) ||
+                tecmo_player_stats_record_free_throw(
+                    &rejected, 0U, 0U, true) ||
+                memcmp(&rejected, &before_rejected,
+                       sizeof(rejected)) != 0)
+                goto state_failure;
+            rejected.coverage = 1U;
+            before_rejected = rejected;
+            if (tecmo_player_stats_record_shot_attempt(
+                    &rejected, 0U, 0U, 2U) ||
+                tecmo_player_stats_record_shot_attempt(
+                    &rejected, 0U, 0U, 3U) ||
+                tecmo_player_stats_record_shot_make(
+                    &rejected, 0U, 0U, 2U) ||
+                tecmo_player_stats_record_shot_make(
+                    &rejected, 0U, 0U, 3U) ||
+                tecmo_player_stats_record_free_throw(
+                    &rejected, 0U, 0U, false) ||
+                tecmo_player_stats_record_free_throw(
+                    &rejected, 0U, 0U, true) ||
+                memcmp(&rejected, &before_rejected,
+                       sizeof(rejected)) != 0)
+                goto state_failure;
+        }
+
+        season_test_seed_team_data(&team_data);
+        if (!tecmo_team_data_identity_contract_valid(&team_data))
+            goto state_failure;
+        session_defaults(&leader_session);
+        leader_session.losses[0U] = 10U;
+        leader_session.wins[1U] = 82U;
+
+        leader_session.player_stats_totals[0U][0U][
+            TECMO_PLAYER_STATS_COUNTER_FGA] = 100U;
+        leader_session.player_stats_totals[0U][0U][
+            TECMO_PLAYER_STATS_COUNTER_FGM] = 31U;
+        if (!season_leader_page_has_nonzero(
+                &leader_session, SEASON_PLAYER_STATS_CATEGORY_FIELD_GOALS,
+                0U) ||
+            !season_build_leader_results(
+                &leader_session, &team_data,
+                SEASON_PLAYER_STATS_CATEGORY_FIELD_GOALS, leader_results,
+                &leader_result_count) || leader_result_count != 1U ||
+            leader_results[0U].identity.canonical_key != 0U ||
+            season_player_stats_metric_value(
+                leader_results[0U].metric.primary,
+                leader_results[0U].metric.secondary) != 310U)
+            goto state_failure;
+
+        memset(leader_session.player_stats_totals, 0,
+               sizeof(leader_session.player_stats_totals));
+        leader_session.player_stats_totals[0U][0U][
+            TECMO_PLAYER_STATS_COUNTER_THREE_PA] = 100U;
+        leader_session.player_stats_totals[0U][0U][
+            TECMO_PLAYER_STATS_COUNTER_THREE_PM] = 6U;
+        if (!season_build_leader_results(
+                &leader_session, &team_data,
+                SEASON_PLAYER_STATS_CATEGORY_THREE_POINT_SHOTS, leader_results,
+                &leader_result_count) || leader_result_count != 1U ||
+            season_player_stats_metric_value(
+                leader_results[0U].metric.primary,
+                leader_results[0U].metric.secondary) != 60U)
+            goto state_failure;
+
+        memset(leader_session.player_stats_totals, 0,
+               sizeof(leader_session.player_stats_totals));
+        leader_session.player_stats_totals[0U][0U][
+            TECMO_PLAYER_STATS_COUNTER_FTA] = 100U;
+        leader_session.player_stats_totals[0U][0U][
+            TECMO_PLAYER_STATS_COUNTER_FTM] = 11U;
+        if (!season_build_leader_results(
+                &leader_session, &team_data,
+                SEASON_PLAYER_STATS_CATEGORY_FREE_THROWS, leader_results,
+                &leader_result_count) || leader_result_count != 1U ||
+            season_player_stats_metric_value(
+                leader_results[0U].metric.primary,
+                leader_results[0U].metric.secondary) != 110U)
+            goto state_failure;
+
+        memset(leader_session.player_stats_totals, 0,
+               sizeof(leader_session.player_stats_totals));
+        leader_session.player_stats_totals[0U][0U][
+            TECMO_PLAYER_STATS_COUNTER_FGM] = 50U;
+        if (!season_build_leader_results(
+                &leader_session, &team_data,
+                SEASON_PLAYER_STATS_CATEGORY_TOTAL_POINTS, leader_results,
+                &leader_result_count) || leader_result_count == 0U ||
+            season_player_stats_metric_value(
+                leader_results[0U].metric.primary,
+                leader_results[0U].metric.secondary) != 1000U)
+            goto state_failure;
+
+        memset(leader_session.player_stats_totals, 0,
+               sizeof(leader_session.player_stats_totals));
+        for (size_t key = 0U; key < TECMO_TEAM_DATA_PLAYER_KEY_COUNT; ++key) {
+            uint8_t team = (uint8_t)(key / TECMO_PLAYER_STATS_ROSTER_COUNT);
+            uint8_t roster = (uint8_t)(key % TECMO_PLAYER_STATS_ROSTER_COUNT);
+            leader_session.player_stats_totals[team][roster][
+                TECMO_PLAYER_STATS_COUNTER_FGA] = 400U;
+            leader_session.player_stats_totals[team][roster][
+                TECMO_PLAYER_STATS_COUNTER_FGM] = 300U;
+        }
+        if (!season_build_leader_results(
+                &leader_session, &team_data,
+                SEASON_PLAYER_STATS_CATEGORY_FIELD_GOALS, leader_results,
+                &leader_result_count) ||
+            leader_result_count != TECMO_TEAM_DATA_LEADER_RESULT_COUNT)
+            goto state_failure;
+        for (size_t result = 0U;
+             result < TECMO_TEAM_DATA_LEADER_RESULT_COUNT; ++result) {
+            if (leader_results[result].identity.canonical_key !=
+                    (uint16_t)(TECMO_TEAM_DATA_PLAYER_KEY_COUNT - 1U -
+                               result) ||
+                leader_results[result].metric.primary != 2U ||
+                leader_results[result].metric.secondary != 238U ||
+                season_player_stats_metric_value(
+                    leader_results[result].metric.primary,
+                    leader_results[result].metric.secondary) != 750U)
+                goto state_failure;
+        }
+
+        tecmo_season_state_init(&state, TECMO_SEASON_ROUTE_LEADERS,
+                                &leader_session);
+        state.leaders_results = true;
+        state.leader_category = SEASON_PLAYER_STATS_CATEGORY_FIELD_GOALS;
+        memset(&controls, 0, sizeof(controls));
+        controls.pressed.right = true;
+        (void)tecmo_season_update(&state, &asset, &leader_session, &controls);
+        if (state.leader_page != 6U) goto state_failure;
+        (void)tecmo_season_update(&state, &asset, &leader_session, &controls);
+        if (state.leader_page != 12U) goto state_failure;
+        (void)tecmo_season_update(&state, &asset, &leader_session, &controls);
+        if (state.leader_page != 12U) goto state_failure;
+        memset(&controls, 0, sizeof(controls));
+        controls.pressed.left = true;
+        (void)tecmo_season_update(&state, &asset, &leader_session, &controls);
+        if (state.leader_page != 6U) goto state_failure;
+        (void)tecmo_season_update(&state, &asset, &leader_session, &controls);
+        if (state.leader_page != 0U) goto state_failure;
+        (void)tecmo_season_update(&state, &asset, &leader_session, &controls);
+        if (state.leader_page != 0U) goto state_failure;
+
+        memset(leader_session.player_stats_totals, 0,
+               sizeof(leader_session.player_stats_totals));
+        for (size_t roster = 0U; roster < 6U; ++roster) {
+            leader_session.player_stats_totals[0U][roster][
+                TECMO_PLAYER_STATS_COUNTER_FGA] = 100U;
+            leader_session.player_stats_totals[0U][roster][
+                TECMO_PLAYER_STATS_COUNTER_FGM] = 31U;
+        }
+        tecmo_season_state_init(&state, TECMO_SEASON_ROUTE_LEADERS,
+                                &leader_session);
+        state.leaders_results = true;
+        state.leader_category = SEASON_PLAYER_STATS_CATEGORY_FIELD_GOALS;
+        memset(&controls, 0, sizeof(controls));
+        controls.pressed.right = true;
+        (void)tecmo_season_update(&state, &asset, &leader_session, &controls);
+        if (state.leader_page != 0U) goto state_failure;
+        state.leader_category = SEASON_PLAYER_STATS_CATEGORY_BLOCKED_SHOTS;
+        (void)tecmo_season_update(&state, &asset, &leader_session, &controls);
+        if (state.leader_page != 0U) goto state_failure;
+        state.leader_category = SEASON_PLAYER_STATS_CATEGORY_FIELD_GOALS;
+        leader_session.player_stats_coverage = 0U;
+        (void)tecmo_season_update(&state, &asset, &leader_session, &controls);
+        if (state.leader_page != 0U) goto state_failure;
+        {
+            char formatted[16];
+            season_format_leader_metric(
+                formatted, SEASON_PLAYER_STATS_CATEGORY_FIELD_GOALS, 1234U);
+            if (strcmp(formatted, "1.234") != 0) goto state_failure;
+            season_format_leader_metric(
+                formatted, SEASON_PLAYER_STATS_CATEGORY_TOTAL_POINTS, 1234U);
+            if (strcmp(formatted, "12.34") != 0) goto state_failure;
+        }
+    }
+
     failure_stage = "mode-target-boundaries";
     for (uint8_t type = 0U; type < 4U; ++type) {
         uint8_t target = season_team_game_target(type);
@@ -2663,17 +3726,17 @@ bool tecmo_season_self_test(char *message, size_t message_size)
         memcpy(bytes, "TSAV", 4U);
         write_u16(bytes + 4U, 1U);
         write_u16(bytes + 6U, SEASON_SAVE_HEADER_SIZE);
-        write_u32(bytes + 8U, SEASON_SAVE_SIZE);
+        write_u32(bytes + 8U, SEASON_SAVE_V1_SIZE);
         payload[0] = type;
         payload[28U] = target;
-        write_u32(bytes + 12U, fnv1a32(payload, SEASON_SAVE_PAYLOAD_SIZE));
-        if (!parse_save(&session, bytes)) goto state_failure;
+        write_u32(bytes + 12U, fnv1a32(payload, SEASON_SAVE_V1_PAYLOAD_SIZE));
+        if (!parse_save(&session, bytes, SEASON_SAVE_V1_SIZE)) goto state_failure;
         payload[55U] = 1U;
-        write_u32(bytes + 12U, fnv1a32(payload, SEASON_SAVE_PAYLOAD_SIZE));
-        if (parse_save(&session, bytes)) goto state_failure;
+        write_u32(bytes + 12U, fnv1a32(payload, SEASON_SAVE_V1_PAYLOAD_SIZE));
+        if (parse_save(&session, bytes, SEASON_SAVE_V1_SIZE)) goto state_failure;
         payload[28U] = (uint8_t)(target - 1U);
-        write_u32(bytes + 12U, fnv1a32(payload, SEASON_SAVE_PAYLOAD_SIZE));
-        if (!parse_save(&session, bytes)) goto state_failure;
+        write_u32(bytes + 12U, fnv1a32(payload, SEASON_SAVE_V1_PAYLOAD_SIZE));
+        if (!parse_save(&session, bytes, SEASON_SAVE_V1_SIZE)) goto state_failure;
 
         session_defaults(&session);
         session.season_type = type;
@@ -3129,6 +4192,14 @@ bool tecmo_season_self_test(char *message, size_t message_size)
         (void)snprintf(session.save_path, sizeof(session.save_path), "%s",
                        blocked_save);
         memset(&completed, 0, sizeof(completed));
+        tecmo_player_stats_game_ledger_initialize(&completed.player_stats);
+        if (!tecmo_player_stats_record_shot_attempt(
+                &completed.player_stats, 0U, 0U, 2U) ||
+            !tecmo_player_stats_record_shot_make(
+                &completed.player_stats, 0U, 0U, 2U) ||
+            !tecmo_player_stats_record_free_throw(
+                &completed.player_stats, 1U, 11U, true))
+            goto state_failure;
         completed.game_index = state.pending_game.game_index;
         completed.away_team = state.pending_game.away_team;
         completed.home_team = state.pending_game.home_team;
@@ -3170,6 +4241,8 @@ bool tecmo_season_self_test(char *message, size_t message_size)
                                 &controls) != TECMO_SEASON_ACTION_LAUNCH_GAME)
             goto state_failure;
         memset(&boundary_result, 0, sizeof(boundary_result));
+        tecmo_player_stats_game_ledger_initialize(
+            &boundary_result.player_stats);
         boundary_result.game_index = boundary_state.pending_game.game_index;
         boundary_result.away_team = boundary_state.pending_game.away_team;
         boundary_result.home_team = boundary_state.pending_game.home_team;
@@ -3292,13 +4365,47 @@ bool tecmo_season_self_test(char *message, size_t message_size)
     }
     (void)snprintf(session.save_path, sizeof(session.save_path), "%s", temp_save);
     memset(&completed, 0, sizeof(completed));
+    tecmo_player_stats_game_ledger_initialize(&completed.player_stats);
+    for (uint8_t side = 0U;
+         side < TECMO_PLAYER_STATS_GAME_SIDE_COUNT; ++side)
+        for (uint8_t roster = 0U;
+             roster < TECMO_PLAYER_STATS_ROSTER_COUNT; ++roster)
+            for (uint8_t counter = 0U;
+                 counter < TECMO_PLAYER_STATS_IMPLEMENTED_COUNTER_COUNT;
+                 ++counter) {
+                uint8_t delta = (uint8_t)(1U + side * 72U +
+                                           roster * 6U + counter);
+                if (side == 0U && roster == 0U &&
+                    counter == TECMO_PLAYER_STATS_COUNTER_FTA)
+                    delta = 8U;
+                if (side == 1U && roster == 0U &&
+                    counter == TECMO_PLAYER_STATS_COUNTER_FGA)
+                    delta = 8U;
+                if (side == 0U && roster == 1U &&
+                    counter == TECMO_PLAYER_STATS_COUNTER_FGM)
+                    delta = 1U;
+                if (!tecmo_player_stats_game_counter_add(
+                        &completed.player_stats, side, roster, counter,
+                        delta))
+                    goto state_failure;
+            }
     completed.game_index = state.pending_game.game_index;
     completed.away_team = state.pending_game.away_team;
     completed.home_team = state.pending_game.home_team;
     completed.away_score = 101U;
     completed.home_score = 99U;
+    session.player_stats_coverage = 0U;
+    session.player_stats_totals[completed.away_team][0U][
+        TECMO_PLAYER_STATS_COUNTER_FTA] = 8U;
+    session.player_stats_totals[completed.home_team][0U][
+        TECMO_PLAYER_STATS_COUNTER_FGA] = 250U;
+    session.player_stats_totals[completed.away_team][1U][
+        TECMO_PLAYER_STATS_COUNTER_FGM] = UINT16_MAX;
+    session.player_stats_totals[completed.home_team][1U][
+        TECMO_PLAYER_STATS_COUNTER_FGA] = UINT16_MAX;
     {
         uint8_t original_away = state.pending_game.away_team;
+        TecmoSeasonSession before_conflict_session = session;
         state.pending_game.away_team = (uint8_t)((original_away + 1U) %
                                                  TECMO_SEASON_TEAM_COUNT);
         if (state.pending_game.away_team == state.pending_game.home_team)
@@ -3307,27 +4414,110 @@ bool tecmo_season_self_test(char *message, size_t message_size)
         completed.away_team = state.pending_game.away_team;
         if (tecmo_season_commit_game_result(&state, &asset, &session,
                                             &completed) ||
+            memcmp(&session, &before_conflict_session,
+                   sizeof(session)) != 0 ||
             session.schedule_index != 0U || !state.game_result_pending)
             goto state_failure;
         state.pending_game.away_team = original_away;
         completed.away_team = original_away;
     }
     ++completed.game_index;
+    {
+        TecmoSeasonSession before_conflict_session = session;
     if (tecmo_season_commit_game_result(&state, &asset, &session,
                                         &completed) ||
+        memcmp(&session, &before_conflict_session, sizeof(session)) != 0 ||
         session.schedule_index != 0U || !state.game_result_pending)
         goto state_failure;
+    }
     --completed.game_index;
     if (!tecmo_season_commit_game_result(&state, &asset, &session,
                                          &completed) ||
         session.schedule_index != 1U || state.game_result_pending ||
         state.game_result_count != 1U || state.game_result_visible_rows != 1U ||
         session.wins[completed.away_team] != 1U ||
-        session.losses[completed.home_team] != 1U)
+        session.losses[completed.home_team] != 1U ||
+        session.player_stats_coverage != 0U)
         goto state_failure;
+    {
+        for (uint8_t side = 0U;
+             side < TECMO_PLAYER_STATS_GAME_SIDE_COUNT; ++side) {
+            uint8_t team = side == 0U ? completed.away_team :
+                                        completed.home_team;
+            for (uint8_t roster = 0U;
+                 roster < TECMO_PLAYER_STATS_ROSTER_COUNT; ++roster)
+                for (uint8_t counter = 0U;
+                     counter < TECMO_PLAYER_STATS_IMPLEMENTED_COUNTER_COUNT;
+                     ++counter) {
+                    uint8_t delta = (uint8_t)(1U + side * 72U +
+                                               roster * 6U + counter);
+                    uint16_t prior = 0U;
+                    if (side == 0U && roster == 0U &&
+                        counter == TECMO_PLAYER_STATS_COUNTER_FTA) {
+                        delta = 8U;
+                        prior = 8U;
+                    }
+                    if (side == 1U && roster == 0U &&
+                        counter == TECMO_PLAYER_STATS_COUNTER_FGA) {
+                        delta = 8U;
+                        prior = 250U;
+                    }
+                    if (side == 0U && roster == 1U &&
+                        counter == TECMO_PLAYER_STATS_COUNTER_FGM) {
+                        delta = 1U;
+                        prior = UINT16_MAX;
+                    }
+                    if (side == 1U && roster == 1U &&
+                        counter == TECMO_PLAYER_STATS_COUNTER_FGA)
+                        prior = UINT16_MAX;
+                    if (session.player_stats_totals[team][roster][counter] !=
+                            (uint16_t)((uint32_t)prior + delta))
+                        goto state_failure;
+                }
+        }
+        for (uint8_t team = 0U; team < TECMO_PLAYER_STATS_TEAM_COUNT;
+             ++team)
+            if (team != completed.away_team && team != completed.home_team)
+                for (uint8_t roster = 0U;
+                     roster < TECMO_PLAYER_STATS_ROSTER_COUNT; ++roster)
+                    for (uint8_t counter = 0U;
+                         counter < TECMO_PLAYER_STATS_COUNTER_DIMENSION;
+                         ++counter)
+                        if (session.player_stats_totals[team][roster][counter] !=
+                                0U)
+                            goto state_failure;
+        for (uint8_t team = 0U; team < TECMO_PLAYER_STATS_TEAM_COUNT;
+             ++team)
+            for (uint8_t roster = 0U;
+                 roster < TECMO_PLAYER_STATS_ROSTER_COUNT; ++roster)
+                for (uint8_t counter = TECMO_PLAYER_STATS_IMPLEMENTED_COUNTER_COUNT;
+                     counter < TECMO_PLAYER_STATS_COUNTER_DIMENSION; ++counter)
+                    if (session.player_stats_totals[team][roster][counter] !=
+                            0U)
+                        goto state_failure;
+    }
+    {
+        TecmoSeasonSession before_replay_session = session;
+        TecmoSeasonState before_replay_state = state;
+        if (tecmo_season_commit_game_result(&state, &asset, &session,
+                                            &completed) ||
+            memcmp(&session, &before_replay_session,
+                   sizeof(session)) != 0 ||
+            memcmp(&state, &before_replay_state, sizeof(state)) != 0)
+            goto state_failure;
+    }
     session.team_control[4] = 3U;
     session.wins[4] = 50U;
     session.losses[4] = 32U;
+    session.player_stats_totals[completed.away_team][11U][
+        TECMO_PLAYER_STATS_COUNTER_FTM] = 0x1234U;
+    memset(expected_prefix, 0, sizeof(expected_prefix));
+    expected_prefix[0] = session.season_type;
+    memcpy(expected_prefix + 1U, session.team_control,
+           TECMO_SEASON_TEAM_COUNT);
+    memcpy(expected_prefix + 28U, session.wins, TECMO_SEASON_TEAM_COUNT);
+    memcpy(expected_prefix + 55U, session.losses, TECMO_SEASON_TEAM_COUNT);
+    write_u16(expected_prefix + 82U, session.schedule_index);
     if (!tecmo_season_session_save(&session)) goto state_failure;
     file = fopen(temp_save, "rb");
     if (file == NULL) goto state_failure;
@@ -3336,17 +4526,55 @@ bool tecmo_season_self_test(char *message, size_t message_size)
     fclose(file);
     (void)remove(temp_save);
     memset(&loaded, 0, sizeof(loaded));
-    if (got != sizeof(bytes) || trailing != EOF || !parse_save(&loaded, bytes) ||
+    if (got != SEASON_SAVE_V2_SIZE || trailing != EOF ||
+        read_u16(bytes + 4U) != 2U ||
+        read_u16(bytes + 6U) != SEASON_SAVE_HEADER_SIZE ||
+        read_u32(bytes + 8U) != SEASON_SAVE_V2_SIZE ||
+        read_u32(bytes + 12U) !=
+            fnv1a32(bytes + SEASON_SAVE_HEADER_SIZE,
+                    SEASON_SAVE_V2_PAYLOAD_SIZE) ||
+        memcmp(bytes + SEASON_SAVE_HEADER_SIZE, expected_prefix,
+               SEASON_SAVE_V1_PAYLOAD_SIZE) != 0 ||
+        read_u16(bytes + SEASON_SAVE_HEADER_SIZE +
+                 SEASON_SAVE_V2_COVERAGE_OFFSET) !=
+            session.player_stats_coverage ||
+        !parse_save(&loaded, bytes, got) ||
         loaded.team_control[4] != 3U || loaded.wins[4] != 50U ||
-        loaded.losses[4] != 32U || loaded.schedule_index != 1U)
+        loaded.losses[4] != 32U || loaded.schedule_index != 1U ||
+        loaded.player_stats_coverage != session.player_stats_coverage ||
+        memcmp(loaded.player_stats_totals, session.player_stats_totals,
+               sizeof(loaded.player_stats_totals)) != 0)
         goto state_failure;
+    for (size_t reserved = 16U; reserved < SEASON_SAVE_HEADER_SIZE;
+         ++reserved)
+        if (bytes[reserved] != 0U) goto state_failure;
+    {
+        size_t word = ((size_t)completed.away_team *
+                       TECMO_PLAYER_STATS_ROSTER_COUNT + 11U) *
+                      TECMO_PLAYER_STATS_COUNTER_DIMENSION +
+                      TECMO_PLAYER_STATS_COUNTER_FTM;
+        size_t offset = SEASON_SAVE_HEADER_SIZE +
+                        SEASON_SAVE_V2_TOTALS_OFFSET + word * 2U;
+        if (bytes[offset] != 0x34U || bytes[offset + 1U] != 0x12U ||
+            read_u16(bytes + SEASON_SAVE_HEADER_SIZE +
+                     SEASON_SAVE_V2_TOTALS_OFFSET +
+                     ((size_t)completed.away_team *
+                      TECMO_PLAYER_STATS_ROSTER_COUNT + 11U) *
+                     TECMO_PLAYER_STATS_COUNTER_DIMENSION * 2U +
+                     TECMO_PLAYER_STATS_COUNTER_FTM * 2U) != 0x1234U)
+            goto state_failure;
+    }
 
-    bytes[SEASON_SAVE_SIZE - 1U] ^= 1U;
-    if (parse_save(&session, bytes)) {
-        if (message != NULL && message_size > 0U)
-            (void)snprintf(message, message_size,
-                           "Season malformed save was accepted.");
-        return false;
+    {
+        TecmoSeasonSession malformed_before = session;
+        bytes[SEASON_SAVE_V2_SIZE - 1U] ^= 1U;
+        if (parse_save(&session, bytes, SEASON_SAVE_V2_SIZE) ||
+            memcmp(&session, &malformed_before, sizeof(session)) != 0) {
+            if (message != NULL && message_size > 0U)
+                (void)snprintf(message, message_size,
+                               "Season malformed save was accepted or mutated state.");
+            return false;
+        }
     }
     (void)remove(blocked_parent);
     if (message != NULL && message_size > 0U)

@@ -67,9 +67,15 @@ $SeasonContract = [ordered]@{
         @{ Mode="season-standings-east"; Hash="3CC04A3C668C9EA7265D7758AA08CADB33BA5E416C1D717B37B9D595050229AB"; Status="phase=standings .*page=0" },
         @{ Mode="season-standings-west"; Hash="96C6B839321B82393D706C325610A800B8FA2B8368B662719DF8EB45DFC9387B"; Status="phase=standings .*page=1" },
         @{ Mode="season-standings-programmed"; Hash="972415E9F5C8E7AA4305E386AD156F49C8637EB4AA8AD0C7E3E104232A4E0FB9"; Status="phase=programmed-editor .*type=PROGRAMMED" },
-        @{ Mode="season-leaders"; Hash="25FC871445406CB69B478BB2A2E2846042FA9BA2D570A728819FDFA61096ACA6"; Status="phase=leaders .*leader=0 .*leader-result=0" },
-        @{ Mode="season-leaders4"; Hash="AAF28650A08788472DE787657CAC1F4D9F69E77CAD50A17F144BB3D2FF915742"; Status="phase=leaders .*leader=4 .*leader-result=0" },
-        @{ Mode="season-leaders-results"; Hash="540D6EA78E8CB646E1D4D960E97EE5A464D04ABD32A6634BCCBD6E75F8CE7764"; Status="phase=leaders .*leader=0 .*leader-result=1" },
+        @{ Mode="season-leaders"; Hash="BF506207114DC4E2823852147DFCD05E455496CE08DA502E3238A439A4877823"; Status="phase=leaders .*leader=0 .*leader-result=0" },
+        @{ Mode="season-leaders4"; Hash="1F735E60C69435EDFB2099C5A68CE630A0BC84E73E5092D8A107ED1F5BC55DEF"; Status="phase=leaders .*leader=4 .*leader-result=0" },
+        @{ Mode="season-leaders-results"; Hash="1B65D684B43BC1EB31B205CD463F4E3093E0AA19D6C7A45EB7C0162E4B5A61CA"; Status="phase=leaders .*leader=0 .*leader-result=1" },
+        @{ Mode="season-leaders-results-populated"; Hash="54D1F1F208AB4BFF2C55CDC3762A1AD3A50F436CFFFB577CEDBA3EAF02EA5E26"; Status="phase=leaders .*leader=0 .*leader-result=1" },
+        @{ Mode="season-leaders-results-populated-page6"; Hash="DD23B090928A1222AFB916324992CB628F5CF97CD30EE3E1FA495F71DD2B15F2"; Status="phase=leaders .*leader=0 .*leader-result=1" },
+        @{ Mode="season-leaders-results-populated-page12"; Hash="F7FFB61D8B3EDF9838B6BF8804D84197F90D6FCEE9461D03AA07ED93731AC11E"; Status="phase=leaders .*leader=0 .*leader-result=1" },
+        @{ Mode="season-leaders-results-populated3"; Hash="794DA4AE2CC6FB0B75B1F30A4F682B565F5B16A3DBC26BD0E594ABC9763A182E"; Status="phase=leaders .*leader=3 .*leader-result=1" },
+        @{ Mode="season-leaders-results-populated5"; Hash="9A876C4A1048AE37C13D1F975E8E00F6C4DD4477F3EBF9DD5ECF2F80FE550DA3"; Status="phase=leaders .*leader=5 .*leader-result=1" },
+        @{ Mode="season-leaders-results-populated6"; Hash="7D1BCC97947C768E3217A79CDFC5D6B3A3D094111BDC2A86885BF2B82ADA25B1"; Status="phase=leaders .*leader=6 .*leader-result=1" },
         @{ Mode="season-game-start"; Hash="66458313C7243A8EB3C464495B5B31D1EEAD31BA5D5B8669AD1F9009B0D65649"; Status="phase=game-start-prelaunch .*game-pending=1 launch-blocked=1" }
     )
 }
@@ -188,23 +194,49 @@ function Assert-FileSnapshot {
     }
 }
 
+function Update-TsavChecksum {
+    param([byte[]]$Bytes)
+    if ($Bytes.Length -lt 24 -or
+        [Text.Encoding]::ASCII.GetString($Bytes, 0, 4) -ne "TSAV") {
+        throw "TSAV checksum update received a malformed buffer."
+    }
+    [uint32]$TotalSize = [BitConverter]::ToUInt32($Bytes, 8)
+    if ($TotalSize -lt 24 -or $TotalSize -gt $Bytes.Length) {
+        throw "TSAV checksum update received an invalid size."
+    }
+    [int]$PayloadSize = [int]$TotalSize - 24
+    [byte[]]$Payload = New-Object byte[] $PayloadSize
+    [Array]::Copy($Bytes, 24, $Payload, 0, $PayloadSize)
+    [BitConverter]::GetBytes((Get-Fnv1a32Value $Payload)).CopyTo($Bytes, 12)
+}
+
 function New-TsavBytes {
-    param([byte]$SeasonType, [uint16]$ScheduleIndex, [byte]$Marker)
-    [byte[]]$Bytes = New-Object byte[] 108
-    [byte[]]$Payload = New-Object byte[] 84
+    param(
+        [byte]$SeasonType,
+        [uint16]$ScheduleIndex,
+        [byte]$Marker,
+        [ValidateSet(1, 2)][int]$Version = 1
+    )
+    [int]$PayloadSize = if ($Version -eq 1) { 84 } else { 5918 }
+    [int]$TotalSize = 24 + $PayloadSize
+    [byte[]]$Bytes = New-Object byte[] $TotalSize
+    [byte[]]$Payload = New-Object byte[] $PayloadSize
     $Payload[0] = $SeasonType
     $Payload[1 + 4] = $Marker -band 3
     $Payload[28 + 4] = 12
     $Payload[55 + 4] = 8
     [BitConverter]::GetBytes($ScheduleIndex).CopyTo($Payload, 82)
+    if ($Version -eq 2) {
+        [uint16]$Coverage = if ($ScheduleIndex -eq 0) { 0x003F } else { 0 }
+        [BitConverter]::GetBytes($Coverage).CopyTo($Payload, 84)
+    }
     [Text.Encoding]::ASCII.GetBytes("TSAV").CopyTo($Bytes, 0)
-    [BitConverter]::GetBytes([uint16]1).CopyTo($Bytes, 4)
+    [BitConverter]::GetBytes([uint16]$Version).CopyTo($Bytes, 4)
     [BitConverter]::GetBytes([uint16]24).CopyTo($Bytes, 6)
-    [BitConverter]::GetBytes([uint32]108).CopyTo($Bytes, 8)
-    [BitConverter]::GetBytes(
-        (Get-Fnv1a32Value $Payload)).CopyTo($Bytes, 12)
+    [BitConverter]::GetBytes([uint32]$TotalSize).CopyTo($Bytes, 8)
     $Payload.CopyTo($Bytes, 24)
-    return $Bytes
+    Update-TsavChecksum $Bytes
+    return ,$Bytes
 }
 
 function Invoke-SaveStatusRender {
@@ -220,6 +252,57 @@ function Invoke-SaveStatusRender {
         throw "TSAV fixture render was not produced for $Name."
     }
     return $Output
+}
+
+function Set-TsavV2Total {
+    param(
+        [byte[]]$Bytes,
+        [int]$Team,
+        [int]$Roster,
+        [int]$Counter,
+        [uint16]$Value
+    )
+    if ($Bytes.Length -ne 5942 -or $Team -lt 0 -or $Team -ge 27 -or
+        $Roster -lt 0 -or $Roster -ge 12 -or $Counter -lt 0 -or
+        $Counter -ge 9) {
+        throw "TSAV-2 total coordinate was out of bounds."
+    }
+    [int]$Word = (($Team * 12 + $Roster) * 9) + $Counter
+    [int]$Offset = 24 + 86 + ($Word * 2)
+    [BitConverter]::GetBytes($Value).CopyTo($Bytes, $Offset)
+}
+
+function Assert-TsavV2Bytes {
+    param(
+        [byte[]]$Bytes,
+        [byte[]]$ExpectedPrefix,
+        [uint16]$ExpectedCoverage
+    )
+    if ($Bytes.Length -ne 5942 -or
+        [Text.Encoding]::ASCII.GetString($Bytes, 0, 4) -ne "TSAV" -or
+        [BitConverter]::ToUInt16($Bytes, 4) -ne 2 -or
+        [BitConverter]::ToUInt16($Bytes, 6) -ne 24 -or
+        [BitConverter]::ToUInt32($Bytes, 8) -ne 5942 -or
+        (@($Bytes[16..23] | Where-Object { $_ -ne 0 }).Count -ne 0 -or
+        [BitConverter]::ToUInt16($Bytes, 24 + 84) -ne $ExpectedCoverage)) {
+        throw "TSAV-2 header/coverage contract was rejected."
+    }
+    [byte[]]$Payload = New-Object byte[] 5918
+    [Array]::Copy($Bytes, 24, $Payload, 0, 5918)
+    if ([BitConverter]::ToUInt32($Bytes, 12) -ne
+            (Get-Fnv1a32Value $Payload)) {
+        throw "TSAV-2 checksum contract was rejected."
+    }
+    if ($null -ne $ExpectedPrefix) {
+        if ($ExpectedPrefix.Length -ne 84) {
+            throw "TSAV-2 expected prefix has the wrong size."
+        }
+        for ($Index = 0; $Index -lt 84; ++$Index) {
+            if ($Bytes[24 + $Index] -ne $ExpectedPrefix[$Index]) {
+                throw "TSAV-2 v1 prefix was not preserved at byte $Index."
+            }
+        }
+    }
 }
 
 function Write-MutatedPack {
@@ -446,8 +529,44 @@ try {
     }
     $env:TECMO_ASSETPACK = $Pack
 
+    $FreshV1Save = New-TsavBytes 1 0 3
     $ValidSave = New-TsavBytes 1 5 3
     $AlternateSave = New-TsavBytes 2 3 2
+    $ValidV2Save = New-TsavBytes 1 5 3 2
+    [byte[]]$V1Prefix = New-Object byte[] 84
+    [Array]::Copy($ValidSave, 24, $V1Prefix, 0, 84)
+
+    $NonzeroV2Save = New-TsavBytes 1 5 3 2
+    for ($Team = 0; $Team -lt 27; ++$Team) {
+        for ($Roster = 0; $Roster -lt 12; ++$Roster) {
+            for ($Counter = 0; $Counter -lt 6; ++$Counter) {
+                [uint16]$Value = [uint16](1000 + $Team * 17 +
+                    $Roster * 5 + $Counter)
+                Set-TsavV2Total $NonzeroV2Save $Team $Roster $Counter $Value
+            }
+        }
+    }
+    Set-TsavV2Total $NonzeroV2Save 26 11 5 0x1234
+    Update-TsavChecksum $NonzeroV2Save
+    Assert-TsavV2Bytes $NonzeroV2Save $V1Prefix 0
+    if ([BitConverter]::ToUInt16($NonzeroV2Save, 24 + 86) -ne 1000 -or
+        [BitConverter]::ToUInt16($NonzeroV2Save, 24 + 86 +
+            ((26 * 12 + 11) * 9 + 5) * 2) -ne 0x1234 -or
+        [BitConverter]::ToUInt16($NonzeroV2Save, 24 + 86 +
+            ((0 * 12 + 0) * 9 + 6) * 2) -ne 0) {
+        throw "TSAV-2 team-major totals order or unsupported-counter boundary failed."
+    }
+
+    $V2Root = Join-Path $Scratch "save-v2-roundtrip"
+    New-Item -ItemType Directory -Force -Path `
+        (Join-Path $V2Root "saves"), (Join-Path $V2Root "build") |
+        Out-Null
+    $V2Path = Join-Path $V2Root "saves\tecmo-season.sav"
+    [IO.File]::WriteAllBytes($V2Path, $NonzeroV2Save)
+    $V2Before = Get-FileSnapshot $V2Path
+    [void](Invoke-SaveStatusRender $V2Root 1 "v2-roundtrip")
+    Assert-FileSnapshot $V2Path $V2Before
+    Assert-TsavV2Bytes ([IO.File]::ReadAllBytes($V2Path)) $V1Prefix 0
 
     $MissingRoot = Join-Path $Scratch "save-missing"
     [void](Invoke-SaveStatusRender $MissingRoot 0 "missing")
@@ -506,10 +625,82 @@ try {
     [void](Invoke-SaveStatusRender $MigrationRoot 1 "migration")
     Assert-FileSnapshot $MigrationLegacy $MigrationLegacyBefore
     if (!(Test-Path -LiteralPath $MigrationNew) -or
-        ((Get-FileHash -LiteralPath $MigrationNew -Algorithm SHA256).Hash -ne
-         (Get-FileHash -LiteralPath $MigrationLegacy -Algorithm SHA256).Hash) -or
         (Test-Path -LiteralPath ($MigrationNew + ".tmp"))) {
-        throw "Legacy TSAV migration was not atomic and exact."
+        throw "Legacy TSAV migration was not atomic."
+    }
+    [byte[]]$MigrationV2 = [IO.File]::ReadAllBytes($MigrationNew)
+    Assert-TsavV2Bytes $MigrationV2 $V1Prefix 0
+
+    $FreshMigrationRoot = Join-Path $Scratch "save-v1-fresh-migration"
+    New-Item -ItemType Directory -Force -Path `
+        (Join-Path $FreshMigrationRoot "build") | Out-Null
+    $FreshMigrationLegacy = Join-Path $FreshMigrationRoot "build\tecmo-season.sav"
+    $FreshMigrationNew = Join-Path $FreshMigrationRoot "saves\tecmo-season.sav"
+    [IO.File]::WriteAllBytes($FreshMigrationLegacy, $FreshV1Save)
+    [void](Invoke-SaveStatusRender $FreshMigrationRoot 1 "v1-fresh-migration")
+    if (!(Test-Path -LiteralPath $FreshMigrationNew)) {
+        throw "Fresh v1 TSAV migration did not install a v2 save."
+    }
+    [byte[]]$FreshMigrationV2 = [IO.File]::ReadAllBytes($FreshMigrationNew)
+    [byte[]]$FreshV1Prefix = New-Object byte[] 84
+    [Array]::Copy($FreshV1Save, 24, $FreshV1Prefix, 0, 84)
+    Assert-TsavV2Bytes $FreshMigrationV2 $FreshV1Prefix 0x003F
+
+    $SaveRejectCases = @(
+        @{ Name="v1-bad-version"; Data=$ValidSave; Mutate={ param([byte[]]$Data)
+            $Data[4] = 9 } },
+        @{ Name="v1-bad-header"; Data=$ValidSave; Mutate={ param([byte[]]$Data)
+            [BitConverter]::GetBytes([uint16]23).CopyTo($Data, 6) } },
+        @{ Name="v1-bad-reserved"; Data=$ValidSave; Mutate={ param([byte[]]$Data)
+            $Data[16] = 1 } },
+        @{ Name="v1-bad-checksum"; Data=$ValidSave; Mutate={ param([byte[]]$Data)
+            $Data[12] = $Data[12] -bxor 1 } },
+        @{ Name="v1-truncated"; Data=(New-Object byte[] 107); Mutate={ param([byte[]]$Data)
+            [Array]::Copy($ValidSave, 0, $Data, 0, $Data.Length) } },
+        @{ Name="v1-wrong-size"; Data=$ValidSave; Mutate={ param([byte[]]$Data)
+            [BitConverter]::GetBytes([uint32]107).CopyTo($Data, 8) } },
+        @{ Name="v1-marked-v2-physical108"; Data=$ValidSave; Mutate={ param([byte[]]$Data)
+            $Data[4] = 2 } },
+        @{ Name="v2-marked-v1-physical5942"; Data=$ValidV2Save; Mutate={ param([byte[]]$Data)
+            $Data[4] = 1 } },
+        @{ Name="v2-bad-version"; Data=$ValidV2Save; Mutate={ param([byte[]]$Data)
+            $Data[4] = 9 } },
+        @{ Name="v2-bad-header"; Data=$ValidV2Save; Mutate={ param([byte[]]$Data)
+            [BitConverter]::GetBytes([uint16]23).CopyTo($Data, 6) } },
+        @{ Name="v2-bad-reserved"; Data=$ValidV2Save; Mutate={ param([byte[]]$Data)
+            $Data[16] = 1 } },
+        @{ Name="v2-bad-checksum"; Data=$ValidV2Save; Mutate={ param([byte[]]$Data)
+            $Data[12] = $Data[12] -bxor 1 } },
+        @{ Name="v2-unknown-coverage"; Data=$ValidV2Save; Mutate={ param([byte[]]$Data)
+            [BitConverter]::GetBytes([uint16]0x0040).CopyTo($Data, 108)
+            Update-TsavChecksum $Data } },
+        @{ Name="v2-unsupported-counter"; Data=$ValidV2Save; Mutate={ param([byte[]]$Data)
+            Set-TsavV2Total $Data 0 0 6 1
+            Update-TsavChecksum $Data } },
+        @{ Name="v2-wrong-size"; Data=$ValidV2Save; Mutate={ param([byte[]]$Data)
+            [BitConverter]::GetBytes([uint32]5941).CopyTo($Data, 8) } },
+        @{ Name="v2-truncated"; Data=(New-Object byte[] 5941); Mutate={ param([byte[]]$Data)
+            [Array]::Copy($ValidV2Save, 0, $Data, 0, $Data.Length) } },
+        @{ Name="v2-trailing"; Data=(New-Object byte[] 5943); Mutate={ param([byte[]]$Data)
+            $ValidV2Save.CopyTo($Data, 0)
+            $Data[5942] = 0xEE } }
+    )
+    foreach ($Case in $SaveRejectCases) {
+        [byte[]]$RejectedBytes = [byte[]]$Case.Data.Clone()
+        & $Case.Mutate $RejectedBytes
+        $RejectRoot = Join-Path $Scratch ("save-reject-" + $Case.Name)
+        New-Item -ItemType Directory -Force -Path `
+            (Join-Path $RejectRoot "saves"),
+            (Join-Path $RejectRoot "build") | Out-Null
+        $RejectNew = Join-Path $RejectRoot "saves\tecmo-season.sav"
+        $RejectLegacy = Join-Path $RejectRoot "build\tecmo-season.sav"
+        [IO.File]::WriteAllBytes($RejectNew, $RejectedBytes)
+        [IO.File]::WriteAllBytes($RejectLegacy, $AlternateSave)
+        $RejectNewBefore = Get-FileSnapshot $RejectNew
+        $RejectLegacyBefore = Get-FileSnapshot $RejectLegacy
+        [void](Invoke-SaveStatusRender $RejectRoot 3 $Case.Name)
+        Assert-FileSnapshot $RejectNew $RejectNewBefore
+        Assert-FileSnapshot $RejectLegacy $RejectLegacyBefore
     }
 
     $FailureRoot = Join-Path $Scratch "save-install-failure"
@@ -558,7 +749,7 @@ try {
         Assert-FileSnapshot $Path $RealSaveSnapshots[$Path]
     }
     $global:LASTEXITCODE = 0
-    Write-Host "SEASON TEST PASS: strict ROM-only TSNS provenance/dependencies, TSAV isolation/migration/rejection, native gameplay handoff/result flow, malformed-pack guards, and 13 pixel checkpoints"
+    Write-Host "SEASON TEST PASS: strict ROM-only TSNS provenance/dependencies, TSAV isolation/migration/rejection, native gameplay handoff/result flow, malformed-pack guards, and 19 pixel checkpoints"
 } finally {
     $env:TECMO_SKIP_SHORTCUT = $PreviousSkipShortcut
     $env:TECMO_ASSETPACK = $PreviousAssetPack
