@@ -387,8 +387,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-rules-restarts-sol",
       "ownership_claim_ids": ["OWN-R2-RULES-RESTARTS"],
       "blockers": [],
-      "next_gate": "Sol branch is clean and frozen at exact Good-signed 1dde1ef748658a11403ff4bc450af858d05f08c2 after ff-only integration and green personal integrated QA. Sole fresh projectless terminal QA Luna 019fcb44-0f91-7632-9b25-88e51b505ce3 is pinned and must independently audit the frozen tip, proof, build/scene/restart/audio contracts, seven-path ownership, diagnostics, docs, and honest incompletes. Reuse worker 019fcb05 for any bounded revision, then obtain same-QA terminal closure, Sol-owned signed docs, and a clean signed handoff before any master-owned current-main integration QA.",
-      "updated_at": "2026-08-04T05:34:52Z"
+      "next_gate": "Frozen Good-signed 1dde1ef is Sol-integrated and sole independent QA accepted P0/P1/P2/P3 zero. Before terminal signing, Sol may change only AGENTS.md lines 968-970, PORTING.md lines 1134-1136, and docs/gameplay-state-foundation.md lines 354-359 to replace the contradicted immediate-SFX6 status with strict TPNL-1 frame-16 exact-once/native-faithful bounded cue wording while preserving capture-bounded loader/fade and incomplete full presentation/original caller order. Then add only the seven Sol-owned task docs, create one Good-signed docs descendant, obtain same-QA exact signed-tip review, and issue a clean terminal handoff before master-owned current-main integration QA.",
+      "updated_at": "2026-08-04T06:00:40Z"
     }
   ]
 }
