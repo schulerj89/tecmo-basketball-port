@@ -1,8 +1,8 @@
 # R2 Shots Outcomes fault ledger
 
 This ledger records ordinary failed commands and review-found defects in the
-same uncommitted Luna lineage. It is diagnostic history, not a claim that the
-failures remain.
+same candidate-commit Luna lineage. It is diagnostic history, not a claim that
+the failures remain. The current child revision is docs-only and uncommitted.
 
 | Checkpoint | Observed failure | Cause / disposition |
 | --- | --- | --- |
@@ -25,10 +25,22 @@ failures remain.
 | Native proof aggregate formula | First recomputation used LF and mismatched the documented aggregate | The prose formula was corrected to uppercase per-frame hashes joined by CRLF with no trailing separator; actual frames never mismatched, and the terminal rerender reproduced all four aggregate hashes in both passes. |
 | Docs-only final-check invocation | First whitespace-check wrapper interpolated `$path:$lineNo` without braces and failed to parse | No file or repository state changed; `${path}:$lineNo` was used on the successful rerun. |
 | Docs-consistency search invocation | Initial `rg` search treated a pattern beginning with `--root` as an option | Read-only verification invocation mistake; the search was rerun with `rg --` and passed. |
+| Sol post-commit audit | Unquoted PowerShell `$base..HEAD` produced git usage | No repository state changed; an explicit `$range="$base..HEAD"` retry passed. |
+| QA initial scope correction | QA initially considered the Three.js/browser screenshot skill | Sol corrected scope before any browser/product action; QA proceeded native-only. Non-material, not a task fault. |
+| Independent QA initial verdict | One P2 stale-lineage documentation issue | No runtime/code findings; this R2 docs-only correction resolves it pending revised-tip verification. |
 
 No destructive recovery command, reset, merge, rebase, push, or excluded-file
 edit was used. No proprietary ROM, capture, video, save state, or runtime
 dependency was copied into the repository.
+
+The implementation candidate is commit
+`24bdde9c87b1529d9ab83671bc8c60c1e136ceb1`, message
+`feat: complete R2 shot outcomes`, parent/base
+`222d75cfafa9153db1eb44492bf557f11b1a9091`, tree
+`367c14eb390f53a7b7a45c08d9ad1a02ab44d415`, with 17 owned paths and
+7977 insertions/420 deletions. The persistent worker remains pinned, attempt 1,
+with no task bad-request/replacement fault; its branch/worktree were clean after
+the candidate commit.
 
 At the terminal candidate, all changed paths are owned paths, `git diff --check`
 is clean, and explicit zero-diff checks confirm that both excluded shared files,
@@ -40,10 +52,15 @@ replacement fault. The separate evidence task had one ordinary failed read
 command; Sol classified it as non-material, with no bad-request or replacement
 fault.
 
-## Pending review disposition
+## QA revision R2 and pending disposition
 
 - Sol visual review is complete.
-- Independent QA and final acceptance remain pending before final handoff.
+- Independent QA task `019fca10-32a8-7fd0-8d8f-2f558c5d262f` found no actionable
+  runtime/code issue and one P2 stale-lineage documentation finding. This
+  docs-only R2 correction resolves the initial P2; same-QA revised-tip
+  verification and final Sol acceptance remain pending.
+- The docs-only child cannot embed its own future object ID; terminal handoff
+  will supply its exact commit SHA.
 - A future sequential transfer may update the shared `scene.c` shot-name
   switch and source-map wording; those shared-file follow-ups remain
   incomplete and are intentionally not part of this lane.

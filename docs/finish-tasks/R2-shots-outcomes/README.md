@@ -1,8 +1,9 @@
 # Tecmo R2 Shots Outcomes
 
-Status: implementation/revision candidate, uncommitted, pending independent QA
-and final acceptance. This document describes the bounded native implementation in
-the Luna worker worktree; it is not an acceptance certificate.
+Status: implementation candidate committed, with a docs-only QA revision currently
+uncommitted and pending same-QA revised-tip verification and final Sol acceptance.
+This document describes the bounded native implementation in the Luna worker
+worktree; it is not an acceptance certificate.
 
 ## Lineage and handoff
 
@@ -20,11 +21,14 @@ the Luna worker worktree; it is not an acceptance certificate.
   non-material failed read command.
 - Worker branch: `codex/r2-shots-outcomes-luna`.
 - Worker worktree: `C:\Users\joshs\Projects\tecmo-basketball-port-r2-shots-outcomes-luna`.
-- Exact base, current parent, and merge-base:
-  `222d75cfafa9153db1eb44492bf557f11b1a9091`.
-- No commit has been created on this worker branch. The intended handoff is
-  a Sol-reviewed fast-forward-only sequence from the exact base; no merge,
-  rebase, push, or force operation has been performed.
+- Candidate commit: `24bdde9c87b1529d9ab83671bc8c60c1e136ceb1`, message
+  `feat: complete R2 shot outcomes`.
+- Candidate parent/base and merge-base:
+  `222d75cfafa9153db1eb44492bf557f11b1a9091`; candidate tree:
+  `367c14eb390f53a7b7a45c08d9ad1a02ab44d415`.
+- Candidate commit stat: 17 owned paths, 7977 insertions, 420 deletions. The
+  branch/worktree were clean after the candidate commit. No merge, rebase, push,
+  or force operation has been performed.
 
 The revision lineage contains the Sol-supplied live-review rounds covering
 transactional loaders and shot wrappers, neutral numeric-1 identity/exposure, direction
@@ -39,8 +43,10 @@ removal of the temporary production failure-reason API, and the R1 correction
 that raw A7A9 metadata on a MAKE never activates the miss-only rattle bit. The
 R1 exact and native-approximate A7A9 MAKE regressions both pass: the exact
 bounded search resolves team 0/roster 0, vector 0 (`dx=-320,dy=64`), launch
-frame 42, sample `AC0D3E09`, probability 5. Sol visual review is complete;
-independent QA and final acceptance remain pending.
+frame 42, sample `AC0D3E09`, probability 5. Sol visual review is complete.
+Independent QA found no actionable runtime/code issue; its initial P2
+stale-lineage documentation finding is resolved by this R2 docs revision.
+Same-QA revised-tip verification and final Sol acceptance remain pending.
 
 ## Scope
 
@@ -217,6 +223,39 @@ scene proof root, `build/r2-sol-terminal-20260803T183632Z`, produced
 produced `GAMEPLAY SCENE SELF TEST PASS`. These results are terminal-candidate
 provenance, not independent QA or final acceptance.
 
+### Independent QA revision R2
+
+Independent QA was performed by task `019fca10-32a8-7fd0-8d8f-2f558c5d262f`,
+`Tecmo R2 Shots Outcomes Independent QA - Luna Max`, `gpt-5.6-luna/max`,
+created at epoch `1785801487` (`2026-08-03T23:58:07Z`). The task was pinned,
+top-level projectless, with null app-project/Git fields, and wrote to
+`C:\Users\joshs\Documents\Codex\2026-08-03\tecmo-r2-shots-outcomes-independent-qa\outputs`.
+Its manual QA branch/worktree were `codex/r2-shots-outcomes-qa` and
+`C:\Users\joshs\Projects\tecmo-basketball-port-r2-shots-outcomes-qa`, with
+initial reference/last-good `24bdde9c`, parent/base `222d75cf`, and tree
+`367c14eb`; it was attempt 1 with no task bad-request/replacement fault.
+
+QA initially considered the Three.js/browser screenshot skill. Sol corrected
+that scope before any browser or product action, and QA proceeded native-only;
+this was non-material and not a task fault. The initial verdict found one P2
+stale-lineage documentation issue at README lines 3, 25-26, 386, and 391,
+PROOF-MANIFEST lines 223-224, and historical FAULT-LEDGER line 4. It found no
+runtime or code findings; this R2 docs-only revision resolves that P2.
+
+Independent QA reverified the exact ROM, the `/W4` diagnostic count of 0,
+TGCS/TGSR pass, fresh full-scene root
+`build/qa-independent-r2-scene-20260803T000000Z` pass, direct self-test pass,
+and render root `build/qa-independent-r2-render-20260803T000000Z` with 40
+640x480 PNGs, two hash-identical passes, and no diagnostics. Diff check was
+clean, all 17 changed paths were owned, and the excluded scene/source-map files
+were byte/diff identical with blob hashes
+`58ad821d31a5559225855fbb30a1566d374063e7` and
+`b6fc46a927f1a0cddedf7a965d3ebb4ad7d23b7f`. QA also cleared the exact
+selector-1/A7A9 fixture: `AC0D3E09 mod 100 = 1`, probability 5, outcome MAKE.
+Transactional/fail-closed loaders and state, geometry/sample/context, matrices,
+points, routes/rattle, claimant, expiry, CPU defer, malformed/replay, and
+evidence classifications all cleared independently.
+
 ## Sol-owned ignored proof provenance and visual-proof boundary
 
 The following local artifacts and observations were supplied by Sol and are
@@ -383,11 +422,14 @@ dependencies or committed evidence.
 ## Fault ledger and exact final state
 
 See [FAULT-LEDGER.md](FAULT-LEDGER.md) for the ordinary failed commands,
-diagnostic interpretations, and fixes retained in this uncommitted lineage.
-At the time of writing, `git diff --check` is clean, all changed paths are
-owned paths, and explicit zero-diff checks confirm that both excluded shared
-files, `src/tecmo_gameplay_scene.c` and
-`src/asset_pack/tecmo_asset_pack_source_map.c`, remain untouched. The worker
-is still at the exact base commit with no candidate commit created. Independent
-QA remains pending, and the shared-file name/source-map follow-ups remain
-incomplete and deferred.
+diagnostic interpretations, and fixes retained in this candidate-commit lineage.
+The candidate baseline was clean at
+`24bdde9c87b1529d9ab83671bc8c60c1e136ceb1`; the current child is intentionally
+a docs-only, uncommitted QA revision. `git diff --check` is clean, all current
+changed paths are docs-owned, and explicit worktree/index/range zero-diff checks
+confirm that both excluded shared files, `src/tecmo_gameplay_scene.c` and
+`src/asset_pack/tecmo_asset_pack_source_map.c`, remain untouched. Same-QA
+revised-tip verification and final Sol acceptance remain pending; the shared-file
+name/source-map follow-ups remain incomplete and deferred. This docs-only child
+cannot embed its own future object ID; terminal handoff will supply its exact
+commit SHA.
