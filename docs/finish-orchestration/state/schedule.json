@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T03:52:40Z",
+  "updated_at": "2026-08-04T04:18:06Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -387,8 +387,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-rules-restarts-sol",
       "ownership_claim_ids": ["OWN-R2-RULES-RESTARTS"],
       "blockers": [],
-      "next_gate": "Clean takeover passed. Three exact pinned projectless Luna/max read-only audits are active for ASM/native evidence, architecture/collision, and proof/test gaps. Sol must personally reconcile them and return one exact bounded product/function/test rescope request before any product write or writable implementation Luna.",
-      "updated_at": "2026-08-04T03:52:40Z"
+      "next_gate": "Good-signed master grant authorizes exactly the existing scene audio seam and additive focused test registration for source-backed shared foul/violation SFX-6 at presentation frame 16. Create exactly one collision-cleared persistent Luna on codex/r2-rules-restarts-luna from 7fe2dd7, constrain it to the five granted product/test paths, keep task docs Sol-owned, and preserve every broader semantic rules/FT/detector/asset/source-map/shared-scene exclusion.",
+      "updated_at": "2026-08-04T04:18:06Z"
     }
   ]
 }

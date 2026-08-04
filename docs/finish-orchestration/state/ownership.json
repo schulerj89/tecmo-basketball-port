@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T01:56:10Z",
+  "updated_at": "2026-08-04T04:18:06Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -635,17 +635,27 @@
       "session_id": "S-SOL-R2-RULES-RESTARTS-001",
       "mode": "exclusive",
       "writable_globs": [
-        "docs/finish-tasks/R2-rules-restarts/**"
+        "docs/finish-tasks/R2-rules-restarts/**",
+        "CMakeLists.txt",
+        "src/tecmo_gameplay_scene.c",
+        "src/tecmo_gameplay_scene_test_rules_restarts.c",
+        "src/tecmo_gameplay_scene_test_internal.h",
+        "src/tecmo_gameplay_scene_test_orchestrator.c"
       ],
       "planned_paths": [
         "docs/finish-tasks/R2-rules-restarts/README.md",
-        "docs/finish-tasks/R2-rules-restarts/SCOPE.md"
+        "docs/finish-tasks/R2-rules-restarts/SCOPE.md",
+        "CMakeLists.txt",
+        "src/tecmo_gameplay_scene.c",
+        "src/tecmo_gameplay_scene_test_rules_restarts.c",
+        "src/tecmo_gameplay_scene_test_internal.h",
+        "src/tecmo_gameplay_scene_test_orchestrator.c"
       ],
       "concurrency_group": "R2-rules-restarts",
       "active": true,
       "claimed_at": "2026-08-04T03:44:25Z",
       "released_at": null,
-      "notes": "Transferred after Good-signed reservation 99e7183 to exact pinned Sol 019fcae1-d939-7dd0-a839-6599e2efc362. Initial writable scope is task docs only. All product/source/header/tool/build/scene/asset/source-map paths remain read-only while the Sol completes parallel native-evidence, architecture/collision, and proof-gap audits and returns an exact bounded rescope request. No product mutation or writable Luna is authorized yet."
+      "notes": "Transferred after Good-signed reservation 99e7183 to exact pinned Sol 019fcae1-d939-7dd0-a839-6599e2efc362. Expanded at 2026-08-04T04:18:06Z after the Sol and three independent read-only Luna/max audits converged and master independently confirmed zero active-path, branch, worktree, or registry collision. Product authority is exactly additive registration of one new rules/restarts scene-test translation unit, one new focused test file, one test prototype, one orchestrator invocation, and scene.c edits limited to scene_process_phase_audio plus scene_dispatch_update_audio only if elapsed-phase dispatch requires it. Implement only the source-backed shared foul/violation SFX-6 request after 16 presentation frames, exact-once, preserving update order and audio clear/restart policy. This grant does not authorize foul/contact inference, invented TPNL context, free-throw outcome/rebound/possession changes, new violation detectors, claimant/rebound/block/steal semantics, foul-divider policy, asset/source-map changes, any other scene/header/test/tool/build path, or main/staging/push. One persistent writable Luna may use codex/r2-rules-restarts-luna at the exact 7fe2dd7 base with only these five product/test paths; task docs remain Sol-owned."
     }
   ],
   "shared_boundaries": [
