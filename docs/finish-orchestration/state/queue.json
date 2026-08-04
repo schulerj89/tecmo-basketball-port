@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T13:07:59Z",
+  "updated_at": "2026-08-04T13:10:53Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -3972,7 +3972,7 @@
       "round_id": "R2E",
       "priority": 99,
       "coordination_only": false,
-      "state": "sol_review",
+      "state": "ready_for_main",
       "dependencies": [
         "R2-GAMEPLAY-PRESENTATION"
       ],
@@ -3997,9 +3997,9 @@
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-tasks/R2E-gameplay-presentation-integration-qa",
       "qa": {
-        "status": "recovery_handoff",
-        "sol_signoff": false,
-        "integration_signoff": false,
+        "status": "passed",
+        "sol_signoff": true,
+        "integration_signoff": true,
         "test_records": [
           "2026-08-04T10:26:21Z master accepted immutable Good-signed presentation tip d8d811918932c19bbe1741d2392ec1ad942ebd79 after personal and same-Luna P0/P1/P2/P3-zero closure, reverified exact six-path delta and stable clean ed060720 main, and reserved a dedicated current-main Integration QA lane before any branch/worktree/task creation.",
           "2026-08-04T10:34:47Z after Good-signed reservation ab832e8, master reverified unchanged clean local/tracking/live ed060720 main, candidate signature/ancestry/diff, absent local/remote refs and worktree, then created immutable staging d8d8119 and exact clean ed060720 integration branch/worktree. Exactly one top-level projectless gpt-5.6-sol/max orchestrator 019fcc56-f41f-7601-8dae-e93ebef4ed4f was created once and pinned immediately with zero creation/pin/retry/replacement fault.",
@@ -4013,19 +4013,20 @@
           "2026-08-04T12:15:24Z the sole Luna had already returned final terminal PASS with product/tooling P0/P1/P2/P3 all zero when the original Sol task became exactly systemError before emitting the guarded handoff. Master independently reverified the preserved branch clean at Good-signed bdc2fbb/tree 9fd2af3, diff-check clean, and local/tracking/live main unchanged at ed060720. One sequential Sol/max recovery replacement is reserved on the same branch/worktree; the existing Luna lineage is inherited read-only and no new product/report/main/staging/origin/push authority is granted.",
           "2026-08-04T13:01:45Z under Good-signed recovery reservation 99c1edf, master created and pinned exactly one replacement gpt-5.6-sol/max task 019fccdd-694b-7000-b0c1-3926c8e55e0d. It is assigned the same preserved clean bdc2fbb branch/worktree and inherits sole Luna 019fcc72 read-only. No creation/pin retry or replacement occurred; the failed predecessor remains pinned until this exact recovery task reports clean takeover.",
           "2026-08-04T13:05:52Z recovery Sol 019fccdd reported exact clean takeover after reading AGENTS/PORTING and all five reports, verifying signed reservation 99c1edf, Good-signed bdc2fbb/tree/parent/linear ancestry/diff-check, immutable d8d8119 staging, unchanged local/tracking/live ed060720 main, and the sole Luna's final terminal PASS with P0/P1/P2/P3 zero. It made zero repository/task/ref mutation and created no new Luna. Master accepts it as authoritative recovery owner and authorizes predecessor unpin plus issuance of the missing guarded handoff.",
-          "2026-08-04T13:07:59Z after Good-signed activation 6438c52 recorded takeover, master unpinned failed predecessor 019fcc56 successfully (pinned=false) without archiving or deleting it. Recovery Sol 019fccdd remains pinned and was directed to issue the missing guarded handoff; branch/worktree/reports/proofs and protected refs remain untouched."
+          "2026-08-04T13:07:59Z after Good-signed activation 6438c52 recorded takeover, master unpinned failed predecessor 019fcc56 successfully (pinned=false) without archiving or deleting it. Recovery Sol 019fccdd remains pinned and was directed to issue the missing guarded handoff; branch/worktree/reports/proofs and protected refs remain untouched.",
+          "2026-08-04T13:10:53Z authoritative recovery Sol 019fccdd issued the exact terminal master-only handoff after rechecking activation 6438c52, Good-signed bdc2fbb/tree 9fd2af3/parent a4c1286, clean unique branch/worktree, immutable d8d8119 staging, unchanged local/tracking/live ed060720 main, all five reports, and sole Luna final P0/P1/P2/P3-zero PASS. Master records bdc2fbb ready for guarded non-force fast-forward; no recovery mutation occurred."
         ],
         "proof_manifests": [
           "personal layup manifest SHA256 90EFB0AAAF55BB9853B8ED52A1E476701E388F389FD895922A4111E9BF1A91DD",
           "personal 2560x2400 gameplay-layup contact sheet SHA256 85995E1654354BFFF874AEA8510F91FD6E0AB1BCECD49C5138EBC116FB9B6A6C",
           "corrective presentation manifest SHA256 DCFF7AD9670D0C630785401F8E083F10019E458BD23001E3575D124EF0F60E4C"
         ],
-        "notes": "Product and QA-tooling P0/P1/P2/P3 are zero after the same Luna accepted corrective a4c1286 and exact Good-signed five-report terminal bdc2fbb. The original Sol entered systemError only after that final PASS and before emitting its guarded handoff. Replacement Sol 019fccdd has confirmed exact clean takeover and is authorized to issue the missing handoff without new product/report mutation. Predecessor unpin is authorized; main, origin, staging, and push remain master-only."
+        "notes": "Product and QA-tooling P0/P1/P2/P3 are zero after the same Luna accepted corrective a4c1286 and exact Good-signed five-report terminal bdc2fbb. The failed original Sol was replaced without losing work; recovery Sol 019fccdd confirmed takeover and issued the missing guarded handoff. Exact bdc2fbb is ready for master-only non-force ff delivery. Main, origin, staging, and push remain master-only until guards are executed."
       },
       "merge": {
         "staging_branch": "codex/round-2e-gameplay-presentation-staging",
         "merge_order": 1,
-        "status": "not_ready",
+        "status": "ready",
         "merge_commit": null,
         "main_pre_sha": "ed060720a98b790f98591af363a490a0e0816018",
         "main_post_sha": null,
@@ -4033,7 +4034,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-04T10:26:21Z",
-      "updated_at": "2026-08-04T13:07:59Z",
+      "updated_at": "2026-08-04T13:10:53Z",
       "audit": [
         {
           "timestamp": "2026-08-04T10:26:20Z",
@@ -4083,6 +4084,34 @@
           "from_state": "luna_revision",
           "to_state": "sol_review",
           "reason": "Good-signed exact one-runner corrective a4c1286 passed the complete personal safety/build/proof/visual matrix and the same pinned independent Luna began revised-tip verification."
+        },
+        {
+          "timestamp": "2026-08-04T13:10:50Z",
+          "actor_session_id": "S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001",
+          "from_state": "sol_review",
+          "to_state": "sol_accepted",
+          "reason": "Recovery Sol confirmed the preserved exact terminal and existing Luna P0/P1/P2/P3-zero PASS, then issued the missing guarded handoff without mutation."
+        },
+        {
+          "timestamp": "2026-08-04T13:10:51Z",
+          "actor_session_id": "S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001",
+          "from_state": "sol_accepted",
+          "to_state": "ready_for_round_staging",
+          "reason": "Accepted bdc2fbb is a clean Good-signed descendant of immutable staging and guarded main with exact reports and classifications."
+        },
+        {
+          "timestamp": "2026-08-04T13:10:52Z",
+          "actor_session_id": "S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001",
+          "from_state": "ready_for_round_staging",
+          "to_state": "combined_qa",
+          "reason": "The existing sole Luna and both Sol lineages collectively close product and tooling P0/P1/P2/P3 at zero on the exact terminal tip."
+        },
+        {
+          "timestamp": "2026-08-04T13:10:53Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "combined_qa",
+          "to_state": "ready_for_main",
+          "reason": "Master recorded the recovery handoff, exact terminal identity, stable protected refs, complete QA, and non-force fast-forward guards."
         }
       ]
     }

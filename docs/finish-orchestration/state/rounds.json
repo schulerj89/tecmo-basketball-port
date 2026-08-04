@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T13:05:52Z",
+  "updated_at": "2026-08-04T13:10:53Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -226,7 +226,7 @@
     {
       "round_id": "R2",
       "title": "Gameplay mechanics, rules, animation, and presentation",
-      "status": "in_progress",
+      "status": "ready_for_main",
       "base_sha": "7090d2c62201ce3d330df20043a6e80fd0bdef00",
       "scope": [
         "Shots and all outcomes",
@@ -828,16 +828,16 @@
       "merge_order": ["R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"],
       "combined_qa": {
         "required": true,
-        "status": "pending",
-        "accepted_sha": null,
-        "report_path": null,
-        "signed_by_session_id": null,
-        "notes": "A dedicated R2E Sol must independently reconcile immutable d8d8119 with guarded ed060720 main, rerun complete proportional integration and visual evidence, obtain one same-lineage Luna/max audit, and sign the exact terminal result before any master delivery."
+        "status": "accepted",
+        "accepted_sha": "bdc2fbb8f5b8497f4855b80e8834696220036aba",
+        "report_path": "docs/finish-tasks/R2E-gameplay-presentation-integration-qa/README.md",
+        "signed_by_session_id": "S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001",
+        "notes": "Good-signed terminal bdc2fbb closes the accepted corrective runner and five-report layer over immutable d8d8119. Original Sol and sole Luna completed the full build/proof/visual matrix at P0/P1/P2/P3 zero; recovery Sol independently confirmed exact preserved Git/report/ref state and delivered the missing guarded handoff."
       },
       "acceptance": {
-        "status": "pending",
-        "accepted_at": null,
-        "accepted_sha": null,
+        "status": "accepted",
+        "accepted_at": "2026-08-04T13:10:53Z",
+        "accepted_sha": "bdc2fbb8f5b8497f4855b80e8834696220036aba",
         "criteria": [
           "Guarded current main and immutable d8d8119 are exact ancestors of the terminal signed integration result",
           "Canonical and CMake warning-clean builds plus focused presentation and affected current-main scene/state/flow/Win32 smokes pass",
@@ -855,7 +855,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-04T10:26:21Z",
-      "updated_at": "2026-08-04T13:05:52Z"
+      "updated_at": "2026-08-04T13:10:53Z"
     },
     {
       "round_id": "R5",
