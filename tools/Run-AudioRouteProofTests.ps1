@@ -11,6 +11,10 @@ $ExpectedParent = "f1b04193405d1c87f21e80ee51d3790499ea0cf8"
 $FoundationBase = "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb"
 $ExpectedRomSha256 =
     "076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4"
+$ExpectedCurrentFullPackSha256 =
+    "27D4CEB45D99F74C8C86C31B50FAEBC76AC71FFBFD92CA2A99478F01E1CA6B29"
+$AcceptedR4aFullPackCheckpointSha256 =
+    "8916A549E804AFF083B42989E898A92189A1226C192A644660B19812519C8141"
 $ExpectedChangedPaths = @(
     "docs/finish-tasks/R4-audio/COMMANDS.md",
     "docs/finish-tasks/R4-audio/EVIDENCE.md",
@@ -55,8 +59,7 @@ $ExpectedFoundationProof = [ordered]@{
     canonical_rom_revision = "Rev1"
     canonical_rom_sha256 = $ExpectedRomSha256
     canonical_rom_visibility = "local_private"
-    pack_sha256 =
-        "8916A549E804AFF083B42989E898A92189A1226C192A644660B19812519C8141"
+    pack_sha256 = $ExpectedCurrentFullPackSha256
     tmus_payload_size = "36784"
     tmus_payload_fnv1a32 = "05C00ECB"
     tfsx_payload_size = "1792"
@@ -430,6 +433,10 @@ $Ledger = [pscustomobject][ordered]@{
     }
     foundation_proof_manifest_sha256 =
         (Get-FileHash -LiteralPath $FoundationProofPath -Algorithm SHA256).Hash
+    current_expected_parent_full_pack_sha256 =
+        $ExpectedCurrentFullPackSha256
+    historical_accepted_r4a_full_pack_checkpoint_sha256 =
+        $AcceptedR4aFullPackCheckpointSha256
     foundation = [pscustomobject]$ExpectedFoundationProof
     counts = [pscustomobject]$Counts
     routes = $Routes
@@ -447,6 +454,8 @@ $ManifestLines = @(
     "expected_parent=$ExpectedParent",
     "route_ledger_sha256=$LedgerSha",
     "foundation_proof_manifest_sha256=$($Ledger.foundation_proof_manifest_sha256)",
+    "current_expected_parent_full_pack_sha256=$ExpectedCurrentFullPackSha256",
+    "historical_accepted_r4a_full_pack_checkpoint_sha256=$AcceptedR4aFullPackCheckpointSha256",
     "music_suite_sha256=$($FrozenFiles['tools/Run-MusicTests.ps1'])",
     "frontend_suite_sha256=$($FrozenFiles['tools/Run-FrontendAudioTests.ps1'])",
     "gameplay_suite_sha256=$($FrozenFiles['tools/Run-GameplayAudioTests.ps1'])",

@@ -74,11 +74,36 @@ The implementation decisions are:
 - keep DMC IDs 0-2, effect 5, effect 6, and cycle/APU/device limitations
   explicit in both JSON and the short manifest.
 
+## Pre-acceptance runner corrections
+
+Both observed failures are harness defects and are retained rather than hidden:
+
+1. Signed precursor `4c5b080a1f69f5bbbdba95913f3dbf9bd7ac7056`
+   passed a string array to PowerShell splatting. Music bound the literal
+   `-ProjectRoot` token as its value and failed before the suite ran. The same
+   implementation lineage replaced this with named hashtable splatting.
+2. Clean signed precursor
+   `99a54943b4becc5e0dde0379624b6c7bb5f7cb8c` passed the build and all three
+   frozen suites, then rejected the regenerated pack because it incorrectly
+   treated R4A checkpoint `8916A549...C8141` as a timeless whole-pack golden.
+   A separate GameplayAudio rerun passed and reproduced current expected-parent
+   full-pack SHA-256
+   `27D4CEB45D99F74C8C86C31B50FAEBC76AC71FFBFD92CA2A99478F01E1CA6B29`,
+   while every audio payload and proof artifact identity remained exact.
+
+Later accepted integration added non-audio pack content between the R4A
+checkpoint and this task's expected parent. That is sufficient to make the
+complete container identity integration-tip-specific; this lineage does not
+attribute the delta to a narrower entry or byte. The runner now pins the
+current full-pack identity and separately records the earlier accepted R4A
+checkpoint as historical evidence.
+
 The only executed validation in this implementation handoff was a parse-only
-PowerShell syntax check of the new runner, which passed. Terminal build,
-private proof, current-HEAD artifact hashes, personal Sol review, signed
-candidate commit, and exactly one independent terminal QA remain for the
-authoritative Sol workflow.
+PowerShell syntax/static check of each local runner revision, which passed.
+The authoritative Sol supplied the precursor runtime results above. A clean
+full-wrapper PASS on the corrected committed candidate, current-HEAD artifact
+hashes, personal Sol review, and exactly one independent terminal QA remain for
+the authoritative Sol workflow.
 
 ## Handoff boundary
 

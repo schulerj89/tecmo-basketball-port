@@ -20,8 +20,9 @@ The entry point is `tools/Run-AudioRouteProofTests.ps1`. It:
 3. pins the three accepted Music/FrontendAudio/GameplayAudio script SHA-256
    identities plus the read-only route/evidence source identities;
 4. runs the three scripts without replacing or weakening any suite;
-5. parses the regenerated ignored R4A foundation proof manifest and requires
-   every accepted pack, payload, WAV, event, CLI-manifest, and waveform hash;
+5. parses the regenerated ignored foundation proof manifest and requires the
+   current expected-parent full-pack hash plus every stable audio payload, WAV,
+   event, CLI-manifest, and waveform hash;
 6. writes a deterministic ignored route ledger and short manifest below
    `build/proof/r4-audio-route/`.
 
@@ -47,6 +48,14 @@ boundaries. The five proven routes are limited to the normal frontend flow:
 | Fresh title confirmation frame 1 | frontend SFX 10 | native flow observes exactly one request |
 | Title confirmation frame 127 | music ID 6 | native flow proves the frame-126 hold and frame-127 blue-menu handoff |
 | Accepted Player 1 A release in the blue menu | frontend SFX 8 | native flow proves accepted requests plus rejected input cases |
+
+The current expected-parent full shared pack is pinned at SHA-256
+`27D4CEB45D99F74C8C86C31B50FAEBC76AC71FFBFD92CA2A99478F01E1CA6B29`.
+The earlier accepted R4A checkpoint
+`8916A549E804AFF083B42989E898A92189A1226C192A644660B19812519C8141`
+remains historical evidence, not the current full-pack golden. Later accepted
+integration added non-audio pack content; this proof does not attribute the
+container delta more narrowly.
 
 Gameplay, halftime/final, and Win32 callers remain source-present-only under
 this runner. Their presence is not promoted to execution proof. DMC IDs 1 and

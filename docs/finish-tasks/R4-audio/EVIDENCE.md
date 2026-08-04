@@ -17,11 +17,12 @@ The wrapper refuses to run if any accepted suite drifts:
 | `tools/Run-GameplayAudioTests.ps1` | `24427E142A22A8A32657880B97F064958057ADC65B4216A50849B3944F16FCE2` |
 
 After GameplayAudio regenerates
-`build/proof/r4-audio-foundation/proof-manifest.txt`, the wrapper requires:
+`build/proof/r4-audio-foundation/proof-manifest.txt`, the wrapper requires the
+current expected-parent container and stable audio identities:
 
 | Evidence | Accepted identity |
 | --- | --- |
-| Shared semantic pack SHA-256 | `8916A549E804AFF083B42989E898A92189A1226C192A644660B19812519C8141` |
+| Current expected-parent full shared pack SHA-256 | `27D4CEB45D99F74C8C86C31B50FAEBC76AC71FFBFD92CA2A99478F01E1CA6B29` |
 | TMUS-1 | 36,784 bytes / FNV-1a32 `05C00ECB` |
 | TFSX-1 | 1,792 bytes / FNV-1a32 `985DC7ED` |
 | TSFX-1 | 2,824 bytes / FNV-1a32 `968A5DE6` |
@@ -31,6 +32,15 @@ After GameplayAudio regenerates
 | CLI manifest SHA-256 | `47EA2304FFF12C9348E821423E8E0806C9E00FA79DBE8344ED44E3C245B24298` |
 | Waveform CSV SHA-256, both runs | `76642CA7B52835301EEE0BA6185D50103C6DBC2A411D452A7FBFDBDCCFD5F4E2` |
 | Waveform SVG SHA-256, both runs | `6A6ED51A4BB1A77A76ACAA50DF1FA30D367AF5A273C9AB20D5C553EBD2A5A66E` |
+
+The earlier accepted isolated/combined R4A full-pack checkpoint remains
+`8916A549E804AFF083B42989E898A92189A1226C192A644660B19812519C8141`.
+That value is preserved as historical integration-tip evidence; it is not the
+full-pack golden for expected parent `f1b04193405d1c87f21e80ee51d3790499ea0cf8`.
+Later accepted integration added non-audio asset-pack content, so the complete
+container identity is tip-specific. This proof makes no narrower claim about
+which later entry or byte accounts for the delta. The four audio payload
+sizes/FNVs and all audio WAV/events/CLI/waveform identities remain unchanged.
 
 The wrapper also requires the foundation proof to name its current committed
 HEAD. That proof establishes native programs, PCM/state behavior, mailbox

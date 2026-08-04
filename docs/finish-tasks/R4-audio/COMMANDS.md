@@ -60,10 +60,29 @@ The expected wrapper summary is:
 AUDIO ROUTE PROOF PASS: proven=5 source-present-only=13 unproven=7 ledger=<SHA256>
 ```
 
+For this expected parent, the regenerated full shared pack must be:
+
+```text
+pack_sha256=27D4CEB45D99F74C8C86C31B50FAEBC76AC71FFBFD92CA2A99478F01E1CA6B29
+```
+
+The historical accepted R4A full-pack checkpoint `8916A549...C8141` is
+retained in the ledger/manifest for provenance, but is deliberately not used
+as the current full-pack assertion. Audio payload and proof artifact hashes
+remain the accepted R4A values in [EVIDENCE.md](EVIDENCE.md).
+
 The implementation/revision lineage intentionally did not run the build or
 private-ROM suites before handoff. The authoritative Sol must record the exact
 terminal command, candidate HEAD, ledger SHA-256, and result after the
 candidate is committed and clean.
+
+Two pre-acceptance runner faults are not terminal evidence: precursor
+`4c5b080` passed literal string-array arguments to Music and failed before the
+suite; clean signed `99a54943` then passed build and all three frozen suites but
+rejected the reproducible current full-pack SHA because the wrapper still used
+the historical R4A container checkpoint. The separately repeated GameplayAudio
+suite reproduced `27D4CEB4...E1CA6B29` with unchanged audio identities. A full
+wrapper PASS remains required after this correction.
 
 ## Ignored outputs
 
