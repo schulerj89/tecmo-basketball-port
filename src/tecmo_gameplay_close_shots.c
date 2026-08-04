@@ -76,19 +76,31 @@ static bool semantic_kind_from_numeric(
     return false;
 }
 
-static bool reject(TecmoGameplayCloseShotAssets *assets, const char *message)
+static bool reject(
+    TecmoGameplayCloseShotAssets *candidate,
+    TecmoGameplayCloseShotAssets *destination,
+    const char *message)
 {
-    free(assets->storage);
-    assets->storage = NULL;
-    assets->storage_size = 0U;
-    assets->variant0_phases = NULL;
-    assets->variant2_phases = NULL;
-    assets->pose_bases = NULL;
-    assets->gameplay_core_fingerprint = 0U;
-    memset(assets->sources, 0, sizeof(assets->sources));
-    assets->available = false;
-    (void)snprintf(assets->status, sizeof(assets->status), "%s",
+    bool publish_fresh_status = destination != NULL &&
+        !destination->available && destination->storage == NULL;
+    free(candidate->storage);
+    candidate->storage = NULL;
+    candidate->storage_size = 0U;
+    candidate->variant0_phases = NULL;
+    candidate->variant2_phases = NULL;
+    candidate->pose_bases = NULL;
+    candidate->gameplay_core_fingerprint = 0U;
+    memset(candidate->sources, 0, sizeof(candidate->sources));
+    candidate->available = false;
+    (void)snprintf(candidate->status, sizeof(candidate->status), "%s",
                    message != NULL ? message : "TGCS-1 rejected");
+    if (publish_fresh_status) {
+        /* A fresh destination has no committed storage to preserve. Publish
+           only the precise diagnostic; candidate pointers remain private and
+           are never exposed. Existing valid/reload state is untouched. */
+        (void)snprintf(destination->status, sizeof(destination->status), "%s",
+                       candidate->status);
+    }
     return false;
 }
 
@@ -320,18 +332,24 @@ bool tecmo_gameplay_close_shots_parse(
     const uint8_t *gameplay_core,
     size_t gameplay_core_size)
 {
+    TecmoGameplayCloseShotAssets candidate;
+    TecmoGameplayCloseShotAssets previous;
     uint8_t *storage;
     if (assets == NULL ||
         assets->lifecycle_tag != TECMO_GAMEPLAY_CLOSE_SHOTS_LIFECYCLE_TAG) {
         return false;
     }
-    tecmo_gameplay_close_shots_destroy(assets);
+    /* Build a wholly independent candidate.  A failed reload must leave the
+       previously committed TGCS storage, spans, and status byte-for-byte
+       intact; in particular, do not free the live storage before validation. */
+    tecmo_gameplay_close_shots_init(&candidate);
     if (payload == NULL || !validate_header(payload, payload_size)) {
-        return reject(assets, "TGCS-1 header/size/reserved contract rejected");
+        return reject(&candidate, assets,
+                      "TGCS-1 header/size/reserved contract rejected");
     }
     if (fnv1a32(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_FNV1A32) {
-        return reject(assets,
+        return reject(&candidate, assets,
                       "TGCS-1 canonical payload fingerprint rejected");
     }
     if (!validate_source_records(payload, payload_size) ||
@@ -342,23 +360,26 @@ bool tecmo_gameplay_close_shots_parse(
                 TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_RAW_SIZE) !=
             TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_RAW_FNV1A32 ||
         !validate_semantics(payload)) {
-        return reject(assets, "TGCS-1 source/semantic contract rejected");
+        return reject(&candidate, assets,
+                      "TGCS-1 source/semantic contract rejected");
     }
     if (!validate_gameplay_core(gameplay_core, gameplay_core_size)) {
-        return reject(assets,
+        return reject(&candidate, assets,
                       "TGCS-1 same-pack gameplay/core dependency rejected");
     }
 
     storage = (uint8_t *)malloc(payload_size);
-    if (storage == NULL) return reject(assets, "TGCS-1 allocation failed");
+    if (storage == NULL) {
+        return reject(&candidate, assets, "TGCS-1 allocation failed");
+    }
     memcpy(storage, payload, payload_size);
-    assets->storage = storage;
-    assets->storage_size = payload_size;
+    candidate.storage = storage;
+    candidate.storage_size = payload_size;
     for (size_t index = 0U;
          index < TECMO_GAMEPLAY_CLOSE_SHOT_SOURCE_COUNT; ++index) {
         const TecmoGameplayCloseShotExpectedSource *expected =
             &tecmo_gameplay_close_shot_expected_sources[index];
-        TecmoGameplayCloseShotSourceSpan *source = &assets->sources[index];
+        TecmoGameplayCloseShotSourceSpan *source = &candidate.sources[index];
         source->kind = expected->kind;
         source->bank = TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_BANK;
         source->cpu_start = expected->cpu_start;
@@ -368,16 +389,19 @@ bool tecmo_gameplay_close_shots_parse(
         source->fingerprint = expected->fingerprint;
         source->bytes = storage + expected->payload_offset;
     }
-    assets->variant0_phases = storage +
+    candidate.variant0_phases = storage +
         TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_VARIANT0_PHASE_OFFSET;
-    assets->variant2_phases = storage +
+    candidate.variant2_phases = storage +
         TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_VARIANT2_PHASE_OFFSET;
-    assets->pose_bases = storage +
+    candidate.pose_bases = storage +
         TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_POSE_BASE_OFFSET;
-    assets->gameplay_core_fingerprint = TECMO_ASSET_PACK_GAMEPLAY_FNV1A32;
-    assets->available = true;
-    (void)snprintf(assets->status, sizeof(assets->status),
+    candidate.gameplay_core_fingerprint = TECMO_ASSET_PACK_GAMEPLAY_FNV1A32;
+    candidate.available = true;
+    (void)snprintf(candidate.status, sizeof(candidate.status),
                    "TGCS-1 gameplay close-shot assetpack");
+    previous = *assets;
+    *assets = candidate;
+    free(previous.storage);
     return true;
 }
 
@@ -393,22 +417,27 @@ bool tecmo_gameplay_close_shots_load(TecmoGameplayCloseShotAssets *assets,
         assets->lifecycle_tag != TECMO_GAMEPLAY_CLOSE_SHOTS_LIFECYCLE_TAG) {
         return false;
     }
-    tecmo_gameplay_close_shots_destroy(assets);
     if (asset_pack_path == NULL ||
         tecmo_asset_pack_read_entry_exact(
             asset_pack_path, TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_ID,
             TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_SIZE,
             &payload, &payload_size) != 0) {
-        return reject(assets,
-                      "TGCS-1 gameplay/close-shots entry missing or wrong-sized");
+        if (!assets->available) {
+            (void)snprintf(assets->status, sizeof(assets->status),
+                           "TGCS-1 gameplay/close-shots entry missing or wrong-sized");
+        }
+        return false;
     }
     if (tecmo_asset_pack_read_entry_exact(
             asset_pack_path, TECMO_ASSET_PACK_GAMEPLAY_ID,
             TECMO_ASSET_PACK_GAMEPLAY_SIZE,
             &gameplay_core, &gameplay_core_size) != 0) {
         tecmo_asset_pack_free(payload);
-        return reject(assets,
-                      "TGCS-1 gameplay/core dependency missing or wrong-sized");
+        if (!assets->available) {
+            (void)snprintf(assets->status, sizeof(assets->status),
+                           "TGCS-1 gameplay/core dependency missing or wrong-sized");
+        }
+        return false;
     }
     loaded = tecmo_gameplay_close_shots_parse(
         assets, payload, (size_t)payload_size,
@@ -466,7 +495,42 @@ bool tecmo_gameplay_close_shots_get_variant_info(
             TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT2_POSE_PHASE_COUNT;
         return true;
     }
+    if (variant == TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_1) {
+        info->numeric_variant = 1U;
+        info->semantic_kind = TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_UNKNOWN;
+        info->family_flags = TECMO_GAMEPLAY_CLOSE_SHOT_FAMILY_UNPROVEN_NUMERIC;
+        /* No TGCS-1 phase or pose count is inferred for this identity. */
+        info->step_count = 0U;
+        info->pose_phase_count = 0U;
+        return true;
+    }
     return false;
+}
+
+bool tecmo_gameplay_close_shots_select_numeric_variant(
+    int16_t approach_distance_x,
+    int16_t distance_y,
+    bool source_variant1_gate,
+    TecmoGameplayCloseShotVariant *variant)
+{
+    if (variant == NULL || approach_distance_x < -8 ||
+        approach_distance_x > 48 ||
+        distance_y < -64 || distance_y > 80) {
+        return false;
+    }
+    /* This gate is deliberately neutral: the evidence proves numeric 1 is
+       reachable, but does not prove a contact/layup/dunk meaning.  The
+       caller supplies a bounded source/substitution bit because the raw
+       object/timer predicate is unavailable; do not add geometry conditions
+       that make canonical direction slots unreachable. */
+    if (source_variant1_gate) {
+        *variant = TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_1;
+    } else if (approach_distance_x <= 24) {
+        *variant = TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0;
+    } else {
+        *variant = TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2;
+    }
+    return true;
 }
 
 bool tecmo_gameplay_close_shots_phase_for_step(
@@ -525,5 +589,40 @@ bool tecmo_gameplay_close_shots_resolve_pose_pointer_index(
         return false;
     }
     *pointer_index = (uint16_t)(base + phase);
+    return true;
+}
+
+bool tecmo_gameplay_close_shots_resolve_numeric_variant1_pose_pointer_index(
+    const TecmoGameplayCloseShotAssets *assets,
+    TecmoGameplayCloseShotDirection direction,
+    uint16_t *pointer_index)
+{
+    const TecmoGameplayCloseShotSourceSpan *source;
+    uint16_t byte_offset;
+    uint16_t resolved;
+    size_t table_index;
+    if (assets == NULL || !assets->available || pointer_index == NULL ||
+        (unsigned)direction >= TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_COUNT) {
+        return false;
+    }
+    source = tecmo_gameplay_close_shots_find_source(
+        assets, TECMO_GAMEPLAY_CLOSE_SHOT_SOURCE_POSE_LOW_HIGH_TABLE);
+    if (source == NULL || source->bytes == NULL ||
+        source->cpu_start != 0x8CEDU || source->cpu_end != 0x8D3CU ||
+        source->byte_count != 80U) {
+        return false;
+    }
+    table_index = TECMO_GAMEPLAY_CLOSE_SHOT_NUMERIC_1_POSE_GROUP_INDEX +
+                  (size_t)direction;
+    byte_offset = (uint16_t)(
+        (uint16_t)source->bytes[table_index] |
+        ((uint16_t)source->bytes[TECMO_GAMEPLAY_CLOSE_SHOTS_POSE_TABLE_ENTRY_COUNT +
+                                 table_index] << 8U));
+    if ((byte_offset & 1U) != 0U) return false;
+    resolved = (uint16_t)(byte_offset >> 1U);
+    if ((unsigned)resolved >= TECMO_GAMEPLAY_CLOSE_SHOTS_POINTER_COUNT) {
+        return false;
+    }
+    *pointer_index = resolved;
     return true;
 }

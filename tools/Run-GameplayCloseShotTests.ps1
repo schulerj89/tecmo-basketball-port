@@ -29,7 +29,7 @@ if (!$Scratch.StartsWith($BuildPrefix,
 }
 $PackPath = Join-Path $Scratch "close-shots.assetpack"
 $ExpectedOutput =
-    "TGCS-1 close-shot assets passed: sources=13 variants=2 semantics=0:dunk,2:layup steps=48 poses=208 phases=0445C745 pose-sequence=BFDB4095"
+    "TGCS-1 close-shot assets passed: sources=13 source-complete-semantics=0:dunk,2:layup (2 families) native-numeric-identities=3 (numeric-1 pose-only; full trajectory incomplete) steps=48 poses=208 phases=0445C745 pose-sequence=BFDB4095"
 $PreviousSkipShortcut = $env:TECMO_SKIP_SHORTCUT
 
 function Get-ShortTail {

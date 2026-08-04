@@ -24,6 +24,53 @@ typedef enum TecmoGameplayShotOutcome {
     TECMO_GAMEPLAY_SHOT_OUTCOME_MISS = 2
 } TecmoGameplayShotOutcome;
 
+/* Direction slots mirror the eight-sign sector order used by the existing
+   TGJS/TGCS pointer matrices.  The selector below is the native equivalent
+   of Bank05 $9054-$90AF -> $8DD3-$8E4D -> $BF6C: a 4:1 dominant-axis test,
+   with equality belonging to the dominant axis.  Parameters are
+   target-minus-actor deltas; the source routine forms actor-minus-target
+   first, so callers must use the inverse of that internal subtraction. */
+typedef enum TecmoGameplayShotDirectionSlot {
+    TECMO_GAMEPLAY_SHOT_DIRECTION_RIGHT = 0,
+    TECMO_GAMEPLAY_SHOT_DIRECTION_LEFT = 1,
+    TECMO_GAMEPLAY_SHOT_DIRECTION_DOWN = 2,
+    TECMO_GAMEPLAY_SHOT_DIRECTION_DOWN_RIGHT = 3,
+    TECMO_GAMEPLAY_SHOT_DIRECTION_DOWN_LEFT = 4,
+    TECMO_GAMEPLAY_SHOT_DIRECTION_UP = 5,
+    TECMO_GAMEPLAY_SHOT_DIRECTION_UP_RIGHT = 6,
+    TECMO_GAMEPLAY_SHOT_DIRECTION_UP_LEFT = 7
+} TecmoGameplayShotDirectionSlot;
+
+typedef enum TecmoGameplayShotScheduleKind {
+    TECMO_GAMEPLAY_SHOT_SCHEDULE_NATIVE_APPROXIMATION = 0,
+    TECMO_GAMEPLAY_SHOT_SCHEDULE_EXACT_THREE_POINT = 1,
+    TECMO_GAMEPLAY_SHOT_SCHEDULE_CLOSE_NUMERIC_1 = 2
+} TecmoGameplayShotScheduleKind;
+
+typedef struct TecmoGameplayShotEvaluationInput {
+    uint8_t player_rating;
+    uint8_t point_value;
+    bool close_context;
+    bool contact_context;
+    bool contest_context;
+    int16_t horizontal_distance;
+    int16_t vertical_distance;
+    uint8_t family;
+    uint8_t profile;
+    uint8_t direction;
+    uint8_t numeric_variant;
+    uint32_t stable_sample;
+} TecmoGameplayShotEvaluationInput;
+
+typedef struct TecmoGameplayShotEvaluation {
+    TecmoGameplayShotOutcome outcome;
+    TecmoGameplayShotScheduleKind schedule;
+    bool contact_context;
+    bool contest_context;
+    uint8_t make_probability;
+    uint8_t point_value;
+} TecmoGameplayShotEvaluation;
+
 /* These numeric route identities are intentionally address-bound. The
    imported dispatch proves their selection, but not a more specific semantic
    name for every route. */
@@ -162,6 +209,27 @@ bool tecmo_gameplay_shot_resolution_classify_terminal_outcome(
     bool terminal_context,
     uint8_t result_flags,
     TecmoGameplayShotOutcome *outcome);
+
+bool tecmo_gameplay_shot_resolution_direction_for_delta(
+    int16_t target_delta_x,
+    int16_t target_delta_y,
+    TecmoGameplayShotDirectionSlot *direction);
+
+/* Bank02 $A8AE/$A8BA/$A8BC and Bank05 $842C/$8C7D consume profile[2] bit
+   5.  This helper preserves that exact one-bit selector without attaching a
+   semantic label to the two profiles. */
+bool tecmo_gameplay_shot_profile_from_profile_byte2(
+    uint8_t profile_byte2,
+    uint8_t *profile);
+
+/* Structured native evaluator.  The exact TGSR terminal polarity still must
+   be applied at a proven terminal context; this evaluator only supplies the
+   bounded native make/miss schedule and the shot-local contact/contest
+   classification when the full $91BC helper inputs are unavailable. */
+bool tecmo_gameplay_shot_resolution_evaluate(
+    const TecmoGameplayShotResolutionAssets *assets,
+    const TecmoGameplayShotEvaluationInput *input,
+    TecmoGameplayShotEvaluation *evaluation);
 
 /* Reproduces Bank05 $B995 using only raw world coordinates and the low two
    shot-flag bits. The result is exactly 1 (free throw), 2 (field goal), or

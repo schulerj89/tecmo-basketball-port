@@ -70,20 +70,28 @@ static bool range_ok(size_t offset, size_t count, size_t total)
     return offset <= total && count <= total - offset;
 }
 
-static bool reject(TecmoGameplayJumpShotAssets *assets,
-                   const char *message)
+static bool reject(
+    TecmoGameplayJumpShotAssets *candidate,
+    TecmoGameplayJumpShotAssets *destination,
+    const char *message)
 {
-    free(assets->storage);
-    assets->storage = NULL;
-    assets->storage_size = 0U;
-    assets->pose_indices = NULL;
-    assets->gameplay_core_fingerprint = 0U;
-    assets->close_shots_fingerprint = 0U;
-    memset(&assets->constants, 0, sizeof(assets->constants));
-    memset(assets->sources, 0, sizeof(assets->sources));
-    assets->available = false;
-    (void)snprintf(assets->status, sizeof(assets->status), "%s",
+    bool publish_fresh_status = destination != NULL &&
+        !destination->available && destination->storage == NULL;
+    free(candidate->storage);
+    candidate->storage = NULL;
+    candidate->storage_size = 0U;
+    candidate->pose_indices = NULL;
+    candidate->gameplay_core_fingerprint = 0U;
+    candidate->close_shots_fingerprint = 0U;
+    memset(&candidate->constants, 0, sizeof(candidate->constants));
+    memset(candidate->sources, 0, sizeof(candidate->sources));
+    candidate->available = false;
+    (void)snprintf(candidate->status, sizeof(candidate->status), "%s",
                    message != NULL ? message : "TGJS-2 rejected");
+    if (publish_fresh_status) {
+        (void)snprintf(destination->status, sizeof(destination->status), "%s",
+                       candidate->status);
+    }
     return false;
 }
 
@@ -399,18 +407,23 @@ bool tecmo_gameplay_jump_shots_parse(
     const uint8_t *close_shots,
     size_t close_shots_size)
 {
+    TecmoGameplayJumpShotAssets candidate;
+    TecmoGameplayJumpShotAssets previous;
     uint8_t *storage;
     if (assets == NULL ||
         assets->lifecycle_tag != TECMO_GAMEPLAY_JUMP_SHOTS_LIFECYCLE_TAG) {
         return false;
     }
-    tecmo_gameplay_jump_shots_destroy(assets);
+    /* Parse into independent storage and publish only after every dependency,
+       source span, and pose pointer has passed validation. */
+    tecmo_gameplay_jump_shots_init(&candidate);
     if (payload == NULL || !validate_header(payload, payload_size)) {
-        return reject(assets, "TGJS-2 header/size/reserved contract rejected");
+        return reject(&candidate, assets,
+                      "TGJS-2 header/size/reserved contract rejected");
     }
     if (fnv1a32(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_FNV1A32) {
-        return reject(assets,
+        return reject(&candidate, assets,
                       "TGJS-2 canonical payload fingerprint rejected");
     }
     if (!validate_source_records(payload, payload_size) ||
@@ -421,24 +434,27 @@ bool tecmo_gameplay_jump_shots_parse(
                 TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_RAW_SIZE) !=
             TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_RAW_FNV1A32 ||
         !validate_constants(payload)) {
-        return reject(assets, "TGJS-2 source/semantic contract rejected");
+        return reject(&candidate, assets,
+                      "TGJS-2 source/semantic contract rejected");
     }
     if (!validate_dependencies_and_poses(
             payload, gameplay_core, gameplay_core_size,
             close_shots, close_shots_size)) {
-        return reject(assets,
+        return reject(&candidate, assets,
                       "TGJS-2 same-pack TGPL-1/TGCS-1 dependencies rejected");
     }
     storage = (uint8_t *)malloc(payload_size);
-    if (storage == NULL) return reject(assets, "TGJS-2 allocation failed");
+    if (storage == NULL) {
+        return reject(&candidate, assets, "TGJS-2 allocation failed");
+    }
     memcpy(storage, payload, payload_size);
-    assets->storage = storage;
-    assets->storage_size = payload_size;
+    candidate.storage = storage;
+    candidate.storage_size = payload_size;
     for (size_t index = 0U;
          index < TECMO_GAMEPLAY_JUMP_SHOT_SOURCE_COUNT; ++index) {
         const TecmoGameplayJumpShotExpectedSource *expected =
             &tecmo_gameplay_jump_shot_expected_sources[index];
-        TecmoGameplayJumpShotSourceSpan *source = &assets->sources[index];
+        TecmoGameplayJumpShotSourceSpan *source = &candidate.sources[index];
         source->kind = expected->kind;
         source->bank = TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_BANK;
         source->fixed_bank = false;
@@ -451,16 +467,19 @@ bool tecmo_gameplay_jump_shots_parse(
         source->bytes = storage + expected->payload_offset;
     }
     load_constants(
-        &assets->constants,
+        &candidate.constants,
         storage + TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_CONSTANTS_OFFSET);
-    assets->pose_indices = storage +
+    candidate.pose_indices = storage +
         TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_POSES_OFFSET;
-    assets->gameplay_core_fingerprint = TECMO_ASSET_PACK_GAMEPLAY_FNV1A32;
-    assets->close_shots_fingerprint =
+    candidate.gameplay_core_fingerprint = TECMO_ASSET_PACK_GAMEPLAY_FNV1A32;
+    candidate.close_shots_fingerprint =
         TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_FNV1A32;
-    assets->available = true;
-    (void)snprintf(assets->status, sizeof(assets->status),
+    candidate.available = true;
+    (void)snprintf(candidate.status, sizeof(candidate.status),
                    "TGJS-2 gameplay jump-shot assetpack");
+    previous = *assets;
+    *assets = candidate;
+    free(previous.storage);
     return true;
 }
 
@@ -478,22 +497,27 @@ bool tecmo_gameplay_jump_shots_load(TecmoGameplayJumpShotAssets *assets,
         assets->lifecycle_tag != TECMO_GAMEPLAY_JUMP_SHOTS_LIFECYCLE_TAG) {
         return false;
     }
-    tecmo_gameplay_jump_shots_destroy(assets);
     if (asset_pack_path == NULL ||
         tecmo_asset_pack_read_entry_exact(
             asset_pack_path, TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_ID,
             TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_SIZE,
             &payload, &payload_size) != 0) {
-        return reject(assets,
-                      "TGJS-2 gameplay/jump-shots entry missing or wrong-sized");
+        if (!assets->available) {
+            (void)snprintf(assets->status, sizeof(assets->status),
+                           "TGJS-2 gameplay/jump-shots entry missing or wrong-sized");
+        }
+        return false;
     }
     if (tecmo_asset_pack_read_entry_exact(
             asset_pack_path, TECMO_ASSET_PACK_GAMEPLAY_ID,
             TECMO_ASSET_PACK_GAMEPLAY_SIZE,
             &gameplay_core, &gameplay_core_size) != 0) {
         tecmo_asset_pack_free(payload);
-        return reject(assets,
-                      "TGJS-2 gameplay/core dependency missing or wrong-sized");
+        if (!assets->available) {
+            (void)snprintf(assets->status, sizeof(assets->status),
+                           "TGJS-2 gameplay/core dependency missing or wrong-sized");
+        }
+        return false;
     }
     if (tecmo_asset_pack_read_entry_exact(
             asset_pack_path, TECMO_ASSET_PACK_GAMEPLAY_CLOSE_SHOTS_ID,
@@ -501,8 +525,11 @@ bool tecmo_gameplay_jump_shots_load(TecmoGameplayJumpShotAssets *assets,
             &close_shots, &close_shots_size) != 0) {
         tecmo_asset_pack_free(payload);
         tecmo_asset_pack_free(gameplay_core);
-        return reject(assets,
-                      "TGJS-2 gameplay/close-shots dependency missing or wrong-sized");
+        if (!assets->available) {
+            (void)snprintf(assets->status, sizeof(assets->status),
+                           "TGJS-2 gameplay/close-shots dependency missing or wrong-sized");
+        }
+        return false;
     }
     loaded = tecmo_gameplay_jump_shots_parse(
         assets, payload, (size_t)payload_size,

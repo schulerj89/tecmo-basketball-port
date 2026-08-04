@@ -63,6 +63,9 @@ typedef enum TecmoGameplaySceneShotKind {
     /* High-level meanings; scene-to-TGCS mapping preserves numeric provenance. */
     TECMO_GAMEPLAY_SCENE_SHOT_DUNK,
     TECMO_GAMEPLAY_SCENE_SHOT_LAYUP,
+    /* Numeric TGCS identity 1.  It has a bounded native scene schedule but
+       no inferred dunk/layup/contact semantic label. */
+    TECMO_GAMEPLAY_SCENE_SHOT_NUMERIC_1,
     TECMO_GAMEPLAY_SCENE_SHOT_KIND_COUNT
 } TecmoGameplaySceneShotKind;
 
@@ -241,6 +244,18 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayCourtCoordinateQ8 ball_position;
     TecmoGameplayCourtCoordinateQ8 shot_start_position;
     TecmoGameplayCourtCoordinateQ8 shot_end_position;
+    /* Immutable launch snapshot for TGOR direction/family/evaluator
+       validation.  Claimant movement must not retarget a live shot. */
+    TecmoGameplayCourtCoordinate shot_actor_launch_position;
+    uint8_t shot_actor_team;
+    uint8_t shot_actor_roster_index;
+    bool shot_launch_facing_right;
+    uint32_t shot_launch_frame;
+    int16_t shot_target_delta_x;
+    int16_t shot_target_delta_y;
+    /* Captured close-vs-jump launch classification.  This is a neutral
+       production selector result, not a semantic shot label. */
+    bool shot_close_context;
     uint32_t camera_follow_count;
     uint16_t shot_frame;
     uint16_t shot_duration;
@@ -252,15 +267,46 @@ typedef struct TecmoGameplayScene {
     uint8_t free_throw_secondary;
     bool free_throw_lineup_active;
     uint8_t shot_points;
+    /* Captured TGSR point-classification flags.  Production controller
+       launches use zero; the owned settlement-only one-point fixture uses
+       the source mask explicitly without claiming normal controller
+       one-point selection. */
+    uint8_t shot_flags;
     uint8_t shot_actor;
     uint8_t close_shot_step;
     TecmoGameplayCloseShotProfile close_shot_profile;
     TecmoGameplayCloseShotDirection close_shot_direction;
+    TecmoGameplayCloseShotVariant close_shot_variant;
+    /* Full stable sample retained from the structured evaluator.  The low
+       byte remains the raw TGSR rim-route selector; the upper bits keep the
+       deterministic native outcome input auditable at scene boundaries. */
+    uint32_t shot_sample;
+    uint8_t shot_make_probability;
+    bool shot_contact_context;
+    bool shot_contest_context;
+    /* Redundant launch-time binding of the captured sample/contact/contest
+       classification.  It is not an independent post-launch proximity
+       recomputation from moving defenders. */
+    uint32_t shot_context_signature;
+    bool shot_result_awarded;
+    TecmoGameplayShotOutcome shot_outcome;
+    TecmoGameplayShotScheduleKind shot_schedule;
+    uint8_t shot_rim_rattle_raw_selector;
+    TecmoGameplayShotRimRoute shot_rim_route;
+    bool shot_rim_rattle_selected;
+    bool shot_rim_tail_active;
+    uint8_t shot_rim_tail_frame;
+    uint8_t shot_rim_tail_duration;
+    uint16_t shot_rim_tail_base_frame;
     uint16_t jump_actor_altitude_q8;
     uint16_t jump_actor_velocity_q8;
     uint16_t jump_ball_altitude_q8;
     uint16_t jump_ball_bounce_q8;
     uint16_t jump_entry_pose_index;
+    /* TGJS [family][profile][direction] result.  The entry pose remains the
+       actor's captured first-four-tick pose; this separate value is the
+       source-backed pose consumed by ordinary flight playback. */
+    uint16_t jump_resolved_pose_index;
     uint8_t jump_actor_state;
     uint8_t jump_ball_state;
     uint8_t jump_phase_counter;
@@ -335,12 +381,13 @@ bool tecmo_gameplay_scene_start_rim_rattle_debug(
 /* Draws a TGCT-1 world slice at the persistent TGCP-2 camera, projects
    resolved ROM poses through that same camera, and overlays THUD-1's fixed
    live scoreboard rows whenever dynamic actors are included. Live
-   close-shot playback is deliberately limited to TGCS profile 0/direction 0;
-   ordinary jump-shot playback is deliberately limited to the proven TGJS/TGSR
-   away/right context's miss and three-point-make schedules. Actor mirroring,
-   the make ball/camera path, and jump-ball geometry remain native
-   approximations, not mappings of unsupported ROM entries. Presentation
-   banners beyond the two live HUD rows are supplied by the runtime overlay. */
+   R2 shot playback consumes the selected TGCS close profile/direction and
+   TGJS jump family/profile/direction for every supported matrix entry. The
+   captured schedule is exact only for the source-pinned three-point route;
+   other shot arcs, full unproven $91BC/$AD6E inputs, and presentation details
+   use bounded native approximations. This contract does not claim complete
+   presentation mapping or unsupported ROM behavior. Presentation banners
+   beyond the two live HUD rows are supplied by the runtime overlay. */
 bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
                                TecmoFramebuffer *framebuffer,
                                int origin_x,
