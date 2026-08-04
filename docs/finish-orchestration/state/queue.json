@@ -1509,7 +1509,7 @@
       "round_id": "R2",
       "priority": 96,
       "coordination_only": false,
-      "state": "in_progress",
+      "state": "sol_review",
       "dependencies": [
         "R2-SHOTS-OUTCOMES",
         "R2-DEFENSE-CONTACT"
@@ -1524,9 +1524,10 @@
         "019fcae5-dd40-73d3-9b9e-de84fd76f39d",
         "019fcae5-e369-7802-919f-5e166ce2a760",
         "019fcae5-eac8-7661-86e4-92f6e91e9c0b",
-        "019fcb05-7013-7453-87ff-2d92d3ad2b32"
+        "019fcb05-7013-7453-87ff-2d92d3ad2b32",
+        "019fcb44-0f91-7632-9b25-88e51b505ce3"
       ],
-      "result_commits": [],
+      "result_commits": ["1dde1ef748658a11403ff4bc450af858d05f08c2"],
       "evidence_ids": [],
       "blocker_ids": [],
       "replacement_task_id": null,
@@ -1545,7 +1546,10 @@
           "2026-08-04T04:52:27Z CMake warning-clean builds passed with the new test TU, but canonical build.ps1 failed linking because its mirrored static test-source list omitted only src\\tecmo_gameplay_scene_test_rules_restarts.c. Master rejected treating the desktop-preview build failure as a terminal limitation, verified zero active collision and the exact one-line registry seam, and granted build.ps1 solely for that additive source-list entry. Both build routes must pass warning-clean.",
           "2026-08-04T04:54:52Z full scene execution cleared the first inherited OOB assertion and exposed two further stale frame-0 SFX-6 contracts in the same existing state-flow TU: shot-clock reset/cue ordering at lines 354-387 and music-disabled violation handling at lines 2709-2735. Master independently verified both exact blocks and granted only their timing assertions/loops to require frames 1-15 clear, frame-16 SFX-6 consumption, and no repeats while preserving existing reset/restart policy.",
           "2026-08-04T05:17:59Z Sol personally accepted exact Good-SSH-signed worker candidate 1dde1ef748658a11403ff4bc450af858d05f08c2, tree a46d403f1537583b55e7607cdde541bf1bf98dc4, sole parent/base 7fe2dd772af1d88f704a9272005b4ba557434cac, with a clean seven-path ledger and no scope escape. Isolated restart timing, CMake and canonical build.ps1 console/GUI /W4 builds, CMake and canonical full-scene routes, strict audio, state/assets/viewport, and focused reruns all passed.",
-          "2026-08-04T05:17:59Z accepted fixture semantics preserve shot-clock expiry SFX3 at frame 0, prove no pending presentation cue during frames 1-15 after consuming SFX3, consume shared foul/violation SFX6 exactly once at frame 16, and reject repeats through frame 48. A transient dispatch experiment that would have suppressed accepted SFX3 was caught and reverted before commit; production dispatch/reset/restart order is unchanged."
+          "2026-08-04T05:17:59Z accepted fixture semantics preserve shot-clock expiry SFX3 at frame 0, prove no pending presentation cue during frames 1-15 after consuming SFX3, consume shared foul/violation SFX6 exactly once at frame 16, and reject repeats through frame 48. A transient dispatch experiment that would have suppressed accepted SFX3 was caught and reverted before commit; production dispatch/reset/restart order is unchanged.",
+          "2026-08-04T05:34:52Z under Good-signed control 27f8a77, Sol ff-only integrated exact worker candidate 1dde1ef748658a11403ff4bc450af858d05f08c2 into codex/r2-rules-restarts-sol. Sol/worker tips and tree a46d403f1537583b55e7607cdde541bf1bf98dc4 match, the seven-path ownership ledger and signature reverify, and both worktrees are clean with no main/staging/push action.",
+          "2026-08-04T05:34:52Z Sol personal integrated QA passed canonical build.ps1 and fresh VS CMake console/GUI /W4 builds, full scene proof, focused TPNL/TGVR/TGBC/TGOR/TGCP/audio, direct console and hidden-GUI scene routes, canonical ROM identity, deterministic paired proof hashes, and full-resolution visual inspection. Production dispatch order and all explicit semantic incompletes remain unchanged.",
+          "2026-08-04T05:34:52Z after a zero-collision gate, Sol created exactly one fresh top-level projectless gpt-5.6-luna/max independent terminal QA task 019fcb44-0f91-7632-9b25-88e51b505ce3 on the first attempt and pinned it immediately. It targets frozen 1dde1ef/a46d403, has read-only tracked/index/ref authority with ignored QA outputs only, and has zero creation/pin/retry/replacement fault."
         ],
         "proof_manifests": [],
         "notes": "Good-signed clean worker candidate 1dde1ef748658a11403ff4bc450af858d05f08c2 is accepted for Sol branch-only ff-only integration and independent terminal QA. Its exact seven-path result implements only the source-backed 16-frame shared foul/violation SFX-6 presentation cue through the existing scene audio seam, one additive focused scene test unit, three bounded inherited compatibility blocks, and matching CMake/build.ps1 static registration. All required build, focused, broad scene, strict audio, state/assets, and viewport gates pass. Shot-clock SFX3 remains accepted at frame 0; SFX6 is absent frames 1-15, consumed exact-once at frame 16, and does not repeat through frame 48. Direct foul fixtures are presentation/audio proof only. Foul/contact classification, invented TPNL inputs, FT outcome/rebound/final possession, missing live violation detectors, shot claimant/rebound/block/steal semantics, foul-divider selection, and blackout/fade parity remain explicitly incomplete and excluded."
@@ -1561,7 +1565,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-04T05:17:59Z",
+      "updated_at": "2026-08-04T05:34:52Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -1590,6 +1594,13 @@
           "from_state": "assigned",
           "to_state": "in_progress",
           "reason": "Clean takeover closed exact ref/dependency/instruction/ownership gates and three bounded projectless Luna/max read-only audits began without authorizing product mutation."
+        },
+        {
+          "timestamp": "2026-08-04T05:34:52Z",
+          "actor_session_id": "S-SOL-R2-RULES-RESTARTS-001",
+          "from_state": "in_progress",
+          "to_state": "sol_review",
+          "reason": "Authoritative Sol ff-only integrated exact Good-signed seven-path candidate 1dde1ef into its registered clean branch, completed the proportional integrated build/scene/audio/state/visual gate, and created exactly one fresh pinned projectless Luna/max terminal QA task against the frozen tip."
         }
       ]
     },

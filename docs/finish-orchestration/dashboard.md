@@ -8,7 +8,7 @@ Generated from committed JSON at `2026-08-04T04:54:52Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 10, `in_progress` 1, `pushed` 18, `ready_for_round_staging` 4
+- Task states: `backlog` 10, `pushed` 18, `ready_for_round_staging` 4, `sol_review` 1
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
@@ -37,7 +37,7 @@ Generated from committed JSON at `2026-08-04T04:54:52Z`. This dashboard reports 
 | LANE-R2B-SHOTS-OUTCOMES-INTEGRATION-QA | integration_qa | complete | ready | R2B-SHOTS-OUTCOMES-INTEGRATION-QA | S-SOL-R2B-SHOTS-INTEGRATION-QA-001 | codex/r2b-shots-outcomes-integration-qa-sol | Complete: terminal Good-signed 5229092 passed reconciled Sol and same-Luna P0/P1/P2-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; unpin is authorized after durable control acknowledgment. |
 | LANE-R2-DEFENSE-CONTACT | gameplay_behavior | complete | complete | R2-DEFENSE-CONTACT | S-SOL-R2-DEFENSE-CONTACT-001 | codex/r2-defense-contact-sol | Terminal Good-signed ed70d884 is Sol/independent accepted and frozen for dedicated current-main integration QA. Domain ownership is released; preserve branches/worktrees and focused proof for audit. Normal-build/runtime/player-facing and semantic downstream integration remain separate incomplete boundaries. |
 | LANE-R2C-DEFENSE-CONTACT-INTEGRATION-QA | integration_qa | complete | complete | R2C-DEFENSE-CONTACT-INTEGRATION-QA | S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001 | codex/r2c-defense-contact-integration-qa-sol | Complete: terminal Good-signed 7fe2dd7 passed reconciled Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; Sol/Luna unpin is authorized after durable control acknowledgment. |
-| LANE-R2-RULES-RESTARTS | gameplay_behavior | active | ready | R2-RULES-RESTARTS | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | Good-signed clean worker candidate 1dde1ef748658a11403ff4bc450af858d05f08c2/tree a46d403f1537583b55e7607cdde541bf1bf98dc4 is accepted for branch-only ff-only integration into the exact Sol worktree. Sol must reverify parent/tree/signature/seven-path ownership, ff-only its own branch, run proportional personal QA and proof, create exactly one collision-gated projectless Luna/max independent terminal QA task, reuse the same worker for any bounded revision, author only Sol-owned task docs, and stop before main/staging/push. |
+| LANE-R2-RULES-RESTARTS | gameplay_behavior | active | ready | R2-RULES-RESTARTS | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | Sol branch is clean and frozen at exact Good-signed 1dde1ef748658a11403ff4bc450af858d05f08c2 after ff-only integration and green personal integrated QA. Sole fresh projectless terminal QA Luna 019fcb44-0f91-7632-9b25-88e51b505ce3 is pinned and must independently audit the frozen tip, proof, build/scene/restart/audio contracts, seven-path ownership, diagnostics, docs, and honest incompletes. Reuse worker 019fcb05 for any bounded revision, then obtain same-QA terminal closure, Sol-owned signed docs, and a clean signed handoff before any master-owned current-main integration QA. |
 
 ## Rounds
 
@@ -89,7 +89,7 @@ Generated from committed JSON at `2026-08-04T04:54:52Z`. This dashboard reports 
 | 98 | R5-PARITY-GAP-CLOSURE | integration | R5 | backlog | - | - | 0 | pending | not_ready |
 | 97 | R0A-ADOPT-AWAY-FACING | gameplay_presentation | R0A | pushed | S-SOL-AWAY-FACING-LEGACY | codex/away-facing-left-only | 2 | historical_sol_accepted | pushed |
 | 96 | R1-TIP-FIDELITY | gameplay_behavior | R1 | ready_for_round_staging | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | ready |
-| 96 | R2-RULES-RESTARTS | gameplay_behavior | R2 | in_progress | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | 0 | in_progress | not_ready |
+| 96 | R2-RULES-RESTARTS | gameplay_behavior | R2 | sol_review | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | 1 | in_progress | not_ready |
 | 96 | R3-TEAM-MGMT-DATA | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
 | 96 | R4-AUDIO | audio | R4 | backlog | - | - | 0 | pending | not_ready |
 | 96 | R5-E2E-RELEASE-QA | integration | R5 | backlog | - | - | 0 | pending | not_ready |
@@ -102,7 +102,7 @@ Generated from committed JSON at `2026-08-04T04:54:52Z`. This dashboard reports 
 | Session | Role | Model/thinking | Status | Pin | Tasks | Branch | Worktree | Last good |
 |---|---|---|---|---|---|---|---|---|
 | S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 5b8a13b30620 |
-| S-SOL-R2-RULES-RESTARTS-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R2-RULES-RESTARTS | codex/r2-rules-restarts-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2-rules-restarts-sol | 7fe2dd772af1 |
+| S-SOL-R2-RULES-RESTARTS-001 | domain_orchestrator | gpt-5.6-sol/max | active | pinned | R2-RULES-RESTARTS | codex/r2-rules-restarts-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2-rules-restarts-sol | 1dde1ef74865 |
 
 ## Active Ownership
 

@@ -387,8 +387,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-rules-restarts-sol",
       "ownership_claim_ids": ["OWN-R2-RULES-RESTARTS"],
       "blockers": [],
-      "next_gate": "Good-signed clean worker candidate 1dde1ef748658a11403ff4bc450af858d05f08c2/tree a46d403f1537583b55e7607cdde541bf1bf98dc4 is accepted for branch-only ff-only integration into the exact Sol worktree. Sol must reverify parent/tree/signature/seven-path ownership, ff-only its own branch, run proportional personal QA and proof, create exactly one collision-gated projectless Luna/max independent terminal QA task, reuse the same worker for any bounded revision, author only Sol-owned task docs, and stop before main/staging/push.",
-      "updated_at": "2026-08-04T05:17:59Z"
+      "next_gate": "Sol branch is clean and frozen at exact Good-signed 1dde1ef748658a11403ff4bc450af858d05f08c2 after ff-only integration and green personal integrated QA. Sole fresh projectless terminal QA Luna 019fcb44-0f91-7632-9b25-88e51b505ce3 is pinned and must independently audit the frozen tip, proof, build/scene/restart/audio contracts, seven-path ownership, diagnostics, docs, and honest incompletes. Reuse worker 019fcb05 for any bounded revision, then obtain same-QA terminal closure, Sol-owned signed docs, and a clean signed handoff before any master-owned current-main integration QA.",
+      "updated_at": "2026-08-04T05:34:52Z"
     }
   ]
 }
