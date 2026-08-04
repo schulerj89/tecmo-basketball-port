@@ -350,13 +350,15 @@ character table, and retains Bank04's 15 referee metasprites and five gesture
 sequences. Shot-clock selector 5 uses the exact sequence `9,10,10,10`; it does
 not reuse selector 1's out-of-bounds pointing sequence `3,4,5,5,5`. Focused
 render coverage requires the visible out-of-bounds groups 3, 4, and 5 to be
-distinct, then requires terminal group 5 to hold through the wait. The Bank04 group
-cadence and 44-frame controller duration are ROM-derived. Alignment of the
-generic screen loader to nine black frames, four-frame visible palette steps,
-and first selector-specific pose at phase frame 23 is capture-bounded because
-the PPU loader is not cycle-ported. The scene still requests SFX 6 at violation
-phase entry; TGVR records the original delayed request, so that audio alignment
-remains approximate even though the visible gesture and text are ROM-backed.
+distinct, then requires terminal group 5 to hold through the wait. The Bank04
+group cadence and 44-frame controller duration are ROM-derived. Alignment of
+the generic screen loader to nine black frames, four-frame visible palette
+steps, and first selector-specific pose at phase frame 23 remains
+capture-bounded because the PPU loader is not cycle-ported. The scene consumes
+strict TPNL-1 presentation metadata to request shared SFX 6 at presentation
+frame 16 exactly once, removing the prior immediate-cue approximation. Full
+renderer and original caller-order parity remain incomplete even though the
+visible gesture and text are ROM-backed.
 
 The two supported close-shot families retain their numeric ROM identities.
 Variant 0 is the dunk family and has 32 exact steps in the

@@ -965,9 +965,11 @@ TGVR-1 `gameplay/violation-referee` is the strict 4752-byte visual companion
 retains screen `$05`, all seven mapped violation messages, palettes, Bank04
 metasprites, and selector-specific sequences. Shot clock is groups
 `9,10,10,10`; out of bounds is `3,4,5,5,5`. The 44-frame controller and
-four-frame group cadence are exact. The nine-frame blackout/fade alignment is
-capture-bounded, and the scene's immediate SFX-6 request remains approximate
-relative to the ROM's delayed cue. Missing, malformed, wrong-sized, stale, or
+four-frame group cadence are exact. The nine-frame blackout/fade alignment
+remains capture-bounded. The scene consumes strict TPNL-1 presentation metadata
+to request shared SFX 6 at presentation frame 16 exactly once. This bounded cue
+seam is native-faithful; full presentation and original caller-order parity
+remain incomplete. Missing, malformed, wrong-sized, stale, or
 cross-pack data must fail closed.
 
 `gameplay-out-of-bounds-frameN` is the visible integration checkpoint. It must

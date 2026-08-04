@@ -1131,9 +1131,11 @@ Bank03's character table, and preserves all Bank04 referee metasprites and
 gesture lists. Shot clock selects `9,10,10,10`; out of bounds selects
 `3,4,5,5,5`. The controller consumes 44 frames before fixed `$EA14` begins its
 4+120-frame release path, making the native violation phase 168 frames. The
-nine-frame black loader interval and four-frame visible fade alignment are
-capture-bounded; the present immediate scene cue remains an audio approximation
-of Bank04's delayed SFX-6 request.
+nine-frame black loader interval and four-frame visible fade alignment remain
+capture-bounded. The scene consumes strict TPNL-1 presentation metadata to
+request shared SFX 6 at presentation frame 16 exactly once. This bounded cue
+seam is native-faithful; full presentation and original caller-order parity
+remain incomplete.
 
 The `gameplay-out-of-bounds-frameN` checkpoint reaches TGVR through the live
 TGMO primary-holder clamp and TPNL selector 1. Visible frames 23, 27, and 31
