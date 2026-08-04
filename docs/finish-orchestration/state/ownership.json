@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T19:27:46Z",
+  "updated_at": "2026-08-04T21:17:51Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -778,6 +778,56 @@
       "claimed_at": "2026-08-04T07:58:28Z",
       "released_at": "2026-08-04T12:10:06Z",
       "notes": "Released after exact Good-signed 13-path terminal 7897871 passed full personal QA and sole independent Luna terminal QA with no findings. Master independently reverified exact branch HEAD, Good signature, sole parent ed060720, authorized scope, diff-check, clean worktree, accepted hashes/visual closure, and stable protected main. Immutable 7897871 is ready for dedicated current-main integration QA. Preserve all tasks, branches, worktrees, docs, proofs, and artifacts. Steals, blocks, rebounds, incomplete migrated seasons, original SRAM import, adjacent gameplay/team-management/All-Star paths, and every unproved semantic remain excluded and require new sequential authority."
+    },
+    {
+      "claim_id": "OWN-R3-SEASON-PROGRESSION-SAVE",
+      "task_id": "R3-SEASON-PROGRESSION-SAVE",
+      "round_id": "R3",
+      "session_id": "S-SOL-R3-SEASON-PROGRESSION-SAVE-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "include/tecmo_season_menu.h",
+        "src/tecmo_season_menu.c",
+        "tools/Run-SeasonTests.ps1",
+        "docs/finish-tasks/R3-season-progression-save/**"
+      ],
+      "planned_paths": [
+        "include/tecmo_season_menu.h",
+        "src/tecmo_season_menu.c",
+        "tools/Run-SeasonTests.ps1",
+        "docs/finish-tasks/R3-season-progression-save"
+      ],
+      "concurrency_group": "R3-season-progression-save",
+      "active": true,
+      "claimed_at": "2026-08-04T21:17:51Z",
+      "released_at": null,
+      "notes": "Exact exclusive Season scope at f1b04193405d1c87f21e80ee51d3790499ea0cf8. R3-TEAM-MGMT-DATA remains backlog and follows this task sequentially; no additional path is writable."
+    },
+    {
+      "claim_id": "OWN-R4-AUDIO-PROOF-FIRST",
+      "task_id": "R4-AUDIO",
+      "round_id": "R4",
+      "session_id": "S-SOL-R4-AUDIO-CUE-ROUTING-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "tools/Run-AudioRouteProofTests.ps1",
+        "docs/finish-tasks/R4-audio/README.md",
+        "docs/finish-tasks/R4-audio/EVIDENCE.md",
+        "docs/finish-tasks/R4-audio/COMMANDS.md",
+        "docs/finish-tasks/R4-audio/LINEAGE.md"
+      ],
+      "planned_paths": [
+        "tools/Run-AudioRouteProofTests.ps1",
+        "docs/finish-tasks/R4-audio/README.md",
+        "docs/finish-tasks/R4-audio/EVIDENCE.md",
+        "docs/finish-tasks/R4-audio/COMMANDS.md",
+        "docs/finish-tasks/R4-audio/LINEAGE.md"
+      ],
+      "concurrency_group": "R4-audio-cue-routing",
+      "active": true,
+      "claimed_at": "2026-08-04T21:17:51Z",
+      "released_at": null,
+      "notes": "Exact proof-first exclusive scope at f1b04193405d1c87f21e80ee51d3790499ea0cf8. Production, gameplay, season, importer, and device paths remain read-only pending later signed evidence."
     }
   ],
   "shared_boundaries": [

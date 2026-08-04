@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T19:27:46Z",
+  "updated_at": "2026-08-04T21:17:51Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -361,7 +361,8 @@
       ],
       "staging_branch": "codex/round-3-season-completion-staging",
       "sol_orchestrator_session_ids": [
-        "S-SOL-R3-PLAYER-STATS-LEADERS-001"
+        "S-SOL-R3-PLAYER-STATS-LEADERS-001",
+        "S-SOL-R3-SEASON-PROGRESSION-SAVE-001"
       ],
       "integration_qa_session_id": null,
       "merge_order": [
@@ -398,7 +399,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-04T19:22:56Z"
+      "updated_at": "2026-08-04T21:17:51Z"
     },
     {
       "round_id": "R4A",
@@ -474,7 +475,8 @@
       "staging_branch": "codex/round-4-frontend-audio-staging",
       "sol_orchestrator_session_ids": [
         "S-SOL-R4-FRONTEND-001",
-        "S-SOL-R4-FRONTEND-RECOVERY-001"
+        "S-SOL-R4-FRONTEND-RECOVERY-001",
+        "S-SOL-R4-AUDIO-CUE-ROUTING-001"
       ],
       "integration_qa_session_id": null,
       "merge_order": [
@@ -510,7 +512,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T18:38:12Z"
+      "updated_at": "2026-08-04T21:17:51Z"
     },
     {
       "round_id": "R4B",

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T19:27:46Z",
+  "updated_at": "2026-08-04T21:17:51Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,12 +10,12 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 0,
+    "active_domain_orchestrators": 2,
     "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
-    "unallocated_target_slots": 4,
-    "unallocated_monitoring_slots": 8
+    "unallocated_target_slots": 2,
+    "unallocated_monitoring_slots": 6
   },
   "lanes": [
     {
@@ -461,6 +461,54 @@
       "blockers": [],
       "next_gate": "Complete and delivered for this bounded slice: 7897871 was reconciled onto bdc2fbb, sole current-main Luna/max QA closed the seeded-attempts fixture P2 and required docs, and release orchestration fast-forward-only delivered and ordinary-pushed terminal 35d31f5 at 2026-08-04T19:22:56Z. Unsupported counters and adjacent R3 tasks remain excluded and pending under separate authority.",
       "updated_at": "2026-08-04T19:22:56Z"
+    },
+    {
+      "lane_id": "LANE-R3-SEASON-PROGRESSION-SAVE",
+      "title": "Round 3 season progression and save",
+      "domain": "season_data",
+      "round_ids": [
+        "R3"
+      ],
+      "task_ids": [
+        "R3-SEASON-PROGRESSION-SAVE"
+      ],
+      "readiness": "active",
+      "dependency_status": "ready",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R3-SEASON-PROGRESSION-SAVE-001",
+      "base_sha": "f1b04193405d1c87f21e80ee51d3790499ea0cf8",
+      "branch": "codex/r3-season-progression-save-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3-season-progression-save-sol",
+      "ownership_claim_ids": [
+        "OWN-R3-SEASON-PROGRESSION-SAVE"
+      ],
+      "blockers": [],
+      "next_gate": "Await separately authorized Sol task dispatch; no scope expansion, Team Management assignment, or unmanaged worker context is authorized.",
+      "updated_at": "2026-08-04T21:17:51Z"
+    },
+    {
+      "lane_id": "LANE-R4-AUDIO-CUE-ROUTING",
+      "title": "Round 4 audio cue-routing proof",
+      "domain": "audio",
+      "round_ids": [
+        "R4"
+      ],
+      "task_ids": [
+        "R4-AUDIO"
+      ],
+      "readiness": "active",
+      "dependency_status": "ready",
+      "reservation_owner_session_id": "S-MASTER-001",
+      "orchestrator_session_id": "S-SOL-R4-AUDIO-CUE-ROUTING-001",
+      "base_sha": "f1b04193405d1c87f21e80ee51d3790499ea0cf8",
+      "branch": "codex/r4-audio-cue-routing-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4-audio-cue-routing-sol",
+      "ownership_claim_ids": [
+        "OWN-R4-AUDIO-PROOF-FIRST"
+      ],
+      "blockers": [],
+      "next_gate": "Await separately authorized Sol task dispatch; production, gameplay, season, importer, and device paths remain read-only pending later signed evidence.",
+      "updated_at": "2026-08-04T21:17:51Z"
     }
   ]
 }

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T20:12:37Z",
+  "updated_at": "2026-08-04T21:17:51Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -2375,17 +2375,19 @@
       "round_id": "R3",
       "priority": 98,
       "coordination_only": false,
-      "state": "scoped",
+      "state": "assigned",
       "dependencies": [
         "R2-CLOCK-LINEUPS-FATIGUE",
         "R3-PLAYER-STATS-LEADERS"
       ],
-      "ownership_claim_ids": [],
-      "base_sha": "9c804820c13d0674cbbd8e8f6fa8a0cb572ccf72",
-      "expected_parent_sha": "9c804820c13d0674cbbd8e8f6fa8a0cb572ccf72",
-      "branch": null,
-      "worktree": null,
-      "sol_orchestrator_session_id": null,
+      "ownership_claim_ids": [
+        "OWN-R3-SEASON-PROGRESSION-SAVE"
+      ],
+      "base_sha": "f1b04193405d1c87f21e80ee51d3790499ea0cf8",
+      "expected_parent_sha": "f1b04193405d1c87f21e80ee51d3790499ea0cf8",
+      "branch": "codex/r3-season-progression-save-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3-season-progression-save-sol",
+      "sol_orchestrator_session_id": "S-SOL-R3-SEASON-PROGRESSION-SAVE-001",
       "reported_luna_worker_session_ids": [],
       "result_commits": [],
       "evidence_ids": [],
@@ -2411,7 +2413,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-04T20:12:37Z",
+      "updated_at": "2026-08-04T21:17:51Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -2426,6 +2428,13 @@
           "from_state": "backlog",
           "to_state": "scoped",
           "reason": "Scoped-only provisional writable scope is exactly include/tecmo_season_menu.h, src/tecmo_season_menu.c, tools/Run-SeasonTests.ps1, and docs/finish-tasks/R3-season-progression-save/**; no branch, worktree, session, claim, lane, or capacity reservation is created, and this task remains sequentially before R3-TEAM-MGMT-DATA."
+        },
+        {
+          "timestamp": "2026-08-04T21:17:51Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "scoped",
+          "to_state": "assigned",
+          "reason": "Master reverified clean registered codex/r3-season-progression-save-sol at exact f1b04193405d1c87f21e80ee51d3790499ea0cf8; S-SOL-R3-SEASON-PROGRESSION-SAVE-001 receives the exact exclusive four-path scope, while R3-TEAM-MGMT-DATA remains sequentially later and unassigned."
         }
       ]
     },
@@ -2926,19 +2935,21 @@
       "round_id": "R4",
       "priority": 96,
       "coordination_only": false,
-      "state": "scoped",
+      "state": "assigned",
       "dependencies": [
         "R4-AUDIO-FOUNDATION",
         "R2-CLOCK-LINEUPS-FATIGUE",
         "R2-GAMEPLAY-PRESENTATION",
         "R4-FRONTEND-INTRO-TITLE"
       ],
-      "ownership_claim_ids": [],
-      "base_sha": "9c804820c13d0674cbbd8e8f6fa8a0cb572ccf72",
-      "expected_parent_sha": "9c804820c13d0674cbbd8e8f6fa8a0cb572ccf72",
-      "branch": null,
-      "worktree": null,
-      "sol_orchestrator_session_id": null,
+      "ownership_claim_ids": [
+        "OWN-R4-AUDIO-PROOF-FIRST"
+      ],
+      "base_sha": "f1b04193405d1c87f21e80ee51d3790499ea0cf8",
+      "expected_parent_sha": "f1b04193405d1c87f21e80ee51d3790499ea0cf8",
+      "branch": "codex/r4-audio-cue-routing-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r4-audio-cue-routing-sol",
+      "sol_orchestrator_session_id": "S-SOL-R4-AUDIO-CUE-ROUTING-001",
       "reported_luna_worker_session_ids": [],
       "result_commits": [],
       "evidence_ids": [],
@@ -2964,7 +2975,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-04T20:12:37Z",
+      "updated_at": "2026-08-04T21:17:51Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -2979,6 +2990,13 @@
           "from_state": "backlog",
           "to_state": "scoped",
           "reason": "Scoped-only proof-first provisional scope is exactly tools/Run-AudioRouteProofTests.ps1 plus docs/finish-tasks/R4-audio/README.md, docs/finish-tasks/R4-audio/EVIDENCE.md, docs/finish-tasks/R4-audio/COMMANDS.md, and docs/finish-tasks/R4-audio/LINEAGE.md; all production, gameplay, season, importer, and device paths remain read-only pending later signed evidence, with no branch, worktree, session, claim, lane, or capacity reservation."
+        },
+        {
+          "timestamp": "2026-08-04T21:17:51Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "scoped",
+          "to_state": "assigned",
+          "reason": "Master reverified clean registered codex/r4-audio-cue-routing-sol at exact f1b04193405d1c87f21e80ee51d3790499ea0cf8; S-SOL-R4-AUDIO-CUE-ROUTING-001 owns only the proof-first paths and leaves production, gameplay, season, importer, and device paths read-only pending later signed evidence."
         }
       ]
     },
