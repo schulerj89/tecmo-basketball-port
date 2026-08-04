@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T13:05:52Z",
+  "updated_at": "2026-08-04T13:07:59Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -765,7 +765,7 @@
       "model": "gpt-5.6-sol",
       "thinking": "max",
       "status": "replaced",
-      "pin_state": "pinned",
+      "pin_state": "unpinned",
       "round_ids": ["R2E"],
       "task_ids": ["R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"],
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2e-gameplay-presentation-integration-qa-sol",
@@ -779,8 +779,8 @@
       "failure": {"count":2,"raw_error_signatures":["create_thread returned JSON as a string so same-script pin extraction did not execute","Codex task status became exactly systemError after the sole Luna delivered final terminal PASS and before Sol emitted the terminal guarded handoff"],"retry_session_ids":["019fcc72-721f-7683-bdc2-26f69f0563be"],"replacement_session_id":"S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001","takeover_confirmed_at":"2026-08-04T13:05:52Z"},
       "created_at": "2026-08-04T10:34:47Z",
       "completed_at": "2026-08-04T12:15:24Z",
-      "updated_at": "2026-08-04T13:05:52Z",
-      "notes": "Created once and pinned immediately on the first attempt after Good-signed reservation ab832e8 and exact main/candidate/ref/worktree preflight. Full read-only takeover and exact branch-only ff-only to immutable d8d8119/tree 856ffbe passed with protected refs unchanged. Sol's initial complete matrix remained product P0/P1/P2/P3 zero; sole Luna 019fcc72 found only the fixed-scratch runner P2. Under Good-signed Option-A control 20a4d4e, Sol created exact Good-signed one-runner corrective a4c1286, personally verified unique invocation-owned build scratch and exact-self cleanup, and reran the complete safety/build/proof/visual matrix successfully. The same pinned Luna independently accepted a4c1286 and closed product/tooling P0/P1/P2/P3 at zero. Sol then created exact Good-signed five-report terminal bdc2fbb, and the same Luna independently returned terminal PASS with product/tooling P0/P1/P2/P3 all zero. At 2026-08-04T12:15:24Z the Sol task status became exactly systemError before it emitted the terminal guarded handoff. Git state is preserved clean at bdc2fbb. Replacement recovery session S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001 was created once and pinned under signed reservation 99c1edf and confirmed exact clean takeover at 2026-08-04T13:05:52Z; predecessor unpin is now authorized."
+      "updated_at": "2026-08-04T13:07:59Z",
+      "notes": "Created once and pinned immediately on the first attempt after Good-signed reservation ab832e8 and exact main/candidate/ref/worktree preflight. Full read-only takeover and exact branch-only ff-only to immutable d8d8119/tree 856ffbe passed with protected refs unchanged. Sol's initial complete matrix remained product P0/P1/P2/P3 zero; sole Luna 019fcc72 found only the fixed-scratch runner P2. Under Good-signed Option-A control 20a4d4e, Sol created exact Good-signed one-runner corrective a4c1286, personally verified unique invocation-owned build scratch and exact-self cleanup, and reran the complete safety/build/proof/visual matrix successfully. The same pinned Luna independently accepted a4c1286 and closed product/tooling P0/P1/P2/P3 at zero. Sol then created exact Good-signed five-report terminal bdc2fbb, and the same Luna independently returned terminal PASS with product/tooling P0/P1/P2/P3 all zero. At 2026-08-04T12:15:24Z the Sol task status became exactly systemError before it emitted the terminal guarded handoff. Git state is preserved clean at bdc2fbb. Replacement recovery session S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001 was created once and pinned under signed reservation 99c1edf and confirmed exact clean takeover at 2026-08-04T13:05:52Z. This predecessor was unpinned successfully at 2026-08-04T13:07:59Z and remains preserved and unarchived."
     },
     {
       "session_id": "S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001",

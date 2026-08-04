@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T13:05:52Z",
+  "updated_at": "2026-08-04T13:07:59Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -4012,7 +4012,8 @@
           "2026-08-04T12:07:07Z Sol created exact Good-SSH-signed docs-only terminal bdc2fbb8f5b8497f4855b80e8834696220036aba, tree 9fd2af3e059ebf2c010612afb3531335f3a23ee3, sole parent a4c1286. Its delta is exactly five new owned LF Markdown reports (637 insertions), candidate-to-tip is corrected runner plus those reports, base-to-tip is eleven regular text paths, branch is clean, and protected refs remain ed060720 main plus immutable d8d8119 staging. The same pinned Luna 019fcc72 is now performing exact terminal signed-tip/report/proof/ref review.",
           "2026-08-04T12:15:24Z the sole Luna had already returned final terminal PASS with product/tooling P0/P1/P2/P3 all zero when the original Sol task became exactly systemError before emitting the guarded handoff. Master independently reverified the preserved branch clean at Good-signed bdc2fbb/tree 9fd2af3, diff-check clean, and local/tracking/live main unchanged at ed060720. One sequential Sol/max recovery replacement is reserved on the same branch/worktree; the existing Luna lineage is inherited read-only and no new product/report/main/staging/origin/push authority is granted.",
           "2026-08-04T13:01:45Z under Good-signed recovery reservation 99c1edf, master created and pinned exactly one replacement gpt-5.6-sol/max task 019fccdd-694b-7000-b0c1-3926c8e55e0d. It is assigned the same preserved clean bdc2fbb branch/worktree and inherits sole Luna 019fcc72 read-only. No creation/pin retry or replacement occurred; the failed predecessor remains pinned until this exact recovery task reports clean takeover.",
-          "2026-08-04T13:05:52Z recovery Sol 019fccdd reported exact clean takeover after reading AGENTS/PORTING and all five reports, verifying signed reservation 99c1edf, Good-signed bdc2fbb/tree/parent/linear ancestry/diff-check, immutable d8d8119 staging, unchanged local/tracking/live ed060720 main, and the sole Luna's final terminal PASS with P0/P1/P2/P3 zero. It made zero repository/task/ref mutation and created no new Luna. Master accepts it as authoritative recovery owner and authorizes predecessor unpin plus issuance of the missing guarded handoff."
+          "2026-08-04T13:05:52Z recovery Sol 019fccdd reported exact clean takeover after reading AGENTS/PORTING and all five reports, verifying signed reservation 99c1edf, Good-signed bdc2fbb/tree/parent/linear ancestry/diff-check, immutable d8d8119 staging, unchanged local/tracking/live ed060720 main, and the sole Luna's final terminal PASS with P0/P1/P2/P3 zero. It made zero repository/task/ref mutation and created no new Luna. Master accepts it as authoritative recovery owner and authorizes predecessor unpin plus issuance of the missing guarded handoff.",
+          "2026-08-04T13:07:59Z after Good-signed activation 6438c52 recorded takeover, master unpinned failed predecessor 019fcc56 successfully (pinned=false) without archiving or deleting it. Recovery Sol 019fccdd remains pinned and was directed to issue the missing guarded handoff; branch/worktree/reports/proofs and protected refs remain untouched."
         ],
         "proof_manifests": [
           "personal layup manifest SHA256 90EFB0AAAF55BB9853B8ED52A1E476701E388F389FD895922A4111E9BF1A91DD",
@@ -4032,7 +4033,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-04T10:26:21Z",
-      "updated_at": "2026-08-04T13:05:52Z",
+      "updated_at": "2026-08-04T13:07:59Z",
       "audit": [
         {
           "timestamp": "2026-08-04T10:26:20Z",

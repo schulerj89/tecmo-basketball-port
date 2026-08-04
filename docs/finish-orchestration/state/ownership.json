@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T13:05:52Z",
+  "updated_at": "2026-08-04T13:07:59Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -736,7 +736,7 @@
       "active": true,
       "claimed_at": "2026-08-04T10:26:21Z",
       "released_at": null,
-      "notes": "Master reservation for one dedicated current-main Integration QA Sol. Initial scope was docs-only plus the prescribed branch-only ff-only from clean ed060720 to immutable Good-signed d8d8119. After the sole independent Luna found one actionable runner P2, master granted exactly tools/Run-GameplayPresentationTests.ps1 for the accepted scratch-isolation correction a4c1286 and the five-report terminal bdc2fbb. The same Luna returned final terminal PASS with product/tooling P0/P1/P2/P3 all zero. The original Sol then entered systemError before emitting its guarded handoff. This still-active claim is now held by recovery session S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001, which confirmed exact clean takeover of the preserved bdc2fbb branch/worktree at 2026-08-04T13:05:52Z. No new product/report write, new Luna, main, origin, staging, or push authority is granted; predecessor unpin is authorized."
+      "notes": "Master reservation for one dedicated current-main Integration QA Sol. Initial scope was docs-only plus the prescribed branch-only ff-only from clean ed060720 to immutable Good-signed d8d8119. After the sole independent Luna found one actionable runner P2, master granted exactly tools/Run-GameplayPresentationTests.ps1 for the accepted scratch-isolation correction a4c1286 and the five-report terminal bdc2fbb. The same Luna returned final terminal PASS with product/tooling P0/P1/P2/P3 all zero. The original Sol then entered systemError before emitting its guarded handoff. This still-active claim is now held by recovery session S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-RECOVERY-001, which confirmed exact clean takeover of the preserved bdc2fbb branch/worktree at 2026-08-04T13:05:52Z. The failed predecessor was unpinned at 2026-08-04T13:07:59Z and remains preserved/unarchived. No new product/report write, new Luna, main, origin, staging, or push authority is granted."
     },
     {
       "claim_id": "OWN-R3-PLAYER-STATS-LEADERS",
