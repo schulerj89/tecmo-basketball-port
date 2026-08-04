@@ -632,7 +632,7 @@
       "claim_id": "OWN-R2-RULES-RESTARTS",
       "task_id": "R2-RULES-RESTARTS",
       "round_id": "R2",
-      "session_id": "S-MASTER-001",
+      "session_id": "S-SOL-R2-RULES-RESTARTS-001",
       "mode": "exclusive",
       "writable_globs": [
         "docs/finish-tasks/R2-rules-restarts/**"
@@ -645,7 +645,7 @@
       "active": true,
       "claimed_at": "2026-08-04T03:44:25Z",
       "released_at": null,
-      "notes": "Master-held signed reservation before Sol creation. Initial writable scope is task docs only. All product/source/header/tool/build/scene/asset/source-map paths remain read-only while the Sol completes parallel native-evidence, architecture/collision, and proof-gap audits and returns an exact bounded rescope request. No product mutation or writable Luna is authorized by this reservation."
+      "notes": "Transferred after Good-signed reservation 99e7183 to exact pinned Sol 019fcae1-d939-7dd0-a839-6599e2efc362. Initial writable scope is task docs only. All product/source/header/tool/build/scene/asset/source-map paths remain read-only while the Sol completes parallel native-evidence, architecture/collision, and proof-gap audits and returns an exact bounded rescope request. No product mutation or writable Luna is authorized yet."
     }
   ],
   "shared_boundaries": [

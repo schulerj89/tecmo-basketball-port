@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T03:44:25Z",
+  "updated_at": "2026-08-04T03:47:49Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -1509,7 +1509,7 @@
       "round_id": "R2",
       "priority": 96,
       "coordination_only": false,
-      "state": "scoped",
+      "state": "assigned",
       "dependencies": [
         "R2-SHOTS-OUTCOMES",
         "R2-DEFENSE-CONTACT"
@@ -1519,7 +1519,7 @@
       "expected_parent_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
       "branch": "codex/r2-rules-restarts-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-rules-restarts-sol",
-      "sol_orchestrator_session_id": null,
+      "sol_orchestrator_session_id": "S-SOL-R2-RULES-RESTARTS-001",
       "reported_luna_worker_session_ids": [],
       "result_commits": [],
       "evidence_ids": [],
@@ -1531,7 +1531,8 @@
         "sol_signoff": false,
         "integration_signoff": false,
         "test_records": [
-          "2026-08-04T03:44:25Z master reverified local/tracking/live stable main exact Good-signed 7fe2dd7 and confirmed proposed codex/r2-rules-restarts-sol branch plus C:/Users/joshs/Projects/tecmo-basketball-port-r2-rules-restarts-sol path absent from local/remote refs, filesystem, and worktree registry before reservation."
+          "2026-08-04T03:44:25Z master reverified local/tracking/live stable main exact Good-signed 7fe2dd7 and confirmed proposed codex/r2-rules-restarts-sol branch plus C:/Users/joshs/Projects/tecmo-basketball-port-r2-rules-restarts-sol path absent from local/remote refs, filesystem, and worktree registry before reservation.",
+          "2026-08-04T03:47:49Z after Good-signed reservation 99e7183, master created the exact clean branch/worktree at 7fe2dd7, created exactly one gpt-5.6-sol/max orchestrator task 019fcae1-d939-7dd0-a839-6599e2efc362, and immediately pinned it. Creation/pin succeeded without retry or replacement."
         ],
         "proof_manifests": [],
         "notes": "Existing violation/referee contracts are partial; free-throw aim/outcome/rebound and foul detection remain approximate. The first Sol turn is read-only and docs-only-authorized: reconcile exact ASM/native evidence, current rules architecture, ownership collisions, and proof gaps, use bounded independent Luna research in parallel, then return one exact product/function/test rescope request before any product mutation."
@@ -1547,7 +1548,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-04T03:44:25Z",
+      "updated_at": "2026-08-04T03:47:49Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -1562,6 +1563,13 @@
           "from_state": "backlog",
           "to_state": "scoped",
           "reason": "Shots and raw Defense dependencies are accepted; reserved a collision-free stable-main Sol allocation with docs-only ownership and a mandatory read-only evidence/architecture/product-scope gate before implementation."
+        },
+        {
+          "timestamp": "2026-08-04T03:47:49Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "scoped",
+          "to_state": "assigned",
+          "reason": "Created and immediately pinned exact gpt-5.6-sol/max orchestrator 019fcae1-d939-7dd0-a839-6599e2efc362 once after Good-signed reservation and transferred the read-only-first docs-only assignment."
         }
       ]
     },
