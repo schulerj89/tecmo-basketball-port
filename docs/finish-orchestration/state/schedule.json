@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T10:10:52Z",
+  "updated_at": "2026-08-04T10:18:56Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -423,8 +423,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-gameplay-presentation-sol",
       "ownership_claim_ids": ["OWN-R2-GAMEPLAY-PRESENTATION"],
       "blockers": [],
-      "next_gate": "Exact two-path product commit 4cb0c43 passed personal and sole-Luna terminal QA with P0/P1/P2/P3 zero and was ff-only integrated into the clean Presentation Sol branch. Sol must now commit only the four authorized task reports with Good SSH signature, reuse the same pinned terminal auditor for exact signed-tip/docs review, and issue a guarded terminal handoff. No staging/main/push or scope widening is authorized.",
-      "updated_at": "2026-08-04T10:10:52Z"
+      "next_gate": "Good-signed Sol tip d8d8119 is exact product 4cb0c43 plus four authorized reports and is independently master-verified clean. The same sole pinned terminal auditor 019fcc34 is active on exact signed-tip/docs/P0-P3/guarded-handoff review. Await its final disposition; if PASS, Sol issues terminal handoff for master-owned dedicated current-main integration QA. No staging/main/push, new task, unpin, or scope widening is authorized yet.",
+      "updated_at": "2026-08-04T10:18:56Z"
     },
     {
       "lane_id": "LANE-R3-PLAYER-STATS-LEADERS",

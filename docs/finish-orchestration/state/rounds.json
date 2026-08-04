@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T10:10:52Z",
+  "updated_at": "2026-08-04T10:18:56Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -261,7 +261,7 @@
         "accepted_sha": null,
         "report_path": null,
         "signed_by_session_id": null,
-        "notes": "Shots/outcomes, Defense, and Rules/Restarts have each completed dedicated current-main integration QA and are delivered through stable main ed060720. Gameplay Presentation Good-signed exact two-path product 4cb0c43 passed personal and sole-Luna terminal QA with P0/P1/P2/P3 zero and is ff-only integrated into its clean Sol branch. Final task-doc signing, same-auditor tip review, master handoff, and dedicated current-main integration QA remain pending. Shared scene/renderer/animation/assets and every broader presentation claim remain excluded."
+        "notes": "Shots/outcomes, Defense, and Rules/Restarts have each completed dedicated current-main integration QA and are delivered through stable main ed060720. Gameplay Presentation Good-signed exact two-path product 4cb0c43 passed personal and sole-Luna terminal QA with P0/P1/P2/P3 zero; exact four-report Good-signed Sol tip d8d8119 is clean and now under the same auditor's final signed-tip review. Master handoff and dedicated current-main integration QA remain pending. Shared scene/renderer/animation/assets and every broader presentation claim remain excluded."
       },
       "acceptance": {
         "status": "pending",
