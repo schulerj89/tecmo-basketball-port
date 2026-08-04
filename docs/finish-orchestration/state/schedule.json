@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T10:38:08Z",
+  "updated_at": "2026-08-04T10:43:11Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -441,8 +441,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2e-gameplay-presentation-integration-qa-sol",
       "ownership_claim_ids": ["OWN-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"],
       "blockers": [],
-      "next_gate": "Sole pinned gpt-5.6-sol/max orchestrator 019fcc56-f41f-7601-8dae-e93ebef4ed4f must complete and report the exact clean signed takeover/collision/ref gate before branch ff-only or Luna creation, then run the full independent combined/proof/visual matrix and stop at a Good-signed terminal handoff. Main/staging/origin/push remain master-only.",
-      "updated_at": "2026-08-04T10:34:47Z"
+      "next_gate": "Clean takeover and the single branch-only ff-only to exact d8d8119/tree 856ffbe passed with protected refs unchanged. Sole pinned Sol 019fcc56 is now auditing product/evidence and running the independent combined/proof/visual matrix before exactly one post-collision Luna/max terminal task and Good-signed docs-only handoff. Main/staging/origin/push remain master-only.",
+      "updated_at": "2026-08-04T10:42:29Z"
     },
     {
       "lane_id": "LANE-R3-PLAYER-STATS-LEADERS",
@@ -459,8 +459,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3-player-stats-leaders-sol",
       "ownership_claim_ids": ["OWN-R3-PLAYER-STATS-LEADERS"],
       "blockers": [],
-      "next_gate": "Persistent pinned Luna/max worker 019fcc01-9670-7ea0-bff4-3d5847d3a9dd is active on the exact isolated codex/r3-player-stats-leaders-luna worktree/base with zero creation fault. Sol remains the sole sequential shared-scene writer and must reuse that worker for all revisions, personally review the ten-path implementation, run the full state-flow/season/save/formula/ranking/render/two-run/visual matrix, freeze a Good-signed candidate, then create exactly one independent terminal Luna. Every excluded semantic and adjacent-domain path remains read-only.",
-      "updated_at": "2026-08-04T09:03:19Z"
+      "next_gate": "Full-resolution review rejected four stable leader hashes and proved the accepted template offset off by one. Under the same ten-path scope, sole persistent worker 019fcc01 must implement checked template_id - 38 mapping for source IDs 39..44 against imported IDs 38..44, regenerate authorized self-test/CLI/Run-SeasonTests proof, and return corrected page 0/6/12 frames for personal review before any commit. No new task/path/semantic authority.",
+      "updated_at": "2026-08-04T10:43:11Z"
     }
   ]
 }

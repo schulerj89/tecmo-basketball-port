@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T10:38:08Z",
+  "updated_at": "2026-08-04T10:43:11Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -769,7 +769,7 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2e-gameplay-presentation-integration-qa-sol",
       "branch": "codex/r2e-gameplay-presentation-integration-qa-sol",
       "base_sha": "ed060720a98b790f98591af363a490a0e0816018",
-      "last_good_sha": "ed060720a98b790f98591af363a490a0e0816018",
+      "last_good_sha": "d8d811918932c19bbe1741d2392ec1ad942ebd79",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
       "reported_luna_lineage": [],
@@ -777,8 +777,8 @@
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-04T10:34:47Z",
       "completed_at": null,
-      "updated_at": "2026-08-04T10:34:47Z",
-      "notes": "Created once and pinned immediately on the first attempt after Good-signed reservation ab832e8 and exact main/candidate/ref/worktree preflight. It is assigned the unique clean ed060720 integration branch/worktree, immutable d8d8119 staging input, docs-only report scope plus one prescribed branch-only ff-only, full independent combined/proof/visual QA, and exactly one post-collision projectless Luna/max terminal audit. It must report clean takeover before mutation and stop before main/staging/origin/push."
+      "updated_at": "2026-08-04T10:42:29Z",
+      "notes": "Created once and pinned immediately on the first attempt after Good-signed reservation ab832e8 and exact main/candidate/ref/worktree preflight. Full read-only takeover passed: complete instruction review, signatures/refs/ancestry, exact six text paths, zero collision/ownership/proprietary escape, unique clean worktree, and exact ff prediction. The sole authorized branch-only ff-only landed at immutable d8d8119/tree 856ffbe with local/tracking/live ed060720 main and staging unchanged. Sol is independently auditing and running the combined/proof/visual matrix before exactly one post-collision Luna/max terminal audit and must stop before main/staging/origin/push."
     },
     {
       "session_id": "S-SOL-R3-PLAYER-STATS-LEADERS-001",
@@ -807,8 +807,8 @@
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-04T08:02:47Z",
       "completed_at": null,
-      "updated_at": "2026-08-04T09:03:19Z",
-      "notes": "Created once and pinned immediately on the first attempt under Good-signed reservation 4c264ca. Clean takeover and all three bounded read-only audits were personally reconciled at exact ed060720 with zero mutation. Under Good-signed rescope de316a7, Sol reverified the exact control identity, stable refs, absent header/worker allocation, and sole sequential scene-writer registry, then created/pinned sole persistent worker 019fcc01-9670-7ea0-bff4-3d5847d3a9dd on the exact isolated branch/worktree/base with zero creation/pin/retry/replacement fault and zero pre-gate repository mutation. The ten-path transactional stats/save/leader grant and every unavailable/excluded semantic boundary remain exact."
+      "updated_at": "2026-08-04T10:43:11Z",
+      "notes": "Created once and pinned immediately on the first attempt under Good-signed reservation 4c264ca. Clean takeover and all three bounded read-only audits were personally reconciled at exact ed060720 with zero mutation. Under Good-signed rescope de316a7, Sol created/pinned sole persistent worker 019fcc01 on the exact isolated branch/worktree/base with zero task fault. Personal full-resolution review later rejected four stable populated-leader hashes and proved the accepted proposal's template offset off by one: source IDs 39..44 map against imported IDs 38..44 using a checked template_id - 38 resolver. The same worker is held for this exact same-scope correction; all unsupported counters, adjacent paths, semantics, and protected refs remain excluded."
     },
     {
       "session_id": "S-BLOCKERS-001",
