@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T08:07:25Z",
+  "updated_at": "2026-08-04T08:14:53Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -441,8 +441,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r3-player-stats-leaders-sol",
       "ownership_claim_ids": ["OWN-R3-PLAYER-STATS-LEADERS"],
       "blockers": [],
-      "next_gate": "Clean takeover is accepted. The sole Sol is executing the collision gate and must create exactly three pinned projectless Luna/max read-only auditors for source evidence, architecture/ownership, and proof/save-schema gaps, then personally reconcile one exact minimal rescope. Product write and writable-worker creation remain prohibited until granted.",
-      "updated_at": "2026-08-04T08:07:25Z"
+      "next_gate": "Clean takeover is accepted. Exactly three pinned projectless Luna/max read-only auditors are active under the sole Sol for original evidence, architecture/ownership, and proof/save-schema gaps. Sol must personally reconcile them and request one exact minimal signed product/test rescope; product write and writable-worker creation remain prohibited until granted.",
+      "updated_at": "2026-08-04T08:14:53Z"
     }
   ]
 }

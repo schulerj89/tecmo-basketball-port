@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-04T08:07:25Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-04T08:14:53Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -40,7 +40,7 @@ Generated from committed JSON at `2026-08-04T08:07:25Z`. This dashboard reports 
 | LANE-R2-RULES-RESTARTS | gameplay_behavior | complete | complete | R2-RULES-RESTARTS | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | Complete: exact Good-signed terminal 1f23235 passed personal Sol and same-Luna P0/P1/P2/P3-zero QA, active contract wording is reconciled, domain ownership is released, and immutable 1f23235 is routed to dedicated current-main integration QA. All five child tasks and the Sol returned pinned=false after durable control; branches/worktrees/docs/proof remain preserved. |
 | LANE-R2D-RULES-RESTARTS-INTEGRATION-QA | integration_qa | complete | complete | R2D-RULES-RESTARTS-INTEGRATION-QA | S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001 | codex/r2d-rules-restarts-integration-qa-sol | Complete: terminal Good-signed ed060720 passed Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only delivered and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Sol and Luna both returned pinned=false; all tasks and artifacts remain preserved and unarchived. |
 | LANE-R2-GAMEPLAY-PRESENTATION | gameplay_presentation | active | ready | R2-GAMEPLAY-PRESENTATION | S-SOL-R2-GAMEPLAY-PRESENTATION-001 | codex/r2-gameplay-presentation-sol | Clean takeover is accepted. Exactly three pinned projectless Luna/max read-only auditors are active under the sole Sol for original evidence, architecture/collision, and proof/visual gaps. Sol must personally reconcile them and request one exact minimal signed product/test rescope; product write and writable-worker creation remain prohibited until granted. |
-| LANE-R3-PLAYER-STATS-LEADERS | season_data | active | ready | R3-PLAYER-STATS-LEADERS | S-SOL-R3-PLAYER-STATS-LEADERS-001 | codex/r3-player-stats-leaders-sol | Clean takeover is accepted. The sole Sol is executing the collision gate and must create exactly three pinned projectless Luna/max read-only auditors for source evidence, architecture/ownership, and proof/save-schema gaps, then personally reconcile one exact minimal rescope. Product write and writable-worker creation remain prohibited until granted. |
+| LANE-R3-PLAYER-STATS-LEADERS | season_data | active | ready | R3-PLAYER-STATS-LEADERS | S-SOL-R3-PLAYER-STATS-LEADERS-001 | codex/r3-player-stats-leaders-sol | Clean takeover is accepted. Exactly three pinned projectless Luna/max read-only auditors are active under the sole Sol for original evidence, architecture/ownership, and proof/save-schema gaps. Sol must personally reconcile them and request one exact minimal signed product/test rescope; product write and writable-worker creation remain prohibited until granted. |
 
 ## Rounds
 
