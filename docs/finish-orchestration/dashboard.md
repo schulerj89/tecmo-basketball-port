@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-04T19:22:56Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-04T20:12:37Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,7 +8,7 @@ Generated from committed JSON at `2026-08-04T19:22:56Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 8, `pushed` 27
+- Task states: `backlog` 6, `pushed` 27, `scoped` 2
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
@@ -92,14 +92,14 @@ Generated from committed JSON at `2026-08-04T19:22:56Z`. This dashboard reports 
 | 98 | R0A-ADOPT-TIP-VIS | gameplay_presentation | R0A | pushed | S-SOL-TIP-VIS-LEGACY | codex/tipoff-visual-orientation | 6 | historical_sol_accepted | pushed |
 | 98 | R1-LIVE-FOUNDATION | gameplay_behavior | R1A | pushed | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 3 | passed | pushed |
 | 98 | R2-DEFENSE-CONTACT | gameplay_behavior | R2 | pushed | S-SOL-R2-DEFENSE-CONTACT-001 | codex/r2-defense-contact-sol | 3 | passed | pushed |
-| 98 | R3-SEASON-PROGRESSION-SAVE | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
+| 98 | R3-SEASON-PROGRESSION-SAVE | season_data | R3 | scoped | - | - | 0 | pending | not_ready |
 | 98 | R4-MENUS-UI | frontend | R4 | backlog | - | - | 0 | pending | not_ready |
 | 98 | R5-PARITY-GAP-CLOSURE | integration | R5 | backlog | - | - | 0 | pending | not_ready |
 | 97 | R0A-ADOPT-AWAY-FACING | gameplay_presentation | R0A | pushed | S-SOL-AWAY-FACING-LEGACY | codex/away-facing-left-only | 2 | historical_sol_accepted | pushed |
 | 96 | R1-TIP-FIDELITY | gameplay_behavior | R1 | pushed | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 4 | passed | pushed |
 | 96 | R2-RULES-RESTARTS | gameplay_behavior | R2 | pushed | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | 2 | passed | pushed |
 | 96 | R3-TEAM-MGMT-DATA | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
-| 96 | R4-AUDIO | audio | R4 | backlog | - | - | 0 | pending | not_ready |
+| 96 | R4-AUDIO | audio | R4 | scoped | - | - | 0 | pending | not_ready |
 | 96 | R5-E2E-RELEASE-QA | integration | R5 | backlog | - | - | 0 | pending | not_ready |
 | 94 | R2-CLOCK-LINEUPS-FATIGUE | gameplay_behavior | R2 | pushed | S-SOL-R2-CLOCK-LINEUPS-001 | codex/r2-clock-lineups-fatigue-sol | 7 | passed | pushed |
 | 94 | R3-ALLSTAR | season_data | R3 | backlog | - | - | 0 | pending | not_ready |
