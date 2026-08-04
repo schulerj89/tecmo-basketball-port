@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T10:26:21Z",
+  "updated_at": "2026-08-04T10:34:47Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,8 +10,8 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 1,
-    "cleared_for_creation": 1,
+    "active_domain_orchestrators": 2,
+    "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
     "unallocated_target_slots": 2,
@@ -432,17 +432,17 @@
       "domain": "integration_qa",
       "round_ids": ["R2E"],
       "task_ids": ["R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"],
-      "readiness": "cleared_for_creation",
+      "readiness": "active",
       "dependency_status": "ready",
       "reservation_owner_session_id": "S-MASTER-001",
-      "orchestrator_session_id": null,
+      "orchestrator_session_id": "S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-001",
       "base_sha": "ed060720a98b790f98591af363a490a0e0816018",
       "branch": "codex/r2e-gameplay-presentation-integration-qa-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2e-gameplay-presentation-integration-qa-sol",
       "ownership_claim_ids": ["OWN-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA"],
       "blockers": [],
-      "next_gate": "After this reservation is Good-signed, create immutable staging d8d8119 and the exact clean ed060720 integration branch/worktree, then create and pin exactly one gpt-5.6-sol/max orchestrator. It must complete read-only takeover before ff-only or Luna creation; main/staging/origin/push remain master-only.",
-      "updated_at": "2026-08-04T10:26:21Z"
+      "next_gate": "Sole pinned gpt-5.6-sol/max orchestrator 019fcc56-f41f-7601-8dae-e93ebef4ed4f must complete and report the exact clean signed takeover/collision/ref gate before branch ff-only or Luna creation, then run the full independent combined/proof/visual matrix and stop at a Good-signed terminal handoff. Main/staging/origin/push remain master-only.",
+      "updated_at": "2026-08-04T10:34:47Z"
     },
     {
       "lane_id": "LANE-R3-PLAYER-STATS-LEADERS",

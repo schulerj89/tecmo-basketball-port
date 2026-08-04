@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T10:26:21Z",
+  "updated_at": "2026-08-04T10:34:47Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -3804,7 +3804,7 @@
       "round_id": "R2E",
       "priority": 99,
       "coordination_only": false,
-      "state": "scoped",
+      "state": "assigned",
       "dependencies": [
         "R2-GAMEPLAY-PRESENTATION"
       ],
@@ -3815,7 +3815,7 @@
       "expected_parent_sha": "ed060720a98b790f98591af363a490a0e0816018",
       "branch": "codex/r2e-gameplay-presentation-integration-qa-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2e-gameplay-presentation-integration-qa-sol",
-      "sol_orchestrator_session_id": null,
+      "sol_orchestrator_session_id": "S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-001",
       "reported_luna_worker_session_ids": [],
       "result_commits": [],
       "evidence_ids": [],
@@ -3827,7 +3827,8 @@
         "sol_signoff": false,
         "integration_signoff": false,
         "test_records": [
-          "2026-08-04T10:26:21Z master accepted immutable Good-signed presentation tip d8d811918932c19bbe1741d2392ec1ad942ebd79 after personal and same-Luna P0/P1/P2/P3-zero closure, reverified exact six-path delta and stable clean ed060720 main, and reserved a dedicated current-main Integration QA lane before any branch/worktree/task creation."
+          "2026-08-04T10:26:21Z master accepted immutable Good-signed presentation tip d8d811918932c19bbe1741d2392ec1ad942ebd79 after personal and same-Luna P0/P1/P2/P3-zero closure, reverified exact six-path delta and stable clean ed060720 main, and reserved a dedicated current-main Integration QA lane before any branch/worktree/task creation.",
+          "2026-08-04T10:34:47Z after Good-signed reservation ab832e8, master reverified unchanged clean local/tracking/live ed060720 main, candidate signature/ancestry/diff, absent local/remote refs and worktree, then created immutable staging d8d8119 and exact clean ed060720 integration branch/worktree. Exactly one top-level projectless gpt-5.6-sol/max orchestrator 019fcc56-f41f-7601-8dae-e93ebef4ed4f was created once and pinned immediately with zero creation/pin/retry/replacement fault."
         ],
         "proof_manifests": [
           "personal layup manifest SHA256 90EFB0AAAF55BB9853B8ED52A1E476701E388F389FD895922A4111E9BF1A91DD",
@@ -3846,7 +3847,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-04T10:26:21Z",
-      "updated_at": "2026-08-04T10:26:21Z",
+      "updated_at": "2026-08-04T10:34:47Z",
       "audit": [
         {
           "timestamp": "2026-08-04T10:26:20Z",
@@ -3861,6 +3862,13 @@
           "from_state": "backlog",
           "to_state": "scoped",
           "reason": "Reserved exact docs-only R2E Integration QA ownership, immutable d8d8119 staging, and a collision-cleared ed060720-based branch/worktree before creating a Sol orchestrator."
+        },
+        {
+          "timestamp": "2026-08-04T10:34:47Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "scoped",
+          "to_state": "assigned",
+          "reason": "Created and immediately pinned exact gpt-5.6-sol/max orchestrator 019fcc56-f41f-7601-8dae-e93ebef4ed4f once after signed reservation and transferred the isolated read-only-first ff-only integration assignment."
         }
       ]
     }

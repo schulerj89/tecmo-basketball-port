@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T10:26:21Z",
+  "updated_at": "2026-08-04T10:34:47Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -718,7 +718,7 @@
       "claim_id": "OWN-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA",
       "task_id": "R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA",
       "round_id": "R2E",
-      "session_id": "S-MASTER-001",
+      "session_id": "S-SOL-R2E-GAMEPLAY-PRESENTATION-INTEGRATION-QA-001",
       "mode": "exclusive",
       "writable_globs": [
         "docs/finish-tasks/R2E-gameplay-presentation-integration-qa/**"
