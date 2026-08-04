@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T23:50:13Z",
+  "updated_at": "2026-08-04T00:19:09Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -546,17 +546,19 @@
       "session_id": "S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001",
       "mode": "exclusive",
       "writable_globs": [
-        "docs/finish-tasks/R2A-clock-lineups-fatigue-integration-qa/**"
+        "docs/finish-tasks/R2A-clock-lineups-fatigue-integration-qa/**",
+        "tools/Run-AssetPackTests.ps1"
       ],
       "planned_paths": [
         "docs/finish-tasks/R2A-clock-lineups-fatigue-integration-qa/README.md",
-        "docs/finish-tasks/R2A-clock-lineups-fatigue-integration-qa/PROOF.md"
+        "docs/finish-tasks/R2A-clock-lineups-fatigue-integration-qa/PROOF.md",
+        "tools/Run-AssetPackTests.ps1"
       ],
       "concurrency_group": "R2A-clock-lineups-fatigue-integration-qa",
       "active": true,
       "claimed_at": "2026-08-03T23:38:12Z",
       "released_at": null,
-      "notes": "Master reservation before Sol creation. The immutable accepted clocks/lineups/fatigue tip ed4e56fc595894c692ffca84ae3b35f129317049 and current-main product paths are read-only except for one deliberate signed branch-only reconciliation merge. This claim owns only R2A task docs; main integration and push remain master-only."
+      "notes": "Master reservation before Sol creation, expanded at 2026-08-04T00:04:57Z after collision checks found no active claim, worktree edit, or candidate overlap for tools/Run-AssetPackTests.ps1. Sol consumed exactly that exception in Good-signed runner-only commit 73e87dcccbfe1ddc6a78d9b313e8dd75252fb857; broad AssetPackTests now pass 55/55 and focused reruns pass. Authority remains limited to R2A task docs, the signed reconciliation merge, and this one runner correction. Runtime/product source is read-only; main integration and push remain master-only."
     },
     {
       "claim_id": "OWN-R2-DEFENSE-CONTACT",

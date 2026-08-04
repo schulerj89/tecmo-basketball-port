@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T23:50:13Z",
+  "updated_at": "2026-08-04T00:19:09Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -303,8 +303,8 @@
         "OWN-R2A-CLOCK-LINEUPS-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Clean takeover, seven-signature audit, 18-path zero-overlap audit, and conflict-free merge-tree prediction passed. Sol may create the signed branch-only reconciliation merge and begin full combined QA.",
-      "updated_at": "2026-08-03T23:50:13Z"
+      "next_gate": "Good-signed runner-only correction 73e87dcc consumed the exact rescope; broad AssetPackTests pass 55/55 and focused reruns pass. Finish terminal combined gates, same-Luna read-only re-audit, and signed acceptance docs. No runtime source or main mutation is authorized.",
+      "updated_at": "2026-08-04T00:19:09Z"
     },
     {
       "lane_id": "LANE-R2-DEFENSE-CONTACT",

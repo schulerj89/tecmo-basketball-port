@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03T23:50:13Z",
+  "updated_at": "2026-08-04T00:19:09Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -577,16 +577,16 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2a-clocks-integration-qa-sol",
       "branch": "codex/r2a-clocks-integration-qa-sol",
       "base_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
-      "last_good_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
+      "last_good_sha": "73e87dcccbfe1ddc6a78d9b313e8dd75252fb857",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
-      "reported_luna_lineage": [],
+      "reported_luna_lineage": ["019fca0a-a7ff-7d92-b2ad-a6b5ab51aece"],
       "recovery_lineage": [],
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T23:47:05Z",
       "completed_at": null,
-      "updated_at": "2026-08-03T23:50:13Z",
-      "notes": "Created once and immediately pinned after signed reservation bc0c680. Exact clean edf16ca worktree and immutable ed4e56f staging were pre-created and collision-checked. Sol owns branch-only signed reconciliation, combined clocks/lineups/fatigue/current-main QA, one independent projectless Luna lineage, and terminal docs; main/push remain master-only."
+      "updated_at": "2026-08-04T00:19:09Z",
+      "notes": "Created once and immediately pinned after signed reservation bc0c680. Signed reconciliation merge 8233cb4 has exact parent order/tree and no candidate overlap. One projectless independent Luna was created/pinned without fault. Master collision-checked and granted only tools/Run-AssetPackTests.ps1; Sol consumed exactly that scope in Good-signed runner-only commit 73e87dcc. Broad AssetPackTests now pass 55/55 and focused IntroSequence/TGFL/TGFT/TGCP reruns pass. Terminal combined gates, independent re-audit, and signed docs remain; runtime source and main/push stay read-only."
     },
     {
       "session_id": "S-SOL-R2-DEFENSE-CONTACT-001",
@@ -646,6 +646,9 @@
     }
   ],
   "reported_luna_workers": [
+    {
+      "worker_id":"019fca0a-a7ff-7d92-b2ad-a6b5ab51aece","thread_id":"019fca0a-a7ff-7d92-b2ad-a6b5ab51aece","title":"Tecmo R2A Clock Lineups Fatigue Integration Independent QA - Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001","round_ids":["R2A"],"task_ids":["R2A-CLOCK-LINEUPS-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"8233cb4b7c86612cd290615927439caf83947b1e","contribution":"Sole top-level projectless/null-Git independent QA lineage for the frozen signed R2A merge and later runner/docs revisions. Created and pinned once with no setup fault, retry, or replacement; read-only audit is active while Sol owns all execution and personal visual acceptance.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T00:04:57Z"
+    },
     {
       "worker_id":"019fc957-a425-70f3-83b9-1e63dfdba40e","thread_id":"019fc957-a425-70f3-83b9-1e63dfdba40e","title":"Tecmo R2 Clocks Lineups Fatigue Independent QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R2-CLOCK-LINEUPS-001","round_ids":["R2"],"task_ids":["R2-CLOCK-LINEUPS-FATIGUE"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"ed4e56fc595894c692ffca84ae3b35f129317049","contribution":"Sole projectless/null-Git independent QA lineage. It first found two P2 and three P3 issues, then accepted the remediated candidate and terminal ed4e56f docs with no P0/P1/P2/P3 findings. Final unpin returned pinned=false after durable signed handoff; context is preserved.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T21:58:15.775Z"
     },
