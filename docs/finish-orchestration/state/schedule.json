@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T04:41:08Z",
+  "updated_at": "2026-08-04T04:54:52Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -387,8 +387,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-rules-restarts-sol",
       "ownership_claim_ids": ["OWN-R2-RULES-RESTARTS"],
       "blockers": [],
-      "next_gate": "Sole persistent writable Luna 019fcb05-7013-7453-87ff-2d92d3ad2b32 may complete the original five-path frame-16 cue/restart matrix plus exactly the inherited TGMO entry assertion/diagnostic in scene_test_state_flow.c to require no pre-delay SFX. No other state-flow logic is writable. Sol must personally review every revision, preserve all semantic exclusions, require Good-signed clean ownership-compliant commits, then run proportional broad/visual QA and independent terminal review before handoff.",
-      "updated_at": "2026-08-04T04:41:08Z"
+      "next_gate": "Sole persistent writable Luna 019fcb05-7013-7453-87ff-2d92d3ad2b32 may complete the frame-16 cue/restart matrix; exactly three inherited state-flow compatibility blocks for no-pre-delay/frame-16/no-repeat assertions; and exactly one additive build.ps1 new-TU source-list entry. Both CMake and canonical build.ps1 console/GUI routes plus the full scene suite must pass warning-clean. No other state-flow/build logic is writable. Sol must personally review every revision, preserve all semantic exclusions, require Good-signed clean ownership-compliant commits, then run proportional broad/visual QA and independent terminal review before handoff.",
+      "updated_at": "2026-08-04T04:54:52Z"
     }
   ]
 }
