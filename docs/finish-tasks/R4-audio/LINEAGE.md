@@ -59,6 +59,15 @@ push, main update, or contact with another lane. Follow-up corrections must
 return to this same lineage; no duplicate or replacement implementation worker
 is justified.
 
+Requested thread-backed Luna/max setup was attempted through `list_projects`,
+`list_threads`, and `fork_thread`; each call timed out and was explicitly
+terminated. No task or thread was created, so there was nothing to pin, and
+this lineage does not claim Luna. To avoid a duplicate or replacement, one
+persistent in-session same-model revision lineage was used. Terminal QA must
+still be exactly one: the authoritative Sol will retry thread-backed Luna/max
+once at terminal, or, if that service attempt fails, use one independent
+in-session auditor and report the service fault.
+
 The implementation decisions are:
 
 - wrap the three accepted scripts rather than copying or replacing their
@@ -98,20 +107,52 @@ attribute the delta to a narrower entry or byte. The runner now pins the
 current full-pack identity and separately records the earlier accepted R4A
 checkpoint as historical evidence.
 
-The only executed validation in this implementation handoff was a parse-only
-PowerShell syntax/static check of each local runner revision, which passed.
-The authoritative Sol supplied the precursor runtime results above. A clean
-full-wrapper PASS on the corrected committed candidate, current-HEAD artifact
-hashes, personal Sol review, and exactly one independent terminal QA remain for
-the authoritative Sol workflow.
+The implementation/revision lineage itself executed only parse-only
+PowerShell syntax/static checks, which passed. The authoritative Sol supplied
+the precursor runtime results above and performed the later terminal work.
+
+## Authoritative terminal checkpoint
+
+The authoritative Sol personally reviewed commit
+`e68671f0087276b8374fee5144a716a7dfa57905`, tree
+`573c0590da6e6b8ee63229d085e066d819322197`, sole parent
+`99a54943b4becc5e0dde0379624b6c7bb5f7cb8c`. Personal verification reported a
+Good SSH signature for `jaystar524@gmail.com`, RSA fingerprint
+`SHA256:L/fBxE6/8x0E9W2UiVtyTLQ9mfI5AJDzdQYefIsj4fA`. Its complete diff from the
+expected parent remained exactly the assigned runner plus four R4-audio
+documents.
+
+From that clean signed checkpoint, the authoritative Sol ran the full wrapper
+with the build and a valid canonical nested decompilation root. The CLI and
+game executable built; Music passed; FrontendAudio passed with the real native
+`--flow-test`; GameplayAudio passed. The wrapper reported exactly:
+
+```text
+AUDIO ROUTE PROOF PASS: proven=5 source-present-only=13 unproven=7 ledger=4A9664BD56CDEF6EE9B994F5834900367B13A6BD80A17A6F30A82FD281AD7DEB
+```
+
+The ignored route-manifest SHA-256 was
+`6F3D0D40AB7946B3A1DA695808EC8615BC2881E9F113D1F427537FC52095DFD6`, and the
+ignored foundation root-manifest SHA-256 was
+`A681164E7C37864AEC6CD1DD88047DF2F374C308C7CAE1692B8B4E036A5E018E`.
+The route ledger and both manifests bind `proof_generation_head` to `e68671f`.
+The route ledger and route manifest additionally bind `expected_parent` to
+`f1b04193405d1c87f21e80ee51d3790499ea0cf8`. The worktree was clean after
+execution; only ignored artifacts existed.
+
+This evidence revision follows that checkpoint and therefore cannot claim its
+future commit SHA or artifact hashes. After the authoritative Sol commits the
+documents, the complete wrapper must be rerun at the final committed HEAD and
+the actual final-HEAD hashes recorded. Exactly one independent terminal QA
+remains after that rerun.
 
 ## Handoff boundary
 
-No commit SHA is fabricated here before the authoritative Sol creates and
-signs the candidate. After terminal proof, the durable handoff must add the
-exact signed candidate SHA, tree/parent, route-ledger SHA-256, ignored
-route-manifest SHA-256, suite results, independent QA disposition, and clean
-five-path audit.
+The exact signed `e68671f` checkpoint is recorded above. It is not mislabeled
+as the final documentation commit. The durable handoff still requires the
+actual signed final candidate SHA/tree/parent, its clean full-wrapper result
+and generated hashes, exactly one independent terminal QA disposition, and a
+clean five-path audit.
 
 Even after a passing proof, the deliverable remains proof-only. Promotion of a
 source-present-only or unproven route requires concrete source/capture evidence

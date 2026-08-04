@@ -71,10 +71,28 @@ retained in the ledger/manifest for provenance, but is deliberately not used
 as the current full-pack assertion. Audio payload and proof artifact hashes
 remain the accepted R4A values in [EVIDENCE.md](EVIDENCE.md).
 
-The implementation/revision lineage intentionally did not run the build or
-private-ROM suites before handoff. The authoritative Sol must record the exact
-terminal command, candidate HEAD, ledger SHA-256, and result after the
-candidate is committed and clean.
+## Recorded authoritative checkpoint
+
+The authoritative Sol ran the command above from a clean, personally reviewed,
+signed candidate at `e68671f0087276b8374fee5144a716a7dfa57905`. The build
+completed for both the CLI and game executable. All three exact suite PASS
+lines above were observed; FrontendAudio used a valid canonical nested
+decompilation root and executed the real native `--flow-test`. The exact final
+wrapper line was:
+
+```text
+AUDIO ROUTE PROOF PASS: proven=5 source-present-only=13 unproven=7 ledger=4A9664BD56CDEF6EE9B994F5834900367B13A6BD80A17A6F30A82FD281AD7DEB
+```
+
+The ignored route manifest SHA-256 was
+`6F3D0D40AB7946B3A1DA695808EC8615BC2881E9F113D1F427537FC52095DFD6`.
+The ignored foundation root manifest SHA-256 was
+`A681164E7C37864AEC6CD1DD88047DF2F374C308C7CAE1692B8B4E036A5E018E`.
+The route ledger and both manifests bind `proof_generation_head` to
+`e68671f0087276b8374fee5144a716a7dfa57905`. The route ledger and route
+manifest additionally bind `expected_parent` to
+`f1b04193405d1c87f21e80ee51d3790499ea0cf8`. The worktree was clean after the
+run; only ignored proof artifacts remained.
 
 Two pre-acceptance runner faults are not terminal evidence: precursor
 `4c5b080` passed literal string-array arguments to Music and failed before the
@@ -82,7 +100,14 @@ suite; clean signed `99a54943` then passed build and all three frozen suites but
 rejected the reproducible current full-pack SHA because the wrapper still used
 the historical R4A container checkpoint. The separately repeated GameplayAudio
 suite reproduced `27D4CEB4...E1CA6B29` with unchanged audio identities. A full
-wrapper PASS remains required after this correction.
+wrapper PASS was subsequently established by the authoritative checkpoint
+above.
+
+This documentation revision necessarily changes HEAD, so the checkpoint does
+not claim a self-referential final commit or future artifact SHA. After these
+documents are committed, the authoritative Sol must run the full wrapper again
+at that final committed HEAD and record the hashes actually produced. Exactly
+one independent terminal QA remains after the final-HEAD rerun.
 
 ## Ignored outputs
 
@@ -121,6 +146,8 @@ $errors = $null
 if ($errors.Count -ne 0) { $errors; throw 'PowerShell parse failed' }
 ```
 
-After terminal proof and documentation revision, rerun `git diff --check` and
+After committing this documentation revision, rerun the complete terminal
+proof at the final committed HEAD, then rerun `git diff --check` and
 `git status --porcelain=v1 --untracked-files=all`. No build/proof artifact may
-appear in the candidate diff.
+appear in the candidate diff. Obtain exactly one independent terminal QA after
+the final-HEAD rerun.

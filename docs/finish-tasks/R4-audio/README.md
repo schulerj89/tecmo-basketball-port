@@ -1,7 +1,8 @@
 # Tecmo R4 audio cue-routing proof
 
-Status: proof-first candidate prepared; terminal execution and independent QA
-remain pending.
+Status: authoritative clean terminal checkpoint passed on signed commit
+`e68671f0087276b8374fee5144a716a7dfa57905`; a final committed-HEAD rerun and
+exactly one independent terminal QA remain.
 
 Task/session/claim: `R4-AUDIO` /
 `S-SOL-R4-AUDIO-CUE-ROUTING-001` / `OWN-R4-AUDIO-PROOF-FIRST`.
@@ -25,6 +26,32 @@ The entry point is `tools/Run-AudioRouteProofTests.ps1`. It:
    event, CLI-manifest, and waveform hash;
 6. writes a deterministic ignored route ledger and short manifest below
    `build/proof/r4-audio-route/`.
+
+## Authoritative terminal checkpoint
+
+The authoritative Sol personally reviewed signed commit
+`e68671f0087276b8374fee5144a716a7dfa57905` and ran the complete wrapper from a
+clean worktree with `-Build` and a valid canonical decompilation root. The CLI
+and game executable built, Music passed, FrontendAudio passed with the real
+native `--flow-test`, and GameplayAudio passed. The exact wrapper result was:
+
+```text
+AUDIO ROUTE PROOF PASS: proven=5 source-present-only=13 unproven=7 ledger=4A9664BD56CDEF6EE9B994F5834900367B13A6BD80A17A6F30A82FD281AD7DEB
+```
+
+The ignored route manifest SHA-256 was
+`6F3D0D40AB7946B3A1DA695808EC8615BC2881E9F113D1F427537FC52095DFD6`; the
+ignored foundation root manifest SHA-256 was
+`A681164E7C37864AEC6CD1DD88047DF2F374C308C7CAE1692B8B4E036A5E018E`.
+The route ledger and both manifests bind `proof_generation_head` to that
+checkpoint. The route ledger and route manifest additionally bind
+`expected_parent` to `f1b04193405d1c87f21e80ee51d3790499ea0cf8`.
+
+Those identities describe the `e68671f` checkpoint, not the future commit that
+records this documentation. After the documents are committed, the
+authoritative Sol must rerun the full wrapper at the final committed HEAD and
+record its actual hashes. Exactly one independent terminal QA remains after
+that rerun.
 
 ## Classification rule
 

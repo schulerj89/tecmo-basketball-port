@@ -42,6 +42,31 @@ container identity is tip-specific. This proof makes no narrower claim about
 which later entry or byte accounts for the delta. The four audio payload
 sizes/FNVs and all audio WAV/events/CLI/waveform identities remain unchanged.
 
+## Clean authoritative checkpoint
+
+The authoritative full wrapper passed from a clean worktree at signed commit
+`e68671f0087276b8374fee5144a716a7dfa57905`. Its `-Build` phase produced the CLI
+and game executable; Music, FrontendAudio, and GameplayAudio all passed. The
+FrontendAudio result used a valid canonical decompilation root and therefore
+included the real native `--flow-test` route execution.
+
+| Checkpoint evidence | SHA-256 / value |
+| --- | --- |
+| Route classification | 5 proven / 13 source-present-only / 7 unproven |
+| Route ledger | `4A9664BD56CDEF6EE9B994F5834900367B13A6BD80A17A6F30A82FD281AD7DEB` |
+| Ignored route manifest | `6F3D0D40AB7946B3A1DA695808EC8615BC2881E9F113D1F427537FC52095DFD6` |
+| Ignored foundation root manifest | `A681164E7C37864AEC6CD1DD88047DF2F374C308C7CAE1692B8B4E036A5E018E` |
+| Proof generation HEAD | `e68671f0087276b8374fee5144a716a7dfa57905` |
+| Expected parent | `f1b04193405d1c87f21e80ee51d3790499ea0cf8` |
+
+The route ledger and both manifests carry the HEAD binding; the route ledger
+and route manifest also carry the expected-parent binding. The worktree was
+clean after the run and only ignored proof artifacts existed. No private path
+is evidence. Because this documentation revision changes the candidate HEAD,
+the authoritative Sol must rerun at the final committed HEAD; the checkpoint
+hashes above are not predictions of that future run. Exactly one independent
+terminal QA remains after the final-HEAD rerun.
+
 The wrapper also requires the foundation proof to name its current committed
 HEAD. That proof establishes native programs, PCM/state behavior, mailbox
 ordering, mixed override, DMC independence/held-DAC continuity, and portable
