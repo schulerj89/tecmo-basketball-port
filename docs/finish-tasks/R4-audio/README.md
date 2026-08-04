@@ -1,8 +1,8 @@
 # Tecmo R4 audio cue-routing proof
 
-Status: authoritative clean terminal checkpoint passed on signed commit
-`e68671f0087276b8374fee5144a716a7dfa57905`; a final committed-HEAD rerun and
-exactly one independent terminal QA remain.
+Status: terminal proof-first slice accepted at signed commit
+`8e58aa40f669e9f54155593b49b1e22638394111`; the final committed-HEAD rerun
+and independent terminal QA both passed with P0/P1/P2/P3 all zero.
 
 Task/session/claim: `R4-AUDIO` /
 `S-SOL-R4-AUDIO-CUE-ROUTING-001` / `OWN-R4-AUDIO-PROOF-FIRST`.
@@ -47,11 +47,23 @@ The route ledger and both manifests bind `proof_generation_head` to that
 checkpoint. The route ledger and route manifest additionally bind
 `expected_parent` to `f1b04193405d1c87f21e80ee51d3790499ea0cf8`.
 
-Those identities describe the `e68671f` checkpoint, not the future commit that
-records this documentation. After the documents are committed, the
-authoritative Sol must rerun the full wrapper at the final committed HEAD and
-record its actual hashes. Exactly one independent terminal QA remains after
-that rerun.
+Those identities describe the precursor `e68671f` checkpoint. The required
+final committed-HEAD rerun subsequently passed at signed commit `8e58aa4` with
+route-ledger SHA-256
+`C3D15BB68D5A9ACF0AE4A58E8E962AB21EB1217BEA6DC70E1F824C0AFBE0BCEC`,
+route-manifest SHA-256
+`D6ABBABD69CBAB5CDF5F5727F04EB3AD8847DC36CA5216049B378FEB390311B9`,
+and foundation-manifest SHA-256
+`A87CF0D8C234B43FD2C28FC4C9ABFA77FE57595D272BE10A10F1B26331414F2D`.
+All three generated records bind `proof_generation_head` to exact `8e58aa4`;
+the route records retain expected parent `f1b0419` and the current full-pack
+SHA-256 `27D4CEB4...E1CA6B29`.
+
+Thread-backed Luna task creation timed out without creating a task. One
+independent in-session terminal reviewer, `/root/audio_terminal_qa`, therefore
+performed the terminal static, proof, classification, and clean-scope audit and
+returned PASS with P0/P1/P2/P3 all zero. No product, runner, or proof claim was
+widened by this service fallback.
 
 ## Classification rule
 

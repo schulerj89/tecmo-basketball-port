@@ -103,11 +103,14 @@ suite reproduced `27D4CEB4...E1CA6B29` with unchanged audio identities. A full
 wrapper PASS was subsequently established by the authoritative checkpoint
 above.
 
-This documentation revision necessarily changes HEAD, so the checkpoint does
-not claim a self-referential final commit or future artifact SHA. After these
-documents are committed, the authoritative Sol must run the full wrapper again
-at that final committed HEAD and record the hashes actually produced. Exactly
-one independent terminal QA remains after the final-HEAD rerun.
+That precursor checkpoint was followed by the required final committed-HEAD
+rerun at signed `8e58aa40f669e9f54155593b49b1e22638394111`. The wrapper again passed all
+three suites and reported 5 proven / 13 source-present-only / 7 unproven. The
+final route-ledger, route-manifest, and foundation-manifest SHA-256 values are
+respectively `C3D15BB6...BCEC`, `D6ABBABD...11B9`, and `A87CF0D8...4F2D`.
+Independent in-session terminal QA `/root/audio_terminal_qa` then returned
+P0/P1/P2/P3 all zero. Thread-backed Luna creation timed out without creating a
+task; no retry produced a duplicate or replacement.
 
 ## Ignored outputs
 
@@ -146,8 +149,7 @@ $errors = $null
 if ($errors.Count -ne 0) { $errors; throw 'PowerShell parse failed' }
 ```
 
-After committing this documentation revision, rerun the complete terminal
-proof at the final committed HEAD, then rerun `git diff --check` and
-`git status --porcelain=v1 --untracked-files=all`. No build/proof artifact may
-appear in the candidate diff. Obtain exactly one independent terminal QA after
-the final-HEAD rerun.
+The final committed-HEAD proof, `git diff --check`, clean status gate, and
+independent terminal QA have all completed. No build/proof artifact appears in
+the candidate diff. Any later rerun must continue to satisfy the same exact
+five-path scope and proof classifications.

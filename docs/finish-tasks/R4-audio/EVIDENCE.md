@@ -62,10 +62,29 @@ included the real native `--flow-test` route execution.
 The route ledger and both manifests carry the HEAD binding; the route ledger
 and route manifest also carry the expected-parent binding. The worktree was
 clean after the run and only ignored proof artifacts existed. No private path
-is evidence. Because this documentation revision changes the candidate HEAD,
-the authoritative Sol must rerun at the final committed HEAD; the checkpoint
-hashes above are not predictions of that future run. Exactly one independent
-terminal QA remains after the final-HEAD rerun.
+is evidence.
+
+## Final committed-HEAD evidence
+
+The complete wrapper was rerun after the documentation commit at exact signed
+HEAD `8e58aa40f669e9f54155593b49b1e22638394111`. Music, FrontendAudio with the
+real native `--flow-test`, and GameplayAudio passed again. The final outputs
+are:
+
+| Final evidence | SHA-256 / value |
+| --- | --- |
+| Route classification | 5 proven / 13 source-present-only / 7 unproven |
+| Route ledger | `C3D15BB68D5A9ACF0AE4A58E8E962AB21EB1217BEA6DC70E1F824C0AFBE0BCEC` |
+| Ignored route manifest | `D6ABBABD69CBAB5CDF5F5727F04EB3AD8847DC36CA5216049B378FEB390311B9` |
+| Ignored foundation root manifest | `A87CF0D8C234B43FD2C28FC4C9ABFA77FE57595D272BE10A10F1B26331414F2D` |
+| Proof generation HEAD | `8e58aa40f669e9f54155593b49b1e22638394111` |
+| Expected parent | `f1b04193405d1c87f21e80ee51d3790499ea0cf8` |
+
+The final route ledger and both manifests were independently rehashed from the
+ignored proof root, and Git remained clean. Independent in-session terminal QA
+`/root/audio_terminal_qa` accepted the exact five-path candidate with
+P0/P1/P2/P3 all zero. The thread-backed Luna service attempts timed out before
+creating any task, so no missing, duplicate, or replacement task is implied.
 
 The wrapper also requires the foundation proof to name its current committed
 HEAD. That proof establishes native programs, PCM/state behavior, mailbox

@@ -62,11 +62,11 @@ is justified.
 Requested thread-backed Luna/max setup was attempted through `list_projects`,
 `list_threads`, and `fork_thread`; each call timed out and was explicitly
 terminated. No task or thread was created, so there was nothing to pin, and
-this lineage does not claim Luna. To avoid a duplicate or replacement, one
-persistent in-session same-model revision lineage was used. Terminal QA must
-still be exactly one: the authoritative Sol will retry thread-backed Luna/max
-once at terminal, or, if that service attempt fails, use one independent
-in-session auditor and report the service fault.
+this lineage does not claim a thread-backed Luna. To avoid a duplicate or
+replacement, one persistent in-session same-model revision lineage was used.
+At terminal, the service retry again timed out without creating a task. One
+independent in-session reviewer, `/root/audio_terminal_qa`, completed the
+terminal audit and returned PASS with P0/P1/P2/P3 all zero.
 
 The implementation decisions are:
 
@@ -140,19 +140,23 @@ The route ledger and route manifest additionally bind `expected_parent` to
 `f1b04193405d1c87f21e80ee51d3790499ea0cf8`. The worktree was clean after
 execution; only ignored artifacts existed.
 
-This evidence revision follows that checkpoint and therefore cannot claim its
-future commit SHA or artifact hashes. After the authoritative Sol commits the
-documents, the complete wrapper must be rerun at the final committed HEAD and
-the actual final-HEAD hashes recorded. Exactly one independent terminal QA
-remains after that rerun.
+This evidence revision was followed by the required clean final-HEAD rerun at
+signed `8e58aa40f669e9f54155593b49b1e22638394111`. Its route ledger, route
+manifest, and foundation manifest rehash to `C3D15BB6...BCEC`,
+`D6ABBABD...11B9`, and `A87CF0D8...4F2D`, respectively, and each manifest
+binds the exact final HEAD. Independent terminal reviewer
+`/root/audio_terminal_qa` then accepted the exact five-path candidate with no
+P0/P1/P2/P3 finding.
 
 ## Handoff boundary
 
-The exact signed `e68671f` checkpoint is recorded above. It is not mislabeled
-as the final documentation commit. The durable handoff still requires the
-actual signed final candidate SHA/tree/parent, its clean full-wrapper result
-and generated hashes, exactly one independent terminal QA disposition, and a
-clean five-path audit.
+The exact signed precursor `e68671f` checkpoint and final signed candidate
+`8e58aa40f669e9f54155593b49b1e22638394111` are recorded separately. The
+final candidate has tree `a4d8ffc22e2e379cc57d02f8c4ee6a8f9fec63f0`, sole parent
+`e68671f0087276b8374fee5144a716a7dfa57905`, a clean five-path audit, clean
+full-wrapper result, generated hashes, and an independent P0/P1/P2/P3-zero
+terminal disposition. It is ready for current-main integration QA; it does not
+authorize direct integration of a divergent branch or any broader audio claim.
 
 Even after a passing proof, the deliverable remains proof-only. Promotion of a
 source-present-only or unproven route requires concrete source/capture evidence
