@@ -67,33 +67,34 @@ existing unavailable leader-results checkpoint remains in the table.
 | `season-leaders` | `BF506207114DC4E2823852147DFCD05E455496CE08DA502E3238A439A4877823` |
 | `season-leaders4` | `1F735E60C69435EDFB2099C5A68CE630A0BC84E73E5092D8A107ED1F5BC55DEF` |
 | `season-leaders-results` | `1B65D684B43BC1EB31B205CD463F4E3093E0AA19D6C7A45EB7C0162E4B5A61CA` |
-| `season-leaders-results-populated` (category 0, page 0) | `54D1F1F208AB4BFF2C55CDC3762A1AD3A50F436CFFFB577CEDBA3EAF02EA5E26` |
-| `season-leaders-results-populated-page6` (category 0, page 6) | `DD23B090928A1222AFB916324992CB628F5CF97CD30EE3E1FA495F71DD2B15F2` |
-| `season-leaders-results-populated-page12` (category 0, page 12) | `F7FFB61D8B3EDF9838B6BF8804D84197F90D6FCEE9461D03AA07ED93731AC11E` |
+| `season-leaders-results-populated` (category 0, page 0) | `600E13073B9D8509E7E5648E8AFA5221E7E038CB51D28C40AA952E5B4B80C1AB` |
+| `season-leaders-results-populated-page6` (category 0, page 6) | `F07071A9032AB6CD6B2307ED4C007AE1995B5C8CD4E37A1F205D0890368AAE14` |
+| `season-leaders-results-populated-page12` (category 0, page 12) | `9C2C058CA7EB355C48ED6533536088A641D7866B16EB57C5CF01410F1FEF4FD1` |
 | `season-leaders-results-populated3` (category 3) | `794DA4AE2CC6FB0B75B1F30A4F682B565F5B16A3DBC26BD0E594ABC9763A182E` |
-| `season-leaders-results-populated5` (category 5) | `9A876C4A1048AE37C13D1F975E8E00F6C4DD4477F3EBF9DD5ECF2F80FE550DA3` |
-| `season-leaders-results-populated6` (category 6) | `7D1BCC97947C768E3217A79CDFC5D6B3A3D094111BDC2A86885BF2B82ADA25B1` |
+| `season-leaders-results-populated5` (category 5) | `74871EF3FFE4EA643CD707A95B29389EC487552AB9B4D7571F3B56A526EB96FE` |
+| `season-leaders-results-populated6` (category 6) | `D2561DF4460C843B85127C1B6D4AA59DBDC0640DCF186562796BAF0FCB5F1FBD` |
 | `season-game-start` | `66458313C7243A8EB3C464495B5B31D1EEAD31BA5D5B8669AD1F9009B0D65649` |
 
 ## Fresh native-row visual proof
 
-After the final source write, the six frames were regenerated under
-`build\season-native-final-proof-20260804T111900846Z\` and inspected at the
-original 640x480 resolution.  The intermediate `.destpal` and `.native-row`
-filenames were not used as provenance baselines because they preceded the
-final fixed-role source/rebuild; their exact SHA-256 values are byte-identical.
+After the proof-fixture correction, the six frames were regenerated under
+`build\integration-qa-r3-20260804T184202450Z\season-leaders-frames-corrected\`
+and inspected at the original 640x480 resolution.  The pre-correction
+attempt/make seed and its six old expected hashes are superseded.  The
+intermediate `.destpal` and `.native-row` filenames were not used as
+provenance baselines because they preceded the final fixed-role source/rebuild.
 Nearest-neighbor raw-pixel crops resolved the apparent scaled-preview artifact:
-there was no glyph fragmentation in those byte-identical files.  The fresh
-post-source-write set below is the accepted evidence.
+there was no glyph fragmentation in the corrected files.  The corrected set
+below is the accepted native-port evidence.
 
 | Frame | UTC written | SHA-256 |
 | --- | --- | --- |
-| `build\season-native-final-proof-20260804T111900846Z\season-leaders-results-populated.png` | `2026-08-04T11:19:01.0053153Z` | `54D1F1F208AB4BFF2C55CDC3762A1AD3A50F436CFFFB577CEDBA3EAF02EA5E26` |
-| `build\season-native-final-proof-20260804T111900846Z\season-leaders-results-populated-page6.png` | `2026-08-04T11:19:01.0876403Z` | `DD23B090928A1222AFB916324992CB628F5CF97CD30EE3E1FA495F71DD2B15F2` |
-| `build\season-native-final-proof-20260804T111900846Z\season-leaders-results-populated-page12.png` | `2026-08-04T11:19:01.1326388Z` | `F7FFB61D8B3EDF9838B6BF8804D84197F90D6FCEE9461D03AA07ED93731AC11E` |
-| `build\season-native-final-proof-20260804T111900846Z\season-leaders-results-populated3.png` | `2026-08-04T11:19:01.1739452Z` | `794DA4AE2CC6FB0B75B1F30A4F682B565F5B16A3DBC26BD0E594ABC9763A182E` |
-| `build\season-native-final-proof-20260804T111900846Z\season-leaders-results-populated5.png` | `2026-08-04T11:19:01.2149997Z` | `9A876C4A1048AE37C13D1F975E8E00F6C4DD4477F3EBF9DD5ECF2F80FE550DA3` |
-| `build\season-native-final-proof-20260804T111900846Z\season-leaders-results-populated6.png` | `2026-08-04T11:19:01.2600846Z` | `7D1BCC97947C768E3217A79CDFC5D6B3A3D094111BDC2A86885BF2B82ADA25B1` |
+| `build\integration-qa-r3-20260804T184202450Z\season-leaders-frames-corrected\season-leaders-results-populated.png` | `2026-08-04T19:00:01.0479360Z` | `600E13073B9D8509E7E5648E8AFA5221E7E038CB51D28C40AA952E5B4B80C1AB` |
+| `build\integration-qa-r3-20260804T184202450Z\season-leaders-frames-corrected\season-leaders-results-populated-page6.png` | `2026-08-04T19:00:01.1734641Z` | `F07071A9032AB6CD6B2307ED4C007AE1995B5C8CD4E37A1F205D0890368AAE14` |
+| `build\integration-qa-r3-20260804T184202450Z\season-leaders-frames-corrected\season-leaders-results-populated-page12.png` | `2026-08-04T19:00:01.2235685Z` | `9C2C058CA7EB355C48ED6533536088A641D7866B16EB57C5CF01410F1FEF4FD1` |
+| `build\integration-qa-r3-20260804T184202450Z\season-leaders-frames-corrected\season-leaders-results-populated3.png` | `2026-08-04T19:00:01.2765676Z` | `794DA4AE2CC6FB0B75B1F30A4F682B565F5B16A3DBC26BD0E594ABC9763A182E` |
+| `build\integration-qa-r3-20260804T184202450Z\season-leaders-frames-corrected\season-leaders-results-populated5.png` | `2026-08-04T19:00:01.3336266Z` | `74871EF3FFE4EA643CD707A95B29389EC487552AB9B4D7571F3B56A526EB96FE` |
+| `build\integration-qa-r3-20260804T184202450Z\season-leaders-frames-corrected\season-leaders-results-populated6.png` | `2026-08-04T19:00:01.3838460Z` | `D2561DF4460C843B85127C1B6D4AA59DBDC0640DCF186562796BAF0FCB5F1FBD` |
 
 Raw-pixel QA found white title-region counts of 1,216 on category-0 pages
 0/6/12, and matching complete dynamic player/team glyph regions across the

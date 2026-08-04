@@ -30,16 +30,16 @@ static void seed_populated_leader_results(TecmoSeasonSession *session)
             uint16_t key = (uint16_t)team *
                            TECMO_PLAYER_STATS_ROSTER_COUNT + roster;
             session->player_stats_totals[team][roster][
-                TECMO_PLAYER_STATS_COUNTER_FGA] = 400U;
+                TECMO_PLAYER_STATS_COUNTER_FGA] = 800U;
             session->player_stats_totals[team][roster][
                 TECMO_PLAYER_STATS_COUNTER_FGM] = (uint16_t)(300U + key);
             session->player_stats_totals[team][roster][
-                TECMO_PLAYER_STATS_COUNTER_THREE_PA] = 200U;
+                TECMO_PLAYER_STATS_COUNTER_THREE_PA] = 500U;
             session->player_stats_totals[team][roster][
                 TECMO_PLAYER_STATS_COUNTER_THREE_PM] =
                 (uint16_t)(50U + key);
             session->player_stats_totals[team][roster][
-                TECMO_PLAYER_STATS_COUNTER_FTA] = 120U;
+                TECMO_PLAYER_STATS_COUNTER_FTA] = 500U;
             session->player_stats_totals[team][roster][
                 TECMO_PLAYER_STATS_COUNTER_FTM] = (uint16_t)(90U + key);
         }

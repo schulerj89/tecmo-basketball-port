@@ -70,12 +70,12 @@ $SeasonContract = [ordered]@{
         @{ Mode="season-leaders"; Hash="BF506207114DC4E2823852147DFCD05E455496CE08DA502E3238A439A4877823"; Status="phase=leaders .*leader=0 .*leader-result=0" },
         @{ Mode="season-leaders4"; Hash="1F735E60C69435EDFB2099C5A68CE630A0BC84E73E5092D8A107ED1F5BC55DEF"; Status="phase=leaders .*leader=4 .*leader-result=0" },
         @{ Mode="season-leaders-results"; Hash="1B65D684B43BC1EB31B205CD463F4E3093E0AA19D6C7A45EB7C0162E4B5A61CA"; Status="phase=leaders .*leader=0 .*leader-result=1" },
-        @{ Mode="season-leaders-results-populated"; Hash="54D1F1F208AB4BFF2C55CDC3762A1AD3A50F436CFFFB577CEDBA3EAF02EA5E26"; Status="phase=leaders .*leader=0 .*leader-result=1" },
-        @{ Mode="season-leaders-results-populated-page6"; Hash="DD23B090928A1222AFB916324992CB628F5CF97CD30EE3E1FA495F71DD2B15F2"; Status="phase=leaders .*leader=0 .*leader-result=1" },
-        @{ Mode="season-leaders-results-populated-page12"; Hash="F7FFB61D8B3EDF9838B6BF8804D84197F90D6FCEE9461D03AA07ED93731AC11E"; Status="phase=leaders .*leader=0 .*leader-result=1" },
+        @{ Mode="season-leaders-results-populated"; Hash="600E13073B9D8509E7E5648E8AFA5221E7E038CB51D28C40AA952E5B4B80C1AB"; Status="phase=leaders .*leader=0 .*leader-result=1" },
+        @{ Mode="season-leaders-results-populated-page6"; Hash="F07071A9032AB6CD6B2307ED4C007AE1995B5C8CD4E37A1F205D0890368AAE14"; Status="phase=leaders .*leader=0 .*leader-result=1" },
+        @{ Mode="season-leaders-results-populated-page12"; Hash="9C2C058CA7EB355C48ED6533536088A641D7866B16EB57C5CF01410F1FEF4FD1"; Status="phase=leaders .*leader=0 .*leader-result=1" },
         @{ Mode="season-leaders-results-populated3"; Hash="794DA4AE2CC6FB0B75B1F30A4F682B565F5B16A3DBC26BD0E594ABC9763A182E"; Status="phase=leaders .*leader=3 .*leader-result=1" },
-        @{ Mode="season-leaders-results-populated5"; Hash="9A876C4A1048AE37C13D1F975E8E00F6C4DD4477F3EBF9DD5ECF2F80FE550DA3"; Status="phase=leaders .*leader=5 .*leader-result=1" },
-        @{ Mode="season-leaders-results-populated6"; Hash="7D1BCC97947C768E3217A79CDFC5D6B3A3D094111BDC2A86885BF2B82ADA25B1"; Status="phase=leaders .*leader=6 .*leader-result=1" },
+        @{ Mode="season-leaders-results-populated5"; Hash="74871EF3FFE4EA643CD707A95B29389EC487552AB9B4D7571F3B56A526EB96FE"; Status="phase=leaders .*leader=5 .*leader-result=1" },
+        @{ Mode="season-leaders-results-populated6"; Hash="D2561DF4460C843B85127C1B6D4AA59DBDC0640DCF186562796BAF0FCB5F1FBD"; Status="phase=leaders .*leader=6 .*leader-result=1" },
         @{ Mode="season-game-start"; Hash="66458313C7243A8EB3C464495B5B31D1EEAD31BA5D5B8669AD1F9009B0D65649"; Status="phase=game-start-prelaunch .*game-pending=1 launch-blocked=1" }
     )
 }
