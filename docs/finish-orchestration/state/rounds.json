@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T06:25:47Z",
+  "updated_at": "2026-08-04T06:34:29Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -772,8 +772,8 @@
       ],
       "included_task_ids": ["R2D-RULES-RESTARTS-INTEGRATION-QA"],
       "staging_branch": "codex/round-2d-rules-restarts-staging",
-      "sol_orchestrator_session_ids": [],
-      "integration_qa_session_id": null,
+      "sol_orchestrator_session_ids": ["S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001"],
+      "integration_qa_session_id": "S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001",
       "merge_order": ["R2D-RULES-RESTARTS-INTEGRATION-QA"],
       "combined_qa": {
         "required": true,
@@ -804,7 +804,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-04T06:25:47Z",
-      "updated_at": "2026-08-04T06:25:47Z"
+      "updated_at": "2026-08-04T06:34:29Z"
     },
     {
       "round_id": "R5",

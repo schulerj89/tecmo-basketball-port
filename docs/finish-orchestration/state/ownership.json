@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T06:25:47Z",
+  "updated_at": "2026-08-04T06:34:29Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -671,7 +671,7 @@
       "claim_id": "OWN-R2D-RULES-RESTARTS-INTEGRATION-QA",
       "task_id": "R2D-RULES-RESTARTS-INTEGRATION-QA",
       "round_id": "R2D",
-      "session_id": "S-MASTER-001",
+      "session_id": "S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001",
       "mode": "exclusive",
       "writable_globs": [
         "docs/finish-tasks/R2D-rules-restarts-integration-qa/**"
@@ -687,7 +687,7 @@
       "active": true,
       "claimed_at": "2026-08-04T06:25:47Z",
       "released_at": null,
-      "notes": "Master-reserved docs-only Integration QA authority for immutable Good-signed 1f23235 on exact guarded main 7fe2dd7. The future Sol may perform only one branch-local ff-only from 7fe2dd7 to 1f23235, read-only combined build/test/proof/visual QA with ignored outputs, creation of exactly one projectless Luna/max independent reviewer after collision checks, and Good-signed reports under the sole writable glob. Main, origin/main, immutable staging, product/test/build/source paths, force/rebase/cherry-pick, push, cleanup, deletion, and archive are excluded."
+      "notes": "Transferred after Good-signed reservation 6475128 to exact pinned Sol 019fcb7a-ea78-7023-b251-e522d95bc819. Authority is docs-only for immutable Good-signed 1f23235 on exact guarded main 7fe2dd7. The Sol may perform only one branch-local ff-only from 7fe2dd7 to 1f23235, read-only combined build/test/proof/visual QA with ignored outputs, creation of exactly one projectless Luna/max independent reviewer after collision checks, and Good-signed reports under the sole writable glob. Main, origin/main, immutable staging, product/test/build/source paths, force/rebase/cherry-pick, push, cleanup, deletion, and archive are excluded."
     }
   ],
   "shared_boundaries": [

@@ -1572,7 +1572,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-  "updated_at": "2026-08-04T06:25:47Z",
+  "updated_at": "2026-08-04T06:34:29Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -3577,14 +3577,14 @@
       "round_id": "R2D",
       "priority": 99,
       "coordination_only": false,
-      "state": "scoped",
+      "state": "assigned",
       "dependencies": ["R2-RULES-RESTARTS"],
       "ownership_claim_ids": ["OWN-R2D-RULES-RESTARTS-INTEGRATION-QA"],
       "base_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
       "expected_parent_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
       "branch": "codex/r2d-rules-restarts-integration-qa-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2d-rules-restarts-integration-qa-sol",
-      "sol_orchestrator_session_id": null,
+      "sol_orchestrator_session_id": "S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001",
       "reported_luna_worker_session_ids": [],
       "result_commits": [],
       "evidence_ids": [],
@@ -3597,7 +3597,8 @@
         "integration_signoff": false,
         "test_records": [
           "2026-08-04T06:25:47Z master accepted immutable Good-signed domain tip 1f23235, recorded all six lifecycle unpins, reverified stable clean local/tracking/live main exact 7fe2dd7, candidate ancestry/tree/signature, exact 17-path text delta, diff-check, and absence of the proposed branch/worktree/staging refs before reservation.",
-          "2026-08-04T06:25:47Z one initial read-only PowerShell preflight used an unquoted variable range and caused git diff usage exit 129 with no mutation; literal-SHA rerun proved the exact 17-path delta and clean diff-check."
+          "2026-08-04T06:25:47Z one initial read-only PowerShell preflight used an unquoted variable range and caused git diff usage exit 129 with no mutation; literal-SHA rerun proved the exact 17-path delta and clean diff-check.",
+          "2026-08-04T06:34:29Z after Good-signed reservation 6475128, master created immutable staging ref 1f23235, exact clean isolated branch/worktree from 7fe2dd7, and exactly one pinned gpt-5.6-sol/max orchestrator 019fcb7a-ea78-7023-b251-e522d95bc819 on the first attempt. Read-only clean takeover is required before branch ff-only or Luna creation."
         ],
         "proof_manifests": [],
         "notes": "Reserved for a dedicated current-main integration QA lane. Because immutable 1f23235 directly descends from guarded main 7fe2dd7, the isolated branch must use ff-only, not synthesize a merge. Sol must run proportional combined build/scene/audio/state/flow/Win32/proof/visual gates, create exactly one independent projectless Luna/max auditor after its collision gate, sign only the owned integration reports, and stop before main or push."
@@ -3613,7 +3614,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-04T06:25:47Z",
-      "updated_at": "2026-08-04T06:25:47Z",
+      "updated_at": "2026-08-04T06:34:29Z",
       "audit": [
         {
           "timestamp": "2026-08-04T06:25:46Z",
@@ -3628,6 +3629,13 @@
           "from_state": "backlog",
           "to_state": "scoped",
           "reason": "Reserved exact docs-only Integration QA ownership, immutable Good-signed 1f23235 staging, and the collision-cleared 7fe2dd7-based branch/worktree before creating a Sol orchestrator."
+        },
+        {
+          "timestamp": "2026-08-04T06:34:29Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "scoped",
+          "to_state": "assigned",
+          "reason": "Created and immediately pinned exact gpt-5.6-sol/max orchestrator 019fcb7a-ea78-7023-b251-e522d95bc819 once after signed reservation and transferred the isolated read-only-first ff-only integration assignment."
         }
       ]
     }

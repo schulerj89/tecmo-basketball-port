@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T06:25:47Z",
+  "updated_at": "2026-08-04T06:34:29Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,8 +10,8 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 0,
-    "cleared_for_creation": 1,
+    "active_domain_orchestrators": 1,
+    "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
     "unallocated_target_slots": 3,
@@ -396,17 +396,17 @@
       "domain": "integration_qa",
       "round_ids": ["R2D"],
       "task_ids": ["R2D-RULES-RESTARTS-INTEGRATION-QA"],
-      "readiness": "cleared_for_creation",
+      "readiness": "active",
       "dependency_status": "ready",
       "reservation_owner_session_id": "S-MASTER-001",
-      "orchestrator_session_id": null,
+      "orchestrator_session_id": "S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001",
       "base_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
       "branch": "codex/r2d-rules-restarts-integration-qa-sol",
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2d-rules-restarts-integration-qa-sol",
       "ownership_claim_ids": ["OWN-R2D-RULES-RESTARTS-INTEGRATION-QA"],
       "blockers": [],
-      "next_gate": "After this Good-signed reservation, create immutable staging ref 1f23235 and the isolated clean 7fe2dd7-based branch/worktree, then create and pin exactly one gpt-5.6-sol/max integration orchestrator. It must complete a read-only clean takeover before ff-only candidate adoption or Luna creation.",
-      "updated_at": "2026-08-04T06:25:47Z"
+      "next_gate": "Pinned Sol 019fcb7a-ea78-7023-b251-e522d95bc819 must verify signed control, exact clean refs/worktree, immutable candidate/signatures/17-path scope/direct ancestry, and live main before branch ff-only or Luna creation; then complete combined QA and a Good-signed docs-only terminal handoff without touching main/staging/origin.",
+      "updated_at": "2026-08-04T06:34:29Z"
     }
   ]
 }
