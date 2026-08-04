@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T00:34:47Z",
+  "updated_at": "2026-08-04T00:51:20Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -10,12 +10,12 @@
     "max_monitored_sol_orchestrators": 8
   },
   "capacity": {
-    "active_domain_orchestrators": 4,
+    "active_domain_orchestrators": 3,
     "cleared_for_creation": 0,
     "target_active_domain_orchestrators": 4,
     "monitoring_limit": 8,
-    "unallocated_target_slots": 0,
-    "unallocated_monitoring_slots": 4
+    "unallocated_target_slots": 1,
+    "unallocated_monitoring_slots": 5
   },
   "lanes": [
     {
@@ -292,8 +292,8 @@
       "task_ids": [
         "R2A-CLOCK-LINEUPS-INTEGRATION-QA"
       ],
-      "readiness": "active",
-      "dependency_status": "ready",
+      "readiness": "complete",
+      "dependency_status": "complete",
       "reservation_owner_session_id": "S-MASTER-001",
       "orchestrator_session_id": "S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001",
       "base_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
@@ -303,8 +303,8 @@
         "OWN-R2A-CLOCK-LINEUPS-INTEGRATION-QA"
       ],
       "blockers": [],
-      "next_gate": "Good-signed runner-only correction 73e87dcc consumed the exact rescope; broad AssetPackTests pass 55/55 and focused reruns pass. Finish terminal combined gates, same-Luna read-only re-audit, and signed acceptance docs. No runtime source or main mutation is authorized.",
-      "updated_at": "2026-08-04T00:19:09Z"
+      "next_gate": "Complete: terminal Good-signed 8a5b992 passed combined zero-finding QA, was fast-forwarded/non-force pushed to main, and stable main plus both desktop launch shortcuts were rebuilt/verified. Preserve branches/worktrees for audit until guarded cleanup.",
+      "updated_at": "2026-08-04T00:51:20Z"
     },
     {
       "lane_id": "LANE-R2-DEFENSE-CONTACT",

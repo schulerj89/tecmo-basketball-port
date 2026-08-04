@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T00:28:30Z",
+  "updated_at": "2026-08-04T00:51:20Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -559,10 +559,10 @@
         "tools/Run-AssetPackTests.ps1"
       ],
       "concurrency_group": "R2A-clock-lineups-fatigue-integration-qa",
-      "active": true,
+      "active": false,
       "claimed_at": "2026-08-03T23:38:12Z",
-      "released_at": null,
-      "notes": "Master reservation before Sol creation, expanded at 2026-08-04T00:04:57Z after collision checks found no active claim, worktree edit, or candidate overlap for tools/Run-AssetPackTests.ps1. Sol consumed exactly that exception in Good-signed runner-only commit 73e87dcccbfe1ddc6a78d9b313e8dd75252fb857; broad AssetPackTests now pass 55/55 and focused reruns pass. Authority remains limited to R2A task docs, the signed reconciliation merge, and this one runner correction. Runtime/product source is read-only; main integration and push remain master-only."
+      "released_at": "2026-08-04T00:51:20Z",
+      "notes": "Master reservation before Sol creation, expanded at 2026-08-04T00:04:57Z after collision checks found no active claim, worktree edit, or candidate overlap for tools/Run-AssetPackTests.ps1. Sol consumed exactly that exception in Good-signed runner-only commit 73e87dcccbfe1ddc6a78d9b313e8dd75252fb857. Terminal Good-signed 8a5b992 passed Sol and independent P0/P1/P2/P3-zero combined QA. Master guards passed, main fast-forwarded and pushed non-force from edf16ca to 8a5b992, stable main rebuilt, and both Native Port and Active Preview desktop shortcuts now target the exact main executable. Claim released after delivery; branches/worktrees preserved."
     },
     {
       "claim_id": "OWN-R2-DEFENSE-CONTACT",

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T00:34:47Z",
+  "updated_at": "2026-08-04T00:51:20Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -612,7 +612,7 @@
     {
       "round_id": "R2A",
       "title": "Clocks, lineups, and fatigue current-main integration and independent QA",
-      "status": "in_progress",
+      "status": "pushed",
       "base_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
       "scope": [
         "Reconcile immutable accepted R2 clocks/lineups/fatigue candidate ed4e56fc595894c692ffca84ae3b35f129317049 with current main",
@@ -632,16 +632,16 @@
       ],
       "combined_qa": {
         "required": true,
-        "status": "pending",
-        "accepted_sha": null,
+        "status": "accepted",
+        "accepted_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
         "report_path": "docs/finish-tasks/R2A-clock-lineups-fatigue-integration-qa/README.md",
-        "signed_by_session_id": null,
-        "notes": "A dedicated Sol Max integration orchestrator must reconcile exact candidate ed4e56f with current main, run the full combined gate, and close independent P0/P1/P2 at zero."
+        "signed_by_session_id": "S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001",
+        "notes": "Terminal Good-signed 8a5b992 reconciles immutable ed4e56f with current main through signed merge 8233cb4 and runner-only 73e87dcc; full combined Sol and independent P0/P1/P2/P3-zero QA passed."
       },
       "acceptance": {
-        "status": "pending",
-        "accepted_at": null,
-        "accepted_sha": null,
+        "status": "accepted",
+        "accepted_at": "2026-08-04T00:50:35Z",
+        "accepted_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
         "criteria": [
           "Current main and immutable clocks/lineups/fatigue candidate are both ancestors of the signed terminal integration commit",
           "Combined build, focused clocks/fatigue/lineup, asset-pack/flow/scene, proof, and relevant cross-domain tests pass",
@@ -651,15 +651,15 @@
       },
       "main_integration": {
         "pre_main_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
-        "merge_commits": [],
-        "post_main_sha": null,
+        "merge_commits": ["8a5b9928544a430efa34cbf98a248d6a8cbe7b14"],
+        "post_main_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
         "remote_main_before_sha": "edf16ca9059158452798dbe5667f5e64ef444e39",
-        "push_sha": null,
-        "push_result": "not_attempted",
-        "pushed_at": null
+        "push_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
+        "push_result": "succeeded",
+        "pushed_at": "2026-08-04T00:50:35Z"
       },
       "created_at": "2026-08-03T23:38:12Z",
-      "updated_at": "2026-08-04T00:19:09Z"
+      "updated_at": "2026-08-04T00:51:20Z"
     },
     {
       "round_id": "R5",
