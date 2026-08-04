@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T07:13:34Z",
+  "updated_at": "2026-08-04T07:46:48Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -681,14 +681,14 @@
       "role": "integration_orchestrator",
       "model": "gpt-5.6-sol",
       "thinking": "max",
-      "status": "active",
+      "status": "idle",
       "pin_state": "pinned",
       "round_ids": ["R2D"],
       "task_ids": ["R2D-RULES-RESTARTS-INTEGRATION-QA"],
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2d-rules-restarts-integration-qa-sol",
       "branch": "codex/r2d-rules-restarts-integration-qa-sol",
       "base_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
-      "last_good_sha": "1f23235cd60582379da5e8f1713cd25de4ced62f",
+      "last_good_sha": "ed060720a98b790f98591af363a490a0e0816018",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
       "reported_luna_lineage": ["019fcb82-4090-7b33-8293-7ceda46a43ba"],
@@ -696,8 +696,8 @@
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-04T06:34:29Z",
       "completed_at": null,
-      "updated_at": "2026-08-04T07:13:34Z",
-      "notes": "Created once and immediately pinned after Good-signed reservation 6475128, immutable staging/worktree creation, and exact branch/path/ref collision checks. Clean takeover and exact branch-only ff-only from guarded 7fe2dd7 to immutable 1f23235/tree b668b45 passed with main/staging/origin untouched. Sole projectless pinned Luna/max 019fcb82-4090-7b33-8293-7ceda46a43ba was created once without fault and returned initial P0/P1/P2/P3 zero across signatures/refs/scope, both warning-clean build routes, focused and broad scene/audio/state/flow/Win32/current-main gates, deterministic proof, and original-resolution visual inspection. Sol's separate combined matrix and signed terminal report remain in progress."
+      "updated_at": "2026-08-04T07:46:48Z",
+      "notes": "Terminal Good-signed ed060720/tree 32a741c, sole parent immutable 1f23235, is clean and accepted. Complete personal Sol and same-Luna signed-tip QA closed P0/P1/P2/P3 zero across signatures/refs/scope, canonical and CMake console/GUI builds, strict timing and scene/audio/assets/state/flow/Win32/current-main gates, deterministic proof, original-resolution visuals, reports, and protected refs. The sole Luna's first signed-tip turn ended in systemError after checks but before disposition; the same pinned lineage resumed without replacement and delivered exact PASS. Master independently accepted ed060720 as a true fast-forward descendant of stable 7fe2dd7. Sol remains pinned/idle pending guarded main delivery and lifecycle release."
     },
     {
       "session_id": "S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001",
@@ -758,7 +758,7 @@
   ],
   "reported_luna_workers": [
     {
-      "worker_id":"019fcb82-4090-7b33-8293-7ceda46a43ba","thread_id":"019fcb82-4090-7b33-8293-7ceda46a43ba","title":"Tecmo R2D Rules Restarts Integration Independent QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"pinned","reported_by_session_id":"S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001","round_ids":["R2D"],"task_ids":["R2D-RULES-RESTARTS-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"1f23235cd60582379da5e8f1713cd25de4ced62f","contribution":"Sole projectless independent integration-QA lineage. Initial frozen-tip audit returned P0/P1/P2/P3 zero after exact signature/ref/scope gates, canonical and fresh VS CMake console+GUI warning-clean builds, focused TPNL/TGVR/TGBC/TGOR/TGCP and strict gameplay/frontend/audio/music/assets, full scene/direct console/hidden GUI/state/NativeFlow/Win32/season/team gates, deterministic proof, and original-resolution visual inspection. It remains pinned and idle for same-lineage signed terminal-tip reuse; no creation, pin, retry, or replacement fault.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T07:13:34Z"
+      "worker_id":"019fcb82-4090-7b33-8293-7ceda46a43ba","thread_id":"019fcb82-4090-7b33-8293-7ceda46a43ba","title":"Tecmo R2D Rules Restarts Integration Independent QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"pinned","reported_by_session_id":"S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001","round_ids":["R2D"],"task_ids":["R2D-RULES-RESTARTS-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"ed060720a98b790f98591af363a490a0e0816018","contribution":"Sole projectless independent integration-QA lineage. Initial immutable-candidate and final exact Good-signed ed060720 tip audits both returned P0/P1/P2/P3 zero after signature/ref/scope, canonical and CMake console+GUI, strict timing/scene/audio/assets/state/flow/Win32/current-main, deterministic proof, original-resolution visual, five-report, classification, and protected-ref checks. Its first signed-tip turn entered systemError after completing substantive checks but before emitting a disposition; the same pinned lineage resumed without replacement or rebuild and returned the exact final PASS. It remains pinned pending durable delivery/lifecycle release.","recovery_lineage":[],"failure":{"count":1,"raw_error_signatures":["systemError after signed-tip checks before final disposition"],"retry_worker_ids":["019fcb82-4090-7b33-8293-7ceda46a43ba"],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T07:46:48Z"
     },
     {
       "worker_id":"019fca5b-3b84-7a82-b2ab-588c50a4b7fd","thread_id":"019fca5b-3b84-7a82-b2ab-588c50a4b7fd","title":"Tecmo R2B Shots Outcomes Integration Independent QA â€” Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R2B-SHOTS-INTEGRATION-QA-001","round_ids":["R2B"],"task_ids":["R2B-SHOTS-OUTCOMES-INTEGRATION-QA"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":"522909264f67673bd3242ecc62b343e1238bb142","contribution":"Sole projectless/null-Git independent QA lineage. It accepted reconciled signed docs candidate fcc5209 and final Good-signed terminal 5229092 at P0/P1/P2 zero after exact signature/ancestry/scope, 119-file shot proof, 254-record DRAFT scene proof, visual, report, caveat, and classification audits. Completed and unpinned after durable control acknowledgment; no replacement or task fault.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T03:20:41Z"

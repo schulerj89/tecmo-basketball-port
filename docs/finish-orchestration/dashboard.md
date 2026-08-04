@@ -1,6 +1,6 @@
 # Tecmo Basketball Finish Status Dashboard
 
-Generated from committed JSON at `2026-08-04T07:13:34Z`. This dashboard reports coordination state only; it is not product QA.
+Generated from committed JSON at `2026-08-04T07:46:48Z`. This dashboard reports coordination state only; it is not product QA.
 
 ## Program
 
@@ -8,7 +8,7 @@ Generated from committed JSON at `2026-08-04T07:13:34Z`. This dashboard reports 
 - Inventory: `complete`
 - Project acceptance: `incomplete`
 - Open external blockers: `0`
-- Task states: `backlog` 10, `in_progress` 1, `pushed` 18, `ready_for_round_staging` 5
+- Task states: `backlog` 10, `pushed` 18, `ready_for_main` 1, `ready_for_round_staging` 5
 - Fidelity classifications: `incomplete` 24
 
 ## Sol Orchestration Capacity
@@ -38,7 +38,7 @@ Generated from committed JSON at `2026-08-04T07:13:34Z`. This dashboard reports 
 | LANE-R2-DEFENSE-CONTACT | gameplay_behavior | complete | complete | R2-DEFENSE-CONTACT | S-SOL-R2-DEFENSE-CONTACT-001 | codex/r2-defense-contact-sol | Terminal Good-signed ed70d884 is Sol/independent accepted and frozen for dedicated current-main integration QA. Domain ownership is released; preserve branches/worktrees and focused proof for audit. Normal-build/runtime/player-facing and semantic downstream integration remain separate incomplete boundaries. |
 | LANE-R2C-DEFENSE-CONTACT-INTEGRATION-QA | integration_qa | complete | complete | R2C-DEFENSE-CONTACT-INTEGRATION-QA | S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001 | codex/r2c-defense-contact-integration-qa-sol | Complete: terminal Good-signed 7fe2dd7 passed reconciled Sol and same-Luna P0/P1/P2/P3-zero QA, was guarded ff-only integrated and ordinary-pushed to main, and stable main plus both desktop shortcuts were rebuilt/verified. Preserve branch/worktree and proof for audit; Sol/Luna unpin is authorized after durable control acknowledgment. |
 | LANE-R2-RULES-RESTARTS | gameplay_behavior | complete | complete | R2-RULES-RESTARTS | S-SOL-R2-RULES-RESTARTS-001 | codex/r2-rules-restarts-sol | Complete: exact Good-signed terminal 1f23235 passed personal Sol and same-Luna P0/P1/P2/P3-zero QA, active contract wording is reconciled, domain ownership is released, and immutable 1f23235 is routed to dedicated current-main integration QA. All five child tasks and the Sol returned pinned=false after durable control; branches/worktrees/docs/proof remain preserved. |
-| LANE-R2D-RULES-RESTARTS-INTEGRATION-QA | integration_qa | active | ready | R2D-RULES-RESTARTS-INTEGRATION-QA | S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001 | codex/r2d-rules-restarts-integration-qa-sol | Clean takeover and branch ff-only are complete at exact 1f23235; sole pinned Luna 019fcb82-4090-7b33-8293-7ceda46a43ba returned initial P0/P1/P2/P3 zero. Sol must finish its separate authoritative combined matrix, create a Good-signed docs-only terminal handoff, reuse the same Luna for signed-tip review, and stop before main/staging/origin/push. |
+| LANE-R2D-RULES-RESTARTS-INTEGRATION-QA | integration_qa | active | ready | R2D-RULES-RESTARTS-INTEGRATION-QA | S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001 | codex/r2d-rules-restarts-integration-qa-sol | Terminal Good-signed ed060720 passed complete Sol and same-Luna P0/P1/P2/P3-zero QA and master signature/ref/scope guards. Master must ff-only stable main from exact 7fe2dd7, ordinary-push, rebuild warning-clean, verify both desktop shortcuts, then release the pinned Sol/Luna lifecycle. |
 
 ## Rounds
 
@@ -58,7 +58,7 @@ Generated from committed JSON at `2026-08-04T07:13:34Z`. This dashboard reports 
 | R2A | pushed | edf16ca90591 | 1 | codex/round-2a-clock-lineups-fatigue-staging | accepted | succeeded |
 | R2B | pushed | 8a5b9928544a | 1 | codex/round-2b-shots-outcomes-staging | accepted | succeeded |
 | R2C | pushed | 0ef11cf247e3 | 1 | codex/round-2c-defense-contact-staging | accepted | succeeded |
-| R2D | in_progress | 7fe2dd772af1 | 1 | codex/round-2d-rules-restarts-staging | in_progress | not_attempted |
+| R2D | ready_for_main | 7fe2dd772af1 | 1 | codex/round-2d-rules-restarts-staging | accepted | not_attempted |
 | R5 | planned | 7090d2c62201 | 3 | codex/round-5-release-staging | pending | not_attempted |
 
 ## Queue
@@ -82,7 +82,7 @@ Generated from committed JSON at `2026-08-04T07:13:34Z`. This dashboard reports 
 | 100 | R5-ASSET-BUILD-PROVENANCE | assets_build | R5 | backlog | - | - | 0 | pending | not_ready |
 | 99 | R0A-ADOPT-CPU-TIP | gameplay_behavior | R0A | pushed | S-SOL-CPU-TIP-LEGACY | codex/cpu-tipoff-behavior | 1 | historical_sol_accepted | pushed |
 | 99 | R2C-DEFENSE-CONTACT-INTEGRATION-QA | integration | R2C | pushed | S-SOL-R2C-DEFENSE-CONTACT-INTEGRATION-QA-001 | codex/r2c-defense-contact-integration-qa-sol | 3 | passed | pushed |
-| 99 | R2D-RULES-RESTARTS-INTEGRATION-QA | integration | R2D | in_progress | S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001 | codex/r2d-rules-restarts-integration-qa-sol | 0 | in_progress | not_ready |
+| 99 | R2D-RULES-RESTARTS-INTEGRATION-QA | integration | R2D | ready_for_main | S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001 | codex/r2d-rules-restarts-integration-qa-sol | 3 | passed | ready |
 | 99 | R4-AUDIO-FOUNDATION | audio | R4A | pushed | S-SOL-R4-AUDIO-001 | codex/round-4a-audio-foundation-staging | 10 | passed | pushed |
 | 98 | R0A-ADOPT-TIP-VIS | gameplay_presentation | R0A | pushed | S-SOL-TIP-VIS-LEGACY | codex/tipoff-visual-orientation | 6 | historical_sol_accepted | pushed |
 | 98 | R1-LIVE-FOUNDATION | gameplay_behavior | R1A | pushed | S-SOL-R1-GAMEPLAY-001 | codex/r1-gameplay-foundation-sol | 3 | passed | pushed |
@@ -105,7 +105,7 @@ Generated from committed JSON at `2026-08-04T07:13:34Z`. This dashboard reports 
 | Session | Role | Model/thinking | Status | Pin | Tasks | Branch | Worktree | Last good |
 |---|---|---|---|---|---|---|---|---|
 | S-MASTER-001 | master | gpt-5.6-sol/max | active | pinned | R0-CTRL-001, R0A-INV-001 | codex/master-finish-orchestration | C:/Users/joshs/Projects/tecmo-basketball-port-master-orchestrator | 5b8a13b30620 |
-| S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001 | integration_orchestrator | gpt-5.6-sol/max | active | pinned | R2D-RULES-RESTARTS-INTEGRATION-QA | codex/r2d-rules-restarts-integration-qa-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2d-rules-restarts-integration-qa-sol | 1f23235cd605 |
+| S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001 | integration_orchestrator | gpt-5.6-sol/max | idle | pinned | R2D-RULES-RESTARTS-INTEGRATION-QA | codex/r2d-rules-restarts-integration-qa-sol | C:/Users/joshs/Projects/tecmo-basketball-port-r2d-rules-restarts-integration-qa-sol | ed060720a98b |
 
 ## Active Ownership
 

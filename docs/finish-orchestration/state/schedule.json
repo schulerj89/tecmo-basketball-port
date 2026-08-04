@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T07:13:34Z",
+  "updated_at": "2026-08-04T07:46:48Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -405,8 +405,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2d-rules-restarts-integration-qa-sol",
       "ownership_claim_ids": ["OWN-R2D-RULES-RESTARTS-INTEGRATION-QA"],
       "blockers": [],
-      "next_gate": "Clean takeover and branch ff-only are complete at exact 1f23235; sole pinned Luna 019fcb82-4090-7b33-8293-7ceda46a43ba returned initial P0/P1/P2/P3 zero. Sol must finish its separate authoritative combined matrix, create a Good-signed docs-only terminal handoff, reuse the same Luna for signed-tip review, and stop before main/staging/origin/push.",
-      "updated_at": "2026-08-04T07:13:34Z"
+      "next_gate": "Terminal Good-signed ed060720 passed complete Sol and same-Luna P0/P1/P2/P3-zero QA and master signature/ref/scope guards. Master must ff-only stable main from exact 7fe2dd7, ordinary-push, rebuild warning-clean, verify both desktop shortcuts, then release the pinned Sol/Luna lifecycle.",
+      "updated_at": "2026-08-04T07:46:48Z"
     }
   ]
 }

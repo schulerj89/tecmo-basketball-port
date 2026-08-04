@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T07:13:34Z",
+  "updated_at": "2026-08-04T07:46:48Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -763,7 +763,7 @@
     {
       "round_id": "R2D",
       "title": "Rules and restarts current-main integration and independent QA",
-      "status": "in_progress",
+      "status": "ready_for_main",
       "base_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
       "scope": [
         "Fast-forward an isolated integration branch from accepted current main 7fe2dd772af1d88f704a9272005b4ba557434cac to immutable Good-signed rules/restarts tip 1f23235cd60582379da5e8f1713cd25de4ced62f",
@@ -777,16 +777,16 @@
       "merge_order": ["R2D-RULES-RESTARTS-INTEGRATION-QA"],
       "combined_qa": {
         "required": true,
-        "status": "in_progress",
-        "accepted_sha": null,
-        "report_path": null,
-        "signed_by_session_id": null,
-        "notes": "The dedicated Sol Max orchestrator completed clean takeover and exact branch ff-only to 1f23235. Its sole projectless Luna/max returned initial P0/P1/P2/P3 zero; the separate Sol combined matrix, signed docs-only terminal handoff, and same-Luna signed-tip review remain in progress."
+        "status": "accepted",
+        "accepted_sha": "ed060720a98b790f98591af363a490a0e0816018",
+        "report_path": "docs/finish-tasks/R2D-rules-restarts-integration-qa/README.md",
+        "signed_by_session_id": "S-SOL-R2D-RULES-RESTARTS-INTEGRATION-QA-001",
+        "notes": "Terminal Good-signed ed060720 directly descends from guarded main 7fe2dd7 through immutable rules/restarts tip 1f23235. Complete Sol and same-Luna build/timing/scene/audio/state/flow/Win32/proof/visual QA closed P0/P1/P2/P3 zero while preserving every accepted incomplete boundary."
       },
       "acceptance": {
-        "status": "pending",
-        "accepted_at": null,
-        "accepted_sha": null,
+        "status": "accepted",
+        "accepted_at": "2026-08-04T07:46:48Z",
+        "accepted_sha": "ed060720a98b790f98591af363a490a0e0816018",
         "criteria": [
           "Guarded current main and immutable 1f23235 are exact ancestors of the terminal signed integration result",
           "Canonical and CMake warning-clean builds plus focused rules/restarts and affected current-main scene/audio/state/flow/Win32 smokes pass",
@@ -796,7 +796,7 @@
       },
       "main_integration": {
         "pre_main_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
-        "merge_commits": [],
+        "merge_commits": ["1dde1ef748658a11403ff4bc450af858d05f08c2","1f23235cd60582379da5e8f1713cd25de4ced62f","ed060720a98b790f98591af363a490a0e0816018"],
         "post_main_sha": null,
         "remote_main_before_sha": "7fe2dd772af1d88f704a9272005b4ba557434cac",
         "push_sha": null,
@@ -804,7 +804,7 @@
         "pushed_at": null
       },
       "created_at": "2026-08-04T06:25:47Z",
-      "updated_at": "2026-08-04T07:13:34Z"
+      "updated_at": "2026-08-04T07:46:48Z"
     },
     {
       "round_id": "R5",
