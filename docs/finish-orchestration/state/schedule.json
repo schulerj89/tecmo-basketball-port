@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T09:56:31Z",
+  "updated_at": "2026-08-04T10:10:52Z",
   "master_session_id": "S-MASTER-001",
   "policy": {
     "single_master_authority": true,
@@ -423,8 +423,8 @@
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-gameplay-presentation-sol",
       "ownership_claim_ids": ["OWN-R2-GAMEPLAY-PRESENTATION"],
       "blockers": [],
-      "next_gate": "Good-signed exact two-path candidate 4cb0c43 is frozen after personal warning-clean build, full/focused scene, 17+17 deterministic-frame, strict-negative, manifest, and original-resolution visual QA. Sole projectless pinned terminal auditor 019fcc34-09f6-7be3-a24f-4031ca076b64 is active read-only. Await its exact P0/P1/P2/P3 disposition; reuse only implementation worker 019fcc03 for any correction. Do not integrate, stage, push, or widen scope before terminal acceptance.",
-      "updated_at": "2026-08-04T09:56:31Z"
+      "next_gate": "Exact two-path product commit 4cb0c43 passed personal and sole-Luna terminal QA with P0/P1/P2/P3 zero and was ff-only integrated into the clean Presentation Sol branch. Sol must now commit only the four authorized task reports with Good SSH signature, reuse the same pinned terminal auditor for exact signed-tip/docs review, and issue a guarded terminal handoff. No staging/main/push or scope widening is authorized.",
+      "updated_at": "2026-08-04T10:10:52Z"
     },
     {
       "lane_id": "LANE-R3-PLAYER-STATS-LEADERS",
