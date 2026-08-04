@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T00:51:20Z",
+  "updated_at": "2026-08-04T01:01:24Z",
   "claims": [
     {
       "claim_id": "OWN-R0-CTRL",
@@ -402,10 +402,10 @@
         "docs/finish-tasks/R2-shots-outcomes/README.md"
       ],
       "concurrency_group": "R2-shots-outcomes",
-      "active": true,
+      "active": false,
       "claimed_at": "2026-08-03T17:06:38Z",
-      "released_at": null,
-      "notes": "Reserved by the master before creation, then transferred to registered/pinned S-SOL-R2-SHOTS-001 at exact clean base 222d75cf. Existing shot-family engines, settlement scene module, exact semantic shot packs, focused CLIs/tests, bounded scene contracts, and task docs only. Active R1 TIP/render, CPU/LIVE implementations, defense/contact, rules/restarts, clocks/lineups, audio, CMake/build lists, global source-map/import-layout, game/flow, Win32, main, and unrelated product paths are excluded; any required boundary must be reported for explicit rescope."
+      "released_at": "2026-08-04T01:01:24Z",
+      "notes": "Released after terminal Good-signed domain tip 7b9287a91fcd9d4725d5d05c37b1d667d9bfb57a passed Sol and independent no-actionable-finding QA, exact 17-path ownership and zero-diff shared exclusions were verified, the three accepted Lunas were unpinned, and immutable R2B staging was reserved. A dedicated current-main Integration QA lane consumes the accepted tip read-only; later shared scene/source-map follow-ups require new sequential authority."
     },
     {
       "claim_id": "OWN-R2-CLOCK-LINEUPS-FATIGUE",
@@ -563,6 +563,25 @@
       "claimed_at": "2026-08-03T23:38:12Z",
       "released_at": "2026-08-04T00:51:20Z",
       "notes": "Master reservation before Sol creation, expanded at 2026-08-04T00:04:57Z after collision checks found no active claim, worktree edit, or candidate overlap for tools/Run-AssetPackTests.ps1. Sol consumed exactly that exception in Good-signed runner-only commit 73e87dcccbfe1ddc6a78d9b313e8dd75252fb857. Terminal Good-signed 8a5b992 passed Sol and independent P0/P1/P2/P3-zero combined QA. Master guards passed, main fast-forwarded and pushed non-force from edf16ca to 8a5b992, stable main rebuilt, and both Native Port and Active Preview desktop shortcuts now target the exact main executable. Claim released after delivery; branches/worktrees preserved."
+    },
+    {
+      "claim_id": "OWN-R2B-SHOTS-OUTCOMES-INTEGRATION-QA",
+      "task_id": "R2B-SHOTS-OUTCOMES-INTEGRATION-QA",
+      "round_id": "R2B",
+      "session_id": "S-MASTER-001",
+      "mode": "exclusive",
+      "writable_globs": [
+        "docs/finish-tasks/R2B-shots-outcomes-integration-qa/**"
+      ],
+      "planned_paths": [
+        "docs/finish-tasks/R2B-shots-outcomes-integration-qa/README.md",
+        "docs/finish-tasks/R2B-shots-outcomes-integration-qa/PROOF.md"
+      ],
+      "concurrency_group": "R2B-shots-outcomes-integration-qa",
+      "active": true,
+      "claimed_at": "2026-08-04T01:01:24Z",
+      "released_at": null,
+      "notes": "Master reservation before Sol creation. The lane may create one Good-signed branch-only reconciliation merge that combines current main 8a5b992 with immutable accepted Shots tip 7b9287a9, then write only its R2B task docs. Candidate/product paths, main, origin/main, staging, push, and all unrelated paths remain read-only. Any combined-test defect requiring product/tool correction must be returned for exact master rescope."
     },
     {
       "claim_id": "OWN-R2-DEFENSE-CONTACT",
@@ -760,6 +779,13 @@
         "R2A-CLOCK-LINEUPS-INTEGRATION-QA"
       ],
       "declared_at": "2026-08-03T23:38:12Z"
+    },
+    {
+      "round_id": "R2B",
+      "ordered_task_ids": [
+        "R2B-SHOTS-OUTCOMES-INTEGRATION-QA"
+      ],
+      "declared_at": "2026-08-04T01:01:24Z"
     },
     {
       "round_id": "R4",

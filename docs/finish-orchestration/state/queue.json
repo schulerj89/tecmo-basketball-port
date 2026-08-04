@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T00:51:20Z",
+  "updated_at": "2026-08-04T01:01:24Z",
   "repository": "C:/Users/joshs/Projects/tecmo-basketball-port",
   "program_base_sha": "63b29b04b1ab4745b7b8d5dd0499942d1bf8ba4e",
   "tasks": [
@@ -1255,7 +1255,7 @@
       "round_id": "R2",
       "priority": 100,
       "coordination_only": false,
-      "state": "in_progress",
+      "state": "ready_for_round_staging",
       "dependencies": [
         "R1-CPU-PLAY-LIFECYCLE",
         "R1-LIVE-FOUNDATION"
@@ -1270,16 +1270,21 @@
       "sol_orchestrator_session_id": "S-SOL-R2-SHOTS-001",
       "reported_luna_worker_session_ids": [
         "019fc8a8-186e-7be2-aab3-0aae3da3a2fa",
-        "019fc8cb-3d2c-7171-bbe8-534028387b6e"
+        "019fc8cb-3d2c-7171-bbe8-534028387b6e",
+        "019fca10-32a8-7fd0-8d8f-2f558c5d262f"
       ],
-      "result_commits": [],
+      "result_commits": [
+        "24bdde9c87b1529d9ab83671bc8c60c1e136ceb1",
+        "8be0258e83369bce58d3a9eabedb4ef575127b25",
+        "7b9287a91fcd9d4725d5d05c37b1d667d9bfb57a"
+      ],
       "evidence_ids": [],
       "blocker_ids": [],
       "replacement_task_id": null,
       "task_docs_path": "docs/finish-tasks/R2-shots-outcomes",
       "qa": {
-        "status": "in_progress",
-        "sol_signoff": false,
+        "status": "passed",
+        "sol_signoff": true,
         "integration_signoff": false,
         "test_records": [
           "2026-08-03T17:10:20Z master created/pinned exactly one gpt-5.6-sol thinking=max domain orchestrator thread 019fc89a-de0d-7b61-9364-3cf96ff8dba8 after control-plane reservation e82392c and exact clean worktree creation at base 222d75cf. No create retry/fault; task awaits Sol clean takeover before in_progress or Luna creation.",
@@ -1298,23 +1303,24 @@
           "2026-08-03T22:15:15Z Sol reconfirmed option-A source_map.c and deferred scene.c boundaries with zero diff in both files. The uncommitted owned patch reaches a clean scene self-test with immutable launch geometry, context signature, exact ball-position/timeline, jump altitude/bounce/rattle-repeat, and legacy A7A9/not-selected coverage. Temporary R2DIAG output still must be removed. Sol found one exact-make validator hole: frames 1-8 did not require unreleased polarity; the same Luna must add the invariant and a bytewise corruption probe, then finish focused suites, terminal route matrices, and docs before any commit or QA worker.",
           "2026-08-03T22:34:04Z Sol reconfirmed zero-diff source_map.c option-A and scene.c deferral. Personal review reconciled captured-endpoint rattle orientation, deep A7A9 object replay, A708/A8E9 jump-tail positions, exact early-release polarity, and close-rattle ball-state binding. First commit remains withheld pending an expanded terminal matrix covering exact misses for selectors 0/3/2/1 with exact schedules, ordinary approximate make, numeric0/1/2 close make+miss settlement, plus route-bound active tail duration/JUMP tail base-frame invariants and coordinated corruption probes; then Sol must rerun warning-clean, focused, full scene, and native proof gates.",
           "2026-08-03T23:03:22Z Sol reconciled the terminal-holder failure as test-only off-court recipient geometry and bounded the repair to made recipients at canonical safe coordinates with native-dribble preflight. Route-tail durations, JUMP tail base, route/selector coherence, diagnostic-selector zero, gather-pose, release-polarity, corruption, and two-team terminal score/holder/ownership assertions are now reviewed. Temporary production diagnostics are fully removed. The rebuilt executable passed the direct bound gameplay-scene self-test and diff-check is clean; the patch remains uncommitted pending task docs/reproducible proof preparation, full Sol warning-clean/focused/native visual proof, and independent terminal Luna QA.",
-          "2026-08-03T23:23:45Z Personal Sol diff review found a substantive launch invariant gap before commit: A7A9 rattle selection was route-gated but not evaluated-MISS-gated, allowing a MAKE with stable selector low2=1 to carry an active miss-rattle flag. The same pinned Luna must gate rattle selection after evaluation on MISS, add a deep-state invariant, correct the make helper, and prove a bound production regression through terminal settlement. Both excluded shared files remain zero-diff/read-only; no commit or independent QA is permitted until Sol personally reconciles the revision."
+          "2026-08-03T23:23:45Z Personal Sol diff review found a substantive launch invariant gap before commit: A7A9 rattle selection was route-gated but not evaluated-MISS-gated, allowing a MAKE with stable selector low2=1 to carry an active miss-rattle flag. The same pinned Luna must gate rattle selection after evaluation on MISS, add a deep-state invariant, correct the make helper, and prove a bound production regression through terminal settlement. Both excluded shared files remain zero-diff/read-only; no commit or independent QA is permitted until Sol personally reconciles the revision.",
+          "2026-08-04T01:01:24Z master accepted the authoritative terminal handoff after verifying exact clean Sol tip 7b9287a9, Good SSH signatures on all three commits, 17-path ownership, diff-check, zero current-main overlap, unchanged excluded scene.c/source_map.c blobs, and final independent no-actionable-finding QA. The domain claim is released and immutable R2B staging is reserved for dedicated current-main integration QA; product QA was not rerun by master."
         ],
         "proof_manifests": [],
-        "notes": "R2 Shots/Outcomes remains in same-Luna pre-commit revision. Sol caught an active miss-rattle flag that could survive on a MAKE because A7A9 selection lacked an evaluated-MISS gate. The worker must fix post-evaluation selection, add the deep invariant, repair the make helper, and pass a bound terminal-settlement regression before returning to docs/proof preparation and complete Sol/independent QA. Source-map option A and scene.c deferral remain explicit zero-diff exclusions; no commit or QA worker exists."
+        "notes": "Terminal signed 7b9287a9 is Sol-accepted and independently accepted with no actionable finding. Warning-clean build, focused TGCS/TGSR, full scene/direct gates, deterministic native proof, exact original make/miss traces, transactional matrices, ownership, documentation, and exclusions passed. The public numeric-1 name and stale source-map wording remain explicit deferred follow-ups; dedicated current-main R2B integration QA is still required."
       },
       "merge": {
-        "staging_branch": "codex/round-2-gameplay-mechanics-staging",
+        "staging_branch": "codex/round-2b-shots-outcomes-staging",
         "merge_order": 1,
-        "status": "not_ready",
+        "status": "ready",
         "merge_commit": null,
-        "main_pre_sha": "6d8f9c7a99a7ce188f1a523247d3a9b9093860fb",
+        "main_pre_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
         "main_post_sha": null,
         "push_sha": null,
         "pushed_at": null
       },
       "created_at": "2026-08-03T04:47:45Z",
-      "updated_at": "2026-08-03T23:23:45Z",
+      "updated_at": "2026-08-04T01:01:24Z",
       "audit": [
         {
           "timestamp": "2026-08-03T04:47:45Z",
@@ -1343,6 +1349,41 @@
           "from_state": "assigned",
           "to_state": "in_progress",
           "reason": "Sol completed the governing-file, exact allocation/lineage/cleanliness, ownership/dependency, canonical ROM, original source, current native contract, and gap audit with no worker or mutation; bounded read-only Luna evidence audit may begin."
+        },
+        {
+          "timestamp": "2026-08-04T00:58:07Z",
+          "actor_session_id": "S-SOL-R2-SHOTS-001",
+          "from_state": "in_progress",
+          "to_state": "sol_review",
+          "reason": "Sol accepted clean implementation commit 24bdde9c after warning-clean, focused, full-scene, direct, original-reference, deterministic native proof, ownership, and exclusion review; independent Luna began exact-candidate QA."
+        },
+        {
+          "timestamp": "2026-08-04T01:00:30Z",
+          "actor_session_id": "S-SOL-R2-SHOTS-001",
+          "from_state": "sol_review",
+          "to_state": "luna_revision",
+          "reason": "Independent QA found no runtime defect but returned docs-only provenance P2 findings; the same writable Luna produced only bounded documentation corrections."
+        },
+        {
+          "timestamp": "2026-08-04T01:01:10Z",
+          "actor_session_id": "S-SOL-R2-SHOTS-001",
+          "from_state": "luna_revision",
+          "to_state": "sol_review",
+          "reason": "Same independent QA verified exact clean terminal docs tip 7b9287a9 with no actionable findings and confirmed runtime acceptance carried unchanged from 24bdde9c."
+        },
+        {
+          "timestamp": "2026-08-04T01:01:18Z",
+          "actor_session_id": "S-SOL-R2-SHOTS-001",
+          "from_state": "sol_review",
+          "to_state": "sol_accepted",
+          "reason": "Authoritative Sol accepted and ff-only integrated the exact three-commit chain through 7b9287a9 into the registered clean domain branch; worker, QA, and Sol tips are clean/equal and main/staging remain untouched."
+        },
+        {
+          "timestamp": "2026-08-04T01:01:24Z",
+          "actor_session_id": "S-MASTER-001",
+          "from_state": "sol_accepted",
+          "to_state": "ready_for_round_staging",
+          "reason": "Master verified the exact signed chain, clean terminal branch, 17-path ownership, zero-diff exclusions, independent no-finding closure, diff-check, and conflict-free zero-overlap current-main merge prediction. Release domain ownership and advance the immutable candidate to dedicated R2B integration QA."
         }
       ]
     },
@@ -3309,6 +3350,45 @@
         {"timestamp":"2026-08-04T00:50:29Z","actor_session_id":"S-SOL-R2A-CLOCK-LINEUPS-INTEGRATION-QA-001","from_state":"combined_qa","to_state":"ready_for_main","reason":"Terminal 8a5b992 was clean, Good-signed, ownership-compliant, and a true fast-forward descendant of guarded main edf16ca."},
         {"timestamp":"2026-08-04T00:50:30Z","actor_session_id":"S-MASTER-001","from_state":"ready_for_main","to_state":"merged","reason":"Master guards passed and local main fast-forwarded from edf16ca to 8a5b992."},
         {"timestamp":"2026-08-04T00:50:35Z","actor_session_id":"S-MASTER-001","from_state":"merged","to_state":"pushed","reason":"Non-force push succeeded; local main, origin/main, and live remote main all reverified exact 8a5b992, then stable main and desktop preview shortcuts were rebuilt and verified."}
+      ]
+    },
+    {
+      "task_id": "R2B-SHOTS-OUTCOMES-INTEGRATION-QA",
+      "title": "Integrate accepted shots and outcomes with current main and sign combined QA",
+      "domain": "integration",
+      "round_id": "R2B",
+      "priority": 100,
+      "coordination_only": false,
+      "state": "scoped",
+      "dependencies": ["R2-SHOTS-OUTCOMES"],
+      "ownership_claim_ids": ["OWN-R2B-SHOTS-OUTCOMES-INTEGRATION-QA"],
+      "base_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
+      "expected_parent_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
+      "branch": "codex/r2b-shots-outcomes-integration-qa-sol",
+      "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2b-shots-outcomes-integration-qa-sol",
+      "sol_orchestrator_session_id": null,
+      "reported_luna_worker_session_ids": [],
+      "result_commits": [],
+      "evidence_ids": [],
+      "blocker_ids": [],
+      "replacement_task_id": null,
+      "task_docs_path": "docs/finish-tasks/R2B-shots-outcomes-integration-qa",
+      "qa": {
+        "status": "pending",
+        "sol_signoff": false,
+        "integration_signoff": false,
+        "test_records": [
+          "2026-08-04T01:01:24Z master accepted terminal domain tip 7b9287a9, verified all three Good SSH signatures, clean 17-path ownership, unchanged shared exclusions, zero current-main overlap, diff-check, and conflict-free merge-tree prediction, then reserved immutable R2B staging and an isolated 8a5b992-based Integration QA lane before Sol creation."
+        ],
+        "proof_manifests": [],
+        "notes": "The R2B lane is reserved but no orchestrator exists yet. It may perform one signed branch-only reconciliation plus docs-only reporting, complete combined product/proof/cross-domain QA, and create one independent read-only Luna after its own collision gate. Main and push remain master-only."
+      },
+      "merge": {"staging_branch":"codex/round-2b-shots-outcomes-staging","merge_order":1,"status":"not_ready","merge_commit":null,"main_pre_sha":"8a5b9928544a430efa34cbf98a248d6a8cbe7b14","main_post_sha":null,"push_sha":null,"pushed_at":null},
+      "created_at": "2026-08-04T01:01:24Z",
+      "updated_at": "2026-08-04T01:01:24Z",
+      "audit": [
+        {"timestamp":"2026-08-04T01:01:23Z","actor_session_id":"S-MASTER-001","from_state":null,"to_state":"backlog","reason":"Incremental delivery policy requires accepted Shots/Outcomes C code to reach stable main without waiting for the rest of Round 2."},
+        {"timestamp":"2026-08-04T01:01:24Z","actor_session_id":"S-MASTER-001","from_state":"backlog","to_state":"scoped","reason":"Reserved exact docs-only Integration QA ownership, immutable signed 7b9287a9 staging, and the collision-cleared 8a5b992-based branch/worktree before creating a Sol orchestrator."}
       ]
     }
   ]

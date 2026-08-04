@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T00:51:20Z",
+  "updated_at": "2026-08-04T01:01:24Z",
   "rounds": [
     {
       "round_id": "R0",
@@ -660,6 +660,56 @@
       },
       "created_at": "2026-08-03T23:38:12Z",
       "updated_at": "2026-08-04T00:51:20Z"
+    },
+    {
+      "round_id": "R2B",
+      "title": "Shots and outcomes current-main integration and independent QA",
+      "status": "planned",
+      "base_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
+      "scope": [
+        "Reconcile immutable accepted R2 Shots/Outcomes candidate 7b9287a91fcd9d4725d5d05c37b1d667d9bfb57a with current main",
+        "Run combined warning-clean build, focused shot packs/resolution, full gameplay scene/direct, deterministic native proof, and current-main cross-domain smoke gates",
+        "Produce independent P0/P1/P2-zero QA and a signed terminal report that is a fast-forward descendant of current main"
+      ],
+      "included_task_ids": [
+        "R2B-SHOTS-OUTCOMES-INTEGRATION-QA"
+      ],
+      "staging_branch": "codex/round-2b-shots-outcomes-staging",
+      "sol_orchestrator_session_ids": [],
+      "integration_qa_session_id": null,
+      "merge_order": [
+        "R2B-SHOTS-OUTCOMES-INTEGRATION-QA"
+      ],
+      "combined_qa": {
+        "required": true,
+        "status": "pending",
+        "accepted_sha": null,
+        "report_path": "docs/finish-tasks/R2B-shots-outcomes-integration-qa/README.md",
+        "signed_by_session_id": null,
+        "notes": "A dedicated Sol Max integration orchestrator must reconcile exact candidate 7b9287a9 with current main, run complete combined gates, and close independent P0/P1/P2 at zero."
+      },
+      "acceptance": {
+        "status": "pending",
+        "accepted_at": null,
+        "accepted_sha": null,
+        "criteria": [
+          "Current main and immutable Shots/Outcomes candidate are both ancestors of the signed terminal integration commit",
+          "Combined build, focused shots/resolution, full scene/direct, deterministic native proof, and relevant cross-domain tests pass",
+          "Independent Luna and Sol close P0/P1/P2 at zero",
+          "Terminal result is clean, ownership-compliant, and fast-forwardable from the then-current main"
+        ]
+      },
+      "main_integration": {
+        "pre_main_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
+        "merge_commits": [],
+        "post_main_sha": null,
+        "remote_main_before_sha": "8a5b9928544a430efa34cbf98a248d6a8cbe7b14",
+        "push_sha": null,
+        "push_result": "not_attempted",
+        "pushed_at": null
+      },
+      "created_at": "2026-08-04T01:01:24Z",
+      "updated_at": "2026-08-04T01:01:24Z"
     },
     {
       "round_id": "R5",

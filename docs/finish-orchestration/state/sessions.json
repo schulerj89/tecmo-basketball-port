@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04T00:51:20Z",
+  "updated_at": "2026-08-04T01:01:24Z",
   "master_session_id": "S-MASTER-001",
   "sessions": [
     {
@@ -287,23 +287,23 @@
       "role": "domain_orchestrator",
       "model": "gpt-5.6-sol",
       "thinking": "max",
-      "status": "active",
+      "status": "completed",
       "pin_state": "pinned",
       "round_ids": ["R2"],
       "task_ids": ["R2-SHOTS-OUTCOMES"],
       "worktree": "C:/Users/joshs/Projects/tecmo-basketball-port-r2-shots-outcomes-sol",
       "branch": "codex/r2-shots-outcomes-sol",
       "base_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
-      "last_good_sha": "222d75cfafa9153db1eb44492bf557f11b1a9091",
+      "last_good_sha": "7b9287a91fcd9d4725d5d05c37b1d667d9bfb57a",
       "reports_to_session_id": "S-MASTER-001",
       "parent_session_id": null,
-      "reported_luna_lineage": ["019fc8a8-186e-7be2-aab3-0aae3da3a2fa", "019fc8cb-3d2c-7171-bbe8-534028387b6e"],
+      "reported_luna_lineage": ["019fc8a8-186e-7be2-aab3-0aae3da3a2fa", "019fc8cb-3d2c-7171-bbe8-534028387b6e", "019fca10-32a8-7fd0-8d8f-2f558c5d262f"],
       "recovery_lineage": [],
       "failure": {"count":0,"raw_error_signatures":[],"retry_session_ids":[],"replacement_session_id":null,"takeover_confirmed_at":null},
       "created_at": "2026-08-03T17:10:20Z",
-      "completed_at": null,
-      "updated_at": "2026-08-03T23:23:45Z",
-      "notes": "Task remains pre-commit with clean Sol branch at exact base 222d75cf and one persistent pinned writable Luna 019fc8cb. Sol caught a substantive invariant gap: route-gated A7A9 rattle selection was not evaluated-MISS-gated, so a MAKE could retain the miss-rattle flag. Same-lineage revision must fix selection timing, add deep validation, repair the make helper, and pass a bound terminal regression before docs/proof and final QA resume. Excluded source-map and scene.c remain untouched; no commit, QA worker, merge, or push."
+      "completed_at": "2026-08-04T01:01:24Z",
+      "updated_at": "2026-08-04T01:01:24Z",
+      "notes": "Terminal Good-signed domain tip 7b9287a91fcd9d4725d5d05c37b1d667d9bfb57a was personally accepted after full source, original-reference, warning-clean, focused, scene, deterministic native proof, ownership, documentation, and independent no-actionable-finding QA. Domain ownership is released and immutable R2B staging is reserved. Sol remains pinned only until this signed master closure is committed; its clean branch/worktree and all worker history are preserved."
     },
     {
       "session_id": "S-SOL-CPU-TIP-LEGACY",
@@ -699,7 +699,10 @@
       "worker_id":"019fc8a8-186e-7be2-aab3-0aae3da3a2fa","thread_id":"019fc8a8-186e-7be2-aab3-0aae3da3a2fa","title":"Tecmo R2 Shots Outcomes Evidence Native Gap Audit - Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R2-SHOTS-001","round_ids":["R2"],"task_ids":["R2-SHOTS-OUTCOMES"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Created once at 2026-08-03T17:24:47Z as the projectless read-only evidence/native-gap auditor against immutable product SHA 222d75cf. Sol personally reconciled and accepted the exact profile/direction/close-variant evidence, corrected actor/object-state classification, preserved the LIVE far-shot boundary, and recorded zero bad-request or mutation. Worker completed and was unpinned only after durable acceptance; Git fields remain null.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T18:03:10Z"
     },
     {
-      "worker_id":"019fc8cb-3d2c-7171-bbe8-534028387b6e","thread_id":"019fc8cb-3d2c-7171-bbe8-534028387b6e","title":"Tecmo R2 Shots Outcomes Implementation and Revisions - Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"active","pin_state":"pinned","reported_by_session_id":"S-SOL-R2-SHOTS-001","round_ids":["R2"],"task_ids":["R2-SHOTS-OUTCOMES"],"worktree":"C:/Users/joshs/Projects/tecmo-basketball-port-r2-shots-outcomes-luna","branch":"codex/r2-shots-outcomes-luna","base_sha":"222d75cfafa9153db1eb44492bf557f11b1a9091","last_good_sha":"222d75cfafa9153db1eb44492bf557f11b1a9091","contribution":"Sole persistent writable implementation/revision lineage, still uncommitted at exact base 222d75cf. Sol found that route-gated A7A9 rattle selection lacked an evaluated-MISS gate and could remain active on a MAKE. The mandatory same-lineage revision must gate selection after evaluation, add a deep-state invariant, correct the make helper, and pass a bound production terminal-settlement regression before docs/proof preparation and final QA resume. Source-map option A and scene.c deferral remain zero-diff exclusions; it must not merge/push.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T23:23:45Z"
+      "worker_id":"019fc8cb-3d2c-7171-bbe8-534028387b6e","thread_id":"019fc8cb-3d2c-7171-bbe8-534028387b6e","title":"Tecmo R2 Shots Outcomes Implementation and Revisions - Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R2-SHOTS-001","round_ids":["R2"],"task_ids":["R2-SHOTS-OUTCOMES"],"worktree":"C:/Users/joshs/Projects/tecmo-basketball-port-r2-shots-outcomes-luna","branch":"codex/r2-shots-outcomes-luna","base_sha":"222d75cfafa9153db1eb44492bf557f11b1a9091","last_good_sha":"7b9287a91fcd9d4725d5d05c37b1d667d9bfb57a","contribution":"Sole persistent writable implementation/revision lineage. It produced accepted product commit 24bdde9c and docs-only corrections 8be0258e/7b9287a9, resolved every Sol and independent QA finding, and ended clean/equal to the Sol/QA tip. Final unpin returned pinned=false after durable Sol handoff; branch/worktree are preserved and no task bad-request/replacement occurred.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T01:01:24Z"
+    },
+    {
+      "worker_id":"019fca10-32a8-7fd0-8d8f-2f558c5d262f","thread_id":"019fca10-32a8-7fd0-8d8f-2f558c5d262f","title":"Tecmo R2 Shots Outcomes Independent QA - Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R2-SHOTS-001","round_ids":["R2"],"task_ids":["R2-SHOTS-OUTCOMES"],"worktree":"C:/Users/joshs/Projects/tecmo-basketball-port-r2-shots-outcomes-qa","branch":"codex/r2-shots-outcomes-qa","base_sha":"222d75cfafa9153db1eb44492bf557f11b1a9091","last_good_sha":"7b9287a91fcd9d4725d5d05c37b1d667d9bfb57a","contribution":"Sole independent terminal QA lineage, created once and reused for both docs revisions. It found no runtime/code defect, verified exact ROM, warning-clean build, TGCS/TGSR, full scene/direct tests, deterministic native renders, transaction/geometry/timeline/settlement matrices, 17-path ownership, and byte-identical excluded shared files. Its docs-only P2 findings were corrected and exact terminal 7b9287a9 passed with no actionable findings. Completed clean and unpinned; no task bad-request/replacement.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-04T01:01:24Z"
     },
     {
       "worker_id":"019fc89b-05fb-7193-aef0-e483f9306279","thread_id":"019fc89b-05fb-7193-aef0-e483f9306279","title":"Tecmo R1 TIP Fidelity — Independent Terminal QA — Luna Max","model":"gpt-5.6-luna","thinking":"max","status":"completed","pin_state":"unpinned","reported_by_session_id":"S-SOL-R1-GAMEPLAY-001","round_ids":["R1"],"task_ids":["R1-TIP-FIDELITY"],"worktree":null,"branch":null,"base_sha":null,"last_good_sha":null,"contribution":"Reused projectless/null-Git lineage. It passed terminal implementation/static/build/focused/broad/Win32/formal proof/media/original-reference review, returned one docs-status P2 at b678bef, then accepted exact clean e21f9a6 and the complete four-commit chain with final P0/P1/P2 zero. Tracked writable scope remained null and no new task was created. It was unpinned successfully at 2026-08-03T22:09:43Z only after signed durable master checkpoint e120be6; projectless history remains preserved.","recovery_lineage":[],"failure":{"count":0,"raw_error_signatures":[],"retry_worker_ids":[],"replacement_worker_id":null,"takeover_confirmed_at":null},"observed_at":"2026-08-03T22:09:43Z"
