@@ -28,7 +28,9 @@ $ExpectedVariant2Phases = @(0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5)
 $BuildDir = Join-Path $ProjectRoot "build"
 $Executable = Join-Path $BuildDir "tecmo_port.exe"
 $BuildPrefix = [IO.Path]::GetFullPath($BuildDir).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
-$Scratch = [IO.Path]::GetFullPath((Join-Path $BuildDir "gameplay_presentation_test"))
+$ScratchName = "gameplay_presentation_test-" + [Guid]::NewGuid().ToString("N")
+$Scratch = [IO.Path]::GetFullPath((Join-Path $BuildDir $ScratchName))
+$ScratchCreated = $false
 if (!$Scratch.StartsWith($BuildPrefix, [StringComparison]::OrdinalIgnoreCase)) {
     throw "Gameplay presentation scratch path escaped build\."
 }
@@ -404,8 +406,11 @@ try {
         $BuildRecord = [pscustomobject][ordered]@{ requested = $false; exit_code = $null; warning_lines = @(); log = $null }
     }
     if (!(Test-Path -LiteralPath $Executable -PathType Leaf)) { throw "Build output is missing; rerun with -Build." }
-    if (Test-Path -LiteralPath $Scratch) { Remove-Item -LiteralPath $Scratch -Recurse -Force }
-    New-Item -ItemType Directory -Force -Path $Scratch | Out-Null
+    if (Test-Path -LiteralPath $Scratch) {
+        throw "Unique gameplay presentation scratch path already exists: $Scratch"
+    }
+    New-Item -ItemType Directory -Path $Scratch -ErrorAction Stop | Out-Null
+    $ScratchCreated = $true
     $PackPath = Join-Path $Scratch "gameplay-presentation.assetpack"
     $PackRun = Invoke-Native @("--build-assetpack", $RomPath, $PackPath) (Join-Path $LogsRoot "build-assetpack.log")
     if ($PackRun.code -ne 0 -or !(Test-Path -LiteralPath $PackPath -PathType Leaf)) {
@@ -545,5 +550,13 @@ try {
 } finally {
     if ($null -eq $PreviousAssetPack) { Remove-Item Env:\TECMO_ASSETPACK -ErrorAction SilentlyContinue } else { $env:TECMO_ASSETPACK = $PreviousAssetPack }
     if ($null -eq $PreviousSkipShortcut) { Remove-Item Env:\TECMO_SKIP_SHORTCUT -ErrorAction SilentlyContinue } else { $env:TECMO_SKIP_SHORTCUT = $PreviousSkipShortcut }
-    if (Test-Path -LiteralPath $Scratch) { Remove-Item -LiteralPath $Scratch -Recurse -Force }
+    if ($ScratchCreated -and (Test-Path -LiteralPath $Scratch)) {
+        $CleanupScratch = [IO.Path]::GetFullPath($Scratch)
+        if ($CleanupScratch -ne $Scratch -or
+            !$CleanupScratch.StartsWith($BuildPrefix, [StringComparison]::OrdinalIgnoreCase) -or
+            !(Test-Path -LiteralPath $CleanupScratch -PathType Container)) {
+            throw "Refusing unsafe gameplay presentation scratch cleanup: $Scratch"
+        }
+        Remove-Item -LiteralPath $CleanupScratch -Recurse -Force
+    }
 }
