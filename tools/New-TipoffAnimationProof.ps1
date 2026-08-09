@@ -18,15 +18,15 @@ $env:TECMO_ASSETPACK = $AssetPackPath
 $Specs = @(
     @{ name="bank04-input-capture"; frame=452; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=518; homePhase=0; homeState=0x13; homeAltitude=0 },
     @{ name="live-object-seed"; frame=481; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=518; homePhase=0; homeState=0x13; homeAltitude=0 },
-    @{ name="cpu-jump-commit"; frame=483; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=581; homePhase=2; homeState=0x0B; homeAltitude=$null },
-    @{ name="rising-phase4"; frame=490; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
-    @{ name="human-jump-commit"; frame=493; awayPose=549; awayPhase=2; awayState=0x0B; awayAltitude=$null; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
-    @{ name="apex-before-cinematic"; frame=499; awayPose=551; awayPhase=4; awayState=0x0C; awayAltitude=$null; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
-    @{ name="first-cinematic-screen1b"; frame=500; awayPose=551; awayPhase=4; awayState=0x0C; awayAltitude=$null; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
-    @{ name="cinematic-middle"; frame=530; awayPose=469; awayPhase=0; awayState=0x13; awayAltitude=0; homePose=501; homePhase=0; homeState=0x13; homeAltitude=0 },
-    @{ name="cinematic-end"; frame=559; awayPose=469; awayPhase=0; awayState=0x13; awayAltitude=0; homePose=501; homePhase=0; homeState=0x13; homeAltitude=0 },
-    @{ name="return-to-court-landed"; frame=560; awayPose=469; awayPhase=0; awayState=0x13; awayAltitude=0; homePose=501; homePhase=0; homeState=0x13; homeAltitude=0 },
-    @{ name="no-late-restart"; frame=589; awayPose=469; awayPhase=0; awayState=0x13; awayAltitude=0; homePose=501; homePhase=0; homeState=0x13; homeAltitude=0 }
+    @{ name="cpu-jump-commit"; frame=501; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=581; homePhase=2; homeState=0x0B; homeAltitude=$null },
+    @{ name="cpu-phase3"; frame=502; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=582; homePhase=3; homeState=0x0B; homeAltitude=$null },
+    @{ name="rising-phase4"; frame=505; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
+    @{ name="near-claim-pre-cinematic"; frame=507; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
+    @{ name="state17-first-cinematic"; frame=508; awayPose=549; awayPhase=2; awayState=0x0B; awayAltitude=$null; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
+    @{ name="cinematic-middle"; frame=530; awayPose=551; awayPhase=4; awayState=0x0C; awayAltitude=$null; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
+    @{ name="cinematic-end"; frame=567; awayPose=469; awayPhase=0; awayState=0x13; awayAltitude=0; homePose=501; homePhase=0; homeState=0x13; homeAltitude=0 },
+    @{ name="return-to-court-landed"; frame=568; awayPose=469; awayPhase=0; awayState=0x13; awayAltitude=0; homePose=501; homePhase=0; homeState=0x13; homeAltitude=0 },
+    @{ name="no-late-restart"; frame=597; awayPose=469; awayPhase=0; awayState=0x13; awayAltitude=0; homePose=501; homePhase=0; homeState=0x13; homeAltitude=0 }
 )
 
 function Convert-Diagnostic([string]$Line) {
@@ -81,12 +81,13 @@ foreach ($Spec in $Specs) {
 
 $Capture = $Records | Where-Object name -eq 'bank04-input-capture'
 $Seed = $Records | Where-Object name -eq 'live-object-seed'
-$Apex = $Records | Where-Object name -eq 'apex-before-cinematic'
-$FirstCinematic = $Records | Where-Object name -eq 'first-cinematic-screen1b'
+$PreGate = $Records | Where-Object name -eq 'near-claim-pre-cinematic'
+$FirstCinematic = $Records | Where-Object name -eq 'state17-first-cinematic'
+$Middle = $Records | Where-Object name -eq 'cinematic-middle'
 $Late = $Records | Where-Object name -eq 'no-late-restart'
 if ($Capture.timing.away_latch -ne 1 -or $Capture.timing.away_countdown -ne 12) { throw "Bank04 input was not captured before simulation." }
 if ($Seed.timing.simulation_tick -ne 0 -or $Seed.timing.ball_state -ne 0x1A) { throw "Slot/ball live objects were not seeded before the cinematic." }
-if ($Apex.timing.home_velocity_q8 -le 0 -or $FirstCinematic.timing.home_velocity_q8 -ge 0 -or $FirstCinematic.timing.home_apex_frame -ge $FirstCinematic.timing.simulation_tick) { throw "Jumper apex did not precede the first cinematic frame." }
+if ($PreGate.timing.cinematic_visible -ne 0 -or $PreGate.timing.home_velocity_q8 -le 0 -or $Middle.timing.home_velocity_q8 -ge 0 -or $Middle.timing.home_apex_frame -ge $Middle.timing.simulation_tick) { throw "Jumper rise/apex progression did not remain continuous through the cinematic gate." }
 if ($FirstCinematic.timing.cinematic_visible -ne 1 -or $FirstCinematic.timing.contact_state17 -ne 1 -or $FirstCinematic.timing.event_0588_bit20 -ne 1) { throw "Cinematic was not triggered from contact/state17/bit20." }
 if ($Late.timing.away_commit_count -ne 1 -or $Late.timing.home_commit_count -ne 1 -or $Late.away.pose -ne 469 -or $Late.home.pose -ne 501) { throw "Cinematic exit restarted or reset the tip jump." }
 

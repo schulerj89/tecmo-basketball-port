@@ -23,18 +23,18 @@ function Convert-Diagnostic([string]$Line) {
 }
 
 $Specs = @(
-    @{side='home'; name='claim-contact-center'; frame=485},
-    @{side='home'; name='state17-launch'; frame=486},
-    @{side='home'; name='early-flight'; frame=493},
-    @{side='home'; name='mid-flight'; frame=496},
-    @{side='home'; name='low-near-receiver'; frame=560},
-    @{side='home'; name='receiver-live'; frame=590},
-    @{side='away'; name='claim-contact-center'; frame=485},
-    @{side='away'; name='state17-launch'; frame=486},
-    @{side='away'; name='early-flight'; frame=493},
-    @{side='away'; name='mid-flight'; frame=496},
-    @{side='away'; name='contact-near-receiver'; frame=570},
-    @{side='away'; name='receiver-live'; frame=600}
+    @{side='home'; name='claim-contact-center'; frame=508},
+    @{side='home'; name='state17-launch'; frame=509},
+    @{side='home'; name='early-flight'; frame=515},
+    @{side='home'; name='mid-flight'; frame=530},
+    @{side='home'; name='low-near-receiver'; frame=550},
+    @{side='home'; name='receiver-live'; frame=598},
+    @{side='away'; name='claim-contact-center'; frame=507},
+    @{side='away'; name='state17-launch'; frame=508},
+    @{side='away'; name='early-flight'; frame=514},
+    @{side='away'; name='mid-flight'; frame=530},
+    @{side='away'; name='contact-near-receiver'; frame=550},
+    @{side='away'; name='receiver-live'; frame=598}
 )
 
 $Records = @()

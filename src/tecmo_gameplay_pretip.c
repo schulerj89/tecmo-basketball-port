@@ -130,6 +130,7 @@ static bool reject(TecmoGameplayPreTipAssets *assets, const char *message)
     assets->chr_fingerprint64 = 0U;
     assets->mechanics_fingerprint32 = 0U;
     assets->mechanics_fingerprint64 = 0U;
+    assets->tip_distance_table_bdf7 = NULL;
     assets->tgjs_fingerprint = 0U;
     assets->tip_input_mask = 0U;
     assets->tip_no_sample_error = 0U;
@@ -360,7 +361,14 @@ static bool validate_mechanics(const uint8_t *payload)
            block[41U] == 0x5AU && block[42U] == 0U && block[43U] == 0U &&
            block[44U] == TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_0380_SEED &&
            block[45U] == TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_037F_SEED &&
-           bytes_zero(block + 46U, TECMO_GAMEPLAY_PRETIP_TPM2_SIZE - 46U);
+           bytes_zero(block + 46U,
+                      TECMO_GAMEPLAY_PRETIP_BALL_DISTANCE_TABLE_OFFSET - 46U) &&
+           fnv1a32(block + TECMO_GAMEPLAY_PRETIP_BALL_DISTANCE_TABLE_OFFSET,
+                   TECMO_GAMEPLAY_PRETIP_BALL_DISTANCE_TABLE_SIZE) ==
+               0x93FCF6CBU &&
+           fnv1a64(block + TECMO_GAMEPLAY_PRETIP_BALL_DISTANCE_TABLE_OFFSET,
+                   TECMO_GAMEPLAY_PRETIP_BALL_DISTANCE_TABLE_SIZE) ==
+               0x8407D4DA9578D56BULL;
 }
 
 static bool validate_padding(const uint8_t *payload)
@@ -373,7 +381,7 @@ static bool validate_padding(const uint8_t *payload)
         {4408U,4416U},{4426U,4448U},{4958U,4992U},
         {5072U,5088U},{5356U,5376U},{5470U,5472U},
         {5674U,5696U},{5748U,5760U},{6290U,6336U},
-        {6457U,6496U},{6508U,6560U},{6656U,7008U},
+        {6457U,6496U},{6508U,6560U},{6912U,7008U},
         {7086U,7088U},{7188U,7200U},
         {7244U,7248U},{7297U,7312U},{7595U,7600U},
         {7601U,7616U},{7638U,TECMO_ASSET_PACK_GAMEPLAY_PRETIP_SIZE}
@@ -513,6 +521,9 @@ static bool parse(TecmoGameplayPreTipAssets *assets,
         storage + TECMO_ASSET_PACK_GAMEPLAY_PRETIP_MECHANICS_OFFSET + 20U);
     assets->tip_jump_post_store_address = read_u16(
         storage + TECMO_ASSET_PACK_GAMEPLAY_PRETIP_MECHANICS_OFFSET + 22U);
+    assets->tip_distance_table_bdf7 = storage +
+        TECMO_ASSET_PACK_GAMEPLAY_PRETIP_MECHANICS_OFFSET +
+        TECMO_GAMEPLAY_PRETIP_BALL_DISTANCE_TABLE_OFFSET;
     assets->available = true;
     (void)snprintf(assets->status, sizeof(assets->status),
                    "TPTI-2 native pre-tip assetpack");
@@ -632,6 +643,9 @@ static bool assets_valid(const TecmoGameplayPreTipAssets *assets)
         assets->tip_selector_0380_address != 0x0380U ||
         assets->tip_selector_037f_address != 0x037FU ||
         assets->tip_jump_post_store_address != 0xA2D5U ||
+        assets->tip_distance_table_bdf7 != assets->storage +
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_MECHANICS_OFFSET +
+            TECMO_GAMEPLAY_PRETIP_BALL_DISTANCE_TABLE_OFFSET ||
         fnv1a32(
             assets->storage +
                 TECMO_ASSET_PACK_GAMEPLAY_PRETIP_TIP_INPUT_OFFSET,
@@ -795,10 +809,40 @@ static void tip_rng_mix(TecmoGameplayPreTipState *state)
         ++state->tip_rng_mix_count;
 }
 
-static uint8_t tip_ball_high_for_frame(uint16_t contest_frame)
+static void tip_step_ball_height_q8(uint16_t *height_q8,
+                                    int16_t *velocity_q8)
 {
-    uint16_t value = (uint16_t)0x3DU + contest_frame;
-    return value > UINT8_MAX ? UINT8_MAX : (uint8_t)value;
+    uint8_t height;
+    if (height_q8 == NULL || velocity_q8 == NULL) return;
+    *velocity_q8 = (int16_t)(uint16_t)(
+        (uint16_t)*velocity_q8 - TECMO_GAMEPLAY_PRETIP_GRAVITY_Q8);
+    *height_q8 = (uint16_t)(*height_q8 + (uint16_t)*velocity_q8);
+    height = (uint8_t)(*height_q8 >> 8U);
+    if (height == 0U || height >= 0xF6U) {
+        *height_q8 = 0U;
+        *velocity_q8 = 0;
+    }
+}
+
+static void tip_update_ball_preclaim(TecmoGameplayPreTipState *state)
+{
+    if (state == NULL || state->claim_resolved) return;
+    if (state->ball_actor_state == 0x1AU) {
+        /* Fixed $E510 advances the toss height before Bank05 $A25F observes
+           it. The first nonzero height seeds $04A4:$04AF=$04E8 and state $1B. */
+        state->ball_height_q8 = (uint16_t)(state->ball_height_q8 + 0x0100U);
+        if ((state->ball_height_q8 >> 8U) != 0U) {
+            state->ball_velocity_height_q8 =
+                (int16_t)TECMO_GAMEPLAY_PRETIP_BALL_TOSS_VELOCITY_Q8;
+            state->ball_actor_state = 0x1BU;
+        }
+    } else if (state->ball_actor_state == 0x1BU) {
+        tip_step_ball_height_q8(&state->ball_height_q8,
+                                &state->ball_velocity_height_q8);
+        if (state->ball_height_q8 == 0U)
+            state->ball_actor_state = 0x1AU;
+    }
+    state->tip_ball_high_raw = (uint8_t)(state->ball_height_q8 >> 8U);
 }
 
 uint8_t tecmo_gameplay_pretip_ball_screen_y(uint8_t raw_height)
@@ -923,12 +967,12 @@ static bool tip_automatic_threshold_met(uint8_t ball_high,
     return (uint16_t)ball_high > threshold;
 }
 
-static int32_t tip_signed_half_q8(int32_t value)
+static int16_t tip_signed_half_16(int16_t value)
 {
     /* $AA84 performs an arithmetic right shift across each signed planar
        component. Preserve the 6502's round-toward-negative-infinity result. */
-    if (value >= 0) return value / 2;
-    return -(((-value) + 1) / 2);
+    if (value >= 0) return (int16_t)(value / 2);
+    return (int16_t)-(((-(int32_t)value) + 1) / 2);
 }
 
 static bool tip_receiver_selector_valid(uint8_t selector, bool home)
@@ -939,103 +983,126 @@ static bool tip_receiver_selector_valid(uint8_t selector, bool home)
         : selector < 5U && selector != 4U;
 }
 
-static void tip_initialize_ball_flight(TecmoGameplayPreTipState *state)
+static int16_t tip_divide_signed_16(int32_t numerator, uint16_t divisor)
+{
+    if (divisor == 0U) return numerator < 0 ? INT16_MIN : INT16_MAX;
+    return (int16_t)(numerator / (int32_t)divisor);
+}
+
+static int tip_floor_divide_eight(int value)
+{
+    return value >= 0 ? value / 8 : -(((-value) + 7) / 8);
+}
+
+static bool tip_initialize_ball_flight(
+    const TecmoGameplayPreTipAssets *assets,
+    TecmoGameplayPreTipState *state)
 {
     int32_t delta_x;
     int32_t delta_depth;
-    int32_t solver_x;
-    int32_t solver_depth;
-    int32_t height;
-    int32_t gravity_term;
-    if (state == NULL || state->receiver_actor >=
-            TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT)
-        return;
-    delta_x = (int32_t)state->receiver_target.x * 256 -
-              state->ball_world_x_q8;
-    delta_depth = (int32_t)state->receiver_target.y * 256 -
-                  state->ball_world_depth_q8;
-    /* $B32C constructs target-minus-ball fixed-point motion.  Its result is
-       then passed once through $AA84 by $A2B8. Build the pre-half components
-       at twice the requested state-$17 duration so the post-half values retain
-       the target-directed duration contract. */
-    solver_x = (delta_x * 2) /
-        (int32_t)TECMO_GAMEPLAY_PRETIP_BALL_PLANAR_TICKS;
-    solver_depth = (delta_depth * 2) /
-        (int32_t)TECMO_GAMEPLAY_PRETIP_BALL_PLANAR_TICKS;
-    state->ball_velocity_x_q8 = tip_signed_half_q8(solver_x);
-    state->ball_velocity_depth_q8 = tip_signed_half_q8(solver_depth);
-    height = state->ball_height_q8;
-    gravity_term = (int32_t)TECMO_GAMEPLAY_PRETIP_GRAVITY_Q8 *
-        ((int32_t)TECMO_GAMEPLAY_PRETIP_BALL_FLIGHT_TICKS + 1) / 2;
-    state->ball_velocity_height_q8 = (int16_t)(
-        gravity_term -
-        (height + (int32_t)TECMO_GAMEPLAY_PRETIP_BALL_FLIGHT_TICKS - 1) /
-            (int32_t)TECMO_GAMEPLAY_PRETIP_BALL_FLIGHT_TICKS);
+    uint32_t absolute_x;
+    uint16_t duration;
+    int altitude_eighth;
+    uint8_t altitude_factor;
+    if (assets == NULL || state == NULL ||
+        assets->tip_distance_table_bdf7 == NULL ||
+        state->receiver_actor >= TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT)
+        return false;
+    delta_x = (int32_t)state->receiver_target.x -
+              (int32_t)(state->ball_world_x_q8 / 256);
+    delta_depth = (int32_t)state->receiver_target.y -
+                  (int32_t)(state->ball_world_depth_q8 / 256);
+    absolute_x = (uint32_t)(delta_x < 0 ? -delta_x : delta_x);
+    duration = assets->tip_distance_table_bdf7[
+        (uint8_t)(state->ball_world_depth_q8 / 256)];
+    /* $B32C/$BCA1: short horizontal deltas use only the depth-table term;
+       all other deltas average the two unsigned magnitudes. */
+    if (absolute_x >= 0x20U) {
+        uint32_t average = absolute_x + duration;
+        duration = average > UINT16_MAX
+            ? TECMO_GAMEPLAY_PRETIP_FLIGHT_COUNT_LIMIT
+            : (uint16_t)(average >> 1U);
+    }
+    if (duration >= 0x3DU)
+        duration = TECMO_GAMEPLAY_PRETIP_FLIGHT_COUNT_LIMIT;
+    if (duration == 0U) return false;
+    state->ball_world_x_q6 = (uint16_t)(
+        (uint16_t)(state->ball_world_x_q8 / 256) << 6U);
+    state->ball_world_depth_q6 = (uint16_t)(
+        (uint16_t)(state->ball_world_depth_q8 / 256) << 6U);
+    state->ball_velocity_x_prehalf_q6 = tip_divide_signed_16(
+        delta_x * 64, duration);
+    state->ball_velocity_depth_prehalf_q6 = tip_divide_signed_16(
+        delta_depth * 64, duration);
+    /* $A2B8->$AA84 arithmetic-shifts both signed components once. */
+    state->ball_velocity_x_q6 =
+        tip_signed_half_16(state->ball_velocity_x_prehalf_q6);
+    state->ball_velocity_depth_q6 =
+        tip_signed_half_16(state->ball_velocity_depth_prehalf_q6);
+    state->ball_velocity_x_q8 = (int32_t)state->ball_velocity_x_q6 * 4;
+    state->ball_velocity_depth_q8 =
+        (int32_t)state->ball_velocity_depth_q6 * 4;
+    altitude_eighth = tip_floor_divide_eight(
+        (int)(state->ball_height_q8 >> 8U) - 0x40);
+    altitude_factor = (uint8_t)(0x14 - altitude_eighth);
+    state->ball_velocity_height_q8 =
+        (int16_t)(uint16_t)(duration * altitude_factor);
+    state->ball_duration_count = duration;
+    state->ball_workspace_6768 = 0x02F0U;
     state->ball_flight_tick = 0U;
-    state->ball_flight_duration = TECMO_GAMEPLAY_PRETIP_BALL_FLIGHT_TICKS;
+    state->ball_flight_duration = duration;
     state->ball_state17_in_flight = true;
     state->ball_attached_to_receiver = false;
+    return true;
 }
 
 static void tip_update_ball_flight(TecmoGameplayPreTipState *state)
 {
-    int32_t height;
-    int32_t target_x;
-    int32_t target_depth;
-    int32_t dx;
-    int32_t dy;
+    uint8_t height;
     if (state == NULL || !state->ball_state17_in_flight ||
         state->ball_actor_state !=
             TECMO_GAMEPLAY_PRETIP_SLOT10_CLAIM_COMMIT_STATE)
         return;
-    state->ball_world_x_q8 += state->ball_velocity_x_q8;
-    state->ball_world_depth_q8 += state->ball_velocity_depth_q8;
-    state->ball_velocity_height_q8 = (int16_t)(
-        state->ball_velocity_height_q8 -
-        TECMO_GAMEPLAY_PRETIP_GRAVITY_Q8);
-    height = (int32_t)state->ball_height_q8 +
-             state->ball_velocity_height_q8;
-    if (height <= 0) {
-        state->ball_height_q8 = 0U;
-        state->ball_velocity_height_q8 = 0;
-    } else {
-        state->ball_height_q8 = (uint16_t)height;
+    height = (uint8_t)(state->ball_height_q8 >> 8U);
+    /* $B775 settles state $17 before invoking $B7C1 whenever the live height
+       is below four. Possession is attached only at this source seam. */
+    if (height < 4U) {
+        state->event_0588_bit20 = false;
+        state->ball_state17_in_flight = false;
+        state->ball_attached_to_receiver = true;
+        state->ball_actor_state = 0x10U;
+        state->ball_world_x_q8 =
+            (int32_t)state->receiver_target.x * 256;
+        state->ball_world_depth_q8 =
+            (int32_t)state->receiver_target.y * 256;
+        state->ball_velocity_x_q8 = 0;
+        state->ball_velocity_depth_q8 = 0;
+        state->ball_velocity_x_q6 = 0;
+        state->ball_velocity_depth_q6 = 0;
+        state->ball_duration_count = 0U;
+        return;
     }
+    /* $B7C1->$B500->$BD6E: integrate Q10.6 position while the duration
+       workspace is nonzero, then apply $B678 gravity/height. */
+    if (state->ball_duration_count != 0U) {
+        state->ball_world_x_q6 = (uint16_t)(
+            state->ball_world_x_q6 + (uint16_t)state->ball_velocity_x_q6);
+        state->ball_world_depth_q6 = (uint16_t)(
+            state->ball_world_depth_q6 +
+            (uint16_t)state->ball_velocity_depth_q6);
+        --state->ball_duration_count;
+    }
+    state->ball_world_x_q8 = (int32_t)state->ball_world_x_q6 * 4;
+    state->ball_world_depth_q8 = (int32_t)state->ball_world_depth_q6 * 4;
+    tip_step_ball_height_q8(&state->ball_height_q8,
+                            &state->ball_velocity_height_q8);
     if (state->ball_flight_tick != UINT16_MAX)
         ++state->ball_flight_tick;
     state->tip_ball_high_raw = (uint8_t)(state->ball_height_q8 >> 8U);
-    target_x = (int32_t)state->receiver_target.x * 256;
-    target_depth = (int32_t)state->receiver_target.y * 256;
-    if ((state->ball_velocity_x_q8 > 0 &&
-         state->ball_world_x_q8 >= target_x) ||
-        (state->ball_velocity_x_q8 < 0 &&
-         state->ball_world_x_q8 <= target_x)) {
-        state->ball_world_x_q8 = target_x;
-        state->ball_velocity_x_q8 = 0;
-    }
-    if ((state->ball_velocity_depth_q8 > 0 &&
-         state->ball_world_depth_q8 >= target_depth) ||
-        (state->ball_velocity_depth_q8 < 0 &&
-         state->ball_world_depth_q8 <= target_depth)) {
-        state->ball_world_depth_q8 = target_depth;
-        state->ball_velocity_depth_q8 = 0;
-    }
-    dx = target_x - state->ball_world_x_q8;
-    dy = target_depth - state->ball_world_depth_q8;
-    if (state->ball_height_q8 == 0U &&
-        state->ball_flight_tick >= state->ball_flight_duration &&
-        dx >= -256 && dx <= 256 && dy >= -256 && dy <= 256) {
-        state->ball_world_x_q8 = target_x;
-        state->ball_world_depth_q8 = target_depth;
-        state->ball_velocity_x_q8 = 0;
-        state->ball_velocity_depth_q8 = 0;
-        state->ball_state17_in_flight = false;
-        state->ball_attached_to_receiver = true;
-        state->ball_actor_state = 0U;
-    }
 }
 
-static void tip_try_resolve_claim(TecmoGameplayPreTipState *state)
+static void tip_try_resolve_claim(const TecmoGameplayPreTipAssets *assets,
+                                  TecmoGameplayPreTipState *state)
 {
     bool away_ready;
     bool home_ready;
@@ -1070,6 +1137,7 @@ static void tip_try_resolve_claim(TecmoGameplayPreTipState *state)
     if (claimant == TECMO_GAMEPLAY_PRETIP_CLAIMANT_NONE) return;
     state->claim_resolved = true;
     state->claimant_jumper = claimant;
+    state->claim_frame = state->simulation_tick;
     state->contact_state_17 = true;
     state->event_0588_bit20 = true;
     state->ball_actor_state = TECMO_GAMEPLAY_PRETIP_SLOT10_CLAIM_COMMIT_STATE;
@@ -1080,8 +1148,15 @@ static void tip_try_resolve_claim(TecmoGameplayPreTipState *state)
         ? state->raw_selector_037f : state->raw_selector_0380;
     state->receiver_target = claimant == 0U
         ? state->receiver_target_037f : state->receiver_target_0380;
-    state->ball_height_q8 = (uint16_t)state->tip_ball_high_raw * 256U;
-    tip_initialize_ball_flight(state);
+    if (!tip_initialize_ball_flight(assets, state)) {
+        state->claim_resolved = false;
+        state->contact_state_17 = false;
+        state->event_0588_bit20 = false;
+        state->ball_actor_state = 0x1BU;
+        state->claimant_jumper = TECMO_GAMEPLAY_PRETIP_CLAIMANT_NONE;
+        state->receiver_actor = 0xFFU;
+        state->claim_frame = UINT16_MAX;
+    }
 }
 
 static void tip_update_ballistic_jumper(TecmoGameplayPreTipState *state,
@@ -1178,19 +1253,6 @@ static uint8_t tip_rng_after_count(uint8_t count)
     return rng_6a;
 }
 
-static uint8_t tip_expected_ball_high(
-    const TecmoGameplayPreTipState *state)
-{
-    uint16_t input_age;
-    if (state == NULL || !state->simulation_active)
-        return 0U;
-    input_age = state->simulation_tick > 0U
-                  ? (uint16_t)(state->simulation_tick - 1U) : 0U;
-    if (input_age >= TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES)
-        input_age = (uint16_t)(TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES - 1U);
-    return tip_ball_high_for_frame(input_age);
-}
-
 static bool state_valid(const TecmoGameplayPreTipAssets *assets,
                         const TecmoGameplayPreTipState *state)
 {
@@ -1265,9 +1327,7 @@ static bool state_valid(const TecmoGameplayPreTipAssets *assets,
         (state->simulation_active &&
          state->tip_rng_6a != tip_rng_after_count(
              state->tip_rng_mix_count)) ||
-        (!state->claim_resolved &&
-         state->tip_ball_high_raw != tip_expected_ball_high(state)) ||
-        (state->claim_resolved &&
+        (state->simulation_active &&
          state->tip_ball_high_raw !=
              (uint8_t)(state->ball_height_q8 >> 8U)) ||
         (!state->simulation_active &&
@@ -1346,20 +1406,22 @@ static bool state_valid(const TecmoGameplayPreTipAssets *assets,
                 : &state->receiver_target_0380;
         if (state->claim_deferred || state->contest_stalled ||
             state->claimant_jumper >= TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT ||
-            !state->contact_state_17 || !state->event_0588_bit20 ||
+            state->claim_frame == UINT16_MAX ||
+            !state->contact_state_17 ||
+            state->event_0588_bit20 != state->ball_state17_in_flight ||
             state->receiver_actor != expected_receiver ||
             state->receiver_target.x != expected_target->x ||
             state->receiver_target.y != expected_target->y ||
-            state->ball_flight_duration !=
-                TECMO_GAMEPLAY_PRETIP_BALL_FLIGHT_TICKS ||
-            state->ball_flight_tick > state->ball_flight_duration ||
+            state->ball_flight_duration == 0U ||
+            state->ball_flight_duration >
+                TECMO_GAMEPLAY_PRETIP_FLIGHT_COUNT_LIMIT ||
             state->ball_state17_in_flight ==
                 state->ball_attached_to_receiver ||
             (state->ball_state17_in_flight &&
              state->ball_actor_state !=
                  TECMO_GAMEPLAY_PRETIP_SLOT10_CLAIM_COMMIT_STATE) ||
             (state->ball_attached_to_receiver &&
-             (state->ball_actor_state != 0U || state->ball_height_q8 != 0U ||
+             (state->ball_actor_state != 0x10U ||
               state->ball_velocity_x_q8 != 0 ||
               state->ball_velocity_depth_q8 != 0))) {
             return false;
@@ -1367,6 +1429,7 @@ static bool state_valid(const TecmoGameplayPreTipAssets *assets,
     } else if (state->claimant_jumper !=
                    TECMO_GAMEPLAY_PRETIP_CLAIMANT_NONE ||
                state->receiver_actor != 0xFFU ||
+               state->claim_frame != UINT16_MAX ||
                state->ball_state17_in_flight ||
                state->ball_attached_to_receiver ||
                state->ball_flight_duration != 0U ||
@@ -1453,6 +1516,7 @@ bool tecmo_gameplay_pretip_state_initialize(
     initial.tip_rng_53 = 0x5AU;
     initial.claimant_jumper = TECMO_GAMEPLAY_PRETIP_CLAIMANT_NONE;
     initial.receiver_actor = 0xFFU;
+    initial.claim_frame = UINT16_MAX;
     initial.raw_selector_0380 = TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_0380_SEED;
     initial.raw_selector_037f = TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_037F_SEED;
     initial.receiver_selectors_configured = true;
@@ -1517,6 +1581,7 @@ bool tecmo_gameplay_pretip_update_controlled(
     if (candidate.phase >= TECMO_GAMEPLAY_PRETIP_BALL_DESCENT &&
         candidate.phase <= TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
         uint16_t threshold;
+        bool flight_was_active = candidate.ball_state17_in_flight;
         uint16_t input_frame = candidate.contest_frame <
                 TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES
             ? candidate.contest_frame
@@ -1525,6 +1590,7 @@ bool tecmo_gameplay_pretip_update_controlled(
             candidate.simulation_active = true;
             candidate.ball_actor_state = 0x1AU;
         }
+        tip_update_ball_preclaim(&candidate);
         if (candidate.contest_stalled) {
             /* A stalled presentation remains responsive.  Clear the old
                terminal marker and retry the live claim on this update. */
@@ -1564,8 +1630,6 @@ bool tecmo_gameplay_pretip_update_controlled(
             candidate.home_automatic_requested =
                 candidate.home_automatic_requested || home_automatic;
             tip_rng_mix(&candidate);
-            candidate.tip_ball_high_raw = tip_ball_high_for_frame(
-                candidate.contest_frame);
             threshold = (uint16_t)(
                 assets->tip_auto_threshold_base +
                 ((candidate.tip_rng_6a & assets->tip_auto_threshold_mask) >>
@@ -1614,14 +1678,9 @@ bool tecmo_gameplay_pretip_update_controlled(
                     candidate.home_tip_error, true);
             }
         }
-        if (candidate.ball_actor_state == 0x1AU)
-            candidate.ball_actor_state = 0x1BU;
-        if (!candidate.claim_resolved)
-            candidate.ball_height_q8 =
-                (uint16_t)candidate.tip_ball_high_raw * 256U;
         tip_update_altitudes(&candidate);
-        tip_try_resolve_claim(&candidate);
-        tip_update_ball_flight(&candidate);
+        tip_try_resolve_claim(assets, &candidate);
+        if (flight_was_active) tip_update_ball_flight(&candidate);
         ++candidate.simulation_tick;
         if (candidate.contest_frame <
                 TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES)
@@ -1635,9 +1694,9 @@ bool tecmo_gameplay_pretip_update_controlled(
     ++candidate.phase_frame;
     ++candidate.total_frame;
     if (candidate.phase == TECMO_GAMEPLAY_PRETIP_BALL_DESCENT &&
-        candidate.event_0588_bit20 &&
-        ((candidate.claimant_jumper == 0U && candidate.away_apex_frame != 0U) ||
-         (candidate.claimant_jumper == 1U && candidate.home_apex_frame != 0U))) {
+        candidate.event_0588_bit20 && candidate.contact_state_17) {
+        /* Fixed $E51B-$E520 gates cinematic setup directly on slot-10 state
+           $17. Do not add a second presentation delay after $A2D2. */
         candidate.phase = TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP;
         candidate.phase_frame = 0U;
         candidate.cinematic_visible = true;
@@ -1782,8 +1841,8 @@ static bool tip_selector_flight_regression(
          state.ball_velocity_x_q8 <= 0) ||
         (state.receiver_target.x * 256 < launch_x &&
          state.ball_velocity_x_q8 >= 0) ||
-        tip_signed_half_q8(513) != 256 ||
-        tip_signed_half_q8(-513) != -257)
+        tip_signed_half_16(513) != 256 ||
+        tip_signed_half_16(-513) != -257)
         return false;
     for (frame = 0U; frame < 120U && !state.ball_attached_to_receiver;
          ++frame) {
@@ -1795,7 +1854,7 @@ static bool tip_selector_flight_regression(
             return false;
     }
     return state.ball_attached_to_receiver && !state.ball_state17_in_flight &&
-           state.ball_actor_state == 0U && state.ball_height_q8 == 0U &&
+           state.ball_actor_state == 0x10U &&
            state.ball_world_x_q8 ==
                (int32_t)state.receiver_target.x * 256 &&
            state.ball_world_depth_q8 ==
@@ -1803,6 +1862,70 @@ static bool tip_selector_flight_regression(
            (state.ball_world_x_q8 - launch_x > 8 * 256 ||
             launch_x - state.ball_world_x_q8 > 8 * 256) &&
            saw_state_17;
+}
+
+static bool tip_solver_golden_regression(
+    const TecmoGameplayPreTipAssets *assets)
+{
+    TecmoGameplayPreTipState state;
+    uint16_t height_before;
+    int16_t velocity_before;
+    if (assets == NULL || assets->tip_distance_table_bdf7 == NULL ||
+        assets->tip_distance_table_bdf7[128U] != 0x1DU ||
+        assets->tip_distance_table_bdf7[144U] != 0x1AU ||
+        assets->tip_distance_table_bdf7[255U] != 0x02U)
+        return false;
+    memset(&state, 0, sizeof(state));
+    state.receiver_actor = 0U;
+    state.ball_world_x_q8 = 100 * 256;
+    state.ball_world_depth_q8 = 144 * 256;
+    state.ball_height_q8 = 0x3A00U;
+    state.receiver_target.x = 120;
+    state.receiver_target.y = 160;
+    if (!tip_initialize_ball_flight(assets, &state) ||
+        state.ball_flight_duration != 26U ||
+        state.ball_duration_count != 26U ||
+        state.ball_velocity_x_prehalf_q6 != 49 ||
+        state.ball_velocity_depth_prehalf_q6 != 39 ||
+        state.ball_velocity_x_q6 != 24 ||
+        state.ball_velocity_depth_q6 != 19 ||
+        state.ball_velocity_height_q8 != 546 ||
+        state.ball_workspace_6768 != 0x02F0U)
+        return false;
+    state.ball_actor_state = TECMO_GAMEPLAY_PRETIP_SLOT10_CLAIM_COMMIT_STATE;
+    height_before = state.ball_height_q8;
+    velocity_before = state.ball_velocity_height_q8;
+    tip_update_ball_flight(&state);
+    if (state.ball_world_x_q6 != (uint16_t)(100 * 64 + 24) ||
+        state.ball_world_depth_q6 != (uint16_t)(144 * 64 + 19) ||
+        state.ball_duration_count != 25U ||
+        state.ball_velocity_height_q8 !=
+            (int16_t)(velocity_before - TECMO_GAMEPLAY_PRETIP_GRAVITY_Q8) ||
+        state.ball_height_q8 != (uint16_t)(height_before +
+            (uint16_t)state.ball_velocity_height_q8))
+        return false;
+    memset(&state, 0, sizeof(state));
+    state.receiver_actor = 0U;
+    state.ball_world_x_q8 = 100 * 256;
+    state.ball_world_depth_q8 = 128 * 256;
+    state.ball_height_q8 = 0x4000U;
+    state.receiver_target.x = 200;
+    state.receiver_target.y = 100;
+    if (!tip_initialize_ball_flight(assets, &state) ||
+        state.ball_flight_duration != 60U ||
+        state.ball_velocity_x_prehalf_q6 != 106 ||
+        state.ball_velocity_depth_prehalf_q6 != -29 ||
+        state.ball_velocity_x_q6 != 53 ||
+        state.ball_velocity_depth_q6 != -15 ||
+        state.ball_velocity_height_q8 != 1200)
+        return false;
+    state.receiver_target.x = 0;
+    if (!tip_initialize_ball_flight(assets, &state) ||
+        state.ball_flight_duration != 60U ||
+        state.ball_velocity_x_prehalf_q6 != -106 ||
+        state.ball_velocity_x_q6 != -53)
+        return false;
+    return true;
 }
 
 static bool tip_concurrent_simulation_regression(
@@ -1827,6 +1950,8 @@ static bool tip_concurrent_simulation_regression(
         !tecmo_gameplay_pretip_state_initialize(assets, &no_capture, false) ||
         !tecmo_gameplay_pretip_state_initialize(assets, &unresolved, false))
         CONCURRENT_FAIL("initialization");
+    if (!tip_solver_golden_regression(assets))
+        CONCURRENT_FAIL("$B32C/$AA84 golden solver vectors");
     if (!tip_selector_flight_regression(assets, true, 0U, 6U))
         CONCURRENT_FAIL("away selector-driven state-$17 trajectory");
     if (!tip_selector_flight_regression(assets, false, 1U, 8U))
@@ -1895,8 +2020,10 @@ static bool tip_concurrent_simulation_regression(
     if (state.phase != TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP ||
         !state.cinematic_visible || !state.contact_state_17 ||
         !state.event_0588_bit20 || state.ball_actor_state != 0x17U ||
-        apex_tick == 0U || apex_tick >= state.simulation_tick)
-        CONCURRENT_FAIL("contact/apex-driven cinematic ordering");
+        state.claim_frame == UINT16_MAX ||
+        state.first_cinematic_frame != state.total_frame ||
+        state.claim_frame <= state.home_jump_commit_frame)
+        CONCURRENT_FAIL("state-$17-driven cinematic ordering");
     if (state.first_cinematic_frame < 481U ||
         state.away_jump_commit_count != 1U ||
         state.home_jump_commit_count != 1U)
@@ -1910,11 +2037,12 @@ static bool tip_concurrent_simulation_regression(
             state.home_jump_altitude_q8 < before_height)
             saw_fall = true;
     }
+    apex_tick = state.home_apex_frame;
     if (state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
         state.cinematic_visible || state.away_jump_altitude_q8 != 0U ||
         state.home_jump_altitude_q8 != 0U ||
         state.away_actor_state != 0x13U || state.home_actor_state != 0x13U ||
-        !saw_fall ||
+        !saw_fall || apex_tick == 0U ||
         state.away_jump_commit_count != 1U ||
         state.home_jump_commit_count != 1U)
         CONCURRENT_FAIL("cinematic exit landing/no-restart");
