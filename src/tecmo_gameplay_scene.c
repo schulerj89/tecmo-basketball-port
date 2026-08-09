@@ -747,6 +747,8 @@ static bool scene_initialize_tip_actors(TecmoGameplayScene *scene)
          ++jumper) {
         uint8_t actor_index = scene->pretip_assets.tip_actor_indices[jumper];
         scene->pretip_jumper_actor[jumper] = actor_index;
+        scene->pretip_jumper_selector[jumper] =
+            lineup.player_facings[actor_index];
         scene->pretip_jumper_standing_pose[jumper] =
             lineup.player_pose_indices[actor_index];
         scene->pretip_jumper_altitude_q8[jumper] = 0U;
@@ -787,66 +789,46 @@ static bool scene_pretip_jumper_mapping_valid(
                scene->pretip_jumper_actor[1U];
 }
 
-static bool scene_pretip_jumper_order(
-    const TecmoGameplayScene *scene,
-    size_t *left_jumper_out,
-    size_t *right_jumper_out)
+static bool scene_pretip_pose_base(uint8_t selector, uint16_t *base_out)
 {
-    const TecmoGameplaySceneActor *first;
-    const TecmoGameplaySceneActor *second;
-    int16_t first_x;
-    int16_t second_x;
-    if (scene == NULL || left_jumper_out == NULL ||
-        right_jumper_out == NULL || !scene_pretip_jumper_mapping_valid(scene)) {
-        return false;
-    }
-    first = &scene->actors[scene->pretip_jumper_actor[0U]];
-    second = &scene->actors[scene->pretip_jumper_actor[1U]];
-    if (!first->active || !second->active ||
-        !scene_actor_coordinate_valid(&first->anchor) ||
-        !scene_actor_coordinate_valid(&second->anchor)) {
-        return false;
-    }
-    first_x = first->anchor.x;
-    second_x = second->anchor.x;
-    if (first_x == second_x) return false;
-    if (first_x < second_x) {
-        *left_jumper_out = 0U;
-        *right_jumper_out = 1U;
-    } else {
-        *left_jumper_out = 1U;
-        *right_jumper_out = 0U;
-    }
+    static const uint16_t bases[8] = {
+        579U, 547U, 563U, 571U, 555U, 531U, 587U, 539U
+    };
+    if (base_out == NULL || selector >= 8U) return false;
+    *base_out = bases[selector];
     return true;
 }
 
-static bool scene_pretip_jumper_inward_facing(
-    const TecmoGameplayScene *scene,
-    bool facing_right_out[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT])
+static bool scene_pretip_landing_pose(uint8_t selector, uint16_t *pose_out)
 {
-    size_t left_jumper;
-    size_t right_jumper;
-    if (facing_right_out == NULL ||
-        !scene_pretip_jumper_order(
-            scene, &left_jumper, &right_jumper)) {
-        return false;
-    }
-    facing_right_out[left_jumper] = true;
-    facing_right_out[right_jumper] = false;
+    static const uint16_t poses[8] = {
+        501U, 469U, 485U, 493U, 477U, 453U, 509U, 461U
+    };
+    if (pose_out == NULL || selector >= 8U) return false;
+    *pose_out = poses[selector];
     return true;
+}
+
+static uint8_t scene_pretip_animation_phase(
+    uint16_t phase_frame, uint16_t commit_frame)
+{
+    uint16_t age = phase_frame > commit_frame
+        ? (uint16_t)(phase_frame - commit_frame - 1U) : 0U;
+    if (age == 0U) return 2U;
+    if (age == 1U) return 3U;
+    return 4U;
 }
 
 static bool scene_pretip_apply_jump_frame(
     TecmoGameplayScene *scene,
     uint16_t phase_frame)
 {
-    bool inward_facing[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
     bool any_committed = false;
     size_t jumper;
     if (scene == NULL ||
         scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
         phase_frame >= TECMO_GAMEPLAY_PRETIP_JUMP_DURATION ||
-        !scene_pretip_jumper_inward_facing(scene, inward_facing)) {
+        !scene_pretip_jumper_mapping_valid(scene)) {
         return false;
     }
     for (jumper = 0U; jumper < TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT;
@@ -854,6 +836,11 @@ static bool scene_pretip_apply_jump_frame(
         bool committed = jumper == 0U
             ? scene->pretip_state.away_jump_committed
             : scene->pretip_state.home_jump_committed;
+        uint16_t commit_frame = jumper == 0U
+            ? scene->pretip_state.away_jump_commit_frame
+            : scene->pretip_state.home_jump_commit_frame;
+        uint16_t pose_base;
+        uint8_t animation_phase;
         TecmoGameplaySceneActor *actor = &scene->actors[
             scene->pretip_jumper_actor[jumper]];
         actor->position = actor->anchor;
@@ -862,10 +849,13 @@ static bool scene_pretip_apply_jump_frame(
             continue;
         }
         any_committed = true;
-        /* Facing-selected $9CCA/$9CDA tip poses.  These are not ordinary
-           gather/turn/release/flight shot poses. */
-        actor->pose_index = inward_facing[jumper] ? 547U : 579U;
-        actor->facing_right = inward_facing[jumper];
+        if (!scene_pretip_pose_base(
+                scene->pretip_jumper_selector[jumper], &pose_base)) {
+            return false;
+        }
+        animation_phase = scene_pretip_animation_phase(
+            phase_frame, commit_frame);
+        actor->pose_index = (uint16_t)(pose_base + animation_phase);
         actor->pose_orientation_encoded = true;
         scene->pretip_jumper_altitude_q8[jumper] =
             jumper == 0U ? scene->pretip_state.away_jump_altitude_q8
@@ -877,33 +867,19 @@ static bool scene_pretip_apply_jump_frame(
 
 static bool scene_pretip_land_jump(TecmoGameplayScene *scene)
 {
-    bool goal_facing[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
-    size_t left_jumper;
-    size_t right_jumper;
     size_t jumper;
-    if (!scene_pretip_jumper_order(
-            scene, &left_jumper, &right_jumper)) {
-        return false;
-    }
-    (void)left_jumper;
-    (void)right_jumper;
+    if (!scene_pretip_jumper_mapping_valid(scene)) return false;
     for (jumper = 0U; jumper < TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT;
          ++jumper) {
+        uint16_t landing_pose;
         TecmoGameplaySceneActor *actor = &scene->actors[
             scene->pretip_jumper_actor[jumper]];
-        if (!scene_goal_facing_right_for_team(
-                scene, (TecmoGameplayTeam)actor->team,
-                &goal_facing[jumper])) {
+        if (!scene_pretip_landing_pose(
+                scene->pretip_jumper_selector[jumper], &landing_pose)) {
             return false;
         }
-    }
-    for (jumper = 0U; jumper < TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT;
-         ++jumper) {
-        TecmoGameplaySceneActor *actor = &scene->actors[
-            scene->pretip_jumper_actor[jumper]];
         actor->position = actor->anchor;
-        actor->pose_index = scene->pretip_jumper_standing_pose[jumper];
-        actor->facing_right = goal_facing[jumper];
+        actor->pose_index = landing_pose;
         actor->pose_orientation_encoded = true;
         scene->pretip_jumper_altitude_q8[jumper] = 0U;
     }
@@ -1774,10 +1750,7 @@ static bool scene_update_pretip_frame(
         uint8_t claimant_jumper;
         uint8_t claimant_actor;
         uint8_t holder;
-        if (!scene_pretip_land_jump(scene)) {
-            scene_set_status(scene, "pre-tip jump landing rejected");
-            return false;
-        }
+        bool jumper_facing[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
         if (!tecmo_gameplay_pretip_claimant_jumper(
                 &scene->pretip_assets, &scene->pretip_state,
                 &claimant_jumper) ||
@@ -1803,11 +1776,23 @@ static bool scene_update_pretip_frame(
             scene_set_status(scene, "pre-tip receiver actor rejected");
             return false;
         }
+        jumper_facing[0U] = scene->actors[
+            scene->pretip_jumper_actor[0U]].facing_right;
+        jumper_facing[1U] = scene->actors[
+            scene->pretip_jumper_actor[1U]].facing_right;
         if (!scene_initialize_actors(scene)) {
             scene_set_status(
                 scene, "pre-tip actor movement handoff rejected");
             return false;
         }
+        if (!scene_pretip_land_jump(scene)) {
+            scene_set_status(scene, "pre-tip jump landing rejected");
+            return false;
+        }
+        scene->actors[scene->pretip_jumper_actor[0U]].facing_right =
+            jumper_facing[0U];
+        scene->actors[scene->pretip_jumper_actor[1U]].facing_right =
+            jumper_facing[1U];
         if (!scene_handoff_possession(scene, possession, holder)) {
             scene_set_status(scene, "pre-tip possession handoff rejected");
             return false;

@@ -465,6 +465,10 @@ static bool gameplay_checkpoint_report_tipoff_proof(
     const TecmoGameplaySceneActor *home;
     const TecmoGameplaySceneActor *left;
     const TecmoGameplaySceneActor *right;
+    uint8_t away_phase = 0U;
+    uint8_t home_phase = 0U;
+    uint8_t away_state;
+    uint8_t home_state;
     if (scene == NULL || input_evidence == NULL || !scene->active ||
         !tecmo_gameplay_scene_court_frame(scene, &court_frame)) {
         return false;
@@ -491,6 +495,21 @@ static bool gameplay_checkpoint_report_tipoff_proof(
     }
     away = &scene->actors[away_actor];
     home = &scene->actors[home_actor];
+    if (scene->pretip_state.phase == TECMO_GAMEPLAY_PRETIP_LIVE) {
+        away_state = 0x13U;
+        home_state = 0x13U;
+    } else {
+        if (scene->pretip_state.away_jump_committed)
+            away_phase = away->pose_index >= 547U
+                ? (uint8_t)(away->pose_index - 547U) : 0U;
+        if (scene->pretip_state.home_jump_committed)
+            home_phase = home->pose_index >= 579U
+                ? (uint8_t)(home->pose_index - 579U) : 0U;
+        away_state = away_phase == 4U ? 0x0CU :
+            (away_phase >= 2U ? 0x0BU : 0x22U);
+        home_state = home_phase == 4U ? 0x0CU :
+            (home_phase >= 2U ? 0x0BU : 0x13U);
+    }
     if (away->anchor.x == home->anchor.x) return false;
     if (away->anchor.x < home->anchor.x) {
         left_actor = away_actor;
@@ -515,12 +534,14 @@ static bool gameplay_checkpoint_report_tipoff_proof(
     printf(
         "tipoff-proof frame=%u pretip=%s pretip-frame=%u contest-frame=%u "
         "away-actor=%u away-world-y=%d away-screen-y=%u away-visible=%u "
-        "away-pose=%u away-altitude-q8=%u away-facing-right=%u "
-        "away-pose-encoded=%u away-anchor-x=%d home-actor=%u "
+        "away-selector=%u away-state=%u away-phase=%u away-pose=%u "
+        "away-altitude-q8=%u away-facing-right=%u "
+        "away-pose-encoded=%u away-renderer-mirror=0 away-anchor-x=%d home-actor=%u "
         "home-world-y=%d "
-        "home-screen-y=%u home-visible=%u home-pose=%u "
+        "home-screen-y=%u home-visible=%u home-selector=%u home-state=%u "
+        "home-phase=%u home-pose=%u "
         "home-altitude-q8=%u home-facing-right=%u home-pose-encoded=%u "
-        "home-anchor-x=%d left-actor=%u left-facing-right=%u "
+        "home-renderer-mirror=0 home-anchor-x=%d left-actor=%u left-facing-right=%u "
         "right-actor=%u right-facing-right=%u "
         "away-sampled=%u away-sample-frame=%u away-error=%u "
         "home-sampled=%u home-sample-frame=%u home-error=%u "
@@ -549,6 +570,8 @@ static bool gameplay_checkpoint_report_tipoff_proof(
         (unsigned)away_actor, (int)away->position.y,
         (unsigned)court_frame.projection.players[away_actor].screen_y,
         court_frame.projection.players[away_actor].visible ? 1U : 0U,
+        (unsigned)scene->pretip_jumper_selector[0U],
+        (unsigned)away_state, (unsigned)away_phase,
         (unsigned)away->pose_index,
         (unsigned)scene->pretip_jumper_altitude_q8[0U],
         away->facing_right ? 1U : 0U,
@@ -557,6 +580,8 @@ static bool gameplay_checkpoint_report_tipoff_proof(
         (unsigned)home_actor, (int)home->position.y,
         (unsigned)court_frame.projection.players[home_actor].screen_y,
         court_frame.projection.players[home_actor].visible ? 1U : 0U,
+        (unsigned)scene->pretip_jumper_selector[1U],
+        (unsigned)home_state, (unsigned)home_phase,
         (unsigned)home->pose_index,
         (unsigned)scene->pretip_jumper_altitude_q8[1U],
         home->facing_right ? 1U : 0U,

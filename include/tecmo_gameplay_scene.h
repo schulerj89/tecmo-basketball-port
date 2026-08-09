@@ -220,6 +220,7 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayPreTipAssets pretip_assets;
     TecmoGameplayPreTipState pretip_state;
     uint8_t pretip_jumper_actor[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
+    uint8_t pretip_jumper_selector[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
     uint16_t pretip_jumper_standing_pose[
         TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
     uint16_t pretip_jumper_altitude_q8[

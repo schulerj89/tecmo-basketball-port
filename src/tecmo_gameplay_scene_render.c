@@ -791,11 +791,6 @@ static bool scene_actor_needs_goal_mirror(
         actor->pose_orientation_encoded) {
         return false;
     }
-    /* Pre-tip jump contestants use an inward, scene-authored generic pose;
-       retain that presentation path exactly. */
-    if (tecmo_gameplay_scene_in_pretip(scene)) {
-        return !actor->facing_right;
-    }
     /* A movement/action facing that differs from the actor's assigned TGOR
        goal is an explicit override. Preserve the former renderer decision
        for that override; only reconcile a pose whose effective facing still

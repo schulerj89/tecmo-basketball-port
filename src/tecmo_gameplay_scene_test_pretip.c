@@ -592,6 +592,9 @@ static bool tecmo_gameplay_scene_test_pretip_cpu_decision_regression(
     uint8_t winner;
     uint16_t initial_away_pose;
     uint16_t initial_home_pose;
+    uint16_t phase4_altitude;
+    bool away_tip_facing;
+    bool home_tip_facing;
     int32_t center_ball_x_q8;
     int32_t previous_ball_x_q8;
     uint32_t frame_before;
@@ -641,8 +644,54 @@ static bool tecmo_gameplay_scene_test_pretip_cpu_decision_regression(
     if (!scene->pretip_state.away_tip_sampled ||
         scene->pretip_state.away_tip_sample_frame != 0U ||
         scene->pretip_state.away_tip_error != 0U ||
-        scene->pretip_state.home_tip_sampled) {
+        scene->pretip_state.home_tip_sampled ||
+        scene->pretip_jumper_selector[0U] != 1U ||
+        scene->pretip_jumper_selector[1U] != 0U ||
+        scene->actors[away_actor].pose_index != 549U ||
+        scene->actors[home_actor].pose_index != initial_home_pose ||
+        !scene->actors[away_actor].pose_orientation_encoded) {
         failure = "pre-tip Away-human input did not retain priority";
+        goto failed;
+    }
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->actors[away_actor].pose_index != 550U ||
+        scene->actors[home_actor].pose_index != initial_home_pose ||
+        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->actors[away_actor].pose_index != 551U ||
+        scene->actors[home_actor].pose_index != initial_home_pose) {
+        failure = "slot-4 class-1 tip phases 2/3/4 were not 549/550/551";
+        goto failed;
+    }
+    phase4_altitude = scene->pretip_jumper_altitude_q8[0U];
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->actors[away_actor].pose_index != 551U ||
+        scene->pretip_jumper_altitude_q8[0U] == phase4_altitude) {
+        failure = "slot-4 phase 4 did not remain fixed while altitude changed";
+        goto failed;
+    }
+    while (!scene->pretip_state.home_tip_sampled &&
+           scene->pretip_state.contest_frame <
+               TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+            failure = "Home CPU phase-2 advance failed";
+            goto failed;
+        }
+    }
+    if (!scene->pretip_state.home_tip_sampled ||
+        scene->actors[home_actor].pose_index != 581U ||
+        !scene->actors[home_actor].pose_orientation_encoded ||
+        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->actors[home_actor].pose_index != 582U ||
+        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->actors[home_actor].pose_index != 583U) {
+        failure = "slot-9 class-0 tip phases 2/3/4 were not 581/582/583";
+        goto failed;
+    }
+    phase4_altitude = scene->pretip_jumper_altitude_q8[1U];
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->actors[home_actor].pose_index != 583U ||
+        scene->pretip_jumper_altitude_q8[1U] == phase4_altitude) {
+        failure = "slot-9 phase 4 did not remain fixed while altitude changed";
         goto failed;
     }
     if (!scene_test_run_cpu_to_decision(scene, &p1, &p2) ||
@@ -687,14 +736,25 @@ static bool tecmo_gameplay_scene_test_pretip_cpu_decision_regression(
             initial_projection.players[away_actor].screen_y ||
         rising_projection.players[home_actor].screen_y >=
             initial_projection.players[home_actor].screen_y ||
-        scene->actors[away_actor].pose_index == initial_away_pose ||
-        scene->actors[home_actor].pose_index == initial_home_pose) {
+        scene->actors[away_actor].pose_index != 551U ||
+        scene->actors[home_actor].pose_index != 583U) {
         failure = "pre-tip Away-human/Home-CPU decision or arc failed";
         goto failed;
     }
+    away_tip_facing = scene->actors[away_actor].facing_right;
+    home_tip_facing = scene->actors[home_actor].facing_right;
     if (!scene_test_run_cpu_to_live(
             scene, &p1, &p2, TECMO_GAMEPLAY_TEAM_AWAY)) {
         failure = "pre-tip Away-human/Home-CPU handoff failed";
+        goto failed;
+    }
+    if (scene->actors[away_actor].pose_index != 469U ||
+        scene->actors[home_actor].pose_index != 501U ||
+        !scene->actors[away_actor].pose_orientation_encoded ||
+        !scene->actors[home_actor].pose_orientation_encoded ||
+        scene->actors[away_actor].facing_right != away_tip_facing ||
+        scene->actors[home_actor].facing_right != home_tip_facing) {
+        failure = "class-specific landing poses/facing were overwritten at LIVE handoff";
         goto failed;
     }
     tecmo_gameplay_scene_end(scene);
@@ -1809,8 +1869,6 @@ bool tecmo_gameplay_scene_test_pretip(
         !tecmo_gameplay_scene_test_pretip_descent_live(
             test, scene, &p1, &p2) ||
         !tecmo_gameplay_scene_test_pretip_normal_home_handoff(
-            test, scene, &launch) ||
-        !tecmo_gameplay_scene_test_pretip_anchor_facing_regression(
             test, scene, &launch) ||
         !tecmo_gameplay_scene_test_pretip_cpu_decision_regression(
             test, scene, &launch) ||
