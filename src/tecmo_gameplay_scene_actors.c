@@ -647,6 +647,7 @@ bool scene_pass_or_switch(TecmoGameplayScene *scene,
     TecmoGameplaySceneActor
         candidate_actors[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     TecmoGameplayCourtCoordinateQ8 candidate_ball;
+    TecmoGameplayLiveFoundation candidate_foundation;
     bool facing_right;
     if (controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT ||
         scene->launch.controller_team[controller] ==
@@ -673,11 +674,21 @@ bool scene_pass_or_switch(TecmoGameplayScene *scene,
                     scene, candidate_actors, next, &candidate_ball)) {
                 return false;
             }
+            candidate_foundation = scene->live_foundation;
+            if (!scene->legacy_direct_launch &&
+                !tecmo_gameplay_live_foundation_pass_handoff(
+                    &scene->cpu_steering_assets, next,
+                    &candidate_foundation)) {
+                return false;
+            }
             memcpy(scene->actors, candidate_actors,
                    sizeof(candidate_actors));
             scene->ball_holder = next;
             scene->controlled_actor[controller] = next;
             scene->ball_position = candidate_ball;
+            if (!scene->legacy_direct_launch) {
+                scene->live_foundation = candidate_foundation;
+            }
             return true;
         }
     } else {
@@ -1272,7 +1283,7 @@ bool scene_update_ai(
         bool source_target;
         bool source_direction;
         bool source_direction_target = false;
-        bool movement_target;
+        bool movement_target = false;
         actor = source_actor_order[source_index];
         if (scene_actor_is_controlled(scene, actor) ||
             actor == scene->shot_actor) {
@@ -1305,7 +1316,19 @@ bool scene_update_ai(
         input.steering.difficulty = scene->launch.difficulty;
         input.steering.matchup_actor = candidate_foundation.play_state
             .native_matchup_actor[actor];
-        if (source_target) {
+        if (candidate_foundation.selected_defender_handoff_active &&
+            actor == candidate_foundation.defender_actor) {
+            /* Bank06 omits $0309 from ordinary command dispatch; the
+               selected-defender setup at Bank05 $9B27 owns its on-ball
+               responsibility until released by the next handoff. */
+            target = steering_snapshot[scene->ball_holder];
+            target_kind =
+                TECMO_GAMEPLAY_CPU_STEERING_HARNESS_LINKED_ACTOR;
+            input.steering.matchup_actor = scene->ball_holder;
+            source_target = false;
+            source_direction = false;
+            movement_target = true;
+        } else if (source_target) {
             if (!scene_cpu_source_target(
                     &candidate_foundation.play_state, steering_snapshot,
                     actor, &target, &target_kind)) {
@@ -1338,7 +1361,10 @@ bool scene_update_ai(
         /* A deferred source effect preserves its last validated target. If
            none exists, LIVE deliberately performs no movement this tick;
            there is no fallback to the retired approximate formation policy. */
-        movement_target = source_target || source_direction_target;
+        if (!candidate_foundation.selected_defender_handoff_active ||
+            actor != candidate_foundation.defender_actor) {
+            movement_target = source_target || source_direction_target;
+        }
         input.steering.has_explicit_target = movement_target;
         if (movement_target) input.steering.explicit_target = target;
         if (!scene_actor_movement_state(

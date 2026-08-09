@@ -1680,6 +1680,72 @@ static bool scene_test_live_foundation_regressions(
         LIVE_FAIL("LIVE away holder 0 did not replace static primary seed");
     }
     foundation_before = scene->live_foundation;
+    /* Bank05 $B24F-$B32B / Bank06 $81F7-$82D: Mark Jackson slot 0
+       passes to John Starks slot 1; the old holder resumes ordinary command
+       state 4/$0B63 and automatic defense selects by descending eligibility
+       plus dynamic link, not receiver+5 arithmetic. */
+    candidate_foundation = foundation_before;
+    candidate_foundation.control_mode[TECMO_GAMEPLAY_TEAM_HOME] = 1U;
+    candidate_foundation.dynamic_link[9U] = 1U;
+    candidate_foundation.defender_eligible[9U] = false;
+    candidate_foundation.dynamic_link[8U] = 0U;
+    candidate_foundation.defender_eligible[8U] = true;
+    candidate_foundation.dynamic_link[7U] = 0U;
+    candidate_foundation.defender_eligible[7U] = true;
+    candidate_foundation.dynamic_link[6U] = 1U;
+    candidate_foundation.defender_eligible[6U] = true;
+    if (!tecmo_gameplay_live_foundation_pass_handoff(
+            &scene->cpu_steering_assets, 1U, &candidate_foundation)) {
+        LIVE_FAIL("LIVE B24F/B27B/B317 handoff rejected");
+    }
+    if (
+        candidate_foundation.primary_actor != 1U ||
+        candidate_foundation.prior_selected_actor != 0U ||
+        candidate_foundation.play_state.actor_state[0U] != 4U ||
+        candidate_foundation.play_state.stream_offset[0U] != 0x0B63U ||
+        candidate_foundation.last_step_offset[0U] != 0x0B63U ||
+        candidate_foundation.defender_actor != 6U ||
+        candidate_foundation.prior_defender_actor != 5U) {
+        LIVE_FAIL("LIVE B24F/B27B/B317 descending pass handoff failed");
+    }
+    /* Highest eligible matching X wins; slot 7 deliberately proves the
+       result is not receiver+5 (which would be slot 6). */
+    candidate_foundation = foundation_before;
+    candidate_foundation.control_mode[TECMO_GAMEPLAY_TEAM_HOME] = 1U;
+    candidate_foundation.dynamic_link[9U] = 1U;
+    candidate_foundation.dynamic_link[8U] = 1U;
+    candidate_foundation.defender_eligible[9U] = true;
+    candidate_foundation.defender_eligible[8U] = true;
+    if (!tecmo_gameplay_live_foundation_pass_handoff(
+            &scene->cpu_steering_assets, 1U, &candidate_foundation) ||
+        candidate_foundation.defender_actor != 9U) {
+        LIVE_FAIL("LIVE B317 highest eligible linked defender did not win");
+    }
+    /* $030C[$030B]==0 bypasses B317 and preserves the human-selected
+       defender, while still performing the B24F/B27B offensive handoff. */
+    candidate_foundation = foundation_before;
+    candidate_foundation.control_mode[TECMO_GAMEPLAY_TEAM_HOME] = 0U;
+    candidate_foundation.dynamic_link[9U] = 1U;
+    if (!tecmo_gameplay_live_foundation_pass_handoff(
+            &scene->cpu_steering_assets, 1U, &candidate_foundation) ||
+        candidate_foundation.defender_actor != 5U ||
+        candidate_foundation.prior_defender_actor != 9U) {
+        LIVE_FAIL("LIVE human opponent incorrectly ran B317 reselection");
+    }
+    /* The bounded native choice for raw-loop underflow is fail-closed: no
+       match means no partial selected actor, command, or defender mutation. */
+    candidate_foundation = foundation_before;
+    candidate_foundation.control_mode[TECMO_GAMEPLAY_TEAM_HOME] = 1U;
+    for (actor = 0U; actor < 10U; ++actor) {
+        candidate_foundation.defender_eligible[actor] = false;
+    }
+    snapshot.live_foundation = candidate_foundation;
+    if (tecmo_gameplay_live_foundation_pass_handoff(
+            &scene->cpu_steering_assets, 1U, &candidate_foundation) ||
+        memcmp(&candidate_foundation, &snapshot.live_foundation,
+               sizeof(candidate_foundation)) != 0) {
+        LIVE_FAIL("LIVE B317 no-match failure was not transactional");
+    }
     /* LIVE foundation invariants fail closed independently, rather than
        relying on the caller to preserve aligned stream/matchup metadata. */
     candidate_foundation = foundation_before;

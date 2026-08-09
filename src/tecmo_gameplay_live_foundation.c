@@ -202,6 +202,10 @@ static bool live_play_state_valid(
             TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
         foundation->defender_actor >=
             TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        foundation->prior_selected_actor >=
+            TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        foundation->prior_defender_actor >=
+            TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
         foundation->static_primary_seed != 4U ||
         foundation->static_defender_seed != 9U ||
         foundation->last_possession >=
@@ -246,9 +250,8 @@ static bool live_play_state_valid(
                foundation->actor_team[foundation->last_ball_holder] !=
                    foundation->last_possession ||
                foundation->primary_actor != foundation->last_ball_holder ||
-               foundation->defender_actor !=
-                   foundation->play_state.fixed_link[
-                       foundation->last_ball_holder]) {
+               foundation->actor_team[foundation->defender_actor] ==
+                   foundation->last_possession) {
         return false;
     }
     if (foundation->last_shot_actor !=
@@ -279,6 +282,10 @@ static bool live_play_state_valid(
     }
     for (actor = 0U;
          actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
+        if (foundation->dynamic_link[actor] >=
+                TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT) {
+            return false;
+        }
         if (!live_target_fields_valid(foundation, actor) ||
             foundation->last_step_offset[actor] !=
                 foundation->play_state.stream_offset[actor] ||
@@ -320,6 +327,8 @@ void tecmo_gameplay_live_foundation_init(
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     foundation->defender_actor =
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    foundation->prior_selected_actor = 4U;
+    foundation->prior_defender_actor = 9U;
     for (actor = 0U;
          actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
         foundation->last_step_offset[actor] = 0U;
@@ -329,6 +338,8 @@ void tecmo_gameplay_live_foundation_init(
         foundation->actor_team[actor] = actor <
                 TECMO_GAMEPLAY_CPU_STEERING_TEAM_ACTOR_COUNT
             ? 0U : 1U;
+        foundation->defender_eligible[actor] = true;
+        foundation->dynamic_link[actor] = live_fixed_link[actor];
     }
     for (size_t controller = 0U;
          controller < TECMO_GAMEPLAY_CPU_STEERING_CONTROLLER_SLOT_COUNT;
@@ -454,6 +465,8 @@ bool tecmo_gameplay_live_foundation_initialize(
     candidate.primary_actor = candidate.static_primary_seed;
     candidate.defender_actor = candidate.static_defender_seed;
     candidate.last_possession = possession;
+    candidate.control_mode[0U] = 1U;
+    candidate.control_mode[1U] = 1U;
     for (actor = 0U;
          actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
         candidate.actor_team[actor] = actor_team[actor];
@@ -468,6 +481,10 @@ bool tecmo_gameplay_live_foundation_initialize(
         candidate.last_controlled_actor[controller] =
             controlled_actor[controller];
         candidate.controller_team[controller] = controller_team[controller];
+        if (controller_team[controller] <
+                TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT) {
+            candidate.control_mode[controller_team[controller]] = 0U;
+        }
     }
     candidate.initialization_serial = 1U;
     live_seed_native_matchup(&candidate);
@@ -493,6 +510,7 @@ bool tecmo_gameplay_live_foundation_synchronize(
 {
     TecmoGameplayLiveFoundation candidate;
     bool changed;
+    bool possession_changed;
     size_t actor;
     size_t controller;
     if (assets == NULL || !assets->available || foundation_io == NULL ||
@@ -504,6 +522,7 @@ bool tecmo_gameplay_live_foundation_synchronize(
         return false;
     }
     candidate = *foundation_io;
+    possession_changed = candidate.last_possession != possession;
     changed = candidate.first_sync_pending ||
         candidate.orientation != orientation ||
         candidate.last_possession != possession ||
@@ -530,13 +549,19 @@ bool tecmo_gameplay_live_foundation_synchronize(
     candidate.last_possession = possession;
     candidate.last_ball_holder = ball_holder;
     if (changed) {
+        bool seed_selection = candidate.first_sync_pending ||
+            possession_changed;
         candidate.sync_serial = live_serial_next(candidate.sync_serial);
         candidate.play_state.primary_actor = ball_holder;
-        candidate.play_state.defender_actor =
-            candidate.play_state.fixed_link[ball_holder];
         candidate.primary_actor = ball_holder;
-        candidate.defender_actor =
-            candidate.play_state.fixed_link[ball_holder];
+        if (seed_selection) {
+            candidate.defender_actor =
+                candidate.play_state.fixed_link[ball_holder];
+            candidate.play_state.defender_actor =
+                candidate.defender_actor;
+            candidate.selected_defender_handoff_active = false;
+        }
+        candidate.play_state.defender_actor = candidate.defender_actor;
         candidate.first_sync_pending = false;
         /* Holder/orientation/controller changes invalidate command-derived
            targets and directions. Bank05 reset/swap semantics are incomplete;
@@ -546,6 +571,72 @@ bool tecmo_gameplay_live_foundation_synchronize(
     }
     live_seed_native_matchup(&candidate);
     candidate.native_matchup_inferred = true;
+    if (!live_play_state_valid(assets, &candidate)) return false;
+    *foundation_io = candidate;
+    return true;
+}
+
+bool tecmo_gameplay_live_foundation_pass_handoff(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t new_selected_actor,
+    TecmoGameplayLiveFoundation *foundation_io)
+{
+    TecmoGameplayLiveFoundation candidate;
+    uint8_t old_selected;
+    uint8_t old_defender;
+    uint8_t opposing_team;
+    int actor;
+    if (assets == NULL || foundation_io == NULL ||
+        !live_play_state_valid(assets, foundation_io) ||
+        new_selected_actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        foundation_io->actor_team[new_selected_actor] !=
+            foundation_io->last_possession) {
+        return false;
+    }
+    candidate = *foundation_io;
+    old_selected = candidate.primary_actor;
+    old_defender = candidate.defender_actor;
+    opposing_team = (uint8_t)(candidate.last_possession ^ 1U);
+
+    /* $B24F selects/initializes the receiver. $B27B restores the former
+       selected actor to Bank06 state 4 at command $9F2E+$0B63=$AA91. */
+    candidate.prior_selected_actor = old_selected;
+    candidate.primary_actor = new_selected_actor;
+    candidate.play_state.primary_actor = new_selected_actor;
+    candidate.last_ball_holder = new_selected_actor;
+    candidate.play_state.actor_state[new_selected_actor] = 0U;
+    candidate.play_state.timer[new_selected_actor] = 0U;
+    candidate.play_state.actor_state[old_selected] = 4U;
+    candidate.play_state.timer[old_selected] = 0U;
+    candidate.play_state.stream_offset[old_selected] = 0x0B63U;
+    candidate.last_step_offset[old_selected] = 0x0B63U;
+
+    if (candidate.control_mode[opposing_team] != 0U) {
+        uint8_t found = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+        /* $B317 scans X=9..0 and requires both $04B0 bit $10 and $06CB. */
+        for (actor = 9; actor >= 0; --actor) {
+            if (candidate.defender_eligible[actor] &&
+                candidate.dynamic_link[actor] == new_selected_actor) {
+                found = (uint8_t)actor;
+                break;
+            }
+        }
+        if (found == TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
+            candidate.actor_team[found] != opposing_team) {
+            return false;
+        }
+        candidate.prior_defender_actor = old_defender;
+        candidate.defender_actor = found;
+        candidate.play_state.defender_actor = found;
+        candidate.selected_defender_handoff_active = true;
+        candidate.play_state.timer[found] = 0U;
+        candidate.play_state.timer[old_defender] = 0U;
+    } else {
+        candidate.selected_defender_handoff_active = false;
+    }
+    live_invalidate_source_metadata(&candidate);
+    live_seed_native_matchup(&candidate);
+    candidate.sync_serial = live_serial_next(candidate.sync_serial);
     if (!live_play_state_valid(assets, &candidate)) return false;
     *foundation_io = candidate;
     return true;

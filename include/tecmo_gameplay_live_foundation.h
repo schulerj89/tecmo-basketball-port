@@ -34,6 +34,14 @@ typedef struct TecmoGameplayLiveFoundation {
     uint8_t static_defender_seed;
     uint8_t last_possession;
     uint8_t last_ball_holder;
+    uint8_t prior_selected_actor;
+    uint8_t prior_defender_actor;
+    bool selected_defender_handoff_active;
+    /* Native $030C/$030D semantics: zero is human, nonzero automatic. */
+    uint8_t control_mode[TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT];
+    /* Explicit live mirrors of the $04B0 bit-$10 predicate and $06CB link. */
+    bool defender_eligible[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    uint8_t dynamic_link[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint8_t actor_team[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint8_t controller_team[
         TECMO_GAMEPLAY_CPU_STEERING_CONTROLLER_SLOT_COUNT];
@@ -102,6 +110,14 @@ bool tecmo_gameplay_live_foundation_synchronize(
         TECMO_GAMEPLAY_CPU_STEERING_CONTROLLER_SLOT_COUNT],
     const uint8_t controlled_actor[
         TECMO_GAMEPLAY_CPU_STEERING_CONTROLLER_SLOT_COUNT],
+    TecmoGameplayLiveFoundation *foundation_io);
+
+/* Exact bounded Bank05 $B24F-$B32B pass-selection handoff. On failure the
+ * caller-owned foundation is unchanged. The raw 6502 no-match underflow is
+ * rejected instead of fabricating an actor outside slots 0..9. */
+bool tecmo_gameplay_live_foundation_pass_handoff(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t new_selected_actor,
     TecmoGameplayLiveFoundation *foundation_io);
 
 /* One accepted source play step. Caller commits foundation_io only as part
