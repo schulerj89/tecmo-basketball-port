@@ -203,15 +203,29 @@ static bool scene_jump_pose_for_context(const TecmoGameplayScene *scene,
         scene->jump_direction, pose_index);
 }
 
+static bool scene_jump_pose_for_phase(const TecmoGameplayScene *scene,
+                                      uint8_t animation_byte,
+                                      uint16_t *pose_index)
+{
+    if (scene == NULL) return false;
+    return tecmo_gameplay_jump_shots_resolve_phase_pose_pointer_index(
+        &scene->jump_shots, scene->jump_family, scene->jump_profile,
+        scene->jump_direction, animation_byte, pose_index);
+}
+
 static uint16_t scene_jump_playback_flight_pose(
     const TecmoGameplayScene *scene)
 {
     /* Legacy/direct render and shot-clock adapters predate the bound TGJS
        selector and retain their accepted $00D5 flight pose. Bound production
        shots consume the persisted family/profile/direction result. */
-    return scene != NULL && scene->legacy_direct_launch
-        ? TECMO_GAMEPLAY_JUMP_FLIGHT_POSE
-        : scene->jump_resolved_pose_index;
+    uint16_t pose = 0U;
+    if (scene != NULL && scene->legacy_direct_launch) {
+        return TECMO_GAMEPLAY_JUMP_FLIGHT_POSE;
+    }
+    return scene_jump_pose_for_phase(scene, scene->jump_phase_counter, &pose)
+        ? pose
+        : 0U;
 }
 
 bool scene_shot_is_close(TecmoGameplaySceneShotKind kind)
@@ -1662,7 +1676,9 @@ static void scene_release_jump_make(TecmoGameplayScene *scene,
     scene->jump_pose_frame = TECMO_GAMEPLAY_JUMP_RELEASE_POSE_FRAME;
     scene->jump_phase_counter =
         scene->jump_shots.constants.phase_seed_gather;
-    actor->pose_index = TECMO_GAMEPLAY_JUMP_RELEASE_POSE;
+    actor->pose_index = scene->legacy_direct_launch
+        ? TECMO_GAMEPLAY_JUMP_RELEASE_POSE
+        : scene_jump_playback_flight_pose(scene);
     scene_update_jump_make_ball_position(scene);
 }
 
@@ -1785,12 +1801,14 @@ static bool scene_update_jump_make_approx(
         scene->shot_frame =
             TECMO_GAMEPLAY_JUMP_APPROX_MAKE_RELEASE_FRAME;
         scene->jump_pose_frame = TECMO_GAMEPLAY_JUMP_RELEASE_POSE_FRAME;
-        actor->pose_index = TECMO_GAMEPLAY_JUMP_RELEASE_POSE;
         scene->jump_actor_state =
             scene->jump_shots.constants.actor_state_airborne;
         scene->jump_ball_state = scene->jump_shots.constants.ball_state_route5;
         scene->jump_phase_counter =
             scene->jump_shots.constants.phase_seed_airborne;
+        actor->pose_index = scene->legacy_direct_launch
+            ? TECMO_GAMEPLAY_JUMP_RELEASE_POSE
+            : scene_jump_playback_flight_pose(scene);
         scene->jump_actor_velocity_q8 =
             TECMO_GAMEPLAY_JUMP_MAKE_ACTOR_VELOCITY_Q8;
         scene_update_approx_make_ball_position(scene);
@@ -1828,6 +1846,7 @@ static bool scene_update_jump_make_approx(
             scene->jump_shots.constants.actor_state_recovery;
         scene->jump_phase_counter =
             scene->jump_shots.constants.phase_seed_recovery_counter;
+        actor->pose_index = scene_jump_playback_flight_pose(scene);
     } else if (next_frame >=
                    TECMO_GAMEPLAY_JUMP_APPROX_MAKE_RECOVERY_START_FRAME &&
                next_frame <=
@@ -1960,6 +1979,7 @@ static bool scene_update_jump_make(
         scene->jump_actor_state =
             scene->jump_shots.constants.actor_state_held;
         scene->jump_phase_counter = 0x34U;
+        actor->pose_index = scene_jump_playback_flight_pose(scene);
     } else if (next_frame == TECMO_GAMEPLAY_JUMP_MAKE_DECISION_FRAME) {
         if (scene->jump_shots.constants.outcome_flag_mask !=
                 scene->shot_resolution.outcome_flag_mask ||
@@ -1972,6 +1992,7 @@ static bool scene_update_jump_make(
         scene->jump_actor_state =
             scene->jump_shots.constants.actor_state_airborne;
         scene->jump_phase_counter = 0x35U;
+        actor->pose_index = scene_jump_playback_flight_pose(scene);
     }
 
     if (next_frame >= TECMO_GAMEPLAY_JUMP_MAKE_FLIGHT_FRAME &&
@@ -1994,6 +2015,7 @@ static bool scene_update_jump_make(
             scene->jump_shots.constants.actor_state_recovery;
         scene->jump_phase_counter =
             scene->jump_shots.constants.phase_seed_recovery_counter;
+        actor->pose_index = scene_jump_playback_flight_pose(scene);
     } else if (next_frame >= 58U && next_frame <= 62U) {
         if (scene->jump_actor_state !=
                 scene->jump_shots.constants.actor_state_recovery ||
@@ -2141,12 +2163,14 @@ static bool scene_update_jump_miss_mutating(
         scene->jump_outcome = outcome;
         scene->shot_frame = 2U;
         scene->jump_pose_frame = TECMO_GAMEPLAY_JUMP_RELEASE_POSE_FRAME;
-        actor->pose_index = TECMO_GAMEPLAY_JUMP_RELEASE_POSE;
         scene->jump_actor_state =
             scene->jump_shots.constants.actor_state_airborne;
         scene->jump_ball_state = scene->jump_shots.constants.ball_state_route5;
         scene->jump_phase_counter =
             scene->jump_shots.constants.phase_seed_airborne;
+        actor->pose_index = scene->legacy_direct_launch
+            ? TECMO_GAMEPLAY_JUMP_RELEASE_POSE
+            : scene_jump_playback_flight_pose(scene);
         scene->jump_actor_velocity_q8 =
             TECMO_GAMEPLAY_JUMP_SLOT0_ACTOR_VELOCITY_Q8;
         scene_update_jump_ball_position(scene);
@@ -2157,7 +2181,9 @@ static bool scene_update_jump_miss_mutating(
     if ((scene->shot_frame == 2U &&
          (scene->jump_pose_frame !=
               TECMO_GAMEPLAY_JUMP_RELEASE_POSE_FRAME ||
-          actor->pose_index != TECMO_GAMEPLAY_JUMP_RELEASE_POSE)) ||
+          actor->pose_index != (scene->legacy_direct_launch
+              ? TECMO_GAMEPLAY_JUMP_RELEASE_POSE
+              : scene_jump_playback_flight_pose(scene)))) ||
         (scene->shot_frame >= 3U && scene->shot_frame < 46U &&
          (scene->jump_pose_frame !=
               TECMO_GAMEPLAY_JUMP_FLIGHT_POSE_FRAME ||
@@ -2194,6 +2220,7 @@ static bool scene_update_jump_miss_mutating(
             scene->jump_shots.constants.actor_state_recovery;
         scene->jump_phase_counter =
             scene->jump_shots.constants.phase_seed_recovery_counter;
+        actor->pose_index = scene_jump_playback_flight_pose(scene);
     } else if (next_frame >= 41U && next_frame <= 45U) {
         if (scene->jump_actor_state !=
                 scene->jump_shots.constants.actor_state_recovery ||

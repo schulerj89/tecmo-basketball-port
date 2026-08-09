@@ -4200,9 +4200,23 @@ static bool scene_test_production_jump_matrix(
                                 TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
                             break;
                         }
-                        if (scene->shot_frame >= 3U &&
-                            scene->actors[scene->shot_actor].pose_index ==
-                                scene->jump_resolved_pose_index) {
+                        if (scene->shot_frame >= 3U) {
+                            uint16_t expected_phase_pose;
+                            if (!tecmo_gameplay_jump_shots_resolve_phase_pose_pointer_index(
+                                    &scene->jump_shots, scene->jump_family,
+                                    scene->jump_profile, scene->jump_direction,
+                                    scene->jump_phase_counter,
+                                    &expected_phase_pose) ||
+                                scene->actors[scene->shot_actor].pose_index !=
+                                    expected_phase_pose ||
+                                expected_phase_pose ==
+                                    scene->jump_resolved_pose_index) {
+                                scene_test_production_matrix_failure =
+                                    700U + family * 100U + profile * 20U +
+                                    direction;
+                                tecmo_gameplay_scene_end(scene);
+                                return false;
+                            }
                             saw_flight = true;
                         }
                     }
