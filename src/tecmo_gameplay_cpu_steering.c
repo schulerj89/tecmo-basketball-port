@@ -99,14 +99,14 @@ static const uint8_t cpu_steering_effect_jumps[
    entries retain handler metadata and advance policy but defer their effect. */
 static const uint8_t cpu_steering_effect_exact[
     TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT] = {
-    1U,1U,1U,1U,0U,0U,0U,1U,0U,1U,0U,0U,
-    0U,0U,1U,0U,0U,1U,1U,1U,0U,1U,1U,0U
+    1U,1U,1U,1U,0U,0U,0U,1U,0U,1U,1U,0U,
+    0U,0U,1U,0U,1U,1U,1U,1U,0U,1U,1U,0U
 };
 
 static const uint8_t cpu_steering_effect_deferred[
     TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT] = {
-    0U,0U,0U,0U,1U,1U,1U,0U,1U,0U,1U,1U,
-    1U,1U,0U,1U,1U,0U,0U,0U,1U,0U,0U,1U
+    0U,0U,0U,0U,1U,1U,1U,0U,1U,0U,0U,1U,
+    1U,1U,0U,1U,0U,0U,0U,0U,1U,0U,0U,1U
 };
 
 static const uint8_t cpu_steering_effect_approximation[
@@ -790,6 +790,17 @@ static bool play_valid_positions(
     return true;
 }
 
+static int16_t play_wrap_add_i16(int16_t left, int16_t right)
+{
+    return (int16_t)((uint16_t)left + (uint16_t)right);
+}
+
+static bool play_proximity_axis(int16_t current, int16_t target)
+{
+    int16_t delta = (int16_t)((uint16_t)current - (uint16_t)target);
+    return delta >= -8 && delta <= 7;
+}
+
 static void play_set_target_from_actor(
     TecmoGameplayCpuSteeringPlayState *state,
     const TecmoGameplayCpuSteeringPlayInput *input,
@@ -926,6 +937,8 @@ bool tecmo_gameplay_cpu_steering_play_step(
         !play_valid_actor(input->actor) || input->step_budget == 0U ||
         input->step_budget > TECMO_GAMEPLAY_CPU_STEERING_PLAY_STEP_BUDGET ||
         input->orientation_035a > 1U ||
+        (input->special_actor_07df != TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR &&
+         !play_valid_actor(input->special_actor_07df)) ||
         !play_valid_positions(input->actor_position) ||
         state_in->primary_actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
         state_in->defender_actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
@@ -1046,11 +1059,9 @@ bool tecmo_gameplay_cpu_steering_play_step(
         case 5U:
         case 6U:
         case 8U:
-        case 10U:
         case 11U:
         case 12U:
         case 13U:
-        case 16U:
         case 20U:
         case 23U:
             /* Their effect inputs are deferred because the contract does not
@@ -1059,6 +1070,61 @@ bool tecmo_gameplay_cpu_steering_play_step(
                that every deferred handler leaves this record in place. */
             result.deferred = true;
             break;
+        case 10U: {
+            uint8_t linked = actor == input->special_actor_07df
+                ? next_state.primary_actor
+                : next_state.native_matchup_actor[actor];
+            int16_t target_x;
+            int16_t target_depth;
+            if (!input->linked_relative_valid || !play_valid_actor(linked)) {
+                result.deferred = true;
+                break;
+            }
+            target_x = play_wrap_add_i16(
+                input->actor_position[linked].x,
+                input->linked_relative_x);
+            target_depth = play_wrap_add_i16(
+                input->actor_position[linked].y,
+                input->linked_relative_depth);
+            next_state.target_actor[actor] = linked;
+            next_state.target_x[actor] = target_x;
+            next_state.target_depth[actor] = target_depth;
+            result.proximity_met = actor != next_state.defender_actor &&
+                play_proximity_axis(input->actor_position[actor].x, target_x) &&
+                play_proximity_axis(input->actor_position[actor].y, target_depth);
+            if (result.proximity_met) {
+                following_offset = play_next_offset(current_offset, 5U);
+            }
+            break;
+        }
+        case 16U: {
+            uint16_t pointer = (uint16_t)command.arguments[0U] |
+                ((uint16_t)command.arguments[1U] << 8U);
+            uint8_t linked;
+            uint16_t target_x;
+            uint8_t target_depth;
+            if (!input->pointer_workspace_valid || pointer != 0x0309U ||
+                !play_valid_actor(next_state.defender_actor)) {
+                result.deferred = true;
+                break;
+            }
+            linked = next_state.defender_actor;
+            target_x = (uint16_t)input->actor_position[linked].x;
+            target_depth = (uint8_t)input->actor_position[linked].y;
+            if (input->workspace_036e >= input->workspace_0370) {
+                target_depth = target_depth >= 0x94U
+                    ? (uint8_t)(target_depth - 10U)
+                    : (uint8_t)(target_depth + 10U);
+            } else if (input->orientation_035a == 0U) {
+                target_x = (uint16_t)(target_x + 16U);
+            } else {
+                target_x = (uint16_t)(target_x - 16U);
+            }
+            next_state.target_actor[actor] = linked;
+            next_state.target_x[actor] = (int16_t)target_x;
+            next_state.target_depth[actor] = (int16_t)target_depth;
+            break;
+        }
         case 7U: {
             uint8_t probe_index = command.arguments[0U];
             uint16_t alternate_offset = (uint16_t)command.arguments[2U] |
@@ -1128,7 +1194,7 @@ bool tecmo_gameplay_cpu_steering_play_step(
         }
 
         if (command.opcode == 6U || command.opcode == 8U ||
-            command.opcode == 10U ||
+            (command.opcode == 10U && !result.proximity_met) ||
             command.opcode == 12U || command.opcode == 15U ||
             (command.opcode == 16U && (input->flags_ba & 0x03U) != 0U)) {
             following_offset = current_offset;
@@ -2025,7 +2091,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             !metadata_0->exact_bounded || metadata_0->deferred_inputs ||
             metadata_7->advance_policy !=
                 TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_PLUS_FIVE_OR_BRANCH_PLUS_FIVE ||
-            metadata_10->exact_bounded || !metadata_10->deferred_inputs ||
+            !metadata_10->exact_bounded || metadata_10->deferred_inputs ||
             metadata_17->kind !=
                 TECMO_GAMEPLAY_CPU_STEERING_EFFECT_AGGREGATION_BARRIER ||
             metadata_18->kind != metadata_17->kind ||
@@ -2074,6 +2140,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     play_input.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_PLAY_INPUT_TAG;
     play_input.actor = 0U;
     play_input.step_budget = 4U;
+    play_input.special_actor_07df = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     memcpy(play_input.actor_position, harness_positions,
            sizeof(harness_positions));
 
@@ -2195,6 +2262,73 @@ bool tecmo_gameplay_cpu_steering_self_test(
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
+
+    /* With the bounded helper workspace present, opcode 10 synthesizes the
+       linked target with 16-bit wrap and admits exactly [-8,+7] on each axis. */
+    for (int delta = -8; delta <= 8; ++delta) {
+        if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+                &assets, 0U, &play_state)) {
+            tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+            return false;
+        }
+        play_state.stream_offset[0U] = opcode_offsets[10U];
+        play_state.native_matchup_actor[0U] = 5U;
+        play_input.actor = 0U;
+        play_input.step_budget = 1U;
+        play_input.linked_relative_valid = true;
+        play_input.linked_relative_x = (int16_t)(
+            play_input.actor_position[0U].x -
+            play_input.actor_position[5U].x - delta);
+        play_input.linked_relative_depth = (int16_t)(
+            play_input.actor_position[0U].y -
+            play_input.actor_position[5U].y);
+        if (!tecmo_gameplay_cpu_steering_play_step(
+                &assets, &play_state, &play_input, &play_out, &play_result) ||
+            play_result.deferred ||
+            play_result.proximity_met != (delta >= -8 && delta <= 7) ||
+            play_result.advanced != (delta >= -8 && delta <= 7)) {
+            (void)snprintf(message, message_size,
+                           "TGAI-1 opcode-10 proximity boundary failed at %d.",
+                           delta);
+            tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+            return false;
+        }
+    }
+    play_input.linked_relative_valid = false;
+
+    /* Both opcode-16 corpus records point at $0309. Exercise the exact
+       depth +/-10 and orientation-selected horizontal +/-16 branches. */
+    for (uint8_t branch = 0U; branch < 4U; ++branch) {
+        if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+                &assets, 0U, &play_state)) {
+            tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+            return false;
+        }
+        play_state.stream_offset[0U] = opcode_offsets[16U];
+        play_state.defender_actor = 9U;
+        play_input.pointer_workspace_valid = true;
+        play_input.orientation_035a = (uint8_t)(branch & 1U);
+        play_input.workspace_036e = branch < 2U ? 2U : 0U;
+        play_input.workspace_0370 = 1U;
+        play_input.actor_position[9U].y = branch == 1U ? 0x94 : 0x93;
+        if (!tecmo_gameplay_cpu_steering_play_step(
+                &assets, &play_state, &play_input, &play_out, &play_result) ||
+            play_result.deferred || play_result.command.opcode != 16U ||
+            play_out.target_actor[0U] != 9U ||
+            (branch < 2U && play_out.target_depth[0U] !=
+                (branch == 1U ? 0x8A : 0x9D)) ||
+            (branch >= 2U && play_out.target_x[0U] !=
+                (int16_t)(play_input.actor_position[9U].x +
+                    ((branch & 1U) != 0U ? -16 : 16)))) {
+            (void)snprintf(message, message_size,
+                           "TGAI-1 opcode-16 adjustment branch %u failed.",
+                           (unsigned)branch);
+            tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+            return false;
+        }
+    }
+    play_input.pointer_workspace_valid = false;
+    play_input.orientation_035a = 0U;
 
     /* Existing wait state expires to state 4 without fetching a record. */
     if (!tecmo_gameplay_cpu_steering_play_state_initialize(

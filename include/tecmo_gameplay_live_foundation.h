@@ -93,8 +93,13 @@ bool tecmo_gameplay_live_foundation_valid(
 bool tecmo_gameplay_live_foundation_formation_index_for_coordinate(
     const TecmoGameplayCourtCoordinate *coordinate,
     uint8_t *formation_index_out);
+bool tecmo_gameplay_live_foundation_refresh_formation(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    const TecmoGameplayCourtCoordinate actor_position[
+        TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT],
+    TecmoGameplayLiveFoundation *foundation_io);
 
-/* Starts from the exact selected primary coordinate (actor slot 4). */
+/* Starts from the current typed $0308-equivalent ball-holder coordinate. */
 bool tecmo_gameplay_live_foundation_initialize(
     const TecmoGameplayCpuSteeringAssets *assets,
     const TecmoGameplayCourtCoordinate

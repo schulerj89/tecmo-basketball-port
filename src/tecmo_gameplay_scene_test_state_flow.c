@@ -1656,14 +1656,14 @@ static bool scene_test_live_foundation_regressions(
         scene->live_foundation.play_state.matchup_seed[0U] != 2U ||
         scene->live_foundation.play_state.matchup_seed[1U] != 7U ||
         !scene->live_foundation.first_sync_pending ||
-        scene->live_foundation.formation_index != 30U ||
+        scene->live_foundation.formation_index != 32U ||
         !tecmo_gameplay_live_foundation_valid(
             &scene->cpu_steering_assets, &scene->live_foundation)) {
         LIVE_FAIL("LIVE initializer seeds or formation identity failed");
     }
     for (actor = 0U; actor < 10U; ++actor) {
         if (scene->live_foundation.formation_start_offset[actor] !=
-                scene->cpu_steering_assets.formation_stream_offsets[30U][actor] ||
+                scene->cpu_steering_assets.formation_stream_offsets[32U][actor] ||
             memcmp(scene->live_foundation.play_state.fixed_link,
                    exact_links, sizeof(exact_links)) != 0) {
             LIVE_FAIL("LIVE formation start/fixed-link proof failed");
@@ -2425,6 +2425,9 @@ static bool scene_test_live_foundation_regressions(
             candidate_foundation.play_state.target_depth[edge_actor] = 0;
             candidate_foundation.play_state.direction[edge_actor] =
                 edge_direction;
+            /* This fixture isolates the edge-direction inert adapter; the
+               selected-defender spacing path is covered independently. */
+            candidate_foundation.selected_defender_handoff_active = false;
             candidate_foundation.source_target_valid[edge_actor] = false;
             candidate_foundation.source_direction_valid[edge_actor] = true;
             candidate_foundation.source_direction[edge_actor] = edge_direction;
@@ -2465,6 +2468,7 @@ static bool scene_test_live_foundation_regressions(
                 edge_direction;
             candidate_foundation.source_direction_valid[edge_actor] = true;
             candidate_foundation.source_direction[edge_actor] = edge_direction;
+            candidate_foundation.selected_defender_handoff_active = false;
             if (!tecmo_gameplay_live_foundation_valid(
                     &scene->cpu_steering_assets, &candidate_foundation)) {
                 LIVE_FAIL("LIVE edge/corner injected foundation was invalid");

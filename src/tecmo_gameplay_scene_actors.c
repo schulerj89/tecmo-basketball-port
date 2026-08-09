@@ -1478,7 +1478,12 @@ bool scene_update_ai(
         }
         memset(&input, 0, sizeof(input));
         play_input.actor = (uint8_t)actor;
-        if (!tecmo_gameplay_live_foundation_play_step(
+        memset(&play_result, 0, sizeof(play_result));
+        /* Bank06 $81F7-$82D3 excludes $0309. Never consume its ordinary
+           stream while the native selected-defender path owns the actor. */
+        if (!(candidate_foundation.selected_defender_handoff_active &&
+              actor == candidate_foundation.defender_actor) &&
+            !tecmo_gameplay_live_foundation_play_step(
                 &scene->cpu_steering_assets, &play_input,
                 &candidate_foundation, &play_result)) {
             return false;
@@ -1504,6 +1509,15 @@ bool scene_update_ai(
                selected-defender setup at Bank05 $9B27 owns its on-ball
                responsibility until released by the next handoff. */
             target = steering_snapshot[scene->ball_holder];
+            /* $90DC/$90DE is the exact orientation-selected signed
+               horizontal adjustment (+16/-16). It supplies separation and
+               prevents the old exact-coordinate overlap policy. */
+            target.x = (int16_t)(target.x +
+                (scene->orientation_state.current_direction == 0U
+                    ? 16 : -16));
+            if (!tecmo_gameplay_court_coordinate_valid(&target)) {
+                return false;
+            }
             target_kind =
                 TECMO_GAMEPLAY_CPU_STEERING_HARNESS_LINKED_ACTOR;
             input.steering.matchup_actor = scene->ball_holder;

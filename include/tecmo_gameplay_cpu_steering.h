@@ -253,6 +253,18 @@ typedef struct TecmoGameplayCpuSteeringPlayInput {
     uint8_t state_0357;
     uint8_t state_0358;
     uint8_t flags_007e;
+    /* Bounded opcode-10 workspace produced by $8D59-$8E21. Callers must
+       explicitly prove these signed relative offsets; absence defers the
+       command rather than silently substituting zero. */
+    bool linked_relative_valid;
+    int16_t linked_relative_x;
+    int16_t linked_relative_depth;
+    uint8_t special_actor_07df;
+    /* Opcode 16 compares the two exact 16-bit workspaces at $036E/$0370.
+       The command's $0309 pointer is resolved through typed play state. */
+    bool pointer_workspace_valid;
+    uint16_t workspace_036e;
+    uint16_t workspace_0370;
     TecmoGameplayCourtCoordinate
         actor_position[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
 } TecmoGameplayCpuSteeringPlayInput;

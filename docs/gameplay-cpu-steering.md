@@ -196,9 +196,23 @@ actors onto one coordinate. All of these target choices are explicit native
 approximations; only the resulting TGAI octant and TGMO movement step are
 ROM-exact. Shot proximity and cadence remain separate native policy.
 
-The live state deliberately carries a no-command sentinel and no pending
-advance. It does not fabricate actor-local ROM stream offsets or claim that a
-fixed roster matchup reconstructs `$06CB,X`. Replacing these native explicit
-targets with the original formation/play command offsets, dynamic reference/link
-assignments, target fields, and command-advance transitions is the next CPU
-policy slice.
+The live lifecycle now consumes the imported formation streams. Opcode 10
+accepts an explicit, validity-gated `$8D59-$8E21` relative workspace,
+synthesizes the linked target with 16-bit wrap, and reproduces the signed
+arrival interval `[-8,+7]` on both axes. Missing helper workspace still defers
+transactionally; it is never interpreted as zero. Opcode 16 resolves both
+corpus records as the exact `$0309` typed reference and implements the
+`$90AC-$90D5` depth `+10/-10` and orientation-selected horizontal `+16/-16`
+adjustments from explicit `$036E/$0370` inputs.
+
+Formation refresh quantizes the current selected ball handler into 64-pixel
+X/depth buckets. A bucket change reloads only ordinary eligible actors,
+retains both `$0308` and `$0309` lifecycles, and invalidates stale targets as
+one transaction; an unchanged bucket is a no-op. Automatic selected defense
+is active on initial possession and after pass handoff. The selected defender
+is excluded from ordinary dispatch and uses the source `+16/-16` orientation
+separation rather than chasing the holder's exact coordinate.
+
+The unported `$8D59-$8E21` caller-specific scaling inputs and remaining
+dynamic `$06CB` assignment policy stay explicitly bounded as unresolved; the
+native port does not invent them.

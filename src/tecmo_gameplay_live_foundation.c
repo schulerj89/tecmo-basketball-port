@@ -438,6 +438,52 @@ static void live_invalidate_source_metadata(
     }
 }
 
+bool tecmo_gameplay_live_foundation_refresh_formation(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    const TecmoGameplayCourtCoordinate actor_position[
+        TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT],
+    TecmoGameplayLiveFoundation *foundation_io)
+{
+    TecmoGameplayLiveFoundation candidate;
+    TecmoGameplayCpuSteeringFormationResult formation;
+    uint8_t formation_index;
+    size_t actor;
+    if (assets == NULL || !assets->available || actor_position == NULL ||
+        foundation_io == NULL || !live_play_state_valid(assets, foundation_io) ||
+        foundation_io->primary_actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        !live_actor_positions_valid(actor_position) ||
+        !tecmo_gameplay_live_foundation_formation_index_for_coordinate(
+            &actor_position[foundation_io->primary_actor], &formation_index)) {
+        return false;
+    }
+    if (formation_index == foundation_io->formation_index) return true;
+    if (!tecmo_gameplay_cpu_steering_formation_select(
+            assets, formation_index, &formation) || !formation.source_pinned) {
+        return false;
+    }
+    candidate = *foundation_io;
+    candidate.formation_index = formation_index;
+    for (actor = 0U; actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
+        candidate.formation_start_offset[actor] = formation.stream_offset[actor];
+        /* $944D excludes $0308 and $9452 excludes bit-$10 actors. The
+           ordinary actor loop separately excludes $0309, so retain both
+           selected actors' current command lifecycle. */
+        if (actor != candidate.primary_actor &&
+            actor != candidate.defender_actor &&
+            (candidate.actor_selector_flags[actor] & 0x10U) == 0U) {
+            candidate.play_state.stream_offset[actor] =
+                formation.stream_offset[actor];
+            candidate.play_state.actor_state[actor] = 0x04U;
+            candidate.last_step_offset[actor] = formation.stream_offset[actor];
+        }
+    }
+    live_invalidate_source_metadata(&candidate);
+    candidate.sync_serial = live_serial_next(candidate.sync_serial);
+    if (!live_play_state_valid(assets, &candidate)) return false;
+    *foundation_io = candidate;
+    return true;
+}
+
 bool tecmo_gameplay_live_foundation_initialize(
     const TecmoGameplayCpuSteeringAssets *assets,
     const TecmoGameplayCourtCoordinate
@@ -465,7 +511,7 @@ bool tecmo_gameplay_live_foundation_initialize(
                               actor_team, controller_team,
                               controlled_actor) ||
         !tecmo_gameplay_live_foundation_formation_index_for_coordinate(
-            &actor_position[4U], &formation_index) ||
+            &actor_position[ball_holder], &formation_index) ||
         formation_index >=
             TECMO_GAMEPLAY_LIVE_FOUNDATION_FORMATION_PINNED_LIMIT ||
         !tecmo_gameplay_cpu_steering_formation_select(
@@ -516,6 +562,8 @@ bool tecmo_gameplay_live_foundation_initialize(
             candidate.control_mode[controller_team[controller]] = 0U;
         }
     }
+    candidate.selected_defender_handoff_active =
+        candidate.control_mode[candidate.defense_side] != 0U;
     candidate.initialization_serial = 1U;
     live_seed_native_matchup(&candidate);
     if (!live_play_state_valid(assets, &candidate)) return false;
@@ -594,7 +642,8 @@ bool tecmo_gameplay_live_foundation_synchronize(
                 candidate.play_state.fixed_link[ball_holder];
             candidate.play_state.defender_actor =
                 candidate.defender_actor;
-            candidate.selected_defender_handoff_active = false;
+            candidate.selected_defender_handoff_active =
+                candidate.control_mode[candidate.defense_side] != 0U;
             candidate.offense_side = possession;
             candidate.defense_side = (uint8_t)(possession ^ 1U);
             candidate.selected_actor_by_side[candidate.offense_side] =
@@ -624,6 +673,10 @@ bool tecmo_gameplay_live_foundation_synchronize(
     }
     live_seed_native_matchup(&candidate);
     candidate.native_matchup_inferred = true;
+    if (!tecmo_gameplay_live_foundation_refresh_formation(
+            assets, actor_position, &candidate)) {
+        return false;
+    }
     if (!live_play_state_valid(assets, &candidate)) return false;
     *foundation_io = candidate;
     return true;
@@ -733,10 +786,12 @@ bool tecmo_gameplay_live_foundation_play_step(
     candidate.deferred[actor] = result.deferred;
     if (result.fetched && !result.deferred &&
         (result.command.opcode == 0U || result.command.opcode == 2U ||
-         result.command.opcode == 4U)) {
+         result.command.opcode == 4U || result.command.opcode == 10U ||
+         result.command.opcode == 16U)) {
         TecmoGameplayCourtCoordinate target = {
             next_state.target_x[actor], next_state.target_depth[actor]};
-        if (result.command.opcode == 4U) {
+        if (result.command.opcode == 4U || result.command.opcode == 10U ||
+            result.command.opcode == 16U) {
             validated_target_write =
                 next_state.target_actor[actor] <
                     TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT &&
