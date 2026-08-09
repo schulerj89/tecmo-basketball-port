@@ -22,7 +22,7 @@
 
 #define TECMO_CLI_PRETIP_CAPTURE_FRAME 452U
 #define TECMO_CLI_PRETIP_SIMULATION_START_FRAME 481U
-#define TECMO_CLI_PRETIP_LIVE_START_FRAME 590U
+#define TECMO_CLI_PRETIP_LIVE_START_FRAME 598U
 #define TECMO_CLI_TIPOFF_PROOF_LAST_FRAME \
     (TECMO_CLI_PRETIP_LIVE_START_FRAME + 20U)
 #define TECMO_CLI_FREE_THROW_CHECKPOINT_FRAME \
@@ -716,6 +716,10 @@ static bool gameplay_checkpoint_report_tipoff_proof(
             "target-x=%d target-depth=%d ball-state=%u ball-x-q8=%ld "
             "ball-depth-q8=%ld ball-height-q8=%u velocity-x-q8=%ld "
             "velocity-depth-q8=%ld velocity-height-q8=%d distance-q8=%lu "
+            "position-x-q6=%u position-depth-q6=%u "
+            "velocity-x-prehalf-q6=%d velocity-depth-prehalf-q6=%d "
+            "velocity-x-q6=%d velocity-depth-q6=%d duration=%u remaining=%u "
+            "workspace-6768=%u event-bit20=%u claim-frame=%u first-cinematic-frame=%u "
             "holder=%u possession=%u attached=%u in-flight=%u flight-tick=%u\n",
             scene->frame, scene->pretip_state.total_frame,
             (unsigned)scene->pretip_state.simulation_tick,
@@ -735,6 +739,18 @@ static bool gameplay_checkpoint_report_tipoff_proof(
             (long)scene->pretip_state.ball_velocity_depth_q8,
             (int)scene->pretip_state.ball_velocity_height_q8,
             (unsigned long)distance_q8,
+            (unsigned)scene->pretip_state.ball_world_x_q6,
+            (unsigned)scene->pretip_state.ball_world_depth_q6,
+            (int)scene->pretip_state.ball_velocity_x_prehalf_q6,
+            (int)scene->pretip_state.ball_velocity_depth_prehalf_q6,
+            (int)scene->pretip_state.ball_velocity_x_q6,
+            (int)scene->pretip_state.ball_velocity_depth_q6,
+            (unsigned)scene->pretip_state.ball_flight_duration,
+            (unsigned)scene->pretip_state.ball_duration_count,
+            (unsigned)scene->pretip_state.ball_workspace_6768,
+            scene->pretip_state.event_0588_bit20 ? 1U : 0U,
+            (unsigned)scene->pretip_state.claim_frame,
+            (unsigned)scene->pretip_state.first_cinematic_frame,
             (unsigned)scene->ball_holder,
             (unsigned)scene->state.possession,
             scene->pretip_state.ball_attached_to_receiver ? 1U : 0U,
@@ -942,16 +958,30 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
                 scene->live_foundation.play_state.defender_actor = 0U;
                 scene->live_foundation.selected_actor_by_side[0U] = 0U;
                 scene->live_foundation.candidate_actor_by_side[0U] = 1U;
-                scene->actors[0U].position.x = 540; scene->actors[0U].position.y = 140;
-                scene->actors[1U].position.x = 590; scene->actors[1U].position.y = 100;
-                scene->actors[2U].position.x = 600; scene->actors[2U].position.y = 180;
-                scene->actors[3U].position.x = 490; scene->actors[3U].position.y = 100;
-                scene->actors[4U].position.x = 500; scene->actors[4U].position.y = 180;
+                scene->actors[0U].position.x = (int16_t)(
+                    scene->camera_state.camera_x + 100U);
+                scene->actors[0U].position.y = 140;
+                scene->actors[1U].position.x = (int16_t)(
+                    scene->camera_state.camera_x + 150U);
+                scene->actors[1U].position.y = 100;
+                scene->actors[2U].position.x = (int16_t)(
+                    scene->camera_state.camera_x + 160U);
+                scene->actors[2U].position.y = 180;
+                scene->actors[3U].position.x = (int16_t)(
+                    scene->camera_state.camera_x + 50U);
+                scene->actors[3U].position.y = 100;
+                scene->actors[4U].position.x = (int16_t)(
+                    scene->camera_state.camera_x + 60U);
+                scene->actors[4U].position.y = 180;
                 controls[0U].frame.held.right = checkpoint == 3U;
                 controls[0U].frame.held.left = checkpoint != 3U;
                 side = scene->live_foundation.defense_side;
                 sector = checkpoint == 3U ? 1U : 2U;
                 reference = 0U; excluded = 0U; polarity = 0x10U;
+            }
+            for (actor = 0U; actor < 10U; ++actor) {
+                scene->live_foundation.actor_position[actor] =
+                    scene->actors[actor].position;
             }
             if (!scene_ball_position_for_actors(
                     scene, scene->actors, scene->ball_holder,

@@ -124,7 +124,6 @@ static bool scene_test_concurrent_tip_simulation(
     TecmoControlFrame p2;
     uint8_t away_actor;
     uint8_t home_actor;
-    uint16_t apex_tick;
     uint8_t away_commits;
     uint8_t home_commits;
     TecmoGameplaySceneActor actors_before_handoff[
@@ -182,13 +181,14 @@ static bool scene_test_concurrent_tip_simulation(
          scene->pretip_state.phase == TECMO_GAMEPLAY_PRETIP_BALL_DESCENT;
          ++frame)
         if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) goto failed;
-    apex_tick = scene->pretip_state.home_apex_frame;
     away_commits = scene->pretip_state.away_jump_commit_count;
     home_commits = scene->pretip_state.home_jump_commit_count;
     failure = "concurrent pre-tip apex/cinematic ordering failed";
     if (scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP ||
-        !scene->pretip_state.cinematic_visible || apex_tick == 0U ||
-        apex_tick >= scene->pretip_state.simulation_tick ||
+        !scene->pretip_state.cinematic_visible ||
+        scene->pretip_state.claim_frame == UINT16_MAX ||
+        scene->pretip_state.first_cinematic_frame !=
+            scene->pretip_state.total_frame ||
         !scene->pretip_state.contact_state_17 ||
         !scene->pretip_state.event_0588_bit20 ||
         scene->pretip_state.ball_actor_state != 0x17U ||
@@ -202,7 +202,7 @@ static bool scene_test_concurrent_tip_simulation(
         scene->pretip_state.receiver_target.y !=
             scene->actors[scene->pretip_state.receiver_actor].position.y ||
         scene->pretip_state.ball_velocity_x_q8 <= 0 ||
-        scene->actors[away_actor].pose_index != 551U ||
+        scene->actors[away_actor].pose_index != 549U ||
         scene->actors[home_actor].pose_index != 583U) goto failed;
     failure = "concurrent pre-tip cinematic simulation failed";
     for (frame = 0U; frame < 60U; ++frame)
@@ -402,7 +402,7 @@ bool tecmo_gameplay_scene_test_pretip_human_checkpoint(
     }
     tecmo_gameplay_scene_test_message(
         message, message_size,
-        "TPTI-2 human checkpoint PASS capture-frame=452 simulation-frame=481 cinematic-frame=500 live-frame=590");
+        "TPTI-2 human checkpoint PASS capture-frame=452 simulation-frame=481 cinematic-frame=508 live-frame=598");
     tecmo_gameplay_scene_destroy(&scene);
     return true;
 }

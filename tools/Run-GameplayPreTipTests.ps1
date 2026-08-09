@@ -122,8 +122,8 @@ $PreTip = Get-Entry $PackBytes "gameplay/pre-tip"
 $SourceMap = Get-Entry $PackBytes "system/source-map"
 if ($PreTip.size -ne 7680) { throw "TPTI-2 directory size changed." }
 $Payload = Get-EntryBytes $PackBytes $PreTip
-if ((Get-Fnv32 $Payload) -ne "28910BC1" -or
-    (Get-Fnv64 $Payload) -ne "7EA1596E8DFAC0C1" -or
+if ((Get-Fnv32 $Payload) -ne "8E6367FC" -or
+    (Get-Fnv64 $Payload) -ne "0D5FE9CF7B0A298DC" -or
     [Text.Encoding]::ASCII.GetString($Payload, 0, 4) -ne "TPTI" -or
     [BitConverter]::ToUInt16($Payload, 4) -ne 2 -or
     [BitConverter]::ToUInt16($Payload, 6) -ne 512 -or
@@ -140,9 +140,9 @@ if ((Get-Fnv32 $Payload) -ne "28910BC1" -or
     $Payload[189] -ne 0 -or $Payload[190] -ne 0xC6 -or
     $Payload[191] -ne 0xFA -or
     [BitConverter]::ToUInt16($Payload, 192) -ne 6 -or
-    [BitConverter]::ToUInt16($Payload, 194) -ne 2 -or
+    [BitConverter]::ToUInt16($Payload, 194) -ne 3 -or
     [BitConverter]::ToUInt32($Payload, 196) -ne 6560 -or
-    [BitConverter]::ToUInt32($Payload, 200) -ne 96 -or
+    [BitConverter]::ToUInt32($Payload, 200) -ne 352 -or
     [BitConverter]::ToUInt32($Payload, 204) -ne 7008 -or
     [BitConverter]::ToUInt32($Payload, 220) -ne 2776 -or
     [BitConverter]::ToUInt32($Payload, 224) -ne
@@ -150,9 +150,9 @@ if ((Get-Fnv32 $Payload) -ne "28910BC1" -or
     [BitConverter]::ToUInt16($Payload, 228) -ne 2 -or
     [BitConverter]::ToUInt16($Payload, 230) -ne 256 -or
     [BitConverter]::ToUInt32($Payload, 232) -ne
-        [Convert]::ToUInt32("3572752A", 16) -or
+        [Convert]::ToUInt32("BE758F32", 16) -or
     [BitConverter]::ToUInt64($Payload, 236) -ne
-        [Convert]::ToUInt64("A52B415F53DA85CA", 16)) {
+        [Convert]::ToUInt64("A44321E848D881B2", 16)) {
     throw "TPTI-2 canonical header changed."
 }
 if (@($Payload[208..219] | Where-Object { $_ -ne 0 }).Count -ne 0 -or
@@ -172,7 +172,9 @@ for ($Index = 0; $Index -lt 29; ++$Index) {
 if ([BitConverter]::ToUInt32($Payload, 512 + 20 * 32 + 24) -ne 4502 -or
     [BitConverter]::ToUInt32($Payload, 512 + 24 * 32 + 24) -ne 5699 -or
     [BitConverter]::ToUInt32($Payload, 512 + 21 * 32 + 24) -ne 7008 -or
-    @($Payload[6656..7007] | Where-Object { $_ -ne 0 }).Count -ne 0) {
+    @($Payload[6912..7007] | Where-Object { $_ -ne 0 }).Count -ne 0 -or
+    (Get-Fnv32 ($Payload[6656..6911])) -ne "93FCF6CB" -or
+    (Get-Fnv64 ($Payload[6656..6911])) -ne "08407D4DA9578D56B") {
     throw "TPTI-2 exact-source overlap/padding contract changed."
 }
 $MapText = [Text.Encoding]::UTF8.GetString(
@@ -205,8 +207,8 @@ if ($Mapped.Count -ne 1 -or
     $Mapped[0].schema -ne "tecmo.gameplay-pre-tip/TPTI-2" -or
     @($Mapped[0].dependencies).Count -ne 6 -or
     $Mapped[0].payload_size -ne 7680 -or
-    $Mapped[0].payload_fingerprint_fnv1a32 -ne "28910BC1" -or
-    $Mapped[0].payload_fingerprint_fnv1a64 -ne "7EA1596E8DFAC0C1" -or
+    $Mapped[0].payload_fingerprint_fnv1a32 -ne "8E6367FC" -or
+    $Mapped[0].payload_fingerprint_fnv1a64 -ne "D5FE9CF7B0A298DC" -or
     (@($Mapped[0].sources.role) -join ",") -ne ($ExpectedRoles -join ",") -or
     @($Mapped[0].sources | Where-Object {
         $_.fingerprint_fnv1a32 -notmatch "^[0-9A-F]{8}$" -or
@@ -223,7 +225,7 @@ if ($Mapped.Count -ne 1 -or
     $Mapped[0].native_contract.tip_jumper_selectors[0] -ne 4 -or
     $Mapped[0].native_contract.tip_jumper_selectors[1] -ne 9 -or
     $Mapped[0].native_contract.tip_animation -notmatch
-        "native 30-frame contest-input.*native 60-update.*projected altitude" -or
+        "independent.*ballistic.*class-specific phases 2/3/4" -or
     $TipSetupSource.Count -ne 1 -or
     $TipInputSource.source_entry -ne "prg/bank05" -or
     [uint64]$TipInputSource.source_offset -ne
@@ -239,8 +241,10 @@ if ($Mapped.Count -ne 1 -or
     $TipInputSource.proves -match "98E1|030C" -or
     $TipInputSource.does_not_prove -notmatch "98E1.*030C" -or
     $Mapped[0].native_contract.tip_input -notmatch
-        "30 native jump-contest updates" -or
-    $Mapped[0].native_contract.tip_input -notmatch "target frame 0" -or
+        "strict evolving-height.*no synthetic target frame" -or
+    [int]$Mapped[0].native_contract.tpti_mechanics.version -ne 3 -or
+    $Mapped[0].native_contract.tpti_mechanics.trajectory -notmatch
+        "BDF7.*B32C.*AA84.*B500.*B678" -or
     $Mapped[0].native_contract.winner_query_gate -notmatch
         "rejects before jump-contest.*resolved.*nondeferred.*nonstalled" -or
     $Mapped[0].native_contract.winner_policy -notmatch
@@ -262,8 +266,8 @@ $Human = Invoke-Native -Arguments @(
     "--gameplay-pretip-human-checkpoint", $Pack
 ) -LogName "human-checkpoint.log"
 if ($Human.code -ne 0 -or
-    $Human.text -notmatch "TPTI-2 human checkpoint PASS capture-frame=452 simulation-frame=481 cinematic-frame=500 live-frame=590") {
-    throw "TPTI-2 human-input frame-721 checkpoint failed.`n$($Human.tail)"
+    $Human.text -notmatch "TPTI-2 human checkpoint PASS capture-frame=452 simulation-frame=481 cinematic-frame=508 live-frame=598") {
+    throw "TPTI-2 human-input timing checkpoint failed.`n$($Human.tail)"
 }
 
 $env:TECMO_ASSETPACK = $Pack
@@ -278,15 +282,16 @@ $Modes = @(
     [pscustomobject]@{ mode="gameplay-pretip-frame481"; phase="ball-descent"; frame=481; hash="4043E63FCDDBCB3DED1B3E0D5EF8B088E7175BFFAC80DA99128B49CD34955C56" },
     [pscustomobject]@{ mode="gameplay-tipoff-proof-frame452"; phase="center-setup"; frame=452; hash="2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A" },
     [pscustomobject]@{ mode="gameplay-tipoff-proof-frame481"; phase="ball-descent"; frame=481; hash="AEE825A9C7AF8E3790C73BF20438E7B99E01C8F002DBE628EE9455F567A5C487" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame483"; phase="ball-descent"; frame=483; hash="0112AF33CCED67DCE475198CA10E9572DAD2A8FC61C5BE65A6B9491A9513338F" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame490"; phase="ball-descent"; frame=490; hash="47BD4715ECC5612C13BB47AA8E82FDBE7FA08E6658D7901B1C377FC2180734E2" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame493"; phase="ball-descent"; frame=493; hash="166291AA8CAE1FB19F92CF106819ADB62D2269A9E626B96CCDBBCFD2C864EE07" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame499"; phase="ball-descent"; frame=499; hash="F6D42B3D98F146C64706BC1F945ABF1E98A02B74E81CEA32162AFEEF4C49B041" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame500"; phase="toss-closeup"; frame=500; hash="CDE4C17159C79207CA82281204547FD2794E81858A52A6FB312E937CEEDF162C" },
+    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame483"; phase="ball-descent"; frame=483; hash="DEC93E0A49A8FFBC8A56F50E0542D0FBDF6605D59E609DB0658676ABCCB42105" },
+    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame490"; phase="ball-descent"; frame=490; hash="388239D56CC2EBDA8A33E58D288220C8D4F949A3576352807EC8BDCF444DBA6C" },
+    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame500"; phase="ball-descent"; frame=500; hash="FFA73FB7BE00D1504A2DF390629BC2726BC8F5119E6B9D068FD4B7981D6A4176" },
+    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame505"; phase="ball-descent"; frame=505; hash="9372AF3A28A711A4745778F8A76AB7B38891E849CED09C70B317B7D20FAAA3EB" },
+    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame507"; phase="ball-descent"; frame=507; hash="51E3D1D38A79068B1D013521D0BCCA59F2CE03E5E46C83F3E31133691309256F" },
+    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame508"; phase="toss-closeup"; frame=508; hash="CDE4C17159C79207CA82281204547FD2794E81858A52A6FB312E937CEEDF162C" },
     [pscustomobject]@{ mode="gameplay-tipoff-proof-frame530"; phase="toss-closeup"; frame=530; hash="CDE4C17159C79207CA82281204547FD2794E81858A52A6FB312E937CEEDF162C" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame559"; phase="toss-closeup"; frame=559; hash="CDE4C17159C79207CA82281204547FD2794E81858A52A6FB312E937CEEDF162C" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame560"; phase="jump-contest"; frame=560; hash="9D3EE06DD2B98B4CF56303B6EBEE2B65671DED12CA10AFA6C3B026D22890A3D3" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame589"; phase="jump-contest"; frame=589; hash="0B756AD4F004F5612D885EA29EC670B0E75B09C0AA1BA831D76B8378ADF57995" }
+    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame567"; phase="toss-closeup"; frame=567; hash="CDE4C17159C79207CA82281204547FD2794E81858A52A6FB312E937CEEDF162C" },
+    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame568"; phase="jump-contest"; frame=568; hash="0B756AD4F004F5612D885EA29EC670B0E75B09C0AA1BA831D76B8378ADF57995" },
+    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame597"; phase="jump-contest"; frame=597; hash="0B756AD4F004F5612D885EA29EC670B0E75B09C0AA1BA831D76B8378ADF57995" }
 )
 $RenderedHashes = @{}
 foreach ($Spec in $Modes) {

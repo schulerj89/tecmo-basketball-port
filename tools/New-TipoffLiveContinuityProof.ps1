@@ -26,7 +26,7 @@ function Convert-Diagnostic([string]$Line) {
     return $Result
 }
 
-$Frames = @(589,590,591,596,604)
+$Frames = @(597,598,599,604,610)
 $Names = @('before-handoff','handoff','first-live','live-motion-a','live-motion-b')
 $Records = @()
 for ($Index=0; $Index -lt $Frames.Count; ++$Index) {

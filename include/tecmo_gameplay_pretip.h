@@ -38,10 +38,12 @@
 #define TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_0380_SEED 0x07U
 #define TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_037F_SEED 0x02U
 #define TECMO_GAMEPLAY_PRETIP_CLAIMANT_NONE 0xFFU
-#define TECMO_GAMEPLAY_PRETIP_BALL_FLIGHT_TICKS 84U
-#define TECMO_GAMEPLAY_PRETIP_BALL_PLANAR_TICKS 28U
-#define TECMO_GAMEPLAY_PRETIP_TPM2_VERSION 2U
-#define TECMO_GAMEPLAY_PRETIP_TPM2_SIZE 96U
+#define TECMO_GAMEPLAY_PRETIP_BALL_TOSS_VELOCITY_Q8 0x04E8U
+#define TECMO_GAMEPLAY_PRETIP_BALL_DISTANCE_TABLE_SIZE 256U
+#define TECMO_GAMEPLAY_PRETIP_BALL_DISTANCE_TABLE_OFFSET 96U
+#define TECMO_GAMEPLAY_PRETIP_FLIGHT_COUNT_LIMIT 0x3CU
+#define TECMO_GAMEPLAY_PRETIP_TPM2_VERSION 3U
+#define TECMO_GAMEPLAY_PRETIP_TPM2_SIZE 352U
 #define TECMO_GAMEPLAY_PRETIP_AWAY_WINNER 0U
 #define TECMO_GAMEPLAY_PRETIP_HOME_WINNER 1U
 
@@ -146,6 +148,7 @@ typedef struct TecmoGameplayPreTipAssets {
     uint16_t tip_selector_0380_address;
     uint16_t tip_selector_037f_address;
     uint16_t tip_jump_post_store_address;
+    const uint8_t *tip_distance_table_bdf7;
 } TecmoGameplayPreTipAssets;
 
 typedef struct TecmoGameplayPreTipLineup {
@@ -232,6 +235,7 @@ typedef struct TecmoGameplayPreTipState {
     uint8_t raw_selector_037f;
     uint8_t claimant_jumper;
     uint8_t receiver_actor;
+    uint16_t claim_frame;
     /* Bank05 $A274 receiver-selector and state-$17 trajectory boundary.
        The raw seeds are imported; callers may replace them with validated
        runtime-populated selectors until the upstream $037F/$0380 writers are
@@ -246,6 +250,16 @@ typedef struct TecmoGameplayPreTipState {
     int32_t ball_velocity_x_q8;
     int32_t ball_velocity_depth_q8;
     int16_t ball_velocity_height_q8;
+    /* Slot-10 Bank05 storage. Planar positions and velocities use Q10.6;
+       altitude and vertical velocity use Q8.8. */
+    uint16_t ball_world_x_q6;
+    uint16_t ball_world_depth_q6;
+    int16_t ball_velocity_x_prehalf_q6;
+    int16_t ball_velocity_depth_prehalf_q6;
+    int16_t ball_velocity_x_q6;
+    int16_t ball_velocity_depth_q6;
+    uint16_t ball_duration_count;
+    uint16_t ball_workspace_6768;
     uint16_t ball_flight_tick;
     uint16_t ball_flight_duration;
     bool ball_state17_in_flight;

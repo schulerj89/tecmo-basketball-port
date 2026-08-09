@@ -25,7 +25,8 @@ static const uint8_t pretip_rev1_sha256[32] = {
     0xF2U,0xC2U,0xBDU,0xE1U,0xF9U,0x74U,0x75U,0xC4U
 };
 
-static void build_mechanics_block(uint8_t *block)
+static void build_mechanics_block(uint8_t *block,
+                                  const uint8_t *distance_table)
 {
     if (block == NULL) return;
     memset(block, 0, TECMO_GAMEPLAY_PRETIP_TPM2_SIZE);
@@ -65,6 +66,11 @@ static void build_mechanics_block(uint8_t *block)
     block[43U] = 0U;    /* equality remains deferred, never tie-away */
     block[44U] = TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_0380_SEED;
     block[45U] = TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_037F_SEED;
+    if (distance_table != NULL) {
+        memcpy(block + TECMO_GAMEPLAY_PRETIP_BALL_DISTANCE_TABLE_OFFSET,
+               distance_table,
+               TECMO_GAMEPLAY_PRETIP_BALL_DISTANCE_TABLE_SIZE);
+    }
 }
 
 const TecmoGameplayPreTipExpectedSource
@@ -347,7 +353,9 @@ int tecmo_asset_pack_build_gameplay_pretip(
     }
 
     build_mechanics_block(
-        payload + TECMO_ASSET_PACK_GAMEPLAY_PRETIP_MECHANICS_OFFSET);
+        payload + TECMO_ASSET_PACK_GAMEPLAY_PRETIP_MECHANICS_OFFSET,
+        rom + (size_t)(prg_offset +
+            5U * TECMO_ASSET_PACK_PRG_BANK_BYTES + (0xBDF7U - 0x8000U)));
 
     memcpy(payload, "TPTI", 4U);
     tecmo_asset_pack_store_u16(

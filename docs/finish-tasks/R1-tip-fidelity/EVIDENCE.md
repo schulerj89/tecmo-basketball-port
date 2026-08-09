@@ -64,7 +64,7 @@ and tests use those same spans and hashes.
 | Seam | Exact/native-faithful/native-approximate/incomplete boundary |
 |---|---|
 | B04 clocked B-level capture/error | Exact source mechanics; native state stores sampled frame and bounded error `0..11`, unsampled sentinel error `12`. |
-| `$839F` automatic trigger | Exact control relation: automatic only when `0499 > 3D + (($6A & 1F) >> 2)`; equality is rejected. Native bridge calibrates bounded observed ages 20/21/22. |
+| `$839F` automatic trigger | Exact control relation: automatic only when live `0499 > 3D + (($6A & 1F) >> 2)`; equality is rejected. No synthetic frame-20/21/22 gate remains. |
 | Per-jumper actor commit | Exact commit seam/state distinction (`$0B` actor jump commit, `$17` slot-10/global claim commit); native raw-height/velocity bridge is approximate. |
 | `$A274` claim | Exact equality deferral and underflow-safe `< $3A` comparator. `$0308` selects the validated `$037F` receiver and `$0309` selects `$0380`; the chosen actor's current canonical target coordinate drives state-`$17` motion. Upstream dynamic selector population and complete tie settlement remain incomplete. |
 | No-input | Runtime-observed original no-B stall plus native fail-closed policy; it is not a tie winner. |
@@ -72,7 +72,16 @@ and tests use those same spans and hashes.
 | Both automatic | Accepted bounded dynamic observations at ages 20/22; native approximate raw heights preserve Away compatibility (`0x34` vs `0x33`) without asserting selector ownership. |
 | Human-vs-CPU one-down | Accepted bounded observation at age 21; native automatic sample field remains raw frame 21 while its bounded error is 11. |
 | LIVE handoff | Presentation timing remains a native contract. Possession stays unattached during state-`$17`; after low/contact completion, the selected receiver becomes the holder at the live handoff. The winning jumper determines the side but is not forced to receive. |
-| Tipped-ball trajectory | `$A274` copies receiver X/depth, calls source-backed `$B32C`, applies `$AA84` signed halving, then state `$17` repeatedly uses planar movement plus `$B678` gravity. Native C preserves those fixed-point relations and contact lifecycle. Its bounded 84-update scheduling duration is an explicit native adapter pending complete `$B32C` caller/table reconstruction; there is no D-pad aiming or capped scene nudge. |
+| Tipped-ball trajectory | `$A274` copies receiver X/depth, calls `$B32C`, applies `$AA84` signed halving, then state `$17` repeatedly uses `$B500/$BD6E` planar Q10.6 movement and `$B678` Q8.8 gravity. Native C now imports the exact 256-byte `$BDF7-$BEF6` table into TPM2 v3, derives the `$0513/$051E` duration (including average and `$003C` clamp), preserves pre/post-half velocities, and settles through the `$B775` low-height seam. The old fixed 28-planar/84-vertical schedule and overshoot clamps are removed. There is no D-pad aiming. |
+
+The current pre-claim ball path is also source-backed: fixed `$E510` supplies
+the initial nonzero height observed by `$A25F`, `$A25F` seeds slot 10 with
+vertical velocity `$04E8` and state `$1B`, and each subsequent `$A274` update
+applies `$B678` before the live claim comparisons. This replaces the former
+fabricated `0x3D + contest_frame` height. The remaining bounded evidence
+boundary is jumper launch velocity: `$8D92` depends on player byte `$0529`
+and the not-yet-imported `$7C48` lookup, so the existing deterministic Q8
+jumper seed remains explicitly native-faithful rather than claimed exact.
 
 ## Latest review gate
 
