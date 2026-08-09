@@ -155,6 +155,18 @@ bool tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
     TecmoGameplayJumpShotDirection direction,
     uint16_t *pointer_index);
 
+/* Bank07 renders a committed Bank05 sequence by adding twice the low nibble
+   of $0458 to the selected $0442/$044D byte offset.  pose_indices stores that
+   selected sequence base as a TGPL pointer index, so the native equivalent is
+   base + phase. */
+bool tecmo_gameplay_jump_shots_resolve_phase_pose_pointer_index(
+    const TecmoGameplayJumpShotAssets *assets,
+    TecmoGameplayJumpShotFamily family,
+    TecmoGameplayJumpShotProfile profile,
+    TecmoGameplayJumpShotDirection direction,
+    uint8_t animation_byte,
+    uint16_t *pointer_index);
+
 /* Bank05's native unsigned Q8.8 update. Velocity subtracts gravity first,
    then altitude adds the wrapped 16-bit velocity. A zero or wrapped-negative
    high byte clamps altitude and velocity to zero. */

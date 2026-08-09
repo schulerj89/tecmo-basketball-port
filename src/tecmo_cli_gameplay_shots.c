@@ -883,6 +883,7 @@ int tecmo_cli_run_gameplay_jump_shots_command(const TecmoCliContext *context)
         for (unsigned family = 0U; family < 2U; ++family) {
             for (unsigned profile = 0U; profile < 2U; ++profile) {
                 for (unsigned direction = 0U; direction < 8U; ++direction) {
+                    uint16_t base;
                     if (!tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
                             &assets, (TecmoGameplayJumpShotFamily)family,
                             (TecmoGameplayJumpShotProfile)profile,
@@ -892,6 +893,21 @@ int tecmo_cli_run_gameplay_jump_shots_command(const TecmoCliContext *context)
                                family, profile, direction);
                         goto jump_shot_test_cleanup;
                     }
+                    base = pointer;
+                    for (uint8_t phase = 0U; phase < 8U; ++phase) {
+                        if (!tecmo_gameplay_jump_shots_resolve_phase_pose_pointer_index(
+                                &assets,
+                                (TecmoGameplayJumpShotFamily)family,
+                                (TecmoGameplayJumpShotProfile)profile,
+                                (TecmoGameplayJumpShotDirection)direction,
+                                (uint8_t)(0x30U | phase), &pointer) ||
+                            pointer != (uint16_t)(base + phase)) {
+                            printf("Jump-shot asset test failed: sequence phase %u/%u/%u/%u\n",
+                                   family, profile, direction, phase);
+                            goto jump_shot_test_cleanup;
+                        }
+                    }
+                    pointer = base;
                     pose_hash ^= (uint8_t)(pointer & 0xFFU);
                     pose_hash *= 16777619U;
                     pose_hash ^= (uint8_t)(pointer >> 8U);
@@ -931,6 +947,26 @@ int tecmo_cli_run_gameplay_jump_shots_command(const TecmoCliContext *context)
 
         if (!validate_jump_shot_dependencies(&assets, pack_path)) {
             goto jump_shot_test_cleanup;
+        }
+        for (unsigned direction = 0U; direction < 2U; ++direction) {
+            uint16_t base;
+            if (!tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
+                    &assets, TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0,
+                    TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_0,
+                    (TecmoGameplayJumpShotDirection)direction, &base)) {
+                goto jump_shot_test_cleanup;
+            }
+            for (uint8_t phase = 1U; phase <= 6U; ++phase) {
+                if (!tecmo_gameplay_jump_shots_resolve_phase_pose_pointer_index(
+                        &assets, TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0,
+                        TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_0,
+                        (TecmoGameplayJumpShotDirection)direction, phase,
+                        &pointer)) {
+                    goto jump_shot_test_cleanup;
+                }
+                printf("TGJS_PHASE_TRACE family=0 profile=0 direction=%u base=%u phase=%u pose=%u\n",
+                       direction, base, phase, pointer);
+            }
         }
         ok = true;
 

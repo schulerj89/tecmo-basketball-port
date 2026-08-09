@@ -501,6 +501,7 @@ static bool scene_shot_pose_state_valid(
                actor->pose_index == expected_pose;
     }
     {
+        uint16_t phase_pose = 0U;
         uint16_t release_frame = scene->jump_make_route
             ? (scene->shot_schedule ==
                    TECMO_GAMEPLAY_SHOT_SCHEDULE_NATIVE_APPROXIMATION
@@ -513,17 +514,25 @@ static bool scene_shot_pose_state_valid(
                    ? TECMO_GAMEPLAY_JUMP_APPROX_MAKE_NEUTRAL_FRAME
                    : TECMO_GAMEPLAY_JUMP_MAKE_NEUTRAL_FRAME)
             : 46U;
+        if (!scene->legacy_direct_launch &&
+            !tecmo_gameplay_jump_shots_resolve_phase_pose_pointer_index(
+                &scene->jump_shots, scene->jump_family, scene->jump_profile,
+                scene->jump_direction, scene->jump_phase_counter,
+                &phase_pose)) {
+            return false;
+        }
         if (scene->shot_frame == release_frame) {
             return scene->jump_pose_frame ==
                        TECMO_GAMEPLAY_JUMP_RELEASE_POSE_FRAME &&
-                   actor->pose_index == TECMO_GAMEPLAY_JUMP_RELEASE_POSE;
+                   actor->pose_index == (scene->legacy_direct_launch
+                       ? TECMO_GAMEPLAY_JUMP_RELEASE_POSE : phase_pose);
         }
         if (scene->shot_frame < neutral_frame) {
             return scene->jump_pose_frame ==
                        TECMO_GAMEPLAY_JUMP_FLIGHT_POSE_FRAME &&
                    actor->pose_index == (scene->legacy_direct_launch
                        ? TECMO_GAMEPLAY_JUMP_FLIGHT_POSE
-                       : scene->jump_resolved_pose_index);
+                       : phase_pose);
         }
         return scene->jump_pose_frame == 0U &&
                actor->pose_index == TECMO_GAMEPLAY_JUMP_SLOT0_IDLE_POSE;

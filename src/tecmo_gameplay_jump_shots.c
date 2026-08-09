@@ -578,6 +578,27 @@ bool tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
     return true;
 }
 
+bool tecmo_gameplay_jump_shots_resolve_phase_pose_pointer_index(
+    const TecmoGameplayJumpShotAssets *assets,
+    TecmoGameplayJumpShotFamily family,
+    TecmoGameplayJumpShotProfile profile,
+    TecmoGameplayJumpShotDirection direction,
+    uint8_t animation_byte,
+    uint16_t *pointer_index)
+{
+    uint16_t base;
+    uint16_t resolved;
+    if (pointer_index == NULL ||
+        !tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
+            assets, family, profile, direction, &base)) {
+        return false;
+    }
+    resolved = (uint16_t)(base + (animation_byte & 0x0FU));
+    if (resolved >= TECMO_GAMEPLAY_ASSET_POINTER_COUNT) return false;
+    *pointer_index = resolved;
+    return true;
+}
+
 bool tecmo_gameplay_jump_shots_step_q8(
     const TecmoGameplayJumpShotAssets *assets,
     uint16_t *altitude_q8,
