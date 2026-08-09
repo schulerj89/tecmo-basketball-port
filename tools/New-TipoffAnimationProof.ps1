@@ -9,7 +9,7 @@ if (!$ProjectRoot) { $ProjectRoot = Split-Path -Parent $PSScriptRoot }
 $ProjectRoot = (Resolve-Path $ProjectRoot).Path
 if (!$AssetPackPath) { $AssetPackPath = Join-Path $ProjectRoot "build\tecmo.assetpack" }
 $AssetPackPath = (Resolve-Path $AssetPackPath).Path
-if (!$OutputRoot) { $OutputRoot = Join-Path $ProjectRoot "build\proof\tipoff-animation" }
+if (!$OutputRoot) { $OutputRoot = Join-Path $ProjectRoot "build\proof\tipoff-jump-freeze" }
 $Exe = Join-Path $ProjectRoot "build\tecmo_port.exe"
 if (!(Test-Path -LiteralPath $Exe -PathType Leaf)) { throw "Missing executable: $Exe" }
 New-Item -ItemType Directory -Path $OutputRoot -Force | Out-Null
@@ -18,15 +18,14 @@ $env:TECMO_ASSETPACK = $AssetPackPath
 $Specs = @(
     @{ name="bank04-input-capture"; frame=452; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=518; homePhase=0; homeState=0x13; homeAltitude=0 },
     @{ name="live-object-seed"; frame=481; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=518; homePhase=0; homeState=0x13; homeAltitude=0 },
-    @{ name="cpu-jump-commit"; frame=501; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=581; homePhase=2; homeState=0x0B; homeAltitude=$null },
-    @{ name="cpu-phase3"; frame=502; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=582; homePhase=3; homeState=0x0B; homeAltitude=$null },
-    @{ name="rising-phase4"; frame=505; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
-    @{ name="near-claim-pre-cinematic"; frame=507; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
-    @{ name="state17-first-cinematic"; frame=508; awayPose=549; awayPhase=2; awayState=0x0B; awayAltitude=$null; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
-    @{ name="cinematic-middle"; frame=530; awayPose=551; awayPhase=4; awayState=0x0C; awayAltitude=$null; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
-    @{ name="cinematic-end"; frame=567; awayPose=469; awayPhase=0; awayState=0x13; awayAltitude=0; homePose=501; homePhase=0; homeState=0x13; homeAltitude=0 },
-    @{ name="return-to-court-landed"; frame=568; awayPose=469; awayPhase=0; awayState=0x13; awayAltitude=0; homePose=501; homePhase=0; homeState=0x13; homeAltitude=0 },
-    @{ name="no-late-restart"; frame=597; awayPose=469; awayPhase=0; awayState=0x13; awayAltitude=0; homePose=501; homePhase=0; homeState=0x13; homeAltitude=0 }
+    @{ name="human-visible-airborne"; frame=497; awayPose=549; awayPhase=2; awayState=0x0B; awayAltitude=664; homePose=518; homePhase=0; homeState=0x13; homeAltitude=0 },
+    @{ name="state17-first-cinematic"; frame=498; awayPose=550; awayPhase=3; awayState=0x0B; awayAltitude=1288; homePose=518; homePhase=0; homeState=0x13; homeAltitude=0 },
+    @{ name="cinematic-middle"; frame=530; awayPose=550; awayPhase=3; awayState=0x0B; awayAltitude=1288; homePose=518; homePhase=0; homeState=0x13; homeAltitude=0 },
+    @{ name="cinematic-end"; frame=557; awayPose=550; awayPhase=3; awayState=0x0B; awayAltitude=1288; homePose=518; homePhase=0; homeState=0x13; homeAltitude=0 },
+    @{ name="court-return-frozen"; frame=558; awayPose=550; awayPhase=3; awayState=0x0B; awayAltitude=1288; homePose=518; homePhase=0; homeState=0x13; homeAltitude=0 },
+    @{ name="resumed-rise"; frame=559; awayPose=551; awayPhase=4; awayState=0x0C; awayAltitude=1872; homePose=518; homePhase=0; homeState=0x13; homeAltitude=0 },
+    @{ name="resumed-descent"; frame=580; awayPose=551; awayPhase=4; awayState=0x0C; awayAltitude=4896; homePose=518; homePhase=0; homeState=0x13; homeAltitude=0 },
+    @{ name="natural-live-recovery"; frame=597; awayPose=94; awayPhase=0; awayState=0x13; awayAltitude=0; homePose=158; homePhase=0; homeState=0x13; homeAltitude=0 }
 )
 
 function Convert-Diagnostic([string]$Line) {
@@ -81,19 +80,27 @@ foreach ($Spec in $Specs) {
 
 $Capture = $Records | Where-Object name -eq 'bank04-input-capture'
 $Seed = $Records | Where-Object name -eq 'live-object-seed'
-$PreGate = $Records | Where-Object name -eq 'near-claim-pre-cinematic'
+$PreGate = $Records | Where-Object name -eq 'human-visible-airborne'
 $FirstCinematic = $Records | Where-Object name -eq 'state17-first-cinematic'
 $Middle = $Records | Where-Object name -eq 'cinematic-middle'
-$Late = $Records | Where-Object name -eq 'no-late-restart'
-if ($Capture.timing.away_latch -ne 1 -or $Capture.timing.away_countdown -ne 12) { throw "Bank04 input was not captured before simulation." }
+$End = $Records | Where-Object name -eq 'cinematic-end'
+$Return = $Records | Where-Object name -eq 'court-return-frozen'
+$Descent = $Records | Where-Object name -eq 'resumed-descent'
+$Late = $Records | Where-Object name -eq 'natural-live-recovery'
+if ($Capture.timing.away_latch -ne 1 -or $Capture.timing.away_countdown -ne 0) { throw "Bank04 sample did not derive its 0..11 countdown." }
 if ($Seed.timing.simulation_tick -ne 0 -or $Seed.timing.ball_state -ne 0x1A) { throw "Slot/ball live objects were not seeded before the cinematic." }
-if ($PreGate.timing.cinematic_visible -ne 0 -or $PreGate.timing.home_velocity_q8 -le 0 -or $Middle.timing.home_velocity_q8 -ge 0 -or $Middle.timing.home_apex_frame -ge $Middle.timing.simulation_tick) { throw "Jumper rise/apex progression did not remain continuous through the cinematic gate." }
+if ($PreGate.timing.cinematic_visible -ne 0 -or $PreGate.away.altitude_q8 -le 0 -or $PreGate.timing.away_committed -ne 1) { throw "Human jumper was not visibly airborne before the cinematic." }
 if ($FirstCinematic.timing.cinematic_visible -ne 1 -or $FirstCinematic.timing.contact_state17 -ne 1 -or $FirstCinematic.timing.event_0588_bit20 -ne 1) { throw "Cinematic was not triggered from contact/state17/bit20." }
-if ($Late.timing.away_commit_count -ne 1 -or $Late.timing.home_commit_count -ne 1 -or $Late.away.pose -ne 469 -or $Late.home.pose -ne 501) { throw "Cinematic exit restarted or reset the tip jump." }
+$Frozen = @($FirstCinematic,$Middle,$End,$Return)
+foreach ($Item in $Frozen) {
+    if ($Item.away.state -ne $FirstCinematic.away.state -or $Item.away.phase -ne $FirstCinematic.away.phase -or $Item.away.pose -ne $FirstCinematic.away.pose -or $Item.away.altitude_q8 -ne $FirstCinematic.away.altitude_q8 -or $Item.timing.away_velocity_q8 -ne $FirstCinematic.timing.away_velocity_q8) { throw "Jumper tuple changed during cinematic/return." }
+}
+if ($Descent.timing.away_velocity_q8 -ge 0 -or $Descent.away.altitude_q8 -le 0) { throw "Airborne physics did not resume after court return." }
+if ($Late.timing.away_commit_count -ne 1 -or $Late.away.altitude_q8 -ne 0 -or $Late.away.state -ne 0x13) { throw "Jumper did not land naturally without restart." }
 
 $MetadataPath = Join-Path $OutputRoot "tipoff-animation-metadata.json"
 [pscustomobject]@{
-    schema="tecmo.tipoff-animation-proof/1"; generated_utc=(Get-Date).ToUniversalTime().ToString('o');
+    schema="tecmo.tipoff-animation-proof/1";
     asset_pack=$AssetPackPath; assertions_passed=$true; records=$Records
 } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $MetadataPath -Encoding UTF8
 

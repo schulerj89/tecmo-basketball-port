@@ -758,11 +758,17 @@ bool tecmo_gameplay_pretip_tip_lineup(
     return true;
 }
 
-/* Native bridge, not ROM-exact: contest frame 0 is the target, a first held
-   sample at frame N has error min(N, 11), and no sample has error 12. */
+/* Bank04 $8795-$87D0 turns the captured $8A timing byte into the countdown:
+   abs($F9-captured), capped at $0B.  The native presentation clock is routed
+   so frame zero is the $F9 target; preserve the byte subtraction/absolute
+   value and keep $0C exclusively as the no-sample sentinel. */
 static uint8_t tip_error_for_sample(uint16_t frame)
 {
-    return frame < 11U ? (uint8_t)frame : 11U;
+    uint8_t captured = (uint8_t)(0xF9U + (uint8_t)frame);
+    uint8_t delta = (uint8_t)(captured - 0xF9U);
+    uint8_t absolute = (delta & 0x80U) != 0U
+        ? (uint8_t)(0U - delta) : delta;
+    return absolute < 0x0CU ? absolute : 0x0BU;
 }
 
 static uint16_t presentation_duration(
@@ -919,14 +925,15 @@ static void tip_commit_jumper(TecmoGameplayPreTipState *state,
 
 static void latch_tip_controlled(bool held, uint16_t contest_frame,
                                  uint8_t *error, uint16_t *sample_frame,
-                                 bool *sampled)
+                                 bool *sampled, uint8_t *countdown)
 {
     if (!held || sampled == NULL || *sampled || error == NULL ||
-        sample_frame == NULL)
+        sample_frame == NULL || countdown == NULL)
         return;
     *sampled = true;
     *error = tip_error_for_sample(contest_frame);
     *sample_frame = contest_frame;
+    *countdown = *error;
 }
 
 static void tip_update_human_jumper(TecmoGameplayPreTipState *state,
@@ -1544,6 +1551,22 @@ bool tecmo_gameplay_pretip_update(
         player_two_or_home_held_b, false, false);
 }
 
+bool tecmo_gameplay_pretip_update_live_jumpers(
+    const TecmoGameplayPreTipAssets *assets,
+    TecmoGameplayPreTipState *state)
+{
+    TecmoGameplayPreTipState candidate;
+    if (!state_valid(assets, state) || state->phase != TECMO_GAMEPLAY_PRETIP_LIVE ||
+        !state->live_handoff) return false;
+    candidate = *state;
+    tip_update_altitudes(&candidate);
+    if (candidate.simulation_tick != UINT16_MAX)
+        ++candidate.simulation_tick;
+    if (!state_valid(assets, &candidate)) return false;
+    *state = candidate;
+    return true;
+}
+
 bool tecmo_gameplay_pretip_update_controlled(
     const TecmoGameplayPreTipAssets *assets,
     TecmoGameplayPreTipState *state,
@@ -1572,11 +1595,11 @@ bool tecmo_gameplay_pretip_update_controlled(
         latch_tip_controlled(
             player_one_or_away_held_b, candidate.phase_frame,
             &candidate.away_tip_error, &candidate.away_tip_sample_frame,
-            &candidate.away_tip_sampled);
+            &candidate.away_tip_sampled, &candidate.away_tip_countdown);
         latch_tip_controlled(
             player_two_or_home_held_b, candidate.phase_frame,
             &candidate.home_tip_error, &candidate.home_tip_sample_frame,
-            &candidate.home_tip_sampled);
+            &candidate.home_tip_sampled, &candidate.home_tip_countdown);
     }
     if (candidate.phase >= TECMO_GAMEPLAY_PRETIP_BALL_DESCENT &&
         candidate.phase <= TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
@@ -1603,7 +1626,8 @@ bool tecmo_gameplay_pretip_update_controlled(
                     TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES - 1U,
                     &candidate.away_tip_error,
                     &candidate.away_tip_sample_frame,
-                    &candidate.away_tip_sampled);
+                    &candidate.away_tip_sampled,
+                    &candidate.away_tip_countdown);
             }
             if (!candidate.home_tip_sampled &&
                 player_two_or_home_held_b) {
@@ -1612,7 +1636,8 @@ bool tecmo_gameplay_pretip_update_controlled(
                     TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES - 1U,
                     &candidate.home_tip_error,
                     &candidate.home_tip_sample_frame,
-                    &candidate.home_tip_sampled);
+                    &candidate.home_tip_sampled,
+                    &candidate.home_tip_countdown);
             }
             if (!candidate.away_automatic_requested)
                 tip_update_human_jumper(
@@ -1638,12 +1663,13 @@ bool tecmo_gameplay_pretip_update_controlled(
         threshold = (uint16_t)(assets->tip_auto_threshold_base +
             ((candidate.tip_rng_6a & assets->tip_auto_threshold_mask) >>
              assets->tip_auto_threshold_shift));
-        if (!candidate.away_jump_committed) {
+        if (!candidate.cinematic_visible && !candidate.away_jump_committed) {
             if (!candidate.away_automatic_requested) {
                 latch_tip_controlled(
                     player_one_or_away_held_b, input_frame,
                     &candidate.away_tip_error, &candidate.away_tip_sample_frame,
-                    &candidate.away_tip_sampled);
+                    &candidate.away_tip_sampled,
+                    &candidate.away_tip_countdown);
                 tip_update_human_jumper(
                     &candidate, 0U, candidate.simulation_tick);
             } else if (
@@ -1658,12 +1684,13 @@ bool tecmo_gameplay_pretip_update_controlled(
                     candidate.away_tip_error, true);
             }
         }
-        if (!candidate.home_jump_committed) {
+        if (!candidate.cinematic_visible && !candidate.home_jump_committed) {
             if (!candidate.home_automatic_requested) {
                 latch_tip_controlled(
                     player_two_or_home_held_b, input_frame,
                     &candidate.home_tip_error, &candidate.home_tip_sample_frame,
-                    &candidate.home_tip_sampled);
+                    &candidate.home_tip_sampled,
+                    &candidate.home_tip_countdown);
                 tip_update_human_jumper(
                     &candidate, 1U, candidate.simulation_tick);
             } else if (
@@ -1678,7 +1705,14 @@ bool tecmo_gameplay_pretip_update_controlled(
                     candidate.home_tip_error, true);
             }
         }
-        tip_update_altitudes(&candidate);
+        /* Bank05 $A274's state-$17 claim does not clear or advance either
+           jumper.  The cinematic overlay pauses the actor dispatch tuple;
+           slot-10 receiver flight remains independent and continues below.
+           The transition update itself captures the post-claim tuple, every
+           overlay update preserves it, and the JUMP_CONTEST return resumes
+           ordinary $0C/$0D ballistic recovery. */
+        if (!candidate.cinematic_visible)
+            tip_update_altitudes(&candidate);
         tip_try_resolve_claim(assets, &candidate);
         if (flight_was_active) tip_update_ball_flight(&candidate);
         ++candidate.simulation_tick;
@@ -1938,7 +1972,14 @@ static bool tip_concurrent_simulation_regression(
     uint16_t previous_height = 0U;
     int16_t previous_velocity = 0;
     uint16_t apex_tick = 0U;
-    bool saw_fall = false;
+    uint8_t frozen_away_state;
+    uint8_t frozen_home_state;
+    uint8_t frozen_away_phase;
+    uint8_t frozen_home_phase;
+    uint16_t frozen_away_altitude;
+    uint16_t frozen_home_altitude;
+    int16_t frozen_away_velocity;
+    int16_t frozen_home_velocity;
     unsigned frame;
 #define CONCURRENT_FAIL(text) do { \
     if (message != NULL && message_size > 0U) \
@@ -1970,7 +2011,8 @@ static bool tip_concurrent_simulation_regression(
         CONCURRENT_FAIL("live object seed states");
     if (!tecmo_gameplay_pretip_update_controlled(
             assets, &state, true, false, false, false) ||
-        !state.away_tip_sampled || state.away_tip_countdown != 0x0CU ||
+        !state.away_tip_sampled || state.away_tip_countdown != 0U ||
+        state.away_tip_error != 0U ||
         state.away_jump_committed)
         CONCURRENT_FAIL("Bank04 B latch before simulation");
     if (!tecmo_gameplay_pretip_update(
@@ -2002,19 +2044,19 @@ static bool tip_concurrent_simulation_regression(
         if (!tecmo_gameplay_pretip_update_controlled(
                 assets, &state, false, false, false, true))
             CONCURRENT_FAIL("concurrent player/ball update");
-        if (state.home_jump_committed) {
+        if (state.away_jump_committed) {
             if (previous_velocity != 0 &&
-                state.home_jump_velocity_signed_q8 != 0 &&
-                state.home_jump_velocity_signed_q8 !=
+                state.away_jump_velocity_signed_q8 != 0 &&
+                state.away_jump_velocity_signed_q8 !=
                     (int16_t)(previous_velocity -
                         TECMO_GAMEPLAY_PRETIP_GRAVITY_Q8))
                 CONCURRENT_FAIL("gravity was not exactly $0028");
-            if (apex_tick == 0U && state.home_jump_velocity_signed_q8 > 0 &&
-                state.home_jump_altitude_q8 < previous_height)
+            if (apex_tick == 0U && state.away_jump_velocity_signed_q8 > 0 &&
+                state.away_jump_altitude_q8 < previous_height)
                 CONCURRENT_FAIL("height fell before velocity sign crossing");
-            if (state.home_apex_frame != 0U) apex_tick = state.home_apex_frame;
-            previous_velocity = state.home_jump_velocity_signed_q8;
-            previous_height = state.home_jump_altitude_q8;
+            if (state.away_apex_frame != 0U) apex_tick = state.away_apex_frame;
+            previous_velocity = state.away_jump_velocity_signed_q8;
+            previous_height = state.away_jump_altitude_q8;
         }
     }
     if (state.phase != TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP ||
@@ -2026,26 +2068,55 @@ static bool tip_concurrent_simulation_regression(
         CONCURRENT_FAIL("state-$17-driven cinematic ordering");
     if (state.first_cinematic_frame < 481U ||
         state.away_jump_commit_count != 1U ||
-        state.home_jump_commit_count != 1U)
+        state.home_jump_commit_count != 0U ||
+        state.away_jump_altitude_q8 == 0U)
         CONCURRENT_FAIL("cinematic fixed-duration or duplicate commit");
+    frozen_away_state = state.away_actor_state;
+    frozen_home_state = state.home_actor_state;
+    frozen_away_phase = state.away_animation_phase;
+    frozen_home_phase = state.home_animation_phase;
+    frozen_away_altitude = state.away_jump_altitude_q8;
+    frozen_home_altitude = state.home_jump_altitude_q8;
+    frozen_away_velocity = state.away_jump_velocity_signed_q8;
+    frozen_home_velocity = state.home_jump_velocity_signed_q8;
     for (frame = 0U; frame < 60U; ++frame) {
-        uint16_t before_height = state.home_jump_altitude_q8;
         if (!tecmo_gameplay_pretip_update_controlled(
                 assets, &state, false, false, false, true))
             CONCURRENT_FAIL("simulation under cinematic");
-        if (state.home_jump_velocity_signed_q8 < 0 &&
-            state.home_jump_altitude_q8 < before_height)
-            saw_fall = true;
+        if (state.away_actor_state != frozen_away_state ||
+            state.home_actor_state != frozen_home_state ||
+            state.away_animation_phase != frozen_away_phase ||
+            state.home_animation_phase != frozen_home_phase ||
+            state.away_jump_altitude_q8 != frozen_away_altitude ||
+            state.home_jump_altitude_q8 != frozen_home_altitude ||
+            state.away_jump_velocity_signed_q8 != frozen_away_velocity ||
+            state.home_jump_velocity_signed_q8 != frozen_home_velocity)
+            CONCURRENT_FAIL("jumper tuple changed under cinematic");
     }
-    apex_tick = state.home_apex_frame;
+    apex_tick = state.away_apex_frame;
     if (state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
-        state.cinematic_visible || state.away_jump_altitude_q8 != 0U ||
-        state.home_jump_altitude_q8 != 0U ||
-        state.away_actor_state != 0x13U || state.home_actor_state != 0x13U ||
-        !saw_fall || apex_tick == 0U ||
+        state.cinematic_visible ||
+        state.away_jump_altitude_q8 != frozen_away_altitude ||
+        state.home_jump_altitude_q8 != frozen_home_altitude ||
+        state.away_actor_state != frozen_away_state ||
+        state.home_actor_state != frozen_home_state ||
         state.away_jump_commit_count != 1U ||
-        state.home_jump_commit_count != 1U)
-        CONCURRENT_FAIL("cinematic exit landing/no-restart");
+        state.home_jump_commit_count != 0U) {
+        if (message != NULL && message_size > 0U)
+            (void)snprintf(message, message_size,
+                "TPTI-2 cinematic freeze exit failed phase=%u visible=%u alt=%u/%u frozen=%u/%u state=%u/%u frozen-state=%u/%u commits=%u/%u",
+                (unsigned)state.phase, state.cinematic_visible ? 1U : 0U,
+                (unsigned)state.away_jump_altitude_q8,
+                (unsigned)state.home_jump_altitude_q8,
+                (unsigned)frozen_away_altitude,
+                (unsigned)frozen_home_altitude,
+                (unsigned)state.away_actor_state,
+                (unsigned)state.home_actor_state,
+                (unsigned)frozen_away_state, (unsigned)frozen_home_state,
+                (unsigned)state.away_jump_commit_count,
+                (unsigned)state.home_jump_commit_count);
+        return false;
+    }
     for (frame = 0U; frame < 30U; ++frame) {
         if (!tecmo_gameplay_pretip_update_controlled(
                 assets, &state, false, false, false, true))
@@ -2053,7 +2124,7 @@ static bool tip_concurrent_simulation_regression(
     }
     if (state.phase != TECMO_GAMEPLAY_PRETIP_LIVE || !state.live_handoff ||
         state.away_jump_commit_count != 1U ||
-        state.home_jump_commit_count != 1U) {
+        state.home_jump_commit_count != 0U) {
         if (message != NULL && message_size > 0U)
             (void)snprintf(message, message_size,
                 "TPTI-2 concurrent simulation regression failed: late restart phase=%u frame=%u live=%u commits=%u/%u",

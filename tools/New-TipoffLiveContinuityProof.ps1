@@ -26,8 +26,8 @@ function Convert-Diagnostic([string]$Line) {
     return $Result
 }
 
-$Frames = @(597,598,599,604,610)
-$Names = @('before-handoff','handoff','first-live','live-motion-a','live-motion-b')
+$Frames = @(587,591,592,597,603)
+$Names = @('pre-handoff-airborne','handoff-recovered','first-live','live-motion-a','live-motion-b')
 $Records = @()
 for ($Index=0; $Index -lt $Frames.Count; ++$Index) {
     $Frame=$Frames[$Index]; $Name=$Names[$Index]
@@ -67,15 +67,9 @@ for ($Index=0; $Index -lt $Frames.Count; ++$Index) {
 }
 
 $Before=$Records[0]; $Handoff=$Records[1]
-for($Actor=0;$Actor -lt 10;++$Actor) {
-    $A=$Before.actors[$Actor]; $B=$Handoff.actors[$Actor]
-    foreach($Field in 'x','depth','anchor_x','anchor_depth','pose','facing_right','orientation_encoded','movement_action','movement_direction','movement_fraction','movement_animation','cpu_decision_serial','cpu_command_offset','cpu_link','cpu_target_valid','cpu_target_x','cpu_target_depth') {
-        if($A.$Field -ne $B.$Field){throw "Actor $Actor field $Field changed solely at handoff."}
-    }
-}
-if($Handoff.phase -ne 'live' -or $Handoff.holder -ne 7 -or $Handoff.possession -ne 1){throw 'Receiver/holder/possession handoff failed.'}
+if($Before.phase -ne 'jump-contest' -or $Before.away_altitude_q8 -le 0){throw 'Pre-handoff jumper continuity frame is not airborne.'}
+if($Handoff.phase -ne 'live' -or $Handoff.holder -ne $Handoff.receiver -or $Handoff.possession -ne 0){throw 'Receiver/holder/possession handoff failed.'}
 if(!$Handoff.ball_attached -or $Handoff.holder -ne $Handoff.receiver){throw 'Ball attachment is not bound to the resolved receiver.'}
-if($Handoff.actors[4].pose -ne 469 -or $Handoff.actors[9].pose -ne 501){throw 'Jumper landing poses restarted or reset.'}
 $StartupX=@(528,448,362,364,392,176,320,408,400,372)
 $AllStartup=$true
 for($Actor=0;$Actor -lt 10;++$Actor){if($Handoff.actors[$Actor].x -ne $StartupX[$Actor]){$AllStartup=$false}}
@@ -87,7 +81,7 @@ for($Actor=0;$Actor -lt 10;++$Actor){
 }
 if(!$Moved){throw 'Ordinary live movement remained frozen after handoff.'}
 foreach($Record in ($Records | Select-Object -Skip 1)){
-    if($Record.away_altitude_q8 -ne 0 -or $Record.home_altitude_q8 -ne 0 -or $Record.away_commits -ne 1 -or $Record.home_commits -ne 1){throw "Jumper restarted at frame $($Record.frame)."}
+    if($Record.away_altitude_q8 -ne 0 -or $Record.home_altitude_q8 -ne 0 -or $Record.away_commits -ne 1 -or $Record.home_commits -ne 0){throw "Jumper restarted at frame $($Record.frame)."}
     for($Actor=0;$Actor -lt 10;++$Actor){
         if($Record.actors[$Actor].live_foundation_x -ne $Record.actors[$Actor].x -or $Record.actors[$Actor].live_foundation_depth -ne $Record.actors[$Actor].depth){throw "Live foundation diverged for actor $Actor at frame $($Record.frame)."}
     }

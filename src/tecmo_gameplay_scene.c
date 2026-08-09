@@ -848,7 +848,6 @@ static bool scene_pretip_apply_jump_frame(
             scene->pretip_jumper_altitude_q8[jumper] = 0U;
             continue;
         }
-        any_committed = true;
         if (actor_state == 0x13U) {
             if (!scene_pretip_landing_pose(
                     scene->pretip_jumper_selector[jumper],
@@ -857,6 +856,7 @@ static bool scene_pretip_apply_jump_frame(
             scene->pretip_jumper_altitude_q8[jumper] = 0U;
             continue;
         }
+        any_committed = true;
         if (!scene_pretip_pose_base(
                 scene->pretip_jumper_selector[jumper], &pose_base)) {
             return false;
@@ -871,29 +871,6 @@ static bool scene_pretip_apply_jump_frame(
                          : scene->pretip_state.home_jump_altitude_q8;
     }
     scene->pretip_jump_active = any_committed;
-    return true;
-}
-
-static bool scene_pretip_land_jump(TecmoGameplayScene *scene)
-{
-    uint16_t landing_pose[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
-    size_t jumper;
-    if (!scene_pretip_jumper_mapping_valid(scene)) return false;
-    for (jumper = 0U; jumper < TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT;
-         ++jumper) {
-        if (!scene_pretip_landing_pose(
-                scene->pretip_jumper_selector[jumper],
-                &landing_pose[jumper])) return false;
-    }
-    for (jumper = 0U; jumper < TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT;
-         ++jumper) {
-        TecmoGameplaySceneActor *actor = &scene->actors[
-            scene->pretip_jumper_actor[jumper]];
-        actor->pose_index = landing_pose[jumper];
-        actor->pose_orientation_encoded = true;
-        scene->pretip_jumper_altitude_q8[jumper] = 0U;
-    }
-    scene->pretip_jump_active = false;
     return true;
 }
 
@@ -1797,8 +1774,10 @@ static bool scene_update_pretip_frame(
         ball_before = scene->ball_position;
         holder_before = scene->ball_holder;
         jump_active_before = scene->pretip_jump_active;
-        if (!scene_pretip_land_jump(scene) ||
-            !scene_handoff_tip_possession(scene, possession, holder) ||
+        /* $A274-$A2DE changes ball/selection state only.  Jumper landing is
+           owned by normal $8732/$8745 airborne recovery, never by cinematic
+           completion or the live handoff. */
+        if (!scene_handoff_tip_possession(scene, possession, holder) ||
             !scene_sync_live_foundation(scene) ||
             !tecmo_gameplay_camera_settle_court(
                 &scene->camera_assets, &scene->camera_state,
@@ -2149,6 +2128,15 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
     }
     if (tecmo_gameplay_pretip_is_presentation(&scene->pretip_state)) {
         return scene_update_pretip_frame(scene, player_one, player_two);
+    }
+    if (scene->pretip_jump_active) {
+        if (!tecmo_gameplay_pretip_update_live_jumpers(
+                &scene->pretip_assets, &scene->pretip_state) ||
+            !scene_pretip_apply_jump_frame(
+                scene, scene->pretip_state.simulation_tick)) {
+            scene_set_status(scene, "live tip-jumper recovery rejected");
+            return false;
+        }
     }
     if (!scene_ownership_valid(scene)) {
         scene_set_status(scene,

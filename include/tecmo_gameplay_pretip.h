@@ -304,6 +304,12 @@ bool tecmo_gameplay_pretip_update_controlled(
     bool player_two_or_home_held_b,
     bool away_automatic,
     bool home_automatic);
+
+/* Continues only committed jumper ballistic/recovery state after the
+   presentation handoff. Ball/claim/possession state is left untouched. */
+bool tecmo_gameplay_pretip_update_live_jumpers(
+    const TecmoGameplayPreTipAssets *assets,
+    TecmoGameplayPreTipState *state);
 /* Rejects every phase before JUMP_CONTEST without changing winner. During
    JUMP_CONTEST and LIVE, returns only a resolved claimant's logical team;
    unresolved/equal/stalled contests fail closed. */
