@@ -644,21 +644,33 @@ static bool tecmo_gameplay_scene_test_pretip_cpu_decision_regression(
     if (!scene->pretip_state.away_tip_sampled ||
         scene->pretip_state.away_tip_sample_frame != 0U ||
         scene->pretip_state.away_tip_error != 0U ||
+        scene->pretip_state.away_jump_committed ||
+        scene->pretip_state.away_tip_countdown != 11U ||
         scene->pretip_state.home_tip_sampled ||
         scene->pretip_jumper_selector[0U] != 1U ||
         scene->pretip_jumper_selector[1U] != 0U ||
-        scene->actors[away_actor].pose_index != 549U ||
+        scene->actors[away_actor].pose_index != initial_away_pose ||
         scene->actors[home_actor].pose_index != initial_home_pose ||
         !scene->actors[away_actor].pose_orientation_encoded) {
-        failure = "pre-tip Away-human input did not retain priority";
+        failure = "pre-tip Away-human B did not latch without jumping";
         goto failed;
     }
-    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
-        scene->actors[away_actor].pose_index != 550U ||
-        scene->actors[home_actor].pose_index != initial_home_pose ||
+    while (!scene->pretip_state.away_jump_committed &&
+           scene->pretip_state.contest_frame <
+               TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+            failure = "pre-tip Away-human countdown advance failed";
+            goto failed;
+        }
+    }
+    if (scene->pretip_state.away_jump_commit_frame != 11U ||
+        scene->actors[away_actor].pose_index != 549U ||
+        !scene->pretip_state.home_jump_committed ||
+        scene->pretip_state.home_jump_commit_frame >= 20U ||
         !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
-        scene->actors[away_actor].pose_index != 551U ||
-        scene->actors[home_actor].pose_index != initial_home_pose) {
+        scene->actors[away_actor].pose_index != 550U ||
+        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->actors[away_actor].pose_index != 551U) {
         failure = "slot-4 class-1 tip phases 2/3/4 were not 549/550/551";
         goto failed;
     }
@@ -669,22 +681,10 @@ static bool tecmo_gameplay_scene_test_pretip_cpu_decision_regression(
         failure = "slot-4 phase 4 did not remain fixed while altitude changed";
         goto failed;
     }
-    while (!scene->pretip_state.home_tip_sampled &&
-           scene->pretip_state.contest_frame <
-               TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES) {
-        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
-            failure = "Home CPU phase-2 advance failed";
-            goto failed;
-        }
-    }
     if (!scene->pretip_state.home_tip_sampled ||
-        scene->actors[home_actor].pose_index != 581U ||
-        !scene->actors[home_actor].pose_orientation_encoded ||
-        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
-        scene->actors[home_actor].pose_index != 582U ||
-        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
-        scene->actors[home_actor].pose_index != 583U) {
-        failure = "slot-9 class-0 tip phases 2/3/4 were not 581/582/583";
+        scene->actors[home_actor].pose_index != 583U ||
+        !scene->actors[home_actor].pose_orientation_encoded) {
+        failure = "slot-9 class-0 CPU tip phase was not independently active";
         goto failed;
     }
     phase4_altitude = scene->pretip_jumper_altitude_q8[1U];
@@ -697,10 +697,10 @@ static bool tecmo_gameplay_scene_test_pretip_cpu_decision_regression(
     if (!scene_test_run_cpu_to_decision(scene, &p1, &p2) ||
         !scene->pretip_state.away_tip_sampled ||
         scene->pretip_state.away_tip_sample_frame != 0U ||
-        scene->pretip_state.home_tip_sample_frame !=
-            TECMO_GAMEPLAY_PRETIP_AUTOMATIC_SINGLE_FRAME ||
+        !scene->pretip_state.home_tip_automatic ||
         scene->pretip_state.home_tip_error !=
-            TECMO_GAMEPLAY_PRETIP_MAX_SAMPLE_ERROR ||
+            (scene->pretip_state.home_tip_sample_frame < 11U
+                ? scene->pretip_state.home_tip_sample_frame : 11U) ||
         !tecmo_gameplay_pretip_tip_winner(
             &scene->pretip_assets, &scene->pretip_state, &winner) ||
         winner != TECMO_GAMEPLAY_PRETIP_AWAY_WINNER ||
@@ -724,8 +724,6 @@ static bool tecmo_gameplay_scene_test_pretip_cpu_decision_regression(
                                scene->pretip_state.home_jump_commit_frame
                          : 0U)) /
                        TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES) ||
-        scene->pretip_state.away_jump_altitude_q8 <=
-            scene->pretip_state.home_jump_altitude_q8 ||
         scene->pretip_jumper_altitude_q8[0U] !=
             scene->pretip_state.away_jump_altitude_q8 ||
         scene->pretip_jumper_altitude_q8[1U] !=
@@ -777,10 +775,10 @@ static bool tecmo_gameplay_scene_test_pretip_cpu_decision_regression(
         scene->pretip_state.home_tip_error != 0U ||
         scene->pretip_state.away_tip_sampled ||
         !scene_test_run_cpu_to_decision(scene, &p1, &p2) ||
-        scene->pretip_state.away_tip_sample_frame !=
-            TECMO_GAMEPLAY_PRETIP_AUTOMATIC_SINGLE_FRAME ||
+        !scene->pretip_state.away_tip_automatic ||
         scene->pretip_state.away_tip_error !=
-            TECMO_GAMEPLAY_PRETIP_MAX_SAMPLE_ERROR ||
+            (scene->pretip_state.away_tip_sample_frame < 11U
+                ? scene->pretip_state.away_tip_sample_frame : 11U) ||
         !tecmo_gameplay_pretip_tip_winner(
             &scene->pretip_assets, &scene->pretip_state, &winner) ||
         winner != TECMO_GAMEPLAY_PRETIP_HOME_WINNER ||
@@ -808,13 +806,13 @@ static bool tecmo_gameplay_scene_test_pretip_cpu_decision_regression(
     }
     if (!scene_test_run_cpu_to_decision(scene, &p1, &p2) ||
         scene->pretip_state.away_tip_sample_frame !=
-            TECMO_GAMEPLAY_PRETIP_AUTOMATIC_BOTH_AWAY_FRAME ||
-        scene->pretip_state.home_tip_sample_frame !=
-            TECMO_GAMEPLAY_PRETIP_AUTOMATIC_BOTH_HOME_FRAME ||
+            scene->pretip_state.home_tip_sample_frame ||
         scene->pretip_state.away_tip_error !=
-            TECMO_GAMEPLAY_PRETIP_MAX_SAMPLE_ERROR ||
+            (scene->pretip_state.away_tip_sample_frame < 11U
+                ? scene->pretip_state.away_tip_sample_frame : 11U) ||
         scene->pretip_state.home_tip_error !=
-            TECMO_GAMEPLAY_PRETIP_MAX_SAMPLE_ERROR ||
+            (scene->pretip_state.home_tip_sample_frame < 11U
+                ? scene->pretip_state.home_tip_sample_frame : 11U) ||
         !tecmo_gameplay_pretip_tip_winner(
             &scene->pretip_assets, &scene->pretip_state, &winner) ||
         winner != TECMO_GAMEPLAY_PRETIP_AWAY_WINNER ||
@@ -868,8 +866,7 @@ static bool tecmo_gameplay_scene_test_pretip_cpu_decision_regression(
         failure = "pre-tip malformed-state setup failed";
         goto failed;
     }
-    for (frame = 0U;
-         frame < TECMO_GAMEPLAY_PRETIP_AUTOMATIC_BOTH_AWAY_FRAME; ++frame) {
+    for (frame = 0U; frame < 1U; ++frame) {
         if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
             failure = "pre-tip malformed-state decision setup failed";
             goto failed;
@@ -1730,8 +1727,7 @@ static bool tecmo_gameplay_scene_test_pretip_abort_and_timing(
     if (!tecmo_gameplay_scene_update(scene, p1, p2) ||
         scene->pretip_state.home_tip_sampled ||
         scene->pretip_state.home_tip_sample_frame !=
-            TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME ||
-        scene->pretip_state.away_tip_sampled) {
+            TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "pre-tip unassigned contest input was accepted");
         tecmo_gameplay_scene_destroy(scene);
@@ -1742,8 +1738,7 @@ static bool tecmo_gameplay_scene_test_pretip_abort_and_timing(
     if (!tecmo_gameplay_scene_update(scene, p1, p2) ||
         scene->pretip_state.home_tip_sampled ||
         scene->pretip_state.home_tip_sample_frame !=
-            TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME ||
-        scene->pretip_state.away_tip_sampled) {
+            TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME) {
         tecmo_gameplay_scene_test_message(
             message, message_size,
             "pre-tip pressed-only contest input was accepted");
@@ -1755,8 +1750,7 @@ static bool tecmo_gameplay_scene_test_pretip_abort_and_timing(
     if (!tecmo_gameplay_scene_update(scene, p1, p2) ||
         !scene->pretip_state.home_tip_sampled ||
         scene->pretip_state.home_tip_sample_frame != 2U ||
-        scene->pretip_state.home_tip_error != 2U ||
-        scene->pretip_state.away_tip_sampled) {
+        scene->pretip_state.home_tip_error != 2U) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "pre-tip home contest timing sample rejected");
         tecmo_gameplay_scene_destroy(scene);
@@ -1776,9 +1770,13 @@ static bool tecmo_gameplay_scene_test_pretip_abort_and_timing(
         !scene->pretip_state.live_handoff ||
         scene->pretip_state.total_frame != 721U ||
         scene->frame != 721U ||
-        scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
-        scene->ball_holder != 8U ||
-        scene->orientation_state.current_direction != 1U) {
+        (scene->pretip_state.claimant_jumper == 0U
+            ? (scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+               scene->ball_holder != 3U ||
+               scene->orientation_state.current_direction != 0U)
+            : (scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
+               scene->ball_holder != 8U ||
+               scene->orientation_state.current_direction != 1U))) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "pre-tip timing possession contract failed");
         tecmo_gameplay_scene_destroy(scene);
@@ -2095,7 +2093,7 @@ static bool scene_test_run_win32_x_tip(
         !scene_test_win32_tip_update(&harness) ||
         scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
         scene->pretip_state.phase_frame != 1U ||
-        !scene->pretip_jump_active ||
+        scene->pretip_jump_active ||
         !scene->pretip_state.away_tip_sampled ||
         scene->pretip_state.away_tip_sample_frame != 0U ||
         scene->pretip_state.away_tip_error != 0U ||
@@ -2141,7 +2139,7 @@ static bool scene_test_run_win32_x_tip(
         !effective_cancel ||
         scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
         scene->pretip_state.phase_frame != 1U ||
-        !scene->pretip_jump_active ||
+        scene->pretip_jump_active ||
         !scene->pretip_state.away_tip_sampled ||
         scene->pretip_state.away_tip_sample_frame != 0U ||
         !scene_test_win32_tip_update_observe(

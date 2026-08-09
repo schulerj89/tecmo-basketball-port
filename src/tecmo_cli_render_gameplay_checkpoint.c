@@ -624,6 +624,31 @@ static bool gameplay_checkpoint_report_tipoff_proof(
         (long)scene->ball_position.y_q8,
         (unsigned)court_frame.projection.camera_x,
         (unsigned)court_frame.slice.viewport.fine_scroll_x);
+    printf(
+        "tipoff-timing frame=%u ball-screen-y=%ld ball-raw-height=%u "
+        "rng-threshold=%u away-latch=%u away-countdown=%u "
+        "away-commit-frame=%u away-committed=%u away-altitude-q8=%u "
+        "away-phase=%u away-pose=%u home-latch=%u home-countdown=%u "
+        "home-commit-frame=%u home-committed=%u home-altitude-q8=%u "
+        "home-phase=%u home-pose=%u\n",
+        scene->frame, (long)court_frame.projection.ball.screen_y,
+        (unsigned)scene->pretip_state.tip_ball_high_raw,
+        (unsigned)(scene->pretip_assets.tip_auto_threshold_base +
+            ((scene->pretip_state.tip_rng_6a &
+              scene->pretip_assets.tip_auto_threshold_mask) >>
+             scene->pretip_assets.tip_auto_threshold_shift)),
+        scene->pretip_state.away_tip_sampled ? 1U : 0U,
+        (unsigned)scene->pretip_state.away_tip_countdown,
+        (unsigned)scene->pretip_state.away_jump_commit_frame,
+        scene->pretip_state.away_jump_committed ? 1U : 0U,
+        (unsigned)scene->pretip_jumper_altitude_q8[0U],
+        (unsigned)away_phase, (unsigned)away->pose_index,
+        scene->pretip_state.home_tip_sampled ? 1U : 0U,
+        (unsigned)scene->pretip_state.home_tip_countdown,
+        (unsigned)scene->pretip_state.home_jump_commit_frame,
+        scene->pretip_state.home_jump_committed ? 1U : 0U,
+        (unsigned)scene->pretip_jumper_altitude_q8[1U],
+        (unsigned)home_phase, (unsigned)home->pose_index);
     return true;
 }
 
@@ -647,9 +672,6 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
     const int free_throw_orientation = config->free_throw_orientation;
     const unsigned first_contest_update =
         TECMO_CLI_PRETIP_CONTEST_START_FRAME + 1U;
-    const unsigned home_cpu_sample_frame =
-        TECMO_CLI_PRETIP_CONTEST_START_FRAME +
-        TECMO_GAMEPLAY_PRETIP_AUTOMATIC_SINGLE_FRAME + 1U;
     const bool away_live_adapter = !cpu_steering && !pretip_checkpoint;
 
     *done_out = false;
@@ -738,14 +760,6 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
                   input_evidence.bridge_end_count != checkpoint ||
                   input_evidence.bridge_update_players_count != checkpoint ||
                   input_evidence.fast_x_pulse_frame != 0xFFFFFFFFU)) ||
-                (checkpoint < home_cpu_sample_frame &&
-                 scene->pretip_state.home_tip_sampled) ||
-                (checkpoint >= home_cpu_sample_frame &&
-                 (!scene->pretip_state.home_tip_sampled ||
-                  scene->pretip_state.home_tip_sample_frame !=
-                      TECMO_GAMEPLAY_PRETIP_AUTOMATIC_SINGLE_FRAME ||
-                  scene->pretip_state.home_tip_error !=
-                      TECMO_GAMEPLAY_PRETIP_MAX_SAMPLE_ERROR)) ||
                 (checkpoint >= TECMO_CLI_PRETIP_LIVE_START_FRAME &&
                  (scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
                   scene->ball_holder != 3U))) {

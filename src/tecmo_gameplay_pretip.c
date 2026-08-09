@@ -803,6 +803,13 @@ static uint8_t tip_ball_high_for_frame(uint16_t contest_frame)
     return value > UINT8_MAX ? UINT8_MAX : (uint8_t)value;
 }
 
+uint8_t tecmo_gameplay_pretip_ball_screen_y(uint8_t raw_height)
+{
+    return raw_height < TECMO_GAMEPLAY_PRETIP_BALL_FLOOR_SCREEN_Y
+        ? (uint8_t)(TECMO_GAMEPLAY_PRETIP_BALL_FLOOR_SCREEN_Y - raw_height)
+        : 0U;
+}
+
 static void tip_commit_jumper(TecmoGameplayPreTipState *state,
                               uint8_t jumper,
                               uint16_t contest_frame,
@@ -811,6 +818,7 @@ static void tip_commit_jumper(TecmoGameplayPreTipState *state,
 {
     uint16_t velocity;
     uint16_t claim_height;
+    uint16_t claim_sample_frame;
     if (state == NULL || jumper >= TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT)
         return;
     /* This velocity/height mapping is native-faithful/approximate. Velocity
@@ -826,16 +834,18 @@ static void tip_commit_jumper(TecmoGameplayPreTipState *state,
         velocity = (uint16_t)(velocity + 0x0040U +
                               (uint16_t)jumper * 0x0020U +
                               (uint16_t)(state->tip_rng_6a & 0x03U) * 0x0010U);
+    claim_sample_frame = automatic ? contest_frame :
+        (jumper == 0U ? state->away_tip_sample_frame
+                      : state->home_tip_sample_frame);
     claim_height = (uint16_t)(0x30U +
                               ((uint16_t)(TECMO_GAMEPLAY_PRETIP_MAX_SAMPLE_ERROR -
                                           error) * 2U) +
                               (uint16_t)((TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES -
-                                          contest_frame) / 4U));
+                                          claim_sample_frame) / 4U));
     if (automatic) {
-        /* Native-faithful/approximate calibration preserves the accepted
-           CPU-vs-CPU Away result without assigning meaning to raw selectors:
-           the observed 20/22 commits become Away 0x34/Home 0x33. */
-        claim_height = (uint16_t)(claim_height + (jumper == 0U ? 2U : 1U));
+        /* Native-approximate claim-height policy keeps the deterministic
+           CPU-vs-CPU Away result without delaying either CPU threshold. */
+        claim_height = (uint16_t)(claim_height + (jumper == 0U ? 1U : 0U));
     }
     if (jumper == 0U) {
         state->away_jump_committed = true;
@@ -854,20 +864,39 @@ static void tip_commit_jumper(TecmoGameplayPreTipState *state,
     }
 }
 
-static void sample_tip_controlled(bool held, bool automatic,
-                                  uint16_t contest_frame,
-                                  uint8_t *error, uint16_t *sample_frame,
-                                  bool *sampled,
-                                  TecmoGameplayPreTipState *state,
-                                  uint8_t jumper)
+static void latch_tip_controlled(bool held, uint16_t contest_frame,
+                                 uint8_t *error, uint16_t *sample_frame,
+                                 bool *sampled)
 {
-    if ((!held && !automatic) || sampled == NULL || *sampled ||
-        error == NULL || sample_frame == NULL || state == NULL)
+    if (!held || sampled == NULL || *sampled || error == NULL ||
+        sample_frame == NULL)
         return;
     *sampled = true;
     *error = tip_error_for_sample(contest_frame);
     *sample_frame = contest_frame;
-    tip_commit_jumper(state, jumper, contest_frame, *error, automatic);
+}
+
+static void tip_update_human_jumper(TecmoGameplayPreTipState *state,
+                                    uint8_t jumper,
+                                    uint16_t contest_frame)
+{
+    uint8_t *countdown;
+    bool sampled;
+    bool committed;
+    uint8_t error;
+    if (state == NULL || jumper >= TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT ||
+        state->tip_ball_high_raw < TECMO_GAMEPLAY_PRETIP_HUMAN_GATE_HEIGHT)
+        return;
+    countdown = jumper == 0U ? &state->away_tip_countdown
+                             : &state->home_tip_countdown;
+    sampled = jumper == 0U ? state->away_tip_sampled
+                           : state->home_tip_sampled;
+    committed = jumper == 0U ? state->away_jump_committed
+                             : state->home_jump_committed;
+    error = jumper == 0U ? state->away_tip_error : state->home_tip_error;
+    if (*countdown > 0U) --*countdown;
+    if (*countdown == 0U && sampled && !committed)
+        tip_commit_jumper(state, jumper, contest_frame, error, false);
 }
 
 static bool tip_claim_ready(uint8_t ball_high, uint8_t claim_height)
@@ -883,21 +912,6 @@ static bool tip_automatic_threshold_met(uint8_t ball_high,
 {
     /* Bank05 $839F uses BCS after CMP: equality is not a trigger. */
     return (uint16_t)ball_high > threshold;
-}
-
-static uint16_t tip_automatic_target_frame(bool away_automatic,
-                                           bool home_automatic,
-                                           uint8_t jumper)
-{
-    /* Bounded mapper-gated observations: both automatic branches committed at
-       ages 20/22, while a single automatic branch committed at age 21. This
-       is a deterministic native-faithful calibration, not a complete ROM
-       trajectory or TTDT/raw-$7C48 claim. */
-    if (away_automatic && home_automatic)
-        return jumper == 0U
-                 ? TECMO_GAMEPLAY_PRETIP_AUTOMATIC_BOTH_AWAY_FRAME
-                 : TECMO_GAMEPLAY_PRETIP_AUTOMATIC_BOTH_HOME_FRAME;
-    return TECMO_GAMEPLAY_PRETIP_AUTOMATIC_SINGLE_FRAME;
 }
 
 static void tip_try_resolve_claim(TecmoGameplayPreTipState *state)
@@ -1083,22 +1097,18 @@ static bool state_valid(const TecmoGameplayPreTipAssets *assets,
           state->home_automatic_requested))) {
         return false;
     }
-    if (state->away_tip_sampled != state->away_jump_committed ||
-        state->home_tip_sampled != state->home_jump_committed ||
+    if ((state->away_jump_committed && !state->away_tip_sampled) ||
+        (state->home_jump_committed && !state->home_tip_sampled) ||
+        state->away_tip_countdown >
+            TECMO_GAMEPLAY_PRETIP_HUMAN_COUNTDOWN_INITIAL ||
+        state->home_tip_countdown >
+            TECMO_GAMEPLAY_PRETIP_HUMAN_COUNTDOWN_INITIAL ||
         state->away_tip_automatic != state->away_automatic_triggered ||
         state->home_tip_automatic != state->home_automatic_triggered) {
         return false;
     }
-    if ((state->away_tip_automatic &&
-         (!state->away_automatic_requested ||
-          state->away_tip_sample_frame < tip_automatic_target_frame(
-              state->away_automatic_requested,
-              state->home_automatic_requested, 0U))) ||
-        (state->home_tip_automatic &&
-         (!state->home_automatic_requested ||
-          state->home_tip_sample_frame < tip_automatic_target_frame(
-              state->away_automatic_requested,
-              state->home_automatic_requested, 1U)))) {
+    if ((state->away_tip_automatic && !state->away_automatic_requested) ||
+        (state->home_tip_automatic && !state->home_automatic_requested)) {
         return false;
     }
     if (state->away_jump_committed) {
@@ -1230,6 +1240,10 @@ bool tecmo_gameplay_pretip_state_initialize(
     initial.phase = TECMO_GAMEPLAY_PRETIP_PRESEASON;
     initial.away_tip_error = 12U;
     initial.home_tip_error = 12U;
+    initial.away_tip_countdown =
+        TECMO_GAMEPLAY_PRETIP_HUMAN_COUNTDOWN_INITIAL;
+    initial.home_tip_countdown =
+        TECMO_GAMEPLAY_PRETIP_HUMAN_COUNTDOWN_INITIAL;
     initial.away_tip_sample_frame = TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME;
     initial.home_tip_sample_frame = TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME;
     initial.tip_rng_53 = 0x5AU;
@@ -1286,22 +1300,30 @@ bool tecmo_gameplay_pretip_update_controlled(
             candidate.claim_deferred = false;
             if (!candidate.away_tip_sampled &&
                 player_one_or_away_held_b) {
-                sample_tip_controlled(
-                    true, false,
+                latch_tip_controlled(
+                    true,
                     TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES - 1U,
                     &candidate.away_tip_error,
                     &candidate.away_tip_sample_frame,
-                    &candidate.away_tip_sampled, &candidate, 0U);
+                    &candidate.away_tip_sampled);
             }
             if (!candidate.home_tip_sampled &&
                 player_two_or_home_held_b) {
-                sample_tip_controlled(
-                    true, false,
+                latch_tip_controlled(
+                    true,
                     TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES - 1U,
                     &candidate.home_tip_error,
                     &candidate.home_tip_sample_frame,
-                    &candidate.home_tip_sampled, &candidate, 1U);
+                    &candidate.home_tip_sampled);
             }
+            if (!candidate.away_automatic_requested)
+                tip_update_human_jumper(
+                    &candidate, 0U,
+                    TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES - 1U);
+            if (!candidate.home_automatic_requested)
+                tip_update_human_jumper(
+                    &candidate, 1U,
+                    TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES - 1U);
         }
         if (candidate.phase_frame >=
                 TECMO_GAMEPLAY_PRETIP_PRESENTATION_FRAMES) {
@@ -1321,41 +1343,41 @@ bool tecmo_gameplay_pretip_update_controlled(
                 assets->tip_auto_threshold_base +
                 ((candidate.tip_rng_6a & assets->tip_auto_threshold_mask) >>
                  assets->tip_auto_threshold_shift));
-            if (!candidate.away_tip_sampled &&
-                (player_one_or_away_held_b ||
-                 (candidate.away_automatic_requested &&
-                  candidate.contest_frame >= tip_automatic_target_frame(
-                      candidate.away_automatic_requested,
-                      candidate.home_automatic_requested, 0U) &&
-                  tip_automatic_threshold_met(
-                      candidate.tip_ball_high_raw, threshold)))) {
-                sample_tip_controlled(
-                    player_one_or_away_held_b,
-                    !player_one_or_away_held_b &&
-                        candidate.away_automatic_requested,
-                    candidate.contest_frame,
-                    &candidate.away_tip_error,
-                    &candidate.away_tip_sample_frame,
-                    &candidate.away_tip_sampled,
-                    &candidate, 0U);
+            if (!candidate.away_automatic_requested) {
+                latch_tip_controlled(
+                    player_one_or_away_held_b, candidate.contest_frame,
+                    &candidate.away_tip_error, &candidate.away_tip_sample_frame,
+                    &candidate.away_tip_sampled);
+                tip_update_human_jumper(
+                    &candidate, 0U, candidate.contest_frame);
+            } else if (!candidate.away_jump_committed &&
+                       tip_automatic_threshold_met(
+                           candidate.tip_ball_high_raw, threshold)) {
+                candidate.away_tip_sampled = true;
+                candidate.away_tip_error =
+                    tip_error_for_sample(candidate.contest_frame);
+                candidate.away_tip_sample_frame = candidate.contest_frame;
+                tip_commit_jumper(
+                    &candidate, 0U, candidate.contest_frame,
+                    candidate.away_tip_error, true);
             }
-            if (!candidate.home_tip_sampled &&
-                (player_two_or_home_held_b ||
-                 (candidate.home_automatic_requested &&
-                  candidate.contest_frame >= tip_automatic_target_frame(
-                      candidate.away_automatic_requested,
-                      candidate.home_automatic_requested, 1U) &&
-                  tip_automatic_threshold_met(
-                      candidate.tip_ball_high_raw, threshold)))) {
-                sample_tip_controlled(
-                    player_two_or_home_held_b,
-                    !player_two_or_home_held_b &&
-                        candidate.home_automatic_requested,
-                    candidate.contest_frame,
-                    &candidate.home_tip_error,
-                    &candidate.home_tip_sample_frame,
-                    &candidate.home_tip_sampled,
-                    &candidate, 1U);
+            if (!candidate.home_automatic_requested) {
+                latch_tip_controlled(
+                    player_two_or_home_held_b, candidate.contest_frame,
+                    &candidate.home_tip_error, &candidate.home_tip_sample_frame,
+                    &candidate.home_tip_sampled);
+                tip_update_human_jumper(
+                    &candidate, 1U, candidate.contest_frame);
+            } else if (!candidate.home_jump_committed &&
+                       tip_automatic_threshold_met(
+                           candidate.tip_ball_high_raw, threshold)) {
+                candidate.home_tip_sampled = true;
+                candidate.home_tip_error =
+                    tip_error_for_sample(candidate.contest_frame);
+                candidate.home_tip_sample_frame = candidate.contest_frame;
+                tip_commit_jumper(
+                    &candidate, 1U, candidate.contest_frame,
+                    candidate.home_tip_error, true);
             }
             ++candidate.contest_frame;
         }
@@ -1472,6 +1494,7 @@ static bool tip_winner_gate_regression(
     TecmoGameplayPreTipState early_deferred;
     TecmoGameplayPreTipState malformed;
     TecmoGameplayPreTipState before;
+    TecmoGameplayPreTipState gate_probe;
     uint8_t winner;
     unsigned frame;
 
@@ -1522,6 +1545,53 @@ static bool tip_winner_gate_regression(
         !tecmo_gameplay_pretip_state_initialize(
                 assets, &early_deferred, false)) {
         PRETIP_GATE_FAIL("contest setup initialization");
+    }
+
+    /* Bank05 $839F/$985E: human latch, $37 gate, and independent $0C
+       countdown are separate from physical commit and from the CPU branch. */
+    gate_probe = equal_errors;
+    gate_probe.tip_ball_high_raw =
+        TECMO_GAMEPLAY_PRETIP_HUMAN_GATE_HEIGHT - 1U;
+    gate_probe.away_tip_sampled = true;
+    gate_probe.away_tip_error = 0U;
+    gate_probe.away_tip_sample_frame = 0U;
+    tip_update_human_jumper(&gate_probe, 0U, 0U);
+    if (gate_probe.away_tip_countdown !=
+            TECMO_GAMEPLAY_PRETIP_HUMAN_COUNTDOWN_INITIAL ||
+        gate_probe.away_jump_committed ||
+        gate_probe.home_tip_countdown !=
+            TECMO_GAMEPLAY_PRETIP_HUMAN_COUNTDOWN_INITIAL)
+        PRETIP_GATE_FAIL("human countdown ticked below $37 or crossed actors");
+    gate_probe.tip_ball_high_raw = TECMO_GAMEPLAY_PRETIP_HUMAN_GATE_HEIGHT;
+    for (frame = 0U;
+         frame < TECMO_GAMEPLAY_PRETIP_HUMAN_COUNTDOWN_INITIAL - 1U;
+         ++frame) {
+        tip_update_human_jumper(&gate_probe, 0U, (uint16_t)frame);
+        if (gate_probe.away_jump_committed)
+            PRETIP_GATE_FAIL("latched human committed before countdown expiry");
+    }
+    tip_update_human_jumper(
+        &gate_probe, 0U,
+        TECMO_GAMEPLAY_PRETIP_HUMAN_COUNTDOWN_INITIAL - 1U);
+    if (!gate_probe.away_jump_committed ||
+        gate_probe.away_jump_commit_frame !=
+            TECMO_GAMEPLAY_PRETIP_HUMAN_COUNTDOWN_INITIAL - 1U ||
+        gate_probe.home_tip_countdown !=
+            TECMO_GAMEPLAY_PRETIP_HUMAN_COUNTDOWN_INITIAL)
+        PRETIP_GATE_FAIL("latched human did not commit on independent expiry");
+    gate_probe = equal_errors;
+    gate_probe.tip_ball_high_raw = TECMO_GAMEPLAY_PRETIP_HUMAN_GATE_HEIGHT;
+    for (frame = 0U;
+         frame < TECMO_GAMEPLAY_PRETIP_HUMAN_COUNTDOWN_INITIAL; ++frame)
+        tip_update_human_jumper(&gate_probe, 0U, (uint16_t)frame);
+    if (gate_probe.away_tip_countdown != 0U ||
+        gate_probe.away_jump_committed)
+        PRETIP_GATE_FAIL("unlatched human jumped at countdown expiry");
+    for (frame = TECMO_GAMEPLAY_PRETIP_AUTO_THRESHOLD_BASE;
+         frame <= TECMO_GAMEPLAY_PRETIP_AUTO_THRESHOLD_BASE + 7U; ++frame) {
+        if (tip_automatic_threshold_met((uint8_t)frame, frame) ||
+            !tip_automatic_threshold_met((uint8_t)(frame + 1U), frame))
+            PRETIP_GATE_FAIL("CPU strict threshold equality/range failed");
     }
     for (frame = 0U; frame < 661U; ++frame) {
         if (!tecmo_gameplay_pretip_update(
@@ -1619,73 +1689,68 @@ static bool tip_winner_gate_regression(
                 assets, &automatic_both, false, false, true, true) ||
             !tecmo_gameplay_pretip_update_controlled(
                 assets, &automatic_one, false, false, true, false))
-            PRETIP_GATE_FAIL("automatic calibration advance");
+            PRETIP_GATE_FAIL("automatic threshold advance");
     }
     if (!automatic_both.away_tip_automatic ||
         !automatic_both.home_tip_automatic ||
         automatic_both.away_tip_sample_frame !=
-            TECMO_GAMEPLAY_PRETIP_AUTOMATIC_BOTH_AWAY_FRAME ||
-        automatic_both.home_tip_sample_frame !=
-            TECMO_GAMEPLAY_PRETIP_AUTOMATIC_BOTH_HOME_FRAME ||
-        automatic_both.away_tip_error !=
-            TECMO_GAMEPLAY_PRETIP_MAX_SAMPLE_ERROR ||
-        automatic_both.home_tip_error !=
-            TECMO_GAMEPLAY_PRETIP_MAX_SAMPLE_ERROR ||
-        automatic_both.away_claim_height_raw != 0x34U ||
-        automatic_both.home_claim_height_raw != 0x33U ||
+            automatic_both.home_tip_sample_frame ||
+        automatic_both.away_tip_sample_frame >=
+            TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES ||
+        automatic_both.away_tip_error != tip_error_for_sample(
+            automatic_both.away_tip_sample_frame) ||
+        automatic_both.home_tip_error != tip_error_for_sample(
+            automatic_both.home_tip_sample_frame) ||
         !automatic_both.claim_resolved ||
         automatic_both.claimant_jumper != 0U ||
         !automatic_one.away_tip_automatic ||
         automatic_one.away_tip_sample_frame !=
-            TECMO_GAMEPLAY_PRETIP_AUTOMATIC_SINGLE_FRAME ||
-        automatic_one.away_tip_error != TECMO_GAMEPLAY_PRETIP_MAX_SAMPLE_ERROR ||
+            automatic_both.away_tip_sample_frame ||
+        automatic_one.away_tip_error != tip_error_for_sample(
+            automatic_one.away_tip_sample_frame) ||
         !automatic_one.claim_resolved || automatic_one.claimant_jumper != 0U)
-        PRETIP_GATE_FAIL("automatic 20/21/22 calibration or claim failed");
+        PRETIP_GATE_FAIL("automatic raw-height threshold or claim failed");
     if (automatic_one.away_jump_altitude_q8 !=
             (uint16_t)(((uint32_t)automatic_one.away_jump_velocity_q8 *
                         (TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES -
-                         TECMO_GAMEPLAY_PRETIP_AUTOMATIC_SINGLE_FRAME)) /
+                         automatic_one.away_jump_commit_frame)) /
                        TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES) ||
         automatic_one.away_jump_altitude_q8 >=
             automatic_one.away_jump_velocity_q8)
-        PRETIP_GATE_FAIL("late automatic altitude did not originate at commit");
+        PRETIP_GATE_FAIL("automatic altitude did not originate at commit");
 
-    /* The bridge uses full visible age (0..60), subtracts the jumper's own
-       commit age, then caps elapsed time at 30. The commit update deliberately
-       establishes a one-step origin. */
+    /* CPU commit is the first strict raw-height crossing, with no frame gate. */
     if (late_auto.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
         late_auto.phase_frame != 0U || late_auto.contest_frame != 0U)
-        PRETIP_GATE_FAIL("late automatic altitude origin setup failed");
-    for (frame = 0U;
-         frame < TECMO_GAMEPLAY_PRETIP_AUTOMATIC_SINGLE_FRAME;
+        PRETIP_GATE_FAIL("automatic threshold origin setup failed");
+    for (frame = 0U; !late_auto.away_jump_committed &&
+                     frame < TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES;
          ++frame) {
+        uint8_t next_rng = tip_rng_after_count((uint8_t)(frame + 1U));
+        uint16_t threshold = (uint16_t)assets->tip_auto_threshold_base +
+            ((next_rng & assets->tip_auto_threshold_mask) >>
+             assets->tip_auto_threshold_shift);
+        uint8_t ball_high = tip_ball_high_for_frame((uint16_t)frame);
         if (!tecmo_gameplay_pretip_update_controlled(
                 assets, &late_auto, false, false, true, false))
-            PRETIP_GATE_FAIL("late automatic pre-commit advance failed");
+            PRETIP_GATE_FAIL("automatic threshold advance failed");
+        if (ball_high <= threshold && late_auto.away_jump_committed)
+            PRETIP_GATE_FAIL("automatic equality/below threshold committed");
+        if (ball_high > threshold && !late_auto.away_jump_committed)
+            PRETIP_GATE_FAIL("automatic first strict crossing was missed");
     }
-    if (late_auto.away_tip_sampled ||
-        late_auto.away_jump_altitude_q8 != 0U ||
-        late_auto.phase_frame !=
-            TECMO_GAMEPLAY_PRETIP_AUTOMATIC_SINGLE_FRAME)
-        PRETIP_GATE_FAIL("late automatic commit-origin zero step failed");
-    if (!tecmo_gameplay_pretip_update_controlled(
-            assets, &late_auto, false, false, true, false) ||
-        !late_auto.away_tip_sampled ||
-        late_auto.away_tip_sample_frame !=
-            TECMO_GAMEPLAY_PRETIP_AUTOMATIC_SINGLE_FRAME ||
-        late_auto.away_jump_altitude_q8 !=
-            (uint16_t)(((uint32_t)late_auto.away_jump_velocity_q8 * 1U) /
-                       TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES))
-        PRETIP_GATE_FAIL("late automatic commit-plus-one altitude origin failed");
-    for (frame = 0U; frame < 29U; ++frame) {
+    if (!late_auto.away_jump_committed ||
+        late_auto.away_jump_commit_frame >= 20U)
+        PRETIP_GATE_FAIL("automatic commit still depended on late frame gate");
+    for (frame = late_auto.phase_frame; frame < 51U; ++frame) {
         if (!tecmo_gameplay_pretip_update_controlled(
                 assets, &late_auto, false, false, true, false))
-            PRETIP_GATE_FAIL("late automatic commit-plus-30 advance failed");
+            PRETIP_GATE_FAIL("automatic altitude cap advance failed");
     }
     if (late_auto.phase_frame != 51U ||
         late_auto.away_jump_altitude_q8 !=
             late_auto.away_jump_velocity_q8)
-        PRETIP_GATE_FAIL("late automatic commit-plus-30 altitude cap failed");
+        PRETIP_GATE_FAIL("automatic altitude cap failed");
     for (frame = 0U; frame < 9U; ++frame) {
         if (!tecmo_gameplay_pretip_update_controlled(
                 assets, &late_auto, false, false, true, false))

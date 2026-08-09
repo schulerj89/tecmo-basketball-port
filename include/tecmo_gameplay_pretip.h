@@ -26,16 +26,15 @@
 #define TECMO_GAMEPLAY_PRETIP_AUTO_THRESHOLD_BASE 0x3DU
 #define TECMO_GAMEPLAY_PRETIP_AUTO_THRESHOLD_MASK 0x1FU
 #define TECMO_GAMEPLAY_PRETIP_AUTO_THRESHOLD_SHIFT 2U
+#define TECMO_GAMEPLAY_PRETIP_HUMAN_GATE_HEIGHT 0x37U
+#define TECMO_GAMEPLAY_PRETIP_HUMAN_COUNTDOWN_INITIAL 0x0CU
+#define TECMO_GAMEPLAY_PRETIP_BALL_FLOOR_SCREEN_Y 133U
 #define TECMO_GAMEPLAY_PRETIP_CLAIM_BALL_HIGH_MIN 0x3AU
 #define TECMO_GAMEPLAY_PRETIP_CLAIM_BALL_MINUS_JUMPER_LIMIT 0x3AU
 #define TECMO_GAMEPLAY_PRETIP_ACTOR_JUMP_COMMIT_STATE 0x0BU
 #define TECMO_GAMEPLAY_PRETIP_SLOT10_CLAIM_COMMIT_STATE 0x17U
 #define TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_0380_SEED 0x07U
 #define TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_037F_SEED 0x02U
-/* Bounded native-approximate automatic calibration vectors. */
-#define TECMO_GAMEPLAY_PRETIP_AUTOMATIC_BOTH_AWAY_FRAME 20U
-#define TECMO_GAMEPLAY_PRETIP_AUTOMATIC_SINGLE_FRAME 21U
-#define TECMO_GAMEPLAY_PRETIP_AUTOMATIC_BOTH_HOME_FRAME 22U
 #define TECMO_GAMEPLAY_PRETIP_CLAIMANT_NONE 0xFFU
 #define TECMO_GAMEPLAY_PRETIP_TPM2_VERSION 2U
 #define TECMO_GAMEPLAY_PRETIP_TPM2_SIZE 96U
@@ -179,15 +178,15 @@ typedef struct TecmoGameplayPreTipState {
     bool live_handoff;
     bool away_tip_automatic;
     bool home_tip_automatic;
-    /* Controlled callers may expose an automatic branch before it commits;
-       retain that request so the bounded 20/21/22 calibration remains
-       state-owned and validates the first commit as well as the second. */
+    /* Controlled callers expose which actor uses the CPU threshold branch. */
     bool away_automatic_requested;
     bool home_automatic_requested;
     bool away_automatic_triggered;
     bool home_automatic_triggered;
     bool away_jump_committed;
     bool home_jump_committed;
+    uint8_t away_tip_countdown;
+    uint8_t home_tip_countdown;
     bool claim_resolved;
     bool claim_deferred;
     bool contest_stalled;
@@ -211,6 +210,8 @@ typedef struct TecmoGameplayPreTipState {
     uint8_t claimant_jumper;
     uint8_t receiver_actor;
 } TecmoGameplayPreTipState;
+
+uint8_t tecmo_gameplay_pretip_ball_screen_y(uint8_t raw_height);
 
 void tecmo_gameplay_pretip_init(TecmoGameplayPreTipAssets *assets);
 void tecmo_gameplay_pretip_destroy(TecmoGameplayPreTipAssets *assets);

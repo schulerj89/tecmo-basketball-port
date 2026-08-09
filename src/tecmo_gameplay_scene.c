@@ -1713,7 +1713,11 @@ static bool scene_update_pretip_frame(
             scene_set_status(scene, "pre-tip jump presentation rejected");
             return false;
         }
-        scene->ball_position.y_q8 = (int32_t)(72U + frame) * 256;
+        /* The $0499 analogue and visible ball share one trajectory.  The
+           fixed renderer subtracts raw height from the floor-space Y seam. */
+        scene->ball_position.y_q8 =
+            (int32_t)tecmo_gameplay_pretip_ball_screen_y(
+                scene->pretip_state.tip_ball_high_raw) * 256;
         {
             uint8_t claimant_jumper;
             if (tecmo_gameplay_pretip_claimant_jumper(
