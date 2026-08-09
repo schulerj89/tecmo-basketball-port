@@ -1919,6 +1919,13 @@ static bool scene_update_live_action_ordered(
              controller < TECMO_GAMEPLAY_CONTROLLER_COUNT &&
                  !boundary_settled;
              ++controller) {
+            /* Fixed-loop order: Bank06 map, $B139 offense, $B104 defense,
+               then downstream pass/switch consumption. */
+            if (controller == 0U &&
+                !scene_update_selection_candidates(scene, controls)) {
+                scene_set_status(scene, "candidate selection rejected");
+                return false;
+            }
             if (scene_controls_pressed_a(controls[controller])) {
                 if (!scene_pass_or_switch(scene, controller)) {
                     scene_set_status(

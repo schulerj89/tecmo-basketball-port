@@ -206,6 +206,9 @@ static bool live_play_state_valid(
             TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
         foundation->prior_defender_actor >=
             TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        foundation->offense_side >= TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT ||
+        foundation->defense_side >= TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT ||
+        foundation->offense_side == foundation->defense_side ||
         foundation->static_primary_seed != 4U ||
         foundation->static_defender_seed != 9U ||
         foundation->last_possession >=
@@ -229,6 +232,20 @@ static bool live_play_state_valid(
                 formation.stream_offset[actor] ||
             !live_stream_offset_valid(
                 assets, foundation->formation_start_offset[actor])) {
+            return false;
+        }
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT;
+         ++actor) {
+        if (foundation->selected_actor_by_side[actor] >=
+                TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+            foundation->candidate_actor_by_side[actor] >=
+                TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+            foundation->actor_team[foundation->selected_actor_by_side[actor]] !=
+                actor ||
+            foundation->actor_team[foundation->candidate_actor_by_side[actor]] !=
+                actor ||
+            foundation->candidate_sector_by_side[actor] > 10U) {
             return false;
         }
     }
@@ -329,6 +346,12 @@ void tecmo_gameplay_live_foundation_init(
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     foundation->prior_selected_actor = 4U;
     foundation->prior_defender_actor = 9U;
+    foundation->offense_side = 0U;
+    foundation->defense_side = 1U;
+    foundation->selected_actor_by_side[0U] = 4U;
+    foundation->selected_actor_by_side[1U] = 9U;
+    foundation->candidate_actor_by_side[0U] = 0U;
+    foundation->candidate_actor_by_side[1U] = 5U;
     for (actor = 0U;
          actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
         foundation->last_step_offset[actor] = 0U;
@@ -340,6 +363,7 @@ void tecmo_gameplay_live_foundation_init(
             ? 0U : 1U;
         foundation->defender_eligible[actor] = true;
         foundation->dynamic_link[actor] = live_fixed_link[actor];
+        foundation->actor_selector_flags[actor] = actor >= 5U ? 0x10U : 0U;
     }
     for (size_t controller = 0U;
          controller < TECMO_GAMEPLAY_CPU_STEERING_CONTROLLER_SLOT_COUNT;
@@ -465,11 +489,15 @@ bool tecmo_gameplay_live_foundation_initialize(
     candidate.primary_actor = candidate.static_primary_seed;
     candidate.defender_actor = candidate.static_defender_seed;
     candidate.last_possession = possession;
+    candidate.offense_side = possession;
+    candidate.defense_side = (uint8_t)(possession ^ 1U);
     candidate.control_mode[0U] = 1U;
     candidate.control_mode[1U] = 1U;
     for (actor = 0U;
          actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
         candidate.actor_team[actor] = actor_team[actor];
+        candidate.actor_selector_flags[actor] =
+            actor_team[actor] == possession ? 0U : 0x10U;
         candidate.formation_start_offset[actor] =
             formation.stream_offset[actor];
         candidate.last_step_offset[actor] =
@@ -511,6 +539,7 @@ bool tecmo_gameplay_live_foundation_synchronize(
     TecmoGameplayLiveFoundation candidate;
     bool changed;
     bool possession_changed;
+    bool holder_changed;
     size_t actor;
     size_t controller;
     if (assets == NULL || !assets->available || foundation_io == NULL ||
@@ -523,6 +552,7 @@ bool tecmo_gameplay_live_foundation_synchronize(
     }
     candidate = *foundation_io;
     possession_changed = candidate.last_possession != possession;
+    holder_changed = candidate.last_ball_holder != ball_holder;
     changed = candidate.first_sync_pending ||
         candidate.orientation != orientation ||
         candidate.last_possession != possession ||
@@ -531,6 +561,8 @@ bool tecmo_gameplay_live_foundation_synchronize(
          actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
         if (candidate.actor_team[actor] != actor_team[actor]) changed = true;
         candidate.actor_team[actor] = actor_team[actor];
+        candidate.actor_selector_flags[actor] =
+            actor_team[actor] == possession ? 0U : 0x10U;
     }
     for (controller = 0U;
          controller < TECMO_GAMEPLAY_CPU_STEERING_CONTROLLER_SLOT_COUNT;
@@ -560,6 +592,24 @@ bool tecmo_gameplay_live_foundation_synchronize(
             candidate.play_state.defender_actor =
                 candidate.defender_actor;
             candidate.selected_defender_handoff_active = false;
+            candidate.offense_side = possession;
+            candidate.defense_side = (uint8_t)(possession ^ 1U);
+            candidate.selected_actor_by_side[candidate.offense_side] =
+                ball_holder;
+            candidate.selected_actor_by_side[candidate.defense_side] =
+                candidate.defender_actor;
+            candidate.candidate_actor_by_side[candidate.offense_side] =
+                (uint8_t)(possession * 5U +
+                    ((ball_holder % 5U + 1U) % 5U));
+            candidate.candidate_actor_by_side[candidate.defense_side] =
+                (uint8_t)(candidate.defense_side * 5U +
+                    ((candidate.defender_actor % 5U + 1U) % 5U));
+        } else if (holder_changed) {
+            candidate.selected_actor_by_side[candidate.offense_side] =
+                ball_holder;
+            candidate.candidate_actor_by_side[candidate.offense_side] =
+                (uint8_t)(candidate.offense_side * 5U +
+                    ((ball_holder % 5U + 1U) % 5U));
         }
         candidate.play_state.defender_actor = candidate.defender_actor;
         candidate.first_sync_pending = false;
@@ -604,6 +654,9 @@ bool tecmo_gameplay_live_foundation_pass_handoff(
     candidate.primary_actor = new_selected_actor;
     candidate.play_state.primary_actor = new_selected_actor;
     candidate.last_ball_holder = new_selected_actor;
+    candidate.selected_actor_by_side[candidate.offense_side] =
+        new_selected_actor;
+    candidate.candidate_actor_by_side[candidate.offense_side] = old_selected;
     candidate.play_state.actor_state[new_selected_actor] = 0U;
     candidate.play_state.timer[new_selected_actor] = 0U;
     candidate.play_state.actor_state[old_selected] = 4U;
@@ -628,6 +681,7 @@ bool tecmo_gameplay_live_foundation_pass_handoff(
         candidate.prior_defender_actor = old_defender;
         candidate.defender_actor = found;
         candidate.play_state.defender_actor = found;
+        candidate.selected_actor_by_side[candidate.defense_side] = found;
         candidate.selected_defender_handoff_active = true;
         candidate.play_state.timer[found] = 0U;
         candidate.play_state.timer[old_defender] = 0U;

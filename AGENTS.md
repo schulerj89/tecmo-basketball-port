@@ -1325,7 +1325,8 @@ object state/flags, those targets, and shot timing explicitly approximate.
 The live state must retain its no-command sentinel and no pending advance until
 the original play/formation command lifecycle is reconstructed. Do not claim a
 complete CPU policy, shot/pass/steal choice, ROM actor-link ownership, or full
-live parity, and do not classify `$B081-$B32E` as ordinary targeting.
+live parity. `$B081-$B32E` is converted separately as the per-frame candidate
+selector and must not be classified as ordinary targeting.
 `--gameplay-cpu-steering-test`,
 `--gameplay-cpu-steering-inspect`, `--gameplay-cpu-steering-harness`, and
 `--gameplay-cpu-steering-movement-harness` are console-only and must not

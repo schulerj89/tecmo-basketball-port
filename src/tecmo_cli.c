@@ -30,6 +30,7 @@ static void print_usage(const char *program)
     printf("  --team-management-test  Run strict TTMG parser and native STARTERS/PLAYBOOK checks\n");
     printf("  --season-test           Run strict TSNS/TSAV season-management checks\n");
     printf("  --gameplay-state-test   Run deterministic gameplay clock/rules/shot-state checks\n");
+    printf("  --gameplay-candidate-selection-test  Validate Bank06 B081/B183 receiver/defender selectors\n");
     printf("  --gameplay-scene-test PACK  Run native gameplay launch/input/shot checks\n");
     printf("  --gameplay-pretip-human-checkpoint PACK  Run deterministic held-B tip handoff through native frame 721\n");
     printf("  --gameplay-pretip-test PACK  Validate strict TPTI-2 pre-tip assets/state\n");

@@ -229,6 +229,9 @@ uint8_t scene_nearest_actor_for_team(const TecmoGameplayScene *scene,
                                      TecmoGameplayTeam team,
                                      uint8_t target);
 bool scene_pass_or_switch(TecmoGameplayScene *scene, size_t controller);
+bool scene_update_selection_candidates(
+    TecmoGameplayScene *scene,
+    const TecmoControlFrame *controls[TECMO_GAMEPLAY_CONTROLLER_COUNT]);
 bool scene_sync_live_foundation(TecmoGameplayScene *scene);
 size_t scene_controller_for_team(const TecmoGameplayScene *scene,
                                  TecmoGameplayTeam team);

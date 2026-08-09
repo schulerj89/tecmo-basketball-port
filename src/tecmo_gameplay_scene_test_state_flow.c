@@ -2196,7 +2196,7 @@ static bool scene_test_live_foundation_regressions(
     }
 
     /* Bound LIVE still owns the human TGMO path. Exercise its one-update
-       latency, offensive A pass, defensive A nearest-switch, and a swapped
+       latency, offensive A pass, maintained defensive candidate switch, and a swapped
        controller-team route while checking that selected roster identity and
        fatigue condition remain attached to the local stable slot. */
     {
@@ -2259,8 +2259,8 @@ static bool scene_test_live_foundation_regressions(
             !scene_sync_live_foundation(scene)) {
             LIVE_FAIL("LIVE human defensive handoff setup failed");
         }
-        switched_actor = scene_nearest_actor_for_team(
-            scene, TECMO_GAMEPLAY_TEAM_AWAY, scene->ball_holder);
+        switched_actor = scene->live_foundation.candidate_actor_by_side[
+            scene->live_foundation.defense_side];
         memset(&human_p1, 0, sizeof(human_p1));
         human_p1.pressed.shoot = true;
         if (!tecmo_gameplay_scene_update(scene, &human_p1, &human_p2) ||
@@ -2268,7 +2268,7 @@ static bool scene_test_live_foundation_regressions(
             scene->actors[scene->controlled_actor[0U]].team !=
                 TECMO_GAMEPLAY_TEAM_AWAY ||
             scene->controlled_actor[1U] != 5U) {
-            LIVE_FAIL("LIVE bound human defensive A nearest-switch failed");
+            LIVE_FAIL("LIVE bound human defensive A candidate-switch failed");
         }
         expected_roster = scene->actors[switched_actor].roster_index;
         if (scene->actors[switched_actor].condition != scene->fatigue_state
@@ -2314,14 +2314,14 @@ static bool scene_test_live_foundation_regressions(
             !scene_sync_live_foundation(scene)) {
             LIVE_FAIL("LIVE swapped controller defensive handoff failed");
         }
-        switched_actor = scene_nearest_actor_for_team(
-            scene, TECMO_GAMEPLAY_TEAM_AWAY, scene->ball_holder);
+        switched_actor = scene->live_foundation.candidate_actor_by_side[
+            scene->live_foundation.defense_side];
         memset(&human_p2, 0, sizeof(human_p2));
         human_p2.pressed.shoot = true;
         if (!tecmo_gameplay_scene_update(scene, &human_p1, &human_p2) ||
             scene->controlled_actor[1U] != switched_actor ||
             scene->actors[switched_actor].team != TECMO_GAMEPLAY_TEAM_AWAY) {
-            LIVE_FAIL("LIVE swapped controller defensive nearest-switch failed");
+            LIVE_FAIL("LIVE swapped controller defensive candidate-switch failed");
         }
         expected_roster = scene->actors[switched_actor].roster_index;
         if (scene->actors[switched_actor].condition != scene->fatigue_state

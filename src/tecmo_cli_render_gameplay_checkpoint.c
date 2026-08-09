@@ -1,6 +1,7 @@
 #include "tecmo_controls.h"
 #include "tecmo_game.h"
 #include "tecmo_gameplay_camera.h"
+#include "tecmo_gameplay_candidate_selection.h"
 #include "tecmo_gameplay_cpu_steering.h"
 #include "tecmo_gameplay_court_orientation.h"
 #include "tecmo_gameplay_free_throw_lineup.h"
@@ -44,6 +45,7 @@ typedef struct TecmoCliGameplayCheckpointConfig {
     bool ball_bounce;
     bool cpu_steering;
     bool pass_handoff_proof;
+    bool directional_selection_proof;
     bool shot_clock_violation;
     bool out_of_bounds_violation;
     bool backcourt_violation;
@@ -303,6 +305,7 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     bool ball_bounce = false;
     bool cpu_steering = false;
     bool pass_handoff_proof = false;
+    bool directional_selection_proof = false;
     bool shot_clock_violation = false;
     bool out_of_bounds_violation = false;
     bool backcourt_violation = false;
@@ -354,6 +357,10 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
                    mode_name, "gameplay-pass-handoff-proof-frame",
                    &checkpoint)) {
         pass_handoff_proof = true;
+    } else if (tecmo_cli_parse_render_frame_suffix(
+                   mode_name, "gameplay-directional-selection-frame",
+                   &checkpoint)) {
+        directional_selection_proof = true;
     } else if (tecmo_cli_parse_render_frame_suffix(
                    mode_name, "gameplay-shot-clock-violation-frame",
                    &checkpoint)) {
@@ -430,6 +437,7 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
         return false;
     }
     if (pass_handoff_proof && checkpoint > 2U) return false;
+    if (directional_selection_proof && checkpoint > 5U) return false;
     if ((shot_clock_violation || out_of_bounds_violation ||
          backcourt_violation) &&
         checkpoint >= TECMO_GAMEPLAY_VIOLATION_PRESENTATION_FRAMES) {
@@ -460,6 +468,7 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     config->ball_bounce = ball_bounce;
     config->cpu_steering = cpu_steering;
     config->pass_handoff_proof = pass_handoff_proof;
+    config->directional_selection_proof = directional_selection_proof;
     config->shot_clock_violation = shot_clock_violation;
     config->out_of_bounds_violation = out_of_bounds_violation;
     config->backcourt_violation = backcourt_violation;
@@ -745,6 +754,8 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
     const bool ball_bounce = config->ball_bounce;
     const bool cpu_steering = config->cpu_steering;
     const bool pass_handoff_proof = config->pass_handoff_proof;
+    const bool directional_selection_proof =
+        config->directional_selection_proof;
     const int possession_slice = config->possession_slice;
     const int free_throw_orientation = config->free_throw_orientation;
     const unsigned first_contest_update = TECMO_CLI_PRETIP_CAPTURE_FRAME;
@@ -800,10 +811,148 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
             }
         }
         if (!tipoff_proof && !live_start && !pass_handoff_proof &&
+            !directional_selection_proof &&
             (!scene_handoff_possession(
                  scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
              !scene_sync_live_foundation(scene))) {
             return false;
+        }
+        if (directional_selection_proof) {
+            const TecmoControlFrame *selection_controls[2];
+            TecmoGameplayCandidateInput selection_input;
+            TecmoGameplayCandidateResult selection_result;
+            uint8_t side;
+            uint8_t sector;
+            uint8_t reference;
+            uint8_t excluded;
+            uint8_t polarity;
+            uint8_t chosen;
+            uint8_t pass_target = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+            size_t actor;
+            memset(controls, 0, sizeof(controls));
+            /* This native proof fixture exercises the canonical bound path;
+               the generic render launcher otherwise marks its identity
+               lineup as legacy/test-only. */
+            scene->legacy_direct_launch = false;
+            scene->launch.starter_binding_bound = true;
+            for (actor = 0U; actor < 5U; ++actor) {
+                scene->launch.starter_roster_index[0U][actor] = (uint8_t)actor;
+                scene->launch.starter_roster_index[1U][actor] = (uint8_t)actor;
+            }
+            selection_controls[0U] = &controls[0U].frame;
+            selection_controls[1U] = &controls[1U].frame;
+            if (checkpoint <= 2U) {
+                if (!scene_handoff_possession(
+                        scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U)) return false;
+                scene->launch.controller_team[0U] = TECMO_GAMEPLAY_TEAM_AWAY;
+                scene->launch.controller_team[1U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+                scene->controlled_actor[0U] = 0U;
+                scene->controlled_actor[1U] = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+                if (!scene_sync_live_foundation(scene)) return false;
+                scene->actors[0U].position.x = 320; scene->actors[0U].position.y = 140;
+                scene->actors[1U].position.x = 360; scene->actors[1U].position.y = 100;
+                scene->actors[2U].position.x = 370; scene->actors[2U].position.y = 180;
+                scene->actors[3U].position.x = 250; scene->actors[3U].position.y = 100;
+                scene->actors[4U].position.x = 260; scene->actors[4U].position.y = 180;
+                controls[0U].frame.held.right = checkpoint != 1U;
+                controls[0U].frame.held.left = checkpoint == 1U;
+                side = scene->live_foundation.offense_side;
+                sector = checkpoint == 1U ? 2U : 1U;
+                reference = 0U; excluded = 0U; polarity = 0U;
+            } else {
+                if (!scene_handoff_possession(
+                        scene, TECMO_GAMEPLAY_TEAM_HOME, 5U)) return false;
+                scene->launch.controller_team[0U] = TECMO_GAMEPLAY_TEAM_AWAY;
+                scene->launch.controller_team[1U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+                scene->controlled_actor[0U] = 0U;
+                scene->controlled_actor[1U] = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+                if (!scene_sync_live_foundation(scene)) return false;
+                scene->live_foundation.defender_actor = 0U;
+                scene->live_foundation.play_state.defender_actor = 0U;
+                scene->live_foundation.selected_actor_by_side[0U] = 0U;
+                scene->live_foundation.candidate_actor_by_side[0U] = 1U;
+                scene->actors[0U].position.x = 540; scene->actors[0U].position.y = 140;
+                scene->actors[1U].position.x = 590; scene->actors[1U].position.y = 100;
+                scene->actors[2U].position.x = 600; scene->actors[2U].position.y = 180;
+                scene->actors[3U].position.x = 490; scene->actors[3U].position.y = 100;
+                scene->actors[4U].position.x = 500; scene->actors[4U].position.y = 180;
+                controls[0U].frame.held.right = checkpoint == 3U;
+                controls[0U].frame.held.left = checkpoint != 3U;
+                side = scene->live_foundation.defense_side;
+                sector = checkpoint == 3U ? 1U : 2U;
+                reference = 0U; excluded = 0U; polarity = 0x10U;
+            }
+            if (!scene_ball_position_for_actors(
+                    scene, scene->actors, scene->ball_holder,
+                    &scene->ball_position) ||
+                !scene_update_selection_candidates(scene, selection_controls))
+                return false;
+            chosen = scene->live_foundation.candidate_actor_by_side[side];
+            if (checkpoint == 2U) {
+                pass_target = chosen;
+                if (!scene_pass_or_switch(scene, 0U) ||
+                    !scene_sync_live_foundation(scene)) return false;
+            } else if (checkpoint == 5U) {
+                if (!scene_pass_or_switch(scene, 0U) ||
+                    !scene_sync_live_foundation(scene)) return false;
+            }
+            memset(&selection_input, 0, sizeof(selection_input));
+            selection_input.contract_tag = TECMO_GAMEPLAY_CANDIDATE_INPUT_TAG;
+            selection_input.direction_sector = sector;
+            selection_input.excluded_actor = excluded;
+            selection_input.required_polarity = polarity;
+            selection_input.reference_actor = reference;
+            selection_input.viewport_x = scene->camera_state.camera_x;
+            for (actor = 0U; actor < 10U; ++actor) {
+                selection_input.actor_x[actor] =
+                    (uint16_t)scene->actors[actor].position.x;
+                selection_input.actor_depth[actor] =
+                    (uint8_t)scene->actors[actor].position.y;
+                selection_input.actor_flags[actor] =
+                    scene->live_foundation.actor_selector_flags[actor];
+            }
+            if (!tecmo_gameplay_candidate_directional_select(
+                    &selection_input, &selection_result)) return false;
+            printf("directional-selection-proof {\"logical_frame\":%u,"
+                   "\"raw_0308\":%u,\"raw_0309\":%u,"
+                   "\"raw_030a\":%u,\"raw_030b\":%u,"
+                   "\"raw_000e\":%u,\"raw_000f\":%u,"
+                   "\"raw_037f\":%u,\"raw_0380\":%u,"
+                   "\"control_modes\":[%u,%u],\"direction_nibble\":%u,"
+                   "\"cpu_actor_direction\":%u,\"mapped_sector\":%u,"
+                   "\"chosen_candidate\":%u,\"pass_target\":%u,"
+                   "\"final_holder\":%u,\"final_defender\":%u,"
+                   "\"ai_stream_0\":%u,\"actors\":[",
+                   checkpoint, scene->live_foundation.primary_actor,
+                   scene->live_foundation.defender_actor,
+                   scene->live_foundation.offense_side,
+                   scene->live_foundation.defense_side,
+                   scene->live_foundation.selected_actor_by_side[0U],
+                   scene->live_foundation.selected_actor_by_side[1U],
+                   scene->live_foundation.candidate_actor_by_side[0U],
+                   scene->live_foundation.candidate_actor_by_side[1U],
+                   scene->live_foundation.control_mode[0U],
+                   scene->live_foundation.control_mode[1U], sector,
+                   scene->actors[reference].movement_direction, sector,
+                   chosen, pass_target, scene->ball_holder,
+                   scene->live_foundation.defender_actor,
+                   scene->live_foundation.play_state.stream_offset[0U]);
+            for (actor = 0U; actor < 10U; ++actor) {
+                printf("%s{\"slot\":%u,\"x\":%d,\"depth\":%d,"
+                       "\"polarity\":%u,\"eligible\":%u,"
+                       "\"filter\":%u,\"score\":%u}",
+                       actor == 0U ? "" : ",", (unsigned)actor,
+                       scene->actors[actor].position.x,
+                       scene->actors[actor].position.y,
+                       (scene->live_foundation.actor_selector_flags[actor] &
+                        0x10U) != 0U ? 1U : 0U,
+                       scene->live_foundation.defender_eligible[actor] ? 1U : 0U,
+                       selection_result.filter[actor],
+                       selection_result.score[actor]);
+            }
+            printf("]}\n");
+            *done_out = true;
+            return true;
         }
         if (pass_handoff_proof) {
             TecmoGameplaySceneCpuShotRequest shot_request;

@@ -42,6 +42,14 @@ typedef struct TecmoGameplayLiveFoundation {
     /* Explicit live mirrors of the $04B0 bit-$10 predicate and $06CB link. */
     bool defender_eligible[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint8_t dynamic_link[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    /* Typed equivalents of $030A/$030B, $0E/$0F, $037F/$0380 and $04B0. */
+    uint8_t offense_side;
+    uint8_t defense_side;
+    uint8_t selected_actor_by_side[TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT];
+    uint8_t candidate_actor_by_side[TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT];
+    uint8_t actor_selector_flags[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    uint16_t candidate_score_by_side[TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT];
+    uint8_t candidate_sector_by_side[TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT];
     uint8_t actor_team[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint8_t controller_team[
         TECMO_GAMEPLAY_CPU_STEERING_CONTROLLER_SLOT_COUNT];

@@ -6,6 +6,7 @@
 #include "tecmo_gameplay_backcourt.h"
 #include "tecmo_gameplay_ball_dribble.h"
 #include "tecmo_gameplay_camera.h"
+#include "tecmo_gameplay_candidate_selection.h"
 #include "tecmo_gameplay_court_orientation.h"
 #include "tecmo_gameplay_fatigue.h"
 #include "tecmo_gameplay_free_throw_lineup.h"
@@ -184,6 +185,24 @@ int tecmo_cli_run_gameplay_core_commands(const TecmoCliContext *context)
         char message[192];
         if (!tecmo_gameplay_state_self_test(message, sizeof(message))) {
             printf("Gameplay state test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-candidate-selection-test") == 0) {
+        const char *rom_path = index < argc ? argv[index] : NULL;
+        char message[256];
+        if (rom_path != NULL &&
+            !tecmo_gameplay_candidate_selection_source_test(
+                rom_path, message, sizeof(message))) {
+            printf("Candidate selection source test failed: %s\n", message);
+            return 1;
+        }
+        if (!tecmo_gameplay_candidate_selection_self_test(
+                message, sizeof(message))) {
+            printf("Candidate selection test failed: %s\n", message);
             return 1;
         }
         printf("%s\n", message);

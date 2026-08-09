@@ -171,8 +171,10 @@ normal play calls the pure API directly.
 TGAI-1 does not claim a complete CPU play policy. In particular, it does not
 identify the shot/pass/steal selector, reconstruct every actor-link assignment,
 own live collision/contact or speed-setting policy, or treat the nearby Bank06
-`$B081-$B32E` candidate scan as ordinary movement targeting. Fatigue evolution
-is owned separately by TGFT-1 and supplies condition to TGMO. Handler-effect
+`$B081-$B32E` candidate scan as ordinary movement targeting. That scan is now
+converted separately as the per-frame receiver/defensive-switch selector; it
+does not change the TGAI movement-target boundary. Fatigue evolution is owned
+separately by TGFT-1 and supplies condition to TGMO. Handler-effect
 names describe bounded entry behavior; they are not play names.
 
 The scene now owns a fixed opposing roster-slot link, an explicit target

@@ -3,6 +3,8 @@
 #endif
 
 #include "tecmo_gameplay_scene_internal.h"
+#include "tecmo_gameplay_candidate_selection.h"
+#include "tecmo_gameplay_defense_contact.h"
 #include "tecmo_asset_pack.h"
 #include "tecmo_nes_video.h"
 
@@ -640,6 +642,168 @@ uint8_t scene_nearest_actor_for_team(const TecmoGameplayScene *scene,
     return best;
 }
 
+static uint8_t scene_candidate_direction_nibble(
+    const TecmoControlFrame *controls)
+{
+    uint8_t value = 0U;
+    if (controls == NULL) return 0U;
+    if (controls->held.right) value |= 0x01U;
+    if (controls->held.left) value |= 0x02U;
+    if (controls->held.down) value |= 0x04U;
+    if (controls->held.up) value |= 0x08U;
+    return value;
+}
+
+static const TecmoControlFrame *scene_candidate_controls_for_side(
+    const TecmoGameplayScene *scene,
+    const TecmoControlFrame *controls[TECMO_GAMEPLAY_CONTROLLER_COUNT],
+    uint8_t side)
+{
+    size_t controller;
+    for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
+         ++controller) {
+        if (scene->launch.controller_team[controller] == side)
+            return controls[controller];
+    }
+    return NULL;
+}
+
+static bool scene_directional_candidate(
+    const TecmoGameplayScene *scene,
+    uint8_t side, uint8_t reference_actor, uint8_t excluded_actor,
+    uint8_t sector, uint8_t polarity,
+    uint8_t *actor_out, uint16_t *score_out)
+{
+    TecmoGameplayCandidateInput input;
+    TecmoGameplayCandidateResult result;
+    size_t actor;
+    memset(&input, 0, sizeof(input));
+    input.contract_tag = TECMO_GAMEPLAY_CANDIDATE_INPUT_TAG;
+    input.direction_sector = sector;
+    input.excluded_actor = excluded_actor;
+    input.required_polarity = polarity;
+    input.reference_actor = reference_actor;
+    input.viewport_x = scene->camera_state.camera_x;
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        input.actor_x[actor] = (uint16_t)scene->actors[actor].position.x;
+        input.actor_depth[actor] =
+            (uint8_t)scene->actors[actor].position.y;
+        input.actor_flags[actor] =
+            scene->live_foundation.actor_selector_flags[actor];
+    }
+    if (!tecmo_gameplay_candidate_directional_select(&input, &result))
+        return false;
+    if (!result.wrote_candidate) return true;
+    if (result.candidate_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->actors[result.candidate_actor].team != side) return false;
+    *actor_out = result.candidate_actor;
+    *score_out = result.candidate_score;
+    return true;
+}
+
+bool scene_update_selection_candidates(
+    TecmoGameplayScene *scene,
+    const TecmoControlFrame *controls[TECMO_GAMEPLAY_CONTROLLER_COUNT])
+{
+    TecmoGameplayLiveFoundation candidate;
+    uint8_t offense;
+    uint8_t defense;
+    uint8_t actor;
+    uint16_t score;
+    uint8_t sector;
+    size_t index;
+    if (scene == NULL || controls == NULL || scene->legacy_direct_launch ||
+        !tecmo_gameplay_live_foundation_valid(
+            &scene->cpu_steering_assets, &scene->live_foundation)) {
+        return scene != NULL && scene->legacy_direct_launch;
+    }
+    candidate = scene->live_foundation;
+    offense = candidate.offense_side;
+    defense = candidate.defense_side;
+
+    /* Fixed loop $F05E: Bank06 $B139 offense first. */
+    actor = candidate.candidate_actor_by_side[offense];
+    score = candidate.candidate_score_by_side[offense];
+    if (candidate.control_mode[offense] != 0U) {
+        uint8_t direction = scene->actors[candidate.primary_actor]
+            .movement_direction;
+        if (direction >= 8U) return false;
+        sector = tecmo_gameplay_candidate_cpu_direction_sector[direction];
+    } else {
+        sector = scene_candidate_direction_nibble(
+            scene_candidate_controls_for_side(scene, controls, offense));
+    }
+    if (!scene_directional_candidate(
+            scene, offense, candidate.primary_actor,
+            candidate.selected_actor_by_side[offense], sector, 0U,
+            &actor, &score)) return false;
+    if (sector != 0U) {
+        candidate.candidate_actor_by_side[offense] = actor;
+        candidate.candidate_score_by_side[offense] = score;
+    }
+    candidate.candidate_sector_by_side[offense] = sector;
+
+    /* Fixed loop $F061: Bank06 $B104 defense second. */
+    actor = candidate.candidate_actor_by_side[defense];
+    score = candidate.candidate_score_by_side[defense];
+    if (candidate.control_mode[defense] != 0U) {
+        TecmoGameplayDefenseContactB06ScanInput input;
+        TecmoGameplayDefenseContactB06ScanResult result;
+        uint8_t x_low[10], x_high[10], depth[10], flags[10];
+        memset(&input, 0, sizeof(input));
+        for (index = 0U; index < 10U; ++index) {
+            uint16_t x = (uint16_t)scene->actors[index].position.x;
+            x_low[index] = (uint8_t)x;
+            x_high[index] = (uint8_t)(x >> 8U);
+            depth[index] = (uint8_t)scene->actors[index].position.y;
+            flags[index] = candidate.actor_selector_flags[index];
+        }
+        input.contract_tag =
+            TECMO_GAMEPLAY_DEFENSE_CONTACT_B06_SCAN_INPUT_TAG;
+        input.routine_cpu = TECMO_GAMEPLAY_DEFENSE_CONTACT_B06_ROUTINE_CPU;
+        input.raw_0309 = candidate.defender_actor;
+        input.raw_030b = defense;
+        input.raw_007d = (uint8_t)((uint32_t)scene->ball_position.x_q8 >> 8U);
+        input.raw_00f2 = (uint8_t)((uint32_t)scene->ball_position.x_q8 >> 16U);
+        input.raw_00fd = (uint8_t)((uint32_t)scene->ball_position.y_q8 >> 8U);
+        input.raw_06d5 = actor;
+        input.raw_06d7 = 0U;
+        input.raw_037f_at_030b = actor;
+        input.raw_0073_low = x_low; input.raw_0073_low_count = 10U;
+        input.raw_00e8_high = x_high; input.raw_00e8_high_count = 10U;
+        input.raw_00f3_depth = depth; input.raw_00f3_depth_count = 10U;
+        input.raw_04b0_by_slot = flags; input.raw_04b0_by_slot_count = 10U;
+        if (!tecmo_gameplay_defense_contact_b06_candidate_scan_b081(
+                &input, &result)) return false;
+        actor = result.raw_037f_at_030b;
+        score = (uint16_t)result.raw_06d7 |
+            (uint16_t)((uint16_t)result.raw_06d8 << 8U);
+        candidate.candidate_sector_by_side[defense] = 0U;
+    } else {
+        sector = scene_candidate_direction_nibble(
+            scene_candidate_controls_for_side(scene, controls, defense));
+        if (!scene_directional_candidate(
+                scene, defense, candidate.defender_actor,
+                candidate.selected_actor_by_side[defense], sector, 0x10U,
+                &actor, &score)) return false;
+        candidate.candidate_sector_by_side[defense] = sector;
+        if (sector == 0U) {
+            if (!tecmo_gameplay_live_foundation_valid(
+                    &scene->cpu_steering_assets, &candidate)) return false;
+            scene->live_foundation = candidate;
+            return true;
+        }
+    }
+    if (actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->actors[actor].team != defense) return false;
+    candidate.candidate_actor_by_side[defense] = actor;
+    candidate.candidate_score_by_side[defense] = score;
+    if (!tecmo_gameplay_live_foundation_valid(
+            &scene->cpu_steering_assets, &candidate)) return false;
+    scene->live_foundation = candidate;
+    return true;
+}
+
 bool scene_pass_or_switch(TecmoGameplayScene *scene,
                                   size_t controller)
 {
@@ -657,7 +821,10 @@ bool scene_pass_or_switch(TecmoGameplayScene *scene,
     team = (TecmoGameplayTeam)scene->launch.controller_team[controller];
     if (team == scene->state.possession &&
         scene->ball_holder < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
-        uint8_t next = scene_next_teammate(scene, scene->ball_holder);
+        uint8_t next = scene->legacy_direct_launch
+            ? scene_next_teammate(scene, scene->ball_holder)
+            : scene->live_foundation.candidate_actor_by_side[
+                scene->live_foundation.offense_side];
         if (next < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
             /* A pass is an action boundary: the new holder starts from the
                validated attack-facing baseline, then movement/shot actions
@@ -692,8 +859,23 @@ bool scene_pass_or_switch(TecmoGameplayScene *scene,
             return true;
         }
     } else {
-        scene->controlled_actor[controller] =
-            scene_nearest_actor_for_team(scene, team, scene->ball_holder);
+        uint8_t next = scene->legacy_direct_launch
+            ? scene_nearest_actor_for_team(scene, team, scene->ball_holder)
+            : scene->live_foundation.candidate_actor_by_side[
+                scene->live_foundation.defense_side];
+        if (next >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+            scene->actors[next].team != team) return false;
+        scene->controlled_actor[controller] = next;
+        if (!scene->legacy_direct_launch) {
+            uint8_t old = scene->live_foundation.defender_actor;
+            scene->live_foundation.defender_actor = next;
+            scene->live_foundation.play_state.defender_actor = next;
+            scene->live_foundation.selected_actor_by_side[
+                scene->live_foundation.defense_side] = next;
+            scene->live_foundation.candidate_actor_by_side[
+                scene->live_foundation.defense_side] = old;
+            scene->live_foundation.selected_defender_handoff_active = false;
+        }
     }
     return true;
 }
