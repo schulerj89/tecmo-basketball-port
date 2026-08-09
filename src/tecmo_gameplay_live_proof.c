@@ -373,8 +373,8 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
             return live_proof_reject(message, message_size,
                                      "defensive switch fixture handoff failed");
         }
-        expected_actor = scene_nearest_actor_for_team(
-            scene, TECMO_GAMEPLAY_TEAM_AWAY, scene->ball_holder);
+        expected_actor = scene->live_foundation.candidate_actor_by_side[
+            TECMO_GAMEPLAY_TEAM_AWAY];
         p1.pressed.shoot = true;
         if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
             scene->controlled_actor[0U] != expected_actor ||
@@ -384,7 +384,7 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
             expected_actor == scene->ball_holder) {
             return live_proof_reject(
                 message, message_size,
-                "defensive A did not select the nearest same-team nonholder");
+                "defensive A did not consume the directional candidate");
         }
         return live_proof_live_ownership(scene, message, message_size);
     }

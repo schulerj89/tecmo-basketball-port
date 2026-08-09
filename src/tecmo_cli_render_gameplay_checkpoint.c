@@ -1265,7 +1265,7 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
                scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
                scene->frame == TECMO_CLI_PRETIP_LIVE_START_FRAME + checkpoint &&
                scene->ball_holder == 0U &&
-               scene->actors[0].position.x < 0x0160 &&
+               scene->actors[0].position.x < 0x0210 &&
                scene->cpu_actors[0].decision_serial == checkpoint &&
                scene->cpu_actors[0].target_valid &&
                scene->cpu_actors[0].target_kind ==
