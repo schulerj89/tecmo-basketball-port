@@ -398,6 +398,17 @@ bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
                                int origin_y,
                                int scale,
                                bool include_actors);
+/* Returns a stable, human-readable identifier for the first preflight
+   contract which would reject a gameplay render.  It is intended for the
+   runtime rejection screen and continuous regression proofs; it does not
+   mutate scene or framebuffer state. */
+const char *tecmo_gameplay_scene_render_diagnostic(
+    const TecmoGameplayScene *scene,
+    const TecmoFramebuffer *framebuffer,
+    int origin_x,
+    int origin_y,
+    int scale,
+    bool include_actors);
 bool tecmo_gameplay_scene_in_dunk_presentation(
     const TecmoGameplayScene *scene);
 

@@ -134,6 +134,7 @@ static bool scene_test_concurrent_tip_simulation(
     uint8_t holder_after_handoff;
     bool actor_moved;
     size_t frame;
+    char failure_detail[256];
     const char *failure = "concurrent pre-tip scene regression failed";
     if (test == NULL || scene == NULL || launch == NULL) return false;
     memset(&p1, 0, sizeof(p1));
@@ -145,7 +146,9 @@ static bool scene_test_concurrent_tip_simulation(
     launch->regulation_minutes = 2U;
     launch->difficulty = 1U;
     launch->controller_team[0U] = TECMO_GAMEPLAY_TEAM_AWAY;
-    launch->controller_team[1U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    /* Isolate captured-human timing here. CPU timing has separate coverage;
+       an explicit no-input home controller must not enter that branch. */
+    launch->controller_team[1U] = TECMO_GAMEPLAY_TEAM_HOME;
     launch->control_mode = 1U;
     launch->speed_value = 1U;
     launch->game_music_enabled = false;
@@ -166,8 +169,10 @@ static bool scene_test_concurrent_tip_simulation(
     p1.held.cancel = true;
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
         !scene->pretip_state.away_tip_sampled ||
-        scene->pretip_state.away_tip_countdown != 0U ||
-        scene->pretip_state.away_tip_error != 0U ||
+        scene->pretip_state.away_tip_countdown != 5U ||
+        scene->pretip_state.away_tip_error != 5U ||
+        scene->pretip_state.away_tip_capture_clock != 0xF4U ||
+        scene->pretip_state.tip_capture_clock != 0xF5U ||
         scene->pretip_state.away_jump_committed) goto failed;
     failure = "concurrent pre-tip center setup retention failed";
     p1.held.cancel = false;
@@ -184,7 +189,18 @@ static bool scene_test_concurrent_tip_simulation(
         if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) goto failed;
     away_commits = scene->pretip_state.away_jump_commit_count;
     home_commits = scene->pretip_state.home_jump_commit_count;
-    failure = "concurrent pre-tip apex/cinematic ordering failed";
+    (void)snprintf(
+        failure_detail, sizeof(failure_detail),
+        "concurrent pre-tip apex/cinematic ordering failed: phase=%u total=%u "
+        "first=%u claim=%u commits=%u/%u pose=%u/%u",
+        (unsigned)scene->pretip_state.phase,
+        (unsigned)scene->pretip_state.total_frame,
+        (unsigned)scene->pretip_state.first_cinematic_frame,
+        (unsigned)scene->pretip_state.claim_frame,
+        (unsigned)away_commits, (unsigned)home_commits,
+        (unsigned)scene->actors[away_actor].pose_index,
+        (unsigned)scene->actors[home_actor].pose_index);
+    failure = failure_detail;
     if (scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP ||
         !scene->pretip_state.cinematic_visible ||
         scene->pretip_state.claim_frame == UINT16_MAX ||
@@ -203,7 +219,7 @@ static bool scene_test_concurrent_tip_simulation(
         scene->pretip_state.receiver_target.y !=
             scene->actors[scene->pretip_state.receiver_actor].position.y ||
         scene->pretip_state.ball_velocity_x_q8 >= 0 ||
-        scene->actors[away_actor].pose_index != 550U ||
+        scene->actors[away_actor].pose_index != 551U ||
         scene->actors[home_actor].pose_index != 518U) goto failed;
     {
         uint8_t frozen_away_state = scene->pretip_state.away_actor_state;
@@ -236,16 +252,6 @@ static bool scene_test_concurrent_tip_simulation(
             scene->pretip_state.away_jump_commit_count != away_commits ||
             scene->pretip_state.home_jump_commit_count != home_commits)
             goto failed;
-    }
-    /* Deliberately move every object away from the cold Bank04-derived table
-       and seed actor-local history.  A replay of scene_initialize_actors()
-       cannot accidentally satisfy this boundary check. */
-    for (frame = 0U; frame < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++frame) {
-        scene->actors[frame].position.x =
-            (int16_t)(240 + (int)frame * 23);
-        scene->actors[frame].position.y =
-            (int16_t)(84 + (int)(frame % 4U) * 28);
-        scene->actors[frame].anchor = scene->actors[frame].position;
     }
     failure = "concurrent pre-tip live handoff advance failed";
     for (frame = 0U; frame < 30U &&
@@ -366,6 +372,358 @@ failed:
     return false;
 }
 
+typedef struct SceneTestPreTipJumpTuple {
+    TecmoGameplaySceneActor away_actor;
+    TecmoGameplaySceneActor home_actor;
+    uint8_t away_state;
+    uint8_t home_state;
+    uint8_t away_phase;
+    uint8_t home_phase;
+    uint16_t away_altitude_q8;
+    uint16_t home_altitude_q8;
+    int16_t away_velocity_q8;
+    int16_t home_velocity_q8;
+    bool jump_active;
+} SceneTestPreTipJumpTuple;
+
+static bool scene_test_render_continuously(
+    const TecmoGameplayScene *scene,
+    uint32_t *pixels,
+    char *failure,
+    size_t failure_size)
+{
+    TecmoFramebuffer framebuffer;
+    const char *diagnostic;
+    if (scene == NULL || pixels == NULL || failure == NULL ||
+        failure_size == 0U) {
+        return false;
+    }
+    framebuffer.pixels = pixels;
+    framebuffer.width = TECMO_GAMEPLAY_SCENE_NES_WIDTH;
+    framebuffer.height = TECMO_GAMEPLAY_SCENE_NES_HEIGHT;
+    framebuffer.pitch_pixels = TECMO_GAMEPLAY_SCENE_NES_WIDTH;
+    if (tecmo_gameplay_scene_draw(
+            scene, &framebuffer, 0, 0, 1, true)) {
+        return true;
+    }
+    diagnostic = tecmo_gameplay_scene_render_diagnostic(
+        scene, &framebuffer, 0, 0, 1, true);
+    (void)snprintf(failure, failure_size,
+                   "continuous gameplay render rejected: %s",
+                   diagnostic != NULL ? diagnostic : "draw composition");
+    return false;
+}
+
+static void scene_test_capture_jump_tuple(
+    const TecmoGameplayScene *scene,
+    uint8_t away_actor,
+    uint8_t home_actor,
+    SceneTestPreTipJumpTuple *tuple)
+{
+    if (scene == NULL || tuple == NULL ||
+        away_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        home_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+        return;
+    }
+    memset(tuple, 0, sizeof(*tuple));
+    tuple->away_actor = scene->actors[away_actor];
+    tuple->home_actor = scene->actors[home_actor];
+    tuple->away_state = scene->pretip_state.away_actor_state;
+    tuple->home_state = scene->pretip_state.home_actor_state;
+    tuple->away_phase = scene->pretip_state.away_animation_phase;
+    tuple->home_phase = scene->pretip_state.home_animation_phase;
+    tuple->away_altitude_q8 = scene->pretip_state.away_jump_altitude_q8;
+    tuple->home_altitude_q8 = scene->pretip_state.home_jump_altitude_q8;
+    tuple->away_velocity_q8 =
+        scene->pretip_state.away_jump_velocity_signed_q8;
+    tuple->home_velocity_q8 =
+        scene->pretip_state.home_jump_velocity_signed_q8;
+    tuple->jump_active = scene->pretip_jump_active;
+}
+
+static bool scene_test_jump_tuple_equal(
+    const SceneTestPreTipJumpTuple *left,
+    const SceneTestPreTipJumpTuple *right)
+{
+    return left != NULL && right != NULL &&
+        memcmp(&left->away_actor, &right->away_actor,
+               sizeof(left->away_actor)) == 0 &&
+        memcmp(&left->home_actor, &right->home_actor,
+               sizeof(left->home_actor)) == 0 &&
+        left->away_state == right->away_state &&
+        left->home_state == right->home_state &&
+        left->away_phase == right->away_phase &&
+        left->home_phase == right->home_phase &&
+        left->away_altitude_q8 == right->away_altitude_q8 &&
+        left->home_altitude_q8 == right->home_altitude_q8 &&
+        left->away_velocity_q8 == right->away_velocity_q8 &&
+        left->home_velocity_q8 == right->home_velocity_q8 &&
+        left->jump_active == right->jump_active;
+}
+
+static bool scene_test_continuous_tip_render(
+    TecmoGameplaySceneTestContext *test,
+    TecmoGameplayScene *scene,
+    TecmoGameplaySceneLaunch *launch,
+    uint8_t away_team,
+    uint8_t home_team)
+{
+    const size_t pixel_count =
+        (size_t)TECMO_GAMEPLAY_SCENE_NES_WIDTH *
+        TECMO_GAMEPLAY_SCENE_NES_HEIGHT;
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    SceneTestPreTipJumpTuple last_court;
+    SceneTestPreTipJumpTuple frozen;
+    SceneTestPreTipJumpTuple returned;
+    uint32_t *pixels = NULL;
+    uint8_t away_actor;
+    uint8_t home_actor;
+    uint16_t last_court_frame = UINT16_MAX;
+    bool saw_resumed_airborne = false;
+    bool saw_natural_landing = false;
+    bool saw_live_post_landing = false;
+    size_t frame;
+    char failure[256] = "continuous pre-tip scene regression failed";
+
+    if (test == NULL || scene == NULL || launch == NULL) return false;
+    pixels = (uint32_t *)malloc(pixel_count * sizeof(*pixels));
+    if (pixels == NULL) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "continuous pre-tip renderer allocation failed");
+        return false;
+    }
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    memset(&last_court, 0, sizeof(last_court));
+    memset(&frozen, 0, sizeof(frozen));
+    memset(&returned, 0, sizeof(returned));
+    memset(launch, 0, sizeof(*launch));
+    launch->source = TECMO_GAMEPLAY_SCENE_PRESEASON;
+    launch->away_team = away_team;
+    launch->home_team = home_team;
+    launch->regulation_minutes = 2U;
+    launch->difficulty = 1U;
+    /* Both pads are assigned so the one-frame away B pulse is a human
+       capture and the home team remains a true no-input opponent. */
+    launch->controller_team[0U] = TECMO_GAMEPLAY_TEAM_AWAY;
+    launch->controller_team[1U] = TECMO_GAMEPLAY_TEAM_HOME;
+    launch->control_mode = 1U;
+    launch->speed_value = 1U;
+    launch->game_music_enabled = false;
+    if (!tecmo_gameplay_scene_launch(scene, launch)) {
+        (void)snprintf(failure, sizeof(failure), "continuous launch rejected");
+        goto failed;
+    }
+    if (!scene_test_render_continuously(scene, pixels, failure,
+                                        sizeof(failure))) {
+        goto failed;
+    }
+    for (frame = 0U; frame < 451U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+            (void)snprintf(failure, sizeof(failure),
+                           "continuous advance-to-capture rejected: %s",
+                           scene->status);
+            goto failed;
+        }
+        if (!scene_test_render_continuously(scene, pixels, failure,
+                                            sizeof(failure))) {
+            goto failed;
+        }
+    }
+    away_actor = scene->pretip_jumper_actor[0U];
+    home_actor = scene->pretip_jumper_actor[1U];
+    if (scene->pretip_state.phase !=
+            TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP ||
+        away_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        home_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+        (void)snprintf(failure, sizeof(failure),
+                       "continuous capture setup rejected");
+        goto failed;
+    }
+    p1.held.cancel = true;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        !scene_test_render_continuously(scene, pixels, failure,
+                                        sizeof(failure)) ||
+        !scene->pretip_state.away_tip_sampled ||
+        scene->pretip_state.away_tip_capture_clock != 0xF4U ||
+        scene->pretip_state.away_tip_error != 5U ||
+        scene->pretip_state.away_tip_countdown != 5U ||
+        scene->pretip_state.tip_capture_clock != 0xF5U ||
+        scene->pretip_state.tip_capture_clock_complete) {
+        (void)snprintf(failure, sizeof(failure),
+                       "Bank04 capture clock did not record $6A/$8A $F4/$F5");
+        goto failed;
+    }
+    p1.held.cancel = false;
+    for (frame = 0U; frame < 240U; ++frame) {
+        TecmoGameplayPreTipPhase phase_before = scene->pretip_state.phase;
+        if (phase_before == TECMO_GAMEPLAY_PRETIP_BALL_DESCENT) {
+            scene_test_capture_jump_tuple(scene, away_actor, home_actor,
+                                          &last_court);
+            last_court_frame = (uint16_t)scene->pretip_state.total_frame;
+        }
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+            (void)snprintf(failure, sizeof(failure),
+                           "continuous pre-cinematic update rejected: %s",
+                           scene->status);
+            goto failed;
+        }
+        if (!scene_test_render_continuously(scene, pixels, failure,
+                                            sizeof(failure))) {
+            goto failed;
+        }
+        if (scene->pretip_state.phase ==
+            TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP) {
+            break;
+        }
+    }
+    if (scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP ||
+        !scene->pretip_state.cinematic_visible ||
+        scene->pretip_state.first_cinematic_frame != 508U ||
+        scene->pretip_state.first_cinematic_frame !=
+            scene->pretip_state.total_frame ||
+        last_court_frame != 507U ||
+        last_court.away_altitude_q8 == 0U ||
+        !scene->pretip_state.away_jump_committed ||
+        scene->pretip_state.home_jump_committed) {
+        (void)snprintf(failure, sizeof(failure),
+                       "slow human jump/cinematic boundary rejected: "
+                       "last=%u first=%u commits=%u/%u",
+                       (unsigned)last_court_frame,
+                       (unsigned)scene->pretip_state.first_cinematic_frame,
+                       (unsigned)scene->pretip_state.away_jump_commit_count,
+                       (unsigned)scene->pretip_state.home_jump_commit_count);
+        goto failed;
+    }
+    scene_test_capture_jump_tuple(scene, away_actor, home_actor, &frozen);
+    if (frozen.away_altitude_q8 == 0U) {
+        (void)snprintf(failure, sizeof(failure),
+                       "cinematic started after forced grounding");
+        goto failed;
+    }
+    for (frame = 0U; frame < 60U; ++frame) {
+        SceneTestPreTipJumpTuple current;
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            !scene_test_render_continuously(scene, pixels, failure,
+                                            sizeof(failure))) {
+            if (failure[0] == '\0') {
+                (void)snprintf(failure, sizeof(failure),
+                               "continuous cinematic update rejected: %s",
+                               scene->status);
+            }
+            goto failed;
+        }
+        scene_test_capture_jump_tuple(scene, away_actor, home_actor,
+                                      &current);
+        if (!scene_test_jump_tuple_equal(&frozen, &current)) {
+            (void)snprintf(failure, sizeof(failure),
+                           "cinematic changed frozen jumper tuple at frame %u",
+                           (unsigned)frame);
+            goto failed;
+        }
+    }
+    scene_test_capture_jump_tuple(scene, away_actor, home_actor, &returned);
+    if (scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
+        scene->pretip_state.cinematic_visible ||
+        !scene_test_jump_tuple_equal(&frozen, &returned)) {
+        (void)snprintf(failure, sizeof(failure),
+                       "first returned court frame changed frozen jumper tuple");
+        goto failed;
+    }
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        !scene_test_render_continuously(scene, pixels, failure,
+                                        sizeof(failure))) {
+        if (failure[0] == '\0') {
+            (void)snprintf(failure, sizeof(failure),
+                           "returned-court recovery update rejected: %s",
+                           scene->status);
+        }
+        goto failed;
+    }
+    if (scene->pretip_state.away_jump_altitude_q8 ==
+            frozen.away_altitude_q8 &&
+        scene->pretip_state.away_jump_velocity_signed_q8 ==
+            frozen.away_velocity_q8) {
+        (void)snprintf(failure, sizeof(failure),
+                       "returned court frame did not resume jumper physics");
+        goto failed;
+    }
+    saw_resumed_airborne = scene->pretip_jump_active &&
+        scene->pretip_state.away_actor_state != 0x13U;
+    for (frame = 0U; frame < 180U && !scene->pretip_state.live_handoff;
+         ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            !scene_test_render_continuously(scene, pixels, failure,
+                                            sizeof(failure))) {
+            if (failure[0] == '\0') {
+                (void)snprintf(failure, sizeof(failure),
+                               "handoff transition rejected: %s", scene->status);
+            }
+            goto failed;
+        }
+        saw_resumed_airborne = saw_resumed_airborne ||
+            (scene->pretip_jump_active &&
+             scene->pretip_state.away_actor_state != 0x13U);
+    }
+    if (!scene->pretip_state.live_handoff ||
+        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE ||
+        !saw_resumed_airborne ||
+        scene->actors[away_actor].position.x !=
+            scene->actors[away_actor].anchor.x ||
+        scene->actors[away_actor].position.y !=
+            scene->actors[away_actor].anchor.y) {
+        (void)snprintf(failure, sizeof(failure),
+                       "live handoff broke tipped-jumper continuity");
+        goto failed;
+    }
+    p1.held.right = true;
+    for (frame = 0U; frame < 180U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            !scene_test_render_continuously(scene, pixels, failure,
+                                            sizeof(failure))) {
+            if (failure[0] == '\0') {
+                (void)snprintf(failure, sizeof(failure),
+                               "continuous live recovery rejected: %s",
+                               scene->status);
+            }
+            goto failed;
+        }
+        if (scene->pretip_jump_active) {
+            if (scene->actors[away_actor].position.x !=
+                    scene->actors[away_actor].anchor.x ||
+                scene->actors[away_actor].position.y !=
+                    scene->actors[away_actor].anchor.y) {
+                (void)snprintf(failure, sizeof(failure),
+                               "live recovery double-processed tipped jumper");
+                goto failed;
+            }
+        } else {
+            saw_natural_landing = true;
+            if (frame >= 8U) {
+                saw_live_post_landing = true;
+                break;
+            }
+        }
+    }
+    if (!saw_natural_landing || !saw_live_post_landing) {
+        (void)snprintf(failure, sizeof(failure),
+                       "tipped jumper did not naturally recover in live play");
+        goto failed;
+    }
+    tecmo_gameplay_scene_end(scene);
+    free(pixels);
+    return true;
+
+failed:
+    tecmo_gameplay_scene_test_message(test->message, test->message_size,
+                                      failure);
+    tecmo_gameplay_scene_end(scene);
+    free(pixels);
+    return false;
+}
+
 bool tecmo_gameplay_scene_test_pretip(
     TecmoGameplaySceneTestContext *test)
 {
@@ -374,9 +732,17 @@ bool tecmo_gameplay_scene_test_pretip(
 
     tecmo_gameplay_scene_test_set_skip_pretip(false);
     if (!tecmo_gameplay_scene_test_pretip_load(test, scene) ||
-        !scene_test_concurrent_tip_simulation(test, scene, &launch)) {
+        !scene_test_continuous_tip_render(test, scene, &launch, 0U, 1U)) {
         return false;
     }
+    if (!scene_test_continuous_tip_render(test, scene, &launch, 3U, 10U)) {
+        return false;
+    }
+    /* Later scene-contract tests intentionally use their historical 0/1
+       fixture.  Keep the second matchup as independent render coverage,
+       rather than quietly changing unrelated expected palette hashes. */
+    launch.away_team = 0U;
+    launch.home_team = 1U;
     launch.controller_team[1U] = TECMO_GAMEPLAY_TEAM_HOME;
     launch.game_music_enabled = true;
     test->launch = launch;
@@ -414,7 +780,8 @@ bool tecmo_gameplay_scene_test_pretip_human_checkpoint(
     context.message_size = message_size;
     if (!tecmo_gameplay_scene_load(
             &scene, project_root, asset_pack_path, music_player) ||
-        !scene_test_concurrent_tip_simulation(&context, &scene, &launch)) {
+        !scene_test_continuous_tip_render(&context, &scene, &launch,
+                                          0U, 1U)) {
         tecmo_gameplay_scene_test_message(
             message, message_size,
             scene.status[0] != '\0' ? scene.status

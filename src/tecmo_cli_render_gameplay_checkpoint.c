@@ -1,3 +1,7 @@
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+
 #include "tecmo_controls.h"
 #include "tecmo_game.h"
 #include "tecmo_gameplay_camera.h"
@@ -12,7 +16,9 @@
 #include "tecmo_gameplay_scene_internal.h"
 #include "tecmo_gameplay_state.h"
 #include "tecmo_gameplay_violation_referee.h"
+#include "tecmo_memory.h"
 #include "tecmo_win32_keys.h"
+#include "png_writer.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -556,6 +562,7 @@ static bool gameplay_checkpoint_report_tipoff_proof(
         return false;
     }
     if (!tecmo_gameplay_scene_in_pretip(scene) &&
+        !scene->pretip_jump_active &&
         (scene->pretip_jumper_altitude_q8[0U] != 0U ||
          scene->pretip_jumper_altitude_q8[1U] != 0U)) {
         return false;
@@ -572,8 +579,9 @@ static bool gameplay_checkpoint_report_tipoff_proof(
         "home-altitude-q8=%u home-facing-right=%u home-pose-encoded=%u "
         "home-renderer-mirror=0 home-anchor-x=%d left-actor=%u left-facing-right=%u "
         "right-actor=%u right-facing-right=%u "
-        "away-sampled=%u away-sample-frame=%u away-error=%u "
-        "home-sampled=%u home-sample-frame=%u home-error=%u "
+        "away-sampled=%u away-sample-frame=%u away-capture-clock=%u away-error=%u "
+        "home-sampled=%u home-sample-frame=%u home-capture-clock=%u home-error=%u "
+        "capture-source-6a=%u capture-clock=%u capture-clock-ticks=%u "
         "hud-ready=1 hud-away-actor=%u hud-home-actor=%u "
         "hud-away-name=%s hud-home-name=%s "
         "input-adapter=win32-keyboard-controls input-raw-x-down=%u "
@@ -622,10 +630,15 @@ static bool gameplay_checkpoint_report_tipoff_proof(
         right->facing_right ? 1U : 0U,
         scene->pretip_state.away_tip_sampled ? 1U : 0U,
         (unsigned)scene->pretip_state.away_tip_sample_frame,
+        (unsigned)scene->pretip_state.away_tip_capture_clock,
         (unsigned)scene->pretip_state.away_tip_error,
         scene->pretip_state.home_tip_sampled ? 1U : 0U,
         (unsigned)scene->pretip_state.home_tip_sample_frame,
+        (unsigned)scene->pretip_state.home_tip_capture_clock,
         (unsigned)scene->pretip_state.home_tip_error,
+        (unsigned)scene->pretip_state.tip_capture_source_6a,
+        (unsigned)scene->pretip_state.tip_capture_clock,
+        (unsigned)scene->pretip_state.tip_capture_clock_ticks,
         (unsigned)away_hud_actor,
         (unsigned)home_hud_actor,
         away_hud_name,
@@ -656,11 +669,12 @@ static bool gameplay_checkpoint_report_tipoff_proof(
     printf(
         "tipoff-timing frame=%u total-frame=%u simulation-tick=%u "
         "presentation-phase=%s cinematic-visible=%u ball-screen-y=%ld ball-raw-height=%u "
-        "rng-threshold=%u away-latch=%u away-countdown=%u "
+        "rng-threshold=%u capture-source-6a=%u capture-clock=%u "
+        "capture-clock-ticks=%u away-latch=%u away-capture-clock=%u away-countdown=%u "
         "away-commit-frame=%u away-committed=%u away-altitude-q8=%u "
         "away-state=%u away-phase=%u away-pose=%u away-fraction=%u "
         "away-velocity-q8=%d away-apex-frame=%u away-commit-count=%u "
-        "home-latch=%u home-countdown=%u "
+        "home-latch=%u home-capture-clock=%u home-countdown=%u "
         "home-commit-frame=%u home-committed=%u home-altitude-q8=%u "
         "home-state=%u home-phase=%u home-pose=%u home-fraction=%u "
         "home-velocity-q8=%d home-apex-frame=%u home-commit-count=%u "
@@ -676,7 +690,11 @@ static bool gameplay_checkpoint_report_tipoff_proof(
             ((scene->pretip_state.tip_rng_6a &
               scene->pretip_assets.tip_auto_threshold_mask) >>
              scene->pretip_assets.tip_auto_threshold_shift)),
+        (unsigned)scene->pretip_state.tip_capture_source_6a,
+        (unsigned)scene->pretip_state.tip_capture_clock,
+        (unsigned)scene->pretip_state.tip_capture_clock_ticks,
         scene->pretip_state.away_tip_sampled ? 1U : 0U,
+        (unsigned)scene->pretip_state.away_tip_capture_clock,
         (unsigned)scene->pretip_state.away_tip_countdown,
         (unsigned)scene->pretip_state.away_jump_commit_frame,
         scene->pretip_state.away_jump_committed ? 1U : 0U,
@@ -688,6 +706,7 @@ static bool gameplay_checkpoint_report_tipoff_proof(
         (unsigned)scene->pretip_state.away_apex_frame,
         (unsigned)scene->pretip_state.away_jump_commit_count,
         scene->pretip_state.home_tip_sampled ? 1U : 0U,
+        (unsigned)scene->pretip_state.home_tip_capture_clock,
         (unsigned)scene->pretip_state.home_tip_countdown,
         (unsigned)scene->pretip_state.home_jump_commit_frame,
         scene->pretip_state.home_jump_committed ? 1U : 0U,
@@ -873,17 +892,6 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
             input_evidence.literal_b_mapped = false;
         }
         for (update = 0U; update < adapter_updates; ++update) {
-            if (tipoff_continuity && scene->frame == 570U) {
-                for (size_t actor = 0U;
-                     actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
-                    scene->actors[actor].position.x =
-                        (int16_t)(300 + (int)actor * 18);
-                    scene->actors[actor].position.y =
-                        (int16_t)(82 + (int)(actor % 4U) * 30);
-                    scene->actors[actor].anchor =
-                        scene->actors[actor].position;
-                }
-            }
             if (!input_evidence.bridge_used &&
                 scene->frame == TECMO_CLI_PRETIP_CAPTURE_FRAME - 1U &&
                 scene->pretip_state.phase ==
@@ -1142,10 +1150,14 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
                   (tipoff_away_win
                     ? (!scene->pretip_state.home_tip_sampled ||
                        scene->pretip_state.home_tip_sample_frame != 0U ||
-                       scene->pretip_state.home_tip_error != 0U)
+                       scene->pretip_state.home_tip_capture_clock != 0xF4U ||
+                       scene->pretip_state.home_tip_error !=
+                            5U)
                     : (!scene->pretip_state.away_tip_sampled ||
                        scene->pretip_state.away_tip_sample_frame != 0U ||
-                       scene->pretip_state.away_tip_error != 0U)))) ||
+                       scene->pretip_state.away_tip_capture_clock != 0xF4U ||
+                       scene->pretip_state.away_tip_error !=
+                             5U)))) ||
                 (checkpoint < first_contest_update &&
                  (input_evidence.bridge_used ||
                   input_evidence.raw_x_down ||
@@ -1683,15 +1695,20 @@ static bool run_gameplay_shot_checkpoint(TecmoRuntime *runtime, const TecmoCliGa
         }
     } else if (jump) {
         TecmoGameplaySceneActor *actor = &runtime->gameplay_scene.actors[0];
+
+        /* Every jump checkpoint starts from the same complete legal court
+           tuple.  The old generic/rattle route changed only X and inherited
+           Y/anchor/ball depth from its preflight, which made the frame-72
+           rim-rattle render contract depend on unrelated tip-off state. */
         actor->position.x = 0x013CU;
+        actor->position.y = 180;
         actor->anchor.x = actor->position.x;
+        actor->anchor.y = actor->position.y;
         runtime->gameplay_scene.ball_position.x_q8 =
             (int32_t)(actor->position.x + 7) * 256;
+        runtime->gameplay_scene.ball_position.y_q8 =
+            (int32_t)(actor->position.y - 18) * 256;
         if (jump_make) {
-            actor->position.y = 180;
-            actor->anchor.y = 180;
-            runtime->gameplay_scene.ball_position.y_q8 =
-                (int32_t)(180 - 18) * 256;
             runtime->gameplay_scene.action_serial = 0U;
         } else {
             if (!tecmo_gameplay_set_score(
@@ -1788,4 +1805,708 @@ bool tecmo_cli_setup_gameplay_render_checkpoint(TecmoRuntime *runtime, const cha
     }
     if (handled) return true;
     return run_gameplay_shot_checkpoint(runtime, &config);
+}
+
+/* Continuous native tip-off proof ---------------------------------------- */
+
+#define TECMO_CLI_TIPOFF_TRACE_WIDTH 640
+#define TECMO_CLI_TIPOFF_TRACE_HEIGHT 480
+#define TECMO_CLI_TIPOFF_TRACE_PERMANENT_BYTES (16U * 1024U * 1024U)
+#define TECMO_CLI_TIPOFF_TRACE_TRANSIENT_BYTES (16U * 1024U * 1024U)
+#define TECMO_CLI_TIPOFF_TRACE_MAX_UPDATES 840U
+#define TECMO_CLI_TIPOFF_TRACE_CAPTURE_SCENE_FRAME 451U
+
+typedef enum TecmoCliTipoffTraceCaptureSide {
+    TECMO_CLI_TIPOFF_TRACE_CAPTURE_NONE = 0,
+    TECMO_CLI_TIPOFF_TRACE_CAPTURE_AWAY,
+    TECMO_CLI_TIPOFF_TRACE_CAPTURE_HOME
+} TecmoCliTipoffTraceCaptureSide;
+
+typedef struct TecmoCliTipoffTraceScenario {
+    const char *name;
+    uint8_t away_team;
+    uint8_t home_team;
+    const char *away_city;
+    const char *away_nickname;
+    const char *home_city;
+    const char *home_nickname;
+    uint8_t controller_team[TECMO_GAMEPLAY_CONTROLLER_COUNT];
+    TecmoCliTipoffTraceCaptureSide capture_side;
+    uint8_t capture_delay;
+    uint8_t capture_hold_frames;
+    bool expect_cinematic;
+    bool expect_exact_slow_cinematic;
+} TecmoCliTipoffTraceScenario;
+
+typedef struct TecmoCliTipoffTraceJumpTuple {
+    TecmoGameplaySceneActor actor[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
+    uint8_t state[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
+    uint8_t phase[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
+    uint16_t altitude_q8[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
+    int16_t velocity_q8[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
+    bool jump_active;
+} TecmoCliTipoffTraceJumpTuple;
+
+static void tipoff_trace_capture_tuple(
+    const TecmoGameplayScene *scene,
+    TecmoCliTipoffTraceJumpTuple *tuple)
+{
+    size_t jumper;
+    if (scene == NULL || tuple == NULL) return;
+    memset(tuple, 0, sizeof(*tuple));
+    for (jumper = 0U; jumper < TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT;
+         ++jumper) {
+        uint8_t actor = scene->pretip_jumper_actor[jumper];
+        if (actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) return;
+        tuple->actor[jumper] = scene->actors[actor];
+        tuple->state[jumper] = jumper == 0U
+            ? scene->pretip_state.away_actor_state
+            : scene->pretip_state.home_actor_state;
+        tuple->phase[jumper] = jumper == 0U
+            ? scene->pretip_state.away_animation_phase
+            : scene->pretip_state.home_animation_phase;
+        tuple->altitude_q8[jumper] = jumper == 0U
+            ? scene->pretip_state.away_jump_altitude_q8
+            : scene->pretip_state.home_jump_altitude_q8;
+        tuple->velocity_q8[jumper] = jumper == 0U
+            ? scene->pretip_state.away_jump_velocity_signed_q8
+            : scene->pretip_state.home_jump_velocity_signed_q8;
+    }
+    tuple->jump_active = scene->pretip_jump_active;
+}
+
+static bool tipoff_trace_tuple_equal(
+    const TecmoCliTipoffTraceJumpTuple *left,
+    const TecmoCliTipoffTraceJumpTuple *right)
+{
+    return left != NULL && right != NULL &&
+        memcmp(left, right, sizeof(*left)) == 0;
+}
+
+static bool tipoff_trace_jumpers_anchored(const TecmoGameplayScene *scene)
+{
+    size_t jumper;
+    if (scene == NULL) return false;
+    if (!scene->pretip_jump_active) return true;
+    for (jumper = 0U; jumper < TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT;
+         ++jumper) {
+        uint8_t actor = scene->pretip_jumper_actor[jumper];
+        if (actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+            scene->actors[actor].position.x != scene->actors[actor].anchor.x ||
+            scene->actors[actor].position.y != scene->actors[actor].anchor.y) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool tipoff_trace_write_png(const char *path,
+                                   const uint32_t *pixels,
+                                   uint8_t *rgba)
+{
+    size_t index;
+    const size_t pixel_count = (size_t)TECMO_CLI_TIPOFF_TRACE_WIDTH *
+        TECMO_CLI_TIPOFF_TRACE_HEIGHT;
+    if (path == NULL || pixels == NULL || rgba == NULL) return false;
+    for (index = 0U; index < pixel_count; ++index) {
+        uint32_t pixel = pixels[index];
+        rgba[index * 4U + 0U] = (uint8_t)((pixel >> 16U) & 0xFFU);
+        rgba[index * 4U + 1U] = (uint8_t)((pixel >> 8U) & 0xFFU);
+        rgba[index * 4U + 2U] = (uint8_t)(pixel & 0xFFU);
+        rgba[index * 4U + 3U] = (uint8_t)((pixel >> 24U) & 0xFFU);
+    }
+    return png_write_rgba8(path, rgba, TECMO_CLI_TIPOFF_TRACE_WIDTH,
+                           TECMO_CLI_TIPOFF_TRACE_HEIGHT) == 0;
+}
+
+static bool tipoff_trace_save_frame(const char *output_directory,
+                                    const char *scenario_name,
+                                    unsigned frame,
+                                    const char *label,
+                                    const uint32_t *pixels,
+                                    uint8_t *rgba,
+                                    char *path_out,
+                                    size_t path_out_size)
+{
+    int written;
+    if (output_directory == NULL || scenario_name == NULL || label == NULL ||
+        path_out == NULL || path_out_size == 0U) {
+        return false;
+    }
+    written = snprintf(path_out, path_out_size, "%s\\%s-%04u-%s.png",
+                       output_directory, scenario_name, frame, label);
+    if (written < 0 || (size_t)written >= path_out_size) return false;
+    return tipoff_trace_write_png(path_out, pixels, rgba);
+}
+
+static bool tipoff_trace_write_row(FILE *csv,
+                                   const TecmoCliTipoffTraceScenario *scenario,
+                                   const TecmoGameplayScene *scene,
+                                   bool render_ok)
+{
+    const TecmoGameplayPreTipState *state;
+    uint8_t away_actor;
+    uint8_t home_actor;
+    if (csv == NULL || scenario == NULL || scene == NULL) return false;
+    state = &scene->pretip_state;
+    away_actor = scene->pretip_jumper_actor[0U];
+    home_actor = scene->pretip_jumper_actor[1U];
+    if (away_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        home_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+        return false;
+    }
+    return fprintf(csv, "%s,%u,%u,%s,%u,%u,%u,%u,",
+                   scenario->name, scene->frame, state->total_frame,
+                   tecmo_gameplay_pretip_phase_name(state->phase),
+                   state->phase_frame, state->cinematic_visible ? 1U : 0U,
+                   state->live_handoff ? 1U : 0U, render_ok ? 1U : 0U) >= 0 &&
+        fprintf(csv, "%u,%u,%u,%u,%u,%u,%u,%u,",
+                state->tip_capture_source_6a, state->tip_capture_clock,
+                state->tip_capture_clock_ticks,
+                state->tip_capture_clock_complete ? 1U : 0U,
+                state->away_tip_sampled ? 1U : 0U,
+                state->away_tip_capture_clock, state->away_tip_error,
+                state->away_tip_countdown) >= 0 &&
+        fprintf(csv, "%u,%u,%u,%u,%u,%u,%u,%u,",
+                state->home_tip_sampled ? 1U : 0U,
+                state->home_tip_capture_clock, state->home_tip_error,
+                state->home_tip_countdown,
+                state->away_jump_committed ? 1U : 0U,
+                state->home_jump_committed ? 1U : 0U,
+                state->away_actor_state, state->away_animation_phase) >= 0 &&
+        fprintf(csv, "%d,%u,%u,%u,%d,%u,%u,",
+                (int)state->away_jump_velocity_signed_q8,
+                state->away_jump_altitude_q8, state->home_actor_state,
+                state->home_animation_phase,
+                (int)state->home_jump_velocity_signed_q8,
+                state->home_jump_altitude_q8,
+                scene->pretip_jump_active ? 1U : 0U) >= 0 &&
+        fprintf(csv, "%d,%d,%d,%d,%u,",
+                scene->actors[away_actor].position.x,
+                scene->actors[away_actor].position.y,
+                scene->actors[away_actor].anchor.x,
+                scene->actors[away_actor].anchor.y,
+                scene->actors[away_actor].pose_index) >= 0 &&
+        fprintf(csv, "%d,%d,%d,%d,%u,%u,%u,%u\n",
+                scene->actors[home_actor].position.x,
+                scene->actors[home_actor].position.y,
+                scene->actors[home_actor].anchor.x,
+                scene->actors[home_actor].anchor.y,
+                scene->actors[home_actor].pose_index,
+                scene->ball_holder, scene->pretip_state.receiver_actor,
+                scene->state.possession) >= 0;
+}
+
+static bool tipoff_trace_capture_button_down(
+    const TecmoCliTipoffTraceScenario *scenario,
+    const TecmoGameplayScene *scene)
+{
+    unsigned start;
+    unsigned end;
+    if (scenario == NULL || scene == NULL ||
+        scenario->capture_side == TECMO_CLI_TIPOFF_TRACE_CAPTURE_NONE) {
+        return false;
+    }
+    start = TECMO_CLI_TIPOFF_TRACE_CAPTURE_SCENE_FRAME +
+        scenario->capture_delay;
+    end = start + scenario->capture_hold_frames;
+    return scene->frame >= start && scene->frame < end;
+}
+
+static bool tipoff_trace_run_scenario(
+    TecmoRuntime *runtime,
+    const TecmoCliTipoffTraceScenario *scenario,
+    const char *output_directory,
+    uint32_t *pixels,
+    uint8_t *rgba,
+    char *failure,
+    size_t failure_size)
+{
+    TecmoGameplaySceneLaunch launch;
+    TecmoFramebuffer framebuffer;
+    TecmoInput p1;
+    TecmoInput p2;
+    TecmoCliTipoffTraceJumpTuple frozen;
+    static uint32_t last_court_pixels[
+        TECMO_CLI_TIPOFF_TRACE_WIDTH * TECMO_CLI_TIPOFF_TRACE_HEIGHT];
+    bool frozen_set = false;
+    bool last_court_saved = false;
+    bool last_court_available = false;
+    bool first_cinematic_saved = false;
+    bool returned_saved = false;
+    bool visible_airborne_saved = false;
+    bool live_handoff_saved = false;
+    bool landing_saved = false;
+    bool live_after_landing_saved = false;
+    bool no_input_stall_saved = false;
+    bool saw_resumed = false;
+    bool saw_landing = false;
+    unsigned live_renders_after_landing = 0U;
+    unsigned last_court_frame = 0U;
+    unsigned update;
+    FILE *csv = NULL;
+    char csv_path[1024];
+    char image_path[1024];
+    const char *diagnostic;
+
+    if (runtime == NULL || scenario == NULL || output_directory == NULL ||
+        pixels == NULL || rgba == NULL || failure == NULL || failure_size == 0U) {
+        return false;
+    }
+    if (snprintf(csv_path, sizeof(csv_path), "%s\\%s-trace.csv",
+                 output_directory, scenario->name) < 0) {
+        (void)snprintf(failure, failure_size, "trace CSV path rejected");
+        return false;
+    }
+    csv = fopen(csv_path, "wb");
+    if (csv == NULL) {
+        (void)snprintf(failure, failure_size, "cannot write %s", csv_path);
+        return false;
+    }
+    (void)fprintf(csv,
+        "scenario,scene_frame,total_frame,phase,phase_frame,cinematic,live_handoff,render_ok,"
+        "capture_source_6a,capture_clock,capture_ticks,capture_complete,"
+        "away_sampled,away_capture_clock,away_error,away_countdown,"
+        "home_sampled,home_capture_clock,home_error,home_countdown,"
+        "away_committed,home_committed,away_state,away_phase,away_velocity_q8,away_altitude_q8,"
+        "home_state,home_phase,home_velocity_q8,home_altitude_q8,jump_active,"
+        "away_x,away_y,away_anchor_x,away_anchor_y,away_pose,"
+        "home_x,home_y,home_anchor_x,home_anchor_y,home_pose,holder,receiver,possession\n");
+    memset(&launch, 0, sizeof(launch));
+    launch.source = TECMO_GAMEPLAY_SCENE_PRESEASON;
+    launch.away_team = scenario->away_team;
+    launch.home_team = scenario->home_team;
+    launch.regulation_minutes = 2U;
+    launch.difficulty = 1U;
+    launch.control_mode = 1U;
+    launch.speed_value = 1U;
+    launch.game_music_enabled = false;
+    launch.controller_team[0U] = scenario->controller_team[0U];
+    launch.controller_team[1U] = scenario->controller_team[1U];
+    if (!tecmo_gameplay_scene_launch(&runtime->gameplay_scene, &launch)) {
+        (void)snprintf(failure, failure_size, "%s launch rejected: %s",
+                       scenario->name, runtime->gameplay_scene.status);
+        fclose(csv);
+        return false;
+    }
+    if (runtime->gameplay_scene.pretip_team_data == NULL ||
+        strcmp(runtime->gameplay_scene.pretip_team_data->teams[
+                   scenario->away_team].city, scenario->away_city) != 0 ||
+        strcmp(runtime->gameplay_scene.pretip_team_data->teams[
+                   scenario->away_team].nickname, scenario->away_nickname) != 0 ||
+        strcmp(runtime->gameplay_scene.pretip_team_data->teams[
+                   scenario->home_team].city, scenario->home_city) != 0 ||
+        strcmp(runtime->gameplay_scene.pretip_team_data->teams[
+                   scenario->home_team].nickname, scenario->home_nickname) != 0) {
+        (void)snprintf(failure, failure_size,
+                       "%s team selector mapping rejected", scenario->name);
+        fclose(csv);
+        return false;
+    }
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_COURT);
+    memset(&framebuffer, 0, sizeof(framebuffer));
+    framebuffer.pixels = pixels;
+    framebuffer.width = TECMO_CLI_TIPOFF_TRACE_WIDTH;
+    framebuffer.height = TECMO_CLI_TIPOFF_TRACE_HEIGHT;
+    framebuffer.pitch_pixels = TECMO_CLI_TIPOFF_TRACE_WIDTH;
+    memset(&frozen, 0, sizeof(frozen));
+    for (update = 0U; update < TECMO_CLI_TIPOFF_TRACE_MAX_UPDATES; ++update) {
+        TecmoGameplayScene *scene = &runtime->gameplay_scene;
+        bool render_ok;
+        memset(&p1, 0, sizeof(p1));
+        memset(&p2, 0, sizeof(p2));
+        if (tipoff_trace_capture_button_down(scenario, scene)) {
+            if (scenario->capture_side == TECMO_CLI_TIPOFF_TRACE_CAPTURE_AWAY)
+                p1.cancel = true;
+            else if (scenario->capture_side ==
+                     TECMO_CLI_TIPOFF_TRACE_CAPTURE_HOME)
+                p2.cancel = true;
+        }
+        tecmo_runtime_update_players(runtime, &p1, &p2);
+        scene = &runtime->gameplay_scene;
+        if (!scene->active || strstr(scene->status, "rejected") != NULL) {
+            (void)snprintf(failure, failure_size,
+                           "%s update rejected at scene frame %u: %s",
+                           scenario->name, scene->frame, scene->status);
+            fclose(csv);
+            return false;
+        }
+        render_ok = tecmo_render_gameplay_scene(runtime, &framebuffer);
+        if (!tipoff_trace_write_row(csv, scenario, scene, render_ok)) {
+            (void)snprintf(failure, failure_size, "%s trace write failed",
+                           scenario->name);
+            fclose(csv);
+            return false;
+        }
+        if (!render_ok) {
+            diagnostic = tecmo_gameplay_scene_render_diagnostic(
+                scene, &framebuffer, 64, 0, 2, true);
+            (void)snprintf(failure, failure_size,
+                           "%s GAMEPLAY RENDER REJECTED at scene frame %u: %s",
+                           scenario->name, scene->frame,
+                           diagnostic != NULL ? diagnostic : "draw composition");
+            fclose(csv);
+            return false;
+        }
+        if (!tipoff_trace_jumpers_anchored(scene)) {
+            (void)snprintf(failure, failure_size,
+                           "%s tipped jumper was double-processed at scene frame %u",
+                           scenario->name, scene->frame);
+            fclose(csv);
+            return false;
+        }
+        if (scenario->capture_side != TECMO_CLI_TIPOFF_TRACE_CAPTURE_NONE &&
+            scene->pretip_state.total_frame ==
+                TECMO_CLI_PRETIP_CAPTURE_FRAME + scenario->capture_delay) {
+            uint8_t expected_clock = (uint8_t)(0xF4U + scenario->capture_delay);
+            uint8_t expected_error = (uint8_t)(5U - scenario->capture_delay);
+            bool away = scenario->capture_side ==
+                TECMO_CLI_TIPOFF_TRACE_CAPTURE_AWAY;
+            uint8_t sampled = away ? scene->pretip_state.away_tip_sampled
+                                    : scene->pretip_state.home_tip_sampled;
+            uint8_t captured = away
+                ? scene->pretip_state.away_tip_capture_clock
+                : scene->pretip_state.home_tip_capture_clock;
+            uint8_t error = away ? scene->pretip_state.away_tip_error
+                                 : scene->pretip_state.home_tip_error;
+            uint8_t countdown = away ? scene->pretip_state.away_tip_countdown
+                                     : scene->pretip_state.home_tip_countdown;
+            if (!sampled || captured != expected_clock ||
+                error != expected_error || countdown != expected_error ||
+                captured == 0xF9U || error == 0U) {
+                (void)snprintf(failure, failure_size,
+                               "%s did not retain Bank04 capture clock $%02X/error %u",
+                               scenario->name, expected_clock,
+                               (unsigned)expected_error);
+                fclose(csv);
+                return false;
+            }
+            if (!tipoff_trace_save_frame(output_directory, scenario->name,
+                                         scene->frame, "capture", pixels,
+                                         rgba, image_path, sizeof(image_path))) {
+                (void)snprintf(failure, failure_size, "%s capture PNG failed",
+                               scenario->name);
+                fclose(csv);
+                return false;
+            }
+        }
+        if (scenario->expect_cinematic && !visible_airborne_saved &&
+            !scene->pretip_state.cinematic_visible &&
+            (scene->pretip_state.away_jump_altitude_q8 != 0U ||
+             scene->pretip_state.home_jump_altitude_q8 != 0U)) {
+            if (!tipoff_trace_save_frame(output_directory, scenario->name,
+                                         scene->frame, "visible-airborne",
+                                         pixels, rgba, image_path,
+                                         sizeof(image_path))) {
+                (void)snprintf(failure, failure_size,
+                               "%s did not visibly jump before cutaway",
+                               scenario->name);
+                fclose(csv);
+                return false;
+            }
+            visible_airborne_saved = true;
+        }
+        if (scenario->expect_cinematic &&
+            scene->pretip_state.phase == TECMO_GAMEPLAY_PRETIP_BALL_DESCENT) {
+            /* Keep the actual final court framebuffer, then emit it when the
+             * next update enters state $17's cutaway.  The primary capture
+             * reaches this at frame 507; a later valid capture has a different
+             * last court frame and must not inherit that fixture convention. */
+            memcpy(last_court_pixels, pixels, sizeof(last_court_pixels));
+            last_court_frame = scene->frame;
+            last_court_available = true;
+        }
+        if (scene->pretip_state.phase == TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP) {
+            TecmoCliTipoffTraceJumpTuple tuple;
+            if (!last_court_saved &&
+                (!last_court_available ||
+                 !tipoff_trace_save_frame(output_directory, scenario->name,
+                                          last_court_frame, "last-court",
+                                          last_court_pixels, rgba, image_path,
+                                          sizeof(image_path)))) {
+                (void)snprintf(failure, failure_size,
+                               "%s last-court PNG failed", scenario->name);
+                fclose(csv);
+                return false;
+            }
+            last_court_saved = true;
+            tipoff_trace_capture_tuple(scene, &tuple);
+            if (!frozen_set) {
+                frozen = tuple;
+                frozen_set = true;
+                if (!visible_airborne_saved) {
+                    (void)snprintf(failure, failure_size,
+                                   "%s entered cutaway before a human jump was visible",
+                                   scenario->name);
+                    fclose(csv);
+                    return false;
+                }
+                if (scenario->expect_exact_slow_cinematic &&
+                    scene->pretip_state.first_cinematic_frame != 508U) {
+                    (void)snprintf(failure, failure_size,
+                                   "%s cinematic frame %u is not ROM-paced 508",
+                                   scenario->name,
+                                   (unsigned)scene->pretip_state.first_cinematic_frame);
+                    fclose(csv);
+                    return false;
+                }
+            } else if (!tipoff_trace_tuple_equal(&frozen, &tuple)) {
+                (void)snprintf(failure, failure_size,
+                               "%s cinematic changed frozen jumper tuple",
+                               scenario->name);
+                fclose(csv);
+                return false;
+            }
+            if (scene->pretip_state.phase_frame == 0U && !first_cinematic_saved) {
+                if (!tipoff_trace_save_frame(output_directory, scenario->name,
+                                             scene->frame, "first-cinematic",
+                                             pixels, rgba, image_path,
+                                             sizeof(image_path))) {
+                    (void)snprintf(failure, failure_size,
+                                   "%s first-cinematic PNG failed", scenario->name);
+                    fclose(csv);
+                    return false;
+                }
+                first_cinematic_saved = true;
+            }
+            if (scene->pretip_state.phase_frame == 30U) {
+                if (!tipoff_trace_save_frame(output_directory, scenario->name,
+                                             scene->frame, "cinematic-middle",
+                                             pixels, rgba, image_path,
+                                             sizeof(image_path))) {
+                    (void)snprintf(failure, failure_size,
+                                   "%s cinematic-middle PNG failed", scenario->name);
+                    fclose(csv);
+                    return false;
+                }
+            }
+            if (scene->pretip_state.phase_frame == 59U) {
+                if (!tipoff_trace_save_frame(output_directory, scenario->name,
+                                             scene->frame, "cinematic-last",
+                                             pixels, rgba, image_path,
+                                             sizeof(image_path))) {
+                    (void)snprintf(failure, failure_size,
+                                   "%s cinematic-last PNG failed", scenario->name);
+                    fclose(csv);
+                    return false;
+                }
+            }
+        }
+        if (frozen_set && scene->pretip_state.phase ==
+                TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST &&
+            scene->pretip_state.phase_frame == 0U && !returned_saved) {
+            TecmoCliTipoffTraceJumpTuple tuple;
+            tipoff_trace_capture_tuple(scene, &tuple);
+            if (!tipoff_trace_tuple_equal(&frozen, &tuple) ||
+                (tuple.altitude_q8[0U] == 0U && tuple.altitude_q8[1U] == 0U) ||
+                !tipoff_trace_save_frame(output_directory, scenario->name,
+                                         scene->frame, "court-return", pixels,
+                                         rgba, image_path, sizeof(image_path))) {
+                (void)snprintf(failure, failure_size,
+                               "%s court return changed or grounded frozen tuple",
+                               scenario->name);
+                fclose(csv);
+                return false;
+            }
+            returned_saved = true;
+        }
+        if (returned_saved && scene->pretip_state.phase ==
+                TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST &&
+            scene->pretip_state.phase_frame == 1U) {
+            TecmoCliTipoffTraceJumpTuple tuple;
+            tipoff_trace_capture_tuple(scene, &tuple);
+            if (tipoff_trace_tuple_equal(&frozen, &tuple) ||
+                !tipoff_trace_save_frame(output_directory, scenario->name,
+                                         scene->frame, "resumed-physics", pixels,
+                                         rgba, image_path, sizeof(image_path))) {
+                (void)snprintf(failure, failure_size,
+                               "%s court return did not resume jumper physics",
+                               scenario->name);
+                fclose(csv);
+                return false;
+            }
+            saw_resumed = true;
+        }
+        if (scene->pretip_state.live_handoff &&
+            scene->pretip_state.phase_frame == 0U && !live_handoff_saved) {
+            if (!tipoff_trace_save_frame(output_directory, scenario->name,
+                                         scene->frame, "live-handoff", pixels,
+                                         rgba, image_path, sizeof(image_path))) {
+                (void)snprintf(failure, failure_size,
+                               "%s live-handoff PNG failed", scenario->name);
+                fclose(csv);
+                return false;
+            }
+            live_handoff_saved = true;
+        }
+        if (frozen_set && !landing_saved &&
+            (!scene->pretip_state.away_jump_committed ||
+             scene->pretip_state.away_actor_state == 0x13U) &&
+            (!scene->pretip_state.home_jump_committed ||
+             scene->pretip_state.home_actor_state == 0x13U)) {
+            if (!tipoff_trace_save_frame(output_directory, scenario->name,
+                                         scene->frame, "natural-landing", pixels,
+                                         rgba, image_path, sizeof(image_path))) {
+                (void)snprintf(failure, failure_size,
+                               "%s natural-landing PNG failed", scenario->name);
+                fclose(csv);
+                return false;
+            }
+            landing_saved = true;
+            saw_landing = true;
+        }
+        if (landing_saved && scene->pretip_state.live_handoff) {
+            ++live_renders_after_landing;
+            if (live_renders_after_landing >= 10U && !live_after_landing_saved) {
+                if (!tipoff_trace_save_frame(output_directory, scenario->name,
+                                             scene->frame, "live-after-landing",
+                                             pixels, rgba, image_path,
+                                             sizeof(image_path))) {
+                    (void)snprintf(failure, failure_size,
+                                   "%s live-after-landing PNG failed", scenario->name);
+                    fclose(csv);
+                    return false;
+                }
+                live_after_landing_saved = true;
+            }
+        }
+        if (!scenario->expect_cinematic && scene->frame >= 600U &&
+            !no_input_stall_saved) {
+            if (scene->pretip_state.cinematic_visible ||
+                scene->pretip_state.away_jump_committed ||
+                scene->pretip_state.home_jump_committed ||
+                !tipoff_trace_save_frame(output_directory, scenario->name,
+                                         scene->frame, "no-input-stall", pixels,
+                                         rgba, image_path, sizeof(image_path))) {
+                (void)snprintf(failure, failure_size,
+                               "%s no-input route unexpectedly resolved tip",
+                               scenario->name);
+                fclose(csv);
+                return false;
+            }
+            no_input_stall_saved = true;
+        }
+        if (scenario->expect_cinematic && first_cinematic_saved &&
+            returned_saved && saw_resumed && saw_landing &&
+            live_after_landing_saved) {
+            break;
+        }
+        if (!scenario->expect_cinematic && no_input_stall_saved) break;
+    }
+    fclose(csv);
+    if (scenario->expect_cinematic &&
+        (!frozen_set || !last_court_saved || !first_cinematic_saved ||
+         !visible_airborne_saved || !returned_saved || !saw_resumed || !saw_landing ||
+         !live_after_landing_saved)) {
+        (void)snprintf(failure, failure_size,
+                       "%s did not complete continuous tip lifecycle", scenario->name);
+        return false;
+    }
+    if (!scenario->expect_cinematic && !no_input_stall_saved) {
+        (void)snprintf(failure, failure_size,
+                       "%s did not retain no-input stall", scenario->name);
+        return false;
+    }
+    printf("tipoff-regression scenario=%s result=PASS csv=%s\n",
+           scenario->name, csv_path);
+    return true;
+}
+
+int tecmo_cli_run_tipoff_regression_trace(const char *project_root,
+                                          const char *asset_pack_path,
+                                          const char *output_directory)
+{
+    static const TecmoCliTipoffTraceScenario scenarios[] = {
+        {
+            "bulls-pacers-away-pulse", 3U, 10U,
+            "CHICAGO", "BULLS", "INDIANA", "PACERS",
+            {TECMO_GAMEPLAY_TEAM_AWAY, TECMO_GAMEPLAY_TEAM_HOME},
+            TECMO_CLI_TIPOFF_TRACE_CAPTURE_AWAY, 0U, 1U, true, true
+        },
+        {
+            "new-york-philadelphia-home-hold", 17U, 19U,
+            "NEW YORK", "KNICKS", "PHILADELPHIA", "SEVENTY SIXERS",
+            {TECMO_GAMEPLAY_TEAM_AWAY, TECMO_GAMEPLAY_TEAM_HOME},
+            TECMO_CLI_TIPOFF_TRACE_CAPTURE_HOME, 3U, 3U, true, false
+        },
+        {
+            "bulls-pacers-cpu-only", 3U, 10U,
+            "CHICAGO", "BULLS", "INDIANA", "PACERS",
+            {TECMO_GAMEPLAY_SCENE_NO_TEAM, TECMO_GAMEPLAY_SCENE_NO_TEAM},
+            TECMO_CLI_TIPOFF_TRACE_CAPTURE_NONE, 0U, 0U, true, false
+        },
+        {
+            "bulls-pacers-no-input", 3U, 10U,
+            "CHICAGO", "BULLS", "INDIANA", "PACERS",
+            {TECMO_GAMEPLAY_TEAM_AWAY, TECMO_GAMEPLAY_TEAM_HOME},
+            TECMO_CLI_TIPOFF_TRACE_CAPTURE_NONE, 0U, 0U, false, false
+        }
+    };
+    TecmoGameMemory memory;
+    TecmoRuntime *runtime = NULL;
+    void *permanent_block = NULL;
+    void *transient_block = NULL;
+    uint32_t *pixels = NULL;
+    uint8_t *rgba = NULL;
+    const size_t pixel_count = (size_t)TECMO_CLI_TIPOFF_TRACE_WIDTH *
+        TECMO_CLI_TIPOFF_TRACE_HEIGHT;
+    char failure[256];
+    size_t scenario;
+    int result = 1;
+
+    if (project_root == NULL || asset_pack_path == NULL ||
+        output_directory == NULL) {
+        printf("Tip-off regression trace requires root, asset pack, and output directory\n");
+        return 2;
+    }
+    memset(&memory, 0, sizeof(memory));
+    memset(failure, 0, sizeof(failure));
+    runtime = (TecmoRuntime *)calloc(1U, sizeof(*runtime));
+    permanent_block = malloc(TECMO_CLI_TIPOFF_TRACE_PERMANENT_BYTES);
+    transient_block = malloc(TECMO_CLI_TIPOFF_TRACE_TRANSIENT_BYTES);
+    pixels = (uint32_t *)malloc(pixel_count * sizeof(*pixels));
+    rgba = (uint8_t *)malloc(pixel_count * 4U);
+    if (runtime == NULL || permanent_block == NULL || transient_block == NULL ||
+        pixels == NULL || rgba == NULL) {
+        printf("Tip-off regression trace allocation failed\n");
+        goto done;
+    }
+    tecmo_arena_init(&memory.permanent, permanent_block,
+                     TECMO_CLI_TIPOFF_TRACE_PERMANENT_BYTES);
+    tecmo_arena_init(&memory.transient, transient_block,
+                     TECMO_CLI_TIPOFF_TRACE_TRANSIENT_BYTES);
+    if (!tecmo_runtime_init_with_flags(
+            runtime, &memory, project_root,
+            TECMO_RUNTIME_INIT_ALLOW_EMPTY_ROSTER)) {
+        printf("Tip-off regression runtime initialization failed\n");
+        goto done;
+    }
+    tecmo_gameplay_scene_destroy(&runtime->gameplay_scene);
+    tecmo_gameplay_scene_init(&runtime->gameplay_scene);
+    if (!tecmo_gameplay_scene_load(&runtime->gameplay_scene, project_root,
+                                  asset_pack_path, &runtime->music_player)) {
+        printf("Tip-off regression scene load failed: %s\n",
+               runtime->gameplay_scene.status);
+        goto done;
+    }
+    for (scenario = 0U;
+         scenario < sizeof(scenarios) / sizeof(scenarios[0U]); ++scenario) {
+        if (!tipoff_trace_run_scenario(runtime, &scenarios[scenario],
+                                       output_directory, pixels, rgba,
+                                       failure, sizeof(failure))) {
+            printf("Tip-off regression trace failed: %s\n", failure);
+            goto done;
+        }
+    }
+    printf("TIP-OFF CONTINUOUS REGRESSION TRACE PASS\n");
+    result = 0;
+
+done:
+    if (runtime != NULL) tecmo_runtime_shutdown(runtime);
+    free(runtime);
+    free(permanent_block);
+    free(transient_block);
+    free(pixels);
+    free(rgba);
+    return result;
 }

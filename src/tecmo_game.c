@@ -1534,6 +1534,7 @@ bool tecmo_render_gameplay_scene(const TecmoRuntime *runtime,
 {
     const TecmoGameplayScene *scene;
     const TecmoGameplayState *state;
+    const char *render_diagnostic;
     char line[160];
 
     if (runtime == NULL || fb == NULL || fb->pixels == NULL ||
@@ -1552,9 +1553,14 @@ bool tecmo_render_gameplay_scene(const TecmoRuntime *runtime,
         return false;
     }
     if (!tecmo_gameplay_scene_draw(scene, fb, 64, 0, 2, true)) {
+        render_diagnostic = tecmo_gameplay_scene_render_diagnostic(
+            scene, fb, 64, 0, 2, true);
         clear(fb, rgb(0, 0, 0));
-        draw_text(fb, 116, 224, "GAMEPLAY RENDER REJECTED",
+        draw_text(fb, 116, 200, "GAMEPLAY RENDER REJECTED",
                   rgb(248, 248, 232), 2);
+        draw_text(fb, 8, 228, render_diagnostic != NULL
+                      ? render_diagnostic : "draw composition",
+                  rgb(248, 248, 232), 1);
         return false;
     }
     if (tecmo_gameplay_scene_in_dunk_presentation(scene) ||

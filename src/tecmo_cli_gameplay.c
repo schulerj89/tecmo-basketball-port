@@ -638,6 +638,17 @@ int tecmo_cli_run_gameplay_commands(const TecmoCliContext *context)
         return 0;
     }
 
+    if (strcmp(command, "--tipoff-regression-trace") == 0) {
+        const char *pack_path = index < argc ? argv[index++] : NULL;
+        const char *output_directory = index < argc ? argv[index] : NULL;
+        if (pack_path == NULL || output_directory == NULL) {
+            printf("Tip-off regression trace requires PACK DIR\n");
+            return 2;
+        }
+        return tecmo_cli_run_tipoff_regression_trace(
+            root, pack_path, output_directory);
+    }
+
     if (strcmp(command, "--gameplay-pretip-human-checkpoint") == 0) {
         const char *pack_path = index < argc ? argv[index] : NULL;
         TecmoMusicAsset music_asset;

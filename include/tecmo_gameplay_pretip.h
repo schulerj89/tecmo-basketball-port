@@ -138,6 +138,11 @@ typedef struct TecmoGameplayPreTipAssets {
     uint8_t tip_input_mask;
     uint8_t tip_no_sample_error;
     uint8_t tip_max_sample_error;
+    /* Deterministic bridge seeds for the two native timing bytes.  $53
+       feeds the fixed-bank mixer; $6A is sampled by Bank04 $86E1 before
+       the capture clock is initialized. */
+    uint8_t tip_rng_seed_53;
+    uint8_t tip_rng_seed_6a;
     uint8_t tip_auto_threshold_base;
     uint8_t tip_auto_threshold_mask;
     uint8_t tip_auto_threshold_shift;
@@ -179,6 +184,20 @@ typedef struct TecmoGameplayPreTipState {
     uint8_t home_tip_error;
     uint16_t away_tip_sample_frame;
     uint16_t home_tip_sample_frame;
+    /* Bank04 $86E1 seeds $8A from the current $6A low six bits, then the
+       $871D loop advances it as it polls B.  Keep both the sampled byte and
+       the evolving source-clock tuple so render/proof callers can audit the
+       countdown rather than inferring it from a presentation frame. */
+    uint8_t away_tip_capture_clock;
+    uint8_t home_tip_capture_clock;
+    uint8_t tip_capture_clock;
+    uint8_t tip_capture_source_6a;
+    uint16_t tip_capture_clock_ticks;
+    bool tip_capture_clock_started;
+    /* $8788 increments $8A until it wraps, then $8795 consumes the captured
+       bytes and exits the polling loop.  Never keep sampling a synthetic
+       post-wrap clock during the later ball presentation. */
+    bool tip_capture_clock_complete;
     bool away_tip_sampled;
     bool home_tip_sampled;
     bool card_cancel_enabled;

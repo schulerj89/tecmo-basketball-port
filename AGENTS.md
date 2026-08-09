@@ -781,11 +781,13 @@ spans, and requires same-pack TGPL-1, TTDT-1, TMUS-1, TWAR-1, and `chr/all`.
 The first `61/121/61` card waits, Bank06 character mapping, `$AF05` 2-by-2
 metatile glyphs, `$C6/$FA` text CHR selectors, and the 16-pixel cell positions
 are ASM-exact. The later phase durations are capture-bounded. The asset-backed
-schedule reaches contest entry after `61/121/61/208/30/120/60 = 661` updates;
-the TPTI input window remains 30 updates, while the native readability
-presentation lasts 60, so live begins at frame 721. The phases are mode card,
-matchup, first-period card, screen-`$1A` close-up, center black, court/ball
-descent, toss transition/cut-in, contest, then live. Matchup logos are anchored
+cards and close-up reach center setup after `61/121/61/208 = 451` updates. A
+successful Bank04-clocked tip claims state `$17` during court/ball descent,
+immediately enters the 60-update toss cut-in, returns to the 30-update court
+contest, and then hands off live; the primary `$F4` capture reaches those
+boundaries at frames `508/568/598`. The phases are mode card, matchup,
+first-period card, screen-`$1A` close-up, center black, court/ball descent,
+toss transition/cut-in, contest, then live. Matchup logos are anchored
 at `(16,32)` and `(16,128)`. The court overlay draws only one away-team ROM
 logo and right/bottom-aligns it from validated dimensions; do not add separate
 city/nickname text because that lettering is already in the logo cells.
@@ -798,17 +800,23 @@ Bank06 `$A10A-$A124` permits current-level NES B cancellation only when `$69`
 bit 0 is set. Native PRESEASON clears that gate and ignores B on all three
 cards; the regular-season route sets it and either pad may cancel. Exact
 Bank05 `$985E-$986A` proves a current-level NES B mask/read/latch in the tip
-machinery, but not the original timing or winner settlement. During the first
-30 `JUMP_CONTEST` updates, the native scene routes pads by assigned team and
-retains that team's first held B sample; the selected jumpers remain visible
-through the complete 60-update presentation. Frame 0 is the native timing
-target, error caps at 11, and no sample is 12. Lower error wins. Equal captured
-errors defer the native claim because the original single-winner tie settlement
-remains unproven. This timing policy is an explicit native approximation.
-B cannot sample a tip in the close-up, court, or toss phases and cannot cancel
+machinery, but not controller/team ownership or winner settlement. Bank04
+`$86E1-$8817` owns the countdown clock: it samples `$6A`, seeds
+`$8A = ($6A & $3F) + $82`, polls both B levels in the `$871D` loop, increments
+the byte at `$8788`, and at wrap derives the captured error with the wrapped
+`abs($F9-captured)` / `$0B` cap at `$8795-$87D0`. The native bridge retains the
+sampled `$6A`, evolving `$8A`, source-loop ticks, and each captured byte; it
+does not reinterpret presentation frame zero as `$F9`. The center-court bridge
+begins the already-running terminal source-loop portion at `$F4`, so the first
+away held-B pulse captures `$F4` / error 5 and reaches the state-$17 cutaway at
+total frame 508 after the ordinary ball-height/countdown gate. `$F6` and `$F9`
+remain later source-clock markers, and byte wrap ends B capture rather than
+manufacturing post-wrap input samples. Lower error wins; equal captured errors
+defer the native claim because the original single-winner tie settlement remains
+unproven. B cannot sample a tip in the close-up or toss phases and cannot cancel
 those phases. Winner queries fail closed before `JUMP_CONTEST` without changing
 caller-owned output. Other inputs are inert throughout the presentation. Rules,
-clock, shot clock, camera, and live updates stay frozen until the frame-721
+clock, shot clock, camera, and live updates stay frozen until the eventual
 handoff. Track 8 queues at entry and enabled GAME MUSIC queues track 5 only at
 handoff. Bank04 `$88` plus fixed `$D861` moves the OAM player left while the
 nametable figures scroll right; the 33-frame phase anchor is capture-bounded,

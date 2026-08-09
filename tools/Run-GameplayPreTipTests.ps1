@@ -280,19 +280,11 @@ $Modes = @(
     [pscustomobject]@{ mode="gameplay-pretip-frame300"; phase="closeup"; frame=300; hash="7D3227F3D2256DBFA036F3C7761EB03A41C467C330E8A4097EBBD68D20DC45E1" },
     [pscustomobject]@{ mode="gameplay-pretip-frame330"; phase="closeup"; frame=330; hash="CF24E1A5BEFFB62DCA85304DBC739A11CABCAE50F112870669D7CCA4C2EBAC0B" },
     [pscustomobject]@{ mode="gameplay-pretip-frame481"; phase="ball-descent"; frame=481; hash="4043E63FCDDBCB3DED1B3E0D5EF8B088E7175BFFAC80DA99128B49CD34955C56" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame452"; phase="center-setup"; frame=452; hash="2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame481"; phase="ball-descent"; frame=481; hash="AEE825A9C7AF8E3790C73BF20438E7B99E01C8F002DBE628EE9455F567A5C487" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame483"; phase="ball-descent"; frame=483; hash="DEC93E0A49A8FFBC8A56F50E0542D0FBDF6605D59E609DB0658676ABCCB42105" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame490"; phase="ball-descent"; frame=490; hash="388239D56CC2EBDA8A33E58D288220C8D4F949A3576352807EC8BDCF444DBA6C" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame496"; phase="ball-descent"; frame=496; hash="DD3D1F489192E7188BBA52FF4CC0A4EBA2EDF2DDB44EB39EBAC562B1BAD36923" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame497"; phase="ball-descent"; frame=497; hash="2AB5A84AE89A786541DA8BD85FBB35040EA874C449137A1F275BB0036D65FD35" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame498"; phase="toss-closeup"; frame=498; hash="CDE4C17159C79207CA82281204547FD2794E81858A52A6FB312E937CEEDF162C" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame530"; phase="toss-closeup"; frame=530; hash="CDE4C17159C79207CA82281204547FD2794E81858A52A6FB312E937CEEDF162C" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame557"; phase="toss-closeup"; frame=557; hash="CDE4C17159C79207CA82281204547FD2794E81858A52A6FB312E937CEEDF162C" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame558"; phase="jump-contest"; frame=558; hash="68215183DD30E6B7EBAC8BE73C74A3811B6AB58C61EA30B3C3C93D4EC17A127F" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame559"; phase="jump-contest"; frame=559; hash="A01B57C51D93D178B9E8A09FF5B4AC42B6F866783CD90FC7F43916293D88E17E" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame580"; phase="jump-contest"; frame=580; hash="37E090FB6EBCA1F0D069CCD4624BA810B8762E5253380A0E2C5F0C69E188F1EB" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame597"; phase="live"; frame=597; hash="6B74C70F1C5309AACB9BFD305859A5DB3257941990BE57B5EA9D04992E0613C6" }
+    # The lifecycle proof below replaces restart-at-frame snapshots.  Its
+    # native trace keeps the actual source capture clock, continuous renderer,
+    # cutaway freeze, return, and live recovery in one run, so it cannot bless
+    # a fast synthetic frame-498 cutaway.
+    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame452"; phase="center-setup"; frame=452; hash="2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A" }
 )
 $RenderedHashes = @{}
 foreach ($Spec in $Modes) {
@@ -355,7 +347,7 @@ if ($ReferenceRoot) {
         [pscustomobject]@{ reference="tipoff_0510.png"; native="gameplay-pretip-frame271" },
         [pscustomobject]@{ reference="tipoff_0540.png"; native="gameplay-pretip-frame300" },
         [pscustomobject]@{ reference="tipoff_0570.png"; native="gameplay-pretip-frame330" },
-        [pscustomobject]@{ reference="tipoff_0720.png"; native="gameplay-tipoff-proof-frame481" }
+        [pscustomobject]@{ reference="tipoff_0720.png"; native="gameplay-pretip-frame481" }
     )
     $ComparisonPath = Join-Path $Scratch "reference-comparison.png"
     $Comparison = New-Object Drawing.Bitmap 1024,($Pairs.Count * 480)
@@ -430,6 +422,19 @@ if ($ReferenceRoot) {
         $Graphics.Dispose()
         $Comparison.Dispose()
     }
+}
+
+# This is deliberately a continuous production-runtime trace, not the
+# historical independently launched checkpoint fixture.  It asserts the Bank04
+# $6A/$8A source clock, a visible human jump before the state-$17 cutaway,
+# frozen tuple continuity, renderer success through the LIVE seam, multiple
+# capture timings, no input, CPU-only behavior, two team selector/palette
+# paths, and deterministic artifacts.
+& (Join-Path $ProjectRoot "tools\New-TipoffRegressionFinalProof.ps1") `
+    -ProjectRoot $ProjectRoot -AssetPackPath $Pack `
+    -OutputRoot (Join-Path $ProjectRoot "build\proof\tipoff-regression-final")
+if ($LASTEXITCODE -ne 0) {
+    throw "Continuous tip-off regression proof failed."
 }
 
 $Cases = @(
@@ -543,7 +548,8 @@ Write-Output ("TPTI-2 PRE-TIP TEST PASS: canonical/revision/FNV32+64/source-map 
     "stale-TPTI-1 header, 8642-false-friend, A2D1-non-hook, E537-E542-ordering, " +
     "recurring-E56E-count, overlap/bounds/padding, " +
     "NES-B abort/freeze/track8-to-track5 scene integration and deterministic " +
-    "preseason/matchup/visible-1ST-PERIOD/distinct-closeup/toss/jump/live renders" +
+    "preseason/matchup/visible-1ST-PERIOD/distinct-closeup plus continuous ROM-clock " +
+    "tip/cutaway/return/live multi-matchup renders" +
     $ReferenceComparisonMessage)
 } finally {
     if ($null -eq $PreviousPack) {

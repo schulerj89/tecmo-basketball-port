@@ -32,7 +32,8 @@ static void print_usage(const char *program)
     printf("  --gameplay-state-test   Run deterministic gameplay clock/rules/shot-state checks\n");
     printf("  --gameplay-candidate-selection-test  Validate Bank06 B081/B183 receiver/defender selectors\n");
     printf("  --gameplay-scene-test PACK  Run native gameplay launch/input/shot checks\n");
-    printf("  --gameplay-pretip-human-checkpoint PACK  Run deterministic held-B tip handoff through native frame 721\n");
+    printf("  --gameplay-pretip-human-checkpoint PACK  Run deterministic held-B source-clocked tip handoff\n");
+    printf("  --tipoff-regression-trace PACK DIR  Render continuous multi-input/matchup tip-off regression proof\n");
     printf("  --gameplay-pretip-test PACK  Validate strict TPTI-2 pre-tip assets/state\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");

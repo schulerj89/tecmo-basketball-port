@@ -15,6 +15,9 @@
 
 /* Native actor locomotion, ball attachment, and CPU steering integration. */
 
+static bool scene_actor_in_pretip_recovery(const TecmoGameplayScene *scene,
+                                           size_t actor);
+
 bool scene_movement_pose_index(
     const TecmoGameplayScene *scene,
     const TecmoGameplayMovementState *movement,
@@ -378,6 +381,7 @@ bool scene_move_controlled_actor(TecmoGameplayScene *scene,
     }
     actor_index = scene->controlled_actor[controller];
     if (actor_index >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) return false;
+    if (scene_actor_in_pretip_recovery(scene, actor_index)) return true;
     actor = &scene->actors[actor_index];
     if (!actor->active ||
         actor->team != scene->launch.controller_team[controller] ||
@@ -915,6 +919,32 @@ static bool scene_actor_is_controlled(const TecmoGameplayScene *scene,
     return false;
 }
 
+/* Bank05's state-$17 claim changes possession, not the center objects. Until
+   the special pre-tip recovery has naturally landed the active jumper, both
+   center slots remain anchored by scene_pretip_apply_jump_frame. Letting
+   TGMO/CPU steering process either slot in that LIVE update moved it away
+   from its anchor and made the court renderer reject the projection contract. */
+static bool scene_actor_in_pretip_recovery(const TecmoGameplayScene *scene,
+                                           size_t actor)
+{
+    size_t jumper;
+    if (scene == NULL || actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        !scene->pretip_jump_active || !scene->pretip_state.live_handoff ||
+        !scene->pretip_state.simulation_active) {
+        return false;
+    }
+    for (jumper = 0U; jumper < TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT;
+         ++jumper) {
+        uint8_t jumper_actor = scene->pretip_jumper_actor[jumper];
+        /* scene_pretip_apply_jump_frame anchors both center objects while
+           either tip jump is active.  The non-winning jumper is still part
+           of that renderer contract, even when it never committed a jump. */
+        if (jumper_actor == actor)
+            return true;
+    }
+    return false;
+}
+
 bool scene_cpu_actor_state_valid(
     const TecmoGameplayScene *scene,
     size_t actor,
@@ -1277,6 +1307,7 @@ static bool scene_update_ai_legacy(
         TecmoGameplaySceneCpuActor *cpu;
         const TecmoTeamDataPlayer *player;
         if (scene_actor_is_controlled(scene, actor) ||
+            scene_actor_in_pretip_recovery(scene, actor) ||
             actor == scene->shot_actor) {
             continue;
         }
@@ -1468,6 +1499,7 @@ bool scene_update_ai(
         bool movement_target = false;
         actor = source_actor_order[source_index];
         if (scene_actor_is_controlled(scene, actor) ||
+            scene_actor_in_pretip_recovery(scene, actor) ||
             actor == scene->shot_actor) {
             continue;
         }

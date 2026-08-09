@@ -83,6 +83,12 @@ bool tecmo_cli_parse_finale_render_mode(const char *mode_name,
 bool tecmo_cli_setup_gameplay_render_checkpoint(
     struct TecmoRuntime *runtime,
     const char *mode_name);
+/* Runs and renders the complete pre-tip lifecycle in one native runtime.
+   The output directory must already exist; one CSV and a selected set of
+   PNG checkpoints are written per deterministic input/matchup scenario. */
+int tecmo_cli_run_tipoff_regression_trace(const char *project_root,
+                                          const char *asset_pack_path,
+                                          const char *output_directory);
 bool tecmo_cli_configure_render_mode(
     struct TecmoRuntime *runtime,
     const char *mode_name,

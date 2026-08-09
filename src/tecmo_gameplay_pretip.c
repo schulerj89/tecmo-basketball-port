@@ -135,6 +135,8 @@ static bool reject(TecmoGameplayPreTipAssets *assets, const char *message)
     assets->tip_input_mask = 0U;
     assets->tip_no_sample_error = 0U;
     assets->tip_max_sample_error = 0U;
+    assets->tip_rng_seed_53 = 0U;
+    assets->tip_rng_seed_6a = 0U;
     assets->tip_auto_threshold_base = 0U;
     assets->tip_auto_threshold_mask = 0U;
     assets->tip_auto_threshold_shift = 0U;
@@ -501,6 +503,10 @@ static bool parse(TecmoGameplayPreTipAssets *assets,
     assets->tip_input_mask = storage[172U];
     assets->tip_no_sample_error = storage[173U];
     assets->tip_max_sample_error = storage[174U];
+    assets->tip_rng_seed_53 = storage[
+        TECMO_ASSET_PACK_GAMEPLAY_PRETIP_MECHANICS_OFFSET + 41U];
+    assets->tip_rng_seed_6a = storage[
+        TECMO_ASSET_PACK_GAMEPLAY_PRETIP_MECHANICS_OFFSET + 42U];
     assets->tip_auto_threshold_base = storage[
         TECMO_ASSET_PACK_GAMEPLAY_PRETIP_MECHANICS_OFFSET + 11U];
     assets->tip_auto_threshold_mask = storage[
@@ -616,6 +622,12 @@ static bool assets_valid(const TecmoGameplayPreTipAssets *assets)
         assets->tip_input_mask != TECMO_GAMEPLAY_PRETIP_INPUT_MASK ||
         assets->tip_no_sample_error != TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_ERROR ||
         assets->tip_max_sample_error != TECMO_GAMEPLAY_PRETIP_MAX_SAMPLE_ERROR ||
+        assets->tip_rng_seed_53 != assets->storage[
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_MECHANICS_OFFSET + 41U] ||
+        assets->tip_rng_seed_53 != 0x5AU ||
+        assets->tip_rng_seed_6a != assets->storage[
+            TECMO_ASSET_PACK_GAMEPLAY_PRETIP_MECHANICS_OFFSET + 42U] ||
+        assets->tip_rng_seed_6a != 0U ||
         assets->tip_auto_threshold_base != assets->storage[
             TECMO_ASSET_PACK_GAMEPLAY_PRETIP_MECHANICS_OFFSET + 11U] ||
         assets->tip_auto_threshold_base !=
@@ -758,17 +770,65 @@ bool tecmo_gameplay_pretip_tip_lineup(
     return true;
 }
 
-/* Bank04 $8795-$87D0 turns the captured $8A timing byte into the countdown:
-   abs($F9-captured), capped at $0B.  The native presentation clock is routed
-   so frame zero is the $F9 target; preserve the byte subtraction/absolute
-   value and keep $0C exclusively as the no-sample sentinel. */
-static uint8_t tip_error_for_sample(uint16_t frame)
+/* Bank04 $86E1 initializes $8A as ($6A & $3F) + $82.  The $871D capture
+   loop advances that byte while it polls B, and $8795-$87D0 turns the
+   captured byte into abs($F9-captured), capped at $0B.  Do every arithmetic
+   operation in uint8_t form: the ROM's underflow route is a wrapped two's
+   complement absolute value, not a presentation-frame approximation. */
+#define TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_SEED 0x82U
+#define TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_TERMINAL_ENTRY 0xF4U
+#define TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_PREPARE 0xF6U
+#define TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_TARGET 0xF9U
+#define TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_TERMINAL_TICKS \
+    (TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_TERMINAL_ENTRY - \
+     TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_SEED)
+#define TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_WRAP_TICKS \
+    (0x100U - TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_SEED)
+
+static uint8_t tip_error_for_capture_byte(uint8_t captured)
 {
-    uint8_t captured = (uint8_t)(0xF9U + (uint8_t)frame);
-    uint8_t delta = (uint8_t)(captured - 0xF9U);
+    uint8_t delta = (uint8_t)(
+        TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_TARGET - captured);
     uint8_t absolute = (delta & 0x80U) != 0U
         ? (uint8_t)(0U - delta) : delta;
     return absolute < 0x0CU ? absolute : 0x0BU;
+}
+
+static uint8_t tip_capture_clock_seed(uint8_t source_6a)
+{
+    return (uint8_t)((source_6a & 0x3FU) +
+                     TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_SEED);
+}
+
+static void tip_capture_clock_begin(TecmoGameplayPreTipState *state)
+{
+    if (state == NULL || state->tip_capture_clock_started) return;
+    state->tip_capture_source_6a = state->tip_rng_6a;
+    /* The current center-court presentation enters the terminal portion of
+       Bank04's already-running $871D loop.  Its first poll is $F4, followed
+       by the native $F6 setup marker two polls later and $F9 marker five
+       polls later.  Store the real elapsed source-loop count (not a fake
+       "$F9 at phase zero" value) so $8788 can still wrap it at $00. */
+    state->tip_capture_clock_ticks =
+        TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_TERMINAL_TICKS;
+    state->tip_capture_clock = (uint8_t)(
+        tip_capture_clock_seed(state->tip_capture_source_6a) +
+        state->tip_capture_clock_ticks);
+    state->tip_capture_clock_started = true;
+    state->tip_capture_clock_complete = false;
+}
+
+static void tip_capture_clock_advance(TecmoGameplayPreTipState *state)
+{
+    if (state == NULL || !state->tip_capture_clock_started ||
+        state->tip_capture_clock_complete) {
+        return;
+    }
+    state->tip_capture_clock = (uint8_t)(state->tip_capture_clock + 1U);
+    if (state->tip_capture_clock_ticks != UINT16_MAX)
+        ++state->tip_capture_clock_ticks;
+    if (state->tip_capture_clock == 0U)
+        state->tip_capture_clock_complete = true;
 }
 
 static uint16_t presentation_duration(
@@ -778,23 +838,36 @@ static uint16_t presentation_duration(
     return assets->phase_frames[phase];
 }
 
-static bool tip_sample_valid(bool sampled, uint8_t error,
-                             uint16_t sample_frame,
+static bool tip_sample_valid(bool sampled, bool automatic, uint8_t error,
+                             uint16_t sample_frame, uint8_t captured_clock,
                              TecmoGameplayPreTipPhase phase,
                              uint16_t contest_frame,
                              uint16_t contest_duration)
 {
     if (!sampled) {
         return error == 12U &&
-               sample_frame == TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME;
+               sample_frame == TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME &&
+               captured_clock == 0U;
+    }
+    if (automatic) {
+        /* CPU timing is chosen by the Bank05 threshold route; it is not a
+           fabricated Bank04 B sample.  Keep the capture byte empty and use
+           the capped native error value that drives its existing velocity
+           bridge. */
+        return error == TECMO_GAMEPLAY_PRETIP_MAX_SAMPLE_ERROR &&
+               captured_clock == 0U && sample_frame < contest_duration;
     }
     if (phase < TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP ||
         sample_frame >= contest_duration ||
-        error != tip_error_for_sample(sample_frame)) {
+        error != tip_error_for_capture_byte(captured_clock)) {
         return false;
     }
-    return phase < TECMO_GAMEPLAY_PRETIP_BALL_DESCENT ||
-           sample_frame < contest_frame || sample_frame == 0U;
+    /* These are Bank04 poll-loop frames, not Ball05 simulation ticks.  A
+       late-but-valid source capture (for example $F7) remains valid when
+       the presentation subsequently enters ball descent at contest tick 0.
+       The clock completion gate prevents any post-wrap latch instead. */
+    (void)contest_frame;
+    return true;
 }
 
 /* CD96-CDAB is an exact bounded source seam. Its use as a native contest
@@ -902,9 +975,12 @@ static void tip_commit_jumper(TecmoGameplayPreTipState *state,
         state->away_claim_height_raw = (uint8_t)claim_height;
         state->away_tip_automatic = automatic;
         state->away_automatic_triggered = automatic;
+        /* The CPU threshold selects its commit frame and claim policy, not a
+           taller second physics family.  Keeping its signed vertical start
+           at the same bounded Bank05 jumper value prevents an otherwise
+           valid CPU-only tip from exceeding the court projection contract. */
         state->away_jump_velocity_signed_q8 =
-            (int16_t)(TECMO_GAMEPLAY_PRETIP_INITIAL_VELOCITY_Q8 +
-                      (automatic ? 0x20 : 0));
+            TECMO_GAMEPLAY_PRETIP_INITIAL_VELOCITY_Q8;
         state->away_actor_state = TECMO_GAMEPLAY_PRETIP_ACTOR_JUMP_COMMIT_STATE;
         state->away_animation_phase = 2U;
         ++state->away_jump_commit_count;
@@ -915,24 +991,32 @@ static void tip_commit_jumper(TecmoGameplayPreTipState *state,
         state->home_claim_height_raw = (uint8_t)claim_height;
         state->home_tip_automatic = automatic;
         state->home_automatic_triggered = automatic;
-        state->home_jump_velocity_signed_q8 =
-            TECMO_GAMEPLAY_PRETIP_INITIAL_VELOCITY_Q8;
+        /* Keep the existing deterministic CPU-vs-CPU away preference in the
+           bounded bridge by lowering the home automatic arc, rather than
+           raising the away arc beyond the court projector's authored range. */
+        state->home_jump_velocity_signed_q8 = (int16_t)(
+            TECMO_GAMEPLAY_PRETIP_INITIAL_VELOCITY_Q8 -
+            (automatic ? 0x20 : 0));
         state->home_actor_state = TECMO_GAMEPLAY_PRETIP_ACTOR_JUMP_COMMIT_STATE;
         state->home_animation_phase = 2U;
         ++state->home_jump_commit_count;
     }
 }
 
-static void latch_tip_controlled(bool held, uint16_t contest_frame,
+static void latch_tip_controlled(bool held, bool capture_clock_active,
+                                 uint16_t contest_frame,
+                                 uint8_t capture_clock,
                                  uint8_t *error, uint16_t *sample_frame,
+                                 uint8_t *captured_clock,
                                  bool *sampled, uint8_t *countdown)
 {
-    if (!held || sampled == NULL || *sampled || error == NULL ||
-        sample_frame == NULL || countdown == NULL)
+    if (!held || !capture_clock_active || sampled == NULL || *sampled || error == NULL ||
+        sample_frame == NULL || captured_clock == NULL || countdown == NULL)
         return;
     *sampled = true;
-    *error = tip_error_for_sample(contest_frame);
+    *error = tip_error_for_capture_byte(capture_clock);
     *sample_frame = contest_frame;
+    *captured_clock = capture_clock;
     *countdown = *error;
 }
 
@@ -1121,10 +1205,17 @@ static void tip_try_resolve_claim(const TecmoGameplayPreTipAssets *assets,
         return;
     away_height = (uint8_t)(state->away_jump_altitude_q8 >> 8U);
     home_height = (uint8_t)(state->home_jump_altitude_q8 >> 8U);
+    /* $985E/$9C79 commit a jumper before the later $A274 state-$17 claim
+       dispatch.  A port update that lets a newly committed jumper claim in
+       that same pass can hide its only airborne court frame under the
+       cinematic.  Require one normal object update of age; this is an
+       ordering seam, not a presentation delay. */
     away_ready = state->away_jump_committed &&
+                 state->simulation_tick > state->away_jump_commit_frame &&
                  tip_claim_ready(state->tip_ball_high_raw,
                                   away_height);
     home_ready = state->home_jump_committed &&
+                 state->simulation_tick > state->home_jump_commit_frame &&
                  tip_claim_ready(state->tip_ball_high_raw,
                                   home_height);
     if (!away_ready && !home_ready) return;
@@ -1247,15 +1338,15 @@ static uint16_t tip_expected_altitude(const TecmoGameplayPreTipState *state,
                       TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES);
 }
 
-static uint8_t tip_rng_after_count(uint8_t count)
+static uint8_t tip_rng_after_count(uint8_t rng_6a, uint8_t rng_53,
+                                   uint8_t count)
 {
-    uint8_t rng_6a = 0U;
     uint8_t index;
     for (index = 0U; index < count; ++index) {
-        uint8_t value = (uint8_t)(rng_6a ^ 0x5AU);
+        uint8_t value = (uint8_t)(rng_6a ^ rng_53);
         rng_6a = (uint8_t)(value << 1U);
         if ((value & 0x80U) != 0U) rng_6a ^= 0x1DU;
-        if (rng_6a == 0U) rng_6a ^= 0x5AU;
+        if (rng_6a == 0U) rng_6a ^= rng_53;
     }
     return rng_6a;
 }
@@ -1320,28 +1411,60 @@ static bool state_valid(const TecmoGameplayPreTipAssets *assets,
     }
     if (expected_total != state->total_frame ||
         !tip_sample_valid(
-            state->away_tip_sampled, state->away_tip_error,
-            state->away_tip_sample_frame, state->phase, state->contest_frame,
+            state->away_tip_sampled, state->away_tip_automatic,
+            state->away_tip_error,
+            state->away_tip_sample_frame, state->away_tip_capture_clock,
+            state->phase, state->contest_frame,
             assets->phase_frames[TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST]) ||
         !tip_sample_valid(
-            state->home_tip_sampled, state->home_tip_error,
-            state->home_tip_sample_frame, state->phase, state->contest_frame,
+            state->home_tip_sampled, state->home_tip_automatic,
+            state->home_tip_error,
+            state->home_tip_sample_frame, state->home_tip_capture_clock,
+            state->phase, state->contest_frame,
             assets->phase_frames[TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST]) ||
-        state->tip_rng_53 != 0x5AU ||
+        state->tip_rng_53 != assets->tip_rng_seed_53 ||
         state->tip_rng_mix_count > TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES ||
         (state->simulation_active &&
          state->tip_rng_mix_count != state->contest_frame) ||
         (state->simulation_active &&
          state->tip_rng_6a != tip_rng_after_count(
+             assets->tip_rng_seed_6a, assets->tip_rng_seed_53,
              state->tip_rng_mix_count)) ||
         (state->simulation_active &&
          state->tip_ball_high_raw !=
              (uint8_t)(state->ball_height_q8 >> 8U)) ||
         (!state->simulation_active &&
-         (state->tip_rng_6a != 0U || state->tip_rng_mix_count != 0U ||
+         (state->tip_rng_6a != assets->tip_rng_seed_6a ||
+          state->tip_rng_mix_count != 0U ||
           state->tip_ball_high_raw != 0U ||
           state->away_automatic_requested ||
           state->home_automatic_requested))) {
+        return false;
+    }
+    if (state->phase < TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP) {
+        if (state->tip_capture_clock_started ||
+            state->tip_capture_clock_complete ||
+            state->tip_capture_clock != 0U ||
+            state->tip_capture_source_6a != 0U ||
+            state->tip_capture_clock_ticks != 0U) {
+            return false;
+        }
+    } else if (!state->tip_capture_clock_started ||
+               state->tip_capture_source_6a != assets->tip_rng_seed_6a ||
+               state->tip_capture_clock_ticks <
+                   TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_TERMINAL_TICKS ||
+               state->tip_capture_clock_ticks >
+                   TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_WRAP_TICKS ||
+               (state->tip_capture_clock_complete &&
+                (state->tip_capture_clock != 0U ||
+                 state->tip_capture_clock_ticks !=
+                     TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_WRAP_TICKS)) ||
+               (!state->tip_capture_clock_complete &&
+                state->tip_capture_clock_ticks ==
+                    TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_WRAP_TICKS) ||
+               state->tip_capture_clock != (uint8_t)(
+                   tip_capture_clock_seed(state->tip_capture_source_6a) +
+                   state->tip_capture_clock_ticks)) {
         return false;
     }
     if ((state->away_jump_committed && !state->away_tip_sampled) ||
@@ -1520,7 +1643,8 @@ bool tecmo_gameplay_pretip_state_initialize(
     initial.first_cinematic_frame = UINT16_MAX;
     initial.away_tip_sample_frame = TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME;
     initial.home_tip_sample_frame = TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME;
-    initial.tip_rng_53 = 0x5AU;
+    initial.tip_rng_53 = assets->tip_rng_seed_53;
+    initial.tip_rng_6a = assets->tip_rng_seed_6a;
     initial.claimant_jumper = TECMO_GAMEPLAY_PRETIP_CLAIMANT_NONE;
     initial.receiver_actor = 0xFFU;
     initial.claim_frame = UINT16_MAX;
@@ -1592,13 +1716,22 @@ bool tecmo_gameplay_pretip_update_controlled(
         return true;
     }
     if (candidate.phase == TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP) {
+        /* $86E1 samples the current $6A once at entry to the Bank04
+           capture loop.  The initial byte is not tied to phase frame zero. */
+        tip_capture_clock_begin(&candidate);
         latch_tip_controlled(
-            player_one_or_away_held_b, candidate.phase_frame,
+            player_one_or_away_held_b,
+            !candidate.tip_capture_clock_complete, candidate.phase_frame,
+            candidate.tip_capture_clock,
             &candidate.away_tip_error, &candidate.away_tip_sample_frame,
+            &candidate.away_tip_capture_clock,
             &candidate.away_tip_sampled, &candidate.away_tip_countdown);
         latch_tip_controlled(
-            player_two_or_home_held_b, candidate.phase_frame,
+            player_two_or_home_held_b,
+            !candidate.tip_capture_clock_complete, candidate.phase_frame,
+            candidate.tip_capture_clock,
             &candidate.home_tip_error, &candidate.home_tip_sample_frame,
+            &candidate.home_tip_capture_clock,
             &candidate.home_tip_sampled, &candidate.home_tip_countdown);
     }
     if (candidate.phase >= TECMO_GAMEPLAY_PRETIP_BALL_DESCENT &&
@@ -1622,20 +1755,24 @@ bool tecmo_gameplay_pretip_update_controlled(
             if (!candidate.away_tip_sampled &&
                 player_one_or_away_held_b) {
                 latch_tip_controlled(
-                    true,
+                    true, !candidate.tip_capture_clock_complete,
                     TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES - 1U,
+                    candidate.tip_capture_clock,
                     &candidate.away_tip_error,
                     &candidate.away_tip_sample_frame,
+                    &candidate.away_tip_capture_clock,
                     &candidate.away_tip_sampled,
                     &candidate.away_tip_countdown);
             }
             if (!candidate.home_tip_sampled &&
                 player_two_or_home_held_b) {
                 latch_tip_controlled(
-                    true,
+                    true, !candidate.tip_capture_clock_complete,
                     TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES - 1U,
+                    candidate.tip_capture_clock,
                     &candidate.home_tip_error,
                     &candidate.home_tip_sample_frame,
+                    &candidate.home_tip_capture_clock,
                     &candidate.home_tip_sampled,
                     &candidate.home_tip_countdown);
             }
@@ -1666,8 +1803,11 @@ bool tecmo_gameplay_pretip_update_controlled(
         if (!candidate.cinematic_visible && !candidate.away_jump_committed) {
             if (!candidate.away_automatic_requested) {
                 latch_tip_controlled(
-                    player_one_or_away_held_b, input_frame,
+                    player_one_or_away_held_b,
+                    !candidate.tip_capture_clock_complete, input_frame,
+                    candidate.tip_capture_clock,
                     &candidate.away_tip_error, &candidate.away_tip_sample_frame,
+                    &candidate.away_tip_capture_clock,
                     &candidate.away_tip_sampled,
                     &candidate.away_tip_countdown);
                 tip_update_human_jumper(
@@ -1677,8 +1817,9 @@ bool tecmo_gameplay_pretip_update_controlled(
                            candidate.tip_ball_high_raw, threshold)) {
                 candidate.away_tip_sampled = true;
                 candidate.away_tip_error =
-                    tip_error_for_sample(candidate.contest_frame);
+                    TECMO_GAMEPLAY_PRETIP_MAX_SAMPLE_ERROR;
                 candidate.away_tip_sample_frame = input_frame;
+                candidate.away_tip_capture_clock = 0U;
                 tip_commit_jumper(
                     &candidate, 0U, candidate.simulation_tick,
                     candidate.away_tip_error, true);
@@ -1687,8 +1828,11 @@ bool tecmo_gameplay_pretip_update_controlled(
         if (!candidate.cinematic_visible && !candidate.home_jump_committed) {
             if (!candidate.home_automatic_requested) {
                 latch_tip_controlled(
-                    player_two_or_home_held_b, input_frame,
+                    player_two_or_home_held_b,
+                    !candidate.tip_capture_clock_complete, input_frame,
+                    candidate.tip_capture_clock,
                     &candidate.home_tip_error, &candidate.home_tip_sample_frame,
+                    &candidate.home_tip_capture_clock,
                     &candidate.home_tip_sampled,
                     &candidate.home_tip_countdown);
                 tip_update_human_jumper(
@@ -1698,8 +1842,9 @@ bool tecmo_gameplay_pretip_update_controlled(
                            candidate.tip_ball_high_raw, threshold)) {
                 candidate.home_tip_sampled = true;
                 candidate.home_tip_error =
-                    tip_error_for_sample(candidate.contest_frame);
+                    TECMO_GAMEPLAY_PRETIP_MAX_SAMPLE_ERROR;
                 candidate.home_tip_sample_frame = input_frame;
+                candidate.home_tip_capture_clock = 0U;
                 tip_commit_jumper(
                     &candidate, 1U, candidate.simulation_tick,
                     candidate.home_tip_error, true);
@@ -1719,6 +1864,12 @@ bool tecmo_gameplay_pretip_update_controlled(
         if (candidate.contest_frame <
                 TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES)
             ++candidate.contest_frame;
+    }
+    /* The Bank04 capture loop advances $8A after its pair of B polls.  The
+       bridge supplies one presentation update per pair and stops at $8788's
+       wrap-to-$00 exit; ball descent must not keep manufacturing captures. */
+    if (candidate.phase == TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP) {
+        tip_capture_clock_advance(&candidate);
     }
     duration = presentation_duration(assets, candidate.phase);
     if (candidate.phase_frame == UINT16_MAX ||
@@ -1749,6 +1900,10 @@ bool tecmo_gameplay_pretip_update_controlled(
             candidate.phase_frame = 0U;
             candidate.phase =
                 (TecmoGameplayPreTipPhase)(candidate.phase + 1);
+            if (candidate.phase ==
+                TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP) {
+                tip_capture_clock_begin(&candidate);
+            }
             if (candidate.phase == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST)
                 candidate.cinematic_visible = false;
             if (candidate.phase == TECMO_GAMEPLAY_PRETIP_LIVE)
@@ -2011,10 +2166,14 @@ static bool tip_concurrent_simulation_regression(
         CONCURRENT_FAIL("live object seed states");
     if (!tecmo_gameplay_pretip_update_controlled(
             assets, &state, true, false, false, false) ||
-        !state.away_tip_sampled || state.away_tip_countdown != 0U ||
-        state.away_tip_error != 0U ||
+        !state.away_tip_sampled || state.away_tip_countdown != 5U ||
+        state.away_tip_error != 5U ||
+        state.away_tip_capture_clock != 0xF4U ||
+        state.tip_capture_source_6a != 0U ||
+        state.tip_capture_clock != 0xF5U ||
+        state.tip_capture_clock_ticks != 0x73U ||
         state.away_jump_committed)
-        CONCURRENT_FAIL("Bank04 B latch before simulation");
+        CONCURRENT_FAIL("Bank04 $6A/$8A B latch before simulation");
     if (!tecmo_gameplay_pretip_update(
             assets, &no_capture, false, false) ||
         no_capture.away_tip_sampled || no_capture.away_tip_countdown != 0x0CU)
@@ -2042,7 +2201,7 @@ static bool tip_concurrent_simulation_regression(
     for (frame = 0U; frame < 120U &&
          state.phase == TECMO_GAMEPLAY_PRETIP_BALL_DESCENT; ++frame) {
         if (!tecmo_gameplay_pretip_update_controlled(
-                assets, &state, false, false, false, true))
+                assets, &state, false, false, false, false))
             CONCURRENT_FAIL("concurrent player/ball update");
         if (state.away_jump_committed) {
             if (previous_velocity != 0 &&
@@ -2066,11 +2225,20 @@ static bool tip_concurrent_simulation_regression(
         state.first_cinematic_frame != state.total_frame ||
         state.claim_frame <= state.home_jump_commit_frame)
         CONCURRENT_FAIL("state-$17-driven cinematic ordering");
-    if (state.first_cinematic_frame < 481U ||
+    if (state.first_cinematic_frame != 508U ||
         state.away_jump_commit_count != 1U ||
         state.home_jump_commit_count != 0U ||
-        state.away_jump_altitude_q8 == 0U)
-        CONCURRENT_FAIL("cinematic fixed-duration or duplicate commit");
+        state.away_jump_altitude_q8 == 0U) {
+        if (message != NULL && message_size > 0U)
+            (void)snprintf(message, message_size,
+                "TPTI-2 concurrent simulation regression failed: cinematic timing frame=%u commits=%u/%u altitude=%u phase=%u",
+                (unsigned)state.first_cinematic_frame,
+                (unsigned)state.away_jump_commit_count,
+                (unsigned)state.home_jump_commit_count,
+                (unsigned)state.away_jump_altitude_q8,
+                (unsigned)state.phase);
+        return false;
+    }
     frozen_away_state = state.away_actor_state;
     frozen_home_state = state.home_actor_state;
     frozen_away_phase = state.away_animation_phase;
@@ -2081,7 +2249,7 @@ static bool tip_concurrent_simulation_regression(
     frozen_home_velocity = state.home_jump_velocity_signed_q8;
     for (frame = 0U; frame < 60U; ++frame) {
         if (!tecmo_gameplay_pretip_update_controlled(
-                assets, &state, false, false, false, true))
+                assets, &state, false, false, false, false))
             CONCURRENT_FAIL("simulation under cinematic");
         if (state.away_actor_state != frozen_away_state ||
             state.home_actor_state != frozen_home_state ||
@@ -2119,7 +2287,7 @@ static bool tip_concurrent_simulation_regression(
     }
     for (frame = 0U; frame < 30U; ++frame) {
         if (!tecmo_gameplay_pretip_update_controlled(
-                assets, &state, false, false, false, true))
+                assets, &state, false, false, false, false))
             CONCURRENT_FAIL("post-cinematic handoff");
     }
     if (state.phase != TECMO_GAMEPLAY_PRETIP_LIVE || !state.live_handoff ||

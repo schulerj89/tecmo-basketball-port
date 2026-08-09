@@ -15,6 +15,20 @@
 
 static void scene_fill_rect(TecmoFramebuffer *framebuffer, int x, int y,
                             int width, int height, uint32_t color);
+static bool scene_framebuffer_subview(TecmoFramebuffer *framebuffer,
+                                      int origin_x, int origin_y, int scale,
+                                      TecmoFramebuffer *view);
+static bool scene_background_tile_chr(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplayLiveBackgroundContext *context,
+    unsigned row, uint8_t tile_id, uint32_t *chr_offset);
+static bool scene_should_draw_live_hud(const TecmoGameplayScene *scene,
+                                       bool include_actors);
+static bool scene_build_matchup_live_palette(
+    const TecmoGameplayScene *scene,
+    uint8_t palette[TECMO_GAMEPLAY_COURT_PALETTE_SIZE]);
+static bool scene_apply_matchup_live_palette(
+    const TecmoGameplayScene *scene, TecmoGameplayResolvedPose *pose);
 
 static bool scene_framebuffer_valid(const TecmoFramebuffer *framebuffer,
                                     int origin_x, int origin_y, int scale)
@@ -34,6 +48,159 @@ static bool scene_framebuffer_valid(const TecmoFramebuffer *framebuffer,
     pitch = (size_t)framebuffer->pitch_pixels;
     height = (size_t)framebuffer->height;
     return height == 0U || pitch <= SIZE_MAX / height;
+}
+
+static const char *scene_pretip_projection_diagnostic(
+    const TecmoGameplayScene *scene)
+{
+    static char message[96];
+    size_t jumper;
+    if (scene == NULL || !scene->pretip_jump_active) return NULL;
+    if (!scene->pretip_state.simulation_active)
+        return "pretip jumper active without simulation";
+    for (jumper = 0U; jumper < TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT;
+         ++jumper) {
+        uint8_t actor_index = scene->pretip_jumper_actor[jumper];
+        const TecmoGameplaySceneActor *actor;
+        if (actor_index >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+            (jumper == 0U && actor_index >=
+                TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT) ||
+            (jumper == 1U && actor_index <
+                TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT) ||
+            (jumper > 0U && actor_index ==
+                scene->pretip_jumper_actor[0U])) {
+            (void)snprintf(message, sizeof(message),
+                           "pretip jumper mapping[%u]",
+                           (unsigned)jumper);
+            return message;
+        }
+        if (scene->pretip_jumper_altitude_q8[jumper] >
+                TECMO_GAMEPLAY_PRETIP_JUMP_MAX_ALTITUDE_Q8) {
+            (void)snprintf(message, sizeof(message),
+                           "pretip jumper altitude[%u]", (unsigned)jumper);
+            return message;
+        }
+        actor = &scene->actors[actor_index];
+        if (actor->position.x != actor->anchor.x ||
+            actor->position.y != actor->anchor.y) {
+            (void)snprintf(message, sizeof(message),
+                           "pretip jumper anchor[%u] actor=%u",
+                           (unsigned)jumper, (unsigned)actor_index);
+            return message;
+        }
+    }
+    return NULL;
+}
+
+const char *tecmo_gameplay_scene_render_diagnostic(
+    const TecmoGameplayScene *scene,
+    const TecmoFramebuffer *framebuffer,
+    int origin_x,
+    int origin_y,
+    int scale,
+    bool include_actors)
+{
+    TecmoGameplayLiveBackgroundContext background_context;
+    TecmoGameplaySceneCourtFrame court_frame;
+    TecmoFramebuffer view;
+    TecmoGameplayPreparedHud prepared_hud;
+    TecmoGameplayResolvedPose pose;
+    uint8_t palette[TECMO_GAMEPLAY_COURT_PALETTE_SIZE];
+    unsigned row;
+    unsigned column;
+    size_t actor;
+    const char *pretip_reason;
+
+    if (scene == NULL) return "scene null";
+    if (scene->lifecycle_tag != TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG)
+        return "scene lifecycle";
+    if (!scene->available) return "scene assets unavailable";
+    if (!tecmo_gameplay_camera_state_live_valid(
+            &scene->camera_assets, &scene->camera_state)) {
+        return "camera state";
+    }
+    if (!scene_framebuffer_valid(framebuffer, origin_x, origin_y, scale))
+        return "framebuffer";
+    if (tecmo_gameplay_scene_in_pretip(scene) &&
+        scene->pretip_state.phase <= TECMO_GAMEPLAY_PRETIP_CLOSEUP) {
+        return "pretip card composition";
+    }
+    if (tecmo_gameplay_scene_in_pretip(scene) &&
+        scene->pretip_state.phase ==
+            TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP) {
+        return scene_framebuffer_subview((TecmoFramebuffer *)framebuffer,
+                                         origin_x, origin_y, scale, &view)
+            ? "pretip center composition" : "pretip center subview";
+    }
+    if (tecmo_gameplay_scene_in_pretip(scene) &&
+        scene->pretip_state.phase == TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP) {
+        return scene->assets.screens[0].screen_id == 0x1BU
+            ? "pretip toss composition" : "pretip toss descriptor";
+    }
+    if (tecmo_gameplay_scene_in_dunk_presentation(scene))
+        return "dunk presentation composition";
+    if (scene->state.phase == TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION)
+        return "violation presentation composition";
+    if (!scene_framebuffer_subview((TecmoFramebuffer *)framebuffer,
+                                   origin_x, origin_y, scale, &view)) {
+        return "live subview";
+    }
+    if (!scene_build_matchup_live_palette(scene, palette))
+        return "matchup palette";
+    pretip_reason = scene_pretip_projection_diagnostic(scene);
+    if (pretip_reason != NULL) return pretip_reason;
+    memset(&court_frame, 0, sizeof(court_frame));
+    if (include_actors && scene->active) {
+        if (!tecmo_gameplay_scene_court_frame(scene, &court_frame))
+            return "live court frame";
+    } else if (!tecmo_gameplay_scene_court_slice(scene, &court_frame.slice)) {
+        return "live court slice";
+    }
+    if (!tecmo_gameplay_scene_render_build_background_context(
+            scene, &background_context)) {
+        return "live background context";
+    }
+    if (court_frame.slice.viewport.column_count < 32U ||
+        court_frame.slice.viewport.column_count >
+            TECMO_GAMEPLAY_COURT_VIEWPORT_TILE_STRIDE) {
+        return "live viewport columns";
+    }
+    for (row = 0U; row < TECMO_GAMEPLAY_COURT_WORLD_HEIGHT_TILES; ++row) {
+        for (column = 0U;
+             column < court_frame.slice.viewport.column_count;
+             ++column) {
+            size_t cell = (size_t)row * TECMO_GAMEPLAY_COURT_VIEWPORT_TILE_STRIDE +
+                column;
+            uint32_t offset;
+            if (court_frame.slice.viewport.palette_indices[cell] > 3U ||
+                !scene_background_tile_chr(
+                    scene, &background_context, row,
+                    court_frame.slice.viewport.tiles[cell], &offset) ||
+                offset + 16U > scene->assets.chr_storage_size) {
+                return "live background tile";
+            }
+        }
+    }
+    if (scene_should_draw_live_hud(scene, include_actors) &&
+        !tecmo_gameplay_scene_render_prepare_live_hud(
+            scene, &background_context, &prepared_hud)) {
+        return "live HUD";
+    }
+    if (include_actors && scene->active) {
+        for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+            if (!tecmo_gameplay_scene_render_resolve_actor_pose(
+                    scene, actor, &pose)) {
+                return "live actor pose";
+            }
+        }
+        if (!tecmo_gameplay_scene_render_resolve_pose(
+                scene, TECMO_GAMEPLAY_BALL_POSE, 0xC1U,
+                0U, 0U, false, 0U, &pose) ||
+            !scene_apply_matchup_live_palette(scene, &pose)) {
+            return "live ball pose";
+        }
+    }
+    return "draw composition";
 }
 
 bool tecmo_gameplay_scene_in_pretip(const TecmoGameplayScene *scene)

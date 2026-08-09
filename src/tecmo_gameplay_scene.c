@@ -980,7 +980,7 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
         /* Keep the legacy skip fixture fast at the scene boundary, but derive
            its LIVE state through the real transactional TPTI-2 API. This
            deterministic both-automatic route proves the full RNG/capture,
-           claim, and frame-721 invariants instead of fabricating fields. */
+            claim, and pre-tip-to-LIVE invariants instead of fabricating fields. */
         while (scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE &&
                guard < 700U) {
             if (!tecmo_gameplay_pretip_update_controlled(
