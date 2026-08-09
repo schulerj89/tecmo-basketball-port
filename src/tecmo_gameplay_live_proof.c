@@ -116,19 +116,47 @@ static bool live_proof_advance_pretip(TecmoGameplayScene *scene)
 {
     TecmoControlFrame away;
     TecmoControlFrame neutral;
+    uint8_t saved_home_controller_team;
+    bool home_automatic_fixture;
     size_t update;
     live_proof_controls_neutral(&away);
     live_proof_controls_neutral(&neutral);
+    saved_home_controller_team = scene->launch.controller_team[1U];
+    home_automatic_fixture = saved_home_controller_team ==
+        TECMO_GAMEPLAY_TEAM_HOME;
+    if (home_automatic_fixture) {
+        scene->launch.controller_team[1U] =
+            TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    }
     for (update = 0U; update < LIVE_PROOF_MAX_PRETIP_UPDATES; ++update) {
-        if (!tecmo_gameplay_scene_in_pretip(scene)) return true;
+        if (!tecmo_gameplay_scene_in_pretip(scene)) {
+            if (home_automatic_fixture) {
+                scene->launch.controller_team[1U] =
+                    saved_home_controller_team;
+            }
+            return true;
+        }
         live_proof_controls_neutral(&away);
         if (scene->pretip_state.phase ==
-            TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
+            TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP) {
             away.held.cancel = true;
         }
         if (!tecmo_gameplay_scene_update(scene, &away, &neutral)) {
+            if (home_automatic_fixture) {
+                scene->launch.controller_team[1U] =
+                    saved_home_controller_team;
+            }
             return false;
         }
+        if (home_automatic_fixture &&
+            scene->pretip_state.claim_resolved) {
+            scene->launch.controller_team[1U] =
+                saved_home_controller_team;
+            home_automatic_fixture = false;
+        }
+    }
+    if (home_automatic_fixture) {
+        scene->launch.controller_team[1U] = saved_home_controller_team;
     }
     return !tecmo_gameplay_scene_in_pretip(scene);
 }

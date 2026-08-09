@@ -326,7 +326,18 @@ if (!$ReferenceRoot) {
     $CandidateReferenceRoot = Join-Path `
         (Split-Path -Parent $ProjectRoot) `
         "tecmo-basketball-port\temp-videos\gameplay-audit"
-    if (Test-Path -LiteralPath $CandidateReferenceRoot -PathType Container) {
+    $CandidateReferenceFiles = @(
+        "tipoff_0450.png", "tipoff_0510.png", "tipoff_0540.png",
+        "tipoff_0570.png", "tipoff_0720.png"
+    )
+    $CandidateReferenceMissing = @(
+        $CandidateReferenceFiles | Where-Object {
+            $CandidateReferencePath = Join-Path $CandidateReferenceRoot $_
+            !(Test-Path -LiteralPath $CandidateReferencePath -PathType Leaf)
+        }
+    )
+    if ((Test-Path -LiteralPath $CandidateReferenceRoot -PathType Container) -and
+        $CandidateReferenceMissing.Count -eq 0) {
         $ReferenceRoot = $CandidateReferenceRoot
     }
 }
@@ -338,7 +349,7 @@ if ($ReferenceRoot) {
         [pscustomobject]@{ reference="tipoff_0510.png"; native="gameplay-pretip-frame271" },
         [pscustomobject]@{ reference="tipoff_0540.png"; native="gameplay-pretip-frame300" },
         [pscustomobject]@{ reference="tipoff_0570.png"; native="gameplay-pretip-frame330" },
-        [pscustomobject]@{ reference="tipoff_0720.png"; native="gameplay-pretip-bulls-pacers" }
+        [pscustomobject]@{ reference="tipoff_0720.png"; native="gameplay-tipoff-proof-frame481" }
     )
     $ComparisonPath = Join-Path $Scratch "reference-comparison.png"
     $Comparison = New-Object Drawing.Bitmap 1024,($Pairs.Count * 480)

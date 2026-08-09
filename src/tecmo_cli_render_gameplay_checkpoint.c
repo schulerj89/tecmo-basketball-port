@@ -8,6 +8,7 @@
 #include "tecmo_gameplay_penalties.h"
 #include "tecmo_gameplay_pretip.h"
 #include "tecmo_gameplay_scene.h"
+#include "tecmo_gameplay_scene_internal.h"
 #include "tecmo_gameplay_state.h"
 #include "tecmo_gameplay_violation_referee.h"
 #include "tecmo_win32_keys.h"
@@ -41,6 +42,7 @@ typedef struct TecmoCliGameplayCheckpointConfig {
     bool tipoff_proof;
     bool ball_bounce;
     bool cpu_steering;
+    bool pass_handoff_proof;
     bool shot_clock_violation;
     bool out_of_bounds_violation;
     bool backcourt_violation;
@@ -298,6 +300,7 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     bool tipoff_proof = false;
     bool ball_bounce = false;
     bool cpu_steering = false;
+    bool pass_handoff_proof = false;
     bool shot_clock_violation = false;
     bool out_of_bounds_violation = false;
     bool backcourt_violation = false;
@@ -334,6 +337,10 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     } else if (tecmo_cli_parse_render_frame_suffix(
                    mode_name, "gameplay-cpu-steering-frame", &checkpoint)) {
         cpu_steering = true;
+    } else if (tecmo_cli_parse_render_frame_suffix(
+                   mode_name, "gameplay-pass-handoff-proof-frame",
+                   &checkpoint)) {
+        pass_handoff_proof = true;
     } else if (tecmo_cli_parse_render_frame_suffix(
                    mode_name, "gameplay-shot-clock-violation-frame",
                    &checkpoint)) {
@@ -409,6 +416,7 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     if (cpu_steering && (checkpoint == 0U || checkpoint > 240U)) {
         return false;
     }
+    if (pass_handoff_proof && checkpoint > 2U) return false;
     if ((shot_clock_violation || out_of_bounds_violation ||
          backcourt_violation) &&
         checkpoint >= TECMO_GAMEPLAY_VIOLATION_PRESENTATION_FRAMES) {
@@ -437,6 +445,7 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     config->tipoff_proof = tipoff_proof;
     config->ball_bounce = ball_bounce;
     config->cpu_steering = cpu_steering;
+    config->pass_handoff_proof = pass_handoff_proof;
     config->shot_clock_violation = shot_clock_violation;
     config->out_of_bounds_violation = out_of_bounds_violation;
     config->backcourt_violation = backcourt_violation;
@@ -677,9 +686,11 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
     const uint8_t home_team = config->home_team;
     const bool pretip_checkpoint = config->pretip_checkpoint;
     const bool live_start = config->live_start;
+    const bool facing_checkpoint = config->facing_checkpoint;
     const bool tipoff_proof = config->tipoff_proof;
     const bool ball_bounce = config->ball_bounce;
     const bool cpu_steering = config->cpu_steering;
+    const bool pass_handoff_proof = config->pass_handoff_proof;
     const int possession_slice = config->possession_slice;
     const int free_throw_orientation = config->free_throw_orientation;
     const unsigned first_contest_update = TECMO_CLI_PRETIP_CAPTURE_FRAME;
@@ -734,6 +745,69 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
                 return false;
             }
         }
+        if (!tipoff_proof && !live_start && !pass_handoff_proof &&
+            (!scene_handoff_possession(
+                 scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+             !scene_sync_live_foundation(scene))) {
+            return false;
+        }
+        if (pass_handoff_proof) {
+            TecmoGameplaySceneCpuShotRequest shot_request;
+            if (!scene_handoff_possession(
+                    scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+                !scene_sync_live_foundation(scene)) {
+                return false;
+            }
+            scene->launch.controller_team[0U] = TECMO_GAMEPLAY_TEAM_AWAY;
+            scene->launch.controller_team[1U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+            scene->controlled_actor[0U] = 0U;
+            scene->controlled_actor[1U] = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+            if (!scene_sync_live_foundation(scene)) return false;
+            scene->live_foundation.defender_actor = 5U;
+            scene->live_foundation.play_state.defender_actor = 5U;
+            scene->live_foundation.control_mode[TECMO_GAMEPLAY_TEAM_HOME] = 1U;
+            scene->live_foundation.dynamic_link[9U] = 1U;
+            scene->live_foundation.defender_eligible[9U] = false;
+            scene->live_foundation.dynamic_link[8U] = 0U;
+            scene->live_foundation.dynamic_link[7U] = 0U;
+            scene->live_foundation.dynamic_link[6U] = 1U;
+            scene->live_foundation.defender_eligible[6U] = true;
+            scene->actors[5U].position.x =
+                (int16_t)(scene->actors[0U].position.x - 18);
+            scene->actors[5U].position.y = scene->actors[0U].position.y;
+            scene->actors[6U].position.x =
+                (int16_t)(scene->actors[1U].position.x - 34);
+            scene->actors[6U].position.y = scene->actors[1U].position.y;
+            if (checkpoint >= 1U) {
+                if (!tecmo_gameplay_live_foundation_pass_handoff(
+                        &scene->cpu_steering_assets, 1U,
+                        &scene->live_foundation) ||
+                    !scene_ball_position_for_actors(
+                        scene, scene->actors, 1U, &scene->ball_position)) {
+                    return false;
+                }
+                scene->ball_holder = 1U;
+                scene->controlled_actor[0U] = 1U;
+            }
+            if (checkpoint >= 2U &&
+                !scene_update_ai(scene, &shot_request)) {
+                return false;
+            }
+            printf("pass-handoff-proof stage=%u selected_offense=%u "
+                   "prior_offense=%u old_holder_state=%u "
+                   "old_holder_cursor=%04X selected_defense=%u "
+                   "prior_defense=%u linked=%u eligible=%u\n",
+                   checkpoint, scene->live_foundation.primary_actor,
+                   scene->live_foundation.prior_selected_actor,
+                   scene->live_foundation.play_state.actor_state[0U],
+                   scene->live_foundation.play_state.stream_offset[0U],
+                   scene->live_foundation.defender_actor,
+                   scene->live_foundation.prior_defender_actor,
+                   scene->live_foundation.dynamic_link[6U],
+                   scene->live_foundation.defender_eligible[6U] ? 1U : 0U);
+            *done_out = true;
+            return true;
+        }
         if (tipoff_proof) {
             *done_out = true;
             if (runtime->mode != TECMO_MODE_COURT || !scene->active ||
@@ -783,9 +857,18 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
         }
         if (live_start) {
             *done_out = true;
+            if (facing_checkpoint &&
+                (!scene_handoff_possession(
+                     scene, TECMO_GAMEPLAY_TEAM_AWAY, 3U) ||
+                 !scene_sync_live_foundation(scene))) {
+                return false;
+            }
             return runtime->mode == TECMO_MODE_COURT && scene->active &&
                    !tecmo_gameplay_scene_in_pretip(scene) &&
-                   (scene->pretip_state.claimant_jumper == 0U
+                   (facing_checkpoint
+                      ? (scene->state.possession == TECMO_GAMEPLAY_TEAM_AWAY &&
+                         scene->ball_holder == 3U)
+                      : scene->pretip_state.claimant_jumper == 0U
                       ? (scene->state.possession == TECMO_GAMEPLAY_TEAM_AWAY &&
                          scene->ball_holder == 3U)
                       : (scene->state.possession == TECMO_GAMEPLAY_TEAM_HOME &&
@@ -819,8 +902,24 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
                    &runtime->gameplay_scene);
     }
     memset(&input, 0, sizeof(input));
-    for (update = 0U; update < TECMO_CLI_PRETIP_LIVE_START_FRAME; ++update)
+    if (cpu_steering) {
+        runtime->gameplay_scene.launch.controller_team[0U] =
+            TECMO_GAMEPLAY_TEAM_AWAY;
+    }
+    for (update = 0U; update < TECMO_CLI_PRETIP_LIVE_START_FRAME; ++update) {
+        input.cancel = runtime->gameplay_scene.pretip_state.phase ==
+            TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP;
         tecmo_runtime_update(runtime, &input);
+        if (cpu_steering &&
+            runtime->gameplay_scene.pretip_state.claim_resolved) {
+            runtime->gameplay_scene.launch.controller_team[0U] =
+                TECMO_GAMEPLAY_TEAM_HOME;
+        }
+    }
+    if (cpu_steering) {
+        runtime->gameplay_scene.launch.controller_team[0U] =
+            TECMO_GAMEPLAY_TEAM_HOME;
+    }
     if (live_start) {
         *done_out = true;
         return runtime->mode == TECMO_MODE_COURT &&
@@ -841,6 +940,12 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
     }
     if (cpu_steering) {
         TecmoGameplayScene *scene = &runtime->gameplay_scene;
+        if (!scene_handoff_possession(
+                scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+            !scene_sync_live_foundation(scene)) {
+            return false;
+        }
+        memset(&input, 0, sizeof(input));
         for (update = 0U; update < checkpoint; ++update) {
             tecmo_runtime_update(runtime, &input);
         }
@@ -1048,13 +1153,19 @@ static bool run_gameplay_camera_checkpoint(
         TecmoGameplaySceneCourtFrame court_frame;
         uint8_t actor_index;
         *handled_out = true;
+        if (!tecmo_gameplay_camera_state_initialize(
+                &scene->camera_assets, &scene->camera_state) ||
+            !tecmo_gameplay_camera_state_prime_live(
+                &scene->camera_assets, &scene->camera_state)) {
+            return false;
+        }
         if (possession_slice == 1) {
             return runtime->mode == TECMO_MODE_COURT &&
                    scene->active &&
                    tecmo_gameplay_scene_court_frame(
                        scene, &court_frame) &&
-                    court_frame.slice.viewport.camera_x == 0x0084U &&
-                    court_frame.projection.camera_x == 0x0084U &&
+                    court_frame.slice.viewport.camera_x == 0x0100U &&
+                    court_frame.projection.camera_x == 0x0100U &&
                    court_frame.slice.possession ==
                        TECMO_GAMEPLAY_TEAM_AWAY &&
                    court_frame.slice.direction == 0U;
