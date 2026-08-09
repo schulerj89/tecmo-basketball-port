@@ -127,6 +127,13 @@ static bool scene_test_concurrent_tip_simulation(
     uint16_t apex_tick;
     uint8_t away_commits;
     uint8_t home_commits;
+    TecmoGameplaySceneActor actors_before_handoff[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplaySceneCpuActor cpu_before_handoff[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplayCourtCoordinate holder_start;
+    uint8_t holder_after_handoff;
+    bool actor_moved;
     size_t frame;
     const char *failure = "concurrent pre-tip scene regression failed";
     if (test == NULL || scene == NULL || launch == NULL) return false;
@@ -208,9 +215,72 @@ static bool scene_test_concurrent_tip_simulation(
         scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
         scene->pretip_state.away_jump_commit_count != away_commits ||
         scene->pretip_state.home_jump_commit_count != home_commits) goto failed;
+    /* Deliberately move every object away from the cold Bank04-derived table
+       and seed actor-local history.  A replay of scene_initialize_actors()
+       cannot accidentally satisfy this boundary check. */
+    for (frame = 0U; frame < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++frame) {
+        scene->actors[frame].position.x =
+            (int16_t)(240 + (int)frame * 23);
+        scene->actors[frame].position.y =
+            (int16_t)(84 + (int)(frame % 4U) * 28);
+        scene->actors[frame].anchor = scene->actors[frame].position;
+    }
     failure = "concurrent pre-tip live handoff advance failed";
-    for (frame = 0U; frame < 30U; ++frame)
+    for (frame = 0U; frame < 30U &&
+         !scene->pretip_state.live_handoff; ++frame) {
+        if (scene->pretip_state.phase_frame == 29U) {
+            TecmoGameplayScene *malformed =
+                (TecmoGameplayScene *)malloc(sizeof(*malformed));
+            TecmoGameplaySceneActor malformed_actors[
+                TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+            TecmoGameplayLiveFoundation malformed_foundation;
+            TecmoGameplayState malformed_state;
+            TecmoGameplayCourtOrientationState malformed_orientation;
+            TecmoGameplayCameraState malformed_camera;
+            TecmoGameplayCourtCoordinateQ8 malformed_ball;
+            uint8_t malformed_holder;
+            if (malformed == NULL) {
+                failure = "pre-tip malformed transaction allocation failed";
+                goto failed;
+            }
+            memcpy(malformed, scene, sizeof(*malformed));
+            malformed->live_foundation.actor_position[0U].x = -1;
+            memcpy(malformed_actors, malformed->actors,
+                   sizeof(malformed_actors));
+            malformed_foundation = malformed->live_foundation;
+            malformed_state = malformed->state;
+            malformed_orientation = malformed->orientation_state;
+            malformed_camera = malformed->camera_state;
+            malformed_ball = malformed->ball_position;
+            malformed_holder = malformed->ball_holder;
+            if (tecmo_gameplay_scene_update(malformed, &p1, &p2) ||
+                memcmp(malformed->actors, malformed_actors,
+                       sizeof(malformed_actors)) != 0 ||
+                memcmp(&malformed->live_foundation,
+                       &malformed_foundation,
+                       sizeof(malformed_foundation)) != 0 ||
+                memcmp(&malformed->state, &malformed_state,
+                       sizeof(malformed_state)) != 0 ||
+                memcmp(&malformed->orientation_state,
+                       &malformed_orientation,
+                       sizeof(malformed_orientation)) != 0 ||
+                memcmp(&malformed->camera_state, &malformed_camera,
+                       sizeof(malformed_camera)) != 0 ||
+                memcmp(&malformed->ball_position, &malformed_ball,
+                       sizeof(malformed_ball)) != 0 ||
+                malformed->ball_holder != malformed_holder) {
+                free(malformed);
+                failure = "pre-tip malformed in-place transaction partially committed";
+                goto failed;
+            }
+            free(malformed);
+        }
+        memcpy(actors_before_handoff, scene->actors,
+               sizeof(actors_before_handoff));
+        memcpy(cpu_before_handoff, scene->cpu_actors,
+               sizeof(cpu_before_handoff));
         if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) goto failed;
+    }
     failure = "concurrent pre-tip no-restart handoff failed";
     if (scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE ||
         !scene->pretip_state.live_handoff ||
@@ -218,6 +288,52 @@ static bool scene_test_concurrent_tip_simulation(
         scene->ball_holder != scene->pretip_state.receiver_actor ||
         scene->pretip_state.away_jump_commit_count != 1U ||
         scene->pretip_state.home_jump_commit_count != 1U) goto failed;
+    failure = "pre-tip in-place actor continuity failed";
+    if (memcmp(scene->actors, actors_before_handoff,
+               sizeof(actors_before_handoff)) != 0 ||
+        memcmp(scene->cpu_actors, cpu_before_handoff,
+               sizeof(cpu_before_handoff)) != 0) goto failed;
+    failure = "pre-tip live-foundation coordinate continuity failed";
+    for (frame = 0U; frame < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++frame) {
+        if (scene->live_foundation.actor_position[frame].x !=
+                scene->actors[frame].position.x ||
+            scene->live_foundation.actor_position[frame].y !=
+                scene->actors[frame].position.y) goto failed;
+    }
+    holder_after_handoff = scene->ball_holder;
+    holder_start = scene->actors[holder_after_handoff].position;
+    p1.held.right = true;
+    failure = "first live movement did not continue from preserved position";
+    for (frame = 0U; frame < 24U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+            failure = scene->status;
+            goto failed;
+        }
+    }
+    actor_moved = false;
+    for (frame = 0U; frame < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++frame) {
+        if (scene->actors[frame].position.x !=
+                actors_before_handoff[frame].position.x ||
+            scene->actors[frame].position.y !=
+                actors_before_handoff[frame].position.y) actor_moved = true;
+        if (scene->actors[frame].position.x <
+                actors_before_handoff[frame].position.x - 40 ||
+            scene->actors[frame].position.x >
+                actors_before_handoff[frame].position.x + 40) {
+            failure = "first live movement jumped away from preserved coordinate";
+            goto failed;
+        }
+    }
+    if (!actor_moved) {
+        failure = "first live movement remained frozen";
+        goto failed;
+    }
+    if ((scene->actors[holder_after_handoff].position.x == 528 &&
+         scene->actors[holder_after_handoff].position.y == 144) ||
+        (holder_start.x == 528 && holder_start.y == 144)) {
+        failure = "first live movement used cold-start coordinate";
+        goto failed;
+    }
     tecmo_gameplay_scene_end(scene);
     return true;
 failed:

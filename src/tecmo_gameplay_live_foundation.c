@@ -215,6 +215,7 @@ static bool live_play_state_valid(
             TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT ||
         foundation->initialization_serial == 0U ||
         !live_actor_team_valid(foundation->actor_team) ||
+        !live_actor_positions_valid(foundation->actor_position) ||
         foundation->play_state.matchup_seed[0U] != 2U ||
         foundation->play_state.matchup_seed[1U] != 7U ||
         foundation->play_state.primary_actor != foundation->primary_actor ||
@@ -498,6 +499,7 @@ bool tecmo_gameplay_live_foundation_initialize(
         candidate.actor_team[actor] = actor_team[actor];
         candidate.actor_selector_flags[actor] =
             actor_team[actor] == possession ? 0U : 0x10U;
+        candidate.actor_position[actor] = actor_position[actor];
         candidate.formation_start_offset[actor] =
             formation.stream_offset[actor];
         candidate.last_step_offset[actor] =
@@ -563,6 +565,7 @@ bool tecmo_gameplay_live_foundation_synchronize(
         candidate.actor_team[actor] = actor_team[actor];
         candidate.actor_selector_flags[actor] =
             actor_team[actor] == possession ? 0U : 0x10U;
+        candidate.actor_position[actor] = actor_position[actor];
     }
     for (controller = 0U;
          controller < TECMO_GAMEPLAY_CPU_STEERING_CONTROLLER_SLOT_COUNT;

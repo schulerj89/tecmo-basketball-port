@@ -41,6 +41,7 @@ typedef struct TecmoCliGameplayCheckpointConfig {
     bool live_start;
     bool facing_checkpoint;
     bool tipoff_proof;
+    bool tipoff_continuity;
     bool tipoff_away_win;
     bool ball_bounce;
     bool cpu_steering;
@@ -301,6 +302,7 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     bool live_start = false;
     bool facing_checkpoint = false;
     bool tipoff_proof = false;
+    bool tipoff_continuity = false;
     bool tipoff_away_win = false;
     bool ball_bounce = false;
     bool cpu_steering = false;
@@ -336,6 +338,13 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
         away_team = 3U;
         home_team = 10U;
         tipoff_proof = true;
+    } else if (tecmo_cli_parse_render_frame_suffix(
+                   mode_name, "gameplay-tipoff-continuity-frame",
+                   &checkpoint)) {
+        away_team = 3U;
+        home_team = 10U;
+        tipoff_proof = true;
+        tipoff_continuity = true;
     } else if (tecmo_cli_parse_render_frame_suffix(
                    mode_name, "gameplay-tip-ball-away-frame", &checkpoint)) {
         away_team = 3U;
@@ -464,6 +473,7 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     config->live_start = live_start;
     config->facing_checkpoint = facing_checkpoint;
     config->tipoff_proof = tipoff_proof;
+    config->tipoff_continuity = tipoff_continuity;
     config->tipoff_away_win = tipoff_away_win;
     config->ball_bounce = ball_bounce;
     config->cpu_steering = cpu_steering;
@@ -546,8 +556,7 @@ static bool gameplay_checkpoint_report_tipoff_proof(
         return false;
     }
     if (!tecmo_gameplay_scene_in_pretip(scene) &&
-        (away->facing_right ||
-         scene->pretip_jumper_altitude_q8[0U] != 0U ||
+        (scene->pretip_jumper_altitude_q8[0U] != 0U ||
          scene->pretip_jumper_altitude_q8[1U] != 0U)) {
         return false;
     }
@@ -732,6 +741,56 @@ static bool gameplay_checkpoint_report_tipoff_proof(
             scene->pretip_state.ball_state17_in_flight ? 1U : 0U,
             (unsigned)scene->pretip_state.ball_flight_tick);
     }
+    printf("tipoff-continuity logical-frame=%u phase=%s holder=%u "
+           "possession=%u camera-x=%u follow-serial=%u claimant=%u "
+           "receiver=%u selected-0308=%u selected-0309=%u ball-state=%u "
+           "ball-x-q8=%ld ball-y-q8=%ld ball-attached=%u "
+           "away-state=%u away-altitude-q8=%u away-commits=%u "
+           "home-state=%u home-altitude-q8=%u home-commits=%u "
+           "foundation-sync-serial=%lu",
+           scene->frame,
+           tecmo_gameplay_pretip_phase_name(scene->pretip_state.phase),
+           (unsigned)scene->ball_holder, (unsigned)scene->state.possession,
+           (unsigned)court_frame.projection.camera_x,
+           (unsigned)scene->camera_follow_count,
+           (unsigned)scene->pretip_state.claimant_jumper,
+           (unsigned)scene->pretip_state.receiver_actor,
+           (unsigned)scene->pretip_jumper_actor[0U],
+           (unsigned)scene->pretip_jumper_actor[1U],
+           (unsigned)scene->pretip_state.ball_actor_state,
+           (long)scene->ball_position.x_q8,
+           (long)scene->ball_position.y_q8,
+           scene->pretip_state.ball_attached_to_receiver ? 1U : 0U,
+           (unsigned)scene->pretip_state.away_actor_state,
+           (unsigned)scene->pretip_jumper_altitude_q8[0U],
+           (unsigned)scene->pretip_state.away_jump_commit_count,
+           (unsigned)scene->pretip_state.home_actor_state,
+           (unsigned)scene->pretip_jumper_altitude_q8[1U],
+           (unsigned)scene->pretip_state.home_jump_commit_count,
+           (unsigned long)scene->live_foundation.sync_serial);
+    for (size_t actor = 0U;
+         actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        const TecmoGameplaySceneActor *item = &scene->actors[actor];
+        const TecmoGameplaySceneCpuActor *cpu = &scene->cpu_actors[actor];
+        printf(" actor%u=%d,%d,%d,%d,%u,%u,%u,%u,%u,%u,%u,%lu,%u,%u,%u,%d,%d,%d,%d",
+               (unsigned)actor, (int)item->position.x,
+               (int)item->position.y, (int)item->anchor.x,
+               (int)item->anchor.y, (unsigned)item->pose_index,
+               item->facing_right ? 1U : 0U,
+               item->pose_orientation_encoded ? 1U : 0U,
+               (unsigned)item->movement_action_state,
+               (unsigned)item->movement_direction,
+               (unsigned)item->movement_fractional_accumulator,
+               (unsigned)item->movement_animation_phase,
+               (unsigned long)cpu->decision_serial,
+               (unsigned)cpu->command_offset,
+               (unsigned)cpu->linked_actor,
+               cpu->target_valid ? 1U : 0U,
+               (int)cpu->target_position.x, (int)cpu->target_position.y,
+               (int)scene->live_foundation.actor_position[actor].x,
+               (int)scene->live_foundation.actor_position[actor].y);
+    }
+    printf("\n");
     return true;
 }
 
@@ -750,6 +809,7 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
     const bool live_start = config->live_start;
     const bool facing_checkpoint = config->facing_checkpoint;
     const bool tipoff_proof = config->tipoff_proof;
+    const bool tipoff_continuity = config->tipoff_continuity;
     const bool tipoff_away_win = config->tipoff_away_win;
     const bool ball_bounce = config->ball_bounce;
     const bool cpu_steering = config->cpu_steering;
@@ -797,6 +857,17 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
             input_evidence.literal_b_mapped = false;
         }
         for (update = 0U; update < adapter_updates; ++update) {
+            if (tipoff_continuity && scene->frame == 570U) {
+                for (size_t actor = 0U;
+                     actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+                    scene->actors[actor].position.x =
+                        (int16_t)(300 + (int)actor * 18);
+                    scene->actors[actor].position.y =
+                        (int16_t)(82 + (int)(actor % 4U) * 30);
+                    scene->actors[actor].anchor =
+                        scene->actors[actor].position;
+                }
+            }
             if (!input_evidence.bridge_used &&
                 scene->frame == TECMO_CLI_PRETIP_CAPTURE_FRAME - 1U &&
                 scene->pretip_state.phase ==
@@ -953,6 +1024,10 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
             printf("]}\n");
             *done_out = true;
             return true;
+        }
+        if (tipoff_continuity && scene->pretip_state.live_handoff &&
+            !scene_sync_live_foundation(scene)) {
+            return false;
         }
         if (pass_handoff_proof) {
             TecmoGameplaySceneCpuShotRequest shot_request;

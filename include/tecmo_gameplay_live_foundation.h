@@ -51,6 +51,10 @@ typedef struct TecmoGameplayLiveFoundation {
     uint16_t candidate_score_by_side[TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT];
     uint8_t candidate_sector_by_side[TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT];
     uint8_t actor_team[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    /* Last transactionally accepted live coordinates.  These are scene
+       observations, not a replay of the Bank04 startup table. */
+    TecmoGameplayCourtCoordinate actor_position[
+        TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint8_t controller_team[
         TECMO_GAMEPLAY_CPU_STEERING_CONTROLLER_SLOT_COUNT];
     uint8_t last_controlled_actor[

@@ -876,19 +876,20 @@ static bool scene_pretip_apply_jump_frame(
 
 static bool scene_pretip_land_jump(TecmoGameplayScene *scene)
 {
+    uint16_t landing_pose[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
     size_t jumper;
     if (!scene_pretip_jumper_mapping_valid(scene)) return false;
     for (jumper = 0U; jumper < TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT;
          ++jumper) {
-        uint16_t landing_pose;
+        if (!scene_pretip_landing_pose(
+                scene->pretip_jumper_selector[jumper],
+                &landing_pose[jumper])) return false;
+    }
+    for (jumper = 0U; jumper < TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT;
+         ++jumper) {
         TecmoGameplaySceneActor *actor = &scene->actors[
             scene->pretip_jumper_actor[jumper]];
-        if (!scene_pretip_landing_pose(
-                scene->pretip_jumper_selector[jumper], &landing_pose)) {
-            return false;
-        }
-        actor->position = actor->anchor;
-        actor->pose_index = landing_pose;
+        actor->pose_index = landing_pose[jumper];
         actor->pose_orientation_encoded = true;
         scene->pretip_jumper_altitude_q8[jumper] = 0U;
     }
@@ -1736,11 +1737,23 @@ static bool scene_update_pretip_frame(
     if (scene->pretip_state.total_frame != pretip_total_before)
         ++scene->frame;
     if (scene->pretip_state.live_handoff) {
+        TecmoGameplayState state_before;
+        TecmoGameplayCourtOrientationState orientation_before;
+        TecmoGameplayCameraState camera_before;
+        TecmoGameplayBackcourtState backcourt_before;
+        TecmoGameplayAudioPlayer audio_before;
+        TecmoGameplayLiveFoundation foundation_before;
+        TecmoGameplaySceneActor actors_before[
+            TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+        TecmoGameplayCourtCoordinateQ8 ball_before;
+        uint8_t controlled_before[TECMO_GAMEPLAY_CONTROLLER_COUNT];
+        uint16_t altitude_before[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
+        uint8_t holder_before;
+        bool jump_active_before;
         TecmoGameplayTeam possession;
         uint8_t claimant_jumper;
         uint8_t claimant_actor;
         uint8_t holder;
-        bool jumper_facing[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
         if (!tecmo_gameplay_pretip_claimant_jumper(
                 &scene->pretip_assets, &scene->pretip_state,
                 &claimant_jumper) ||
@@ -1766,42 +1779,49 @@ static bool scene_update_pretip_frame(
             scene_set_status(scene, "pre-tip receiver actor rejected");
             return false;
         }
-        jumper_facing[0U] = scene->actors[
-            scene->pretip_jumper_actor[0U]].facing_right;
-        jumper_facing[1U] = scene->actors[
-            scene->pretip_jumper_actor[1U]].facing_right;
-        if (!scene_initialize_actors(scene)) {
-            scene_set_status(
-                scene, "pre-tip actor movement handoff rejected");
-            return false;
-        }
-        if (!scene_pretip_land_jump(scene)) {
-            scene_set_status(scene, "pre-tip jump landing rejected");
-            return false;
-        }
-        scene->actors[scene->pretip_jumper_actor[0U]].facing_right =
-            jumper_facing[0U];
-        scene->actors[scene->pretip_jumper_actor[1U]].facing_right =
-            jumper_facing[1U];
-        if (!scene_handoff_possession(scene, possession, holder)) {
-            scene_set_status(scene, "pre-tip possession handoff rejected");
-            return false;
-        }
-        if (!scene_sync_live_foundation(scene)) {
-            scene_set_status(scene, "pre-tip LIVE state synchronization rejected");
-            return false;
-        }
-        if (!tecmo_gameplay_camera_settle_court(
+        /* Bank04 $AC8C is launch-only.  Bank05 $A274 changes the ball and
+           selection fields, while $86BB-$879A recovers the existing jumpers
+           and Bank06 $827E continues the other actor objects.  Never replay
+           the cold initializer at this transition. */
+        state_before = scene->state;
+        orientation_before = scene->orientation_state;
+        camera_before = scene->camera_state;
+        backcourt_before = scene->backcourt_state;
+        audio_before = scene->audio_player;
+        foundation_before = scene->live_foundation;
+        memcpy(actors_before, scene->actors, sizeof(actors_before));
+        memcpy(controlled_before, scene->controlled_actor,
+               sizeof(controlled_before));
+        memcpy(altitude_before, scene->pretip_jumper_altitude_q8,
+               sizeof(altitude_before));
+        ball_before = scene->ball_position;
+        holder_before = scene->ball_holder;
+        jump_active_before = scene->pretip_jump_active;
+        if (!scene_pretip_land_jump(scene) ||
+            !scene_handoff_tip_possession(scene, possession, holder) ||
+            !scene_sync_live_foundation(scene) ||
+            !tecmo_gameplay_camera_settle_court(
                 &scene->camera_assets, &scene->camera_state,
                 &scene->ball_position,
-                scene->orientation_state.current_direction, false)) {
-            scene_set_status(scene, "pre-tip live camera handoff rejected");
-            return false;
-        }
-        if (scene->launch.game_music_enabled &&
-            !tecmo_gameplay_audio_queue_game_music(
-                &scene->audio_player)) {
-            scene_set_status(scene, "gameplay track 5 handoff rejected");
+                scene->orientation_state.current_direction, false) ||
+            (scene->launch.game_music_enabled &&
+             !tecmo_gameplay_audio_queue_game_music(
+                 &scene->audio_player))) {
+            scene->state = state_before;
+            scene->orientation_state = orientation_before;
+            scene->camera_state = camera_before;
+            scene->backcourt_state = backcourt_before;
+            scene->audio_player = audio_before;
+            scene->live_foundation = foundation_before;
+            memcpy(scene->actors, actors_before, sizeof(actors_before));
+            memcpy(scene->controlled_actor, controlled_before,
+                   sizeof(controlled_before));
+            memcpy(scene->pretip_jumper_altitude_q8, altitude_before,
+                   sizeof(altitude_before));
+            scene->ball_position = ball_before;
+            scene->ball_holder = holder_before;
+            scene->pretip_jump_active = jump_active_before;
+            scene_set_status(scene, "pre-tip in-place handoff rejected");
             return false;
         }
         scene_set_status(scene, "native gameplay active");

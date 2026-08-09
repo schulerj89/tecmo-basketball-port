@@ -265,6 +265,9 @@ bool scene_start_shot(TecmoGameplayScene *scene, size_t controller);
 bool scene_handoff_possession(TecmoGameplayScene *scene,
                               TecmoGameplayTeam possession,
                               uint8_t holder);
+bool scene_handoff_tip_possession(TecmoGameplayScene *scene,
+                                  TecmoGameplayTeam possession,
+                                  uint8_t holder);
 bool scene_update_shot(TecmoGameplayScene *scene,
                        const TecmoControlFrame *shooting_controls);
 bool scene_update_jump_miss(

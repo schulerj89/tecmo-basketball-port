@@ -898,9 +898,10 @@ bool tecmo_gameplay_scene_start_rim_rattle_debug(
     return true;
 }
 
-bool scene_handoff_possession(TecmoGameplayScene *scene,
-                                     TecmoGameplayTeam possession,
-                                     uint8_t preferred_actor)
+static bool scene_handoff_possession_impl(TecmoGameplayScene *scene,
+                                          TecmoGameplayTeam possession,
+                                          uint8_t preferred_actor,
+                                          bool preserve_actor_state)
 {
     TecmoGameplayState state_before;
     TecmoGameplayCourtOrientationState orientation_before;
@@ -952,9 +953,11 @@ bool scene_handoff_possession(TecmoGameplayScene *scene,
         return false;
     }
     memcpy(candidate_actors, scene->actors, sizeof(candidate_actors));
-    /* Possession changes establish a fresh effective baseline for every
-       actor. Any later horizontal movement or shot pose can override it. */
-    if (!scene_apply_goal_facing(scene, candidate_actors) ||
+    /* Ordinary possession changes establish a fresh effective facing
+       baseline.  Tip completion is different: Bank05 changes ball ownership
+       while the existing player objects recover in place. */
+    if ((!preserve_actor_state &&
+         !scene_apply_goal_facing(scene, candidate_actors)) ||
         !scene_ball_position_for_actors(
             scene, candidate_actors, holder, &candidate_ball)) {
         scene->state = state_before;
@@ -986,6 +989,22 @@ bool scene_handoff_possession(TecmoGameplayScene *scene,
     scene->ball_position = candidate_ball;
     scene->backcourt_state = backcourt_reset;
     return true;
+}
+
+bool scene_handoff_possession(TecmoGameplayScene *scene,
+                              TecmoGameplayTeam possession,
+                              uint8_t preferred_actor)
+{
+    return scene_handoff_possession_impl(
+        scene, possession, preferred_actor, false);
+}
+
+bool scene_handoff_tip_possession(TecmoGameplayScene *scene,
+                                  TecmoGameplayTeam possession,
+                                  uint8_t preferred_actor)
+{
+    return scene_handoff_possession_impl(
+        scene, possession, preferred_actor, true);
 }
 
 static bool scene_close_step_for_frame(const TecmoGameplayScene *scene,
