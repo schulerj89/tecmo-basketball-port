@@ -131,6 +131,26 @@ typedef struct TecmoGameplayPreTipState {
     bool card_cancel_enabled;
     bool aborted;
     bool live_handoff;
+    bool away_b_latched;
+    bool home_b_latched;
+    bool away_jump_committed;
+    bool home_jump_committed;
+    bool claim_resolved;
+    uint8_t away_actor_state;
+    uint8_t home_actor_state;
+    uint8_t away_animation_phase;
+    uint8_t home_animation_phase;
+    uint8_t away_raw_height;
+    uint8_t home_raw_height;
+    uint8_t ball_raw_height;
+    uint8_t away_gate_countdown;
+    uint8_t home_gate_countdown;
+    uint8_t claimant_jumper;
+    uint8_t receiver_actor;
+    int16_t away_velocity_q8;
+    int16_t home_velocity_q8;
+    uint16_t away_altitude_q8;
+    uint16_t home_altitude_q8;
 } TecmoGameplayPreTipState;
 
 void tecmo_gameplay_pretip_init(TecmoGameplayPreTipAssets *assets);
@@ -156,6 +176,13 @@ bool tecmo_gameplay_pretip_update(
     TecmoGameplayPreTipState *state,
     bool player_one_or_away_held_b,
     bool player_two_or_home_held_b);
+bool tecmo_gameplay_pretip_update_controlled(
+    const TecmoGameplayPreTipAssets *assets,
+    TecmoGameplayPreTipState *state,
+    bool away_held_b,
+    bool home_held_b,
+    bool away_cpu,
+    bool home_cpu);
 /* Rejects every phase before JUMP_CONTEST without changing winner. During
    JUMP_CONTEST and LIVE, returns the native approximate lower-error/tie-away
    contest result. */
@@ -163,6 +190,10 @@ bool tecmo_gameplay_pretip_tip_winner(
     const TecmoGameplayPreTipAssets *assets,
     const TecmoGameplayPreTipState *state,
     uint8_t *winner);
+bool tecmo_gameplay_pretip_claimant_jumper(
+    const TecmoGameplayPreTipAssets *assets,
+    const TecmoGameplayPreTipState *state,
+    uint8_t *jumper);
 bool tecmo_gameplay_pretip_is_presentation(
     const TecmoGameplayPreTipState *state);
 const char *tecmo_gameplay_pretip_phase_name(TecmoGameplayPreTipPhase phase);

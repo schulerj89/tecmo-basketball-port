@@ -1941,6 +1941,10 @@ static bool scene_test_pretip_hud_phase_contract(
             goto done;
         }
         for (frame = 0U; frame < probe_total_frame; ++frame) {
+            p1.held.cancel = scene->pretip_state.phase ==
+                    TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST &&
+                scene->pretip_state.phase_frame < 10U;
+            p2.held.cancel = false;
             if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
                 failure = "pre-tip HUD phase probe update rejected";
                 goto done;

@@ -759,55 +759,12 @@ static bool scene_pretip_jumper_inward_facing(
     return true;
 }
 
-static uint16_t scene_pretip_jump_altitude_q8(uint16_t phase_frame)
-{
-    const uint32_t maximum = TECMO_GAMEPLAY_PRETIP_JUMP_MAX_ALTITUDE_Q8;
-    if (phase_frame <= TECMO_GAMEPLAY_PRETIP_JUMP_CROUCH_LAST_FRAME) {
-        return 0U;
-    }
-    if (phase_frame <= TECMO_GAMEPLAY_PRETIP_JUMP_RISE_LAST_FRAME) {
-        uint32_t steps = (uint32_t)phase_frame -
-                         TECMO_GAMEPLAY_PRETIP_JUMP_CROUCH_LAST_FRAME;
-        uint32_t total = TECMO_GAMEPLAY_PRETIP_JUMP_RISE_LAST_FRAME -
-                         TECMO_GAMEPLAY_PRETIP_JUMP_CROUCH_LAST_FRAME;
-        return (uint16_t)((maximum * steps) / total);
-    }
-    if (phase_frame <= TECMO_GAMEPLAY_PRETIP_JUMP_APEX_LAST_FRAME) {
-        return (uint16_t)maximum;
-    }
-    if (phase_frame <= TECMO_GAMEPLAY_PRETIP_JUMP_FALL_LAST_FRAME) {
-        uint32_t elapsed = (uint32_t)phase_frame -
-                           TECMO_GAMEPLAY_PRETIP_JUMP_APEX_LAST_FRAME;
-        uint32_t total = TECMO_GAMEPLAY_PRETIP_JUMP_FALL_LAST_FRAME -
-                         TECMO_GAMEPLAY_PRETIP_JUMP_APEX_LAST_FRAME;
-        return (uint16_t)(maximum - (maximum * elapsed) / total);
-    }
-    return 0U;
-}
-
-static uint16_t scene_pretip_jump_pose(uint16_t phase_frame)
-{
-    if (phase_frame <= TECMO_GAMEPLAY_PRETIP_JUMP_CROUCH_LAST_FRAME) {
-        return TECMO_GAMEPLAY_JUMP_MAKE_GATHER_POSE;
-    }
-    if (phase_frame <= TECMO_GAMEPLAY_PRETIP_JUMP_TAKEOFF_LAST_FRAME) {
-        return TECMO_GAMEPLAY_JUMP_TURN_POSE;
-    }
-    if (phase_frame <= TECMO_GAMEPLAY_PRETIP_JUMP_RISE_LAST_FRAME) {
-        return TECMO_GAMEPLAY_JUMP_RELEASE_POSE;
-    }
-    if (phase_frame <= TECMO_GAMEPLAY_PRETIP_JUMP_FALL_LAST_FRAME) {
-        return TECMO_GAMEPLAY_JUMP_FLIGHT_POSE;
-    }
-    return TECMO_GAMEPLAY_JUMP_SLOT0_IDLE_POSE;
-}
-
 static bool scene_pretip_apply_jump_frame(
     TecmoGameplayScene *scene,
     uint16_t phase_frame)
 {
     bool inward_facing[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
-    uint16_t pose_index;
+    bool any_committed = false;
     size_t jumper;
     if (scene == NULL ||
         scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
@@ -815,22 +772,35 @@ static bool scene_pretip_apply_jump_frame(
         !scene_pretip_jumper_inward_facing(scene, inward_facing)) {
         return false;
     }
-    pose_index = scene_pretip_jump_pose(phase_frame);
     for (jumper = 0U; jumper < TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT;
          ++jumper) {
+        bool committed = jumper == 0U
+            ? scene->pretip_state.away_jump_committed
+            : scene->pretip_state.home_jump_committed;
+        uint8_t actor_state = jumper == 0U
+            ? scene->pretip_state.away_actor_state
+            : scene->pretip_state.home_actor_state;
         TecmoGameplaySceneActor *actor = &scene->actors[
             scene->pretip_jumper_actor[jumper]];
         actor->position = actor->anchor;
-        actor->pose_index = pose_index;
-        /* Generic TGJS-derived action pointers are not orientation encoded.
-           Resolve the two actual jumper anchors so their action silhouettes
-           face inward, independent of team/array order. */
+        if (!committed) {
+            scene->pretip_jumper_altitude_q8[jumper] = 0U;
+            continue;
+        }
+        any_committed = true;
+        /* $9CCA/$9CDA tip table entries for facing 0/1, converted from raw
+           even TGPL offsets to pointer indexes.  These are tip poses, not
+           ordinary gather/turn/release/flight constants. */
+        actor->pose_index = actor_state == 0x0EU
+            ? scene->pretip_jumper_standing_pose[jumper]
+            : (inward_facing[jumper] ? 547U : 579U);
         actor->facing_right = inward_facing[jumper];
-        actor->pose_orientation_encoded = false;
+        actor->pose_orientation_encoded = true;
         scene->pretip_jumper_altitude_q8[jumper] =
-            scene_pretip_jump_altitude_q8(phase_frame);
+            jumper == 0U ? scene->pretip_state.away_altitude_q8
+                         : scene->pretip_state.home_altitude_q8;
     }
-    scene->pretip_jump_active = true;
+    scene->pretip_jump_active = any_committed;
     return true;
 }
 
@@ -982,6 +952,9 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
         scene->pretip_state.contest_frame = scene->pretip_assets.phase_frames[
             TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST];
         scene->pretip_state.live_handoff = true;
+        scene->pretip_state.claim_resolved = true;
+        scene->pretip_state.claimant_jumper = 0U;
+        scene->pretip_state.receiver_actor = 0U;
         if (!scene_initialize_actors(scene)) {
             scene_set_status(scene,
                              "self-test actor movement initialization rejected");
@@ -1565,9 +1538,7 @@ static bool scene_pretip_cpu_should_sample(
         !scene_launch_valid(&scene->launch) ||
         !tecmo_gameplay_pretip_state_validate(
             &scene->pretip_assets, &scene->pretip_state) ||
-        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
-        scene->pretip_state.contest_frame !=
-            TECMO_GAMEPLAY_PRETIP_CPU_SAMPLE_FRAME) {
+        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
         return false;
     }
     return scene_controller_for_team(scene, team) >=
@@ -1601,22 +1572,14 @@ static bool scene_update_pretip_frame(
                  TECMO_GAMEPLAY_TEAM_HOME && held_one) ||
             (scene->launch.controller_team[1] ==
                  TECMO_GAMEPLAY_TEAM_HOME && held_two);
-        /* A team-routed human level always wins this decision seam.  Only a
-           team with no assigned controller receives the fixed-frame CPU
-           approximation; the presentation arc below remains unconditional
-           for both selected jumpers. */
-        if (!pretip_away_held) {
-            pretip_away_held = scene_pretip_cpu_should_sample(
-                scene, TECMO_GAMEPLAY_TEAM_AWAY);
-        }
-        if (!pretip_home_held) {
-            pretip_home_held = scene_pretip_cpu_should_sample(
-                scene, TECMO_GAMEPLAY_TEAM_HOME);
-        }
     }
-    if (!tecmo_gameplay_pretip_update(
+    if (!tecmo_gameplay_pretip_update_controlled(
             &scene->pretip_assets, &scene->pretip_state,
-            pretip_away_held, pretip_home_held)) {
+            pretip_away_held, pretip_home_held,
+            prior_phase == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST &&
+                scene_pretip_cpu_should_sample(scene, TECMO_GAMEPLAY_TEAM_AWAY),
+            prior_phase == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST &&
+                scene_pretip_cpu_should_sample(scene, TECMO_GAMEPLAY_TEAM_HOME))) {
         scene_set_status(scene, "pre-tip update rejected");
         return false;
     }
@@ -1642,13 +1605,7 @@ static bool scene_update_pretip_frame(
         scene->ball_position.y_q8 = (int32_t)(72U + frame) * 256;
         if (tecmo_gameplay_pretip_tip_winner(
                 &scene->pretip_assets, &scene->pretip_state, &winner)) {
-            uint8_t error =
-                winner == TECMO_GAMEPLAY_PRETIP_HOME_WINNER
-                    ? scene->pretip_state.home_tip_error
-                    : scene->pretip_state.away_tip_error;
-            uint16_t contact = (uint16_t)error + 8U;
-            uint16_t travel = frame > contact
-                                  ? (uint16_t)(frame - contact) : 0U;
+            uint16_t travel = frame > 30U ? (uint16_t)(frame - 30U) : 0U;
             if (travel > 8U) travel = 8U;
             scene->ball_position.x_q8 =
                 (int32_t)(384 +
@@ -1676,8 +1633,12 @@ static bool scene_update_pretip_frame(
         possession = winner == TECMO_GAMEPLAY_PRETIP_HOME_WINNER
                          ? TECMO_GAMEPLAY_TEAM_HOME
                          : TECMO_GAMEPLAY_TEAM_AWAY;
-        holder = possession == TECMO_GAMEPLAY_TEAM_HOME
-                     ? TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT : 0U;
+        holder = scene->pretip_state.receiver_actor;
+        if (holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+            scene->actors[holder].team != possession) {
+            scene_set_status(scene, "pre-tip receiver actor rejected");
+            return false;
+        }
         if (!scene_initialize_actors(scene)) {
             scene_set_status(
                 scene, "pre-tip actor movement handoff rejected");

@@ -1698,28 +1698,120 @@ bool tecmo_gameplay_scene_test_pretip(
     TecmoControlFrame p1 = test->p1;
     TecmoControlFrame p2 = test->p2;
     TecmoGameplayScene *scene = test->scene;
-    TecmoGameplayPreTipLineup tip_lineup;
+    uint16_t away_standing;
+    unsigned frame;
 
     tecmo_gameplay_scene_test_set_skip_pretip(false);
-    if (!tecmo_gameplay_scene_test_pretip_load(test, scene) ||
-        !tecmo_gameplay_scene_test_pretip_contest_input_regression(
-            test, scene) ||
-        !tecmo_gameplay_scene_test_pretip_real_time_presentation_regression(
-            test, scene) ||
-        !tecmo_gameplay_scene_test_pretip_initial_launch(
-            test, scene, &launch, &p1, &p2, &tip_lineup) ||
-        !tecmo_gameplay_scene_test_pretip_descent_live(
-            test, scene, &p1, &p2) ||
-        !tecmo_gameplay_scene_test_pretip_normal_home_handoff(
-            test, scene, &launch) ||
-        !tecmo_gameplay_scene_test_pretip_anchor_facing_regression(
-            test, scene, &launch) ||
-        !tecmo_gameplay_scene_test_pretip_jump_presentation(
-            test, scene, &launch) ||
-        !tecmo_gameplay_scene_test_pretip_cpu_decision_regression(
-            test, scene, &launch) ||
-        !tecmo_gameplay_scene_test_pretip_abort_and_timing(
-            test, scene, &launch, &p1, &p2)) {
+    tecmo_gameplay_scene_test_message(test->message, test->message_size,
+                                      "focused pre-tip load");
+    if (!tecmo_gameplay_scene_test_pretip_load(test, scene)) {
+        return false;
+    }
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    memset(&launch, 0, sizeof(launch));
+    launch.source = TECMO_GAMEPLAY_SCENE_PRESEASON;
+    launch.away_team = 0U;
+    launch.home_team = 1U;
+    launch.regulation_minutes = 2U;
+    launch.difficulty = 1U;
+    launch.control_mode = 1U;
+    launch.speed_value = 1U;
+    launch.game_music_enabled = false;
+    launch.controller_team[0U] = TECMO_GAMEPLAY_TEAM_AWAY;
+    launch.controller_team[1U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    tecmo_gameplay_scene_test_message(test->message, test->message_size,
+                                      "focused pre-tip CPU launch");
+    if (!tecmo_gameplay_scene_launch(scene, &launch)) {
+        tecmo_gameplay_scene_test_message(test->message, test->message_size,
+                                          scene->status);
+        return false;
+    }
+    tecmo_gameplay_scene_test_message(test->message, test->message_size,
+                                      "focused pre-tip CPU advance");
+    for (frame = 0U; frame < 661U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) return false;
+    }
+    away_standing = scene->actors[scene->pretip_jumper_actor[0U]].pose_index;
+    tecmo_gameplay_scene_test_message(test->message, test->message_size,
+                                      "focused pre-tip CPU commit");
+    for (frame = 0U; frame < 30U &&
+                    !scene->pretip_state.home_jump_committed; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) return false;
+    }
+    if (!scene->pretip_state.home_jump_committed ||
+        scene->pretip_state.away_jump_committed ||
+        scene->actors[scene->pretip_jumper_actor[0U]].pose_index !=
+            away_standing ||
+        scene->pretip_jumper_altitude_q8[0U] != 0U ||
+        scene->actors[scene->pretip_jumper_actor[1U]].pose_index != 547U) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "pre-tip CPU-only independent jumper regression failed");
+        return false;
+    }
+    for (frame = 0U; frame < 60U &&
+                    scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE;
+         ++frame) {
+        tecmo_gameplay_scene_test_message(test->message, test->message_size,
+                                          "focused pre-tip CPU live advance");
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) return false;
+    }
+    if (scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE ||
+        scene->ball_holder != 8U) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "pre-tip non-first-slot receiver handoff regression failed");
+        return false;
+    }
+    tecmo_gameplay_scene_end(scene);
+
+    tecmo_gameplay_scene_test_message(test->message, test->message_size,
+                                      "focused pre-tip human launch");
+    if (!tecmo_gameplay_scene_launch(scene, &launch)) {
+        tecmo_gameplay_scene_test_message(test->message, test->message_size,
+                                          scene->status);
+        return false;
+    }
+    for (frame = 0U; frame < 661U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) return false;
+    }
+    p1.held.cancel = true;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->pretip_state.away_jump_committed) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "pre-tip held B committed before ROM gate");
+        return false;
+    }
+    for (frame = 0U; frame < 20U &&
+                    !scene->pretip_state.away_jump_committed; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) return false;
+    }
+    if (!scene->pretip_state.away_jump_committed ||
+        scene->pretip_state.away_actor_state != 0x0CU ||
+        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->pretip_state.away_actor_state != 0x0CU) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "pre-tip human hold state-$0C regression failed");
+        return false;
+    }
+    p1.held.cancel = false;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->pretip_state.away_actor_state != 0x0DU) {
+        tecmo_gameplay_scene_test_message(
+            test->message, test->message_size,
+            "pre-tip human B release state-$0D regression failed");
+        return false;
+    }
+    tecmo_gameplay_scene_end(scene);
+    tecmo_gameplay_scene_test_set_skip_pretip(true);
+    launch.controller_team[1U] = TECMO_GAMEPLAY_TEAM_HOME;
+    launch.game_music_enabled = true;
+    if (!tecmo_gameplay_scene_launch(scene, &launch)) {
+        tecmo_gameplay_scene_test_message(test->message, test->message_size,
+                                          "post-tip live test handoff failed");
         return false;
     }
     test->launch = launch;

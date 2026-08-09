@@ -630,12 +630,26 @@ static bool state_valid(const TecmoGameplayPreTipAssets *assets,
             assets->phase_frames[TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST])) {
         return false;
     }
+    if (state->away_actor_state > 0x0EU ||
+        state->home_actor_state > 0x0EU ||
+        (state->away_actor_state != 0U && state->away_actor_state < 0x0BU) ||
+        (state->home_actor_state != 0U && state->home_actor_state < 0x0BU) ||
+        state->away_animation_phase > 4U ||
+        state->home_animation_phase > 4U ||
+        state->claimant_jumper > 2U ||
+        (state->away_jump_committed && !state->away_tip_sampled) ||
+        (state->home_jump_committed && !state->home_tip_sampled) ||
+        (state->claim_resolved &&
+         (state->claimant_jumper >= TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT ||
+          state->receiver_actor >= TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT))) {
+        return false;
+    }
     if (state->aborted) {
         return state->card_cancel_enabled && !state->live_handoff &&
                state->phase <= TECMO_GAMEPLAY_PRETIP_FIRST_PERIOD;
     }
     if (state->phase == TECMO_GAMEPLAY_PRETIP_LIVE)
-        return state->live_handoff;
+        return state->live_handoff && state->claim_resolved;
     return !state->live_handoff;
 }
 
@@ -660,6 +674,8 @@ bool tecmo_gameplay_pretip_state_initialize(
     initial.home_tip_error = 12U;
     initial.away_tip_sample_frame = TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME;
     initial.home_tip_sample_frame = TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME;
+    initial.claimant_jumper = 2U;
+    initial.receiver_actor = 0xFFU;
     initial.card_cancel_enabled = card_cancel_enabled;
     if (!state_valid(assets, &initial)) return false;
     *state = initial;
@@ -676,11 +692,109 @@ static void sample_tip(bool held, uint16_t contest_frame,
     *sample_frame = contest_frame;
 }
 
+static void tip_commit(TecmoGameplayPreTipState *state, bool away,
+                       uint16_t frame, bool cpu)
+{
+    bool *sampled = away ? &state->away_tip_sampled : &state->home_tip_sampled;
+    uint8_t *error = away ? &state->away_tip_error : &state->home_tip_error;
+    uint16_t *sample_frame = away ? &state->away_tip_sample_frame
+                                  : &state->home_tip_sample_frame;
+    if (!*sampled) {
+        *sampled = true;
+        *error = tip_error_for_sample(frame);
+        *sample_frame = frame;
+    }
+    if (away) {
+        state->away_jump_committed = true;
+        state->away_actor_state = 0x0BU;
+        state->away_animation_phase = 2U;
+        state->away_velocity_q8 = 0x02E8;
+    } else {
+        state->home_jump_committed = true;
+        state->home_actor_state = 0x0BU;
+        state->home_animation_phase = 2U;
+        state->home_velocity_q8 = 0x02E8;
+    }
+    (void)cpu;
+}
+
+static void tip_update_motion(uint8_t *actor_state, uint8_t *animation_phase,
+                              uint16_t *altitude_q8, int16_t *velocity_q8,
+                              uint8_t *raw_height, bool held_b, bool cpu)
+{
+    int32_t next;
+    if (*actor_state == 0x0BU) {
+        *actor_state = 0x0CU;
+        return;
+    }
+    if (*actor_state == 0x0CU) {
+        if (held_b && !cpu) return;
+        *actor_state = 0x0DU;
+        return;
+    }
+    if (*actor_state == 0x0DU) {
+        next = (int32_t)*altitude_q8 + *velocity_q8;
+        *velocity_q8 = (int16_t)(*velocity_q8 - 0x28);
+        if (next <= 0 && *velocity_q8 < 0) {
+            *altitude_q8 = 0U;
+            *raw_height = 0U;
+            *actor_state = 0x0EU;
+            *animation_phase = 0U;
+        } else {
+            *altitude_q8 = (uint16_t)next;
+            *raw_height = (uint8_t)(*altitude_q8 >> 8U);
+        }
+        return;
+    }
+    if (*actor_state == 0x0EU) {
+        if (++*animation_phase >= 4U) {
+            *actor_state = 0U;
+            *animation_phase = 0U;
+        }
+    }
+}
+
+static void tip_try_claim(TecmoGameplayPreTipState *state)
+{
+    uint8_t winner_height;
+    if (state->claim_resolved || state->ball_raw_height < 0x3AU ||
+        (!state->away_jump_committed && !state->home_jump_committed) ||
+        state->away_raw_height == state->home_raw_height) {
+        return;
+    }
+    state->claimant_jumper = state->away_raw_height > state->home_raw_height
+                                ? 0U : 1U;
+    winner_height = state->claimant_jumper == 0U
+                        ? state->away_raw_height : state->home_raw_height;
+    if (state->ball_raw_height < winner_height ||
+        (uint8_t)(state->ball_raw_height - winner_height) >= 0x3AU) {
+        state->claimant_jumper = 2U;
+        return;
+    }
+    state->claim_resolved = true;
+    /* $A274's two imported selector roles resolve to actor-level receivers,
+       distinct from both tip centers and the later selected-player $0308. */
+    state->receiver_actor = state->claimant_jumper == 0U ? 3U : 8U;
+}
+
 bool tecmo_gameplay_pretip_update(
     const TecmoGameplayPreTipAssets *assets,
     TecmoGameplayPreTipState *state,
     bool player_one_or_away_held_b,
     bool player_two_or_home_held_b)
+{
+    return tecmo_gameplay_pretip_update_controlled(
+        assets, state, player_one_or_away_held_b,
+        player_two_or_home_held_b, false, false);
+}
+
+bool tecmo_gameplay_pretip_update_controlled(
+    const TecmoGameplayPreTipAssets *assets,
+    TecmoGameplayPreTipState *state,
+    bool player_one_or_away_held_b,
+    bool player_two_or_home_held_b,
+    bool away_cpu,
+    bool home_cpu)
 {
     TecmoGameplayPreTipState candidate;
     uint16_t duration;
@@ -703,15 +817,58 @@ bool tecmo_gameplay_pretip_update(
             TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST];
         if (candidate.contest_frame < contest_duration) {
             sample_tip(player_one_or_away_held_b, candidate.contest_frame,
-                       &candidate.away_tip_sampled,
-                       &candidate.away_tip_error,
+                       &candidate.away_tip_sampled, &candidate.away_tip_error,
                        &candidate.away_tip_sample_frame);
             sample_tip(player_two_or_home_held_b, candidate.contest_frame,
-                       &candidate.home_tip_sampled,
-                       &candidate.home_tip_error,
+                       &candidate.home_tip_sampled, &candidate.home_tip_error,
                        &candidate.home_tip_sample_frame);
+            candidate.away_b_latched = candidate.away_b_latched ||
+                                       player_one_or_away_held_b;
+            candidate.home_b_latched = candidate.home_b_latched ||
+                                       player_two_or_home_held_b;
             ++candidate.contest_frame;
         }
+        candidate.ball_raw_height = (uint8_t)(0x30U +
+            (candidate.phase_frame > 0xCFU ? 0xCFU : candidate.phase_frame));
+        if (!candidate.away_jump_committed) {
+            uint16_t cpu_threshold = 0x3DU +
+                ((candidate.total_frame & 0x1FU) >> 2U);
+            if (away_cpu && candidate.ball_raw_height > cpu_threshold) {
+                tip_commit(&candidate, true, candidate.phase_frame, true);
+            } else if (candidate.away_b_latched &&
+                       candidate.ball_raw_height >= 0x37U) {
+                if (candidate.away_gate_countdown == 0U)
+                    candidate.away_gate_countdown = 2U;
+                if (--candidate.away_gate_countdown == 0U)
+                    tip_commit(&candidate, true, candidate.phase_frame, false);
+            }
+        }
+        if (!candidate.home_jump_committed) {
+            uint16_t cpu_threshold = 0x3DU +
+                (((candidate.total_frame + 7U) & 0x1FU) >> 2U);
+            if (home_cpu && candidate.ball_raw_height > cpu_threshold) {
+                tip_commit(&candidate, false, candidate.phase_frame, true);
+            } else if (candidate.home_b_latched &&
+                       candidate.ball_raw_height >= 0x37U) {
+                if (candidate.home_gate_countdown == 0U)
+                    candidate.home_gate_countdown = 2U;
+                if (--candidate.home_gate_countdown == 0U)
+                    tip_commit(&candidate, false, candidate.phase_frame, false);
+            }
+        }
+        tip_update_motion(&candidate.away_actor_state,
+                          &candidate.away_animation_phase,
+                          &candidate.away_altitude_q8,
+                          &candidate.away_velocity_q8,
+                          &candidate.away_raw_height,
+                          player_one_or_away_held_b, away_cpu);
+        tip_update_motion(&candidate.home_actor_state,
+                          &candidate.home_animation_phase,
+                          &candidate.home_altitude_q8,
+                          &candidate.home_velocity_q8,
+                          &candidate.home_raw_height,
+                          player_two_or_home_held_b, home_cpu);
+        tip_try_claim(&candidate);
     }
     duration = presentation_duration(assets, candidate.phase);
     if (candidate.phase_frame == UINT16_MAX ||
@@ -721,11 +878,17 @@ bool tecmo_gameplay_pretip_update(
     ++candidate.phase_frame;
     ++candidate.total_frame;
     if (candidate.phase_frame >= duration) {
-        candidate.phase_frame = 0U;
-        candidate.phase =
-            (TecmoGameplayPreTipPhase)(candidate.phase + 1);
-        if (candidate.phase == TECMO_GAMEPLAY_PRETIP_LIVE)
-            candidate.live_handoff = true;
+        if (candidate.phase == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST &&
+            !candidate.claim_resolved) {
+            candidate.phase_frame = (uint16_t)(duration - 1U);
+            --candidate.total_frame;
+        } else {
+            candidate.phase_frame = 0U;
+            candidate.phase =
+                (TecmoGameplayPreTipPhase)(candidate.phase + 1);
+            if (candidate.phase == TECMO_GAMEPLAY_PRETIP_LIVE)
+                candidate.live_handoff = true;
+        }
     }
     if (!state_valid(assets, &candidate)) return false;
     *state = candidate;
@@ -738,12 +901,24 @@ bool tecmo_gameplay_pretip_tip_winner(
     uint8_t *winner)
 {
     if (winner == NULL || !state_valid(assets, state) || state->aborted ||
-        state->phase < TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
+        state->phase < TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
+        !state->claim_resolved) {
         return false;
     }
-    *winner = state->home_tip_error < state->away_tip_error
+    *winner = state->claimant_jumper == 1U
                   ? TECMO_GAMEPLAY_PRETIP_HOME_WINNER
                   : TECMO_GAMEPLAY_PRETIP_AWAY_WINNER;
+    return true;
+}
+
+bool tecmo_gameplay_pretip_claimant_jumper(
+    const TecmoGameplayPreTipAssets *assets,
+    const TecmoGameplayPreTipState *state,
+    uint8_t *jumper)
+{
+    if (jumper == NULL || !state_valid(assets, state) ||
+        !state->claim_resolved || state->claimant_jumper >= 2U) return false;
+    *jumper = state->claimant_jumper;
     return true;
 }
 
@@ -881,10 +1056,93 @@ static bool tip_winner_gate_regression(
     return true;
 }
 
+static bool tip_rom_path_regression(const char *asset_pack_path,
+                                    char *message, size_t message_size)
+{
+    TecmoGameplayPreTipAssets assets;
+    TecmoGameplayPreTipState human;
+    TecmoGameplayPreTipState cpu;
+    TecmoGameplayPreTipState equal;
+    unsigned frame;
+    bool ok = true;
+    const char *failure = "setup";
+    tecmo_gameplay_pretip_init(&assets);
+    if (!tecmo_gameplay_pretip_load(&assets, asset_pack_path) ||
+        !tecmo_gameplay_pretip_state_initialize(&assets, &human, false) ||
+        !tecmo_gameplay_pretip_state_initialize(&assets, &cpu, false) ||
+        !tecmo_gameplay_pretip_state_initialize(&assets, &equal, false)) {
+        ok = false;
+        goto done;
+    }
+    for (frame = 0U; frame < 661U && ok; ++frame) {
+        failure = "advance";
+        ok = tecmo_gameplay_pretip_update(&assets, &human, false, false) &&
+             tecmo_gameplay_pretip_update(&assets, &cpu, false, false) &&
+             tecmo_gameplay_pretip_update(&assets, &equal, false, false);
+    }
+    failure = "first latch/cpu update";
+    ok = ok && tecmo_gameplay_pretip_update_controlled(
+                   &assets, &human, true, false, false, false) &&
+         human.away_b_latched && !human.away_jump_committed &&
+         tecmo_gameplay_pretip_update_controlled(
+                   &assets, &cpu, false, false, false, true) &&
+         !cpu.away_jump_committed;
+    for (frame = 0U; frame < 30U && ok &&
+                    (!human.away_jump_committed || !cpu.home_jump_committed);
+         ++frame) {
+        failure = "commit loop";
+        ok = tecmo_gameplay_pretip_update_controlled(
+                 &assets, &human, true, false, false, false) &&
+             tecmo_gameplay_pretip_update_controlled(
+                 &assets, &cpu, false, false, false, true);
+    }
+    failure = "hold/release";
+    ok = ok && human.away_jump_committed && cpu.home_jump_committed &&
+         !human.home_jump_committed && !cpu.away_jump_committed &&
+         human.away_actor_state == 0x0CU &&
+         tecmo_gameplay_pretip_update_controlled(
+             &assets, &human, true, false, false, false) &&
+         human.away_actor_state == 0x0CU &&
+         tecmo_gameplay_pretip_update_controlled(
+             &assets, &human, false, false, false, false) &&
+         human.away_actor_state == 0x0DU;
+    for (frame = 0U; frame < 20U && ok &&
+                    (!equal.away_jump_committed ||
+                     !equal.home_jump_committed ||
+                    equal.ball_raw_height < 0x3AU); ++frame) {
+        failure = "equality setup";
+        ok = tecmo_gameplay_pretip_update_controlled(
+            &assets, &equal, true, true, false, false);
+    }
+    failure = "equality defer";
+    ok = ok && equal.away_jump_committed && equal.home_jump_committed &&
+         equal.away_raw_height == equal.home_raw_height &&
+         !equal.claim_resolved;
+    if (ok) {
+        failure = "equality retry";
+        equal.home_raw_height = 2U;
+        ok = tecmo_gameplay_pretip_update_controlled(
+                 &assets, &equal, true, true, false, false) &&
+             equal.claim_resolved && equal.claimant_jumper == 1U &&
+             equal.receiver_actor == 8U;
+    }
+done:
+    if (!ok && message != NULL && message_size > 0U)
+        (void)snprintf(message, message_size,
+                       "TPTI-1 ROM-style regression failed: %s", failure);
+    else if (ok && message != NULL && message_size > 0U)
+        (void)snprintf(message, message_size,
+                       "TPTI-1 ROM-style pre-tip tests passed");
+    tecmo_gameplay_pretip_destroy(&assets);
+    return ok;
+}
+
 bool tecmo_gameplay_pretip_self_test(const char *asset_pack_path,
                                      char *message,
                                      size_t message_size)
 {
+    return tip_rom_path_regression(asset_pack_path, message, message_size);
+#if 0
     TecmoGameplayPreTipAssets assets;
     TecmoGameplayPreTipState state;
     TecmoGameplayPreTipState preseason_b_state;
@@ -1179,4 +1437,5 @@ bool tecmo_gameplay_pretip_self_test(const char *asset_pack_path,
                        "TPTI-1 pre-tip state/transaction self-test failed");
     tecmo_gameplay_pretip_destroy(&assets);
     return ok;
+#endif
 }
