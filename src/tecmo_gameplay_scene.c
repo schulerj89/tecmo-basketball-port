@@ -1723,36 +1723,15 @@ static bool scene_update_pretip_frame(
             scene_set_status(scene, "pre-tip jump presentation rejected");
             return false;
         }
-        /* The $0499 analogue and visible ball share one trajectory.  The
-           fixed renderer subtracts raw height from the floor-space Y seam. */
+        /* Ball slot 10 owns one coherent target-directed state-$17 path.
+           Depth and altitude remain separate until this projection seam. */
+        scene->ball_position.x_q8 =
+            scene->pretip_state.ball_world_x_q8;
         scene->ball_position.y_q8 =
-            (int32_t)tecmo_gameplay_pretip_ball_screen_y(
-                scene->pretip_state.tip_ball_high_raw) * 256;
-        {
-            uint8_t claimant_jumper;
-            if (tecmo_gameplay_pretip_claimant_jumper(
-                    &scene->pretip_assets, &scene->pretip_state,
-                    &claimant_jumper) &&
-                claimant_jumper < TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT &&
-                scene_pretip_jumper_mapping_valid(scene)) {
-                const TecmoGameplaySceneActor *claimant = &scene->actors[
-                    scene->pretip_jumper_actor[claimant_jumper]];
-                int direction = claimant->team == TECMO_GAMEPLAY_TEAM_HOME
-                                    ? 1 : -1;
-                /* Claim resolution is exact-gated at capture completion. Keep
-                   the visible ball path smooth: resolution establishes the
-                   direction at center, then the scene-owned approximation
-                   travels one pixel/update to a bounded 8-pixel cap. */
-                uint16_t travel = frame >
-                                      TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES
-                                      ? (uint16_t)(frame -
-                                          TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES)
-                                      : 0U;
-                if (travel > 8U) travel = 8U;
-                scene->ball_position.x_q8 =
-                    (int32_t)(384 + direction * (int)travel) * 256;
-            }
-        }
+            scene->pretip_state.ball_world_depth_q8 -
+            (int32_t)scene->pretip_state.ball_height_q8;
+        if (scene->ball_position.y_q8 < 0)
+            scene->ball_position.y_q8 = 0;
     }
     if (scene->pretip_state.total_frame != pretip_total_before)
         ++scene->frame;

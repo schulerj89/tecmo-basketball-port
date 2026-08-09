@@ -923,6 +923,118 @@ static bool tip_automatic_threshold_met(uint8_t ball_high,
     return (uint16_t)ball_high > threshold;
 }
 
+static int32_t tip_signed_half_q8(int32_t value)
+{
+    /* $AA84 performs an arithmetic right shift across each signed planar
+       component. Preserve the 6502's round-toward-negative-infinity result. */
+    if (value >= 0) return value / 2;
+    return -(((-value) + 1) / 2);
+}
+
+static bool tip_receiver_selector_valid(uint8_t selector, bool home)
+{
+    return home
+        ? selector >= 5U && selector < TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT &&
+              selector != 9U
+        : selector < 5U && selector != 4U;
+}
+
+static void tip_initialize_ball_flight(TecmoGameplayPreTipState *state)
+{
+    int32_t delta_x;
+    int32_t delta_depth;
+    int32_t solver_x;
+    int32_t solver_depth;
+    int32_t height;
+    int32_t gravity_term;
+    if (state == NULL || state->receiver_actor >=
+            TECMO_GAMEPLAY_PRETIP_PLAYER_COUNT)
+        return;
+    delta_x = (int32_t)state->receiver_target.x * 256 -
+              state->ball_world_x_q8;
+    delta_depth = (int32_t)state->receiver_target.y * 256 -
+                  state->ball_world_depth_q8;
+    /* $B32C constructs target-minus-ball fixed-point motion.  Its result is
+       then passed once through $AA84 by $A2B8. Build the pre-half components
+       at twice the requested state-$17 duration so the post-half values retain
+       the target-directed duration contract. */
+    solver_x = (delta_x * 2) /
+        (int32_t)TECMO_GAMEPLAY_PRETIP_BALL_PLANAR_TICKS;
+    solver_depth = (delta_depth * 2) /
+        (int32_t)TECMO_GAMEPLAY_PRETIP_BALL_PLANAR_TICKS;
+    state->ball_velocity_x_q8 = tip_signed_half_q8(solver_x);
+    state->ball_velocity_depth_q8 = tip_signed_half_q8(solver_depth);
+    height = state->ball_height_q8;
+    gravity_term = (int32_t)TECMO_GAMEPLAY_PRETIP_GRAVITY_Q8 *
+        ((int32_t)TECMO_GAMEPLAY_PRETIP_BALL_FLIGHT_TICKS + 1) / 2;
+    state->ball_velocity_height_q8 = (int16_t)(
+        gravity_term -
+        (height + (int32_t)TECMO_GAMEPLAY_PRETIP_BALL_FLIGHT_TICKS - 1) /
+            (int32_t)TECMO_GAMEPLAY_PRETIP_BALL_FLIGHT_TICKS);
+    state->ball_flight_tick = 0U;
+    state->ball_flight_duration = TECMO_GAMEPLAY_PRETIP_BALL_FLIGHT_TICKS;
+    state->ball_state17_in_flight = true;
+    state->ball_attached_to_receiver = false;
+}
+
+static void tip_update_ball_flight(TecmoGameplayPreTipState *state)
+{
+    int32_t height;
+    int32_t target_x;
+    int32_t target_depth;
+    int32_t dx;
+    int32_t dy;
+    if (state == NULL || !state->ball_state17_in_flight ||
+        state->ball_actor_state !=
+            TECMO_GAMEPLAY_PRETIP_SLOT10_CLAIM_COMMIT_STATE)
+        return;
+    state->ball_world_x_q8 += state->ball_velocity_x_q8;
+    state->ball_world_depth_q8 += state->ball_velocity_depth_q8;
+    state->ball_velocity_height_q8 = (int16_t)(
+        state->ball_velocity_height_q8 -
+        TECMO_GAMEPLAY_PRETIP_GRAVITY_Q8);
+    height = (int32_t)state->ball_height_q8 +
+             state->ball_velocity_height_q8;
+    if (height <= 0) {
+        state->ball_height_q8 = 0U;
+        state->ball_velocity_height_q8 = 0;
+    } else {
+        state->ball_height_q8 = (uint16_t)height;
+    }
+    if (state->ball_flight_tick != UINT16_MAX)
+        ++state->ball_flight_tick;
+    state->tip_ball_high_raw = (uint8_t)(state->ball_height_q8 >> 8U);
+    target_x = (int32_t)state->receiver_target.x * 256;
+    target_depth = (int32_t)state->receiver_target.y * 256;
+    if ((state->ball_velocity_x_q8 > 0 &&
+         state->ball_world_x_q8 >= target_x) ||
+        (state->ball_velocity_x_q8 < 0 &&
+         state->ball_world_x_q8 <= target_x)) {
+        state->ball_world_x_q8 = target_x;
+        state->ball_velocity_x_q8 = 0;
+    }
+    if ((state->ball_velocity_depth_q8 > 0 &&
+         state->ball_world_depth_q8 >= target_depth) ||
+        (state->ball_velocity_depth_q8 < 0 &&
+         state->ball_world_depth_q8 <= target_depth)) {
+        state->ball_world_depth_q8 = target_depth;
+        state->ball_velocity_depth_q8 = 0;
+    }
+    dx = target_x - state->ball_world_x_q8;
+    dy = target_depth - state->ball_world_depth_q8;
+    if (state->ball_height_q8 == 0U &&
+        state->ball_flight_tick >= state->ball_flight_duration &&
+        dx >= -256 && dx <= 256 && dy >= -256 && dy <= 256) {
+        state->ball_world_x_q8 = target_x;
+        state->ball_world_depth_q8 = target_depth;
+        state->ball_velocity_x_q8 = 0;
+        state->ball_velocity_depth_q8 = 0;
+        state->ball_state17_in_flight = false;
+        state->ball_attached_to_receiver = true;
+        state->ball_actor_state = 0U;
+    }
+}
+
 static void tip_try_resolve_claim(TecmoGameplayPreTipState *state)
 {
     bool away_ready;
@@ -961,10 +1073,15 @@ static void tip_try_resolve_claim(TecmoGameplayPreTipState *state)
     state->contact_state_17 = true;
     state->event_0588_bit20 = true;
     state->ball_actor_state = TECMO_GAMEPLAY_PRETIP_SLOT10_CLAIM_COMMIT_STATE;
-    /* $A274's receiver selector is separate from the winning center and the
-       later possession actor in $0308.  Preserve that distinction in the
-       fixed ten-actor scene topology instead of forcing slot 0/5. */
-    state->receiver_actor = claimant == 0U ? 3U : 8U;
+    /* Slot 4 is the $0308 jumper and therefore selects through $037F; slot 9
+       is the $0309 jumper and selects through $0380. These are side-owned
+       receiver arrays, never D-pad direction. */
+    state->receiver_actor = claimant == 0U
+        ? state->raw_selector_037f : state->raw_selector_0380;
+    state->receiver_target = claimant == 0U
+        ? state->receiver_target_037f : state->receiver_target_0380;
+    state->ball_height_q8 = (uint16_t)state->tip_ball_high_raw * 256U;
+    tip_initialize_ball_flight(state);
 }
 
 static void tip_update_ballistic_jumper(TecmoGameplayPreTipState *state,
@@ -1148,7 +1265,11 @@ static bool state_valid(const TecmoGameplayPreTipAssets *assets,
         (state->simulation_active &&
          state->tip_rng_6a != tip_rng_after_count(
              state->tip_rng_mix_count)) ||
-        state->tip_ball_high_raw != tip_expected_ball_high(state) ||
+        (!state->claim_resolved &&
+         state->tip_ball_high_raw != tip_expected_ball_high(state)) ||
+        (state->claim_resolved &&
+         state->tip_ball_high_raw !=
+             (uint8_t)(state->ball_height_q8 >> 8U)) ||
         (!state->simulation_active &&
          (state->tip_rng_6a != 0U || state->tip_rng_mix_count != 0U ||
           state->tip_ball_high_raw != 0U ||
@@ -1209,27 +1330,47 @@ static bool state_valid(const TecmoGameplayPreTipAssets *assets,
             return false;
         }
     }
+    if (!state->receiver_selectors_configured ||
+        !tip_receiver_selector_valid(state->raw_selector_037f, false) ||
+        !tip_receiver_selector_valid(state->raw_selector_0380, true) ||
+        !tecmo_gameplay_court_coordinate_valid(
+            &state->receiver_target_037f) ||
+        !tecmo_gameplay_court_coordinate_valid(
+            &state->receiver_target_0380)) return false;
     if (state->claim_resolved) {
+        uint8_t expected_receiver = state->claimant_jumper == 0U
+            ? state->raw_selector_037f : state->raw_selector_0380;
+        const TecmoGameplayCourtCoordinate *expected_target =
+            state->claimant_jumper == 0U
+                ? &state->receiver_target_037f
+                : &state->receiver_target_0380;
         if (state->claim_deferred || state->contest_stalled ||
             state->claimant_jumper >= TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT ||
             !state->contact_state_17 || !state->event_0588_bit20 ||
-            state->ball_actor_state !=
-                TECMO_GAMEPLAY_PRETIP_SLOT10_CLAIM_COMMIT_STATE ||
-            state->raw_selector_0380 !=
-                TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_0380_SEED ||
-            state->raw_selector_037f !=
-                TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_037F_SEED ||
-            state->receiver_actor !=
-                (state->claimant_jumper == 0U ? 3U : 8U)) {
+            state->receiver_actor != expected_receiver ||
+            state->receiver_target.x != expected_target->x ||
+            state->receiver_target.y != expected_target->y ||
+            state->ball_flight_duration !=
+                TECMO_GAMEPLAY_PRETIP_BALL_FLIGHT_TICKS ||
+            state->ball_flight_tick > state->ball_flight_duration ||
+            state->ball_state17_in_flight ==
+                state->ball_attached_to_receiver ||
+            (state->ball_state17_in_flight &&
+             state->ball_actor_state !=
+                 TECMO_GAMEPLAY_PRETIP_SLOT10_CLAIM_COMMIT_STATE) ||
+            (state->ball_attached_to_receiver &&
+             (state->ball_actor_state != 0U || state->ball_height_q8 != 0U ||
+              state->ball_velocity_x_q8 != 0 ||
+              state->ball_velocity_depth_q8 != 0))) {
             return false;
         }
     } else if (state->claimant_jumper !=
                    TECMO_GAMEPLAY_PRETIP_CLAIMANT_NONE ||
-               state->raw_selector_0380 !=
-                   TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_0380_SEED ||
-               state->raw_selector_037f !=
-                   TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_037F_SEED ||
-               state->receiver_actor != 0xFFU) {
+               state->receiver_actor != 0xFFU ||
+               state->ball_state17_in_flight ||
+               state->ball_attached_to_receiver ||
+               state->ball_flight_duration != 0U ||
+               state->ball_flight_tick != 0U) {
         return false;
     }
     if (!state->claim_resolved &&
@@ -1250,7 +1391,7 @@ static bool state_valid(const TecmoGameplayPreTipAssets *assets,
     }
     if (state->phase == TECMO_GAMEPLAY_PRETIP_LIVE)
         return state->live_handoff && state->claim_resolved &&
-               !state->claim_deferred;
+               !state->claim_deferred && state->ball_attached_to_receiver;
     return !state->live_handoff;
 }
 
@@ -1261,13 +1402,39 @@ bool tecmo_gameplay_pretip_state_validate(
     return state_valid(assets, state);
 }
 
+bool tecmo_gameplay_pretip_configure_receiver_selectors(
+    const TecmoGameplayPreTipAssets *assets,
+    TecmoGameplayPreTipState *state,
+    uint8_t selector_037f,
+    uint8_t selector_0380)
+{
+    TecmoGameplayPreTipState candidate;
+    TecmoGameplayPreTipLineup lineup;
+    if (!state_valid(assets, state) || state->claim_resolved ||
+        !tip_receiver_selector_valid(selector_037f, false) ||
+        !tip_receiver_selector_valid(selector_0380, true) ||
+        !tecmo_gameplay_pretip_tip_lineup(assets, &lineup))
+        return false;
+    candidate = *state;
+    candidate.raw_selector_037f = selector_037f;
+    candidate.raw_selector_0380 = selector_0380;
+    candidate.receiver_target_037f = lineup.players[selector_037f];
+    candidate.receiver_target_0380 = lineup.players[selector_0380];
+    candidate.receiver_selectors_configured = true;
+    if (!state_valid(assets, &candidate)) return false;
+    *state = candidate;
+    return true;
+}
+
 bool tecmo_gameplay_pretip_state_initialize(
     const TecmoGameplayPreTipAssets *assets,
     TecmoGameplayPreTipState *state,
     bool card_cancel_enabled)
 {
     TecmoGameplayPreTipState initial;
-    if (!assets_valid(assets) || state == NULL) return false;
+    TecmoGameplayPreTipLineup lineup;
+    if (!assets_valid(assets) || state == NULL ||
+        !tecmo_gameplay_pretip_tip_lineup(assets, &lineup)) return false;
     memset(&initial, 0, sizeof(initial));
     initial.contract_tag = TECMO_GAMEPLAY_PRETIP_STATE_TAG;
     initial.phase = TECMO_GAMEPLAY_PRETIP_PRESEASON;
@@ -1288,6 +1455,14 @@ bool tecmo_gameplay_pretip_state_initialize(
     initial.receiver_actor = 0xFFU;
     initial.raw_selector_0380 = TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_0380_SEED;
     initial.raw_selector_037f = TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_037F_SEED;
+    initial.receiver_selectors_configured = true;
+    initial.receiver_target_037f =
+        lineup.players[TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_037F_SEED];
+    initial.receiver_target_0380 =
+        lineup.players[TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_0380_SEED];
+    initial.ball_world_x_q8 = (int32_t)lineup.ball.x * 256;
+    initial.ball_world_depth_q8 =
+        (int32_t)TECMO_GAMEPLAY_PRETIP_BALL_FLOOR_SCREEN_Y * 256;
     initial.card_cancel_enabled = card_cancel_enabled;
     if (!state_valid(assets, &initial)) return false;
     *state = initial;
@@ -1441,8 +1616,12 @@ bool tecmo_gameplay_pretip_update_controlled(
         }
         if (candidate.ball_actor_state == 0x1AU)
             candidate.ball_actor_state = 0x1BU;
+        if (!candidate.claim_resolved)
+            candidate.ball_height_q8 =
+                (uint16_t)candidate.tip_ball_high_raw * 256U;
         tip_update_altitudes(&candidate);
         tip_try_resolve_claim(&candidate);
+        tip_update_ball_flight(&candidate);
         ++candidate.simulation_tick;
         if (candidate.contest_frame <
                 TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES)
@@ -1468,7 +1647,8 @@ bool tecmo_gameplay_pretip_update_controlled(
             candidate.phase_frame = (uint16_t)(duration - 1U);
             --candidate.total_frame;
         } else if (candidate.phase == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST &&
-            !candidate.claim_resolved) {
+            (!candidate.claim_resolved ||
+             !candidate.ball_attached_to_receiver)) {
             candidate.phase_frame = (uint16_t)(duration - 1U);
             --candidate.total_frame;
             candidate.contest_stalled = true;
@@ -1554,6 +1734,77 @@ static bool update_rejects_unchanged(
            memcmp(&before, state, sizeof(before)) == 0;
 }
 
+static bool tip_selector_flight_regression(
+    const TecmoGameplayPreTipAssets *assets,
+    bool away_wins,
+    uint8_t selector_037f,
+    uint8_t selector_0380)
+{
+    TecmoGameplayPreTipState state;
+    TecmoGameplayPreTipState before;
+    int32_t launch_x;
+    bool saw_state_17 = false;
+    unsigned frame;
+    if (!tecmo_gameplay_pretip_state_initialize(assets, &state, false))
+        return false;
+    before = state;
+    if (tecmo_gameplay_pretip_configure_receiver_selectors(
+            assets, &state, 4U, selector_0380) ||
+        memcmp(&state, &before, sizeof(state)) != 0 ||
+        !tecmo_gameplay_pretip_configure_receiver_selectors(
+            assets, &state, selector_037f, selector_0380))
+        return false;
+    before = state;
+    before.receiver_target_037f.x =
+        TECMO_GAMEPLAY_COURT_WORLD_WIDTH_PIXELS;
+    if (!update_rejects_unchanged(assets, &before)) return false;
+    for (frame = 0U; frame < 481U; ++frame)
+        if (!tecmo_gameplay_pretip_update(assets, &state, false, false))
+            return false;
+    for (frame = 0U; frame < 60U && !state.claim_resolved; ++frame)
+        if (!tecmo_gameplay_pretip_update_controlled(
+                assets, &state, false, false, away_wins, !away_wins))
+            return false;
+    if (!state.claim_resolved || !state.ball_state17_in_flight ||
+        state.ball_attached_to_receiver ||
+        state.claimant_jumper != (away_wins ? 0U : 1U) ||
+        state.receiver_actor != (away_wins ? selector_037f : selector_0380) ||
+        state.receiver_actor == (away_wins ? 4U : 9U) ||
+        state.receiver_target.x !=
+            (away_wins ? state.receiver_target_037f.x
+                       : state.receiver_target_0380.x) ||
+        state.receiver_target.y !=
+            (away_wins ? state.receiver_target_037f.y
+                       : state.receiver_target_0380.y))
+        return false;
+    launch_x = state.ball_world_x_q8;
+    if ((state.receiver_target.x * 256 > launch_x &&
+         state.ball_velocity_x_q8 <= 0) ||
+        (state.receiver_target.x * 256 < launch_x &&
+         state.ball_velocity_x_q8 >= 0) ||
+        tip_signed_half_q8(513) != 256 ||
+        tip_signed_half_q8(-513) != -257)
+        return false;
+    for (frame = 0U; frame < 120U && !state.ball_attached_to_receiver;
+         ++frame) {
+        saw_state_17 = saw_state_17 ||
+            state.ball_actor_state ==
+                TECMO_GAMEPLAY_PRETIP_SLOT10_CLAIM_COMMIT_STATE;
+        if (!tecmo_gameplay_pretip_update_controlled(
+                assets, &state, false, false, away_wins, !away_wins))
+            return false;
+    }
+    return state.ball_attached_to_receiver && !state.ball_state17_in_flight &&
+           state.ball_actor_state == 0U && state.ball_height_q8 == 0U &&
+           state.ball_world_x_q8 ==
+               (int32_t)state.receiver_target.x * 256 &&
+           state.ball_world_depth_q8 ==
+               (int32_t)state.receiver_target.y * 256 &&
+           (state.ball_world_x_q8 - launch_x > 8 * 256 ||
+            launch_x - state.ball_world_x_q8 > 8 * 256) &&
+           saw_state_17;
+}
+
 static bool tip_concurrent_simulation_regression(
     const TecmoGameplayPreTipAssets *assets,
     char *message, size_t message_size)
@@ -1576,6 +1827,10 @@ static bool tip_concurrent_simulation_regression(
         !tecmo_gameplay_pretip_state_initialize(assets, &no_capture, false) ||
         !tecmo_gameplay_pretip_state_initialize(assets, &unresolved, false))
         CONCURRENT_FAIL("initialization");
+    if (!tip_selector_flight_regression(assets, true, 0U, 6U))
+        CONCURRENT_FAIL("away selector-driven state-$17 trajectory");
+    if (!tip_selector_flight_regression(assets, false, 1U, 8U))
+        CONCURRENT_FAIL("home selector-driven state-$17 trajectory");
     for (frame = 0U; frame < 451U; ++frame) {
         if (!tecmo_gameplay_pretip_update(assets, &state, false, false) ||
             !tecmo_gameplay_pretip_update(
@@ -1779,6 +2034,10 @@ bool tecmo_gameplay_pretip_self_test(const char *asset_pack_path,
          cancel_state.phase_frame == 0U &&
          cancel_state.total_frame == 0U &&
          update_rejects_unchanged(&assets, &cancel_state);
+
+    if (!ok && message != NULL && message_size > 0U)
+        (void)snprintf(message, message_size,
+            "TPTI-2 initial asset/state contract failed");
 
     if (ok && !tip_concurrent_simulation_regression(
                   &assets, message, message_size)) {

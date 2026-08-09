@@ -185,6 +185,16 @@ static bool scene_test_concurrent_tip_simulation(
         !scene->pretip_state.contact_state_17 ||
         !scene->pretip_state.event_0588_bit20 ||
         scene->pretip_state.ball_actor_state != 0x17U ||
+        !scene->pretip_state.ball_state17_in_flight ||
+        scene->pretip_state.ball_attached_to_receiver ||
+        scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+        scene->pretip_state.receiver_actor !=
+            scene->pretip_state.raw_selector_0380 ||
+        scene->pretip_state.receiver_target.x !=
+            scene->actors[scene->pretip_state.receiver_actor].position.x ||
+        scene->pretip_state.receiver_target.y !=
+            scene->actors[scene->pretip_state.receiver_actor].position.y ||
+        scene->pretip_state.ball_velocity_x_q8 <= 0 ||
         scene->actors[away_actor].pose_index != 551U ||
         scene->actors[home_actor].pose_index != 583U) goto failed;
     failure = "concurrent pre-tip cinematic simulation failed";
@@ -195,6 +205,7 @@ static bool scene_test_concurrent_tip_simulation(
         scene->pretip_state.cinematic_visible ||
         scene->actors[away_actor].pose_index != 469U ||
         scene->actors[home_actor].pose_index != 501U ||
+        scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
         scene->pretip_state.away_jump_commit_count != away_commits ||
         scene->pretip_state.home_jump_commit_count != home_commits) goto failed;
     failure = "concurrent pre-tip live handoff advance failed";
@@ -203,6 +214,8 @@ static bool scene_test_concurrent_tip_simulation(
     failure = "concurrent pre-tip no-restart handoff failed";
     if (scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE ||
         !scene->pretip_state.live_handoff ||
+        !scene->pretip_state.ball_attached_to_receiver ||
+        scene->ball_holder != scene->pretip_state.receiver_actor ||
         scene->pretip_state.away_jump_commit_count != 1U ||
         scene->pretip_state.home_jump_commit_count != 1U) goto failed;
     tecmo_gameplay_scene_end(scene);

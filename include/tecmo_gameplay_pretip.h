@@ -38,6 +38,8 @@
 #define TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_0380_SEED 0x07U
 #define TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_037F_SEED 0x02U
 #define TECMO_GAMEPLAY_PRETIP_CLAIMANT_NONE 0xFFU
+#define TECMO_GAMEPLAY_PRETIP_BALL_FLIGHT_TICKS 84U
+#define TECMO_GAMEPLAY_PRETIP_BALL_PLANAR_TICKS 28U
 #define TECMO_GAMEPLAY_PRETIP_TPM2_VERSION 2U
 #define TECMO_GAMEPLAY_PRETIP_TPM2_SIZE 96U
 #define TECMO_GAMEPLAY_PRETIP_AWAY_WINNER 0U
@@ -230,6 +232,24 @@ typedef struct TecmoGameplayPreTipState {
     uint8_t raw_selector_037f;
     uint8_t claimant_jumper;
     uint8_t receiver_actor;
+    /* Bank05 $A274 receiver-selector and state-$17 trajectory boundary.
+       The raw seeds are imported; callers may replace them with validated
+       runtime-populated selectors until the upstream $037F/$0380 writers are
+       fully ported. Coordinates are canonical TGCT world coordinates. */
+    bool receiver_selectors_configured;
+    TecmoGameplayCourtCoordinate receiver_target_037f;
+    TecmoGameplayCourtCoordinate receiver_target_0380;
+    TecmoGameplayCourtCoordinate receiver_target;
+    int32_t ball_world_x_q8;
+    int32_t ball_world_depth_q8;
+    uint16_t ball_height_q8;
+    int32_t ball_velocity_x_q8;
+    int32_t ball_velocity_depth_q8;
+    int16_t ball_velocity_height_q8;
+    uint16_t ball_flight_tick;
+    uint16_t ball_flight_duration;
+    bool ball_state17_in_flight;
+    bool ball_attached_to_receiver;
 } TecmoGameplayPreTipState;
 
 uint8_t tecmo_gameplay_pretip_ball_screen_y(uint8_t raw_height);
@@ -248,6 +268,11 @@ bool tecmo_gameplay_pretip_state_initialize(
 bool tecmo_gameplay_pretip_state_validate(
     const TecmoGameplayPreTipAssets *assets,
     const TecmoGameplayPreTipState *state);
+bool tecmo_gameplay_pretip_configure_receiver_selectors(
+    const TecmoGameplayPreTipAssets *assets,
+    TecmoGameplayPreTipState *state,
+    uint8_t selector_037f,
+    uint8_t selector_0380);
 /* Card phases consume raw P1/P2 held-B levels for cancellation. Center setup
    captures the Bank04-equivalent human request before the live simulation is
    seeded. From BALL_DESCENT onward, callers pass team-routed away/home held-B

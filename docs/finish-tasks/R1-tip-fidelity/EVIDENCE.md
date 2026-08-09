@@ -30,7 +30,7 @@ original source spans.
 | 24 opposing dispatcher | Bank05 `$9824-$984F` | 44 | `40A15F8A` | `115114FC51CF97EA` | Exact opposing selected-actor dispatcher. High. |
 | 25 opposing actor path | Bank05 `$985E-$988E` | 49 | `1A6CF134` | `3EE3400C4DD54BB4` | Exact 49-byte opposing path, separate from the old 13-byte input subspan. High. |
 | 26 actor jump commit | Bank05 `$9C79-$9CC8` | 80 | `76854C2B` | `12DAA5698409484B` | Exact actor commit seam at `$9C7F` and source-pinned `$8D92` helper. High; mapping incomplete. |
-| 27 dedicated slot-10 claim | Bank05 `$A214-$A2DE` | 203 | `ED30348D` | `0E50CF92E469E26D` | Exact equality deferral, ball-minus-jumper bound, `$0478=$17` at `$A2D2`, `$A2D5` post-store. High; receiver mapping incomplete. |
+| 27 dedicated slot-10 claim | Bank05 `$A214-$A2DE` | 203 | `ED30348D` | `0E50CF92E469E26D` | Exact equality deferral, ball-minus-jumper bound, side selector use (`$037F` for the `$0308` winner, `$0380` for `$0309`), receiver-coordinate copy, `$B32C->$AA84`, `$0478=$17`, and `$0588|=$20`. High; upstream dynamic selector population remains incomplete. |
 | 28 E56E hook anchor | fixed `$E56E` | 1 | `AC0BD104` | `AF64244C860266E4` | One-byte executable hook anchor only. Recurring-loop/handoff labels require mapper-gated dynamic evidence. High for byte, incomplete for semantics. |
 | 29 RNG/mix seam | fixed `$CD96-$CDAB` | 22 | `299318D0` | `FB37A5940B9FFA10` | Exact `$6A` mix seam; native downstream bridge is deterministic approximation. High for seam, incomplete for trajectory. |
 
@@ -53,8 +53,11 @@ and tests use those same spans and hashes.
 - B05 `$8642` is a shared-state false friend and is rejected as slot-10 TIP
   logic. `$A2D1` is a non-hook operand and is rejected where `$A2D5` is the
   validated post-store seam.
-- The static raw selector seeds `$0380=7` and `$037F=2` are opaque diagnostics.
-  They do not encode team, orientation, claimant, receiver, or holder.
+- The imported initial selector seeds are `$0380=7` and `$037F=2`. They are
+  receiver actor indexes for their two side arrays at this seam, not D-pad
+  direction. The upstream routines that dynamically repopulate those bytes are
+  not yet ported; native state therefore exposes a transactional validated
+  runtime-selector boundary and defaults it to the imported seeds.
 
 ## Dynamic evidence and confidence labels
 
@@ -63,13 +66,13 @@ and tests use those same spans and hashes.
 | B04 clocked B-level capture/error | Exact source mechanics; native state stores sampled frame and bounded error `0..11`, unsampled sentinel error `12`. |
 | `$839F` automatic trigger | Exact control relation: automatic only when `0499 > 3D + (($6A & 1F) >> 2)`; equality is rejected. Native bridge calibrates bounded observed ages 20/21/22. |
 | Per-jumper actor commit | Exact commit seam/state distinction (`$0B` actor jump commit, `$17` slot-10/global claim commit); native raw-height/velocity bridge is approximate. |
-| `$A274` claim | Exact equality deferral and underflow-safe `< $3A` comparator; complete original tie settlement and raw selector-to-team/receiver mapping are incomplete. |
+| `$A274` claim | Exact equality deferral and underflow-safe `< $3A` comparator. `$0308` selects the validated `$037F` receiver and `$0309` selects `$0380`; the chosen actor's current canonical target coordinate drives state-`$17` motion. Upstream dynamic selector population and complete tie settlement remain incomplete. |
 | No-input | Runtime-observed original no-B stall plus native fail-closed policy; it is not a tie winner. |
 | Simultaneous human | Same-frame equal samples remain equal/deferred; a complete original tie policy is incomplete. |
 | Both automatic | Accepted bounded dynamic observations at ages 20/22; native approximate raw heights preserve Away compatibility (`0x34` vs `0x33`) without asserting selector ownership. |
 | Human-vs-CPU one-down | Accepted bounded observation at age 21; native automatic sample field remains raw frame 21 while its bounded error is 11. |
-| Frame-721 LIVE handoff | Accepted native presentation contract, not an exact original timing fact. Possession derives from resolved jumper actor/team, then holder slot 0/5 is preserved. |
-| Scene arc and ball X | Scene-owned accepted visual approximation. The exact claim gate is retained; ball X stays centered through capture completion and then moves one pixel/update to a cap of eight. Timing is native-approximate. |
+| LIVE handoff | Presentation timing remains a native contract. Possession stays unattached during state-`$17`; after low/contact completion, the selected receiver becomes the holder at the live handoff. The winning jumper determines the side but is not forced to receive. |
+| Tipped-ball trajectory | `$A274` copies receiver X/depth, calls source-backed `$B32C`, applies `$AA84` signed halving, then state `$17` repeatedly uses planar movement plus `$B678` gravity. Native C preserves those fixed-point relations and contact lifecycle. Its bounded 84-update scheduling duration is an explicit native adapter pending complete `$B32C` caller/table reconstruction; there is no D-pad aiming or capped scene nudge. |
 
 ## Latest review gate
 

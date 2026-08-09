@@ -279,14 +279,14 @@ $Modes = @(
     [pscustomobject]@{ mode="gameplay-tipoff-proof-frame452"; phase="center-setup"; frame=452; hash="2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A" },
     [pscustomobject]@{ mode="gameplay-tipoff-proof-frame481"; phase="ball-descent"; frame=481; hash="AEE825A9C7AF8E3790C73BF20438E7B99E01C8F002DBE628EE9455F567A5C487" },
     [pscustomobject]@{ mode="gameplay-tipoff-proof-frame483"; phase="ball-descent"; frame=483; hash="0112AF33CCED67DCE475198CA10E9572DAD2A8FC61C5BE65A6B9491A9513338F" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame490"; phase="ball-descent"; frame=490; hash="ABB1646F79E1A6C84D03C5AC9CA0DB1C274B8F5D91284B97B330F36689E2AA43" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame493"; phase="ball-descent"; frame=493; hash="A115B205FE62DE88D16D02C2E66562B986C372C9ED88E0EEA09646FB42358C3A" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame499"; phase="ball-descent"; frame=499; hash="CE0F0C5BFDAE828AF1348720F833B436DBB5D528B7D3F8960664C303D49CBA66" },
+    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame490"; phase="ball-descent"; frame=490; hash="47BD4715ECC5612C13BB47AA8E82FDBE7FA08E6658D7901B1C377FC2180734E2" },
+    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame493"; phase="ball-descent"; frame=493; hash="166291AA8CAE1FB19F92CF106819ADB62D2269A9E626B96CCDBBCFD2C864EE07" },
+    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame499"; phase="ball-descent"; frame=499; hash="F6D42B3D98F146C64706BC1F945ABF1E98A02B74E81CEA32162AFEEF4C49B041" },
     [pscustomobject]@{ mode="gameplay-tipoff-proof-frame500"; phase="toss-closeup"; frame=500; hash="CDE4C17159C79207CA82281204547FD2794E81858A52A6FB312E937CEEDF162C" },
     [pscustomobject]@{ mode="gameplay-tipoff-proof-frame530"; phase="toss-closeup"; frame=530; hash="CDE4C17159C79207CA82281204547FD2794E81858A52A6FB312E937CEEDF162C" },
     [pscustomobject]@{ mode="gameplay-tipoff-proof-frame559"; phase="toss-closeup"; frame=559; hash="CDE4C17159C79207CA82281204547FD2794E81858A52A6FB312E937CEEDF162C" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame560"; phase="jump-contest"; frame=560; hash="BF2D6C676F3D6C8147D14FC1E3B97D801AEC75A85EF52C92316AF5544367B206" },
-    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame589"; phase="jump-contest"; frame=589; hash="BF2D6C676F3D6C8147D14FC1E3B97D801AEC75A85EF52C92316AF5544367B206" }
+    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame560"; phase="jump-contest"; frame=560; hash="9D3EE06DD2B98B4CF56303B6EBEE2B65671DED12CA10AFA6C3B026D22890A3D3" },
+    [pscustomobject]@{ mode="gameplay-tipoff-proof-frame589"; phase="jump-contest"; frame=589; hash="0B756AD4F004F5612D885EA29EC670B0E75B09C0AA1BA831D76B8378ADF57995" }
 )
 $RenderedHashes = @{}
 foreach ($Spec in $Modes) {
