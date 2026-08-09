@@ -29,6 +29,8 @@
 #define TECMO_GAMEPLAY_PRETIP_HUMAN_GATE_HEIGHT 0x37U
 #define TECMO_GAMEPLAY_PRETIP_HUMAN_COUNTDOWN_INITIAL 0x0CU
 #define TECMO_GAMEPLAY_PRETIP_BALL_FLOOR_SCREEN_Y 133U
+#define TECMO_GAMEPLAY_PRETIP_GRAVITY_Q8 0x0028
+#define TECMO_GAMEPLAY_PRETIP_INITIAL_VELOCITY_Q8 0x02C0
 #define TECMO_GAMEPLAY_PRETIP_CLAIM_BALL_HIGH_MIN 0x3AU
 #define TECMO_GAMEPLAY_PRETIP_CLAIM_BALL_MINUS_JUMPER_LIMIT 0x3AU
 #define TECMO_GAMEPLAY_PRETIP_ACTOR_JUMP_COMMIT_STATE 0x0BU
@@ -166,6 +168,7 @@ typedef struct TecmoGameplayPreTipState {
     uint16_t phase_frame;
     /* The native input clock remains the bounded 30-frame TPTI window. */
     uint16_t contest_frame;
+    uint16_t simulation_tick;
     uint32_t total_frame;
     uint8_t away_tip_error;
     uint8_t home_tip_error;
@@ -190,6 +193,24 @@ typedef struct TecmoGameplayPreTipState {
     bool claim_resolved;
     bool claim_deferred;
     bool contest_stalled;
+    bool simulation_active;
+    bool cinematic_visible;
+    bool contact_state_17;
+    bool event_0588_bit20;
+    uint16_t first_cinematic_frame;
+    uint16_t away_apex_frame;
+    uint16_t home_apex_frame;
+    uint8_t away_actor_state;
+    uint8_t home_actor_state;
+    uint8_t ball_actor_state;
+    uint8_t away_animation_phase;
+    uint8_t home_animation_phase;
+    int16_t away_jump_velocity_signed_q8;
+    int16_t home_jump_velocity_signed_q8;
+    uint8_t away_height_fraction;
+    uint8_t home_height_fraction;
+    uint8_t away_jump_commit_count;
+    uint8_t home_jump_commit_count;
     uint16_t away_jump_commit_frame;
     uint16_t home_jump_commit_frame;
     /* Genuine visual Q8 trajectory units consumed by the scene. */
@@ -227,10 +248,11 @@ bool tecmo_gameplay_pretip_state_initialize(
 bool tecmo_gameplay_pretip_state_validate(
     const TecmoGameplayPreTipAssets *assets,
     const TecmoGameplayPreTipState *state);
-/* Card phases consume raw P1/P2 held-B levels for cancellation. This existing
-   entry remains human-only. During JUMP_CONTEST, callers pass team-routed
-   away/home held-B levels; automatic branches use the controlled entry below.
-   The contest samples only the first 30 updates. */
+/* Card phases consume raw P1/P2 held-B levels for cancellation. Center setup
+   captures the Bank04-equivalent human request before the live simulation is
+   seeded. From BALL_DESCENT onward, callers pass team-routed away/home held-B
+   levels while player and ball state machines run beneath the cinematic;
+   automatic branches use the controlled entry below. */
 bool tecmo_gameplay_pretip_update(
     const TecmoGameplayPreTipAssets *assets,
     TecmoGameplayPreTipState *state,

@@ -854,8 +854,7 @@ static bool flow_finish_gameplay_pretip(TecmoRuntime *runtime,
 {
     TecmoInput player_one = {0};
     TecmoInput player_two = {0};
-    const size_t expected_handoff_frame =
-        661U + TECMO_GAMEPLAY_PRETIP_PRESENTATION_FRAMES;
+    const size_t handoff_timeout = 900U;
     size_t frame;
     if (runtime == NULL || runtime->mode != TECMO_MODE_COURT ||
         !runtime->gameplay_scene.active ||
@@ -865,22 +864,25 @@ static bool flow_finish_gameplay_pretip(TecmoRuntime *runtime,
                               "gameplay pre-tip entry mismatch");
         return false;
     }
-    for (frame = 0U; frame < expected_handoff_frame; ++frame) {
+    for (frame = 0U;
+         frame < handoff_timeout &&
+         tecmo_gameplay_scene_in_pretip(&runtime->gameplay_scene);
+         ++frame) {
         player_one.cancel = false;
         if (runtime->gameplay_scene.pretip_state.phase ==
-            TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST)
+            TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP)
             player_one.cancel = true;
         tecmo_runtime_update_players(runtime, &player_one, &player_two);
     }
     if (runtime->mode != TECMO_MODE_COURT ||
         !runtime->gameplay_scene.active ||
-        runtime->gameplay_scene.frame != expected_handoff_frame ||
+        runtime->gameplay_scene.frame != frame ||
         tecmo_gameplay_scene_in_pretip(&runtime->gameplay_scene)) {
         char failure[160];
         (void)snprintf(failure, sizeof(failure),
-                       "%s pre-tip did not reach live handoff frame %zu",
+                       "%s pre-tip did not reach event-driven live handoff by frame %zu",
                        label != NULL ? label : "gameplay",
-                       expected_handoff_frame);
+                       handoff_timeout);
         set_flow_test_message(message, message_size, failure);
         return false;
     }

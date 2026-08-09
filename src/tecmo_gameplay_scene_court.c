@@ -40,9 +40,7 @@ static bool scene_pretip_projection_altitude(
     }
     *altitude_out = 0U;
     if (!scene->pretip_jump_active) return true;
-    if (scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
-        scene->pretip_state.phase_frame >=
-            TECMO_GAMEPLAY_PRETIP_JUMP_DURATION) {
+    if (!scene->pretip_state.simulation_active) {
         return false;
     }
     for (jumper = 0U; jumper < TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT;

@@ -16,17 +16,17 @@ New-Item -ItemType Directory -Path $OutputRoot -Force | Out-Null
 $env:TECMO_ASSETPACK = $AssetPackPath
 
 $Specs = @(
-    @{ name="precommit-standing"; frame=661; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=$null; homePose=518; homePhase=0; homeState=0x13; homeAltitude=$null },
-    @{ name="human-latched-no-jump"; frame=662; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=518; homePhase=0; homeState=0x13; homeAltitude=0 },
-    @{ name="cpu-commit-slot9-phase2"; frame=663; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=581; homePhase=2; homeState=0x0B; homeAltitude=$null },
-    @{ name="slot9-phase3"; frame=664; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=582; homePhase=3; homeState=0x0B; homeAltitude=$null },
-    @{ name="slot9-phase4-low"; frame=665; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
-    @{ name="slot9-phase4-high"; frame=670; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
-    @{ name="human-commit-slot4-phase2"; frame=673; awayPose=549; awayPhase=2; awayState=0x0B; awayAltitude=$null; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
-    @{ name="slot4-phase3"; frame=674; awayPose=550; awayPhase=3; awayState=0x0B; awayAltitude=$null; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
-    @{ name="slot4-phase4-low"; frame=675; awayPose=551; awayPhase=4; awayState=0x0C; awayAltitude=$null; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
-    @{ name="slot4-phase4-high"; frame=680; awayPose=551; awayPhase=4; awayState=0x0C; awayAltitude=$null; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
-    @{ name="class-landing-live"; frame=721; awayPose=469; awayPhase=0; awayState=0x13; awayAltitude=0; homePose=501; homePhase=0; homeState=0x13; homeAltitude=0 }
+    @{ name="bank04-input-capture"; frame=452; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=518; homePhase=0; homeState=0x13; homeAltitude=0 },
+    @{ name="live-object-seed"; frame=481; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=518; homePhase=0; homeState=0x13; homeAltitude=0 },
+    @{ name="cpu-jump-commit"; frame=483; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=581; homePhase=2; homeState=0x0B; homeAltitude=$null },
+    @{ name="rising-phase4"; frame=490; awayPose=517; awayPhase=0; awayState=0x22; awayAltitude=0; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
+    @{ name="human-jump-commit"; frame=493; awayPose=549; awayPhase=2; awayState=0x0B; awayAltitude=$null; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
+    @{ name="apex-before-cinematic"; frame=499; awayPose=551; awayPhase=4; awayState=0x0C; awayAltitude=$null; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
+    @{ name="first-cinematic-screen1b"; frame=500; awayPose=551; awayPhase=4; awayState=0x0C; awayAltitude=$null; homePose=583; homePhase=4; homeState=0x0C; homeAltitude=$null },
+    @{ name="cinematic-middle"; frame=530; awayPose=469; awayPhase=0; awayState=0x13; awayAltitude=0; homePose=501; homePhase=0; homeState=0x13; homeAltitude=0 },
+    @{ name="cinematic-end"; frame=559; awayPose=469; awayPhase=0; awayState=0x13; awayAltitude=0; homePose=501; homePhase=0; homeState=0x13; homeAltitude=0 },
+    @{ name="return-to-court-landed"; frame=560; awayPose=469; awayPhase=0; awayState=0x13; awayAltitude=0; homePose=501; homePhase=0; homeState=0x13; homeAltitude=0 },
+    @{ name="no-late-restart"; frame=589; awayPose=469; awayPhase=0; awayState=0x13; awayAltitude=0; homePose=501; homePhase=0; homeState=0x13; homeAltitude=0 }
 )
 
 function Convert-Diagnostic([string]$Line) {
@@ -74,32 +74,21 @@ foreach ($Spec in $Specs) {
         name=$Spec.name; frame=$Spec.frame; png=$Png; mode=$Mode;
         away=[pscustomobject]@{ actor=4; selector=1; state=[int]$Data['away-state']; phase=[int]$Data['away-phase']; pose=[int]$Data['away-pose']; altitude_q8=[int]$Data['away-altitude-q8']; orientation_encoded=$true; renderer_mirror=$false };
         home=[pscustomobject]@{ actor=9; selector=0; state=[int]$Data['home-state']; phase=[int]$Data['home-phase']; pose=[int]$Data['home-pose']; altitude_q8=[int]$Data['home-altitude-q8']; orientation_encoded=$true; renderer_mirror=$false };
-        timing=[pscustomobject]@{ ball_screen_y=[int]$Timing['ball-screen-y']; ball_raw_height=[int]$Timing['ball-raw-height']; rng_threshold=[int]$Timing['rng-threshold']; away_latch=[int]$Timing['away-latch']; away_countdown=[int]$Timing['away-countdown']; away_commit_frame=[int]$Timing['away-commit-frame']; away_committed=[int]$Timing['away-committed']; home_latch=[int]$Timing['home-latch']; home_countdown=[int]$Timing['home-countdown']; home_commit_frame=[int]$Timing['home-commit-frame']; home_committed=[int]$Timing['home-committed'] };
+        timing=[pscustomobject]@{ total_frame=[int]$Timing['total-frame']; simulation_tick=[int]$Timing['simulation-tick']; presentation_phase=$Timing['presentation-phase']; cinematic_visible=[int]$Timing['cinematic-visible']; ball_screen_y=[int]$Timing['ball-screen-y']; ball_raw_height=[int]$Timing['ball-raw-height']; rng_threshold=[int]$Timing['rng-threshold']; away_latch=[int]$Timing['away-latch']; away_countdown=[int]$Timing['away-countdown']; away_commit_frame=[int]$Timing['away-commit-frame']; away_committed=[int]$Timing['away-committed']; away_fraction=[int]$Timing['away-fraction']; away_velocity_q8=[int]$Timing['away-velocity-q8']; away_apex_frame=[int]$Timing['away-apex-frame']; away_commit_count=[int]$Timing['away-commit-count']; home_latch=[int]$Timing['home-latch']; home_countdown=[int]$Timing['home-countdown']; home_commit_frame=[int]$Timing['home-commit-frame']; home_committed=[int]$Timing['home-committed']; home_fraction=[int]$Timing['home-fraction']; home_velocity_q8=[int]$Timing['home-velocity-q8']; home_apex_frame=[int]$Timing['home-apex-frame']; home_commit_count=[int]$Timing['home-commit-count']; ball_state=[int]$Timing['ball-state']; contact_state17=[int]$Timing['contact-state17']; event_0588_bit20=[int]$Timing['event-0588-bit20']; first_cinematic_frame=[int]$Timing['first-cinematic-frame'] };
         diagnostic=$Line; timing_diagnostic=$TimingLine
     }
 }
 
-$CpuCommit = $Records | Where-Object name -eq 'cpu-commit-slot9-phase2'
-$HumanCommit = $Records | Where-Object name -eq 'human-commit-slot4-phase2'
-if ($CpuCommit.timing.home_commit_frame -in 20,21,22 -or
-    $CpuCommit.timing.home_commit_frame -ne 1 -or
-    $CpuCommit.timing.ball_raw_height -le $CpuCommit.timing.rng_threshold -or
-    $CpuCommit.timing.ball_screen_y -ge 100) {
-    throw "CPU commit did not occur at the first strict airborne raw-height crossing."
-}
-if ($HumanCommit.timing.away_commit_frame -ne 11 -or
-    $HumanCommit.timing.away_latch -ne 1 -or
-    $HumanCommit.timing.away_countdown -ne 0 -or
-    $HumanCommit.timing.ball_raw_height -lt 0x37 -or
-    $HumanCommit.timing.ball_screen_y -ge 100) {
-    throw "Human commit did not occur at latched countdown expiry while airborne."
-}
-$AwayLow = ($Records | Where-Object name -eq 'slot4-phase4-low').away.altitude_q8
-$AwayHigh = ($Records | Where-Object name -eq 'slot4-phase4-high').away.altitude_q8
-$HomeLow = ($Records | Where-Object name -eq 'slot9-phase4-low').home.altitude_q8
-$HomeHigh = ($Records | Where-Object name -eq 'slot9-phase4-high').home.altitude_q8
-if ($AwayLow -eq $AwayHigh) { throw "Slot 4 phase 4 altitude did not evolve." }
-if ($HomeLow -eq $HomeHigh) { throw "Slot 9 phase 4 altitude did not evolve." }
+$Capture = $Records | Where-Object name -eq 'bank04-input-capture'
+$Seed = $Records | Where-Object name -eq 'live-object-seed'
+$Apex = $Records | Where-Object name -eq 'apex-before-cinematic'
+$FirstCinematic = $Records | Where-Object name -eq 'first-cinematic-screen1b'
+$Late = $Records | Where-Object name -eq 'no-late-restart'
+if ($Capture.timing.away_latch -ne 1 -or $Capture.timing.away_countdown -ne 12) { throw "Bank04 input was not captured before simulation." }
+if ($Seed.timing.simulation_tick -ne 0 -or $Seed.timing.ball_state -ne 0x1A) { throw "Slot/ball live objects were not seeded before the cinematic." }
+if ($Apex.timing.home_velocity_q8 -le 0 -or $FirstCinematic.timing.home_velocity_q8 -ge 0 -or $FirstCinematic.timing.home_apex_frame -ge $FirstCinematic.timing.simulation_tick) { throw "Jumper apex did not precede the first cinematic frame." }
+if ($FirstCinematic.timing.cinematic_visible -ne 1 -or $FirstCinematic.timing.contact_state17 -ne 1 -or $FirstCinematic.timing.event_0588_bit20 -ne 1) { throw "Cinematic was not triggered from contact/state17/bit20." }
+if ($Late.timing.away_commit_count -ne 1 -or $Late.timing.home_commit_count -ne 1 -or $Late.away.pose -ne 469 -or $Late.home.pose -ne 501) { throw "Cinematic exit restarted or reset the tip jump." }
 
 $MetadataPath = Join-Path $OutputRoot "tipoff-animation-metadata.json"
 [pscustomobject]@{

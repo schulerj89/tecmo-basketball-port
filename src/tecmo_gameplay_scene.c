@@ -825,9 +825,9 @@ static bool scene_pretip_apply_jump_frame(
 {
     bool any_committed = false;
     size_t jumper;
+    (void)phase_frame;
     if (scene == NULL ||
-        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
-        phase_frame >= TECMO_GAMEPLAY_PRETIP_JUMP_DURATION ||
+        !scene->pretip_state.simulation_active ||
         !scene_pretip_jumper_mapping_valid(scene)) {
         return false;
     }
@@ -836,11 +836,11 @@ static bool scene_pretip_apply_jump_frame(
         bool committed = jumper == 0U
             ? scene->pretip_state.away_jump_committed
             : scene->pretip_state.home_jump_committed;
-        uint16_t commit_frame = jumper == 0U
-            ? scene->pretip_state.away_jump_commit_frame
-            : scene->pretip_state.home_jump_commit_frame;
         uint16_t pose_base;
         uint8_t animation_phase;
+        uint8_t actor_state = jumper == 0U
+            ? scene->pretip_state.away_actor_state
+            : scene->pretip_state.home_actor_state;
         TecmoGameplaySceneActor *actor = &scene->actors[
             scene->pretip_jumper_actor[jumper]];
         actor->position = actor->anchor;
@@ -849,12 +849,21 @@ static bool scene_pretip_apply_jump_frame(
             continue;
         }
         any_committed = true;
+        if (actor_state == 0x13U) {
+            if (!scene_pretip_landing_pose(
+                    scene->pretip_jumper_selector[jumper],
+                    &actor->pose_index)) return false;
+            actor->pose_orientation_encoded = true;
+            scene->pretip_jumper_altitude_q8[jumper] = 0U;
+            continue;
+        }
         if (!scene_pretip_pose_base(
                 scene->pretip_jumper_selector[jumper], &pose_base)) {
             return false;
         }
-        animation_phase = scene_pretip_animation_phase(
-            phase_frame, commit_frame);
+        animation_phase = jumper == 0U
+            ? scene->pretip_state.away_animation_phase
+            : scene->pretip_state.home_animation_phase;
         actor->pose_index = (uint16_t)(pose_base + animation_phase);
         actor->pose_orientation_encoded = true;
         scene->pretip_jumper_altitude_q8[jumper] =
@@ -995,7 +1004,7 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
            deterministic both-automatic route proves the full RNG/capture,
            claim, and frame-721 invariants instead of fabricating fields. */
         while (scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE &&
-               guard < 722U) {
+               guard < 700U) {
             if (!tecmo_gameplay_pretip_update_controlled(
                     &scene->pretip_assets, &scene->pretip_state,
                     false, false, true, true)) {
@@ -1007,7 +1016,9 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
             ++guard;
         }
         if (scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE ||
-            scene->pretip_state.total_frame != 721U ||
+            scene->pretip_state.first_cinematic_frame == UINT16_MAX ||
+            scene->pretip_state.total_frame !=
+                (uint32_t)scene->pretip_state.first_cinematic_frame + 90U ||
             !tecmo_gameplay_pretip_state_validate(
                 &scene->pretip_assets, &scene->pretip_state)) {
             scene_set_status(scene, "skip-PRETIP valid-state regression failed");
@@ -1643,7 +1654,8 @@ static bool scene_pretip_cpu_requested(
         !scene_launch_valid(&scene->launch) ||
         !tecmo_gameplay_pretip_state_validate(
             &scene->pretip_assets, &scene->pretip_state) ||
-        scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
+        scene->pretip_state.phase < TECMO_GAMEPLAY_PRETIP_BALL_DESCENT ||
+        scene->pretip_state.phase > TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
         return false;
     }
     return scene_controller_for_team(scene, team) >=
@@ -1668,7 +1680,8 @@ static bool scene_update_pretip_frame(
         /* Card cancellation consumes the raw pad levels. */
         pretip_away_held = held_one;
         pretip_home_held = held_two;
-    } else if (prior_phase == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
+    } else if (prior_phase >= TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP &&
+               prior_phase <= TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
         /* Contest B is team-routed; an unassigned pad contributes nothing. */
         pretip_away_held =
             (scene->launch.controller_team[0] ==
@@ -1683,10 +1696,12 @@ static bool scene_update_pretip_frame(
         /* A team-routed human level always wins this decision seam. A team
            with no assigned controller receives the validated automatic path;
            its threshold/commit is owned transactionally by the TPTI state. */
-        pretip_away_automatic = !pretip_away_held &&
-            scene_pretip_cpu_requested(scene, TECMO_GAMEPLAY_TEAM_AWAY);
-        pretip_home_automatic = !pretip_home_held &&
-            scene_pretip_cpu_requested(scene, TECMO_GAMEPLAY_TEAM_HOME);
+        if (prior_phase >= TECMO_GAMEPLAY_PRETIP_BALL_DESCENT) {
+            pretip_away_automatic = !pretip_away_held &&
+                scene_pretip_cpu_requested(scene, TECMO_GAMEPLAY_TEAM_AWAY);
+            pretip_home_automatic = !pretip_home_held &&
+                scene_pretip_cpu_requested(scene, TECMO_GAMEPLAY_TEAM_HOME);
+        }
     }
     if (!tecmo_gameplay_pretip_update_controlled(
             &scene->pretip_assets, &scene->pretip_state,
@@ -1702,13 +1717,8 @@ static bool scene_update_pretip_frame(
         scene_set_status(scene, "pre-tip aborted by NES B");
         return true;
     }
-    if (scene->pretip_state.phase ==
-            TECMO_GAMEPLAY_PRETIP_BALL_DESCENT) {
-        scene->ball_position.y_q8 = scene_pretip_descent_ball_y_q8(
-            scene->pretip_state.phase_frame);
-    } else if (scene->pretip_state.phase ==
-               TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
-        uint16_t frame = scene->pretip_state.phase_frame;
+    if (scene->pretip_state.simulation_active) {
+        uint16_t frame = scene->pretip_state.simulation_tick;
         if (!scene_pretip_apply_jump_frame(scene, frame)) {
             scene_set_status(scene, "pre-tip jump presentation rejected");
             return false;
@@ -1743,9 +1753,6 @@ static bool scene_update_pretip_frame(
                     (int32_t)(384 + direction * (int)travel) * 256;
             }
         }
-    } else if (prior_phase == TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP) {
-        scene->ball_position.y_q8 =
-            (int32_t)(108U - scene->pretip_state.phase_frame) * 256;
     }
     if (scene->pretip_state.total_frame != pretip_total_before)
         ++scene->frame;

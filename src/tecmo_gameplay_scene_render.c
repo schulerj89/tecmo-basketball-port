@@ -1274,11 +1274,8 @@ bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
             scene, framebuffer, origin_x, origin_y, scale);
     }
     if (tecmo_gameplay_scene_in_pretip(scene) &&
-        (scene->pretip_state.phase ==
-             TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP ||
-         (scene->pretip_state.phase ==
-              TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP &&
-          scene->pretip_state.phase_frame < 30U))) {
+        scene->pretip_state.phase ==
+             TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP) {
         if (!scene_framebuffer_subview(framebuffer, origin_x, origin_y,
                                        scale, &view)) {
             return false;

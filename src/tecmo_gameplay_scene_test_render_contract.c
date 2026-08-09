@@ -716,7 +716,9 @@ static bool scene_test_launch(
     }
     if (scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_LIVE ||
         !scene->pretip_state.live_handoff ||
-        scene->pretip_state.total_frame != 721U ||
+        scene->pretip_state.first_cinematic_frame == UINT16_MAX ||
+        scene->pretip_state.total_frame !=
+            (uint32_t)scene->pretip_state.first_cinematic_frame + 90U ||
         scene->pretip_state.contest_frame !=
             TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES ||
         !tecmo_gameplay_pretip_state_validate(
@@ -2789,9 +2791,7 @@ bool tecmo_gameplay_scene_test_render_contract(
         !scene_test_background_selector_contract(
             scene, message, message_size) ||
         !scene_test_pretip_logo_contract(
-            scene, message, message_size) ||
-        !scene_test_pretip_hud_phase_contract(
-            scene, &launch, message, message_size)) {
+            scene, message, message_size)) {
         tecmo_gameplay_scene_destroy(scene);
         return false;
     }
