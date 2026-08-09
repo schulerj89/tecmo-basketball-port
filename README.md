@@ -15,12 +15,19 @@ original game logic is being reconstructed.
   persistent results, and completed-game return paths
 - Full scrolling court with ten players, possession, passing, shooting, dunks,
   layups, free throws, fatigue, turnovers, clocks, scoring, periods, and overtime
+- Interactive opening tip with timed player and CPU jumps, ROM-derived poses and
+  trajectory timing, receiver-directed ball flight, and continuous movement into
+  live play
+- Possession-aware offensive control and defender handoff, with persistent CPU
+  spacing commands that keep defenders matched more closely to their assignments
+- Ordinary jump shots use the ROM's family-, player-, and direction-specific
+  animation sequences through the gather, release, flight, and recovery phases
 - ROM-derived presentation, movement, animation, court layouts, palettes, and
   uniforms
 - Team Data, rosters, starters, playbooks, and player details
 
-The largest remaining gaps are exact CPU play selection and spacing; steals,
-blocks, rebounds, contact, and fouls; several shot families and outcomes;
+The largest remaining gaps are exact CPU offensive play selection and full-team
+spacing; steals, blocks, rebounds, contact, and fouls; several shot outcomes;
 per-player statistics; All-Star game launch; and populated League Leaders.
 
 ## Controls
