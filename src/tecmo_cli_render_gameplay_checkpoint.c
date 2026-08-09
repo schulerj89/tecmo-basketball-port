@@ -1219,8 +1219,10 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
             TECMO_GAMEPLAY_TEAM_AWAY;
     }
     for (update = 0U; update < TECMO_CLI_PRETIP_LIVE_START_FRAME; ++update) {
-        input.cancel = runtime->gameplay_scene.pretip_state.phase ==
-            TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP;
+        input.cancel = runtime->gameplay_scene.frame ==
+                TECMO_CLI_PRETIP_CAPTURE_FRAME - 1U &&
+            runtime->gameplay_scene.pretip_state.phase ==
+                TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP;
         tecmo_runtime_update(runtime, &input);
         if (cpu_steering &&
             runtime->gameplay_scene.pretip_state.claim_resolved) {
@@ -1252,11 +1254,13 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
     }
     if (cpu_steering) {
         TecmoGameplayScene *scene = &runtime->gameplay_scene;
+        uint32_t initial_decision_serial;
         if (!scene_handoff_possession(
                 scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
             !scene_sync_live_foundation(scene)) {
             return false;
         }
+        initial_decision_serial = scene->cpu_actors[0].decision_serial;
         memset(&input, 0, sizeof(input));
         for (update = 0U; update < checkpoint; ++update) {
             tecmo_runtime_update(runtime, &input);
@@ -1266,7 +1270,8 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
                scene->frame == TECMO_CLI_PRETIP_LIVE_START_FRAME + checkpoint &&
                scene->ball_holder == 0U &&
                scene->actors[0].position.x < 0x0210 &&
-               scene->cpu_actors[0].decision_serial == checkpoint &&
+               scene->cpu_actors[0].decision_serial ==
+                   initial_decision_serial + checkpoint &&
                scene->cpu_actors[0].target_valid &&
                scene->cpu_actors[0].target_kind ==
                    TECMO_GAMEPLAY_CPU_STEERING_HARNESS_HOOP_APPROACH &&

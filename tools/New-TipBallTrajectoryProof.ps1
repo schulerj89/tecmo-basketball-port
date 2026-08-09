@@ -23,15 +23,15 @@ function Convert-Diagnostic([string]$Line) {
 }
 
 $Specs = @(
-    @{side='home'; name='claim-contact-center'; frame=508},
-    @{side='home'; name='state17-launch'; frame=509},
-    @{side='home'; name='early-flight'; frame=515},
+    @{side='home'; name='claim-contact-center'; frame=498},
+    @{side='home'; name='state17-launch'; frame=499},
+    @{side='home'; name='early-flight'; frame=505},
     @{side='home'; name='mid-flight'; frame=530},
     @{side='home'; name='low-near-receiver'; frame=550},
     @{side='home'; name='receiver-live'; frame=598},
-    @{side='away'; name='claim-contact-center'; frame=507},
-    @{side='away'; name='state17-launch'; frame=508},
-    @{side='away'; name='early-flight'; frame=514},
+    @{side='away'; name='claim-contact-center'; frame=498},
+    @{side='away'; name='state17-launch'; frame=499},
+    @{side='away'; name='early-flight'; frame=505},
     @{side='away'; name='mid-flight'; frame=530},
     @{side='away'; name='contact-near-receiver'; frame=550},
     @{side='away'; name='receiver-live'; frame=598}
@@ -76,8 +76,15 @@ foreach ($Side in 'home','away') {
 }
 $HomeLaunch = $Records | Where-Object { $_.side -eq 'home' -and $_.name -eq 'claim-contact-center' }
 $AwayLaunch = $Records | Where-Object { $_.side -eq 'away' -and $_.name -eq 'claim-contact-center' }
-if ($HomeLaunch.velocity_x_q8 -le 0 -or $AwayLaunch.velocity_x_q8 -ge 0) { throw 'Side trajectories are not oppositely target-derived.' }
-if ($HomeLaunch.receiver -ne $HomeLaunch.selector_0380 -or $AwayLaunch.receiver -ne $AwayLaunch.selector_037f) { throw 'Receiver selector-array semantics failed.' }
+if ($HomeLaunch.velocity_x_q8 -ge 0 -or $AwayLaunch.velocity_x_q8 -le 0) { throw 'Side trajectories are not oppositely target-derived.' }
+foreach ($Launch in $HomeLaunch,$AwayLaunch) {
+    $ExpectedReceiver = if ($Launch.claimant -eq 0) {
+        $Launch.selector_037f
+    } else {
+        $Launch.selector_0380
+    }
+    if ($Launch.receiver -ne $ExpectedReceiver) { throw 'Receiver selector-array semantics failed.' }
+}
 
 $MetadataPath = Join-Path $OutputRoot 'tip-ball-trajectory.json'
 [pscustomobject]@{ schema='tecmo.tip-ball-trajectory-proof/1'; generated_utc=(Get-Date).ToUniversalTime().ToString('o'); assertions_passed=$true; records=$Records } |
